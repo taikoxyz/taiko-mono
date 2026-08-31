@@ -8,14 +8,31 @@ mis-bound, overflowing, or arithmetically inconsistent production profile.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import copy
+import hashlib
 import json
+from pathlib import Path
 import re
+import runpy
 from typing import Any, Callable
+
+try:
+    from Crypto.Hash import keccak as _native_keccak
+except ImportError:  # Keep the executable specification dependency-free.
+    _native_keccak = None
+
+_PURE_KECCAK256 = runpy.run_path(
+    str(Path(__file__).with_name("lookahead-model.py"))
+)["keccak256"]
 
 
 UINT64_MAX = (1 << 64) - 1
 UINT256_MAX = (1 << 256) - 1
 DATA_BYTES_PER_BLOB = 4_096 * 31 - 4
+ECONOMIC_PROFILE_DOMAIN = b"slot-chain-economic-profile-v2"
+BUILDER_REGISTRY_ECONOMIC_CONFIG_DOMAIN = (
+    b"slot-chain-builder-registry-economic-config-v2"
+)
 
 
 @dataclass(frozen=True)
@@ -203,11 +220,12 @@ EXPECTED_SCHEMA = {
         "slaBondWei": NULLABLE_POSITIVE_DECIMAL,
         "maximumAskWeiPerSecond": NULLABLE_POSITIVE_DECIMAL,
         "minimumAskImprovementWeiPerSecond": NULLABLE_DECIMAL,
-        "minimumAskImprovementBps": NULLABLE_DECIMAL,
+        "minimumAskImprovementBps": NULLABLE_BPS_DECIMAL,
         "quoteMaturitySeconds": NULLABLE_POSITIVE_UINT,
         "quoteMaturityBlocks": NULLABLE_POSITIVE_UINT,
         "minimumPrimaryTenureSeconds": NULLABLE_POSITIVE_UINT,
         "minimumStandbyTenureSeconds": NULLABLE_POSITIVE_UINT,
+        "maximumStandbyLeaseSeconds": NULLABLE_POSITIVE_UINT,
         "handoverDelaySeconds": NULLABLE_POSITIVE_UINT,
         "stageGraceSeconds": NULLABLE_POSITIVE_UINT,
         "maximumInclusionSeconds": POSITIVE_UINT,
@@ -391,10 +409,13 @@ def _field_error(path: str, rule: FieldRule, value: Any) -> str | None:
                 return f"{path} must be a positive integer"
             return f"{path} must be a non-negative integer"
     elif rule.kind == "decimal":
-        if not _canonical_decimal(value, rule.maximum) or (
-            rule.minimum == 1 and value == "0"
-        ):
+        if not _canonical_decimal(value):
             return f"{path} must be a canonical uint256 decimal string"
+        parsed = int(value)
+        if parsed > rule.maximum:
+            return f"{path} must be <= {rule.maximum}"
+        if rule.minimum == 1 and parsed == 0:
+            return f"{path} must be a positive uint256 decimal string"
     elif rule.kind == "address":
         if not isinstance(value, str) or _ADDRESS_RE.fullmatch(value) is None:
             return f"{path} must be a lowercase 20-byte address"
@@ -637,6 +658,33 @@ def _seat_collusion_requirement(profile: dict) -> int:
 
 
 PROFILE_RELATIONS = (
+    _relation(
+        "standby-lease-tenure-handover",
+        (
+            "seat.maximumStandbyLeaseSeconds",
+            "seat.minimumStandbyTenureSeconds",
+            "seat.handoverDelaySeconds",
+            "seat.stageGraceSeconds",
+            "seat.maximumInclusionSeconds",
+        ),
+        ">=",
+        lambda p: _at(p, "seat.maximumStandbyLeaseSeconds")
+        >= _sum_u256(
+            _at(p, "seat.minimumStandbyTenureSeconds"),
+            _at(p, "seat.handoverDelaySeconds"),
+            _at(p, "seat.stageGraceSeconds"),
+            _at(p, "seat.maximumInclusionSeconds"),
+        ),
+        "seat.maximumStandbyLeaseSeconds",
+        lambda p: _sum_u256(
+            _at(p, "seat.minimumStandbyTenureSeconds"),
+            _at(p, "seat.handoverDelaySeconds"),
+            _at(p, "seat.stageGraceSeconds"),
+            _at(p, "seat.maximumInclusionSeconds"),
+        ),
+        (False, True, True),
+        "sec:economics",
+    ),
     _relation(
         "builder-bond-product",
         ("builder.maximumBondAtomic", "geometry.maximumAssignedSlots"),
@@ -1607,6 +1655,135 @@ _IDENTITY_PATHS = (
 ) + _SINK_ADDRESS_PATHS
 
 
+# EconomicProfileV2 also records version-fixed executable geometry.  These
+# leaves are not deployment-time calibration knobs: the corresponding V2
+# implementations compile the same literals into their bounded loops, rings,
+# proof widths, and retention horizons.  Release tooling must therefore reject
+# a freshly re-hashed JSON object that advertises different capacity.
+EXECUTABLE_CONSTANTS_V2 = {
+    "geometry.slotSeconds": 1,
+    "geometry.windowSlots": 384,
+    "geometry.l1SlotSeconds": 12,
+    "geometry.l1EpochSlots": 32,
+    "geometry.maximumBuilders": 64,
+    "geometry.maximumAssignedSlots": 76,
+    "geometry.entryDelayWindows": 8,
+    "geometry.maximumLiveWindows": 268,
+    "geometry.maximumTrancheAheadWindows": 16,
+    "geometry.maximumGenerationMovesPerWindow": 4,
+    "geometry.maximumLiabilityGenerations": 1_072,
+    "geometry.snapshotEpochs": 8,
+    "geometry.finalityEpochs": 2,
+    "geometry.carrierScanSlots": 64,
+    "geometry.sealMarginSlots": 32,
+    "geometry.lookaheadSlots": 768,
+    "geometry.maximumCandidateBlocks": 4_096,
+    "geometry.maximumCandidateWindows": 12,
+    "geometry.maximumCandidateAnchors": 1,
+    "geometry.maximumCandidateSessions": 16,
+    "geometry.maximumCandidateRecords": 2_100,
+    "geometry.maximumCandidateForcedItems": 256,
+    "geometry.maximumCandidateForcedBytes": 4_194_304,
+    "geometry.maximumCandidateForcedGas": 80_000_000,
+    "geometry.maximumEarlySealWindows": 8,
+    "geometry.canonicalHistoryCells": 256,
+    "geometry.eip2935HistoryBlocks": 8_191,
+    "geometry.maximumArmAgeBlocks": 255,
+    "geometry.seatCount": 4,
+    "geometry.standbyCount": 3,
+    "geometry.pendingCount": 4,
+    "geometry.bookSize": 8,
+    "geometry.maximumRewardClasses": 16,
+    "forcedEnvelope.claimWindowSeconds": 86_400,
+    "forcedEnvelope.maximumItemBytes": 131_072,
+    "forcedEnvelope.maximumItemAccountedGas": 5_000_000,
+    "forcedEnvelope.maximumPrefixItems": 64,
+    "forcedEnvelope.maximumPrefixBytes": 1_048_576,
+    "forcedEnvelope.maximumPrefixAccountedGas": 20_000_000,
+    "forcedEnvelope.queueDepth": 64,
+    "forcedEnvelope.maximumQueueCount": str(UINT64_MAX),
+    "forcedEnvelope.maximumRangeProofHashes": 257,
+    "bridge.maximumEnqueueDelaySeconds": 604_800,
+    "bridge.processTtlSeconds": 2_592_000,
+    "bridge.supportFinalityBlocks": 214,
+    "bridge.maximumDomainEntriesPerRelease": 64,
+    "bridge.refundCapsuleWords": 256,
+    "bridge.refundErc721Ids": 256,
+    "bridge.refundErc1155Pairs": 128,
+    "bridge.terminalAccumulatorDepth": 64,
+    "bridge.maximumTerminalCount": str(UINT64_MAX),
+    "bridge.registrationProofMaximumNodesPerPath": 66,
+    "bridge.registrationProofPathCount": 2,
+    "bridge.registrationProofMaximumTotalNodes": 132,
+    "bridge.registrationProofMaximumNodeBytes": 600,
+    "bridge.registrationProofMaximumBytes": 80_000,
+    "bridge.registrationProofMaximumGas": 8_000_000,
+    "rewards.claimWindowSeconds": 86_400,
+}
+
+
+# Every JSON leaf narrowed by either ExecutionProfileV2 or the derived
+# BuilderRegistry configuration.  A canonical hash cannot make an out-of-range
+# value deployable, so production calibration rejects it before projection.
+PROFILE_NARROW_NUMERIC_WIDTHS_V2 = {
+    "assets.builderLease.decimals": 8,
+    "builder.evidenceDelaySeconds": 64,
+    "builder.reorgMarginSeconds": 64,
+    "geometry.maximumBuilders": 16,
+    "geometry.maximumAssignedSlots": 16,
+    "geometry.entryDelayWindows": 16,
+    "geometry.maximumLiveWindows": 16,
+    "geometry.maximumTrancheAheadWindows": 16,
+    "geometry.maximumGenerationMovesPerWindow": 8,
+    "geometry.maximumLiabilityGenerations": 16,
+    "geometry.maximumParentGapSlots": 64,
+    "recovery.settlementWindowSeconds": 64,
+    "recovery.tipLagSeconds": 64,
+    "recovery.finalLagSeconds": 64,
+    "recovery.l1FinalityBlocks": 64,
+    "recovery.depthTimeMaxSeconds": 64,
+    "recovery.proofTimeMaxSeconds": 64,
+    "recovery.activationInclusionSeconds": 64,
+    "recovery.submissionInclusionSeconds": 64,
+    "recovery.clockSkewSeconds": 64,
+    "recovery.escapeOffsetSeconds": 64,
+    "recovery.forceDelaySeconds": 64,
+    "forcedEnvelope.maximumValiditySeconds": 64,
+    "seat.seatRunwaySeconds": 64,
+    "seat.minimumPrimaryTenureSeconds": 64,
+    "seat.minimumStandbyTenureSeconds": 64,
+    "seat.handoverDelaySeconds": 64,
+    "seat.stageGraceSeconds": 64,
+    "seat.maximumInclusionSeconds": 64,
+    "seat.exitDelaySeconds": 64,
+    "seat.recoveryLagSeconds": 64,
+    "seat.slashLagSeconds": 64,
+    "seat.premiumClaimDelaySeconds": 64,
+    "seat.reorgStabilitySeconds": 64,
+    "seat.releaseChallengeSeconds": 64,
+    "seat.evidenceDelaySeconds": 64,
+    "seat.quoteMaturitySeconds": 64,
+    "seat.quoteMaturityBlocks": 64,
+    "seat.maximumStandbyLeaseSeconds": 64,
+    "seat.minimumAskImprovementBps": 16,
+    "dataSession.blobBaseFeeMultiplierBps": 16,
+    "dataSession.ttlSeconds": 64,
+    "dataSession.refundClaimWindowSeconds": 64,
+    "geometry.slotSeconds": 8,
+    "geometry.windowSlots": 16,
+    "geometry.seatCount": 8,
+    "forcedEnvelope.queueDepth": 8,
+    "dataSession.maximumLiveSessions": 16,
+    "dataSession.maximumLiveSessionsPerOwner": 16,
+    "dataSession.maximumRecordsPerSession": 16,
+    "dataSession.maximumGcSteps": 8,
+    "dataSession.maximumBlobsPerPost": 8,
+    "geometry.canonicalHistoryCells": 16,
+    "gasProfile.l2BlockGas": 64,
+    "rewards.claimWindowSeconds": 64,
+}
+
+
 def _walk_nullable(
     profile: dict, schema: dict[str, Any], prefix: str = ""
 ) -> list[str]:
@@ -1637,6 +1814,12 @@ def production_blockers(profile: Any) -> tuple[str, ...]:
     if profile.get("status") != "CALIBRATED":
         blockers.add("status must be CALIBRATED")
     blockers.update(_walk_nullable(profile, EXPECTED_SCHEMA))
+    try:
+        expected_profile_id = "0x" + economic_profile_hash_v2(profile).hex()
+        if profile.get("profileId") != expected_profile_id:
+            blockers.add("profileId must equal the canonical economic profile hash")
+    except (TypeError, ValueError, OverflowError):
+        blockers.add("canonical economic profile hash is unavailable")
 
     for path in _IDENTITY_PATHS:
         try:
@@ -1691,6 +1874,24 @@ def production_blockers(profile: Any) -> tuple[str, ...]:
     except (KeyError, TypeError, ValueError):
         blockers.add("rewards.classes unavailable")
 
+    for path, expected in EXECUTABLE_CONSTANTS_V2.items():
+        try:
+            actual = get_path(profile, path)
+        except (KeyError, IndexError, TypeError, ValueError):
+            continue
+        if actual != expected:
+            blockers.add(
+                f"{path} must equal the V2 executable constant {expected}"
+            )
+
+    for path, width in PROFILE_NARROW_NUMERIC_WIDTHS_V2.items():
+        try:
+            value = _at(profile, path)
+        except (KeyError, IndexError, TypeError, ValueError):
+            continue
+        if value >= 1 << width:
+            blockers.add(f"{path} must fit uint{width}")
+
     try:
         if (
             _at(profile, "seat.minimumAskImprovementWeiPerSecond") == 0
@@ -1711,6 +1912,271 @@ def production_blockers(profile: Any) -> tuple[str, ...]:
             if not passed:
                 blockers.add(f"relation {relation.name} failed")
     return tuple(sorted(blockers))
+
+
+def canonical_economic_profile_bytes_v2(profile: Any) -> bytes:
+    """Return deterministic JSON bytes with the self-reference cleared."""
+
+    if not isinstance(profile, dict):
+        raise TypeError("economic profile must be an object")
+    payload = copy.deepcopy(profile)
+    if "profileId" not in payload:
+        raise ValueError("economic profile lacks profileId")
+    payload["profileId"] = None
+    return json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
+
+
+def economic_profile_hash_v2(profile: Any) -> bytes:
+    """Domain/length-separated SHA-256 identity of canonical profile bytes."""
+
+    payload = canonical_economic_profile_bytes_v2(profile)
+    if len(payload) >= 1 << 32:
+        raise ValueError("economic profile is too large")
+    return hashlib.sha256(
+        ECONOMIC_PROFILE_DOMAIN + len(payload).to_bytes(4, "big") + payload
+    ).digest()
+
+
+def _keccak256(value: bytes) -> bytes:
+    if _native_keccak is None:
+        return _PURE_KECCAK256(value)
+    digest = _native_keccak.new(digest_bits=256)
+    digest.update(value)
+    return digest.digest()
+
+
+def builder_registry_configuration_hash_v2(profile: dict) -> bytes:
+    """Bind the executable builder-token, lease, slash and reward schedule."""
+
+    def narrow(value: int, size: int, name: str) -> bytes:
+        exact = _as_u256(value)
+        if exact >= 1 << (size * 8):
+            raise ValueError(f"{name} exceeds uint{size * 8}")
+        return exact.to_bytes(size, "big")
+
+    def address(path: str) -> bytes:
+        raw = get_path(profile, path)
+        if not isinstance(raw, str) or re.fullmatch(r"0x[0-9a-fA-F]{40}", raw) is None:
+            raise ValueError(f"{path} is not a canonical address")
+        return bytes.fromhex(raw[2:])
+
+    def hash32(path: str) -> bytes:
+        raw = get_path(profile, path)
+        if not isinstance(raw, str) or re.fullmatch(r"0x[0-9a-fA-F]{64}", raw) is None:
+            raise ValueError(f"{path} is not a canonical hash")
+        return bytes.fromhex(raw[2:])
+
+    classes = get_path(profile, "rewards.classes")
+    if not isinstance(classes, list) or len(classes) > 255:
+        raise ValueError("reward class schedule is malformed")
+    class_rows = []
+    for reward_class in classes:
+        if not isinstance(reward_class, dict):
+            raise ValueError("reward class row is malformed")
+        name = reward_class.get("name")
+        if not isinstance(name, str) or not name:
+            raise ValueError("reward class name is malformed")
+        class_rows.append(b"".join((
+            narrow(reward_class["classId"], 1, "reward class ID"),
+            _keccak256(name.encode("utf-8")),
+            *(
+                _as_u256(reward_class[field]).to_bytes(32, "big")
+                for field in (
+                    "fixedWei", "perExecutionGasWei",
+                    "perPublishedByteWei", "capWei",
+                )
+            ),
+        )))
+    payload = b"".join((
+        _at(profile, "assets.builderLease.chainId").to_bytes(32, "big"),
+        address("assets.builderLease.address"),
+        hash32("assets.builderLease.runtimeHash"),
+        narrow(_at(profile, "assets.builderLease.decimals"), 1, "decimals"),
+        *(
+            _at(profile, path).to_bytes(32, "big")
+            for path in (
+                "builder.leasePerWindowAtomic", "builder.maximumBondAtomic",
+                "builder.reporterRewardCapAtomic",
+            )
+        ),
+        narrow(_at(profile, "builder.evidenceDelaySeconds"), 8, "evidence delay"),
+        narrow(_at(profile, "builder.reorgMarginSeconds"), 8, "reorg margin"),
+        *(
+            narrow(_at(profile, path), 2, path)
+            for path in (
+                "geometry.maximumBuilders", "geometry.maximumAssignedSlots",
+                "geometry.entryDelayWindows", "geometry.maximumLiveWindows",
+                "geometry.maximumTrancheAheadWindows",
+                "geometry.maximumLiabilityGenerations",
+            )
+        ),
+        narrow(
+            _at(profile, "geometry.maximumGenerationMovesPerWindow"), 1,
+            "generation moves",
+        ),
+        address("sinks.builderPenalty.address"),
+        narrow(_at(profile, "rewards.claimWindowSeconds"), 8, "reward claim window"),
+        narrow(len(classes), 1, "reward class count"),
+        *class_rows,
+    ))
+    if len(payload) >= 1 << 32:
+        raise ValueError("builder registry economic configuration is too large")
+    return _keccak256(
+        BUILDER_REGISTRY_ECONOMIC_CONFIG_DOMAIN
+        + len(payload).to_bytes(4, "big") + payload
+    )
+
+
+def execution_profile_economic_projection_v2(
+    profile: dict,
+) -> dict[int, bytes]:
+    """Project every reviewed economic value carried by ExecutionProfileV2.
+
+    Release tooling uses this projection as a one-way join: the canonical JSON
+    is hashed once, while every duplicated on-chain field must equal the value
+    in that same calibrated object.  A nonzero but unrelated word-266 hash is
+    therefore insufficient.
+    """
+
+    blockers = production_blockers(profile)
+    if blockers:
+        raise ValueError("economic profile is not production-calibrated")
+
+    def word(value: int) -> bytes:
+        return _as_u256(value).to_bytes(32, "big")
+
+    def address(path: str) -> bytes:
+        raw = get_path(profile, path)
+        if not isinstance(raw, str) or re.fullmatch(r"0x[0-9a-fA-F]{40}", raw) is None:
+            raise ValueError(f"{path} is not a canonical address")
+        return bytes(12) + bytes.fromhex(raw[2:])
+
+    def hash_word(path: str) -> bytes:
+        raw = get_path(profile, path)
+        if not isinstance(raw, str) or re.fullmatch(r"0x[0-9a-fA-F]{64}", raw) is None:
+            raise ValueError(f"{path} is not a canonical hash")
+        return bytes.fromhex(raw[2:])
+
+    include_values = {
+        _at(profile, "recovery.activationInclusionSeconds"),
+        _at(profile, "recovery.submissionInclusionSeconds"),
+        _at(profile, "seat.maximumInclusionSeconds"),
+    }
+    evidence_values = {
+        _at(profile, "builder.evidenceDelaySeconds"),
+        _at(profile, "seat.evidenceDelaySeconds"),
+    }
+    if len(include_values) != 1 or len(evidence_values) != 1:
+        raise ValueError("duplicated economic clocks disagree")
+
+    numeric_paths = {
+        72: "recovery.settlementWindowSeconds",
+        74: "recovery.finalLagSeconds",
+        75: "recovery.tipLagSeconds",
+        76: "recovery.proofTimeMaxSeconds",
+        77: "recovery.l1FinalityBlocks",
+        78: "recovery.depthTimeMaxSeconds",
+        79: "recovery.clockSkewSeconds",
+        80: "recovery.escapeOffsetSeconds",
+        81: "recovery.forceDelaySeconds",
+        82: "geometry.maximumParentGapSlots",
+        83: "forcedEnvelope.maximumValiditySeconds",
+        85: "builder.reorgMarginSeconds",
+        86: "seat.seatRunwaySeconds",
+        87: "seat.minimumPrimaryTenureSeconds",
+        88: "seat.minimumStandbyTenureSeconds",
+        89: "seat.handoverDelaySeconds",
+        90: "seat.stageGraceSeconds",
+        91: "seat.exitDelaySeconds",
+        92: "seat.recoveryLagSeconds",
+        93: "seat.slashLagSeconds",
+        94: "seat.premiumClaimDelaySeconds",
+        95: "seat.reorgStabilitySeconds",
+        96: "seat.releaseChallengeSeconds",
+        97: "seat.maximumAskWeiPerSecond",
+        98: "seat.slaBondWei",
+        99: "seat.maximumAvoidedServiceCostWei",
+        100: "seat.collusionSafetyMarginWei",
+        101: "dataSession.refundableBondWei",
+        102: "dataSession.baseRentWei",
+        103: "dataSession.rentPerPublishedByteWei",
+        104: "dataSession.blobBaseFeeMultiplierBps",
+        105: "dataSession.ttlSeconds",
+        106: "dataSession.refundClaimWindowSeconds",
+        118: "geometry.slotSeconds",
+        119: "geometry.windowSlots",
+        120: "geometry.seatCount",
+        122: "forcedEnvelope.queueDepth",
+        124: "dataSession.maximumLiveSessions",
+        125: "dataSession.maximumLiveSessionsPerOwner",
+        126: "dataSession.maximumRecordsPerSession",
+        127: "dataSession.maximumGcSteps",
+        128: "dataSession.maximumBlobsPerPost",
+        129: "geometry.canonicalHistoryCells",
+        230: "forcedEnvelope.fixedIngressWei",
+        231: "forcedEnvelope.executionWeiPerAccountedGas",
+        232: "forcedEnvelope.proofWeiPerAccountedGas",
+        233: "forcedEnvelope.permanentWeiPerByte",
+        234: "forcedEnvelope.maximumAcceptedFeeWei",
+        235: "gasProfile.l2BlockGas",
+        252: "seat.quoteMaturitySeconds",
+        253: "seat.quoteMaturityBlocks",
+        263: "seat.maximumStandbyLeaseSeconds",
+        264: "seat.minimumAskImprovementWeiPerSecond",
+        265: "seat.minimumAskImprovementBps",
+    }
+    projection = {
+        index: word(_at(profile, path))
+        for index, path in numeric_paths.items()
+    }
+    chain_id = _at(profile, "assets.nativeCustody.chainId")
+    if chain_id != _at(profile, "assets.builderLease.chainId"):
+        raise ValueError("economic asset chain IDs disagree")
+    projection.update({
+        2: word(chain_id),
+        31: builder_registry_configuration_hash_v2(profile),
+        63: address("assets.builderLease.address"),
+        64: hash_word("assets.builderLease.runtimeHash"),
+        65: word(_at(profile, "assets.builderLease.decimals")),
+        66: address("sinks.builderPenalty.address"),
+        67: address("sinks.dataRent.address"),
+        68: address("sinks.seatPenalty.address"),
+        69: address("sinks.forcedExpiry.address"),
+        70: address("sinks.bridgeSurplus.address"),
+        73: word(next(iter(include_values))),
+        84: word(next(iter(evidence_values))),
+        266: economic_profile_hash_v2(profile),
+    })
+    return projection
+
+
+def execution_profile_economic_binding_blockers(
+    profile: Any, execution_profile_words: Any,
+) -> tuple[str, ...]:
+    """Return exact release blockers for the JSON/ExecutionProfileV2 join."""
+
+    try:
+        expected = execution_profile_economic_projection_v2(profile)
+    except (KeyError, TypeError, ValueError, OverflowError):
+        return ("economic profile projection is unavailable",)
+    if (
+        not isinstance(execution_profile_words, (tuple, list))
+        or len(execution_profile_words) not in (267, 268)
+        or any(type(item) is not bytes or len(item) != 32
+               for item in execution_profile_words)
+    ):
+        return ("ExecutionProfileV2 words are malformed",)
+    return tuple(
+        f"ExecutionProfileV2 word {index} differs from the economic profile"
+        for index, value in sorted(expected.items())
+        if execution_profile_words[index] != value
+    )
 
 
 def reporter_reward_split(profile: dict, builder_slash_amount: int) -> dict[str, Any]:

@@ -32,6 +32,374 @@ def load_module():
 model = load_module()
 
 
+class ProductionWireOracleSmokeTests(unittest.TestCase):
+    def test_production_wire_magics_are_frozen(self):
+        self.assertEqual(model.MWV1_MAGIC, b"MWV1")
+        self.assertEqual(model.SMI1_MAGIC, b"SMI1")
+        self.assertEqual(model.SLV1_MAGIC, b"SLV1")
+        self.assertEqual(model.SIR1_MAGIC, b"SIR1")
+        self.assertEqual(model.SMR1_MAGIC, b"SMR1")
+        self.assertEqual(model.MEC1_MAGIC, b"MEC1")
+        self.assertEqual(model.MHS1_MAGIC, b"MHS1")
+        self.assertEqual(model.MRO1_MAGIC, b"MRO1")
+
+    def wire_rows(self):
+        authorization_id = b"a" * 32
+        intent_hash = b"i" * 32
+        stage_id = b"s" * 32
+        offer_id = b"o" * 32
+        tranche_id = b"t" * 32
+        lineup_terms = (
+            b"1" * 32, b"2" * 32, model.ZERO_BYTES32, model.ZERO_BYTES32
+        )
+        lineup_commitment = model.seat_lineup_commitment_v1(3, lineup_terms)
+        term_id = model.seat_term_identity_v1(
+            authorization_id, 7, offer_id, tranche_id, 111, 4
+        )
+        mwv1 = model.MarketWireStateV1(
+            model.WireJournal.EXECUTING,
+            9,
+            4,
+            b"r" * 32,
+            authorization_id,
+            True,
+            7,
+            True,
+            stage_id,
+            authorization_id,
+            7,
+            offer_id,
+            tranche_id,
+            addr("operator"),
+            addr("payout"),
+            0,
+            0,
+            model.ZERO_BYTES32,
+            lineup_commitment,
+            110,
+            115,
+            model.ZERO_BYTES32,
+            0,
+        )
+        smi1 = model.SeatMutationIntentV1(
+            model.WireIntentStatus.EXECUTING,
+            model.WireOperation.STAGE,
+            5,
+            authorization_id,
+            7,
+            9,
+            4,
+            b"r" * 32,
+            model.ZERO_BYTES32,
+            lineup_commitment,
+            model.ZERO_BYTES32,
+            model.ZERO_BYTES32,
+            model.ZERO_BYTES32,
+            0,
+            intent_hash,
+        )
+        slv1 = model.SeatLineupWireV1(
+            authorization_id,
+            7,
+            3,
+            lineup_commitment,
+            2,
+            model.WirePrimaryState.HEALTHY,
+            lineup_terms,
+            (9, 12, 0, 0),
+            120,
+            300,
+        )
+        sir1 = model.SeatInstallRecordV1(
+            authorization_id,
+            7,
+            term_id,
+            tranche_id,
+            offer_id,
+            addr("operator"),
+            addr("payout"),
+            0,
+            111,
+            4,
+        )
+        draft = model.SeatMutationReceiptV1(
+            model.WireResult.STAGED,
+            model.WireOperation.STAGE,
+            5,
+            intent_hash,
+            9,
+            10,
+            4,
+            5,
+            b"r" * 32,
+            model.ZERO_BYTES32,
+            stage_id,
+            offer_id,
+            tranche_id,
+            addr("operator"),
+            addr("payout"),
+            0,
+            0,
+            model.ZERO_BYTES32,
+            110,
+            115,
+            model.ZERO_BYTES32,
+            0,
+            model.ZERO_BYTES32,
+            0,
+        )
+        smr1 = replace(
+            draft, receipt_hash=model.seat_mutation_receipt_hash(draft)
+        )
+        mec1 = model.MarketEconomicReceiptV1(
+            model.EconomicResult.NOOP,
+            term_id,
+            model.ZERO_BYTES32,
+            0,
+            123,
+        )
+        mhs1 = model.MarketHistorySafetyV1(True)
+        mro1 = model.MarketRotationReceiptV1(
+            model.MarketRotationResult.ADVANCED,
+            2,
+            authorization_id,
+            b"b" * 32,
+            b"c" * 32,
+            8,
+            model.ZERO_BYTES32,
+        )
+        return (
+            (mwv1, model.encode_market_wire_state_v1,
+             model.decode_market_wire_state_v1, model.MWV1_RESPONSE_LENGTH),
+            (smi1, model.encode_seat_mutation_intent_v1,
+             model.decode_seat_mutation_intent_v1, model.SMI1_RESPONSE_LENGTH),
+            (slv1, model.encode_seat_lineup_wire_v1,
+             model.decode_seat_lineup_wire_v1, model.SLV1_RESPONSE_LENGTH),
+            (sir1, model.encode_seat_install_record_v1,
+             model.decode_seat_install_record_v1, model.SIR1_RESPONSE_LENGTH),
+            (smr1, model.encode_seat_mutation_receipt_v1,
+             model.decode_seat_mutation_receipt_v1, model.SMR1_RESPONSE_LENGTH),
+            (mec1, model.encode_market_economic_receipt_v1,
+             model.decode_market_economic_receipt_v1, model.MEC1_RESPONSE_LENGTH),
+            (mhs1, model.encode_market_history_safety_v1,
+             model.decode_market_history_safety_v1, model.MHS1_RESPONSE_LENGTH),
+            (mro1, model.encode_market_rotation_receipt_v1,
+             model.decode_market_rotation_receipt_v1, model.MRO1_RESPONSE_LENGTH),
+        )
+
+    def test_fixed_width_round_trip_and_canonical_golden(self):
+        expected_hashes = (
+            "6e3346b6683756e2560d1fd375bf0d01168ea9286e68c958f45e8097991bf374",
+            "de3eeef7e9ce6878ead366e31d15a9103e86f8bb2e83506f4a3aa2648e0a578c",
+            "c7e2a6a301de9c0615d29e35453189f992aab1497b100d7eeb16acf80f6c5c31",
+            "fd2082ab306762a24c79e1e818b8017d01713cdb18e295c862f8788478b9a7f5",
+            "2b060cee87dc439d44ed12022ef53bfee80eebbe65fdbdffa3acb3cb5a5b235b",
+            "e5220b1d20e2ed3124972ceeebff0733a6b06c90b86ec3c6deffeb5316260a37",
+            "0645a9d9446aff03d14b23d52818afa045a4725d759bd9ffa3380347cb94fc19",
+            "1f47fde99114b126a72d598cbda2c2804b2c76a52a3ff25d1b699acaaf089cc2",
+        )
+        for (row, encoder, decoder, expected_length), golden in zip(
+            self.wire_rows(), expected_hashes
+        ):
+            raw = encoder(row)
+            self.assertEqual(len(raw), expected_length)
+            self.assertEqual(decoder(raw), row)
+            self.assertEqual(model.keccak256(raw).hex(), golden)
+
+    def test_all_wire_codecs_reject_length_magic_and_padding_malleability(self):
+        rows = self.wire_rows()
+        for row, encoder, decoder, _ in rows:
+            raw = encoder(row)
+            for malformed in (
+                raw[:-1],
+                raw + b"\x00",
+                b"FAIL" + raw[4:],
+                raw[:4] + b"\x01" + raw[5:],
+            ):
+                with self.assertRaises(model.TransitionRejected):
+                    decoder(malformed)
+
+        # Every ABI-narrow word rejects nonzero high padding.  SLV1/SIR1 place
+        # their first narrow word after one bytes32 field; all others use word 1.
+        narrow_word_indexes = (1, 1, 2, 2, 1, 1, 1, 1)
+        for (row, encoder, decoder, _), word_index in zip(
+            rows, narrow_word_indexes
+        ):
+            malformed = bytearray(encoder(row))
+            malformed[word_index * 32] = 1
+            with self.assertRaises(model.TransitionRejected):
+                decoder(bytes(malformed))
+
+        # Address words are left-padded by exactly twelve zero bytes.
+        for row_index, address_word in ((0, 14), (3, 6), (4, 14)):
+            row, encoder, decoder, _ = rows[row_index]
+            malformed = bytearray(encoder(row))
+            malformed[address_word * 32] = 1
+            with self.assertRaises(model.TransitionRejected):
+                decoder(bytes(malformed))
+
+        mwv1, smi1, slv1, sir1, smr1, _, _, mro1 = [
+            row for row, *_ in self.wire_rows()
+        ]
+        malformed_journal = bytearray(
+            model.encode_market_wire_state_v1(mwv1)
+        )
+        malformed_journal[63] = 2
+        with self.assertRaises(model.TransitionRejected):
+            model.decode_market_wire_state_v1(bytes(malformed_journal))
+        with self.assertRaises(model.TransitionRejected):
+            model.encode_market_wire_state_v1(replace(
+                mwv1,
+                stage_present=False,
+                stage_id=b"x" * 32,
+            ))
+        with self.assertRaises(model.TransitionRejected):
+            model.encode_seat_mutation_intent_v1(replace(
+                smi1,
+                incoming_term_id=b"x" * 32,
+            ))
+        with self.assertRaises(model.TransitionRejected):
+            model.encode_seat_lineup_wire_v1(replace(
+                slv1,
+                term_ids=slv1.term_ids[:2] + (b"x" * 32, model.ZERO_BYTES32),
+            ))
+        with self.assertRaises(model.TransitionRejected):
+            model.encode_seat_install_record_v1(replace(
+                sir1,
+                term_id=b"x" * 32,
+            ))
+        noop = replace(
+            smr1,
+            result=model.WireResult.NO_FEASIBLE,
+            post_state_version=smr1.pre_state_version,
+            post_wire_nonce=smr1.pre_wire_nonce,
+            receipt_hash=model.ZERO_BYTES32,
+        )
+        with self.assertRaises(model.TransitionRejected):
+            model.encode_seat_mutation_receipt_v1(noop)
+        with self.assertRaises(model.TransitionRejected):
+            model.encode_market_rotation_receipt_v1(replace(
+                mro1,
+                result=model.MarketRotationResult.RECONCILIATION_REQUIRED,
+            ))
+        required = model.MarketRotationReceiptV1(
+            model.MarketRotationResult.RECONCILIATION_REQUIRED,
+            0,
+            mro1.old_authorization_id,
+            model.ZERO_BYTES32,
+            model.ZERO_BYTES32,
+            0,
+            b"s" * 32,
+        )
+        self.assertEqual(
+            model.decode_market_rotation_receipt_v1(
+                model.encode_market_rotation_receipt_v1(required)
+            ),
+            required,
+        )
+
+    def test_noop_stage_and_sync_never_advance_market_counters(self):
+        market = make_market()
+        before = market.encode_market_wire_state_v1()
+        for offset in range(1_000):
+            result = market._settlement_stage_best(
+                lineup(), model.Clock(100 + offset, 50 + offset)
+            )
+            self.assertIs(result.code, model.ResultCode.NO_FEASIBLE_OFFER)
+        for _ in range(1_000):
+            self.assertEqual(market.sync_seat_generation().purged_count, 0)
+        self.assertEqual(market.market_state_version, 0)
+        self.assertEqual(market.cross_wire_nonce, 0)
+        self.assertEqual(market.last_receipt_hash, model.ZERO_BYTES32)
+        self.assertEqual(market.encode_market_wire_state_v1(), before)
+
+    def test_actual_top_level_mutation_advances_version_at_most_once(self):
+        market = make_market()
+        before = market.market_state_version
+        before_wire = market.cross_wire_nonce
+        market.sponsor_premium(1)
+        self.assertEqual(market.market_state_version, before + 1)
+        self.assertEqual(market.cross_wire_nonce, before_wire)
+        self.assertEqual(market.last_receipt_hash, model.ZERO_BYTES32)
+        for index in range(4):
+            before = market.market_state_version
+            insert(market, f"op{index}", index + 1)
+            self.assertEqual(market.market_state_version, before + 1)
+        runtime = market.target_runtimes[market.current_authorization_id]
+        runtime.authority.generation = 8
+        before = market.market_state_version
+        before_wire = market.cross_wire_nonce
+        self.assertEqual(market.sync_seat_generation().purged_count, 4)
+        self.assertEqual(market.market_state_version, before + 1)
+        self.assertEqual(market.cross_wire_nonce, before_wire)
+
+        credit_id = next(iter(market.credits))
+        before = market.market_state_version
+        def transfer(_beneficiary, _amount, nested):
+            with self.assertRaises(model.TransitionRejected):
+                nested.sponsor_premium(1)
+        market.claim_credit(
+            credit_id,
+            transfer,
+        )
+        # CLAIMING rejects every nested premium-funding mutation; the ordinary
+        # effects-before-interaction claim still commits once.
+        self.assertEqual(market.market_state_version, before + 1)
+        self.assertEqual(market.cross_wire_nonce, before_wire)
+
+    def test_stage_expire_replaces_one_last_receipt_without_history_growth(self):
+        market = make_market()
+        market.sponsor_premium(10_000)
+        insert(market, "alice", 0, clock=model.Clock(100, 50))
+        receipt_hashes = []
+        clock = model.Clock(110, 53)
+        for _ in range(5):
+            stage = market._settlement_stage_best(lineup(), clock).stage
+            self.assertIsNotNone(stage)
+            receipt_hashes.append(market.last_receipt_hash)
+            market._settlement_expire_stage(
+                stage.stage_id, model.Clock(stage.expires_at, clock.block_number)
+            )
+            receipt_hashes.append(market.last_receipt_hash)
+            clock = model.Clock(stage.expires_at + 1, clock.block_number + 1)
+        self.assertEqual(market.cross_wire_nonce, 10)
+        self.assertEqual(len(set(receipt_hashes)), 10)
+        self.assertEqual(
+            [name for name in market.__dict__ if "receipt" in name],
+            [
+                "consumed_activation_receipt_ids",
+                "last_receipt_hash",
+            ],
+        )
+
+    def test_stale_generation_expiry_terminalizes_instead_of_restoring(self):
+        market = make_market()
+        market.sponsor_premium(10_000)
+        row = insert(market, "alice", 5, clock=model.Clock(100, 50))
+        staged = market._settlement_stage_best(
+            lineup(), model.Clock(110, 53)
+        ).stage
+        self.assertIsNotNone(staged)
+        prior_receipt = market.last_receipt_hash
+        runtime = market.target_runtimes[market.current_authorization_id]
+        runtime.authority.generation = 8
+        market.sync_seat_generation()
+        result = market._settlement_expire_stage(
+            staged.stage_id, model.Clock(staged.expires_at, 54)
+        )
+        self.assertIsNone(market.stage)
+        self.assertEqual(market.pending_count, 0)
+        self.assertIs(row.offer.location, model.OfferLocation.NONE)
+        self.assertIs(row.tranche.usage, model.TrancheUsage.CLOSED_UNINSTALLED)
+        self.assertIs(
+            row.tranche.disposition, model.BondDisposition.OWNER_CREDITED
+        )
+        self.assertEqual(result.credit_id, market.credit_id(
+            row.tranche.tranche_id, model.BondDisposition.OWNER_CREDITED
+        ))
+        self.assertNotEqual(market.last_receipt_hash, prior_receipt)
+
+
 def addr(label):
     if isinstance(label, int):
         if label <= 0 or label >= 1 << 160:
@@ -53,6 +421,8 @@ def immutable_authorization(target="settlement-v1", **overrides):
         runtime_hash=b"r" * 32,
         configuration_hash=b"c" * 32,
         expected_magic=b"SEAT",
+        target_manifest_hash=b"m" * 32,
+        target_registration_hash=b"g" * 32,
     )
     values.update(overrides)
     return model.TargetAuthorization(**values)
@@ -80,36 +450,77 @@ class StandaloneSettlementAuthority:
             self.generation,
         )
 
-    def execute_market_target_rotation(self, seat_market, manager, receipt_key, clock):
-        receipt = manager.activation_receipt(receipt_key)
-        if (
-            receipt is None
-            or self.phase != "FROZEN"
-            or receipt.old_target != self.authorization.target
-            or receipt.old_protocol_version != self.authorization.protocol_version
-            or receipt.migration_stage_id is not None
-        ):
-            raise model.TransitionRejected(
-                "fake Settlement rotation authority is not exact"
-            )
-        return seat_market._rotate_installation_target(
-            manager=manager,
-            receipt_key=receipt_key,
-            clock=clock,
-            migration_stage_authenticated=False,
+
+
+class TestActivationRouter:
+    """Exact-read Router surface for focused Market unit tests."""
+
+    def __init__(self, active_version):
+        self.address = addr("release-manager")
+        self.runtime_hash = b"R" * 32
+        self.configuration_hash = b"C" * 32
+        self.version_manager = addr("version-manager")
+        self.active_version = active_version
+        self.registrations = {}
+        self.receipts_by_id = {}
+        self.successors_by_authorization = {}
+
+    def activation_receipt_v1(self, receipt_id):
+        return model.encode_activation_receipt_v1(self.receipts_by_id[receipt_id])
+
+    def seat_successor_receipt_v1(self, authorization_id):
+        return model.encode_successor_receipt_v1(
+            self.successors_by_authorization[authorization_id]
         )
+
+    def append_migration(self, old_auth, old_id, new_auth, new_id, generation):
+        draft = model.ActivationReceiptV1(
+            model.ZERO_BYTES32,
+            new_auth.settlement_chain_id,
+            self.address,
+            generation,
+            len(self.receipts_by_id) + 1,
+            model.ActivationTransitionKind.VERSION_MIGRATION,
+            old_auth.protocol_version,
+            new_auth.protocol_version,
+            old_auth.target_manifest_hash,
+            new_auth.target_manifest_hash,
+            old_id,
+            new_id,
+            new_auth.target_registration_hash,
+            old_auth.target,
+            new_auth.target,
+            b"o" * 32,
+            b"n" * 32,
+            addr("old-bridge"),
+            addr("new-bridge"),
+            0,
+            b"c" * 32,
+            b"h" * 32,
+            0,
+            b"a" * 32,
+            model.ZERO_BYTES32,
+            b"s" * 32,
+            b"d" * 32,
+            b"q" * 32,
+            generation,
+            1_000,
+            True,
+        )
+        receipt = replace(draft, receipt_id=model.activation_receipt_id_v1(draft))
+        successor = model.SuccessorReceiptV1(
+            receipt.receipt_id, receipt.successor_index
+        )
+        self.receipts_by_id[receipt.receipt_id] = receipt
+        self.successors_by_authorization[old_id] = successor
+        self.active_version = new_auth.protocol_version
+        return receipt
 
 
 def authenticated_target(
     authorization, generation, *, market_chain_id, market_address
 ):
-    router = SimpleNamespace(
-        version_manager=addr("version-manager"),
-        activation_receipts={},
-        successor_receipt_key_by_old_authorization_id={},
-        active_version=authorization.protocol_version,
-        registrations={},
-    )
+    router = TestActivationRouter(authorization.protocol_version)
     manager = model.ReleaseManager(
         addr("release-manager"), activation_authority=router
     )
@@ -179,6 +590,8 @@ class AuthorizationArchitectureAndCodecTests(unittest.TestCase):
             + auth.runtime_hash
             + auth.configuration_hash
             + auth.expected_magic
+            + auth.target_manifest_hash
+            + auth.target_registration_hash
         )
         self.assertEqual(
             model.authorization_identity(1, addr("market"), auth), expected
@@ -282,6 +695,7 @@ class AuthorizationArchitectureAndCodecTests(unittest.TestCase):
         installed.offer.location = model.OfferLocation.NONE
         installed.tranche.usage = model.TrancheUsage.INSTALLED
         installed.tranche.installed_term_id = b"i" * 32
+        market.tranche_id_by_term[b"i" * 32] = installed.tranche.tranche_id
         market.assert_valid()
 
         old_id = market.current_authorization_id
@@ -329,9 +743,7 @@ class AuthorizationArchitectureAndCodecTests(unittest.TestCase):
         market.assert_valid()
         before = copy.deepcopy(market)
         with self.assertRaises(model.TransitionRejected):
-            market.release_manager.execute_rotation(
-                market, (1, b"m" * 32), model.Clock(200, 100)
-            )
+            market.rotate_settlement_authorization_v1(model.Clock(200, 100))
         self.assertEqual(market, before)
 
     def test_registry_has_no_direct_market_control_and_live_rows_gate_state(self):
@@ -529,6 +941,8 @@ def authorization(target="settlement-v1"):
         runtime_hash=b"r" * 32,
         configuration_hash=b"c" * 32,
         expected_magic=b"SEAT",
+        target_manifest_hash=b"m" * 32,
+        target_registration_hash=b"g" * 32,
     )
 
 
@@ -1367,6 +1781,7 @@ class AccountingAndClaimTests(AtomicAssertions):
         row.offer.location = model.OfferLocation.NONE
         row.tranche.usage = model.TrancheUsage.INSTALLED
         row.tranche.installed_term_id = b"i" * 32
+        market.tranche_id_by_term[b"i" * 32] = row.tranche.tranche_id
         market.assert_valid()
         penalty_id = market._terminalize_penalty(row.tranche.tranche_id)
         market.assert_valid()
@@ -1462,7 +1877,17 @@ class EdgeMatrixTests(AtomicAssertions):
     }
     TASK3_MUTATING_PUBLIC_EVENTS = {
         "sponsor_premium",
+        "sponsor_premium_v1",
         "claim_premium_credit",
+    }
+    DIRECT_HISTORY_PUBLIC_EVENTS = {
+        "accrue_seat_premium_v1",
+        "reconcile_seat_reserve_v1",
+        "request_seat_bond_release_v1",
+        "finalize_seat_bond_release_v1",
+        "enforce_seat_breach_v1",
+        "is_duty_history_safe_v1",
+        "rotate_settlement_authorization_v1",
     }
     TASK3_INTERNAL_SETTLEMENT_EVENTS = {
         "stage_best",
@@ -1509,6 +1934,7 @@ class EdgeMatrixTests(AtomicAssertions):
         row.offer.location = model.OfferLocation.NONE
         row.tranche.usage = model.TrancheUsage.INSTALLED
         row.tranche.installed_term_id = b"i" * 32
+        market.tranche_id_by_term[b"i" * 32] = row.tranche.tranche_id
         market.assert_valid()
         credit_id = None
         if penalized:
@@ -1526,7 +1952,15 @@ class EdgeMatrixTests(AtomicAssertions):
             public_functions,
             self.MUTATING_PUBLIC_EVENTS
             | self.TASK3_MUTATING_PUBLIC_EVENTS
-            | {"assert_valid", "credit_id"},
+            | self.DIRECT_HISTORY_PUBLIC_EVENTS
+            | {
+                "assert_valid",
+                "credit_id",
+                "market_wire_state_v1",
+                "encode_market_wire_state_v1",
+                "install_settlement_authorization_from_pvm_v1",
+                "settlement_authorization_from_pvm_v1",
+            },
         )
         for forbidden in (
             "stage_best",
@@ -1890,7 +2324,8 @@ def lineup_term(
 
 
 def stage_and_install(market, operator="alice", ask=5, term_id=b"T" * 32):
-    market.sponsor_premium(ask * market.seat_runway_seconds)
+    if ask:
+        market.sponsor_premium(ask * market.seat_runway_seconds)
     row = insert(market, operator, ask)
     result = market._settlement_stage_best(lineup(), model.Clock(110, 53))
     if result.code is not model.ResultCode.STAGED:
@@ -1927,10 +2362,19 @@ def service_view(
     duty_disposition="NONE",
     breached=False,
     breach_recorded_at=None,
-    roster_occupied=False,
+    roster_occupied=None,
     history_retained=True,
+    service_close_at=None,
+    term_removed_at=None,
 ):
     auth = authorization()
+    if closed:
+        service_close_at = cap if service_close_at is None else service_close_at
+        term_removed_at = (
+            service_close_at if term_removed_at is None else term_removed_at
+        )
+    if roster_occupied is None:
+        roster_occupied = not closed
     return model.ServiceView(
         target=auth.target,
         authorization_id=row.tranche.authorization_id,
@@ -1959,6 +2403,8 @@ def service_view(
         breach_recorded_at=breach_recorded_at,
         roster_occupied=roster_occupied,
         history_retained=history_retained,
+        service_close_at=service_close_at,
+        term_removed_at=term_removed_at,
     )
 
 
@@ -2053,6 +2499,98 @@ class Task3StagingTests(AtomicAssertions):
             model.ResultCode.STAGED,
         )
 
+    def test_underfunded_primary_bid_cannot_mask_reserve_reuse_lane(self):
+        market = make_market()
+        auth_id = market.current_authorization_id
+        source_amount = 60 * market.seat_runway_seconds
+        market.sponsor_premium(source_amount)
+        worst_row = insert(market, "incumbent-4", 60)
+        source_stage = market._settlement_stage_best(
+            lineup(), model.Clock(110, 53)
+        ).stage
+        worst_term_id = model.seat_term_identity_v1(
+            auth_id,
+            7,
+            worst_row.offer.offer_id,
+            worst_row.tranche.tranche_id,
+            source_stage.handover_at,
+            1,
+        )
+        market._settlement_install_stage(
+            installation_view(
+                market,
+                source_stage,
+                worst_term_id,
+                applied_at=source_stage.handover_at,
+            )
+        )
+        prefix = tuple(
+            model.LineupTerm(
+                term_id=bytes([index]) * 32,
+                tranche_id=bytes([index + 10]) * 32,
+                offer_id=bytes([index + 20]) * 32,
+                operator=addr(f"incumbent-{index}"),
+                payout=addr(f"incumbent-pay-{index}"),
+                ask_wei_per_second=ask,
+                minimum_tenure_until=100,
+                service_eligible_until=1_000,
+                installed_at=100,
+            )
+            for index, ask in enumerate((30, 40, 50), start=1)
+        )
+        worst = model.LineupTerm(
+            term_id=worst_term_id,
+            tranche_id=worst_row.tranche.tranche_id,
+            offer_id=worst_row.offer.offer_id,
+            operator=worst_row.offer.operator,
+            payout=worst_row.offer.payout,
+            ask_wei_per_second=60,
+            minimum_tenure_until=source_stage.handover_at,
+            service_eligible_until=1_000,
+            installed_at=source_stage.handover_at,
+        )
+        terms = (*prefix, worst)
+        install = model.SeatInstallRecordV1(
+            auth_id,
+            7,
+            worst.term_id,
+            worst.tranche_id,
+            worst.offer_id,
+            worst.operator,
+            worst.payout,
+            worst.ask_wei_per_second,
+            worst.installed_at,
+            1,
+        )
+        market.target_runtimes[auth_id].install_record_override = (
+            model.encode_seat_install_record_v1(install)
+        )
+        best = insert(market, "masking-best", 29)
+        insert(market, "later-honest", 59)
+        snapshot = model.LineupSnapshot(
+            market.authorization.target,
+            auth_id,
+            7,
+            model.seat_lineup_commitment_v1(
+                4, tuple(term.term_id for term in terms)
+            ),
+            terms,
+        )
+        result = market._settlement_stage_best(
+            snapshot, model.Clock(125, 60)
+        )
+        self.assertIs(result.code, model.ResultCode.STAGED)
+        self.assertEqual(result.offer.offer_id, best.offer.offer_id)
+        self.assertIs(
+            result.stage.funding_mode,
+            model.StageFundingMode.REUSE_UNSTARTED_STANDBY,
+        )
+        self.assertEqual(result.stage.outgoing_primary_term_id, worst.term_id)
+        self.assertEqual(result.stage.selected_rank, 1)
+        self.assertEqual(result.amount, 2_900)
+        self.assertEqual(result.stage.contingent_surplus_wei, 3_100)
+        market.assert_valid()
+
     def test_live_primary_headroom_and_gross_reserve_do_not_use_outgoing_release(self):
         primary = lineup_term(
             ask=10, minimum_tenure_until=200, service_eligible_until=209
@@ -2091,7 +2629,8 @@ class Task3StagingTests(AtomicAssertions):
             market = make_market()
             insert(market, "a", 3)
             insert(market, "b", 5)
-            market.sponsor_premium(funding)
+            if funding:
+                market.sponsor_premium(funding)
             result = market._settlement_stage_best(lineup(), model.Clock(110, 53))
             if funding < 300:
                 self.assertEqual(result.code, model.ResultCode.UNDERFUNDED)
@@ -2311,6 +2850,33 @@ class Task3PremiumTests(AtomicAssertions):
             5 * 50,
         )
         market.assert_valid()
+
+    def test_sponsor_premium_v1_is_exact_nonzero_payable_accounting(self):
+        market = make_market()
+        self.assertEqual(
+            model.SPONSOR_PREMIUM_SELECTOR,
+            model.keccak256(b"sponsorPremiumV1()")[:4],
+        )
+        before = copy.deepcopy(market)
+        with self.assertRaises(model.TransitionRejected):
+            market.sponsor_premium_v1(addr("sponsor"), 0)
+        self.assertEqual(market, before)
+
+        market.force_eth(7)
+        self.assertEqual(market.surplus, 7)
+        receipt = market.sponsor_premium_v1(addr("sponsor"), 11)
+        self.assertEqual(receipt.amount, 11)
+        self.assertEqual(market.accounting.free_premium, 11)
+        self.assertEqual(market.surplus, 7)
+
+        overflow = make_market()
+        overflow.actual_balance = model.UINT256_MAX
+        overflow.accounting.free_premium = model.UINT256_MAX
+        self.assert_rejects_unchanged(
+            overflow,
+            lambda: overflow.sponsor_premium_v1(addr("sponsor"), 1),
+            model.ArithmeticFault,
+        )
 
     def test_unstarted_sentinel_cannot_hide_started_service_and_checked_mul_rolls_back(self):
         market, row, term = self.installed(ask=5)
@@ -2922,6 +3488,7 @@ class Task3FrozenMatrixTests(AtomicAssertions):
     )
     TASK3_EVENT_COVERAGE = {
         "sponsor_premium": "GLOBAL_ACCOUNTING",
+        "sponsor_premium_v1": "GLOBAL_ACCOUNTING",
         "stage_best": "SECTION_4_4",
         "expire_stage": "SECTION_4_4",
         "invalidate_stage": "SECTION_4_4",
@@ -4073,13 +4640,7 @@ class MigrationGenerationAndRotationTests(AtomicAssertions):
 
     def test_rotation_is_receipt_bound_append_only_and_fault_atomic(self):
         def fixture():
-            router_authority = SimpleNamespace(
-                version_manager=addr("version-manager"),
-                activation_receipts={},
-                successor_receipt_key_by_old_authorization_id={},
-                active_version=0,
-                registrations={},
-            )
+            router_authority = TestActivationRouter(25)
             manager = model.ReleaseManager(
                 addr("release-manager"),
                 activation_authority=router_authority,
@@ -4130,20 +4691,10 @@ class MigrationGenerationAndRotationTests(AtomicAssertions):
                 ),
                 new_id,
             )
-            receipt = model.ActivationReceiptView(
-                router_generation=1,
-                old_protocol_version=25,
-                new_protocol_version=26,
-                old_target=market.authorization.target,
-                new_target=new_auth.target,
-                target_manifest_hash=b"m" * 32,
-                seat_generation=8,
-                old_authorization_id=old_id,
-                new_authorization_id=new_id,
-                activation_block=1_000,
+            market._pvm_preinstall_authorization(manager, new_id)
+            receipt = router_authority.append_migration(
+                old_auth, old_id, new_auth, new_id, 8
             )
-            router_authority.activation_receipts[receipt.key] = receipt
-            router_authority.active_version = new_auth.protocol_version
             router_authority.registrations[new_auth.protocol_version] = (
                 SimpleNamespace(settlement=new_runtime.authority)
             )
@@ -4153,26 +4704,28 @@ class MigrationGenerationAndRotationTests(AtomicAssertions):
             return market, rows, new_auth, new_id, receipt, manager
 
         market, rows, new_auth, new_id, receipt, manager = fixture()
-        old_runtime = market.target_runtimes[receipt.old_authorization_id]
-        new_runtime = manager.target_runtimes[receipt.new_authorization_id]
-        result = manager.execute_rotation(
-            market, receipt.key, model.Clock(1_001, 1_001)
+        old_runtime = market.target_runtimes[receipt.source_authorization_id]
+        new_runtime = manager.target_runtimes[receipt.target_authorization_id]
+        result = model.decode_market_rotation_receipt_v1(
+            market.rotate_settlement_authorization_v1(
+                model.Clock(1_001, 1_001)
+            )
         )
         self.assertEqual((old_runtime.read_count, new_runtime.read_count), (1, 1))
         self.assertEqual(market.current_authorization_id, new_id)
-        self.assertFalse(market.authorization_enabled[receipt.old_authorization_id])
+        self.assertFalse(market.authorization_enabled[receipt.source_authorization_id])
         self.assertTrue(market.authorization_enabled[new_id])
         self.assertIsNone(market.cached_generation)
         self.assertEqual(result.purged_count, 4)
         self.assertIsNone(market.stage)
-        self.assertIn((1, b"m" * 32), market.consumed_activation_receipts)
+        self.assertIn(receipt.receipt_id, market.consumed_activation_receipt_ids)
         self.assertEqual(len(market.authorizations), 2)
         self.assertFalse(hasattr(manager, "activation_receipts"))
         self.assertFalse(hasattr(manager, "_record_activation_for_test"))
         self.assertFalse(hasattr(manager, "record_router_activation"))
         before = copy.deepcopy(market)
         with self.assertRaises(model.TransitionRejected):
-            manager.execute_rotation(market, receipt.key, model.Clock(1_002, 1_002))
+            market.rotate_settlement_authorization_v1(model.Clock(1_002, 1_002))
         self.assertEqual(market, before)
 
         fault_points = (
@@ -4189,21 +4742,23 @@ class MigrationGenerationAndRotationTests(AtomicAssertions):
         )
         for fault in fault_points:
             market, _, new_auth, _, receipt, manager = fixture()
-            old_runtime = market.target_runtimes[receipt.old_authorization_id]
-            new_runtime = manager.target_runtimes[receipt.new_authorization_id]
+            old_runtime = market.target_runtimes[receipt.source_authorization_id]
+            new_runtime = manager.target_runtimes[receipt.target_authorization_id]
             market.fault_point = fault
             self.assert_rejects_unchanged(
                 market,
-                lambda: manager.execute_rotation(
-                    market, receipt.key, model.Clock(1_001, 1_001)
+                lambda: market.rotate_settlement_authorization_v1(
+                    model.Clock(1_001, 1_001)
                 ),
                 RuntimeError,
             )
             self.assertIs(market.release_manager, manager)
             self.assertIs(
-                market.target_runtimes[receipt.old_authorization_id], old_runtime
+                market.target_runtimes[receipt.source_authorization_id], old_runtime
             )
-            self.assertIs(manager.target_runtimes[receipt.new_authorization_id], new_runtime)
+            self.assertIs(
+                manager.target_runtimes[receipt.target_authorization_id], new_runtime
+            )
 
 
 if __name__ == "__main__":

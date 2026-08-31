@@ -54,6 +54,8 @@ def authorization():
         runtime_hash=b"r" * 32,
         configuration_hash=b"c" * 32,
         expected_magic=b"SEAT",
+        target_manifest_hash=b"m" * 32,
+        target_registration_hash=b"g" * 32,
     )
 
 
@@ -63,6 +65,7 @@ class StandaloneSettlementAuthority:
     def __init__(self, auth, generation):
         self.authorization = auth
         self.generation = generation
+        self.live_protocol = None
 
     def exact_market_target_state(self):
         auth = self.authorization
@@ -76,6 +79,21 @@ class StandaloneSettlementAuthority:
             "ACTIVE",
             self.generation,
         )
+
+    def seat_install_record_v1(self, term_id):
+        if self.live_protocol is None:
+            raise ValueError("standalone authority is not protocol-bound")
+        return self.live_protocol.seat_install_record_v1(term_id)
+
+    def seat_market_record_v1(self, term_id):
+        if self.live_protocol is None:
+            raise ValueError("standalone authority is not protocol-bound")
+        return self.live_protocol.seat_market_record_v1(term_id)
+
+    def seat_duty_record_v1(self, duty_id):
+        if self.live_protocol is None:
+            raise ValueError("standalone authority is not protocol-bound")
+        return self.live_protocol.seat_duty_record_v1(duty_id)
 
 
 def make_pair(
@@ -119,6 +137,14 @@ def make_pair(
         handover_delay_seconds=settlement.HANDOVER_DELAY_SECONDS,
         stage_grace_seconds=settlement.STAGE_GRACE_SECONDS,
         maximum_inclusion_seconds=settlement.T_INCLUDE_MAX_SECONDS,
+        maximum_standby_lease_seconds=settlement.MAX_STANDBY_LEASE_SECONDS,
+        minimum_standby_tenure_seconds=(
+            settlement.MIN_STANDBY_TENURE_SECONDS
+        ),
+        minimum_ask_improvement_wei_per_second=(
+            settlement.MIN_ASK_IMPROVEMENT_WEI_PER_SECOND
+        ),
+        minimum_ask_improvement_bps=settlement.MIN_ASK_IMPROVEMENT_BPS,
         premium_claim_delay_seconds=10,
         release_challenge_seconds=20,
         reorg_stability_seconds=30,
@@ -131,6 +157,7 @@ def make_pair(
     )
     protocol.seat_runway_seconds = runway
     protocol.bind_seat_market_for_test(seat_market)
+    authority.live_protocol = protocol
     return protocol, seat_market
 
 
@@ -387,6 +414,7 @@ def canonical_graph_state(protocol, history):
 def bind_router_active_history(protocol, *, runtime_hash, execution_profile_hash):
     """Attach one exact bootstrapped History for rollback-focused fixtures."""
 
+    evolved_seat_generation = protocol.seat_generation
     profile = settlement.execution_profile_for_test(
         authorization().protocol_version, execution_profile_hash
     )
@@ -402,6 +430,7 @@ def bind_router_active_history(protocol, *, runtime_hash, execution_profile_hash
         live_protocol=protocol,
         inbox_apply_descriptor=protocol.inbox_apply_descriptor,
         header_oracle=protocol.header_oracle,
+        market_runtime_hash=settlement._model_fixed_bytes32(runtime_hash),
         execution_profile=profile,
     )
     protocol.versioned_history = history
@@ -410,6 +439,7 @@ def bind_router_active_history(protocol, *, runtime_hash, execution_profile_hash
     )
     profile_pvm = "0x" + profile_words[20][12:].hex()
     profile_router = "0x" + profile_words[23][12:].hex()
+    profile_market = "0x" + profile_words[35][12:].hex()
     object.__setattr__(
         protocol.forced_queue, "router_address", profile_router
     )
@@ -429,6 +459,7 @@ def bind_router_active_history(protocol, *, runtime_hash, execution_profile_hash
     bootstrap_proof = settlement.prepare_genesis_activation_for_test(
         router, history, bootstrap_clock
     )
+    protocol.seat_generation = 0
     if not router.bootstrap(
         history,
         sequence=0,
@@ -437,6 +468,7 @@ def bind_router_active_history(protocol, *, runtime_hash, execution_profile_hash
         proof=bootstrap_proof,
     ):
         raise AssertionError("fixture failed to bootstrap exact History graph")
+    protocol.seat_generation = evolved_seat_generation
     return history, router
 
 
@@ -444,6 +476,7 @@ def unactivated_genesis_fixture(*, suffix="checkpoint", protocol_version=25):
     """Build the exact pre-checkpoint genesis graph without crossing delays."""
 
     protocol = settlement.protocol(seat=False)
+    protocol.seat_generation = 0
     profile = settlement.execution_profile_for_test(
         protocol_version, f"profile:{suffix}"
     )
@@ -459,6 +492,9 @@ def unactivated_genesis_fixture(*, suffix="checkpoint", protocol_version=25):
         live_protocol=protocol,
         inbox_apply_descriptor=protocol.inbox_apply_descriptor,
         header_oracle=protocol.header_oracle,
+        market_runtime_hash=settlement._model_fixed_bytes32(
+            f"runtime:{suffix}"
+        ),
         execution_profile=profile,
     )
     protocol.versioned_history = history
@@ -691,7 +727,9 @@ class CanonicalDutyTests(unittest.TestCase):
             0,
         )
         both = copy.deepcopy(protocol)
-        canonical_cure(both, both.seat_duties[duty.duty_id], at=duty.slash_at)
+        canonical_cure(
+            both, both.seat_duties[duty.duty_id], at=duty.failover_at
+        )
         cured = both.seat_duties[duty.duty_id]
         self.assertEqual(cured.status, settlement.DutyStatus.SATISFIED)
         first = cured.satisfied_at
@@ -734,7 +772,8 @@ class CanonicalDutyTests(unittest.TestCase):
             ),
             failover_commit,
         )
-        self.assertEqual(duty.status, settlement.DutyStatus.SATISFIED)
+        self.assertEqual(duty.status, settlement.DutyStatus.FAILED_OVER)
+        self.assertIsNone(duty.satisfied_at)
         self.assertEqual(
             protocol.seat_services[duty.term_id].closed_at,
             duty.failover_at,
@@ -784,7 +823,9 @@ class CanonicalDutyTests(unittest.TestCase):
             protocol.seat_services[standby.term_id].responsibility_start,
             duty.failover_at + 2,
         )
-        self.assertEqual(protocol.preview_premium_cap(primary.term_id), duty.failover_at)
+        self.assertEqual(
+            protocol.preview_premium_cap(primary.term_id), duty.recovery_at
+        )
 
     def test_force_only_recovery_does_not_reset_attached_duty(self):
         protocol = settlement.protocol(tip_slot=1_000, seat=False)
@@ -904,7 +945,8 @@ class CanonicalDutyTests(unittest.TestCase):
             protocol.seat_scan_visits_total - visits_before,
             settlement.DUTY_RING_CAPACITY,
         )
-        self.assertIs(duty.status, settlement.DutyStatus.SATISFIED)
+        self.assertIs(duty.status, settlement.DutyStatus.FAILED_OVER)
+        self.assertIsNone(duty.satisfied_at)
         self.assertEqual(
             protocol.seat_services[primary.term_id].closed_at,
             duty.failover_at,
@@ -1000,7 +1042,7 @@ class CanonicalDutyTests(unittest.TestCase):
             protocol._commit(cure, cure_clock)
             self.assertIs(
                 protocol.seat_duties[first_duty.duty_id].status,
-                settlement.DutyStatus.SATISFIED,
+                settlement.DutyStatus.FAILED_OVER,
             )
             self.assertEqual(protocol.seat_selection, selection)
             self.assertIsNone(third_service.responsibility_start)
@@ -1343,6 +1385,9 @@ class ComposedTransactionTests(unittest.TestCase):
             live_protocol=protocol,
             inbox_apply_descriptor=protocol.inbox_apply_descriptor,
             header_oracle=protocol.header_oracle,
+            market_runtime_hash=settlement._model_fixed_bytes32(
+                "runtime:atomic-success"
+            ),
             execution_profile=profile,
         )
         protocol.versioned_history = history
@@ -1360,6 +1405,8 @@ class ComposedTransactionTests(unittest.TestCase):
         bootstrap_proof = settlement.prepare_genesis_activation_for_test(
             active_router, history, bootstrap_clock
         )
+        evolved_generation = protocol.seat_generation
+        protocol.seat_generation = 0
         self.assertTrue(active_router.bootstrap(
             history,
             sequence=0,
@@ -1367,6 +1414,7 @@ class ComposedTransactionTests(unittest.TestCase):
             caller=active_router.version_manager,
             proof=bootstrap_proof,
         ))
+        protocol.seat_generation = evolved_generation
         queue = protocol.forced_queue
         router = protocol.inbox_apply_router
         gate = protocol.migration_gate
@@ -1980,7 +2028,13 @@ class ComposedTransactionTests(unittest.TestCase):
                 term = synthetic_term(9, tip_time)
                 bad_protocol.seat_terms[term.term_id] = term
                 bad_protocol.seat_services[term.term_id] = settlement.SeatService(
-                    None, tip_time + 600, None, None
+                    None,
+                    tip_time + 600,
+                    None,
+                    None,
+                    standby_lease_expires_at=(
+                        tip_time + settlement.MAX_STANDBY_LEASE_SECONDS
+                    ),
                 )
                 bad_protocol.seat_lineup.append(term.term_id)
             else:
@@ -2345,9 +2399,10 @@ class ExitAndPremiumTests(unittest.TestCase):
             quoted_at=tip_time, quoted_block=100,
         )
         service = protocol.seat_services[primary]
+        recovery_at = service.prospective_recovery_at
         failover_at = service.prospective_failover_at
         self.assertNotIn(primary, protocol.term_duty)
-        self.assertEqual(protocol.preview_premium_cap(primary), failover_at)
+        self.assertEqual(protocol.preview_premium_cap(primary), recovery_at)
         self.assertGreater(
             failover_at,
             protocol.seat_services[primary].service_eligible_until,
@@ -2368,7 +2423,7 @@ class ExitAndPremiumTests(unittest.TestCase):
             synced.preview_premium_cap(primary),
         )
         self.assertEqual(
-            omitted.preview_premium_cap(primary), failover_at
+            omitted.preview_premium_cap(primary), recovery_at
         )
 
     def test_no_duty_funding_expiry_selects_then_commit_promotes_without_backpay(self):
@@ -2517,8 +2572,8 @@ class ExitAndPremiumTests(unittest.TestCase):
             if relation == "DUTY":
                 self.assertEqual(recovery, expiry - 1)
                 duty = protocol.seat_duties[protocol.term_duty[primary]]
-                self.assertEqual(before_cap, duty.failover_at)
-                self.assertEqual(protocol.preview_premium_cap(primary), duty.failover_at)
+                self.assertEqual(before_cap, duty.recovery_at)
+                self.assertEqual(protocol.preview_premium_cap(primary), duty.recovery_at)
                 self.assertEqual(protocol.active_primary_term_id, primary)
                 self.assertIsNone(protocol.selected_successor_term_id)
             else:
@@ -2611,7 +2666,7 @@ class ExitAndPremiumTests(unittest.TestCase):
         self.assertIsNone(late.seat_selection)
         self.assertEqual(
             late.seat_services[late_successor].close_reason,
-            "PROMOTION_REVISION_UNUSABLE",
+            "STANDBY_LEASE_EXPIRED",
         )
 
     def test_unusable_recovery_revision_never_starts_selected_successor(self):
@@ -2649,14 +2704,14 @@ class ExitAndPremiumTests(unittest.TestCase):
                 )
                 self.assertIs(protocol.mode, settlement.Mode.RECOVERY)
                 setattr(protocol, attribute, value)
-                self.assertTrue(
-                    protocol.sync(
-                        settlement.Clock(
-                            802 + index * 3,
-                            protocol.recovery.expires_at + 1,
-                        )
-                    )
-                )
+                # Exercise the revision gate before the immutable standby
+                # lease becomes due.  A public sync after both boundaries is
+                # required to expire the lease first and therefore records
+                # STANDBY_LEASE_EXPIRED instead.
+                promote_at = protocol.seat_services[
+                    successor
+                ].standby_lease_expires_at - 1
+                self.assertFalse(protocol._promote_selected(promote_at))
                 self.assertEqual(protocol.seat_lineup, [])
                 self.assertIsNone(protocol.selected_successor_term_id)
                 self.assertIsNone(
@@ -2719,7 +2774,7 @@ class ExitAndPremiumTests(unittest.TestCase):
             protocol, duty, at=duty.recovery_at + 2, tip=duty.target_tip
         )
         self.assertEqual(
-            protocol.preview_premium_cap(primary), duty.recovery_at + 2
+            protocol.preview_premium_cap(primary), duty.recovery_at
         )
 
 
@@ -2740,6 +2795,9 @@ class RingAndReclamationTests(unittest.TestCase):
                 closed_at=installed_at + index,
                 close_reason="SATISFIED",
                 term_removed_at=installed_at + index,
+                standby_lease_expires_at=(
+                    installed_at + protocol.maximum_standby_lease_seconds
+                ),
             )
             protocol._set_prospective_duty(
                 term.term_id,
@@ -3060,6 +3118,9 @@ class BoundaryAndAuthorityTests(unittest.TestCase):
             minimum_tenure_until=term.installed_at + 1_000,
             premium_funded_until=term.installed_at + 6_000,
             service_eligible_until=term.installed_at + 2_036,
+            standby_lease_expires_at=(
+                term.installed_at + protocol.maximum_standby_lease_seconds
+            ),
         )
         self.assertEqual(
             protocol.preview_premium_cap(term.term_id),
@@ -3101,7 +3162,7 @@ class BoundaryAndAuthorityTests(unittest.TestCase):
         self.assertEqual(protocol.seat_scan_count, 4)
         self.assertEqual(protocol.seat_scan_visits_total - before_visits, 4)
 
-    def test_migration_excuses_failover_selection_and_clears_record(self):
+    def test_migration_preserves_failed_over_duty_and_clears_selection(self):
         protocol = settlement.protocol(tip_slot=1_000, seat=False)
         primary = synthetic_term(1, settlement.GENESIS_TIMESTAMP + 1_000)
         standby = synthetic_term(2, primary.installed_at)
@@ -3125,7 +3186,7 @@ class BoundaryAndAuthorityTests(unittest.TestCase):
         self.assertIsNone(protocol.seat_selection)
         self.assertEqual(
             protocol.seat_duties[duty.duty_id].status,
-            settlement.DutyStatus.EXCUSED_MIGRATION,
+            settlement.DutyStatus.FAILED_OVER,
         )
 
     def test_selection_record_commitment_and_term_replay_are_fail_closed(self):
@@ -3296,6 +3357,7 @@ def migration_manager_fixture(*, seat=True):
         seat=seat,
         settlement_address=settlement_target,
     )
+    evolved_seat_generation = protocol.seat_generation
     profile = settlement.execution_profile_for_test(25, "profile:seat-v1")
     history = settlement.VersionedSettlementHistory(
         protocol.settlement_address,
@@ -3309,6 +3371,9 @@ def migration_manager_fixture(*, seat=True):
         live_protocol=protocol,
         inbox_apply_descriptor=protocol.inbox_apply_descriptor,
         header_oracle=protocol.header_oracle,
+        market_runtime_hash=settlement._model_fixed_bytes32(
+            "runtime:seat-v1"
+        ),
         execution_profile=profile,
     )
     protocol.versioned_history = history
@@ -3327,6 +3392,7 @@ def migration_manager_fixture(*, seat=True):
     bootstrap_proof = settlement.prepare_genesis_activation_for_test(
         router, history, bootstrap_clock
     )
+    protocol.seat_generation = 0
     if not router.bootstrap(
         history,
         sequence=0,
@@ -3335,6 +3401,7 @@ def migration_manager_fixture(*, seat=True):
         proof=bootstrap_proof,
     ):
         raise AssertionError("fixture did not bootstrap active router")
+    protocol.seat_generation = evolved_seat_generation
     manager = settlement.ProtocolVersionManager(
         address=addr("version-manager"),
         router=router,
@@ -3447,7 +3514,12 @@ def execute_manager_arm(manager, clock, *, executable_at=None):
             manifest,
             caller=manager.governance,
             clock=settlement.Clock(
-                max(0, clock.block_number - 1), manifest.scheduled_at
+                max(
+                    0,
+                    clock.block_number
+                    - settlement.BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
+                ),
+                manifest.scheduled_at,
             ),
         )
     return manager.arm_seat_migration(
@@ -3487,11 +3559,19 @@ def execute_manager_abort(manager, clock, *, executable_at=None):
 def production_migration_fixture(
     *, target_header_variant: str = "exact",
     source_bridge_descriptor=None,
+    evolve_after_genesis: bool = True,
+    preinstall_successor: bool = True,
+    register_successor_in_release_manager: bool = True,
 ):
     old_auth = authorization()
     old_protocol = settlement.protocol(
         tip_slot=1_000, seat=False, settlement_address=old_auth.target
     )
+    # Genesis activation must observe the fresh V2 seat namespace at its real
+    # constructor value.  Most migration tests then model later ordinary seat
+    # evolution by restoring the historical fixture generation.
+    evolved_generation = old_protocol.seat_generation
+    old_protocol.seat_generation = 0
     old_protocol.first_v2_block_number = 1
     old_profile = settlement.execution_profile_for_test(
         old_auth.protocol_version, "profile:seat-v1"
@@ -3508,7 +3588,9 @@ def production_migration_fixture(
         live_protocol=old_protocol,
         inbox_apply_descriptor=old_protocol.inbox_apply_descriptor,
         header_oracle=old_protocol.header_oracle,
-        market_runtime_hash=old_auth.runtime_hash,
+        market_runtime_hash=settlement._model_fixed_bytes32(
+            "runtime:seat-v1"
+        ),
         market_configuration_hash=old_auth.configuration_hash,
         market_magic=old_auth.expected_magic,
         execution_profile=old_profile,
@@ -3518,6 +3600,7 @@ def production_migration_fixture(
         old_profile.canonical_profile_bytes
     )
     profile_router = "0x" + profile_words[23][12:].hex()
+    profile_market = "0x" + profile_words[35][12:].hex()
     object.__setattr__(
         old_protocol.forced_queue, "router_address", profile_router
     )
@@ -3544,6 +3627,24 @@ def production_migration_fixture(
         caller=router.version_manager,
         proof=bootstrap_proof,
     )
+    if evolve_after_genesis:
+        old_protocol.seat_generation = evolved_generation
+    old_registration = router.registrations[router.active_version]
+    old_auth = replace(
+        old_auth,
+        runtime_hash=settlement._model_fixed_bytes32(
+            old_registration.runtime_hash
+        ),
+        target_manifest_hash=settlement._model_fixed_bytes32(
+            old_registration.release_manifest_hash
+        ),
+        target_registration_hash=settlement.target_registration_hash_v2(
+            old_registration
+        ),
+    )
+    object.__setattr__(
+        old_history, "market_runtime_hash", old_auth.runtime_hash
+    )
     release_manager = market.ReleaseManager(
         addr("release-manager"), activation_authority=router
     )
@@ -3552,15 +3653,15 @@ def production_migration_fixture(
         router,
         release_manager=release_manager,
         market_chain_id=1,
-        market_address=addr("market"),
+        market_address=profile_market,
     )
     old_runtime = market.TargetRuntime(old_auth, old_history)
     old_id = release_manager.register_router_target(
-        manager.address, 1, addr("market"), old_auth, old_runtime
+        manager.address, 1, profile_market, old_auth, old_runtime
     )
     seat_market = market.SeatMarket(
         market_chain_id=1,
-        market_address=addr("market"),
+        market_address=profile_market,
         sla_bond=1_000,
         immutable_maximum_ask=100,
         quote_maturity_seconds=10,
@@ -3572,10 +3673,26 @@ def production_migration_fixture(
         cached_generation=old_protocol.seat_generation,
         release_manager=release_manager,
         target_runtime=old_runtime,
+        protocol_version_manager_address=router.version_manager,
+        activation_router_address=router.address,
+        activation_router_runtime_hash=market._model_component_hash(
+            router.runtime_hash, "Router runtime"
+        ),
+        activation_router_configuration_hash=market._model_component_hash(
+            router.configuration_hash, "Router configuration"
+        ),
         seat_runway_seconds=old_protocol.seat_runway_seconds,
         handover_delay_seconds=settlement.HANDOVER_DELAY_SECONDS,
         stage_grace_seconds=settlement.STAGE_GRACE_SECONDS,
         maximum_inclusion_seconds=settlement.T_INCLUDE_MAX_SECONDS,
+        maximum_standby_lease_seconds=settlement.MAX_STANDBY_LEASE_SECONDS,
+        minimum_standby_tenure_seconds=(
+            settlement.MIN_STANDBY_TENURE_SECONDS
+        ),
+        minimum_ask_improvement_wei_per_second=(
+            settlement.MIN_ASK_IMPROVEMENT_WEI_PER_SECOND
+        ),
+        minimum_ask_improvement_bps=settlement.MIN_ASK_IMPROVEMENT_BPS,
     )
     old_protocol.bind_seat_market_for_test(seat_market)
 
@@ -3616,8 +3733,13 @@ def production_migration_fixture(
     )
     new_protocol.seat_generation = 0
     new_protocol.canonical = copy.deepcopy(old_protocol.canonical)
+    # Every release registered by this immutable PVM shares its protocol-root
+    # manifest namespace; a successor cannot mint a parallel release domain.
     new_profile = settlement.execution_profile_for_test(
-        new_auth.protocol_version, "profile:seat-v2"
+        new_auth.protocol_version, old_profile.namespace
+    )
+    new_profile = settlement.bind_execution_profile_to_router_graph_v2(
+        new_profile, router
     )
     new_history = settlement.VersionedSettlementHistory(
         new_auth.target,
@@ -3646,12 +3768,47 @@ def production_migration_fixture(
         ),
     )
     new_protocol.versioned_history = new_history
-    new_runtime = market.TargetRuntime(new_auth, new_history)
-    new_id = release_manager.register_router_target(
-        manager.address, 1, addr("market"), new_auth, new_runtime
+    new_registration = settlement.settlement_registration(
+        router,
+        new_history,
+        activation_block=0,
+        predecessor_version=old_history.protocol_version,
+        release_manifest_hash=None,
     )
+    new_auth = replace(
+        new_auth,
+        runtime_hash=settlement._model_fixed_bytes32(
+            new_registration.runtime_hash
+        ),
+        target_manifest_hash=settlement._model_fixed_bytes32(
+            new_registration.release_manifest_hash
+        ),
+        target_registration_hash=settlement.target_registration_hash_v2(
+            new_registration
+        ),
+    )
+    object.__setattr__(
+        new_history, "market_runtime_hash", new_auth.runtime_hash
+    )
+    new_runtime = market.TargetRuntime(new_auth, new_history)
+    new_id = market.authorization_identity(
+        1, profile_market, new_auth
+    )
+    if register_successor_in_release_manager:
+        self_registered_id = release_manager.register_router_target(
+            manager.address, 1, profile_market, new_auth, new_runtime
+        )
+        assert self_registered_id == new_id
+    if preinstall_successor:
+        if not register_successor_in_release_manager:
+            raise ValueError("legacy preinstall requires ReleaseManager registration")
+        seat_market._pvm_preinstall_authorization(release_manager, new_id)
     new_protocol.seat_authorization_id = new_id
-    new_protocol.seat_market_address = addr("market")
+    new_protocol.seat_market_address = profile_market
+    old_protocol.seat_authorization_id = old_id
+    old_protocol.seat_market_address = profile_market
+    assert router._seat_authorization_id_v1(old_registration) == old_id
+    assert router._seat_authorization_id_v1(new_registration) == new_id
     return (
         old_protocol, old_history, new_history, seat_market, manager,
         release_manager, old_id, new_id,
@@ -3661,7 +3818,10 @@ def production_migration_fixture(
 def protocol_authority_fixture():
     """Exact delayed PVM/Router/Market/Schedule journal fixture."""
 
-    rows = production_migration_fixture()
+    rows = production_migration_fixture(
+        preinstall_successor=False,
+        register_successor_in_release_manager=False,
+    )
     router = rows[4].router
     witness = settlement.settlement_registration(
         router,
@@ -3690,25 +3850,80 @@ def protocol_authority_fixture():
         witness.settlement, "market_configuration_hash",
         decoded.target_configuration_hash,
     )
+    object.__setattr__(
+        witness.settlement,
+        "settlement_deployment_descriptor",
+        settlement.settlement_deployment_descriptor_from_profile_v2(
+            witness.execution_profile
+        ),
+    )
     if witness.settlement.live_protocol is not None:
         object.__setattr__(
             witness.settlement.live_protocol, "settlement_address",
             witness.settlement.address,
         )
+    # Retain the exact live deployment witness, rather than the pre-CREATE2
+    # object snapshot used only to derive the payload bytes.
+    witness = settlement.settlement_registration(
+        router,
+        witness.settlement,
+        activation_block=0,
+        predecessor_version=router.active_version,
+        release_manifest_hash=decoded.release_manifest_hash,
+    )
+    assert settlement.encode_register_release_payload_for_registration_v1(
+        witness
+    ) == payload
     pvm_address = router.version_manager
     profile_words = settlement._execution_profile_abi_words_v2(
         decoded.profile_bytes
     )
+    pvm_authorization = market.TargetAuthorization(
+        witness.settlement.address,
+        int.from_bytes(profile_words[2], "big"),
+        witness.settlement.protocol_version,
+        decoded.target_runtime_hash,
+        decoded.target_configuration_hash,
+        b"SEAT",
+        decoded.release_manifest_hash,
+        decoded.target_registration_hash,
+    )
+    pvm_authorization_id = market.authorization_identity(
+        int.from_bytes(profile_words[2], "big"),
+        "0x" + profile_words[35][12:].hex(),
+        pvm_authorization,
+    )
+    witness.settlement.live_protocol.seat_authorization_id = (
+        pvm_authorization_id
+    )
+    witness.settlement.live_protocol.seat_market_address = (
+        "0x" + profile_words[35][12:].hex()
+    )
+    witness = settlement.settlement_registration(
+        router,
+        witness.settlement,
+        activation_block=0,
+        predecessor_version=router.active_version,
+        release_manifest_hash=decoded.release_manifest_hash,
+    )
+    assert settlement.encode_register_release_payload_for_registration_v1(
+        witness
+    ) == payload
     market_authority = settlement.PvmDerivedMarketAuthorizationV1(
         int.from_bytes(profile_words[2], "big"),
         "0x" + profile_words[35][12:].hex(), pvm_address,
         int.from_bytes(profile_words[2], "big"), router.address,
-        profile_words[36],
+        profile_words[36], profile_words[37],
+        storage_backend=rows[3],
     )
     schedule_oracle = settlement.ScheduleOracleV1(
         "0x" + profile_words[32][12:].hex(), pvm_address,
         current_window=100,
     )
+    # The production authority graph has exactly one PVM.  The nested fixture
+    # used an older manager only to construct the already-active predecessor;
+    # retire that test scaffold before binding the delayed PVMv1.
+    object.__setattr__(router, "_version_manager_authority", None)
     manager = settlement.ProtocolVersionManagerV1(
         pvm_address,
         int.from_bytes(profile_words[2], "big"),
@@ -3733,6 +3948,9 @@ def protocol_authority_fixture():
         release_witnesses={witness.settlement.protocol_version: witness},
         schedule_oracle=schedule_oracle,
     )
+    support_registry = router._bridge_domain_registry_authority
+    if type(support_registry) is settlement.BridgeDomainRegistry:
+        object.__setattr__(support_registry, "manager", manager)
     timelock = settlement.ProtocolChangeTimelockV1(
         manager.timelock_address, manager.settlement_chain_id,
         "0x" + profile_words[19][12:].hex(), manager, profile_words[17],
@@ -3772,11 +3990,28 @@ def genesis_protocol_authority_fixture():
         witness.settlement, "market_configuration_hash",
         decoded.target_configuration_hash,
     )
+    object.__setattr__(
+        witness.settlement,
+        "settlement_deployment_descriptor",
+        settlement.settlement_deployment_descriptor_from_profile_v2(
+            witness.execution_profile
+        ),
+    )
     if witness.settlement.live_protocol is not None:
         object.__setattr__(
             witness.settlement.live_protocol, "settlement_address",
             witness.settlement.address,
         )
+    witness = settlement.settlement_registration(
+        router,
+        witness.settlement,
+        activation_block=0,
+        predecessor_version=0,
+        release_manifest_hash=decoded.release_manifest_hash,
+    )
+    assert settlement.encode_register_release_payload_for_registration_v1(
+        witness
+    ) == payload
     pvm_address = router.version_manager
     profile_words = settlement._execution_profile_abi_words_v2(
         decoded.profile_bytes
@@ -3785,12 +4020,13 @@ def genesis_protocol_authority_fixture():
         int.from_bytes(profile_words[2], "big"),
         "0x" + profile_words[35][12:].hex(), pvm_address,
         int.from_bytes(profile_words[2], "big"), router.address,
-        profile_words[36],
+        profile_words[36], profile_words[37],
     )
     schedule_oracle = settlement.ScheduleOracleV1(
         "0x" + profile_words[32][12:].hex(), pvm_address,
         current_window=100,
     )
+    object.__setattr__(router, "_version_manager_authority", None)
     manager = settlement.ProtocolVersionManagerV1(
         pvm_address, int.from_bytes(profile_words[2], "big"),
         "0x" + profile_words[16][12:].hex(), router.address,
@@ -3809,6 +4045,9 @@ def genesis_protocol_authority_fixture():
         release_witnesses={history.protocol_version: witness},
         schedule_oracle=schedule_oracle,
     )
+    support_registry = router._bridge_domain_registry_authority
+    if type(support_registry) is settlement.BridgeDomainRegistry:
+        object.__setattr__(support_registry, "manager", manager)
     timelock = settlement.ProtocolChangeTimelockV1(
         manager.timelock_address, manager.settlement_chain_id,
         "0x" + profile_words[19][12:].hex(), manager, profile_words[17],
@@ -3859,7 +4098,12 @@ def prepare_production_activation(rows, *, clock=None):
         manifest,
         caller=manager.governance,
         clock=settlement.Clock(
-            max(0, arm_clock.block_number - 1), manifest.scheduled_at
+            max(
+                0,
+                arm_clock.block_number
+                - settlement.BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
+            ),
+            manifest.scheduled_at,
         ),
     )
     manager.arm_seat_migration(
@@ -3895,6 +4139,39 @@ def prepare_production_activation(rows, *, clock=None):
         rows=inbox_rows,
     )
     return manifest, proof
+
+
+def schedule_production_bridge_package(rows, *, arm_clock, staged_block):
+    """Stage the exact successor package without arming migration."""
+
+    (
+        _old_protocol, old_history, new_history, _seat_market, manager,
+        _release_manager, old_id, new_id,
+    ) = rows
+    target_registration = settlement.settlement_registration(
+        manager.router,
+        new_history,
+        activation_block=arm_clock.block_number + 1,
+        predecessor_version=old_history.protocol_version,
+        release_manifest_hash=None,
+    )
+    manifest = settlement.ScheduledSeatMigration(
+        1,
+        old_history.protocol_version,
+        new_history.protocol_version,
+        target_registration.release_manifest_hash,
+        arm_clock.timestamp - settlement.SEAT_MIGRATION_MANIFEST_DELAY,
+        arm_clock.timestamp,
+        old_id,
+        new_id,
+        settlement.target_registration_hash_v2(target_registration),
+    )
+    manager.schedule_seat_migration(
+        manifest,
+        caller=manager.governance,
+        clock=settlement.Clock(staged_block, manifest.scheduled_at),
+    )
+    return manifest, target_registration
 
 
 def migration_proof_clock(proof):
@@ -3954,8 +4231,13 @@ def register_production_successor(rows, *, label: str, protocol_version: int):
     )
     new_protocol.seat_generation = 0
     new_protocol.canonical = copy.deepcopy(old_protocol.canonical)
+    # Successors remain inside the protocol-root manifest namespace.  The
+    # immutable PVM rejects an alternate namespace before registration.
     new_profile = settlement.execution_profile_for_test(
-        protocol_version, f"profile:{label}"
+        protocol_version, old_history.execution_profile.namespace
+    )
+    new_profile = settlement.bind_execution_profile_to_router_graph_v2(
+        new_profile, manager.router
     )
     new_history = settlement.VersionedSettlementHistory(
         new_auth.target,
@@ -3983,6 +4265,26 @@ def register_production_successor(rows, *, label: str, protocol_version: int):
         ),
     )
     new_protocol.versioned_history = new_history
+    preview = settlement.settlement_registration(
+        manager.router,
+        new_history,
+        activation_block=0,
+        predecessor_version=old_history.protocol_version,
+        release_manifest_hash=None,
+    )
+    new_auth = replace(
+        new_auth,
+        runtime_hash=settlement._model_fixed_bytes32(preview.runtime_hash),
+        target_manifest_hash=settlement._model_fixed_bytes32(
+            preview.release_manifest_hash
+        ),
+        target_registration_hash=settlement.target_registration_hash_v2(
+            preview
+        ),
+    )
+    object.__setattr__(
+        new_history, "market_runtime_hash", new_auth.runtime_hash
+    )
     runtime = market.TargetRuntime(new_auth, new_history)
     authorization_id = release_manager.register_router_target(
         manager.address,
@@ -3991,8 +4293,10 @@ def register_production_successor(rows, *, label: str, protocol_version: int):
         new_auth,
         runtime,
     )
+    rows[3]._pvm_preinstall_authorization(release_manager, authorization_id)
     new_protocol.seat_authorization_id = authorization_id
     new_protocol.seat_market_address = manager.market_address
+    assert manager.router._seat_authorization_id_v1(preview) == authorization_id
     return new_history, authorization_id
 
 
@@ -4041,7 +4345,12 @@ def activate_registered_successor(
         manifest,
         caller=manager.governance,
         clock=settlement.Clock(
-            max(0, clock.block_number - 1), manifest.scheduled_at
+            max(
+                0,
+                clock.block_number
+                    - settlement.BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
+            ),
+            manifest.scheduled_at,
         ),
     )
     manager.arm_seat_migration(
@@ -4136,7 +4445,12 @@ def abort_current_migration_generation(rows, *, target_version: int, manifest_by
         arm,
         caller=manager.governance,
         clock=settlement.Clock(
-            max(0, clock.block_number - 1), arm.scheduled_at
+            max(
+                0,
+                clock.block_number
+                    - settlement.BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
+            ),
+            arm.scheduled_at,
         ),
     )
     manager.arm_seat_migration(
@@ -4383,21 +4697,13 @@ class ForcedIngressRouterTests(unittest.TestCase):
         migration_before = migration_queue._transaction_snapshot()
         self.assertFalse(
             migration_queue._migrate_from_router(
-                expected_old=rows[1].address,
-                expected_new=rows[2].address,
-                expected_start=proof.start_cursor,
-                expected_end=proof.end_cursor,
-                beneficiary=proof.beneficiary,
+                bytes(),
                 router=rows[4].router,
             )
         )
         self.assertFalse(
             migration_queue._migrate_from_router(
-                expected_old=rows[1].address,
-                expected_new=rows[2].address,
-                expected_start=proof.start_cursor,
-                expected_end=proof.end_cursor,
-                beneficiary=addr("attacker"),
+                b"forged-qmig-calldata",
                 router=rows[4].router,
             )
         )
@@ -5379,7 +5685,12 @@ class ForcedIngressRouterTests(unittest.TestCase):
         bridge = self.source_bridge
         clock = bridge.support_final_clock(self.clock.timestamp)
         support = bridge.domain_registry.latest_final_entry(
-            self.destination_manifest.destination_chain_id, clock
+            bridge.source_domain_id,
+            bridge.frozen_bridge_execution_hash,
+            self.destination_manifest.destination_chain_id,
+            clock,
+            source_bridge=bridge.address,
+            caller=bridge.address,
         )
         self.assertIsNotNone(support)
         denyset = (
@@ -5850,8 +6161,10 @@ class ForcedIngressRouterTests(unittest.TestCase):
             self.source_bridge.address, legacy_v1["source_address"]
         )
         self.assertEqual(
-            self.source_bridge.source_descriptor.legacy_v1_bridge,
-            legacy_v1["source_address"],
+            settlement._model_address20(
+                self.source_bridge.source_descriptor.legacy_v1_bridge
+            ),
+            settlement._model_address20(legacy_v1["source_address"]),
         )
         self.assertNotEqual(
             self.destination_bridge.address,
@@ -6510,7 +6823,12 @@ class ForcedIngressRouterTests(unittest.TestCase):
         self.assertNotEqual(
             release.destination_domain_id, successor.destination_domain_id
         )
-        same_bridge = settlement.release_manifest_fixture(
+        self.assertNotEqual(release.components[2], successor.components[2])
+        self.assertNotEqual(
+            release.execution_profile.canonical_profile_bytes,
+            successor.execution_profile.canonical_profile_bytes,
+        )
+        second_successor = settlement.release_manifest_fixture(
             release.protocol_version + 2,
             release.destination_domain_id,
             release.destination_bridge,
@@ -6521,9 +6839,16 @@ class ForcedIngressRouterTests(unittest.TestCase):
             ),
             router=self.router,
         )
-        self.assertFalse(
+        self.assertNotEqual(
+            release.destination_bridge, second_successor.destination_bridge
+        )
+        self.assertNotEqual(
+            release.destination_domain_id,
+            second_successor.destination_domain_id,
+        )
+        self.assertTrue(
             settlement.historical_v2_privileged_policy_compatible(
-                release, same_bridge,
+                release, second_successor,
             )
         )
 
@@ -7355,8 +7680,8 @@ class ForcedIngressRouterTests(unittest.TestCase):
             )
         self.assertEqual(bridge._transaction_snapshot(), before)
 
-    def test_same_address_cross_chain_graphs_are_storage_and_balance_separate(self):
-        self.assertEqual(
+    def test_cross_chain_graphs_are_storage_and_balance_separate(self):
+        self.assertNotEqual(
             self.source_bridge.address, self.destination_bridge.address
         )
         self.assertNotEqual(
@@ -7393,7 +7718,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
                 privileged_target_denyset=("attacker",),
             ),
         ).structurally_valid())
-        same_authority = settlement.release_manifest_fixture(
+        fresh_successor = settlement.release_manifest_fixture(
             79,
             self.destination_manifest.destination_domain_id,
             self.destination_manifest.destination_bridge,
@@ -7404,17 +7729,17 @@ class ForcedIngressRouterTests(unittest.TestCase):
             ),
             router=self.router,
         )
-        self.assertFalse(
+        self.assertTrue(
             settlement.historical_v2_privileged_policy_compatible(
-                self.destination_manifest, same_authority
+                self.destination_manifest, fresh_successor
             )
         )
         added_future_privilege = replace(
-            same_authority,
+            fresh_successor,
             destination_bridge_descriptor=replace(
-                same_authority.destination_bridge_descriptor,
+                fresh_successor.destination_bridge_descriptor,
                 privileged_target_denyset=(
-                    *same_authority.destination_bridge_descriptor
+                    *fresh_successor.destination_bridge_descriptor
                         .privileged_target_denyset,
                     addr("future-endpoint"),
                 ),
@@ -8739,6 +9064,286 @@ class L1L2ExecutionBoundaryTests(unittest.TestCase):
 
 
 class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
+    def test_market_genesis_bootstraps_from_zero_key_router_receipt_atomically(self):
+        rows = production_migration_fixture(evolve_after_genesis=False)
+        old_protocol, _old_history, _new_history, live_market, manager = rows[:5]
+        release_manager, old_id = rows[5], rows[6]
+        router = manager.router
+
+        def pending_market(*, forced_surplus: int = 0):
+            result = market.SeatMarket(
+                market_chain_id=live_market.market_chain_id,
+                market_address=live_market.market_address,
+                sla_bond=live_market.sla_bond,
+                immutable_maximum_ask=live_market.immutable_maximum_ask,
+                quote_maturity_seconds=live_market.quote_maturity_seconds,
+                quote_maturity_blocks=live_market.quote_maturity_blocks,
+                exit_delay_seconds=live_market.exit_delay_seconds,
+                penalty_sink=addr("penalty"),
+                authorization=None,
+                insertion_enabled=False,
+                cached_generation=None,
+                release_manager=release_manager,
+                target_runtime=None,
+                genesis_pending=True,
+                activation_router_address=router.address,
+                activation_router_runtime_hash=market._model_component_hash(
+                    router.runtime_hash, "Router runtime"
+                ),
+                activation_router_configuration_hash=(
+                    market._model_component_hash(
+                        router.configuration_hash, "Router configuration"
+                    )
+                ),
+                seat_runway_seconds=old_protocol.seat_runway_seconds,
+                handover_delay_seconds=settlement.HANDOVER_DELAY_SECONDS,
+                stage_grace_seconds=settlement.STAGE_GRACE_SECONDS,
+                maximum_inclusion_seconds=settlement.T_INCLUDE_MAX_SECONDS,
+                maximum_standby_lease_seconds=(
+                    settlement.MAX_STANDBY_LEASE_SECONDS
+                ),
+                minimum_standby_tenure_seconds=(
+                    settlement.MIN_STANDBY_TENURE_SECONDS
+                ),
+                minimum_ask_improvement_wei_per_second=(
+                    settlement.MIN_ASK_IMPROVEMENT_WEI_PER_SECOND
+                ),
+                minimum_ask_improvement_bps=(
+                    settlement.MIN_ASK_IMPROVEMENT_BPS
+                ),
+            )
+            # Model an involuntary SELFDESTRUCT transfer: no Market entrypoint
+            # executes, so only the account balance changes.
+            result.actual_balance += forced_surplus
+            result.assert_valid()
+            result._pvm_preinstall_authorization(release_manager, old_id)
+            return result
+
+        bootstrapped = pending_market(forced_surplus=777)
+        receipt = market.decode_market_rotation_receipt_v1(
+            bootstrapped.rotate_settlement_authorization_v1(
+                market.Clock(2_000, settlement.GENESIS_TIMESTAMP + 2_000)
+            )
+        )
+        self.assertIs(receipt.result, market.MarketRotationResult.BOOTSTRAPPED)
+        self.assertEqual(receipt.old_authorization_id, market.ZERO_BYTES32)
+        self.assertEqual(receipt.new_authorization_id, old_id)
+        self.assertEqual(bootstrapped.current_authorization_id, old_id)
+        self.assertTrue(bootstrapped.authorization_enabled[old_id])
+        self.assertTrue(bootstrapped.bootstrap_complete)
+        self.assertEqual(bootstrapped.actual_balance, 777)
+        self.assertEqual(bootstrapped.accounting.accounted_balance, 0)
+        bootstrapped.sync_seat_generation()
+        with self.assertRaises(market.TransitionRejected):
+            bootstrapped.rotate_settlement_authorization_v1(
+                market.Clock(2_001, settlement.GENESIS_TIMESTAMP + 2_001)
+            )
+
+        for fault in (
+            "after_new_target_enablement", "after_generation_cache_reset",
+            "after_current_target_update", "after_activation_receipt_consumption",
+        ):
+            candidate = pending_market()
+            before = copy.deepcopy(candidate)
+            candidate.fault_point = fault
+            with self.assertRaises(RuntimeError, msg=fault):
+                candidate.rotate_settlement_authorization_v1(
+                    market.Clock(2_000, settlement.GENESIS_TIMESTAMP + 2_000)
+                )
+            candidate.fault_point = None
+            before.fault_point = None
+            self.assertEqual(candidate, before)
+
+    def test_genesis_nonzero_seat_namespace_reverts_the_complete_graph(self):
+        protocol, history, router, landing = unactivated_genesis_fixture(
+            suffix="nonzero-seat-namespace"
+        )
+        proof = settlement.prepare_genesis_activation_for_test(
+            router, history, landing
+        )
+        protocol.seat_generation = 7
+
+        def projection():
+            return (
+                copy.deepcopy(protocol),
+                copy.deepcopy({
+                    key: value for key, value in history.__dict__.items()
+                    if key not in {
+                        "forced_queue", "inbox_apply_descriptor",
+                        "migration_gate", "live_protocol", "_router_authority",
+                    }
+                }),
+                router.forced_queue._transaction_snapshot(),
+                copy.deepcopy(router.legacy_launch_hook.legacy_launch_state_v1()),
+                router.active_version,
+                tuple(router.registrations),
+                router.activation_successor_index_v1,
+                copy.deepcopy(router.activation_receipt_rows_v1),
+                copy.deepcopy(router.seat_successor_rows_v1),
+                router.genesis_activation_receipt,
+                tuple(router.genesis_activation_trace),
+                router.migration_lifecycle,
+            )
+
+        before = projection()
+        self.assertFalse(router.bootstrap(
+            history, sequence=0, clock=landing,
+            caller=router.version_manager, proof=proof,
+        ))
+        self.assertEqual(projection(), before)
+        self.assertNotIn(bytes(32), router.seat_successor_rows_v1)
+        self.assertEqual(router.activation_receipt_rows_v1, {})
+
+    def test_router_configuration_hash_binds_complete_acyclic_deployment_graph(self):
+        rows = production_migration_fixture()
+        router = rows[4].router
+        descriptor = router.inbox_apply_descriptor
+        legacy = router.legacy_launch_hook.resume_descriptor_fixture
+        self.assertIsNotNone(legacy)
+        inbox_hash = settlement.inbox_apply_deployment_descriptor_hash_v1(
+            address=descriptor.address,
+            registrar_address=descriptor.registrar_address,
+            runtime_hash=descriptor.runtime_hash,
+            configuration_hash=descriptor.configuration_hash,
+        )
+        legacy_hash = settlement.legacy_bootstrap_descriptor_hash_v1(
+            proxy_address=legacy.inbox_proxy,
+            proxy_runtime_hash=legacy.inbox_proxy_runtime_hash,
+            implementation_address=legacy.inbox_implementation,
+            implementation_runtime_hash=legacy.inbox_implementation_runtime_hash,
+            inbox_configuration_hash=settlement.legacy_inbox_configuration_hash_v1(
+                legacy.inbox_config
+            ),
+        )
+        first_supported = router.header_oracle.first_supported_block
+        arguments = dict(
+            settlement_chain_context_id=router.settlement_chain_context_id,
+            version_manager=router.version_manager,
+            version_manager_runtime_hash=router.version_manager_runtime_hash,
+            forced_queue_address=router.forced_queue.address,
+            forced_queue_runtime_hash=router.forced_queue.runtime_hash,
+            forced_queue_configuration_hash=router.forced_queue.config_hash,
+            builder_registry_address=router.builder_registry_id,
+            schedule_oracle_address=router.schedule_oracle_id,
+            router_namespace=router.router_namespace,
+            inbox_apply_descriptor_hash=inbox_hash,
+            l1_history_first_supported_block=first_supported,
+            l1_history_read_configuration_hash=(
+                settlement.eip2935_read_configuration_hash_v1(first_supported)
+            ),
+            legacy_bootstrap_descriptor_hash=legacy_hash,
+        )
+        expected = settlement.active_settlement_router_configuration_hash_v2(
+            **arguments
+        )
+        self.assertEqual(
+            settlement._model_fixed_bytes32(router.configuration_hash), expected
+        )
+        active_registration = router.registrations[router.active_version]
+        active_profile = active_registration.execution_profile
+        profile_words = settlement._execution_profile_abi_words_v2(
+            active_profile.canonical_profile_bytes
+        )
+        self.assertEqual(profile_words[20], settlement._abi_address_word(
+            router.version_manager
+        ))
+        self.assertEqual(profile_words[23], settlement._abi_address_word(
+            router.address
+        ))
+        self.assertEqual(profile_words[25], expected)
+        self.assertEqual(profile_words[26], settlement._abi_address_word(
+            router.forced_queue.address
+        ))
+
+        stale_profile = settlement.execution_profile_for_test(
+            active_profile.protocol_version, "profile:stale-router-binding"
+        )
+        history = active_registration.settlement
+        try:
+            object.__setattr__(history, "execution_profile", stale_profile)
+            object.__setattr__(
+                history, "execution_profile_hash",
+                stale_profile.execution_profile_hash,
+            )
+            with self.assertRaisesRegex(ValueError, "live Router graph"):
+                settlement.settlement_registration(
+                    router,
+                    history,
+                    activation_block=history.last_canonical_l1_block,
+                    predecessor_version=0,
+                    release_manifest_hash=active_registration.release_manifest_hash,
+                )
+        finally:
+            object.__setattr__(history, "execution_profile", active_profile)
+            object.__setattr__(
+                history, "execution_profile_hash",
+                active_profile.execution_profile_hash,
+            )
+
+        for field_name, value in arguments.items():
+            mutated = dict(arguments)
+            if type(value) is int:
+                replacement = value + 1
+            elif type(value) is bytes:
+                replacement = bytes([value[0] ^ 1]) + value[1:]
+            elif "address" in field_name or field_name == "version_manager":
+                replacement = addr(f"mut-{len(field_name)}")
+            else:
+                replacement = value + ":mutated"
+            mutated[field_name] = replacement
+            with self.subTest(outer=field_name):
+                self.assertNotEqual(
+                    settlement.active_settlement_router_configuration_hash_v2(
+                        **mutated
+                    ),
+                    expected,
+                )
+
+        inbox_leaves = dict(
+            address=descriptor.address,
+            registrar_address=descriptor.registrar_address,
+            runtime_hash=descriptor.runtime_hash,
+            configuration_hash=descriptor.configuration_hash,
+        )
+        for field_name, value in inbox_leaves.items():
+            mutated = dict(inbox_leaves)
+            mutated[field_name] = (
+                addr(f"inbox-mut-{len(field_name)}")
+                if "address" in field_name else value + ":mutated"
+            )
+            with self.subTest(inbox=field_name):
+                self.assertNotEqual(
+                    settlement.inbox_apply_deployment_descriptor_hash_v1(
+                        **mutated
+                    ),
+                    inbox_hash,
+                )
+
+        legacy_leaves = dict(
+            proxy_address=legacy.inbox_proxy,
+            proxy_runtime_hash=legacy.inbox_proxy_runtime_hash,
+            implementation_address=legacy.inbox_implementation,
+            implementation_runtime_hash=legacy.inbox_implementation_runtime_hash,
+            inbox_configuration_hash=settlement.legacy_inbox_configuration_hash_v1(
+                legacy.inbox_config
+            ),
+        )
+        for field_name, value in legacy_leaves.items():
+            mutated = dict(legacy_leaves)
+            mutated[field_name] = (
+                addr(f"legacy-mut-{len(field_name)}")
+                if "address" in field_name
+                else (
+                    bytes([value[0] ^ 1]) + value[1:]
+                    if type(value) is bytes else value + ":mutated"
+                )
+            )
+            with self.subTest(legacy=field_name):
+                self.assertNotEqual(
+                    settlement.legacy_bootstrap_descriptor_hash_v1(**mutated),
+                    legacy_hash,
+                )
+
     def test_migration_output_is_verifier_issued_and_observed_prestate_bound(self):
         rows = production_migration_fixture()
         _old, _history, target, _market, manager = rows[:5]
@@ -10717,6 +11322,9 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             migration_gate=protocol.migration_gate,
             inbox_apply_descriptor=protocol.inbox_apply_descriptor,
             header_oracle=protocol.header_oracle,
+            market_runtime_hash=settlement._model_fixed_bytes32(
+                "runtime:replace-target"
+            ),
             execution_profile=replacement_profile,
             release_profile_ingress_specs=
                 original.release_profile_ingress_specs,
@@ -10810,6 +11418,7 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
         base = dict(
             transition_kind="GENESIS_IMPORT",
             router_generation=1,
+            seat_generation=0,
             source_protocol_version=0,
             target_protocol_version=1,
             target_manifest_hash=b"m" * 32,
@@ -10832,6 +11441,12 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             queue_post_accounted_liability_wei=0,
             queue_post_total_claimable_wei=0,
             beneficiary=addr("beneficiary"),
+            settlement_chain_id=1,
+            router_address=addr("router"),
+            source_manifest_hash=b"l" * 32,
+            base_canonical_hash=b"h" * 32,
+            statement_hash=b"t" * 32,
+            source_poststate_commitment=b"p" * 32,
         )
         exact = settlement.MigrationCanonicalContextV2(
             source_canonical_sequence=0, **base
@@ -10845,12 +11460,101 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
         self.assertEqual(len(exact.target_return), 96)
         self.assertEqual(len(exact.queue_return), 128)
         self.assertEqual(len(exact.maps_return), 128)
+        self.assertEqual(len(exact.adopt_calldata), 580)
+        self.assertEqual(len(exact.freeze_calldata), 36)
+        self.assertEqual(len(exact.queue_calldata), 260)
+        self.assertEqual(len(exact.maps_calldata), 36)
+        exact_core = commitment.CanonicalCoreV2(
+            core.l2_block_number,
+            settlement._model_fixed_bytes32(core.tip_hash),
+            core.tip_slot,
+            settlement._model_fixed_bytes32(core.state_root),
+            core.message_cursor,
+            settlement._model_fixed_bytes32(core.winning_data_commitment),
+            core.next_base_fee,
+            core.next_excess_blob_gas,
+            settlement._model_fixed_bytes32(core.terminal_root),
+            core.terminal_count,
+        )
+        expected_context_hash = commitment.migration_activation_context_hash(
+            exact.settlement_chain_id,
+            int(exact.router_address, 16),
+            1,
+            exact.router_generation,
+            exact.seat_generation,
+            exact.source_protocol_version,
+            exact.target_protocol_version,
+            exact.source_manifest_hash,
+            exact.target_manifest_hash,
+            exact.target_registration_hash,
+            int(exact.source_settlement, 16),
+            int(exact.target_settlement, 16),
+            exact.source_canonical_sequence,
+            exact.base_canonical_hash,
+            exact.statement_hash,
+            settlement._model_fixed_bytes32(exact.candidate_digest),
+            exact_core,
+            int(exact.queue_address, 16),
+            settlement._model_fixed_bytes32(exact.queue_root),
+            exact.queue_count,
+            exact.queue_start,
+            exact.queue_end,
+            int(exact.beneficiary, 16),
+            exact.canonicalized_at_block,
+        )
+        self.assertEqual(exact.commitment, expected_context_hash)
+        self.assertEqual(
+            exact.adopt_calldata,
+            commitment.encode_adopt_migration_canonical_calldata(
+                1, exact.router_generation, exact.seat_generation,
+                exact.source_protocol_version, exact.target_protocol_version,
+                exact.source_canonical_sequence, exact.target_manifest_hash,
+                settlement._model_fixed_bytes32(exact.candidate_digest),
+                exact_core,
+            ),
+        )
+        self.assertEqual(
+            exact.queue_calldata,
+            commitment.encode_queue_migration_calldata(
+                exact.commitment, int(exact.source_settlement, 16),
+                int(exact.target_settlement, 16),
+                settlement._model_fixed_bytes32(exact.queue_root),
+                exact.queue_count, exact.queue_start, exact.queue_end,
+                int(exact.beneficiary, 16),
+            ),
+        )
+        self.assertNotEqual(
+            replace(exact, router_generation=2).commitment,
+            exact.commitment,
+        )
         for invalid_source_sequence in (-1, 1):
             with self.assertRaises(ValueError):
                 settlement.MigrationCanonicalContextV2(
                     source_canonical_sequence=invalid_source_sequence,
                     **base,
                 )
+        with self.assertRaises(ValueError):
+            settlement.MigrationCanonicalContextV2(
+                source_canonical_sequence=0,
+                **{**base, "seat_generation": 1},
+            )
+        migration = {
+            **base,
+            "transition_kind": "VERSION_MIGRATION",
+            "source_checkpoint_id": bytes(32),
+            "source_boundary_hash": bytes(32),
+            "source_canonical_sequence": 1,
+            "target_canonical_sequence": 2,
+            "source_poststate_commitment": bytes(32),
+        }
+        with self.assertRaises(ValueError):
+            settlement.MigrationCanonicalContextV2(**migration)
+        self.assertEqual(
+            settlement.MigrationCanonicalContextV2(
+                **{**migration, "seat_generation": 2}
+            ).seat_generation,
+            2,
+        )
 
     @staticmethod
     def _stage_old_target(rows):
@@ -10870,50 +11574,59 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
         )
         return staged.stage.stage_id, staged.stage.lineup_commitment
 
-    def test_rotation_authenticates_and_atomically_acks_old_tombstone(self):
-        for fault in (
-            "after_migration_stage_cancellation",
-            "after_migration_tombstone_ack",
-        ):
-            rows = production_migration_fixture()
-            stage_id, lineup = self._stage_old_target(rows)
-            old_protocol, old_history, _new_history, seat_market = rows[:4]
-            receipt = activate_production_fixture(rows)
-            tombstone = old_protocol.stage_tombstones[stage_id]
-            self.assertTrue(tombstone.migration_terminal)
-            self.assertFalse(tombstone.reconciled)
-            self.assertIsNotNone(seat_market.stage)
-            with self.assertRaises(ValueError):
-                old_protocol.reconcile_stage_invalidation(
-                    seat_market,
-                    stage_id,
-                    lineup,
-                    settlement.Clock(1_001, settlement.GENESIS_TIMESTAMP + 1_001),
-                )
-            manager = rows[5]
-            runtime = seat_market.target_runtimes[receipt.old_authorization_id]
-            seat_market.fault_point = fault
-            market_before = copy.deepcopy(seat_market)
-            with self.assertRaises(RuntimeError):
-                manager.execute_rotation(
-                    seat_market,
-                    receipt.key,
-                    market.Clock(2_001, settlement.GENESIS_TIMESTAMP + 2_001),
-                )
-            self.assertEqual(seat_market, market_before)
-            self.assertFalse(old_protocol.stage_tombstones[stage_id].reconciled)
-            self.assertEqual(old_protocol.outstanding_stage_tombstone_id, stage_id)
-            self.assertIs(seat_market.release_manager, manager)
-            self.assertIs(runtime.authority, old_history)
-            seat_market.fault_point = None
-            manager.execute_rotation(
-                seat_market,
-                receipt.key,
-                market.Clock(2_002, settlement.GENESIS_TIMESTAMP + 2_002),
+    def test_rotation_requires_separate_frozen_tombstone_reconciliation(self):
+        rows = production_migration_fixture()
+        stage_id, lineup = self._stage_old_target(rows)
+        old_protocol, old_history, _new_history, seat_market = rows[:4]
+        receipt = activate_production_fixture(rows)
+        seat_manager = rows[4]
+        manager = rows[5]
+        tombstone = old_protocol.stage_tombstones[stage_id]
+        self.assertTrue(tombstone.migration_terminal)
+        self.assertFalse(tombstone.reconciled)
+        self.assertIsNotNone(seat_market.stage)
+
+        # Rotation cannot silently absorb a Settlement-to-Market cancellation.
+        # Its failed attempt is byte-identical in both components.
+        market_before = copy.deepcopy(seat_market)
+        graph_before = migration_graph_projection(old_protocol, seat_manager)
+        blocked = market.decode_market_rotation_receipt_v1(
+            seat_market.rotate_settlement_authorization_v1(
+                market.Clock(2_001, settlement.GENESIS_TIMESTAMP + 2_001),
             )
-            self.assertTrue(old_protocol.stage_tombstones[stage_id].reconciled)
-            self.assertIsNone(old_protocol.outstanding_stage_tombstone_id)
-            self.assertIsNone(seat_market.stage)
+        )
+        self.assertIs(
+            blocked.result, market.MarketRotationResult.RECONCILIATION_REQUIRED
+        )
+        self.assertEqual(blocked.blocking_stage_id, stage_id)
+        self.assertEqual(seat_market, market_before)
+        self.assertEqual(
+            migration_graph_projection(old_protocol, seat_manager), graph_before
+        )
+
+        result = old_protocol.reconcile_stage_invalidation(
+            seat_market,
+            stage_id,
+            lineup,
+            settlement.Clock(2_002, settlement.GENESIS_TIMESTAMP + 2_002),
+        )
+        self.assertIsNotNone(result.credit_id)
+        self.assertTrue(tombstone.reconciled)
+        self.assertIsNone(old_protocol.outstanding_stage_tombstone_id)
+        self.assertIsNone(seat_market.stage)
+
+        runtime = seat_market.target_runtimes[receipt.old_authorization_id]
+        market.decode_market_rotation_receipt_v1(
+            seat_market.rotate_settlement_authorization_v1(
+                market.Clock(2_003, settlement.GENESIS_TIMESTAMP + 2_003)
+            )
+        )
+        self.assertIs(seat_market.release_manager, manager)
+        self.assertIs(runtime.authority, old_history)
+        self.assertEqual(
+            seat_market.current_authorization_id,
+            receipt.new_authorization_id,
+        )
 
     def test_post_abort_stage_cancel_is_permissionless_atomic_and_does_not_poison_future_stages(self):
         for market_fault, seat_fault in (
@@ -11086,10 +11799,10 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
                 0,
                 settlement.GENESIS_TIMESTAMP + 9_000,
             )
-        result = release_manager.execute_rotation(
-            seat_market,
-            receipt.key,
-            market.Clock(2_001, settlement.GENESIS_TIMESTAMP + 2_001),
+        result = market.decode_market_rotation_receipt_v1(
+            seat_market.rotate_settlement_authorization_v1(
+                market.Clock(2_001, settlement.GENESIS_TIMESTAMP + 2_001)
+            )
         )
         self.assertEqual(result.purged_count, 4)
         self.assertEqual(seat_market.current_authorization_id, new_id)
@@ -11111,6 +11824,506 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             value=seat_market.sla_bond,
         )
         self.assertEqual(inserted.offer.authorization_id, new_id)
+
+    def test_staged_source_package_does_not_disable_active_route(self):
+        successor_descriptor = replace(
+            settlement.canonical_source_bridge_descriptor(),
+            source_bridge="",
+            bridge_credit_registry="",
+            native_quota_manager="",
+            deployment_salt="salt:source-successor:staged-only:v2",
+            deployment_descriptor=None,
+        )
+        rows = production_migration_fixture(
+            source_bridge_descriptor=successor_descriptor
+        )
+        manager = rows[4]
+        router = manager.router
+        old_source = settlement.source_bridge_for_test(router)
+        old_registry_alias = router._bridge_credit_registry_authority
+        arm_clock = settlement.Clock(
+            1_000, settlement.GENESIS_TIMESTAMP + 1_000
+        )
+        _manifest, target_registration = schedule_production_bridge_package(
+            rows,
+            arm_clock=arm_clock,
+            staged_block=(
+                arm_clock.block_number
+                - settlement.BRIDGE_ROUTE_ARM_REVIEW_BLOCKS
+            ),
+        )
+        target_descriptor_id = router._source_descriptor_id_by_version[
+            target_registration.settlement.protocol_version
+        ]
+        target_source = router._source_bundles_by_descriptor_id[
+            target_descriptor_id
+        ][0]
+
+        self.assertIs(router._source_bridge_authority, old_source)
+        self.assertIs(
+            router._bridge_credit_registry_authority, old_registry_alias
+        )
+        self.assertFalse(target_source.v2_active)
+        self.assertTrue(router.bridge_package_arm_ready_v1(
+            target_registration, clock=arm_clock
+        ))
+        package_view = router._bridge_domain_registry_authority \
+            .bridge_route_package_v1(
+                settlement.BRIDGE_ROUTE_PACKAGE_SELECTOR
+                + settlement._model_uint(
+                    target_registration.release_manifest.destination_chain_id,
+                    32, "test BRP1 destination chain",
+                )
+                + settlement._model_uint(
+                    target_registration.settlement.protocol_version,
+                    32, "test BRP1 version",
+                ),
+                caller=router.address, value=0,
+                gas=settlement.BRIDGE_ROUTE_PACKAGE_READ_GAS,
+                clock=arm_clock,
+            )
+        self.assertEqual(len(package_view), 480)
+        self.assertEqual(package_view[:32], b"BRP1" + bytes(28))
+        self.assertEqual(int.from_bytes(package_view[32:64], "big"), 2)
+
+        old_clock = old_source.support_final_clock(arm_clock.timestamp)
+        old_message = settlement.bridge_message(
+            old_clock.timestamp,
+            "staged-target-does-not-stop-old",
+            value=3,
+            fee=1,
+            liquidity_fee=1,
+        )
+        self.assertTrue(old_source.send_message(
+            old_message,
+            caller=old_message.sender,
+            msg_value=5,
+            clock=old_clock,
+            enqueue_by=(
+                old_clock.timestamp + settlement.MAX_BRIDGE_ENQUEUE_DELAY
+            ),
+        ))
+        with self.assertRaises(ValueError):
+            target_source.credit_id_for(old_message, arm_clock)
+        old_state = old_source._transaction_snapshot()
+        router.active_settlement_state_return_override = b"ASR1"
+        with self.assertRaises(ValueError):
+            old_source.credit_id_for(old_message, old_clock)
+        self.assertEqual(old_source._transaction_snapshot(), old_state)
+        router.active_settlement_state_return_override = None
+
+    def test_active_route_requires_exact_idle_mact_before_asr1(self):
+        rows = production_migration_fixture()
+        router = rows[4].router
+        source = settlement.source_bridge_for_test(router)
+        now = source.support_final_clock(
+            settlement.GENESIS_TIMESTAMP + 2_000
+        )
+        message = settlement.bridge_message(
+            now.timestamp, "exact-idle-mact-route", value=3, fee=1,
+            liquidity_fee=1,
+        )
+        valid = router.migration_activation_context_v1()
+        decoded = settlement.decode_migration_activation_context_v1(valid)
+        self.assertEqual(
+            settlement.MIGRATION_ACTIVATION_CONTEXT_SELECTOR.hex(),
+            "7cf70319",
+        )
+        self.assertEqual(len(valid), 320)
+        self.assertIs(
+            decoded.lifecycle, settlement.RouterMigrationLifecycle.IDLE
+        )
+        self.assertEqual(valid[64:], bytes(256))
+        self.assertEqual(
+            router.staticcall_migration_activation_context_v1(
+                settlement.MIGRATION_ACTIVATION_CONTEXT_SELECTOR,
+                caller=source.domain_registry.address, value=0,
+                gas=settlement.MIGRATION_ACTIVATION_CONTEXT_GAS,
+            ),
+            valid,
+        )
+        asr = router.active_settlement_state_v1()
+        self.assertEqual(
+            router.staticcall_active_settlement_state_v1(
+                settlement.ACTIVE_SETTLEMENT_STATE_SELECTOR,
+                caller=source.domain_registry.address, value=0,
+                gas=settlement.ACTIVE_SETTLEMENT_STATE_GAS,
+            ),
+            asr,
+        )
+        for invoke in (
+            lambda: router.staticcall_migration_activation_context_v1(
+                b"bad!", caller=source.domain_registry.address, value=0,
+                gas=settlement.MIGRATION_ACTIVATION_CONTEXT_GAS,
+            ),
+            lambda: router.staticcall_migration_activation_context_v1(
+                settlement.MIGRATION_ACTIVATION_CONTEXT_SELECTOR + b"\x00",
+                caller=source.domain_registry.address, value=0,
+                gas=settlement.MIGRATION_ACTIVATION_CONTEXT_GAS,
+            ),
+            lambda: router.staticcall_migration_activation_context_v1(
+                settlement.MIGRATION_ACTIVATION_CONTEXT_SELECTOR,
+                caller=source.domain_registry.address, value=1,
+                gas=settlement.MIGRATION_ACTIVATION_CONTEXT_GAS,
+            ),
+            lambda: router.staticcall_migration_activation_context_v1(
+                settlement.MIGRATION_ACTIVATION_CONTEXT_SELECTOR,
+                caller=source.domain_registry.address, value=0,
+                gas=settlement.MIGRATION_ACTIVATION_CONTEXT_GAS - 1,
+            ),
+            lambda: router.staticcall_active_settlement_state_v1(
+                b"bad!", caller=source.domain_registry.address, value=0,
+                gas=settlement.ACTIVE_SETTLEMENT_STATE_GAS,
+            ),
+            lambda: router.staticcall_active_settlement_state_v1(
+                settlement.ACTIVE_SETTLEMENT_STATE_SELECTOR + b"\x00",
+                caller=source.domain_registry.address, value=0,
+                gas=settlement.ACTIVE_SETTLEMENT_STATE_GAS,
+            ),
+            lambda: router.staticcall_active_settlement_state_v1(
+                settlement.ACTIVE_SETTLEMENT_STATE_SELECTOR,
+                caller=source.domain_registry.address, value=1,
+                gas=settlement.ACTIVE_SETTLEMENT_STATE_GAS,
+            ),
+            lambda: router.staticcall_active_settlement_state_v1(
+                settlement.ACTIVE_SETTLEMENT_STATE_SELECTOR,
+                caller=source.domain_registry.address, value=0,
+                gas=settlement.ACTIVE_SETTLEMENT_STATE_GAS - 1,
+            ),
+        ):
+            with self.assertRaises(ValueError):
+                invoke()
+        self.assertTrue(source.credit_id_for(message, now))
+        registry = source.domain_registry
+        abr_call = b"".join((
+            settlement.ACTIVE_BRIDGE_ROUTE_SELECTOR,
+            settlement._model_uint(
+                message.message.destination_chain_id,
+                32, "test ABR1 destination chain",
+            ),
+            bytes(12) + settlement._model_address20(source.address),
+            settlement._model_fixed_bytes32(source.source_domain_id),
+            settlement._model_fixed_bytes32(
+                source.frozen_bridge_execution_hash
+            ),
+        ))
+        abr = registry.active_bridge_route_v1(
+            abr_call, caller=source.address, value=0,
+            gas=settlement.ACTIVE_BRIDGE_ROUTE_READ_GAS, clock=now,
+        )
+        self.assertEqual((len(abr), abr[:32]), (288, b"ABR1" + bytes(28)))
+        self.assertEqual(
+            settlement.encode_active_bridge_route_v1(
+                settlement.decode_active_bridge_route_v1(abr)
+            ),
+            abr,
+        )
+        dirty_address = bytearray(abr_call)
+        dirty_address[36] = 1
+        for candidate, caller, value, gas in (
+            (abr_call[:-1], source.address, 0,
+             settlement.ACTIVE_BRIDGE_ROUTE_READ_GAS),
+            (abr_call + b"\x00", source.address, 0,
+             settlement.ACTIVE_BRIDGE_ROUTE_READ_GAS),
+            (b"bad!" + abr_call[4:], source.address, 0,
+             settlement.ACTIVE_BRIDGE_ROUTE_READ_GAS),
+            (bytes(dirty_address), source.address, 0,
+             settlement.ACTIVE_BRIDGE_ROUTE_READ_GAS),
+            (abr_call, addr("wrong-abr-caller"), 0,
+             settlement.ACTIVE_BRIDGE_ROUTE_READ_GAS),
+            (abr_call, source.address, 1,
+             settlement.ACTIVE_BRIDGE_ROUTE_READ_GAS),
+            (abr_call, source.address, 0,
+             settlement.ACTIVE_BRIDGE_ROUTE_READ_GAS - 1),
+        ):
+            with self.assertRaises(ValueError):
+                registry.active_bridge_route_v1(
+                    candidate, caller=caller, value=value, gas=gas, clock=now
+                )
+
+        bad_magic = bytearray(valid)
+        bad_magic[0] ^= 1
+        bad_padding = bytearray(valid)
+        bad_padding[32] = 1
+        nonzero_context = bytearray(valid)
+        nonzero_context[95] = 1
+        non_idle = settlement.encode_migration_activation_context_v1(
+            settlement.MigrationActivationContextStateV1(
+                settlement.RouterMigrationLifecycle.ARMING,
+                bytes(32), bytes(20), bytes(20), 0, 0, 0,
+                bytes(32), bytes(32),
+            )
+        )
+        for malformed in (
+            valid[:-1], valid + b"\x00", bytes(bad_magic),
+            bytes(bad_padding), bytes(nonzero_context), non_idle,
+        ):
+            before = source._transaction_snapshot()
+            router.migration_activation_context_return_override = malformed
+            with self.assertRaises(ValueError):
+                source.credit_id_for(message, now)
+            self.assertEqual(source._transaction_snapshot(), before)
+        router.migration_activation_context_return_override = None
+
+        for fault in ("revert", "oog"):
+            before = source._transaction_snapshot()
+            router.migration_activation_context_fault_point = fault
+            with self.assertRaises(ValueError):
+                source.credit_id_for(message, now)
+            self.assertEqual(source._transaction_snapshot(), before)
+        router.migration_activation_context_fault_point = None
+
+        bad_asr_magic = bytearray(asr)
+        bad_asr_magic[0] ^= 1
+        bad_asr_padding = bytearray(asr)
+        bad_asr_padding[32] = 1
+        bad_asr_phase = bytearray(asr)
+        bad_asr_phase[-1] = settlement.RouterPhase.ARMED.value
+        for malformed in (
+            asr[:-1], asr + b"\x00", bytes(bad_asr_magic),
+            bytes(bad_asr_padding), bytes(bad_asr_phase),
+        ):
+            before = source._transaction_snapshot()
+            router.active_settlement_state_return_override = malformed
+            with self.assertRaises(ValueError):
+                source.credit_id_for(message, now)
+            self.assertEqual(source._transaction_snapshot(), before)
+        router.active_settlement_state_return_override = None
+        for fault in ("revert", "oog"):
+            before = source._transaction_snapshot()
+            router.active_settlement_state_fault_point = fault
+            with self.assertRaises(ValueError):
+                source.credit_id_for(message, now)
+            self.assertEqual(source._transaction_snapshot(), before)
+        router.active_settlement_state_fault_point = None
+        registry.active_bridge_route_return_override = b"ABR1"
+        with self.assertRaises(ValueError):
+            source.credit_id_for(message, now)
+        registry.active_bridge_route_return_override = None
+        for fault in ("revert", "oog"):
+            registry.active_bridge_route_fault_point = fault
+            with self.assertRaises(ValueError):
+                source.credit_id_for(message, now)
+        registry.active_bridge_route_fault_point = None
+        self.assertTrue(source.credit_id_for(message, now))
+
+    def test_arm_rejects_unmatured_or_directly_consumed_package(self):
+        successor_descriptor = replace(
+            settlement.canonical_source_bridge_descriptor(),
+            source_bridge="",
+            bridge_credit_registry="",
+            native_quota_manager="",
+            deployment_salt="salt:source-successor:arm-delay:v2",
+            deployment_descriptor=None,
+        )
+        rows = production_migration_fixture(
+            source_bridge_descriptor=successor_descriptor
+        )
+        manager = rows[4]
+        router = manager.router
+        arm_clock = settlement.Clock(
+            1_000, settlement.GENESIS_TIMESTAMP + 1_000
+        )
+        manifest, target_registration = schedule_production_bridge_package(
+            rows, arm_clock=arm_clock, staged_block=arm_clock.block_number - 1
+        )
+        registry = router._bridge_domain_registry_authority
+        entry = next(
+            row for row in registry.entries.values()
+            if row.protocol_version == target_registration.settlement.protocol_version
+        )
+        snapshot = registry._transaction_snapshot()
+        package_view = registry.bridge_route_package_v1(
+            settlement.BRIDGE_ROUTE_PACKAGE_SELECTOR
+            + settlement._model_uint(
+                target_registration.release_manifest.destination_chain_id,
+                32, "test BRP1 destination chain",
+            )
+            + settlement._model_uint(
+                target_registration.settlement.protocol_version,
+                32, "test BRP1 version",
+            ),
+            caller=router.address, value=0,
+            gas=settlement.BRIDGE_ROUTE_PACKAGE_READ_GAS,
+            clock=arm_clock,
+        )
+        self.assertEqual(int.from_bytes(package_view[32:64], "big"), 1)
+
+        self.assertIsNone(registry.arm_ready_entry(
+            target_registration,
+            target_registration.release_manifest.destination_chain_id,
+            arm_clock,
+        ))
+        self.assertFalse(registry.consume_arm_ready(
+            target_registration,
+            settlement.Clock(
+                arm_clock.block_number
+                    + settlement.BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
+                arm_clock.timestamp,
+            ),
+            router=router,
+            capability=object(),
+        ))
+        self.assertFalse(registry.consume_arm_ready(
+            target_registration,
+            arm_clock,
+            router=router,
+            capability=settlement._BRIDGE_ROUTE_ACTIVATION_CAPABILITY,
+        ))
+        self.assertFalse(registry.consume_arm_ready(
+            router.registrations[router.active_version],
+            settlement.Clock(
+                arm_clock.block_number
+                    + settlement.BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
+                arm_clock.timestamp,
+            ),
+            router=router,
+            capability=settlement._BRIDGE_ROUTE_ACTIVATION_CAPABILITY,
+        ))
+        self.assertEqual(registry._transaction_snapshot(), snapshot)
+        self.assertFalse(entry.arm_ready_consumed)
+        with self.assertRaises(ValueError):
+            manager.arm_seat_migration(
+                manifest_key=manifest.key,
+                executor=addr("executor"),
+                clock=arm_clock,
+            )
+        self.assertEqual(router.migration_gate.mode, "ACTIVE")
+        self.assertFalse(entry.arm_ready_consumed)
+
+    def test_abort_keeps_old_source_active_and_target_unconsumed(self):
+        successor_descriptor = replace(
+            settlement.canonical_source_bridge_descriptor(),
+            source_bridge="",
+            bridge_credit_registry="",
+            native_quota_manager="",
+            deployment_salt="salt:source-successor:abort:v2",
+            deployment_descriptor=None,
+        )
+        rows = production_migration_fixture(
+            source_bridge_descriptor=successor_descriptor
+        )
+        manager = rows[4]
+        router = manager.router
+        old_source = settlement.source_bridge_for_test(router)
+        arm_clock = settlement.Clock(
+            1_000, settlement.GENESIS_TIMESTAMP + 1_000
+        )
+        manifest, _target_registration = schedule_production_bridge_package(
+            rows,
+            arm_clock=arm_clock,
+            staged_block=(
+                arm_clock.block_number
+                - settlement.BRIDGE_ROUTE_ARM_REVIEW_BLOCKS
+            ),
+        )
+        manager.arm_seat_migration(
+            manifest_key=manifest.key,
+            executor=addr("executor"),
+            clock=arm_clock,
+        )
+        blocked = settlement.bridge_message(
+            arm_clock.timestamp,
+            "armed-route-rejects",
+            value=2,
+            fee=1,
+            liquidity_fee=1,
+        )
+        self.assertEqual(router.migration_gate.mode, "ARMED")
+        with self.assertRaises(ValueError):
+            old_source.credit_id_for(blocked, arm_clock)
+        ready_clock = settlement.Clock(
+            arm_clock.block_number + 1, arm_clock.timestamp + 1
+        )
+        self.assertTrue(rows[0].sync(ready_clock))
+        self.assertTrue(rows[1].enter_migration_ready())
+        self.assertEqual(router.migration_gate.mode, "READY")
+        with self.assertRaises(ValueError):
+            old_source.credit_id_for(blocked, ready_clock)
+        abort_clock = settlement.Clock(
+            ready_clock.block_number + 1,
+            settlement.GENESIS_TIMESTAMP + 1_000
+            + settlement.SEAT_MIGRATION_CANCEL_DELAY,
+        )
+        self.assertTrue(execute_manager_abort(manager, abort_clock))
+        target_entry = next(
+            row for row in router._bridge_domain_registry_authority.entries.values()
+            if row.protocol_version == rows[2].protocol_version
+        )
+        self.assertEqual(router.migration_gate.mode, "ACTIVE")
+        self.assertIs(settlement.source_bridge_for_test(router), old_source)
+        self.assertFalse(target_entry.arm_ready_consumed)
+
+        old_clock = old_source.support_final_clock(abort_clock.timestamp)
+        message = settlement.bridge_message(
+            old_clock.timestamp,
+            "aborted-target-old-route",
+            value=2,
+            fee=1,
+            liquidity_fee=1,
+        )
+        self.assertTrue(old_source.send_message(
+            message,
+            caller=message.sender,
+            msg_value=4,
+            clock=old_clock,
+            enqueue_by=(
+                old_clock.timestamp + settlement.MAX_BRIDGE_ENQUEUE_DELAY
+            ),
+        ))
+
+    def test_activation_faults_roll_back_arm_ready_consumption(self):
+        fault_points = (
+            ("router", "after_source_freeze"),
+            ("router", "after_target_adopt"),
+            ("manager", "after_target_import"),
+            ("manager", "after_activation_receipt_write"),
+            ("router", "before_queue_migrate"),
+        )
+        for owner, fault in fault_points:
+            with self.subTest(owner=owner, fault=fault):
+                successor_descriptor = replace(
+                    settlement.canonical_source_bridge_descriptor(),
+                    source_bridge="",
+                    bridge_credit_registry="",
+                    native_quota_manager="",
+                    deployment_salt=f"salt:source-fault:{fault}:v2",
+                    deployment_descriptor=None,
+                )
+                rows = production_migration_fixture(
+                    source_bridge_descriptor=successor_descriptor
+                )
+                manager = rows[4]
+                router = manager.router
+                old_version = router.active_version
+                old_source = settlement.source_bridge_for_test(router)
+                manifest, proof = prepare_production_activation(rows)
+                entry = next(
+                    row for row in router._bridge_domain_registry_authority
+                        .entries.values()
+                    if row.protocol_version == rows[2].protocol_version
+                )
+                self.assertFalse(entry.arm_ready_consumed)
+                if owner == "router":
+                    router.migration_fault_point = fault
+                else:
+                    manager.fault_point = fault
+                with self.assertRaises(RuntimeError):
+                    manager.activate_seat_migration(
+                        manifest_key=manifest.key,
+                        activation_proof=proof,
+                        executor=addr("fault-executor"),
+                        clock=migration_proof_clock(proof),
+                    )
+                restored = next(
+                    row for row in router._bridge_domain_registry_authority
+                        .entries.values()
+                    if row.protocol_version == rows[2].protocol_version
+                )
+                self.assertFalse(restored.arm_ready_consumed)
+                self.assertEqual(router.active_version, old_version)
+                self.assertIs(settlement.source_bridge_for_test(router), old_source)
+                self.assertEqual(router.migration_gate.mode, "READY")
 
     def test_source_successor_reuses_front_run_bundle_and_retains_history(self):
         successor_descriptor = replace(
@@ -11153,8 +12366,9 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             bound_successor_descriptor.deployment_factory
         ]
 
-        # An arbitrary account wins the CREATE2 race before activation.  The
-        # Router must consume the exact inactive bundle, never deploy a clone.
+        # REGISTER/schedule preparation has already won the CREATE2 race with
+        # the exact inactive package.  An arbitrary caller can only retrieve
+        # that same bundle; it cannot create or replace a current alias.
         predeployed, predeployed_registry, receipt = (
             factory.deploy_source_bundle(
                 bound_successor_descriptor,
@@ -11162,7 +12376,7 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
                 caller=addr("attacker"),
             )
         )
-        self.assertTrue(receipt.created_now)
+        self.assertFalse(receipt.created_now)
         self.assertFalse(predeployed.v2_active)
         predeployed.balance = 1
 
@@ -11211,6 +12425,120 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             old_source,
         )
         self.assertTrue(old_source.v2_active)
+
+    def test_source_successor_exclusively_mints_while_history_refunds(self):
+        successor_descriptor = replace(
+            settlement.canonical_source_bridge_descriptor(),
+            source_bridge="",
+            bridge_credit_registry="",
+            native_quota_manager="",
+            deployment_salt="salt:source-successor:exclusive-mint:v2",
+            deployment_descriptor=None,
+        )
+        rows = production_migration_fixture(
+            source_bridge_descriptor=successor_descriptor
+        )
+        manager = rows[4]
+        router = manager.router
+
+        old_source = settlement.source_bridge_for_test(router)
+        old_clock = old_source.support_final_clock(
+            settlement.GENESIS_TIMESTAMP + 1_000
+        )
+        historical = settlement.bridge_message(
+            old_clock.timestamp,
+            "historical-source-refund",
+            value=10,
+            fee=2,
+            liquidity_fee=1,
+        )
+        historical_enqueue_by = (
+            old_clock.timestamp + settlement.MAX_BRIDGE_ENQUEUE_DELAY
+        )
+        historical_receipt = old_source.send_message(
+            historical,
+            caller=historical.sender,
+            msg_value=13,
+            clock=old_clock,
+            enqueue_by=historical_enqueue_by,
+        )
+
+        activate_production_fixture(rows)
+        new_source = settlement.source_bridge_for_test(router)
+        self.assertIsNot(new_source, old_source)
+        new_clock = new_source.support_final_clock(old_clock.timestamp + 1)
+        blocked = settlement.bridge_message(
+            new_clock.timestamp,
+            "historical-source-new-credit",
+            value=3,
+            fee=1,
+            liquidity_fee=1,
+        )
+        blocked_enqueue_by = (
+            new_clock.timestamp + settlement.MAX_BRIDGE_ENQUEUE_DELAY
+        )
+
+        with self.assertRaises(ValueError):
+            old_source.credit_id_for(blocked, new_clock)
+        old_before = old_source._transaction_snapshot()
+        old_registry_before = (
+            old_source.credit_registry._authorization_snapshot()
+        )
+        with self.assertRaises(ValueError):
+            old_source.send_message(
+                blocked,
+                caller=blocked.sender,
+                msg_value=5,
+                clock=new_clock,
+                enqueue_by=blocked_enqueue_by,
+            )
+        self.assertEqual(old_source._transaction_snapshot(), old_before)
+        self.assertEqual(
+            old_source.credit_registry._authorization_snapshot(),
+            old_registry_before,
+        )
+
+        live_receipt = new_source.send_message(
+            blocked,
+            caller=blocked.sender,
+            msg_value=5,
+            clock=new_clock,
+            enqueue_by=blocked_enqueue_by,
+        )
+        self.assertEqual(
+            new_source.credits[live_receipt.credit_id].status, "NEW"
+        )
+        active_registration = router.registrations[router.active_version]
+        bridge_authorization = next(
+            row for row in active_registration.ingress_authorizations
+            if row.kind is settlement.ForceKind.BRIDGE_CREDIT
+        )
+        active_adapter = router._profile_deployments_by_version[
+            router.active_version
+        ][bridge_authorization.authorization_id]
+        deposit = router.required_ingress_deposit(
+            live_receipt.envelope, active_adapter
+        )
+        queued = active_adapter.enqueue(
+            new_clock,
+            envelope=live_receipt.envelope,
+            caller=addr("cutover-enqueuer"),
+            deposit=deposit,
+        )
+        self.assertTrue(queued.startswith("QUEUED:"))
+        self.assertEqual(
+            new_source.credits[live_receipt.credit_id].status, "QUEUED"
+        )
+
+        self.assertTrue(old_source.cancel(
+            historical_receipt.credit_id,
+            now=historical_enqueue_by + 1,
+        ))
+        self.assertEqual(old_source.withdraw_refund(historical.sender), 13)
+        self.assertEqual(
+            old_source.credits[historical_receipt.credit_id].status,
+            "CANCELLED",
+        )
 
     def test_target_l2_objects_cannot_influence_l1_proof_acceptance(self):
         dirty_rows = (
@@ -11492,7 +12820,7 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             settlement.SEAT_MIGRATION_ABORT_SELECTOR.hex(), "c69d5579"
         )
         self.assertEqual(
-            settlement.MIGRATION_CANONICAL_ADOPT_SELECTOR.hex(), "557c4e13"
+            settlement.MIGRATION_CANONICAL_ADOPT_SELECTOR.hex(), "3286443c"
         )
         protocol, manager = migration_manager_fixture(seat=False)
         arm_clock = settlement.Clock(
@@ -11551,11 +12879,15 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             )
 
         for variant in ("copy-equal", "forged-header"):
-            variant_rows = production_migration_fixture(
-                target_header_variant=variant)
-            substituted_header = variant_rows[2].header_oracle
             rows = production_migration_fixture()
             old_protocol, _old_history, target_history, seat_market, manager = rows[:5]
+            substitutions = {}
+            if variant == "forged-header":
+                original = target_history.header_oracle.header(1)
+                substitutions[1] = replace(original, block_hash="f" * 64)
+            substituted_header = target_history.header_oracle.fork_for_test(
+                substitutions
+            )
             manifest, proof = prepare_production_activation(rows)
             object.__setattr__(
                 target_history, "header_oracle", substituted_header
@@ -11606,6 +12938,12 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             third_id,
             manifest_byte=b"n",
         )
+        first_activation_id = market.decode_successor_receipt_v1(
+            manager.router.seat_successor_receipt_v1(first_id)
+        ).receipt_id
+        third_activation_id = market.decode_successor_receipt_v1(
+            manager.router.seat_successor_receipt_v1(second_id)
+        ).receipt_id
         self.assertGreater(
             third_receipt.router_generation,
             first_receipt.router_generation + 1,
@@ -11619,10 +12957,10 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             third_history.live_protocol.migration_gate,
         )
 
-        first = release_manager.execute_rotation(
-            seat_market,
-            first_receipt.key,
-            market.Clock(3_000, settlement.GENESIS_TIMESTAMP + 3_000),
+        first = market.decode_market_rotation_receipt_v1(
+            seat_market.rotate_settlement_authorization_v1(
+                market.Clock(3_000, settlement.GENESIS_TIMESTAMP + 3_000)
+            )
         )
         self.assertEqual(first.purged_count, 0)
         self.assertEqual(seat_market.current_authorization_id, second_id)
@@ -11640,10 +12978,10 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
                 value=seat_market.sla_bond,
             )
 
-        second = release_manager.execute_rotation(
-            seat_market,
-            third_receipt.key,
-            market.Clock(3_002, settlement.GENESIS_TIMESTAMP + 3_002),
+        second = market.decode_market_rotation_receipt_v1(
+            seat_market.rotate_settlement_authorization_v1(
+                market.Clock(3_002, settlement.GENESIS_TIMESTAMP + 3_002)
+            )
         )
         self.assertEqual(second.purged_count, 0)
         self.assertEqual(seat_market.current_authorization_id, third_id)
@@ -11651,15 +12989,13 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
         self.assertFalse(seat_market.authorization_enabled[first_id])
         self.assertFalse(seat_market.authorization_enabled[second_id])
         self.assertEqual(
-            seat_market.consumed_activation_receipts,
-            {first_receipt.key, third_receipt.key},
+            seat_market.consumed_activation_receipt_ids,
+            {first_activation_id, third_activation_id},
         )
         seat_market.sync_seat_generation()
         with self.assertRaises(market.TransitionRejected):
-            release_manager.execute_rotation(
-                seat_market,
-                first_receipt.key,
-                market.Clock(3_003, settlement.GENESIS_TIMESTAMP + 3_003),
+            seat_market.rotate_settlement_authorization_v1(
+                market.Clock(3_003, settlement.GENESIS_TIMESTAMP + 3_003)
             )
         self.assertEqual(old_history.mode, "FROZEN")
         self.assertEqual(second_history.mode, "FROZEN")
@@ -11745,13 +13081,13 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             first_protocol.seat_duties[first_duty.duty_id].status,
             settlement.DutyStatus.BREACHED,
         )
-        release_manager.execute_rotation(
-            seat_market,
-            first_receipt.key,
-            market.Clock(
-                first_activation_clock.timestamp + 2,
-                first_activation_clock.block_number + 2,
-            ),
+        market.decode_market_rotation_receipt_v1(
+            seat_market.rotate_settlement_authorization_v1(
+                market.Clock(
+                    first_activation_clock.timestamp + 2,
+                    first_activation_clock.block_number + 2,
+                )
+            )
         )
         seat_market.sync_seat_generation()
         second_protocol = second_history.live_protocol
@@ -11817,13 +13153,13 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             second_protocol.seat_duties[second_duty.duty_id].status,
             settlement.DutyStatus.BREACHED,
         )
-        release_manager.execute_rotation(
-            seat_market,
-            second_receipt.key,
-            market.Clock(
-                second_activation_clock.timestamp + 2,
-                second_activation_clock.block_number + 2,
-            ),
+        market.decode_market_rotation_receipt_v1(
+            seat_market.rotate_settlement_authorization_v1(
+                market.Clock(
+                    second_activation_clock.timestamp + 2,
+                    second_activation_clock.block_number + 2,
+                )
+            )
         )
         seat_market.sync_seat_generation()
         third_protocol = third_history.live_protocol
@@ -12012,8 +13348,8 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
 
     def test_manager_arm_is_raw_exact_and_strict_slash_precedes_excuse(self):
         for delta, expected in (
-            (-1, settlement.DutyStatus.EXCUSED_MIGRATION),
-            (0, settlement.DutyStatus.EXCUSED_MIGRATION),
+            (-1, settlement.DutyStatus.FAILED_OVER),
+            (0, settlement.DutyStatus.FAILED_OVER),
             (1, settlement.DutyStatus.BREACHED),
         ):
             protocol, manager = migration_manager_fixture()
@@ -12076,6 +13412,9 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             live_protocol=protocol,
             inbox_apply_descriptor=protocol.inbox_apply_descriptor,
             header_oracle=protocol.header_oracle,
+            market_runtime_hash=settlement._model_fixed_bytes32(
+                "runtime:seat-v1"
+            ),
             execution_profile=profile,
         )
         protocol.versioned_history = history
@@ -12094,6 +13433,8 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
         bootstrap_proof = settlement.prepare_genesis_activation_for_test(
             router, history, bootstrap_clock
         )
+        evolved_generation = protocol.seat_generation
+        protocol.seat_generation = 0
         self.assertTrue(router.bootstrap(
             history,
             sequence=0,
@@ -12101,6 +13442,7 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             caller=router.version_manager,
             proof=bootstrap_proof,
         ))
+        protocol.seat_generation = evolved_generation
         gate = protocol.migration_gate
         manager = settlement.ProtocolVersionManager(
             addr("version-manager"), router
@@ -12401,9 +13743,34 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
         )
 
 class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
+    def test_seat_wire_cross_model_fixture_is_byte_exact(self):
+        rows = settlement.canonical_seat_wire_cross_model_fixture_v1()
+        decoders = {
+            "MWV1": market.decode_market_wire_state_v1,
+            "SMI1": market.decode_seat_mutation_intent_v1,
+            "SLV1": market.decode_seat_lineup_wire_v1,
+            "SIR1": market.decode_seat_install_record_v1,
+            "SMR1": market.decode_seat_mutation_receipt_v1,
+            "MEC1": market.decode_market_economic_receipt_v1,
+            "MHS1": market.decode_market_history_safety_v1,
+            "MRO1": market.decode_market_rotation_receipt_v1,
+        }
+        encoders = {
+            "MWV1": market.encode_market_wire_state_v1,
+            "SMI1": market.encode_seat_mutation_intent_v1,
+            "SLV1": market.encode_seat_lineup_wire_v1,
+            "SIR1": market.encode_seat_install_record_v1,
+            "SMR1": market.encode_seat_mutation_receipt_v1,
+            "MEC1": market.encode_market_economic_receipt_v1,
+            "MHS1": market.encode_market_history_safety_v1,
+            "MRO1": market.encode_market_rotation_receipt_v1,
+        }
+        for name, raw in rows.items():
+            self.assertEqual(encoders[name](decoders[name](raw)), raw)
+
     def test_execution_profile_v2_strict_abi_rejection_corpus(self):
         profile = settlement.canonical_execution_profile_cross_model_fixture_v2()
-        self.assertEqual(len(profile), 8_192)
+        self.assertEqual(len(profile), 8_672)
         self.assertEqual(profile[:32], (32).to_bytes(32, "big"))
         self.assertEqual(
             profile[(1 + settlement.EXECUTION_PROFILE_VALUE_WORDS) * 32:
@@ -12436,12 +13803,18 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         )
         self.assertEqual(
             words[37],
-            settlement.pvm_derived_market_authority_configuration_hash_v1(
-                int.from_bytes(words[2], "big"),
-                "0x" + words[35][12:].hex(),
-                int.from_bytes(words[2], "big"),
-                "0x" + words[20][12:].hex(),
-                "0x" + words[23][12:].hex(),
+            settlement.aggregator_seat_market_configuration_hash_v2(words),
+        )
+        self.assertEqual(
+            words[205],
+            settlement.source_bundle_salt_v1(
+                words[9], int.from_bytes(words[1], "big")
+            ),
+        )
+        self.assertEqual(
+            words[209],
+            bytes(12) + settlement._model_address20(
+                settlement.LEGACY_V1_SOURCE_BRIDGE
             ),
         )
         self.assertEqual(
@@ -12484,6 +13857,8 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         changed((1 + 45) * 32 + 31, 1)  # fixed factory runtime
         changed((1 + 46) * 32 + 31, 1)  # fixed factory configuration
         changed((1 + 37) * 32 + 31, 1)  # immutable Market Router binding
+        changed((1 + 205) * 32 + 31, 1)  # version-derived source bundle salt
+        changed((1 + 209) * 32 + 31, 1)  # migration-root V1 Bridge
         for eip2935_word in (57, 58, 59, 244, 245, 246):
             changed((1 + eip2935_word) * 32 + 31, 1)
         dirty_first_supported = bytearray(profile)
@@ -12703,6 +14078,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         self.assertEqual(manager.lifecycle, "IDLE")
         self.assertIs(router.migration_lifecycle,
                       settlement.RouterMigrationLifecycle.IDLE)
+
         before = router.genesis_campaign_state_return_v1()
         self.assertFalse(router.withdraw_genesis_campaign_v1(
             state.campaign_id,
@@ -12793,7 +14169,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
 
     def test_register_release_exact_geometry_and_atomic_postreads(self):
         fixture = protocol_authority_fixture()
-        (_rows, router, witness, payload, manager, timelock,
+        (rows, router, witness, payload, manager, timelock,
          market_authority, _oracle, clock) = fixture
         decoded = settlement.decode_register_release_payload_v1(payload)
         derived = settlement.derive_register_release_authority_v2(
@@ -12843,27 +14219,466 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             len(manager.profile_ingress_authorization_v2(item)) == 800
             for item in ids
         ))
-        self.assertEqual(len(market_authority.authorizations), 1)
+        seat_market = rows[3]
+        self.assertFalse(market_authority.authorizations)
+        self.assertEqual(len(seat_market.authorizations), 2)
+        self.assertEqual(len(rows[5].authorizations), 1)
         self.assertEqual(
             market_authority.authority_configuration_hash,
-            settlement.pvm_derived_market_authority_configuration_hash_v1(
-                market_authority.market_chain_id, market_authority.address,
-                market_authority.settlement_chain_id, manager.address,
-                router.address,
+            settlement.aggregator_seat_market_configuration_hash_v2(
+                derived.profile_words
             ),
         )
         with self.assertRaises(AttributeError):
             market_authority.active_settlement_router = addr("replacement-router")
-        authorization_id = next(iter(market_authority.authorizations))
+        authorization_id = next(
+            item for item in seat_market.authorizations if item != rows[6]
+        )
         self.assertEqual(
             len(market_authority.settlement_authorization_v1(
                 authorization_id
-            )), 224,
+            )), 256,
         )
         self.assertEqual(timelock.operations[operation_id].state, 4)
         self.assertEqual(manager.lifecycle, "IDLE")
         self.assertIs(router.migration_lifecycle,
                       settlement.RouterMigrationLifecycle.IDLE)
+
+        registry = router._bridge_domain_registry_authority
+        self.assertIsInstance(registry, settlement.BridgeDomainRegistry)
+        version_word = settlement._model_uint(
+            version, 32, "test route protocol version"
+        )
+        retry_clock = settlement.Clock(
+            mature.block_number + 10, mature.timestamp + 10
+        )
+        package_before = registry._transaction_snapshot()
+        brd = router.prepare_bridge_route_package_v1(
+            settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_SELECTOR + version_word,
+            caller=addr("package-preparer"), value=0,
+            gas=settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_GAS,
+            clock=retry_clock,
+        )
+        self.assertEqual((len(brd), brd[:32]), (128, b"BRD1" + bytes(28)))
+        self.assertEqual(registry._transaction_snapshot(), package_before)
+        brs = registry.stage_bridge_route_package_v1(
+            settlement.STAGE_BRIDGE_ROUTE_PACKAGE_SELECTOR + version_word,
+            caller=router.address, value=0,
+            gas=settlement.STAGE_BRIDGE_ROUTE_PACKAGE_GAS,
+            clock=retry_clock,
+        )
+        self.assertEqual((len(brs), brs[:32]), (128, b"BRS1" + bytes(28)))
+        self.assertEqual(brs[96:128], brd[96:128])
+        brp_call = (
+            settlement.BRIDGE_ROUTE_PACKAGE_SELECTOR
+            + settlement._model_uint(
+                witness.release_manifest.destination_chain_id,
+                32, "test BRP1 destination chain",
+            )
+            + version_word
+        )
+        brp = registry.bridge_route_package_v1(
+            brp_call, caller=addr("observer"), value=0,
+            gas=settlement.BRIDGE_ROUTE_PACKAGE_READ_GAS,
+            clock=retry_clock,
+        )
+        self.assertEqual((len(brp), brp[:32]), (480, b"BRP1" + bytes(28)))
+        self.assertEqual(brp[160:192], brd[96:128])
+
+        rtr_call = (
+            settlement.TARGET_RELEASE_REGISTRATION_SELECTOR + version_word
+        )
+        rtr = router.staticcall_target_release_registration_v2(
+            rtr_call, caller=registry.address, value=0,
+            gas=settlement.TARGET_RELEASE_REGISTRATION_READ_GAS,
+        )
+        self.assertEqual((len(rtr), rtr[:32]), (384, b"RTR2" + bytes(28)))
+        self.assertEqual(
+            settlement.decode_target_release_registration_return_v2(rtr),
+            router.target_release_registrations_v2[version],
+        )
+        for invoke in (
+            lambda: router.staticcall_target_release_registration_v2(
+                b"bad!" + version_word, caller=registry.address, value=0,
+                gas=settlement.TARGET_RELEASE_REGISTRATION_READ_GAS,
+            ),
+            lambda: router.staticcall_target_release_registration_v2(
+                rtr_call + b"\x00", caller=registry.address, value=0,
+                gas=settlement.TARGET_RELEASE_REGISTRATION_READ_GAS,
+            ),
+            lambda: router.staticcall_target_release_registration_v2(
+                settlement.TARGET_RELEASE_REGISTRATION_SELECTOR
+                    + bytes([1]) + version_word[1:],
+                caller=registry.address, value=0,
+                gas=settlement.TARGET_RELEASE_REGISTRATION_READ_GAS,
+            ),
+            lambda: router.staticcall_target_release_registration_v2(
+                rtr_call, caller=registry.address, value=1,
+                gas=settlement.TARGET_RELEASE_REGISTRATION_READ_GAS,
+            ),
+            lambda: router.staticcall_target_release_registration_v2(
+                rtr_call, caller=registry.address, value=0,
+                gas=settlement.TARGET_RELEASE_REGISTRATION_READ_GAS - 1,
+            ),
+        ):
+            with self.assertRaises(ValueError):
+                invoke()
+
+        bad_rtr_magic = bytearray(rtr)
+        bad_rtr_magic[0] ^= 1
+        bad_rtr_integer_padding = bytearray(rtr)
+        bad_rtr_integer_padding[32] = 1
+        bad_rtr_address_padding = bytearray(rtr)
+        bad_rtr_address_padding[96] = 1
+        for malformed in (
+            rtr[:-1], rtr + b"\x00", bytes(bad_rtr_magic),
+            bytes(bad_rtr_integer_padding), bytes(bad_rtr_address_padding),
+        ):
+            before = registry._transaction_snapshot()
+            router.release_registration_getter_override = malformed
+            with self.assertRaises(ValueError):
+                registry.stage_bridge_route_package_v1(
+                    settlement.STAGE_BRIDGE_ROUTE_PACKAGE_SELECTOR
+                        + version_word,
+                    caller=router.address, value=0,
+                    gas=settlement.STAGE_BRIDGE_ROUTE_PACKAGE_GAS,
+                    clock=retry_clock,
+                )
+            self.assertEqual(registry._transaction_snapshot(), before)
+        router.release_registration_getter_override = None
+        for fault in ("revert", "oog"):
+            before = registry._transaction_snapshot()
+            router.release_registration_getter_fault_point = fault
+            with self.assertRaises(RuntimeError):
+                registry.stage_bridge_route_package_v1(
+                    settlement.STAGE_BRIDGE_ROUTE_PACKAGE_SELECTOR
+                        + version_word,
+                    caller=router.address, value=0,
+                    gas=settlement.STAGE_BRIDGE_ROUTE_PACKAGE_GAS,
+                    clock=retry_clock,
+                )
+            self.assertEqual(registry._transaction_snapshot(), before)
+        router.release_registration_getter_fault_point = None
+
+        brc_call = (
+            settlement.CONSUME_BRIDGE_ROUTE_ARM_READY_SELECTOR
+            + version_word + settlement.target_registration_hash_v2(witness)
+        )
+        for invoke in (
+            lambda: router.prepare_bridge_route_package_v1(
+                settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_SELECTOR + version_word,
+                caller="", value=0,
+                gas=settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_GAS,
+                clock=retry_clock,
+            ),
+            lambda: registry.stage_bridge_route_package_v1(
+                settlement.STAGE_BRIDGE_ROUTE_PACKAGE_SELECTOR + version_word,
+                caller=addr("not-router"), value=0,
+                gas=settlement.STAGE_BRIDGE_ROUTE_PACKAGE_GAS,
+                clock=retry_clock,
+            ),
+            lambda: registry.bridge_route_package_v1(
+                brp_call + b"\x00", caller=addr("observer"), value=0,
+                gas=settlement.BRIDGE_ROUTE_PACKAGE_READ_GAS,
+                clock=retry_clock,
+            ),
+            lambda: registry.consume_bridge_route_arm_ready_v1(
+                brc_call, caller=router.address, value=0,
+                gas=settlement.CONSUME_BRIDGE_ROUTE_ARM_READY_GAS,
+                clock=retry_clock,
+            ),
+        ):
+            before = registry._transaction_snapshot()
+            with self.assertRaises(ValueError):
+                invoke()
+            self.assertEqual(registry._transaction_snapshot(), before)
+
+        # Every executable envelope rejects wrong selector/length/padding,
+        # caller, value or gas before a package write.
+        dirty_version = bytes([1]) + version_word[1:]
+        bad_envelopes = (
+            lambda: router.prepare_bridge_route_package_v1(
+                b"bad!" + version_word, caller=addr("preparer"), value=0,
+                gas=settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_GAS,
+                clock=retry_clock,
+            ),
+            lambda: router.prepare_bridge_route_package_v1(
+                settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_SELECTOR
+                    + dirty_version,
+                caller=addr("preparer"), value=0,
+                gas=settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_GAS,
+                clock=retry_clock,
+            ),
+            lambda: router.prepare_bridge_route_package_v1(
+                settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_SELECTOR + version_word,
+                caller=addr("preparer"), value=1,
+                gas=settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_GAS,
+                clock=retry_clock,
+            ),
+            lambda: router.prepare_bridge_route_package_v1(
+                settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_SELECTOR + version_word,
+                caller=addr("preparer"), value=0,
+                gas=settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_GAS - 1,
+                clock=retry_clock,
+            ),
+            lambda: registry.stage_bridge_route_package_v1(
+                b"bad!" + version_word, caller=router.address, value=0,
+                gas=settlement.STAGE_BRIDGE_ROUTE_PACKAGE_GAS,
+                clock=retry_clock,
+            ),
+            lambda: registry.stage_bridge_route_package_v1(
+                settlement.STAGE_BRIDGE_ROUTE_PACKAGE_SELECTOR + dirty_version,
+                caller=router.address, value=0,
+                gas=settlement.STAGE_BRIDGE_ROUTE_PACKAGE_GAS,
+                clock=retry_clock,
+            ),
+            lambda: registry.stage_bridge_route_package_v1(
+                settlement.STAGE_BRIDGE_ROUTE_PACKAGE_SELECTOR + version_word,
+                caller=router.address, value=1,
+                gas=settlement.STAGE_BRIDGE_ROUTE_PACKAGE_GAS,
+                clock=retry_clock,
+            ),
+            lambda: registry.stage_bridge_route_package_v1(
+                settlement.STAGE_BRIDGE_ROUTE_PACKAGE_SELECTOR + version_word,
+                caller=router.address, value=0,
+                gas=settlement.STAGE_BRIDGE_ROUTE_PACKAGE_GAS - 1,
+                clock=retry_clock,
+            ),
+            lambda: registry.bridge_route_package_v1(
+                b"bad!" + brp_call[4:], caller=addr("observer"), value=0,
+                gas=settlement.BRIDGE_ROUTE_PACKAGE_READ_GAS,
+                clock=retry_clock,
+            ),
+            lambda: registry.bridge_route_package_v1(
+                brp_call[:-32] + dirty_version,
+                caller=addr("observer"), value=0,
+                gas=settlement.BRIDGE_ROUTE_PACKAGE_READ_GAS,
+                clock=retry_clock,
+            ),
+            lambda: registry.bridge_route_package_v1(
+                brp_call, caller=addr("observer"), value=1,
+                gas=settlement.BRIDGE_ROUTE_PACKAGE_READ_GAS,
+                clock=retry_clock,
+            ),
+            lambda: registry.bridge_route_package_v1(
+                brp_call, caller=addr("observer"), value=0,
+                gas=settlement.BRIDGE_ROUTE_PACKAGE_READ_GAS - 1,
+                clock=retry_clock,
+            ),
+            lambda: registry.consume_bridge_route_arm_ready_v1(
+                b"bad!" + brc_call[4:], caller=router.address, value=0,
+                gas=settlement.CONSUME_BRIDGE_ROUTE_ARM_READY_GAS,
+                clock=retry_clock,
+            ),
+            lambda: registry.consume_bridge_route_arm_ready_v1(
+                settlement.CONSUME_BRIDGE_ROUTE_ARM_READY_SELECTOR
+                    + dirty_version + brc_call[36:],
+                caller=router.address, value=0,
+                gas=settlement.CONSUME_BRIDGE_ROUTE_ARM_READY_GAS,
+                clock=retry_clock,
+            ),
+            lambda: registry.consume_bridge_route_arm_ready_v1(
+                brc_call, caller=addr("not-router"), value=0,
+                gas=settlement.CONSUME_BRIDGE_ROUTE_ARM_READY_GAS,
+                clock=retry_clock,
+            ),
+            lambda: registry.consume_bridge_route_arm_ready_v1(
+                brc_call, caller=router.address, value=1,
+                gas=settlement.CONSUME_BRIDGE_ROUTE_ARM_READY_GAS,
+                clock=retry_clock,
+            ),
+            lambda: registry.consume_bridge_route_arm_ready_v1(
+                brc_call, caller=router.address, value=0,
+                gas=settlement.CONSUME_BRIDGE_ROUTE_ARM_READY_GAS - 1,
+                clock=retry_clock,
+            ),
+        )
+        for index, invoke in enumerate(bad_envelopes):
+            with self.subTest(bad_bridge_envelope=index):
+                before = registry._transaction_snapshot()
+                with self.assertRaises(ValueError):
+                    invoke()
+                self.assertEqual(registry._transaction_snapshot(), before)
+
+        router_package_before = router._bridge_package_snapshot_v1()
+        router.prepare_bridge_route_fault_point = "after_stage"
+        with self.assertRaises(RuntimeError):
+            router.prepare_bridge_route_package_v1(
+                settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_SELECTOR + version_word,
+                caller=addr("preparer"), value=0,
+                gas=settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_GAS,
+                clock=retry_clock,
+            )
+        router.prepare_bridge_route_fault_point = None
+        self.assertEqual(
+            router._bridge_package_snapshot_v1(), router_package_before
+        )
+        for attribute, call in (
+            ("stage_bridge_route_fault_point", lambda: (
+                registry.stage_bridge_route_package_v1(
+                    settlement.STAGE_BRIDGE_ROUTE_PACKAGE_SELECTOR + version_word,
+                    caller=router.address, value=0,
+                    gas=settlement.STAGE_BRIDGE_ROUTE_PACKAGE_GAS,
+                    clock=retry_clock,
+                )
+            )),
+            ("bridge_route_package_fault_point", lambda: (
+                registry.bridge_route_package_v1(
+                    brp_call, caller=addr("observer"), value=0,
+                    gas=settlement.BRIDGE_ROUTE_PACKAGE_READ_GAS,
+                    clock=retry_clock,
+                )
+            )),
+            ("consume_bridge_route_fault_point", lambda: (
+                registry.consume_bridge_route_arm_ready_v1(
+                    brc_call, caller=router.address, value=0,
+                    gas=settlement.CONSUME_BRIDGE_ROUTE_ARM_READY_GAS,
+                    clock=retry_clock,
+                )
+            )),
+        ):
+            before = registry._transaction_snapshot()
+            setattr(registry, attribute, "revert")
+            with self.assertRaises(RuntimeError):
+                call()
+            setattr(registry, attribute, None)
+            self.assertEqual(registry._transaction_snapshot(), before)
+
+        # BRC1 authorization is the ordered public MACT+ASR1+RTR2 join, not a
+        # Python-only capability.  Model the activation transaction's
+        # already-written target registration and exact Router returndata,
+        # then consume once.  The nonzero context hash is an opaque
+        # Router-issued full-frame correlation value; the independently
+        # checkable source/generation/target authorization is the ASR1 join.
+        source_registration = router.registrations[router.active_version]
+        activation_view = settlement.encode_migration_activation_context_v1(
+            settlement.MigrationActivationContextStateV1(
+                settlement.RouterMigrationLifecycle.ACTIVATING,
+                b"a" * 32,
+                settlement._model_address20(
+                    source_registration.settlement.address
+                ),
+                settlement._model_address20(witness.settlement.address),
+                1,
+                router.active_version,
+                version,
+                witness.release_manifest_hash,
+                settlement.target_registration_hash_v2(witness),
+            )
+        )
+        activation_state = settlement.encode_active_settlement_state_v1(
+            settlement.ActiveSettlementStateV1(
+                settlement._model_address20(
+                    source_registration.settlement.address
+                ),
+                1,
+                router.active_version,
+                version,
+                witness.release_manifest_hash,
+                settlement.target_registration_hash_v2(witness),
+                settlement.RouterPhase.READY,
+            )
+        )
+        prior_target = router.registrations.get(version)
+        consumed_before = registry._transaction_snapshot()
+        router.registrations[version] = witness
+        router.migration_activation_context_return_override = activation_view
+        router.active_settlement_state_return_override = activation_state
+        consume_clock = settlement.Clock(
+            mature.block_number + settlement.BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
+            mature.timestamp + settlement.BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
+        )
+        try:
+            for attribute in (
+                "migration_activation_context_fault_point",
+                "active_settlement_state_fault_point",
+                "release_registration_getter_fault_point",
+            ):
+                before = registry._transaction_snapshot()
+                setattr(router, attribute, "oog")
+                with self.assertRaises(RuntimeError):
+                    registry.consume_bridge_route_arm_ready_v1(
+                        brc_call, caller=router.address, value=0,
+                        gas=settlement.CONSUME_BRIDGE_ROUTE_ARM_READY_GAS,
+                        clock=consume_clock,
+                    )
+                setattr(router, attribute, None)
+                self.assertEqual(registry._transaction_snapshot(), before)
+
+            for malformed in (rtr[:-1], rtr + b"\x00",
+                              bytes(bad_rtr_magic),
+                              bytes(bad_rtr_integer_padding),
+                              bytes(bad_rtr_address_padding)):
+                before = registry._transaction_snapshot()
+                router.release_registration_getter_override = malformed
+                with self.assertRaises(ValueError):
+                    registry.consume_bridge_route_arm_ready_v1(
+                        brc_call, caller=router.address, value=0,
+                        gas=settlement.CONSUME_BRIDGE_ROUTE_ARM_READY_GAS,
+                        clock=consume_clock,
+                    )
+                self.assertEqual(registry._transaction_snapshot(), before)
+            router.release_registration_getter_override = None
+
+            for mismatched_state in (
+                settlement.encode_migration_activation_context_v1(
+                    settlement.MigrationActivationContextStateV1(
+                        settlement.RouterMigrationLifecycle.ACTIVATING,
+                        b"a" * 32,
+                        settlement._model_address20(addr("wrong-source")),
+                        settlement._model_address20(witness.settlement.address),
+                        1, router.active_version, version,
+                        witness.release_manifest_hash,
+                        settlement.target_registration_hash_v2(witness),
+                    )
+                ),
+                settlement.encode_migration_activation_context_v1(
+                    settlement.MigrationActivationContextStateV1(
+                        settlement.RouterMigrationLifecycle.ACTIVATING,
+                        b"a" * 32,
+                        settlement._model_address20(
+                            source_registration.settlement.address
+                        ),
+                        settlement._model_address20(witness.settlement.address),
+                        2, router.active_version, version,
+                        witness.release_manifest_hash,
+                        settlement.target_registration_hash_v2(witness),
+                    )
+                ),
+            ):
+                before = registry._transaction_snapshot()
+                router.migration_activation_context_return_override = \
+                    mismatched_state
+                with self.assertRaises(ValueError):
+                    registry.consume_bridge_route_arm_ready_v1(
+                        brc_call, caller=router.address, value=0,
+                        gas=settlement.CONSUME_BRIDGE_ROUTE_ARM_READY_GAS,
+                        clock=consume_clock,
+                    )
+                self.assertEqual(registry._transaction_snapshot(), before)
+            router.migration_activation_context_return_override = \
+                activation_view
+
+            brc = registry.consume_bridge_route_arm_ready_v1(
+                brc_call, caller=router.address, value=0,
+                gas=settlement.CONSUME_BRIDGE_ROUTE_ARM_READY_GAS,
+                clock=consume_clock,
+            )
+            self.assertEqual(
+                (len(brc), brc[:32]), (128, b"BRC1" + bytes(28))
+            )
+        finally:
+            router.migration_activation_context_return_override = None
+            router.active_settlement_state_return_override = None
+            router.release_registration_getter_override = None
+            router.migration_activation_context_fault_point = None
+            router.active_settlement_state_fault_point = None
+            router.release_registration_getter_fault_point = None
+            if prior_target is None:
+                router.registrations.pop(version, None)
+            else:
+                router.registrations[version] = prior_target
+            registry._restore_transaction_snapshot(consumed_before)
 
     def test_register_release_malformed_payloads_and_late_faults_roll_back(self):
         fixture = protocol_authority_fixture()
@@ -12890,7 +14705,8 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         ):
             with self.subTest(fault=fault):
                 current = protocol_authority_fixture()
-                operation_id, _mature, success = self._execute_release(
+                package_before = current[1]._bridge_package_snapshot_v1()
+                operation_id, mature, success = self._execute_release(
                     current, fault=fault
                 )
                 self.assertFalse(success)
@@ -12902,8 +14718,42 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                 self.assertFalse(manager.profile_ingress_roots)
                 self.assertFalse(manager.profile_ingress_rows)
                 self.assertFalse(market.authorizations)
+                target_version = current[2].settlement.protocol_version
+                self.assertNotIn(
+                    target_version, router._profile_deployments_by_version
+                )
+                self.assertNotIn(
+                    target_version, router._source_descriptor_id_by_version
+                )
+                support = router._bridge_domain_registry_authority
+                self.assertFalse(any(
+                    entry.protocol_version == target_version
+                    for entry in support.entries.values()
+                ))
+                self.assertEqual(
+                    router._bridge_package_snapshot_v1(), package_before
+                )
                 self.assertEqual(timelock.operations[operation_id].state, 1)
                 self.assertEqual(manager.lifecycle, "IDLE")
+                if fault == "before_idle":
+                    manager.fault_point = None
+                    retry = settlement.Clock(
+                        mature.block_number + 10, mature.timestamp + 1
+                    )
+                    self.assertTrue(timelock.execute_protocol_change_v1(
+                        1,
+                        settlement.REGISTER_RELEASE,
+                        current[3],
+                        caller=addr("release-retry"),
+                        clock=retry,
+                    ))
+                    target_entry = next(
+                        entry for entry in support.entries.values()
+                        if entry.protocol_version == target_version
+                    )
+                    self.assertEqual(
+                        target_entry.staged_at_block, retry.block_number
+                    )
 
         for component, fault in (("router", "after_write"),
                                  ("market", "after_install")):
@@ -12989,6 +14839,13 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         )
         self.assertTrue(self._execute_release(positive)[2])
         manager, router = positive[4], positive[1]
+        self.assertEqual(
+            positive[6].authorization_id_by_target,
+            {
+                row.target: authorization_id
+                for authorization_id, row in positive[6].authorizations.items()
+            },
+        )
         self.assertNotIn(
             "expected_router_registration",
             inspect.signature(
@@ -13040,6 +14897,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             self.assertFalse(current[1].migration_activation_profiles_v2)
             self.assertFalse(current[4].profile_ingress_rows)
             self.assertFalse(current[6].authorizations)
+            self.assertFalse(current[6].authorization_id_by_target)
             self.assertEqual(current[5].operations[operation_id].state, 1)
             self.assertEqual(current[4].lifecycle, "IDLE")
 
@@ -13171,6 +15029,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             original_market.protocol_version_manager,
             original_market.settlement_chain_id, addr("wrong-router"),
             original_market.runtime_hash,
+            original_market.profile_configuration_hash,
         )
         substituted_router[4].market = wrong_market
         operation_id, _mature, success = self._execute_release(
@@ -13297,6 +15156,61 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                 self.assertFalse(current[1].target_release_registrations_v2)
                 self.assertFalse(current[6].authorizations)
 
+    def test_register_release_rejects_alternate_manifest_namespace_before_writes(self):
+        current = list(protocol_authority_fixture())
+        original = settlement.decode_register_release_payload_v1(current[3])
+        original_words = settlement._execution_profile_abi_words_v2(
+            original.profile_bytes
+        )
+        self.assertEqual(
+            original_words[9], current[4].manifest_namespace
+        )
+
+        alternate_namespace = settlement.keccak256(
+            b"alternate-protocol-root-manifest-namespace"
+        )
+        candidate = bytearray(original.profile_bytes)
+        candidate[(1 + 9) * 32:(2 + 9) * 32] = alternate_namespace
+        candidate[(1 + 205) * 32:(2 + 205) * 32] = \
+            settlement.source_bundle_salt_v1(
+                alternate_namespace,
+                int.from_bytes(original_words[1], "big"),
+            )
+        alternate_profile = \
+            settlement.canonicalize_execution_profile_authority_graph_v2(
+                bytes(candidate)
+            )
+        alternate_words = settlement._execution_profile_abi_words_v2(
+            alternate_profile
+        )
+        self.assertEqual(alternate_words[9], alternate_namespace)
+        self.assertNotEqual(
+            alternate_words[9], current[4].manifest_namespace
+        )
+        alternate = settlement.derive_register_release_authority_v2(
+            alternate_profile,
+            original.expected_predecessor_protocol_version,
+        )
+        padded = (len(alternate_profile) + 31) // 32 * 32
+        current[3] = b"".join((
+            original.expected_predecessor_protocol_version.to_bytes(32, "big"),
+            alternate.manifest_abi,
+            alternate.deployment_abi,
+            (0x880).to_bytes(32, "big"),
+            len(alternate_profile).to_bytes(32, "big"),
+            alternate_profile,
+            bytes(padded - len(alternate_profile)),
+        ))
+
+        operation_id, _mature, success = self._execute_release(current)
+        self.assertFalse(success)
+        self.assertEqual(current[4].lifecycle, "IDLE")
+        self.assertFalse(current[4].consumed_operation_ids)
+        self.assertFalse(current[4].profile_ingress_rows)
+        self.assertFalse(current[1].target_release_registrations_v2)
+        self.assertFalse(current[6].authorizations)
+        self.assertEqual(current[5].operations[operation_id].state, 1)
+
     def test_protocol_timelock_cancel_replay_and_exact_views(self):
         fixture = protocol_authority_fixture()
         payload, manager, timelock, clock = (
@@ -13304,7 +15218,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         )
         self.assertEqual(len(timelock.config_return_v1()), 160)
         manager_config = manager.config_return_v1()
-        self.assertEqual(len(manager_config), 1_056)
+        self.assertEqual(len(manager_config), 1_088)
         self.assertEqual(manager_config[8 * 32:9 * 32], manager.market_runtime_hash)
         self.assertEqual(
             manager_config[9 * 32:10 * 32],
@@ -13312,7 +15226,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         )
         self.assertEqual(
             tuple(manager_config[index * 32:(index + 1) * 32]
-                  for index in range(21, 33)),
+                  for index in range(22, 34)),
             manager.control_component_hashes,
         )
         self.assertEqual(
@@ -13360,6 +15274,18 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             ),
             manager.configuration_hash,
         )
+        self.assertEqual(
+            manager_view.migration_arm_execution_window_seconds,
+            settlement.MIGRATION_ARM_EXECUTION_WINDOW_SECONDS,
+        )
+        self.assertEqual(
+            settlement.MIGRATION_ARM_FRESH_AFTER_SELECTOR,
+            settlement.keccak256(b"migrationArmFreshAfterV1()")[:4],
+        )
+        self.assertEqual(
+            manager.migration_arm_fresh_after_v1(),
+            commitment.encode_migration_arm_fresh_after_return(0),
+        )
         for trailing in (False, True):
             with self.subTest(pct1_trailing=trailing):
                 current = protocol_authority_fixture()
@@ -13395,7 +15321,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         )
         self.assertEqual(
             settlement.INSTALL_SETTLEMENT_AUTHORIZATION_SELECTOR.hex(),
-            "72a3e937",
+            "b1a3fef9",
         )
         self.assertEqual(
             settlement.SETTLEMENT_AUTHORIZATION_SELECTOR.hex(), "1693ae01"
@@ -13592,7 +15518,8 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             caller=timelock.dao_proposer, clock=mature,
         )
         arm_clock = settlement.Clock(
-            mature.block_number + 1,
+            mature.block_number
+                + settlement.BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
             mature.timestamp + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
         )
         self.assertTrue(timelock.execute_protocol_change_v1(
@@ -13601,6 +15528,15 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         ))
         lease = manager.migration_lease
         self.assertEqual(router.migration_gate.mode, "ARMED")
+        source_protocol = fixture[0][0]
+        source_history = fixture[0][1]
+        self.assertIsNotNone(source_protocol.seat_migration_arm)
+        self.assertEqual(source_history.mode, "MIGRATION_ARMED")
+        self.assertTrue(source_protocol.sync(settlement.Clock(
+            arm_clock.block_number + 1, arm_clock.timestamp + 1
+        )))
+        self.assertEqual(router.migration_gate.mode, "READY")
+        self.assertEqual(source_history.mode, "MIGRATION_READY")
         self.assertEqual(
             lease.abort_after_timestamp,
             arm_clock.timestamp
@@ -13623,6 +15559,13 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                          settlement.VersionMigrationLeaseV1())
         self.assertEqual(router.migration_gate.mode, "ACTIVE")
         self.assertEqual(timelock.operations[arm_operation].state, 4)
+        self.assertEqual(manager.arm_fresh_after, lease.abort_after_timestamp)
+        self.assertEqual(
+            commitment.decode_migration_arm_fresh_after_return(
+                manager.migration_arm_fresh_after_v1()
+            ),
+            lease.abort_after_timestamp,
+        )
 
         rollback = protocol_authority_fixture()
         self.assertTrue(self._execute_release(rollback)[2])
@@ -13649,7 +15592,8 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             2, settlement.PUBLISH_MIGRATION_ARM, arm2,
             caller=addr("armer"),
             clock=settlement.Clock(
-                first_mature.block_number + 1,
+                first_mature.block_number
+                    + settlement.BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
                 first_mature.timestamp
                     + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
             ),
@@ -13657,6 +15601,379 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         self.assertEqual(router2.migration_gate.mode, "ACTIVE")
         self.assertEqual(manager2.migration_lease,
                          settlement.VersionMigrationLeaseV1())
+
+    def test_migration_arm_execution_window_is_inclusive_and_double_enforced(self):
+        def prepared():
+            fixture = protocol_authority_fixture()
+            _release, mature, released = self._execute_release(fixture)
+            self.assertTrue(released)
+            manager, timelock = fixture[4], fixture[5]
+            decoded = settlement.decode_register_release_payload_v1(
+                fixture[3]
+            )
+            payload = b"".join((
+                fixture[1].active_version.to_bytes(32, "big"),
+                decoded.protocol_version.to_bytes(32, "big"),
+                decoded.release_manifest_hash,
+                decoded.target_registration_hash,
+            ))
+            operation_id = timelock.queue_protocol_change_v1(
+                settlement.PUBLISH_MIGRATION_ARM, payload,
+                caller=timelock.dao_proposer, clock=mature,
+            )
+            self.assertIsNotNone(operation_id)
+            row = timelock.operations[operation_id]
+            return fixture, payload, operation_id, row
+
+        fixture, payload, operation_id, row = prepared()
+        timelock = fixture[5]
+        before = settlement.Clock(
+            fixture[8].block_number + 1
+                + settlement.BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
+            row.execute_after - 1,
+        )
+        self.assertFalse(timelock.execute_protocol_change_v1(
+            row.nonce, settlement.PUBLISH_MIGRATION_ARM, payload,
+            caller=addr("before-arm-maturity"), clock=before,
+        ))
+        self.assertEqual(timelock.operations[operation_id].state, 1)
+
+        at_maturity = settlement.Clock(
+            before.block_number + 1, row.execute_after
+        )
+        self.assertTrue(timelock.execute_protocol_change_v1(
+            row.nonce, settlement.PUBLISH_MIGRATION_ARM, payload,
+            caller=addr("at-arm-maturity"), clock=at_maturity,
+        ))
+
+        fixture, payload, operation_id, row = prepared()
+        execute_by = (
+            row.execute_after
+            + settlement.MIGRATION_ARM_EXECUTION_WINDOW_SECONDS
+        )
+        self.assertTrue(fixture[5].execute_protocol_change_v1(
+            row.nonce, settlement.PUBLISH_MIGRATION_ARM, payload,
+            caller=addr("at-arm-deadline"),
+            clock=settlement.Clock(
+                fixture[8].block_number + 1
+                    + settlement.BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
+                execute_by,
+            ),
+        ))
+
+        fixture, payload, operation_id, row = prepared()
+        expired = settlement.Clock(
+            fixture[8].block_number + 1
+                + settlement.BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
+            row.execute_after
+                + settlement.MIGRATION_ARM_EXECUTION_WINDOW_SECONDS + 1,
+        )
+        self.assertFalse(fixture[5].execute_protocol_change_v1(
+            row.nonce, settlement.PUBLISH_MIGRATION_ARM, payload,
+            caller=addr("after-arm-deadline"), clock=expired,
+        ))
+        self.assertEqual(fixture[5].operations[operation_id].state, 1)
+
+        # Bypass the Timelock's deadline predicate in the fixture and prove
+        # that PVM independently rejects the same expired authority.
+        manager, timelock = fixture[4], fixture[5]
+        consumed_before = set(manager.consumed_operation_ids)
+        executing = replace(row, state=2)
+        timelock.operations[operation_id] = executing
+        timelock._executing_operation_id = operation_id
+        with self.assertRaisesRegex(ValueError, "stale or expired"):
+            manager.apply_protocol_change_v1(
+                operation_id, executing, payload,
+                timelock=timelock, clock=expired,
+            )
+        self.assertEqual(manager.lifecycle, "IDLE")
+        self.assertEqual(manager.consumed_operation_ids, consumed_before)
+        self.assertNotIn(operation_id, manager.consumed_operation_ids)
+
+    def test_abort_freshness_invalidates_all_preabort_arms_and_requires_new_delay(self):
+        fixture = protocol_authority_fixture()
+        _release, mature, released = self._execute_release(fixture)
+        self.assertTrue(released)
+        router, manager, timelock = fixture[1], fixture[4], fixture[5]
+        decoded = settlement.decode_register_release_payload_v1(fixture[3])
+        payload = b"".join((
+            router.active_version.to_bytes(32, "big"),
+            decoded.protocol_version.to_bytes(32, "big"),
+            decoded.release_manifest_hash,
+            decoded.target_registration_hash,
+        ))
+        first_id = timelock.queue_protocol_change_v1(
+            settlement.PUBLISH_MIGRATION_ARM, payload,
+            caller=timelock.dao_proposer, clock=mature,
+        )
+        sibling_id = timelock.queue_protocol_change_v1(
+            settlement.PUBLISH_MIGRATION_ARM, payload,
+            caller=timelock.dao_proposer,
+            clock=settlement.Clock(mature.block_number, mature.timestamp + 1),
+        )
+        self.assertIsNotNone(first_id)
+        self.assertIsNotNone(sibling_id)
+        first_row = timelock.operations[first_id]
+        arm_clock = settlement.Clock(
+            mature.block_number
+                + settlement.BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
+            first_row.execute_after,
+        )
+        self.assertTrue(timelock.execute_protocol_change_v1(
+            first_row.nonce, settlement.PUBLISH_MIGRATION_ARM, payload,
+            caller=addr("first-arm"), clock=arm_clock,
+        ))
+        lease = manager.migration_lease
+        abort_clock = settlement.Clock(
+            arm_clock.block_number + 2, lease.abort_after_timestamp
+        )
+
+        manager.fault_point = "abort_before_idle"
+        self.assertFalse(manager.permissionless_abort_expired_migration_v1(
+            caller=addr("faulting-aborter"), clock=abort_clock,
+        ))
+        self.assertEqual(manager.arm_fresh_after, 0)
+        self.assertEqual(router.migration_gate.mode, "ARMED")
+        manager.fault_point = None
+        self.assertTrue(manager.permissionless_abort_expired_migration_v1(
+            caller=addr("successful-aborter"), clock=abort_clock,
+        ))
+        self.assertEqual(manager.arm_fresh_after, abort_clock.timestamp)
+
+        # The sibling was already mature at abort, but the strict queued-at
+        # watermark invalidates it together with every other pre-abort row.
+        sibling_row = timelock.operations[sibling_id]
+        self.assertLessEqual(sibling_row.execute_after, abort_clock.timestamp)
+        self.assertFalse(timelock.execute_protocol_change_v1(
+            sibling_row.nonce, settlement.PUBLISH_MIGRATION_ARM, payload,
+            caller=addr("stale-sibling"), clock=abort_clock,
+        ))
+        self.assertEqual(timelock.operations[sibling_id].state, 1)
+
+        equality_id = timelock.queue_protocol_change_v1(
+            settlement.PUBLISH_MIGRATION_ARM, payload,
+            caller=timelock.dao_proposer, clock=abort_clock,
+        )
+        equality_row = timelock.operations[equality_id]
+        self.assertEqual(equality_row.queued_at, manager.arm_fresh_after)
+        self.assertFalse(timelock.execute_protocol_change_v1(
+            equality_row.nonce, settlement.PUBLISH_MIGRATION_ARM, payload,
+            caller=addr("equal-watermark"),
+            clock=settlement.Clock(
+                abort_clock.block_number + 1, equality_row.execute_after
+            ),
+        ))
+
+        post_abort_queue_clock = settlement.Clock(
+            abort_clock.block_number + 1, abort_clock.timestamp + 1
+        )
+        fresh_id = timelock.queue_protocol_change_v1(
+            settlement.PUBLISH_MIGRATION_ARM, payload,
+            caller=timelock.dao_proposer, clock=post_abort_queue_clock,
+        )
+        fresh_row = timelock.operations[fresh_id]
+        self.assertGreater(fresh_row.queued_at, manager.arm_fresh_after)
+        self.assertFalse(timelock.execute_protocol_change_v1(
+            fresh_row.nonce, settlement.PUBLISH_MIGRATION_ARM, payload,
+            caller=addr("fresh-but-early"),
+            clock=settlement.Clock(
+                post_abort_queue_clock.block_number + 1,
+                fresh_row.execute_after - 1,
+            ),
+        ))
+        self.assertTrue(timelock.execute_protocol_change_v1(
+            fresh_row.nonce, settlement.PUBLISH_MIGRATION_ARM, payload,
+            caller=addr("fresh-after-delay"),
+            clock=settlement.Clock(
+                post_abort_queue_clock.block_number + 2,
+                fresh_row.execute_after,
+            ),
+        ))
+
+    def test_successful_activation_does_not_advance_abort_freshness(self):
+        fixture = protocol_authority_fixture()
+        _release, mature, released = self._execute_release(fixture)
+        self.assertTrue(released)
+        old_protocol, old_history = fixture[0][0], fixture[0][1]
+        router, witness, manager, timelock = (
+            fixture[1], fixture[2], fixture[4], fixture[5]
+        )
+        decoded = settlement.decode_register_release_payload_v1(fixture[3])
+        payload = b"".join((
+            router.active_version.to_bytes(32, "big"),
+            decoded.protocol_version.to_bytes(32, "big"),
+            decoded.release_manifest_hash,
+            decoded.target_registration_hash,
+        ))
+        operation_id = timelock.queue_protocol_change_v1(
+            settlement.PUBLISH_MIGRATION_ARM, payload,
+            caller=timelock.dao_proposer, clock=mature,
+        )
+        row = timelock.operations[operation_id]
+        arm_clock = settlement.Clock(
+            mature.block_number
+                + settlement.BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
+            row.execute_after,
+        )
+        self.assertTrue(timelock.execute_protocol_change_v1(
+            row.nonce, settlement.PUBLISH_MIGRATION_ARM, payload,
+            caller=addr("success-arm"), clock=arm_clock,
+        ))
+        activation_clock = settlement.Clock(
+            max(old_history.last_canonical_l1_block + 1,
+                arm_clock.block_number + 1),
+            max(arm_clock.timestamp + 1,
+                settlement.GENESIS_TIMESTAMP + old_history.core.tip_slot + 1),
+        )
+        self.assertTrue(old_protocol.sync(activation_clock))
+        self.assertEqual(router.migration_gate.mode, "READY")
+        target = witness.settlement
+        candidate, inbox_rows = settlement.migration_activation_candidate(
+            router, target, activation_clock,
+            decoded.release_manifest_hash,
+            "pvm-success-freshness", addr("success-beneficiary"),
+        )
+        authority = target.live_protocol._inbox_execution_authority
+        attestation = settlement.issue_verified_migration_evm_trace_for_test(
+            authority, router=router, settlement=target,
+            clock=activation_clock,
+            target_manifest_hash=decoded.release_manifest_hash,
+            candidate=candidate, rows=inbox_rows,
+        )
+        proof = authority.verify_migration_execution_output(
+            router=router, settlement=target, clock=activation_clock,
+            target_manifest_hash=decoded.release_manifest_hash,
+            candidate=candidate, evm_validity=attestation, rows=inbox_rows,
+        )
+        poststate = settlement.replay_verified_migration_output_on_l2_for_test(
+            target.live_protocol, proof, router
+        )
+        self.assertIsNotNone(poststate)
+        self.assertIsNotNone(router.activate_version_with_migration_v1(
+            proof, caller=addr("success-activator"), clock=activation_clock,
+        ))
+        self.assertTrue(
+            settlement.select_canonical_l2_poststate_for_test(poststate)
+        )
+        self.assertEqual(router.active_version, decoded.protocol_version)
+        self.assertEqual(router.migration_gate.mode, "ACTIVE")
+        self.assertEqual(manager.arm_fresh_after, 0)
+        self.assertEqual(
+            manager.migration_arm_fresh_after_v1(),
+            commitment.encode_migration_arm_fresh_after_return(0),
+        )
+
+    def test_strict_brc_faults_restore_arm_ready_consumption(self):
+        scenarios = (
+            ("registry_fault", "revert"),
+            ("registry_return", b"BRC1"),
+            ("mact_return", b"MACT"),
+            ("asr_return", b"ASR1"),
+            ("rtr_return", b"RTR2"),
+            ("after_consume", "after_activation_receipt_write"),
+        )
+        for kind, fault in scenarios:
+            with self.subTest(kind=kind):
+                fixture = protocol_authority_fixture()
+                _release, mature, released = self._execute_release(fixture)
+                self.assertTrue(released)
+                old_protocol, old_history = fixture[0][0], fixture[0][1]
+                router, witness, manager, timelock = (
+                    fixture[1], fixture[2], fixture[4], fixture[5]
+                )
+                decoded = settlement.decode_register_release_payload_v1(
+                    fixture[3]
+                )
+                payload = b"".join((
+                    router.active_version.to_bytes(32, "big"),
+                    decoded.protocol_version.to_bytes(32, "big"),
+                    decoded.release_manifest_hash,
+                    decoded.target_registration_hash,
+                ))
+                operation_id = timelock.queue_protocol_change_v1(
+                    settlement.PUBLISH_MIGRATION_ARM, payload,
+                    caller=timelock.dao_proposer, clock=mature,
+                )
+                row = timelock.operations[operation_id]
+                arm_clock = settlement.Clock(
+                    mature.block_number
+                        + settlement.BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
+                    row.execute_after,
+                )
+                self.assertTrue(timelock.execute_protocol_change_v1(
+                    row.nonce, settlement.PUBLISH_MIGRATION_ARM, payload,
+                    caller=addr("fault-arm"), clock=arm_clock,
+                ))
+                activation_clock = settlement.Clock(
+                    max(old_history.last_canonical_l1_block + 1,
+                        arm_clock.block_number + 1),
+                    max(arm_clock.timestamp + 1,
+                        settlement.GENESIS_TIMESTAMP
+                            + old_history.core.tip_slot + 1),
+                )
+                self.assertTrue(old_protocol.sync(activation_clock))
+                target = witness.settlement
+                candidate, inbox_rows = settlement.migration_activation_candidate(
+                    router, target, activation_clock,
+                    decoded.release_manifest_hash,
+                    f"strict-brc-fault:{kind}", addr("fault-beneficiary"),
+                )
+                authority = target.live_protocol._inbox_execution_authority
+                attestation = settlement.issue_verified_migration_evm_trace_for_test(
+                    authority, router=router, settlement=target,
+                    clock=activation_clock,
+                    target_manifest_hash=decoded.release_manifest_hash,
+                    candidate=candidate, rows=inbox_rows,
+                )
+                proof = authority.verify_migration_execution_output(
+                    router=router, settlement=target,
+                    clock=activation_clock,
+                    target_manifest_hash=decoded.release_manifest_hash,
+                    candidate=candidate, evm_validity=attestation,
+                    rows=inbox_rows,
+                )
+                self.assertIsNotNone(
+                    settlement.replay_verified_migration_output_on_l2_for_test(
+                        target.live_protocol, proof, router
+                    )
+                )
+                registry = router._bridge_domain_registry_authority
+                entry = next(
+                    item for item in registry.entries.values()
+                    if item.protocol_version == decoded.protocol_version
+                )
+                self.assertFalse(entry.arm_ready_consumed)
+                old_version = router.active_version
+                if kind == "registry_fault":
+                    registry.consume_bridge_route_fault_point = fault
+                elif kind == "registry_return":
+                    registry.consume_bridge_route_return_override = fault
+                elif kind == "mact_return":
+                    router.migration_activation_context_return_override = fault
+                elif kind == "asr_return":
+                    router.active_settlement_state_return_override = fault
+                elif kind == "rtr_return":
+                    router.release_registration_getter_override = fault
+                else:
+                    manager.fault_point = fault
+                with self.assertRaises((ValueError, RuntimeError)):
+                    router.activate_version_with_migration_v1(
+                        proof, caller=addr("fault-activator"),
+                        clock=activation_clock,
+                    )
+                restored = next(
+                    item for item in registry.entries.values()
+                    if item.protocol_version == decoded.protocol_version
+                )
+                self.assertFalse(restored.arm_ready_consumed)
+                self.assertEqual(router.active_version, old_version)
+                self.assertEqual(router.migration_gate.mode, "READY")
+                registry.consume_bridge_route_fault_point = None
+                registry.consume_bridge_route_return_override = None
+                router.migration_activation_context_return_override = None
+                router.active_settlement_state_return_override = None
+                router.release_registration_getter_override = None
+                manager.fault_point = None
 
 
 class BoundedFrontierAndDataSessionTests(unittest.TestCase):
@@ -14063,7 +16380,7 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
 
     def test_readiness_and_accounting_abis_gate_ready_exactly(self):
         config_hash = hashlib.sha256(b"registered-session-config").digest()
-        gate = settlement.MigrationGate()
+        gate = settlement.MigrationGate(coordinator="version-manager")
         self.assertTrue(gate._bootstrap_from_router(
             25,
             "version-manager",
@@ -14261,7 +16578,12 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
         now = settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000)
 
         def armed_protocol():
-            protocol = settlement.protocol(seat=False)
+            protocol = settlement.protocol(
+                seat=False,
+                migration_gate=settlement.MigrationGate(
+                    coordinator="version-manager"
+                ),
+            )
             self.assertTrue(protocol.migration_gate._bootstrap_from_router(1))
             self.assertTrue(protocol.migration_gate._arm_from_manager(
                 1, 1, 2, b"b" * 32, b"r" * 32,
@@ -14301,7 +16623,12 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             orphan.migration_readiness_v1()
         # Construct the exact current recovery before arming the component.
-        recovering = settlement.protocol(seat=False)
+        recovering = settlement.protocol(
+            seat=False,
+            migration_gate=settlement.MigrationGate(
+                coordinator="version-manager"
+            ),
+        )
         recovering.sync(settlement.Clock(
             now.block_number + 1,
             settlement.GENESIS_TIMESTAMP + recovering.core.tip_slot
@@ -14969,7 +17296,10 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
     def test_migration_1024_live_to_refund_in_exactly_128_calls(self):
         now = settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000)
         p = settlement.protocol(
-            seat=False, refund_claim_window_seconds=100
+            seat=False, refund_claim_window_seconds=100,
+            migration_gate=settlement.MigrationGate(
+                coordinator="version-manager"
+            ),
         )
         p.gc_cursor = 73
         for cell in range(settlement.MAX_LIVE_DATA_SESSIONS):
@@ -15087,7 +17417,10 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
     def test_migration_deadline_boundary_abort_and_live_claim(self):
         now = settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000)
         p = settlement.protocol(
-            seat=False, refund_claim_window_seconds=100
+            seat=False, refund_claim_window_seconds=100,
+            migration_gate=settlement.MigrationGate(
+                coordinator="version-manager"
+            ),
         )
         owner = addr("boundary-owner")
         p._install_data_session_for_test(
@@ -15124,7 +17457,12 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
         self.assertEqual(p.session_live_count, 0)
         self.assertEqual(p.session_refund_count, 0)
 
-        saturated = settlement.protocol(seat=False)
+        saturated = settlement.protocol(
+            seat=False,
+            migration_gate=settlement.MigrationGate(
+                coordinator="version-manager"
+            ),
+        )
         saturated.normal_deadline = settlement.UINT64_MAX
         saturated.normal_arm_block_number = now.block_number
         self.assertTrue(saturated.migration_gate._bootstrap_from_router(1))
@@ -15138,7 +17476,12 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
             settlement.UINT64_MAX,
         )
 
-        partial = settlement.protocol(seat=False)
+        partial = settlement.protocol(
+            seat=False,
+            migration_gate=settlement.MigrationGate(
+                coordinator="version-manager"
+            ),
+        )
         partial.gc_cursor = 100
         for cell in range(100, 116):
             partial._install_data_session_for_test(

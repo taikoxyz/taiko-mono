@@ -187,6 +187,9 @@ HANDOVER_EXECUTION_BUFFER_SECONDS = (
     HANDOVER_DELAY_SECONDS + STAGE_GRACE_SECONDS + T_INCLUDE_MAX_SECONDS
 )
 SEAT_RUNWAY_SECONDS = 6_000
+MAX_STANDBY_LEASE_SECONDS = SEAT_RUNWAY_SECONDS
+MIN_ASK_IMPROVEMENT_WEI_PER_SECOND = 1
+MIN_ASK_IMPROVEMENT_BPS = 100
 NON_PROTOCOL_MARKET_UNIT_PRIMITIVES = frozenset({
     "stage_best",
     "install_stage",
@@ -314,6 +317,31 @@ L1_SLOT_SECONDS = 12
 SUPPORT_FINALITY_BLOCKS = F_L1 + (
     REORG_MARGIN_SECONDS + L1_SLOT_SECONDS - 1
 ) // L1_SLOT_SECONDS
+# This is an L1 package-review delay.  It is deliberately not an MPT
+# finality claim: the migration activation proof remains the only authority
+# for the target L2 tx0/Registrar transition.
+BRIDGE_ROUTE_ARM_REVIEW_BLOCKS = SUPPORT_FINALITY_BLOCKS
+BRIDGE_ACTIVE_ROUTE_MACT_GAS = 100_000
+BRIDGE_ACTIVE_ROUTE_ROUTER_STATE_GAS = 50_000
+BRIDGE_ROUTE_PACKAGE_MAGIC = b"BRP1"
+BRIDGE_ROUTE_PACKAGE_SELECTOR = bytes.fromhex("52e2562f")
+BRIDGE_ROUTE_PACKAGE_CALLDATA_LENGTH = 68
+BRIDGE_ROUTE_PACKAGE_RETURN_LENGTH = 480
+BRIDGE_ROUTE_PACKAGE_READ_GAS = 100_000
+ACTIVE_BRIDGE_ROUTE_SELECTOR = bytes.fromhex("39893c49")
+ACTIVE_BRIDGE_ROUTE_MAGIC = b"ABR1"
+ACTIVE_BRIDGE_ROUTE_CALLDATA_LENGTH = 132
+ACTIVE_BRIDGE_ROUTE_RETURN_LENGTH = 288
+ACTIVE_BRIDGE_ROUTE_READ_GAS = 100_000
+STAGE_BRIDGE_ROUTE_PACKAGE_SELECTOR = bytes.fromhex("9dad437b")
+STAGE_BRIDGE_ROUTE_PACKAGE_GAS = 2_000_000
+STAGE_BRIDGE_ROUTE_PACKAGE_RETURN_LENGTH = 128
+PREPARE_BRIDGE_ROUTE_PACKAGE_SELECTOR = bytes.fromhex("1ccbc24a")
+PREPARE_BRIDGE_ROUTE_PACKAGE_GAS = 5_000_000
+PREPARE_BRIDGE_ROUTE_PACKAGE_RETURN_LENGTH = 128
+CONSUME_BRIDGE_ROUTE_ARM_READY_SELECTOR = bytes.fromhex("68034634")
+CONSUME_BRIDGE_ROUTE_ARM_READY_GAS = 200_000
+CONSUME_BRIDGE_ROUTE_ARM_READY_RETURN_LENGTH = 128
 MAX_BRIDGE_TOPOLOGIES_PER_PROFILE = 64
 MAX_PROFILE_INGRESS_AUTHORIZATIONS = 64
 MAX_BRIDGE_ENQUEUE_DELAY = 7 * 86_400
@@ -388,9 +416,6 @@ KIND0_INGRESS_CONFIGURATION_HASH = "config:kind0-ingress:v2"
 BRIDGE_INGRESS_RUNTIME_HASH = "code:bridge-inbox-adapter:v2"
 BRIDGE_INGRESS_CONFIGURATION_HASH = "config:bridge-inbox-adapter:v2"
 ACTIVE_SETTLEMENT_ROUTER_RUNTIME_HASH = "code:active-settlement-router:v2"
-ACTIVE_SETTLEMENT_ROUTER_CONFIGURATION_HASH = (
-    "config:active-settlement-router:typed-ingress:v2"
-)
 MODEL_SETTLEMENT_CHAIN_CONTEXT_ID = 1
 BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH = "code:bridge-credit-registry:v2"
 BRIDGE_CREDIT_REGISTRY_CONFIGURATION_HASH = (
@@ -430,6 +455,7 @@ _NATIVE_QUOTA_CONSUME_CAPABILITY = object()
 _NATIVE_QUOTA_ROLLBACK_CAPABILITY = object()
 _SOURCE_BRIDGE_ROLLBACK_CAPABILITY = object()
 _DESTINATION_BRIDGE_ROLLBACK_CAPABILITY = object()
+_BRIDGE_ROUTE_ACTIVATION_CAPABILITY = object()
 EMPTY_V2_BRIDGE_STATE_COMMITMENT = "v2-state:empty:slot257:v1"
 LEGACY_V1_SOURCE_BRIDGE = "bridge-v1:source:A"
 SOURCE_V2_CREATE2_FACTORY = "v2-bridge-create2-factory"
@@ -686,16 +712,18 @@ def source_bridge_create2_address(
 
 
 def exact_component_config_staticcall(
-    component: object, *, expected_runtime_hash: str,
-    expected_configuration_hash: str,
+    component: object, *, expected_runtime_hash: str | bytes,
+    expected_configuration_hash: str | bytes,
 ) -> bool:
     """Model the exact four-byte/50k/32-byte configuration read boundary."""
 
     if (not expected_runtime_hash or not expected_configuration_hash
-            or getattr(component, "runtime_hash", None)
-                != expected_runtime_hash
-            or getattr(component, "configuration_hash", None)
-                != expected_configuration_hash
+            or _model_fixed_bytes32(
+                getattr(component, "runtime_hash", "")
+            ) != _model_fixed_bytes32(expected_runtime_hash)
+            or _model_fixed_bytes32(
+                getattr(component, "configuration_hash", "")
+            ) != _model_fixed_bytes32(expected_configuration_hash)
             or getattr(component, "component_config_call_fault", False)):
         return False
     calldata = COMPONENT_CONFIG_GETTER_SELECTOR
@@ -714,17 +742,84 @@ def exact_component_config_staticcall(
     )
 
 
-def active_settlement_router_configuration_hash(
-    settlement_chain_context_id: int,
-) -> str:
+def inbox_apply_deployment_descriptor_hash_v1(
+    *, address: str, registrar_address: str,
+    runtime_hash: str | bytes, configuration_hash: str | bytes,
+) -> bytes:
+    payload = b"".join((
+        _model_address20(address), _model_address20(registrar_address),
+        _model_fixed_bytes32(runtime_hash),
+        _model_fixed_bytes32(configuration_hash),
+    ))
+    if len(payload) != 104:
+        raise AssertionError("InboxApply deployment descriptor width drifted")
+    return keccak256(
+        b"slot-chain-inbox-apply-deployment-descriptor-v1"
+        + _model_uint(len(payload), 2, "InboxApply descriptor bytes")
+        + payload
+    )
+
+
+def legacy_bootstrap_descriptor_hash_v1(
+    *, proxy_address: str, proxy_runtime_hash: str | bytes,
+    implementation_address: str, implementation_runtime_hash: str | bytes,
+    inbox_configuration_hash: str | bytes,
+) -> bytes:
+    payload = b"".join((
+        _model_address20(proxy_address),
+        _model_fixed_bytes32(proxy_runtime_hash),
+        _model_address20(implementation_address),
+        _model_fixed_bytes32(implementation_runtime_hash),
+        _model_fixed_bytes32(inbox_configuration_hash),
+    ))
+    if len(payload) != 136:
+        raise AssertionError("legacy bootstrap descriptor width drifted")
+    return keccak256(
+        b"slot-chain-legacy-bootstrap-descriptor-v1"
+        + _model_uint(len(payload), 2, "legacy descriptor bytes") + payload
+    )
+
+
+def active_settlement_router_configuration_hash_v2(
+    *, settlement_chain_context_id: int,
+    version_manager: str, version_manager_runtime_hash: str | bytes,
+    forced_queue_address: str, forced_queue_runtime_hash: str | bytes,
+    forced_queue_configuration_hash: str | bytes,
+    builder_registry_address: str, schedule_oracle_address: str,
+    router_namespace: bytes, inbox_apply_descriptor_hash: bytes,
+    l1_history_first_supported_block: int,
+    l1_history_read_configuration_hash: bytes,
+    legacy_bootstrap_descriptor_hash: bytes,
+) -> bytes:
     if (type(settlement_chain_context_id) is not int
-            or not 0 < settlement_chain_context_id <= UINT64_MAX):
-        raise ValueError("settlement chain context is outside uint64")
-    if settlement_chain_context_id == MODEL_SETTLEMENT_CHAIN_CONTEXT_ID:
-        return ACTIVE_SETTLEMENT_ROUTER_CONFIGURATION_HASH
-    return (
-        "config:active-settlement-router:typed-ingress:v2:chain:"
-        f"{settlement_chain_context_id}"
+            or not 0 < settlement_chain_context_id <= SEAT_UINT256_MAX
+            or type(l1_history_first_supported_block) is not int
+            or not 0 < l1_history_first_supported_block <= UINT64_MAX):
+        raise ValueError("Router chain/history bound is unsupported")
+    payload = b"".join((
+        _model_uint(settlement_chain_context_id, 32, "Router chain"),
+        _model_address20(version_manager),
+        _model_fixed_bytes32(version_manager_runtime_hash),
+        _model_address20(forced_queue_address),
+        _model_fixed_bytes32(forced_queue_runtime_hash),
+        _model_fixed_bytes32(forced_queue_configuration_hash),
+        _model_address20(builder_registry_address),
+        _model_address20(schedule_oracle_address),
+        _model_fixed_bytes32(router_namespace),
+        _model_fixed_bytes32(inbox_apply_descriptor_hash),
+        _model_uint(
+            l1_history_first_supported_block, 8,
+            "Router first supported L1 block",
+        ),
+        _model_fixed_bytes32(l1_history_read_configuration_hash),
+        _model_fixed_bytes32(legacy_bootstrap_descriptor_hash),
+    ))
+    if len(payload) != 344:
+        raise AssertionError("ActiveSettlementRouter config width drifted")
+    return keccak256(
+        D_COMPONENT_CONFIG + _model_uint(2, 1, "Router component kind")
+        + _model_uint(len(payload), 2, "Router configuration bytes")
+        + payload
     )
 
 
@@ -744,27 +839,35 @@ def bridge_ingress_component_configuration_hash(
     source_bridge_configuration_hash_: str,
     seal_authority: str,
 ) -> str:
-    """Commit the immutable pre-seal graph, never the derived domain."""
+    """Commit the exact acyclic kind-1 constructor graph."""
 
     words = (
-        BRIDGE_INGRESS_CONFIGURATION_HASH,
-        router_address,
-        router_runtime_hash,
-        router_configuration_hash,
-        queue_address,
-        queue_runtime_hash,
-        queue_configuration_hash,
-        source_registry_address,
-        source_registry_runtime_hash,
-        source_registry_configuration_hash,
-        source_bridge_address,
-        source_bridge_runtime_hash,
-        source_bridge_configuration_hash_,
+        router_address, router_runtime_hash, router_configuration_hash,
+        queue_address, queue_runtime_hash, queue_configuration_hash,
+        source_registry_address, source_registry_runtime_hash,
+        source_registry_configuration_hash, source_bridge_address,
+        source_bridge_runtime_hash, source_bridge_configuration_hash_,
         seal_authority,
     )
     if any(type(word) is not str or not word for word in words):
         raise ValueError("Bridge ingress configuration is incomplete")
-    return "config-hash:" + hashlib.sha256("\x1f".join(words).encode()).hexdigest()
+    # Runtime/code identities are independently exact-read.  Repeating them
+    # here formerly produced a second, incompatible configuration schema.
+    # These four addresses are the complete constructor authority surface.
+    config = b"".join((
+        _model_address20(source_registry_address),
+        _model_address20(source_bridge_address),
+        _model_address20(router_address),
+        _model_address20(seal_authority),
+    ))
+    if len(config) != 80:
+        raise AssertionError("Bridge ingress component config drifted")
+    return "0x" + keccak256(b"".join((
+        D_COMPONENT_CONFIG,
+        _model_uint(1, 1, "Bridge ingress component kind"),
+        _model_uint(len(config), 2, "Bridge ingress config bytes"),
+        config,
+    ))).hex()
 
 
 def bridge_credit_registry_configuration_hash(
@@ -777,26 +880,32 @@ def bridge_credit_registry_configuration_hash(
     frozen_bridge_execution_hash: str,
     source_descriptor_id: bytes,
 ) -> str:
-    if type(source_descriptor_id) is not bytes or len(source_descriptor_id) != 32:
+    if (type(source_descriptor_id) is not bytes
+            or len(source_descriptor_id) != 32
+            or not 0 < source_chain_id <= UINT64_MAX
+            or not 0 < source_registration_epoch <= UINT64_MAX
+            or not source_domain_id or not frozen_bridge_execution_hash):
         raise ValueError("source Bridge descriptor id is not bytes32")
-    words = (
-        BRIDGE_CREDIT_REGISTRY_CONFIGURATION_HASH,
-        address,
-        runtime_hash,
-        domain_registrar,
-        frozen_bridge,
-        support_registry_address,
-        support_registry_runtime_hash,
+    # Constructor identity is deliberately acyclic.  The derived domain,
+    # execution hash and descriptor id are installed and exact-read as
+    # activation state; including them here would make the descriptor commit
+    # its own hash.  Runtime identity is checked independently by EXTCODEHASH.
+    static = (
+        address, runtime_hash, domain_registrar, frozen_bridge,
+        support_registry_address, support_registry_runtime_hash,
         support_registry_configuration_hash,
-        str(source_chain_id),
-        source_domain_id,
-        str(source_registration_epoch),
-        frozen_bridge_execution_hash,
-        source_descriptor_id.hex(),
     )
-    if any(type(word) is not str or not word for word in words):
+    if any(type(word) is not str or not word for word in static):
         raise ValueError("Bridge credit registry configuration is incomplete")
-    return "config-hash:" + hashlib.sha256("\x1f".join(words).encode()).hexdigest()
+    encoded = b"".join((
+        b"slot-chain-source-credit-registry-config-v2",
+        _model_address20(address), _model_address20(domain_registrar),
+        _model_address20(frozen_bridge),
+        _model_address20(support_registry_address),
+        _model_fixed_bytes32(support_registry_runtime_hash),
+        _model_fixed_bytes32(support_registry_configuration_hash),
+    ))
+    return "0x" + keccak256(encoded).hex()
 
 
 def bridge_domain_registry_configuration_hash(
@@ -808,21 +917,31 @@ def bridge_domain_registry_configuration_hash(
     registration_mpt_verifier_descriptor_hash: str,
 ) -> str:
     words = (
-        BRIDGE_DOMAIN_REGISTRY_CONFIGURATION_HASH,
-        address,
-        runtime_hash,
-        support_authority,
-        router_address,
-        router_runtime_hash,
-        router_configuration_hash,
-        release_authority_address,
-        release_authority_runtime_hash,
+        address, runtime_hash, support_authority, router_address,
+        router_runtime_hash, router_configuration_hash,
+        release_authority_address, release_authority_runtime_hash,
         release_authority_configuration_hash,
         registration_mpt_verifier_descriptor_hash,
     )
     if any(type(word) is not str or not word for word in words):
         raise ValueError("Bridge support registry configuration is incomplete")
-    return "config-hash:" + hashlib.sha256("\x1f".join(words).encode()).hexdigest()
+    encoded = b"".join((
+        _model_address20(address), _model_fixed_bytes32(runtime_hash),
+        _model_address20(support_authority), _model_address20(router_address),
+        _model_fixed_bytes32(router_runtime_hash),
+        _model_fixed_bytes32(router_configuration_hash),
+        _model_address20(release_authority_address),
+        _model_fixed_bytes32(release_authority_runtime_hash),
+        _model_fixed_bytes32(release_authority_configuration_hash),
+        _model_fixed_bytes32(registration_mpt_verifier_descriptor_hash),
+    ))
+    if len(encoded) != 272:
+        raise AssertionError("Bridge support registry config width drifted")
+    return "0x" + keccak256(
+        b"slot-chain-bridge-domain-registry-config-v2"
+        + _model_uint(len(encoded), 2, "support registry config bytes")
+        + encoded
+    ).hex()
 
 
 def registration_mpt_verifier_configuration_hash(
@@ -2613,6 +2732,9 @@ class SeatTerm:
     payout: str
     ask: int
     installed_at: int
+    authorization_id: bytes | None = None
+    generation: int | None = None
+    install_revision: int = 0
 
 
 @dataclass
@@ -2632,6 +2754,7 @@ class SeatService:
     prospective_failover_at: int | None = None
     prospective_slash_at: int | None = None
     term_removed_at: int | None = None
+    standby_lease_expires_at: int | None = None
 
 
 @dataclass
@@ -2750,8 +2873,17 @@ class RouterWord:
 
 
 ACTIVE_SETTLEMENT_STATE_MAGIC = b"ASR1"
+ACTIVE_SETTLEMENT_STATE_SELECTOR = bytes.fromhex("4a95c306")
 ACTIVE_SETTLEMENT_STATE_LENGTH = 256
 ACTIVE_SETTLEMENT_STATE_GAS = 50_000
+MIGRATION_ACTIVATION_CONTEXT_SELECTOR = bytes.fromhex("7cf70319")
+MIGRATION_ACTIVATION_CONTEXT_MAGIC = b"MACT"
+MIGRATION_ACTIVATION_CONTEXT_LENGTH = 320
+MIGRATION_ACTIVATION_CONTEXT_GAS = 100_000
+TARGET_RELEASE_REGISTRATION_SELECTOR = bytes.fromhex("f588fec3")
+TARGET_RELEASE_REGISTRATION_CALLDATA_LENGTH = 36
+TARGET_RELEASE_REGISTRATION_RETURN_LENGTH = 384
+TARGET_RELEASE_REGISTRATION_READ_GAS = 100_000
 MIGRATION_READINESS_MAGIC = b"MRS1"
 MIGRATION_READINESS_LENGTH = 256
 MIGRATION_READINESS_GAS = 100_000
@@ -2762,7 +2894,10 @@ MARK_MIGRATION_READY_MAGIC = b"MRDY"
 MARK_MIGRATION_READY_RETURN = MARK_MIGRATION_READY_MAGIC + bytes(28)
 SEAT_MIGRATION_ARM_SELECTOR = bytes.fromhex("91d657cf")
 SEAT_MIGRATION_ABORT_SELECTOR = bytes.fromhex("c69d5579")
-MIGRATION_CANONICAL_ADOPT_SELECTOR = bytes.fromhex("557c4e13")
+MIGRATION_CANONICAL_ADOPT_SELECTOR = bytes.fromhex("3286443c")
+MIGRATION_SOURCE_FREEZE_SELECTOR = bytes.fromhex("45a80913")
+MIGRATION_QUEUE_SELECTOR = bytes.fromhex("9461f698")
+MIGRATION_POST_STATE_SELECTOR = bytes.fromhex("66e664cb")
 MIGRATION_CANONICAL_MAGIC = b"MCAN"
 MIGRATION_CANONICAL_RETURN_LENGTH = 96
 MIGRATION_SOURCE_FREEZE_MAGIC = b"MFRZ"
@@ -2771,6 +2906,12 @@ MIGRATION_ADOPTION_STATE_MAGIC = b"MAPS"
 MIGRATION_ADOPTION_STATE_LENGTH = 128
 MIGRATION_QUEUE_MAGIC = b"QMIG"
 MIGRATION_QUEUE_RETURN_LENGTH = 128
+D_CANONICAL_CORE_V2 = b"slot-chain-core-v3"
+D_BASE_CANONICAL_V2 = b"slot-chain-canonical-v2"
+D_L1_ADOPTION_V1 = b"slot-chain-l1-adoption-v1"
+D_L1_ACTIVATION_CONTEXT_V1 = b"slot-chain-l1-activation-context-v1"
+D_SOURCE_FREEZE_POSTSTATE_V1 = b"slot-chain-source-freeze-poststate-v1"
+D_QUEUE_MIGRATION_POSTSTATE_V1 = b"slot-chain-queue-migration-poststate-v1"
 
 
 @dataclass(frozen=True)
@@ -2782,6 +2923,119 @@ class ActiveSettlementStateV1:
     target_manifest_hash: bytes
     target_registration_hash: bytes
     phase: RouterPhase
+
+
+@dataclass(frozen=True)
+class MigrationActivationContextStateV1:
+    lifecycle: RouterMigrationLifecycle
+    activation_context_hash: bytes
+    source_settlement: bytes
+    target_settlement: bytes
+    generation: int
+    source_protocol_version: int
+    target_protocol_version: int
+    target_manifest_hash: bytes
+    target_registration_hash: bytes
+
+
+def encode_migration_activation_context_v1(
+    state: MigrationActivationContextStateV1,
+) -> bytes:
+    """Encode the frozen MACT 10-word Router lifecycle/context view."""
+
+    if (type(state) is not MigrationActivationContextStateV1
+            or type(state.lifecycle) is not RouterMigrationLifecycle
+            or type(state.activation_context_hash) is not bytes
+            or len(state.activation_context_hash) != 32
+            or type(state.source_settlement) is not bytes
+            or len(state.source_settlement) != 20
+            or type(state.target_settlement) is not bytes
+            or len(state.target_settlement) != 20
+            or type(state.target_manifest_hash) is not bytes
+            or len(state.target_manifest_hash) != 32
+            or type(state.target_registration_hash) is not bytes
+            or len(state.target_registration_hash) != 32):
+        raise ValueError("migration activation context is malformed")
+    generation = _model_uint(state.generation, 8, "MACT generation")
+    source_version = _model_uint(
+        state.source_protocol_version, 8, "MACT source version"
+    )
+    target_version = _model_uint(
+        state.target_protocol_version, 8, "MACT target version"
+    )
+    context_words = (
+        state.activation_context_hash,
+        state.source_settlement,
+        state.target_settlement,
+        state.generation,
+        state.source_protocol_version,
+        state.target_protocol_version,
+        state.target_manifest_hash,
+        state.target_registration_hash,
+    )
+    if state.lifecycle is RouterMigrationLifecycle.ACTIVATING:
+        if (state.activation_context_hash == bytes(32)
+                or state.source_settlement == bytes(20)
+                or state.target_settlement == bytes(20)
+                or state.source_settlement == state.target_settlement
+                or state.target_protocol_version == 0
+                or state.target_protocol_version
+                    <= state.source_protocol_version
+                or state.target_manifest_hash == bytes(32)
+                or state.target_registration_hash == bytes(32)):
+            raise ValueError("ACTIVATING MACT tuple is incomplete")
+    elif context_words != (
+        bytes(32), bytes(20), bytes(20), 0, 0, 0, bytes(32), bytes(32)
+    ):
+        raise ValueError("non-ACTIVATING MACT context is nonzero")
+    raw = b"".join((
+        MIGRATION_ACTIVATION_CONTEXT_MAGIC + bytes(28),
+        bytes(31) + bytes((state.lifecycle.value,)),
+        state.activation_context_hash,
+        bytes(12) + state.source_settlement,
+        bytes(12) + state.target_settlement,
+        bytes(24) + generation,
+        bytes(24) + source_version,
+        bytes(24) + target_version,
+        state.target_manifest_hash,
+        state.target_registration_hash,
+    ))
+    if len(raw) != MIGRATION_ACTIVATION_CONTEXT_LENGTH:
+        raise AssertionError("MACT returndata width drifted")
+    return raw
+
+
+def decode_migration_activation_context_v1(
+    raw: bytes,
+) -> MigrationActivationContextStateV1:
+    """Decode MACT with exact length, magic, masks, enum and zero rules."""
+
+    if type(raw) is not bytes or len(raw) != MIGRATION_ACTIVATION_CONTEXT_LENGTH:
+        raise ValueError("MACT returndata length is invalid")
+    words = tuple(raw[index:index + 32]
+                  for index in range(0, len(raw), 32))
+    if (words[0] != MIGRATION_ACTIVATION_CONTEXT_MAGIC + bytes(28)
+            or words[1][:31] != bytes(31)
+            or words[3][:12] != bytes(12)
+            or words[4][:12] != bytes(12)
+            or words[5][:24] != bytes(24)
+            or words[6][:24] != bytes(24)
+            or words[7][:24] != bytes(24)):
+        raise ValueError("MACT returndata padding is noncanonical")
+    try:
+        state = MigrationActivationContextStateV1(
+            RouterMigrationLifecycle(words[1][-1]),
+            words[2], words[3][12:], words[4][12:],
+            int.from_bytes(words[5][24:], "big"),
+            int.from_bytes(words[6][24:], "big"),
+            int.from_bytes(words[7][24:], "big"),
+            words[8], words[9],
+        )
+        if encode_migration_activation_context_v1(state) != raw:
+            raise ValueError
+        return state
+    except (ValueError, OverflowError) as exc:
+        raise ValueError("MACT returndata is invalid") from exc
 
 
 @dataclass(frozen=True)
@@ -3209,8 +3463,8 @@ class MigrationGate:
     ) -> bool:
         if (self.active_protocol_version != 0 or protocol_version <= 0
                 or self.mode != "ACTIVE"
-                or self.coordinator != ""
                 or not coordinator
+                or self.coordinator != coordinator
                 or (active_settlement_address
                     and (type(active_data_session_config_hash) is not bytes
                          or (active_data_session_config_hash != b""
@@ -3224,7 +3478,6 @@ class MigrationGate:
         self.target_protocol_version = 0
         self.target_manifest_hash = b""
         self.target_registration_hash = b""
-        object.__setattr__(self, "coordinator", coordinator)
         # This publication is deliberately the final genesis state write.
         self.mode = "ACTIVE"
         return True
@@ -3605,6 +3858,7 @@ class Protocol:
     seat_runway_seconds: int = SEAT_RUNWAY_SECONDS
     minimum_primary_tenure_seconds: int = MIN_PRIMARY_TENURE_SECONDS
     minimum_standby_tenure_seconds: int = MIN_STANDBY_TENURE_SECONDS
+    maximum_standby_lease_seconds: int = MAX_STANDBY_LEASE_SECONDS
     exit_delay_seconds: int = EXIT_DELAY_SECONDS
     seat_fault_point: str | None = None
     seat_scan_count: int = 0
@@ -3922,14 +4176,14 @@ class Protocol:
 
     def seat_lineup_commitment(self) -> bytes:
         fixed_ids = list(self.seat_lineup[:SEAT_COUNT])
-        fixed_ids.extend([b""] * (SEAT_COUNT - len(fixed_ids)))
-        return self._seat_hash(
-            "LINEUP",
-            self.seat_lineup_revision,
-            fixed_ids[0],
-            fixed_ids[1],
-            fixed_ids[2],
-            fixed_ids[3],
+        fixed_ids.extend([bytes(32)] * (SEAT_COUNT - len(fixed_ids)))
+        if any(type(term_id) is not bytes or len(term_id) != 32
+               for term_id in fixed_ids):
+            raise ValueError("lineup term ID is not exact bytes32")
+        return keccak256(
+            b"TAIKO_SEAT_LINEUP_V1"
+            + _model_uint(self.seat_lineup_revision, 8, "lineup revision")
+            + b"".join(fixed_ids)
         )
 
     def _advance_lineup_revision(self) -> None:
@@ -3948,14 +4202,18 @@ class Protocol:
     ) -> bytes:
         """Bind a final term to its exact applied lifecycle identity."""
 
-        return self._seat_hash(
-            "TERM",
-            authorization_id,
-            generation,
-            offer_id,
-            tranche_id,
-            installed_at,
-            lineup_revision_at_install,
+        if any(type(value) is not bytes or len(value) != 32 for value in (
+            authorization_id, offer_id, tranche_id,
+        )):
+            raise ValueError("seat term identity input is not exact bytes32")
+        return keccak256(
+            b"TAIKO_SEAT_TERM_V1" + authorization_id
+            + _model_uint(generation, 8, "seat generation")
+            + offer_id + tranche_id
+            + _model_uint(installed_at, 8, "installed at")
+            + _model_uint(
+                lineup_revision_at_install, 8, "install revision"
+            )
         )
 
     def _assert_seat_valid(self) -> None:
@@ -4051,12 +4309,37 @@ class Protocol:
         for term_id, term in self.seat_terms.items():
             if term_id != term.term_id or len(term_id) != 32:
                 raise AssertionError("seat term identity mismatch")
+            if (term.authorization_id is None) != (term.generation is None):
+                raise AssertionError("seat term authority tuple is partial")
+            if term.authorization_id is not None and (
+                type(term.authorization_id) is not bytes
+                or len(term.authorization_id) != 32
+                or type(term.generation) is not int
+                or not 0 <= term.generation <= self.seat_generation
+                or term.install_revision == 0
+                or term.term_id != self._seat_term_id(
+                    term.authorization_id,
+                    term.generation,
+                    term.offer_id,
+                    term.tranche_id,
+                    term.installed_at,
+                    term.install_revision,
+                )
+            ):
+                raise AssertionError("seat term authority tuple is malformed")
             if term.tranche_id in seen_tranches:
                 raise AssertionError("installed tranche bound more than once")
             seen_tranches.add(term.tranche_id)
             if term_id not in self.seat_services:
                 raise AssertionError("seat term lacks service record")
             service = self.seat_services[term_id]
+            expected_standby_expiry = seat_checked_add(
+                term.installed_at,
+                self.maximum_standby_lease_seconds,
+                "standby lease expiry",
+            )
+            if service.standby_lease_expires_at != expected_standby_expiry:
+                raise AssertionError("standby lease expiry changed")
             if (term_id in self.seat_lineup) == (
                 service.term_removed_at is not None
             ):
@@ -4470,6 +4753,11 @@ class Protocol:
             ),
             None,
             None,
+            standby_lease_expires_at=seat_checked_add(
+                term.installed_at,
+                self.maximum_standby_lease_seconds,
+                "standby lease expiry",
+            ),
         )
         revision_before = self.seat_lineup_revision
         self.seat_lineup.insert(rank, term.term_id)
@@ -4498,7 +4786,10 @@ class Protocol:
         duty_id = self.term_duty.get(term_id)
         if duty_id is not None:
             duty = self.seat_duties[duty_id]
-            candidates.append(duty.failover_at)
+            # Premium stops at the first objective missed-service boundary.
+            # A later canonical cure preserves chain liveness but cannot make
+            # post-recovery non-service compensable.
+            candidates.append(duty.recovery_at)
             if duty.satisfied_at is not None:
                 candidates.append(duty.satisfied_at)
         else:
@@ -4513,13 +4804,11 @@ class Protocol:
                     self.duty_sequence < UINT64_MAX
                     and any(cell.reusable for cell in self.duty_ring)
                 ):
-                    candidates.append(
-                        seat_checked_add(
-                            recovery_at,
-                            DELTA_FINAL_LAG - DELTA_RECOVERY_LAG,
-                            "implied duty failover",
-                        )
-                    )
+                    # The prospective duty will make this exact recovery
+                    # boundary permanent.  Do not provision premium through
+                    # failover: service missing after recovery is never
+                    # compensable even if a later commit preserves liveness.
+                    candidates.append(recovery_at)
                 else:
                     candidates.append(recovery_at)
             elif eligible_at is not None:
@@ -4635,6 +4924,8 @@ class Protocol:
             or self.seat_lineup[0] != selection.term_id
             or service.responsibility_start is not None
             or service.closed_at is not None
+            or service.standby_lease_expires_at is None
+            or start >= service.standby_lease_expires_at
             or term.tranche_id != selection.tranche_id
             or term.offer_id != selection.offer_id
         ):
@@ -4736,9 +5027,8 @@ class Protocol:
         return changed
 
     def _satisfy_activated_duty(self, duty: Duty, clock: Clock) -> bool:
-        if duty.status not in (DutyStatus.OPEN, DutyStatus.FAILED_OVER):
+        if duty.status is not DutyStatus.OPEN:
             return False
-        prior = duty.status
         revision_before = self.seat_lineup_revision
         duty.status = DutyStatus.SATISFIED
         if duty.satisfied_at is None:
@@ -4746,7 +5036,7 @@ class Protocol:
             duty.disposition_at = clock.timestamp
         start_successor = False
         roster_changed = False
-        if prior is DutyStatus.OPEN and duty.term_id in self.seat_lineup:
+        if duty.term_id in self.seat_lineup:
             was_primary = self.seat_lineup[0] == duty.term_id
             self._close_service(duty.term_id, clock.timestamp, "SATISFIED")
             self._remove_lineup_term(duty.term_id, clock.timestamp)
@@ -4760,11 +5050,6 @@ class Protocol:
                 )
                 start_successor = True
             self._invalidate_local_stage("DUTY_SATISFIED")
-        elif prior is DutyStatus.FAILED_OVER:
-            start_successor = (
-                self.seat_selection is not None
-                and self.seat_selection.predecessor_duty_id == duty.duty_id
-            )
         if start_successor and self.selected_successor_term_id is not None:
             self._promote_selected(
                 clock.timestamp,
@@ -4802,7 +5087,7 @@ class Protocol:
             changed |= self._process_activated_duty(duty, clock)
             if (
                 allow_cure
-                and duty.status in (DutyStatus.OPEN, DutyStatus.FAILED_OVER)
+                and duty.status is DutyStatus.OPEN
                 and clock.timestamp <= duty.slash_at
                 and duty.operator == self.seat_terms[duty.term_id].operator
                 and duty.tranche_id == self.seat_terms[duty.term_id].tranche_id
@@ -4814,8 +5099,20 @@ class Protocol:
                 satisfied += 1
                 changed = True
             if (
+                allow_cure
+                and duty.status is DutyStatus.FAILED_OVER
+                and self.seat_selection is not None
+                and self.seat_selection.predecessor_duty_id == duty.duty_id
+                and self.core.l2_block_number > duty.base_sequence
+                and self.core.tip_slot >= duty.target_tip
+            ):
+                # Failover is economically irreversible, but the first usable
+                # later canonical transition still starts the exact selected
+                # successor so the optional seat service can recover.
+                start_successor = True
+            if (
                 excuse_for_migration
-                and duty.status in (DutyStatus.OPEN, DutyStatus.FAILED_OVER)
+                and duty.status is DutyStatus.OPEN
             ):
                 duty.status = DutyStatus.EXCUSED_MIGRATION
                 duty.disposition_at = clock.timestamp
@@ -4896,8 +5193,7 @@ class Protocol:
                         changed |= self._process_activated_duty(attached, clock)
                         if (
                             excuse_for_migration
-                            and attached.status
-                            in (DutyStatus.OPEN, DutyStatus.FAILED_OVER)
+                            and attached.status is DutyStatus.OPEN
                         ):
                             attached.status = DutyStatus.EXCUSED_MIGRATION
                             attached.disposition_at = clock.timestamp
@@ -4952,11 +5248,53 @@ class Protocol:
     def _sync_seat_deadlines(self, clock: Clock) -> bool:
         """Test/maintenance wrapper for a no-commit single-scan sync."""
 
+        standby_changed = self._expire_standby_leases(clock)
         scan = self._scan_seat_duties(clock, allow_cure=False)
         prospective_changed, _ = self._sync_prospective_deadline(
             clock, scan.reusable_index
         )
-        return scan.changed or prospective_changed
+        return standby_changed or scan.changed or prospective_changed
+
+    def _expire_standby_leases(self, clock: Clock) -> bool:
+        """Remove every due unstarted standby in one bounded roster pass."""
+
+        due: list[tuple[bytes, int]] = []
+        # The selected successor occupies rank zero while no primary serves;
+        # it remains an unstarted standby and must not escape its immutable
+        # lease merely because selection moved it out of ranks 1..3.
+        for term_id in tuple(self.seat_lineup[:SEAT_COUNT]):
+            service = self.seat_services[term_id]
+            expiry = service.standby_lease_expires_at
+            if (
+                service.responsibility_start is None
+                and expiry is not None
+                and clock.timestamp >= expiry
+            ):
+                due.append((term_id, expiry))
+        if not due:
+            return False
+        prior_selection = copy.deepcopy(self.seat_selection)
+        for term_id, expiry in due:
+            if self.selected_successor_term_id == term_id:
+                self._clear_selected_successor()
+            self._close_service(term_id, expiry, "STANDBY_LEASE_EXPIRED")
+            # Liability ends at the objective lease boundary, even when a
+            # keeper performs the bounded cleanup later.
+            self._remove_lineup_term(term_id, expiry)
+            self.events.append(f"SEAT_STANDBY_LEASE_EXPIRED:{term_id.hex()}")
+        # Preserve the bounded liveness attempt with the next unexpired
+        # standby, while permanently retaining the expired selection record.
+        if prior_selection is not None and self.seat_selection is None:
+            self._select_successor(
+                selected_at=clock.timestamp,
+                source=prior_selection.source,
+                trigger_duty_id=prior_selection.predecessor_duty_id,
+                target_tip=prior_selection.target_tip,
+            )
+        self._advance_lineup_revision()
+        self._invalidate_local_stage("STANDBY_LEASE_EXPIRED")
+        self._assert_seat_valid()
+        return True
 
     def _close_seats_for_migration(self, close_at: int) -> None:
         """Vacate the roster after the one-pass migration duty settlement."""
@@ -5169,75 +5507,6 @@ class Protocol:
             self.seat_scan_visits_total = seat_scan_visits_total
         return changed
 
-    def execute_market_target_rotation(
-        self,
-        market: object,
-        manager: object,
-        receipt_key: tuple[int, bytes],
-        clock: Clock,
-    ) -> object:
-        """Compose exact frozen-tombstone acknowledgement with Market rotation."""
-
-        history = self.versioned_history
-        receipt_reader = getattr(manager, "activation_receipt", None)
-        receipt = (
-            None if not callable(receipt_reader) else receipt_reader(receipt_key)
-        )
-        if (
-            history is None
-            or history.live_protocol is not self
-            or history.mode != "FROZEN"
-            or self.settlement_address != history.address
-            or getattr(market, "release_manager", None) is not manager
-            or getattr(market, "market_address", None)
-            != self.seat_market_address
-            or receipt is None
-            or receipt.old_target != self.settlement_address
-            or receipt.old_protocol_version != history.protocol_version
-            or receipt.old_authorization_id != self.seat_authorization_id
-        ):
-            raise ValueError("rotation missed the exact frozen Settlement target")
-        runtime = manager.target_runtimes.get(receipt.old_authorization_id)
-        if runtime is None or runtime.authority is not history:
-            raise ValueError("rotation old-target read route is not exact")
-        tombstone = None
-        if receipt.migration_stage_id is not None:
-            tombstone = self.stage_tombstones.get(receipt.migration_stage_id)
-            if (
-                tombstone is None
-                or tombstone.reconciled
-                or not tombstone.migration_terminal
-                or tombstone.stage_id != receipt.migration_stage_id
-                or tombstone.lineup_commitment
-                != receipt.migration_lineup_commitment
-            ):
-                raise ValueError("migration stage tombstone is not exact")
-        elif receipt.migration_lineup_commitment is not None:
-            raise ValueError("migration stage tuple is partial")
-
-        self._assert_canonical_history_binding()
-        settlement_snapshot = self._canonical_transaction_snapshot()
-        market_snapshot = market._transaction_snapshot()
-        try:
-            result = market._rotate_installation_target(
-                manager=manager,
-                receipt_key=receipt_key,
-                clock=clock,
-                migration_stage_authenticated=tombstone is not None,
-            )
-            if tombstone is not None:
-                tombstone.reconciled = True
-                if self.outstanding_stage_tombstone_id == tombstone.stage_id:
-                    self.outstanding_stage_tombstone_id = None
-                market._fault("after_migration_tombstone_ack")
-            self._assert_seat_valid()
-            market.assert_valid()
-            return result
-        except BaseException:
-            self._restore_canonical_transaction(settlement_snapshot)
-            market._restore_transaction(market_snapshot)
-            raise
-
     def bind_seat_market_for_test(self, market: object) -> None:
         """Model fixture for immutable constructor/release-manager bindings."""
 
@@ -5249,6 +5518,10 @@ class Protocol:
             or market.handover_delay_seconds != HANDOVER_DELAY_SECONDS
             or market.stage_grace_seconds != STAGE_GRACE_SECONDS
             or market.maximum_inclusion_seconds != T_INCLUDE_MAX_SECONDS
+            or market.maximum_standby_lease_seconds
+            != self.maximum_standby_lease_seconds
+            or market.minimum_standby_tenure_seconds
+            != self.minimum_standby_tenure_seconds
         ):
             raise ValueError("Market/Settlement immutable configuration mismatch")
         if self.seat_authorization_id not in (None, market.current_authorization_id):
@@ -5269,13 +5542,8 @@ class Protocol:
 
     def _lineup_snapshot_for_market(self, market: object) -> object:
         module = self._bound_market_module(market)
-        if (
-            self.seat_authorization_id is None
-            or self.seat_authorization_id != market.current_authorization_id
-            or market.authorization.target != self.settlement_address
-            or market.cached_generation != self.seat_generation
-        ):
-            raise ValueError("Market is not the bound installation target")
+        if self.seat_authorization_id is None:
+            raise ValueError("Settlement has no installed Market authorization")
         rows = []
         active = self.active_primary_term_id
         for term_id in self.seat_lineup[:SEAT_COUNT]:
@@ -5296,6 +5564,7 @@ class Protocol:
                         else service.minimum_tenure_until
                     ),
                     healthy=(term_id == active),
+                    installed_at=term.installed_at,
                 )
             )
         return module.LineupSnapshot(
@@ -5306,20 +5575,221 @@ class Protocol:
             terms=tuple(rows),
         )
 
+    @staticmethod
+    def _seat_history_disposition_v1(
+        duty: Duty | None,
+    ) -> tuple[int, int, int, int]:
+        """Return disposition, timestamp, breach timestamp and unresolved count."""
+
+        if duty is None:
+            return 0, 0, 0, 0
+        if duty.status is DutyStatus.OPEN:
+            return 1, 0, 0, 1
+        if duty.status is DutyStatus.FAILED_OVER:
+            return 2, duty.disposition_at or duty.failover_at, 0, 1
+        if duty.status is DutyStatus.SATISFIED:
+            return 3, duty.disposition_at or duty.satisfied_at or 0, 0, 0
+        if duty.status is DutyStatus.BREACHED:
+            return (
+                4,
+                duty.disposition_at or duty.breach_recorded_at or 0,
+                duty.breach_recorded_at or 0,
+                0,
+            )
+        if duty.status is DutyStatus.EXCUSED:
+            return 5, duty.disposition_at or 0, 0, 0
+        if duty.status is DutyStatus.EXCUSED_MIGRATION:
+            return 6, duty.disposition_at or 0, 0, 0
+        raise AssertionError("unknown duty history disposition")
+
+    @staticmethod
+    def _seat_breach_receipt_id_v1(
+        duty_id: bytes,
+        term_id: bytes,
+        tranche_id: bytes,
+        breach_recorded_at: int,
+    ) -> bytes:
+        if (
+            type(duty_id) is not bytes
+            or len(duty_id) != 32
+            or type(term_id) is not bytes
+            or len(term_id) != 32
+            or type(tranche_id) is not bytes
+            or len(tranche_id) != 32
+        ):
+            raise ValueError("breach receipt identity is malformed")
+        return keccak256(b"".join((
+            b"TAIKO_SEAT_BREACH_V1",
+            duty_id,
+            term_id,
+            tranche_id,
+            _model_uint(breach_recorded_at, 8, "breach recorded at"),
+        )))
+
+    def _seat_history_rows_v1(
+        self, term_id: bytes
+    ) -> tuple[bytes, bytes | None]:
+        """Encode the target-local permanent SHR1 term and optional duty rows."""
+
+        term = self.seat_terms.get(term_id)
+        service = self.seat_services.get(term_id)
+        if term is None or service is None:
+            raise ValueError("unknown SHR1 seat term")
+        authorization_id = (
+            self.seat_authorization_id
+            if term.authorization_id is None
+            else term.authorization_id
+        )
+        generation = (
+            self.seat_generation if term.generation is None else term.generation
+        )
+        duty_id = self.term_duty.get(term_id)
+        duty = self.seat_duties.get(duty_id) if duty_id is not None else None
+        disposition, disposition_at, breach_at, unresolved = (
+            self._seat_history_disposition_v1(duty)
+        )
+        breach_receipt_id = (
+            bytes(32)
+            if breach_at == 0 or duty is None
+            else self._seat_breach_receipt_id_v1(
+                duty.duty_id, term.term_id, term.tranche_id, breach_at
+            )
+        )
+        duty_liability_at = 0 if duty is None else duty.slash_at
+        last_liability_at = max(
+            value
+            for value in (
+                term.installed_at,
+                service.responsibility_start,
+                service.closed_at,
+                service.term_removed_at,
+                duty_liability_at,
+                disposition_at,
+                breach_at,
+                (
+                    service.prospective_slash_at
+                    if service.closed_at is None
+                    else None
+                ),
+            )
+            if value is not None
+        )
+        term_words = (
+            b"SHR1" + bytes(28),
+            authorization_id,
+            _model_uint(generation, 32, "SHR1 generation"),
+            term.term_id,
+            term.tranche_id,
+            bytes(12) + _model_address20(term.operator),
+            _model_uint(
+                service.responsibility_start or 0, 32, "SHR1 start"
+            ),
+            _model_uint(self.preview_premium_cap(term_id), 32, "SHR1 cap"),
+            _model_uint(service.closed_at or 0, 32, "SHR1 close"),
+            _model_uint(service.term_removed_at or 0, 32, "SHR1 removed"),
+            _model_uint(last_liability_at, 32, "SHR1 liability"),
+            _model_uint(unresolved, 32, "SHR1 unresolved count"),
+            bytes(32) if duty is None else duty.duty_id,
+            _model_uint(disposition, 32, "SHR1 disposition"),
+            _model_uint(disposition_at, 32, "SHR1 disposition at"),
+            breach_receipt_id,
+            _model_uint(breach_at, 32, "SHR1 breach at"),
+        )
+        term_raw = b"".join(term_words)
+        if len(term_raw) != 544:
+            raise AssertionError("SHR1 term row length changed")
+        if duty is None:
+            return term_raw, None
+        duty_words = (
+            b"SHR1" + bytes(28),
+            authorization_id,
+            _model_uint(generation, 32, "SHR1 duty generation"),
+            duty.duty_id,
+            duty.term_id,
+            duty.tranche_id,
+            _model_uint(disposition, 32, "SHR1 duty disposition"),
+            _model_uint(disposition_at, 32, "SHR1 duty disposition at"),
+            _model_uint(last_liability_at, 32, "SHR1 duty liability"),
+            breach_receipt_id,
+            _model_uint(breach_at, 32, "SHR1 duty breach at"),
+        )
+        duty_raw = b"".join(duty_words)
+        if len(duty_raw) != 352:
+            raise AssertionError("SHR1 duty row length changed")
+        return term_raw, duty_raw
+
+    def seat_market_record_v1(self, term_id: bytes) -> bytes:
+        return self._seat_history_rows_v1(term_id)[0]
+
+    def seat_install_record_v1(self, term_id: bytes) -> bytes:
+        term = self.seat_terms.get(term_id)
+        if (
+            term is None
+            or term.authorization_id is None
+            or term.generation is None
+            or term.install_revision == 0
+        ):
+            raise ValueError("unknown canonical SIR1 install record")
+        raw = b"".join((
+            b"SIR1" + bytes(28),
+            term.authorization_id,
+            _model_uint(term.generation, 32, "SIR1 generation"),
+            term.term_id,
+            term.tranche_id,
+            term.offer_id,
+            bytes(12) + _model_address20(term.operator),
+            bytes(12) + _model_address20(term.payout),
+            _model_uint(term.ask, 32, "SIR1 ask"),
+            _model_uint(term.installed_at, 32, "SIR1 installed at"),
+            _model_uint(term.install_revision, 32, "SIR1 install revision"),
+        ))
+        if len(raw) != 352:
+            raise AssertionError("SIR1 record length changed")
+        return raw
+
+    def seat_duty_record_v1(self, duty_id: bytes) -> bytes:
+        duty = self.seat_duties.get(duty_id)
+        if duty is None:
+            raise ValueError("unknown SHR1 duty")
+        duty_raw = self._seat_history_rows_v1(duty.term_id)[1]
+        if duty_raw is None:
+            raise AssertionError("known duty lost its SHR1 row")
+        return duty_raw
+
     def _market_service_view(self, market: object, term_id: bytes) -> object:
-        """Derive the only ServiceView admitted by the production-facing façade."""
+        """Encode retained Settlement facts for the legacy behavioral oracle.
+
+        Production Market entrypoints derive their own tranche/authorization
+        and exact-decode SHR1 rows; this helper deliberately reads no Market
+        storage or runtime object.
+        """
 
         module = self._bound_market_module(market)
         term = self.seat_terms.get(term_id)
         service = self.seat_services.get(term_id)
         if term is None or service is None:
             raise ValueError("unknown exact seat term")
-        tranche = market.tranches.get(term.tranche_id)
-        if tranche is None or tranche.installed_term_id != term_id:
-            raise ValueError("Market lacks exact installed tranche binding")
-        auth = market.authorizations.get(tranche.authorization_id)
-        if auth is None or auth.target != self.settlement_address:
-            raise ValueError("historical Settlement authorization is absent")
+        history = self.versioned_history
+        if history is not None:
+            target = history.address
+            settlement_chain_id = history.market_settlement_chain_id
+            protocol_version = history.protocol_version
+            runtime_hash = history.market_runtime_hash
+            configuration_hash = history.market_configuration_hash
+            magic = history.market_magic
+        else:
+            # Test-only unversioned fixtures predate retained target history.
+            # Production economic entrypoints never take this branch: Market
+            # derives its authorization and reads the target-local SHR1 row.
+            auth = market.authorizations.get(self.seat_authorization_id)
+            if auth is None:
+                raise ValueError("unversioned Market authorization is absent")
+            target = self.settlement_address
+            settlement_chain_id = auth.settlement_chain_id
+            protocol_version = auth.protocol_version
+            runtime_hash = auth.runtime_hash
+            configuration_hash = auth.configuration_hash
+            magic = auth.expected_magic
         duty_id = self.term_duty.get(term_id)
         duty = self.seat_duties.get(duty_id) if duty_id is not None else None
         if duty is None:
@@ -5334,12 +5804,23 @@ class Protocol:
                     service.responsibility_start,
                     service.closed_at,
                     service.term_removed_at,
+                    (
+                        service.prospective_slash_at
+                        if service.closed_at is None
+                        else None
+                    ),
                 )
                 if value is not None
             )
-        elif duty.status in (DutyStatus.OPEN, DutyStatus.FAILED_OVER):
+        elif duty.status is DutyStatus.OPEN:
             disposition = "OPEN"
             disposition_at = None
+            breached = False
+            breach_at = None
+            last_liability_at = duty.slash_at
+        elif duty.status is DutyStatus.FAILED_OVER:
+            disposition = "FAILED_OVER"
+            disposition_at = duty.disposition_at
             breached = False
             breach_at = None
             last_liability_at = duty.slash_at
@@ -5371,6 +5852,8 @@ class Protocol:
             value
             for value in (
                 last_liability_at,
+                duty.disposition_at if duty is not None else None,
+                duty.breach_recorded_at if duty is not None else None,
                 service.responsibility_start,
                 service.closed_at,
                 service.term_removed_at,
@@ -5384,14 +5867,22 @@ class Protocol:
             }
         )
         return module.ServiceView(
-            target=auth.target,
-            authorization_id=tranche.authorization_id,
-            settlement_chain_id=auth.settlement_chain_id,
-            protocol_version=auth.protocol_version,
-            runtime_hash=auth.runtime_hash,
-            configuration_hash=auth.configuration_hash,
-            magic=auth.expected_magic,
-            generation=tranche.generation,
+            target=target,
+            authorization_id=(
+                self.seat_authorization_id
+                if term.authorization_id is None
+                else term.authorization_id
+            ),
+            settlement_chain_id=settlement_chain_id,
+            protocol_version=protocol_version,
+            runtime_hash=runtime_hash,
+            configuration_hash=configuration_hash,
+            magic=magic,
+            generation=(
+                self.seat_generation
+                if term.generation is None
+                else term.generation
+            ),
             term_id=term.term_id,
             tranche_id=term.tranche_id,
             offer_id=term.offer_id,
@@ -5411,6 +5902,8 @@ class Protocol:
             breach_recorded_at=breach_at,
             roster_occupied=term_id in self.seat_lineup,
             history_retained=True,
+            service_close_at=service.closed_at,
+            term_removed_at=service.term_removed_at,
         )
 
     def stage_best(self, market: object, clock: Clock) -> object:
@@ -5486,9 +5979,6 @@ class Protocol:
                 or stage.authorization_id != self.seat_authorization_id
                 or stage.generation != self.seat_generation
                 or stage.lineup_commitment != self.seat_lineup_commitment()
-                or market.stage is None
-                or market.stage.stage_id != stage.stage_id
-                or market.stage.offer_id != stage.offer_id
                 or clock.timestamp < stage.handover_at
                 or clock.timestamp > stage.expires_at
             ):
@@ -5507,29 +5997,45 @@ class Protocol:
                 install_revision,
             )
             outgoing = stage.outgoing_primary_term_id
+            outgoing_view = None
             if outgoing is not None:
                 active = self.active_primary_term_id
                 service = self.seat_services.get(outgoing)
-                required_headroom_until = seat_checked_add(
-                    stage.expires_at,
-                    T_INCLUDE_MAX_SECONDS,
-                    "stage inclusion headroom",
-                )
-                if (
-                    active != outgoing
-                    or service is None
-                    or service.closed_at is not None
-                    or service.service_eligible_until is None
-                    or required_headroom_until > service.service_eligible_until
-                ):
-                    raise ValueError("outgoing primary is no longer healthy/funded")
-                self._close_service(outgoing, clock.timestamp, "HEALTHY_HANDOVER")
+                if service is None or service.closed_at is not None:
+                    raise ValueError("outgoing seat is no longer live")
+                if active == outgoing:
+                    required_headroom_until = seat_checked_add(
+                        stage.expires_at,
+                        T_INCLUDE_MAX_SECONDS,
+                        "stage inclusion headroom",
+                    )
+                    if (
+                        service.service_eligible_until is None
+                        or required_headroom_until
+                        > service.service_eligible_until
+                    ):
+                        raise ValueError(
+                            "outgoing primary is no longer healthy/funded"
+                        )
+                    close_reason = "HEALTHY_HANDOVER"
+                else:
+                    term = self.seat_terms[outgoing]
+                    lease_expiry = seat_checked_add(
+                        term.installed_at,
+                        self.maximum_standby_lease_seconds,
+                        "standby lease expiry",
+                    )
+                    if (
+                        outgoing not in self.seat_lineup[1:]
+                        or service.responsibility_start is not None
+                        or clock.timestamp < service.minimum_tenure_until
+                        or clock.timestamp >= lease_expiry
+                    ):
+                        raise ValueError("outgoing standby is not replaceable")
+                    close_reason = "COMPETITIVE_STANDBY_REPLACEMENT"
+                self._close_service(outgoing, clock.timestamp, close_reason)
                 self._remove_lineup_term(outgoing, clock.timestamp)
-                market._settlement_close_reserve(
-                    self._market_service_view(market, outgoing),
-                    module.Clock(clock.timestamp, clock.block_number),
-                    atomic_healthy=True,
-                )
+                outgoing_view = self._market_service_view(market, outgoing)
                 self._seat_fault("after_outgoing_close")
             install = module.InstallationView(
                 target=stage.target,
@@ -5541,8 +6047,6 @@ class Protocol:
                 lineup_commitment=stage.lineup_commitment,
                 applied_at=clock.timestamp,
             )
-            market_result = market._settlement_install_stage(install)
-            self._seat_fault("after_market_install")
             term = SeatTerm(
                 term_id,
                 stage.tranche_id,
@@ -5551,6 +6055,9 @@ class Protocol:
                 stage.payout,
                 stage.ask,
                 clock.timestamp,
+                stage.authorization_id,
+                stage.generation,
+                install_revision,
             )
             if (
                 term.term_id in self.seat_terms
@@ -5570,6 +6077,11 @@ class Protocol:
                 ),
                 None,
                 None,
+                standby_lease_expires_at=seat_checked_add(
+                    clock.timestamp,
+                    self.maximum_standby_lease_seconds,
+                    "standby lease expiry",
+                ),
             )
             self.seat_lineup.insert(stage.selected_rank, term.term_id)
             if stage.selected_rank == 0:
@@ -5585,6 +6097,13 @@ class Protocol:
             self._seat_fault("after_term_install")
             self.settlement_seat_stage = None
             self._seat_fault("after_settlement_stage_clear")
+            market_result = market._settlement_apply_stage_atomic(
+                install,
+                outgoing_view,
+                self._lineup_snapshot_for_market(market),
+                module.Clock(clock.timestamp, clock.block_number),
+            )
+            self._seat_fault("after_market_install")
             return market_result
 
         return self._composed_seat_call(market, transition)
@@ -5663,16 +6182,34 @@ class Protocol:
                 == tombstone.lineup_commitment
                 and history_active
             )
+            activation_cancel = (
+                tombstone is not None
+                and tombstone.migration_terminal
+                and self.versioned_history is not None
+                and self.versioned_history.live_protocol is self
+                and self.versioned_history.mode == "FROZEN"
+                and self.seat_migration_arm is not None
+                and self.seat_migration_abort is None
+                and self.seat_migration_arm.migration_stage_id
+                == tombstone.stage_id
+                and self.seat_migration_arm.migration_lineup_commitment
+                == tombstone.lineup_commitment
+                and self.seat_migration_arm.seat_generation
+                == self.seat_generation
+            )
             if (
                 tombstone is None
                 or tombstone.reconciled
-                or (tombstone.migration_terminal and not abort_cancel)
+                or (
+                    tombstone.migration_terminal
+                    and not (abort_cancel or activation_cancel)
+                )
                 or (
                     self.seat_migration_arm is not None
                     and self.seat_migration_abort is None
-                    and not abort_cancel
+                    and not activation_cancel
                 )
-                or not history_active
+                or (not history_active and not activation_cancel)
                 or tombstone.stage_id != stage_id
                 or tombstone.lineup_commitment != lineup_commitment
             ):
@@ -5683,7 +6220,7 @@ class Protocol:
                         clock.timestamp, clock.block_number
                     )
                 )
-                if abort_cancel
+                if abort_cancel or activation_cancel
                 else market._settlement_invalidate_stage(
                     stage_id, lineup_commitment
                 )
@@ -6524,6 +7061,9 @@ class Protocol:
         self.migration_refund_claim_deadline = (
             self._migration_refund_deadline_at_arm(clock)
         )
+        if self.seat_generation >= UINT64_MAX:
+            return False
+        self.seat_generation += 1
         self._close_seats_for_migration(clock.timestamp)
         self.seat_migration_arm = SeatMigrationArm(
             self.migration_gate.router_word,
@@ -6581,7 +7121,15 @@ class Protocol:
                 and arm.router_word.phase is RouterPhase.ARMED
                 and arm.seat_generation == self.seat_generation
                 and not self.seat_lineup
-                and self.settlement_seat_stage is None)
+                and self.settlement_seat_stage is None
+                # A FAILED_OVER duty retains an objective bond liability until
+                # its strict slash boundary records BREACHED.  Freezing the
+                # target earlier would make that transition unreachable and
+                # permanently strand the reserve and duty-ring cell.
+                and all(
+                    duty.status not in (DutyStatus.OPEN, DutyStatus.FAILED_OVER)
+                    for duty in self.seat_duties.values()
+                ))
 
     def _sync_migration(
         self, clock: Clock, *, allow_ready: bool = True
@@ -6647,6 +7195,7 @@ class Protocol:
         excuse_for_migration: bool = False,
     ) -> bool:
         normal_changed = False
+        standby_changed = self._expire_standby_leases(clock)
         commit_outcome: SeatDutyScanOutcome | None = None
         if (
             self.mode is Mode.NORMAL
@@ -6668,10 +7217,10 @@ class Protocol:
                     scan.reusable_index,
                     excuse_for_migration=excuse_for_migration,
                 )
-            seat_changed = scan.changed or prospective_changed
+            seat_changed = standby_changed or scan.changed or prospective_changed
             seat_sla_missed = scan.sla_missed or prospective_sla
         else:
-            seat_changed = commit_outcome.changed
+            seat_changed = standby_changed or commit_outcome.changed
             seat_sla_missed = commit_outcome.sla_missed
         if self.migration_gate.mode == "ARMED":
             return (
@@ -7940,7 +8489,71 @@ class BridgeSupportEntry:
     source_chain_id: int
     source_registration_epoch: int
     staged_at_block: int
+    target_registration_hash: bytes = bytes(32)
+    source_descriptor_id: bytes = bytes(32)
+    adapter_address: str = ""
+    package_root: bytes = bytes(32)
+    package_count: int = 0
+    arm_ready_consumed: bool = False
     confirmed_at_block: int | None = None
+
+
+@dataclass(frozen=True)
+class ActiveBridgeRouteV1:
+    active_protocol_version: int
+    source_chain_id: int
+    source_registration_epoch: int
+    source_domain_id: bytes
+    bridge_execution_hash: bytes
+    destination_domain_id: bytes
+    destination_bridge: bytes
+    release_manifest_hash: bytes
+
+
+def encode_active_bridge_route_v1(route: ActiveBridgeRouteV1) -> bytes:
+    if (type(route) is not ActiveBridgeRouteV1
+            or any(type(value) is not bytes or len(value) != 32
+                   or value == bytes(32) for value in (
+                       route.source_domain_id, route.bridge_execution_hash,
+                       route.destination_domain_id,
+                       route.release_manifest_hash,
+                   ))
+            or type(route.destination_bridge) is not bytes
+            or len(route.destination_bridge) != 20
+            or route.destination_bridge == bytes(20)):
+        raise ValueError("active Bridge route is malformed")
+    encoded = b"".join((
+        ACTIVE_BRIDGE_ROUTE_MAGIC + bytes(28),
+        _model_uint(route.active_protocol_version, 32, "ABR1 version"),
+        _model_uint(route.source_chain_id, 32, "ABR1 source chain"),
+        _model_uint(route.source_registration_epoch, 32, "ABR1 source epoch"),
+        route.source_domain_id, route.bridge_execution_hash,
+        route.destination_domain_id,
+        bytes(12) + route.destination_bridge,
+        route.release_manifest_hash,
+    ))
+    if len(encoded) != ACTIVE_BRIDGE_ROUTE_RETURN_LENGTH:
+        raise AssertionError("ABR1 return width drifted")
+    return encoded
+
+
+def decode_active_bridge_route_v1(raw: bytes) -> ActiveBridgeRouteV1:
+    if type(raw) is not bytes or len(raw) != ACTIVE_BRIDGE_ROUTE_RETURN_LENGTH:
+        raise ValueError("ABR1 return length is invalid")
+    words = tuple(raw[index:index + 32]
+                  for index in range(0, len(raw), 32))
+    if (words[0] != ACTIVE_BRIDGE_ROUTE_MAGIC + bytes(28)
+            or words[7][:12] != bytes(12)):
+        raise ValueError("ABR1 magic or address padding is invalid")
+    route = ActiveBridgeRouteV1(
+        _decode_uint_word_v1(words[1], 64, "ABR1 version"),
+        _decode_uint_word_v1(words[2], 64, "ABR1 source chain"),
+        _decode_uint_word_v1(words[3], 64, "ABR1 source epoch"),
+        words[4], words[5], words[6], words[7][12:], words[8],
+    )
+    if encode_active_bridge_route_v1(route) != raw:
+        raise ValueError("ABR1 return is noncanonical")
+    return route
 
 
 @dataclass(frozen=True)
@@ -8515,7 +9128,7 @@ def release_authority_descriptor_from_manifest(
 @dataclass
 class BridgeDomainRegistry:
     router: "ActiveSettlementRouter"
-    manager: "ProtocolVersionManager"
+    manager: object
     release_authority_descriptor: DestinationReleaseAuthorityDescriptor
     registration_mpt_verifier: IRegistrationMptVerifier = field(
         compare=False, repr=False
@@ -8528,12 +9141,39 @@ class BridgeDomainRegistry:
     _confirmed_at_by_domain: dict[str, int] = field(
         default_factory=dict, repr=False
     )
-    _latest_key_by_destination_chain: dict[
-        int, tuple[str, str, str]
+    _staged_registrations_by_version: dict[
+        int, "SettlementRegistration"
+    ] = field(default_factory=dict, repr=False)
+    _key_by_destination_chain_version: dict[
+        tuple[int, int], tuple[str, str, str]
     ] = field(default_factory=dict, repr=False)
     address: str = "bridge-domain-registry"
     runtime_hash: str = BRIDGE_DOMAIN_REGISTRY_RUNTIME_HASH
     configuration_hash: str = ""
+    active_bridge_route_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    active_bridge_route_fault_point: str | None = field(
+        default=None, compare=False, repr=False
+    )
+    bridge_route_package_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    bridge_route_package_fault_point: str | None = field(
+        default=None, compare=False, repr=False
+    )
+    stage_bridge_route_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    stage_bridge_route_fault_point: str | None = field(
+        default=None, compare=False, repr=False
+    )
+    consume_bridge_route_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    consume_bridge_route_fault_point: str | None = field(
+        default=None, compare=False, repr=False
+    )
 
     def __post_init__(self) -> None:
         expected = bridge_domain_registry_configuration_hash(
@@ -8558,7 +9198,9 @@ class BridgeDomainRegistry:
             ),
         )
         if (type(self.router) is not ActiveSettlementRouter
-                or type(self.manager) is not ProtocolVersionManager
+                or type(self.manager) not in {
+                    ProtocolVersionManager, ProtocolVersionManagerV1
+                }
                 or self.manager.router is not self.router
                 or self.router._version_manager_authority is not self.manager
                 or type(self.release_authority_descriptor)
@@ -8613,11 +9255,89 @@ class BridgeDomainRegistry:
             self, "registration_mpt_verifier", proof_verifier
         )
 
+    @staticmethod
+    def _package_root(
+        registration: "SettlementRegistration",
+        authorization: "ProfileIngressAuthorization",
+    ) -> bytes:
+        """Commit the exact one-route source package without live aliases."""
+
+        return keccak256(b"".join((
+            b"slot-chain-source-route-package-v1",
+            _model_uint(registration.settlement.protocol_version, 8,
+                        "route package protocol version"),
+            _model_uint(authorization.source_chain_id, 8,
+                        "route package source chain"),
+            _model_uint(registration.release_manifest.destination_chain_id, 8,
+                        "route package destination chain"),
+            target_registration_hash_v2(registration),
+            registration.release_manifest.commitment,
+            authorization.authorization_id,
+            authorization.source_descriptor_id,
+            _model_address20(authorization.adapter_address),
+            _model_fixed_bytes32(authorization.runtime_hash),
+            _model_fixed_bytes32(authorization.configuration_hash),
+            _model_address20(authorization.source_descriptor.source_bridge),
+            _model_address20(
+                authorization.source_descriptor.bridge_credit_registry
+            ),
+            _model_address20(
+                authorization.source_descriptor.native_quota_manager
+            ),
+        )))
+
+    def _package_exact(self, entry: BridgeSupportEntry) -> bool:
+        registration = self.router.registrations.get(entry.protocol_version)
+        # A registered target is not yet in Router.registrations.  Its exact
+        # package is nevertheless retained in the version-indexed deployment
+        # journal and is rejoined to the registration supplied by the caller.
+        if registration is None:
+            registration = self._staged_registrations_by_version.get(
+                entry.protocol_version
+            )
+        authorization = (
+            None if type(registration) is not SettlementRegistration
+            else registration.ingress_authorizations_by_address.get(
+                entry.adapter_address
+            )
+        )
+        deployment = (
+            None if type(authorization) is not ProfileIngressAuthorization
+            else self.router._profile_deployments_by_version.get(
+                entry.protocol_version, {}
+            ).get(authorization.authorization_id)
+        )
+        descriptor_id = self.router._source_descriptor_id_by_version.get(
+            entry.protocol_version
+        )
+        bundle = self.router._source_bundles_by_descriptor_id.get(descriptor_id)
+        return (
+            type(registration) is SettlementRegistration
+            and type(authorization) is ProfileIngressAuthorization
+            and authorization.kind is ForceKind.BRIDGE_CREDIT
+            and type(deployment) is BridgeAdapter
+            and bundle is not None and len(bundle) == 3
+            and deployment.source_bridge is bundle[0]
+            and deployment.credit_registry is bundle[1]
+            and bundle[0].quota_manager is bundle[2]
+            and authorization.source_descriptor_id == descriptor_id
+            and entry.target_registration_hash
+                == target_registration_hash_v2(registration)
+            and entry.source_descriptor_id == descriptor_id
+            and entry.adapter_address == authorization.adapter_address
+            and entry.package_count == 1
+            and entry.package_root
+                == self._package_root(registration, authorization)
+        )
+
     def stage(self, source_domain_id: str, execution_hash: str,
               manifest: "ReleaseManifestV2", *,
-              manager: "ProtocolVersionManager", clock: Clock) -> bool:
-        registration = self.router.registrations.get(
-            getattr(manifest, "protocol_version", 0)
+              manager: object, clock: Clock,
+              registration: "SettlementRegistration | None" = None) -> bool:
+        registration = (
+            self.router.registrations.get(
+                getattr(manifest, "protocol_version", 0)
+            ) if registration is None else registration
         )
         authorization = (
             None if registration is None or len(manifest.components) != 10
@@ -8631,7 +9351,10 @@ class BridgeDomainRegistry:
         )
         if (manager is not self.manager or type(clock) is not Clock
                 or type(manifest) is not ReleaseManifestV2
-                or registration is None or not manifest.structurally_valid()
+                or type(registration) is not SettlementRegistration
+                or registration.settlement.protocol_version
+                    != manifest.protocol_version
+                or not manifest.structurally_valid()
                 or manifest.execution_profile_hash
                     != registration.execution_profile_hash
                 or registration.execution_profile
@@ -8662,19 +9385,19 @@ class BridgeDomainRegistry:
                     != authorization.source_domain_id
                 or source_descriptor.bridge_execution_hash
                     != authorization.frozen_bridge_execution_hash
-                or source_descriptor
-                    .source_terminal_verifier_configuration_hash
-                    != manifest.components[2].config_hash
+                or _model_fixed_bytes32(source_descriptor
+                    .source_terminal_verifier_configuration_hash)
+                    != _model_fixed_bytes32(manifest.components[2].config_hash)
                 or source_domain_id != authorization.source_domain_id
                 or execution_hash
                     != authorization.frozen_bridge_execution_hash
                 or not 0 < authorization.source_chain_id <= UINT64_MAX
                 or not 0 < authorization.source_registration_epoch
                     <= UINT64_MAX
-                or authorization.runtime_hash
-                    != manifest.components[0].runtime_hash
-                or authorization.configuration_hash
-                    != manifest.components[0].config_hash
+                or _model_fixed_bytes32(authorization.runtime_hash)
+                    != _model_fixed_bytes32(manifest.components[0].runtime_hash)
+                or _model_fixed_bytes32(authorization.configuration_hash)
+                    != _model_fixed_bytes32(manifest.components[0].config_hash)
                 or authorization.destination_domain_id
                     != manifest.destination_domain_id
                 or authorization.destination_bridge
@@ -8687,6 +9410,9 @@ class BridgeDomainRegistry:
             execution_hash,
             manifest.destination_domain_id,
         )
+        version_key = (
+            manifest.destination_chain_id, manifest.protocol_version
+        )
         entry = BridgeSupportEntry(
             manifest.protocol_version,
             manifest,
@@ -8694,11 +9420,20 @@ class BridgeDomainRegistry:
             authorization.source_chain_id,
             authorization.source_registration_epoch,
             clock.block_number,
+            target_registration_hash_v2(registration),
+            authorization.source_descriptor_id,
+            authorization.adapter_address,
+            self._package_root(registration, authorization),
+            1,
         )
         if key in self.entries:
             existing = self.entries[key]
             exact = (
-                existing.source_chain_id == entry.source_chain_id
+                existing.protocol_version == manifest.protocol_version
+                and existing.manifest.commitment == manifest.commitment
+                and existing.registration_commitment
+                    == manifest.registration_commitment
+                and existing.source_chain_id == entry.source_chain_id
                 and existing.source_registration_epoch
                     == entry.source_registration_epoch
                 and existing.manifest.destination_bridge
@@ -8706,18 +9441,23 @@ class BridgeDomainRegistry:
                 and existing.manifest.canonical_destination_descriptor
                     == manifest.canonical_destination_descriptor
                 and existing.manifest.components == manifest.components
+                and existing.target_registration_hash
+                    == entry.target_registration_hash
+                and existing.source_descriptor_id == entry.source_descriptor_id
+                and existing.adapter_address == entry.adapter_address
+                and existing.package_root == entry.package_root
+                and existing.package_count == entry.package_count
+                and self._key_by_destination_chain_version.get(version_key)
+                    == key
+                and type(self._staged_registrations_by_version.get(
+                    manifest.protocol_version
+                )) is SettlementRegistration
+                and target_registration_hash_v2(
+                    self._staged_registrations_by_version[
+                        manifest.protocol_version
+                    ]
+                ) == entry.target_registration_hash
             )
-            if exact:
-                latest_key = self._latest_key_by_destination_chain.get(
-                    manifest.destination_chain_id
-                )
-                latest = self.entries.get(latest_key) if latest_key else None
-                if (latest is None
-                        or manifest.protocol_version
-                            > latest.protocol_version):
-                    self._latest_key_by_destination_chain[
-                        manifest.destination_chain_id
-                    ] = key
             return exact
         existing_manifest = self._destinations_by_domain.get(
             manifest.destination_domain_id
@@ -8732,22 +9472,351 @@ class BridgeDomainRegistry:
         if self.profile_additions.get(manifest.protocol_version, 0) \
                 >= MAX_BRIDGE_TOPOLOGIES_PER_PROFILE:
             return False
-        latest_key = self._latest_key_by_destination_chain.get(
-            manifest.destination_chain_id
-        )
-        latest = self.entries.get(latest_key) if latest_key else None
-        if (latest is not None
-                and manifest.protocol_version <= latest.protocol_version):
+        if version_key in self._key_by_destination_chain_version:
             return False
         self.entries[key] = entry
+        self._staged_registrations_by_version[
+            manifest.protocol_version
+        ] = registration
         self._destinations_by_domain.setdefault(
             manifest.destination_domain_id, manifest
         )
         self.profile_additions[manifest.protocol_version] = (
             self.profile_additions.get(manifest.protocol_version, 0) + 1)
-        self._latest_key_by_destination_chain[
-            manifest.destination_chain_id
-        ] = key
+        self._key_by_destination_chain_version[version_key] = key
+        return True
+
+    def stage_bridge_route_package_v1(
+        self,
+        calldata: bytes,
+        *,
+        caller: str,
+        value: int,
+        gas: int,
+        clock: Clock,
+    ) -> bytes:
+        """Executable Router-only BRS1 boundary derived from RTR2/witness."""
+
+        if self.stage_bridge_route_fault_point in {"revert", "oog"}:
+            raise RuntimeError("injected BRS1 call fault")
+        if (type(calldata) is not bytes or len(calldata) != 36
+                or calldata[:4] != STAGE_BRIDGE_ROUTE_PACKAGE_SELECTOR
+                or calldata[4:28] != bytes(24)
+                or caller != self.router.address or value != 0
+                or gas != STAGE_BRIDGE_ROUTE_PACKAGE_GAS
+                or type(clock) is not Clock):
+            raise ValueError("BRS1 call envelope is noncanonical")
+        version = int.from_bytes(calldata[28:36], "big")
+        witness = getattr(self.manager, "release_witnesses", {}).get(version)
+        if type(self.manager) is not ProtocolVersionManagerV1 \
+                or type(witness) is not SettlementRegistration:
+            raise ValueError("BRS1 has no strict registered release witness")
+        row = decode_target_release_registration_return_v2(
+            self.router.staticcall_target_release_registration_v2(
+                TARGET_RELEASE_REGISTRATION_SELECTOR
+                + _model_uint(version, 32, "RTR2 protocol version"),
+                caller=self.address, value=0,
+                gas=TARGET_RELEASE_REGISTRATION_READ_GAS,
+            )
+        )
+        registration_hash = target_registration_hash_v2(witness)
+        if (row.protocol_version != version
+                or row.target_settlement
+                    != _model_address20(witness.settlement.address)
+                or row.release_manifest_hash != witness.release_manifest_hash
+                or row.target_registration_hash != registration_hash):
+            raise ValueError("BRS1 RTR2/witness join is inexact")
+        authorization = next(
+            (candidate for candidate in witness.ingress_authorizations
+             if candidate.kind is ForceKind.BRIDGE_CREDIT),
+            None,
+        )
+        if (type(authorization) is not ProfileIngressAuthorization
+                or not self.stage(
+                    authorization.source_domain_id,
+                    authorization.frozen_bridge_execution_hash,
+                    witness.release_manifest,
+                    manager=self.manager, clock=clock, registration=witness,
+                )):
+            raise ValueError("BRS1 exact package stage rejected")
+        key = self._key_by_destination_chain_version.get((
+            witness.release_manifest.destination_chain_id, version
+        ))
+        entry = self.entries.get(key) if key is not None else None
+        if entry is None:
+            raise ValueError("BRS1 staged row is absent")
+        result = b"".join((
+            b"BRS1" + bytes(28),
+            _model_uint(version, 32, "BRS1 version"),
+            entry.package_root,
+            _model_uint(
+                entry.staged_at_block + BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
+                32, "BRS1 ready block",
+            ),
+        ))
+        if len(result) != STAGE_BRIDGE_ROUTE_PACKAGE_RETURN_LENGTH:
+            raise AssertionError("BRS1 return width drifted")
+        return (
+            result if self.stage_bridge_route_return_override is None
+            else self.stage_bridge_route_return_override
+        )
+
+    def arm_ready_entry(
+        self,
+        registration: "SettlementRegistration",
+        destination_chain_id: int,
+        clock: Clock,
+    ) -> BridgeSupportEntry | None:
+        """Exact-read one staged package after its L1 review delay."""
+
+        key = self._key_by_destination_chain_version.get((
+            destination_chain_id,
+            getattr(getattr(registration, "settlement", None),
+                    "protocol_version", 0),
+        ))
+        entry = self.entries.get(key) if key is not None else None
+        if (type(registration) is not SettlementRegistration
+                or type(clock) is not Clock or entry is None
+                or entry.protocol_version
+                    != registration.settlement.protocol_version
+                or entry.manifest.commitment
+                    != registration.release_manifest.commitment
+                or entry.target_registration_hash
+                    != target_registration_hash_v2(registration)
+                or entry.arm_ready_consumed
+                or clock.block_number < entry.staged_at_block
+                    + BRIDGE_ROUTE_ARM_REVIEW_BLOCKS
+                or not self._package_exact(entry)):
+            return None
+        return entry
+
+    def _bridge_route_package_view_v1(
+        self,
+        destination_chain_id: int,
+        protocol_version: int,
+        clock: Clock,
+    ) -> bytes:
+        """Exact 15-word public package view used by arm conformance tests."""
+
+        key = self._key_by_destination_chain_version.get((
+            destination_chain_id, protocol_version
+        ))
+        entry = self.entries.get(key) if key is not None else None
+        registration = self._staged_registrations_by_version.get(
+            protocol_version
+        )
+        authorization = (
+            None if type(registration) is not SettlementRegistration
+            else registration.ingress_authorizations_by_address.get(
+                "" if entry is None else entry.adapter_address
+            )
+        )
+        descriptor_id = self.router._source_descriptor_id_by_version.get(
+            protocol_version
+        )
+        bundle = self.router._source_bundles_by_descriptor_id.get(descriptor_id)
+        if (type(clock) is not Clock or entry is None
+                or type(authorization) is not ProfileIngressAuthorization
+                or bundle is None or len(bundle) != 3
+                or not self._package_exact(entry)):
+            raise ValueError("unknown or polluted Bridge route package")
+        state = (
+            3 if entry.arm_ready_consumed
+            else (2 if clock.block_number >= entry.staged_at_block
+                    + BRIDGE_ROUTE_ARM_REVIEW_BLOCKS else 1)
+        )
+        ready_at = entry.staged_at_block + BRIDGE_ROUTE_ARM_REVIEW_BLOCKS
+        source, credit_registry, quota = bundle
+        encoded = b"".join((
+            BRIDGE_ROUTE_PACKAGE_MAGIC + bytes(28),
+            _model_uint(state, 32, "BRP1 state"),
+            _model_uint(destination_chain_id, 32, "BRP1 destination chain"),
+            _model_uint(protocol_version, 32, "BRP1 protocol version"),
+            _model_uint(entry.staged_at_block, 32, "BRP1 staged block"),
+            _model_uint(ready_at, 32, "BRP1 ready block"),
+            entry.target_registration_hash,
+            entry.source_descriptor_id,
+            authorization.authorization_id,
+            entry.package_root,
+            _model_uint(entry.package_count, 32, "BRP1 package count"),
+            bytes(12) + _model_address20(source.address),
+            bytes(12) + _model_address20(credit_registry.address),
+            bytes(12) + _model_address20(quota.address),
+            bytes(12) + _model_address20(entry.adapter_address),
+        ))
+        if len(encoded) != BRIDGE_ROUTE_PACKAGE_RETURN_LENGTH:
+            raise AssertionError("BRP1 return width drifted")
+        return encoded
+
+    def bridge_route_package_v1(
+        self,
+        calldata: bytes,
+        *,
+        caller: str,
+        value: int,
+        gas: int,
+        clock: Clock,
+    ) -> bytes:
+        """Executable, caller-independent BRP1 exact static-read boundary."""
+
+        _ = caller
+        if self.bridge_route_package_fault_point in {"revert", "oog"}:
+            raise RuntimeError("injected BRP1 staticcall fault")
+        if (type(calldata) is not bytes
+                or len(calldata) != BRIDGE_ROUTE_PACKAGE_CALLDATA_LENGTH
+                or calldata[:4] != BRIDGE_ROUTE_PACKAGE_SELECTOR
+                or value != 0 or gas != BRIDGE_ROUTE_PACKAGE_READ_GAS
+                or calldata[36:60] != bytes(24)):
+            raise ValueError("BRP1 call envelope is noncanonical")
+        destination_chain_id = int.from_bytes(calldata[4:36], "big")
+        protocol_version = int.from_bytes(calldata[60:68], "big")
+        if destination_chain_id == 0 or protocol_version == 0:
+            raise ValueError("BRP1 lookup key is zero")
+        result = self._bridge_route_package_view_v1(
+            destination_chain_id, protocol_version, clock
+        )
+        return (
+            result if self.bridge_route_package_return_override is None
+            else self.bridge_route_package_return_override
+        )
+
+    def consume_bridge_route_arm_ready_v1(
+        self,
+        calldata: bytes,
+        *,
+        caller: str,
+        value: int,
+        gas: int,
+        clock: Clock,
+    ) -> bytes:
+        """Executable BRC1 boundary authorized by MACT, ASR1, then RTR2."""
+
+        if self.consume_bridge_route_fault_point in {"revert", "oog"}:
+            raise RuntimeError("injected BRC1 call fault")
+        if (type(calldata) is not bytes or len(calldata) != 68
+                or calldata[:4] != CONSUME_BRIDGE_ROUTE_ARM_READY_SELECTOR
+                or calldata[4:28] != bytes(24)
+                or caller != self.router.address or value != 0
+                or gas != CONSUME_BRIDGE_ROUTE_ARM_READY_GAS
+                or type(clock) is not Clock):
+            raise ValueError("BRC1 call envelope is noncanonical")
+        version = int.from_bytes(calldata[28:36], "big")
+        target_registration_hash = calldata[36:68]
+        mact = decode_migration_activation_context_v1(
+            self.router.staticcall_migration_activation_context_v1(
+                MIGRATION_ACTIVATION_CONTEXT_SELECTOR,
+                caller=self.address, value=0,
+                gas=MIGRATION_ACTIVATION_CONTEXT_GAS,
+            )
+        )
+        active = decode_active_settlement_state_v1(
+            self.router.staticcall_active_settlement_state_v1(
+                ACTIVE_SETTLEMENT_STATE_SELECTOR,
+                caller=self.address, value=0,
+                gas=ACTIVE_SETTLEMENT_STATE_GAS,
+            )
+        )
+        row = decode_target_release_registration_return_v2(
+            self.router.staticcall_target_release_registration_v2(
+                TARGET_RELEASE_REGISTRATION_SELECTOR
+                + _model_uint(version, 32, "RTR2 protocol version"),
+                caller=self.address, value=0,
+                gas=TARGET_RELEASE_REGISTRATION_READ_GAS,
+            )
+        )
+        registration = self.router.registrations.get(version)
+        if (type(self.manager) is not ProtocolVersionManagerV1
+                or mact.lifecycle
+                    is not RouterMigrationLifecycle.ACTIVATING
+                or mact.activation_context_hash == bytes(32)
+                or active.phase is not RouterPhase.READY
+                or active.generation != mact.generation
+                or active.active_protocol_version
+                    != mact.source_protocol_version
+                or active.active_settlement != mact.source_settlement
+                or active.target_protocol_version != version
+                or active.target_protocol_version
+                    != mact.target_protocol_version
+                or active.target_manifest_hash
+                    != mact.target_manifest_hash
+                or active.target_registration_hash
+                    != target_registration_hash
+                or active.target_registration_hash
+                    != mact.target_registration_hash
+                or mact.target_protocol_version != version
+                or mact.source_protocol_version
+                    != row.expected_predecessor_protocol_version
+                or mact.target_settlement != row.target_settlement
+                or mact.target_manifest_hash != row.release_manifest_hash
+                or mact.target_registration_hash
+                    != target_registration_hash
+                or row.target_registration_hash
+                    != target_registration_hash
+                or type(registration) is not SettlementRegistration
+                or target_registration_hash_v2(registration)
+                    != target_registration_hash
+                or registration.release_manifest_hash
+                    != row.release_manifest_hash
+                or _model_address20(registration.settlement.address)
+                    != row.target_settlement):
+            raise ValueError("BRC1 MACT/RTR2/registration join is inexact")
+        entry = self.arm_ready_entry(
+            registration,
+            registration.release_manifest.destination_chain_id,
+            clock,
+        )
+        if entry is None:
+            raise ValueError("BRC1 package is not ARM_READY")
+        entry.arm_ready_consumed = True
+        result = b"".join((
+            b"BRC1" + bytes(28),
+            _model_uint(version, 32, "BRC1 version"),
+            target_registration_hash,
+            entry.package_root,
+        ))
+        if len(result) != CONSUME_BRIDGE_ROUTE_ARM_READY_RETURN_LENGTH:
+            raise AssertionError("BRC1 return width drifted")
+        return (
+            result if self.consume_bridge_route_return_override is None
+            else self.consume_bridge_route_return_override
+        )
+
+    def consume_arm_ready(
+        self,
+        registration: "SettlementRegistration",
+        clock: Clock,
+        *,
+        router: "ActiveSettlementRouter",
+        capability: object,
+    ) -> bool:
+        """Legacy-fixture compatibility; production uses executable BRC1."""
+
+        frame = getattr(router, "_migration_callback_frame", None)
+        if (router is not self.router
+                or capability is not _BRIDGE_ROUTE_ACTIVATION_CAPABILITY
+                or router.migration_lifecycle
+                    is not RouterMigrationLifecycle.ACTIVATING
+                or type(frame) is not MigrationCanonicalContextV2
+                or frame.transition_kind != "VERSION_MIGRATION"
+                or frame.source_protocol_version != router.active_version
+                or frame.target_protocol_version
+                    != getattr(getattr(registration, "settlement", None),
+                               "protocol_version", 0)
+                or frame.target_manifest_hash
+                    != getattr(registration, "release_manifest_hash", b"")
+                or frame.target_registration_hash
+                    != target_registration_hash_v2(registration)
+                or router.registrations.get(frame.target_protocol_version)
+                    is not registration):
+            return False
+        entry = self.arm_ready_entry(
+            registration,
+            registration.release_manifest.destination_chain_id,
+            clock,
+        )
+        if entry is None:
+            return False
+        entry.arm_ready_consumed = True
         return True
 
     def confirm(self, source_domain_id: str, execution_hash: str,
@@ -8848,14 +9917,208 @@ class BridgeDomainRegistry:
         return entry
 
     def latest_final_entry(
-        self, destination_chain_id: int, clock: Clock
+        self,
+        source_domain_id: str,
+        execution_hash: str,
+        destination_chain_id: int,
+        clock: Clock,
+        *,
+        source_bridge: str,
+        caller: str,
     ) -> BridgeSupportEntry | None:
-        """Return only the newest staged route; never fall back to an old one."""
+        """Compatibility name routed through the exact ABR1 ABI boundary."""
 
-        key = self._latest_key_by_destination_chain.get(destination_chain_id)
-        if key is None:
+        return self.active_route_entry(
+            source_domain_id, execution_hash, destination_chain_id, clock,
+            source_bridge=source_bridge, caller=caller,
+        )
+
+    def active_route_entry(
+        self,
+        source_domain_id: str,
+        execution_hash: str,
+        destination_chain_id: int,
+        clock: Clock,
+        *,
+        source_bridge: str,
+        caller: str,
+    ) -> BridgeSupportEntry | None:
+        """Call and decode ABR1, then rejoin its exact retained route row."""
+
+        calldata = b"".join((
+            ACTIVE_BRIDGE_ROUTE_SELECTOR,
+            _model_uint(destination_chain_id, 32, "ABR1 destination chain"),
+            bytes(12) + _model_address20(source_bridge),
+            _model_fixed_bytes32(source_domain_id),
+            _model_fixed_bytes32(execution_hash),
+        ))
+        try:
+            raw = self.active_bridge_route_v1(
+                calldata, caller=caller, value=0,
+                gas=ACTIVE_BRIDGE_ROUTE_READ_GAS, clock=clock,
+            )
+            route = decode_active_bridge_route_v1(raw)
+        except (AttributeError, TypeError, ValueError, RuntimeError):
             return None
-        return self.final_entry(*key, clock)
+        key = self._key_by_destination_chain_version.get((
+            destination_chain_id, route.active_protocol_version
+        ))
+        entry = self.entries.get(key) if key is not None else None
+        if (entry is None or key[0] != source_domain_id
+                or key[1] != execution_hash
+                or route.source_chain_id != entry.source_chain_id
+                or route.source_registration_epoch
+                    != entry.source_registration_epoch
+                or route.source_domain_id != _model_fixed_bytes32(key[0])
+                or route.bridge_execution_hash != _model_fixed_bytes32(key[1])
+                or route.destination_domain_id != _model_fixed_bytes32(key[2])
+                or route.destination_bridge
+                    != _model_address20(entry.manifest.destination_bridge)
+                or route.release_manifest_hash != entry.manifest.commitment):
+            return None
+        return entry
+
+    def active_bridge_route_v1(
+        self,
+        calldata: bytes,
+        *,
+        caller: str,
+        value: int,
+        gas: int,
+        clock: Clock,
+    ) -> bytes:
+        """Executable ABR1 boundary used identically by source and adapter."""
+
+        if self.active_bridge_route_fault_point in {"revert", "oog"}:
+            raise RuntimeError("injected ABR1 call fault")
+        if (type(calldata) is not bytes
+                or len(calldata) != ACTIVE_BRIDGE_ROUTE_CALLDATA_LENGTH
+                or calldata[:4] != ACTIVE_BRIDGE_ROUTE_SELECTOR
+                or not caller or value != 0
+                or gas != ACTIVE_BRIDGE_ROUTE_READ_GAS
+                or calldata[36:48] != bytes(12)):
+            raise ValueError("ABR1 call envelope is noncanonical")
+        destination_chain_id = int.from_bytes(calldata[4:36], "big")
+        source_bridge_word = calldata[48:68]
+        source_domain_word = calldata[68:100]
+        execution_word = calldata[100:132]
+        if (destination_chain_id == 0
+                or source_bridge_word == bytes(20)
+                or source_domain_word == bytes(32)
+                or execution_word == bytes(32)):
+            raise ValueError("ABR1 call tuple is zero")
+        matching_keys = tuple(
+            key for key in self.entries
+            if (_model_fixed_bytes32(key[0]) == source_domain_word
+                and _model_fixed_bytes32(key[1]) == execution_word)
+                and self.entries[key].manifest.destination_chain_id
+                    == destination_chain_id
+        )
+        if len(matching_keys) != 1:
+            raise ValueError("ABR1 source tuple is ambiguous or absent")
+        source_domain_id, execution_hash, _ = matching_keys[0]
+        entry = self._resolve_active_route_entry_v1(
+            source_domain_id, execution_hash, destination_chain_id, clock
+        )
+        if entry is None:
+            raise ValueError("ABR1 route is not active")
+        descriptor_id = self.router._source_descriptor_id_by_version.get(
+            entry.protocol_version
+        )
+        bundle = self.router._source_bundles_by_descriptor_id.get(descriptor_id)
+        source = None if bundle is None or len(bundle) != 3 else bundle[0]
+        binding = self.router._authorized_ingress_by_address.get(caller)
+        caller_is_source = (
+            type(source) is SourceBridgeV2
+            and caller == source.address
+            and source_bridge_word == _model_address20(source.address)
+        )
+        caller_is_adapter = (
+            type(source) is SourceBridgeV2
+            and binding is not None
+            and binding.address == caller
+            and type(binding.adapter) is BridgeAdapter
+            and binding.adapter.source_bridge is source
+            and source_bridge_word == _model_address20(source.address)
+        )
+        if not (caller_is_source or caller_is_adapter):
+            raise ValueError("ABR1 caller/source binding is inexact")
+        result = encode_active_bridge_route_v1(ActiveBridgeRouteV1(
+            entry.protocol_version,
+            entry.source_chain_id,
+            entry.source_registration_epoch,
+            _model_fixed_bytes32(source_domain_id),
+            _model_fixed_bytes32(execution_hash),
+            _model_fixed_bytes32(entry.manifest.destination_domain_id),
+            _model_address20(entry.manifest.destination_bridge),
+            entry.manifest.commitment,
+        ))
+        return (
+            result if self.active_bridge_route_return_override is None
+            else self.active_bridge_route_return_override
+        )
+
+    def _resolve_active_route_entry_v1(
+        self,
+        source_domain_id: str,
+        execution_hash: str,
+        destination_chain_id: int,
+        clock: Clock,
+    ) -> BridgeSupportEntry | None:
+        """Resolve the semantic row only behind the executable ABR1 envelope."""
+
+        if type(clock) is not Clock:
+            return None
+        try:
+            # The order is normative and shares one fail-closed revert domain:
+            # MACT must prove IDLE with an all-zero context before ASR1 is read.
+            mact_raw = self.router.staticcall_migration_activation_context_v1(
+                MIGRATION_ACTIVATION_CONTEXT_SELECTOR,
+                caller=self.address, value=0,
+                gas=BRIDGE_ACTIVE_ROUTE_MACT_GAS,
+            )
+            mact = decode_migration_activation_context_v1(mact_raw)
+            if (BRIDGE_ACTIVE_ROUTE_MACT_GAS
+                    != MIGRATION_ACTIVATION_CONTEXT_GAS
+                    or len(mact_raw) != MIGRATION_ACTIVATION_CONTEXT_LENGTH
+                    or mact.lifecycle is not RouterMigrationLifecycle.IDLE):
+                return None
+            raw = self.router.staticcall_active_settlement_state_v1(
+                ACTIVE_SETTLEMENT_STATE_SELECTOR,
+                caller=self.address, value=0,
+                gas=BRIDGE_ACTIVE_ROUTE_ROUTER_STATE_GAS,
+            )
+            state = decode_active_settlement_state_v1(raw)
+        except (AttributeError, TypeError, ValueError, RuntimeError):
+            return None
+        active_registration = self.router.registrations.get(
+            state.active_protocol_version
+        )
+        if (len(raw) != ACTIVE_SETTLEMENT_STATE_LENGTH
+                or BRIDGE_ACTIVE_ROUTE_ROUTER_STATE_GAS
+                    != ACTIVE_SETTLEMENT_STATE_GAS
+                or state.phase is not RouterPhase.ACTIVE
+                or type(active_registration) is not SettlementRegistration
+                or state.active_settlement
+                    != _model_address20(active_registration.settlement.address)):
+            return None
+        key = self._key_by_destination_chain_version.get((
+            destination_chain_id, state.active_protocol_version
+        ))
+        entry = self.entries.get(key) if key is not None else None
+        if (entry is None or key[0] != source_domain_id
+                or key[1] != execution_hash
+                or entry.manifest.commitment
+                    != active_registration.release_manifest.commitment
+                or not self._package_exact(entry)):
+            return None
+        # Genesis/predecessor compatibility may still be enabled by the older
+        # destination-registration confirmation.  Every successor consumes
+        # ARM_READY atomically at cutover and has no post-cutover delay.
+        return (
+            entry if entry.arm_ready_consumed
+            else self.final_entry(*key, clock)
+        )
 
     def finalized_destination_manifest(
         self, destination_domain_id: str, clock: Clock
@@ -8919,9 +10182,62 @@ class CanonicalTerminalCommitment:
 def canonical_core_hash_v2(core: CanonicalCore) -> bytes:
     if type(core) is not CanonicalCore:
         raise ValueError("canonical core commitment requires exact core")
+    narrow = (
+        core.l2_block_number, core.tip_slot, core.message_cursor,
+        core.next_excess_blob_gas, core.terminal_count,
+    )
+    if (not 0 <= core.l2_block_number < 1 << 48
+            or any(type(value) is not int or not 0 <= value <= UINT64_MAX
+                   for value in narrow[1:])
+            or type(core.next_base_fee) is not int
+            or not 0 <= core.next_base_fee <= SEAT_UINT256_MAX):
+        raise ValueError("canonical core integer is out of range")
+    return keccak256(b"".join((
+        D_CANONICAL_CORE_V2,
+        _model_uint(core.l2_block_number, 8, "canonical L2 block"),
+        _model_fixed_bytes32(core.tip_hash),
+        _model_uint(core.tip_slot, 8, "canonical tip slot"),
+        _model_fixed_bytes32(core.state_root),
+        _model_uint(core.message_cursor, 8, "canonical message cursor"),
+        _model_fixed_bytes32(core.winning_data_commitment),
+        _model_uint(core.next_base_fee, 32, "canonical next base fee"),
+        _model_uint(
+            core.next_excess_blob_gas, 8, "canonical next excess blob gas"
+        ),
+        _model_fixed_bytes32(core.terminal_root),
+        _model_uint(core.terminal_count, 8, "canonical terminal count"),
+    )))
+
+
+def canonical_core_abi_v2(core: CanonicalCore) -> bytes:
+    """Canonical 320-byte Solidity ABI tuple used by MCAN."""
+
+    canonical_core_hash_v2(core)
+    raw = b"".join((
+        _model_uint(core.l2_block_number, 32, "ABI L2 block"),
+        _model_fixed_bytes32(core.tip_hash),
+        _model_uint(core.tip_slot, 32, "ABI tip slot"),
+        _model_fixed_bytes32(core.state_root),
+        _model_uint(core.message_cursor, 32, "ABI message cursor"),
+        _model_fixed_bytes32(core.winning_data_commitment),
+        _model_uint(core.next_base_fee, 32, "ABI next base fee"),
+        _model_uint(core.next_excess_blob_gas, 32, "ABI blob gas"),
+        _model_fixed_bytes32(core.terminal_root),
+        _model_uint(core.terminal_count, 32, "ABI terminal count"),
+    ))
+    if len(raw) != 320:
+        raise AssertionError("CanonicalCoreV2 ABI width drifted")
+    return raw
+
+
+def base_canonical_hash_v2(
+    core: CanonicalCore, canonicalized_at_block: int,
+) -> bytes:
+    if not 0 <= canonicalized_at_block <= UINT64_MAX:
+        raise ValueError("canonicalized block is out of range")
     return keccak256(
-        b"slot-chain-canonical-core-v2"
-        + migration_transition_encode(core)
+        D_BASE_CANONICAL_V2 + canonical_core_hash_v2(core)
+        + _model_uint(canonicalized_at_block, 8, "canonicalized block")
     )
 
 
@@ -8931,6 +10247,7 @@ class MigrationCanonicalContextV2:
 
     transition_kind: str
     router_generation: int
+    seat_generation: int
     source_protocol_version: int
     target_protocol_version: int
     target_manifest_hash: bytes
@@ -8954,11 +10271,22 @@ class MigrationCanonicalContextV2:
     queue_post_accounted_liability_wei: int
     queue_post_total_claimable_wei: int
     beneficiary: str
+    settlement_chain_id: int
+    router_address: str
+    source_manifest_hash: bytes
+    base_canonical_hash: bytes
+    statement_hash: bytes
+    source_poststate_commitment: bytes
 
     def __post_init__(self) -> None:
         genesis = self.transition_kind == "GENESIS_IMPORT"
         if (self.transition_kind not in {"GENESIS_IMPORT", "VERSION_MIGRATION"}
                 or self.router_generation < 0
+                or not 0 < self.settlement_chain_id <= SEAT_UINT256_MAX
+                or not self.router_address
+                or not 0 <= self.seat_generation <= UINT64_MAX
+                or (genesis and self.seat_generation != 0)
+                or (not genesis and self.seat_generation == 0)
                 or self.source_protocol_version < 0
                 or self.target_protocol_version <= self.source_protocol_version
                 or type(self.target_manifest_hash) is not bytes
@@ -8966,6 +10294,18 @@ class MigrationCanonicalContextV2:
                 or type(self.target_registration_hash) is not bytes
                 or len(self.target_registration_hash) != 32
                 or self.target_registration_hash == bytes(32)
+                or type(self.source_manifest_hash) is not bytes
+                or len(self.source_manifest_hash) != 32
+                or self.source_manifest_hash == bytes(32)
+                or type(self.base_canonical_hash) is not bytes
+                or len(self.base_canonical_hash) != 32
+                or self.base_canonical_hash == bytes(32)
+                or type(self.statement_hash) is not bytes
+                or len(self.statement_hash) != 32
+                or self.statement_hash == bytes(32)
+                or type(self.source_poststate_commitment) is not bytes
+                or len(self.source_poststate_commitment) != 32
+                or (genesis and self.source_poststate_commitment == bytes(32))
                 or type(self.source_checkpoint_id) is not bytes
                 or len(self.source_checkpoint_id) != 32
                 or type(self.source_boundary_hash) is not bytes
@@ -9001,60 +10341,113 @@ class MigrationCanonicalContextV2:
                 ) < 0
                 or not self.beneficiary):
             raise ValueError("migration canonical callback context is invalid")
+        if not genesis:
+            expected_source_poststate = keccak256(b"".join((
+                D_SOURCE_FREEZE_POSTSTATE_V1,
+                self.commitment,
+                _model_address20(self.source_settlement),
+                _model_uint(4, 1, "frozen source mode"),
+                _model_uint(
+                    self.router_generation, 8, "source freeze generation"
+                ),
+                _model_uint(
+                    self.source_protocol_version, 8,
+                    "source freeze protocol version",
+                ),
+                _model_uint(
+                    self.source_canonical_sequence, 8,
+                    "source freeze canonical sequence",
+                ),
+                self.base_canonical_hash,
+                _model_uint(
+                    self.canonicalized_at_block, 8, "source frozen block"
+                ),
+            )))
+            if self.source_poststate_commitment not in {
+                bytes(32), expected_source_poststate
+            }:
+                raise ValueError("source freeze poststate commitment is inexact")
+            object.__setattr__(
+                self, "source_poststate_commitment", expected_source_poststate
+            )
 
     @property
     def commitment(self) -> bytes:
-        return keccak256(
-            b"slot-chain-migration-canonical-context-v2"
-            + migration_transition_encode((
-                self.transition_kind,
-                self.router_generation,
-                self.source_protocol_version,
-                self.target_protocol_version,
-                self.target_manifest_hash,
-                self.target_registration_hash,
-                self.source_checkpoint_id,
-                self.source_boundary_hash,
-                self.source_settlement,
-                self.target_settlement,
-                self.source_canonical_sequence,
-                self.target_canonical_sequence,
-                self.candidate_digest,
-                self.output_core_hash,
-                self.canonicalized_at_block,
-                self.queue_start,
-                self.queue_end,
-                self.queue_address,
-                self.queue_root,
-                self.queue_count,
-                self.queue_credited_wei,
-                self.queue_post_accounted_liability_wei,
-                self.queue_post_total_claimable_wei,
-                self.beneficiary,
-            ))
-        )
+        transition_kind = 1 if self.transition_kind == "GENESIS_IMPORT" else 2
+        return keccak256(b"".join((
+            D_L1_ACTIVATION_CONTEXT_V1,
+            _model_uint(self.settlement_chain_id, 32, "activation chain"),
+            _model_address20(self.router_address),
+            _model_uint(transition_kind, 1, "activation kind"),
+            _model_uint(self.router_generation, 8, "activation generation"),
+            _model_uint(self.seat_generation, 8, "activation seat generation"),
+            _model_uint(
+                self.source_protocol_version, 8, "activation source version"
+            ),
+            _model_uint(
+                self.target_protocol_version, 8, "activation target version"
+            ),
+            self.source_manifest_hash,
+            self.target_manifest_hash,
+            self.target_registration_hash,
+            _model_address20(self.source_settlement),
+            _model_address20(self.target_settlement),
+            _model_uint(
+                self.source_canonical_sequence, 8, "activation source sequence"
+            ),
+            self.base_canonical_hash,
+            self.statement_hash,
+            _model_fixed_bytes32(self.candidate_digest),
+            self.output_core_hash,
+            _model_uint(
+                self.target_canonical_sequence, 8, "activation target sequence"
+            ),
+            _model_address20(self.queue_address),
+            _model_fixed_bytes32(self.queue_root),
+            _model_uint(self.queue_count, 8, "activation Queue count"),
+            _model_uint(self.queue_start, 8, "activation start cursor"),
+            _model_uint(self.queue_end, 8, "activation end cursor"),
+            _model_address20(self.beneficiary),
+            _model_uint(
+                self.canonicalized_at_block, 8, "activation canonicalized block"
+            ),
+        )))
 
     @property
     def target_poststate_commitment(self) -> bytes:
-        return keccak256(
-            b"slot-chain-l1-adoption-v1"
-            + self.commitment
-            + _model_address20(self.target_settlement)
-            + self.output_core_hash
-            + _model_uint(
-                self.target_canonical_sequence, 8,
-                "target canonical sequence",
-            )
-            + _model_uint(
-                self.canonicalized_at_block, 8,
-                "target canonicalized block",
-            )
-        )
+        transition_kind = 1 if self.transition_kind == "GENESIS_IMPORT" else 2
+        return keccak256(b"".join((
+            D_L1_ADOPTION_V1,
+            _model_uint(self.settlement_chain_id, 32, "adoption chain"),
+            _model_address20(self.router_address),
+            _model_address20(self.target_settlement),
+            self.commitment,
+            _model_uint(transition_kind, 1, "adoption kind"),
+            _model_uint(self.router_generation, 8, "adoption generation"),
+            _model_uint(
+                self.source_protocol_version, 8, "adoption source version"
+            ),
+            _model_uint(
+                self.target_protocol_version, 8, "adoption target version"
+            ),
+            _model_uint(
+                self.source_canonical_sequence, 8, "adoption source sequence"
+            ),
+            self.target_manifest_hash,
+            _model_fixed_bytes32(self.candidate_digest),
+            self.output_core_hash,
+            _model_uint(
+                self.target_canonical_sequence, 8, "adoption target sequence"
+            ),
+            _model_uint(
+                self.canonicalized_at_block, 8, "adoption canonicalized block"
+            ),
+        )))
 
     @property
     def queue_poststate_commitment(self) -> bytes:
         return keccak256(
-            b"slot-chain-queue-migration-poststate-v1"
+            D_QUEUE_MIGRATION_POSTSTATE_V1
             + self.commitment
             + _model_address20(self.queue_address)
             + _model_address20(self.target_settlement)
@@ -9085,14 +10478,67 @@ class MigrationCanonicalContextV2:
         ))
 
     @property
+    def adopt_calldata(self) -> bytes:
+        transition_kind = 1 if self.transition_kind == "GENESIS_IMPORT" else 2
+        raw = b"".join((
+            MIGRATION_CANONICAL_ADOPT_SELECTOR,
+            _model_uint(transition_kind, 32, "MCAN transition kind"),
+            _model_uint(self.router_generation, 32, "MCAN generation"),
+            _model_uint(self.seat_generation, 32, "MCAN seat generation"),
+            _model_uint(
+                self.source_protocol_version, 32, "MCAN source version"
+            ),
+            _model_uint(
+                self.target_protocol_version, 32, "MCAN target version"
+            ),
+            _model_uint(
+                self.source_canonical_sequence, 32, "MCAN source sequence"
+            ),
+            self.target_manifest_hash,
+            _model_fixed_bytes32(self.candidate_digest),
+            canonical_core_abi_v2(self.output_core),
+        ))
+        if len(raw) != 580:
+            raise AssertionError("MCAN calldata width drifted")
+        return raw
+
+    @property
+    def freeze_calldata(self) -> bytes:
+        raw = MIGRATION_SOURCE_FREEZE_SELECTOR + self.commitment
+        if len(raw) != 36:
+            raise AssertionError("MFRZ calldata width drifted")
+        return raw
+
+    @property
+    def queue_calldata(self) -> bytes:
+        raw = b"".join((
+            MIGRATION_QUEUE_SELECTOR,
+            self.commitment,
+            bytes(12) + _model_address20(self.source_settlement),
+            bytes(12) + _model_address20(self.target_settlement),
+            _model_fixed_bytes32(self.queue_root),
+            _model_uint(self.queue_count, 32, "QMIG Queue count"),
+            _model_uint(self.queue_start, 32, "QMIG start cursor"),
+            _model_uint(self.queue_end, 32, "QMIG end cursor"),
+            bytes(12) + _model_address20(self.beneficiary),
+        ))
+        if len(raw) != 260:
+            raise AssertionError("QMIG calldata width drifted")
+        return raw
+
+    @property
+    def maps_calldata(self) -> bytes:
+        raw = MIGRATION_POST_STATE_SELECTOR + self.commitment
+        if len(raw) != 36:
+            raise AssertionError("MAPS calldata width drifted")
+        return raw
+
+    @property
     def source_return(self) -> bytes:
-        freeze_commitment = keccak256(
-            b"slot-chain-migration-source-freeze-v2" + self.commitment
-        )
         return b"".join((
             MIGRATION_SOURCE_FREEZE_MAGIC + bytes(28),
             self.commitment,
-            freeze_commitment,
+            self.source_poststate_commitment,
         ))
 
     @property
@@ -9722,13 +11168,14 @@ class _SupersededPersistentLegacyLaunchHookV1:
         return True
 
     def migration_activation_post_state_v2(
-        self, *, router: "ActiveSettlementRouter"
+        self, calldata: bytes, *, router: "ActiveSettlementRouter"
     ) -> bytes:
         frame = router._migration_callback_frame
         if (router is not self._router_authority
                 or router.migration_lifecycle
                     is not RouterMigrationLifecycle.ACTIVATING
                 or type(frame) is not MigrationCanonicalContextV2
+                or calldata != frame.maps_calldata
                 or frame.transition_kind != "GENESIS_IMPORT"
                 or frame.source_settlement != self.proxy_address
                 or self.phase is not LegacyLaunchPhase.FROZEN
@@ -11416,16 +12863,19 @@ class LegacyLaunchHookV1:
         ))
 
     def migration_activation_post_state_v2(
-        self, *, router: "ActiveSettlementRouter"
+        self, calldata: bytes, *, router: "ActiveSettlementRouter"
     ) -> bytes:
         frame = router._migration_callback_frame
         if (router is not self._router_authority
                 or router.migration_lifecycle
                     is not RouterMigrationLifecycle.ACTIVATING
                 or type(frame) is not MigrationCanonicalContextV2
+                or calldata != frame.maps_calldata
                 or self.phase is not LegacyLaunchPhase.FROZEN
                 or self.campaign_id != frame.source_checkpoint_id
-                or self.quiescent_boundary_hash != frame.source_boundary_hash):
+                or self.quiescent_boundary_hash != frame.source_boundary_hash
+                or self.post_state_commitment
+                    != frame.source_poststate_commitment):
             raise ValueError("legacy source MAPS post-read rejected")
         raw = frame.source_maps_return
         return raw[:-1] if self.fault_point == "maps_bad_return" else raw
@@ -11671,12 +13121,8 @@ class QueueContinuity:
 
     def _migrate_from_router(
         self,
+        calldata: bytes,
         *,
-        expected_old: str,
-        expected_new: str,
-        expected_start: int,
-        expected_end: int,
-        beneficiary: str,
         router: "ActiveSettlementRouter",
     ) -> bytes:
         """Callback-free atomic authority swap plus proved-range accounting."""
@@ -11689,39 +13135,35 @@ class QueueContinuity:
                 or router.migration_lifecycle
                     is not RouterMigrationLifecycle.ACTIVATING
                 or type(frame) is not MigrationCanonicalContextV2
+                or calldata != frame.queue_calldata
                 or router._queue_transition_frame
                     != ("MIGRATE", id(frame), frame.commitment.hex())
-                or self.active_settlement_address != expected_old
-                or frame.source_settlement != expected_old
-                or frame.target_settlement != expected_new
-                or frame.queue_start != expected_start
-                or frame.queue_end != expected_end
-                or frame.beneficiary != beneficiary
+                or self.active_settlement_address != frame.source_settlement
                 or frame.queue_address != self.address
                 or frame.queue_root != self.root
                 or frame.queue_count != self.count
                 or self.total_claimable is None
                 or frame.queue_credited_wei != (
-                    self.deposit_prefix[expected_end]
-                    - self.deposit_prefix[expected_start]
+                    self.deposit_prefix[frame.queue_end]
+                    - self.deposit_prefix[frame.queue_start]
                 )
                 or frame.queue_post_accounted_liability_wei
                     != self.accounted_liabilities
                 or frame.queue_post_total_claimable_wei
                     != self.total_claimable + frame.queue_credited_wei
-                or not expected_new
-                or expected_start != self.cursor
-                or not expected_start <= expected_end <= self.count):
+                or not frame.target_settlement
+                or frame.queue_start != self.cursor
+                or not frame.queue_start <= frame.queue_end <= self.count):
             return b""
         snapshot = self._transaction_snapshot()
         try:
             if not self._advance_accounting(
-                expected_start, expected_end, beneficiary
+                frame.queue_start, frame.queue_end, frame.beneficiary
             ):
                 raise ValueError("queue migration accounting rejected")
             if self.migration_fault_point == "after_credit":
                 raise RuntimeError("injected queue migration credit fault")
-            self.active_settlement_address = expected_new
+            self.active_settlement_address = frame.target_settlement
             if self.migration_fault_point == "after_swap":
                 raise RuntimeError("injected queue migration swap fault")
             if (self.cursor != frame.queue_end
@@ -11741,7 +13183,7 @@ class QueueContinuity:
             raise
 
     def migration_activation_post_state_v2(
-        self, *, router: "ActiveSettlementRouter"
+        self, calldata: bytes, *, router: "ActiveSettlementRouter"
     ) -> bytes:
         context = router._migration_callback_frame
         if (type(router) is not ActiveSettlementRouter
@@ -11749,6 +13191,7 @@ class QueueContinuity:
                 or router.migration_lifecycle
                     is not RouterMigrationLifecycle.ACTIVATING
                 or type(context) is not MigrationCanonicalContextV2
+                or calldata != context.maps_calldata
                 or self.active_settlement_address
                     != context.target_settlement
                 or self.root != context.queue_root
@@ -11967,6 +13410,28 @@ class VersionedSettlementHistory:
             protocol.seat_generation,
         )
 
+    def seat_market_record_v1(self, term_id: bytes) -> bytes:
+        """Permanent target-local SHR1 term getter used by historical Market."""
+
+        protocol = self.live_protocol
+        if protocol is None or protocol.versioned_history is not self:
+            raise ValueError("Settlement history graph is split")
+        return protocol.seat_market_record_v1(term_id)
+
+    def seat_install_record_v1(self, term_id: bytes) -> bytes:
+        protocol = self.live_protocol
+        if protocol is None or protocol.versioned_history is not self:
+            raise ValueError("Settlement history graph is split")
+        return protocol.seat_install_record_v1(term_id)
+
+    def seat_duty_record_v1(self, duty_id: bytes) -> bytes:
+        """Permanent target-local SHR1 duty getter used by historical Market."""
+
+        protocol = self.live_protocol
+        if protocol is None or protocol.versioned_history is not self:
+            raise ValueError("Settlement history graph is split")
+        return protocol.seat_duty_record_v1(duty_id)
+
     def _entry(self, sequence: int, core: CanonicalCore,
                canonicalized_at_block: int) -> CanonicalTerminalCommitment:
         return CanonicalTerminalCommitment(
@@ -12008,20 +13473,25 @@ class VersionedSettlementHistory:
 
     def _freeze_for_migration_from_router(
         self,
-        context: MigrationCanonicalContextV2,
+        calldata: bytes,
         *,
         router: "ActiveSettlementRouter",
     ) -> bytes:
         """Router-only exact source freeze callback, in the outer revert domain."""
 
+        context = router._migration_callback_frame
         if (type(router) is not ActiveSettlementRouter
                 or router is not self._router_authority
                 or router.migration_lifecycle
                     is not RouterMigrationLifecycle.ACTIVATING
-                or router._migration_callback_frame is not context
+                or type(context) is not MigrationCanonicalContextV2
+                or calldata != context.freeze_calldata
                 or context.transition_kind != "VERSION_MIGRATION"
                 or context.source_settlement != self.address
                 or context.source_protocol_version != self.protocol_version
+                or type(self.live_protocol) is not Protocol
+                or self.live_protocol.seat_generation
+                    != context.seat_generation
                 or context.source_canonical_sequence != self.current_sequence
                 or context.queue_start != self.core.message_cursor
                 or self.mode != "MIGRATION_READY"
@@ -12045,21 +13515,24 @@ class VersionedSettlementHistory:
 
     def _adopt_migration_canonical_v2(
         self,
-        context: MigrationCanonicalContextV2,
+        calldata: bytes,
         *,
         router: "ActiveSettlementRouter",
     ) -> bytes:
-        """Selector 0x557c4e13: adopt one proof-bound canonical target cell."""
+        """Selector 0x3286443c: adopt one proof-bound canonical target cell."""
 
+        context = router._migration_callback_frame
+        if type(context) is not MigrationCanonicalContextV2:
+            raise ValueError("target migration has no exact Router context")
         expected_sequence = (
             0 if context.transition_kind == "GENESIS_IMPORT"
             else context.source_canonical_sequence + 1
         )
-        if (MIGRATION_CANONICAL_ADOPT_SELECTOR != bytes.fromhex("557c4e13")
+        if (MIGRATION_CANONICAL_ADOPT_SELECTOR != bytes.fromhex("3286443c")
                 or type(router) is not ActiveSettlementRouter
                 or router.migration_lifecycle
                     is not RouterMigrationLifecycle.ACTIVATING
-                or router._migration_callback_frame is not context
+                or calldata != context.adopt_calldata
                 or context.target_settlement != self.address
                 or context.target_protocol_version != self.protocol_version
                 or context.target_canonical_sequence != expected_sequence
@@ -12074,6 +13547,11 @@ class VersionedSettlementHistory:
                 or self.header_oracle is not router.header_oracle
                 or self.inbox_apply_descriptor != router.inbox_apply_descriptor):
             raise ValueError("target migration canonical callback rejected")
+        protocol = self.live_protocol
+        if (type(protocol) is not Protocol
+                or protocol.versioned_history is not self
+                or protocol.seat_generation != 0):
+            raise ValueError("target seat namespace is not pristine")
         self.core = copy.deepcopy(context.output_core)
         if self.migration_callback_fault_point == "adopt_after_core":
             raise RuntimeError("injected target adopt core fault")
@@ -12087,6 +13565,7 @@ class VersionedSettlementHistory:
         self.current_sequence = expected_sequence
         self.last_canonical_l1_block = context.canonicalized_at_block
         object.__setattr__(self, "_router_authority", router)
+        protocol.seat_generation = context.seat_generation
         self.mode = "ACTIVE"
         if self.migration_callback_fault_point == "adopt_after_history":
             raise RuntimeError("injected target adopt history fault")
@@ -12098,7 +13577,7 @@ class VersionedSettlementHistory:
         return raw
 
     def migration_source_post_state_v2(
-        self, *, router: "ActiveSettlementRouter"
+        self, calldata: bytes, *, router: "ActiveSettlementRouter"
     ) -> bytes:
         context = router._migration_callback_frame
         if (type(router) is not ActiveSettlementRouter
@@ -12106,6 +13585,7 @@ class VersionedSettlementHistory:
                 or router.migration_lifecycle
                     is not RouterMigrationLifecycle.ACTIVATING
                 or type(context) is not MigrationCanonicalContextV2
+                or calldata != context.maps_calldata
                 or context.transition_kind != "VERSION_MIGRATION"
                 or context.source_settlement != self.address
                 or self.mode != "FROZEN"
@@ -12121,7 +13601,7 @@ class VersionedSettlementHistory:
         )
 
     def migration_adoption_state_v2(
-        self, *, router: "ActiveSettlementRouter"
+        self, calldata: bytes, *, router: "ActiveSettlementRouter"
     ) -> bytes:
         """Exact 128-byte MAPS post-read during the authenticated Router frame."""
 
@@ -12130,13 +13610,17 @@ class VersionedSettlementHistory:
                 or router.migration_lifecycle
                     is not RouterMigrationLifecycle.ACTIVATING
                 or type(context) is not MigrationCanonicalContextV2
+                or calldata != context.maps_calldata
                 or context.target_settlement != self.address
                 or self._router_authority is not router
                 or self.mode != "ACTIVE"
                 or self.current_sequence != context.target_canonical_sequence
                 or self.last_canonical_l1_block
                     != context.canonicalized_at_block
-                or self.core != context.output_core):
+                or self.core != context.output_core
+                or type(self.live_protocol) is not Protocol
+                or self.live_protocol.seat_generation
+                    != context.seat_generation):
             raise ValueError("migration adoption MAPS post-read rejected")
         raw = context.target_maps_return
         return (
@@ -13140,6 +14624,10 @@ def target_registration_hash_v2(registration: SettlementRegistration) -> bytes:
 # authority in the production model.
 PROTOCOL_CHANGE_DELAY_SECONDS = 604_800
 MAXIMUM_LIVE_VERSION_MIGRATION_SECONDS = 604_800
+# A migration arm is executable for one additional governance-delay interval
+# after it matures.  This bounds dormant execution authority without weakening
+# the full seven-day notice period that precedes maturity.
+MIGRATION_ARM_EXECUTION_WINDOW_SECONDS = 604_800
 PROTOCOL_CHANGE_MAX_PAYLOAD_BYTES = 131_072
 PVM_RELEASE_ROUTER_REGISTRATION_GAS = 15_000_000
 PVM_RELEASE_MARKET_INSTALLATION_GAS = 1_000_000
@@ -13154,11 +14642,12 @@ VERSION_MIGRATION_ARM_DOMAIN = b"slot-chain-version-migration-arm-v2"
 TARGET_REGISTRATION_V2_DOMAIN = b"slot-chain-target-registration-v2"
 EXECUTION_PROFILE_DOMAIN = b"slot-chain-execution-profile-v2"
 SETTLEMENT_DEPLOYMENT_DOMAIN = b"slot-chain-settlement-deployment-v1"
+SOURCE_BUNDLE_SALT_DOMAIN = b"slot-chain-source-bundle-salt-v1"
 EXECUTION_PROFILE_SCHEMA_VERSION = 2
-# ExecutionProfileV2 has 252 fixed value words followed by the sole dynamic
+# ExecutionProfileV2 has 267 fixed value words followed by the sole dynamic
 # targetCodeArtifact offset word.  Its complete field order is mirrored by
 # _execution_profile_static_words_v2 and the normative specification.
-EXECUTION_PROFILE_VALUE_WORDS = 252
+EXECUTION_PROFILE_VALUE_WORDS = 267
 EXECUTION_PROFILE_STATIC_WORDS = EXECUTION_PROFILE_VALUE_WORDS + 1
 EXECUTION_PROFILE_STATIC_BYTES = EXECUTION_PROFILE_STATIC_WORDS * 32
 # Root, fixed head, dynamic length word and at least one padded artifact word.
@@ -13166,7 +14655,7 @@ EXECUTION_PROFILE_MIN_BYTES = 32 + EXECUTION_PROFILE_STATIC_BYTES + 64
 EXECUTION_PROFILE_MAX_BYTES = 65_536
 EIP3860_MAX_INITCODE_BYTES = 49_152
 EIP170_MAX_RUNTIME_BYTES = 24_576
-# TargetParametersV2 is the complete 252-word fixed-value profile projection;
+# TargetParametersV2 is the complete 267-word fixed-value profile projection;
 # it excludes only the dynamic-offset word and authenticated code-artifact
 # tail.  The constructor appends E, MPR2, the declared runtime hash and the
 # artifact hash.  This deliberately transports every consumer primitive and
@@ -13174,12 +14663,14 @@ EIP170_MAX_RUNTIME_BYTES = 24_576
 TARGET_PARAMETERS_V2_WORDS = EXECUTION_PROFILE_VALUE_WORDS
 TARGET_CONSTRUCTOR_TRAILER_WORDS = TARGET_PARAMETERS_V2_WORDS + 4
 TARGET_CONSTRUCTOR_TRAILER_BYTES = TARGET_CONSTRUCTOR_TRAILER_WORDS * 32
+TARGET_CONSTRUCTOR_INVENTORY_WORDS = TARGET_PARAMETERS_V2_WORDS + 7
 TARGET_CREATION_CODE_MAX_BYTES = (
     EIP3860_MAX_INITCODE_BYTES - TARGET_CONSTRUCTOR_TRAILER_BYTES
 )
 LEGACY_OPAQUE_CBOR_PROFILE = bytes.fromhex("a1617601")
 PCT1_MAGIC = b"PCT1"
 PVM1_MAGIC = b"PVM1"
+MAF1_MAGIC = b"MAF1"
 PCO1_MAGIC = b"PCO1"
 PAP1_MAGIC = b"PAP1"
 VML1_MAGIC = b"VML1"
@@ -13194,6 +14685,24 @@ PROTOCOL_CHANGE_TIMELOCK_CONFIG_SELECTOR = keccak256(
 PROTOCOL_VERSION_MANAGER_CONFIG_SELECTOR = keccak256(
     b"protocolVersionManagerConfigV1()"
 )[:4]
+MIGRATION_ARM_FRESH_AFTER_SELECTOR = keccak256(
+    b"migrationArmFreshAfterV1()"
+)[:4]
+
+
+def source_bundle_salt_v1(
+    manifest_namespace: bytes | str, protocol_version: int,
+) -> bytes:
+    """Derive the release-unique source bundle salt."""
+
+    if (type(protocol_version) is not int
+            or not 0 < protocol_version <= UINT64_MAX):
+        raise ValueError("source bundle protocol version is outside uint64")
+    return keccak256(b"".join((
+        SOURCE_BUNDLE_SALT_DOMAIN,
+        _model_fixed_bytes32(manifest_namespace),
+        _model_uint(protocol_version, 8, "source bundle protocol version"),
+    )))
 PROTOCOL_CHANGE_OPERATION_SELECTOR = keccak256(
     b"protocolChangeOperationV1(bytes32)"
 )[:4]
@@ -13204,7 +14713,7 @@ PERMISSIONLESS_ABORT_EXPIRED_MIGRATION_SELECTOR = keccak256(
     b"permissionlessAbortExpiredMigrationV1()"
 )[:4]
 PUBLISH_LEGACY_GENESIS_CAMPAIGN_SELECTOR = bytes.fromhex("5f0ed7f5")
-INSTALL_SETTLEMENT_AUTHORIZATION_SELECTOR = bytes.fromhex("72a3e937")
+INSTALL_SETTLEMENT_AUTHORIZATION_SELECTOR = bytes.fromhex("b1a3fef9")
 SETTLEMENT_AUTHORIZATION_SELECTOR = bytes.fromhex("1693ae01")
 SEAT_TARGET_STATE_SELECTOR = bytes.fromhex("cf52185b")
 SEAT_TERM_RECORD_SELECTOR = bytes.fromhex("76d5ecd4")
@@ -13222,6 +14731,96 @@ def _abi_address_word(value: object, *, zero_if_empty: bool = False) -> bytes:
         else _model_address20(value, zero_if_empty=zero_if_empty)
     )
     return bytes(12) + packed
+
+
+def canonical_seat_wire_cross_model_fixture_v1() -> dict[str, bytes]:
+    """Independent fixed-byte fixture for every Settlement--Market wire row."""
+
+    word = lambda value: _model_uint(value, 32, "seat wire fixture")
+    magic = lambda value: value + bytes(28)
+    address = lambda value: bytes(12) + bytes.fromhex(value * 20)
+    identifier = lambda value: bytes.fromhex(value * 32)
+    zero = bytes(32)
+    authorization = identifier("11")
+    stage = identifier("22")
+    offer = identifier("33")
+    tranche = identifier("44")
+    outgoing = identifier("55")
+    standby = identifier("dd")
+    pre_terms = (outgoing, standby, zero, zero)
+    pre_lineup = keccak256(
+        b"TAIKO_SEAT_LINEUP_V1" + _model_uint(3, 8, "lineup revision")
+        + b"".join(pre_terms)
+    )
+    incoming = keccak256(
+        b"TAIKO_SEAT_TERM_V1" + authorization
+        + _model_uint(7, 8, "term generation") + offer + tranche
+        + _model_uint(150, 8, "installed at")
+        + _model_uint(4, 8, "install revision")
+    )
+    post_terms = (incoming, standby, zero, zero)
+    post_lineup = keccak256(
+        b"TAIKO_SEAT_LINEUP_V1" + _model_uint(4, 8, "lineup revision")
+        + b"".join(post_terms)
+    )
+    intent = identifier("99")
+    last = identifier("aa")
+    reserve = identifier("bb")
+    credit = identifier("cc")
+    operator = address("0d")
+    payout = address("0e")
+
+    mwv1 = b"".join((
+        magic(b"MWV1"), word(1), word(11), word(9), last, authorization,
+        word(1), word(7), word(1), stage, authorization, word(7), offer,
+        tranche, operator, payout, word(3), word(1), outgoing, pre_lineup,
+        word(120), word(140), reserve, word(300), word(0), word(0), word(0),
+    ))
+    smi1 = b"".join((
+        magic(b"SMI1"), word(2), word(2), word(10), authorization, word(7),
+        word(11), word(9), last, stage, pre_lineup, post_lineup, incoming,
+        outgoing, word(4), intent,
+    ))
+    slv1 = b"".join((
+        magic(b"SLV1"), authorization, word(7), word(4), post_lineup,
+        word(2), word(1), *post_terms,
+        word(4), word(5), zero, zero, word(100), word(200),
+    ))
+    sir1 = b"".join((
+        magic(b"SIR1"), authorization, word(7), incoming, tranche, offer,
+        operator, payout, word(4), word(150), word(4),
+    ))
+    smr_words = [
+        magic(b"SMR1"), word(3), word(2), word(10), intent, word(11),
+        word(12), word(9), word(10), last, zero, stage, offer, tranche,
+        operator, payout, word(4), word(1), outgoing, word(120), word(140),
+        incoming, word(400), credit, word(7),
+    ]
+    smr_zero = b"".join(smr_words)
+    smr_words[10] = keccak256(
+        b"slot-chain-seat-mutation-receipt-v1"
+        + _model_uint(len(smr_zero), 2, "SMR1 bytes") + smr_zero
+    )
+    smr1 = b"".join(smr_words)
+    mec1 = b"".join((
+        magic(b"MEC1"), word(2), incoming, credit, word(7), word(220),
+    ))
+    mhs1 = magic(b"MHS1") + word(1)
+    mro1 = b"".join((
+        magic(b"MRO1"), word(1), word(2), authorization,
+        identifier("ee"), identifier("ff"), word(8), zero,
+    ))
+    rows = {
+        "MWV1": mwv1, "SMI1": smi1, "SLV1": slv1, "SIR1": sir1,
+        "SMR1": smr1, "MEC1": mec1, "MHS1": mhs1, "MRO1": mro1,
+    }
+    expected = {
+        "MWV1": 864, "SMI1": 512, "SLV1": 544, "SIR1": 352,
+        "SMR1": 800, "MEC1": 192, "MHS1": 64, "MRO1": 256,
+    }
+    if any(len(rows[name]) != length for name, length in expected.items()):
+        raise AssertionError("seat wire fixture width drifted")
+    return rows
 
 
 def _decode_uint_word_v1(word: bytes, bits: int, name: str) -> int:
@@ -13388,7 +14987,8 @@ class LiveDeploymentAccountV2:
         self, caller: str, calldata: bytes, gas: int, value: int,
     ) -> bytes:
         if (calldata != TARGET_CONSTRUCTOR_STATE_SELECTOR or value != 0
-                or gas <= 0 or len(self.constructor_inventory) != 259):
+                or gas <= 0 or len(self.constructor_inventory)
+                != TARGET_CONSTRUCTOR_INVENTORY_WORDS):
             raise ValueError("targetConstructorStateV2 call frame is inexact")
         canonical = encode_target_constructor_state_return_v2(
             target_constructor_poststate_commitment_v2(
@@ -13442,12 +15042,14 @@ def live_deployment_world_for_release_v2(
         b"slot-chain-settlement-artifact-v2" + _model_uint(288, 2, "artifact")
         + b"".join(artifact_words)
     )
+    parameter_bytes = b"".join(words[:EXECUTION_PROFILE_VALUE_WORDS])
     parameters_hash = keccak256(
-        b"slot-chain-target-parameters-v2" + _model_uint(8_064, 2, "params")
-        + b"".join(words[:252])
+        b"slot-chain-target-parameters-v2"
+        + _model_uint(len(parameter_bytes), 2, "params")
+        + parameter_bytes
     )
     inventory = (
-        *words[:252], derived.execution_profile_hash,
+        *words[:EXECUTION_PROFILE_VALUE_WORDS], derived.execution_profile_hash,
         derived.migration_activation_profile.activation_profile_record_hash,
         words[48], artifact_hash, parameters_hash,
         derived.data_session_configuration_hash,
@@ -13742,19 +15344,6 @@ def canonicalize_execution_profile_authority_graph_v2(profile: bytes) -> bytes:
     decoded = list(_execution_profile_abi_words_v2(
         profile, validate_authority_graph=False
     ))
-    decoded[37] = pvm_derived_market_authority_configuration_hash_v1(
-        int.from_bytes(decoded[2], "big"),
-        "0x" + decoded[35][12:].hex(),
-        int.from_bytes(decoded[2], "big"),
-        "0x" + decoded[20][12:].hex(),
-        "0x" + decoded[23][12:].hex(),
-    )
-    decoded[18] = governance_delay_authority_descriptor_hash_from_profile_v1(
-        tuple(decoded)
-    )
-    decoded[22] = protocol_version_manager_configuration_hash_from_profile_v1(
-        tuple(decoded)
-    )
     # The verifier configuration is a derived ABI hash, never an opaque label.
     selector = _decode_bytes4_word_v1(
         decoded[144], "migration verifier selector"
@@ -13767,31 +15356,199 @@ def canonicalize_execution_profile_authority_graph_v2(profile: bytes) -> bytes:
         _model_uint(int.from_bytes(decoded[146], "big"), 32,
                     "verification gas ABI"),
     )))
-    # Source bundle addresses are outputs of one CREATE2 and CREATE nonces 1-3.
-    factory = decoded[202][12:]
-    deployer = keccak256(
-        b"\xff" + factory + decoded[205] + decoded[206]
-    )[12:]
-    decoded[207] = bytes(12) + deployer
-    decoded[210] = bytes(12) + _source_bundle_child_address_v2(deployer, 1)
-    decoded[214] = bytes(12) + _source_bundle_child_address_v2(deployer, 2)
-    decoded[217] = bytes(12) + _source_bundle_child_address_v2(deployer, 3)
-    # Destination component 2 is exactly the immutable active Router.
+    # Component 1 is release-scoped.  Preserve the profile's root-deployment
+    # address instead of collapsing every successor onto the launch adapter.
+    decoded[161] = _model_fixed_bytes32(BRIDGE_INGRESS_RUNTIME_HASH)
+    decoded[167] = _model_fixed_bytes32(SOURCE_TERMINAL_VERIFIER_RUNTIME_HASH)
+    decoded[168] = _model_fixed_bytes32(
+        source_terminal_verifier_configuration_hash(
+            router_address="0x" + decoded[23][12:].hex()
+        )
+    )
+
+    # The source support registry and its proof verifier are one immutable
+    # deployment graph.  Their constructors are derived from profile fields;
+    # opaque configuration labels would let registration validate one graph
+    # while the source Bridge executes against another.
+    registration_verifier = canonical_registration_mpt_verifier_descriptor()
+    decoded[60] = _abi_address_word(registration_verifier.address)
+    decoded[61] = _model_fixed_bytes32(registration_verifier.runtime_hash)
+    decoded[62] = _model_fixed_bytes32(
+        registration_verifier.configuration_hash
+    )
+    decoded[39] = _model_fixed_bytes32(BRIDGE_DOMAIN_REGISTRY_RUNTIME_HASH)
+    decoded[40] = _model_fixed_bytes32(
+        bridge_domain_registry_configuration_hash(
+            address="0x" + decoded[38][12:].hex(),
+            runtime_hash="0x" + decoded[39].hex(),
+            support_authority="0x" + decoded[20][12:].hex(),
+            router_address="0x" + decoded[23][12:].hex(),
+            router_runtime_hash="0x" + decoded[24].hex(),
+            router_configuration_hash="0x" + decoded[25].hex(),
+            release_authority_address="0x" + decoded[175][12:].hex(),
+            release_authority_runtime_hash="0x" + decoded[176].hex(),
+            release_authority_configuration_hash=(
+                "0x" + decoded[177].hex()
+            ),
+            registration_mpt_verifier_descriptor_hash=(
+                registration_verifier.commitment
+            ),
+        )
+    )
+    decoded[220:223] = decoded[38:41]
+
+    # The source descriptor has one acyclic primitive set.  CREATE2/CREATE
+    # addresses and every constructor configuration are outputs, never
+    # independently supplied profile labels.
+    source_descriptor = SourceBridgeDescriptor(
+        int.from_bytes(decoded[2], "big"),
+        int.from_bytes(decoded[2], "big"),
+        "0x" + decoded[227].hex(), "0x" + decoded[226].hex(),
+        "", "", "0x" + decoded[211].hex(),
+        "0x" + decoded[213].hex(), "0x" + decoded[191].hex(),
+        "0x" + decoded[166][12:].hex(),
+        source_domain_registrar="0x" + decoded[220][12:].hex(),
+        source_registration_epoch=int.from_bytes(decoded[225], "big"),
+        support_registry_address="0x" + decoded[220][12:].hex(),
+        support_registry_runtime_hash="0x" + decoded[221].hex(),
+        support_registry_configuration_hash="0x" + decoded[222].hex(),
+        source_terminal_verifier_runtime_hash="0x" + decoded[167].hex(),
+        source_terminal_verifier_configuration_hash=(
+            "0x" + decoded[168].hex()
+        ),
+        deployment_factory="0x" + decoded[202][12:].hex(),
+        deployment_factory_runtime_hash="0x" + decoded[203].hex(),
+        deployment_factory_configuration_hash="0x" + decoded[204].hex(),
+        deployment_salt="0x" + decoded[205].hex(),
+        bundle_deployer_runtime_hash="0x" + decoded[208].hex(),
+        legacy_v1_bridge="0x" + decoded[209][12:].hex(),
+    )
+    decoded[206] = _model_fixed_bytes32(
+        source_descriptor.deployment_initcode_hash
+    )
+    decoded[207] = _abi_address_word(source_descriptor.bundle_deployer)
+    decoded[210] = _abi_address_word(source_descriptor.source_bridge)
+    decoded[212] = _model_fixed_bytes32(
+        source_bridge_account_configuration_hash(source_descriptor)
+    )
+    decoded[214] = _abi_address_word(
+        source_descriptor.bridge_credit_registry
+    )
+    decoded[215] = _model_fixed_bytes32(BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH)
+    decoded[216] = _model_fixed_bytes32(
+        bridge_credit_registry_configuration_hash(
+            address=source_descriptor.bridge_credit_registry,
+            runtime_hash=BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH,
+            domain_registrar=source_descriptor.source_domain_registrar,
+            frozen_bridge=source_descriptor.source_bridge,
+            support_registry_address=source_descriptor.support_registry_address,
+            support_registry_runtime_hash=(
+                source_descriptor.support_registry_runtime_hash
+            ),
+            support_registry_configuration_hash=(
+                source_descriptor.support_registry_configuration_hash
+            ),
+            source_chain_id=source_descriptor.source_chain_id,
+            source_domain_id=source_descriptor.source_domain_id,
+            source_registration_epoch=(
+                source_descriptor.source_registration_epoch
+            ),
+            frozen_bridge_execution_hash=(
+                source_descriptor.bridge_execution_hash
+            ),
+            source_descriptor_id=source_descriptor.descriptor_id,
+        )
+    )
+    decoded[217] = _abi_address_word(source_descriptor.native_quota_manager)
+    decoded[218] = _model_fixed_bytes32(
+        source_descriptor.native_quota_manager_runtime_hash
+    )
+    decoded[219] = _model_fixed_bytes32(
+        native_quota_manager_configuration_hash(
+            address=source_descriptor.native_quota_manager,
+            bridge=source_descriptor.source_bridge,
+            quota_period=source_descriptor.native_quota_period,
+            eth_quota=source_descriptor.native_eth_quota,
+        )
+    )
+    decoded[223] = _abi_address_word("bridge-pauser")
+    decoded[224] = _abi_address_word("signal-service")
+    # The control-plane aliases must name the exact source registry deployment
+    # before the aggregate PVM configuration is derived.
+    decoded[41:44] = decoded[214:217]
+
+    # Destination component 2/4/7 are the lifetime Router/Inbox/Registrar
+    # graph.  Component 9 and the quota manager use the single supported
+    # immutable native-liquidity implementation.
     decoded[163:166] = decoded[23:26]
+    decoded[184] = _abi_address_word(NATIVE_LIQUIDITY_POOL)
+    decoded[185] = _model_fixed_bytes32(NATIVE_LIQUIDITY_POOL_RUNTIME_HASH)
+    decoded[186] = _model_fixed_bytes32(
+        NATIVE_LIQUIDITY_POOL_CONFIGURATION_HASH
+    )
+    bridge_address = "0x" + decoded[187][12:].hex()
+    quota_manager = destination_native_quota_manager_address(bridge_address)
+    decoded[195] = _abi_address_word(quota_manager)
+    decoded[196] = _model_fixed_bytes32(NATIVE_QUOTA_MANAGER_RUNTIME_HASH)
+    component_addresses = tuple(
+        "0x" + decoded[160 + index * 3][12:].hex()
+        for index in range(10)
+    )
+    privileged = tuple(sorted({
+        "0x" + "00" * 20, *component_addresses, "bridge-pauser",
+        quota_manager, NATIVE_LIQUIDITY_POOL,
+        *V2_PRIVILEGED_DESTINATION_ADDRESSES,
+    }, key=_model_address20))
+    destination_descriptor = DestinationBridgeDescriptorV2(
+        bridge_address, "0x" + decoded[188].hex(),
+        "0x" + decoded[190].hex(), "0x" + decoded[191].hex(),
+        "0x" + decoded[172][12:].hex(),
+        "0x" + decoded[181][12:].hex(),
+        "0x" + decoded[178][12:].hex(),
+        destination_chain_id=int.from_bytes(decoded[3], "big"),
+        native_quota_manager=quota_manager,
+        privileged_target_denyset=privileged,
+    )
+    decoded[197] = _model_fixed_bytes32(
+        native_quota_manager_configuration_hash(
+            address=quota_manager, bridge=bridge_address,
+            quota_period=destination_descriptor.native_quota_period,
+            eth_quota=destination_descriptor.native_eth_quota,
+        )
+    )
+    decoded[198] = _model_uint(
+        destination_descriptor.native_eth_quota, 32,
+        "destination initial native quota",
+    )
+    decoded[189] = _model_fixed_bytes32(
+        destination_bridge_component_config_hash(
+            destination_descriptor, topology="IMMUTABLE_NONPROXY",
+            account_runtime_hash=destination_descriptor.facade_runtime_hash,
+        )
+    )
     kind1_config = b"".join((
         decoded[214][12:], decoded[210][12:], decoded[23][12:],
         decoded[20][12:],
     ))
     decoded[162] = _profile_component_config_hash_v2(1, kind1_config)
-    # Destination component 10 is the immutable Bridge facade.
-    bridge_config = b"".join((
-        decoded[190], decoded[191], decoded[172][12:], decoded[181][12:],
-        decoded[178][12:], decoded[195][12:], decoded[184][12:],
-    ))
-    decoded[189] = _profile_component_config_hash_v2(10, bridge_config)
     decoded[230:235] = tuple(
         _model_uint(value, 32, "canonical ingress fee")
-        for value in (1, 1, 1, 1, 20_000_000)
+        for value in (
+            INGRESS_FIXED_WEI,
+            INGRESS_EXECUTION_WEI_PER_GAS,
+            INGRESS_PROOF_WEI_PER_GAS,
+            INGRESS_PERMANENT_WEI_PER_BYTE,
+            INGRESS_MAXIMUM_ACCEPTED_FEE_WEI,
+        )
+    )
+    # Aggregate roots are deliberately last.  PVM commits both the Market
+    # configuration and the final support/credit-registry leaf configs.
+    decoded[37] = aggregator_seat_market_configuration_hash_v2(tuple(decoded))
+    decoded[18] = governance_delay_authority_descriptor_hash_from_profile_v1(
+        tuple(decoded)
+    )
+    decoded[22] = protocol_version_manager_configuration_hash_from_profile_v1(
+        tuple(decoded)
     )
     encoded = (
         profile[:32] + b"".join(decoded)
@@ -13867,7 +15624,7 @@ def target_artifact_hash_v2(profile: bytes) -> bytes:
 
 
 def target_parameters_words_v2(profile: bytes) -> tuple[bytes, ...]:
-    """Project all 252 fixed values into TargetParametersV2."""
+    """Project all fixed values into TargetParametersV2."""
 
     words = _execution_profile_abi_words_v2(profile)
     projected = words[:EXECUTION_PROFILE_VALUE_WORDS]
@@ -13969,7 +15726,7 @@ def target_constructor_inventory_v2(
     data_session_configuration_hash_: bytes,
     target_configuration_hash_: bytes,
 ) -> tuple[bytes, ...]:
-    """Return the exact 259 initialized constructor storage values."""
+    """Return the exact initialized constructor storage values."""
 
     words = target_parameters_words_v2(profile)
     inventory = (*words, execution_profile_hash_,
@@ -13978,7 +15735,7 @@ def target_constructor_inventory_v2(
                  target_parameters_hash_v2(profile),
                  data_session_configuration_hash_,
                  target_configuration_hash_)
-    if (len(inventory) != 259
+    if (len(inventory) != TARGET_CONSTRUCTOR_INVENTORY_WORDS
             or any(type(value) is not bytes or len(value) != 32
                    for value in inventory)):
         raise ValueError("target constructor inventory is malformed")
@@ -13988,13 +15745,16 @@ def target_constructor_inventory_v2(
 def target_constructor_poststate_commitment_v2(
     inventory: tuple[bytes, ...],
 ) -> bytes:
-    if (type(inventory) is not tuple or len(inventory) != 259
+    if (type(inventory) is not tuple
+            or len(inventory) != TARGET_CONSTRUCTOR_INVENTORY_WORDS
             or any(type(value) is not bytes or len(value) != 32
                    for value in inventory)):
         raise ValueError("target constructor poststate inventory is malformed")
     return keccak256(
         TARGET_CONSTRUCTOR_POSTSTATE_DOMAIN
-        + _model_uint(252, 2, "target parameter count")
+        + _model_uint(
+            TARGET_PARAMETERS_V2_WORDS, 2, "target parameter count"
+        )
         + b"".join(inventory)
     )
 
@@ -14129,7 +15889,7 @@ def _settlement_deployment_descriptor_hash_from_abi_v1(
 
 
 def _profile_component_config_hash_v2(kind: int, config: bytes) -> bytes:
-    expected_lengths = (80, 168, 21, 73, 60, 52, 80, 21, 76, 164)
+    expected_lengths = (80, 344, 21, 73, 60, 52, 80, 21, 76, 164)
     if (type(kind) is not int or not 1 <= kind <= 10
             or type(config) is not bytes
             or len(config) != expected_lengths[kind - 1]):
@@ -14226,6 +15986,64 @@ def _profile_source_descriptor_v2(
     return encoded, execution_hash, source_domain
 
 
+def _source_bridge_descriptor_from_profile_v2(
+    words: tuple[bytes, ...],
+) -> "SourceBridgeDescriptor":
+    """Materialize the behavioral source object from the strict profile."""
+
+    descriptor = SourceBridgeDescriptor(
+        int.from_bytes(words[2], "big"), int.from_bytes(words[2], "big"),
+        "0x" + words[227].hex(), "0x" + words[226].hex(),
+        "0x" + words[210][12:].hex(),
+        "0x" + words[214][12:].hex(),
+        "0x" + words[211].hex(), "0x" + words[213].hex(),
+        "0x" + words[191].hex(), "0x" + words[166][12:].hex(),
+        native_quota_manager="0x" + words[217][12:].hex(),
+        native_quota_manager_runtime_hash=NATIVE_QUOTA_MANAGER_RUNTIME_HASH,
+        source_domain_registrar="0x" + words[220][12:].hex(),
+        source_registration_epoch=int.from_bytes(words[225], "big"),
+        support_registry_address="0x" + words[220][12:].hex(),
+        support_registry_runtime_hash="0x" + words[221].hex(),
+        support_registry_configuration_hash="0x" + words[222].hex(),
+        source_terminal_verifier_runtime_hash="0x" + words[167].hex(),
+        source_terminal_verifier_configuration_hash="0x" + words[168].hex(),
+        deployment_factory="0x" + words[202][12:].hex(),
+        deployment_factory_runtime_hash="0x" + words[203].hex(),
+        deployment_factory_configuration_hash="0x" + words[204].hex(),
+        deployment_salt="0x" + words[205].hex(),
+        deployment_initcode_hash=words[206].hex(),
+        bundle_deployer="0x" + words[207][12:].hex(),
+        bundle_deployer_runtime_hash="0x" + words[208].hex(),
+        legacy_v1_bridge="0x" + words[209][12:].hex(),
+    )
+    encoded, execution_hash, source_domain = _profile_source_descriptor_v2(
+        words
+    )
+    registry_config = bridge_credit_registry_configuration_hash(
+        address=descriptor.bridge_credit_registry,
+        runtime_hash=BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH,
+        domain_registrar=descriptor.source_domain_registrar,
+        frozen_bridge=descriptor.source_bridge,
+        support_registry_address=descriptor.support_registry_address,
+        support_registry_runtime_hash=descriptor.support_registry_runtime_hash,
+        support_registry_configuration_hash=(
+            descriptor.support_registry_configuration_hash
+        ),
+        source_chain_id=descriptor.source_chain_id,
+        source_domain_id=descriptor.source_domain_id,
+        source_registration_epoch=descriptor.source_registration_epoch,
+        frozen_bridge_execution_hash=descriptor.bridge_execution_hash,
+        source_descriptor_id=descriptor.descriptor_id,
+    )
+    if (descriptor.canonical_bytes != encoded
+            or bytes.fromhex(descriptor.bridge_execution_hash)
+                != execution_hash
+            or bytes.fromhex(descriptor.source_domain_id) != source_domain
+            or _model_fixed_bytes32(registry_config) != words[216]):
+        raise ValueError("profile source descriptor does not materialize")
+    return descriptor
+
+
 def _source_bundle_child_address_v2(deployer: bytes, nonce: int) -> bytes:
     if type(deployer) is not bytes or len(deployer) != 20 or nonce not in {1, 2, 3}:
         raise ValueError("source bundle child derivation is malformed")
@@ -14309,6 +16127,7 @@ def _profile_ingress_rows_v2(
     )
     fees = tuple(int.from_bytes(words[index], "big") for index in range(230, 235))
     validate_ingress_fee_schedule(fees)
+    source_descriptor = _source_bridge_descriptor_from_profile_v2(words)
     common = dict(
         router_address="0x" + words[23][12:].hex(),
         router_runtime_hash="0x" + words[24].hex(),
@@ -14377,30 +16196,26 @@ def _profile_ingress_rows_v2(
         support_registry_address="0x" + words[220][12:].hex(),
         support_registry_runtime_hash="0x" + words[221].hex(),
         support_registry_configuration_hash="0x" + words[222].hex(),
-        source_descriptor_id=keccak256(
-            b"slot-chain-source-bridge-descriptor-v2"
-            + source_execution_hash
-        ),
+        source_descriptor_id=source_descriptor.descriptor_id,
         source_settlement_chain_id=int.from_bytes(words[2], "big"),
         source_chain_id=int.from_bytes(words[2], "big"),
-        source_genesis_hash="0x" + words[227].hex(),
-        source_registry_namespace="0x" + words[226].hex(),
+        source_genesis_hash=source_descriptor.source_genesis_hash,
+        source_registry_namespace=source_descriptor.registry_namespace,
         source_bridge_credit_registry="0x" + words[214][12:].hex(),
         source_bridge_facade_runtime_hash="0x" + words[211].hex(),
         source_bridge_storage_layout_hash="0x" + words[213].hex(),
         source_bridge_kernel_hash="0x" + words[191].hex(),
         source_terminal_verifier="0x" + components[2][0].hex(),
         source_v1_official_vaults=(),
-        source_domain_id="0x" + source_domain.hex(),
+        source_domain_id=source_descriptor.source_domain_id,
         source_registration_epoch=int.from_bytes(words[225], "big"),
-        frozen_bridge_execution_hash="0x" + source_execution_hash.hex(),
-        destination_domain_id="0x" + destination_domain.hex(),
+        frozen_bridge_execution_hash=source_descriptor.bridge_execution_hash,
+        destination_domain_id=destination_domain.hex(),
         destination_bridge="0x" + components[9][0].hex(),
-        destination_descriptor_id=keccak256(
-            b"slot-chain-destination-ingress-descriptor-v2"
-            + destination_domain
-        ),
-        destination_genesis_hash="0x" + words[5].hex(),
+        # This descriptor has no independent identity: its bytes32 identifier
+        # is exactly the destination-domain commitment.
+        destination_descriptor_id=destination_domain,
+        destination_genesis_hash=words[5].hex(),
         terminal_signal_verifier="0x" + components[2][0].hex(),
         inbox_apply_router="0x" + components[3][0].hex(),
         inbox_credit_store="0x" + components[4][0].hex(),
@@ -14409,13 +16224,13 @@ def _profile_ingress_rows_v2(
         terminal_accumulator="0x" + components[7][0].hex(),
         native_liquidity_pool="0x" + components[8][0].hex(),
         destination_bridge_execution_hash=(
-            "0x" + destination_bridge_execution_hash.hex()
+            destination_bridge_execution_hash.hex()
         ),
         destination_infrastructure_hash=(
-            "0x" + destination_infrastructure_hash_.hex()
+            destination_infrastructure_hash_.hex()
         ),
-        destination_namespace="0x" + words[10].hex(),
-        source_descriptor=None, **common,
+        destination_namespace=words[10].hex(),
+        source_descriptor=source_descriptor, **common,
     )
     return kind0, kind1
 
@@ -14955,6 +16770,7 @@ class SettlementAuthorizationV1:
     runtime_hash: bytes
     configuration_hash: bytes
     expected_magic: bytes
+    target_manifest_hash: bytes
     target_registration_hash: bytes
     authorization_id: bytes
 
@@ -14988,6 +16804,39 @@ def pvm_derived_market_authority_configuration_hash_v1(
     return keccak256(
         b"slot-chain-pvm-derived-market-authority-config-v1"
         + _model_uint(len(payload), 2, "Market authority config bytes")
+        + payload
+    )
+
+
+def aggregator_seat_market_configuration_hash_v2(
+    words: tuple[bytes, ...],
+) -> bytes:
+    """Derive the complete immutable Market configuration from the profile."""
+
+    if len(words) not in {
+        EXECUTION_PROFILE_VALUE_WORDS, EXECUTION_PROFILE_STATIC_WORDS,
+    }:
+        raise ValueError("Market configuration profile width is invalid")
+    authority = pvm_derived_market_authority_configuration_hash_v1(
+        int.from_bytes(words[2], "big"),
+        "0x" + words[35][12:].hex(),
+        int.from_bytes(words[2], "big"),
+        "0x" + words[20][12:].hex(),
+        "0x" + words[23][12:].hex(),
+    )
+    # The selector/magic/row geometry is committed by the separately pinned
+    # runtime and ABI hashes.  This payload binds every constructor-selected
+    # economic, capacity, historical-read and cross-wire gas authority.
+    committed = (
+        authority, words[24], words[25],
+        words[68], words[73], words[84], words[85],
+        *words[86:101], words[120], words[121], *words[107:111],
+        *words[252:267],
+    )
+    payload = b"".join(committed)
+    return keccak256(
+        b"slot-chain-aggregator-seat-market-config-v2"
+        + _model_uint(len(payload), 2, "Market configuration bytes")
         + payload
     )
 
@@ -15031,6 +16880,7 @@ def protocol_version_manager_configuration_hash_from_profile_v1(
         _decode_address_word_v1(words[41], "PVM credit registry"),
         words[18], words[9], PROTOCOL_CHANGE_DELAY_SECONDS,
         MAXIMUM_LIVE_VERSION_MIGRATION_SECONDS,
+        MIGRATION_ARM_EXECUTION_WINDOW_SECONDS,
         GENESIS_REVIEW_FINALITY_BLOCKS,
         PVM_RELEASE_ROUTER_REGISTRATION_GAS,
         PVM_RELEASE_MARKET_INSTALLATION_GAS,
@@ -15051,9 +16901,16 @@ class PvmDerivedMarketAuthorizationV1:
     settlement_chain_id: int
     active_settlement_router: str
     runtime_hash: bytes
+    profile_configuration_hash: bytes
     authorizations: dict[bytes, SettlementAuthorizationV1] = field(
         default_factory=dict
     )
+    authorization_id_by_target: dict[bytes, bytes] = field(
+        default_factory=dict
+    )
+    # Executable cross-model port to the same AggregatorSeatMarket storage
+    # consumed by rotation.  None is retained only for isolated PVM unit tests.
+    storage_backend: object | None = field(default=None, compare=False)
     fault_point: str | None = field(default=None, compare=False)
 
     def __post_init__(self) -> None:
@@ -15065,21 +16922,33 @@ class PvmDerivedMarketAuthorizationV1:
                 or len(self.runtime_hash) != 32
                 or self.runtime_hash == bytes(32)):
             raise ValueError("Market authority runtime hash is malformed")
+        if (type(self.profile_configuration_hash) is not bytes
+                or len(self.profile_configuration_hash) != 32
+                or self.profile_configuration_hash == bytes(32)):
+            raise ValueError("Market configuration hash is malformed")
+        if self.storage_backend is not None and any(
+            not callable(getattr(self.storage_backend, name, None))
+            for name in (
+                "install_settlement_authorization_from_pvm_v1",
+                "settlement_authorization_from_pvm_v1",
+                "_pvm_authorization_snapshot_v1",
+                "_restore_pvm_authorization_snapshot_v1",
+            )
+        ):
+            raise ValueError("Market storage backend does not expose exact SAT1")
 
     def __setattr__(self, name: str, value: object) -> None:
         if name in {
             "market_chain_id", "address", "protocol_version_manager",
             "settlement_chain_id", "active_settlement_router", "runtime_hash",
+            "profile_configuration_hash",
         } and name in self.__dict__:
             raise AttributeError(f"{name} is immutable after deployment")
         object.__setattr__(self, name, value)
 
     @property
     def authority_configuration_hash(self) -> bytes:
-        return pvm_derived_market_authority_configuration_hash_v1(
-            self.market_chain_id, self.address, self.settlement_chain_id,
-            self.protocol_version_manager, self.active_settlement_router,
-        )
+        return self.profile_configuration_hash
 
     def extcodehash(self, *, caller: str) -> bytes:
         if not caller:
@@ -15115,11 +16984,15 @@ class PvmDerivedMarketAuthorizationV1:
             + _model_uint(row.protocol_version, 8, "authorization version")
             + row.target + row.runtime_hash + row.configuration_hash
             + row.expected_magic
+            + row.target_manifest_hash
+            + row.target_registration_hash
         )
         if (row.authorization_id != expected
                 or len(row.expected_magic) != 4
+                or row.target_manifest_hash == bytes(32)
                 or row.target_registration_hash == bytes(32)
-                or row.authorization_id in self.authorizations):
+                or row.authorization_id in self.authorizations
+                or row.target in self.authorization_id_by_target):
             raise ValueError("Market authorization is malformed or reused")
         router_read = router.target_release_registration_v2(row.protocol_version)
         decoded_router = decode_target_release_registration_return_v2(
@@ -15130,15 +17003,29 @@ class PvmDerivedMarketAuthorizationV1:
                 or decoded_router.target_runtime_hash != row.runtime_hash
                 or decoded_router.target_configuration_hash
                     != row.configuration_hash
+                or decoded_router.release_manifest_hash
+                    != row.target_manifest_hash
                 or decoded_router.target_registration_hash
                     != row.target_registration_hash):
             raise ValueError("Market Router RTR2 direct-read is inexact")
-        self.authorizations[row.authorization_id] = row
+        if self.storage_backend is None:
+            self.authorizations[row.authorization_id] = row
+            self.authorization_id_by_target[row.target] = row.authorization_id
+            result = SAI1_MAGIC + bytes(28) + row.authorization_id
+        else:
+            result = self.storage_backend \
+                .install_settlement_authorization_from_pvm_v1(
+                    row, manager=manager, router=router
+                )
         if self.fault_point == "after_install":
             raise RuntimeError("injected Market install fault")
-        return SAI1_MAGIC + bytes(28) + row.authorization_id
+        return result
 
     def settlement_authorization_v1(self, authorization_id: bytes) -> bytes:
+        if self.storage_backend is not None:
+            return self.storage_backend.settlement_authorization_from_pvm_v1(
+                authorization_id
+            )
         row = self.authorizations.get(authorization_id)
         if row is None:
             raise ValueError("unknown Settlement authorization")
@@ -15147,8 +17034,33 @@ class PvmDerivedMarketAuthorizationV1:
             _model_uint(row.protocol_version, 32, "authorization version"),
             bytes(12) + row.target, row.runtime_hash,
             row.configuration_hash, row.expected_magic + bytes(28),
+            row.target_manifest_hash,
             row.target_registration_hash,
         ))
+
+    def authorization_snapshot_v1(self) -> tuple[object, ...]:
+        if self.storage_backend is None:
+            return (
+                "LOCAL", dict(self.authorizations),
+                dict(self.authorization_id_by_target),
+            )
+        return (
+            "BACKEND", self.storage_backend._pvm_authorization_snapshot_v1()
+        )
+
+    def restore_authorization_snapshot_v1(
+        self, snapshot: tuple[object, ...],
+    ) -> None:
+        if snapshot[0] == "LOCAL" and self.storage_backend is None:
+            self.authorizations = snapshot[1]  # type: ignore[assignment]
+            self.authorization_id_by_target = snapshot[2]  # type: ignore[assignment]
+            return
+        if snapshot[0] == "BACKEND" and self.storage_backend is not None:
+            self.storage_backend._restore_pvm_authorization_snapshot_v1(
+                snapshot[1]
+            )
+            return
+        raise ValueError("Market authorization snapshot backend changed")
 
 
 @dataclass(frozen=True)
@@ -15226,6 +17138,7 @@ class ProtocolVersionManagerConfigViewV1:
     manifest_namespace: bytes
     minimum_delay_seconds: int
     maximum_live_migration_seconds: int
+    migration_arm_execution_window_seconds: int
     review_finality_blocks: int
     release_router_registration_gas: int
     release_market_installation_gas: int
@@ -15248,10 +17161,10 @@ class ProtocolVersionManagerConfigViewV1:
 def decode_protocol_version_manager_config_return_v1(
     returndata: bytes,
 ) -> ProtocolVersionManagerConfigViewV1:
-    if type(returndata) is not bytes or len(returndata) != 1_056:
-        raise ValueError("PVM1 return must be exactly 1056 bytes")
+    if type(returndata) is not bytes or len(returndata) != 1_088:
+        raise ValueError("PVM1 return must be exactly 1088 bytes")
     words = tuple(
-        returndata[offset:offset + 32] for offset in range(0, 1_056, 32)
+        returndata[offset:offset + 32] for offset in range(0, 1_088, 32)
     )
     if words[0] != PVM1_MAGIC + bytes(28):
         raise ValueError("PVM1 magic/padding is malformed")
@@ -15262,14 +17175,14 @@ def decode_protocol_version_manager_config_return_v1(
     narrow = tuple(
         _decode_uint_word_v1(words[index], bits, "PVM1 numeric")
         for index, bits in (
-            (14, 64), (15, 64), (16, 16),
-            (17, 64), (18, 64), (19, 64), (20, 64),
+            (14, 64), (15, 64), (16, 64), (17, 16),
+            (18, 64), (19, 64), (20, 64), (21, 64),
         )
     )
     view = ProtocolVersionManagerConfigViewV1(
         _decode_uint_word_v1(words[1], 256, "PVM1 settlement chain"),
         *addresses[:6], words[8], words[9], *addresses[6:],
-        words[12], words[13], *narrow, *words[21:33],
+        words[12], words[13], *narrow, *words[22:34],
     )
     if (view.settlement_chain_id == 0
             or len(set(addresses)) != len(addresses)
@@ -15293,6 +17206,8 @@ def decode_protocol_version_manager_config_return_v1(
             or view.minimum_delay_seconds != PROTOCOL_CHANGE_DELAY_SECONDS
             or view.maximum_live_migration_seconds
                 != MAXIMUM_LIVE_VERSION_MIGRATION_SECONDS
+            or view.migration_arm_execution_window_seconds
+                != MIGRATION_ARM_EXECUTION_WINDOW_SECONDS
             or view.review_finality_blocks != GENESIS_REVIEW_FINALITY_BLOCKS
             or any(value == 0 for value in (
                 view.release_router_registration_gas,
@@ -15334,6 +17249,10 @@ def protocol_version_manager_configuration_hash_v1(
         view.manifest_namespace,
         _model_uint(view.minimum_delay_seconds, 8, "PVM delay"),
         _model_uint(view.maximum_live_migration_seconds, 8, "PVM live maximum"),
+        _model_uint(
+            view.migration_arm_execution_window_seconds, 8,
+            "PVM arm execution window",
+        ),
         _model_uint(view.review_finality_blocks, 2, "PVM finality"),
         _model_uint(view.release_router_registration_gas, 8, "PVM Router gas"),
         _model_uint(view.release_market_installation_gas, 8, "PVM Market gas"),
@@ -15381,11 +17300,7 @@ def validate_profile_market_root_join_v1(
          manager_view.bridge_credit_registry_runtime_hash,
          manager_view.bridge_credit_registry_configuration_hash),
     )
-    expected_configuration = \
-        pvm_derived_market_authority_configuration_hash_v1(
-            chain_id, market.address, chain_id, manager.address,
-            router.address,
-        )
+    expected_configuration = aggregator_seat_market_configuration_hash_v2(words)
     if (chain_id != manager.settlement_chain_id
             or manager_view.settlement_chain_id != chain_id
             or words[16]
@@ -15535,6 +17450,7 @@ class ProtocolVersionManagerV1:
     current_window: int = 0
     published_genesis_campaign: tuple[object, ...] | None = None
     generation: int = 0
+    arm_fresh_after: int = 0
     migration_lease: VersionMigrationLeaseV1 = field(
         default_factory=VersionMigrationLeaseV1
     )
@@ -15587,6 +17503,29 @@ class ProtocolVersionManagerV1:
         default_factory=set, compare=False, repr=False
     )
 
+    def __post_init__(self) -> None:
+        router = self.router
+        if (type(router) is not ActiveSettlementRouter
+                or router.address != self.router_address
+                or router.version_manager != self.address
+                or router.migration_gate.coordinator != self.address
+                or self.active_protocol_version != router.active_version
+                or self.arm_fresh_after != 0
+                or (router._version_manager_authority is not None
+                    and router._version_manager_authority is not self)
+                or (router._version_manager_authority is None
+                    and not router._bind_version_manager_once(self))):
+            raise ValueError("PVM1 is not the Router's unique manager")
+        self.config_return_v1()
+
+    @property
+    def market_chain_id(self) -> int:
+        return self.market.market_chain_id
+
+    @property
+    def market_address(self) -> str:
+        return self.market.address
+
     def extcodehash(self, *, caller: str) -> bytes:
         if not caller or len(self.runtime_hash) != 32:
             raise ValueError("PVM EXTCODEHASH observation is malformed")
@@ -15634,6 +17573,8 @@ class ProtocolVersionManagerV1:
             _model_uint(PROTOCOL_CHANGE_DELAY_SECONDS, 32, "PVM delay"),
             _model_uint(MAXIMUM_LIVE_VERSION_MIGRATION_SECONDS, 32,
                         "PVM migration maximum"),
+            _model_uint(MIGRATION_ARM_EXECUTION_WINDOW_SECONDS, 32,
+                        "PVM arm execution window"),
             _model_uint(GENESIS_REVIEW_FINALITY_BLOCKS, 32,
                         "PVM review finality"),
             _model_uint(self.release_router_registration_gas, 32,
@@ -15646,13 +17587,53 @@ class ProtocolVersionManagerV1:
                         "PVM release post-callback reserve"),
             *self.control_component_hashes,
         ))
-        if len(encoded) != 1_056:
-            raise AssertionError("PVM1 must be 33 ABI words")
+        if len(encoded) != 1_088:
+            raise AssertionError("PVM1 must be 34 ABI words")
         if caller in self.config_return_faults:
             raise RuntimeError("injected caller-dependent PVM1 fault")
         if caller in self.config_return_overrides:
             return self.config_return_overrides[caller]
         return encoded
+
+    def migration_arm_fresh_after_v1(self) -> bytes:
+        """Return the exact monotone invalidation timestamp for arm rows."""
+
+        if (type(self.arm_fresh_after) is not int
+                or not 0 <= self.arm_fresh_after <= UINT64_MAX):
+            raise ValueError("migration arm freshness watermark is malformed")
+        return (
+            MAF1_MAGIC + bytes(28)
+            + _model_uint(self.arm_fresh_after, 32, "arm fresh after")
+        )
+
+    def _migration_source_snapshot_v1(self) -> tuple[object, ...] | None:
+        router = self.router
+        registration = (
+            None
+            if type(router) is not ActiveSettlementRouter
+            else router.registrations.get(router.active_version)
+        )
+        history = (
+            None if registration is None else registration.settlement
+        )
+        protocol = getattr(history, "live_protocol", None)
+        if (type(history) is not VersionedSettlementHistory
+                or type(protocol) is not Protocol):
+            return None
+        return (
+            history, history.mode, protocol,
+            protocol._canonical_transaction_snapshot(),
+        )
+
+    @staticmethod
+    def _restore_migration_source_snapshot_v1(
+        snapshot: tuple[object, ...] | None,
+    ) -> None:
+        if snapshot is None:
+            return
+        history, mode, protocol, protocol_state = snapshot
+        protocol._restore_canonical_transaction(protocol_state)
+        history.mode = mode
 
     def _snapshot(self) -> tuple[object, ...]:
         return (
@@ -15660,13 +17641,17 @@ class ProtocolVersionManagerV1:
             dict(self.release_registrations), dict(self.fork_verifiers),
             list(self.fork_order),
             self.published_genesis_campaign, self.generation,
+            self.arm_fresh_after,
             self.migration_lease, dict(self.migration_arms),
-            dict(self.market.authorizations),
+            self.market.authorization_snapshot_v1(),
             dict(self.profile_ingress_roots),
             dict(self.profile_ingress_rows),
             self.deployment_world.snapshot(),
             (None if self.router is None else
              self.router._protocol_release_registry_snapshot_v2()),
+            (None if self.router is None else
+             self.router._bridge_package_snapshot_v1()),
+            self._migration_source_snapshot_v1(),
             (None if self.schedule_oracle is None else
              self.schedule_oracle._snapshot()),
             self._active_operation_kind, self._active_operation_consumed,
@@ -15677,10 +17662,12 @@ class ProtocolVersionManagerV1:
     def _restore(self, state: tuple[object, ...]) -> None:
         (self.lifecycle, consumed, releases, forks, fork_order,
          self.published_genesis_campaign, self.generation,
-         self.migration_lease, migration_arms, market_rows,
+         self.arm_fresh_after,
+         self.migration_lease, migration_arms, market_snapshot,
          ingress_roots, ingress_rows,
          deployment_world_state,
-         router_state, schedule_state,
+         router_state, bridge_package_state, migration_source_state,
+         schedule_state,
          self._active_operation_kind,
          self._active_operation_consumed, self._active_operation_id,
          self._active_operation_row, self._active_operation_payload) = state
@@ -15688,13 +17675,18 @@ class ProtocolVersionManagerV1:
         self.release_registrations = releases
         self.fork_verifiers = forks
         self.fork_order = fork_order
-        self.market.authorizations = market_rows
+        self.market.restore_authorization_snapshot_v1(market_snapshot)
         self.migration_arms = migration_arms
         self.profile_ingress_roots = ingress_roots
         self.profile_ingress_rows = ingress_rows
         self.deployment_world.restore(deployment_world_state)
         if self.router is not None and router_state is not None:
             self.router._restore_protocol_release_registry_v2(router_state)
+        if self.router is not None and bridge_package_state is not None:
+            self.router._restore_bridge_package_snapshot_v1(
+                bridge_package_state
+            )
+        self._restore_migration_source_snapshot_v1(migration_source_state)
         if self.schedule_oracle is not None and schedule_state is not None:
             self.schedule_oracle._restore(schedule_state)
 
@@ -15747,6 +17739,15 @@ class ProtocolVersionManagerV1:
         decoded = validate_protocol_change_payload_v1(
             row.operation_kind, payload
         )
+        if row.operation_kind == PUBLISH_MIGRATION_ARM:
+            arm_execute_by = checked_u64_add(
+                row.execute_after, MIGRATION_ARM_EXECUTION_WINDOW_SECONDS,
+                "migration arm execute by",
+            )
+            if (row.queued_at <= self.arm_fresh_after
+                    or clock.timestamp < row.execute_after
+                    or clock.timestamp > arm_execute_by):
+                raise ValueError("migration arm authority is stale or expired")
         release_derived: DerivedRegisterReleaseAuthorityV2 | None = None
         if row.operation_kind == REGISTER_RELEASE:
             assert type(decoded) is RegisterReleasePayloadV1
@@ -15866,11 +17867,14 @@ class ProtocolVersionManagerV1:
                               "authorization version")
                 + decoded.target_address + decoded.target_runtime_hash
                 + decoded.target_configuration_hash + b"SEAT"
+                + decoded.release_manifest_hash
+                + decoded.target_registration_hash
             )
             authorization = SettlementAuthorizationV1(
                 decoded.protocol_version, decoded.target_address,
                 decoded.target_runtime_hash,
                 decoded.target_configuration_hash, b"SEAT",
+                decoded.release_manifest_hash,
                 decoded.target_registration_hash, authorization_id,
             )
             self.release_registrations[decoded.protocol_version] = decoded
@@ -15902,9 +17906,10 @@ class ProtocolVersionManagerV1:
                 bytes(12) + authorization.target,
                 authorization.runtime_hash, authorization.configuration_hash,
                 authorization.expected_magic + bytes(28),
+                authorization.target_manifest_hash,
                 authorization.target_registration_hash,
             ))
-            if (len(getter) != 224 or getter != expected_sat
+            if (len(getter) != 256 or getter != expected_sat
                     or target_getter != expected_target
                     or mpr_getter != expected_mpr
                     or pir_getter != expected_pir
@@ -16045,15 +18050,37 @@ class ProtocolVersionManagerV1:
             )
             self.migration_arms[arm_id] = self.migration_lease
             arm_result = router.arm_version_migration_v1(
-                self.migration_lease, manager=self
+                self.migration_lease, manager=self, clock=clock
             )
             expected_arm = b"".join((
                 b"VMA1" + bytes(28),
                 _model_uint(self.generation, 32, "arm generation"), arm_id,
             ))
+            source_registration = router.registrations.get(source)
+            source_history = (
+                None if source_registration is None
+                else source_registration.settlement
+            )
+            source_protocol = getattr(source_history, "live_protocol", None)
             if (arm_result != expected_arm
-                    or router.migration_gate.mode != "ARMED"):
+                    or router.migration_gate.mode != "ARMED"
+                    or type(source_history) is not VersionedSettlementHistory
+                    or source_history.mode != "MIGRATION_ARMED"
+                    or type(source_protocol) is not Protocol
+                    or source_protocol.seat_migration_arm is None
+                    or source_protocol.seat_migration_arm.router_word
+                        != router.migration_gate.router_word):
                 raise ValueError("Router VMA1 arm post-read is malformed")
+        if row.operation_kind == REGISTER_RELEASE:
+            witness = self.release_witnesses.get(decoded.protocol_version)
+            if (type(witness) is not SettlementRegistration
+                    or type(self.router) is not ActiveSettlementRouter
+                    or not self.router.prepare_profile_deployments_v1(
+                        witness, manager=self, clock=clock
+                    )):
+                raise ValueError(
+                    "registered release source package preparation failed"
+                )
         if self.fault_point == "before_idle":
             raise RuntimeError("injected PVM late fault")
         self._active_operation_kind = 0
@@ -16110,7 +18137,8 @@ class ProtocolVersionManagerV1:
     ) -> bool:
         lease = self.migration_lease
         if (not caller or self.lifecycle != "IDLE" or lease.state != 1
-                or clock.timestamp < lease.abort_after_timestamp):
+                or clock.timestamp < lease.abort_after_timestamp
+                or clock.timestamp <= self.arm_fresh_after):
             return False
         snapshot = self._snapshot()
         self.lifecycle = "ABORTING"
@@ -16118,16 +18146,31 @@ class ProtocolVersionManagerV1:
             if type(self.router) is not ActiveSettlementRouter:
                 raise ValueError("migration abort Router is unavailable")
             result = self.router.abort_expired_version_migration_v1(
-                lease, manager=self
+                lease, manager=self, clock=clock
             )
             expected = b"".join((
                 b"VMB1" + bytes(28), lease.arm_id,
                 _model_uint(lease.generation, 32, "abort generation"),
             ))
+            source_registration = self.router.registrations.get(
+                self.router.active_version
+            )
+            source_history = (
+                None if source_registration is None
+                else source_registration.settlement
+            )
+            source_protocol = getattr(source_history, "live_protocol", None)
             if (result != expected
-                    or self.router.migration_gate.mode != "ACTIVE"):
+                    or self.router.migration_gate.mode != "ACTIVE"
+                    or type(source_history) is not VersionedSettlementHistory
+                    or source_history.mode != "ACTIVE"
+                    or type(source_protocol) is not Protocol
+                    or source_protocol.seat_migration_abort is None
+                    or source_protocol.seat_migration_abort.canceled_arm.generation
+                        != lease.generation):
                 raise ValueError("Router VMB1 abort post-read is malformed")
             self.migration_lease = VersionMigrationLeaseV1()
+            self.arm_fresh_after = clock.timestamp
             if self.fault_point == "abort_before_idle":
                 raise RuntimeError("injected migration abort fault")
             self.lifecycle = "IDLE"
@@ -16274,6 +18317,17 @@ class ProtocolChangeTimelockV1:
                 or row.payload_bytes != len(payload)
                 or row.payload_hash != keccak256(payload)):
             return False
+        if operation_kind == PUBLISH_MIGRATION_ARM:
+            try:
+                execute_by = checked_u64_add(
+                    row.execute_after,
+                    MIGRATION_ARM_EXECUTION_WINDOW_SECONDS,
+                    "migration arm execute by",
+                )
+            except BaseException:
+                return False
+            if clock.timestamp > execute_by:
+                return False
         manager_snapshot = self.manager._snapshot()
         prior_row = row
         self.operations[operation_id] = replace(row, state=2)
@@ -16873,6 +18927,86 @@ def release_profile_ingress_authorizations(
     return rows
 
 
+def release_manifest_from_profile_v2(
+    profile: "ExecutionProfile", derived: DerivedRegisterReleaseAuthorityV2,
+) -> "ReleaseManifestV2":
+    """Materialize exactly the release manifest already committed by PVM."""
+
+    if (type(profile) is not ExecutionProfile
+            or type(derived) is not DerivedRegisterReleaseAuthorityV2
+            or _execution_profile_abi_words_v2(
+                profile.canonical_profile_bytes
+            ) != derived.profile_words):
+        raise ValueError("release manifest profile authority is split")
+    words = derived.profile_words
+    raw_components = tuple(
+        (words[160 + index * 3][12:], words[161 + index * 3],
+         words[162 + index * 3])
+        for index in range(10)
+    )
+    if len({row[0] for row in raw_components}) != 10:
+        raise ValueError("release component addresses are not unique")
+    components = tuple(
+        (
+            ReleaseComponentV2(
+                NATIVE_LIQUIDITY_POOL,
+                NATIVE_LIQUIDITY_POOL_RUNTIME_HASH,
+                NATIVE_LIQUIDITY_POOL_CONFIGURATION_HASH,
+            )
+            if address == _model_address20(NATIVE_LIQUIDITY_POOL)
+            else ReleaseComponentV2(
+                "0x" + address.hex(), runtime.hex(), configuration.hex(),
+            )
+        )
+        for address, runtime, configuration in raw_components
+    )
+    bridge = components[9].address
+    quota_manager = destination_native_quota_manager_address(bridge)
+    if (_model_address20(quota_manager) != words[195][12:]
+            or components[8] != ReleaseComponentV2(
+                NATIVE_LIQUIDITY_POOL,
+                NATIVE_LIQUIDITY_POOL_RUNTIME_HASH,
+                NATIVE_LIQUIDITY_POOL_CONFIGURATION_HASH,
+            )):
+        raise ValueError("release native-liquidity graph is unsupported")
+    privileged = tuple(sorted({
+        "0x" + "00" * 20, *(row.address for row in components),
+        "bridge-pauser", quota_manager, NATIVE_LIQUIDITY_POOL,
+        *V2_PRIVILEGED_DESTINATION_ADDRESSES,
+    }, key=_model_address20))
+    descriptor = DestinationBridgeDescriptorV2(
+        bridge, components[9].runtime_hash,
+        words[190].hex(), words[191].hex(),
+        components[4].address, components[7].address,
+        components[6].address,
+        destination_chain_id=int.from_bytes(words[3], "big"),
+        native_quota_manager=quota_manager,
+        privileged_target_denyset=privileged,
+    )
+    manifest = ReleaseManifestV2(
+        profile.protocol_version, int.from_bytes(words[2], "big"),
+        int.from_bytes(words[3], "big"), "0x" + words[5].hex(),
+        profile.execution_profile_hash, "0x" + words[9].hex(),
+        "0x" + words[10].hex(), "0x" + words[13][12:].hex(),
+        "0x" + words[14].hex(),
+        _profile_destination_graph_v2(words)[3].hex(),
+        bridge, descriptor.execution_hash, descriptor,
+        destination_infrastructure_hash(components),
+        profile.migration_transition_verifier_descriptor,
+        derived.ingress_authorization_root,
+        NATIVE_LIQUIDITY_POOL, NATIVE_LIQUIDITY_POOL_RUNTIME_HASH,
+        NATIVE_LIQUIDITY_POOL_CONFIGURATION_HASH,
+        components, profile,
+    )
+    if not manifest.structurally_valid():
+        raise ValueError("behavioral release manifest is structurally invalid")
+    if manifest.canonical_abi != derived.manifest_abi:
+        raise ValueError("behavioral release manifest ABI differs from PVM")
+    if manifest.commitment != derived.release_manifest_hash:
+        raise ValueError("behavioral release manifest hash differs from PVM")
+    return manifest
+
+
 def settlement_registration(
     router: "ActiveSettlementRouter",
     settlement: VersionedSettlementHistory,
@@ -16895,12 +19029,48 @@ def settlement_registration(
             or settlement.header_oracle is not router.header_oracle
             or router.header_oracle.first_supported_block
                 != profile.l1_history_first_supported_block
-            or router.configuration_hash
-                != active_settlement_router_configuration_hash(
-                    router.settlement_chain_context_id
-                )):
+            or _model_fixed_bytes32(router.configuration_hash)
+                != _active_router_live_configuration_hash_v2(router)):
         raise ValueError("Settlement registration changed chain context")
-    rows = release_profile_ingress_authorizations(router, settlement)
+    profile_words = _execution_profile_abi_words_v2(
+        profile.canonical_profile_bytes
+    )
+    expected_router_graph = (
+        _abi_address_word(router.version_manager),
+        _model_fixed_bytes32(router.version_manager_runtime_hash),
+        _abi_address_word(router.address),
+        _model_fixed_bytes32(router.runtime_hash),
+        _active_router_live_configuration_hash_v2(router),
+        _abi_address_word(router.forced_queue.address),
+        _model_fixed_bytes32(router.forced_queue.runtime_hash),
+        _model_fixed_bytes32(router.forced_queue.config_hash),
+        _model_fixed_bytes32(router.router_namespace),
+    )
+    observed_router_graph = (
+        profile_words[20], profile_words[21], profile_words[23],
+        profile_words[24], profile_words[25], profile_words[26],
+        profile_words[27], profile_words[28], profile_words[11],
+    )
+    inbox = router.inbox_apply_descriptor
+    observed_lifetime_graph = (
+        profile_words[29], profile_words[32], profile_words[169],
+        profile_words[170], profile_words[171], profile_words[178],
+    )
+    expected_lifetime_graph = (
+        _abi_address_word(router.builder_registry_id),
+        _abi_address_word(router.schedule_oracle_id),
+        _abi_address_word(inbox.address),
+        _model_fixed_bytes32(inbox.runtime_hash),
+        _model_fixed_bytes32(inbox.configuration_hash),
+        _abi_address_word(inbox.registrar_address),
+    )
+    if (observed_router_graph != expected_router_graph
+            or observed_lifetime_graph != expected_lifetime_graph):
+        raise ValueError("release profile is not bound to the live Router graph")
+    derived = derive_register_release_authority_v2(
+        profile.canonical_profile_bytes, predecessor_version
+    )
+    rows = derived.ingress_rows
     if (len(rows) != 2
             or tuple(sorted(row.kind.value for row in rows)) != (0, 1)
             or len({(
@@ -16937,54 +19107,28 @@ def settlement_registration(
             ))):
         raise ValueError("release ingress fee schedule decreased")
     root = profile_ingress_authorization_root(rows)
+    if root != derived.ingress_authorization_root:
+        raise ValueError("release ingress root differs from strict profile")
     bridge_authorizations = tuple(
         row for row in rows if row.kind is ForceKind.BRIDGE_CREDIT
     )
     if len(bridge_authorizations) != 1:
         raise ValueError("release profile must name exactly one Bridge adapter")
-    release_manifests: dict[str, ReleaseManifestV2] = {}
-    for bridge_authorization in bridge_authorizations:
-        components, bridge_descriptor, infrastructure_hash, descriptor = (
-            canonical_destination_release_topology(
-                router,
-                adapter_address=bridge_authorization.adapter_address,
-                adapter_configuration_hash=(
-                    bridge_authorization.configuration_hash
-                ),
-                destination_bridge=bridge_authorization.destination_bridge,
-            )
+    primary_manifest = release_manifest_from_profile_v2(profile, derived)
+    bridge_authorization = bridge_authorizations[0]
+    if (primary_manifest.destination_domain_id
+            != bridge_authorization.destination_domain_id):
+        raise ValueError(
+            "release ingress graph is not acyclic and exact: "
+            f"manifest={primary_manifest.destination_domain_id} "
+            f"authorization={bridge_authorization.destination_domain_id}"
         )
-        release_manifest = ReleaseManifestV2(
-            settlement.protocol_version,
-            settlement.market_settlement_chain_id,
-            descriptor.destination_chain_id,
-            descriptor.destination_genesis_hash,
-            settlement.execution_profile_hash,
-            "manifest:v2",
-            descriptor.destination_namespace,
-            f"anchor:v{settlement.protocol_version}",
-            f"code:anchor:v{settlement.protocol_version}",
-            descriptor.destination_domain_id,
-            descriptor.destination_bridge,
-            descriptor.destination_bridge_execution_hash,
-            bridge_descriptor,
-            infrastructure_hash,
-            profile.migration_transition_verifier_descriptor,
-            root,
-            NATIVE_LIQUIDITY_POOL,
-            NATIVE_LIQUIDITY_POOL_RUNTIME_HASH,
-            NATIVE_LIQUIDITY_POOL_CONFIGURATION_HASH,
-            components,
-            profile,
-        )
-        if (not release_manifest.structurally_valid()
-                or release_manifest.destination_domain_id
-                    != bridge_authorization.destination_domain_id):
-            raise ValueError("release ingress graph is not acyclic and exact")
-        release_manifests[bridge_authorization.adapter_address] = release_manifest
-    primary_manifest = release_manifests[bridge_authorizations[0].adapter_address]
+    release_manifests = {
+        bridge_authorization.adapter_address: primary_manifest
+    }
     if (release_manifest_hash is not None
-            and release_manifest_hash != primary_manifest.commitment):
+            and _model_fixed_bytes32(release_manifest_hash)
+                != primary_manifest.commitment):
         raise ValueError(
             "migration target manifest does not commit the ingress profile"
         )
@@ -17557,7 +19701,7 @@ def _profile_fixture_address_word_v2(label: str) -> bytes:
 
 
 def _execution_profile_field_specs_v2() -> tuple[tuple[str, str], ...]:
-    """Return the exact 251-field normative name/type order."""
+    """Return the exact fixed-field normative name/type order."""
 
     core = (
         ("schemaVersion", "u64"), ("protocolVersion", "u64"),
@@ -17772,9 +19916,23 @@ def _execution_profile_field_specs_v2() -> tuple[tuple[str, str], ...]:
         ("stateTransitionAbiHash", "b32"),
         ("legacyExecutionRulesHash", "b32"),
     )
+    seat_wire = tuple((name, "u64") for name in (
+        "quoteMaturitySeconds", "quoteMaturityBlocks",
+        "seatMarketMutationCallGas", "seatMutationIntentReadGas",
+        "seatLineupWireReadGas", "seatInstallRecordReadGas",
+        "seatMarketPostReadReserveGas", "seatWirePostCallReserveGas",
+        "seatDutyHistorySafeReadGas", "seatSuccessorReceiptReadGas",
+        "activationReceiptReadGas",
+    )) + (
+        ("maximumStandbyLeaseSeconds", "u64"),
+        ("minimumAskImprovementWeiPerSecond", "u256"),
+        ("minimumAskImprovementBps", "u16"),
+        ("economicProfileHash", "b32"),
+    )
     specs = (core + control + artifact + target_infrastructure + sinks
              + recovery + seat + data_session + target_gas + compile_rules
-             + activation + destination + source + ingress + execution)
+             + activation + destination + source + ingress + execution
+             + seat_wire)
     if len(specs) != EXECUTION_PROFILE_VALUE_WORDS:
         raise AssertionError("ExecutionProfileV2 field schema drifted")
     return specs
@@ -17804,6 +19962,17 @@ def _validate_execution_profile_value_words_v2(
     if _decode_uint_word_v1(words[0], 64, "schemaVersion") \
             != EXECUTION_PROFILE_SCHEMA_VERSION:
         raise ValueError("ExecutionProfileV2 schema version is unsupported")
+    protocol_version = _decode_uint_word_v1(
+        words[1], 64, "protocolVersion"
+    )
+    if (words[205] != source_bundle_salt_v1(
+            words[9], protocol_version
+            )
+            or words[209]
+                != _abi_address_word(LEGACY_V1_SOURCE_BRIDGE)):
+        raise ValueError(
+            "source bundle salt or legacy Bridge binding is unsupported"
+        )
     empty_immutables = keccak256(
         b"slot-chain-solc-immutable-references-v1" + bytes(4)
     )
@@ -17817,19 +19986,53 @@ def _validate_execution_profile_value_words_v2(
             or words[46] != settlement_factory_configuration_hash_v2()):
         raise ValueError("Settlement factory configuration is unsupported")
     expected_market_authority_configuration = \
-        pvm_derived_market_authority_configuration_hash_v1(
-            int.from_bytes(words[2], "big"),
-            "0x" + words[35][12:].hex(),
-            int.from_bytes(words[2], "big"),
-            "0x" + words[20][12:].hex(),
-            "0x" + words[23][12:].hex(),
-        )
+        aggregator_seat_market_configuration_hash_v2(words)
     if validate_authority_graph:
         expected_timelock_descriptor = \
             governance_delay_authority_descriptor_hash_from_profile_v1(words)
         if (words[37] != expected_market_authority_configuration
                 or words[18] != expected_timelock_descriptor):
             raise ValueError("protocol-root authority graph is unsupported")
+        registration_verifier = \
+            canonical_registration_mpt_verifier_descriptor()
+        expected_support_configuration = _model_fixed_bytes32(
+            bridge_domain_registry_configuration_hash(
+                address="0x" + words[38][12:].hex(),
+                runtime_hash="0x" + words[39].hex(),
+                support_authority="0x" + words[20][12:].hex(),
+                router_address="0x" + words[23][12:].hex(),
+                router_runtime_hash="0x" + words[24].hex(),
+                router_configuration_hash="0x" + words[25].hex(),
+                release_authority_address="0x" + words[175][12:].hex(),
+                release_authority_runtime_hash="0x" + words[176].hex(),
+                release_authority_configuration_hash=(
+                    "0x" + words[177].hex()
+                ),
+                registration_mpt_verifier_descriptor_hash=(
+                    registration_verifier.commitment
+                ),
+            )
+        )
+        if (words[60] != _abi_address_word(registration_verifier.address)
+                or words[61] != _model_fixed_bytes32(
+                    registration_verifier.runtime_hash
+                )
+                or words[62] != _model_fixed_bytes32(
+                    registration_verifier.configuration_hash
+                )
+                or words[39] != _model_fixed_bytes32(
+                    BRIDGE_DOMAIN_REGISTRY_RUNTIME_HASH
+                )
+                or words[40] != expected_support_configuration
+                or words[220:223] != words[38:41]
+                or words[41:44] != words[214:217]
+                or words[22]
+                    != protocol_version_manager_configuration_hash_from_profile_v1(
+                        words
+                    )):
+            raise ValueError(
+                "source support/proof authority graph is unsupported"
+            )
     compile_bytes = b"".join(words[118:138])
     expected_compile_hash = keccak256(
         b"slot-chain-target-compile-time-rules-v2"
@@ -17858,6 +20061,64 @@ def _validate_execution_profile_value_words_v2(
         raise ValueError("duplicated activation gas authorities disagree")
     if int.from_bytes(words[106], "big") < int.from_bytes(words[105], "big"):
         raise ValueError("DataSession refund window is shorter than maximum TTL")
+    numeric = lambda index: int.from_bytes(words[index], "big")
+    settlement_window = numeric(72)
+    include_max = numeric(73)
+    final_lag = numeric(74)
+    prove_max = numeric(76)
+    depth_max = numeric(78)
+    force_delay = numeric(81)
+    reorg_margin = numeric(85)
+    runway = numeric(86)
+    primary_tenure = numeric(87)
+    standby_tenure = numeric(88)
+    handover = numeric(89)
+    stage_grace = numeric(90)
+    recovery_lag = numeric(92)
+    slash_lag = numeric(93)
+    premium_claim_delay = numeric(94)
+    reorg_stability = numeric(95)
+    maximum_ask = numeric(97)
+    sla_bond = numeric(98)
+    avoided_cost = numeric(99)
+    collusion_margin = numeric(100)
+    data_ttl = numeric(105)
+    data_refund_window = numeric(106)
+    maximum_standby_lease = numeric(263)
+    minimum_improvement_wei = numeric(264)
+    minimum_improvement_bps = numeric(265)
+    if force_delay < settlement_window + include_max:
+        raise ValueError("force delay cannot cover one cancellable window")
+    if numeric(260) < numeric(258) + numeric(109) + numeric(110) + 100_000:
+        raise ValueError("nested duty-history read cannot retain Market gas reserve")
+    if any(numeric(index) < 100_000 for index in range(107, 111)):
+        raise ValueError("exact component read gas is below the measured floor")
+    if numeric(80) < depth_max + prove_max + 100:
+        raise ValueError("escape offset cannot cover depth, proving and margin")
+    if final_lag <= recovery_lag or slash_lag <= recovery_lag:
+        raise ValueError("seat recovery/failover/slash ordering is invalid")
+    sla_tail = slash_lag - recovery_lag
+    handover_buffer = handover + stage_grace + include_max
+    if runway < primary_tenure + handover_buffer + sla_tail:
+        raise ValueError("seat runway cannot cover tenure, handover and SLA tail")
+    if premium_claim_delay < reorg_stability:
+        raise ValueError("premium claim delay is shorter than reorg stability")
+    if maximum_ask * runway > SEAT_UINT256_MAX:
+        raise ValueError("maximum seat reserve overflows uint256")
+    if sla_bond < maximum_ask * premium_claim_delay:
+        raise ValueError("SLA bond cannot cover the premium claim tail")
+    if sla_bond < maximum_ask * primary_tenure + avoided_cost + collusion_margin:
+        raise ValueError("SLA bond cannot cover the self-promotion bound")
+    if data_ttl < prove_max + settlement_window + reorg_margin:
+        raise ValueError("DataSession TTL cannot cover proof settlement and reorg")
+    if data_refund_window < include_max + reorg_margin:
+        raise ValueError("DataSession refund window cannot cover inclusion and reorg")
+    if maximum_standby_lease < standby_tenure + handover_buffer:
+        raise ValueError("standby lease cannot cover tenure and one bounded handover")
+    if minimum_improvement_bps > 10_000 or (
+        minimum_improvement_wei == 0 and minimum_improvement_bps == 0
+    ):
+        raise ValueError("standby price improvement policy is invalid")
     if int.from_bytes(words[111], "big") != 50_000:
         raise ValueError("component configuration read gas is unsupported")
     l1_first_supported = int.from_bytes(words[244], "big")
@@ -17874,30 +20135,86 @@ def _validate_execution_profile_value_words_v2(
 
 def _execution_profile_value_words_v2(profile: "ExecutionProfile") \
         -> tuple[bytes, ...]:
-    """Encode all 252 fixed ExecutionProfileV2 value words in normative order."""
+    """Encode all fixed ExecutionProfileV2 value words in normative order."""
 
     verifier = profile.migration_transition_verifier_descriptor
     word = lambda value, name: _model_uint(value, 32, name)
     hash_ = _profile_fixture_hash_v2
     address = _profile_fixture_address_word_v2
     bytes4_word = lambda value: value + bytes(28)
+    router_binding = profile.active_router_binding
+    bound_router_namespace = (
+        hash_("router-namespace")
+        if router_binding is None
+        else _model_fixed_bytes32(router_binding.router_namespace)
+    )
 
     core = (
         word(EXECUTION_PROFILE_SCHEMA_VERSION, "profile schema version"),
         word(profile.protocol_version, "profile protocol version"),
         word(MODEL_SETTLEMENT_CHAIN_CONTEXT_ID, "profile settlement chain"),
-        word(16_788, "profile L2 chain"),
+        word(167_000, "profile L2 chain"),
         hash_("settlement-genesis"), hash_("destination-genesis"),
         bytes4_word(bytes.fromhex("46554c55")),
         word(1, "profile first V2 block"),
         word(GENESIS_TIMESTAMP, "profile genesis timestamp"),
         keccak256(profile.namespace.encode("utf-8")),
-        hash_("destination-namespace"), hash_("router-namespace"),
+        hash_("destination-namespace"), bound_router_namespace,
         hash_("pool-namespace"), address("anchor-v4"),
         hash_("anchor-v4-runtime"), hash_("anchor-v4-config"),
     )
-    pvm_word = address("protocol-version-manager")
-    router_word = address("active-settlement-router")
+    pvm_word = (
+        address("protocol-version-manager")
+        if router_binding is None
+        else _abi_address_word(router_binding.version_manager)
+    )
+    router_word = (
+        address("active-settlement-router")
+        if router_binding is None
+        else _abi_address_word(router_binding.router)
+    )
+    pvm_runtime_word = (
+        hash_("pvm-runtime")
+        if router_binding is None
+        else _model_fixed_bytes32(router_binding.version_manager_runtime_hash)
+    )
+    router_runtime_word = (
+        hash_("router-runtime")
+        if router_binding is None
+        else _model_fixed_bytes32(router_binding.router_runtime_hash)
+    )
+    router_configuration_word = (
+        hash_("router-config")
+        if router_binding is None
+        else _model_fixed_bytes32(router_binding.router_configuration_hash)
+    )
+    queue_word = (
+        address("forced-queue")
+        if router_binding is None
+        else _abi_address_word(router_binding.forced_queue)
+    )
+    queue_runtime_word = (
+        hash_("forced-queue-runtime")
+        if router_binding is None
+        else _model_fixed_bytes32(router_binding.forced_queue_runtime_hash)
+    )
+    queue_configuration_word = (
+        hash_("forced-queue-config")
+        if router_binding is None
+        else _model_fixed_bytes32(
+            router_binding.forced_queue_configuration_hash
+        )
+    )
+    builder_registry_word = (
+        address("builder-registry")
+        if router_binding is None
+        else _abi_address_word(router_binding.builder_registry)
+    )
+    schedule_oracle_word = (
+        address("schedule-oracle")
+        if router_binding is None
+        else _abi_address_word(router_binding.schedule_oracle)
+    )
     market_word = address("aggregator-seat-market")
     market_authority_configuration = \
         pvm_derived_market_authority_configuration_hash_v1(
@@ -17910,13 +20227,12 @@ def _execution_profile_value_words_v2(profile: "ExecutionProfile") \
     control = (
         address("protocol-change-timelock"), hash_("timelock-runtime"),
         hash_("timelock-config"), address("dao-proposer"),
-        pvm_word, hash_("pvm-runtime"),
-        hash_("pvm-config"), address("active-settlement-router"),
-        hash_("router-runtime"), hash_("router-config"),
-        address("forced-queue"), hash_("forced-queue-runtime"),
-        hash_("forced-queue-config"),
-        address("builder-registry"), hash_("builder-registry-runtime"),
-        hash_("builder-registry-config"), address("schedule-oracle"),
+        pvm_word, pvm_runtime_word,
+        hash_("pvm-config"), router_word,
+        router_runtime_word, router_configuration_word,
+        queue_word, queue_runtime_word, queue_configuration_word,
+        builder_registry_word, hash_("builder-registry-runtime"),
+        hash_("builder-registry-config"), schedule_oracle_word,
         hash_("schedule-oracle-runtime"), hash_("schedule-oracle-config"),
         market_word, hash_("seat-market-runtime"),
         market_authority_configuration, address("bridge-domain-registry"),
@@ -17989,7 +20305,7 @@ def _execution_profile_value_words_v2(profile: "ExecutionProfile") \
         10, 1, 1, 10_000, DATA_TTL_SECONDS, DATA_TTL_SECONDS,
     ))
     target_gas = tuple(word(value, "target gas bound") for value in (
-        50_000, 100_000, 100_000, 100_000, 50_000, 50_000, 8_000_000,
+        250_000, 250_000, 250_000, 250_000, 50_000, 50_000, 8_000_000,
         profile.activation_context_read_gas_limit,
         profile.post_state_read_gas_limit, profile.target_adoption_gas_limit,
         profile.post_callback_reserve_gas,
@@ -18016,15 +20332,34 @@ def _execution_profile_value_words_v2(profile: "ExecutionProfile") \
             profile.post_callback_reserve_gas,
         )),
     )
-    components = tuple(
-        value
+    release_scoped_destination_components = {1, 3, 5, 10}
+    component_rows = [
+        [address(
+            f"destination-component-{index}:v{profile.protocol_version}"
+            if index in release_scoped_destination_components
+            else f"destination-component-{index}"
+        ),
+         hash_(f"destination-component-{index}-runtime"),
+         hash_(f"destination-component-{index}-config")]
         for index in range(1, 11)
-        for value in (
-            address(f"destination-component-{index}"),
-            hash_(f"destination-component-{index}-runtime"),
-            hash_(f"destination-component-{index}-config"),
+    ]
+    if router_binding is not None:
+        component_rows[1] = [
+            _abi_address_word(router_binding.router),
+            _model_fixed_bytes32(router_binding.router_runtime_hash),
+            _model_fixed_bytes32(router_binding.router_configuration_hash),
+        ]
+        component_rows[3] = [
+            _abi_address_word(router_binding.inbox_apply_router),
+            _model_fixed_bytes32(router_binding.inbox_apply_runtime_hash),
+            _model_fixed_bytes32(
+                router_binding.inbox_apply_configuration_hash
+            ),
+        ]
+        component_rows[6][0] = _abi_address_word(
+            router_binding.terminal_domain_registrar
         )
-    )
+    components = tuple(value for row in component_rows for value in row)
     destination = (
         address("inbox-system-sender"), address("anchor-system-sender"),
         *components,
@@ -18041,9 +20376,11 @@ def _execution_profile_value_words_v2(profile: "ExecutionProfile") \
     )
     source = (
         address("source-factory"), hash_("source-factory-runtime"),
-        hash_("source-factory-config"), hash_("source-bundle-salt"),
+        hash_("source-factory-config"),
+        source_bundle_salt_v1(core[9], profile.protocol_version),
         hash_("source-bundle-init-code"), address("source-bundle-deployer"),
-        hash_("source-bundle-deployer-runtime"), address("legacy-v1-bridge"),
+        hash_("source-bundle-deployer-runtime"),
+        _abi_address_word(LEGACY_V1_SOURCE_BRIDGE),
         address("source-bridge"), hash_("source-bridge-runtime"),
         hash_("source-bridge-config"), hash_("source-bridge-storage-layout"),
         address("source-credit-registry"),
@@ -18057,7 +20394,8 @@ def _execution_profile_value_words_v2(profile: "ExecutionProfile") \
         hash_("source-namespace"), hash_("source-genesis"),
     )
     ingress = (
-        address("kind0-ingress-adapter"), hash_("kind0-ingress-runtime"),
+        address(f"kind0-ingress-adapter:v{profile.protocol_version}"),
+        hash_("kind0-ingress-runtime"),
         *(word(value, "ingress fee") for value in (
             INGRESS_FIXED_WEI, INGRESS_EXECUTION_WEI_PER_GAS,
             INGRESS_PROOF_WEI_PER_GAS, INGRESS_PERMANENT_WEI_PER_BYTE,
@@ -18078,20 +20416,28 @@ def _execution_profile_value_words_v2(profile: "ExecutionProfile") \
         hash_("forced-input-rules"), hash_("state-transition-abi"),
         hash_("legacy-execution-rules"),
     )
+    seat_wire = tuple(word(value, "seat wire parameter") for value in (
+        30, 2, 8_000_000, 250_000, 250_000, 300_000, 500_000,
+        500_000, 1_250_000, 250_000, 500_000,
+        profile.maximum_standby_lease_seconds,
+        profile.minimum_ask_improvement_wei_per_second,
+        profile.minimum_ask_improvement_bps,
+    )) + (profile.economic_profile_hash,)
     groups = (
         core, control, artifact, target_infrastructure, sinks, recovery, seat,
         data_session, target_gas, compile_rules, activation, destination,
-        source, ingress, execution,
+        source, ingress, execution, seat_wire,
     )
     expected_group_lengths = (
-        16, 28, 13, 6, 9, 14, 15, 6, 11, 20, 20, 44, 26, 7, 17,
+        16, 28, 13, 6, 9, 14, 15, 6, 11, 20, 20, 44, 26, 7, 17, 15,
     )
     if tuple(map(len, groups)) != expected_group_lengths:
         raise AssertionError("ExecutionProfileV2 group width drifted")
-    values = tuple(value for group in groups for value in group)
+    values = list(value for group in groups for value in group)
     if len(values) != EXECUTION_PROFILE_VALUE_WORDS:
         raise AssertionError("ExecutionProfileV2 fixed field count drifted")
-    return values
+    values[37] = aggregator_seat_market_configuration_hash_v2(tuple(values))
+    return tuple(values)
 
 
 def canonical_execution_profile_cross_model_fixture_v2() -> bytes:
@@ -18123,17 +20469,15 @@ def canonical_execution_profile_cross_model_fixture_v2() -> bytes:
     words[0] = _model_uint(EXECUTION_PROFILE_SCHEMA_VERSION, 32, "schema")
     words[1] = _model_uint(2, 32, "protocol version")
     words[2] = _model_uint(1, 32, "settlement chain")
-    words[3] = _model_uint(16_788, 32, "L2 chain")
+    words[3] = _model_uint(167_000, 32, "L2 chain")
     words[48] = keccak256(runtime_code)
     words[49] = keccak256(creation_code)
     words[44] = _abi_address_word(SETTLEMENT_FACTORY_ADDRESS_V2)
     words[45] = SETTLEMENT_FACTORY_RUNTIME_HASH_V2
     words[46] = settlement_factory_configuration_hash_v2()
-    words[37] = pvm_derived_market_authority_configuration_hash_v1(
-        int.from_bytes(words[2], "big"), "0x" + words[35][12:].hex(),
-        int.from_bytes(words[2], "big"), "0x" + words[20][12:].hex(),
-        "0x" + words[23][12:].hex(),
-    )
+    words[205] = source_bundle_salt_v1(words[9], 2)
+    words[209] = _abi_address_word(LEGACY_V1_SOURCE_BRIDGE)
+    words[37] = aggregator_seat_market_configuration_hash_v2(tuple(words))
     words[55] = keccak256(
         b"slot-chain-solc-immutable-references-v1" + bytes(4)
     )
@@ -18164,6 +20508,8 @@ def canonical_execution_profile_cross_model_fixture_v2() -> bytes:
     words[115] = words[153]
     words[116] = words[150]
     words[117] = words[157]
+    for index in range(107, 111):
+        words[index] = _model_uint(250_000, 32, "exact read gas")
     words[111] = _model_uint(50_000, 32, "component config read gas")
     words[57] = _abi_address_word(L1_EIP2935_HISTORY_STORAGE_ADDRESS)
     words[58] = L1_EIP2935_HISTORY_STORAGE_RUNTIME_HASH
@@ -18179,6 +20525,23 @@ def canonical_execution_profile_cross_model_fixture_v2() -> bytes:
         L2_EIP2935_HISTORY_STORAGE_ACTIVATION_BLOCK, 32,
         "L2 EIP-2935 activation block",
     )
+    for index, value in enumerate((
+        30, 2, 8_000_000, 250_000, 250_000, 300_000, 500_000,
+        500_000, 1_250_000, 250_000, 500_000,
+        MAX_STANDBY_LEASE_SECONDS, MIN_ASK_IMPROVEMENT_WEI_PER_SECOND,
+        MIN_ASK_IMPROVEMENT_BPS,
+    ), start=252):
+        words[index] = _model_uint(value, 32, "seat wire fixture")
+    words[266] = keccak256(b"slot-chain-economic-profile-cross-model-v2")
+    for index, value in {
+        72: 1_200, 73: 120, 74: 3_600, 76: 900, 78: 900,
+        80: 1_900, 81: 1_500, 85: 1_800, 86: 6_000,
+        87: 1_000, 88: 600, 89: 5, 90: 5, 92: 1_200,
+        93: 5_164, 94: 1_800, 95: 1_800, 97: 1_000,
+        98: 10_000_000, 99: 1_000_000, 100: 1_000_000,
+        105: 86_400, 106: 86_400,
+    }.items():
+        words[index] = _model_uint(value, 32, "relation fixture")
     artifact = (
         _model_uint(len(creation_code), 4, "fixture creation length")
         + creation_code
@@ -18197,6 +20560,51 @@ def canonical_execution_profile_cross_model_fixture_v2() -> bytes:
     return encoded
 
 
+@dataclass(frozen=True)
+class ActiveRouterProfileBindingV2:
+    """Acyclic lifetime inputs committed by the release profile."""
+
+    version_manager: str
+    version_manager_runtime_hash: bytes
+    router: str
+    router_runtime_hash: bytes
+    router_configuration_hash: bytes
+    forced_queue: str
+    forced_queue_runtime_hash: bytes
+    forced_queue_configuration_hash: bytes
+    builder_registry: str
+    schedule_oracle: str
+    inbox_apply_router: str
+    inbox_apply_runtime_hash: bytes
+    inbox_apply_configuration_hash: bytes
+    terminal_domain_registrar: str
+    router_namespace: bytes
+
+    def structurally_valid(self) -> bool:
+        try:
+            for value in (
+                self.version_manager, self.router, self.forced_queue,
+                self.builder_registry, self.schedule_oracle,
+                self.inbox_apply_router, self.terminal_domain_registrar,
+            ):
+                _model_address20(value)
+            for value in (
+                self.version_manager_runtime_hash,
+                self.router_runtime_hash,
+                self.router_configuration_hash,
+                self.forced_queue_runtime_hash,
+                self.forced_queue_configuration_hash,
+                self.inbox_apply_runtime_hash,
+                self.inbox_apply_configuration_hash,
+                self.router_namespace,
+            ):
+                if _model_fixed_bytes32(value) == bytes(32):
+                    return False
+            return True
+        except (TypeError, ValueError):
+            return False
+
+
 @dataclass(frozen=True, eq=False)
 class ExecutionProfile:
     """Immutable per-version verifier trust root committed by the release."""
@@ -18212,6 +20620,7 @@ class ExecutionProfile:
     bridge_surplus_sink: NativeEthSinkV2 = field(
         compare=False, repr=False
     )
+    economic_profile_hash: bytes
     target_creation_code: bytes = field(
         default=b"\x60\x00\x60\x00\xf3", compare=False, repr=False
     )
@@ -18231,6 +20640,14 @@ class ExecutionProfile:
     post_callback_reserve_gas: int = 5_000_000
     l1_history_first_supported_block: int = (
         L1_EIP2935_FIRST_SUPPORTED_BLOCK
+    )
+    maximum_standby_lease_seconds: int = MAX_STANDBY_LEASE_SECONDS
+    minimum_ask_improvement_wei_per_second: int = (
+        MIN_ASK_IMPROVEMENT_WEI_PER_SECOND
+    )
+    minimum_ask_improvement_bps: int = MIN_ASK_IMPROVEMENT_BPS
+    active_router_binding: ActiveRouterProfileBindingV2 | None = field(
+        default=None, compare=False, repr=False
     )
 
     def __deepcopy__(self, memo: dict[int, object]) -> "ExecutionProfile":
@@ -18300,6 +20717,25 @@ class ExecutionProfile:
             and 0 < len(self.target_runtime_code) <= EIP170_MAX_RUNTIME_BYTES
             and type(self.l1_history_first_supported_block) is int
             and 0 < self.l1_history_first_supported_block <= UINT64_MAX
+            and 0 < self.maximum_standby_lease_seconds <= UINT64_MAX
+            and 0 <= self.minimum_ask_improvement_wei_per_second
+                <= SEAT_UINT256_MAX
+            and 0 <= self.minimum_ask_improvement_bps <= 10_000
+            and (
+                self.minimum_ask_improvement_wei_per_second > 0
+                or self.minimum_ask_improvement_bps > 0
+            )
+            and type(self.economic_profile_hash) is bytes
+            and len(self.economic_profile_hash) == 32
+            and self.economic_profile_hash != bytes(32)
+            and (
+                self.active_router_binding is None
+                or (
+                    type(self.active_router_binding)
+                        is ActiveRouterProfileBindingV2
+                    and self.active_router_binding.structurally_valid()
+                )
+            )
             and EXECUTION_PROFILE_MIN_BYTES
                 <= len(self.canonical_profile_bytes)
                 <= EXECUTION_PROFILE_MAX_BYTES
@@ -18548,6 +20984,7 @@ def execution_profile_for_test(
         descriptor,
         verifier,
         NativeEthSinkV2(f"bridge-surplus:{profile_namespace}"),
+        _profile_fixture_hash_v2("economic-profile-v2"),
     )
     if not profile.structurally_valid():
         raise AssertionError("test execution profile is malformed")
@@ -18802,6 +21239,82 @@ class IngressBinding:
     configuration_hash: str
 
 
+def _active_router_live_configuration_hash_v2(
+    router: "ActiveSettlementRouter",
+) -> bytes:
+    descriptor = router.inbox_apply_descriptor
+    fixture = router.legacy_launch_hook.resume_descriptor_fixture
+    if fixture is None:
+        raise ValueError("Router legacy bootstrap descriptor is absent")
+    inbox_hash = inbox_apply_deployment_descriptor_hash_v1(
+        address=descriptor.address,
+        registrar_address=descriptor.registrar_address,
+        runtime_hash=descriptor.runtime_hash,
+        configuration_hash=descriptor.configuration_hash,
+    )
+    legacy_hash = legacy_bootstrap_descriptor_hash_v1(
+        proxy_address=fixture.inbox_proxy,
+        proxy_runtime_hash=fixture.inbox_proxy_runtime_hash,
+        implementation_address=fixture.inbox_implementation,
+        implementation_runtime_hash=fixture.inbox_implementation_runtime_hash,
+        inbox_configuration_hash=legacy_inbox_configuration_hash_v1(
+            fixture.inbox_config
+        ),
+    )
+    first_supported = router.header_oracle.first_supported_block
+    return active_settlement_router_configuration_hash_v2(
+        settlement_chain_context_id=router.settlement_chain_context_id,
+        version_manager=router.version_manager,
+        version_manager_runtime_hash=router.version_manager_runtime_hash,
+        forced_queue_address=router.forced_queue.address,
+        forced_queue_runtime_hash=router.forced_queue.runtime_hash,
+        forced_queue_configuration_hash=router.forced_queue.config_hash,
+        builder_registry_address=router.builder_registry_id,
+        schedule_oracle_address=router.schedule_oracle_id,
+        router_namespace=router.router_namespace,
+        inbox_apply_descriptor_hash=inbox_hash,
+        l1_history_first_supported_block=first_supported,
+        l1_history_read_configuration_hash=
+            eip2935_read_configuration_hash_v1(first_supported),
+        legacy_bootstrap_descriptor_hash=legacy_hash,
+    )
+
+
+def bind_execution_profile_to_router_graph_v2(
+    profile: ExecutionProfile, router: "ActiveSettlementRouter",
+) -> ExecutionProfile:
+    """Materialize the release profile from one already planned Router graph."""
+
+    if (type(profile) is not ExecutionProfile
+            or type(router) is not ActiveSettlementRouter):
+        raise ValueError("Router profile binding requires exact graph objects")
+    binding = ActiveRouterProfileBindingV2(
+        router.version_manager,
+        _model_fixed_bytes32(router.version_manager_runtime_hash),
+        router.address,
+        _model_fixed_bytes32(router.runtime_hash),
+        _active_router_live_configuration_hash_v2(router),
+        router.forced_queue.address,
+        _model_fixed_bytes32(router.forced_queue.runtime_hash),
+        _model_fixed_bytes32(router.forced_queue.config_hash),
+        router.builder_registry_id,
+        router.schedule_oracle_id,
+        router.inbox_apply_descriptor.address,
+        _model_fixed_bytes32(router.inbox_apply_descriptor.runtime_hash),
+        _model_fixed_bytes32(
+            router.inbox_apply_descriptor.configuration_hash
+        ),
+        router.inbox_apply_descriptor.registrar_address,
+        _model_fixed_bytes32(router.router_namespace),
+    )
+    if not binding.structurally_valid():
+        raise ValueError("Router profile binding is malformed")
+    bound = replace(profile, active_router_binding=binding)
+    if not bound.structurally_valid():
+        raise ValueError("Router-bound execution profile is malformed")
+    return bound
+
+
 @dataclass
 class ActiveSettlementRouter:
     """Append-only immutable registry and read-only history router."""
@@ -18815,7 +21328,11 @@ class ActiveSettlementRouter:
     settlement_chain_context_id: int = MODEL_SETTLEMENT_CHAIN_CONTEXT_ID
     address: str = "active-settlement-router"
     runtime_hash: str = ACTIVE_SETTLEMENT_ROUTER_RUNTIME_HASH
-    configuration_hash: str = ACTIVE_SETTLEMENT_ROUTER_CONFIGURATION_HASH
+    version_manager_runtime_hash: str = "code:protocol-version-manager:v1"
+    router_namespace: bytes = field(
+        default_factory=lambda: _profile_fixture_hash_v2("router-namespace")
+    )
+    configuration_hash: str = ""
     bootstrap_release_manifest_hash: bytes = b"\x00" * 32
     # Deployment-factory hints for the initial scheduled target.  Checkpoint
     # safety never depends on them; delayed governance may cancel/replace the
@@ -18843,7 +21360,28 @@ class ActiveSettlementRouter:
     release_registration_getter_override: bytes | None = field(
         default=None, compare=False, repr=False
     )
+    release_registration_getter_fault_point: str | None = field(
+        default=None, compare=False, repr=False
+    )
     migration_profile_getter_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    active_settlement_state_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    migration_activation_context_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    migration_activation_context_fault_point: str | None = field(
+        default=None, compare=False, repr=False
+    )
+    active_settlement_state_fault_point: str | None = field(
+        default=None, compare=False, repr=False
+    )
+    prepare_bridge_route_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    prepare_bridge_route_fault_point: str | None = field(
         default=None, compare=False, repr=False
     )
     activation_receipts: dict[
@@ -18855,6 +21393,11 @@ class ActiveSettlementRouter:
     successor_receipt_key_by_old_authorization_id: dict[
         bytes, tuple[int, bytes]
     ] = field(default_factory=dict)
+    # Production L1 authorization-rotation wire.  The older tuple-key maps
+    # above remain a behavioral oracle only; Market reads these exact bytes.
+    activation_successor_index_v1: int = 0
+    activation_receipt_rows_v1: dict[bytes, bytes] = field(default_factory=dict)
+    seat_successor_rows_v1: dict[bytes, bytes] = field(default_factory=dict)
     used_target_addresses: set[str] = field(default_factory=set)
     _authorized_ingress: tuple[IngressBinding, ...] = field(
         default_factory=tuple, repr=False
@@ -18934,14 +21477,20 @@ class ActiveSettlementRouter:
     )
 
     def __post_init__(self) -> None:
+        expected_configuration_hash = _active_router_live_configuration_hash_v2(
+            self
+        )
+        if self.configuration_hash == "":
+            object.__setattr__(
+                self, "configuration_hash",
+                "0x" + expected_configuration_hash.hex(),
+            )
         if (
             type(self.header_oracle) is not EIP2935SystemReadTestAdapter
             or type(self.settlement_chain_context_id) is not int
             or not 0 < self.settlement_chain_context_id <= UINT64_MAX
-            or self.configuration_hash
-                != active_settlement_router_configuration_hash(
-                    self.settlement_chain_context_id
-                )
+            or _model_fixed_bytes32(self.configuration_hash)
+                != expected_configuration_hash
             or type(self.bootstrap_release_manifest_hash) is not bytes
             or len(self.bootstrap_release_manifest_hash) != 32
             or type(self.bootstrap_target_address) is not str
@@ -18966,15 +21515,231 @@ class ActiveSettlementRouter:
         memo[id(self)] = self
         return self
 
+    @staticmethod
+    def _seat_authorization_id_v1(
+        registration: SettlementRegistration,
+    ) -> bytes:
+        """Derive the exact PVM-installed SAT1 identity from one registration."""
+
+        words = _execution_profile_abi_words_v2(
+            registration.execution_profile.canonical_profile_bytes
+        )
+        market_address = words[35][12:]
+        settlement = registration.settlement
+        return keccak256(b"".join((
+            b"TAIKO_SEAT_TARGET_AUTHORIZATION_V1",
+            _model_uint(
+                registration.settlement_chain_context_id, 32,
+                "authorization Market chain",
+            ),
+            market_address,
+            _model_uint(
+                registration.settlement_chain_context_id, 32,
+                "authorization Settlement chain",
+            ),
+            _model_uint(settlement.protocol_version, 8, "authorization version"),
+            _model_address20(settlement.address),
+            _model_fixed_bytes32(registration.runtime_hash),
+            _model_fixed_bytes32(settlement.market_configuration_hash),
+            b"SEAT",
+            _model_fixed_bytes32(registration.release_manifest_hash),
+            target_registration_hash_v2(registration),
+        )))
+
+    def seat_successor_receipt_v1(self, old_authorization_id: bytes) -> bytes:
+        if type(old_authorization_id) is not bytes or len(old_authorization_id) != 32:
+            raise ValueError("ASV1 authorization key is malformed")
+        raw = self.seat_successor_rows_v1.get(old_authorization_id)
+        if raw is None or len(raw) != 96:
+            raise ValueError("ASV1 successor receipt is absent")
+        return raw
+
+    def activation_receipt_v1(self, receipt_id: bytes) -> bytes:
+        if type(receipt_id) is not bytes or len(receipt_id) != 32:
+            raise ValueError("ARV1 receipt key is malformed")
+        raw = self.activation_receipt_rows_v1.get(receipt_id)
+        if raw is None or len(raw) != 1_024:
+            raise ValueError("ARV1 activation receipt is absent")
+        return raw
+
+    def _append_activation_receipt_v1(
+        self,
+        *,
+        context: MigrationCanonicalContextV2,
+        source_registration: SettlementRegistration | None,
+        target_registration: SettlementRegistration,
+        seat_generation: int,
+        transition_auxiliary_hash: bytes,
+    ) -> bytes:
+        """Append one independently encoded sealed ARV1 plus exact ASV1 index."""
+
+        genesis = context.transition_kind == "GENESIS_IMPORT"
+        if genesis != (source_registration is None):
+            raise ValueError("ARV1 transition/source registration mismatch")
+        source_authorization_id = (
+            bytes(32)
+            if source_registration is None
+            else self._seat_authorization_id_v1(source_registration)
+        )
+        target_authorization_id = self._seat_authorization_id_v1(
+            target_registration
+        )
+        predecessor_key = bytes(32) if genesis else source_authorization_id
+        if predecessor_key in self.seat_successor_rows_v1:
+            raise ValueError("ARV1 predecessor already has a successor")
+        if self.activation_successor_index_v1 >= UINT64_MAX:
+            raise ValueError("ARV1 successor index is exhausted")
+        successor_index = self.activation_successor_index_v1 + 1
+        if genesis and successor_index != 1:
+            raise ValueError("genesis ARV1 must reserve successor index one")
+        source_manifest_hash = (
+            _model_fixed_bytes32(self.legacy_launch_hook.deployment_hash)
+            if genesis
+            else _model_fixed_bytes32(source_registration.release_manifest_hash)
+        )
+        target_manifest_hash = _model_fixed_bytes32(
+            target_registration.release_manifest_hash
+        )
+        old_domain = (
+            bytes(32)
+            if genesis
+            else _model_fixed_bytes32(
+                source_registration.release_manifest.destination_domain_id
+            )
+        )
+        new_domain = _model_fixed_bytes32(
+            target_registration.release_manifest.destination_domain_id
+        )
+        old_bridge = (
+            bytes(20)
+            if genesis
+            else _model_address20(
+                source_registration.release_manifest.destination_bridge
+            )
+        )
+        new_bridge = _model_address20(
+            target_registration.release_manifest.destination_bridge
+        )
+        transition_kind = 1 if genesis else 2
+        if (
+            (genesis and seat_generation != 0)
+            or (not genesis and seat_generation <= 0)
+            or (genesis and transition_auxiliary_hash == bytes(32))
+            or (not genesis and transition_auxiliary_hash != bytes(32))
+            or context.router_generation <= 0
+            or context.target_protocol_version
+                <= context.source_protocol_version
+            or context.source_settlement == context.target_settlement
+            or new_domain == bytes(32)
+            or new_bridge == bytes(20)
+            or context.canonicalized_at_block <= 0
+        ):
+            raise ValueError("ARV1 transition mask is invalid")
+        source_poststate = context.source_return[64:96]
+        packed = b"".join((
+            b"TAIKO_ACTIVATION_RECEIPT_V1",
+            _model_uint(self.settlement_chain_context_id, 32, "ARV1 chain"),
+            _model_address20(self.address),
+            _model_uint(context.router_generation, 8, "ARV1 generation"),
+            _model_uint(successor_index, 8, "ARV1 successor index"),
+            _model_uint(transition_kind, 1, "ARV1 kind"),
+            _model_uint(context.source_protocol_version, 8, "ARV1 source version"),
+            _model_uint(context.target_protocol_version, 8, "ARV1 target version"),
+            source_manifest_hash, target_manifest_hash,
+            source_authorization_id, target_authorization_id,
+            context.target_registration_hash,
+            _model_address20(context.source_settlement),
+            _model_address20(context.target_settlement),
+            old_domain, new_domain, old_bridge, new_bridge,
+            _model_uint(context.queue_end, 8, "ARV1 Queue watermark"),
+            _model_fixed_bytes32(context.candidate_digest),
+            context.output_core_hash,
+            _model_uint(
+                context.target_canonical_sequence, 8,
+                "ARV1 output sequence",
+            ),
+            context.commitment,
+            transition_auxiliary_hash,
+            source_poststate,
+            context.target_poststate_commitment,
+            context.queue_poststate_commitment,
+            _model_uint(seat_generation, 8, "ARV1 seat generation"),
+            _model_uint(
+                context.canonicalized_at_block, 8, "ARV1 activated block"
+            ),
+        ))
+        receipt_id = keccak256(packed)
+        words = (
+            b"ARV1" + bytes(28), receipt_id,
+            _model_uint(self.settlement_chain_context_id, 32, "ARV1 chain"),
+            bytes(12) + _model_address20(self.address),
+            _model_uint(context.router_generation, 32, "ARV1 generation"),
+            _model_uint(successor_index, 32, "ARV1 successor index"),
+            _model_uint(transition_kind, 32, "ARV1 kind"),
+            _model_uint(context.source_protocol_version, 32, "ARV1 source version"),
+            _model_uint(context.target_protocol_version, 32, "ARV1 target version"),
+            source_manifest_hash, target_manifest_hash,
+            source_authorization_id, target_authorization_id,
+            context.target_registration_hash,
+            bytes(12) + _model_address20(context.source_settlement),
+            bytes(12) + _model_address20(context.target_settlement),
+            old_domain, new_domain,
+            bytes(12) + old_bridge, bytes(12) + new_bridge,
+            _model_uint(context.queue_end, 32, "ARV1 Queue watermark"),
+            _model_fixed_bytes32(context.candidate_digest),
+            context.output_core_hash,
+            _model_uint(context.target_canonical_sequence, 32, "ARV1 sequence"),
+            context.commitment, transition_auxiliary_hash, source_poststate,
+            context.target_poststate_commitment,
+            context.queue_poststate_commitment,
+            _model_uint(seat_generation, 32, "ARV1 seat generation"),
+            _model_uint(context.canonicalized_at_block, 32, "ARV1 block"),
+            _model_uint(1, 32, "ARV1 sealed"),
+        )
+        raw = b"".join(words)
+        if len(raw) != 1_024 or receipt_id in self.activation_receipt_rows_v1:
+            raise ValueError("ARV1 row is duplicate or malformed")
+        self.activation_receipt_rows_v1[receipt_id] = raw
+        self.seat_successor_rows_v1[predecessor_key] = b"".join((
+            receipt_id,
+            _model_uint(successor_index, 32, "ASV1 successor index"),
+            b"ASV1" + bytes(28),
+        ))
+        self.activation_successor_index_v1 = successor_index
+        return receipt_id
+
+    def _validate_genesis_target_generation_v1(
+        self, registration: SettlementRegistration,
+    ) -> int:
+        """Exact-read the complete newly ACTIVE target before sealing ARV1."""
+
+        if (type(registration) is not SettlementRegistration
+                or registration.settlement.protocol_version
+                    != self.active_version):
+            raise ValueError("genesis target registration is not Router-current")
+        row = registration.settlement.exact_market_target_state()
+        deployment = registration.settlement_deployment_descriptor
+        if (type(row) is not tuple or len(row) != 8
+                or row[0] != registration.settlement.address
+                or row[1] != self.settlement_chain_context_id
+                or row[2] != registration.settlement.protocol_version
+                or row[3] != deployment.target_runtime_hash
+                or row[4] != deployment.target_configuration_hash
+                or row[5] != b"SEAT"
+                or row[6] != "ACTIVE"
+                or type(row[7]) is not int
+                or row[7] != 0):
+            raise ValueError("genesis target identity or seat namespace is not exact")
+        return row[7]
+
     def __setattr__(self, name: str, value: object) -> None:
         if name in {
             "version_manager", "forced_queue", "inbox_apply_descriptor",
             "migration_gate", "header_oracle", "legacy_launch_hook",
             "settlement_chain_context_id",
             "address",
-            "runtime_hash", "configuration_hash",
-            "bootstrap_release_manifest_hash",
-            "bootstrap_target_address", "bootstrap_target_registration_hash",
+            "runtime_hash", "version_manager_runtime_hash",
+            "router_namespace", "configuration_hash",
             "forced_queue_runtime_hash", "forced_queue_config_hash",
             "builder_registry_id", "schedule_oracle_id", "_authorized_ingress",
             "_authorized_ingress_by_address",
@@ -19133,6 +21898,27 @@ class ActiveSettlementRouter:
         return (self.release_registration_getter_override
                 if self.release_registration_getter_override is not None
                 else result)
+
+    def staticcall_target_release_registration_v2(
+        self, calldata: bytes, *, caller: str, value: int, gas: int,
+    ) -> bytes:
+        """Executable RTR2 public getter envelope."""
+
+        _ = caller
+        if self.release_registration_getter_fault_point in {"revert", "oog"}:
+            raise RuntimeError("injected RTR2 staticcall fault")
+        if (type(calldata) is not bytes
+                or len(calldata) != TARGET_RELEASE_REGISTRATION_CALLDATA_LENGTH
+                or calldata[:4] != TARGET_RELEASE_REGISTRATION_SELECTOR
+                or calldata[4:28] != bytes(24)
+                or value != 0
+                or gas != TARGET_RELEASE_REGISTRATION_READ_GAS):
+            raise ValueError("RTR2 staticcall envelope is noncanonical")
+        version = int.from_bytes(calldata[28:36], "big")
+        raw = self.target_release_registration_v2(version)
+        if len(raw) != TARGET_RELEASE_REGISTRATION_RETURN_LENGTH:
+            return raw
+        return raw
 
     def migration_activation_profile_v2(self, protocol_version: int) -> bytes:
         row = self.migration_activation_profiles_v2.get(protocol_version)
@@ -19366,16 +22152,33 @@ class ActiveSettlementRouter:
             raise
 
     def arm_version_migration_v1(
-        self, lease: VersionMigrationLeaseV1, *, manager: object,
+        self, lease: VersionMigrationLeaseV1, *, manager: object, clock: Clock,
     ) -> bytes:
+        source_registration = self.registrations.get(self.active_version)
+        source_history = (
+            None if source_registration is None
+            else source_registration.settlement
+        )
+        source_protocol = getattr(source_history, "live_protocol", None)
+        target_witness = getattr(manager, "release_witnesses", {}).get(
+            lease.target_protocol_version
+        )
         if (type(manager) is not ProtocolVersionManagerV1
                 or manager.router is not self
                 or manager.address != self.version_manager
                 or manager.lifecycle != "APPLYING"
                 or manager._active_operation_kind != PUBLISH_MIGRATION_ARM
                 or manager.migration_arms.get(lease.arm_id) != lease
+                or type(clock) is not Clock
+                or clock.timestamp != lease.armed_at_timestamp
                 or self.migration_lifecycle
                     is not RouterMigrationLifecycle.IDLE
+                or type(source_history) is not VersionedSettlementHistory
+                or type(source_protocol) is not Protocol
+                or source_history._router_authority is not self
+                or source_history.mode != "ACTIVE"
+                or source_protocol.versioned_history is not source_history
+                or source_protocol.migration_gate is not self.migration_gate
                 or lease.target_protocol_version
                     not in self.target_release_registrations_v2
                 or self.target_release_registrations_v2[
@@ -19385,10 +22188,20 @@ class ActiveSettlementRouter:
                 or self.target_release_registrations_v2[
                     lease.target_protocol_version
                 ].target_registration_hash
-                    != lease.target_registration_hash):
+                    != lease.target_registration_hash
+                or type(target_witness) is not SettlementRegistration
+                or target_witness.release_manifest_hash
+                    != lease.target_manifest_hash
+                or target_registration_hash_v2(target_witness)
+                    != lease.target_registration_hash
+                or not self.bridge_package_arm_ready_v1(
+                    target_witness, clock=clock
+                )):
             raise ValueError("Router migration arm frame is not exact")
         lifecycle = self.migration_lifecycle
         gate_snapshot = copy.deepcopy(self.migration_gate.__dict__)
+        source_snapshot = source_protocol._canonical_transaction_snapshot()
+        source_mode = source_history.mode
         try:
             self.migration_lifecycle = RouterMigrationLifecycle.ARMING
             if not self.migration_gate._arm_from_manager(
@@ -19399,6 +22212,29 @@ class ActiveSettlementRouter:
                 raise ValueError("Router migration gate arm rejected")
             if self.release_registration_fault_point == "arm_after_gate":
                 raise RuntimeError("injected Router arm fault")
+            source_history.mode = "MIGRATION_ARMED"
+            response = decode_seat_migration_response(
+                source_protocol.complete_seat_migration_arm(
+                    caller=manager.address,
+                    router_word=self.migration_gate.router_word,
+                    clock=clock,
+                )
+            )
+            if (response.magic != SEAT_ARMED_MAGIC
+                    or response.router_generation != lease.generation
+                    or response.active_protocol_version
+                        != lease.source_protocol_version
+                    or response.target_protocol_version
+                        != lease.target_protocol_version
+                    or response.target_manifest_hash
+                        != lease.target_manifest_hash
+                    or response.target_registration_hash
+                        != lease.target_registration_hash
+                    or response.seat_generation
+                        != source_protocol.seat_generation):
+                raise ValueError("source SARM response is inexact")
+            if self.release_registration_fault_point == "arm_after_source":
+                raise RuntimeError("injected Router source-arm fault")
             self.migration_lifecycle = RouterMigrationLifecycle.IDLE
             return b"".join((
                 b"VMA1" + bytes(28),
@@ -19409,23 +22245,42 @@ class ActiveSettlementRouter:
             self.migration_lifecycle = lifecycle
             self.migration_gate.__dict__.clear()
             self.migration_gate.__dict__.update(gate_snapshot)
+            source_protocol._restore_canonical_transaction(source_snapshot)
+            source_history.mode = source_mode
             raise
 
     def abort_expired_version_migration_v1(
-        self, lease: VersionMigrationLeaseV1, *, manager: object,
+        self, lease: VersionMigrationLeaseV1, *, manager: object, clock: Clock,
     ) -> bytes:
+        source_registration = self.registrations.get(self.active_version)
+        source_history = (
+            None if source_registration is None
+            else source_registration.settlement
+        )
+        source_protocol = getattr(source_history, "live_protocol", None)
         if (type(manager) is not ProtocolVersionManagerV1
                 or manager.router is not self
                 or manager.address != self.version_manager
                 or manager.lifecycle != "ABORTING"
                 or manager.migration_arms.get(lease.arm_id) != lease
+                or type(clock) is not Clock
+                or clock.timestamp < lease.abort_after_timestamp
                 or self.migration_lifecycle
-                    is not RouterMigrationLifecycle.IDLE):
+                    is not RouterMigrationLifecycle.IDLE
+                or type(source_history) is not VersionedSettlementHistory
+                or type(source_protocol) is not Protocol
+                or source_history._router_authority is not self
+                or source_history.mode not in {
+                    "MIGRATION_ARMED", "MIGRATION_READY"
+                }):
             raise ValueError("Router migration abort frame is not exact")
         lifecycle = self.migration_lifecycle
         gate_snapshot = copy.deepcopy(self.migration_gate.__dict__)
+        source_snapshot = source_protocol._canonical_transaction_snapshot()
+        source_mode = source_history.mode
         try:
             self.migration_lifecycle = RouterMigrationLifecycle.ABORTING
+            canceled_word = self.migration_gate.router_word
             if not self.migration_gate._abort_from_manager(
                 lease.generation, lease.source_protocol_version,
                 lease.target_protocol_version, lease.target_manifest_hash,
@@ -19433,6 +22288,27 @@ class ActiveSettlementRouter:
                 cancel_manifest_active=True, caller=manager.address,
             ):
                 raise ValueError("Router migration gate abort rejected")
+            response = decode_seat_migration_response(
+                source_protocol.complete_seat_migration_abort(
+                    caller=manager.address,
+                    canceled_arm=canceled_word,
+                    clock=clock,
+                )
+            )
+            if (response.magic != SEAT_ABORTED_MAGIC
+                    or response.router_generation != lease.generation
+                    or response.active_protocol_version
+                        != lease.source_protocol_version
+                    or response.target_protocol_version
+                        != lease.target_protocol_version
+                    or response.target_manifest_hash
+                        != lease.target_manifest_hash
+                    or response.target_registration_hash
+                        != lease.target_registration_hash
+                    or response.seat_generation
+                        != source_protocol.seat_generation):
+                raise ValueError("source SABC response is inexact")
+            source_history.mode = "ACTIVE"
             if not self.migration_gate._publish_abort_active(
                 lease.generation, caller=manager.address
             ):
@@ -19448,6 +22324,8 @@ class ActiveSettlementRouter:
             self.migration_lifecycle = lifecycle
             self.migration_gate.__dict__.clear()
             self.migration_gate.__dict__.update(gate_snapshot)
+            source_protocol._restore_canonical_transaction(source_snapshot)
+            source_history.mode = source_mode
             raise
 
     def _mark_ready_from_protocol(self, protocol: object) -> bytes:
@@ -19455,7 +22333,9 @@ class ActiveSettlementRouter:
 
         manager = self._version_manager_authority
         history = getattr(protocol, "versioned_history", None)
-        if (type(manager) is not ProtocolVersionManager
+        if (type(manager) not in {
+                    ProtocolVersionManager, ProtocolVersionManagerV1
+                }
                 or type(protocol) is not Protocol
                 or type(history) is not VersionedSettlementHistory
                 or history._router_authority is not self
@@ -19492,7 +22372,9 @@ class ActiveSettlementRouter:
 
     def _bind_version_manager_once(self, manager: object) -> bool:
         if (self._version_manager_authority is not None
-                or type(manager) is not ProtocolVersionManager
+                or type(manager) not in {
+                    ProtocolVersionManager, ProtocolVersionManagerV1
+                }
                 or getattr(manager, "router", None) is not self
                 or getattr(manager, "address", None) != self.version_manager):
             return False
@@ -19551,17 +22433,24 @@ class ActiveSettlementRouter:
         self,
         registration: SettlementRegistration,
         *,
-        manager: "ProtocolVersionManager | None",
+        manager: object | None,
+        prepare_only: bool = False,
+        clock: Clock | None = None,
     ) -> bool:
-        """Materialize exact release-owned capabilities without governance."""
+        """Prepare or atomically activate exact release-owned capabilities."""
 
         if (type(registration) is not SettlementRegistration
-                or self.registrations.get(
+                or type(prepare_only) is not bool
+                or (prepare_only and type(clock) is not Clock)
+                or (not prepare_only and self.registrations.get(
                     registration.settlement.protocol_version
-                ) is not registration
+                ) is not registration)
                 or (manager is not None
-                    and (type(manager) is not ProtocolVersionManager
-                         or manager is not self._version_manager_authority))):
+                    and (type(manager) not in {
+                            ProtocolVersionManager, ProtocolVersionManagerV1
+                         }
+                         or manager is not self._version_manager_authority))
+                or (prepare_only and manager is None)):
             return False
 
         # A release may not add a new Bridge-trusting endpoint to a historical
@@ -19646,10 +22535,18 @@ class ActiveSettlementRouter:
                 existing_kind0.adapter
                 if existing_kind0 is not None
                 else Kind0IngressAdapter(
-                    self, address=kind0_authorization.adapter_address
+                    self,
+                    address=kind0_authorization.adapter_address,
+                    runtime_hash=kind0_authorization.runtime_hash,
+                    configuration_hash=(
+                        kind0_authorization.configuration_hash
+                    ),
                 )
             )
-            if not self._append_ingress_binding(kind0, kind0_authorization):
+            if (not prepare_only
+                    and not self._append_ingress_binding(
+                        kind0, kind0_authorization
+                    )):
                 raise ValueError("release Kind0 deployment is not exact")
             deployments[kind0_authorization.authorization_id] = kind0
 
@@ -19678,6 +22575,14 @@ class ActiveSettlementRouter:
                         l1_authority_descriptor,
                         TestRegistrationMptVerifier(
                             canonical_registration_mpt_verifier_descriptor()
+                        ),
+                        address=source_descriptor.support_registry_address,
+                        runtime_hash=(
+                            source_descriptor.support_registry_runtime_hash
+                        ),
+                        configuration_hash=(
+                            source_descriptor
+                                .support_registry_configuration_hash
                         ),
                     )
                     object.__setattr__(
@@ -19773,7 +22678,7 @@ class ActiveSettlementRouter:
                         or quota_manager.address
                             != source_descriptor.native_quota_manager):
                     raise ValueError("source Bridge bundle identity is split")
-                if (not source_bridge.v2_active
+                if (not prepare_only and not source_bridge.v2_active
                         and not source_bridge.activate(
                         bridge_authorization,
                         registration,
@@ -19791,39 +22696,91 @@ class ActiveSettlementRouter:
                 self._source_descriptor_id_by_version[
                     registration.settlement.protocol_version
                 ] = descriptor_id
-                object.__setattr__(
-                    self, "_bridge_credit_registry_authority", credit_registry
-                )
-                object.__setattr__(
-                    self, "_source_bridge_authority", source_bridge
-                )
+                if not prepare_only:
+                    object.__setattr__(
+                        self, "_bridge_credit_registry_authority",
+                        credit_registry,
+                    )
+                    object.__setattr__(
+                        self, "_source_bridge_authority", source_bridge
+                    )
                 if (type(credit_registry) is not BridgeCreditRegistryV2
                         or type(source_bridge) is not SourceBridgeV2
                         or source_bridge.credit_registry is not credit_registry
                         or credit_registry.source_bridge is not source_bridge
                         or source_bridge.source_descriptor.descriptor_id
                             != bridge_authorization.source_descriptor_id
-                        or credit_registry.configuration_hash
-                            != bridge_authorization.source_registry_configuration_hash
-                        or source_bridge.configuration_hash
-                            != bridge_authorization.source_bridge_configuration_hash
+                        or _model_fixed_bytes32(
+                            credit_registry.configuration_hash
+                        ) != _model_fixed_bytes32(
+                            bridge_authorization
+                                .source_registry_configuration_hash
+                        )
+                        or _model_fixed_bytes32(
+                            source_bridge.configuration_hash
+                        ) != _model_fixed_bytes32(
+                            bridge_authorization
+                                .source_bridge_configuration_hash
+                        )
                         or credit_registry.domain_registry.manager is not manager
                         or credit_registry.domain_registry is not support_registry
                         or support_registry.release_authority_descriptor
                             != l1_authority_descriptor):
                     raise ValueError("source Bridge deployment is split")
                 registry = support_registry
-                stage_clock = Clock(
-                    registration.activation_block,
-                    GENESIS_TIMESTAMP,
+                stage_clock = (
+                    clock if prepare_only else Clock(
+                        registration.activation_block,
+                        GENESIS_TIMESTAMP,
+                    )
                 )
-                if not registry.stage(
-                    source_bridge.source_domain_id,
-                    source_bridge.frozen_bridge_execution_hash,
-                    manifest,
-                    manager=manager,
-                    clock=stage_clock,
-                ):
+                if type(manager) is ProtocolVersionManagerV1:
+                    stage_result = registry.stage_bridge_route_package_v1(
+                        STAGE_BRIDGE_ROUTE_PACKAGE_SELECTOR
+                        + _model_uint(
+                            registration.settlement.protocol_version,
+                            32, "BRS1 protocol version",
+                        ),
+                        caller=self.address, value=0,
+                        gas=STAGE_BRIDGE_ROUTE_PACKAGE_GAS,
+                        clock=stage_clock,
+                    )
+                    stage_key = registry._key_by_destination_chain_version.get((
+                        registration.release_manifest.destination_chain_id,
+                        registration.settlement.protocol_version,
+                    ))
+                    staged_entry = (
+                        registry.entries.get(stage_key)
+                        if stage_key is not None else None
+                    )
+                    if staged_entry is None:
+                        raise ValueError("BRS1 staged package row is absent")
+                    expected_stage = b"".join((
+                        b"BRS1" + bytes(28),
+                        _model_uint(
+                            registration.settlement.protocol_version,
+                            32, "BRS1 version",
+                        ),
+                        registry._package_root(
+                            registration, bridge_authorization
+                        ),
+                        _model_uint(
+                            staged_entry.staged_at_block
+                                + BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
+                            32, "BRS1 ready block",
+                        ),
+                    ))
+                    if stage_result != expected_stage:
+                        raise ValueError("release BRS1 post-read is inexact")
+                elif not registry.stage(
+                        source_bridge.source_domain_id,
+                        source_bridge.frozen_bridge_execution_hash,
+                        manifest,
+                        manager=manager,
+                        clock=stage_clock,
+                        registration=registration):
+                    # Compatibility fixtures remain behavioral oracles only;
+                    # the production PVMv2 path above is the raw BRS1 call.
                     raise ValueError("release Bridge support was not staged")
                 existing_bridge = self._authorized_ingress_by_address.get(
                     bridge_authorization.adapter_address
@@ -19848,6 +22805,7 @@ class ActiveSettlementRouter:
                         credit_registry,
                         source_bridge,
                         address=bridge_authorization.adapter_address,
+                        runtime_hash=bridge_authorization.runtime_hash,
                     ))
                 )
                 if (type(bridge) is not BridgeAdapter
@@ -19857,6 +22815,74 @@ class ActiveSettlementRouter:
                             != bridge_authorization.configuration_hash):
                     raise ValueError("release Bridge deployment is not exact")
                 deployments[bridge_authorization.authorization_id] = bridge
+                # Publish only inside this rollback journal so exact package
+                # and one-shot adapter-seal reads observe the same map that
+                # the successful call returns.
+                self._profile_deployments_by_version[
+                    registration.settlement.protocol_version
+                ] = MappingProxyType(dict(deployments))
+                if not prepare_only:
+                    is_successor = (
+                        registration.settlement.protocol_version
+                            != self.active_version
+                    )
+                    if is_successor and type(manager) is ProtocolVersionManagerV1:
+                        consume_result = registry \
+                            .consume_bridge_route_arm_ready_v1(
+                                CONSUME_BRIDGE_ROUTE_ARM_READY_SELECTOR
+                                + _model_uint(
+                                    registration.settlement.protocol_version,
+                                    32, "BRC1 protocol version",
+                                )
+                                + target_registration_hash_v2(registration),
+                                caller=self.address, value=0,
+                                gas=CONSUME_BRIDGE_ROUTE_ARM_READY_GAS,
+                                clock=clock,
+                            )
+                        key = registry._key_by_destination_chain_version.get((
+                            registration.release_manifest.destination_chain_id,
+                            registration.settlement.protocol_version,
+                        ))
+                        entry = registry.entries.get(key) if key is not None else None
+                        expected_consume = b"".join((
+                            b"BRC1" + bytes(28),
+                            _model_uint(
+                                registration.settlement.protocol_version,
+                                32, "BRC1 version",
+                            ),
+                            target_registration_hash_v2(registration),
+                            bytes(32) if entry is None else entry.package_root,
+                        ))
+                        if consume_result != expected_consume:
+                            raise ValueError("release BRC1 post-read is inexact")
+                    elif (is_successor
+                            and not registry.consume_arm_ready(
+                                registration, clock,
+                                router=self,
+                                capability=_BRIDGE_ROUTE_ACTIVATION_CAPABILITY,
+                            )):
+                        # Legacy fixture only.  PVMv2 never reaches this path.
+                        raise ValueError(
+                            "release Bridge package is not ARM_READY"
+                        )
+                    if (not bridge.destination_sealed
+                            and not bridge._seal_destination_from_profile(
+                                authorization=bridge_authorization,
+                                registration=registration,
+                                router=self,
+                                protocol_version=(
+                                    registration.settlement.protocol_version
+                                ),
+                            )):
+                        raise ValueError(
+                            "release Bridge destination seal failed"
+                        )
+                    if not self._append_ingress_binding(
+                        bridge, bridge_authorization
+                    ):
+                        raise ValueError(
+                            "release Bridge ingress activation failed"
+                        )
             self._profile_deployments_by_version[
                 registration.settlement.protocol_version
             ] = MappingProxyType(deployments)
@@ -19909,6 +22935,280 @@ class ActiveSettlementRouter:
                 support_registry_before._restore_transaction_snapshot(
                     source_registry_state
                 )
+            return False
+
+    def _bridge_package_snapshot_v1(self) -> tuple[object, ...]:
+        """Capture every write reachable from permissionless preparation."""
+
+        factories = {
+            address: (
+                factory, dict(factory._deployments), dict(factory._bundles)
+            )
+            for address, factory
+            in self._source_bridge_factories_by_address.items()
+            if type(factory) is ImmutableV2BridgeFactory
+        }
+        bundles: dict[int, tuple[object, ...]] = {}
+        for factory, _, factory_bundles in factories.values():
+            for bundle in factory_bundles.values():
+                if (len(bundle) == 5
+                        and type(bundle[0]) is SourceBridgeV2
+                        and type(bundle[1]) is BridgeCreditRegistryV2):
+                    bridge, registry = bundle[:2]
+                    bundles.setdefault(id(bridge), (
+                        bridge, bridge._transaction_snapshot(), registry,
+                        registry._authorization_snapshot(),
+                    ))
+        support = self._bridge_domain_registry_authority
+        return (
+            dict(self._profile_deployments_by_version),
+            support,
+            dict(self._source_bridge_factories_by_address),
+            dict(self._source_bundles_by_descriptor_id),
+            dict(self._source_descriptor_id_by_version),
+            set(self._used_source_component_addresses),
+            factories,
+            bundles,
+            (support._transaction_snapshot()
+             if type(support) is BridgeDomainRegistry else None),
+        )
+
+    def _restore_bridge_package_snapshot_v1(
+        self, snapshot: tuple[object, ...]
+    ) -> None:
+        (deployments, support, factory_map, bundle_map, version_map,
+         used_addresses, factories, bundles, support_state) = snapshot
+        self._profile_deployments_by_version = deployments
+        object.__setattr__(self, "_bridge_domain_registry_authority", support)
+        self._source_bridge_factories_by_address = factory_map
+        self._source_bundles_by_descriptor_id = bundle_map
+        self._source_descriptor_id_by_version = version_map
+        self._used_source_component_addresses = used_addresses
+        for factory, factory_deployments, factory_bundles in factories.values():
+            factory._deployments = factory_deployments
+            factory._bundles = factory_bundles
+        for bridge, bridge_state, registry, registry_state in bundles.values():
+            bridge._restore_transaction_snapshot(
+                bridge_state, capability=_SOURCE_BRIDGE_ROLLBACK_CAPABILITY
+            )
+            registry._restore_authorization_snapshot(
+                registry_state,
+                source_bridge=bridge,
+                capability=_SOURCE_BRIDGE_ROLLBACK_CAPABILITY,
+            )
+        if support_state is not None and type(support) is BridgeDomainRegistry:
+            support._restore_transaction_snapshot(support_state)
+
+    def prepare_profile_deployments_v1(
+        self,
+        registration: SettlementRegistration,
+        *,
+        manager: object,
+        clock: Clock,
+    ) -> bool:
+        """Permissionless exact preparation derived from a registered release."""
+
+        version = getattr(
+            getattr(registration, "settlement", None), "protocol_version", 0
+        )
+        registered_target = self.target_release_registrations_v2.get(version)
+        if type(manager) is ProtocolVersionManagerV1:
+            try:
+                raw = self.prepare_bridge_route_package_v1(
+                    PREPARE_BRIDGE_ROUTE_PACKAGE_SELECTOR
+                    + _model_uint(version, 32, "BRD1 protocol version"),
+                    caller="permissionless-preparer", value=0,
+                    gas=PREPARE_BRIDGE_ROUTE_PACKAGE_GAS, clock=clock,
+                )
+                words = tuple(raw[index:index + 32]
+                              for index in range(0, len(raw), 32))
+                registry = self._bridge_domain_registry_authority
+                key = (
+                    None if type(registry) is not BridgeDomainRegistry
+                    else registry._key_by_destination_chain_version.get((
+                        registration.release_manifest.destination_chain_id,
+                        version,
+                    ))
+                )
+                entry = (
+                    None if key is None else registry.entries.get(key)
+                )
+                return (
+                    len(raw) == PREPARE_BRIDGE_ROUTE_PACKAGE_RETURN_LENGTH
+                    and words[0] == b"BRD1" + bytes(28)
+                    and _decode_uint_word_v1(
+                        words[1], 64, "BRD1 version"
+                    ) == version
+                    and entry is not None
+                    and words[2] == entry.package_root
+                    and _decode_uint_word_v1(
+                        words[3], 64, "BRD1 ready block"
+                    ) == entry.staged_at_block
+                        + BRIDGE_ROUTE_ARM_REVIEW_BLOCKS
+                )
+            except (AttributeError, TypeError, ValueError, RuntimeError):
+                return False
+        legacy_runtime = getattr(
+            getattr(manager, "release_manager", None), "target_runtimes", {}
+        )
+        legacy_match = any(
+            getattr(runtime, "authority", None) is registration.settlement
+            for runtime in legacy_runtime.values()
+        )
+        if (type(clock) is not Clock
+                or manager is not self._version_manager_authority
+                or (registered_target is None and not legacy_match)
+                or (registered_target is not None
+                    and (registered_target.release_manifest_hash
+                            != registration.release_manifest_hash
+                         or registered_target.target_registration_hash
+                            != target_registration_hash_v2(registration)))):
+            return False
+        return self._install_profile_deployments(
+            registration,
+            manager=manager,
+            prepare_only=True,
+            clock=clock,
+        )
+
+    def prepare_bridge_route_package_v1(
+        self,
+        calldata: bytes,
+        *,
+        caller: str,
+        value: int,
+        gas: int,
+        clock: Clock,
+    ) -> bytes:
+        """Executable permissionless BRD1 preparation transaction."""
+
+        if (type(calldata) is not bytes or len(calldata) != 36
+                or calldata[:4] != PREPARE_BRIDGE_ROUTE_PACKAGE_SELECTOR
+                or calldata[4:28] != bytes(24)
+                or not caller or value != 0
+                or gas != PREPARE_BRIDGE_ROUTE_PACKAGE_GAS
+                or type(clock) is not Clock
+                or self.migration_lifecycle
+                    is not RouterMigrationLifecycle.IDLE
+                or type(self._version_manager_authority)
+                    is not ProtocolVersionManagerV1):
+            raise ValueError("BRD1 call envelope is noncanonical")
+        version = int.from_bytes(calldata[28:36], "big")
+        manager = self._version_manager_authority
+        witness = manager.release_witnesses.get(version)
+        if type(witness) is not SettlementRegistration:
+            raise ValueError("BRD1 registered witness is absent")
+        row = decode_target_release_registration_return_v2(
+            self.staticcall_target_release_registration_v2(
+                TARGET_RELEASE_REGISTRATION_SELECTOR
+                + _model_uint(version, 32, "RTR2 protocol version"),
+                caller=self.address, value=0,
+                gas=TARGET_RELEASE_REGISTRATION_READ_GAS,
+            )
+        )
+        if (row.target_registration_hash != target_registration_hash_v2(witness)
+                or row.release_manifest_hash != witness.release_manifest_hash
+                or row.target_settlement
+                    != _model_address20(witness.settlement.address)):
+            raise ValueError("BRD1 RTR2/witness join is inexact")
+        snapshot = self._bridge_package_snapshot_v1()
+        try:
+            if not self._install_profile_deployments(
+                    witness, manager=manager, prepare_only=True, clock=clock):
+                raise ValueError("BRD1 exact package preparation failed")
+            if self.prepare_bridge_route_fault_point in {
+                    "after_stage", "revert", "oog"}:
+                raise RuntimeError("injected BRD1 preparation fault")
+            registry = self._bridge_domain_registry_authority
+            authorization = next(
+                candidate for candidate in witness.ingress_authorizations
+                if candidate.kind is ForceKind.BRIDGE_CREDIT
+            )
+            package_key = registry._key_by_destination_chain_version.get((
+                witness.release_manifest.destination_chain_id, version
+            ))
+            package_entry = (
+                registry.entries.get(package_key)
+                if package_key is not None else None
+            )
+            if package_entry is None:
+                raise ValueError("BRD1 staged package row is absent")
+            result = b"".join((
+                b"BRD1" + bytes(28),
+                _model_uint(version, 32, "BRD1 version"),
+                registry._package_root(witness, authorization),
+                _model_uint(
+                    package_entry.staged_at_block
+                        + BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
+                    32, "BRD1 ready block",
+                ),
+            ))
+            if (len(result) != PREPARE_BRIDGE_ROUTE_PACKAGE_RETURN_LENGTH
+                    or (self.prepare_bridge_route_return_override is not None
+                        and self.prepare_bridge_route_return_override
+                            != result)):
+                raise ValueError("BRD1 returndata is inexact")
+            return result
+        except BaseException:
+            self._restore_bridge_package_snapshot_v1(snapshot)
+            raise
+
+    def bridge_package_arm_ready_v1(
+        self,
+        registration: SettlementRegistration,
+        *,
+        clock: Clock,
+    ) -> bool:
+        registry = self._bridge_domain_registry_authority
+        if type(registry) is not BridgeDomainRegistry:
+            return False
+        destination_chain_id = registration.release_manifest.destination_chain_id
+        version = registration.settlement.protocol_version
+        calldata = b"".join((
+            BRIDGE_ROUTE_PACKAGE_SELECTOR,
+            _model_uint(destination_chain_id, 32, "BRP1 destination chain"),
+            _model_uint(version, 32, "BRP1 protocol version"),
+        ))
+        try:
+            raw = registry.bridge_route_package_v1(
+                calldata, caller=self.address, value=0,
+                gas=BRIDGE_ROUTE_PACKAGE_READ_GAS, clock=clock,
+            )
+            if len(raw) != BRIDGE_ROUTE_PACKAGE_RETURN_LENGTH:
+                return False
+            words = tuple(raw[index:index + 32]
+                          for index in range(0, len(raw), 32))
+            entry = registry.arm_ready_entry(
+                registration, destination_chain_id, clock
+            )
+            descriptor_id = self._source_descriptor_id_by_version.get(version)
+            bundle = self._source_bundles_by_descriptor_id.get(descriptor_id)
+            authorization = registration.ingress_authorizations_by_address.get(
+                "" if entry is None else entry.adapter_address
+            )
+            return (
+                words[0] == BRIDGE_ROUTE_PACKAGE_MAGIC + bytes(28)
+                and _decode_uint_word_v1(words[1], 8, "BRP1 state") == 2
+                and int.from_bytes(words[2], "big") == destination_chain_id
+                and _decode_uint_word_v1(words[3], 64, "BRP1 version")
+                    == version
+                and _decode_uint_word_v1(words[4], 64, "BRP1 staged block")
+                    == entry.staged_at_block
+                and _decode_uint_word_v1(words[5], 64, "BRP1 ready block")
+                    == entry.staged_at_block + BRIDGE_ROUTE_ARM_REVIEW_BLOCKS
+                and words[6] == target_registration_hash_v2(registration)
+                and words[7] == descriptor_id
+                and type(authorization) is ProfileIngressAuthorization
+                and words[8] == authorization.authorization_id
+                and words[9] == entry.package_root
+                and _decode_uint_word_v1(words[10], 64, "BRP1 count") == 1
+                and bundle is not None and len(bundle) == 3
+                and words[11] == bytes(12) + _model_address20(bundle[0].address)
+                and words[12] == bytes(12) + _model_address20(bundle[1].address)
+                and words[13] == bytes(12) + _model_address20(bundle[2].address)
+                and words[14] == bytes(12) + _model_address20(entry.adapter_address)
+            )
+        except (AttributeError, TypeError, ValueError, RuntimeError):
             return False
 
     def _valid_migration_activation_proof(
@@ -20169,17 +23469,82 @@ class ActiveSettlementRouter:
     def active_settlement_state_v1(self) -> bytes:
         """Return the exact public Router word, including pre-v2 genesis."""
 
+        if self.active_settlement_state_fault_point in {"revert", "oog"}:
+            raise RuntimeError("injected ASR1 staticcall fault")
         word = self.migration_gate.router_word
         active_address = (
             self.migration_gate.active_settlement_address
             or self.legacy_launch_hook.proxy_address
         )
-        return encode_active_settlement_state_v1(ActiveSettlementStateV1(
+        result = encode_active_settlement_state_v1(ActiveSettlementStateV1(
             _model_address20(active_address), word.generation,
             word.active_version, word.target_version,
             word.target_manifest_hash, word.target_registration_hash,
             word.phase,
         ))
+        return (
+            result if self.active_settlement_state_return_override is None
+            else self.active_settlement_state_return_override
+        )
+
+    def staticcall_active_settlement_state_v1(
+        self, calldata: bytes, *, caller: str, value: int, gas: int,
+    ) -> bytes:
+        """Executable selector-only ASR1 public getter envelope."""
+
+        _ = caller
+        if (type(calldata) is not bytes
+                or calldata != ACTIVE_SETTLEMENT_STATE_SELECTOR
+                or value != 0 or gas != ACTIVE_SETTLEMENT_STATE_GAS):
+            raise ValueError("ASR1 staticcall envelope is noncanonical")
+        return self.active_settlement_state_v1()
+
+    def migration_activation_context_v1(self) -> bytes:
+        """Return the frozen MACT lifecycle/context ABI without side effects."""
+
+        if self.migration_activation_context_fault_point in {"revert", "oog"}:
+            raise RuntimeError("injected MACT staticcall fault")
+        lifecycle = self.migration_lifecycle
+        frame = self._migration_callback_frame
+        if lifecycle is RouterMigrationLifecycle.ACTIVATING:
+            if type(frame) is not MigrationCanonicalContextV2:
+                raise ValueError("ACTIVATING Router has no exact MACT frame")
+            state = MigrationActivationContextStateV1(
+                lifecycle,
+                frame.commitment,
+                _model_address20(frame.source_settlement),
+                _model_address20(frame.target_settlement),
+                frame.router_generation,
+                frame.source_protocol_version,
+                frame.target_protocol_version,
+                frame.target_manifest_hash,
+                frame.target_registration_hash,
+            )
+        else:
+            if frame is not None:
+                raise ValueError("non-ACTIVATING Router retained MACT context")
+            state = MigrationActivationContextStateV1(
+                lifecycle, bytes(32), bytes(20), bytes(20), 0, 0, 0,
+                bytes(32), bytes(32),
+            )
+        result = encode_migration_activation_context_v1(state)
+        return (
+            result
+            if self.migration_activation_context_return_override is None
+            else self.migration_activation_context_return_override
+        )
+
+    def staticcall_migration_activation_context_v1(
+        self, calldata: bytes, *, caller: str, value: int, gas: int,
+    ) -> bytes:
+        """Executable selector-only MACT public getter envelope."""
+
+        _ = caller
+        if (type(calldata) is not bytes
+                or calldata != MIGRATION_ACTIVATION_CONTEXT_SELECTOR
+                or value != 0 or gas != MIGRATION_ACTIVATION_CONTEXT_GAS):
+            raise ValueError("MACT staticcall envelope is noncanonical")
+        return self.migration_activation_context_v1()
 
     def genesis_campaign_state_return_v1(self) -> bytes:
         if self.genesis_campaign_return_override is not None:
@@ -21248,6 +24613,11 @@ class ActiveSettlementRouter:
         successor_keys_snapshot = dict(
             self.successor_receipt_key_by_old_authorization_id
         )
+        activation_wire_snapshot = (
+            self.activation_successor_index_v1,
+            dict(self.activation_receipt_rows_v1),
+            dict(self.seat_successor_rows_v1),
+        )
         ingress_snapshot = (
             self._authorized_ingress,
             self._authorized_ingress_by_address,
@@ -21283,6 +24653,7 @@ class ActiveSettlementRouter:
                 "GENESIS_IMPORT",
                 self.legacy_launch_hook.generation,
                 0,
+                0,
                 settlement.protocol_version,
                 _model_fixed_bytes32(self.bootstrap_release_manifest_hash),
                 registration_hash,
@@ -21305,6 +24676,18 @@ class ActiveSettlementRouter:
                 self.forced_queue.accounted_liabilities,
                 self.forced_queue.total_claimable or 0,
                 self.legacy_launch_hook.owner,
+                self.settlement_chain_context_id,
+                self.address,
+                _model_fixed_bytes32(self.legacy_launch_hook.deployment_hash),
+                base_canonical_hash_v2(
+                    settlement.core, settlement.canonicalized_at_block
+                ),
+                proof.statement_digest,
+                keccak256(
+                    b"slot-chain-superseded-legacy-source-poststate-v1"
+                    + self.legacy_launch_hook.checkpoint_id
+                    + self.legacy_launch_hook.boundary_hash
+                ),
             )
             gate.mode = "ACTIVATING"
             self.migration_lifecycle = RouterMigrationLifecycle.ACTIVATING
@@ -21322,7 +24705,7 @@ class ActiveSettlementRouter:
             if self.migration_fault_point == "after_source_freeze":
                 raise RuntimeError("injected Router fault after legacy finalize")
             target_return = settlement._adopt_migration_canonical_v2(
-                context, router=self
+                context.adopt_calldata, router=self
             )
             if (target_return != context.target_return
                     or settlement.current_sequence != 0
@@ -21339,11 +24722,7 @@ class ActiveSettlementRouter:
             ))
             try:
                 queue_bootstrapped = self.forced_queue._migrate_from_router(
-                    expected_old=self.legacy_launch_hook.proxy_address,
-                    expected_new=settlement.address,
-                    expected_start=0,
-                    expected_end=0,
-                    beneficiary=context.beneficiary,
+                    context.queue_calldata,
                     router=self,
                 )
             finally:
@@ -21354,10 +24733,16 @@ class ActiveSettlementRouter:
                 raise ValueError("router bootstrap transition rejected")
             self.genesis_activation_trace.append("QMIG")
             source_maps = self.legacy_launch_hook \
-                .migration_activation_post_state_v2(router=self)
-            target_maps = settlement.migration_adoption_state_v2(router=self)
+                .migration_activation_post_state_v2(
+                    context.maps_calldata, router=self
+                )
+            target_maps = settlement.migration_adoption_state_v2(
+                context.maps_calldata, router=self
+            )
             queue_maps = self.forced_queue \
-                .migration_activation_post_state_v2(router=self)
+                .migration_activation_post_state_v2(
+                    context.maps_calldata, router=self
+                )
             if (source_maps != context.source_maps_return
                     or target_maps != context.target_maps_return
                     or queue_maps != context.queue_maps_return
@@ -21375,20 +24760,38 @@ class ActiveSettlementRouter:
                 raise ValueError("bootstrap ingress deployment failed")
             self.used_target_addresses.add(settlement.address)
             self.active_version = settlement.protocol_version
+            genesis_seat_generation = \
+                self._validate_genesis_target_generation_v1(registration)
             self.genesis_activation_receipt = MigrationActivationReceipt(
-                context.router_generation,
-                0,
-                settlement.protocol_version,
-                self.legacy_launch_hook.proxy_address,
-                settlement.address,
-                context.target_manifest_hash,
-                context.target_registration_hash,
-                0,
-                bytes(32),
-                bytes(32),
-                activation_block,
-                None,
-                None,
+                router_generation=context.router_generation,
+                old_protocol_version=0,
+                new_protocol_version=settlement.protocol_version,
+                old_target=self.legacy_launch_hook.proxy_address,
+                new_target=settlement.address,
+                target_manifest_hash=context.target_manifest_hash,
+                target_registration_hash=context.target_registration_hash,
+                seat_generation=genesis_seat_generation,
+                old_authorization_id=bytes(32),
+                new_authorization_id=bytes(32),
+                activation_block=activation_block,
+                migration_stage_id=None,
+                migration_lineup_commitment=None,
+                transition_auxiliary_hash=(
+                    legacy_genesis_abandonment_auxiliary_hash_v1(
+                        self.legacy_launch_hook
+                    )
+                ),
+            )
+            self._append_activation_receipt_v1(
+                context=context,
+                source_registration=None,
+                target_registration=registration,
+                seat_generation=genesis_seat_generation,
+                transition_auxiliary_hash=(
+                    legacy_genesis_abandonment_auxiliary_hash_v1(
+                        self.legacy_launch_hook
+                    )
+                ),
             )
             self.genesis_activation_trace.append("REGISTERED")
             if self.migration_fault_point == "after_registration":
@@ -21447,6 +24850,11 @@ class ActiveSettlementRouter:
             self.activation_receipt_keys_by_generation = receipt_keys_snapshot
             self.successor_receipt_key_by_old_authorization_id = \
                 successor_keys_snapshot
+            (
+                self.activation_successor_index_v1,
+                self.activation_receipt_rows_v1,
+                self.seat_successor_rows_v1,
+            ) = activation_wire_snapshot
             object.__setattr__(
                 self, "_authorized_ingress", ingress_snapshot[0]
             )
@@ -21555,7 +24963,10 @@ class ActiveSettlementRouter:
             registration = settlement_registration(
                 self, settlement, activation_block=clock.block_number,
                 predecessor_version=0,
-                release_manifest_hash=self.bootstrap_release_manifest_hash,
+                # The published, append-only campaign is the sole production
+                # manifest authority.  The launch helper's preview field is
+                # fixture convenience and must never influence activation.
+                release_manifest_hash=campaign.target_manifest_hash,
             )
             registration_hash = target_registration_hash_v2(registration)
             if registration_hash != campaign.target_registration_hash:
@@ -21586,6 +24997,11 @@ class ActiveSettlementRouter:
         )
         successor_keys_snapshot = dict(
             self.successor_receipt_key_by_old_authorization_id
+        )
+        activation_wire_snapshot = (
+            self.activation_successor_index_v1,
+            dict(self.activation_receipt_rows_v1),
+            dict(self.seat_successor_rows_v1),
         )
         ingress_snapshot = (
             self._authorized_ingress,
@@ -21663,8 +25079,17 @@ class ActiveSettlementRouter:
                 + boundary_hash + proof.statement_digest
                 + registration_hash + output_hash
             )
+            expected_launch_id = legacy_genesis_launch_id_v1(
+                hook.arm_id, campaign.target_protocol_version,
+                campaign.target_manifest_hash,
+                campaign.target_registration_hash,
+            )
+            expected_source_poststate = legacy_genesis_post_state_commitment_v1(
+                expected_launch_id, candidate_digest_bytes, output_hash,
+                clock.block_number, boundary_hash,
+            )
             context = MigrationCanonicalContextV2(
-                "GENESIS_IMPORT", campaign.generation, 0,
+                "GENESIS_IMPORT", campaign.generation, 0, 0,
                 settlement.protocol_version,
                 campaign.target_manifest_hash, registration_hash,
                 campaign.campaign_id, boundary_hash,
@@ -21675,6 +25100,14 @@ class ActiveSettlementRouter:
                 self.forced_queue.count, 0,
                 self.forced_queue.accounted_liabilities,
                 self.forced_queue.total_claimable or 0, hook.owner,
+                self.settlement_chain_context_id,
+                self.address,
+                _model_fixed_bytes32(hook.deployment_hash),
+                base_canonical_hash_v2(
+                    settlement.core, settlement.canonicalized_at_block
+                ),
+                proof.statement_digest,
+                expected_source_poststate,
             )
             object.__setattr__(self, "_migration_callback_frame", context)
             finalize_return = hook.finalize_legacy_cutover_v1(
@@ -21693,7 +25126,7 @@ class ActiveSettlementRouter:
                 raise RuntimeError("injected Router fault after LGFN")
 
             target_return = settlement._adopt_migration_canonical_v2(
-                context, router=self
+                context.adopt_calldata, router=self
             )
             if (target_return != context.target_return
                     or len(target_return)
@@ -21714,10 +25147,7 @@ class ActiveSettlementRouter:
             ))
             try:
                 queue_return = self.forced_queue._migrate_from_router(
-                    expected_old=hook.proxy_address,
-                    expected_new=settlement.address,
-                    expected_start=0, expected_end=0,
-                    beneficiary=context.beneficiary, router=self,
+                    context.queue_calldata, router=self,
                 )
             finally:
                 object.__setattr__(self, "_queue_transition_frame", None)
@@ -21726,10 +25156,16 @@ class ActiveSettlementRouter:
                 raise ValueError("genesis QMIG128 return rejected")
             self.genesis_activation_trace.append("QMIG")
 
-            source_maps = hook.migration_activation_post_state_v2(router=self)
-            target_maps = settlement.migration_adoption_state_v2(router=self)
+            source_maps = hook.migration_activation_post_state_v2(
+                context.maps_calldata, router=self
+            )
+            target_maps = settlement.migration_adoption_state_v2(
+                context.maps_calldata, router=self
+            )
             queue_maps = self.forced_queue \
-                .migration_activation_post_state_v2(router=self)
+                .migration_activation_post_state_v2(
+                    context.maps_calldata, router=self
+                )
             if (source_maps != context.source_maps_return
                     or target_maps != context.target_maps_return
                     or queue_maps != context.queue_maps_return
@@ -21744,13 +25180,34 @@ class ActiveSettlementRouter:
                 raise ValueError("bootstrap ingress deployment failed")
             self.used_target_addresses.add(settlement.address)
             self.active_version = settlement.protocol_version
+            genesis_seat_generation = \
+                self._validate_genesis_target_generation_v1(registration)
             self.genesis_activation_receipt = MigrationActivationReceipt(
-                context.router_generation, 0, settlement.protocol_version,
-                hook.proxy_address, settlement.address,
-                context.target_manifest_hash,
-                context.target_registration_hash, 0,
-                bytes(32), bytes(32), clock.block_number, None, None,
-                legacy_genesis_abandonment_auxiliary_hash_v1(hook),
+                router_generation=context.router_generation,
+                old_protocol_version=0,
+                new_protocol_version=settlement.protocol_version,
+                old_target=hook.proxy_address,
+                new_target=settlement.address,
+                target_manifest_hash=context.target_manifest_hash,
+                target_registration_hash=context.target_registration_hash,
+                seat_generation=genesis_seat_generation,
+                old_authorization_id=bytes(32),
+                new_authorization_id=bytes(32),
+                activation_block=clock.block_number,
+                migration_stage_id=None,
+                migration_lineup_commitment=None,
+                transition_auxiliary_hash=(
+                    legacy_genesis_abandonment_auxiliary_hash_v1(hook)
+                ),
+            )
+            self._append_activation_receipt_v1(
+                context=context,
+                source_registration=None,
+                target_registration=registration,
+                seat_generation=genesis_seat_generation,
+                transition_auxiliary_hash=(
+                    legacy_genesis_abandonment_auxiliary_hash_v1(hook)
+                ),
             )
             self.genesis_activation_trace.append("REGISTERED")
             if self.migration_fault_point == "after_registration":
@@ -21804,6 +25261,11 @@ class ActiveSettlementRouter:
             self.activation_receipt_keys_by_generation = receipt_keys_snapshot
             self.successor_receipt_key_by_old_authorization_id = \
                 successor_keys_snapshot
+            (
+                self.activation_successor_index_v1,
+                self.activation_receipt_rows_v1,
+                self.seat_successor_rows_v1,
+            ) = activation_wire_snapshot
             object.__setattr__(self, "_authorized_ingress", ingress_snapshot[0])
             object.__setattr__(
                 self, "_authorized_ingress_by_address", ingress_snapshot[1]
@@ -21826,6 +25288,301 @@ class ActiveSettlementRouter:
                 self, "_migration_callback_frame", router_snapshot[1]
             )
             return False
+
+    def activate_version_with_migration_v1(
+        self,
+        activation_proof: VerifiedMigrationExecutionOutput,
+        *,
+        caller: str,
+        clock: Clock,
+    ) -> MigrationActivationReceipt:
+        """Permissionlessly land the one live PVMv1 migration lease."""
+
+        manager = self._version_manager_authority
+        lease = getattr(manager, "migration_lease", None)
+        old_registration = self.registrations.get(self.active_version)
+        old = None if old_registration is None else old_registration.settlement
+        old_protocol = getattr(old, "live_protocol", None)
+        witness = (
+            None
+            if type(manager) is not ProtocolVersionManagerV1
+            else manager.release_witnesses.get(
+                0 if lease is None else lease.target_protocol_version
+            )
+        )
+        settlement = getattr(witness, "settlement", None)
+        if (type(manager) is not ProtocolVersionManagerV1
+                or not caller or type(clock) is not Clock
+                or manager.lifecycle != "IDLE"
+                or type(lease) is not VersionMigrationLeaseV1
+                or lease.state != 1
+                or manager.migration_arms.get(lease.arm_id) != lease
+                or clock.timestamp >= lease.abort_after_timestamp
+                or self.migration_lifecycle
+                    is not RouterMigrationLifecycle.IDLE
+                or self.migration_gate.mode != "READY"
+                or self.active_version != lease.source_protocol_version
+                or type(old) is not VersionedSettlementHistory
+                or type(old_protocol) is not Protocol
+                or type(settlement) is not VersionedSettlementHistory
+                or witness.settlement.protocol_version
+                    != lease.target_protocol_version
+                or witness.release_manifest_hash != lease.target_manifest_hash
+                or manager.live_version_migration_lease_v1()
+                    != encode_live_version_migration_lease_return_v1(lease)):
+            raise ValueError("PVMv1 migration activation frame is not exact")
+
+        target_registration = settlement_registration(
+            self,
+            settlement,
+            activation_block=clock.block_number,
+            predecessor_version=lease.source_protocol_version,
+            release_manifest_hash=lease.target_manifest_hash,
+        )
+        old_authorization_id = self._seat_authorization_id_v1(
+            old_registration
+        )
+        new_authorization_id = self._seat_authorization_id_v1(
+            target_registration
+        )
+        arm = old_protocol.seat_migration_arm
+        market = manager.market
+        if (target_registration_hash_v2(target_registration)
+                != lease.target_registration_hash
+                or target_registration.release_manifest_hash
+                    != lease.target_manifest_hash
+                or type(arm) is not SeatMigrationArm
+                or arm.router_word.phase is not RouterPhase.ARMED
+                or arm.router_word.generation != lease.generation
+                or arm.router_word.active_version
+                    != lease.source_protocol_version
+                or arm.router_word.target_version
+                    != lease.target_protocol_version
+                or arm.router_word.target_manifest_hash
+                    != lease.target_manifest_hash
+                or arm.router_word.target_registration_hash
+                    != lease.target_registration_hash
+                or old_protocol.seat_authorization_id
+                    != old_authorization_id
+                or settlement.live_protocol is None
+                or settlement.live_protocol.seat_authorization_id
+                    != new_authorization_id
+                or len(market.settlement_authorization_v1(
+                    old_authorization_id
+                )) != 256
+                or len(market.settlement_authorization_v1(
+                    new_authorization_id
+                )) != 256):
+            raise ValueError("PVMv1 activation target/Market join is inexact")
+
+        queue = self.forced_queue
+        credited = (
+            queue.deposit_prefix[activation_proof.end_cursor]
+            - queue.deposit_prefix[activation_proof.start_cursor]
+        )
+        frame = MigrationCanonicalContextV2(
+            "VERSION_MIGRATION",
+            lease.generation,
+            arm.seat_generation,
+            lease.source_protocol_version,
+            lease.target_protocol_version,
+            lease.target_manifest_hash,
+            lease.target_registration_hash,
+            bytes(32),
+            bytes(32),
+            old.address,
+            settlement.address,
+            old.current_sequence,
+            old.current_sequence + 1,
+            activation_proof.digest,
+            copy.deepcopy(activation_proof.output_core),
+            canonical_core_hash_v2(activation_proof.output_core),
+            clock.block_number,
+            activation_proof.start_cursor,
+            activation_proof.end_cursor,
+            queue.address,
+            queue.root,
+            queue.count,
+            credited,
+            queue.accounted_liabilities,
+            (queue.total_claimable or 0) + credited,
+            activation_proof.beneficiary,
+            self.settlement_chain_context_id,
+            self.address,
+            _model_fixed_bytes32(old_registration.release_manifest_hash),
+            base_canonical_hash_v2(old.core, old.canonicalized_at_block),
+            _model_fixed_bytes32(
+                activation_proof.transition_statement_digest
+            ),
+            bytes(32),
+        )
+        receipt = MigrationActivationReceipt(
+            lease.generation,
+            lease.source_protocol_version,
+            lease.target_protocol_version,
+            old.address,
+            settlement.address,
+            lease.target_manifest_hash,
+            lease.target_registration_hash,
+            arm.seat_generation,
+            old_authorization_id,
+            new_authorization_id,
+            clock.block_number,
+            arm.migration_stage_id,
+            arm.migration_lineup_commitment,
+        )
+
+        old_snapshot = old_protocol._canonical_transaction_snapshot(
+            activation_proof
+        )
+        target_refs = (
+            settlement.forced_queue,
+            settlement.inbox_apply_descriptor,
+            settlement.migration_gate,
+            settlement.live_protocol,
+            settlement._router_authority,
+        )
+        target_snapshot = copy.deepcopy({
+            key: value for key, value in settlement.__dict__.items()
+            if key not in {
+                "forced_queue", "inbox_apply_descriptor", "migration_gate",
+                "live_protocol", "_router_authority",
+            }
+        })
+        target_seat_generation = settlement.live_protocol.seat_generation
+        router_snapshot = (
+            self.active_version,
+            dict(self.registrations),
+            dict(self.activation_receipts),
+            dict(self.activation_receipt_keys_by_generation),
+            dict(self.successor_receipt_key_by_old_authorization_id),
+            set(self.used_target_addresses),
+            self._authorized_ingress,
+            self._authorized_ingress_by_address,
+            self._authorized_ingress_adapter_ids,
+            dict(self._profile_deployments_by_version),
+            self._bridge_credit_registry_authority,
+            self._source_bridge_authority,
+            self._bridge_domain_registry_authority,
+            dict(self._source_bridge_factories_by_address),
+            dict(self._source_bundles_by_descriptor_id),
+            dict(self._source_descriptor_id_by_version),
+            set(self._used_source_component_addresses),
+            self.migration_lifecycle,
+            self._migration_callback_frame,
+            self.activation_successor_index_v1,
+            dict(self.activation_receipt_rows_v1),
+            dict(self.seat_successor_rows_v1),
+        )
+        queue_snapshot = queue._transaction_snapshot()
+        source_factory_states = {
+            address: (factory, dict(factory._deployments), dict(factory._bundles))
+            for address, factory
+            in self._source_bridge_factories_by_address.items()
+            if type(factory) is ImmutableV2BridgeFactory
+        }
+        source_bundle_states: dict[int, tuple[object, ...]] = {}
+        for factory, _, bundles in source_factory_states.values():
+            for bundle in bundles.values():
+                if (len(bundle) == 5
+                        and type(bundle[0]) is SourceBridgeV2
+                        and type(bundle[1]) is BridgeCreditRegistryV2):
+                    bridge, registry = bundle[:2]
+                    source_bundle_states.setdefault(id(bridge), (
+                        bridge, bridge._transaction_snapshot(), registry,
+                        registry._authorization_snapshot(),
+                    ))
+        source_registry_state = (
+            self._bridge_domain_registry_authority._transaction_snapshot()
+            if type(self._bridge_domain_registry_authority)
+                is BridgeDomainRegistry else None
+        )
+
+        try:
+            self._enter_migration_lifecycle(
+                RouterMigrationLifecycle.ACTIVATING,
+                manager=manager,
+                frame=frame,
+            )
+            if not self._activate_version_with_proof(
+                settlement=settlement,
+                clock=clock,
+                target_manifest_hash=lease.target_manifest_hash,
+                activation_proof=activation_proof,
+                receipt=receipt,
+            ):
+                raise ValueError("PVMv1 migration activation was rejected")
+            return receipt
+        except BaseException:
+            old_protocol._restore_canonical_transaction(old_snapshot)
+            settlement.__dict__.clear()
+            settlement.__dict__.update(target_snapshot)
+            (
+                settlement.forced_queue,
+                settlement.inbox_apply_descriptor,
+                settlement.migration_gate,
+                settlement.live_protocol,
+                settlement._router_authority,
+            ) = target_refs
+            settlement.live_protocol.seat_generation = target_seat_generation
+            (
+                self.active_version,
+                self.registrations,
+                self.activation_receipts,
+                self.activation_receipt_keys_by_generation,
+                self.successor_receipt_key_by_old_authorization_id,
+                self.used_target_addresses,
+            ) = router_snapshot[:6]
+            object.__setattr__(self, "_authorized_ingress", router_snapshot[6])
+            object.__setattr__(
+                self, "_authorized_ingress_by_address", router_snapshot[7]
+            )
+            object.__setattr__(
+                self, "_authorized_ingress_adapter_ids", router_snapshot[8]
+            )
+            self._profile_deployments_by_version = router_snapshot[9]
+            object.__setattr__(
+                self, "_bridge_credit_registry_authority", router_snapshot[10]
+            )
+            object.__setattr__(
+                self, "_source_bridge_authority", router_snapshot[11]
+            )
+            object.__setattr__(
+                self, "_bridge_domain_registry_authority", router_snapshot[12]
+            )
+            self._source_bridge_factories_by_address = router_snapshot[13]
+            self._source_bundles_by_descriptor_id = router_snapshot[14]
+            self._source_descriptor_id_by_version = router_snapshot[15]
+            self._used_source_component_addresses = router_snapshot[16]
+            self.migration_lifecycle = router_snapshot[17]
+            object.__setattr__(
+                self, "_migration_callback_frame", router_snapshot[18]
+            )
+            self.activation_successor_index_v1 = router_snapshot[19]
+            self.activation_receipt_rows_v1 = router_snapshot[20]
+            self.seat_successor_rows_v1 = router_snapshot[21]
+            queue._restore_transaction_snapshot(queue_snapshot)
+            for factory, deployments, bundles in source_factory_states.values():
+                factory._deployments = deployments
+                factory._bundles = bundles
+            for bridge, bridge_state, registry, registry_state in (
+                source_bundle_states.values()
+            ):
+                bridge._restore_transaction_snapshot(
+                    bridge_state, capability=_SOURCE_BRIDGE_ROLLBACK_CAPABILITY
+                )
+                registry._restore_authorization_snapshot(
+                    registry_state,
+                    source_bridge=bridge,
+                    capability=_SOURCE_BRIDGE_ROLLBACK_CAPABILITY,
+                )
+            source_registry = self._bridge_domain_registry_authority
+            if (source_registry_state is not None
+                    and type(source_registry) is BridgeDomainRegistry):
+                source_registry._restore_transaction_snapshot(
+                    source_registry_state
+                )
+            raise
 
     def _activate_version_with_proof(
             self, *, settlement: VersionedSettlementHistory, clock: Clock,
@@ -21888,6 +25645,7 @@ class ActiveSettlementRouter:
                 or receipt.target_registration_hash
                     != frame.target_registration_hash
                 or receipt.target_manifest_hash != target_manifest_hash
+                or receipt.seat_generation != frame.seat_generation
                 or old.live_protocol is None
                 or not old.live_protocol._migration_activation_accounting_ok()
                 or not old.migration_gate._ready_views_valid_for_activation(
@@ -21938,7 +25696,9 @@ class ActiveSettlementRouter:
             return False
         old_version = self.active_version
         manager = self._version_manager_authority
-        if type(manager) is not ProtocolVersionManager:
+        if type(manager) not in {
+            ProtocolVersionManager, ProtocolVersionManagerV1
+        }:
             return False
         source_projection = (
             copy.deepcopy(old.core), old.current_sequence,
@@ -21946,7 +25706,7 @@ class ActiveSettlementRouter:
             copy.deepcopy(old.history),
         )
         source_return = old._freeze_for_migration_from_router(
-            frame, router=self
+            frame.freeze_calldata, router=self
         )
         if (source_return != frame.source_return
                 or len(source_return) != MIGRATION_SOURCE_FREEZE_RETURN_LENGTH
@@ -21960,7 +25720,7 @@ class ActiveSettlementRouter:
             raise RuntimeError("injected Router fault after source freeze")
 
         target_return = settlement._adopt_migration_canonical_v2(
-            frame, router=self
+            frame.adopt_calldata, router=self
         )
         target_entry = settlement.canonical_at(frame.target_canonical_sequence)
         if (target_return != frame.target_return
@@ -21973,6 +25733,9 @@ class ActiveSettlementRouter:
                     != frame.canonicalized_at_block
                 or settlement.last_canonical_l1_block
                     != frame.canonicalized_at_block
+                or settlement.live_protocol is None
+                or settlement.live_protocol.seat_generation
+                    != frame.seat_generation
                 or target_entry is None
                 or target_entry.canonical_sequence
                     != frame.target_canonical_sequence):
@@ -21994,7 +25757,7 @@ class ActiveSettlementRouter:
             raise ValueError("target registration changed before adoption")
         self.registrations[settlement.protocol_version] = registration
         if not self._install_profile_deployments(
-            registration, manager=manager
+            registration, manager=manager, clock=clock
         ):
             raise ValueError("target release deployments are not exact")
         self.used_target_addresses.add(settlement.address)
@@ -22021,11 +25784,7 @@ class ActiveSettlementRouter:
         ))
         try:
             queue_activated = self.forced_queue._migrate_from_router(
-                expected_old=old.address,
-                expected_new=settlement.address,
-                expected_start=frame.queue_start,
-                expected_end=frame.queue_end,
-                beneficiary=frame.beneficiary,
+                frame.queue_calldata,
                 router=self,
             )
         finally:
@@ -22035,10 +25794,14 @@ class ActiveSettlementRouter:
             raise AssertionError(
                 "validated queue switch/advance transaction failed"
             )
-        source_maps = old.migration_source_post_state_v2(router=self)
-        target_maps = settlement.migration_adoption_state_v2(router=self)
+        source_maps = old.migration_source_post_state_v2(
+            frame.maps_calldata, router=self
+        )
+        target_maps = settlement.migration_adoption_state_v2(
+            frame.maps_calldata, router=self
+        )
         queue_maps = self.forced_queue.migration_activation_post_state_v2(
-            router=self
+            frame.maps_calldata, router=self
         )
         if (source_maps != frame.source_maps_return
                 or target_maps != frame.target_maps_return
@@ -22046,6 +25809,13 @@ class ActiveSettlementRouter:
                 or any(len(row) != MIGRATION_ADOPTION_STATE_LENGTH
                        for row in (source_maps, target_maps, queue_maps))):
             raise ValueError("migration MAPS post-reads rejected")
+        self._append_activation_receipt_v1(
+            context=frame,
+            source_registration=old_registration,
+            target_registration=registration,
+            seat_generation=receipt.seat_generation,
+            transition_auxiliary_hash=bytes(32),
+        )
         active_gate = old.migration_gate
         self._leave_migration_lifecycle_before_publication(manager=manager)
         activated = active_gate._activate_from_router(
@@ -22522,7 +26292,6 @@ class ProtocolVersionManager:
             receipt_key in self.router.activation_receipts
             or old_auth_id
             in self.router.successor_receipt_key_by_old_authorization_id
-            or release_manager.activation_receipt(receipt_key) is not None
         ):
             raise ValueError("seat migration activation receipt was consumed")
 
@@ -22544,6 +26313,11 @@ class ProtocolVersionManager:
                 "_router_authority",
             }
         })
+        target_protocol_seat_generation = (
+            None
+            if settlement.live_protocol is None
+            else settlement.live_protocol.seat_generation
+        )
         router_snapshot = (
             self.router.active_version,
             dict(self.router.registrations),
@@ -22564,6 +26338,9 @@ class ProtocolVersionManager:
             set(self.router._used_source_component_addresses),
             self.router.migration_lifecycle,
             self.router._migration_callback_frame,
+            self.router.activation_successor_index_v1,
+            dict(self.router.activation_receipt_rows_v1),
+            dict(self.router.seat_successor_rows_v1),
         )
         source_factory_states = {
             address: (
@@ -22604,6 +26381,7 @@ class ProtocolVersionManager:
             context = MigrationCanonicalContextV2(
                 "VERSION_MIGRATION",
                 manifest.generation,
+                arm.seat_generation,
                 manifest.active_protocol_version,
                 manifest.target_protocol_version,
                 manifest.target_manifest_hash,
@@ -22642,6 +26420,20 @@ class ProtocolVersionManager:
                     ]
                 ),
                 activation_proof.beneficiary,
+                self.router.settlement_chain_context_id,
+                self.router.address,
+                _model_fixed_bytes32(
+                    self.router.registrations[
+                        manifest.active_protocol_version
+                    ].release_manifest_hash
+                ),
+                base_canonical_hash_v2(
+                    old_history.core, old_history.canonicalized_at_block
+                ),
+                _model_fixed_bytes32(
+                    activation_proof.transition_statement_digest
+                ),
+                bytes(32),
             )
             receipt = MigrationActivationReceipt(
                 manifest.generation,
@@ -22684,6 +26476,10 @@ class ProtocolVersionManager:
                 settlement.live_protocol,
                 settlement._router_authority,
             ) = target_authority_refs
+            if settlement.live_protocol is not None:
+                settlement.live_protocol.seat_generation = (
+                    target_protocol_seat_generation
+                )
             (
                 self.router.active_version,
                 self.router.registrations,
@@ -22729,6 +26525,9 @@ class ProtocolVersionManager:
             object.__setattr__(
                 self.router, "_migration_callback_frame", router_snapshot[18]
             )
+            self.router.activation_successor_index_v1 = router_snapshot[19]
+            self.router.activation_receipt_rows_v1 = router_snapshot[20]
+            self.router.seat_successor_rows_v1 = router_snapshot[21]
             for factory, deployments_state, bundles_state in (
                 source_factory_states.values()
             ):
@@ -22799,6 +26598,14 @@ class ProtocolVersionManager:
         records = self.cancel_manifests if cancel else self.arm_manifests
         if manifest.key in records:
             raise ValueError("scheduled seat migration manifest is append-only")
+        if not cancel and self.release_manager is not None:
+            registration = self._scheduled_target_registration(manifest)
+            if not self.router.prepare_profile_deployments_v1(
+                registration, manager=self, clock=clock
+            ):
+                raise ValueError(
+                    "scheduled release source package preparation failed"
+                )
         records[manifest.key] = manifest
         return manifest.key
 
@@ -22842,6 +26649,17 @@ class ProtocolVersionManager:
 
         if self.release_manager is None:
             return manifest.target_registration_hash
+        return target_registration_hash_v2(
+            self._scheduled_target_registration(manifest)
+        )
+
+    def _scheduled_target_registration(
+        self, manifest: ScheduledSeatMigration
+    ) -> SettlementRegistration:
+        """Rebuild the exact registered target package witness."""
+
+        if self.release_manager is None:
+            raise ValueError("scheduled target has no release manager")
         runtime = getattr(
             self.release_manager, "target_runtimes", {}
         ).get(manifest.new_authorization_id)
@@ -22855,7 +26673,10 @@ class ProtocolVersionManager:
             predecessor_version=manifest.active_protocol_version,
             release_manifest_hash=manifest.target_manifest_hash,
         )
-        return target_registration_hash_v2(registration)
+        if target_registration_hash_v2(registration) \
+                != manifest.target_registration_hash:
+            raise ValueError("scheduled target registration hash changed")
+        return registration
 
     @staticmethod
     def _response_matches(
@@ -22885,11 +26706,17 @@ class ProtocolVersionManager:
         history, protocol, gate = self._active_target()
         manifest = self.arm_manifests.get(manifest_key)
         try:
+            target_registration = (
+                None if manifest is None or self.release_manager is None
+                else self._scheduled_target_registration(manifest)
+            )
             exact_target_registration_hash = (
-                None if manifest is None
-                else self._scheduled_target_registration_hash(manifest)
+                manifest.target_registration_hash
+                if manifest is not None and self.release_manager is None
+                else target_registration_hash_v2(target_registration)
             )
         except BaseException:
+            target_registration = None
             exact_target_registration_hash = None
         if (
             manifest is None
@@ -22902,6 +26729,11 @@ class ProtocolVersionManager:
             or manifest.active_protocol_version != gate.active_protocol_version
             or manifest.target_registration_hash
                 != exact_target_registration_hash
+            or (self.release_manager is not None
+                and (type(target_registration) is not SettlementRegistration
+                     or not self.router.bridge_package_arm_ready_v1(
+                        target_registration, clock=clock
+                     )))
             or history.mode != "ACTIVE"
         ):
             raise ValueError("global seat migration arm is invalid")
@@ -23340,10 +27172,16 @@ class TerminalSignalVerifier:
         )
         if (type(self.router) is not ActiveSettlementRouter
                 or support.router is not self.router
-                or self.runtime_hash != SOURCE_TERMINAL_VERIFIER_RUNTIME_HASH
-                or self.configuration_hash not in {"", expected}):
+                or _model_fixed_bytes32(self.runtime_hash)
+                    != _model_fixed_bytes32(
+                        SOURCE_TERMINAL_VERIFIER_RUNTIME_HASH
+                    )
+                or (self.configuration_hash
+                    and _model_fixed_bytes32(self.configuration_hash)
+                        != _model_fixed_bytes32(expected))):
             raise ValueError("terminal verifier authority graph is split")
-        object.__setattr__(self, "configuration_hash", expected)
+        if not self.configuration_hash:
+            object.__setattr__(self, "configuration_hash", expected)
 
     @staticmethod
     def terminal_leaf(index: int, destination_domain_id: str,
@@ -23392,10 +27230,12 @@ class TerminalSignalVerifier:
                 and self.support_registry.router is self.router
                 and self.router._bridge_domain_registry_authority
                     is self.support_registry
-                and self.configuration_hash
-                    == source_terminal_verifier_configuration_hash(
-                        router_address=self.router.address,
-                )
+                and _model_fixed_bytes32(self.configuration_hash)
+                    == _model_fixed_bytes32(
+                        source_terminal_verifier_configuration_hash(
+                            router_address=self.router.address,
+                        )
+                    )
                 and terminal in {"DONE", "FAILED"}
                 and canonical.protocol_version == proof.protocol_version
                 and canonical.canonical_sequence
@@ -24944,14 +28784,20 @@ class SourceBridgeV2:
                 or authorization.source_bridge_address != self.address
                 or authorization.source_registry_address
                     != self.credit_registry.address
-                or authorization.source_bridge_runtime_hash
-                    != self.runtime_hash
-                or authorization.source_bridge_configuration_hash
-                    != self.configuration_hash
-                or authorization.source_registry_runtime_hash
-                    != self.credit_registry.runtime_hash
-                or authorization.source_registry_configuration_hash
-                    != self.credit_registry.configuration_hash
+                or _model_fixed_bytes32(
+                    authorization.source_bridge_runtime_hash
+                ) != _model_fixed_bytes32(self.runtime_hash)
+                or _model_fixed_bytes32(
+                    authorization.source_bridge_configuration_hash
+                ) != _model_fixed_bytes32(self.configuration_hash)
+                or _model_fixed_bytes32(
+                    authorization.source_registry_runtime_hash
+                ) != _model_fixed_bytes32(self.credit_registry.runtime_hash)
+                or _model_fixed_bytes32(
+                    authorization.source_registry_configuration_hash
+                ) != _model_fixed_bytes32(
+                    self.credit_registry.configuration_hash
+                )
                 or authorization.source_registry_domain_registrar
                     != self.source_descriptor.source_domain_registrar
                 or authorization.source_registration_epoch
@@ -25105,14 +28951,19 @@ class SourceBridgeV2:
 
 
     def support_final_clock(self, timestamp: int) -> Clock:
-        confirmed = tuple(
-            entry.confirmed_at_block
+        ready_blocks = tuple(
+            (
+                entry.staged_at_block + BRIDGE_ROUTE_ARM_REVIEW_BLOCKS
+                if entry.arm_ready_consumed
+                else entry.confirmed_at_block + SUPPORT_FINALITY_BLOCKS
+            )
             for entry in self.domain_registry.entries.values()
-            if entry.confirmed_at_block is not None
+            if (entry.arm_ready_consumed
+                or entry.confirmed_at_block is not None)
         )
-        if not confirmed:
-            raise ValueError("source Bridge has no confirmed support")
-        return Clock(max(confirmed) + SUPPORT_FINALITY_BLOCKS, timestamp)
+        if not ready_blocks:
+            raise ValueError("source Bridge has no active support")
+        return Clock(max(ready_blocks), timestamp)
 
     def credit_id_for(
         self,
@@ -25132,7 +28983,12 @@ class SourceBridgeV2:
         preimage = bridge_message_preimage(normalized_envelope)
         msg_hash = bridge_message_hash(preimage)
         support_entry = self.domain_registry.latest_final_entry(
-            preimage.destination_chain_id, clock
+            self.source_domain_id,
+            self.frozen_bridge_execution_hash,
+            preimage.destination_chain_id,
+            clock,
+            source_bridge=self.address,
+            caller=self.address,
         )
         if (support_entry is None
                 or not preimage.sender
@@ -25203,7 +29059,12 @@ class SourceBridgeV2:
         bridge_message_preimage(normalized_envelope)
         msg_hash = bridge_message_hash(normalized_preimage)
         support_entry = self.domain_registry.latest_final_entry(
-            normalized_preimage.destination_chain_id, clock
+            self.source_domain_id,
+            self.frozen_bridge_execution_hash,
+            normalized_preimage.destination_chain_id,
+            clock,
+            source_bridge=self.address,
+            caller=self.address,
         )
         destination_domain_id = (
             "" if support_entry is None
@@ -26027,11 +29888,13 @@ class BridgeAdapter:
                 )
         support_entry = (
             None if source_authorization is None
-            else credit_registry.domain_registry.final_entry(
+            else credit_registry.domain_registry.active_route_entry(
                 source_authorization.source_domain_id,
                 source_authorization.bridge_execution_hash,
-                source_authorization.destination_domain_id,
+                preimage.destination_chain_id,
                 clock_,
+                source_bridge=source_bridge.address,
+                caller=self.address,
             )
         )
         queue_descriptor = None
@@ -26276,6 +30139,7 @@ class InboxCreditStoreV2:
     pins: dict[str, InboxPin] = field(default_factory=dict)
     pinned_count: int = 0
     runtime_codehash: str = ""
+    declared_component_config_hash: str = ""
     batch_return_data: bytes = INBOX_BATCH_OK_V2_WORD
     batch_writes_enabled: bool = True
     _inbox_apply_authority: object | None = field(
@@ -26326,6 +30190,8 @@ class InboxCreditStoreV2:
 
     @property
     def component_config_hash(self) -> str:
+        if self.declared_component_config_hash:
+            return self.declared_component_config_hash
         return (f"component-config:{self.authorized_inbox_apply}:"
                 f"{self.destination_bridge}:"
                 f"{self.terminal_registrar}")
@@ -28444,6 +32310,7 @@ def release_deployment_witness_for_test(
         address=store_row.address,
         terminal_registrar=registrar.address,
         runtime_codehash=store_row.runtime_hash,
+        declared_component_config_hash=store_row.config_hash,
     )
     endpoint = EndpointActivationStateV2()
     deployment = bridge_deployment_state_for_test(manifest)
@@ -29282,7 +33149,8 @@ class InboxApplyRouterV2:
         self, registrar: "TerminalDomainRegistrarV2"
     ) -> bool:
         if (type(registrar) is not TerminalDomainRegistrarV2
-                or registrar.address != self.registrar
+                or _model_address20(registrar.address)
+                    != _model_address20(self.registrar)
                 or registrar.inbox_router is not self):
             return False
         existing = self._terminal_registrar_authority
@@ -29506,8 +33374,11 @@ class TerminalAccumulatorV2:
 
     def __post_init__(self) -> None:
         if (not self.registrar or not self.address
-                or self.runtime_hash != "code:accumulator"
-                or self.configuration_hash != "cfg:accumulator"):
+                or _model_address20(self.registrar) == bytes(20)
+                or _model_address20(self.address) == bytes(20)
+                or _model_fixed_bytes32(self.runtime_hash) == bytes(32)
+                or _model_fixed_bytes32(self.configuration_hash)
+                    == bytes(32)):
             raise ValueError("terminal accumulator deployment is invalid")
         if (type(self.frontier) is not list
                 or len(self.frontier) != TERMINAL_TREE_DEPTH
@@ -30593,14 +34464,26 @@ class ProtocolReleaseAuthorityV2:
     runtime_hash: str = "code:authority"
     configuration_hash: str = "cfg:authority"
     system_sender: str = "system:anchor"
+    manifest_namespace: str = "manifest:v2"
     releases: dict[int, bytes] = field(default_factory=dict)
     release_manifests: dict[tuple[int, bytes], ReleaseManifestV2] = field(
         default_factory=dict
     )
 
+    def __post_init__(self) -> None:
+        if (not self.address or not self.runtime_hash
+                or not self.configuration_hash or not self.system_sender
+                or not self.manifest_namespace
+                or _model_address20(self.address) == bytes(20)
+                or _model_fixed_bytes32(self.runtime_hash) == bytes(32)
+                or _model_fixed_bytes32(self.configuration_hash)
+                    == bytes(32)):
+            raise ValueError("release authority deployment is invalid")
+
     def __setattr__(self, name: str, value: object) -> None:
         if name in {
-            "address", "runtime_hash", "configuration_hash", "system_sender"
+            "address", "runtime_hash", "configuration_hash", "system_sender",
+            "manifest_namespace",
         } and name in self.__dict__:
             raise AttributeError(f"release authority {name} is immutable")
         object.__setattr__(self, name, value)
@@ -30612,6 +34495,8 @@ class ProtocolReleaseAuthorityV2:
                 or caller.address != manifest.anchor
                 or caller.runtime_hash != manifest.anchor_runtime_hash
                 or tx_origin != self.system_sender
+                or _model_fixed_bytes32(manifest.manifest_namespace)
+                    != _model_fixed_bytes32(self.manifest_namespace)
                 or caller.active_release_manifest_hash != manifest_hash):
             return False
         existing = self.releases.get(manifest.protocol_version)
@@ -31381,9 +35266,12 @@ class TerminalDomainRegistrarV2:
 
     def __post_init__(self) -> None:
         if (not self.address
-                or self.runtime_hash != "code:registrar"
-                or self.configuration_hash != "cfg:registrar"
-                or self.address != self.inbox_router.registrar
+                or _model_address20(self.address) == bytes(20)
+                or _model_fixed_bytes32(self.runtime_hash) == bytes(32)
+                or _model_fixed_bytes32(self.configuration_hash)
+                    == bytes(32)
+                or _model_address20(self.address)
+                    != _model_address20(self.inbox_router.registrar)
                 or self.address != self.accumulator.registrar
                 or not self.liquidity_pool._bind_registrar_once(self)
                 or not self.inbox_router._bind_terminal_registrar(self)
@@ -31407,28 +35295,43 @@ class TerminalDomainRegistrarV2:
             else ReleaseComponentV2("", "", "")
         lifetime_rows_exact = (
             len(manifest.components) == 10
-            and manifest.components[3] == ReleaseComponentV2(
-                self.inbox_router.address,
-                self.inbox_router.runtime_hash,
-                self.inbox_router.configuration_hash,
-            )
-            and manifest.components[5] == ReleaseComponentV2(
-                self.authority.address,
-                self.authority.runtime_hash,
-                self.authority.configuration_hash,
-            )
-            and manifest.components[6] == ReleaseComponentV2(
-                self.address, self.runtime_hash, self.configuration_hash,
-            )
-            and manifest.components[7] == ReleaseComponentV2(
-                self.accumulator.address,
-                self.accumulator.runtime_hash,
-                self.accumulator.configuration_hash,
-            )
-            and manifest.components[8] == ReleaseComponentV2(
-                self.liquidity_pool.address,
-                self.liquidity_pool.runtime_hash,
-                self.liquidity_pool.configuration_hash,
+            and all(
+                _model_address20(expected.address)
+                    == _model_address20(actual.address)
+                and _model_fixed_bytes32(expected.runtime_hash)
+                    == _model_fixed_bytes32(actual.runtime_hash)
+                and _model_fixed_bytes32(expected.config_hash)
+                    == _model_fixed_bytes32(actual.config_hash)
+                for expected, actual in zip(
+                    (manifest.components[index]
+                     for index in (3, 5, 6, 7, 8)),
+                    (
+                        ReleaseComponentV2(
+                            self.inbox_router.address,
+                            self.inbox_router.runtime_hash,
+                            self.inbox_router.configuration_hash,
+                        ),
+                        ReleaseComponentV2(
+                            self.authority.address,
+                            self.authority.runtime_hash,
+                            self.authority.configuration_hash,
+                        ),
+                        ReleaseComponentV2(
+                            self.address, self.runtime_hash,
+                            self.configuration_hash,
+                        ),
+                        ReleaseComponentV2(
+                            self.accumulator.address,
+                            self.accumulator.runtime_hash,
+                            self.accumulator.configuration_hash,
+                        ),
+                        ReleaseComponentV2(
+                            self.liquidity_pool.address,
+                            self.liquidity_pool.runtime_hash,
+                            self.liquidity_pool.configuration_hash,
+                        ),
+                    ),
+                )
             )
         )
         if (type(self._activation_frame) is not tuple
@@ -31523,101 +35426,150 @@ class TerminalDomainRegistrarV2:
         return True
 
 
+def release_authority_for_manifest_v2(
+    manifest: ReleaseManifestV2,
+) -> ProtocolReleaseAuthorityV2:
+    """Materialize the exact lifetime authority constructor from a manifest."""
+
+    if type(manifest) is not ReleaseManifestV2 or not manifest.structurally_valid():
+        raise ValueError("release authority manifest is malformed")
+    words = _execution_profile_abi_words_v2(
+        manifest.execution_profile.canonical_profile_bytes
+    )
+    row = manifest.components[5]
+    return ProtocolReleaseAuthorityV2(
+        row.address, row.runtime_hash, row.config_hash,
+        "0x" + words[159][12:].hex(), manifest.manifest_namespace,
+    )
+
+
+def deploy_manifest_release_execution_graph_v2(
+    protocol: Protocol, manifest: ReleaseManifestV2,
+) -> TerminalDomainRegistrarV2:
+    """Instantiate the fresh manifest-pinned destination lifetime graph.
+
+    The launch factory calls this once, before genesis publication.  It is not
+    an upgrade hook: any live registration, route, pool ticket, or terminal
+    leaf makes replacement impossible.
+    """
+
+    if (type(protocol) is not Protocol
+            or type(manifest) is not ReleaseManifestV2
+            or not manifest.structurally_valid()):
+        raise ValueError("release execution graph input is malformed")
+    inbox = protocol.inbox_apply_router
+    existing = inbox._terminal_registrar_authority
+    if type(existing) is not TerminalDomainRegistrarV2:
+        raise ValueError("release execution graph has no launch registrar")
+    expected_inbox = manifest.components[3]
+    if (inbox.routes or existing.registrations or existing.bridge_identities
+            or existing.bridge_activation_receipts
+            or existing.active_destination_bridge
+            or existing.retirement_queue_watermarks
+            or existing.accumulator.count != 0
+            or existing.accumulator.domains
+            or existing.liquidity_pool.active
+            or existing.liquidity_pool.tickets
+            or existing.liquidity_pool.total_available != 0
+            or _model_address20(inbox.address)
+                != _model_address20(expected_inbox.address)
+            or _model_fixed_bytes32(inbox.runtime_hash)
+                != _model_fixed_bytes32(expected_inbox.runtime_hash)
+            or _model_fixed_bytes32(inbox.configuration_hash)
+                != _model_fixed_bytes32(expected_inbox.config_hash)):
+        raise ValueError("release execution graph is not fresh and exact")
+    registrar_row = manifest.components[6]
+    accumulator_row = manifest.components[7]
+    authority = release_authority_for_manifest_v2(manifest)
+    accumulator = TerminalAccumulatorV2(
+        {}, registrar=registrar_row.address,
+        address=accumulator_row.address,
+        runtime_hash=accumulator_row.runtime_hash,
+        configuration_hash=accumulator_row.config_hash,
+    )
+    pool = NativeLiquidityPoolV2(
+        destination_chain_id=manifest.destination_chain_id
+    )
+    object.__setattr__(inbox, "_terminal_registrar_authority", None)
+    registrar = TerminalDomainRegistrarV2(
+        authority, accumulator, inbox, pool,
+        address=registrar_row.address,
+        runtime_hash=registrar_row.runtime_hash,
+        configuration_hash=registrar_row.config_hash,
+    )
+    return registrar
+
+
 def release_manifest_fixture(protocol_version: int, domain_id: str,
                              bridge: str, store: InboxCreditStoreV2,
                              anchor: str | None = None, *,
                              router: ActiveSettlementRouter) -> ReleaseManifestV2:
     _ = domain_id  # Legacy fixture argument; the canonical graph derives it.
-    anchor_address = anchor or f"anchor:v{protocol_version}"
-    adapter_address = {
-        "bridge:A": "bridge-inbox-adapter",
-        "bridge:B": "bridge-inbox-adapter:d2",
-        "bridge:replacement": "bridge-inbox-adapter:replacement",
-    }.get(bridge, f"bridge-inbox-adapter:{bridge}")
-    source_descriptor = canonical_source_bridge_descriptor(
-        router.settlement_chain_context_id, router
-    )
-    source_configuration = bridge_credit_registry_configuration_hash(
-        address=source_descriptor.bridge_credit_registry,
-        runtime_hash=BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH,
-        domain_registrar=source_descriptor.source_domain_registrar,
-        frozen_bridge=source_descriptor.source_bridge,
-        support_registry_address=source_descriptor.support_registry_address,
-        support_registry_runtime_hash=(
-            source_descriptor.support_registry_runtime_hash
-        ),
-        support_registry_configuration_hash=(
-            source_descriptor.support_registry_configuration_hash
-        ),
-        source_chain_id=1,
-        source_domain_id=source_descriptor.source_domain_id,
-        source_registration_epoch=(
-            source_descriptor.source_registration_epoch
-        ),
-        frozen_bridge_execution_hash=source_descriptor.bridge_execution_hash,
-        source_descriptor_id=source_descriptor.descriptor_id,
-    )
-    source_bridge_configuration = (
-        source_bridge_configuration_hash_for_descriptor(
-            source_descriptor,
-            source_descriptor.bridge_credit_registry,
-            BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH,
-            source_configuration,
-        )
-    )
-    adapter_configuration = bridge_ingress_component_configuration_hash(
-        router_address=router.address,
-        router_runtime_hash=router.runtime_hash,
-        router_configuration_hash=router.configuration_hash,
-        queue_address=router.forced_queue.address,
-        queue_runtime_hash=router.forced_queue.runtime_hash,
-        queue_configuration_hash=router.forced_queue.config_hash,
-        source_registry_address=source_descriptor.bridge_credit_registry,
-        source_registry_runtime_hash=BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH,
-        source_registry_configuration_hash=source_configuration,
-        source_bridge_address=source_descriptor.source_bridge,
-        source_bridge_runtime_hash=source_descriptor.bridge_facade_runtime_hash,
-        source_bridge_configuration_hash_=source_bridge_configuration,
-        seal_authority=router.version_manager,
-    )
-    components, bridge_descriptor, _, descriptor = (
-        canonical_destination_release_topology(
-            router,
-            adapter_address=adapter_address,
-            adapter_configuration_hash=adapter_configuration,
-            destination_bridge=bridge,
-        )
-    )
-    object.__setattr__(store, "address", components[4].address)
-    object.__setattr__(store, "runtime_codehash", components[4].runtime_hash)
-    object.__setattr__(
-        store, "destination_domain_id", descriptor.destination_domain_id
-    )
     registered = router.registrations.get(protocol_version)
-    execution_profile = (
-        registered.execution_profile
-        if registered is not None
-        else execution_profile_for_test(
-            protocol_version, f"profile:{protocol_version}"
+    if type(registered) is SettlementRegistration:
+        manifest = registered.release_manifest
+        object.__setattr__(store, "address", manifest.components[4].address)
+        object.__setattr__(
+            store, "authorized_inbox_apply",
+            router.inbox_apply_descriptor.address,
         )
+        object.__setattr__(
+            store, "destination_bridge", manifest.destination_bridge
+        )
+        object.__setattr__(
+            store, "terminal_registrar", manifest.components[6].address
+        )
+        object.__setattr__(
+            store, "runtime_codehash", manifest.components[4].runtime_hash
+        )
+        object.__setattr__(
+            store, "declared_component_config_hash",
+            manifest.components[4].config_hash,
+        )
+        object.__setattr__(
+            store, "destination_domain_id", manifest.destination_domain_id
+        )
+        return manifest
+    _ = (domain_id, bridge, anchor)  # Strict profiles derive all three.
+    predecessor = max(
+        (version for version in router.registrations
+         if version < protocol_version),
+        default=0,
     )
-    return ReleaseManifestV2(
-        protocol_version, 1, descriptor.destination_chain_id,
-        descriptor.destination_genesis_hash,
-        execution_profile.execution_profile_hash,
-        "manifest:v2", "domain-namespace:v2",
-        anchor_address,
-        f"code:{anchor_address}",
-        descriptor.destination_domain_id, bridge,
-        bridge_descriptor.execution_hash, bridge_descriptor,
-        descriptor.destination_infrastructure_hash,
-        execution_profile.migration_transition_verifier_descriptor,
-        router.registrations[router.active_version].ingress_authorization_root,
-        NATIVE_LIQUIDITY_POOL,
-        NATIVE_LIQUIDITY_POOL_RUNTIME_HASH,
-        NATIVE_LIQUIDITY_POOL_CONFIGURATION_HASH,
-        components,
-        execution_profile)
+    active_registration = router.registrations.get(router.active_version)
+    if type(active_registration) is not SettlementRegistration:
+        raise ValueError("successor release has no active namespace root")
+    execution_profile = bind_execution_profile_to_router_graph_v2(
+        execution_profile_for_test(
+            protocol_version, active_registration.execution_profile.namespace
+        ),
+        router,
+    )
+    derived = derive_register_release_authority_v2(
+        execution_profile.canonical_profile_bytes, predecessor
+    )
+    manifest = release_manifest_from_profile_v2(execution_profile, derived)
+    object.__setattr__(store, "address", manifest.components[4].address)
+    object.__setattr__(
+        store, "authorized_inbox_apply", router.inbox_apply_descriptor.address
+    )
+    object.__setattr__(
+        store, "destination_bridge", manifest.destination_bridge
+    )
+    object.__setattr__(
+        store, "terminal_registrar", manifest.components[6].address
+    )
+    object.__setattr__(
+        store, "runtime_codehash", manifest.components[4].runtime_hash
+    )
+    object.__setattr__(
+        store, "declared_component_config_hash",
+        manifest.components[4].config_hash,
+    )
+    object.__setattr__(
+        store, "destination_domain_id", manifest.destination_domain_id
+    )
+    return manifest
 
 
 _RELEASE_SYSTEM_EXECUTION_CAPABILITY = object()
@@ -33228,7 +37180,10 @@ class DestinationBridgeLedger:
         descriptor = self.release_manifest.destination_bridge_descriptor
         return (
             not message_.to
-            or message_.to in descriptor.privileged_target_denyset
+            or _model_address20(message_.to) in {
+                _model_address20(target)
+                for target in descriptor.privileged_target_denyset
+            }
         )
 
     @staticmethod
@@ -33610,7 +37565,10 @@ class DestinationBridgeLedger:
         if version != "V2":
             return True
         descriptor = self.release_manifest.destination_bridge_descriptor
-        return bool(target) and target not in descriptor.privileged_target_denyset
+        return bool(target) and _model_address20(target) not in {
+            _model_address20(row)
+            for row in descriptor.privileged_target_denyset
+        }
 
 
 
@@ -34497,6 +38455,7 @@ def routed_ingress_for_test(
             return router
         raise ValueError("test Protocol already has an unrouted history")
     queue = protocol_.forced_queue
+    evolved_seat_generation = protocol_.seat_generation
     preloaded = tuple(queue.descriptors)
     preload_cursor = queue.cursor
     preload_surplus = queue.escrow_balance - queue.accounted_liabilities
@@ -34534,6 +38493,9 @@ def routed_ingress_for_test(
         live_protocol=protocol_,
         inbox_apply_descriptor=protocol_.inbox_apply_descriptor,
         header_oracle=protocol_.header_oracle,
+        market_runtime_hash=_model_fixed_bytes32(
+            f"runtime:ingress:{protocol_version}"
+        ),
         execution_profile=execution_profile,
         release_profile_ingress_specs=(
             release_profile_ingress_specs
@@ -34564,6 +38526,7 @@ def routed_ingress_for_test(
     bootstrap_proof = prepare_genesis_activation_for_test(
         router, history, bootstrap_clock
     )
+    protocol_.seat_generation = 0
     if not router.bootstrap(
         history,
         sequence=0,
@@ -34572,6 +38535,7 @@ def routed_ingress_for_test(
         proof=bootstrap_proof,
     ):
         raise AssertionError("failed to route property-test Protocol")
+    protocol_.seat_generation = evolved_seat_generation
     for row in preloaded:
         appended = queue._append_from_router(
             row, deposit=row.prepaid, due_at=row.due_at, router=router
@@ -34623,6 +38587,10 @@ def deploy_active_settlement_router(
                 "", settlement.address, "active-settlement-router"
             }):
         raise ValueError("launch Queue authority is not the legacy proxy")
+    if migration_gate.coordinator == "":
+        object.__setattr__(migration_gate, "coordinator", version_manager)
+    elif migration_gate.coordinator != version_manager:
+        raise ValueError("launch gate coordinator differs from PVM")
     router = ActiveSettlementRouter(
         version_manager,
         forced_queue,
@@ -34632,12 +38600,27 @@ def deploy_active_settlement_router(
         legacy_hook,
         **kwargs,
     )
+    # Fixture launch follows the production choreography: Router/PVM/Queue
+    # addresses are planned first, then the immutable release profile is
+    # materialized from that acyclic graph before any registration exists.
+    bound_profile = bind_execution_profile_to_router_graph_v2(
+        settlement.execution_profile, router
+    )
+    object.__setattr__(settlement, "execution_profile", bound_profile)
+    object.__setattr__(
+        settlement, "execution_profile_hash", bound_profile.execution_profile_hash
+    )
     preview = settlement_registration(
         router,
         settlement,
         activation_block=0,
         predecessor_version=0,
         release_manifest_hash=None,
+    )
+    if settlement.live_protocol is None:
+        raise ValueError("launch release has no executable Settlement target")
+    deploy_manifest_release_execution_graph_v2(
+        settlement.live_protocol, preview.release_manifest
     )
     object.__setattr__(
         router,
@@ -34816,7 +38799,7 @@ def activate_ingress_adapter_for_test(
     clock: Clock,
     address: str | None = None,
     source_bridge: SourceBridgeV2 | None = None,
-    destination_bridge: str = "bridge:A",
+    destination_bridge: str | None = None,
 ) -> Kind0IngressAdapter | BridgeAdapter:
     """Exercise release-factory and permissionless ingress activation."""
 
@@ -34829,14 +38812,11 @@ def activate_ingress_adapter_for_test(
     if not router._install_profile_deployments(
             registration, manager=manager):
         raise AssertionError("release deployments are unavailable")
-    expected_address = address or (
-        "kind0-adapter"
-        if kind is ForceKind.USER_TX
-        else "bridge-inbox-adapter"
+    matching = tuple(
+        row for row in registration.ingress_authorizations
+        if row.kind is kind and (address is None or row.adapter_address == address)
     )
-    authorization = registration.ingress_authorizations_by_address.get(
-        expected_address
-    )
+    authorization = matching[0] if len(matching) == 1 else None
     if (type(authorization) is not ProfileIngressAuthorization
             or authorization.kind is not kind):
         raise ValueError("unsupported forced-ingress kind")
@@ -34853,7 +38833,9 @@ def activate_ingress_adapter_for_test(
                 or (source_bridge is not None
                     and source_bridge is not exact_source)
                 or adapter.credit_registry is not exact_source.credit_registry
-                or authorization.destination_bridge != destination_bridge
+                or (destination_bridge is not None
+                    and authorization.destination_bridge
+                        != destination_bridge)
                 or adapter.credit_registry.domain_registry.router is not router):
             raise ValueError("Bridge adapter is absent from exact support profile")
         finalized = adapter.source_bridge.support_final_clock(clock.timestamp)
@@ -35714,7 +39696,7 @@ def test_registry_liability_and_release_units() -> None:
           churn.movement_sequence == 4 * (MAX_LIVE_WINDOWS + 1)
           and len(churn.liabilities) == MAX_LIABILITY_GENERATIONS)
 
-    bounded_gate = MigrationGate()
+    bounded_gate = MigrationGate(coordinator="version-manager")
     assert bounded_gate._bootstrap_from_router(1)
     bounded = RegistryLifecycle(
         [Generation("long-lived", 10, 0, 0)], migration_gate=bounded_gate)
@@ -35727,7 +39709,7 @@ def test_registry_liability_and_release_units() -> None:
           and bounded.settle_reservations_before(2_015) == 16
           and len(bounded.open_reservations) == 1)
 
-    churn_gate = MigrationGate()
+    churn_gate = MigrationGate(coordinator="version-manager")
     assert churn_gate._bootstrap_from_router(1)
     reservation_churn = RegistryLifecycle(
         [Generation(f"seat-{index}", index + 1, index, 0)
@@ -35852,7 +39834,7 @@ def test_data_gc_reorg_and_geometry() -> None:
     source = source_bridge_for_test(bridge_router)
     adapter = activate_ingress_adapter_for_test(
         bridge_router, kind=ForceKind.BRIDGE_CREDIT, clock=prepared_clock,
-        source_bridge=source, destination_bridge="bridge:A",
+        source_bridge=source,
     )
     d2_protocol = protocol()
     d2_router = routed_ingress_for_test(
@@ -35869,8 +39851,7 @@ def test_data_gc_reorg_and_geometry() -> None:
     source_d2 = source_bridge_for_test(d2_router)
     adapter_d2 = activate_ingress_adapter_for_test(
         d2_router, kind=ForceKind.BRIDGE_CREDIT, clock=prepared_clock,
-        source_bridge=source_d2, destination_bridge="bridge:B",
-        address="bridge-inbox-adapter:d2",
+        source_bridge=source_d2,
     )
     enqueue_by = prepared_clock.timestamp + MAX_BRIDGE_ENQUEUE_DELAY
     bridge_envelopes: dict[tuple[int, str], BridgeAdmissionEnvelope] = {}
@@ -36042,16 +40023,32 @@ def test_data_gc_reorg_and_geometry() -> None:
         active_settlement_address="legacy-proxy:settlement:2")
     support_inbox_apply = InboxApplyRouterV2(next_queue_index=0)
     support_header_oracle = make_header_oracle([])
+    support_gate = MigrationGate()
     support_profile = execution_profile_for_test(2, "profile:2")
+    support_protocol = protocol(
+        tip_slot=support_core.tip_slot, cursor=0, seat=False,
+        forced_queue=shared_queue, inbox_apply_router=support_inbox_apply,
+        header_oracle=support_header_oracle, migration_gate=support_gate,
+        settlement_address="settlement:2",
+    )
+    support_protocol.canonical = Canonical(copy.deepcopy(support_core), 40)
+    support_protocol.seat_generation = 0
     support_settlement = VersionedSettlementHistory(
         "settlement:2", "runtime:2", 2,
         support_profile.execution_profile_hash,
         copy.deepcopy(support_core), 40, shared_queue,
         execution_profile=support_profile,
+        migration_gate=support_gate,
+        live_protocol=support_protocol,
         inbox_apply_descriptor=inbox_apply_deployment_descriptor(
             support_inbox_apply
         ),
+        market_runtime_hash=_model_fixed_bytes32("runtime:2"),
         header_oracle=support_header_oracle)
+    object.__setattr__(
+        support_protocol, "settlement_address", support_settlement.address
+    )
+    support_protocol.versioned_history = support_settlement
     support_router = deploy_active_settlement_router(
         support_settlement,
         "version-manager", shared_queue, support_inbox_apply,
@@ -36077,7 +40074,7 @@ def test_data_gc_reorg_and_geometry() -> None:
     support_authorization = support_registration.ingress_authorizations_by_address[
         support_manifest.components[0].address
     ]
-    support_authority = ProtocolReleaseAuthorityV2()
+    support_authority = release_authority_for_manifest_v2(support_manifest)
     support_anchor = AnchorV4Model(
         support_manifest.anchor,
         support_manifest.anchor_runtime_hash,
@@ -36497,8 +40494,25 @@ def test_data_gc_reorg_and_geometry() -> None:
               for field_ in SourceBridgeDescriptor.__dataclass_fields__.values()
           ))
 
+    inbox_protocol = protocol(
+        cursor=0,
+        seat=False,
+        messages=[],
+        inbox_apply_router=InboxApplyRouterV2(next_queue_index=0),
+    )
+    inbox_router = routed_ingress_for_test(inbox_protocol)
     inbox_store = InboxCreditStoreV2(
         "inbox-apply", "bridge:A", d1_domain)
+    manifest_v1 = release_manifest_fixture(
+        1, d1_domain, "bridge:A", inbox_store, router=inbox_router)
+    inbox_store_d2 = InboxCreditStoreV2(
+        "inbox-apply", "bridge:B", d2_domain)
+    manifest_v2 = release_manifest_fixture(
+        2, d2_domain, "bridge:B", inbox_store_d2, router=inbox_router)
+    # Queue rows must use the exact release-derived domains, not aliases from
+    # another Router fixture.
+    d1_domain = manifest_v1.destination_domain_id
+    d2_domain = manifest_v2.destination_domain_id
     inbox_descriptors: list[Message] = [
         message(1, f"inbox-prefix:{i}")
         for i in range(70)
@@ -36515,13 +40529,6 @@ def test_data_gc_reorg_and_geometry() -> None:
         replace(bridge_queue_descriptor_for_test(
             1, "inbox:D2:failing", d2_domain), due_at=UINT64_MAX),
     ))
-    inbox_protocol = protocol(
-        cursor=0,
-        seat=False,
-        messages=[],
-        inbox_apply_router=InboxApplyRouterV2(next_queue_index=0),
-    )
-    inbox_router = routed_ingress_for_test(inbox_protocol)
     for descriptor in inbox_descriptors:
         assert inbox_protocol.forced_queue._append_from_router(
             descriptor,
@@ -36542,8 +40549,6 @@ def test_data_gc_reorg_and_geometry() -> None:
     assert type(registrar) is TerminalDomainRegistrarV2
     accumulator = registrar.accumulator
     release_authority = registrar.authority
-    manifest_v1 = release_manifest_fixture(
-        1, d1_domain, "bridge:A", inbox_store, router=bridge_router)
     anchor_v1 = AnchorV4Model(
         manifest_v1.anchor, manifest_v1.anchor_runtime_hash,
         manifest_v1.commitment)
@@ -36574,7 +40579,7 @@ def test_data_gc_reorg_and_geometry() -> None:
     failed_store = InboxCreditStoreV2(
         "inbox-apply", "bridge:C", "domain:D3")
     manifest_v3 = release_manifest_fixture(
-        3, "domain:D3", "bridge:C", failed_store, router=bridge_router)
+        3, "domain:D3", "bridge:C", failed_store, router=inbox_router)
     anchor_v3 = AnchorV4Model(
         manifest_v3.anchor, manifest_v3.anchor_runtime_hash,
         manifest_v3.commitment)
@@ -36596,10 +40601,10 @@ def test_data_gc_reorg_and_geometry() -> None:
         "inbox-apply", "bridge:E", "domain:D5")
     manifest_v4 = release_manifest_fixture(
         4, "domain:D4", "bridge:D", cross_chain_store,
-        router=bridge_router)
+        router=inbox_router)
     manifest_v5 = release_manifest_fixture(
         5, "domain:D5", "bridge:E", local_code_store,
-        router=bridge_router)
+        router=inbox_router)
     bad_l1_anchor = AnchorV4Model(
         manifest_v4.anchor, manifest_v4.anchor_runtime_hash,
         "manifest:foreign")
@@ -36681,9 +40686,9 @@ def test_data_gc_reorg_and_geometry() -> None:
           accumulator.append_terminal(
               caller=destination, credit_id=credit_a) is None
           and destination.accepts_message_target(
-              "terminal-accumulator", version="V1")
+              manifest_v1.components[7].address, version="V1")
           and not destination.accepts_message_target(
-              "terminal-accumulator", version="V2"))
+              manifest_v1.components[7].address, version="V2"))
     check("P50da source and destination share no cross-chain object state",
           destination is not source
           and destination.execution_environment.chain_id
@@ -36691,11 +40696,19 @@ def test_data_gc_reorg_and_geometry() -> None:
           and all(value is not source
                   for value in destination.__dict__.values()))
     check("P50db release policy pins the complete privileged-call denyset",
-          {"signal-service", "delegate-controller",
-           manifest_v1.destination_bridge_descriptor.native_quota_manager,
-           *V1_OFFICIAL_VAULT_ADDRESSES}.issubset(
-               set(manifest_v1.destination_bridge_descriptor
-                   .privileged_target_denyset))
+          all(
+              _model_address20(target) in {
+                  _model_address20(row)
+                  for row in manifest_v1.destination_bridge_descriptor
+                      .privileged_target_denyset
+              }
+              for target in {
+                  "signal-service", "delegate-controller",
+                  manifest_v1.destination_bridge_descriptor
+                      .native_quota_manager,
+                  *V1_OFFICIAL_VAULT_ADDRESSES,
+              }
+          )
           and manifest_v1.destination_bridge_descriptor.post_call_gas_reserve
               == V2_POST_CALL_GAS_RESERVE)
     assert destination.set_paused(
@@ -36817,7 +40830,7 @@ def test_data_gc_reorg_and_geometry() -> None:
         "domain:malformed",
         "bridge:malformed",
         malformed_store,
-        router=bridge_router,
+        router=inbox_router,
     )
     malformed_accumulator = TerminalAccumulatorV2({
         malformed_manifest.destination_domain_id:
@@ -36888,10 +40901,6 @@ def test_data_gc_reorg_and_geometry() -> None:
           and malformed_credit not in malformed_terminal.status
           and malformed_credit not in malformed_terminal.terminal_index
           and malformed_accumulator.count == count_before_malformed)
-    inbox_store_d2 = InboxCreditStoreV2(
-        "inbox-apply", "bridge:B", d2_domain)
-    manifest_v2 = release_manifest_fixture(
-        2, d2_domain, "bridge:B", inbox_store_d2, router=bridge_router)
     anchor_v2 = AnchorV4Model(
         manifest_v2.anchor, manifest_v2.anchor_runtime_hash,
         manifest_v2.commitment)
@@ -36920,15 +40929,20 @@ def test_data_gc_reorg_and_geometry() -> None:
           and accumulator.count == preserved_count
           and not endpoint_v2.bridge_account_absent
           and endpoint_v2.bridge_accounting_empty
-          and accumulator.domains[d1_domain] == "bridge:A")
+          and accumulator.domains[manifest_v1.destination_domain_id]
+              == manifest_v1.destination_bridge)
     reused_endpoint_state = copy.deepcopy(endpoint_v2)
+    manifest_v7_store = InboxCreditStoreV2(
+        "inbox-apply", "bridge:unused-v7", "domain:unused-v7"
+    )
     manifest_v7 = release_manifest_fixture(
-        7, d2_domain, "bridge:B", inbox_store_d2, router=bridge_router)
+        7, d2_domain, "bridge:B", manifest_v7_store,
+        router=inbox_router)
     partial_endpoint_state = copy.deepcopy(endpoint_v2)
     store_v6 = InboxCreditStoreV2(
         "inbox-apply", "bridge:F", "domain:D6")
     manifest_v6 = release_manifest_fixture(
-        6, "domain:D6", "bridge:F", store_v6, router=bridge_router)
+        6, "domain:D6", "bridge:F", store_v6, router=inbox_router)
     check("P50co every successor requires a fresh domain and Bridge",
           not execute_release_activation_for_test(
               inbox_protocol._inbox_execution_authority,
@@ -36949,7 +40963,7 @@ def test_data_gc_reorg_and_geometry() -> None:
     store_v8 = InboxCreditStoreV2(
         "inbox-apply", "bridge:G", "domain:D8")
     manifest_v8 = release_manifest_fixture(
-        8, "domain:D8", "bridge:G", store_v8, router=bridge_router)
+        8, "domain:D8", "bridge:G", store_v8, router=inbox_router)
     valid_v8_deployment = bridge_deployment_state_for_test(manifest_v8)
     substituted_immutable_account = replace(
         valid_v8_deployment,
@@ -36991,12 +41005,41 @@ def test_data_gc_reorg_and_geometry() -> None:
         quota=2 * DESTINATION_NATIVE_LIQUIDITY_FLOOR,
         timestamp=pin_now + 1,
     )
-    assert source_d2._mark_queued_from_adapter(
-        credit_d2, 99, adapter=adapter_d2)
+    # This isolated terminal-path fixture was opened through an independent
+    # Router. Re-key its source record to the exact successor manifest before
+    # modeling the already-proved QUEUED state; cross-Router domains are never
+    # interchangeable in production.
+    prior_credit_d2 = credit_d2
+    prior_authorization_d2 = (
+        source_d2.credit_registry.authorizations[prior_credit_d2]
+    )
+    credit_d2 = BridgeAdapter.credit_id(
+        prior_authorization_d2.src_chain_id,
+        prior_authorization_d2.source_domain_id,
+        prior_authorization_d2.src_epoch,
+        prior_authorization_d2.src_bridge,
+        manifest_v2.destination_domain_id,
+        prior_authorization_d2.msg_hash,
+        prior_authorization_d2.liquidity_fee,
+    )
+    authorization_d2 = replace(
+        prior_authorization_d2,
+        destination_domain_id=manifest_v2.destination_domain_id,
+        destination_bridge=manifest_v2.destination_bridge,
+        escrow_id=bridge_escrow_id(credit_d2),
+        protocol_version=manifest_v2.protocol_version,
+        destination_chain_id=manifest_v2.destination_chain_id,
+        release_manifest_hash=manifest_v2.commitment,
+        execution_profile_hash=manifest_v2.execution_profile_hash,
+    )
+    source_d2._credits[credit_d2] = source_d2._credits.pop(prior_credit_d2)
+    source_d2.credit_registry._authorizations[credit_d2] = authorization_d2
+    source_d2.credit_registry._authorizations.pop(prior_credit_d2)
+    source_d2._credits[credit_d2].status = "QUEUED"
+    source_d2._credits[credit_d2].queue_index = 99
     message_d2 = bridge_message_preimage(
         bridge_envelopes[(id(source_d2), "msg-d2")]
     )
-    authorization_d2 = source_d2.credit_registry.authorizations[credit_d2]
     source_context_d2, destination_context_d2 = (
         destination_delivery_context_for_test(
             destination_d2, message_d2, queue_index=99,
@@ -37047,6 +41090,13 @@ def test_data_gc_reorg_and_geometry() -> None:
         Clock,
     ]:
         case_router = InboxApplyRouterV2(next_queue_index=start)
+        case_protocol = protocol(
+            cursor=start,
+            seat=False,
+            messages=inbox_descriptors,
+            inbox_apply_router=case_router,
+        )
+        routed_ingress_for_test(case_protocol)
         for domain_id, route in inbox_apply_router.routes.items():
             local_store = copy.deepcopy(route.store)
             object.__setattr__(
@@ -37060,13 +41110,6 @@ def test_data_gc_reorg_and_geometry() -> None:
                 route.store_codehash,
                 route.store_config_hash,
             )
-        case_protocol = protocol(
-            cursor=start,
-            seat=False,
-            messages=inbox_descriptors,
-            inbox_apply_router=case_router,
-        )
-        routed_ingress_for_test(case_protocol)
         case_clock = Clock(
             1_200 + start,
             GENESIS_TIMESTAMP + 1_200 + start,
@@ -37350,8 +41393,12 @@ def test_data_gc_reorg_and_geometry() -> None:
     shared_migration_gate = MigrationGate()
     migration_header_oracle = make_header_oracle(initial_queue_descriptors)
     migration_profile_1 = execution_profile_for_test(1, "profile:1")
-    migration_profile_2 = execution_profile_for_test(2, "profile:2")
-    migration_profile_3 = execution_profile_for_test(3, "profile:3")
+    migration_profile_2 = execution_profile_for_test(
+        2, migration_profile_1.namespace
+    )
+    migration_profile_3 = execution_profile_for_test(
+        3, migration_profile_1.namespace
+    )
     settlement_1 = VersionedSettlementHistory(
         "settlement:1", "runtime:1", 1,
         migration_profile_1.execution_profile_hash,
@@ -37361,6 +41408,7 @@ def test_data_gc_reorg_and_geometry() -> None:
         inbox_apply_descriptor=inbox_apply_deployment_descriptor(
             migration_inbox_apply
         ),
+        market_runtime_hash=_model_fixed_bytes32("runtime:1"),
         header_oracle=migration_header_oracle)
     historical_queue_snapshot = terminal_queue._transaction_snapshot()
     terminal_queue.descriptors = []
@@ -37372,6 +41420,21 @@ def test_data_gc_reorg_and_geometry() -> None:
     terminal_queue.deposit_prefix = [0]
     terminal_queue.unconsumed_escrow = terminal_queue.total_claimable = 0
     settlement_1.core = replace(settlement_1.core, message_cursor=0)
+    migration_protocol = protocol(
+        tip_slot=canonical_core_499.tip_slot, cursor=0, seat=False,
+        forced_queue=terminal_queue,
+        inbox_apply_router=migration_inbox_apply,
+        header_oracle=migration_header_oracle,
+        migration_gate=shared_migration_gate,
+        settlement_address=settlement_1.address,
+    )
+    migration_protocol.canonical = Canonical(
+        copy.deepcopy(settlement_1.core), 49
+    )
+    migration_protocol.first_v2_block_number = 1
+    migration_protocol.versioned_history = settlement_1
+    migration_protocol.seat_generation = 0
+    settlement_1.live_protocol = migration_protocol
     active_router = deploy_active_settlement_router(
         settlement_1,
         "version-manager", terminal_queue, migration_inbox_apply,
@@ -37387,6 +41450,12 @@ def test_data_gc_reorg_and_geometry() -> None:
         clock=active_bootstrap_clock,
         caller=active_router.version_manager,
         proof=active_bootstrap_proof)
+    migration_profile_2 = bind_execution_profile_to_router_graph_v2(
+        migration_profile_2, active_router
+    )
+    migration_profile_3 = bind_execution_profile_to_router_graph_v2(
+        migration_profile_3, active_router
+    )
     terminal_queue._restore_transaction_snapshot(historical_queue_snapshot)
     terminal_queue.active_settlement_address = settlement_1.address
     settlement_1.core = copy.deepcopy(canonical_core_499)
@@ -37395,20 +41464,8 @@ def test_data_gc_reorg_and_geometry() -> None:
     )
     settlement_1.canonicalized_at_block = 49
     settlement_1.last_canonical_l1_block = 49
-    migration_protocol = protocol(
-        tip_slot=canonical_core_499.tip_slot,
-        cursor=canonical_core_499.message_cursor,
-        seat=False,
-        forced_queue=terminal_queue,
-        inbox_apply_router=migration_inbox_apply,
-        header_oracle=migration_header_oracle,
-        migration_gate=shared_migration_gate,
-        settlement_address="settlement:1")
     migration_protocol.canonical = Canonical(
         copy.deepcopy(canonical_core_499), 49)
-    migration_protocol.first_v2_block_number = 1
-    migration_protocol.versioned_history = settlement_1
-    settlement_1.live_protocol = migration_protocol
     initial_ingress_clock = Clock(49, GENESIS_TIMESTAMP + 1)
     active_bridge_adapter = activate_ingress_adapter_for_test(
         active_router,
@@ -37746,8 +41803,32 @@ def test_data_gc_reorg_and_geometry() -> None:
             migration_inbox_apply
         ),
         schedule_oracle_id="replacement-schedule-oracle")
+    # The legacy all-in-one fixture predates version-keyed source-package
+    # preparation.  Keep its hand-built migration frame, but model the same
+    # production ordering: prepare the exact target package first, leave the
+    # full L1 review interval, and only then execute the cutover proof.
+    target_2_package_stage_clock = Clock(
+        52, GENESIS_TIMESTAMP + canonical_core_756.tip_slot
+    )
     activation_clock = Clock(
-        52, GENESIS_TIMESTAMP + canonical_core_756.tip_slot + 1
+        target_2_package_stage_clock.block_number
+            + BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
+        GENESIS_TIMESTAMP + canonical_core_756.tip_slot + 1,
+    )
+    target_2_registration = settlement_registration(
+        active_router,
+        exact_settlement,
+        activation_block=activation_clock.block_number,
+        predecessor_version=1,
+        release_manifest_hash=legacy_manifest_2,
+    )
+    preparation_manager = active_router._version_manager_authority
+    assert type(preparation_manager) is ProtocolVersionManager
+    assert active_router._install_profile_deployments(
+        target_2_registration,
+        manager=preparation_manager,
+        prepare_only=True,
+        clock=target_2_package_stage_clock,
     )
     activation_candidate, activation_rows = migration_activation_candidate(
         active_router,
@@ -37884,6 +41965,7 @@ def test_data_gc_reorg_and_geometry() -> None:
     activation_context = MigrationCanonicalContextV2(
         "VERSION_MIGRATION",
         shared_migration_gate.generation,
+        migration_protocol.seat_generation,
         1,
         2,
         legacy_manifest_2,
@@ -37914,6 +41996,18 @@ def test_data_gc_reorg_and_geometry() -> None:
             - terminal_queue.deposit_prefix[activation_proof.start_cursor]
         ),
         activation_proof.beneficiary,
+        active_router.settlement_chain_context_id,
+        active_router.address,
+        _model_fixed_bytes32(
+            active_router.registrations[1].release_manifest_hash
+        ),
+        base_canonical_hash_v2(
+            settlement_1.core, settlement_1.canonicalized_at_block
+        ),
+        _model_fixed_bytes32(
+            activation_proof.transition_statement_digest
+        ),
+        bytes(32),
     )
     activation_receipt = MigrationActivationReceipt(
         shared_migration_gate.generation,
@@ -37960,7 +42054,9 @@ def test_data_gc_reorg_and_geometry() -> None:
     assert select_canonical_l2_poststate_for_test(migration_l2_poststate)
     migration_protocol = exact_settlement.live_protocol
     assert migration_protocol is not settlement_1.live_protocol
-    post_activation_clock = Clock(53, GENESIS_TIMESTAMP + 53)
+    post_activation_clock = Clock(
+        activation_clock.block_number + 1, GENESIS_TIMESTAMP + 53
+    )
     post_status, post_stamp = active_router.sync_ingress(
         clock=post_activation_clock, caller_adapter=active_kind0_adapter
     )
@@ -37991,7 +42087,10 @@ def test_data_gc_reorg_and_geometry() -> None:
           and not hasattr(exact_settlement, "record_canonical")
           and exact_settlement._record_canonical_from_protocol(
               protocol=settlement_1.live_protocol,
-              clock=Clock(52, GENESIS_TIMESTAMP + 5)) is None
+              clock=Clock(
+                  activation_clock.block_number,
+                  GENESIS_TIMESTAMP + 5,
+              )) is None
           and post_status == "ACTIVE" and post_append == "QUEUED:18"
           and shared_migration_gate.mode == "ACTIVE"
           and shared_migration_gate.active_protocol_version == 2
@@ -38019,7 +42118,9 @@ def test_data_gc_reorg_and_geometry() -> None:
           and migration_protocol.pending_release_manifest_hash == ""
           and migration_registry.reserve("migration-builder", 1, 0)
           and migration_registry.reserve("migration-builder", 2, 0))
-    migration_activation_trigger = clock(200, 4_001)
+    migration_activation_trigger = clock(
+        activation_clock.block_number + 2, 4_001
+    )
     assert migration_protocol.sync(migration_activation_trigger)
     migration_activation_clock = recovery_submit_clock(migration_protocol)
     post_migration_candidate = escape_candidate(
@@ -38163,7 +42264,7 @@ def test_data_gc_reorg_and_geometry() -> None:
     target_protocol_3.versioned_history = settlement_3
     settlement_3.live_protocol = target_protocol_3
     second_cutover_block = max(
-        second_ready_clock.block_number + 1,
+        second_ready_clock.block_number + BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
         exact_settlement.last_canonical_l1_block + 1)
     second_activation_clock = Clock(
         second_cutover_block,
@@ -38171,6 +42272,19 @@ def test_data_gc_reorg_and_geometry() -> None:
             second_ready_clock.timestamp + 1,
             GENESIS_TIMESTAMP + exact_settlement.core.tip_slot + 1,
         ),
+    )
+    target_3_registration = settlement_registration(
+        active_router,
+        settlement_3,
+        activation_block=second_activation_clock.block_number,
+        predecessor_version=2,
+        release_manifest_hash=legacy_manifest_3,
+    )
+    assert active_router._install_profile_deployments(
+        target_3_registration,
+        manager=preparation_manager,
+        prepare_only=True,
+        clock=second_ready_clock,
     )
     activation_candidate_3, activation_rows_3 = (
         migration_activation_candidate(
@@ -38215,6 +42329,7 @@ def test_data_gc_reorg_and_geometry() -> None:
     activation_context_3 = MigrationCanonicalContextV2(
         "VERSION_MIGRATION",
         shared_migration_gate.generation,
+        migration_protocol.seat_generation,
         2,
         3,
         legacy_manifest_3,
@@ -38245,6 +42360,18 @@ def test_data_gc_reorg_and_geometry() -> None:
             - terminal_queue.deposit_prefix[activation_proof_3.start_cursor]
         ),
         activation_proof_3.beneficiary,
+        active_router.settlement_chain_context_id,
+        active_router.address,
+        _model_fixed_bytes32(
+            active_router.registrations[2].release_manifest_hash
+        ),
+        base_canonical_hash_v2(
+            exact_settlement.core, exact_settlement.canonicalized_at_block
+        ),
+        _model_fixed_bytes32(
+            activation_proof_3.transition_statement_digest
+        ),
+        bytes(32),
     )
     activation_receipt_3 = MigrationActivationReceipt(
         shared_migration_gate.generation,
@@ -38308,7 +42435,7 @@ def test_data_gc_reorg_and_geometry() -> None:
     assert done_d2_settlement is not None
     done_d2_tuple = destination_d2._terminal_settlements[credit_d2]
     d2_proof = TerminalProof(
-        1, sequence_2, done_d2_index,
+        2, exact_settlement.current_sequence, done_d2_index,
         terminal_merkle_branch(accumulator.leaf_events, done_d2_index),
         done_d2_tuple.ticket_id, done_d2_tuple.l1_recipient,
         done_d2_tuple.settlement_amount)
@@ -38344,12 +42471,12 @@ def test_data_gc_reorg_and_geometry() -> None:
           and terminal_verifier.verify(
               proof=failed_proof, credit_id=credit_a, terminal="FAILED",
               destination_domain_id=d1_domain,
-              destination_bridge="bridge:A")
+              destination_bridge=manifest_v1.destination_bridge)
           and not terminal_verifier.verify(
               proof=failed_proof,
               credit_id=credit_a, terminal="FAILED",
               destination_domain_id=d1_domain,
-              destination_bridge="bridge:B"))
+              destination_bridge=manifest_v2.destination_bridge))
     check("P50aw terminal proof substitutions fail closed",
           len(failed_proof.siblings) == TERMINAL_TREE_DEPTH
           and not terminal_verifier.verify(
@@ -38358,7 +42485,7 @@ def test_data_gc_reorg_and_geometry() -> None:
               ),
               credit_id=credit_a, terminal="FAILED",
               destination_domain_id=d1_domain,
-              destination_bridge="bridge:A")
+              destination_bridge=manifest_v1.destination_bridge)
           and not terminal_verifier.verify(
               proof=replace(
                   failed_proof,
@@ -38366,7 +42493,7 @@ def test_data_gc_reorg_and_geometry() -> None:
               ),
               credit_id=credit_a, terminal="FAILED",
               destination_domain_id=d1_domain,
-              destination_bridge="bridge:A")
+              destination_bridge=manifest_v1.destination_bridge)
           and not terminal_verifier.verify(
               proof=replace(
                   failed_proof,
@@ -38374,29 +42501,29 @@ def test_data_gc_reorg_and_geometry() -> None:
               ),
               credit_id=credit_a, terminal="FAILED",
               destination_domain_id=d1_domain,
-              destination_bridge="bridge:A")
+              destination_bridge=manifest_v1.destination_bridge)
           and not terminal_verifier.verify(
               proof=replace(failed_proof, leaf_index=failed_index + 1),
               credit_id=credit_a, terminal="FAILED",
               destination_domain_id=d1_domain,
-              destination_bridge="bridge:A")
+              destination_bridge=manifest_v1.destination_bridge)
           and not terminal_verifier.verify(
               proof=replace(failed_proof, protocol_version=2),
               credit_id=credit_a, terminal="FAILED",
               destination_domain_id=d1_domain,
-              destination_bridge="bridge:A")
+              destination_bridge=manifest_v1.destination_bridge)
           and not terminal_verifier.verify(
               proof=failed_proof, credit_id=credit_a, terminal="FAILED",
               destination_domain_id="domain:substituted",
-              destination_bridge="bridge:A")
+              destination_bridge=manifest_v1.destination_bridge)
           and not terminal_verifier.verify(
               proof=failed_proof, credit_id=credit_b, terminal="FAILED",
               destination_domain_id=d1_domain,
-              destination_bridge="bridge:A")
+              destination_bridge=manifest_v1.destination_bridge)
           and not terminal_verifier.verify(
               proof=failed_proof, credit_id=credit_a, terminal="DONE",
               destination_domain_id=d1_domain,
-              destination_bridge="bridge:A")
+              destination_bridge=manifest_v1.destination_bridge)
           and not terminal_verifier.verify(
               proof=replace(
                   failed_proof,
@@ -38404,22 +42531,27 @@ def test_data_gc_reorg_and_geometry() -> None:
               ),
               credit_id=credit_a, terminal="FAILED",
               destination_domain_id=d1_domain,
-              destination_bridge="bridge:A")
+              destination_bridge=manifest_v1.destination_bridge)
           and not terminal_verifier.verify(
               proof=replace(failed_proof, canonical_sequence=99),
               credit_id=credit_a, terminal="FAILED",
               destination_domain_id=d1_domain,
-              destination_bridge="bridge:A"))
+              destination_bridge=manifest_v1.destination_bridge))
     check("P50cb one source verifier handles old D1 and later D2 endpoints",
           terminal_verifier.verify(
               proof=done_proof, credit_id=credit_b, terminal="DONE",
               destination_domain_id=d1_domain,
-              destination_bridge="bridge:A")
+              destination_bridge=manifest_v1.destination_bridge)
           and not terminal_verifier.verify(
               proof=d2_proof,
               credit_id=credit_d2, terminal="DONE",
               destination_domain_id=d2_domain,
-              destination_bridge="bridge:A")
+              destination_bridge=manifest_v1.destination_bridge)
+          and terminal_verifier.verify(
+              proof=d2_proof,
+              credit_id=credit_d2, terminal="DONE",
+              destination_domain_id=d2_domain,
+              destination_bridge=manifest_v2.destination_bridge)
           and terminal_source.finalize_done(credit_d2, proof=d2_proof))
     frozen_runtime = settlement_1.runtime_hash
     try:

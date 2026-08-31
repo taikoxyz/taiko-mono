@@ -161,11 +161,12 @@ EXPECTED_SCHEMA_RULES = {
     "seat.slaBondWei": RULE_NULLABLE_POSITIVE_DECIMAL,
     "seat.maximumAskWeiPerSecond": RULE_NULLABLE_POSITIVE_DECIMAL,
     "seat.minimumAskImprovementWeiPerSecond": RULE_NULLABLE_DECIMAL,
-    "seat.minimumAskImprovementBps": RULE_NULLABLE_DECIMAL,
+    "seat.minimumAskImprovementBps": RULE_NULLABLE_BPS_DECIMAL,
     "seat.quoteMaturitySeconds": RULE_NULLABLE_POSITIVE_UINT,
     "seat.quoteMaturityBlocks": RULE_NULLABLE_POSITIVE_UINT,
     "seat.minimumPrimaryTenureSeconds": RULE_NULLABLE_POSITIVE_UINT,
     "seat.minimumStandbyTenureSeconds": RULE_NULLABLE_POSITIVE_UINT,
+    "seat.maximumStandbyLeaseSeconds": RULE_NULLABLE_POSITIVE_UINT,
     "seat.handoverDelaySeconds": RULE_NULLABLE_POSITIVE_UINT,
     "seat.stageGraceSeconds": RULE_NULLABLE_POSITIVE_UINT,
     "seat.maximumInclusionSeconds": RULE_POSITIVE_UINT,
@@ -329,6 +330,26 @@ def oracle_sla_tail(profile):
 
 
 EXPECTED_RELATION_SPECS = (
+    relation_spec(
+        "standby-lease-tenure-handover",
+        (
+            "seat.maximumStandbyLeaseSeconds",
+            "seat.minimumStandbyTenureSeconds",
+            "seat.handoverDelaySeconds",
+            "seat.stageGraceSeconds",
+            "seat.maximumInclusionSeconds",
+        ),
+        ">=",
+        "seat.maximumStandbyLeaseSeconds",
+        lambda p: sum(oracle_get(p, path) for path in (
+            "seat.minimumStandbyTenureSeconds",
+            "seat.handoverDelaySeconds",
+            "seat.stageGraceSeconds",
+            "seat.maximumInclusionSeconds",
+        )),
+        (False, True, True),
+        "sec:economics",
+    ),
     relation_spec(
         "builder-bond-product",
         ("builder.maximumBondAtomic", "geometry.maximumAssignedSlots"),
@@ -1080,7 +1101,7 @@ class EconomicProfileTests(unittest.TestCase):
         profile = copy.deepcopy(self.example)
         profile.update(
             status="CALIBRATED",
-            profileId="0x" + "11" * 32,
+            profileId=None,
             measurementCommit="0x" + "22" * 32,
         )
         profile["assets"]["builderLease"].update(
@@ -1117,6 +1138,7 @@ class EconomicProfileTests(unittest.TestCase):
             quoteMaturityBlocks=10,
             minimumPrimaryTenureSeconds=5000,
             minimumStandbyTenureSeconds=1000,
+            maximumStandbyLeaseSeconds=10000,
             handoverDelaySeconds=100,
             stageGraceSeconds=100,
             handoverExecutionBufferSeconds=400,
@@ -1140,6 +1162,9 @@ class EconomicProfileTests(unittest.TestCase):
         ]
         for index, sink in enumerate(profile["sinks"].values(), start=5):
             sink["address"] = "0x" + f"{index:02x}" * 20
+        profile["profileId"] = (
+            "0x" + self.model.economic_profile_hash_v2(profile).hex()
+        )
         return profile
 
     def test_example_is_structurally_valid_but_not_production_valid(self):
@@ -1153,6 +1178,210 @@ class EconomicProfileTests(unittest.TestCase):
         profile = self.calibrated_profile()
         self.assertEqual(self.model.validate_schema(profile), ())
         self.assertEqual(self.model.production_blockers(profile), ())
+
+    def test_execution_profile_join_binds_hash_and_every_duplicated_value(self):
+        profile = self.calibrated_profile()
+        projection = self.model.execution_profile_economic_projection_v2(
+            profile
+        )
+        words = [bytes(32) for _ in range(267)]
+        for index, value in projection.items():
+            words[index] = value
+        self.assertEqual(
+            self.model.execution_profile_economic_binding_blockers(
+                profile, tuple(words)
+            ),
+            (),
+        )
+        for index in sorted(projection):
+            malformed = list(words)
+            malformed[index] = bytes([malformed[index][0] ^ 1]) + malformed[index][1:]
+            self.assertEqual(
+                self.model.execution_profile_economic_binding_blockers(
+                    profile, tuple(malformed)
+                ),
+                (
+                    f"ExecutionProfileV2 word {index} differs from the economic profile",
+                ),
+            )
+        self.assertEqual(
+            self.model.execution_profile_economic_binding_blockers(
+                self.example, tuple(words)
+            ),
+            ("economic profile projection is unavailable",),
+        )
+
+    def test_every_v2_executable_constant_is_independently_pinned(self):
+        expected_paths = {
+            "geometry.slotSeconds", "geometry.windowSlots",
+            "geometry.l1SlotSeconds", "geometry.l1EpochSlots",
+            "geometry.maximumBuilders", "geometry.maximumAssignedSlots",
+            "geometry.entryDelayWindows", "geometry.maximumLiveWindows",
+            "geometry.maximumTrancheAheadWindows",
+            "geometry.maximumGenerationMovesPerWindow",
+            "geometry.maximumLiabilityGenerations", "geometry.snapshotEpochs",
+            "geometry.finalityEpochs", "geometry.carrierScanSlots",
+            "geometry.sealMarginSlots", "geometry.lookaheadSlots",
+            "geometry.maximumCandidateBlocks",
+            "geometry.maximumCandidateWindows",
+            "geometry.maximumCandidateAnchors",
+            "geometry.maximumCandidateSessions",
+            "geometry.maximumCandidateRecords",
+            "geometry.maximumCandidateForcedItems",
+            "geometry.maximumCandidateForcedBytes",
+            "geometry.maximumCandidateForcedGas",
+            "geometry.maximumEarlySealWindows",
+            "geometry.canonicalHistoryCells",
+            "geometry.eip2935HistoryBlocks", "geometry.maximumArmAgeBlocks",
+            "geometry.seatCount", "geometry.standbyCount",
+            "geometry.pendingCount", "geometry.bookSize",
+            "geometry.maximumRewardClasses",
+            "forcedEnvelope.claimWindowSeconds",
+            "forcedEnvelope.maximumItemBytes",
+            "forcedEnvelope.maximumItemAccountedGas",
+            "forcedEnvelope.maximumPrefixItems",
+            "forcedEnvelope.maximumPrefixBytes",
+            "forcedEnvelope.maximumPrefixAccountedGas",
+            "forcedEnvelope.queueDepth", "forcedEnvelope.maximumQueueCount",
+            "forcedEnvelope.maximumRangeProofHashes",
+            "bridge.maximumEnqueueDelaySeconds", "bridge.processTtlSeconds",
+            "bridge.supportFinalityBlocks",
+            "bridge.maximumDomainEntriesPerRelease",
+            "bridge.refundCapsuleWords", "bridge.refundErc721Ids",
+            "bridge.refundErc1155Pairs", "bridge.terminalAccumulatorDepth",
+            "bridge.maximumTerminalCount",
+            "bridge.registrationProofMaximumNodesPerPath",
+            "bridge.registrationProofPathCount",
+            "bridge.registrationProofMaximumTotalNodes",
+            "bridge.registrationProofMaximumNodeBytes",
+            "bridge.registrationProofMaximumBytes",
+            "bridge.registrationProofMaximumGas", "rewards.claimWindowSeconds",
+        }
+        self.assertEqual(
+            set(self.model.EXECUTABLE_CONSTANTS_V2), expected_paths
+        )
+        for path, expected in self.model.EXECUTABLE_CONSTANTS_V2.items():
+            with self.subTest(path=path):
+                profile = self.calibrated_profile()
+                replacement = (
+                    str(int(expected) - 1)
+                    if isinstance(expected, str)
+                    else expected + 1
+                )
+                self.model.set_path(profile, path, replacement)
+                profile["profileId"] = None
+                profile["profileId"] = (
+                    "0x" + self.model.economic_profile_hash_v2(profile).hex()
+                )
+                self.assertIn(
+                    f"{path} must equal the V2 executable constant {expected}",
+                    self.model.production_blockers(profile),
+                )
+
+    def test_every_narrow_projected_numeric_rejects_its_first_unencodable_value(self):
+        u8 = {
+            "assets.builderLease.decimals",
+            "geometry.maximumGenerationMovesPerWindow",
+            "geometry.slotSeconds", "geometry.seatCount",
+            "forcedEnvelope.queueDepth", "dataSession.maximumGcSteps",
+            "dataSession.maximumBlobsPerPost",
+        }
+        u16 = {
+            "geometry.maximumBuilders", "geometry.maximumAssignedSlots",
+            "geometry.entryDelayWindows", "geometry.maximumLiveWindows",
+            "geometry.maximumTrancheAheadWindows",
+            "geometry.maximumLiabilityGenerations", "geometry.windowSlots",
+            "seat.minimumAskImprovementBps",
+            "dataSession.blobBaseFeeMultiplierBps",
+            "dataSession.maximumLiveSessions",
+            "dataSession.maximumLiveSessionsPerOwner",
+            "dataSession.maximumRecordsPerSession",
+            "geometry.canonicalHistoryCells",
+        }
+        u64 = {
+            "builder.evidenceDelaySeconds", "builder.reorgMarginSeconds",
+            "geometry.maximumParentGapSlots",
+            "recovery.settlementWindowSeconds", "recovery.tipLagSeconds",
+            "recovery.finalLagSeconds", "recovery.l1FinalityBlocks",
+            "recovery.depthTimeMaxSeconds", "recovery.proofTimeMaxSeconds",
+            "recovery.activationInclusionSeconds",
+            "recovery.submissionInclusionSeconds",
+            "recovery.clockSkewSeconds", "recovery.escapeOffsetSeconds",
+            "recovery.forceDelaySeconds",
+            "forcedEnvelope.maximumValiditySeconds",
+            "seat.seatRunwaySeconds", "seat.minimumPrimaryTenureSeconds",
+            "seat.minimumStandbyTenureSeconds", "seat.handoverDelaySeconds",
+            "seat.stageGraceSeconds", "seat.maximumInclusionSeconds",
+            "seat.exitDelaySeconds", "seat.recoveryLagSeconds",
+            "seat.slashLagSeconds", "seat.premiumClaimDelaySeconds",
+            "seat.reorgStabilitySeconds", "seat.releaseChallengeSeconds",
+            "seat.evidenceDelaySeconds", "seat.quoteMaturitySeconds",
+            "seat.quoteMaturityBlocks", "seat.maximumStandbyLeaseSeconds",
+            "dataSession.ttlSeconds",
+            "dataSession.refundClaimWindowSeconds", "gasProfile.l2BlockGas",
+            "rewards.claimWindowSeconds",
+        }
+        expected = ({path: 8 for path in u8}
+                    | {path: 16 for path in u16}
+                    | {path: 64 for path in u64})
+        self.assertEqual(
+            self.model.PROFILE_NARROW_NUMERIC_WIDTHS_V2, expected
+        )
+        for path, width in expected.items():
+            with self.subTest(path=path, width=width):
+                profile = self.calibrated_profile()
+                self.model.set_path(profile, path, 1 << width)
+                profile["profileId"] = None
+                profile["profileId"] = (
+                    "0x" + self.model.economic_profile_hash_v2(profile).hex()
+                )
+                self.assertIn(
+                    f"{path} must fit uint{width}",
+                    self.model.production_blockers(profile),
+                )
+
+    def test_builder_registry_hash_binds_every_dynamic_builder_and_reward_leaf(self):
+        profile = self.calibrated_profile()
+        expected = self.model.builder_registry_configuration_hash_v2(profile)
+        self.assertEqual(
+            self.model.execution_profile_economic_projection_v2(profile)[31],
+            expected,
+        )
+        paths = (
+            "assets.builderLease.chainId", "assets.builderLease.address",
+            "assets.builderLease.runtimeHash", "assets.builderLease.decimals",
+            "builder.leasePerWindowAtomic", "builder.maximumBondAtomic",
+            "builder.reporterRewardCapAtomic", "builder.evidenceDelaySeconds",
+            "builder.reorgMarginSeconds", "geometry.maximumBuilders",
+            "geometry.maximumAssignedSlots", "geometry.entryDelayWindows",
+            "geometry.maximumLiveWindows",
+            "geometry.maximumTrancheAheadWindows",
+            "geometry.maximumGenerationMovesPerWindow",
+            "geometry.maximumLiabilityGenerations",
+            "sinks.builderPenalty.address", "rewards.claimWindowSeconds",
+            "rewards.classes.0.classId", "rewards.classes.0.name",
+            "rewards.classes.0.fixedWei",
+            "rewards.classes.0.perExecutionGasWei",
+            "rewards.classes.0.perPublishedByteWei",
+            "rewards.classes.0.capWei",
+        )
+        for path in paths:
+            with self.subTest(path=path):
+                mutated = copy.deepcopy(profile)
+                old = self.model.get_path(mutated, path)
+                if "address" in path.lower():
+                    replacement = "0x" + "ab" * 20
+                elif "runtimeHash" in path:
+                    replacement = "0x" + "cd" * 32
+                elif path.endswith("name"):
+                    replacement = old + "-mutated"
+                else:
+                    replacement = int(old) + 1
+                self.model.set_path(mutated, path, replacement)
+                self.assertNotEqual(
+                    self.model.builder_registry_configuration_hash_v2(mutated),
+                    expected,
+                )
 
     def test_exact_schema_rejects_unknown_and_missing_keys_at_any_level(self):
         cases = []
@@ -1388,6 +1617,14 @@ class EconomicProfileTests(unittest.TestCase):
         self.assertNotIn(
             "seat ask improvement must be positive",
             self.model.production_blockers(profile),
+        )
+
+    def test_minimum_ask_improvement_bps_rejects_above_one_hundred_percent(self):
+        profile = self.calibrated_profile()
+        profile["seat"]["minimumAskImprovementBps"] = "10001"
+        self.assertIn(
+            "seat.minimumAskImprovementBps must be <= 10000",
+            self.model.validate_schema(profile),
         )
 
     def test_security_critical_economic_fields_reject_zero(self):
@@ -1802,7 +2039,7 @@ class EconomicProfileTests(unittest.TestCase):
         actual = {
             relation.name: relation for relation in self.model.PROFILE_RELATIONS
         }
-        self.assertEqual(len(expected), 57)
+        self.assertEqual(len(expected), 58)
         self.assertEqual(set(actual), set(expected))
         tex = MAIN_TEX.read_text()
         profile = self.calibrated_profile()

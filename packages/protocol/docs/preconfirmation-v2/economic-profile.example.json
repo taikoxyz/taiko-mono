@@ -147,6 +147,7 @@
     "quoteMaturityBlocks": null,
     "minimumPrimaryTenureSeconds": null,
     "minimumStandbyTenureSeconds": null,
+    "maximumStandbyLeaseSeconds": null,
     "handoverDelaySeconds": null,
     "stageGraceSeconds": null,
     "maximumInclusionSeconds": 120,

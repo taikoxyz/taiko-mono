@@ -11,9 +11,9 @@ with the executable models that verify its consensus-critical arithmetic.
 | [`tex/main.tex`](tex/main.tex)                             | **The source.** Hand-maintained LaTeX; edit this to change the document.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | [`settlement-window-model.py`](settlement-window-model.py) | Unified protocol/state model for finite staged genesis campaigns and proof-first later migration, continuous seat scheduling, forced-queue recovery, same-L1 DIRECT ETH ingress, fresh immutable V2 endpoints, permanent inbox pins, permissionless LP-owned atomic-funding tickets, source user/LP pull conservation, terminal frontier proofs, historical destination retirement, and atomic rollback/reorg behavior.                                                                                                                                                                                                                                                                                                       |
 | [`lookahead-model.py`](lookahead-model.py)                 | Exact lookahead path: absolute clock conversion, EIP-4788 carrier/parent semantics, execution-block finality, partial/empty registries, frozen-context tombstones, version-independent protocol-lifetime seed, capped quotas, ring capacity and placement. 36 assertions.                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| [`commitment-model.py`](commitment-model.py)               | Byte-exact fixtures for EIP-712 candidates; MessageV1, ingress, ContextV2, Store, Bridge, Pool, accumulator and policy interfaces; forced Queue V11 credits; source/destination domains; Bridge and ten-component infrastructure descriptors; acyclic migration/registration verifier configurations; the five-argument L1 migration activation; MACT/MFRZ/MCAN/QMIG/MAPS and atomic legacy genesis cutover journals; strict deployed legacy proposal/forced codecs; fixed-key resume-verifier and direct checkpoint-service profiles; release manifests and receipts; LP settlement-bound terminal leaves; bounded session configuration, ABI/events, Router readiness and blobs. 587 golden vectors / 1280 assertion sites. |
-| [`seat-market-model.py`](seat-market-model.py)             | Executable custody and state model for the four-cell perpetual reverse auction, staging, premium reserves, pull credits, bond terminalization and release rotation. Its companion suite currently runs 93 adversarial tests.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| [`economic-profile-model.py`](economic-profile-model.py)   | Strict schema and checked-arithmetic validator for the versioned economic profile and every published parameter relation. Its companion suite currently runs 31 tests.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| [`commitment-model.py`](commitment-model.py)               | Byte-exact fixtures for EIP-712 candidates; MessageV1, ingress, ContextV2, Store, Bridge, Pool, accumulator and policy interfaces; forced Queue V11 credits; source/destination domains; Bridge and ten-component infrastructure descriptors; acyclic migration/registration verifier configurations; the five-argument L1 migration activation; MACT/MFRZ/MCAN/QMIG/MAPS and atomic legacy genesis cutover journals; strict deployed legacy proposal/forced codecs; fixed-key resume-verifier and direct checkpoint-service profiles; release manifests and receipts; LP settlement-bound terminal leaves; bounded session configuration, ABI/events, Router readiness and blobs. 591 golden vectors / 1311 assertion sites. |
+| [`seat-market-model.py`](seat-market-model.py)             | Executable custody, fixed-width wire-codec and state model for the four-cell perpetual reverse auction, staging, premium reserves, pull credits, bond terminalization and release rotation. Its companion suite currently runs 102 adversarial tests.                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| [`economic-profile-model.py`](economic-profile-model.py)   | Strict schema and checked-arithmetic validator for the versioned economic profile and every published parameter relation. Its companion suite currently runs 36 tests.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 ## Building the PDF
 
@@ -36,11 +36,11 @@ a successful LaTeX exit status alone is not layout verification.
 
 ```sh
 python3 settlement-window-model.py   # 184 assertions
-python3 test-settlement-window.py    # 209 adversarial regression tests
+python3 test-settlement-window.py    # 224 adversarial regression tests
 python3 lookahead-model.py           # 36 assertions
-python3 commitment-model.py          # 587 golden vectors / 1280 assertion sites
-python3 -m unittest test-seat-market.py      # 93 adversarial tests
-python3 -m unittest test-economic-profile.py # 31 schema/economic tests
+python3 commitment-model.py          # 591 golden vectors / 1311 assertion sites
+python3 -m unittest test-seat-market.py      # 102 adversarial tests
+python3 -m unittest test-economic-profile.py # 36 schema/economic tests
 ```
 
 All run standalone; the property models print `ALL PROPERTIES PASS`, and the regression suite
@@ -50,12 +50,24 @@ speedup. Signatures, validity proofs, EVM gas and execution remain placeholders 
 model. **Every consensus change must update the relevant model in the same commit.** A passing
 model is regression evidence, not a proof of protocol soundness.
 
+Migration-arm governance keeps the full `PROTOCOL_CHANGE_DELAY_SECONDS=604800` notice and adds a
+finite `MIGRATION_ARM_EXECUTION_WINDOW_SECONDS=604800` after maturity. Both the Timelock and PVM
+enforce the inclusive execution interval. A successful expiry abort advances the PVM's monotone
+`armFreshAfter` watermark, invalidating every arm queued at or before the abort timestamp; a retry
+must be queued later and wait a new seven days. `protocolVersionManagerConfigV1()` is therefore
+1,088 bytes and commits the execution-window constant, while `migrationArmFreshAfterV1()` returns
+the exact 64-byte `MAF1` watermark view. The generic 256-byte `PCO1` operation row is unchanged.
+
 ## Status
 
-The architecture is an **audited design candidate**, not yet frozen for implementation and not a
-production-ready release. There is no known open Critical document-level design defect. One High
-implementation-readiness blocker remains: the exact Settlement--Market mutation wire
-protocol. The strict canonical ExecutionProfileV2 ABI, complete field/DAG derivation and negative
+The architecture is an **audited design candidate**, not implementation-ready or a production-ready
+release. One known High implementation-feasibility defect remains open: the modeled BRS1/BRD1
+route-preparation path still reads an in-process `SettlementRegistration` witness that a Solidity
+Registry cannot obtain across contracts. The next freeze round must replace that object authority
+with fixed Router/PVM primitive records and exact raw ABI reads before implementation may begin. The exact
+Settlement--Market roster wire, direct historical economics and Router-authenticated rotation are
+now normative fixed-width protocols with strict no-op, rollback, lock and gas rules. The strict
+canonical ExecutionProfileV2 ABI, complete field/DAG derivation and negative
 legacy-CBOR boundary are now normative and executable. The exact
 target-adoption, source-freeze, Queue-migration, poststate-join and legacy-genesis callbacks now
 share one Router lifecycle/context journal. A delayed finite genesis campaign stages separate
