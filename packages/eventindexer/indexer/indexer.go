@@ -59,6 +59,8 @@ type Indexer struct {
 	indexERC20s bool
 	layer       string
 
+	allowUnclaimedBalanceReplay bool
+
 	wg  *sync.WaitGroup
 	ctx context.Context
 
@@ -72,6 +74,10 @@ type Indexer struct {
 
 func (i *Indexer) Start() error {
 	i.ctx = context.Background()
+
+	if err := i.checkBalanceClaimBootstrap(i.ctx); err != nil {
+		return err
+	}
 
 	if err := i.setInitialIndexingBlockByMode(i.ctx, i.syncMode); err != nil {
 		return errors.Wrap(err, "i.setInitialIndexingBlockByMode")
@@ -200,6 +206,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 
 	i.syncMode = cfg.SyncMode
 	i.indexNfts = cfg.IndexNFTs
+	i.allowUnclaimedBalanceReplay = cfg.AllowUnclaimedBalanceReplay
 	i.indexERC20s = cfg.IndexERC20s
 	i.layer = cfg.Layer
 	i.contractToMetadata = make(map[common.Address]*eventindexer.ERC20Metadata, 0)
@@ -215,4 +222,55 @@ func (i *Indexer) Close(ctx context.Context) {
 	if err := i.db.Close(); err != nil {
 		slog.Error("Failed to close db connection", "err", err)
 	}
+}
+
+// checkBalanceClaimBootstrap refuses to start when this process would replay
+// balance mutations that a previous process already applied.
+//
+// processed_transfer_logs makes replays idempotent, but only for logs claimed at
+// least once. Nothing records what a pre-claim process applied, so the indexer
+// cannot repair this by itself and the choice belongs to an operator: reset the
+// balances so they rebuild from claims, or accept a single overcount.
+func (i *Indexer) checkBalanceClaimBootstrap(ctx context.Context) error {
+	kinds := []struct {
+		kind    string
+		enabled bool
+	}{
+		{eventindexer.TransferKindNFT, i.indexNfts},
+		{eventindexer.TransferKindERC20, i.indexERC20s},
+	}
+
+	for _, k := range kinds {
+		if !k.enabled {
+			continue
+		}
+
+		atRisk, err := repo.UnclaimedBalanceReplayRisk(ctx, i.db, int64(i.srcChainID), k.kind)
+		if err != nil {
+			return errors.Wrap(err, "repo.UnclaimedBalanceReplayRisk")
+		}
+
+		if !atRisk {
+			continue
+		}
+
+		if i.allowUnclaimedBalanceReplay {
+			slog.Warn("starting with unclaimed balance replay allowed, this restart may double count once",
+				"kind", k.kind,
+				"chainID", i.srcChainID,
+			)
+
+			continue
+		}
+
+		return errors.Newf(
+			"%s balances for chain %d were written before transfer log claims existed, so this "+
+				"restart would replay and double count them once. Either reset those balances so "+
+				"they rebuild from claims, or set --allowUnclaimedBalanceReplay / "+
+				"ALLOW_UNCLAIMED_BALANCE_REPLAY=true to accept a single overcount",
+			k.kind, i.srcChainID,
+		)
+	}
+
+	return nil
 }
