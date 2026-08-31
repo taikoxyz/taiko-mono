@@ -982,7 +982,7 @@ class OfferBookTests(AtomicAssertions):
 
 
 class RequoteTests(AtomicAssertions):
-    def test_requote_is_pending_only_preserves_tranche_and_resets_maturity(self):
+    def test_requote_is_pending_only_preserves_tranche_and_admission_maturity(self):
         market = make_market()
         first = insert(market, "alice", 50, clock=model.Clock(100, 50))
         result = market.requote(
@@ -996,11 +996,11 @@ class RequoteTests(AtomicAssertions):
         )
         self.assertEqual(result.tranche.tranche_id, first.tranche.tranche_id)
         self.assertEqual(result.tranche.bond_amount, first.tranche.bond_amount)
-        self.assertEqual(result.offer.eligible_at_timestamp, 210)
-        self.assertEqual(result.offer.eligible_at_block, 73)
+        self.assertEqual(result.offer.eligible_at_timestamp, 110)
+        self.assertEqual(result.offer.eligible_at_block, 53)
         self.assertGreater(result.offer.quote_sequence, first.offer.quote_sequence)
         self.assertNotEqual(result.offer.offer_id, first.offer.offer_id)
-        self.assertEqual(market.offers[first.offer.offer_id].location, model.OfferLocation.NONE)
+        self.assertNotIn(first.offer.offer_id, market.offers)
         self.assertEqual(market.accounting.bond_escrow, 1_000)
         self.assertEqual(market.actual_balance, 1_000)
         self.assert_rejects_unchanged(
@@ -1029,6 +1029,62 @@ class RequoteTests(AtomicAssertions):
             clock=model.Clock(200, 100),
         )
         self.assertEqual(result.offer.payout, addr("new-payout"))
+
+    def test_four_zero_ask_requotes_cannot_postpone_permissionless_staging(self):
+        market = make_market()
+        current = {
+            name: insert(market, name, 0, clock=model.Clock(100, 50))
+            for name in ("alice", "bob", "carol", "dave")
+        }
+        original_eligibility = {
+            name: (
+                row.offer.eligible_at_timestamp,
+                row.offer.eligible_at_block,
+            )
+            for name, row in current.items()
+        }
+
+        # Every cell repeatedly changes its non-price payout before the
+        # original admission boundary.  Each revision gets a fresh identity,
+        # but neither maturity dimension may move.
+        for round_index, clock in enumerate(
+            (model.Clock(101, 51), model.Clock(105, 52), model.Clock(109, 52))
+        ):
+            for name, row in tuple(current.items()):
+                prior_id = row.offer.offer_id
+                updated = market.requote(
+                    caller=addr(name),
+                    offer_id=prior_id,
+                    payout=addr(f"{name}-p{round_index}"),
+                    ask_wei_per_second=0,
+                    target=addr("settlement-v1"),
+                    generation=7,
+                    clock=clock,
+                )
+                self.assertEqual(
+                    (
+                        updated.offer.eligible_at_timestamp,
+                        updated.offer.eligible_at_block,
+                    ),
+                    original_eligibility[name],
+                )
+                self.assertNotIn(prior_id, market.offers)
+                current[name] = updated
+
+        self.assertEqual(
+            market._settlement_stage_best(
+                lineup(), model.Clock(109, 53)
+            ).code,
+            model.ResultCode.NO_FEASIBLE_OFFER,
+        )
+        staged = market._settlement_stage_best(
+            lineup(), model.Clock(110, 53)
+        )
+        self.assertEqual(staged.code, model.ResultCode.STAGED)
+        self.assertIn(staged.offer.offer_id, {
+            row.offer.offer_id for row in current.values()
+        })
+        market.assert_valid()
 
     def test_wrong_caller_noop_upward_zero_payout_max_and_stale_bindings_reject_unchanged(self):
         market = make_market()

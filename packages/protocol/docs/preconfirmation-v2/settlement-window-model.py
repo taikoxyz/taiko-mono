@@ -319,12 +319,70 @@ MAX_PROFILE_INGRESS_AUTHORIZATIONS = 64
 MAX_BRIDGE_ENQUEUE_DELAY = 7 * 86_400
 BRIDGE_PROCESS_TTL_SECONDS = 30 * 86_400
 CANONICAL_HISTORY_CAPACITY = 256
-EIP2935_HISTORY_STORAGE_ADDRESS = \
+L1_EIP2935_HISTORY_STORAGE_ADDRESS = \
     "0x0000F90827F1C53a10cb7A02335B175320002935"
-EIP2935_HISTORY_STORAGE_RUNTIME_HASH = "code:eip2935-history-storage:v1"
-EIP2935_HISTORY_STORAGE_ACTIVATION_BLOCK = 0
+L1_EIP2935_HISTORY_STORAGE_RUNTIME_HASH = bytes.fromhex(
+    "6e49e66782037c0555897870e29fa5e552daf4719552131a0abce779daec0a5d"
+)
+L1_EIP2935_FIRST_SUPPORTED_BLOCK = 1
+L2_EIP2935_HISTORY_STORAGE_ADDRESS = \
+    "0x0000F90827F1C53a10cb7A02335B175320002935"
+L2_EIP2935_HISTORY_STORAGE_RUNTIME_HASH = bytes.fromhex(
+    "6e49e66782037c0555897870e29fa5e552daf4719552131a0abce779daec0a5d"
+)
+L2_EIP2935_HISTORY_STORAGE_ACTIVATION_BLOCK = 1
 EIP2935_HISTORY_SERVE_WINDOW = 8_191
 EIP2935_HISTORY_READ_GAS = 50_000
+EIP2935_READ_CONFIG_DOMAIN = b"slot-chain-eip2935-read-config-v1"
+SETTLEMENT_FACTORY_DEPLOY_SELECTOR = bytes.fromhex("4af63f02")
+SETTLEMENT_FACTORY_CONFIG_DOMAIN = b"slot-chain-erc2470-factory-config-v1"
+SETTLEMENT_FACTORY_ADDRESS_V2 = \
+    "0xce0042B868300000d44A59004Da54A005ffdcf9f"
+SETTLEMENT_FACTORY_RUNTIME_HASH_V2 = bytes.fromhex(
+    "c4d5542b53a8b779595a20a8ddd60e58a6c49d3c3decc2df83ced1c69c8ca807"
+)
+SETTLEMENT_FACTORY_CREATION_CODE_HASH_V2 = bytes.fromhex(
+    "122b6b28aeddfd05fa3ce4348e93d357b3ce50d9ab7dda4e8ee524a5b9a6ab3b"
+)
+SETTLEMENT_FACTORY_DEPLOYMENT_TRANSACTION_HASH_V2 = bytes.fromhex(
+    "803351deb6d745e91545a6a3e1c0ea3e9a6a02a1a4193b70edfcd2f40f71a01c"
+)
+SETTLEMENT_FACTORY_SINGLE_USE_DEPLOYER_V2 = \
+    "0xBb6e024b9cFFACB947A71991E386681B1Cd1477D"
+
+
+def eip2935_read_configuration_hash_v1(first_supported_block: int) -> bytes:
+    """Commit the one supported selector-free EIP-2935 read route."""
+
+    first_supported = _model_uint(
+        first_supported_block, 8, "L1 EIP-2935 first supported block"
+    )
+    if first_supported_block == 0:
+        raise ValueError("L1 EIP-2935 first supported block is zero")
+    return keccak256(
+        EIP2935_READ_CONFIG_DOMAIN
+        + bytes.fromhex(L1_EIP2935_HISTORY_STORAGE_ADDRESS[2:])
+        + L1_EIP2935_HISTORY_STORAGE_RUNTIME_HASH
+        + first_supported
+        + EIP2935_HISTORY_SERVE_WINDOW.to_bytes(8, "big")
+        + EIP2935_HISTORY_READ_GAS.to_bytes(8, "big")
+    )
+
+
+def settlement_factory_configuration_hash_v2() -> bytes:
+    return keccak256(
+        SETTLEMENT_FACTORY_CONFIG_DOMAIN
+        + _model_uint(147, 2, "Settlement factory config bytes")
+        + bytes.fromhex(SETTLEMENT_FACTORY_ADDRESS_V2[2:])
+        + SETTLEMENT_FACTORY_RUNTIME_HASH_V2
+        + SETTLEMENT_FACTORY_CREATION_CODE_HASH_V2
+        + SETTLEMENT_FACTORY_DEPLOYMENT_TRANSACTION_HASH_V2
+        + bytes.fromhex(SETTLEMENT_FACTORY_SINGLE_USE_DEPLOYER_V2[2:])
+        + SETTLEMENT_FACTORY_DEPLOY_SELECTOR
+        + _model_uint(49_152, 4, "Settlement factory initcode cap")
+        + _model_uint(32, 2, "Settlement factory return bytes")
+        + _model_uint(1, 1, "Settlement factory zero-value-only flag")
+    )
 KIND0_INGRESS_RUNTIME_HASH = "code:kind0-ingress:v2"
 KIND0_INGRESS_CONFIGURATION_HASH = "config:kind0-ingress:v2"
 BRIDGE_INGRESS_RUNTIME_HASH = "code:bridge-inbox-adapter:v2"
@@ -549,6 +607,8 @@ D_DESTINATION_BRIDGE_EXECUTION = (
 )
 D_DESTINATION_INFRASTRUCTURE = b"slot-chain-destination-infrastructure-v3"
 D_DESTINATION_DOMAIN = b"slot-chain-destination-domain-v7"
+D_SOURCE_DOMAIN = b"slot-chain-source-domain-v4"
+D_SOURCE_BRIDGE_EXECUTION = b"slot-chain-source-bridge-execution-v4"
 APPENDING_SENTINEL = UINT64_MAX
 INBOX_BATCH_OK_V2_WORD = bytes.fromhex("49425632" + "00" * 28)
 ACCEPT_LIQUIDITY_VALUE_V2_SIGNATURE = (
@@ -961,10 +1021,13 @@ class EIP2935SystemReadTestAdapter:
     """
 
     _headers: object = field(repr=False)
+    first_supported_block: int = L1_EIP2935_FIRST_SUPPORTED_BLOCK
 
     def __post_init__(self) -> None:
         if (
             type(self._headers) is not dict
+            or type(self.first_supported_block) is not int
+            or not 0 < self.first_supported_block <= UINT64_MAX
             or any(
                 type(number) is not int
                 or number < 0
@@ -990,7 +1053,7 @@ class EIP2935SystemReadTestAdapter:
 
         if (type(requested_block) is not int
                 or type(current_block) is not int
-                or requested_block < EIP2935_HISTORY_STORAGE_ACTIVATION_BLOCK
+                or requested_block < self.first_supported_block
                 or not max(0, current_block - EIP2935_HISTORY_SERVE_WINDOW)
                     <= requested_block < current_block
                 or calldata != _model_uint(
@@ -1018,7 +1081,9 @@ class EIP2935SystemReadTestAdapter:
     ) -> "EIP2935SystemReadTestAdapter":
         headers = dict(self._headers)
         headers.update(substitutions)
-        return EIP2935SystemReadTestAdapter(headers)
+        return EIP2935SystemReadTestAdapter(
+            headers, self.first_supported_block
+        )
 
 
 @dataclass(frozen=True)
@@ -11798,6 +11863,10 @@ class VersionedSettlementHistory:
                 )
             object.__setattr__(self, "settlement_deployment_descriptor",
                                descriptor)
+        profile_history_boundary = (
+            self.execution_profile.l1_history_first_supported_block
+            if type(self.execution_profile) is ExecutionProfile else 0
+        )
         if (type(self.execution_profile) is not ExecutionProfile
                 or not self.execution_profile.structurally_valid()
                 or self.execution_profile.protocol_version
@@ -11812,7 +11881,16 @@ class VersionedSettlementHistory:
                 or descriptor.target_runtime_hash
                     != _model_fixed_bytes32(self.runtime_hash)
                 or descriptor.target_configuration_hash
-                    != _model_fixed_bytes32(self.market_configuration_hash)):
+                    != _model_fixed_bytes32(self.market_configuration_hash)
+                or (
+                    self.header_oracle is not None
+                    and (
+                        type(self.header_oracle)
+                            is not EIP2935SystemReadTestAdapter
+                        or self.header_oracle.first_supported_block
+                            != profile_history_boundary
+                    )
+                )):
             raise ValueError("Settlement execution profile is not exact")
         descriptor.packed
 
@@ -11866,6 +11944,8 @@ class VersionedSettlementHistory:
             or protocol.settlement_address != self.address
             or self.header_oracle is not router.header_oracle
             or protocol.header_oracle is not router.header_oracle
+            or router.header_oracle.first_supported_block
+                != self.execution_profile.l1_history_first_supported_block
             or self.forced_queue is not router.forced_queue
             or protocol.forced_queue is not router.forced_queue
             or self.inbox_apply_descriptor != router.inbox_apply_descriptor
@@ -13061,6 +13141,10 @@ def target_registration_hash_v2(registration: SettlementRegistration) -> bytes:
 PROTOCOL_CHANGE_DELAY_SECONDS = 604_800
 MAXIMUM_LIVE_VERSION_MIGRATION_SECONDS = 604_800
 PROTOCOL_CHANGE_MAX_PAYLOAD_BYTES = 131_072
+PVM_RELEASE_ROUTER_REGISTRATION_GAS = 15_000_000
+PVM_RELEASE_MARKET_INSTALLATION_GAS = 1_000_000
+PVM_RELEASE_POSTREAD_GAS = 500_000
+PVM_RELEASE_POST_CALLBACK_RESERVE_GAS = 2_000_000
 PROTOCOL_CHANGE_OPERATION_DOMAIN = b"slot-chain-protocol-change-operation-v1"
 PROTOCOL_CHANGE_TIMELOCK_DOMAIN = b"slot-chain-protocol-change-timelock-v1"
 PROTOCOL_VERSION_MANAGER_CONFIG_DOMAIN = \
@@ -13068,8 +13152,32 @@ PROTOCOL_VERSION_MANAGER_CONFIG_DOMAIN = \
 PROTOCOL_VERSION_MANAGER_DOMAIN = b"slot-chain-protocol-version-manager-v1"
 VERSION_MIGRATION_ARM_DOMAIN = b"slot-chain-version-migration-arm-v2"
 TARGET_REGISTRATION_V2_DOMAIN = b"slot-chain-target-registration-v2"
-EXECUTION_PROFILE_DOMAIN = b"slot-chain-execution-profile-v1"
+EXECUTION_PROFILE_DOMAIN = b"slot-chain-execution-profile-v2"
 SETTLEMENT_DEPLOYMENT_DOMAIN = b"slot-chain-settlement-deployment-v1"
+EXECUTION_PROFILE_SCHEMA_VERSION = 2
+# ExecutionProfileV2 has 252 fixed value words followed by the sole dynamic
+# targetCodeArtifact offset word.  Its complete field order is mirrored by
+# _execution_profile_static_words_v2 and the normative specification.
+EXECUTION_PROFILE_VALUE_WORDS = 252
+EXECUTION_PROFILE_STATIC_WORDS = EXECUTION_PROFILE_VALUE_WORDS + 1
+EXECUTION_PROFILE_STATIC_BYTES = EXECUTION_PROFILE_STATIC_WORDS * 32
+# Root, fixed head, dynamic length word and at least one padded artifact word.
+EXECUTION_PROFILE_MIN_BYTES = 32 + EXECUTION_PROFILE_STATIC_BYTES + 64
+EXECUTION_PROFILE_MAX_BYTES = 65_536
+EIP3860_MAX_INITCODE_BYTES = 49_152
+EIP170_MAX_RUNTIME_BYTES = 24_576
+# TargetParametersV2 is the complete 252-word fixed-value profile projection;
+# it excludes only the dynamic-offset word and authenticated code-artifact
+# tail.  The constructor appends E, MPR2, the declared runtime hash and the
+# artifact hash.  This deliberately transports every consumer primitive and
+# makes omissions impossible when a field acquires a target-side consumer.
+TARGET_PARAMETERS_V2_WORDS = EXECUTION_PROFILE_VALUE_WORDS
+TARGET_CONSTRUCTOR_TRAILER_WORDS = TARGET_PARAMETERS_V2_WORDS + 4
+TARGET_CONSTRUCTOR_TRAILER_BYTES = TARGET_CONSTRUCTOR_TRAILER_WORDS * 32
+TARGET_CREATION_CODE_MAX_BYTES = (
+    EIP3860_MAX_INITCODE_BYTES - TARGET_CONSTRUCTOR_TRAILER_BYTES
+)
+LEGACY_OPAQUE_CBOR_PROFILE = bytes.fromhex("a1617601")
 PCT1_MAGIC = b"PCT1"
 PVM1_MAGIC = b"PVM1"
 PCO1_MAGIC = b"PCO1"
@@ -13193,7 +13301,314 @@ class RegisterReleasePayloadV1:
     release_manifest_hash: bytes
     ingress_authorization_root: bytes
     migration_verifier_descriptor_hash: bytes
+    data_session_configuration_hash: bytes
     target_registration_hash: bytes
+
+
+@dataclass(frozen=True)
+class DerivedRegisterReleaseAuthorityV2:
+    """All REGISTER_RELEASE authority derived before the first state write."""
+
+    profile_words: tuple[bytes, ...]
+    execution_profile_hash: bytes
+    migration_activation_profile: "MigrationActivationProfileRecordV2"
+    migration_verifier_descriptor_hash: bytes
+    deployment_abi: bytes
+    settlement_deployment_descriptor_hash: bytes
+    target_address: bytes
+    target_runtime_hash: bytes
+    target_configuration_hash: bytes
+    data_session_configuration_hash: bytes
+    ingress_rows: tuple["ProfileIngressAuthorization", ...]
+    ingress_ids: tuple[bytes, ...]
+    ingress_authorization_root: bytes
+    manifest_abi: bytes
+    release_manifest_hash: bytes
+    target_registration_hash: bytes
+
+    @property
+    def target_registration_row(self) -> "TargetReleaseRegistrationRowV2":
+        return TargetReleaseRegistrationRowV2(
+            int.from_bytes(self.profile_words[1], "big"),
+            self.expected_predecessor_protocol_version,
+            self.target_address, self.target_runtime_hash,
+            self.target_configuration_hash,
+            self.settlement_deployment_descriptor_hash,
+            self.execution_profile_hash,
+            self.migration_activation_profile.activation_profile_record_hash,
+            self.data_session_configuration_hash,
+            self.release_manifest_hash, self.target_registration_hash,
+        )
+
+    # Bound separately because it is an input to registration rather than a
+    # profile field and must never be inferred from a just-written Router row.
+    expected_predecessor_protocol_version: int = 0
+
+
+@dataclass
+class LiveDeploymentAccountV2:
+    """Typed account observation used by the executable registration journal."""
+
+    address: bytes
+    runtime_hash: bytes
+    configuration_hash: bytes
+    accounting: DataSessionAccountingV1 | None = None
+    constructor_inventory: tuple[bytes, ...] = ()
+    overrides: dict[tuple[str, str], bytes] = field(default_factory=dict)
+    faults: set[tuple[str, str]] = field(default_factory=set)
+
+    def _surface(self, caller: str, name: str, canonical: bytes) -> bytes:
+        if not caller or (caller, name) in self.faults:
+            raise ValueError(f"live deployment {name} STATICCALL failed")
+        return self.overrides.get((caller, name), canonical)
+
+    def extcodehash(self, caller: str) -> bytes:
+        return self._surface(caller, "extcodehash", self.runtime_hash)
+
+    def component_config_hash_v2(
+        self, caller: str, calldata: bytes, gas: int, value: int,
+    ) -> bytes:
+        if (calldata != COMPONENT_CONFIG_GETTER_SELECTOR
+                or gas != 50_000 or value != 0):
+            raise ValueError("componentConfigHashV2 call frame is inexact")
+        return self._surface(caller, "component_config", self.configuration_hash)
+
+    def data_session_accounting_v1(
+        self, caller: str, calldata: bytes, gas: int, value: int,
+    ) -> bytes:
+        if (calldata != DATA_SESSION_ACCOUNTING_SELECTOR or value != 0
+                or gas <= 0 or type(self.accounting) is not DataSessionAccountingV1):
+            raise ValueError("dataSessionAccountingV1 call frame is inexact")
+        return self._surface(
+            caller, "data_session_accounting",
+            encode_data_session_accounting_v1(self.accounting),
+        )
+
+    def target_constructor_state_v2(
+        self, caller: str, calldata: bytes, gas: int, value: int,
+    ) -> bytes:
+        if (calldata != TARGET_CONSTRUCTOR_STATE_SELECTOR or value != 0
+                or gas <= 0 or len(self.constructor_inventory) != 259):
+            raise ValueError("targetConstructorStateV2 call frame is inexact")
+        canonical = encode_target_constructor_state_return_v2(
+            target_constructor_poststate_commitment_v2(
+                self.constructor_inventory
+            ),
+            self.configuration_hash,
+        )
+        return self._surface(caller, "target_constructor_state", canonical)
+
+
+@dataclass
+class LiveDeploymentWorldV2:
+    """The typed deployed-account world read independently by PVM and Router."""
+
+    accounts: dict[bytes, LiveDeploymentAccountV2]
+    trace: list[tuple[str, str, bytes]] = field(default_factory=list)
+    between_router_and_pvm_hook: object | None = field(
+        default=None, compare=False, repr=False
+    )
+
+    def snapshot(self) -> tuple[object, ...]:
+        return (copy.deepcopy(self.accounts), list(self.trace))
+
+    def restore(self, snapshot: tuple[object, ...]) -> None:
+        accounts, trace = snapshot
+        self.accounts = accounts
+        self.trace = trace
+
+    def account(self, address: bytes, caller: str, surface: str) \
+            -> LiveDeploymentAccountV2:
+        if type(address) is not bytes or len(address) != 20:
+            raise ValueError("live deployment address is malformed")
+        account = self.accounts.get(address)
+        if type(account) is not LiveDeploymentAccountV2:
+            raise ValueError("live deployment account is absent")
+        self.trace.append((caller, surface, address))
+        return account
+
+
+def live_deployment_world_for_release_v2(
+    derived: DerivedRegisterReleaseAuthorityV2,
+) -> LiveDeploymentWorldV2:
+    """Construct the canonical typed world for a strict release fixture."""
+
+    words = derived.profile_words
+    artifact_words = (
+        words[49], words[48], words[50], words[51], words[52], words[53],
+        words[54], words[55], words[56],
+    )
+    artifact_hash = keccak256(
+        b"slot-chain-settlement-artifact-v2" + _model_uint(288, 2, "artifact")
+        + b"".join(artifact_words)
+    )
+    parameters_hash = keccak256(
+        b"slot-chain-target-parameters-v2" + _model_uint(8_064, 2, "params")
+        + b"".join(words[:252])
+    )
+    inventory = (
+        *words[:252], derived.execution_profile_hash,
+        derived.migration_activation_profile.activation_profile_record_hash,
+        words[48], artifact_hash, parameters_hash,
+        derived.data_session_configuration_hash,
+        derived.target_configuration_hash,
+    )
+    accounts: dict[bytes, LiveDeploymentAccountV2] = {}
+    for address_index in (23, 26, 29, 32, 38, 41):
+        address = words[address_index][12:]
+        accounts[address] = LiveDeploymentAccountV2(
+            address, words[address_index + 1], words[address_index + 2]
+        )
+    factory = words[44][12:]
+    accounts[factory] = LiveDeploymentAccountV2(
+        factory, words[45], words[46]
+    )
+    accounts[derived.target_address] = LiveDeploymentAccountV2(
+        derived.target_address, derived.target_runtime_hash,
+        derived.target_configuration_hash,
+        DataSessionAccountingV1(
+            0, 0, 0, 0, 0, 0, 0, 0, 0, False,
+            derived.data_session_configuration_hash,
+        ),
+        inventory,
+    )
+    return LiveDeploymentWorldV2(accounts)
+
+
+def _validate_live_factory_v2(
+    world: LiveDeploymentWorldV2, *, caller: str, address: bytes,
+    runtime_hash: bytes,
+) -> LiveDeploymentAccountV2:
+    account = world.account(address, caller, "factory:account")
+    world.trace.append((caller, "factory:extcodehash", address))
+    if account.extcodehash(caller) != runtime_hash:
+        raise ValueError("factory EXTCODEHASH differs from profile")
+    return account
+
+
+def _validate_live_target_code_and_config_v2(
+    world: LiveDeploymentWorldV2, *, caller: str, address: bytes,
+    runtime_hash: bytes, configuration_hash: bytes, label: str,
+) -> LiveDeploymentAccountV2:
+    account = world.account(address, caller, f"{label}:account")
+    world.trace.append((caller, f"{label}:extcodehash", address))
+    if account.extcodehash(caller) != runtime_hash:
+        raise ValueError(f"{label} EXTCODEHASH differs from profile")
+    world.trace.append((caller, f"{label}:config", address))
+    raw = account.component_config_hash_v2(
+        caller, COMPONENT_CONFIG_GETTER_SELECTOR, 50_000, 0
+    )
+    if type(raw) is not bytes or len(raw) != 32 or raw != configuration_hash:
+        raise ValueError(f"{label} componentConfigHashV2 differs")
+    return account
+
+
+def validate_live_register_release_deployment_v2(
+    world: LiveDeploymentWorldV2,
+    derived: DerivedRegisterReleaseAuthorityV2,
+    profile: bytes,
+    *, caller: str,
+) -> bytes:
+    """Perform one independent pre-write factory/target/component read pass."""
+
+    if (type(world) is not LiveDeploymentWorldV2
+            or type(derived) is not DerivedRegisterReleaseAuthorityV2
+            or not caller or tuple(_execution_profile_abi_words_v2(profile))
+                != derived.profile_words):
+        raise ValueError("live deployment validation inputs are inexact")
+    words = derived.profile_words
+    _validate_live_factory_v2(
+        world, caller=caller, address=words[44][12:],
+        runtime_hash=words[45],
+    )
+    target = _validate_live_target_code_and_config_v2(
+        world, caller=caller, address=derived.target_address,
+        runtime_hash=derived.target_runtime_hash,
+        configuration_hash=derived.target_configuration_hash, label="target",
+    )
+    poststate_gas = derived.migration_activation_profile.gas_values[7]
+    expected_accounting = encode_data_session_accounting_v1(
+        DataSessionAccountingV1(
+            0, 0, 0, 0, 0, 0, 0, 0, 0, False,
+            derived.data_session_configuration_hash,
+        )
+    )
+    world.trace.append((caller, "target:data-session-accounting", target.address))
+    accounting = target.data_session_accounting_v1(
+        caller, DATA_SESSION_ACCOUNTING_SELECTOR, poststate_gas, 0
+    )
+    if accounting != expected_accounting:
+        raise ValueError("target DataSession initial accounting differs")
+    expected_inventory = target_constructor_inventory_v2(
+        profile, derived.execution_profile_hash,
+        derived.migration_activation_profile.activation_profile_record_hash,
+        derived.data_session_configuration_hash,
+        derived.target_configuration_hash,
+    )
+    expected_constructor = encode_target_constructor_state_return_v2(
+        target_constructor_poststate_commitment_v2(expected_inventory),
+        derived.target_configuration_hash,
+    )
+    world.trace.append((caller, "target:constructor-state", target.address))
+    constructor = target.target_constructor_state_v2(
+        caller, TARGET_CONSTRUCTOR_STATE_SELECTOR, poststate_gas, 0
+    )
+    if constructor != expected_constructor:
+        raise ValueError("target constructor/zero poststate differs")
+    return keccak256(
+        b"slot-chain-live-deployment-validation-v2"
+        + derived.settlement_deployment_descriptor_hash
+        + derived.target_registration_hash + keccak256(expected_accounting)
+        + keccak256(expected_constructor)
+    )
+
+
+def validate_live_target_postread_v2(
+    world: LiveDeploymentWorldV2,
+    derived: DerivedRegisterReleaseAuthorityV2,
+    profile: bytes,
+    *, caller: str,
+) -> bytes:
+    """Re-read target code/config/state after Router returns to the PVM."""
+
+    target = _validate_live_target_code_and_config_v2(
+        world, caller=caller, address=derived.target_address,
+        runtime_hash=derived.target_runtime_hash,
+        configuration_hash=derived.target_configuration_hash,
+        label="target-postread",
+    )
+    poststate_gas = derived.migration_activation_profile.gas_values[7]
+    world.trace.append((
+        caller, "target-postread:data-session-accounting", target.address
+    ))
+    accounting = target.data_session_accounting_v1(
+        caller, DATA_SESSION_ACCOUNTING_SELECTOR, poststate_gas, 0
+    )
+    expected_accounting = encode_data_session_accounting_v1(
+        DataSessionAccountingV1(
+            0, 0, 0, 0, 0, 0, 0, 0, 0, False,
+            derived.data_session_configuration_hash,
+        )
+    )
+    expected_inventory = target_constructor_inventory_v2(
+        profile, derived.execution_profile_hash,
+        derived.migration_activation_profile.activation_profile_record_hash,
+        derived.data_session_configuration_hash,
+        derived.target_configuration_hash,
+    )
+    world.trace.append((
+        caller, "target-postread:constructor-state", target.address
+    ))
+    constructor = target.target_constructor_state_v2(
+        caller, TARGET_CONSTRUCTOR_STATE_SELECTOR, poststate_gas, 0
+    )
+    expected_constructor = encode_target_constructor_state_return_v2(
+        target_constructor_poststate_commitment_v2(expected_inventory),
+        derived.target_configuration_hash,
+    )
+    if accounting != expected_accounting or constructor != expected_constructor:
+        raise ValueError("target deployment postread differs")
+    return keccak256(accounting + constructor)
 
 
 @dataclass(frozen=True)
@@ -13206,6 +13621,7 @@ class TargetReleaseRegistrationRowV2:
     settlement_deployment_descriptor_hash: bytes
     execution_profile_hash: bytes
     migration_activation_profile_record_hash: bytes
+    data_session_configuration_hash: bytes
     release_manifest_hash: bytes
     target_registration_hash: bytes
 
@@ -13222,6 +13638,7 @@ def encode_target_release_registration_return_v2(
                 row.settlement_deployment_descriptor_hash,
                 row.execution_profile_hash,
                 row.migration_activation_profile_record_hash,
+                row.data_session_configuration_hash,
                 row.release_manifest_hash, row.target_registration_hash,
             ))):
         raise ValueError("RTR2 registration row is malformed")
@@ -13235,122 +13652,455 @@ def encode_target_release_registration_return_v2(
         row.settlement_deployment_descriptor_hash,
         row.execution_profile_hash,
         row.migration_activation_profile_record_hash,
+        row.data_session_configuration_hash,
         row.release_manifest_hash, row.target_registration_hash,
     ))
-    if len(encoded) != 352:
-        raise AssertionError("RTR2 must be exactly 352 bytes")
+    if len(encoded) != 384:
+        raise AssertionError("RTR2 must be exactly 384 bytes")
+    return encoded
+
+
+def decode_target_release_registration_return_v2(
+    encoded: bytes,
+) -> TargetReleaseRegistrationRowV2:
+    """Strictly decode the exact 384-byte Router RTR2 view."""
+
+    if type(encoded) is not bytes or len(encoded) != 384:
+        raise ValueError("RTR2 registration return length is invalid")
+    words = tuple(encoded[index:index + 32] for index in range(0, 384, 32))
+    if words[0] != b"RTR2" + bytes(28):
+        raise ValueError("RTR2 registration magic is invalid")
+    protocol_version = _decode_uint_word_v1(
+        words[1], 64, "RTR2 protocol version"
+    )
+    predecessor = _decode_uint_word_v1(words[2], 64, "RTR2 predecessor")
+    target = _decode_address_word_v1(words[3], "RTR2 target")
+    if any(word == bytes(32) for word in words[4:]):
+        raise ValueError("RTR2 registration contains a zero hash")
+    row = TargetReleaseRegistrationRowV2(
+        protocol_version, predecessor, target, *words[4:]
+    )
+    if encode_target_release_registration_return_v2(row) != encoded:
+        raise ValueError("RTR2 registration return is noncanonical")
+    return row
+
+
+def _execution_profile_abi_words_v2(
+    profile: bytes, *, validate_authority_graph: bool = True,
+) -> tuple[bytes, ...]:
+    """Strictly decode the full head of abi.encode(ExecutionProfileV2)."""
+
+    if (type(profile) is not bytes
+            or not EXECUTION_PROFILE_MIN_BYTES <= len(profile)
+                <= EXECUTION_PROFILE_MAX_BYTES
+            or len(profile) % 32 != 0
+            or profile[:32] != _model_uint(32, 32, "profile root offset")):
+        raise ValueError("execution profile ABI root is noncanonical")
+    base = 32
+    head_end = base + EXECUTION_PROFILE_STATIC_BYTES
+    words = tuple(
+        profile[base + index * 32:base + (index + 1) * 32]
+        for index in range(EXECUTION_PROFILE_STATIC_WORDS)
+    )
+    if len(words) != EXECUTION_PROFILE_STATIC_WORDS:
+        raise ValueError("execution profile ABI head is truncated")
+    if (int.from_bytes(words[EXECUTION_PROFILE_VALUE_WORDS], "big")
+            != EXECUTION_PROFILE_STATIC_BYTES):
+        raise ValueError("execution profile creation-code offset is noncanonical")
+    artifact_length = int.from_bytes(profile[head_end:head_end + 32], "big")
+    padded = (artifact_length + 31) // 32 * 32
+    if len(profile) != head_end + 32 + padded:
+        raise ValueError("execution profile ABI tail length is noncanonical")
+    artifact_start = head_end + 32
+    artifact_end = artifact_start + artifact_length
+    artifact = profile[artifact_start:artifact_end]
+    if (artifact_length < 10
+            or profile[artifact_end:] != bytes(padded - artifact_length)):
+        raise ValueError("execution profile code-artifact tail is noncanonical")
+    creation_length = int.from_bytes(artifact[:4], "big")
+    creation_start = 4
+    creation_end = creation_start + creation_length
+    if creation_end + 4 > len(artifact):
+        raise ValueError("execution profile creation code is truncated")
+    runtime_length = int.from_bytes(artifact[creation_end:creation_end + 4], "big")
+    runtime_start = creation_end + 4
+    if (not 0 < creation_length <= TARGET_CREATION_CODE_MAX_BYTES
+            or not 0 < runtime_length <= EIP170_MAX_RUNTIME_BYTES
+            or runtime_start + runtime_length != len(artifact)
+            or words[49] != keccak256(artifact[creation_start:creation_end])
+            or words[48] != keccak256(artifact[runtime_start:])):
+        raise ValueError("execution profile code artifact is inconsistent")
+    _validate_execution_profile_value_words_v2(
+        words, validate_authority_graph=validate_authority_graph
+    )
+    return words
+
+
+def canonicalize_execution_profile_authority_graph_v2(profile: bytes) -> bytes:
+    """Materialize the profile-internal acyclic source/destination joins."""
+
+    decoded = list(_execution_profile_abi_words_v2(
+        profile, validate_authority_graph=False
+    ))
+    decoded[37] = pvm_derived_market_authority_configuration_hash_v1(
+        int.from_bytes(decoded[2], "big"),
+        "0x" + decoded[35][12:].hex(),
+        int.from_bytes(decoded[2], "big"),
+        "0x" + decoded[20][12:].hex(),
+        "0x" + decoded[23][12:].hex(),
+    )
+    decoded[18] = governance_delay_authority_descriptor_hash_from_profile_v1(
+        tuple(decoded)
+    )
+    decoded[22] = protocol_version_manager_configuration_hash_from_profile_v1(
+        tuple(decoded)
+    )
+    # The verifier configuration is a derived ABI hash, never an opaque label.
+    selector = _decode_bytes4_word_v1(
+        decoded[144], "migration verifier selector"
+    )
+    decoded[140] = keccak256(b"".join((
+        MIGRATION_VERIFIER_CONFIG_TYPEHASH,
+        decoded[141], decoded[142], decoded[143], selector + bytes(28),
+        _model_uint(int.from_bytes(decoded[145], "big"), 32,
+                    "maximum proof bytes ABI"),
+        _model_uint(int.from_bytes(decoded[146], "big"), 32,
+                    "verification gas ABI"),
+    )))
+    # Source bundle addresses are outputs of one CREATE2 and CREATE nonces 1-3.
+    factory = decoded[202][12:]
+    deployer = keccak256(
+        b"\xff" + factory + decoded[205] + decoded[206]
+    )[12:]
+    decoded[207] = bytes(12) + deployer
+    decoded[210] = bytes(12) + _source_bundle_child_address_v2(deployer, 1)
+    decoded[214] = bytes(12) + _source_bundle_child_address_v2(deployer, 2)
+    decoded[217] = bytes(12) + _source_bundle_child_address_v2(deployer, 3)
+    # Destination component 2 is exactly the immutable active Router.
+    decoded[163:166] = decoded[23:26]
+    kind1_config = b"".join((
+        decoded[214][12:], decoded[210][12:], decoded[23][12:],
+        decoded[20][12:],
+    ))
+    decoded[162] = _profile_component_config_hash_v2(1, kind1_config)
+    # Destination component 10 is the immutable Bridge facade.
+    bridge_config = b"".join((
+        decoded[190], decoded[191], decoded[172][12:], decoded[181][12:],
+        decoded[178][12:], decoded[195][12:], decoded[184][12:],
+    ))
+    decoded[189] = _profile_component_config_hash_v2(10, bridge_config)
+    decoded[230:235] = tuple(
+        _model_uint(value, 32, "canonical ingress fee")
+        for value in (1, 1, 1, 1, 20_000_000)
+    )
+    encoded = (
+        profile[:32] + b"".join(decoded)
+        + profile[32 + EXECUTION_PROFILE_STATIC_BYTES:]
+    )
+    _execution_profile_abi_words_v2(encoded)
     return encoded
 
 
 def _decode_model_activation_profile_v2(
     profile: bytes, execution_profile_hash_: bytes,
 ) -> "MigrationActivationProfileRecordV2":
-    """Decode the bounded behavioral profile fixture used by this model.
+    """Decode the strict canonical-ABI MPR2 projection."""
 
-    This is deliberately not presented as the normative release CBOR codec:
-    the design document does not yet publish that complete key grammar.  It
-    nevertheless gives the cross-contract journal a byte-exact, canonical
-    MPR2 preimage instead of accepting an opaque profile label.
-    """
-
-    if type(profile) is not bytes or not profile or profile[0] != 0xA4:
-        raise ValueError("model execution profile map is not canonical")
-    cursor = 1
-
-    def take_uint() -> int:
-        nonlocal cursor
-        if cursor >= len(profile):
-            raise ValueError("truncated CBOR unsigned integer")
-        lead = profile[cursor]
-        cursor += 1
-        if lead < 24:
-            return lead
-        widths = {0x18: 1, 0x19: 2, 0x1A: 4, 0x1B: 8}
-        width = widths.get(lead)
-        if width is None or cursor + width > len(profile):
-            raise ValueError("unsupported CBOR unsigned integer")
-        value = int.from_bytes(profile[cursor:cursor + width], "big")
-        cursor += width
-        if ((width == 1 and value < 24)
-                or (width == 2 and value < 1 << 8)
-                or (width == 4 and value < 1 << 16)
-                or (width == 8 and value < 1 << 32)):
-            raise ValueError("nonminimal CBOR unsigned integer")
-        return value
-
-    def take_bytes() -> bytes:
-        nonlocal cursor
-        if cursor >= len(profile):
-            raise ValueError("truncated CBOR byte string")
-        lead = profile[cursor]
-        cursor += 1
-        if 0x40 <= lead <= 0x57:
-            length = lead - 0x40
-        else:
-            widths = {0x58: 1, 0x59: 2, 0x5A: 4, 0x5B: 8}
-            width = widths.get(lead)
-            if width is None or cursor + width > len(profile):
-                raise ValueError("unsupported CBOR byte string")
-            length = int.from_bytes(profile[cursor:cursor + width], "big")
-            cursor += width
-            if ((width == 1 and length < 24)
-                    or (width == 2 and length < 1 << 8)
-                    or (width == 4 and length < 1 << 16)
-                    or (width == 8 and length < 1 << 32)):
-                raise ValueError("nonminimal CBOR byte length")
-        if cursor + length > len(profile):
-            raise ValueError("truncated CBOR byte payload")
-        value = profile[cursor:cursor + length]
-        cursor += length
-        return value
-
-    if take_uint() != 0:
-        raise ValueError("model profile key 0 is missing")
-    protocol_version = take_uint()
-    if take_uint() != 1:
-        raise ValueError("model profile key 1 is missing")
-    activation = take_bytes()
-    if len(activation) != 196:
-        raise ValueError("model activation descriptor width is invalid")
-    if take_uint() != 2 or len(take_bytes()) != 32:
-        raise ValueError("model profile namespace commitment is invalid")
-    if take_uint() != 3 or cursor >= len(profile) or profile[cursor] != 0x8B:
-        raise ValueError("model profile gas vector is invalid")
-    cursor += 1
-    trailing_gases = tuple(take_uint() for _ in range(11))
-    if cursor != len(profile):
-        raise ValueError("model execution profile has a trailing item")
-    offset = 0
-    verifier = "0x" + activation[offset:offset + 20].hex()
-    offset += 20
-    hashes = tuple(
-        activation[offset + index * 32:offset + (index + 1) * 32]
-        for index in range(5)
+    words = _execution_profile_abi_words_v2(profile)
+    schema_version = _decode_uint_word_v1(
+        words[0], 64, "execution profile schema version"
     )
-    offset += 160
-    selector = activation[offset:offset + 4]
-    offset += 4
-    maximum_proof_bytes = int.from_bytes(activation[offset:offset + 4], "big")
-    offset += 4
-    verification_gas = int.from_bytes(activation[offset:offset + 8], "big")
-    if (offset + 8 != len(activation) or protocol_version == 0
-            or any(row == bytes(32) for row in hashes)
+    protocol_version = _decode_uint_word_v1(
+        words[1], 64, "execution profile protocol version"
+    )
+    if (schema_version != EXECUTION_PROFILE_SCHEMA_VERSION
+            or protocol_version == 0 or words[2] == bytes(32)):
+        raise ValueError("execution profile identity is unsupported")
+    verifier = "0x" + _decode_address_word_v1(
+        words[138], "migration verifier"
+    ).hex()
+    hashes = words[139:144]
+    selector = _decode_bytes4_word_v1(
+        words[144], "migration verifier selector"
+    )
+    maximum_proof_bytes = _decode_uint_word_v1(
+        words[145], 32, "profile maximum proof bytes"
+    )
+    gas_values = tuple(
+        _decode_uint_word_v1(word, 64, "profile gas value")
+        for word in words[146:158]
+    )
+    if (any(row == bytes(32) for row in hashes)
             or selector != keccak256(
                 b"verifyMigrationTransition(bytes,uint256[2])"
             )[:4]
-            or maximum_proof_bytes == 0 or verification_gas == 0
-            or any(value == 0 for value in trailing_gases)):
-        raise ValueError("model activation descriptor is unsupported")
+            or maximum_proof_bytes == 0
+            or any(value == 0 for value in gas_values)):
+        raise ValueError("execution profile activation fields are unsupported")
     unbound = MigrationActivationProfileRecordV2(
         protocol_version, execution_profile_hash_, bytes(32), verifier,
         hashes[0], hashes[1], hashes[2], hashes[3], hashes[4], selector,
-        maximum_proof_bytes, verification_gas,
-        (verification_gas,) + trailing_gases,
+        maximum_proof_bytes, gas_values[0], gas_values,
     )
     return replace(
         unbound,
         activation_profile_record_hash=
             migration_activation_profile_record_hash_v2(unbound),
+    )
+
+
+def target_artifact_hash_v2(profile: bytes) -> bytes:
+    """Derive the exact nine-word target build-artifact commitment."""
+
+    words = _execution_profile_abi_words_v2(profile)
+    artifact_words = (
+        words[49], words[48], words[50], words[51], words[52], words[53],
+        words[54], words[55], words[56],
+    )
+    packed = b"".join(artifact_words)
+    if len(packed) != 288:
+        raise AssertionError("target artifact descriptor width drifted")
+    return keccak256(
+        b"slot-chain-settlement-artifact-v2"
+        + _model_uint(len(packed), 2, "target artifact bytes") + packed
+    )
+
+
+def target_parameters_words_v2(profile: bytes) -> tuple[bytes, ...]:
+    """Project all 252 fixed values into TargetParametersV2."""
+
+    words = _execution_profile_abi_words_v2(profile)
+    projected = words[:EXECUTION_PROFILE_VALUE_WORDS]
+    if len(projected) != TARGET_PARAMETERS_V2_WORDS:
+        raise AssertionError("TargetParametersV2 projection width drifted")
+    return projected
+
+
+def target_parameters_hash_v2(profile: bytes) -> bytes:
+    packed = b"".join(target_parameters_words_v2(profile))
+    return keccak256(
+        b"slot-chain-target-parameters-v2"
+        + _model_uint(len(packed), 2, "target parameter bytes") + packed
+    )
+
+
+def target_code_artifact_v2(profile: bytes) -> tuple[bytes, bytes]:
+    """Return the creation/runtime code authenticated by the strict ABI tail."""
+
+    _execution_profile_abi_words_v2(profile)
+    head_end = 32 + EXECUTION_PROFILE_STATIC_BYTES
+    artifact_length = int.from_bytes(profile[head_end:head_end + 32], "big")
+    artifact = profile[head_end + 32:head_end + 32 + artifact_length]
+    creation_length = int.from_bytes(artifact[:4], "big")
+    creation = artifact[4:4 + creation_length]
+    runtime_offset = 4 + creation_length
+    runtime_length = int.from_bytes(
+        artifact[runtime_offset:runtime_offset + 4], "big"
+    )
+    runtime = artifact[runtime_offset + 4:runtime_offset + 4 + runtime_length]
+    return creation, runtime
+
+
+def target_constructor_tail_v2(
+    profile: bytes, execution_profile_hash_: bytes,
+    migration_activation_profile_record_hash_: bytes,
+) -> bytes:
+    words = _execution_profile_abi_words_v2(profile)
+    expected_hash = keccak256(
+        EXECUTION_PROFILE_DOMAIN
+        + _model_uint(len(profile), 4, "execution profile bytes") + profile
+    )
+    if (execution_profile_hash_ != expected_hash
+            or migration_activation_profile_record_hash_ == bytes(32)):
+        raise ValueError("target constructor derived hashes are inconsistent")
+    tail = b"".join((
+        *target_parameters_words_v2(profile), execution_profile_hash_,
+        migration_activation_profile_record_hash_, words[48],
+        target_artifact_hash_v2(profile),
+    ))
+    if len(tail) != TARGET_CONSTRUCTOR_TRAILER_BYTES:
+        raise AssertionError("target constructor ABI width drifted")
+    creation, _runtime = target_code_artifact_v2(profile)
+    if len(creation) + len(tail) > EIP3860_MAX_INITCODE_BYTES:
+        raise ValueError("target init code exceeds EIP-3860")
+    return tail
+
+
+def target_configuration_hash_v2(
+    profile: bytes, target: bytes, execution_profile_hash_: bytes,
+    migration_activation_profile_record_hash_: bytes,
+    data_session_config_hash_: bytes,
+) -> bytes:
+    words = _execution_profile_abi_words_v2(profile)
+    if (type(target) is not bytes or len(target) != 20 or target == bytes(20)
+            or execution_profile_hash_ == bytes(32)
+            or migration_activation_profile_record_hash_ == bytes(32)
+            or data_session_config_hash_ == bytes(32)):
+        raise ValueError("target configuration inputs are malformed")
+    packed = b"".join((
+        target, words[48], execution_profile_hash_,
+        migration_activation_profile_record_hash_,
+        target_parameters_hash_v2(profile), target_artifact_hash_v2(profile),
+        data_session_config_hash_,
+    ))
+    if len(packed) != 212:
+        raise AssertionError("target configuration descriptor width drifted")
+    return keccak256(
+        b"slot-chain-settlement-config-v2"
+        + _model_uint(len(packed), 2, "target configuration bytes") + packed
+    )
+
+
+TARGET_CONSTRUCTOR_POSTSTATE_DOMAIN = \
+    b"slot-chain-target-constructor-poststate-v2"
+TARGET_CONSTRUCTOR_STATE_SELECTOR = keccak256(
+    b"targetConstructorStateV2()"
+)[:4]
+TARGET_CONSTRUCTOR_STATE_MAGIC = b"TCS2"
+TARGET_CONSTRUCTOR_STATE_LENGTH = 96
+DATA_SESSION_ACCOUNTING_SELECTOR = keccak256(
+    b"dataSessionAccountingV1()"
+)[:4]
+
+
+def target_constructor_inventory_v2(
+    profile: bytes, execution_profile_hash_: bytes,
+    migration_activation_profile_record_hash_: bytes,
+    data_session_configuration_hash_: bytes,
+    target_configuration_hash_: bytes,
+) -> tuple[bytes, ...]:
+    """Return the exact 259 initialized constructor storage values."""
+
+    words = target_parameters_words_v2(profile)
+    inventory = (*words, execution_profile_hash_,
+                 migration_activation_profile_record_hash_, words[48],
+                 target_artifact_hash_v2(profile),
+                 target_parameters_hash_v2(profile),
+                 data_session_configuration_hash_,
+                 target_configuration_hash_)
+    if (len(inventory) != 259
+            or any(type(value) is not bytes or len(value) != 32
+                   for value in inventory)):
+        raise ValueError("target constructor inventory is malformed")
+    return inventory
+
+
+def target_constructor_poststate_commitment_v2(
+    inventory: tuple[bytes, ...],
+) -> bytes:
+    if (type(inventory) is not tuple or len(inventory) != 259
+            or any(type(value) is not bytes or len(value) != 32
+                   for value in inventory)):
+        raise ValueError("target constructor poststate inventory is malformed")
+    return keccak256(
+        TARGET_CONSTRUCTOR_POSTSTATE_DOMAIN
+        + _model_uint(252, 2, "target parameter count")
+        + b"".join(inventory)
+    )
+
+
+def encode_target_constructor_state_return_v2(
+    constructor_poststate_commitment: bytes,
+    target_configuration_hash_: bytes,
+) -> bytes:
+    if any(type(value) is not bytes or len(value) != 32
+           or value == bytes(32) for value in (
+               constructor_poststate_commitment,
+               target_configuration_hash_,
+           )):
+        raise ValueError("target constructor-state return is malformed")
+    encoded = b"".join((
+        TARGET_CONSTRUCTOR_STATE_MAGIC + bytes(28),
+        constructor_poststate_commitment,
+        target_configuration_hash_,
+    ))
+    if len(encoded) != TARGET_CONSTRUCTOR_STATE_LENGTH:
+        raise AssertionError("target constructor-state width drifted")
+    return encoded
+
+
+def data_session_configuration_hash_from_profile_v2(
+    profile: bytes, target: bytes, execution_profile_hash_: bytes,
+) -> bytes:
+    """Derive the exact 340-byte DataSession configuration preimage."""
+
+    words = _execution_profile_abi_words_v2(profile)
+    descriptor = b"".join((
+        words[2], words[1][-8:], target, words[23][12:], words[20][12:],
+        words[67][12:], execution_profile_hash_, words[101], words[102],
+        words[103], words[104][-2:], words[105][-8:], words[106][-8:],
+        words[124][-2:], words[125][-2:], words[126][-2:], words[127][-1:],
+        words[128][-1:], words[132][12:], words[133][-4:], words[134],
+        words[135][-4:], words[136][-4:], words[137][-2:],
+    ))
+    if len(descriptor) != 340:
+        raise AssertionError("DataSession profile descriptor width drifted")
+    return keccak256(
+        b"slot-chain-data-session-config-v1"
+        + _model_uint(340, 4, "DataSession descriptor bytes") + descriptor
+    )
+
+
+def settlement_deployment_descriptor_from_profile_v2(
+    execution_profile: "ExecutionProfile",
+) -> SettlementDeploymentDescriptorV1:
+    """Recompute the complete profile -> init code -> CREATE2 descriptor DAG."""
+
+    profile = execution_profile.canonical_profile_bytes
+    expected = _settlement_deployment_words_from_profile_v2(profile)
+    return SettlementDeploymentDescriptorV1(
+        "0x" + expected[0][12:].hex(), expected[1], expected[2], expected[3],
+        expected[4], "0x" + expected[5][12:].hex(), expected[6], expected[7],
+    )
+
+
+def _settlement_deployment_words_from_profile_v2(
+    profile: bytes,
+) -> tuple[bytes, ...]:
+    words = _execution_profile_abi_words_v2(profile)
+    execution_hash = keccak256(
+        EXECUTION_PROFILE_DOMAIN
+        + _model_uint(len(profile), 4, "execution profile bytes") + profile
+    )
+    activation = _decode_model_activation_profile_v2(profile, execution_hash)
+    creation, _runtime = target_code_artifact_v2(profile)
+    init_code = creation + target_constructor_tail_v2(
+        profile, execution_hash, activation.activation_profile_record_hash
+    )
+    init_code_hash = keccak256(init_code)
+    factory = words[44][12:]
+    target = keccak256(b"\xff" + factory + words[47] + init_code_hash)[12:]
+    data_config = data_session_configuration_hash_from_profile_v2(
+        profile, target, execution_hash
+    )
+    target_config = target_configuration_hash_v2(
+        profile, target, execution_hash,
+        activation.activation_profile_record_hash, data_config,
+    )
+    return (
+        bytes(12) + factory, words[45], words[46], words[47], init_code_hash,
+        bytes(12) + target, words[48], target_config,
+    )
+
+
+def kind0_ingress_configuration_hash_v1(profile: bytes) -> bytes:
+    """Derive the exact kind-0 adapter configuration from profile primitives."""
+
+    words = _execution_profile_abi_words_v2(profile)
+    packed = b"".join((
+        words[2], _model_uint(
+            _decode_uint_word_v1(words[1], 64, "profile protocol version"),
+            8, "kind-0 protocol version",
+        ),
+        words[23][12:], words[24], words[25],
+        words[26][12:], words[27], words[28],
+        words[20][12:], words[3],
+    ))
+    if len(packed) != 260:
+        raise AssertionError("kind-0 adapter configuration width drifted")
+    return keccak256(
+        b"slot-chain-kind0-ingress-config-v1"
+        + _model_uint(len(packed), 4, "kind-0 configuration bytes") + packed
     )
 
 
@@ -13378,6 +14128,372 @@ def _settlement_deployment_descriptor_hash_from_abi_v1(
     return descriptor_hash, target, words[6], words[7]
 
 
+def _profile_component_config_hash_v2(kind: int, config: bytes) -> bytes:
+    expected_lengths = (80, 168, 21, 73, 60, 52, 80, 21, 76, 164)
+    if (type(kind) is not int or not 1 <= kind <= 10
+            or type(config) is not bytes
+            or len(config) != expected_lengths[kind - 1]):
+        raise ValueError("profile component configuration is noncanonical")
+    return keccak256(
+        D_COMPONENT_CONFIG + _model_uint(kind, 1, "component kind")
+        + _model_uint(len(config), 2, "component config bytes") + config
+    )
+
+
+def _profile_migration_verifier_descriptor_hash_v2(
+    words: tuple[bytes, ...],
+) -> bytes:
+    selector = _decode_bytes4_word_v1(
+        words[144], "migration verifier selector"
+    )
+    expected_configuration_hash = keccak256(b"".join((
+        MIGRATION_VERIFIER_CONFIG_TYPEHASH,
+        words[141], words[142], words[143], selector + bytes(28),
+        _model_uint(
+            _decode_uint_word_v1(words[145], 32, "maximum proof bytes"),
+            32, "maximum proof bytes ABI",
+        ),
+        _model_uint(
+            _decode_uint_word_v1(words[146], 64, "verification gas"),
+            32, "verification gas ABI",
+        ),
+    )))
+    if words[140] != expected_configuration_hash:
+        raise ValueError("migration verifier configuration is not derived")
+    return keccak256(b"".join((
+        MIGRATION_VERIFIER_DESCRIPTOR_TYPEHASH, words[138], words[139],
+        words[140], words[141], words[142], words[143],
+        selector + bytes(28),
+        _model_uint(
+            _decode_uint_word_v1(words[145], 32, "maximum proof bytes"),
+            32, "maximum proof bytes ABI",
+        ),
+        _model_uint(
+            _decode_uint_word_v1(words[146], 64, "verification gas"),
+            32, "verification gas ABI",
+        ),
+    )))
+
+
+def _profile_source_descriptor_v2(
+    words: tuple[bytes, ...],
+) -> tuple[bytes, bytes, bytes]:
+    """Return the exact source descriptor, execution hash and source domain."""
+
+    settlement_chain_id = int.from_bytes(words[2], "big")
+    if not 0 < settlement_chain_id <= UINT64_MAX:
+        raise ValueError("launch source chain is outside uint64")
+    factory = words[202][12:]
+    bundle_deployer = words[207][12:]
+    source_bridge = words[210][12:]
+    credit_registry = words[214][12:]
+    quota_manager = words[217][12:]
+    expected_deployer = keccak256(
+        b"\xff" + factory + words[205] + words[206]
+    )[12:]
+    if (bundle_deployer != expected_deployer
+            or source_bridge != _source_bundle_child_address_v2(
+                bundle_deployer, 1
+            )
+            or credit_registry != _source_bundle_child_address_v2(
+                bundle_deployer, 2
+            )
+            or quota_manager != _source_bundle_child_address_v2(
+                bundle_deployer, 3
+            )):
+        raise ValueError("source bundle CREATE/CREATE2 derivation is inexact")
+    terminal_verifier = words[166][12:]
+    encoded = b"".join((
+        factory, words[203], words[204], words[205], words[206],
+        bundle_deployer, words[208], words[209][12:], source_bridge,
+        words[211], words[212], words[213], credit_registry, words[215],
+        words[216], quota_manager, words[218], words[219], words[220][12:],
+        words[221], words[222], terminal_verifier, words[167], words[168],
+        words[223][12:], words[224][12:], words[191], words[225][-8:],
+    ))
+    if len(encoded) != 752:
+        raise AssertionError("source descriptor width drifted")
+    execution_hash = keccak256(
+        D_SOURCE_BRIDGE_EXECUTION
+        + _model_uint(len(encoded), 4, "source descriptor bytes") + encoded
+    )
+    source_domain = keccak256(b"".join((
+        D_SOURCE_DOMAIN,
+        _model_uint(settlement_chain_id, 8, "source chain ID"), words[227],
+        credit_registry, terminal_verifier, source_bridge, execution_hash,
+        words[226],
+    )))
+    return encoded, execution_hash, source_domain
+
+
+def _source_bundle_child_address_v2(deployer: bytes, nonce: int) -> bytes:
+    if type(deployer) is not bytes or len(deployer) != 20 or nonce not in {1, 2, 3}:
+        raise ValueError("source bundle child derivation is malformed")
+    return keccak256(b"\xd6\x94" + deployer + bytes((nonce,)))[12:]
+
+
+def _profile_destination_graph_v2(
+    words: tuple[bytes, ...],
+) -> tuple[tuple[tuple[bytes, bytes, bytes], ...], bytes, bytes, bytes]:
+    destination_chain_id = int.from_bytes(words[3], "big")
+    if not 0 < destination_chain_id <= UINT64_MAX:
+        raise ValueError("launch destination chain is outside uint64")
+    components = tuple(
+        (words[160 + index * 3][12:], words[161 + index * 3],
+         words[162 + index * 3])
+        for index in range(10)
+    )
+    if components[1] != (words[23][12:], words[24], words[25]):
+        raise ValueError("destination Router component is not profile control")
+    # Component 1 is the sole kind-1 adapter and its constructor commits the
+    # exact source Registry/Bridge plus immutable Router/PVM graph.
+    kind1_config = b"".join((
+        words[214][12:], words[210][12:], words[23][12:], words[20][12:],
+    ))
+    if components[0][2] != _profile_component_config_hash_v2(1, kind1_config):
+        raise ValueError("kind-1 adapter configuration is not derived")
+    bridge_descriptor = b"".join((
+        components[9][0], components[9][1], components[9][2],
+        words[190], words[191], components[4][0], components[7][0],
+        components[6][0], words[195][12:], components[8][0],
+    ))
+    if len(bridge_descriptor) != 248:
+        raise AssertionError("destination Bridge descriptor width drifted")
+    bridge_config = b"".join((
+        words[190], words[191], components[4][0], components[7][0],
+        components[6][0], words[195][12:], components[8][0],
+    ))
+    if components[9][2] != _profile_component_config_hash_v2(10, bridge_config):
+        raise ValueError("destination Bridge configuration is not derived")
+    bridge_execution_hash = keccak256(
+        D_DESTINATION_BRIDGE_EXECUTION
+        + _model_uint(len(bridge_descriptor), 4,
+                      "destination Bridge descriptor bytes")
+        + bridge_descriptor
+    )
+    infrastructure_preimage = b"".join(
+        address + runtime + configuration
+        for address, runtime, configuration in components
+    )
+    if len(infrastructure_preimage) != 840:
+        raise AssertionError("destination infrastructure width drifted")
+    infrastructure_hash = keccak256(
+        D_DESTINATION_INFRASTRUCTURE
+        + _model_uint(len(infrastructure_preimage), 4,
+                      "destination infrastructure bytes")
+        + infrastructure_preimage
+    )
+    destination_domain = keccak256(b"".join((
+        D_DESTINATION_DOMAIN,
+        _model_uint(destination_chain_id, 8, "destination chain ID"),
+        words[5], components[0][0], components[1][0], components[2][0],
+        components[3][0], components[4][0], components[5][0],
+        components[6][0], components[7][0], components[8][0],
+        components[9][0], bridge_execution_hash, infrastructure_hash,
+        words[10],
+    )))
+    return (components, bridge_execution_hash, infrastructure_hash,
+            destination_domain)
+
+
+def _profile_ingress_rows_v2(
+    words: tuple[bytes, ...], source_execution_hash: bytes,
+    source_domain: bytes, destination_bridge_execution_hash: bytes,
+    destination_infrastructure_hash_: bytes,
+    destination_domain: bytes,
+) -> tuple["ProfileIngressAuthorization", ...]:
+    components = tuple(
+        (words[160 + index * 3][12:], words[161 + index * 3],
+         words[162 + index * 3])
+        for index in range(10)
+    )
+    fees = tuple(int.from_bytes(words[index], "big") for index in range(230, 235))
+    validate_ingress_fee_schedule(fees)
+    common = dict(
+        router_address="0x" + words[23][12:].hex(),
+        router_runtime_hash="0x" + words[24].hex(),
+        router_configuration_hash="0x" + words[25].hex(),
+        queue_address="0x" + words[26][12:].hex(),
+        queue_runtime_hash="0x" + words[27].hex(),
+        queue_configuration_hash="0x" + words[28].hex(),
+        destination_chain_id=int.from_bytes(words[3], "big"),
+        fixed_ingress_wei=fees[0], execution_wei_per_accounted_gas=fees[1],
+        proof_wei_per_accounted_gas=fees[2], permanent_wei_per_byte=fees[3],
+        maximum_accepted_fee_wei=fees[4],
+    )
+    kind0_packed = b"".join((
+        words[2], words[1][-8:], words[23][12:], words[24], words[25],
+        words[26][12:], words[27], words[28], words[20][12:], words[3],
+    ))
+    if len(kind0_packed) != 260:
+        raise AssertionError("kind-0 adapter configuration width drifted")
+    kind0_configuration = keccak256(
+        b"slot-chain-kind0-ingress-config-v1"
+        + _model_uint(len(kind0_packed), 4, "kind-0 config bytes")
+        + kind0_packed
+    )
+    empty_source = dict(
+        source_registry_address="", source_registry_runtime_hash="",
+        source_registry_configuration_hash="",
+        source_registry_domain_registrar="", source_bridge_address="",
+        source_bridge_runtime_hash="", source_bridge_configuration_hash="",
+        support_registry_address="", support_registry_runtime_hash="",
+        support_registry_configuration_hash="", source_descriptor_id=bytes(32),
+        source_settlement_chain_id=0, source_chain_id=0,
+        source_genesis_hash="", source_registry_namespace="",
+        source_bridge_credit_registry="", source_bridge_facade_runtime_hash="",
+        source_bridge_storage_layout_hash="", source_bridge_kernel_hash="",
+        source_terminal_verifier="", source_v1_official_vaults=(),
+        source_domain_id="", source_registration_epoch=0,
+        frozen_bridge_execution_hash="", destination_domain_id="",
+        destination_bridge="", destination_descriptor_id=bytes(32),
+        destination_genesis_hash="", terminal_signal_verifier="",
+        inbox_apply_router="", inbox_credit_store="",
+        protocol_release_authority="", terminal_domain_registrar="",
+        terminal_accumulator="", native_liquidity_pool="",
+        destination_bridge_execution_hash="",
+        destination_infrastructure_hash="", destination_namespace="",
+        source_descriptor=None,
+    )
+    kind0 = ProfileIngressAuthorization(
+        kind=ForceKind.USER_TX,
+        adapter_address="0x" + words[228][12:].hex(),
+        runtime_hash="0x" + words[229].hex(),
+        configuration_hash="0x" + kind0_configuration.hex(),
+        **empty_source, **common,
+    )
+    kind1 = ProfileIngressAuthorization(
+        kind=ForceKind.BRIDGE_CREDIT,
+        adapter_address="0x" + components[0][0].hex(),
+        runtime_hash="0x" + components[0][1].hex(),
+        configuration_hash="0x" + components[0][2].hex(),
+        source_registry_address="0x" + words[214][12:].hex(),
+        source_registry_runtime_hash="0x" + words[215].hex(),
+        source_registry_configuration_hash="0x" + words[216].hex(),
+        source_registry_domain_registrar="0x" + words[220][12:].hex(),
+        source_bridge_address="0x" + words[210][12:].hex(),
+        source_bridge_runtime_hash="0x" + words[211].hex(),
+        source_bridge_configuration_hash="0x" + words[212].hex(),
+        support_registry_address="0x" + words[220][12:].hex(),
+        support_registry_runtime_hash="0x" + words[221].hex(),
+        support_registry_configuration_hash="0x" + words[222].hex(),
+        source_descriptor_id=keccak256(
+            b"slot-chain-source-bridge-descriptor-v2"
+            + source_execution_hash
+        ),
+        source_settlement_chain_id=int.from_bytes(words[2], "big"),
+        source_chain_id=int.from_bytes(words[2], "big"),
+        source_genesis_hash="0x" + words[227].hex(),
+        source_registry_namespace="0x" + words[226].hex(),
+        source_bridge_credit_registry="0x" + words[214][12:].hex(),
+        source_bridge_facade_runtime_hash="0x" + words[211].hex(),
+        source_bridge_storage_layout_hash="0x" + words[213].hex(),
+        source_bridge_kernel_hash="0x" + words[191].hex(),
+        source_terminal_verifier="0x" + components[2][0].hex(),
+        source_v1_official_vaults=(),
+        source_domain_id="0x" + source_domain.hex(),
+        source_registration_epoch=int.from_bytes(words[225], "big"),
+        frozen_bridge_execution_hash="0x" + source_execution_hash.hex(),
+        destination_domain_id="0x" + destination_domain.hex(),
+        destination_bridge="0x" + components[9][0].hex(),
+        destination_descriptor_id=keccak256(
+            b"slot-chain-destination-ingress-descriptor-v2"
+            + destination_domain
+        ),
+        destination_genesis_hash="0x" + words[5].hex(),
+        terminal_signal_verifier="0x" + components[2][0].hex(),
+        inbox_apply_router="0x" + components[3][0].hex(),
+        inbox_credit_store="0x" + components[4][0].hex(),
+        protocol_release_authority="0x" + components[5][0].hex(),
+        terminal_domain_registrar="0x" + components[6][0].hex(),
+        terminal_accumulator="0x" + components[7][0].hex(),
+        native_liquidity_pool="0x" + components[8][0].hex(),
+        destination_bridge_execution_hash=(
+            "0x" + destination_bridge_execution_hash.hex()
+        ),
+        destination_infrastructure_hash=(
+            "0x" + destination_infrastructure_hash_.hex()
+        ),
+        destination_namespace="0x" + words[10].hex(),
+        source_descriptor=None, **common,
+    )
+    return kind0, kind1
+
+
+def derive_register_release_authority_v2(
+    profile: bytes, expected_predecessor_protocol_version: int,
+) -> DerivedRegisterReleaseAuthorityV2:
+    """Recompute the complete authority DAG without storage or witnesses."""
+
+    words = _execution_profile_abi_words_v2(profile)
+    protocol_version = _decode_uint_word_v1(words[1], 64, "profile version")
+    settlement_chain_id = int.from_bytes(words[2], "big")
+    if (not 0 <= expected_predecessor_protocol_version < protocol_version
+            or not 0 < settlement_chain_id <= UINT64_MAX):
+        raise ValueError("release predecessor/chain is unsupported")
+    execution_hash = keccak256(
+        EXECUTION_PROFILE_DOMAIN
+        + _model_uint(len(profile), 4, "execution profile bytes") + profile
+    )
+    activation = _decode_model_activation_profile_v2(profile, execution_hash)
+    migration_descriptor_hash = _profile_migration_verifier_descriptor_hash_v2(
+        words
+    )
+    expected_deployment_words = _settlement_deployment_words_from_profile_v2(
+        profile
+    )
+    deployment_abi = b"".join(expected_deployment_words)
+    descriptor_hash, target, runtime_hash, config_hash = \
+        _settlement_deployment_descriptor_hash_from_abi_v1(deployment_abi)
+    _source_descriptor, source_execution, source_domain = \
+        _profile_source_descriptor_v2(words)
+    (components, destination_execution, infrastructure_hash,
+     destination_domain) = _profile_destination_graph_v2(words)
+    rows = _profile_ingress_rows_v2(
+        words, source_execution, source_domain, destination_execution,
+        infrastructure_hash, destination_domain,
+    )
+    ids = tuple(sorted(row.authorization_id for row in rows))
+    ingress_root = profile_ingress_authorization_root(rows)
+    manifest_words = (
+        words[1], words[2], words[3], words[5], execution_hash, words[9],
+        words[10], words[13], words[14], destination_domain,
+        bytes(12) + components[9][0], destination_execution,
+        bytes(12) + components[9][0], components[9][1], components[9][2],
+        words[190], words[191], bytes(12) + components[4][0],
+        bytes(12) + components[7][0], bytes(12) + components[6][0],
+        words[195], bytes(12) + components[8][0], infrastructure_hash,
+        migration_descriptor_hash, ingress_root,
+        bytes(12) + components[8][0], components[8][1], components[8][2],
+        *(value for component in components for value in (
+            bytes(12) + component[0], component[1], component[2]
+        )),
+    )
+    if len(manifest_words) != 58:
+        raise AssertionError("derived release manifest width drifted")
+    manifest_abi = b"".join(manifest_words)
+    release_hash = keccak256(RELEASE_MANIFEST_V2_TYPEHASH + manifest_abi)
+    target_registration = keccak256(b"".join((
+        TARGET_REGISTRATION_V2_DOMAIN,
+        _model_uint(protocol_version, 8, "target version"), target,
+        runtime_hash, config_hash, descriptor_hash, execution_hash,
+        activation.activation_profile_record_hash, release_hash,
+        _model_uint(expected_predecessor_protocol_version, 8,
+                    "target predecessor"),
+        _model_uint(settlement_chain_id, 8, "settlement chain ID"),
+        ingress_root, migration_descriptor_hash,
+    )))
+    return DerivedRegisterReleaseAuthorityV2(
+        words, execution_hash, activation, migration_descriptor_hash,
+        deployment_abi, descriptor_hash, target, runtime_hash, config_hash,
+        data_session_configuration_hash_from_profile_v2(
+            profile, target, execution_hash
+        ),
+        rows, ids, ingress_root, manifest_abi, release_hash,
+        target_registration, expected_predecessor_protocol_version,
+    )
+
+
 def encode_register_release_payload_for_registration_v1(
     registration: SettlementRegistration,
 ) -> bytes:
@@ -13385,23 +14501,15 @@ def encode_register_release_payload_for_registration_v1(
 
     if type(registration) is not SettlementRegistration:
         raise ValueError("release registration fixture is malformed")
-    deployment = registration.settlement_deployment_descriptor
-    deployment_abi = b"".join((
-        _abi_address_word(deployment.factory),
-        deployment.factory_runtime_hash,
-        deployment.factory_configuration_hash, deployment.salt,
-        deployment.init_code_hash,
-        _abi_address_word(deployment.target_settlement),
-        deployment.target_runtime_hash,
-        deployment.target_configuration_hash,
-    ))
     profile = registration.execution_profile.canonical_profile_bytes
+    derived = derive_register_release_authority_v2(
+        profile, registration.predecessor_version
+    )
     padded = (len(profile) + 31) // 32 * 32
     encoded = b"".join((
         _model_uint(registration.predecessor_version, 32,
                     "REGISTER_RELEASE predecessor"),
-        registration.release_manifest.canonical_abi,
-        deployment_abi,
+        derived.manifest_abi, derived.deployment_abi,
         _model_uint(0x880, 32, "REGISTER_RELEASE profile offset"),
         _model_uint(len(profile), 32, "REGISTER_RELEASE profile length"),
         profile, bytes(padded - len(profile)),
@@ -13435,47 +14543,27 @@ def decode_register_release_payload_v1(
         raise ValueError("REGISTER_RELEASE profile padding is nonzero")
     manifest = payload[32:59 * 32]
     deployment = payload[59 * 32:67 * 32]
-    manifest_words = _protocol_change_words(manifest, 58)
+    derived = derive_register_release_authority_v2(profile, predecessor)
+    if manifest != derived.manifest_abi:
+        raise ValueError("REGISTER_RELEASE manifest is not profile-derived")
+    if deployment != derived.deployment_abi:
+        raise ValueError("REGISTER_RELEASE deployment is not profile-derived")
     protocol_version = _decode_uint_word_v1(
-        manifest_words[0], 64, "release version"
+        derived.profile_words[1], 64, "release version"
     )
-    settlement_chain_id = int.from_bytes(manifest_words[1], "big")
-    if (settlement_chain_id == 0 or not predecessor < protocol_version
-            or any(word == bytes(32) for word in (
-                manifest_words[4], manifest_words[23], manifest_words[24]
-            ))):
-        raise ValueError("REGISTER_RELEASE manifest identity is invalid")
-    expected_profile_hash = keccak256(
-        EXECUTION_PROFILE_DOMAIN
-        + _model_uint(profile_length, 4, "execution profile bytes") + profile
-    )
-    if manifest_words[4] != expected_profile_hash:
-        raise ValueError("REGISTER_RELEASE profile hash is inconsistent")
-    activation_profile = _decode_model_activation_profile_v2(
-        profile, expected_profile_hash
-    )
-    if activation_profile.protocol_version != protocol_version:
-        raise ValueError("REGISTER_RELEASE profile version is inconsistent")
-    descriptor_hash, target, runtime_hash, config_hash = \
-        _settlement_deployment_descriptor_hash_from_abi_v1(deployment)
-    release_hash = keccak256(RELEASE_MANIFEST_V2_TYPEHASH + manifest)
-    target_registration = keccak256(
-        TARGET_REGISTRATION_V2_DOMAIN
-        + _model_uint(protocol_version, 8, "target version") + target
-        + runtime_hash + config_hash + descriptor_hash
-        + manifest_words[4]
-        + activation_profile.activation_profile_record_hash + release_hash
-        + _model_uint(predecessor, 8, "target predecessor")
-        + _model_uint(settlement_chain_id, 8, "settlement chain ID")
-        + manifest_words[24] + manifest_words[23]
-    )
+    settlement_chain_id = int.from_bytes(derived.profile_words[2], "big")
     return RegisterReleasePayloadV1(
         predecessor, manifest, deployment, profile, protocol_version,
-        settlement_chain_id, target, runtime_hash, config_hash,
-        descriptor_hash, manifest_words[4],
-        activation_profile.activation_profile_record_hash,
-        activation_profile, release_hash, manifest_words[24], manifest_words[23],
-        target_registration,
+        settlement_chain_id, derived.target_address,
+        derived.target_runtime_hash, derived.target_configuration_hash,
+        derived.settlement_deployment_descriptor_hash,
+        derived.execution_profile_hash,
+        derived.migration_activation_profile.activation_profile_record_hash,
+        derived.migration_activation_profile, derived.release_manifest_hash,
+        derived.ingress_authorization_root,
+        derived.migration_verifier_descriptor_hash,
+        derived.data_session_configuration_hash,
+        derived.target_registration_hash,
     )
 
 
@@ -13871,16 +14959,140 @@ class SettlementAuthorizationV1:
     authorization_id: bytes
 
 
+def pvm_derived_market_authority_configuration_hash_v1(
+    market_chain_id: int,
+    market_address: str,
+    settlement_chain_id: int,
+    protocol_version_manager: str,
+    active_settlement_router: str,
+) -> bytes:
+    """Commit the Market release-install authority and its direct-read Router."""
+
+    if (not 0 < market_chain_id < 1 << 256
+            or not 0 < settlement_chain_id < 1 << 256):
+        raise ValueError("Market authority chain ID is invalid")
+    addresses = (
+        _model_address20(market_address),
+        _model_address20(protocol_version_manager),
+        _model_address20(active_settlement_router),
+    )
+    if len(set(addresses)) != 3:
+        raise ValueError("Market authority addresses are not distinct")
+    payload = b"".join((
+        _model_uint(market_chain_id, 32, "market chain ID"), addresses[0],
+        _model_uint(settlement_chain_id, 32, "settlement chain ID"),
+        addresses[1], addresses[2],
+    ))
+    if len(payload) != 124:
+        raise AssertionError("Market authority configuration width drifted")
+    return keccak256(
+        b"slot-chain-pvm-derived-market-authority-config-v1"
+        + _model_uint(len(payload), 2, "Market authority config bytes")
+        + payload
+    )
+
+
+def governance_delay_authority_descriptor_hash_from_profile_v1(
+    words: tuple[bytes, ...],
+) -> bytes:
+    """Derive the Timelock descriptor from the strict profile control row."""
+
+    if len(words) != EXECUTION_PROFILE_STATIC_WORDS:
+        raise ValueError("Timelock descriptor profile width is invalid")
+    return keccak256(b"".join((
+        PROTOCOL_CHANGE_TIMELOCK_DOMAIN,
+        _model_uint(int.from_bytes(words[2], "big"), 32,
+                    "Timelock settlement chain"),
+        _decode_address_word_v1(words[16], "Timelock address"), words[17],
+        _decode_address_word_v1(words[19], "DAO proposer"),
+        _decode_address_word_v1(words[20], "PVM address"),
+        _model_uint(PROTOCOL_CHANGE_DELAY_SECONDS, 8, "Timelock delay"),
+        keccak256(PROTOCOL_CHANGE_OPERATION_DOMAIN),
+    )))
+
+
+def protocol_version_manager_configuration_hash_from_profile_v1(
+    words: tuple[bytes, ...],
+) -> bytes:
+    """Derive the complete PVM1 configuration from strict profile words."""
+
+    if len(words) != EXECUTION_PROFILE_STATIC_WORDS:
+        raise ValueError("PVM configuration profile width is invalid")
+    view = ProtocolVersionManagerConfigViewV1(
+        int.from_bytes(words[2], "big"),
+        _decode_address_word_v1(words[16], "PVM Timelock"),
+        _decode_address_word_v1(words[23], "PVM Router"),
+        _decode_address_word_v1(words[26], "PVM ForcedQueue"),
+        _decode_address_word_v1(words[29], "PVM BuilderRegistry"),
+        _decode_address_word_v1(words[32], "PVM ScheduleOracle"),
+        _decode_address_word_v1(words[35], "PVM Market"),
+        words[36], words[37],
+        _decode_address_word_v1(words[38], "PVM domain registry"),
+        _decode_address_word_v1(words[41], "PVM credit registry"),
+        words[18], words[9], PROTOCOL_CHANGE_DELAY_SECONDS,
+        MAXIMUM_LIVE_VERSION_MIGRATION_SECONDS,
+        GENESIS_REVIEW_FINALITY_BLOCKS,
+        PVM_RELEASE_ROUTER_REGISTRATION_GAS,
+        PVM_RELEASE_MARKET_INSTALLATION_GAS,
+        PVM_RELEASE_POSTREAD_GAS,
+        PVM_RELEASE_POST_CALLBACK_RESERVE_GAS,
+        words[24], words[25], words[27], words[28],
+        words[30], words[31], words[33], words[34],
+        words[39], words[40], words[42], words[43],
+    )
+    return protocol_version_manager_configuration_hash_v1(view)
+
+
 @dataclass
 class PvmDerivedMarketAuthorizationV1:
     market_chain_id: int
     address: str
     protocol_version_manager: str
     settlement_chain_id: int
+    active_settlement_router: str
+    runtime_hash: bytes
     authorizations: dict[bytes, SettlementAuthorizationV1] = field(
         default_factory=dict
     )
     fault_point: str | None = field(default=None, compare=False)
+
+    def __post_init__(self) -> None:
+        pvm_derived_market_authority_configuration_hash_v1(
+            self.market_chain_id, self.address, self.settlement_chain_id,
+            self.protocol_version_manager, self.active_settlement_router,
+        )
+        if (type(self.runtime_hash) is not bytes
+                or len(self.runtime_hash) != 32
+                or self.runtime_hash == bytes(32)):
+            raise ValueError("Market authority runtime hash is malformed")
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if name in {
+            "market_chain_id", "address", "protocol_version_manager",
+            "settlement_chain_id", "active_settlement_router", "runtime_hash",
+        } and name in self.__dict__:
+            raise AttributeError(f"{name} is immutable after deployment")
+        object.__setattr__(self, name, value)
+
+    @property
+    def authority_configuration_hash(self) -> bytes:
+        return pvm_derived_market_authority_configuration_hash_v1(
+            self.market_chain_id, self.address, self.settlement_chain_id,
+            self.protocol_version_manager, self.active_settlement_router,
+        )
+
+    def extcodehash(self, *, caller: str) -> bytes:
+        if not caller:
+            raise ValueError("Market EXTCODEHASH caller is empty")
+        return self.runtime_hash
+
+    def component_config_hash_v2(
+        self, *, caller: str, calldata: bytes, gas: int, value: int,
+    ) -> bytes:
+        if (not caller or calldata != COMPONENT_CONFIG_GETTER_SELECTOR
+                or gas != 50_000 or value != 0):
+            raise ValueError("Market componentConfigHashV2 frame is inexact")
+        return self.authority_configuration_hash
 
     def install_settlement_authorization_v1(
         self, row: SettlementAuthorizationV1, *, manager: object,
@@ -13891,7 +15103,8 @@ class PvmDerivedMarketAuthorizationV1:
                 or manager.lifecycle != "APPLYING"
                 or manager._active_operation_kind != REGISTER_RELEASE
                 or manager._active_operation_consumed is False
-                or manager.router is not router):
+                or manager.router is not router
+                or router.address != self.active_settlement_router):
             raise ValueError("Market installation is outside PVM frame")
         expected = keccak256(
             b"TAIKO_SEAT_TARGET_AUTHORIZATION_V1"
@@ -13908,14 +15121,17 @@ class PvmDerivedMarketAuthorizationV1:
                 or row.target_registration_hash == bytes(32)
                 or row.authorization_id in self.authorizations):
             raise ValueError("Market authorization is malformed or reused")
-        router_read = router.target_release_registration_v2(
-            row.protocol_version
+        router_read = router.target_release_registration_v2(row.protocol_version)
+        decoded_router = decode_target_release_registration_return_v2(
+            router_read
         )
-        expected_router_read = encode_target_release_registration_return_v2(
-            router.target_release_registrations_v2[row.protocol_version]
-        )
-        if (len(router_read) != 352 or router_read != expected_router_read
-                or router_read[-32:] != row.target_registration_hash):
+        if (decoded_router.protocol_version != row.protocol_version
+                or decoded_router.target_settlement != row.target
+                or decoded_router.target_runtime_hash != row.runtime_hash
+                or decoded_router.target_configuration_hash
+                    != row.configuration_hash
+                or decoded_router.target_registration_hash
+                    != row.target_registration_hash):
             raise ValueError("Market Router RTR2 direct-read is inexact")
         self.authorizations[row.authorization_id] = row
         if self.fault_point == "after_install":
@@ -13933,6 +15149,312 @@ class PvmDerivedMarketAuthorizationV1:
             row.configuration_hash, row.expected_magic + bytes(28),
             row.target_registration_hash,
         ))
+
+
+@dataclass(frozen=True)
+class ProtocolChangeTimelockConfigViewV1:
+    dao_proposer: bytes
+    protocol_version_manager: bytes
+    minimum_delay_seconds: int
+    operation_domain: bytes
+
+
+def decode_protocol_change_timelock_config_return_v1(
+    returndata: bytes,
+) -> ProtocolChangeTimelockConfigViewV1:
+    if type(returndata) is not bytes or len(returndata) != 160:
+        raise ValueError("PCT1 return must be exactly 160 bytes")
+    words = tuple(
+        returndata[offset:offset + 32] for offset in range(0, 160, 32)
+    )
+    if (words[0] != PCT1_MAGIC + bytes(28)
+            or words[4] != keccak256(PROTOCOL_CHANGE_OPERATION_DOMAIN)):
+        raise ValueError("PCT1 magic/domain is malformed")
+    view = ProtocolChangeTimelockConfigViewV1(
+        _decode_address_word_v1(words[1], "PCT1 DAO proposer"),
+        _decode_address_word_v1(words[2], "PCT1 PVM"),
+        _decode_uint_word_v1(words[3], 64, "PCT1 delay"), words[4],
+    )
+    if (view.dao_proposer == view.protocol_version_manager
+            or view.minimum_delay_seconds != PROTOCOL_CHANGE_DELAY_SECONDS):
+        raise ValueError("PCT1 return values are unsupported")
+    return view
+
+
+def validate_live_protocol_change_timelock_v1(
+    *, manager: object, timelock: object,
+) -> tuple[ProtocolChangeTimelockConfigViewV1, bytes, bytes]:
+    if (type(manager) is not ProtocolVersionManagerV1
+            or type(timelock) is not ProtocolChangeTimelockV1
+            or timelock.address != manager.timelock_address
+            or timelock.settlement_chain_id != manager.settlement_chain_id
+            or timelock.manager is not manager):
+        raise ValueError("live Timelock observation frame is malformed")
+    caller = manager.address
+    runtime_hash = timelock.extcodehash(caller=caller)
+    view = decode_protocol_change_timelock_config_return_v1(
+        timelock.config_return_v1(caller=caller)
+    )
+    descriptor = keccak256(b"".join((
+        PROTOCOL_CHANGE_TIMELOCK_DOMAIN,
+        _model_uint(manager.settlement_chain_id, 32, "Timelock live chain"),
+        _model_address20(timelock.address), runtime_hash,
+        view.dao_proposer, view.protocol_version_manager,
+        _model_uint(view.minimum_delay_seconds, 8, "Timelock live delay"),
+        view.operation_domain,
+    )))
+    if (view.protocol_version_manager != _model_address20(manager.address)
+            or descriptor != manager.timelock_descriptor_hash):
+        raise ValueError("live Timelock differs from immutable root")
+    return view, runtime_hash, descriptor
+
+
+@dataclass(frozen=True)
+class ProtocolVersionManagerConfigViewV1:
+    settlement_chain_id: int
+    protocol_change_timelock: bytes
+    active_settlement_router: bytes
+    forced_queue: bytes
+    builder_registry: bytes
+    schedule_oracle: bytes
+    aggregator_seat_market: bytes
+    aggregator_seat_market_runtime_hash: bytes
+    aggregator_seat_market_configuration_hash: bytes
+    bridge_domain_registry: bytes
+    bridge_credit_registry: bytes
+    timelock_descriptor_hash: bytes
+    manifest_namespace: bytes
+    minimum_delay_seconds: int
+    maximum_live_migration_seconds: int
+    review_finality_blocks: int
+    release_router_registration_gas: int
+    release_market_installation_gas: int
+    release_postread_gas: int
+    release_post_callback_reserve_gas: int
+    active_settlement_router_runtime_hash: bytes
+    active_settlement_router_configuration_hash: bytes
+    forced_queue_runtime_hash: bytes
+    forced_queue_configuration_hash: bytes
+    builder_registry_runtime_hash: bytes
+    builder_registry_configuration_hash: bytes
+    schedule_oracle_runtime_hash: bytes
+    schedule_oracle_configuration_hash: bytes
+    bridge_domain_registry_runtime_hash: bytes
+    bridge_domain_registry_configuration_hash: bytes
+    bridge_credit_registry_runtime_hash: bytes
+    bridge_credit_registry_configuration_hash: bytes
+
+
+def decode_protocol_version_manager_config_return_v1(
+    returndata: bytes,
+) -> ProtocolVersionManagerConfigViewV1:
+    if type(returndata) is not bytes or len(returndata) != 1_056:
+        raise ValueError("PVM1 return must be exactly 1056 bytes")
+    words = tuple(
+        returndata[offset:offset + 32] for offset in range(0, 1_056, 32)
+    )
+    if words[0] != PVM1_MAGIC + bytes(28):
+        raise ValueError("PVM1 magic/padding is malformed")
+    addresses = tuple(
+        _decode_address_word_v1(words[index], "PVM1 address")
+        for index in (2, 3, 4, 5, 6, 7, 10, 11)
+    )
+    narrow = tuple(
+        _decode_uint_word_v1(words[index], bits, "PVM1 numeric")
+        for index, bits in (
+            (14, 64), (15, 64), (16, 16),
+            (17, 64), (18, 64), (19, 64), (20, 64),
+        )
+    )
+    view = ProtocolVersionManagerConfigViewV1(
+        _decode_uint_word_v1(words[1], 256, "PVM1 settlement chain"),
+        *addresses[:6], words[8], words[9], *addresses[6:],
+        words[12], words[13], *narrow, *words[21:33],
+    )
+    if (view.settlement_chain_id == 0
+            or len(set(addresses)) != len(addresses)
+            or any(word == bytes(32) for word in (
+                view.aggregator_seat_market_runtime_hash,
+                view.aggregator_seat_market_configuration_hash,
+                view.timelock_descriptor_hash, view.manifest_namespace,
+                view.active_settlement_router_runtime_hash,
+                view.active_settlement_router_configuration_hash,
+                view.forced_queue_runtime_hash,
+                view.forced_queue_configuration_hash,
+                view.builder_registry_runtime_hash,
+                view.builder_registry_configuration_hash,
+                view.schedule_oracle_runtime_hash,
+                view.schedule_oracle_configuration_hash,
+                view.bridge_domain_registry_runtime_hash,
+                view.bridge_domain_registry_configuration_hash,
+                view.bridge_credit_registry_runtime_hash,
+                view.bridge_credit_registry_configuration_hash,
+            ))
+            or view.minimum_delay_seconds != PROTOCOL_CHANGE_DELAY_SECONDS
+            or view.maximum_live_migration_seconds
+                != MAXIMUM_LIVE_VERSION_MIGRATION_SECONDS
+            or view.review_finality_blocks != GENESIS_REVIEW_FINALITY_BLOCKS
+            or any(value == 0 for value in (
+                view.release_router_registration_gas,
+                view.release_market_installation_gas,
+                view.release_postread_gas,
+                view.release_post_callback_reserve_gas,
+            ))):
+        raise ValueError("PVM1 return values are unsupported")
+    return view
+
+
+def protocol_version_manager_configuration_hash_v1(
+    view: ProtocolVersionManagerConfigViewV1,
+) -> bytes:
+    if type(view) is not ProtocolVersionManagerConfigViewV1:
+        raise ValueError("PVM1 configuration view has wrong type")
+    return keccak256(b"".join((
+        PROTOCOL_VERSION_MANAGER_CONFIG_DOMAIN,
+        _model_uint(view.settlement_chain_id, 32, "PVM chain"),
+        view.protocol_change_timelock, view.timelock_descriptor_hash,
+        view.active_settlement_router,
+        view.active_settlement_router_runtime_hash,
+        view.active_settlement_router_configuration_hash,
+        view.forced_queue, view.forced_queue_runtime_hash,
+        view.forced_queue_configuration_hash,
+        view.builder_registry, view.builder_registry_runtime_hash,
+        view.builder_registry_configuration_hash,
+        view.schedule_oracle, view.schedule_oracle_runtime_hash,
+        view.schedule_oracle_configuration_hash,
+        view.aggregator_seat_market,
+        view.aggregator_seat_market_runtime_hash,
+        view.aggregator_seat_market_configuration_hash,
+        view.bridge_domain_registry,
+        view.bridge_domain_registry_runtime_hash,
+        view.bridge_domain_registry_configuration_hash,
+        view.bridge_credit_registry,
+        view.bridge_credit_registry_runtime_hash,
+        view.bridge_credit_registry_configuration_hash,
+        view.manifest_namespace,
+        _model_uint(view.minimum_delay_seconds, 8, "PVM delay"),
+        _model_uint(view.maximum_live_migration_seconds, 8, "PVM live maximum"),
+        _model_uint(view.review_finality_blocks, 2, "PVM finality"),
+        _model_uint(view.release_router_registration_gas, 8, "PVM Router gas"),
+        _model_uint(view.release_market_installation_gas, 8, "PVM Market gas"),
+        _model_uint(view.release_postread_gas, 8, "PVM postread gas"),
+        _model_uint(
+            view.release_post_callback_reserve_gas, 8, "PVM reserve gas"
+        ),
+    )))
+
+
+def validate_profile_market_root_join_v1(
+    words: tuple[bytes, ...], *, manager: object, router: object, caller: str,
+) -> bytes:
+    """Join profile control words to the actual immutable PVM/Router/Market."""
+
+    if (len(words) != EXECUTION_PROFILE_STATIC_WORDS
+            or type(manager) is not ProtocolVersionManagerV1
+            or type(router) is not ActiveSettlementRouter
+            or manager.router is not router
+            or manager.market.protocol_version_manager != manager.address
+            or manager.market.active_settlement_router != router.address):
+        raise ValueError("Market root-join frame is malformed")
+    market = manager.market
+    chain_id = int.from_bytes(words[2], "big")
+    manager_return = manager.config_return_v1(caller=caller)
+    manager_view = decode_protocol_version_manager_config_return_v1(
+        manager_return
+    )
+    manager_configuration_hash = \
+        protocol_version_manager_configuration_hash_v1(manager_view)
+    control_rows = (
+        ("Router", 23,
+         manager_view.active_settlement_router_runtime_hash,
+         manager_view.active_settlement_router_configuration_hash),
+        ("ForcedQueue", 26, manager_view.forced_queue_runtime_hash,
+         manager_view.forced_queue_configuration_hash),
+        ("BuilderRegistry", 29, manager_view.builder_registry_runtime_hash,
+         manager_view.builder_registry_configuration_hash),
+        ("ScheduleOracle", 32, manager_view.schedule_oracle_runtime_hash,
+         manager_view.schedule_oracle_configuration_hash),
+        ("BridgeDomainRegistry", 38,
+         manager_view.bridge_domain_registry_runtime_hash,
+         manager_view.bridge_domain_registry_configuration_hash),
+        ("BridgeCreditRegistry", 41,
+         manager_view.bridge_credit_registry_runtime_hash,
+         manager_view.bridge_credit_registry_configuration_hash),
+    )
+    expected_configuration = \
+        pvm_derived_market_authority_configuration_hash_v1(
+            chain_id, market.address, chain_id, manager.address,
+            router.address,
+        )
+    if (chain_id != manager.settlement_chain_id
+            or manager_view.settlement_chain_id != chain_id
+            or words[16]
+                != _abi_address_word(manager_view.protocol_change_timelock)
+            or words[18] != manager_view.timelock_descriptor_hash
+            or words[9] != manager_view.manifest_namespace
+            or manager_view.protocol_change_timelock
+                != _model_address20(manager.timelock_address)
+            or manager_view.active_settlement_router
+                != _model_address20(router.address)
+            or manager_view.forced_queue
+                != _model_address20(manager.forced_queue_address)
+            or manager_view.builder_registry
+                != _model_address20(manager.builder_registry_address)
+            or manager_view.schedule_oracle
+                != _model_address20(manager.schedule_oracle_address)
+            or manager_view.aggregator_seat_market
+                != _model_address20(market.address)
+            or manager_view.bridge_domain_registry
+                != _model_address20(manager.bridge_domain_registry_address)
+            or manager_view.bridge_credit_registry
+                != _model_address20(manager.bridge_credit_registry_address)
+            or market.market_chain_id != chain_id
+            or market.settlement_chain_id != chain_id
+            or words[20] != _abi_address_word(manager.address)
+            or words[21] != manager.extcodehash(caller=caller)
+            or words[22] != manager_configuration_hash
+            or words[23] != _abi_address_word(router.address)
+            or words[23]
+                != _abi_address_word(manager_view.active_settlement_router)
+            or words[26] != _abi_address_word(manager_view.forced_queue)
+            or words[29] != _abi_address_word(manager_view.builder_registry)
+            or words[32] != _abi_address_word(manager_view.schedule_oracle)
+            or words[35] != _abi_address_word(market.address)
+            or words[35]
+                != _abi_address_word(manager_view.aggregator_seat_market)
+            or words[36]
+                != manager_view.aggregator_seat_market_runtime_hash
+            or words[37]
+                != manager_view.aggregator_seat_market_configuration_hash
+            or words[38]
+                != _abi_address_word(manager_view.bridge_domain_registry)
+            or words[41]
+                != _abi_address_word(manager_view.bridge_credit_registry)
+            or any(words[index + 1] != runtime_hash
+                   or words[index + 2] != configuration_hash
+                   for _label, index, runtime_hash, configuration_hash
+                   in control_rows)
+            or market.extcodehash(caller=caller)
+                != manager_view.aggregator_seat_market_runtime_hash
+            or manager_view.aggregator_seat_market_configuration_hash
+                != expected_configuration):
+        raise ValueError("profile control tuple differs from live root")
+    for label, index, runtime_hash, configuration_hash in control_rows:
+        _validate_live_target_code_and_config_v2(
+            manager.deployment_world, caller=caller,
+            address=words[index][12:], runtime_hash=runtime_hash,
+            configuration_hash=configuration_hash,
+            label=f"control:{label}",
+        )
+    observed_configuration = market.component_config_hash_v2(
+        caller=caller, calldata=COMPONENT_CONFIG_GETTER_SELECTOR,
+        gas=50_000, value=0,
+    )
+    if (type(observed_configuration) is not bytes
+            or len(observed_configuration) != 32
+            or observed_configuration != expected_configuration):
+        raise ValueError("Market live configuration differs from root")
+    return expected_configuration
 
 
 @dataclass(frozen=True)
@@ -13986,10 +15508,20 @@ class ProtocolVersionManagerV1:
     builder_registry_address: str
     schedule_oracle_address: str
     market: PvmDerivedMarketAuthorizationV1
+    deployment_world: LiveDeploymentWorldV2
     bridge_domain_registry_address: str
     bridge_credit_registry_address: str
     timelock_descriptor_hash: bytes
     manifest_namespace: bytes
+    market_runtime_hash: bytes
+    market_configuration_hash: bytes
+    runtime_hash: bytes
+    control_component_hashes: tuple[bytes, ...]
+    release_router_registration_gas: int = PVM_RELEASE_ROUTER_REGISTRATION_GAS
+    release_market_installation_gas: int = PVM_RELEASE_MARKET_INSTALLATION_GAS
+    release_postread_gas: int = PVM_RELEASE_POSTREAD_GAS
+    release_post_callback_reserve_gas: int = \
+        PVM_RELEASE_POST_CALLBACK_RESERVE_GAS
     active_protocol_version: int = 0
     lifecycle: str = "IDLE"
     consumed_operation_ids: set[bytes] = field(default_factory=set)
@@ -14005,6 +15537,9 @@ class ProtocolVersionManagerV1:
     generation: int = 0
     migration_lease: VersionMigrationLeaseV1 = field(
         default_factory=VersionMigrationLeaseV1
+    )
+    migration_arms: dict[bytes, VersionMigrationLeaseV1] = field(
+        default_factory=dict
     )
     fault_point: str | None = field(default=None, compare=False)
     _active_operation_kind: int = field(default=0, compare=False, repr=False)
@@ -14045,8 +15580,27 @@ class ProtocolVersionManagerV1:
     schedule_oracle: ScheduleOracleV1 | None = field(
         default=None, compare=False, repr=False
     )
+    config_return_overrides: dict[str, bytes] = field(
+        default_factory=dict, compare=False, repr=False
+    )
+    config_return_faults: set[str] = field(
+        default_factory=set, compare=False, repr=False
+    )
 
-    def config_return_v1(self) -> bytes:
+    def extcodehash(self, *, caller: str) -> bytes:
+        if not caller or len(self.runtime_hash) != 32:
+            raise ValueError("PVM EXTCODEHASH observation is malformed")
+        return self.runtime_hash
+
+    @property
+    def configuration_hash(self) -> bytes:
+        return protocol_version_manager_configuration_hash_v1(
+            decode_protocol_version_manager_config_return_v1(
+                self.config_return_v1()
+            )
+        )
+
+    def config_return_v1(self, *, caller: str = "") -> bytes:
         addresses = (
             self.timelock_address, self.router_address,
             self.forced_queue_address, self.builder_registry_address,
@@ -14056,22 +15610,48 @@ class ProtocolVersionManagerV1:
         )
         if (not all(addresses) or len(set(addresses)) != len(addresses)
                 or self.timelock_descriptor_hash == bytes(32)
-                or self.manifest_namespace == bytes(32)):
+                or self.manifest_namespace == bytes(32)
+                or self.market.protocol_version_manager != self.address
+                or self.market.settlement_chain_id != self.settlement_chain_id
+                or self.market.active_settlement_router
+                    != self.router_address
+                or self.market_runtime_hash != self.market.runtime_hash
+                or self.market_configuration_hash
+                    != self.market.authority_configuration_hash
+                or len(self.control_component_hashes) != 12
+                or any(type(value) is not bytes or len(value) != 32
+                       or value == bytes(32)
+                       for value in self.control_component_hashes)):
             raise ValueError("PVM1 immutable configuration is malformed")
         encoded = b"".join((
             PVM1_MAGIC + bytes(28),
             _model_uint(self.settlement_chain_id, 32,
                         "PVM settlement chain ID"),
-            *(_abi_address_word(address) for address in addresses[:8]),
+            *(_abi_address_word(address) for address in addresses[:6]),
+            self.market_runtime_hash, self.market_configuration_hash,
+            *(_abi_address_word(address) for address in addresses[6:8]),
             self.timelock_descriptor_hash, self.manifest_namespace,
             _model_uint(PROTOCOL_CHANGE_DELAY_SECONDS, 32, "PVM delay"),
             _model_uint(MAXIMUM_LIVE_VERSION_MIGRATION_SECONDS, 32,
                         "PVM migration maximum"),
             _model_uint(GENESIS_REVIEW_FINALITY_BLOCKS, 32,
                         "PVM review finality"),
+            _model_uint(self.release_router_registration_gas, 32,
+                        "PVM Router registration gas"),
+            _model_uint(self.release_market_installation_gas, 32,
+                        "PVM Market installation gas"),
+            _model_uint(self.release_postread_gas, 32,
+                        "PVM release postread gas"),
+            _model_uint(self.release_post_callback_reserve_gas, 32,
+                        "PVM release post-callback reserve"),
+            *self.control_component_hashes,
         ))
-        if len(encoded) != 480:
-            raise AssertionError("PVM1 must be 15 ABI words")
+        if len(encoded) != 1_056:
+            raise AssertionError("PVM1 must be 33 ABI words")
+        if caller in self.config_return_faults:
+            raise RuntimeError("injected caller-dependent PVM1 fault")
+        if caller in self.config_return_overrides:
+            return self.config_return_overrides[caller]
         return encoded
 
     def _snapshot(self) -> tuple[object, ...]:
@@ -14080,9 +15660,11 @@ class ProtocolVersionManagerV1:
             dict(self.release_registrations), dict(self.fork_verifiers),
             list(self.fork_order),
             self.published_genesis_campaign, self.generation,
-            self.migration_lease, dict(self.market.authorizations),
+            self.migration_lease, dict(self.migration_arms),
+            dict(self.market.authorizations),
             dict(self.profile_ingress_roots),
             dict(self.profile_ingress_rows),
+            self.deployment_world.snapshot(),
             (None if self.router is None else
              self.router._protocol_release_registry_snapshot_v2()),
             (None if self.schedule_oracle is None else
@@ -14095,7 +15677,9 @@ class ProtocolVersionManagerV1:
     def _restore(self, state: tuple[object, ...]) -> None:
         (self.lifecycle, consumed, releases, forks, fork_order,
          self.published_genesis_campaign, self.generation,
-         self.migration_lease, market_rows, ingress_roots, ingress_rows,
+         self.migration_lease, migration_arms, market_rows,
+         ingress_roots, ingress_rows,
+         deployment_world_state,
          router_state, schedule_state,
          self._active_operation_kind,
          self._active_operation_consumed, self._active_operation_id,
@@ -14105,8 +15689,10 @@ class ProtocolVersionManagerV1:
         self.fork_verifiers = forks
         self.fork_order = fork_order
         self.market.authorizations = market_rows
+        self.migration_arms = migration_arms
         self.profile_ingress_roots = ingress_roots
         self.profile_ingress_rows = ingress_rows
+        self.deployment_world.restore(deployment_world_state)
         if self.router is not None and router_state is not None:
             self.router._restore_protocol_release_registry_v2(router_state)
         if self.schedule_oracle is not None and schedule_state is not None:
@@ -14154,9 +15740,39 @@ class ProtocolVersionManagerV1:
                     row.nonce, row.operation_kind, payload,
                 )):
             raise ValueError("PVM apply frame is not exact")
+        timelock_view, timelock_runtime_hash, timelock_descriptor_hash = \
+            validate_live_protocol_change_timelock_v1(
+                manager=self, timelock=timelock
+            )
         decoded = validate_protocol_change_payload_v1(
             row.operation_kind, payload
         )
+        release_derived: DerivedRegisterReleaseAuthorityV2 | None = None
+        if row.operation_kind == REGISTER_RELEASE:
+            assert type(decoded) is RegisterReleasePayloadV1
+            release_derived = derive_register_release_authority_v2(
+                decoded.profile_bytes,
+                decoded.expected_predecessor_protocol_version,
+            )
+            profile_words = release_derived.profile_words
+            if (profile_words[16] != _abi_address_word(timelock.address)
+                    or profile_words[17] != timelock_runtime_hash
+                    or profile_words[18] != timelock_descriptor_hash
+                    or profile_words[19]
+                        != _abi_address_word(timelock_view.dao_proposer)):
+                raise ValueError("release profile Timelock root differs")
+            if type(self.router) is not ActiveSettlementRouter:
+                raise ValueError("PVM immutable Router is absent")
+            validate_profile_market_root_join_v1(
+                release_derived.profile_words, manager=self,
+                router=self.router, caller=self.address,
+            )
+            # PVM's own caller-context factory/target reads finish before its
+            # first APPLYING/consumed write.
+            validate_live_register_release_deployment_v2(
+                self.deployment_world, release_derived,
+                decoded.profile_bytes, caller=self.address,
+            )
         self.lifecycle = "APPLYING"
         self.consumed_operation_ids.add(operation_id)
         self._active_operation_kind = row.operation_kind
@@ -14169,16 +15785,42 @@ class ProtocolVersionManagerV1:
         if row.operation_kind == REGISTER_RELEASE:
             assert type(decoded) is RegisterReleasePayloadV1
             router = self.router
-            witness = self.release_witnesses.get(decoded.protocol_version)
-            if (decoded.expected_predecessor_protocol_version
-                    != self.active_protocol_version
+            if type(release_derived) is not DerivedRegisterReleaseAuthorityV2:
+                raise AssertionError("release pre-write derivation is absent")
+            derived = release_derived
+            expected_target_row = derived.target_registration_row
+            expected_target = encode_target_release_registration_return_v2(
+                expected_target_row
+            )
+            expected_mpr = encode_migration_activation_profile_return_v2(
+                derived.migration_activation_profile
+            )
+            sorted_rows = tuple(sorted(
+                derived.ingress_rows, key=lambda item: item.authorization_id
+            ))
+            ids = tuple(item.authorization_id for item in sorted_rows)
+            expected_pir = b"".join((
+                b"PIR2" + bytes(28),
+                _model_uint(decoded.protocol_version, 32, "PIR2 version"),
+                _model_uint(2, 32, "PIR2 count"),
+                derived.ingress_authorization_root,
+            ))
+            expected_pias = tuple(
+                b"PIA2" + bytes(28) + row_id
+                + profile_ingress_authorization_abi_v2(profile_row)
+                for row_id, profile_row in zip(ids, sorted_rows)
+            )
+            if (type(router) is not ActiveSettlementRouter
+                    or decoded.expected_predecessor_protocol_version
+                    != router.active_version
                     or decoded.protocol_version in self.release_registrations
-                    or type(router) is not ActiveSettlementRouter
                     or router.address != self.router_address
-                    or type(witness) is not SettlementRegistration):
+                    or decoded.manifest_abi != derived.manifest_abi
+                    or decoded.deployment_abi != derived.deployment_abi):
                 raise ValueError("release predecessor/version is stale")
             register_result = router.register_target_release_v2(
-                decoded, witness, manager=self
+                decoded, manager=self,
+                deployment_world=self.deployment_world,
             )
             expected_register_result = (
                 b"RTR2" + bytes(28) + decoded.release_manifest_hash
@@ -14186,11 +15828,20 @@ class ProtocolVersionManagerV1:
             )
             if register_result != expected_register_result:
                 raise ValueError("Router register RTR2 return is malformed")
-            sorted_rows = tuple(sorted(
-                witness.ingress_authorizations,
-                key=lambda item: item.authorization_id,
-            ))
-            ids = tuple(item.authorization_id for item in sorted_rows)
+            hook = self.deployment_world.between_router_and_pvm_hook
+            if hook is not None:
+                if not callable(hook):
+                    raise ValueError("deployment-world TOCTOU hook is malformed")
+                hook(self.deployment_world, self, router)
+            validate_live_target_postread_v2(
+                self.deployment_world, derived, decoded.profile_bytes,
+                caller=self.address,
+            )
+            if (router.target_release_registration_v2(
+                    decoded.protocol_version) != expected_target
+                    or router.migration_activation_profile_v2(
+                        decoded.protocol_version) != expected_mpr):
+                raise ValueError("Router release stores changed after return")
             if (len(sorted_rows) != 2
                     or tuple(sorted(item.kind.value for item in sorted_rows))
                         != (0, 1)
@@ -14224,21 +15875,13 @@ class ProtocolVersionManagerV1:
             )
             self.release_registrations[decoded.protocol_version] = decoded
             result = self.market.install_settlement_authorization_v1(
-                authorization, manager=self, router=router
+                authorization, manager=self, router=router,
             )
             if result != SAI1_MAGIC + bytes(28) + authorization_id:
                 raise ValueError("Market SAI1 return is malformed")
             getter = self.market.settlement_authorization_v1(authorization_id)
-            expected_target = encode_target_release_registration_return_v2(
-                router.target_release_registrations_v2[
-                    decoded.protocol_version
-                ]
-            )
             target_getter = router.target_release_registration_v2(
                 decoded.protocol_version
-            )
-            expected_mpr = encode_migration_activation_profile_return_v2(
-                decoded.migration_activation_profile
             )
             mpr_getter = router.migration_activation_profile_v2(
                 decoded.protocol_version
@@ -14246,27 +15889,26 @@ class ProtocolVersionManagerV1:
             pir_getter = self.profile_ingress_root_v2(
                 decoded.protocol_version
             )
-            expected_pir = b"".join((
-                b"PIR2" + bytes(28),
-                _model_uint(decoded.protocol_version, 32, "PIR2 version"),
-                _model_uint(2, 32, "PIR2 count"),
-                decoded.ingress_authorization_root,
-            ))
             pia_reads = tuple(
                 self.profile_ingress_authorization_v2(row_id)
                 for row_id in ids
             )
             if self.postread_override is not None:
                 pir_getter = self.postread_override
-            if (len(getter) != 224
-                    or getter != self.market.settlement_authorization_v1(
-                        authorization_id
-                    )
+            expected_sat = b"".join((
+                SAT1_MAGIC + bytes(28),
+                _model_uint(authorization.protocol_version, 32,
+                            "authorization version"),
+                bytes(12) + authorization.target,
+                authorization.runtime_hash, authorization.configuration_hash,
+                authorization.expected_magic + bytes(28),
+                authorization.target_registration_hash,
+            ))
+            if (len(getter) != 224 or getter != expected_sat
                     or target_getter != expected_target
                     or mpr_getter != expected_mpr
                     or pir_getter != expected_pir
-                    or any(len(item) != 800 or item[:32]
-                           != b"PIA2" + bytes(28) for item in pia_reads)):
+                    or pia_reads != expected_pias):
                 raise ValueError("Market SAT1 post-read is malformed")
         elif row.operation_kind == REGISTER_FORK_VERIFIER:
             assert type(decoded) is RegisterForkVerifierPayloadV1
@@ -14372,8 +16014,10 @@ class ProtocolVersionManagerV1:
             self.generation = generation
         else:
             source, target, manifest_hash, registration_hash = decoded
-            if (source != self.active_protocol_version
-                    or self.migration_lease.state != 0):
+            router = self.router
+            if (type(router) is not ActiveSettlementRouter
+                    or source != router.active_version
+                    or router.migration_gate.mode != "ACTIVE"):
                 raise ValueError("a migration lease is already live or stale")
             self.generation = checked_u64_add(
                 self.generation, 1, "migration generation"
@@ -14399,9 +16043,8 @@ class ProtocolVersionManagerV1:
                 1, self.generation, source, target, manifest_hash,
                 registration_hash, arm_id, clock.timestamp, abort_after,
             )
-            if type(self.router) is not ActiveSettlementRouter:
-                raise ValueError("migration arm Router is unavailable")
-            arm_result = self.router.arm_version_migration_v1(
+            self.migration_arms[arm_id] = self.migration_lease
+            arm_result = router.arm_version_migration_v1(
                 self.migration_lease, manager=self
             )
             expected_arm = b"".join((
@@ -14409,7 +16052,7 @@ class ProtocolVersionManagerV1:
                 _model_uint(self.generation, 32, "arm generation"), arm_id,
             ))
             if (arm_result != expected_arm
-                    or self.router.migration_gate.mode != "ARMED"):
+                    or router.migration_gate.mode != "ARMED"):
                 raise ValueError("Router VMA1 arm post-read is malformed")
         if self.fault_point == "before_idle":
             raise RuntimeError("injected PVM late fault")
@@ -14493,6 +16136,29 @@ class ProtocolVersionManagerV1:
             self._restore(snapshot)
             return False
 
+    def live_version_migration_lease_v1(self) -> bytes:
+        """Derive the live view from Router gate authority, never a singleton."""
+
+        router = self.router
+        if (type(router) is not ActiveSettlementRouter
+                or router.migration_gate.mode not in {"ARMED", "READY"}):
+            return encode_live_version_migration_lease_return_v1(
+                VersionMigrationLeaseV1()
+            )
+        gate = router.migration_gate
+        matches = tuple(
+            row for row in self.migration_arms.values()
+            if (row.generation == gate.generation
+                and row.source_protocol_version == gate.active_protocol_version
+                and row.target_protocol_version == gate.target_protocol_version
+                and row.target_manifest_hash == gate.target_manifest_hash
+                and row.target_registration_hash
+                    == gate.target_registration_hash)
+        )
+        if len(matches) != 1:
+            raise ValueError("Router gate has no unique append-only arm row")
+        return encode_live_version_migration_lease_return_v1(matches[0])
+
 
 @dataclass
 class ProtocolChangeTimelockV1:
@@ -14506,20 +16172,34 @@ class ProtocolChangeTimelockV1:
         default_factory=dict
     )
     fault_point: str | None = field(default=None, compare=False)
+    config_return_overrides: dict[str, bytes] = field(
+        default_factory=dict, compare=False, repr=False
+    )
+    config_return_faults: set[str] = field(
+        default_factory=set, compare=False, repr=False
+    )
     _executing_operation_id: bytes | None = field(
         default=None, compare=False, repr=False
     )
 
-    def config_return_v1(self) -> bytes:
+    def extcodehash(self, *, caller: str) -> bytes:
+        if not caller or len(self.runtime_hash) != 32:
+            raise ValueError("Timelock EXTCODEHASH observation is malformed")
+        return self.runtime_hash
+
+    def config_return_v1(self, *, caller: str = "") -> bytes:
         if (not self.dao_proposer or self.manager.address == self.dao_proposer
                 or self.runtime_hash == bytes(32)):
             raise ValueError("PCT1 immutable configuration is malformed")
-        return b"".join((
+        encoded = b"".join((
             PCT1_MAGIC + bytes(28), _abi_address_word(self.dao_proposer),
             _abi_address_word(self.manager.address),
             _model_uint(PROTOCOL_CHANGE_DELAY_SECONDS, 32, "timelock delay"),
             keccak256(PROTOCOL_CHANGE_OPERATION_DOMAIN),
         ))
+        if caller in self.config_return_faults:
+            raise RuntimeError("injected caller-dependent PCT1 fault")
+        return self.config_return_overrides.get(caller, encoded)
 
     def operation_return_v1(self, operation_id: bytes) -> bytes:
         row = self.operations.get(operation_id)
@@ -15208,6 +16888,13 @@ def settlement_registration(
                 != settlement.execution_profile_hash
             or settlement.market_settlement_chain_id
                 != router.settlement_chain_context_id
+            or type(router.header_oracle)
+                is not EIP2935SystemReadTestAdapter
+            or type(settlement.header_oracle)
+                is not EIP2935SystemReadTestAdapter
+            or settlement.header_oracle is not router.header_oracle
+            or router.header_oracle.first_supported_block
+                != profile.l1_history_first_supported_block
             or router.configuration_hash
                 != active_settlement_router_configuration_hash(
                     router.settlement_chain_context_id
@@ -15859,6 +17546,657 @@ class IMigrationTransitionVerifier:
         raise NotImplementedError
 
 
+def _profile_fixture_hash_v2(label: str) -> bytes:
+    """Deterministic nonzero profile fixture value for a named primitive."""
+
+    return keccak256(b"slot-chain-execution-profile-fixture-v2:" + label.encode())
+
+
+def _profile_fixture_address_word_v2(label: str) -> bytes:
+    return bytes(12) + _profile_fixture_hash_v2(label)[12:]
+
+
+def _execution_profile_field_specs_v2() -> tuple[tuple[str, str], ...]:
+    """Return the exact 251-field normative name/type order."""
+
+    core = (
+        ("schemaVersion", "u64"), ("protocolVersion", "u64"),
+        ("settlementChainId", "u256"), ("l2ChainId", "u256"),
+        ("settlementGenesisHash", "b32"),
+        ("destinationGenesisHash", "b32"), ("forkDigest", "b4"),
+        ("firstV2BlockNumber", "u64"), ("genesisTimestamp", "u64"),
+        ("manifestNamespace", "b32"), ("destinationNamespace", "b32"),
+        ("routerNamespace", "b32"), ("poolNamespace", "b32"),
+        ("anchorV4", "address"), ("anchorRuntimeHash", "b32"),
+        ("anchorConfigurationHash", "b32"),
+    )
+    control = (
+        ("protocolChangeTimelock", "address"),
+        ("protocolChangeTimelockRuntimeHash", "b32"),
+        ("protocolChangeTimelockConfigurationHash", "b32"),
+        ("daoProposer", "address"),
+        ("protocolVersionManager", "address"),
+        ("protocolVersionManagerRuntimeHash", "b32"),
+        ("protocolVersionManagerConfigurationHash", "b32"),
+        ("activeSettlementRouter", "address"),
+        ("activeSettlementRouterRuntimeHash", "b32"),
+        ("activeSettlementRouterConfigurationHash", "b32"),
+        ("forcedQueue", "address"), ("forcedQueueRuntimeHash", "b32"),
+        ("forcedQueueConfigurationHash", "b32"),
+        ("builderRegistry", "address"),
+        ("builderRegistryRuntimeHash", "b32"),
+        ("builderRegistryConfigurationHash", "b32"),
+        ("scheduleOracle", "address"),
+        ("scheduleOracleRuntimeHash", "b32"),
+        ("scheduleOracleConfigurationHash", "b32"),
+        ("aggregatorSeatMarket", "address"),
+        ("aggregatorSeatMarketRuntimeHash", "b32"),
+        ("aggregatorSeatMarketConfigurationHash", "b32"),
+        ("bridgeDomainRegistry", "address"),
+        ("bridgeDomainRegistryRuntimeHash", "b32"),
+        ("bridgeDomainRegistryConfigurationHash", "b32"),
+        ("bridgeCreditRegistry", "address"),
+        ("bridgeCreditRegistryRuntimeHash", "b32"),
+        ("bridgeCreditRegistryConfigurationHash", "b32"),
+    )
+    artifact = (
+        ("settlementFactory", "address"),
+        ("settlementFactoryRuntimeHash", "b32"),
+        ("settlementFactoryConfigurationHash", "b32"),
+        ("settlementSalt", "b32"), ("targetRuntimeHash", "b32"),
+        ("targetCreationCodeHash", "b32"), ("targetAbiHash", "b32"),
+        ("targetStorageLayoutHash", "b32"),
+        ("targetConstructorSchemaHash", "b32"),
+        ("targetCompilerBuildHash", "b32"),
+        ("targetCompileTimeRulesHash", "b32"),
+        ("targetImmutableReferencesHash", "b32"),
+        ("targetLinkReferencesHash", "b32"),
+    )
+    target_infrastructure = (
+        ("settlementL1HistoryStorageAddress", "address"),
+        ("settlementL1HistoryStorageRuntimeHash", "b32"),
+        ("settlementL1HistoryReadConfigurationHash", "b32"),
+        ("registrationMptVerifier", "address"),
+        ("registrationMptVerifierRuntimeHash", "b32"),
+        ("registrationMptVerifierConfigurationHash", "b32"),
+    )
+    sinks = (
+        ("builderLeaseToken", "address"),
+        ("builderLeaseTokenRuntimeHash", "b32"),
+        ("builderLeaseTokenDecimals", "u8"),
+        ("builderPenaltySink", "address"), ("dataRentSink", "address"),
+        ("seatPenaltySink", "address"), ("forcedExpirySink", "address"),
+        ("bridgeSurplusSink", "address"),
+        ("protocolCoinbaseSink", "address"),
+    )
+    recovery_names = (
+        "settlementWindowSeconds", "includeMaxSeconds", "finalLagSeconds",
+        "tipLagSeconds", "proveMaxSeconds", "l1FinalityBlocks",
+        "depthMaxSeconds", "clockSkewSeconds", "escapeOffsetSeconds",
+        "forceDelaySeconds", "maximumParentGapSlots",
+        "maximumForceValiditySeconds", "evidenceDelaySeconds",
+        "reorgMarginSeconds",
+    )
+    recovery = tuple((name, "u64") for name in recovery_names)
+    seat_names = (
+        "seatRunwaySeconds", "minimumPrimaryTenureSeconds",
+        "minimumStandbyTenureSeconds", "handoverDelaySeconds",
+        "stageGraceSeconds", "exitDelaySeconds", "recoveryLagSeconds",
+        "slashLagSeconds", "premiumClaimDelaySeconds",
+        "reorgStabilitySeconds", "releaseChallengeSeconds",
+    )
+    seat = tuple((name, "u64") for name in seat_names) + (
+        ("maximumAskWeiPerSecond", "u256"), ("seatSlaBondWei", "u256"),
+        ("maximumAvoidedServiceCostWei", "u256"),
+        ("collusionSafetyMarginWei", "u256"),
+    )
+    data_session = (
+        ("dataSessionBondWei", "u256"),
+        ("dataSessionBaseRentWei", "u256z"),
+        ("dataSessionRentPerPublishedByteWei", "u256z"),
+        ("dataSessionBlobBaseFeeMultiplierBps", "u16z"),
+        ("dataSessionMaximumTtlSeconds", "u64"),
+        ("dataSessionRefundClaimWindowSeconds", "u64"),
+    )
+    target_gas_names = (
+        "activeSettlementStateReadGas", "seatMarketStateReadGas",
+        "seatTermRecordReadGas", "seatDutyRecordReadGas",
+        "componentConfigurationReadGas", "registrationVerifierConfigReadGas",
+        "registrationVerifierCallGas", "migrationActivationContextReadGas",
+        "migrationPostStateReadGas", "targetAdoptionCallGas",
+        "targetPostCallbackReserveGas",
+    )
+    target_gas = tuple((name, "u64") for name in target_gas_names)
+    compile_rules = (
+        ("slotSeconds", "u8"), ("scheduleWindowSlots", "u16"),
+        ("seatCount", "u8"), ("dutyRingCapacity", "u8"),
+        ("forceTreeDepth", "u8"), ("dataMmrDepth", "u8"),
+        ("dataSessionCellCount", "u16"),
+        ("maximumDataSessionsPerOwner", "u16"),
+        ("maximumDataRecordsPerSession", "u16"),
+        ("maximumGcSteps", "u8"), ("maximumBlobsPerPost", "u8"),
+        ("canonicalHistoryCapacity", "u16"),
+        ("destinationComponentCount", "u8"),
+        ("ingressAuthorizationCount", "u8"),
+        ("pointEvaluationPrecompile", "address"),
+        ("pointEvaluationGas", "u32"), ("blsModulus", "u256"),
+        ("blobGasUsed", "u32"), ("maximumBlobPayloadBytes", "u32"),
+        ("maximumBlobChunkCount", "u16"),
+    )
+    activation = (
+        ("migrationVerifier", "address"),
+        ("migrationVerifierRuntimeHash", "b32"),
+        ("migrationVerifierConfigurationHash", "b32"),
+        ("migrationVerifyingKeyHash", "b32"),
+        ("migrationProofSystemId", "b32"),
+        ("migrationPublicInputSchemaHash", "b32"),
+        ("migrationVerifierSelector", "b4"),
+        ("migrationMaximumProofBytes", "u32"),
+        ("migrationVerificationGas", "u64"),
+        ("supportedL1BlockGasLimit", "u64"),
+        ("worstCaseActivationAdoptionGas", "u64"),
+        ("sourceFreezeGas", "u64"), ("targetAdoptionGas", "u64"),
+        ("queueMigrationGas", "u64"),
+        ("activationContextReadGas", "u64"),
+        ("postStateReadGas", "u64"), ("legacyStateReadGas", "u64"),
+        ("legacyArmGas", "u64"), ("legacyFinalizeGas", "u64"),
+        ("postCallbackReserveGas", "u64"),
+    )
+    destination = (
+        ("inboxSystemSender", "address"),
+        ("anchorSystemSender", "address"),
+    ) + tuple(
+        row
+        for index in range(1, 11)
+        for row in (
+            (f"destinationComponent{index}", "address"),
+            (f"destinationComponent{index}RuntimeHash", "b32"),
+            (f"destinationComponent{index}ConfigurationHash", "b32"),
+        )
+    ) + (
+        ("destinationBridgeStorageLayoutHash", "b32"),
+        ("bridgeKernelProfileHash", "b32"), ("bridgeKernelAbiHash", "b32"),
+        ("bridgeStatusLayoutHash", "b32"),
+        ("bridgeCustodyLayoutHash", "b32"),
+        ("destinationQuotaManager", "address"),
+        ("destinationQuotaManagerRuntimeHash", "b32"),
+        ("destinationQuotaManagerConfigurationHash", "b32"),
+        ("destinationInitialNativeQuota", "u256"),
+        ("poolReadGas", "u64"), ("poolAuthorizationCleanupGas", "u64"),
+        ("poolValueCallbackGas", "u64"),
+    )
+    source = (
+        ("sourceBundleFactory", "address"),
+        ("sourceBundleFactoryRuntimeHash", "b32"),
+        ("sourceBundleFactoryConfigurationHash", "b32"),
+        ("sourceBundleSalt", "b32"), ("sourceBundleInitCodeHash", "b32"),
+        ("sourceBundleDeployer", "address"),
+        ("sourceBundleDeployerRuntimeHash", "b32"),
+        ("legacyV1SourceBridge", "address"),
+        ("sourceBridge", "address"), ("sourceBridgeRuntimeHash", "b32"),
+        ("sourceBridgeConfigurationHash", "b32"),
+        ("sourceBridgeStorageLayoutHash", "b32"),
+        ("sourceCreditRegistry", "address"),
+        ("sourceCreditRegistryRuntimeHash", "b32"),
+        ("sourceCreditRegistryConfigurationHash", "b32"),
+        ("sourceQuotaManager", "address"),
+        ("sourceQuotaManagerRuntimeHash", "b32"),
+        ("sourceQuotaManagerConfigurationHash", "b32"),
+        ("sourceSupportRegistry", "address"),
+        ("sourceSupportRegistryRuntimeHash", "b32"),
+        ("sourceSupportRegistryConfigurationHash", "b32"),
+        ("sourcePauser", "address"), ("sourceSignalService", "address"),
+        ("sourceRegistrationEpoch", "u64"),
+        ("sourceNamespace", "b32"), ("sourceGenesisHash", "b32"),
+    )
+    ingress = (
+        ("kind0IngressAdapter", "address"),
+        ("kind0IngressAdapterRuntimeHash", "b32"),
+        ("fixedIngressWei", "u256"),
+        ("executionWeiPerAccountedGas", "u256"),
+        ("proofWeiPerAccountedGas", "u256"),
+        ("permanentWeiPerByte", "u256"),
+        ("maximumAcceptedFeeWei", "u256"),
+    )
+    execution = (
+        ("l2BlockGasLimit", "u64"), ("baseFeeElasticity", "u64"),
+        ("baseFeeChangeDenominator", "u64"), ("blobTarget", "u64"),
+        ("blobUpdateFraction", "u64"), ("emptyOmmersHash", "b32"),
+        ("emptyTransactionsRoot", "b32"),
+        ("emptyWithdrawalsRoot", "b32"), ("emptyRequestsHash", "b32"),
+        ("l1HistoryFirstSupportedBlock", "u64"),
+        ("l2HistoryStorageRuntimeHash", "b32"),
+        ("l2HistoryStorageActivationBlock", "u64"),
+        ("headerRulesHash", "b32"), ("systemTransactionRulesHash", "b32"),
+        ("forcedInputRulesHash", "b32"),
+        ("stateTransitionAbiHash", "b32"),
+        ("legacyExecutionRulesHash", "b32"),
+    )
+    specs = (core + control + artifact + target_infrastructure + sinks
+             + recovery + seat + data_session + target_gas + compile_rules
+             + activation + destination + source + ingress + execution)
+    if len(specs) != EXECUTION_PROFILE_VALUE_WORDS:
+        raise AssertionError("ExecutionProfileV2 field schema drifted")
+    return specs
+
+
+def _validate_execution_profile_value_words_v2(
+    words: tuple[bytes, ...], *, validate_authority_graph: bool = True,
+) -> None:
+    specs = _execution_profile_field_specs_v2()
+    if len(words) != EXECUTION_PROFILE_STATIC_WORDS:
+        raise ValueError("ExecutionProfileV2 word count is invalid")
+    for index, (name, kind) in enumerate(specs):
+        value = words[index]
+        if kind == "address":
+            _decode_address_word_v1(value, name)
+        elif kind == "b32":
+            if value == bytes(32):
+                raise ValueError(f"{name} is zero")
+        elif kind == "b4":
+            _decode_bytes4_word_v1(value, name)
+        else:
+            allow_zero = kind.endswith("z")
+            bits = int(kind.removeprefix("u").removesuffix("z"))
+            decoded = _decode_uint_word_v1(value, bits, name)
+            if not allow_zero and decoded == 0:
+                raise ValueError(f"{name} is zero")
+    if _decode_uint_word_v1(words[0], 64, "schemaVersion") \
+            != EXECUTION_PROFILE_SCHEMA_VERSION:
+        raise ValueError("ExecutionProfileV2 schema version is unsupported")
+    empty_immutables = keccak256(
+        b"slot-chain-solc-immutable-references-v1" + bytes(4)
+    )
+    empty_links = keccak256(
+        b"slot-chain-solc-link-references-v1" + bytes(4)
+    )
+    if words[55] != empty_immutables or words[56] != empty_links:
+        raise ValueError("target artifact has immutable or linked references")
+    if (words[44] != _abi_address_word(SETTLEMENT_FACTORY_ADDRESS_V2)
+            or words[45] != SETTLEMENT_FACTORY_RUNTIME_HASH_V2
+            or words[46] != settlement_factory_configuration_hash_v2()):
+        raise ValueError("Settlement factory configuration is unsupported")
+    expected_market_authority_configuration = \
+        pvm_derived_market_authority_configuration_hash_v1(
+            int.from_bytes(words[2], "big"),
+            "0x" + words[35][12:].hex(),
+            int.from_bytes(words[2], "big"),
+            "0x" + words[20][12:].hex(),
+            "0x" + words[23][12:].hex(),
+        )
+    if validate_authority_graph:
+        expected_timelock_descriptor = \
+            governance_delay_authority_descriptor_hash_from_profile_v1(words)
+        if (words[37] != expected_market_authority_configuration
+                or words[18] != expected_timelock_descriptor):
+            raise ValueError("protocol-root authority graph is unsupported")
+    compile_bytes = b"".join(words[118:138])
+    expected_compile_hash = keccak256(
+        b"slot-chain-target-compile-time-rules-v2"
+        + _model_uint(len(compile_bytes), 2, "compile-time rule bytes")
+        + compile_bytes
+    )
+    if words[54] != expected_compile_hash:
+        raise ValueError("target compile-time rules hash is inconsistent")
+    expected_compile_values = (
+        1, 384, 4, 4, 64, 12, 1_024, 2, 2_100, 8, 6, 256, 10, 2,
+    )
+    for index, expected in enumerate(expected_compile_values, start=118):
+        if int.from_bytes(words[index], "big") != expected:
+            raise ValueError("fixed compile-time geometry is unsupported")
+    if (_decode_address_word_v1(
+            words[132], "pointEvaluationPrecompile"
+            ) != _model_address20(POINT_EVALUATION_PRECOMPILE)
+            or int.from_bytes(words[133], "big") != POINT_EVALUATION_GAS
+            or int.from_bytes(words[134], "big") != BLS_MODULUS
+            or int.from_bytes(words[135], "big") != 131_072
+            or int.from_bytes(words[136], "big") != 126_972
+            or int.from_bytes(words[137], "big") != 9):
+        raise ValueError("fixed cryptographic/blob constants are unsupported")
+    if (words[114] != words[152] or words[115] != words[153]
+            or words[116] != words[150] or words[117] != words[157]):
+        raise ValueError("duplicated activation gas authorities disagree")
+    if int.from_bytes(words[106], "big") < int.from_bytes(words[105], "big"):
+        raise ValueError("DataSession refund window is shorter than maximum TTL")
+    if int.from_bytes(words[111], "big") != 50_000:
+        raise ValueError("component configuration read gas is unsupported")
+    l1_first_supported = int.from_bytes(words[244], "big")
+    l2_activation = int.from_bytes(words[246], "big")
+    history_address = _abi_address_word(L1_EIP2935_HISTORY_STORAGE_ADDRESS)
+    history_config = eip2935_read_configuration_hash_v1(l1_first_supported)
+    if (words[57] != history_address
+            or words[58] != L1_EIP2935_HISTORY_STORAGE_RUNTIME_HASH
+            or words[245] != L2_EIP2935_HISTORY_STORAGE_RUNTIME_HASH
+            or words[59] != history_config
+            or int.from_bytes(words[7], "big") < l2_activation):
+        raise ValueError("EIP-2935 authority projection is unsupported")
+
+
+def _execution_profile_value_words_v2(profile: "ExecutionProfile") \
+        -> tuple[bytes, ...]:
+    """Encode all 252 fixed ExecutionProfileV2 value words in normative order."""
+
+    verifier = profile.migration_transition_verifier_descriptor
+    word = lambda value, name: _model_uint(value, 32, name)
+    hash_ = _profile_fixture_hash_v2
+    address = _profile_fixture_address_word_v2
+    bytes4_word = lambda value: value + bytes(28)
+
+    core = (
+        word(EXECUTION_PROFILE_SCHEMA_VERSION, "profile schema version"),
+        word(profile.protocol_version, "profile protocol version"),
+        word(MODEL_SETTLEMENT_CHAIN_CONTEXT_ID, "profile settlement chain"),
+        word(16_788, "profile L2 chain"),
+        hash_("settlement-genesis"), hash_("destination-genesis"),
+        bytes4_word(bytes.fromhex("46554c55")),
+        word(1, "profile first V2 block"),
+        word(GENESIS_TIMESTAMP, "profile genesis timestamp"),
+        keccak256(profile.namespace.encode("utf-8")),
+        hash_("destination-namespace"), hash_("router-namespace"),
+        hash_("pool-namespace"), address("anchor-v4"),
+        hash_("anchor-v4-runtime"), hash_("anchor-v4-config"),
+    )
+    pvm_word = address("protocol-version-manager")
+    router_word = address("active-settlement-router")
+    market_word = address("aggregator-seat-market")
+    market_authority_configuration = \
+        pvm_derived_market_authority_configuration_hash_v1(
+            MODEL_SETTLEMENT_CHAIN_CONTEXT_ID,
+            "0x" + market_word[12:].hex(),
+            MODEL_SETTLEMENT_CHAIN_CONTEXT_ID,
+            "0x" + pvm_word[12:].hex(),
+            "0x" + router_word[12:].hex(),
+        )
+    control = (
+        address("protocol-change-timelock"), hash_("timelock-runtime"),
+        hash_("timelock-config"), address("dao-proposer"),
+        pvm_word, hash_("pvm-runtime"),
+        hash_("pvm-config"), address("active-settlement-router"),
+        hash_("router-runtime"), hash_("router-config"),
+        address("forced-queue"), hash_("forced-queue-runtime"),
+        hash_("forced-queue-config"),
+        address("builder-registry"), hash_("builder-registry-runtime"),
+        hash_("builder-registry-config"), address("schedule-oracle"),
+        hash_("schedule-oracle-runtime"), hash_("schedule-oracle-config"),
+        market_word, hash_("seat-market-runtime"),
+        market_authority_configuration, address("bridge-domain-registry"),
+        hash_("bridge-domain-registry-runtime"),
+        hash_("bridge-domain-registry-config"),
+        address("bridge-credit-registry"),
+        hash_("bridge-credit-registry-runtime"),
+        hash_("bridge-credit-registry-config"),
+    )
+    compile_rules = tuple(word(value, "compile-time rule") for value in (
+        1, 384, 4, 4, 64, 12, 1_024, 2, 2_100, 8, 6, 256, 10, 2,
+    )) + (
+        _abi_address_word(POINT_EVALUATION_PRECOMPILE),
+        word(POINT_EVALUATION_GAS, "point-evaluation gas"),
+        word(BLS_MODULUS, "BLS modulus"),
+        word(131_072, "blob gas used"),
+        word(126_972, "maximum blob payload"),
+        word(9, "blob chunk cap"),
+    )
+    compile_rules_hash = keccak256(
+        b"slot-chain-target-compile-time-rules-v2"
+        + _model_uint(20 * 32, 2, "compile-time rule bytes")
+        + b"".join(compile_rules)
+    )
+    artifact = (
+        _abi_address_word(SETTLEMENT_FACTORY_ADDRESS_V2),
+        SETTLEMENT_FACTORY_RUNTIME_HASH_V2,
+        settlement_factory_configuration_hash_v2(),
+        hash_("settlement-create2-salt"),
+        keccak256(profile.target_runtime_code),
+        keccak256(profile.target_creation_code),
+        hash_("settlement-abi"), hash_("settlement-storage-layout"),
+        hash_("settlement-constructor-schema"),
+        hash_("settlement-compiler-build"), compile_rules_hash,
+        keccak256(b"slot-chain-solc-immutable-references-v1" + bytes(4)),
+        keccak256(b"slot-chain-solc-link-references-v1" + bytes(4)),
+    )
+    target_infrastructure = (
+        _abi_address_word(L1_EIP2935_HISTORY_STORAGE_ADDRESS),
+        L1_EIP2935_HISTORY_STORAGE_RUNTIME_HASH,
+        eip2935_read_configuration_hash_v1(
+            profile.l1_history_first_supported_block
+        ),
+        address("registration-mpt-verifier"),
+        hash_("registration-mpt-verifier-runtime"),
+        hash_("registration-mpt-verifier-config"),
+    )
+    sinks = (
+        address("builder-lease-token"), hash_("builder-lease-token-runtime"),
+        word(18, "builder lease decimals"), address("builder-penalty-sink"),
+        address("data-rent-sink"), address("seat-penalty-sink"),
+        address("forced-expiry-sink"),
+        _abi_address_word(profile.bridge_surplus_sink.address),
+        address("protocol-coinbase-sink"),
+    )
+    recovery = tuple(word(value, "recovery parameter") for value in (
+        W_SETTLE_SECONDS, T_INCLUDE_MAX_SECONDS, DELTA_FINAL_LAG, DELTA_TIP,
+        P_PROVE_MAX, F_L1, T_DEPTH_MAX, CLOCK_SKEW, ESCAPE_OFFSET,
+        FORCE_DELAY, G_MAX, MAX_FORCE_VALIDITY_SECONDS,
+        EVIDENCE_DELAY_SECONDS, REORG_MARGIN_SECONDS,
+    ))
+    seat = tuple(word(value, "seat parameter") for value in (
+        SEAT_RUNWAY_SECONDS, MIN_PRIMARY_TENURE_SECONDS,
+        MIN_STANDBY_TENURE_SECONDS, HANDOVER_DELAY_SECONDS,
+        STAGE_GRACE_SECONDS, EXIT_DELAY_SECONDS, DELTA_RECOVERY_LAG,
+        DELTA_SLASH_LAG, REORG_MARGIN_SECONDS, REORG_MARGIN_SECONDS,
+        EVIDENCE_DELAY_SECONDS, 1_000, 10_000_000, 1_000_000, 1_000_000,
+    ))
+    data_session = tuple(word(value, "DataSession parameter") for value in (
+        10, 1, 1, 10_000, DATA_TTL_SECONDS, DATA_TTL_SECONDS,
+    ))
+    target_gas = tuple(word(value, "target gas bound") for value in (
+        50_000, 100_000, 100_000, 100_000, 50_000, 50_000, 8_000_000,
+        profile.activation_context_read_gas_limit,
+        profile.post_state_read_gas_limit, profile.target_adoption_gas_limit,
+        profile.post_callback_reserve_gas,
+    ))
+    activation = (
+        _abi_address_word(verifier.address),
+        _model_fixed_bytes32(verifier.runtime_hash),
+        bytes.fromhex(verifier.configuration_hash),
+        _model_fixed_bytes32(verifier.verifying_key_hash),
+        _model_fixed_bytes32(verifier.proof_system_id),
+        _model_fixed_bytes32(verifier.public_input_schema_hash),
+        bytes4_word(verifier.selector),
+        word(verifier.maximum_proof_bytes, "profile maximum proof bytes"),
+        word(verifier.verification_gas_limit, "profile verification gas"),
+        *(word(value, "profile activation gas") for value in (
+            profile.supported_l1_block_gas_limit,
+            profile.worst_case_activation_adoption_gas,
+            profile.source_freeze_gas_limit, profile.target_adoption_gas_limit,
+            profile.queue_migration_gas_limit,
+            profile.activation_context_read_gas_limit,
+            profile.post_state_read_gas_limit,
+            profile.legacy_state_read_gas_limit,
+            profile.legacy_arm_gas_limit, profile.legacy_finalize_gas_limit,
+            profile.post_callback_reserve_gas,
+        )),
+    )
+    components = tuple(
+        value
+        for index in range(1, 11)
+        for value in (
+            address(f"destination-component-{index}"),
+            hash_(f"destination-component-{index}-runtime"),
+            hash_(f"destination-component-{index}-config"),
+        )
+    )
+    destination = (
+        address("inbox-system-sender"), address("anchor-system-sender"),
+        *components,
+        hash_("destination-bridge-storage-layout"),
+        hash_("bridge-kernel-profile"), hash_("bridge-kernel-abi"),
+        hash_("bridge-status-layout"), hash_("bridge-custody-layout"),
+        address("destination-quota-manager"),
+        hash_("destination-quota-manager-runtime"),
+        hash_("destination-quota-manager-config"),
+        word(SEAT_UINT256_MAX, "destination initial quota"),
+        word(50_000, "pool read gas"),
+        word(50_000, "pool authorization cleanup gas"),
+        word(100_000, "pool value callback gas"),
+    )
+    source = (
+        address("source-factory"), hash_("source-factory-runtime"),
+        hash_("source-factory-config"), hash_("source-bundle-salt"),
+        hash_("source-bundle-init-code"), address("source-bundle-deployer"),
+        hash_("source-bundle-deployer-runtime"), address("legacy-v1-bridge"),
+        address("source-bridge"), hash_("source-bridge-runtime"),
+        hash_("source-bridge-config"), hash_("source-bridge-storage-layout"),
+        address("source-credit-registry"),
+        hash_("source-credit-registry-runtime"),
+        hash_("source-credit-registry-config"),
+        address("source-quota-manager"), hash_("source-quota-runtime"),
+        hash_("source-quota-config"), address("source-support-registry"),
+        hash_("source-support-registry-runtime"),
+        hash_("source-support-registry-config"), address("source-pauser"),
+        address("source-signal-service"), word(1, "source epoch"),
+        hash_("source-namespace"), hash_("source-genesis"),
+    )
+    ingress = (
+        address("kind0-ingress-adapter"), hash_("kind0-ingress-runtime"),
+        *(word(value, "ingress fee") for value in (
+            INGRESS_FIXED_WEI, INGRESS_EXECUTION_WEI_PER_GAS,
+            INGRESS_PROOF_WEI_PER_GAS, INGRESS_PERMANENT_WEI_PER_BYTE,
+            INGRESS_MAXIMUM_ACCEPTED_FEE_WEI,
+        )),
+    )
+    execution = tuple(word(value, "execution rule") for value in (
+        L2_BLOCK_GAS_LIMIT, 2, 8, 3, 3,
+    )) + (
+        hash_("empty-ommers"), hash_("empty-transactions"),
+        hash_("empty-withdrawals"), hash_("empty-requests"),
+        word(profile.l1_history_first_supported_block,
+             "L1 EIP-2935 first supported block"),
+        L2_EIP2935_HISTORY_STORAGE_RUNTIME_HASH,
+        word(L2_EIP2935_HISTORY_STORAGE_ACTIVATION_BLOCK,
+             "l2 EIP-2935 activation block"),
+        hash_("header-rules"), hash_("system-transaction-rules"),
+        hash_("forced-input-rules"), hash_("state-transition-abi"),
+        hash_("legacy-execution-rules"),
+    )
+    groups = (
+        core, control, artifact, target_infrastructure, sinks, recovery, seat,
+        data_session, target_gas, compile_rules, activation, destination,
+        source, ingress, execution,
+    )
+    expected_group_lengths = (
+        16, 28, 13, 6, 9, 14, 15, 6, 11, 20, 20, 44, 26, 7, 17,
+    )
+    if tuple(map(len, groups)) != expected_group_lengths:
+        raise AssertionError("ExecutionProfileV2 group width drifted")
+    values = tuple(value for group in groups for value in group)
+    if len(values) != EXECUTION_PROFILE_VALUE_WORDS:
+        raise AssertionError("ExecutionProfileV2 fixed field count drifted")
+    return values
+
+
+def canonical_execution_profile_cross_model_fixture_v2() -> bytes:
+    """Independent-model golden for the complete strict ABI grammar."""
+
+    kind_codes = tuple(
+        "a" if kind == "address" else "f" if kind == "b4"
+        else "n" if kind.startswith("u") else "h"
+        for _name, kind in _execution_profile_field_specs_v2()
+    )
+    if len(kind_codes) != EXECUTION_PROFILE_VALUE_WORDS:
+        raise AssertionError("cross-model profile kind table drifted")
+    words: list[bytes] = []
+    for index, kind in enumerate(kind_codes):
+        seed = keccak256(
+            b"slot-chain-execution-profile-cross-model-v2"
+            + _model_uint(index, 2, "profile field index")
+        )
+        if kind == "a":
+            words.append(bytes(12) + seed[12:])
+        elif kind == "f":
+            words.append(seed[:4] + bytes(28))
+        elif kind == "n":
+            words.append(_model_uint(1, 32, "profile numeric fixture"))
+        else:
+            words.append(seed)
+    creation_code = b"\x60\x00\x60\x00\xf3"
+    runtime_code = b"\x60\x00\x60\x00\xf3"
+    words[0] = _model_uint(EXECUTION_PROFILE_SCHEMA_VERSION, 32, "schema")
+    words[1] = _model_uint(2, 32, "protocol version")
+    words[2] = _model_uint(1, 32, "settlement chain")
+    words[3] = _model_uint(16_788, 32, "L2 chain")
+    words[48] = keccak256(runtime_code)
+    words[49] = keccak256(creation_code)
+    words[44] = _abi_address_word(SETTLEMENT_FACTORY_ADDRESS_V2)
+    words[45] = SETTLEMENT_FACTORY_RUNTIME_HASH_V2
+    words[46] = settlement_factory_configuration_hash_v2()
+    words[37] = pvm_derived_market_authority_configuration_hash_v1(
+        int.from_bytes(words[2], "big"), "0x" + words[35][12:].hex(),
+        int.from_bytes(words[2], "big"), "0x" + words[20][12:].hex(),
+        "0x" + words[23][12:].hex(),
+    )
+    words[55] = keccak256(
+        b"slot-chain-solc-immutable-references-v1" + bytes(4)
+    )
+    words[56] = keccak256(
+        b"slot-chain-solc-link-references-v1" + bytes(4)
+    )
+    for index, value in enumerate((
+        1, 384, 4, 4, 64, 12, 1_024, 2, 2_100, 8, 6, 256, 10, 2,
+    ), start=118):
+        words[index] = _model_uint(value, 32, "fixed compile-time value")
+    words[132] = _abi_address_word(POINT_EVALUATION_PRECOMPILE)
+    words[133] = _model_uint(POINT_EVALUATION_GAS, 32, "point gas")
+    words[134] = _model_uint(BLS_MODULUS, 32, "BLS modulus")
+    words[135] = _model_uint(131_072, 32, "blob gas used")
+    words[136] = _model_uint(126_972, 32, "maximum blob payload")
+    words[137] = _model_uint(9, 32, "maximum blob chunk count")
+    compile_bytes = b"".join(words[118:138])
+    words[54] = keccak256(
+        b"slot-chain-target-compile-time-rules-v2"
+        + _model_uint(len(compile_bytes), 2, "compile-time rule bytes")
+        + compile_bytes
+    )
+    words[144] = (
+        keccak256(b"verifyMigrationTransition(bytes,uint256[2])")[:4]
+        + bytes(28)
+    )
+    words[114] = words[152]
+    words[115] = words[153]
+    words[116] = words[150]
+    words[117] = words[157]
+    words[111] = _model_uint(50_000, 32, "component config read gas")
+    words[57] = _abi_address_word(L1_EIP2935_HISTORY_STORAGE_ADDRESS)
+    words[58] = L1_EIP2935_HISTORY_STORAGE_RUNTIME_HASH
+    words[244] = _model_uint(
+        L1_EIP2935_FIRST_SUPPORTED_BLOCK, 32,
+        "L1 EIP-2935 first supported block",
+    )
+    words[245] = L2_EIP2935_HISTORY_STORAGE_RUNTIME_HASH
+    words[59] = eip2935_read_configuration_hash_v1(
+        L1_EIP2935_FIRST_SUPPORTED_BLOCK
+    )
+    words[246] = _model_uint(
+        L2_EIP2935_HISTORY_STORAGE_ACTIVATION_BLOCK, 32,
+        "L2 EIP-2935 activation block",
+    )
+    artifact = (
+        _model_uint(len(creation_code), 4, "fixture creation length")
+        + creation_code
+        + _model_uint(len(runtime_code), 4, "fixture runtime length")
+        + runtime_code
+    )
+    padded = (len(artifact) + 31) // 32 * 32
+    encoded = b"".join((
+        _model_uint(32, 32, "profile root offset"), *words,
+        _model_uint(EXECUTION_PROFILE_STATIC_BYTES, 32, "artifact offset"),
+        _model_uint(len(artifact), 32, "artifact length"), artifact,
+        bytes(padded - len(artifact)),
+    ))
+    encoded = canonicalize_execution_profile_authority_graph_v2(encoded)
+    _execution_profile_abi_words_v2(encoded)
+    return encoded
+
+
 @dataclass(frozen=True, eq=False)
 class ExecutionProfile:
     """Immutable per-version verifier trust root committed by the release."""
@@ -15874,7 +18212,12 @@ class ExecutionProfile:
     bridge_surplus_sink: NativeEthSinkV2 = field(
         compare=False, repr=False
     )
-    profile_bytes: bytes = field(default=b"", compare=False, repr=False)
+    target_creation_code: bytes = field(
+        default=b"\x60\x00\x60\x00\xf3", compare=False, repr=False
+    )
+    target_runtime_code: bytes = field(
+        default=b"\x60\x00\x60\x00\xf3", compare=False, repr=False
+    )
     supported_l1_block_gas_limit: int = 30_000_000
     worst_case_activation_adoption_gas: int = 20_000_000
     source_freeze_gas_limit: int = 500_000
@@ -15886,6 +18229,9 @@ class ExecutionProfile:
     legacy_arm_gas_limit: int = 500_000
     legacy_finalize_gas_limit: int = 500_000
     post_callback_reserve_gas: int = 5_000_000
+    l1_history_first_supported_block: int = (
+        L1_EIP2935_FIRST_SUPPORTED_BLOCK
+    )
 
     def __deepcopy__(self, memo: dict[int, object]) -> "ExecutionProfile":
         # The verifier instance is an immutable deployed-code capability.
@@ -15894,65 +18240,38 @@ class ExecutionProfile:
 
     @property
     def canonical_profile_bytes(self) -> bytes:
-        if self.profile_bytes:
-            return self.profile_bytes
-        # Canonical definite-length CBOR map with ascending integer keys.  The
-        # full release decoder owns the richer schema; this behavioral model
-        # binds the exact bytes rather than recreating an opaque Python tuple.
-        def cbor_uint(value: int) -> bytes:
-            if value < 24:
-                return bytes((value,))
-            if value < 256:
-                return b"\x18" + value.to_bytes(1, "big")
-            if value < 1 << 16:
-                return b"\x19" + value.to_bytes(2, "big")
-            if value < 1 << 32:
-                return b"\x1a" + value.to_bytes(4, "big")
-            return b"\x1b" + value.to_bytes(8, "big")
-
-        def cbor_bytes(value: bytes) -> bytes:
-            length = len(value)
-            prefix = cbor_uint(length)
-            return bytes((prefix[0] | 0x40,)) + prefix[1:] + value
-
-        verifier = self.migration_transition_verifier_descriptor
-        activation_fields = b"".join((
-            _model_address20(verifier.address),
-            _model_fixed_bytes32(verifier.runtime_hash),
-            bytes.fromhex(verifier.configuration_hash),
-            _model_fixed_bytes32(verifier.verifying_key_hash),
-            _model_fixed_bytes32(verifier.proof_system_id),
-            _model_fixed_bytes32(verifier.public_input_schema_hash),
-            verifier.selector,
-            _model_uint(verifier.maximum_proof_bytes, 4,
-                        "profile maximum proof bytes"),
-            _model_uint(verifier.verification_gas_limit, 8,
-                        "profile verification gas"),
-        ))
-        gas_values = (
-            self.supported_l1_block_gas_limit,
-            self.worst_case_activation_adoption_gas,
-            self.source_freeze_gas_limit, self.target_adoption_gas_limit,
-            self.queue_migration_gas_limit,
-            self.activation_context_read_gas_limit,
-            self.post_state_read_gas_limit, self.legacy_state_read_gas_limit,
-            self.legacy_arm_gas_limit, self.legacy_finalize_gas_limit,
-            self.post_callback_reserve_gas,
+        creation_code = self.target_creation_code
+        runtime_code = self.target_runtime_code
+        if (type(creation_code) is not bytes
+                or not 0 < len(creation_code) <= TARGET_CREATION_CODE_MAX_BYTES
+                or type(runtime_code) is not bytes
+                or not 0 < len(runtime_code) <= EIP170_MAX_RUNTIME_BYTES):
+            raise ValueError("target code artifact length is unsupported")
+        artifact = (
+            _model_uint(len(creation_code), 4, "creation-code length")
+            + creation_code
+            + _model_uint(len(runtime_code), 4, "runtime-code length")
+            + runtime_code
         )
-        return b"".join((
-            b"\xa4", cbor_uint(0), cbor_uint(self.protocol_version),
-            cbor_uint(1), cbor_bytes(activation_fields),
-            cbor_uint(2), cbor_bytes(
-                keccak256(self.namespace.encode("utf-8"))
+        padded = (len(artifact) + 31) // 32 * 32
+        encoded = b"".join((
+            _model_uint(32, 32, "profile root offset"),
+            *_execution_profile_value_words_v2(self),
+            _model_uint(
+                EXECUTION_PROFILE_STATIC_BYTES, 32,
+                "profile creation-code offset",
             ),
-            cbor_uint(3), bytes((0x80 + len(gas_values),)),
-            *(cbor_uint(value) for value in gas_values),
+            _model_uint(len(artifact), 32, "code-artifact length"),
+            artifact, bytes(padded - len(artifact)),
         ))
+        encoded = canonicalize_execution_profile_authority_graph_v2(encoded)
+        _execution_profile_abi_words_v2(encoded)
+        return encoded
 
     @property
     def execution_profile_hash(self) -> str:
         profile = self.canonical_profile_bytes
-        if not 1 <= len(profile) <= 65_536:
+        if not 1 <= len(profile) <= EXECUTION_PROFILE_MAX_BYTES:
             raise ValueError("execution profile byte length is unsupported")
         return keccak256(
             EXECUTION_PROFILE_DOMAIN
@@ -15974,7 +18293,16 @@ class ExecutionProfile:
                 == self.migration_transition_verifier_descriptor
             and type(self.bridge_surplus_sink) is NativeEthSinkV2
             and self.bridge_surplus_sink.structurally_valid()
-            and 1 <= len(self.canonical_profile_bytes) <= 65_536
+            and type(self.target_creation_code) is bytes
+            and 0 < len(self.target_creation_code)
+                <= TARGET_CREATION_CODE_MAX_BYTES
+            and type(self.target_runtime_code) is bytes
+            and 0 < len(self.target_runtime_code) <= EIP170_MAX_RUNTIME_BYTES
+            and type(self.l1_history_first_supported_block) is int
+            and 0 < self.l1_history_first_supported_block <= UINT64_MAX
+            and EXECUTION_PROFILE_MIN_BYTES
+                <= len(self.canonical_profile_bytes)
+                <= EXECUTION_PROFILE_MAX_BYTES
             and all(0 < value <= UINT64_MAX for value in (
                 self.supported_l1_block_gas_limit,
                 self.worst_case_activation_adoption_gas,
@@ -16730,13 +19058,12 @@ class ActiveSettlementRouter:
         self.legacy_launch_hook.__dict__.update(legacy_state)
 
     def register_target_release_v2(
-        self, decoded: RegisterReleasePayloadV1,
-        witness: SettlementRegistration, *, manager: object,
+        self, decoded: RegisterReleasePayloadV1, *, manager: object,
+        deployment_world: LiveDeploymentWorldV2,
     ) -> bytes:
         """Model the exact Router REGISTERING journal and RTR2/MPR2 stores."""
 
         if (type(decoded) is not RegisterReleasePayloadV1
-                or type(witness) is not SettlementRegistration
                 or type(manager) is not ProtocolVersionManagerV1
                 or manager.address != self.version_manager
                 or manager.router is not self
@@ -16750,59 +19077,36 @@ class ActiveSettlementRouter:
                 or decoded.expected_predecessor_protocol_version
                     != self.active_version):
             raise ValueError("Router release registration frame is not exact")
-        expected_profile = migration_activation_profile_for_execution_profile_v2(
-            witness.execution_profile
+        derived = derive_register_release_authority_v2(
+            decoded.profile_bytes,
+            decoded.expected_predecessor_protocol_version,
         )
-        if (witness.settlement.protocol_version != decoded.protocol_version
-                or witness.predecessor_version
-                    != decoded.expected_predecessor_protocol_version
-                or _model_address20(witness.settlement.address)
-                    != decoded.target_address
-                or _model_fixed_bytes32(witness.runtime_hash)
-                    != decoded.target_runtime_hash
-                or _model_fixed_bytes32(
-                    witness.settlement.market_configuration_hash
-                ) != decoded.target_configuration_hash
-                or witness.settlement_deployment_descriptor.commitment
-                    != decoded.settlement_deployment_descriptor_hash
-                or witness.execution_profile.canonical_profile_bytes
-                    != decoded.profile_bytes
-                or bytes.fromhex(witness.execution_profile_hash)
-                    != decoded.execution_profile_hash
-                or encode_migration_activation_profile_return_v2(
-                    expected_profile
-                ) != encode_migration_activation_profile_return_v2(
-                    decoded.migration_activation_profile
-                )
-                or witness.release_manifest.commitment
-                    != decoded.release_manifest_hash
-                or witness.ingress_authorization_root
-                    != decoded.ingress_authorization_root
-                or bytes.fromhex(
-                    witness.execution_profile
-                        .migration_transition_verifier_descriptor.commitment
-                ) != decoded.migration_verifier_descriptor_hash
-                or target_registration_hash_v2(witness)
-                    != decoded.target_registration_hash):
-            raise ValueError("Router release witness differs from payload")
+        if (decoded.manifest_abi != derived.manifest_abi
+                or decoded.deployment_abi != derived.deployment_abi
+                or decoded.target_registration_hash
+                    != derived.target_registration_hash
+                or self.header_oracle.first_supported_block
+                    != int.from_bytes(derived.profile_words[244], "big")):
+            raise ValueError("Router release payload differs from strict DAG")
+        validate_profile_market_root_join_v1(
+            derived.profile_words, manager=manager, router=self,
+            caller=self.address,
+        )
+        # Router independently decodes and observes the live world as its own
+        # STATICCALL caller before its REGISTERING write.  The PVM's earlier
+        # observation cannot authorize caller-dependent getter behavior.
+        validate_live_register_release_deployment_v2(
+            deployment_world, derived, decoded.profile_bytes,
+            caller=self.address,
+        )
         snapshot = self._protocol_release_registry_snapshot_v2()
         try:
             self.migration_lifecycle = RouterMigrationLifecycle.REGISTERING
-            row = TargetReleaseRegistrationRowV2(
-                decoded.protocol_version,
-                decoded.expected_predecessor_protocol_version,
-                decoded.target_address, decoded.target_runtime_hash,
-                decoded.target_configuration_hash,
-                decoded.settlement_deployment_descriptor_hash,
-                decoded.execution_profile_hash,
-                decoded.migration_activation_profile_record_hash,
-                decoded.release_manifest_hash,
-                decoded.target_registration_hash,
-            )
+            row = derived.target_registration_row
             self.target_release_registrations_v2[row.protocol_version] = row
             self.migration_activation_profiles_v2[
                 row.protocol_version
-            ] = decoded.migration_activation_profile
+            ] = derived.migration_activation_profile
             if self.release_registration_fault_point == "after_write":
                 raise RuntimeError("injected Router registration fault")
             self.migration_lifecycle = RouterMigrationLifecycle.IDLE
@@ -16931,10 +19235,11 @@ class ActiveSettlementRouter:
                         != target_protocol_version
                     or _model_address20(witness.settlement.address)
                         != target_settlement
-                    or witness.release_manifest.commitment
-                        != target_manifest_hash
-                    or target_registration_hash_v2(witness)
-                        != target_registration_hash
+                    or _model_fixed_bytes32(witness.settlement.runtime_hash)
+                        != release_row.target_runtime_hash
+                    or _model_fixed_bytes32(
+                        witness.settlement.market_configuration_hash
+                    ) != release_row.target_configuration_hash
                     or manager.release_registrations.get(
                         target_protocol_version
                     ) is None
@@ -17068,7 +19373,7 @@ class ActiveSettlementRouter:
                 or manager.address != self.version_manager
                 or manager.lifecycle != "APPLYING"
                 or manager._active_operation_kind != PUBLISH_MIGRATION_ARM
-                or manager.migration_lease != lease
+                or manager.migration_arms.get(lease.arm_id) != lease
                 or self.migration_lifecycle
                     is not RouterMigrationLifecycle.IDLE
                 or lease.target_protocol_version
@@ -17113,7 +19418,7 @@ class ActiveSettlementRouter:
                 or manager.router is not self
                 or manager.address != self.version_manager
                 or manager.lifecycle != "ABORTING"
-                or manager.migration_lease != lease
+                or manager.migration_arms.get(lease.arm_id) != lease
                 or self.migration_lifecycle
                     is not RouterMigrationLifecycle.IDLE):
             raise ValueError("Router migration abort frame is not exact")
@@ -19831,6 +22136,9 @@ class ActiveSettlementRouter:
                 or live_protocol.versioned_history is not settlement
                 or live_protocol.settlement_address != settlement.address
                 or live_protocol.header_oracle is not self.header_oracle
+                or self.header_oracle.first_supported_block
+                    != registration.execution_profile \
+                        .l1_history_first_supported_block
                 or live_protocol.migration_gate is not self.migration_gate
                 or live_protocol.forced_queue is not self.forced_queue
                 or live_protocol.inbox_apply_descriptor
@@ -32003,6 +34311,7 @@ def bridge_queue_descriptor_for_test(
 
 def make_header_oracle(
     messages: list[Message] | None = None,
+    first_supported_block: int = L1_EIP2935_FIRST_SUPPORTED_BLOCK,
 ) -> EIP2935SystemReadTestAdapter:
     queue = list(messages or [])
     root = model_force_root(queue)
@@ -32013,7 +34322,7 @@ def make_header_oracle(
         )
         for n in range(1, 20_000)
     }
-    return EIP2935SystemReadTestAdapter(headers)
+    return EIP2935SystemReadTestAdapter(headers, first_supported_block)
 
 
 def protocol(tip_slot: int = 1_000, cursor: int = 0, seat: bool = True,

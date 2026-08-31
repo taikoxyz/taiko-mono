@@ -405,13 +405,22 @@ def bind_router_active_history(protocol, *, runtime_hash, execution_profile_hash
         execution_profile=profile,
     )
     protocol.versioned_history = history
+    profile_words = settlement._execution_profile_abi_words_v2(
+        profile.canonical_profile_bytes
+    )
+    profile_pvm = "0x" + profile_words[20][12:].hex()
+    profile_router = "0x" + profile_words[23][12:].hex()
+    object.__setattr__(
+        protocol.forced_queue, "router_address", profile_router
+    )
     router = settlement.deploy_active_settlement_router(
         history,
-        addr("version-manager"),
+        profile_pvm,
         protocol.forced_queue,
         protocol.inbox_apply_router,
         protocol.migration_gate,
         protocol.header_oracle,
+        address=profile_router,
     )
     bootstrap_clock = settlement.Clock(
         max(400, protocol.canonical.canonicalized_at_block),
@@ -453,13 +462,21 @@ def unactivated_genesis_fixture(*, suffix="checkpoint", protocol_version=25):
         execution_profile=profile,
     )
     protocol.versioned_history = history
+    profile_words = settlement._execution_profile_abi_words_v2(
+        profile.canonical_profile_bytes
+    )
+    profile_router = "0x" + profile_words[23][12:].hex()
+    object.__setattr__(
+        protocol.forced_queue, "router_address", profile_router
+    )
     router = settlement.deploy_active_settlement_router(
         history,
-        addr("version-manager"),
+        "0x" + profile_words[20][12:].hex(),
         protocol.forced_queue,
         protocol.inbox_apply_router,
         protocol.migration_gate,
         protocol.header_oracle,
+        address=profile_router,
     )
     clock = settlement.Clock(
         max(400, protocol.canonical.canonicalized_at_block + 3),
@@ -3497,13 +3514,21 @@ def production_migration_fixture(
         execution_profile=old_profile,
     )
     old_protocol.versioned_history = old_history
+    profile_words = settlement._execution_profile_abi_words_v2(
+        old_profile.canonical_profile_bytes
+    )
+    profile_router = "0x" + profile_words[23][12:].hex()
+    object.__setattr__(
+        old_protocol.forced_queue, "router_address", profile_router
+    )
     router = settlement.deploy_active_settlement_router(
         old_history,
-        addr("version-manager"),
+        "0x" + profile_words[20][12:].hex(),
         old_protocol.forced_queue,
         old_protocol.inbox_apply_router,
         old_protocol.migration_gate,
         old_protocol.header_oracle,
+        address=profile_router,
     )
     bootstrap_clock = settlement.Clock(
         max(400, old_protocol.canonical.canonicalized_at_block),
@@ -3523,7 +3548,7 @@ def production_migration_fixture(
         addr("release-manager"), activation_authority=router
     )
     manager = settlement.ProtocolVersionManager(
-        addr("version-manager"),
+        router.version_manager,
         router,
         release_manager=release_manager,
         market_chain_id=1,
@@ -3648,34 +3673,69 @@ def protocol_authority_fixture():
     payload = settlement.encode_register_release_payload_for_registration_v1(
         witness
     )
+    decoded = settlement.decode_register_release_payload_v1(payload)
+    derived = settlement.derive_register_release_authority_v2(
+        decoded.profile_bytes, decoded.expected_predecessor_protocol_version
+    )
+    deployment_world = settlement.live_deployment_world_for_release_v2(derived)
+    # The behavioral target object represents the exact CREATE2 deployment
+    # committed by the strict profile, not the older mutable witness tuple.
+    object.__setattr__(
+        witness.settlement, "address", "0x" + decoded.target_address.hex()
+    )
+    object.__setattr__(
+        witness.settlement, "runtime_hash", decoded.target_runtime_hash
+    )
+    object.__setattr__(
+        witness.settlement, "market_configuration_hash",
+        decoded.target_configuration_hash,
+    )
+    if witness.settlement.live_protocol is not None:
+        object.__setattr__(
+            witness.settlement.live_protocol, "settlement_address",
+            witness.settlement.address,
+        )
     pvm_address = router.version_manager
+    profile_words = settlement._execution_profile_abi_words_v2(
+        decoded.profile_bytes
+    )
     market_authority = settlement.PvmDerivedMarketAuthorizationV1(
-        1, addr("pvm-market"), pvm_address, 1
+        int.from_bytes(profile_words[2], "big"),
+        "0x" + profile_words[35][12:].hex(), pvm_address,
+        int.from_bytes(profile_words[2], "big"), router.address,
+        profile_words[36],
     )
     schedule_oracle = settlement.ScheduleOracleV1(
-        addr("schedule-oracle"), pvm_address, current_window=100
+        "0x" + profile_words[32][12:].hex(), pvm_address,
+        current_window=100,
     )
     manager = settlement.ProtocolVersionManagerV1(
         pvm_address,
-        1,
-        addr("protocol-timelock"),
+        int.from_bytes(profile_words[2], "big"),
+        "0x" + profile_words[16][12:].hex(),
         router.address,
-        addr("pvm-queue"),
-        addr("pvm-builders"),
+        "0x" + profile_words[26][12:].hex(),
+        "0x" + profile_words[29][12:].hex(),
         schedule_oracle.address,
-        market_authority,
-        addr("pvm-domains"),
-        addr("pvm-credits"),
-        b"t" * 32,
-        b"n" * 32,
+        market_authority, deployment_world,
+        "0x" + profile_words[38][12:].hex(),
+        "0x" + profile_words[41][12:].hex(),
+        profile_words[18],
+        profile_words[9],
+        profile_words[36],
+        profile_words[37],
+        profile_words[21],
+        tuple(profile_words[index] for index in (
+            24, 25, 27, 28, 30, 31, 33, 34, 39, 40, 42, 43,
+        )),
         active_protocol_version=router.active_version,
         router=router,
         release_witnesses={witness.settlement.protocol_version: witness},
         schedule_oracle=schedule_oracle,
     )
     timelock = settlement.ProtocolChangeTimelockV1(
-        addr("protocol-timelock"), 1, addr("dao-proposer"), manager,
-        b"r" * 32,
+        manager.timelock_address, manager.settlement_chain_id,
+        "0x" + profile_words[19][12:].hex(), manager, profile_words[17],
     )
     return (
         rows, router, witness, payload, manager, timelock,
@@ -3697,25 +3757,61 @@ def genesis_protocol_authority_fixture():
     payload = settlement.encode_register_release_payload_for_registration_v1(
         witness
     )
+    decoded = settlement.decode_register_release_payload_v1(payload)
+    derived = settlement.derive_register_release_authority_v2(
+        decoded.profile_bytes, decoded.expected_predecessor_protocol_version
+    )
+    deployment_world = settlement.live_deployment_world_for_release_v2(derived)
+    object.__setattr__(
+        witness.settlement, "address", "0x" + decoded.target_address.hex()
+    )
+    object.__setattr__(
+        witness.settlement, "runtime_hash", decoded.target_runtime_hash
+    )
+    object.__setattr__(
+        witness.settlement, "market_configuration_hash",
+        decoded.target_configuration_hash,
+    )
+    if witness.settlement.live_protocol is not None:
+        object.__setattr__(
+            witness.settlement.live_protocol, "settlement_address",
+            witness.settlement.address,
+        )
     pvm_address = router.version_manager
+    profile_words = settlement._execution_profile_abi_words_v2(
+        decoded.profile_bytes
+    )
     market_authority = settlement.PvmDerivedMarketAuthorizationV1(
-        1, addr("pvm-genesis-market"), pvm_address, 1
+        int.from_bytes(profile_words[2], "big"),
+        "0x" + profile_words[35][12:].hex(), pvm_address,
+        int.from_bytes(profile_words[2], "big"), router.address,
+        profile_words[36],
     )
     schedule_oracle = settlement.ScheduleOracleV1(
-        addr("gen-schedule"), pvm_address, current_window=100
+        "0x" + profile_words[32][12:].hex(), pvm_address,
+        current_window=100,
     )
     manager = settlement.ProtocolVersionManagerV1(
-        pvm_address, 1, addr("gen-timelock"), router.address,
-        addr("gen-pvm-queue"), addr("gen-pvm-builders"),
-        schedule_oracle.address, market_authority,
-        addr("gen-pvm-domains"), addr("gen-pvm-credits"),
-        b"t" * 32, b"n" * 32, active_protocol_version=0, router=router,
+        pvm_address, int.from_bytes(profile_words[2], "big"),
+        "0x" + profile_words[16][12:].hex(), router.address,
+        "0x" + profile_words[26][12:].hex(),
+        "0x" + profile_words[29][12:].hex(),
+        schedule_oracle.address, market_authority, deployment_world,
+        "0x" + profile_words[38][12:].hex(),
+        "0x" + profile_words[41][12:].hex(),
+        profile_words[18], profile_words[9],
+        profile_words[36], profile_words[37],
+        profile_words[21],
+        tuple(profile_words[index] for index in (
+            24, 25, 27, 28, 30, 31, 33, 34, 39, 40, 42, 43,
+        )),
+        active_protocol_version=0, router=router,
         release_witnesses={history.protocol_version: witness},
         schedule_oracle=schedule_oracle,
     )
     timelock = settlement.ProtocolChangeTimelockV1(
-        addr("gen-timelock"), 1, addr("genesis-dao"),
-        manager, b"r" * 32,
+        manager.timelock_address, manager.settlement_chain_id,
+        "0x" + profile_words[19][12:].hex(), manager, profile_words[17],
     )
     return (
         (protocol, history), router, witness, payload, manager, timelock,
@@ -9275,16 +9371,22 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
         )
         old_runtime = release_manager.target_runtimes[rows[6]]
         detached_gate = settlement.MigrationGate()
+        replacement_router_address = addr("replacement-router")
+        replacement_queue = replace(
+            manager.router.forced_queue,
+            router_address=replacement_router_address,
+        )
+        replacement_router = settlement.ActiveSettlementRouter(
+            addr("replacement-manager"), replacement_queue,
+            manager.router.inbox_apply_descriptor,
+            manager.router.migration_gate,
+            manager.router.header_oracle,
+            settlement.LegacyLaunchHookV1(addr("replacement-manager")),
+            address=replacement_router_address,
+        )
         immutable_replacements = (
             (manager, "address", addr("replacement-manager")),
-            (manager, "router", settlement.ActiveSettlementRouter(
-                addr("replacement-manager"),
-                replace(manager.router.forced_queue),
-                manager.router.inbox_apply_descriptor,
-                manager.router.migration_gate,
-                manager.router.header_oracle,
-                settlement.LegacyLaunchHookV1(addr("replacement-manager")),
-            )),
+            (manager, "router", replacement_router),
             (manager, "release_manager", market.ReleaseManager(
                 addr("other-release"), activation_authority=manager.router
             )),
@@ -11443,9 +11545,12 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             self.assertEqual(migration_graph_projection(old_protocol, manager), before)
             self.assertEqual(seat_market, market_before)
 
-        for variant in (
-            "copy-equal", "forged-header", "replaceable-wrapper"
-        ):
+        with self.assertRaises(ValueError):
+            production_migration_fixture(
+                target_header_variant="replaceable-wrapper"
+            )
+
+        for variant in ("copy-equal", "forged-header"):
             variant_rows = production_migration_fixture(
                 target_header_variant=variant)
             substituted_header = variant_rows[2].header_oracle
@@ -12296,6 +12401,186 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
         )
 
 class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
+    def test_execution_profile_v2_strict_abi_rejection_corpus(self):
+        profile = settlement.canonical_execution_profile_cross_model_fixture_v2()
+        self.assertEqual(len(profile), 8_192)
+        self.assertEqual(profile[:32], (32).to_bytes(32, "big"))
+        self.assertEqual(
+            profile[(1 + settlement.EXECUTION_PROFILE_VALUE_WORDS) * 32:
+                    (2 + settlement.EXECUTION_PROFILE_VALUE_WORDS) * 32],
+            settlement.EXECUTION_PROFILE_STATIC_BYTES.to_bytes(32, "big"),
+        )
+        self.assertEqual(
+            settlement._execution_profile_abi_words_v2(profile)[0],
+            (2).to_bytes(32, "big"),
+        )
+        words = settlement._execution_profile_abi_words_v2(profile)
+        history_address = bytes(12) + bytes.fromhex(
+            settlement.L1_EIP2935_HISTORY_STORAGE_ADDRESS[2:]
+        )
+        self.assertEqual(words[57], history_address)
+        self.assertEqual(
+            int.from_bytes(words[244], "big"),
+            settlement.L1_EIP2935_FIRST_SUPPORTED_BLOCK,
+        )
+        self.assertEqual(
+            words[46], settlement.settlement_factory_configuration_hash_v2()
+        )
+        self.assertEqual(
+            words[44], bytes(12) + bytes.fromhex(
+                settlement.SETTLEMENT_FACTORY_ADDRESS_V2[2:]
+            )
+        )
+        self.assertEqual(
+            words[45], settlement.SETTLEMENT_FACTORY_RUNTIME_HASH_V2
+        )
+        self.assertEqual(
+            words[37],
+            settlement.pvm_derived_market_authority_configuration_hash_v1(
+                int.from_bytes(words[2], "big"),
+                "0x" + words[35][12:].hex(),
+                int.from_bytes(words[2], "big"),
+                "0x" + words[20][12:].hex(),
+                "0x" + words[23][12:].hex(),
+            ),
+        )
+        self.assertEqual(
+            words[58], settlement.L1_EIP2935_HISTORY_STORAGE_RUNTIME_HASH
+        )
+        self.assertEqual(
+            words[245], settlement.L2_EIP2935_HISTORY_STORAGE_RUNTIME_HASH
+        )
+        self.assertEqual(
+            words[59], settlement.eip2935_read_configuration_hash_v1(
+                settlement.L1_EIP2935_FIRST_SUPPORTED_BLOCK
+            )
+        )
+        self.assertEqual(
+            int.from_bytes(words[246], "big"),
+            settlement.L2_EIP2935_HISTORY_STORAGE_ACTIVATION_BLOCK,
+        )
+        for legacy in (
+            bytes.fromhex("a1617601"),
+            bytes.fromhex("a4000101400241000380"),
+        ):
+            with self.assertRaises(ValueError):
+                settlement._execution_profile_abi_words_v2(legacy)
+
+        mutations = []
+        def changed(offset, value):
+            candidate = bytearray(profile)
+            candidate[offset] ^= value
+            mutations.append(bytes(candidate))
+        changed(31, 1)  # outer root
+        changed((1 + settlement.EXECUTION_PROFILE_VALUE_WORDS) * 32 + 31, 1)
+        changed(32, 1)  # uint64 dirty high padding
+        changed((1 + 16) * 32, 1)  # address dirty high padding
+        changed((1 + 6) * 32 + 31, 1)  # bytes4 dirty low padding
+        zero_hash = bytearray(profile)
+        zero_hash[(1 + 4) * 32:(2 + 4) * 32] = bytes(32)
+        mutations.append(bytes(zero_hash))
+        changed((1 + 55) * 32 + 31, 1)  # immutable refs
+        changed((1 + 44) * 32 + 31, 1)  # fixed factory address
+        changed((1 + 45) * 32 + 31, 1)  # fixed factory runtime
+        changed((1 + 46) * 32 + 31, 1)  # fixed factory configuration
+        changed((1 + 37) * 32 + 31, 1)  # immutable Market Router binding
+        for eip2935_word in (57, 58, 59, 244, 245, 246):
+            changed((1 + eip2935_word) * 32 + 31, 1)
+        dirty_first_supported = bytearray(profile)
+        dirty_first_supported[(1 + 244) * 32] = 1
+        mutations.append(bytes(dirty_first_supported))
+        changed((1 + 111) * 32 + 31, 1)  # fixed component getter gas
+        changed((1 + 114) * 32 + 31, 1)  # duplicated gas authority
+        changed((1 + 118) * 32 + 31, 1)  # fixed geometry/hash
+        changed(len(profile) - 1, 1)  # dynamic tail padding
+        for candidate in mutations:
+            with self.subTest(offset=next(
+                    i for i, (left, right) in enumerate(zip(profile, candidate))
+                    if left != right)):
+                with self.assertRaises(ValueError):
+                    settlement._execution_profile_abi_words_v2(candidate)
+
+        # L1 first-supported and L2 activation are independent uint64 fields.
+        first_supported_two = bytearray(profile)
+        first_supported_two[(1 + 244) * 32:(2 + 244) * 32] = \
+            (2).to_bytes(32, "big")
+        with self.assertRaises(ValueError):
+            settlement._execution_profile_abi_words_v2(
+                bytes(first_supported_two)
+            )
+        first_supported_two[(1 + 59) * 32:(2 + 59) * 32] = \
+            settlement.eip2935_read_configuration_hash_v1(2)
+        self.assertEqual(
+            int.from_bytes(
+                settlement._execution_profile_abi_words_v2(
+                    bytes(first_supported_two)
+                )[244], "big"
+            ), 2,
+        )
+        l2_activation_two = bytearray(profile)
+        l2_activation_two[(1 + 7) * 32:(2 + 7) * 32] = \
+            (2).to_bytes(32, "big")
+        l2_activation_two[(1 + 246) * 32:(2 + 246) * 32] = \
+            (2).to_bytes(32, "big")
+        self.assertEqual(
+            int.from_bytes(
+                settlement._execution_profile_abi_words_v2(
+                    bytes(l2_activation_two)
+                )[246], "big"
+            ), 2,
+        )
+        invalid_l2_activation = bytearray(profile)
+        invalid_l2_activation[(1 + 246) * 32:(2 + 246) * 32] = \
+            (2).to_bytes(32, "big")
+        with self.assertRaises(ValueError):
+            settlement._execution_profile_abi_words_v2(
+                bytes(invalid_l2_activation)
+            )
+
+    def test_l1_history_boundary_is_bound_to_the_runtime_consumer(self):
+        profile = replace(
+            settlement.execution_profile_for_test(
+                1, "profile:history-boundary:2"
+            ),
+            l1_history_first_supported_block=2,
+        )
+        words = settlement._execution_profile_abi_words_v2(
+            profile.canonical_profile_bytes
+        )
+        self.assertEqual(int.from_bytes(words[244], "big"), 2)
+        self.assertEqual(
+            words[59], settlement.eip2935_read_configuration_hash_v1(2)
+        )
+
+        def target(oracle):
+            protocol = settlement.protocol(
+                seat=False, header_oracle=oracle,
+                settlement_address="history-boundary-target",
+            )
+            return settlement.VersionedSettlementHistory(
+                protocol.settlement_address,
+                "runtime:history-boundary",
+                1,
+                profile.execution_profile_hash,
+                copy.deepcopy(protocol.core),
+                protocol.canonical.canonicalized_at_block,
+                protocol.forced_queue,
+                execution_profile=profile,
+                migration_gate=protocol.migration_gate,
+                live_protocol=protocol,
+                inbox_apply_descriptor=protocol.inbox_apply_descriptor,
+                header_oracle=oracle,
+            )
+
+        with self.assertRaises(ValueError):
+            target(settlement.make_header_oracle(first_supported_block=1))
+        exact_oracle = settlement.make_header_oracle(first_supported_block=2)
+        history = target(exact_oracle)
+        self.assertIs(history.header_oracle, exact_oracle)
+        self.assertEqual(
+            history.execution_profile.l1_history_first_supported_block, 2
+        )
+
     def _execute_release(self, fixture, *, fault=None):
         (_rows, _router, _witness, payload, manager, timelock,
          _market, _oracle, clock) = fixture
@@ -12319,6 +12604,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         self.assertTrue(released)
         self.assertEqual(fixture[5].operations[release_operation].state, 4)
         witness, timelock = fixture[2], fixture[5]
+        decoded = settlement.decode_register_release_payload_v1(fixture[3])
         publication_clock = settlement.Clock(
             1_000,
             mature.timestamp + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
@@ -12330,11 +12616,10 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             resume_by_block=1_450,
             resume_by_timestamp=publication_clock.timestamp + 7_200,
             review_finalized_by_block=1_000,
-            target_settlement=witness.settlement.address,
-            target_protocol_version=witness.settlement.protocol_version,
-            target_manifest_hash=witness.release_manifest.commitment,
-            target_registration_hash=
-                settlement.target_registration_hash_v2(witness),
+            target_settlement="0x" + decoded.target_address.hex(),
+            target_protocol_version=decoded.protocol_version,
+            target_manifest_hash=decoded.release_manifest_hash,
+            target_registration_hash=decoded.target_registration_hash,
         )
         payload = settlement.encode_publish_genesis_campaign_payload_v1(
             **values
@@ -12511,6 +12796,10 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         (_rows, router, witness, payload, manager, timelock,
          market_authority, _oracle, clock) = fixture
         decoded = settlement.decode_register_release_payload_v1(payload)
+        derived = settlement.derive_register_release_authority_v2(
+            decoded.profile_bytes,
+            decoded.expected_predecessor_protocol_version,
+        )
         self.assertEqual(payload[67 * 32:68 * 32], (0x880).to_bytes(32, "big"))
         self.assertEqual(
             len(payload),
@@ -12518,13 +12807,12 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         )
         self.assertEqual(
             decoded.target_registration_hash,
-            settlement.target_registration_hash_v2(witness),
+            derived.target_registration_hash,
         )
         self.assertEqual(
             decoded.migration_activation_profile_record_hash,
-            settlement.migration_activation_profile_for_execution_profile_v2(
-                witness.execution_profile
-            ).activation_profile_record_hash,
+            derived.migration_activation_profile
+                .activation_profile_record_hash,
         )
         operation_id = timelock.queue_protocol_change_v1(
             settlement.REGISTER_RELEASE, payload,
@@ -12544,11 +12832,11 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             caller=addr("permissionless"), clock=mature,
         ))
         version = witness.settlement.protocol_version
-        self.assertEqual(len(router.target_release_registration_v2(version)), 352)
+        self.assertEqual(len(router.target_release_registration_v2(version)), 384)
         self.assertEqual(len(router.migration_activation_profile_v2(version)), 768)
         self.assertEqual(len(manager.profile_ingress_root_v2(version)), 128)
         root, ids = manager.profile_ingress_roots[version]
-        self.assertEqual(root, witness.ingress_authorization_root)
+        self.assertEqual(root, derived.ingress_authorization_root)
         self.assertEqual(len(ids), 2)
         self.assertEqual(tuple(ids), tuple(sorted(ids)))
         self.assertTrue(all(
@@ -12556,6 +12844,16 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             for item in ids
         ))
         self.assertEqual(len(market_authority.authorizations), 1)
+        self.assertEqual(
+            market_authority.authority_configuration_hash,
+            settlement.pvm_derived_market_authority_configuration_hash_v1(
+                market_authority.market_chain_id, market_authority.address,
+                market_authority.settlement_chain_id, manager.address,
+                router.address,
+            ),
+        )
+        with self.assertRaises(AttributeError):
+            market_authority.active_settlement_router = addr("replacement-router")
         authorization_id = next(iter(market_authority.authorizations))
         self.assertEqual(
             len(market_authority.settlement_authorization_v1(
@@ -12619,7 +12917,342 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                 self.assertFalse(success)
                 self.assertFalse(current[1].target_release_registrations_v2)
                 self.assertFalse(current[6].authorizations)
+        self._assert_register_release_live_deployment_world_is_exact_and_atomic()
+
+    def _assert_register_release_live_deployment_world_is_exact_and_atomic(self):
+        positive = protocol_authority_fixture()
+        decoded_positive = settlement.decode_register_release_payload_v1(
+            positive[3]
+        )
+        settlement_derived = settlement.derive_register_release_authority_v2(
+            decoded_positive.profile_bytes,
+            decoded_positive.expected_predecessor_protocol_version,
+        )
+        commitment_derived = commitment.derive_register_release_authority_v2(
+            decoded_positive.profile_bytes,
+            decoded_positive.expected_predecessor_protocol_version,
+        )
+        commitment_inventory = commitment.target_constructor_inventory_v2(
+            decoded_positive.profile_bytes, commitment_derived
+        )
+        settlement_inventory = settlement.target_constructor_inventory_v2(
+            decoded_positive.profile_bytes,
+            settlement_derived.execution_profile_hash,
+            settlement_derived.migration_activation_profile
+                .activation_profile_record_hash,
+            settlement_derived.data_session_configuration_hash,
+            settlement_derived.target_configuration_hash,
+        )
+        self.assertEqual(commitment_inventory, settlement_inventory)
+        settlement_constructor = \
+            settlement.encode_target_constructor_state_return_v2(
+                settlement.target_constructor_poststate_commitment_v2(
+                    settlement_inventory
+                ),
+                settlement_derived.target_configuration_hash,
+            )
+        commitment_constructor = \
+            commitment.encode_target_constructor_state_return_v2(
+                commitment.target_constructor_poststate_commitment_v2(
+                    commitment_inventory
+                ),
+                commitment_derived.settlement_deployment_descriptor
+                    .target_configuration_hash,
+            )
+        self.assertEqual(settlement_constructor, commitment_constructor)
+        settlement_accounting = settlement.encode_data_session_accounting_v1(
+            settlement.DataSessionAccountingV1(
+                0, 0, 0, 0, 0, 0, 0, 0, 0, False,
+                settlement_derived.data_session_configuration_hash,
+            )
+        )
+        commitment_accounting = \
+            commitment.encode_empty_data_session_accounting_v1(
+                commitment_derived.data_session_configuration_hash
+            )
+        self.assertEqual(settlement_accounting, commitment_accounting)
+        self.assertEqual(
+            settlement.SETTLEMENT_FACTORY_DEPLOY_SELECTOR,
+            commitment.SETTLEMENT_FACTORY_DEPLOY_SELECTOR,
+        )
+        self.assertEqual(
+            settlement.validate_live_register_release_deployment_v2(
+                settlement.live_deployment_world_for_release_v2(
+                    settlement_derived
+                ), settlement_derived,
+                decoded_positive.profile_bytes, caller=positive[4].address,
+            ),
+            commitment.live_registration_validation_commitment_v2(
+                commitment_derived, commitment_accounting,
+                commitment_constructor,
+            ),
+        )
+        self.assertTrue(self._execute_release(positive)[2])
+        manager, router = positive[4], positive[1]
+        self.assertNotIn(
+            "expected_router_registration",
+            inspect.signature(
+                positive[6].install_settlement_authorization_v1
+            ).parameters,
+        )
+        self.assertEqual(positive[6].active_settlement_router, router.address)
+        trace = manager.deployment_world.trace
+        callers = tuple(row[0] for row in trace)
+        self.assertEqual(callers[:25], (manager.address,) * 25)
+        self.assertEqual(callers[25:50], (router.address,) * 25)
+        self.assertEqual(callers[50:], (manager.address,) * 5)
+        control_trace = tuple(
+            f"control:{label}:{surface}"
+            for label in (
+                "Router", "ForcedQueue", "BuilderRegistry",
+                "ScheduleOracle", "BridgeDomainRegistry",
+                "BridgeCreditRegistry",
+            )
+            for surface in ("account", "extcodehash", "config")
+        )
+        deployment_trace = (
+            "factory:account", "factory:extcodehash",
+            "target:account", "target:extcodehash", "target:config",
+            "target:data-session-accounting", "target:constructor-state",
+        )
+        self.assertEqual(
+            tuple(row[1] for row in trace),
+            control_trace + deployment_trace + control_trace
+            + deployment_trace + (
+                "target-postread:account", "target-postread:extcodehash",
+                "target-postread:config",
+                "target-postread:data-session-accounting",
+                "target-postread:constructor-state",
+            ),
+        )
+
+        def assert_rejected(mutate):
+            current = protocol_authority_fixture()
+            decoded = settlement.decode_register_release_payload_v1(current[3])
+            derived = settlement.derive_register_release_authority_v2(
+                decoded.profile_bytes,
+                decoded.expected_predecessor_protocol_version,
+            )
+            mutate(current, derived)
+            operation_id, _mature, success = self._execute_release(current)
+            self.assertFalse(success)
+            self.assertFalse(current[1].target_release_registrations_v2)
+            self.assertFalse(current[1].migration_activation_profiles_v2)
+            self.assertFalse(current[4].profile_ingress_rows)
+            self.assertFalse(current[6].authorizations)
+            self.assertEqual(current[5].operations[operation_id].state, 1)
+            self.assertEqual(current[4].lifecycle, "IDLE")
+
+        def account(current, derived, address):
+            return current[4].deployment_world.accounts[address]
+
+        mutations = (
+            lambda current, derived: current[4].deployment_world.accounts.pop(
+                derived.profile_words[44][12:]
+            ),
+            lambda current, derived: setattr(
+                account(current, derived, derived.profile_words[44][12:]),
+                "runtime_hash", b"x" * 32,
+            ),
+            lambda current, derived: setattr(
+                account(current, derived, derived.target_address),
+                "runtime_hash", b"x" * 32,
+            ),
+            lambda current, derived: setattr(
+                account(current, derived, derived.target_address),
+                "configuration_hash", b"c" * 32,
+            ),
+            lambda current, derived: setattr(
+                account(current, derived, derived.target_address),
+                "accounting",
+                replace(
+                    account(current, derived, derived.target_address).accounting,
+                    live_count=1,
+                ),
+            ),
+            lambda current, derived: setattr(
+                account(current, derived, derived.target_address),
+                "constructor_inventory",
+                (b"\x01" * 32,)
+                + account(current, derived, derived.target_address)
+                    .constructor_inventory[1:],
+            ),
+            lambda current, derived: account(
+                current, derived, derived.target_address
+            ).overrides.__setitem__(
+                (current[4].address, "data_session_accounting"), b"x" * 383
+            ),
+            lambda current, derived: account(
+                current, derived, derived.target_address
+            ).overrides.__setitem__(
+                (current[4].address, "target_constructor_state"), b"x" * 95
+            ),
+            lambda current, derived: account(
+                current, derived, derived.target_address
+            ).overrides.__setitem__(
+                (current[1].address, "target_constructor_state"), b"x" * 97
+            ),
+            lambda current, derived: account(
+                current, derived, derived.target_address
+            ).faults.add((current[4].address, "extcodehash")),
+            lambda current, derived: current[4].deployment_world.accounts.pop(
+                derived.profile_words[23][12:]
+            ),
+            lambda current, derived: account(
+                current, derived, derived.profile_words[26][12:]
+            ).overrides.__setitem__(
+                (current[4].address, "extcodehash"), b"q" * 32
+            ),
+            lambda current, derived: account(
+                current, derived, derived.profile_words[41][12:]
+            ).overrides.__setitem__(
+                (current[1].address, "component_config"), b"c" * 31
+            ),
+            lambda current, derived: object.__setattr__(
+                current[1], "header_oracle",
+                settlement.make_header_oracle(first_supported_block=2),
+            ),
+        )
+        for index, mutate in enumerate(mutations):
+            with self.subTest(live_world_mutation=index):
+                assert_rejected(mutate)
+
+        for caller_role, trailing in (("manager", False), ("router", True)):
+            with self.subTest(pvm1_caller=caller_role, trailing=trailing):
+                current = protocol_authority_fixture()
+                manager, router = current[4], current[1]
+                caller = manager.address if caller_role == "manager" \
+                    else router.address
+                canonical = manager.config_return_v1()
+                manager.config_return_overrides[caller] = (
+                    canonical + bytes(32) if trailing else canonical[:-1]
+                )
+                operation_id, _mature, success = self._execute_release(current)
+                self.assertFalse(success)
+                self.assertFalse(router.target_release_registrations_v2)
+                self.assertFalse(manager.profile_ingress_rows)
+                self.assertFalse(current[6].authorizations)
                 self.assertEqual(current[5].operations[operation_id].state, 1)
+
+        # ERC-2470 has no protocol-specific configuration getter.  Its root
+        # identity is the exact address/runtime/artifact/deployer/tx tuple;
+        # the target's component getter never accepts the deploy selector.
+        selector_fixture = protocol_authority_fixture()
+        selector_derived = settlement.derive_register_release_authority_v2(
+            settlement.decode_register_release_payload_v1(
+                selector_fixture[3]
+            ).profile_bytes,
+            0,
+        )
+        target_account = account(
+            selector_fixture, selector_derived,
+            selector_derived.target_address,
+        )
+        self.assertEqual(
+            selector_derived.profile_words[44][12:].hex(),
+            settlement.SETTLEMENT_FACTORY_ADDRESS_V2[2:].lower(),
+        )
+        self.assertEqual(
+            selector_derived.profile_words[45],
+            settlement.SETTLEMENT_FACTORY_RUNTIME_HASH_V2,
+        )
+        with self.assertRaises(ValueError):
+            target_account.component_config_hash_v2(
+                selector_fixture[4].address,
+                settlement.SETTLEMENT_FACTORY_DEPLOY_SELECTOR, 50_000, 0,
+            )
+
+        # A lookalike Market deployment bound to a different Router cannot
+        # consume an authentic row from the manager's Router.
+        substituted_router = protocol_authority_fixture()
+        original_market = substituted_router[6]
+        wrong_market = settlement.PvmDerivedMarketAuthorizationV1(
+            original_market.market_chain_id, original_market.address,
+            original_market.protocol_version_manager,
+            original_market.settlement_chain_id, addr("wrong-router"),
+            original_market.runtime_hash,
+        )
+        substituted_router[4].market = wrong_market
+        operation_id, _mature, success = self._execute_release(
+            substituted_router
+        )
+        self.assertFalse(success)
+        self.assertFalse(substituted_router[1].target_release_registrations_v2)
+        self.assertFalse(wrong_market.authorizations)
+        self.assertEqual(
+            substituted_router[5].operations[operation_id].state, 1
+        )
+
+        # Internal profile self-consistency is insufficient: even after every
+        # downstream DAG hash is recomputed, a lookalike Market tuple must fail
+        # the live PVM/Router/Market root join before any protocol write.
+        profile_substitution = list(protocol_authority_fixture())
+        original = settlement.decode_register_release_payload_v1(
+            profile_substitution[3]
+        )
+        candidate = bytearray(original.profile_bytes)
+        alternate_market = addr("profile-lookalike")
+        alternate_runtime = settlement.keccak256(b"lookalike-market-runtime")
+        candidate[(1 + 35) * 32:(2 + 35) * 32] = (
+            bytes(12) + bytes.fromhex(alternate_market[2:])
+        )
+        candidate[(1 + 36) * 32:(2 + 36) * 32] = alternate_runtime
+        candidate[(1 + 37) * 32:(2 + 37) * 32] = \
+            settlement.pvm_derived_market_authority_configuration_hash_v1(
+                1, alternate_market, 1,
+                profile_substitution[4].address,
+                profile_substitution[1].address,
+            )
+        alternate_profile = \
+            settlement.canonicalize_execution_profile_authority_graph_v2(
+                bytes(candidate)
+            )
+        alternate = settlement.derive_register_release_authority_v2(
+            alternate_profile,
+            original.expected_predecessor_protocol_version,
+        )
+        padded = (len(alternate_profile) + 31) // 32 * 32
+        profile_substitution[3] = b"".join((
+            original.expected_predecessor_protocol_version.to_bytes(32, "big"),
+            alternate.manifest_abi, alternate.deployment_abi,
+            (0x880).to_bytes(32, "big"),
+            len(alternate_profile).to_bytes(32, "big"), alternate_profile,
+            bytes(padded - len(alternate_profile)),
+        ))
+        operation_id, _mature, success = self._execute_release(
+            profile_substitution
+        )
+        self.assertFalse(success)
+        self.assertFalse(
+            profile_substitution[1].target_release_registrations_v2
+        )
+        self.assertFalse(profile_substitution[6].authorizations)
+        self.assertEqual(
+            profile_substitution[5].operations[operation_id].state, 1
+        )
+
+        # A mutation introduced only after Router returns is detected by the
+        # PVM target postread and is reverted with the outer transaction.
+        toctou = protocol_authority_fixture()
+        decoded = settlement.decode_register_release_payload_v1(toctou[3])
+        target = decoded.target_address
+
+        def mutate_after_router(world, manager_, _router):
+            world.accounts[target].overrides[
+                (manager_.address, "component_config")
+            ] = b"z" * 32
+
+        toctou[4].deployment_world.between_router_and_pvm_hook = \
+            mutate_after_router
+        operation_id, _mature, success = self._execute_release(toctou)
+        self.assertFalse(success)
+        self.assertFalse(toctou[1].target_release_registrations_v2)
+        self.assertFalse(toctou[6].authorizations)
+        self.assertEqual(toctou[5].operations[operation_id].state, 1)
+        self.assertNotIn(
+            (toctou[4].address, "component_config"),
+            toctou[4].deployment_world.accounts[target].overrides,
+        )
 
         for point in ("router_direct_read", "pvm_postread"):
             with self.subTest(point=point):
@@ -12670,7 +13303,96 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             fixture[3], fixture[4], fixture[5], fixture[8]
         )
         self.assertEqual(len(timelock.config_return_v1()), 160)
-        self.assertEqual(len(manager.config_return_v1()), 480)
+        manager_config = manager.config_return_v1()
+        self.assertEqual(len(manager_config), 1_056)
+        self.assertEqual(manager_config[8 * 32:9 * 32], manager.market_runtime_hash)
+        self.assertEqual(
+            manager_config[9 * 32:10 * 32],
+            manager.market_configuration_hash,
+        )
+        self.assertEqual(
+            tuple(manager_config[index * 32:(index + 1) * 32]
+                  for index in range(21, 33)),
+            manager.control_component_hashes,
+        )
+        self.assertEqual(
+            settlement.protocol_version_manager_configuration_hash_v1(
+                settlement.decode_protocol_version_manager_config_return_v1(
+                    manager_config
+                )
+            ),
+            manager.configuration_hash,
+        )
+        manager_view = \
+            settlement.decode_protocol_version_manager_config_return_v1(
+                manager_config
+            )
+        as_int = lambda value: int.from_bytes(value, "big")
+        independent_config = commitment.ProtocolVersionManagerConfigurationV1(
+            manager_view.settlement_chain_id,
+            as_int(manager_view.protocol_change_timelock),
+            manager_view.timelock_descriptor_hash,
+            as_int(manager_view.active_settlement_router),
+            as_int(manager_view.forced_queue),
+            as_int(manager_view.builder_registry),
+            as_int(manager_view.schedule_oracle),
+            as_int(manager_view.aggregator_seat_market),
+            manager_view.aggregator_seat_market_runtime_hash,
+            manager_view.aggregator_seat_market_configuration_hash,
+            *manager.control_component_hashes,
+            as_int(manager_view.bridge_domain_registry),
+            as_int(manager_view.bridge_credit_registry),
+            manager_view.manifest_namespace,
+            manager_view.release_router_registration_gas,
+            manager_view.release_market_installation_gas,
+            manager_view.release_postread_gas,
+            manager_view.release_post_callback_reserve_gas,
+        )
+        self.assertEqual(
+            commitment.encode_protocol_version_manager_config_return(
+                independent_config
+            ),
+            manager_config,
+        )
+        self.assertEqual(
+            commitment.protocol_version_manager_configuration_hash(
+                independent_config
+            ),
+            manager.configuration_hash,
+        )
+        for trailing in (False, True):
+            with self.subTest(pct1_trailing=trailing):
+                current = protocol_authority_fixture()
+                raw = current[5].config_return_v1()
+                current[5].config_return_overrides[current[4].address] = (
+                    raw + bytes(32) if trailing else raw[:-1]
+                )
+                operation_id, _mature, success = self._execute_release(current)
+                self.assertFalse(success)
+                self.assertFalse(current[1].target_release_registrations_v2)
+                self.assertEqual(current[5].operations[operation_id].state, 1)
+
+        malicious = protocol_authority_fixture()
+        attacker = addr("malicious-dao")
+        malicious[5].dao_proposer = attacker
+        malicious_operation = malicious[5].queue_protocol_change_v1(
+            settlement.REGISTER_RELEASE, malicious[3], caller=attacker,
+            clock=malicious[8],
+        )
+        self.assertIsNotNone(malicious_operation)
+        self.assertFalse(malicious[5].execute_protocol_change_v1(
+            1, settlement.REGISTER_RELEASE, malicious[3],
+            caller=addr("permissionless"),
+            clock=settlement.Clock(
+                malicious[8].block_number + 1,
+                malicious[8].timestamp
+                    + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
+            ),
+        ))
+        self.assertFalse(malicious[1].target_release_registrations_v2)
+        self.assertEqual(
+            malicious[5].operations[malicious_operation].state, 1
+        )
         self.assertEqual(
             settlement.INSTALL_SETTLEMENT_AUTHORIZATION_SELECTOR.hex(),
             "72a3e937",
@@ -12722,7 +13444,11 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             bytes.fromhex(adapter.header(requested).block_hash),
         )
         self.assertEqual(
-            settlement.EIP2935_HISTORY_STORAGE_ADDRESS.lower(),
+            settlement.L1_EIP2935_HISTORY_STORAGE_ADDRESS.lower(),
+            "0x0000f90827f1c53a10cb7a02335b175320002935",
+        )
+        self.assertEqual(
+            settlement.L2_EIP2935_HISTORY_STORAGE_ADDRESS.lower(),
             "0x0000f90827f1c53a10cb7a02335b175320002935",
         )
         for current, call_data, gas, value in (
@@ -12739,6 +13465,21 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                     requested, current, call_data,
                     gas_limit=gas, value=value,
                 )
+
+        bounded = settlement.make_header_oracle(first_supported_block=100)
+        self.assertEqual(
+            bounded.read_hash(100, 101, (100).to_bytes(32, "big")),
+            bytes.fromhex(bounded.header(100).block_hash),
+        )
+        with self.assertRaises(ValueError):
+            bounded.read_hash(99, 101, (99).to_bytes(32, "big"))
+        substituted = settlement.make_header_oracle(first_supported_block=101)
+        with self.assertRaises(ValueError):
+            substituted.read_hash(100, 101, (100).to_bytes(32, "big"))
+        self.assertNotEqual(
+            settlement.eip2935_read_configuration_hash_v1(100),
+            settlement.eip2935_read_configuration_hash_v1(101),
+        )
 
     def test_schedule_registry_successors_bounds_and_vacant_is_not_stored(self):
         fixture = protocol_authority_fixture()
@@ -12839,10 +13580,11 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             fixture[1], fixture[2], fixture[4], fixture[5]
         )
         version = witness.settlement.protocol_version
-        registration_hash = settlement.target_registration_hash_v2(witness)
+        decoded = settlement.decode_register_release_payload_v1(fixture[3])
+        registration_hash = decoded.target_registration_hash
         arm_payload = b"".join((
             manager.active_protocol_version.to_bytes(32, "big"),
-            version.to_bytes(32, "big"), witness.release_manifest.commitment,
+            version.to_bytes(32, "big"), decoded.release_manifest_hash,
             registration_hash,
         ))
         arm_operation = timelock.queue_protocol_change_v1(
@@ -12887,11 +13629,12 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         router2, witness2, manager2, timelock2 = (
             rollback[1], rollback[2], rollback[4], rollback[5]
         )
-        reg2 = settlement.target_registration_hash_v2(witness2)
+        decoded2 = settlement.decode_register_release_payload_v1(rollback[3])
+        reg2 = decoded2.target_registration_hash
         arm2 = b"".join((
             manager2.active_protocol_version.to_bytes(32, "big"),
             witness2.settlement.protocol_version.to_bytes(32, "big"),
-            witness2.release_manifest.commitment, reg2,
+            decoded2.release_manifest_hash, reg2,
         ))
         first_mature = settlement.Clock(
             rollback[8].block_number + 1,

@@ -1552,12 +1552,13 @@ class SeatMarket:
                 raise TransitionRejected("requote is a no-op")
 
             quote_sequence = self._fresh_quote_sequence()
-            eligible_at_timestamp = checked_add(
-                clock.timestamp, self.quote_maturity_seconds
-            )
-            eligible_at_block = checked_add(
-                clock.block_number, self.quote_maturity_blocks
-            )
+            # Maturity is the admission delay of the bonded tranche, not a
+            # clock that an incumbent may push forward with each revision.
+            # Copy both dimensions exactly: recomputing either one lets four
+            # zero-ask offers occupy every waiting cell forever by requoting
+            # immediately before maturity.
+            eligible_at_timestamp = old_offer.eligible_at_timestamp
+            eligible_at_block = old_offer.eligible_at_block
             new_offer_id = self._new_offer_id(
                 tranche_id=tranche.tranche_id,
                 sequence=quote_sequence,
@@ -1583,8 +1584,12 @@ class SeatMarket:
                 authorization_id=tranche.authorization_id,
                 generation=generation,
             )
-            old_offer.location = OfferLocation.NONE
             self.pending_offer_ids.remove(offer_id)
+            # A superseded pending quote has never crossed the Settlement
+            # boundary and has no protocol consumer.  Delete it rather than
+            # permitting payout-only revisions to grow permanent Market
+            # storage without adding another bond.
+            del self.offers[offer_id]
             self.offers[new_offer_id] = new_offer
             self.pending_offer_ids.append(new_offer_id)
             tranche.current_offer_id = new_offer_id

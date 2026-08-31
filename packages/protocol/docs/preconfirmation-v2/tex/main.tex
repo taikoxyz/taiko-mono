@@ -89,12 +89,12 @@ candidate, not yet an implementation-ready specification or production
 authorization: the missing executable profile and the proving, gas, economics and
 adversarial gates in
 \S\ref{sec:gates} remain mandatory before production release.  The control-
-plane and migration journals in this revision are frozen candidates, but the
-complete canonical execution-profile codec and the Settlement--Market mutation
-wire protocol remain explicit implementation-readiness blockers.
+plane, migration journals and canonical execution-profile codec in this revision
+are frozen candidates, but the Settlement--Market mutation wire protocol remains
+an explicit implementation-readiness blocker.
 \end{abstract}
 
-\tableofcontents
+{\small\tableofcontents}
 \clearpage
 
 \section{Status, claims and exclusions}\label{sec:status}
@@ -219,6 +219,19 @@ V2 recovery adds no stronger writer.  Each immutable Settlement records its own
 proof-bound canonical history internally; the protocol-lifetime router only
 registers exact version/code identities and reads those histories.  It has no
 governor, canonical-write callback or caller-supplied-root setter.
+This root includes the exact authorized creation and runtime bytecode.  A
+malicious or compromised governance that deliberately approves code whose
+DSV1/TCS2 getters lie, or a validity verifier that accepts false transitions,
+is outside the protocol safety claim; either capability can already choose an
+arbitrary state machine.  EXTCODEHASH and fixed getters prevent substitution
+and detect unexpected live state, but are not claimed to prove semantic honesty
+of root-authorized bytecode.  The pinned reproducible-build and constructor-
+trace verifier below is a mandatory, independently reproducible release gate
+for honest governance, not a self-attesting on-chain capability.  Its complete
+input bundle, executable hash, report and output hashes are public before the
+delay starts.  Permissionlessness applies to auction participation, proving,
+landing, recovery and execution of a mature typed operation; it does not mean
+that arbitrary accounts may select a new verifier or implementation.
 \item[Bridge message archive.] Any untrusted, replaceable source of the full
 Message bytes emitted on L1.  Correctness follows from \code{msgHash}; successful
 destination execution needs one copy until processing.  Loss before
@@ -1105,12 +1118,17 @@ H("slot-chain-data-session-config-v1" || u32(340) ||
   address20(activeSettlementRouter) || address20(protocolVersionManager) ||
   address20(dataRent) || executionProfileHash ||
   u256(BOND) || u256(BASE) || u256(BYTE) || u16(BLOB_BPS) ||
-  u64(86400) || u64(86400) || u16(1024) || u16(2) || u16(2100) ||
+  u64(dataSessionMaximumTtlSeconds) ||
+  u64(dataSessionRefundClaimWindowSeconds) ||
+  u16(1024) || u16(2) || u16(2100) ||
   u8(8) || u8(6) || address20(0x0a) || u32(50000) || u256(BLS_MODULUS) ||
   u32(131072) || u32(126972) || u16(9))
 \end{verbatim}
 Every address/hash is nonzero except that the point-evaluation address is the
 canonical numeric \code{0x0a}; the BPS/rate fields may be zero.  The delayed
+profile requires both DataSession time values nonzero and
+\code{dataSessionRefundClaimWindowSeconds >= dataSessionMaximumTtlSeconds}; the
+release fixture sets both to 86400.  The delayed
 target registration must carry this exact value, the target Settlement's wider
 configuration commitment must include it as a named field, and the Router must
 compare the accounting return against that registered value.  The 232-byte
@@ -3465,12 +3483,12 @@ bytes32 targetConfigurationHash)} followed by the sole dynamic offset, exactly
 and zero right-padding, making total payload length
 \code{2208+ceil32(profileBytes.length)}.  Alias, gap, nonminimal offset,
 nonzero padding or trailing bytes reject.  The manager strictly decodes and
-byte-for-byte re-encodes the canonical CBOR profile grammar below, requires
+byte-for-byte re-encodes the strict canonical ABI profile grammar below, requires
 \code{executionProfileHash =
-H("slot-chain-execution-profile-v1"||u32(profileBytes.length)||profileBytes)},
+H("slot-chain-execution-profile-v2"||u32(profileBytes.length)||profileBytes)},
 and checks every manifest profile-derived field, ingress row, verifier,
 component and Market read tuple against that decoded profile.  It checks CREATE2
-derivation and live factory/target code/configuration, requires the expected predecessor to equal Router's current
+derivation, the live root factory identity and target code/configuration, requires the expected predecessor to equal Router's current
 active protocol version and
 \code{0<=expectedPredecessorProtocolVersion<protocolVersion} (zero is the
 GENESIS\_IMPORT sentinel), recomputes the descriptor's 232-byte packed hash, then
@@ -3552,6 +3570,7 @@ ActiveSettlementRouter.targetReleaseRegistrationV2(uint64 protocolVersion)
           bytes32 settlementDeploymentDescriptorHash,
           bytes32 executionProfileHash,
           bytes32 migrationActivationProfileRecordHash,
+          bytes32 dataSessionConfigurationHash,
           bytes32 releaseManifestHash,
           bytes32 targetRegistrationHash)
 ActiveSettlementRouter.migrationActivationProfileV2(uint64 protocolVersion)
@@ -3579,7 +3598,7 @@ The selectors are respectively \code{0x9aa71eff}, \code{0xf588fec3},
 four-byte selector followed by the exact REGISTER\_RELEASE payload; its selector
 is the Keccak selector of the fully expanded 58-word manifest tuple printed in
 the activation ABI and the eight-word deployment tuple above.  Returns are
-96/RTR2, 352/RTR2, 768/MPR2, 128/PIR2 and 800/PIA2 bytes; magics are
+96/RTR2, 384/RTR2, 768/MPR2, 128/PIR2 and 800/PIA2 bytes; magics are
 \code{0x52545232}, \code{0x4d505232}, \code{0x50495232} and
 \code{0x50494132}.
 The row return is magic, returned ID and the 23 static struct words in the
@@ -3605,21 +3624,73 @@ Router stores that immutable record with the registration; PVM verifies its
 verifier descriptor hash against the manifest.  Genesis and later activation
 recover every verifier/gas word only from MPR2, recheck its record/profile/
 registration hashes and target code/configuration, and reject a caller-supplied
-profile byte, descriptor or gas value.  The transient full CBOR preimage is
+profile byte, descriptor or gas value.  The transient full ABI preimage is
 therefore needed only to validate and register the compact activation record
 and ingress rows; activation never attempts to invert
 \code{executionProfileHash}.
 
+Before any protocol-change write, PVM checks EXTCODEHASH of the actual
+Timelock caller and makes a 100,000-gas exact PCT1 STATICCALL back to that
+caller.  It recomputes the governance-delay descriptor from the actual chain,
+caller address/code, returned DAO/PVM/delay/domain and requires equality to its
+immutable descriptor.  REGISTER\_RELEASE additionally requires profile words
+16--19 to equal those live observations.  A Timelock with a substituted DAO or
+caller-dependent PCT1 response therefore cannot use an otherwise authentic
+queued payload.
+
+PVM then derives all expected values from the raw strict profile and joins the
+complete control tuple to the actual root deployment.  It checks its own
+EXTCODEHASH against word 21 and exact-reads its own 1,056-byte PVM1 view;
+Router independently checks \code{msg.sender} EXTCODEHASH and makes the same
+100,000-gas, four-byte PVM1 STATICCALL before its first write.  Each caller
+strictly decodes PVM1, recomputes the complete PVM configuration hash against
+word 22, checks the six non-Market control accounts in this order: Router,
+ForcedQueue, BuilderRegistry, ScheduleOracle, BridgeDomainRegistry and
+BridgeCreditRegistry; it then checks Market EXTCODEHASH and its fixed
+\code{componentConfigHashV2()} against the PVM1 root and independently
+recomputes the Market configuration from the actual five constructor values.
+It next checks the protocol-root ERC-2470 address and EXTCODEHASH; ERC-2470 has
+no protocol-specific configuration getter.  Finally it checks target
+EXTCODEHASH, \code{componentConfigHashV2()} (selector \code{0xf6c0f7d2}),
+DSV1 and TCS2 in that order.  PVM's postread repeats the five target
+observations.  Short/trailing, bad padding, revert/OOG or caller-dependent
+PCT1/PVM1/control getter behavior rejects in the common outer revert domain.
+This exact order is part of the cold-state gas certificate and MUST NOT be
+reordered.
+The ten destination component rows remain profile/manifest
+commitments at this L1 step; their live identities are proved by the L2
+migration/activation gate, never by impossible cross-chain STATICCALLs.
 After complete validation but before any registration write, PVM writes
-APPLYING/consumed.  It then calls Router registration with exactly 3,000,000
-gas.  Router requires manager caller and lifecycle IDLE, writes REGISTERING,
-repeats profile/hash/code/absence checks, appends the version row, and restores
-IDLE last.  PVM exact-checks RTR2/hash pair, stores the sorted ingress rows
-and root internally, calls Market installation with exactly 500,000 gas, and
-then makes 100,000-gas exact STATICCALL postreads of the Router registration,
-MPR2 activation profile, PIR2 root, every PIA2 row and Market SAT1 row.  Market installation itself
-direct-reads the same Router registration with exactly 100,000 gas before its
-write.  Only after every postread agrees does PVM return PAP1; Timelock then
+APPLYING/consumed.  It then calls Router registration with exactly
+\code{releaseRouterRegistrationGas}.  The historical model value is not a release authority: the production PVM
+configuration instead contains nonzero immutable
+\code{releaseRouterRegistrationGas}, \code{releaseMarketInstallationGas},
+\code{releasePostreadGas} and \code{releasePostCallbackReserveGas}.  Each is
+bound by the PVM configuration hash and the release gas certificate; the
+3,000,000/500,000/100,000 figures in model fixtures are lower-bound examples
+only.  Before each nested call PVM checks EIP-150-forwardable gas plus all
+remaining stipends, bounded copy cost and the post-callback reserve.  The
+maximum 65,536-byte cold-state registration benchmark must succeed at the
+published values and fail at one less.  Router requires the manager caller in
+PVM APPLYING while Router is IDLE, independently re-derives expected values
+from the same raw profile and repeats the PVM1, control, Market, factory and
+target live reads as its own caller before writing REGISTERING.  It then
+appends the version row and restores Router IDLE last.
+Caller-dependent getter behavior, short/trailing returns, revert/OOG or any
+late mismatch reverts the common outer journal.  Because these are STATICCALLs,
+the target is nonproxy/selfdestruct-free and Ethereum code cannot change during
+the transaction; after Router returns PVM nevertheless repeats target
+EXTCODEHASH/config/DSV1/TCS2 and exact-checks all Router stores, closing mutable
+return substitution rather than relying on a second read by the same caller.
+PVM exact-checks RTR2/hash pair, stores the sorted ingress rows
+and root internally, calls Market installation with exactly
+\code{releaseMarketInstallationGas}, and then makes
+\code{releasePostreadGas}-bounded exact STATICCALL postreads of the Router registration,
+MPR2 activation profile, PIR2 root, every PIA2 row and Market SAT1 row.  Market
+installation itself direct-reads the same Router registration with exactly
+100,000 gas before its write.  The call target is the Market constructor's
+immutable \code{activeSettlementRouter}; it is never an install argument or a
+caller-supplied expected row.  Only after every postread agrees does PVM return PAP1; Timelock then
 writes EXECUTED.  This order gives Market an already existing authenticated
 Router row, while the outer revert domain removes every Router/PVM/Market write
 if any later call or decode fails.  A registration may be armed only when its
@@ -3628,6 +3699,11 @@ itself close admissions.
 
 The exact authority descriptors are
 \begin{verbatim}
+marketAuthorityConfigurationHash = H(
+ "slot-chain-pvm-derived-market-authority-config-v1" || u16(124) ||
+ u256(marketChainId) || address20(aggregatorSeatMarket) ||
+ u256(settlementChainId) || address20(protocolVersionManager) ||
+ address20(activeSettlementRouter))
 governanceDelayAuthorityDescriptorHash = H(
  "slot-chain-protocol-change-timelock-v1" ||
  u256(settlementChainId) || address20(protocolChangeTimelock) ||
@@ -3638,18 +3714,65 @@ protocolVersionManagerConfigurationHash = H(
  "slot-chain-protocol-version-manager-config-v1" ||
  u256(settlementChainId) || address20(protocolChangeTimelock) ||
  governanceDelayAuthorityDescriptorHash ||
- address20(activeSettlementRouter) || address20(forcedQueue) ||
- address20(builderRegistry) || address20(scheduleOracle) ||
- address20(aggregatorSeatMarket) || address20(bridgeDomainRegistry) ||
- address20(bridgeCreditRegistry) || manifestNamespace ||
- u64(604800) || u64(604800) || u16(64))
+ address20(activeSettlementRouter) || activeSettlementRouterRuntimeHash ||
+ activeSettlementRouterConfigurationHash ||
+ address20(forcedQueue) || forcedQueueRuntimeHash ||
+ forcedQueueConfigurationHash ||
+ address20(builderRegistry) || builderRegistryRuntimeHash ||
+ builderRegistryConfigurationHash ||
+ address20(scheduleOracle) || scheduleOracleRuntimeHash ||
+ scheduleOracleConfigurationHash ||
+ address20(aggregatorSeatMarket) || aggregatorSeatMarketRuntimeHash ||
+ marketAuthorityConfigurationHash ||
+ address20(bridgeDomainRegistry) || bridgeDomainRegistryRuntimeHash ||
+ bridgeDomainRegistryConfigurationHash ||
+ address20(bridgeCreditRegistry) || bridgeCreditRegistryRuntimeHash ||
+ bridgeCreditRegistryConfigurationHash || manifestNamespace ||
+ u64(604800) || u64(604800) || u16(64) ||
+ u64(releaseRouterRegistrationGas) ||
+ u64(releaseMarketInstallationGas) || u64(releasePostreadGas) ||
+ u64(releasePostCallbackReserveGas))
 protocolVersionManagerDescriptorHash = H(
  "slot-chain-protocol-version-manager-v1" ||
  address20(protocolVersionManager) || protocolVersionManagerRuntimeHash ||
  protocolVersionManagerConfigurationHash)
 \end{verbatim}
-The final three configuration values are minimum governance delay, maximum live
-VERSION\_MIGRATION duration and review-finality blocks.  All addresses, runtime
+For this protocol root \code{marketChainId=settlementChainId}.  Market
+constructor immutables are exactly those five preimage values, its fixed
+\code{componentConfigHashV2()} return is
+\code{marketAuthorityConfigurationHash}, and profile word 37 MUST equal that
+hash recomputed from profile words 2, 35, 20 and 23.  All three addresses are
+distinct.  PVM and Router additionally compare profile words
+20/23/26/29/32/35/38/41 to the actual PVM identity and complete PVM1 root.
+PVM1 binds the runtime/configuration pairs in words 24--25, 27--28, 30--31,
+33--34, 36--37, 39--40 and 42--43.  Each caller independently checks
+EXTCODEHASH and the fixed-gas live configuration getter for Router,
+ForcedQueue, BuilderRegistry, ScheduleOracle, Market, BridgeDomainRegistry and
+BridgeCreditRegistry.  The Market configuration is also independently
+recomputed from the actual five constructor values.  Thus a publisher cannot
+make a self-consistent alternate control graph.  Substituting any lookalike
+control component makes registration fail before a Router, PVM or Market
+write.
+Words 18 and 37 are fully recomputable from other profile words and the strict
+profile decoder rejects either mismatch.  Word 22 is deliberately checked at
+the live-root join, not by the context-free ABI decoder: its preimage includes
+the four measured protocol-root release gas caps, which are immutable PVM1
+values but are not duplicated as per-release profile fields.  PVM and Router
+therefore exact-read PVM1 and recompute word 22 before their respective first
+writes; a nonzero publisher value alone never authorizes registration.
+The final seven configuration values are minimum governance delay, maximum live
+VERSION\_MIGRATION duration, review-finality blocks,
+\code{releaseRouterRegistrationGas},
+\code{releaseMarketInstallationGas}, \code{releasePostreadGas} and
+\code{releasePostCallbackReserveGas}.  The last four are protocol-root
+immutable MAX\_PROFILE caps measured before the PVM is deployed against the
+65,536-byte/252-field cold worst case, not per-release mutable values or guessed
+constants.  Every later release certificate must measure at or below these
+caps; exceeding one requires the independent new-root migration described
+above.  The executable
+model's 15,000,000/1,000,000/500,000/2,000,000 values are fixtures only and
+MUST NOT populate a production deployment without the cold max-profile
+benchmark.  All addresses, runtime
 hashes, namespace and descriptor hashes are nonzero; the two contracts, DAO
 proposer and every downstream component are pairwise distinct where their
 roles differ.
@@ -3659,14 +3782,29 @@ Configuration reads use exactly 100,000 gas and these canonical ABIs:
 protocolChangeTimelockConfigV1() // selector 0xb80095ca; 160 bytes
  returns (bytes4 magic,address daoProposer,address protocolVersionManager,
           uint64 minimumDelaySeconds,bytes32 operationDomain) // PCT1
-protocolVersionManagerConfigV1() // selector 0x4deb7821; 480 bytes
+protocolVersionManagerConfigV1() // selector 0x4deb7821; 1056 bytes
  returns (bytes4 magic,uint256 settlementChainId,address timelock,
           address activeSettlementRouter,address forcedQueue,
           address builderRegistry,address scheduleOracle,
-          address aggregatorSeatMarket,address bridgeDomainRegistry,
+          address aggregatorSeatMarket,bytes32 aggregatorSeatMarketRuntimeHash,
+          bytes32 marketAuthorityConfigurationHash,address bridgeDomainRegistry,
           address bridgeCreditRegistry,bytes32 timelockDescriptorHash,
           bytes32 manifestNamespace,uint64 minimumDelaySeconds,
-          uint64 maximumLiveMigrationSeconds,uint16 reviewFinalityBlocks) // PVM1
+          uint64 maximumLiveMigrationSeconds,uint16 reviewFinalityBlocks,
+          uint64 releaseRouterRegistrationGas,
+          uint64 releaseMarketInstallationGas,uint64 releasePostreadGas,
+          uint64 releasePostCallbackReserveGas,
+          bytes32 activeSettlementRouterRuntimeHash,
+          bytes32 activeSettlementRouterConfigurationHash,
+          bytes32 forcedQueueRuntimeHash,bytes32 forcedQueueConfigurationHash,
+          bytes32 builderRegistryRuntimeHash,
+          bytes32 builderRegistryConfigurationHash,
+          bytes32 scheduleOracleRuntimeHash,
+          bytes32 scheduleOracleConfigurationHash,
+          bytes32 bridgeDomainRegistryRuntimeHash,
+          bytes32 bridgeDomainRegistryConfigurationHash,
+          bytes32 bridgeCreditRegistryRuntimeHash,
+          bytes32 bridgeCreditRegistryConfigurationHash) // PVM1
 protocolChangeOperationV1(bytes32) // selector 0x4b80fe68; 256 bytes
  returns (bytes4 magic,uint8 state,uint64 nonce,uint8 operationKind,
           uint32 payloadBytes,bytes32 payloadHash,
@@ -3678,7 +3816,7 @@ The magics are PCT1 \code{0x50435431}, PVM1 \code{0x50564d31} and PCO1
 short/trailing return, bad magic, bad padding, wrong code hash, wrong constant or
 descriptor mismatch rejects publication before a protocol component changes.
 
-A later migration arm also creates one non-extendable manager lease:
+A later migration arm appends one non-extendable manager arm row:
 \begin{verbatim}
 abortAfterTimestamp = checked(uint64(block.timestamp) + 604800)
 versionMigrationArmId = H(
@@ -3694,15 +3832,24 @@ liveVersionMigrationLeaseV1() // selector 0xaaac4c97; 320 bytes
           bytes32 armId,uint64 armedAtTimestamp,uint64 abortAfterTimestamp) // VML1
 \end{verbatim}
 The magic is \code{0x564d4c31}; NONE=0 and LIVE=1 are the only live-view
-states, and NONE requires every other word zero.  Router activation exact-reads
+states, and NONE requires every other word zero.  Arm rows are append-only and
+keyed by \code{armId}; they are historical evidence, never a singleton liveness
+lock.  On every call the getter exact-reads Router's active settlement state and
+migration gate.  It returns the unique matching row only while the gate is
+ARMED/READY and otherwise returns canonical NONE, including immediately after
+successful activation.  REGISTER\_RELEASE and PUBLISH\_MIGRATION\_ARM likewise
+derive the current predecessor only from Router's exact ASR1 ACTIVE read; PVM
+has no shadow active-version authority.  A new arm requires Router IDLE/ACTIVE,
+the current Router version and the registered target predecessor, so a
+CONSUMED/ABORTED historical row cannot block the next generation.  Router activation exact-reads
 this row, requires the complete live tuple and
 \code{block.timestamp<abortAfterTimestamp} before verifier dispatch, and never
 accepts a caller-supplied lease.  At or after the bound,
 \code{permissionlessAbortExpiredMigrationV1()} (selector
 \code{0xea3e96c2}) is callable by anyone and executes the Router ABORTING
 journal.  If activation already won an
-earlier transaction, the call only terminalizes the stale manager lease after
-authenticating Router's sealed successor receipt; otherwise it aborts ARMED or
+earlier transaction, the derived live getter is already NONE and the call is a
+no-op; otherwise it aborts ARMED or
 READY and restores source ACTIVE.  At the exact expiry timestamp activation
 rejects, so abort wins independent of ordering.  No operation can refresh,
 replace or extend a LIVE lease.  A proving outage, lost governance key or
@@ -3950,9 +4097,10 @@ Every field is nonzero and
 initCodeHash))}.  Registration must publish the complete init-code artifact and
 immutably bind this descriptor inside \code{targetRegistrationHash}; arm,
 activation, cancellation and the activation receipt must bind that same hash.  The
-Router checks factory/target \code{EXTCODEHASH}, the exact four-byte
-\code{componentConfigHashV2()} call with 50,000 gas and exactly 32 return bytes,
-and the derivation at arm and activation.  Hidden mapping emptiness follows only
+Router checks the root factory and target \code{EXTCODEHASH}, then applies the
+exact four-byte \code{componentConfigHashV2()} call with 50,000 gas and exactly
+32 return bytes to the target, and rechecks the derivation at arm and
+activation.  Hidden mapping emptiness follows only
 from that authenticated constructor and the lack of PREACTIVE mutation entry
 points; it is never inferred from runtime/config getters alone.  The same
 authenticated Settlement init code and its target configuration commitment bind the
@@ -4222,9 +4370,16 @@ magic is \code{0x53415431} (SAT1).  Install is nonpayable,
 ProtocolVersionManagerV2-only and legal only inside its consumed
 REGISTER\_RELEASE frame.  It recomputes the V1 authorization ID below from the
 Market's immutable chain/address plus the supplied manifest-derived fields,
-requires the already appended target registration to equal the final word,
-checks the target code/config getter, writes an unused ID once and returns the
-same ID.  The manager exact-checks the full return; a callback cannot install a
+then makes exactly one 100,000-gas STATICCALL to Router's
+\code{targetReleaseRegistrationV2(protocolVersion)}.  It requires the exact
+384-byte RTR2 return and compares its version, target, runtime hash,
+configuration hash and target-registration hash with the supplied fields
+before writing an unused ID once.  Market does not call the target during
+installation: PVM and Router already performed independent target live reads,
+and PVM repeats them after Router returns and before invoking Market.  After the
+Market callback PVM exact-reads Router and Market stores in the same common
+rollback domain.  The
+manager exact-checks the full return; a callback cannot install a
 second row because its operation/frame is already consumed.  The three target
 read selectors are fixed to \code{0xcf52185b}, \code{0x76d5ecd4} and
 \code{0x9a649489} for state, term and duty respectively, each with exactly
@@ -4526,8 +4681,18 @@ Requote is pending-only and requires the immutable operator, exact live
 offer/tranche, no exit, exact active authorization/generation, nonzero payout and
 an ask within the immutable maximum.  It may lower the ask, or retain the ask
 while changing payout; increases and no-ops revert.  It keeps the tranche and
-bond but derives checked fresh quote sequence and offer ID and resets both
-maturity clocks.  It performs no ETH movement or Settlement call.
+bond, derives a checked fresh quote sequence and offer ID, and copies both
+original
+\code{eligibleAtTimestamp} and \code{eligibleAtBlock} exactly.  Quote maturity
+is the one-time admission delay of the bonded tranche, not a delay which a
+current holder may push forward: no successor quote may postpone either
+dimension.  Every revision voluntarily takes the fresh sequence's tie-break
+position.  Before inserting the successor, Market deletes the superseded
+pending quote; the old ID is immediately stale and repeated payout changes
+cannot create unbounded live or historical contract storage.  Requote performs
+no ETH movement or Settlement call.  Consequently four zero-ask offers cannot
+freeze all four cells by changing payout before maturity: at the original
+timestamp/block equality every current successor is stageable by any caller.
 
 Direct and promoted primary service share:
 \begin{verbatim}
@@ -5031,11 +5196,514 @@ SYSTEM\_ADDRESS-only \code{set} path is never called by the protocol.
 \subsection{Executable execution profile}
 
 \code{executionProfileHash} is not a free-form governance label.  Each
-\code{protocolVersion} maps immutably to one canonical CBOR profile whose bytes
-are published with the verifier key and hashed as
-\code{H("slot-chain-execution-profile-v1"||u32(byteLength)||profileBytes)}.
-The decoder rejects unknown keys, duplicate map keys, nonminimal integers,
-indefinite lengths and zero code hashes.  The profile contains:
+\code{protocolVersion} maps immutably to exactly one strict canonical Solidity
+ABI value
+\begin{verbatim}
+profileBytes = abi.encode(ExecutionProfileV2)
+executionProfileHash = H("slot-chain-execution-profile-v2" ||
+                         u32(byteLength) || profileBytes)
+\end{verbatim}
+where \code{1 <= byteLength <= 65536}.  V2 is protocol-lifetime frozen: the
+immutable V2 manager accepts only this schema.  An incompatible extension is
+outside every authority path specified here and requires an independently
+reviewed new L1 protocol root/genesis migration; this manager cannot install or
+reinterpret it.  Stored V2 hashes are never reinterpreted.  There is no CBOR or
+legacy fallback.
+
+\paragraph{Exact ABI grammar.}
+\code{ExecutionProfileV2} is one tuple of 252 fixed value fields followed by
+the sole dynamic \code{bytes targetCodeArtifact}.  Its outer root word is
+exactly \code{u256(0x20)}.  Value field \(i\) below is the ABI word at tuple
+offset \(32i\); word 252 is the sole offset and equals
+\code{u256(8096)=u256(0x1fa0)}.  The total fixed head is therefore 253 words.
+The tail is the ordinary ABI bytes encoding
+\code{u256(artifactLength)||artifact||zeroPadding}, with no gap, alias,
+trailing word or nonzero padding.  The complete field order is:
+\begin{verbatim}
+  0.. 15 core:
+    uint64 schemaVersion, uint64 protocolVersion,
+    uint256 settlementChainId, uint256 l2ChainId,
+    bytes32 settlementGenesisHash, bytes32 destinationGenesisHash,
+    bytes4 forkDigest, uint64 firstV2BlockNumber, uint64 genesisTimestamp,
+    bytes32 manifestNamespace, bytes32 destinationNamespace,
+    bytes32 routerNamespace, bytes32 poolNamespace,
+    address anchorV4, bytes32 anchorRuntimeHash,
+    bytes32 anchorConfigurationHash
+ 16.. 43 control objects, in this order:
+    (address protocolChangeTimelock, bytes32 runtimeHash, bytes32 configHash),
+    address daoProposer,
+    (address protocolVersionManager, bytes32 runtimeHash, bytes32 configHash),
+    (address activeSettlementRouter, bytes32 runtimeHash, bytes32 configHash),
+    (address forcedQueue, bytes32 runtimeHash, bytes32 configHash),
+    (address builderRegistry, bytes32 runtimeHash, bytes32 configHash),
+    (address scheduleOracle, bytes32 runtimeHash, bytes32 configHash),
+    (address aggregatorSeatMarket, bytes32 runtimeHash, bytes32 configHash),
+    (address bridgeDomainRegistry, bytes32 runtimeHash, bytes32 configHash),
+    (address bridgeCreditRegistry, bytes32 runtimeHash, bytes32 configHash)
+ 44.. 56 target artifact:
+    address settlementFactory, bytes32 settlementFactoryRuntimeHash,
+    bytes32 settlementFactoryConfigurationHash, bytes32 settlementSalt,
+    bytes32 targetRuntimeHash, bytes32 targetCreationCodeHash,
+    bytes32 targetAbiHash, bytes32 targetStorageLayoutHash,
+    bytes32 targetConstructorSchemaHash, bytes32 targetCompilerBuildHash,
+    bytes32 targetCompileTimeRulesHash,
+    bytes32 targetImmutableReferencesHash, bytes32 targetLinkReferencesHash
+ 57.. 62 target verification infrastructure:
+    (address settlementL1HistoryStorageAddress, bytes32 runtimeHash,
+     bytes32 readConfigurationHash),
+    (address registrationMptVerifier, bytes32 runtimeHash, bytes32 configHash)
+ 63.. 71 sinks:
+    address builderLeaseToken, bytes32 builderLeaseTokenRuntimeHash,
+    uint8 builderLeaseTokenDecimals, address builderPenaltySink,
+    address dataRentSink, address seatPenaltySink, address forcedExpirySink,
+    address bridgeSurplusSink, address protocolCoinbaseSink
+ 72.. 85 recovery uint64 values:
+    settlementWindowSeconds, includeMaxSeconds, finalLagSeconds,
+    tipLagSeconds, proveMaxSeconds, l1FinalityBlocks, depthMaxSeconds,
+    clockSkewSeconds, escapeOffsetSeconds, forceDelaySeconds,
+    maximumParentGapSlots, maximumForceValiditySeconds,
+    evidenceDelaySeconds, reorgMarginSeconds
+ 86..100 seat values:
+    uint64 seatRunwaySeconds, minimumPrimaryTenureSeconds,
+    minimumStandbyTenureSeconds, handoverDelaySeconds, stageGraceSeconds,
+    exitDelaySeconds, recoveryLagSeconds, slashLagSeconds,
+    premiumClaimDelaySeconds, reorgStabilitySeconds, releaseChallengeSeconds;
+    uint256 maximumAskWeiPerSecond, seatSlaBondWei,
+    maximumAvoidedServiceCostWei, collusionSafetyMarginWei
+101..106 DataSession values:
+    uint256 dataSessionBondWei, uint256 dataSessionBaseRentWei,
+    uint256 dataSessionRentPerPublishedByteWei,
+    uint16 dataSessionBlobBaseFeeMultiplierBps,
+    uint64 dataSessionMaximumTtlSeconds,
+    uint64 dataSessionRefundClaimWindowSeconds
+107..117 target gas uint64 values:
+    activeSettlementStateReadGas, seatMarketStateReadGas,
+    seatTermRecordReadGas, seatDutyRecordReadGas,
+    componentConfigurationReadGas, registrationVerifierConfigReadGas,
+    registrationVerifierCallGas, migrationActivationContextReadGas,
+    migrationPostStateReadGas, targetAdoptionCallGas,
+    targetPostCallbackReserveGas
+118..137 compile-time rules:
+    uint8 slotSeconds; uint16 scheduleWindowSlots; uint8 seatCount;
+    uint8 dutyRingCapacity; uint8 forceTreeDepth; uint8 dataMmrDepth;
+    uint16 dataSessionCellCount; uint16 maximumDataSessionsPerOwner;
+    uint16 maximumDataRecordsPerSession; uint8 maximumGcSteps;
+    uint8 maximumBlobsPerPost; uint16 canonicalHistoryCapacity;
+    uint8 destinationComponentCount; uint8 ingressAuthorizationCount;
+    address pointEvaluationPrecompile; uint32 pointEvaluationGas;
+    uint256 blsModulus; uint32 blobGasUsed;
+    uint32 maximumBlobPayloadBytes; uint16 maximumBlobChunkCount
+138..157 MPR2 source:
+    address migrationVerifier; bytes32 migrationVerifierRuntimeHash;
+    bytes32 migrationVerifierConfigurationHash;
+    bytes32 migrationVerifyingKeyHash; bytes32 migrationProofSystemId;
+    bytes32 migrationPublicInputSchemaHash; bytes4 migrationVerifierSelector;
+    uint32 migrationMaximumProofBytes; then uint64
+    migrationVerificationGas, supportedL1BlockGasLimit,
+    worstCaseActivationAdoptionGas, sourceFreezeGas, targetAdoptionGas,
+    queueMigrationGas, activationContextReadGas, postStateReadGas,
+    legacyStateReadGas, legacyArmGas, legacyFinalizeGas,
+    postCallbackReserveGas
+158..201 destination:
+    address inboxSystemSender, address anchorSystemSender;
+    for i=1..10, expanded in increasing i:
+      (address destinationComponent_i, bytes32 runtimeHash, bytes32 configHash);
+    bytes32 destinationBridgeStorageLayoutHash,
+    bytes32 bridgeKernelProfileHash, bytes32 bridgeKernelAbiHash,
+    bytes32 bridgeStatusLayoutHash, bytes32 bridgeCustodyLayoutHash,
+    address destinationQuotaManager, bytes32 destinationQuotaManagerRuntimeHash,
+    bytes32 destinationQuotaManagerConfigurationHash,
+    uint256 destinationInitialNativeQuota, uint64 poolReadGas,
+    uint64 poolAuthorizationCleanupGas, uint64 poolValueCallbackGas
+202..227 source:
+    address sourceBundleFactory, bytes32 sourceBundleFactoryRuntimeHash,
+    bytes32 sourceBundleFactoryConfigurationHash, bytes32 sourceBundleSalt,
+    bytes32 sourceBundleInitCodeHash, address sourceBundleDeployer,
+    bytes32 sourceBundleDeployerRuntimeHash, address legacyV1SourceBridge,
+    address sourceBridge, bytes32 sourceBridgeRuntimeHash,
+    bytes32 sourceBridgeConfigurationHash, bytes32 sourceBridgeStorageLayoutHash,
+    address sourceCreditRegistry, bytes32 sourceCreditRegistryRuntimeHash,
+    bytes32 sourceCreditRegistryConfigurationHash, address sourceQuotaManager,
+    bytes32 sourceQuotaManagerRuntimeHash,
+    bytes32 sourceQuotaManagerConfigurationHash, address sourceSupportRegistry,
+    bytes32 sourceSupportRegistryRuntimeHash,
+    bytes32 sourceSupportRegistryConfigurationHash, address sourcePauser,
+    address sourceSignalService, uint64 sourceRegistrationEpoch,
+    bytes32 sourceNamespace, bytes32 sourceGenesisHash
+228..234 kind-0 ingress:
+    address kind0IngressAdapter, bytes32 kind0IngressAdapterRuntimeHash,
+    uint256 fixedIngressWei, uint256 executionWeiPerAccountedGas,
+    uint256 proofWeiPerAccountedGas, uint256 permanentWeiPerByte,
+    uint256 maximumAcceptedFeeWei
+235..251 execution:
+    uint64 l2BlockGasLimit, uint64 baseFeeElasticity,
+    uint64 baseFeeChangeDenominator, uint64 blobTarget,
+    uint64 blobUpdateFraction, bytes32 emptyOmmersHash,
+    bytes32 emptyTransactionsRoot, bytes32 emptyWithdrawalsRoot,
+    bytes32 emptyRequestsHash, uint64 l1HistoryFirstSupportedBlock,
+    bytes32 l2HistoryStorageRuntimeHash,
+    uint64 l2HistoryStorageActivationBlock, bytes32 headerRulesHash,
+    bytes32 systemTransactionRulesHash, bytes32 forcedInputRulesHash,
+    bytes32 stateTransitionAbiHash, bytes32 legacyExecutionRulesHash
+252 bytes targetCodeArtifact offset (=8096)
+\end{verbatim}
+Every unused high byte of \code{uint8/16/32/64}, every unused high byte of an
+address, and every unused low byte of \code{bytes4} is zero.  Every field is
+nonzero except the three explicitly zero-permitted economic words 102--104.
+\code{schemaVersion=2}; the fixed geometry is
+\code{(1,384,4,4,64,12,1024,2,2100,8,6,256,10,2)}, followed by the canonical
+point-evaluation address \code{0x0a}, gas 50000, BLS modulus, blob gas 131072,
+maximum payload 126972 and chunk cap 9.  Words 114/115/116/117 must equal words
+152/153/150/157 respectively; disagreement is rejected, so there is one gas
+authority.  Word 54 is derived, not a publisher-selected label:
+\begin{verbatim}
+compileTimeRulesBytes = concat(profileWord[118],...,profileWord[137])
+targetCompileTimeRulesHash = H(
+  "slot-chain-target-compile-time-rules-v2" || u16(640) ||
+  compileTimeRulesBytes)
+\end{verbatim}
+The concatenation is exactly the 20 canonical ABI words in the displayed
+order.  A bounded word-table/assembly decoder is permitted and preferred;
+compiler-generated decoding of a 252-field tuple is not an implementation
+assumption.  Fixed tuple arity means unknown, missing, duplicated or reordered
+fields cannot be represented canonically.
+
+Word 57 is fixed to the L1 EIP-2935 system address
+\code{0x0000F90827F1C53a10cb7A02335B175320002935}; word 58 and the independent
+L2 runtime word 245 are each fixed to the Keccak-256 hash of the normative
+83-byte runtime,
+\code{0x6e49e66782037c0555897870e29fa5e552daf4719552131a0abce779daec0a5d};
+mere equality between publisher-selected hashes is insufficient.  Word 59 is
+exactly
+\begin{verbatim}
+H("slot-chain-eip2935-read-config-v1" ||
+  address20(0x0000F90827F1C53a10cb7A02335B175320002935) ||
+  0x6e49e66782037c0555897870e29fa5e552daf4719552131a0abce779daec0a5d ||
+  u64(l1HistoryFirstSupportedBlock) || u64(8191) || u64(50000)) .
+\end{verbatim}
+Word 244 is that nonzero canonically padded uint64 L1 first-supported block; it
+is not an address and changing it without recomputing word 59 rejects.  The L2
+history address is a schema constant equal to the same EIP-2935 system address,
+not another profile authority.  Word 246 is only the nonzero release-bound L2
+activation block and need not equal the L1 boundary; word 7 MUST be at least
+word 246.  The protocol-root Router has one immutable
+\code{l1HistoryFirstSupportedBlock}; its configuration commitment includes
+that uint64 and the complete word-59 read configuration.  Before its first
+REGISTER\_RELEASE write the Router compares that immutable uint64 with decoded
+word 244 and rejects disagreement.  The target constructor stores word 244,
+and every target-side history consumer loads that stored value as its lower
+bound; it has no second default or replaceable adapter boundary.  Thus a later
+release may name a different boundary only after an independent protocol-root
+migration installs a Router with the same value.  Both Router and target reject
+a zero history cell or any request below that bound or outside the 8191-block
+window.
+
+\paragraph{Authenticated code artifact and constructor.}
+The inner dynamic bytes have exactly
+\begin{verbatim}
+u32(creationLength) || creationCode || u32(runtimeLength) || runtimeCode
+\end{verbatim}
+with no suffix.  Both lengths are positive,
+\code{H(creationCode)=targetCreationCodeHash},
+\code{H(runtimeCode)=targetRuntimeHash}, \code{runtimeLength<=24576}, and the
+final init code below is at most 49152 bytes.  The two metadata commitments are
+exactly
+\begin{verbatim}
+targetImmutableReferencesHash =
+  H("slot-chain-solc-immutable-references-v1" || u32(0))
+targetLinkReferencesHash =
+  H("slot-chain-solc-link-references-v1" || u32(0))
+\end{verbatim}
+and the pinned build manifest must independently report empty Solidity
+\code{immutableReferences}, empty \code{linkReferences}, no library placeholder
+and byte-for-byte deployed runtime equal to \code{runtimeCode}.  Empty compiler
+metadata alone is insufficient: the release verifier proves for all accepted
+constructor arguments that the only constructor RETURN path emits those exact
+runtime bytes; handwritten assembly/Yul runtime patching is forbidden.
+
+\code{TargetParametersV2} is exactly the 252 fixed value words above, in the
+same order and canonical padding, excluding only word 252 and the dynamic tail.
+The constructor tail is exactly
+\begin{verbatim}
+abi.encode(TargetParametersV2) || executionProfileHash ||
+migrationActivationProfileRecordHash || targetRuntimeHash || targetArtifactHash
+\end{verbatim}
+or 256 words/8192 bytes.  Consequently \code{creationLength<=40960} and
+\code{initCode=creationCode||constructorTail}.  The constructor reads this
+fixed suffix, requires zero value,
+\code{msg.sender==settlementFactory}, and
+\code{block.chainid==settlementChainId}; it recomputes every hash and stores
+the exact initial inventory below.  Let
+\code{P=keccak256("slot-chain.target.parameters.storage.v2")}; it writes
+profile fixed word \(i\) to slot \code{P+i} for every \(0<=i<252\).  It then
+writes \code{executionProfileHash}, \code{migrationActivationProfileRecordHash},
+\code{targetRuntimeHash}, \code{targetArtifactHash},
+\code{targetParametersHash}, \code{dataSessionConfigurationHash} and
+\code{targetConfigurationHash} to the seven ERC-7201-style slots obtained by
+Keccak of those exact lower-camel names prefixed with
+\code{"slot-chain.target.v2."}.  It performs no other SSTORE and no TSTORE;
+all mappings, guards, counters, queues, sessions and migration fields therefore
+remain canonical zero.  The constructor-poststate commitment is
+\begin{verbatim}
+H("slot-chain-target-constructor-poststate-v2" || u16(252) ||
+  abi.encode(TargetParametersV2) || executionProfileHash || MPR2Hash ||
+  targetRuntimeHash || targetArtifactHash || targetParametersHash ||
+  dataSessionConfigurationHash || targetConfigurationHash)
+\end{verbatim}
+and the build/storage proof checks exactly that inventory and non-collision of
+all 259 slots against the published storage layout.
+
+The constructor environment-opcode allowlist is exact: CALLER is used only for
+the factory equality, CALLVALUE only for zero, CHAINID only for chain equality,
+and ADDRESS only in the two committed configuration derivations.  All other
+environment, foreign-account, transient-state or external-effect observations
+are forbidden, including ORIGIN, GASPRICE, BALANCE, SELFBALANCE, EXTCODESIZE,
+EXTCODECOPY, EXTCODEHASH, BLOCKHASH, COINBASE, TIMESTAMP, NUMBER, PREVRANDAO,
+GASLIMIT, CHAINID outside the equality, BASEFEE, BLOBHASH, BLOBBASEFEE, GAS,
+CALLCODE, CALL, STATICCALL, DELEGATECALL, CREATE, CREATE2, SELFDESTRUCT, TLOAD
+and TSTORE.  The build verifier proves the reachable init-code opcode trace
+obeys this allowlist and that its sole RETURN emits \code{runtimeCode}; a
+blacklist claim or source-code inspection is insufficient.  Its returned
+runtime is argument- and environment-independent.
+
+The target exposes the exact no-argument view
+\begin{verbatim}
+targetConstructorStateV2() returns
+ (bytes4 magic,bytes32 constructorPoststateCommitment,
+  bytes32 targetConfigurationHash)
+\end{verbatim}
+with selector \code{0x654f7fce}, exactly four calldata bytes, zero value, the
+MPR2 \code{migrationPostStateReadGas} stipend, exactly 96 return bytes and magic
+\code{0x54435332} (TCS2) in canonically padded word zero.  It recomputes the
+259-word constructor inventory commitment from its own stored fixed inventory;
+it accepts no profile, witness or slot list and returns no cached
+caller-supplied commitment.  PVM and Router independently derive the expected
+inventory and configuration from the strict raw profile.  The authenticated
+constructor trace proves exactly those 259 SSTORE operations, no other
+SSTORE/TSTORE, and the authenticated runtime has no PREACTIVE mutation surface;
+hidden-map emptiness therefore follows from creation provenance rather than an
+impossible mapping enumeration.
+
+Immediately after CREATE2, at registration, and after MCAN but before Router
+writes ACTIVE, the caller checks
+EXTCODEHASH and the already normative fixed-gas
+\code{componentConfigHashV2()} exact 32-byte getter against the independently
+derived \code{targetConfigurationHash}.  It also exact-reads the existing
+384-byte \code{dataSessionAccountingV1()} and requires its configuration word
+to equal the profile derivation and every counter, liability, generation,
+deadline and guard word to be canonical zero.  Word 111
+\code{componentConfigurationReadGas} is required to equal the protocol
+constant 50,000, so activation need not recover the full profile; the accounting
+stipend is MPR2's \code{migrationPostStateReadGas}.  Short/trailing/bad-padding, revert or
+mismatch rolls the whole journal back.
+
+The artifact descriptor is nine 32-byte words in this order:
+creation-code, runtime, ABI, storage-layout, constructor-schema,
+compiler-build, compile-time-rules, immutable-references and link-references
+hashes, and
+\begin{verbatim}
+targetArtifactHash = H("slot-chain-settlement-artifact-v2" || u16(288) ||
+                       those nine words)
+targetParametersHash = H("slot-chain-target-parameters-v2" || u16(8064) ||
+                         abi.encode(TargetParametersV2))
+\end{verbatim}
+The four target build-metadata hashes are not opaque labels.  The release
+bundle publishes their four preimage files and hashes exact bytes:
+\begin{verbatim}
+targetAbiHash = H("slot-chain-target-abi-v2" || u32(abiBytes.length) || abiBytes)
+targetStorageLayoutHash = H("slot-chain-target-storage-layout-v2" ||
+                            u32(layoutBytes.length) || layoutBytes)
+targetConstructorSchemaHash = H("slot-chain-target-constructor-schema-v2" ||
+                                 u32(schemaBytes.length) || schemaBytes)
+targetCompilerBuildHash = H("slot-chain-target-compiler-build-v2" ||
+                            u32(buildBytes.length) || buildBytes)
+\end{verbatim}
+\code{abiBytes} is the RFC~8785 JCS UTF-8 encoding (no BOM/newline) of the
+complete solc ABI JSON array; \code{layoutBytes} is the same encoding of the
+complete solc \code{storageLayout} object.  \code{schemaBytes} is UTF-8, with
+no BOM/newline, of the exact ASCII literal
+\code{TargetConstructorV2(ExecutionProfileV2[252],bytes32,bytes32,bytes32,bytes32)}.
+\code{buildBytes} is RFC~8785 JCS of exactly the object keys
+\code{solcVersion}, \code{solcLongVersion}, \code{evmVersion},
+\code{optimizerEnabled}, \code{optimizerRuns}, \code{viaIR},
+\code{metadataBytecodeHash}, \code{metadataAppendCBOR},
+\code{solcBinaryHash}, \code{sourceTreeHash} and
+\code{standardJsonInputHash}, \code{targetContractSourcePath} and
+\code{targetContractName}; unknown or missing
+keys reject.  JSON strings/numbers/booleans have RFC~8785 semantics and each
+file is at most 1,048,576 bytes.  The pinned build verifier regenerates the four
+target byte strings from the standard-json input and compares every hash before
+registration.  The version/EVM/metadata values, all named hashes, the target
+source path and target contract name are JSON strings;
+\code{optimizerEnabled}, \code{viaIR} and \code{metadataAppendCBOR} are JSON
+booleans; \code{optimizerRuns} is an integer in \([0,2^{32}-1]\).  The three
+inner hashes are lowercase \code{0x}-prefixed 32-byte hex and are exactly
+\begin{verbatim}
+solcBinaryHash = H(solc executable bytes)
+standardJsonInputHash = H("slot-chain-solc-standard-json-v1" ||
+                          u32(inputBytes.length) || inputBytes)
+sourceTreeHash = H("slot-chain-source-tree-v1" || u32(entryBytes.length) ||
+                   entryBytes)
+entryBytes = concat, in unsigned UTF-8 bytewise path order, of
+             u16(path.length) || path || u32(content.length) || content
+\end{verbatim}
+\code{inputBytes} is the no-BOM/no-newline RFC~8785 JCS encoding of the complete
+standard-json input.  Each source path is a nonempty relative POSIX UTF-8 path
+in Unicode NFC with neither \code{.}, \code{..}, empty segment, backslash nor
+leading slash; duplicates reject.  Content is the exact source bytes named by
+the standard-json input (no newline or Unicode normalization), each path is at
+most 65535 bytes and the concatenation at most 16,777,216 bytes.
+Every standard-json \code{sources[path]} object contains exactly one
+\code{content} string and no \code{urls}; every import resolves to another
+entry in that same source map.  The verifier invokes the pinned solc binary in
+an empty directory with only \code{--standard-json}, no base/include/allow
+paths, no import callback, no filesystem fallback and no network.  The target
+source path obeys the same path grammar and exists in \code{sources}; the
+target contract name is a nonempty ASCII Solidity identifier.  Creation code,
+runtime code, ABI, storage layout, immutable/link-reference tables and their
+hashes must all come from the single output object
+\code{contracts[targetContractSourcePath][targetContractName]}.  Mixing fields
+from different source or contract entries, selecting by a suffix or using a
+different compiler invocation rejects.  ERC-2470 is a protocol-root dependency,
+not a publisher-built artifact and therefore does not appear in this target
+compiler manifest.
+The mandatory off-chain conformance tool emits a canonical binary report in
+addition to its human-readable diagnostics:
+\begin{verbatim}
+buildConformanceReportHash = H(
+ "slot-chain-build-conformance-report-v1" || u16(481) || u8(1) ||
+ verifierExecutableHash || standardJsonInputHash || sourceTreeHash ||
+ executionProfileHash || migrationActivationProfileRecordHash ||
+ targetCreationCodeHash || targetRuntimeHash || targetArtifactHash ||
+ targetParametersHash || targetConfigurationHash ||
+ constructorPoststateCommitment || targetAbiHash ||
+ targetStorageLayoutHash || targetConstructorSchemaHash ||
+ targetCompilerBuildHash)
+\end{verbatim}
+All 15 hashes are nonzero.  The release repository publishes the verifier
+executable bytes, complete input bundle, binary report and diagnostics; the
+DAO proposal metadata names this report hash before queueing.  Two independently
+built verifier binaries must reproduce the same report and all profile outputs.
+The report is an auditable governance-release artifact, not an on-chain proof:
+REGISTER\_RELEASE remains secure against untrusted executors and bytecode/state
+substitution, while deliberate authorization of malicious bytecode is the
+governance-root failure stated in Section~\ref{sec:trust}.
+The deployment/configuration graph is then exactly
+\begin{verbatim}
+initCodeHash = H(creationCode || constructorTail)
+target = last20(H(0xff || address20(settlementFactory) ||
+                  settlementSalt || initCodeHash))
+dataSessionConfigurationHash = the 340-byte formula in Section 3
+targetConfigurationHash = H("slot-chain-settlement-config-v2" || u16(212) ||
+  address20(target) || targetRuntimeHash || executionProfileHash ||
+  migrationActivationProfileRecordHash || targetParametersHash ||
+  targetArtifactHash || dataSessionConfigurationHash)
+\end{verbatim}
+The target, profile, MPR2, PIA2 rows/root, configuration, deployment descriptor,
+manifest, registration and predecessor are derived outputs and MUST NOT occur
+inside the profile.  Registration recomputes this DAG from profile bytes and
+compares all eight deployment words, the manifest chain/version/core/component
+joins, exactly two independently reconstructed PIA2 rows and their root.  It
+also recomputes every source CREATE2/config/domain and destination component,
+infrastructure/Bridge/domain relation; a getter or just-written Router row is
+not an independent expected value.
+
+The Settlement deployer is the protocol-root ERC-2470 Singleton Factory, not a
+release-publisher contract.  The root fixes this complete identity:
+\begin{verbatim}
+factoryAddress = 0xce0042B868300000d44A59004Da54A005ffdcf9f
+singleUseDeployer = 0xBb6e024b9cFFACB947A71991E386681B1Cd1477D
+factoryCreationCodeBytes = 340
+factoryCreationCodeHash =
+  0x122b6b28aeddfd05fa3ce4348e93d357b3ce50d9ab7dda4e8ee524a5b9a6ab3b
+factoryRuntimeBytes = 308
+factoryRuntimeHash =
+  0xc4d5542b53a8b779595a20a8ddd60e58a6c49d3c3decc2df83ced1c69c8ca807
+factoryDeploymentTransactionHash =
+  0x803351deb6d745e91545a6a3e1c0ea3e9a6a02a1a4193b70edfcd2f40f71a01c
+factoryCreationCode =
+  hex("608060405234801561001057600080fd5b50610134806100206000396000f3fe")
+  || factoryRuntimeCode
+factoryRuntimeCode = hex(concat(
+ "6080604052348015600f57600080fd5b506004361060285760003560e01c8063",
+ "4af63f0214602d575b600080fd5b60cf60048036036040811015604157600080",
+ "fd5b810190602081018135640100000000811115605b57600080fd5b82018360",
+ "2082011115606c57600080fd5b80359060200191846001830284011164010000",
+ "000083111715608d57600080fd5b91908080601f016020809104026020016040",
+ "5190810160405280939291908181526020018383808284376000920191909152",
+ "50929550509135925060eb915050565b604080516001600160a01b03909216825251",
+ "9081900360200190f35b6000818351602085016000f5939250505056fea26469",
+ "706673582212206b44f8a82cb6b156bfcc3dc6aadd6df4eefd204bc928a4397",
+ "fd15dacf6d5320564736f6c63430006020033"))
+\end{verbatim}
+The root release bundle also publishes the exact raw non-EIP-155 deployment
+transaction below; its bytes, recovered sender, creation code, resulting address
+and transaction hash MUST all match the tuple above before a chain is supported:
+\begin{verbatim}
+hex(concat(
+ "f9016c8085174876e8008303c4d88080b9015460806040523480156100105760",
+ "0080fd5b50610134806100206000396000f3fe6080604052348015600f576000",
+ "80fd5b506004361060285760003560e01c80634af63f0214602d575b600080fd",
+ "5b60cf60048036036040811015604157600080fd5b8101906020810181356401",
+ "00000000811115605b57600080fd5b820183602082011115606c57600080fd5b",
+ "80359060200191846001830284011164010000000083111715608d57600080fd",
+ "5b91908080601f01602080910402602001604051908101604052809392919081",
+ "8152602001838380828437600092019190915250929550509135925060eb91505056",
+ "5b604080516001600160a01b039092168252519081900360200190f35b600081",
+ "8351602085016000f5939250505056fea26469706673582212206b44f8a82cb6",
+ "b156bfcc3dc6aadd6df4eefd204bc928a4397fd15dacf6d5320564736f6c6343",
+ "00060200331b83247000822470"))
+\end{verbatim}
+
+The only deployment wire used by a release is
+\begin{verbatim}
+deploy(bytes initCode,bytes32 salt) returns (address target)
+selector = 0x4af63f02
+calldata = selector || u256(0x40) || salt || u256(initCode.length) ||
+           initCode || zeroPaddingToWord
+returndata = bytes12(0) || address20(target) // exactly 32 bytes
+\end{verbatim}
+Calldata has no suffix and value is zero.  The factory passes the supplied
+bytes unchanged to \code{CREATE2(0,initCode,salt)}.  The permissionless release
+workflow first recomputes target from the root factory, salt and init-code hash.
+If target has no code, any account may call the factory and MUST require the
+exact 32-byte returned address, then exact-check target EXTCODEHASH,
+configuration, TCS2 and DSV1.  If target already has code, the workflow skips
+the factory call and performs the same exact postreads.  A CREATE2 collision
+returns zero under this runtime; zero/wrong returndata or any postread mismatch
+fails deployment.  Idempotence therefore belongs to the external workflow, not
+to a fictitious factory replay branch.  This external transaction is not a
+nested protocol call; the release publishes its measured whole-transaction gas
+ceiling.
+
+Profile words 44 and 45 MUST equal the root address and runtime hash.  Word 46
+is independently recomputed as
+\begin{verbatim}
+settlementFactoryConfigurationHash = H(
+ "slot-chain-erc2470-factory-config-v1" || u16(147) ||
+ address20(factoryAddress) || factoryRuntimeHash ||
+ factoryCreationCodeHash || factoryDeploymentTransactionHash ||
+ address20(singleUseDeployer) || bytes4(0x4af63f02) ||
+ u32(49152) || u16(32) || u8(1))
+\end{verbatim}
+where the final three fields commit the maximum accepted init code, exact return
+width and zero-value-only rule.  PVM and Router compile and enforce this triple;
+neither trusts a self-reporting factory getter or publisher-selected behavior
+cases.  REGISTER\_RELEASE cannot rotate it.  Changing any root tuple member
+requires the independent protocol-root migration.  Registration safety then
+depends on the independently derived CREATE2 address and exact target code,
+configuration, constructor-state and zero-accounting reads; an absent or wrong
+factory makes a release unavailable, never accepted.
+
+Release conformance rejects the former \code{a1617601} and A4
+\code{a4000101400241000380} CBOR fixtures even if a caller rehashes them.  It
+also gates deployed PVM, Router and target runtime at no more than
+24576 bytes, target creation at no more than 40960 bytes, final initcode at no more
+than 49152 bytes, and publishes cold-state
+maximum-profile deployment and nested Timelock--PVM--Router registration gas
+measurements.  Every fixed call budget includes EIP-150 forwardability and a
+named post-call reserve; no unmeasured 65536-byte profile is implementation
+ready.
 
 Every profile contains exactly one immutable
 \code{MigrationTransitionVerifierDescriptorV2}:
@@ -5361,7 +6029,7 @@ round.  Every remaining header field and both system transactions are a pure
 profile function of those values and the execution result.  The circuit loads
 the profile selected by the public protocol version and proves its hash equals
 Settlement's immutable mapping.  Launch tooling rejects a version lacking the
-CBOR artifact, verifier-key binding or complete vectors.  Thus a profile change
+ABI artifact, verifier-key binding or complete vectors.  Thus a profile change
 is a new protocol version and review, not runtime interpretation.
 
 \subsection{Reorg rule}
@@ -6696,16 +7364,15 @@ unit.  Governance cannot set a value that violates a relation.
 
 The core consensus state machine and migration/control-plane transition
 protocols are frozen candidates, with no known open Critical design defect.
-The complete canonical execution-profile codec and the Settlement--Market seat
-mutation wire protocol remain open High implementation-readiness blockers; the
-initial executable profile, compiled contract and circuit release bundle are
-also absent.  This document is therefore neither an implementation freeze nor
-production authorization.  Before deployment, one
+The Settlement--Market seat mutation wire protocol remains one open High
+implementation-readiness blocker; the initial executable profile, compiled
+contract and circuit release bundle are also absent.  This document is therefore
+neither an implementation freeze nor production authorization.  Before deployment, one
 reviewed release must contain all of the following concrete artifacts and two
 independent implementations must reproduce every hash and execution result:
 
 \begin{itemize}
-\item canonical CBOR schema, exact profile bytes and
+\item strict canonical ABI schema, exact profile bytes and
   \code{executionProfileHash}, plus a rejecting decoder corpus;
 \item an immutable manifest binding protocol version, chain IDs, activation,
   profile hash, verifier address/runtime hash and verifier-key hash;
@@ -6811,8 +7478,8 @@ retained legacy suffix.
 \code{sync}, direct source-credit enqueue, recovery submit, slash and garbage
 collection fit current L1 gas limits with 30\% margin.  The same compiled-
 bytecode harness exercises cold maximum REGISTER\_RELEASE with the release's
-actual canonical CBOR profile and both required ingress rows, including the
-3,000,000-gas Router call, 500,000-gas Market install and every 100,000-gas
+actual strict canonical ABI profile and both required ingress rows, including the
+named-gas Router call, Market install and every bounded
 postread; maximum REGISTER\_FORK\_VERIFIER; and publication, arm and both abort
 branches under their 8,000,000-gas Router caps.  The harness searches and
 publishes each cold-path minimum, proves the frozen nested cap is at least
@@ -7445,271 +8112,274 @@ seed and tie hashes are as in \S\ref{sec:schedule}; body and blob encodings are
 as in \S\ref{sec:data}.  \code{commitment-model.py} is the normative executable
 fixture.  Its initial vectors are:
 \begin{verbatim}
-TYPEHASH      ee6a8c8e31e8245cd527869508f6e464d6084893991203876f734d1855aed87c
-registryRoot  0bf297d7b9b6a5529a319a06cb08484923a89bab15d51f8baeaf5c30bebdf3fd
-admissionRoot 3bf2dcaf78292c832108e29205bf99cc2d22137a0545e4528d8da7309d4b482b
-entryRoot     acee83a690b868a4a7960c55a9f7228f91cad26b704e24106d4db87e9c7a8f34
-forcedRoot    a54e9f797ffe7f04dd5ca7df4c858edf02ce45a81808522633fc9cee8fe72e57
-sourceDomain  3ca03af3984e7b2ece804a84fe1f80b20d1ca0c710a03b4483adfabd63a35376
-destDomain    5826eff177394973c0d42c520533a3014f29addd5563bbc1dc577c8339171049
-bridgeKernel  a23f9994e8d1c475500768b67cf2b2d1f7a0f367df6f44bac5ccf1fa12bc1338
-bridgeExec    fa1e986cef0ff6d8474aeb73698573487e761635dd5999ff1cce625ddf223dd3
-destBrExec    78c541f426d06c2d96470d6e9e226dc9186d7632c15c587a3199d0db2766c6c4
-destInfra     440437503959caf5f66ae4659f3380b8e809ba9bbc160ae8682df050810a0bad
-poolRowAlt    c88a0175687327dd0cb5b1e4e3c57c8331607c3b1ef81dc645cf49591382428e
-mvConfigType  0acb8f9e39dd43a4208edc38c8925bbd3433e72eb46f9e5fac584bd14a970b98
-mvConfigHash  950691bac22ceef2dd834142420a79e589bc489165cb10815e889475c39d2613
-mvDescType    6f1be44c261607b4c2345985bfb5a081aabd621b9168982df9b7820c7dedebd6
-mvDescHash    5cf0838c9793e6a4ec5d2d0e228ec79df192af5731d5b54ae6e08aadc085f9c8
-mvConfigSel   476b9aef
-relTypehash   603555ff1d82bc9012b0e0c8a36df28e154b16cbd89be4eed9d01228c502965b
-activateSel   28f73572
-relManifest   36ff3e00f7188354b79e2a4e49f04f59b424939705862f5b2e99a28e5ffeb197
-succManifest  18c7721726153be1b70837ed2e8817d1aede74c26396830f19279b0c187ac9ce
-destReg       ec547420fd283cbcfcdcaa0a114112e645fe6647f0f3ea4454e9091f5938f188
-migStmtType   832785a7f9ce32f97dfa06fb39b9c583c13e65a5967c88f7c8c3fbda94fcef2b
-deployType    babd40345cd96b87434cc1bcc50b0c693556c37283b9b3399abf60339dc363a0
-components    a11034ae675a23469c03ae00ee521d80c863631f334d6f3c96731a82f977aabe
-genesisDeploy 051e16e895315bb93b12a0dab850cf6503787357e1a8f0ee8b698a9eb2d948dc
-versionDeploy 700c6919c3e8411c55d1e588f3ad9f879166a4ea9ca0c5b0c472f9406a4307eb
-legacyCkpt    6ab84b0c77035309ac300830aa1c31d95f68c44b697d97a6836f7f3f54bf0708
-genesisStmt   0b31441b7a29eca81fa5694358b1bd8465e7b9c834117f0a1008ba4db1b784c3
-versionStmt   c05a92fe0742b6de1a2c3e62fb3be1a868975f8cc8cd5ce6fefae4a879f0a22a
-genBaseCore   12243b817561a9362bb03dffb36bb73f9314d47e3165673793419692cd8a8566
-genBase       5081c70042287a8b7156b2626675ea4ed9623c755d5f51b5c83be94e90da3ff3
-genCandidate  90949c0865a5e0226c6c0d736c0533f9e5f1d793dc9c5d21407a210ee3896338
-genOutput     46ecec937013339205139353730b413c8e508bc579ec9c0ede247161132134a8
-regStmtType   c049f967468e58f1a5c9b9e1a147dfc233695ae69c5d4a95ec4ffb49b5687da0
-regRouteType  4368ad9403b46ef3830e21af8cddcaedbd444c8c57bc3414ebc6fdd250e1e6da
-regRoute      d50f46ef72add8deca417dd88886b11998e9f206fcdaf2af89435dd79aa83a10
-verifyRegSel  33639818
-regStmtHash   2d420187d74dcce9fed43e337ca00f8af05430ab92debb2c6d3cbfb9a112a91b
-regProof      50ac70c83c4d85e9e0790d2413e35216b0c490814ee435879d0ce27e4a12e5e5
-regCfgType    38f7fbc63e45f650bd5cbaffba0d81d5ca69f21ebdddfa74280d7e6eb5c319d6
-regCfgHash    b266045c553f010d052a847ea18459bb268cbaacde008574e8cf4c738453911f
-regDescType   9533e2f6ac9bcf6830306a9ef5d14e21a06008f9ceb59208d09a8d7ab1e6100f
-regDescHash   99491cce6d0ea603e0b9862bd3a2509953ea05e50e9243f8086a19aa92b2f1bf
-regCfgSel     59bfe418
-verifyRegCall dbf4dd4042fd1b8fba704f07395b1b6310975c742eb695c8cca631821e4f3664
-verifyRegLen  516
-srcCtxType    6069dff5f628f94ceff984d5ce3ef62019eaeb4efd7e0627c45a14677bd13c70
-srcCtxHash    528ef50cc8d4c20e27b8d16e1dd644324949197c3e52ef70ce5998d924166fcc
-dstCtxType    b8170dbf684e1fc4dd4dae8fb78ad24984cc0aa0c03cbd1e29b1b2eb5728eefb
-dstCtxHash    295c0b50cc90f3df4d57d8f4f5adc533fbd6cf423f8a1a0e9b30b99245ff8ae4
-ingAuthType   a2dccbd60c366ade3f5af12af640f3453bbb4106405ef8da5dd52484db8f2a82
-kind0Auth     c1d297bd54bbc69a45418a7a515edeed19e5026ce4e99df4e94ec7fd5b9bfe86
-kind1Auth     845885e6dc44992a4d906c422cd07e57c3544ae446970f3cf5af8e6b0202a6c7
-ingRootType   c7b11126d8d1984cc17cbc108be2a1be0ef9c4e8fd519fa9033c949962f1b042
-ingRoot       2a79197e2d37c1b787520331d4e0f737d0aac5a09f15d8447fb3bfe8ecd01ea8
-sendMsgSel    9211d7e9
-enqCreditSel  81805d6b
-msgTuple      0e85a708462e96cbaca7158a1534011a25137c3b7aada7f381e4fc5b3afbe40d
-msgData       f08683775f4a25dfef721c487073fb77026d45ac57e423424290e47af9fd2835
-sendMsgCall   9099cce58d3f36714ee59f37510261394e31583f8bd55da4551b653b5a060e12
-sendMsgLen    516
-enqCreditCall 02db9c77025d4c2bae1d3f79849020e6d8711c4b6b6c54ec45ce9181e48cfeb4
-msgPreLen     576
-normalizedMsg f3010702b7b7bf10b6dbfe396a4c7ab07e7c560c28ffdbf6ff8d01d9a96ea4c7
-enqueueTxSel  9f06b1b4
-enqueueTxCall 3e802e6f72e50c267cc18d256c2863d04446eb8f2d47bc474bbcb9c68876d19a
-enqueueTxLen  196
-syncSel       6c880b72
-syncStamp     1fd01b194948c635358fbb51b4a5f32f8ceab4dc4153e0230215f8afc94ee434
-syncChanged   ef662a629ce07c9ed715124d8141a6e430d0a3065f8ce8074a7ea95e8751f184
-appendSel     1927261d
-appendK0      caabdaadee6df8cea48fb88dacad863e6e24e13f5b0c06f99408d5c71611788a
-appendK0Len   388
-appendK1      ec3c1aedf41913f5f1885fe03cbce01f2dd455961e3d921f05b987de883e5a0b
-appendK1Len   708
-queuedReturn  76f821bd39721ec0e26efc55d7b667d20aab74992e0feae7d7755e386ecd694d
-inboxApplySel 6b326168
-inboxApply    65332d0b3230b33c0ae8bddd8a1f3be8473739f865e73fc8e52f4f99cecc89d7
-inboxApplyLen 14436
-markBatchSel  a92f72cd
-markBatch     2da06bae33fc6689450b9277687380609ecf3dcfd8d3b175710572107ac590d4
-inboxMagic    49425632
-routeCfgSel   4b64fa11
-verifyPinSel  28933d28
-getPinSel     31e85ab1
-liqQuoteSel   43dc48e0
-fundStateSel  6a9a6c32
-attemptSel    4cbe2fe2
-attemptCall   9fd320ca598b5016b161570c077e23422f2e80a8d598b9faa4564b9c079df2a8
-attemptLen    1124
-finalFailSel  745dcb69
-targetErrSel  f9cc2b44
-appendTermSel abc194f5
-termCommitSel 2c984c97
-termStateSel  998c57ed
-ticketId      5dc074de7029f6762c8c386b15cbd61cc7ad94b9432c25a35a5ae48e72c3bf2b
-poolCfg       a8451db81aa351573afec2c22aa23efabb11ffaeb48cae613098f3f76478eace
-poolReadGas   50000
-poolCleanGas  50000
-poolCbGas     100000
-poolDepSel    eda2a3f6
-poolWdrSel    fe4f5ccf
-poolProcSel   5fbbe107
-poolRetrySel  031f93e7
-poolProcCall  911438ba54df7cf0c78c44307d41881c5adc000d24f06856f2168c9b6848491d
-poolProcLen   1028
-poolRetryCall 460ba2cdfd8e5c4ccdba0120cccdd3f4bceda2d381e37de04b9e656e0fa3d2f6
-poolRetryLen  1060
-poolBridgeSel a535a986
-poolBridgeCall 2a414c42a854ac6367bc70a9cb34c3022832cae5e6a89c47bd05a9434e7e6c7d
-poolBridgeLen 1124
-poolTickSel   5defa7e1
-poolAcctSel   f2b3441e
-poolConSel    37093d2a
-poolCbSel     a34908bb
-poolAccMagic  504c4132
-poolValMagic  4e4c5632
+TYPEHASH        ee6a8c8e31e8245cd527869508f6e464d6084893991203876f734d1855aed87c
+registryRoot    0bf297d7b9b6a5529a319a06cb08484923a89bab15d51f8baeaf5c30bebdf3fd
+admissionRoot   3bf2dcaf78292c832108e29205bf99cc2d22137a0545e4528d8da7309d4b482b
+entryRoot       acee83a690b868a4a7960c55a9f7228f91cad26b704e24106d4db87e9c7a8f34
+forcedRoot      a54e9f797ffe7f04dd5ca7df4c858edf02ce45a81808522633fc9cee8fe72e57
+sourceDomain    10f186337be2d4748ed71ae3965a781bd05036107aa1e058e107b2e7f4b1332b
+destDomain      c5fa66479b2914cd0974c72102929ae9852311f9cb44d432b833a22692104af2
+bridgeKernel    a23f9994e8d1c475500768b67cf2b2d1f7a0f367df6f44bac5ccf1fa12bc1338
+bridgeExec      f9832b2fbef2ef60a0fc7a1420fe8ae745c3840c86f6c932b2818c201b6b5df1
+destBrExec      e356731fbadc537ccd8c8cf4db19e343016889c5233aa592cb5d2751ace3faf6
+destInfra       6dd1dbc5d01f345c9896b91cc0626baf2585b24ce791633cc9c704b4756549a7
+poolRowAlt      777cd2fcbfad2cb6bba1046b82350d5f38af4e8940791a3775f108d184e1478c
+mvConfigType    0acb8f9e39dd43a4208edc38c8925bbd3433e72eb46f9e5fac584bd14a970b98
+mvConfigHash    950691bac22ceef2dd834142420a79e589bc489165cb10815e889475c39d2613
+mvDescType      6f1be44c261607b4c2345985bfb5a081aabd621b9168982df9b7820c7dedebd6
+mvDescHash      ba4e50bfb5fabf8cd253f48ed38e4cc1a4f3fc04174ae94e4dd971b1d6e36eed
+mvConfigSel     476b9aef
+relTypehash     603555ff1d82bc9012b0e0c8a36df28e154b16cbd89be4eed9d01228c502965b
+activateSel     28f73572
+relManifest     59f4cfe5830d3620fc3f33f0890d0a6f0a10bc313bb08b8158a5c1ef318087ed
+succManifest    a0a97cc0cd6dc54bbc07f52bacc7f4fcc3d349e0496754800864895ed6ae2b42
+destReg         40ce2a7d88dd92c6a71d192d66b234b363795061bbd566a2c8b2382af30bd135
+migStmtType     832785a7f9ce32f97dfa06fb39b9c583c13e65a5967c88f7c8c3fbda94fcef2b
+deployType      babd40345cd96b87434cc1bcc50b0c693556c37283b9b3399abf60339dc363a0
+components      5bd86b4bfd5edcdd47c03ecfed7c198b292c14543cd36fae4b17340da2a8c040
+genesisDeploy   1e0ba02cbe13e7b14cfb427684497a7526b5252f5db86e32c48f99f8f35c3a35
+versionDeploy   d6b1ce9a58632b12de3bf71d82c27b7d395ce72edb56734f2233570e84d5f91a
+legacyCkpt      6ab84b0c77035309ac300830aa1c31d95f68c44b697d97a6836f7f3f54bf0708
+genesisStmt     6df922703aa5b22c9f1035ede611a2aec2ed4f160536b4e7076b5031ba2ded10
+versionStmt     760a32b760ea28beb032bb59d7f222e22350e8ae602cb5da3f961a3b69387db1
+genBaseCore     12243b817561a9362bb03dffb36bb73f9314d47e3165673793419692cd8a8566
+genBase         5081c70042287a8b7156b2626675ea4ed9623c755d5f51b5c83be94e90da3ff3
+genCandidate    90949c0865a5e0226c6c0d736c0533f9e5f1d793dc9c5d21407a210ee3896338
+genOutput       46ecec937013339205139353730b413c8e508bc579ec9c0ede247161132134a8
+regStmtType     c049f967468e58f1a5c9b9e1a147dfc233695ae69c5d4a95ec4ffb49b5687da0
+regRouteType    4368ad9403b46ef3830e21af8cddcaedbd444c8c57bc3414ebc6fdd250e1e6da
+regRoute        bd990f329adf106b96b5a019ad0db50503a1ebb0dd89bfdb9c37a3449f180b92
+verifyRegSel    33639818
+regStmtHash     85a07af10316e3a897e6abfc727b59a28dcfc76ee9894db98def647fa379c89d
+regProof        50ac70c83c4d85e9e0790d2413e35216b0c490814ee435879d0ce27e4a12e5e5
+regCfgType      38f7fbc63e45f650bd5cbaffba0d81d5ca69f21ebdddfa74280d7e6eb5c319d6
+regCfgHash      b266045c553f010d052a847ea18459bb268cbaacde008574e8cf4c738453911f
+regDescType     9533e2f6ac9bcf6830306a9ef5d14e21a06008f9ceb59208d09a8d7ab1e6100f
+regDescHash     99491cce6d0ea603e0b9862bd3a2509953ea05e50e9243f8086a19aa92b2f1bf
+regCfgSel       59bfe418
+verifyRegCall   ed003a9f0f69e694a6b3699efa64acd17acda445ff50a9dfb442c308dc4fdc55
+verifyRegLen    516
+srcCtxType      6069dff5f628f94ceff984d5ce3ef62019eaeb4efd7e0627c45a14677bd13c70
+srcCtxHash      5d7181ea8838cef6d576009cd977bbe2b6f0fd250d16d4f331a515b174bee2c0
+dstCtxType      b8170dbf684e1fc4dd4dae8fb78ad24984cc0aa0c03cbd1e29b1b2eb5728eefb
+dstCtxHash      c591b7156965ce659a5382725f8b1091dbc2188cc7cbdc2620a61b49eb04ace1
+ingAuthType     a2dccbd60c366ade3f5af12af640f3453bbb4106405ef8da5dd52484db8f2a82
+kind0Auth       27af2fda507104b24da0f7a6095e048cc86de215f38027c2671f4455878a4317
+kind1Auth       b67acf3b2b6184480794d8b2187f785c9e9cbebc82976e10a972dc893031ad3c
+ingRootType     c7b11126d8d1984cc17cbc108be2a1be0ef9c4e8fd519fa9033c949962f1b042
+ingRoot         1f1a415674dea5e83de74f9f6931c65584ab76ae317eedfcec7f94a2fd09d7ae
+sendMsgSel      9211d7e9
+enqCreditSel    81805d6b
+msgTuple        0e85a708462e96cbaca7158a1534011a25137c3b7aada7f381e4fc5b3afbe40d
+msgData         f08683775f4a25dfef721c487073fb77026d45ac57e423424290e47af9fd2835
+sendMsgCall     9099cce58d3f36714ee59f37510261394e31583f8bd55da4551b653b5a060e12
+sendMsgLen      516
+enqCreditCall   02db9c77025d4c2bae1d3f79849020e6d8711c4b6b6c54ec45ce9181e48cfeb4
+msgPreLen       576
+normalizedMsg   f3010702b7b7bf10b6dbfe396a4c7ab07e7c560c28ffdbf6ff8d01d9a96ea4c7
+enqueueTxSel    9f06b1b4
+enqueueTxCall   3e802e6f72e50c267cc18d256c2863d04446eb8f2d47bc474bbcb9c68876d19a
+enqueueTxLen    196
+syncSel         6c880b72
+syncStamp       1fd01b194948c635358fbb51b4a5f32f8ceab4dc4153e0230215f8afc94ee434
+syncChanged     ef662a629ce07c9ed715124d8141a6e430d0a3065f8ce8074a7ea95e8751f184
+appendSel       1927261d
+appendK0        caabdaadee6df8cea48fb88dacad863e6e24e13f5b0c06f99408d5c71611788a
+appendK0Len     388
+appendK1        8bb6f931d1ceeb051f0de3bc0b32f788c0d45b856eda148128e330013a7d3e5e
+appendK1Len     708
+queuedReturn    76f821bd39721ec0e26efc55d7b667d20aab74992e0feae7d7755e386ecd694d
+inboxApplySel   6b326168
+inboxApply      65332d0b3230b33c0ae8bddd8a1f3be8473739f865e73fc8e52f4f99cecc89d7
+inboxApplyLen   14436
+markBatchSel    a92f72cd
+markBatch       a6e34ddf755e1dbae1e15c05caaeba190795668ceaaff508b6a8537be236dd31
+inboxMagic      49425632
+routeCfgSel     4b64fa11
+verifyPinSel    28933d28
+getPinSel       31e85ab1
+liqQuoteSel     43dc48e0
+fundStateSel    6a9a6c32
+attemptSel      4cbe2fe2
+attemptCall     ad5ad3f673a39e9f596125189e214718927567ddc017b50c6ae7df6fb4b9306c
+attemptLen      1124
+finalFailSel    745dcb69
+targetErrSel    f9cc2b44
+appendTermSel   abc194f5
+termCommitSel   2c984c97
+termStateSel    998c57ed
+ticketId        5dc074de7029f6762c8c386b15cbd61cc7ad94b9432c25a35a5ae48e72c3bf2b
+poolCfg         680054a7895708487ddd24a202ddf1069f2ef81238e909e826c368d1da396881
+poolReadGas     50000
+poolCleanGas    50000
+poolCbGas       100000
+poolDepSel      eda2a3f6
+poolWdrSel      fe4f5ccf
+poolProcSel     5fbbe107
+poolRetrySel    031f93e7
+poolProcCall    67fd12a53168934d5c356c6e80b057b21b115967e032db4db3d619fb2b38bddc
+poolProcLen     1028
+poolRetryCall   1bbc3788d518e18333bae474d0677fab5f29fadc8b04a6a874d87b2575359a6b
+poolRetryLen    1060
+poolBridgeSel   a535a986
+poolBridgeCall  a8a7b0c80117a3d96b2323365c06b655f62b39896e7b8bfc95c545e2b4541dd8
+poolBridgeLen   1124
+poolTickSel     5defa7e1
+poolAcctSel     f2b3441e
+poolConSel      37093d2a
+poolCbSel       a34908bb
+poolAccMagic    504c4132
+poolValMagic    4e4c5632
 poolResultMagic 4c415632
-poolAuth      85a156af229d82a2aa20b89cc7d63a613071143477dba76fbfdf0adc92e47138
-poolAccept    8b6d291a76a88d0383412fb354514e32acae8fbd4ce75e1ebe021fbb7cede5a9
-policyType    d702a337b74fc40bfc746fb1aeeaa705e60a95947bfc3076c76222703205b4b1
-policyHash    5eb7c00399d64d91e416d5a3dbe75187c39dfc2a4645b867864b5fd9e649f3e3
-policySel     b2d0e286
-hookSel       7f07c947
-policyMagic   49505632
-l2ReceiptId   4ae7dedf1b0781efacdcf9ab5009e88d34353eb8965b0cee0b3f3b9a6ac09505
-l1ReceiptId   c30078000e09a4c6800fda1f5563d785cb16657b14fdb8cd7867506735a7f295
-execProfile   679de62c6529066b0b5c54d7c5153fd8428a8f5f8de05869b575f29fa9ec32a0
-deployDesc    d9b88c9233bd1c47328603aa7b5ccadbcf90ef6a946c522e8e08927bce748ece
-deployDescAbi 566ae00815133dfeaa6b440713cf8972739a6ac888053fc625621c70e0af3451
-deployDescLen 256
-succDeployDesc 377aa582c38874cf50ef87030c628b15c5e0302e6830e51b09d8542659bedc18
-targetReg     41d2ab960c641d72c0e13c95144602778159d63c756550baee61f781bd6755fc
-succTargetReg 81c896b7029233e44840d7e12e2911daac5cb435f963909a71364c64a0184dfb
-mprHash       230b23f89664c499e449ef0d50d7541a3052ab91660953e0019ada17dd352c18
-succMprHash   23d96aadcd7ca28a7f343b6b5b1e473b70f8e57a6edfcb37bb6c1d8eab507eda
-mprSel        c65ff64e
-mprMagic      4d505232
-mprCall       3dd403c33c2e7c4e6b324efac7461b5b0cc6f3696a2a8d8c94c9cb9bafcf9c85
-mprRet        2676548d3d32bf12ed7fa8aea5ccb2f0fbc844eb31c21aa39db6952318e28973
-mprLen        768
-opDomain      edc1be882290e6241a79546c41db66a1d975095ae60cf3b2b16f1ed876f6038b
-timelockDesc  442d9b608ecc43eea4009fb7f95c764c747636f42c885174c1442681cc0ab495
-pvmCfgHash    04373463823a529cf7ebbe7600f28ac6cb2b2a00459b2de7d711583736bea7c8
-pvmDesc       12089a97a2a378686b872ce8bc166a4df477717683c4ac5a42a4937f73e32345
-protoDelay    604800
-maxMigLive    604800
-protoReadGas  100000
-queueOpSel    bd5c80a8
-execOpSel     31d81ea2
-cancelOpSel   5701c308
-applyOpSel    af3927f6
-timelockCfgSel b80095ca
-pvmCfgSel     4deb7821
-opGetSel      4b80fe68
-timelockMagic 50435431
-pvmMagic      50564d31
-opMagic       50434f31
-applyMagic    50415031
-regRelPayload 67a691ff242c1b25939d72d5ae6a42dba84285d51e204dc2e93fde9725c3816f
-regRelPayloadLen 2240
-regForkPayload 060a82d25adb79cdf6382c783964efced57515aa1a1a7e79cde651e9ab190c00
+poolAuth        463e75e0954c32178675c0fb5e74427a069ec1eee06f0cf93caa6ca9e1925cef
+poolAccept      187074e8fe244fb77a42ac949f53e39cfe8bb151018109b8fc8f846c11e82d7d
+policyType      d702a337b74fc40bfc746fb1aeeaa705e60a95947bfc3076c76222703205b4b1
+policyHash      5eb7c00399d64d91e416d5a3dbe75187c39dfc2a4645b867864b5fd9e649f3e3
+policySel       b2d0e286
+hookSel         7f07c947
+policyMagic     49505632
+l2ReceiptId     ce7817db42f84429f1fc630bd12c83871ac2f70e8ee58b015bcb4927391bab2d
+l1ReceiptId     b390074907519b7a2764d9e2e6d86d75904ccd07fcc86c40397a038ce08c081f
+execProfile     22292c4c1b89ea56c052352c2de7a52fa103da54ccef6238d6e2cfc25ab2eb56
+factoryDeploySel 4af63f02
+factoryCfg      4bf4831c096e251d0ef171bc0fd0582319fdc7ad7a2bea91a6b9b64601aa2837
+marketAuthCfg   a1208db2d56b741c49ef2c81590172f3b6cf8df6462bdc55511b5d867a258d35
+deployDesc      069af1541b5e7a6e6ee981274ca23dc30a2340e9d673e0c2752448877399b441
+deployDescAbi   46ed5ccd834b950444afe9731c8200361ee3a85b0b7661b87a29ea163c9f93ea
+deployDescLen   256
+succDeployDesc  377aa582c38874cf50ef87030c628b15c5e0302e6830e51b09d8542659bedc18
+targetReg       e74c264997a32a867fa54d2948c5ca70bd79c2bc082b7aa33f0d660f3ab56fc4
+succTargetReg   ba5b1a92c368645427501c5a1a17fc0c65df7f9862d3e7ea8544272569f51375
+mprHash         d3d08370bbe36ceb6fade91f303d60bb7ae6b49029dc2ac734db6273ae088505
+succMprHash     90e8e5b063bb8d9d670fcb0d1a07d8eb000a0e614cabe9ae88d9b2aa60a0391f
+mprSel          c65ff64e
+mprMagic        4d505232
+mprCall         3dd403c33c2e7c4e6b324efac7461b5b0cc6f3696a2a8d8c94c9cb9bafcf9c85
+mprRet          092aa880d8254032dfab09a85baf24a874caf97e04d2df9555f21e2f8b8de4f3
+mprLen          768
+opDomain        edc1be882290e6241a79546c41db66a1d975095ae60cf3b2b16f1ed876f6038b
+timelockDesc    442d9b608ecc43eea4009fb7f95c764c747636f42c885174c1442681cc0ab495
+pvmCfgHash      f3d5898df7a23a84ed206deaf2038ad7fe52617f83df5ba2b8c5c4ecded7c2ad
+pvmDesc         978f5d8ed5fa1d2e147bc26db6bfa3e11cca7ab234bf97a58c6892c63b00e4b6
+protoDelay      604800
+maxMigLive      604800
+protoReadGas    100000
+queueOpSel      bd5c80a8
+execOpSel       31d81ea2
+cancelOpSel     5701c308
+applyOpSel      af3927f6
+timelockCfgSel  b80095ca
+pvmCfgSel       4deb7821
+opGetSel        4b80fe68
+timelockMagic   50435431
+pvmMagic        50564d31
+opMagic         50434f31
+applyMagic      50415031
+regRelPayload   3585c0dcb7691e9894921577646de9c71a166291be7d81f959c90a3cd9783ab9
+regRelPayloadLen 10400
+regForkPayload  060a82d25adb79cdf6382c783964efced57515aa1a1a7e79cde651e9ab190c00
 regForkPayloadLen 448
-pubGenPayload 9f4d7d941c240409fbc642b59cc05eb0e02e370a414251296fb0c3999d93e89c
+pubGenPayload   ece311c62026f47db05309a2cebc937be659569c1f0c2172002da3075b380a2c
 pubGenPayloadLen 320
-pubMigPayload f8c570b0ac1a84f4740e3f79fcc68942061ee7b9d93ab32425e074437c83a050
+pubMigPayload   49a908fa34da7bd43785ca7672208fbf262f162970c2490c05132b101465d8de
 pubMigPayloadLen 128
-regRelOp      27fa3aa1b1c026f51f71b3d66bcc4d83ab487ea63d1c74c0ee58d18acde782d4
-regForkOp     6f3f09d83e85bf28f62fe18b37ac3abd378c8d03e1a5bffe67fc2e59540d4aeb
-pubGenOp      941f4407a492dc712b7225a37b6a9ce23834123584a694338ac743d7186abe02
-pubMigOp      5d03f8a037dadb23a250ae6bf66fd797b4f1f4e3e4fa8c61f34d6c473b0a1b1e
-queueOpCall   3b767fd7c19a3109546fb68cebba04ad6822021d08394f5516e112929bed6a10
-queueOpLen    2340
-execOpCall    53ee103fb2f21efd57ad1fa188745e77fda1cdde4988e659a37036770a11dabf
-execOpLen     580
-cancelOpCall  ed730f7d47d8b39564e6b3c7a55957bc1495ade5087003a0a30f8c93f97a079c
-cancelOpLen   452
-applyOpCall   ccb24cd6cc8f0672f49364eb87dd231e7629a307245734226b2e28862ebc635c
-applyOpLen    260
-timelockCfgRet 1813d922f5db2c6e82ca7be236e9cab4b8ca3c8b5f32231d60bd51b75e54b29c
-pvmCfgRet     cc70ded81d21806f0063353b6f74987612b07979a1b170a336855e11158b344b
-opGetCall     d5b61ddd806f7299c62345b8c89c25da0bb3feaf5bc41ac02726eb1b3b7118c9
-opGetRet      07ac38b968bb1acd4a226c1e76d60d05125b04783e2a4b95ee541272759372da
-applyRet      f9361bdc99345939494c4794891942dafae95fa74ace38bcf4430ae53ac12c4a
-leaseSel      aaac4c97
-leaseAbortSel ea3e96c2
-leaseMagic    564d4c31
-leaseArmId    630f20968cb4a05efa3bcce7b0a970a2bcd43aec9ff20239e23d8247f0771e39
-leaseAbortAt  624800
-leaseRet      a381241c769ce9e3c2b938e7f086652cc0ec833cc642bdee6d7de2b3087c130e
-leaseLen      320
-regTargetSel  9aa71eff
-targetRowSel  f588fec3
-targetRowMagic 52545232
-regTargetCall f22f81bac8714473636276b82f523f3bfae82ed6c4238d2149fec6db29fe836e
-regTargetLen  2244
-regTargetRet  d8e20126a373173a1e511914e1be6ec8e362f93ec0edd414541f3791b12de698
-targetRowCall 5c5db1ed7485ad89b4d9125c80db863078603f32ddd3032552a6345bd0dba5ee
-targetRowRet  a83648b20437f2bac3dea7384e1066e54e87f0107cb127ba74ece0cbb23bc743
-targetRowLen  352
-pirSel        2d2bbe23
-piaSel        2181b974
-pirMagic      50495232
-piaMagic      50494132
-pirRet        c7ca47f2f239d0d8496f479c05adbcf0fa05301b00721ee310e1727778c6dddf
-pia0Ret       c94481e5888447c3ae5c16b8119c814a42338345b29bbd9b05b52a5bbba74b67
-pia1Ret       ab51995c3958cc5cba89660537d6e717da56579b9db422c2dcad4b0044ae280e
-authInstallSel 72a3e937
-authGetSel    1693ae01
+regRelOp        17c319270d7323aadd9e53315a63b2abb9df1292e6bc5fd70f05f937122aa8bb
+regForkOp       6f3f09d83e85bf28f62fe18b37ac3abd378c8d03e1a5bffe67fc2e59540d4aeb
+pubGenOp        dabc210827740f6a5a2e02f0fcb40efc6b601165eb79876242505039296fbe94
+pubMigOp        59dd79759d954f74fc6c3c080a2b1838cd4392409cd196b7d1d666bbe9773a55
+queueOpCall     6a50ce249c8152fd61fd19fb02c93855949753183da138707002bbef8a3d8cc2
+queueOpLen      10500
+execOpCall      53ee103fb2f21efd57ad1fa188745e77fda1cdde4988e659a37036770a11dabf
+execOpLen       580
+cancelOpCall    765e3e164cb46e2abb9cc51e5d44a11f858d7c527f29cc92b209e460e07c5593
+cancelOpLen     452
+applyOpCall     d9aeea7c3da04cda67187ee96f20669b496c7fe25510dc94e5157a54d45ad83f
+applyOpLen      260
+timelockCfgRet  1813d922f5db2c6e82ca7be236e9cab4b8ca3c8b5f32231d60bd51b75e54b29c
+pvmCfgRet       885cb456c37e6cd3eed4ab99af4ab704de544acd7ff014afa7c7683b7b652867
+opGetCall       6247e74d2805dc8a531a1f1fc65b5d115dbc23baf9fb5812daf6a00d8e8fcea5
+opGetRet        aa46948d3f599dbb6034dfc5a39a01232791469392b2ef9981d7bd8d6611658e
+applyRet        f9361bdc99345939494c4794891942dafae95fa74ace38bcf4430ae53ac12c4a
+leaseSel        aaac4c97
+leaseAbortSel   ea3e96c2
+leaseMagic      564d4c31
+leaseArmId      501b467e73f364446cd3e0ac98ace85bce64e88f97d25cb16c8bc92a294d99a8
+leaseAbortAt    624800
+leaseRet        fdc598573486cc233fb6d7e730d6ef9c7ff92df5806684327d5cf3dd9a9d3bed
+leaseLen        320
+regTargetSel    9aa71eff
+targetRowSel    f588fec3
+targetRowMagic  52545232
+regTargetCall   eb1a079b1ffe45e57b02592b9d43dd9af89f4a0f6d4ca7410be087ad0109a22d
+regTargetLen    10404
+regTargetRet    be7b7db605e7d7c2d7c3edf06e009de1f61f3bae0ec006ebc5a83a685f38ec1d
+targetRowCall   5c5db1ed7485ad89b4d9125c80db863078603f32ddd3032552a6345bd0dba5ee
+targetRowRet    dcd726cbaf9c71e1db52b4fb42d9522500f8d37885687c4df2c7184a9f26bad3
+targetRowLen    384
+pirSel          2d2bbe23
+piaSel          2181b974
+pirMagic        50495232
+piaMagic        50494132
+pirRet          2cd5d7e58025a0c6283ae35b1090b0014f3a2640508ac28aca6109e95d893443
+pia0Ret         70b9c601b2d1f2852d14603d001ba507657f2eb32b0be8a38a986b4670c1873f
+pia1Ret         39491a71b47c4467196bca20f1f45f6c59be18480872cc9be2c69dfa702b4439
+authInstallSel  72a3e937
+authGetSel      1693ae01
 authInstallMagic 53414931
-authGetMagic  53415431
-authId        3269c5b39ccb15bfb91094cb10c5ff07cc050c79c547ca0199aec847f0203803
-authInstallCall d3ea73fd9b1f06642444d1111ccbd6cf07daf100a4a0fe8c90499285e3d18b51
-authInstallRet d73518bcb4037f2392d75fc152334b4ced0575cafecb1f759ffe50c1088f4cb3
-authGetRet    c3c092e537852d8ed0ab0cb40f60e6e8f939df29690b3c3115c60ca2c52dda4f
-seatStateSel  cf52185b
-seatTermSel   76d5ecd4
-seatDutySel   9a649489
-seatAuthGas   100000
-forkConst     c17afdd5367849af551b3a2f322a2c351321e916ad913a78b646586fe34f59fc
-forkSchema    3a480130319b3cebce02d217988e89c83c6bd6e71ff93c25bc4fc38e51fbe2c0
-forkCfg       95d9108bef4bb1eb4d6b63a79b04aecffcb7f8405b82cb22883c28dda04bb802
-forkInstallSel f171816c
-forkRowSel    c614591c
-forkCfgSel    44efa773
-forkVerifySel 7e981e0b
+authGetMagic    53415431
+authId          3996cb4bbeea670aa365269a1e4ad9dbddd171df2accf9f159c8063de75827a3
+authInstallCall b5fce88f5bc4802175332ca337e8aa80c4903f7fbe04680d3db1e86bf5adb066
+authInstallRet  1ed7ac691e6e73a073095e2f3f1eaac8debe962111b8358eae7d637e0a10ab39
+authGetRet      94b1dab2989ce801bf528219ef887c06541cecdbe87dbaf48acc9923655f4c32
+seatStateSel    cf52185b
+seatTermSel     76d5ecd4
+seatDutySel     9a649489
+seatAuthGas     100000
+forkConst       c17afdd5367849af551b3a2f322a2c351321e916ad913a78b646586fe34f59fc
+forkSchema      3a480130319b3cebce02d217988e89c83c6bd6e71ff93c25bc4fc38e51fbe2c0
+forkCfg         95d9108bef4bb1eb4d6b63a79b04aecffcb7f8405b82cb22883c28dda04bb802
+forkInstallSel  f171816c
+forkRowSel      c614591c
+forkCfgSel      44efa773
+forkVerifySel   7e981e0b
 forkInstallMagic 46564931
-forkRowMagic  46565231
-forkCfgMagic  53465631
+forkRowMagic    46565231
+forkCfgMagic    53465631
 forkCarrierMagic 53464331
 forkInstallCall f986d1bbd6f3801e5ea25305cd72946eae312d78b512a7649e669e7c251e05a9
-forkRowRet    ed8f0a8c03c6743ffad9ccf6ae618ac65bfcfc1d5c6cf924a3b58ddc69166140
-forkCfgRet    876e1109f517610df01f9c613f669d68ca2390fbee92c41b63e7a9a65a1924da
-carrierCall   a6f4b2260cd81afd71756624c295b886d29e85c0c9e9b1cdc89f0148bbd0fb79
-carrierCallLen 132
-carrierStmt   e5e7ef6967d544c41242fd48103d1a53c28f1d6da31a1649d34f4bd11025e123
-carrierRet    3e7028adb7b81c521979a0024999718518559b1ddec5cde8e3a9379d6cef3125
+forkRowRet      ed8f0a8c03c6743ffad9ccf6ae618ac65bfcfc1d5c6cf924a3b58ddc69166140
+forkCfgRet      876e1109f517610df01f9c613f669d68ca2390fbee92c41b63e7a9a65a1924da
+carrierCall     a6f4b2260cd81afd71756624c295b886d29e85c0c9e9b1cdc89f0148bbd0fb79
+carrierCallLen  132
+carrierStmt     e5e7ef6967d544c41242fd48103d1a53c28f1d6da31a1649d34f4bd11025e123
+carrierRet      3e7028adb7b81c521979a0024999718518559b1ddec5cde8e3a9379d6cef3125
 publishLegacySel 5f0ed7f5
-armVersionSel e3bcfcb4
+armVersionSel   e3bcfcb4
 abortVersionSel c4eee12d
 publishLegacyMagic 4c475031
 armVersionMagic 564d4131
 abortVersionMagic 564d4231
-publishLegacyCall bb59704f62ce39cfb7131de168d366a7781c3b386d0b7cb8db3861f0bb5f4155
-publishLegacyRet d0efa4af52c4d46c16874697237c450c37f8f541b617a0b5e3d2335526995730
-armVersionCall dd021ce1584edbb51d935dad00218267cc04982121539d0e2c2216af4604846d
-armVersionRet d5d882fce20b81734a01f19ab912274625907e785bd8e6ae11eba77f4a341916
-abortVersionCall 710f0bba94ccfa9b2e55faa3a238461a258d701bbcaf4091940dd9654b9d7d42
-abortVersionRet 904e05425ad36085173c015e248f8db23014510743b66f27de1f3edffaad4fdd
-pvmRouterGas  8000000
+publishLegacyCall b9a9831430cb2c6b82e820d5c290a806c26b456d1d8ec3f63d55e479ab3773e2
+publishLegacyRet 0367719a40e4be9f3cd78a96be149739f6700d1af4aee3273a7385e70a885f12
+armVersionCall  72c1e2958118bff66b6e530d9c52fac6e0f506d84b9142e4d3273660be3b2fe9
+armVersionRet   7bc7e39e02fb4504dd4f1a7d70cbbfd4e88a1a8985163929c1bcc2d259373244
+abortVersionCall bc9fbd94a30dd30c4a3791631fc933841694cb9cc3b26e4aadbfb0585f0877ef
+abortVersionRet cecc7a76c559e89ad8bdc8009067ff67163188d7fe5f16a9714837f7b499df8f
+pvmRouterGas    8000000
 legacyInboxCfgSel c3f909d4
-legacyInboxCfg 22bc70c195669ace965e7565ae253f760d785e048965f94efa51845573b36808
+legacyInboxCfg  22bc70c195669ace965e7565ae253f760d785e048965f94efa51845573b36808
 legacyInboxCfgRet 4d6b260943518f7ce988e85ddb9321b2a3111a42e9ba431f45342ff6f4f3cea7
 legacyInboxCfgLen 544
-legacyDeploy  98cc45a7619c75ff658f46edbe2e3c11c19e1ec424797cf04c760b9f07fd567c
-legacyFence   cf5cd470448a26b70eddedf8c30fa39533e66e874e2fc1aa2e310ab633c0d737
-legacyDescGas 100000
+legacyDeploy    98cc45a7619c75ff658f46edbe2e3c11c19e1ec424797cf04c760b9f07fd567c
+legacyFence     cf5cd470448a26b70eddedf8c30fa39533e66e874e2fc1aa2e310ab633c0d737
+legacyDescGas   100000
 legacyTimePolicy ae8419c16fd9493a76f4192c6bef1396d6237a2f2d981dc2bb55acfb3086e5d6
-legacyRisc0Key 60651c05d2012e7254373988020eaf9dec6c635e84d535112e7ade81aac5584a
-legacySp1Key  b449ce6092b398fd4178d946077f8f19c4f2451cc88d614bb682233134162f12
+legacyRisc0Key  60651c05d2012e7254373988020eaf9dec6c635e84d535112e7ade81aac5584a
+legacySp1Key    b449ce6092b398fd4178d946077f8f19c4f2451cc88d614bb682233134162f12
 legacyRisc0Desc 4805e24aa165db57d51ab99349241fd843ca03e468afb8d33781d4a08ccca55b
-legacySp1Desc 523d245ce9369abd6a116dd7cc4b4a989fcfb8a9d1f8eb796e1cb35945f18bf6
+legacySp1Desc   523d245ce9369abd6a116dd7cc4b4a989fcfb8a9d1f8eb796e1cb35945f18bf6
 legacyProofGraph 4fc1c37502713218107f6aefba90f1a5720e9ccd5a5569abb590746e85f64efa
-legacyRoute   527763e6ea020b909c9a74a7aa5b7c2fdb372c5d8f283644d4d454bc63c16275
+legacyRoute     527763e6ea020b909c9a74a7aa5b7c2fdb372c5d8f283644d4d454bc63c16275
 legacyProposerDesc 1bd9411f4082f5d010edfad3ba2a52ed5164a7a7ec345c1d56f11a2b3448515a
 legacyPublicProving afda6179076d7f2625ac4e691fd28ff557ef3419a708f22598bc8419b6a27c05
 legacyCkptRecord 1461a32136f8c498043934fce575dddec6830744145afbccde57eea1ea61c9b0
@@ -7731,27 +8401,27 @@ legacyCkptCfgSel 68011023
 legacyCkptCfgMagic 4c434b31
 legacyCkptCfgRet 4ab6f89dcd323544a673c0243a0ad55779c74ae37d981d3308829092d7713534
 legacyCkptCfgLen 192
-legacyImplSel 8abf6077
+legacyImplSel   8abf6077
 legacyOpCountSel 7c6f3158
-legacyCurOpSel 343f0a68
+legacyCurOpSel  343f0a68
 legacyNextOpSel 72a8a551
 legacyVersionSel ffa1ad74
 legacyPropImplRet 760f5b3a5acc4b21ba8112ebe315c3946dc41e502bdb323e50afeac90a42ae8b
 legacySignalImplRet 8e4eff68fda06b95881cfa2df901251b566e87657e1a6ce77e69fd5546318034
 legacyOpCountRet c2575a0e9e593c00f959f8c92f12db2869c3395a3b0502d05e2516446f71f85b
-legacyCurOpRet 7606a1b3fbf7c1835d2aeeddf4207ed367c600f20c898605ba54d05cbbb3be39
+legacyCurOpRet  7606a1b3fbf7c1835d2aeeddf4207ed367c600f20c898605ba54d05cbbb3be39
 legacyNextOpRet c7a0cb7d58c090fb9b48529de670e08db7fa5d48d0b8fb1a2c25f357ff0215ee
 legacyVersionRet b10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf6
 legacyResumeProfile 6a993ebf703937ddefdd8a5ae08911f15a19286ae47b40d0b91a08824cbb2812
-legacyBlob1   f0c8974a111225866a147954a2f98c29c679c1aa4680c42b15ac2eb3a1cea148
-legacyBlob1Len 192
-legacyBlobMax d9791c1e9f76963f86cdfe6423b8d897dcc5c0ef5ad4cc16363b2b2ab452240d
+legacyBlob1     f0c8974a111225866a147954a2f98c29c679c1aa4680c42b15ac2eb3a1cea148
+legacyBlob1Len  192
+legacyBlobMax   d9791c1e9f76963f86cdfe6423b8d897dcc5c0ef5ad4cc16363b2b2ab452240d
 legacyBlobMaxLen 832
 legacySourceMixed 7e0699ca450524a9f618d63c9c6ac4690e44bf47ae3a24980346f4d91b3a8789
 legacySourceMixedLen 288
 legacyPropMixed b83ae28a39b0d773dfaccf449234cc30a737b896dc3a1a2b1d4b15bcf2ae07d4
 legacyPropMixedLen 1152
-legacyPropMax ac882b6809d66ab7fa52d59ef700c30ef460ae5b45db8ccdd0ea6cfdc62fb298
+legacyPropMax   ac882b6809d66ab7fa52d59ef700c30ef460ae5b45db8ccdd0ea6cfdc62fb298
 legacyPropMaxLen 3808
 legacyForcedAbi ffad3668322a174e4a6b3180869175b6395a8657c6940353ce2cdf442fe98cd4
 legacyForcedAbiLen 256
@@ -7761,167 +8431,167 @@ legacyProofGenMax 900
 legacyMaxPropBytes 3808
 legacyMaxForcedBytes 256
 legacyMaxScanBound 4194304
-legacyMax16Raw 60928
+legacyMax16Raw  60928
 legacyMax16CallLen 62084
 legacyFullScanBytes 4161536
 legacyFullScanHeadroom 32768
-legacyReview  79dc80c66d8bb682bd9d5e8439ae5c1eb2a3c61fed33596f72c28ea972f4f4f2
+legacyReview    ad645ed9c3e81c995eb88dabbc1b0a6d93539c360679f230001abadd633494fb
 legacyBlobExpiry 1573864
 legacyCampaignSel 718b2ac7
-legacyCampaignId 9bf8040c1c841835cc3e9c4b98d9660d2cad408e364a66b542ccedd5490b8e88
-legacyCampaignRet e364e46b0bf2d264bc4b83c0f90edb7f970dbe26c14b7bfb855a298f1f8d8229
-legacyPrepSel 6880cd05
-legacyPrepRet 8c869f3dfe7df0f01a65e96d7691b5b0d095590acd9f034770c33a6c75472a98
-propRowsEmpty 0736a35926f1618d1fcca0fdf57530d52f3d1694eb227f31c28b158b370793d5
-propRowsRoot  aeacf67ac14d90928d567c659ff80316a0d780fc490ac6b4b69e9620836d2b46
+legacyCampaignId aa06260ec9cdd07a71c6d23fc72dc5107cad200da425b76b0e1cb8c50425347f
+legacyCampaignRet cd3963cf1857195564f8c0960cc595b856c50f3d288bc18c6858c6a298765175
+legacyPrepSel   6880cd05
+legacyPrepRet   8c869f3dfe7df0f01a65e96d7691b5b0d095590acd9f034770c33a6c75472a98
+propRowsEmpty   0736a35926f1618d1fcca0fdf57530d52f3d1694eb227f31c28b158b370793d5
+propRowsRoot    aeacf67ac14d90928d567c659ff80316a0d780fc490ac6b4b69e9620836d2b46
 forcedRowsEmpty 5631fad8f285ac1643b4e817c5454ee4f1e35174786dd255842a987b21c3fd92
-forcedRecord  dbda8510c73bc3eb57de26ae5c5bcc82a45bf6fedab68abf100d9baea6f4a380
-forcedRowsRoot ab7f340cae89170a3a619086538cace009399987a1bffbee40c17da60c10fcc8
-legacyScanCommit 776fb2d1e480f6d42ba18f05323000de1d18748f9f589e470978cefed227dfba
-legacyAbandon a50df2bba69ff0152bbf9dad5926baf7e4f4652878ce7ff2d4ccbb40a703fb0c
+forcedRecord    dbda8510c73bc3eb57de26ae5c5bcc82a45bf6fedab68abf100d9baea6f4a380
+forcedRowsRoot  ab7f340cae89170a3a619086538cace009399987a1bffbee40c17da60c10fcc8
+legacyScanCommit d49046961e41f21e9073422d2a73190dcd0e78ee8e04c5ef3e6def287d47046b
+legacyAbandon   597abd3f5e890c11afa7d5bacc4f359834efd5bd1f60304fc2a4f77856d76e6a
 legacyAbandonTopic a3b978444273f8f347857235c224846aa45e8ce5bb73df549b9916e96371c8c9
-legacyBeginSel e9d1a07f
-legacyBeginCall c3e79bb5320bc29ff0da561e82394e730278067e34b32fd42a490d3ac1cf23dd
-legacyBeginRet add644dde24164cfb29ab6a4598cb55acb73c55dd295b0c2a227dc3264c6f65c
+legacyBeginSel  e9d1a07f
+legacyBeginCall 506cebf31bdf2bc86cafa84bc56c16592779b1fa793c3fb6d6280933e051f4f8
+legacyBeginRet  add644dde24164cfb29ab6a4598cb55acb73c55dd295b0c2a227dc3264c6f65c
 legacyScanPropSel 7da66460
-legacyScanProp1 5b6c5629f0f3a34f84769c8af64b489cb2038863b652922f36a29a76368db66e
-legacyScanProp16 4ef55151f92542641f24ebb30ae0fa612f03aed1299ff0b9e6b180bcf70484d7
+legacyScanProp1 87e956457ea296af8a317fe81f8d1f9b4943586702bb6ecee581dd808c398554
+legacyScanProp16 dcfd22339f0e3b2ceda7f014ceb1fcbdf8feb1311c12f20c7695dc84eb6e7ee9
 legacyScanForcedSel 032ae99e
-legacyScanForcedCall 8d909d85e3d9af52b918df0948d6e4a23dba47e6ed3cc9d285aa60e63eab5ec2
+legacyScanForcedCall 61a7e4c98610eb46b65d4b5019026e25959dc1ba17ca255dd2a9968dae330b57
 legacyScanForcedRet 10dcb42db706d4c4a5afe207c6327f8cecbcbc4b298c0255fe2434662e6599d6
 legacyScanStateSel ef3cdce0
-legacyScanStateRet 17e4a2651c2088eff96f12e6e8dd1fb5690bfa9eb37fbfb460094cfd1a34090c
+legacyScanStateRet 8e5e397d2f4ad82a793cc1fd0f8541e1b81a24e6cb6a0704da944d0085f2155f
 legacyQuiesceSel 4c0ae8da
-legacyQuiesceCall 2e6b44d5a24a22b0ed813127a466d4607a43ac892bd51a5d45adac7526f8bf70
-legacyQuiesceRet c65998bb9a113f494b8309ccc53955d0644cbbb62627f07587691c73ebe7b692
+legacyQuiesceCall 7622002d111067b051b35e10a1098bb77f5720300d779960032d56ab4fe825b8
+legacyQuiesceRet 0bdeb36de78a895e7fc0f9fc43bd5e570eb3f789aa0be60756b1601607d9b95c
 legacyResumeSel 2bf6b656
-legacyResumeCall 680e84bf31379d4d68a70660132f644d1d7857300d2abf977b0cffcc8af22008
-legacyResumeRet 3c9f2b4c0811e6ed2b9fd67ceb7b33425ce6985ca89d12a0df3cd2cead34421e
-legacyArmId   e3624b3ed9aad7da98b7d91921420f8f25a6876f371b42f0269cde41694ed03f
-legacyBoundary 0215b43e3b2143b3fcac2c97bc2f8cc32ab47ac695a6fd173d919abdcc170263
-legacyLaunch  ec797f5b2f6db4794d8daf9760010b6f8ac5111874b22177c2c1deca25fb0724
-legacyPost    8e6fa9c1dd7963d2bf6aa3af8fdc310bcfb1a8eb938b8fd94a79b1c66d601e8f
-legacyStateSel 9b698000
-legacyArmSel  8781a058
-legacyFinalSel c2de6417
-legacyStateRet b3f9abda41aa37f62130c38873ef88cc7bd549d3b14d1be0c40283afc91be692
-legacyQuiescentRet 52750eb35b94d6abb6fd5a29899134dc8ecea110de92c4fbc62a03b2e9fe8ed1
-legacyReadyRet 06c1d752e9a509d143c6dc6a6946d8491a3914236829a0205cb3c17a1d89be6d
-legacyStateLen 512
-legacyArmCall 2b2feb03c1874419d62d9fd1747f1ff8a127ed5ac9e50302ee0d0381489a5357
+legacyResumeCall 0908f0acdb096d176a7dd3722ccefb4dfb2d97b33bdedeaf2478ab29ee36e65b
+legacyResumeRet e9fe8a7d7e0737dca59cc76084c7a67384789ca762685ef1d320e2a510da0eb4
+legacyArmId     799c52565ab954d8ecf7e47b08534595f06c469fae36e69c3b185d4900044f0c
+legacyBoundary  0215b43e3b2143b3fcac2c97bc2f8cc32ab47ac695a6fd173d919abdcc170263
+legacyLaunch    ff532c65eca209c3db2cd49f550ec18dd33dd9b93eee6ba38ad40f4318bb88f5
+legacyPost      b3ed034b75a6d707a7b7252c302bbd5187d0d5e20c5d574b59e93001de887aa6
+legacyStateSel  9b698000
+legacyArmSel    8781a058
+legacyFinalSel  c2de6417
+legacyStateRet  4f3e86d5ccbae57c51a441e9bdbad9cd481eceb37f3aa7e74a98390448c1cd65
+legacyQuiescentRet 5bf2b30077f31f7358b9e9466110dc3a7559bf6250df27e053dbd9a7c7cac2e5
+legacyReadyRet  61ea987bd5cf6749c2cf1529a85d9a6e5720c6de9aaa2984407216f1aebc11b1
+legacyStateLen  512
+legacyArmCall   6046c79779b7bbd02107a76627bff3186b9ddc1d18ad252436d23a9d338ac6d8
 legacyArmCallLen 68
-legacyFinalCall 884e7131d017639431c80dd6704d9a086443deceb2e871b86c19754c0fa5283b
-legacyFinalLen 196
-legacyArmRet  e80fb9fdaeb1ff7a8293f923c97194a287ec44f3a0b02c6ddaa16b8d1e4721c6
+legacyFinalCall 10105485328c76767b73403c4073bf762fbe76f0811230076f358276f9766b14
+legacyFinalLen  196
+legacyArmRet    8ca209561c9268a32d8c67c0ad5a43772aad2e280806e146206c9e2cadb38f6c
 legacyArmRetLen 128
-legacyFinalRet 07ad61b302108413b9284d78976610ab005378615f4602be5d74181aa57623f1
-arv1Sel       0a4434d0
-genReceiptCall b7fe3c8b4a04701305863a112cc1699fa681d4b4cbc9c93ce0a01c8b6f038301
-genReceiptRet ef97636291cb7a2042df0954545d11cb2ad422f9348b86b3268d91315127fc9c
-versionReceiptRet a87004fab4d5b5011f1623ebdb6560dea4d5a666c7d62cfdf210c268b73156cb
-genCtx        62d4a2dd51a0be06841d19effd320331b7bb72df11a60f8443cf6efad269fd8e
-genCtxRet     2931f5f474e98031c58ad65e62a3c2d97462eb68bd6dff44613fd2a4736a741d
-genAdopt      6169227684bc71f6553af933044cb073963a38a8432d48f7dab3bd363233749d
-genAdoptCall  0ec147c111cf2f5d0185831958a86e2c392d233d026df5329500c8cb8b2e623a
-genAdoptRet   c434d426300284b40624ccd8df676d4c2663a910047dae6ca9634ebd85c3c414
-genQueuePost  821a66492cf085bfd5e11efa3062bd1955929de204c627acb004c339e4c31bb8
-genQueueCall  b9bf377ea1edd0a48069364a69975a9bc3e277e6f9d3b4b6bcf4cbf55b47390f
-genQueueRet   83072c4bf3527284cf4ac5eb72e3d4389dbec47792f321dff784fa709a28806b
-genSrcPostRet 624c181cbc375ac2406258f67dfab9a2e931d72b71cfad5e2a91f0db64bffb31
-genTgtPostRet 936a45a3a636045f180a7ad76c93f50ff7c6dc0678f7c81d54fa89501d44bb4a
-genQPostRet   bab3b7ac19f1ad484d875df5001250b0344b26cba16c52e3fd62bc7814774996
-genReceipt    7e28191ff8593b27f5fca8bfb85b2df77075671e0a7b730dcb31df6c9b0443d4
-reorgLegacyPost a9406aa898b271c452d48b7126748ea88474f5176612c231485671604b64e52a
-reorgGenCtx   bee18b9595c9fd363b296856f32bab4d1c755bdf2598c207f7d44efae4e4195c
-reorgGenReceipt d392dcc219bca72873dd3b45ea0cacdbb33fe97fa842762c23920237170dba92
-actContext    fec045ac0303ac9bdaee88018c116da2d56f85ab736270b3d84e3af1b7f650b2
-mactSel       7cf70319
-mactRet       3cf5cfee6c09ad60fdc4edf02caebbb822d5834015304b70058ec82968110762
-mactLen       320
-armLifeRet    298524396c6b44dd68c8c21326e4ddb544cc51cfe8d5b89ed34bda45fa998753
-mcanSel       557c4e13
-mcanCall      f345b8661dce2b7bf436311b838d136118dc66b7947eb29093432118007fd2fe
-mcanLen       548
-mcanRet       d4c356048b899e598a7442f5a7fb655fd64962a1c716ef0ed63539c128ef539d
-sourceFreezePost 0aa73c1367b28730587818127e2f3fac69030d9b59d2d245477b8e21a6d39981
-mfrzSel       45a80913
-mfrzCall      8c036e18915cf8019a8e3de6a5d204fe63a9d1ee334525168791c47f21fc57e6
-mfrzRet       6d12ca94d7958d9d8a76a0e8526dc8f698c0e2a5832ebf5c32f2429756b0bc40
-queuePost     dd693320551df9e405a7397b6b316000549edf82c7336373a82542620a178c21
-queueCredit   64000000000000000
-qmigSel       9461f698
-qmigCall      855b517926d37aa79b9db15af9ac0fc0848a37e7f7c0a09e8f9c4864d0e26bef
-qmigLen       260
-qmigRet       c2bff565822e0e4feff2fa54a3a020d60adc66a60fff902c35b065542980d0a3
-adoptPost     58ee9ef78db3e916ba6e5d17f9b8d3d5509505bf4e9bcb40c3af522c7202fad3
-mapsSel       66e664cb
-mapsCall      dfc8dc82b9844e8759f03d7a9fa70a4f7ed45543485f6d0fd43350fb4383acdc
-sourceMapsRet 968849ef0b069117430c32bf8249875b241a33f23aef41f34da414a45606d7d0
-targetMapsRet 86de932ecf343a1385a8f1e68165fea2795df88c4f8bf697ad71d89fc5d1c00f
-queueMapsRet  bace930764939601db13d01244ab816b0ca9a684935999932b4830d2d6c76bf3
-activateVSel  14c37693
-genesisFixed  51509fea7d67c057520beb2fbb8620f434d30e49134bd78e104c481b929c865e
-versionFixed  3c56ba661f3714e55644fb2ca1c83595efd27c20040727dba1efbbb564495308
-genesisCall   00c19bfac3025302849311e91025abdbb8ad60c0d7fb9df055b8f86fd0a3ede7
-genesisLen    2884
-versionCall   073a6599cd68dc875c4b06970aa15220c178eb0797d648c430154cad06b05cef
-versionLen    17156
-maxGenesis    bd16449f41574593612711ca3fdc77100c01118299290c68c0858e3fae12e9a9
-maxGenesisLen 135844
-maxVersion    234256e4a7cacefe967de594bb9888b992715be32bb556c8de6a3d49e5ff4693
-maxVersionLen 149220
-regBase       20b3dfc457e3cecf32b0c047177351f0814e426c1548e87b79f58830655810c3
-regSlot       dfa6283b763bbadeb604401a78e2fefeddb72000addcdb94ed2e3de5cc69846b
-regTrie       200031adff46d90b1cd5c67ff8e31098235d1dddb08ec98b0d20f5f8660c0ac8
-relBase       a0b7a29a75032f37561036cd3741e7b375213309367f37b5ffec4ad55cf6154f
-relSlot       719bb73ba856aeab1b203e322bfefc6d84a4c41a3222bcf1634b1b44e5b9aba8
-relTrie       dac8109059d03da2ad16ac3acc50d2e58897b8c3a7f6889ae77bfb20737e87a2
-routeConfig   542af9979276e82eb44c7df70234f040ad445d43d1e6055a6f1eea26ea271ff6
-queueConfig   72e27c19ebfab08e1fb27feeff50609c7c4bb69f0570a7bdb72eda7736c50f4e
-dataSessCfg   f4df0bfc001806b529db1f66ed244459c0256ae7b7f9be752972c7ed212e2bdf
-dsOpenSel     7bda4d11
-dsPostSel     a1cc526a
-dsSealSel     340e11fb
-dsMaintSel    1e7a916a
-dsClaimSel    fdd2b0db
-dsSweepSel    9d083a2b
-dsCellSel     011efada
-dsByIdSel     eeaad0bb
-dsAcctSel     e2a62969
-activeSetSel  4a95c306
-migReadySel   b36c83ce
-markReadySel  e0c25827
-activeSetMagic 41535231
-migReadyMagic 4d525331
-markReadyMagic 4d524459
-dsOpenTopic   a81132592bd8a549a0bfc83415ab47fbca586f0b48fff5f6cb5bfae0a9fd1f68
-dsRecordTopic 30ee2de166c53a480d028e5b94d4f8759dbd84b5f7b6af1f23e0c5889ea17f8c
-dsSealTopic   f6d45ab0ecc3348b36ac48bc769f7391962fc2fa240c1c6bb43269ed3780078e
-dsRefundTopic 086de7ad4d27cf66f63e9dc6ecb09c0c3122146dd43e7f480f3a875070eb984e
-dsClaimTopic  69fe7d8d95811e3a02a4ad4b0d1a3e1360b683a31f7cb30b4c69546b258232fb
-dsForfeitTopic f93f771339298d1fb502bd2c556fc18130b95d44599f35109de39d8d5731f957
-dsSweepTopic  3a5f2fa0ab342d3b79fc2aa40be5e1296009e8fb31f86c3577c51839dd159a86
-dsMaintTopic  920669b9670911aa86cd718dceebaa1372d224ca0fdac50a63dc1d45a53e1e89
-bridgeLeaf    1c49348e3790ffe13e4f3dcb02abea8aae691440fe46ee79e1db5f5494524fbf
-feeLeafAlt    66da1e4adb2557e1de15ebddae0cf70b7ef626988d6843be1c5f917854323a65
-creditId      3478254ae157d75bc92bb9867a7c6f75d35b5223706c4628b3f1f69a4fe1f9ef
-feeCreditAlt  ba414cab4d29367449fc90be09e4188cc4eee696a85dbedc93dc1012b1126a03
-escrowId      c2fdcc172fd80ac716d4a5d05fa93d3c976851519689c240de34bbbd53851da9
-inboxSlot     8b9d59fdb9263b257ae17d62cd6ca493d7d526dd61e4039a8554afc1d2e73fbb
-terminalDone  70b5f547351c9a85ac835631c95174f2250e86778a18e886782d7dac5989582b
-liquiditySet  625ff42ed879b94a7499fecb7abc07988b348300d1c4e9cc1f7596968eaf2f19
-settleLeafAlt 01548dd79bdc775d264dbfbf11ee74091e4478ac8b453b9abb8e8007979cf7ff
-terminalFail  ee42b13d8e2a80308a1ebb328021d3c521a7b38b4d1aa3e79b291221ae2ceb1b
-terminalRoot2 9863d65bdddde9855debf6a39b5842ed167ef04f2e20ad1bdeea1fb2c73f03a4
-emptyTermRoot c5da197edc2f03c7023cc6afe137ccb77d01fc56514d322b6ba66a149315bcb0
-bridgeResult  5c0e5db8d72a9de810fa33a84b2e69dd37ac875cbc798fabff5be217817d4b76
-manifestRoot  417be737a57e38eb410f2d6e65c77ee19d5c314cdaf432067861c6a36c6a990f
-normalContext 5b93691b397d8ab377682acee7cf6cc77ff2726cd83a8a7b725084f5d6f468bd
-migrationData 2c36740d76ae6192335d4c603f42edace094b33e8f54e959b40241a94c1f6deb
-winningData   4ae34aa9efb842528d353b175f94191d01cfd168b5ad828f64a0e7972a2ca9e3
-statementHash 2ef66e281d0fc7ae37aa66e2992045f43bd3acb938d7c14eb8b30e0b1c54c01f
-recoveryId    fd0552b28542fa3e236c86807695f3d5a4bc0436add285daa8506d9a79511b15
-bodyRoot      0f4e161a46c8b18c2a86f23a0a4e7169a838a12af8b389f65e97b547a99707e9
+legacyFinalRet  b924e354107dd8656f106cfd429a7636cc9d2576dc0b45c272f94fab4f791968
+arv1Sel         0a4434d0
+genReceiptCall  5c33ca28ae8c87326903243bd8e7d3014da48062d3dc122d7f645dedad796f64
+genReceiptRet   5c7ccef17c99ea7b3e8531b30342cbd6201caec7bfaae09bafe28921a11247bc
+versionReceiptRet 25ed31f58de1cda586c28189c946c6aab9172c13218aea549edfcb25055b9336
+genCtx          fa309b6a84746d1d6acee8f87f9321271cb68eeaecc264ac718812eacd8211ac
+genCtxRet       ae5130794e17672433cf1df57dd6fd2c59e5a9e138606446393ad1d1a2db787f
+genAdopt        69732105259421cf5c3c480543c2922061750cfb76793e615604dc95799b2d2f
+genAdoptCall    9203b4a9789a1063ae7241242ac7f2c19227de972cd0b1dab6699ade4ba4e6c1
+genAdoptRet     0d6cc2c07afaf087428fdeea4c1a3450a2719c9985132945c14fc562b968e47b
+genQueuePost    d58031a42d100455f424a28e0c3aa0fc64d3dbaabc5fdef3c349f1f7b37c6e4e
+genQueueCall    9dbafd23a937ec8aa2a5ab26845e0cafc95ddbacbfd9a9f9d4364415aa9c0467
+genQueueRet     c9ce547f713aa89aadbb5e3f65c73ead7a042233bbba470e7e01512b5b2014b0
+genSrcPostRet   437610375708fbcdf4d1f88757e3d344605b8670812deee3abf492ab9cd657f3
+genTgtPostRet   726d07b3ddb51eeb54a37a48ac5806c4c24a55a1fe3b99957d402e0ce46ee27e
+genQPostRet     2454a589b32353c19cbccb91c1e2fcadb330cc22aebf9496a4f8974b10d1f3c9
+genReceipt      3cc0a9c40dbdb83da7b507448f9d289f5b5efa51c20e6391fa6fba9caf72452d
+reorgLegacyPost 0f299dfa5e42d5075db83e4eb1b004cf7c33b63afba8513d02134d74be44d54f
+reorgGenCtx     ecc3841b57a7ca17da647379ad6cd73561bca5dee084d8755afcc7027d632b22
+reorgGenReceipt 053301fdcf9c3d44895d885890694c29f258cf743d9167a4a4f343161a1871f9
+actContext      3873a3f2497d0112c2f5f264aa1b79543ab5647f8539bf46fb609c92032b5337
+mactSel         7cf70319
+mactRet         ee3341844bbb28d11b776e2c7b522022dd18969de50976eae7bc855cb0cd721f
+mactLen         320
+armLifeRet      298524396c6b44dd68c8c21326e4ddb544cc51cfe8d5b89ed34bda45fa998753
+mcanSel         557c4e13
+mcanCall        92366259f576a370029e270ba4e032e74339fac39d850903440060f26093fb4c
+mcanLen         548
+mcanRet         3fabfe7082e0ab3873d16ad30d157d5ad409f56c478596a9bb85c427b44ee974
+sourceFreezePost f6cefc65013868fabdd502d608dfbc556d77ec3729647e05d7e72d42985e6bfc
+mfrzSel         45a80913
+mfrzCall        a1f8fd6ac6f3f722f3b2ef1ee56a4a07cf3e1a0047125e9b03cca546c273fb23
+mfrzRet         f1082d527fe0b2b8bd04a736726d2765d43648eddc746d0c345cd747330984c6
+queuePost       1793a94b819a4330840685a6e379d413ba1f81219208984183c7e66c40d0a87c
+queueCredit     64000000000000000
+qmigSel         9461f698
+qmigCall        8a00ae30412e1f78da5a954be3303ec5dc311a54b894bdeea84fcbfc12918092
+qmigLen         260
+qmigRet         7fd65dcf44a26374708e64e3fced62b809bf70d01f104dc2cc71a7ea89e514d5
+adoptPost       979cd5dd07672432be3768a6c57378f671d29bc8bed1f45b76c78dceed0855a7
+mapsSel         66e664cb
+mapsCall        1143fe0083b3aaddd30e0ca1596ab8849d1dff7a71fc90454cb6b7f4c8df2b62
+sourceMapsRet   c6b77ff997504e3da70d75aaa00c1c571573082e8c1ca4eb1ea552fd2b696898
+targetMapsRet   88c638b2c1aa55236cfb8e462651ea51d9fd55d14a61986b44af9c1b5e81260a
+queueMapsRet    bf63de5734b2b7980e64a5fc6da9f271ca4b2e68bc60df01c359f311448b2081
+activateVSel    14c37693
+genesisFixed    51509fea7d67c057520beb2fbb8620f434d30e49134bd78e104c481b929c865e
+versionFixed    3c56ba661f3714e55644fb2ca1c83595efd27c20040727dba1efbbb564495308
+genesisCall     899862123801d01e4d5f529c6a5fa785a07eb524fe850443e10dea2f73492cf9
+genesisLen      2884
+versionCall     56ebab6e19f1d9bfa240774f4271412d1922e540d6c68822648e853d477feca3
+versionLen      17156
+maxGenesis      0f6f5587d90d0fa4dcb58c91f235246c1c3ba570e032e25c162bcc4b9610322e
+maxGenesisLen   135844
+maxVersion      5c8e3968d6ad7e625ae370731bbfb691fb442c7f15757118cda6269842bd03fe
+maxVersionLen   149220
+regBase         20b3dfc457e3cecf32b0c047177351f0814e426c1548e87b79f58830655810c3
+regSlot         dfa6283b763bbadeb604401a78e2fefeddb72000addcdb94ed2e3de5cc69846b
+regTrie         200031adff46d90b1cd5c67ff8e31098235d1dddb08ec98b0d20f5f8660c0ac8
+relBase         a0b7a29a75032f37561036cd3741e7b375213309367f37b5ffec4ad55cf6154f
+relSlot         719bb73ba856aeab1b203e322bfefc6d84a4c41a3222bcf1634b1b44e5b9aba8
+relTrie         dac8109059d03da2ad16ac3acc50d2e58897b8c3a7f6889ae77bfb20737e87a2
+routeConfig     b7a461bc5970c971f2cc9abb3877e5e1c02cbc922ae4b3cac3b63737f68c7805
+queueConfig     72e27c19ebfab08e1fb27feeff50609c7c4bb69f0570a7bdb72eda7736c50f4e
+dataSessCfg     a9198362f19424d86fec60351e9883028b83fdbc7df2ae710325e5affec01173
+dsOpenSel       7bda4d11
+dsPostSel       a1cc526a
+dsSealSel       340e11fb
+dsMaintSel      1e7a916a
+dsClaimSel      fdd2b0db
+dsSweepSel      9d083a2b
+dsCellSel       011efada
+dsByIdSel       eeaad0bb
+dsAcctSel       e2a62969
+activeSetSel    4a95c306
+migReadySel     b36c83ce
+markReadySel    e0c25827
+activeSetMagic  41535231
+migReadyMagic   4d525331
+markReadyMagic  4d524459
+dsOpenTopic     a81132592bd8a549a0bfc83415ab47fbca586f0b48fff5f6cb5bfae0a9fd1f68
+dsRecordTopic   30ee2de166c53a480d028e5b94d4f8759dbd84b5f7b6af1f23e0c5889ea17f8c
+dsSealTopic     f6d45ab0ecc3348b36ac48bc769f7391962fc2fa240c1c6bb43269ed3780078e
+dsRefundTopic   086de7ad4d27cf66f63e9dc6ecb09c0c3122146dd43e7f480f3a875070eb984e
+dsClaimTopic    69fe7d8d95811e3a02a4ad4b0d1a3e1360b683a31f7cb30b4c69546b258232fb
+dsForfeitTopic  f93f771339298d1fb502bd2c556fc18130b95d44599f35109de39d8d5731f957
+dsSweepTopic    3a5f2fa0ab342d3b79fc2aa40be5e1296009e8fb31f86c3577c51839dd159a86
+dsMaintTopic    920669b9670911aa86cd718dceebaa1372d224ca0fdac50a63dc1d45a53e1e89
+bridgeLeaf      f5bda35fb1e021706647269866a683dec01b7c15355b3b2aaa6dbddd6eeb8d69
+feeLeafAlt      354d05b8bd4364ff8a7454f3e3975a4c014a3b268104430f4e825f376ab58505
+creditId        dc227c06eecc3bdd1ea0d48345efc48b017188e40f43e7c33450314260ac5538
+feeCreditAlt    1fbc7c2842cbd1da217fa0629d43a13942e0f42d85b7f3a686b2126b800a80f6
+escrowId        cbb92e32149a19f26a3db755300df9f7d401fe51c4a7121b966ad77b598385d5
+inboxSlot       b6850870a89c5fd93129ea8d1c1d4fa02e810c2ba8c235cf594e8e8258d828aa
+terminalDone    b24b3a75e604936efaf89218951ae097b2901b0aaa42c411f5cf9d6183e867f5
+liquiditySet    625ff42ed879b94a7499fecb7abc07988b348300d1c4e9cc1f7596968eaf2f19
+settleLeafAlt   bf20404f65a3471b2d10c0a93fd1e75ca365d2a202ff6a804a7dd7b3884af523
+terminalFail    eb3a0ef753b87449dcc50b109f2f2f7d8405af7c43a1e55f4e0fad93d4756867
+terminalRoot2   220a454b2a961a593546023497e32948752c63386a54085491c7fba5a6bec5a8
+emptyTermRoot   c5da197edc2f03c7023cc6afe137ccb77d01fc56514d322b6ba66a149315bcb0
+bridgeResult    675ef16e849ab97ac931e08c98e51ab4bd9b77219e8a98510742ff37bcec84cb
+manifestRoot    417be737a57e38eb410f2d6e65c77ee19d5c314cdaf432067861c6a36c6a990f
+normalContext   5b93691b397d8ab377682acee7cf6cc77ff2726cd83a8a7b725084f5d6f468bd
+migrationData   2c36740d76ae6192335d4c603f42edace094b33e8f54e959b40241a94c1f6deb
+winningData     4ae34aa9efb842528d353b175f94191d01cfd168b5ad828f64a0e7972a2ca9e3
+statementHash   0223b45e5752d4ca03f59534e9c773481a390c46da8286b94927b4be8229b991
+recoveryId      fd0552b28542fa3e236c86807695f3d5a4bc0436add285daa8506d9a79511b15
+bodyRoot        0f4e161a46c8b18c2a86f23a0a4e7169a838a12af8b389f65e97b547a99707e9
 \end{verbatim}
 Release CI must reproduce every vector in Solidity, Go, Rust and the circuit.
 
@@ -8224,12 +8894,12 @@ local destination binding, frontier/event terminal proofs, pause-independent
 escape, L2 release sealing, replay and timing
 geometry.  Cryptographic booleans in that model are not cryptographic
 evidence.
-The companion \code{test-settlement-window.py} suite runs 207 adversarial
+The companion \code{test-settlement-window.py} suite runs 209 adversarial
 regressions, including authorization substitution, callback/OOG, competing LP,
 owner-mode, target/quota/pull/terminal rollback, withdrawal/recreation and
 cross-version preservation cases for the atomic Pool path.
 
-\code{commitment-model.py} reports 577 golden vectors and 1234 executable
+\code{commitment-model.py} reports 587 golden vectors and 1280 executable
 assertion sites for
 exact EIP-712
 domain/struct/digest, canonical and statement hashes, registry/admission/entry/
@@ -8253,7 +8923,7 @@ valid KZG-opening, signature-recovery, independent-implementation and proof
 gates remain mandatory.
 
 \code{seat-market-model.py} and its companion
-\code{test-seat-market.py} suite run 92 adversarial regressions over the
+\code{test-seat-market.py} suite run 93 adversarial regressions over the
 four-cell perpetual reverse auction, offer ranking and maturity, staged
 handover, premium-reserve custody, pull credits, bond terminalization and
 release rotation.  The model is the executable state-machine reference for
