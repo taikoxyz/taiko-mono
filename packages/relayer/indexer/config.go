@@ -42,6 +42,7 @@ type Config struct {
 	SrcRPCUrl                        string
 	DestRPCUrl                       string
 	ETHClientTimeout                 uint64
+	ETHClientRequestTimeout          time.Duration
 	BlockBatchSize                   uint64
 	NumGoroutines                    uint64
 	SubscriptionBackoff              uint64
@@ -92,6 +93,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		WatchMode:                        WatchMode(c.String(flags.WatchMode.Name)),
 		SyncMode:                         SyncMode(c.String(flags.SyncMode.Name)),
 		ETHClientTimeout:                 c.Uint64(flags.ETHClientTimeout.Name),
+		ETHClientRequestTimeout:          c.Duration(flags.ETHClientRequestTimeout.Name),
 		NumLatestBlocksEndWhenCrawling:   c.Uint64(flags.NumLatestBlocksEndWhenCrawling.Name),
 		NumLatestBlocksStartWhenCrawling: c.Uint64(flags.NumLatestBlocksStartWhenCrawling.Name),
 		EventName:                        c.String(flags.EventName.Name),

@@ -10,11 +10,9 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/cyberhorsey/errors"
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/sync/errgroup"
 
@@ -24,6 +22,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/rpcclient"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
 )
 
@@ -68,7 +67,6 @@ type ethClient interface {
 	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
 	BlockNumber(ctx context.Context) (uint64, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
-	SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error)
 	TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, bool, error)
 }
 
@@ -148,12 +146,12 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 		return err
 	}
 
-	srcEthClient, err := ethclient.Dial(cfg.SrcRPCUrl)
+	srcEthClient, err := rpcclient.DialEthClient(ctx, cfg.SrcRPCUrl, cfg.ETHClientRequestTimeout)
 	if err != nil {
 		return err
 	}
 
-	destEthClient, err := ethclient.Dial(cfg.DestRPCUrl)
+	destEthClient, err := rpcclient.DialEthClient(ctx, cfg.DestRPCUrl, cfg.ETHClientRequestTimeout)
 	if err != nil {
 		return err
 	}
@@ -287,9 +285,10 @@ func (i *Indexer) Start() error {
 	go i.eventLoop(i.ctx)
 
 	go func() {
+		bo := backoff.WithContext(backoff.NewConstantBackOff(5*time.Second), i.ctx)
 		if err := backoff.Retry(func() error {
 			return utils.ScanBlocks(i.ctx, i.srcEthClient, &i.wg)
-		}, backoff.NewConstantBackOff(5*time.Second)); err != nil {
+		}, bo); err != nil {
 			slog.Error("scan blocks backoff retry", "error", err)
 		}
 	}()

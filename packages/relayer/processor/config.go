@@ -3,6 +3,7 @@ package processor
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
@@ -61,11 +62,12 @@ type Config struct {
 	QueuePort     uint64
 	QueuePrefetch uint64
 	// rpc configs
-	SrcRPCUrl        string
-	DestRPCUrl       string
-	ETHClientTimeout uint64
-	OpenQueueFunc    func() (queue.Queue, error)
-	OpenDBFunc       func() (db.DB, error)
+	SrcRPCUrl               string
+	DestRPCUrl              string
+	ETHClientTimeout        uint64
+	ETHClientRequestTimeout time.Duration
+	OpenQueueFunc           func() (queue.Queue, error)
+	OpenDBFunc              func() (db.DB, error)
 
 	UnprofitableMessageQueueExpiration *string
 
@@ -134,6 +136,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		BackoffRetryInterval:               c.Uint64(flags.BackOffRetryInterval.Name),
 		BackOffMaxRetries:                  c.Uint64(flags.BackOffMaxRetries.Name),
 		ETHClientTimeout:                   c.Uint64(flags.ETHClientTimeout.Name),
+		ETHClientRequestTimeout:            c.Duration(flags.ETHClientRequestTimeout.Name),
 		TargetTxHash:                       targetTxHash,
 		UnprofitableMessageQueueExpiration: unprofitableMessageQueueExpiration,
 		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
