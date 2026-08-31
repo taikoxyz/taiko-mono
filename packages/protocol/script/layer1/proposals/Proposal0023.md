@@ -319,8 +319,9 @@ across the two chains: one on L1, three on L2.
 
 Verify all four on the block explorers before the proposal is created, so a delegate can read the
 source behind each address rather than trusting the deployer. Use the same compiler settings the
-branch pins (`solc 0.8.30`, `optimizer_runs = 200`; `evm_version = "osaka"` for the L2 profile) and
-the constructor arguments the scripts pass.
+branch pins — `solc 0.8.30`, `optimizer_runs = 200`, `evm_version = "osaka"` — and the constructor
+arguments the scripts pass. `osaka` applies on both chains: `profile.default` sets it and the L1
+profile inherits, so the L1 and L2 contracts verify under the same settings.
 
 Run the `forge verify-bytecode` commands in the pre-execution checklist as well, but not because
 they are an independent second route — they are not. Both go through the same Etherscan API, and
@@ -388,6 +389,12 @@ the live implementation against the new one for each proxy being upgraded.
 | L2 `Bridge` implementation          | `0x097BBBef669AaD66030aB223195D200eF9A47dc3` | [codediff](https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000001&newimpl=0x097BBBef669AaD66030aB223195D200eF9A47dc3&chainid=167000) |
 | L2 `DefaultResolver` proxy          | `0x2dfef0339009Ce10786fc118C883BB97af3163eD` | new proxy, nothing to diff                                                                                                                                |
 | L2 `DefaultResolver` implementation | `0x4F750D13005444407D44dAA30922128db0374ca1` | new contract, nothing to diff                                                                                                                             |
+
+All four are verified on their explorers as of 2026-08-31 — `Bridge`, `Bridge`, `ERC1967Proxy` and
+`DefaultResolver` respectively, each under `solc v0.8.30`, optimizer on at 200 runs, `evm_version`
+`osaka`. All four also report `Creation code matched with status full` under `forge verify-bytecode`
+against a local build of this commit. The L1 entry reads `Bridge`, not `MainnetBridge` — see
+Current State.
 
 The L1 codediff is the one that carries the proposal's whole argument: the only difference it should
 show against the live `MainnetBridge` is `_SEND_ETHER_GAS_LIMIT` rising from 35,000 to 135,000, plus
