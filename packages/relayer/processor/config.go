@@ -73,6 +73,7 @@ type Config struct {
 	OpenDBFunc       func() (db.DB, error)
 
 	UnprofitableMessageQueueExpiration *string
+	TransientErrorQueueExpiration      *string
 
 	TxmgrConfigs *txmgr.CLIConfig
 
@@ -110,6 +111,10 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		u := c.String(flags.UnprofitableMessageQueueExpiration.Name)
 		unprofitableMessageQueueExpiration = &u
 	}
+
+	// Always set, unlike the unprofitable expiration: a message with no expiration would wait in
+	// the transient queue forever, and nothing would bring it back.
+	transientErrorQueueExpiration := c.String(flags.TransientErrorQueueExpiration.Name)
 
 	var destQuotaManagerAddress common.Address
 	if c.IsSet(flags.DestQuotaManagerAddress.Name) {
@@ -155,6 +160,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ETHClientTimeout:                   c.Uint64(flags.ETHClientTimeout.Name),
 		TargetTxHash:                       targetTxHash,
 		UnprofitableMessageQueueExpiration: unprofitableMessageQueueExpiration,
+		TransientErrorQueueExpiration:      &transientErrorQueueExpiration,
 		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
 			c.String(flags.DestRPCUrl.Name),
 			processorPrivateKey,
@@ -284,10 +290,18 @@ func parseFailureReason(err error) error {
 //
 // Plain http to anything else would put a signed processMessage on the wire in cleartext, where it
 // can be read and front-run — the exact exposure private endpoints exist to remove, arrived at by
-// a different route. A relay behind localhost or on a trusted subnet is a legitimate deployment,
-// so those are still allowed.
+// a different route.
+//
+// Only the name "localhost" and IP literals in the loopback, private and link-local ranges pass.
+// A name is deliberately not resolved: resolution would make a cleartext-transport decision depend
+// on what DNS answers at that moment, which an attacker may influence and which can differ by the
+// time the endpoint is dialled. The cost is that a private name — mev-relay.default.svc.cluster
+// .local, say — is rejected even when it resolves inside the cluster, and such a deployment has to
+// give the address as a literal or serve the relay over https.
 func isLocalHost(host string) bool {
-	if host == "localhost" {
+	// Hosts are compared without regard to case: url.Parse lowercases the scheme but leaves the
+	// host as written, so "LOCALHOST" arrives here exactly as the operator typed it.
+	if strings.EqualFold(host, "localhost") {
 		return true
 	}
 
@@ -307,13 +321,20 @@ func isLocalHost(host string) bool {
 // receipts are polled through DEST_RPC_URL. With no send timeout the transaction manager waits for
 // that receipt for as long as it takes, so the claim stalls and its worker with it.
 //
-// Five minutes is where the relays themselves stop. It is roughly twenty-five Ethereum blocks,
-// which is how long Flashbots Protect keeps offering a transaction to builders, so the claim is
-// abandoned only once nobody is still trying to land it — giving up earlier would replace a stall
-// with a resend racing a transaction that may yet be included. It is also six fee bumps at the 48s
-// RESUBMISSION_TIMEOUT default, so a claim that was merely underpriced gets a real chance to catch
-// up first, and it matches the PRIVATE_RPC_RETRY_INTERVAL default, so a stalled claim and a tripped
-// endpoint come back on the same timescale.
+// Five minutes is a bound this relayer chooses, not the point at which the relays give up. Their
+// roughly twenty-five block window runs per transaction submitted, and every fee bump submits a new
+// one, so the newest variant of a claim is still being offered well past this — a bump at the 48s
+// RESUBMISSION_TIMEOUT default pushes the tail out to around ten minutes. Abandoning the send at
+// five can therefore overlap a variant a builder may yet include; what that costs is a nonce shared
+// between the abandoned claim and the next one, which resolves as a retry rather than a loss.
+//
+// What the value is chosen for: six fee bumps at the 48s default, so a claim that was merely
+// underpriced has had several chances to catch up, and a match with the PRIVATE_RPC_RETRY_INTERVAL
+// default, so a stalled claim and a tripped endpoint come back on the same timescale.
+//
+// It is a ceiling rather than the usual exit. A send no endpoint will take ends earlier, at the
+// transaction manager's TxNotInMempoolTimeout — two minutes by default — because no publish ever
+// succeeded.
 const DefaultPrivateRPCSendTimeout = 5 * time.Minute
 
 // privateRPCSendTimeout returns the send timeout to run with, supplying a default rather than

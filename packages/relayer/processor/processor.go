@@ -540,9 +540,7 @@ func (p *Processor) handleProcessMessageResult(
 		case isTransientProcessMessageError(err):
 			slog.Error("process message failed", "err", err.Error())
 
-			if err := p.queue.Nack(ctx, m, true); err != nil {
-				slog.Error("Err nacking message", "err", err.Error())
-			}
+			p.handleTransientProcessMessageError(ctx, m)
 		default:
 			slog.Error("process message failed", "err", err.Error())
 
@@ -610,6 +608,92 @@ func (p *Processor) handleUnprofitableMessage(ctx context.Context, m queue.Messa
 		return
 	}
 
+	if err := p.queue.Ack(ctx, m); err != nil {
+		slog.Error("Err acking message", "err", err.Error())
+	}
+}
+
+// DefaultTransientErrorQueueExpiration is how long a transiently failed message waits before it is
+// offered again, when the configuration did not say.
+const DefaultTransientErrorQueueExpiration = "30000"
+
+// handleTransientProcessMessageError parks a message that failed for a transient reason on a queue
+// that holds it for TRANSIENT_ERROR_QUEUE_EXPIRATION and then routes it back for another attempt.
+//
+// Nacking it back onto the main queue instead would return it to the head immediately. The consumer
+// prefetches one message by default and acknowledges only after processing, so exactly one message
+// is in flight per replica: a claim that keeps failing — a MessageSent whose source transaction was
+// reorged out returns a bare deadline every time — would be handed straight back, forever, and the
+// replica would relay nothing else. Nothing counts those attempts either, so the queue depth is the
+// only sign of it.
+//
+// The attempt is not capped. A transient failure says nothing about whether the claim is good, and
+// this relayer must not skip one it could land, so the message keeps coming back; the wait is what
+// keeps it from monopolising the replica, and TimesRequeued is what makes it visible.
+func (p *Processor) handleTransientProcessMessageError(ctx context.Context, m queue.Message) {
+	msgBody := &queue.QueueMessageSentBody{}
+	if err := json.Unmarshal(m.Body, msgBody); err != nil {
+		slog.Error("error decoding transiently failed message", "error", err)
+
+		// Undecodable, so it cannot be republished with its count. Requeueing is still better than
+		// dead-lettering a claim that may be perfectly good.
+		if err := p.queue.Nack(ctx, m, true); err != nil {
+			slog.Error("Err nacking message", "err", err.Error())
+		}
+
+		return
+	}
+
+	msgBody.TimesRequeued++
+
+	body, err := json.Marshal(msgBody)
+	if err != nil {
+		slog.Error("error encoding transiently failed message", "error", err)
+
+		if err := p.queue.Nack(ctx, m, true); err != nil {
+			slog.Error("Err nacking message", "err", err.Error())
+		}
+
+		return
+	}
+
+	headers := map[string]interface{}{"requeues": int64(msgBody.TimesRequeued)}
+
+	// A nil expiration would park the message with nothing to bring it back, which is the one
+	// outcome this path must not produce. The configuration always sets it; this covers a
+	// Processor built without going through it.
+	expiration := p.cfg.TransientErrorQueueExpiration
+	if expiration == nil {
+		fallback := DefaultTransientErrorQueueExpiration
+		expiration = &fallback
+	}
+
+	if err := p.queue.Publish(
+		ctx,
+		fmt.Sprintf("%v-transient", p.queueName()),
+		body,
+		headers,
+		expiration,
+	); err != nil {
+		slog.Error("error publishing to transient queue", "error", err)
+
+		// The wait is an optimisation; not being able to take it is no reason to drop the claim.
+		if err := p.queue.Nack(ctx, m, true); err != nil {
+			slog.Error("Err nacking message", "err", err.Error())
+		}
+
+		return
+	}
+
+	relayer.MessageSentEventsRequeuedTransient.Inc()
+
+	slog.Info("message parked after a transient failure",
+		"timesRequeued", msgBody.TimesRequeued,
+		"expiration", *expiration,
+	)
+
+	// Acked only once the copy is safely on the transient queue, so a crash in between leaves the
+	// original unacknowledged and the broker redelivers it.
 	if err := p.queue.Ack(ctx, m); err != nil {
 		slog.Error("Err acking message", "err", err.Error())
 	}

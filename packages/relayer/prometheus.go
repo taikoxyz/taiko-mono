@@ -36,6 +36,12 @@ var (
 			"proof reached the public mempool. Counts sends rather than distinct claims, so a " +
 			"resubmitted transaction is counted each time it is broadcast",
 	})
+	MessageSentEventsRequeuedTransient = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "message_sent_events_requeued_transient_ops_total",
+		Help: "The total number of messages parked on the transient queue after a processing " +
+			"failure that may resolve on its own. A message climbing this counter on its own is " +
+			"one the relayer cannot land and keeps re-reading",
+	})
 	QueueMessageAcknowledged = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "queue_message_acknowledged_ops_total",
 		Help: "The total number of acknowledged queue events",

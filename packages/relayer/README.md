@@ -54,6 +54,10 @@ Environment variables are crucial for the configuration of the Relayer’s proce
 
    Modify `.l1processor.env` as necessary to suit your environment settings.
 
+   `.l1processor.example.env` is the L1 to L2 direction. For L2 to L1 — the direction that lands
+   claims on Ethereum, and the only one where `DEST_PRIVATE_RPC_URLS` applies — start from
+   `.l2processor.example.env` instead.
+
 2. **Run the Processor**:
    Before running the processor, specify which environment file it should use by setting the `RELAYER_ENV_FILE` environment variable:
    ```sh
@@ -84,6 +88,25 @@ Environment variables are crucial for the configuration of the Relayer’s proce
    ```sh
    ./relayer indexer
    ```
+
+### Retrying a claim that failed for a transient reason
+
+A processing failure that may resolve on its own — an RPC timeout, a connection reset, a source
+transaction not yet confirmed — does not cost the claim. The message is republished to a
+`<queue>-transient` sibling queue that no consumer reads, with
+`TRANSIENT_ERROR_QUEUE_EXPIRATION` (30 seconds by default) on it, and the original delivery is
+acknowledged. When the expiration elapses the broker dead-letters it back onto the processing queue
+and it is tried again.
+
+The wait is what makes this safe to repeat. `QUEUE_PREFETCH_COUNT` defaults to 1 and a delivery is
+acknowledged only after processing, so exactly one message is in flight per replica: negatively
+acknowledging a failure back onto the queue returns it to the head immediately, and a claim that
+keeps failing would then be all that replica ever looks at. Parking it frees the slot.
+
+Attempts are not capped. A transient failure says nothing about whether the claim is good, and a
+claim this relayer could land must not be skipped, so the message keeps coming back;
+`message_sent_events_requeued_transient_ops_total` and the `TimesRequeued` count carried on the
+message are what make one that never resolves visible.
 
 ### Keeping claims out of the public mempool
 
@@ -116,12 +139,19 @@ than a record of each nonce; the cost is that a first send arriving out of order
 nonce is also offered last, which only reorders private endpoints against each other. Nothing is
 charged for that reordering.
 
-Plain `http://` is rejected for anything but a loopback or private-network host: a signed claim on
-the wire in cleartext can be read and front-run, which is the exposure these endpoints exist to
-remove, reached by another route.
+Plain `http://` is rejected unless the host is the name `localhost` or an IP literal in a loopback,
+private or link-local range: a signed claim on the wire in cleartext can be read and front-run,
+which is the exposure these endpoints exist to remove, reached by another route. Names are not
+resolved to decide this, so a private name such as `mev-relay.default.svc.cluster.local` is rejected
+even where it resolves inside the cluster — give the address as a literal, or serve the relay over
+`https://`. Resolving would make a cleartext decision depend on what DNS answers at that moment.
 
-Each endpoint also gets its own share of the time left on the send, so one that accepts the
-connection and then never answers cannot spend the budget the endpoints behind it need.
+Each endpoint also gets its own share of the time left on the attempt, so one that accepts the
+connection and then never answers cannot spend the budget the endpoints behind it need. That budget
+is `RPC_TIMEOUT` (12 seconds by default), not `TX_SEND_TIMEOUT`: the transaction manager calls the
+backend once per publish under its network timeout, and the share is that divided by the endpoints
+still to try. Lowering `RPC_TIMEOUT` or configuring many endpoints therefore shrinks each attempt,
+and an endpoint that runs out of its share is charged with a failure.
 
 Because it is the same signed
 transaction every time, offering it to the next endpoint after one refuses is idempotent — at most
@@ -151,9 +181,11 @@ endpoint's position.
 A restart while a relay is holding an accepted transaction is worth knowing about. Nonces come from
 `DEST_RPC_URL`, and a privately accepted transaction is never gossiped there, so a relayer that
 restarts before that transaction is included sees its nonce as free and may sign a different claim
-with it. Whichever lands first wins and the other becomes invalid, so no funds are at risk and the
-losing message is redelivered by the queue and retried under a fresh nonce — but that claim is
-delayed by a round, and its fee may be gone by then. `TX_SEND_TIMEOUT` bounds how long a single
+with it. Whichever lands first wins and the other becomes invalid, so no funds are at risk. The losing
+claim is not currently retried, though: its send ends with `nonce too low`, which the processor does
+not count as transient, so the message is dead-lettered rather than offered again. Treat that as a
+known gap — a claim that reaches it needs replaying by hand until `nonce too low` is classified as
+transient. `TX_SEND_TIMEOUT` bounds how long a single
 send can be outstanding but does not help across a restart. The exposure is proportional to how
 long a relay holds transactions, so it is smallest with relays that drop rather than queue.
 
@@ -163,11 +195,15 @@ would-revert transactions by design — and accepting is the only signal the rel
 receipts are polled through `DEST_RPC_URL`. Without a send timeout the transaction manager waits for
 that receipt indefinitely, so the claim stalls and holds its worker.
 
-Five minutes is where the relays themselves stop: about twenty-five Ethereum blocks, which is how
-long Flashbots Protect keeps offering a transaction to builders, so a claim is given up only once
-nobody is still trying to land it. It is also six fee bumps at the 48s `RESUBMISSION_TIMEOUT`
-default, and it matches `PRIVATE_RPC_RETRY_INTERVAL`, so a stalled claim and a tripped endpoint come
-back on the same timescale. Set `TX_SEND_TIMEOUT` to choose a different bound; the one value it
+Five minutes is a bound the relayer chooses, not the point at which the relays give up. Their
+roughly twenty-five block window runs per transaction submitted, and every fee bump submits a new
+one, so the newest variant of a claim is still being offered past this — with the 48s
+`RESUBMISSION_TIMEOUT` default the tail runs to around ten minutes. The value is chosen for being
+six fee bumps at that default, so a merely underpriced claim has had several chances to catch up,
+and for matching `PRIVATE_RPC_RETRY_INTERVAL`, so a stalled claim and a tripped endpoint come back
+on the same timescale. It is a ceiling rather than the usual exit: a send no endpoint will take ends
+earlier, at the transaction manager's two-minute `TxNotInMempoolTimeout`, because no publish ever
+succeeded. Set `TX_SEND_TIMEOUT` to choose a different bound; the one value it
 cannot take alongside private endpoints is no bound at all. Deployments that configure no private
 endpoint are untouched — this timeout governs the public path too, and they have been running
 without it.

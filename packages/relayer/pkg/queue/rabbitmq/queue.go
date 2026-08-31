@@ -18,6 +18,7 @@ type RabbitMQ struct {
 	ch                *amqp.Channel
 	queue             amqp.Queue
 	unprofitableQueue amqp.Queue
+	transientQueue    amqp.Queue
 	opts              queue.NewQueueOpts
 
 	connErrCh chan *amqp.Error
@@ -107,6 +108,8 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 	routingKey := fmt.Sprintf("%v-process", queueName)
 
 	routingKeyUnprofitable := fmt.Sprintf("%v-unprofitable", queueName)
+
+	routingKeyTransient := fmt.Sprintf("%v-transient", queueName)
 
 	slog.Info("declaring rabbitmq dlx exchange", "exchange", dlxExchange)
 
@@ -217,9 +220,43 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 		return err
 	}
 
+	// A message whose processing failed for a transient reason waits here rather than going
+	// straight back to the head of the main queue. The consumer prefetches one message at a time
+	// and acknowledges only after processing, so an immediate requeue hands the replica the same
+	// message forever: one that can never resolve — a MessageSent whose source transaction was
+	// reorged out, say — stops the replica relaying anything at all. Parking it here for the
+	// expiration instead frees the slot, and the dead-letter route below returns it afterwards, so
+	// a claim is delayed rather than dropped.
+	transientArgs := amqp.Table{}
+
+	transientArgs["x-dead-letter-exchange"] = exchange
+	transientArgs["x-dead-letter-routing-key"] = routingKey
+
+	transientQueueName := fmt.Sprintf("%v-transient", queueName)
+
+	transientQueue, err := r.ch.QueueDeclare(
+		transientQueueName,
+		true,
+		false,
+		false,
+		false,
+		transientArgs,
+	)
+	if err != nil {
+		return err
+	}
+
+	slog.Info("binding queue and exchange", "queue", transientQueueName, "exchange", exchange)
+
+	if err := r.ch.QueueBind(transientQueueName, routingKeyTransient, exchange, false, nil); err != nil {
+		return err
+	}
+
 	r.queue = q
 
 	r.unprofitableQueue = unprofitableQueue
+
+	r.transientQueue = transientQueue
 
 	return nil
 }

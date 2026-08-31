@@ -102,6 +102,16 @@ var (
 		Required: false,
 		EnvVars:  []string{"UNPROFITABLE_MESSAGE_QUEUE_EXPIRATION"},
 	}
+	TransientErrorQueueExpiration = &cli.StringFlag{
+		Name: "transientErrorQueueExpiration",
+		Usage: "Milliseconds a message waits after a transient processing failure before it is " +
+			"offered again. It waits off the main queue, so the replica keeps relaying other " +
+			"messages meanwhile",
+		Category: processorCategory,
+		Required: false,
+		Value:    "30000",
+		EnvVars:  []string{"TRANSIENT_ERROR_QUEUE_EXPIRATION"},
+	}
 	MaxMessageRetries = &cli.Uint64Flag{
 		Name:     "maxMessageRetries",
 		Usage:    "How many times to retry a message due to unprofitability",
@@ -159,6 +169,7 @@ var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, TxmgrFlags, []cli.Flag{
 	DestBridgeAddress,
 	TargetTxHash,
 	UnprofitableMessageQueueExpiration,
+	TransientErrorQueueExpiration,
 	MaxMessageRetries,
 	MinFeeToProcess,
 	DestQuotaManagerAddress,

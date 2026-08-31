@@ -60,15 +60,16 @@ func newTestProcessor(profitableOnly bool) *Processor {
 }
 
 type recordingQueue struct {
-	mu             sync.Mutex
-	publishErr     error
-	ackErr         error
-	nackErr        error
-	publishedBody  []byte
-	publishedQueue string
-	acked          int
-	nacked         int
-	requeued       bool
+	mu                  sync.Mutex
+	publishErr          error
+	ackErr              error
+	nackErr             error
+	publishedBody       []byte
+	publishedQueue      string
+	publishedExpiration *string
+	acked               int
+	nacked              int
+	requeued            bool
 }
 
 // counts reads the tallies under the lock, for tests where the queue is driven from the
@@ -100,6 +101,7 @@ func (q *recordingQueue) Publish(
 
 	q.publishedQueue = queueName
 	q.publishedBody = msg
+	q.publishedExpiration = expiration
 
 	return q.publishErr
 }
@@ -139,7 +141,7 @@ func TestHandleProcessMessageResultNacksWhenUnprofitableRepublishFails(t *testin
 	assert.True(t, q.requeued)
 }
 
-func TestHandleProcessMessageResultNacksTransientErrors(t *testing.T) {
+func TestHandleProcessMessageResultParksTransientErrors(t *testing.T) {
 	q := &recordingQueue{}
 	p := newTestProcessor(false)
 	p.queue = q
@@ -152,9 +154,11 @@ func TestHandleProcessMessageResultNacksTransientErrors(t *testing.T) {
 		errors.New("i/o timeout"),
 	)
 
-	assert.Equal(t, 0, q.acked)
-	assert.Equal(t, 1, q.nacked)
-	assert.True(t, q.requeued)
+	// Requeueing instead would hand the message straight back to a consumer that prefetches one
+	// at a time, so a claim that keeps failing would be all the replica ever looks at.
+	assert.Equal(t, 1, q.acked, "the copy on the transient queue replaces this delivery")
+	assert.Equal(t, 0, q.nacked)
+	assert.Contains(t, q.publishedQueue, "-transient")
 }
 
 func TestHandleProcessMessageResultPersistsUnprofitableRetryCount(t *testing.T) {
@@ -197,9 +201,73 @@ func TestHandleProcessMessageResultRequeuesDeadlineExceeded(t *testing.T) {
 		context.DeadlineExceeded,
 	)
 
+	assert.Equal(t, 1, q.acked)
+	assert.Equal(t, 0, q.nacked)
+	assert.Contains(t, q.publishedQueue, "-transient")
+}
+
+func TestHandleProcessMessageResultCountsAndDelaysTransientRequeues(t *testing.T) {
+	q := &recordingQueue{}
+	p := newTestProcessor(false)
+	p.queue = q
+
+	body, err := json.Marshal(queue.QueueMessageSentBody{TimesRequeued: 4})
+	require.NoError(t, err)
+
+	p.handleProcessMessageResult(
+		context.Background(),
+		queue.Message{Body: body},
+		false,
+		0,
+		context.DeadlineExceeded,
+	)
+
+	var published queue.QueueMessageSentBody
+
+	require.NoError(t, json.Unmarshal(q.publishedBody, &published))
+
+	// Counted but never capped: a transient failure says nothing about whether the claim is good,
+	// so it keeps coming back and this is what makes a message that never resolves visible.
+	assert.Equal(t, uint64(5), published.TimesRequeued)
+	assert.Equal(t, DefaultTransientErrorQueueExpiration, *q.publishedExpiration,
+		"a message parked with no expiration would never come back")
+}
+
+func TestHandleProcessMessageResultRequeuesWhenTheTransientParkFails(t *testing.T) {
+	q := &recordingQueue{publishErr: errors.New("broker unreachable")}
+	p := newTestProcessor(false)
+	p.queue = q
+
+	p.handleProcessMessageResult(
+		context.Background(),
+		queue.Message{Body: []byte(`{}`)},
+		false,
+		0,
+		errors.New("i/o timeout"),
+	)
+
+	// The wait is an optimisation; failing to take it must not cost the claim.
 	assert.Equal(t, 0, q.acked)
 	assert.Equal(t, 1, q.nacked)
 	assert.True(t, q.requeued)
+}
+
+func TestHandleProcessMessageResultRequeuesUndecodableTransientMessages(t *testing.T) {
+	q := &recordingQueue{}
+	p := newTestProcessor(false)
+	p.queue = q
+
+	p.handleProcessMessageResult(
+		context.Background(),
+		queue.Message{Body: []byte(`not json`)},
+		false,
+		0,
+		errors.New("i/o timeout"),
+	)
+
+	assert.Equal(t, 0, q.acked)
+	assert.Equal(t, 1, q.nacked)
+	assert.True(t, q.requeued, "an undecodable body is still a claim worth another attempt")
 }
 
 func TestHandleProcessMessageResultAcksUnprocessableMessages(t *testing.T) {
