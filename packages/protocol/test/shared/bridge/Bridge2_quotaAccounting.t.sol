@@ -189,7 +189,6 @@ contract TestBridge2_quotaAccounting is TestBridge2Base {
     // _consumeEtherQuota a no-op and leaves its external call out of the post-invocation tail.
     function test_quota_processMessage_storage_creating_destOwner_debits_and_refunds()
         public
-        dealEther(Alice)
         dealEther(Carol)
     {
         MessageReceiver_CreatingFreshStorageSlots wallet =
