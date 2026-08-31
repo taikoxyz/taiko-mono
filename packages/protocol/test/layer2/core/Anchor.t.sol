@@ -24,10 +24,14 @@ contract MockFeeVault is IL2FeeVault {
     uint48 public lastProposalId;
     address public lastProposer;
 
-    function importProposalFee(ProposalFeeData calldata _fee) external override {
-        count += 1;
-        lastProposalId = _fee.proposalId;
-        lastProposer = _fee.proposer;
+    function importProposalFeeList(ProposalFeeData[] calldata _fees) external override {
+        uint256 feesLength = _fees.length;
+        count += feesLength;
+        if (feesLength == 0) return;
+
+        ProposalFeeData calldata lastFee = _fees[feesLength - 1];
+        lastProposalId = lastFee.proposalId;
+        lastProposer = lastFee.proposer;
     }
 }
 
@@ -58,7 +62,7 @@ contract AnchorTest is Test {
 
         vm.roll(SHASTA_FORK_HEIGHT);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(checkpoint, 1, _feeData(1, true));
+        anchor.anchorV4(checkpoint, 1, _singleFeeDataList(1));
 
         assertEq(feeVault.count(), 1, "fee count");
         assertEq(feeVault.lastProposalId(), 1, "fee id");
@@ -70,7 +74,7 @@ contract AnchorTest is Test {
 
         vm.roll(SHASTA_FORK_HEIGHT);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(checkpoint, 1, _feeData(1, true));
+        anchor.anchorV4(checkpoint, 1, _singleFeeDataList(1));
 
         Anchor.BlockState memory blockState = anchor.getBlockState();
         assertEq(blockState.anchorBlockNumber, checkpoint.blockNumber);
@@ -90,15 +94,15 @@ contract AnchorTest is Test {
 
         vm.roll(SHASTA_FORK_HEIGHT);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(checkpoint, 1, _feeData(1, true));
+        anchor.anchorV4(checkpoint, 1, _singleFeeDataList(1));
 
         vm.roll(SHASTA_FORK_HEIGHT + 1);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(checkpoint, 1, _feeData(1, false));
+        anchor.anchorV4(checkpoint, 1, _emptyFeeDataList());
 
         Anchor.BlockState memory blockState = anchor.getBlockState();
         assertEq(blockState.anchorBlockNumber, checkpoint.blockNumber);
-        assertEq(feeVault.count(), 1, "fee data only imported once per proposal");
+        assertEq(feeVault.count(), 1, "an empty fee data list imports nothing");
     }
 
     function test_anchorV4_rejectsInvalidSender() external {
@@ -106,7 +110,7 @@ contract AnchorTest is Test {
 
         vm.roll(SHASTA_FORK_HEIGHT);
         vm.expectRevert(Anchor.InvalidSender.selector);
-        anchor.anchorV4(checkpoint, 1, _feeData(1, true));
+        anchor.anchorV4(checkpoint, 1, _singleFeeDataList(1));
     }
 
     function test_anchorV4_ignoresStaleCheckpoint() external {
@@ -114,16 +118,51 @@ contract AnchorTest is Test {
 
         vm.roll(SHASTA_FORK_HEIGHT);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(freshCheckpoint, 1, _feeData(1, true));
+        anchor.anchorV4(freshCheckpoint, 1, _singleFeeDataList(1));
 
         ICheckpointStore.Checkpoint memory staleCheckpoint = _checkpoint(999, 0xAAAA, 0xBBBB);
         vm.roll(SHASTA_FORK_HEIGHT + 1);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(staleCheckpoint, 1, _feeData(1, false));
+        anchor.anchorV4(staleCheckpoint, 1, _emptyFeeDataList());
 
         Anchor.BlockState memory blockState = anchor.getBlockState();
         assertEq(blockState.anchorBlockNumber, freshCheckpoint.blockNumber);
         assertEq(checkpointStore.getCheckpoint(staleCheckpoint.blockNumber).blockNumber, 0);
+    }
+
+    function test_anchorV4_importsMultipleFeeDataInOneBlock() external {
+        ICheckpointStore.Checkpoint memory checkpoint = _checkpoint(1000, 0x1234, 0x5678);
+
+        uint48[] memory feeProposalIds = new uint48[](3);
+        feeProposalIds[0] = 1;
+        feeProposalIds[1] = 2;
+        feeProposalIds[2] = 3;
+
+        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(checkpoint, 3, _feeDataList(feeProposalIds));
+
+        assertEq(feeVault.count(), 3, "fee count");
+        assertEq(feeVault.lastProposalId(), 3, "last imported fee proposal");
+    }
+
+    function test_anchorV4_importsCatchupFeeDataAcrossBlocks() external {
+        ICheckpointStore.Checkpoint memory checkpoint = _checkpoint(1000, 0x1234, 0x5678);
+
+        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(checkpoint, 3, _singleFeeDataList(1));
+
+        uint48[] memory catchupFeeProposalIds = new uint48[](2);
+        catchupFeeProposalIds[0] = 2;
+        catchupFeeProposalIds[1] = 3;
+
+        vm.roll(SHASTA_FORK_HEIGHT + 1);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(checkpoint, 3, _feeDataList(catchupFeeProposalIds));
+
+        assertEq(feeVault.count(), 3, "all fee proposals imported");
+        assertEq(feeVault.lastProposalId(), 3, "last imported fee proposal");
     }
 
     // ---------------------------------------------------------------
@@ -146,17 +185,15 @@ contract AnchorTest is Test {
         });
     }
 
-    function _feeData(
-        uint48 _proposalId,
-        bool _includeFee
-    )
+    function _feeDataList(uint48[] memory _proposalIds)
         private
         pure
-        returns (IL2FeeVault.ProposalFeeData memory feeData_)
+        returns (IL2FeeVault.ProposalFeeData[] memory feeDataList_)
     {
-        if (_includeFee) {
-            feeData_ = IL2FeeVault.ProposalFeeData({
-                proposalId: _proposalId,
+        feeDataList_ = new IL2FeeVault.ProposalFeeData[](_proposalIds.length);
+        for (uint256 i; i < _proposalIds.length; ++i) {
+            feeDataList_[i] = IL2FeeVault.ProposalFeeData({
+                proposalId: _proposalIds[i],
                 proposer: PROPOSER,
                 l1GasUsed: 10,
                 numBlobs: 1,
@@ -165,5 +202,19 @@ contract AnchorTest is Test {
                 l2BasefeeRevenue: 100
             });
         }
+    }
+
+    function _singleFeeDataList(uint48 _proposalId)
+        private
+        pure
+        returns (IL2FeeVault.ProposalFeeData[] memory)
+    {
+        uint48[] memory proposalIds = new uint48[](1);
+        proposalIds[0] = _proposalId;
+        return _feeDataList(proposalIds);
+    }
+
+    function _emptyFeeDataList() private pure returns (IL2FeeVault.ProposalFeeData[] memory) {
+        return new IL2FeeVault.ProposalFeeData[](0);
     }
 }

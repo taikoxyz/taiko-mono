@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 
@@ -20,32 +21,35 @@ import "./L2FeeVault_Layout.sol"; // DO NOT DELETE
 /// - **Liabilities**: Total unpaid reimbursements owed to proposers (`totalLiabilities`)
 /// - **Effective Balance**: Assets - Liabilities (the vault's true solvency position)
 ///
-/// ## Fee Adjustment Mechanism (EIP-1559 Style)
-/// The vault exposes `feePerGasWei` which L2 clients read to set the L1-cost component of L2
-/// basefee. This creates a feedback loop using an EIP-1559-inspired proportional controller:
+/// ## Fee Adjustment Mechanism (P Controller)
+/// The vault exposes `feePerGasWei`, which L2 clients read as the L1-cost component of the L2
+/// basefee. The adjustment rule is simple:
 ///
 /// 1. **Deficit Detection**: If `effective balance < targetBalanceWei`, the vault is underfunded.
 ///    The fee increases proportionally to accumulate more revenue from future L2 transactions.
 ///
-/// 2. **Surplus Detection**: If `effective balance > targetBalanceWei`, the vault has excess funds.
-///    The fee decreases proportionally, returning value to L2 users via lower basefees.
+/// 2. **At/Above Target**: If `effective balance >= targetBalanceWei`, the proportional term
+///    becomes zero and final bounds are applied via clamping.
 ///
-/// The adjustment formula (similar to EIP-1559):
+/// Terms used in this controller:
+/// - `epsilon`: deficit ratio (`(targetBalanceWei - effectiveBalance) / targetBalanceWei`)
+/// - `Kp`: how aggressively fee reacts to deficits (`kpWad = Kp * 1e18`)
+/// - `pTerm`: proportional output before min/max bounds
+///
+/// The adjustment formula:
 /// ```
-/// errorRatio = (targetBalanceWei - effectiveBalance) / targetBalanceWei
-/// adjustmentFactor = 1 + errorRatio / BASE_FEE_MAX_CHANGE_DENOMINATOR
-/// newFee = clamp(oldFee * adjustmentFactor, minFeePerGasWei, maxFeePerGasWei)
+/// epsilon = max(0, (targetBalanceWei - effectiveBalance) / targetBalanceWei)
+/// pTerm = Kp * epsilon * (maxFeePerGasWei - minFeePerGasWei)
+/// newFee = clamp(pTerm, minFeePerGasWei, maxFeePerGasWei)
 /// ```
 ///
-/// With `BASE_FEE_MAX_CHANGE_DENOMINATOR = 8`, the maximum fee change per update is ±12.5%:
-/// - At 100% deficit (broke): fee increases by 12.5%
-/// - At 50% deficit: fee increases by 6.25%
-/// - At target: no change
-/// - At 50% surplus: fee decreases by 6.25%
-/// - At 100% surplus (2x target): fee decreases by 12.5%
-///
-/// This proportional response naturally stabilizes at equilibrium and requires no prediction
-/// of future gas consumption, making it simpler and more robust than time-based recovery models.
+/// Example (`Kp = 5`, i.e. `kpWad = 5e18`, `minFeePerGasWei = 0`,
+/// `maxFeePerGasWei = 1 gwei`):
+/// - At 0% deficit (`epsilon = 0`): fee is 0 gwei
+/// - At 5% deficit (`epsilon = 0.05`): fee is 0.25 gwei
+/// - At 10% deficit (`epsilon = 0.10`): fee is 0.5 gwei
+/// - At 20% deficit (`epsilon = 0.20`): fee is 1.0 gwei (reaches max)
+/// - At >=20% deficit: fee stays clamped at 1.0 gwei
 ///
 /// ## Reimbursement Policy
 /// When proposals are imported:
@@ -55,7 +59,7 @@ import "./L2FeeVault_Layout.sol"; // DO NOT DELETE
 ///   who intentionally post unprofitable proposals.
 ///
 /// ## Trust Assumptions
-/// The fee data imported via `importProposalFee` must be validated by the validity proof.
+/// The fee data imported via `importProposalFeeList` must be validated by the validity proof.
 /// The proof should verify:
 /// 1) `hashProposal(proposal)` matches the proposal hash stored in the L1 Inbox ring buffer
 ///    for the given proposalId (cost fields are part of the Proposal struct), and
@@ -73,13 +77,11 @@ contract L2FeeVault is EssentialContract, IL2FeeVault {
     /// @notice Blob gas per blob (EIP-4844).
     uint256 public constant BLOB_GAS_PER_BLOB = 131_072;
 
-    /// @notice EIP-1559 style fee adjustment denominator.
-    /// @dev With value 8, allows max ±12.5% fee change per update (same as EIP-1559).
-    ///      Lower values = faster adjustment, higher values = slower adjustment.
-    uint256 public constant BASE_FEE_MAX_CHANGE_DENOMINATOR = 8;
-
     /// @dev Basis points denominator.
     uint256 private constant _BPS = 10_000;
+
+    /// @dev WAD precision used for controller math.
+    uint256 private constant _WAD = 1e18;
 
     // ---------------------------------------------------------------
     // Immutables
@@ -100,11 +102,15 @@ contract L2FeeVault is EssentialContract, IL2FeeVault {
     /// @dev In basis points. 10000 = 100%. Protects the vault from unbounded losses during low activity.
     uint16 public immutable lossReimbursementBps;
 
+    /// @notice Proportional gain (Kp) for the fee controller, scaled by 1e18.
+    /// @dev Higher values increase how aggressively fees react when the vault is below target.
+    uint256 public immutable kpWad;
+
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
 
-    /// @notice Anchor contract authorized to call `importProposalFee`.
+    /// @notice Anchor contract authorized to call `importProposalFeeList`.
     address public anchor;
 
     /// @notice Sum of all unpaid reimbursements owed to proposers (the vault's liabilities).
@@ -116,7 +122,7 @@ contract L2FeeVault is EssentialContract, IL2FeeVault {
 
     /// @notice The L1-cost fee component per gas, read by L2 clients to set basefee.
     /// @dev This is the primary output of the balancing mechanism. When the vault has a deficit,
-    ///      this value increases to collect more revenue. When there's a surplus, it decreases.
+    ///      this value increases to collect more revenue, subject to configured min/max bounds.
     uint256 public feePerGasWei;
 
     /// @notice Storage gap for upgrade safety.
@@ -155,11 +161,13 @@ contract L2FeeVault is EssentialContract, IL2FeeVault {
     /// @param _minFeePerGasWei The minimum fee per gas (floor).
     /// @param _maxFeePerGasWei The maximum fee per gas (ceiling).
     /// @param _lossReimbursementBps The percentage of L1 cost reimbursed for unprofitable proposals.
+    /// @param _kpWad The P-controller gain (Kp) scaled by 1e18.
     constructor(
         uint256 _targetBalanceWei,
         uint256 _minFeePerGasWei,
         uint256 _maxFeePerGasWei,
-        uint16 _lossReimbursementBps
+        uint16 _lossReimbursementBps,
+        uint256 _kpWad
     ) {
         // Validate configuration parameters
         require(_lossReimbursementBps <= _BPS, InvalidBps());
@@ -170,6 +178,7 @@ contract L2FeeVault is EssentialContract, IL2FeeVault {
         minFeePerGasWei = _minFeePerGasWei;
         maxFeePerGasWei = _maxFeePerGasWei;
         lossReimbursementBps = _lossReimbursementBps;
+        kpWad = _kpWad;
 
         _disableInitializers();
     }
@@ -188,24 +197,26 @@ contract L2FeeVault is EssentialContract, IL2FeeVault {
     // ---------------------------------------------------------------
 
     /// @inheritdoc IL2FeeVault
-    /// @dev Called by Anchor during the first block of a proposal. Sequential validation
-    ///      is performed by Anchor before calling this function.
-    ///
-    /// Steps:
-    /// 1. Computes L1 cost from gas and blob fees
-    /// 2. Determines reimbursement based on profitability
-    /// 3. Credits proposer's claimable balance and increases totalLiabilities
-    /// 4. Triggers fee adjustment via `_updateFeePerGas()`
-    function importProposalFee(ProposalFeeData calldata _fee) external onlyAnchor {
-        uint256 l1CostWei = _calcL1Cost(_fee);
-        uint256 reimbursedWei = _calcReimbursement(l1CostWei, _fee.l2BasefeeRevenue);
+    function importProposalFeeList(ProposalFeeData[] calldata _fees) external onlyAnchor {
+        uint256 feesLength = _fees.length;
+        if (feesLength == 0) return;
 
-        claimable[_fee.proposer] += reimbursedWei;
-        totalLiabilities += reimbursedWei;
+        for (uint256 i; i < feesLength; ++i) {
+            ProposalFeeData calldata feeData = _fees[i];
+            uint256 l1CostWei = _calcL1Cost(feeData);
+            uint256 reimbursedWei = _calcReimbursement(l1CostWei, feeData.l2BasefeeRevenue);
 
-        emit ProposalFeesImported(
-            _fee.proposalId, _fee.proposer, l1CostWei, _fee.l2BasefeeRevenue, reimbursedWei
-        );
+            claimable[feeData.proposer] += reimbursedWei;
+            totalLiabilities += reimbursedWei;
+
+            emit ProposalFeesImported(
+                feeData.proposalId,
+                feeData.proposer,
+                l1CostWei,
+                feeData.l2BasefeeRevenue,
+                reimbursedWei
+            );
+        }
 
         _updateFeePerGas();
     }
@@ -293,66 +304,39 @@ contract L2FeeVault is EssentialContract, IL2FeeVault {
         }
     }
 
-    /// @dev Updates `feePerGasWei` using an EIP-1559-style proportional controller.
-    ///
-    /// **Algorithm** (inspired by EIP-1559 base fee adjustment):
-    /// 1. Compute effective balance: `balance - totalLiabilities` (clamped to 0)
-    /// 2. Compute error ratio: `(targetBalanceWei - effectiveBalance) / targetBalanceWei`
-    ///    - Positive ratio → deficit (need to increase fee)
-    ///    - Negative ratio → surplus (can decrease fee)
-    /// 3. Compute adjustment factor: `1 + errorRatio / BASE_FEE_MAX_CHANGE_DENOMINATOR`
-    /// 4. Apply multiplicative adjustment: `newFee = oldFee * adjustmentFactor`
-    /// 5. Clamp result to [minFeePerGasWei, maxFeePerGasWei] bounds
-    ///
-    /// **Examples** (with denominator = 8):
-    /// - 100% deficit (broke): errorRatio = 1.0 → adjustment = 1.125 → +12.5% fee
-    /// - 50% deficit: errorRatio = 0.5 → adjustment = 1.0625 → +6.25% fee
-    /// - At target: errorRatio = 0.0 → adjustment = 1.0 → no change
-    /// - 50% surplus: errorRatio = -0.5 → adjustment = 0.9375 → -6.25% fee
-    /// - 100% surplus (2x target): errorRatio = -1.0 → adjustment = 0.875 → -12.5% fee
-    ///
-    /// This proportional response naturally stabilizes at equilibrium without requiring
-    /// prediction of future gas consumption.
+    /// @dev Updates `feePerGasWei` using a proportional (P) controller:
+    ///      `epsilon = max(0, (targetBalanceWei - effectiveBalance) / targetBalanceWei)`
+    ///      `pTerm = Kp * epsilon * feeRange`
+    ///      `fee = clamp(pTerm, minFee, maxFee)`
     function _updateFeePerGas() internal {
         uint256 target = targetBalanceWei;
         if (target == 0) return;
+
+        uint256 minFee = minFeePerGasWei;
+        uint256 maxFee = maxFeePerGasWei;
+        uint256 feeRange = maxFee - minFee;
 
         // Step 1: Compute effective balance (assets minus liabilities)
         uint256 balance = address(this).balance;
         uint256 liabilities = totalLiabilities;
         uint256 effective = balance > liabilities ? balance - liabilities : 0;
 
-        // Step 2: Compute error ratio (scaled by 1e18 for precision)
-        // errorRatio ∈ [-8, 1] where:
-        //   1 = completely broke (0% of target)
-        //   0 = exactly at target
-        //  -1 = 200% of target (double surplus)
-        //  -8 = 900% of target (adjustmentFactor reaches 0)
-        int256 errorRatio = (int256(target) - int256(effective)) * 1e18 / int256(target);
+        // Step 2: Compute proportional term for deficit only.
+        uint256 pTermWei;
+        if (effective < target && feeRange != 0) {
+            uint256 epsilonWad = Math.mulDiv(target - effective, _WAD, target);
+            uint256 scaledGain = Math.mulDiv(kpWad, epsilonWad, _WAD);
+            pTermWei = Math.mulDiv(scaledGain, feeRange, _WAD);
+        }
 
-        // Cap extreme values to prevent overflow and negative adjustment factor
-        // Max deficit: 100% (errorRatio = 1) → +12.5% fee change
-        if (errorRatio > 1e18) errorRatio = 1e18;
-        // Max surplus: 800% (errorRatio = -8) → fee goes to 0 (clamped to minFee)
-        // This prevents adjustmentFactor from becoming negative
-        if (errorRatio < -8e18) errorRatio = -8e18;
+        // Step 3: Clamp to configured fee bounds.
+        uint256 newFee = pTermWei;
+        if (newFee < minFee) newFee = minFee;
+        if (newFee > maxFee) newFee = maxFee;
 
-        // Step 3: EIP-1559 style multiplicative adjustment
-        // adjustmentFactor = 1 + errorRatio / BASE_FEE_MAX_CHANGE_DENOMINATOR
-        int256 adjustmentFactor = 1e18 + errorRatio / int256(BASE_FEE_MAX_CHANGE_DENOMINATOR);
-
-        // Step 4: Apply adjustment
-        uint256 currentFee = feePerGasWei;
-        int256 newFee = int256(currentFee) * adjustmentFactor / 1e18;
-
-        // Step 5: Apply safety bounds
-        if (newFee < int256(minFeePerGasWei)) newFee = int256(minFeePerGasWei);
-        if (newFee > int256(maxFeePerGasWei)) newFee = int256(maxFeePerGasWei);
-
-        // Update only if changed
-        if (uint256(newFee) != currentFee) {
-            feePerGasWei = uint256(newFee);
-            emit FeePerGasUpdated(uint256(newFee));
+        if (newFee != feePerGasWei) {
+            feePerGasWei = newFee;
+            emit FeePerGasUpdated(newFee);
         }
     }
 
@@ -364,6 +348,5 @@ contract L2FeeVault is EssentialContract, IL2FeeVault {
     error InvalidAmount();
     error InvalidBounds();
     error InvalidBps();
-    error InvalidValue();
     error InsufficientBalance();
 }

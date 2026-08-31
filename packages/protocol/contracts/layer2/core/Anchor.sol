@@ -67,8 +67,8 @@ contract Anchor is EssentialContract {
     /// slot3: l1ChainId
     uint256[3] private _pacayaSlots;
 
-    /// @dev Tracks the last imported proposal id to ensure one import per proposal.
-    uint48 private _lastProposalId;
+    /// @dev Tracks the last proposal id whose fee data has been imported.
+    uint48 private _lastImportedFeeProposalId;
 
     /// @notice Latest block-level state, updated on every processed block.
     BlockState internal _blockState;
@@ -130,11 +130,11 @@ contract Anchor is EssentialContract {
     /// @dev Core function that anchors L1 block data for cross-chain verification.
     /// @param _checkpoint Checkpoint data for the L1 block being anchored.
     /// @param _proposalId The L1 proposal id for this block.
-    /// @param _feeData Fee data for new proposals (imported once per proposal).
+    /// @param _feeDataList Ordered, contiguous fee data for proposals not yet imported.
     function anchorV4(
         ICheckpointStore.Checkpoint calldata _checkpoint,
         uint48 _proposalId,
-        IL2FeeVault.ProposalFeeData calldata _feeData
+        IL2FeeVault.ProposalFeeData[] calldata _feeDataList
     )
         external
         onlyValidSender
@@ -143,7 +143,7 @@ contract Anchor is EssentialContract {
         uint48 prevAnchorBlockNumber = _blockState.anchorBlockNumber;
         _validateBlock(_checkpoint);
 
-        _importFeeData(_proposalId, _feeData);
+        _importFeeDataList(_feeDataList);
 
         uint256 parentNumber = block.number - 1;
         blockHashes[parentNumber] = blockhash(parentNumber);
@@ -201,28 +201,18 @@ contract Anchor is EssentialContract {
         }
     }
 
-    /// @dev Imports fee data into the L2 fee vault for new proposals.
-    /// @dev The correctness of `_feeData` is enforced by the validity proof, which must
-    ///      verify that it matches the canonical L1 proposal hash (including cost fields).
-    /// @param _proposalId The proposal id for the current block.
-    /// @param _feeData The fee data to import for new proposals.
-    function _importFeeData(
-        uint48 _proposalId,
-        IL2FeeVault.ProposalFeeData calldata _feeData
-    )
-        private
-    {
-        require(_proposalId != 0, InvalidProposalId());
+    /// @dev Imports an ordered, contiguous fee data into the L2 fee vault.
+    /// @dev `_feeDataList` is expected to start at `_lastImportedFeeProposalId + 1` and cover
+    ///      the contiguous canonical range visible at this anchor block, truncated by the
+    ///      protocol `MAX_FEE_DATA_LIST_LENGTH` in derivation/proving.
+    ///      Each item must match canonical L1 proposal data (including cost fields).
+    /// @param _feeDataList Ordered fee data entries to import.
+    function _importFeeDataList(IL2FeeVault.ProposalFeeData[] calldata _feeDataList) private {
+        uint256 listLength = _feeDataList.length;
+        if (listLength == 0) return;
 
-        uint48 lastProposalId = _lastProposalId;
-
-        // Same proposal - fee data already imported, skip
-        if (_proposalId == lastProposalId) return;
-
-        // New proposal - import fee data
-        require(_proposalId == lastProposalId + 1, InvalidProposalId());
-        feeVault.importProposalFee(_feeData);
-        _lastProposalId = _proposalId;
+        feeVault.importProposalFeeList(_feeDataList);
+        _lastImportedFeeProposalId += uint48(listLength);
     }
 
     /// @dev Calculates the aggregated ancestor block hash for the current block's parent.
@@ -276,6 +266,5 @@ contract Anchor is EssentialContract {
     error InvalidAddress();
     error InvalidL1ChainId();
     error InvalidL2ChainId();
-    error InvalidProposalId();
     error InvalidSender();
 }
