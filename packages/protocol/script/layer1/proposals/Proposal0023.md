@@ -41,11 +41,11 @@ Four contracts are deployed ahead of the vote — two `Bridge` implementations, 
 `DefaultResolver` implementation and its `ERC1967Proxy` on L2. The proposal then re-points two proxies
 and populates the new resolver:
 
-| Chain | Contract                                                  | Change                                      |
-| ----- | --------------------------------------------------------- | ------------------------------------------- |
-| L1    | Bridge proxy `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC` | implementation → `0x8636d9707ED54443808bA89F1B1b74f4b134AAa6`     |
-| L2    | Bridge proxy `0x1670000000000000000000000000000000000001` | implementation → `0x097BBBef669AaD66030aB223195D200eF9A47dc3`     |
-| L2    | New `DefaultResolver` proxy `0x2dfef0339009Ce10786fc118C883BB97af3163eD`        | `bridge` registered for chains 1 and 167000 |
+| Chain | Contract                                                                 | Change                                                        |
+| ----- | ------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| L1    | Bridge proxy `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`                | implementation → `0x8636d9707ED54443808bA89F1B1b74f4b134AAa6` |
+| L2    | Bridge proxy `0x1670000000000000000000000000000000000001`                | implementation → `0x097BBBef669AaD66030aB223195D200eF9A47dc3` |
+| L2    | New `DefaultResolver` proxy `0x2dfef0339009Ce10786fc118C883BB97af3163eD` | `bridge` registered for chains 1 and 167000                   |
 
 Explicitly **not** touched by this proposal:
 
@@ -320,10 +320,18 @@ across the two chains: one on L1, three on L2.
 Verify all four on the block explorers before the proposal is created, so a delegate can read the
 source behind each address rather than trusting the deployer. Use the same compiler settings the
 branch pins (`solc 0.8.30`, `optimizer_runs = 200`; `evm_version = "osaka"` for the L2 profile) and
-the constructor arguments the scripts pass. Explorer verification and the `forge verify-bytecode`
-commands in the pre-execution checklist are two independent routes to the same assurance; run both,
-since the explorer is the one a delegate can check without a local toolchain. Note that the L1 implementation will show as
-`Bridge`, not `MainnetBridge` — see Current State for why that rename is expected.
+the constructor arguments the scripts pass.
+
+Run the `forge verify-bytecode` commands in the pre-execution checklist as well, but not because
+they are an independent second route — they are not. Both go through the same Etherscan API, and
+`verify-bytecode` fails without a key. What it adds is a different comparison, not different
+infrastructure: the explorer tells a delegate what source the operator submitted, while
+`verify-bytecode` compares the deployed creation code against a build of **this commit** on the
+machine running it. It does not require the contract to have been verified on the explorer first —
+it fetches the creation transaction, not the source — so the two can be run in either order.
+
+Note that the L1 implementation will show as `Bridge`, not `MainnetBridge` — see Current State for
+why that rename is expected.
 
 The fill-in commit, also done, did three things:
 
@@ -374,12 +382,12 @@ should re-run `P=0023 pnpm proposal` independently and diff the result.
 Deployed 2026-08-31 and verified on-chain before the proposal was created. The codediff links show
 the live implementation against the new one for each proxy being upgraded.
 
-| What | Address | |
-| --- | --- | --- |
-| L1 `Bridge` implementation | `0x8636d9707ED54443808bA89F1B1b74f4b134AAa6` | [codediff](https://codediff.taiko.xyz/?addr=0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC&newimpl=0x8636d9707ED54443808bA89F1B1b74f4b134AAa6&chainid=1) |
-| L2 `Bridge` implementation | `0x097BBBef669AaD66030aB223195D200eF9A47dc3` | [codediff](https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000001&newimpl=0x097BBBef669AaD66030aB223195D200eF9A47dc3&chainid=167000) |
-| L2 `DefaultResolver` proxy | `0x2dfef0339009Ce10786fc118C883BB97af3163eD` | new proxy, nothing to diff |
-| L2 `DefaultResolver` implementation | `0x4F750D13005444407D44dAA30922128db0374ca1` | new contract, nothing to diff |
+| What                                | Address                                      |                                                                                                                                                           |
+| ----------------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| L1 `Bridge` implementation          | `0x8636d9707ED54443808bA89F1B1b74f4b134AAa6` | [codediff](https://codediff.taiko.xyz/?addr=0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC&newimpl=0x8636d9707ED54443808bA89F1B1b74f4b134AAa6&chainid=1)      |
+| L2 `Bridge` implementation          | `0x097BBBef669AaD66030aB223195D200eF9A47dc3` | [codediff](https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000001&newimpl=0x097BBBef669AaD66030aB223195D200eF9A47dc3&chainid=167000) |
+| L2 `DefaultResolver` proxy          | `0x2dfef0339009Ce10786fc118C883BB97af3163eD` | new proxy, nothing to diff                                                                                                                                |
+| L2 `DefaultResolver` implementation | `0x4F750D13005444407D44dAA30922128db0374ca1` | new contract, nothing to diff                                                                                                                             |
 
 The L1 codediff is the one that carries the proposal's whole argument: the only difference it should
 show against the live `MainnetBridge` is `_SEND_ETHER_GAS_LIMIT` rising from 35,000 to 135,000, plus
@@ -428,22 +436,48 @@ cast storage 0x2dfef0339009Ce10786fc118C883BB97af3163eD \
 # Authenticate the code itself, not just its getters, for all four deployed contracts. A
 # substituted contract can answer every getter above while carrying different logic, and these
 # implementations become the logic of proxies holding roughly 1,000,000 ETH.
-forge verify-bytecode 0x8636d9707ED54443808bA89F1B1b74f4b134AAa6 Bridge --rpc-url <L1_RPC> \
+#
+# ETHERSCAN_API_KEY is REQUIRED. forge verify-bytecode fetches the creation transaction from the
+# explorer API, and without a key it aborts with
+#   Error: Error fetching creation data from verifier-url: InvalidApiKey
+# One Etherscan V2 key covers both chains; chain 1 and chain 167000 are both in its chain list.
+export ETHERSCAN_API_KEY=<key>
+
+FOUNDRY_PROFILE=layer1 forge verify-bytecode 0x8636d9707ED54443808bA89F1B1b74f4b134AAa6 \
+  contracts/shared/bridge/Bridge.sol:Bridge --rpc-url <L1_RPC> \
   --encoded-constructor-args $(cast abi-encode "c(address,address,address,address)" \
     0x8Efa01564425692d0a0838DC10E300BD310Cb43e 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C \
     0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F)
 
-forge verify-bytecode 0x097BBBef669AaD66030aB223195D200eF9A47dc3 Bridge --rpc-url https://rpc.mainnet.taiko.xyz \
+FOUNDRY_PROFILE=layer2 forge verify-bytecode 0x097BBBef669AaD66030aB223195D200eF9A47dc3 \
+  contracts/shared/bridge/Bridge.sol:Bridge --rpc-url https://rpc.mainnet.taiko.xyz \
   --encoded-constructor-args $(cast abi-encode "c(address,address,address,address)" \
     0x2dfef0339009Ce10786fc118C883BB97af3163eD 0x1670000000000000000000000000000000000005 \
     0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000)
 
-forge verify-bytecode 0x4F750D13005444407D44dAA30922128db0374ca1 DefaultResolver --rpc-url https://rpc.mainnet.taiko.xyz
+FOUNDRY_PROFILE=layer2 forge verify-bytecode 0x4F750D13005444407D44dAA30922128db0374ca1 \
+  contracts/shared/common/DefaultResolver.sol:DefaultResolver --rpc-url https://rpc.mainnet.taiko.xyz
 
-forge verify-bytecode 0x2dfef0339009Ce10786fc118C883BB97af3163eD ERC1967Proxy --rpc-url https://rpc.mainnet.taiko.xyz \
+FOUNDRY_PROFILE=layer2 forge verify-bytecode 0x2dfef0339009Ce10786fc118C883BB97af3163eD \
+  ERC1967Proxy --rpc-url https://rpc.mainnet.taiko.xyz \
   --encoded-constructor-args $(cast abi-encode "c(address,bytes)" 0x4F750D13005444407D44dAA30922128db0374ca1 \
     $(cast calldata "init(address)" 0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C))
 ```
+
+**The pass signal is `Creation code matched with status full`.** That line is the authentication
+this checklist is for: it proves the deployed creation code, constructor arguments included, is
+what a local build of this commit produces. Measured on 2026-08-31, all four report it.
+
+Two things will happen after that line which are not failures of the contracts:
+
+- **The runtime phase needs an archive node.** `verify-bytecode` re-executes the creation
+  transaction at its historical block to derive runtime code. Public endpoints refuse: L1
+  `ethereum.publicnode.com` answers `403 … Archive requests require a personal token`, and the L2
+  endpoint failed the re-execution with `lack of funds … for max fee`. Point `--rpc-url` at an
+  archive node to complete it, or stop at the creation-code match.
+- **Do not add `--chain <id>`.** Foundry resolves the numeric id to a named chain and then rejects
+  its own value: `foundry config error: invalid type: found string "taiko", expected u64`. The
+  chain is derived from `--rpc-url` anyway.
 
 In the second command, the first constructor argument is `0x2dfef0339009Ce10786fc118C883BB97af3163eD` — the proxy, not
 the implementation. `DeployBridgeUpgradeL2` passes the proxy address to the `Bridge` constructor.
