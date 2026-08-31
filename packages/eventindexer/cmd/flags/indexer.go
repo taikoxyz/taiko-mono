@@ -67,6 +67,14 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"INDEX_NFTS"},
 	}
+	AllowUnclaimedBalanceReplay = &cli.BoolFlag{
+		Name: "allowUnclaimedBalanceReplay",
+		Usage: "Start even when balances predate the transfer log claim table, " +
+			"accepting a single double count on this restart",
+		Required: false,
+		Category: indexerCategory,
+		EnvVars:  []string{"ALLOW_UNCLAIMED_BALANCE_REPLAY"},
+	}
 	IndexERC20s = &cli.BoolFlag{
 		Name:     "indexERC20s",
 		Usage:    "Whether to index erc20 transfer events or not",
@@ -87,4 +95,5 @@ var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	SyncMode,
 	IndexNFTs,
 	IndexERC20s,
+	AllowUnclaimedBalanceReplay,
 })
