@@ -10,7 +10,7 @@ useDefault = true
 # ABI-encoded calldata blobs that merely look like high-entropy hex. Anything
 # not matched here stays flagged rather than risk silencing a real finding.
 
-[allowlist]
+[[allowlists]]
 description = "Public blockchain data and known test keys — not real secrets"
 regexTarget = "line"
 regexes = [
@@ -72,4 +72,17 @@ paths = [
   '''(^|.*/)\.codex/.*''',
   '''(^|.*/)\.claude/.*''',
   '''.*\.claude\.md$''',
+]
+
+# Generated protocol spec models: dicts of keccak digests, storage slots and
+# trie keys whose *identifiers* end in `key`, e.g.
+#   'registration_commitment_trie_key': '200031adff46d9…660c0ac8'
+# The default generic-api-key rule reads "identifier containing key + 64 hex
+# chars at entropy ~3.8" as a credential. Scoped to that one rule so a real
+# secret committed here is still caught by every other rule.
+[[allowlists]]
+description = "Preconfirmation-v2 spec models: hash constants, not credentials"
+targetRules = ["generic-api-key"]
+paths = [
+  '''packages/protocol/docs/preconfirmation-v2/.*''',
 ]
