@@ -12,6 +12,7 @@
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { type NFT, TokenType } from '$libs/token';
   import { formatTimestamp } from '$libs/util/formatTimestamp';
+  import { formatTokenAmount } from '$libs/util/formatTokenAmount';
   import { getBlockFromTxHash } from '$libs/util/getBlockFromTxHash';
   import { geBlockTimestamp } from '$libs/util/getBlockTimestamp';
   import { getLogger } from '$libs/util/logger';
@@ -285,7 +286,7 @@
             {#if bridgeTx.tokenType === TokenType.ERC1155}
               <span>{bridgeTx.amount} </span>
             {:else}
-              <span>{formatEther(bridgeTx.amount ? bridgeTx.amount : BigInt(0))} {bridgeTx.symbol}</span>
+              <span>{formatTokenAmount(bridgeTx.amount, bridgeTx.decimals)} {bridgeTx.symbol}</span>
             {/if}
           </div>
         {/if}

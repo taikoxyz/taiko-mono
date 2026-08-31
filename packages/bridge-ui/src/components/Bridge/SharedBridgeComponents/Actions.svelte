@@ -21,6 +21,7 @@
   import { Icon } from '$components/Icon';
   import { BridgePausedError } from '$libs/error';
   import { TokenType } from '$libs/token';
+  import { tokenNeedsAllowanceReset } from '$libs/token/approvalReset';
   import { getTokenApprovalStatus } from '$libs/token/getTokenApprovalStatus';
   import { account, connectedSourceChain } from '$stores';
 
@@ -95,10 +96,8 @@
 
   $: validApprovalStatus = $allApproved;
 
-  // USDT specific, L1 address of USDT contract
-  $: resetRequired =
-    $selectedToken?.addresses[$connectedSourceChain.id] === '0xdAC17F958D2ee523a2206206994597C13D831ec7' &&
-    $needsApprovalReset;
+  // USDT-style tokens must reset a non-zero allowance before raising it
+  $: resetRequired = tokenNeedsAllowanceReset($selectedToken, $connectedSourceChain?.id) && $needsApprovalReset;
 
   $: commonConditions =
     validApprovalStatus &&

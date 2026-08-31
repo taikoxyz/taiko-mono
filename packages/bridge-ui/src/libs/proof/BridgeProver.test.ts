@@ -289,6 +289,122 @@ describe('BridgeProver', () => {
     });
   });
 
+  describe('getEncodedSignalProofForRecall()', () => {
+    const validSignalSlot = '0x1eb55981d51be65667e21e49934d6cb2f5fcc239607297a8280d18c3f64a978b';
+    const validEncodedHopProofs = '0x1234' as Hex;
+
+    const recallBridgeTransaction: BridgeTransaction = {
+      amount: 5000000000000000000n,
+      // Source-chain height, deliberately far above the destination chain's synced height below:
+      // a recall must not be gated on a block number from the wrong chain.
+      blockNumber: numberToHex(99999999),
+      decimals: 0,
+      destChainId: BigInt(167001),
+      from: '0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199',
+      srcTxHash: '0xc0a3476ac80c3468a65702864ff4ef22ca5b54afac3d0911fb14165cdada7f1c',
+      destTxHash: '' as Hash,
+      msgHash: '0x36973cd4172846df09d48d0bf428802d674848d39229962bbaec2e2fea465f15',
+      srcChainId: 32382n,
+      processingFee: 0n,
+      message: {
+        data: '0x',
+        destChainId: 167001n,
+        destOwner: '0x8626f6940e2eb28930efb4cef49b2d1f2c9c1199',
+        fee: 0n,
+        from: '0x8626f6940e2eb28930efb4cef49b2d1f2c9c1199',
+        gasLimit: 0,
+        id: 4829n,
+        srcChainId: 32382n,
+        srcOwner: '0x8626f6940e2eb28930efb4cef49b2d1f2c9c1199',
+        to: '0x8626f6940e2eb28930efb4cef49b2d1f2c9c1199',
+        value: 5000000000000000000n,
+      },
+      status: 0,
+      symbol: 'ETH',
+      tokenType: TokenType.ETH,
+    };
+
+    const setupHappyPath = (bridgeProver: BridgeProver) => {
+      vi.spyOn(bridgeProver, 'getSignalSlot').mockResolvedValue(validSignalSlot);
+      // Destination chain synced height, far below the tx's source-chain blockNumber
+      vi.spyOn(bridgeProver, 'getLatestSyncedBlockNumber').mockResolvedValue(2487n);
+      vi.spyOn(bridgeProver, 'encodeHopProofs').mockReturnValue(validEncodedHopProofs);
+      vi.spyOn(bridgeProver, 'verifyProofPreFlight').mockResolvedValue(undefined);
+
+      // Checkpoint lookup in verifyCheckpoint
+      vi.mocked(readContract).mockResolvedValue({
+        blockNumber: 2487n,
+        blockHash: zeroHash,
+        stateRoot: zeroHash,
+      });
+
+      const mockClient = {
+        request: vi.fn().mockResolvedValue({
+          balance: '0x0',
+          accountProof: ['0x1234'],
+          codeHash: zeroHash,
+          nonce: '0x1',
+          storageHash: zeroHash,
+          storageProof: [{ key: validSignalSlot, value: '0x1', proof: ['0x1234'] }],
+        }),
+        getBlock: vi.fn().mockResolvedValue({ number: 2487n, stateRoot: zeroHash, hash: '0x1' }),
+      } as unknown as ClientWithEthGetProofRequest;
+
+      vi.mocked(getPublicClient).mockReturnValue(mockClient);
+    };
+
+    it('should throw if the bridgeTx does not contain a message', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+
+      // When / Then
+      await expect(
+        bridgeProver.getEncodedSignalProofForRecall({
+          bridgeTx: { ...recallBridgeTransaction, message: undefined },
+        }),
+      ).rejects.toThrow(ProofGenerationError);
+    });
+
+    it('should generate a recall proof even when the source-chain block number exceeds the destination synced height', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+      setupHappyPath(bridgeProver);
+
+      // When
+      const encodedSignalProof = await bridgeProver.getEncodedSignalProofForRecall({
+        bridgeTx: recallBridgeTransaction,
+      });
+
+      // Then
+      expect(encodedSignalProof).toEqual(validEncodedHopProofs);
+    });
+
+    it('should throw ProofGenerationError while the FAILED signal is not yet part of the synced state', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+      setupHappyPath(bridgeProver);
+
+      const mockClient = {
+        request: vi.fn().mockResolvedValue({
+          balance: '0x0',
+          accountProof: ['0x1234'],
+          codeHash: zeroHash,
+          nonce: '0x1',
+          storageHash: zeroHash,
+          // Empty storage slot: the FAILED signal is absent at the synced block
+          storageProof: [{ key: validSignalSlot, value: '0x0', proof: ['0x1234'] }],
+        }),
+        getBlock: vi.fn().mockResolvedValue({ number: 2487n, stateRoot: zeroHash, hash: '0x1' }),
+      } as unknown as ClientWithEthGetProofRequest;
+      vi.mocked(getPublicClient).mockReturnValue(mockClient);
+
+      // When / Then
+      await expect(bridgeProver.getEncodedSignalProofForRecall({ bridgeTx: recallBridgeTransaction })).rejects.toThrow(
+        ProofGenerationError,
+      );
+    });
+  });
+
   describe('encodeHopProofs()', () => {
     it('should encode HopProofs correctly', async () => {
       vi.mock('$bridgeConfig');

@@ -29,11 +29,13 @@
   let invalidRecipient = false;
   let invalidDestOwner = false;
   let prevRecipientAddress: Maybe<Address> = null;
+  let prevDestOwnerAddress: Maybe<Address> = null;
 
   let recipientIsSmartContract = false;
   // let destOwnerIsSmartContract = false;
 
   function closeModal() {
+    removeEscKeyListener();
     modalOpen = false;
   }
 
@@ -44,17 +46,18 @@
   }
 
   function cancelModal() {
-    // Revert change of recipient address
+    // Revert to the state the dialog was opened with, including a previously configured destOwner
     $recipientAddress = prevRecipientAddress;
-    $destOwnerAddress = recipientIsSmartContract ? $account?.address : null;
+    $destOwnerAddress = prevDestOwnerAddress;
     removeEscKeyListener();
     closeModal();
   }
 
   function modalOpenChange(open: boolean) {
     if (open) {
-      // Save it in case we want to cancel
+      // Save them in case we want to cancel
       prevRecipientAddress = $recipientAddress;
+      prevDestOwnerAddress = $destOwnerAddress;
     }
   }
 
@@ -103,7 +106,9 @@
   const addEscKeyListener = () => {
     escKeyListener = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        closeModal();
+        // Escape means cancel: unconfirmed edits must not survive, or an invalid recipient /
+        // missing destOwner could slip past the Confirm button's validation
+        cancelModal();
       }
     };
     window.addEventListener('keydown', escKeyListener);

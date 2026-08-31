@@ -12,7 +12,7 @@
   import { account } from '$stores/account';
   import { connectedSourceChain } from '$stores/network';
 
-  import { assertBridgeNotPaused, shouldShowManualClaimEntry } from './status';
+  import { assertBridgeNotPaused, isEligibleForStorageRemoval, shouldShowManualClaimEntry } from './status';
 
   const dispatch = createEventDispatcher();
 
@@ -70,9 +70,10 @@
 
     dispatch('openModal', 'try_claim');
   }
-  $: if (hasError && $account.address) {
+  $: if (hasError && $account?.address && isEligibleForStorageRemoval(bridgeTx, Date.now())) {
     if (bridgeTxService.transactionIsStoredLocally($account.address, bridgeTx)) {
-      // If we can't start polling, it maybe an old/outdated transaction in the local storage, so we remove it
+      // Polling could not start and the transaction is old enough that this cannot be a transient
+      // enhancement failure, so drop the stale entry from local storage
       bridgeTxService.removeTransactions($account.address, [bridgeTx]);
       if (!bridgeTxService.transactionIsStoredLocally($account.address, bridgeTx)) {
         dispatch('transactionRemoved', bridgeTx);

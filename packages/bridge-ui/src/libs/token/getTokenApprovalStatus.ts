@@ -19,6 +19,7 @@ import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { getLogger } from '$libs/util/logger';
 import { account, connectedSourceChain } from '$stores';
 
+import { tokenNeedsAllowanceReset } from './approvalReset';
 import { checkOwnershipOfNFT } from './checkOwnership';
 import { type NFT, type Token, TokenType } from './types';
 
@@ -75,8 +76,8 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
       insufficientAllowance.set(requireAllowance);
       allApproved.set(!requireAllowance);
       if (requireAllowance) {
-        // specific check for USDT
-        if (get(selectedToken)?.symbol === 'tUSDT') {
+        // USDT-style tokens must reset a non-zero allowance to 0 before it can be raised
+        if (tokenNeedsAllowanceReset(token, currentChainId)) {
           const allowance = await bridge.getAllowance({
             amount: get(enteredAmount),
             tokenAddress,

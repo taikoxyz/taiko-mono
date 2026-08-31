@@ -194,16 +194,15 @@ export class BridgeProver {
   }
 
   async getEncodedSignalProofForRecall({ bridgeTx }: { bridgeTx: BridgeTransaction }) {
-    const { blockNumber, message, msgHash } = bridgeTx;
+    const { message, msgHash } = bridgeTx;
     if (!message) throw new ProofGenerationError('Message is not defined');
-    if (!blockNumber) throw new ProofGenerationError('Block number is not defined');
 
     const { srcChainId, destChainId } = message;
+    // bridgeTx.blockNumber is a source-chain height, while the FAILED signal proven here lives on
+    // the destination chain at an unknown block, so there is no block number to gate on: comparing
+    // the two chains' heights can permanently block a legitimate recall. getProof() below still
+    // rejects the proof while the signal is absent from the synced destination state.
     const latestSyncedBlock = await this.getLatestSyncedBlockNumber(destChainId, srcChainId);
-
-    if (latestSyncedBlock < hexToBigInt(blockNumber)) {
-      throw new BlockNotSyncedError('block is not synced yet');
-    }
 
     await this.verifyCheckpoint(Number(destChainId), Number(srcChainId), latestSyncedBlock);
 
