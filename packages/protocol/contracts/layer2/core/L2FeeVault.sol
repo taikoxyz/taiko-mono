@@ -59,7 +59,7 @@ import "./L2FeeVault_Layout.sol"; // DO NOT DELETE
 ///   who intentionally post unprofitable proposals.
 ///
 /// ## Trust Assumptions
-/// The fee data imported via `importProposalFee` must be validated by the validity proof.
+/// The fee data imported via `importProposalFeeList` must be validated by the validity proof.
 /// The proof should verify:
 /// 1) `hashProposal(proposal)` matches the proposal hash stored in the L1 Inbox ring buffer
 ///    for the given proposalId (cost fields are part of the Proposal struct), and
@@ -110,7 +110,7 @@ contract L2FeeVault is EssentialContract, IL2FeeVault {
     // State Variables
     // ---------------------------------------------------------------
 
-    /// @notice Anchor contract authorized to call `importProposalFee`.
+    /// @notice Anchor contract authorized to call `importProposalFeeList`.
     address public anchor;
 
     /// @notice Sum of all unpaid reimbursements owed to proposers (the vault's liabilities).
@@ -197,24 +197,26 @@ contract L2FeeVault is EssentialContract, IL2FeeVault {
     // ---------------------------------------------------------------
 
     /// @inheritdoc IL2FeeVault
-    /// @dev Called by Anchor during the first block of a proposal. Sequential validation
-    ///      is performed by Anchor before calling this function.
-    ///
-    /// Steps:
-    /// 1. Computes L1 cost from gas and blob fees
-    /// 2. Determines reimbursement based on profitability
-    /// 3. Credits proposer's claimable balance and increases totalLiabilities
-    /// 4. Triggers fee adjustment via `_updateFeePerGas()`
-    function importProposalFee(ProposalFeeData calldata _fee) external onlyAnchor {
-        uint256 l1CostWei = _calcL1Cost(_fee);
-        uint256 reimbursedWei = _calcReimbursement(l1CostWei, _fee.l2BasefeeRevenue);
+    function importProposalFeeList(ProposalFeeData[] calldata _fees) external onlyAnchor {
+        uint256 feesLength = _fees.length;
+        if (feesLength == 0) return;
 
-        claimable[_fee.proposer] += reimbursedWei;
-        totalLiabilities += reimbursedWei;
+        for (uint256 i; i < feesLength; ++i) {
+            ProposalFeeData calldata feeData = _fees[i];
+            uint256 l1CostWei = _calcL1Cost(feeData);
+            uint256 reimbursedWei = _calcReimbursement(l1CostWei, feeData.l2BasefeeRevenue);
 
-        emit ProposalFeesImported(
-            _fee.proposalId, _fee.proposer, l1CostWei, _fee.l2BasefeeRevenue, reimbursedWei
-        );
+            claimable[feeData.proposer] += reimbursedWei;
+            totalLiabilities += reimbursedWei;
+
+            emit ProposalFeesImported(
+                feeData.proposalId,
+                feeData.proposer,
+                l1CostWei,
+                feeData.l2BasefeeRevenue,
+                reimbursedWei
+            );
+        }
 
         _updateFeePerGas();
     }
