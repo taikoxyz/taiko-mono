@@ -1577,9 +1577,11 @@ func TestSendingBackend_AnAcceptedSendClearsTheHeldNonceRun(t *testing.T) {
 	// One taken transaction says the endpoint is working, which is what the run was counting
 	// against.
 	only.err = nil
+
 	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(99)))
 
 	only.err = rpcRejection{txpool.ErrAlreadyKnown.Error()}
+
 	require.Error(t, b.SendTransaction(context.Background(), txWithNonce(100)))
 
 	assert.Equal(t, []int{0}, rotation(b), "the run restarts from the send it accepted")
