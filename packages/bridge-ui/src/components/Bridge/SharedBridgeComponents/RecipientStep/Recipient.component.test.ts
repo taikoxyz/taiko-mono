@@ -310,6 +310,57 @@ describe('Recipient dialog', () => {
       expect(m.confirmButton.disabled).toBe(false);
     });
 
+    it('accepts an owner validated in the separate DestOwner editor while Recipient stays mounted', async () => {
+      // RecipientStep mounts Recipient and DestOwner side by side against the same
+      // $destOwnerAddress store, so the other editor can commit a new owner without
+      // Recipient reclassifying anything.
+      const m = await withContractRecipient();
+      await m.type(m.destOwnerInput() as HTMLInputElement, DEST_OWNER);
+      await flush();
+      expect(m.confirmButton.disabled).toBe(false);
+
+      // The separate editor validates a different owner and commits it
+      const OTHER_OWNER = '0x4444444444444444444444444444444444444444';
+      destOwnerAddress.set(OTHER_OWNER as never);
+      await flush();
+
+      const editButton = Array.from(m.target.querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('common.edit'),
+      ) as HTMLButtonElement;
+      editButton.click();
+      await flush();
+
+      // The recipient classification is still current, so nothing reclassifies; the
+      // committed owner must carry its own provenance
+      expect((m.destOwnerInput() as HTMLInputElement).value).toBe(OTHER_OWNER);
+      expect(m.confirmButton.disabled).toBe(false);
+    });
+
+    it('accepts the reset-to-wallet owner committed by the separate editor', async () => {
+      const m = await withContractRecipient();
+      await m.type(m.destOwnerInput() as HTMLInputElement, DEST_OWNER);
+      await flush();
+
+      // DestOwner's reset path writes the connected wallet into the shared store
+      destOwnerAddress.set(WALLET as never);
+      await flush();
+
+      expect(m.confirmButton.disabled).toBe(false);
+    });
+
+    it('still refuses an unvalidated draft after a committed owner was hydrated', async () => {
+      const m = await withContractRecipient();
+      destOwnerAddress.set(DEST_OWNER as never);
+      await flush();
+      expect(m.confirmButton.disabled).toBe(false);
+
+      // Hydrating from the store must not let the local input promote itself
+      await m.type(m.destOwnerInput() as HTMLInputElement, 'abc');
+      await flush();
+
+      expect(m.confirmButton.disabled).toBe(true);
+    });
+
     it('does not treat a chain-A classification as current after the chain changed', async () => {
       isSmartContract.mockResolvedValue(false);
       const m = mount();

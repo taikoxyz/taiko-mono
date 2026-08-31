@@ -172,15 +172,6 @@
       recipientIsSmartContract = isContract;
       validatedRecipient = { address: addr, chainId: destChainId };
       invalidRecipient = false;
-
-      // A remount (Review -> Recipient) loses the local record while the store keeps the
-      // owner. $destOwnerAddress only ever holds an address that passed validation, so a
-      // prefilled owner is already validated and just needs its provenance restored -
-      // otherwise Confirm stays disabled with nothing on screen explaining why.
-      if (isContract && $destOwnerAddress && !validatedDestOwner) {
-        validatedDestOwner = $destOwnerAddress;
-        invalidDestOwner = false;
-      }
     } catch (error) {
       if (generation !== recipientValidationGeneration) return;
       // A failed lookup cannot prove the recipient is claimable; leave it unclassified
@@ -231,6 +222,21 @@
     }
   }
 
+  /**
+   * The committed store, unlike the local draft, only ever holds an address that passed
+   * validation - here, in the separate DestOwner editor, or as the connected wallet. So a
+   * change to it carries its own provenance and must restore it, whether it came from a
+   * remount, from the other editor, or from its reset-to-wallet path. Watching the store
+   * rather than the draft is what keeps an unvalidated draft from promoting itself.
+   */
+  let lastCommittedDestOwner: Maybe<Address> = undefined;
+  function onCommittedDestOwnerChanged(committed: Maybe<Address>) {
+    if (lastCommittedDestOwner === committed) return;
+    lastCommittedDestOwner = committed;
+    validatedDestOwner = committed ?? null;
+    if (committed) invalidDestOwner = false;
+  }
+
   function syncDestOwnerDraft(draft: Maybe<string>) {
     if (validatedDestOwner && !addressesEqual(validatedDestOwner, draft)) {
       // $destOwnerAddress is deliberately left alone: rewriting it here would feed back
@@ -271,6 +277,7 @@
   $: destOwnerAddressBinding = $destOwnerAddress || undefined;
 
   $: syncRecipientDraft(ethereumAddressBinding);
+  $: onCommittedDestOwnerChanged($destOwnerAddress);
   $: syncDestOwnerDraft(destOwnerAddressBinding);
   $: onDestChainChanged($destNetwork?.id);
 
