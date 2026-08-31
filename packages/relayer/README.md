@@ -89,27 +89,39 @@ Environment variables are crucial for the configuration of the Relayer’s proce
    ./relayer indexer
    ```
 
-### Upgrading: the processing queue is redeclared
+### Upgrading: the processing queue wants a dead-letter routing key
 
-This release adds `x-dead-letter-routing-key` to the main processing queue. Without it a message
-rejected for good kept the routing key it was published with — the queue's own name — while
+This release asks for `x-dead-letter-routing-key` on the main processing queue. Without it a message
+rejected for good keeps the routing key it was published with — the queue's own name — while
 `dlx-<queue>` is bound with the `-process` key, and a direct exchange discards what it cannot route.
 Messages negatively acknowledged with no requeue were therefore destroyed rather than parked, and
 the permanently empty `dlx-<queue>` looked like evidence that none had been.
 
-A durable queue's arguments cannot be changed in place: the broker answers a redeclare with
-different arguments with `406 PRECONDITION_FAILED` and closes the channel. **An existing deployment
-will not start until its processing queue is dealt with.** Either drain and delete
-`<src>-<dest>-MessageSent-queue` so the next start declares it afresh, or apply the argument through
-a broker policy. The startup error names the queue and says the same.
+A durable queue's arguments are fixed once it exists, so an existing queue cannot simply take the
+new one: the broker answers a redeclare carrying different arguments with `406 PRECONDITION_FAILED`.
+**The relayer does not insist.** A queue that accepts the argument is correct from that moment; one
+that refuses keeps the arguments it has, the relayer starts as before, and it logs at error level
+what is still wrong and how to fix it. Both binaries declare this queue, so insisting would have
+stopped the whole relayer on rollout — and the only in-band repair, deleting the queue, destroys the
+claims still in it.
+
+To fix an existing queue, either is enough:
+
+- Set `dead-letter-routing-key` to `<queue>-process` with a broker policy on that queue. Policies
+  are not part of the declare-equivalence check, so this needs no redeclare and can be applied while
+  the queue is running. This is the one to prefer.
+- Drain the queue and delete it, so the next start declares it afresh. This loses anything still
+  queued, so drain first.
 
 ### Retrying a claim that failed for a transient reason
 
 A processing failure that may resolve on its own — an RPC timeout, a connection reset, a source
 transaction not yet confirmed — does not cost the claim. The message is republished to a
 `<queue>-transient` sibling queue that no consumer reads, with
-`TRANSIENT_ERROR_QUEUE_EXPIRATION` (30 seconds by default) on it, and the original delivery is
-acknowledged. When the expiration elapses the broker dead-letters it back onto the processing queue
+`TRANSIENT_ERROR_QUEUE_EXPIRATION` on it, and the original delivery is acknowledged. That value is
+**milliseconds**, as every AMQP expiration is, and defaults to `30000`. It is checked at startup: a
+duration string such as `30s` is accepted by the publish and then closes the channel, which the
+relayer would otherwise survive only as a reconnect loop. When the expiration elapses the broker dead-letters it back onto the processing queue
 and it is tried again.
 
 The wait is what makes this safe to repeat. `QUEUE_PREFETCH_COUNT` defaults to 1 and a delivery is
@@ -169,6 +181,11 @@ which is the exposure these endpoints exist to remove, reached by another route.
 resolved to decide this, so a private name such as `mev-relay.default.svc.cluster.local` is rejected
 even where it resolves inside the cluster — give the address as a literal, or serve the relay over
 `https://`. Resolving would make a cleartext decision depend on what DNS answers at that moment.
+
+Errors returned from a send have any URL and any configured host removed from their text, so an
+endpoint's API key and name stay out of the logs. Addresses the resolver produced — the IP a dial
+reports, or the resolver's own `host:port` — are not removed, so a relay's provider can still be
+inferred from a failing deployment's logs.
 
 Each endpoint also gets its own share of the time left on the attempt, so one that accepts the
 connection and then never answers cannot spend the budget the endpoints behind it need. That budget

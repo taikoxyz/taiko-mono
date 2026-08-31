@@ -444,7 +444,20 @@ func TestIsTransientProcessMessageError(t *testing.T) {
 			err:  errors.New("execution reverted"),
 			want: false,
 		},
-		{name: "nonce too low", err: errors.New("nonce too low"), want: false},
+		{
+			// The bare text is not the sentinel, and only the sentinel is classified. A message
+			// whose error merely reads this way carries no proof the nonce was lost.
+			name: "the words nonce too low, unwrapped",
+			err:  errors.New("nonce too low"),
+			want: false,
+		},
+		{
+			// The sentinel itself, wrapped the way sendTx wraps it. This is the claim that lost a
+			// race for its nonce with nobody having processed the message, so it is retried.
+			name: "the nonce too low sentinel",
+			err:  fmt.Errorf("aborted tx send due to critical error: %w", core.ErrNonceTooLow),
+			want: true,
+		},
 	}
 
 	for _, tt := range tests {

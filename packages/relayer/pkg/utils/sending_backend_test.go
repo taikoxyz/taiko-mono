@@ -12,6 +12,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	pkgerrors "github.com/pkg/errors"
@@ -298,7 +299,10 @@ func TestSendingBackend_AFeeBumpedResendIsStillTheSameClaim(t *testing.T) {
 	// under a new hash while remaining one claim. Charged per hash, three rounds — about
 	// ninety-six seconds at the default resubmission timeout — walked a healthy endpoint to the
 	// threshold for a single claim it merely would not take.
-	for tip := int64(1); tip <= int64(3*DefaultPrivateRPCFailureThreshold); tip++ {
+	// Bounded by the consecutive-failure ceiling, which is what actually ends a run of refusals of
+	// one claim — deriving it from failureThreshold happens to sit below the ceiling at today's
+	// defaults and would exceed it if the threshold were raised, failing for an unrelated reason.
+	for tip := int64(1); tip < int64(DefaultPrivateRPCConsecutiveFailureCeiling); tip++ {
 		require.Error(t, b.SendTransaction(context.Background(), txWithNonceAndTip(7, tip)))
 	}
 
@@ -1364,4 +1368,85 @@ func TestSendingBackend_KeepsTheAcceptedMarkAcrossATrip(t *testing.T) {
 	// A nonce above the mark is a first send and keeps the configured order.
 	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(6)))
 	assert.Len(t, first.sent, 3)
+}
+
+func TestSendingBackend_DoesNotChargeAHolderForHavingTheNonce(t *testing.T) {
+	public := &fakeBackend{}
+	// What a relay answers when it already has this nonce. It is a JSON-RPC error, so it reads as
+	// a refusal, and a run of collisions after a resetNonce carries distinct nonces, so the
+	// deduplication cannot suppress it either.
+	first := &fakeSender{err: rpcRejection{txpool.ErrReplaceUnderpriced.Error()}}
+	second := &fakeSender{}
+
+	b := NewSendingBackend(public, []TxSender{first, second}, nil, nil)
+
+	for nonce := uint64(1); nonce <= uint64(2*DefaultPrivateRPCFailureThreshold); nonce++ {
+		require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(nonce)))
+	}
+
+	// Charged, this took the *preferred* relay out for five minutes for doing exactly what
+	// steering the resend to it was meant to achieve.
+	assert.Equal(t, 0, b.failures[0], "holding the claim is not refusing it")
+	assert.Equal(t, []int{0, 1}, rotation(b))
+	assert.Empty(t, public.sent)
+}
+
+func TestSendingBackend_DoesNotChargeAHolderThatAlreadyKnowsTheTransaction(t *testing.T) {
+	only := &fakeSender{err: rpcRejection{txpool.ErrAlreadyKnown.Error()}}
+	b := NewSendingBackend(&fakeBackend{}, []TxSender{only}, nil, nil)
+
+	for nonce := uint64(1); nonce <= uint64(2*DefaultPrivateRPCFailureThreshold); nonce++ {
+		// The answer still reaches the transaction manager, which knows what "already known"
+		// means: it logs the resubmission and carries on waiting for the receipt. What must not
+		// happen is the endpoint being charged for holding the claim.
+		require.Error(t, b.SendTransaction(context.Background(), txWithNonce(nonce)))
+	}
+
+	assert.Equal(t, 0, b.failures[0])
+	assert.Equal(t, []int{0}, rotation(b))
+}
+
+func TestSendingBackend_StillChargesAnOrdinaryRefusal(t *testing.T) {
+	only := &fakeSender{err: rpcRejection{"claim not accepted"}}
+	b := NewSendingBackend(&fakeBackend{}, []TxSender{only}, nil, nil)
+
+	// The holder exemption must not swallow refusals that are refusals.
+	require.Error(t, b.SendTransaction(context.Background(), txWithNonce(1)))
+
+	assert.Equal(t, 1, b.failures[0])
+}
+
+func TestSendingBackend_TheFloorHandsTheWholeBudgetToOneAttempt(t *testing.T) {
+	// Below MinPrivateRPCAttemptShare a slice is too short for a relay to answer in, so the
+	// endpoint would fail on the budget rather than on its health — and a timeout is charged with
+	// no deduplication, which is how endpoints flap.
+	ctx, cancel := context.WithTimeout(context.Background(), MinPrivateRPCAttemptShare)
+	defer cancel()
+
+	attemptCtx, attemptCancel := attemptContext(ctx, 4)
+	defer attemptCancel()
+
+	parent, hasParent := ctx.Deadline()
+	attempt, hasAttempt := attemptCtx.Deadline()
+
+	require.True(t, hasParent)
+	require.True(t, hasAttempt)
+	assert.Equal(t, parent, attempt, "the attempt takes what is left rather than a quarter of it")
+}
+
+func TestSendingBackend_CreatesEverySeriesUpFront(t *testing.T) {
+	// Prometheus creates a labelled child on first use, so a counter never touched is absent
+	// rather than zero, and increase() over absent-then-1 is 0 — the first trip, the transition
+	// most worth alerting on, would be the one that never fires.
+	NewSendingBackend(&fakeBackend{}, []TxSender{&fakeSender{}, &fakeSender{}}, nil, nil)
+
+	for _, endpoint := range []string{"0", "1"} {
+		assert.NotPanics(t, func() {
+			testutil.ToFloat64(relayer.PrivateRPCTrips.WithLabelValues(endpoint))
+			testutil.ToFloat64(relayer.PrivateRPCInRotation.WithLabelValues(endpoint))
+		}, "endpoint %s has no series to rise from", endpoint)
+	}
+
+	assert.Equal(t, float64(1), testutil.ToFloat64(relayer.PrivateRPCInRotation.WithLabelValues("0")),
+		"an endpoint starts in rotation")
 }

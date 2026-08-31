@@ -16,6 +16,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 
@@ -276,6 +277,17 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 		// whenever the transaction manager abandons a send.
 		if errors.Is(err, context.Canceled) && ctx.Err() != nil {
 			return b.redacted(err)
+		}
+
+		// An endpoint that answers because it is already holding this nonce is not refusing the
+		// claim, and steering the resend to it is the whole point of doing so. Nothing is charged.
+		if holdsTheNonce(err) {
+			slog.Info("Private endpoint already holds this nonce",
+				"endpoint", endpoint.index,
+				"nonce", tx.Nonce(),
+			)
+
+			continue
 		}
 
 		// The endpoint had a usable context and still did not take the transaction. That counts
@@ -539,13 +551,18 @@ func (b *SendingBackend) inRotation() []admission {
 		admitted = append(admitted, admission{index: i, generation: b.generation[i]})
 	}
 
+	// Set under the lock, like the trip that clears it. Outside, a re-admission racing a fresh trip
+	// could land after that trip's Set(0) and leave the gauge claiming the endpoint is in rotation
+	// for the whole retry interval — the one thing this gauge exists to report accurately.
+	for _, i := range readmitted {
+		relayer.PrivateRPCInRotation.WithLabelValues(strconv.Itoa(i)).Set(1)
+	}
+
 	b.mu.Unlock()
 
 	// Logged outside the lock, and after it rather than under a defer, so a rare transition does
 	// not put a write to the log inside the path every send takes.
 	for _, i := range readmitted {
-		relayer.PrivateRPCInRotation.WithLabelValues(strconv.Itoa(i)).Set(1)
-
 		slog.Info("Private endpoint back in rotation",
 			"endpoint", i,
 			"after", b.retryInterval,
@@ -697,10 +714,13 @@ func (b *SendingBackend) recordSuccess(index int, nonce uint64) {
 // one". A first send arriving out of order behind a higher nonce is treated as a resend by that
 // test; that only reorders private endpoints against each other and costs nothing.
 //
-// Nothing is charged for this. Non-inclusion is usually a fee that was too low or a race already
-// lost, not an unhealthy relay, and tripping an endpoint for it would push claims into the public
-// mempool for reasons that have nothing to do with the endpoint — the exposure this exists to
-// remove. Bounding how long a send waits for inclusion is TX_SEND_TIMEOUT's job.
+// Nothing is charged for the reordering itself, and nothing is charged for what the holder answers
+// either: a relay that already has the nonce replies "replacement transaction underpriced" or
+// "already known", which reads as a refusal but is evidence it is holding the claim. See
+// holdsTheNonce. Non-inclusion is usually a fee that was too low or a race already lost, not an
+// unhealthy relay, and tripping an endpoint for it would push claims into the public mempool for
+// reasons that have nothing to do with the endpoint — the exposure this exists to remove. Bounding
+// how long a send waits for inclusion is TX_SEND_TIMEOUT's job.
 func (b *SendingBackend) prioritiseNonceHolder(admitted []admission, nonce uint64) []admission {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -719,6 +739,29 @@ func (b *SendingBackend) prioritiseNonceHolder(admitted []admission, nonce uint6
 	}
 
 	return append(holders, rest...)
+}
+
+// holdsTheNonce reports whether the endpoint answered because it already has this nonce, rather
+// than because it will not take the claim.
+//
+// Resends go to the endpoint holding the nonce first, which is the point: a relay replaces a
+// transaction the way a mempool does, and the holder is where the replacement retires the stale
+// variant. But a relay that already has the nonce answers "replacement transaction underpriced" or
+// "already known" — JSON-RPC errors, so they read as refusals to answeredWithRejection, and a run
+// of nonce collisions after a resetNonce carries distinct nonces, so the deduplication never
+// suppresses them. Three of those took the preferred relay out of rotation for five minutes, for
+// doing exactly what steering the resend to it was meant to achieve.
+//
+// Both answers are evidence the endpoint is holding the claim, so neither is charged.
+func holdsTheNonce(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	text := err.Error()
+
+	return strings.Contains(text, txpool.ErrReplaceUnderpriced.Error()) ||
+		strings.Contains(text, txpool.ErrAlreadyKnown.Error())
 }
 
 // answeredWithRejection reports whether err is the endpoint saying it will not take this particular

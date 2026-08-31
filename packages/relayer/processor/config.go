@@ -320,7 +320,24 @@ func validateQueueExpiration(flagName, value string) error {
 	}
 
 	if ms == 0 {
-		return fmt.Errorf("invalid %s: an expiration of zero would drop the message", flagName)
+		// Not a dropped message: the broker expires it at once, so it returns immediately and the
+		// claim spins through the transient queue with no wait at all — the hot loop the wait
+		// exists to prevent.
+		return fmt.Errorf(
+			"invalid %s: an expiration of zero returns the message immediately, with none of the "+
+				"wait it is parked for", flagName,
+		)
+	}
+
+	// RabbitMQ rejects an expiration beyond this, and it arrives the same way a bad one does: the
+	// publish is accepted, then the channel is closed.
+	const maxExpirationMs = 315_360_000_000
+
+	if ms > maxExpirationMs {
+		return fmt.Errorf(
+			"invalid %s %q: an AMQP expiration cannot exceed %d milliseconds",
+			flagName, value, maxExpirationMs,
+		)
 	}
 
 	return nil

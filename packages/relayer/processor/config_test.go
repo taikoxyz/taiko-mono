@@ -315,6 +315,14 @@ func TestParsePrivateRPCUrls(t *testing.T) {
 			configured: []string{"https://"},
 			wantErr:    "no host",
 		},
+		{
+			// The case the Hostname() check exists for: Host is ":8545", which passes a check on
+			// Host alone, and the entry then fails at dial time in an error quoting the whole
+			// URL — key included.
+			name:       "a port with no hostname is rejected",
+			configured: []string{"https://:8545/SUPERSECRETKEY"},
+			wantErr:    "no host",
+		},
 	}
 
 	for _, tt := range tests {

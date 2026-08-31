@@ -167,28 +167,9 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 
 	slog.Info("declaring rabbitmq queue", "queue", queueName)
 
-	args := amqp.Table{}
-
-	args["x-dead-letter-exchange"] = dlxExchange
-
-	// Without this the message keeps the routing key it was published with, which is the queue's
-	// own name: the indexer publishes through the default exchange, so that is what arrives here.
-	// dlx-<queue> is bound to the dead-letter exchange with the -process key, and a direct exchange
-	// drops what it cannot route — so a message negatively acknowledged with requeue=false was
-	// destroyed rather than parked, and the dead-letter queue stayed empty while claims disappeared.
-	// The two TTL queues below already override the key; the main queue has to as well.
-	args["x-dead-letter-routing-key"] = routingKey
-
-	q, err := r.ch.QueueDeclare(
-		queueName,
-		true,
-		false,
-		false,
-		false,
-		args,
-	)
+	q, err := r.declareProcessingQueue(queueName, dlxExchange, routingKey)
 	if err != nil {
-		return describeRedeclareFailure(queueName, err)
+		return err
 	}
 
 	slog.Info("binding queue and exchange", "queue", queueName, "exchange", exchange)
@@ -266,6 +247,82 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 	r.unprofitableQueue = unprofitableQueue
 
 	r.transientQueue = transientQueue
+
+	return nil
+}
+
+// declareProcessingQueue declares the main queue with the dead-letter routing key this release
+// wants, and settles for the arguments an existing queue already carries when it cannot.
+//
+// Without x-dead-letter-routing-key a dead-lettered message keeps the routing key it was published
+// with — the queue's own name, since the indexer publishes through the default exchange — while
+// dlx-<queue> is bound with the -process key. A direct exchange discards what it cannot route, so a
+// message rejected with no requeue was destroyed rather than parked, and the permanently empty
+// dead-letter queue looked like evidence that none had been.
+//
+// A durable queue's arguments are fixed once it exists: declaring it with a different set is
+// answered with 406 PRECONDITION_FAILED and the channel is closed. Every deployment that predates
+// this release has such a queue, and both the processor and the indexer declare it, so insisting
+// would stop the whole relayer on rollout — trading a silent loss for a certain outage, and one
+// whose only in-band repair (deleting the queue) destroys the claims still sitting in it.
+//
+// So the argument is offered, not required. A queue that accepts it is correct from that moment; a
+// queue that refuses keeps the behaviour it has always had, and the operator is told plainly what is
+// still wrong and how to fix it. Fixing it is a deliberate act with a live queue in hand, which is
+// the only safe way round.
+func (r *RabbitMQ) declareProcessingQueue(queueName, dlxExchange, routingKey string) (amqp.Queue, error) {
+	q, err := r.ch.QueueDeclare(queueName, true, false, false, false, amqp.Table{
+		"x-dead-letter-exchange":    dlxExchange,
+		"x-dead-letter-routing-key": routingKey,
+	})
+	if err == nil {
+		return q, nil
+	}
+
+	var amqpErr *amqp.Error
+	if !errors.As(err, &amqpErr) || amqpErr.Code != amqp.PreconditionFailed {
+		return amqp.Queue{}, err
+	}
+
+	// The broker closed the channel under us when it refused; everything after this needs a live
+	// one. The connection itself survives a channel-level exception.
+	if err := r.reopenChannel(); err != nil {
+		return amqp.Queue{}, fmt.Errorf("reopening channel after %q was refused: %w", queueName, err)
+	}
+
+	q, declareErr := r.ch.QueueDeclare(queueName, true, false, false, false, amqp.Table{
+		"x-dead-letter-exchange": dlxExchange,
+	})
+	if declareErr != nil {
+		return amqp.Queue{}, describeRedeclareFailure(queueName, declareErr)
+	}
+
+	slog.Error("queue predates the dead-letter routing key and keeps its own arguments",
+		"queue", queueName,
+		"refusedWith", err.Error(),
+		"consequence", "a message rejected for good is discarded by the broker instead of being "+
+			"kept on dlx-"+queueName,
+		"remedy", "set dead-letter-routing-key to "+routingKey+" with a broker policy on this "+
+			"queue, which needs no redeclare and can be applied while it is running; or drain it "+
+			"and delete it so the next start declares it afresh",
+	)
+
+	return q, nil
+}
+
+// reopenChannel replaces the channel after the broker closed it, keeping the connection.
+func (r *RabbitMQ) reopenChannel() error {
+	ch, err := r.conn.Channel()
+	if err != nil {
+		return err
+	}
+
+	if err := ch.Qos(int(r.opts.PrefetchCount), 0, false); err != nil {
+		return err
+	}
+
+	r.ch = ch
+	r.chErrCh = r.ch.NotifyClose(make(chan *amqp.Error))
 
 	return nil
 }
