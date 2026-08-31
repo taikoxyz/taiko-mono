@@ -12,17 +12,19 @@
   export let canImport = false;
   export let scanning = false;
 
-  export let scanForNFTs: () => Promise<void>;
+  /** Resolves to whether a scan actually ran; see ImportStep.scanForNFTs */
+  export let scanForNFTs: () => Promise<boolean>;
 
   let firstScan = false;
 
   function onScanClick() {
     scanning = true;
     scanForNFTs()
-      .then(() => {
-        // Only a scan that actually completed can claim there are no NFTs; leaving the
-        // initial state on failure keeps the retry button instead of a false "none found"
-        firstScan = false;
+      .then((scanned) => {
+        // Only a scan that actually ran can claim there are no NFTs. A failure keeps the
+        // retry button, and so does a scan skipped for missing account/chain - both would
+        // otherwise render as a false "none found".
+        if (scanned) firstScan = false;
       })
       .catch(reportScanFailure)
       .finally(() => {

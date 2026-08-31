@@ -83,6 +83,7 @@
     // A lookup still in flight belongs to the form being cleared; without this its result
     // would repopulate the token and the loading flag after the reset
     lookupGeneration++;
+    pendingTokenLookup = null;
     loadingTokenDetails = false;
     customToken = null;
     customTokenWithDetails = null;
@@ -104,6 +105,7 @@
       // Invalid or cleared input also invalidates any in-flight lookup so its stale
       // token cannot publish into the form
       lookupGeneration++;
+      pendingTokenLookup = null;
       loadingTokenDetails = false;
       customTokenWithDetails = null;
       customToken = null;
@@ -114,6 +116,25 @@
   // only the latest may publish its result
   let lookupGeneration = 0;
 
+  /** The address a token lookup is currently in flight for, if any */
+  let pendingTokenLookup: Maybe<string> = null;
+
+  /**
+   * AddressInput dispatches nothing for a cleared field or text without a `0x` prefix, so
+   * an edit can leave no event behind. The two-way bound draft is then the only signal
+   * that a lookup still running describes an address no longer on screen.
+   */
+  function syncTokenAddressDraft(draft: Maybe<string>) {
+    if (!pendingTokenLookup) return;
+    if (pendingTokenLookup.toLowerCase() === (draft ?? '').toLowerCase()) return;
+
+    lookupGeneration++;
+    pendingTokenLookup = null;
+    loadingTokenDetails = false;
+    customTokenWithDetails = null;
+    customToken = null;
+  }
+
   const onAddressChange = async (tokenAddress: Address) => {
     const generation = ++lookupGeneration;
     // Drop the previous token up front: if this lookup fails or the address is not an
@@ -121,9 +142,11 @@
     customTokenWithDetails = null;
     customToken = null;
     if (!tokenAddress) {
+      pendingTokenLookup = null;
       loadingTokenDetails = false;
       return;
     }
+    pendingTokenLookup = tokenAddress;
     loadingTokenDetails = true;
     log('Fetching token details for address "%s"…', tokenAddress);
 
@@ -171,10 +194,13 @@
     } finally {
       // Every exit path clears the flag while this lookup is still the latest
       if (generation === lookupGeneration) {
+        pendingTokenLookup = null;
         loadingTokenDetails = false;
       }
     }
   };
+
+  $: syncTokenAddressDraft(tokenAddress);
 
   $: formattedBalance =
     customTokenWithDetails?.balance && customTokenWithDetails?.decimals

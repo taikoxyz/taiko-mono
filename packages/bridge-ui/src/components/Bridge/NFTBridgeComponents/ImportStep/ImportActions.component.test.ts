@@ -46,7 +46,7 @@ afterEach(() => {
 
 describe('initial NFT scan', () => {
   it('reports an empty wallet only after a scan that completed', async () => {
-    const scanForNFTs = vi.fn().mockResolvedValue(undefined);
+    const scanForNFTs = vi.fn().mockResolvedValue(true);
     component = new ImportActions({ target, props: { canImport: true, scanning: false, scanForNFTs } });
     await tick();
 
@@ -54,6 +54,21 @@ describe('initial NFT scan', () => {
     await flush();
 
     expect(text()).toContain('bridge.nft.step.import.no_nft_found');
+  });
+
+  it('keeps the initial scan action when the scan never ran', async () => {
+    // Missing account or chain resolves false: nothing failed, but nothing was scanned
+    // either, so claiming the wallet is empty would be a lie
+    const scanForNFTs = vi.fn().mockResolvedValue(false);
+    component = new ImportActions({ target, props: { canImport: true, scanning: false, scanForNFTs } });
+    await tick();
+
+    (target.querySelector('button') as HTMLButtonElement).click();
+    await flush();
+
+    expect(text()).not.toContain('bridge.nft.step.import.no_nft_found');
+    expect(text()).toContain('bridge.actions.nft_scan');
+    expect(errorToast).not.toHaveBeenCalled();
   });
 
   it('keeps the initial scan action after a failed scan', async () => {

@@ -35,14 +35,19 @@
     await scanForNFTs(false);
   };
 
-  const scanForNFTs = async (refresh: boolean) => {
+  /**
+   * @returns whether a scan actually ran. Missing prerequisites resolve as `false`
+   * rather than throwing: nothing failed, so an error toast would be wrong, but the
+   * caller must not read the resolved promise as "the wallet holds no NFTs" either.
+   */
+  const scanForNFTs = async (refresh: boolean): Promise<boolean> => {
     scanning = true;
     try {
       $selectedNFTs = [];
       const accountAddress = $account?.address;
       const srcChainId = $srcChain?.id;
       const destChainId = $destChain?.id;
-      if (!accountAddress || !srcChainId || !destChainId) return;
+      if (!accountAddress || !srcChainId || !destChainId) return false;
       const nftsFromAPIs = await fetchNFTs({ address: accountAddress, chainId: srcChainId, refresh });
 
       if (nftsFromAPIs.error) {
@@ -56,6 +61,7 @@
       if (foundNFTs.length > 0) {
         $selectedImportMethod = ImportMethod.SCAN;
       }
+      return true;
     } finally {
       scanning = false;
     }
@@ -95,7 +101,13 @@
 {#if $selectedImportMethod === ImportMethod.MANUAL}
   <ManualImport bind:this={manualImportComponent} bind:validating />
 {:else if $selectedImportMethod === ImportMethod.SCAN}
-  <ScannedImport refresh={() => scanForNFTs(true)} {nextPage} bind:foundNFTs bind:canProceed />
+  <ScannedImport
+    refresh={async () => {
+      await scanForNFTs(true);
+    }}
+    {nextPage}
+    bind:foundNFTs
+    bind:canProceed />
 {:else}
   <ImportActions bind:scanning {canImport} scanForNFTs={() => scanForNFTs(false)} />
 {/if}
