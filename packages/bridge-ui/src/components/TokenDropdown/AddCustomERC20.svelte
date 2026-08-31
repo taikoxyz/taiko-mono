@@ -97,7 +97,12 @@
     if (isValidEthereumAddress) {
       await onAddressChange(tokenAddress as Address);
     } else {
-      tokenAddress = addr;
+      // Invalid or cleared input also invalidates any in-flight lookup so its stale
+      // token cannot publish into the form
+      lookupGeneration++;
+      loadingTokenDetails = false;
+      customTokenWithDetails = null;
+      customToken = null;
     }
   }
 
@@ -106,55 +111,60 @@
   let lookupGeneration = 0;
 
   const onAddressChange = async (tokenAddress: Address) => {
-    if (!tokenAddress) return;
     const generation = ++lookupGeneration;
+    if (!tokenAddress) {
+      loadingTokenDetails = false;
+      return;
+    }
     loadingTokenDetails = true;
     log('Fetching token details for address "%s"…', tokenAddress);
 
-    let type: TokenType;
     try {
-      type = await detectContractType(tokenAddress, $connectedSourceChain?.id as number);
-    } catch (error) {
+      let type: TokenType;
+      try {
+        type = await detectContractType(tokenAddress, $connectedSourceChain?.id as number);
+      } catch (error) {
+        if (generation !== lookupGeneration) return;
+        log('Failed to detect contract type: ', error);
+        state = AddressInputState.NOT_ERC20;
+        return;
+      }
       if (generation !== lookupGeneration) return;
-      log('Failed to detect contract type: ', error);
-      loadingTokenDetails = false;
-      state = AddressInputState.NOT_ERC20;
-      return;
-    }
-    if (generation !== lookupGeneration) return;
 
-    if (type !== TokenType.ERC20) {
-      loadingTokenDetails = false;
-      state = AddressInputState.NOT_ERC20;
-      return;
-    }
+      if (type !== TokenType.ERC20) {
+        state = AddressInputState.NOT_ERC20;
+        return;
+      }
 
-    const srcChain = $connectedSourceChain;
-    if (!srcChain) return;
-    try {
-      const token = await getTokenWithInfoFromAddress({
-        contractAddress: tokenAddress as Address,
-        srcChainId: srcChain.id,
-      });
-      if (generation !== lookupGeneration) return;
-      if (!token) return;
-      const balance = await readContract(config, {
-        address: tokenAddress as Address,
-        abi: erc20Abi,
-        functionName: 'balanceOf',
-        args: [$account?.address as Address],
-      });
-      if (generation !== lookupGeneration) return;
-      customTokenWithDetails = { ...token, balance } as Token;
+      const srcChain = $connectedSourceChain;
+      if (!srcChain) return;
+      try {
+        const token = await getTokenWithInfoFromAddress({
+          contractAddress: tokenAddress as Address,
+          srcChainId: srcChain.id,
+        });
+        if (generation !== lookupGeneration) return;
+        if (!token) return;
+        const balance = await readContract(config, {
+          address: tokenAddress as Address,
+          abi: erc20Abi,
+          functionName: 'balanceOf',
+          args: [$account?.address as Address],
+        });
+        if (generation !== lookupGeneration) return;
+        customTokenWithDetails = { ...token, balance } as Token;
 
-      customToken = customTokenWithDetails;
-    } catch (error) {
-      if (generation !== lookupGeneration) return;
-      state = AddressInputState.INVALID;
-      log('Failed to fetch token: ', error);
-    }
-    if (generation === lookupGeneration) {
-      loadingTokenDetails = false;
+        customToken = customTokenWithDetails;
+      } catch (error) {
+        if (generation !== lookupGeneration) return;
+        state = AddressInputState.INVALID;
+        log('Failed to fetch token: ', error);
+      }
+    } finally {
+      // Every exit path clears the flag while this lookup is still the latest
+      if (generation === lookupGeneration) {
+        loadingTokenDetails = false;
+      }
     }
   };
 

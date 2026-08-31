@@ -79,7 +79,7 @@
     tick().then(() => {
       if ($selectedImportMethod === ImportMethod.MANUAL) {
         // run validations again if we are in manual mode
-        runValidations();
+        runValidations().catch((error) => console.error('Error running validations', error));
       } else {
         resetForm();
       }

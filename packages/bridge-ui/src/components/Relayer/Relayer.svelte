@@ -5,6 +5,7 @@
   import { AddressInputState } from '$components/Bridge/SharedBridgeComponents/AddressInput/state';
   import ActionButton from '$components/Button/ActionButton.svelte';
   import Card from '$components/Card/Card.svelte';
+  import { warningToast } from '$components/NotificationToast';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import { FungibleTransactionRow, NftTransactionRow } from '$components/Transactions/Rows';
   import { type BridgeTransaction, fetchTransactions, MessageStatus } from '$libs/bridge';
@@ -45,6 +46,9 @@
         // Also assign empty results: the previous address's transactions must not linger
         transactions = mergedTransactions;
       }
+    } catch (error) {
+      console.error('Error fetching transactions', error);
+      warningToast({ title: $t('transactions.errors.relayer_offline') });
     } finally {
       fetching = false;
     }
@@ -56,6 +60,11 @@
   };
 
   $: inputDisabled = fetching || !$account?.isConnected;
+
+  // No address, no results: rows from a previously searched address must not linger
+  $: if (!addressToSearch) {
+    transactions = [];
+  }
 
   $: addressToSearch = undefined;
   $: searchDisabled = fetching || !addressToSearch || addressState !== AddressInputState.VALID || inputDisabled;

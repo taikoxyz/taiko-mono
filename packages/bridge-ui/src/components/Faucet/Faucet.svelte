@@ -98,8 +98,12 @@
   let mintCheckGeneration = 0;
 
   async function updateMintButtonState(connected: boolean, token?: Token, network?: Chain) {
-    if (!token || !network) return false;
     const generation = ++mintCheckGeneration;
+    // Invalid inputs also invalidate any in-flight check, whose flags are reset here
+    if (!token || !network) {
+      checkingMintable = false;
+      return false;
+    }
     checkingMintable = true;
     mintButtonEnabled = false;
     let reasonNotMintable = '';

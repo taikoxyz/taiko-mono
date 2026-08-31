@@ -44,6 +44,14 @@
       ids = ids.slice(0, limit);
     }
     enteredIds = ids;
+
+    // An empty field is neither valid nor an error: nothing has been entered yet
+    if (ids.length === 0) {
+      validIdNumbers = [];
+      state = State.DEFAULT;
+      dispatch('inputValidation');
+      return;
+    }
     // Token IDs above Number.MAX_SAFE_INTEGER silently lose precision as JS numbers,
     // which would make the flow act on a different token — reject them instead
     const isValid = ids.every((num) => Number.isSafeInteger(num) && num >= 0);

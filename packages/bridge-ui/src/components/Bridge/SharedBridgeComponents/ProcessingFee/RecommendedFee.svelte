@@ -35,15 +35,22 @@
     amounts?: number[],
     periodicRefresh = false,
   ) {
-    // Without token nor destination chain we cannot compute this fee
-    if (!token || !destChainId) return;
-
     // A periodic refresh re-runs identical inputs, so it must not supersede a slower
     // in-flight computation — doing so would discard every result and never clear the
     // calculating flag; only input changes may take over
     if (periodicRefresh && inFlight) return;
 
     const generation = ++computeGeneration;
+
+    // Without token nor destination chain we cannot compute this fee. The bump above
+    // stops an in-flight result for the old inputs from publishing, so the flags it
+    // can no longer clear are reset here
+    if (!token || !destChainId) {
+      $calculatingProcessingFee = false;
+      inFlight = false;
+      return;
+    }
+
     inFlight = true;
     $calculatingProcessingFee = true;
     error = false;

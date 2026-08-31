@@ -32,6 +32,10 @@
     scanning = true;
     try {
       await nextPage();
+    } catch (error) {
+      // A failed page keeps the button usable for a retry
+      console.error('Error fetching next NFT page', error);
+      return;
     } finally {
       scanning = false;
     }
