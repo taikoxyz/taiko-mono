@@ -512,9 +512,20 @@ those files are structured) — and add a `LibL2Addrs.SHARED_RESOLVER` constant 
 
 ## Fork Rehearsal
 
-The repository has no fork tests and CI configures no RPC endpoints, so this rehearsal ran locally
-from a throwaway Foundry test kept in the session scratchpad. It is **not committed and does not
-re-run** — what follows is snapshot evidence captured on 2026-08-31, not a regression test. The cap
+This rehearsal is committed as `test/layer1/proposals/Proposal0023Fork.t.sol` and re-runs on
+demand:
+
+```bash
+L1_FORK_URL=<l1 rpc> L2_FORK_URL=https://rpc.mainnet.taiko.xyz \
+  FOUNDRY_PROFILE=layer1 forge test --match-contract Proposal0023ForkTest -vv
+```
+
+CI configures no RPC endpoints, so both tests call `vm.skip` when their URL is unset and the suite
+stays green without them — re-run it yourself before the vote rather than relying on CI. It asserts
+the `processMessage` return value (`DONE` / `INVOCATION_OK`) alongside the implementation slot,
+which is what distinguishes a real upgrade from a swallowed one; mutating the message so the
+DelegateController rejects it makes the transaction still succeed and the status assertion fail with
+`1 != 2`. The output below was captured on 2026-08-31. The cap
 itself is separately covered by committed unit tests that #22077 added
 (`MessageReceiver_CreatingFreshStorageSlots.sol`, plus cases in `Bridge2_processMessage.t.sol` and
 `Bridge2_recallMessage.t.sol`); the rehearsal targets what unit tests cannot reach, namely the
