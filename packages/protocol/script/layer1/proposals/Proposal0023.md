@@ -318,8 +318,9 @@ across the two chains: one on L1, three on L2.
 Verify all four on the block explorers before the proposal is created, so a delegate can read the
 source behind each address rather than trusting the deployer. Use the same compiler settings the
 branch pins (`solc 0.8.30`, `optimizer_runs = 200`; `evm_version = "osaka"` for the L2 profile) and
-the constructor arguments the scripts pass, then confirm each verified runtime hash matches the
-`cast codehash` output in the pre-execution checklist. Note that the L1 implementation will show as
+the constructor arguments the scripts pass. Explorer verification and the `forge verify-bytecode`
+commands in the pre-execution checklist are two independent routes to the same assurance; run both,
+since the explorer is the one a delegate can check without a local toolchain. Note that the L1 implementation will show as
 `Bridge`, not `MainnetBridge` — see Current State for why that rename is expected.
 
 Then, in the fill-in commit:
@@ -393,14 +394,40 @@ cast storage <L2_SHARED_RESOLVER> \
   0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc \
   --rpc-url https://rpc.mainnet.taiko.xyz
 
-# Authenticate the code itself, not just its getters. Compare each deployed runtime hash against a
-# local build of this branch at the same commit. A substituted contract can expose every getter
-# above while carrying different logic, and these implementations become the logic of proxies
-# holding roughly 1,000,000 ETH.
-cast codehash <BRIDGE_NEW_IMPL_L1> --rpc-url <L1_RPC>
-cast codehash <BRIDGE_NEW_IMPL_L2> --rpc-url https://rpc.mainnet.taiko.xyz
-cast codehash <L2_SHARED_RESOLVER> --rpc-url https://rpc.mainnet.taiko.xyz
+# Authenticate the code itself, not just its getters, for all four deployed contracts. A
+# substituted contract can answer every getter above while carrying different logic, and these
+# implementations become the logic of proxies holding roughly 1,000,000 ETH.
+forge verify-bytecode <BRIDGE_NEW_IMPL_L1> Bridge --rpc-url <L1_RPC> \
+  --constructor-args $(cast abi-encode "c(address,address,address,address)" \
+    0x8Efa01564425692d0a0838DC10E300BD310Cb43e 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C \
+    0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F)
+
+forge verify-bytecode <BRIDGE_NEW_IMPL_L2> Bridge --rpc-url https://rpc.mainnet.taiko.xyz \
+  --constructor-args $(cast abi-encode "c(address,address,address,address)" \
+    <L2_SHARED_RESOLVER> 0x1670000000000000000000000000000000000005 \
+    0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000)
+
+forge verify-bytecode <L2_RESOLVER_IMPL> DefaultResolver --rpc-url https://rpc.mainnet.taiko.xyz
+
+forge verify-bytecode <L2_SHARED_RESOLVER> ERC1967Proxy --rpc-url https://rpc.mainnet.taiko.xyz \
+  --constructor-args $(cast abi-encode "c(address,bytes)" <L2_RESOLVER_IMPL> \
+    $(cast calldata "init(address)" 0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C))
 ```
+
+In the second command, the first constructor argument is `<L2_SHARED_RESOLVER>` — the proxy, not
+the implementation. `DeployBridgeUpgradeL2` passes the proxy address to the `Bridge` constructor.
+
+**Do not substitute a `cast codehash` comparison for this.** Hashing the runtime looks like the
+obvious check and does not work here: `Bridge` carries **five** immutables at **25** patch sites —
+`__resolver`, `signalService`, `quotaManager`, `pauser`, and OpenZeppelin `UUPSUpgradeable`'s
+`__self = address(this)`. Because `__self` is the contract's own address, **two byte-identical
+deployments at different addresses have different runtime hashes**, so no expected hash can be
+published in advance or reproduced independently. Nor does
+`keccak256(forge inspect Bridge deployedBytecode)` match a live deployment: the artifact carries
+those 25 sites zero-filled. Both facts were measured on this branch on 2026-08-31 — artifact and
+locally deployed runtime are each 14,913 bytes and differ in exactly those 25 regions, one group of
+which is the deployer-dependent `__self`. `forge verify-bytecode` is immutable-aware and is what
+handles this correctly; explorer verification (below) is the human-checkable equivalent.
 
 **These checks are not redundant with the deploy scripts' own assertions, and one of them is the
 only defence against a specific failure.** Both scripts self-check their immutables, but that runs
@@ -462,12 +489,20 @@ The status check exists because production execution carries the **same swallowi
 rehearsal did: 1.10.0's `_invokeMessageCall` uses a raw `call`, so a failed invocation becomes
 `Status.RETRIABLE` without reverting `processMessage`, and the L1 side would look entirely healthy.
 The implementation-slot check above would already expose that, but the status makes the failure
-mode legible directly — and it carries an operational consequence: a swallowed failure leaves the
-message **retriable**, so the upgrade can be re-driven with `retryMessage` rather than requiring a
-new proposal. The `isDestChainEnabled(1)` smoke test is the one that matters: it is the call that reverts
-if the resolver wiring is wrong, and it is served by the new implementation reading the new
-resolver — so it covers the chain-1 registration and the L2 upgrade at once. The last command is the
-only check on the chain-167000 registration, since nothing reads that entry today.
+mode legible directly, and it changes what recovery looks like.
+
+If the status reads `RETRIABLE`, **diagnose before retrying.** `retryMessage` replays the _same_
+calldata, so it only helps where the failure was not in the message itself — the realistic case is
+gas starvation, since the `destOwner` calling `retryMessage` forwards all remaining gas instead of
+the `l2GasLimit`-derived budget. A failure caused by the message's own content — a wrong
+`L2_SHARED_RESOLVER` or `BRIDGE_NEW_IMPL_L2` baked into the actions, or a malformed action array —
+will fail identically on every retry and needs a new proposal. Establish which case you are in from
+the L2 execution trace first; do not retry blindly.
+
+The `isDestChainEnabled(1)` smoke test is the one that matters: it is the call that reverts if the
+resolver wiring is wrong, and it is served by the new implementation reading the new resolver — so
+it covers the chain-1 registration and the L2 upgrade at once. The last command is the only check on
+the chain-167000 registration, since nothing reads that entry today.
 
 Post-execution, add dated bullets to `deployments/mainnet-contract-logs-L1.md` and
 `deployments/mainnet-contract-logs-L2.md` for the four newly deployed contracts — the L1 `Bridge`
