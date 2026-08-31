@@ -131,13 +131,14 @@ Only the broadcast goes private. Nonces, gas prices, receipts and every other re
 up or within its rate limit.
 
 Endpoints are offered each transaction in the order given, with one exception: an endpoint is
-offered last any transaction whose nonce is at or below the highest it has already accepted.
-Accepting only means the relay received the transaction, never that a builder included it, and the
-transaction manager only re-sends a nonce it has not seen confirmed — so the replacement is better
-spent on a different builder. Claims are handled concurrently, so this is a high-water mark rather
-than a record of each nonce; the cost is that a first send arriving out of order behind a higher
-nonce is also offered last, which only reorders private endpoints against each other. Nothing is
-charged for that reordering.
+offered **first** any transaction whose nonce is at or below the highest it has already accepted. A
+relay replaces a transaction the way a mempool does — same nonce, higher fee — so the endpoint
+already holding a nonce is the one place a resend achieves something, retiring the stale low-fee
+variant. Offering it elsewhere leaves both variants live in different builders' pools with nothing
+to enforce one transaction per nonce. Claims are handled concurrently, so this is a high-water mark
+rather than a record of each nonce; the cost is that a first send arriving out of order behind a
+higher nonce is treated as a resend, which only reorders private endpoints against each other.
+Nothing is charged for that reordering.
 
 Plain `http://` is rejected unless the host is the name `localhost` or an IP literal in a loopback,
 private or link-local range: a signed claim on the wire in cleartext can be read and front-run,
@@ -159,7 +160,10 @@ one of them can land it. An endpoint that refuses several sends in a row drops o
 `PRIVATE_RPC_RETRY_INTERVAL` (5 minutes by default), and comes back with a fresh budget once that
 elapses. A relay that answers that it will not take one particular claim — one that would revert
 because a competitor already processed the message, say — is charged once for it rather than on
-every resubmission, so one such claim does not cost a healthy relay its turn. A timeout or a
+every resubmission, so one such claim does not cost a healthy relay its turn. That is judged by
+nonce, not by transaction hash: once any endpoint accepts a send the transaction manager bumps the
+fee before resending, so every resubmission of one claim carries a new hash while remaining one
+claim. A timeout or a
 transport failure always counts, even for the same transaction, since that is what an endpoint
 being down looks like. Only once no endpoint is left in
 rotation does a transaction go out through `DEST_RPC_URL`.
@@ -174,18 +178,21 @@ running exposed, and matters more than any individual refusal. Alongside them,
 `private_rpc_sends_ops_total`, labelled the same way, counts the transactions each endpoint
 accepted. It is not an alert on its own; it is what turns the refusals into a rate, which is what
 separates a busy relay turning down a few claims from one that has started turning down most of
-them. Both transitions are logged as well,
+them. `private_rpc_in_rotation` is 1 while an endpoint is in the rotation and 0 while it is out:
+trips are monotonic and cannot say what the rotation looks like now, and this can. Every series is
+created at startup for every configured endpoint, so the first trip is a rise from zero rather than
+a series appearing from nothing — which `increase()` would have read as no change at all. Both
+transitions are logged as well,
 `Private endpoint taken out of rotation` and `Private endpoint back in rotation`, each carrying the
 endpoint's position.
 
 A restart while a relay is holding an accepted transaction is worth knowing about. Nonces come from
 `DEST_RPC_URL`, and a privately accepted transaction is never gossiped there, so a relayer that
 restarts before that transaction is included sees its nonce as free and may sign a different claim
-with it. Whichever lands first wins and the other becomes invalid, so no funds are at risk. The losing
-claim is not currently retried, though: its send ends with `nonce too low`, which the processor does
-not count as transient, so the message is dead-lettered rather than offered again. Treat that as a
-known gap — a claim that reaches it needs replaying by hand until `nonce too low` is classified as
-transient. `TX_SEND_TIMEOUT` bounds how long a single
+with it. Whichever lands first wins and the other becomes invalid, so no funds are at risk, and the
+losing claim is retried: its send ends with `nonce too low`, which counts as transient, so the
+message waits on the transient queue and comes back to be signed under a fresh nonce. That claim is
+delayed by a round, and its fee may be gone by then. `TX_SEND_TIMEOUT` bounds how long a single
 send can be outstanding but does not help across a restart. The exposure is proportional to how
 long a relay holds transactions, so it is smallest with relays that drop rather than queue.
 

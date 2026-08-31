@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -268,6 +269,24 @@ func TestHandleProcessMessageResultRequeuesUndecodableTransientMessages(t *testi
 	assert.Equal(t, 0, q.acked)
 	assert.Equal(t, 1, q.nacked)
 	assert.True(t, q.requeued, "an undecodable body is still a claim worth another attempt")
+}
+
+func TestHandleProcessMessageResultRetriesANonceTooLowAbort(t *testing.T) {
+	q := &recordingQueue{}
+	p := newTestProcessor(false)
+	p.queue = q
+
+	// What the transaction manager returns once a claim has lost its nonce: it gives up after
+	// SafeAbortNonceTooLowCount refusals and wraps the sentinel. The claim itself is untouched —
+	// nobody processed that message — so it has to be signed again under a fresh nonce rather than
+	// dead-lettered onto a queue with no consumer.
+	err := fmt.Errorf("aborted tx send due to critical error: %w", core.ErrNonceTooLow)
+
+	p.handleProcessMessageResult(context.Background(), queue.Message{Body: []byte(`{}`)}, false, 0, err)
+
+	assert.Equal(t, 1, q.acked, "parked for another attempt, not dead-lettered")
+	assert.Equal(t, 0, q.nacked)
+	assert.Contains(t, q.publishedQueue, "-transient")
 }
 
 func TestHandleProcessMessageResultAcksUnprocessableMessages(t *testing.T) {

@@ -63,7 +63,7 @@ func (b *estimatorBackend) BlobBaseFee(_ context.Context) (*big.Int, error) {
 }
 
 func TestSendingBackend_AnswersTheEstimatorsBlobBaseFeeAssertion(t *testing.T) {
-	b := NewSendingBackend(&estimatorBackend{fee: big.NewInt(13)}, []TxSender{&fakeSender{}}, nil)
+	b := NewSendingBackend(&estimatorBackend{fee: big.NewInt(13)}, []TxSender{&fakeSender{}}, nil, nil)
 
 	// The whole point: the wrapped backend is reached through the assertion the transaction
 	// manager actually makes, on the code path that signs every claim.
@@ -77,7 +77,7 @@ func TestSendingBackend_AnswersTheEstimatorsBlobBaseFeeAssertion(t *testing.T) {
 
 func TestSendingBackend_ForwardsTheBlobBaseFeeCall(t *testing.T) {
 	wrapped := &blobFeeBackend{fee: big.NewInt(42)}
-	b := NewSendingBackend(wrapped, nil, nil)
+	b := NewSendingBackend(wrapped, nil, nil, nil)
 
 	fee, err := b.BlobBaseFee(context.Background())
 
@@ -87,7 +87,7 @@ func TestSendingBackend_ForwardsTheBlobBaseFeeCall(t *testing.T) {
 
 func TestSendingBackend_ForwardsTheBlobBaseFeeError(t *testing.T) {
 	wrapped := &blobFeeBackend{err: errors.New("node is behind")}
-	b := NewSendingBackend(wrapped, nil, nil)
+	b := NewSendingBackend(wrapped, nil, nil, nil)
 
 	_, err := b.BlobBaseFee(context.Background())
 
@@ -103,7 +103,7 @@ func TestSendingBackend_FallsBackToTheRawClientForTheBlobBaseFee(t *testing.T) {
 	client := rpc.DialInProc(server)
 	t.Cleanup(client.Close)
 
-	b := NewSendingBackend(&rpcOnlyBackend{client: client}, nil, nil)
+	b := NewSendingBackend(&rpcOnlyBackend{client: client}, nil, nil, nil)
 
 	fee, err := b.BlobBaseFee(context.Background())
 
@@ -112,7 +112,7 @@ func TestSendingBackend_FallsBackToTheRawClientForTheBlobBaseFee(t *testing.T) {
 }
 
 func TestSendingBackend_ReportsABackendThatCannotAnswerTheBlobBaseFee(t *testing.T) {
-	b := NewSendingBackend(&fakeBackend{}, nil, nil)
+	b := NewSendingBackend(&fakeBackend{}, nil, nil, nil)
 
 	_, err := b.BlobBaseFee(context.Background())
 

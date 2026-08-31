@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -19,6 +20,7 @@ import (
 	txmgrMetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -300,6 +302,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	sendingBackend := utils.NewSendingBackend(
 		txmgrConfig.Backend,
 		privateSenders,
+		privateRPCHosts(cfg.DestPrivateRPCUrls),
 		&cfg.PrivateRPCRetryInterval,
 	)
 	txmgrConfig.Backend = sendingBackend
@@ -383,17 +386,37 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 //
 // For http and https the client is built without contacting the endpoint, so a relay that is down
 // does not fail this; config parsing rejects every other scheme for that reason.
+// privateRPCHosts returns the host names of the configured endpoints, for keeping them out of the
+// text of any error this processor logs. Entries that will not parse contribute nothing: they are
+// rejected before this point, and a blank host would match everywhere.
+func privateRPCHosts(urls []string) []string {
+	hosts := make([]string, 0, len(urls))
+
+	for _, endpoint := range urls {
+		parsed, err := url.Parse(endpoint)
+		if err != nil || parsed.Hostname() == "" {
+			continue
+		}
+
+		hosts = append(hosts, parsed.Hostname())
+	}
+
+	return hosts
+}
+
 func dialPrivateSenders(ctx context.Context, urls []string) ([]utils.TxSender, error) {
 	clients := make([]*ethclient.Client, 0, len(urls))
 
-	for _, url := range urls {
-		client, err := ethclient.DialContext(ctx, url)
+	for _, endpoint := range urls {
+		client, err := ethclient.DialContext(ctx, endpoint)
 		if err != nil {
 			for _, opened := range clients {
 				opened.Close()
 			}
 
-			return nil, err
+			// The dial error quotes the endpoint it was given, API key and all, and this one is
+			// returned to a caller that logs it and exits.
+			return nil, utils.Redact(err, privateRPCHosts(urls))
 		}
 
 		clients = append(clients, client)
@@ -704,6 +727,13 @@ func isTransientProcessMessageError(err error) bool {
 		// A send that ran out of time is worth retrying. Its text matches none of the strings
 		// below, and without this the queue would drop the claim.
 		errors.Is(err, context.DeadlineExceeded) ||
+		// The claim lost a race for its nonce and has to be signed again, which is the one thing
+		// this error means. The transaction manager gives up on a nonce after
+		// SafeAbortNonceTooLowCount refusals and returns "aborted tx send due to critical error:
+		// nonce too low", which matches none of the strings below — so the message was
+		// dead-lettered, and the dead-letter queue has no consumer. A claim nobody had processed
+		// was parked there for good. The sentinel is %w-wrapped, so this matches it exactly.
+		errors.Is(err, core.ErrNonceTooLow) ||
 		strings.Contains(err.Error(), "timeout") ||
 		strings.Contains(err.Error(), "i/o") ||
 		strings.Contains(err.Error(), "connect") ||

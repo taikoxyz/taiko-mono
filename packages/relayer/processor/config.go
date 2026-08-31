@@ -252,7 +252,10 @@ func parsePrivateRPCUrls(configured []string) ([]string, error) {
 			)
 		}
 
-		if parsed.Host == "" {
+		// Hostname() rather than Host: "https://:8545/KEY" parses with a Host of ":8545" and an
+		// empty hostname, which passes a Host check and then fails at dial time — in an error that
+		// quotes the whole entry, key included.
+		if parsed.Hostname() == "" {
 			return nil, fmt.Errorf("invalid %s entry %d: no host", flags.DestPrivateRPCUrls.Name, i)
 		}
 

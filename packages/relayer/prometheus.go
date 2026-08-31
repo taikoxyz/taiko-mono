@@ -22,6 +22,12 @@ var (
 			"private_rpc_failures_ops_total needs: refusals alone cannot tell a busy relay " +
 			"turning down a few claims from one that has started turning down most of them",
 	}, []string{"endpoint"})
+	PrivateRPCInRotation = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "private_rpc_in_rotation",
+		Help: "1 while a private RPC endpoint is in the failover rotation and 0 while it is out, " +
+			"labelled by that endpoint's position in the configured order. Trips are monotonic, " +
+			"so they cannot answer what the rotation looks like right now; this can",
+	}, []string{"endpoint"})
 	PrivateRPCTrips = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "private_rpc_trips_ops_total",
 		Help: "The total number of times a private RPC endpoint was taken out of the failover " +

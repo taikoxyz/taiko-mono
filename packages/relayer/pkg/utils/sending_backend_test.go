@@ -102,6 +102,17 @@ func testTx() *types.Transaction {
 
 // txWithNonce builds a transaction distinct from any other nonce, so a test can tell "this relay
 // refused three different claims" from "this relay refused the same claim three times".
+// txWithNonceAndTip is one claim re-signed at a higher fee: same nonce, different hash. This is
+// what the transaction manager actually resubmits once any endpoint has accepted a send, since
+// publishTx sets bumpFees after a successful publish.
+func txWithNonceAndTip(nonce uint64, tip int64) *types.Transaction {
+	return types.NewTx(&types.DynamicFeeTx{
+		Nonce:     nonce,
+		Gas:       21_000,
+		GasTipCap: big.NewInt(tip),
+	})
+}
+
 func txWithNonce(nonce uint64) *types.Transaction {
 	return types.NewTx(&types.DynamicFeeTx{Nonce: nonce, Gas: 21_000})
 }
@@ -124,7 +135,7 @@ func newTestBackend(t *testing.T, retryInterval *time.Duration) (
 	now := time.Date(2026, time.August, 29, 0, 0, 0, 0, time.UTC)
 	clock = &now
 
-	b = NewSendingBackend(public, []TxSender{first, second}, retryInterval)
+	b = NewSendingBackend(public, []TxSender{first, second}, nil, retryInterval)
 	b.now = func() time.Time { return *clock }
 
 	return b, public, first, second, clock
@@ -151,10 +162,10 @@ func admit(b *SendingBackend, index int) admission {
 	return admission{index: index, generation: b.generation[index]}
 }
 
-// trip refuses enough distinct transactions in a row to take a private endpoint out of rotation.
+// trip refuses enough distinct nonces in a row to take a private endpoint out of rotation.
 func trip(b *SendingBackend, index int) {
 	for i := 0; i < DefaultPrivateRPCFailureThreshold; i++ {
-		b.recordFailure(admit(b, index), txWithNonce(uint64(i)).Hash(), false)
+		b.recordFailure(admit(b, index), uint64(i), false)
 	}
 }
 
@@ -175,7 +186,7 @@ func TestSendingBackend_ReadsGoToThePublicEndpoint(t *testing.T) {
 
 func TestSendingBackend_SendsThroughThePublicEndpointWhenNoneIsConfigured(t *testing.T) {
 	public := &fakeBackend{}
-	b := NewSendingBackend(public, nil, nil)
+	b := NewSendingBackend(public, nil, nil, nil)
 
 	require.NoError(t, b.SendTransaction(context.Background(), testTx()))
 
@@ -260,7 +271,12 @@ func TestSendingBackend_RefusingTheSameTransactionAgainDoesNotTrip(t *testing.T)
 
 	tx := testTx()
 
-	for i := 0; i < 3*DefaultPrivateRPCFailureThreshold; i++ {
+	// One short of the consecutive-failure ceiling, which is what actually bounds this: the
+	// deduplication holds the endpoint's place for as long as one claim keeps being refused, and
+	// the ceiling is the backstop that ends that. Deriving the count from failureThreshold instead
+	// happened to sit below the ceiling at the current defaults and would exceed it if the
+	// threshold were raised, failing for a reason this test is not about.
+	for i := 0; i < DefaultPrivateRPCConsecutiveFailureCeiling-1; i++ {
 		require.NoError(t, b.SendTransaction(context.Background(), tx))
 	}
 
@@ -268,6 +284,40 @@ func TestSendingBackend_RefusingTheSameTransactionAgainDoesNotTrip(t *testing.T)
 		"one claim a relay will not take must not cost it its turn for every other message")
 	assert.Equal(t, 1, b.failures[0], "the same transaction is charged once, however often it is retried")
 	assert.Empty(t, public.sent, "unrelated claims must not be pushed into the public mempool")
+}
+
+func TestSendingBackend_AFeeBumpedResendIsStillTheSameClaim(t *testing.T) {
+	first := &fakeSender{err: rpcRejection{"failed to get tx into the mempool"}}
+	b := NewSendingBackend(&fakeBackend{}, []TxSender{first}, nil, nil)
+
+	// One endpoint, so the ordering cannot mask what is being tested: every resend reaches this
+	// endpoint, and only the deduplication decides whether it is charged again.
+	//
+	// The production sequence, which an identical transaction object does not reproduce: publishTx
+	// sets bumpFees after any successful publish, so a resend arrives re-signed at a higher fee
+	// under a new hash while remaining one claim. Charged per hash, three rounds — about
+	// ninety-six seconds at the default resubmission timeout — walked a healthy endpoint to the
+	// threshold for a single claim it merely would not take.
+	for tip := int64(1); tip <= int64(3*DefaultPrivateRPCFailureThreshold); tip++ {
+		require.Error(t, b.SendTransaction(context.Background(), txWithNonceAndTip(7, tip)))
+	}
+
+	assert.Equal(t, 1, b.failures[0], "one claim, one charge, however often it is re-signed")
+	assert.Equal(t, []int{0}, rotation(b),
+		"a fee bump does not make one refused claim into several")
+}
+
+func TestSendingBackend_ChargesDistinctClaimsEvenWhenBumped(t *testing.T) {
+	first := &fakeSender{err: rpcRejection{"failed to get tx into the mempool"}}
+	b := NewSendingBackend(&fakeBackend{}, []TxSender{first}, nil, nil)
+
+	// Keying on the nonce must not lose the property the threshold depends on: distinct claims are
+	// distinct information about the endpoint, and enough of them still trip it.
+	for nonce := uint64(11); nonce < 11+uint64(DefaultPrivateRPCFailureThreshold); nonce++ {
+		require.Error(t, b.SendTransaction(context.Background(), txWithNonceAndTip(nonce, 1)))
+	}
+
+	assert.Empty(t, rotation(b), "distinct refused claims still cost the endpoint its place")
 }
 
 func TestSendingBackend_ChargesEachDistinctTransactionOnce(t *testing.T) {
@@ -302,7 +352,7 @@ func TestSendingBackend_GoesPublicOnlyOnceEveryEndpointIsTripped(t *testing.T) {
 }
 
 func TestSendingBackend_DoesNotCountPublicSendsWhenNoneIsConfigured(t *testing.T) {
-	b := NewSendingBackend(&fakeBackend{}, nil, nil)
+	b := NewSendingBackend(&fakeBackend{}, nil, nil, nil)
 
 	before := testutil.ToFloat64(relayer.PrivateRPCUnavailable)
 
@@ -377,7 +427,7 @@ func TestSendingBackend_GivesARecoveredEndpointAFreshBudget(t *testing.T) {
 	require.Equal(t, []int{0, 1}, rotation(b))
 
 	// The spent count must not carry over, or the first refusal after recovery would trip it again.
-	b.recordFailure(admit(b, 0), txWithNonce(99).Hash(), false)
+	b.recordFailure(admit(b, 0), 99, false)
 
 	assert.Equal(t, []int{0, 1}, rotation(b))
 }
@@ -404,7 +454,7 @@ func TestSendingBackend_UsesTheDefaultRetryIntervalWhenNoneIsUsable(t *testing.T
 		"negative": &negative,
 	} {
 		t.Run(name, func(t *testing.T) {
-			b := NewSendingBackend(&fakeBackend{}, []TxSender{&fakeSender{}}, retryInterval)
+			b := NewSendingBackend(&fakeBackend{}, []TxSender{&fakeSender{}}, nil, retryInterval)
 
 			assert.Equal(t, DefaultPrivateRPCRetryInterval, b.retryInterval)
 		})
@@ -503,9 +553,11 @@ func TestSendingBackend_AHangingEndpointDoesNotStarveTheNextOne(t *testing.T) {
 	first := &hangingSender{}
 	second := &deadlineRecordingSender{}
 
-	b := NewSendingBackend(public, []TxSender{first, second}, nil)
+	b := NewSendingBackend(public, []TxSender{first, second}, nil, nil)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1200*time.Millisecond)
+	// Two endpoints over 2.4s is 1.2s each, above MinPrivateRPCAttemptShare, so the budget really
+	// is divided rather than handed whole to the first.
+	ctx, cancel := context.WithTimeout(context.Background(), 2400*time.Millisecond)
 	defer cancel()
 
 	require.NoError(t, b.SendTransaction(ctx, testTx()))
@@ -555,7 +607,7 @@ func TestSendingBackend_GivesTheLastEndpointWhatIsLeft(t *testing.T) {
 	public := &fakeBackend{}
 	only := &deadlineRecordingSender{}
 
-	b := NewSendingBackend(public, []TxSender{only}, nil)
+	b := NewSendingBackend(public, []TxSender{only}, nil, nil)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
@@ -572,9 +624,9 @@ func TestSendingBackend_GivesTheLastEndpointWhatIsLeft(t *testing.T) {
 func TestSendingBackend_KeepsCredentialsOutOfTheLog(t *testing.T) {
 	// go-ethereum quotes the endpoint it was dialling, and these URLs carry API keys. The metrics
 	// label by position for exactly this reason; the log must not undo that.
-	redacted := redactURLs(errors.New(
+	redacted := redactEndpoints(errors.New(
 		`Post "https://relay.example.com/v1/SUPERSECRETKEY?auth=alsosecret": dial tcp: i/o timeout`,
-	))
+	), nil)
 
 	assert.NotContains(t, redacted, "SUPERSECRETKEY")
 	assert.NotContains(t, redacted, "alsosecret")
@@ -582,6 +634,39 @@ func TestSendingBackend_KeepsCredentialsOutOfTheLog(t *testing.T) {
 
 	// The part that says what went wrong has to survive, or the log entry is worthless.
 	assert.Contains(t, redacted, "i/o timeout")
+}
+
+func TestSendingBackend_RedactsAHostQuotedOutsideAURL(t *testing.T) {
+	// A name that does not resolve, or a certificate that does not match, names the host outside
+	// any URL, where the URL pattern cannot reach it. This is the shape go-ethereum produces when
+	// the dial fails at resolution rather than at the request.
+	err := errors.New(
+		`Post "https://relay.example.com/v1/KEY": dial tcp: lookup relay.example.com ` +
+			`on 10.0.0.53:53: no such host`,
+	)
+
+	redacted := redactEndpoints(err, []string{"relay.example.com"})
+
+	assert.NotContains(t, redacted, "relay.example.com",
+		"the host identifies the relay wherever in the text it appears")
+	assert.NotContains(t, redacted, "KEY")
+	assert.Contains(t, redacted, "no such host")
+}
+
+func TestSendingBackend_ReturnedErrorsCarryNoBareHost(t *testing.T) {
+	host := "relay.internal.example"
+	only := &fakeSender{err: fmt.Errorf(
+		`Post "https://%s/v1/SECRET": dial tcp: lookup %s on 10.0.0.53:53: no such host`, host, host,
+	)}
+
+	b := NewSendingBackend(&fakeBackend{}, []TxSender{only}, []string{host}, nil)
+
+	err := b.SendTransaction(context.Background(), testTx())
+
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), host, "the redaction travels with the returned error")
+	assert.NotContains(t, fmt.Sprintf("%#v", err), host, "and survives every verb")
+	assert.Contains(t, err.Error(), "no such host")
 }
 
 func TestSendingBackend_CloseIsIdempotent(t *testing.T) {
@@ -601,7 +686,7 @@ func TestSendingBackend_AnEndpointThatOnlyHangsStillTrips(t *testing.T) {
 	public := &fakeBackend{}
 	hanging := &hangingSender{}
 
-	b := NewSendingBackend(public, []TxSender{hanging}, nil)
+	b := NewSendingBackend(public, []TxSender{hanging}, nil, nil)
 
 	unavailableBefore := testutil.ToFloat64(relayer.PrivateRPCUnavailable)
 
@@ -635,7 +720,7 @@ func TestSendingBackend_RepeatedTimeoutsOnOneTransactionStillTrip(t *testing.T) 
 	public := &fakeBackend{}
 	hanging := &hangingSender{}
 
-	b := NewSendingBackend(public, []TxSender{hanging}, nil)
+	b := NewSendingBackend(public, []TxSender{hanging}, nil, nil)
 
 	unavailableBefore := testutil.ToFloat64(relayer.PrivateRPCUnavailable)
 
@@ -742,33 +827,32 @@ func Test_answeredWithRejection(t *testing.T) {
 	}
 }
 
-func TestSendingBackend_OffersAResentNonceToAnotherEndpointFirst(t *testing.T) {
+func TestSendingBackend_OffersAResentNonceToTheEndpointHoldingIt(t *testing.T) {
 	b, _, first, second, _ := newTestBackend(t, nil)
 
-	tx := txWithNonce(5)
-
-	require.NoError(t, b.SendTransaction(context.Background(), tx))
+	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(5)))
 	require.Len(t, first.sent, 1)
 	require.Empty(t, second.sent)
 
-	// The transaction manager only re-sends a nonce it has not seen confirmed, so the first
-	// endpoint took this one and did not get it included. Accepting is not inclusion, and the
-	// replacement is better spent on a different builder than on the one that already had it.
+	// A relay replaces a transaction the way a mempool does: same nonce, higher fee. Sending the
+	// replacement to the endpoint already holding this nonce retires the stale low-fee variant.
+	// Sending it elsewhere leaves both live, in different builders' pools, with nothing to enforce
+	// one transaction per nonce.
 	bumped := types.NewTx(&types.DynamicFeeTx{Nonce: 5, Gas: 21_000, GasTipCap: big.NewInt(2)})
 
 	require.NoError(t, b.SendTransaction(context.Background(), bumped))
 
-	assert.Len(t, second.sent, 1, "the replacement should go to the endpoint that has not had it")
-	assert.Len(t, first.sent, 1)
+	assert.Len(t, first.sent, 2, "the replacement belongs with the relay holding that nonce")
+	assert.Empty(t, second.sent)
 
 	// Nothing is charged for this: non-inclusion is usually a fee or a lost race, and tripping on
 	// it would push claims public for reasons that have nothing to do with the endpoint.
 	assert.Equal(t, []int{0, 1}, rotation(b))
 	assert.Equal(t, 0, b.failures[0])
 
-	// A different claim goes back to the configured order.
+	// A nonce nobody holds is a first send and keeps the configured order.
 	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(6)))
-	assert.Len(t, first.sent, 2)
+	assert.Len(t, first.sent, 3)
 }
 
 func TestSendingBackend_ReturnedErrorsCarryNoEndpointURL(t *testing.T) {
@@ -793,7 +877,7 @@ func TestSendingBackend_ReturnedErrorsCarryNoEndpointURL(t *testing.T) {
 func TestSendingBackend_PublicSendErrorsAreRedactedToo(t *testing.T) {
 	public := &errBackend{err: fmt.Errorf(`Post %q: connection refused`, "https://eth.example.com/v2/PUBLICKEY")}
 
-	b := NewSendingBackend(public, nil, nil)
+	b := NewSendingBackend(public, nil, nil, nil)
 
 	err := b.SendTransaction(context.Background(), testTx())
 
@@ -807,7 +891,7 @@ func TestSendingBackend_RedactionKeepsErrorIdentityAndClassification(t *testing.
 	sentinel := errors.New("nonce too low")
 	only := &fakeSender{err: fmt.Errorf(`Post "https://relay.example.com/KEY": %w`, sentinel)}
 
-	b := NewSendingBackend(&fakeBackend{}, []TxSender{only}, nil)
+	b := NewSendingBackend(&fakeBackend{}, []TxSender{only}, nil, nil)
 
 	err := b.SendTransaction(context.Background(), testTx())
 	require.Error(t, err)
@@ -856,21 +940,22 @@ func TestSendingBackend_KeepsTheResendRecordAcrossConcurrentNonces(t *testing.T)
 
 	// The processor handles claims concurrently, so several nonces are in flight at once. A single
 	// slot per endpoint would be overwritten by whichever was accepted most recently, and the
-	// resend of the earlier one would go straight back to the endpoint that already had it.
+	// resend of the earlier one would then be treated as a first send.
 	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(5)))
 	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(6)))
 	require.Len(t, first.sent, 2)
 	require.Empty(t, second.sent)
 
-	// Nonce 5 is fee-bumped and resent. Endpoint 0 had it and did not get it included.
+	// Nonce 5 is fee-bumped and resent. Endpoint 0 holds it, so the replacement belongs there —
+	// and the record for nonce 5 has to survive nonce 6 being accepted after it.
 	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(5)))
 
-	assert.Len(t, first.sent, 2, "the resend must not go back to the endpoint that already had it")
-	assert.Len(t, second.sent, 1)
+	assert.Len(t, first.sent, 3, "the resend belongs with the endpoint holding that nonce")
+	assert.Empty(t, second.sent)
 
-	// A claim newer than anything either endpoint has accepted goes back to the configured order.
+	// A claim newer than anything either endpoint has accepted is a first send.
 	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(7)))
-	assert.Len(t, first.sent, 3)
+	assert.Len(t, first.sent, 4)
 }
 
 func TestSendingBackend_TheAcceptedMarkOnlyMovesForward(t *testing.T) {
@@ -879,10 +964,10 @@ func TestSendingBackend_TheAcceptedMarkOnlyMovesForward(t *testing.T) {
 	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(9)))
 	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(4)))
 
-	// Accepting an out-of-order lower nonce must not lower the mark, or every resend at or below
-	// the earlier high would silently become eligible for this endpoint again.
+	// Accepting an out-of-order lower nonce must not lower the mark, or a resend at or below the
+	// earlier high would stop being recognised as one this endpoint is holding.
 	assert.Equal(t, uint64(9), b.highestAccepted[0])
-	assert.Len(t, first.sent, 1, "the lower nonce is at or below the mark, so it goes elsewhere")
+	assert.Len(t, first.sent, 2, "the lower nonce is at or below the mark, so it stays here")
 }
 
 func TestSendingBackend_AnEndpointRefusingEverythingStepsAside(t *testing.T) {
@@ -893,7 +978,7 @@ func TestSendingBackend_AnEndpointRefusingEverythingStepsAside(t *testing.T) {
 	// RESUBMISSION_TIMEOUT, so without a ceiling this endpoint would hold its place indefinitely.
 	broken := &fakeSender{err: rpcRejection{"internal error"}}
 
-	b := NewSendingBackend(public, []TxSender{broken}, nil)
+	b := NewSendingBackend(public, []TxSender{broken}, nil, nil)
 
 	unavailableBefore := testutil.ToFloat64(relayer.PrivateRPCUnavailable)
 
@@ -957,7 +1042,7 @@ func TestSendingBackend_DoesNotChargeAnEndpointForOurExpiredBudget(t *testing.T)
 
 func TestSendingBackend_DoesNotCountAPublicBroadcastThatFailed(t *testing.T) {
 	public := &errBackend{err: errors.New("dial tcp: connect: connection refused")}
-	b := NewSendingBackend(public, []TxSender{&fakeSender{}}, nil)
+	b := NewSendingBackend(public, []TxSender{&fakeSender{}}, nil, nil)
 
 	trip(b, 0)
 	require.Empty(t, rotation(b))
@@ -995,7 +1080,7 @@ func TestSendingBackend_DoesNotChargeAnEndpointForOurCancellation(t *testing.T) 
 	first := &cancellingSender{}
 	second := &fakeSender{}
 
-	b := NewSendingBackend(public, []TxSender{first, second}, nil)
+	b := NewSendingBackend(public, []TxSender{first, second}, nil, nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -1040,7 +1125,7 @@ func TestSendingBackend_ARejectionDoesNotMaskAnExpiredBudget(t *testing.T) {
 	slow := &stubbornSender{delay: 400 * time.Millisecond}
 	second := &fakeSender{}
 
-	b := NewSendingBackend(&fakeBackend{}, []TxSender{slow, second}, nil)
+	b := NewSendingBackend(&fakeBackend{}, []TxSender{slow, second}, nil, nil)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
@@ -1067,7 +1152,7 @@ func TestSendingBackend_GoSyntaxPrintingCarriesNoEndpointURL(t *testing.T) {
 	secret := "https://relay.example.com/v1/SUPERSECRETKEY"
 	only := &fakeSender{err: fmt.Errorf(`Post %q: dial tcp: i/o timeout`, secret)}
 
-	b := NewSendingBackend(&fakeBackend{}, []TxSender{only}, nil)
+	b := NewSendingBackend(&fakeBackend{}, []TxSender{only}, nil, nil)
 
 	err := b.SendTransaction(context.Background(), testTx())
 	require.Error(t, err)
@@ -1154,7 +1239,7 @@ func (s *gatedSender) SendTransaction(ctx context.Context, tx *types.Transaction
 func newGatedBackend(gate *gatedSender, second *fakeSender) (*SendingBackend, *time.Time) {
 	now := time.Date(2026, time.August, 29, 0, 0, 0, 0, time.UTC)
 
-	b := NewSendingBackend(&fakeBackend{}, []TxSender{gate, second}, nil)
+	b := NewSendingBackend(&fakeBackend{}, []TxSender{gate, second}, nil, nil)
 	b.now = func() time.Time { return now }
 
 	return b, &now
@@ -1173,7 +1258,7 @@ func TestSendingBackend_AConcurrentFailureFromTheSameSnapshotDoesNotRetrip(t *te
 	// One refusal short of the threshold, so the next failure is the one that costs the endpoint
 	// its place.
 	for i := 0; i < DefaultPrivateRPCFailureThreshold-1; i++ {
-		b.recordFailure(admit(b, 0), txWithNonce(uint64(100+i)).Hash(), false)
+		b.recordFailure(admit(b, 0), uint64(100+i), false)
 	}
 
 	// Both sends take their rotation snapshot and reach the endpoint before either has a result, so
@@ -1269,14 +1354,14 @@ func TestSendingBackend_KeepsTheAcceptedMarkAcrossATrip(t *testing.T) {
 	require.Equal(t, []int{0, 1}, rotation(b))
 
 	// Re-admission clears the failure record but not what the endpoint has already accepted. A
-	// resend of nonce 5 is still better offered elsewhere first: endpoint 0 may well be holding
-	// that transaction, and handing it back is the duplicate the mark exists to avoid.
+	// resend of nonce 5 still belongs with endpoint 0, which may be holding that transaction:
+	// going quiet for a while does not stop that from being true.
 	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(5)))
 
-	assert.Len(t, first.sent, 1, "the resend went elsewhere")
-	assert.Len(t, second.sent, 1)
+	assert.Len(t, first.sent, 2, "the resend went back to the endpoint holding the nonce")
+	assert.Empty(t, second.sent)
 
-	// A nonce above the mark is unaffected — it goes to the first endpoint as usual.
+	// A nonce above the mark is a first send and keeps the configured order.
 	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(6)))
-	assert.Len(t, first.sent, 2)
+	assert.Len(t, first.sent, 3)
 }
