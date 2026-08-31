@@ -135,6 +135,7 @@ func TestInitialIndexingBlockByMode(t *testing.T) {
 			} else {
 				assert.ErrorIs(t, err, tt.wantErr)
 			}
+
 			assert.Equal(t, tt.wantHeight, got)
 			assert.Equal(t, tt.wantRepoCalls, repository.calls)
 			assert.Equal(t, tt.wantFirstCalls, firstCalls)
