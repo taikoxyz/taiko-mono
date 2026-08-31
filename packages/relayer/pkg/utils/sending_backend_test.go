@@ -30,6 +30,8 @@ type fakeBackend struct {
 	mu                sync.Mutex
 	pendingNonce      uint64
 	pendingNonceCalls int
+	err               error
+	sendCalls         int
 	sent              []*types.Transaction
 	closed            bool
 	closeCalls        int
@@ -48,9 +50,24 @@ func (f *fakeBackend) SendTransaction(_ context.Context, tx *types.Transaction) 
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
+	f.sendCalls++
+
+	if f.err != nil {
+		return f.err
+	}
+
 	f.sent = append(f.sent, tx)
 
 	return nil
+}
+
+// attempts counts every send offered to this backend, including the ones it refused. For tests
+// that care whether the fallback was reached rather than whether it landed.
+func (f *fakeBackend) attempts() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.sendCalls
 }
 
 func (f *fakeBackend) Close() {
@@ -1585,4 +1602,76 @@ func TestSendingBackend_AnAcceptedSendClearsTheHeldNonceRun(t *testing.T) {
 	require.Error(t, b.SendTransaction(context.Background(), txWithNonce(100)))
 
 	assert.Equal(t, []int{0}, rotation(b), "the run restarts from the send it accepted")
+}
+
+func TestSendingBackend_RetriesThePublicFallbackAfterItFails(t *testing.T) {
+	public := &fakeBackend{err: errors.New("public endpoint unreachable")}
+	only := &fakeSender{err: rpcRejection{"claim not accepted"}}
+
+	b := NewSendingBackend(public, []TxSender{only}, nil, nil)
+	b.failureThreshold = 1 << 30
+	b.failureCeiling = 1 << 30
+
+	tx := txWithNonce(41)
+
+	for i := 0; i < DefaultPrivateRPCAllRefusedLimit; i++ {
+		require.Error(t, b.SendTransaction(context.Background(), tx))
+	}
+
+	require.Equal(t, 1, public.attempts(), "the threshold is reached and the fallback is tried")
+
+	// Clearing the count here cost the claim the threshold it had just earned: three more
+	// all-refused sends at the 48s resubmission default is past the two-minute
+	// TxNotInMempoolTimeout, so the claim would end that send never having reached the mempool.
+	require.Error(t, b.SendTransaction(context.Background(), tx))
+
+	assert.Equal(t, 2, public.attempts(), "past the limit, every send retries the fallback")
+}
+
+func TestSendingBackend_ReportsThePublicFailureRatherThanTheRefusal(t *testing.T) {
+	public := &fakeBackend{err: errors.New("public endpoint unreachable")}
+	only := &fakeSender{err: rpcRejection{"execution reverted"}}
+
+	b := NewSendingBackend(public, []TxSender{only}, nil, nil)
+	b.failureThreshold = 1 << 30
+	b.failureCeiling = 1 << 30
+
+	tx := txWithNonce(42)
+
+	var err error
+	for i := 0; i < DefaultPrivateRPCAllRefusedLimit; i++ {
+		err = b.SendTransaction(context.Background(), tx)
+	}
+
+	// The public attempt is the last and most complete thing tried, and what the caller classifies
+	// on: a relay's refusal may not be transient, an unreachable endpoint is.
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "public endpoint unreachable")
+	assert.NotContains(t, err.Error(), "execution reverted")
+}
+
+func TestSendingBackend_AnAcceptedSendClearsTheRefusalRun(t *testing.T) {
+	public := &fakeBackend{}
+	only := &fakeSender{err: rpcRejection{"claim not accepted"}}
+
+	b := NewSendingBackend(public, []TxSender{only}, nil, nil)
+	b.failureThreshold = 1 << 30
+	b.failureCeiling = 1 << 30
+
+	tx := txWithNonce(43)
+
+	// Only the send that reaches the limit gets the fallback; the ones before it carry the
+	// endpoint's refusal back to the caller.
+	for i := 0; i < DefaultPrivateRPCAllRefusedLimit-1; i++ {
+		require.Error(t, b.SendTransaction(context.Background(), tx))
+	}
+
+	require.NoError(t, b.SendTransaction(context.Background(), tx))
+	require.Len(t, public.sent, 1, "the fallback landed it")
+
+	// A landed claim ends the run, so the next refusal starts counting again rather than going
+	// straight back to the public mempool.
+	require.Error(t, b.SendTransaction(context.Background(), txWithNonce(44)))
+
+	assert.Equal(t, 1, len(public.sent), "a fresh claim is not immediately exposed")
 }

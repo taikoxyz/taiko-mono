@@ -380,11 +380,18 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 			"afterSends", b.allRefusedLimit,
 		)
 
-		if publicErr := b.ETHBackend.SendTransaction(ctx, tx); publicErr == nil {
+		publicErr := b.ETHBackend.SendTransaction(ctx, tx)
+		if publicErr == nil {
+			b.clearAllRefused(tx.Nonce())
 			relayer.PrivateRPCAllRefused.Inc()
 
 			return nil
 		}
+
+		// The public attempt is the last and most complete thing tried, so it is what the caller
+		// should classify on: a refusal from a relay may not be transient, but a public endpoint
+		// that could not be reached is.
+		return b.redacted(publicErr)
 	}
 
 	return b.redacted(err)
@@ -410,8 +417,13 @@ func (b *SendingBackend) clearAllRefused(nonce uint64) {
 // deduplication makes, and with the same consequence: the fallback is delayed, never skipped, and
 // only for as long as both claims keep failing.
 //
-// The count is cleared once it fires, so a claim that stays unwanted is offered publicly on the
-// first refusal of each subsequent run rather than once and never again.
+// The count is cleared by a send some endpoint accepted, and by nothing else — in particular not by
+// firing. Clearing it there cost the claim the threshold it had just earned: if the public send then
+// failed, three more all-refused sends were needed before the fallback could be tried again, which
+// at the 48s resubmission default is past the two-minute TxNotInMempoolTimeout. The claim would end
+// that send never having reached the mempool at all, which is the one thing this exists to prevent.
+// Once the limit is reached the fallback is therefore offered on every subsequent send of that
+// nonce, until one of them lands.
 func (b *SendingBackend) countAllRefused(nonce uint64) bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -424,13 +436,7 @@ func (b *SendingBackend) countAllRefused(nonce uint64) bool {
 
 	b.allRefusedCount++
 
-	if b.allRefusedCount < b.allRefusedLimit {
-		return false
-	}
-
-	b.allRefusedCount = 0
-
-	return true
+	return b.allRefusedCount >= b.allRefusedLimit
 }
 
 // attemptContext gives one endpoint its share of the time left on ctx, so an endpoint that hangs
