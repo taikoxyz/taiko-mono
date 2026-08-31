@@ -125,6 +125,10 @@ func (i *Indexer) InitFromCli(ctx context.Context, c *cliV2.Context) error {
 
 // nolint: funlen
 func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
+	if err := cfg.validate(); err != nil {
+		return err
+	}
+
 	db, err := cfg.OpenDBFunc()
 	if err != nil {
 		return err
@@ -167,12 +171,12 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 
 	var inboxContract *inbox.Inbox
 
-	if cfg.L1TaikoAddress.Hex() != ZeroAddress.Hex() {
-		slog.Info("setting l1TaikoAddress", "addr", cfg.L1TaikoAddress.Hex())
+	if cfg.Layer == Layer1 {
+		slog.Info("setting shastaInboxAddress", "addr", cfg.ShastaInboxAddress.Hex())
 
-		inboxContract, err = inbox.NewInbox(cfg.L1TaikoAddress, ethClient)
+		inboxContract, err = inbox.NewInbox(cfg.ShastaInboxAddress, ethClient)
 		if err != nil {
-			return errors.Wrap(err, "inbox.Inbox")
+			return errors.Wrap(err, "inbox.NewInbox")
 		}
 	}
 

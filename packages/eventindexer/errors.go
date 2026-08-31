@@ -20,8 +20,12 @@ var (
 		"ERR_NO_BLOCK_REPOSITORY",
 		"BlockRepository is required",
 	)
-	ErrNoCORSOrigins = errors.Validation.NewWithKeyAndDetail("ERR_NO_CORS_ORIGINS", "CORS Origins are required")
-	ErrNoRPCClient   = errors.Validation.NewWithKeyAndDetail("ERR_NO_RPC_CLIENT", "RPCClient is required")
-	ErrInvalidMode   = errors.Validation.NewWithKeyAndDetail("ERR_INVALID_MODE", "Mode not supported")
-	ErrInvalidURL    = errors.Validation.NewWithKeyAndDetail("ERR_INVALID_URL", "The provided URL is invalid or unreachable")
+	ErrNoCORSOrigins        = errors.Validation.NewWithKeyAndDetail("ERR_NO_CORS_ORIGINS", "CORS Origins are required")
+	ErrNoRPCClient          = errors.Validation.NewWithKeyAndDetail("ERR_NO_RPC_CLIENT", "RPCClient is required")
+	ErrNoShastaInboxAddress = errors.Validation.NewWithKeyAndDetail(
+		"ERR_NO_SHASTA_INBOX_ADDRESS",
+		"ShastaInboxAddress is required for L1 indexing",
+	)
+	ErrInvalidMode = errors.Validation.NewWithKeyAndDetail("ERR_INVALID_MODE", "Mode not supported")
+	ErrInvalidURL  = errors.Validation.NewWithKeyAndDetail("ERR_INVALID_URL", "The provided URL is invalid or unreachable")
 )
