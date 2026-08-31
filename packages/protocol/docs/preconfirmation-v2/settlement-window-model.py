@@ -14,15 +14,88 @@ from dataclasses import dataclass, field, fields as dataclass_fields, is_datacla
 from enum import Enum, IntFlag, auto
 import hashlib
 import sys
-from Crypto.Hash import keccak
+try:
+    from Crypto.Hash import keccak as _native_keccak
+except ImportError:  # Keep the executable specification independently runnable.
+    _native_keccak = None
 from types import MappingProxyType
 from typing import Any, Callable, Optional
 
 
+_KECCAK_MASK64 = (1 << 64) - 1
+_KECCAK_ROT = (
+    0, 1, 62, 28, 27, 36, 44, 6, 55, 20, 3, 10, 43, 25, 39,
+    41, 45, 15, 21, 8, 18, 2, 61, 56, 14,
+)
+_KECCAK_RC = (
+    0x0000000000000001, 0x0000000000008082, 0x800000000000808A,
+    0x8000000080008000, 0x000000000000808B, 0x0000000080000001,
+    0x8000000080008081, 0x8000000000008009, 0x000000000000008A,
+    0x0000000000000088, 0x0000000080008009, 0x000000008000000A,
+    0x000000008000808B, 0x800000000000008B, 0x8000000000008089,
+    0x8000000000008003, 0x8000000000008002, 0x8000000000000080,
+    0x000000000000800A, 0x800000008000000A, 0x8000000080008081,
+    0x8000000000008080, 0x0000000080000001, 0x8000000080008008,
+)
+
+
+def _keccak_rol(value: int, count: int) -> int:
+    return (
+        ((value << count) | (value >> (64 - count))) & _KECCAK_MASK64
+        if count else value
+    )
+
+
+def _keccak_f(state: list[int]) -> None:
+    for rc in _KECCAK_RC:
+        c = [
+            state[x] ^ state[x + 5] ^ state[x + 10] ^ state[x + 15] ^ state[x + 20]
+            for x in range(5)
+        ]
+        d = [c[(x - 1) % 5] ^ _keccak_rol(c[(x + 1) % 5], 1) for x in range(5)]
+        for y in range(5):
+            for x in range(5):
+                state[x + 5 * y] ^= d[x]
+        b = [0] * 25
+        for y in range(5):
+            for x in range(5):
+                b[y + 5 * ((2 * x + 3 * y) % 5)] = _keccak_rol(
+                    state[x + 5 * y], _KECCAK_ROT[x + 5 * y]
+                )
+        for y in range(5):
+            for x in range(5):
+                state[x + 5 * y] = b[x + 5 * y] ^ (
+                    ((~b[(x + 1) % 5 + 5 * y]) & _KECCAK_MASK64)
+                    & b[(x + 2) % 5 + 5 * y]
+                )
+        state[0] ^= rc
+
+
+def _keccak256_pure(data: bytes) -> bytes:
+    rate = 136
+    padded = bytearray(data)
+    remaining = rate - (len(padded) % rate)
+    if remaining == 1:
+        padded.append(0x81)
+    else:
+        padded.append(0x01)
+        padded.extend(b"\x00" * (remaining - 2))
+        padded.append(0x80)
+    state = [0] * 25
+    for offset in range(0, len(padded), rate):
+        block = padded[offset:offset + rate]
+        for lane in range(rate // 8):
+            state[lane] ^= int.from_bytes(block[8 * lane:8 * lane + 8], "little")
+        _keccak_f(state)
+    return b"".join(lane.to_bytes(8, "little") for lane in state)[:32]
+
+
 def keccak256(data: bytes) -> bytes:
-    digest = keccak.new(digest_bits=256)
-    digest.update(data)
-    return digest.digest()
+    if _native_keccak is not None:
+        digest = _native_keccak.new(digest_bits=256)
+        digest.update(data)
+        return digest.digest()
+    return _keccak256_pure(data)
 
 GENESIS_TIMESTAMP = 1_000_000
 W_SETTLE_SECONDS = 1_200
@@ -128,8 +201,8 @@ NON_PROTOCOL_MARKET_UNIT_PRIMITIVES = frozenset({
 })
 SEAT_ARMED_MAGIC = b"SARM"
 SEAT_ABORTED_MAGIC = b"SABT"
-SEAT_MIGRATION_RESPONSE_PAYLOAD_LENGTH = 4 + 8 + 8 + 8 + 32 + 8
-SEAT_MIGRATION_RESPONSE_LENGTH = 160
+SEAT_MIGRATION_RESPONSE_PAYLOAD_LENGTH = 4 + 8 + 8 + 8 + 32 + 32 + 8
+SEAT_MIGRATION_RESPONSE_LENGTH = 192
 SEAT_MIGRATION_MANIFEST_DELAY = 100
 SEAT_MIGRATION_CANCEL_DELAY = 100
 
@@ -246,9 +319,12 @@ MAX_PROFILE_INGRESS_AUTHORIZATIONS = 64
 MAX_BRIDGE_ENQUEUE_DELAY = 7 * 86_400
 BRIDGE_PROCESS_TTL_SECONDS = 30 * 86_400
 CANONICAL_HISTORY_CAPACITY = 256
-L1_HEADER_ORACLE_ADDRESS = "eip-2935-header-oracle"
-L1_HEADER_ORACLE_RUNTIME_HASH = "code:eip2935-header-oracle:v1"
-L1_HEADER_ORACLE_CONFIGURATION_HASH = "config:eip2935:8191:v1"
+EIP2935_HISTORY_STORAGE_ADDRESS = \
+    "0x0000F90827F1C53a10cb7A02335B175320002935"
+EIP2935_HISTORY_STORAGE_RUNTIME_HASH = "code:eip2935-history-storage:v1"
+EIP2935_HISTORY_STORAGE_ACTIVATION_BLOCK = 0
+EIP2935_HISTORY_SERVE_WINDOW = 8_191
+EIP2935_HISTORY_READ_GAS = 50_000
 KIND0_INGRESS_RUNTIME_HASH = "code:kind0-ingress:v2"
 KIND0_INGRESS_CONFIGURATION_HASH = "config:kind0-ingress:v2"
 BRIDGE_INGRESS_RUNTIME_HASH = "code:bridge-inbox-adapter:v2"
@@ -876,20 +952,19 @@ class L1Header:
 
 
 @dataclass(frozen=True, eq=False)
-class L1HeaderOracle:
-    """Protocol-lifetime authenticated EIP-2935/system header source."""
+class EIP2935SystemReadTestAdapter:
+    """Test adapter for direct reads from the fixed EIP-2935 system contract.
 
-    address: str
-    runtime_hash: str
-    configuration_hash: str
+    This is not a deployable or replaceable protocol authority.  ``header``
+    composes the byte-exact history hash cell with the model's already decoded
+    canonical-header fixture; production additionally checks canonical RLP.
+    """
+
     _headers: object = field(repr=False)
 
     def __post_init__(self) -> None:
         if (
-            not self.address
-            or not self.runtime_hash
-            or not self.configuration_hash
-            or type(self._headers) is not dict
+            type(self._headers) is not dict
             or any(
                 type(number) is not int
                 or number < 0
@@ -897,13 +972,41 @@ class L1HeaderOracle:
                 for number, header in self._headers.items()
             )
         ):
-            raise ValueError("L1 header oracle deployment is invalid")
+            raise ValueError("EIP-2935 history fixture is invalid")
         object.__setattr__(
             self, "_headers", MappingProxyType(dict(self._headers))
         )
 
-    def __deepcopy__(self, memo: dict[int, object]) -> "L1HeaderOracle":
+    def __deepcopy__(
+        self, memo: dict[int, object]
+    ) -> "EIP2935SystemReadTestAdapter":
         return self
+
+    def read_hash(
+        self, requested_block: int, current_block: int, calldata: bytes, *,
+        gas_limit: int = EIP2935_HISTORY_READ_GAS, value: int = 0,
+    ) -> bytes:
+        """Model the selector-free, fixed-address EIP-2935 STATICCALL."""
+
+        if (type(requested_block) is not int
+                or type(current_block) is not int
+                or requested_block < EIP2935_HISTORY_STORAGE_ACTIVATION_BLOCK
+                or not max(0, current_block - EIP2935_HISTORY_SERVE_WINDOW)
+                    <= requested_block < current_block
+                or calldata != _model_uint(
+                    requested_block, 32, "EIP-2935 requested block"
+                )
+                or gas_limit != EIP2935_HISTORY_READ_GAS
+                or value != 0):
+            raise ValueError("EIP-2935 system read frame is not exact")
+        header = self.header(requested_block)
+        try:
+            result = bytes.fromhex(header.block_hash.removeprefix("0x"))
+        except (ValueError, AttributeError) as exc:
+            raise ValueError("EIP-2935 history cell is malformed") from exc
+        if len(result) != 32 or result == bytes(32):
+            raise ValueError("EIP-2935 history cell is empty")
+        return result
 
     def header(self, block_number: int) -> L1Header:
         if type(block_number) is not int or block_number < 0:
@@ -912,15 +1015,10 @@ class L1HeaderOracle:
 
     def fork_for_test(
         self, substitutions: dict[int, L1Header]
-    ) -> "L1HeaderOracle":
+    ) -> "EIP2935SystemReadTestAdapter":
         headers = dict(self._headers)
         headers.update(substitutions)
-        return L1HeaderOracle(
-            self.address,
-            self.runtime_hash,
-            self.configuration_hash,
-            headers,
-        )
+        return EIP2935SystemReadTestAdapter(headers)
 
 
 @dataclass(frozen=True)
@@ -2558,6 +2656,18 @@ class RouterPhase(Enum):
     READY = 2
 
 
+class RouterMigrationLifecycle(Enum):
+    """One transaction-local Router mutation phase; IDLE is externally usable."""
+
+    IDLE = 0
+    ARMING = 1
+    READYING = 2
+    ABORTING = 3
+    ACTIVATING = 4
+    REGISTERING = 5
+    PUBLISHING = 6
+
+
 class MigrationBoundaryState(Enum):
     NONE = 0
     NORMAL = 1
@@ -2570,20 +2680,32 @@ class RouterWord:
     active_version: int
     target_version: int
     target_manifest_hash: bytes
+    target_registration_hash: bytes
     phase: RouterPhase
 
 
 ACTIVE_SETTLEMENT_STATE_MAGIC = b"ASR1"
-ACTIVE_SETTLEMENT_STATE_LENGTH = 224
+ACTIVE_SETTLEMENT_STATE_LENGTH = 256
 ACTIVE_SETTLEMENT_STATE_GAS = 50_000
 MIGRATION_READINESS_MAGIC = b"MRS1"
-MIGRATION_READINESS_LENGTH = 224
+MIGRATION_READINESS_LENGTH = 256
 MIGRATION_READINESS_GAS = 100_000
 DATA_SESSION_ACCOUNTING_MAGIC = b"DSV1"
 DATA_SESSION_ACCOUNTING_LENGTH = 384
 DATA_SESSION_ACCOUNTING_GAS = 100_000
 MARK_MIGRATION_READY_MAGIC = b"MRDY"
 MARK_MIGRATION_READY_RETURN = MARK_MIGRATION_READY_MAGIC + bytes(28)
+SEAT_MIGRATION_ARM_SELECTOR = bytes.fromhex("91d657cf")
+SEAT_MIGRATION_ABORT_SELECTOR = bytes.fromhex("c69d5579")
+MIGRATION_CANONICAL_ADOPT_SELECTOR = bytes.fromhex("557c4e13")
+MIGRATION_CANONICAL_MAGIC = b"MCAN"
+MIGRATION_CANONICAL_RETURN_LENGTH = 96
+MIGRATION_SOURCE_FREEZE_MAGIC = b"MFRZ"
+MIGRATION_SOURCE_FREEZE_RETURN_LENGTH = 96
+MIGRATION_ADOPTION_STATE_MAGIC = b"MAPS"
+MIGRATION_ADOPTION_STATE_LENGTH = 128
+MIGRATION_QUEUE_MAGIC = b"QMIG"
+MIGRATION_QUEUE_RETURN_LENGTH = 128
 
 
 @dataclass(frozen=True)
@@ -2593,6 +2715,7 @@ class ActiveSettlementStateV1:
     active_protocol_version: int
     target_protocol_version: int
     target_manifest_hash: bytes
+    target_registration_hash: bytes
     phase: RouterPhase
 
 
@@ -2602,6 +2725,7 @@ class MigrationReadinessV1:
     active_protocol_version: int
     target_protocol_version: int
     target_manifest_hash: bytes
+    target_registration_hash: bytes
     boundary_state: MigrationBoundaryState
     local_arm_complete: bool
 
@@ -2630,7 +2754,9 @@ def encode_active_settlement_state_v1(
             or state.active_settlement == bytes(20)
             or type(state.phase) is not RouterPhase
             or type(state.target_manifest_hash) is not bytes
-            or len(state.target_manifest_hash) != 32):
+            or len(state.target_manifest_hash) != 32
+            or type(state.target_registration_hash) is not bytes
+            or len(state.target_registration_hash) != 32):
         raise ValueError("active Settlement state is malformed")
     generation = _model_uint(state.generation, 8, "router generation")
     active_version = _model_uint(
@@ -2639,13 +2765,14 @@ def encode_active_settlement_state_v1(
     target_version = _model_uint(
         state.target_protocol_version, 8, "target protocol version"
     )
-    if (state.active_protocol_version == 0
-            or (state.phase is RouterPhase.ACTIVE
+    if ((state.phase is RouterPhase.ACTIVE
                 and (state.target_protocol_version != 0
-                     or state.target_manifest_hash != bytes(32)))
+                     or state.target_manifest_hash != bytes(32)
+                     or state.target_registration_hash != bytes(32)))
             or (state.phase is not RouterPhase.ACTIVE
                 and (state.target_protocol_version == 0
-                     or state.target_manifest_hash == bytes(32)))):
+                     or state.target_manifest_hash == bytes(32)
+                     or state.target_registration_hash == bytes(32)))):
         raise ValueError("active Settlement state phase tuple is invalid")
     return b"".join((
         ACTIVE_SETTLEMENT_STATE_MAGIC + bytes(28),
@@ -2654,6 +2781,7 @@ def encode_active_settlement_state_v1(
         bytes(24) + active_version,
         bytes(24) + target_version,
         state.target_manifest_hash,
+        state.target_registration_hash,
         bytes(31) + bytes((state.phase.value,)),
     ))
 
@@ -2669,16 +2797,17 @@ def decode_active_settlement_state_v1(raw: bytes) -> ActiveSettlementStateV1:
             or words[2][:24] != bytes(24)
             or words[3][:24] != bytes(24)
             or words[4][:24] != bytes(24)
-            or words[6][:31] != bytes(31)):
+            or words[7][:31] != bytes(31)):
         raise ValueError("active Settlement returndata padding is noncanonical")
     try:
-        phase = RouterPhase(words[6][-1])
+        phase = RouterPhase(words[7][-1])
         state = ActiveSettlementStateV1(
             words[1][12:],
             int.from_bytes(words[2][24:], "big"),
             int.from_bytes(words[3][24:], "big"),
             int.from_bytes(words[4][24:], "big"),
             words[5],
+            words[6],
             phase,
         )
         # Re-encoding simultaneously validates the phase-dependent zero rules.
@@ -2706,7 +2835,8 @@ def verify_active_settlement_state_v1(
             and state.active_protocol_version == expected_protocol_version
             and state.phase is RouterPhase.ACTIVE
             and state.target_protocol_version == 0
-            and state.target_manifest_hash == bytes(32))
+            and state.target_manifest_hash == bytes(32)
+            and state.target_registration_hash == bytes(32))
 
 
 def encode_migration_readiness_v1(state: MigrationReadinessV1) -> bytes:
@@ -2714,6 +2844,9 @@ def encode_migration_readiness_v1(state: MigrationReadinessV1) -> bytes:
             or type(state.target_manifest_hash) is not bytes
             or len(state.target_manifest_hash) != 32
             or state.target_manifest_hash == bytes(32)
+            or type(state.target_registration_hash) is not bytes
+            or len(state.target_registration_hash) != 32
+            or state.target_registration_hash == bytes(32)
             or type(state.boundary_state) is not MigrationBoundaryState
             or type(state.local_arm_complete) is not bool):
         raise ValueError("migration readiness is malformed")
@@ -2727,6 +2860,7 @@ def encode_migration_readiness_v1(state: MigrationReadinessV1) -> bytes:
             state.target_protocol_version, 8, "target protocol version"
         ),
         state.target_manifest_hash,
+        state.target_registration_hash,
         bytes(31) + bytes((state.boundary_state.value,)),
         bytes(31) + bytes((int(state.local_arm_complete),)),
     ))
@@ -2738,9 +2872,9 @@ def decode_migration_readiness_v1(raw: bytes) -> MigrationReadinessV1:
     words = tuple(raw[offset:offset + 32] for offset in range(0, len(raw), 32))
     if (words[0] != MIGRATION_READINESS_MAGIC + bytes(28)
             or any(words[index][:24] != bytes(24) for index in (1, 2, 3))
-            or words[5][:31] != bytes(31)
             or words[6][:31] != bytes(31)
-            or words[6][-1] not in (0, 1)):
+            or words[7][:31] != bytes(31)
+            or words[7][-1] not in (0, 1)):
         raise ValueError("migration readiness returndata is noncanonical")
     try:
         state = MigrationReadinessV1(
@@ -2748,8 +2882,9 @@ def decode_migration_readiness_v1(raw: bytes) -> MigrationReadinessV1:
             int.from_bytes(words[2][24:], "big"),
             int.from_bytes(words[3][24:], "big"),
             words[4],
-            MigrationBoundaryState(words[5][-1]),
-            bool(words[6][-1]),
+            words[5],
+            MigrationBoundaryState(words[6][-1]),
+            bool(words[7][-1]),
         )
         if encode_migration_readiness_v1(state) != raw:
             raise ValueError
@@ -2826,6 +2961,7 @@ class SeatMigrationResponse:
     active_protocol_version: int
     target_protocol_version: int
     target_manifest_hash: bytes
+    target_registration_hash: bytes
     seat_generation: int
 
 
@@ -2855,14 +2991,16 @@ class ScheduledSeatMigration:
     executable_at: int
     old_authorization_id: bytes = b""
     new_authorization_id: bytes = b""
+    target_registration_hash: bytes = b""
 
     @property
-    def key(self) -> tuple[int, int, int, bytes]:
+    def key(self) -> tuple[int, int, int, bytes, bytes]:
         return (
             self.generation,
             self.active_protocol_version,
             self.target_protocol_version,
             self.target_manifest_hash,
+            self.target_registration_hash,
         )
 
 
@@ -2881,6 +3019,8 @@ def encode_seat_migration_response(response: SeatMigrationResponse) -> bytes:
     if (
         type(response.target_manifest_hash) is not bytes
         or len(response.target_manifest_hash) != 32
+        or type(response.target_registration_hash) is not bytes
+        or len(response.target_registration_hash) != 32
     ):
         raise ValueError("migration manifest must be exact bytes32")
     payload = b"".join((
@@ -2889,6 +3029,7 @@ def encode_seat_migration_response(response: SeatMigrationResponse) -> bytes:
         _migration_u64(response.active_protocol_version, "active protocol version"),
         _migration_u64(response.target_protocol_version, "target protocol version"),
         response.target_manifest_hash,
+        response.target_registration_hash,
         _migration_u64(response.seat_generation, "seat generation"),
     ))
     if len(payload) != SEAT_MIGRATION_RESPONSE_PAYLOAD_LENGTH:
@@ -2911,7 +3052,7 @@ def decode_seat_migration_response(raw: bytes) -> SeatMigrationResponse:
             )
             or raw[-28:] != bytes(28)):
         raise ValueError("seat migration response ABI is noncanonical")
-    payload = raw[64:132]
+    payload = raw[64:164]
     magic = payload[:4]
     if magic not in (SEAT_ARMED_MAGIC, SEAT_ABORTED_MAGIC):
         raise ValueError("seat migration response has wrong magic")
@@ -2921,7 +3062,8 @@ def decode_seat_migration_response(raw: bytes) -> SeatMigrationResponse:
         int.from_bytes(payload[12:20], "big"),
         int.from_bytes(payload[20:28], "big"),
         payload[28:60],
-        int.from_bytes(payload[60:68], "big"),
+        payload[60:92],
+        int.from_bytes(payload[92:100], "big"),
     )
 
 
@@ -2944,6 +3086,7 @@ class MigrationGate:
     active_protocol_version: int = 0
     target_protocol_version: int = 0
     target_manifest_hash: str | bytes = ""
+    target_registration_hash: bytes = b""
     active_settlement_address: str = ""
     active_data_session_config_hash: bytes = b""
     coordinator: str = ""
@@ -2969,17 +3112,25 @@ class MigrationGate:
         if phase is None:
             raise ValueError("migration router phase is invalid")
         manifest = self.target_manifest_hash
-        if manifest == "":
+        if manifest in {"", b""}:
             exact_manifest = b"\x00" * 32
         elif type(manifest) is bytes and len(manifest) == 32:
             exact_manifest = manifest
         else:
             raise ValueError("migration router manifest is not exact bytes32")
+        registration = self.target_registration_hash
+        if registration == b"":
+            exact_registration = bytes(32)
+        elif type(registration) is bytes and len(registration) == 32:
+            exact_registration = registration
+        else:
+            raise ValueError("migration target registration is not exact bytes32")
         return RouterWord(
             self.generation,
             self.active_protocol_version,
             self.target_protocol_version,
             exact_manifest,
+            exact_registration,
             phase,
         )
 
@@ -2992,17 +3143,25 @@ class MigrationGate:
         active_data_session_config_hash: bytes = b"",
     ) -> bool:
         if (self.active_protocol_version != 0 or protocol_version <= 0
-                or self.mode != "ACTIVE" or self.coordinator != ""
+                or self.mode != "ACTIVE"
+                or self.coordinator != ""
                 or not coordinator
                 or (active_settlement_address
                     and (type(active_data_session_config_hash) is not bytes
-                         or len(active_data_session_config_hash) != 32
-                         or active_data_session_config_hash == bytes(32)))):
+                         or (active_data_session_config_hash != b""
+                             and (len(active_data_session_config_hash) != 32
+                                  or active_data_session_config_hash
+                                      == bytes(32)))))):
             return False
         self.active_protocol_version = protocol_version
         self.active_settlement_address = active_settlement_address
         self.active_data_session_config_hash = active_data_session_config_hash
+        self.target_protocol_version = 0
+        self.target_manifest_hash = b""
+        self.target_registration_hash = b""
         object.__setattr__(self, "coordinator", coordinator)
+        # This publication is deliberately the final genesis state write.
+        self.mode = "ACTIVE"
         return True
 
     def _bind_active_data_session_from_router(
@@ -3012,6 +3171,7 @@ class MigrationGate:
                 or type(config_hash) is not bytes or len(config_hash) != 32
                 or config_hash == bytes(32)
                 or self.active_settlement_address
+                    not in {"", settlement_address}
                 or self.active_data_session_config_hash):
             return False
         self.active_settlement_address = settlement_address
@@ -3019,21 +3179,27 @@ class MigrationGate:
         return True
 
     def _arm_from_manager(self, generation: int, active_protocol_version: int,
-            target_protocol_version: int, manifest_hash: str, *, caller: str) -> bool:
+            target_protocol_version: int, manifest_hash: str,
+            target_registration_hash: bytes, *, caller: str) -> bool:
         if (self.mode == "ARMED" and generation == self.generation
                 and active_protocol_version == self.active_protocol_version
                 and target_protocol_version == self.target_protocol_version
                 and manifest_hash == self.target_manifest_hash
+                and target_registration_hash == self.target_registration_hash
                 and caller == self.coordinator):
             return True
         if (self.mode != "ACTIVE" or generation != self.generation + 1
                 or caller != self.coordinator or not manifest_hash
+                or type(target_registration_hash) is not bytes
+                or len(target_registration_hash) != 32
+                or target_registration_hash == bytes(32)
                 or active_protocol_version != self.active_protocol_version
                 or target_protocol_version <= active_protocol_version):
             return False
         self.generation = generation
         self.target_protocol_version = target_protocol_version
         self.target_manifest_hash = manifest_hash
+        self.target_registration_hash = target_registration_hash
         self.mode = "ARMED"
         return True
 
@@ -3069,6 +3235,8 @@ class MigrationGate:
                 or readiness.target_protocol_version
                     != self.target_protocol_version
                 or readiness.target_manifest_hash != manifest
+                or readiness.target_registration_hash
+                    != self.target_registration_hash
                 or readiness.boundary_state is not MigrationBoundaryState.NONE
                 or not readiness.local_arm_complete
                 or accounting.live_count != 0
@@ -3122,6 +3290,8 @@ class MigrationGate:
                 == self.target_protocol_version
             and readiness.target_manifest_hash
                 == _model_fixed_bytes32(self.target_manifest_hash)
+            and readiness.target_registration_hash
+                == self.target_registration_hash
             and readiness.boundary_state is MigrationBoundaryState.NONE
             and readiness.local_arm_complete
             and accounting.live_count == 0
@@ -3141,10 +3311,12 @@ class MigrationGate:
         *,
         new_settlement_address: str,
         new_data_session_config_hash: bytes,
+        target_registration_hash: bytes,
     ) -> bool:
         if (self.mode != "READY" or generation != self.generation
                 or old_protocol_version != self.active_protocol_version
                 or new_protocol_version != self.target_protocol_version
+                or target_registration_hash != self.target_registration_hash
                 or not new_settlement_address
                 or type(new_data_session_config_hash) is not bytes
                 or len(new_data_session_config_hash) != 32
@@ -3155,11 +3327,13 @@ class MigrationGate:
         self.active_data_session_config_hash = new_data_session_config_hash
         self.target_protocol_version = 0
         self.target_manifest_hash = ""
+        self.target_registration_hash = b""
         self.mode = "ACTIVE"
         return True
 
     def _abort_from_manager(self, generation: int, active_protocol_version: int,
-              target_protocol_version: int, manifest_hash: str, *,
+              target_protocol_version: int, manifest_hash: str,
+              target_registration_hash: bytes, *,
               cancel_manifest_active: bool, caller: str) -> bool:
         """Permissionless execution of a separately delayed exact cancel."""
         if (caller != self.coordinator
@@ -3168,13 +3342,27 @@ class MigrationGate:
                 or generation != self.generation
                 or active_protocol_version != self.active_protocol_version
                 or target_protocol_version != self.target_protocol_version
-                or manifest_hash != self.target_manifest_hash):
+                or manifest_hash != self.target_manifest_hash
+                or target_registration_hash != self.target_registration_hash):
             return False
         canceled_word = self.router_word
         self.canceled_generations.add(generation)
         self.canceled_words[generation] = canceled_word
         self.target_protocol_version = 0
         self.target_manifest_hash = ""
+        self.target_registration_hash = b""
+        self.mode = "ABORTING"
+        return True
+
+    def _publish_abort_active(self, generation: int, *, caller: str) -> bool:
+        """Final no-callback ACTIVE write after every abort cleanup/post-read."""
+
+        if (caller != self.coordinator or self.mode != "ABORTING"
+                or generation != self.generation
+                or self.target_protocol_version != 0
+                or self.target_manifest_hash != ""
+                or self.target_registration_hash != b""):
+            return False
         self.mode = "ACTIVE"
         return True
 
@@ -3305,7 +3493,7 @@ def normal_context_id(base_hash: str, admission_version: int, admission_root: st
 @dataclass
 class Protocol:
     canonical: Canonical
-    header_oracle: L1HeaderOracle
+    header_oracle: EIP2935SystemReadTestAdapter
     forced_queue: "QueueContinuity"
     inbox_apply_router: "InboxApplyRouterV2"
     settlement_address: str = "model-settlement"
@@ -3569,6 +3757,11 @@ class Protocol:
             if phase is RouterPhase.ACTIVE
             else _model_fixed_bytes32(gate.target_manifest_hash)
         )
+        target_registration = (
+            bytes(32)
+            if phase is RouterPhase.ACTIVE
+            else gate.target_registration_hash
+        )
         active_address = gate.active_settlement_address or self.settlement_address
         return encode_active_settlement_state_v1(ActiveSettlementStateV1(
             _model_address20(active_address),
@@ -3576,6 +3769,7 @@ class Protocol:
             active_version,
             target_version,
             target_manifest,
+            target_registration,
             phase,
         ))
 
@@ -5873,6 +6067,7 @@ class Protocol:
             word.active_version,
             word.target_version,
             word.target_manifest_hash,
+            word.target_registration_hash,
             self.seat_generation,
         )
         raw = encode_seat_migration_response(response)
@@ -5904,6 +6099,10 @@ class Protocol:
             return encode_seat_migration_response(forged)
         if self.seat_fault_point == f"{prefix}_response_wrong_manifest":
             forged = replace(response, target_manifest_hash=b"x" * 32)
+            return encode_seat_migration_response(forged)
+        if self.seat_fault_point \
+                == f"{prefix}_response_wrong_target_registration":
+            forged = replace(response, target_registration_hash=b"x" * 32)
             return encode_seat_migration_response(forged)
         if self.seat_fault_point == f"{prefix}_response_wrong_seat_generation":
             forged = replace(response, seat_generation=response.seat_generation + 1)
@@ -5978,7 +6177,14 @@ class Protocol:
                 if isinstance(router, ActiveSettlementRouter)
                 else "active-settlement-router"
             ),
-            _model_address20(self.migration_gate.coordinator or "version-manager"),
+            # The deployment-time config commits the immutable Router manager,
+            # not the Gate's publication slot.  The latter is deliberately
+            # empty until the final genesis ACTIVE write.
+            _model_address20(
+                router.version_manager
+                if isinstance(router, ActiveSettlementRouter)
+                else "version-manager"
+            ),
             _model_address20(self.data_rent_sink.address),
             _model_fixed_bytes32(execution_profile_hash),
             _model_uint(self.data_session_required_bond, 32, "session bond"),
@@ -6028,6 +6234,7 @@ class Protocol:
             gate.active_protocol_version,
             gate.target_protocol_version,
             _model_fixed_bytes32(gate.target_manifest_hash),
+            gate.target_registration_hash,
             boundary,
             local_complete,
         ))
@@ -6164,9 +6371,8 @@ class Protocol:
         canceled_arm: RouterWord,
         clock: Clock,
     ) -> bytes:
-        """Authenticate the retained canceled tuple and complete post-abort sync."""
+        """Authenticate retained cancel context; never sync in the abort tx."""
 
-        active_word = self.migration_gate.router_word
         armed_word = (
             None
             if self.seat_migration_arm is None
@@ -6178,24 +6384,27 @@ class Protocol:
             or canceled_arm.phase not in (RouterPhase.ARMED, RouterPhase.READY)
             or self.migration_gate.canceled_words.get(canceled_arm.generation)
             != canceled_arm
-            or active_word.phase is not RouterPhase.ACTIVE
-            or active_word.generation != canceled_arm.generation
-            or active_word.active_version != canceled_arm.active_version
-            or active_word.target_version != 0
-            or active_word.target_manifest_hash != b"\x00" * 32
+            or self.migration_gate.mode != "ABORTING"
+            or self.migration_gate.generation != canceled_arm.generation
+            or self.migration_gate.active_protocol_version
+                != canceled_arm.active_version
+            or self.migration_gate.target_protocol_version != 0
+            or self.migration_gate.target_manifest_hash != ""
+            or self.migration_gate.target_registration_hash != b""
             or armed_word is None
             or armed_word.generation != canceled_arm.generation
             or armed_word.active_version != canceled_arm.active_version
             or armed_word.target_version != canceled_arm.target_version
             or armed_word.target_manifest_hash
             != canceled_arm.target_manifest_hash
+            or armed_word.target_registration_hash
+            != canceled_arm.target_registration_hash
             or armed_word.phase is not RouterPhase.ARMED
         ):
             raise ValueError("seat migration abort authority tuple is invalid")
         snapshot = self._canonical_transaction_snapshot()
         try:
             retained_generation = self.seat_generation
-            self.sync(clock)
             if self.seat_generation != retained_generation:
                 raise AssertionError("migration abort changed seat generation")
             self.seat_migration_abort = SeatMigrationAbort(
@@ -6223,7 +6432,8 @@ class Protocol:
                 or self.migration_gate.mode != "ARMED"
                 or self.migration_gate.generation != generation):
             return False
-        if not self.migration_gate.active_settlement_address:
+        if (not self.migration_gate.active_settlement_address
+                or not self.migration_gate.active_data_session_config_hash):
             if not self.migration_gate._bind_active_data_session_from_router(
                 self.settlement_address, self.data_session_config_hash_v1()
             ):
@@ -6301,6 +6511,8 @@ class Protocol:
                     == _model_fixed_bytes32(
                         self.migration_gate.target_manifest_hash
                     )
+                and arm.router_word.target_registration_hash
+                    == self.migration_gate.target_registration_hash
                 and arm.router_word.phase is RouterPhase.ARMED
                 and arm.seat_generation == self.seat_generation
                 and not self.seat_lineup
@@ -6335,18 +6547,16 @@ class Protocol:
             changed |= self._cleanup_migration_sessions(clock) > 0
         if (allow_ready
                 and self._local_migration_arm_complete(boundary_open)):
-            ready = self.migration_gate._mark_ready_from_protocol(
-                protocol=self,
-                caller=self.settlement_address,
-                generation=self.migration_gate.generation,
+            history = self.versioned_history
+            router = (
+                None if type(history) is not VersionedSettlementHistory
+                else history._router_authority
             )
+            if type(router) is not ActiveSettlementRouter:
+                raise ValueError("migration READY has no exact Router")
+            ready = router._mark_ready_from_protocol(self)
             if ready != MARK_MIGRATION_READY_RETURN:
                 raise ValueError("migration READY returned the wrong magic")
-            if (
-                self.versioned_history is not None
-                and self.versioned_history.mode == "MIGRATION_ARMED"
-            ):
-                self.versioned_history.mode = "MIGRATION_READY"
             self.events.append("MIGRATION_READY")
             changed = True
         return changed
@@ -8641,6 +8851,2521 @@ class CanonicalTerminalCommitment:
     canonicalized_at_block: int
 
 
+def canonical_core_hash_v2(core: CanonicalCore) -> bytes:
+    if type(core) is not CanonicalCore:
+        raise ValueError("canonical core commitment requires exact core")
+    return keccak256(
+        b"slot-chain-canonical-core-v2"
+        + migration_transition_encode(core)
+    )
+
+
+@dataclass(frozen=True)
+class MigrationCanonicalContextV2:
+    """Exact Router callback frame shared by freeze, adopt, and Queue migrate."""
+
+    transition_kind: str
+    router_generation: int
+    source_protocol_version: int
+    target_protocol_version: int
+    target_manifest_hash: bytes
+    target_registration_hash: bytes
+    source_checkpoint_id: bytes
+    source_boundary_hash: bytes
+    source_settlement: str
+    target_settlement: str
+    source_canonical_sequence: int
+    target_canonical_sequence: int
+    candidate_digest: str
+    output_core: CanonicalCore
+    output_core_hash: bytes
+    canonicalized_at_block: int
+    queue_start: int
+    queue_end: int
+    queue_address: str
+    queue_root: str
+    queue_count: int
+    queue_credited_wei: int
+    queue_post_accounted_liability_wei: int
+    queue_post_total_claimable_wei: int
+    beneficiary: str
+
+    def __post_init__(self) -> None:
+        genesis = self.transition_kind == "GENESIS_IMPORT"
+        if (self.transition_kind not in {"GENESIS_IMPORT", "VERSION_MIGRATION"}
+                or self.router_generation < 0
+                or self.source_protocol_version < 0
+                or self.target_protocol_version <= self.source_protocol_version
+                or type(self.target_manifest_hash) is not bytes
+                or len(self.target_manifest_hash) != 32
+                or type(self.target_registration_hash) is not bytes
+                or len(self.target_registration_hash) != 32
+                or self.target_registration_hash == bytes(32)
+                or type(self.source_checkpoint_id) is not bytes
+                or len(self.source_checkpoint_id) != 32
+                or type(self.source_boundary_hash) is not bytes
+                or len(self.source_boundary_hash) != 32
+                or (genesis and (
+                    self.source_checkpoint_id == bytes(32)
+                    or self.source_boundary_hash == bytes(32)
+                ))
+                or (not genesis and (
+                    self.source_checkpoint_id != bytes(32)
+                    or self.source_boundary_hash != bytes(32)
+                ))
+                # GENESIS_IMPORT is an authority migration from the exact
+                # compatibility proxy, never from address(0).
+                or not self.source_settlement
+                or not self.target_settlement
+                or self.source_settlement == self.target_settlement
+                or (genesis and self.source_canonical_sequence != 0)
+                or (not genesis and self.source_canonical_sequence < 0)
+                or self.target_canonical_sequence
+                    != (0 if genesis else self.source_canonical_sequence + 1)
+                or not self.candidate_digest
+                or type(self.output_core) is not CanonicalCore
+                or self.output_core_hash != canonical_core_hash_v2(self.output_core)
+                or self.canonicalized_at_block <= 0
+                or not self.queue_address or not self.queue_root
+                or not 0 <= self.queue_start <= self.queue_end
+                    <= self.queue_count
+                or min(
+                    self.queue_credited_wei,
+                    self.queue_post_accounted_liability_wei,
+                    self.queue_post_total_claimable_wei,
+                ) < 0
+                or not self.beneficiary):
+            raise ValueError("migration canonical callback context is invalid")
+
+    @property
+    def commitment(self) -> bytes:
+        return keccak256(
+            b"slot-chain-migration-canonical-context-v2"
+            + migration_transition_encode((
+                self.transition_kind,
+                self.router_generation,
+                self.source_protocol_version,
+                self.target_protocol_version,
+                self.target_manifest_hash,
+                self.target_registration_hash,
+                self.source_checkpoint_id,
+                self.source_boundary_hash,
+                self.source_settlement,
+                self.target_settlement,
+                self.source_canonical_sequence,
+                self.target_canonical_sequence,
+                self.candidate_digest,
+                self.output_core_hash,
+                self.canonicalized_at_block,
+                self.queue_start,
+                self.queue_end,
+                self.queue_address,
+                self.queue_root,
+                self.queue_count,
+                self.queue_credited_wei,
+                self.queue_post_accounted_liability_wei,
+                self.queue_post_total_claimable_wei,
+                self.beneficiary,
+            ))
+        )
+
+    @property
+    def target_poststate_commitment(self) -> bytes:
+        return keccak256(
+            b"slot-chain-l1-adoption-v1"
+            + self.commitment
+            + _model_address20(self.target_settlement)
+            + self.output_core_hash
+            + _model_uint(
+                self.target_canonical_sequence, 8,
+                "target canonical sequence",
+            )
+            + _model_uint(
+                self.canonicalized_at_block, 8,
+                "target canonicalized block",
+            )
+        )
+
+    @property
+    def queue_poststate_commitment(self) -> bytes:
+        return keccak256(
+            b"slot-chain-queue-migration-poststate-v1"
+            + self.commitment
+            + _model_address20(self.queue_address)
+            + _model_address20(self.target_settlement)
+            + _model_fixed_bytes32(self.queue_root)
+            + _model_uint(self.queue_count, 8, "Queue count")
+            + _model_uint(self.queue_end, 8, "Queue end")
+            + _model_address20(self.beneficiary)
+            + _model_uint(self.queue_credited_wei, 32, "Queue credited wei")
+            + _model_uint(
+                self.queue_post_accounted_liability_wei, 32,
+                "Queue post liability",
+            )
+            + _model_uint(
+                self.queue_post_total_claimable_wei, 32,
+                "Queue post pull claimable",
+            )
+        )
+
+    @property
+    def target_return(self) -> bytes:
+        return b"".join((
+            MIGRATION_CANONICAL_MAGIC + bytes(28),
+            bytes(24) + _model_uint(
+                self.target_canonical_sequence, 8,
+                "target canonical sequence",
+            ),
+            self.target_poststate_commitment,
+        ))
+
+    @property
+    def source_return(self) -> bytes:
+        freeze_commitment = keccak256(
+            b"slot-chain-migration-source-freeze-v2" + self.commitment
+        )
+        return b"".join((
+            MIGRATION_SOURCE_FREEZE_MAGIC + bytes(28),
+            self.commitment,
+            freeze_commitment,
+        ))
+
+    @property
+    def queue_return(self) -> bytes:
+        return b"".join((
+            MIGRATION_QUEUE_MAGIC + bytes(28),
+            self.commitment,
+            _model_uint(
+                self.queue_credited_wei, 32, "migration Queue credited wei"
+            ),
+            self.queue_poststate_commitment,
+        ))
+
+    @property
+    def source_maps_return(self) -> bytes:
+        return self._maps_return(1, self.source_return[64:96])
+
+    @property
+    def target_maps_return(self) -> bytes:
+        return self._maps_return(2, self.target_poststate_commitment)
+
+    @property
+    def queue_maps_return(self) -> bytes:
+        return self._maps_return(3, self.queue_poststate_commitment)
+
+    def _maps_return(self, role: int, poststate: bytes) -> bytes:
+        return b"".join((
+            MIGRATION_ADOPTION_STATE_MAGIC + bytes(28),
+            _model_uint(role, 32, "migration MAPS role"),
+            self.commitment,
+            poststate,
+        ))
+
+    @property
+    def maps_return(self) -> bytes:
+        return self.target_maps_return
+
+
+class LegacyLaunchPhase(Enum):
+    ACTIVE = 0
+    DRAINING = 1
+    QUIESCENT = 2
+    READY = 3
+    FROZEN = 4
+
+
+LEGACY_GENESIS_STATE_MAGIC = b"LGS1"
+LEGACY_GENESIS_ARM_MAGIC = b"LGAR"
+LEGACY_GENESIS_FINALIZE_MAGIC = b"LGFN"
+LEGACY_GENESIS_STATE_LENGTH = 512
+GENESIS_CAMPAIGN_MAGIC = b"LGC1"
+GENESIS_CAMPAIGN_STATE_LENGTH = 512
+LEGACY_GENESIS_PREPARATION_MAGIC = b"LGPR"
+LEGACY_GENESIS_BEGIN_SCAN_MAGIC = b"LGBS"
+LEGACY_GENESIS_SCAN_PROPOSALS_MAGIC = b"LGSP"
+LEGACY_GENESIS_SCAN_FORCED_MAGIC = b"LGSF"
+LEGACY_GENESIS_SCAN_STATE_MAGIC = b"LGSS"
+LEGACY_GENESIS_QUIESCENCE_MAGIC = b"LGQS"
+LEGACY_GENESIS_RESUME_MAGIC = b"LGRS"
+LEGACY_GENESIS_EXPIRE_MAGIC = b"LGEX"
+LEGACY_GENESIS_CAMPAIGN_DOMAIN = b"slot-chain-legacy-genesis-campaign-v1"
+LEGACY_GENESIS_BOUNDARY_DOMAIN = b"slot-chain-legacy-genesis-boundary-v1"
+LEGACY_GENESIS_ARM_DOMAIN = b"slot-chain-legacy-genesis-arm-v1"
+LEGACY_GENESIS_LAUNCH_DOMAIN = b"slot-chain-legacy-genesis-launch-v1"
+LEGACY_GENESIS_POSTSTATE_DOMAIN = b"slot-chain-legacy-genesis-poststate-v1"
+
+
+@dataclass(frozen=True)
+class GenesisCampaignV1:
+    nonce: int
+    campaign_id: bytes
+    generation: int
+    target: "VersionedSettlementHistory" = field(compare=False, repr=False)
+    target_address: str
+    target_protocol_version: int
+    target_manifest_hash: bytes
+    target_registration_hash: bytes
+    review_commitment: bytes
+    review_finalized_by_block: int
+    force_cutoff_block: int
+    proposal_cutoff_block: int
+    quiesce_block: int
+    resume_by_block: int
+    resume_by_timestamp: int
+
+
+@dataclass(frozen=True)
+class ScheduledGenesisCampaignV1:
+    campaign: GenesisCampaignV1
+    scheduled_at: int
+    executable_at: int
+
+
+@dataclass(frozen=True)
+class LegacyLaunchStateV1:
+    phase: LegacyLaunchPhase
+    generation: int
+    campaign_id: bytes
+    scan_commitment: bytes
+    target_protocol_version: int
+    target_manifest_hash: bytes
+    target_registration_hash: bytes
+    arm_id: bytes
+    launch_id: bytes
+    next_proposal_id: int
+    last_finalized_proposal_id: int
+    last_finalized_block_hash: bytes
+    forced_head: int
+    forced_tail: int
+    post_state_commitment: bytes
+
+
+@dataclass(frozen=True)
+class GenesisActivationProofStubV1:
+    campaign_id: bytes
+    boundary_hash: bytes
+    target_registration_hash: bytes
+    output_core_hash: bytes
+    statement_digest: bytes
+    valid: bool = True
+
+
+@dataclass(frozen=True)
+class GenesisCampaignStateV1:
+    status: int
+    nonce: int
+    campaign_id: bytes
+    generation: int
+    target_address: str
+    target_protocol_version: int
+    target_manifest_hash: bytes
+    target_registration_hash: bytes
+    review_commitment: bytes
+    review_finalized_by_block: int
+    force_cutoff_block: int
+    proposal_cutoff_block: int
+    quiesce_block: int
+    resume_by_block: int
+    resume_by_timestamp: int
+
+
+def legacy_genesis_campaign_id_v1(
+    deployment_hash: bytes,
+    nonce: int,
+    generation: int,
+    review_finalized_by_block: int,
+    force_cutoff_block: int,
+    proposal_cutoff_block: int,
+    quiesce_block: int,
+    resume_by_block: int,
+    resume_by_timestamp: int,
+    target_address: str,
+    target_protocol_version: int,
+    target_manifest_hash: bytes,
+    target_registration_hash: bytes,
+    review_commitment: bytes,
+) -> bytes:
+    return keccak256(
+        LEGACY_GENESIS_CAMPAIGN_DOMAIN
+        + _model_fixed_bytes32(deployment_hash)
+        + _model_uint(nonce, 8, "genesis campaign nonce")
+        + _model_uint(generation, 8, "genesis campaign generation")
+        + _model_uint(force_cutoff_block, 8, "forced cutoff")
+        + _model_uint(proposal_cutoff_block, 8, "proposal cutoff")
+        + _model_uint(quiesce_block, 8, "quiescence block")
+        + _model_uint(resume_by_block, 8, "resume block")
+        + _model_uint(resume_by_timestamp, 8, "resume timestamp")
+        + _model_uint(review_finalized_by_block, 8, "review finality")
+        + _model_address20(target_address)
+        + _model_uint(target_protocol_version, 8, "genesis target version")
+        + _model_fixed_bytes32(target_manifest_hash)
+        + _model_fixed_bytes32(target_registration_hash)
+        + _model_fixed_bytes32(review_commitment)
+    )
+
+
+def legacy_genesis_boundary_hash_v1(state: LegacyLaunchStateV1) -> bytes:
+    if type(state) is not LegacyLaunchStateV1:
+        raise ValueError("legacy boundary requires an exact LGS1 state")
+    return keccak256(
+        LEGACY_GENESIS_BOUNDARY_DOMAIN
+        + _model_uint(state.next_proposal_id, 6, "legacy next proposal")
+        + _model_uint(
+            state.last_finalized_proposal_id, 6, "legacy last finalized"
+        )
+        + _model_fixed_bytes32(state.last_finalized_block_hash)
+        + _model_uint(state.forced_head, 6, "legacy forced head")
+        + _model_uint(state.forced_tail, 6, "legacy forced tail")
+    )
+
+
+def legacy_genesis_arm_id_v1(
+    deployment_hash: bytes,
+    generation: int,
+    campaign_id: bytes,
+    scan_commitment: bytes,
+    boundary_hash: bytes,
+) -> bytes:
+    return keccak256(
+        LEGACY_GENESIS_ARM_DOMAIN
+        + _model_fixed_bytes32(deployment_hash)
+        + _model_uint(generation, 8, "legacy arm generation")
+        + _model_fixed_bytes32(campaign_id)
+        + _model_fixed_bytes32(scan_commitment)
+        + _model_fixed_bytes32(boundary_hash)
+    )
+
+
+def legacy_genesis_launch_id_v1(
+    arm_id: bytes,
+    target_protocol_version: int,
+    target_manifest_hash: bytes,
+    target_registration_hash: bytes,
+) -> bytes:
+    return keccak256(
+        LEGACY_GENESIS_LAUNCH_DOMAIN
+        + _model_fixed_bytes32(arm_id)
+        + _model_uint(target_protocol_version, 8, "legacy target version")
+        + _model_fixed_bytes32(target_manifest_hash)
+        + _model_fixed_bytes32(target_registration_hash)
+    )
+
+
+def legacy_genesis_post_state_commitment_v1(
+    launch_id: bytes,
+    candidate_digest: bytes,
+    output_core_hash: bytes,
+    activated_at_block: int,
+    boundary_hash: bytes,
+) -> bytes:
+    return keccak256(
+        LEGACY_GENESIS_POSTSTATE_DOMAIN
+        + _model_fixed_bytes32(launch_id)
+        + _model_fixed_bytes32(candidate_digest)
+        + _model_fixed_bytes32(output_core_hash)
+        + _model_uint(0, 8, "genesis source sequence")
+        + _model_uint(activated_at_block, 8, "genesis activation block")
+        + _model_uint(LegacyLaunchPhase.FROZEN.value, 1, "legacy phase")
+        + _model_fixed_bytes32(boundary_hash)
+    )
+
+
+def encode_legacy_genesis_state_v1(state: LegacyLaunchStateV1) -> bytes:
+    if (type(state) is not LegacyLaunchStateV1
+            or state.phase not in {
+                LegacyLaunchPhase.ACTIVE,
+                LegacyLaunchPhase.QUIESCENT,
+                LegacyLaunchPhase.READY,
+                LegacyLaunchPhase.FROZEN,
+            }
+            or not 0 <= state.generation <= UINT64_MAX
+            or not 0 <= state.target_protocol_version <= UINT64_MAX
+            or not 0 <= state.next_proposal_id < 1 << 48
+            or not 0 <= state.last_finalized_proposal_id < 1 << 48
+            or not 0 <= state.forced_head <= state.forced_tail < 1 << 48):
+        raise ValueError("legacy LGS1 state is malformed")
+    byte_fields = (
+        state.campaign_id, state.scan_commitment,
+        state.target_manifest_hash,
+        state.target_registration_hash, state.arm_id, state.launch_id,
+        state.last_finalized_block_hash, state.post_state_commitment,
+    )
+    if any(type(row) is not bytes or len(row) != 32 for row in byte_fields):
+        raise ValueError("legacy LGS1 bytes32 field is malformed")
+    zero = bytes(32)
+    if state.phase is LegacyLaunchPhase.ACTIVE:
+        valid = (
+            state.generation == 0 and state.campaign_id == zero
+            and state.scan_commitment == zero
+            and state.target_protocol_version == 0
+            and state.target_manifest_hash == zero
+            and state.target_registration_hash == zero
+            and state.arm_id == zero and state.launch_id == zero
+            and state.post_state_commitment == zero
+        )
+    elif state.phase is LegacyLaunchPhase.QUIESCENT:
+        valid = (
+            state.generation > 0 and state.campaign_id != zero
+            and state.scan_commitment != zero
+            and state.target_protocol_version == 0
+            and state.target_manifest_hash == zero
+            and state.target_registration_hash == zero
+            and state.arm_id == zero and state.launch_id == zero
+            and state.post_state_commitment == zero
+        )
+    elif state.phase is LegacyLaunchPhase.READY:
+        valid = (
+            state.generation > 0 and state.campaign_id != zero
+            and state.scan_commitment != zero
+            and state.target_protocol_version == 0
+            and state.target_manifest_hash == zero
+            and state.target_registration_hash == zero
+            and state.arm_id != zero and state.launch_id == zero
+            and state.post_state_commitment == zero
+        )
+    else:
+        valid = (
+            state.generation > 0 and state.campaign_id != zero
+            and state.scan_commitment != zero
+            and state.target_protocol_version > 0
+            and state.target_manifest_hash != zero
+            and state.target_registration_hash != zero
+            and state.arm_id != zero and state.launch_id != zero
+            and state.post_state_commitment != zero
+        )
+    if not valid:
+        raise ValueError("legacy LGS1 phase tuple is invalid")
+    raw = b"".join((
+        LEGACY_GENESIS_STATE_MAGIC + bytes(28),
+        _model_uint(state.phase.value, 32, "legacy phase"),
+        _model_uint(state.generation, 32, "legacy generation"),
+        state.campaign_id, state.scan_commitment,
+        _model_uint(state.target_protocol_version, 32, "legacy target version"),
+        state.target_manifest_hash, state.target_registration_hash,
+        state.arm_id, state.launch_id,
+        _model_uint(state.next_proposal_id, 32, "legacy next proposal"),
+        _model_uint(
+            state.last_finalized_proposal_id, 32, "legacy last finalized"
+        ),
+        state.last_finalized_block_hash,
+        _model_uint(state.forced_head, 32, "legacy forced head"),
+        _model_uint(state.forced_tail, 32, "legacy forced tail"),
+        state.post_state_commitment,
+    ))
+    if len(raw) != LEGACY_GENESIS_STATE_LENGTH:
+        raise AssertionError("LGS1 must be exactly 16 ABI words")
+    return raw
+
+
+def decode_legacy_genesis_state_v1(raw: bytes) -> LegacyLaunchStateV1:
+    if type(raw) is not bytes or len(raw) != LEGACY_GENESIS_STATE_LENGTH:
+        raise ValueError("legacy LGS1 returndata length is invalid")
+    words = tuple(raw[index:index + 32] for index in range(0, len(raw), 32))
+    if words[0] != LEGACY_GENESIS_STATE_MAGIC + bytes(28):
+        raise ValueError("legacy LGS1 magic is invalid")
+    try:
+        state = LegacyLaunchStateV1(
+            LegacyLaunchPhase(int.from_bytes(words[1], "big")),
+            int.from_bytes(words[2], "big"), words[3], words[4],
+            int.from_bytes(words[5], "big"), words[6], words[7],
+            words[8], words[9], int.from_bytes(words[10], "big"),
+            int.from_bytes(words[11], "big"), words[12],
+            int.from_bytes(words[13], "big"),
+            int.from_bytes(words[14], "big"), words[15],
+        )
+        if encode_legacy_genesis_state_v1(state) != raw:
+            raise ValueError
+        return state
+    except (ValueError, OverflowError) as exc:
+        raise ValueError("legacy LGS1 state is invalid") from exc
+
+
+def genesis_campaign_state_v1(campaign: GenesisCampaignV1) \
+        -> GenesisCampaignStateV1:
+    return GenesisCampaignStateV1(
+        1, campaign.nonce, campaign.campaign_id, campaign.generation,
+        "0x" + _model_address20(campaign.target_address).hex(),
+        campaign.target_protocol_version,
+        campaign.target_manifest_hash, campaign.target_registration_hash,
+        campaign.review_commitment, campaign.review_finalized_by_block,
+        campaign.force_cutoff_block, campaign.proposal_cutoff_block,
+        campaign.quiesce_block, campaign.resume_by_block,
+        campaign.resume_by_timestamp,
+    )
+
+
+def encode_genesis_campaign_v1(state: GenesisCampaignStateV1) -> bytes:
+    if (type(state) is not GenesisCampaignStateV1
+            or state.status not in {0, 1, 3, 4}
+            or type(state.campaign_id) is not bytes
+            or len(state.campaign_id) != 32
+            or type(state.target_address) is not str):
+        raise ValueError("genesis campaign getter state is malformed")
+    if state.status == 0:
+        if any(row not in {0, bytes(32), ""} for row in (
+                state.nonce, state.campaign_id, state.generation,
+                state.target_address, state.target_protocol_version,
+                state.target_manifest_hash, state.target_registration_hash,
+                state.review_commitment, state.review_finalized_by_block,
+                state.force_cutoff_block, state.proposal_cutoff_block,
+                state.quiesce_block, state.resume_by_block,
+                state.resume_by_timestamp)):
+            raise ValueError("NONE campaign must be all zero")
+        target_word = bytes(32)
+    else:
+        if not state.target_address or state.campaign_id == bytes(32):
+            raise ValueError("non-NONE campaign tuple is empty")
+        target_word = bytes(12) + _model_address20(state.target_address)
+    raw = b"".join((
+        GENESIS_CAMPAIGN_MAGIC + bytes(28),
+        _model_uint(state.status, 32, "campaign status"),
+        _model_uint(state.nonce, 32, "campaign nonce"),
+        _model_uint(state.generation, 32, "campaign generation"),
+        _model_uint(state.force_cutoff_block, 32, "forced cutoff"),
+        _model_uint(state.proposal_cutoff_block, 32, "proposal cutoff"),
+        _model_uint(state.quiesce_block, 32, "quiescence block"),
+        _model_uint(state.resume_by_block, 32, "resume block"),
+        _model_uint(state.resume_by_timestamp, 32, "resume timestamp"),
+        _model_uint(state.review_finalized_by_block, 32, "review finality"),
+        target_word,
+        _model_uint(state.target_protocol_version, 32, "target version"),
+        _model_fixed_bytes32(state.target_manifest_hash),
+        _model_fixed_bytes32(state.target_registration_hash),
+        _model_fixed_bytes32(state.review_commitment),
+        state.campaign_id,
+    ))
+    if len(raw) != GENESIS_CAMPAIGN_STATE_LENGTH:
+        raise AssertionError("LGC1 must be exactly 16 ABI words")
+    return raw
+
+
+def decode_genesis_campaign_v1(raw: bytes) -> GenesisCampaignStateV1:
+    if type(raw) is not bytes or len(raw) != GENESIS_CAMPAIGN_STATE_LENGTH:
+        raise ValueError("genesis campaign getter length is invalid")
+    words = tuple(raw[index:index + 32] for index in range(0, len(raw), 32))
+    if (words[0] != GENESIS_CAMPAIGN_MAGIC + bytes(28)
+            or words[10][:12] != bytes(12)):
+        raise ValueError("genesis campaign getter padding is invalid")
+    state = GenesisCampaignStateV1(
+        int.from_bytes(words[1], "big"), int.from_bytes(words[2], "big"),
+        words[15], int.from_bytes(words[3], "big"),
+        ("" if words[10] == bytes(32) else "0x" + words[10][12:].hex()),
+        int.from_bytes(words[11], "big"), words[12], words[13], words[14],
+        int.from_bytes(words[9], "big"), int.from_bytes(words[4], "big"),
+        int.from_bytes(words[5], "big"), int.from_bytes(words[6], "big"),
+        int.from_bytes(words[7], "big"), int.from_bytes(words[8], "big"),
+    )
+    if encode_genesis_campaign_v1(state) != raw:
+        raise ValueError("genesis campaign getter is noncanonical")
+    return state
+
+
+@dataclass
+class _SupersededPersistentLegacyLaunchHookV1:
+    """Legacy launch gate; frozen historical claims/refunds remain payable."""
+
+    owner: str
+    proxy_address: str = "legacy-inbox-proxy"
+    phase: LegacyLaunchPhase = LegacyLaunchPhase.ACTIVE
+    generation: int = 0
+    checkpoint_id: bytes = b""
+    boundary_hash: bytes = b""
+    target_protocol_version: int = 0
+    target_manifest_hash: bytes = b""
+    target_registration_hash: bytes = b""
+    live_proposals: int = 0
+    native_live_queue: int = 0
+    native_escrow: int = 0
+    historical_claims: int = 0
+    historical_refunds: int = 0
+    fault_point: str | None = field(default=None, compare=False)
+    _router_authority: object | None = field(
+        default=None, init=False, compare=False, repr=False
+    )
+
+    def __post_init__(self) -> None:
+        if not self.owner or not self.proxy_address:
+            raise ValueError("legacy launch proxy identity is empty")
+
+    def _bind_router_once(self, router: object) -> bool:
+        if (self._router_authority is not None
+                or type(router) is not ActiveSettlementRouter
+                or router.legacy_launch_hook is not self):
+            return False
+        object.__setattr__(self, "_router_authority", router)
+        return True
+
+    @property
+    def legacy_resume_profile_hash(self) -> bytes:
+        if self.legacy_resume_profile_hash_override is not None:
+            return self.legacy_resume_profile_hash_override
+        return legacy_resume_profile_hash_v1(self.deployment_hash)
+
+    def _pending_scan_bytes(self) -> int:
+        proposal_bytes = sum(
+            self.proposal_records[index].encoded_bytes
+            for index in range(
+                self.last_finalized_proposal_id + 1,
+                self.next_proposal_id,
+            )
+        )
+        forced_bytes = sum(
+            self.forced_records[index].encoded_bytes
+            for index in range(self.forced_head, self.forced_tail)
+        )
+        return seat_checked_add(
+            proposal_bytes, forced_bytes, "legacy scan preparation bytes"
+        )
+
+    def legacy_genesis_preparation_v1(self) -> bytes:
+        if self.preparation_return_override is not None:
+            return self.preparation_return_override
+        return self._exact_legacy_genesis_preparation_v1()
+
+    def _exact_legacy_genesis_preparation_v1(self) -> bytes:
+        """Encode LGPR from local storage without a fault override."""
+
+        proposal_count = (
+            self.next_proposal_id - self.last_finalized_proposal_id - 1
+        )
+        forced_count = self.forced_tail - self.forced_head
+        maximum_scan_bytes = self._pending_scan_bytes()
+        if (not 0 <= proposal_count <= LEGACY_SCAN_ROW_COUNT_MAX
+                or not 0 <= forced_count <= LEGACY_SCAN_ROW_COUNT_MAX
+                or maximum_scan_bytes > LEGACY_SCAN_BYTES_MAX
+                or self.legacy_resume_profile_hash == bytes(32)):
+            raise ValueError("legacy genesis preparation exceeds caps")
+        return b"".join((
+            LEGACY_GENESIS_PREPARATION_MAGIC + bytes(28),
+            _model_uint(self.next_proposal_id, 32, "next proposal"),
+            _model_uint(
+                self.last_finalized_proposal_id, 32, "last finalized"
+            ),
+            _model_uint(self.forced_head, 32, "forced head"),
+            _model_uint(self.forced_tail, 32, "forced tail"),
+            _model_uint(proposal_count, 32, "proposal count"),
+            _model_uint(forced_count, 32, "forced count"),
+            _model_uint(maximum_scan_bytes, 32, "maximum scan bytes"),
+            self.legacy_resume_profile_hash,
+        ))
+
+    def legacy_launch_state_v1(self) -> LegacyLaunchStateV1:
+        return LegacyLaunchStateV1(
+            self.owner, self.proxy_address, self.phase, self.generation,
+            self.checkpoint_id, self.boundary_hash,
+            self.target_protocol_version, self.target_manifest_hash,
+            self.target_registration_hash, self.live_proposals,
+            self.native_live_queue, self.native_escrow,
+            self.historical_claims, self.historical_refunds,
+        )
+
+    def submit_proposal(self, *, caller: str) -> bool:
+        if self.phase is not LegacyLaunchPhase.ACTIVE or not caller:
+            return False
+        self.live_proposals = checked_u64_add(
+            self.live_proposals, 1, "legacy live proposals"
+        )
+        return True
+
+    def append_forced_ingress(self, *, amount: int, caller: str) -> bool:
+        if (self.phase is not LegacyLaunchPhase.ACTIVE or not caller
+                or type(amount) is not int or amount <= 0):
+            return False
+        self.native_live_queue = checked_u64_add(
+            self.native_live_queue, 1, "legacy native live queue"
+        )
+        self.native_escrow = seat_checked_add(
+            self.native_escrow, amount, "legacy native escrow"
+        )
+        return True
+
+    def quiesce(self, *, caller: str) -> bool:
+        # DRAINING/QUIESCENT were rejected: cutover snapshots the finalized
+        # prefix and abandons the pending suffix without mutating legacy core.
+        _ = caller
+        return False
+
+    def checkpoint_legacy_genesis_v1(
+        self,
+        generation: int,
+        *,
+        router: "ActiveSettlementRouter",
+    ) -> bool:
+        """Irreversibly snapshot a target-independent legacy boundary."""
+
+        if (router is not self._router_authority
+                or router.migration_lifecycle
+                    is not RouterMigrationLifecycle.ARMING
+                or router.forced_queue.active_settlement_address
+                    != self.proxy_address
+                or self.phase is not LegacyLaunchPhase.ACTIVE
+                or generation != self.generation + 1):
+            return False
+        boundary_hash = keccak256(
+            b"slot-chain-legacy-genesis-boundary-v2"
+            + _model_address20(self.proxy_address)
+            + _model_uint(self.live_proposals, 8, "legacy live proposals")
+            + _model_uint(self.native_live_queue, 8, "legacy forced tail")
+            + _model_uint(self.native_escrow, 32, "legacy native escrow")
+            + _model_uint(self.historical_claims, 32, "legacy claims")
+            + _model_uint(self.historical_refunds, 32, "legacy refunds")
+        )
+        self.generation = generation
+        self.boundary_hash = boundary_hash
+        self.checkpoint_id = keccak256(
+            b"slot-chain-legacy-genesis-checkpoint-v2"
+            + _model_uint(generation, 8, "legacy checkpoint generation")
+            + boundary_hash
+        )
+        self.phase = LegacyLaunchPhase.READY
+        if self.fault_point == "after_checkpoint":
+            raise RuntimeError("injected legacy checkpoint fault")
+        return True
+
+    def finalize_legacy_cutover_v1(
+        self,
+        generation: int,
+        target_registration_hash: bytes,
+        candidate_digest: str,
+        output_core_hash: bytes,
+        *,
+        router: "ActiveSettlementRouter",
+    ) -> bool:
+        frame = router._migration_callback_frame
+        if (router is not self._router_authority
+                or router.migration_lifecycle
+                    is not RouterMigrationLifecycle.ACTIVATING
+                or type(frame) is not MigrationCanonicalContextV2
+                or frame.transition_kind != "GENESIS_IMPORT"
+                or frame.router_generation != generation
+                or frame.source_checkpoint_id != self.checkpoint_id
+                or frame.source_boundary_hash != self.boundary_hash
+                or frame.target_registration_hash != target_registration_hash
+                or frame.candidate_digest != candidate_digest
+                or frame.output_core_hash != output_core_hash
+                or frame.source_settlement != self.proxy_address
+                or router.forced_queue.active_settlement_address
+                    != self.proxy_address
+                or self.phase is not LegacyLaunchPhase.READY
+                or self.generation != generation
+                or not self.checkpoint_id or not self.boundary_hash):
+            return False
+        self.generation = generation
+        self.phase = LegacyLaunchPhase.FROZEN
+        if self.fault_point == "after_finalize":
+            raise RuntimeError("injected legacy finalize fault")
+        return True
+
+    def migration_activation_post_state_v2(
+        self, *, router: "ActiveSettlementRouter"
+    ) -> bytes:
+        frame = router._migration_callback_frame
+        if (router is not self._router_authority
+                or router.migration_lifecycle
+                    is not RouterMigrationLifecycle.ACTIVATING
+                or type(frame) is not MigrationCanonicalContextV2
+                or frame.transition_kind != "GENESIS_IMPORT"
+                or frame.source_settlement != self.proxy_address
+                or self.phase is not LegacyLaunchPhase.FROZEN
+                or self.generation != frame.router_generation
+                or self.checkpoint_id != frame.source_checkpoint_id
+                or self.boundary_hash != frame.source_boundary_hash):
+            raise ValueError("legacy source MAPS post-read rejected")
+        raw = frame.source_maps_return
+        return raw[:-1] if self.fault_point == "maps_bad_return" else raw
+
+
+LEGACY_SCAN_BATCH_MAX = 16
+LEGACY_SCAN_CALL_MAX = 128
+LEGACY_SCAN_ROW_COUNT_MAX = 1_024
+LEGACY_SCAN_BYTES_MAX = 4_194_304
+LEGACY_PROPOSAL_ROW_BYTES_MAX = 3_808
+LEGACY_FORCED_ROW_BYTES_MAX = 256
+LEGACY_PROPOSAL_BATCH_RAW_BYTES_MAX = \
+    LEGACY_SCAN_BATCH_MAX * LEGACY_PROPOSAL_ROW_BYTES_MAX
+LEGACY_PROPOSAL_BATCH_CALLDATA_BYTES_MAX = 62_084
+LEGACY_FORCED_BATCH_RAW_BYTES_MAX = \
+    LEGACY_SCAN_BATCH_MAX * LEGACY_FORCED_ROW_BYTES_MAX
+LEGACY_QUIESCENT_BLOCKS_MAX = 600
+LEGACY_QUIESCENT_SECONDS_MAX = 7_200
+LEGACY_QUIESCENT_MIN_REMAINING_BLOCKS = 128
+LEGACY_QUIESCENT_MIN_REMAINING_SECONDS = 1_800
+LEGACY_BLOB_RETENTION_SECONDS = 1_572_864
+LEGACY_MAX_FORCED_INCLUSIONS_PER_PROPOSAL = 10
+LEGACY_MAX_NORMAL_BLOB_HASHES_PER_PROPOSAL = 21
+LEGACY_RESUME_PROOF_GENERATION_MAX_SECONDS = 900
+GENESIS_REVIEW_FINALITY_BLOCKS = 64
+GENESIS_RESUME_INCLUSION_MARGIN_SECONDS = \
+    (LEGACY_RESUME_PROOF_GENERATION_MAX_SECONDS
+     + REORG_MARGIN_SECONDS + T_INCLUDE_MAX_SECONDS)
+LEGACY_QUIESCENT_BOUNDARY_DOMAIN = \
+    b"slot-chain-legacy-genesis-quiescent-boundary-v1"
+LEGACY_SCAN_ROOT_DOMAIN = b"slot-chain-legacy-genesis-scan-root-v1"
+LEGACY_SCAN_COMMITMENT_DOMAIN = b"slot-chain-legacy-genesis-scan-v1"
+LEGACY_PROPOSAL_ROWS_EMPTY_DOMAIN = \
+    b"slot-chain-legacy-genesis-proposal-rows-empty-v1"
+LEGACY_PROPOSAL_ROW_DOMAIN = b"slot-chain-legacy-genesis-proposal-row-v1"
+LEGACY_FORCED_ROWS_EMPTY_DOMAIN = \
+    b"slot-chain-legacy-genesis-forced-rows-empty-v1"
+LEGACY_FORCED_RECORD_DOMAIN = \
+    b"slot-chain-legacy-genesis-forced-record-v1"
+LEGACY_FORCED_ROW_DOMAIN = b"slot-chain-legacy-genesis-forced-row-v1"
+LEGACY_RESUME_PROFILE_DOMAIN = \
+    b"slot-chain-legacy-genesis-resume-profile-v2"
+LEGACY_RESUME_VERIFIER_ROUTE_DOMAIN = \
+    b"slot-chain-legacy-genesis-resume-verifier-route-v1"
+LEGACY_RISC0_RESUME_KEY_POLICY_DOMAIN = \
+    b"slot-chain-legacy-genesis-risc0-key-policy-v1"
+LEGACY_SP1_RESUME_KEY_POLICY_DOMAIN = \
+    b"slot-chain-legacy-genesis-sp1-key-policy-v1"
+LEGACY_SIGNAL_SERVICE_CHECKPOINT_DOMAIN = \
+    b"slot-chain-legacy-genesis-signal-service-checkpoint-v1"
+LEGACY_CAMPAIGN_FENCE_DOMAIN = \
+    b"slot-chain-legacy-genesis-campaign-fence-v1"
+LEGACY_RISC0_VERIFIER_DOMAIN = \
+    b"slot-chain-legacy-genesis-risc0-verifier-v1"
+LEGACY_SP1_VERIFIER_DOMAIN = \
+    b"slot-chain-legacy-genesis-sp1-verifier-v1"
+LEGACY_PROOF_VERIFIER_GRAPH_DOMAIN = \
+    b"slot-chain-legacy-genesis-proof-verifier-graph-v1"
+LEGACY_PROPOSER_CHECKER_DOMAIN = \
+    b"slot-chain-legacy-genesis-proposer-checker-v1"
+LEGACY_PUBLIC_PROVING_DOMAIN = \
+    b"slot-chain-legacy-genesis-public-proving-v1"
+LEGACY_CHECKPOINT_LAYOUT_DOMAIN = \
+    b"slot-chain-legacy-genesis-checkpoint-layout-v1"
+LEGACY_INBOX_CONFIG_DOMAIN = \
+    b"slot-chain-legacy-genesis-inbox-config-v1"
+LEGACY_DEPLOYMENT_DOMAIN = b"slot-chain-legacy-genesis-deployment-v1"
+LEGACY_REVIEW_COMMITMENT_DOMAIN = b"slot-chain-legacy-genesis-review-v1"
+LEGACY_RESUME_TIME_POLICY_LITERAL = (
+    b"LegacyGenesisResumeTimePolicyV2(sameProofPreserved=false,"
+    b"ageIndependentRouteRequired=true,publicProvingRequired=true,minBond=0,"
+    b"livenessBond=0,"
+    b"noContest=true,forcedDueOnlyStrengthens=true,"
+    b"withdrawalOnlyMatures=true)"
+)
+
+LEGACY_DESCRIPTOR_CALL_GAS = 100_000
+LEGACY_GENESIS_CAMPAIGN_SELECTOR = keccak256(
+    b"legacyGenesisCampaignV1()"
+)[:4]
+LEGACY_GENESIS_STATE_SELECTOR = keccak256(
+    b"legacyGenesisStateV1()"
+)[:4]
+LEGACY_GENESIS_SCAN_STATE_SELECTOR = keccak256(
+    b"legacyGenesisScanStateV1()"
+)[:4]
+LEGACY_GET_CONFIG_SELECTOR = keccak256(b"getConfig()")[:4]
+LEGACY_IMPL_SELECTOR = keccak256(b"impl()")[:4]
+LEGACY_CHECKPOINT_RECORD_LITERAL = \
+    b"CheckpointRecord(bytes32 blockHash,bytes32 stateRoot)"
+
+
+@dataclass(frozen=True)
+class LegacyInboxConfigurationV1:
+    proof_verifier: str
+    proposer_checker: str
+    prover_whitelist: str
+    signal_service: str
+    bond_token: str
+    min_bond: int = 0
+    liveness_bond: int = 0
+    withdrawal_delay: int = 604_800
+    proving_window: int = 14_400
+    permissionless_proving_delay: int = 432_000
+    max_proof_submission_delay: int = 180
+    ring_buffer_size: int = 21_600
+    basefee_sharing_pctg: int = 75
+    forced_inclusion_delay: int = 576
+    forced_inclusion_fee_in_gwei: int = 1_000_000
+    forced_inclusion_fee_double_threshold: int = 50
+    permissionless_inclusion_multiplier: int = 160
+
+
+@dataclass(frozen=True)
+class LegacyResumeDescriptorFixtureV2:
+    settlement_chain_id: int = 1
+    l2_chain_id: int = 167_000
+    router: str = "active-settlement-router"
+    inbox_proxy: str = "legacy-inbox-proxy"
+    inbox_proxy_runtime_hash: bytes = field(
+        default_factory=lambda: keccak256(b"legacy-inbox-proxy-runtime-v1")
+    )
+    inbox_implementation: str = "legacy-inbox-impl"
+    inbox_implementation_runtime_hash: bytes = field(
+        default_factory=lambda: keccak256(b"legacy-inbox-impl-runtime-v1")
+    )
+    pair_root: str = "legacy-resume-pair"
+    pair_root_runtime_hash: bytes = field(
+        default_factory=lambda: keccak256(b"legacy-resume-pair-runtime-v1")
+    )
+    risc0_adapter: str = "legacy-risc0-adapt"
+    risc0_adapter_runtime_hash: bytes = field(
+        default_factory=lambda: keccak256(b"legacy-risc0-adapter-runtime-v1")
+    )
+    risc0_remote: str = "legacy-risc0-remote"
+    risc0_remote_runtime_hash: bytes = field(
+        default_factory=lambda: keccak256(b"legacy-risc0-remote-runtime-v1")
+    )
+    risc0_block_image_id: bytes = field(
+        default_factory=lambda: keccak256(b"legacy-risc0-block-image-v1")
+    )
+    risc0_aggregation_image_id: bytes = field(
+        default_factory=lambda: keccak256(b"legacy-risc0-aggregation-image-v1")
+    )
+    sp1_adapter: str = "legacy-sp1-adapter"
+    sp1_adapter_runtime_hash: bytes = field(
+        default_factory=lambda: keccak256(b"legacy-sp1-adapter-runtime-v1")
+    )
+    sp1_remote: str = "legacy-sp1-remote"
+    sp1_remote_runtime_hash: bytes = field(
+        default_factory=lambda: keccak256(b"legacy-sp1-remote-runtime-v1")
+    )
+    sp1_block_program_vkey: bytes = field(
+        default_factory=lambda: keccak256(b"legacy-sp1-block-vkey-v1")
+    )
+    sp1_aggregation_program_vkey: bytes = field(
+        default_factory=lambda: keccak256(b"legacy-sp1-aggregation-vkey-v1")
+    )
+    proposer_checker_proxy: str = "legacy-proposer-proxy"
+    proposer_checker_proxy_runtime_hash: bytes = field(
+        default_factory=lambda: keccak256(b"legacy-proposer-proxy-runtime-v1")
+    )
+    proposer_checker_implementation: str = "legacy-proposer-impl"
+    proposer_checker_implementation_runtime_hash: bytes = field(
+        default_factory=lambda: keccak256(b"legacy-proposer-impl-runtime-v1")
+    )
+    signal_service_proxy: str = "legacy-signal-proxy"
+    signal_service_proxy_runtime_hash: bytes = field(
+        default_factory=lambda: keccak256(b"legacy-signal-proxy-runtime-v1")
+    )
+    signal_service_implementation: str = "legacy-signal-impl"
+    signal_service_implementation_runtime_hash: bytes = field(
+        default_factory=lambda: keccak256(b"legacy-signal-impl-runtime-v1")
+    )
+    signal_service_authorized_syncer: str = "legacy-inbox-proxy"
+    remote_signal_service: str = "legacy-remote-signal"
+    signal_service_pauser: str = "legacy-signal-pauser"
+    bond_token: str = "legacy-bond-token"
+
+    @property
+    def inbox_config(self) -> LegacyInboxConfigurationV1:
+        return LegacyInboxConfigurationV1(
+            self.pair_root, self.proposer_checker_proxy, "",
+            self.signal_service_proxy, self.bond_token,
+        )
+
+
+def canonical_legacy_resume_fixture_v2(
+    *, proxy_address: str = "legacy-inbox-proxy",
+    router_address: str = "active-settlement-router",
+) -> LegacyResumeDescriptorFixtureV2:
+    return replace(
+        LegacyResumeDescriptorFixtureV2(), inbox_proxy=proxy_address,
+        signal_service_authorized_syncer=proxy_address,
+        router=router_address,
+    )
+
+
+def legacy_inbox_configuration_hash_v1(
+    config: LegacyInboxConfigurationV1,
+) -> bytes:
+    if (type(config) is not LegacyInboxConfigurationV1
+            or not all((config.proof_verifier, config.proposer_checker,
+                        config.signal_service, config.bond_token))
+            or config.prover_whitelist != ""
+            or not 0 <= config.min_bond <= UINT64_MAX
+            or not 0 <= config.liveness_bond <= UINT64_MAX
+            or not 0 <= config.withdrawal_delay < 1 << 48
+            or not 0 <= config.proving_window < 1 << 48
+            or not 0 <= config.permissionless_proving_delay < 1 << 48
+            or not 0 <= config.max_proof_submission_delay < 1 << 48
+            or not 0 <= config.ring_buffer_size < 1 << 48
+            or not 0 <= config.basefee_sharing_pctg < 1 << 8
+            or not 0 <= config.forced_inclusion_delay < 1 << 16
+            or not 0 <= config.forced_inclusion_fee_in_gwei <= UINT64_MAX
+            or not 0 <= config.forced_inclusion_fee_double_threshold
+                <= UINT64_MAX
+            or not 0 <= config.permissionless_inclusion_multiplier < 1 << 8):
+        raise ValueError("legacy Inbox configuration is unsupported")
+    return keccak256(
+        LEGACY_INBOX_CONFIG_DOMAIN
+        + _model_address20(config.proof_verifier)
+        + _model_address20(config.proposer_checker)
+        + _model_address20(config.prover_whitelist, zero_if_empty=True)
+        + _model_address20(config.signal_service)
+        + _model_address20(config.bond_token)
+        + _model_uint(config.min_bond, 8, "legacy minimum bond")
+        + _model_uint(config.liveness_bond, 8, "legacy liveness bond")
+        + _model_uint(config.withdrawal_delay, 6, "legacy withdrawal delay")
+        + _model_uint(config.proving_window, 6, "legacy proving window")
+        + _model_uint(config.permissionless_proving_delay, 6,
+                      "legacy permissionless proving delay")
+        + _model_uint(config.max_proof_submission_delay, 6,
+                      "legacy maximum proof submission delay")
+        + _model_uint(config.ring_buffer_size, 6, "legacy ring size")
+        + _model_uint(config.basefee_sharing_pctg, 1,
+                      "legacy basefee sharing")
+        + _model_uint(config.forced_inclusion_delay, 2,
+                      "legacy forced inclusion delay")
+        + _model_uint(config.forced_inclusion_fee_in_gwei, 8,
+                      "legacy forced inclusion fee")
+        + _model_uint(config.forced_inclusion_fee_double_threshold, 8,
+                      "legacy forced fee threshold")
+        + _model_uint(config.permissionless_inclusion_multiplier, 1,
+                      "legacy inclusion multiplier")
+    )
+
+
+def encode_legacy_inbox_config_return_v1(
+    config: LegacyInboxConfigurationV1,
+) -> bytes:
+    legacy_inbox_configuration_hash_v1(config)
+    values = (
+        bytes(12) + _model_address20(config.proof_verifier),
+        bytes(12) + _model_address20(config.proposer_checker), bytes(32),
+        bytes(12) + _model_address20(config.signal_service),
+        bytes(12) + _model_address20(config.bond_token),
+        *(_model_uint(value, 32, name) for value, name in (
+            (config.min_bond, "min bond"),
+            (config.liveness_bond, "liveness bond"),
+            (config.withdrawal_delay, "withdrawal delay"),
+            (config.proving_window, "proving window"),
+            (config.permissionless_proving_delay, "permissionless delay"),
+            (config.max_proof_submission_delay, "submission delay"),
+            (config.ring_buffer_size, "ring size"),
+            (config.basefee_sharing_pctg, "basefee share"),
+            (config.forced_inclusion_delay, "forced delay"),
+            (config.forced_inclusion_fee_in_gwei, "forced fee"),
+            (config.forced_inclusion_fee_double_threshold, "fee threshold"),
+            (config.permissionless_inclusion_multiplier, "multiplier"),
+        )),
+    )
+    encoded = b"".join(values)
+    if len(encoded) != 544:
+        raise AssertionError("legacy getConfig return must be 17 words")
+    return encoded
+
+
+def legacy_genesis_deployment_hash_v1(
+    fixture: LegacyResumeDescriptorFixtureV2,
+) -> bytes:
+    if (type(fixture) is not LegacyResumeDescriptorFixtureV2
+            or fixture.settlement_chain_id <= 0
+            or not fixture.inbox_proxy or not fixture.inbox_implementation
+            or not fixture.router):
+        raise ValueError("legacy deployment descriptor is malformed")
+    return keccak256(
+        LEGACY_DEPLOYMENT_DOMAIN
+        + _model_uint(fixture.settlement_chain_id, 32,
+                      "legacy settlement chain ID")
+        + _model_address20(fixture.inbox_proxy)
+        + _model_fixed_bytes32(fixture.inbox_proxy_runtime_hash)
+        + _model_address20(fixture.inbox_implementation)
+        + _model_fixed_bytes32(fixture.inbox_implementation_runtime_hash)
+        + legacy_inbox_configuration_hash_v1(fixture.inbox_config)
+        + _model_address20(fixture.router)
+    )
+
+
+def legacy_campaign_fence_descriptor_hash_v1(
+    fixture: LegacyResumeDescriptorFixtureV2,
+) -> bytes:
+    return keccak256(
+        LEGACY_CAMPAIGN_FENCE_DOMAIN + _model_address20(fixture.router)
+        + _model_address20(fixture.inbox_proxy)
+        + LEGACY_GENESIS_CAMPAIGN_SELECTOR + GENESIS_CAMPAIGN_MAGIC
+        + _model_uint(512, 2, "LGC1 bytes")
+        + _model_uint(LEGACY_DESCRIPTOR_CALL_GAS, 4, "LGC1 gas")
+        + LEGACY_GENESIS_STATE_SELECTOR + LEGACY_GENESIS_STATE_MAGIC
+        + _model_uint(512, 2, "LGS1 bytes")
+        + _model_uint(LEGACY_DESCRIPTOR_CALL_GAS, 4, "LGS1 gas")
+        + LEGACY_GENESIS_SCAN_STATE_SELECTOR + LEGACY_GENESIS_SCAN_STATE_MAGIC
+        + _model_uint(608, 2, "LGSS bytes")
+        + _model_uint(LEGACY_DESCRIPTOR_CALL_GAS, 4, "LGSS gas")
+    )
+
+
+def _legacy_resume_exact_components(
+    fixture: LegacyResumeDescriptorFixtureV2,
+) -> tuple[bytes, bytes, bytes, bytes, bytes, bytes, bytes, bytes, bytes]:
+    fence = legacy_campaign_fence_descriptor_hash_v1(fixture)
+    risc0_policy = keccak256(
+        LEGACY_RISC0_RESUME_KEY_POLICY_DOMAIN
+        + _model_fixed_bytes32(fixture.risc0_block_image_id)
+        + _model_fixed_bytes32(fixture.risc0_aggregation_image_id)
+    )
+    sp1_policy = keccak256(
+        LEGACY_SP1_RESUME_KEY_POLICY_DOMAIN
+        + _model_fixed_bytes32(fixture.sp1_block_program_vkey)
+        + _model_fixed_bytes32(fixture.sp1_aggregation_program_vkey)
+    )
+    risc0_descriptor = keccak256(
+        LEGACY_RISC0_VERIFIER_DOMAIN
+        + _model_address20(fixture.risc0_adapter)
+        + _model_fixed_bytes32(fixture.risc0_adapter_runtime_hash)
+        + _model_uint(fixture.l2_chain_id, 8, "legacy L2 chain ID")
+        + _model_address20(fixture.risc0_remote)
+        + _model_fixed_bytes32(fixture.risc0_remote_runtime_hash)
+        + risc0_policy
+    )
+    sp1_descriptor = keccak256(
+        LEGACY_SP1_VERIFIER_DOMAIN + _model_address20(fixture.sp1_adapter)
+        + _model_fixed_bytes32(fixture.sp1_adapter_runtime_hash)
+        + _model_uint(fixture.l2_chain_id, 8, "legacy L2 chain ID")
+        + _model_address20(fixture.sp1_remote)
+        + _model_fixed_bytes32(fixture.sp1_remote_runtime_hash)
+        + sp1_policy
+    )
+    proof_graph = keccak256(
+        LEGACY_PROOF_VERIFIER_GRAPH_DOMAIN
+        + _model_address20(fixture.pair_root)
+        + _model_fixed_bytes32(fixture.pair_root_runtime_hash)
+        + _model_uint(2, 1, "proof route members")
+        + _model_uint(5, 1, "RISC0 member")
+        + _model_address20(fixture.risc0_adapter) + risc0_descriptor
+        + _model_uint(6, 1, "SP1 member")
+        + _model_address20(fixture.sp1_adapter) + sp1_descriptor
+    )
+    proposer = keccak256(
+        LEGACY_PROPOSER_CHECKER_DOMAIN
+        + _model_address20(fixture.proposer_checker_proxy)
+        + _model_fixed_bytes32(fixture.proposer_checker_proxy_runtime_hash)
+        + _model_address20(fixture.proposer_checker_implementation)
+        + _model_fixed_bytes32(
+            fixture.proposer_checker_implementation_runtime_hash
+        )
+        + _model_uint(64, 2, "maximum proposer operators") + fence
+    )
+    whitelist = keccak256(
+        LEGACY_PUBLIC_PROVING_DOMAIN + bytes(20)
+        + _model_uint(1, 1, "public proving required")
+    )
+    checkpoint_layout = keccak256(
+        LEGACY_CHECKPOINT_LAYOUT_DOMAIN + _model_uint(1, 32, "SS version")
+        + _model_uint(254, 2, "checkpoint base slot")
+        + keccak256(LEGACY_CHECKPOINT_RECORD_LITERAL)
+    )
+    signal = keccak256(
+        LEGACY_SIGNAL_SERVICE_CHECKPOINT_DOMAIN
+        + _model_address20(fixture.signal_service_proxy)
+        + _model_fixed_bytes32(fixture.signal_service_proxy_runtime_hash)
+        + _model_address20(fixture.signal_service_implementation)
+        + _model_fixed_bytes32(
+            fixture.signal_service_implementation_runtime_hash
+        )
+        + _model_uint(1, 32, "signal service version")
+        + _model_address20(fixture.signal_service_authorized_syncer)
+        + _model_address20(fixture.remote_signal_service)
+        + _model_address20(fixture.signal_service_pauser)
+        + checkpoint_layout + fence
+    )
+    return (fence, risc0_policy, sp1_policy, risc0_descriptor,
+            sp1_descriptor, proof_graph, proposer, whitelist, signal)
+
+
+def legacy_resume_verifier_route_hash_v1(
+    deployment_hash: bytes,
+    members: tuple[int, ...] = (5, 6),
+    descriptor_hashes: tuple[bytes, ...] | None = None,
+    key_policy_hashes: tuple[bytes, ...] | None = None,
+    *,
+    age_independent: bool = True,
+    sgx_required: bool = False,
+    fixed_key_adapters: bool = True,
+    mutable_trust_map: bool = False,
+    fixture: LegacyResumeDescriptorFixtureV2 | None = None,
+) -> bytes:
+    """Bind the sole supported age-independent RISC0+SP1 sufficient route."""
+
+    _model_fixed_bytes32(deployment_hash)
+    live = fixture or canonical_legacy_resume_fixture_v2()
+    (_, risc0_policy, sp1_policy, risc0_descriptor, sp1_descriptor,
+     proof_graph, _proposer, _whitelist, _signal) = \
+        _legacy_resume_exact_components(live)
+    expected_descriptors = (risc0_descriptor, sp1_descriptor)
+    descriptors = (
+        expected_descriptors
+        if descriptor_hashes is None else descriptor_hashes
+    )
+    expected_key_policies = (risc0_policy, sp1_policy)
+    key_policies = (
+        expected_key_policies
+        if key_policy_hashes is None else key_policy_hashes
+    )
+    if (members != (5, 6) or len(descriptors) != 2
+            or tuple(descriptors) != expected_descriptors
+            or any(type(row) is not bytes or len(row) != 32
+                   or row == bytes(32) for row in descriptors)
+            or len(key_policies) != 2
+            or tuple(key_policies) != expected_key_policies
+            or any(type(row) is not bytes or len(row) != 32
+                   or row == bytes(32) for row in key_policies)
+            or not age_independent or sgx_required
+            or not fixed_key_adapters or mutable_trust_map):
+        return bytes(32)
+    return keccak256(
+        LEGACY_RESUME_VERIFIER_ROUTE_DOMAIN
+        + proof_graph
+        + _model_uint(2, 1, "resume verifier route length")
+        + _model_uint(5, 1, "RISC0_RETH verifier id")
+        + descriptors[0] + key_policies[0]
+        + _model_uint(6, 1, "SP1_RETH verifier id")
+        + descriptors[1] + key_policies[1]
+    )
+
+
+def signal_service_checkpoint_descriptor_hash_v1(
+    deployment_hash: bytes,
+    *,
+    upgrade_fenced: bool = True,
+    fence_descriptor_hash: bytes | None = None,
+    direct_final_implementation: bool = True,
+    fork_router: bool = False,
+    delegate_target_reachable: bool = False,
+    fixture: LegacyResumeDescriptorFixtureV2 | None = None,
+) -> bytes:
+    """Bind the exact modeled V1 SignalService checkpoint dependency graph."""
+
+    _model_fixed_bytes32(deployment_hash)
+    live = fixture or canonical_legacy_resume_fixture_v2()
+    expected_fence, *_rest, signal = _legacy_resume_exact_components(live)
+    fence = expected_fence if fence_descriptor_hash is None \
+        else fence_descriptor_hash
+    if (not upgrade_fenced or not direct_final_implementation or fork_router
+            or delegate_target_reachable
+            or type(fence) is not bytes or len(fence) != 32
+            or fence != expected_fence):
+        return bytes(32)
+    return signal
+
+
+def legacy_resume_profile_hash_v1(
+    deployment_hash: bytes,
+    *,
+    route_members: tuple[int, ...] = (5, 6),
+    route_descriptor_hashes: tuple[bytes, ...] | None = None,
+    route_key_policy_hashes: tuple[bytes, ...] | None = None,
+    route_age_independent: bool = True,
+    route_sgx_required: bool = False,
+    route_fixed_key_adapters: bool = True,
+    route_mutable_trust_map: bool = False,
+    signal_service_upgrade_fenced: bool = True,
+    signal_service_fence_descriptor_hash: bytes | None = None,
+    signal_service_direct_final_implementation: bool = True,
+    signal_service_fork_router: bool = False,
+    signal_service_delegate_target_reachable: bool = False,
+    prover_whitelist_address_zero: bool = True,
+    prover_whitelist_member_count: int = 0,
+    prover_whitelist_mutation_fenced: bool = True,
+    fixture: LegacyResumeDescriptorFixtureV2 | None = None,
+) -> bytes:
+    """Byte-exact golden time-branch-safe compatibility profile codec."""
+
+    deployment_hash = _model_fixed_bytes32(deployment_hash)
+    live = fixture or canonical_legacy_resume_fixture_v2()
+    (fence, _risc0_policy, _sp1_policy, _risc0_descriptor,
+     _sp1_descriptor, proof_graph, proposer_checker, prover_whitelist,
+     _signal) = _legacy_resume_exact_components(live)
+    resume_route = legacy_resume_verifier_route_hash_v1(
+        deployment_hash, route_members, route_descriptor_hashes,
+        route_key_policy_hashes,
+        age_independent=route_age_independent,
+        sgx_required=route_sgx_required,
+        fixed_key_adapters=route_fixed_key_adapters,
+        mutable_trust_map=route_mutable_trust_map,
+        fixture=live,
+    )
+    signal_checkpoint = signal_service_checkpoint_descriptor_hash_v1(
+        deployment_hash,
+        upgrade_fenced=signal_service_upgrade_fenced,
+        fence_descriptor_hash=signal_service_fence_descriptor_hash,
+        direct_final_implementation=
+            signal_service_direct_final_implementation,
+        fork_router=signal_service_fork_router,
+        delegate_target_reachable=
+            signal_service_delegate_target_reachable,
+        fixture=live,
+    )
+    if resume_route == bytes(32) or signal_checkpoint == bytes(32):
+        return bytes(32)
+    if (type(prover_whitelist_member_count) is not int
+            or type(prover_whitelist_member_count) is bool
+            or prover_whitelist_member_count != 0
+            or not prover_whitelist_address_zero):
+        return bytes(32)
+    _ = prover_whitelist_mutation_fenced
+    return keccak256(
+        LEGACY_RESUME_PROFILE_DOMAIN + deployment_hash
+        + fence + proof_graph + resume_route + signal_checkpoint
+        + proposer_checker + prover_whitelist
+        + _model_uint(0, 8, "minimum bond")
+        + _model_uint(0, 8, "liveness bond")
+        + _model_uint(604_800, 8, "withdrawal delay")
+        + _model_uint(14_400, 8, "proving window")
+        + _model_uint(432_000, 8, "permissionless proving delay")
+        + _model_uint(180, 8, "maximum proof submission delay")
+        + _model_uint(21_600, 6, "ring buffer size")
+        + _model_uint(576, 2, "forced inclusion delay")
+        + _model_uint(1_000_000, 8, "forced inclusion fee in gwei")
+        + _model_uint(50, 8, "forced inclusion fee double threshold")
+        + _model_uint(160, 2, "permissionless inclusion multiplier")
+        + _model_uint(
+            LEGACY_MAX_FORCED_INCLUSIONS_PER_PROPOSAL,
+            2,
+            "maximum forced inclusions per proposal",
+        )
+        + _model_uint(
+            LEGACY_MAX_NORMAL_BLOB_HASHES_PER_PROPOSAL,
+            2,
+            "maximum normal blob hashes per proposal",
+        )
+        + _model_uint(
+            LEGACY_BLOB_RETENTION_SECONDS, 8, "legacy blob retention"
+        )
+        + _model_uint(
+            LEGACY_RESUME_PROOF_GENERATION_MAX_SECONDS,
+            8,
+            "legacy resume proof generation maximum",
+        )
+        + keccak256(LEGACY_RESUME_TIME_POLICY_LITERAL)
+    )
+
+
+def legacy_genesis_review_commitment_v1(
+    deployment_hash: bytes,
+    resume_profile_hash: bytes,
+    target_protocol_version: int,
+    target_manifest_hash: bytes,
+    target_registration_hash: bytes,
+) -> bytes:
+    return keccak256(
+        LEGACY_REVIEW_COMMITMENT_DOMAIN
+        + _model_fixed_bytes32(deployment_hash)
+        + _model_fixed_bytes32(resume_profile_hash)
+        + _model_uint(target_protocol_version, 8, "review target version")
+        + _model_fixed_bytes32(target_manifest_hash)
+        + _model_fixed_bytes32(target_registration_hash)
+    )
+
+
+def legacy_genesis_abandonment_auxiliary_hash_v1(
+    hook: "LegacyLaunchHookV1",
+) -> bytes:
+    """Bind only authenticated loss accounting; raw donated balance is absent."""
+
+    if (type(hook) is not LegacyLaunchHookV1
+            or hook.scan_commitment == bytes(32)):
+        raise ValueError("genesis abandonment summary is incomplete")
+    return keccak256(
+        b"slot-chain-legacy-genesis-abandonment-receipt-v1"
+        + hook.campaign_id + hook.scan_commitment
+        + _model_uint(
+            hook.proposal_scan_start, 6, "proposal scan start"
+        )
+        + _model_uint(
+            hook.last_finalized_proposal_id + 1,
+            6,
+            "abandoned proposal start",
+        )
+        + _model_uint(
+            hook.frozen_next_proposal_id, 6, "proposal end"
+        )
+        + _model_uint(hook.proposal_scan_count, 2, "abandoned proposals")
+        + _model_uint(
+            hook.abandoned_proposal_count,
+            2,
+            "abandoned proposal count",
+        )
+        + _model_uint(hook.proposal_scan_bytes, 4, "proposal scan bytes")
+        + hook.proposal_scan_root
+        + _model_uint(hook.forced_scan_start, 6, "forced start")
+        + _model_uint(hook.frozen_forced_tail, 6, "forced end")
+        + _model_uint(hook.forced_scan_count, 2, "forced count")
+        + _model_uint(hook.forced_scan_bytes, 4, "forced scan bytes")
+        + hook.forced_scan_root
+        + _model_uint(
+            hook.abandoned_forced_value, 32, "abandoned native wei"
+        )
+        + _model_uint(0, 32, "abandoned bond liability wei")
+        + _model_uint(hook.min_data_expiry, 8, "minimum data expiry")
+        + hook.legacy_resume_profile_hash
+    )
+
+
+@dataclass(frozen=True)
+class LegacyProposalRecordV1:
+    proposal_id: int
+    preimage: bytes
+    proposal_hash: bytes
+    data_expiry: int
+    encoded_bytes: int
+
+
+@dataclass(frozen=True)
+class LegacyForcedRecordV1:
+    index: int
+    preimage: bytes
+    record_hash: bytes
+    data_expiry: int
+    amount: int
+    encoded_bytes: int
+
+
+@dataclass
+class LegacyLaunchHookV1:
+    """Legacy launch gate for one reversible finite genesis campaign."""
+
+    owner: str
+    proxy_address: str = "legacy-inbox-proxy"
+    deployment_hash: bytes = b""
+    phase: LegacyLaunchPhase = LegacyLaunchPhase.ACTIVE
+    generation: int = 0
+    campaign_id: bytes = bytes(32)
+    target_protocol_version: int = 0
+    target_manifest_hash: bytes = bytes(32)
+    target_registration_hash: bytes = bytes(32)
+    arm_id: bytes = bytes(32)
+    launch_id: bytes = bytes(32)
+    scan_commitment: bytes = bytes(32)
+    post_state_commitment: bytes = bytes(32)
+    next_proposal_id: int = 1
+    last_finalized_proposal_id: int = 0
+    last_finalized_block_hash: bytes = field(
+        default_factory=lambda: keccak256(b"legacy-finalized-genesis-v1")
+    )
+    forced_head: int = 0
+    forced_tail: int = 0
+    retained_proposal_value: int = 0
+    retained_forced_value: int = 0
+    historical_claims: int = 0
+    historical_refunds: int = 0
+    raw_proxy_surplus: int = 0
+    proposal_records: dict[int, LegacyProposalRecordV1] = field(
+        default_factory=dict
+    )
+    forced_records: dict[int, LegacyForcedRecordV1] = field(
+        default_factory=dict
+    )
+    frozen_campaign_id: bytes = bytes(32)
+    frozen_next_proposal_id: int | None = None
+    frozen_forced_tail: int | None = None
+    proposal_scan_start: int | None = None
+    forced_scan_start: int | None = None
+    proposal_scan_cursor: int | None = None
+    forced_scan_cursor: int | None = None
+    proposal_scan_root: bytes = bytes(32)
+    forced_scan_root: bytes = bytes(32)
+    proposal_scan_count: int = 0
+    forced_scan_count: int = 0
+    proposal_scan_bytes: int = 0
+    forced_scan_bytes: int = 0
+    scan_call_count: int = 0
+    proposal_min_data_expiry: int = UINT64_MAX
+    forced_min_data_expiry: int = UINT64_MAX
+    quiescent_boundary_hash: bytes = bytes(32)
+    abandoned_proposal_count: int = 0
+    abandoned_forced_count: int = 0
+    abandoned_proposal_value: int = 0
+    abandoned_forced_value: int = 0
+    fault_point: str | None = field(default=None, compare=False)
+    state_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    preparation_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    scan_state_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    resume_route_members: tuple[int, ...] = (5, 6)
+    resume_route_descriptor_hashes: tuple[bytes, ...] = field(
+        default_factory=tuple
+    )
+    resume_route_key_policy_hashes: tuple[bytes, ...] | None = None
+    resume_route_age_independent: bool = True
+    resume_route_sgx_required: bool = False
+    resume_route_fixed_key_adapters: bool = True
+    resume_route_mutable_trust_map: bool = False
+    signal_service_upgrade_fenced: bool = True
+    signal_service_fence_descriptor_hash: bytes = b""
+    signal_service_direct_final_implementation: bool = True
+    signal_service_fork_router: bool = False
+    signal_service_delegate_target_reachable: bool = False
+    prover_whitelist_address_zero: bool = True
+    prover_whitelist_member_count: int = 0
+    prover_whitelist_mutation_fenced: bool = True
+    resume_descriptor_fixture: LegacyResumeDescriptorFixtureV2 | None = field(
+        default=None, compare=False, repr=False
+    )
+    legacy_resume_profile_hash_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    _router_authority: object | None = field(
+        default=None, init=False, compare=False, repr=False
+    )
+
+    def __post_init__(self) -> None:
+        if not self.owner or not self.proxy_address:
+            raise ValueError("legacy launch proxy identity is empty")
+        if self.resume_descriptor_fixture is None:
+            self.resume_descriptor_fixture = canonical_legacy_resume_fixture_v2(
+                proxy_address=self.proxy_address
+            )
+        if type(self.resume_descriptor_fixture) \
+                is not LegacyResumeDescriptorFixtureV2:
+            raise ValueError("legacy resume descriptor fixture is malformed")
+        if self.deployment_hash == b"":
+            self.deployment_hash = legacy_genesis_deployment_hash_v1(
+                self.resume_descriptor_fixture
+            )
+        if (type(self.deployment_hash) is not bytes
+                or len(self.deployment_hash) != 32
+                or self.deployment_hash == bytes(32)):
+            raise ValueError("legacy deployment hash is invalid")
+        if not self.resume_route_descriptor_hashes:
+            components = _legacy_resume_exact_components(
+                self.resume_descriptor_fixture
+            )
+            self.resume_route_descriptor_hashes = (
+                components[3], components[4]
+            )
+        if self.signal_service_fence_descriptor_hash == b"":
+            self.signal_service_fence_descriptor_hash = \
+                legacy_campaign_fence_descriptor_hash_v1(
+                    self.resume_descriptor_fixture
+                )
+
+    def _bind_router_once(self, router: object) -> bool:
+        if (self._router_authority is not None
+                or type(router) is not ActiveSettlementRouter
+                or router.legacy_launch_hook is not self):
+            return False
+        object.__setattr__(self, "_router_authority", router)
+        return True
+
+    @property
+    def legacy_resume_profile_hash(self) -> bytes:
+        if self.legacy_resume_profile_hash_override is not None:
+            return self.legacy_resume_profile_hash_override
+        return legacy_resume_profile_hash_v1(
+            self.deployment_hash,
+            route_members=self.resume_route_members,
+            route_descriptor_hashes=self.resume_route_descriptor_hashes,
+            route_key_policy_hashes=self.resume_route_key_policy_hashes,
+            route_age_independent=self.resume_route_age_independent,
+            route_sgx_required=self.resume_route_sgx_required,
+            route_fixed_key_adapters=self.resume_route_fixed_key_adapters,
+            route_mutable_trust_map=self.resume_route_mutable_trust_map,
+            signal_service_upgrade_fenced=
+                self.signal_service_upgrade_fenced,
+            signal_service_fence_descriptor_hash=
+                self.signal_service_fence_descriptor_hash,
+            signal_service_direct_final_implementation=
+                self.signal_service_direct_final_implementation,
+            signal_service_fork_router=self.signal_service_fork_router,
+            signal_service_delegate_target_reachable=
+                self.signal_service_delegate_target_reachable,
+            prover_whitelist_address_zero=
+                self.prover_whitelist_address_zero,
+            prover_whitelist_member_count=
+                self.prover_whitelist_member_count,
+            prover_whitelist_mutation_fenced=
+                self.prover_whitelist_mutation_fenced,
+            fixture=self.resume_descriptor_fixture,
+        )
+
+    def _pending_scan_bytes(self) -> int:
+        proposal_bytes = sum(
+            self.proposal_records[index].encoded_bytes
+            for index in range(
+                self.last_finalized_proposal_id + 1,
+                self.next_proposal_id,
+            )
+        )
+        forced_bytes = sum(
+            self.forced_records[index].encoded_bytes
+            for index in range(self.forced_head, self.forced_tail)
+        )
+        return seat_checked_add(
+            proposal_bytes, forced_bytes, "legacy scan preparation bytes"
+        )
+
+    def _maximum_scan_bytes(self) -> int:
+        """Return the profile-capped worst-case bytes for pending rows."""
+
+        proposal_count = (
+            self.next_proposal_id - self.last_finalized_proposal_id - 1
+        )
+        forced_count = self.forced_tail - self.forced_head
+        return seat_checked_add(
+            proposal_count * LEGACY_PROPOSAL_ROW_BYTES_MAX,
+            forced_count * LEGACY_FORCED_ROW_BYTES_MAX,
+            "legacy maximum scan bytes",
+        )
+
+    def legacy_genesis_preparation_v1(self) -> bytes:
+        if self.preparation_return_override is not None:
+            return self.preparation_return_override
+        return self._exact_legacy_genesis_preparation_v1()
+
+    def _exact_legacy_genesis_preparation_v1(self) -> bytes:
+        """Encode LGPR from local storage without a fault override."""
+
+        proposal_count = (
+            self.next_proposal_id - self.last_finalized_proposal_id - 1
+        )
+        forced_count = self.forced_tail - self.forced_head
+        maximum_scan_bytes = self._maximum_scan_bytes()
+        if (not 0 <= proposal_count <= LEGACY_SCAN_ROW_COUNT_MAX
+                or not 0 <= forced_count <= LEGACY_SCAN_ROW_COUNT_MAX
+                or maximum_scan_bytes > LEGACY_SCAN_BYTES_MAX
+                or self.legacy_resume_profile_hash == bytes(32)):
+            raise ValueError("legacy genesis preparation exceeds caps")
+        return b"".join((
+            LEGACY_GENESIS_PREPARATION_MAGIC + bytes(28),
+            _model_uint(self.next_proposal_id, 32, "next proposal"),
+            _model_uint(
+                self.last_finalized_proposal_id, 32, "last finalized"
+            ),
+            _model_uint(self.forced_head, 32, "forced head"),
+            _model_uint(self.forced_tail, 32, "forced tail"),
+            _model_uint(proposal_count, 32, "proposal count"),
+            _model_uint(forced_count, 32, "forced count"),
+            _model_uint(maximum_scan_bytes, 32, "maximum scan bytes"),
+            self.legacy_resume_profile_hash,
+        ))
+
+    def legacy_launch_state_v1(self) -> LegacyLaunchStateV1:
+        return LegacyLaunchStateV1(
+            self.phase, self.generation, self.campaign_id,
+            self.scan_commitment,
+            self.target_protocol_version, self.target_manifest_hash,
+            self.target_registration_hash, self.arm_id, self.launch_id,
+            self.next_proposal_id, self.last_finalized_proposal_id,
+            self.last_finalized_block_hash, self.forced_head,
+            self.forced_tail, self.post_state_commitment,
+        )
+
+    def legacy_launch_state_return_v1(self) -> bytes:
+        if self.state_return_override is not None:
+            return self.state_return_override
+        return encode_legacy_genesis_state_v1(self.legacy_launch_state_v1())
+
+    def _maybe_lazy_resume(
+        self, block_number: int, timestamp: int = 0
+    ) -> None:
+        router = self._router_authority
+        if (type(router) is ActiveSettlementRouter
+                and self.phase in {
+                    LegacyLaunchPhase.ACTIVE,
+                    LegacyLaunchPhase.QUIESCENT,
+                }
+                and (
+                    self.phase is LegacyLaunchPhase.QUIESCENT
+                    or self.frozen_campaign_id != bytes(32)
+                )):
+            clock = Clock(block_number, timestamp)
+            generation = (
+                self.generation
+                if self.phase is LegacyLaunchPhase.QUIESCENT
+                else router._legacy_campaign_generation_exact(
+                    self.frozen_campaign_id
+                )
+            )
+            campaign_id = (
+                self.campaign_id
+                if self.phase is LegacyLaunchPhase.QUIESCENT
+                else self.frozen_campaign_id
+            )
+            if generation is not None and router._legacy_campaign_expired_exact(
+                    generation, campaign_id, clock):
+                self.phase = LegacyLaunchPhase.ACTIVE
+                self._clear_campaign_control()
+
+    def authorize_upgrade_v1(
+        self, *, caller: str, clock: Clock
+    ) -> bool:
+        """Fail closed against source-code changes during a reviewed campaign."""
+
+        router = self._router_authority
+        if (caller != self.owner or type(clock) is not Clock
+                or type(router) is not ActiveSettlementRouter
+                or router.migration_lifecycle
+                    is not RouterMigrationLifecycle.IDLE
+                or self.phase is not LegacyLaunchPhase.ACTIVE):
+            return False
+        self._maybe_lazy_resume(clock.block_number, clock.timestamp)
+        try:
+            state = router._legacy_campaign_state_exact()
+        except BaseException:
+            return False
+        if state.status == 0:
+            return True
+        if state.status == 4:
+            return self.frozen_campaign_id == bytes(32)
+        if state.status != 1:
+            return False
+        expired = (
+            clock.block_number >= state.resume_by_block
+            or clock.timestamp >= state.resume_by_timestamp
+        )
+        return expired and self.frozen_campaign_id == bytes(32)
+
+    def resume_legacy_genesis_v1(
+        self,
+        generation: int,
+        campaign_id: bytes,
+        *,
+        caller: str,
+        clock: Clock,
+    ) -> bytes:
+        router = self._router_authority
+        if (not caller or type(clock) is not Clock
+                or type(router) is not ActiveSettlementRouter
+                or self.phase not in {
+                    LegacyLaunchPhase.ACTIVE,
+                    LegacyLaunchPhase.QUIESCENT,
+                }
+                or (
+                    self.phase is LegacyLaunchPhase.QUIESCENT
+                    and (self.generation != generation
+                         or self.campaign_id != campaign_id)
+                )
+                or (
+                    self.phase is LegacyLaunchPhase.ACTIVE
+                    and self.frozen_campaign_id != campaign_id
+                )
+                or self.legacy_resume_profile_hash
+                    != legacy_resume_profile_hash_v1(
+                        self.deployment_hash,
+                        fixture=self.resume_descriptor_fixture,
+                    )
+                or not router._legacy_campaign_expired_exact(
+                    generation, campaign_id, clock
+                )):
+            return b""
+        self.phase = LegacyLaunchPhase.ACTIVE
+        self._clear_campaign_control()
+        return b"".join((
+            LEGACY_GENESIS_RESUME_MAGIC + bytes(28),
+            _model_uint(generation, 32, "legacy resume generation"),
+            campaign_id,
+        ))
+
+    def enter_legacy_genesis_quiescence_v1(
+        self,
+        generation: int,
+        campaign_id: bytes,
+        *,
+        caller: str,
+        clock: Clock,
+    ) -> bytes:
+        router = self._router_authority
+        if type(router) is not ActiveSettlementRouter:
+            return b""
+        return router._enter_legacy_genesis_quiescence_from_hook(
+            self, generation, campaign_id, caller=caller, clock=clock
+        )
+
+    def submit_proposal(
+        self,
+        *,
+        caller: str,
+        block_number: int,
+        timestamp: int = 0,
+        value: int = 0,
+        preimage: bytes | None = None,
+        blob_timestamp: int | None = None,
+    ) -> bool:
+        self._maybe_lazy_resume(block_number, timestamp)
+        router = self._router_authority
+        if (self.phase is not LegacyLaunchPhase.ACTIVE or not caller
+                or type(block_number) is not int or block_number < 0
+                or type(value) is not int or value < 0
+                or (blob_timestamp is not None
+                    and (type(blob_timestamp) is not int
+                         or type(blob_timestamp) is bool
+                         or not 0 < blob_timestamp <= UINT64_MAX))
+                or type(router) is not ActiveSettlementRouter
+                or router._legacy_genesis_new_work_blocked(
+                    self, block_number=block_number, forced=False
+                    , timestamp=timestamp
+                )):
+            return False
+        proposal_id = self.next_proposal_id
+        exact_preimage = (
+            preimage if type(preimage) is bytes
+            else b"proposal:" + _model_uint(proposal_id, 6, "proposal id")
+        )
+        if not exact_preimage:
+            return False
+        try:
+            data_expiry = (
+                UINT64_MAX if blob_timestamp is None else seat_checked_add(
+                    blob_timestamp, LEGACY_BLOB_RETENTION_SECONDS,
+                    "legacy proposal blob expiry",
+                )
+            )
+            if data_expiry > UINT64_MAX:
+                return False
+        except BaseException:
+            return False
+        encoded_bytes = len(exact_preimage)
+        proposal_count = (
+            self.next_proposal_id - self.last_finalized_proposal_id
+        )
+        forced_count = self.forced_tail - self.forced_head
+        if (encoded_bytes > LEGACY_PROPOSAL_ROW_BYTES_MAX
+                or proposal_count > LEGACY_SCAN_ROW_COUNT_MAX
+                or proposal_count * LEGACY_PROPOSAL_ROW_BYTES_MAX
+                    + forced_count * LEGACY_FORCED_ROW_BYTES_MAX
+                    > LEGACY_SCAN_BYTES_MAX):
+            return False
+        proposal_hash = keccak256(exact_preimage)
+        self.proposal_records[proposal_id] = LegacyProposalRecordV1(
+            proposal_id, exact_preimage, proposal_hash, data_expiry,
+            encoded_bytes,
+        )
+        self.next_proposal_id += 1
+        self.retained_proposal_value = seat_checked_add(
+            self.retained_proposal_value, value, "legacy proposal value"
+        )
+        return True
+
+    def append_forced_ingress(
+        self,
+        *,
+        amount: int,
+        caller: str,
+        block_number: int,
+        timestamp: int = 0,
+        preimage: bytes | None = None,
+        blob_timestamp: int | None = None,
+    ) -> bool:
+        self._maybe_lazy_resume(block_number, timestamp)
+        router = self._router_authority
+        if (self.phase is not LegacyLaunchPhase.ACTIVE or not caller
+                or type(block_number) is not int or block_number < 0
+                or type(amount) is not int or amount <= 0
+                or (blob_timestamp is not None
+                    and (type(blob_timestamp) is not int
+                         or type(blob_timestamp) is bool
+                         or not 0 < blob_timestamp <= UINT64_MAX))
+                or type(router) is not ActiveSettlementRouter
+                or router._legacy_genesis_new_work_blocked(
+                    self, block_number=block_number, forced=True
+                    , timestamp=timestamp
+                )):
+            return False
+        index = self.forced_tail
+        exact_preimage = (
+            preimage if type(preimage) is bytes
+            else b"forced:" + _model_uint(index, 6, "forced index")
+        )
+        if not exact_preimage:
+            return False
+        try:
+            data_expiry = (
+                UINT64_MAX if blob_timestamp is None else seat_checked_add(
+                    blob_timestamp, LEGACY_BLOB_RETENTION_SECONDS,
+                    "legacy forced blob expiry",
+                )
+            )
+            if data_expiry > UINT64_MAX:
+                return False
+        except BaseException:
+            return False
+        encoded_bytes = len(exact_preimage)
+        proposal_count = (
+            self.next_proposal_id - self.last_finalized_proposal_id - 1
+        )
+        forced_count = self.forced_tail - self.forced_head + 1
+        if (encoded_bytes > LEGACY_FORCED_ROW_BYTES_MAX
+                or forced_count > LEGACY_SCAN_ROW_COUNT_MAX
+                or proposal_count * LEGACY_PROPOSAL_ROW_BYTES_MAX
+                    + forced_count * LEGACY_FORCED_ROW_BYTES_MAX
+                    > LEGACY_SCAN_BYTES_MAX):
+            return False
+        record_hash = keccak256(LEGACY_FORCED_RECORD_DOMAIN + exact_preimage)
+        self.forced_records[index] = LegacyForcedRecordV1(
+            index, exact_preimage, record_hash, data_expiry, amount,
+            encoded_bytes,
+        )
+        self.forced_tail += 1
+        self.retained_forced_value = seat_checked_add(
+            self.retained_forced_value, amount, "legacy forced value"
+        )
+        return True
+
+    def finalize_next_proposal(self, *, caller: str, block_number: int) -> bool:
+        self._maybe_lazy_resume(block_number)
+        if (self.phase is not LegacyLaunchPhase.ACTIVE or not caller
+                or self.last_finalized_proposal_id + 1
+                    >= self.next_proposal_id):
+            return False
+        self.last_finalized_proposal_id += 1
+        self.last_finalized_block_hash = keccak256(
+            self.last_finalized_block_hash
+            + _model_uint(
+                self.last_finalized_proposal_id, 6, "finalized proposal"
+            )
+        )
+        return True
+
+    def consume_forced_ingress(
+        self, *, caller: str, block_number: int
+    ) -> bool:
+        self._maybe_lazy_resume(block_number)
+        if (self.phase is not LegacyLaunchPhase.ACTIVE or not caller
+                or self.forced_head >= self.forced_tail):
+            return False
+        record = self.forced_records[self.forced_head]
+        self.forced_head += 1
+        self.retained_forced_value -= record.amount
+        return True
+
+    def withdraw_historical_claim(self, *, amount: int, caller: str) -> bool:
+        if (not caller or type(amount) is not int or amount <= 0
+                or amount > self.historical_claims):
+            return False
+        self.historical_claims -= amount
+        return True
+
+    def _reset_proposal_scan(self) -> None:
+        self.proposal_scan_cursor = self.last_finalized_proposal_id + 1
+        self.proposal_scan_root = keccak256(
+            LEGACY_SCAN_ROOT_DOMAIN + b"P" + self.frozen_campaign_id
+        )
+        self.proposal_scan_count = 0
+        self.proposal_min_data_expiry = UINT64_MAX
+
+    def _reset_forced_scan(self) -> None:
+        self.forced_scan_cursor = self.forced_head
+        self.forced_scan_root = keccak256(
+            LEGACY_SCAN_ROOT_DOMAIN + b"F" + self.frozen_campaign_id
+        )
+        self.forced_scan_count = 0
+        self.forced_min_data_expiry = UINT64_MAX
+
+    def _start_scans(self, campaign: GenesisCampaignV1) -> None:
+        if self.frozen_campaign_id != campaign.campaign_id:
+            self.frozen_campaign_id = campaign.campaign_id
+            self.proposal_scan_cursor = None
+            self.forced_scan_cursor = None
+        if self.proposal_scan_cursor is None:
+            self._reset_proposal_scan()
+        if self.forced_scan_cursor is None:
+            self._reset_forced_scan()
+
+    def _clear_campaign_control(self) -> None:
+        self.generation = 0
+        self.campaign_id = bytes(32)
+        self.target_protocol_version = 0
+        self.target_manifest_hash = bytes(32)
+        self.target_registration_hash = bytes(32)
+        self.arm_id = bytes(32)
+        self.launch_id = bytes(32)
+        self.scan_commitment = bytes(32)
+        self.post_state_commitment = bytes(32)
+        self.frozen_campaign_id = bytes(32)
+        self.frozen_next_proposal_id = None
+        self.frozen_forced_tail = None
+        self.proposal_scan_start = None
+        self.forced_scan_start = None
+        self.proposal_scan_cursor = None
+        self.forced_scan_cursor = None
+        self.proposal_scan_root = bytes(32)
+        self.forced_scan_root = bytes(32)
+        self.proposal_scan_count = 0
+        self.forced_scan_count = 0
+        self.proposal_scan_bytes = 0
+        self.forced_scan_bytes = 0
+        self.scan_call_count = 0
+        self.proposal_min_data_expiry = UINT64_MAX
+        self.forced_min_data_expiry = UINT64_MAX
+        self.quiescent_boundary_hash = bytes(32)
+
+    @property
+    def min_data_expiry(self) -> int:
+        return min(
+            self.proposal_min_data_expiry,
+            self.forced_min_data_expiry,
+        )
+
+    def _superseded_scan_proposals_v1(
+        self,
+        campaign_id: bytes,
+        preimages: tuple[bytes, ...],
+        *,
+        clock: Clock,
+        caller: str,
+    ) -> int:
+        router = self._router_authority
+        try:
+            campaign = router._current_genesis_campaign_exact()
+        except BaseException:
+            return 0
+        if (not caller or type(clock) is not Clock
+                or type(campaign) is not GenesisCampaignV1
+                or campaign.campaign_id != campaign_id
+                or clock.block_number < campaign.proposal_cutoff_block
+                or self.phase is not LegacyLaunchPhase.ACTIVE
+                or not 0 < len(preimages) <= LEGACY_SCAN_BATCH_MAX):
+            return 0
+        router._freeze_legacy_campaign_endpoints(self, clock.block_number)
+        self._start_scans(campaign)
+        cursor = self.proposal_scan_cursor
+        end = self.frozen_next_proposal_id
+        if cursor is None or end is None or cursor + len(preimages) > end:
+            return 0
+        root = self.proposal_scan_root
+        min_expiry = self.proposal_min_data_expiry
+        for offset, preimage in enumerate(preimages):
+            record = self.proposal_records.get(cursor + offset)
+            if (type(preimage) is not bytes or record is None
+                    or keccak256(preimage) != record.proposal_hash):
+                return 0
+            root = keccak256(
+                root + b"P" + _model_uint(record.proposal_id, 6, "proposal")
+                + record.proposal_hash
+            )
+            min_expiry = min(min_expiry, record.data_expiry)
+        self.proposal_scan_cursor = cursor + len(preimages)
+        self.proposal_scan_root = root
+        self.proposal_scan_count += len(preimages)
+        self.proposal_min_data_expiry = min_expiry
+        return len(preimages)
+
+    def _superseded_scan_forced_v1(
+        self,
+        campaign_id: bytes,
+        preimages: tuple[bytes, ...],
+        *,
+        clock: Clock,
+        caller: str,
+    ) -> int:
+        router = self._router_authority
+        try:
+            campaign = router._current_genesis_campaign_exact()
+        except BaseException:
+            return 0
+        if (not caller or type(clock) is not Clock
+                or type(campaign) is not GenesisCampaignV1
+                or campaign.campaign_id != campaign_id
+                or clock.block_number < campaign.force_cutoff_block
+                or self.phase is not LegacyLaunchPhase.ACTIVE
+                or not 0 < len(preimages) <= LEGACY_SCAN_BATCH_MAX):
+            return 0
+        router._freeze_legacy_campaign_endpoints(self, clock.block_number)
+        self._start_scans(campaign)
+        cursor = self.forced_scan_cursor
+        end = self.frozen_forced_tail
+        if cursor is None or end is None or cursor + len(preimages) > end:
+            return 0
+        root = self.forced_scan_root
+        min_expiry = self.forced_min_data_expiry
+        for offset, preimage in enumerate(preimages):
+            record = self.forced_records.get(cursor + offset)
+            if (type(preimage) is not bytes or record is None
+                    or keccak256(preimage) != record.record_hash):
+                return 0
+            root = keccak256(
+                root + b"F" + _model_uint(record.index, 6, "forced index")
+                + record.record_hash
+            )
+            min_expiry = min(min_expiry, record.data_expiry)
+        self.forced_scan_cursor = cursor + len(preimages)
+        self.forced_scan_root = root
+        self.forced_scan_count += len(preimages)
+        self.forced_min_data_expiry = min_expiry
+        return len(preimages)
+
+    def scan_commitment_v1(self) -> bytes:
+        return keccak256(
+            LEGACY_SCAN_COMMITMENT_DOMAIN + self.frozen_campaign_id
+            + _model_uint(self.proposal_scan_start, 6, "proposal start")
+            + _model_uint(self.frozen_next_proposal_id, 6, "proposal end")
+            + _model_uint(self.proposal_scan_count, 2, "proposal count")
+            + _model_uint(self.proposal_scan_bytes, 4, "proposal bytes")
+            + self.proposal_scan_root
+            + _model_uint(self.forced_scan_start, 6, "forced start")
+            + _model_uint(self.frozen_forced_tail, 6, "forced end")
+            + _model_uint(self.forced_scan_count, 2, "forced count")
+            + _model_uint(self.forced_scan_bytes, 4, "forced bytes")
+            + self.forced_scan_root
+            + _model_uint(
+                self.abandoned_forced_value, 32, "abandoned native wei"
+            )
+            + _model_uint(self.min_data_expiry, 8, "minimum data expiry")
+            + self.legacy_resume_profile_hash
+        )
+
+    def begin_legacy_genesis_scan_v1(
+        self,
+        generation: int,
+        campaign_id: bytes,
+        *,
+        caller: str,
+        clock: Clock,
+    ) -> bytes:
+        router = self._router_authority
+        if (not caller or type(clock) is not Clock
+                or type(router) is not ActiveSettlementRouter
+                or self.phase is not LegacyLaunchPhase.ACTIVE
+                or self.frozen_campaign_id != bytes(32)):
+            return b""
+        try:
+            campaign = router._current_genesis_campaign_exact()
+            if (campaign is None or campaign.generation != generation
+                    or campaign.campaign_id != campaign_id
+                    or clock.block_number < campaign.proposal_cutoff_block
+                    or router._campaign_expired(campaign, clock)
+                    or self.legacy_resume_profile_hash
+                        != legacy_resume_profile_hash_v1(
+                            self.deployment_hash,
+                            fixture=self.resume_descriptor_fixture,
+                        )):
+                return b""
+            router._freeze_legacy_campaign_endpoints(self, clock.block_number)
+        except BaseException:
+            return b""
+        self.frozen_campaign_id = campaign_id
+        self.proposal_scan_start = self.last_finalized_proposal_id + 1
+        self.proposal_scan_cursor = self.proposal_scan_start
+        self.forced_scan_start = self.forced_head
+        self.forced_scan_cursor = self.forced_scan_start
+        self.proposal_scan_root = keccak256(
+            LEGACY_PROPOSAL_ROWS_EMPTY_DOMAIN
+        )
+        self.forced_scan_root = keccak256(LEGACY_FORCED_ROWS_EMPTY_DOMAIN)
+        self.proposal_scan_count = self.forced_scan_count = 0
+        self.proposal_scan_bytes = self.forced_scan_bytes = 0
+        self.proposal_min_data_expiry = UINT64_MAX
+        self.forced_min_data_expiry = UINT64_MAX
+        self.abandoned_forced_value = 0
+        self.scan_call_count = 0
+        return b"".join((
+            LEGACY_GENESIS_BEGIN_SCAN_MAGIC + bytes(28),
+            _model_uint(self.proposal_scan_start, 32, "proposal start"),
+            _model_uint(
+                self.frozen_next_proposal_id, 32, "proposal end"
+            ),
+            _model_uint(self.forced_scan_start, 32, "forced start"),
+            _model_uint(self.frozen_forced_tail, 32, "forced end"),
+        ))
+
+    def scan_legacy_genesis_proposals_v1(
+        self,
+        generation: int,
+        campaign_id: bytes,
+        preimages: tuple[bytes, ...],
+        *,
+        caller: str,
+        clock: Clock,
+    ) -> bytes:
+        router = self._router_authority
+        try:
+            campaign = router._current_genesis_campaign_exact()
+        except BaseException:
+            return b""
+        cursor = self.proposal_scan_cursor
+        end = self.frozen_next_proposal_id
+        if (not caller or type(clock) is not Clock
+                or type(campaign) is not GenesisCampaignV1
+                or campaign.generation != generation
+                or campaign.campaign_id != campaign_id
+                or router._campaign_expired(campaign, clock)
+                or self.phase is not LegacyLaunchPhase.ACTIVE
+                or self.frozen_campaign_id != campaign_id
+                or cursor is None or end is None or cursor >= end
+                or self.forced_scan_cursor != self.forced_scan_start
+                or len(preimages) != min(LEGACY_SCAN_BATCH_MAX, end - cursor)
+                or self.scan_call_count >= LEGACY_SCAN_CALL_MAX):
+            return b""
+        root = self.proposal_scan_root
+        total_bytes = self.proposal_scan_bytes
+        batch_bytes = 0
+        minimum = self.proposal_min_data_expiry
+        for offset, preimage in enumerate(preimages):
+            record = self.proposal_records.get(cursor + offset)
+            if (type(preimage) is not bytes or not preimage
+                    or record is None
+                    or len(preimage) != record.encoded_bytes
+                    or keccak256(preimage) != record.proposal_hash):
+                return b""
+            total_bytes = seat_checked_add(
+                total_bytes, record.encoded_bytes, "proposal scan bytes"
+            )
+            batch_bytes = seat_checked_add(
+                batch_bytes, record.encoded_bytes, "proposal batch bytes"
+            )
+            if total_bytes > LEGACY_SCAN_BYTES_MAX:
+                return b""
+            root = keccak256(
+                LEGACY_PROPOSAL_ROW_DOMAIN + root
+                + _model_uint(record.proposal_id, 6, "proposal row")
+                + _model_uint(record.encoded_bytes, 4, "proposal bytes")
+                + record.proposal_hash
+                + _model_uint(record.data_expiry, 8, "proposal expiry")
+                + _model_uint(0, 32, "proposal abandoned wei")
+            )
+            minimum = min(minimum, record.data_expiry)
+        if batch_bytes > LEGACY_PROPOSAL_BATCH_RAW_BYTES_MAX:
+            return b""
+        self.proposal_scan_cursor = cursor + len(preimages)
+        self.proposal_scan_count += len(preimages)
+        self.proposal_scan_root = root
+        self.proposal_scan_bytes = total_bytes
+        self.proposal_min_data_expiry = minimum
+        self.scan_call_count += 1
+        return b"".join((
+            LEGACY_GENESIS_SCAN_PROPOSALS_MAGIC + bytes(28),
+            _model_uint(self.proposal_scan_cursor, 32, "proposal cursor"),
+            root, _model_uint(total_bytes, 32, "proposal bytes"),
+            _model_uint(self.min_data_expiry, 32, "minimum data expiry"),
+        ))
+
+    def scan_legacy_genesis_forced_v1(
+        self,
+        generation: int,
+        campaign_id: bytes,
+        max_rows: int,
+        *,
+        caller: str,
+        clock: Clock,
+    ) -> bytes:
+        router = self._router_authority
+        try:
+            campaign = router._current_genesis_campaign_exact()
+        except BaseException:
+            return b""
+        cursor = self.forced_scan_cursor
+        end = self.frozen_forced_tail
+        expected = None if cursor is None or end is None else min(
+            LEGACY_SCAN_BATCH_MAX, end - cursor
+        )
+        if (not caller or type(clock) is not Clock
+                or type(campaign) is not GenesisCampaignV1
+                or campaign.generation != generation
+                or campaign.campaign_id != campaign_id
+                or router._campaign_expired(campaign, clock)
+                or self.phase is not LegacyLaunchPhase.ACTIVE
+                or self.frozen_campaign_id != campaign_id
+                or self.proposal_scan_cursor
+                    != self.frozen_next_proposal_id
+                or cursor is None or end is None or cursor >= end
+                or type(max_rows) is not int or max_rows != expected
+                or self.scan_call_count >= LEGACY_SCAN_CALL_MAX):
+            return b""
+        root = self.forced_scan_root
+        total_bytes = self.forced_scan_bytes
+        batch_bytes = 0
+        abandoned = self.abandoned_forced_value
+        minimum = self.forced_min_data_expiry
+        for index in range(cursor, cursor + max_rows):
+            record = self.forced_records.get(index)
+            if record is None:
+                return b""
+            total_bytes = seat_checked_add(
+                total_bytes, record.encoded_bytes, "forced scan bytes"
+            )
+            batch_bytes = seat_checked_add(
+                batch_bytes, record.encoded_bytes, "forced batch bytes"
+            )
+            abandoned = seat_checked_add(
+                abandoned, record.amount, "abandoned forced native wei"
+            )
+            if (seat_checked_add(
+                    total_bytes, self.proposal_scan_bytes,
+                    "total legacy scan bytes") > LEGACY_SCAN_BYTES_MAX):
+                return b""
+            root = keccak256(
+                LEGACY_FORCED_ROW_DOMAIN + root
+                + _model_uint(record.index, 6, "forced row")
+                + _model_uint(record.encoded_bytes, 4, "forced bytes")
+                + record.record_hash
+                + _model_uint(record.data_expiry, 8, "forced expiry")
+                + _model_uint(record.amount, 32, "forced fee")
+            )
+            minimum = min(minimum, record.data_expiry)
+        if batch_bytes > LEGACY_FORCED_BATCH_RAW_BYTES_MAX:
+            return b""
+        self.forced_scan_cursor = cursor + max_rows
+        self.forced_scan_count += max_rows
+        self.forced_scan_root = root
+        self.forced_scan_bytes = total_bytes
+        self.forced_min_data_expiry = minimum
+        self.abandoned_forced_value = abandoned
+        self.scan_call_count += 1
+        return b"".join((
+            LEGACY_GENESIS_SCAN_FORCED_MAGIC + bytes(28),
+            _model_uint(self.forced_scan_cursor, 32, "forced cursor"),
+            root, _model_uint(total_bytes, 32, "forced bytes"),
+            _model_uint(abandoned, 32, "abandoned native wei"),
+            _model_uint(self.min_data_expiry, 32, "minimum data expiry"),
+        ))
+
+    def legacy_genesis_scan_state_v1(self) -> bytes:
+        if self.scan_state_return_override is not None:
+            return self.scan_state_return_override
+        return self._exact_legacy_genesis_scan_state_v1()
+
+    def _exact_legacy_genesis_scan_state_v1(self) -> bytes:
+        """Encode LGSS from storage without consulting a fault override."""
+
+        if self.frozen_campaign_id == bytes(32):
+            return b"".join((
+                LEGACY_GENESIS_SCAN_STATE_MAGIC + bytes(28),
+                *(bytes(32) for _ in range(18)),
+            ))
+        phase = (
+            1
+            if (self.proposal_scan_cursor != self.frozen_next_proposal_id
+                or self.forced_scan_cursor != self.frozen_forced_tail)
+            else 2
+        )
+        return b"".join((
+            LEGACY_GENESIS_SCAN_STATE_MAGIC + bytes(28),
+            _model_uint(self.generation or self._router_authority.genesis_campaign.generation,
+                        32, "scan generation"),
+            self.frozen_campaign_id,
+            _model_uint(self.proposal_scan_start, 32, "proposal start"),
+            _model_uint(self.proposal_scan_cursor, 32, "proposal cursor"),
+            _model_uint(self.frozen_next_proposal_id, 32, "proposal end"),
+            _model_uint(self.proposal_scan_count, 32, "proposal count"),
+            _model_uint(self.proposal_scan_bytes, 32, "proposal bytes"),
+            self.proposal_scan_root,
+            _model_uint(self.forced_scan_start, 32, "forced start"),
+            _model_uint(self.forced_scan_cursor, 32, "forced cursor"),
+            _model_uint(self.frozen_forced_tail, 32, "forced end"),
+            _model_uint(self.forced_scan_count, 32, "forced count"),
+            _model_uint(self.forced_scan_bytes, 32, "forced bytes"),
+            self.forced_scan_root,
+            _model_uint(
+                self.abandoned_forced_value, 32, "abandoned native wei"
+            ),
+            _model_uint(self.min_data_expiry, 32, "minimum data expiry"),
+            self.legacy_resume_profile_hash,
+            _model_uint(phase, 32, "scan phase"),
+        ))
+
+    def campaign_surfaces_clean_v1(self) -> bool:
+        """Require exact clean ACTIVE LGS1 and EMPTY LGSS before reuse."""
+
+        try:
+            lgs = self.legacy_launch_state_return_v1()
+            state = decode_legacy_genesis_state_v1(lgs)
+            lgss = self.legacy_genesis_scan_state_v1()
+            empty_lgss = b"".join((
+                LEGACY_GENESIS_SCAN_STATE_MAGIC + bytes(28),
+                *(bytes(32) for _ in range(18)),
+            ))
+            return (
+                state == self.legacy_launch_state_v1()
+                and state.phase is LegacyLaunchPhase.ACTIVE
+                and lgss == empty_lgss
+                and self.frozen_campaign_id == bytes(32)
+            )
+        except BaseException:
+            return False
+
+    def arm_legacy_genesis_v1(
+        self,
+        campaign: GenesisCampaignV1,
+        boundary_hash: bytes,
+        *,
+        router: "ActiveSettlementRouter",
+    ) -> bytes:
+        if (router is not self._router_authority
+                or router.migration_lifecycle
+                    is not RouterMigrationLifecycle.ACTIVATING
+                or campaign is not router.genesis_campaign
+                or self.phase is not LegacyLaunchPhase.QUIESCENT
+                or self.campaign_id != campaign.campaign_id
+                or self.quiescent_boundary_hash != boundary_hash):
+            return b""
+        self.arm_id = legacy_genesis_arm_id_v1(
+            self.deployment_hash, campaign.generation,
+            campaign.campaign_id, self.scan_commitment, boundary_hash,
+        )
+        self.phase = LegacyLaunchPhase.READY
+        if self.fault_point == "after_arm":
+            raise RuntimeError("injected legacy arm fault")
+        return b"".join((
+            LEGACY_GENESIS_ARM_MAGIC + bytes(28),
+            _model_uint(campaign.generation, 32, "legacy generation"),
+            campaign.campaign_id,
+            self.arm_id,
+        ))
+
+    def finalize_legacy_cutover_v1(
+        self,
+        campaign: GenesisCampaignV1,
+        candidate_digest: bytes,
+        output_core_hash: bytes,
+        activated_at_block: int,
+        boundary_hash: bytes,
+        *,
+        router: "ActiveSettlementRouter",
+    ) -> bytes:
+        frame = router._migration_callback_frame
+        if (router is not self._router_authority
+                or router.migration_lifecycle
+                    is not RouterMigrationLifecycle.ACTIVATING
+                or type(frame) is not MigrationCanonicalContextV2
+                or campaign is not router.genesis_campaign
+                or self.phase is not LegacyLaunchPhase.READY
+                or self.campaign_id != campaign.campaign_id
+                or frame.source_checkpoint_id != campaign.campaign_id
+                or frame.source_boundary_hash != boundary_hash
+                or frame.candidate_digest != candidate_digest.hex()
+                or frame.output_core_hash != output_core_hash
+                or frame.canonicalized_at_block != activated_at_block):
+            return b""
+        self.target_protocol_version = campaign.target_protocol_version
+        self.target_manifest_hash = campaign.target_manifest_hash
+        self.target_registration_hash = campaign.target_registration_hash
+        self.launch_id = legacy_genesis_launch_id_v1(
+            self.arm_id, campaign.target_protocol_version,
+            campaign.target_manifest_hash, campaign.target_registration_hash,
+        )
+        self.post_state_commitment = \
+            legacy_genesis_post_state_commitment_v1(
+                self.launch_id, candidate_digest, output_core_hash,
+                activated_at_block, boundary_hash,
+            )
+        self.abandoned_proposal_count = max(
+            0, self.next_proposal_id - self.last_finalized_proposal_id - 1
+        )
+        self.abandoned_forced_count = self.forced_tail - self.forced_head
+        self.abandoned_proposal_value = self.retained_proposal_value
+        self.abandoned_forced_value = self.retained_forced_value
+        self.phase = LegacyLaunchPhase.FROZEN
+        if self.fault_point == "after_finalize":
+            raise RuntimeError("injected legacy finalize fault")
+        return b"".join((
+            LEGACY_GENESIS_FINALIZE_MAGIC + bytes(28), self.launch_id,
+            self.post_state_commitment,
+        ))
+
+    def migration_activation_post_state_v2(
+        self, *, router: "ActiveSettlementRouter"
+    ) -> bytes:
+        frame = router._migration_callback_frame
+        if (router is not self._router_authority
+                or router.migration_lifecycle
+                    is not RouterMigrationLifecycle.ACTIVATING
+                or type(frame) is not MigrationCanonicalContextV2
+                or self.phase is not LegacyLaunchPhase.FROZEN
+                or self.campaign_id != frame.source_checkpoint_id
+                or self.quiescent_boundary_hash != frame.source_boundary_hash):
+            raise ValueError("legacy source MAPS post-read rejected")
+        raw = frame.source_maps_return
+        return raw[:-1] if self.fault_point == "maps_bad_return" else raw
+
+
 @dataclass
 class QueueContinuity:
     address: str
@@ -8663,6 +11388,7 @@ class QueueContinuity:
     unconsumed_escrow: int | None = None
     total_claimable: int | None = None
     append_fault_point: str | None = field(default=None, compare=False)
+    migration_fault_point: str | None = field(default=None, compare=False)
     _router_authority: object | None = field(
         default=None, init=False, compare=False, repr=False
     )
@@ -8878,34 +11604,100 @@ class QueueContinuity:
             candidate.beneficiary,
         )
 
-    def _activate_and_advance_from_router(
+    def _migrate_from_router(
         self,
         *,
         expected_old: str,
-        settlement: "VersionedSettlementHistory",
-        proof: VerifiedMigrationExecutionOutput,
+        expected_new: str,
+        expected_start: int,
+        expected_end: int,
+        beneficiary: str,
         router: "ActiveSettlementRouter",
-    ) -> bool:
-        """Atomically switch authority and adopt one sealed migration range."""
+    ) -> bytes:
+        """Callback-free atomic authority swap plus proved-range accounting."""
 
+        frame = router._migration_callback_frame
         if (type(router) is not ActiveSettlementRouter
                 or router is not self._router_authority
                 or router.forced_queue is not self
                 or router.address != self.router_address
-                or type(settlement) is not VersionedSettlementHistory
-                or type(proof) is not VerifiedMigrationExecutionOutput
-                or proof.beneficiary != proof.candidate.beneficiary
+                or router.migration_lifecycle
+                    is not RouterMigrationLifecycle.ACTIVATING
+                or type(frame) is not MigrationCanonicalContextV2
                 or router._queue_transition_frame
-                    != ("MIGRATION", id(proof), proof.digest)
+                    != ("MIGRATE", id(frame), frame.commitment.hex())
                 or self.active_settlement_address != expected_old
-                or not settlement.address
-                or proof.start_cursor != self.cursor
-                or not proof.start_cursor <= proof.end_cursor <= self.count):
-            return False
-        # All fallible checks precede both writes, matching one Router call.
-        self.active_settlement_address = settlement.address
-        return self._advance_accounting(
-            proof.start_cursor, proof.end_cursor, proof.beneficiary
+                or frame.source_settlement != expected_old
+                or frame.target_settlement != expected_new
+                or frame.queue_start != expected_start
+                or frame.queue_end != expected_end
+                or frame.beneficiary != beneficiary
+                or frame.queue_address != self.address
+                or frame.queue_root != self.root
+                or frame.queue_count != self.count
+                or self.total_claimable is None
+                or frame.queue_credited_wei != (
+                    self.deposit_prefix[expected_end]
+                    - self.deposit_prefix[expected_start]
+                )
+                or frame.queue_post_accounted_liability_wei
+                    != self.accounted_liabilities
+                or frame.queue_post_total_claimable_wei
+                    != self.total_claimable + frame.queue_credited_wei
+                or not expected_new
+                or expected_start != self.cursor
+                or not expected_start <= expected_end <= self.count):
+            return b""
+        snapshot = self._transaction_snapshot()
+        try:
+            if not self._advance_accounting(
+                expected_start, expected_end, beneficiary
+            ):
+                raise ValueError("queue migration accounting rejected")
+            if self.migration_fault_point == "after_credit":
+                raise RuntimeError("injected queue migration credit fault")
+            self.active_settlement_address = expected_new
+            if self.migration_fault_point == "after_swap":
+                raise RuntimeError("injected queue migration swap fault")
+            if (self.cursor != frame.queue_end
+                    or self.accounted_liabilities
+                        != frame.queue_post_accounted_liability_wei
+                    or self.total_claimable
+                        != frame.queue_post_total_claimable_wei):
+                raise ValueError("Queue migration poststate changed")
+            raw = frame.queue_return
+            if len(raw) != MIGRATION_QUEUE_RETURN_LENGTH:
+                raise AssertionError("QMIG128 return width drifted")
+            if self.migration_fault_point == "bad_return":
+                return raw[:-1]
+            return raw
+        except BaseException:
+            self._restore_transaction_snapshot(snapshot)
+            raise
+
+    def migration_activation_post_state_v2(
+        self, *, router: "ActiveSettlementRouter"
+    ) -> bytes:
+        context = router._migration_callback_frame
+        if (type(router) is not ActiveSettlementRouter
+                or router is not self._router_authority
+                or router.migration_lifecycle
+                    is not RouterMigrationLifecycle.ACTIVATING
+                or type(context) is not MigrationCanonicalContextV2
+                or self.active_settlement_address
+                    != context.target_settlement
+                or self.root != context.queue_root
+                or self.count != context.queue_count
+                or self.cursor != context.queue_end
+                or self.accounted_liabilities
+                    != context.queue_post_accounted_liability_wei
+                or self.total_claimable
+                    != context.queue_post_total_claimable_wei):
+            raise ValueError("Queue migration MAPS post-read rejected")
+        raw = context.queue_maps_return
+        return (
+            raw[:-1]
+            if self.migration_fault_point == "maps_bad_return" else raw
         )
 
     def withdraw_claimable(self, beneficiary: str) -> int:
@@ -8976,12 +11768,36 @@ class VersionedSettlementHistory:
     market_runtime_hash: bytes = b"r" * 32
     market_configuration_hash: bytes = b"c" * 32
     market_magic: bytes = b"SEAT"
-    header_oracle: L1HeaderOracle | None = field(default=None, compare=False)
+    settlement_deployment_descriptor: SettlementDeploymentDescriptorV1 \
+        | None = None
+    header_oracle: EIP2935SystemReadTestAdapter | None = field(
+        default=None, compare=False
+    )
+    migration_callback_fault_point: str | None = field(
+        default=None, compare=False, repr=False
+    )
     _router_authority: object | None = field(
         default=None, compare=False, repr=False
     )
 
     def __post_init__(self) -> None:
+        descriptor = self.settlement_deployment_descriptor
+        if descriptor is None:
+            fixture_address = self.address
+            seed = _TEST_SETTLEMENT_DEPLOYMENT_SEEDS.get(
+                self.address, self.address
+            )
+            descriptor = settlement_deployment_descriptor_for_test(
+                seed, self.runtime_hash, self.market_configuration_hash
+            )
+            object.__setattr__(self, "address", descriptor.target_settlement)
+            if self.forced_queue.active_settlement_address \
+                    == f"legacy-proxy:{fixture_address}":
+                self.forced_queue.active_settlement_address = (
+                    f"legacy-proxy:{descriptor.target_settlement}"
+                )
+            object.__setattr__(self, "settlement_deployment_descriptor",
+                               descriptor)
         if (type(self.execution_profile) is not ExecutionProfile
                 or not self.execution_profile.structurally_valid()
                 or self.execution_profile.protocol_version
@@ -8990,8 +11806,15 @@ class VersionedSettlementHistory:
                     != self.execution_profile_hash
                 or (self.source_bridge_descriptor is not None
                     and type(self.source_bridge_descriptor)
-                        is not SourceBridgeDescriptor)):
+                        is not SourceBridgeDescriptor)
+                or type(descriptor) is not SettlementDeploymentDescriptorV1
+                or descriptor.target_settlement != self.address
+                or descriptor.target_runtime_hash
+                    != _model_fixed_bytes32(self.runtime_hash)
+                or descriptor.target_configuration_hash
+                    != _model_fixed_bytes32(self.market_configuration_hash)):
             raise ValueError("Settlement execution profile is not exact")
+        descriptor.packed
 
     def __setattr__(self, name: str, value: object) -> None:
         immutable = {
@@ -9002,7 +11825,8 @@ class VersionedSettlementHistory:
             "release_profile_ingress_specs", "source_bridge_descriptor",
             "ingress_fee_schedule",
             "market_settlement_chain_id", "market_runtime_hash",
-            "market_configuration_hash", "market_magic", "header_oracle",
+            "market_configuration_hash", "market_magic",
+            "settlement_deployment_descriptor", "header_oracle",
             "_router_authority",
         }
         if name in immutable and name in self.__dict__:
@@ -9101,6 +11925,145 @@ class VersionedSettlementHistory:
         self.last_canonical_l1_block = clock.block_number
         object.__setattr__(self, "_router_authority", router)
         return True
+
+    def _freeze_for_migration_from_router(
+        self,
+        context: MigrationCanonicalContextV2,
+        *,
+        router: "ActiveSettlementRouter",
+    ) -> bytes:
+        """Router-only exact source freeze callback, in the outer revert domain."""
+
+        if (type(router) is not ActiveSettlementRouter
+                or router is not self._router_authority
+                or router.migration_lifecycle
+                    is not RouterMigrationLifecycle.ACTIVATING
+                or router._migration_callback_frame is not context
+                or context.transition_kind != "VERSION_MIGRATION"
+                or context.source_settlement != self.address
+                or context.source_protocol_version != self.protocol_version
+                or context.source_canonical_sequence != self.current_sequence
+                or context.queue_start != self.core.message_cursor
+                or self.mode != "MIGRATION_READY"
+                or self.migration_gate.mode != "READY"
+                or self.migration_gate.target_registration_hash
+                    != context.target_registration_hash):
+            raise ValueError("source migration freeze callback rejected")
+        self.mode = "FROZEN"
+        if self.migration_callback_fault_point == "freeze_after_write":
+            raise RuntimeError("injected source freeze callback fault")
+        if self.migration_callback_fault_point == "freeze_reenter":
+            if router.sync_ingress(
+                caller_adapter=object(),
+                clock=Clock(context.canonicalized_at_block, 0),
+            )[0] != "REJECTED":
+                raise AssertionError("Router reentrancy unexpectedly succeeded")
+        raw = context.source_return
+        if self.migration_callback_fault_point == "freeze_bad_return":
+            return raw[:-1]
+        return raw
+
+    def _adopt_migration_canonical_v2(
+        self,
+        context: MigrationCanonicalContextV2,
+        *,
+        router: "ActiveSettlementRouter",
+    ) -> bytes:
+        """Selector 0x557c4e13: adopt one proof-bound canonical target cell."""
+
+        expected_sequence = (
+            0 if context.transition_kind == "GENESIS_IMPORT"
+            else context.source_canonical_sequence + 1
+        )
+        if (MIGRATION_CANONICAL_ADOPT_SELECTOR != bytes.fromhex("557c4e13")
+                or type(router) is not ActiveSettlementRouter
+                or router.migration_lifecycle
+                    is not RouterMigrationLifecycle.ACTIVATING
+                or router._migration_callback_frame is not context
+                or context.target_settlement != self.address
+                or context.target_protocol_version != self.protocol_version
+                or context.target_canonical_sequence != expected_sequence
+                or context.output_core_hash
+                    != canonical_core_hash_v2(context.output_core)
+                or self.mode != "PREACTIVE" or self.history
+                or self.current_sequence != -1
+                or self.last_canonical_l1_block != 0
+                or self._router_authority is not None
+                or self.migration_gate is not router.migration_gate
+                or self.forced_queue is not router.forced_queue
+                or self.header_oracle is not router.header_oracle
+                or self.inbox_apply_descriptor != router.inbox_apply_descriptor):
+            raise ValueError("target migration canonical callback rejected")
+        self.core = copy.deepcopy(context.output_core)
+        if self.migration_callback_fault_point == "adopt_after_core":
+            raise RuntimeError("injected target adopt core fault")
+        self.canonicalized_at_block = context.canonicalized_at_block
+        entry = self._entry(
+            expected_sequence, self.core, context.canonicalized_at_block
+        )
+        self.history[expected_sequence % CANONICAL_HISTORY_CAPACITY] = (
+            expected_sequence, entry
+        )
+        self.current_sequence = expected_sequence
+        self.last_canonical_l1_block = context.canonicalized_at_block
+        object.__setattr__(self, "_router_authority", router)
+        self.mode = "ACTIVE"
+        if self.migration_callback_fault_point == "adopt_after_history":
+            raise RuntimeError("injected target adopt history fault")
+        raw = context.target_return
+        if len(raw) != MIGRATION_CANONICAL_RETURN_LENGTH:
+            raise AssertionError("MCAN96 return width drifted")
+        if self.migration_callback_fault_point == "adopt_bad_return":
+            return raw + b"\x00"
+        return raw
+
+    def migration_source_post_state_v2(
+        self, *, router: "ActiveSettlementRouter"
+    ) -> bytes:
+        context = router._migration_callback_frame
+        if (type(router) is not ActiveSettlementRouter
+                or router is not self._router_authority
+                or router.migration_lifecycle
+                    is not RouterMigrationLifecycle.ACTIVATING
+                or type(context) is not MigrationCanonicalContextV2
+                or context.transition_kind != "VERSION_MIGRATION"
+                or context.source_settlement != self.address
+                or self.mode != "FROZEN"
+                or self.current_sequence
+                    != context.source_canonical_sequence
+                or self.core.message_cursor != context.queue_start):
+            raise ValueError("source migration MAPS post-read rejected")
+        raw = context.source_maps_return
+        return (
+            raw[:-1]
+            if self.migration_callback_fault_point
+                == "source_maps_bad_return" else raw
+        )
+
+    def migration_adoption_state_v2(
+        self, *, router: "ActiveSettlementRouter"
+    ) -> bytes:
+        """Exact 128-byte MAPS post-read during the authenticated Router frame."""
+
+        context = router._migration_callback_frame
+        if (type(router) is not ActiveSettlementRouter
+                or router.migration_lifecycle
+                    is not RouterMigrationLifecycle.ACTIVATING
+                or type(context) is not MigrationCanonicalContextV2
+                or context.target_settlement != self.address
+                or self._router_authority is not router
+                or self.mode != "ACTIVE"
+                or self.current_sequence != context.target_canonical_sequence
+                or self.last_canonical_l1_block
+                    != context.canonicalized_at_block
+                or self.core != context.output_core):
+            raise ValueError("migration adoption MAPS post-read rejected")
+        raw = context.target_maps_return
+        return (
+            raw[:-1]
+            if self.migration_callback_fault_point
+                == "target_maps_bad_return" else raw
+        )
 
     def _record_canonical_from_protocol(
         self,
@@ -9944,6 +12907,82 @@ def bind_source_bridge_descriptor_to_router(
 
 
 @dataclass(frozen=True)
+class SettlementDeploymentDescriptorV1:
+    factory: str
+    factory_runtime_hash: bytes
+    factory_configuration_hash: bytes
+    salt: bytes
+    init_code_hash: bytes
+    target_settlement: str
+    target_runtime_hash: bytes
+    target_configuration_hash: bytes
+
+    @property
+    def packed(self) -> bytes:
+        hashes = (
+            self.factory_runtime_hash, self.factory_configuration_hash,
+            self.salt, self.init_code_hash, self.target_runtime_hash,
+            self.target_configuration_hash,
+        )
+        if (not self.factory or not self.target_settlement
+                or any(type(row) is not bytes or len(row) != 32
+                       or row == bytes(32) for row in hashes)):
+            raise ValueError("Settlement deployment descriptor is malformed")
+        factory = _model_address20(self.factory)
+        target = _model_address20(self.target_settlement)
+        expected = keccak256(
+            b"\xff" + factory + self.salt + self.init_code_hash
+        )[12:]
+        if target != expected:
+            raise ValueError("Settlement deployment is not exact CREATE2")
+        packed = b"".join((
+            factory, self.factory_runtime_hash,
+            self.factory_configuration_hash, self.salt,
+            self.init_code_hash, target, self.target_runtime_hash,
+            self.target_configuration_hash,
+        ))
+        if len(packed) != 232:
+            raise AssertionError("Settlement deployment packed width drifted")
+        return packed
+
+    @property
+    def commitment(self) -> bytes:
+        packed = self.packed
+        return keccak256(
+            b"slot-chain-settlement-deployment-v1"
+            + _model_uint(len(packed), 4, "deployment descriptor bytes")
+            + packed
+        )
+
+
+_TEST_SETTLEMENT_DEPLOYMENT_SEEDS: dict[str, str] = {}
+
+
+def settlement_deployment_descriptor_for_test(
+    seed: str, runtime_hash: object, configuration_hash: object,
+) -> SettlementDeploymentDescriptorV1:
+    """Build an actual CREATE2 descriptor for behavioral test deployments."""
+
+    if not seed:
+        raise ValueError("test Settlement deployment seed is empty")
+    factory = "settlement-create2-factory"
+    salt = keccak256(b"settlement-test-salt-v1" + seed.encode("utf-8"))
+    init_code_hash = keccak256(
+        b"settlement-test-initcode-v1" + seed.encode("utf-8")
+    )
+    target = "0x" + keccak256(
+        b"\xff" + _model_address20(factory) + salt + init_code_hash
+    )[12:].hex()
+    _TEST_SETTLEMENT_DEPLOYMENT_SEEDS[target] = seed
+    return SettlementDeploymentDescriptorV1(
+        factory, keccak256(b"settlement-create2-factory-runtime-v1"),
+        keccak256(b"settlement-create2-factory-config-v1"), salt,
+        init_code_hash, target, _model_fixed_bytes32(runtime_hash),
+        _model_fixed_bytes32(configuration_hash),
+    )
+
+
+@dataclass(frozen=True)
 class SettlementRegistration:
     settlement: VersionedSettlementHistory
     runtime_hash: str
@@ -9961,12 +13000,1621 @@ class SettlementRegistration:
     ingress_authorization_root: bytes
     settlement_chain_context_id: int
     ingress_fee_schedule: tuple[int, int, int, int, int]
+    settlement_deployment_descriptor: SettlementDeploymentDescriptorV1
 
     def __deepcopy__(self, memo: dict[int, object]) -> "SettlementRegistration":
         """Registration is an immutable authority capability, not tx state."""
 
         memo[id(self)] = self
         return self
+
+
+def target_registration_hash_v2(registration: SettlementRegistration) -> bytes:
+    """Commit the immutable target identity independently of activation time."""
+
+    if (type(registration) is not SettlementRegistration
+            or type(registration.release_manifest_hash) not in {bytes, str}
+            or not registration.release_manifest_hash):
+        raise ValueError("target Settlement registration is malformed")
+    settlement = registration.settlement
+    deployment = registration.settlement_deployment_descriptor
+    if (type(deployment) is not SettlementDeploymentDescriptorV1
+            or deployment.target_settlement != settlement.address
+            or deployment.target_runtime_hash
+                != _model_fixed_bytes32(registration.runtime_hash)
+            or deployment.target_configuration_hash
+                != _model_fixed_bytes32(settlement.market_configuration_hash)):
+        raise ValueError("target registration deployment tuple is inconsistent")
+    payload = b"".join((
+        b"slot-chain-target-registration-v2",
+        _model_uint(settlement.protocol_version, 8, "target protocol version"),
+        _model_address20(settlement.address),
+        _model_fixed_bytes32(registration.runtime_hash),
+        _model_fixed_bytes32(settlement.market_configuration_hash),
+        registration.settlement_deployment_descriptor.commitment,
+        _model_fixed_bytes32(registration.execution_profile_hash),
+        migration_activation_profile_for_execution_profile_v2(
+            registration.execution_profile
+        ).activation_profile_record_hash,
+        _model_fixed_bytes32(registration.release_manifest_hash),
+        _model_uint(
+            registration.predecessor_version, 8,
+            "target predecessor version",
+        ),
+        _model_uint(
+            registration.settlement_chain_context_id, 8,
+            "target settlement chain context",
+        ),
+        registration.ingress_authorization_root,
+        bytes.fromhex(
+            registration.execution_profile
+                .migration_transition_verifier_descriptor.commitment
+        ),
+    ))
+    return keccak256(payload)
+
+
+# Immutable delayed protocol-change authority.  This is deliberately separate
+# from the legacy test-only seat migration manager below: only these four typed
+# operations may mutate release, verifier, genesis-campaign or migration-arm
+# authority in the production model.
+PROTOCOL_CHANGE_DELAY_SECONDS = 604_800
+MAXIMUM_LIVE_VERSION_MIGRATION_SECONDS = 604_800
+PROTOCOL_CHANGE_MAX_PAYLOAD_BYTES = 131_072
+PROTOCOL_CHANGE_OPERATION_DOMAIN = b"slot-chain-protocol-change-operation-v1"
+PROTOCOL_CHANGE_TIMELOCK_DOMAIN = b"slot-chain-protocol-change-timelock-v1"
+PROTOCOL_VERSION_MANAGER_CONFIG_DOMAIN = \
+    b"slot-chain-protocol-version-manager-config-v1"
+PROTOCOL_VERSION_MANAGER_DOMAIN = b"slot-chain-protocol-version-manager-v1"
+VERSION_MIGRATION_ARM_DOMAIN = b"slot-chain-version-migration-arm-v2"
+TARGET_REGISTRATION_V2_DOMAIN = b"slot-chain-target-registration-v2"
+EXECUTION_PROFILE_DOMAIN = b"slot-chain-execution-profile-v1"
+SETTLEMENT_DEPLOYMENT_DOMAIN = b"slot-chain-settlement-deployment-v1"
+PCT1_MAGIC = b"PCT1"
+PVM1_MAGIC = b"PVM1"
+PCO1_MAGIC = b"PCO1"
+PAP1_MAGIC = b"PAP1"
+VML1_MAGIC = b"VML1"
+LGP1_MAGIC = b"LGP1"
+SAI1_MAGIC = b"SAI1"
+SAT1_MAGIC = b"SAT1"
+PROTOCOL_CHANGE_CONFIG_GAS = 100_000
+PVM_ROUTER_GENESIS_PUBLICATION_GAS = 8_000_000
+PROTOCOL_CHANGE_TIMELOCK_CONFIG_SELECTOR = keccak256(
+    b"protocolChangeTimelockConfigV1()"
+)[:4]
+PROTOCOL_VERSION_MANAGER_CONFIG_SELECTOR = keccak256(
+    b"protocolVersionManagerConfigV1()"
+)[:4]
+PROTOCOL_CHANGE_OPERATION_SELECTOR = keccak256(
+    b"protocolChangeOperationV1(bytes32)"
+)[:4]
+LIVE_VERSION_MIGRATION_LEASE_SELECTOR = keccak256(
+    b"liveVersionMigrationLeaseV1()"
+)[:4]
+PERMISSIONLESS_ABORT_EXPIRED_MIGRATION_SELECTOR = keccak256(
+    b"permissionlessAbortExpiredMigrationV1()"
+)[:4]
+PUBLISH_LEGACY_GENESIS_CAMPAIGN_SELECTOR = bytes.fromhex("5f0ed7f5")
+INSTALL_SETTLEMENT_AUTHORIZATION_SELECTOR = bytes.fromhex("72a3e937")
+SETTLEMENT_AUTHORIZATION_SELECTOR = bytes.fromhex("1693ae01")
+SEAT_TARGET_STATE_SELECTOR = bytes.fromhex("cf52185b")
+SEAT_TERM_RECORD_SELECTOR = bytes.fromhex("76d5ecd4")
+SEAT_DUTY_RECORD_SELECTOR = bytes.fromhex("9a649489")
+REGISTER_RELEASE = 1
+REGISTER_FORK_VERIFIER = 2
+PUBLISH_GENESIS_CAMPAIGN = 3
+PUBLISH_MIGRATION_ARM = 4
+
+
+def _abi_address_word(value: object, *, zero_if_empty: bool = False) -> bytes:
+    packed = (
+        value
+        if type(value) is bytes and len(value) == 20
+        else _model_address20(value, zero_if_empty=zero_if_empty)
+    )
+    return bytes(12) + packed
+
+
+def _decode_uint_word_v1(word: bytes, bits: int, name: str) -> int:
+    if type(word) is not bytes or len(word) != 32:
+        raise ValueError(f"{name} word length is invalid")
+    value = int.from_bytes(word, "big")
+    if value >= 1 << bits:
+        raise ValueError(f"{name} high padding is nonzero")
+    return value
+
+
+def _decode_address_word_v1(word: bytes, name: str) -> bytes:
+    if type(word) is not bytes or len(word) != 32 or word[:12] != bytes(12):
+        raise ValueError(f"{name} address padding is invalid")
+    if word[12:] == bytes(20):
+        raise ValueError(f"{name} address is zero")
+    return word[12:]
+
+
+def _decode_bytes4_word_v1(word: bytes, name: str) -> bytes:
+    if type(word) is not bytes or len(word) != 32 or word[4:] != bytes(28):
+        raise ValueError(f"{name} bytes4 padding is invalid")
+    if word[:4] == bytes(4):
+        raise ValueError(f"{name} bytes4 is zero")
+    return word[:4]
+
+
+def protocol_change_operation_id_v1(
+    settlement_chain_id: int,
+    timelock_address: str,
+    manager_address: str,
+    nonce: int,
+    operation_kind: int,
+    payload: bytes,
+) -> bytes:
+    validate_protocol_change_payload_v1(operation_kind, payload)
+    if (not 0 < settlement_chain_id < 1 << 256
+            or not timelock_address or not manager_address
+            or timelock_address == manager_address
+            or not 0 < nonce <= UINT64_MAX
+            or not 0 < len(payload) <= PROTOCOL_CHANGE_MAX_PAYLOAD_BYTES):
+        raise ValueError("protocol change operation identity is malformed")
+    return keccak256(
+        PROTOCOL_CHANGE_OPERATION_DOMAIN
+        + _model_uint(settlement_chain_id, 32, "settlement chain ID")
+        + _model_address20(timelock_address)
+        + _model_address20(manager_address)
+        + _model_uint(nonce, 8, "operation nonce")
+        + _model_uint(operation_kind, 1, "operation kind")
+        + _model_uint(len(payload), 4, "operation payload bytes")
+        + keccak256(payload)
+    )
+
+
+def _protocol_change_words(payload: bytes, count: int) -> tuple[bytes, ...]:
+    if type(payload) is not bytes or len(payload) != count * 32:
+        raise ValueError("protocol change payload length is invalid")
+    return tuple(payload[index * 32:(index + 1) * 32]
+                 for index in range(count))
+
+
+@dataclass(frozen=True)
+class RegisterReleasePayloadV1:
+    expected_predecessor_protocol_version: int
+    manifest_abi: bytes
+    deployment_abi: bytes
+    profile_bytes: bytes
+    protocol_version: int
+    settlement_chain_id: int
+    target_address: bytes
+    target_runtime_hash: bytes
+    target_configuration_hash: bytes
+    settlement_deployment_descriptor_hash: bytes
+    execution_profile_hash: bytes
+    migration_activation_profile_record_hash: bytes
+    migration_activation_profile: "MigrationActivationProfileRecordV2"
+    release_manifest_hash: bytes
+    ingress_authorization_root: bytes
+    migration_verifier_descriptor_hash: bytes
+    target_registration_hash: bytes
+
+
+@dataclass(frozen=True)
+class TargetReleaseRegistrationRowV2:
+    protocol_version: int
+    expected_predecessor_protocol_version: int
+    target_settlement: bytes
+    target_runtime_hash: bytes
+    target_configuration_hash: bytes
+    settlement_deployment_descriptor_hash: bytes
+    execution_profile_hash: bytes
+    migration_activation_profile_record_hash: bytes
+    release_manifest_hash: bytes
+    target_registration_hash: bytes
+
+
+def encode_target_release_registration_return_v2(
+    row: TargetReleaseRegistrationRowV2,
+) -> bytes:
+    if (type(row) is not TargetReleaseRegistrationRowV2
+            or not 0 <= row.expected_predecessor_protocol_version
+                < row.protocol_version <= UINT64_MAX
+            or len(row.target_settlement) != 20
+            or any(value == bytes(32) for value in (
+                row.target_runtime_hash, row.target_configuration_hash,
+                row.settlement_deployment_descriptor_hash,
+                row.execution_profile_hash,
+                row.migration_activation_profile_record_hash,
+                row.release_manifest_hash, row.target_registration_hash,
+            ))):
+        raise ValueError("RTR2 registration row is malformed")
+    encoded = b"".join((
+        b"RTR2" + bytes(28),
+        _model_uint(row.protocol_version, 32, "RTR2 version"),
+        _model_uint(row.expected_predecessor_protocol_version, 32,
+                    "RTR2 predecessor"),
+        bytes(12) + row.target_settlement, row.target_runtime_hash,
+        row.target_configuration_hash,
+        row.settlement_deployment_descriptor_hash,
+        row.execution_profile_hash,
+        row.migration_activation_profile_record_hash,
+        row.release_manifest_hash, row.target_registration_hash,
+    ))
+    if len(encoded) != 352:
+        raise AssertionError("RTR2 must be exactly 352 bytes")
+    return encoded
+
+
+def _decode_model_activation_profile_v2(
+    profile: bytes, execution_profile_hash_: bytes,
+) -> "MigrationActivationProfileRecordV2":
+    """Decode the bounded behavioral profile fixture used by this model.
+
+    This is deliberately not presented as the normative release CBOR codec:
+    the design document does not yet publish that complete key grammar.  It
+    nevertheless gives the cross-contract journal a byte-exact, canonical
+    MPR2 preimage instead of accepting an opaque profile label.
+    """
+
+    if type(profile) is not bytes or not profile or profile[0] != 0xA4:
+        raise ValueError("model execution profile map is not canonical")
+    cursor = 1
+
+    def take_uint() -> int:
+        nonlocal cursor
+        if cursor >= len(profile):
+            raise ValueError("truncated CBOR unsigned integer")
+        lead = profile[cursor]
+        cursor += 1
+        if lead < 24:
+            return lead
+        widths = {0x18: 1, 0x19: 2, 0x1A: 4, 0x1B: 8}
+        width = widths.get(lead)
+        if width is None or cursor + width > len(profile):
+            raise ValueError("unsupported CBOR unsigned integer")
+        value = int.from_bytes(profile[cursor:cursor + width], "big")
+        cursor += width
+        if ((width == 1 and value < 24)
+                or (width == 2 and value < 1 << 8)
+                or (width == 4 and value < 1 << 16)
+                or (width == 8 and value < 1 << 32)):
+            raise ValueError("nonminimal CBOR unsigned integer")
+        return value
+
+    def take_bytes() -> bytes:
+        nonlocal cursor
+        if cursor >= len(profile):
+            raise ValueError("truncated CBOR byte string")
+        lead = profile[cursor]
+        cursor += 1
+        if 0x40 <= lead <= 0x57:
+            length = lead - 0x40
+        else:
+            widths = {0x58: 1, 0x59: 2, 0x5A: 4, 0x5B: 8}
+            width = widths.get(lead)
+            if width is None or cursor + width > len(profile):
+                raise ValueError("unsupported CBOR byte string")
+            length = int.from_bytes(profile[cursor:cursor + width], "big")
+            cursor += width
+            if ((width == 1 and length < 24)
+                    or (width == 2 and length < 1 << 8)
+                    or (width == 4 and length < 1 << 16)
+                    or (width == 8 and length < 1 << 32)):
+                raise ValueError("nonminimal CBOR byte length")
+        if cursor + length > len(profile):
+            raise ValueError("truncated CBOR byte payload")
+        value = profile[cursor:cursor + length]
+        cursor += length
+        return value
+
+    if take_uint() != 0:
+        raise ValueError("model profile key 0 is missing")
+    protocol_version = take_uint()
+    if take_uint() != 1:
+        raise ValueError("model profile key 1 is missing")
+    activation = take_bytes()
+    if len(activation) != 196:
+        raise ValueError("model activation descriptor width is invalid")
+    if take_uint() != 2 or len(take_bytes()) != 32:
+        raise ValueError("model profile namespace commitment is invalid")
+    if take_uint() != 3 or cursor >= len(profile) or profile[cursor] != 0x8B:
+        raise ValueError("model profile gas vector is invalid")
+    cursor += 1
+    trailing_gases = tuple(take_uint() for _ in range(11))
+    if cursor != len(profile):
+        raise ValueError("model execution profile has a trailing item")
+    offset = 0
+    verifier = "0x" + activation[offset:offset + 20].hex()
+    offset += 20
+    hashes = tuple(
+        activation[offset + index * 32:offset + (index + 1) * 32]
+        for index in range(5)
+    )
+    offset += 160
+    selector = activation[offset:offset + 4]
+    offset += 4
+    maximum_proof_bytes = int.from_bytes(activation[offset:offset + 4], "big")
+    offset += 4
+    verification_gas = int.from_bytes(activation[offset:offset + 8], "big")
+    if (offset + 8 != len(activation) or protocol_version == 0
+            or any(row == bytes(32) for row in hashes)
+            or selector != keccak256(
+                b"verifyMigrationTransition(bytes,uint256[2])"
+            )[:4]
+            or maximum_proof_bytes == 0 or verification_gas == 0
+            or any(value == 0 for value in trailing_gases)):
+        raise ValueError("model activation descriptor is unsupported")
+    unbound = MigrationActivationProfileRecordV2(
+        protocol_version, execution_profile_hash_, bytes(32), verifier,
+        hashes[0], hashes[1], hashes[2], hashes[3], hashes[4], selector,
+        maximum_proof_bytes, verification_gas,
+        (verification_gas,) + trailing_gases,
+    )
+    return replace(
+        unbound,
+        activation_profile_record_hash=
+            migration_activation_profile_record_hash_v2(unbound),
+    )
+
+
+def _settlement_deployment_descriptor_hash_from_abi_v1(
+    encoded: bytes,
+) -> tuple[bytes, bytes, bytes, bytes]:
+    words = _protocol_change_words(encoded, 8)
+    factory = _decode_address_word_v1(words[0], "deployment factory")
+    if any(word == bytes(32) for word in words[1:5] + words[6:8]):
+        raise ValueError("deployment descriptor contains a zero hash")
+    target = _decode_address_word_v1(words[5], "deployment target")
+    expected_target = keccak256(
+        b"\xff" + factory + words[3] + words[4]
+    )[12:]
+    if target != expected_target:
+        raise ValueError("deployment target is not the CREATE2 result")
+    packed = (factory + words[1] + words[2] + words[3] + words[4]
+              + target + words[6] + words[7])
+    if len(packed) != 232:
+        raise AssertionError("deployment descriptor packed width drifted")
+    descriptor_hash = keccak256(
+        SETTLEMENT_DEPLOYMENT_DOMAIN
+        + _model_uint(232, 4, "deployment descriptor bytes") + packed
+    )
+    return descriptor_hash, target, words[6], words[7]
+
+
+def encode_register_release_payload_for_registration_v1(
+    registration: SettlementRegistration,
+) -> bytes:
+    """Fixture encoder for the exact 68-word REGISTER_RELEASE head."""
+
+    if type(registration) is not SettlementRegistration:
+        raise ValueError("release registration fixture is malformed")
+    deployment = registration.settlement_deployment_descriptor
+    deployment_abi = b"".join((
+        _abi_address_word(deployment.factory),
+        deployment.factory_runtime_hash,
+        deployment.factory_configuration_hash, deployment.salt,
+        deployment.init_code_hash,
+        _abi_address_word(deployment.target_settlement),
+        deployment.target_runtime_hash,
+        deployment.target_configuration_hash,
+    ))
+    profile = registration.execution_profile.canonical_profile_bytes
+    padded = (len(profile) + 31) // 32 * 32
+    encoded = b"".join((
+        _model_uint(registration.predecessor_version, 32,
+                    "REGISTER_RELEASE predecessor"),
+        registration.release_manifest.canonical_abi,
+        deployment_abi,
+        _model_uint(0x880, 32, "REGISTER_RELEASE profile offset"),
+        _model_uint(len(profile), 32, "REGISTER_RELEASE profile length"),
+        profile, bytes(padded - len(profile)),
+    ))
+    if len(encoded) != 2_208 + padded:
+        raise AssertionError("REGISTER_RELEASE encoded geometry drifted")
+    return encoded
+
+
+def decode_register_release_payload_v1(
+    payload: bytes,
+) -> RegisterReleasePayloadV1:
+    if (type(payload) is not bytes or len(payload) < 2_240
+            or len(payload) % 32 != 0):
+        raise ValueError("REGISTER_RELEASE payload geometry is invalid")
+    head = payload[:68 * 32]
+    words = _protocol_change_words(head, 68)
+    predecessor = _decode_uint_word_v1(words[0], 64, "predecessor version")
+    if int.from_bytes(words[67], "big") != 0x880:
+        raise ValueError("REGISTER_RELEASE profile offset is noncanonical")
+    profile_length = _decode_uint_word_v1(
+        payload[68 * 32:69 * 32], 32, "profile length"
+    )
+    if not 1 <= profile_length <= 65_536:
+        raise ValueError("REGISTER_RELEASE profile length is unsupported")
+    padded = (profile_length + 31) // 32 * 32
+    if len(payload) != 69 * 32 + padded:
+        raise ValueError("REGISTER_RELEASE trailing bytes are invalid")
+    profile = payload[69 * 32:69 * 32 + profile_length]
+    if payload[69 * 32 + profile_length:] != bytes(padded - profile_length):
+        raise ValueError("REGISTER_RELEASE profile padding is nonzero")
+    manifest = payload[32:59 * 32]
+    deployment = payload[59 * 32:67 * 32]
+    manifest_words = _protocol_change_words(manifest, 58)
+    protocol_version = _decode_uint_word_v1(
+        manifest_words[0], 64, "release version"
+    )
+    settlement_chain_id = int.from_bytes(manifest_words[1], "big")
+    if (settlement_chain_id == 0 or not predecessor < protocol_version
+            or any(word == bytes(32) for word in (
+                manifest_words[4], manifest_words[23], manifest_words[24]
+            ))):
+        raise ValueError("REGISTER_RELEASE manifest identity is invalid")
+    expected_profile_hash = keccak256(
+        EXECUTION_PROFILE_DOMAIN
+        + _model_uint(profile_length, 4, "execution profile bytes") + profile
+    )
+    if manifest_words[4] != expected_profile_hash:
+        raise ValueError("REGISTER_RELEASE profile hash is inconsistent")
+    activation_profile = _decode_model_activation_profile_v2(
+        profile, expected_profile_hash
+    )
+    if activation_profile.protocol_version != protocol_version:
+        raise ValueError("REGISTER_RELEASE profile version is inconsistent")
+    descriptor_hash, target, runtime_hash, config_hash = \
+        _settlement_deployment_descriptor_hash_from_abi_v1(deployment)
+    release_hash = keccak256(RELEASE_MANIFEST_V2_TYPEHASH + manifest)
+    target_registration = keccak256(
+        TARGET_REGISTRATION_V2_DOMAIN
+        + _model_uint(protocol_version, 8, "target version") + target
+        + runtime_hash + config_hash + descriptor_hash
+        + manifest_words[4]
+        + activation_profile.activation_profile_record_hash + release_hash
+        + _model_uint(predecessor, 8, "target predecessor")
+        + _model_uint(settlement_chain_id, 8, "settlement chain ID")
+        + manifest_words[24] + manifest_words[23]
+    )
+    return RegisterReleasePayloadV1(
+        predecessor, manifest, deployment, profile, protocol_version,
+        settlement_chain_id, target, runtime_hash, config_hash,
+        descriptor_hash, manifest_words[4],
+        activation_profile.activation_profile_record_hash,
+        activation_profile, release_hash, manifest_words[24], manifest_words[23],
+        target_registration,
+    )
+
+
+@dataclass(frozen=True)
+class RegisterForkVerifierPayloadV1:
+    fork_digest: bytes
+    first_window: int
+    verifier: bytes
+    runtime_hash: bytes
+    beacon_slot_gindex: int
+    execution_payload_gindex: int
+    state_root_gindex: int
+    prev_randao_gindex: int
+    timestamp_gindex: int
+    block_hash_gindex: int
+    witness_schema_hash: bytes
+    configuration_hash: bytes
+    selector: bytes
+    gas_limit: int
+
+
+def encode_register_fork_verifier_payload_v1(
+    row: RegisterForkVerifierPayloadV1,
+) -> bytes:
+    if type(row) is not RegisterForkVerifierPayloadV1:
+        raise ValueError("fork verifier payload row is malformed")
+    encoded = b"".join((
+        row.fork_digest + bytes(28),
+        _model_uint(row.first_window, 32, "fork first window"),
+        bytes(12) + row.verifier, row.runtime_hash,
+        *(_model_uint(value, 32, "fork generalized index") for value in (
+            row.beacon_slot_gindex, row.execution_payload_gindex,
+            row.state_root_gindex, row.prev_randao_gindex,
+            row.timestamp_gindex, row.block_hash_gindex,
+        )),
+        row.witness_schema_hash, row.configuration_hash,
+        row.selector + bytes(28),
+        _model_uint(row.gas_limit, 32, "fork verifier gas"),
+    ))
+    if decode_register_fork_verifier_payload_v1(encoded) != row:
+        raise ValueError("fork verifier payload cannot round-trip")
+    return encoded
+
+
+SCHEDULE_FORK_CONSTANTS_DOMAIN = b"slot-chain-schedule-fork-constants-v1"
+SCHEDULE_FORK_CONFIG_DOMAIN = \
+    b"slot-chain-schedule-fork-verifier-config-v1"
+SCHEDULE_FORK_OUTPUT_SCHEMA_LITERAL = (
+    b"ScheduleCarrierOutputV1(bytes32 statementHash,uint64 parentSlot,"
+    b"uint64 executionBlockNumber,uint64 payloadTimestamp,bytes32 blockHash,"
+    b"bytes32 stateRoot,bytes32 prevRandao)"
+)
+
+
+def schedule_fork_verifier_configuration_hash_v1(
+    fork_digest: bytes, gindices: tuple[int, int, int, int, int, int],
+    witness_schema_hash: bytes, selector: bytes, gas_limit: int,
+) -> bytes:
+    if (len(fork_digest) != 4 or fork_digest == bytes(4)
+            or len(gindices) != 6 or any(not 0 < row <= UINT64_MAX
+                                        for row in gindices)
+            or witness_schema_hash == bytes(32)
+            or selector != bytes.fromhex("7e981e0b")
+            or not 100_000 <= gas_limit <= 5_000_000):
+        raise ValueError("Schedule fork verifier configuration is unsupported")
+    constants = keccak256(
+        SCHEDULE_FORK_CONSTANTS_DOMAIN
+        + b"".join(_model_uint(row, 8, "fork generalized index")
+                   for row in gindices)
+    )
+    output_schema = keccak256(SCHEDULE_FORK_OUTPUT_SCHEMA_LITERAL)
+    return keccak256(
+        SCHEDULE_FORK_CONFIG_DOMAIN + fork_digest + constants
+        + witness_schema_hash + output_schema + selector
+        + _model_uint(gas_limit, 8, "fork verifier gas")
+    )
+
+
+def decode_register_fork_verifier_payload_v1(
+    payload: bytes,
+) -> RegisterForkVerifierPayloadV1:
+    words = _protocol_change_words(payload, 14)
+    fork_digest = _decode_bytes4_word_v1(words[0], "fork digest")
+    first_window = _decode_uint_word_v1(words[1], 64, "first window")
+    verifier = _decode_address_word_v1(words[2], "fork verifier")
+    if words[3] == bytes(32) or words[10] == bytes(32) \
+            or words[11] == bytes(32):
+        raise ValueError("fork verifier descriptor contains a zero hash")
+    gindices = tuple(
+        _decode_uint_word_v1(words[index], 64, "fork generalized index")
+        for index in range(4, 10)
+    )
+    for index, name in zip(range(4, 10), (
+            "beacon slot gindex", "execution payload gindex",
+            "state root gindex", "prevRandao gindex", "timestamp gindex",
+            "block hash gindex")):
+        if _decode_uint_word_v1(words[index], 64, name) == 0:
+            raise ValueError(f"{name} is zero")
+    selector = _decode_bytes4_word_v1(words[12], "fork verifier selector")
+    gas_limit = _decode_uint_word_v1(words[13], 64, "fork verifier gas")
+    if (not first_window or selector != bytes.fromhex("7e981e0b")
+            or not gas_limit):
+        raise ValueError("fork verifier route is unsupported")
+    expected_config = schedule_fork_verifier_configuration_hash_v1(
+        fork_digest, gindices, words[10], selector, gas_limit
+    )
+    if words[11] != expected_config:
+        raise ValueError("fork verifier configuration hash is inconsistent")
+    return RegisterForkVerifierPayloadV1(
+        fork_digest, first_window, verifier, words[3], *gindices, words[10],
+        words[11], selector, gas_limit,
+    )
+
+
+@dataclass
+class ScheduleOracleV1:
+    """Protocol-lifetime fork registry and no-write VACANT consumption model.
+
+    This file models the registered 14-word fork route and authenticated
+    256-byte carrier as one verifier boundary.  Exact EIP-4788/SSZ generalized
+    index leaf recomputation is composed from ``lookahead-model.py`` rather
+    than duplicated here; release conformance runs both executable models.
+    """
+
+    address: str
+    protocol_version_manager: str
+    current_window: int = 0
+    registrations: dict[bytes, RegisterForkVerifierPayloadV1] = field(
+        default_factory=dict
+    )
+    order: list[bytes] = field(default_factory=list)
+    sealed_windows: dict[int, bytes] = field(default_factory=dict)
+    fault_point: str | None = field(default=None, compare=False)
+    getter_override: bytes | None = field(default=None, compare=False)
+
+    def _snapshot(self) -> tuple[object, ...]:
+        return (
+            dict(self.registrations), list(self.order),
+            dict(self.sealed_windows),
+        )
+
+    def _restore(self, snapshot: tuple[object, ...]) -> None:
+        registrations, order, seals = snapshot
+        self.registrations = registrations
+        self.order = order
+        self.sealed_windows = seals
+
+    def install_fork_verifier_v1(
+        self, row: RegisterForkVerifierPayloadV1, *, manager: object,
+    ) -> bytes:
+        if (type(manager) is not ProtocolVersionManagerV1
+                or manager.address != self.protocol_version_manager
+                or manager.schedule_oracle is not self
+                or manager.lifecycle != "APPLYING"
+                or manager._active_operation_kind != REGISTER_FORK_VERIFIER
+                or not manager._active_operation_consumed
+                or row.fork_digest in self.registrations
+                or row.first_window < self.current_window + 9
+                or (self.order and row.first_window
+                    <= self.registrations[self.order[-1]].first_window)):
+            raise ValueError("Schedule fork installation is stale or unauthorized")
+        schedule_fork_verifier_configuration_hash_v1(
+            row.fork_digest,
+            (row.beacon_slot_gindex, row.execution_payload_gindex,
+             row.state_root_gindex, row.prev_randao_gindex,
+             row.timestamp_gindex, row.block_hash_gindex),
+            row.witness_schema_hash, row.selector, row.gas_limit,
+        )
+        snapshot = self._snapshot()
+        try:
+            self.registrations[row.fork_digest] = row
+            self.order.append(row.fork_digest)
+            if self.fault_point == "after_install":
+                raise RuntimeError("injected Schedule install fault")
+            return (
+                b"FVI1" + bytes(28) + row.fork_digest + bytes(28)
+                + _model_uint(row.first_window, 32, "fork first window")
+            )
+        except BaseException:
+            self._restore(snapshot)
+            raise
+
+    def fork_verifier_registration_v1(self, fork_digest: bytes) -> bytes:
+        row = self.registrations.get(fork_digest)
+        if row is None:
+            raise ValueError("unknown Schedule fork verifier")
+        index = self.order.index(fork_digest)
+        successor = (
+            self.registrations[self.order[index + 1]]
+            if index + 1 < len(self.order) else None
+        )
+        encoded = b"".join((
+            b"FVR1" + bytes(28), fork_digest + bytes(28),
+            _model_uint(row.first_window, 32, "fork first window"),
+            (bytes(32) if successor is None
+             else successor.fork_digest + bytes(28)),
+            _model_uint(0 if successor is None else successor.first_window,
+                        32, "fork successor window"),
+            bytes(12) + row.verifier, row.runtime_hash,
+            row.configuration_hash, row.selector + bytes(28),
+            _model_uint(row.gas_limit, 32, "fork verifier gas"),
+        ))
+        if len(encoded) != 320:
+            raise AssertionError("FVR1 must be exactly 320 bytes")
+        return self.getter_override if self.getter_override is not None else encoded
+
+    def schedule_fork_verifier_config_v1(self, fork_digest: bytes) -> bytes:
+        row = self.registrations.get(fork_digest)
+        if row is None:
+            raise ValueError("unknown Schedule fork configuration")
+        encoded = b"".join((
+            b"SFV1" + bytes(28), fork_digest + bytes(28),
+            *(_model_uint(value, 32, "fork generalized index") for value in (
+                row.beacon_slot_gindex, row.execution_payload_gindex,
+                row.state_root_gindex, row.prev_randao_gindex,
+                row.timestamp_gindex, row.block_hash_gindex,
+            )),
+            row.witness_schema_hash, row.configuration_hash,
+        ))
+        if len(encoded) != 320:
+            raise AssertionError("SFV1 must be exactly 320 bytes")
+        return encoded
+
+    def _eligible_row(
+        self, window: int, fork_digest: bytes,
+    ) -> RegisterForkVerifierPayloadV1 | None:
+        row = self.registrations.get(fork_digest)
+        if row is None or window < row.first_window:
+            return None
+        index = self.order.index(fork_digest)
+        if (index + 1 < len(self.order)
+                and window >= self.registrations[
+                    self.order[index + 1]
+                ].first_window):
+            return None
+        return row
+
+    def seal_window_v1(
+        self, window: int, fork_digest: bytes, witness: bytes,
+        verifier_return: bytes, *, seal_deadline: int, clock: Clock,
+    ) -> bytes:
+        if (window in self.sealed_windows or clock.timestamp >= seal_deadline
+                or not witness or len(witness) > 131_072):
+            raise ValueError("Schedule seal attempt is not live")
+        row = self._eligible_row(window, fork_digest)
+        if (row is None or len(verifier_return) != 256
+                or verifier_return[:32] != b"SFC1" + bytes(28)):
+            raise ValueError("Schedule carrier verifier rejected without write")
+        statement = verifier_return[32:64]
+        if statement == bytes(32):
+            raise ValueError("Schedule carrier statement is empty")
+        seal = keccak256(
+            b"slot-chain-schedule-seal-model-v1"
+            + _model_uint(window, 8, "schedule window")
+            + fork_digest + statement + keccak256(witness)
+        )
+        self.sealed_windows[window] = seal
+        return seal
+
+    def consume_window_v1(
+        self, window: int, *, seal_deadline: int, clock: Clock,
+    ) -> bytes:
+        seal = self.sealed_windows.get(window)
+        if seal is not None:
+            return seal
+        if clock.timestamp < seal_deadline:
+            raise ValueError("unsealed Schedule window is not yet consumable")
+        # VACANT is synthesized by the consumer and never stored by an
+        # attacker or maintenance caller.
+        return bytes(32)
+
+
+def validate_protocol_change_payload_v1(
+    operation_kind: int, payload: bytes,
+) -> object:
+    if operation_kind == REGISTER_RELEASE:
+        return decode_register_release_payload_v1(payload)
+    if operation_kind == REGISTER_FORK_VERIFIER:
+        return decode_register_fork_verifier_payload_v1(payload)
+    if operation_kind == PUBLISH_GENESIS_CAMPAIGN:
+        words = _protocol_change_words(payload, 10)
+        values = tuple(_decode_uint_word_v1(words[index], 64,
+                                           "genesis campaign value")
+                       for index in range(6))
+        target = _decode_address_word_v1(words[6], "genesis target")
+        version = _decode_uint_word_v1(words[7], 64, "genesis version")
+        if (any(value == 0 for value in values) or version == 0
+                or words[8] == bytes(32) or words[9] == bytes(32)):
+            raise ValueError("genesis campaign payload is empty")
+        return values + (target, version, words[8], words[9])
+    if operation_kind == PUBLISH_MIGRATION_ARM:
+        words = _protocol_change_words(payload, 4)
+        source = _decode_uint_word_v1(words[0], 64, "migration source")
+        target = _decode_uint_word_v1(words[1], 64, "migration target")
+        if (not 0 < source < target or words[2] == bytes(32)
+                or words[3] == bytes(32)):
+            raise ValueError("migration arm payload is malformed")
+        return source, target, words[2], words[3]
+    raise ValueError("unknown protocol change operation kind")
+
+
+def encode_publish_genesis_campaign_payload_v1(
+    force_cutoff_block: int,
+    proposal_cutoff_block: int,
+    quiesce_not_before_block: int,
+    resume_by_block: int,
+    resume_by_timestamp: int,
+    review_finalized_by_block: int,
+    target_settlement: object,
+    target_protocol_version: int,
+    target_manifest_hash: bytes,
+    target_registration_hash: bytes,
+) -> bytes:
+    """Encode the exact ten-word PUBLISH_GENESIS_CAMPAIGN payload."""
+
+    raw = b"".join((
+        *(_model_uint(value, 32, "genesis campaign payload uint64")
+          for value in (
+              force_cutoff_block, proposal_cutoff_block,
+              quiesce_not_before_block, resume_by_block,
+              resume_by_timestamp, review_finalized_by_block,
+          )),
+        _abi_address_word(target_settlement),
+        _model_uint(
+            target_protocol_version, 32, "genesis campaign target version"
+        ),
+        _model_fixed_bytes32(target_manifest_hash),
+        _model_fixed_bytes32(target_registration_hash),
+    ))
+    # Decode/re-encode equality makes the helper a canonical ABI codec rather
+    # than a convenient payload constructor.
+    decoded = validate_protocol_change_payload_v1(
+        PUBLISH_GENESIS_CAMPAIGN, raw
+    )
+    if len(raw) != 320 or decoded != (
+            force_cutoff_block, proposal_cutoff_block,
+            quiesce_not_before_block, resume_by_block,
+            resume_by_timestamp, review_finalized_by_block,
+            (target_settlement if type(target_settlement) is bytes
+             and len(target_settlement) == 20
+             else _model_address20(target_settlement)),
+            target_protocol_version,
+            target_manifest_hash, target_registration_hash):
+        raise ValueError("genesis campaign payload is not canonical")
+    return raw
+
+
+@dataclass(frozen=True)
+class ProtocolChangeOperationRowV1:
+    state: int
+    nonce: int
+    operation_kind: int
+    payload_bytes: int
+    payload_hash: bytes
+    queued_at: int
+    execute_after: int
+
+
+def encode_protocol_change_operation_return_v1(
+    row: ProtocolChangeOperationRowV1,
+) -> bytes:
+    if row.state == 0:
+        if row != ProtocolChangeOperationRowV1(
+                0, 0, 0, 0, bytes(32), 0, 0):
+            raise ValueError("NONE PCO1 row is not all zero")
+    elif (row.state not in {1, 2, 3, 4}
+          or not 0 < row.nonce <= UINT64_MAX
+          or row.operation_kind not in {1, 2, 3, 4}
+          or not 0 < row.payload_bytes <= PROTOCOL_CHANGE_MAX_PAYLOAD_BYTES
+          or row.payload_hash == bytes(32)
+          or not 0 < row.queued_at <= UINT64_MAX
+          or row.execute_after != row.queued_at + PROTOCOL_CHANGE_DELAY_SECONDS
+          or row.execute_after > UINT64_MAX):
+        raise ValueError("PCO1 row is malformed")
+    return b"".join((
+        PCO1_MAGIC + bytes(28), _model_uint(row.state, 32, "PCO state"),
+        _model_uint(row.nonce, 32, "PCO nonce"),
+        _model_uint(row.operation_kind, 32, "PCO kind"),
+        _model_uint(row.payload_bytes, 32, "PCO payload bytes"),
+        row.payload_hash, _model_uint(row.queued_at, 32, "PCO queued at"),
+        _model_uint(row.execute_after, 32, "PCO execute after"),
+    ))
+
+
+@dataclass(frozen=True)
+class SettlementAuthorizationV1:
+    protocol_version: int
+    target: bytes
+    runtime_hash: bytes
+    configuration_hash: bytes
+    expected_magic: bytes
+    target_registration_hash: bytes
+    authorization_id: bytes
+
+
+@dataclass
+class PvmDerivedMarketAuthorizationV1:
+    market_chain_id: int
+    address: str
+    protocol_version_manager: str
+    settlement_chain_id: int
+    authorizations: dict[bytes, SettlementAuthorizationV1] = field(
+        default_factory=dict
+    )
+    fault_point: str | None = field(default=None, compare=False)
+
+    def install_settlement_authorization_v1(
+        self, row: SettlementAuthorizationV1, *, manager: object,
+        router: "ActiveSettlementRouter",
+    ) -> bytes:
+        if (type(manager) is not ProtocolVersionManagerV1
+                or manager.address != self.protocol_version_manager
+                or manager.lifecycle != "APPLYING"
+                or manager._active_operation_kind != REGISTER_RELEASE
+                or manager._active_operation_consumed is False
+                or manager.router is not router):
+            raise ValueError("Market installation is outside PVM frame")
+        expected = keccak256(
+            b"TAIKO_SEAT_TARGET_AUTHORIZATION_V1"
+            + _model_uint(self.market_chain_id, 32, "market chain ID")
+            + _model_address20(self.address)
+            + _model_uint(self.settlement_chain_id, 32,
+                          "settlement chain ID")
+            + _model_uint(row.protocol_version, 8, "authorization version")
+            + row.target + row.runtime_hash + row.configuration_hash
+            + row.expected_magic
+        )
+        if (row.authorization_id != expected
+                or len(row.expected_magic) != 4
+                or row.target_registration_hash == bytes(32)
+                or row.authorization_id in self.authorizations):
+            raise ValueError("Market authorization is malformed or reused")
+        router_read = router.target_release_registration_v2(
+            row.protocol_version
+        )
+        expected_router_read = encode_target_release_registration_return_v2(
+            router.target_release_registrations_v2[row.protocol_version]
+        )
+        if (len(router_read) != 352 or router_read != expected_router_read
+                or router_read[-32:] != row.target_registration_hash):
+            raise ValueError("Market Router RTR2 direct-read is inexact")
+        self.authorizations[row.authorization_id] = row
+        if self.fault_point == "after_install":
+            raise RuntimeError("injected Market install fault")
+        return SAI1_MAGIC + bytes(28) + row.authorization_id
+
+    def settlement_authorization_v1(self, authorization_id: bytes) -> bytes:
+        row = self.authorizations.get(authorization_id)
+        if row is None:
+            raise ValueError("unknown Settlement authorization")
+        return b"".join((
+            SAT1_MAGIC + bytes(28),
+            _model_uint(row.protocol_version, 32, "authorization version"),
+            bytes(12) + row.target, row.runtime_hash,
+            row.configuration_hash, row.expected_magic + bytes(28),
+            row.target_registration_hash,
+        ))
+
+
+@dataclass(frozen=True)
+class VersionMigrationLeaseV1:
+    state: int = 0
+    generation: int = 0
+    source_protocol_version: int = 0
+    target_protocol_version: int = 0
+    target_manifest_hash: bytes = bytes(32)
+    target_registration_hash: bytes = bytes(32)
+    arm_id: bytes = bytes(32)
+    armed_at_timestamp: int = 0
+    abort_after_timestamp: int = 0
+
+
+def encode_live_version_migration_lease_return_v1(
+    lease: VersionMigrationLeaseV1,
+) -> bytes:
+    if lease.state == 0:
+        if lease != VersionMigrationLeaseV1():
+            raise ValueError("NONE VML1 must be all zero")
+    elif (lease.state != 1 or not 0 < lease.generation <= UINT64_MAX
+          or not 0 < lease.source_protocol_version
+              < lease.target_protocol_version <= UINT64_MAX
+          or lease.target_manifest_hash == bytes(32)
+          or lease.target_registration_hash == bytes(32)
+          or lease.arm_id == bytes(32)
+          or lease.abort_after_timestamp != lease.armed_at_timestamp
+              + MAXIMUM_LIVE_VERSION_MIGRATION_SECONDS
+          or lease.abort_after_timestamp > UINT64_MAX):
+        raise ValueError("LIVE VML1 is malformed")
+    return b"".join((
+        VML1_MAGIC + bytes(28), _model_uint(lease.state, 32, "lease state"),
+        _model_uint(lease.generation, 32, "lease generation"),
+        _model_uint(lease.source_protocol_version, 32, "lease source"),
+        _model_uint(lease.target_protocol_version, 32, "lease target"),
+        lease.target_manifest_hash, lease.target_registration_hash,
+        lease.arm_id,
+        _model_uint(lease.armed_at_timestamp, 32, "lease armed at"),
+        _model_uint(lease.abort_after_timestamp, 32, "lease abort after"),
+    ))
+
+
+@dataclass
+class ProtocolVersionManagerV1:
+    address: str
+    settlement_chain_id: int
+    timelock_address: str
+    router_address: str
+    forced_queue_address: str
+    builder_registry_address: str
+    schedule_oracle_address: str
+    market: PvmDerivedMarketAuthorizationV1
+    bridge_domain_registry_address: str
+    bridge_credit_registry_address: str
+    timelock_descriptor_hash: bytes
+    manifest_namespace: bytes
+    active_protocol_version: int = 0
+    lifecycle: str = "IDLE"
+    consumed_operation_ids: set[bytes] = field(default_factory=set)
+    release_registrations: dict[int, RegisterReleasePayloadV1] = field(
+        default_factory=dict
+    )
+    fork_verifiers: dict[bytes, RegisterForkVerifierPayloadV1] = field(
+        default_factory=dict
+    )
+    fork_order: list[bytes] = field(default_factory=list)
+    current_window: int = 0
+    published_genesis_campaign: tuple[object, ...] | None = None
+    generation: int = 0
+    migration_lease: VersionMigrationLeaseV1 = field(
+        default_factory=VersionMigrationLeaseV1
+    )
+    fault_point: str | None = field(default=None, compare=False)
+    _active_operation_kind: int = field(default=0, compare=False, repr=False)
+    _active_operation_consumed: bool = field(
+        default=False, compare=False, repr=False
+    )
+    _active_operation_id: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    _active_operation_row: ProtocolChangeOperationRowV1 | None = field(
+        default=None, compare=False, repr=False
+    )
+    _active_operation_payload: bytes = field(
+        default=b"", compare=False, repr=False
+    )
+    genesis_router_call_gas_limit: int = field(
+        default=PVM_ROUTER_GENESIS_PUBLICATION_GAS,
+        compare=False, repr=False,
+    )
+    genesis_postread_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    router: "ActiveSettlementRouter | None" = field(
+        default=None, compare=False, repr=False
+    )
+    release_witnesses: dict[int, SettlementRegistration] = field(
+        default_factory=dict, compare=False, repr=False
+    )
+    profile_ingress_roots: dict[int, tuple[bytes, tuple[bytes, ...]]] = field(
+        default_factory=dict, compare=False
+    )
+    profile_ingress_rows: dict[bytes, ProfileIngressAuthorization] = field(
+        default_factory=dict, compare=False
+    )
+    postread_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    schedule_oracle: ScheduleOracleV1 | None = field(
+        default=None, compare=False, repr=False
+    )
+
+    def config_return_v1(self) -> bytes:
+        addresses = (
+            self.timelock_address, self.router_address,
+            self.forced_queue_address, self.builder_registry_address,
+            self.schedule_oracle_address, self.market.address,
+            self.bridge_domain_registry_address,
+            self.bridge_credit_registry_address,
+        )
+        if (not all(addresses) or len(set(addresses)) != len(addresses)
+                or self.timelock_descriptor_hash == bytes(32)
+                or self.manifest_namespace == bytes(32)):
+            raise ValueError("PVM1 immutable configuration is malformed")
+        encoded = b"".join((
+            PVM1_MAGIC + bytes(28),
+            _model_uint(self.settlement_chain_id, 32,
+                        "PVM settlement chain ID"),
+            *(_abi_address_word(address) for address in addresses[:8]),
+            self.timelock_descriptor_hash, self.manifest_namespace,
+            _model_uint(PROTOCOL_CHANGE_DELAY_SECONDS, 32, "PVM delay"),
+            _model_uint(MAXIMUM_LIVE_VERSION_MIGRATION_SECONDS, 32,
+                        "PVM migration maximum"),
+            _model_uint(GENESIS_REVIEW_FINALITY_BLOCKS, 32,
+                        "PVM review finality"),
+        ))
+        if len(encoded) != 480:
+            raise AssertionError("PVM1 must be 15 ABI words")
+        return encoded
+
+    def _snapshot(self) -> tuple[object, ...]:
+        return (
+            self.lifecycle, set(self.consumed_operation_ids),
+            dict(self.release_registrations), dict(self.fork_verifiers),
+            list(self.fork_order),
+            self.published_genesis_campaign, self.generation,
+            self.migration_lease, dict(self.market.authorizations),
+            dict(self.profile_ingress_roots),
+            dict(self.profile_ingress_rows),
+            (None if self.router is None else
+             self.router._protocol_release_registry_snapshot_v2()),
+            (None if self.schedule_oracle is None else
+             self.schedule_oracle._snapshot()),
+            self._active_operation_kind, self._active_operation_consumed,
+            self._active_operation_id, self._active_operation_row,
+            self._active_operation_payload,
+        )
+
+    def _restore(self, state: tuple[object, ...]) -> None:
+        (self.lifecycle, consumed, releases, forks, fork_order,
+         self.published_genesis_campaign, self.generation,
+         self.migration_lease, market_rows, ingress_roots, ingress_rows,
+         router_state, schedule_state,
+         self._active_operation_kind,
+         self._active_operation_consumed, self._active_operation_id,
+         self._active_operation_row, self._active_operation_payload) = state
+        self.consumed_operation_ids = consumed
+        self.release_registrations = releases
+        self.fork_verifiers = forks
+        self.fork_order = fork_order
+        self.market.authorizations = market_rows
+        self.profile_ingress_roots = ingress_roots
+        self.profile_ingress_rows = ingress_rows
+        if self.router is not None and router_state is not None:
+            self.router._restore_protocol_release_registry_v2(router_state)
+        if self.schedule_oracle is not None and schedule_state is not None:
+            self.schedule_oracle._restore(schedule_state)
+
+    def profile_ingress_root_v2(self, protocol_version: int) -> bytes:
+        row = self.profile_ingress_roots.get(protocol_version)
+        if row is None:
+            raise ValueError("unknown PIR2 profile root")
+        root, ids = row
+        encoded = b"".join((
+            b"PIR2" + bytes(28),
+            _model_uint(protocol_version, 32, "PIR2 protocol version"),
+            _model_uint(len(ids), 32, "PIR2 count"), root,
+        ))
+        if len(encoded) != 128:
+            raise AssertionError("PIR2 must be exactly 128 bytes")
+        return encoded
+
+    def profile_ingress_authorization_v2(
+        self, authorization_id: bytes,
+    ) -> bytes:
+        row = self.profile_ingress_rows.get(authorization_id)
+        if row is None:
+            raise ValueError("unknown PIA2 authorization")
+        encoded = (
+            b"PIA2" + bytes(28) + authorization_id
+            + profile_ingress_authorization_abi_v2(row)
+        )
+        if len(encoded) != 800:
+            raise AssertionError("PIA2 must be exactly 800 bytes")
+        return encoded
+
+    def apply_protocol_change_v1(
+        self, operation_id: bytes, row: ProtocolChangeOperationRowV1,
+        payload: bytes, *, timelock: "ProtocolChangeTimelockV1",
+        clock: Clock,
+    ) -> bytes:
+        if (self.lifecycle != "IDLE" or timelock.address != self.timelock_address
+                or timelock._executing_operation_id != operation_id
+                or row.state != 2 or row.nonce <= 0
+                or operation_id in self.consumed_operation_ids
+                or operation_id != protocol_change_operation_id_v1(
+                    self.settlement_chain_id, timelock.address, self.address,
+                    row.nonce, row.operation_kind, payload,
+                )):
+            raise ValueError("PVM apply frame is not exact")
+        decoded = validate_protocol_change_payload_v1(
+            row.operation_kind, payload
+        )
+        self.lifecycle = "APPLYING"
+        self.consumed_operation_ids.add(operation_id)
+        self._active_operation_kind = row.operation_kind
+        self._active_operation_consumed = True
+        self._active_operation_id = operation_id
+        self._active_operation_row = row
+        self._active_operation_payload = payload
+        if self.fault_point == "after_consumed":
+            raise RuntimeError("injected PVM consumed fault")
+        if row.operation_kind == REGISTER_RELEASE:
+            assert type(decoded) is RegisterReleasePayloadV1
+            router = self.router
+            witness = self.release_witnesses.get(decoded.protocol_version)
+            if (decoded.expected_predecessor_protocol_version
+                    != self.active_protocol_version
+                    or decoded.protocol_version in self.release_registrations
+                    or type(router) is not ActiveSettlementRouter
+                    or router.address != self.router_address
+                    or type(witness) is not SettlementRegistration):
+                raise ValueError("release predecessor/version is stale")
+            register_result = router.register_target_release_v2(
+                decoded, witness, manager=self
+            )
+            expected_register_result = (
+                b"RTR2" + bytes(28) + decoded.release_manifest_hash
+                + decoded.target_registration_hash
+            )
+            if register_result != expected_register_result:
+                raise ValueError("Router register RTR2 return is malformed")
+            sorted_rows = tuple(sorted(
+                witness.ingress_authorizations,
+                key=lambda item: item.authorization_id,
+            ))
+            ids = tuple(item.authorization_id for item in sorted_rows)
+            if (len(sorted_rows) != 2
+                    or tuple(sorted(item.kind.value for item in sorted_rows))
+                        != (0, 1)
+                    or len(set(ids)) != 2
+                    or profile_ingress_authorization_root(sorted_rows)
+                        != decoded.ingress_authorization_root):
+                raise ValueError("PVM profile ingress topology is not exact")
+            self.profile_ingress_roots[decoded.protocol_version] = (
+                decoded.ingress_authorization_root, ids
+            )
+            self.profile_ingress_rows.update(zip(ids, sorted_rows))
+            if self.fault_point == "after_router_registration":
+                raise RuntimeError("injected PVM post-Router fault")
+            authorization_id = keccak256(
+                b"TAIKO_SEAT_TARGET_AUTHORIZATION_V1"
+                + _model_uint(self.market.market_chain_id, 32,
+                              "market chain ID")
+                + _model_address20(self.market.address)
+                + _model_uint(self.settlement_chain_id, 32,
+                              "settlement chain ID")
+                + _model_uint(decoded.protocol_version, 8,
+                              "authorization version")
+                + decoded.target_address + decoded.target_runtime_hash
+                + decoded.target_configuration_hash + b"SEAT"
+            )
+            authorization = SettlementAuthorizationV1(
+                decoded.protocol_version, decoded.target_address,
+                decoded.target_runtime_hash,
+                decoded.target_configuration_hash, b"SEAT",
+                decoded.target_registration_hash, authorization_id,
+            )
+            self.release_registrations[decoded.protocol_version] = decoded
+            result = self.market.install_settlement_authorization_v1(
+                authorization, manager=self, router=router
+            )
+            if result != SAI1_MAGIC + bytes(28) + authorization_id:
+                raise ValueError("Market SAI1 return is malformed")
+            getter = self.market.settlement_authorization_v1(authorization_id)
+            expected_target = encode_target_release_registration_return_v2(
+                router.target_release_registrations_v2[
+                    decoded.protocol_version
+                ]
+            )
+            target_getter = router.target_release_registration_v2(
+                decoded.protocol_version
+            )
+            expected_mpr = encode_migration_activation_profile_return_v2(
+                decoded.migration_activation_profile
+            )
+            mpr_getter = router.migration_activation_profile_v2(
+                decoded.protocol_version
+            )
+            pir_getter = self.profile_ingress_root_v2(
+                decoded.protocol_version
+            )
+            expected_pir = b"".join((
+                b"PIR2" + bytes(28),
+                _model_uint(decoded.protocol_version, 32, "PIR2 version"),
+                _model_uint(2, 32, "PIR2 count"),
+                decoded.ingress_authorization_root,
+            ))
+            pia_reads = tuple(
+                self.profile_ingress_authorization_v2(row_id)
+                for row_id in ids
+            )
+            if self.postread_override is not None:
+                pir_getter = self.postread_override
+            if (len(getter) != 224
+                    or getter != self.market.settlement_authorization_v1(
+                        authorization_id
+                    )
+                    or target_getter != expected_target
+                    or mpr_getter != expected_mpr
+                    or pir_getter != expected_pir
+                    or any(len(item) != 800 or item[:32]
+                           != b"PIA2" + bytes(28) for item in pia_reads)):
+                raise ValueError("Market SAT1 post-read is malformed")
+        elif row.operation_kind == REGISTER_FORK_VERIFIER:
+            assert type(decoded) is RegisterForkVerifierPayloadV1
+            oracle = self.schedule_oracle
+            if (type(oracle) is not ScheduleOracleV1
+                    or oracle.address != self.schedule_oracle_address
+                    or decoded.fork_digest in self.fork_verifiers
+                    or decoded.first_window < self.current_window + 9
+                    or (self.fork_order and decoded.first_window
+                        <= self.fork_verifiers[self.fork_order[-1]]
+                            .first_window)):
+                raise ValueError("fork verifier is stale or reused")
+            result = oracle.install_fork_verifier_v1(decoded, manager=self)
+            expected = (
+                b"FVI1" + bytes(28) + decoded.fork_digest + bytes(28)
+                + _model_uint(decoded.first_window, 32,
+                              "fork first window")
+            )
+            if result != expected:
+                raise ValueError("Schedule FVI1 install return is malformed")
+            self.fork_verifiers[decoded.fork_digest] = decoded
+            self.fork_order.append(decoded.fork_digest)
+            if (oracle.fork_verifier_registration_v1(decoded.fork_digest)
+                    != self.fork_verifier_registration_v1(
+                        decoded.fork_digest
+                    )
+                    or oracle.schedule_fork_verifier_config_v1(
+                        decoded.fork_digest
+                    ) != self.schedule_fork_verifier_config_v1(
+                        decoded.fork_digest
+                    )):
+                raise ValueError("Schedule fork post-read is malformed")
+        elif row.operation_kind == PUBLISH_GENESIS_CAMPAIGN:
+            if self.published_genesis_campaign is not None:
+                raise ValueError("a genesis campaign is already live")
+            (force_cutoff, proposal_cutoff, quiesce, resume_block,
+             resume_timestamp, review_finalized, target_address,
+             target_version, target_manifest_hash,
+             target_registration_hash) = decoded
+            if (clock.block_number > review_finalized
+                    or review_finalized > force_cutoff - 64
+                    or proposal_cutoff - force_cutoff < 64
+                    or quiesce - proposal_cutoff < 192
+                    or not quiesce < resume_block
+                    or resume_block - clock.block_number > 600
+                    or not row.execute_after <= clock.timestamp
+                        < resume_timestamp
+                    or resume_timestamp - clock.timestamp > 7_200
+                    or resume_timestamp - row.execute_after > 7_200):
+                raise ValueError("genesis campaign timing is unsupported")
+            router = self.router
+            if type(router) is not ActiveSettlementRouter:
+                raise ValueError("genesis publication Router is unavailable")
+            result = router.publish_legacy_genesis_campaign_v1(
+                operation_id, row.execute_after, force_cutoff,
+                proposal_cutoff, quiesce, resume_block, resume_timestamp,
+                review_finalized, target_address, target_version,
+                target_manifest_hash, target_registration_hash,
+                manager=self, clock=clock,
+                gas_limit=self.genesis_router_call_gas_limit,
+            )
+            if type(result) is not bytes or len(result) != 160:
+                raise ValueError("Router LGP1 return length is malformed")
+            words = tuple(result[index:index + 32]
+                          for index in range(0, 160, 32))
+            if words[0] != LGP1_MAGIC + bytes(28):
+                raise ValueError("Router LGP1 magic is malformed")
+            nonce = _decode_uint_word_v1(words[1], 64, "LGP1 nonce")
+            generation = _decode_uint_word_v1(
+                words[2], 64, "LGP1 generation"
+            )
+            lgc_raw = (
+                self.genesis_postread_override
+                if self.genesis_postread_override is not None
+                else router.genesis_campaign_state_return_v1()
+            )
+            campaign_state = decode_genesis_campaign_v1(lgc_raw)
+            if (campaign_state.status != 1
+                    or campaign_state.nonce != nonce
+                    or campaign_state.generation != generation
+                    or campaign_state.review_commitment != words[3]
+                    or campaign_state.campaign_id != words[4]
+                    or campaign_state.force_cutoff_block != force_cutoff
+                    or campaign_state.proposal_cutoff_block
+                        != proposal_cutoff
+                    or campaign_state.quiesce_block != quiesce
+                    or campaign_state.resume_by_block != resume_block
+                    or campaign_state.resume_by_timestamp != resume_timestamp
+                    or campaign_state.review_finalized_by_block
+                        != review_finalized
+                    or _model_address20(campaign_state.target_address)
+                        != target_address
+                    or campaign_state.target_protocol_version
+                        != target_version
+                    or campaign_state.target_manifest_hash
+                        != target_manifest_hash
+                    or campaign_state.target_registration_hash
+                        != target_registration_hash):
+                raise ValueError("Router LGP1/LGC1 post-read differs")
+            if self.fault_point == "after_genesis_router":
+                raise RuntimeError("injected PVM genesis Router fault")
+            self.published_genesis_campaign = decoded
+            self.generation = generation
+        else:
+            source, target, manifest_hash, registration_hash = decoded
+            if (source != self.active_protocol_version
+                    or self.migration_lease.state != 0):
+                raise ValueError("a migration lease is already live or stale")
+            self.generation = checked_u64_add(
+                self.generation, 1, "migration generation"
+            )
+            abort_after = checked_u64_add(
+                clock.timestamp, MAXIMUM_LIVE_VERSION_MIGRATION_SECONDS,
+                "migration lease expiry",
+            )
+            arm_id = keccak256(
+                VERSION_MIGRATION_ARM_DOMAIN
+                + _model_uint(self.settlement_chain_id, 32,
+                              "settlement chain ID")
+                + _model_address20(self.address)
+                + _model_uint(self.generation, 8, "migration generation")
+                + _model_uint(source, 8, "migration source")
+                + _model_uint(target, 8, "migration target")
+                + manifest_hash + registration_hash
+                + _model_uint(clock.timestamp, 8, "migration armed at")
+                + _model_uint(abort_after, 8, "migration abort after")
+                + operation_id
+            )
+            self.migration_lease = VersionMigrationLeaseV1(
+                1, self.generation, source, target, manifest_hash,
+                registration_hash, arm_id, clock.timestamp, abort_after,
+            )
+            if type(self.router) is not ActiveSettlementRouter:
+                raise ValueError("migration arm Router is unavailable")
+            arm_result = self.router.arm_version_migration_v1(
+                self.migration_lease, manager=self
+            )
+            expected_arm = b"".join((
+                b"VMA1" + bytes(28),
+                _model_uint(self.generation, 32, "arm generation"), arm_id,
+            ))
+            if (arm_result != expected_arm
+                    or self.router.migration_gate.mode != "ARMED"):
+                raise ValueError("Router VMA1 arm post-read is malformed")
+        if self.fault_point == "before_idle":
+            raise RuntimeError("injected PVM late fault")
+        self._active_operation_kind = 0
+        self._active_operation_consumed = False
+        self._active_operation_id = None
+        self._active_operation_row = None
+        self._active_operation_payload = b""
+        self.lifecycle = "IDLE"
+        return PAP1_MAGIC + bytes(28)
+
+    def fork_verifier_registration_v1(self, fork_digest: bytes) -> bytes:
+        row = self.fork_verifiers.get(fork_digest)
+        if row is None:
+            raise ValueError("unknown fork verifier registration")
+        index = self.fork_order.index(fork_digest)
+        successor = (
+            self.fork_verifiers[self.fork_order[index + 1]]
+            if index + 1 < len(self.fork_order) else None
+        )
+        encoded = b"".join((
+            b"FVR1" + bytes(28), fork_digest + bytes(28),
+            _model_uint(row.first_window, 32, "fork first window"),
+            (bytes(32) if successor is None
+             else successor.fork_digest + bytes(28)),
+            _model_uint(0 if successor is None else successor.first_window,
+                        32, "fork successor window"),
+            bytes(12) + row.verifier, row.runtime_hash,
+            row.configuration_hash, row.selector + bytes(28),
+            _model_uint(row.gas_limit, 32, "fork verifier gas"),
+        ))
+        if len(encoded) != 320:
+            raise AssertionError("FVR1 must be 320 bytes")
+        return encoded
+
+    def schedule_fork_verifier_config_v1(self, fork_digest: bytes) -> bytes:
+        row = self.fork_verifiers.get(fork_digest)
+        if row is None:
+            raise ValueError("unknown fork verifier configuration")
+        encoded = b"".join((
+            b"SFV1" + bytes(28), fork_digest + bytes(28),
+            *(_model_uint(value, 32, "fork generalized index") for value in (
+                row.beacon_slot_gindex, row.execution_payload_gindex,
+                row.state_root_gindex, row.prev_randao_gindex,
+                row.timestamp_gindex, row.block_hash_gindex,
+            )),
+            row.witness_schema_hash, row.configuration_hash,
+        ))
+        if len(encoded) != 320:
+            raise AssertionError("SFV1 must be 320 bytes")
+        return encoded
+
+    def permissionless_abort_expired_migration_v1(
+        self, *, caller: str, clock: Clock,
+    ) -> bool:
+        lease = self.migration_lease
+        if (not caller or self.lifecycle != "IDLE" or lease.state != 1
+                or clock.timestamp < lease.abort_after_timestamp):
+            return False
+        snapshot = self._snapshot()
+        self.lifecycle = "ABORTING"
+        try:
+            if type(self.router) is not ActiveSettlementRouter:
+                raise ValueError("migration abort Router is unavailable")
+            result = self.router.abort_expired_version_migration_v1(
+                lease, manager=self
+            )
+            expected = b"".join((
+                b"VMB1" + bytes(28), lease.arm_id,
+                _model_uint(lease.generation, 32, "abort generation"),
+            ))
+            if (result != expected
+                    or self.router.migration_gate.mode != "ACTIVE"):
+                raise ValueError("Router VMB1 abort post-read is malformed")
+            self.migration_lease = VersionMigrationLeaseV1()
+            if self.fault_point == "abort_before_idle":
+                raise RuntimeError("injected migration abort fault")
+            self.lifecycle = "IDLE"
+            return True
+        except BaseException:
+            self._restore(snapshot)
+            return False
+
+
+@dataclass
+class ProtocolChangeTimelockV1:
+    address: str
+    settlement_chain_id: int
+    dao_proposer: str
+    manager: ProtocolVersionManagerV1
+    runtime_hash: bytes
+    next_nonce: int = 0
+    operations: dict[bytes, ProtocolChangeOperationRowV1] = field(
+        default_factory=dict
+    )
+    fault_point: str | None = field(default=None, compare=False)
+    _executing_operation_id: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+
+    def config_return_v1(self) -> bytes:
+        if (not self.dao_proposer or self.manager.address == self.dao_proposer
+                or self.runtime_hash == bytes(32)):
+            raise ValueError("PCT1 immutable configuration is malformed")
+        return b"".join((
+            PCT1_MAGIC + bytes(28), _abi_address_word(self.dao_proposer),
+            _abi_address_word(self.manager.address),
+            _model_uint(PROTOCOL_CHANGE_DELAY_SECONDS, 32, "timelock delay"),
+            keccak256(PROTOCOL_CHANGE_OPERATION_DOMAIN),
+        ))
+
+    def operation_return_v1(self, operation_id: bytes) -> bytes:
+        row = self.operations.get(operation_id)
+        if row is None:
+            raise ValueError("unknown protocol change operation")
+        return encode_protocol_change_operation_return_v1(row)
+
+    def queue_protocol_change_v1(
+        self, operation_kind: int, payload: bytes, *, caller: str,
+        clock: Clock,
+    ) -> bytes | None:
+        if caller != self.dao_proposer or self._executing_operation_id:
+            return None
+        try:
+            validate_protocol_change_payload_v1(operation_kind, payload)
+            nonce = checked_u64_add(self.next_nonce, 1, "operation nonce")
+            execute_after = checked_u64_add(
+                clock.timestamp, PROTOCOL_CHANGE_DELAY_SECONDS,
+                "operation execute after",
+            )
+            operation_id = protocol_change_operation_id_v1(
+                self.settlement_chain_id, self.address, self.manager.address,
+                nonce, operation_kind, payload,
+            )
+            row = ProtocolChangeOperationRowV1(
+                1, nonce, operation_kind, len(payload), keccak256(payload),
+                clock.timestamp, execute_after,
+            )
+            encode_protocol_change_operation_return_v1(row)
+        except BaseException:
+            return None
+        self.next_nonce = nonce
+        self.operations[operation_id] = row
+        return operation_id
+
+    def cancel_protocol_change_v1(
+        self, nonce: int, operation_kind: int, payload: bytes, *, caller: str,
+    ) -> bool:
+        if caller != self.dao_proposer or self._executing_operation_id:
+            return False
+        try:
+            operation_id = protocol_change_operation_id_v1(
+                self.settlement_chain_id, self.address, self.manager.address,
+                nonce, operation_kind, payload,
+            )
+        except BaseException:
+            return False
+        row = self.operations.get(operation_id)
+        if (row is None or row.state != 1 or row.operation_kind != operation_kind
+                or row.payload_hash != keccak256(payload)
+                or row.payload_bytes != len(payload)):
+            return False
+        self.operations[operation_id] = replace(row, state=3)
+        return True
+
+    def execute_protocol_change_v1(
+        self, nonce: int, operation_kind: int, payload: bytes, *, caller: str,
+        clock: Clock,
+    ) -> bool:
+        if not caller or self._executing_operation_id:
+            return False
+        try:
+            operation_id = protocol_change_operation_id_v1(
+                self.settlement_chain_id, self.address, self.manager.address,
+                nonce, operation_kind, payload,
+            )
+        except BaseException:
+            return False
+        row = self.operations.get(operation_id)
+        if (row is None or row.state != 1 or clock.timestamp < row.execute_after
+                or row.operation_kind != operation_kind
+                or row.payload_bytes != len(payload)
+                or row.payload_hash != keccak256(payload)):
+            return False
+        manager_snapshot = self.manager._snapshot()
+        prior_row = row
+        self.operations[operation_id] = replace(row, state=2)
+        self._executing_operation_id = operation_id
+        try:
+            result = self.manager.apply_protocol_change_v1(
+                operation_id, self.operations[operation_id], payload,
+                timelock=self, clock=clock,
+            )
+            if result != PAP1_MAGIC + bytes(28):
+                raise ValueError("PAP1 return is malformed")
+            if self.fault_point == "after_apply":
+                raise RuntimeError("injected Timelock late fault")
+            self.operations[operation_id] = replace(prior_row, state=4)
+            self._executing_operation_id = None
+            return True
+        except BaseException:
+            self.manager._restore(manager_snapshot)
+            self.operations[operation_id] = prior_row
+            self._executing_operation_id = None
+            return False
 
 
 @dataclass(frozen=True)
@@ -10115,8 +14763,7 @@ def profile_ingress_authorization_id(
                 ))
                 or destination_bridge == bytes(20)))):
         raise ValueError("profile ingress authorization fields are invalid")
-    encoded = b"".join((
-        INGRESS_AUTHORIZATION_TYPEHASH,
+    row_abi = b"".join((
         _model_uint(authorization.kind.value, 32, "ingress kind"),
         bytes(12) + _model_address20(authorization.adapter_address),
         _model_fixed_bytes32(authorization.runtime_hash),
@@ -10139,9 +14786,66 @@ def profile_ingress_authorization_id(
         infrastructure,
         *(_model_uint(value, 32, "ingress fee") for value in fees),
     ))
+    encoded = INGRESS_AUTHORIZATION_TYPEHASH + row_abi
     if len(encoded) != 24 * 32:
         raise AssertionError("ingress authorization ABI width drifted")
     return keccak256(encoded)
+
+
+def profile_ingress_authorization_abi_v2(
+    authorization: ProfileIngressAuthorization,
+) -> bytes:
+    """Return the exact 23 static struct words used by PIA2."""
+
+    # Reuse the validating identity path, then materialize the same words by
+    # replacing only the EIP-712-style typehash prefix.
+    profile_ingress_authorization_id(authorization)
+    source_zero = authorization.kind is ForceKind.USER_TX
+    fees = (
+        authorization.fixed_ingress_wei,
+        authorization.execution_wei_per_accounted_gas,
+        authorization.proof_wei_per_accounted_gas,
+        authorization.permanent_wei_per_byte,
+        authorization.maximum_accepted_fee_wei,
+    )
+    return b"".join((
+        _model_uint(authorization.kind.value, 32, "ingress kind"),
+        _abi_address_word(authorization.adapter_address),
+        _model_fixed_bytes32(authorization.runtime_hash),
+        _model_fixed_bytes32(authorization.configuration_hash),
+        _abi_address_word(authorization.router_address),
+        _model_fixed_bytes32(authorization.router_runtime_hash),
+        _model_fixed_bytes32(authorization.router_configuration_hash),
+        _abi_address_word(authorization.queue_address),
+        _model_fixed_bytes32(authorization.queue_runtime_hash),
+        _model_fixed_bytes32(authorization.queue_configuration_hash),
+        _model_fixed_bytes32(
+            authorization.source_domain_id, zero_if_empty=source_zero
+        ),
+        _model_uint(authorization.source_registration_epoch, 32,
+                    "source registration epoch"),
+        _model_fixed_bytes32(
+            authorization.frozen_bridge_execution_hash,
+            zero_if_empty=source_zero,
+        ),
+        _model_uint(authorization.destination_chain_id, 32,
+                    "destination chain id"),
+        _model_fixed_bytes32(
+            authorization.destination_domain_id, zero_if_empty=source_zero
+        ),
+        bytes(12) + _model_address20(
+            authorization.destination_bridge, zero_if_empty=source_zero
+        ),
+        _model_fixed_bytes32(
+            authorization.destination_bridge_execution_hash,
+            zero_if_empty=source_zero,
+        ),
+        _model_fixed_bytes32(
+            authorization.destination_infrastructure_hash,
+            zero_if_empty=source_zero,
+        ),
+        *(_model_uint(value, 32, "ingress fee") for value in fees),
+    ))
 
 
 def profile_ingress_authorization_root(
@@ -10615,6 +15319,7 @@ def settlement_registration(
         root,
         router.settlement_chain_context_id,
         ingress_fee_schedule,
+        settlement.settlement_deployment_descriptor,
     )
 
 
@@ -10854,6 +15559,7 @@ class MigrationTransitionPublicInputs:
     router_generation: int
     canonical_sequence: int
     target_manifest_hash: bytes
+    target_registration_hash: bytes
     queue_address: str
     queue_runtime_hash: str
     queue_configuration_hash: str
@@ -10891,6 +15597,9 @@ class MigrationTransitionPublicInputs:
                 or self.canonical_sequence < 0
                 or type(self.target_manifest_hash) is not bytes
                 or len(self.target_manifest_hash) != 32
+                or type(self.target_registration_hash) is not bytes
+                or len(self.target_registration_hash) != 32
+                or self.target_registration_hash == bytes(32)
                 or not self.queue_address
                 or not self.queue_runtime_hash
                 or not self.queue_configuration_hash
@@ -10982,6 +15691,7 @@ def migration_transition_public_inputs_from_l1(
         release_manifest_hash=target_manifest_hash,
     )
     manifest = preview.release_manifest
+    target_registration_hash = target_registration_hash_v2(preview)
     if (type(source) is not SourceBridgeV2
             or source.credit_registry
                 is not router._bridge_credit_registry_authority
@@ -11009,6 +15719,7 @@ def migration_transition_public_inputs_from_l1(
         router.migration_gate.generation,
         old.current_sequence,
         target_manifest_hash,
+        target_registration_hash,
         router.forced_queue.address,
         router.forced_queue.runtime_hash,
         router.forced_queue.config_hash,
@@ -11163,6 +15874,18 @@ class ExecutionProfile:
     bridge_surplus_sink: NativeEthSinkV2 = field(
         compare=False, repr=False
     )
+    profile_bytes: bytes = field(default=b"", compare=False, repr=False)
+    supported_l1_block_gas_limit: int = 30_000_000
+    worst_case_activation_adoption_gas: int = 20_000_000
+    source_freeze_gas_limit: int = 500_000
+    target_adoption_gas_limit: int = 2_000_000
+    queue_migration_gas_limit: int = 500_000
+    activation_context_read_gas_limit: int = 100_000
+    post_state_read_gas_limit: int = 100_000
+    legacy_state_read_gas_limit: int = 100_000
+    legacy_arm_gas_limit: int = 500_000
+    legacy_finalize_gas_limit: int = 500_000
+    post_callback_reserve_gas: int = 5_000_000
 
     def __deepcopy__(self, memo: dict[int, object]) -> "ExecutionProfile":
         # The verifier instance is an immutable deployed-code capability.
@@ -11170,17 +15893,72 @@ class ExecutionProfile:
         return self
 
     @property
+    def canonical_profile_bytes(self) -> bytes:
+        if self.profile_bytes:
+            return self.profile_bytes
+        # Canonical definite-length CBOR map with ascending integer keys.  The
+        # full release decoder owns the richer schema; this behavioral model
+        # binds the exact bytes rather than recreating an opaque Python tuple.
+        def cbor_uint(value: int) -> bytes:
+            if value < 24:
+                return bytes((value,))
+            if value < 256:
+                return b"\x18" + value.to_bytes(1, "big")
+            if value < 1 << 16:
+                return b"\x19" + value.to_bytes(2, "big")
+            if value < 1 << 32:
+                return b"\x1a" + value.to_bytes(4, "big")
+            return b"\x1b" + value.to_bytes(8, "big")
+
+        def cbor_bytes(value: bytes) -> bytes:
+            length = len(value)
+            prefix = cbor_uint(length)
+            return bytes((prefix[0] | 0x40,)) + prefix[1:] + value
+
+        verifier = self.migration_transition_verifier_descriptor
+        activation_fields = b"".join((
+            _model_address20(verifier.address),
+            _model_fixed_bytes32(verifier.runtime_hash),
+            bytes.fromhex(verifier.configuration_hash),
+            _model_fixed_bytes32(verifier.verifying_key_hash),
+            _model_fixed_bytes32(verifier.proof_system_id),
+            _model_fixed_bytes32(verifier.public_input_schema_hash),
+            verifier.selector,
+            _model_uint(verifier.maximum_proof_bytes, 4,
+                        "profile maximum proof bytes"),
+            _model_uint(verifier.verification_gas_limit, 8,
+                        "profile verification gas"),
+        ))
+        gas_values = (
+            self.supported_l1_block_gas_limit,
+            self.worst_case_activation_adoption_gas,
+            self.source_freeze_gas_limit, self.target_adoption_gas_limit,
+            self.queue_migration_gas_limit,
+            self.activation_context_read_gas_limit,
+            self.post_state_read_gas_limit, self.legacy_state_read_gas_limit,
+            self.legacy_arm_gas_limit, self.legacy_finalize_gas_limit,
+            self.post_callback_reserve_gas,
+        )
+        return b"".join((
+            b"\xa4", cbor_uint(0), cbor_uint(self.protocol_version),
+            cbor_uint(1), cbor_bytes(activation_fields),
+            cbor_uint(2), cbor_bytes(
+                keccak256(self.namespace.encode("utf-8"))
+            ),
+            cbor_uint(3), bytes((0x80 + len(gas_values),)),
+            *(cbor_uint(value) for value in gas_values),
+        ))
+
+    @property
     def execution_profile_hash(self) -> str:
-        return hashlib.sha256(
-            b"TAIKO_EXECUTION_PROFILE_V1\x00"
-            + migration_transition_encode((
-                self.protocol_version,
-                self.namespace,
-                self.migration_transition_verifier_descriptor,
-                self.bridge_surplus_sink.asset_id,
-                self.bridge_surplus_sink.address,
-            ))
-        ).hexdigest()
+        profile = self.canonical_profile_bytes
+        if not 1 <= len(profile) <= 65_536:
+            raise ValueError("execution profile byte length is unsupported")
+        return keccak256(
+            EXECUTION_PROFILE_DOMAIN
+            + _model_uint(len(profile), 4, "execution profile bytes")
+            + profile
+        ).hex()
 
     def structurally_valid(self) -> bool:
         verifier = self.migration_transition_verifier
@@ -11196,7 +15974,124 @@ class ExecutionProfile:
                 == self.migration_transition_verifier_descriptor
             and type(self.bridge_surplus_sink) is NativeEthSinkV2
             and self.bridge_surplus_sink.structurally_valid()
+            and 1 <= len(self.canonical_profile_bytes) <= 65_536
+            and all(0 < value <= UINT64_MAX for value in (
+                self.supported_l1_block_gas_limit,
+                self.worst_case_activation_adoption_gas,
+                self.source_freeze_gas_limit,
+                self.target_adoption_gas_limit,
+                self.queue_migration_gas_limit,
+                self.activation_context_read_gas_limit,
+                self.post_state_read_gas_limit,
+                self.legacy_state_read_gas_limit,
+                self.legacy_arm_gas_limit,
+                self.legacy_finalize_gas_limit,
+                self.post_callback_reserve_gas,
+            ))
         )
+
+
+@dataclass(frozen=True)
+class MigrationActivationProfileRecordV2:
+    protocol_version: int
+    execution_profile_hash: bytes
+    activation_profile_record_hash: bytes
+    verifier: str
+    verifier_runtime_hash: bytes
+    verifier_configuration_hash: bytes
+    verifying_key_hash: bytes
+    proof_system_id: bytes
+    public_input_schema_hash: bytes
+    verifier_selector: bytes
+    maximum_proof_bytes: int
+    verification_gas_limit: int
+    gas_values: tuple[int, ...]
+
+
+def migration_activation_profile_record_hash_v2(
+    record: MigrationActivationProfileRecordV2,
+) -> bytes:
+    if (type(record) is not MigrationActivationProfileRecordV2
+            or not 0 < record.protocol_version <= UINT64_MAX
+            or record.execution_profile_hash == bytes(32)
+            or not record.verifier
+            or any(row == bytes(32) for row in (
+                record.verifier_runtime_hash,
+                record.verifier_configuration_hash,
+                record.verifying_key_hash, record.proof_system_id,
+                record.public_input_schema_hash,
+            ))
+            or len(record.verifier_selector) != 4
+            or not 0 < record.maximum_proof_bytes <= UINT32_MAX
+            or len(record.gas_values) != 12
+            or any(not 0 < row <= UINT64_MAX for row in record.gas_values)):
+        raise ValueError("migration activation profile record is malformed")
+    return keccak256(
+        b"slot-chain-migration-activation-profile-v2"
+        + _model_uint(record.protocol_version, 8, "MPR protocol version")
+        + record.execution_profile_hash + _model_address20(record.verifier)
+        + record.verifier_runtime_hash + record.verifier_configuration_hash
+        + record.verifying_key_hash + record.proof_system_id
+        + record.public_input_schema_hash + record.verifier_selector
+        + _model_uint(record.maximum_proof_bytes, 4, "MPR proof bytes")
+        + b"".join(_model_uint(row, 8, "MPR gas value")
+                   for row in record.gas_values)
+    )
+
+
+def migration_activation_profile_for_execution_profile_v2(
+    profile: ExecutionProfile,
+) -> MigrationActivationProfileRecordV2:
+    descriptor = profile.migration_transition_verifier_descriptor
+    gases = (
+        descriptor.verification_gas_limit,
+        profile.supported_l1_block_gas_limit,
+        profile.worst_case_activation_adoption_gas,
+        profile.source_freeze_gas_limit, profile.target_adoption_gas_limit,
+        profile.queue_migration_gas_limit,
+        profile.activation_context_read_gas_limit,
+        profile.post_state_read_gas_limit, profile.legacy_state_read_gas_limit,
+        profile.legacy_arm_gas_limit, profile.legacy_finalize_gas_limit,
+        profile.post_callback_reserve_gas,
+    )
+    unbound = MigrationActivationProfileRecordV2(
+        profile.protocol_version, bytes.fromhex(profile.execution_profile_hash),
+        bytes(32), descriptor.address,
+        _model_fixed_bytes32(descriptor.runtime_hash),
+        bytes.fromhex(descriptor.configuration_hash),
+        _model_fixed_bytes32(descriptor.verifying_key_hash),
+        _model_fixed_bytes32(descriptor.proof_system_id),
+        _model_fixed_bytes32(descriptor.public_input_schema_hash),
+        descriptor.selector, descriptor.maximum_proof_bytes,
+        descriptor.verification_gas_limit, gases,
+    )
+    return replace(
+        unbound,
+        activation_profile_record_hash=
+            migration_activation_profile_record_hash_v2(unbound),
+    )
+
+
+def encode_migration_activation_profile_return_v2(
+    record: MigrationActivationProfileRecordV2,
+) -> bytes:
+    if (record.activation_profile_record_hash
+            != migration_activation_profile_record_hash_v2(record)):
+        raise ValueError("MPR2 record hash is inconsistent")
+    encoded = b"".join((
+        b"MPR2" + bytes(28),
+        _model_uint(record.protocol_version, 32, "MPR version"),
+        record.execution_profile_hash, record.activation_profile_record_hash,
+        _abi_address_word(record.verifier), record.verifier_runtime_hash,
+        record.verifier_configuration_hash, record.verifying_key_hash,
+        record.proof_system_id, record.public_input_schema_hash,
+        record.verifier_selector + bytes(28),
+        _model_uint(record.maximum_proof_bytes, 32, "MPR proof bytes"),
+        *(_model_uint(value, 32, "MPR gas") for value in record.gas_values),
+    ))
+    if len(encoded) != 768:
+        raise AssertionError("MPR2 must be exactly 768 bytes")
+    return encoded
 
 
 class TestMigrationTransitionVerifier(IMigrationTransitionVerifier):
@@ -11483,6 +16378,7 @@ class MigrationActivationCallV2:
     output_core: CanonicalCore
     target_protocol_version: int
     target_manifest_hash: bytes
+    target_registration_hash: bytes
     transition_statement_digest: str
     router_generation: int
     source_canonical_sequence: int
@@ -11496,6 +16392,9 @@ class MigrationActivationCallV2:
     def __post_init__(self) -> None:
         if (type(self.target_manifest_hash) is not bytes
                 or len(self.target_manifest_hash) != 32
+                or type(self.target_registration_hash) is not bytes
+                or len(self.target_registration_hash) != 32
+                or self.target_registration_hash == bytes(32)
                 or len(self.transition_statement_digest) != 64
                 or self.router_generation <= 0
                 or self.source_canonical_sequence < 0
@@ -11521,6 +16420,7 @@ class MigrationActivationCallV2:
             self.output_core,
             self.target_protocol_version,
             self.target_manifest_hash,
+            self.target_registration_hash,
             self.transition_statement_digest,
             self.router_generation,
             self.source_canonical_sequence,
@@ -11549,15 +16449,19 @@ class MigrationActivationReceipt:
     old_target: str
     new_target: str
     target_manifest_hash: bytes
+    target_registration_hash: bytes
     seat_generation: int
     old_authorization_id: bytes
     new_authorization_id: bytes
     activation_block: int
     migration_stage_id: bytes | None
     migration_lineup_commitment: bytes | None
+    transition_auxiliary_hash: bytes = bytes(32)
 
     @property
     def key(self) -> tuple[int, bytes]:
+        # The append-only lookup key stays compact; the stored value binds the
+        # independently authenticated targetRegistrationHash.
         return self.router_generation, self.target_manifest_hash
 
 
@@ -11578,18 +16482,42 @@ class ActiveSettlementRouter:
     forced_queue: QueueContinuity
     inbox_apply_descriptor: InboxApplyDeploymentDescriptor
     migration_gate: MigrationGate
-    header_oracle: L1HeaderOracle
+    header_oracle: EIP2935SystemReadTestAdapter
+    legacy_launch_hook: LegacyLaunchHookV1 | None = None
     settlement_chain_context_id: int = MODEL_SETTLEMENT_CHAIN_CONTEXT_ID
     address: str = "active-settlement-router"
     runtime_hash: str = ACTIVE_SETTLEMENT_ROUTER_RUNTIME_HASH
     configuration_hash: str = ACTIVE_SETTLEMENT_ROUTER_CONFIGURATION_HASH
     bootstrap_release_manifest_hash: bytes = b"\x00" * 32
+    # Deployment-factory hints for the initial scheduled target.  Checkpoint
+    # safety never depends on them; delayed governance may cancel/replace the
+    # scheduled target after the target-independent checkpoint.
+    bootstrap_target_address: str = ""
+    bootstrap_target_registration_hash: bytes = b"\x00" * 32
     forced_queue_runtime_hash: str = "code:forced-queue:v2"
     forced_queue_config_hash: str = "config:forced-queue:depth64:v2"
     builder_registry_id: str = "builder-registry"
     schedule_oracle_id: str = "schedule-oracle"
     active_version: int = 0
     registrations: dict[int, SettlementRegistration] = field(default_factory=dict)
+    target_release_registrations_v2: dict[
+        int, TargetReleaseRegistrationRowV2
+    ] = field(default_factory=dict, compare=False)
+    migration_activation_profiles_v2: dict[
+        int, MigrationActivationProfileRecordV2
+    ] = field(default_factory=dict, compare=False)
+    release_registration_fault_point: str | None = field(
+        default=None, compare=False, repr=False
+    )
+    release_registration_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    release_registration_getter_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    migration_profile_getter_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
     activation_receipts: dict[
         tuple[int, bytes], MigrationActivationReceipt
     ] = field(default_factory=dict)
@@ -11638,13 +16566,48 @@ class ActiveSettlementRouter:
     )
     ingress_entered: bool = field(default=False, compare=False)
     ingress_lookup_probes: int = field(default=0, compare=False)
+    migration_lifecycle: RouterMigrationLifecycle = field(
+        default=RouterMigrationLifecycle.IDLE, compare=False
+    )
+    migration_fault_point: str | None = field(default=None, compare=False)
+    genesis_campaign_nonce: int = field(default=0, compare=False)
+    scheduled_genesis_campaign: ScheduledGenesisCampaignV1 | None = field(
+        default=None, compare=False
+    )
+    genesis_campaign: GenesisCampaignV1 | None = field(
+        default=None, compare=False
+    )
+    terminal_genesis_campaign_ids: set[bytes] = field(
+        default_factory=set, compare=False
+    )
+    terminal_genesis_campaign: tuple[GenesisCampaignV1, int] | None = field(
+        default=None, compare=False
+    )
+    genesis_campaign_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    genesis_publication_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    genesis_publication_callback: object | None = field(
+        default=None, compare=False, repr=False
+    )
+    genesis_activation_receipt: MigrationActivationReceipt | None = field(
+        default=None, compare=False
+    )
+    genesis_activation_trace: list[str] = field(
+        default_factory=list, compare=False
+    )
+    _migration_callback_frame: MigrationCanonicalContextV2 | None = field(
+        default=None, compare=False, repr=False
+    )
     _queue_transition_frame: tuple[str, int, str] | None = field(
         default=None, compare=False, repr=False
     )
 
     def __post_init__(self) -> None:
         if (
-            type(self.header_oracle) is not L1HeaderOracle
+            type(self.header_oracle) is not EIP2935SystemReadTestAdapter
             or type(self.settlement_chain_context_id) is not int
             or not 0 < self.settlement_chain_context_id <= UINT64_MAX
             or self.configuration_hash
@@ -11653,18 +16616,19 @@ class ActiveSettlementRouter:
                 )
             or type(self.bootstrap_release_manifest_hash) is not bytes
             or len(self.bootstrap_release_manifest_hash) != 32
-            or self.header_oracle.address != L1_HEADER_ORACLE_ADDRESS
-            or self.header_oracle.runtime_hash
-                != L1_HEADER_ORACLE_RUNTIME_HASH
-            or self.header_oracle.configuration_hash
-                != L1_HEADER_ORACLE_CONFIGURATION_HASH
+            or type(self.bootstrap_target_address) is not str
+            or type(self.bootstrap_target_registration_hash) is not bytes
+            or len(self.bootstrap_target_registration_hash) != 32
             or type(self.inbox_apply_descriptor)
                 is not InboxApplyDeploymentDescriptor
             or not self.inbox_apply_descriptor.structurally_valid()
+            or type(self.legacy_launch_hook) is not LegacyLaunchHookV1
         ):
-            raise ValueError("active router header oracle is not exact")
+            raise ValueError("active router EIP-2935 adapter is not exact")
         if not self.forced_queue._bind_router_once(self):
             raise ValueError("forced queue is bound to another active router")
+        if not self.legacy_launch_hook._bind_router_once(self):
+            raise ValueError("legacy launch hook is bound to another Router")
 
     def __deepcopy__(
         self, memo: dict[int, object]
@@ -11677,10 +16641,12 @@ class ActiveSettlementRouter:
     def __setattr__(self, name: str, value: object) -> None:
         if name in {
             "version_manager", "forced_queue", "inbox_apply_descriptor",
-            "migration_gate", "header_oracle", "settlement_chain_context_id",
+            "migration_gate", "header_oracle", "legacy_launch_hook",
+            "settlement_chain_context_id",
             "address",
             "runtime_hash", "configuration_hash",
             "bootstrap_release_manifest_hash",
+            "bootstrap_target_address", "bootstrap_target_registration_hash",
             "forced_queue_runtime_hash", "forced_queue_config_hash",
             "builder_registry_id", "schedule_oracle_id", "_authorized_ingress",
             "_authorized_ingress_by_address",
@@ -11690,6 +16656,7 @@ class ActiveSettlementRouter:
             "_source_bridge_authority",
             "_bridge_domain_registry_authority",
             "_queue_transition_frame",
+            "_migration_callback_frame",
         } and name in self.__dict__:
             raise AttributeError(f"active-router {name} is immutable")
         object.__setattr__(self, name, value)
@@ -11701,6 +16668,522 @@ class ActiveSettlementRouter:
     @property
     def authorized_ingress_by_address(self) -> MappingProxyType:
         return MappingProxyType(self._authorized_ingress_by_address)
+
+    def _enter_migration_lifecycle(
+        self,
+        lifecycle: RouterMigrationLifecycle,
+        *,
+        manager: object,
+        frame: MigrationCanonicalContextV2 | None = None,
+    ) -> None:
+        if (type(lifecycle) is not RouterMigrationLifecycle
+                or lifecycle is RouterMigrationLifecycle.IDLE
+                or self.migration_lifecycle is not RouterMigrationLifecycle.IDLE
+                or manager is not self._version_manager_authority
+                or (lifecycle is RouterMigrationLifecycle.ACTIVATING)
+                    != (type(frame) is MigrationCanonicalContextV2)):
+            raise ValueError("Router migration lifecycle entry rejected")
+        self.migration_lifecycle = lifecycle
+        object.__setattr__(self, "_migration_callback_frame", frame)
+
+    def _leave_migration_lifecycle_before_publication(
+        self, *, manager: object
+    ) -> None:
+        if (manager is not self._version_manager_authority
+                or self.migration_lifecycle
+                    is RouterMigrationLifecycle.IDLE):
+            raise ValueError("Router migration lifecycle exit rejected")
+        object.__setattr__(self, "_migration_callback_frame", None)
+        self.migration_lifecycle = RouterMigrationLifecycle.IDLE
+
+    def _protocol_release_registry_snapshot_v2(self) -> tuple[object, ...]:
+        return (
+            self.migration_lifecycle,
+            dict(self.target_release_registrations_v2),
+            dict(self.migration_activation_profiles_v2),
+            copy.deepcopy(self.migration_gate.__dict__),
+            self.genesis_campaign_nonce,
+            self.scheduled_genesis_campaign,
+            self.genesis_campaign,
+            set(self.terminal_genesis_campaign_ids),
+            self.terminal_genesis_campaign,
+            copy.deepcopy(self.legacy_launch_hook.__dict__),
+        )
+
+    def _restore_protocol_release_registry_v2(
+        self, snapshot: tuple[object, ...]
+    ) -> None:
+        (lifecycle, registrations, profiles, gate_state,
+         campaign_nonce, scheduled_campaign, campaign, terminal_ids,
+         terminal_campaign, legacy_state) = snapshot
+        self.migration_lifecycle = lifecycle
+        self.target_release_registrations_v2 = registrations
+        self.migration_activation_profiles_v2 = profiles
+        self.migration_gate.__dict__.clear()
+        self.migration_gate.__dict__.update(gate_state)
+        self.genesis_campaign_nonce = campaign_nonce
+        self.scheduled_genesis_campaign = scheduled_campaign
+        self.genesis_campaign = campaign
+        self.terminal_genesis_campaign_ids = terminal_ids
+        self.terminal_genesis_campaign = terminal_campaign
+        self.legacy_launch_hook.__dict__.clear()
+        self.legacy_launch_hook.__dict__.update(legacy_state)
+
+    def register_target_release_v2(
+        self, decoded: RegisterReleasePayloadV1,
+        witness: SettlementRegistration, *, manager: object,
+    ) -> bytes:
+        """Model the exact Router REGISTERING journal and RTR2/MPR2 stores."""
+
+        if (type(decoded) is not RegisterReleasePayloadV1
+                or type(witness) is not SettlementRegistration
+                or type(manager) is not ProtocolVersionManagerV1
+                or manager.address != self.version_manager
+                or manager.router is not self
+                or manager.lifecycle != "APPLYING"
+                or manager._active_operation_kind != REGISTER_RELEASE
+                or not manager._active_operation_consumed
+                or self.migration_lifecycle
+                    is not RouterMigrationLifecycle.IDLE
+                or decoded.protocol_version
+                    in self.target_release_registrations_v2
+                or decoded.expected_predecessor_protocol_version
+                    != self.active_version):
+            raise ValueError("Router release registration frame is not exact")
+        expected_profile = migration_activation_profile_for_execution_profile_v2(
+            witness.execution_profile
+        )
+        if (witness.settlement.protocol_version != decoded.protocol_version
+                or witness.predecessor_version
+                    != decoded.expected_predecessor_protocol_version
+                or _model_address20(witness.settlement.address)
+                    != decoded.target_address
+                or _model_fixed_bytes32(witness.runtime_hash)
+                    != decoded.target_runtime_hash
+                or _model_fixed_bytes32(
+                    witness.settlement.market_configuration_hash
+                ) != decoded.target_configuration_hash
+                or witness.settlement_deployment_descriptor.commitment
+                    != decoded.settlement_deployment_descriptor_hash
+                or witness.execution_profile.canonical_profile_bytes
+                    != decoded.profile_bytes
+                or bytes.fromhex(witness.execution_profile_hash)
+                    != decoded.execution_profile_hash
+                or encode_migration_activation_profile_return_v2(
+                    expected_profile
+                ) != encode_migration_activation_profile_return_v2(
+                    decoded.migration_activation_profile
+                )
+                or witness.release_manifest.commitment
+                    != decoded.release_manifest_hash
+                or witness.ingress_authorization_root
+                    != decoded.ingress_authorization_root
+                or bytes.fromhex(
+                    witness.execution_profile
+                        .migration_transition_verifier_descriptor.commitment
+                ) != decoded.migration_verifier_descriptor_hash
+                or target_registration_hash_v2(witness)
+                    != decoded.target_registration_hash):
+            raise ValueError("Router release witness differs from payload")
+        snapshot = self._protocol_release_registry_snapshot_v2()
+        try:
+            self.migration_lifecycle = RouterMigrationLifecycle.REGISTERING
+            row = TargetReleaseRegistrationRowV2(
+                decoded.protocol_version,
+                decoded.expected_predecessor_protocol_version,
+                decoded.target_address, decoded.target_runtime_hash,
+                decoded.target_configuration_hash,
+                decoded.settlement_deployment_descriptor_hash,
+                decoded.execution_profile_hash,
+                decoded.migration_activation_profile_record_hash,
+                decoded.release_manifest_hash,
+                decoded.target_registration_hash,
+            )
+            self.target_release_registrations_v2[row.protocol_version] = row
+            self.migration_activation_profiles_v2[
+                row.protocol_version
+            ] = decoded.migration_activation_profile
+            if self.release_registration_fault_point == "after_write":
+                raise RuntimeError("injected Router registration fault")
+            self.migration_lifecycle = RouterMigrationLifecycle.IDLE
+            if self.release_registration_fault_point == "after_idle":
+                raise RuntimeError("injected Router IDLE-last fault")
+            result = (
+                b"RTR2" + bytes(28) + decoded.release_manifest_hash
+                + decoded.target_registration_hash
+            )
+            if self.release_registration_return_override is not None:
+                result = self.release_registration_return_override
+            if len(result) != 96:
+                raise ValueError("Router RTR2 registration return is malformed")
+            return result
+        except BaseException:
+            self._restore_protocol_release_registry_v2(snapshot)
+            raise
+
+    def target_release_registration_v2(self, protocol_version: int) -> bytes:
+        row = self.target_release_registrations_v2.get(protocol_version)
+        if row is None:
+            raise ValueError("unknown Router target release")
+        result = encode_target_release_registration_return_v2(row)
+        return (self.release_registration_getter_override
+                if self.release_registration_getter_override is not None
+                else result)
+
+    def migration_activation_profile_v2(self, protocol_version: int) -> bytes:
+        row = self.migration_activation_profiles_v2.get(protocol_version)
+        if row is None:
+            raise ValueError("unknown Router migration activation profile")
+        result = encode_migration_activation_profile_return_v2(row)
+        return (self.migration_profile_getter_override
+                if self.migration_profile_getter_override is not None
+                else result)
+
+    def publish_legacy_genesis_campaign_v1(
+        self,
+        operation_id: bytes,
+        execute_after: int,
+        force_cutoff_block: int,
+        proposal_cutoff_block: int,
+        quiesce_not_before_block: int,
+        resume_by_block: int,
+        resume_by_timestamp: int,
+        review_finalized_by_block: int,
+        target_settlement: bytes,
+        target_protocol_version: int,
+        target_manifest_hash: bytes,
+        target_registration_hash: bytes,
+        *,
+        manager: object,
+        clock: Clock,
+        gas_limit: int,
+    ) -> bytes:
+        """Apply the exact PVM-only PUBLISHING/LGP1 genesis journal."""
+
+        if (type(manager) is not ProtocolVersionManagerV1
+                or manager.router is not self
+                or manager.address != self.version_manager
+                or manager.lifecycle != "APPLYING"
+                or manager._active_operation_kind
+                    != PUBLISH_GENESIS_CAMPAIGN
+                or not manager._active_operation_consumed
+                or manager._active_operation_id != operation_id
+                or type(manager._active_operation_row)
+                    is not ProtocolChangeOperationRowV1
+                or self.migration_lifecycle
+                    is not RouterMigrationLifecycle.IDLE
+                or gas_limit != PVM_ROUTER_GENESIS_PUBLICATION_GAS
+                or type(clock) is not Clock):
+            raise ValueError("Router genesis publication frame is not exact")
+        row = manager._active_operation_row
+        payload = encode_publish_genesis_campaign_payload_v1(
+            force_cutoff_block, proposal_cutoff_block,
+            quiesce_not_before_block, resume_by_block,
+            resume_by_timestamp, review_finalized_by_block,
+            target_settlement, target_protocol_version,
+            target_manifest_hash, target_registration_hash,
+        )
+        if (row.state != 2 or row.operation_kind
+                != PUBLISH_GENESIS_CAMPAIGN
+                or row.execute_after != execute_after
+                or row.payload_bytes != len(payload)
+                or row.payload_hash != keccak256(payload)
+                or manager._active_operation_payload != payload
+                or operation_id != protocol_change_operation_id_v1(
+                    manager.settlement_chain_id, manager.timelock_address,
+                    manager.address, row.nonce, row.operation_kind, payload,
+                )):
+            raise ValueError("Router genesis operation preimage changed")
+        snapshot = self._protocol_release_registry_snapshot_v2()
+        try:
+            # PUBLISHING precedes the first modeled external/static read.
+            self.migration_lifecycle = RouterMigrationLifecycle.PUBLISHING
+            if self.release_registration_fault_point \
+                    == "genesis_after_lifecycle":
+                raise RuntimeError("injected genesis lifecycle fault")
+            callback = self.genesis_publication_callback
+            if callback is not None:
+                if not callable(callback):
+                    raise ValueError("genesis publication callback is invalid")
+                callback(self, manager)
+
+            release_row = self.target_release_registrations_v2.get(
+                target_protocol_version
+            )
+            profile_row = self.migration_activation_profiles_v2.get(
+                target_protocol_version
+            )
+            witness = manager.release_witnesses.get(target_protocol_version)
+            hook = self.legacy_launch_hook
+            target_address = "0x" + target_settlement.hex()
+            gate_word = self.migration_gate.router_word
+            if (type(release_row) is not TargetReleaseRegistrationRowV2
+                    or type(profile_row)
+                        is not MigrationActivationProfileRecordV2
+                    or type(witness) is not SettlementRegistration
+                    or release_row.expected_predecessor_protocol_version != 0
+                    or release_row.target_settlement != target_settlement
+                    or release_row.release_manifest_hash
+                        != target_manifest_hash
+                    or release_row.target_registration_hash
+                        != target_registration_hash
+                    or witness.settlement.protocol_version
+                        != target_protocol_version
+                    or _model_address20(witness.settlement.address)
+                        != target_settlement
+                    or witness.release_manifest.commitment
+                        != target_manifest_hash
+                    or target_registration_hash_v2(witness)
+                        != target_registration_hash
+                    or manager.release_registrations.get(
+                        target_protocol_version
+                    ) is None
+                    or manager.active_protocol_version != 0
+                    or self.active_version != 0
+                    or self.registrations
+                    or self.scheduled_genesis_campaign is not None
+                    or self.genesis_campaign is not None
+                    or hook.phase is not LegacyLaunchPhase.ACTIVE
+                    or not hook.campaign_surfaces_clean_v1()
+                    or gate_word.phase is not RouterPhase.ACTIVE
+                    or gate_word.active_version != 0
+                    or gate_word.target_version != 0
+                    or gate_word.target_manifest_hash != bytes(32)
+                    or gate_word.target_registration_hash != bytes(32)
+                    or self.forced_queue.active_settlement_address
+                        != hook.proxy_address):
+                raise ValueError("genesis target or source preflight changed")
+            # The two registered getters and all source getters are modeled as
+            # exact 100k static reads.  Their byte equality prevents an object
+            # witness from replacing the public ABI state.
+            if (self.target_release_registration_v2(
+                    target_protocol_version
+                ) != encode_target_release_registration_return_v2(release_row)
+                    or self.migration_activation_profile_v2(
+                        target_protocol_version
+                    ) != encode_migration_activation_profile_return_v2(
+                        profile_row
+                    )
+                    or hook.legacy_launch_state_return_v1()
+                        != encode_legacy_genesis_state_v1(
+                            hook.legacy_launch_state_v1()
+                        )
+                    or hook.legacy_genesis_scan_state_v1()
+                        != hook._exact_legacy_genesis_scan_state_v1()):
+                raise ValueError("genesis exact getter preflight changed")
+            preparation = hook.legacy_genesis_preparation_v1()
+            resume_profile = hook.legacy_resume_profile_hash
+            if (len(preparation) != 288
+                    or preparation
+                        != hook._exact_legacy_genesis_preparation_v1()
+                    or resume_profile != legacy_resume_profile_hash_v1(
+                        hook.deployment_hash,
+                        fixture=hook.resume_descriptor_fixture,
+                    )):
+                raise ValueError("genesis profile/preparation changed")
+            if (clock.block_number > review_finalized_by_block
+                    or review_finalized_by_block
+                        > force_cutoff_block - GENESIS_REVIEW_FINALITY_BLOCKS
+                    or proposal_cutoff_block - force_cutoff_block
+                        < GENESIS_REVIEW_FINALITY_BLOCKS
+                    or quiesce_not_before_block - proposal_cutoff_block
+                        < (LEGACY_QUIESCENT_MIN_REMAINING_BLOCKS
+                           + GENESIS_REVIEW_FINALITY_BLOCKS)
+                    or not quiesce_not_before_block < resume_by_block
+                    or resume_by_block - clock.block_number
+                        > LEGACY_QUIESCENT_BLOCKS_MAX
+                    or not execute_after <= clock.timestamp
+                        < resume_by_timestamp
+                    or resume_by_timestamp - clock.timestamp
+                        > LEGACY_QUIESCENT_SECONDS_MAX
+                    or resume_by_timestamp - execute_after
+                        > LEGACY_QUIESCENT_SECONDS_MAX):
+                raise ValueError("genesis campaign timing is unsupported")
+            review_commitment = legacy_genesis_review_commitment_v1(
+                hook.deployment_hash, resume_profile,
+                target_protocol_version, target_manifest_hash,
+                target_registration_hash,
+            )
+            nonce = seat_checked_add(
+                self.genesis_campaign_nonce, 1,
+                "genesis campaign publication nonce",
+            )
+            generation = seat_checked_add(
+                self.migration_gate.generation, 1,
+                "genesis campaign publication generation",
+            )
+            campaign_id = legacy_genesis_campaign_id_v1(
+                hook.deployment_hash, nonce, generation,
+                review_finalized_by_block, force_cutoff_block,
+                proposal_cutoff_block, quiesce_not_before_block,
+                resume_by_block, resume_by_timestamp, target_address,
+                target_protocol_version, target_manifest_hash,
+                target_registration_hash, review_commitment,
+            )
+            if campaign_id in self.terminal_genesis_campaign_ids:
+                raise ValueError("genesis campaign ID is terminal")
+            campaign = GenesisCampaignV1(
+                nonce, campaign_id, generation, witness.settlement,
+                target_address, target_protocol_version,
+                target_manifest_hash, target_registration_hash,
+                review_commitment, review_finalized_by_block,
+                force_cutoff_block, proposal_cutoff_block,
+                quiesce_not_before_block, resume_by_block,
+                resume_by_timestamp,
+            )
+            self.genesis_campaign_nonce = nonce
+            self.genesis_campaign = campaign
+            if (decode_genesis_campaign_v1(
+                    self.genesis_campaign_state_return_v1()
+                ) != genesis_campaign_state_v1(campaign)):
+                raise ValueError("published LGC1 post-read changed")
+            if self.release_registration_fault_point \
+                    == "genesis_after_campaign":
+                raise RuntimeError("injected genesis campaign write fault")
+            if self.release_registration_fault_point \
+                    == "genesis_before_idle":
+                raise RuntimeError("injected genesis IDLE-last fault")
+            self.migration_lifecycle = RouterMigrationLifecycle.IDLE
+            if self.release_registration_fault_point \
+                    == "genesis_after_idle":
+                raise RuntimeError("injected genesis post-IDLE fault")
+            result = b"".join((
+                LGP1_MAGIC + bytes(28),
+                _model_uint(nonce, 32, "LGP1 nonce"),
+                _model_uint(generation, 32, "LGP1 generation"),
+                review_commitment, campaign_id,
+            ))
+            return (self.genesis_publication_return_override
+                    if self.genesis_publication_return_override is not None
+                    else result)
+        except BaseException:
+            self._restore_protocol_release_registry_v2(snapshot)
+            raise
+
+    def arm_version_migration_v1(
+        self, lease: VersionMigrationLeaseV1, *, manager: object,
+    ) -> bytes:
+        if (type(manager) is not ProtocolVersionManagerV1
+                or manager.router is not self
+                or manager.address != self.version_manager
+                or manager.lifecycle != "APPLYING"
+                or manager._active_operation_kind != PUBLISH_MIGRATION_ARM
+                or manager.migration_lease != lease
+                or self.migration_lifecycle
+                    is not RouterMigrationLifecycle.IDLE
+                or lease.target_protocol_version
+                    not in self.target_release_registrations_v2
+                or self.target_release_registrations_v2[
+                    lease.target_protocol_version
+                ].expected_predecessor_protocol_version
+                    != lease.source_protocol_version
+                or self.target_release_registrations_v2[
+                    lease.target_protocol_version
+                ].target_registration_hash
+                    != lease.target_registration_hash):
+            raise ValueError("Router migration arm frame is not exact")
+        lifecycle = self.migration_lifecycle
+        gate_snapshot = copy.deepcopy(self.migration_gate.__dict__)
+        try:
+            self.migration_lifecycle = RouterMigrationLifecycle.ARMING
+            if not self.migration_gate._arm_from_manager(
+                lease.generation, lease.source_protocol_version,
+                lease.target_protocol_version, lease.target_manifest_hash,
+                lease.target_registration_hash, caller=manager.address,
+            ):
+                raise ValueError("Router migration gate arm rejected")
+            if self.release_registration_fault_point == "arm_after_gate":
+                raise RuntimeError("injected Router arm fault")
+            self.migration_lifecycle = RouterMigrationLifecycle.IDLE
+            return b"".join((
+                b"VMA1" + bytes(28),
+                _model_uint(lease.generation, 32, "arm generation"),
+                lease.arm_id,
+            ))
+        except BaseException:
+            self.migration_lifecycle = lifecycle
+            self.migration_gate.__dict__.clear()
+            self.migration_gate.__dict__.update(gate_snapshot)
+            raise
+
+    def abort_expired_version_migration_v1(
+        self, lease: VersionMigrationLeaseV1, *, manager: object,
+    ) -> bytes:
+        if (type(manager) is not ProtocolVersionManagerV1
+                or manager.router is not self
+                or manager.address != self.version_manager
+                or manager.lifecycle != "ABORTING"
+                or manager.migration_lease != lease
+                or self.migration_lifecycle
+                    is not RouterMigrationLifecycle.IDLE):
+            raise ValueError("Router migration abort frame is not exact")
+        lifecycle = self.migration_lifecycle
+        gate_snapshot = copy.deepcopy(self.migration_gate.__dict__)
+        try:
+            self.migration_lifecycle = RouterMigrationLifecycle.ABORTING
+            if not self.migration_gate._abort_from_manager(
+                lease.generation, lease.source_protocol_version,
+                lease.target_protocol_version, lease.target_manifest_hash,
+                lease.target_registration_hash,
+                cancel_manifest_active=True, caller=manager.address,
+            ):
+                raise ValueError("Router migration gate abort rejected")
+            if not self.migration_gate._publish_abort_active(
+                lease.generation, caller=manager.address
+            ):
+                raise ValueError("Router migration abort publication rejected")
+            if self.release_registration_fault_point == "abort_after_gate":
+                raise RuntimeError("injected Router abort fault")
+            self.migration_lifecycle = RouterMigrationLifecycle.IDLE
+            return b"".join((
+                b"VMB1" + bytes(28), lease.arm_id,
+                _model_uint(lease.generation, 32, "abort generation"),
+            ))
+        except BaseException:
+            self.migration_lifecycle = lifecycle
+            self.migration_gate.__dict__.clear()
+            self.migration_gate.__dict__.update(gate_snapshot)
+            raise
+
+    def _mark_ready_from_protocol(self, protocol: object) -> bytes:
+        """Authenticate READY through the Router lifecycle and exact post-read."""
+
+        manager = self._version_manager_authority
+        history = getattr(protocol, "versioned_history", None)
+        if (type(manager) is not ProtocolVersionManager
+                or type(protocol) is not Protocol
+                or type(history) is not VersionedSettlementHistory
+                or history._router_authority is not self
+                or history.mode != "MIGRATION_ARMED"):
+            raise ValueError("Router READY callback graph is invalid")
+        gate_snapshot = copy.deepcopy(self.migration_gate.__dict__)
+        history_mode = history.mode
+        self._enter_migration_lifecycle(
+            RouterMigrationLifecycle.READYING, manager=manager
+        )
+        try:
+            raw = self.migration_gate._mark_ready_from_protocol(
+                protocol=protocol,
+                caller=protocol.settlement_address,
+                generation=self.migration_gate.generation,
+            )
+            if raw != MARK_MIGRATION_READY_RETURN:
+                raise ValueError("migration READY returned the wrong magic")
+            history.mode = "MIGRATION_READY"
+            if (not self.migration_gate._ready_views_valid_for_activation(protocol)
+                    or history.mode != "MIGRATION_READY"):
+                raise ValueError("migration READY post-read rejected")
+            return raw
+        except BaseException:
+            self.migration_gate.__dict__.clear()
+            self.migration_gate.__dict__.update(gate_snapshot)
+            history.mode = history_mode
+            raise
+        finally:
+            if self.migration_lifecycle is not RouterMigrationLifecycle.IDLE:
+                self._leave_migration_lifecycle_before_publication(
+                    manager=manager
+                )
 
     def _bind_version_manager_once(self, manager: object) -> bool:
         if (self._version_manager_authority is not None
@@ -12164,6 +17647,9 @@ class ActiveSettlementRouter:
                 release_manifest_hash=target_manifest_hash,
             )
             expected_manifest = expected_registration.release_manifest
+            expected_registration_hash = target_registration_hash_v2(
+                expected_registration
+            )
             claimed_inputs = proof.transition_proof.public_inputs
             expected_statement = migration_transition_public_inputs_from_l1(
                 router=self,
@@ -12187,6 +17673,8 @@ class ActiveSettlementRouter:
         ])
         if (type(proof) is not VerifiedMigrationExecutionOutput
                 or proof.target_manifest_hash != target_manifest_hash
+                or proof.target_registration_hash
+                    != expected_registration_hash
                 or proof.target_protocol_version
                     != settlement.protocol_version
                 or type(proof.transition_proof)
@@ -12214,6 +17702,8 @@ class ActiveSettlementRouter:
                 or claimed_inputs.base_core != proof.base_core
                 or claimed_inputs.output_core != proof.output_core
                 or claimed_inputs.target_manifest_hash != target_manifest_hash
+                or claimed_inputs.target_registration_hash
+                    != expected_registration_hash
                 or claimed_inputs.release_system_calldata_hash
                     != release_system_calldata_hash(
                         expected_manifest, claimed_inputs.queue_count
@@ -12258,6 +17748,8 @@ class ActiveSettlementRouter:
     ) -> bool:
         """Permissionlessly bind the exact release deployment after support."""
 
+        if self.migration_lifecycle is not RouterMigrationLifecycle.IDLE:
+            return False
         registration = self.registrations.get(protocol_version)
         authorization = (
             None if registration is None
@@ -12369,10 +17861,998 @@ class ActiveSettlementRouter:
     def forced_queue_address(self) -> str:
         return self.forced_queue.address
 
-    def bootstrap(self, settlement: VersionedSettlementHistory, *, sequence: int,
-                  clock: Clock, caller: str) -> bool:
-        if (type(clock) is not Clock or caller != self.version_manager
+    def active_settlement_state_v1(self) -> bytes:
+        """Return the exact public Router word, including pre-v2 genesis."""
+
+        word = self.migration_gate.router_word
+        active_address = (
+            self.migration_gate.active_settlement_address
+            or self.legacy_launch_hook.proxy_address
+        )
+        return encode_active_settlement_state_v1(ActiveSettlementStateV1(
+            _model_address20(active_address), word.generation,
+            word.active_version, word.target_version,
+            word.target_manifest_hash, word.target_registration_hash,
+            word.phase,
+        ))
+
+    def genesis_campaign_state_return_v1(self) -> bytes:
+        if self.genesis_campaign_return_override is not None:
+            return self.genesis_campaign_return_override
+        campaign = self.genesis_campaign
+        status = 1
+        if campaign is None and self.terminal_genesis_campaign is not None:
+            campaign, status = self.terminal_genesis_campaign
+        if campaign is None:
+            return encode_genesis_campaign_v1(GenesisCampaignStateV1(
+                0, 0, bytes(32), 0, "", 0, bytes(32), bytes(32),
+                bytes(32), 0, 0, 0, 0, 0, 0,
+            ))
+        return encode_genesis_campaign_v1(replace(
+            genesis_campaign_state_v1(campaign), status=status
+        ))
+
+    def _legacy_campaign_state_exact(self) -> GenesisCampaignStateV1:
+        """Decode LGC1 and join it to the Router's retained campaign row."""
+
+        decoded = decode_genesis_campaign_v1(
+            self.genesis_campaign_state_return_v1()
+        )
+        campaign = self.genesis_campaign
+        status = 1
+        if campaign is None and self.terminal_genesis_campaign is not None:
+            campaign, status = self.terminal_genesis_campaign
+        expected = (
+            GenesisCampaignStateV1(
+                0, 0, bytes(32), 0, "", 0, bytes(32), bytes(32),
+                bytes(32), 0, 0, 0, 0, 0, 0,
+            )
+            if campaign is None
+            else replace(genesis_campaign_state_v1(campaign), status=status)
+        )
+        if decoded != expected:
+            raise ValueError("LGC1 does not join retained Router state")
+        return decoded
+
+    def _current_genesis_campaign_exact(self) -> GenesisCampaignV1 | None:
+        campaign = self.genesis_campaign
+        if campaign is None:
+            return None
+        raw = self.genesis_campaign_state_return_v1()
+        decoded = decode_genesis_campaign_v1(raw)
+        if (decoded != genesis_campaign_state_v1(campaign)
+                or campaign.campaign_id != legacy_genesis_campaign_id_v1(
+                    self.legacy_launch_hook.deployment_hash,
+                    campaign.nonce, campaign.generation,
+                    campaign.review_finalized_by_block,
+                    campaign.force_cutoff_block,
+                    campaign.proposal_cutoff_block,
+                    campaign.quiesce_block, campaign.resume_by_block,
+                    campaign.resume_by_timestamp,
+                    campaign.target_address,
+                    campaign.target_protocol_version,
+                    campaign.target_manifest_hash,
+                    campaign.target_registration_hash,
+                    campaign.review_commitment,
+                )):
+            raise ValueError("genesis campaign getter changed exact tuple")
+        word = self.migration_gate.router_word
+        if (word.active_version != 0
+                or word.target_version != 0
+                or word.target_manifest_hash != bytes(32)
+                or word.target_registration_hash != bytes(32)
+                or word.phase is not RouterPhase.ACTIVE
+                or self.forced_queue.active_settlement_address
+                    != self.legacy_launch_hook.proxy_address):
+            raise ValueError("public genesis campaign word is inconsistent")
+        return campaign
+
+    def _schedule_genesis_campaign_for_fixture_v1(
+        self,
+        settlement: VersionedSettlementHistory,
+        *,
+        review_commitment: bytes,
+        review_finalized_by_block: int,
+        force_cutoff_block: int,
+        proposal_cutoff_block: int,
+        quiesce_block: int,
+        resume_by_block: int,
+        resume_by_timestamp: int,
+        executable_at: int,
+        caller: str,
+        clock: Clock,
+    ) -> bytes | None:
+        """Legacy fixture builder; not a modeled production ABI or authority."""
+
+        if (self.migration_lifecycle is not RouterMigrationLifecycle.IDLE
+                or caller != self.version_manager or type(clock) is not Clock
+                or type(settlement) is not VersionedSettlementHistory
+                or type(review_commitment) is not bytes
+                or len(review_commitment) != 32
+                or review_commitment == bytes(32)
+                or any(type(row) is not int or type(row) is bool
+                       for row in (
+                           review_finalized_by_block, force_cutoff_block,
+                           proposal_cutoff_block, quiesce_block,
+                           resume_by_block, resume_by_timestamp, executable_at,
+                       ))
+                or not 0 <= review_finalized_by_block <= UINT64_MAX
+                or not 0 <= force_cutoff_block < proposal_cutoff_block
+                    < quiesce_block < resume_by_block <= UINT64_MAX
+                or proposal_cutoff_block - force_cutoff_block
+                    < GENESIS_REVIEW_FINALITY_BLOCKS
+                or quiesce_block - proposal_cutoff_block
+                    < (LEGACY_QUIESCENT_MIN_REMAINING_BLOCKS
+                       + GENESIS_REVIEW_FINALITY_BLOCKS)
+                or resume_by_block - quiesce_block
+                    > LEGACY_QUIESCENT_BLOCKS_MAX
+                or not 0 < resume_by_timestamp <= UINT64_MAX
+                or not executable_at < resume_by_timestamp
+                or resume_by_timestamp - executable_at
+                    > LEGACY_QUIESCENT_SECONDS_MAX
+                or review_finalized_by_block
+                    > force_cutoff_block - GENESIS_REVIEW_FINALITY_BLOCKS
+                or clock.block_number < review_finalized_by_block
+                    + GENESIS_REVIEW_FINALITY_BLOCKS
+                or clock.block_number >= force_cutoff_block
+                or not 0 <= executable_at <= UINT64_MAX
+                or executable_at < seat_checked_add(
+                    clock.timestamp, SEAT_MIGRATION_MANIFEST_DELAY,
+                    "genesis campaign publication delay",
+                )
+                or self.registrations or self.active_version != 0
+                or self.scheduled_genesis_campaign is not None
+                or self.genesis_campaign is not None
+                or self.legacy_launch_hook.phase
+                    is not LegacyLaunchPhase.ACTIVE
+                or not self.legacy_launch_hook.campaign_surfaces_clean_v1()
+                or self.migration_gate.router_word.phase
+                    is not RouterPhase.ACTIVE):
+            return None
+        try:
+            registration = settlement_registration(
+                self, settlement, activation_block=0,
+                predecessor_version=0,
+                release_manifest_hash=self.bootstrap_release_manifest_hash,
+            )
+            registration_hash = target_registration_hash_v2(registration)
+            preparation = self.legacy_launch_hook \
+                .legacy_genesis_preparation_v1()
+            resume_profile = self.legacy_launch_hook \
+                .legacy_resume_profile_hash
+            if (len(preparation) != 288
+                    or preparation[:32]
+                        != LEGACY_GENESIS_PREPARATION_MAGIC + bytes(28)
+                    or preparation != self.legacy_launch_hook
+                        ._exact_legacy_genesis_preparation_v1()
+                    or resume_profile != legacy_resume_profile_hash_v1(
+                        self.legacy_launch_hook.deployment_hash,
+                        fixture=self.legacy_launch_hook
+                            .resume_descriptor_fixture,
+                    )
+                    or review_commitment
+                        != legacy_genesis_review_commitment_v1(
+                            self.legacy_launch_hook.deployment_hash,
+                            resume_profile, settlement.protocol_version,
+                            _model_fixed_bytes32(
+                                self.bootstrap_release_manifest_hash
+                            ),
+                            registration_hash,
+                        )):
+                return None
+            nonce = seat_checked_add(
+                self.genesis_campaign_nonce, 1, "genesis campaign nonce"
+            )
+            generation = seat_checked_add(
+                self.migration_gate.generation, 1,
+                "genesis campaign generation",
+            )
+            campaign_id = legacy_genesis_campaign_id_v1(
+                self.legacy_launch_hook.deployment_hash,
+                nonce, generation, review_finalized_by_block,
+                force_cutoff_block, proposal_cutoff_block,
+                quiesce_block, resume_by_block, resume_by_timestamp,
+                settlement.address,
+                settlement.protocol_version,
+                _model_fixed_bytes32(self.bootstrap_release_manifest_hash),
+                registration_hash, review_commitment,
+            )
+            if campaign_id in self.terminal_genesis_campaign_ids:
+                return None
+            campaign = GenesisCampaignV1(
+                nonce, campaign_id, generation, settlement,
+                settlement.address, settlement.protocol_version,
+                _model_fixed_bytes32(self.bootstrap_release_manifest_hash),
+                registration_hash, review_commitment,
+                review_finalized_by_block, force_cutoff_block,
+                proposal_cutoff_block, quiesce_block, resume_by_block,
+                resume_by_timestamp,
+            )
+            # Exact encoding is part of scheduling, before any write.
+            decode_genesis_campaign_v1(encode_genesis_campaign_v1(
+                genesis_campaign_state_v1(campaign)
+            ))
+        except BaseException:
+            return None
+        self.genesis_campaign_nonce = nonce
+        self.scheduled_genesis_campaign = ScheduledGenesisCampaignV1(
+            campaign, clock.timestamp, executable_at
+        )
+        return campaign_id
+
+    def _publish_genesis_campaign_for_fixture_v1(
+        self, campaign_id: bytes, *, caller: str, clock: Clock
+    ) -> GenesisCampaignV1 | None:
+        """Legacy fixture builder superseded by PVM/LGP1 publication."""
+
+        scheduled = self.scheduled_genesis_campaign
+        if (self.migration_lifecycle is not RouterMigrationLifecycle.IDLE
+                or not caller or type(clock) is not Clock
+                or type(scheduled) is not ScheduledGenesisCampaignV1
+                or type(campaign_id) is not bytes
+                or campaign_id != scheduled.campaign.campaign_id
+                or clock.timestamp < scheduled.executable_at
+                or clock.block_number >= scheduled.campaign.force_cutoff_block
+                or clock.block_number < (
+                    scheduled.campaign.review_finalized_by_block
+                    + GENESIS_REVIEW_FINALITY_BLOCKS
+                )
+                or self.genesis_campaign is not None
+                or self.legacy_launch_hook.phase
+                    is not LegacyLaunchPhase.ACTIVE
+                or not self.legacy_launch_hook.campaign_surfaces_clean_v1()
+                or self.migration_gate.router_word.phase
+                    is not RouterPhase.ACTIVE):
+            return None
+        gate_snapshot = copy.deepcopy(self.migration_gate.__dict__)
+        scheduled_snapshot = scheduled
+        self.migration_lifecycle = RouterMigrationLifecycle.ARMING
+        try:
+            campaign = scheduled.campaign
+            preparation = self.legacy_launch_hook \
+                .legacy_genesis_preparation_v1()
+            if (len(preparation) != 288
+                    or preparation != self.legacy_launch_hook
+                        ._exact_legacy_genesis_preparation_v1()
+                    or self.legacy_launch_hook.legacy_resume_profile_hash
+                        != legacy_resume_profile_hash_v1(
+                            self.legacy_launch_hook.deployment_hash,
+                            fixture=self.legacy_launch_hook
+                                .resume_descriptor_fixture,
+                        )):
+                raise ValueError("LGPR288 publication preflight changed")
+            self.genesis_campaign = campaign
+            self.scheduled_genesis_campaign = None
+            self.migration_gate.active_protocol_version = 0
+            self.migration_gate.target_protocol_version = 0
+            self.migration_gate.target_manifest_hash = b""
+            self.migration_gate.target_registration_hash = b""
+            self.migration_gate.active_settlement_address = \
+                self.legacy_launch_hook.proxy_address
+            self.migration_gate.mode = "ACTIVE"
+            if (decode_genesis_campaign_v1(
+                    self.genesis_campaign_state_return_v1())
+                    != genesis_campaign_state_v1(campaign)):
+                raise ValueError("published campaign post-read changed")
+            if self.migration_fault_point == "after_genesis_campaign_publish":
+                raise RuntimeError("injected genesis campaign publish fault")
+        except BaseException:
+            self.migration_gate.__dict__.clear()
+            self.migration_gate.__dict__.update(gate_snapshot)
+            self.genesis_campaign = None
+            self.scheduled_genesis_campaign = scheduled_snapshot
+            self.migration_lifecycle = RouterMigrationLifecycle.IDLE
+            return None
+        self.migration_lifecycle = RouterMigrationLifecycle.IDLE
+        return campaign
+
+    def withdraw_genesis_campaign_v1(
+        self,
+        campaign_id: bytes,
+        *,
+        target_address: str,
+        target_registration_hash: bytes,
+        cancellation_commitment: bytes,
+        cancellation_finalized_by_block: int,
+        caller: str,
+        clock: Clock,
+    ) -> bool:
+        """Published genesis campaigns are immutable and noncancelable."""
+
+        _ = (
+            campaign_id, target_address, target_registration_hash,
+            cancellation_commitment, cancellation_finalized_by_block,
+            caller, clock,
+        )
+        return False
+
+    @staticmethod
+    def _campaign_expired(
+        campaign: GenesisCampaignV1, clock: Clock
+    ) -> bool:
+        return (
+            clock.block_number >= campaign.resume_by_block
+            or clock.timestamp >= campaign.resume_by_timestamp
+        )
+
+    def _legacy_campaign_expired_exact(
+        self, generation: int, campaign_id: bytes, clock: Clock
+    ) -> bool:
+        if type(clock) is not Clock:
+            return False
+        campaign = self.genesis_campaign
+        status = 1
+        if campaign is None and self.terminal_genesis_campaign is not None:
+            campaign, status = self.terminal_genesis_campaign
+        if (type(campaign) is not GenesisCampaignV1
+                or status not in {1, 4}
+                or campaign.generation != generation
+                or campaign.campaign_id != campaign_id):
+            return False
+        try:
+            state = self._legacy_campaign_state_exact()
+        except BaseException:
+            return False
+        return (
+            state == replace(genesis_campaign_state_v1(campaign), status=status)
+            and (status == 4 or self._campaign_expired(campaign, clock))
+        )
+
+    def _legacy_campaign_generation_exact(
+        self, campaign_id: bytes
+    ) -> int | None:
+        """Return the generation only after an exact retained LGC1 read."""
+
+        campaign = self.genesis_campaign
+        status = 1
+        if campaign is None and self.terminal_genesis_campaign is not None:
+            campaign, status = self.terminal_genesis_campaign
+        if (type(campaign) is not GenesisCampaignV1
+                or campaign.campaign_id != campaign_id
+                or status not in {1, 4}):
+            return None
+        try:
+            state = self._legacy_campaign_state_exact()
+        except BaseException:
+            return None
+        if state != replace(genesis_campaign_state_v1(campaign), status=status):
+            return None
+        return campaign.generation
+
+    def expire_legacy_genesis_campaign_v1(
+        self,
+        generation: int,
+        campaign_id: bytes,
+        *,
+        caller: str,
+        clock: Clock,
+    ) -> bytes:
+        campaign = self.genesis_campaign
+        if (self.migration_lifecycle is not RouterMigrationLifecycle.IDLE
+                or not caller or type(clock) is not Clock
+                or type(campaign) is not GenesisCampaignV1
+                or campaign.generation != generation
+                or campaign.campaign_id != campaign_id
+                or not self._campaign_expired(campaign, clock)):
+            return b""
+        campaign_snapshot = self.genesis_campaign
+        terminal_ids_snapshot = set(self.terminal_genesis_campaign_ids)
+        terminal_snapshot = self.terminal_genesis_campaign
+        self.migration_lifecycle = RouterMigrationLifecycle.ABORTING
+        try:
+            self.terminal_genesis_campaign_ids.add(campaign_id)
+            self.terminal_genesis_campaign = (campaign, 4)
+            self.genesis_campaign = None
+            if self.migration_fault_point == "after_genesis_campaign_expiry":
+                raise RuntimeError("injected fault after campaign expiry")
+        except BaseException:
+            self.genesis_campaign = campaign_snapshot
+            self.terminal_genesis_campaign_ids = terminal_ids_snapshot
+            self.terminal_genesis_campaign = terminal_snapshot
+            self.migration_lifecycle = RouterMigrationLifecycle.IDLE
+            return b""
+        self.migration_lifecycle = RouterMigrationLifecycle.IDLE
+        return LEGACY_GENESIS_EXPIRE_MAGIC + bytes(28)
+
+    def _freeze_legacy_campaign_endpoints(
+        self, hook: LegacyLaunchHookV1, block_number: int
+    ) -> None:
+        campaign = self._current_genesis_campaign_exact()
+        if campaign is None or hook is not self.legacy_launch_hook:
+            raise ValueError("legacy endpoint freeze has no exact campaign")
+        if (block_number >= campaign.force_cutoff_block
+                and hook.frozen_forced_tail is None):
+            hook.frozen_forced_tail = hook.forced_tail
+        if (block_number >= campaign.proposal_cutoff_block
+                and hook.frozen_next_proposal_id is None):
+            hook.frozen_next_proposal_id = hook.next_proposal_id
+
+    def _legacy_genesis_new_work_blocked(
+        self, hook: LegacyLaunchHookV1, *, block_number: int, forced: bool,
+        timestamp: int = 0,
+    ) -> bool:
+        if hook is not self.legacy_launch_hook:
+            return True
+        campaign = self.genesis_campaign
+        if campaign is None:
+            return False
+        if (block_number >= campaign.resume_by_block
+                or timestamp >= campaign.resume_by_timestamp):
+            return False
+        try:
+            campaign = self._current_genesis_campaign_exact()
+            if campaign is None:
+                return False
+            cutoff = (
+                campaign.force_cutoff_block
+                if forced else campaign.proposal_cutoff_block
+            )
+            if block_number >= cutoff:
+                self._freeze_legacy_campaign_endpoints(hook, block_number)
+                return True
+            return False
+        except BaseException:
+            return True
+
+    def _enter_legacy_genesis_quiescence_from_hook(
+        self, hook: LegacyLaunchHookV1, generation: int,
+        campaign_id: bytes, *, caller: str, clock: Clock
+    ) -> bytes:
+        if (self.migration_lifecycle is not RouterMigrationLifecycle.IDLE
+                or hook is not self.legacy_launch_hook
+                or not caller or type(clock) is not Clock):
+            return b""
+        try:
+            campaign = self._current_genesis_campaign_exact()
+        except BaseException:
+            return b""
+        if (campaign is None or campaign.generation != generation
+                or campaign.campaign_id != campaign_id
+                or clock.block_number < campaign.quiesce_block
+                or self._campaign_expired(campaign, clock)
+                or campaign.resume_by_block - clock.block_number
+                    < LEGACY_QUIESCENT_MIN_REMAINING_BLOCKS
+                or campaign.resume_by_timestamp - clock.timestamp
+                    < LEGACY_QUIESCENT_MIN_REMAINING_SECONDS
+                or campaign.resume_by_block - clock.block_number
+                    > LEGACY_QUIESCENT_BLOCKS_MAX
+                or campaign.resume_by_timestamp - clock.timestamp
+                    > LEGACY_QUIESCENT_SECONDS_MAX
+                or hook.phase is not LegacyLaunchPhase.ACTIVE):
+            return b""
+        try:
+            self._freeze_legacy_campaign_endpoints(hook, clock.block_number)
+        except BaseException:
+            return b""
+        required_expiry = seat_checked_add(
+            campaign.resume_by_timestamp,
+            GENESIS_RESUME_INCLUSION_MARGIN_SECONDS,
+            "genesis resume DA horizon",
+        )
+        scan_state = hook.legacy_genesis_scan_state_v1()
+        if (hook.frozen_forced_tail is None
+                or hook.frozen_next_proposal_id is None
+                or hook.proposal_scan_cursor
+                    != hook.frozen_next_proposal_id
+                or hook.forced_scan_cursor != hook.frozen_forced_tail
+                or hook.proposal_scan_count
+                    != hook.frozen_next_proposal_id
+                        - hook.proposal_scan_start
+                or not hook.proposal_scan_start
+                    <= hook.last_finalized_proposal_id + 1
+                    <= hook.frozen_next_proposal_id
+                or hook.forced_scan_count
+                    != hook.frozen_forced_tail - hook.forced_scan_start
+                or hook.forced_scan_start != hook.forced_head
+                or hook.abandoned_forced_value
+                    != hook.retained_forced_value
+                or hook.scan_call_count > LEGACY_SCAN_CALL_MAX
+                or hook.proposal_scan_bytes + hook.forced_scan_bytes
+                    > LEGACY_SCAN_BYTES_MAX
+                or hook.min_data_expiry < required_expiry
+                or hook.legacy_resume_profile_hash
+                    != legacy_resume_profile_hash_v1(
+                        hook.deployment_hash,
+                        fixture=hook.resume_descriptor_fixture,
+                    )
+                or len(scan_state) != 608
+                or scan_state != hook._exact_legacy_genesis_scan_state_v1()):
+            return b""
+        raw = hook.legacy_launch_state_return_v1()
+        try:
+            active_state = decode_legacy_genesis_state_v1(raw)
+        except BaseException:
+            return b""
+        if active_state != hook.legacy_launch_state_v1():
+            return b""
+        scan_commitment = hook.scan_commitment_v1()
+        boundary_hash = legacy_genesis_boundary_hash_v1(active_state)
+        hook_snapshot = copy.deepcopy({
+            key: value for key, value in hook.__dict__.items()
+            if key != "_router_authority"
+        })
+        try:
+            hook.generation = campaign.generation
+            hook.campaign_id = campaign.campaign_id
+            hook.scan_commitment = scan_commitment
+            hook.quiescent_boundary_hash = boundary_hash
+            hook.phase = LegacyLaunchPhase.QUIESCENT
+            if (decode_legacy_genesis_state_v1(
+                    hook.legacy_launch_state_return_v1())
+                    != hook.legacy_launch_state_v1()):
+                raise ValueError("QUIESCENT LGS1 post-read changed")
+            if hook.fault_point == "after_quiescence":
+                raise RuntimeError("injected genesis quiescence fault")
+        except BaseException:
+            authority = hook._router_authority
+            hook.__dict__.clear()
+            hook.__dict__.update(hook_snapshot)
+            object.__setattr__(hook, "_router_authority", authority)
+            return b""
+        return b"".join((
+            LEGACY_GENESIS_QUIESCENCE_MAGIC + bytes(28),
+            _model_uint(generation, 32, "quiescence generation"),
+            scan_commitment,
+        ))
+
+    def _superseded_resume_expired_genesis_campaign_v1(
+        self, *, caller: str, block_number: int
+    ) -> bool:
+        campaign = self.genesis_campaign
+        hook = self.legacy_launch_hook
+        if (self.migration_lifecycle is not RouterMigrationLifecycle.IDLE
+                or not caller or type(block_number) is not int
+                or type(block_number) is bool
+                or type(campaign) is not GenesisCampaignV1
+                or block_number < campaign.resume_by_block
+                or hook.phase not in {
+                    LegacyLaunchPhase.ACTIVE,
+                    LegacyLaunchPhase.QUIESCENT,
+                }):
+            return False
+        gate_snapshot = copy.deepcopy(self.migration_gate.__dict__)
+        hook_snapshot = copy.deepcopy({
+            key: value for key, value in hook.__dict__.items()
+            if key != "_router_authority"
+        })
+        campaign_snapshot = campaign
+        terminal_snapshot = set(self.terminal_genesis_campaign_ids)
+        self.migration_lifecycle = RouterMigrationLifecycle.ABORTING
+        try:
+            hook.phase = LegacyLaunchPhase.ACTIVE
+            hook._clear_campaign_control()
+            self.terminal_genesis_campaign_ids.add(campaign.campaign_id)
+            self.genesis_campaign = None
+            self.migration_gate.mode = "ACTIVE"
+            self.migration_gate.active_protocol_version = 0
+            self.migration_gate.target_protocol_version = 0
+            self.migration_gate.target_manifest_hash = b""
+            self.migration_gate.target_registration_hash = b""
+            self.migration_gate.active_settlement_address = hook.proxy_address
+            if self.migration_fault_point == "after_genesis_resume":
+                raise RuntimeError("injected genesis resume fault")
+        except BaseException:
+            authority = hook._router_authority
+            hook.__dict__.clear()
+            hook.__dict__.update(hook_snapshot)
+            object.__setattr__(hook, "_router_authority", authority)
+            self.migration_gate.__dict__.clear()
+            self.migration_gate.__dict__.update(gate_snapshot)
+            self.genesis_campaign = campaign_snapshot
+            self.terminal_genesis_campaign_ids = terminal_snapshot
+            self.migration_lifecycle = RouterMigrationLifecycle.IDLE
+            return False
+        self.migration_lifecycle = RouterMigrationLifecycle.IDLE
+        return True
+
+    def _superseded_public_resume_expired_genesis_campaign_v1(
+        self, *, caller: str, clock: Clock
+    ) -> bool:
+        return (
+            type(clock) is Clock
+            and self._superseded_resume_expired_genesis_campaign_v1(
+                caller=caller, block_number=clock.block_number
+            )
+        )
+
+    def genesis_activation_proof_stub_v1(
+        self, settlement: VersionedSettlementHistory
+    ) -> GenesisActivationProofStubV1:
+        campaign = self._current_genesis_campaign_exact()
+        hook = self.legacy_launch_hook
+        if (campaign is None or campaign.target is not settlement
+                or hook.phase is not LegacyLaunchPhase.QUIESCENT
+                or hook.campaign_id != campaign.campaign_id
+                or hook.quiescent_boundary_hash == bytes(32)):
+            raise ValueError("genesis campaign is not quiescent")
+        output_hash = canonical_core_hash_v2(settlement.core)
+        statement = keccak256(
+            b"slot-chain-genesis-activation-statement-v2"
+            + campaign.campaign_id + hook.quiescent_boundary_hash
+            + hook.scan_commitment
+            + campaign.review_commitment
+            + campaign.target_registration_hash + output_hash
+        )
+        return GenesisActivationProofStubV1(
+            campaign.campaign_id, hook.quiescent_boundary_hash,
+            campaign.target_registration_hash, output_hash, statement,
+        )
+
+    def _verify_genesis_activation_proof_v1(
+        self,
+        settlement: VersionedSettlementHistory,
+        proof: GenesisActivationProofStubV1,
+    ) -> bool:
+        try:
+            expected = self.genesis_activation_proof_stub_v1(settlement)
+        except BaseException:
+            return False
+        return (
+            type(proof) is GenesisActivationProofStubV1
+            and type(proof.valid) is bool and proof.valid
+            and proof == expected
+        )
+
+    def _superseded_authorize_legacy_genesis_checkpoint_v1(
+        self, *, executable_at: int, caller: str, clock: Clock
+    ) -> bool:
+        if (self.migration_lifecycle is not RouterMigrationLifecycle.IDLE
+                or caller != self.version_manager or type(clock) is not Clock
+                or type(executable_at) is not int
+                or not 0 <= executable_at <= UINT64_MAX
+                or self.registrations or self.active_version != 0
+                or self.legacy_launch_hook.phase
+                    is not LegacyLaunchPhase.ACTIVE
+                or self.legacy_checkpoint_executable_at is not None
+                or executable_at < seat_checked_add(
+                    clock.timestamp,
+                    SEAT_MIGRATION_MANIFEST_DELAY,
+                    "legacy checkpoint delay",
+                )):
+            return False
+        self.legacy_checkpoint_executable_at = executable_at
+        return True
+
+    def _superseded_checkpoint_legacy_genesis_v1(
+        self, *, caller: str, clock: Clock
+    ) -> LegacyGenesisCheckpointV1 | None:
+        executable_at = self.legacy_checkpoint_executable_at
+        if (self.migration_lifecycle is not RouterMigrationLifecycle.IDLE
+                or not caller or type(clock) is not Clock
+                or executable_at is None or clock.timestamp < executable_at
+                or self.registrations or self.active_version != 0
+                or self.legacy_launch_hook.phase
+                    is not LegacyLaunchPhase.ACTIVE
+                or self.forced_queue.active_settlement_address
+                    != self.legacy_launch_hook.proxy_address):
+            return None
+        snapshot = copy.deepcopy({
+            key: value for key, value in self.legacy_launch_hook.__dict__.items()
+            if key != "_router_authority"
+        })
+        target_state_snapshot = self.retired_target_checkpoint_state
+        self.migration_lifecycle = RouterMigrationLifecycle.ARMING
+        try:
+            if not self.legacy_launch_hook.checkpoint_legacy_genesis_v1(
+                1, router=self
+            ):
+                raise ValueError("legacy checkpoint callback rejected")
+            checkpoint = LegacyGenesisCheckpointV1(
+                self.legacy_launch_hook.generation,
+                self.legacy_launch_hook.checkpoint_id,
+                self.legacy_launch_hook.boundary_hash,
+                self.legacy_launch_hook.live_proposals,
+                self.legacy_launch_hook.native_live_queue,
+                self.legacy_launch_hook.native_escrow,
+            )
+            self.retired_target_checkpoint_state = "RETIRED_TARGET_CLEARED"
+            if self.migration_fault_point \
+                    == "after_genesis_checkpoint_publication":
+                raise RuntimeError("injected genesis checkpoint publish fault")
+            return checkpoint
+        except BaseException:
+            authority = self.legacy_launch_hook._router_authority
+            self.legacy_launch_hook.__dict__.clear()
+            self.legacy_launch_hook.__dict__.update(snapshot)
+            object.__setattr__(
+                self.legacy_launch_hook, "_router_authority", authority
+            )
+            self.retired_target_checkpoint_state = target_state_snapshot
+            return None
+        finally:
+            self.migration_lifecycle = RouterMigrationLifecycle.IDLE
+
+    def _superseded_genesis_target_tuple_v1(
+        self, target: ScheduledGenesisTargetV1 | None
+    ) -> tuple[bytes, str, int, bytes, bytes] | None:
+        if (type(target) is not ScheduledGenesisTargetV1
+                or type(target.settlement) is not VersionedSettlementHistory
+                or type(target.target_registration_hash) is not bytes
+                or len(target.target_registration_hash) != 32
+                or len(self.legacy_launch_hook.checkpoint_id) != 32):
+            return None
+        return (
+            self.legacy_launch_hook.checkpoint_id,
+            target.settlement.address,
+            target.settlement.protocol_version,
+            _model_fixed_bytes32(self.bootstrap_release_manifest_hash),
+            target.target_registration_hash,
+        )
+
+    def _superseded_schedule_genesis_target_v1(
+        self,
+        settlement: VersionedSettlementHistory,
+        *,
+        executable_at: int,
+        caller: str,
+        clock: Clock,
+    ) -> bool:
+        if (self.migration_lifecycle is not RouterMigrationLifecycle.IDLE
+                or caller != self.version_manager or type(clock) is not Clock
+                or type(executable_at) is not int
+                or not 0 <= executable_at <= UINT64_MAX
+                or self.registrations or self.active_version != 0
+                or self.legacy_launch_hook.phase
+                    is not LegacyLaunchPhase.READY
+                or self.retired_target_checkpoint_state != "RETIRED_TARGET_CLEARED"
+                or self.scheduled_genesis_target is not None
+                or self.armed_genesis_target is not None
+                or self.scheduled_genesis_target_cancel is not None
+                or type(settlement) is not VersionedSettlementHistory
+                or executable_at < seat_checked_add(
+                    clock.timestamp,
+                    SEAT_MIGRATION_MANIFEST_DELAY,
+                    "genesis target delay",
+                )):
+            return False
+        try:
+            registration = settlement_registration(
+                self,
+                settlement,
+                activation_block=0,
+                predecessor_version=0,
+                release_manifest_hash=self.bootstrap_release_manifest_hash,
+            )
+            registration_hash = target_registration_hash_v2(registration)
+        except BaseException:
+            return False
+        scheduled = ScheduledGenesisTargetV1(
+            settlement, registration_hash, clock.timestamp, executable_at
+        )
+        target_tuple = self._genesis_target_tuple_v1(scheduled)
+        if (target_tuple is None
+                or target_tuple in self.canceled_genesis_target_tuples):
+            return False
+        self.scheduled_genesis_target = scheduled
+        return True
+
+    def _superseded_schedule_genesis_target_cancel_v1(
+        self,
+        *,
+        checkpoint_id: bytes,
+        target_address: str,
+        target_protocol_version: int,
+        target_manifest_hash: bytes,
+        target_registration_hash: bytes,
+        executable_at: int,
+        caller: str,
+        clock: Clock,
+    ) -> bool:
+        target = self.armed_genesis_target
+        target_tuple = self._genesis_target_tuple_v1(target)
+        if (self.migration_lifecycle is not RouterMigrationLifecycle.IDLE
+                or caller != self.version_manager
+                or type(clock) is not Clock
+                or type(checkpoint_id) is not bytes
+                or len(checkpoint_id) != 32
+                or type(target_address) is not str or not target_address
+                or type(target_protocol_version) is not int
+                or not 0 < target_protocol_version <= UINT64_MAX
+                or type(target_manifest_hash) is not bytes
+                or len(target_manifest_hash) != 32
+                or type(target_registration_hash) is not bytes
+                or len(target_registration_hash) != 32
+                or type(executable_at) is not int
+                or not 0 <= executable_at <= UINT64_MAX
+                or self.legacy_launch_hook.phase
+                    is not LegacyLaunchPhase.READY
+                or self.retired_target_checkpoint_state != "READY"
+                or self.scheduled_genesis_target_cancel is not None
+                or target_tuple is None
+                or target_tuple != (
+                    checkpoint_id,
+                    target_address,
+                    target_protocol_version,
+                    target_manifest_hash,
+                    target_registration_hash,
+                )
+                or executable_at < seat_checked_add(
+                    clock.timestamp,
+                    SEAT_MIGRATION_MANIFEST_DELAY,
+                    "genesis target cancel delay",
+                )):
+            return False
+        self.scheduled_genesis_target_cancel = \
+            ScheduledGenesisTargetCancelV1(
+                checkpoint_id,
+                target_address,
+                target_protocol_version,
+                target_manifest_hash,
+                target_registration_hash,
+                clock.timestamp,
+                executable_at,
+            )
+        return True
+
+    def _superseded_cancel_genesis_target_v1(
+        self,
+        *,
+        checkpoint_id: bytes,
+        target_address: str,
+        target_protocol_version: int,
+        target_manifest_hash: bytes,
+        target_registration_hash: bytes,
+        caller: str,
+        clock: Clock,
+    ) -> tuple[str, str] | None:
+        cancel = self.scheduled_genesis_target_cancel
+        target = self.armed_genesis_target
+        target_tuple = self._genesis_target_tuple_v1(target)
+        supplied_tuple = (
+            checkpoint_id,
+            target_address,
+            target_protocol_version,
+            target_manifest_hash,
+            target_registration_hash,
+        )
+        if (self.migration_lifecycle is not RouterMigrationLifecycle.IDLE
+                or not caller or type(clock) is not Clock
+                or type(checkpoint_id) is not bytes
+                or len(checkpoint_id) != 32
+                or type(target_address) is not str or not target_address
+                or type(target_protocol_version) is not int
+                or not 0 < target_protocol_version <= UINT64_MAX
+                or type(target_manifest_hash) is not bytes
+                or len(target_manifest_hash) != 32
+                or type(target_registration_hash) is not bytes
+                or len(target_registration_hash) != 32
+                or self.legacy_launch_hook.phase
+                    is not LegacyLaunchPhase.READY
+                or self.retired_target_checkpoint_state != "READY"
+                or type(cancel) is not ScheduledGenesisTargetCancelV1
+                or clock.timestamp < cancel.executable_at
+                or target_tuple is None or target_tuple != supplied_tuple
+                or supplied_tuple != (
+                    cancel.checkpoint_id,
+                    cancel.target_address,
+                    cancel.target_protocol_version,
+                    cancel.target_manifest_hash,
+                    cancel.target_registration_hash,
+                )):
+            return None
+        target_snapshot = (
+            self.scheduled_genesis_target,
+            self.armed_genesis_target,
+            self.scheduled_genesis_target_cancel,
+            set(self.canceled_genesis_target_tuples),
+            self.retired_target_checkpoint_state,
+        )
+        self.migration_lifecycle = RouterMigrationLifecycle.ABORTING
+        try:
+            self.canceled_genesis_target_tuples.add(supplied_tuple)
+            self.scheduled_genesis_target = None
+            self.armed_genesis_target = None
+            self.scheduled_genesis_target_cancel = None
+            self.retired_target_checkpoint_state = "RETIRED_TARGET_CLEARED"
+            if self.migration_fault_point == "after_genesis_target_cancel":
+                raise RuntimeError("injected genesis target cancel fault")
+            transition = ("READY", "RETIRED_TARGET_CLEARED")
+        except BaseException:
+            self.scheduled_genesis_target = target_snapshot[0]
+            self.armed_genesis_target = target_snapshot[1]
+            self.scheduled_genesis_target_cancel = target_snapshot[2]
+            self.canceled_genesis_target_tuples = target_snapshot[3]
+            self.retired_target_checkpoint_state = target_snapshot[4]
+            # ABORTING has no callbacks; IDLE is still the final rollback write.
+            self.migration_lifecycle = RouterMigrationLifecycle.IDLE
+            return None
+        # Router IDLE is deliberately the final successful cancellation write.
+        self.migration_lifecycle = RouterMigrationLifecycle.IDLE
+        return transition
+
+    def _superseded_arm_genesis_target_v1(
+        self, *, caller: str, clock: Clock
+    ) -> ScheduledGenesisTargetV1 | None:
+        scheduled = self.scheduled_genesis_target
+        if (self.migration_lifecycle is not RouterMigrationLifecycle.IDLE
+                or not caller or type(clock) is not Clock
+                or self.legacy_launch_hook.phase
+                    is not LegacyLaunchPhase.READY
+                or self.retired_target_checkpoint_state != "RETIRED_TARGET_CLEARED"
+                or scheduled is None or self.armed_genesis_target is not None
+                or clock.timestamp < scheduled.executable_at):
+            return None
+        target_snapshot = (
+            self.scheduled_genesis_target,
+            self.armed_genesis_target,
+            self.retired_target_checkpoint_state,
+        )
+        self.migration_lifecycle = RouterMigrationLifecycle.READYING
+        try:
+            self.armed_genesis_target = scheduled
+            self.scheduled_genesis_target = None
+            self.retired_target_checkpoint_state = "READY"
+            if self.migration_fault_point == "after_genesis_target_ready":
+                raise RuntimeError("injected genesis target READY fault")
+        except BaseException:
+            self.scheduled_genesis_target = target_snapshot[0]
+            self.armed_genesis_target = target_snapshot[1]
+            self.retired_target_checkpoint_state = target_snapshot[2]
+            # READYING has no callbacks; IDLE is the final rollback write.
+            self.migration_lifecycle = RouterMigrationLifecycle.IDLE
+            return None
+        # Router IDLE is deliberately the final successful arm write.
+        self.migration_lifecycle = RouterMigrationLifecycle.IDLE
+        return scheduled
+
+    def _superseded_genesis_activation_proof_stub_v1(
+        self, settlement: VersionedSettlementHistory
+    ) -> GenesisActivationProofStubV1:
+        armed = self.armed_genesis_target
+        if (self.legacy_launch_hook.phase is not LegacyLaunchPhase.READY
+                or self.retired_target_checkpoint_state != "READY"
+                or armed is None or armed.settlement is not settlement):
+            raise ValueError("genesis target is not armed")
+        output_hash = canonical_core_hash_v2(settlement.core)
+        statement = keccak256(
+            b"slot-chain-genesis-activation-statement-v2"
+            + self.legacy_launch_hook.checkpoint_id
+            + self.legacy_launch_hook.boundary_hash
+            + armed.target_registration_hash
+            + output_hash
+        )
+        return GenesisActivationProofStubV1(
+            self.legacy_launch_hook.checkpoint_id,
+            self.legacy_launch_hook.boundary_hash,
+            armed.target_registration_hash,
+            output_hash,
+            statement,
+        )
+
+    def _superseded_verify_genesis_activation_proof_v1(
+        self,
+        settlement: VersionedSettlementHistory,
+        proof: GenesisActivationProofStubV1,
+    ) -> bool:
+        try:
+            expected = self.genesis_activation_proof_stub_v1(settlement)
+        except BaseException:
+            return False
+        return (
+            type(proof) is GenesisActivationProofStubV1
+            and type(proof.valid) is bool
+            and proof.valid is True
+            and proof == expected
+        )
+
+    def _superseded_bootstrap(
+        self,
+        settlement: VersionedSettlementHistory,
+        *,
+        sequence: int,
+        clock: Clock,
+        caller: str,
+        proof: GenesisActivationProofStubV1 | None,
+    ) -> bool:
+        armed = self.armed_genesis_target
+        if (self.migration_lifecycle is not RouterMigrationLifecycle.IDLE
+                or type(clock) is not Clock or not caller
                 or self.registrations or settlement.protocol_version <= 0
+                or self.active_version != 0
+                or self.genesis_activation_receipt is not None
+                or self.retired_target_checkpoint_state != "READY"
+                or type(armed) is not ScheduledGenesisTargetV1
+                or armed.settlement is not settlement
                 or settlement.migration_gate is not self.migration_gate
                 or settlement.header_oracle is not self.header_oracle
                 or (
@@ -12397,7 +18877,14 @@ class ActiveSettlementRouter:
                 or settlement.builder_registry_id != self.builder_registry_id
                 or settlement.schedule_oracle_id != self.schedule_oracle_id
                 or self.forced_queue.active_settlement_address
-                    not in {"", settlement.address}
+                    != self.legacy_launch_hook.proxy_address
+                or self.legacy_launch_hook.proxy_address
+                    in {"", settlement.address, self.address}
+                or self.legacy_launch_hook.phase
+                    is not LegacyLaunchPhase.READY
+                or self.legacy_launch_hook.generation != 1
+                or not self.legacy_launch_hook.checkpoint_id
+                or not self.legacy_launch_hook.boundary_hash
                 or settlement.inbox_apply_descriptor
                     != self.inbox_apply_descriptor
                 or (
@@ -12408,6 +18895,30 @@ class ActiveSettlementRouter:
                 or settlement.core.message_cursor != self.forced_queue.cursor
                 or not settlement.nonproxy or not settlement.selfdestruct_disabled):
             return False
+
+        # All statement and registration checks precede ACTIVATING and the
+        # first target/Queue/source write.  A bad or stale proof therefore
+        # cannot even transiently freeze legacy or publish target state.
+        try:
+            activation_block = clock.block_number
+            registration = settlement_registration(
+                self,
+                settlement,
+                activation_block=activation_block,
+                predecessor_version=0,
+                release_manifest_hash=self.bootstrap_release_manifest_hash,
+            )
+            registration_hash = target_registration_hash_v2(registration)
+            if (sequence != 0 or self.forced_queue.count != 0
+                    or self.forced_queue.cursor != 0
+                    or registration_hash != armed.target_registration_hash
+                    or not self._verify_genesis_activation_proof_v1(
+                        settlement, proof
+                    )):
+                return False
+        except BaseException:
+            return False
+
         authority_keys = {
             "migration_gate", "forced_queue", "inbox_apply_descriptor", "live_protocol",
             "_router_authority",
@@ -12425,61 +18936,183 @@ class ActiveSettlementRouter:
         registrations_snapshot = dict(self.registrations)
         active_snapshot = self.active_version
         used_targets_snapshot = set(self.used_target_addresses)
+        receipts_snapshot = dict(self.activation_receipts)
+        receipt_keys_snapshot = dict(
+            self.activation_receipt_keys_by_generation
+        )
+        successor_keys_snapshot = dict(
+            self.successor_receipt_key_by_old_authorization_id
+        )
         ingress_snapshot = (
             self._authorized_ingress,
             self._authorized_ingress_by_address,
             self._authorized_ingress_adapter_ids,
             dict(self._profile_deployments_by_version),
         )
+        legacy_snapshot = copy.deepcopy({
+            key: value for key, value in self.legacy_launch_hook.__dict__.items()
+            if key != "_router_authority"
+        })
+        lifecycle_snapshot = (
+            self.migration_lifecycle, self._migration_callback_frame
+        )
+        genesis_state_snapshot = (
+            self.scheduled_genesis_target,
+            self.armed_genesis_target,
+            self.scheduled_genesis_target_cancel,
+            set(self.canceled_genesis_target_tuples),
+            self.retired_target_checkpoint_state,
+            self.genesis_activation_receipt,
+            list(self.genesis_activation_trace),
+        )
         try:
-            activation_block = clock.block_number
+            self.genesis_activation_trace = ["VERIFIED"]
+            candidate_digest = keccak256(
+                b"slot-chain-genesis-import-v2"
+                + self.legacy_launch_hook.checkpoint_id
+                + proof.statement_digest
+                + registration_hash
+                + canonical_core_hash_v2(settlement.core)
+            ).hex()
+            context = MigrationCanonicalContextV2(
+                "GENESIS_IMPORT",
+                self.legacy_launch_hook.generation,
+                0,
+                settlement.protocol_version,
+                _model_fixed_bytes32(self.bootstrap_release_manifest_hash),
+                registration_hash,
+                self.legacy_launch_hook.checkpoint_id,
+                self.legacy_launch_hook.boundary_hash,
+                self.legacy_launch_hook.proxy_address,
+                settlement.address,
+                0,
+                0,
+                candidate_digest,
+                copy.deepcopy(settlement.core),
+                canonical_core_hash_v2(settlement.core),
+                activation_block,
+                0,
+                0,
+                self.forced_queue.address,
+                self.forced_queue.root,
+                self.forced_queue.count,
+                0,
+                self.forced_queue.accounted_liabilities,
+                self.forced_queue.total_claimable or 0,
+                self.legacy_launch_hook.owner,
+            )
+            gate.mode = "ACTIVATING"
+            self.migration_lifecycle = RouterMigrationLifecycle.ACTIVATING
+            object.__setattr__(self, "_migration_callback_frame", context)
+            self.genesis_activation_trace.append("ACTIVATING")
+            if not self.legacy_launch_hook.finalize_legacy_cutover_v1(
+                context.router_generation,
+                context.target_registration_hash,
+                context.candidate_digest,
+                context.output_core_hash,
+                router=self,
+            ):
+                raise ValueError("legacy genesis finalize rejected")
+            self.genesis_activation_trace.append("LGFN")
+            if self.migration_fault_point == "after_source_freeze":
+                raise RuntimeError("injected Router fault after legacy finalize")
+            target_return = settlement._adopt_migration_canonical_v2(
+                context, router=self
+            )
+            if (target_return != context.target_return
+                    or settlement.current_sequence != 0
+                    or settlement.core != context.output_core
+                    or settlement.last_canonical_l1_block != activation_block):
+                raise ValueError("genesis target MCAN96 post-read rejected")
+            self.genesis_activation_trace.append("MCAN")
+            if self.migration_fault_point == "after_target_adopt":
+                raise RuntimeError("injected Router fault after target adopt")
+            if self.migration_fault_point == "before_queue_migrate":
+                raise RuntimeError("injected Router fault before Queue migrate")
             object.__setattr__(self, "_queue_transition_frame", (
-                "BOOTSTRAP", id(settlement), settlement.address
+                "MIGRATE", id(context), context.commitment.hex()
             ))
             try:
-                queue_bootstrapped = (
-                    gate._bootstrap_from_router(
-                    settlement.protocol_version, self.version_manager
-                    )
-                    and settlement._install_imported_from_router(
-                        router=self, sequence=sequence, clock=clock
-                    )
-                    and self.forced_queue
-                    ._bootstrap_active_settlement_from_router(
-                        expected_old=(
-                            self.forced_queue.active_settlement_address
-                        ),
-                        settlement=settlement,
-                        router=self,
-                    )
+                queue_bootstrapped = self.forced_queue._migrate_from_router(
+                    expected_old=self.legacy_launch_hook.proxy_address,
+                    expected_new=settlement.address,
+                    expected_start=0,
+                    expected_end=0,
+                    beneficiary=context.beneficiary,
+                    router=self,
                 )
             finally:
                 object.__setattr__(self, "_queue_transition_frame", None)
-            if not queue_bootstrapped:
+            if (queue_bootstrapped != context.queue_return
+                    or len(queue_bootstrapped)
+                        != MIGRATION_QUEUE_RETURN_LENGTH):
                 raise ValueError("router bootstrap transition rejected")
-            settlement.mode = "ACTIVE"
-            if (settlement.live_protocol is not None
-                    and not gate._bind_active_data_session_from_router(
-                        settlement.address,
-                        settlement.live_protocol.data_session_config_hash_v1(),
-                    )):
-                raise ValueError("router DataSession binding rejected")
-            self.registrations[settlement.protocol_version] = (
-                settlement_registration(
-                    self,
-                    settlement,
-                    activation_block=activation_block,
-                    predecessor_version=0,
-                    release_manifest_hash=self.bootstrap_release_manifest_hash,
-                )
-            )
+            self.genesis_activation_trace.append("QMIG")
+            source_maps = self.legacy_launch_hook \
+                .migration_activation_post_state_v2(router=self)
+            target_maps = settlement.migration_adoption_state_v2(router=self)
+            queue_maps = self.forced_queue \
+                .migration_activation_post_state_v2(router=self)
+            if (source_maps != context.source_maps_return
+                    or target_maps != context.target_maps_return
+                    or queue_maps != context.queue_maps_return
+                    or any(len(row) != MIGRATION_ADOPTION_STATE_LENGTH
+                           for row in (source_maps, target_maps, queue_maps))):
+                raise ValueError("genesis MAPS post-reads rejected")
+            self.genesis_activation_trace.append("MAPS")
+
+            # Registration and receipt are written only after all three exact
+            # post-reads.  They share this outer journal with Queue authority.
+            self.registrations[settlement.protocol_version] = registration
             if not self._install_profile_deployments(
-                self.registrations[settlement.protocol_version],
-                manager=None,
+                registration, manager=None
             ):
                 raise ValueError("bootstrap ingress deployment failed")
-            self.active_version = settlement.protocol_version
             self.used_target_addresses.add(settlement.address)
+            self.active_version = settlement.protocol_version
+            self.genesis_activation_receipt = MigrationActivationReceipt(
+                context.router_generation,
+                0,
+                settlement.protocol_version,
+                self.legacy_launch_hook.proxy_address,
+                settlement.address,
+                context.target_manifest_hash,
+                context.target_registration_hash,
+                0,
+                bytes(32),
+                bytes(32),
+                activation_block,
+                None,
+                None,
+            )
+            self.genesis_activation_trace.append("REGISTERED")
+            if self.migration_fault_point == "after_registration":
+                raise RuntimeError("injected Router fault after registration")
+            data_config_hash = (
+                b"" if settlement.live_protocol is None
+                else settlement.live_protocol.data_session_config_hash_v1()
+            )
+            self.scheduled_genesis_target = None
+            self.armed_genesis_target = None
+            self.scheduled_genesis_target_cancel = None
+            self.retired_target_checkpoint_state = "ACTIVE"
+            if self.migration_fault_point == "before_publication":
+                raise RuntimeError("injected Router fault before publication")
+            if not gate._bootstrap_from_router(
+                settlement.protocol_version,
+                self.version_manager,
+                active_settlement_address=(
+                    settlement.address
+                    if settlement.live_protocol is not None else ""
+                ),
+                active_data_session_config_hash=data_config_hash,
+            ):
+                raise ValueError("genesis public ACTIVE publication rejected")
+            self.genesis_activation_trace.append("PUBLISHED")
+            object.__setattr__(self, "_migration_callback_frame", None)
+            self.genesis_activation_trace.append("IDLE")
+            # Router IDLE is deliberately the final successful state write.
+            self.migration_lifecycle = RouterMigrationLifecycle.IDLE
             return True
         except BaseException:
             settlement.__dict__.clear()
@@ -12505,6 +19138,10 @@ class ActiveSettlementRouter:
             self.registrations = registrations_snapshot
             self.active_version = active_snapshot
             self.used_target_addresses = used_targets_snapshot
+            self.activation_receipts = receipts_snapshot
+            self.activation_receipt_keys_by_generation = receipt_keys_snapshot
+            self.successor_receipt_key_by_old_authorization_id = \
+                successor_keys_snapshot
             object.__setattr__(
                 self, "_authorized_ingress", ingress_snapshot[0]
             )
@@ -12515,17 +19152,392 @@ class ActiveSettlementRouter:
                 self, "_authorized_ingress_adapter_ids", ingress_snapshot[2]
             )
             self._profile_deployments_by_version = ingress_snapshot[3]
+            authority = self.legacy_launch_hook._router_authority
+            self.legacy_launch_hook.__dict__.clear()
+            self.legacy_launch_hook.__dict__.update(legacy_snapshot)
+            object.__setattr__(
+                self.legacy_launch_hook, "_router_authority", authority
+            )
+            self.migration_lifecycle = lifecycle_snapshot[0]
+            object.__setattr__(
+                self, "_migration_callback_frame", lifecycle_snapshot[1]
+            )
+            self.scheduled_genesis_target = genesis_state_snapshot[0]
+            self.armed_genesis_target = genesis_state_snapshot[1]
+            self.scheduled_genesis_target_cancel = genesis_state_snapshot[2]
+            self.canceled_genesis_target_tuples = genesis_state_snapshot[3]
+            self.retired_target_checkpoint_state = genesis_state_snapshot[4]
+            self.genesis_activation_receipt = genesis_state_snapshot[5]
+            self.genesis_activation_trace = genesis_state_snapshot[6]
+            return False
+
+    def bootstrap(
+        self,
+        settlement: VersionedSettlementHistory,
+        *,
+        sequence: int,
+        clock: Clock,
+        caller: str,
+        proof: GenesisActivationProofStubV1 | None,
+    ) -> bool:
+        """Atomically activate one quiescent, proof-bound genesis campaign."""
+
+        if (self.migration_lifecycle is not RouterMigrationLifecycle.IDLE
+                or type(clock) is not Clock or not caller
+                or type(settlement) is not VersionedSettlementHistory
+                or self.registrations or self.active_version != 0
+                or self.genesis_activation_receipt is not None
+                or sequence != 0
+                or settlement.migration_gate is not self.migration_gate
+                or settlement.header_oracle is not self.header_oracle
+                or (settlement.live_protocol is not None
+                    and settlement.live_protocol.migration_gate
+                        is not self.migration_gate)
+                or (settlement.live_protocol is not None
+                    and settlement.live_protocol.header_oracle
+                        is not self.header_oracle)
+                or settlement.forced_queue is not self.forced_queue
+                or self.forced_queue.router_address != self.address
+                or self.forced_queue.runtime_hash
+                    != self.forced_queue_runtime_hash
+                or self.forced_queue.config_hash
+                    != self.forced_queue_config_hash
+                or not self.forced_queue.nonproxy
+                or not self.forced_queue.selfdestruct_disabled
+                or self.forced_queue.delegate_target_reachable
+                or settlement.builder_registry_id != self.builder_registry_id
+                or settlement.schedule_oracle_id != self.schedule_oracle_id
+                or self.forced_queue.active_settlement_address
+                    != self.legacy_launch_hook.proxy_address
+                or self.legacy_launch_hook.proxy_address
+                    in {"", settlement.address, self.address}
+                or settlement.inbox_apply_descriptor
+                    != self.inbox_apply_descriptor
+                or (settlement.live_protocol is not None
+                    and settlement.live_protocol.inbox_apply_descriptor
+                        != settlement.inbox_apply_descriptor)
+                or self.forced_queue.count != 0
+                or self.forced_queue.cursor != 0
+                or settlement.core.message_cursor != 0
+                or not settlement.nonproxy
+                or not settlement.selfdestruct_disabled):
+            return False
+        try:
+            campaign = self._current_genesis_campaign_exact()
+            hook = self.legacy_launch_hook
+            if (campaign is None or campaign.target is not settlement
+                    or not campaign.quiesce_block <= clock.block_number
+                        < campaign.resume_by_block
+                    or clock.timestamp >= campaign.resume_by_timestamp
+                    or hook.phase is not LegacyLaunchPhase.QUIESCENT
+                    or hook.generation != campaign.generation
+                    or hook.campaign_id != campaign.campaign_id
+                    or hook.quiescent_boundary_hash == bytes(32)
+                    or hook.legacy_resume_profile_hash
+                        != legacy_resume_profile_hash_v1(
+                            hook.deployment_hash,
+                            fixture=hook.resume_descriptor_fixture,
+                        )
+                    or hook.scan_commitment != hook.scan_commitment_v1()
+                    or hook.legacy_genesis_scan_state_v1()
+                        != hook._exact_legacy_genesis_scan_state_v1()
+                    or hook.forced_scan_start != hook.forced_head
+                    or hook.abandoned_forced_value
+                        != hook.retained_forced_value
+                    or self.migration_gate.router_word.phase
+                        is not RouterPhase.ACTIVE):
+                return False
+            registration = settlement_registration(
+                self, settlement, activation_block=clock.block_number,
+                predecessor_version=0,
+                release_manifest_hash=self.bootstrap_release_manifest_hash,
+            )
+            registration_hash = target_registration_hash_v2(registration)
+            if registration_hash != campaign.target_registration_hash:
+                return False
+        except BaseException:
+            return False
+
+        authority_keys = {
+            "migration_gate", "forced_queue", "inbox_apply_descriptor",
+            "live_protocol", "_router_authority",
+        }
+        settlement_snapshot = copy.deepcopy({
+            key: value for key, value in settlement.__dict__.items()
+            if key not in authority_keys
+        })
+        gate = settlement.migration_gate
+        live_protocol = settlement.live_protocol
+        local_inbox_descriptor = settlement.inbox_apply_descriptor
+        prior_router_authority = settlement._router_authority
+        gate_snapshot = copy.deepcopy(gate.__dict__)
+        queue_snapshot = self.forced_queue._transaction_snapshot()
+        registrations_snapshot = dict(self.registrations)
+        active_snapshot = self.active_version
+        used_targets_snapshot = set(self.used_target_addresses)
+        receipts_snapshot = dict(self.activation_receipts)
+        receipt_keys_snapshot = dict(
+            self.activation_receipt_keys_by_generation
+        )
+        successor_keys_snapshot = dict(
+            self.successor_receipt_key_by_old_authorization_id
+        )
+        ingress_snapshot = (
+            self._authorized_ingress,
+            self._authorized_ingress_by_address,
+            self._authorized_ingress_adapter_ids,
+            dict(self._profile_deployments_by_version),
+        )
+        hook_snapshot = copy.deepcopy({
+            key: value for key, value in hook.__dict__.items()
+            if key != "_router_authority"
+        })
+        router_snapshot = (
+            self.migration_lifecycle, self._migration_callback_frame,
+            self.genesis_campaign, set(self.terminal_genesis_campaign_ids),
+            self.terminal_genesis_campaign,
+            self.genesis_activation_receipt,
+            list(self.genesis_activation_trace),
+        )
+        try:
+            # The private lifecycle closes all Router mutators before the first
+            # source read.  Public state remains ARMED until LGAR succeeds.
+            self.migration_lifecycle = RouterMigrationLifecycle.ACTIVATING
+            self.genesis_activation_trace = ["ACTIVATING"]
+            if self.migration_fault_point == "after_genesis_activating":
+                raise RuntimeError("injected fault after ACTIVATING")
+
+            quiescent_raw = hook.legacy_launch_state_return_v1()
+            quiescent_state = decode_legacy_genesis_state_v1(quiescent_raw)
+            if (quiescent_state != hook.legacy_launch_state_v1()
+                    or quiescent_state.phase
+                        is not LegacyLaunchPhase.QUIESCENT
+                    or quiescent_state.campaign_id != campaign.campaign_id
+                    or quiescent_state.scan_commitment
+                        != hook.scan_commitment):
+                raise ValueError("QUIESCENT LGS1 exact read rejected")
+            self.genesis_activation_trace.append("LGS_QUIESCENT")
+
+            # Proof verification deliberately occurs inside the same rollback
+            # journal but before LGAR, LGFN, target, or Queue writes.
+            if not self._verify_genesis_activation_proof_v1(
+                    settlement, proof):
+                raise ValueError("genesis activation proof rejected")
+            self.genesis_activation_trace.append("VERIFIED")
+            if self.migration_fault_point == "after_genesis_proof":
+                raise RuntimeError("injected fault after proof")
+
+            boundary_hash = hook.quiescent_boundary_hash
+            arm_return = hook.arm_legacy_genesis_v1(
+                campaign, boundary_hash, router=self
+            )
+            expected_arm = b"".join((
+                LEGACY_GENESIS_ARM_MAGIC + bytes(28),
+                _model_uint(campaign.generation, 32, "legacy generation"),
+                campaign.campaign_id, hook.arm_id,
+            ))
+            if len(arm_return) != 128 or arm_return != expected_arm:
+                raise ValueError("LGAR128 return rejected")
+            self.genesis_activation_trace.append("LGAR")
+            if self.migration_fault_point == "after_genesis_arm":
+                raise RuntimeError("injected fault after LGAR")
+
+            ready_raw = hook.legacy_launch_state_return_v1()
+            ready_state = decode_legacy_genesis_state_v1(ready_raw)
+            if (ready_state != hook.legacy_launch_state_v1()
+                    or ready_state.phase is not LegacyLaunchPhase.READY
+                    or gate.router_word.phase is not RouterPhase.ACTIVE):
+                raise ValueError("transaction-local READY post-read rejected")
+            self.genesis_activation_trace.append("LGS_READY")
+            if self.migration_fault_point == "after_genesis_ready":
+                raise RuntimeError("injected fault after READY")
+
+            output_hash = canonical_core_hash_v2(settlement.core)
+            candidate_digest_bytes = keccak256(
+                b"slot-chain-genesis-import-v2" + campaign.campaign_id
+                + boundary_hash + proof.statement_digest
+                + registration_hash + output_hash
+            )
+            context = MigrationCanonicalContextV2(
+                "GENESIS_IMPORT", campaign.generation, 0,
+                settlement.protocol_version,
+                campaign.target_manifest_hash, registration_hash,
+                campaign.campaign_id, boundary_hash,
+                hook.proxy_address, settlement.address, 0, 0,
+                candidate_digest_bytes.hex(), copy.deepcopy(settlement.core),
+                output_hash, clock.block_number, 0, 0,
+                self.forced_queue.address, self.forced_queue.root,
+                self.forced_queue.count, 0,
+                self.forced_queue.accounted_liabilities,
+                self.forced_queue.total_claimable or 0, hook.owner,
+            )
+            object.__setattr__(self, "_migration_callback_frame", context)
+            finalize_return = hook.finalize_legacy_cutover_v1(
+                campaign, candidate_digest_bytes, output_hash,
+                clock.block_number, boundary_hash, router=self,
+            )
+            expected_finalize = b"".join((
+                LEGACY_GENESIS_FINALIZE_MAGIC + bytes(28),
+                hook.launch_id, hook.post_state_commitment,
+            ))
+            if (len(finalize_return) != 96
+                    or finalize_return != expected_finalize):
+                raise ValueError("LGFN96 return rejected")
+            self.genesis_activation_trace.append("LGFN")
+            if self.migration_fault_point == "after_source_freeze":
+                raise RuntimeError("injected Router fault after LGFN")
+
+            target_return = settlement._adopt_migration_canonical_v2(
+                context, router=self
+            )
+            if (target_return != context.target_return
+                    or len(target_return)
+                        != MIGRATION_CANONICAL_RETURN_LENGTH
+                    or settlement.current_sequence != 0
+                    or settlement.core != context.output_core
+                    or settlement.last_canonical_l1_block
+                        != clock.block_number):
+                raise ValueError("genesis target MCAN96 post-read rejected")
+            self.genesis_activation_trace.append("MCAN")
+            if self.migration_fault_point == "after_target_adopt":
+                raise RuntimeError("injected Router fault after MCAN")
+            if self.migration_fault_point == "before_queue_migrate":
+                raise RuntimeError("injected Router fault before QMIG")
+
+            object.__setattr__(self, "_queue_transition_frame", (
+                "MIGRATE", id(context), context.commitment.hex()
+            ))
+            try:
+                queue_return = self.forced_queue._migrate_from_router(
+                    expected_old=hook.proxy_address,
+                    expected_new=settlement.address,
+                    expected_start=0, expected_end=0,
+                    beneficiary=context.beneficiary, router=self,
+                )
+            finally:
+                object.__setattr__(self, "_queue_transition_frame", None)
+            if (queue_return != context.queue_return
+                    or len(queue_return) != MIGRATION_QUEUE_RETURN_LENGTH):
+                raise ValueError("genesis QMIG128 return rejected")
+            self.genesis_activation_trace.append("QMIG")
+
+            source_maps = hook.migration_activation_post_state_v2(router=self)
+            target_maps = settlement.migration_adoption_state_v2(router=self)
+            queue_maps = self.forced_queue \
+                .migration_activation_post_state_v2(router=self)
+            if (source_maps != context.source_maps_return
+                    or target_maps != context.target_maps_return
+                    or queue_maps != context.queue_maps_return
+                    or any(len(row) != MIGRATION_ADOPTION_STATE_LENGTH
+                           for row in (source_maps, target_maps, queue_maps))):
+                raise ValueError("genesis MAPS post-reads rejected")
+            self.genesis_activation_trace.append("MAPS")
+
+            self.registrations[settlement.protocol_version] = registration
+            if not self._install_profile_deployments(
+                    registration, manager=None):
+                raise ValueError("bootstrap ingress deployment failed")
+            self.used_target_addresses.add(settlement.address)
+            self.active_version = settlement.protocol_version
+            self.genesis_activation_receipt = MigrationActivationReceipt(
+                context.router_generation, 0, settlement.protocol_version,
+                hook.proxy_address, settlement.address,
+                context.target_manifest_hash,
+                context.target_registration_hash, 0,
+                bytes(32), bytes(32), clock.block_number, None, None,
+                legacy_genesis_abandonment_auxiliary_hash_v1(hook),
+            )
+            self.genesis_activation_trace.append("REGISTERED")
+            if self.migration_fault_point == "after_registration":
+                raise RuntimeError("injected Router fault after registration")
+
+            self.terminal_genesis_campaign_ids.add(campaign.campaign_id)
+            self.terminal_genesis_campaign = (campaign, 3)
+            self.genesis_campaign = None
+            if self.migration_fault_point == "before_publication":
+                raise RuntimeError("injected Router fault before publication")
+            data_config_hash = (
+                b"" if settlement.live_protocol is None
+                else settlement.live_protocol.data_session_config_hash_v1()
+            )
+            if not gate._bootstrap_from_router(
+                settlement.protocol_version, self.version_manager,
+                active_settlement_address=settlement.address,
+                active_data_session_config_hash=data_config_hash,
+            ):
+                raise ValueError("genesis public ACTIVE publication rejected")
+            self.genesis_activation_trace.append("PUBLISHED")
+            object.__setattr__(self, "_migration_callback_frame", None)
+            self.genesis_activation_trace.append("IDLE")
+            self.migration_lifecycle = RouterMigrationLifecycle.IDLE
+            return True
+        except BaseException:
+            settlement.__dict__.clear()
+            settlement.__dict__.update(settlement_snapshot)
+            gate.__dict__.clear()
+            gate.__dict__.update(gate_snapshot)
+            self.forced_queue._restore_transaction_snapshot(queue_snapshot)
+            object.__setattr__(settlement, "migration_gate", gate)
+            object.__setattr__(settlement, "forced_queue", self.forced_queue)
+            object.__setattr__(
+                settlement, "inbox_apply_descriptor", local_inbox_descriptor
+            )
+            settlement.live_protocol = live_protocol
+            object.__setattr__(
+                settlement, "_router_authority", prior_router_authority
+            )
+            if live_protocol is not None:
+                object.__setattr__(live_protocol, "migration_gate", gate)
+                object.__setattr__(
+                    live_protocol, "forced_queue", self.forced_queue
+                )
+                live_protocol.versioned_history = settlement
+            self.registrations = registrations_snapshot
+            self.active_version = active_snapshot
+            self.used_target_addresses = used_targets_snapshot
+            self.activation_receipts = receipts_snapshot
+            self.activation_receipt_keys_by_generation = receipt_keys_snapshot
+            self.successor_receipt_key_by_old_authorization_id = \
+                successor_keys_snapshot
+            object.__setattr__(self, "_authorized_ingress", ingress_snapshot[0])
+            object.__setattr__(
+                self, "_authorized_ingress_by_address", ingress_snapshot[1]
+            )
+            object.__setattr__(
+                self, "_authorized_ingress_adapter_ids", ingress_snapshot[2]
+            )
+            self._profile_deployments_by_version = ingress_snapshot[3]
+            authority = hook._router_authority
+            hook.__dict__.clear()
+            hook.__dict__.update(hook_snapshot)
+            object.__setattr__(hook, "_router_authority", authority)
+            self.genesis_campaign = router_snapshot[2]
+            self.terminal_genesis_campaign_ids = router_snapshot[3]
+            self.terminal_genesis_campaign = router_snapshot[4]
+            self.genesis_activation_receipt = router_snapshot[5]
+            self.genesis_activation_trace = router_snapshot[6]
+            self.migration_lifecycle = router_snapshot[0]
+            object.__setattr__(
+                self, "_migration_callback_frame", router_snapshot[1]
+            )
             return False
 
     def _activate_version_with_proof(
             self, *, settlement: VersionedSettlementHistory, clock: Clock,
             target_manifest_hash: bytes,
-            activation_proof: VerifiedMigrationExecutionOutput) -> bool:
+            activation_proof: VerifiedMigrationExecutionOutput,
+            receipt: MigrationActivationReceipt | None = None) -> bool:
         old_registration = self.registrations.get(self.active_version)
         if old_registration is None:
             return False
         old = old_registration.settlement
+        frame = self._migration_callback_frame
         if (type(clock) is not Clock
+                or self.migration_lifecycle
+                    is not RouterMigrationLifecycle.ACTIVATING
+                or type(frame) is not MigrationCanonicalContextV2
+                or frame.transition_kind != "VERSION_MIGRATION"
+                or type(receipt) is not MigrationActivationReceipt
                 or not self._valid_migration_activation_proof(
                     activation_proof,
                     settlement=settlement,
@@ -12554,6 +19566,23 @@ class ActiveSettlementRouter:
                     != settlement.protocol_version
                 or old.migration_gate.target_manifest_hash
                     != target_manifest_hash
+                or old.migration_gate.target_registration_hash
+                    != activation_proof.target_registration_hash
+                or frame.target_registration_hash
+                    != activation_proof.target_registration_hash
+                or frame.target_manifest_hash != target_manifest_hash
+                or frame.source_settlement != old.address
+                or frame.target_settlement != settlement.address
+                or frame.candidate_digest != activation_proof.digest
+                or frame.output_core != activation_proof.output_core
+                or frame.output_core_hash
+                    != canonical_core_hash_v2(activation_proof.output_core)
+                or frame.queue_start != activation_proof.start_cursor
+                or frame.queue_end != activation_proof.end_cursor
+                or frame.beneficiary != activation_proof.beneficiary
+                or receipt.target_registration_hash
+                    != frame.target_registration_hash
+                or receipt.target_manifest_hash != target_manifest_hash
                 or old.live_protocol is None
                 or not old.live_protocol._migration_activation_accounting_ok()
                 or not old.migration_gate._ready_views_valid_for_activation(
@@ -12602,60 +19631,124 @@ class ActiveSettlementRouter:
                 or old.current_sequence + 1 >= UINT64_MAX
                 or clock.block_number <= old.last_canonical_l1_block):
             return False
-        l1_block = clock.block_number
         old_version = self.active_version
-        # L1 adopts only the verifier's commitments.  The destination tx0
-        # ReleaseAuthority/Registrar calls and tx1 InboxApply writes occur in
-        # the proved L2 transition and are never replayed as L1 object calls.
-        object.__setattr__(self, "_queue_transition_frame", (
-            "MIGRATION", id(activation_proof), activation_proof.digest
-        ))
-        try:
-            queue_activated = (
-                self.forced_queue._activate_and_advance_from_router(
-                    expected_old=old.address,
-                    settlement=settlement,
-                    proof=activation_proof,
-                    router=self,
-                )
-            )
-        finally:
-            object.__setattr__(self, "_queue_transition_frame", None)
-        if not queue_activated:
-            raise AssertionError(
-                "validated queue switch/advance transaction failed"
-            )
-        settlement.core = copy.deepcopy(activation_proof.output_core)
-        settlement.canonicalized_at_block = l1_block
-        if not settlement._install_imported_from_router(
-                router=self, sequence=old.current_sequence + 1, clock=clock):
-            raise AssertionError("validated target history write failed")
-        old.mode = "FROZEN"
-        settlement.mode = "ACTIVE"
-        self.registrations[settlement.protocol_version] = settlement_registration(
+        manager = self._version_manager_authority
+        if type(manager) is not ProtocolVersionManager:
+            return False
+        source_projection = (
+            copy.deepcopy(old.core), old.current_sequence,
+            old.canonicalized_at_block, old.last_canonical_l1_block,
+            copy.deepcopy(old.history),
+        )
+        source_return = old._freeze_for_migration_from_router(
+            frame, router=self
+        )
+        if (source_return != frame.source_return
+                or len(source_return) != MIGRATION_SOURCE_FREEZE_RETURN_LENGTH
+                or old.mode != "FROZEN"
+                or source_projection != (
+                    old.core, old.current_sequence, old.canonicalized_at_block,
+                    old.last_canonical_l1_block, old.history,
+                )):
+            raise ValueError("source migration freeze post-read rejected")
+        if self.migration_fault_point == "after_source_freeze":
+            raise RuntimeError("injected Router fault after source freeze")
+
+        target_return = settlement._adopt_migration_canonical_v2(
+            frame, router=self
+        )
+        target_entry = settlement.canonical_at(frame.target_canonical_sequence)
+        if (target_return != frame.target_return
+                or len(target_return) != MIGRATION_CANONICAL_RETURN_LENGTH
+                or settlement.mode != "ACTIVE"
+                or settlement.core != frame.output_core
+                or settlement.current_sequence
+                    != frame.target_canonical_sequence
+                or settlement.canonicalized_at_block
+                    != frame.canonicalized_at_block
+                or settlement.last_canonical_l1_block
+                    != frame.canonicalized_at_block
+                or target_entry is None
+                or target_entry.canonical_sequence
+                    != frame.target_canonical_sequence):
+            raise ValueError("target MCAN96 post-read rejected")
+        if self.migration_fault_point == "after_target_adopt":
+            raise RuntimeError("injected Router fault after target adopt")
+        if manager.fault_point == "after_target_import":
+            raise RuntimeError("injected activation fault: after_target_import")
+
+        registration = settlement_registration(
             self,
             settlement,
-            activation_block=l1_block,
+            activation_block=frame.canonicalized_at_block,
             predecessor_version=old_version,
             release_manifest_hash=target_manifest_hash,
         )
-        manager = self._version_manager_authority
-        if (type(manager) is not ProtocolVersionManager
-                or not self._install_profile_deployments(
-                    self.registrations[settlement.protocol_version],
-                    manager=manager,
-                )):
+        if target_registration_hash_v2(registration) \
+                != frame.target_registration_hash:
+            raise ValueError("target registration changed before adoption")
+        self.registrations[settlement.protocol_version] = registration
+        if not self._install_profile_deployments(
+            registration, manager=manager
+        ):
             raise ValueError("target release deployments are not exact")
-        self.active_version = settlement.protocol_version
         self.used_target_addresses.add(settlement.address)
+        self.activation_receipts[receipt.key] = receipt
+        self.activation_receipt_keys_by_generation[
+            receipt.router_generation
+        ] = receipt.key
+        self.successor_receipt_key_by_old_authorization_id[
+            receipt.old_authorization_id
+        ] = receipt.key
+        if manager.fault_point == "after_activation_receipt_write":
+            raise RuntimeError(
+                "injected activation fault: after_activation_receipt_write"
+            )
+        if self.migration_fault_point == "before_queue_migrate":
+            raise RuntimeError("injected Router fault before Queue migrate")
+
+        new_data_config_hash = (
+            settlement.live_protocol.data_session_config_hash_v1()
+        )
+        self.active_version = settlement.protocol_version
+        object.__setattr__(self, "_queue_transition_frame", (
+            "MIGRATE", id(frame), frame.commitment.hex()
+        ))
+        try:
+            queue_activated = self.forced_queue._migrate_from_router(
+                expected_old=old.address,
+                expected_new=settlement.address,
+                expected_start=frame.queue_start,
+                expected_end=frame.queue_end,
+                beneficiary=frame.beneficiary,
+                router=self,
+            )
+        finally:
+            object.__setattr__(self, "_queue_transition_frame", None)
+        if (queue_activated != frame.queue_return
+                or len(queue_activated) != MIGRATION_QUEUE_RETURN_LENGTH):
+            raise AssertionError(
+                "validated queue switch/advance transaction failed"
+            )
+        source_maps = old.migration_source_post_state_v2(router=self)
+        target_maps = settlement.migration_adoption_state_v2(router=self)
+        queue_maps = self.forced_queue.migration_activation_post_state_v2(
+            router=self
+        )
+        if (source_maps != frame.source_maps_return
+                or target_maps != frame.target_maps_return
+                or queue_maps != frame.queue_maps_return
+                or any(len(row) != MIGRATION_ADOPTION_STATE_LENGTH
+                       for row in (source_maps, target_maps, queue_maps))):
+            raise ValueError("migration MAPS post-reads rejected")
         active_gate = old.migration_gate
+        self._leave_migration_lifecycle_before_publication(manager=manager)
         activated = active_gate._activate_from_router(
             active_gate.generation, old_version,
             settlement.protocol_version,
             new_settlement_address=settlement.address,
-            new_data_session_config_hash=(
-                settlement.live_protocol.data_session_config_hash_v1()
-            ),
+            new_data_session_config_hash=new_data_config_hash,
+            target_registration_hash=frame.target_registration_hash,
         )
         assert activated
         return True
@@ -12676,12 +19769,14 @@ class ActiveSettlementRouter:
                 or not old.migration_gate._abort_from_manager(
                     generation, self.active_version, target_protocol_version,
                     target_manifest_hash,
+                    old.migration_gate.target_registration_hash,
                     cancel_manifest_active=cancel_manifest_active,
                     caller=self.version_manager)):
             return False
         old.mode = "ACTIVE"
-        old.live_protocol.sync(clock)
-        return True
+        return old.migration_gate._publish_abort_active(
+            generation, caller=self.version_manager
+        )
 
     def canonical_at(self, protocol_version: int,
                      sequence: int) -> CanonicalTerminalCommitment | None:
@@ -12822,7 +19917,9 @@ class ActiveSettlementRouter:
     ) -> tuple[str, tuple[int, int] | None]:
         """Persist one nonpayable sync decision or issue an exact live stamp."""
 
-        if type(clock) is not Clock or self._ingress_binding(caller_adapter) is None:
+        if (self.migration_lifecycle is not RouterMigrationLifecycle.IDLE
+                or type(clock) is not Clock
+                or self._ingress_binding(caller_adapter) is None):
             return "REJECTED", None
         if self.ingress_entered:
             raise RuntimeError("active router ingress is non-reentrant")
@@ -12860,6 +19957,8 @@ class ActiveSettlementRouter:
     ) -> str:
         """Append without a second sync after rechecking the exact live stamp."""
 
+        if self.migration_lifecycle is not RouterMigrationLifecycle.IDLE:
+            raise RuntimeError("active Router migration lifecycle is busy")
         binding = self._ingress_binding(caller_adapter)
         if type(clock) is not Clock or binding is None:
             raise ValueError("forced ingress caller or Clock is invalid")
@@ -13007,7 +20106,7 @@ class ProtocolVersionManager:
     def activate_seat_migration(
         self,
         *,
-        manifest_key: tuple[int, int, int, bytes],
+        manifest_key: tuple[int, int, int, bytes, bytes],
         activation_proof: VerifiedMigrationExecutionOutput,
         executor: str,
         clock: Clock,
@@ -13032,6 +20131,23 @@ class ProtocolVersionManager:
         new_runtime = runtimes.get(new_auth_id)
         settlement = None if new_runtime is None else new_runtime.authority
         target_bindings = getattr(release_manager, "target_bindings", {})
+        try:
+            target_preview = settlement_registration(
+                self.router,
+                settlement,
+                activation_block=l1_block,
+                predecessor_version=old_history.protocol_version,
+                release_manifest_hash=(
+                    None if manifest is None
+                    else manifest.target_manifest_hash
+                ),
+            )
+            expected_target_registration_hash = target_registration_hash_v2(
+                target_preview
+            )
+        except BaseException:
+            target_preview = None
+            expected_target_registration_hash = b""
         if (
             manifest is None
             or type(settlement) is not VersionedSettlementHistory
@@ -13044,6 +20160,11 @@ class ProtocolVersionManager:
             or manifest.active_protocol_version != self.router.active_version
             or manifest.target_protocol_version != settlement.protocol_version
             or manifest.target_manifest_hash != activation_proof.target_manifest_hash
+            or manifest.target_registration_hash
+                != activation_proof.target_registration_hash
+            or manifest.target_registration_hash
+                != expected_target_registration_hash
+            or type(target_preview) is not SettlementRegistration
             or len(old_auth_id) != 32
             or len(new_auth_id) != 32
             or getattr(release_manager, "activation_authority", None)
@@ -13133,6 +20254,8 @@ class ProtocolVersionManager:
             dict(self.router._source_bundles_by_descriptor_id),
             dict(self.router._source_descriptor_id_by_version),
             set(self.router._used_source_component_addresses),
+            self.router.migration_lifecycle,
+            self.router._migration_callback_frame,
         )
         source_factory_states = {
             address: (
@@ -13167,19 +20290,51 @@ class ProtocolVersionManager:
                 is BridgeDomainRegistry else None
         )
         try:
-            activated = self.router._activate_version_with_proof(
-                settlement=settlement,
-                clock=clock,
-                target_manifest_hash=manifest.target_manifest_hash,
-                activation_proof=activation_proof,
-            )
-            if not activated:
-                raise ValueError("seat migration activation proof was rejected")
-            if self.fault_point == "after_target_import":
-                raise RuntimeError("injected activation fault: after_target_import")
             arm = old_protocol.seat_migration_arm
             if arm is None or arm.router_word.generation != manifest.generation:
                 raise AssertionError("activation lost exact local arm")
+            context = MigrationCanonicalContextV2(
+                "VERSION_MIGRATION",
+                manifest.generation,
+                manifest.active_protocol_version,
+                manifest.target_protocol_version,
+                manifest.target_manifest_hash,
+                manifest.target_registration_hash,
+                bytes(32),
+                bytes(32),
+                old_history.address,
+                settlement.address,
+                old_history.current_sequence,
+                old_history.current_sequence + 1,
+                activation_proof.digest,
+                copy.deepcopy(activation_proof.output_core),
+                canonical_core_hash_v2(activation_proof.output_core),
+                l1_block,
+                activation_proof.start_cursor,
+                activation_proof.end_cursor,
+                self.router.forced_queue.address,
+                self.router.forced_queue.root,
+                self.router.forced_queue.count,
+                (
+                    self.router.forced_queue.deposit_prefix[
+                        activation_proof.end_cursor
+                    ]
+                    - self.router.forced_queue.deposit_prefix[
+                        activation_proof.start_cursor
+                    ]
+                ),
+                self.router.forced_queue.accounted_liabilities,
+                (
+                    (self.router.forced_queue.total_claimable or 0)
+                    + self.router.forced_queue.deposit_prefix[
+                        activation_proof.end_cursor
+                    ]
+                    - self.router.forced_queue.deposit_prefix[
+                        activation_proof.start_cursor
+                    ]
+                ),
+                activation_proof.beneficiary,
+            )
             receipt = MigrationActivationReceipt(
                 manifest.generation,
                 manifest.active_protocol_version,
@@ -13187,6 +20342,7 @@ class ProtocolVersionManager:
                 old_history.address,
                 settlement.address,
                 manifest.target_manifest_hash,
+                manifest.target_registration_hash,
                 arm.seat_generation,
                 old_auth_id,
                 new_auth_id,
@@ -13194,17 +20350,20 @@ class ProtocolVersionManager:
                 arm.migration_stage_id,
                 arm.migration_lineup_commitment,
             )
-            self.router.activation_receipts[receipt.key] = receipt
-            self.router.activation_receipt_keys_by_generation[
-                receipt.router_generation
-            ] = receipt.key
-            self.router.successor_receipt_key_by_old_authorization_id[
-                receipt.old_authorization_id
-            ] = receipt.key
-            if self.fault_point == "after_activation_receipt_write":
-                raise RuntimeError(
-                    "injected activation fault: after_activation_receipt_write"
-                )
+            self.router._enter_migration_lifecycle(
+                RouterMigrationLifecycle.ACTIVATING,
+                manager=self,
+                frame=context,
+            )
+            activated = self.router._activate_version_with_proof(
+                settlement=settlement,
+                clock=clock,
+                target_manifest_hash=manifest.target_manifest_hash,
+                activation_proof=activation_proof,
+                receipt=receipt,
+            )
+            if not activated:
+                raise ValueError("seat migration activation proof was rejected")
             return receipt
         except BaseException:
             old_protocol._restore_canonical_transaction(old_snapshot)
@@ -13258,6 +20417,10 @@ class ProtocolVersionManager:
             self.router._source_bundles_by_descriptor_id = router_snapshot[14]
             self.router._source_descriptor_id_by_version = router_snapshot[15]
             self.router._used_source_component_addresses = router_snapshot[16]
+            self.router.migration_lifecycle = router_snapshot[17]
+            object.__setattr__(
+                self.router, "_migration_callback_frame", router_snapshot[18]
+            )
             for factory, deployments_state, bundles_state in (
                 source_factory_states.values()
             ):
@@ -13289,7 +20452,7 @@ class ProtocolVersionManager:
         caller: str,
         clock: Clock,
         cancel: bool = False,
-    ) -> tuple[int, int, int, bytes]:
+    ) -> tuple[int, int, int, bytes, bytes]:
         if (
             caller != self.governance
             or type(manifest) is not ScheduledSeatMigration
@@ -13297,6 +20460,9 @@ class ProtocolVersionManager:
             or manifest.scheduled_at != clock.timestamp
             or type(manifest.target_manifest_hash) is not bytes
             or len(manifest.target_manifest_hash) != 32
+            or type(manifest.target_registration_hash) is not bytes
+            or len(manifest.target_registration_hash) != 32
+            or manifest.target_registration_hash == bytes(32)
             or manifest.generation <= 0
             or manifest.active_protocol_version <= 0
             or manifest.target_protocol_version
@@ -13361,6 +20527,28 @@ class ProtocolVersionManager:
             raise ValueError("active router/Settlement graph is split")
         return history, protocol, self.router.migration_gate
 
+    def _scheduled_target_registration_hash(
+        self, manifest: ScheduledSeatMigration
+    ) -> bytes:
+        """Rebuild the immutable target registration at arm/cancel time."""
+
+        if self.release_manager is None:
+            return manifest.target_registration_hash
+        runtime = getattr(
+            self.release_manager, "target_runtimes", {}
+        ).get(manifest.new_authorization_id)
+        settlement = None if runtime is None else runtime.authority
+        if type(settlement) is not VersionedSettlementHistory:
+            raise ValueError("scheduled target Settlement is absent")
+        registration = settlement_registration(
+            self.router,
+            settlement,
+            activation_block=0,
+            predecessor_version=manifest.active_protocol_version,
+            release_manifest_hash=manifest.target_manifest_hash,
+        )
+        return target_registration_hash_v2(registration)
+
     @staticmethod
     def _response_matches(
         response: SeatMigrationResponse,
@@ -13374,18 +20562,27 @@ class ProtocolVersionManager:
             and response.active_protocol_version == word.active_version
             and response.target_protocol_version == word.target_version
             and response.target_manifest_hash == word.target_manifest_hash
+            and response.target_registration_hash
+                == word.target_registration_hash
             and response.seat_generation == seat_generation
         )
 
     def arm_seat_migration(
         self,
         *,
-        manifest_key: tuple[int, int, int, bytes],
+        manifest_key: tuple[int, int, int, bytes, bytes],
         executor: str,
         clock: Clock,
     ) -> bytes:
         history, protocol, gate = self._active_target()
         manifest = self.arm_manifests.get(manifest_key)
+        try:
+            exact_target_registration_hash = (
+                None if manifest is None
+                else self._scheduled_target_registration_hash(manifest)
+            )
+        except BaseException:
+            exact_target_registration_hash = None
         if (
             manifest is None
             or not executor
@@ -13395,6 +20592,8 @@ class ProtocolVersionManager:
             or manifest.generation != gate.generation + 1
             or manifest.active_protocol_version != self.router.active_version
             or manifest.active_protocol_version != gate.active_protocol_version
+            or manifest.target_registration_hash
+                != exact_target_registration_hash
             or history.mode != "ACTIVE"
         ):
             raise ValueError("global seat migration arm is invalid")
@@ -13404,11 +20603,15 @@ class ProtocolVersionManager:
             (self.arm_responses, self.abort_responses)
         )
         try:
+            self.router._enter_migration_lifecycle(
+                RouterMigrationLifecycle.ARMING, manager=self
+            )
             if not gate._arm_from_manager(
                 manifest.generation,
                 manifest.active_protocol_version,
                 manifest.target_protocol_version,
                 manifest.target_manifest_hash,
+                manifest.target_registration_hash,
                 caller=self.address,
             ):
                 raise AssertionError("validated router arm failed")
@@ -13423,8 +20626,16 @@ class ProtocolVersionManager:
             ):
                 raise ValueError("local arm response does not bind global tuple")
             self.arm_responses[manifest.generation] = raw
+            self.router._leave_migration_lifecycle_before_publication(
+                manager=self
+            )
             return raw
         except BaseException:
+            if self.router.migration_lifecycle \
+                    is not RouterMigrationLifecycle.IDLE:
+                self.router._leave_migration_lifecycle_before_publication(
+                    manager=self
+                )
             protocol._restore_canonical_transaction(protocol_snapshot)
             self.arm_responses, self.abort_responses = manager_snapshot
             raise
@@ -13432,12 +20643,19 @@ class ProtocolVersionManager:
     def abort_seat_migration(
         self,
         *,
-        manifest_key: tuple[int, int, int, bytes],
+        manifest_key: tuple[int, int, int, bytes, bytes],
         executor: str,
         clock: Clock,
     ) -> bytes:
         history, protocol, gate = self._active_target()
         manifest = self.cancel_manifests.get(manifest_key)
+        try:
+            exact_target_registration_hash = (
+                None if manifest is None
+                else self._scheduled_target_registration_hash(manifest)
+            )
+        except BaseException:
+            exact_target_registration_hash = None
         if (
             manifest is None
             or not executor
@@ -13450,6 +20668,10 @@ class ProtocolVersionManager:
             or manifest.active_protocol_version != gate.active_protocol_version
             or manifest.target_protocol_version != gate.target_protocol_version
             or manifest.target_manifest_hash != gate.target_manifest_hash
+            or manifest.target_registration_hash
+                != gate.target_registration_hash
+            or manifest.target_registration_hash
+                != exact_target_registration_hash
             or history.mode not in {"MIGRATION_ARMED", "MIGRATION_READY"}
         ):
             raise ValueError("global seat migration abort is invalid")
@@ -13459,12 +20681,16 @@ class ProtocolVersionManager:
             (self.arm_responses, self.abort_responses)
         )
         try:
+            self.router._enter_migration_lifecycle(
+                RouterMigrationLifecycle.ABORTING, manager=self
+            )
             canceled_word = gate.router_word
             if not gate._abort_from_manager(
                 manifest.generation,
                 manifest.active_protocol_version,
                 manifest.target_protocol_version,
                 manifest.target_manifest_hash,
+                manifest.target_registration_hash,
                 cancel_manifest_active=True,
                 caller=self.address,
             ):
@@ -13484,8 +20710,21 @@ class ProtocolVersionManager:
             ):
                 raise ValueError("local abort response does not bind canceled tuple")
             self.abort_responses[manifest.generation] = raw
+            # Cleanup and exact response are complete before public ACTIVE.
+            self.router._leave_migration_lifecycle_before_publication(
+                manager=self
+            )
+            if not gate._publish_abort_active(
+                manifest.generation, caller=self.address
+            ):
+                raise AssertionError("validated Router abort publication failed")
             return raw
         except BaseException:
+            if self.router.migration_lifecycle \
+                    is not RouterMigrationLifecycle.IDLE:
+                self.router._leave_migration_lifecycle_before_publication(
+                    manager=self
+                )
             protocol._restore_canonical_transaction(protocol_snapshot)
             self.arm_responses, self.abort_responses = manager_snapshot
             raise
@@ -18731,6 +25970,7 @@ class InboxValidityExecutionAuthority:
             copy.deepcopy(output_core),
             settlement.protocol_version,
             target_manifest_hash,
+            expected_statement.target_registration_hash,
             evm_validity.transition_statement_digest,
             evm_validity.router_generation,
             evm_validity.source_canonical_sequence,
@@ -24763,7 +32003,7 @@ def bridge_queue_descriptor_for_test(
 
 def make_header_oracle(
     messages: list[Message] | None = None,
-) -> L1HeaderOracle:
+) -> EIP2935SystemReadTestAdapter:
     queue = list(messages or [])
     root = model_force_root(queue)
     headers = {
@@ -24773,19 +32013,14 @@ def make_header_oracle(
         )
         for n in range(1, 20_000)
     }
-    return L1HeaderOracle(
-        L1_HEADER_ORACLE_ADDRESS,
-        L1_HEADER_ORACLE_RUNTIME_HASH,
-        L1_HEADER_ORACLE_CONFIGURATION_HASH,
-        headers,
-    )
+    return EIP2935SystemReadTestAdapter(headers)
 
 
 def protocol(tip_slot: int = 1_000, cursor: int = 0, seat: bool = True,
              mode: Mode = Mode.NORMAL, messages: list[Message] | None = None,
              forced_queue: QueueContinuity | None = None,
              inbox_apply_router: InboxApplyRouterV2 | None = None,
-             header_oracle: L1HeaderOracle | None = None,
+             header_oracle: EIP2935SystemReadTestAdapter | None = None,
              migration_gate: MigrationGate | None = None,
              settlement_address: str = "model-settlement",
              data_session_required_bond: int = 10,
@@ -24797,6 +32032,20 @@ def protocol(tip_slot: int = 1_000, cursor: int = 0, seat: bool = True,
              point_evaluation_adapter: PointEvaluationAdapter | None = None,
              refund_claim_window_seconds: int = DATA_TTL_SECONDS,
              data_rent_sink: DataRentSink | None = None) -> Protocol:
+    # Preserve an explicitly supplied canonical address for byte-vector tests.
+    # Human-readable fixture aliases are normalized to an actual CREATE2
+    # deployment before they participate in a release registration.
+    is_canonical_address = (
+        settlement_address.startswith("0x")
+        and len(settlement_address) == 42
+        and all(ch in "0123456789abcdefABCDEF"
+                for ch in settlement_address[2:])
+    )
+    if (not is_canonical_address
+            and settlement_address not in _TEST_SETTLEMENT_DEPLOYMENT_SEEDS):
+        settlement_address = settlement_deployment_descriptor_for_test(
+            settlement_address, b"r" * 32, b"c" * 32
+        ).target_settlement
     msgs = list(messages or [])
     if forced_queue is None:
         root = model_force_root(msgs)
@@ -24804,7 +32053,7 @@ def protocol(tip_slot: int = 1_000, cursor: int = 0, seat: bool = True,
             "model-forced-queue", root, len(msgs), cursor,
             sum(row.prepaid for row in msgs),
             max((row.due_at for row in msgs), default=0), msgs,
-            active_settlement_address=settlement_address)
+            active_settlement_address=f"legacy-proxy:{settlement_address}")
     else:
         assert not messages or forced_queue.descriptors == msgs
         msgs = forced_queue.descriptors
@@ -24852,6 +32101,78 @@ def protocol(tip_slot: int = 1_000, cursor: int = 0, seat: bool = True,
     return result
 
 
+def prepare_genesis_activation_for_test(
+    router: ActiveSettlementRouter,
+    settlement: VersionedSettlementHistory,
+    clock: Clock,
+) -> GenesisActivationProofStubV1:
+    """Publish, fence, scan, and quiesce one exact genesis campaign."""
+
+    if type(clock) is not Clock or clock.block_number < 400:
+        raise ValueError("genesis activation fixture requires an exact Clock")
+    review_block = clock.block_number - 394
+    schedule_clock = Clock(
+        clock.block_number - 330,
+        clock.timestamp - 5_000,
+    )
+    publish_clock = Clock(
+        clock.block_number - 261,
+        schedule_clock.timestamp + SEAT_MIGRATION_MANIFEST_DELAY,
+    )
+    preview = settlement_registration(
+        router, settlement, activation_block=0, predecessor_version=0,
+        release_manifest_hash=router.bootstrap_release_manifest_hash,
+    )
+    registration_hash = target_registration_hash_v2(preview)
+    resume_profile = router.legacy_launch_hook.legacy_resume_profile_hash
+    campaign_id = router._schedule_genesis_campaign_for_fixture_v1(
+        settlement,
+        review_commitment=legacy_genesis_review_commitment_v1(
+            router.legacy_launch_hook.deployment_hash, resume_profile,
+            settlement.protocol_version,
+            _model_fixed_bytes32(router.bootstrap_release_manifest_hash),
+            registration_hash,
+        ),
+        review_finalized_by_block=review_block,
+        force_cutoff_block=clock.block_number - 260,
+        proposal_cutoff_block=clock.block_number - 196,
+        quiesce_block=clock.block_number - 4,
+        resume_by_block=clock.block_number + 128,
+        resume_by_timestamp=clock.timestamp + 1_800,
+        executable_at=publish_clock.timestamp,
+        caller=router.version_manager,
+        clock=schedule_clock,
+    )
+    if campaign_id is None:
+        raise AssertionError("failed to schedule genesis campaign fixture")
+    if router._publish_genesis_campaign_for_fixture_v1(
+        campaign_id, caller="permissionless-campaign-publisher",
+        clock=publish_clock,
+    ) is None:
+        raise AssertionError("failed to publish genesis campaign fixture")
+    scan_clock = Clock(
+        clock.block_number - 195,
+        clock.timestamp - 195 * L1_SLOT_SECONDS,
+    )
+    campaign = router.genesis_campaign
+    if (campaign is None or len(router.legacy_launch_hook
+            .begin_legacy_genesis_scan_v1(
+                campaign.generation, campaign_id,
+                caller="permissionless-scan-beginner", clock=scan_clock,
+            )) != 160):
+        raise AssertionError("failed to begin genesis scan fixture")
+    enter_clock = Clock(
+        clock.block_number - 4,
+        clock.timestamp - 4 * L1_SLOT_SECONDS,
+    )
+    if len(router.legacy_launch_hook.enter_legacy_genesis_quiescence_v1(
+        campaign.generation, campaign_id,
+        caller="permissionless-quiescence-keeper", clock=enter_clock,
+    )) != 96:
+        raise AssertionError("failed to enter genesis quiescence fixture")
+    return router.genesis_activation_proof_stub_v1(settlement)
+
+
 def routed_ingress_for_test(
     protocol_: Protocol, *, protocol_version: int = 1,
     release_profile_ingress_specs: tuple[
@@ -24866,6 +32187,29 @@ def routed_ingress_for_test(
         if type(router) is ActiveSettlementRouter:
             return router
         raise ValueError("test Protocol already has an unrouted history")
+    queue = protocol_.forced_queue
+    preloaded = tuple(queue.descriptors)
+    preload_cursor = queue.cursor
+    preload_surplus = queue.escrow_balance - queue.accounted_liabilities
+    preload_core = copy.deepcopy(protocol_.canonical.core)
+    preload_inbox_index = protocol_.inbox_apply_router.next_queue_index
+    if preloaded:
+        if queue.claimable:
+            raise ValueError("genesis fixture cannot preload claimable Queue state")
+        queue.descriptors.clear()
+        queue.frontier = force_frontier_from_descriptors([])
+        queue.count = 0
+        queue.cursor = 0
+        queue.root = force_wrapped_root(queue.frontier, 0)
+        queue.escrow_balance = 0
+        queue.last_due_at = 0
+        queue.deposit_prefix = [0]
+        queue.unconsumed_escrow = 0
+        queue.total_claimable = 0
+        protocol_.canonical.core = replace(
+            protocol_.canonical.core, message_cursor=0
+        )
+        protocol_.inbox_apply_router.next_queue_index = 0
     execution_profile = execution_profile_for_test(
         protocol_version, f"profile:ingress:{protocol_version}"
     )
@@ -24904,16 +32248,41 @@ def routed_ingress_for_test(
         protocol_.migration_gate,
         protocol_.header_oracle,
     )
+    bootstrap_clock = Clock(
+        max(400, protocol_.canonical.canonicalized_at_block),
+        GENESIS_TIMESTAMP + protocol_.core.tip_slot,
+    )
+    bootstrap_proof = prepare_genesis_activation_for_test(
+        router, history, bootstrap_clock
+    )
     if not router.bootstrap(
         history,
         sequence=0,
-        clock=Clock(
-            protocol_.canonical.canonicalized_at_block,
-            GENESIS_TIMESTAMP + protocol_.core.tip_slot,
-        ),
+        clock=bootstrap_clock,
         caller=router.version_manager,
+        proof=bootstrap_proof,
     ):
         raise AssertionError("failed to route property-test Protocol")
+    for row in preloaded:
+        appended = queue._append_from_router(
+            row, deposit=row.prepaid, due_at=row.due_at, router=router
+        )
+        if appended is None:
+            raise AssertionError("failed to replay post-genesis Queue fixture")
+    if preload_cursor:
+        if not queue._advance_accounting(
+            0, preload_cursor, "post-genesis-fixture-beneficiary"
+        ):
+            raise AssertionError("failed to replay consumed Queue fixture")
+        protocol_.canonical.core = preload_core
+        history.core = copy.deepcopy(preload_core)
+        history.history[0] = (
+            0,
+            history._entry(0, preload_core, history.canonicalized_at_block),
+        )
+        protocol_.inbox_apply_router.next_queue_index = preload_inbox_index
+    if preload_surplus > 0 and not queue.force_eth(preload_surplus):
+        raise AssertionError("failed to restore Queue fixture surplus")
     return router
 
 
@@ -24923,19 +32292,35 @@ def deploy_active_settlement_router(
     forced_queue: QueueContinuity,
     inbox_apply_router: InboxApplyRouterV2,
     migration_gate: MigrationGate,
-    header_oracle: L1HeaderOracle,
+    header_oracle: EIP2935SystemReadTestAdapter,
     **kwargs: object,
 ) -> ActiveSettlementRouter:
     """Trusted launch factory precommitting the canonical bytes32 manifest."""
 
     if type(settlement) is not VersionedSettlementHistory:
         raise ValueError("launch factory requires an exact Settlement profile")
+    legacy_hook = kwargs.pop("legacy_launch_hook", None)
+    legacy_proxy_address = kwargs.pop(
+        "legacy_proxy_address", f"legacy-proxy:{settlement.address}"
+    )
+    if legacy_hook is None:
+        legacy_hook = LegacyLaunchHookV1(
+            version_manager, proxy_address=legacy_proxy_address
+        )
+    if (legacy_hook.proxy_address != legacy_proxy_address
+            or forced_queue.active_settlement_address
+                != legacy_hook.proxy_address
+            or forced_queue.active_settlement_address in {
+                "", settlement.address, "active-settlement-router"
+            }):
+        raise ValueError("launch Queue authority is not the legacy proxy")
     router = ActiveSettlementRouter(
         version_manager,
         forced_queue,
         inbox_apply_deployment_descriptor(inbox_apply_router),
         migration_gate,
         header_oracle,
+        legacy_hook,
         **kwargs,
     )
     preview = settlement_registration(
@@ -24949,6 +32334,14 @@ def deploy_active_settlement_router(
         router,
         "bootstrap_release_manifest_hash",
         preview.release_manifest_hash,
+    )
+    object.__setattr__(
+        router, "bootstrap_target_address", settlement.address
+    )
+    object.__setattr__(
+        router,
+        "bootstrap_target_registration_hash",
+        target_registration_hash_v2(preview),
     )
     return router
 
@@ -24985,9 +32378,12 @@ def source_bridge_for_test(
     )
     if canonical is None:
         raise AssertionError("support registry lacks canonical history")
-    stage_clock = Clock(canonical.canonicalized_at_block, GENESIS_TIMESTAMP)
+    support_block = max(
+        canonical.canonicalized_at_block, registration.activation_block
+    )
+    stage_clock = Clock(support_block, GENESIS_TIMESTAMP)
     confirm_clock = Clock(
-        canonical.canonicalized_at_block + F_L1,
+        support_block + F_L1,
         GENESIS_TIMESTAMP,
     )
     for manifest in registration.release_manifests_by_adapter.values():
@@ -25795,19 +33191,19 @@ def test_force_merkle_bounds_and_auth() -> None:
               deposit=too_long.prepaid)))
     check("P17b depth-64 frontier leaves final index unused",
           MAX_FORCE_QUEUE_ITEMS == (1 << 64) - 1)
-    surplus_protocol = protocol(messages=[message(1_100, "forced-surplus")])
+    surplus_protocol = protocol()
     surplus_queue = surplus_protocol.forced_queue
-    routed_ingress_for_test(surplus_protocol)
-    original_liability = surplus_queue.accounted_liabilities
-    surplus_commit_clock = clock(1_101, 1_101)
-    activate_normal(surplus_protocol, surplus_commit_clock)
-    surplus_candidate = candidate(
-        surplus_protocol,
-        surplus_commit_clock,
-        "forced-surplus-consumption",
-        beneficiary="surplus-prover",
+    surplus_router = routed_ingress_for_test(surplus_protocol)
+    surplus_adapter = activate_ingress_adapter_for_test(
+        surplus_router, kind=ForceKind.USER_TX, clock=c
     )
-    surplus_protocol._commit(surplus_candidate, surplus_commit_clock)
+    surplus_message = message(1_100, "forced-surplus")
+    assert surplus_adapter.enqueue(
+        c, surplus_message, caller=surplus_message.sender,
+        deposit=surplus_message.prepaid,
+    ) == "QUEUED:0"
+    original_liability = surplus_queue.accounted_liabilities
+    assert surplus_queue._advance_accounting(0, 1, "surplus-prover")
     check("P17d forced ETH is surplus and cannot DoS queue liabilities",
           surplus_queue.force_eth(1)
           and surplus_queue.accounted_liabilities == original_liability
@@ -26232,7 +33628,8 @@ def test_data_gc_reorg_and_geometry() -> None:
     )
     assert ingress_stamp is not None
     assert stamped_protocol.migration_gate._arm_from_manager(
-        1, 1, 2, "manifest:2", caller="version-manager")
+        1, 1, 2, "manifest:2", b"r" * 32,
+        caller="version-manager")
     stale_reverted = False
     try:
         stamped_row = message(
@@ -26332,7 +33729,8 @@ def test_data_gc_reorg_and_geometry() -> None:
         100, "block:registration", 100, "state:registration", 0,
         terminal_root="terminal:registration", terminal_count=0)
     shared_queue = QueueContinuity(
-        "forced-queue", model_force_root([]), 0, 0, 0, UINT64_MAX)
+        "forced-queue", model_force_root([]), 0, 0, 0, UINT64_MAX,
+        active_settlement_address="legacy-proxy:settlement:2")
     support_inbox_apply = InboxApplyRouterV2(next_queue_index=0)
     support_header_oracle = make_header_oracle([])
     support_profile = execution_profile_for_test(2, "profile:2")
@@ -26349,10 +33747,17 @@ def test_data_gc_reorg_and_geometry() -> None:
         support_settlement,
         "version-manager", shared_queue, support_inbox_apply,
         support_settlement.migration_gate, support_header_oracle)
+    support_bootstrap_clock = Clock(
+        400, GENESIS_TIMESTAMP + support_core.tip_slot
+    )
+    support_bootstrap_proof = prepare_genesis_activation_for_test(
+        support_router, support_settlement, support_bootstrap_clock
+    )
     assert support_router.bootstrap(
-        support_settlement, sequence=7,
-        clock=Clock(40, GENESIS_TIMESTAMP + support_core.tip_slot),
-        caller=support_router.version_manager)
+        support_settlement, sequence=0,
+        clock=support_bootstrap_clock,
+        caller=support_router.version_manager,
+        proof=support_bootstrap_proof)
     support_manager = ProtocolVersionManager(
         support_router.version_manager, support_router
     )
@@ -26384,9 +33789,9 @@ def test_data_gc_reorg_and_geometry() -> None:
         ),
     )
     support_domain = support_manifest.destination_domain_id
-    support_stage_clock = Clock(40, GENESIS_TIMESTAMP + support_core.tip_slot)
+    support_stage_clock = Clock(400, GENESIS_TIMESTAMP + support_core.tip_slot)
     support_confirm_clock = Clock(
-        40 + F_L1, GENESIS_TIMESTAMP + support_core.tip_slot
+        400 + F_L1, GENESIS_TIMESTAMP + support_core.tip_slot
     )
     assert not support.stage(
         support_authorization.source_domain_id,
@@ -26413,7 +33818,7 @@ def test_data_gc_reorg_and_geometry() -> None:
         support_authorization.source_domain_id,
         support_authorization.frozen_bridge_execution_hash,
         support_domain,
-        canonical_sequence=7,
+        canonical_sequence=0,
     )
     assert type(support.registration_mpt_verifier) \
         is TestRegistrationMptVerifier
@@ -26425,7 +33830,7 @@ def test_data_gc_reorg_and_geometry() -> None:
     )
     support_proof = dict(
         clock=support_confirm_clock,
-        canonical_sequence=7,
+        canonical_sequence=0,
         proof=valid_support_nodes,
     )
     assert not support.final(
@@ -26802,12 +34207,27 @@ def test_data_gc_reorg_and_geometry() -> None:
             1, "inbox:D2:failing", d2_domain), due_at=UINT64_MAX),
     ))
     inbox_protocol = protocol(
-        cursor=70,
+        cursor=0,
         seat=False,
-        messages=inbox_descriptors,
-        inbox_apply_router=InboxApplyRouterV2(next_queue_index=70),
+        messages=[],
+        inbox_apply_router=InboxApplyRouterV2(next_queue_index=0),
     )
-    routed_ingress_for_test(inbox_protocol)
+    inbox_router = routed_ingress_for_test(inbox_protocol)
+    for descriptor in inbox_descriptors:
+        assert inbox_protocol.forced_queue._append_from_router(
+            descriptor,
+            deposit=descriptor.prepaid,
+            due_at=descriptor.due_at,
+            router=inbox_router,
+        ) is not None
+    assert inbox_protocol.forced_queue._advance_accounting(
+        0, 70, "pre-v2-inbox-beneficiary"
+    )
+    inbox_protocol.inbox_apply_router.next_queue_index = 70
+    inbox_protocol.canonical.core = replace(
+        inbox_protocol.canonical.core, message_cursor=70
+    )
+    inbox_protocol.versioned_history.core = copy.deepcopy(inbox_protocol.core)
     inbox_apply_router = inbox_protocol.inbox_apply_router
     registrar = inbox_apply_router._terminal_registrar_authority
     assert type(registrar) is TerminalDomainRegistrarV2
@@ -27615,6 +35035,7 @@ def test_data_gc_reorg_and_geometry() -> None:
         "forced-queue", model_force_root(initial_queue_descriptors),
         17, 12, initial_queue_escrow, 1_001_500,
         initial_queue_descriptors,
+        active_settlement_address="legacy-proxy:settlement:1",
         claimable={"historical-prover": 12})
     migration_inbox_apply = InboxApplyRouterV2(next_queue_index=12)
     shared_migration_gate = MigrationGate()
@@ -27632,14 +35053,39 @@ def test_data_gc_reorg_and_geometry() -> None:
             migration_inbox_apply
         ),
         header_oracle=migration_header_oracle)
+    historical_queue_snapshot = terminal_queue._transaction_snapshot()
+    terminal_queue.descriptors = []
+    terminal_queue.frontier = force_frontier_from_descriptors([])
+    terminal_queue.root = force_wrapped_root(terminal_queue.frontier, 0)
+    terminal_queue.count = terminal_queue.cursor = 0
+    terminal_queue.escrow_balance = terminal_queue.last_due_at = 0
+    terminal_queue.claimable = {}
+    terminal_queue.deposit_prefix = [0]
+    terminal_queue.unconsumed_escrow = terminal_queue.total_claimable = 0
+    settlement_1.core = replace(settlement_1.core, message_cursor=0)
     active_router = deploy_active_settlement_router(
         settlement_1,
         "version-manager", terminal_queue, migration_inbox_apply,
         shared_migration_gate, migration_header_oracle)
+    active_bootstrap_clock = Clock(
+        400, GENESIS_TIMESTAMP + canonical_core_499.tip_slot
+    )
+    active_bootstrap_proof = prepare_genesis_activation_for_test(
+        active_router, settlement_1, active_bootstrap_clock
+    )
     assert active_router.bootstrap(
         settlement_1, sequence=0,
-        clock=Clock(49, GENESIS_TIMESTAMP + canonical_core_499.tip_slot),
-        caller=active_router.version_manager)
+        clock=active_bootstrap_clock,
+        caller=active_router.version_manager,
+        proof=active_bootstrap_proof)
+    terminal_queue._restore_transaction_snapshot(historical_queue_snapshot)
+    terminal_queue.active_settlement_address = settlement_1.address
+    settlement_1.core = copy.deepcopy(canonical_core_499)
+    settlement_1.history[0] = (
+        0, settlement_1._entry(0, canonical_core_499, 49)
+    )
+    settlement_1.canonicalized_at_block = 49
+    settlement_1.last_canonical_l1_block = 49
     migration_protocol = protocol(
         tip_slot=canonical_core_499.tip_slot,
         cursor=canonical_core_499.message_cursor,
@@ -27857,9 +35303,10 @@ def test_data_gc_reorg_and_geometry() -> None:
     legacy_manifest_3_bad = b"x" * 32
     legacy_manifest_3 = b"3" * 32
     assert not shared_migration_gate._arm_from_manager(
-        1, 1, 2, legacy_manifest_2, caller="attacker")
+        1, 1, 2, legacy_manifest_2, b"2" * 32, caller="attacker")
     assert shared_migration_gate._arm_from_manager(
-        1, 1, 2, legacy_manifest_2, caller="version-manager")
+        1, 1, 2, legacy_manifest_2, b"2" * 32,
+        caller="version-manager")
     assert migration_protocol._arm_migration_for_test(
         1, migration_outage_clock
     )
@@ -28110,11 +35557,81 @@ def test_data_gc_reorg_and_geometry() -> None:
         exact_target_protocol, activation_proof, active_router
     )
     assert migration_l2_poststate is not None
+    shared_migration_gate.target_registration_hash = (
+        activation_proof.target_registration_hash
+    )
+    migration_protocol.seat_migration_arm = replace(
+        migration_protocol.seat_migration_arm,
+        router_word=replace(
+            migration_protocol.seat_migration_arm.router_word,
+            target_registration_hash=activation_proof.target_registration_hash,
+        ),
+    )
+    activation_manager = active_router._version_manager_authority
+    if type(activation_manager) is not ProtocolVersionManager:
+        activation_manager = ProtocolVersionManager(
+            active_router.version_manager, active_router
+        )
+    activation_context = MigrationCanonicalContextV2(
+        "VERSION_MIGRATION",
+        shared_migration_gate.generation,
+        1,
+        2,
+        legacy_manifest_2,
+        activation_proof.target_registration_hash,
+        bytes(32),
+        bytes(32),
+        settlement_1.address,
+        exact_settlement.address,
+        settlement_1.current_sequence,
+        settlement_1.current_sequence + 1,
+        activation_proof.digest,
+        copy.deepcopy(activation_proof.output_core),
+        canonical_core_hash_v2(activation_proof.output_core),
+        activation_clock.block_number,
+        activation_proof.start_cursor,
+        activation_proof.end_cursor,
+        terminal_queue.address,
+        terminal_queue.root,
+        terminal_queue.count,
+        (
+            terminal_queue.deposit_prefix[activation_proof.end_cursor]
+            - terminal_queue.deposit_prefix[activation_proof.start_cursor]
+        ),
+        terminal_queue.accounted_liabilities,
+        (
+            (terminal_queue.total_claimable or 0)
+            + terminal_queue.deposit_prefix[activation_proof.end_cursor]
+            - terminal_queue.deposit_prefix[activation_proof.start_cursor]
+        ),
+        activation_proof.beneficiary,
+    )
+    activation_receipt = MigrationActivationReceipt(
+        shared_migration_gate.generation,
+        1,
+        2,
+        settlement_1.address,
+        exact_settlement.address,
+        legacy_manifest_2,
+        activation_proof.target_registration_hash,
+        migration_protocol.seat_generation,
+        migration_protocol.seat_authorization_id,
+        exact_target_protocol.seat_authorization_id,
+        activation_clock.block_number,
+        None,
+        None,
+    )
+    active_router._enter_migration_lifecycle(
+        RouterMigrationLifecycle.ACTIVATING,
+        manager=activation_manager,
+        frame=activation_context,
+    )
     assert active_router._activate_version_with_proof(
         settlement=exact_settlement,
         clock=activation_clock,
         target_manifest_hash=legacy_manifest_2,
         activation_proof=activation_proof,
+        receipt=activation_receipt,
     )
     check("P50ch L1 cutover adopts commitments without writing live L2",
           active_router.inbox_apply_descriptor.authenticates(
@@ -28170,7 +35687,8 @@ def test_data_gc_reorg_and_geometry() -> None:
           and shared_migration_gate.mode == "ACTIVE"
           and shared_migration_gate.active_protocol_version == 2
           and shared_migration_gate.target_protocol_version == 0
-          and terminal_queue.active_settlement_address == "settlement:2"
+          and terminal_queue.active_settlement_address
+              == exact_settlement.address
           and not hasattr(terminal_queue, "advance_cursor")
           and not terminal_queue._advance_from_active_settlement(
               settlement=settlement_1,
@@ -28242,7 +35760,8 @@ def test_data_gc_reorg_and_geometry() -> None:
           and terminal_queue.escrow_balance
               >= terminal_queue.accounted_liabilities)
     assert shared_migration_gate._arm_from_manager(
-        2, 2, 3, legacy_manifest_3_bad, caller="version-manager")
+        2, 2, 3, legacy_manifest_3_bad, b"x" * 32,
+        caller="version-manager")
     assert migration_protocol._arm_migration_for_test(
         2, migration_activation_clock
     )
@@ -28295,7 +35814,8 @@ def test_data_gc_reorg_and_geometry() -> None:
         release_manifest_hash=None,
     ).release_manifest_hash
     assert shared_migration_gate._arm_from_manager(
-        3, 2, 3, legacy_manifest_3, caller="version-manager")
+        3, 2, 3, legacy_manifest_3, b"3" * 32,
+        caller="version-manager")
     assert migration_protocol._arm_migration_for_test(3, abort_ready_clock)
     migration_registry.arm_migration()
     assert exact_settlement._arm_migration_for_test(
@@ -28373,11 +35893,76 @@ def test_data_gc_reorg_and_geometry() -> None:
         evm_validity=activation_attestation_3,
         rows=activation_rows_3,
     ))
+    shared_migration_gate.target_registration_hash = (
+        activation_proof_3.target_registration_hash
+    )
+    migration_protocol.seat_migration_arm = replace(
+        migration_protocol.seat_migration_arm,
+        router_word=replace(
+            migration_protocol.seat_migration_arm.router_word,
+            target_registration_hash=activation_proof_3.target_registration_hash,
+        ),
+    )
+    activation_context_3 = MigrationCanonicalContextV2(
+        "VERSION_MIGRATION",
+        shared_migration_gate.generation,
+        2,
+        3,
+        legacy_manifest_3,
+        activation_proof_3.target_registration_hash,
+        bytes(32),
+        bytes(32),
+        exact_settlement.address,
+        settlement_3.address,
+        exact_settlement.current_sequence,
+        exact_settlement.current_sequence + 1,
+        activation_proof_3.digest,
+        copy.deepcopy(activation_proof_3.output_core),
+        canonical_core_hash_v2(activation_proof_3.output_core),
+        second_activation_clock.block_number,
+        activation_proof_3.start_cursor,
+        activation_proof_3.end_cursor,
+        terminal_queue.address,
+        terminal_queue.root,
+        terminal_queue.count,
+        (
+            terminal_queue.deposit_prefix[activation_proof_3.end_cursor]
+            - terminal_queue.deposit_prefix[activation_proof_3.start_cursor]
+        ),
+        terminal_queue.accounted_liabilities,
+        (
+            (terminal_queue.total_claimable or 0)
+            + terminal_queue.deposit_prefix[activation_proof_3.end_cursor]
+            - terminal_queue.deposit_prefix[activation_proof_3.start_cursor]
+        ),
+        activation_proof_3.beneficiary,
+    )
+    activation_receipt_3 = MigrationActivationReceipt(
+        shared_migration_gate.generation,
+        2,
+        3,
+        exact_settlement.address,
+        settlement_3.address,
+        legacy_manifest_3,
+        activation_proof_3.target_registration_hash,
+        migration_protocol.seat_generation,
+        migration_protocol.seat_authorization_id,
+        target_protocol_3.seat_authorization_id,
+        second_activation_clock.block_number,
+        None,
+        None,
+    )
+    active_router._enter_migration_lifecycle(
+        RouterMigrationLifecycle.ACTIVATING,
+        manager=activation_manager,
+        frame=activation_context_3,
+    )
     assert active_router._activate_version_with_proof(
         settlement=settlement_3,
         clock=second_activation_clock,
         target_manifest_hash=legacy_manifest_3,
         activation_proof=activation_proof_3,
+        receipt=activation_receipt_3,
     )
     check("P50bn abort is delayed and the same gate completes a later migration",
           2 in shared_migration_gate.canceled_generations
@@ -28387,7 +35972,8 @@ def test_data_gc_reorg_and_geometry() -> None:
           and active_router.active_version == 3
           and exact_settlement.mode == "FROZEN"
           and settlement_3.mode == "ACTIVE"
-          and terminal_queue.active_settlement_address == "settlement:3"
+          and terminal_queue.active_settlement_address
+              == settlement_3.address
           and active_router.canonical_at(
               3, exact_settlement.current_sequence + 1) is not None
           and migration_registry.open_reservations

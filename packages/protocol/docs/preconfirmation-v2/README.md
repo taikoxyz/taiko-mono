@@ -5,13 +5,15 @@ with the executable models that verify its consensus-critical arithmetic.
 
 ## Contents
 
-| File                                                       | What it is                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`slot-chain-spec.pdf`](slot-chain-spec.pdf)               | **The specification.** A4, single column. This is the artifact to read and circulate.                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| [`tex/main.tex`](tex/main.tex)                             | **The source.** Hand-maintained LaTeX; edit this to change the document.                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| [`settlement-window-model.py`](settlement-window-model.py) | Unified protocol/state model for proof-first launch and migration, continuous seat scheduling, forced-queue recovery, same-L1 DIRECT ETH ingress, fresh immutable V2 endpoints, permanent inbox pins, permissionless LP-owned atomic-funding tickets, source user/LP pull conservation, terminal frontier proofs, historical destination retirement, and atomic rollback/reorg behavior.                                                                                                                                               |
-| [`lookahead-model.py`](lookahead-model.py)                 | Exact lookahead path: absolute clock conversion, EIP-4788 carrier/parent semantics, execution-block finality, partial/empty registries, frozen-context tombstones, version-independent protocol-lifetime seed, capped quotas, ring capacity and placement. 36 assertions.                                                                                                                                                                                                                                                              |
-| [`commitment-model.py`](commitment-model.py)               | Byte-exact fixtures for EIP-712 candidates; MessageV1, ingress, ContextV2, Store, Bridge, Pool, accumulator and policy interfaces; forced Queue V11 credits; source/destination domains; Bridge and ten-component infrastructure descriptors; acyclic migration/registration verifier configurations; the five-argument L1 migration activation; release manifests and receipts; LP settlement-bound terminal leaves; bounded session configuration, ABI/events, Router readiness and blobs. 274 golden vectors / 513 assertion sites. |
+| File                                                       | What it is                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`slot-chain-spec.pdf`](slot-chain-spec.pdf)               | **The specification.** A4, single column. This is the artifact to read and circulate.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| [`tex/main.tex`](tex/main.tex)                             | **The source.** Hand-maintained LaTeX; edit this to change the document.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| [`settlement-window-model.py`](settlement-window-model.py) | Unified protocol/state model for finite staged genesis campaigns and proof-first later migration, continuous seat scheduling, forced-queue recovery, same-L1 DIRECT ETH ingress, fresh immutable V2 endpoints, permanent inbox pins, permissionless LP-owned atomic-funding tickets, source user/LP pull conservation, terminal frontier proofs, historical destination retirement, and atomic rollback/reorg behavior.                                                                                                                                                                                                                                                                                                       |
+| [`lookahead-model.py`](lookahead-model.py)                 | Exact lookahead path: absolute clock conversion, EIP-4788 carrier/parent semantics, execution-block finality, partial/empty registries, frozen-context tombstones, version-independent protocol-lifetime seed, capped quotas, ring capacity and placement. 36 assertions.                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| [`commitment-model.py`](commitment-model.py)               | Byte-exact fixtures for EIP-712 candidates; MessageV1, ingress, ContextV2, Store, Bridge, Pool, accumulator and policy interfaces; forced Queue V11 credits; source/destination domains; Bridge and ten-component infrastructure descriptors; acyclic migration/registration verifier configurations; the five-argument L1 migration activation; MACT/MFRZ/MCAN/QMIG/MAPS and atomic legacy genesis cutover journals; strict deployed legacy proposal/forced codecs; fixed-key resume-verifier and direct checkpoint-service profiles; release manifests and receipts; LP settlement-bound terminal leaves; bounded session configuration, ABI/events, Router readiness and blobs. 577 golden vectors / 1234 assertion sites. |
+| [`seat-market-model.py`](seat-market-model.py)             | Executable custody and state model for the four-cell perpetual reverse auction, staging, premium reserves, pull credits, bond terminalization and release rotation. Its companion suite currently runs 92 adversarial tests.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| [`economic-profile-model.py`](economic-profile-model.py)   | Strict schema and checked-arithmetic validator for the versioned economic profile and every published parameter relation. Its companion suite currently runs 31 tests.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 ## Building the PDF
 
@@ -33,10 +35,12 @@ a successful LaTeX exit status alone is not layout verification.
 ## Running the models
 
 ```sh
-python3 settlement-window-model.py   # 186 assertions
-python3 test-settlement-window.py    # 191 adversarial regression tests
+python3 settlement-window-model.py   # 184 assertions
+python3 test-settlement-window.py    # 207 adversarial regression tests
 python3 lookahead-model.py           # 36 assertions
-python3 commitment-model.py          # 274 golden vectors / 513 assertion sites
+python3 commitment-model.py          # 577 golden vectors / 1234 assertion sites
+python3 -m unittest test-seat-market.py      # 92 adversarial tests
+python3 -m unittest test-economic-profile.py # 31 schema/economic tests
 ```
 
 All run standalone; the property models print `ALL PROPERTIES PASS`, and the regression suite
@@ -48,12 +52,41 @@ model is regression evidence, not a proof of protocol soundness.
 
 ## Status
 
-The architecture is an **audited design candidate**, not an implementation-ready or
-production-ready specification. Its remaining design blocker is the target-Settlement canonical
-adoption callback and Router activation guard; after that is frozen, the absent initial executable
-execution profile and independently reproduced conformance bundle remain the implementation
-boundary. Section 13 states why inventing that implementation-dependent artifact in prose would be
-unsafe. Seven later measurable release gates
+The architecture is an **audited design candidate**, not yet frozen for implementation and not a
+production-ready release. There is no known open Critical document-level design defect, but two
+High implementation-readiness blockers remain: the complete canonical execution-profile CBOR
+codec/field derivation and the exact Settlement--Market mutation wire protocol. The exact
+target-adoption, source-freeze, Queue-migration, poststate-join and legacy-genesis callbacks now
+share one Router lifecycle/context journal. A delayed finite genesis campaign stages separate
+forced/proposal cutoffs, hard-capped exact scans and a bounded reversible QUIESCENT phase while the
+public legacy gate remains ACTIVE. Any caller may land a valid campaign/scan-bound proof through
+proof verification, LGAR, LGFN and atomic publication in one transaction; if no proof lands, hard
+block/time expiry permissionlessly restores legacy ACTIVE. Safe in-place genesis cutover is conditional on the
+deployed legacy Inbox accepting the specified final storage-compatible implementation; otherwise
+that deployment requires an independently initialized state migration. In-place cutover snapshots
+and imports only the last finalized legacy checkpoint; unfinalized proposals and pending forced
+blob records are explicitly abandoned because the deployed format has neither durable bytes nor a
+refund owner. A deployment requiring lossless treatment must also use a separate state migration.
+The campaign applies 1,024-row proposal/forced caps, a 4 MiB scan cap and
+deterministic maximum-progress 16-row scan batches, so a front-run cannot stretch the 128-call bound.
+Its byte-exact review envelope binds the live legacy resume profile and target tuple; blob expiry is
+derived only from the stored timestamp and the pinned 1,572,864-second mainnet minimum. The sealed
+activation receipt binds a separate abandonment hash covering the exact scanned and actually abandoned
+ranges, roots, bytes, fees and zero bond liability. Raw donated surplus is excluded from eligibility and
+the receipt and remains locked, so forced ETH cannot veto migration or invalidate a prepared proof. A bad target requires campaign expiry
+and a higher-nonce delayed review; a total proving-system outage delays migration but cannot
+permanently pause a previously live legacy deployment. Legacy deployments whose verifier, bond,
+challenge or custody clocks do not match the pinned resume-safe profile must use a separate state
+migration. The supported profile requires public proving and an age-independent fixed-key
+RISC0+SP1 route; SGX-required roots, mutable trust-map wrappers, a SignalService ForkRouter, or an
+unfenced direct checkpoint implementation are rejected before campaign publication. The same is
+true when any pending forced or unfinalized proposal row lacks the full data-expiry slack through
+hard resume plus 900 seconds for fresh proof generation; stale rows are never ignored merely because
+successful migration would abandon them.
+The absent initial
+executable execution profile, compiled contracts/circuit and independently reproduced conformance
+bundle remain the implementation boundary. Section 13 states why inventing those
+implementation-dependent artifacts in prose would be unsafe. Eight later measurable release gates
 cover proof performance, contract gas, cryptographic conformance, state-machine verification,
 economics, operations and external review. Five properties are worth knowing before reading:
 

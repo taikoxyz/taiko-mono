@@ -44,8 +44,11 @@ def addr(label: str) -> str:
 
 
 def authorization():
+    deployment = settlement.settlement_deployment_descriptor_for_test(
+        "seat-market-authorized-settlement", b"r" * 32, b"c" * 32
+    )
     return market.TargetAuthorization(
-        target=addr("settlement"),
+        target=deployment.target_settlement,
         settlement_chain_id=1,
         protocol_version=25,
         runtime_hash=b"r" * 32,
@@ -410,17 +413,136 @@ def bind_router_active_history(protocol, *, runtime_hash, execution_profile_hash
         protocol.migration_gate,
         protocol.header_oracle,
     )
+    bootstrap_clock = settlement.Clock(
+        max(400, protocol.canonical.canonicalized_at_block),
+        settlement.GENESIS_TIMESTAMP + protocol.core.tip_slot,
+    )
+    bootstrap_proof = settlement.prepare_genesis_activation_for_test(
+        router, history, bootstrap_clock
+    )
     if not router.bootstrap(
         history,
         sequence=0,
-        clock=settlement.Clock(
-            protocol.canonical.canonicalized_at_block,
-            settlement.GENESIS_TIMESTAMP + protocol.core.tip_slot,
-        ),
+        clock=bootstrap_clock,
         caller=router.version_manager,
+        proof=bootstrap_proof,
     ):
         raise AssertionError("fixture failed to bootstrap exact History graph")
     return history, router
+
+
+def unactivated_genesis_fixture(*, suffix="checkpoint", protocol_version=25):
+    """Build the exact pre-checkpoint genesis graph without crossing delays."""
+
+    protocol = settlement.protocol(seat=False)
+    profile = settlement.execution_profile_for_test(
+        protocol_version, f"profile:{suffix}"
+    )
+    history = settlement.VersionedSettlementHistory(
+        protocol.settlement_address,
+        f"runtime:{suffix}",
+        protocol_version,
+        profile.execution_profile_hash,
+        copy.deepcopy(protocol.core),
+        protocol.canonical.canonicalized_at_block,
+        protocol.forced_queue,
+        migration_gate=protocol.migration_gate,
+        live_protocol=protocol,
+        inbox_apply_descriptor=protocol.inbox_apply_descriptor,
+        header_oracle=protocol.header_oracle,
+        execution_profile=profile,
+    )
+    protocol.versioned_history = history
+    router = settlement.deploy_active_settlement_router(
+        history,
+        addr("version-manager"),
+        protocol.forced_queue,
+        protocol.inbox_apply_router,
+        protocol.migration_gate,
+        protocol.header_oracle,
+    )
+    clock = settlement.Clock(
+        max(400, protocol.canonical.canonicalized_at_block + 3),
+        settlement.GENESIS_TIMESTAMP + protocol.core.tip_slot
+        + 2 * settlement.SEAT_MIGRATION_MANIFEST_DELAY,
+    )
+    return protocol, history, router, clock
+
+
+def publish_genesis_campaign_fixture(
+    router, history, landing_clock, *, publish=True
+):
+    """Publish one exact staged campaign and return its immutable clocks."""
+
+    force_cutoff = landing_clock.block_number - 260
+    proposal_cutoff = landing_clock.block_number - 196
+    quiesce = landing_clock.block_number - 4
+    resume_block = landing_clock.block_number + 128
+    resume_timestamp = landing_clock.timestamp + 1_800
+    schedule_clock = settlement.Clock(
+        landing_clock.block_number - 330,
+        landing_clock.timestamp - 5_000,
+    )
+    publish_clock = settlement.Clock(
+        landing_clock.block_number - 325,
+        schedule_clock.timestamp + settlement.SEAT_MIGRATION_MANIFEST_DELAY,
+    )
+    preview = settlement.settlement_registration(
+        router, history, activation_block=0, predecessor_version=0,
+        release_manifest_hash=router.bootstrap_release_manifest_hash,
+    )
+    registration_hash = settlement.target_registration_hash_v2(preview)
+    profile_hash = router.legacy_launch_hook.legacy_resume_profile_hash
+    review = settlement.legacy_genesis_review_commitment_v1(
+        router.legacy_launch_hook.deployment_hash, profile_hash,
+        history.protocol_version, router.bootstrap_release_manifest_hash,
+        registration_hash,
+    )
+    campaign_id = router._schedule_genesis_campaign_for_fixture_v1(
+        history,
+        review_commitment=review,
+        review_finalized_by_block=landing_clock.block_number - 394,
+        force_cutoff_block=force_cutoff,
+        proposal_cutoff_block=proposal_cutoff,
+        quiesce_block=quiesce,
+        resume_by_block=resume_block,
+        resume_by_timestamp=resume_timestamp,
+        executable_at=publish_clock.timestamp,
+        caller=router.version_manager,
+        clock=schedule_clock,
+    )
+    if campaign_id is None:
+        raise AssertionError("campaign fixture scheduling failed")
+    if not publish:
+        return router.scheduled_genesis_campaign.campaign, dict(
+            schedule=schedule_clock,
+            publish=publish_clock,
+            force=settlement.Clock(
+                force_cutoff, landing_clock.timestamp - 260 * 12
+            ),
+            proposal=settlement.Clock(
+                proposal_cutoff, landing_clock.timestamp - 196 * 12
+            ),
+            quiesce=settlement.Clock(quiesce, landing_clock.timestamp),
+            resume=settlement.Clock(resume_block, resume_timestamp),
+            landing=landing_clock,
+        )
+    campaign = router._publish_genesis_campaign_for_fixture_v1(
+        campaign_id, caller=addr("campaign-publisher"), clock=publish_clock
+    )
+    if campaign is None:
+        raise AssertionError("campaign fixture publication failed")
+    return campaign, dict(
+        schedule=schedule_clock,
+        publish=publish_clock,
+        force=settlement.Clock(force_cutoff, landing_clock.timestamp - 260 * 12),
+        proposal=settlement.Clock(
+            proposal_cutoff, landing_clock.timestamp - 196 * 12
+        ),
+        quiesce=settlement.Clock(quiesce, landing_clock.timestamp),
+        resume=settlement.Clock(resume_block, resume_timestamp),
+        landing=landing_clock,
+    )
 
 
 class SourceFreezeTests(unittest.TestCase):
@@ -1215,26 +1337,33 @@ class ComposedTransactionTests(unittest.TestCase):
             protocol.migration_gate,
             protocol.header_oracle,
         )
+        bootstrap_clock = settlement.Clock(
+            400, settlement.GENESIS_TIMESTAMP + 999
+        )
+        bootstrap_proof = settlement.prepare_genesis_activation_for_test(
+            active_router, history, bootstrap_clock
+        )
         self.assertTrue(active_router.bootstrap(
             history,
             sequence=0,
-            clock=settlement.Clock(100, settlement.GENESIS_TIMESTAMP + 999),
+            clock=bootstrap_clock,
             caller=active_router.version_manager,
+            proof=bootstrap_proof,
         ))
         queue = protocol.forced_queue
         router = protocol.inbox_apply_router
         gate = protocol.migration_gate
         arm_clock = settlement.Clock(
-            101, settlement.GENESIS_TIMESTAMP + protocol.core.tip_slot + 1
+            401, settlement.GENESIS_TIMESTAMP + protocol.core.tip_slot + 1
         )
         self.assertEqual(protocol.arm_normal_context(arm_clock), "ARMED")
         self.assertEqual(
             protocol.activate_normal_context(
-                settlement.Clock(102, arm_clock.timestamp)
+                settlement.Clock(402, arm_clock.timestamp)
             ),
             "ACTIVATED",
         )
-        commit_clock = settlement.Clock(103, arm_clock.timestamp)
+        commit_clock = settlement.Clock(403, arm_clock.timestamp)
         candidate = settlement.candidate(
             protocol, commit_clock, "history-success-then-seat-fault"
         )
@@ -3142,10 +3271,13 @@ class BoundaryAndAuthorityTests(unittest.TestCase):
 
 
 def migration_manager_fixture(*, seat=True):
+    settlement_target = settlement.settlement_deployment_descriptor_for_test(
+        "migration-manager-settlement", b"r" * 32, b"c" * 32
+    ).target_settlement
     protocol = settlement.protocol(
         tip_slot=1_000,
         seat=seat,
-        settlement_address=addr("settlement"),
+        settlement_address=settlement_target,
     )
     profile = settlement.execution_profile_for_test(25, "profile:seat-v1")
     history = settlement.VersionedSettlementHistory(
@@ -3171,14 +3303,19 @@ def migration_manager_fixture(*, seat=True):
         protocol.migration_gate,
         protocol.header_oracle,
     )
+    bootstrap_clock = settlement.Clock(
+        max(400, protocol.canonical.canonicalized_at_block),
+        settlement.GENESIS_TIMESTAMP + protocol.core.tip_slot,
+    )
+    bootstrap_proof = settlement.prepare_genesis_activation_for_test(
+        router, history, bootstrap_clock
+    )
     if not router.bootstrap(
         history,
         sequence=0,
-        clock=settlement.Clock(
-            protocol.canonical.canonicalized_at_block,
-            settlement.GENESIS_TIMESTAMP + protocol.core.tip_slot,
-        ),
+        clock=bootstrap_clock,
         caller=router.version_manager,
+        proof=bootstrap_proof,
     ):
         raise AssertionError("fixture did not bootstrap active router")
     manager = settlement.ProtocolVersionManager(
@@ -3246,13 +3383,47 @@ def migration_graph_projection(protocol, manager):
 
 
 def execute_manager_arm(manager, clock, *, executable_at=None):
+    target_manifest_hash = b"m" * 32
+    target_registration_hash = b"r" * 32
+    old_authorization_id = b""
+    new_authorization_id = b""
+    if manager.release_manager is not None:
+        old_history = manager.router.registrations[manager.router.active_version] \
+            .settlement
+        rows = tuple(
+            (authorization_id, runtime.authority)
+            for authorization_id, runtime
+            in manager.release_manager.target_runtimes.items()
+            if runtime.authority.protocol_version in {25, 26}
+        )
+        old_authorization_id = next(
+            authorization_id for authorization_id, history in rows
+            if history is old_history
+        )
+        new_authorization_id, target = next(
+            row for row in rows if row[1].protocol_version == 26
+        )
+        registration = settlement.settlement_registration(
+            manager.router,
+            target,
+            activation_block=0,
+            predecessor_version=old_history.protocol_version,
+            release_manifest_hash=None,
+        )
+        target_manifest_hash = registration.release_manifest_hash
+        target_registration_hash = settlement.target_registration_hash_v2(
+            registration
+        )
     manifest = settlement.ScheduledSeatMigration(
         1,
         25,
         26,
-        b"m" * 32,
+        target_manifest_hash,
         clock.timestamp - settlement.SEAT_MIGRATION_MANIFEST_DELAY,
         clock.timestamp if executable_at is None else executable_at,
+        old_authorization_id,
+        new_authorization_id,
+        target_registration_hash,
     )
     if manifest.key not in manager.arm_manifests:
         manager.schedule_seat_migration(
@@ -3270,13 +3441,15 @@ def execute_manager_arm(manager, clock, *, executable_at=None):
 
 
 def execute_manager_abort(manager, clock, *, executable_at=None):
-    manifest = settlement.ScheduledSeatMigration(
-        1,
-        25,
-        26,
-        b"m" * 32,
-        clock.timestamp - settlement.SEAT_MIGRATION_CANCEL_DELAY,
-        clock.timestamp if executable_at is None else executable_at,
+    armed = manager.arm_manifests[next(
+        key for key in manager.arm_manifests if key[0] == 1
+    )]
+    manifest = replace(
+        armed,
+        scheduled_at=clock.timestamp - settlement.SEAT_MIGRATION_CANCEL_DELAY,
+        executable_at=(
+            clock.timestamp if executable_at is None else executable_at
+        ),
     )
     if manifest.key not in manager.cancel_manifests:
         manager.schedule_seat_migration(
@@ -3332,14 +3505,19 @@ def production_migration_fixture(
         old_protocol.migration_gate,
         old_protocol.header_oracle,
     )
+    bootstrap_clock = settlement.Clock(
+        max(400, old_protocol.canonical.canonicalized_at_block),
+        settlement.GENESIS_TIMESTAMP + old_protocol.core.tip_slot,
+    )
+    bootstrap_proof = settlement.prepare_genesis_activation_for_test(
+        router, old_history, bootstrap_clock
+    )
     assert router.bootstrap(
         old_history,
         sequence=0,
-        clock=settlement.Clock(
-            old_protocol.canonical.canonicalized_at_block,
-            settlement.GENESIS_TIMESTAMP + old_protocol.core.tip_slot,
-        ),
+        clock=bootstrap_clock,
         caller=router.version_manager,
+        proof=bootstrap_proof,
     )
     release_manager = market.ReleaseManager(
         addr("release-manager"), activation_authority=router
@@ -3378,7 +3556,9 @@ def production_migration_fixture(
 
     new_auth = replace(
         old_auth,
-        target=addr("settlement-v2"),
+        target=settlement.settlement_deployment_descriptor_for_test(
+            "seat-market-authorized-settlement-v2", b"2" * 32, b"d" * 32
+        ).target_settlement,
         protocol_version=old_auth.protocol_version + 1,
         runtime_hash=b"2" * 32,
         configuration_hash=b"d" * 32,
@@ -3392,13 +3572,10 @@ def production_migration_fixture(
         target_header_oracle = old_protocol.header_oracle.fork_for_test({
             1: replace(original, block_hash="f" * 64)
         })
-    elif target_header_variant == "substituted-runtime":
-        target_header_oracle = settlement.L1HeaderOracle(
-            settlement.L1_HEADER_ORACLE_ADDRESS,
-            "other-runtime",
-            settlement.L1_HEADER_ORACLE_CONFIGURATION_HASH,
-            dict(old_protocol.header_oracle._headers),
-        )
+    elif target_header_variant == "replaceable-wrapper":
+        # Production has no replaceable oracle object: an attempted wrapper is
+        # simply outside the fixed EIP-2935 system-read graph.
+        target_header_oracle = object()
     else:
         raise ValueError("unknown target header variant")
     new_protocol = settlement.protocol(
@@ -3456,6 +3633,97 @@ def production_migration_fixture(
     )
 
 
+def protocol_authority_fixture():
+    """Exact delayed PVM/Router/Market/Schedule journal fixture."""
+
+    rows = production_migration_fixture()
+    router = rows[4].router
+    witness = settlement.settlement_registration(
+        router,
+        rows[2],
+        activation_block=0,
+        predecessor_version=router.active_version,
+        release_manifest_hash=None,
+    )
+    payload = settlement.encode_register_release_payload_for_registration_v1(
+        witness
+    )
+    pvm_address = router.version_manager
+    market_authority = settlement.PvmDerivedMarketAuthorizationV1(
+        1, addr("pvm-market"), pvm_address, 1
+    )
+    schedule_oracle = settlement.ScheduleOracleV1(
+        addr("schedule-oracle"), pvm_address, current_window=100
+    )
+    manager = settlement.ProtocolVersionManagerV1(
+        pvm_address,
+        1,
+        addr("protocol-timelock"),
+        router.address,
+        addr("pvm-queue"),
+        addr("pvm-builders"),
+        schedule_oracle.address,
+        market_authority,
+        addr("pvm-domains"),
+        addr("pvm-credits"),
+        b"t" * 32,
+        b"n" * 32,
+        active_protocol_version=router.active_version,
+        router=router,
+        release_witnesses={witness.settlement.protocol_version: witness},
+        schedule_oracle=schedule_oracle,
+    )
+    timelock = settlement.ProtocolChangeTimelockV1(
+        addr("protocol-timelock"), 1, addr("dao-proposer"), manager,
+        b"r" * 32,
+    )
+    return (
+        rows, router, witness, payload, manager, timelock,
+        market_authority, schedule_oracle,
+        settlement.Clock(1_000, 1_000_000),
+    )
+
+
+def genesis_protocol_authority_fixture():
+    """Delayed authority fixture whose Router is still on legacy genesis."""
+
+    protocol, history, router, _ = unactivated_genesis_fixture(
+        suffix="pvm-genesis-publication"
+    )
+    witness = settlement.settlement_registration(
+        router, history, activation_block=0, predecessor_version=0,
+        release_manifest_hash=None,
+    )
+    payload = settlement.encode_register_release_payload_for_registration_v1(
+        witness
+    )
+    pvm_address = router.version_manager
+    market_authority = settlement.PvmDerivedMarketAuthorizationV1(
+        1, addr("pvm-genesis-market"), pvm_address, 1
+    )
+    schedule_oracle = settlement.ScheduleOracleV1(
+        addr("gen-schedule"), pvm_address, current_window=100
+    )
+    manager = settlement.ProtocolVersionManagerV1(
+        pvm_address, 1, addr("gen-timelock"), router.address,
+        addr("gen-pvm-queue"), addr("gen-pvm-builders"),
+        schedule_oracle.address, market_authority,
+        addr("gen-pvm-domains"), addr("gen-pvm-credits"),
+        b"t" * 32, b"n" * 32, active_protocol_version=0, router=router,
+        release_witnesses={history.protocol_version: witness},
+        schedule_oracle=schedule_oracle,
+    )
+    timelock = settlement.ProtocolChangeTimelockV1(
+        addr("gen-timelock"), 1, addr("genesis-dao"),
+        manager, b"r" * 32,
+    )
+    return (
+        (protocol, history), router, witness, payload, manager, timelock,
+        market_authority, schedule_oracle,
+        settlement.Clock(100, 1_000_000),
+    )
+
+
 def prepare_production_activation(rows, *, clock=None):
     (
         old_protocol, old_history, new_history, seat_market, manager,
@@ -3472,19 +3740,24 @@ def prepare_production_activation(rows, *, clock=None):
             settlement.GENESIS_TIMESTAMP + old_history.core.tip_slot + 1,
         ),
     )
-    target_manifest_hash = settlement.settlement_registration(
+    target_registration = settlement.settlement_registration(
         manager.router,
         new_history,
         activation_block=activation_clock.block_number,
         predecessor_version=old_history.protocol_version,
         release_manifest_hash=None,
-    ).release_manifest_hash
+    )
+    target_manifest_hash = target_registration.release_manifest_hash
+    target_registration_hash = settlement.target_registration_hash_v2(
+        target_registration
+    )
     manifest = settlement.ScheduledSeatMigration(
         1, 25, 26, target_manifest_hash,
         arm_clock.timestamp - settlement.SEAT_MIGRATION_MANIFEST_DELAY,
         arm_clock.timestamp,
         old_id,
         new_id,
+        target_registration_hash,
     )
     manager.schedule_seat_migration(
         manifest,
@@ -3560,12 +3833,17 @@ def register_production_successor(rows, *, label: str, protocol_version: int):
     old_history = manager.router.registrations[manager.router.active_version].settlement
     old_protocol = old_history.live_protocol
     old_auth = release_manager.authorizations[old_protocol.seat_authorization_id]
+    next_runtime = label.encode().ljust(32, b"r")[:32]
+    next_configuration = label.encode().ljust(32, b"c")[:32]
+    next_target = settlement.settlement_deployment_descriptor_for_test(
+        f"production-successor:{label}", next_runtime, next_configuration
+    ).target_settlement
     new_auth = replace(
         old_auth,
-        target=addr(f"settlement-{label}"),
+        target=next_target,
         protocol_version=protocol_version,
-        runtime_hash=label.encode().ljust(32, b"r")[:32],
-        configuration_hash=label.encode().ljust(32, b"c")[:32],
+        runtime_hash=next_runtime,
+        configuration_hash=next_configuration,
     )
     new_protocol = settlement.protocol(
         tip_slot=old_protocol.core.tip_slot,
@@ -3641,13 +3919,17 @@ def activate_registered_successor(
         timestamp,
     )
     timestamp = clock.timestamp
-    manifest_hash = settlement.settlement_registration(
+    target_registration = settlement.settlement_registration(
         manager.router,
         new_history,
         activation_block=clock.block_number,
         predecessor_version=old_history.protocol_version,
         release_manifest_hash=None,
-    ).release_manifest_hash
+    )
+    manifest_hash = target_registration.release_manifest_hash
+    target_registration_hash = settlement.target_registration_hash_v2(
+        target_registration
+    )
     manifest = settlement.ScheduledSeatMigration(
         generation,
         old_history.protocol_version,
@@ -3657,6 +3939,7 @@ def activate_registered_successor(
         timestamp,
         old_authorization_id,
         new_authorization_id,
+        target_registration_hash,
     )
     manager.schedule_seat_migration(
         manifest,
@@ -3727,7 +4010,21 @@ def abort_current_migration_generation(rows, *, target_version: int, manifest_by
         max(history.last_canonical_l1_block + 10, 1_000 + generation * 10),
         timestamp,
     )
-    manifest_hash = manifest_byte * 32
+    _ = manifest_byte
+    target_authorization_id, target_history = next(
+        (authorization_id, runtime.authority)
+        for authorization_id, runtime
+        in manager.release_manager.target_runtimes.items()
+        if runtime.authority.protocol_version == target_version
+    )
+    target_registration = settlement.settlement_registration(
+        manager.router,
+        target_history,
+        activation_block=0,
+        predecessor_version=history.protocol_version,
+        release_manifest_hash=None,
+    )
+    manifest_hash = target_registration.release_manifest_hash
     arm = settlement.ScheduledSeatMigration(
         generation,
         history.protocol_version,
@@ -3735,6 +4032,9 @@ def abort_current_migration_generation(rows, *, target_version: int, manifest_by
         manifest_hash,
         timestamp - settlement.SEAT_MIGRATION_MANIFEST_DELAY,
         timestamp,
+        protocol.seat_authorization_id,
+        target_authorization_id,
+        settlement.target_registration_hash_v2(target_registration),
     )
     manager.schedule_seat_migration(
         arm,
@@ -3986,18 +4286,22 @@ class ForcedIngressRouterTests(unittest.TestCase):
         migration_queue = rows[4].router.forced_queue
         migration_before = migration_queue._transaction_snapshot()
         self.assertFalse(
-            migration_queue._activate_and_advance_from_router(
+            migration_queue._migrate_from_router(
                 expected_old=rows[1].address,
-                settlement=rows[2],
-                proof=proof,
+                expected_new=rows[2].address,
+                expected_start=proof.start_cursor,
+                expected_end=proof.end_cursor,
+                beneficiary=proof.beneficiary,
                 router=rows[4].router,
             )
         )
         self.assertFalse(
-            migration_queue._activate_and_advance_from_router(
+            migration_queue._migrate_from_router(
                 expected_old=rows[1].address,
-                settlement=rows[2],
-                proof=replace(proof, beneficiary=addr("attacker")),
+                expected_new=rows[2].address,
+                expected_start=proof.start_cursor,
+                expected_end=proof.end_cursor,
+                beneficiary=addr("attacker"),
                 router=rows[4].router,
             )
         )
@@ -7995,6 +8299,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
             self.router.active_version,
             self.router.active_version + 1,
             b"m" * 32,
+            b"r" * 32,
             caller=self.router.version_manager,
         ))
         with self.assertRaises(ValueError):
@@ -8011,6 +8316,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
             self.router.active_version,
             self.router.active_version + 1,
             b"m" * 32,
+            b"r" * 32,
             cancel_manifest_active=True,
             caller=self.router.version_manager,
         ))
@@ -8785,14 +9091,19 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             gate.active_protocol_version,
             gate.target_protocol_version,
             gate.target_manifest_hash,
+            gate.target_registration_hash,
             cancel_manifest_active=True,
             caller=gate.coordinator,
+        ))
+        self.assertTrue(gate._publish_abort_active(
+            generation, caller=gate.coordinator
         ))
         self.assertTrue(gate._arm_from_manager(
             generation + 1,
             router.active_version,
             target.protocol_version,
             manifest.target_manifest_hash,
+            manifest.target_registration_hash,
             caller=gate.coordinator,
         ))
         self.assertEqual(gate.mode, "ARMED")
@@ -8972,6 +9283,7 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
                 manager.router.inbox_apply_descriptor,
                 manager.router.migration_gate,
                 manager.router.header_oracle,
+                settlement.LegacyLaunchHookV1(addr("replacement-manager")),
             )),
             (manager, "release_manager", market.ReleaseManager(
                 addr("other-release"), activation_authority=manager.router
@@ -9110,80 +9422,1333 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             hasattr(settlement.VersionedSettlementHistory, "arm_migration")
         )
 
-    def test_router_bootstrap_is_authenticated_atomic_and_retryable(self):
-        protocol = settlement.protocol(seat=False)
-        profile = settlement.execution_profile_for_test(
-            25, "profile:bootstrap"
+    def test_genesis_campaign_public_gate_cutoffs_cancel_and_upgrade_freeze(self):
+        _protocol, history, router, landing = unactivated_genesis_fixture(
+            suffix="campaign-gate"
         )
-        history = settlement.VersionedSettlementHistory(
-            protocol.settlement_address,
-            "runtime:bootstrap",
-            25,
-            profile.execution_profile_hash,
-            copy.deepcopy(protocol.core),
-            protocol.canonical.canonicalized_at_block,
+        hook = router.legacy_launch_hook
+        self.assertTrue(hook.authorize_upgrade_v1(
+            caller=hook.owner,
+            clock=settlement.Clock(1, 1),
+        ))
+        campaign, clocks = publish_genesis_campaign_fixture(
+            router, history, landing
+        )
+        state = settlement.decode_genesis_campaign_v1(
+            router.genesis_campaign_state_return_v1()
+        )
+        self.assertEqual(len(router.genesis_campaign_state_return_v1()), 512)
+        self.assertEqual((state.status, state.campaign_id), (1, campaign.campaign_id))
+        public = settlement.decode_active_settlement_state_v1(
+            router.active_settlement_state_v1()
+        )
+        self.assertEqual(len(router.active_settlement_state_v1()), 256)
+        self.assertEqual(
+            (public.phase, public.active_protocol_version,
+             public.target_protocol_version, public.target_manifest_hash,
+             public.target_registration_hash),
+            (settlement.RouterPhase.ACTIVE, 0, 0, bytes(32), bytes(32)),
+        )
+        self.assertFalse(hook.authorize_upgrade_v1(
+            caller=hook.owner, clock=clocks["publish"]
+        ))
+        self.assertFalse(hook.authorize_upgrade_v1(
+            caller=hook.owner, clock=clocks["force"]
+        ))
+        getter = router.genesis_campaign_return_override
+        router.genesis_campaign_return_override = b"bad"
+        self.assertFalse(hook.authorize_upgrade_v1(
+            caller=hook.owner, clock=clocks["publish"]
+        ))
+        forced_before = (hook.forced_tail, hook.retained_forced_value)
+        self.assertFalse(hook.append_forced_ingress(
+            amount=19, caller=addr("forcer"),
+            block_number=clocks["force"].block_number,
+            timestamp=clocks["force"].timestamp,
+        ))
+        self.assertEqual(
+            (hook.forced_tail, hook.retained_forced_value), forced_before
+        )
+        router.genesis_campaign_return_override = getter
+        self.assertTrue(hook.append_forced_ingress(
+            amount=7, caller=addr("forcer"),
+            block_number=clocks["force"].block_number - 1,
+            timestamp=clocks["force"].timestamp - 1,
+        ))
+        proposal_before = (hook.next_proposal_id, hook.retained_proposal_value)
+        self.assertFalse(hook.submit_proposal(
+            caller=addr("proposer"),
+            block_number=clocks["proposal"].block_number,
+            timestamp=clocks["proposal"].timestamp,
+            value=23,
+        ))
+        self.assertEqual(
+            (hook.next_proposal_id, hook.retained_proposal_value),
+            proposal_before,
+        )
+        self.assertTrue(hook.submit_proposal(
+            caller=addr("proposer"),
+            block_number=clocks["proposal"].block_number - 1,
+            timestamp=clocks["proposal"].timestamp - 1,
+            value=3,
+        ))
+
+        _p2, h2, r2, l2 = unactivated_genesis_fixture(
+            suffix="campaign-cancel"
+        )
+        c2, k2 = publish_genesis_campaign_fixture(r2, h2, l2)
+        cancel_clock = settlement.Clock(
+            k2["publish"].block_number + 1,
+            k2["publish"].timestamp + 1,
+        )
+        cancel_args = dict(
+            campaign_id=c2.campaign_id,
+            target_address=c2.target_address,
+            target_registration_hash=c2.target_registration_hash,
+            cancellation_commitment=settlement.keccak256(b"cancel-artifact"),
+            cancellation_finalized_by_block=c2.review_finalized_by_block,
+            caller=r2.version_manager,
+            clock=cancel_clock,
+        )
+        self.assertFalse(r2.withdraw_genesis_campaign_v1(
+            **{**cancel_args, "target_address": addr("substitute")}
+        ))
+        self.assertFalse(r2.withdraw_genesis_campaign_v1(**cancel_args))
+        self.assertIs(r2.genesis_campaign, c2)
+        self.assertIs(
+            r2.migration_lifecycle,
+            settlement.RouterMigrationLifecycle.IDLE,
+        )
+        # A published campaign is noncancelable; only its queued timelock
+        # operation could have been canceled before publication.
+        self.assertFalse(r2.withdraw_genesis_campaign_v1(**cancel_args))
+        retained = settlement.decode_genesis_campaign_v1(
+            r2.genesis_campaign_state_return_v1()
+        )
+        self.assertEqual((retained.status, retained.campaign_id),
+                         (1, c2.campaign_id))
+        self.assertFalse(r2.legacy_launch_hook.authorize_upgrade_v1(
+            caller=r2.legacy_launch_hook.owner, clock=cancel_clock
+        ))
+
+    def test_genesis_bounded_scans_quiescence_and_atomic_dirty_activation(self):
+        _protocol, history, router, landing = unactivated_genesis_fixture(
+            suffix="bounded-scan"
+        )
+        campaign, clocks = publish_genesis_campaign_fixture(
+            router, history, landing
+        )
+        hook = router.legacy_launch_hook
+        self.assertEqual(
+            settlement.LEGACY_PROPOSAL_BATCH_RAW_BYTES_MAX, 60_928
+        )
+        self.assertEqual(
+            settlement.LEGACY_PROPOSAL_BATCH_CALLDATA_BYTES_MAX, 62_084
+        )
+        self.assertEqual(
+            settlement.LEGACY_SCAN_ROW_COUNT_MAX
+                * (settlement.LEGACY_PROPOSAL_ROW_BYTES_MAX
+                   + settlement.LEGACY_FORCED_ROW_BYTES_MAX),
+            4_161_536,
+        )
+        self.assertFalse(hook.submit_proposal(
+            caller=addr("oversized-proposal"),
+            block_number=clocks["proposal"].block_number - 1,
+            timestamp=clocks["proposal"].timestamp - 1,
+            preimage=b"p" * (settlement.LEGACY_PROPOSAL_ROW_BYTES_MAX + 1),
+        ))
+        self.assertFalse(hook.append_forced_ingress(
+            amount=1, caller=addr("oversized-forced"),
+            block_number=clocks["force"].block_number - 1,
+            timestamp=clocks["force"].timestamp - 1,
+            preimage=b"f" * (settlement.LEGACY_FORCED_ROW_BYTES_MAX + 1),
+        ))
+        for index in range(17):
+            self.assertTrue(hook.append_forced_ingress(
+                amount=index + 1, caller=addr("forcer"),
+                block_number=clocks["force"].block_number - 1,
+                timestamp=clocks["force"].timestamp - 1,
+                preimage=f"forced-{index}".encode(),
+                blob_timestamp=landing.timestamp,
+            ))
+            self.assertTrue(hook.submit_proposal(
+                caller=addr("proposer"),
+                block_number=clocks["proposal"].block_number - 1,
+                timestamp=clocks["proposal"].timestamp - 1,
+                preimage=f"proposal-{index}".encode(),
+                blob_timestamp=landing.timestamp,
+            ))
+        self.assertFalse(hook.submit_proposal(
+            caller=addr("zero-blob"),
+            block_number=clocks["proposal"].block_number - 1,
+            timestamp=clocks["proposal"].timestamp - 1,
+            blob_timestamp=0,
+        ))
+        begin = hook.begin_legacy_genesis_scan_v1(
+            campaign.generation, campaign.campaign_id,
+            caller=addr("scanner"), clock=clocks["proposal"],
+        )
+        self.assertEqual(len(begin), 160)
+        proposal_rows = tuple(
+            hook.proposal_records[index].preimage
+            for index in range(hook.proposal_scan_start,
+                               hook.frozen_next_proposal_id)
+        )
+        before_short = copy.deepcopy(hook.__dict__)
+        self.assertEqual(hook.scan_legacy_genesis_proposals_v1(
+            campaign.generation, campaign.campaign_id, proposal_rows[:15],
+            caller=addr("front-runner"), clock=clocks["proposal"],
+        ), b"")
+        self.assertEqual(hook.__dict__, before_short)
+        wrong = (b"substitute",) + proposal_rows[1:16]
+        self.assertEqual(hook.scan_legacy_genesis_proposals_v1(
+            campaign.generation, campaign.campaign_id, wrong,
+            caller=addr("scanner"), clock=clocks["proposal"],
+        ), b"")
+        self.assertEqual(len(hook.scan_legacy_genesis_proposals_v1(
+            campaign.generation, campaign.campaign_id, proposal_rows[:16],
+            caller=addr("scanner"), clock=clocks["proposal"],
+        )), 160)
+        self.assertEqual(len(hook.scan_legacy_genesis_proposals_v1(
+            campaign.generation, campaign.campaign_id, proposal_rows[16:],
+            caller=addr("scanner"), clock=clocks["proposal"],
+        )), 160)
+        self.assertEqual(hook.scan_legacy_genesis_forced_v1(
+            campaign.generation, campaign.campaign_id, 15,
+            caller=addr("scanner"), clock=clocks["proposal"],
+        ), b"")
+        self.assertEqual(len(hook.scan_legacy_genesis_forced_v1(
+            campaign.generation, campaign.campaign_id, 16,
+            caller=addr("scanner"), clock=clocks["proposal"],
+        )), 192)
+        self.assertEqual(len(hook.scan_legacy_genesis_forced_v1(
+            campaign.generation, campaign.campaign_id, 1,
+            caller=addr("scanner"), clock=clocks["proposal"],
+        )), 192)
+        scan_state = hook.legacy_genesis_scan_state_v1()
+        self.assertEqual((len(scan_state), int.from_bytes(scan_state[-32:], "big")),
+                         (608, 2))
+        self.assertEqual(hook.scan_call_count, 4)
+        self.assertLessEqual(hook.scan_call_count,
+                             settlement.LEGACY_SCAN_CALL_MAX)
+        auxiliary_before_donation = hook.scan_commitment_v1()
+        hook.raw_proxy_surplus += 32 * 10**18
+        self.assertEqual(hook.scan_commitment_v1(), auxiliary_before_donation)
+        self.assertTrue(hook.finalize_next_proposal(
+            caller=addr("prover"),
+            block_number=clocks["quiesce"].block_number - 1,
+        ))
+        exact_scan_state = hook.legacy_genesis_scan_state_v1()
+        hook.scan_state_return_override = exact_scan_state[:-1] + b"\x01"
+        self.assertEqual(hook.enter_legacy_genesis_quiescence_v1(
+            campaign.generation, campaign.campaign_id,
+            caller=addr("keeper"), clock=clocks["quiesce"],
+        ), b"")
+        hook.scan_state_return_override = None
+        hook.prover_whitelist_member_count = 1
+        self.assertEqual(hook.enter_legacy_genesis_quiescence_v1(
+            campaign.generation, campaign.campaign_id,
+            caller=addr("keeper"), clock=clocks["quiesce"],
+        ), b"")
+        hook.prover_whitelist_member_count = 0
+        hook.fault_point = "after_quiescence"
+        self.assertEqual(hook.enter_legacy_genesis_quiescence_v1(
+            campaign.generation, campaign.campaign_id,
+            caller=addr("keeper"), clock=clocks["quiesce"],
+        ), b"")
+        self.assertIs(hook.phase, settlement.LegacyLaunchPhase.ACTIVE)
+        hook.fault_point = None
+        self.assertEqual(len(hook.enter_legacy_genesis_quiescence_v1(
+            campaign.generation, campaign.campaign_id,
+            caller=addr("keeper"), clock=clocks["quiesce"],
+        )), 96)
+        self.assertIs(hook.phase, settlement.LegacyLaunchPhase.QUIESCENT)
+        self.assertFalse(hook.submit_proposal(
+            caller=addr("late"), block_number=clocks["quiesce"].block_number,
+            timestamp=clocks["quiesce"].timestamp,
+        ))
+        proof = router.genesis_activation_proof_stub_v1(history)
+        exact_lgs = hook.legacy_launch_state_return_v1()
+        hook.state_return_override = exact_lgs[:-1] + b"\x01"
+        self.assertFalse(router.bootstrap(
+            history, sequence=0, clock=landing, caller=addr("lander"),
+            proof=proof,
+        ))
+        hook.state_return_override = None
+        exact_scan_state = hook.legacy_genesis_scan_state_v1()
+        hook.scan_state_return_override = exact_scan_state[:-1] + b"\x01"
+        self.assertFalse(router.bootstrap(
+            history, sequence=0, clock=landing, caller=addr("lander"),
+            proof=proof,
+        ))
+        hook.scan_state_return_override = None
+        self.assertFalse(router.bootstrap(
+            history, sequence=0, clock=landing, caller=addr("lander"),
+            proof=replace(proof, campaign_id=bytes.fromhex("ff" * 32)),
+        ))
+
+        def projection():
+            return (
+                copy.deepcopy(history.core), history.mode,
+                history.current_sequence, copy.deepcopy(history.history),
+                copy.deepcopy(history.migration_gate.__dict__),
+                router.forced_queue._transaction_snapshot(),
+                router.active_version, tuple(router.registrations),
+                copy.deepcopy(hook.legacy_launch_state_v1()),
+                router.migration_lifecycle,
+                router._migration_callback_frame,
+                router.genesis_campaign,
+                router.genesis_activation_receipt,
+                tuple(router.genesis_activation_trace),
+            )
+
+        faults = (
+            (hook, "fault_point", "after_arm"),
+            (hook, "fault_point", "after_finalize"),
+            (hook, "fault_point", "maps_bad_return"),
+            (router, "migration_fault_point", "after_genesis_activating"),
+            (router, "migration_fault_point", "after_genesis_proof"),
+            (router, "migration_fault_point", "after_genesis_arm"),
+            (router, "migration_fault_point", "after_genesis_ready"),
+            (router, "migration_fault_point", "after_source_freeze"),
+            (router, "migration_fault_point", "after_target_adopt"),
+            (router, "migration_fault_point", "before_queue_migrate"),
+            (router, "migration_fault_point", "after_registration"),
+            (router, "migration_fault_point", "before_publication"),
+            (history, "migration_callback_fault_point", "adopt_after_core"),
+            (history, "migration_callback_fault_point", "adopt_bad_return"),
+            (router.forced_queue, "migration_fault_point", "after_credit"),
+            (router.forced_queue, "migration_fault_point", "after_swap"),
+            (router.forced_queue, "migration_fault_point", "bad_return"),
+        )
+        for target, field_name, fault in faults:
+            with self.subTest(fault=fault):
+                setattr(target, field_name, fault)
+                stable = projection()
+                self.assertFalse(router.bootstrap(
+                    history, sequence=0, clock=landing,
+                    caller=addr("lander"), proof=proof,
+                ))
+                self.assertEqual(projection(), stable)
+                self.assertIs(
+                    hook.phase, settlement.LegacyLaunchPhase.QUIESCENT
+                )
+                setattr(target, field_name, None)
+        self.assertTrue(router.bootstrap(
+            history, sequence=0, clock=landing,
+            caller=addr("lander"), proof=proof,
+        ))
+        self.assertIs(hook.phase, settlement.LegacyLaunchPhase.FROZEN)
+        self.assertEqual(router.genesis_activation_trace, [
+            "ACTIVATING", "LGS_QUIESCENT", "VERIFIED", "LGAR",
+            "LGS_READY", "LGFN", "MCAN", "QMIG", "MAPS",
+            "REGISTERED", "PUBLISHED", "IDLE",
+        ])
+        receipt = router.genesis_activation_receipt
+        self.assertIsNotNone(receipt)
+        self.assertEqual(
+            receipt.transition_auxiliary_hash,
+            settlement.legacy_genesis_abandonment_auxiliary_hash_v1(hook),
+        )
+        self.assertNotEqual(receipt.transition_auxiliary_hash, bytes(32))
+        self.assertFalse(hook.authorize_upgrade_v1(
+            caller=hook.owner, clock=landing
+        ))
+
+    def test_genesis_expiry_resume_commutes_and_old_scans_cannot_be_orphaned(self):
+        def partial_fixture(suffix):
+            _p, history, router, landing = unactivated_genesis_fixture(
+                suffix=suffix
+            )
+            campaign, clocks = publish_genesis_campaign_fixture(
+                router, history, landing
+            )
+            hook = router.legacy_launch_hook
+            for index in range(17):
+                self.assertTrue(hook.submit_proposal(
+                    caller=addr("proposer"),
+                    block_number=clocks["proposal"].block_number - 1,
+                    timestamp=clocks["proposal"].timestamp - 1,
+                    preimage=f"resume-{index}".encode(),
+                ))
+            self.assertEqual(len(hook.begin_legacy_genesis_scan_v1(
+                campaign.generation, campaign.campaign_id,
+                caller=addr("scanner"), clock=clocks["proposal"],
+            )), 160)
+            rows = tuple(
+                hook.proposal_records[index].preimage
+                for index in range(hook.proposal_scan_start,
+                                   hook.frozen_next_proposal_id)
+            )
+            self.assertEqual(len(hook.scan_legacy_genesis_proposals_v1(
+                campaign.generation, campaign.campaign_id, rows[:16],
+                caller=addr("scanner"), clock=clocks["proposal"],
+            )), 160)
+            return history, router, hook, campaign, clocks, rows
+
+        def replacement_args(history, router, hook, campaign, resume_clock):
+            preview = settlement.settlement_registration(
+                router, history, activation_block=0, predecessor_version=0,
+                release_manifest_hash=router.bootstrap_release_manifest_hash,
+            )
+            review = settlement.legacy_genesis_review_commitment_v1(
+                hook.deployment_hash, hook.legacy_resume_profile_hash,
+                history.protocol_version,
+                router.bootstrap_release_manifest_hash,
+                settlement.target_registration_hash_v2(preview),
+            )
+            return dict(
+                settlement=history, review_commitment=review,
+                review_finalized_by_block=campaign.review_finalized_by_block,
+                force_cutoff_block=campaign.force_cutoff_block + 1_000,
+                proposal_cutoff_block=campaign.proposal_cutoff_block + 1_000,
+                quiesce_block=campaign.quiesce_block + 1_000,
+                resume_by_block=campaign.resume_by_block + 1_000,
+                resume_by_timestamp=campaign.resume_by_timestamp + 7_000,
+                executable_at=resume_clock.timestamp
+                    + settlement.SEAT_MIGRATION_MANIFEST_DELAY,
+                caller=router.version_manager, clock=resume_clock,
+            )
+
+        # Local resume then Router expiry is one valid commuting order.
+        _h0, r0, hook0, c0, k0, _rows0 = partial_fixture(
+            "resume-local-first"
+        )
+        self.assertEqual(len(hook0.resume_legacy_genesis_v1(
+            c0.generation, c0.campaign_id,
+            caller=addr("resumer"), clock=k0["resume"],
+        )), 96)
+        self.assertEqual(len(r0.expire_legacy_genesis_campaign_v1(
+            c0.generation, c0.campaign_id,
+            caller=addr("expirer"), clock=k0["resume"],
+        )), 32)
+
+        # A Router-expired campaign cannot be replaced while its partial
+        # local scan remains; explicit resume clears it, then nonce advances.
+        history, router, hook, campaign, clocks, _rows = partial_fixture(
+            "resume-orphan-guard"
+        )
+        self.assertEqual(len(router.expire_legacy_genesis_campaign_v1(
+            campaign.generation, campaign.campaign_id,
+            caller=addr("expirer"), clock=clocks["resume"],
+        )), 32)
+        new_args = replacement_args(
+            history, router, hook, campaign, clocks["resume"]
+        )
+        self.assertIsNone(
+            router._schedule_genesis_campaign_for_fixture_v1(**new_args)
+        )
+        self.assertEqual(len(hook.resume_legacy_genesis_v1(
+            campaign.generation, campaign.campaign_id,
+            caller=addr("resumer"), clock=clocks["resume"],
+        )), 96)
+        self.assertTrue(hook.campaign_surfaces_clean_v1())
+        self.assertTrue(hook.authorize_upgrade_v1(
+            caller=hook.owner, clock=clocks["resume"]
+        ))
+        replacement_id = router._schedule_genesis_campaign_for_fixture_v1(
+            **new_args
+        )
+        self.assertIsNotNone(replacement_id)
+        self.assertEqual(router.genesis_campaign_nonce, campaign.nonce + 1)
+
+        _h2, r2, hook2, c2, k2, rows2 = partial_fixture(
+            "resume-router-first"
+        )
+        r2.migration_fault_point = "after_genesis_campaign_expiry"
+        self.assertEqual(r2.expire_legacy_genesis_campaign_v1(
+            c2.generation, c2.campaign_id, caller=addr("expirer"),
+            clock=k2["resume"],
+        ), b"")
+        self.assertIs(r2.genesis_campaign, c2)
+        self.assertIs(
+            r2.migration_lifecycle,
+            settlement.RouterMigrationLifecycle.IDLE,
+        )
+        r2.migration_fault_point = None
+        self.assertEqual(len(r2.expire_legacy_genesis_campaign_v1(
+            c2.generation, c2.campaign_id, caller=addr("expirer"),
+            clock=k2["resume"],
+        )), 32)
+        self.assertFalse(hook2.campaign_surfaces_clean_v1())
+        self.assertEqual(len(hook2.resume_legacy_genesis_v1(
+            c2.generation, c2.campaign_id, caller=addr("resumer"),
+            clock=k2["resume"],
+        )), 96)
+        self.assertTrue(hook2.campaign_surfaces_clean_v1())
+
+        _h3, r3, hook3, c3, k3, rows3 = partial_fixture("resume-complete")
+        self.assertEqual(len(hook3.scan_legacy_genesis_proposals_v1(
+            c3.generation, c3.campaign_id, rows3[16:],
+            caller=addr("scanner"), clock=k3["proposal"],
+        )), 160)
+        self.assertEqual(len(r3.expire_legacy_genesis_campaign_v1(
+            c3.generation, c3.campaign_id, caller=addr("expirer"),
+            clock=k3["resume"],
+        )), 32)
+        complete_args = replacement_args(_h3, r3, hook3, c3, k3["resume"])
+        self.assertIsNone(
+            r3._schedule_genesis_campaign_for_fixture_v1(**complete_args)
+        )
+        self.assertEqual(len(hook3.resume_legacy_genesis_v1(
+            c3.generation, c3.campaign_id, caller=addr("resumer"),
+            clock=k3["resume"],
+        )), 96)
+        self.assertTrue(hook3.campaign_surfaces_clean_v1())
+        self.assertIsNotNone(
+            r3._schedule_genesis_campaign_for_fixture_v1(**complete_args)
+        )
+
+        # QUIESCENT uses the same local-only escape and cannot authorize an
+        # implementation change before the clear.
+        _p4, h4, r4, l4 = unactivated_genesis_fixture(suffix="resume-quiescent")
+        settlement.prepare_genesis_activation_for_test(r4, h4, l4)
+        c4 = r4.genesis_campaign
+        hook4 = r4.legacy_launch_hook
+        resume4 = settlement.Clock(c4.resume_by_block, c4.resume_by_timestamp)
+        self.assertIs(hook4.phase, settlement.LegacyLaunchPhase.QUIESCENT)
+        self.assertFalse(hook4.authorize_upgrade_v1(
+            caller=hook4.owner, clock=settlement.Clock(
+                resume4.block_number - 1, resume4.timestamp - 1
+            )
+        ))
+        self.assertEqual(len(r4.expire_legacy_genesis_campaign_v1(
+            c4.generation, c4.campaign_id, caller=addr("expirer"),
+            clock=resume4,
+        )), 32)
+        quiescent_args = replacement_args(h4, r4, hook4, c4, resume4)
+        self.assertIsNone(
+            r4._schedule_genesis_campaign_for_fixture_v1(**quiescent_args)
+        )
+        hook4.prover_whitelist_member_count = 1
+        self.assertEqual(hook4.resume_legacy_genesis_v1(
+            c4.generation, c4.campaign_id,
+            caller=addr("resumer"), clock=resume4,
+        ), b"")
+        hook4.prover_whitelist_member_count = 0
+        self.assertEqual(len(hook4.resume_legacy_genesis_v1(
+            c4.generation, c4.campaign_id,
+            caller=addr("resumer"), clock=resume4,
+        )), 96)
+        self.assertTrue(hook4.authorize_upgrade_v1(
+            caller=hook4.owner, clock=resume4
+        ))
+
+    def test_genesis_expiry_horizon_profile_codec_and_stale_rows(self):
+        _protocol, history, router, landing = unactivated_genesis_fixture(
+            suffix="expiry-profile"
+        )
+        landing = replace(landing, timestamp=2_000_000)
+        campaign, clocks = publish_genesis_campaign_fixture(
+            router, history, landing
+        )
+        hook = router.legacy_launch_hook
+        self.assertEqual(
+            settlement.LEGACY_RESUME_PROFILE_DOMAIN,
+            b"slot-chain-legacy-genesis-resume-profile-v2",
+        )
+        self.assertEqual(
+            settlement.LEGACY_REVIEW_COMMITMENT_DOMAIN,
+            b"slot-chain-legacy-genesis-review-v1",
+        )
+        self.assertEqual(
+            settlement.GENESIS_RESUME_INCLUSION_MARGIN_SECONDS,
+            settlement.LEGACY_RESUME_PROOF_GENERATION_MAX_SECONDS
+                + settlement.REORG_MARGIN_SECONDS
+                + settlement.T_INCLUDE_MAX_SECONDS,
+        )
+        self.assertEqual(
+            settlement.legacy_resume_profile_hash_v1(
+                bytes.fromhex("11" * 32)
+            ).hex(),
+            "881fc1d602765b557645b7ca9ea0c66fd0e3e6925a7352cb7a43171c3965ab39",
+        )
+        self.assertEqual(
+            settlement.legacy_resume_verifier_route_hash_v1(
+                bytes.fromhex("11" * 32)
+            ).hex(),
+            "d401fa7d8531d19575ed6c00a1220f10f69915dc245e40ae1400163d1439220b",
+        )
+        self.assertEqual(
+            settlement.signal_service_checkpoint_descriptor_hash_v1(
+                bytes.fromhex("11" * 32)
+            ).hex(),
+            "1abbb6adee547ad039bcb3b89515a2fe4e332706c0584764ccd99493be389fa9",
+        )
+        self.assertEqual(
+            (settlement.LEGACY_MAX_FORCED_INCLUSIONS_PER_PROPOSAL,
+             settlement.LEGACY_MAX_NORMAL_BLOB_HASHES_PER_PROPOSAL),
+            (10, 21),
+        )
+        self.assertEqual(
+            settlement.legacy_resume_profile_hash_v1(
+                bytes.fromhex("11" * 32),
+                prover_whitelist_address_zero=False,
+                prover_whitelist_member_count=0,
+                prover_whitelist_mutation_fenced=True,
+            ),
+            bytes(32),
+        )
+        self.assertEqual(
+            settlement.legacy_resume_profile_hash_v1(
+                bytes.fromhex("11" * 32),
+                prover_whitelist_address_zero=False,
+                prover_whitelist_member_count=0,
+                prover_whitelist_mutation_fenced=False,
+            ),
+            bytes(32),
+        )
+        self.assertFalse(hook.submit_proposal(
+            caller=addr("zero-blob"),
+            block_number=clocks["proposal"].block_number - 1,
+            timestamp=clocks["proposal"].timestamp - 1,
+            blob_timestamp=0,
+        ))
+        stale_timestamp = (
+            campaign.resume_by_timestamp
+            + settlement.GENESIS_RESUME_INCLUSION_MARGIN_SECONDS
+            - settlement.LEGACY_BLOB_RETENTION_SECONDS - 1
+        )
+        self.assertTrue(hook.submit_proposal(
+            caller=addr("stale"),
+            block_number=clocks["proposal"].block_number - 1,
+            timestamp=clocks["proposal"].timestamp - 1,
+            preimage=b"stale-row", blob_timestamp=stale_timestamp,
+        ))
+        self.assertEqual(len(hook.begin_legacy_genesis_scan_v1(
+            campaign.generation, campaign.campaign_id,
+            caller=addr("scanner"), clock=clocks["proposal"],
+        )), 160)
+        self.assertEqual(len(hook.scan_legacy_genesis_proposals_v1(
+            campaign.generation, campaign.campaign_id, (b"stale-row",),
+            caller=addr("scanner"), clock=clocks["proposal"],
+        )), 160)
+        self.assertEqual(hook.enter_legacy_genesis_quiescence_v1(
+            campaign.generation, campaign.campaign_id,
+            caller=addr("keeper"), clock=clocks["quiesce"],
+        ), b"")
+
+        _p2, h2, r2, l2 = unactivated_genesis_fixture(
+            suffix="expiry-boundary"
+        )
+        l2 = replace(l2, timestamp=2_000_000)
+        c2, k2 = publish_genesis_campaign_fixture(r2, h2, l2)
+        hook2 = r2.legacy_launch_hook
+        exact_timestamp = (
+            c2.resume_by_timestamp
+            + settlement.GENESIS_RESUME_INCLUSION_MARGIN_SECONDS
+            - settlement.LEGACY_BLOB_RETENTION_SECONDS
+        )
+        self.assertTrue(hook2.submit_proposal(
+            caller=addr("boundary"),
+            block_number=k2["proposal"].block_number - 1,
+            timestamp=k2["proposal"].timestamp - 1,
+            preimage=b"boundary-row", blob_timestamp=exact_timestamp,
+        ))
+        self.assertEqual(len(hook2.begin_legacy_genesis_scan_v1(
+            c2.generation, c2.campaign_id,
+            caller=addr("scanner"), clock=k2["proposal"],
+        )), 160)
+        self.assertEqual(len(hook2.scan_legacy_genesis_proposals_v1(
+            c2.generation, c2.campaign_id, (b"boundary-row",),
+            caller=addr("scanner"), clock=k2["proposal"],
+        )), 160)
+        self.assertEqual(len(hook2.enter_legacy_genesis_quiescence_v1(
+            c2.generation, c2.campaign_id,
+            caller=addr("keeper"), clock=k2["quiesce"],
+        )), 96)
+        hook2.prover_whitelist_member_count = 1
+        proof = r2.genesis_activation_proof_stub_v1(h2)
+        self.assertFalse(r2.bootstrap(
+            h2, sequence=0, clock=l2, caller=addr("lander"), proof=proof,
+        ))
+        self.assertFalse(hook2.authorize_upgrade_v1(
+            caller=hook2.owner, clock=l2
+        ))
+
+    def test_genesis_resume_route_and_signal_graph_fail_closed_at_publication(self):
+        invalid_mutations = (
+            ("resume_route_members", (1,)),
+            ("resume_route_sgx_required", True),
+            ("resume_route_members", (6, 5)),
+            ("resume_route_members", (5, 7)),
+            ("resume_route_age_independent", False),
+            ("resume_route_descriptor_hashes",
+             (bytes.fromhex("ab" * 32), bytes.fromhex("cd" * 32))),
+            ("resume_route_key_policy_hashes",
+             (bytes.fromhex("12" * 32), bytes.fromhex("34" * 32))),
+            ("resume_route_fixed_key_adapters", False),
+            ("resume_route_mutable_trust_map", True),
+            ("signal_service_upgrade_fenced", False),
+            ("signal_service_fence_descriptor_hash", bytes.fromhex("ee" * 32)),
+            ("signal_service_direct_final_implementation", False),
+            ("signal_service_fork_router", True),
+            ("signal_service_delegate_target_reachable", True),
+            ("prover_whitelist_member_count", 1),
+            ("state_return_override", b"malformed-LGS1"),
+            ("scan_state_return_override", b"malformed-LGSS"),
+        )
+        for index, (field_name, bad_value) in enumerate(invalid_mutations):
+            with self.subTest(field=field_name, case=index):
+                _protocol, history, router, landing = \
+                    unactivated_genesis_fixture(suffix=f"bad-route-{index}")
+                hook = router.legacy_launch_hook
+                setattr(hook, field_name, bad_value)
+                with self.assertRaises(AssertionError):
+                    publish_genesis_campaign_fixture(router, history, landing)
+                self.assertIsNone(router.genesis_campaign)
+                self.assertEqual(router.active_version, 0)
+                self.assertIs(
+                    router.migration_lifecycle,
+                    settlement.RouterMigrationLifecycle.IDLE,
+                )
+
+        _p0, h0, r0, l0 = unactivated_genesis_fixture(
+            suffix="unfenced-nonzero-whitelist"
+        )
+        r0.legacy_launch_hook.prover_whitelist_address_zero = False
+        r0.legacy_launch_hook.prover_whitelist_mutation_fenced = False
+        with self.assertRaises(AssertionError):
+            publish_genesis_campaign_fixture(r0, h0, l0)
+
+        _p1, h1, r1, l1 = unactivated_genesis_fixture(
+            suffix="profile-changes-after-schedule"
+        )
+        scheduled, scheduled_clocks = publish_genesis_campaign_fixture(
+            r1, h1, l1, publish=False
+        )
+        r1.migration_fault_point = "after_genesis_campaign_publish"
+        self.assertIsNone(r1._publish_genesis_campaign_for_fixture_v1(
+            scheduled.campaign_id, caller=addr("publisher"),
+            clock=scheduled_clocks["publish"],
+        ))
+        self.assertIsNotNone(r1.scheduled_genesis_campaign)
+        self.assertIsNone(r1.genesis_campaign)
+        self.assertIs(
+            r1.migration_lifecycle,
+            settlement.RouterMigrationLifecycle.IDLE,
+        )
+        r1.migration_fault_point = None
+        r1.legacy_launch_hook.prover_whitelist_member_count = 1
+        self.assertIsNone(r1._publish_genesis_campaign_for_fixture_v1(
+            scheduled.campaign_id, caller=addr("publisher"),
+            clock=scheduled_clocks["publish"],
+        ))
+        self.assertIsNotNone(r1.scheduled_genesis_campaign)
+        self.assertIsNone(r1.genesis_campaign)
+        r1.legacy_launch_hook.prover_whitelist_member_count = 0
+        self.assertIsNotNone(r1._publish_genesis_campaign_for_fixture_v1(
+            scheduled.campaign_id, caller=addr("publisher"),
+            clock=scheduled_clocks["publish"],
+        ))
+
+        _protocol, history, router, landing = unactivated_genesis_fixture(
+            suffix="good-risc0-sp1-route"
+        )
+        hook = router.legacy_launch_hook
+        self.assertEqual(hook.resume_route_members, (5, 6))
+        self.assertTrue(hook.resume_route_age_independent)
+        self.assertFalse(hook.resume_route_sgx_required)
+        self.assertTrue(hook.signal_service_upgrade_fenced)
+        campaign, _clocks = publish_genesis_campaign_fixture(
+            router, history, landing
+        )
+        self.assertIs(router.genesis_campaign, campaign)
+
+    def test_genesis_full_caps_complete_in_exactly_128_maximal_batches(self):
+        _protocol, history, router, landing = unactivated_genesis_fixture(
+            suffix="full-scan-caps"
+        )
+        campaign, clocks = publish_genesis_campaign_fixture(
+            router, history, landing
+        )
+        hook = router.legacy_launch_hook
+        for index in range(settlement.LEGACY_SCAN_ROW_COUNT_MAX):
+            self.assertTrue(hook.submit_proposal(
+                caller=addr("proposer"),
+                block_number=clocks["proposal"].block_number - 1,
+                timestamp=clocks["proposal"].timestamp - 1,
+                preimage=b"p" + index.to_bytes(2, "big"),
+            ))
+            self.assertTrue(hook.append_forced_ingress(
+                amount=1, caller=addr("forcer"),
+                block_number=clocks["force"].block_number - 1,
+                timestamp=clocks["force"].timestamp - 1,
+                preimage=b"f" + index.to_bytes(2, "big"),
+            ))
+        self.assertFalse(hook.submit_proposal(
+            caller=addr("overflow"),
+            block_number=clocks["proposal"].block_number - 1,
+            timestamp=clocks["proposal"].timestamp - 1,
+        ))
+        self.assertFalse(hook.append_forced_ingress(
+            amount=1, caller=addr("overflow"),
+            block_number=clocks["force"].block_number - 1,
+            timestamp=clocks["force"].timestamp - 1,
+        ))
+        prep = hook.legacy_genesis_preparation_v1()
+        self.assertEqual(len(prep), 288)
+        self.assertEqual(
+            int.from_bytes(prep[7 * 32:8 * 32], "big"),
+            4_161_536,
+        )
+        self.assertEqual(len(hook.begin_legacy_genesis_scan_v1(
+            campaign.generation, campaign.campaign_id,
+            caller=addr("scanner"), clock=clocks["proposal"],
+        )), 160)
+        while hook.proposal_scan_cursor != hook.frozen_next_proposal_id:
+            cursor = hook.proposal_scan_cursor
+            rows = tuple(
+                hook.proposal_records[index].preimage
+                for index in range(cursor, cursor + 16)
+            )
+            self.assertEqual(len(hook.scan_legacy_genesis_proposals_v1(
+                campaign.generation, campaign.campaign_id, rows,
+                caller=addr("scanner"), clock=clocks["proposal"],
+            )), 160)
+        while hook.forced_scan_cursor != hook.frozen_forced_tail:
+            self.assertEqual(len(hook.scan_legacy_genesis_forced_v1(
+                campaign.generation, campaign.campaign_id, 16,
+                caller=addr("scanner"), clock=clocks["proposal"],
+            )), 192)
+        self.assertEqual(hook.scan_call_count, 128)
+        self.assertEqual(
+            (hook.proposal_scan_count, hook.forced_scan_count),
+            (1_024, 1_024),
+        )
+        self.assertEqual(
+            int.from_bytes(hook.legacy_genesis_scan_state_v1()[-32:], "big"),
+            2,
+        )
+
+    def _obsolete_irreversible_genesis_checkpoint_is_delayed_and_target_independent(self):
+        _protocol, history, router, landing_clock = \
+            unactivated_genesis_fixture(suffix="checkpoint")
+        hook = router.legacy_launch_hook
+        delay = settlement.SEAT_MIGRATION_MANIFEST_DELAY
+        checkpoint_at = landing_clock.timestamp - delay
+        authorization_clock = settlement.Clock(
+            landing_clock.block_number - 2, checkpoint_at - delay
+        )
+        checkpoint_clock = settlement.Clock(
+            landing_clock.block_number - 1, checkpoint_at
+        )
+        self.assertFalse(router.authorize_legacy_genesis_checkpoint_v1(
+            executable_at=checkpoint_at,
+            caller=addr("not-governance"),
+            clock=authorization_clock,
+        ))
+        self.assertFalse(router.authorize_legacy_genesis_checkpoint_v1(
+            executable_at=True,
+            caller=router.version_manager,
+            clock=authorization_clock,
+        ))
+        self.assertFalse(router.authorize_legacy_genesis_checkpoint_v1(
+            executable_at=checkpoint_at - 1,
+            caller=router.version_manager,
+            clock=authorization_clock,
+        ))
+        self.assertTrue(router.authorize_legacy_genesis_checkpoint_v1(
+            executable_at=checkpoint_at,
+            caller=router.version_manager,
+            clock=authorization_clock,
+        ))
+        self.assertFalse(router.schedule_genesis_target_v1(
+            history,
+            executable_at=landing_clock.timestamp,
+            caller=router.version_manager,
+            clock=checkpoint_clock,
+        ))
+        # Authorization never fixes a boundary, so ordinary legacy mutations
+        # before the landing instant cannot invalidate or starve checkpointing.
+        self.assertTrue(hook.submit_proposal(caller=addr("legacy-proposer")))
+        self.assertTrue(hook.append_forced_ingress(
+            amount=7, caller=addr("legacy-forcer")
+        ))
+        self.assertIsNone(router.checkpoint_legacy_genesis_v1(
+            caller=addr("early-keeper"),
+            clock=replace(checkpoint_clock, timestamp=checkpoint_at - 1),
+        ))
+        hook.fault_point = "after_checkpoint"
+        self.assertIsNone(router.checkpoint_legacy_genesis_v1(
+            caller=addr("keeper"), clock=checkpoint_clock
+        ))
+        self.assertIs(hook.phase, settlement.LegacyLaunchPhase.ACTIVE)
+        self.assertEqual(hook.generation, 0)
+        self.assertEqual(hook.checkpoint_id, b"")
+        hook.fault_point = None
+        router.migration_fault_point = \
+            "after_genesis_checkpoint_publication"
+        self.assertIsNone(router.checkpoint_legacy_genesis_v1(
+            caller=addr("keeper"), clock=checkpoint_clock
+        ))
+        self.assertIs(hook.phase, settlement.LegacyLaunchPhase.ACTIVE)
+        self.assertEqual(hook.generation, 0)
+        self.assertEqual(hook.checkpoint_id, b"")
+        self.assertEqual(router.retired_target_checkpoint_state, "LEGACY_ACTIVE")
+        self.assertIs(
+            router.migration_lifecycle,
+            settlement.RouterMigrationLifecycle.IDLE,
+        )
+        router.migration_fault_point = None
+        checkpoint = router.checkpoint_legacy_genesis_v1(
+            caller=addr("keeper"), clock=checkpoint_clock
+        )
+        self.assertIsNotNone(checkpoint)
+        self.assertIs(hook.phase, settlement.LegacyLaunchPhase.READY)
+        self.assertEqual(checkpoint.generation, 1)
+        self.assertEqual(
+            (checkpoint.live_proposals, checkpoint.native_live_queue,
+             checkpoint.native_escrow),
+            (1, 1, 7),
+        )
+        self.assertEqual(checkpoint.checkpoint_id, hook.checkpoint_id)
+        self.assertEqual(checkpoint.boundary_hash, hook.boundary_hash)
+        self.assertNotEqual(checkpoint.checkpoint_id, bytes(32))
+        self.assertEqual(hook.target_protocol_version, 0)
+        self.assertEqual(hook.target_registration_hash, b"")
+        self.assertFalse(hook.submit_proposal(caller=addr("late-proposer")))
+        self.assertFalse(hook.append_forced_ingress(
+            amount=9, caller=addr("late-forcer")
+        ))
+        self.assertIsNone(router.checkpoint_legacy_genesis_v1(
+            caller=addr("duplicate"), clock=landing_clock
+        ))
+        for forbidden in (
+            "abort_legacy_launch_v1", "resume_legacy_launch_v1",
+            "arm_legacy_genesis_v1",
+        ):
+            self.assertFalse(hasattr(router, forbidden))
+            self.assertFalse(hasattr(hook, forbidden))
+        self.assertFalse(hook.quiesce(caller=hook.owner))
+
+    def _obsolete_genesis_proof_is_verified_before_activation_and_faults_restore_ready(self):
+        _protocol, history, router, landing_clock = \
+            unactivated_genesis_fixture(suffix="activation")
+        proof = settlement.prepare_genesis_activation_for_test(
+            router, history, landing_clock
+        )
+        hook = router.legacy_launch_hook
+        queue = router.forced_queue
+
+        def projection():
+            return (
+                copy.deepcopy(history.core), history.mode,
+                history.current_sequence, copy.deepcopy(history.history),
+                copy.deepcopy(history.migration_gate.__dict__),
+                queue._transaction_snapshot(), router.active_version,
+                tuple(router.registrations),
+                copy.deepcopy(hook.legacy_launch_state_v1()),
+                router.migration_lifecycle,
+                router._migration_callback_frame,
+                router.armed_genesis_target,
+                router.scheduled_genesis_target_cancel,
+                frozenset(router.canceled_genesis_target_tuples),
+                router.retired_target_checkpoint_state,
+                router.genesis_activation_receipt,
+                tuple(router.genesis_activation_trace),
+            )
+
+        stable_ready = projection()
+        invalid_proofs = (
+            None,
+            replace(proof, valid=False),
+            replace(proof, valid=1),
+            replace(proof, checkpoint_id=b"x" * 32),
+            replace(proof, boundary_hash=b"x" * 32),
+            replace(proof, target_registration_hash=b"x" * 32),
+            replace(proof, output_core_hash=b"x" * 32),
+            replace(proof, statement_digest=b"x" * 32),
+        )
+        for invalid in invalid_proofs:
+            self.assertFalse(router.bootstrap(
+                history, sequence=0, clock=landing_clock,
+                caller=addr("lander"), proof=invalid,
+            ))
+            self.assertEqual(projection(), stable_ready)
+            self.assertIs(hook.phase, settlement.LegacyLaunchPhase.READY)
+            self.assertEqual(queue.active_settlement_address, hook.proxy_address)
+        self.assertFalse(router.bootstrap(
+            history, sequence=-1, clock=landing_clock,
+            caller=addr("lander"), proof=proof,
+        ))
+        self.assertFalse(router.bootstrap(
+            history, sequence=0, clock=landing_clock,
+            caller="", proof=proof,
+        ))
+        self.assertEqual(projection(), stable_ready)
+
+        faults = (
+            (hook, "fault_point", "after_finalize"),
+            (hook, "fault_point", "maps_bad_return"),
+            (router, "migration_fault_point", "after_source_freeze"),
+            (router, "migration_fault_point", "after_target_adopt"),
+            (router, "migration_fault_point", "before_queue_migrate"),
+            (router, "migration_fault_point", "after_registration"),
+            (router, "migration_fault_point", "before_publication"),
+            (history, "migration_callback_fault_point", "adopt_after_core"),
+            (history, "migration_callback_fault_point", "adopt_after_history"),
+            (history, "migration_callback_fault_point", "adopt_bad_return"),
+            (history, "migration_callback_fault_point", "target_maps_bad_return"),
+            (queue, "migration_fault_point", "after_credit"),
+            (queue, "migration_fault_point", "after_swap"),
+            (queue, "migration_fault_point", "bad_return"),
+            (queue, "migration_fault_point", "maps_bad_return"),
+        )
+        for target, field_name, fault in faults:
+            setattr(target, field_name, fault)
+            before_fault = projection()
+            self.assertFalse(router.bootstrap(
+                history, sequence=0, clock=landing_clock,
+                caller=addr("lander"), proof=proof,
+            ), fault)
+            self.assertEqual(projection(), before_fault, fault)
+            self.assertIs(hook.phase, settlement.LegacyLaunchPhase.READY)
+            self.assertEqual(queue.active_settlement_address, hook.proxy_address)
+            setattr(target, field_name, None)
+
+        self.assertTrue(router.bootstrap(
+            history, sequence=0, clock=landing_clock,
+            caller=addr("lander"), proof=proof,
+        ))
+        self.assertIs(hook.phase, settlement.LegacyLaunchPhase.FROZEN)
+        self.assertEqual(queue.active_settlement_address, history.address)
+        self.assertEqual(history.current_sequence, 0)
+        self.assertEqual(router.active_version, history.protocol_version)
+        self.assertIsNotNone(router.genesis_activation_receipt)
+        self.assertEqual(
+            router.genesis_activation_receipt.target_registration_hash,
+            proof.target_registration_hash,
+        )
+        self.assertEqual(router.genesis_activation_trace, [
+            "VERIFIED", "ACTIVATING", "LGFN", "MCAN", "QMIG",
+            "MAPS", "REGISTERED", "PUBLISHED", "IDLE",
+        ])
+        self.assertIs(
+            router.migration_lifecycle,
+            settlement.RouterMigrationLifecycle.IDLE,
+        )
+        self.assertFalse(hook.submit_proposal(caller=addr("late-proposer")))
+        self.assertFalse(hook.append_forced_ingress(
+            amount=1, caller=addr("late-forcer")
+        ))
+
+    def _obsolete_checkpoint_survives_target_cancel_and_delayed_replacement(self):
+        protocol, original, router, landing_clock = \
+            unactivated_genesis_fixture(suffix="replace-original")
+        delay = settlement.SEAT_MIGRATION_MANIFEST_DELAY
+        checkpoint_at = landing_clock.timestamp - 2 * delay
+        authorization_clock = replace(
+            landing_clock, timestamp=checkpoint_at - delay
+        )
+        checkpoint_clock = replace(landing_clock, timestamp=checkpoint_at)
+        self.assertTrue(router.authorize_legacy_genesis_checkpoint_v1(
+            executable_at=checkpoint_at,
+            caller=router.version_manager,
+            clock=authorization_clock,
+        ))
+        checkpoint = router.checkpoint_legacy_genesis_v1(
+            caller=addr("checkpoint-keeper"), clock=checkpoint_clock
+        )
+        self.assertIsNotNone(checkpoint)
+        first_ready_at = checkpoint_at + delay
+        first_ready_clock = replace(landing_clock, timestamp=first_ready_at)
+        self.assertFalse(router.schedule_genesis_target_v1(
+            original,
+            executable_at=True,
+            caller=router.version_manager,
+            clock=checkpoint_clock,
+        ))
+        self.assertTrue(router.schedule_genesis_target_v1(
+            original,
+            executable_at=first_ready_at,
+            caller=router.version_manager,
+            clock=checkpoint_clock,
+        ))
+        self.assertEqual(
+            router.retired_target_checkpoint_state, "RETIRED_TARGET_CLEARED"
+        )
+        scheduled_tuple = router._genesis_target_tuple_v1(
+            router.scheduled_genesis_target
+        )
+        self.assertIsNotNone(scheduled_tuple)
+        self.assertFalse(router.schedule_genesis_target_cancel_v1(
+            checkpoint_id=scheduled_tuple[0],
+            target_address=scheduled_tuple[1],
+            target_protocol_version=scheduled_tuple[2],
+            target_manifest_hash=scheduled_tuple[3],
+            target_registration_hash=scheduled_tuple[4],
+            executable_at=first_ready_at + delay,
+            caller=router.version_manager,
+            clock=checkpoint_clock,
+        ))
+        self.assertIsNone(router.arm_genesis_target_v1(
+            caller=addr("early-armer"),
+            clock=replace(first_ready_clock, timestamp=first_ready_at - 1),
+        ))
+        scheduled_before_fault = router.scheduled_genesis_target
+        router.migration_fault_point = "after_genesis_target_ready"
+        self.assertIsNone(router.arm_genesis_target_v1(
+            caller=addr("faulting-armer"), clock=first_ready_clock
+        ))
+        self.assertIs(router.scheduled_genesis_target, scheduled_before_fault)
+        self.assertIsNone(router.armed_genesis_target)
+        self.assertEqual(
+            router.retired_target_checkpoint_state, "RETIRED_TARGET_CLEARED"
+        )
+        self.assertIs(
+            router.migration_lifecycle,
+            settlement.RouterMigrationLifecycle.IDLE,
+        )
+        router.migration_fault_point = None
+        self.assertIsNotNone(router.arm_genesis_target_v1(
+            caller=addr("first-armer"), clock=first_ready_clock
+        ))
+        self.assertEqual(router.retired_target_checkpoint_state, "READY")
+        stale_proof = router.genesis_activation_proof_stub_v1(original)
+        original_tuple = router._genesis_target_tuple_v1(
+            router.armed_genesis_target
+        )
+        self.assertIsNotNone(original_tuple)
+        cancel_args = dict(
+            checkpoint_id=original_tuple[0],
+            target_address=original_tuple[1],
+            target_protocol_version=original_tuple[2],
+            target_manifest_hash=original_tuple[3],
+            target_registration_hash=original_tuple[4],
+        )
+        cancel_ready_at = first_ready_at + delay
+        self.assertFalse(router.schedule_genesis_target_cancel_v1(
+            **cancel_args,
+            executable_at=cancel_ready_at,
+            caller=addr("not-governance"),
+            clock=first_ready_clock,
+        ))
+        self.assertTrue(router.schedule_genesis_target_cancel_v1(
+            **cancel_args,
+            executable_at=cancel_ready_at,
+            caller=router.version_manager,
+            clock=first_ready_clock,
+        ))
+        self.assertIsNone(router.cancel_genesis_target_v1(
+            **cancel_args,
+            caller=addr("early-canceler"),
+            clock=replace(first_ready_clock, timestamp=cancel_ready_at - 1),
+        ))
+        self.assertIsNone(router.cancel_genesis_target_v1(
+            **{**cancel_args, "target_address": addr("substitute")},
+            caller=addr("cancel-keeper"),
+            clock=replace(first_ready_clock, timestamp=cancel_ready_at),
+        ))
+        cancel_clock = replace(first_ready_clock, timestamp=cancel_ready_at)
+        cancel_projection = (
+            router.armed_genesis_target,
+            router.scheduled_genesis_target_cancel,
+            frozenset(router.canceled_genesis_target_tuples),
+            router.retired_target_checkpoint_state,
+            router.legacy_launch_hook.legacy_launch_state_v1(),
+            router.forced_queue.active_settlement_address,
+        )
+        router.migration_fault_point = "after_genesis_target_cancel"
+        self.assertIsNone(router.cancel_genesis_target_v1(
+            **cancel_args,
+            caller=addr("cancel-keeper"),
+            clock=cancel_clock,
+        ))
+        self.assertEqual(cancel_projection, (
+            router.armed_genesis_target,
+            router.scheduled_genesis_target_cancel,
+            frozenset(router.canceled_genesis_target_tuples),
+            router.retired_target_checkpoint_state,
+            router.legacy_launch_hook.legacy_launch_state_v1(),
+            router.forced_queue.active_settlement_address,
+        ))
+        self.assertIs(
+            router.migration_lifecycle,
+            settlement.RouterMigrationLifecycle.IDLE,
+        )
+        router.migration_fault_point = None
+        self.assertEqual(router.cancel_genesis_target_v1(
+            **cancel_args,
+            caller=addr("cancel-keeper"),
+            clock=cancel_clock,
+        ), ("READY", "RETIRED_TARGET_CLEARED"))
+        self.assertIs(
+            router.migration_lifecycle,
+            settlement.RouterMigrationLifecycle.IDLE,
+        )
+        self.assertEqual(
+            router.retired_target_checkpoint_state, "RETIRED_TARGET_CLEARED"
+        )
+        self.assertIsNone(router.cancel_genesis_target_v1(
+            **cancel_args,
+            caller=addr("stale-canceler"),
+            clock=cancel_clock,
+        ))
+        self.assertIs(
+            router.legacy_launch_hook.phase,
+            settlement.LegacyLaunchPhase.READY,
+        )
+        self.assertEqual(router.legacy_launch_hook.checkpoint_id,
+                         checkpoint.checkpoint_id)
+        self.assertEqual(
+            router.forced_queue.active_settlement_address,
+            router.legacy_launch_hook.proxy_address,
+        )
+        self.assertIn(original_tuple, router.canceled_genesis_target_tuples)
+        self.assertFalse(router.schedule_genesis_target_v1(
+            original,
+            executable_at=cancel_ready_at + delay,
+            caller=router.version_manager,
+            clock=cancel_clock,
+        ))
+
+        replacement_profile = original.execution_profile
+        replacement = settlement.VersionedSettlementHistory(
+            addr("replacement-target"),
+            "runtime:replace-target",
+            original.protocol_version,
+            replacement_profile.execution_profile_hash,
+            copy.deepcopy(original.core),
+            original.canonicalized_at_block,
             protocol.forced_queue,
             migration_gate=protocol.migration_gate,
-            live_protocol=protocol,
             inbox_apply_descriptor=protocol.inbox_apply_descriptor,
             header_oracle=protocol.header_oracle,
-            execution_profile=profile,
+            execution_profile=replacement_profile,
+            release_profile_ingress_specs=
+                original.release_profile_ingress_specs,
         )
-        protocol.versioned_history = history
-        router = settlement.deploy_active_settlement_router(
-            history,
-            addr("version-manager"), protocol.forced_queue,
-            protocol.inbox_apply_router,
-            protocol.migration_gate,
-            protocol.header_oracle,
-        )
-        gate = protocol.migration_gate
-        queue = protocol.forced_queue
-        inbox = protocol.inbox_apply_router
-        projection = lambda: (
-            copy.deepcopy(history.core), history.mode, history.current_sequence,
-            copy.deepcopy(history.history), copy.deepcopy(gate.__dict__),
-            copy.deepcopy(queue.__dict__), router.active_version,
-            tuple(router.registrations),
-        )
-        before = projection()
-        bootstrap_clock = settlement.Clock(
-            protocol.canonical.canonicalized_at_block,
-            settlement.GENESIS_TIMESTAMP + protocol.core.tip_slot,
-        )
-        self.assertFalse(router.bootstrap(
-            history, sequence=0,
-            clock=bootstrap_clock,
-            caller=addr("attacker"),
-        ))
-        self.assertEqual(projection(), before)
-        self.assertFalse(router.bootstrap(
-            history, sequence=-1,
-            clock=bootstrap_clock,
+        second_ready_at = cancel_ready_at + delay
+        self.assertTrue(router.schedule_genesis_target_v1(
+            replacement,
+            executable_at=second_ready_at,
             caller=router.version_manager,
+            clock=cancel_clock,
         ))
-        self.assertEqual(projection(), before)
-        self.assertIs(history.live_protocol, protocol)
-        self.assertIs(history.migration_gate, gate)
-        self.assertIs(history.forced_queue, queue)
-        self.assertEqual(
-            history.inbox_apply_descriptor,
-            protocol.inbox_apply_descriptor,
+        second_ready_clock = replace(
+            landing_clock, timestamp=second_ready_at
         )
-        self.assertIs(protocol.versioned_history, history)
+        self.assertIsNotNone(router.arm_genesis_target_v1(
+            caller=addr("replacement-armer"), clock=second_ready_clock
+        ))
+        ready_projection = (
+            router.legacy_launch_hook.legacy_launch_state_v1(),
+            router.forced_queue._transaction_snapshot(),
+            router.armed_genesis_target,
+            replacement.mode,
+            replacement.current_sequence,
+        )
+        self.assertFalse(router.bootstrap(
+            replacement, sequence=0, clock=second_ready_clock,
+            caller=addr("replacement-lander"), proof=stale_proof,
+        ))
+        self.assertEqual(ready_projection, (
+            router.legacy_launch_hook.legacy_launch_state_v1(),
+            router.forced_queue._transaction_snapshot(),
+            router.armed_genesis_target,
+            replacement.mode,
+            replacement.current_sequence,
+        ))
+        replacement_proof = router.genesis_activation_proof_stub_v1(
+            replacement
+        )
         self.assertTrue(router.bootstrap(
-            history, sequence=0,
-            clock=bootstrap_clock,
-            caller=router.version_manager,
+            replacement, sequence=0, clock=second_ready_clock,
+            caller=addr("replacement-lander"), proof=replacement_proof,
         ))
-        activated = projection()
-        with self.assertRaises(TypeError):
-            router.bootstrap(
-                history, sequence=1,
-                activation_block=settlement.UINT64_MAX,
-                caller=router.version_manager,
+        self.assertEqual(router.active_version, original.protocol_version)
+        self.assertEqual(
+            router.forced_queue.active_settlement_address,
+            replacement.address,
+        )
+        self.assertNotEqual(
+            replacement.address, router.bootstrap_target_address
+        )
+
+    def test_genesis_context_and_queue_authority_substitutions_fail_closed(self):
+        active_target = settlement.protocol(seat=False).settlement_address
+        for authority in (
+            "", active_target, "active-settlement-router",
+            addr("foreign-authority"),
+        ):
+            protocol = settlement.protocol(seat=False)
+            protocol.forced_queue.active_settlement_address = authority
+            profile = settlement.execution_profile_for_test(
+                25, f"profile:queue-substitution:{authority}"
             )
-        self.assertEqual(projection(), activated)
+            history = settlement.VersionedSettlementHistory(
+                protocol.settlement_address,
+                "runtime:queue-substitution",
+                25,
+                profile.execution_profile_hash,
+                copy.deepcopy(protocol.core),
+                protocol.canonical.canonicalized_at_block,
+                protocol.forced_queue,
+                migration_gate=protocol.migration_gate,
+                live_protocol=protocol,
+                inbox_apply_descriptor=protocol.inbox_apply_descriptor,
+                header_oracle=protocol.header_oracle,
+                execution_profile=profile,
+            )
+            protocol.versioned_history = history
+            with self.assertRaises(ValueError, msg=authority):
+                settlement.deploy_active_settlement_router(
+                    history,
+                    addr("version-manager"),
+                    protocol.forced_queue,
+                    protocol.inbox_apply_router,
+                    protocol.migration_gate,
+                    protocol.header_oracle,
+                )
+
+        core = settlement.CanonicalCore(
+            1, "b" * 64, 1, "s" * 64, 0
+        )
+        base = dict(
+            transition_kind="GENESIS_IMPORT",
+            router_generation=1,
+            source_protocol_version=0,
+            target_protocol_version=1,
+            target_manifest_hash=b"m" * 32,
+            target_registration_hash=b"r" * 32,
+            source_checkpoint_id=b"c" * 32,
+            source_boundary_hash=b"d" * 32,
+            source_settlement=addr("legacy-proxy"),
+            target_settlement=addr("target"),
+            target_canonical_sequence=0,
+            candidate_digest="candidate",
+            output_core=core,
+            output_core_hash=settlement.canonical_core_hash_v2(core),
+            canonicalized_at_block=1,
+            queue_start=0,
+            queue_end=0,
+            queue_address=addr("queue"),
+            queue_root="queue-root",
+            queue_count=0,
+            queue_credited_wei=0,
+            queue_post_accounted_liability_wei=0,
+            queue_post_total_claimable_wei=0,
+            beneficiary=addr("beneficiary"),
+        )
+        exact = settlement.MigrationCanonicalContextV2(
+            source_canonical_sequence=0, **base
+        )
+        self.assertEqual(exact.source_canonical_sequence, 0)
+        self.assertEqual(
+            len(exact.source_return),
+            settlement.MIGRATION_SOURCE_FREEZE_RETURN_LENGTH,
+        )
+        self.assertEqual(len(exact.source_return), 96)
+        self.assertEqual(len(exact.target_return), 96)
+        self.assertEqual(len(exact.queue_return), 128)
+        self.assertEqual(len(exact.maps_return), 128)
+        for invalid_source_sequence in (-1, 1):
+            with self.assertRaises(ValueError):
+                settlement.MigrationCanonicalContextV2(
+                    source_canonical_sequence=invalid_source_sequence,
+                    **base,
+                )
 
     @staticmethod
     def _stage_old_target(rows):
@@ -9736,6 +11301,121 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
                 settlement.select_canonical_l2_poststate_for_test(poststate)
             )
 
+    def test_callback_and_queue_fault_matrix_restores_ready_cutover(self):
+        faults = (
+            ("source", "freeze_after_write"),
+            ("source", "freeze_bad_return"),
+            ("source", "source_maps_bad_return"),
+            ("target", "adopt_after_core"),
+            ("target", "adopt_after_history"),
+            ("target", "adopt_bad_return"),
+            ("target", "target_maps_bad_return"),
+            ("queue", "after_credit"),
+            ("queue", "after_swap"),
+            ("queue", "bad_return"),
+            ("queue", "maps_bad_return"),
+            ("router", "after_source_freeze"),
+            ("router", "after_target_adopt"),
+            ("router", "before_queue_migrate"),
+        )
+        for component, fault in faults:
+            rows = production_migration_fixture()
+            old_protocol, old_history, target, _market, manager = rows[:5]
+            manifest, proof = prepare_production_activation(rows)
+            queue = manager.router.forced_queue
+            if component == "source":
+                old_history.migration_callback_fault_point = fault
+            elif component == "target":
+                target.migration_callback_fault_point = fault
+            elif component == "queue":
+                queue.migration_fault_point = fault
+            else:
+                manager.router.migration_fault_point = fault
+            before = migration_graph_projection(old_protocol, manager)
+            target_before = copy.deepcopy({
+                key: value for key, value in target.__dict__.items()
+                if key not in {
+                    "forced_queue", "migration_gate", "live_protocol",
+                    "inbox_apply_descriptor", "header_oracle",
+                }
+            })
+            with self.assertRaises(
+                (RuntimeError, ValueError, AssertionError), msg=f"{component}:{fault}"
+            ):
+                manager.activate_seat_migration(
+                    manifest_key=manifest.key,
+                    activation_proof=proof,
+                    executor=addr("executor"),
+                    clock=migration_proof_clock(proof),
+                )
+            self.assertEqual(
+                migration_graph_projection(old_protocol, manager), before,
+                f"{component}:{fault}",
+            )
+            self.assertEqual(
+                {
+                    key: value for key, value in target.__dict__.items()
+                    if key not in {
+                        "forced_queue", "migration_gate", "live_protocol",
+                        "inbox_apply_descriptor", "header_oracle",
+                    }
+                },
+                target_before,
+                f"{component}:{fault}",
+            )
+            self.assertEqual(old_history.mode, "MIGRATION_READY")
+            self.assertEqual(old_protocol.migration_gate.mode, "READY")
+            self.assertEqual(target.mode, "PREACTIVE")
+            self.assertEqual(queue.active_settlement_address, old_history.address)
+            self.assertIs(
+                manager.router.migration_lifecycle,
+                settlement.RouterMigrationLifecycle.IDLE,
+            )
+            old_history.migration_callback_fault_point = None
+            target.migration_callback_fault_point = None
+            queue.migration_fault_point = None
+            manager.router.migration_fault_point = None
+            self.assertTrue(manager.activate_seat_migration(
+                manifest_key=manifest.key,
+                activation_proof=proof,
+                executor=addr("executor"),
+                clock=migration_proof_clock(proof),
+            ))
+
+    def test_migration_selectors_and_response_widths_are_frozen(self):
+        self.assertEqual(
+            settlement.SEAT_MIGRATION_ARM_SELECTOR.hex(), "91d657cf"
+        )
+        self.assertEqual(
+            settlement.SEAT_MIGRATION_ABORT_SELECTOR.hex(), "c69d5579"
+        )
+        self.assertEqual(
+            settlement.MIGRATION_CANONICAL_ADOPT_SELECTOR.hex(), "557c4e13"
+        )
+        protocol, manager = migration_manager_fixture(seat=False)
+        arm_clock = settlement.Clock(
+            1_000, settlement.GENESIS_TIMESTAMP + 1_000
+        )
+        arm_raw = execute_manager_arm(manager, arm_clock)
+        self.assertEqual(len(arm_raw), 192)
+        self.assertEqual(
+            settlement.decode_seat_migration_response(
+                arm_raw
+            ).target_registration_hash,
+            b"r" * 32,
+        )
+        abort_raw = execute_manager_abort(
+            manager,
+            settlement.Clock(1_001, arm_clock.timestamp + 1),
+        )
+        self.assertEqual(len(abort_raw), 192)
+        self.assertEqual(
+            settlement.decode_seat_migration_response(
+                abort_raw
+            ).target_registration_hash,
+            b"r" * 32,
+        )
+
     def test_preactive_history_and_header_source_must_be_exact_and_fresh(self):
         for field_name, value in (
             ("mode", "ACTIVE"),
@@ -9764,7 +11444,7 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             self.assertEqual(seat_market, market_before)
 
         for variant in (
-            "copy-equal", "forged-header", "substituted-runtime"
+            "copy-equal", "forged-header", "replaceable-wrapper"
         ):
             variant_rows = production_migration_fixture(
                 target_header_variant=variant)
@@ -9807,12 +11487,12 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
         second_protocol = second_history.live_protocol
         self.assertEqual(seat_market.current_authorization_id, first_id)
 
+        third_history, third_id = register_production_successor(
+            rows, label="v3", protocol_version=27
+        )
         # An aborted arm consumes a router generation but creates no receipt.
         abort_current_migration_generation(
             rows, target_version=27, manifest_byte=b"a"
-        )
-        third_history, third_id = register_production_successor(
-            rows, label="v3", protocol_version=27
         )
         third_receipt = activate_registered_successor(
             rows,
@@ -10302,14 +11982,19 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             protocol.migration_gate,
             protocol.header_oracle,
         )
+        bootstrap_clock = settlement.Clock(
+            max(400, protocol.canonical.canonicalized_at_block),
+            settlement.GENESIS_TIMESTAMP + protocol.core.tip_slot,
+        )
+        bootstrap_proof = settlement.prepare_genesis_activation_for_test(
+            router, history, bootstrap_clock
+        )
         self.assertTrue(router.bootstrap(
             history,
             sequence=0,
-            clock=settlement.Clock(
-                protocol.canonical.canonicalized_at_block,
-                settlement.GENESIS_TIMESTAMP + protocol.core.tip_slot,
-            ),
+            clock=bootstrap_clock,
             caller=router.version_manager,
+            proof=bootstrap_proof,
         ))
         gate = protocol.migration_gate
         manager = settlement.ProtocolVersionManager(
@@ -10345,6 +12030,7 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             "arm_response_wrong_active_version",
             "arm_response_wrong_target_version",
             "arm_response_wrong_manifest",
+            "arm_response_wrong_target_registration",
             "arm_response_wrong_seat_generation",
             "after_local_migration_arm",
         ):
@@ -10361,6 +12047,7 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
                 b"m" * 32,
                 clock.timestamp - settlement.SEAT_MIGRATION_MANIFEST_DELAY,
                 clock.timestamp,
+                target_registration_hash=b"r" * 32,
             )
             manager.schedule_seat_migration(
                 manifest,
@@ -10391,13 +12078,15 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             lambda word: replace(word, active_version=word.active_version + 1),
             lambda word: replace(word, target_version=word.target_version + 1),
             lambda word: replace(word, target_manifest_hash=b"x" * 32),
+            lambda word: replace(word, target_registration_hash=b"x" * 32),
             lambda word: replace(word, phase=settlement.RouterPhase.READY),
         )
         for substitute in substitutions:
             protocol, manager = migration_manager_fixture(seat=False)
             gate = protocol.migration_gate
             self.assertTrue(gate._arm_from_manager(
-                1, 25, 26, b"m" * 32, caller=manager.address
+                1, 25, 26, b"m" * 32, b"r" * 32,
+                caller=manager.address
             ))
             protocol.versioned_history.mode = "MIGRATION_ARMED"
             before = migration_graph_projection(protocol, manager)
@@ -10414,7 +12103,8 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
         protocol, manager = migration_manager_fixture(seat=False)
         gate = protocol.migration_gate
         self.assertTrue(gate._arm_from_manager(
-            1, 25, 26, b"m" * 32, caller=manager.address
+            1, 25, 26, b"m" * 32, b"r" * 32,
+            caller=manager.address
         ))
         protocol.versioned_history.mode = "MIGRATION_ARMED"
         before = migration_graph_projection(protocol, manager)
@@ -10440,6 +12130,7 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
                 canceled.active_version,
                 canceled.target_version,
                 canceled.target_manifest_hash,
+                canceled.target_registration_hash,
                 cancel_manifest_active=True,
                 caller=manager.address,
             ))
@@ -10461,6 +12152,7 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
         too_early = settlement.ScheduledSeatMigration(
             1, 25, 26, b"e" * 32, now,
             now + settlement.SEAT_MIGRATION_MANIFEST_DELAY - 1,
+            target_registration_hash=b"r" * 32,
         )
         before = migration_graph_projection(protocol, manager)
         with self.assertRaises(ValueError):
@@ -10523,6 +12215,7 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             "abort_response_wrong_active_version",
             "abort_response_wrong_target_version",
             "abort_response_wrong_manifest",
+            "abort_response_wrong_target_registration",
             "abort_response_wrong_seat_generation",
             "after_local_migration_abort",
         ):
@@ -10539,6 +12232,7 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
                 1, 25, 26, b"m" * 32,
                 clock.timestamp - settlement.SEAT_MIGRATION_CANCEL_DELAY,
                 clock.timestamp,
+                target_registration_hash=b"r" * 32,
             )
             manager.schedule_seat_migration(
                 manifest,
@@ -10594,11 +12288,633 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
         self.assertEqual(decoded.target_manifest_hash, b"m" * 32)
         self.assertEqual(protocol.seat_generation, retained_generation)
         self.assertEqual(protocol.migration_gate.mode, "ACTIVE")
-        self.assertIs(protocol.mode, settlement.Mode.RECOVERY)
+        # Abort performs cleanup only; it never runs a same-transaction sync.
+        self.assertIs(protocol.mode, settlement.Mode.NORMAL)
         self.assertEqual(
             protocol.seat_migration_abort.canceled_arm,
             protocol.seat_migration_arm.router_word,
         )
+
+class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
+    def _execute_release(self, fixture, *, fault=None):
+        (_rows, _router, _witness, payload, manager, timelock,
+         _market, _oracle, clock) = fixture
+        manager.fault_point = fault
+        operation_id = timelock.queue_protocol_change_v1(
+            settlement.REGISTER_RELEASE, payload,
+            caller=timelock.dao_proposer, clock=clock,
+        )
+        self.assertIsNotNone(operation_id)
+        mature = settlement.Clock(
+            clock.block_number + 1,
+            clock.timestamp + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
+        )
+        return operation_id, mature, timelock.execute_protocol_change_v1(
+            1, settlement.REGISTER_RELEASE, payload,
+            caller=addr("permissionless"), clock=mature,
+        )
+
+    def _queue_genesis_publication(self, fixture):
+        release_operation, mature, released = self._execute_release(fixture)
+        self.assertTrue(released)
+        self.assertEqual(fixture[5].operations[release_operation].state, 4)
+        witness, timelock = fixture[2], fixture[5]
+        publication_clock = settlement.Clock(
+            1_000,
+            mature.timestamp + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
+        )
+        values = dict(
+            force_cutoff_block=1_064,
+            proposal_cutoff_block=1_128,
+            quiesce_not_before_block=1_320,
+            resume_by_block=1_450,
+            resume_by_timestamp=publication_clock.timestamp + 7_200,
+            review_finalized_by_block=1_000,
+            target_settlement=witness.settlement.address,
+            target_protocol_version=witness.settlement.protocol_version,
+            target_manifest_hash=witness.release_manifest.commitment,
+            target_registration_hash=
+                settlement.target_registration_hash_v2(witness),
+        )
+        payload = settlement.encode_publish_genesis_campaign_payload_v1(
+            **values
+        )
+        operation_id = timelock.queue_protocol_change_v1(
+            settlement.PUBLISH_GENESIS_CAMPAIGN, payload,
+            caller=timelock.dao_proposer, clock=mature,
+        )
+        self.assertIsNotNone(operation_id)
+        return payload, operation_id, publication_clock, values
+
+    def test_pvm_genesis_publication_exact_lgp1_lgc1_and_reentry_guards(self):
+        fixture = genesis_protocol_authority_fixture()
+        router, manager, timelock = fixture[1], fixture[4], fixture[5]
+        payload, operation_id, publication_clock, values = \
+            self._queue_genesis_publication(fixture)
+        observations = []
+
+        def adversarial_callback(callback_router, callback_manager):
+            observations.append((
+                callback_router.migration_lifecycle,
+                callback_manager.lifecycle,
+                timelock.execute_protocol_change_v1(
+                    2, settlement.PUBLISH_GENESIS_CAMPAIGN, payload,
+                    caller=addr("reentrant-executor"),
+                    clock=publication_clock,
+                ),
+                timelock.cancel_protocol_change_v1(
+                    2, settlement.PUBLISH_GENESIS_CAMPAIGN, payload,
+                    caller=timelock.dao_proposer,
+                ),
+            ))
+
+        router.genesis_publication_callback = adversarial_callback
+        self.assertTrue(timelock.execute_protocol_change_v1(
+            2, settlement.PUBLISH_GENESIS_CAMPAIGN, payload,
+            caller=addr("gen-publisher"), clock=publication_clock,
+        ))
+        self.assertEqual(
+            settlement.PUBLISH_LEGACY_GENESIS_CAMPAIGN_SELECTOR.hex(),
+            "5f0ed7f5",
+        )
+        self.assertEqual(observations, [(
+            settlement.RouterMigrationLifecycle.PUBLISHING,
+            "APPLYING", False, False,
+        )])
+        state_raw = router.genesis_campaign_state_return_v1()
+        self.assertEqual(len(state_raw), 512)
+        state = settlement.decode_genesis_campaign_v1(state_raw)
+        campaign = router.genesis_campaign
+        self.assertEqual(state, settlement.genesis_campaign_state_v1(campaign))
+        expected_review = settlement.legacy_genesis_review_commitment_v1(
+            router.legacy_launch_hook.deployment_hash,
+            router.legacy_launch_hook.legacy_resume_profile_hash,
+            values["target_protocol_version"],
+            values["target_manifest_hash"],
+            values["target_registration_hash"],
+        )
+        self.assertEqual(state.review_commitment, expected_review)
+        self.assertEqual(state.nonce, 1)
+        self.assertEqual(state.generation, 1)
+        self.assertEqual(
+            state.campaign_id,
+            settlement.legacy_genesis_campaign_id_v1(
+                router.legacy_launch_hook.deployment_hash,
+                state.nonce, state.generation,
+                values["review_finalized_by_block"],
+                values["force_cutoff_block"],
+                values["proposal_cutoff_block"],
+                values["quiesce_not_before_block"],
+                values["resume_by_block"],
+                values["resume_by_timestamp"],
+                values["target_settlement"],
+                values["target_protocol_version"],
+                values["target_manifest_hash"],
+                values["target_registration_hash"], expected_review,
+            ),
+        )
+        self.assertEqual(timelock.operations[operation_id].state, 4)
+        self.assertEqual(manager.generation, 1)
+        self.assertEqual(manager.lifecycle, "IDLE")
+        self.assertIs(router.migration_lifecycle,
+                      settlement.RouterMigrationLifecycle.IDLE)
+        before = router.genesis_campaign_state_return_v1()
+        self.assertFalse(router.withdraw_genesis_campaign_v1(
+            state.campaign_id,
+            target_address=state.target_address,
+            target_registration_hash=state.target_registration_hash,
+            cancellation_commitment=b"c" * 32,
+            cancellation_finalized_by_block=state.review_finalized_by_block,
+            caller=router.version_manager, clock=publication_clock,
+        ))
+        self.assertEqual(router.genesis_campaign_state_return_v1(), before)
+
+    def test_pvm_genesis_publication_faults_substitution_and_gas_roll_back(self):
+        scenarios = (
+            ("router_fault", "genesis_after_lifecycle"),
+            ("router_fault", "genesis_after_campaign"),
+            ("router_fault", "genesis_before_idle"),
+            ("router_fault", "genesis_after_idle"),
+            ("pvm_fault", "after_genesis_router"),
+            ("pvm_fault", "before_idle"),
+            ("return", b""),
+            ("postread", b""),
+            ("callback_fault", None),
+            ("gas", 7_999_999),
+        )
+        for kind, value in scenarios:
+            with self.subTest(kind=kind, value=value):
+                fixture = genesis_protocol_authority_fixture()
+                router, manager, timelock = fixture[1], fixture[4], fixture[5]
+                payload, operation_id, publication_clock, _ = \
+                    self._queue_genesis_publication(fixture)
+                if kind == "router_fault":
+                    router.release_registration_fault_point = value
+                elif kind == "pvm_fault":
+                    manager.fault_point = value
+                elif kind == "return":
+                    router.genesis_publication_return_override = value
+                elif kind == "postread":
+                    manager.genesis_postread_override = value
+                elif kind == "callback_fault":
+                    router.genesis_publication_callback = lambda *_: (
+                        (_ for _ in ()).throw(RuntimeError("callback fault"))
+                    )
+                else:
+                    manager.genesis_router_call_gas_limit = value
+                self.assertFalse(timelock.execute_protocol_change_v1(
+                    2, settlement.PUBLISH_GENESIS_CAMPAIGN, payload,
+                    caller=addr("gen-publisher"),
+                    clock=publication_clock,
+                ))
+                self.assertEqual(timelock.operations[operation_id].state, 1)
+                self.assertIsNone(router.genesis_campaign)
+                self.assertEqual(router.genesis_campaign_nonce, 0)
+                self.assertIsNone(manager.published_genesis_campaign)
+                self.assertEqual(manager.generation, 0)
+                self.assertEqual(manager.lifecycle, "IDLE")
+                self.assertIs(
+                    router.migration_lifecycle,
+                    settlement.RouterMigrationLifecycle.IDLE,
+                )
+                self.assertIs(
+                    router.legacy_launch_hook.phase,
+                    settlement.LegacyLaunchPhase.ACTIVE,
+                )
+
+        substituted = genesis_protocol_authority_fixture()
+        payload, operation_id, publication_clock, _ = \
+            self._queue_genesis_publication(substituted)
+        changed = bytearray(payload)
+        changed[-1] ^= 1
+        changed = bytes(changed)
+        substituted_operation = substituted[5].queue_protocol_change_v1(
+            settlement.PUBLISH_GENESIS_CAMPAIGN, changed,
+            caller=substituted[5].dao_proposer,
+            clock=settlement.Clock(
+                publication_clock.block_number - 1,
+                publication_clock.timestamp
+                    - settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
+            ),
+        )
+        self.assertIsNotNone(substituted_operation)
+        self.assertFalse(substituted[5].execute_protocol_change_v1(
+            3, settlement.PUBLISH_GENESIS_CAMPAIGN, changed,
+            caller=addr("substituter"), clock=publication_clock,
+        ))
+        self.assertEqual(substituted[5].operations[substituted_operation].state,
+                         1)
+        self.assertIsNone(substituted[1].genesis_campaign)
+
+    def test_register_release_exact_geometry_and_atomic_postreads(self):
+        fixture = protocol_authority_fixture()
+        (_rows, router, witness, payload, manager, timelock,
+         market_authority, _oracle, clock) = fixture
+        decoded = settlement.decode_register_release_payload_v1(payload)
+        self.assertEqual(payload[67 * 32:68 * 32], (0x880).to_bytes(32, "big"))
+        self.assertEqual(
+            len(payload),
+            2_208 + ((len(decoded.profile_bytes) + 31) // 32) * 32,
+        )
+        self.assertEqual(
+            decoded.target_registration_hash,
+            settlement.target_registration_hash_v2(witness),
+        )
+        self.assertEqual(
+            decoded.migration_activation_profile_record_hash,
+            settlement.migration_activation_profile_for_execution_profile_v2(
+                witness.execution_profile
+            ).activation_profile_record_hash,
+        )
+        operation_id = timelock.queue_protocol_change_v1(
+            settlement.REGISTER_RELEASE, payload,
+            caller=timelock.dao_proposer, clock=clock,
+        )
+        self.assertIsNotNone(operation_id)
+        self.assertFalse(timelock.execute_protocol_change_v1(
+            1, settlement.REGISTER_RELEASE, payload,
+            caller=addr("early"), clock=clock,
+        ))
+        mature = settlement.Clock(
+            clock.block_number + 1,
+            clock.timestamp + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
+        )
+        self.assertTrue(timelock.execute_protocol_change_v1(
+            1, settlement.REGISTER_RELEASE, payload,
+            caller=addr("permissionless"), clock=mature,
+        ))
+        version = witness.settlement.protocol_version
+        self.assertEqual(len(router.target_release_registration_v2(version)), 352)
+        self.assertEqual(len(router.migration_activation_profile_v2(version)), 768)
+        self.assertEqual(len(manager.profile_ingress_root_v2(version)), 128)
+        root, ids = manager.profile_ingress_roots[version]
+        self.assertEqual(root, witness.ingress_authorization_root)
+        self.assertEqual(len(ids), 2)
+        self.assertEqual(tuple(ids), tuple(sorted(ids)))
+        self.assertTrue(all(
+            len(manager.profile_ingress_authorization_v2(item)) == 800
+            for item in ids
+        ))
+        self.assertEqual(len(market_authority.authorizations), 1)
+        authorization_id = next(iter(market_authority.authorizations))
+        self.assertEqual(
+            len(market_authority.settlement_authorization_v1(
+                authorization_id
+            )), 224,
+        )
+        self.assertEqual(timelock.operations[operation_id].state, 4)
+        self.assertEqual(manager.lifecycle, "IDLE")
+        self.assertIs(router.migration_lifecycle,
+                      settlement.RouterMigrationLifecycle.IDLE)
+
+    def test_register_release_malformed_payloads_and_late_faults_roll_back(self):
+        fixture = protocol_authority_fixture()
+        payload = fixture[3]
+        malformed = []
+        for candidate in (payload[:-1], payload + bytes(32)):
+            malformed.append(candidate)
+        wrong_offset = bytearray(payload)
+        wrong_offset[67 * 32 + 31] ^= 1
+        malformed.append(bytes(wrong_offset))
+        wrong_padding = bytearray(payload)
+        wrong_padding[-1] ^= 1
+        malformed.append(bytes(wrong_padding))
+        wrong_create2 = bytearray(payload)
+        wrong_create2[64 * 32 + 31] ^= 1
+        malformed.append(bytes(wrong_create2))
+        for candidate in malformed:
+            with self.subTest(length=len(candidate)):
+                with self.assertRaises(ValueError):
+                    settlement.decode_register_release_payload_v1(candidate)
+
+        for fault in (
+            "after_router_registration", "before_idle",
+        ):
+            with self.subTest(fault=fault):
+                current = protocol_authority_fixture()
+                operation_id, _mature, success = self._execute_release(
+                    current, fault=fault
+                )
+                self.assertFalse(success)
+                router, manager, timelock, market = (
+                    current[1], current[4], current[5], current[6]
+                )
+                self.assertFalse(router.target_release_registrations_v2)
+                self.assertFalse(router.migration_activation_profiles_v2)
+                self.assertFalse(manager.profile_ingress_roots)
+                self.assertFalse(manager.profile_ingress_rows)
+                self.assertFalse(market.authorizations)
+                self.assertEqual(timelock.operations[operation_id].state, 1)
+                self.assertEqual(manager.lifecycle, "IDLE")
+
+        for component, fault in (("router", "after_write"),
+                                 ("market", "after_install")):
+            with self.subTest(component=component):
+                current = protocol_authority_fixture()
+                if component == "router":
+                    current[1].release_registration_fault_point = fault
+                else:
+                    current[6].fault_point = fault
+                operation_id, _mature, success = self._execute_release(current)
+                self.assertFalse(success)
+                self.assertFalse(current[1].target_release_registrations_v2)
+                self.assertFalse(current[6].authorizations)
+                self.assertEqual(current[5].operations[operation_id].state, 1)
+
+        for point in ("router_direct_read", "pvm_postread"):
+            with self.subTest(point=point):
+                current = protocol_authority_fixture()
+                if point == "router_direct_read":
+                    current[1].release_registration_getter_override = b""
+                else:
+                    current[4].postread_override = b""
+                operation_id, _mature, success = self._execute_release(current)
+                self.assertFalse(success)
+                self.assertFalse(current[1].target_release_registrations_v2)
+                self.assertFalse(current[4].profile_ingress_rows)
+                self.assertFalse(current[6].authorizations)
+                self.assertEqual(current[5].operations[operation_id].state, 1)
+
+        # Every one of the eight deployment words is either rejected by the
+        # CREATE2 decoder or reaches the witness join and reverts atomically.
+        for deployment_word in range(59, 67):
+            with self.subTest(deployment_word=deployment_word):
+                current = protocol_authority_fixture()
+                changed = bytearray(current[3])
+                changed[deployment_word * 32 + 31] ^= 1
+                changed = bytes(changed)
+                try:
+                    settlement.decode_register_release_payload_v1(changed)
+                except ValueError:
+                    continue
+                operation_id = current[5].queue_protocol_change_v1(
+                    settlement.REGISTER_RELEASE, changed,
+                    caller=current[5].dao_proposer, clock=current[8],
+                )
+                self.assertIsNotNone(operation_id)
+                self.assertFalse(current[5].execute_protocol_change_v1(
+                    1, settlement.REGISTER_RELEASE, changed,
+                    caller=addr("permissionless"),
+                    clock=settlement.Clock(
+                        current[8].block_number + 1,
+                        current[8].timestamp
+                            + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
+                    ),
+                ))
+                self.assertFalse(current[1].target_release_registrations_v2)
+                self.assertFalse(current[6].authorizations)
+
+    def test_protocol_timelock_cancel_replay_and_exact_views(self):
+        fixture = protocol_authority_fixture()
+        payload, manager, timelock, clock = (
+            fixture[3], fixture[4], fixture[5], fixture[8]
+        )
+        self.assertEqual(len(timelock.config_return_v1()), 160)
+        self.assertEqual(len(manager.config_return_v1()), 480)
+        self.assertEqual(
+            settlement.INSTALL_SETTLEMENT_AUTHORIZATION_SELECTOR.hex(),
+            "72a3e937",
+        )
+        self.assertEqual(
+            settlement.SETTLEMENT_AUTHORIZATION_SELECTOR.hex(), "1693ae01"
+        )
+        for unknown in (0, 5, 255):
+            self.assertIsNone(timelock.queue_protocol_change_v1(
+                unknown, payload, caller=timelock.dao_proposer, clock=clock
+            ))
+        operation_id = timelock.queue_protocol_change_v1(
+            settlement.REGISTER_RELEASE, payload,
+            caller=timelock.dao_proposer, clock=clock,
+        )
+        self.assertEqual(len(timelock.operation_return_v1(operation_id)), 256)
+        self.assertFalse(timelock.cancel_protocol_change_v1(
+            1, settlement.REGISTER_RELEASE, payload, caller=addr("foreign")
+        ))
+        self.assertTrue(timelock.cancel_protocol_change_v1(
+            1, settlement.REGISTER_RELEASE, payload,
+            caller=timelock.dao_proposer,
+        ))
+        self.assertFalse(timelock.cancel_protocol_change_v1(
+            1, settlement.REGISTER_RELEASE, payload,
+            caller=timelock.dao_proposer,
+        ))
+        self.assertFalse(timelock.execute_protocol_change_v1(
+            1, settlement.REGISTER_RELEASE, payload,
+            caller=addr("executor"),
+            clock=settlement.Clock(
+                clock.block_number + 1,
+                clock.timestamp + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
+            ),
+        ))
+        self.assertEqual(timelock.operations[operation_id].state, 3)
+
+    def test_eip2935_is_a_fixed_selector_free_system_read_not_authority(self):
+        adapter = settlement.make_header_oracle()
+        self.assertIs(
+            type(adapter), settlement.EIP2935SystemReadTestAdapter
+        )
+        self.assertFalse(hasattr(adapter, "address"))
+        self.assertFalse(hasattr(adapter, "runtime_hash"))
+        requested = 100
+        calldata = requested.to_bytes(32, "big")
+        self.assertEqual(
+            adapter.read_hash(requested, 101, calldata),
+            bytes.fromhex(adapter.header(requested).block_hash),
+        )
+        self.assertEqual(
+            settlement.EIP2935_HISTORY_STORAGE_ADDRESS.lower(),
+            "0x0000f90827f1c53a10cb7a02335b175320002935",
+        )
+        for current, call_data, gas, value in (
+            (requested, calldata, settlement.EIP2935_HISTORY_READ_GAS, 0),
+            (requested + settlement.EIP2935_HISTORY_SERVE_WINDOW + 1,
+             calldata, settlement.EIP2935_HISTORY_READ_GAS, 0),
+            (101, (requested + 1).to_bytes(32, "big"),
+             settlement.EIP2935_HISTORY_READ_GAS, 0),
+            (101, calldata, settlement.EIP2935_HISTORY_READ_GAS - 1, 0),
+            (101, calldata, settlement.EIP2935_HISTORY_READ_GAS, 1),
+        ):
+            with self.assertRaises(ValueError):
+                adapter.read_hash(
+                    requested, current, call_data,
+                    gas_limit=gas, value=value,
+                )
+
+    def test_schedule_registry_successors_bounds_and_vacant_is_not_stored(self):
+        fixture = protocol_authority_fixture()
+        manager, timelock, oracle, clock = (
+            fixture[4], fixture[5], fixture[7], fixture[8]
+        )
+
+        def fork_row(digest, first_window, gas=500_000):
+            gindices = (8, 201, 6_434, 6_437, 6_441, 6_444)
+            witness_schema = settlement.keccak256(
+                b"schedule-witness:" + digest
+            )
+            selector = bytes.fromhex("7e981e0b")
+            config = settlement.schedule_fork_verifier_configuration_hash_v1(
+                digest, gindices, witness_schema, selector, gas
+            )
+            return settlement.RegisterForkVerifierPayloadV1(
+                digest, first_window, bytes.fromhex("11" * 20),
+                settlement.keccak256(b"fork-runtime:" + digest),
+                *gindices, witness_schema, config, selector, gas,
+            )
+
+        first = fork_row(bytes.fromhex("01020304"), 109)
+        first_payload = settlement.encode_register_fork_verifier_payload_v1(
+            first
+        )
+        self.assertEqual(len(first_payload), 14 * 32)
+        operation = timelock.queue_protocol_change_v1(
+            settlement.REGISTER_FORK_VERIFIER, first_payload,
+            caller=timelock.dao_proposer, clock=clock,
+        )
+        mature = settlement.Clock(
+            clock.block_number + 1,
+            clock.timestamp + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
+        )
+        self.assertTrue(timelock.execute_protocol_change_v1(
+            1, settlement.REGISTER_FORK_VERIFIER, first_payload,
+            caller=addr("fork-installer"), clock=mature,
+        ))
+        self.assertEqual(timelock.operations[operation].state, 4)
+        second = fork_row(bytes.fromhex("05060708"), 120, 5_000_000)
+        second_payload = settlement.encode_register_fork_verifier_payload_v1(
+            second
+        )
+        queued = timelock.queue_protocol_change_v1(
+            settlement.REGISTER_FORK_VERIFIER, second_payload,
+            caller=timelock.dao_proposer, clock=mature,
+        )
+        second_mature = settlement.Clock(
+            mature.block_number + 1,
+            mature.timestamp + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
+        )
+        self.assertTrue(timelock.execute_protocol_change_v1(
+            2, settlement.REGISTER_FORK_VERIFIER, second_payload,
+            caller=addr("fork-installer"), clock=second_mature,
+        ))
+        self.assertEqual(timelock.operations[queued].state, 4)
+        first_view = oracle.fork_verifier_registration_v1(first.fork_digest)
+        self.assertEqual(first_view[3 * 32:3 * 32 + 4], second.fork_digest)
+        self.assertIsNotNone(oracle._eligible_row(119, first.fork_digest))
+        self.assertIsNone(oracle._eligible_row(120, first.fork_digest))
+        self.assertIsNotNone(oracle._eligible_row(120, second.fork_digest))
+
+        deadline = second_mature.timestamp + 100
+        before = dict(oracle.sealed_windows)
+        for bad_return in (b"", b"SFC1" + bytes(251), bytes(256)):
+            with self.assertRaises(ValueError):
+                oracle.seal_window_v1(
+                    120, second.fork_digest, b"retryable-witness", bad_return,
+                    seal_deadline=deadline, clock=second_mature,
+                )
+        self.assertEqual(oracle.sealed_windows, before)
+        carrier = b"SFC1" + bytes(28) + b"s" * 32 + bytes(192)
+        seal = oracle.seal_window_v1(
+            120, second.fork_digest, b"valid-witness", carrier,
+            seal_deadline=deadline, clock=second_mature,
+        )
+        self.assertEqual(oracle.consume_window_v1(
+            120, seal_deadline=deadline, clock=second_mature
+        ), seal)
+        with self.assertRaises(ValueError):
+            oracle.consume_window_v1(
+                121, seal_deadline=deadline, clock=second_mature
+            )
+        after_deadline = settlement.Clock(
+            second_mature.block_number + 1, deadline
+        )
+        self.assertEqual(oracle.consume_window_v1(
+            121, seal_deadline=deadline, clock=after_deadline
+        ), bytes(32))
+        self.assertNotIn(121, oracle.sealed_windows)
+
+    def test_nonextendable_version_lease_arm_abort_and_rollback(self):
+        fixture = protocol_authority_fixture()
+        _operation, mature, release_success = self._execute_release(fixture)
+        self.assertTrue(release_success)
+        router, witness, manager, timelock = (
+            fixture[1], fixture[2], fixture[4], fixture[5]
+        )
+        version = witness.settlement.protocol_version
+        registration_hash = settlement.target_registration_hash_v2(witness)
+        arm_payload = b"".join((
+            manager.active_protocol_version.to_bytes(32, "big"),
+            version.to_bytes(32, "big"), witness.release_manifest.commitment,
+            registration_hash,
+        ))
+        arm_operation = timelock.queue_protocol_change_v1(
+            settlement.PUBLISH_MIGRATION_ARM, arm_payload,
+            caller=timelock.dao_proposer, clock=mature,
+        )
+        arm_clock = settlement.Clock(
+            mature.block_number + 1,
+            mature.timestamp + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
+        )
+        self.assertTrue(timelock.execute_protocol_change_v1(
+            2, settlement.PUBLISH_MIGRATION_ARM, arm_payload,
+            caller=addr("armer"), clock=arm_clock,
+        ))
+        lease = manager.migration_lease
+        self.assertEqual(router.migration_gate.mode, "ARMED")
+        self.assertEqual(
+            lease.abort_after_timestamp,
+            arm_clock.timestamp
+                + settlement.MAXIMUM_LIVE_VERSION_MIGRATION_SECONDS,
+        )
+        self.assertFalse(manager.permissionless_abort_expired_migration_v1(
+            caller=addr("keeper"),
+            clock=settlement.Clock(
+                arm_clock.block_number + 1,
+                lease.abort_after_timestamp - 1,
+            ),
+        ))
+        self.assertTrue(manager.permissionless_abort_expired_migration_v1(
+            caller=addr("keeper"),
+            clock=settlement.Clock(
+                arm_clock.block_number + 2, lease.abort_after_timestamp
+            ),
+        ))
+        self.assertEqual(manager.migration_lease,
+                         settlement.VersionMigrationLeaseV1())
+        self.assertEqual(router.migration_gate.mode, "ACTIVE")
+        self.assertEqual(timelock.operations[arm_operation].state, 4)
+
+        rollback = protocol_authority_fixture()
+        self.assertTrue(self._execute_release(rollback)[2])
+        router2, witness2, manager2, timelock2 = (
+            rollback[1], rollback[2], rollback[4], rollback[5]
+        )
+        reg2 = settlement.target_registration_hash_v2(witness2)
+        arm2 = b"".join((
+            manager2.active_protocol_version.to_bytes(32, "big"),
+            witness2.settlement.protocol_version.to_bytes(32, "big"),
+            witness2.release_manifest.commitment, reg2,
+        ))
+        first_mature = settlement.Clock(
+            rollback[8].block_number + 1,
+            rollback[8].timestamp + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
+        )
+        self.assertIsNotNone(timelock2.queue_protocol_change_v1(
+            settlement.PUBLISH_MIGRATION_ARM, arm2,
+            caller=timelock2.dao_proposer, clock=first_mature,
+        ))
+        router2.release_registration_fault_point = "arm_after_gate"
+        self.assertFalse(timelock2.execute_protocol_change_v1(
+            2, settlement.PUBLISH_MIGRATION_ARM, arm2,
+            caller=addr("armer"),
+            clock=settlement.Clock(
+                first_mature.block_number + 1,
+                first_mature.timestamp
+                    + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
+            ),
+        ))
+        self.assertEqual(router2.migration_gate.mode, "ACTIVE")
+        self.assertEqual(manager2.migration_lease,
+                         settlement.VersionMigrationLeaseV1())
+
 
 class BoundedFrontierAndDataSessionTests(unittest.TestCase):
     def test_forced_frontier_carries_and_matches_independent_full_tree(self):
@@ -10924,10 +13240,11 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
             25,
             0,
             bytes(32),
+            bytes(32),
             settlement.RouterPhase.ACTIVE,
         )
         raw = settlement.encode_active_settlement_state_v1(state)
-        self.assertEqual(len(raw), 224)
+        self.assertEqual(len(raw), 256)
         self.assertEqual(
             settlement.decode_active_settlement_state_v1(raw), state
         )
@@ -10938,7 +13255,7 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
             expected_protocol_version=25,
         ))
         bad_rows = []
-        for offset in (4, 32, 64, 96, 128, 192):
+        for offset in (4, 32, 64, 96, 128, 160, 224):
             mutated = bytearray(raw)
             mutated[offset] ^= 1
             bad_rows.append(bytes(mutated))
@@ -11011,10 +13328,12 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
             active_data_session_config_hash=config_hash,
         ))
         self.assertTrue(gate._arm_from_manager(
-            1, 25, 26, b"m" * 32, caller="version-manager"
+            1, 25, 26, b"m" * 32, b"r" * 32,
+            caller="version-manager"
         ))
         readiness = settlement.MigrationReadinessV1(
             1, 25, 26, b"m" * 32,
+            b"r" * 32,
             settlement.MigrationBoundaryState.NONE, True,
         )
         accounting = settlement.DataSessionAccountingV1(
@@ -11022,7 +13341,7 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
         )
         readiness_raw = settlement.encode_migration_readiness_v1(readiness)
         accounting_raw = settlement.encode_data_session_accounting_v1(accounting)
-        self.assertEqual(len(readiness_raw), 224)
+        self.assertEqual(len(readiness_raw), 256)
         self.assertEqual(len(accounting_raw), 384)
         self.assertEqual(
             settlement.decode_migration_readiness_v1(readiness_raw), readiness
@@ -11137,10 +13456,15 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
 
         now = settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000)
         integrated = settlement.protocol(seat=False)
-        self.assertTrue(integrated.migration_gate._bootstrap_from_router(1))
+        integrated_router = settlement.routed_ingress_for_test(integrated)
+        settlement.ProtocolVersionManager(
+            integrated_router.version_manager, integrated_router
+        )
         self.assertTrue(integrated.migration_gate._arm_from_manager(
-            1, 1, 2, b"i" * 32, caller="version-manager"
+            1, 1, 2, b"i" * 32, b"r" * 32,
+            caller="version-manager"
         ))
+        integrated.versioned_history.mode = "MIGRATION_ARMED"
         self.assertTrue(integrated._arm_migration_for_test(1, now))
         self.assertEqual(integrated.migration_gate.mode, "ARMED")
         before_mark = settlement.decode_migration_readiness_v1(
@@ -11197,7 +13521,8 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
             protocol = settlement.protocol(seat=False)
             self.assertTrue(protocol.migration_gate._bootstrap_from_router(1))
             self.assertTrue(protocol.migration_gate._arm_from_manager(
-                1, 1, 2, b"b" * 32, caller="version-manager"
+                1, 1, 2, b"b" * 32, b"r" * 32,
+                caller="version-manager"
             ))
             self.assertTrue(protocol._arm_migration_for_test(1, now))
             return protocol
@@ -11242,7 +13567,8 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
         self.assertIs(recovering.mode, settlement.Mode.RECOVERY)
         self.assertTrue(recovering.migration_gate._bootstrap_from_router(1))
         self.assertTrue(recovering.migration_gate._arm_from_manager(
-            1, 1, 2, b"r" * 32, caller="version-manager"
+            1, 1, 2, b"r" * 32, b"q" * 32,
+            caller="version-manager"
         ))
         self.assertTrue(recovering._arm_migration_for_test(1, now))
         row = settlement.decode_migration_readiness_v1(
@@ -11817,10 +14143,15 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
             ),
             0,
         )
-        self.assertTrue(armed.migration_gate._bootstrap_from_router(1))
+        armed_router = settlement.routed_ingress_for_test(armed)
+        settlement.ProtocolVersionManager(
+            armed_router.version_manager, armed_router
+        )
         self.assertTrue(armed.migration_gate._arm_from_manager(
-            1, 1, 2, b"a" * 32, caller="version-manager"
+            1, 1, 2, b"a" * 32, b"r" * 32,
+            caller="version-manager"
         ))
+        armed.versioned_history.mode = "MIGRATION_ARMED"
         self.assertTrue(armed._arm_migration_for_test(1, now))
         self.assertEqual(
             armed.maintain_data_sessions(now),
@@ -11908,10 +14239,13 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
             )
         self.assertEqual(p.session_live_count, 1_024)
         self.assertEqual(p.session_occupied_count, 1_024)
-        self.assertTrue(p.migration_gate._bootstrap_from_router(1))
+        p_router = settlement.routed_ingress_for_test(p)
+        settlement.ProtocolVersionManager(p_router.version_manager, p_router)
         self.assertTrue(p.migration_gate._arm_from_manager(
-            1, 1, 2, b"m" * 32, caller="version-manager"
+            1, 1, 2, b"m" * 32, b"r" * 32,
+            caller="version-manager"
         ))
+        p.versioned_history.mode = "MIGRATION_ARMED"
         self.assertTrue(p._arm_migration_for_test(1, now))
         deadline = p.migration_refund_claim_deadline
         for call in range(128):
@@ -12024,7 +14358,8 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
         p.normal_arm_block_number = now.block_number
         self.assertTrue(p.migration_gate._bootstrap_from_router(1))
         self.assertTrue(p.migration_gate._arm_from_manager(
-            1, 1, 2, b"m" * 32, caller="version-manager"
+            1, 1, 2, b"m" * 32, b"r" * 32,
+            caller="version-manager"
         ))
         self.assertTrue(p._arm_migration_for_test(1, now))
         self.assertEqual(
@@ -12051,7 +14386,8 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
         saturated.normal_arm_block_number = now.block_number
         self.assertTrue(saturated.migration_gate._bootstrap_from_router(1))
         self.assertTrue(saturated.migration_gate._arm_from_manager(
-            1, 1, 2, b"s" * 32, caller="version-manager"
+            1, 1, 2, b"s" * 32, b"r" * 32,
+            caller="version-manager"
         ))
         self.assertTrue(saturated._arm_migration_for_test(1, now))
         self.assertEqual(
@@ -12071,7 +14407,8 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
             )
         self.assertTrue(partial.migration_gate._bootstrap_from_router(1))
         self.assertTrue(partial.migration_gate._arm_from_manager(
-            1, 1, 2, b"p" * 32, caller="version-manager"
+            1, 1, 2, b"p" * 32, b"r" * 32,
+            caller="version-manager"
         ))
         self.assertTrue(partial._arm_migration_for_test(1, now))
         self.assertTrue(partial._sync_migration(now))
@@ -12082,6 +14419,7 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
         )
         self.assertTrue(partial.migration_gate._abort_from_manager(
             1, 1, 2, b"p" * 32,
+            b"r" * 32,
             cancel_manifest_active=True,
             caller="version-manager",
         ))

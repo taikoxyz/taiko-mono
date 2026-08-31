@@ -80,9 +80,14 @@ def _keccak_f(state: list[int]) -> None:
 def _keccak256_pure(data: bytes) -> bytes:
     rate = 136
     padded = bytearray(data)
-    padded.append(0x01)
-    padded.extend(b"\x00" * ((rate - 1 - len(padded)) % rate))
-    padded.append(0x80)
+    remaining = rate - (len(padded) % rate)
+    if remaining == 1:
+        # The delimited suffix and final pad bit share the last rate byte.
+        padded.append(0x81)
+    else:
+        padded.append(0x01)
+        padded.extend(b"\x00" * (remaining - 2))
+        padded.append(0x80)
     state = [0] * 25
     for offset in range(0, len(padded), rate):
         block = padded[offset:offset + rate]
@@ -364,6 +369,15 @@ def test_keccak_and_encoding_vectors():
     check("L1 Ethereum Keccak empty-string vector",
           keccak256(b"").hex() == "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
           and _keccak256_pure(b"") == keccak256(b""))
+    # Exercise the pad10*1 single-byte boundary and a later identical boundary;
+    # these lengths previously diverged only without PyCryptodome.
+    for length, expected in (
+        (135, "ffccaa8dc845e60524688399949338faf942035e205e7e4e6321323420f90801"),
+        (271, "2b4b9862a56630c60c1d4429ff37b5dd48b0dad0a564edda81deaf163717b3f6"),
+    ):
+        payload = bytes([length % 251]) * length
+        assert (_keccak256_pure(payload).hex() == expected
+                and keccak256(payload).hex() == expected)
     snapshot = provider()(0)
     assert snapshot is not None
     check("L2 exact seed golden vector",
