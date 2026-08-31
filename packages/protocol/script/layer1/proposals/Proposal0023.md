@@ -429,24 +429,29 @@ cast storage 0x2dfef0339009Ce10786fc118C883BB97af3163eD \
 # substituted contract can answer every getter above while carrying different logic, and these
 # implementations become the logic of proxies holding roughly 1,000,000 ETH.
 forge verify-bytecode 0x8636d9707ED54443808bA89F1B1b74f4b134AAa6 Bridge --rpc-url <L1_RPC> \
-  --constructor-args $(cast abi-encode "c(address,address,address,address)" \
+  --encoded-constructor-args $(cast abi-encode "c(address,address,address,address)" \
     0x8Efa01564425692d0a0838DC10E300BD310Cb43e 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C \
     0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F)
 
 forge verify-bytecode 0x097BBBef669AaD66030aB223195D200eF9A47dc3 Bridge --rpc-url https://rpc.mainnet.taiko.xyz \
-  --constructor-args $(cast abi-encode "c(address,address,address,address)" \
+  --encoded-constructor-args $(cast abi-encode "c(address,address,address,address)" \
     0x2dfef0339009Ce10786fc118C883BB97af3163eD 0x1670000000000000000000000000000000000005 \
     0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000)
 
 forge verify-bytecode 0x4F750D13005444407D44dAA30922128db0374ca1 DefaultResolver --rpc-url https://rpc.mainnet.taiko.xyz
 
 forge verify-bytecode 0x2dfef0339009Ce10786fc118C883BB97af3163eD ERC1967Proxy --rpc-url https://rpc.mainnet.taiko.xyz \
-  --constructor-args $(cast abi-encode "c(address,bytes)" 0x4F750D13005444407D44dAA30922128db0374ca1 \
+  --encoded-constructor-args $(cast abi-encode "c(address,bytes)" 0x4F750D13005444407D44dAA30922128db0374ca1 \
     $(cast calldata "init(address)" 0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C))
 ```
 
 In the second command, the first constructor argument is `0x2dfef0339009Ce10786fc118C883BB97af3163eD` — the proxy, not
 the implementation. `DeployBridgeUpgradeL2` passes the proxy address to the `Bridge` constructor.
+
+The flag is `--encoded-constructor-args`, not `--constructor-args`. The latter takes the arguments
+as individual raw values; handing it one pre-encoded blob fails with an argument-count mismatch on
+the `forge` version this repo pins (`.tool-versions`: `foundry v1.4.2`). The argument-free
+`DefaultResolver` command needs neither flag.
 
 **Do not substitute a `cast codehash` comparison for this.** Hashing the runtime looks like the
 obvious check and does not work here: `Bridge` carries **five** immutables at **25** patch sites —
@@ -628,6 +633,23 @@ to the new implementation. Second, the status the bridge emitted:
 
 `status: 2` is `Status.DONE` with `StatusReason.INVOCATION_OK` — the invocation ran and succeeded. A
 swallowed revert would have shown `RETRIABLE` instead. **Check both when re-running.**
+
+### Two guards the rehearsal carries
+
+Both forks are taken at head, so once Proposal0023 executes the tests would otherwise rehearse
+current → current and stay green while no longer covering the transition they exist for — the L2
+case would silently stop exercising the 1.10.0 jump. Each leg therefore asserts the implementation
+it must be starting from (`0x1c94D798…` on L1, `0x95ae2918…` on L2) and fails with the block to pin
+against an archive node. Flipping either constant was confirmed to fail the tests.
+
+The L2 rehearsal runs twice, because the caller determines which gas path the legacy bridge takes.
+When the caller is the message's `destOwner` the bridge forwards `gasleft()`, so that case never
+exercises the 5,000,000 gas limit this proposal sets. Any address may process a message, and a
+relayer instead receives `_invocationGasLimit`. The second case covers it and pins the resulting
+budget at **4,177,472** — 5,000,000 less this message's own minimum of 822,528 (22,528 of calldata
+cost for its 964 bytes of data, plus the 800,000 `GAS_RESERVE`) — which is roughly twenty times
+what the three actions consume. That figure is asserted rather than assumed, so a change to the
+message size or the gas schedule fails the test instead of silently eroding the margin.
 
 ### What the rehearsal does not establish
 

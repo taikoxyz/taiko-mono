@@ -31,8 +31,24 @@ contract Proposal0023ForkTest is Test {
     bytes32 private constant _IMPL_SLOT =
         0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
 
+    /// @dev The implementations each proxy must still be running when the rehearsal starts. Both
+    /// forks are taken at head, so once Proposal0023 executes these tests would otherwise rehearse
+    /// current -> current and stay green while no longer covering the transition they exist for —
+    /// the L2 one silently stops exercising the 1.10.0 jump. Asserting the starting implementation
+    /// fails loudly instead. It is preferred over a pinned fork block because pinning needs an
+    /// archive node; the blocks the rehearsal was captured at are named in the failure messages for
+    /// anyone who has one.
+    address private constant _LIVE_BRIDGE_IMPL_L1 = 0x1c94D798CFA08F396E5BA9F81697289c53273381;
+    address private constant _LIVE_BRIDGE_IMPL_L2 = 0x95ae2918dcbc6aFF8B4c1F1BCC1bf819b6e08B83;
+
     function test_l1_bridgeUpgradeAgainstLiveState() external {
         if (!_forkOrSkip("L1_FORK_URL")) return;
+
+        assertEq(
+            _implementationOf(L1.BRIDGE),
+            _LIVE_BRIDGE_IMPL_L1,
+            "L1 fork is not pre-upgrade; pin --fork-block-number 25875170 against an archive node"
+        );
 
         address newImpl = address(
             new Bridge(
@@ -57,8 +73,28 @@ contract Proposal0023ForkTest is Test {
 
     function test_l2_selfUpgradeThroughProcessMessage() external {
         if (!_forkOrSkip("L2_FORK_URL")) return;
+        _rehearseL2Upgrade(L2.PERMISSIONLESS_EXECUTOR);
+    }
 
+    /// @dev The same rehearsal driven by a relayer rather than the destination owner. When the
+    /// caller is the destOwner the legacy bridge forwards `gasleft()`, so the executor case never
+    /// exercises the proposal's 5,000,000 gas limit at all; any caller may process a message, and
+    /// a relayer instead receives `_invocationGasLimit`, which is what this case covers.
+    function test_l2_selfUpgradeThroughProcessMessage_byRelayer() external {
+        if (!_forkOrSkip("L2_FORK_URL")) return;
+        _rehearseL2Upgrade(makeAddr("relayer"));
+    }
+
+    /// @dev Runs the L2 rehearsal with `_caller` processing the governance message.
+    /// @param _caller The address that calls `processMessage`.
+    function _rehearseL2Upgrade(address _caller) private {
         Bridge bridge = Bridge(payable(L2.BRIDGE));
+
+        assertEq(
+            _implementationOf(L2.BRIDGE),
+            _LIVE_BRIDGE_IMPL_L2,
+            "L2 fork is not pre-upgrade; pin --fork-block-number 10785761 against an archive node"
+        );
         uint64 messageIdBefore = bridge.nextMessageId();
         address ownerBefore = bridge.owner();
 
@@ -85,7 +121,19 @@ contract Proposal0023ForkTest is Test {
             abi.encode(uint256(0))
         );
 
-        vm.prank(L2.PERMISSIONLESS_EXECUTOR);
+        // On the relayer branch the invocation receives message.gasLimit minus the message's own
+        // minimum, not gasleft(). Pin that budget so the 5,000,000 in the proposal is shown to be
+        // sufficient rather than assumed: 5,000,000 - (22,528 calldata cost + 800,000 GAS_RESERVE)
+        // for this message's 964 bytes of data, roughly twenty times what the three actions need.
+        if (_caller != message.destOwner) {
+            assertEq(
+                message.gasLimit - bridge.getMessageMinGasLimit(message.data.length),
+                4_177_472,
+                "relayer invocation budget moved; re-derive it before trusting this rehearsal"
+            );
+        }
+
+        vm.prank(_caller);
         (IBridge.Status status, IBridge.StatusReason reason) = bridge.processMessage(message, "");
 
         // A passing transaction is NOT evidence the upgrade worked. The 1.10.0 _invokeMessageCall
