@@ -52,11 +52,17 @@ class MoralisNFTRepository implements INFTRepository {
     const previous = this.requestQueueByWallet.get(key) ?? Promise.resolve([]);
     const request = previous.catch(() => []).then(() => this.fetchNextPage({ address, chainId, refresh }));
     this.requestQueueByWallet.set(key, request);
-    void request.finally(() => {
+
+    const releaseSlot = () => {
       if (this.requestQueueByWallet.get(key) === request) {
         this.requestQueueByWallet.delete(key);
       }
-    });
+    };
+    // `.finally()` would build a derived promise that rejects with no handler attached
+    // once a failed page propagates; passing the same callback to both arms of `.then()`
+    // settles that promise either way. The caller still sees the rejection via `request`.
+    void request.then(releaseSlot, releaseSlot);
+
     return request;
   }
 
@@ -85,8 +91,11 @@ class MoralisNFTRepository implements INFTRepository {
       return state.nfts;
     } catch (e) {
       console.error('Failed to fetch NFTs from Moralis:', e);
-      // Keep whatever pages were already fetched; the failed page is retried next call
-      return state.nfts;
+      // The accumulated pages and the cursor stay in `state`, so the failed page is
+      // retried on the next call. The failure itself has to reach the caller: returning
+      // the unchanged list looks exactly like "no more NFTs" and would retire the
+      // "load more" button while the cursor is still good.
+      throw e;
     }
   }
 

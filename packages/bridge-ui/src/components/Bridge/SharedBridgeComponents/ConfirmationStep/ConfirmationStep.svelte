@@ -60,50 +60,60 @@
 
     const destinationChain = $destNetwork?.id;
     const userAccount = $account?.address;
-    if (!currentChain || !destinationChain || !userAccount || !$selectedToken) return; //TODO error handling
-
-    const explorer = chainConfig[currentChain]?.blockExplorers?.default.url;
 
     try {
-      await pendingTransactions.add(txHash, currentChain);
+      if (!currentChain || !destinationChain || !userAccount || !$selectedToken) return; //TODO error handling
 
-      successToast({
-        title: $t('bridge.actions.bridge.success.title'),
-        message: $t('bridge.actions.bridge.success.message', {
-          values: {
-            token: $selectedToken.symbol,
-          },
-        }),
-      });
-      icon = successIcon;
-      bridgingStatus = BridgingStatus.DONE;
-      statusTitle = $t('bridge.actions.bridge.success.title');
-      statusDescription = $t('bridge.step.confirm.bridge.success.message', {
-        values: { url: `${explorer}/tx/${txHash}` },
-      });
-    } catch (error) {
-      if (error instanceof TransactionTimeoutError) {
-        handleTimeout(txHash);
-      } else {
-        handleBridgeError(error as Error);
+      const explorer = chainConfig[currentChain]?.blockExplorers?.default.url;
+
+      const bridgeTx = {
+        srcTxHash: txHash,
+        from: userAccount,
+        amount: $enteredAmount,
+        symbol: $selectedToken?.symbol,
+        decimals: isToken($selectedToken) ? $selectedToken.decimals : undefined,
+        srcChainId: BigInt(currentChain),
+        destChainId: BigInt(destinationChain),
+        tokenType: $selectedToken?.type,
+        msgStatus: MessageStatus.NEW,
+        // Needed later to decide whether the manual "try claim" entry applies
+        processingFee: $processingFee,
+        timestamp: Date.now(),
+      } as BridgeTransaction;
+
+      try {
+        await pendingTransactions.add(txHash, currentChain);
+
+        // Confirmed on-chain: record it in the local history
+        bridgeTxService.addTxByAddress(userAccount, bridgeTx);
+
+        successToast({
+          title: $t('bridge.actions.bridge.success.title'),
+          message: $t('bridge.actions.bridge.success.message', {
+            values: {
+              token: $selectedToken.symbol,
+            },
+          }),
+        });
+        icon = successIcon;
+        bridgingStatus = BridgingStatus.DONE;
+        statusTitle = $t('bridge.actions.bridge.success.title');
+        statusDescription = $t('bridge.step.confirm.bridge.success.message', {
+          values: { url: `${explorer}/tx/${txHash}` },
+        });
+      } catch (error) {
+        if (error instanceof TransactionTimeoutError) {
+          // The transaction may still confirm later, so keep it in the local history
+          bridgeTxService.addTxByAddress(userAccount, bridgeTx);
+          handleTimeout(txHash);
+        } else {
+          // Reverted or failed: recording it would leave a phantom pending transaction
+          handleBridgeError(error as Error);
+        }
       }
+    } finally {
+      bridging = false;
     }
-
-    const bridgeTx = {
-      srcTxHash: txHash,
-      from: $account.address,
-      amount: $enteredAmount,
-      symbol: $selectedToken?.symbol,
-      decimals: isToken($selectedToken) ? $selectedToken.decimals : undefined,
-      srcChainId: BigInt(currentChain),
-      destChainId: BigInt(destinationChain),
-      tokenType: $selectedToken?.type,
-      msgStatus: MessageStatus.NEW,
-      timestamp: Date.now(),
-    } as BridgeTransaction;
-    bridging = false;
-
-    bridgeTxService.addTxByAddress(userAccount, bridgeTx);
   };
 
   const handleTimeout = (txHash: Hex) => {
@@ -114,7 +124,8 @@
       title: $t('bridge.actions.bridge.timeout.title'),
       message: $t('bridge.actions.bridge.timeout.message', {
         values: {
-          url: `${explorer}/tx/${approveTxHash}`,
+          // The timed-out transaction itself, not the (possibly absent) approval tx
+          url: `${explorer}/tx/${txHash}`,
         },
       }),
     });
@@ -194,11 +205,8 @@
   }
 
   async function approve() {
-    isBridgePaused().then((paused) => {
-      if (paused) throw new BridgePausedError('Bridge is paused');
-    });
-
     try {
+      if (await isBridgePaused()) throw new BridgePausedError('Bridge is paused');
       if (!$selectedToken || !$connectedSourceChain || !$destNetwork?.id) return;
       const type: TokenType = $selectedToken.type;
       const walletClient = await getConnectedWallet($connectedSourceChain.id);

@@ -21,6 +21,11 @@
 
   let interval: ReturnType<typeof setInterval>;
 
+  // Concurrent computations can resolve out of order (reactive re-runs and the refresh
+  // interval overlap); only the latest invocation may publish its result
+  let computeGeneration = 0;
+  let inFlight = false;
+
   async function compute(
     token: Maybe<Token | NFT>,
     srcChainId?: number,
@@ -28,15 +33,30 @@
     to?: Address,
     tokenIds?: number[],
     amounts?: number[],
+    periodicRefresh = false,
   ) {
-    // Without token nor destination chain we cannot compute this fee
-    if (!token || !destChainId) return;
+    // A periodic refresh re-runs identical inputs, so it must not supersede a slower
+    // in-flight computation — doing so would discard every result and never clear the
+    // calculating flag; only input changes may take over
+    if (periodicRefresh && inFlight) return;
 
+    const generation = ++computeGeneration;
+
+    // Without token nor destination chain we cannot compute this fee. The bump above
+    // stops an in-flight result for the old inputs from publishing, so the flags it
+    // can no longer clear are reset here
+    if (!token || !destChainId) {
+      $calculatingProcessingFee = false;
+      inFlight = false;
+      return;
+    }
+
+    inFlight = true;
     $calculatingProcessingFee = true;
     error = false;
 
     try {
-      amount = await recommendProcessingFee({
+      const recommended = await recommendProcessingFee({
         token,
         destChainId,
         srcChainId,
@@ -44,11 +64,17 @@
         tokenIds,
         amounts,
       });
+      if (generation !== computeGeneration) return;
+      amount = recommended;
     } catch (err) {
+      if (generation !== computeGeneration) return;
       console.error(err);
       error = true;
     } finally {
-      $calculatingProcessingFee = false;
+      if (generation === computeGeneration) {
+        $calculatingProcessingFee = false;
+        inFlight = false;
+      }
     }
   }
 
@@ -70,6 +96,7 @@
         $recipientAddress || $account?.address,
         $selectedNFTs?.map((nft) => nft.tokenId),
         $selectedToken?.type === TokenType.ERC1155 ? [Number($enteredAmount)] : undefined,
+        true,
       );
     }, processingFeeComponent.intervalComputeRecommendedFee);
   });

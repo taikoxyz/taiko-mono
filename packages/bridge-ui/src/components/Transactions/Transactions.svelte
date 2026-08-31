@@ -86,19 +86,34 @@
     refresh();
   };
 
-  const updateTransactions = async (address: Address) => {
-    if (loadingTxs) return;
-    loadingTxs = true;
-    const { mergedTransactions, outdatedLocalTransactions, error } = await fetchTransactions(address);
-    transactions = mergedTransactions;
+  // Newer fetches (account switch, manual refresh) supersede older in-flight ones,
+  // whose late results must not overwrite the newer data
+  let fetchGeneration = 0;
+  let inFlightAddress: Address | null = null;
 
-    if (outdatedLocalTransactions.length > 0) {
-      await bridgeTxService.removeTransactions(address, outdatedLocalTransactions);
+  const updateTransactions = async (address: Address) => {
+    // A same-address fetch is already running; a different address must go through
+    if (loadingTxs && inFlightAddress === address) return;
+    const generation = ++fetchGeneration;
+    inFlightAddress = address;
+    loadingTxs = true;
+    try {
+      const { mergedTransactions, outdatedLocalTransactions, error } = await fetchTransactions(address);
+      if (generation !== fetchGeneration) return;
+      transactions = mergedTransactions;
+
+      if (outdatedLocalTransactions.length > 0) {
+        await bridgeTxService.removeTransactions(address, outdatedLocalTransactions);
+      }
+      if (error) {
+        warningToast({ title: $t('transactions.errors.relayer_offline') });
+      }
+    } finally {
+      if (generation === fetchGeneration) {
+        loadingTxs = false;
+        inFlightAddress = null;
+      }
     }
-    if (error) {
-      warningToast({ title: $t('transactions.errors.relayer_offline') });
-    }
-    loadingTxs = false;
   };
 
   let previousAccount: Account | null = null;
@@ -130,7 +145,21 @@
 
   $: pageSize = isDesktopOrLarger ? transactionConfig.pageSizeDesktop : transactionConfig.pageSizeMobile;
 
-  $: totalItems = filteredTransactions.length;
+  // The paginator must count exactly what is shown: token AND status filtered
+  $: totalItems = tokenAndStatusFilteredTransactions.length;
+
+  $: totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+
+  let previousStatusFilter: MessageStatus | null = null;
+  $: if (selectedStatus !== previousStatusFilter) {
+    previousStatusFilter = selectedStatus;
+    currentPage = 1;
+  }
+
+  // Keep the current page in range when filters, data, or page size change
+  $: if (currentPage > totalPages) {
+    currentPage = totalPages;
+  }
 
   // Some shortcuts to make the code more readable
   $: isConnected = $account?.isConnected;
@@ -298,7 +327,7 @@
   </Card>
 
   <div class="flex justify-center lg:justify-end pb-5">
-    <Paginator {pageSize} {totalItems} on:pageChange={({ detail }) => handlePageChange(detail)} />
+    <Paginator bind:currentPage {pageSize} {totalItems} on:pageChange={({ detail }) => handlePageChange(detail)} />
   </div>
 
   <StatusFilterDialog bind:selectedStatus bind:menuOpen />

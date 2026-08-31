@@ -1,13 +1,18 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
-  import type { Hash } from 'viem';
+  import { type Hash, UserRejectedRequestError } from 'viem';
 
   import { chainConfig } from '$chainConfig';
   import { CloseButton } from '$components/Button';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { DialogStep, DialogStepper } from '$components/Dialogs/Stepper';
-  import { errorToast, infoToast, successToast } from '$components/NotificationToast/NotificationToast.svelte';
+  import {
+    errorToast,
+    infoToast,
+    successToast,
+    warningToast,
+  } from '$components/NotificationToast/NotificationToast.svelte';
   import { OnAccount } from '$components/OnAccount';
   import type { BridgeTransaction } from '$libs/bridge';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
@@ -67,6 +72,12 @@
       }))
     ) {
       console.error(err);
+      // Every non-quota failure needs user-visible feedback, not just a console line
+      if (err instanceof UserRejectedRequestError) {
+        warningToast({ title: $t('transactions.actions.claim.rejected.title') });
+      } else {
+        errorToast({ title: $t('bridge.errors.retry_error') });
+      }
     }
     retrying = false;
   };
@@ -79,6 +90,7 @@
     activeStep = INITIAL_STEP;
     $selectedRetryMethod = RETRY_OPTION.CONTINUE;
     retryDone = false;
+    retrying = false;
   };
 
   const closeDialog = () => {
@@ -113,8 +125,18 @@
         },
       }),
     });
-    await pendingTransactions.add(txHash, Number(bridgeTx.destChainId));
 
+    try {
+      await pendingTransactions.add(txHash, Number(bridgeTx.destChainId));
+    } catch (error) {
+      // A reverted or timed-out retry must not leave the dialog spinning forever
+      log('retry transaction failed or timed out', { txHash, error });
+      retrying = false;
+      errorToast({ title: $t('bridge.errors.retry_error') });
+      return;
+    }
+
+    retrying = false;
     retryDone = true;
 
     dispatch('retryDone');

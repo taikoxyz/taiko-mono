@@ -10,6 +10,7 @@
   import RotatingIcon from '$components/Icon/RotatingIcon.svelte';
   import { NFTDisplay } from '$components/NFTs';
   import { NFTView } from '$components/NFTs/types';
+  import { errorToast } from '$components/NotificationToast';
   import type { NFT } from '$libs/token';
 
   import { selectedImportMethod } from './state';
@@ -27,16 +28,20 @@
 
   let tokenAmountInput: TokenAmountInput;
 
-  let previousNFTs: NFT[] = [];
-  const handleNextPage = () => {
-    previousNFTs = foundNFTs;
+  const handleNextPage = async () => {
+    const previousCount = foundNFTs.length;
     scanning = true;
-
-    nextPage().finally(() => {
+    try {
+      await nextPage();
+    } catch (error) {
+      // A failed page keeps the button usable for a retry
+      console.error('Error fetching next NFT page', error);
+      return;
+    } finally {
       scanning = false;
-    });
-
-    if (previousNFTs.length === foundNFTs.length) {
+    }
+    // Only after the fetch resolves do we know whether anything new arrived
+    if (foundNFTs.length === previousCount) {
       hasMoreNFTs = false;
     }
   };
@@ -44,9 +49,17 @@
   function onRefreshClick() {
     scanning = true;
     hasMoreNFTs = true;
-    refresh().finally(() => {
-      scanning = false;
-    });
+    refresh()
+      .catch((error) => {
+        console.error('Error refreshing NFTs', error);
+        errorToast({
+          title: $t('bridge.errors.unknown_error.title'),
+          message: $t('bridge.errors.unknown_error.message'),
+        });
+      })
+      .finally(() => {
+        scanning = false;
+      });
   }
 
   const changeNFTView = () => {

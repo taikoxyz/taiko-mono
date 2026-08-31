@@ -13,8 +13,9 @@
   const dispatch = createEventDispatcher<{ pageChange: number }>();
 
   function goToPage(page: number) {
+    // Dispatch the clamped value: the raw input can be out of range (typed page numbers)
     currentPage = Math.min(totalPages, Math.max(1, page));
-    dispatch('pageChange', page);
+    dispatch('pageChange', currentPage);
   }
 
   function handleKeydown(event: KeyboardEvent) {

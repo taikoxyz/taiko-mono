@@ -24,10 +24,11 @@
     closeDropDown();
   }
 
-  function getChainKeydownHandler(chain: Chain) {
+  function getChainKeydownHandler(chain: Chain, disabled: boolean) {
     return (event: KeyboardEvent) => {
-      if (event.key === 'Enter') {
-        selectChain(chain, isDestination);
+      if (event.key === 'Enter' && !disabled) {
+        // Same flag as the click path: switchWallet is the opposite of isDestination
+        selectChain(chain, !isDestination);
       }
     };
   }
@@ -59,7 +60,7 @@
         on:click={() => {
           if (!disabled) selectChain(chain, !isDestination);
         }}
-        on:keydown={getChainKeydownHandler(chain)}>
+        on:keydown={getChainKeydownHandler(chain, disabled)}>
         <div class="f-row justify-between">
           <div class="f-items-center gap-2">
             <i role="img" aria-label={chain.name}>

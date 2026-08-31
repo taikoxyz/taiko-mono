@@ -101,6 +101,8 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
     const nft = token as NFT;
     const ownerShipChecks = await checkOwnershipOfNFT(token as NFT, ownerAddress, currentChainId);
     if (!ownerShipChecks.every((item) => item.isOwner === true)) {
+      // A stale allApproved=true from a previously selected token must not survive
+      allApproved.set(false);
       return ApprovalStatus.APPROVAL_REQUIRED;
     }
     const wallet = await getConnectedWallet();

@@ -29,7 +29,7 @@
   import { refreshUserBalance, renderBalance } from '$libs/util/balance';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
-  import { truncateDecimal } from '$libs/util/truncateDecimal';
+  import { truncateDecimalString } from '$libs/util/truncateDecimal';
   import { type Account, account } from '$stores/account';
   import { ethBalance } from '$stores/balance';
   import { connectedSourceChain } from '$stores/network';
@@ -79,7 +79,14 @@
     $validatingAmount = true;
     $errorComputingBalance = false;
 
-    $enteredAmount = parseUnits(value, $selectedToken.decimals);
+    try {
+      // Number inputs also emit values parseUnits cannot parse, like '1e5'
+      $enteredAmount = parseUnits(value, $selectedToken.decimals);
+    } catch {
+      $enteredAmount = 0n;
+      $validatingAmount = false;
+      return;
+    }
     debouncedValidateAmount();
   };
 
@@ -101,10 +108,12 @@
           fee: $processingFee,
         });
 
-        // Update state
-        $enteredAmount = maxAmount;
-        value = formatUnits(maxAmount, $selectedToken.decimals);
-        value = truncateDecimal(parseFloat(value), 12).toString();
+        // The displayed value is truncated for readability, so the entered amount is
+        // re-derived from it: what the user sees is exactly what gets bridged. The
+        // truncation stays on the string, since a float round-trip yields scientific
+        // notation for tiny balances, which parseUnits rejects
+        value = truncateDecimalString(formatUnits(maxAmount, $selectedToken.decimals), 12);
+        $enteredAmount = parseUnits(value, $selectedToken.decimals);
         validateAmount();
       }
     } catch (err) {

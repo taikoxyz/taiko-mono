@@ -8,22 +8,55 @@ import { mergeAndCaptureOutdatedTransactions } from '$libs/util/mergeTransaction
 import { type BridgeTransaction, MessageStatus } from './types';
 
 const log = getLogger('bridge:fetchTransactions');
-let error: Error;
+
+const RELAYER_PAGE_SIZE = 500;
+// Backstop against unbounded relayer histories; each page is one API call
+const MAX_RELAYER_PAGES = 10;
+
+async function fetchAllRelayerPages(
+  relayerApiService: (typeof relayerApiServices)[number],
+  userAddress: Address,
+  chainId?: number,
+): Promise<BridgeTransaction[]> {
+  const txs: BridgeTransaction[] = [];
+
+  for (let page = 0; page < MAX_RELAYER_PAGES; page++) {
+    let pageTxs;
+    let paginationInfo;
+    try {
+      ({ txs: pageTxs, paginationInfo } = await relayerApiService.getAllBridgeTransactionByAddress(
+        userAddress,
+        { page, size: RELAYER_PAGE_SIZE },
+        chainId,
+      ));
+    } catch (error) {
+      // Keep the pages already fetched: losing a later page should degrade the history,
+      // not blank it. With nothing fetched yet the caller still needs to hear about it.
+      if (txs.length === 0) throw error;
+      log(`relayer page ${page} failed, returning ${txs.length} transactions already fetched`, error);
+      break;
+    }
+    txs.push(...pageTxs);
+
+    if (paginationInfo.max_page === undefined || page >= paginationInfo.max_page) break;
+    if (page === MAX_RELAYER_PAGES - 1) {
+      log(`relayer history truncated at ${MAX_RELAYER_PAGES} pages for ${userAddress}`);
+    }
+  }
+  return txs;
+}
 
 export async function fetchTransactions(userAddress: Address, chainId?: number) {
+  // The error must be scoped per call: a module-level variable would keep reporting
+  // "relayer offline" on every later, successful fetch
+  let error: Error | undefined = undefined;
+
   // Transactions from local storage
   const localTxs: BridgeTransaction[] = await bridgeTxService.getAllTxByAddress(userAddress);
 
   // Get all transactions from all relayers
   const relayerTxPromises: Promise<BridgeTransaction[]>[] = relayerApiServices.map(async (relayerApiService) => {
-    const { txs } = await relayerApiService.getAllBridgeTransactionByAddress(
-      userAddress,
-      {
-        page: 0,
-        size: 500,
-      },
-      chainId,
-    );
+    const txs = await fetchAllRelayerPages(relayerApiService, userAddress, chainId);
     log(`fetched ${txs?.length ?? 0} transactions from relayer`, txs);
     return txs;
   });
@@ -38,11 +71,18 @@ export async function fetchTransactions(userAddress: Address, chainId?: number) 
     relayerTxsArrays = [];
   }
 
-  // Flatten the arrays into a single array
+  // Flatten the arrays into a single array, dropping duplicate hashes the relayer
+  // may return across pages or relayers
   const relayerTxsFlattened = relayerTxsArrays.reduce((acc, txs) => acc.concat(txs), []);
+  const seenTxHashes = new Set<string>();
+  const dedupedRelayerTxs = relayerTxsFlattened.filter((tx) => {
+    if (seenTxHashes.has(tx.srcTxHash)) return false;
+    seenTxHashes.add(tx.srcTxHash);
+    return true;
+  });
 
   // Reverse the flattened array to sort transactions in descending order, placing the most recent transactions first
-  const relayerTxs: BridgeTransaction[] = relayerTxsFlattened.reverse();
+  const relayerTxs: BridgeTransaction[] = dedupedRelayerTxs.reverse();
 
   log(`fetched ${relayerTxs?.length ?? 0} transactions from all relayers`, relayerTxs);
 
@@ -59,6 +99,7 @@ export async function fetchTransactions(userAddress: Address, chainId?: number) 
     MessageStatus.NEW,
     MessageStatus.RETRIABLE,
     MessageStatus.FAILED,
+    MessageStatus.RECALLED,
     MessageStatus.DONE,
   ];
 

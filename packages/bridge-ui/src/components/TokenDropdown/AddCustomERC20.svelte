@@ -16,6 +16,7 @@
   import { detectContractType, type GetTokenInfo, type Token, TokenType } from '$libs/token';
   import { getTokenAddresses } from '$libs/token/getTokenAddresses';
   import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
+  import { tokenIdentityKey } from '$libs/token/tokenIdentity';
   import { getLogger } from '$libs/util/logger';
   import { config } from '$libs/wagmi';
   import { account } from '$stores/account';
@@ -79,6 +80,10 @@
   };
 
   const resetForm = () => {
+    // A lookup still in flight belongs to the form being cleared; without this its result
+    // would repopulate the token and the loading flag after the reset
+    lookupGeneration++;
+    loadingTokenDetails = false;
     customToken = null;
     customTokenWithDetails = null;
     isValidEthereumAddress = false;
@@ -96,53 +101,79 @@
     if (isValidEthereumAddress) {
       await onAddressChange(tokenAddress as Address);
     } else {
-      tokenAddress = addr;
+      // Invalid or cleared input also invalidates any in-flight lookup so its stale
+      // token cannot publish into the form
+      lookupGeneration++;
+      loadingTokenDetails = false;
+      customTokenWithDetails = null;
+      customToken = null;
     }
   }
 
+  // Lookups for a previously typed address can resolve after a newer one;
+  // only the latest may publish its result
+  let lookupGeneration = 0;
+
   const onAddressChange = async (tokenAddress: Address) => {
-    if (!tokenAddress) return;
+    const generation = ++lookupGeneration;
+    // Drop the previous token up front: if this lookup fails or the address is not an
+    // ERC20, the form must not keep offering the token from the last address
+    customTokenWithDetails = null;
+    customToken = null;
+    if (!tokenAddress) {
+      loadingTokenDetails = false;
+      return;
+    }
     loadingTokenDetails = true;
     log('Fetching token details for address "%s"…', tokenAddress);
 
-    let type: TokenType;
     try {
-      type = await detectContractType(tokenAddress, $connectedSourceChain?.id as number);
-    } catch (error) {
-      log('Failed to detect contract type: ', error);
-      loadingTokenDetails = false;
-      state = AddressInputState.NOT_ERC20;
-      return;
-    }
+      let type: TokenType;
+      try {
+        type = await detectContractType(tokenAddress, $connectedSourceChain?.id as number);
+      } catch (error) {
+        if (generation !== lookupGeneration) return;
+        log('Failed to detect contract type: ', error);
+        state = AddressInputState.NOT_ERC20;
+        return;
+      }
+      if (generation !== lookupGeneration) return;
 
-    if (type !== TokenType.ERC20) {
-      loadingTokenDetails = false;
-      state = AddressInputState.NOT_ERC20;
-      return;
-    }
+      if (type !== TokenType.ERC20) {
+        state = AddressInputState.NOT_ERC20;
+        return;
+      }
 
-    const srcChain = $connectedSourceChain;
-    if (!srcChain) return;
-    try {
-      const token = await getTokenWithInfoFromAddress({
-        contractAddress: tokenAddress as Address,
-        srcChainId: srcChain.id,
-      });
-      if (!token) return;
-      const balance = await readContract(config, {
-        address: tokenAddress as Address,
-        abi: erc20Abi,
-        functionName: 'balanceOf',
-        args: [$account?.address as Address],
-      });
-      customTokenWithDetails = { ...token, balance } as Token;
+      const srcChain = $connectedSourceChain;
+      if (!srcChain) return;
+      try {
+        const token = await getTokenWithInfoFromAddress({
+          contractAddress: tokenAddress as Address,
+          srcChainId: srcChain.id,
+        });
+        if (generation !== lookupGeneration) return;
+        if (!token) return;
+        const balance = await readContract(config, {
+          address: tokenAddress as Address,
+          abi: erc20Abi,
+          functionName: 'balanceOf',
+          args: [$account?.address as Address],
+        });
+        if (generation !== lookupGeneration) return;
+        customTokenWithDetails = { ...token, balance } as Token;
 
-      customToken = customTokenWithDetails;
-    } catch (error) {
-      state = AddressInputState.INVALID;
-      log('Failed to fetch token: ', error);
+        customToken = customTokenWithDetails;
+      } catch (error) {
+        if (generation !== lookupGeneration) return;
+        state = AddressInputState.INVALID;
+        log('Failed to fetch token: ', error);
+      }
+    } finally {
+      // Every exit path clears the flag while this lookup is still the latest
+      if (generation === lookupGeneration) {
+        loadingTokenDetails = false;
+      }
     }
-    loadingTokenDetails = false;
   };
 
   $: formattedBalance =
@@ -150,7 +181,14 @@
       ? formatUnits(customTokenWithDetails.balance, customTokenWithDetails.decimals)
       : 0;
 
-  $: disabled = state !== AddressInputState.VALID || tokenAddress === '' || tokenAddress.length !== 42;
+  // A resolved token is required: the address passing validation says nothing about the
+  // lookup having finished, so Add was clickable while details were still loading or absent
+  $: disabled =
+    state !== AddressInputState.VALID ||
+    tokenAddress === '' ||
+    tokenAddress.length !== 42 ||
+    loadingTokenDetails ||
+    !customToken;
 
   const closeModalIfClickedOutside = (e: MouseEvent) => {
     if (e.target === e.currentTarget) {
@@ -196,7 +234,7 @@
     {#if customTokens.length > 0}
       <div class="flex h-full w-full flex-col justify-between mt-6">
         <h3 class="title-body-bold mb-7">{$t('token_dropdown.imported_tokens')}</h3>
-        {#each customTokens as ct (ct.symbol)}
+        {#each customTokens as ct (tokenIdentityKey(ct))}
           <div class="flex items-center justify-between">
             <div class="flex items-center m-2 space-x-2">
               <Erc20 />

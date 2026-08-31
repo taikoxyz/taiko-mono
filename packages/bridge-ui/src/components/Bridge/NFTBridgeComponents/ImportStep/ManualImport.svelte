@@ -34,36 +34,150 @@
 
   $: isOwnerOfAllToken = false;
 
+  /**
+   * Everything downstream of the contract address (detected type, validated ids, the
+   * selected NFT) describes the address that was validated. A new address invalidates all
+   * of it, including any id validation still in flight.
+   */
+  function discardSelectionForNewAddress() {
+    addressValidationGeneration++;
+    idValidationGeneration++;
+    validating = false;
+    detectedTokenType = null;
+    idInputState = IDInputState.DEFAULT;
+    isOwnerOfAllToken = false;
+    $selectedNFTs = null;
+    // The previous answer is retired here rather than left for the draft watcher: it
+    // describes an address that is no longer the subject, and leaving it would make the
+    // watcher treat the replacement itself as the stale one and cancel its lookup.
+    lastValidatedAddress = null;
+    pendingAddressLookup = null;
+  }
+
+  // A contract-type lookup describes one address on one chain. Without this, a lookup
+  // for an address typed earlier can resolve after a newer one and re-enable the id
+  // field with the wrong type for the address actually on screen.
+  let addressValidationGeneration = 0;
+
   async function onAddressValidation(event: CustomEvent<{ isValidEthereumAddress: boolean; addr: Address }>) {
     const { isValidEthereumAddress, addr } = event.detail;
     // interfaceSupported = true;
     addressInputState = AddressInputState.VALIDATING;
+    discardSelectionForNewAddress();
+    const generation = addressValidationGeneration;
 
     const srcChainId = $connectedSourceChain?.id;
-    if (!srcChainId) return;
+    if (!srcChainId) {
+      addressInputState = AddressInputState.INVALID;
+      return;
+    }
 
     if (isValidEthereumAddress && typeof addr === 'string') {
       contractAddress = addr;
-      try {
-        detectedTokenType = await detectContractType(addr, srcChainId);
-      } catch {
-        addressInputState = AddressInputState.INVALID;
-      }
-      if (!$connectedSourceChain?.id) throw new Error('network not found');
-      if (detectedTokenType !== TokenType.ERC721 && detectedTokenType !== TokenType.ERC1155) {
-        addressInputState = AddressInputState.NOT_NFT;
-        return;
-      }
-
-      addressInputState = AddressInputState.VALID;
+      await validateContractAddress(addr, srcChainId, generation);
     } else {
-      detectedTokenType = null;
       addressInputState = AddressInputState.INVALID;
     }
     return;
   }
 
+  /** Resolves the contract type for one address on one chain, committing only if current */
+  async function validateContractAddress(addr: Address, srcChainId: number, generation: number) {
+    pendingAddressLookup = addr;
+
+    let type: TokenType | null;
+    try {
+      type = await detectContractType(addr, srcChainId);
+    } catch {
+      if (generation !== addressValidationGeneration) return;
+      pendingAddressLookup = null;
+      // Without a return the stale type from a previous address would decide the
+      // check below and could mark this failed lookup VALID
+      addressInputState = AddressInputState.INVALID;
+      return;
+    }
+
+    // A newer address, a cleared field, or a source-chain change supersedes this answer
+    if (generation !== addressValidationGeneration) return;
+    if (srcChainId !== $connectedSourceChain?.id) return;
+    pendingAddressLookup = null;
+
+    detectedTokenType = type;
+    if (type !== TokenType.ERC721 && type !== TokenType.ERC1155) {
+      addressInputState = AddressInputState.NOT_NFT;
+      return;
+    }
+
+    lastValidatedAddress = addr;
+    addressInputState = AddressInputState.VALID;
+  }
+
+  /**
+   * AddressInput dispatches nothing for a cleared field or text without a `0x` prefix, so
+   * the two-way bound draft is the only signal that an in-flight lookup no longer
+   * describes what is on screen.
+   */
+  function syncContractAddressDraft(draft: Maybe<string>) {
+    const current = (draft ?? '').toLowerCase();
+    const stale = (address: Maybe<string>) => !!address && address.toLowerCase() !== current;
+
+    if (stale(pendingAddressLookup) || stale(lastValidatedAddress)) {
+      pendingAddressLookup = null;
+      lastValidatedAddress = null;
+      discardSelectionForNewAddress();
+      addressInputState = draft ? AddressInputState.INVALID : AddressInputState.DEFAULT;
+    }
+  }
+
+  /** The address a contract-type lookup is currently in flight for, if any */
+  let pendingAddressLookup: Maybe<string> = null;
+  let lastValidatedAddress: Maybe<string> = null;
+
+  /**
+   * A detected type, an ownership result and a selected NFT all describe a deployment on
+   * one chain. Switching the source chain invalidates every one of them, and an old-chain
+   * lookup still in flight must not land afterwards.
+   */
+  let lastSrcChainId: Maybe<number> = undefined;
+  function onSourceChainChanged(chainId: Maybe<number>) {
+    if (lastSrcChainId === chainId) return;
+    const firstRun = lastSrcChainId === undefined;
+    lastSrcChainId = chainId;
+    if (firstRun) return;
+
+    discardSelectionForNewAddress();
+
+    if (chainId && contractAddress && isAddress(contractAddress)) {
+      // The same address may host a different contract, or none, on the new chain
+      addressInputState = AddressInputState.VALIDATING;
+      validateContractAddress(contractAddress as Address, chainId, addressValidationGeneration);
+    } else {
+      addressInputState = contractAddress ? AddressInputState.INVALID : AddressInputState.DEFAULT;
+    }
+  }
+
+  /** Re-runs address validation, e.g. after the wallet's account changed */
+  export const revalidate = () => {
+    if (addressInputComponent) addressInputComponent.validateAddress();
+  };
+
+  /** Clears the manual import back to an empty form */
+  export const reset = () => {
+    discardSelectionForNewAddress();
+    if (addressInputComponent) addressInputComponent.clearAddress();
+    if (nftIdInputComponent) nftIdInputComponent.clearIds();
+    contractAddress = '';
+    enteredIds = [];
+    nftIdsToImport = [];
+    addressInputState = AddressInputState.DEFAULT;
+  };
+
+  // Guards against out-of-order async validations: only the latest entered ID may
+  // publish its result into the shared stores
+  let idValidationGeneration = 0;
+
   async function onIdInput(): Promise<void> {
+    const generation = ++idValidationGeneration;
     idInputState = IDInputState.VALIDATING;
     validating = true;
 
@@ -83,6 +197,8 @@
           $connectedSourceChain?.id!,
         );
 
+        if (generation !== idValidationGeneration) return;
+
         isOwnerOfAllToken = ownershipResults.every((value) => value.isOwner === true);
 
         if (!isOwnerOfAllToken) {
@@ -98,6 +214,8 @@
           owner: $account?.address,
         });
 
+        if (generation !== idValidationGeneration) return;
+
         if (!token) {
           throw new Error('No token with info');
         }
@@ -110,16 +228,22 @@
         idInputState = IDInputState.INVALID;
       }
     } catch (err) {
+      if (generation !== idValidationGeneration) return;
       console.error(err);
       detectedTokenType = null;
       idInputState = IDInputState.INVALID;
     } finally {
-      if (idInputState !== IDInputState.VALID) {
-        idInputState = IDInputState.DEFAULT;
+      if (generation === idValidationGeneration) {
+        if (idInputState !== IDInputState.VALID) {
+          idInputState = IDInputState.DEFAULT;
+        }
+        validating = false;
       }
     }
-    validating = false;
   }
+
+  $: syncContractAddressDraft(contractAddress);
+  $: onSourceChainChanged($connectedSourceChain?.id);
 
   $: displayOwnershipError =
     contractAddress && enteredIds && !isOwnerOfAllToken && nftIdsToImport?.length > 0 && !validating;
@@ -135,8 +259,15 @@
   $: hasEnteredIds = enteredIds && enteredIds.length > 0;
   $: hasSelectedNFT = $selectedNFTs && $selectedNFTs?.length > 0 && hasEnteredIds;
 
+  // The address itself has to still be valid: editing it after an id was validated would
+  // otherwise leave Continue enabled for the NFT belonging to the previous address
   $: commonChecks =
-    enteredIds && enteredIds.length > 0 && !validating && idInputState === IDInputState.VALID && isOwnerOfAllToken;
+    addressInputState === AddressInputState.VALID &&
+    enteredIds &&
+    enteredIds.length > 0 &&
+    !validating &&
+    idInputState === IDInputState.VALID &&
+    isOwnerOfAllToken;
 
   $: ERC1155Checks = commonChecks && nftHasAmount !== null && hasSelectedNFT !== null && validBalance;
 

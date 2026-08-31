@@ -12,8 +12,8 @@
   import { Tooltip } from '$components/Tooltip';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { ProcessingFeeMethod } from '$libs/fee';
-  import { parseToWei } from '$libs/util/parseToWei';
 
+  import { parseCustomFeeInput } from './customFee';
   import NoneOption from './NoneOption.svelte';
   import RecommendedFee from './RecommendedFee.svelte';
 
@@ -36,6 +36,10 @@
   let tempProcessingFeeMethod = $processingFeeMethod;
 
   let tempprocessingFee = $processingFee;
+
+  // Set when the custom fee box holds text that does not parse, so tempprocessingFee
+  // still describes whatever was typed before it
+  let invalidCustomFee = false;
 
   // Public API
   export function resetProcessingFee() {
@@ -73,10 +77,12 @@
     modalOpen = true;
     $gasLimitZero = false;
     manuallyConfirmed = false;
+    invalidCustomFee = false;
   }
 
   function cancelModal() {
     inputBox?.clear();
+    invalidCustomFee = false;
     $gasLimitZero = false;
 
     if (tempProcessingFeeMethod === ProcessingFeeMethod.CUSTOM) {
@@ -92,13 +98,16 @@
   function inputProcessFee(event: Event) {
     if (tempProcessingFeeMethod !== ProcessingFeeMethod.CUSTOM) return;
 
-    const { value: initialValue } = event.target as HTMLInputElement;
-    if (parseToWei(initialValue) <= recommendedAmount) {
-      // If the user tries to input 0 or less, we set it to the current recommended amount
-      inputBox?.setValue(formatEther(recommendedAmount));
-    }
-    const { value: finalValue } = event.target as HTMLInputElement;
-    tempprocessingFee = parseToWei(finalValue);
+    const { value } = event.target as HTMLInputElement;
+    // Incomplete or invalid input keeps the previous fee; a custom fee below the
+    // recommended amount is a deliberate choice the warning below covers
+    const parsed = parseCustomFeeInput(value);
+    // An empty box is not an error, it is simply not filled in yet. Anything else that
+    // fails to parse must block Confirm: silently keeping the previous fee would submit
+    // an amount the user has already replaced on screen.
+    invalidCustomFee = parsed === null && value.trim() !== '';
+    if (parsed === null) return;
+    tempprocessingFee = parsed;
   }
 
   async function updateProcessingFee(method: ProcessingFeeMethod, recommendedAmount: bigint) {
@@ -151,7 +160,16 @@
 
   $: needsConfirmation = tempProcessingFeeMethod !== ProcessingFeeMethod.RECOMMENDED || $gasLimitZero;
 
-  $: confirmDisabled = needsConfirmation && !manuallyConfirmed;
+  // Leaving CUSTOM discards the draft along with its error. This has to follow the
+  // dialog's own method: updateProcessingFee runs on the committed $processingFeeMethod,
+  // which the radios do not change, so clearing there left the flag set and a
+  // CUSTOM -> RECOMMENDED -> CUSTOM round trip came back to an empty but blocked input.
+  $: if (tempProcessingFeeMethod !== ProcessingFeeMethod.CUSTOM) invalidCustomFee = false;
+
+  // Text that never parsed leaves tempprocessingFee describing an earlier value
+  $: customFeeUnusable = tempProcessingFeeMethod === ProcessingFeeMethod.CUSTOM && invalidCustomFee;
+
+  $: confirmDisabled = (needsConfirmation && !manuallyConfirmed) || customFeeUnusable;
 </script>
 
 {#if small}
@@ -214,7 +232,7 @@
       id={dialogId}
       class="modal"
       class:modal-open={modalOpen}
-      use:closeOnEscapeOrOutsideClick={{ enabled: modalOpen, callback: () => (modalOpen = false), uuid: dialogId }}>
+      use:closeOnEscapeOrOutsideClick={{ enabled: modalOpen, callback: cancelModal, uuid: dialogId }}>
       <div class="modal-box relative px-6 py-[35px] md:rounded-[20px] bg-neutral-background">
         <CloseButton onClick={cancelModal} />
 

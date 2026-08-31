@@ -93,16 +93,27 @@
   // This function will check whether or not the button to mint should be
   // enabled. If it shouldn't it'll also set the reason why so we can inform
   // the user why they can't mint
+  // Concurrent eligibility checks resolve out of order (token switch, chain switch);
+  // only the latest may publish its result
+  let mintCheckGeneration = 0;
+
   async function updateMintButtonState(connected: boolean, token?: Token, network?: Chain) {
-    if (!token || !network) return false;
+    const generation = ++mintCheckGeneration;
+    // Invalid inputs also invalidate any in-flight check, whose flags are reset here
+    if (!token || !network) {
+      checkingMintable = false;
+      return false;
+    }
     checkingMintable = true;
     mintButtonEnabled = false;
     let reasonNotMintable = '';
     wrongChain = false;
     try {
       await checkMintable(token, network.id);
+      if (generation !== mintCheckGeneration) return;
       mintButtonEnabled = true;
     } catch (err) {
+      if (generation !== mintCheckGeneration) return;
       console.error(err);
       switch (true) {
         case err instanceof InsufficientBalanceError:
@@ -122,9 +133,12 @@
           break;
       }
     } finally {
-      checkingMintable = false;
+      if (generation === mintCheckGeneration) {
+        checkingMintable = false;
+      }
     }
 
+    if (generation !== mintCheckGeneration) return;
     alertMessage = getAlertMessage(connected, reasonNotMintable);
   }
 

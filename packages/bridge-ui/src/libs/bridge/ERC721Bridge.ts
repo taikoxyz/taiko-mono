@@ -1,6 +1,6 @@
 import { getWalletClient, readContract, simulateContract, writeContract } from '@wagmi/core';
 import { get } from 'svelte/store';
-import { getContract, UserRejectedRequestError } from 'viem';
+import { getAddress, getContract, UserRejectedRequestError } from 'viem';
 
 import { erc721Abi, erc721VaultAbi } from '$abi';
 import { destOwnerAddress, gasLimitZero } from '$components/Bridge/state';
@@ -30,12 +30,11 @@ export class ERC721Bridge extends Bridge {
     super(prover);
   }
 
-  async requiresApproval({ tokenAddress, spenderAddress, tokenId }: RequireApprovalArgs) {
-    isBridgePaused().then((paused) => {
-      if (paused) throw new BridgePausedError('Bridge is paused');
-    });
+  async requiresApproval({ tokenAddress, spenderAddress, tokenId, owner }: RequireApprovalArgs) {
+    if (await isBridgePaused()) throw new BridgePausedError('Bridge is paused');
 
-    const chainId = (await getWalletClient(config)).chain.id;
+    const wallet = await getWalletClient(config);
+    const chainId = wallet.chain.id;
 
     log('Checking approval for token ', tokenId);
 
@@ -46,22 +45,40 @@ export class ERC721Bridge extends Bridge {
       args: [tokenId],
       chainId,
     });
-    const requiresApproval = approvedAddress !== spenderAddress;
-    log(`Token with ID ${tokenId} requires approval ${spenderAddress}: ${requiresApproval}`);
-    return requiresApproval;
+
+    // Addresses can differ in casing between config and chain, so compare checksummed
+    if (getAddress(approvedAddress) === getAddress(spenderAddress)) {
+      log(`Token with ID ${tokenId} already approved for ${spenderAddress}`);
+      return false;
+    }
+
+    // An operator-level approval covers the token as well
+    const operator = owner ?? wallet.account.address;
+    const isApprovedForAll = await readContract(config, {
+      abi: erc721Abi,
+      address: tokenAddress,
+      functionName: 'isApprovedForAll',
+      args: [operator, spenderAddress],
+      chainId,
+    });
+    if (isApprovedForAll) {
+      log(`Owner ${operator} has approved ${spenderAddress} for all tokens`);
+      return false;
+    }
+
+    log(`Token with ID ${tokenId} requires approval for ${spenderAddress}`);
+    return true;
   }
 
   async estimateGas(args: ERC721BridgeArgs): Promise<bigint> {
-    isBridgePaused().then((paused) => {
-      if (paused) throw new BridgePausedError('Bridge is paused');
-    });
+    if (await isBridgePaused()) throw new BridgePausedError('Bridge is paused');
 
     const { tokenVaultContract, sendERC721Args } = await ERC721Bridge._prepareTransaction(args);
     const { fee: value } = sendERC721Args;
 
     log('Estimating gas for sendERC721 call with value', value);
 
-    const estimatedGas = tokenVaultContract.estimateGas.sendToken([sendERC721Args], { value });
+    const estimatedGas = await tokenVaultContract.estimateGas.sendToken([sendERC721Args], { value });
 
     log('Gas estimated', estimatedGas);
 

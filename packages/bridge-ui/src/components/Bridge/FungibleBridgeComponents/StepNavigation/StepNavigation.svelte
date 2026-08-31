@@ -20,11 +20,11 @@
   let manuallyConfirmedReviewStep = false;
   let manuallyConfirmedRecipientStep = false;
 
-  const getStepText = () => {
-    if (activeStep === BridgeSteps.REVIEW) {
+  const getStepText = (step: BridgeSteps) => {
+    if (step === BridgeSteps.REVIEW) {
       return $t('common.confirm');
     }
-    if (activeStep === BridgeSteps.CONFIRM) {
+    if (step === BridgeSteps.CONFIRM) {
       return $t('common.ok');
     } else {
       return $t('common.continue');
@@ -66,7 +66,8 @@
 
   $: disabled = !$account || !$account.isConnected || $calculatingProcessingFee;
 
-  $: nextStepButtonText = getStepText();
+  // The step is passed as an argument so the reactive statement tracks it
+  $: nextStepButtonText = getStepText(activeStep);
 
   $: reviewConfirmed = !needsManualReviewConfirmation || manuallyConfirmedReviewStep;
 

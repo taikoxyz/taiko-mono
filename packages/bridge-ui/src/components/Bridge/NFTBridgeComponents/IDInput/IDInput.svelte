@@ -32,8 +32,12 @@
     if (idInput && idInput instanceof EventTarget) {
       ids = (idInput as HTMLInputElement).value
         .split(',')
-        .map((item) => parseInt(item))
-        .filter((num) => !isNaN(num));
+        .map((item) => item.trim())
+        .filter((item) => item !== '')
+        // Strictly decimal: Number('0x10') is 16, so a pasted hex id would silently
+        // target a different token
+        .filter((item) => /^\d+$/.test(item))
+        .map((item) => Number(item));
     } else if (Array.isArray(idInput)) {
       ids = idInput;
     }
@@ -42,7 +46,17 @@
       ids = ids.slice(0, limit);
     }
     enteredIds = ids;
-    const isValid = ids.every((num) => Number.isInteger(num));
+
+    // An empty field is neither valid nor an error: nothing has been entered yet
+    if (ids.length === 0) {
+      validIdNumbers = [];
+      state = State.DEFAULT;
+      dispatch('inputValidation');
+      return;
+    }
+    // Token IDs above Number.MAX_SAFE_INTEGER silently lose precision as JS numbers,
+    // which would make the flow act on a different token — reject them instead
+    const isValid = ids.every((num) => Number.isSafeInteger(num) && num >= 0);
     validIdNumbers = isValid ? ids : [];
     state = isValid ? State.VALID : State.INVALID;
     dispatch('inputValidation');

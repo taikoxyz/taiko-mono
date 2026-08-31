@@ -23,25 +23,41 @@
 
   export let validating = false;
 
+  let manualImportComponent: ManualImport;
+
+  /** Re-runs the manual import's validation; a no-op when it is not mounted */
+  export const revalidate = () => manualImportComponent?.revalidate();
+
+  /** Clears the manual import form; a no-op when it is not mounted */
+  export const resetManualImport = () => manualImportComponent?.reset();
+
   const nextPage = async () => {
     await scanForNFTs(false);
   };
 
   const scanForNFTs = async (refresh: boolean) => {
     scanning = true;
-    $selectedNFTs = [];
-    const accountAddress = $account?.address;
-    const srcChainId = $srcChain?.id;
-    const destChainId = $destChain?.id;
-    if (!accountAddress || !srcChainId || !destChainId) return;
-    const nftsFromAPIs = await fetchNFTs({ address: accountAddress, chainId: srcChainId, refresh });
+    try {
+      $selectedNFTs = [];
+      const accountAddress = $account?.address;
+      const srcChainId = $srcChain?.id;
+      const destChainId = $destChain?.id;
+      if (!accountAddress || !srcChainId || !destChainId) return;
+      const nftsFromAPIs = await fetchNFTs({ address: accountAddress, chainId: srcChainId, refresh });
 
-    foundNFTs = nftsFromAPIs.nfts;
+      if (nftsFromAPIs.error) {
+        // Keep the pages already on screen and let the caller decide: overwriting with the
+        // empty result would both lose them and read as "there are no more NFTs"
+        throw nftsFromAPIs.error;
+      }
 
-    scanning = false;
+      foundNFTs = nftsFromAPIs.nfts;
 
-    if (foundNFTs.length > 0) {
-      $selectedImportMethod = ImportMethod.SCAN;
+      if (foundNFTs.length > 0) {
+        $selectedImportMethod = ImportMethod.SCAN;
+      }
+    } finally {
+      scanning = false;
     }
   };
 
@@ -77,7 +93,7 @@
 <div class="h-sep" />
 
 {#if $selectedImportMethod === ImportMethod.MANUAL}
-  <ManualImport bind:validating />
+  <ManualImport bind:this={manualImportComponent} bind:validating />
 {:else if $selectedImportMethod === ImportMethod.SCAN}
   <ScannedImport refresh={() => scanForNFTs(true)} {nextPage} bind:foundNFTs bind:canProceed />
 {:else}

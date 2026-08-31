@@ -81,14 +81,37 @@
     }
   }
 
+  // The row can be unmounted while the read below is still pending. onDestroy then finds
+  // no poller to clean up, so anything attached afterwards would never be detached from
+  // the shared per-hash emitter and would keep it polling forever.
+  let destroyed = false;
+
+  /** Detach this row's listeners; polling itself stops once no subscriber is left */
+  const detachPolling = () => {
+    if (!polling) return;
+    polling.destroy({
+      [PollingEvent.PROCESSABLE]: onProcessable,
+      [PollingEvent.STATUS]: onStatusChange,
+    });
+  };
+
   onMount(async () => {
     if (bridgeTx && $account?.address) {
       bridgeTxStatus = bridgeTx.msgStatus;
 
-      // Can we start claiming/retrying/releasing?
-      isProcessable = await isTransactionProcessable(bridgeTx);
-
       try {
+        // Can we start claiming/retrying/releasing? A single failed read here must not
+        // prevent polling from starting: the poller re-reads this on every tick, so
+        // leaving it false is recoverable while never starting the poller is not.
+        try {
+          isProcessable = await isTransactionProcessable(bridgeTx);
+        } catch (err) {
+          console.warn('Could not determine whether the transaction is processable', err);
+          isProcessable = false;
+        }
+
+        if (destroyed) return;
+
         polling = startPolling(bridgeTx);
 
         // If there is no emitter, means the bridgeTx is already DONE
@@ -106,9 +129,8 @@
   });
 
   onDestroy(() => {
-    if (polling) {
-      polling.destroy();
-    }
+    destroyed = true;
+    detachPolling();
   });
 </script>
 

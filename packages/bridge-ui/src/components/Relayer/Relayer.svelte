@@ -5,6 +5,7 @@
   import { AddressInputState } from '$components/Bridge/SharedBridgeComponents/AddressInput/state';
   import ActionButton from '$components/Button/ActionButton.svelte';
   import Card from '$components/Card/Card.svelte';
+  import { warningToast } from '$components/NotificationToast';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import { FungibleTransactionRow, NftTransactionRow } from '$components/Transactions/Rows';
   import { type BridgeTransaction, fetchTransactions, MessageStatus } from '$libs/bridge';
@@ -19,14 +20,20 @@
   let addressState = AddressInputState.DEFAULT;
 
   const onAccountChange = async (newAccount: Account, oldAccount?: Account) => {
-    // We want to make sure that we are connected and only
-    // fetch if the account has changed
-    if (newAccount && newAccount.address && newAccount.address !== oldAccount?.address) {
+    // Any change of address resets, including a transition to no address: a search
+    // started while connected must not publish rows into a disconnected view
+    if (newAccount?.address !== oldAccount?.address) {
       reset();
     }
   };
+  // Only the most recent search may write results, an error, or clear the loading flag:
+  // switching accounts mid-fetch would otherwise let the previous address's response
+  // repopulate the table and turn off the spinner belonging to the newer search.
+  let searchGeneration = 0;
+
   const reset = () => {
     log('reset');
+    searchGeneration++;
     transactions = [];
     fetching = false;
     addressState = AddressInputState.DEFAULT;
@@ -37,15 +44,23 @@
 
   const fetchTxForAddress = async () => {
     log('fetchTxForAddress');
+    const generation = ++searchGeneration;
     fetching = true;
-    if (addressToSearch) {
-      const { mergedTransactions } = await fetchTransactions(addressToSearch);
-      log('mergedTransactions', mergedTransactions);
-      if (mergedTransactions.length > 0) {
+    try {
+      if (addressToSearch) {
+        const { mergedTransactions } = await fetchTransactions(addressToSearch);
+        if (generation !== searchGeneration) return;
+        log('mergedTransactions', mergedTransactions);
+        // Also assign empty results: the previous address's transactions must not linger
         transactions = mergedTransactions;
       }
+    } catch (error) {
+      if (generation !== searchGeneration) return;
+      console.error('Error fetching transactions', error);
+      warningToast({ title: $t('transactions.errors.relayer_offline') });
+    } finally {
+      if (generation === searchGeneration) fetching = false;
     }
-    fetching = false;
   };
 
   const handleTransactionRemoved = (event: CustomEvent<{ transaction: BridgeTransaction }>) => {
@@ -54,6 +69,11 @@
   };
 
   $: inputDisabled = fetching || !$account?.isConnected;
+
+  // No address, no results: rows from a previously searched address must not linger
+  $: if (!addressToSearch) {
+    transactions = [];
+  }
 
   $: addressToSearch = undefined;
   $: searchDisabled = fetching || !addressToSearch || addressState !== AddressInputState.VALID || inputDisabled;

@@ -44,11 +44,14 @@
   }
 
   export const claim = async (action: ClaimAction, force: boolean = false, skipMessageStatusCheck: boolean = false) => {
-    if (!$account.address) {
-      throw new NotConnectedError('User is not connected');
-    }
-
     try {
+      // Inside the try so it reaches the error dispatch below: every dialog already
+      // handles NotConnectedError there, and a rejection here would instead leave the
+      // caller's claiming/releasing flag stuck
+      if (!$account?.address) {
+        throw new NotConnectedError('User is not connected');
+      }
+
       const { msgHash, message } = bridgeTx;
 
       if (!msgHash || !message) {
@@ -66,7 +69,9 @@
 
       // Step 4: Call claim() method on the bridge
       let txHash: Hash;
-      if ($selectedRetryMethod === RETRY_OPTION.RETRY_ONCE) {
+      // The retry-once choice only applies to an actual retry: the store is shared and a
+      // leftover value must never turn a plain claim into a final attempt
+      if (action === ClaimAction.RETRY && $selectedRetryMethod === RETRY_OPTION.RETRY_ONCE) {
         log('Claiming with lastAttempt flag');
         txHash = await bridge.processMessage({ wallet, bridgeTx, lastAttempt: true });
       } else {

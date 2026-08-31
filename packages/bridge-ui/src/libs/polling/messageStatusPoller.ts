@@ -26,6 +26,9 @@ export enum PollingEvent {
 
 type Interval = Maybe<ReturnType<typeof setInterval>>;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type PollingHandlers = Partial<Record<PollingEvent, (...args: any[]) => void>>;
+
 // bridgeTx hash => emitter. If there is already a polling ongoing
 // we return the emitter associated to it
 const hashEmitterMap: Record<Hash, EventEmitter> = {};
@@ -40,10 +43,12 @@ const hashIntervalMap: Record<Hash, Interval> = {};
  *   const { emitter, stopPolling } = startPolling(bridgeTx);
  *
  *   if(emitter) {
- *     emitter.on(PollingEvent.STOP, () => {});
- *     emitter.on(PollingEvent.STATUS, (status: MessageStatus) => {});
- *     emitter.on(PollingEvent.PROCESSABLE, (isProcessable: boolean) => {});
+ *     emitter.on(PollingEvent.STOP, onStop);
+ *     emitter.on(PollingEvent.STATUS, onStatus);
+ *     emitter.on(PollingEvent.PROCESSABLE, onProcessable);
  *   }
+ *   // on teardown, pass back exactly the handlers that were added:
+ *   // destroy({ [PollingEvent.STATUS]: onStatus, [PollingEvent.PROCESSABLE]: onProcessable })
  * } catch (err) {
  *   // something really bad with this bridgeTx
  * }
@@ -106,15 +111,29 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
     }
   };
 
-  const destroy = () => {
-    stopPolling();
-    emitter.removeAllListeners();
+  // `handlers` is required: the emitter is shared by every subscriber of the same
+  // transaction hash, so a subscriber may only ever remove the handlers it added.
+  // A no-arg teardown would silently stop polling for all other rows.
+  const destroy = (handlers: PollingHandlers) => {
+    for (const [event, handler] of Object.entries(handlers)) {
+      if (handler) emitter.removeListener(event, handler);
+    }
+
+    const hasListeners = Object.values(PollingEvent).some((event) => emitter.listenerCount(event) > 0);
+    if (!hasListeners) stopPolling();
   };
 
   const pollingFn = async () => {
     log('Polling for transaction', bridgeTx.srcTxHash);
-    const isProcessable = await isTransactionProcessable(bridgeTx);
-    emitter.emit(PollingEvent.PROCESSABLE, isProcessable);
+
+    try {
+      const isProcessable = await isTransactionProcessable(bridgeTx);
+      emitter.emit(PollingEvent.PROCESSABLE, isProcessable);
+    } catch (err) {
+      // Kept separate from the status read below: one failing must not skip the other,
+      // and neither may escape into setInterval where nothing can catch it
+      console.error('Error while checking whether the transaction is processable, will retry', err);
+    }
 
     try {
       const messageStatus: MessageStatus = await destBridgeContract.read.messageStatus([bridgeTx.msgHash]);
@@ -133,7 +152,11 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
 
       let blockNumber: Hex;
       if (!bridgeTx.blockNumber) {
-        const receipt = await getTransactionReceipt(config, { hash: bridgeTx.srcTxHash });
+        // The bridge tx lives on the source chain; the wallet may be connected elsewhere
+        const receipt = await getTransactionReceipt(config, {
+          hash: bridgeTx.srcTxHash,
+          chainId: Number(srcChainId),
+        });
         blockNumber = toHex(receipt.blockNumber);
         bridgeTx.blockNumber = blockNumber;
       }
@@ -143,9 +166,9 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
         stopPolling();
       }
     } catch (err) {
-      console.error(err);
-      stopPolling();
-      throw new BridgeTxPollingError('something bad happened while polling for status', { cause: err });
+      // A transient RPC failure must not permanently end polling for this transaction;
+      // the next interval tick simply tries again
+      console.error('Error while polling for message status, will retry', err);
     }
   };
 

@@ -19,7 +19,6 @@
   } from '$components/Bridge/state';
   import ActionButton from '$components/Button/ActionButton.svelte';
   import { Icon } from '$components/Icon';
-  import { BridgePausedError } from '$libs/error';
   import { TokenType } from '$libs/token';
   import { tokenNeedsAllowanceReset } from '$libs/token/approvalReset';
   import { getTokenApprovalStatus } from '$libs/token/getTokenApprovalStatus';
@@ -35,11 +34,9 @@
 
   export let disabled = false;
 
-  let paused = false;
   export let checking = false;
 
   function onApproveClick() {
-    if (paused) throw new BridgePausedError('Bridge is paused');
     approving = true;
     approve().finally(() => {
       approving = false;
@@ -47,8 +44,8 @@
   }
 
   function onBridgeClick() {
-    if (paused) throw new BridgePausedError('Bridge is paused');
-    bridging = true;
+    // The bridge() implementation owns the `bridging` flag: setting it here would leave
+    // it stuck when bridge() returns early on a failed precondition
     bridge();
   }
 
@@ -108,8 +105,7 @@
     $selectedToken &&
     !$validatingAmount &&
     !$insufficientBalance &&
-    $allApproved &&
-    !paused;
+    $allApproved;
 
   $: erc20ConditionsSatisfied =
     commonConditions && !canDoNothing && !$insufficientAllowance && $tokenBalance && $enteredAmount;

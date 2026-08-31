@@ -1,6 +1,7 @@
 import { type Address, zeroAddress } from 'viem';
 
 import type { Token, TokenService } from '$libs/token';
+import { tokensAreSame } from '$libs/token/tokenIdentity';
 import { jsonParseWithDefault } from '$libs/util/jsonParseWithDefault';
 import { getLogger } from '$libs/util/logger';
 
@@ -39,7 +40,7 @@ export class CustomTokenService implements TokenService {
 
     let doesTokenAlreadyExist = false;
     if (tokens.length > 0) {
-      doesTokenAlreadyExist = tokens.findIndex((tokenFromStorage) => tokenFromStorage.symbol === token.symbol) >= 0;
+      doesTokenAlreadyExist = tokens.findIndex((tokenFromStorage) => tokensAreSame(tokenFromStorage, token)) >= 0;
     }
 
     if (!doesTokenAlreadyExist) {
@@ -76,7 +77,7 @@ export class CustomTokenService implements TokenService {
 
     const tokens: Token[] = this._getTokensFromStorage(address);
 
-    const updatedTokenList = tokens.filter((tokenFromStorage) => tokenFromStorage.symbol !== token.symbol);
+    const updatedTokenList = tokens.filter((tokenFromStorage) => !tokensAreSame(tokenFromStorage, token));
 
     const storageKey = `${STORAGE_PREFIX}-${address.toLowerCase()}`;
     this.storage.setItem(storageKey, JSON.stringify(updatedTokenList));
@@ -108,11 +109,11 @@ export class CustomTokenService implements TokenService {
       filteredAddresses: Object.keys(filteredAddresses).length,
     });
 
-    // Find the stored token to update
+    // Find the stored token to update. Matching on raw address values would merge two
+    // unrelated tokens that happen to share a hexadecimal address on different chains,
+    // and would miss a match that differs only in casing.
     const storedToken = tokens.find((storedToken) =>
-      Object.values(filteredAddresses).some((addressToUpdate) =>
-        Object.values(storedToken.addresses).includes(addressToUpdate),
-      ),
+      tokensAreSame(storedToken, { ...token, addresses: filteredAddresses } as Token),
     );
 
     // If the stored token was found, update its addresses

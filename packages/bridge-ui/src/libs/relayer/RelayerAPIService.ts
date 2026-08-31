@@ -38,7 +38,7 @@ import {
 
 const log = getLogger('RelayerAPIService');
 
-const relayerMessageIntegerFields = ['Fee', 'Value', 'Id', 'SrcChainId', 'DestChainId'];
+const relayerMessageIntegerFields = ['Fee', 'Value', 'Id', 'SrcChainId', 'DestChainId', 'amount', 'fee'];
 const relayerMessageIntegerPattern = new RegExp(`("(${relayerMessageIntegerFields.join('|')})"\\s*:\\s*)(\\d+)`, 'g');
 type DecodedBridgeMessage = Omit<Message, 'gasLimit'> & { gasLimit: bigint | number };
 type BridgeTransactionAssetDetails = {
@@ -450,13 +450,46 @@ export class RelayerAPIService {
       max_page,
     };
 
-    if (apiTxs.items?.length === 0) {
+    if (!apiTxs.items || apiTxs.items.length === 0) {
       return { txs: [], paginationInfo };
     }
 
     const items = RelayerAPIService._filterDuplicateAndWrongBridge(apiTxs.items);
 
-    const txs: BridgeTransaction[] = items.map((tx: APIResponseTransaction) => {
+    const txs: BridgeTransaction[] = items
+      .map((tx: APIResponseTransaction) => {
+        try {
+          return RelayerAPIService._transformTransaction(tx);
+        } catch (error) {
+          log('Skipping malformed relayer transaction', { error, tx });
+          return null;
+        }
+      })
+      .filter((tx): tx is BridgeTransaction => tx !== null);
+
+    const txsPromises = txs.map(async (bridgeTx) => {
+      if (!bridgeTx) return;
+      try {
+        return await RelayerAPIService._enhanceTransaction(bridgeTx, address);
+      } catch (error) {
+        // One failing RPC read must not reject the surrounding Promise.all and wipe the list
+        log('Skipping transaction that failed to enhance', { error, srcTxHash: bridgeTx.srcTxHash });
+        return;
+      }
+    });
+
+    const bridgeTxs: BridgeTransaction[] = (await Promise.all(txsPromises)).filter((tx): tx is BridgeTransaction =>
+      Boolean(tx),
+    ); // Removes undefined values
+
+    // Spreading to preserve original txs in case of array mutation
+    log('Enhanced transactions', [...bridgeTxs]);
+
+    return { txs: bridgeTxs, paginationInfo };
+  }
+
+  private static _transformTransaction(tx: APIResponseTransaction): BridgeTransaction {
+    {
       let data: string | Hex = tx.data.Message.Data;
       if (data === '') {
         data = '0x' as Hex;
@@ -467,6 +500,7 @@ export class RelayerAPIService {
 
       const tokenType: TokenType = _eventToTokenType(tx.eventType);
 
+      const relayerFee = tx.fee ? parseApiBigInt(tx.fee) : undefined;
       const messageFee = parseApiBigInt(tx.data.Message.Fee);
       const messageValue = parseApiBigInt(tx.data.Message.Value);
       const messageId = parseApiBigInt(tx.data.Message.Id);
@@ -489,7 +523,7 @@ export class RelayerAPIService {
         canonicalTokenAddress: tx.canonicalTokenAddress,
         processingFee: messageFee,
         claimedBy: tx.claimedBy ? getAddress(tx.claimedBy) : undefined,
-        fee: tx.fee ? BigInt(tx.fee) : undefined,
+        fee: relayerFee && relayerFee !== BigInt(0) ? relayerFee : undefined,
         message: {
           id: messageId,
           to: getAddress(tx.data.Message.To),
@@ -506,11 +540,14 @@ export class RelayerAPIService {
       } satisfies BridgeTransaction;
 
       return transformedTx;
-    });
+    }
+  }
 
-    const txsPromises = txs.map(async (bridgeTx) => {
-      if (!bridgeTx) return;
-
+  private static async _enhanceTransaction(
+    bridgeTx: BridgeTransaction,
+    address: Address,
+  ): Promise<BridgeTransaction | undefined> {
+    {
       const senderMatch = getAddress(bridgeTx.from) === getAddress(address);
       const receiverMatch = bridgeTx.message && getAddress(bridgeTx.message.destOwner) === getAddress(address);
 
@@ -592,16 +629,7 @@ export class RelayerAPIService {
       bridgeTx.status = msgStatus;
 
       return bridgeTx;
-    });
-
-    const bridgeTxs: BridgeTransaction[] = (await Promise.all(txsPromises)).filter((tx): tx is BridgeTransaction =>
-      Boolean(tx),
-    ); // Removes undefined values
-
-    // Spreading to preserve original txs in case of array mutation
-    log('Enhanced transactions', [...bridgeTxs]);
-
-    return { txs: bridgeTxs, paginationInfo };
+    }
   }
 
   async getBlockInfo(): Promise<Record<number, RelayerBlockInfo>> {

@@ -46,15 +46,13 @@
     const destChainId = $destChain?.id;
     if (!srcChainId || !destChainId) return;
 
-    await Promise.all(
-      $selectedNFTs.map(async (nft) => {
-        fetchNFTImageUrl(nft).then((nftWithUrl) => {
-          $selectedToken = nftWithUrl;
-          $selectedNFTs = [nftWithUrl];
-        });
-      }),
-    );
-    nftsToDisplay = $selectedNFTs;
+    // Await every lookup and publish the full selection once: assigning inside each
+    // callback collapsed a multi-NFT selection to whichever image resolved last
+    const nftsWithUrl = await Promise.all($selectedNFTs.map((nft) => fetchNFTImageUrl(nft)));
+
+    $selectedNFTs = nftsWithUrl;
+    $selectedToken = nftsWithUrl[0];
+    nftsToDisplay = nftsWithUrl;
   };
 
   const editTransactionDetails = () => {
