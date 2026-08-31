@@ -74,15 +74,20 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// still clears that requirement with roughly 12,000 to spare.
     /// That margin is what this number buys, and it is NOT a general "fits before, fits after"
     /// guarantee — do not read it as one. Glamsterdam reprices enough distinct operations that a
-    /// receive path within the old budget can exceed this one while looking modest: EXTCODESIZE
-    /// now bills two warm accesses rather than one; account creation costs 120 state bytes =
-    /// 183,600, so forwarding value to a never-used address or running CREATE fits today and not
-    /// after; and STORAGE_WRITE is charged per departure from a slot's transaction-start value,
-    /// its restore credited only to the transaction refund counter, so a slot rewritten several
-    /// times bills 10,000 each time while the frame's own gas never gets the credit back.
-    /// Recipients doing more than one fresh slot's worth of bookkeeping should be measured
-    /// against the new schedule rather than assumed safe. EIP-8038's parameters are still under
-    /// review; re-check these figures before the fork.
+    /// receive path within the old budget can exceed this one while looking modest. Account
+    /// creation costs 120 state bytes = 183,600, so forwarding value to a never-used address or
+    /// running CREATE fits today and not after. STORAGE_WRITE is charged on every departure from
+    /// a slot's transaction-start value, and the restoring credit goes only to the transaction
+    /// refund counter, so a slot driven away from that value repeatedly (x->y->x->z) bills 10,000
+    /// each departure while the frame's own gas never gets the credit back — note this is per
+    /// departure, not per write: a plain x->y->z pays the write once and WARM_ACCESS thereafter.
+    /// A single extra warm existing-slot write in the receive path costs +7,200, which is already
+    /// 60% of the margin above. Smaller effects add up rather than dominate: EXTCODESIZE now
+    /// bills two warm accesses rather than one, but that is only +100 warm (+500 cold), so it
+    /// takes on the order of 75 of them to matter. Recipients doing more than one fresh slot's
+    /// worth of bookkeeping should be measured against the new schedule rather than assumed safe.
+    /// Both EIP-8037 and EIP-8038 are still in Review; re-check every figure here before the
+    /// fork.
     // - EOA gas used is < 21000
     // - For Loopring smart wallet, gas used is about 23000
     // - For Argent smart wallet on Ethereum, gas used is about 24000
