@@ -92,5 +92,5 @@ targetRules = ["generic-api-key"]
 condition = "AND"
 regexes = ['''^[a-fA-F0-9]{64}$''']
 paths = [
-  '''packages/protocol/docs/preconfirmation-v2/.*''',
+  '''^packages/protocol/docs/preconfirmation-v2/.*''',
 ]
