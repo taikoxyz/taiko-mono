@@ -263,6 +263,16 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		}
 	}
 
+	// A negative timeout is not a smaller one: it makes every context deadline already past, so
+	// every send fails before it is attempted. Nothing downstream rejects it, and being non-zero it
+	// would silently take the place of the default supplied below.
+	if cfg.TxmgrConfigs.TxSendTimeout < 0 {
+		return fmt.Errorf(
+			"invalid txmgr.send-timeout %s: a negative timeout expires every send immediately",
+			cfg.TxmgrConfigs.TxSendTimeout,
+		)
+	}
+
 	// Settled before anything is dialled: NewConfig below copies TxSendTimeout across unchanged,
 	// so this is the last point at which it can still be supplied.
 	if timeout, defaulted := privateRPCSendTimeout(

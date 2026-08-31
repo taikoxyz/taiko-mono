@@ -89,6 +89,20 @@ Environment variables are crucial for the configuration of the Relayer’s proce
    ./relayer indexer
    ```
 
+### Upgrading: the processing queue is redeclared
+
+This release adds `x-dead-letter-routing-key` to the main processing queue. Without it a message
+rejected for good kept the routing key it was published with — the queue's own name — while
+`dlx-<queue>` is bound with the `-process` key, and a direct exchange discards what it cannot route.
+Messages negatively acknowledged with no requeue were therefore destroyed rather than parked, and
+the permanently empty `dlx-<queue>` looked like evidence that none had been.
+
+A durable queue's arguments cannot be changed in place: the broker answers a redeclare with
+different arguments with `406 PRECONDITION_FAILED` and closes the channel. **An existing deployment
+will not start until its processing queue is dealt with.** Either drain and delete
+`<src>-<dest>-MessageSent-queue` so the next start declares it afresh, or apply the argument through
+a broker policy. The startup error names the queue and says the same.
+
 ### Retrying a claim that failed for a transient reason
 
 A processing failure that may resolve on its own — an RPC timeout, a connection reset, a source

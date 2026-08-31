@@ -2,6 +2,7 @@ package rabbitmq
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -187,7 +188,7 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 		args,
 	)
 	if err != nil {
-		return err
+		return describeRedeclareFailure(queueName, err)
 	}
 
 	slog.Info("binding queue and exchange", "queue", queueName, "exchange", exchange)
@@ -267,6 +268,33 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 	r.transientQueue = transientQueue
 
 	return nil
+}
+
+// describeRedeclareFailure turns the broker's refusal to redeclare a queue into something an
+// operator can act on.
+//
+// A durable queue's arguments are fixed once it exists: redeclaring it with a different set is
+// answered with 406 PRECONDITION_FAILED and the channel is closed. Adding x-dead-letter-routing-key
+// to the main queue therefore stops a relayer whose queue predates it from starting, and the raw
+// error says only that the arguments are not equivalent — not which queue, or what to do.
+//
+// There is no in-place fix: an existing queue has to be drained and deleted so the next start
+// declares it afresh, or the argument applied through a broker policy instead. Both are operator
+// decisions, so this explains rather than guesses.
+func describeRedeclareFailure(queueName string, err error) error {
+	var amqpErr *amqp.Error
+	if !errors.As(err, &amqpErr) || amqpErr.Code != amqp.PreconditionFailed {
+		return err
+	}
+
+	return fmt.Errorf(
+		"queue %q already exists with different arguments (%w). This release adds "+
+			"x-dead-letter-routing-key to it, without which a message rejected for good is "+
+			"discarded by the broker rather than kept on dlx-%s. A durable queue's arguments "+
+			"cannot be changed in place: drain and delete %q so it is declared afresh, or set the "+
+			"argument through a broker policy",
+		queueName, err, queueName, queueName,
+	)
 }
 
 func (r *RabbitMQ) Close(ctx context.Context) {
