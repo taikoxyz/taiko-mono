@@ -222,8 +222,10 @@ claim.
 Two answers are not charged at all. A relay that already holds the nonce replies `replacement
 transaction underpriced` or `already known`, which reads as a refusal but says the opposite — it is
 carrying the claim, which is what steering the resend to it was for. Those are counted by
-`private_rpc_held_nonce_ops_total` and, so that an endpoint answering this way to everything cannot
-keep its place indefinitely, they still count towards the consecutive ceiling. An endpoint given a
+`private_rpc_held_nonce_ops_total`. An answer for a nonce the endpoint has demonstrably taken is
+free, however many claims it is carrying at once, as is one repeat of the last nonce it answered
+for; anything beyond that counts towards the consecutive ceiling, so an endpoint answering this way
+for a succession of claims it never took cannot keep its place indefinitely. An endpoint given a
 share of the budget too small to answer in is not charged either; see below. A timeout or a
 transport failure always counts, even for the same transaction, since that is what an endpoint
 being down looks like. Only once no endpoint is left in
@@ -231,10 +233,22 @@ rotation does a transaction go out through `DEST_RPC_URL`.
 
 One claim can be refused by every endpoint without any of them being unhealthy — each is charged
 once for it, so none trips, and the claim would otherwise loop until `TX_SEND_TIMEOUT` while the
-relays go on serving everything else. After three consecutive sends of one nonce that every endpoint
-in rotation *answered* with a refusal, that claim is broadcast publicly and
-`private_rpc_all_refused_ops_total` counts it. A landed claim clears its count, so a persistently
-refused one is exposed on one send in three rather than on every send.
+relays go on serving everything else. After three consecutive sends that every endpoint in rotation
+*answered* with a refusal, that claim is broadcast publicly and
+`private_rpc_all_refused_ops_total` counts it.
+
+That probation is served once per claim, not once per exposure. Once a claim has been broadcast it
+stays in the public pool on every subsequent send, until a private endpoint takes it back and clears
+the run. Restarting the count there would withhold the next two fee-bumped resubmissions from a pool
+that already holds the stale low-fee variant of the same claim: there is no privacy left to save by
+then, and the replacement would be kept from the only place that can mine it.
+
+The run belongs to the claim rather than to the nonce it was sent under, because nonces are reused.
+A claim abandoned at `TX_SEND_TIMEOUT` leaves its count behind — only an accepted send clears one —
+and the next message signed with that nonce would otherwise inherit a probation it had served none
+of, and be broadcast on its first refusal instead of its third. The claim is identified by its
+calldata, which is the message and its proof: unchanged by the fee bumps that change everything else
+about the transaction, and different for every other claim.
 
 Two answers do not count towards this. A timeout or transport failure means the endpoint is down,
 which tripping handles, and counting it here would push claims into the open during an outage before

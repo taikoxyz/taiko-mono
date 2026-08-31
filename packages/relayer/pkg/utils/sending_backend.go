@@ -15,9 +15,11 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
@@ -98,6 +100,32 @@ const DefaultPrivateRPCAttemptTimeout = 30 * time.Second
 // urlInErrorText matches a URL inside an error message, so it can be kept out of the logs.
 var urlInErrorText = regexp.MustCompile(`[a-zA-Z][a-zA-Z0-9+.\-]*://[^\s"]*`)
 
+// refusalRun is a run of consecutive sends of one nonce that every endpoint in rotation refused.
+//
+// The claim is stamped on the run so it cannot outlive the claim that earned it. Nonces recycle: a
+// claim abandoned at TX_SEND_TIMEOUT leaves its count behind — only an accepted send clears one, and
+// an abandoned claim never comes back to be accepted — and resetNonce then hands the same nonce to
+// an unrelated message. Keyed on the nonce alone that message inherited the run and went out
+// publicly on its first all-refused send rather than its third, skipping the private probation the
+// fallback exists to serve. The trigger needs only a public blip, a send timeout and nonce reuse,
+// all of which are ordinary.
+type refusalRun struct {
+	claim common.Hash
+	count int
+}
+
+// claimIdentity identifies the message a transaction carries, across the re-signing that changes
+// everything else about it.
+//
+// The calldata is the encoded message and its proof: identical for every resend of one claim, and
+// different for every other claim. Nothing else here is both — the nonce recycles, and the hash and
+// the fee change on every bump, which is why recordFailure's deduplication keys on the nonce in the
+// first place. Hashing a few kilobytes of proof costs microseconds against the network round trip
+// that follows it.
+func claimIdentity(tx *types.Transaction) common.Hash {
+	return crypto.Keccak256Hash(tx.Data())
+}
+
 // admission is one endpoint's place in a send's rotation snapshot: which endpoint, and which of
 // that endpoint's admissions the send was let in under.
 //
@@ -150,7 +178,7 @@ type SendingBackend struct {
 
 	private          []TxSender
 	hosts            []string
-	allRefused       map[uint64]int
+	allRefused       map[uint64]refusalRun
 	allRefusedLimit  int
 	failures         []int
 	failedAt         []time.Time
@@ -208,7 +236,7 @@ func NewSendingBackend(
 		hasAccepted:      make([]bool, len(private)),
 		failureThreshold: DefaultPrivateRPCFailureThreshold,
 		failureCeiling:   DefaultPrivateRPCConsecutiveFailureCeiling,
-		allRefused:       make(map[uint64]int),
+		allRefused:       make(map[uint64]refusalRun),
 		allRefusedLimit:  DefaultPrivateRPCAllRefusedLimit,
 		retryInterval:    interval,
 		now:              time.Now,
@@ -386,12 +414,13 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 	// Every endpoint in rotation refused this claim. Tripping is per endpoint and each was charged
 	// only once for it, so nobody leaves the rotation over one unwanted claim and the fallback
 	// below would never be reached — the claim would simply loop until TX_SEND_TIMEOUT.
-	if allAnsweredRejection && b.countAllRefused(tx.Nonce()) {
+	if allAnsweredRejection && b.countAllRefused(tx.Nonce(), claimIdentity(tx)) {
 		relayer.PrivateRPCAllRefusedAttempts.Inc()
 
 		publicErr := b.ETHBackend.SendTransaction(ctx, tx)
 		if publicErr == nil {
-			b.clearAllRefused(tx.Nonce())
+			// The run is deliberately kept. This claim is in the open now, so every resend of it
+			// belongs in the public pool too until a relay takes it back — see countAllRefused.
 			relayer.PrivateRPCAllRefused.Inc()
 
 			// Logged after the fact rather than before it. Announcing the broadcast up front left
@@ -420,7 +449,8 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 	return b.redacted(err)
 }
 
-// clearAllRefused forgets the refusal run for this nonce, because an endpoint has just taken it.
+// clearAllRefused forgets the refusal run for this nonce, because a private endpoint has just taken
+// it. Only a private accept clears one: see countAllRefused for why a public one does not.
 func (b *SendingBackend) clearAllRefused(nonce uint64) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -437,18 +467,34 @@ func (b *SendingBackend) clearAllRefused(nonce uint64) {
 // one claim nobody will take. The count is per claim because the decision is: this claim has been
 // offered privately enough times.
 //
-// The count is cleared by a send some endpoint accepted, and by nothing else — in particular not by
-// firing. Clearing it there cost the claim the threshold it had just earned: if the public send then
-// failed, three more all-refused sends were needed before the fallback could be tried again, which
-// at the 48s resubmission default is past the two-minute TxNotInMempoolTimeout. The claim would end
-// that send never having reached the mempool at all, which is the one thing this exists to prevent.
-// Once the limit is reached the fallback is therefore offered on every subsequent send of that
-// nonce, until one of them lands.
-func (b *SendingBackend) countAllRefused(nonce uint64) bool {
+// The count is cleared by a send a private endpoint accepted, and by nothing else — in particular
+// not by firing, and not by the public send that fires succeeding. Clearing it on firing cost the
+// claim the threshold it had just earned: if the public send then failed, three more all-refused
+// sends were needed before the fallback could be tried again, which at the 48s resubmission default
+// is past the two-minute TxNotInMempoolTimeout, and the claim would end that send never having
+// reached the mempool at all. Clearing it on a successful public send is wrong for the opposite
+// reason: the claim is in the open by then, so there is no privacy left to spend, and withholding
+// the next two fee-bumped resubmissions from the public pool only leaves the stale low-fee variant
+// there to be mined instead — or leaves a relay holding the bumped one while the public pool holds
+// the original, which is the two-variants-racing case prioritiseNonceHolder exists to avoid. Once
+// the limit is reached the fallback is therefore offered on every subsequent send of that nonce,
+// until a private endpoint takes it back.
+//
+// The run belongs to a claim, not to a nonce; see refusalRun.
+func (b *SendingBackend) countAllRefused(nonce uint64, claim common.Hash) bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	b.allRefused[nonce]++
+	run := b.allRefused[nonce]
+
+	// A nonce carrying a different claim than the run recorded for it is a recycled nonce, not a
+	// resend: the run started against a claim that is gone, and this one has served none of it.
+	if run.claim != claim {
+		run = refusalRun{claim: claim}
+	}
+
+	run.count++
+	b.allRefused[nonce] = run
 
 	// Bounded, because a nonce whose claim is abandoned never comes back to clear its own entry.
 	// Nonces only ascend, so the smallest is the stalest.
@@ -464,7 +510,10 @@ func (b *SendingBackend) countAllRefused(nonce uint64) bool {
 		delete(b.allRefused, stalest)
 	}
 
-	return b.allRefused[nonce] >= b.allRefusedLimit
+	// Read back rather than returned from the local run, so that a live entry the bound has just
+	// evicted reports no fallback rather than one: losing the count should cost the claim its
+	// probation over again, never hand it straight to the public mempool.
+	return b.allRefused[nonce].count >= b.allRefusedLimit
 }
 
 // attemptContext gives one endpoint its share of the time left on ctx, so an endpoint that hangs
@@ -817,6 +866,10 @@ func (b *SendingBackend) recordFailure(endpoint admission, nonce uint64, rejecti
 //
 // A send it accepts clears the count, as it clears every other, and clears the remembered nonce
 // with it.
+//
+// Two answers are free: one for a nonce the endpoint has demonstrably taken, and one repeat of the
+// last nonce it answered for. What is left to charge is an endpoint answering this way for a
+// succession of distinct claims it never took, which is the state the ceiling exists to end.
 func (b *SendingBackend) recordHeldNonce(endpoint admission, nonce uint64) (tripped bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -827,12 +880,22 @@ func (b *SendingBackend) recordHeldNonce(endpoint admission, nonce uint64) (trip
 		return false
 	}
 
-	// Only a nonce this endpoint has not already answered for counts. The transaction manager
-	// resubmits an unconfirmed nonce every RESUBMISSION_TIMEOUT, and the endpoint holding it says
-	// so every time — that is one claim being carried correctly, not an endpoint taking nothing.
-	// Counted per answer, ten resends of a single claim reached the ceiling in about eight minutes
-	// and took out the very endpoint holding it; with one endpoint configured the claim then went
-	// public through the unavailable path, which is the exposure the exemption exists to prevent.
+	// An endpoint answering for a nonce it has demonstrably taken is the holder by construction,
+	// however many claims it is carrying at once, so the answer costs it nothing. The single
+	// remembered nonce below cannot see that: two concurrently held claims alternate past it, every
+	// answer counts, and ten answers — about four minutes at the resubmission default — took the
+	// endpoint holding both of them out of rotation.
+	if b.hasAccepted[index] && nonce <= b.highestAccepted[index] {
+		return false
+	}
+
+	// Kept as well, for a nonce this endpoint never accepted: it may be answering for a claim it
+	// learned from another relay's gossip rather than from us, and one such claim resent is not
+	// evidence of an endpoint taking nothing. The transaction manager resubmits an unconfirmed
+	// nonce every RESUBMISSION_TIMEOUT and the holder says so every time. Counted per answer, ten
+	// resends of a single claim reached the ceiling in about eight minutes and took out the very
+	// endpoint holding it; with one endpoint configured the claim then went public through the
+	// unavailable path, which is the exposure the exemption exists to prevent.
 	if b.hasHeld[index] && b.lastHeld[index] == nonce {
 		return false
 	}
