@@ -370,8 +370,13 @@ func (i *Indexer) filter(ctx context.Context) error {
 				return errors.Wrap(err, "i.setInitialIndexingBlockByMode")
 			}
 
-			if i.latestIndexedBlockNumber < endBlockID-i.numLatestBlocksStartWhenCrawling {
-				i.latestIndexedBlockNumber = endBlockID - i.numLatestBlocksStartWhenCrawling
+			crawlStartBlockID := endBlockID - min(
+				endBlockID,
+				i.numLatestBlocksStartWhenCrawling,
+			)
+
+			if i.latestIndexedBlockNumber < crawlStartBlockID {
+				i.latestIndexedBlockNumber = crawlStartBlockID
 			}
 
 			if endBlockID > i.numLatestBlocksEndWhenCrawling {

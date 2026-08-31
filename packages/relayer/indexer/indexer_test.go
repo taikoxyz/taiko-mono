@@ -51,6 +51,19 @@ func newTestService(syncMode SyncMode, watchMode WatchMode) (*Indexer, relayer.B
 	}, b
 }
 
+func TestFilterCrawlPastBlocksClampsLookbackToAvailableHistory(t *testing.T) {
+	i, _ := newTestService(Resync, CrawlPastBlocks)
+	i.eventName = "no-event"
+	i.numLatestBlocksStartWhenCrawling = 50_400
+	i.numLatestBlocksEndWhenCrawling = 3
+
+	err := i.filter(context.Background())
+
+	assert.NoError(t, err)
+	assert.LessOrEqual(t, i.latestIndexedBlockNumber, mock.LatestBlockNumber.Uint64())
+	assert.Equal(t, uint64(7), i.latestIndexedBlockNumber)
+}
+
 func TestHandleMessageProcessedEventSkipsIgnoredMessageHash(t *testing.T) {
 	ignoredHash := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000001")
 	i, b := newTestService(Sync, Filter)
