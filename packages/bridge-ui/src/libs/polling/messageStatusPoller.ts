@@ -26,6 +26,9 @@ export enum PollingEvent {
 
 type Interval = Maybe<ReturnType<typeof setInterval>>;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type PollingHandlers = Partial<Record<PollingEvent, (...args: any[]) => void>>;
+
 // bridgeTx hash => emitter. If there is already a polling ongoing
 // we return the emitter associated to it
 const hashEmitterMap: Record<Hash, EventEmitter> = {};
@@ -106,9 +109,19 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
     }
   };
 
-  const destroy = () => {
-    stopPolling();
-    emitter.removeAllListeners();
+  const destroy = (handlers?: PollingHandlers) => {
+    if (handlers) {
+      // Remove only this subscriber's listeners: the emitter is shared between all
+      // subscribers of the same transaction hash
+      for (const [event, handler] of Object.entries(handlers)) {
+        if (handler) emitter.removeListener(event, handler);
+      }
+    } else {
+      emitter.removeAllListeners();
+    }
+
+    const hasListeners = Object.values(PollingEvent).some((event) => emitter.listenerCount(event) > 0);
+    if (!hasListeners) stopPolling();
   };
 
   const pollingFn = async () => {
@@ -133,7 +146,11 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
 
       let blockNumber: Hex;
       if (!bridgeTx.blockNumber) {
-        const receipt = await getTransactionReceipt(config, { hash: bridgeTx.srcTxHash });
+        // The bridge tx lives on the source chain; the wallet may be connected elsewhere
+        const receipt = await getTransactionReceipt(config, {
+          hash: bridgeTx.srcTxHash,
+          chainId: Number(srcChainId),
+        });
         blockNumber = toHex(receipt.blockNumber);
         bridgeTx.blockNumber = blockNumber;
       }
@@ -143,9 +160,9 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
         stopPolling();
       }
     } catch (err) {
-      console.error(err);
-      stopPolling();
-      throw new BridgeTxPollingError('something bad happened while polling for status', { cause: err });
+      // A transient RPC failure must not permanently end polling for this transaction;
+      // the next interval tick simply tries again
+      console.error('Error while polling for message status, will retry', err);
     }
   };
 

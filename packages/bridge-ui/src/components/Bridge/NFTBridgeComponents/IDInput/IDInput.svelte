@@ -32,7 +32,9 @@
     if (idInput && idInput instanceof EventTarget) {
       ids = (idInput as HTMLInputElement).value
         .split(',')
-        .map((item) => parseInt(item))
+        .map((item) => item.trim())
+        .filter((item) => item !== '')
+        .map((item) => Number(item))
         .filter((num) => !isNaN(num));
     } else if (Array.isArray(idInput)) {
       ids = idInput;
@@ -42,7 +44,9 @@
       ids = ids.slice(0, limit);
     }
     enteredIds = ids;
-    const isValid = ids.every((num) => Number.isInteger(num));
+    // Token IDs above Number.MAX_SAFE_INTEGER silently lose precision as JS numbers,
+    // which would make the flow act on a different token — reject them instead
+    const isValid = ids.every((num) => Number.isSafeInteger(num) && num >= 0);
     validIdNumbers = isValid ? ids : [];
     state = isValid ? State.VALID : State.INVALID;
     dispatch('inputValidation');

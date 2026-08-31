@@ -7,7 +7,7 @@ import { FetchMetadataError, NoMetadataFoundError, WrongChainError } from '$libs
 import { decodeBase64ToJson } from '$libs/util/decodeBase64ToJson';
 import { getLogger } from '$libs/util/logger';
 import { resolveIPFSUri } from '$libs/util/resolveIPFSUri';
-import { getMetadataFromCache, isMetadataCached, metadataCache } from '$stores/metadata';
+import { addMetadataToCache, getMetadataFromCache, isMetadataCached } from '$stores/metadata';
 import { connectedSourceChain } from '$stores/network';
 
 import { getTokenAddresses } from './getTokenAddresses';
@@ -56,14 +56,9 @@ export async function fetchNFTMetadata(token: NFT): Promise<NFTMetadata | null> 
     };
     if (decodedData.image) {
       // Update cache
-      metadataCache.update((cache) => {
-        const key = tokenInfo.canonical?.address;
-
-        if (key) {
-          cache.set(key, metadata);
-        }
-        return cache;
-      });
+      if (tokenInfo.canonical?.address) {
+        addMetadataToCache({ address: tokenInfo.canonical.address, id: token.tokenId }, metadata);
+      }
       return metadata;
     }
   }
@@ -71,13 +66,9 @@ export async function fetchNFTMetadata(token: NFT): Promise<NFTMetadata | null> 
     const crossChainMetadata = await crossChainFetchNFTMetadata(token);
     if (crossChainMetadata && crossChainMetadata.image) {
       // Update cache
-      metadataCache.update((cache) => {
-        const key = tokenInfo.canonical?.address;
-        if (key) {
-          cache.set(key, crossChainMetadata);
-        }
-        return cache;
-      });
+      if (tokenInfo.canonical?.address) {
+        addMetadataToCache({ address: tokenInfo.canonical.address, id: token.tokenId }, crossChainMetadata);
+      }
       return crossChainMetadata;
     }
   }
@@ -93,13 +84,9 @@ export async function fetchNFTMetadata(token: NFT): Promise<NFTMetadata | null> 
 
     if (metadata.image) {
       // Update cache
-      metadataCache.update((cache) => {
-        const key = tokenInfo.canonical?.address;
-        if (key) {
-          cache.set(key, metadata);
-        }
-        return cache;
-      });
+      if (tokenInfo.canonical?.address) {
+        addMetadataToCache({ address: tokenInfo.canonical.address, id: token.tokenId }, metadata);
+      }
       return metadata;
     }
     throw new NoMetadataFoundError('No image in metadata');

@@ -21,6 +21,10 @@
 
   let interval: ReturnType<typeof setInterval>;
 
+  // Concurrent computations can resolve out of order (reactive re-runs and the refresh
+  // interval overlap); only the latest invocation may publish its result
+  let computeGeneration = 0;
+
   async function compute(
     token: Maybe<Token | NFT>,
     srcChainId?: number,
@@ -32,11 +36,12 @@
     // Without token nor destination chain we cannot compute this fee
     if (!token || !destChainId) return;
 
+    const generation = ++computeGeneration;
     $calculatingProcessingFee = true;
     error = false;
 
     try {
-      amount = await recommendProcessingFee({
+      const recommended = await recommendProcessingFee({
         token,
         destChainId,
         srcChainId,
@@ -44,11 +49,16 @@
         tokenIds,
         amounts,
       });
+      if (generation !== computeGeneration) return;
+      amount = recommended;
     } catch (err) {
+      if (generation !== computeGeneration) return;
       console.error(err);
       error = true;
     } finally {
-      $calculatingProcessingFee = false;
+      if (generation === computeGeneration) {
+        $calculatingProcessingFee = false;
+      }
     }
   }
 

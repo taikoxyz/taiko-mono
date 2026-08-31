@@ -31,6 +31,9 @@ export async function getMaxAmountToBridge({ to, token, balance, fee, srcChainId
       destChainId,
       bridgeAddress,
       fee,
+      // Required by the message gas-limit estimation; without it the estimate throws
+      // and the MAX button silently does nothing
+      tokenObject: token,
     } as ETHBridgeArgs;
 
     const estimatedCost = await estimateCostOfBridging(bridges.ETH, bridgeArgs);

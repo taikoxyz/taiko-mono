@@ -89,7 +89,7 @@
     filteredCustomTokens = customTokens.filter((token) => {
       return (
         token.name.toLowerCase().includes(enteredTokenName.toLowerCase()) ||
-        token.symbol.includes(enteredTokenName.toLowerCase())
+        token.symbol.toLowerCase().includes(enteredTokenName.toLowerCase())
       );
     });
   } else {

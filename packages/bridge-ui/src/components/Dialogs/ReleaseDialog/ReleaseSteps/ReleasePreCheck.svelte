@@ -26,9 +26,10 @@
     }
   };
 
-  $: txDestChainName = getChainName(Number(tx.destChainId));
+  // Releasing happens on the source chain, which is where the button switches to
+  $: txSrcChainName = getChainName(Number(tx.srcChainId));
 
-  $: correctChain = Number(tx.srcChainId) === $connectedSourceChain.id;
+  $: correctChain = Number(tx.srcChainId) === $connectedSourceChain?.id;
 
   $: if (correctChain && $account) {
     hideContinueButton = false;
@@ -65,7 +66,7 @@
         loading={$switchingNetwork}
         on:click={() => {
           switchChains();
-        }}>{$t('common.switch_to')} {txDestChainName}</ActionButton>
+        }}>{$t('common.switch_to')} {txSrcChainName}</ActionButton>
     </div>
   {/if}
 </div>

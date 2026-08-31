@@ -38,14 +38,16 @@
   const fetchTxForAddress = async () => {
     log('fetchTxForAddress');
     fetching = true;
-    if (addressToSearch) {
-      const { mergedTransactions } = await fetchTransactions(addressToSearch);
-      log('mergedTransactions', mergedTransactions);
-      if (mergedTransactions.length > 0) {
+    try {
+      if (addressToSearch) {
+        const { mergedTransactions } = await fetchTransactions(addressToSearch);
+        log('mergedTransactions', mergedTransactions);
+        // Also assign empty results: the previous address's transactions must not linger
         transactions = mergedTransactions;
       }
+    } finally {
+      fetching = false;
     }
-    fetching = false;
   };
 
   const handleTransactionRemoved = (event: CustomEvent<{ transaction: BridgeTransaction }>) => {

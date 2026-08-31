@@ -100,8 +100,13 @@
     }
   }
 
+  // Lookups for a previously typed address can resolve after a newer one;
+  // only the latest may publish its result
+  let lookupGeneration = 0;
+
   const onAddressChange = async (tokenAddress: Address) => {
     if (!tokenAddress) return;
+    const generation = ++lookupGeneration;
     loadingTokenDetails = true;
     log('Fetching token details for address "%s"…', tokenAddress);
 
@@ -109,11 +114,13 @@
     try {
       type = await detectContractType(tokenAddress, $connectedSourceChain?.id as number);
     } catch (error) {
+      if (generation !== lookupGeneration) return;
       log('Failed to detect contract type: ', error);
       loadingTokenDetails = false;
       state = AddressInputState.NOT_ERC20;
       return;
     }
+    if (generation !== lookupGeneration) return;
 
     if (type !== TokenType.ERC20) {
       loadingTokenDetails = false;
@@ -128,6 +135,7 @@
         contractAddress: tokenAddress as Address,
         srcChainId: srcChain.id,
       });
+      if (generation !== lookupGeneration) return;
       if (!token) return;
       const balance = await readContract(config, {
         address: tokenAddress as Address,
@@ -135,14 +143,18 @@
         functionName: 'balanceOf',
         args: [$account?.address as Address],
       });
+      if (generation !== lookupGeneration) return;
       customTokenWithDetails = { ...token, balance } as Token;
 
       customToken = customTokenWithDetails;
     } catch (error) {
+      if (generation !== lookupGeneration) return;
       state = AddressInputState.INVALID;
       log('Failed to fetch token: ', error);
     }
-    loadingTokenDetails = false;
+    if (generation === lookupGeneration) {
+      loadingTokenDetails = false;
+    }
   };
 
   $: formattedBalance =

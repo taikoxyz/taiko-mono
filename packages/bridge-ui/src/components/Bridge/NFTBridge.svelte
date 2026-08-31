@@ -9,13 +9,13 @@
   import { OnNetwork } from '$components/OnNetwork';
   import { Step, Stepper } from '$components/Stepper';
   import { hasBridge } from '$libs/bridge/bridges';
-  import { BridgePausedError } from '$libs/error';
   import { ETHToken } from '$libs/token';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { type Account, account } from '$stores/account';
 
   import { ImportStep, ReviewStep, StepNavigation } from './NFTBridgeComponents';
   import type IdInput from './NFTBridgeComponents/IDInput/IDInput.svelte';
+  import { selectedImportMethod } from './NFTBridgeComponents/ImportStep/state';
   import { ConfirmationStep, RecipientStep } from './SharedBridgeComponents';
   import type AddressInput from './SharedBridgeComponents/AddressInput/AddressInput.svelte';
   import type { ProcessingFee } from './SharedBridgeComponents/ProcessingFee';
@@ -32,7 +32,6 @@
 
   let recipientStepComponent!: RecipientStep;
   let processingFeeComponent!: ProcessingFee;
-  let importMethod!: ImportMethod;
   let bridgingStatus: BridgingStatus;
 
   let hasEnoughEth: boolean = false;
@@ -49,29 +48,23 @@
     activeStep = BridgeSteps.IMPORT;
     if (newNetwork) {
       const destChainId = $destinationChain?.id;
-      if (!$destinationChain?.id) return;
+      if (!destChainId) return;
       // determine if we simply swapped dest and src networks
       if (newNetwork.id === destChainId) {
         destinationChain.set(oldNetwork);
         return;
       }
-      // check if the new network has a bridge to the current dest network
-      if (hasBridge(newNetwork.id, $destinationChain?.id)) {
-        destinationChain.set(oldNetwork);
-      } else {
-        // if not, set dest network to null
+      // A still-bridgeable destination stays selected; only an unreachable one is cleared
+      if (!hasBridge(newNetwork.id, destChainId)) {
         $destinationChain = null;
       }
     }
   }
 
-  const runValidations = () => {
+  const runValidations = async () => {
     if (addressInputComponent) addressInputComponent.validateAddress();
-    isBridgePaused().then((paused) => {
-      if (paused) {
-        throw new BridgePausedError();
-      }
-    });
+    // Surfaces the paused modal via its store; the bridge classes enforce the actual block
+    await isBridgePaused();
   };
 
   function onAccountChange(account: Account) {
@@ -84,7 +77,7 @@
 
   function updateForm() {
     tick().then(() => {
-      if (importMethod === ImportMethod.MANUAL) {
+      if ($selectedImportMethod === ImportMethod.MANUAL) {
         // run validations again if we are in manual mode
         runValidations();
       } else {
@@ -129,7 +122,11 @@
 
   $: validatingImport = false;
 
-  $: activeStep === BridgeSteps.IMPORT && resetForm();
+  // Only a completed bridge wipes the form when landing back on IMPORT;
+  // plain back-navigation must keep the user's input
+  $: if (activeStep === BridgeSteps.IMPORT && bridgingStatus === BridgingStatus.DONE) {
+    resetForm();
+  }
 
   onDestroy(() => {
     resetForm();

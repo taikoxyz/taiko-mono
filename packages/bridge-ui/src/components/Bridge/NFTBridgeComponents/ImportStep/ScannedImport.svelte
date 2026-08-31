@@ -27,16 +27,16 @@
 
   let tokenAmountInput: TokenAmountInput;
 
-  let previousNFTs: NFT[] = [];
-  const handleNextPage = () => {
-    previousNFTs = foundNFTs;
+  const handleNextPage = async () => {
+    const previousCount = foundNFTs.length;
     scanning = true;
-
-    nextPage().finally(() => {
+    try {
+      await nextPage();
+    } finally {
       scanning = false;
-    });
-
-    if (previousNFTs.length === foundNFTs.length) {
+    }
+    // Only after the fetch resolves do we know whether anything new arrived
+    if (foundNFTs.length === previousCount) {
       hasMoreNFTs = false;
     }
   };

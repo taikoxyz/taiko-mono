@@ -5,7 +5,7 @@ import { fetchNFTMetadata } from '$libs/token/fetchNFTMetadata';
 import { decodeBase64ToJson } from '$libs/util/decodeBase64ToJson';
 import { getLogger } from '$libs/util/logger';
 import { resolveIPFSUri } from '$libs/util/resolveIPFSUri';
-import { addMetadataToCache, isMetadataCached } from '$stores/metadata';
+import { addMetadataToCache } from '$stores/metadata';
 import { connectedSourceChain } from '$stores/network';
 
 import { getTokenAddresses } from './getTokenAddresses';
@@ -42,12 +42,8 @@ export const fetchNFTImageUrl = async (token: NFT): Promise<NFT> => {
 
     if (!tokenInfo || !tokenInfo.canonical?.address) return token;
 
-    // check cache for existing metadata
-    if (isMetadataCached({ address: tokenInfo.canonical?.address, id: token.tokenId })) {
-      log('found cached metadata for', tokenInfo.canonical?.address, token.metadata);
-      // Update cache
-      addMetadataToCache({ address: tokenInfo.canonical?.address, id: token.tokenId }, token.metadata);
-    }
+    // Store the resolved metadata so the next lookup hits the cache
+    addMetadataToCache({ address: tokenInfo.canonical.address, id: token.tokenId }, token.metadata);
 
     return token;
   } catch (error) {

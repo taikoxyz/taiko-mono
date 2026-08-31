@@ -41,6 +41,8 @@ export async function getCanonicalInfoForToken({
     log('addresses for both, fetching canonical one');
     for (const [currentSrcChainId, address] of Object.entries(token.addresses)) {
       if (parseInt(currentSrcChainId) === destChainId) continue;
+      // Placeholder entries carry the zero address and must not be treated as deployments
+      if (!address || address === zeroAddress) continue;
 
       // check store first to save some time
       if (isCanonicalAddress(address)) {

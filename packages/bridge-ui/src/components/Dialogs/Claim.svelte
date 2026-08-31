@@ -66,7 +66,9 @@
 
       // Step 4: Call claim() method on the bridge
       let txHash: Hash;
-      if ($selectedRetryMethod === RETRY_OPTION.RETRY_ONCE) {
+      // The retry-once choice only applies to an actual retry: the store is shared and a
+      // leftover value must never turn a plain claim into a final attempt
+      if (action === ClaimAction.RETRY && $selectedRetryMethod === RETRY_OPTION.RETRY_ONCE) {
         log('Claiming with lastAttempt flag');
         txHash = await bridge.processMessage({ wallet, bridgeTx, lastAttempt: true });
       } else {

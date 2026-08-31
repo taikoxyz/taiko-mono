@@ -12,8 +12,8 @@
   import { Tooltip } from '$components/Tooltip';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { ProcessingFeeMethod } from '$libs/fee';
-  import { parseToWei } from '$libs/util/parseToWei';
 
+  import { parseCustomFeeInput } from './customFee';
   import NoneOption from './NoneOption.svelte';
   import RecommendedFee from './RecommendedFee.svelte';
 
@@ -92,13 +92,12 @@
   function inputProcessFee(event: Event) {
     if (tempProcessingFeeMethod !== ProcessingFeeMethod.CUSTOM) return;
 
-    const { value: initialValue } = event.target as HTMLInputElement;
-    if (parseToWei(initialValue) <= recommendedAmount) {
-      // If the user tries to input 0 or less, we set it to the current recommended amount
-      inputBox?.setValue(formatEther(recommendedAmount));
-    }
-    const { value: finalValue } = event.target as HTMLInputElement;
-    tempprocessingFee = parseToWei(finalValue);
+    const { value } = event.target as HTMLInputElement;
+    // Incomplete or invalid input keeps the previous fee; a custom fee below the
+    // recommended amount is a deliberate choice the warning below covers
+    const parsed = parseCustomFeeInput(value);
+    if (parsed === null) return;
+    tempprocessingFee = parsed;
   }
 
   async function updateProcessingFee(method: ProcessingFeeMethod, recommendedAmount: bigint) {
@@ -214,7 +213,7 @@
       id={dialogId}
       class="modal"
       class:modal-open={modalOpen}
-      use:closeOnEscapeOrOutsideClick={{ enabled: modalOpen, callback: () => (modalOpen = false), uuid: dialogId }}>
+      use:closeOnEscapeOrOutsideClick={{ enabled: modalOpen, callback: cancelModal, uuid: dialogId }}>
       <div class="modal-box relative px-6 py-[35px] md:rounded-[20px] bg-neutral-background">
         <CloseButton onClick={cancelModal} />
 

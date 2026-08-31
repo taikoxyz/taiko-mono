@@ -113,27 +113,38 @@
   function inputAmount(event: Event) {
     invalidInput = false;
     $validatingAmount = true; // During validation, we disable all the actions
-    if (!$selectedToken) return;
-    const target = event.target as HTMLInputElement;
-    let value = target.value;
+    try {
+      if (!$selectedToken) return;
+      const target = event.target as HTMLInputElement;
+      const value = target.value;
 
-    if ($selectedToken.type === TokenType.ERC1155) {
+      if ($selectedToken.type !== TokenType.ERC1155) {
+        throw new UnknownTokenTypeError($selectedToken.type);
+      }
+
       // For ERC1155, no decimals are allowed
       if (/[.,]/.test(value)) {
         invalidInput = true;
         return;
       }
-    } else {
+
+      let parsed: bigint;
+      try {
+        // Number inputs also emit values like '1e5', which BigInt cannot parse
+        parsed = BigInt(value);
+      } catch {
+        invalidInput = true;
+        return;
+      }
+
+      sanitizedValue = value;
+      $enteredAmount = parsed;
+
+      debouncedValidateAmount();
+    } finally {
+      // The flag disables every action button and must never survive an early exit
       $validatingAmount = false;
-      throw new UnknownTokenTypeError($selectedToken.type);
     }
-
-    sanitizedValue = value;
-
-    $enteredAmount = BigInt(sanitizedValue);
-    $validatingAmount = false;
-
-    debouncedValidateAmount();
   }
 
   // "MAX" button handler

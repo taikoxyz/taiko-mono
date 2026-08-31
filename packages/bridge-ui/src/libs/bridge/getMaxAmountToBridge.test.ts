@@ -85,6 +85,8 @@ describe('getMaxAmountToBridge()', () => {
       destChainId: MOCK_ARGS.destChainId,
       bridgeAddress: mockDestBridgeAddress,
       fee: MOCK_FEE,
+      // Without the token object the gas-limit estimation throws and MAX silently fails
+      tokenObject: ETHToken,
     });
   });
 });

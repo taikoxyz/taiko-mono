@@ -107,7 +107,11 @@
 
   onDestroy(() => {
     if (polling) {
-      polling.destroy();
+      // Only detach this row's listeners; polling itself stops once no subscriber is left
+      polling.destroy({
+        [PollingEvent.PROCESSABLE]: onProcessable,
+        [PollingEvent.STATUS]: onStatusChange,
+      });
     }
   });
 </script>

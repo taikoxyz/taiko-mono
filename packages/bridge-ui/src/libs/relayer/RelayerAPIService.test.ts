@@ -773,6 +773,20 @@ describe('RelayerAPIService', () => {
     expect(parseApiBigInt(parseRelayerApiResponse(rawResponse).items[0].data.Message.DestChainId)).toEqual(167000n);
   });
 
+  test('parseRelayerApiResponse also preserves the top-level amount and fee digits', () => {
+    // Given: amounts above 2^53 wei (anything over ~0.009 ETH) lose digits as JSON doubles
+    const exactAmount = 1_234_567_890_123_456_789n;
+    const exactTopLevelFee = 9_007_199_254_740_993n;
+    const rawResponse = `{"items":[{"amount":${exactAmount},"fee":${exactTopLevelFee},"data":{"Message":{"Fee":1}}}]}`;
+
+    // When
+    const parsed = parseRelayerApiResponse(rawResponse);
+
+    // Then
+    expect(BigInt(parsed.items[0].amount)).toEqual(exactAmount);
+    expect(BigInt(parsed.items[0].fee!)).toEqual(exactTopLevelFee);
+  });
+
   test('parseRelayerApiResponse ignores escaped Fee-like text inside string values', () => {
     // Given
     const exactFee = 9_007_199_254_740_993n;

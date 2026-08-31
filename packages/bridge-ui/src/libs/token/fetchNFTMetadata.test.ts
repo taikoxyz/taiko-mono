@@ -29,6 +29,7 @@ describe('fetchNFTMetadata()', () => {
     vi.mock('$stores/metadata', () => ({
       isMetadataCached: vi.fn(),
       getMetadataFromCache: vi.fn(),
+      addMetadataToCache: vi.fn(),
       metadataCache: {
         update: vi.fn(),
       },
@@ -61,6 +62,7 @@ describe('fetchNFTMetadata()', () => {
       vi.mock('$stores/metadata', () => ({
         isMetadataCached: vi.fn(),
         getMetadataFromCache: vi.fn(),
+        addMetadataToCache: vi.fn(),
         metadataCache: {
           update: vi.fn(),
         },
@@ -103,6 +105,7 @@ describe('fetchNFTMetadata()', () => {
       vi.mock('$stores/metadata', () => ({
         isMetadataCached: vi.fn(),
         getMetadataFromCache: vi.fn(),
+        addMetadataToCache: vi.fn(),
         metadataCache: {
           update: vi.fn(),
         },

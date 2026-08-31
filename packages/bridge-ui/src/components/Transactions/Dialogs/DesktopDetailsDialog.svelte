@@ -71,18 +71,21 @@
     }
   };
 
+  // Locally stored transactions only set msgStatus; relayer-derived ones set both
+  $: effectiveStatus = bridgeTx.msgStatus ?? bridgeTx.status;
+
   const checkStatus = async () => {
     const isProcessable = await isTransactionProcessable(bridgeTx);
-    if (bridgeTx.status === MessageStatus.NEW || bridgeTx.status === MessageStatus.RETRIABLE) {
+    if (effectiveStatus === MessageStatus.NEW || effectiveStatus === MessageStatus.RETRIABLE) {
       if (!isProcessable) {
         stillProcessing = true;
       } else {
         stillProcessing = false;
       }
     } else if (
-      bridgeTx.status === MessageStatus.DONE ||
-      bridgeTx.status === MessageStatus.FAILED ||
-      bridgeTx.status === MessageStatus.RECALLED
+      effectiveStatus === MessageStatus.DONE ||
+      effectiveStatus === MessageStatus.FAILED ||
+      effectiveStatus === MessageStatus.RECALLED
     ) {
       stillProcessing = false;
     }
@@ -104,7 +107,7 @@
   $: claimedBy = bridgeTx.claimedBy || null;
   $: isRelayer = false;
 
-  $: if (claimedBy !== to && claimedBy !== destOwner && bridgeTx.status === MessageStatus.DONE) {
+  $: if (claimedBy !== to && claimedBy !== destOwner && effectiveStatus === MessageStatus.DONE) {
     isRelayer = true;
   } else {
     isRelayer = false;
@@ -125,7 +128,7 @@
   id={dialogId}
   class="modal"
   class:modal-open={detailsOpen}
-  use:closeOnEscapeOrOutsideClick={{ enabled: detailsOpen, callback: () => closeDetails, uuid: dialogId }}>
+  use:closeOnEscapeOrOutsideClick={{ enabled: detailsOpen, callback: () => closeDetails(), uuid: dialogId }}>
   <div class="modal-box relative w-full bg-neutral-background !p-0 !pb-[20px]">
     <div class="w-full pt-[35px] px-[24px]">
       <CloseButton onClick={closeDetails} />
@@ -246,7 +249,7 @@
         <!-- From -->
         <div class="flex justify-between">
           <div class="text-secondary-content">{$t('common.status')}</div>
-          <Status bridgeTxStatus={bridgeTx.status} {bridgeTx} textOnly />
+          <Status bridgeTxStatus={effectiveStatus} {bridgeTx} textOnly />
         </div>
 
         <!-- Sender -->

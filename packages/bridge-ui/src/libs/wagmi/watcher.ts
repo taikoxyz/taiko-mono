@@ -42,11 +42,16 @@ async function handleAccountChange(data: GetAccountReturnType) {
     switchChainModal.set(true);
     return;
   } else if (chainId) {
+    // The wallet is (back) on a supported chain, so the switch-chain modal must not linger
+    switchChainModal.set(false);
     // When we switch networks, we are actually selecting
     // the source chain.
     const srcChain = chains.find((c) => c.id === Number(chainId));
     if (srcChain) connectedSourceChain.set(srcChain);
     refreshUserBalance();
+  } else {
+    // Disconnected: there is no chain to switch away from anymore
+    switchChainModal.set(false);
   }
 }
 

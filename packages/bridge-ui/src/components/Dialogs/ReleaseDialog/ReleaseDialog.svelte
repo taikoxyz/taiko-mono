@@ -18,7 +18,6 @@
     RetryError,
   } from '$libs/error';
   import { getLogger } from '$libs/util/logger';
-  import { connectedSourceChain } from '$stores/network';
   import { pendingTransactions } from '$stores/pendingTransactions';
 
   import Claim from '../Claim.svelte';
@@ -41,7 +40,7 @@
   let canContinue = false;
   let activeStep: ReleaseSteps = INITIAL_STEP;
   let txHash: Hash;
-  let releasing: boolean;
+  let releasing = false;
   let releasingDone = false;
   let ClaimComponent: Claim;
   let hideContinueButton: boolean;
@@ -58,6 +57,7 @@
 
   const reset = () => {
     releasing = false;
+    releasingDone = false;
     activeStep = INITIAL_STEP;
   };
 
@@ -67,7 +67,10 @@
     log('handle claim tx sent', txHash, action);
     releasing = true;
 
-    const explorer = chainConfig[Number(bridgeTx.destChainId)]?.blockExplorers?.default.url;
+    // recallMessage executes on the source chain, so both the receipt wait and the
+    // explorer link must use the source chain, not the destination
+    const releaseChainId = Number(bridgeTx.srcChainId);
+    const explorer = chainConfig[releaseChainId]?.blockExplorers?.default.url;
 
     infoToast({
       title: $t('transactions.actions.claim.tx.title'),
@@ -78,8 +81,18 @@
         },
       }),
     });
-    await pendingTransactions.add(txHash, Number(bridgeTx.destChainId));
 
+    try {
+      await pendingTransactions.add(txHash, releaseChainId);
+    } catch (error) {
+      // A reverted or timed-out release must not leave the dialog spinning forever
+      log('release transaction failed or timed out', { txHash, error });
+      releasing = false;
+      errorToast({ title: $t('bridge.errors.process_message_error') });
+      return;
+    }
+
+    releasing = false;
     releasingDone = true;
 
     dispatch('claimingDone');
@@ -88,7 +101,7 @@
       title: $t('transactions.actions.claim.success.title'),
       message: $t('transactions.actions.claim.success.message', {
         values: {
-          network: $connectedSourceChain.name,
+          url: `${explorer}/tx/${txHash}`,
         },
       }),
     });
@@ -142,12 +155,12 @@
   };
 
   const handleReleaseClick = async () => {
+    // claim() reports its outcome through the claimingTxSent/error events, which own the
+    // `releasing` flag; clearing it here would re-enable the button while the release
+    // transaction is still pending
     releasing = true;
     await ClaimComponent.claim(ClaimAction.RELEASE);
-    releasing = false;
   };
-
-  $: releasing = false;
 
   $: loading = releasing;
 </script>

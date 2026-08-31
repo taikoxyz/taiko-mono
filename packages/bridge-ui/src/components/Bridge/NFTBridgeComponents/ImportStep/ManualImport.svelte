@@ -63,7 +63,12 @@
     return;
   }
 
+  // Guards against out-of-order async validations: only the latest entered ID may
+  // publish its result into the shared stores
+  let idValidationGeneration = 0;
+
   async function onIdInput(): Promise<void> {
+    const generation = ++idValidationGeneration;
     idInputState = IDInputState.VALIDATING;
     validating = true;
 
@@ -83,6 +88,8 @@
           $connectedSourceChain?.id!,
         );
 
+        if (generation !== idValidationGeneration) return;
+
         isOwnerOfAllToken = ownershipResults.every((value) => value.isOwner === true);
 
         if (!isOwnerOfAllToken) {
@@ -98,6 +105,8 @@
           owner: $account?.address,
         });
 
+        if (generation !== idValidationGeneration) return;
+
         if (!token) {
           throw new Error('No token with info');
         }
@@ -110,15 +119,18 @@
         idInputState = IDInputState.INVALID;
       }
     } catch (err) {
+      if (generation !== idValidationGeneration) return;
       console.error(err);
       detectedTokenType = null;
       idInputState = IDInputState.INVALID;
     } finally {
-      if (idInputState !== IDInputState.VALID) {
-        idInputState = IDInputState.DEFAULT;
+      if (generation === idValidationGeneration) {
+        if (idInputState !== IDInputState.VALID) {
+          idInputState = IDInputState.DEFAULT;
+        }
+        validating = false;
       }
     }
-    validating = false;
   }
 
   $: displayOwnershipError =

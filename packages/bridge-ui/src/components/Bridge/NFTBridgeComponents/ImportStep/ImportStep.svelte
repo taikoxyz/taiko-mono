@@ -29,19 +29,21 @@
 
   const scanForNFTs = async (refresh: boolean) => {
     scanning = true;
-    $selectedNFTs = [];
-    const accountAddress = $account?.address;
-    const srcChainId = $srcChain?.id;
-    const destChainId = $destChain?.id;
-    if (!accountAddress || !srcChainId || !destChainId) return;
-    const nftsFromAPIs = await fetchNFTs({ address: accountAddress, chainId: srcChainId, refresh });
+    try {
+      $selectedNFTs = [];
+      const accountAddress = $account?.address;
+      const srcChainId = $srcChain?.id;
+      const destChainId = $destChain?.id;
+      if (!accountAddress || !srcChainId || !destChainId) return;
+      const nftsFromAPIs = await fetchNFTs({ address: accountAddress, chainId: srcChainId, refresh });
 
-    foundNFTs = nftsFromAPIs.nfts;
+      foundNFTs = nftsFromAPIs.nfts;
 
-    scanning = false;
-
-    if (foundNFTs.length > 0) {
-      $selectedImportMethod = ImportMethod.SCAN;
+      if (foundNFTs.length > 0) {
+        $selectedImportMethod = ImportMethod.SCAN;
+      }
+    } finally {
+      scanning = false;
     }
   };
 

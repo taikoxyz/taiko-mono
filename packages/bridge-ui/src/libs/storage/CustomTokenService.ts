@@ -8,6 +8,22 @@ const STORAGE_PREFIX = 'custom-tokens';
 
 const log = getLogger('storage:CustomTokenService');
 
+// Two custom tokens are the same token if they share any real deployment address; the symbol is
+// only a fallback for entries that carry no addresses, since symbols are not unique
+function tokensAreSame(a: Token, b: Token): boolean {
+  const aAddresses = Object.values(a.addresses ?? {}).filter((addr) => addr && addr !== zeroAddress);
+  const bAddresses = new Set(
+    Object.values(b.addresses ?? {})
+      .filter((addr) => addr && addr !== zeroAddress)
+      .map((addr) => addr.toLowerCase()),
+  );
+
+  if (aAddresses.length > 0 && bAddresses.size > 0) {
+    return aAddresses.some((addr) => bAddresses.has(addr.toLowerCase()));
+  }
+  return a.symbol === b.symbol;
+}
+
 export class CustomTokenService implements TokenService {
   private readonly storage: Storage;
 
@@ -39,7 +55,7 @@ export class CustomTokenService implements TokenService {
 
     let doesTokenAlreadyExist = false;
     if (tokens.length > 0) {
-      doesTokenAlreadyExist = tokens.findIndex((tokenFromStorage) => tokenFromStorage.symbol === token.symbol) >= 0;
+      doesTokenAlreadyExist = tokens.findIndex((tokenFromStorage) => tokensAreSame(tokenFromStorage, token)) >= 0;
     }
 
     if (!doesTokenAlreadyExist) {
@@ -76,7 +92,7 @@ export class CustomTokenService implements TokenService {
 
     const tokens: Token[] = this._getTokensFromStorage(address);
 
-    const updatedTokenList = tokens.filter((tokenFromStorage) => tokenFromStorage.symbol !== token.symbol);
+    const updatedTokenList = tokens.filter((tokenFromStorage) => !tokensAreSame(tokenFromStorage, token));
 
     const storageKey = `${STORAGE_PREFIX}-${address.toLowerCase()}`;
     this.storage.setItem(storageKey, JSON.stringify(updatedTokenList));

@@ -25,7 +25,6 @@
   } from '$libs/error';
   import type { NFT } from '$libs/token';
   import { getLogger } from '$libs/util/logger';
-  import { connectedSourceChain } from '$stores/network';
   import { pendingTransactions } from '$stores/pendingTransactions';
 
   import { ClaimConfirmStep, ReviewStep } from '../Shared';
@@ -92,31 +91,29 @@
 
     const explorer = chainConfig[Number(bridgeTx.destChainId)]?.blockExplorers?.default.url;
 
-    if (action === ClaimAction.CLAIM) {
-      infoToast({
-        title: $t('transactions.actions.claim.tx.title'),
-        message: $t('transactions.actions.claim.tx.message', {
-          values: {
-            token: bridgeTx.symbol,
-            url: `${explorer}/tx/${txHash}`,
-          },
-        }),
-      });
+    infoToast({
+      title: $t('transactions.actions.claim.tx.title'),
+      message: $t('transactions.actions.claim.tx.message', {
+        values: {
+          token: bridgeTx.symbol,
+          url: `${explorer}/tx/${txHash}`,
+        },
+      }),
+    });
+
+    try {
       await pendingTransactions.add(txHash, Number(bridgeTx.destChainId));
-    } else {
-      // Retry
-      infoToast({
-        title: $t('transactions.actions.claim.tx.title'),
-        message: $t('transactions.actions.claim.tx.message', {
-          values: {
-            token: bridgeTx.symbol,
-            url: `${explorer}/tx/${txHash}`,
-          },
-        }),
+    } catch (error) {
+      // A reverted or timed-out claim must not leave the dialog spinning forever
+      log('claim transaction failed or timed out', { txHash, action, error });
+      claiming = false;
+      errorToast({
+        title: $t('bridge.errors.process_message_error'),
       });
-      await pendingTransactions.add(txHash, Number(bridgeTx.destChainId));
+      return;
     }
 
+    claiming = false;
     claimingDone = true;
 
     dispatch('claimingDone');
@@ -125,7 +122,7 @@
       title: $t('transactions.actions.claim.success.title'),
       message: $t('transactions.actions.claim.success.message', {
         values: {
-          network: $connectedSourceChain.name,
+          url: `${explorer}/tx/${txHash}`,
         },
       }),
     });
@@ -201,6 +198,7 @@
   const reset = () => {
     activeStep = INITIAL_STEP;
     claimingDone = false;
+    claiming = false;
     // canForceTransaction = false;
   };
 

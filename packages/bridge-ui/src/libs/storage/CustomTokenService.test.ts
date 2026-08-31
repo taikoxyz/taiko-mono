@@ -120,6 +120,56 @@ describe('CustomTokenService', () => {
     expect(actual).toStrictEqual([token2]);
   });
 
+  test('stores two different tokens that share a symbol', () => {
+    // Given: an unrelated token that happens to use the same symbol as token1
+    const sameSymbolToken: Token = {
+      name: 'Impostor Token',
+      addresses: { address1: '0xabc' },
+      symbol: 'TST',
+      decimals: 18,
+      type: TokenType.ERC20,
+      imported: true,
+    };
+    tokenService.storeToken(token1, address);
+
+    // When
+    const actual = tokenService.storeToken(sameSymbolToken, address);
+
+    // Then: both are kept, keyed by address rather than symbol
+    expect(actual).toStrictEqual([token1, sameSymbolToken]);
+  });
+
+  test('does not store the same token twice even when its symbol was edited', () => {
+    // Given
+    tokenService.storeToken(token1, address);
+    const renamedToken1: Token = { ...token1, symbol: 'TST2' };
+
+    // When
+    const actual = tokenService.storeToken(renamedToken1, address);
+
+    // Then
+    expect(actual).toStrictEqual([token1]);
+  });
+
+  test('removes only the token with matching addresses, not a same-symbol impostor', () => {
+    // Given
+    const sameSymbolToken: Token = {
+      name: 'Impostor Token',
+      addresses: { address1: '0xabc' },
+      symbol: 'TST',
+      decimals: 18,
+      type: TokenType.ERC20,
+      imported: true,
+    };
+    localStorage.setItem(storageKey, JSON.stringify([token1, sameSymbolToken]));
+
+    // When
+    const actual = tokenService.removeToken(token1, address);
+
+    // Then
+    expect(actual).toStrictEqual([sameSymbolToken]);
+  });
+
   test('updates token correctly when an address is zeroAddress', () => {
     // Given
     const token2Updated: Token = {

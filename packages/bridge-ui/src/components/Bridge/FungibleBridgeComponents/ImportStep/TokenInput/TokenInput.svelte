@@ -79,7 +79,14 @@
     $validatingAmount = true;
     $errorComputingBalance = false;
 
-    $enteredAmount = parseUnits(value, $selectedToken.decimals);
+    try {
+      // Number inputs also emit values parseUnits cannot parse, like '1e5'
+      $enteredAmount = parseUnits(value, $selectedToken.decimals);
+    } catch {
+      $enteredAmount = 0n;
+      $validatingAmount = false;
+      return;
+    }
     debouncedValidateAmount();
   };
 
@@ -101,10 +108,10 @@
           fee: $processingFee,
         });
 
-        // Update state
-        $enteredAmount = maxAmount;
-        value = formatUnits(maxAmount, $selectedToken.decimals);
-        value = truncateDecimal(parseFloat(value), 12).toString();
+        // The displayed value is truncated for readability, so the entered amount is
+        // re-derived from it: what the user sees is exactly what gets bridged
+        value = truncateDecimal(parseFloat(formatUnits(maxAmount, $selectedToken.decimals)), 12).toString();
+        $enteredAmount = parseUnits(value, $selectedToken.decimals);
         validateAmount();
       }
     } catch (err) {
