@@ -14,10 +14,8 @@
   import { type Account, account } from '$stores/account';
 
   import { ImportStep, ReviewStep, StepNavigation } from './NFTBridgeComponents';
-  import type IdInput from './NFTBridgeComponents/IDInput/IDInput.svelte';
   import { selectedImportMethod } from './NFTBridgeComponents/ImportStep/state';
   import { ConfirmationStep, RecipientStep } from './SharedBridgeComponents';
-  import type AddressInput from './SharedBridgeComponents/AddressInput/AddressInput.svelte';
   import type { ProcessingFee } from './SharedBridgeComponents/ProcessingFee';
   import {
     activeBridge,
@@ -40,8 +38,10 @@
   let nftStepTitle: string;
   let nftStepDescription: string;
 
-  let addressInputComponent!: AddressInput;
-  let nftIdInputComponent!: IdInput;
+  // ImportStep owns the manual-import inputs; they live two levels down, so the reset and
+  // revalidate calls below go through it. The AddressInput/IdInput references that used to
+  // stand here were never bound to anything, which made every call on them a silent no-op.
+  let importStepComponent: ImportStep;
 
   function onNetworkChange(newNetwork: Chain, oldNetwork: Chain) {
     updateForm();
@@ -62,7 +62,7 @@
   }
 
   const runValidations = async () => {
-    if (addressInputComponent) addressInputComponent.validateAddress();
+    importStepComponent?.revalidate();
     // Surfaces the paused modal via its store; the bridge classes enforce the actual block
     await isBridgePaused();
   };
@@ -89,10 +89,7 @@
   const resetForm = () => {
     //we check if these are still mounted, as the user might have left the page
     if (processingFeeComponent) processingFeeComponent.resetProcessingFee();
-    if (addressInputComponent) addressInputComponent.clearAddress();
-
-    // Update balance after bridging
-    if (nftIdInputComponent) nftIdInputComponent.clearIds();
+    importStepComponent?.resetManualImport();
 
     $recipientAddress = $account?.address || null;
     $destOwnerAddress = $account?.address || null;
@@ -147,7 +144,7 @@
     <div class="space-y-[30px]">
       {#if activeStep === BridgeSteps.IMPORT}
         <!-- IMPORT STEP -->
-        <ImportStep bind:validating={validatingImport} />
+        <ImportStep bind:this={importStepComponent} bind:validating={validatingImport} />
       {:else if activeStep === BridgeSteps.REVIEW}
         <!-- REVIEW STEP -->
         <ReviewStep on:editTransactionDetails={handleTransactionDetailsClick} bind:hasEnoughEth />

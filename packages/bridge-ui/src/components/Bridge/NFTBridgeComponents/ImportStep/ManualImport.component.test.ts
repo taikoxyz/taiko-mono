@@ -149,6 +149,76 @@ describe('ManualImport contract address', () => {
     expect(get(importDone)).toBe(false);
   });
 
+  it('validates a replacement address pasted over a validated one', async () => {
+    // The exact A -> B replacement: both valid NFT contracts. The draft watcher must not
+    // read the outgoing address as stale and cancel the lookup that replaced it.
+    detectContractType.mockResolvedValue(TokenType.ERC721);
+
+    await type(addressInput(), ADDRESS_A);
+    await flush();
+    expect(addressIsMarkedValid()).toBe(true);
+
+    // Select-all and paste replaces the whole field in one input event
+    await type(addressInput(), ADDRESS_B);
+    await flush();
+
+    expect(detectContractType).toHaveBeenNthCalledWith(2, ADDRESS_B, SRC_CHAIN);
+    expect(addressIsMarkedValid()).toBe(true);
+  });
+
+  describe('source chain changes', () => {
+    it('revalidates the entered address against the new chain', async () => {
+      detectContractType.mockResolvedValue(TokenType.ERC721);
+      await type(addressInput(), ADDRESS_A);
+      await flush();
+      expect(addressIsMarkedValid()).toBe(true);
+
+      // The same address may host a different contract, or none, on another chain
+      detectContractType.mockClear();
+      detectContractType.mockResolvedValue(TokenType.ERC20);
+      connectedSourceChain.set({ id: 167000 } as never);
+      await flush();
+
+      expect(detectContractType).toHaveBeenCalledWith(ADDRESS_A, 167000);
+      expect(addressIsMarkedValid()).toBe(false);
+      expect(get(importDone)).toBe(false);
+    });
+
+    it('discards an in-flight lookup belonging to the previous chain', async () => {
+      let resolveOnOldChain!: (value: TokenType) => void;
+      detectContractType.mockReturnValueOnce(new Promise<TokenType>((r) => (resolveOnOldChain = r)));
+
+      await type(addressInput(), ADDRESS_A);
+      await tick();
+
+      // The chain changes while the first lookup is still pending
+      detectContractType.mockResolvedValueOnce(TokenType.ERC20);
+      connectedSourceChain.set({ id: 167000 } as never);
+      await flush();
+
+      resolveOnOldChain(TokenType.ERC721);
+      await flush();
+
+      // The old chain's answer must not mark the address valid on the new chain
+      expect(addressIsMarkedValid()).toBe(false);
+      expect(get(importDone)).toBe(false);
+    });
+
+    it('clears a completed selection when the chain changes', async () => {
+      detectContractType.mockResolvedValue(TokenType.ERC721);
+      await type(addressInput(), ADDRESS_A);
+      await flush();
+
+      selectedNFTs.set([{ tokenId: 1 }] as never);
+      connectedSourceChain.set({ id: 167000 } as never);
+      await flush();
+
+      // The selection described a deployment on the chain we just left
+      expect(get(selectedNFTs)).toBeNull();
+      expect(get(importDone)).toBe(false);
+    });
+  });
+
   it('does not report a non-NFT contract as valid', async () => {
     detectContractType.mockResolvedValue(TokenType.ERC20);
 
