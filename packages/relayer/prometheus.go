@@ -32,8 +32,10 @@ var (
 		Name: "private_rpc_held_nonce_ops_total",
 		Help: "The total number of sends a private RPC endpoint answered by saying it already " +
 			"holds that nonce, labelled by that endpoint's position in the configured order. " +
-			"Not a failure — the endpoint is carrying the claim — but without it an endpoint " +
-			"answering this way is invisible, since nothing else counts the path",
+			"Not counted as a failure — the endpoint is carrying the claim — but a nonce it has " +
+			"not answered for before does count towards the consecutive ceiling, so an endpoint " +
+			"answering this to everything still steps aside. Without this counter the path is " +
+			"invisible, since nothing else records it",
 	}, []string{"endpoint"})
 	PrivateRPCTrips = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "private_rpc_trips_ops_total",
@@ -44,11 +46,12 @@ var (
 	}, []string{"endpoint"})
 	PrivateRPCAllRefused = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "private_rpc_all_refused_ops_total",
-		Help: "The total number of claims broadcast publicly because every private endpoint in " +
-			"rotation refused them repeatedly. Distinct from private_rpc_unavailable_ops_total, " +
-			"which counts claims sent publicly because no endpoint was in rotation at all: this " +
-			"is the relays being up and declining one particular claim, and it is a deliberate " +
-			"trade of that claim's privacy against never landing it",
+		Help: "The total number of sends broadcast publicly because every private endpoint in " +
+			"rotation refused that claim repeatedly. Counts sends rather than distinct claims, so " +
+			"a claim refused for long enough is counted once per broadcast. Distinct from " +
+			"private_rpc_unavailable_ops_total, which counts sends made publicly because no " +
+			"endpoint was in rotation at all: this is the relays being up and declining one " +
+			"particular claim, a deliberate trade of that claim's privacy against never landing it",
 	})
 	PrivateRPCAllRefusedAttempts = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "private_rpc_all_refused_attempts_ops_total",

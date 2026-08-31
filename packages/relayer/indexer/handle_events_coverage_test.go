@@ -65,6 +65,8 @@ func TestHandleCheckpointSavedEventSavesTheCheckpoint(t *testing.T) {
 	assert.Equal(t, event.Raw.BlockNumber, saved.EmittedBlockID)
 	assert.Equal(t, event.Raw.BlockNumber, saved.SyncedInBlockID)
 	assert.Equal(t, common.Hash(event.StateRoot).Hex(), saved.SyncData)
+	assert.Equal(t, i.destChainId.Uint64(), saved.SyncedChainID,
+		"both reader queries filter on this, so a zero here is a row that is never found")
 	assert.Equal(t, relayer.EventNameCheckpointSaved, saved.Name)
 
 	assert.Equal(t, float64(1), testutil.ToFloat64(relayer.CheckpointSavedEventsIndexed)-before)

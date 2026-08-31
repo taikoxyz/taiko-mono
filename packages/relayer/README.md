@@ -233,19 +233,31 @@ One claim can be refused by every endpoint without any of them being unhealthy �
 once for it, so none trips, and the claim would otherwise loop until `TX_SEND_TIMEOUT` while the
 relays go on serving everything else. After three consecutive sends of one nonce that every endpoint
 in rotation *answered* with a refusal, that claim is broadcast publicly and
-`private_rpc_all_refused_ops_total` counts it. A timeout or transport failure does not count towards
-this: an endpoint being down is what tripping handles, and counting it here would push claims into
-the open during an outage before the rotation had a chance to empty. Broadcasting publicly gives a
+`private_rpc_all_refused_ops_total` counts it. A landed claim clears its count, so a persistently
+refused one is exposed on one send in three rather than on every send.
+
+Two answers do not count towards this. A timeout or transport failure means the endpoint is down,
+which tripping handles, and counting it here would push claims into the open during an outage before
+the rotation had a chance to empty. An endpoint answering that it already holds the nonce does not
+count either — the claim is already where it needs to be, so broadcasting it would leak one every
+relay is carrying. Broadcasting publicly gives a
 competitor the message and proof, so it is deliberately the last resort — but a claim that never
 lands is worth less than one landed in the open.
 
-Three metrics are worth alerting on, all labelled or counted so they can be read without access to
+Five metrics are worth alerting on, all labelled or counted so they can be read without access to
 the logs. `private_rpc_failures_ops_total` is labelled by the refusing endpoint's position in the
 failover order, so it says which relay is unhealthy. `private_rpc_trips_ops_total`, labelled the
 same way, counts an endpoint actually leaving the rotation rather than each refusal on the way
 there — one fewer place to send privately. `private_rpc_unavailable_ops_total` counts transactions
 that went out through `DEST_RPC_URL` while private endpoints were configured — that is the relayer
-running exposed, and matters more than any individual refusal. Alongside them,
+running exposed, and matters more than any individual refusal.
+
+Two more count the other way a claim reaches the public mempool: not because the rotation was empty,
+but because every endpoint in it refused this one claim. `private_rpc_all_refused_attempts_ops_total`
+counts each time such a claim was offered to `DEST_RPC_URL`, and `private_rpc_all_refused_ops_total`
+counts the times that endpoint took it. Both count sends rather than distinct claims, so a claim
+refused for long enough is counted once per broadcast. Read together: attempts climbing while
+broadcasts do not means the public endpoint is failing as well and the claim is reaching nobody. Alongside them,
 `private_rpc_sends_ops_total`, labelled the same way, counts the transactions each endpoint
 accepted. It is not an alert on its own; it is what turns the refusals into a rate, which is what
 separates a busy relay turning down a few claims from one that has started turning down most of

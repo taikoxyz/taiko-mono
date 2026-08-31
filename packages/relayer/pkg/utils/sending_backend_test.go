@@ -1730,3 +1730,61 @@ func TestSendingBackend_BoundsTheRefusedNonceTracking(t *testing.T) {
 
 	assert.LessOrEqual(t, len(b.allRefused), maxTrackedRefusedNonces)
 }
+
+func TestSendingBackend_ExposesARefusedClaimOnlyOneSendInThree(t *testing.T) {
+	public := &fakeBackend{}
+	only := &fakeSender{err: rpcRejection{"claim not accepted"}}
+
+	b := NewSendingBackend(public, []TxSender{only}, nil, nil)
+	b.failureThreshold = 1 << 30
+	b.failureCeiling = 1 << 30
+
+	tx := txWithNonce(71)
+
+	// The rate is the privacy property the whole trade rests on. Without the clear on a landed
+	// public send, every send past the third goes public and a persistently refused claim is
+	// broadcast on every resubmission instead of one in three.
+	for i := 0; i < 3*DefaultPrivateRPCAllRefusedLimit; i++ {
+		_ = b.SendTransaction(context.Background(), tx)
+	}
+
+	assert.Len(t, public.sent, 3, "one exposure per completed run, not one per send")
+}
+
+func TestSendingBackend_DropsAHeldAnswerFromAnEndpointThatHasSinceLeft(t *testing.T) {
+	b, _, _, _, _ := newTestBackend(t, nil)
+
+	stale := admit(b, 0)
+
+	trip(b, 0)
+
+	before := b.consecutive[0]
+
+	// A held answer that outlived the trip belongs to the admission that is over, not to the fresh
+	// budget the endpoint comes back with, so it must not move the count at all.
+	require.False(t, b.recordHeldNonce(stale, 5))
+	assert.Equal(t, before, b.consecutive[0], "a stale admission spends nothing")
+}
+
+func TestSendingBackend_AnOutageIsNotAnAnsweredRefusal(t *testing.T) {
+	public := &fakeBackend{}
+	// A real transport failure, rather than a bare errors.New that is neither a net.Error nor an
+	// rpc.Error and so proves less than it looks.
+	only := &fakeSender{err: &net.OpError{
+		Op:  "dial",
+		Net: "tcp",
+		Err: errors.New("connection refused"),
+	}}
+
+	b := NewSendingBackend(public, []TxSender{only}, nil, nil)
+	b.failureThreshold = 1 << 30
+	b.failureCeiling = 1 << 30
+
+	tx := txWithNonce(81)
+
+	for i := 0; i < 3*DefaultPrivateRPCAllRefusedLimit; i++ {
+		require.Error(t, b.SendTransaction(context.Background(), tx))
+	}
+
+	assert.Empty(t, public.sent, "an endpoint being down is what tripping handles")
+}

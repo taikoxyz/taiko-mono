@@ -472,11 +472,7 @@ func (r *RabbitMQ) Notify(ctx context.Context, wg *sync.WaitGroup) error {
 
 			return nil
 		case err := <-r.connErrCh:
-			if err != nil {
-				slog.Error("rabbitmq notify close connection", "err", err.Error())
-			} else {
-				slog.Error("rabbitmq notify close connection")
-			}
+			logNotifyClose("rabbitmq notify close connection", err)
 
 			relayer.QueueConnectionNotifyClosed.Inc()
 
@@ -489,11 +485,7 @@ func (r *RabbitMQ) Notify(ctx context.Context, wg *sync.WaitGroup) error {
 
 			return queue.ErrClosed
 		case err := <-r.chErrCh:
-			if err != nil {
-				slog.Error("rabbitmq notify close channel", "err", err.Error())
-			} else {
-				slog.Error("rabbitmq notify close channel")
-			}
+			logNotifyClose("rabbitmq notify close channel", err)
 
 			relayer.QueueChannelNotifyClosed.Inc()
 
@@ -516,7 +508,6 @@ func (r *RabbitMQ) Notify(ctx context.Context, wg *sync.WaitGroup) error {
 	}
 }
 
-// Subscribe should be called by consumers.
 // logNotifyClose records a close notification, which carries no error when the close was graceful.
 func logNotifyClose(message string, err *amqp.Error) {
 	if err != nil {
@@ -528,6 +519,7 @@ func logNotifyClose(message string, err *amqp.Error) {
 	slog.Error(message)
 }
 
+// Subscribe should be called by consumers.
 func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, wg *sync.WaitGroup) error {
 	wg.Add(1)
 

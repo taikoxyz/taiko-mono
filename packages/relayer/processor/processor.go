@@ -391,27 +391,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 //
 // For http and https the client is built without contacting the endpoint, so a relay that is down
 // does not fail this; config parsing rejects every other scheme for that reason.
-// installPrivateSending puts a SendingBackend between the transaction manager and the chain, so
-// that broadcasts go to the private endpoints while every read still goes to the endpoint the
-// transaction manager was configured with. It returns the backend so the caller can close it.
-//
-// This is a named function rather than two lines inline because the assignment is the whole
-// feature: without it every claim is signed and broadcast exactly as before, through the public
-// mempool, and nothing else observes the difference. Kept inline it had no test that failed when
-// it was removed.
-func installPrivateSending(
-	txmgrConfig *txmgr.Config,
-	senders []utils.TxSender,
-	hosts []string,
-	retryInterval *time.Duration,
-) *utils.SendingBackend {
-	backend := utils.NewSendingBackend(txmgrConfig.Backend, senders, hosts, retryInterval)
-
-	txmgrConfig.Backend = backend
-
-	return backend
-}
-
 // privateRPCHosts returns the host names of the configured endpoints, for keeping them out of the
 // text of any error this processor logs. Entries that will not parse contribute nothing: they are
 // rejected before this point, and a blank host would match everywhere.
@@ -454,6 +433,27 @@ func dialPrivateSenders(ctx context.Context, urls []string) ([]utils.TxSender, e
 	}
 
 	return senders, nil
+}
+
+// installPrivateSending puts a SendingBackend between the transaction manager and the chain, so
+// that broadcasts go to the private endpoints while every read still goes to the endpoint the
+// transaction manager was configured with. It returns the backend so the caller can close it.
+//
+// This is a named function rather than two lines inline because the assignment is the whole
+// feature: without it every claim is signed and broadcast exactly as before, through the public
+// mempool, and nothing else observes the difference. Kept inline it had no test that failed when
+// it was removed.
+func installPrivateSending(
+	txmgrConfig *txmgr.Config,
+	senders []utils.TxSender,
+	hosts []string,
+	retryInterval *time.Duration,
+) *utils.SendingBackend {
+	backend := utils.NewSendingBackend(txmgrConfig.Backend, senders, hosts, retryInterval)
+
+	txmgrConfig.Backend = backend
+
+	return backend
 }
 
 func (p *Processor) Name() string {

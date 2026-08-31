@@ -63,11 +63,6 @@ type TxSender struct {
 	sent []*types.Transaction
 }
 
-// NewFailingTxSender returns a sender that refuses every transaction with err.
-func NewFailingTxSender(err error) *TxSender {
-	return &TxSender{err: err}
-}
-
 func (s *TxSender) SendTransaction(_ context.Context, tx *types.Transaction) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

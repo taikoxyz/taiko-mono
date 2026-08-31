@@ -316,7 +316,9 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 		}
 
 		// An endpoint that answers because it is already holding this nonce is not refusing the
-		// claim, and steering the resend to it is the whole point of doing so. Nothing is charged.
+		// claim, and steering the resend to it is the whole point of doing so. It is not charged as
+		// a failure; a nonce this endpoint has not answered for before does count towards the
+		// consecutive ceiling, so answering this to everything still ends. See recordHeldNonce.
 		if holdsTheNonce(err) {
 			// Not a refusal, so it cannot count towards the public fallback either. Every endpoint
 			// answering that it holds this nonce means the claim is already everywhere it needs to
@@ -385,11 +387,6 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 	// only once for it, so nobody leaves the rotation over one unwanted claim and the fallback
 	// below would never be reached — the claim would simply loop until TX_SEND_TIMEOUT.
 	if allAnsweredRejection && b.countAllRefused(tx.Nonce()) {
-		slog.Warn("Every private endpoint refused this claim, broadcasting publicly",
-			"txHash", tx.Hash().Hex(),
-			"afterSends", b.allRefusedLimit,
-		)
-
 		relayer.PrivateRPCAllRefusedAttempts.Inc()
 
 		publicErr := b.ETHBackend.SendTransaction(ctx, tx)
@@ -397,8 +394,22 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 			b.clearAllRefused(tx.Nonce())
 			relayer.PrivateRPCAllRefused.Inc()
 
+			// Logged after the fact rather than before it. Announcing the broadcast up front left
+			// a log asserting an exposure that had not happened whenever the public endpoint then
+			// failed, which is the reading an operator would trust least once they noticed.
+			slog.Warn("Every private endpoint refused this claim, broadcast publicly",
+				"txHash", tx.Hash().Hex(),
+				"afterSends", b.allRefusedLimit,
+			)
+
 			return nil
 		}
+
+		slog.Error("Every private endpoint refused this claim and the public endpoint would not "+
+			"take it either",
+			"txHash", tx.Hash().Hex(),
+			"error", redactEndpoints(publicErr, b.hosts),
+		)
 
 		// The public attempt is the last and most complete thing tried, so it is what the caller
 		// should classify on: a refusal from a relay may not be transient, but a public endpoint
@@ -901,10 +912,12 @@ func (b *SendingBackend) recordSuccess(index int, nonce uint64) {
 // one". A first send arriving out of order behind a higher nonce is treated as a resend by that
 // test; that only reorders private endpoints against each other and costs nothing.
 //
-// Nothing is charged for the reordering itself, and nothing is charged for what the holder answers
-// either: a relay that already has the nonce replies "replacement transaction underpriced" or
-// "already known", which reads as a refusal but is evidence it is holding the claim. See
-// holdsTheNonce. Non-inclusion is usually a fee that was too low or a race already lost, not an
+// Nothing is charged for the reordering itself, and what the holder answers is not charged as a
+// failure: a relay that already has the nonce replies "replacement transaction underpriced" or
+// "already known", which reads as a refusal but is evidence it is holding the claim. It is not free
+// either — a nonce the endpoint has not answered for before counts towards the consecutive ceiling,
+// so an endpoint answering this to every claim still steps aside. See holdsTheNonce and
+// recordHeldNonce. Non-inclusion is usually a fee that was too low or a race already lost, not an
 // unhealthy relay, and tripping an endpoint for it would push claims into the public mempool for
 // reasons that have nothing to do with the endpoint — the exposure this exists to remove. Bounding
 // how long a send waits for inclusion is TX_SEND_TIMEOUT's job.
@@ -939,7 +952,9 @@ func (b *SendingBackend) prioritiseNonceHolder(admitted []admission, nonce uint6
 // suppresses them. Three of those took the preferred relay out of rotation for five minutes, for
 // doing exactly what steering the resend to it was meant to achieve.
 //
-// Both answers are evidence the endpoint is holding the claim, so neither is charged.
+// Both answers are evidence the endpoint is holding the claim, so neither is charged as a failure.
+// Both still count towards the consecutive ceiling when the nonce is one this endpoint has not
+// answered for already; see recordHeldNonce.
 //
 // This matches on geth's wording, which reaches us only from a relay that proxies its node's
 // txpool errors verbatim. Neither shipped default does: Flashbots' rpc-endpoint answers a duplicate

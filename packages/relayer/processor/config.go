@@ -389,9 +389,11 @@ func isLocalHost(host string) bool {
 // underpriced has had several chances to catch up, and a match with the PRIVATE_RPC_RETRY_INTERVAL
 // default, so a stalled claim and a tripped endpoint come back on the same timescale.
 //
-// It is a ceiling rather than the usual exit. A send no endpoint will take ends earlier, at the
-// transaction manager's TxNotInMempoolTimeout — two minutes by default — because no publish ever
-// succeeded.
+// It is a ceiling rather than the usual exit, though less often than it used to be. A send nothing
+// will take ends earlier, at the transaction manager's TxNotInMempoolTimeout — two minutes by
+// default — because no publish ever succeeded. The public fallback changes that for a claim every
+// private endpoint refuses: its third send goes out through DEST_RPC_URL, and one successful
+// publish disarms that exit, so such a send now runs to this full five minutes.
 const DefaultPrivateRPCSendTimeout = 5 * time.Minute
 
 // privateRPCSendTimeout returns the send timeout to run with, supplying a default rather than
