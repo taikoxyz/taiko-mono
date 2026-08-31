@@ -74,6 +74,15 @@
     validatingRecipient = false;
   }
 
+  /** Whether the stored classification still describes the live recipient and chain */
+  function recipientClassificationIsCurrent(): boolean {
+    return (
+      !!validatedRecipient &&
+      addressesEqual(validatedRecipient.address, $recipientAddress) &&
+      validatedRecipient.chainId === $destNetwork?.id
+    );
+  }
+
   function cancelModal() {
     supersedePendingValidation();
 
@@ -84,7 +93,11 @@
     invalidRecipient = prevInvalidRecipient;
     invalidDestOwner = prevInvalidDestOwner;
     recipientIsSmartContract = prevRecipientIsSmartContract;
-    validatedRecipient = prevValidatedRecipient;
+    // The snapshot was taken before a destination-chain change could invalidate it;
+    // restoring a classification for a chain we no longer bridge to would make the
+    // dialog skip reclassification on reopen while the predicate rejects the mismatch
+    validatedRecipient =
+      prevValidatedRecipient && prevValidatedRecipient.chainId === $destNetwork?.id ? prevValidatedRecipient : null;
     validatedDestOwner = prevValidatedDestOwner;
 
     // Assigning a store the value it already holds emits no update, so the reactive
@@ -110,8 +123,10 @@
       prevValidatedDestOwner = validatedDestOwner;
 
       // AddressInput only dispatches validation on user input, so a pre-filled recipient
-      // would otherwise stay unclassified and could be confirmed on a stale answer
-      if ($recipientAddress && !validatedRecipient) {
+      // would otherwise stay unclassified and could be confirmed on a stale answer.
+      // A record that does not describe both the current draft and the current
+      // destination chain is no better than none: reclassify rather than sit on it.
+      if ($recipientAddress && !recipientClassificationIsCurrent()) {
         validateRecipient($recipientAddress);
       }
     }
@@ -157,6 +172,15 @@
       recipientIsSmartContract = isContract;
       validatedRecipient = { address: addr, chainId: destChainId };
       invalidRecipient = false;
+
+      // A remount (Review -> Recipient) loses the local record while the store keeps the
+      // owner. $destOwnerAddress only ever holds an address that passed validation, so a
+      // prefilled owner is already validated and just needs its provenance restored -
+      // otherwise Confirm stays disabled with nothing on screen explaining why.
+      if (isContract && $destOwnerAddress && !validatedDestOwner) {
+        validatedDestOwner = $destOwnerAddress;
+        invalidDestOwner = false;
+      }
     } catch (error) {
       if (generation !== recipientValidationGeneration) return;
       // A failed lookup cannot prove the recipient is claimable; leave it unclassified
