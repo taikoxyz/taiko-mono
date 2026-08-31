@@ -105,5 +105,11 @@ describe('canConfirmRecipient', () => {
     it('ignores a destination owner when the recipient is a plain wallet', () => {
       expect(canConfirmRecipient(validState({ destOwnerDraft: 'abc', validatedDestOwner: null }))).toBe(true);
     });
+
+    it('ignores a destination-owner error left behind by a discarded contract recipient', () => {
+      // Classify contract C, enter an invalid owner, then replace C with a plain wallet.
+      // The owner field is gone, so nothing on screen could clear its error flag.
+      expect(canConfirmRecipient(validState({ invalidDestOwner: true }))).toBe(true);
+    });
   });
 });

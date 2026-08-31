@@ -290,6 +290,55 @@ describe('Recipient dialog', () => {
     });
   });
 
+  describe('state carried in the stores', () => {
+    it('accepts a destination owner that was already validated before a remount', async () => {
+      // Navigating Review -> Recipient destroys and recreates the component. The stores
+      // keep the contract recipient and its owner; the local validation record does not.
+      recipientAddress.set(CONTRACT as never);
+      destOwnerAddress.set(DEST_OWNER as never);
+      isSmartContract.mockResolvedValue(true);
+
+      const m = mount();
+      const editButton = Array.from(m.target.querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('common.edit'),
+      ) as HTMLButtonElement;
+      editButton.click();
+      await flush();
+
+      // $destOwnerAddress only ever holds an address that passed validation, so the
+      // prefilled owner must not require a pointless re-edit
+      expect(m.confirmButton.disabled).toBe(false);
+    });
+
+    it('does not treat a chain-A classification as current after the chain changed', async () => {
+      isSmartContract.mockResolvedValue(false);
+      const m = mount();
+      await m.type(m.recipientInput(), WALLET);
+      await flush();
+
+      const editButton = Array.from(m.target.querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('common.edit'),
+      ) as HTMLButtonElement;
+      editButton.click();
+      await flush();
+
+      // Switch the destination while the dialog is open, then cancel the edit
+      destNetwork.set({ id: OTHER_CHAIN } as never);
+      await tick();
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      await flush();
+
+      // Reopening must reclassify for the new chain rather than restore the old record
+      // and then sit blocked on a mismatch nothing can clear
+      isSmartContract.mockClear();
+      editButton.click();
+      await flush();
+
+      expect(isSmartContract).toHaveBeenCalledWith(WALLET, OTHER_CHAIN);
+      expect(m.confirmButton.disabled).toBe(false);
+    });
+  });
+
   it('does not commit a pending classification after the component is destroyed', async () => {
     let resolveLookup!: (value: boolean) => void;
     isSmartContract.mockReturnValue(new Promise<boolean>((resolve) => (resolveLookup = resolve)));

@@ -39,7 +39,7 @@ export const addressesEqual = (a: Maybe<string>, b: Maybe<string>): boolean =>
  */
 export function canConfirmRecipient(state: RecipientDialogState): boolean {
   if (state.validatingRecipient) return false;
-  if (state.invalidRecipient || state.invalidDestOwner) return false;
+  if (state.invalidRecipient) return false;
   if (!state.recipientDraft) return false;
 
   // The classification has to belong to the address on screen, on the chain we bridge to
@@ -51,6 +51,10 @@ export function canConfirmRecipient(state: RecipientDialogState): boolean {
   // passed its own validation - an unvalidated draft would leave $destOwnerAddress null and
   // the bridges fall back to `destOwner = to`, i.e. the very contract that cannot claim.
   if (state.recipientIsSmartContract) {
+    // Only relevant while an owner is actually being asked for: once the recipient is a
+    // plain wallet the field is gone, and a flag left behind by a discarded draft would
+    // block Confirm with no visible control that could clear it
+    if (state.invalidDestOwner) return false;
     if (!state.destOwnerDraft) return false;
     if (!addressesEqual(state.validatedDestOwner, state.destOwnerDraft)) return false;
   }
