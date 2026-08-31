@@ -52,8 +52,21 @@ func TestHandleCheckpointSavedEventSavesTheCheckpoint(t *testing.T) {
 	require.NoError(t, i.handleCheckpointSavedEvent(context.Background(), checkpointSavedEvent(), false))
 
 	// The processor waits on these rows before it can prove a message, so the checkpoint has to
-	// be persisted with the synced block it represents.
+	// be persisted with the synced block it represents. A row count cannot see that: rewriting the
+	// handler to persist zeroes for all of it left this test, and the whole package, green.
 	require.Equal(t, 1, repo.SavedCount())
+
+	saved := repo.SavedEvents()[0]
+
+	event := checkpointSavedEvent()
+
+	assert.Equal(t, event.BlockNumber.Uint64(), saved.BlockID,
+		"the synced block is what wait_header_synced gates every claim on")
+	assert.Equal(t, event.Raw.BlockNumber, saved.EmittedBlockID)
+	assert.Equal(t, event.Raw.BlockNumber, saved.SyncedInBlockID)
+	assert.Equal(t, common.Hash(event.StateRoot).Hex(), saved.SyncData)
+	assert.Equal(t, relayer.EventNameCheckpointSaved, saved.Name)
+
 	assert.Equal(t, float64(1), testutil.ToFloat64(relayer.CheckpointSavedEventsIndexed)-before)
 }
 

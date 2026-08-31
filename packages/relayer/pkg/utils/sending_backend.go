@@ -67,6 +67,20 @@ const DefaultPrivateRPCConsecutiveFailureCeiling = 10
 // rest were never asked.
 const MinPrivateRPCAttemptShare = time.Second
 
+// DefaultPrivateRPCAllRefusedLimit is how many sends of one nonce may be refused by every endpoint
+// in rotation before that claim is offered publicly.
+//
+// Tripping is per endpoint, so a claim that every relay declines individually trips nobody: each is
+// charged once for it, other claims keep clearing their tallies, and the rotation never empties. The
+// claim then loops until TX_SEND_TIMEOUT with nothing to show for it and no metric moving, because
+// the relays are healthy and only this claim is unwanted.
+//
+// Going public gives a competitor the message and proof, which is what this package exists to
+// prevent, so it is the last resort rather than the first — but a claim that never lands is worth
+// less than one landed in the open. At the 48s resubmission default this is a couple of minutes of
+// trying privately first.
+const DefaultPrivateRPCAllRefusedLimit = 3
+
 // DefaultPrivateRPCAttemptTimeout caps a single attempt when the caller supplied no deadline.
 //
 // The transaction manager always calls SendTransaction under its NetworkTimeout, so this does not
@@ -129,6 +143,10 @@ type SendingBackend struct {
 
 	private          []TxSender
 	hosts            []string
+	allRefusedNonce  uint64
+	allRefusedCount  int
+	hasAllRefused    bool
+	allRefusedLimit  int
 	failures         []int
 	failedAt         []time.Time
 	lastCharged      []uint64
@@ -181,6 +199,7 @@ func NewSendingBackend(
 		hasAccepted:      make([]bool, len(private)),
 		failureThreshold: DefaultPrivateRPCFailureThreshold,
 		failureCeiling:   DefaultPrivateRPCConsecutiveFailureCeiling,
+		allRefusedLimit:  DefaultPrivateRPCAllRefusedLimit,
 		retryInterval:    interval,
 		now:              time.Now,
 	}
@@ -195,6 +214,7 @@ func NewSendingBackend(
 		relayer.PrivateRPCFailures.WithLabelValues(endpoint).Add(0)
 		relayer.PrivateRPCSends.WithLabelValues(endpoint).Add(0)
 		relayer.PrivateRPCTrips.WithLabelValues(endpoint).Add(0)
+		relayer.PrivateRPCHeldNonce.WithLabelValues(endpoint).Add(0)
 		relayer.PrivateRPCInRotation.WithLabelValues(endpoint).Set(1)
 	}
 
@@ -238,6 +258,11 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 
 	var err error
 
+	// Only a send every endpoint answered counts toward the public fallback below. A timeout or a
+	// transport failure is an outage, which tripping already handles by emptying the rotation; the
+	// fallback exists for the opposite case, healthy relays that all decline one claim.
+	allAnsweredRejection := true
+
 	for attempt, endpoint := range inRotation {
 		attemptCtx, cancel := attemptContext(ctx, len(inRotation)-attempt)
 
@@ -265,6 +290,7 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 		cancel()
 
 		if err == nil {
+			b.clearAllRefused(tx.Nonce())
 			b.recordSuccess(endpoint.index, tx.Nonce())
 			relayer.PrivateRPCSends.WithLabelValues(strconv.Itoa(endpoint.index)).Inc()
 
@@ -282,6 +308,28 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 		// An endpoint that answers because it is already holding this nonce is not refusing the
 		// claim, and steering the resend to it is the whole point of doing so. Nothing is charged.
 		if holdsTheNonce(err) {
+			// Not a refusal, so it cannot count towards the public fallback either. Every endpoint
+			// answering that it holds this nonce means the claim is already everywhere it needs to
+			// be — broadcasting it publicly then would leak a claim the relays are all carrying.
+			allAnsweredRejection = false
+
+			relayer.PrivateRPCHeldNonce.WithLabelValues(strconv.Itoa(endpoint.index)).Inc()
+
+			// Charged against the consecutive count but not the failure tally. An endpoint that
+			// answers this way for every send is not healthy however good its reason, and skipping
+			// recordFailure entirely meant it could never reach the ceiling that exists to end
+			// exactly that: it would hold its place indefinitely while nothing was ever sent
+			// through it.
+			if tripped := b.recordHeldNonce(endpoint); tripped {
+				relayer.PrivateRPCTrips.WithLabelValues(strconv.Itoa(endpoint.index)).Inc()
+
+				slog.Warn("Private endpoint taken out of rotation",
+					"endpoint", endpoint.index,
+					"reason", "answered that it holds every nonce offered",
+					"retryIn", b.retryInterval,
+				)
+			}
+
 			slog.Info("Private endpoint already holds this nonce",
 				"endpoint", endpoint.index,
 				"nonce", tx.Nonce(),
@@ -296,7 +344,12 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 		// to be able to trip. Checking the deadline before the send rather than after is what
 		// keeps that true for the last endpoint in rotation, whose share is the rest of the
 		// budget and which therefore always finds ctx expired once it has hung.
-		tripped := b.recordFailure(endpoint, tx.Nonce(), answeredWithRejection(err))
+		rejection := answeredWithRejection(err)
+		if !rejection {
+			allAnsweredRejection = false
+		}
+
+		tripped := b.recordFailure(endpoint, tx.Nonce(), rejection)
 		relayer.PrivateRPCFailures.WithLabelValues(strconv.Itoa(endpoint.index)).Inc()
 
 		slog.Warn("Private endpoint refused a transaction",
@@ -318,7 +371,66 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 		}
 	}
 
+	// Every endpoint in rotation refused this claim. Tripping is per endpoint and each was charged
+	// only once for it, so nobody leaves the rotation over one unwanted claim and the fallback
+	// below would never be reached — the claim would simply loop until TX_SEND_TIMEOUT.
+	if allAnsweredRejection && b.countAllRefused(tx.Nonce()) {
+		slog.Warn("Every private endpoint refused this claim, broadcasting publicly",
+			"txHash", tx.Hash().Hex(),
+			"afterSends", b.allRefusedLimit,
+		)
+
+		if publicErr := b.ETHBackend.SendTransaction(ctx, tx); publicErr == nil {
+			relayer.PrivateRPCAllRefused.Inc()
+
+			return nil
+		}
+	}
+
 	return b.redacted(err)
+}
+
+// clearAllRefused forgets the refusal run for this nonce, because an endpoint has just taken it.
+func (b *SendingBackend) clearAllRefused(nonce uint64) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	if b.hasAllRefused && b.allRefusedNonce == nonce {
+		b.allRefusedCount = 0
+	}
+}
+
+// countAllRefused records that every endpoint in rotation refused this nonce, and reports whether
+// that has now happened often enough in a row to justify broadcasting it publicly.
+//
+// One slot rather than a map: the transaction manager resends an unconfirmed nonce every
+// RESUBMISSION_TIMEOUT, so consecutive refusals of one claim land here in a row, and a different
+// nonce means a different claim and starts the count again. Claims are handled concurrently, so
+// two claims both being refused can reset each other's count — the same trade the failure
+// deduplication makes, and with the same consequence: the fallback is delayed, never skipped, and
+// only for as long as both claims keep failing.
+//
+// The count is cleared once it fires, so a claim that stays unwanted is offered publicly on the
+// first refusal of each subsequent run rather than once and never again.
+func (b *SendingBackend) countAllRefused(nonce uint64) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	if !b.hasAllRefused || b.allRefusedNonce != nonce {
+		b.allRefusedNonce = nonce
+		b.allRefusedCount = 0
+		b.hasAllRefused = true
+	}
+
+	b.allRefusedCount++
+
+	if b.allRefusedCount < b.allRefusedLimit {
+		return false
+	}
+
+	b.allRefusedCount = 0
+
+	return true
 }
 
 // attemptContext gives one endpoint its share of the time left on ctx, so an endpoint that hangs
@@ -359,8 +471,12 @@ func attemptContext(ctx context.Context, remaining int) (context.Context, contex
 //
 // The URL pattern alone is not enough. A name that fails to resolve, or a certificate that does not
 // match, puts the host in the error outside any URL — `lookup relay.example.com on 10.0.0.1:53: no
-// such host` — so the configured hosts are replaced by name as well. That also covers the internal
-// addresses the loopback and private-range exception exists to allow.
+// such host` — so the configured hosts are replaced by name as well.
+//
+// What survives, in that same example, is `10.0.0.1:53`: addresses the resolver produced rather than
+// names we were configured with. The IP a dial reports goes the same way. Matching bare `ip:port`
+// shapes in error text is the kind of pattern that quietly stops matching, so this does not try —
+// a relay's provider can still be inferred from a failing deployment's logs.
 func redactEndpoints(err error, hosts []string) string {
 	text := urlInErrorText.ReplaceAllString(err.Error(), "[redacted]")
 
@@ -655,6 +771,36 @@ func (b *SendingBackend) recordFailure(endpoint admission, nonce uint64, rejecti
 	return false
 }
 
+// recordHeldNonce counts an endpoint answering that it already holds the nonce.
+//
+// It is not a refusal, so it does not touch the failure tally that the threshold reads and does not
+// mark the endpoint unhealthy. But it does count towards the consecutive ceiling: an endpoint that
+// answers this way to everything is taking no transactions, whatever its reason, and without this
+// it could never reach the bound that exists for precisely that — it skipped the accounting
+// altogether and kept its place forever while nothing went through it.
+//
+// A send it accepts clears the count, as it clears every other.
+func (b *SendingBackend) recordHeldNonce(endpoint admission) (tripped bool) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	index := endpoint.index
+
+	if b.generation[index] != endpoint.generation {
+		return false
+	}
+
+	b.consecutive[index]++
+
+	if b.consecutive[index] >= b.failureCeiling {
+		b.leaveRotation(index)
+
+		return true
+	}
+
+	return false
+}
+
 // leaveRotation takes the endpoint at index out of rotation for the retry interval, ending the
 // admission its in-flight sends were let in under so their results cannot be charged to the next
 // one. The caller holds the lock.
@@ -753,6 +899,13 @@ func (b *SendingBackend) prioritiseNonceHolder(admitted []admission, nonce uint6
 // doing exactly what steering the resend to it was meant to achieve.
 //
 // Both answers are evidence the endpoint is holding the claim, so neither is charged.
+//
+// This matches on geth's wording, which reaches us only from a relay that proxies its node's
+// txpool errors verbatim. Neither shipped default does: Flashbots' rpc-endpoint answers a duplicate
+// resubmission with success and collapses its own rejections to -32603, and MEV Blocker publishes
+// no such wording. So in the recommended configuration this is inert — and so is the over-charging
+// it exists to prevent. It is here for relays that do proxy geth, and it is worth knowing that a
+// change of wording on either side moves both.
 func holdsTheNonce(err error) bool {
 	if err == nil {
 		return false

@@ -290,6 +290,9 @@ func TestSendingBackend_RefusingTheSameTransactionAgainDoesNotTrip(t *testing.T)
 func TestSendingBackend_AFeeBumpedResendIsStillTheSameClaim(t *testing.T) {
 	first := &fakeSender{err: rpcRejection{"failed to get tx into the mempool"}}
 	b := NewSendingBackend(&fakeBackend{}, []TxSender{first}, nil, nil)
+	// The all-refused fallback is not what is under test here; leave it out of the way so the
+	// charge count is the only thing this asserts.
+	b.allRefusedLimit = 1 << 30
 
 	// One endpoint, so the ordering cannot mask what is being tested: every resend reaches this
 	// endpoint, and only the deduplication decides whether it is charged again.
@@ -983,6 +986,9 @@ func TestSendingBackend_AnEndpointRefusingEverythingStepsAside(t *testing.T) {
 	broken := &fakeSender{err: rpcRejection{"internal error"}}
 
 	b := NewSendingBackend(public, []TxSender{broken}, nil, nil)
+	// This is about the ceiling emptying the rotation; the all-refused fallback would otherwise
+	// short-circuit the run by going public before the ceiling is reached.
+	b.allRefusedLimit = 1 << 30
 
 	unavailableBefore := testutil.ToFloat64(relayer.PrivateRPCUnavailable)
 
@@ -1370,6 +1376,74 @@ func TestSendingBackend_KeepsTheAcceptedMarkAcrossATrip(t *testing.T) {
 	assert.Len(t, first.sent, 3)
 }
 
+func TestSendingBackend_OffersAClaimEveryEndpointRefusesToThePublicMempool(t *testing.T) {
+	public := &fakeBackend{}
+	first := &fakeSender{err: rpcRejection{"claim not accepted"}}
+	second := &fakeSender{err: rpcRejection{"claim not accepted"}}
+
+	b := NewSendingBackend(public, []TxSender{first, second}, nil, nil)
+
+	before := testutil.ToFloat64(relayer.PrivateRPCAllRefused)
+
+	tx := txWithNonce(21)
+
+	// Tripping is per endpoint and each is charged once for this claim, so no endpoint leaves the
+	// rotation over it: without the fallback the claim would loop until TX_SEND_TIMEOUT with the
+	// relays healthy, nothing tripped and no metric moving.
+	for i := 0; i < DefaultPrivateRPCAllRefusedLimit-1; i++ {
+		require.Error(t, b.SendTransaction(context.Background(), tx))
+	}
+
+	assert.Empty(t, public.sent, "the public mempool is the last resort, not the second")
+
+	require.NoError(t, b.SendTransaction(context.Background(), tx))
+
+	assert.Len(t, public.sent, 1, "a claim that never lands is worth less than one landed in the open")
+	assert.Equal(t, []int{0, 1}, rotation(b), "the relays are healthy; only this claim is unwanted")
+	assert.Equal(t, float64(1), testutil.ToFloat64(relayer.PrivateRPCAllRefused)-before)
+}
+
+func TestSendingBackend_ADifferentClaimStartsTheRefusalRunAgain(t *testing.T) {
+	public := &fakeBackend{}
+	only := &fakeSender{err: rpcRejection{"claim not accepted"}}
+
+	b := NewSendingBackend(public, []TxSender{only}, nil, nil)
+	// Keep the endpoint in rotation: distinct refused claims would otherwise trip it, and the
+	// claim would go public over an empty rotation rather than over the run this is about.
+	b.failureThreshold = 1 << 30
+	b.failureCeiling = 1 << 30
+
+	// Refusals of different claims are not a run: each is one claim the relay would not take, and
+	// going public on the strength of that would leak claims that were never persistently refused.
+	for nonce := uint64(1); nonce <= uint64(2*DefaultPrivateRPCAllRefusedLimit); nonce++ {
+		require.Error(t, b.SendTransaction(context.Background(), txWithNonce(nonce)))
+	}
+
+	assert.Empty(t, public.sent)
+}
+
+func TestSendingBackend_AnOutageDoesNotCountTowardsThePublicFallback(t *testing.T) {
+	public := &fakeBackend{}
+	only := &fakeSender{err: errors.New("connection refused")}
+
+	b := NewSendingBackend(public, []TxSender{only}, nil, nil)
+	// Keep the endpoint in rotation, so this isolates the fallback from the trip that would
+	// otherwise send the claim public for an entirely different reason.
+	b.failureThreshold = 1 << 30
+	b.failureCeiling = 1 << 30
+
+	tx := txWithNonce(9)
+
+	// A transport failure says the endpoint is down, which tripping handles by emptying the
+	// rotation. Counting it here as well would push claims public during an outage before the
+	// rotation had a chance to empty.
+	for i := 0; i < 2*DefaultPrivateRPCAllRefusedLimit; i++ {
+		require.Error(t, b.SendTransaction(context.Background(), tx))
+	}
+
+	assert.Empty(t, public.sent)
+}
+
 func TestSendingBackend_DoesNotChargeAHolderForHavingTheNonce(t *testing.T) {
 	public := &fakeBackend{}
 	// What a relay answers when it already has this nonce. It is a JSON-RPC error, so it reads as
@@ -1449,4 +1523,64 @@ func TestSendingBackend_CreatesEverySeriesUpFront(t *testing.T) {
 
 	assert.Equal(t, float64(1), testutil.ToFloat64(relayer.PrivateRPCInRotation.WithLabelValues("0")),
 		"an endpoint starts in rotation")
+}
+
+func TestSendingBackend_AHeldNonceDoesNotReachThePublicMempool(t *testing.T) {
+	public := &fakeBackend{}
+	// Every endpoint answers that it is already holding this nonce. The claim is therefore
+	// everywhere it needs to be, and broadcasting it publicly would leak one the relays all carry.
+	first := &fakeSender{err: rpcRejection{txpool.ErrReplaceUnderpriced.Error()}}
+	second := &fakeSender{err: rpcRejection{txpool.ErrAlreadyKnown.Error()}}
+
+	b := NewSendingBackend(public, []TxSender{first, second}, nil, nil)
+
+	tx := txWithNonce(31)
+
+	for i := 0; i < 2*DefaultPrivateRPCAllRefusedLimit; i++ {
+		require.Error(t, b.SendTransaction(context.Background(), tx))
+	}
+
+	assert.Empty(t, public.sent, "holding a claim is not refusing it")
+	assert.Equal(t, []int{0, 1}, rotation(b))
+}
+
+func TestSendingBackend_AnEndpointHoldingEveryNonceStillStepsAside(t *testing.T) {
+	public := &fakeBackend{}
+	// A relay answering this to everything is taking no transactions, whatever its reason. Skipping
+	// the accounting entirely meant it could never reach the ceiling that exists for exactly that,
+	// so it kept its place forever while nothing went through it.
+	only := &fakeSender{err: rpcRejection{txpool.ErrAlreadyKnown.Error()}}
+
+	b := NewSendingBackend(public, []TxSender{only}, nil, nil)
+
+	before := testutil.ToFloat64(relayer.PrivateRPCHeldNonce.WithLabelValues("0"))
+
+	for i := 0; i < DefaultPrivateRPCConsecutiveFailureCeiling; i++ {
+		require.Error(t, b.SendTransaction(context.Background(), txWithNonce(uint64(i))))
+	}
+
+	assert.Empty(t, rotation(b), "answering this to everything has to end somewhere")
+	assert.Equal(t, 0, b.failures[0], "but it is still not a refusal")
+	assert.Equal(t, float64(DefaultPrivateRPCConsecutiveFailureCeiling),
+		testutil.ToFloat64(relayer.PrivateRPCHeldNonce.WithLabelValues("0"))-before,
+		"the path has to be visible; nothing else counts it")
+}
+
+func TestSendingBackend_AnAcceptedSendClearsTheHeldNonceRun(t *testing.T) {
+	only := &fakeSender{err: rpcRejection{txpool.ErrAlreadyKnown.Error()}}
+	b := NewSendingBackend(&fakeBackend{}, []TxSender{only}, nil, nil)
+
+	for i := 0; i < DefaultPrivateRPCConsecutiveFailureCeiling-1; i++ {
+		require.Error(t, b.SendTransaction(context.Background(), txWithNonce(uint64(i))))
+	}
+
+	// One taken transaction says the endpoint is working, which is what the run was counting
+	// against.
+	only.err = nil
+	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(99)))
+
+	only.err = rpcRejection{txpool.ErrAlreadyKnown.Error()}
+	require.Error(t, b.SendTransaction(context.Background(), txWithNonce(100)))
+
+	assert.Equal(t, []int{0}, rotation(b), "the run restarts from the send it accepted")
 }

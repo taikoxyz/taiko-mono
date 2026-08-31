@@ -517,6 +517,17 @@ func (r *RabbitMQ) Notify(ctx context.Context, wg *sync.WaitGroup) error {
 }
 
 // Subscribe should be called by consumers.
+// logNotifyClose records a close notification, which carries no error when the close was graceful.
+func logNotifyClose(message string, err *amqp.Error) {
+	if err != nil {
+		slog.Error(message, "err", err.Error())
+
+		return
+	}
+
+	slog.Error(message)
+}
+
 func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, wg *sync.WaitGroup) error {
 	wg.Add(1)
 
@@ -577,11 +588,14 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 
 			return nil
 		case err := <-r.connErrCh:
-			slog.Error("rabbitmq notify close connection", "err", err.Error())
+			// A graceful close closes the notify channel without sending, so a receive yields a
+			// nil *amqp.Error — and Error() has a value receiver, so calling it through that nil
+			// pointer panics the consume loop. Notify already guards both arms; this one did not.
+			logNotifyClose("rabbitmq notify close connection", err)
 
 			return queue.ErrClosed
 		case err := <-r.chErrCh:
-			slog.Error("rabbitmq notify close channel", "err", err.Error())
+			logNotifyClose("rabbitmq notify close channel", err)
 
 			return queue.ErrClosed
 		case d, ok := <-msgs:
