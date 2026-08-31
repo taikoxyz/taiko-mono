@@ -587,7 +587,7 @@ contract TestBridge2_processMessage is TestBridge2Base {
         IBridge.Message memory message;
         message.destChainId = ethereumChainId;
         message.srcChainId = taikoChainId;
-        message.gasLimit = eBridge.getMessageMinGasLimit(0) + 120_000;
+        message.gasLimit = eBridge.getMessageMinGasLimit(0) + 1;
         message.fee = 5_000_000;
         message.value = 2 ether;
         message.destOwner = address(refundWallet);
