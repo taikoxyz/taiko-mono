@@ -62,15 +62,19 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// (value-transfer account write, cold-recipient access) that are paid by this contract
     /// before forwarding and do not draw on this budget, so no headroom bump is needed for them.
     /// State-creation repricing (EIP-8037, scheduled for Glamsterdam) does draw on this budget:
-    /// creating a fresh storage slot charges 64 state bytes * 1,530 gas/byte = 97,920 gas, and
-    /// unless the transaction buys gas beyond the 16.7M per-transaction execution cap (which no
-    /// realistic claim transaction does, leaving its state-gas reservoir empty), that charge is
-    /// deducted from the callee frame's own gas. A smart wallet that writes a single fresh slot
-    /// when receiving Ether would then run out of gas under the previous 35,000 cap, and since a
-    /// failed send reverts processing, its messages would become unclaimable. The cap is
-    /// therefore the legacy 35,000 callee budget plus one EIP-8037 slot-creation charge
-    /// (97,920), rounded up — wallets that fit before the fork still fit after it, as long as
-    /// their receive path creates at most one storage slot.
+    /// it reprices a fresh storage slot from 20,000 of execution gas to 64 state bytes * 1,530
+    /// gas/byte = 97,920 of state gas, and unless the transaction buys gas beyond the 16.7M
+    /// per-transaction execution cap (which no realistic claim transaction does, leaving its
+    /// state-gas reservoir empty), that charge is deducted from the callee frame's own gas. A
+    /// smart wallet that writes a single fresh slot when receiving Ether would then run out of
+    /// gas under the previous 35,000 cap, and since a failed send reverts processing, its
+    /// messages would become unclaimable. Preserving the legacy budget for such a wallet costs
+    /// 35,000 - 20,000 + 97,920 = 112,920, so this cap keeps roughly 22,000 of headroom on top.
+    /// Wallets that fit before the fork still fit after it provided their receive path creates
+    /// at most one storage slot AND no other new state: EIP-8037 also reprices account creation
+    /// to 120 state bytes = 183,600 gas, so a receive path that forwards value to a
+    /// never-before-used address, or runs CREATE, fits under the legacy budget today yet exceeds
+    /// this one after the fork.
     // - EOA gas used is < 21000
     // - For Loopring smart wallet, gas used is about 23000
     // - For Argent smart wallet on Ethereum, gas used is about 24000
