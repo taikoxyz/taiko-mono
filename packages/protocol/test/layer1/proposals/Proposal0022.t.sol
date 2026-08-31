@@ -60,7 +60,10 @@ contract Proposal0022Test is Test {
         assertEq(actions[2].data, abi.encodeCall(UUPSUpgradeable.upgradeTo, (BRIDGE_NEW_IMPL_L2)));
     }
 
-    /// @dev Delete this test in the commit that fills in the real deployed addresses.
+    /// @dev Replace, do not delete, this test when the real deployed addresses land: assert that
+    /// the no-argument overloads forward those constants in the correct argument order. Both L2
+    /// parameters are `address`, so a transposition compiles silently and nothing else here
+    /// catches it. See `test_buildL1Actions_UsesDeployedImplementations` in `Proposal0017.t.sol`.
     function test_placeholderConstantsStillGuardTheBuilders() external {
         Proposal0022Harness proposal = new Proposal0022Harness();
 

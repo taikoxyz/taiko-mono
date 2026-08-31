@@ -80,10 +80,15 @@ contract Proposal0022 is BuildProposal {
         actions = new Controller.Action[](3);
 
         // 0-1: Populate the new resolver before action 2 makes the implementation that reads it
-        // live. `Bridge` on main looks up `bridge` for the source and destination chain in
-        // isDestChainEnabled, _proveSignalReceived and _isSignalReceived; the legacy L2 registry
-        // `0x1670…0006` cannot serve those calls because it predates IResolver. Registering after
-        // the upgrade, or not at all, would revert every sendMessage and processMessage on L2.
+        // live. Action 0 is the load-bearing one: `Bridge`'s three resolver lookups
+        // (isDestChainEnabled, _proveSignalReceived, _isSignalReceived) all pass an explicit chain
+        // id, and on L2 every reachable path passes the counterparty id 1, so the chain-1 entry is
+        // what the new implementation reads on every sendMessage and processMessage. The legacy L2
+        // registry `0x1670…0006` predates IResolver and cannot serve those calls, so registering
+        // after the upgrade, or not at all, would revert both. Action 1 adds the chain-167000
+        // entry for symmetry with the L1 resolver and for future consumers of the block.chainid
+        // overload (the vaults' onlyFromNamed(B_BRIDGE), still on the legacy registry today); the
+        // bridge itself never reads it.
         actions[0] = Controller.Action({
             target: _l2SharedResolver,
             value: 0,
