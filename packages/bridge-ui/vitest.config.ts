@@ -1,7 +1,10 @@
+import { svelte } from '@sveltejs/vite-plugin-svelte';
 import path from 'path';
 import { defineProject } from 'vitest/config';
 
 export default defineProject({
+  // Lets tests mount real components; Svelte files are otherwise not transformed here
+  plugins: [svelte({ hot: false })],
   test: {
     environment: 'jsdom',
     // setupFiles: ['./../../setup.ts'],
@@ -10,6 +13,8 @@ export default defineProject({
     include: ['./**/*.{test,spec}.{js,ts}'],
   },
   resolve: {
+    // Mounted components need Svelte's client runtime, not its SSR build
+    conditions: ['browser'],
     alias: {
       $components: path.resolve(__dirname, './src/components'),
       $stores: path.resolve(__dirname, './src/stores'),

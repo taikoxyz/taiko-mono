@@ -30,8 +30,17 @@
 
   export let onDialog = false;
 
+  const computeState = (addr: string): State => {
+    if (!addr) return State.DEFAULT;
+    if (addr.length >= 2 && !addr.startsWith('0x')) return State.INVALID;
+    return addr.length < 42 ? State.TOO_SHORT : isAddress(addr) ? State.VALID : State.INVALID;
+  };
+
   // Validate the Ethereum address
   export const validateAddress = (): void => {
+    // Note: an empty field and text without a `0x` prefix deliberately keep the historic
+    // behaviour of updating the visual state without announcing it. Consumers must not
+    // treat "no event" as "still valid" - see canConfirmRecipient in RecipientStep.
     if (!ethereumAddress) {
       state = State.DEFAULT;
       return;
@@ -42,10 +51,19 @@
       return;
     }
 
-    state = ethereumAddress.length < 42 ? State.TOO_SHORT : isAddress(ethereumAddress) ? State.VALID : State.INVALID;
+    state = computeState(ethereumAddress);
 
     dispatch('input', ethereumAddress);
     dispatch('addressvalidation', { isValidEthereumAddress: state === State.VALID, addr: ethereumAddress });
+  };
+
+  // Restore a value without dispatching. A parent reverting a discarded edit already knows
+  // which validation state belongs to the restored value, so re-announcing it would only
+  // re-enter the validation it is undoing.
+  export const setAddress = (addr: string): void => {
+    ethereumAddress = addr;
+    if (inputElement) inputElement.value = addr;
+    state = computeState(addr);
   };
 
   // Clear the input field
