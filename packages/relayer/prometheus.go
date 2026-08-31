@@ -28,6 +28,15 @@ var (
 			"labelled by that endpoint's position in the configured order. Trips are monotonic, " +
 			"so they cannot answer what the rotation looks like right now; this can",
 	}, []string{"endpoint"})
+	PrivateRPCHeldNonce = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "private_rpc_held_nonce_ops_total",
+		Help: "The total number of sends a private RPC endpoint answered by saying it already " +
+			"holds that nonce, labelled by that endpoint's position in the configured order. " +
+			"Not counted as a failure — the endpoint is carrying the claim — but a nonce it has " +
+			"not answered for before does count towards the consecutive ceiling, so an endpoint " +
+			"answering this to everything still steps aside. Without this counter the path is " +
+			"invisible, since nothing else records it",
+	}, []string{"endpoint"})
 	PrivateRPCTrips = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "private_rpc_trips_ops_total",
 		Help: "The total number of times a private RPC endpoint was taken out of the failover " +
@@ -35,6 +44,22 @@ var (
 			"transition worth alerting on: an endpoint out of rotation is one fewer place to " +
 			"send privately, and the last one leaving means claims go to the public mempool",
 	}, []string{"endpoint"})
+	PrivateRPCAllRefused = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "private_rpc_all_refused_ops_total",
+		Help: "The total number of sends broadcast publicly because every private endpoint in " +
+			"rotation refused that claim repeatedly. Counts sends rather than distinct claims, so " +
+			"a claim refused for long enough is counted once per broadcast. Distinct from " +
+			"private_rpc_unavailable_ops_total, which counts sends made publicly because no " +
+			"endpoint was in rotation at all: this is the relays being up and declining one " +
+			"particular claim, a deliberate trade of that claim's privacy against never landing it",
+	})
+	PrivateRPCAllRefusedAttempts = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "private_rpc_all_refused_attempts_ops_total",
+		Help: "The total number of times a claim every private endpoint refused was offered to " +
+			"the public endpoint, whether or not that endpoint took it. Read against " +
+			"private_rpc_all_refused_ops_total: attempts climbing while broadcasts do not means " +
+			"the public endpoint is failing too, and the claim is reaching nobody",
+	})
 	PrivateRPCUnavailable = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "private_rpc_unavailable_ops_total",
 		Help: "The total number of sends that went out through the public endpoint while private " +

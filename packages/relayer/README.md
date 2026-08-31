@@ -108,8 +108,14 @@ claims still in it.
 To fix an existing queue, either is enough:
 
 - Set `dead-letter-routing-key` to `<queue>-process` with a broker policy on that queue. Policies
-  are not part of the declare-equivalence check, so this needs no redeclare and can be applied while
-  the queue is running. This is the one to prefer.
+  are not part of the declare-equivalence check, so this needs no redeclare, can be applied while the
+  queue is running, and takes effect for messages already enqueued — nothing has to be drained. This
+  is the one to prefer.
+
+  ```sh
+  rabbitmqctl set_policy dlrk "^<queue>$" \
+    '{"dead-letter-routing-key":"<queue>-process"}' --apply-to queues --priority 1
+  ```
 - Drain the queue and delete it, so the next start declares it afresh. This loses anything still
   queued, so drain first.
 
@@ -121,8 +127,8 @@ transaction not yet confirmed — does not cost the claim. The message is republ
 `TRANSIENT_ERROR_QUEUE_EXPIRATION` on it, and the original delivery is acknowledged. That value is
 **milliseconds**, as every AMQP expiration is, and defaults to `30000`. It is checked at startup: a
 duration string such as `30s` is accepted by the publish and then closes the channel, which the
-relayer would otherwise survive only as a reconnect loop. When the expiration elapses the broker dead-letters it back onto the processing queue
-and it is tried again.
+relayer would otherwise survive only as a reconnect loop. When the expiration elapses the broker
+dead-letters it back onto the processing queue and it is tried again.
 
 The wait is what makes this safe to repeat. `QUEUE_PREFETCH_COUNT` defaults to 1 and a delivery is
 acknowledged only after processing, so exactly one message is in flight per replica: negatively
@@ -192,7 +198,15 @@ connection and then never answers cannot spend the budget the endpoints behind i
 is `RPC_TIMEOUT` (12 seconds by default), not `TX_SEND_TIMEOUT`: the transaction manager calls the
 backend once per publish under its network timeout, and the share is that divided by the endpoints
 still to try. Lowering `RPC_TIMEOUT` or configuring many endpoints therefore shrinks each attempt,
-and an endpoint that runs out of its share is charged with a failure.
+and an endpoint that spends its whole share without answering is charged with a failure.
+
+The share has a floor of a second. Below that an attempt is too short for a relay to answer in, so
+the endpoint would fail on the budget rather than on its health — and a timeout is charged with no
+deduplication, which is how endpoints flap in and out of rotation for no reason of their own. When
+the share would fall below the floor the attempt takes the whole remaining budget instead, and the
+endpoints behind it are skipped **without being charged**, since they never got a usable context. At
+the 12 second default this only bites past a dozen endpoints, or when `RPC_TIMEOUT` has been
+lowered.
 
 Because it is the same signed
 transaction every time, offering it to the next endpoint after one refuses is idempotent — at most
@@ -203,18 +217,61 @@ because a competitor already processed the message, say — is charged once for 
 every resubmission, so one such claim does not cost a healthy relay its turn. That is judged by
 nonce, not by transaction hash: once any endpoint accepts a send the transaction manager bumps the
 fee before resending, so every resubmission of one claim carries a new hash while remaining one
-claim. A timeout or a
+claim.
+
+Two answers are not charged at all. A relay that already holds the nonce replies `replacement
+transaction underpriced` or `already known`, which reads as a refusal but says the opposite — it is
+carrying the claim, which is what steering the resend to it was for. Those are counted by
+`private_rpc_held_nonce_ops_total`. An answer for a nonce the endpoint has demonstrably taken is
+free, however many claims it is carrying at once, as is one repeat of the last nonce it answered
+for; anything beyond that counts towards the consecutive ceiling, so an endpoint answering this way
+for a succession of claims it never took cannot keep its place indefinitely. An endpoint given a
+share of the budget too small to answer in is not charged either; see below. A timeout or a
 transport failure always counts, even for the same transaction, since that is what an endpoint
 being down looks like. Only once no endpoint is left in
 rotation does a transaction go out through `DEST_RPC_URL`.
 
-Three metrics are worth alerting on, all labelled or counted so they can be read without access to
+One claim can be refused by every endpoint without any of them being unhealthy — each is charged
+once for it, so none trips, and the claim would otherwise loop until `TX_SEND_TIMEOUT` while the
+relays go on serving everything else. After three consecutive sends that every endpoint in rotation
+*answered* with a refusal, that claim is broadcast publicly and
+`private_rpc_all_refused_ops_total` counts it.
+
+That probation is served once per claim, not once per exposure. Once a claim has been broadcast it
+stays in the public pool on every subsequent send, until a private endpoint takes it back and clears
+the run. Restarting the count there would withhold the next two fee-bumped resubmissions from a pool
+that already holds the stale low-fee variant of the same claim: there is no privacy left to save by
+then, and the replacement would be kept from the only place that can mine it.
+
+The run belongs to the claim rather than to the nonce it was sent under, because nonces are reused.
+A claim abandoned at `TX_SEND_TIMEOUT` leaves its count behind — only an accepted send clears one —
+and the next message signed with that nonce would otherwise inherit a probation it had served none
+of, and be broadcast on its first refusal instead of its third. The claim is identified by its
+calldata, which is the message and its proof: unchanged by the fee bumps that change everything else
+about the transaction, and different for every other claim.
+
+Two answers do not count towards this. A timeout or transport failure means the endpoint is down,
+which tripping handles, and counting it here would push claims into the open during an outage before
+the rotation had a chance to empty. An endpoint answering that it already holds the nonce does not
+count either — the claim is already where it needs to be, so broadcasting it would leak one every
+relay is carrying. Broadcasting publicly gives a
+competitor the message and proof, so it is deliberately the last resort — but a claim that never
+lands is worth less than one landed in the open.
+
+Five metrics are worth alerting on, all labelled or counted so they can be read without access to
 the logs. `private_rpc_failures_ops_total` is labelled by the refusing endpoint's position in the
 failover order, so it says which relay is unhealthy. `private_rpc_trips_ops_total`, labelled the
 same way, counts an endpoint actually leaving the rotation rather than each refusal on the way
 there — one fewer place to send privately. `private_rpc_unavailable_ops_total` counts transactions
 that went out through `DEST_RPC_URL` while private endpoints were configured — that is the relayer
-running exposed, and matters more than any individual refusal. Alongside them,
+running exposed, and matters more than any individual refusal.
+
+Two more count the other way a claim reaches the public mempool: not because the rotation was empty,
+but because every endpoint in it refused this one claim. `private_rpc_all_refused_attempts_ops_total`
+counts each time such a claim was offered to `DEST_RPC_URL`, and `private_rpc_all_refused_ops_total`
+counts the times that endpoint took it. Both count sends rather than distinct claims, so a claim
+refused for long enough is counted once per broadcast. Read together: attempts climbing while
+broadcasts do not means the public endpoint is failing as well and the claim is reaching nobody. Alongside them,
 `private_rpc_sends_ops_total`, labelled the same way, counts the transactions each endpoint
 accepted. It is not an alert on its own; it is what turns the refusals into a rate, which is what
 separates a busy relay turning down a few claims from one that has started turning down most of

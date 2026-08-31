@@ -9,11 +9,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
@@ -616,3 +619,33 @@ func TestDialPrivateSenders(t *testing.T) {
 		assert.Nil(t, senders, "a partial list would leave the relayer believing it is private")
 	})
 }
+
+func TestInstallPrivateSendingReplacesTheTransactionManagersBackend(t *testing.T) {
+	txmgrConfig := &txmgr.Config{Backend: &stubETHBackend{}}
+
+	sender := &mock.TxSender{}
+
+	backend := installPrivateSending(txmgrConfig, []utils.TxSender{sender}, []string{"relay.example"}, nil)
+
+	// The assignment is the entire feature. Without it every claim is signed and broadcast exactly
+	// as before — through the public mempool — and no other assertion in this suite notices.
+	require.NotNil(t, backend)
+	assert.Same(t, backend, txmgrConfig.Backend,
+		"the transaction manager has to be given the wrapping backend, not the bare client")
+	assert.Equal(t, 1, backend.NumPrivateEndpoints())
+
+	// And the wrapper still answers reads out of the endpoint it replaced.
+	require.NoError(t, backend.SendTransaction(context.Background(), types.NewTx(&types.DynamicFeeTx{
+		Nonce: 1,
+		Gas:   21_000,
+	})))
+	assert.Equal(t, 1, sender.SentCount(), "the broadcast goes to the private endpoint")
+}
+
+// stubETHBackend stands in for the endpoint the transaction manager was configured with. Only the
+// type matters here: the point of the test is which backend the manager is left holding.
+type stubETHBackend struct {
+	txmgr.ETHBackend
+}
+
+func (s *stubETHBackend) Close() {}
