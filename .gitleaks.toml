@@ -78,11 +78,19 @@ paths = [
 # trie keys whose *identifiers* end in `key`, e.g.
 #   'registration_commitment_trie_key': '200031adff46d9…660c0ac8'
 # The default generic-api-key rule reads "identifier containing key + 64 hex
-# chars at entropy ~3.8" as a credential. Scoped to that one rule so a real
-# secret committed here is still caught by every other rule.
+# chars at entropy ~3.8" as a credential.
+#
+# Narrowed on both axes: to the generic-api-key rule alone, so private-key,
+# github-pat and the rest still fire here; and, via condition = "AND", to values
+# that are bare 64-hex, so a non-hex credential dropped in this directory is
+# still reported. The irreducible residual is a raw 64-hex private key, which
+# has the same length and entropy as a keccak digest and so cannot be told
+# apart from one.
 [[allowlists]]
 description = "Preconfirmation-v2 spec models: hash constants, not credentials"
 targetRules = ["generic-api-key"]
+condition = "AND"
+regexes = ['''^[a-fA-F0-9]{64}$''']
 paths = [
   '''packages/protocol/docs/preconfirmation-v2/.*''',
 ]
