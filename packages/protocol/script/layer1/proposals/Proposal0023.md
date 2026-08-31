@@ -43,9 +43,9 @@ and populates the new resolver:
 
 | Chain | Contract                                                  | Change                                      |
 | ----- | --------------------------------------------------------- | ------------------------------------------- |
-| L1    | Bridge proxy `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC` | implementation → `<BRIDGE_NEW_IMPL_L1>`     |
-| L2    | Bridge proxy `0x1670000000000000000000000000000000000001` | implementation → `<BRIDGE_NEW_IMPL_L2>`     |
-| L2    | New `DefaultResolver` proxy `<L2_SHARED_RESOLVER>`        | `bridge` registered for chains 1 and 167000 |
+| L1    | Bridge proxy `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC` | implementation → `0x8636d9707ED54443808bA89F1B1b74f4b134AAa6`     |
+| L2    | Bridge proxy `0x1670000000000000000000000000000000000001` | implementation → `0x097BBBef669AaD66030aB223195D200eF9A47dc3`     |
+| L2    | New `DefaultResolver` proxy `0x2dfef0339009Ce10786fc118C883BB97af3163eD`        | `bridge` registered for chains 1 and 167000 |
 
 Explicitly **not** touched by this proposal:
 
@@ -227,7 +227,7 @@ This is the part of the proposal that carries real risk, and it is the part the
 
 ### L1 — 2 top-level actions
 
-1. `upgradeTo(0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC, <BRIDGE_NEW_IMPL_L1>)` — point the mainnet
+1. `upgradeTo(0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC, 0x8636d9707ED54443808bA89F1B1b74f4b134AAa6)` — point the mainnet
    bridge at the implementation carrying the EIP-8037 send cap.
 2. `sendMessage(...)` on `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC` — carries the L2 batch below to
    the DelegateController. This action is **not written in `Proposal0023.s.sol`**;
@@ -249,11 +249,11 @@ proves this before the vote.
 
 Numbered here from 1; in `Proposal0023.s.sol` these are `actions[0]`, `actions[1]` and `actions[2]`.
 
-1. (`actions[0]`) `<L2_SHARED_RESOLVER>.registerAddress(1, LibNames.B_BRIDGE, 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC)`
+1. (`actions[0]`) `0x2dfef0339009Ce10786fc118C883BB97af3163eD.registerAddress(1, LibNames.B_BRIDGE, 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC)`
    — the entry the new implementation actually reads.
-2. (`actions[1]`) `<L2_SHARED_RESOLVER>.registerAddress(167000, LibNames.B_BRIDGE, 0x1670000000000000000000000000000000000001)`
+2. (`actions[1]`) `0x2dfef0339009Ce10786fc118C883BB97af3163eD.registerAddress(167000, LibNames.B_BRIDGE, 0x1670000000000000000000000000000000000001)`
    — registered for symmetry and future consumers; the bridge itself never reads it.
-3. (`actions[2]`) `upgradeTo(0x1670000000000000000000000000000000000001, <BRIDGE_NEW_IMPL_L2>)` — the
+3. (`actions[2]`) `upgradeTo(0x1670000000000000000000000000000000000001, 0x097BBBef669AaD66030aB223195D200eF9A47dc3)` — the
    mid-call self-upgrade described above.
 
 `registerAddress` is encoded with `LibNames.B_BRIDGE` (`bytes32("bridge")`), not a hand-written
@@ -293,8 +293,10 @@ sequence within it.
 
 ## Deployment
 
-Run both deployments **before** the proposal is created; their output fills in the three placeholder
-constants in `Proposal0023.s.sol`.
+**Done on 2026-08-31.** The addresses are recorded in Deployed Addresses above and are now baked
+into `Proposal0023.s.sol`; the commands below are kept so the deployment can be reproduced or
+audited. Both ran before the proposal was created, which is the required order — their output is
+what fills the implementation constants.
 
 ```bash
 # Ethereum mainnet
@@ -323,19 +325,23 @@ commands in the pre-execution checklist are two independent routes to the same a
 since the explorer is the one a delegate can check without a local toolchain. Note that the L1 implementation will show as
 `Bridge`, not `MainnetBridge` — see Current State for why that rename is expected.
 
-Then, in the fill-in commit:
+The fill-in commit, also done, did three things:
 
 1. Set `BRIDGE_NEW_IMPL_L1`, `BRIDGE_NEW_IMPL_L2` and `L2_SHARED_RESOLVER` in `Proposal0023.s.sol`
    from the logged addresses.
-2. **Replace — do not delete — `test_placeholderConstantsStillGuardTheBuilders`** in
-   `test/layer1/proposals/Proposal0023.t.sol`. While the constants are zero, that test is what
-   proves the no-argument builders forward them at all. Once they are real, it must become tests
-   that assert the no-argument overloads forward the real constants **in the correct argument
-   order** — both `buildL2Actions` parameters are `address`, so a transposed pair compiles silently
-   and nothing else in the suite catches it. `test_buildL1Actions_UsesDeployedImplementations` in
-   `Proposal0017.t.sol` is the precedent. Deleting the test instead leaves the no-argument path with
-   no coverage at all.
-3. Regenerate the calldata and dry-run the bundle:
+2. **Replaced — did not delete — `test_placeholderConstantsStillGuardTheBuilders`.** While the
+   constants were zero that test was the only thing proving the no-argument builders forward them
+   at all; deleting it would have left the no-argument path with no coverage. It became
+   `test_buildL1Actions_UsesDeployedImplementations` and
+   `test_buildL2Actions_UsesDeployedImplementations`, which assert the forwarding **in the correct
+   argument order** — both `buildL2Actions` parameters are `address`, so a transposed pair compiles
+   silently and the parameterised tests bypass the forwarding lines entirely. Those tests write the
+   expected addresses as literals rather than reading `Proposal0023`'s own constants back, so a
+   transposition in the source cannot be mirrored in the test; transposing the two arguments was
+   confirmed to fail them. `test_buildL1Actions_UsesDeployedImplementations` in `Proposal0017.t.sol`
+   is the precedent.
+3. Regenerated the calldata into `Proposal0023.action.md`. Still to run before submission — it
+   needs a signer, so it is not part of the commit:
 
 ```bash
 cd packages/protocol
@@ -363,6 +369,31 @@ The generated `Proposal0023.action.md` should be formatted with the repo formatt
 hook does this automatically), or reviewers should compare only the calldata line. A second reviewer
 should re-run `P=0023 pnpm proposal` independently and diff the result.
 
+## Deployed Addresses
+
+Deployed 2026-08-31 and verified on-chain before the proposal was created. The codediff links show
+the live implementation against the new one for each proxy being upgraded.
+
+| What | Address | |
+| --- | --- | --- |
+| L1 `Bridge` implementation | `0x8636d9707ED54443808bA89F1B1b74f4b134AAa6` | [codediff](https://codediff.taiko.xyz/?addr=0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC&newimpl=0x8636d9707ED54443808bA89F1B1b74f4b134AAa6&chainid=1) |
+| L2 `Bridge` implementation | `0x097BBBef669AaD66030aB223195D200eF9A47dc3` | [codediff](https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000001&newimpl=0x097BBBef669AaD66030aB223195D200eF9A47dc3&chainid=167000) |
+| L2 `DefaultResolver` proxy | `0x2dfef0339009Ce10786fc118C883BB97af3163eD` | new proxy, nothing to diff |
+| L2 `DefaultResolver` implementation | `0x4F750D13005444407D44dAA30922128db0374ca1` | new contract, nothing to diff |
+
+The L1 codediff is the one that carries the proposal's whole argument: the only difference it should
+show against the live `MainnetBridge` is `_SEND_ETHER_GAS_LIMIT` rising from 35,000 to 135,000, plus
+the `MainnetBridge` → `Bridge` folding that #22058 performed at byte-identical slot constants. The
+L2 codediff is necessarily large — it spans the protocol 1.10.0 implementation from October 2024 to
+`main`, which is what Current State and Upgrade Safety exist to explain.
+
+> **Read the L2 addresses on L2 only.** All three collide with historical **L1** implementations
+> retired in 2024 — `0x2dfef033…` and `0x4F750D13…` and `0x097BBBef…` appear in
+> `deployments/mainnet-contract-logs-L1.md` as former `erc721_vault`, `erc20_vault` and
+> `erc1155_vault` implementations. They are unrelated contracts that share addresses because the
+> same deployer reached the same nonces on both chains; the L1 and L2 code at each address differs.
+> Confirmed: `0x097BBBef…` is 14,913 bytes on L2 and 17,997 on L1.
+
 ## Verification
 
 ### Before execution
@@ -371,50 +402,50 @@ Substitute the deployed addresses. Every commented value is the expected result.
 
 ```bash
 # L1 implementation immutables — all four must match the live proxy.
-cast call <BRIDGE_NEW_IMPL_L1> "resolver()(address)"      --rpc-url <L1_RPC>  # 0x8Efa01564425692d0a0838DC10E300BD310Cb43e
-cast call <BRIDGE_NEW_IMPL_L1> "signalService()(address)" --rpc-url <L1_RPC>  # 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C
-cast call <BRIDGE_NEW_IMPL_L1> "quotaManager()(address)"  --rpc-url <L1_RPC>  # 0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC
-cast call <BRIDGE_NEW_IMPL_L1> "pauser()(address)"        --rpc-url <L1_RPC>  # 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F
+cast call 0x8636d9707ED54443808bA89F1B1b74f4b134AAa6 "resolver()(address)"      --rpc-url <L1_RPC>  # 0x8Efa01564425692d0a0838DC10E300BD310Cb43e
+cast call 0x8636d9707ED54443808bA89F1B1b74f4b134AAa6 "signalService()(address)" --rpc-url <L1_RPC>  # 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C
+cast call 0x8636d9707ED54443808bA89F1B1b74f4b134AAa6 "quotaManager()(address)"  --rpc-url <L1_RPC>  # 0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC
+cast call 0x8636d9707ED54443808bA89F1B1b74f4b134AAa6 "pauser()(address)"        --rpc-url <L1_RPC>  # 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F
 
 # L2 resolver and implementation.
-cast call <L2_SHARED_RESOLVER> "owner()(address)"         --rpc-url https://rpc.mainnet.taiko.xyz  # 0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C
-cast call <BRIDGE_NEW_IMPL_L2> "resolver()(address)"      --rpc-url https://rpc.mainnet.taiko.xyz  # <L2_SHARED_RESOLVER>
-cast call <BRIDGE_NEW_IMPL_L2> "signalService()(address)" --rpc-url https://rpc.mainnet.taiko.xyz  # 0x1670000000000000000000000000000000000005
-cast call <BRIDGE_NEW_IMPL_L2> "quotaManager()(address)"  --rpc-url https://rpc.mainnet.taiko.xyz  # 0x0000000000000000000000000000000000000000
-cast call <BRIDGE_NEW_IMPL_L2> "pauser()(address)"        --rpc-url https://rpc.mainnet.taiko.xyz  # 0x0000000000000000000000000000000000000000
+cast call 0x2dfef0339009Ce10786fc118C883BB97af3163eD "owner()(address)"         --rpc-url https://rpc.mainnet.taiko.xyz  # 0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C
+cast call 0x097BBBef669AaD66030aB223195D200eF9A47dc3 "resolver()(address)"      --rpc-url https://rpc.mainnet.taiko.xyz  # 0x2dfef0339009Ce10786fc118C883BB97af3163eD
+cast call 0x097BBBef669AaD66030aB223195D200eF9A47dc3 "signalService()(address)" --rpc-url https://rpc.mainnet.taiko.xyz  # 0x1670000000000000000000000000000000000005
+cast call 0x097BBBef669AaD66030aB223195D200eF9A47dc3 "quotaManager()(address)"  --rpc-url https://rpc.mainnet.taiko.xyz  # 0x0000000000000000000000000000000000000000
+cast call 0x097BBBef669AaD66030aB223195D200eF9A47dc3 "pauser()(address)"        --rpc-url https://rpc.mainnet.taiko.xyz  # 0x0000000000000000000000000000000000000000
 
 # Both must be non-zero.
-cast codesize <BRIDGE_NEW_IMPL_L1> --rpc-url <L1_RPC>
-cast codesize <BRIDGE_NEW_IMPL_L2> --rpc-url https://rpc.mainnet.taiko.xyz
+cast codesize 0x8636d9707ED54443808bA89F1B1b74f4b134AAa6 --rpc-url <L1_RPC>
+cast codesize 0x097BBBef669AaD66030aB223195D200eF9A47dc3 --rpc-url https://rpc.mainnet.taiko.xyz
 
 # The resolver is a proxy, and L2 actions 0-1 make the DAO call registerAddress on it. owner()
 # says who controls it, not what code runs. Pin the implementation it delegates to: must equal the
 # address DeployBridgeUpgradeL2 logged as `resolver impl`, left-padded to 32 bytes.
-cast storage <L2_SHARED_RESOLVER> \
+cast storage 0x2dfef0339009Ce10786fc118C883BB97af3163eD \
   0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc \
   --rpc-url https://rpc.mainnet.taiko.xyz
 
 # Authenticate the code itself, not just its getters, for all four deployed contracts. A
 # substituted contract can answer every getter above while carrying different logic, and these
 # implementations become the logic of proxies holding roughly 1,000,000 ETH.
-forge verify-bytecode <BRIDGE_NEW_IMPL_L1> Bridge --rpc-url <L1_RPC> \
+forge verify-bytecode 0x8636d9707ED54443808bA89F1B1b74f4b134AAa6 Bridge --rpc-url <L1_RPC> \
   --constructor-args $(cast abi-encode "c(address,address,address,address)" \
     0x8Efa01564425692d0a0838DC10E300BD310Cb43e 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C \
     0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F)
 
-forge verify-bytecode <BRIDGE_NEW_IMPL_L2> Bridge --rpc-url https://rpc.mainnet.taiko.xyz \
+forge verify-bytecode 0x097BBBef669AaD66030aB223195D200eF9A47dc3 Bridge --rpc-url https://rpc.mainnet.taiko.xyz \
   --constructor-args $(cast abi-encode "c(address,address,address,address)" \
-    <L2_SHARED_RESOLVER> 0x1670000000000000000000000000000000000005 \
+    0x2dfef0339009Ce10786fc118C883BB97af3163eD 0x1670000000000000000000000000000000000005 \
     0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000)
 
-forge verify-bytecode <L2_RESOLVER_IMPL> DefaultResolver --rpc-url https://rpc.mainnet.taiko.xyz
+forge verify-bytecode 0x4F750D13005444407D44dAA30922128db0374ca1 DefaultResolver --rpc-url https://rpc.mainnet.taiko.xyz
 
-forge verify-bytecode <L2_SHARED_RESOLVER> ERC1967Proxy --rpc-url https://rpc.mainnet.taiko.xyz \
-  --constructor-args $(cast abi-encode "c(address,bytes)" <L2_RESOLVER_IMPL> \
+forge verify-bytecode 0x2dfef0339009Ce10786fc118C883BB97af3163eD ERC1967Proxy --rpc-url https://rpc.mainnet.taiko.xyz \
+  --constructor-args $(cast abi-encode "c(address,bytes)" 0x4F750D13005444407D44dAA30922128db0374ca1 \
     $(cast calldata "init(address)" 0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C))
 ```
 
-In the second command, the first constructor argument is `<L2_SHARED_RESOLVER>` — the proxy, not
+In the second command, the first constructor argument is `0x2dfef0339009Ce10786fc118C883BB97af3163eD` — the proxy, not
 the implementation. `DeployBridgeUpgradeL2` passes the proxy address to the `Bridge` constructor.
 
 **Do not substitute a `cast codehash` comparison for this.** Hashing the runtime looks like the
@@ -436,7 +467,7 @@ as a constructor argument to the `Bridge` — so if the deployer's on-chain nonc
 time from what the simulation assumed, the `CREATE` addresses shift while the `Bridge` creation
 calldata, with the _simulated_ resolver address already baked into it, does not. The result is a
 deployed implementation whose `resolver` immutable points at a contract that does not exist, and
-nothing in the script catches it. `cast call <BRIDGE_NEW_IMPL_L2> "resolver()(address)"`, compared
+nothing in the script catches it. `cast call 0x097BBBef669AaD66030aB223195D200eF9A47dc3 "resolver()(address)"`, compared
 against the logged `L2_SHARED_RESOLVER`, is what catches it. Run it, and read the answer rather than
 just checking that the call succeeded.
 
@@ -467,7 +498,7 @@ cast call 0x1670000000000000000000000000000000000001 \
 
 # The chain-167000 registration (L2 action 2 / actions[1]), which no other check covers.
 # Must return 0x1670000000000000000000000000000000000001.
-cast call <L2_SHARED_RESOLVER> "resolve(uint256,bytes32,bool)(address)" \
+cast call 0x2dfef0339009Ce10786fc118C883BB97af3163eD "resolve(uint256,bytes32,bool)(address)" \
   167000 0x6272696467650000000000000000000000000000000000000000000000000000 true \
   --rpc-url https://rpc.mainnet.taiko.xyz
 ```

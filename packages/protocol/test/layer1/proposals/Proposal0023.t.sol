@@ -16,6 +16,13 @@ contract Proposal0023Test is Test {
     address internal constant BRIDGE_NEW_IMPL_L2 = 0x2020202020202020202020202020202020202020;
     address internal constant L2_SHARED_RESOLVER = 0x3030303030303030303030303030303030303030;
 
+    // The real deployed addresses, written out so a transposed forward in Proposal0023 cannot be
+    // mirrored by reading its own constants back.
+    address internal constant DEPLOYED_BRIDGE_IMPL_L1 = 0x8636d9707ED54443808bA89F1B1b74f4b134AAa6;
+    address internal constant DEPLOYED_BRIDGE_IMPL_L2 = 0x097BBBef669AaD66030aB223195D200eF9A47dc3;
+    address internal constant DEPLOYED_L2_SHARED_RESOLVER =
+        0x2dfef0339009Ce10786fc118C883BB97af3163eD;
+
     function test_buildL1Actions_EncodesBridgeUpgrade() external {
         Proposal0023Harness proposal = new Proposal0023Harness();
 
@@ -60,18 +67,44 @@ contract Proposal0023Test is Test {
         assertEq(actions[2].data, abi.encodeCall(UUPSUpgradeable.upgradeTo, (BRIDGE_NEW_IMPL_L2)));
     }
 
-    /// @dev Replace, do not delete, this test when the real deployed addresses land: assert that
-    /// the no-argument overloads forward those constants in the correct argument order. Both L2
-    /// parameters are `address`, so a transposition compiles silently and nothing else here
-    /// catches it. See `test_buildL1Actions_UsesDeployedImplementations` in `Proposal0017.t.sol`.
-    function test_placeholderConstantsStillGuardTheBuilders() external {
+    /// @dev Pins what the no-argument builders forward. The two tests above call the
+    /// parameterised overloads directly and so bypass the forwarding lines entirely; both
+    /// `buildL2Actions` parameters are `address`, so a transposed pair compiles silently and
+    /// nothing else in this suite would catch it. The expected addresses are written as literals
+    /// rather than read back from `Proposal0023`, so a transposition in the source cannot be
+    /// mirrored here. Mirrors `test_buildL1Actions_UsesDeployedImplementations` in
+    /// `Proposal0017.t.sol`.
+    function test_buildL1Actions_UsesDeployedImplementations() external {
         Proposal0023Harness proposal = new Proposal0023Harness();
 
-        vm.expectRevert(Proposal0023.ImplementationNotDeployed.selector);
-        proposal.exposedBuildL1Actions();
+        Controller.Action[] memory actions = proposal.exposedBuildL1Actions();
 
-        vm.expectRevert(Proposal0023.ImplementationNotDeployed.selector);
-        proposal.exposedBuildL2Actions();
+        assertEq(actions.length, 1);
+        assertEq(actions[0].target, L1.BRIDGE);
+        assertEq(
+            actions[0].data, abi.encodeCall(UUPSUpgradeable.upgradeTo, (DEPLOYED_BRIDGE_IMPL_L1))
+        );
+    }
+
+    function test_buildL2Actions_UsesDeployedImplementations() external {
+        Proposal0023Harness proposal = new Proposal0023Harness();
+
+        (uint64 executionId, uint32 gasLimit, Controller.Action[] memory actions) =
+            proposal.exposedBuildL2Actions();
+
+        assertEq(executionId, 0);
+        assertEq(gasLimit, 5_000_000);
+        assertEq(actions.length, 3);
+
+        // A transposed forward would put the bridge implementation here and hand the resolver
+        // proxy to upgradeTo below, so these two assertions catch it from both ends.
+        assertEq(actions[0].target, DEPLOYED_L2_SHARED_RESOLVER);
+        assertEq(actions[1].target, DEPLOYED_L2_SHARED_RESOLVER);
+
+        assertEq(actions[2].target, L2.BRIDGE);
+        assertEq(
+            actions[2].data, abi.encodeCall(UUPSUpgradeable.upgradeTo, (DEPLOYED_BRIDGE_IMPL_L2))
+        );
     }
 }
 
