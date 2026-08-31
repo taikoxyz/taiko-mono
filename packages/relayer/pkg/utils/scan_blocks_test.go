@@ -22,12 +22,14 @@ type pollingHeadClient struct {
 func (c *pollingHeadClient) HeaderByNumber(context.Context, *big.Int) (*types.Header, error) {
 	headNumber := c.headNumber.Load()
 	c.calls.Add(1)
+
 	return &types.Header{Number: big.NewInt(headNumber)}, nil
 }
 
 func TestScanBlocksCountsObservedHeadChanges(t *testing.T) {
 	client := new(pollingHeadClient)
 	client.headNumber.Store(42)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	before := testutil.ToFloat64(relayer.BlocksScanned)
 	errCh := make(chan error, 1)

@@ -21,6 +21,7 @@ func TestHTTPClientBoundsRequestDuration(t *testing.T) {
 	client.Transport = roundTripperFunc(func(request *http.Request) (*http.Response, error) {
 		close(requestStarted)
 		<-request.Context().Done()
+
 		return nil, request.Context().Err()
 	})
 

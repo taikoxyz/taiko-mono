@@ -44,20 +44,25 @@ func scanBlocks(
 	for {
 		requestCtx, cancel := context.WithTimeout(ctx, requestTimeout)
 		header, err := ethClient.HeaderByNumber(requestCtx, nil)
+
 		cancel()
+
 		if err != nil {
 			if ctx.Err() != nil {
 				return nil
 			}
+
 			return err
 		}
 
 		headHash := header.Hash()
+
 		if !haveHead {
 			haveHead = true
 			lastHead = headHash
 		} else if headHash != lastHead {
 			relayer.BlocksScanned.Inc()
+
 			lastHead = headHash
 		}
 

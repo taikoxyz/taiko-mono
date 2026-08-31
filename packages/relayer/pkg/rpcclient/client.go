@@ -21,11 +21,13 @@ func Dial(ctx context.Context, rawURL string, requestTimeout time.Duration) (*rp
 	}
 
 	var options []rpc.ClientOption
+
 	switch strings.ToLower(parsedURL.Scheme) {
 	case "http", "https":
 		if requestTimeout <= 0 {
 			return nil, fmt.Errorf("HTTP RPC request timeout must be positive: %s", requestTimeout)
 		}
+
 		options = append(options, rpc.WithHTTPClient(newHTTPClient(requestTimeout)))
 	}
 

@@ -16,6 +16,7 @@ func TestNewConfigFromCliContextSetsRPCRequestTimeout(t *testing.T) {
 		config, err := NewConfigFromCliContext(ctx)
 		assert.NoError(t, err)
 		assert.Equal(t, 5*time.Minute, config.ETHClientRequestTimeout)
+
 		return err
 	}
 
