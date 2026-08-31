@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/big"
 	"net"
 	"regexp"
 	"slices"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 
@@ -72,6 +74,17 @@ type admission struct {
 // TxSender hands a signed transaction to one endpoint. *ethclient.Client satisfies it.
 type TxSender interface {
 	SendTransaction(ctx context.Context, tx *types.Transaction) error
+}
+
+// blobBaseFeeBackend and rpcBackend mirror the two optional interfaces the transaction manager's
+// gas price estimator looks for on its backend. They are unexported there, so they have to be
+// restated here to be answered; see BlobBaseFee.
+type blobBaseFeeBackend interface {
+	BlobBaseFee(ctx context.Context) (*big.Int, error)
+}
+
+type rpcBackend interface {
+	Client() *rpc.Client
 }
 
 // SendingBackend is a txmgr.ETHBackend that answers every read from the chain's own endpoint while
@@ -375,6 +388,38 @@ func (b *SendingBackend) Close() {
 // NumPrivateEndpoints returns how many private endpoints the backend was configured with.
 func (b *SendingBackend) NumPrivateEndpoints() int {
 	return len(b.private)
+}
+
+// BlobBaseFee answers the blob base fee out of the wrapped backend.
+//
+// txmgr.ETHBackend does not carry this method, but the transaction manager's gas price estimator
+// reaches past that interface for it: whenever the head block has an ExcessBlobGas — every
+// post-Dencun Ethereum block — it type-asserts its backend for a BlobBaseFee or a Client method and
+// fails the whole send when it finds neither. Embedding an interface promotes only that interface's
+// methods, so a wrapper answers neither assertion however capable the endpoint underneath is, and
+// craftTx would reject every claim before it was ever signed. That failure carries no transient
+// substring, so the processor would dead-letter each one.
+//
+// Only this method is defined, never Client: the estimator checks this one first, and a Client that
+// returned nil for a backend that has none would hand the caller a nil dereference in place of the
+// error it expects.
+func (b *SendingBackend) BlobBaseFee(ctx context.Context) (*big.Int, error) {
+	if backend, ok := b.ETHBackend.(blobBaseFeeBackend); ok {
+		return backend.BlobBaseFee(ctx)
+	}
+
+	// The same fallback the estimator would have run itself, for a backend that exposes the raw
+	// client rather than the typed call.
+	if backend, ok := b.ETHBackend.(rpcBackend); ok {
+		var fee hexutil.Big
+		if err := backend.Client().CallContext(ctx, &fee, "eth_blobBaseFee"); err != nil {
+			return nil, err
+		}
+
+		return (*big.Int)(&fee), nil
+	}
+
+	return nil, errors.New("backend does not support blob base fee rpc")
 }
 
 // inRotation returns the private endpoints currently usable, in priority order and each carrying
