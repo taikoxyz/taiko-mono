@@ -573,9 +573,12 @@ contract TestBridge2_processMessage is TestBridge2Base {
     /// @dev The self-claim path's other half: with an invocable `to`, processMessage forwards
     /// raw `gasleft()` to the invocation, a budget large enough for a storage-creating receive.
     /// The refund then goes to a second wallet, so the capped send still carries a first receive.
-    /// `gasLimit` is deliberately set so `_invocationGasLimit` would yield 120,000 — below the
-    /// 131,235 a 5+1 receive needs. Only the `gasleft()` arm of the ternary can satisfy this
-    /// wallet, so collapsing that ternary to the relayer branch turns this test red.
+    /// `gasLimit` is deliberately one above the minimum, so `_invocationGasLimit` would yield 1:
+    /// collapsing the ternary to its relayer branch hands the invocation 1 gas plus the 2,300
+    /// stipend, which cannot complete a 5+1 receive under the current schedule or under
+    /// Glamsterdam pricing. Only the `gasleft()` arm can satisfy this wallet, so that mutation
+    /// turns this test red and keeps doing so across the fork — a margin sized against today's
+    /// prices would not, because the reservoir would absorb the receive's state charges.
     function test_bridge2_processMessage__self_claim_with_invocation() public {
         MessageReceiver_CreatingFreshStorageSlots invocationWallet =
             new MessageReceiver_CreatingFreshStorageSlots(5);
