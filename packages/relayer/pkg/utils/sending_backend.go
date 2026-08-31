@@ -311,8 +311,8 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 
 // attemptContext gives one endpoint its share of the time left on ctx, so an endpoint that hangs
 // cannot spend the budget the remaining endpoints need. The share is floored at
-// MinPrivateRPCAttemptShare; below that the attempt takes the whole remaining budget. The share is computed per attempt rather
-// than once up front, so an endpoint that fails fast leaves the rest of its share to the next one,
+// MinPrivateRPCAttemptShare; below that the attempt takes the whole remaining budget. The share is
+// computed per attempt rather than once up front, so a fast failure leaves the rest to the next one,
 // and the last endpoint gets everything that is left. A ctx with no deadline is passed through.
 func attemptContext(ctx context.Context, remaining int) (context.Context, context.CancelFunc) {
 	deadline, ok := ctx.Deadline()
