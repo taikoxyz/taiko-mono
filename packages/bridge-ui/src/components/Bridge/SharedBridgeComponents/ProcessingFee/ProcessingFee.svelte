@@ -111,7 +111,6 @@
   }
 
   async function updateProcessingFee(method: ProcessingFeeMethod, recommendedAmount: bigint) {
-    if (method !== ProcessingFeeMethod.CUSTOM) invalidCustomFee = false;
     switch (method) {
       case ProcessingFeeMethod.RECOMMENDED:
         $processingFee = recommendedAmount;
@@ -160,6 +159,12 @@
   $: manuallyConfirmed = false;
 
   $: needsConfirmation = tempProcessingFeeMethod !== ProcessingFeeMethod.RECOMMENDED || $gasLimitZero;
+
+  // Leaving CUSTOM discards the draft along with its error. This has to follow the
+  // dialog's own method: updateProcessingFee runs on the committed $processingFeeMethod,
+  // which the radios do not change, so clearing there left the flag set and a
+  // CUSTOM -> RECOMMENDED -> CUSTOM round trip came back to an empty but blocked input.
+  $: if (tempProcessingFeeMethod !== ProcessingFeeMethod.CUSTOM) invalidCustomFee = false;
 
   // Text that never parsed leaves tempprocessingFee describing an earlier value
   $: customFeeUnusable = tempProcessingFeeMethod === ProcessingFeeMethod.CUSTOM && invalidCustomFee;

@@ -112,6 +112,24 @@ describe('custom processing fee', () => {
     expect(confirmButton().disabled).toBe(false);
   });
 
+  it('clears the invalid draft across a CUSTOM -> RECOMMENDED -> CUSTOM round trip', async () => {
+    await openCustom();
+    await acknowledge();
+    await type('1e5');
+    expect(confirmButton().disabled).toBe(true);
+
+    (target.querySelector('#input-recommended') as HTMLInputElement).click();
+    await tick();
+    (target.querySelector('#input-custom') as HTMLInputElement).click();
+    await tick();
+
+    // The round trip recreates an empty input, so the error belonging to the discarded
+    // draft must not still be blocking it
+    // The acknowledgement from before the round trip is still checked
+    expect(feeInput().value).toBe('');
+    expect(confirmButton().disabled).toBe(false);
+  });
+
   it('clears the invalid draft when leaving the custom method', async () => {
     await openCustom();
     await acknowledge();

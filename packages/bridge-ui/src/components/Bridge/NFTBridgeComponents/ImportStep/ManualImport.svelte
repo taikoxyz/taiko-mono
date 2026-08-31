@@ -40,6 +40,7 @@
    * of it, including any id validation still in flight.
    */
   function discardSelectionForNewAddress() {
+    addressValidationGeneration++;
     idValidationGeneration++;
     validating = false;
     detectedTokenType = null;
@@ -48,11 +49,17 @@
     $selectedNFTs = null;
   }
 
+  // A contract-type lookup describes one address on one chain. Without this, a lookup
+  // for an address typed earlier can resolve after a newer one and re-enable the id
+  // field with the wrong type for the address actually on screen.
+  let addressValidationGeneration = 0;
+
   async function onAddressValidation(event: CustomEvent<{ isValidEthereumAddress: boolean; addr: Address }>) {
     const { isValidEthereumAddress, addr } = event.detail;
     // interfaceSupported = true;
     addressInputState = AddressInputState.VALIDATING;
     discardSelectionForNewAddress();
+    const generation = addressValidationGeneration;
 
     const srcChainId = $connectedSourceChain?.id;
     if (!srcChainId) {
@@ -62,25 +69,59 @@
 
     if (isValidEthereumAddress && typeof addr === 'string') {
       contractAddress = addr;
+      pendingAddressLookup = addr;
+
+      let type: TokenType | null;
       try {
-        detectedTokenType = await detectContractType(addr, srcChainId);
+        type = await detectContractType(addr, srcChainId);
       } catch {
+        if (generation !== addressValidationGeneration) return;
+        pendingAddressLookup = null;
         // Without a return the stale type from a previous address would decide the
         // check below and could mark this failed lookup VALID
         addressInputState = AddressInputState.INVALID;
         return;
       }
-      if (detectedTokenType !== TokenType.ERC721 && detectedTokenType !== TokenType.ERC1155) {
+
+      // A newer address, a cleared field, or a source-chain change supersedes this answer
+      if (generation !== addressValidationGeneration) return;
+      if (srcChainId !== $connectedSourceChain?.id) return;
+      pendingAddressLookup = null;
+
+      detectedTokenType = type;
+      if (type !== TokenType.ERC721 && type !== TokenType.ERC1155) {
         addressInputState = AddressInputState.NOT_NFT;
         return;
       }
 
+      lastValidatedAddress = addr;
       addressInputState = AddressInputState.VALID;
     } else {
       addressInputState = AddressInputState.INVALID;
     }
     return;
   }
+
+  /**
+   * AddressInput dispatches nothing for a cleared field or text without a `0x` prefix, so
+   * the two-way bound draft is the only signal that an in-flight lookup no longer
+   * describes what is on screen.
+   */
+  function syncContractAddressDraft(draft: Maybe<string>) {
+    const current = (draft ?? '').toLowerCase();
+    const stale = (address: Maybe<string>) => !!address && address.toLowerCase() !== current;
+
+    if (stale(pendingAddressLookup) || stale(lastValidatedAddress)) {
+      pendingAddressLookup = null;
+      lastValidatedAddress = null;
+      discardSelectionForNewAddress();
+      addressInputState = draft ? AddressInputState.INVALID : AddressInputState.DEFAULT;
+    }
+  }
+
+  /** The address a contract-type lookup is currently in flight for, if any */
+  let pendingAddressLookup: Maybe<string> = null;
+  let lastValidatedAddress: Maybe<string> = null;
 
   // Guards against out-of-order async validations: only the latest entered ID may
   // publish its result into the shared stores
@@ -151,6 +192,8 @@
       }
     }
   }
+
+  $: syncContractAddressDraft(contractAddress);
 
   $: displayOwnershipError =
     contractAddress && enteredIds && !isOwnerOfAllToken && nftIdsToImport?.length > 0 && !validating;

@@ -20,9 +20,9 @@
   let addressState = AddressInputState.DEFAULT;
 
   const onAccountChange = async (newAccount: Account, oldAccount?: Account) => {
-    // We want to make sure that we are connected and only
-    // fetch if the account has changed
-    if (newAccount && newAccount.address && newAccount.address !== oldAccount?.address) {
+    // Any change of address resets, including a transition to no address: a search
+    // started while connected must not publish rows into a disconnected view
+    if (newAccount?.address !== oldAccount?.address) {
       reset();
     }
   };

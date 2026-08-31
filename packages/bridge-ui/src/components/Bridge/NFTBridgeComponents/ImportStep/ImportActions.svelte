@@ -19,9 +19,13 @@
   function onScanClick() {
     scanning = true;
     scanForNFTs()
+      .then(() => {
+        // Only a scan that actually completed can claim there are no NFTs; leaving the
+        // initial state on failure keeps the retry button instead of a false "none found"
+        firstScan = false;
+      })
       .catch(reportScanFailure)
       .finally(() => {
-        firstScan = false;
         scanning = false;
       });
   }
