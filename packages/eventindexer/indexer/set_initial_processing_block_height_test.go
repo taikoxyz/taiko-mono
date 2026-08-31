@@ -73,7 +73,7 @@ func TestInitialIndexingBlockByMode(t *testing.T) {
 			layer:          Layer1,
 			mode:           Sync,
 			firstHeight:    100,
-			wantHeight:     100,
+			wantHeight:     99,
 			wantRepoCalls:  1,
 			wantFirstCalls: 1,
 		},
@@ -82,7 +82,15 @@ func TestInitialIndexingBlockByMode(t *testing.T) {
 			layer:          Layer1,
 			mode:           Resync,
 			firstHeight:    100,
-			wantHeight:     100,
+			wantHeight:     99,
+			wantFirstCalls: 1,
+		},
+		{
+			name:           "l1 resync at first block",
+			layer:          Layer1,
+			mode:           Resync,
+			firstHeight:    0,
+			wantHeight:     0,
 			wantFirstCalls: 1,
 		},
 		{
@@ -139,6 +147,32 @@ func TestInitialIndexingBlockByMode(t *testing.T) {
 			assert.Equal(t, tt.wantHeight, got)
 			assert.Equal(t, tt.wantRepoCalls, repository.calls)
 			assert.Equal(t, tt.wantFirstCalls, firstCalls)
+		})
+	}
+}
+
+// The Shasta activation block carries the genesis Proposed event, and a regular
+// propose may share that L1 block, so the first filter pass must request it
+// rather than the block after it.
+func TestFirstFilteredBlockIsShastaActivationBlock(t *testing.T) {
+	const activationBlock = uint64(100)
+
+	for _, mode := range []SyncMode{Sync, Resync} {
+		t.Run(string(mode), func(t *testing.T) {
+			indexer := &Indexer{
+				eventRepo:  &initialBlockEventRepository{},
+				layer:      Layer1,
+				srcChainID: 1,
+			}
+
+			err := indexer.setInitialIndexingBlockByMode(
+				context.Background(),
+				mode,
+				func(context.Context) (uint64, error) { return activationBlock, nil },
+			)
+
+			assert.NoError(t, err)
+			assert.Equal(t, activationBlock, indexer.nextFilterStartBlock())
 		})
 	}
 }

@@ -11,12 +11,9 @@ import (
 func (i *Indexer) setInitialIndexingBlockByMode(
 	ctx context.Context,
 	mode SyncMode,
+	firstShastaBlock func(context.Context) (uint64, error),
 ) error {
-	startingBlock, err := i.initialIndexingBlockByMode(
-		ctx,
-		mode,
-		i.getFirstShastaBlockHeight,
-	)
+	startingBlock, err := i.initialIndexingBlockByMode(ctx, mode, firstShastaBlock)
 	if err != nil {
 		return err
 	}
@@ -27,6 +24,9 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 	return nil
 }
 
+// initialIndexingBlockByMode resolves the cursor to start indexing from. The
+// result is the last *processed* block, so filtering resumes at the block after
+// it. See Indexer.nextFilterStartBlock.
 func (i *Indexer) initialIndexingBlockByMode(
 	ctx context.Context,
 	mode SyncMode,
@@ -55,7 +55,20 @@ func (i *Indexer) initialIndexingBlockByMode(
 		return 0, nil
 	}
 
-	return firstShastaBlock(ctx)
+	firstBlock, err := firstShastaBlock(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	// The Shasta activation block itself carries events and must be filtered.
+	// Inbox.activate emits the genesis Proposed event in that block, and because
+	// activation sets lastProposalBlockId to 1, a regular propose may land in the
+	// same L1 block. Step back one block so the first filter range includes it.
+	if firstBlock == 0 {
+		return 0, nil
+	}
+
+	return firstBlock - 1, nil
 }
 
 // getFirstShastaBlockHeight returns the first Shasta block height.

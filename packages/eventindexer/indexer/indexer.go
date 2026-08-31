@@ -47,6 +47,9 @@ type Indexer struct {
 	ethClient  *ethclient.Client
 	srcChainID uint64
 
+	// latestIndexedBlockNumber is the last block that has been filtered. Filtering
+	// resumes at the block after it, so any block that still needs to be scanned
+	// must be greater than this value.
 	latestIndexedBlockNumber uint64
 
 	blockBatchSize      uint64
@@ -79,7 +82,7 @@ func (i *Indexer) Start() error {
 		return err
 	}
 
-	if err := i.setInitialIndexingBlockByMode(i.ctx, i.syncMode); err != nil {
+	if err := i.setInitialIndexingBlockByMode(i.ctx, i.syncMode, i.getFirstShastaBlockHeight); err != nil {
 		return errors.Wrap(err, "i.setInitialIndexingBlockByMode")
 	}
 
