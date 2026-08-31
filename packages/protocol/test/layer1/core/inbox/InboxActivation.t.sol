@@ -38,7 +38,6 @@ contract InboxActivationTest is InboxTestBase {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
             proposer: proposer,
-            designatedProver: prover,
             timestamp: uint48(block.timestamp),
             blockHash: keccak256("checkpoint")
         });
@@ -52,8 +51,7 @@ contract InboxActivationTest is InboxTestBase {
                 endBlockNumber: uint48(block.number),
                 endStateRoot: bytes32(uint256(1)),
                 transitions: transitions
-            }),
-            forceCheckpointSync: false
+            })
         });
 
         bytes memory encodedInput = codec.encodeProveInput(input);
@@ -101,12 +99,12 @@ contract InboxActivationTest is InboxTestBase {
 
         // Verify key config values match what was set during construction
         assertEq(cfg.provingWindow, config.provingWindow, "provingWindow mismatch");
-        assertEq(cfg.ringBufferSize, config.ringBufferSize, "ringBufferSize mismatch");
         assertEq(
-            cfg.minForcedInclusionCount,
-            config.minForcedInclusionCount,
-            "minForcedInclusionCount mismatch"
+            cfg.permissionlessProvingDelay,
+            config.permissionlessProvingDelay,
+            "permissionlessProvingDelay mismatch"
         );
+        assertEq(cfg.ringBufferSize, config.ringBufferSize, "ringBufferSize mismatch");
         assertEq(
             cfg.forcedInclusionFeeInGwei,
             config.forcedInclusionFeeInGwei,
@@ -164,19 +162,19 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         new Inbox(cfg);
     }
 
+    function test_validateConfig_RevertWhen_PermissionlessProvingDelayTooSmall() public {
+        IInbox.Config memory cfg = _buildConfig();
+        cfg.permissionlessProvingDelay = cfg.provingWindow;
+
+        vm.expectRevert(LibInboxSetup.PermissionlessProvingDelayTooSmall.selector);
+        new Inbox(cfg);
+    }
+
     function test_validateConfig_RevertWhen_RingBufferSizeTooSmall() public {
         IInbox.Config memory cfg = _buildConfig();
         cfg.ringBufferSize = 1; // Must be > 1
 
         vm.expectRevert(LibInboxSetup.RingBufferSizeTooSmall.selector);
-        new Inbox(cfg);
-    }
-
-    function test_validateConfig_RevertWhen_MinForcedInclusionCountZero() public {
-        IInbox.Config memory cfg = _buildConfig();
-        cfg.minForcedInclusionCount = 0;
-
-        vm.expectRevert(LibInboxSetup.MinForcedInclusionCountZero.selector);
         new Inbox(cfg);
     }
 

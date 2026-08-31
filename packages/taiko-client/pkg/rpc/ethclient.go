@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net/http"
 	"strings"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -18,6 +20,14 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 )
+
+// isHTTPEndpoint reports whether the given RPC URL uses an HTTP transport.
+// WebSocket endpoints (ws://, wss://) return false; everything else returns true,
+// because go-ethereum's rpc.DialOptions falls back to HTTP for any non-ws scheme.
+func isHTTPEndpoint(rawURL string) bool {
+	lower := strings.ToLower(rawURL)
+	return !strings.HasPrefix(lower, "ws://") && !strings.HasPrefix(lower, "wss://")
+}
 
 const (
 	// Metric status values
@@ -68,6 +78,7 @@ type EthClient struct {
 
 	timeout time.Duration
 	rpcURL  string
+	isHTTP  bool
 }
 
 // NewEthClient creates a new EthClient instance.
@@ -77,7 +88,12 @@ func NewEthClient(ctx context.Context, url string, timeout time.Duration) (*EthC
 		timeoutVal = timeout
 	}
 
-	client, err := rpc.DialContext(ctx, url)
+	// Create HTTP client with rate-limited transport to handle 429 responses
+	httpClient := &http.Client{
+		Transport: NewRateLimitedTransport(http.DefaultTransport, RateLimitMaxRetries),
+	}
+
+	client, err := rpc.DialOptions(ctx, url, rpc.WithHTTPClient(httpClient))
 	if err != nil {
 		return nil, err
 	}
@@ -96,12 +112,18 @@ func NewEthClient(ctx context.Context, url string, timeout time.Duration) (*EthC
 		ethClient:  ethClient,
 		timeout:    timeoutVal,
 		rpcURL:     url,
+		isHTTP:     isHTTPEndpoint(url),
 	}, nil
 }
 
 func (c *EthClient) EthClient() *ethclient.Client {
 	return c.ethClient.Client
 }
+
+// IsHTTP reports whether this client uses an HTTP transport (true) or a
+// WebSocket transport (false). HTTP-backed clients cannot use eth_subscribe
+// and must rely on polling for head/log notifications.
+func (c *EthClient) IsHTTP() bool { return c.isHTTP }
 
 // CallContext wraps the underlying RPC client's CallContext with metrics tracking.
 func (c *EthClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
@@ -652,4 +674,20 @@ func (c *EthClient) FillTransaction(ctx context.Context, args *TransactionArgs) 
 	}
 
 	return result.Tx, nil
+}
+
+// AnvilGetBlobByHash returns the blob stored by Anvil for the given versioned hash.
+func (c *EthClient) AnvilGetBlobByHash(ctx context.Context, hash common.Hash) (*eth.Blob, error) {
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
+	defer cancel()
+
+	var result *eth.Blob
+	if err := c.CallContext(ctxWithTimeout, &result, "anvil_getBlobByHash", hash); err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return nil, ethereum.NotFound
+	}
+
+	return result, nil
 }

@@ -32,6 +32,8 @@ var (
 	errAlreadyProcessing = errors.New("already processing txHash")
 )
 
+const gasRefundPerCacheOperation uint64 = 20_000
+
 // eventStatusFromMsgHash will check the event's msgHash/signal, and
 // get its on-chain current status.
 func (p *Processor) eventStatusFromMsgHash(
@@ -58,7 +60,7 @@ func (p *Processor) eventStatusFromMsgHash(
 
 // processMessage prepares and calls `processMessage` on the bridge, given a
 // message from the queue (from the indexer). It will
-// generate a proof, or multiple proofs if hops are needed.
+// generate a source-chain proof.
 // it returns a boolean of whether we should requeue the message or not.
 func (p *Processor) processMessage(
 	ctx context.Context,
@@ -142,38 +144,6 @@ func (p *Processor) processMessage(
 		return false, msgBody.TimesRetried, err
 	}
 
-	if p.shastaForkTimestamp > 0 && p.forkWindow > 0 {
-		header, err := p.srcEthClient.HeaderByNumber(ctx, new(big.Int).SetUint64(msgBody.Event.Raw.BlockNumber))
-		if err != nil {
-			return false, msgBody.TimesRetried, err
-		}
-
-		blockTs := header.Time
-		if blockTs >= p.shastaForkTimestamp {
-			diff := time.Duration(blockTs-p.shastaForkTimestamp) * time.Second
-			if diff <= p.forkWindow {
-				slog.Info("within shasta fork window, pausing processing",
-					"blockTimestamp", blockTs,
-					"shastaForkTimestamp", p.shastaForkTimestamp,
-					"windowSeconds", p.forkWindow.Seconds(),
-				)
-
-				return true, msgBody.TimesRetried, nil
-			}
-		} else {
-			diff := time.Duration(p.shastaForkTimestamp-blockTs) * time.Second
-			if diff <= p.forkWindow {
-				slog.Info("approaching shasta fork window, pausing processing",
-					"blockTimestamp", blockTs,
-					"shastaForkTimestamp", p.shastaForkTimestamp,
-					"windowSeconds", p.forkWindow.Seconds(),
-				)
-
-				return true, msgBody.TimesRetried, nil
-			}
-		}
-	}
-
 	// check paused status
 	paused, err := p.destBridge.Paused(&bind.CallOpts{
 		Context: ctx,
@@ -245,8 +215,17 @@ func (p *Processor) processMessage(
 		return false, msgBody.TimesRetried, errors.Wrap(err, "p.destBridge.GetMessageStatus")
 	}
 
+	// internal will only be set if it's an actual queue message, not a targeted
+	// transaction hash set via config flag.
+	if msg.Internal != nil {
+		// update message status
+		if err := p.eventRepo.UpdateStatus(ctx, msgBody.ID, relayer.EventStatus(messageStatus)); err != nil {
+			return false, msgBody.TimesRetried, err
+		}
+	}
+
 	slog.Info(
-		"updating message status",
+		"message status updated",
 		"status", relayer.EventStatus(messageStatus).String(),
 		"occurredTxHash", msgBody.Event.Raw.TxHash.Hex(),
 	)
@@ -257,70 +236,18 @@ func (p *Processor) processMessage(
 		relayer.DoneEvents.Inc()
 	}
 
-	// internal will only be set if it's an actual queue message, not a targeted
-	// transaction hash set via config flag.
-	if msg.Internal != nil {
-		// update message status
-		if err := p.eventRepo.UpdateStatus(ctx, msgBody.ID, relayer.EventStatus(messageStatus)); err != nil {
-			return false, msgBody.TimesRetried, err
-		}
-	}
-
 	return false, msgBody.TimesRetried, nil
 }
 
 // generateEncodedSignalProof takes a MessageSent event and calls a
-// proof generation service to generate a proof for the source call
-// as well as any additional hops required.
+// proof generation service to generate the source-chain proof.
 func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 	event *bridge.BridgeMessageSent) ([]byte, error) {
-	var encodedSignalProof []byte
-
-	var err error
-
-	var blockNum = event.Raw.BlockNumber
-
-	signalService, signalServiceAddress, err := p.signalServiceForBlock(ctx, event.Raw.BlockNumber)
-	if err != nil {
+	if _, err := p.waitHeaderSynced(ctx, p.srcEthClient, p.destChainId.Uint64(), event.Raw.BlockNumber); err != nil {
 		return nil, err
 	}
 
-	// wait for srcChain => destChain header to sync if no hops,
-	// or srcChain => hopChain => hopChain => hopChain => destChain if hops exist.
-	if len(p.hops) > 0 {
-		var hopEthClient = p.srcEthClient
-
-		var hopChainID *big.Int
-
-		for _, hop := range p.hops {
-			event, err := p.waitHeaderSynced(ctx, hopEthClient, hop.chainID.Uint64(), blockNum)
-
-			if err != nil {
-				return nil, errors.Wrap(err, "p.waitHeaderSynced")
-			}
-
-			blockNum = event.SyncedInBlockID
-
-			hopEthClient = hop.ethClient
-
-			hopChainID = hop.chainID
-		}
-
-		event, err := p.waitHeaderSynced(ctx, hopEthClient, hopChainID.Uint64(), blockNum)
-		if err != nil {
-			return nil, err
-		}
-
-		blockNum = event.SyncedInBlockID
-	} else {
-		if _, err := p.waitHeaderSynced(ctx, p.srcEthClient, p.destChainId.Uint64(), event.Raw.BlockNumber); err != nil {
-			return nil, err
-		}
-	}
-
-	hops := []proof.HopParams{}
-
-	key, err := signalService.GetSignalSlot(&bind.CallOpts{
+	key, err := p.srcSignalService.GetSignalSlot(&bind.CallOpts{
 		Context: ctx,
 	},
 		event.Message.SrcChainId,
@@ -332,94 +259,34 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 		return nil, err
 	}
 
-	// if we have no hops, this is strictly a srcChain => destChain message.
-	// we can grab the latestBlockID, create a singular "hop" of srcChain => destChain,
-	// and generate a proof.
-	if len(p.hops) == 0 {
-		latestBlockID, err := p.latestSyncedBlockID(ctx, p.destChainId.Uint64(), p.srcChainId.Uint64())
-		if err != nil {
-			return nil, err
-		}
+	latestBlockID, err := p.eventRepo.LatestCheckpointSyncedEvent(ctx, p.destChainId.Uint64(), p.srcChainId.Uint64())
+	if err != nil {
+		return nil, err
+	}
 
-		if latestBlockID == 0 {
-			latestBlockID = blockNum
-			slog.Warn("no synced header found; using message block number",
-				"fallbackBlockNum", latestBlockID,
-				"srcChainId", p.srcChainId.Uint64(),
-				"destChainId", p.destChainId.Uint64(),
-			)
-		}
+	if latestBlockID == 0 {
+		latestBlockID = event.Raw.BlockNumber
+		slog.Warn("no synced header found; using message block number",
+			"fallbackBlockNum", latestBlockID,
+			"srcChainId", p.srcChainId.Uint64(),
+			"destChainId", p.destChainId.Uint64(),
+		)
+	}
 
-		hops = append(hops, proof.HopParams{
+	encodedSignalProof, err := p.prover.EncodedSignalProof(
+		ctx,
+		proof.SignalProofParams{
 			ChainID:              p.destChainId,
-			SignalServiceAddress: signalServiceAddress,
+			SignalServiceAddress: p.srcSignalServiceAddress,
 			Blocker:              p.srcEthClient,
 			Caller:               p.srcCaller,
-			SignalService:        signalService,
 			Key:                  key,
 			BlockNumber:          latestBlockID,
-		})
-	} else {
-		// otherwise, we should just create the first hop in the array, we will append
-		// the rest of the hops after.
-		hops = append(hops, proof.HopParams{
-			ChainID:              p.destChainId,
-			SignalServiceAddress: signalServiceAddress,
-			Blocker:              p.srcEthClient,
-			Caller:               p.srcCaller,
-			SignalService:        signalService,
-			Key:                  key,
-			BlockNumber:          blockNum,
-		})
-	}
-
-	// if a hop is set, the proof service needs to generate an additional proof
-	// for the signal service intermediary chain in between the source chain
-	// and the destination chain.
-	for _, hop := range p.hops {
-		slog.Info(
-			"adding hop",
-			"hopChainId", hop.chainID.Uint64(),
-			"hopSignalServiceAddress", hop.signalServiceAddress.Hex(),
-		)
-
-		block, err := hop.ethClient.BlockByNumber(
-			ctx,
-			new(big.Int).SetUint64(blockNum),
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		hopStorageSlotKey, err := hop.signalService.GetSignalSlot(&bind.CallOpts{
-			Context: ctx,
 		},
-			hop.chainID.Uint64(),
-			hop.taikoAddress,
-			block.Root(),
-		)
-		if err != nil {
-			return nil, errors.Wrap(err, "hopSignalService.GetSignalSlot")
-		}
-
-		hops = append(hops, proof.HopParams{
-			ChainID:              hop.chainID,
-			SignalServiceAddress: hop.signalServiceAddress,
-			Blocker:              hop.ethClient,
-			Caller:               hop.caller,
-			SignalService:        hop.signalService,
-			Key:                  hopStorageSlotKey,
-			BlockNumber:          blockNum,
-		})
-	}
-
-	encodedSignalProof, err = p.prover.EncodedSignalProofWithHops(
-		ctx,
-		hops,
 	)
 
 	if err != nil {
-		slog.Error("error encoding hop proof",
+		slog.Error("error encoding signal proof",
 			"srcChainID", event.Message.SrcChainId,
 			"destChainID", event.Message.DestChainId,
 			"txHash", event.Raw.TxHash.Hex(),
@@ -428,41 +295,13 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 			"srcOwner", event.Message.SrcOwner.Hex(),
 			"destOwner", event.Message.DestOwner.Hex(),
 			"error", err,
-			"hopsLength", len(hops),
+			"blockNumber", latestBlockID,
 		)
 
 		return nil, err
 	}
 
 	return encodedSignalProof, nil
-}
-
-// signalServiceForBlock picks the correct signal service fork based on the
-// block timestamp relative to the Shasta fork.
-func (p *Processor) signalServiceForBlock(
-	ctx context.Context,
-	blockNumber uint64,
-) (relayer.SignalService, common.Address, error) {
-	if p.shastaForkTimestamp == 0 ||
-		p.shastaOldForkSignalService == nil ||
-		p.shastaNewForkSignalService == nil {
-		return p.srcSignalService, p.srcSignalServiceAddress, nil
-	}
-
-	callCtx, cancel := context.WithTimeout(ctx, p.ethClientTimeout)
-
-	defer cancel()
-
-	header, err := p.srcEthClient.HeaderByNumber(callCtx, new(big.Int).SetUint64(blockNumber))
-	if err != nil {
-		return nil, common.Address{}, err
-	}
-
-	if header.Time < p.shastaForkTimestamp {
-		return p.shastaOldForkSignalService, p.shastaOldForkAddress, nil
-	}
-
-	return p.shastaNewForkSignalService, p.shastaNewForkAddress, nil
 }
 
 // sendProcessMessageCall calls `bridge.processMessage` with latest nonce
@@ -502,12 +341,16 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, err
 	}
 
+	// The tx manager floors the tip at its configured MinTipCap before sending,
+	// so use that same effective tip in the profitability estimate below.
+	// Otherwise the estimate under-counts the tip whenever the suggested tip is
+	// below MinTipCap, producing false "unprofitable after transacting" events.
+	gasTipCap = relayer.EffectiveGasTipCap(gasTipCap, p.minTipCap)
+
 	data, err := encoding.BridgeABI.Pack("processMessage", event.Message, proof)
 	if err != nil {
 		return nil, err
 	}
-
-	gasLimit := uint64(float64(event.Message.GasLimit))
 
 	// if destination address is a contract, add padding. check message.to
 	// to see if it is a contract address.
@@ -516,11 +359,7 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, err
 	}
 
-	if len(code) != 0 {
-		gasLimit = uint64(float64(gasLimit) * 1.1)
-	} else {
-		gasLimit = uint64(float64(gasLimit) * 1.05)
-	}
+	gasLimit := relayer.PaddedMessageGasLimit(uint64(event.Message.GasLimit), len(code) != 0)
 
 	var estimatedMaxCost uint64
 
@@ -602,6 +441,7 @@ func (p *Processor) sendProcessMessageCall(
 	receipt, err := p.txmgr.Send(ctx, candidate)
 	if err != nil {
 		slog.Warn("Failed to send ProcessMessage transaction", "error", err.Error())
+
 		return nil, err
 	}
 
@@ -622,18 +462,41 @@ func (p *Processor) sendProcessMessageCall(
 	relayer.MessageSentEventsProcessed.Inc()
 
 	if p.profitableOnly {
-		cost := receipt.GasUsed * receipt.EffectiveGasPrice.Uint64()
-
-		slog.Info("tx cost", "txHash", hex.EncodeToString(receipt.TxHash.Bytes()),
-			"srcTxHash", event.Raw.TxHash.Hex(),
-			"actualCost", cost,
-			"estimatedMaxCost", estimatedMaxCost,
-		)
-
-		if cost > estimatedMaxCost {
-			relayer.UnprofitableMessageAfterTransacting.Inc()
+		if receipt.EffectiveGasPrice == nil {
+			relayer.AfterTransactingProfitabilityEvaluationErrors.Inc()
+			slog.Warn("missing effective gas price; skipping after-transacting profitability",
+				"txHash", hex.EncodeToString(receipt.TxHash.Bytes()),
+				"srcTxHash", event.Raw.TxHash.Hex(),
+			)
 		} else {
-			relayer.ProfitableMessageAfterTransacting.Inc()
+			cost := new(big.Int).Mul(new(big.Int).SetUint64(receipt.GasUsed), receipt.EffectiveGasPrice)
+
+			relayerFee, err := p.relayerFeeFromReceipt(ctx, receipt, event)
+			if err != nil {
+				relayer.AfterTransactingProfitabilityEvaluationErrors.Inc()
+				slog.Warn("failed to determine relayer fee; skipping after-transacting profitability",
+					"txHash", hex.EncodeToString(receipt.TxHash.Bytes()),
+					"srcTxHash", event.Raw.TxHash.Hex(),
+					"actualCost", cost,
+					"estimatedMaxCost", estimatedMaxCost,
+					"processingFee", event.Message.Fee,
+					"error", err,
+				)
+			} else {
+				slog.Info("tx cost", "txHash", hex.EncodeToString(receipt.TxHash.Bytes()),
+					"srcTxHash", event.Raw.TxHash.Hex(),
+					"actualCost", cost,
+					"estimatedMaxCost", estimatedMaxCost,
+					"processingFee", event.Message.Fee,
+					"relayerFee", relayerFee,
+				)
+
+				if cost.Cmp(relayerFee) > 0 {
+					relayer.UnprofitableMessageAfterTransacting.Inc()
+				} else {
+					relayer.ProfitableMessageAfterTransacting.Inc()
+				}
+			}
 		}
 	}
 
@@ -642,6 +505,95 @@ func (p *Processor) sendProcessMessageCall(
 	}
 
 	return receipt, nil
+}
+
+func (p *Processor) relayerFeeFromReceipt(
+	ctx context.Context,
+	receipt *types.Receipt,
+	event *bridge.BridgeMessageSent,
+) (*big.Int, error) {
+	messageProcessed, ok := encoding.BridgeABI.Events[relayer.EventNameMessageProcessed]
+	if !ok {
+		return nil, errors.New("MessageProcessed ABI event not found")
+	}
+
+	var stats *bridge.BridgeProcessingStats
+
+	for _, receiptLog := range receipt.Logs {
+		if receiptLog == nil || receiptLog.Address != p.cfg.DestBridgeAddress || len(receiptLog.Topics) < 2 ||
+			receiptLog.Topics[0] != messageProcessed.ID || receiptLog.Topics[1] != common.Hash(event.MsgHash) {
+			continue
+		}
+
+		decoded := struct {
+			Message bridge.IBridgeMessage
+			Stats   bridge.BridgeProcessingStats
+		}{}
+		if err := encoding.BridgeABI.UnpackIntoInterface(
+			&decoded,
+			relayer.EventNameMessageProcessed,
+			receiptLog.Data,
+		); err != nil {
+			return nil, errors.Wrap(err, "unpack MessageProcessed event")
+		}
+
+		stats = &decoded.Stats
+
+		break
+	}
+
+	if stats == nil {
+		return nil, errors.New("MessageProcessed event not found in receipt")
+	}
+
+	if event.Message.GasLimit == 0 {
+		return nil, errors.New("message gas limit is zero")
+	}
+
+	if !stats.ProcessedByRelayer {
+		return new(big.Int).SetUint64(event.Message.Fee), nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, p.ethClientTimeout)
+	defer cancel()
+
+	minedHeader, err := p.destEthClient.HeaderByHash(ctx, receipt.BlockHash)
+	if err != nil {
+		return nil, errors.Wrap(err, "get mined block header")
+	}
+
+	if minedHeader == nil || minedHeader.BaseFee == nil {
+		return nil, errors.New("mined block base fee is missing")
+	}
+
+	refund := new(big.Int).Mul(
+		new(big.Int).SetUint64(uint64(stats.NumCacheOps)),
+		new(big.Int).SetUint64(gasRefundPerCacheOperation),
+	)
+	gasUsedInFeeCalc := new(big.Int).SetUint64(uint64(stats.GasUsedInFeeCalc))
+	gasCharged := new(big.Int)
+
+	if gasUsedInFeeCalc.Cmp(refund) > 0 {
+		gasCharged.Sub(gasUsedInFeeCalc, refund)
+	}
+
+	maxFee := new(big.Int).Mul(gasCharged, new(big.Int).SetUint64(event.Message.Fee))
+	maxFee.Div(maxFee, new(big.Int).SetUint64(uint64(event.Message.GasLimit)))
+	baseFee := new(big.Int).Mul(gasCharged, minedHeader.BaseFee)
+
+	var paidFee *big.Int
+	if baseFee.Cmp(maxFee) >= 0 {
+		paidFee = maxFee
+	} else {
+		paidFee = new(big.Int).Rsh(new(big.Int).Add(maxFee, baseFee), 1)
+	}
+
+	feeCap := new(big.Int).SetUint64(event.Message.Fee)
+	if paidFee.Cmp(feeCap) > 0 {
+		return feeCap, nil
+	}
+
+	return paidFee, nil
 }
 
 // retrieve the balance of the relayer and set Prometheus
@@ -682,6 +634,10 @@ func (p *Processor) saveMessageStatusChangedEvent(
 	m := make(map[string]interface{})
 
 	for _, log := range receipt.Logs {
+		if log == nil || len(log.Topics) == 0 {
+			continue
+		}
+
 		topic := log.Topics[0]
 		if topic == bridgeAbi.Events["MessageStatusChanged"].ID {
 			err = bridgeAbi.UnpackIntoMap(m, "MessageStatusChanged", log.Data)
@@ -718,7 +674,7 @@ func (p *Processor) saveMessageStatusChangedEvent(
 
 // getBaseFee determines the baseFee on the dest chain
 func (p *Processor) getBaseFee(ctx context.Context) (*big.Int, error) {
-	blk, err := p.destEthClient.BlockByNumber(ctx, nil)
+	destBlock, err := p.destEthClient.BlockByNumber(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -726,20 +682,14 @@ func (p *Processor) getBaseFee(ctx context.Context) (*big.Int, error) {
 	var baseFee *big.Int
 
 	if p.taikoL2 != nil {
-		latestL2Block, err := p.destEthClient.BlockByNumber(ctx, nil)
-		if err != nil {
-			return nil, err
+		if destBlock.BaseFee() != nil {
+			return destBlock.BaseFee(), nil
 		}
 
-		bf, err := p.taikoL2.GetBasefee(&bind.CallOpts{Context: ctx}, blk.NumberU64(), uint32(latestL2Block.GasUsed()))
-		if err != nil {
-			return nil, err
-		}
-
-		baseFee = bf.Basefee
+		return nil, relayer.ErrMissingDestBaseFee
 	} else {
 		cfg := params.NetworkIDToChainConfigOrDefault(p.destChainId)
-		baseFee = eip1559.CalcBaseFee(cfg, blk.Header())
+		baseFee = eip1559.CalcBaseFee(cfg, destBlock.Header())
 	}
 
 	return baseFee, nil

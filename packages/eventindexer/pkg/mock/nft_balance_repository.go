@@ -18,6 +18,7 @@ func NewNFTBalanceRepository() *NFTBalanceRepository {
 
 func (r *NFTBalanceRepository) IncreaseAndDecreaseBalancesInTx(
 	ctx context.Context,
+	ref eventindexer.TransferLogRef,
 	increaseOpts eventindexer.UpdateNFTBalanceOpts,
 	decreaseOpts eventindexer.UpdateNFTBalanceOpts,
 ) (increasedBalance *eventindexer.NFTBalance, decreasedBalance *eventindexer.NFTBalance, err error) {

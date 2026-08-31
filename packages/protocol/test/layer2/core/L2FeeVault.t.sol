@@ -16,21 +16,18 @@ contract L2FeeVaultTest is Test {
 
     function setUp() external {
         L2FeeVault impl = new L2FeeVault(
-            100 ether,  // targetBalanceWei
-            100,        // minFeePerGasWei
-            1_000_000,  // maxFeePerGasWei
-            8_000       // lossReimbursementBps
+            100 ether, // targetBalanceWei
+            100, // minFeePerGasWei
+            1_000_000, // maxFeePerGasWei
+            8000 // lossReimbursementBps
         );
 
         vault = L2FeeVault(
-            payable(
-                address(
+            payable(address(
                     new ERC1967Proxy(
-                        address(impl),
-                        abi.encodeCall(L2FeeVault.init, (address(this), ANCHOR))
+                        address(impl), abi.encodeCall(L2FeeVault.init, (address(this), ANCHOR))
                     )
-                )
-            )
+                ))
         );
     }
 
@@ -43,8 +40,7 @@ contract L2FeeVaultTest is Test {
 
     function test_importProposalFee_updatesAccounting() external {
         uint256 l1Cost = _l1Cost(10, 1, 2, 3);
-        IL2FeeVault.ProposalFeeData memory data =
-            _singleFeeData(1, 10, 1, 2, 3, l1Cost + 1);
+        IL2FeeVault.ProposalFeeData memory data = _singleFeeData(1, 10, 1, 2, 3, l1Cost + 1);
 
         vm.prank(ANCHOR);
         vault.importProposalFee(data);
@@ -55,10 +51,9 @@ contract L2FeeVaultTest is Test {
 
     function test_importProposalFee_partialWhenLoss() external {
         uint256 l1Cost = _l1Cost(10, 1, 2, 3);
-        uint256 expected = (l1Cost * 8_000) / 10_000;
+        uint256 expected = (l1Cost * 8000) / 10_000;
 
-        IL2FeeVault.ProposalFeeData memory data =
-            _singleFeeData(1, 10, 1, 2, 3, l1Cost - 1);
+        IL2FeeVault.ProposalFeeData memory data = _singleFeeData(1, 10, 1, 2, 3, l1Cost - 1);
 
         vm.prank(ANCHOR);
         vault.importProposalFee(data);
@@ -68,8 +63,7 @@ contract L2FeeVaultTest is Test {
 
     function test_claim_transfersAndUpdatesLiabilities() external {
         uint256 l1Cost = _l1Cost(10, 1, 2, 3);
-        IL2FeeVault.ProposalFeeData memory data =
-            _singleFeeData(1, 10, 1, 2, 3, l1Cost + 1);
+        IL2FeeVault.ProposalFeeData memory data = _singleFeeData(1, 10, 1, 2, 3, l1Cost + 1);
 
         vm.prank(ANCHOR);
         vault.importProposalFee(data);
@@ -111,7 +105,9 @@ contract L2FeeVaultTest is Test {
         uint256 newFee = vault.feePerGasWei();
         uint256 expectedIncrease = initialFee * 125 / 1000; // 12.5%
 
-        assertApproxEqRel(newFee, initialFee + expectedIncrease, 0.01e18, "fee should increase by ~12.5%");
+        assertApproxEqRel(
+            newFee, initialFee + expectedIncrease, 0.01e18, "fee should increase by ~12.5%"
+        );
     }
 
     function test_feeAdjustment_50PercentDeficit() external {
@@ -128,7 +124,9 @@ contract L2FeeVaultTest is Test {
         uint256 newFee = vault.feePerGasWei();
         uint256 expectedIncrease = initialFee * 625 / 10_000; // 6.25%
 
-        assertApproxEqRel(newFee, initialFee + expectedIncrease, 0.01e18, "fee should increase by ~6.25%");
+        assertApproxEqRel(
+            newFee, initialFee + expectedIncrease, 0.01e18, "fee should increase by ~6.25%"
+        );
     }
 
     function test_feeAdjustment_atTarget() external {
@@ -165,7 +163,9 @@ contract L2FeeVaultTest is Test {
         uint256 newFee = vault.feePerGasWei();
         uint256 expectedDecrease = initialFee * 625 / 10_000; // 6.25%
 
-        assertApproxEqRel(newFee, initialFee - expectedDecrease, 0.01e18, "fee should decrease by ~6.25%");
+        assertApproxEqRel(
+            newFee, initialFee - expectedDecrease, 0.01e18, "fee should decrease by ~6.25%"
+        );
     }
 
     function test_feeAdjustment_100PercentSurplus() external {
@@ -187,26 +187,25 @@ contract L2FeeVaultTest is Test {
         uint256 newFee = vault.feePerGasWei();
         uint256 expectedDecrease = initialFee * 125 / 1000; // 12.5%
 
-        assertApproxEqRel(newFee, initialFee - expectedDecrease, 0.01e18, "fee should decrease by ~12.5%");
+        assertApproxEqRel(
+            newFee, initialFee - expectedDecrease, 0.01e18, "fee should decrease by ~12.5%"
+        );
     }
 
     function test_feeAdjustment_respectsMinBound() external {
         // Create a new vault with lower min bound for testing
         L2FeeVault impl = new L2FeeVault(
-            100 ether,  // targetBalanceWei
-            50,         // minFeePerGasWei (lower than default)
-            1_000_000,  // maxFeePerGasWei
-            8_000       // lossReimbursementBps
+            100 ether, // targetBalanceWei
+            50, // minFeePerGasWei (lower than default)
+            1_000_000, // maxFeePerGasWei
+            8000 // lossReimbursementBps
         );
         L2FeeVault testVault = L2FeeVault(
-            payable(
-                address(
+            payable(address(
                     new ERC1967Proxy(
-                        address(impl),
-                        abi.encodeCall(L2FeeVault.init, (address(this), ANCHOR))
+                        address(impl), abi.encodeCall(L2FeeVault.init, (address(this), ANCHOR))
                     )
-                )
-            )
+                ))
         );
 
         // Create massive surplus to force fee below minimum
@@ -298,20 +297,17 @@ contract L2FeeVaultTest is Test {
         // This is the boundary where adjustmentFactor reaches 0
         // Create a vault with higher initial fee for testing
         L2FeeVault impl = new L2FeeVault(
-            100 ether,  // targetBalanceWei
-            10,         // minFeePerGasWei
-            1_000_000,  // maxFeePerGasWei
-            8_000       // lossReimbursementBps
+            100 ether, // targetBalanceWei
+            10, // minFeePerGasWei
+            1_000_000, // maxFeePerGasWei
+            8000 // lossReimbursementBps
         );
         L2FeeVault testVault = L2FeeVault(
-            payable(
-                address(
+            payable(address(
                     new ERC1967Proxy(
-                        address(impl),
-                        abi.encodeCall(L2FeeVault.init, (address(this), ANCHOR))
+                        address(impl), abi.encodeCall(L2FeeVault.init, (address(this), ANCHOR))
                     )
-                )
-            )
+                ))
         );
 
         // First, increase fee significantly
@@ -335,20 +331,17 @@ contract L2FeeVaultTest is Test {
     function test_feeAdjustment_extremeSurplus_beyond800Percent() external {
         // Test >800% surplus (capped at -8e18 to prevent negative adjustmentFactor)
         L2FeeVault impl = new L2FeeVault(
-            100 ether,  // targetBalanceWei
-            10,         // minFeePerGasWei
-            1_000_000,  // maxFeePerGasWei
-            8_000       // lossReimbursementBps
+            100 ether, // targetBalanceWei
+            10, // minFeePerGasWei
+            1_000_000, // maxFeePerGasWei
+            8000 // lossReimbursementBps
         );
         L2FeeVault testVault = L2FeeVault(
-            payable(
-                address(
+            payable(address(
                     new ERC1967Proxy(
-                        address(impl),
-                        abi.encodeCall(L2FeeVault.init, (address(this), ANCHOR))
+                        address(impl), abi.encodeCall(L2FeeVault.init, (address(this), ANCHOR))
                     )
-                )
-            )
+                ))
         );
 
         // First, increase fee significantly
@@ -382,7 +375,12 @@ contract L2FeeVaultTest is Test {
         uint256 newFee = vault.feePerGasWei();
         uint256 expectedIncrease = initialFee * 125 / 1000; // 12.5%
 
-        assertApproxEqRel(newFee, initialFee + expectedIncrease, 0.01e18, "100% deficit should increase fee by 12.5%");
+        assertApproxEqRel(
+            newFee,
+            initialFee + expectedIncrease,
+            0.01e18,
+            "100% deficit should increase fee by 12.5%"
+        );
     }
 
     function test_feeAdjustment_balanceEqualsLiabilities() external {
@@ -407,26 +405,28 @@ contract L2FeeVaultTest is Test {
         uint256 newFee = vault.feePerGasWei();
         uint256 expectedIncrease = initialFee * 125 / 1000; // 12.5%
 
-        assertApproxEqRel(newFee, initialFee + expectedIncrease, 0.01e18, "0 effective balance should increase fee by 12.5%");
+        assertApproxEqRel(
+            newFee,
+            initialFee + expectedIncrease,
+            0.01e18,
+            "0 effective balance should increase fee by 12.5%"
+        );
     }
 
     function test_feeAdjustment_feeStuckAtMin() external {
         // Test that fee at minFee doesn't change when surplus persists
         L2FeeVault impl = new L2FeeVault(
-            100 ether,  // targetBalanceWei
-            100,        // minFeePerGasWei
-            1_000_000,  // maxFeePerGasWei
-            8_000       // lossReimbursementBps
+            100 ether, // targetBalanceWei
+            100, // minFeePerGasWei
+            1_000_000, // maxFeePerGasWei
+            8000 // lossReimbursementBps
         );
         L2FeeVault testVault = L2FeeVault(
-            payable(
-                address(
+            payable(address(
                     new ERC1967Proxy(
-                        address(impl),
-                        abi.encodeCall(L2FeeVault.init, (address(this), ANCHOR))
+                        address(impl), abi.encodeCall(L2FeeVault.init, (address(this), ANCHOR))
                     )
-                )
-            )
+                ))
         );
 
         // Fee starts at minFee (100)
@@ -446,20 +446,17 @@ contract L2FeeVaultTest is Test {
     function test_feeAdjustment_feeStuckAtMax() external {
         // Test that fee at maxFee doesn't change when deficit persists
         L2FeeVault impl = new L2FeeVault(
-            100 ether,  // targetBalanceWei
-            100,        // minFeePerGasWei
-            1000,       // maxFeePerGasWei (low max for testing)
-            8_000       // lossReimbursementBps
+            100 ether, // targetBalanceWei
+            100, // minFeePerGasWei
+            1000, // maxFeePerGasWei (low max for testing)
+            8000 // lossReimbursementBps
         );
         L2FeeVault testVault = L2FeeVault(
-            payable(
-                address(
+            payable(address(
                     new ERC1967Proxy(
-                        address(impl),
-                        abi.encodeCall(L2FeeVault.init, (address(this), ANCHOR))
+                        address(impl), abi.encodeCall(L2FeeVault.init, (address(this), ANCHOR))
                     )
-                )
-            )
+                ))
         );
 
         // Increase fee to max through deficit
@@ -497,7 +494,12 @@ contract L2FeeVaultTest is Test {
         // Expected increase: 0.125%
         uint256 expectedIncrease = initialFee * 125 / 100_000; // 0.125%
 
-        assertApproxEqRel(newFee, initialFee + expectedIncrease, 0.01e18, "1% deficit should increase fee by ~0.125%");
+        assertApproxEqRel(
+            newFee,
+            initialFee + expectedIncrease,
+            0.01e18,
+            "1% deficit should increase fee by ~0.125%"
+        );
     }
 
     function test_feeAdjustment_multipleSequentialImports() external {
@@ -515,7 +517,9 @@ contract L2FeeVaultTest is Test {
         for (uint256 i = 1; i < fees.length; i++) {
             uint256 currentFee = fees[i];
             uint256 previousFee = fees[i - 1];
-            assertGt(currentFee, previousFee, "fee should monotonically increase with persistent deficit");
+            assertGt(
+                currentFee, previousFee, "fee should monotonically increase with persistent deficit"
+            );
 
             // Verify approximately 12.5% increase each time
             uint256 increase = currentFee - previousFee;
@@ -551,27 +555,29 @@ contract L2FeeVaultTest is Test {
         uint256 feeAfterClaim = vault.feePerGasWei();
 
         // Fee change should be similar since effective balance ratio is the same
-        assertApproxEqRel(feeAfterClaim, feeBeforeClaim * 10625 / 10000, 0.01e18, "fee should increase by ~6.25%");
+        assertApproxEqRel(
+            feeAfterClaim,
+            feeBeforeClaim * 10_625 / 10_000,
+            0.01e18,
+            "fee should increase by ~6.25%"
+        );
     }
 
     function test_feeAdjustment_zeroTarget() external {
         // Test edge case: target = 0 should cause early return (no fee change)
         // This is a degenerate configuration but should be handled gracefully
         L2FeeVault impl = new L2FeeVault(
-            0,          // targetBalanceWei = 0 (degenerate case)
-            100,        // minFeePerGasWei
-            1_000_000,  // maxFeePerGasWei
-            8_000       // lossReimbursementBps
+            0, // targetBalanceWei = 0 (degenerate case)
+            100, // minFeePerGasWei
+            1_000_000, // maxFeePerGasWei
+            8000 // lossReimbursementBps
         );
         L2FeeVault testVault = L2FeeVault(
-            payable(
-                address(
+            payable(address(
                     new ERC1967Proxy(
-                        address(impl),
-                        abi.encodeCall(L2FeeVault.init, (address(this), ANCHOR))
+                        address(impl), abi.encodeCall(L2FeeVault.init, (address(this), ANCHOR))
                     )
-                )
-            )
+                ))
         );
 
         uint256 initialFee = testVault.feePerGasWei();

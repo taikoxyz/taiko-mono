@@ -13,9 +13,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/bridge"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/pacaya/taikoinbox"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
-	v2 "github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/v2/taikol1"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/shasta/inbox"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/repo"
 )
@@ -49,19 +47,22 @@ type Indexer struct {
 	ethClient  *ethclient.Client
 	srcChainID uint64
 
+	// latestIndexedBlockNumber is the last block that has been filtered. Filtering
+	// resumes at the block after it, so any block that still needs to be scanned
+	// must be greater than this value.
 	latestIndexedBlockNumber uint64
 
 	blockBatchSize      uint64
 	subscriptionBackoff time.Duration
 
-	taikol1    *taikol1.TaikoL1
-	taikol1V2  *v2.TaikoL1
-	bridge     *bridge.Bridge
-	taikoInbox *taikoinbox.TaikoInbox
+	bridge *bridge.Bridge
+	inbox  *inbox.Inbox
 
 	indexNfts   bool
 	indexERC20s bool
 	layer       string
+
+	allowUnclaimedBalanceReplay bool
 
 	wg  *sync.WaitGroup
 	ctx context.Context
@@ -72,17 +73,16 @@ type Indexer struct {
 
 	contractToMetadata      map[common.Address]*eventindexer.ERC20Metadata
 	contractToMetadataMutex *sync.Mutex
-
-	ontakeForkHeight              uint64
-	pacayaForkHeight              uint64
-	isPostOntakeForkHeightReached bool
-	isPostPacayaForkHeightReached bool
 }
 
 func (i *Indexer) Start() error {
 	i.ctx = context.Background()
 
-	if err := i.setInitialIndexingBlockByMode(i.ctx, i.syncMode); err != nil {
+	if err := i.checkBalanceClaimBootstrap(i.ctx); err != nil {
+		return err
+	}
+
+	if err := i.setInitialIndexingBlockByMode(i.ctx, i.syncMode, i.getFirstShastaBlockHeight); err != nil {
 		return errors.Wrap(err, "i.setInitialIndexingBlockByMode")
 	}
 
@@ -128,6 +128,10 @@ func (i *Indexer) InitFromCli(ctx context.Context, c *cliV2.Context) error {
 
 // nolint: funlen
 func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
+	if err := cfg.validate(); err != nil {
+		return err
+	}
+
 	db, err := cfg.OpenDBFunc()
 	if err != nil {
 		return err
@@ -168,28 +172,14 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 		return errors.Wrap(err, "i.ethClient.ChainID()")
 	}
 
-	var taikoL1 *taikol1.TaikoL1
+	var inboxContract *inbox.Inbox
 
-	var taikol1V2 *v2.TaikoL1
+	if cfg.Layer == Layer1 {
+		slog.Info("setting shastaInboxAddress", "addr", cfg.ShastaInboxAddress.Hex())
 
-	var taikoInbox *taikoinbox.TaikoInbox
-
-	if cfg.L1TaikoAddress.Hex() != ZeroAddress.Hex() {
-		slog.Info("setting l1TaikoAddress", "addr", cfg.L1TaikoAddress.Hex())
-
-		taikoL1, err = taikol1.NewTaikoL1(cfg.L1TaikoAddress, ethClient)
+		inboxContract, err = inbox.NewInbox(cfg.ShastaInboxAddress, ethClient)
 		if err != nil {
-			return errors.Wrap(err, "contracts.NewTaikoL1")
-		}
-
-		taikol1V2, err = v2.NewTaikoL1(cfg.L1TaikoAddress, ethClient)
-		if err != nil {
-			return errors.Wrap(err, "contracts.NewTaikoL1")
-		}
-
-		taikoInbox, err = taikoinbox.NewTaikoInbox(cfg.L1TaikoAddress, ethClient)
-		if err != nil {
-			return errors.Wrap(err, "taikonbox.NewTaikoInbox")
+			return errors.Wrap(err, "inbox.NewInbox")
 		}
 	}
 
@@ -215,9 +205,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.srcChainID = chainID.Uint64()
 
 	i.ethClient = ethClient
-	i.taikol1 = taikoL1
-	i.taikoInbox = taikoInbox
-	i.taikol1V2 = taikol1V2
+	i.inbox = inboxContract
 	i.bridge = bridgeContract
 	i.blockBatchSize = cfg.BlockBatchSize
 	i.subscriptionBackoff = time.Duration(cfg.SubscriptionBackoff) * time.Second
@@ -225,12 +213,11 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 
 	i.syncMode = cfg.SyncMode
 	i.indexNfts = cfg.IndexNFTs
+	i.allowUnclaimedBalanceReplay = cfg.AllowUnclaimedBalanceReplay
 	i.indexERC20s = cfg.IndexERC20s
 	i.layer = cfg.Layer
 	i.contractToMetadata = make(map[common.Address]*eventindexer.ERC20Metadata, 0)
 	i.contractToMetadataMutex = &sync.Mutex{}
-	i.ontakeForkHeight = cfg.OntakeForkHeight
-	i.pacayaForkHeight = cfg.PacayaForkHeight
 
 	return nil
 }
@@ -242,4 +229,55 @@ func (i *Indexer) Close(ctx context.Context) {
 	if err := i.db.Close(); err != nil {
 		slog.Error("Failed to close db connection", "err", err)
 	}
+}
+
+// checkBalanceClaimBootstrap refuses to start when this process would replay
+// balance mutations that a previous process already applied.
+//
+// processed_transfer_logs makes replays idempotent, but only for logs claimed at
+// least once. Nothing records what a pre-claim process applied, so the indexer
+// cannot repair this by itself and the choice belongs to an operator: reset the
+// balances so they rebuild from claims, or accept a single overcount.
+func (i *Indexer) checkBalanceClaimBootstrap(ctx context.Context) error {
+	kinds := []struct {
+		kind    string
+		enabled bool
+	}{
+		{eventindexer.TransferKindNFT, i.indexNfts},
+		{eventindexer.TransferKindERC20, i.indexERC20s},
+	}
+
+	for _, k := range kinds {
+		if !k.enabled {
+			continue
+		}
+
+		atRisk, err := repo.UnclaimedBalanceReplayRisk(ctx, i.db, int64(i.srcChainID), k.kind)
+		if err != nil {
+			return errors.Wrap(err, "repo.UnclaimedBalanceReplayRisk")
+		}
+
+		if !atRisk {
+			continue
+		}
+
+		if i.allowUnclaimedBalanceReplay {
+			slog.Warn("starting with unclaimed balance replay allowed, this restart may double count once",
+				"kind", k.kind,
+				"chainID", i.srcChainID,
+			)
+
+			continue
+		}
+
+		return errors.Newf(
+			"%s balances for chain %d were written before transfer log claims existed, so this "+
+				"restart would replay and double count them once. Either reset those balances so "+
+				"they rebuild from claims, or set --allowUnclaimedBalanceReplay / "+
+				"ALLOW_UNCLAIMED_BALANCE_REPLAY=true to accept a single overcount",
+			k.kind, i.srcChainID,
+		)
+	}
+
+	return nil
 }

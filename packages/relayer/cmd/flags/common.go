@@ -1,6 +1,8 @@
 package flags
 
 import (
+	"time"
+
 	"github.com/urfave/cli/v2"
 )
 
@@ -8,7 +10,6 @@ var (
 	commonCategory    = "COMMON"
 	indexerCategory   = "INDEXER"
 	processorCategory = "PROCESSOR"
-	watchdogCategory  = "WATCHDOG"
 	bridgeCategory    = "BRIDGE"
 	txmgrCategory     = "TX_MANAGER"
 )
@@ -94,17 +95,18 @@ var (
 		Value:    10,
 		EnvVars:  []string{"ETH_CLIENT_TIMEOUT"},
 	}
+	ETHClientRequestTimeout = &cli.DurationFlag{
+		Name:     "ethClientRequestTimeout",
+		Usage:    "Maximum duration of an HTTP JSON-RPC request",
+		Category: commonCategory,
+		Value:    5 * time.Minute,
+		EnvVars:  []string{"ETH_CLIENT_REQUEST_TIMEOUT"},
+	}
 	SrcSignalServiceAddress = &cli.StringFlag{
 		Name:     "srcSignalServiceAddress",
 		Usage:    "SignalService address for the source chain",
 		Category: commonCategory,
 		EnvVars:  []string{"SRC_SIGNAL_SERVICE_ADDRESS"},
-	}
-	SrcSignalServiceForkRouterAddress = &cli.StringFlag{
-		Name:     "srcSignalServiceForkRouterAddress",
-		Usage:    "Fork router / new SignalService address for the source chain",
-		Category: commonCategory,
-		EnvVars:  []string{"SRC_SIGNAL_SERVICE_FORK_ROUTER_ADDRESS"},
 	}
 	BackOffRetryInterval = &cli.Uint64Flag{
 		Name:     "backoff.retryInterval",
@@ -137,8 +139,8 @@ var CommonFlags = []cli.Flag{
 	DatabaseMaxOpenConns,
 	MetricsHTTPPort,
 	ETHClientTimeout,
+	ETHClientRequestTimeout,
 	SrcSignalServiceAddress,
-	SrcSignalServiceForkRouterAddress,
 	BackOffMaxRetries,
 	BackOffRetryInterval,
 }

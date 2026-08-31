@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./LibFasterReentryLock.sol";
 import "src/shared/governance/Controller.sol";
 
 import "./MainnetDAOController_Layout.sol"; // DO NOT DELETE
@@ -29,17 +28,5 @@ contract MainnetDAOController is Controller {
         returns (bytes[] memory results_)
     {
         return _executeActions(_actions);
-    }
-
-    // ---------------------------------------------------------------
-    // Internal Functions
-    // ---------------------------------------------------------------
-
-    function _storeReentryLock(uint8 _reentry) internal override {
-        LibFasterReentryLock.storeReentryLock(_reentry);
-    }
-
-    function _loadReentryLock() internal view override returns (uint8) {
-        return LibFasterReentryLock.loadReentryLock();
     }
 }

@@ -1,22 +1,31 @@
 package manifest
 
 import (
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
+	gethcore "github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 )
 
 const (
-	// Version number for Shasta payloads.
+	// Version number for Shasta / Unzen payloads.
 	ShastaPayloadVersion = 0x1
 	// BlobBytes The maximum number of bytes in a blob.
 	BlobBytes = params.BlobTxBytesPerFieldElement * params.BlobTxFieldElementsPerBlob
-	// ProposalMaxBlocks The maximum number of blocks allowed in a proposal.
-	ProposalMaxBlocks = 384
-	// TimestampMaxOffset The maximum number timestamp offset from the proposal origin timestamp.
-	TimestampMaxOffset = 12 * 128
-	// AnchorMaxOffset The maximum anchor block number offset from the proposal origin block number.
-	AnchorMaxOffset = 128
+	// ProposalMaxBlocks The maximum number of blocks allowed in a pre-Unzen proposal source.
+	ProposalMaxBlocks = 192
+	// UnzenProposalMaxBlocks The maximum number of blocks allowed in an Unzen proposal source.
+	UnzenProposalMaxBlocks = 768
+	// AnchorMaxOffset The maximum anchor block number offset from the proposal origin block number on Hoodi.
+	AnchorMaxOffset = uint64(128)
+	// MainnetAnchorMaxOffset The maximum anchor block number offset from the proposal origin block number on mainnet.
+	MainnetAnchorMaxOffset = uint64(512)
+	// TimestampMaxOffset The maximum timestamp offset from the proposal origin timestamp on Hoodi.
+	TimestampMaxOffset = uint64(12) * AnchorMaxOffset
+	// MainnetTimestampMaxOffset The maximum timestamp offset from the proposal origin timestamp on mainnet.
+	MainnetTimestampMaxOffset = uint64(12) * MainnetAnchorMaxOffset
 	// MaxBlockGasLimitMaxChange The maximum block gas limit change per block,
 	// expressed in millionths (1/1,000,000).
 	MaxBlockGasLimitMaxChange = 200 // 0.02%
@@ -26,6 +35,8 @@ const (
 	MinBlockGasLimit = 10_000_000
 	// MaxBlockGasLimit The maximum block gas limit.
 	MaxBlockGasLimit = 45_000_000
+	// MainnetAnchorCheckSkipProposalOffset is the proposal offset after which anchor checks can be skipped on mainnet.
+	MainnetAnchorCheckSkipProposalOffset = uint64(7)
 )
 
 // BlockManifest represents the blocks inside a derivation source.
@@ -46,4 +57,46 @@ type BlockManifest struct {
 // DerivationSourceManifest represents a derivation source manifest containing blocks for one source.
 type DerivationSourceManifest struct {
 	Blocks []*BlockManifest `json:"blocks"`
+}
+
+// AnchorMaxOffsetByChainID returns the maximum anchor offset based on chainID.
+func AnchorMaxOffsetByChainID(chainID *big.Int) uint64 {
+	if chainID != nil && chainID.Cmp(params.TaikoMainnetNetworkID) == 0 {
+		return MainnetAnchorMaxOffset
+	}
+
+	return AnchorMaxOffset
+}
+
+// TimestampMaxOffsetByChainID returns the maximum timestamp offset based on chainID.
+func TimestampMaxOffsetByChainID(chainID *big.Int) uint64 {
+	if chainID != nil && chainID.Cmp(params.TaikoMainnetNetworkID) == 0 {
+		return MainnetTimestampMaxOffset
+	}
+
+	return TimestampMaxOffset
+}
+
+// ShastaForkTimeByChainID returns the Shasta fork activation timestamp based on chainID.
+//
+// The values are sourced from the taiko-geth fork schedule (the same source consumed by
+// pkg/config.ChainConfig), so the driver stays in lockstep with the execution client. A return
+// value of 0 means Shasta is active from genesis for the internal devnet, which imposes no
+// additional lower-bound constraint on derived block timestamps. Unknown or nil chain IDs are
+// treated as genesis-activated (0).
+func ShastaForkTimeByChainID(chainID *big.Int) uint64 {
+	if chainID == nil {
+		return 0
+	}
+
+	switch chainID.Uint64() {
+	case params.TaikoMainnetNetworkID.Uint64():
+		return gethcore.MainnetShastaTime
+	case params.TaikoHoodiNetworkID.Uint64():
+		return gethcore.HoodiShastaTime
+	case params.TaikoInternalNetworkID.Uint64():
+		return gethcore.InternalShastaTime
+	default:
+		return 0
+	}
 }

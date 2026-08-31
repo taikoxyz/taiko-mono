@@ -1,8 +1,6 @@
 package flags
 
 import (
-	"time"
-
 	p2pFlags "github.com/ethereum-optimism/optimism/op-node/flags"
 	"github.com/urfave/cli/v2"
 )
@@ -17,14 +15,6 @@ var (
 		Category: driverCategory,
 		EnvVars:  []string{"P2P_SYNC"},
 	}
-	P2PSyncTimeout = &cli.DurationFlag{
-		Name: "p2p.syncTimeout",
-		Usage: "P2P syncing timeout, if no sync progress is made within this time span, " +
-			"driver will stop the P2P sync and insert all remaining L2 blocks one by one",
-		Value:    1 * time.Hour,
-		Category: driverCategory,
-		EnvVars:  []string{"P2P_SYNC_TIMEOUT"},
-	}
 	CheckPointSyncURL = &cli.StringFlag{
 		Name:     "p2p.checkPointSyncUrl",
 		Usage:    "HTTP RPC endpoint of another synced L2 execution engine node",
@@ -34,7 +24,7 @@ var (
 	// blob server endpoint
 	BlobServerEndpoint = &cli.StringFlag{
 		Name:     "blob.server",
-		Usage:    "Blob sidecar storage server",
+		Usage:    "Blob sidecar storage server, or an Anvil RPC endpoint which is the same as the L1 endpoint",
 		Category: driverCategory,
 		EnvVars:  []string{"BLOB_SERVER"},
 	}
@@ -58,19 +48,12 @@ var (
 		Value:    "*",
 		EnvVars:  []string{"PRECONFIRMATION_SERVER_CORS_ORIGINS"},
 	}
-	PreconfWhitelistAddress = &cli.StringFlag{
-		Name:     "preconfirmation.whitelist",
-		Usage:    "PreconfWhitelist contract L1 `address`",
-		Required: false,
+	PreconfHandoverSkipSlots = &cli.Uint64Flag{
+		Name:     "preconfirmation.handoverSkipSlots",
+		Usage:    "Number of slots to reserve for handover at the end of each epoch",
+		Value:    8,
 		Category: driverCategory,
-		EnvVars:  []string{"PRECONFIRMATION_WHITELIST"},
-	}
-	DriverTaikoWrapperAddress = &cli.StringFlag{
-		Name:     "taikoWrapper",
-		Usage:    "TaikoWrapper contract `address`",
-		Required: false,
-		Category: driverCategory,
-		EnvVars:  []string{"TAIKO_WRAPPER"},
+		EnvVars:  []string{"PRECONFIRMATION_HANDOVER_SKIP_SLOTS"},
 	}
 )
 
@@ -78,15 +61,14 @@ var (
 var DriverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	L1BeaconEndpoint,
 	L2WSEndpoint,
+	L2HTTPEndpoint,
 	L2AuthEndpoint,
 	JWTSecret,
 	P2PSync,
-	P2PSyncTimeout,
 	CheckPointSyncURL,
 	BlobServerEndpoint,
 	PreconfBlockServerPort,
 	PreconfBlockServerJWTSecret,
 	PreconfBlockServerCORSOrigins,
-	PreconfWhitelistAddress,
-	DriverTaikoWrapperAddress,
+	PreconfHandoverSkipSlots,
 }, p2pFlags.P2PFlags("PRECONFIRMATION"))

@@ -5,15 +5,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
 	"gopkg.in/go-playground/assert.v1"
 )
 
 func newTestProver() *Prover {
 	return &Prover{
-		blocker:     &mock.Blocker{},
-		cacheOption: encoding.CACHE_BOTH,
+		blocker: &mock.Blocker{},
 	}
 }
 
@@ -37,7 +35,7 @@ func Test_New(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := New(tt.blocker, encoding.CACHE_BOTH)
+			_, err := New(tt.blocker)
 			assert.Equal(t, tt.wantErr, err)
 		})
 	}

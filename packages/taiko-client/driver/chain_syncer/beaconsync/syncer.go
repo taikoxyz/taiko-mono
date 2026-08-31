@@ -43,7 +43,7 @@ func (s *Syncer) TriggerBeaconSync(blockID uint64) error {
 		return nil
 	}
 
-	if s.progressTracker.Triggered() && s.progressTracker.lastSyncProgress == nil {
+	if s.progressTracker.Triggered() && s.progressTracker.LastSyncProgress() == nil {
 		log.Info(
 			"Syncing beacon headers, please check L2 execution engine logs for progress",
 			"currentSyncHead", s.progressTracker.LastSyncedBlockID(),
@@ -97,5 +97,6 @@ func (s *Syncer) getBlockPayload(ctx context.Context, blockID uint64) (*engine.E
 
 	log.Info("Block to sync retrieved", "number", block.Number(), "hash", block.Hash())
 
-	return engine.BlockToExecutableData(block, nil, nil, nil).ExecutionPayload, nil
+	envelope := engine.BlockToExecutableData(block, nil, nil, nil)
+	return rpc.NormalizeExecutableData(s.rpc.L2.ChainID, envelope.ExecutionPayload, envelope.BlockValue)
 }

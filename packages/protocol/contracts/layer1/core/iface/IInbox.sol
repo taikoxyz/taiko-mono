@@ -27,23 +27,20 @@ interface IInbox {
         uint48 withdrawalDelay;
         /// @notice The proving window in seconds
         uint48 provingWindow;
+        /// @notice The delay after which proving becomes permissionless when whitelist is enabled
+        /// @dev Must be greater than provingWindow
+        uint48 permissionlessProvingDelay;
         /// @notice Maximum delay allowed between consecutive proofs to still be on time.
         /// @dev Must be shorter than the expected proposal cadence to prevent backlog growth.
         uint48 maxProofSubmissionDelay;
         /// @notice The ring buffer size for storing proposal hashes
-        uint256 ringBufferSize;
-        /// @notice The minimum number of forced inclusions that the proposer is forced to process
-        /// if they are due
-        uint256 minForcedInclusionCount;
+        uint48 ringBufferSize;
         /// @notice The delay for forced inclusions measured in seconds
         uint16 forcedInclusionDelay;
         /// @notice The base fee for forced inclusions in Gwei used in dynamic fee calculation
         uint64 forcedInclusionFeeInGwei;
-        /// @notice Queue size at which the fee doubles
+        /// @notice Queue size at which the forced inclusion fee doubles
         uint64 forcedInclusionFeeDoubleThreshold;
-        /// @notice The minimum delay between checkpoints in seconds
-        /// @dev Must be less than or equal to finalization grace period
-        uint16 minCheckpointDelay;
         /// @notice The multiplier to determine when a forced inclusion is too old so that proposing
         /// becomes permissionless
         uint8 permissionlessInclusionMultiplier;
@@ -91,22 +88,21 @@ interface IInbox {
         DerivationSource[] sources;
     }
 
-
     /// @notice Represents the core state of the inbox.
     /// @dev All 5 uint48 fields (30 bytes) pack into a single storage slot.
     struct CoreState {
         /// @notice The next proposal ID to be assigned.
         uint48 nextProposalId;
-        /// @notice The last L1 block ID where a proposal was made.
+        /// @notice The L1 block number where the most recent proposal was made.
         uint48 lastProposalBlockId;
-        /// @notice The ID of the last finalized proposal.
+        /// @notice The ID of the last proven (finalized) proposal.
         uint48 lastFinalizedProposalId;
-        /// @notice The timestamp when the last proposal was finalized.
+        /// @notice The timestamp when the last proposal was proven (finalized).
         uint48 lastFinalizedTimestamp;
         /// @notice The timestamp when the last checkpoint was saved.
-        /// @dev In genesis block, this is set to 0 to allow the first checkpoint to be saved.
+        /// @dev This is 0 until the first successful `prove` call saves a checkpoint.
         uint48 lastCheckpointTimestamp;
-        /// @notice The block hash of the last finalized proposal.
+        /// @notice The block hash of the last proven (finalized) proposal.
         bytes32 lastFinalizedBlockHash;
     }
 
@@ -117,20 +113,18 @@ interface IInbox {
         /// @notice Blob reference for proposal data.
         LibBlobs.BlobReference blobReference;
         /// @notice The number of forced inclusions that the proposer wants to process.
-        /// @dev This can be set to 0 if no forced inclusions are due, and there's none in the queue
-        /// that he wants to include.
-        uint8 numForcedInclusions;
+        /// @dev This can be set to 0 if no forced inclusions are due and the proposer does not
+        ///      wish to include any queued inclusions.
+        uint16 numForcedInclusions;
     }
 
     /// @notice Transition data for a proposal used in prove
     struct Transition {
         /// @notice Address of the proposer.
         address proposer;
-        /// @notice Address of the designated prover.
-        address designatedProver;
         /// @notice Timestamp of the proposal.
         uint48 timestamp;
-        /// @notice end block hash for the proposal.
+        /// @notice The end block hash for the proposal.
         bytes32 blockHash;
     }
 
@@ -138,8 +132,8 @@ interface IInbox {
     struct Commitment {
         /// @notice The ID of the first proposal being proven.
         uint48 firstProposalId;
-        /// @notice The checkpoint hash of the parent of the first proposal, this is used
-        /// to verify checkpoint continuity in the proof.
+        /// @notice The block hash of the parent of the first proposal.
+        /// @dev Used to verify the proof range links to `CoreState.lastFinalizedBlockHash`.
         bytes32 firstProposalParentBlockHash;
         /// @notice The hash of the last proposal being proven.
         bytes32 lastProposalHash;
@@ -154,21 +148,9 @@ interface IInbox {
     }
 
     /// @notice Input data for the prove function.
-    /// @dev This struct contains two categories of data:
-    ///      1. Commitment data - What the prover is actually proving. This must be fully
-    ///         determined before proof generation and is the only input to the prover's
-    ///         guest program.
-    ///      2. Usage options - Parameters that can be decided after proof generation
-    ///         (e.g., whether to proactively write a checkpoint). The prover system can
-    ///         choose or adjust these options using additional data during or after
-    ///         proof generation.
     struct ProveInput {
         /// @notice The commitment data that the proof verifies.
         Commitment commitment;
-        /// @notice Whether to force syncing the last checkpoint even if the minimum
-        /// delay has not passed.
-        /// @dev This allows checkpoint synchronization ahead of schedule.
-        bool forceCheckpointSync;
     }
 
     /// @notice Payload data emitted in the Proved event
@@ -181,8 +163,6 @@ interface IInbox {
         uint48 lastProposalId;
         /// @notice The actual prover who generated the proof.
         address actualProver;
-        /// @notice Whether the checkpoint was synced.
-        bool checkpointSynced;
     }
 
     // ---------------------------------------------------------------
@@ -210,14 +190,25 @@ interface IInbox {
     /// @param firstNewProposalId The first proposal ID that was newly proven by this proof
     /// @param lastProposalId The last proposal ID covered by the proof
     /// @param actualProver The prover that submitted the proof
-    /// @param checkpointSynced Whether a checkpoint was synced as part of this proof
     event Proved(
         uint48 firstProposalId,
         uint48 firstNewProposalId,
         uint48 lastProposalId,
-        address indexed actualProver,
-        bool checkpointSynced
+        address indexed actualProver
     );
+
+    /// @notice Emitted when the inbox core state is reset during incident recovery.
+    /// @param nextProposalId The next proposal ID set by the recovery.
+    /// @param lastFinalizedProposalId The last finalized proposal ID set by the recovery.
+    /// @param lastFinalizedBlockHash The last finalized block hash set by the recovery.
+    event StateRecovered(
+        uint48 nextProposalId, uint48 lastFinalizedProposalId, bytes32 lastFinalizedBlockHash
+    );
+
+    /// @notice Emitted when queued forced inclusions are voided by moving the queue head.
+    /// @param oldHead The queue head before the move.
+    /// @param newHead The queue head after the move (equals the queue tail).
+    event ForcedInclusionsVoided(uint48 oldHead, uint48 newHead);
 
     // ---------------------------------------------------------------
     // External Transactional Functions

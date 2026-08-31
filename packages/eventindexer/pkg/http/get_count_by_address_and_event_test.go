@@ -23,7 +23,7 @@ func Test_GetCountByAddressAndEvent(t *testing.T) {
 		Data:         `{"Owner": "0x0000000000000000000000000000000000000123"}`,
 		ChainID:      big.NewInt(167001),
 		Address:      "0x123",
-		Event:        eventindexer.EventNameBlockProposed,
+		Event:        eventindexer.EventNameProposed,
 		TransactedAt: time.Now(),
 	})
 
@@ -39,14 +39,14 @@ func Test_GetCountByAddressAndEvent(t *testing.T) {
 		{
 			"successZeroCount",
 			"0xhasntProposedAnything",
-			eventindexer.EventNameBlockProposed,
+			eventindexer.EventNameProposed,
 			http.StatusOK,
 			[]string{`{"count":0`},
 		},
 		{
 			"success",
 			"0x123",
-			eventindexer.EventNameBlockProposed,
+			eventindexer.EventNameProposed,
 			http.StatusOK,
 			[]string{`{"count":1`},
 		},

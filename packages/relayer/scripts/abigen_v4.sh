@@ -5,9 +5,9 @@ if [ ! -d "../protocol/out" ]; then
     exit 1
 fi
 
-paths=("shared/SignalService.sol" "shared/SignalServiceForkRouter.sol")
+paths=("shared/SignalService.sol")
 
-names=("SignalService" "SignalServiceForkRouter")
+names=("SignalService")
 
 for (( i = 0; i < ${#paths[@]}; ++i ));
 do

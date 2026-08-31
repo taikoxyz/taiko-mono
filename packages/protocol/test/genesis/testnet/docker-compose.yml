@@ -1,6 +1,6 @@
 services:
   geth:
-    image: ethereum/client-go:v1.13.14
+    image: ethereum/client-go:v1.17.2
     restart: unless-stopped
     volumes:
       - ../data:/data

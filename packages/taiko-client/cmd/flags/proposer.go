@@ -1,29 +1,14 @@
 package flags
 
 import (
-	"time"
-
 	"github.com/urfave/cli/v2"
 )
 
 // Required flags used by proposer.
 var (
-	TaikoWrapperAddress = &cli.StringFlag{
-		Name:     "taikoWrapper",
-		Usage:    "TaikoWrapper contract `address`",
-		Required: true,
-		Category: proposerCategory,
-		EnvVars:  []string{"TAIKO_WRAPPER"},
-	}
-	ForcedInclusionStoreAddress = &cli.StringFlag{
-		Name:     "forcedInclusionStore",
-		Usage:    "ForcedInclusionStore contract `address`",
-		Required: true,
-		EnvVars:  []string{"FORCED_INCLUSION_STORE"},
-	}
 	L1ProposerPrivKey = &cli.StringFlag{
 		Name:     "l1.proposerPrivKey",
-		Usage:    "Private key of the L1 proposer, who will send transactions to Pacaya / Shasta inbox",
+		Usage:    "Private key of the L1 proposer, who will send transactions to the inbox",
 		Required: true,
 		Category: proposerCategory,
 		EnvVars:  []string{"L1_PROPOSER_PRIV_KEY"},
@@ -75,47 +60,13 @@ var (
 		Category: proposerCategory,
 		EnvVars:  []string{"TX_POOL_MAX_TX_LISTS_PER_EPOCH"},
 	}
-	// Transaction related.
-	BlobAllowed = &cli.BoolFlag{
-		Name:    "l1.blobAllowed",
-		Usage:   "Send EIP-4844 blob transactions when proposing blocks",
-		Value:   false,
-		EnvVars: []string{"L1_BLOB_ALLOWED"},
-	}
-	FallbackToCalldata = &cli.BoolFlag{
-		Name:     "l1.fallbackToCalldata",
-		Usage:    "If set to true, proposer will use calldata as DA when blob fee is more expensive than using calldata",
-		Value:    false,
-		Category: proposerCategory,
-		EnvVars:  []string{"L1_FALLBACK_TO_CALLDATA"},
-	}
-	RevertProtectionEnabled = &cli.BoolFlag{
-		Name: "l1.revertProtection",
-		Usage: "Enable revert protection within your ProverSet contract, " +
-			"this is effective only if your PBS service supports revert protection",
-		Value:    false,
-		Category: proposerCategory,
-		EnvVars:  []string{"L1_REVERT_PROTECTION"},
-	}
-	// Preconfirmation related
-	FallbackTimeout = &cli.DurationFlag{
-		Name:     "preconfirmation.fallback.forcePushTimeout",
-		Usage:    "Timeout to propose L2 transactions as a fallback preconfer",
-		Category: proposerCategory,
-		Value:    2 * time.Minute,
-		EnvVars:  []string{"PRECONFIRMATION_FALLBACK_FORCE_PUSH_TIMEOUT"},
-	}
 )
 
 // ProposerFlags All proposer flags.
 var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
-	L2HTTPEndpoint,
 	L2AuthEndpoint,
 	L2WSEndpoint,
 	JWTSecret,
-	TaikoTokenAddress,
-	TaikoWrapperAddress,
-	ForcedInclusionStoreAddress,
 	L1ProposerPrivKey,
 	L2SuggestedFeeRecipient,
 	ProposeInterval,
@@ -123,8 +74,4 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	MinProposingInternal,
 	AllowZeroTipInterval,
 	MaxTxListsPerEpoch,
-	BlobAllowed,
-	FallbackToCalldata,
-	RevertProtectionEnabled,
-	FallbackTimeout,
 }, TxmgrFlags)

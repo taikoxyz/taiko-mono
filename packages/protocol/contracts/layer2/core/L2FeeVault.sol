@@ -100,7 +100,6 @@ contract L2FeeVault is EssentialContract, IL2FeeVault {
     /// @dev In basis points. 10000 = 100%. Protects the vault from unbounded losses during low activity.
     uint16 public immutable lossReimbursementBps;
 
-
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
@@ -256,11 +255,7 @@ contract L2FeeVault is EssentialContract, IL2FeeVault {
     ///
     /// @param _data The proposal fee data containing L1 gas and blob information.
     /// @return l1Cost_ The total L1 cost in wei.
-    function _calcL1Cost(ProposalFeeData calldata _data)
-        internal
-        pure
-        returns (uint256 l1Cost_)
-    {
+    function _calcL1Cost(ProposalFeeData calldata _data) internal pure returns (uint256 l1Cost_) {
         unchecked {
             uint256 gasCost = uint256(_data.l1GasUsed) * uint256(_data.l1Basefee);
             uint256 blobCost =
@@ -283,7 +278,10 @@ contract L2FeeVault is EssentialContract, IL2FeeVault {
     /// @param _l1CostWei L1 cost in wei (gas cost + blob cost).
     /// @param _l2RevenueWei L2 basefee revenue collected for this proposal's blocks.
     /// @return reimbursedWei_ The amount to reimburse the proposer.
-    function _calcReimbursement(uint256 _l1CostWei, uint256 _l2RevenueWei)
+    function _calcReimbursement(
+        uint256 _l1CostWei,
+        uint256 _l2RevenueWei
+    )
         internal
         view
         returns (uint256 reimbursedWei_)
@@ -341,8 +339,7 @@ contract L2FeeVault is EssentialContract, IL2FeeVault {
 
         // Step 3: EIP-1559 style multiplicative adjustment
         // adjustmentFactor = 1 + errorRatio / BASE_FEE_MAX_CHANGE_DENOMINATOR
-        int256 adjustmentFactor =
-            1e18 + errorRatio / int256(BASE_FEE_MAX_CHANGE_DENOMINATOR);
+        int256 adjustmentFactor = 1e18 + errorRatio / int256(BASE_FEE_MAX_CHANGE_DENOMINATOR);
 
         // Step 4: Apply adjustment
         uint256 currentFee = feePerGasWei;

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -64,7 +65,13 @@ type BeaconClient struct {
 
 // NewBeaconClient returns a new beacon client.
 func NewBeaconClient(endpoint string, timeout time.Duration) (*BeaconClient, error) {
-	cli, err := beacon.NewClient(strings.TrimSuffix(endpoint, "/"), client.WithTimeout(timeout))
+	rateLimitedTransport := NewRateLimitedTransport(http.DefaultTransport, RateLimitMaxRetries)
+
+	cli, err := beacon.NewClient(
+		strings.TrimSuffix(endpoint, "/"),
+		client.WithTimeout(timeout),
+		client.WithRoundTripper(rateLimitedTransport),
+	)
 	if err != nil {
 		return nil, err
 	}

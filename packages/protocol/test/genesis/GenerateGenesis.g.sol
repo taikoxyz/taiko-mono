@@ -6,7 +6,6 @@ import "forge-std/src/StdJson.sol";
 import "forge-std/src/Test.sol";
 import "forge-std/src/console2.sol";
 import "src/layer2/core/Anchor.sol";
-import "src/layer2/core/AnchorForkRouter.sol";
 import "src/shared/bridge/Bridge.sol";
 import "src/shared/common/DefaultResolver.sol";
 import "src/shared/signal/ICheckpointStore.sol";
@@ -122,7 +121,17 @@ contract TestGenerateGenesis is Test {
         vm.startPrank(taikoAnchorProxy.owner());
 
         UUPSUpgradeable(address(taikoAnchorProxy))
-            .upgradeTo(address(new AnchorForkRouter(address(1), address(2))));
+            .upgradeTo(
+                address(
+                    new Anchor(
+                        ICheckpointStore(getPredeployedContractAddress("SignalService")),
+                        uint64(l1ChainId),
+                        // No fee vault predeploy exists yet; a non-zero placeholder satisfies the
+                        // constructor for this upgradeability check.
+                        IL2FeeVault(address(1))
+                    )
+                )
+            );
 
         vm.stopPrank();
     }
@@ -192,7 +201,9 @@ contract TestGenerateGenesis is Test {
             address(
                 new Bridge(
                     getPredeployedContractAddress("SharedResolver"),
-                    getPredeployedContractAddress("SignalService")
+                    getPredeployedContractAddress("SignalService"),
+                    address(0),
+                    address(0)
                 )
             )
         );
@@ -240,7 +251,7 @@ contract TestGenerateGenesis is Test {
         vm.startPrank(erc20VaultProxy.owner());
 
         erc20VaultProxy.upgradeTo(
-            address(new ERC20Vault(getPredeployedContractAddress("SharedResolver")))
+            address(new ERC20Vault(getPredeployedContractAddress("SharedResolver"), address(0)))
         );
 
         vm.stopPrank();

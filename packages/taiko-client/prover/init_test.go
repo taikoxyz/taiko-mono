@@ -1,44 +1,39 @@
 package prover
 
 import (
-	"context"
-	"math/big"
+	"testing"
 
-	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	producer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
-func (s *ProverTestSuite) TestSetApprovalAmount() {
-	data, err := encoding.TaikoTokenABI.Pack(
-		"approve",
-		s.p.cfg.PacayaInboxAddress,
-		common.Big0,
-	)
-	s.Nil(err)
+func (s *ProverTestSuite) TestInitUsesShastaSubmitterOnly() {
+	s.NotNil(s.p.proofSubmitter)
+}
 
-	_, err = s.p.txmgr.Send(context.Background(), txmgr.TxCandidate{
-		TxData: data,
-		To:     &s.p.cfg.TaikoTokenAddress,
+func TestVerifierIDsByProofTypeUsesSGXRethVerifierID(t *testing.T) {
+	require.Equal(t, uint8(4), verifierIDsByProofType()[producer.ProofTypeSgx])
+}
+
+func TestEnabledProofTypes(t *testing.T) {
+	t.Run("default supports RISC0 and SP1", func(t *testing.T) {
+		require.Equal(
+			t,
+			[]producer.ProofType{producer.ProofTypeZKR0, producer.ProofTypeZKSP1},
+			enabledProofTypes(false, false),
+		)
 	})
-	s.Nil(err)
 
-	allowance, err := s.p.rpc.PacayaClients.TaikoToken.Allowance(nil, s.p.ProverAddress(), s.p.cfg.PacayaInboxAddress)
-	s.Nil(err)
+	t.Run("force SGX replaces RISC0 and SP1 selection", func(t *testing.T) {
+		require.Equal(t, []producer.ProofType{producer.ProofTypeSgx}, enabledProofTypes(true, false))
+	})
 
-	s.Equal(0, allowance.Cmp(common.Big0))
-
-	// Max that can be approved
-	amt, ok := new(big.Int).SetString("58764887351446156758749765621197442946723800609510499661540524634076971270144", 10)
-	s.True(ok)
-
-	s.p.cfg.Allowance = amt
-
-	s.Nil(s.p.setApprovalAmount(context.Background(), s.p.cfg.PacayaInboxAddress))
-
-	allowance, err = s.p.rpc.PacayaClients.TaikoToken.Allowance(nil, s.p.ProverAddress(), s.p.cfg.PacayaInboxAddress)
-	s.Nil(err)
-
-	s.Equal(0, amt.Cmp(allowance))
+	t.Run("ZK-only takes precedence over force SGX", func(t *testing.T) {
+		require.Equal(
+			t,
+			[]producer.ProofType{producer.ProofTypeZKR0, producer.ProofTypeZKSP1},
+			enabledProofTypes(true, true),
+		)
+	})
 }

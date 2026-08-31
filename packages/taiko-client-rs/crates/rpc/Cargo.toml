@@ -17,14 +17,11 @@ tower = { workspace = true }
 
 # ethereum
 alloy = { workspace = true }
-alloy-contract = { workspace = true }
-alloy-eips = { workspace = true }
+alloy-eips = { workspace = true, features = ["kzg"] }
 alloy-primitives = { workspace = true, default-features = false }
-alloy-provider = { workspace = true }
+alloy-provider = { workspace = true, features = ["ws"] }
 alloy-rpc-types = { workspace = true }
 alloy-rpc-types-engine = { workspace = true }
-alloy-sol-macro = { workspace = true, features = ["json"] }
-alloy-sol-types = { workspace = true }
 alloy-transport-http = { workspace = true }
 once_cell = { workspace = true }
 reqwest = { workspace = true }
@@ -32,11 +29,9 @@ tokio = { workspace = true, features = ["sync"] }
 url = { workspace = true }
 
 # taiko
-alethia-reth-evm = { workspace = true }
-alethia-reth-primitives = { workspace = true }
-alethia-reth-rpc = { workspace = true }
+alethia-reth-primitives = { workspace = true, features = ["net"] }
+alethia-reth-rpc-types = { workspace = true }
 bindings = { path = "../bindings" }
-event-scanner = { workspace = true }
 protocol = { path = "../protocol" }
 
 # types
@@ -46,4 +41,7 @@ thiserror = { workspace = true }
 # serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
-sha2 = "0.10"
+sha2 = { workspace = true }
+
+[dev-dependencies]
+hyper = { workspace = true, features = ["server"] }
