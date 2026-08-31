@@ -104,8 +104,12 @@
   let escKeyListener: (event: KeyboardEvent) => void;
 
   const addEscKeyListener = () => {
+    // The Edit button wires both click and focus to openModal, so one open can call this
+    // twice; without dropping the previous listener first, the untracked duplicate would
+    // survive closing and a later Escape could silently revert a confirmed recipient
+    removeEscKeyListener();
     escKeyListener = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && modalOpen) {
         // Escape means cancel: unconfirmed edits must not survive, or an invalid recipient /
         // missing destOwner could slip past the Confirm button's validation
         cancelModal();
