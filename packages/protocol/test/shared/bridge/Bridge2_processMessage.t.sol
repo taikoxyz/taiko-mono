@@ -393,15 +393,15 @@ contract TestBridge2_processMessage is TestBridge2Base {
     }
 
     /// @dev The refund send to destOwner must budget for a smart wallet that creates fresh
-    /// storage slots in its receive path. Writing 4+1 fresh slots costs ~112k gas under the
-    /// current schedule — above the previous 35k cap and comparable to what a single fresh slot
-    /// (97,920 gas) plus wallet overhead will cost under EIP-8037.
+    /// storage slots in its receive path. Writing 5+1 fresh slots costs ~133k gas under the
+    /// current schedule, which clears the 112,920 a wallet that saturated the legacy 35k budget
+    /// while writing one slot will need under EIP-8037 — 4+1 slots (~111k) does not.
     function test_bridge2_processMessage__refund_to_storage_creating_wallet()
         public
         transactBy(Carol)
     {
         MessageReceiver_CreatingFreshStorageSlots wallet =
-            new MessageReceiver_CreatingFreshStorageSlots(4);
+            new MessageReceiver_CreatingFreshStorageSlots(5);
 
         uint256 bridgeBalance = address(eBridge).balance;
 
@@ -464,14 +464,15 @@ contract TestBridge2_processMessage is TestBridge2Base {
         assertEq(address(eBridge).balance, bridgeBalance - 2 ether - 5_000_000);
     }
 
-    /// @dev The cap still bounds how much gas a recipient can consume: a receive path far above
-    /// the budget (7+1 fresh slots, ~179k gas) keeps failing the refund.
+    /// @dev The cap still bounds how much gas a recipient can consume: a receive path above the
+    /// budget (6+1 fresh slots, ~156k gas) keeps failing the refund. 6 rather than 7 slots
+    /// brackets the 135k cap as tightly as the schedule allows — 5+1 is the largest that fits.
     function test_bridge2_processMessage__refund_receiver_exceeding_gas_cap()
         public
         transactBy(Carol)
     {
         MessageReceiver_CreatingFreshStorageSlots wallet =
-            new MessageReceiver_CreatingFreshStorageSlots(7);
+            new MessageReceiver_CreatingFreshStorageSlots(6);
 
         IBridge.Message memory message;
         message.destChainId = ethereumChainId;
