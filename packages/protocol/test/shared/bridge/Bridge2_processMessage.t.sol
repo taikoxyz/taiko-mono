@@ -5,6 +5,9 @@ import "./TestBridge2Base.sol";
 import {
     MessageReceiver_CreatingFreshStorageSlots
 } from "test/shared/bridge/helpers/MessageReceiver_CreatingFreshStorageSlots.sol";
+import {
+    MessageReceiver_RecordingGasBudget
+} from "test/shared/bridge/helpers/MessageReceiver_RecordingGasBudget.sol";
 
 contract Target is IMessageInvocable {
     uint256 public receivedEther;
@@ -485,6 +488,34 @@ contract TestBridge2_processMessage is TestBridge2Base {
         bytes32 hash = eBridge.hashMessage(message);
         assertTrue(eBridge.messageStatus(hash) == IBridge.Status.NEW);
         assertEq(address(wallet).balance, 0);
+    }
+
+    /// @dev Pins the budget the capped Ether send actually forwards. The behavioural tests
+    /// bracket the cap between "a receive path this heavy still fits" and "this one does not",
+    /// which leaves a wide band of wrong values undetected; this measures it. It also needs no
+    /// recalibration at a repricing fork, because the forwarded allowance is independent of
+    /// what storage writes cost.
+    function test_bridge2_processMessage__capped_send_forwards_expected_gas_budget()
+        public
+        transactBy(Carol)
+    {
+        MessageReceiver_RecordingGasBudget wallet = new MessageReceiver_RecordingGasBudget();
+
+        IBridge.Message memory message;
+        message.destChainId = ethereumChainId;
+        message.srcChainId = taikoChainId;
+        message.gasLimit = 1_000_000;
+        message.fee = 0;
+        message.value = 2 ether;
+        message.destOwner = address(wallet);
+        // Invocation is prohibited for the bridge itself, so the whole value goes through the
+        // gas-capped send and the recorded budget is that send's allowance.
+        message.to = address(eBridge);
+
+        eBridge.processMessage(message, FAKE_PROOF);
+
+        // _SEND_ETHER_GAS_LIMIT (135,000) + the 2,300 stipend, less frame-entry overhead.
+        assertApproxEqAbs(wallet.recordedBudget(), 137_300, 500);
     }
 
     function test_bridge2_processMessage__context_transient_lifecycle() public transactBy(Carol) {
