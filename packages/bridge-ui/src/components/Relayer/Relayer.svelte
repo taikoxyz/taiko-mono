@@ -26,8 +26,14 @@
       reset();
     }
   };
+  // Only the most recent search may write results, an error, or clear the loading flag:
+  // switching accounts mid-fetch would otherwise let the previous address's response
+  // repopulate the table and turn off the spinner belonging to the newer search.
+  let searchGeneration = 0;
+
   const reset = () => {
     log('reset');
+    searchGeneration++;
     transactions = [];
     fetching = false;
     addressState = AddressInputState.DEFAULT;
@@ -38,19 +44,22 @@
 
   const fetchTxForAddress = async () => {
     log('fetchTxForAddress');
+    const generation = ++searchGeneration;
     fetching = true;
     try {
       if (addressToSearch) {
         const { mergedTransactions } = await fetchTransactions(addressToSearch);
+        if (generation !== searchGeneration) return;
         log('mergedTransactions', mergedTransactions);
         // Also assign empty results: the previous address's transactions must not linger
         transactions = mergedTransactions;
       }
     } catch (error) {
+      if (generation !== searchGeneration) return;
       console.error('Error fetching transactions', error);
       warningToast({ title: $t('transactions.errors.relayer_offline') });
     } finally {
-      fetching = false;
+      if (generation === searchGeneration) fetching = false;
     }
   };
 

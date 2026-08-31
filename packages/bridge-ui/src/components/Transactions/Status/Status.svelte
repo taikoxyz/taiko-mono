@@ -85,10 +85,17 @@
     if (bridgeTx && $account?.address) {
       bridgeTxStatus = bridgeTx.msgStatus;
 
-      // Can we start claiming/retrying/releasing?
-      isProcessable = await isTransactionProcessable(bridgeTx);
-
       try {
+        // Can we start claiming/retrying/releasing? A single failed read here must not
+        // prevent polling from starting: the poller re-reads this on every tick, so
+        // leaving it false is recoverable while never starting the poller is not.
+        try {
+          isProcessable = await isTransactionProcessable(bridgeTx);
+        } catch (err) {
+          console.warn('Could not determine whether the transaction is processable', err);
+          isProcessable = false;
+        }
+
         polling = startPolling(bridgeTx);
 
         // If there is no emitter, means the bridgeTx is already DONE

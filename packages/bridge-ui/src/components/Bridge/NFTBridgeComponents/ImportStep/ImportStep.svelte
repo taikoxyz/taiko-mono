@@ -37,6 +37,12 @@
       if (!accountAddress || !srcChainId || !destChainId) return;
       const nftsFromAPIs = await fetchNFTs({ address: accountAddress, chainId: srcChainId, refresh });
 
+      if (nftsFromAPIs.error) {
+        // Keep the pages already on screen and let the caller decide: overwriting with the
+        // empty result would both lose them and read as "there are no more NFTs"
+        throw nftsFromAPIs.error;
+      }
+
       foundNFTs = nftsFromAPIs.nfts;
 
       if (foundNFTs.length > 0) {

@@ -5,6 +5,7 @@
   import { Alert } from '$components/Alert';
   import { ImportMethod } from '$components/Bridge/types';
   import { ActionButton } from '$components/Button';
+  import { errorToast } from '$components/NotificationToast';
 
   import { selectedImportMethod } from './state';
 
@@ -17,9 +18,21 @@
 
   function onScanClick() {
     scanning = true;
-    scanForNFTs().finally(() => {
-      firstScan = false;
-      scanning = false;
+    scanForNFTs()
+      .catch(reportScanFailure)
+      .finally(() => {
+        firstScan = false;
+        scanning = false;
+      });
+  }
+
+  // A scan that fails now rejects rather than resolving with an empty list, so every
+  // call site has to handle it or it becomes an unhandled rejection
+  function reportScanFailure(error: unknown) {
+    console.error('Error scanning for NFTs', error);
+    errorToast({
+      title: $t('bridge.errors.unknown_error.title'),
+      message: $t('bridge.errors.unknown_error.message'),
     });
   }
 
@@ -45,10 +58,9 @@
       priority="secondary"
       disabled={!canImport}
       loading={scanning}
-      on:click={() =>
-        (async () => {
-          await scanForNFTs();
-        })()}>
+      on:click={() => {
+        scanForNFTs().catch(reportScanFailure);
+      }}>
       {$t('bridge.actions.nft_scan_again')}
     </ActionButton>
 

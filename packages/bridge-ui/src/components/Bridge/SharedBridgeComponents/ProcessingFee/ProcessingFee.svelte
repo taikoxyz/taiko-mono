@@ -37,6 +37,10 @@
 
   let tempprocessingFee = $processingFee;
 
+  // Set when the custom fee box holds text that does not parse, so tempprocessingFee
+  // still describes whatever was typed before it
+  let invalidCustomFee = false;
+
   // Public API
   export function resetProcessingFee() {
     inputBox?.clear();
@@ -73,10 +77,12 @@
     modalOpen = true;
     $gasLimitZero = false;
     manuallyConfirmed = false;
+    invalidCustomFee = false;
   }
 
   function cancelModal() {
     inputBox?.clear();
+    invalidCustomFee = false;
     $gasLimitZero = false;
 
     if (tempProcessingFeeMethod === ProcessingFeeMethod.CUSTOM) {
@@ -96,11 +102,16 @@
     // Incomplete or invalid input keeps the previous fee; a custom fee below the
     // recommended amount is a deliberate choice the warning below covers
     const parsed = parseCustomFeeInput(value);
+    // An empty box is not an error, it is simply not filled in yet. Anything else that
+    // fails to parse must block Confirm: silently keeping the previous fee would submit
+    // an amount the user has already replaced on screen.
+    invalidCustomFee = parsed === null && value.trim() !== '';
     if (parsed === null) return;
     tempprocessingFee = parsed;
   }
 
   async function updateProcessingFee(method: ProcessingFeeMethod, recommendedAmount: bigint) {
+    if (method !== ProcessingFeeMethod.CUSTOM) invalidCustomFee = false;
     switch (method) {
       case ProcessingFeeMethod.RECOMMENDED:
         $processingFee = recommendedAmount;
@@ -150,7 +161,10 @@
 
   $: needsConfirmation = tempProcessingFeeMethod !== ProcessingFeeMethod.RECOMMENDED || $gasLimitZero;
 
-  $: confirmDisabled = needsConfirmation && !manuallyConfirmed;
+  // Text that never parsed leaves tempprocessingFee describing an earlier value
+  $: customFeeUnusable = tempProcessingFeeMethod === ProcessingFeeMethod.CUSTOM && invalidCustomFee;
+
+  $: confirmDisabled = (needsConfirmation && !manuallyConfirmed) || customFeeUnusable;
 </script>
 
 {#if small}

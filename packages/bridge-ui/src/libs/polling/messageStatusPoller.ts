@@ -125,8 +125,15 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
 
   const pollingFn = async () => {
     log('Polling for transaction', bridgeTx.srcTxHash);
-    const isProcessable = await isTransactionProcessable(bridgeTx);
-    emitter.emit(PollingEvent.PROCESSABLE, isProcessable);
+
+    try {
+      const isProcessable = await isTransactionProcessable(bridgeTx);
+      emitter.emit(PollingEvent.PROCESSABLE, isProcessable);
+    } catch (err) {
+      // Kept separate from the status read below: one failing must not skip the other,
+      // and neither may escape into setInterval where nothing can catch it
+      console.error('Error while checking whether the transaction is processable, will retry', err);
+    }
 
     try {
       const messageStatus: MessageStatus = await destBridgeContract.read.messageStatus([bridgeTx.msgHash]);

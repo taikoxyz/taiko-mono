@@ -110,6 +110,16 @@
   const debouncedValidateAmount = debounce(validateAmount, 300);
   let sanitizedValue = '';
 
+  /**
+   * Invalid input means no amount was entered. Leaving the previous value in place would
+   * let the import proceed with an amount the user has already replaced on screen: the
+   * parents gate on `$enteredAmount > 0`, so clearing it is what blocks them.
+   */
+  function rejectAmount() {
+    invalidInput = true;
+    $enteredAmount = BigInt(0);
+  }
+
   function inputAmount(event: Event) {
     invalidInput = false;
     $validatingAmount = true; // During validation, we disable all the actions
@@ -124,7 +134,7 @@
 
       // For ERC1155, no decimals are allowed
       if (/[.,]/.test(value)) {
-        invalidInput = true;
+        rejectAmount();
         return;
       }
 
@@ -133,7 +143,7 @@
         // Number inputs also emit values like '1e5', which BigInt cannot parse
         parsed = BigInt(value);
       } catch {
-        invalidInput = true;
+        rejectAmount();
         return;
       }
 

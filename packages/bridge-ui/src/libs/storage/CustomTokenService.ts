@@ -109,11 +109,11 @@ export class CustomTokenService implements TokenService {
       filteredAddresses: Object.keys(filteredAddresses).length,
     });
 
-    // Find the stored token to update
+    // Find the stored token to update. Matching on raw address values would merge two
+    // unrelated tokens that happen to share a hexadecimal address on different chains,
+    // and would miss a match that differs only in casing.
     const storedToken = tokens.find((storedToken) =>
-      Object.values(filteredAddresses).some((addressToUpdate) =>
-        Object.values(storedToken.addresses).includes(addressToUpdate),
-      ),
+      tokensAreSame(storedToken, { ...token, addresses: filteredAddresses } as Token),
     );
 
     // If the stored token was found, update its addresses

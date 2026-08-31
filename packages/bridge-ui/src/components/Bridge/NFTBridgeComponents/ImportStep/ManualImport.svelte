@@ -34,22 +34,42 @@
 
   $: isOwnerOfAllToken = false;
 
+  /**
+   * Everything downstream of the contract address (detected type, validated ids, the
+   * selected NFT) describes the address that was validated. A new address invalidates all
+   * of it, including any id validation still in flight.
+   */
+  function discardSelectionForNewAddress() {
+    idValidationGeneration++;
+    validating = false;
+    detectedTokenType = null;
+    idInputState = IDInputState.DEFAULT;
+    isOwnerOfAllToken = false;
+    $selectedNFTs = null;
+  }
+
   async function onAddressValidation(event: CustomEvent<{ isValidEthereumAddress: boolean; addr: Address }>) {
     const { isValidEthereumAddress, addr } = event.detail;
     // interfaceSupported = true;
     addressInputState = AddressInputState.VALIDATING;
+    discardSelectionForNewAddress();
 
     const srcChainId = $connectedSourceChain?.id;
-    if (!srcChainId) return;
+    if (!srcChainId) {
+      addressInputState = AddressInputState.INVALID;
+      return;
+    }
 
     if (isValidEthereumAddress && typeof addr === 'string') {
       contractAddress = addr;
       try {
         detectedTokenType = await detectContractType(addr, srcChainId);
       } catch {
+        // Without a return the stale type from a previous address would decide the
+        // check below and could mark this failed lookup VALID
         addressInputState = AddressInputState.INVALID;
+        return;
       }
-      if (!$connectedSourceChain?.id) throw new Error('network not found');
       if (detectedTokenType !== TokenType.ERC721 && detectedTokenType !== TokenType.ERC1155) {
         addressInputState = AddressInputState.NOT_NFT;
         return;
@@ -57,7 +77,6 @@
 
       addressInputState = AddressInputState.VALID;
     } else {
-      detectedTokenType = null;
       addressInputState = AddressInputState.INVALID;
     }
     return;
@@ -147,8 +166,15 @@
   $: hasEnteredIds = enteredIds && enteredIds.length > 0;
   $: hasSelectedNFT = $selectedNFTs && $selectedNFTs?.length > 0 && hasEnteredIds;
 
+  // The address itself has to still be valid: editing it after an id was validated would
+  // otherwise leave Continue enabled for the NFT belonging to the previous address
   $: commonChecks =
-    enteredIds && enteredIds.length > 0 && !validating && idInputState === IDInputState.VALID && isOwnerOfAllToken;
+    addressInputState === AddressInputState.VALID &&
+    enteredIds &&
+    enteredIds.length > 0 &&
+    !validating &&
+    idInputState === IDInputState.VALID &&
+    isOwnerOfAllToken;
 
   $: ERC1155Checks = commonChecks && nftHasAmount !== null && hasSelectedNFT !== null && validBalance;
 

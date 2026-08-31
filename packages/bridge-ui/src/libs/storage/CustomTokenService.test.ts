@@ -204,6 +204,56 @@ describe('CustomTokenService', () => {
     expect(actual).toStrictEqual([token1Updated, token2]);
   });
 
+  test('does not merge unrelated tokens sharing an address on different chains', () => {
+    // Given: the same hexadecimal address hosts a different contract on each chain
+    const SHARED = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
+    const onChain1: Token = {
+      name: 'Mainnet Token',
+      addresses: { '1': SHARED as Address },
+      symbol: 'ONE',
+      decimals: 18,
+      type: TokenType.ERC20,
+      imported: true,
+    };
+    const onChain167000: Token = {
+      name: 'L2 Token',
+      addresses: { '167000': SHARED as Address },
+      symbol: 'TWO',
+      decimals: 18,
+      type: TokenType.ERC20,
+      imported: true,
+    };
+    localStorage.setItem(storageKey, JSON.stringify([onChain1]));
+
+    // When
+    const actual = tokenService.updateToken(onChain167000, address);
+
+    // Then: the stored mainnet token is untouched, since no deployment is shared
+    expect(actual).toStrictEqual([onChain1]);
+  });
+
+  test('matches a stored token whose address differs only in casing', () => {
+    // Given
+    const CHECKSUMMED = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
+    const stored: Token = {
+      name: 'Casing Token',
+      addresses: { '1': CHECKSUMMED.toLowerCase() as Address },
+      symbol: 'CASE',
+      decimals: 18,
+      type: TokenType.ERC20,
+      imported: true,
+    };
+    const updated: Token = { ...stored, addresses: { '1': CHECKSUMMED as Address, '167000': '0xabc' as Address } };
+    localStorage.setItem(storageKey, JSON.stringify([stored]));
+
+    // When
+    const actual = tokenService.updateToken(updated, address);
+
+    // Then: the same deployment is recognised and merged rather than duplicated
+    expect(actual).toHaveLength(1);
+    expect(actual[0].addresses['167000']).toBe('0xabc');
+  });
+
   test('does not update a non zeroAddress address to zeroAddress', () => {
     // Given
     const token1Updated: Token = {

@@ -10,6 +10,7 @@
   import RotatingIcon from '$components/Icon/RotatingIcon.svelte';
   import { NFTDisplay } from '$components/NFTs';
   import { NFTView } from '$components/NFTs/types';
+  import { errorToast } from '$components/NotificationToast';
   import type { NFT } from '$libs/token';
 
   import { selectedImportMethod } from './state';
@@ -48,9 +49,17 @@
   function onRefreshClick() {
     scanning = true;
     hasMoreNFTs = true;
-    refresh().finally(() => {
-      scanning = false;
-    });
+    refresh()
+      .catch((error) => {
+        console.error('Error refreshing NFTs', error);
+        errorToast({
+          title: $t('bridge.errors.unknown_error.title'),
+          message: $t('bridge.errors.unknown_error.message'),
+        });
+      })
+      .finally(() => {
+        scanning = false;
+      });
   }
 
   const changeNFTView = () => {
