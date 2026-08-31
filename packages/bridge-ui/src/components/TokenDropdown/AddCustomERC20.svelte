@@ -112,6 +112,10 @@
 
   const onAddressChange = async (tokenAddress: Address) => {
     const generation = ++lookupGeneration;
+    // Drop the previous token up front: if this lookup fails or the address is not an
+    // ERC20, the form must not keep offering the token from the last address
+    customTokenWithDetails = null;
+    customToken = null;
     if (!tokenAddress) {
       loadingTokenDetails = false;
       return;

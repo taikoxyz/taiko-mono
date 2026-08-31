@@ -21,11 +21,21 @@ async function fetchAllRelayerPages(
   const txs: BridgeTransaction[] = [];
 
   for (let page = 0; page < MAX_RELAYER_PAGES; page++) {
-    const { txs: pageTxs, paginationInfo } = await relayerApiService.getAllBridgeTransactionByAddress(
-      userAddress,
-      { page, size: RELAYER_PAGE_SIZE },
-      chainId,
-    );
+    let pageTxs;
+    let paginationInfo;
+    try {
+      ({ txs: pageTxs, paginationInfo } = await relayerApiService.getAllBridgeTransactionByAddress(
+        userAddress,
+        { page, size: RELAYER_PAGE_SIZE },
+        chainId,
+      ));
+    } catch (error) {
+      // Keep the pages already fetched: losing a later page should degrade the history,
+      // not blank it. With nothing fetched yet the caller still needs to hear about it.
+      if (txs.length === 0) throw error;
+      log(`relayer page ${page} failed, returning ${txs.length} transactions already fetched`, error);
+      break;
+    }
     txs.push(...pageTxs);
 
     if (paginationInfo.max_page === undefined || page >= paginationInfo.max_page) break;

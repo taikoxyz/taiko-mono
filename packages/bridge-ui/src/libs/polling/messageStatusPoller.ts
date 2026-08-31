@@ -43,10 +43,12 @@ const hashIntervalMap: Record<Hash, Interval> = {};
  *   const { emitter, stopPolling } = startPolling(bridgeTx);
  *
  *   if(emitter) {
- *     emitter.on(PollingEvent.STOP, () => {});
- *     emitter.on(PollingEvent.STATUS, (status: MessageStatus) => {});
- *     emitter.on(PollingEvent.PROCESSABLE, (isProcessable: boolean) => {});
+ *     emitter.on(PollingEvent.STOP, onStop);
+ *     emitter.on(PollingEvent.STATUS, onStatus);
+ *     emitter.on(PollingEvent.PROCESSABLE, onProcessable);
  *   }
+ *   // on teardown, pass back exactly the handlers that were added:
+ *   // destroy({ [PollingEvent.STATUS]: onStatus, [PollingEvent.PROCESSABLE]: onProcessable })
  * } catch (err) {
  *   // something really bad with this bridgeTx
  * }
@@ -109,15 +111,12 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
     }
   };
 
-  const destroy = (handlers?: PollingHandlers) => {
-    if (handlers) {
-      // Remove only this subscriber's listeners: the emitter is shared between all
-      // subscribers of the same transaction hash
-      for (const [event, handler] of Object.entries(handlers)) {
-        if (handler) emitter.removeListener(event, handler);
-      }
-    } else {
-      emitter.removeAllListeners();
+  // `handlers` is required: the emitter is shared by every subscriber of the same
+  // transaction hash, so a subscriber may only ever remove the handlers it added.
+  // A no-arg teardown would silently stop polling for all other rows.
+  const destroy = (handlers: PollingHandlers) => {
+    for (const [event, handler] of Object.entries(handlers)) {
+      if (handler) emitter.removeListener(event, handler);
     }
 
     const hasListeners = Object.values(PollingEvent).some((event) => emitter.listenerCount(event) > 0);

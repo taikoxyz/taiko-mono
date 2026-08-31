@@ -71,6 +71,27 @@ describe('fetchTransactions', () => {
     expect(getAllByAddress).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps the pages already fetched when a later page fails', async () => {
+    getAllByAddress
+      .mockResolvedValueOnce(page([tx('0xa')], 3))
+      .mockRejectedValueOnce(new Error('relayer page 2 blew up'));
+
+    const { mergedTransactions, error } = await fetchTransactions(ADDRESS);
+
+    // The first page survives and the fetch is not reported as a total failure
+    expect(mergedTransactions.map((transaction) => transaction.srcTxHash)).toEqual(['0xa']);
+    expect(error).toBeUndefined();
+  });
+
+  it('reports the error when the very first page fails', async () => {
+    getAllByAddress.mockRejectedValueOnce(new Error('relayer down'));
+
+    const { mergedTransactions, error } = await fetchTransactions(ADDRESS);
+
+    expect(mergedTransactions).toHaveLength(0);
+    expect(error).toBeInstanceOf(Error);
+  });
+
   it('sorts actionable statuses first and keeps RECALLED between FAILED and DONE', async () => {
     getAllByAddress.mockResolvedValueOnce(
       page(

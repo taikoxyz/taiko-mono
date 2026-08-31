@@ -34,8 +34,10 @@
         .split(',')
         .map((item) => item.trim())
         .filter((item) => item !== '')
-        .map((item) => Number(item))
-        .filter((num) => !isNaN(num));
+        // Strictly decimal: Number('0x10') is 16, so a pasted hex id would silently
+        // target a different token
+        .filter((item) => /^\d+$/.test(item))
+        .map((item) => Number(item));
     } else if (Array.isArray(idInput)) {
       ids = idInput;
     }

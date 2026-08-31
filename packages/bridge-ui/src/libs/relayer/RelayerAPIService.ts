@@ -500,6 +500,7 @@ export class RelayerAPIService {
 
       const tokenType: TokenType = _eventToTokenType(tx.eventType);
 
+      const relayerFee = tx.fee ? parseApiBigInt(tx.fee) : undefined;
       const messageFee = parseApiBigInt(tx.data.Message.Fee);
       const messageValue = parseApiBigInt(tx.data.Message.Value);
       const messageId = parseApiBigInt(tx.data.Message.Id);
@@ -522,7 +523,7 @@ export class RelayerAPIService {
         canonicalTokenAddress: tx.canonicalTokenAddress,
         processingFee: messageFee,
         claimedBy: tx.claimedBy ? getAddress(tx.claimedBy) : undefined,
-        fee: tx.fee && BigInt(tx.fee) !== BigInt(0) ? BigInt(tx.fee) : undefined,
+        fee: relayerFee && relayerFee !== BigInt(0) ? relayerFee : undefined,
         message: {
           id: messageId,
           to: getAddress(tx.data.Message.To),

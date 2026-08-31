@@ -157,9 +157,16 @@
   const handleReleaseClick = async () => {
     // claim() reports its outcome through the claimingTxSent/error events, which own the
     // `releasing` flag; clearing it here would re-enable the button while the release
-    // transaction is still pending
+    // transaction is still pending. A throw escaping claim() bypasses those events, so
+    // the flag is cleared here in that case only.
     releasing = true;
-    await ClaimComponent.claim(ClaimAction.RELEASE);
+    try {
+      await ClaimComponent.claim(ClaimAction.RELEASE);
+    } catch (error) {
+      console.error('Release failed before a transaction was sent', error);
+      releasing = false;
+      errorToast({ title: $t('bridge.errors.unknown_error.title') });
+    }
   };
 
   $: loading = releasing;

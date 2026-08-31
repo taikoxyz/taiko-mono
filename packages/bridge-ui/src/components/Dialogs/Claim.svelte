@@ -44,11 +44,14 @@
   }
 
   export const claim = async (action: ClaimAction, force: boolean = false, skipMessageStatusCheck: boolean = false) => {
-    if (!$account.address) {
-      throw new NotConnectedError('User is not connected');
-    }
-
     try {
+      // Inside the try so it reaches the error dispatch below: every dialog already
+      // handles NotConnectedError there, and a rejection here would instead leave the
+      // caller's claiming/releasing flag stuck
+      if (!$account?.address) {
+        throw new NotConnectedError('User is not connected');
+      }
+
       const { msgHash, message } = bridgeTx;
 
       if (!msgHash || !message) {
