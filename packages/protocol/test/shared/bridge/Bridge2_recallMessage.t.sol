@@ -72,6 +72,8 @@ contract TestBridge2_recallMessage is TestBridge2Base {
         MessageReceiver_CreatingFreshStorageSlots wallet =
             new MessageReceiver_CreatingFreshStorageSlots(5);
 
+        uint256 totalBalance = getBalanceForAccounts() + address(wallet).balance;
+
         IBridge.Message memory message;
         message.srcOwner = address(wallet);
         message.destOwner = Bob;
@@ -88,6 +90,7 @@ contract TestBridge2_recallMessage is TestBridge2Base {
 
         assertEq(address(wallet).balance, 1 ether);
         assertEq(wallet.receiveCount(), 1);
+        assertEq(getBalanceForAccounts() + address(wallet).balance, totalBalance);
     }
 
     function test_bridge2_recallMessage_callable_sender() public dealEther(Carol) {

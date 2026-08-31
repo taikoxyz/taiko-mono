@@ -479,7 +479,7 @@ contract TestBridge2_processMessage is TestBridge2Base {
     /// @dev The cap still bounds how much gas a recipient can consume: a receive path above the
     /// budget (6+1 fresh slots, ~156k gas) keeps failing the refund. 6 rather than 7 slots
     /// brackets the 135k cap as tightly as the schedule allows — 5+1 is the largest that fits.
-    function test_bridge2_processMessage__refund_receiver_exceeding_gas_cap()
+    function test_bridge2_processMessage__RevertWhen_refund_receiver_exceeds_gas_cap()
         public
         transactBy(Carol)
     {
