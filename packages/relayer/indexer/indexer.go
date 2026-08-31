@@ -319,8 +319,20 @@ func (i *Indexer) eventLoop(ctx context.Context) {
 
 // filter is the main function run by Start in the indexer
 func (i *Indexer) filter(ctx context.Context) error {
-	// get the latest header
-	header, err := i.srcEthClient.HeaderByNumber(ctx, nil)
+	// get the latest header.
+	//
+	// Bound only this call: it is a single head query, the same call class that
+	// ethClientTimeout already covers elsewhere in this package, and it is the
+	// first call of every poll — if it hangs, the whole event loop hangs behind
+	// it. Deliberately scoped to its own context rather than shadowing ctx: the
+	// Filter* calls further down keep the caller's context, because a batch scan
+	// (and WaitConfirmations, which runs under its own ConfirmationTimeout) can
+	// legitimately take far longer than ethClientTimeout.
+	headerCtx, cancel := context.WithTimeout(ctx, i.ethClientTimeout)
+
+	defer cancel()
+
+	header, err := i.srcEthClient.HeaderByNumber(headerCtx, nil)
 	if err != nil {
 		return errors.Wrap(err, "i.srcEthClient.HeaderByNumber")
 	}
