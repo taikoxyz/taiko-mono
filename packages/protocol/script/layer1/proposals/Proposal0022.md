@@ -312,7 +312,15 @@ PRIVATE_KEY=<deployer> FOUNDRY_PROFILE=layer2 forge script \
 
 Both scripts deploy only. Neither upgrades a proxy nor calls an initializer on a live contract.
 `DeployBridgeUpgradeL1` logs `BRIDGE_NEW_IMPL_L1`; `DeployBridgeUpgradeL2` logs
-`L2_SHARED_RESOLVER`, its implementation, and `BRIDGE_NEW_IMPL_L2`.
+`L2_SHARED_RESOLVER`, its implementation, and `BRIDGE_NEW_IMPL_L2`. That is **four** contracts
+across the two chains: one on L1, three on L2.
+
+Verify all four on the block explorers before the proposal is created, so a delegate can read the
+source behind each address rather than trusting the deployer. Use the same compiler settings the
+branch pins (`solc 0.8.30`, `optimizer_runs = 200`; `evm_version = "osaka"` for the L2 profile) and
+the constructor arguments the scripts pass, then confirm each verified runtime hash matches the
+`cast codehash` output in the pre-execution checklist. Note that the L1 implementation will show as
+`Bridge`, not `MainnetBridge` — see Current State for why that rename is expected.
 
 Then, in the fill-in commit:
 
@@ -377,6 +385,21 @@ cast call <BRIDGE_NEW_IMPL_L2> "pauser()(address)"        --rpc-url https://rpc.
 # Both must be non-zero.
 cast codesize <BRIDGE_NEW_IMPL_L1> --rpc-url <L1_RPC>
 cast codesize <BRIDGE_NEW_IMPL_L2> --rpc-url https://rpc.mainnet.taiko.xyz
+
+# The resolver is a proxy, and L2 actions 0-1 make the DAO call registerAddress on it. owner()
+# says who controls it, not what code runs. Pin the implementation it delegates to: must equal the
+# address DeployBridgeUpgradeL2 logged as `resolver impl`, left-padded to 32 bytes.
+cast storage <L2_SHARED_RESOLVER> \
+  0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc \
+  --rpc-url https://rpc.mainnet.taiko.xyz
+
+# Authenticate the code itself, not just its getters. Compare each deployed runtime hash against a
+# local build of this branch at the same commit. A substituted contract can expose every getter
+# above while carrying different logic, and these implementations become the logic of proxies
+# holding roughly 1,000,000 ETH.
+cast codehash <BRIDGE_NEW_IMPL_L1> --rpc-url <L1_RPC>
+cast codehash <BRIDGE_NEW_IMPL_L2> --rpc-url https://rpc.mainnet.taiko.xyz
+cast codehash <L2_SHARED_RESOLVER> --rpc-url https://rpc.mainnet.taiko.xyz
 ```
 
 **These checks are not redundant with the deploy scripts' own assertions, and one of them is the
@@ -392,6 +415,13 @@ just checking that the call succeeded.
 
 The L1 immutables cannot dangle the same way — all four are library constants — so those four checks
 serve the narrower purpose of confirming the intended creation code and argument order landed.
+
+**Getters and a non-zero code size do not authenticate the bytecode.** They confirm the constructor
+arguments landed; they cannot distinguish the reviewed `Bridge` and `DefaultResolver` from a
+contract that answers the same getters and does something else. The `codehash` comparison above and
+the explorer verification in the Deployment section are what close that gap, and the resolver's
+implementation slot is what closes it for the one address here that is a proxy rather than a bare
+implementation.
 
 ### After execution
 
@@ -415,15 +445,35 @@ cast call <L2_SHARED_RESOLVER> "resolve(uint256,bytes32,bool)(address)" \
   --rpc-url https://rpc.mainnet.taiko.xyz
 ```
 
+```bash
+# The production L2 message must have landed DONE, not RETRIABLE. Take <L2_GOVERNANCE_MSG_HASH>
+# from the `MessageSent(bytes32 indexed msgHash, Message)` event the L1 bridge emits when the
+# proposal's sendMessage action executes; it is the first indexed topic on that log.
+# `2` is Status.DONE, `1` is Status.RETRIABLE, `0` means the message was never processed.
+cast call 0x1670000000000000000000000000000000000001 \
+  "messageStatus(bytes32)(uint8)" <L2_GOVERNANCE_MSG_HASH> \
+  --rpc-url https://rpc.mainnet.taiko.xyz
+```
+
 Both `cast storage` results must equal the deployed implementation addresses, left-padded to 32
-bytes. The `isDestChainEnabled(1)` smoke test is the one that matters: it is the call that reverts
+bytes.
+
+The status check exists because production execution carries the **same swallowing hazard** the
+rehearsal did: 1.10.0's `_invokeMessageCall` uses a raw `call`, so a failed invocation becomes
+`Status.RETRIABLE` without reverting `processMessage`, and the L1 side would look entirely healthy.
+The implementation-slot check above would already expose that, but the status makes the failure
+mode legible directly — and it carries an operational consequence: a swallowed failure leaves the
+message **retriable**, so the upgrade can be re-driven with `retryMessage` rather than requiring a
+new proposal. The `isDestChainEnabled(1)` smoke test is the one that matters: it is the call that reverts
 if the resolver wiring is wrong, and it is served by the new implementation reading the new
 resolver — so it covers the chain-1 registration and the L2 upgrade at once. The last command is the
 only check on the chain-167000 registration, since nothing reads that entry today.
 
-Post-execution, add dated bullets for the three new deployments to
-`deployments/mainnet-contract-logs-L1.md` and `deployments/mainnet-contract-logs-L2.md`, and add a
-`LibL2Addrs.SHARED_RESOLVER` constant for the new resolver.
+Post-execution, add dated bullets to `deployments/mainnet-contract-logs-L1.md` and
+`deployments/mainnet-contract-logs-L2.md` for the four newly deployed contracts — the L1 `Bridge`
+implementation, the L2 `DefaultResolver` implementation, its `ERC1967Proxy`, and the L2 `Bridge`
+implementation (the resolver's proxy and implementation share one `#### shared_resolver` entry, as
+those files are structured) — and add a `LibL2Addrs.SHARED_RESOLVER` constant for the new resolver.
 
 ## Fork Rehearsal
 
