@@ -2,7 +2,9 @@
 pragma solidity ^0.8.24;
 
 import "./TestBridge2Base.sol";
-import "test/shared/bridge/helpers/MessageReceiver_CreatingFreshStorageSlots.sol";
+import {
+    MessageReceiver_CreatingFreshStorageSlots
+} from "test/shared/bridge/helpers/MessageReceiver_CreatingFreshStorageSlots.sol";
 
 contract TestRecallableSender is IRecallableSender, IERC165 {
     IBridge private bridge;
