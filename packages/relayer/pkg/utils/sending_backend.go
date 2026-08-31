@@ -81,6 +81,13 @@ const MinPrivateRPCAttemptShare = time.Second
 // trying privately first.
 const DefaultPrivateRPCAllRefusedLimit = 3
 
+// maxTrackedRefusedNonces bounds the per-nonce refusal counts.
+//
+// A claim that is abandoned — its send timed out, the processor gave up — never comes back to clear
+// its own entry, so without a bound the map would grow for as long as the relayer runs. Far more
+// than the processor has in flight at once, so a live claim is never evicted in practice.
+const maxTrackedRefusedNonces = 256
+
 // DefaultPrivateRPCAttemptTimeout caps a single attempt when the caller supplied no deadline.
 //
 // The transaction manager always calls SendTransaction under its NetworkTimeout, so this does not
@@ -143,13 +150,13 @@ type SendingBackend struct {
 
 	private          []TxSender
 	hosts            []string
-	allRefusedNonce  uint64
-	allRefusedCount  int
-	hasAllRefused    bool
+	allRefused       map[uint64]int
 	allRefusedLimit  int
 	failures         []int
 	failedAt         []time.Time
 	lastCharged      []uint64
+	lastHeld         []uint64
+	hasHeld          []bool
 	hasCharged       []bool
 	consecutive      []int
 	generation       []uint64
@@ -192,6 +199,8 @@ func NewSendingBackend(
 		failures:         make([]int, len(private)),
 		failedAt:         make([]time.Time, len(private)),
 		lastCharged:      make([]uint64, len(private)),
+		lastHeld:         make([]uint64, len(private)),
+		hasHeld:          make([]bool, len(private)),
 		hasCharged:       make([]bool, len(private)),
 		consecutive:      make([]int, len(private)),
 		generation:       make([]uint64, len(private)),
@@ -199,6 +208,7 @@ func NewSendingBackend(
 		hasAccepted:      make([]bool, len(private)),
 		failureThreshold: DefaultPrivateRPCFailureThreshold,
 		failureCeiling:   DefaultPrivateRPCConsecutiveFailureCeiling,
+		allRefused:       make(map[uint64]int),
 		allRefusedLimit:  DefaultPrivateRPCAllRefusedLimit,
 		retryInterval:    interval,
 		now:              time.Now,
@@ -320,7 +330,7 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 			// recordFailure entirely meant it could never reach the ceiling that exists to end
 			// exactly that: it would hold its place indefinitely while nothing was ever sent
 			// through it.
-			if tripped := b.recordHeldNonce(endpoint); tripped {
+			if tripped := b.recordHeldNonce(endpoint, tx.Nonce()); tripped {
 				relayer.PrivateRPCTrips.WithLabelValues(strconv.Itoa(endpoint.index)).Inc()
 
 				slog.Warn("Private endpoint taken out of rotation",
@@ -380,6 +390,8 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 			"afterSends", b.allRefusedLimit,
 		)
 
+		relayer.PrivateRPCAllRefusedAttempts.Inc()
+
 		publicErr := b.ETHBackend.SendTransaction(ctx, tx)
 		if publicErr == nil {
 			b.clearAllRefused(tx.Nonce())
@@ -402,20 +414,17 @@ func (b *SendingBackend) clearAllRefused(nonce uint64) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	if b.hasAllRefused && b.allRefusedNonce == nonce {
-		b.allRefusedCount = 0
-	}
+	delete(b.allRefused, nonce)
 }
 
 // countAllRefused records that every endpoint in rotation refused this nonce, and reports whether
-// that has now happened often enough in a row to justify broadcasting it publicly.
+// that has now happened often enough for this claim to justify broadcasting it publicly.
 //
-// One slot rather than a map: the transaction manager resends an unconfirmed nonce every
-// RESUBMISSION_TIMEOUT, so consecutive refusals of one claim land here in a row, and a different
-// nonce means a different claim and starts the count again. Claims are handled concurrently, so
-// two claims both being refused can reset each other's count — the same trade the failure
-// deduplication makes, and with the same consequence: the fallback is delayed, never skipped, and
-// only for as long as both claims keep failing.
+// Counted per nonce. A single slot could not do this: the processor handles claims concurrently, so
+// two claims both being refused overwrote each other's slot on every send and neither count ever
+// passed one — the fallback never fired at all in the very case it exists for, which is more than
+// one claim nobody will take. The count is per claim because the decision is: this claim has been
+// offered privately enough times.
 //
 // The count is cleared by a send some endpoint accepted, and by nothing else — in particular not by
 // firing. Clearing it there cost the claim the threshold it had just earned: if the public send then
@@ -428,15 +437,23 @@ func (b *SendingBackend) countAllRefused(nonce uint64) bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	if !b.hasAllRefused || b.allRefusedNonce != nonce {
-		b.allRefusedNonce = nonce
-		b.allRefusedCount = 0
-		b.hasAllRefused = true
+	b.allRefused[nonce]++
+
+	// Bounded, because a nonce whose claim is abandoned never comes back to clear its own entry.
+	// Nonces only ascend, so the smallest is the stalest.
+	for len(b.allRefused) > maxTrackedRefusedNonces {
+		stalest := nonce
+
+		for tracked := range b.allRefused {
+			if tracked < stalest {
+				stalest = tracked
+			}
+		}
+
+		delete(b.allRefused, stalest)
 	}
 
-	b.allRefusedCount++
-
-	return b.allRefusedCount >= b.allRefusedLimit
+	return b.allRefused[nonce] >= b.allRefusedLimit
 }
 
 // attemptContext gives one endpoint its share of the time left on ctx, so an endpoint that hangs
@@ -659,6 +676,8 @@ func (b *SendingBackend) inRotation() []admission {
 			b.failures[i] = 0
 			b.lastCharged[i] = 0
 			b.hasCharged[i] = false
+			b.lastHeld[i] = 0
+			b.hasHeld[i] = false
 			b.consecutive[i] = 0
 
 			// highestAccepted and hasAccepted are deliberately kept. They record which nonces this
@@ -785,8 +804,9 @@ func (b *SendingBackend) recordFailure(endpoint admission, nonce uint64, rejecti
 // it could never reach the bound that exists for precisely that — it skipped the accounting
 // altogether and kept its place forever while nothing went through it.
 //
-// A send it accepts clears the count, as it clears every other.
-func (b *SendingBackend) recordHeldNonce(endpoint admission) (tripped bool) {
+// A send it accepts clears the count, as it clears every other, and clears the remembered nonce
+// with it.
+func (b *SendingBackend) recordHeldNonce(endpoint admission, nonce uint64) (tripped bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -795,6 +815,19 @@ func (b *SendingBackend) recordHeldNonce(endpoint admission) (tripped bool) {
 	if b.generation[index] != endpoint.generation {
 		return false
 	}
+
+	// Only a nonce this endpoint has not already answered for counts. The transaction manager
+	// resubmits an unconfirmed nonce every RESUBMISSION_TIMEOUT, and the endpoint holding it says
+	// so every time — that is one claim being carried correctly, not an endpoint taking nothing.
+	// Counted per answer, ten resends of a single claim reached the ceiling in about eight minutes
+	// and took out the very endpoint holding it; with one endpoint configured the claim then went
+	// public through the unavailable path, which is the exposure the exemption exists to prevent.
+	if b.hasHeld[index] && b.lastHeld[index] == nonce {
+		return false
+	}
+
+	b.lastHeld[index] = nonce
+	b.hasHeld[index] = true
 
 	b.consecutive[index]++
 
@@ -833,6 +866,8 @@ func (b *SendingBackend) recordSuccess(index int, nonce uint64) {
 	b.failedAt[index] = time.Time{}
 	b.lastCharged[index] = 0
 	b.hasCharged[index] = false
+	b.lastHeld[index] = 0
+	b.hasHeld[index] = false
 	b.consecutive[index] = 0
 
 	relayer.PrivateRPCInRotation.WithLabelValues(strconv.Itoa(index)).Set(1)

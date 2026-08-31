@@ -1675,3 +1675,58 @@ func TestSendingBackend_AnAcceptedSendClearsTheRefusalRun(t *testing.T) {
 
 	assert.Equal(t, 1, len(public.sent), "a fresh claim is not immediately exposed")
 }
+
+func TestSendingBackend_ConcurrentClaimsDoNotStarveTheFallback(t *testing.T) {
+	public := &fakeBackend{}
+	only := &fakeSender{err: rpcRejection{"claim not accepted"}}
+
+	b := NewSendingBackend(public, []TxSender{only}, nil, nil)
+	b.failureThreshold = 1 << 30
+	b.failureCeiling = 1 << 30
+
+	// The processor handles claims concurrently, so sends for different nonces interleave. A single
+	// slot was overwritten on every send, so neither count ever passed one and the fallback never
+	// fired — in the very case it exists for, more than one claim nobody will take.
+	for round := 0; round < DefaultPrivateRPCAllRefusedLimit; round++ {
+		for _, nonce := range []uint64{51, 52} {
+			_ = b.SendTransaction(context.Background(), txWithNonce(nonce))
+		}
+	}
+
+	assert.Len(t, public.sent, 2, "each claim earns the fallback on its own count")
+}
+
+func TestSendingBackend_ARepeatedHoldOfOneNonceDoesNotTripTheHolder(t *testing.T) {
+	public := &fakeBackend{}
+	// The transaction manager resends an unconfirmed nonce every RESUBMISSION_TIMEOUT, and the
+	// endpoint holding it says so every time. That is one claim being carried correctly. Counted
+	// per answer, ten resends took out the endpoint holding the claim — and with one endpoint
+	// configured the claim then went public, which is the exposure the exemption prevents.
+	only := &fakeSender{err: rpcRejection{txpool.ErrAlreadyKnown.Error()}}
+
+	b := NewSendingBackend(public, []TxSender{only}, nil, nil)
+
+	tx := txWithNonce(61)
+
+	for i := 0; i < 3*DefaultPrivateRPCConsecutiveFailureCeiling; i++ {
+		require.Error(t, b.SendTransaction(context.Background(), tx))
+	}
+
+	assert.Equal(t, []int{0}, rotation(b), "one claim held is not an endpoint taking nothing")
+	assert.Empty(t, public.sent, "and the claim it is holding must not be leaked")
+}
+
+func TestSendingBackend_BoundsTheRefusedNonceTracking(t *testing.T) {
+	only := &fakeSender{err: rpcRejection{"claim not accepted"}}
+	b := NewSendingBackend(&fakeBackend{}, []TxSender{only}, nil, nil)
+	b.failureThreshold = 1 << 30
+	b.failureCeiling = 1 << 30
+
+	// An abandoned claim never comes back to clear its own entry, so the map has to be bounded or
+	// it grows for as long as the relayer runs.
+	for nonce := uint64(0); nonce < uint64(maxTrackedRefusedNonces)*2; nonce++ {
+		_ = b.SendTransaction(context.Background(), txWithNonce(nonce))
+	}
+
+	assert.LessOrEqual(t, len(b.allRefused), maxTrackedRefusedNonces)
+}

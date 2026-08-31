@@ -50,6 +50,13 @@ var (
 			"is the relays being up and declining one particular claim, and it is a deliberate " +
 			"trade of that claim's privacy against never landing it",
 	})
+	PrivateRPCAllRefusedAttempts = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "private_rpc_all_refused_attempts_ops_total",
+		Help: "The total number of times a claim every private endpoint refused was offered to " +
+			"the public endpoint, whether or not that endpoint took it. Read against " +
+			"private_rpc_all_refused_ops_total: attempts climbing while broadcasts do not means " +
+			"the public endpoint is failing too, and the claim is reaching nobody",
+	})
 	PrivateRPCUnavailable = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "private_rpc_unavailable_ops_total",
 		Help: "The total number of sends that went out through the public endpoint while private " +
