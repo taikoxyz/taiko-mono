@@ -81,6 +81,20 @@
     }
   }
 
+  // The row can be unmounted while the read below is still pending. onDestroy then finds
+  // no poller to clean up, so anything attached afterwards would never be detached from
+  // the shared per-hash emitter and would keep it polling forever.
+  let destroyed = false;
+
+  /** Detach this row's listeners; polling itself stops once no subscriber is left */
+  const detachPolling = () => {
+    if (!polling) return;
+    polling.destroy({
+      [PollingEvent.PROCESSABLE]: onProcessable,
+      [PollingEvent.STATUS]: onStatusChange,
+    });
+  };
+
   onMount(async () => {
     if (bridgeTx && $account?.address) {
       bridgeTxStatus = bridgeTx.msgStatus;
@@ -95,6 +109,8 @@
           console.warn('Could not determine whether the transaction is processable', err);
           isProcessable = false;
         }
+
+        if (destroyed) return;
 
         polling = startPolling(bridgeTx);
 
@@ -113,13 +129,8 @@
   });
 
   onDestroy(() => {
-    if (polling) {
-      // Only detach this row's listeners; polling itself stops once no subscriber is left
-      polling.destroy({
-        [PollingEvent.PROCESSABLE]: onProcessable,
-        [PollingEvent.STATUS]: onStatusChange,
-      });
-    }
+    destroyed = true;
+    detachPolling();
   });
 </script>
 

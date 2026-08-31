@@ -80,6 +80,10 @@
   };
 
   const resetForm = () => {
+    // A lookup still in flight belongs to the form being cleared; without this its result
+    // would repopulate the token and the loading flag after the reset
+    lookupGeneration++;
+    loadingTokenDetails = false;
     customToken = null;
     customTokenWithDetails = null;
     isValidEthereumAddress = false;
@@ -177,7 +181,14 @@
       ? formatUnits(customTokenWithDetails.balance, customTokenWithDetails.decimals)
       : 0;
 
-  $: disabled = state !== AddressInputState.VALID || tokenAddress === '' || tokenAddress.length !== 42;
+  // A resolved token is required: the address passing validation says nothing about the
+  // lookup having finished, so Add was clickable while details were still loading or absent
+  $: disabled =
+    state !== AddressInputState.VALID ||
+    tokenAddress === '' ||
+    tokenAddress.length !== 42 ||
+    loadingTokenDetails ||
+    !customToken;
 
   const closeModalIfClickedOutside = (e: MouseEvent) => {
     if (e.target === e.currentTarget) {
