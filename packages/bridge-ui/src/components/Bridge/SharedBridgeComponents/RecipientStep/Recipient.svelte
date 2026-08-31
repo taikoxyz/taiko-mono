@@ -10,6 +10,7 @@
   import { account } from '$stores/account';
 
   import AddressInput from '../AddressInput/AddressInput.svelte';
+  import { canConfirmRecipient } from './recipientValidation';
   // import Alert from '$components/Alert/Alert.svelte';
 
   // Public API
@@ -34,22 +35,40 @@
   let recipientIsSmartContract = false;
   // let destOwnerIsSmartContract = false;
 
+  // Classifying a recipient needs an RPC round trip. Until it resolves we do not know
+  // whether a destination owner is required, so confirming stays blocked; a superseded
+  // or failed lookup must never leave a stale classification behind.
+  let validatingRecipient = false;
+  let recipientClassified = false;
+  let recipientValidationGeneration = 0;
+
+  // Snapshot of everything Cancel has to restore
+  let prevInvalidRecipient = false;
+  let prevInvalidDestOwner = false;
+  let prevRecipientIsSmartContract = false;
+  let prevRecipientClassified = false;
+
   function closeModal() {
-    removeEscKeyListener();
     modalOpen = false;
   }
 
   function openModal() {
     modalOpen = true;
     addressInput.focus();
-    addEscKeyListener();
   }
 
   function cancelModal() {
-    // Revert to the state the dialog was opened with, including a previously configured destOwner
+    // Revert to the state the dialog was opened with, including a previously configured
+    // destOwner and the validation flags, so reopening does not show stale controls
     $recipientAddress = prevRecipientAddress;
     $destOwnerAddress = prevDestOwnerAddress;
-    removeEscKeyListener();
+    invalidRecipient = prevInvalidRecipient;
+    invalidDestOwner = prevInvalidDestOwner;
+    recipientIsSmartContract = prevRecipientIsSmartContract;
+    recipientClassified = prevRecipientClassified;
+    // Any in-flight classification belongs to a discarded edit
+    recipientValidationGeneration++;
+    validatingRecipient = false;
     closeModal();
   }
 
@@ -58,6 +77,16 @@
       // Save them in case we want to cancel
       prevRecipientAddress = $recipientAddress;
       prevDestOwnerAddress = $destOwnerAddress;
+      prevInvalidRecipient = invalidRecipient;
+      prevInvalidDestOwner = invalidDestOwner;
+      prevRecipientIsSmartContract = recipientIsSmartContract;
+      prevRecipientClassified = recipientClassified;
+
+      // AddressInput only dispatches validation on user input, so a pre-filled recipient
+      // would otherwise stay unclassified and could be confirmed on a stale answer
+      if ($recipientAddress && !recipientClassified) {
+        validateRecipient($recipientAddress);
+      }
     }
   }
 
@@ -67,17 +96,46 @@
     if (isValidEthereumAddress) {
       validateRecipient(addr);
     } else {
+      // Supersede any in-flight classification so its result cannot arrive later
+      recipientValidationGeneration++;
+      validatingRecipient = false;
+      recipientClassified = false;
+      recipientIsSmartContract = false;
       invalidRecipient = true;
     }
   }
 
   const validateRecipient = async (addr: Address) => {
-    $recipientAddress = addr;
-    invalidRecipient = false;
-    if ($destNetwork?.id && (await isSmartContract(addr, $destNetwork.id))) {
-      recipientIsSmartContract = true;
-    } else {
-      recipientIsSmartContract = false;
+    const generation = ++recipientValidationGeneration;
+    const destChainId = $destNetwork?.id;
+
+    validatingRecipient = true;
+    recipientClassified = false;
+
+    try {
+      if (!destChainId) {
+        // Without a destination chain the recipient cannot be classified, so it must not
+        // be treated as a plain wallet
+        return;
+      }
+
+      const isContract = await isSmartContract(addr, destChainId);
+      if (generation !== recipientValidationGeneration) return;
+
+      // Commit only once the classification for this exact address succeeded
+      $recipientAddress = addr;
+      recipientIsSmartContract = isContract;
+      recipientClassified = true;
+      invalidRecipient = false;
+    } catch (error) {
+      if (generation !== recipientValidationGeneration) return;
+      // A failed lookup cannot prove the recipient is claimable; leave it unclassified
+      // so Confirm stays blocked rather than silently reusing the previous answer
+      console.error('Could not determine whether the recipient is a smart contract', error);
+    } finally {
+      if (generation === recipientValidationGeneration) {
+        validatingRecipient = false;
+      }
     }
   };
 
@@ -101,26 +159,15 @@
     // }
   };
 
-  let escKeyListener: (event: KeyboardEvent) => void;
-
-  const addEscKeyListener = () => {
-    // The Edit button wires both click and focus to openModal, so one open can call this
-    // twice; without dropping the previous listener first, the untracked duplicate would
-    // survive closing and a later Escape could silently revert a confirmed recipient
-    removeEscKeyListener();
-    escKeyListener = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && modalOpen) {
-        // Escape means cancel: unconfirmed edits must not survive, or an invalid recipient /
-        // missing destOwner could slip past the Confirm button's validation
-        cancelModal();
-      }
-    };
-    window.addEventListener('keydown', escKeyListener);
-  };
-
-  const removeEscKeyListener = () => {
-    window.removeEventListener('keydown', escKeyListener);
-  };
+  // Declared via <svelte:window> so Svelte owns the lifecycle: exactly one listener per
+  // component, removed automatically on destroy even if the dialog is unmounted while open
+  function onWindowKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape' && modalOpen) {
+      // Escape means cancel: unconfirmed edits must not survive, or an invalid recipient /
+      // missing destOwner could slip past the Confirm button's validation
+      cancelModal();
+    }
+  }
 
   $: modalOpenChange(modalOpen);
 
@@ -128,6 +175,16 @@
   $: destOwnerAddressBinding = $destOwnerAddress || undefined;
 
   $: displayedRecipient = $recipientAddress || $account?.address;
+
+  $: confirmDisabled = !canConfirmRecipient({
+    recipientAddress: ethereumAddressBinding ?? null,
+    destOwnerAddress: destOwnerAddressBinding ?? null,
+    invalidRecipient,
+    invalidDestOwner,
+    recipientIsSmartContract,
+    validatingRecipient,
+    recipientClassified,
+  });
 </script>
 
 <div class="Recipient f-col">
@@ -209,14 +266,7 @@
             <ActionButton on:click={cancelModal} priority="secondary" onPopup>
               <span class="body-bold">{$t('common.cancel')}</span>
             </ActionButton>
-            <ActionButton
-              priority="primary"
-              disabled={invalidRecipient ||
-                invalidDestOwner ||
-                !ethereumAddressBinding ||
-                (recipientIsSmartContract && !destOwnerAddressBinding)}
-              on:click={closeModal}
-              onPopup>
+            <ActionButton priority="primary" disabled={confirmDisabled} on:click={closeModal} onPopup>
               <span class="body-bold">{$t('common.confirm')}</span>
             </ActionButton>
           </div>
@@ -225,3 +275,5 @@
     </dialog>
   {/if}
 </div>
+
+<svelte:window on:keydown={onWindowKeydown} />

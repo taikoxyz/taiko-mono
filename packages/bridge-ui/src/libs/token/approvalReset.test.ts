@@ -41,6 +41,14 @@ describe('tokenNeedsAllowanceReset', () => {
     expect(tokenNeedsAllowanceReset(bridged, 167001)).toBe(false);
   });
 
+  it('does not flag an unrelated token deployed at the USDT address on another chain', () => {
+    // EVM addresses are chain-local: the same bytes on an L2 are a different contract
+    const impostor = token({ symbol: 'FOO', addresses: { 167000: USDT_MAINNET } });
+    expect(tokenNeedsAllowanceReset(impostor, 167000)).toBe(false);
+    // ...while the real mainnet deployment still matches
+    expect(tokenNeedsAllowanceReset(token({ symbol: 'USDT', addresses: { 1: USDT_MAINNET } }), 1)).toBe(true);
+  });
+
   it('handles missing token or chain gracefully', () => {
     expect(tokenNeedsAllowanceReset(null, 1)).toBe(false);
     expect(tokenNeedsAllowanceReset(token({ symbol: 'USDT' }), undefined)).toBe(false);
