@@ -10,10 +10,12 @@ pragma solidity ^0.8.24;
 /// NOTE: the slot counts used by tests are calibrated to the pre-Glamsterdam schedule, and they
 /// cannot simply be rescaled if the test EVM ever adopts Glamsterdam pricing. Every test that
 /// exercises Bridge._SEND_ETHER_GAS_LIMIT with this fixture drives a *first* receive, so after
-/// the fork the fixture's granularity is one fresh slot = 110,020 gas — coarser than the ~12,000
-/// of headroom between the 122,920 a legacy one-slot wallet needs and the 135,000 cap. No count
-/// brackets that band: 0 slots (the counter slot alone) consumes only 110,020, below the very
-/// requirement the cap exists to guarantee, and 1 slot consumes 220,040, far above the cap. This
+/// the fork the fixture's granularity is one fresh slot = 110,020 gas of slot charges — coarser
+/// than the ~12,000 of headroom between the 122,920 a legacy one-slot wallet needs and the
+/// 135,000 cap. No count brackets that band: 0 slots (the counter slot alone) is charged 110,020,
+/// below the very requirement the cap exists to guarantee, and 1 slot is charged 220,040, far
+/// above the cap. Surrounding opcodes add execution cost on top of those slot charges (~935 gas
+/// for six slots, measured today), nowhere near enough to change that. This
 /// fixture is therefore a pre-fork instrument only. A second trap if anyone tries anyway:
 /// EIP-8037 splits transaction gas above the 16.7M execution cap into a state-gas reservoir, and
 /// state charges draw from that reservoir before they reach the callee frame; foundry.toml sets
