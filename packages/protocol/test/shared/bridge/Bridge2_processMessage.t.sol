@@ -442,6 +442,8 @@ contract TestBridge2_processMessage is TestBridge2Base {
         message.fee = 5_000_000;
         message.value = 2 ether;
         message.destOwner = address(wallet);
+        // With empty message.data the invocation is a plain value-bearing call that hits the
+        // wallet's receive() — no onMessageInvocation implementation is required.
         message.to = address(wallet);
 
         eBridge.processMessage(message, FAKE_PROOF);
