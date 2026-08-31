@@ -10,6 +10,44 @@ var (
 		Name: "blocks_scanned_ops_total",
 		Help: "The total number of source-chain head changes observed",
 	})
+	PrivateRPCFailures = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "private_rpc_failures_ops_total",
+		Help: "The total number of times a private RPC endpoint refused a transaction, " +
+			"labelled by that endpoint's position in the configured failover order",
+	}, []string{"endpoint"})
+	PrivateRPCSends = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "private_rpc_sends_ops_total",
+		Help: "The total number of transactions a private RPC endpoint accepted, labelled by " +
+			"that endpoint's position in the configured failover order. This is the denominator " +
+			"private_rpc_failures_ops_total needs: refusals alone cannot tell a busy relay " +
+			"turning down a few claims from one that has started turning down most of them",
+	}, []string{"endpoint"})
+	PrivateRPCInRotation = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "private_rpc_in_rotation",
+		Help: "1 while a private RPC endpoint is in the failover rotation and 0 while it is out, " +
+			"labelled by that endpoint's position in the configured order. Trips are monotonic, " +
+			"so they cannot answer what the rotation looks like right now; this can",
+	}, []string{"endpoint"})
+	PrivateRPCTrips = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "private_rpc_trips_ops_total",
+		Help: "The total number of times a private RPC endpoint was taken out of the failover " +
+			"rotation, labelled by that endpoint's position in the configured order. This is the " +
+			"transition worth alerting on: an endpoint out of rotation is one fewer place to " +
+			"send privately, and the last one leaving means claims go to the public mempool",
+	}, []string{"endpoint"})
+	PrivateRPCUnavailable = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "private_rpc_unavailable_ops_total",
+		Help: "The total number of sends that went out through the public endpoint while private " +
+			"endpoints were configured, meaning none was in rotation and the message and its " +
+			"proof reached the public mempool. Counts sends rather than distinct claims, so a " +
+			"resubmitted transaction is counted each time it is broadcast",
+	})
+	MessageSentEventsRequeuedTransient = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "message_sent_events_requeued_transient_ops_total",
+		Help: "The total number of messages parked on the transient queue after a processing " +
+			"failure that may resolve on its own. A message climbing this counter on its own is " +
+			"one the relayer cannot land and keeps re-reading",
+	})
 	QueueMessageAcknowledged = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "queue_message_acknowledged_ops_total",
 		Help: "The total number of acknowledged queue events",

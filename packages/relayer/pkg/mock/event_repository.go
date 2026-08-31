@@ -52,6 +52,7 @@ func (r *EventRepository) Save(ctx context.Context, opts *relayer.SaveEventOpts)
 		ChainID:      opts.ChainID.Int64(),
 		DestChainID:  opts.DestChainID.Int64(),
 		Name:         opts.Name,
+		Event:        opts.Event,
 		MessageOwner: opts.MessageOwner,
 		MsgHash:      opts.MsgHash,
 		EventType:    opts.EventType,

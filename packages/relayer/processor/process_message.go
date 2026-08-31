@@ -441,6 +441,7 @@ func (p *Processor) sendProcessMessageCall(
 	receipt, err := p.txmgr.Send(ctx, candidate)
 	if err != nil {
 		slog.Warn("Failed to send ProcessMessage transaction", "error", err.Error())
+
 		return nil, err
 	}
 
