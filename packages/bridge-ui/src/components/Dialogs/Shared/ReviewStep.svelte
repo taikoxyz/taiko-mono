@@ -6,7 +6,6 @@
   import ChainSymbolName from '$components/Transactions/ChainSymbolName.svelte';
   import type { BridgeTransaction } from '$libs/bridge';
   import { type NFT, TokenType } from '$libs/token';
-  import { shortenAddress } from '$libs/util/shortenAddress';
 
   export let tx: BridgeTransaction;
   export let nft: NFT | null = null;
@@ -50,16 +49,12 @@
       {#if tx.message}
         <div class="flex justify-between">
           <div class="text-secondary-content">{$t('common.sender')}</div>
-          <ExplorerLink category="address" chainId={Number(tx.srcChainId)} urlParam={tx.message.from}
-            >{shortenAddress(tx.message?.srcOwner, 5, 5)}</ExplorerLink>
+          <ExplorerLink category="address" chainId={Number(tx.srcChainId)} urlParam={tx.message.srcOwner} shorten />
         </div>
 
         <div class="flex justify-between">
           <div class="text-secondary-content">{$t('common.recipient')}</div>
-          <div class="">
-            <ExplorerLink category="address" chainId={Number(tx.destChainId)} urlParam={tx.message.to}
-              >{shortenAddress(tx.message?.to, 5, 5)}</ExplorerLink>
-          </div>
+          <ExplorerLink category="address" chainId={Number(tx.destChainId)} urlParam={tx.message.to} shorten />
         </div>
       {/if}
       {#if tx.amount !== 0n}

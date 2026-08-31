@@ -1,7 +1,9 @@
+use std::convert::TryFrom;
+
+use alloy::primitives::Address;
 use axum::{Router, http::StatusCode, response::IntoResponse};
 use once_cell::sync::Lazy;
-use prometheus::{Encoder, IntCounter, IntCounterVec, IntGauge, Registry};
-use std::convert::TryFrom;
+use prometheus::{Encoder, IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Registry};
 
 // registry we can re-use
 static REGISTRY: Lazy<Registry> = Lazy::new(Registry::new);
@@ -20,9 +22,17 @@ static EJECTIONS_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
     .expect("ejections_total metric can be created")
 });
 
-static WS_RECONNECTIONS_TOTAL: Lazy<IntCounter> = Lazy::new(|| {
-    IntCounter::new("ws_reconnections_total", "Total number of websocket reconnections")
-        .expect("ws_reconnections_total metric can be created")
+static L1_EVENT_SCANNER_RESTARTS_TOTAL: Lazy<IntCounter> = Lazy::new(|| {
+    IntCounter::new(
+        "l1_event_scanner_restarts_total",
+        "Total number of HTTP whitelist event scanner restarts",
+    )
+    .expect("l1_event_scanner_restarts_total metric can be created")
+});
+
+static L2_POLL_UNCERTAIN_TOTAL: Lazy<IntCounter> = Lazy::new(|| {
+    IntCounter::new("l2_poll_uncertain_total", "Total number of uncertain HTTP L2 polling outcomes")
+        .expect("l2_poll_uncertain_total metric can be created")
 });
 
 static LAST_SEEN_DRIFT_SECONDS: Lazy<IntGauge> = Lazy::new(|| {
@@ -58,6 +68,17 @@ static LAST_REORGED_TO: Lazy<IntGauge> = Lazy::new(|| {
         .expect("last_reorged_to metric can be created")
 });
 
+static PRECONFER_MISSING_FROM_WHITELIST: Lazy<IntGaugeVec> = Lazy::new(|| {
+    IntGaugeVec::new(
+        prometheus::opts!(
+            "preconfer_missing_from_whitelist",
+            "Whether a configured preconfer is missing from the active whitelist"
+        ),
+        &["addr"],
+    )
+    .expect("preconfer_missing_from_whitelist metric can be created")
+});
+
 pub fn init() {
     REGISTRY
         .register(Box::new(L2_BLOCKS_TOTAL.clone()))
@@ -66,8 +87,11 @@ pub fn init() {
         .register(Box::new(EJECTIONS_TOTAL.clone()))
         .expect("ejections_total metric can be registered");
     REGISTRY
-        .register(Box::new(WS_RECONNECTIONS_TOTAL.clone()))
-        .expect("ws_reconnections_total metric can be registered");
+        .register(Box::new(L1_EVENT_SCANNER_RESTARTS_TOTAL.clone()))
+        .expect("l1_event_scanner_restarts_total metric can be registered");
+    REGISTRY
+        .register(Box::new(L2_POLL_UNCERTAIN_TOTAL.clone()))
+        .expect("l2_poll_uncertain_total metric can be registered");
     REGISTRY
         .register(Box::new(LAST_SEEN_DRIFT_SECONDS.clone()))
         .expect("last_seen_drift_seconds metric can be registered");
@@ -86,6 +110,9 @@ pub fn init() {
     REGISTRY
         .register(Box::new(LAST_REORGED_TO.clone()))
         .expect("last_reorged_to metric can be registered");
+    REGISTRY
+        .register(Box::new(PRECONFER_MISSING_FROM_WHITELIST.clone()))
+        .expect("preconfer_missing_from_whitelist metric can be registered");
 }
 
 pub fn router() -> axum::Router {
@@ -126,8 +153,12 @@ pub fn inc_eject_error(addr: &str) {
     EJECTIONS_TOTAL.with_label_values(&["error", &addr]).inc();
 }
 
-pub fn inc_ws_reconnections() {
-    WS_RECONNECTIONS_TOTAL.inc();
+pub fn inc_l1_event_scanner_restarts() {
+    L1_EVENT_SCANNER_RESTARTS_TOTAL.inc();
+}
+
+pub fn inc_l2_poll_uncertain() {
+    L2_POLL_UNCERTAIN_TOTAL.inc();
 }
 
 pub fn set_last_seen_drift_seconds(seconds: u64) {
@@ -150,4 +181,10 @@ pub fn note_reorg(depth: usize, reorg_height: u64) {
 
 pub fn inc_reorg_skipped() {
     REORG_SKIPPED_TOTAL.inc();
+}
+
+pub fn set_preconfer_missing_from_whitelist(addr: Address, missing: bool) {
+    let addr = format!("{addr:#x}").to_ascii_lowercase();
+    let value = if missing { 1 } else { 0 };
+    PRECONFER_MISSING_FROM_WHITELIST.with_label_values(&[&addr]).set(value);
 }

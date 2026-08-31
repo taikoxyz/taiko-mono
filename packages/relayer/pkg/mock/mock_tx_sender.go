@@ -3,6 +3,7 @@ package mock
 import (
 	"context"
 	"math/big"
+	"sync"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
@@ -52,4 +53,33 @@ func (t *TxManager) SuggestGasPriceCaps(ctx context.Context) (
 
 func (t *TxManager) API() rpc.API {
 	panic("unimplemented")
+}
+
+// TxSender is a private endpoint that accepts everything it is offered, recording what it took.
+// It satisfies utils.TxSender.
+type TxSender struct {
+	mu   sync.Mutex
+	err  error
+	sent []*types.Transaction
+}
+
+func (s *TxSender) SendTransaction(_ context.Context, tx *types.Transaction) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.err != nil {
+		return s.err
+	}
+
+	s.sent = append(s.sent, tx)
+
+	return nil
+}
+
+// SentCount returns how many transactions this endpoint accepted. For tests.
+func (s *TxSender) SentCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return len(s.sent)
 }

@@ -32,11 +32,11 @@ type QueueMessageSentBody struct {
 	Event        *bridge.BridgeMessageSent
 	ID           int
 	TimesRetried uint64
-}
-
-type QueueMessageProcessedBody struct {
-	Message bridge.IBridgeMessage
-	ID      int
+	// TimesRequeued counts transient failures, separately from TimesRetried. The two bound
+	// nothing in common: TimesRetried gives up at MAX_MESSAGE_RETRIES because an unprofitable
+	// message stays unprofitable, while a transient failure says nothing about whether the claim
+	// is good, so it is retried for as long as it keeps failing and this only records how often.
+	TimesRequeued uint64
 }
 
 type Message struct {

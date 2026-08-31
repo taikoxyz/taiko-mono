@@ -1,5 +1,57 @@
 # Changelog
 
+## [0.7.0](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.6.1...ejector-v0.7.0) (2026-05-06)
+
+
+### Features
+
+* **ejector:** add stale missing preconfers metric for alerting ([#21634](https://github.com/taikoxyz/taiko-mono/issues/21634)) ([f16e282](https://github.com/taikoxyz/taiko-mono/commit/f16e2828755be3b65b3cae831587e3184dd26e67))
+* **ejector:** use HTTP-based L1 event scanning and L2 block polling ([#21548](https://github.com/taikoxyz/taiko-mono/issues/21548)) ([27ae763](https://github.com/taikoxyz/taiko-mono/commit/27ae763d3c12517f7627a3b09af9959bc18d2fdb))
+
+
+### Chores
+
+* **ejector:** remove redundant URL clone in eject path ([#21455](https://github.com/taikoxyz/taiko-mono/issues/21455)) ([eae6490](https://github.com/taikoxyz/taiko-mono/commit/eae649013910d7f10350a849c9f2bdfcf70b19f3))
+* **repo:** add concurrency gate to release please and bump ejector lock ([#21420](https://github.com/taikoxyz/taiko-mono/issues/21420)) ([1b97c19](https://github.com/taikoxyz/taiko-mono/commit/1b97c19bc2c8280dc91f16a82ee03eca2789a4db))
+
+
+### Code Refactoring
+
+* **ejector:** avoid cloning beacon URL in BeaconClient ([#21434](https://github.com/taikoxyz/taiko-mono/issues/21434)) ([295bdbe](https://github.com/taikoxyz/taiko-mono/commit/295bdbe65b0b7894969e3419455f6aafdad6e2d1))
+* **ejector:** remove redundant URL clones in startup ([#21441](https://github.com/taikoxyz/taiko-mono/issues/21441)) ([94730f4](https://github.com/taikoxyz/taiko-mono/commit/94730f4022f74c3a7e7aee5af6e6a5a91441d4c4))
+
+## [0.6.1](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.6.0...ejector-v0.6.1) (2026-03-03)
+
+
+### Bug Fixes
+
+* **taiko-client:** close event filter iterators ([#21374](https://github.com/taikoxyz/taiko-mono/issues/21374)) ([b4627ea](https://github.com/taikoxyz/taiko-mono/commit/b4627eaf7f4663e042005c6e23983b4e367cae98))
+
+## [0.6.0](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.5.0...ejector-v0.6.0) (2026-02-25)
+
+
+### Features
+
+* **taiko-client-rs:** get_preconf_slot_info API for the taiko-client-rs ([#21279](https://github.com/taikoxyz/taiko-mono/issues/21279)) ([26f8c95](https://github.com/taikoxyz/taiko-mono/commit/26f8c958b33f29edeeabe4483dd084bb47aca089))
+
+
+### Bug Fixes
+
+* **ejector:** call removeOperatorByAddress on whitelist ([#21342](https://github.com/taikoxyz/taiko-mono/issues/21342)) ([c26e811](https://github.com/taikoxyz/taiko-mono/commit/c26e811a3993ef5f210eba8d0521a715f7fd9263))
+
+## [0.5.0](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.4.1...ejector-v0.5.0) (2026-02-04)
+
+
+### Features
+
+* **ejector:** skip reorg ejection during re-anchoring ([#21249](https://github.com/taikoxyz/taiko-mono/issues/21249)) ([c34cd2e](https://github.com/taikoxyz/taiko-mono/commit/c34cd2ef6fdbc779feb9fb3929bb1c7aa6f337e4))
+* **ejector:** skip timeout ejection during chain reset grace period ([#21250](https://github.com/taikoxyz/taiko-mono/issues/21250)) ([ab6826c](https://github.com/taikoxyz/taiko-mono/commit/ab6826c38adb935ab28737715d578652e3d512cb))
+
+
+### Chores
+
+* **deps:** bump the cargo group across 5 directories with 1 update ([#21264](https://github.com/taikoxyz/taiko-mono/issues/21264)) ([75a5e00](https://github.com/taikoxyz/taiko-mono/commit/75a5e0019e12c1b9048c5837d208b4f9246624b2))
+
 ## [0.4.1](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.4.0...ejector-v0.4.1) (2026-01-17)
 
 

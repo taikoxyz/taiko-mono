@@ -9,6 +9,7 @@ import type { ConfiguredRelayer, RelayerConfig } from '../../src/libs/relayer/ty
 import { decodeBase64ToJson } from './../utils/decodeBase64ToJson';
 import { formatSourceFile } from './../utils/formatSourceFile';
 import { PluginLogger } from './../utils/PluginLogger';
+import { toTsLiteral } from './../utils/toTsLiteral';
 import { validateJsonAgainstSchema } from './../utils/validateJson';
 
 dotenv.config();
@@ -128,9 +129,9 @@ async function buildRelayerConfig(sourceFile: SourceFile, configuredRelayerConfi
 }
 
 const _formatRelayerConfigToTsLiteral = (config: RelayerConfig): string => {
-  return `{chainIds: [${config.chainIds ? config.chainIds.join(', ') : ''}], url: "${config.url}"}`;
+  return toTsLiteral(config);
 };
 
-const _formatObjectToTsLiteral = (relayers: RelayerConfig[]): string => {
+export const _formatObjectToTsLiteral = (relayers: RelayerConfig[]): string => {
   return `[${relayers.map(_formatRelayerConfigToTsLiteral).join(', ')}]`;
 };

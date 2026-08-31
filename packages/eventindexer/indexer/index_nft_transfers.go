@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 
 	"log/slog"
 
@@ -25,7 +26,23 @@ var (
 	transferSingleSignatureHash = crypto.Keccak256Hash(transferSingleSignature)
 	transferBatchSignature      = []byte("TransferBatch(address,address,address,uint256[],uint256[])")
 	transferBatchSignatureHash  = crypto.Keccak256Hash(transferBatchSignature)
+	parsedERC1155ABI            abi.ABI
+	parsedERC1155ABIErr         error
+	parsedERC1155ABIOnce        sync.Once
 )
+
+func getParsedERC1155ABI() (*abi.ABI, error) {
+	parsedERC1155ABIOnce.Do(func() {
+		parsedERC1155ABI, parsedERC1155ABIErr = abi.JSON(strings.NewReader(erc1155.ABI))
+	})
+
+	err := parsedERC1155ABIErr
+	if err != nil {
+		return nil, errors.Wrap(err, "abi.JSON(strings.NewReader)")
+	}
+
+	return &parsedERC1155ABI, nil
+}
 
 // indexNFTTransfers indexes from a given starting block to a given end block and parses all event logs
 // to find ERC721 or ERC1155 transfer events
@@ -150,7 +167,8 @@ func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog
 		}
 	}
 
-	_, _, err := i.nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(ctx, increaseOpts, decreaseOpts)
+	_, _, err := i.nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(
+		ctx, nftTransferRef(chainID, vLog, 0), increaseOpts, decreaseOpts)
 	if err != nil {
 		return err
 	}
@@ -166,7 +184,7 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 
 	slog.Info("erc1155 found")
 
-	erc1155ABI, err := abi.JSON(strings.NewReader(erc1155.ABI))
+	erc1155ABI, err := getParsedERC1155ABI()
 	if err != nil {
 		return err
 	}
@@ -211,7 +229,8 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 			}
 		}
 
-		_, _, err = i.nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(ctx, increaseOpts, decreaseOpts)
+		_, _, err = i.nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(
+			ctx, nftTransferRef(chainID, vLog, 0), increaseOpts, decreaseOpts)
 		if err != nil {
 			return err
 		}
@@ -254,7 +273,8 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 				}
 			}
 
-			_, _, err = i.nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(ctx, increaseOpts, decreaseOpts)
+			_, _, err = i.nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(
+				ctx, nftTransferRef(chainID, vLog, uint(idx)), increaseOpts, decreaseOpts)
 			if err != nil {
 				return err
 			}
@@ -263,4 +283,18 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 	// increment To address's balance
 
 	return nil
+}
+
+// nftTransferRef identifies one balance-mutating unit of an NFT transfer log, so a
+// replayed block cannot apply the same unit twice. batchIndex is 0 for ERC721
+// Transfer and ERC1155 TransferSingle, and the position within the batch for
+// ERC1155 TransferBatch.
+func nftTransferRef(chainID *big.Int, vLog types.Log, batchIndex uint) eventindexer.TransferLogRef {
+	return eventindexer.TransferLogRef{
+		ChainID:    chainID.Int64(),
+		TxHash:     vLog.TxHash.Hex(),
+		LogIndex:   vLog.Index,
+		BatchIndex: batchIndex,
+		Kind:       eventindexer.TransferKindNFT,
+	}
 }

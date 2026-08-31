@@ -2,6 +2,7 @@ package api
 
 import (
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/flags"
@@ -25,6 +26,7 @@ type Config struct {
 	// rpc configs
 	SrcRPCUrl               string
 	DestRPCUrl              string
+	ETHClientRequestTimeout time.Duration
 	ProcessingFeeMultiplier float64
 	DestTaikoAddress        common.Address
 	HTTPPort                uint64
@@ -45,6 +47,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		HTTPPort:                c.Uint64(flags.HTTPPort.Name),
 		SrcRPCUrl:               c.String(flags.SrcRPCUrl.Name),
 		DestRPCUrl:              c.String(flags.DestRPCUrl.Name),
+		ETHClientRequestTimeout: c.Duration(flags.ETHClientRequestTimeout.Name),
 		ProcessingFeeMultiplier: c.Float64(flags.ProcessingFeeMultiplier.Name),
 		DestTaikoAddress:        common.HexToAddress(c.String(flags.DestTaikoAddress.Name)),
 		OpenDBFunc: func() (db.DB, error) {

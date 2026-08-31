@@ -22,19 +22,22 @@ var (
 	dbPassword = "password"
 )
 
-func testMysql(t *testing.T) (db.DB, func(), error) {
+// testMysql starts a throwaway mysql container. extraDSNParams are appended to
+// the connection string, so a test can pin a driver setting that replay
+// correctness must not depend on.
+func testMysql(t *testing.T, extraDSNParams ...string) (db.DB, func(), error) {
 	req := testcontainers.ContainerRequest{
-		AlwaysPullImage: true,
-		Image:           "mysql:latest",
-		ExposedPorts:    []string{"3306/tcp", "33060/tcp"},
+		Image:        "mysql:latest",
+		ExposedPorts: []string{"3306/tcp", "33060/tcp"},
 		Env: map[string]string{
 			"MYSQL_ROOT_PASSWORD": dbPassword,
 			"MYSQL_DATABASE":      dbName,
 		},
-		WaitingFor: wait.ForLog("port: 3306  MySQL Community Server - GPL").WithStartupTimeout(2 * time.Minute),
+		WaitingFor: wait.ForListeningPort("3306/tcp").WithStartupTimeout(2 * time.Minute),
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
 
 	mysqlC, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
@@ -46,7 +49,10 @@ func testMysql(t *testing.T) (db.DB, func(), error) {
 	}
 
 	closeContainer := func() {
-		err := mysqlC.Terminate(ctx)
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer stopCancel()
+
+		err := mysqlC.Terminate(stopCtx)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -64,7 +70,11 @@ func testMysql(t *testing.T) (db.DB, func(), error) {
 
 	// nolint: lll
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify&parseTime=true&multiStatements=true&timeout=30s&readTimeout=30s&writeTimeout=30s",
-		dbUsername, dbPassword, host, port.Int(), dbName)
+		dbUsername, dbPassword, host, port.Num(), dbName)
+
+	for _, p := range extraDSNParams {
+		dsn += "&" + p
+	}
 
 	deadline := time.Now().Add(2 * time.Minute)
 

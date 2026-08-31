@@ -1,6 +1,6 @@
 ARG PACKAGE=eventindexer
 
-FROM golang:1.24.0 AS builder
+FROM golang:1.26.0 AS builder
 
 ARG PACKAGE
 

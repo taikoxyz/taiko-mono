@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -30,9 +31,10 @@ type Config struct {
 	BackOffMaxRetries    uint64
 
 	// rpc configs
-	SrcRPCUrl        string
-	DestRPCUrl       string
-	ETHClientTimeout uint64
+	SrcRPCUrl               string
+	DestRPCUrl              string
+	ETHClientTimeout        uint64
+	ETHClientRequestTimeout time.Duration
 
 	// BridgeMessage
 	BridgeMessageValue *big.Int
@@ -52,18 +54,42 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, errors.New("invalid bridgeMessageValue")
 	}
 
+	srcBridgeAddress, err := parseRequiredAddress(c.String(flags.SrcBridgeAddress.Name), "srcBridgeAddress")
+	if err != nil {
+		return nil, err
+	}
+
+	destBridgeAddress, err := parseRequiredAddress(c.String(flags.DestBridgeAddress.Name), "destBridgeAddress")
+	if err != nil {
+		return nil, err
+	}
+
 	return &Config{
-		BridgePrivateKey:     bridgePrivateKey,
-		DestBridgeAddress:    common.HexToAddress(c.String(flags.DestBridgeAddress.Name)),
-		SrcBridgeAddress:     common.HexToAddress(c.String(flags.SrcBridgeAddress.Name)),
-		SrcRPCUrl:            c.String(flags.SrcRPCUrl.Name),
-		DestRPCUrl:           c.String(flags.DestRPCUrl.Name),
-		Confirmations:        c.Uint64(flags.Confirmations.Name),
-		ConfirmationsTimeout: c.Uint64(flags.ConfirmationTimeout.Name),
-		EnableTaikoL2:        c.Bool(flags.EnableTaikoL2.Name),
-		BackoffRetryInterval: c.Uint64(flags.BackOffRetryInterval.Name),
-		BackOffMaxRetries:    c.Uint64(flags.BackOffMaxRetries.Name),
-		ETHClientTimeout:     c.Uint64(flags.ETHClientTimeout.Name),
-		BridgeMessageValue:   bridgeMessageValue,
+		BridgePrivateKey:        bridgePrivateKey,
+		DestBridgeAddress:       destBridgeAddress,
+		SrcBridgeAddress:        srcBridgeAddress,
+		SrcRPCUrl:               c.String(flags.SrcRPCUrl.Name),
+		DestRPCUrl:              c.String(flags.DestRPCUrl.Name),
+		Confirmations:           c.Uint64(flags.Confirmations.Name),
+		ConfirmationsTimeout:    c.Uint64(flags.ConfirmationTimeout.Name),
+		EnableTaikoL2:           c.Bool(flags.EnableTaikoL2.Name),
+		BackoffRetryInterval:    c.Uint64(flags.BackOffRetryInterval.Name),
+		BackOffMaxRetries:       c.Uint64(flags.BackOffMaxRetries.Name),
+		ETHClientTimeout:        c.Uint64(flags.ETHClientTimeout.Name),
+		ETHClientRequestTimeout: c.Duration(flags.ETHClientRequestTimeout.Name),
+		BridgeMessageValue:      bridgeMessageValue,
 	}, nil
+}
+
+func parseRequiredAddress(value string, name string) (common.Address, error) {
+	if !common.IsHexAddress(value) {
+		return common.Address{}, fmt.Errorf("invalid %s", name)
+	}
+
+	address := common.HexToAddress(value)
+	if address == (common.Address{}) {
+		return common.Address{}, fmt.Errorf("invalid %s: zero address", name)
+	}
+
+	return address, nil
 }

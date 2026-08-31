@@ -11,7 +11,6 @@ import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 import { MockBeaconBlockRoot } from "test/layer1/preconf/mocks/MockBeaconBlockRoot.sol";
 import { TestERC20 } from "test/mocks/TestERC20.sol";
@@ -104,13 +103,12 @@ abstract contract InboxTestBase is CommonTest {
             livenessBond: LIVENESS_BOND_GWEI,
             withdrawalDelay: WITHDRAWAL_DELAY,
             provingWindow: 2 hours,
+            permissionlessProvingDelay: 24 hours,
             maxProofSubmissionDelay: 3 minutes,
             ringBufferSize: 100,
-            minForcedInclusionCount: 1,
-            forcedInclusionDelay: 384,
+            forcedInclusionDelay: 384 seconds,
             forcedInclusionFeeInGwei: 10_000_000,
             forcedInclusionFeeDoubleThreshold: 50,
-            minCheckpointDelay: 60_000, // large enough for skipping checkpoints in prove benches
             permissionlessInclusionMultiplier: 5
         });
     }
@@ -140,7 +138,7 @@ abstract contract InboxTestBase is CommonTest {
     }
 
     function _deploySignalService(address _authorizedSyncer) internal returns (SignalService) {
-        SignalService impl = new SignalService(_authorizedSyncer, REMOTE_SIGNAL_SERVICE);
+        SignalService impl = new SignalService(_authorizedSyncer, REMOTE_SIGNAL_SERVICE, address(0));
         return SignalService(
             address(
                 new ERC1967Proxy(address(impl), abi.encodeCall(SignalService.init, (address(this))))
@@ -150,12 +148,12 @@ abstract contract InboxTestBase is CommonTest {
 
     function _setSignalServiceSyncer(address _authorizedSyncer) internal {
         signalService.upgradeTo(
-            address(new SignalService(_authorizedSyncer, REMOTE_SIGNAL_SERVICE))
+            address(new SignalService(_authorizedSyncer, REMOTE_SIGNAL_SERVICE, address(0)))
         );
     }
 
     function _deployProposerChecker() internal returns (PreconfWhitelist) {
-        PreconfWhitelist impl = new PreconfWhitelist();
+        PreconfWhitelist impl = new PreconfWhitelist(address(this));
         return PreconfWhitelist(
             address(
                 new ERC1967Proxy(
@@ -166,7 +164,7 @@ abstract contract InboxTestBase is CommonTest {
     }
 
     function _deployProverWhitelist() internal returns (ProverWhitelist) {
-        ProverWhitelist impl = new ProverWhitelist();
+        ProverWhitelist impl = new ProverWhitelist(address(this));
         return ProverWhitelist(
             address(
                 new ERC1967Proxy(
@@ -252,7 +250,10 @@ abstract contract InboxTestBase is CommonTest {
         payload_.sources = _decodeSources(log.data, head.sourcesOffset);
     }
 
-    function _sliceBytes(bytes memory _data, uint256 _offset)
+    function _sliceBytes(
+        bytes memory _data,
+        uint256 _offset
+    )
         private
         pure
         returns (bytes memory slice_)
@@ -265,7 +266,10 @@ abstract contract InboxTestBase is CommonTest {
         }
     }
 
-    function _decodeSources(bytes memory _data, uint256 _offset)
+    function _decodeSources(
+        bytes memory _data,
+        uint256 _offset
+    )
         private
         pure
         returns (IInbox.DerivationSource[] memory sources_)
@@ -357,14 +361,8 @@ abstract contract InboxTestBase is CommonTest {
             }
             proposalTimestamp = uint48(block.timestamp);
 
-            // Generate a unique checkpoint for this proposal and hash it
-            ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-                blockNumber: uint48(block.number),
-                blockHash: keccak256(abi.encode("blockHash", i + 1)),
-                stateRoot: keccak256(abi.encode("stateRoot", i + 1))
-            });
-            bytes32 blockHash = keccak256(abi.encode(checkpoint));
-            transitions[i] = _transitionFor(payload, proposalTimestamp, prover, blockHash);
+            bytes32 blockHash = keccak256(abi.encode("blockHash", i + 1));
+            transitions[i] = _transitionFor(payload, proposalTimestamp, blockHash);
         }
 
         // Get the last proposal hash from the ring buffer
@@ -380,8 +378,7 @@ abstract contract InboxTestBase is CommonTest {
                 endBlockNumber: uint48(block.number),
                 endStateRoot: keccak256(abi.encode("stateRoot", _count)),
                 transitions: transitions
-            }),
-            forceCheckpointSync: false
+            })
         });
     }
 
@@ -431,7 +428,6 @@ abstract contract InboxTestBase is CommonTest {
     function _transitionFor(
         ProposedEvent memory _payload,
         uint48 _proposalTimestamp,
-        address _designatedProver,
         bytes32 _blockHash
     )
         internal
@@ -439,10 +435,7 @@ abstract contract InboxTestBase is CommonTest {
         returns (IInbox.Transition memory)
     {
         return IInbox.Transition({
-            proposer: _payload.proposer,
-            designatedProver: _designatedProver,
-            timestamp: _proposalTimestamp,
-            blockHash: _blockHash
+            proposer: _payload.proposer, timestamp: _proposalTimestamp, blockHash: _blockHash
         });
     }
 

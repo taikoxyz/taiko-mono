@@ -7,9 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/go-resty/resty/v2"
@@ -56,20 +58,32 @@ func NewBlobDataSource(
 
 // UnmarshalJSON overwrites to parse data based on different json keys
 func (p *BlobServerResponse) UnmarshalJSON(data []byte) error {
-	var tempMap map[string]interface{}
-	if err := json.Unmarshal(data, &tempMap); err != nil {
+	var response struct {
+		Commitment          string `json:"commitment"`
+		Data                string `json:"data"`
+		VersionedHash       string `json:"versionedHash"`
+		VersionedHashLegacy string `json:"versioned_hash"`
+	}
+	if err := json.Unmarshal(data, &response); err != nil {
 		return err
 	}
 
-	// Parsing data based on different keys
-	if versionedHash, ok := tempMap["versionedHash"]; ok {
-		p.VersionedHash = versionedHash.(string)
-	} else if versionedHash, ok := tempMap["versioned_hash"]; ok {
-		p.VersionedHash = versionedHash.(string)
+	p.VersionedHash = response.VersionedHash
+	if p.VersionedHash == "" {
+		p.VersionedHash = response.VersionedHashLegacy
 	}
+	p.Commitment = response.Commitment
+	p.Data = response.Data
 
-	p.Commitment = tempMap["commitment"].(string)
-	p.Data = tempMap["data"].(string)
+	if p.VersionedHash == "" {
+		return errors.New("missing versioned hash in blob server response")
+	}
+	if p.Commitment == "" {
+		return errors.New("missing commitment in blob server response")
+	}
+	if p.Data == "" {
+		return errors.New("missing data in blob server response")
+	}
 
 	return nil
 }
@@ -94,7 +108,7 @@ func (ds *BlobDataSource) GetBlobBytes(
 		b = append(b, bytes...)
 	}
 	if len(b) == 0 {
-		return nil, pkg.ErrSidecarNotFound
+		return nil, ErrInvalidBlobBytes
 	}
 	return b, nil
 }
@@ -114,14 +128,24 @@ func (ds *BlobDataSource) GetSidecars(
 		err = pkg.ErrBeaconNotFound
 	} else {
 		allSidecars, err = ds.client.L1Beacon.GetBlobs(ctx, timestamp)
+		if err == nil {
+			log.Debug("Serving blobs from L1 beacon", "timestamp", timestamp)
+		}
 	}
 	if err != nil {
-		if !errors.Is(err, pkg.ErrBeaconNotFound) {
-			log.Info("Failed to get blobs from beacon, try to use blob server", "timestamp", timestamp, "error", err.Error())
-		}
 		if ds.blobServerEndpoint == nil {
-			log.Info("No blob server endpoint set")
+			// Beacon failed and there is no blob server to fall back to; surface
+			// the beacon error so the failure reason is not lost at this layer.
+			log.Info("No blob server endpoint set", "error", err.Error())
 			return nil, err
+		}
+		// Falling back to the blob server. Name the source and the reason so a
+		// beacon outage (recurring "beacon unavailable") is distinguishable from a
+		// deployment with no beacon configured (steady "no beacon configured").
+		if errors.Is(err, pkg.ErrBeaconNotFound) {
+			log.Info("Serving blobs from blob server: no beacon configured", "timestamp", timestamp)
+		} else {
+			log.Info("Serving blobs from blob server: beacon unavailable", "timestamp", timestamp, "error", err.Error())
 		}
 		blobs, err := ds.getBlobFromServer(ctx, blobHashes)
 		if err != nil {
@@ -129,10 +153,11 @@ func (ds *BlobDataSource) GetSidecars(
 		}
 		allSidecars = make([]*structs.Sidecar, len(blobs.Data))
 		for index, value := range blobs.Data {
-			allSidecars[index] = &structs.Sidecar{
-				KzgCommitment: value.KzgCommitment,
-				Blob:          value.Blob,
+			sidecar, err := sidecarFromBlobServer(value, blobHashes[index])
+			if err != nil {
+				return nil, err
 			}
+			allSidecars[index] = sidecar
 		}
 	}
 	for _, blobHash := range blobHashes {
@@ -159,37 +184,103 @@ func (ds *BlobDataSource) GetSidecars(
 	return sidecars, nil
 }
 
+// sidecarFromBlobServer rebuilds the sidecar from blob bytes and verifies it
+// against the requested versioned hash instead of trusting blob-server metadata.
+func sidecarFromBlobServer(blobData *BlobData, expectedHash common.Hash) (*structs.Sidecar, error) {
+	if blobData == nil {
+		return nil, errors.New("nil blob data from blob server")
+	}
+
+	blobHex := blobData.Blob
+	if !strings.HasPrefix(blobHex, "0x") {
+		blobHex = "0x" + blobHex
+	}
+
+	blobBytes, err := hexutil.Decode(blobHex)
+	if err != nil {
+		return nil, fmt.Errorf("invalid blob bytes from blob server: %w", err)
+	}
+	if len(blobBytes) != eth.BlobSize {
+		return nil, fmt.Errorf("invalid blob length from blob server: expected %d, got %d", eth.BlobSize, len(blobBytes))
+	}
+
+	var blob eth.Blob
+	copy(blob[:], blobBytes)
+
+	commitment, err := blob.ComputeKZGCommitment()
+	if err != nil {
+		return nil, fmt.Errorf("failed to compute KZG commitment from blob server data: %w", err)
+	}
+
+	blobHash := kzg4844.CalcBlobHashV1(sha256.New(), &commitment)
+	if blobHash != expectedHash {
+		return nil, fmt.Errorf("blob server returned blob with versioned hash %s, expected %s", blobHash, expectedHash)
+	}
+
+	return &structs.Sidecar{
+		KzgCommitment: common.Bytes2Hex(commitment[:]),
+		Blob:          blob.String(),
+	}, nil
+}
+
 // getBlobFromServer get blob data from server path `/blob` or `/blobs`.
 func (ds *BlobDataSource) getBlobFromServer(ctx context.Context, blobHashes []common.Hash) (*BlobDataSeq, error) {
 	blobDataSeq := make([]*BlobData, 0, len(blobHashes))
 	for _, blobHash := range blobHashes {
-		requestURL, err := url.JoinPath(ds.blobServerEndpoint.String(), "/blobs/"+blobHash.String())
+		blobData, err := ds.getBlobByHash(ctx, blobHash)
 		if err != nil {
 			return nil, err
 		}
-		resp, err := resty.New().R().
-			SetResult(BlobServerResponse{}).
-			SetContext(ctx).
-			SetHeader("Content-Type", "application/json").
-			SetHeader("Accept", "application/json").
-			Get(requestURL)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get blob from server, request URL: %s, err: %w", requestURL, err)
-		}
-		if !resp.IsSuccess() {
-			return nil, fmt.Errorf(
-				"unable to connect blobscan endpoint, status code: %v",
-				resp.StatusCode(),
-			)
-		}
-		response := resp.Result().(*BlobServerResponse)
-		blobDataSeq = append(blobDataSeq, &BlobData{
-			BlobHash:      response.VersionedHash,
-			KzgCommitment: response.Commitment,
-			Blob:          response.Data,
-		})
+		blobDataSeq = append(blobDataSeq, blobData)
 	}
 	return &BlobDataSeq{
 		Data: blobDataSeq,
+	}, nil
+}
+
+// GetBlobDataByHash gets the blob data by the given blob hash.
+func (ds *BlobDataSource) getBlobByHash(ctx context.Context, blobHash common.Hash) (*BlobData, error) {
+	requestURL, err := url.JoinPath(ds.blobServerEndpoint.String(), "/blobs/"+blobHash.String())
+	if err != nil {
+		return nil, err
+	}
+
+	resp, restErr := resty.New().R().
+		SetResult(BlobServerResponse{}).
+		SetContext(ctx).
+		SetHeader("Content-Type", "application/json").
+		SetHeader("Accept", "application/json").
+		Get(requestURL)
+	if restErr == nil && resp.IsSuccess() {
+		response := resp.Result().(*BlobServerResponse)
+		return &BlobData{
+			BlobHash:      response.VersionedHash,
+			KzgCommitment: response.Commitment,
+			Blob:          response.Data,
+		}, nil
+	}
+
+	if restErr == nil {
+		restErr = fmt.Errorf("unable to connect blobscan endpoint, status code: %v", resp.StatusCode())
+	} else {
+		restErr = fmt.Errorf("failed to get blob from server, request URL: %s, err: %w", requestURL, restErr)
+	}
+
+	blob, anvilErr := ds.client.L1.AnvilGetBlobByHash(ctx, blobHash)
+	if anvilErr != nil {
+		return nil, fmt.Errorf(
+			"failed to fetch blob %s from blob server and anvil RPC: %w", blobHash, errors.Join(restErr, anvilErr),
+		)
+	}
+
+	commitment, err := blob.ComputeKZGCommitment()
+	if err != nil {
+		return nil, fmt.Errorf("failed to compute KZG commitment for blob %s: %w", blobHash, err)
+	}
+
+	return &BlobData{
+		BlobHash:      blobHash.String(),
+		KzgCommitment: common.Bytes2Hex(commitment[:]),
+		Blob:          blob.String(),
 	}, nil
 }

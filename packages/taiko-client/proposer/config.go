@@ -29,12 +29,8 @@ type Config struct {
 	AllowZeroTipInterval    uint64
 	MaxTxListsPerEpoch      uint64
 	ProposeBatchTxGasLimit  uint64
-	BlobAllowed             bool
-	FallbackToCalldata      bool
-	RevertProtectionEnabled bool
 	TxmgrConfigs            *txmgr.CLIConfig
 	PrivateTxmgrConfigs     *txmgr.CLIConfig
-	FallbackTimeout         time.Duration
 }
 
 // NewConfigFromCliContext initializes a Config instance from
@@ -68,21 +64,21 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		)
 	}
 
+	// Enforce WS endpoints after the format validations above, so existing
+	// error-precedence assertions in tests stay intact.
+	if err := flags.CheckWSEndpointsRequired(c, "proposer"); err != nil {
+		return nil, err
+	}
+
 	return &Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:                  c.String(flags.L1WSEndpoint.Name),
-			L2Endpoint:                  c.String(flags.L2WSEndpoint.Name),
-			PacayaInboxAddress:          common.HexToAddress(c.String(flags.PacayaInboxAddress.Name)),
-			ShastaInboxAddress:          common.HexToAddress(c.String(flags.ShastaInboxAddress.Name)),
-			TaikoWrapperAddress:         common.HexToAddress(c.String(flags.TaikoWrapperAddress.Name)),
-			ForcedInclusionStoreAddress: common.HexToAddress(c.String(flags.ForcedInclusionStoreAddress.Name)),
-			TaikoAnchorAddress:          common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
-			L2EngineEndpoint:            c.String(flags.L2AuthEndpoint.Name),
-			JwtSecret:                   string(jwtSecret),
-			TaikoTokenAddress:           common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
-			Timeout:                     c.Duration(flags.RPCTimeout.Name),
-			ProverSetAddress:            common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
-			ShastaForkTime:              c.Uint64(flags.ShastaForkTime.Name),
+			L1Endpoint:         c.String(flags.L1WSEndpoint.Name),
+			L2Endpoint:         c.String(flags.L2WSEndpoint.Name),
+			InboxAddress:       common.HexToAddress(c.String(flags.InboxAddress.Name)),
+			TaikoAnchorAddress: common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
+			L2EngineEndpoint:   c.String(flags.L2AuthEndpoint.Name),
+			JwtSecret:          string(jwtSecret),
+			Timeout:            c.Duration(flags.RPCTimeout.Name),
 		},
 		L1ProposerPrivKey:       l1ProposerPrivKey,
 		L2SuggestedFeeRecipient: common.HexToAddress(l2SuggestedFeeRecipient),
@@ -92,9 +88,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		MaxTxListsPerEpoch:      maxTxListsPerEpoch,
 		AllowZeroTipInterval:    c.Uint64(flags.AllowZeroTipInterval.Name),
 		ProposeBatchTxGasLimit:  c.Uint64(flags.TxGasLimit.Name),
-		BlobAllowed:             c.Bool(flags.BlobAllowed.Name),
-		FallbackToCalldata:      c.Bool(flags.FallbackToCalldata.Name),
-		RevertProtectionEnabled: c.Bool(flags.RevertProtectionEnabled.Name),
 		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
 			c.String(flags.L1WSEndpoint.Name),
 			l1ProposerPrivKey,
@@ -105,6 +98,5 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			l1ProposerPrivKey,
 			c,
 		),
-		FallbackTimeout: c.Duration(flags.FallbackTimeout.Name),
 	}, nil
 }

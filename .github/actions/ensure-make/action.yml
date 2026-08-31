@@ -1,0 +1,49 @@
+name: Ensure make is available
+description: Install make on runners where it is missing
+
+runs:
+  using: composite
+  steps:
+    - name: Install make when missing
+      shell: bash
+      run: |
+        if command -v make >/dev/null 2>&1; then
+          echo "make already installed"
+          exit 0
+        fi
+
+        if [ "$(id -u)" -eq 0 ]; then
+          SUDO=""
+        elif command -v sudo >/dev/null 2>&1; then
+          SUDO="sudo"
+        else
+          echo "make is missing and this runner is non-root without sudo; cannot install make"
+          exit 1
+        fi
+
+        run_with_privileges() {
+          if [ -n "$SUDO" ]; then
+            $SUDO "$@"
+          else
+            "$@"
+          fi
+        }
+
+        if command -v apt-get >/dev/null 2>&1; then
+          run_with_privileges apt-get update -qq
+          run_with_privileges apt-get install -y -q make
+        elif command -v apk >/dev/null 2>&1; then
+          run_with_privileges apk add --no-cache make
+        elif command -v dnf >/dev/null 2>&1; then
+          run_with_privileges dnf install -y make
+        elif command -v yum >/dev/null 2>&1; then
+          run_with_privileges yum install -y make
+        else
+          echo "Unsupported package manager: cannot install make"
+          exit 1
+        fi
+
+        if ! command -v make >/dev/null 2>&1; then
+          echo "make installation completed but make is still not available on PATH"
+          exit 1
+        fi

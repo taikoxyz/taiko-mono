@@ -8,7 +8,70 @@ import (
 var (
 	BlocksScanned = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "blocks_scanned_ops_total",
-		Help: "The total number of blocks scanned",
+		Help: "The total number of source-chain head changes observed",
+	})
+	PrivateRPCFailures = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "private_rpc_failures_ops_total",
+		Help: "The total number of times a private RPC endpoint refused a transaction, " +
+			"labelled by that endpoint's position in the configured failover order",
+	}, []string{"endpoint"})
+	PrivateRPCSends = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "private_rpc_sends_ops_total",
+		Help: "The total number of transactions a private RPC endpoint accepted, labelled by " +
+			"that endpoint's position in the configured failover order. This is the denominator " +
+			"private_rpc_failures_ops_total needs: refusals alone cannot tell a busy relay " +
+			"turning down a few claims from one that has started turning down most of them",
+	}, []string{"endpoint"})
+	PrivateRPCInRotation = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "private_rpc_in_rotation",
+		Help: "1 while a private RPC endpoint is in the failover rotation and 0 while it is out, " +
+			"labelled by that endpoint's position in the configured order. Trips are monotonic, " +
+			"so they cannot answer what the rotation looks like right now; this can",
+	}, []string{"endpoint"})
+	PrivateRPCHeldNonce = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "private_rpc_held_nonce_ops_total",
+		Help: "The total number of sends a private RPC endpoint answered by saying it already " +
+			"holds that nonce, labelled by that endpoint's position in the configured order. " +
+			"Not counted as a failure — the endpoint is carrying the claim — but a nonce it has " +
+			"not answered for before does count towards the consecutive ceiling, so an endpoint " +
+			"answering this to everything still steps aside. Without this counter the path is " +
+			"invisible, since nothing else records it",
+	}, []string{"endpoint"})
+	PrivateRPCTrips = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "private_rpc_trips_ops_total",
+		Help: "The total number of times a private RPC endpoint was taken out of the failover " +
+			"rotation, labelled by that endpoint's position in the configured order. This is the " +
+			"transition worth alerting on: an endpoint out of rotation is one fewer place to " +
+			"send privately, and the last one leaving means claims go to the public mempool",
+	}, []string{"endpoint"})
+	PrivateRPCAllRefused = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "private_rpc_all_refused_ops_total",
+		Help: "The total number of sends broadcast publicly because every private endpoint in " +
+			"rotation refused that claim repeatedly. Counts sends rather than distinct claims, so " +
+			"a claim refused for long enough is counted once per broadcast. Distinct from " +
+			"private_rpc_unavailable_ops_total, which counts sends made publicly because no " +
+			"endpoint was in rotation at all: this is the relays being up and declining one " +
+			"particular claim, a deliberate trade of that claim's privacy against never landing it",
+	})
+	PrivateRPCAllRefusedAttempts = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "private_rpc_all_refused_attempts_ops_total",
+		Help: "The total number of times a claim every private endpoint refused was offered to " +
+			"the public endpoint, whether or not that endpoint took it. Read against " +
+			"private_rpc_all_refused_ops_total: attempts climbing while broadcasts do not means " +
+			"the public endpoint is failing too, and the claim is reaching nobody",
+	})
+	PrivateRPCUnavailable = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "private_rpc_unavailable_ops_total",
+		Help: "The total number of sends that went out through the public endpoint while private " +
+			"endpoints were configured, meaning none was in rotation and the message and its " +
+			"proof reached the public mempool. Counts sends rather than distinct claims, so a " +
+			"resubmitted transaction is counted each time it is broadcast",
+	})
+	MessageSentEventsRequeuedTransient = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "message_sent_events_requeued_transient_ops_total",
+		Help: "The total number of messages parked on the transient queue after a processing " +
+			"failure that may resolve on its own. A message climbing this counter on its own is " +
+			"one the relayer cannot land and keeps re-reading",
 	})
 	QueueMessageAcknowledged = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "queue_message_acknowledged_ops_total",
@@ -41,10 +104,6 @@ var (
 	QueueConnectionInstantiatedErrors = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "queue_connection_instantiated_errors_ops_total",
 		Help: "The total number of times a queue connection was instantiated with an error",
-	})
-	ChainDataSyncedEventsIndexed = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "chain_data_synced_events_indexed_ops_total",
-		Help: "The total number of ChainDataSynced indexed events",
 	})
 	CheckpointSavedEventsIndexed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "checkpoint_saved_events_indexed_ops_total",
@@ -86,10 +145,6 @@ var (
 		Name: "message_status_changed_events_indexing_errors_ops_total",
 		Help: "The total number of errors indexing MessageStatusChanged events",
 	})
-	ChainDataSyncedEventsIndexingErrors = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "chain_data_synced_events_indexing_errors_ops_total",
-		Help: "The total number of errors indexing ChainDataSynced events",
-	})
 	CheckpointSavedEventsIndexingErrors = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "checkpoint_saved_events_indexing_errors_ops_total",
 		Help: "The total number of errors indexing CheckpointSaved events",
@@ -105,14 +160,6 @@ var (
 	BridgeMessageNotSent = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "bridge_message_not_sent_opt_total",
 		Help: "The total number of times a bridge message has not been sent but has been processed",
-	})
-	BridgePaused = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "bridge_paused_ops_total",
-		Help: "The total number of times the bridge has been paused",
-	})
-	BridgePausedErrors = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "bridge_paused_errors_ops_total",
-		Help: "The total number of times the bridge has encountered an error while attempting to have been paused",
 	})
 	RetriableEvents = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "events_processed_retriable_status_ops_total",
@@ -138,6 +185,10 @@ var (
 		Name: "unprofitable_message_after_transacting_ops_total",
 		Help: "The total number of processed events that ended up unprofitable",
 	})
+	AfterTransactingProfitabilityEvaluationErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "after_transacting_profitability_evaluation_errors_ops_total",
+		Help: "The total number of errors evaluating profitability after transacting",
+	})
 	MessageSentEventsAfterRetryErrorCount = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "message_sent_events_after_retry_error_count",
 		Help: "The total number of errors logged for MessageSent events after retries",
@@ -145,10 +196,6 @@ var (
 	MessageStatusChangedEventsAfterRetryErrorCount = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "message_status_changed_events_after_retry_error_count",
 		Help: "The total number of errors logged for MessageStatusChanged events after retries",
-	})
-	ChainDataSyncedEventsAfterRetryErrorCount = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "chain_data_synced_events_after_retry_error_count",
-		Help: "The total number of errors logged for ChainDataSynced events after retries",
 	})
 	CheckpointSavedEventsAfterRetryErrorCount = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "checkpoint_saved_events_after_retry_error_count",

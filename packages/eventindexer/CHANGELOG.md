@@ -1,5 +1,69 @@
 # Changelog
 
+## [0.15.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.14.0...eventindexer-v0.15.0) (2026-05-21)
+
+
+### Features
+
+* **eventindexer:** introduce Shasta inbox for starting block search without beacon RPC dependency ([#21201](https://github.com/taikoxyz/taiko-mono/issues/21201)) ([6aedd4e](https://github.com/taikoxyz/taiko-mono/commit/6aedd4e79026b34f887361cbdde758916ecc7236))
+
+
+### Bug Fixes
+
+* **eventindexer:** add error wrapping in getERC20Decimals ([#21247](https://github.com/taikoxyz/taiko-mono/issues/21247)) ([55429db](https://github.com/taikoxyz/taiko-mono/commit/55429db026ce2c49efd25482512c11f31fde0910))
+* **eventindexer:** check tx.Commit error in CreateMetadata ([#21235](https://github.com/taikoxyz/taiko-mono/issues/21235)) ([592b5b6](https://github.com/taikoxyz/taiko-mono/commit/592b5b6648d1c0d6a5e2e765868a654c8162144f))
+* **eventindexer:** close event filter iterators ([#21362](https://github.com/taikoxyz/taiko-mono/issues/21362)) ([f580b9b](https://github.com/taikoxyz/taiko-mono/commit/f580b9b0c970637109e6a12c78b73ebafffb4f01))
+* **eventindexer:** correct error wrapping in event handlers ([#21298](https://github.com/taikoxyz/taiko-mono/issues/21298)) ([c34992a](https://github.com/taikoxyz/taiko-mono/commit/c34992a7be30e44b79553095d1b55092a345cfbb))
+* **eventindexer:** fix migration mismatch ([#21211](https://github.com/taikoxyz/taiko-mono/issues/21211)) ([017e4c6](https://github.com/taikoxyz/taiko-mono/commit/017e4c63bfd5d65743dbf7e95d6be53c6c1dce1c))
+* **taiko-client:** close event filter iterators ([#21374](https://github.com/taikoxyz/taiko-mono/issues/21374)) ([b4627ea](https://github.com/taikoxyz/taiko-mono/commit/b4627eaf7f4663e042005c6e23983b4e367cae98))
+
+
+### Chores
+
+* **eventindexer:** correct error wrapping messages ([#21265](https://github.com/taikoxyz/taiko-mono/issues/21265)) ([ef02c50](https://github.com/taikoxyz/taiko-mono/commit/ef02c50848f87de7ede003b8e5c71a90513df18c))
+* **eventindexer:** remove legacy L1 fork indexing code ([#21697](https://github.com/taikoxyz/taiko-mono/issues/21697)) ([a78580e](https://github.com/taikoxyz/taiko-mono/commit/a78580e5c0b24e0020c7502d8844d3b708d2074f))
+* **relayer:** pacaya clean up ([#21407](https://github.com/taikoxyz/taiko-mono/issues/21407)) ([1ba276e](https://github.com/taikoxyz/taiko-mono/commit/1ba276e63afab7c12a53553fde95db34ef4390eb))
+
+
+### Performance Improvements
+
+* **eventindexer:** cache ERC20/ERC1155 ABI parsing ([#21491](https://github.com/taikoxyz/taiko-mono/issues/21491)) ([8827063](https://github.com/taikoxyz/taiko-mono/commit/8827063cf82648af41f82887c1ea6a15b01c9a26))
+
+## [0.14.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.13.0...eventindexer-v0.14.0) (2026-01-20)
+
+
+### Features
+
+* **eventindexer:** init update eventindexer for shasta ([#21199](https://github.com/taikoxyz/taiko-mono/issues/21199)) ([ab6331b](https://github.com/taikoxyz/taiko-mono/commit/ab6331bacdad2ea10dc3f7075efb0871b551abf1))
+* **taiko-client:** the strategy of proof submission ([#21071](https://github.com/taikoxyz/taiko-mono/issues/21071)) ([bee558d](https://github.com/taikoxyz/taiko-mono/commit/bee558d8b5ae0104fa3036a042b95ff1ac5aac5f))
+
+
+### Bug Fixes
+
+* **eventindexer:** avoid increasing zero-address balances on ERC20 burns; skip no-op increases ([#20161](https://github.com/taikoxyz/taiko-mono/issues/20161)) ([206e560](https://github.com/taikoxyz/taiko-mono/commit/206e560473139f2eb2a7706aca5da008446b8b37))
+* **eventindexer:** correct error message function names ([#20139](https://github.com/taikoxyz/taiko-mono/issues/20139)) ([4f9110d](https://github.com/taikoxyz/taiko-mono/commit/4f9110db73e7dd3ba5f54f4031d67152157f9b97))
+* **eventindexer:** correct typos and grammar issues ([#20177](https://github.com/taikoxyz/taiko-mono/issues/20177)) ([fac3e30](https://github.com/taikoxyz/taiko-mono/commit/fac3e30da5b827c25f91939fe4e4c28a4938f571))
+* **eventindexer:** ensure fork block is processed post-fork by making boundary inclusive ([#20097](https://github.com/taikoxyz/taiko-mono/issues/20097)) ([a012eb7](https://github.com/taikoxyz/taiko-mono/commit/a012eb7248e1661f883d2de5b0af145826b3f0dd))
+* **eventindexer:** replace empty URL with valid path in http.NewRequest for pagination tests ([#20109](https://github.com/taikoxyz/taiko-mono/issues/20109)) ([6a90b59](https://github.com/taikoxyz/taiko-mono/commit/6a90b598e4c15b5211ee54691091e6d3eec804f5))
+* **eventindexer:** use Scan for unique proposers/provers queries ([#21155](https://github.com/taikoxyz/taiko-mono/issues/21155)) ([70c4c5e](https://github.com/taikoxyz/taiko-mono/commit/70c4c5edeba36b71dd626141698fa96aa51d478b))
+* **relayer:** improve MySQL container test reliability ([#20328](https://github.com/taikoxyz/taiko-mono/issues/20328)) ([8f72a97](https://github.com/taikoxyz/taiko-mono/commit/8f72a97f0b8fb0b36e4402501e3b8bd012dd236c))
+* **taiko-client:** use correct value for LastBlockIDByBatchID ([#21121](https://github.com/taikoxyz/taiko-mono/issues/21121)) ([f2ca521](https://github.com/taikoxyz/taiko-mono/commit/f2ca52143f8dca00d400f84c94d65a0597b3db9f))
+
+
+### Chores
+
+* **ejector,repo,taiko-client-rs:** improve code comments clarity ([#21055](https://github.com/taikoxyz/taiko-mono/issues/21055)) ([486a6e3](https://github.com/taikoxyz/taiko-mono/commit/486a6e3b1aee009bb963d16e8482643c9a868730))
+
+
+### Documentation
+
+* **eventindexer:** fix README mixed with relayer package ([#20470](https://github.com/taikoxyz/taiko-mono/issues/20470)) ([7c43387](https://github.com/taikoxyz/taiko-mono/commit/7c4338736cfa0b1b722cac3b99e89fce52c268f2))
+
+
+### Code Refactoring
+
+* **balance-monitor, eventindexer, relayer:** replace exp/slog with standard log/slog ([#19861](https://github.com/taikoxyz/taiko-mono/issues/19861)) ([ab4ac99](https://github.com/taikoxyz/taiko-mono/commit/ab4ac9901352db2639eaa0b57c665c66f7d7d615))
+
 ## [0.13.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.12.0...eventindexer-v0.13.0) (2023-10-18)
 
 

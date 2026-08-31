@@ -132,7 +132,6 @@ contract L2FeeVaultTest is Test {
         assertEq(vault.feePerGasWei(), 100_000, "fee");
     }
 
-
     function test_feePerGas_usesEffectiveBalanceWithLiabilities() external {
         vm.deal(address(vault), 150 ether);
 
@@ -144,7 +143,11 @@ contract L2FeeVaultTest is Test {
         _importOne(vault, data);
 
         assertEq(vault.totalLiabilities(), 75 ether, "liabilities");
-        assertEq(vault.feePerGasWei(), 500_000, "liabilities should reduce effective balance and raise fee");
+        assertEq(
+            vault.feePerGasWei(),
+            500_000,
+            "liabilities should reduce effective balance and raise fee"
+        );
     }
 
     function test_feePerGas_balanceEqualsLiabilitiesIsFullDeficit() external {
@@ -258,20 +261,14 @@ contract L2FeeVaultTest is Test {
         returns (L2FeeVault vault_)
     {
         L2FeeVault impl = new L2FeeVault(
-            _targetBalanceWei,
-            _minFeePerGasWei,
-            _maxFeePerGasWei,
-            _lossReimbursementBps,
-            _kpWad
+            _targetBalanceWei, _minFeePerGasWei, _maxFeePerGasWei, _lossReimbursementBps, _kpWad
         );
         vault_ = L2FeeVault(
-            payable(
-                address(
+            payable(address(
                     new ERC1967Proxy(
                         address(impl), abi.encodeCall(L2FeeVault.init, (address(this), ANCHOR))
                     )
-                )
-            )
+                ))
         );
     }
 
@@ -280,12 +277,22 @@ contract L2FeeVaultTest is Test {
         _importOne(_vault, _singleFeeData(_proposalId, 0, 0, 0, 0, 0));
     }
 
-    function _importOne(L2FeeVault _vault, IL2FeeVault.ProposalFeeData memory _fee) private {
+    function _importOne(
+        L2FeeVault _vault,
+        IL2FeeVault.ProposalFeeData memory _fee
+    )
+        private
+    {
         vm.prank(ANCHOR);
         _vault.importProposalFeeList(_asList(_fee));
     }
 
-    function _importMany(L2FeeVault _vault, IL2FeeVault.ProposalFeeData[] memory _fees) private {
+    function _importMany(
+        L2FeeVault _vault,
+        IL2FeeVault.ProposalFeeData[] memory _fees
+    )
+        private
+    {
         vm.prank(ANCHOR);
         _vault.importProposalFeeList(_fees);
     }

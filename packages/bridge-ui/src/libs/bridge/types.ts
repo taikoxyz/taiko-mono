@@ -68,19 +68,22 @@ export type Message = {
   data: Hex;
 };
 
+export type RelayerApiInteger = bigint | number | string;
+
 // Todo: adjust relayer to return same as bridge
-// Identical to Message, but relayer uses capitalization
+// Relayer API message shape. Integer values may be JSON numbers at the API
+// boundary, strings after precision-preserving parsing, or bigint in tests.
 export type RelayerMessage = {
-  Id: bigint;
+  Id: RelayerApiInteger;
   From: Address;
-  SrcChainId: bigint;
-  DestChainId: bigint;
+  SrcChainId: RelayerApiInteger;
+  DestChainId: RelayerApiInteger;
   SrcOwner: Address;
   DestOwner: Address;
   To: Address;
   RefundTo: Address;
-  Value: bigint;
-  Fee: bigint;
+  Value: RelayerApiInteger;
+  Fee: RelayerApiInteger;
   GasLimit: number;
   Data: Hex | string;
   Memo: string;
@@ -91,7 +94,7 @@ export type ModifiedTransactionReceipt = Omit<TransactionReceipt, 'blockNumber'>
 
 export type BridgeTransaction = {
   srcTxHash: Hash;
-  destTxHash: Hash;
+  destTxHash?: Hash;
   from: Address;
   amount: bigint;
   symbol: string;
@@ -99,7 +102,7 @@ export type BridgeTransaction = {
   srcChainId: ChainID;
   destChainId: ChainID;
   tokenType: TokenType;
-  blockNumber: Hex;
+  blockNumber?: Hex;
   msgHash: Hash;
   processingFee: bigint;
   message?: Message;
@@ -246,22 +249,15 @@ export type AddressConfig = {
   etherVaultAddress?: Address;
   erc721VaultAddress: Address;
   erc1155VaultAddress: Address;
-  crossChainSyncAddress: Address;
   signalServiceAddress: Address;
-  hops?: Array<HopAddressConfig>;
-};
-
-export type HopAddressConfig = {
-  chainId: number;
-  crossChainSyncAddress: Address;
-  signalServiceAddress: Address;
+  anchorForkRouter?: Address;
+  quotaManagerAddress?: Address;
 };
 
 export enum ContractType {
   BRIDGE,
   VAULT,
   SIGNALSERVICE,
-  CROSSCHAINSYNC,
 }
 
 export type GetContractAddressType = {

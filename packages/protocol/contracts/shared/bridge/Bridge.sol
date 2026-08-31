@@ -8,6 +8,7 @@ import "../libs/LibNames.sol";
 import "../libs/LibNetwork.sol";
 import "../signal/ISignalService.sol";
 import "./IBridge.sol";
+import "./IQuotaManager.sol";
 
 import "./Bridge_Layout.sol"; // DO NOT DELETE
 
@@ -15,6 +16,14 @@ import "./Bridge_Layout.sol"; // DO NOT DELETE
 /// @notice See the documentation for {IBridge}.
 /// @dev Labeled in address resolver as "bridge". Additionally, the code hash for the same address
 /// on L1 and L2 may be different.
+/// @notice On Taiko mainnet, the L1 bridge's initial balance at L2 genesis was 999,999,600 Ether.
+/// Additionally, two other addresses had non-zero balances:
+/// - 0x69AA0361Dbb0527d4F1e5312403Bd41788fe61Fe holds 199 Ether
+/// - 0x00000968bfe78aa27cd380d629d61c89bd6b03e8 holds 1 Ether
+/// Together, these three accounts back a total premint Ether balance of 999,999,800 on Taiko
+/// Alethia layer 2. Initially, the plan was to mint 1,000,000,000 Ether, but a minor error
+/// occurred. The combined balance of the L1 and L2 bridges must be no less than 999,999,800
+/// Ether.
 /// @custom:security-contact security@taiko.xyz
 contract Bridge is EssentialResolverContract, IBridge {
     using LibMath for uint256;
@@ -45,17 +54,43 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// @dev The amount of gas not to charge fee per cache operation.
     uint256 private constant _GAS_REFUND_PER_CACHE_OPERATION = 20_000;
 
-    /// @dev Gas limit for sending Ether.
+    /// @dev Gas limit for sending Ether, used as the CALL gas operand — a callee-only budget (a
+    /// value-bearing CALL additionally grants the callee the unchanged 2,300 stipend). The
+    /// figures below are historical transaction-level measurements that include the 21k intrinsic
+    /// cost (an EOA callee consumes ~0 gas), so the callee-side margin is far larger than they
+    /// suggest. State-access repricing forks such as EIP-8038 raise mostly caller-side costs
+    /// (value-transfer account write, cold-recipient access) that are paid by this contract
+    /// before forwarding and do not draw on this budget, so no headroom bump is needed for them.
+    /// State-creation repricing (EIP-8037, scheduled for Glamsterdam) does draw on this budget:
+    /// creating a fresh storage slot charges 64 state bytes * 1,530 gas/byte = 97,920 gas, and
+    /// unless the transaction buys gas beyond the 16.7M per-transaction execution cap (which no
+    /// realistic claim transaction does, leaving its state-gas reservoir empty), that charge is
+    /// deducted from the callee frame's own gas. A smart wallet that writes a single fresh slot
+    /// when receiving Ether would then run out of gas under the previous 35,000 cap, and since a
+    /// failed send reverts processing, its messages would become unclaimable. The cap is
+    /// therefore the legacy 35,000 callee budget plus one EIP-8037 slot-creation charge
+    /// (97,920), rounded up — wallets that fit before the fork still fit after it, as long as
+    /// their receive path creates at most one storage slot.
     // - EOA gas used is < 21000
     // - For Loopring smart wallet, gas used is about 23000
     // - For Argent smart wallet on Ethereum, gas used is about 24000
     // - For Gnosis Safe wallet, gas used is about 28000
-    uint256 private constant _SEND_ETHER_GAS_LIMIT = 35_000;
+    uint256 private constant _SEND_ETHER_GAS_LIMIT = 135_000;
 
-    /// @dev Place holder value when not using transient storage
+    /// @dev Place holder value stored in the context slots between message invocations.
     uint256 private constant _PLACEHOLDER = type(uint256).max;
 
+    /// @dev The transient-storage slot of the call context: keccak256("bridge.ctx_slot"). The
+    /// context spans three consecutive transient slots (msgHash, from, srcChainId).
+    bytes32 private constant _CTX_SLOT =
+        0xe4ece82196de19aabe639620d7f716c433d1348f96ce727c9989a982dbadc2b9;
+
     ISignalService public immutable signalService;
+    IQuotaManager public immutable quotaManager;
+
+    /// @dev Address authorized to pause/unpause alongside the owner, and to fund the bridge with
+    /// plain Ether transfers via `receive`. Optional (may be zero, which disables direct funding).
+    address public immutable pauser;
 
     /// @notice The next message ID.
     /// @dev Slot 1.
@@ -66,7 +101,8 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// @dev Slot 2.
     mapping(bytes32 msgHash => Status status) public messageStatus;
 
-    /// @dev Slots 3 and 4
+    /// @dev Slots 3 and 4. Deprecated: the call context lives in transient storage (_CTX_SLOT);
+    /// the storage slots are retained only for layout compatibility.
     Context private __ctx;
 
     /// @dev Slot 5.
@@ -76,18 +112,6 @@ contract Bridge is EssentialResolverContract, IBridge {
     uint256 private __reserved3;
 
     uint256[44] private __gap;
-
-    error B_INVALID_CHAINID();
-    error B_INVALID_CONTEXT();
-    error B_INVALID_FEE();
-    error B_INVALID_GAS_LIMIT();
-    error B_INVALID_STATUS();
-    error B_INVALID_VALUE();
-    error B_MESSAGE_NOT_SENT();
-    error B_PERMISSION_DENIED();
-    error B_PROOF_TOO_LARGE();
-    error B_RETRY_FAILED();
-    error B_SIGNAL_NOT_RECEIVED();
 
     // ---------------------------------------------------------------
     // Modifiers
@@ -103,18 +127,36 @@ contract Bridge is EssentialResolverContract, IBridge {
         _;
     }
 
+    /// @notice Initializes the bridge's immutable state.
+    /// @param _resolver The address of the resolver contract.
+    /// @param _signalService The address of the signal service contract.
+    /// @param _quotaManager The address of the quota manager contract. Optional (may be zero).
+    /// @param _pauser Address authorized to pause/unpause alongside the owner, and to fund the
+    /// bridge via plain Ether transfers. Optional (may be zero, which disables direct funding).
     constructor(
         address _resolver,
-        address _signalService
+        address _signalService,
+        address _quotaManager,
+        address _pauser
     )
         EssentialResolverContract(_resolver)
     {
         signalService = ISignalService(_signalService);
+        quotaManager = IQuotaManager(_quotaManager);
+        pauser = _pauser;
     }
 
     // ---------------------------------------------------------------
     // External & Public Functions
     // ---------------------------------------------------------------
+
+    /// @notice Accepts plain Ether transfers from the pauser to fund the bridge.
+    /// @dev Reverts for any sender other than `pauser`, preventing arbitrary Ether deposits. The
+    /// bridge is deployed behind a proxy, so the pauser must use `call` (which forwards all gas);
+    /// the 2300-gas stipend of `transfer`/`send` is insufficient for the proxy's delegatecall.
+    receive() external payable {
+        require(msg.sender == pauser, B_PERMISSION_DENIED());
+    }
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -128,6 +170,18 @@ contract Bridge is EssentialResolverContract, IBridge {
         __reserved1 = 0;
         __reserved2 = 0;
         __reserved3 = 0;
+    }
+
+    /// @notice Invalidates stale bridge messages by marking them done.
+    /// @dev Intended for one-time recovery on already deployed contracts. Each listed message hash
+    /// is force-marked as `DONE`, preventing retries and later processing as a new message.
+    /// @param _msgHashes The hashes of the messages to invalidate.
+    function init3(bytes32[] calldata _msgHashes) external onlyOwner reinitializer(3) {
+        if (_msgHashes.length == 0) revert B_INVALID_VALUE();
+        for (uint256 i; i < _msgHashes.length; ++i) {
+            messageStatus[_msgHashes[i]] = Status.DONE;
+            emit MessageStatusChanged(_msgHashes[i], Status.DONE);
+        }
     }
 
     /// @inheritdoc IBridge
@@ -194,6 +248,8 @@ contract Bridge is EssentialResolverContract, IBridge {
         );
 
         _updateMessageStatus(msgHash, Status.RECALLED);
+        // A recall always releases `_message.value` back to the source owner, so debit its quota.
+        _consumeEtherQuota(_message.value);
 
         // Execute the recall logic based on the contract's support for the
         // IRecallableSender interface
@@ -273,6 +329,11 @@ contract Bridge is EssentialResolverContract, IBridge {
             }
         }
 
+        // Debit the Ether quota only for funds actually leaving the bridge: the fee is always
+        // released here, while the value is released only when the message reaches DONE. When the
+        // message stays RETRIABLE, its value remains in the bridge and is debited by retryMessage.
+        _consumeEtherQuota(status_ == Status.DONE ? _message.value + _message.fee : _message.fee);
+
         if (_message.fee != 0) {
             refundAmount += _message.fee;
 
@@ -339,6 +400,10 @@ contract Bridge is EssentialResolverContract, IBridge {
         }
 
         if (succeeded) {
+            // The value is released to the recipient only on a successful retry, so debit its
+            // quota here. A failed retry leaves the message RETRIABLE/FAILED with the value still
+            // in the bridge, consuming no quota.
+            _consumeEtherQuota(_message.value);
             _updateMessageStatus(msgHash, Status.DONE);
         } else if (_isLastAttempt) {
             _updateMessageStatus(msgHash, Status.FAILED);
@@ -366,12 +431,6 @@ contract Bridge is EssentialResolverContract, IBridge {
 
         _updateMessageStatus(msgHash, Status.FAILED);
         signalService.sendSignal(signalForFailedMessage(msgHash));
-    }
-
-    /// @inheritdoc IBridge
-    function isMessageSent(Message calldata _message) external view returns (bool) {
-        if (_message.srcChainId != block.chainid) return false;
-        return signalService.isSignalSent({ _app: address(this), _signal: hashMessage(_message) });
     }
 
     /// @notice Checks if a msgHash has failed on its destination chain.
@@ -412,6 +471,12 @@ contract Bridge is EssentialResolverContract, IBridge {
     {
         if (_message.destChainId != block.chainid) return false;
         return _isSignalReceived(signalService, hashMessage(_message), _message.srcChainId, _proof);
+    }
+
+    /// @inheritdoc IBridge
+    function isMessageSent(Message calldata _message) external view returns (bool) {
+        if (_message.srcChainId != block.chainid) return false;
+        return signalService.isSignalSent({ _app: address(this), _signal: hashMessage(_message) });
     }
 
     /// @notice Checks if the destination chain is enabled.
@@ -455,6 +520,9 @@ contract Bridge is EssentialResolverContract, IBridge {
     function getMessageMinGasLimit(uint256 dataLength) public pure returns (uint32) {
         return _messageCalldataCost(dataLength) + GAS_RESERVE;
     }
+
+    /// @dev Authorizes the owner or the designated immutable pauser to pause/unpause.
+    function _authorizePause(address, bool) internal view override onlyFromOwnerOr(pauser) { }
 
     /// @notice Invokes a call message on the Bridge.
     /// @param _message The call message to be invoked.
@@ -508,12 +576,16 @@ contract Bridge is EssentialResolverContract, IBridge {
         emit MessageStatusChanged(_msgHash, _status);
     }
 
-    /// @notice Stores the call context
+    /// @notice Stores the call context in transient storage (EIP-1153).
     /// @param _msgHash The message hash.
     /// @param _from The sender's address.
     /// @param _srcChainId The source chain ID.
-    function _storeContext(bytes32 _msgHash, address _from, uint64 _srcChainId) internal virtual {
-        __ctx = Context(_msgHash, _from, _srcChainId);
+    function _storeContext(bytes32 _msgHash, address _from, uint64 _srcChainId) internal {
+        assembly {
+            tstore(_CTX_SLOT, _msgHash)
+            tstore(add(_CTX_SLOT, 1), _from)
+            tstore(add(_CTX_SLOT, 2), _srcChainId)
+        }
     }
 
     /// @notice Checks if the signal was received and caches cross-chain data if requested.
@@ -542,10 +614,27 @@ contract Bridge is EssentialResolverContract, IBridge {
         }
     }
 
+    /// @dev Consumes a given amount of Ether from the quota manager; reverts if quota is
+    /// insufficient. Skips the external call when nothing is released (`_amount == 0`).
+    /// @param _amount The amount of Ether to consume.
+    function _consumeEtherQuota(uint256 _amount) private {
+        if (_amount != 0 && address(quotaManager) != address(0)) {
+            quotaManager.consumeQuota(address(0), _amount);
+        }
+    }
+
     /// @notice Loads and returns the call context.
     /// @return ctx_ The call context.
-    function _loadContext() internal view virtual returns (Context memory) {
-        return __ctx;
+    function _loadContext() internal view returns (Context memory) {
+        bytes32 msgHash;
+        address from;
+        uint64 srcChainId;
+        assembly {
+            msgHash := tload(_CTX_SLOT)
+            from := tload(add(_CTX_SLOT, 1))
+            srcChainId := tload(add(_CTX_SLOT, 2))
+        }
+        return Context(msgHash, from, srcChainId);
     }
 
     /// @notice Checks if the signal was received.
@@ -607,7 +696,12 @@ contract Bridge is EssentialResolverContract, IBridge {
         // + 32 bytes (offset to last bytes element of Message)
         // + 32 bytes (padded encoding of length of Message.data + dataLength
         //   (padded to 32 // bytes) = 13 * 32 + ((dataLength + 31) / 32 * 32).
-        // Non-zero calldata cost per byte is 16.
+        // Non-zero calldata cost per byte is 16. Calldata-dominated transactions can pay up to
+        // 40 gas per non-zero byte under the EIP-7623 floor. This estimate deliberately ignores
+        // the floor: processMessage transactions are usually execution-heavy, and an on-chain
+        // floor term would have to be derived from msg.data, which a contract relayer can pad
+        // almost for free to inflate its fee. Recalibrate the additive constants from
+        // MessageProcessed production stats instead.
         unchecked {
             return uint32(((dataLength + 31) / 32 * 32 + 416) << 4);
         }
@@ -681,4 +775,20 @@ contract Bridge is EssentialResolverContract, IBridge {
     function _checkDiffChain(uint64 _chainId) internal view {
         if (_chainId == 0 || _chainId == block.chainid) revert B_INVALID_CHAINID();
     }
+
+    // ---------------------------------------------------------------
+    // Custom Errors
+    // ---------------------------------------------------------------
+
+    error B_INVALID_CHAINID();
+    error B_INVALID_CONTEXT();
+    error B_INVALID_FEE();
+    error B_INVALID_GAS_LIMIT();
+    error B_INVALID_STATUS();
+    error B_INVALID_VALUE();
+    error B_MESSAGE_NOT_SENT();
+    error B_PERMISSION_DENIED();
+    error B_PROOF_TOO_LARGE();
+    error B_RETRY_FAILED();
+    error B_SIGNAL_NOT_RECEIVED();
 }

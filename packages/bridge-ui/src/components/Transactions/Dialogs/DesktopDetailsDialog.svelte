@@ -50,11 +50,13 @@
   let claimedAt = '';
 
   const getInitiatedDate = async () => {
+    if (!bridgeTx.blockNumber) return;
     const blockTimestamp = await geBlockTimestamp(bridgeTx.srcChainId, hexToBigInt(bridgeTx.blockNumber));
     initiatedAt = formatTimestamp(Number(blockTimestamp));
   };
 
   const getClaimedDate = async () => {
+    if (!bridgeTx.destTxHash || !bridgeTx.destChainId) return;
     log('destTxHash', bridgeTx.destTxHash, 'destChainId', bridgeTx.destChainId);
     try {
       const blockNumber = await getBlockFromTxHash(bridgeTx.destTxHash, bridgeTx.destChainId);

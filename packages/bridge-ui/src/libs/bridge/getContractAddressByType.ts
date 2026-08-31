@@ -34,8 +34,6 @@ export const getContractAddressByType = (args: GetContractAddressType): Address 
       return getVaultAddress(args);
     case ContractType.SIGNALSERVICE:
       return addressConfig.signalServiceAddress;
-    case ContractType.CROSSCHAINSYNC:
-      return addressConfig.crossChainSyncAddress;
     default:
       throw new Error('Invalid contract type');
   }

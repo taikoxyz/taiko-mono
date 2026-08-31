@@ -61,7 +61,6 @@
   "separate-pull-requests": true,
   "packages": {
     "packages/bridge-ui": {},
-    "packages/docs-site": {},
     "packages/eventindexer": {},
     "packages/ejector": {
       "package-name": "ejector",
@@ -72,22 +71,15 @@
           "type": "toml",
           "path": "Cargo.toml",
           "jsonpath": "$.package.version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"ejector\")].version"
         }
       ]
     },
     "packages/fork-diff": {},
-    "packages/overseer-rs": {
-      "package-name": "overseer-rs",
-      "release-type": "simple",
-      "component": "overseer-rs",
-      "extra-files": [
-        {
-          "type": "toml",
-          "path": "Cargo.toml",
-          "jsonpath": "$.package.version"
-        }
-      ]
-    },
     "packages/protocol": {
       "package-name": "taiko-alethia-protocol"
     },
@@ -110,21 +102,53 @@
           "type": "toml",
           "path": "Cargo.toml",
           "jsonpath": "$.workspace.package.version"
-        }
-      ]
-    },
-    "packages/urcindexer-rs": {
-      "package-name": "urcindexer-rs",
-      "release-type": "simple",
-      "component": "urcindexer-rs",
-      "extra-files": [
+        },
         {
           "type": "toml",
-          "path": "Cargo.toml",
+          "path": "crates/bindings/Cargo.toml",
           "jsonpath": "$.package.version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"taiko-client\")].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"bindings\")].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"driver\")].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"whitelist-preconfirmation-driver\")].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"proposer\")].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"protocol\")].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"rpc\")].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"test-harness\")].version"
         }
       ]
-    },
-    "packages/ui-lib": {}
+    }
   }
 }
