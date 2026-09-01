@@ -2110,8 +2110,13 @@ initHashA = H(adapterCreationCode || abi.encode(
   adapterConfigHash,sourceBridge,creditRegistry,router,queue,sealAuthority))
 adapter = last20(H(0xff || factory || saltA || initHashA)).
 \end{verbatim}
-Its 100-byte component configuration binds Router, Queue, SourceBridge and
-credit Registry.  The real compiled creation bytecode hash must replace the
+Here \code{sealAuthority=ProtocolVersionManager}.  Its exact 100-byte component
+configuration is
+\begin{verbatim}
+address20(creditRegistry) || address20(sourceBridge) ||
+address20(router) || address20(queue) || address20(sealAuthority)
+\end{verbatim}
+and binds every constructor-fixed authority address.  The real compiled creation bytecode hash must replace the
 model artifact and be sealed into the root deployment receipt before this
 design can be implemented; a test fixture inserting a behavioral factory
 object is not deployment authority.
@@ -2141,7 +2146,8 @@ permitted.
 
 \code{BridgeInboxAdapter} is a non-proxy immutable contract.  Its profile-bound
 runtime and constructor values fix the credit registry, source Bridge,
-immutable settlement router and ProtocolVersionManager.  Its sole mutable
+immutable settlement router, singleton ForcedQueue and ProtocolVersionManager.
+Its sole mutable
 configuration is a zero-to-nonzero \code{destinationDomainId} slot sealed once by
 that manager during manifest activation; the setter deletes its authority bit
 and cannot run twice.  Enqueue rejects while the slot is zero.  It has no upgrade,
@@ -5808,7 +5814,7 @@ transition, creates no record and pull-credits the still-local full caller fee
 before a nonreverting return.  A successful append forwards the whole fee to
 ForcedQueue and atomically marks the permanent source
   record QUEUED.  It is non-proxy and immutable; its runtime and constructor-fixed
-  registry, Bridge, router and version manager plus its one-shot sealed
+  registry, Bridge, router, Queue and version manager plus its one-shot sealed
   destination-domain slot are profile/domain-bound, with no
 mutable target, delegatecall or arbitrary-call selector.
 \item \code{InboxApplyRouterV2} and \code{InboxCreditStoreV2}: the router is a
@@ -8602,11 +8608,12 @@ for the fixed call and hash comparison.  The circuit also authenticates the
 fresh row-10 account/runtime/config/layout and empty private state directly under
 the imported state root; the getter is not a substitute for those observations.
 The ten \code{configBytes} lengths are exactly
-80, 344, 21, 73, 60, 52, 80, 21, 76 and 164 bytes, respectively, and their contents are:
+100, 344, 21, 73, 60, 52, 80, 21, 76 and 164 bytes, respectively, and their contents are:
 \begin{enumerate}
 \item\begin{verbatim}
 address20(bridgeCreditRegistry) || address20(sourceBridge) ||
-address20(activeSettlementRouter) || address20(protocolVersionManager)
+address20(activeSettlementRouter) || address20(forcedQueue) ||
+address20(protocolVersionManager)
 \end{verbatim}
 \item\begin{verbatim}
 u256(settlementChainId) || address20(protocolVersionManager) ||
@@ -9702,7 +9709,7 @@ local destination binding, frontier/event terminal proofs, pause-independent
 escape, L2 release sealing, replay and timing
 geometry.  Cryptographic booleans in that model are not cryptographic
 evidence.
-The companion \code{test-settlement-window.py} suite runs 239 adversarial
+The companion \code{test-settlement-window.py} suite runs 240 adversarial
 regressions, including authorization substitution, callback/OOG, competing LP,
 owner-mode, target/quota/pull/terminal rollback, withdrawal/recreation and
 cross-version preservation cases for the atomic Pool path.
@@ -9731,7 +9738,7 @@ valid KZG-opening, signature-recovery, independent-implementation and proof
 gates remain mandatory.
 
 \code{seat-market-model.py} and its companion
-\code{test-seat-market.py} suite run 100 adversarial regressions over the
+\code{test-seat-market.py} suite run 102 adversarial regressions over the
 four-cell perpetual reverse auction, offer ranking and maturity, staged
 handover, premium-reserve custody, pull credits, bond terminalization and
 release rotation and strict MWV1/SMI1/SLV1/SIR1/SMR1/MEC1/MHS1/MRO1 codecs.
@@ -9739,7 +9746,7 @@ The model is the executable state-machine and byte-level reference for Market
 custody and its Settlement/Router boundaries.
 
 \code{economic-profile-model.py} and its companion
-\code{test-economic-profile.py} suite run 31 schema and checked-arithmetic
+\code{test-economic-profile.py} suite run 36 schema and checked-arithmetic
 regressions over the versioned economic profile, published parameter
 relations, overflow boundaries and rejection of incomplete or uncalibrated
 profiles.  Passing those tests demonstrates internal consistency only; the

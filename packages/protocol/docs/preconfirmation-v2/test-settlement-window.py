@@ -5322,6 +5322,64 @@ class ForcedIngressRouterTests(unittest.TestCase):
                 caller_adapter=self.kind0_adapter,
             )
 
+    def test_bridge_adapter_config_is_exact_five_address_grammar(self):
+        fields = {
+            "source_registry_address": self.credit_registry.address,
+            "source_bridge_address": self.source_bridge.address,
+            "router_address": self.router.address,
+            "queue_address": self.router.forced_queue.address,
+            "seal_authority": self.router.version_manager,
+        }
+        exact_preimage = b"".join(
+            settlement._model_address20(fields[name])
+            for name in (
+                "source_registry_address",
+                "source_bridge_address",
+                "router_address",
+                "queue_address",
+                "seal_authority",
+            )
+        )
+        self.assertEqual(len(exact_preimage), 100)
+        expected = "0x" + settlement.keccak256(
+            settlement.D_COMPONENT_CONFIG
+            + bytes((1,))
+            + len(exact_preimage).to_bytes(2, "big")
+            + exact_preimage
+        ).hex()
+        common = {
+            "router_runtime_hash": self.router.runtime_hash,
+            "router_configuration_hash": self.router.configuration_hash,
+            "queue_runtime_hash": self.router.forced_queue.runtime_hash,
+            "queue_configuration_hash": self.router.forced_queue.config_hash,
+            "source_registry_runtime_hash": self.credit_registry.runtime_hash,
+            "source_registry_configuration_hash": (
+                self.credit_registry.configuration_hash
+            ),
+            "source_bridge_runtime_hash": self.source_bridge.runtime_hash,
+            "source_bridge_configuration_hash_": (
+                self.source_bridge.configuration_hash
+            ),
+        }
+        self.assertEqual(
+            settlement.bridge_ingress_component_configuration_hash(
+                **fields, **common
+            ),
+            expected,
+        )
+        self.assertEqual(self.bridge_adapter.configuration_hash, expected)
+
+        for name in fields:
+            with self.subTest(mutated_field=name):
+                mutated = dict(fields)
+                mutated[name] = addr(f"other-{len(name)}")
+                self.assertNotEqual(
+                    settlement.bridge_ingress_component_configuration_hash(
+                        **mutated, **common
+                    ),
+                    expected,
+                )
+
     def test_profile_native_registry_is_typed_append_only(self):
         original_bindings = self.router.authorized_ingress
         for legacy_surface in (

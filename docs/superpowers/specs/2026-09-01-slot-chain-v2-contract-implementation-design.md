@@ -71,24 +71,36 @@ are constructor immutables, deterministic precomputed addresses, or narrowly sco
 There is no generic Resolver dependency, arbitrary setter, delegate target, root setter, or
 governance pause on canonical progress or claims.
 
-Shared, L1, and L2 artifacts are compiled under their owning Foundry profiles. Cross-profile users
-load the already compiled artifact; they do not source-import and recompile it under another EVM or
-optimizer configuration.
+Source ownership and artifact ownership are separate. Shared types, interfaces, constants and
+libraries whose production members are exclusively `internal` are canonical **source-inline**
+modules. L1 and L2 consumers necessarily compile and inline that same source in their own profiles;
+those modules have no independently consumed deployable artifact. The ownership checker pins their
+source hash, allowlisted consumer profiles and kind-specific nondeployability: ABI-only interfaces
+may declare external functions but produce no bytecode, while internal libraries have no
+public/external production functions and produce no consumer link references. All deployable
+contracts and externally linked libraries instead have
+one **artifact-owned** Foundry profile. Cross-profile users load their already compiled bytecode or
+use an ABI-only boundary; they do not source-import and recompile an artifact-owned implementation
+under another EVM or optimizer configuration.
 
 The artifact and address ownership classes are:
 
-| Component class                                                                                                                     | Chain               | Build profile and artifact root                                                                                         | Lifecycle/address rule                                                                                                                                            |
-| ----------------------------------------------------------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Encodings, trees, proof/call libraries and chain-neutral deployables                                                                | Both                | `shared`, `out/shared`, oldest supported fork                                                                           | Libraries have one artifact owner. L1/L2 consumers link or load that artifact without recompilation. A deployed object's manifest scope determines address reuse. |
-| BuilderRegistry, ScheduleOracle, ForcedQueue, ActiveSettlementRouter, PVM/gate, AggregatorSeatMarket and other L1 permanent objects | L1                  | `layer1`, `out/layer1`                                                                                                  | Protocol-lifetime address and state repeat byte-exactly unless the normative descriptor explicitly marks the object release-scoped.                               |
-| Settlement, release ingress adapters, TerminalSignalVerifier and SourceBridge/Registry/Quota bundle                                 | L1                  | `layer1`, `out/layer1`; chain-neutral custody bytecode may instead be owned by `shared` and loaded as raw creation code | Fresh release-scoped accounts. Historical accounts serve only retained liabilities/proofs and never become current again.                                         |
-| InboxApplyRouterV2, ProtocolReleaseAuthorityV2, TerminalDomainRegistrarV2, TerminalAccumulatorV2 and NativeLiquidityPoolV2          | L2                  | `layer2`, `out/layer2`                                                                                                  | Protocol-lifetime objects; successors repeat address, runtime and configuration and preserve cursor/routes/releases/writers/tickets/frontier.                     |
-| InboxCreditStoreV2, DestinationBridgeV2 and native QuotaManager                                                                     | L2                  | `layer2`, `out/layer2`; chain-neutral custody bytecode may be loaded from `out/shared`                                  | Fresh release-scoped accounts and endpoint domain. Reuse is forbidden even when code is identical.                                                                |
-| Frozen legacy facades and AnchorV4                                                                                                  | Owning legacy chain | Manifest-named profile; compiled artifact hash recorded before installation tests                                       | Installation is exercised only in isolated migration tests. This PR does not select it on the production path.                                                    |
+| Component class                                                                                                                                         | Chain               | Ownership/build rule                                                                                                      | Lifecycle/address rule                                                                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Types, interfaces, constants, and internal-only encodings, trees, proof/call libraries                                                                  | Both                | `source-inline`; canonical shared source hash; compile only in allowlisted consuming profiles                             | No independent deployed address or runtime; consumers contain the inlined code and must have zero link references to the module.         |
+| Chain-neutral deployables and externally linked libraries                                                                                               | Both                | `artifact-owned` by `shared`, `out/shared`, oldest supported fork; cross-profile consumption is bytecode or ABI-only      | Exactly one creation/runtime artifact owner. A deployed object's manifest scope determines address reuse.                                |
+| BuilderRegistry, ScheduleOracle, ForcedQueue, ActiveSettlementRouter with its owned gate word, PVM, AggregatorSeatMarket and other L1 permanent objects | L1                  | `artifact-owned` by `layer1`, `out/layer1`                                                                                | Protocol-lifetime address and state repeat byte-exactly unless the normative descriptor explicitly marks the object release-scoped.      |
+| Settlement, release ingress adapters, TerminalSignalVerifier and SourceBridge/Registry/Quota bundle                                                     | L1                  | `artifact-owned` by `layer1`; chain-neutral custody bytecode may instead be owned by `shared` and loaded as creation code | Fresh release-scoped accounts. Historical accounts serve only retained liabilities/proofs and never become current again.                |
+| InboxApplyRouterV2, ProtocolReleaseAuthorityV2, TerminalDomainRegistrarV2, TerminalAccumulatorV2 and NativeLiquidityPoolV2                              | L2                  | `artifact-owned` by `layer2`, `out/layer2`                                                                                | Protocol-lifetime objects; successors repeat address/runtime/configuration and preserve cursor/routes/releases/writers/tickets/frontier. |
+| InboxCreditStoreV2, DestinationBridgeV2 and native QuotaManager                                                                                         | L2                  | `artifact-owned` by `layer2`; chain-neutral custody bytecode may be loaded from `out/shared`                              | Fresh release-scoped accounts and endpoint domain. Reuse is forbidden even when code is identical.                                       |
+| Frozen legacy facades and AnchorV4                                                                                                                      | Owning legacy chain | `artifact-owned` by the manifest-named profile; compiled artifact hash recorded before installation tests                 | Installation is exercised only in isolated migration tests. This PR does not select it on the production path.                           |
 
 The release manifest's exhaustive component table remains authoritative for individual kinds. The
-artifact-owner checker rejects a missing owner, cross-profile recompilation, output-path drift, a
-fresh address for a protocol-lifetime object, or reuse of a release-scoped address.
+ownership checker rejects an unclassified module, source-inline hash/profile/kind/ABI/link drift,
+artifact-owned cross-profile recompilation, output-path drift, a fresh address for a
+protocol-lifetime object, or reuse of a release-scoped address. Generated compiler artifacts for a
+source-inline module are not addressable protocol artifacts and cannot be loaded, linked, deployed,
+or placed in a release manifest.
 
 ## 4. Component Boundaries
 
@@ -120,8 +132,9 @@ reward receipts, roster duties, successor selection, and bounded reclamation. Pr
 forced recovery, sync, and canonical progress remain permissionless and do not call the market or
 an operator-controlled address.
 
-`ActiveSettlementRouter`, `ProtocolVersionManagerV1`, the migration gate, and deployment factories
-implement proof-first activation and abort. VMC1 is the sole post-QMIG mutating external call, is
+`ActiveSettlementRouter` (including its single owned migration-gate word),
+`ProtocolVersionManagerV2`, and the deployment factories implement proof-first activation and
+abort. The gate is Router storage, not a contract or address. VMC1 is the sole post-QMIG mutating external call, is
 made with its exact 100-byte calldata, zero value, exact caller, and 200,000 requested gas, and is
 the final external call inside the outer atomic activation revert domain.
 
@@ -157,8 +170,9 @@ configuration hashes, storage layouts, creation artifacts, component DAGs, and r
 transcripts.
 
 The production profile generator rejects test verifiers, null or uncalibrated economic fields,
-unknown artifacts, profile-dependent recompile drift, legacy endpoint reuse, mutable trust-map
-wrappers, and incomplete authority burning.
+unknown ownership classes, artifact-owned recompile/output drift, source-inline
+source/profile/ABI/link drift, legacy endpoint reuse, mutable trust-map wrappers, and incomplete
+authority burning.
 
 ## 5. Core State and Boundary Invariants
 
