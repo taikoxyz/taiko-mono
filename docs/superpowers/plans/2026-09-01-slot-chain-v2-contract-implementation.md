@@ -228,10 +228,11 @@ linkReferencesHash, immutableReferencesHash, creationHash, runtimeHash)` and fai
       owning profile, and names the exact source-inline interface when ABI consumption is claimed.
       The checker proves that the consumer and interface are present in that profile's build input,
       that their source and ABI hashes match their manifest rows, that the consumer imports the
-      named interface, and that raw-bytecode consumption names the owner's canonical artifact path.
-      A test-only direct-CREATE usage must additionally be a `.t.sol` consumer containing the
-      `vm.getCode` and `CREATE` path. A declaration without this compiled, hash-pinned evidence is
-      not consumption and cannot satisfy a required consumer profile.
+      named interface, and that raw-bytecode consumption passes the owner's canonical artifact path
+      to `vm.getCode`. These facts are read from the compiler AST rather than matched in source
+      comments. A test-only direct-CREATE usage must additionally be a `.t.sol` consumer whose AST
+      contains the `CREATE` path. A declaration without this compiled, hash-pinned evidence is not
+      consumption and cannot satisfy a required consumer profile.
 - [ ] **Step 5: Add** `slotchain:artifact-owner:check` and run clean shared/L1/L2 builds twice.
       Each build uses `--force --build-info --ast --extra-output storage-layout`; a warm incremental
       artifact directory is not admissible evidence.
@@ -249,7 +250,8 @@ linkReferencesHash, immutableReferencesHash, creationHash, runtimeHash)` and fai
 - [ ] **Step 6: Wire one clean-checkout aggregate command into protocol CI.** It runs the isolated
       default exclusion build, forced shared/L1/L2 builds, both cross-profile Solidity consumer
       tests, the ownership checker and all adversarial checker tests in that order. Standalone L1/L2
-      test commands prepare the shared owner artifact when it is absent.
+      test commands force-rebuild the shared owner artifact before use; existence alone is not
+      freshness evidence.
 - [ ] **Step 7: Treat this as a stop gate.** If the checker cannot distinguish and enforce
       source-inline compilation from artifact-owned bytecode/ABI consumption, or Foundry cannot
       support either selected mechanism, do not weaken the checker or start Round 2. Return to PR
