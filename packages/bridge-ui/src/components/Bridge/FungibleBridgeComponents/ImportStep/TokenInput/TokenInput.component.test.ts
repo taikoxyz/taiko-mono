@@ -192,6 +192,31 @@ describe('fungible amount input', () => {
       expect(get(errorComputingBalance)).toBe(true);
     });
 
+    it('does not let a superseded failing read raise the error flag', async () => {
+      account.set({ address: '0xaaaa', isConnected: true, chainId: 1 } as never);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await tick();
+
+      // A slow read for token A fails after the user has already moved to token B, whose
+      // balance loaded fine. The failure describes a token no longer on screen
+      let failSlowRead: (error: Error) => void = () => undefined;
+      fetchBalance.mockReturnValueOnce(new Promise((_, reject) => (failSlowRead = reject)));
+      selectedToken.set({ type: TokenType.ERC20, symbol: 'A', name: 'A', decimals: 18, addresses: {} } as never);
+      await tick();
+
+      fetchBalance.mockResolvedValueOnce({ value: BigInt(9), decimals: 18, symbol: 'B', formatted: '9' });
+      selectedToken.set({ type: TokenType.ERC20, symbol: 'B', name: 'B', decimals: 18, addresses: {} } as never);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await tick();
+
+      failSlowRead(new Error('rpc down'));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await tick();
+
+      expect(get(errorComputingBalance)).toBe(false);
+      expect(get(tokenBalance)).toEqual({ value: BigInt(9), decimals: 18, symbol: 'B', formatted: '9' });
+    });
+
     it('stops computing when an account change supersedes an in-flight reset', async () => {
       account.set({ address: '0xaaaa', isConnected: true, chainId: 1 } as never);
       await new Promise((resolve) => setTimeout(resolve, 0));

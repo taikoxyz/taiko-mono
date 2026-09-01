@@ -28,7 +28,7 @@ import { isSmartContract } from '$libs/util/isSmartContract';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
-import { estimateMessageGasLimit, type MessageGasEstimateExtras } from './estimateMessageGasLimit';
+import { estimateMessageGasLimitWithMinimum, type MessageGasEstimateExtras } from './estimateMessageGasLimit';
 import { feeForGasLimit } from './messageFeeInvariant';
 import {
   type BridgeArgs,
@@ -89,11 +89,20 @@ export abstract class Bridge {
     const contract = getContract({ client: wallet, abi, address });
 
     let gasLimit: number;
+    /** Left undefined for a zero gas limit, where no estimate ran and the rule is moot */
+    let minGasLimit: number | undefined;
     if (get(gasLimitZero)) {
       log('Gas limit is set to 0');
       gasLimit = 0;
     } else {
-      gasLimit = Number(await estimateMessageGasLimit({ token: tokenObject, srcChainId, destChainId, ...gasEstimate }));
+      const estimate = await estimateMessageGasLimitWithMinimum({
+        token: tokenObject,
+        srcChainId,
+        destChainId,
+        ...gasEstimate,
+      });
+      gasLimit = Number(estimate.gasLimit);
+      minGasLimit = estimate.minGasLimit;
     }
     log('Calculated gasLimit for message', gasLimit);
 
@@ -109,7 +118,7 @@ export abstract class Bridge {
       gasLimit,
       fee,
       /** Exactly what every check in messageInvariants takes, so callers add only their own */
-      commonFields: { to, destOwner, srcChainId, destChainId, gasLimit, fee },
+      commonFields: { to, destOwner, srcChainId, destChainId, gasLimit, fee, minGasLimit },
     };
   }
 

@@ -97,9 +97,9 @@
       failureTitleKey: 'bridge.errors.process_message_error',
     });
 
-    // A timed-out wait leaves the transaction live and may yet claim the message. Lowering
+    // A wait that gave up leaves the transaction live and may yet claim the message. Lowering
     // the flags would re-enable Claim for it, so the dialog stays exactly as it is
-    if (outcome === 'timed_out') return;
+    if (outcome === 'pending') return;
 
     claiming = false;
     claimTxPending = false;

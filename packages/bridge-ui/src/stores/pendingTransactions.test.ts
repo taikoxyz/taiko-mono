@@ -1,7 +1,7 @@
 import { get } from 'svelte/store';
 import { WaitForTransactionReceiptTimeoutError } from 'viem';
 
-import { FailedTransactionError, TransactionTimeoutError } from '$libs/error';
+import { FailedTransactionError, ReceiptUnavailableError, TransactionTimeoutError } from '$libs/error';
 
 const waitForTransactionReceipt = vi.fn();
 vi.mock('@wagmi/core', () => ({
@@ -44,8 +44,16 @@ describe('pendingTransactions.add', () => {
     await expect(pendingTransactions.add(HASH, 1)).rejects.toBeInstanceOf(TransactionTimeoutError);
   });
 
-  it('rejects with FailedTransactionError for any other wait failure', async () => {
+  it('rejects with ReceiptUnavailableError when the wait itself failed', async () => {
+    // Not a FailedTransactionError: an RPC that dropped the connection says nothing about
+    // a transaction that may still be in the mempool, and callers branch on the difference
     waitForTransactionReceipt.mockRejectedValue(new Error('rpc down'));
+
+    await expect(pendingTransactions.add(HASH, 1)).rejects.toBeInstanceOf(ReceiptUnavailableError);
+  });
+
+  it('keeps FailedTransactionError for a receipt that reverted', async () => {
+    waitForTransactionReceipt.mockResolvedValue({ status: 'reverted' });
 
     await expect(pendingTransactions.add(HASH, 1)).rejects.toBeInstanceOf(FailedTransactionError);
   });

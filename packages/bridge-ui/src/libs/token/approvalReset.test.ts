@@ -53,4 +53,11 @@ describe('tokenNeedsAllowanceReset', () => {
     expect(tokenNeedsAllowanceReset(null, 1)).toBe(false);
     expect(tokenNeedsAllowanceReset(token({ symbol: 'USDT' }), undefined)).toBe(false);
   });
+
+  it('matches the test-token symbol whatever its casing', () => {
+    // The symbol is whatever the contract was deployed with; an alias differing only in
+    // casing is the same token as far as this rule is concerned
+    expect(tokenNeedsAllowanceReset({ symbol: 'TUSDT', addresses: {} } as never, 167000)).toBe(true);
+    expect(tokenNeedsAllowanceReset({ symbol: 'tusdt', addresses: {} } as never, 167000)).toBe(true);
+  });
 });

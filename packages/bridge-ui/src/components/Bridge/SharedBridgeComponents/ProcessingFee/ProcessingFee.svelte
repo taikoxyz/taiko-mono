@@ -106,7 +106,10 @@
     // Reopening on an already-committed custom fee starts from that fee rather than an
     // empty box: requiring the amount to be retyped to confirm anything else in the
     // dialog is friction the "must hold a usable fee" rule never meant to add
-    const reopeningOnCustomFee = $processingFeeMethod === ProcessingFeeMethod.CUSTOM && $processingFee > BigInt(0);
+    // The method is what says a custom fee was committed, not its value: parseCustomFeeInput
+    // accepts zero, so gating on a positive amount left a committed zero fee reopening to
+    // an empty box with Confirm disabled until it was retyped
+    const reopeningOnCustomFee = $processingFeeMethod === ProcessingFeeMethod.CUSTOM;
     customFeeUsable = reopeningOnCustomFee;
     if (reopeningOnCustomFee) {
       tempprocessingFee = $processingFee;

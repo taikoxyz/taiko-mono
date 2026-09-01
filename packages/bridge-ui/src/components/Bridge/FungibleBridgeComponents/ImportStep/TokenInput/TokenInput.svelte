@@ -160,8 +160,12 @@
       // computing flag raised for good. Reporting the read as settled hands the caller
       // back the job of lowering it; the balance itself is simply left as it was.
       log('Error fetching balance', error);
+      // Superseded reads report nothing: a slow read failing for a token the user has
+      // already replaced would otherwise raise the error flag over a balance that loaded
+      // fine, which is the same staleness the generation counter exists to stop
+      if (generation !== balanceGeneration) return false;
       $errorComputingBalance = true;
-      return generation === balanceGeneration;
+      return true;
     }
     if (generation !== balanceGeneration) return false;
     $errorComputingBalance = false;

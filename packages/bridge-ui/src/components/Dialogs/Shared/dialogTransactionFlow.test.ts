@@ -73,10 +73,10 @@ describe('reportDialogTransaction', () => {
     expect(warningToast).not.toHaveBeenCalled();
   });
 
-  it('warns rather than errors when only the wait timed out', async () => {
+  it('warns rather than errors when only the wait gave up', async () => {
     add.mockRejectedValue(new TransactionTimeoutError('timed out'));
 
-    expect(await run()).toBe('timed_out');
+    expect(await run()).toBe('pending');
     expect(warningToast).toHaveBeenCalledWith({
       title: 'bridge.actions.bridge.timeout.title',
       message: 'bridge.actions.bridge.timeout.message|{"url":"https://explorer.test/tx/0xabc"}',

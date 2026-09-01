@@ -21,7 +21,7 @@ vi.mock('$libs/util/checkForPausedContracts', () => ({
 
 const estimateMessageGasLimit = vi.fn();
 vi.mock('./estimateMessageGasLimit', () => ({
-  estimateMessageGasLimit: (...args: unknown[]) => estimateMessageGasLimit(...args),
+  estimateMessageGasLimitWithMinimum: (...args: unknown[]) => estimateMessageGasLimit(...args),
 }));
 
 // ERC20Bridge.bridge reads the allowance before it prepares the transaction
@@ -64,7 +64,7 @@ const base = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  estimateMessageGasLimit.mockResolvedValue(1_000_000);
+  estimateMessageGasLimit.mockResolvedValue({ gasLimit: 1_000_000, minGasLimit: 100_000 });
   isBridgePaused.mockResolvedValue(false);
   gasLimitZero.set(false);
   destOwnerAddress.set(null);
@@ -285,6 +285,33 @@ describe('every token type builds the shared message fields the same way', () =>
     await make().estimateGas(args);
 
     expect(sentMessage().destOwner).toBe(BOB);
+  });
+
+  it.each(cases)('%s refuses a gas limit the destination bridge would reject', async (_name, make, args) => {
+    // Bridge.sendMessage subtracts the minimum and rejects a remainder of zero. The rule
+    // existed but no caller supplied the minimum, so it could never fire
+    estimateMessageGasLimit.mockResolvedValue({ gasLimit: 100_000, minGasLimit: 100_000 });
+
+    await expect(make().estimateGas(args)).rejects.toThrow(InvalidMessageError);
+    expect(estimateGasSpy).not.toHaveBeenCalled();
+  });
+
+  it.each(cases)('%s accepts a gas limit above the minimum', async (_name, make, args) => {
+    estimateMessageGasLimit.mockResolvedValue({ gasLimit: 100_001, minGasLimit: 100_000 });
+
+    await make().estimateGas(args);
+
+    expect(estimateGasSpy).toHaveBeenCalledOnce();
+  });
+
+  it.each(cases)('%s skips the minimum rule when the gas limit is zero', async (_name, make, args) => {
+    // No estimate runs, so no minimum is known - and a zero gas limit is governed by the
+    // fee rule instead, which the case above pins
+    gasLimitZero.set(true);
+
+    await make().estimateGas(args);
+
+    expect(estimateGasSpy).toHaveBeenCalledOnce();
   });
 
   it.each(cases)('%s reports a wallet that is not connected', async (_name, make, args) => {

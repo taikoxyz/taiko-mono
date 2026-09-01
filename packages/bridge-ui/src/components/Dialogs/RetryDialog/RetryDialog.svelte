@@ -126,9 +126,9 @@
       failureTitleKey: 'bridge.errors.retry_error',
     });
 
-    // A timed-out wait leaves the transaction live and may yet process the message.
+    // A wait that gave up leaves the transaction live and may yet process the message.
     // Lowering the flags would re-enable Retry for it, so the dialog stays as it is
-    if (outcome === 'timed_out') return;
+    if (outcome === 'pending') return;
 
     retrying = false;
     retryTxPending = false;

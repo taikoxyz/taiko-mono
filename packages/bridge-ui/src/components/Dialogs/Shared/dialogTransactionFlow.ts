@@ -56,7 +56,7 @@ export const reportDialogTransaction = async ({
 
   const outcome = await awaitDialogTransaction(txHash, chainId);
 
-  if (outcome === 'timed_out') {
+  if (outcome === 'pending') {
     // Only the wait gave up. The transaction is still live and may yet do what the user
     // asked, so this is a warning about the wait rather than a report of a failure
     warningToast({

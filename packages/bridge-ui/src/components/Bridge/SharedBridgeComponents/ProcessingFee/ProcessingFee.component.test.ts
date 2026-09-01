@@ -274,6 +274,26 @@ describe('custom processing fee', () => {
     expect(confirmButton().disabled).toBe(false);
   });
 
+  it('reopens on a committed custom fee of zero the same way', async () => {
+    // parseCustomFeeInput accepts zero, so a zero fee is a committed custom fee like any
+    // other. Gating the prefill on a positive amount left it reopening to an empty box
+    // with Confirm disabled until the user retyped a fee they had already chosen
+    await openCustom();
+    await acknowledge();
+    await type('0');
+    confirmButton().click();
+    await tick();
+    expect(get(processingFeeMethod)).toBe(ProcessingFeeMethod.CUSTOM);
+    expect(get(processingFee)).toBe(BigInt(0));
+
+    await openCustom();
+    await flushMicrotasks();
+
+    expect(feeInput().value).toBe('0');
+    await acknowledge();
+    expect(confirmButton().disabled).toBe(false);
+  });
+
   it('clears the invalid draft across a CUSTOM -> RECOMMENDED -> CUSTOM round trip', async () => {
     await openCustom();
     await acknowledge();

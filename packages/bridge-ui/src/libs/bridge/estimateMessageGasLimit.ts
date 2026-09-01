@@ -25,38 +25,52 @@ type EstimateMessageGasLimitArgs = MessageGasEstimateExtras & {
   destChainId: number;
 };
 
-export async function estimateMessageGasLimit({
+/**
+ * @dev Estimates the destination gas limit and reports the contract minimum it was built
+ *      from.
+ *
+ *      The minimum is returned rather than discarded because the message invariants have a
+ *      rule about it - Bridge.sendMessage subtracts the minimum and rejects a remainder of
+ *      zero - and that rule was unenforceable while no caller could supply the number.
+ *
+ * @param args The token, both chains and the vault's own sizing inputs
+ * @return estimate_ The gas limit to send and the minimum the destination bridge requires
+ */
+export async function estimateMessageGasLimitWithMinimum({
   token,
   srcChainId,
   destChainId,
   isTokenAlreadyDeployed = false,
   tokenIds,
   amounts,
-}: EstimateMessageGasLimitArgs): Promise<number> {
+}: EstimateMessageGasLimitArgs): Promise<{ gasLimit: number; minGasLimit: number }> {
   const { size } = await calculateMessageDataSize({ token, chainId: srcChainId, tokenIds, amounts });
   const minGasLimit = await getDestinationMessageMinGasLimit({ srcChainId, destChainId, dataSize: size });
 
-  switch (token.type) {
-    case TokenType.ETH:
-      return minGasLimit + 1;
-    case TokenType.ERC20:
-      return (
-        minGasLimit +
-        (isTokenAlreadyDeployed ? gasLimitConfig.erc20DeployedGasLimit : gasLimitConfig.erc20NotDeployedGasLimit)
-      );
-    case TokenType.ERC721:
-      return (
-        minGasLimit +
-        (isTokenAlreadyDeployed ? gasLimitConfig.erc721DeployedGasLimit : gasLimitConfig.erc721NotDeployedGasLimit)
-      );
-    case TokenType.ERC1155:
-      return (
-        minGasLimit +
-        (isTokenAlreadyDeployed ? gasLimitConfig.erc1155DeployedGasLimit : gasLimitConfig.erc1155NotDeployedGasLimit)
-      );
-    default:
-      throw new Error(`Unsupported token type: ${token.type}`);
-  }
+  const headroom = (): number => {
+    switch (token.type) {
+      case TokenType.ETH:
+        return 1;
+      case TokenType.ERC20:
+        return isTokenAlreadyDeployed ? gasLimitConfig.erc20DeployedGasLimit : gasLimitConfig.erc20NotDeployedGasLimit;
+      case TokenType.ERC721:
+        return isTokenAlreadyDeployed
+          ? gasLimitConfig.erc721DeployedGasLimit
+          : gasLimitConfig.erc721NotDeployedGasLimit;
+      case TokenType.ERC1155:
+        return isTokenAlreadyDeployed
+          ? gasLimitConfig.erc1155DeployedGasLimit
+          : gasLimitConfig.erc1155NotDeployedGasLimit;
+      default:
+        throw new Error(`Unsupported token type: ${token.type}`);
+    }
+  };
+
+  return { gasLimit: minGasLimit + headroom(), minGasLimit };
+}
+
+export async function estimateMessageGasLimit(args: EstimateMessageGasLimitArgs): Promise<number> {
+  return (await estimateMessageGasLimitWithMinimum(args)).gasLimit;
 }
 
 async function getDestinationMessageMinGasLimit({

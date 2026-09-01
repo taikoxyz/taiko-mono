@@ -85,9 +85,9 @@
       failureTitleKey: 'bridge.errors.process_message_error',
     });
 
-    // A timed-out wait leaves the transaction live and may yet release the funds. Lowering
+    // A wait that gave up leaves the transaction live and may yet release the funds. Lowering
     // the flags would re-enable Release for it, so the dialog stays as it is
-    if (outcome === 'timed_out') return;
+    if (outcome === 'pending') return;
 
     releasing = false;
     releaseTxPending = false;

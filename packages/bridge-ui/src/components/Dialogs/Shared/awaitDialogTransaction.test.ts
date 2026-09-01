@@ -1,4 +1,4 @@
-import { FailedTransactionError, TransactionTimeoutError } from '$libs/error';
+import { FailedTransactionError, ReceiptUnavailableError, TransactionTimeoutError } from '$libs/error';
 
 const add = vi.fn();
 vi.mock('$stores/pendingTransactions', () => ({
@@ -39,12 +39,19 @@ describe('awaitDialogTransaction', () => {
     // action button for a message whose first attempt may still confirm
     add.mockRejectedValue(new TransactionTimeoutError('timed out'));
 
-    expect(await awaitDialogTransaction(HASH, 1)).toBe('timed_out');
+    expect(await awaitDialogTransaction(HASH, 1)).toBe('pending');
   });
 
-  it('reports an unrecognised rejection as failed', async () => {
+  it('treats an unreadable receipt as pending, not as a failure', async () => {
+    // An RPC that drops the connection says nothing about the transaction
+    add.mockRejectedValue(new ReceiptUnavailableError('rpc down'));
+
+    expect(await awaitDialogTransaction(HASH, 1)).toBe('pending');
+  });
+
+  it('treats an unrecognised rejection as pending, since it says nothing either', async () => {
     add.mockRejectedValue(new Error('something else'));
 
-    expect(await awaitDialogTransaction(HASH, 1)).toBe('failed');
+    expect(await awaitDialogTransaction(HASH, 1)).toBe('pending');
   });
 });
