@@ -2,6 +2,6 @@
   "type": "module",
   "dependencies": {
     "dotenv": "^16.5.0",
-    "ethers": "^6.14.3"
+    "ethers": "^6.17.0"
   }
 }
