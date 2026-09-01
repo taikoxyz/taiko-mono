@@ -21,7 +21,10 @@ export function createTransports(chains: readonly Chain[]) {
   const transports = chains.reduce(
     (acc, chain) => {
       const { id } = chain;
-      return { ...acc, [id]: http(undefined, { batch: RPC_BATCH_CONFIG }) };
+      // Pass the resolved URL, never undefined: viem 2.9.31 keys its batch scheduler on the URL
+      // *argument* and caches schedulers in a module-level map, so http(undefined, ...) would give
+      // every chain the same scheduler and send one chain's reads to another chain's endpoint.
+      return { ...acc, [id]: http(chain.rpcUrls.default.http[0], { batch: RPC_BATCH_CONFIG }) };
     },
     {} as Record<number, ReturnType<typeof http>>,
   );
