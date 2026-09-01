@@ -1,21 +1,16 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-
   import { destNetwork as destChain, importDone, selectedNFTs } from '$components/Bridge/state';
   import { ImportMethod } from '$components/Bridge/types';
   import { ChainSelector, ChainSelectorType } from '$components/ChainSelectors';
   import { OnAccount } from '$components/OnAccount';
   import { fetchNFTs } from '$libs/bridge/fetchNFTs';
-  import type { NFT } from '$libs/token';
-  import { account } from '$stores/account';
+  import { type Account, account } from '$stores/account';
   import { connectedSourceChain as srcChain } from '$stores/network';
 
   import ImportActions from './ImportActions.svelte';
   import ManualImport from './ManualImport.svelte';
   import ScannedImport from './ScannedImport.svelte';
-  import { selectedImportMethod } from './state';
-
-  let foundNFTs: NFT[] = [];
+  import { foundNFTs, selectedImportMethod } from './state';
 
   //  States
   let scanning = false;
@@ -39,11 +34,15 @@
    * getting this wrong retires the "load more" button for good.
    */
   const nextPage = async (): Promise<boolean> => {
-    const countBefore = foundNFTs.length;
+    const countBefore = $foundNFTs.length;
     // Another page adds to what is already on screen, so a selection made on an earlier
     // page still describes an NFT the user can see and bridge
-    await scanForNFTs(false, { keepSelection: true });
-    return foundNFTs.length > countBefore;
+    const scanRan = await scanForNFTs(false, { keepSelection: true });
+    // A scan that never ran - a wallet disconnected while the scanned view stayed mounted,
+    // say - says nothing about whether more pages exist. Reporting it as "nothing arrived"
+    // retires the "load more" button for good over a condition that can come back
+    if (!scanRan) return true;
+    return $foundNFTs.length > countBefore;
   };
 
   /**
@@ -70,9 +69,9 @@
         throw nftsFromAPIs.error;
       }
 
-      foundNFTs = nftsFromAPIs.nfts;
+      $foundNFTs = nftsFromAPIs.nfts;
 
-      if (foundNFTs.length > 0) {
+      if ($foundNFTs.length > 0) {
         $selectedImportMethod = ImportMethod.SCAN;
       }
       return true;
@@ -82,14 +81,31 @@
   };
 
   const reset = () => {
-    foundNFTs = [];
+    $foundNFTs = [];
     $selectedNFTs = [];
     $selectedImportMethod = ImportMethod.NONE;
   };
 
-  const onAccountChange = () => {
+  const onAccountChange = (newAccount: Account, oldAccount?: Account) => {
+    // OnAccount subscribes on mount and fires immediately with no previous account. That
+    // is not a change, and treating it as one wiped the scan results and the selection on
+    // every return to this step - which is what removing the onMount reset alone did not
+    // fix, because this ran in its place.
+    if (!oldAccount || newAccount?.address === oldAccount?.address) return;
     reset();
   };
+
+  // A scan lists what the wallet holds on one chain; the same list against another chain
+  // describes tokens the user does not own there. OnAccount covers the wallet changing,
+  // nothing covered the chain changing, and the scanned view stays mounted through it.
+  let previousSrcChainId: Maybe<number> = undefined;
+  $: {
+    const srcChainId = $srcChain?.id;
+    if (previousSrcChainId !== undefined && srcChainId !== previousSrcChainId) {
+      reset();
+    }
+    previousSrcChainId = srcChainId;
+  }
 
   $: canImport = ($account?.isConnected && $srcChain?.id && $destChain && !scanning) || false;
 
@@ -100,10 +116,6 @@
       $importDone = false;
     }
   }
-
-  onMount(() => {
-    reset();
-  });
 </script>
 
 <div class="f-between-center gap-[16px] mt-[30px]">
@@ -120,10 +132,17 @@
       await scanForNFTs(true);
     }}
     {nextPage}
-    bind:foundNFTs
+    foundNFTs={$foundNFTs}
     bind:canProceed />
 {:else}
-  <ImportActions bind:scanning {canImport} scanForNFTs={() => scanForNFTs(false)} />
+  <!--
+    refresh: a scan started from this panel is the user asking the server to look again.
+    The repository marks a wallet fully fetched as soon as Moralis returns no cursor -
+    which an empty wallet does on its first page - and then serves that cached answer
+    indefinitely, so "Scan again" could never discover a newly minted NFT. Cursor
+    continuity only matters for nextPage.
+  -->
+  <ImportActions bind:scanning {canImport} scanForNFTs={() => scanForNFTs(true)} />
 {/if}
 
 <OnAccount change={onAccountChange} />

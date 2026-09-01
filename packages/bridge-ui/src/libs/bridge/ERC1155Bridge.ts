@@ -1,31 +1,26 @@
-import { getPublicClient, simulateContract, writeContract } from '@wagmi/core';
-import { get } from 'svelte/store';
-import { getContract, UserRejectedRequestError } from 'viem';
+import { getPublicClient, simulateContract } from '@wagmi/core';
+import { type Address, getContract } from 'viem';
 
 import { erc1155Abi, erc1155VaultAbi } from '$abi';
-import { destOwnerAddress, gasLimitZero } from '$components/Bridge/state';
-import {
-  ApproveError,
-  NoApprovalRequiredError,
-  NoCanonicalInfoFoundError,
-  NotApprovedError,
-  SendERC1155Error,
-} from '$libs/error';
+import { SendERC1155Error } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
 import { TokenType } from '$libs/token';
-import { getCanonicalInfoForAddress } from '$libs/token/getCanonicalInfoForToken';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
-import { Bridge } from './Bridge';
-import { estimateMessageGasLimit } from './estimateMessageGasLimit';
-import { feeForGasLimit } from './messageFeeInvariant';
-import { assertNoViolations, checkERC1155Message } from './messageInvariants';
-import type { ERC1155BridgeArgs, NFTApproveArgs, NFTBridgeTransferOp, RequireApprovalArgs } from './types';
+import type { MessageGasEstimateExtras } from './estimateMessageGasLimit';
+import { checkERC1155Message } from './messageInvariants';
+import { NFTBridge } from './NFTBridge';
+import type { ERC1155BridgeArgs, RequireApprovalArgs } from './types';
 
 const log = getLogger('ERC1155Bridge');
 
-export class ERC1155Bridge extends Bridge {
+export class ERC1155Bridge extends NFTBridge {
+  protected readonly standard = 'ERC1155';
+  protected readonly tokenType = TokenType.ERC1155;
+  protected readonly vaultAbi = erc1155VaultAbi;
+  protected readonly log = log;
+
   constructor(prover: BridgeProver) {
     super(prover);
   }
@@ -51,197 +46,50 @@ export class ERC1155Bridge extends Bridge {
     return isApprovedForAll;
   }
 
-  async estimateGas(args: ERC1155BridgeArgs): Promise<bigint> {
-    const { tokenVaultContract, sendERC1155Args } = await ERC1155Bridge._prepareTransaction(args);
-    const { fee: value } = sendERC1155Args;
-
-    log('Estimating gas for sendERC1155 call with value', value);
-
-    log('Estimating gas for sendERC1155 call with args', sendERC1155Args);
-
-    const estimatedGas = await tokenVaultContract.estimateGas.sendToken([sendERC1155Args], { value });
-
-    log('Gas estimated', estimatedGas);
-
-    return estimatedGas;
+  /** @inheritdoc */
+  async requiresApproval(args: RequireApprovalArgs) {
+    // ERC1155 has no per-token approval, so the operator approval is the whole answer
+    return !(await this.isApprovedForAll(args));
   }
 
-  async bridge(args: ERC1155BridgeArgs) {
-    const { token, tokenVaultAddress, tokenIds, wallet, srcChainId, destChainId } = args;
-    const { tokenVaultContract, sendERC1155Args } = await ERC1155Bridge._prepareTransaction(args);
-    const { fee } = sendERC1155Args;
-
-    // const tokenIdsWithoutApproval: bigint[] = [];
-
-    const tokenId = tokenIds[0]; // TODO: support multiple tokenIds
-
-    const info = await getCanonicalInfoForAddress({ address: token, srcChainId, destChainId, type: TokenType.ERC1155 });
-    if (!info) throw new NoCanonicalInfoFoundError('No canonical info found for token');
-    const { address: canonicalTokenAddress } = info;
-    if (!wallet || !wallet.account || !wallet.chain) throw new Error('Wallet is not connected');
-
-    if (canonicalTokenAddress === token) {
-      // Token is native, we need to check if we have approval
-      const isApprovedForAll = await this.isApprovedForAll({
-        tokenAddress: token,
-        spenderAddress: tokenVaultAddress,
-        tokenId: BigInt(tokenId),
-        owner: wallet.account.address,
-        chainId: wallet.chain.id,
-      });
-      if (!isApprovedForAll) {
-        throw new NotApprovedError(`Not approved for all for token`);
-      }
-    } else {
-      log('Token is bridged, no need to check for approval');
-    }
-
-    try {
-      log('Sending ERC1155 with fee', fee);
-      log('Sending ERC1155 with args', sendERC1155Args);
-
-      const { request } = await simulateContract(config, {
-        address: tokenVaultContract.address,
-        abi: erc1155VaultAbi,
-        functionName: 'sendToken',
-        //@ts-ignore
-        args: [sendERC1155Args],
-        value: fee,
-      });
-      log('Simulate contract', request);
-
-      const tx = await writeContract(config, request);
-
-      log('ERC1155 sent', tx);
-
-      return tx;
-    } catch (err) {
-      console.error(err);
-      if (`${err}`.includes('denied transaction signature')) {
-        throw new UserRejectedRequestError(err as Error);
-      }
-      throw new SendERC1155Error('failed to bridge ERC1155 token', { cause: err });
-    }
-  }
-
-  async approve(args: NFTApproveArgs) {
-    const { tokenAddress, spenderAddress, wallet, tokenIds } = args;
-    if (!wallet || !wallet.account || !wallet.chain) throw new Error('Wallet is not connected');
-
-    const tokenId = tokenIds[0]; // TODO: support multiple tokenIds
-
-    const isApprovedForAll = await this.isApprovedForAll({
-      tokenAddress,
-      spenderAddress,
-      tokenId: tokenId,
-      owner: wallet.account.address,
-      chainId: wallet.chain.id,
+  /** @inheritdoc */
+  protected async simulateApproval({
+    tokenAddress,
+    spenderAddress,
+    chainId,
+  }: {
+    tokenAddress: Address;
+    spenderAddress: Address;
+    tokenId: bigint;
+    chainId: number;
+  }) {
+    // The whole collection: ERC1155 has no per-token approval to grant
+    return simulateContract(config, {
+      address: tokenAddress,
+      abi: erc1155Abi,
+      functionName: 'setApprovalForAll',
+      args: [spenderAddress, true],
+      chainId,
     });
-
-    log(`Is approved for all: ${isApprovedForAll}`);
-
-    if (isApprovedForAll) {
-      log(`No approval required for the token ${tokenId}`);
-      throw new NoApprovalRequiredError(`No approval required for the token ${tokenId}`);
-    }
-
-    try {
-      log(`Calling approve for spender "${spenderAddress}" for token`, tokenIds);
-
-      const { request } = await simulateContract(config, {
-        address: tokenAddress,
-        abi: erc1155Abi,
-        functionName: 'setApprovalForAll',
-        args: [spenderAddress, true],
-        chainId: wallet.chain.id,
-      });
-      log('Simulate contract', request);
-
-      const txHash = await writeContract(config, request);
-
-      log('Transaction hash for approve call', txHash);
-
-      return txHash;
-    } catch (err) {
-      console.error(err);
-
-      if (`${err}`.includes('denied transaction signature')) {
-        throw new UserRejectedRequestError(err as Error);
-      }
-
-      throw new ApproveError('failed to approve ERC1155 token', { cause: err });
-    }
   }
 
-  private static async _prepareTransaction(args: ERC1155BridgeArgs) {
-    const {
-      to,
-      wallet,
-      srcChainId,
-      destChainId,
-      token,
-      tokenObject,
-      fee,
-      tokenVaultAddress,
-      isTokenAlreadyDeployed,
-      tokenIds,
-      amounts,
-    } = args;
+  /** @inheritdoc */
+  protected checkMessage(message: Parameters<typeof checkERC1155Message>[0]) {
+    return checkERC1155Message(message);
+  }
 
-    if (!wallet || !wallet.account) throw new Error('Wallet is not connected');
+  /** @inheritdoc */
+  protected gasEstimateExtras({
+    isTokenAlreadyDeployed,
+    tokenIds,
+    amounts,
+  }: ERC1155BridgeArgs): MessageGasEstimateExtras {
+    // The quantities are part of the message, so they count towards its size
+    return { isTokenAlreadyDeployed, tokenIds, amounts };
+  }
 
-    const tokenVaultContract = getContract({
-      client: wallet,
-      abi: erc1155VaultAbi,
-      address: tokenVaultAddress,
-    });
-
-    let gasLimit: number;
-    if (get(gasLimitZero)) {
-      log('Gas limit is set to 0');
-      gasLimit = 0;
-    } else {
-      gasLimit = await estimateMessageGasLimit({
-        token: tokenObject,
-        srcChainId,
-        destChainId,
-        isTokenAlreadyDeployed,
-        tokenIds,
-        amounts,
-      });
-    }
-
-    const sendERC1155Args: NFTBridgeTransferOp = {
-      destChainId: BigInt(destChainId),
-      to,
-      destOwner: get(destOwnerAddress) || to,
-      token,
-      gasLimit: Number(gasLimit),
-      // A zero gas limit cannot carry a fee - the bridge reverts with B_INVALID_FEE
-      fee: feeForGasLimit(Number(gasLimit), fee),
-      tokenIds: tokenIds.map(BigInt),
-      amounts: amounts.map(BigInt),
-    };
-
-    log('Preparing transaction with args', sendERC1155Args);
-
-    // Refuse a message the bridge is guaranteed to reject, while the reason is still
-    // something we can name
-    assertNoViolations(
-      checkERC1155Message({
-        to: sendERC1155Args.to,
-        destOwner: sendERC1155Args.destOwner,
-        srcChainId,
-        destChainId,
-        gasLimit: sendERC1155Args.gasLimit,
-        fee: sendERC1155Args.fee,
-        tokenAddress: sendERC1155Args.token,
-        tokenIds: sendERC1155Args.tokenIds,
-        amounts: sendERC1155Args.amounts,
-      }),
-      'This NFT transfer',
-    );
-
-    return { tokenVaultContract, sendERC1155Args };
+  /** @inheritdoc */
+  protected sendError(cause: unknown) {
+    return new SendERC1155Error('failed to bridge ERC1155 token', { cause });
   }
 }

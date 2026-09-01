@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
 
   import { Alert } from '$components/Alert';
@@ -15,7 +14,12 @@
   /** Resolves to whether a scan actually ran; see ImportStep.scanForNFTs */
   export let scanForNFTs: () => Promise<boolean>;
 
-  let firstScan = false;
+  /**
+   * Whether a scan has run to completion. Until one has, the panel offers the initial
+   * call to action; afterwards it offers a retry alongside the "no NFTs found" warning -
+   * a scan that found any would have replaced this panel with the scanned view.
+   */
+  let hasCompletedScan = false;
 
   function onScanClick() {
     scanning = true;
@@ -24,7 +28,7 @@
         // Only a scan that actually ran can claim there are no NFTs. A failure keeps the
         // retry button, and so does a scan skipped for missing account/chain - both would
         // otherwise render as a false "none found".
-        if (scanned) firstScan = false;
+        if (scanned) hasCompletedScan = true;
       })
       .catch(reportScanFailure)
       .finally(() => {
@@ -41,14 +45,10 @@
       message: $t('bridge.errors.unknown_error.message'),
     });
   }
-
-  onMount(() => {
-    firstScan = true;
-  });
 </script>
 
 <div class="f-col w-full gap-4">
-  {#if firstScan}
+  {#if !hasCompletedScan}
     <ActionButton priority="primary" disabled={!canImport} loading={scanning} on:click={onScanClick}>
       {$t('bridge.actions.nft_scan')}
     </ActionButton>

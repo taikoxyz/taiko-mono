@@ -19,3 +19,19 @@ export function parseCustomFeeInput(value: string): bigint | null {
   const result = parseDecimalAmount(value, ETH_DECIMALS);
   return result.ok ? result.value : null;
 }
+
+/**
+ * @dev Whether the box holds nothing to judge yet.
+ *
+ *      Blank, whitespace, or a bare decimal point - `.` is what a user typing `.5` passes
+ *      through. All of them are a box mid-typing rather than a mistake to report, and the
+ *      component cannot tell them apart from a null parse plus a non-empty string, because
+ *      `.` is exactly that. parseDecimalAmount already draws the line; this exposes it.
+ *
+ * @param value The raw input value
+ * @return blank_ Whether there is nothing yet to accept or refuse
+ */
+export function isCustomFeeInputBlank(value: string): boolean {
+  const result = parseDecimalAmount(value, ETH_DECIMALS);
+  return !result.ok && result.reason === 'EMPTY';
+}

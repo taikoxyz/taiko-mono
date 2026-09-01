@@ -184,6 +184,49 @@ describe('RelayerAPIService', () => {
     );
   });
 
+  test('keeps both messages when one transaction emitted two of them', async () => {
+    // One source transaction, two MessageSent logs: two separately claimable rows. The
+    // duplicate filter used to key on the transaction hash and drop the second outright,
+    // before anything downstream could tell it apart from a repeated row
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const first = createRelayerItem({ id: 1, messageId: '6268', msgHash: GOOD_MSG_HASH, blockNumber: '0x7baa21' });
+    const second = createRelayerItem({ id: 2, messageId: '6269', msgHash: BAD_MSG_HASH, blockNumber: '0x7baa21' });
+
+    mockedAxios.get.mockResolvedValue({
+      data: {
+        page: 1,
+        size: 10,
+        total: 2,
+        total_pages: 1,
+        max_page: 1,
+        first: true,
+        last: true,
+        visible: 2,
+        items: [first, second],
+      },
+      status: 200,
+    });
+    // The receipt proves both: each row matches a log of its own
+    mockedGetTransactionReceipt.mockResolvedValue(
+      createReceiptWithMessageSentLogs([
+        { msgHash: GOOD_MSG_HASH, id: 6268n, logIndex: 1 },
+        { msgHash: BAD_MSG_HASH, id: 6269n, logIndex: 2 },
+      ]),
+    );
+    mockedReadContract.mockResolvedValue(0);
+
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(
+      USER_ADDRESS,
+      { page: 1, size: 10 },
+      167000,
+    );
+
+    expect(result.txs).toHaveLength(2);
+    expect(result.txs.map((tx) => tx.msgHash).sort()).toEqual([GOOD_MSG_HASH, BAD_MSG_HASH].sort());
+    // ...and they still describe one transaction
+    expect(new Set(result.txs.map((tx) => tx.srcTxHash)).size).toBe(1);
+  });
+
   test('getAllBridgeTransactionByAddress syncs canonical status to the relayer status field', async () => {
     // Given
     const baseUrl = 'http://example.com';
@@ -539,6 +582,41 @@ describe('RelayerAPIService', () => {
     );
   });
 
+  test('getAllBridgeTransactionByAddress gives ETH 18 decimals even when the receipt is unavailable', async () => {
+    // Given: the relayer nils canonicalToken for ETH, so the Go uint8 serializes as 0
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const paginationParams = { page: 1, size: 10 };
+    const relayerItem = createRelayerItem({
+      id: 1553883,
+      messageId: '6272',
+      msgHash: BAD_MSG_HASH,
+      blockNumber: '0x7ba91b',
+      eventType: 0,
+      amount: '1000000000000000000',
+      canonicalTokenSymbol: '',
+      canonicalTokenDecimals: 0,
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
+    // And: the source-chain receipt fetch fails, so nothing later corrects the decimals
+    mockedGetTransactionReceipt.mockResolvedValue(null as never);
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
+
+    // Then: keeping 0 here renders one ETH as 1000000000000000000 in the details dialogs
+    expect(result.txs).toHaveLength(1);
+    expect(result.txs[0]).toEqual(
+      expect.objectContaining({
+        amount: BigInt('1000000000000000000'),
+        decimals: 18,
+        symbol: 'ETH',
+        tokenType: TokenType.ETH,
+      }),
+    );
+  });
+
   test('getAllBridgeTransactionByAddress refreshes ERC721 metadata from the receipt message', async () => {
     // Given
     const relayerAPIService = new RelayerAPIService('http://example.com');
@@ -735,7 +813,7 @@ describe('RelayerAPIService', () => {
     expect(result.txs).toHaveLength(0);
     expect(mockedReadContract).not.toHaveBeenCalled();
     // An ambiguous receipt is a deliberate filter, not a failed load - it must not be counted.
-    expect(result.failedTxHashes).toEqual([]);
+    expect(result.failedTxs).toEqual([]);
   });
 
   test('getTransactionsFromAPI preserves raw message fee digits before JSON parsing', async () => {
@@ -832,7 +910,7 @@ describe('RelayerAPIService', () => {
 
     // Then: the transaction is dropped, but the caller is told how many were lost
     expect(result.txs).toHaveLength(0);
-    expect(result.failedTxHashes).toHaveLength(1);
+    expect(result.failedTxs).toHaveLength(1);
   });
 
   test('getAllBridgeTransactionByAddress does not count legitimately filtered rows as failures', async () => {
@@ -864,7 +942,7 @@ describe('RelayerAPIService', () => {
 
     // Then: one row filtered out, zero reported as failed - warning the user here would be a lie
     expect(result.txs).toHaveLength(1);
-    expect(result.failedTxHashes).toEqual([]);
+    expect(result.failedTxs).toEqual([]);
   });
 
   test("getAllBridgeTransactionByAddress does not count another wallet's row as a failure", async () => {
@@ -893,7 +971,7 @@ describe('RelayerAPIService', () => {
 
     // Then
     expect(result.txs).toHaveLength(0);
-    expect(result.failedTxHashes).toEqual([]);
+    expect(result.failedTxs).toEqual([]);
   });
 
   test('getAllBridgeTransactionByAddress reports zero failures for an empty relayer page', async () => {
@@ -905,7 +983,7 @@ describe('RelayerAPIService', () => {
     const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, { page: 1, size: 10 });
 
     // Then
-    expect(result.failedTxHashes).toEqual([]);
+    expect(result.failedTxs).toEqual([]);
   });
 
   test('getAllBridgeTransactionByAddress counts a transaction whose receipt read failed', async () => {
@@ -932,7 +1010,7 @@ describe('RelayerAPIService', () => {
 
     // Then
     expect(result.txs).toHaveLength(0);
-    expect(result.failedTxHashes).toHaveLength(1);
+    expect(result.failedTxs).toHaveLength(1);
   });
 
   test('getAllBridgeTransactionByAddress keeps a transaction that is simply not mined yet', async () => {
@@ -963,7 +1041,7 @@ describe('RelayerAPIService', () => {
     // Then
     expect(result.txs).toHaveLength(1);
     expect(result.txs[0].receipt).toBeNull();
-    expect(result.failedTxHashes).toEqual([]);
+    expect(result.failedTxs).toEqual([]);
   });
 });
 

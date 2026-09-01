@@ -2,17 +2,21 @@ import type { Address, Hash, Hex } from 'viem';
 
 import type { BridgeTransaction, RelayerMessage } from '$libs/bridge';
 
+// Enough of a transaction to recognise it again. Identities rather than a tally, because the
+// caller has to reconcile these against the finished list: the relayer may return the same
+// message on more than one page or from more than one relayer, and a message that failed here
+// can still reach the list from somewhere else. Both fields are carried because the two sides
+// of that comparison are not always identified the same way - see `isSameBridgeTx`.
+export type FailedBridgeTx = Pick<BridgeTransaction, 'msgHash' | 'srcTxHash'>;
+
 export type GetAllByAddressResponse = {
   txs: BridgeTransaction[];
   paginationInfo: PaginationInfo;
-  // Source hashes of the transactions the relayer returned but whose on-chain enhancement
-  // threw (typically a rate-limited RPC). Hashes rather than a count, because the caller has
-  // to deduplicate them: the relayer may return the same transaction on more than one page or
-  // from more than one relayer, and summing raw counts would report one loss several times, or
-  // report a loss for a transaction another page loaded successfully.
+  // The messages the relayer returned but whose on-chain enhancement threw (typically a
+  // rate-limited RPC).
   // Required, not optional: an optional field would let a caller drop it on the way to the UI
   // without the type checker noticing.
-  failedTxHashes: Hash[];
+  failedTxs: FailedBridgeTx[];
 };
 
 export type PaginationParams = {

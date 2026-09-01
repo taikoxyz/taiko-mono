@@ -3,16 +3,10 @@
   import { t } from 'svelte-i18n';
   import { ContractFunctionExecutionError, type Hash, UserRejectedRequestError } from 'viem';
 
-  import { chainConfig } from '$chainConfig';
   import { CloseButton } from '$components/Button';
   import DesktopOrLarger from '$components/DesktopOrLarger/DesktopOrLarger.svelte';
   import Claim from '$components/Dialogs/Claim.svelte';
-  import {
-    errorToast,
-    infoToast,
-    successToast,
-    warningToast,
-  } from '$components/NotificationToast/NotificationToast.svelte';
+  import { errorToast, warningToast } from '$components/NotificationToast/NotificationToast.svelte';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import type { BridgeTransaction } from '$libs/bridge/types';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
@@ -25,10 +19,10 @@
   } from '$libs/error';
   import type { NFT } from '$libs/token';
   import { getLogger } from '$libs/util/logger';
-  import { pendingTransactions } from '$stores/pendingTransactions';
 
   import { ClaimConfirmStep, ReviewStep } from '../Shared';
   import ClaimPreCheck from '../Shared/ClaimPreCheck.svelte';
+  import { reportDialogTransaction } from '../Shared/dialogTransactionFlow';
   import { ClaimAction } from '../Shared/types';
   import { DialogStep, DialogStepper } from '../Stepper';
   import ClaimStepNavigation from './ClaimStepNavigation.svelte';
@@ -67,6 +61,12 @@
   // let canForceTransaction = false;
   let canContinue = false;
   let claiming: boolean;
+  /**
+   * A claim transaction is on chain and its outcome is not known yet. Distinct from
+   * `claiming`, which `reset` clears: this survives a close so reopening the dialog cannot
+   * offer a second claim for a message whose first claim may still confirm.
+   */
+  let claimTxPending = false;
   let claimingDone = false;
   let ClaimComponent: Claim;
   let txHash: Hash;
@@ -88,44 +88,25 @@
     txHash = transactionHash;
     log('handle claim tx sent', txHash, action);
     claiming = true;
+    claimTxPending = true;
 
-    const explorer = chainConfig[Number(bridgeTx.destChainId)]?.blockExplorers?.default.url;
-
-    infoToast({
-      title: $t('transactions.actions.claim.tx.title'),
-      message: $t('transactions.actions.claim.tx.message', {
-        values: {
-          token: bridgeTx.symbol,
-          url: `${explorer}/tx/${txHash}`,
-        },
-      }),
+    const outcome = await reportDialogTransaction({
+      txHash,
+      chainId: Number(bridgeTx.destChainId),
+      t: $t,
+      failureTitleKey: 'bridge.errors.process_message_error',
     });
 
-    try {
-      await pendingTransactions.add(txHash, Number(bridgeTx.destChainId));
-    } catch (error) {
-      // A reverted or timed-out claim must not leave the dialog spinning forever
-      log('claim transaction failed or timed out', { txHash, action, error });
-      claiming = false;
-      errorToast({
-        title: $t('bridge.errors.process_message_error'),
-      });
-      return;
-    }
+    // A wait that gave up leaves the transaction live and may yet claim the message. Lowering
+    // the flags would re-enable Claim for it, so the dialog stays exactly as it is
+    if (outcome === 'pending') return;
 
     claiming = false;
+    claimTxPending = false;
+    if (outcome === 'failed') return;
+
     claimingDone = true;
-
     dispatch('claimingDone');
-
-    successToast({
-      title: $t('transactions.actions.claim.success.title'),
-      message: $t('transactions.actions.claim.success.message', {
-        values: {
-          url: `${explorer}/tx/${txHash}`,
-        },
-      }),
-    });
   };
 
   const showQuotaReachedToast = () => {
@@ -196,6 +177,10 @@
   };
 
   const reset = () => {
+    // Closing the dialog or switching accounts does not cancel a claim already on chain.
+    // Rewinding the steps and clearing `claiming` here would hand the user a fresh Claim
+    // button for that same message, so a still-pending transaction keeps the dialog as is.
+    if (claimTxPending) return;
     activeStep = INITIAL_STEP;
     claimingDone = false;
     claiming = false;

@@ -23,6 +23,7 @@
   import ChainSymbolName from '../ChainSymbolName.svelte';
   import { StatusInfoDialog } from '../Status';
   import Status from '../Status/Status.svelte';
+  import { claimedByRelayer } from './claimedByRelayer';
 
   const log = getLogger('DesktopDetailsDialog');
   const dialogId = `dialog-${crypto.randomUUID()}`;
@@ -106,13 +107,7 @@
   $: bridgeTx && getInitiatedDate();
 
   $: claimedBy = bridgeTx.claimedBy || null;
-  $: isRelayer = false;
-
-  $: if (claimedBy !== to && claimedBy !== destOwner && effectiveStatus === MessageStatus.DONE) {
-    isRelayer = true;
-  } else {
-    isRelayer = false;
-  }
+  $: isRelayer = claimedByRelayer({ claimedBy, to, destOwner, status: effectiveStatus });
 
   $: paidFee = formatEther(bridgeTx.fee ? bridgeTx.fee : BigInt(0));
 

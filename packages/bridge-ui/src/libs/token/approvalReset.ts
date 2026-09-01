@@ -8,8 +8,10 @@ const APPROVAL_RESET_TOKENS_BY_CHAIN: Record<number, string[]> = {
   1: ['0xdAC17F958D2ee523a2206206994597C13D831ec7'],
 };
 
-// Test tokens with the same behavior, only known by symbol
-const APPROVAL_RESET_TOKEN_SYMBOLS = ['tUSDT'];
+// Test tokens with the same behavior, only known by symbol. Compared case-insensitively:
+// the symbol a token reports is whatever its contract was deployed with, and a testnet
+// alias that differs only in casing is the same token as far as this rule is concerned.
+const APPROVAL_RESET_TOKEN_SYMBOLS = ['tusdt'];
 
 export function tokenNeedsAllowanceReset(token: Maybe<Token | NFT>, chainId: Maybe<number>): boolean {
   if (!token) return false;
@@ -20,5 +22,5 @@ export function tokenNeedsAllowanceReset(token: Maybe<Token | NFT>, chainId: May
     return true;
   }
 
-  return APPROVAL_RESET_TOKEN_SYMBOLS.includes(token.symbol);
+  return APPROVAL_RESET_TOKEN_SYMBOLS.includes(token.symbol?.toLowerCase());
 }

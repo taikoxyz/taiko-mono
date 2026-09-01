@@ -11,9 +11,8 @@ import {
 } from '$components/Bridge/state';
 import { bridges, ContractType, type RequireApprovalArgs } from '$libs/bridge';
 import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
-import type { ERC721Bridge } from '$libs/bridge/ERC721Bridge';
-import type { ERC1155Bridge } from '$libs/bridge/ERC1155Bridge';
 import { getContractAddressByType } from '$libs/bridge/getContractAddressByType';
+import type { NFTBridge } from '$libs/bridge/NFTBridge';
 import { InvalidParametersProvidedError, NotConnectedError, NoTokenError, UnknownTokenTypeError } from '$libs/error';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { getLogger } from '$libs/util/logger';
@@ -126,32 +125,26 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
       chainId: currentChainId,
     };
 
-    if (nft.type === TokenType.ERC1155) {
-      const bridge = bridges[nft.type] as ERC1155Bridge;
-      try {
-        // Let's check if the vault is approved for all ERC1155
-        const isApprovedForAll = await bridge.isApprovedForAll(args);
-        allApproved.set(isApprovedForAll);
-        if (isApprovedForAll) {
-          return ApprovalStatus.NO_APPROVAL_REQUIRED;
-        }
-        return ApprovalStatus.APPROVAL_REQUIRED;
-      } catch (error) {
-        console.error('isApprovedForAll error');
-      }
-    } else if (nft.type === TokenType.ERC721) {
-      const bridge = bridges[nft.type] as ERC721Bridge;
-      try {
-        // Let's check if the vault is approved for all ERC721
-        const requiresApproval = await bridge.requiresApproval(args);
-        allApproved.set(!requiresApproval);
-        if (requiresApproval) {
-          return ApprovalStatus.APPROVAL_REQUIRED;
-        }
-        return ApprovalStatus.NO_APPROVAL_REQUIRED;
-      } catch (error) {
-        console.error('isApprovedForAll error');
-      }
+    // One question for both standards. They answer it differently - ERC721 reads a
+    // per-token approval and falls back to the operator one, ERC1155 has only the operator
+    // one - but requiresApproval is where that difference belongs, and the two branches
+    // here were the same code with the polarity flipped
+    const bridge = bridges[nft.type] as NFTBridge;
+    try {
+      const requiresApproval = await bridge.requiresApproval(args);
+      allApproved.set(!requiresApproval);
+      return requiresApproval ? ApprovalStatus.APPROVAL_REQUIRED : ApprovalStatus.NO_APPROVAL_REQUIRED;
+    } catch (error) {
+      // A read that failed says nothing, and the ERC20 branch above already knows this: a
+      // stale allApproved=true from a previously selected token otherwise leaves Bridge
+      // enabled for an NFT whose approval could not be read at all
+      allApproved.set(false);
+      // The error itself was dropped here, leaving a bare "isApprovedForAll error" line
+      console.error('Could not read the NFT approval status', error);
+      // Stated rather than left to the function's final return: an unknown approval is
+      // the conservative answer, and it should not depend on a fall-through fifty lines
+      // below that a later edit could quietly change
+      return ApprovalStatus.APPROVAL_REQUIRED;
     }
   } else {
     log('unknown token type:', token);

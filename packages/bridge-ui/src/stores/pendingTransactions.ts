@@ -3,7 +3,7 @@ import { writable } from 'svelte/store';
 import { type Hex, type TransactionReceipt, WaitForTransactionReceiptTimeoutError } from 'viem';
 
 import { pendingTransaction } from '$config';
-import { FailedTransactionError, TransactionTimeoutError } from '$libs/error';
+import { FailedTransactionError, ReceiptUnavailableError, TransactionTimeoutError } from '$libs/error';
 import { refreshUserBalance } from '$libs/util/balance';
 import { Deferred } from '$libs/util/Deferred';
 import { getLogger } from '$libs/util/logger';
@@ -67,10 +67,16 @@ export const pendingTransactions = {
         })
         .catch((err) => {
           console.error(err);
+          // Neither of these means the transaction failed - only a reverted receipt does,
+          // and that is rejected above. Callers branch on them to keep a still live
+          // transaction from being reported, and re-offered, as a failed one
           if (err instanceof WaitForTransactionReceiptTimeoutError) {
             deferred.reject(new TransactionTimeoutError(`transaction with hash "${hash}" timed out`, { cause: err }));
+          } else {
+            deferred.reject(
+              new ReceiptUnavailableError(`could not read the receipt for transaction "${hash}"`, { cause: err }),
+            );
           }
-          deferred.reject(new FailedTransactionError(`transaction with hash "${hash}" failed`, { cause: err }));
         })
         .finally(() => {
           refreshUserBalance();

@@ -84,6 +84,16 @@ describe('parseDecimalAmount', () => {
       expect(ok(UINT256_MAX.toString(), 0)).toBe(UINT256_MAX);
     });
 
+    it('refuses an absurdly long integer part without scaling it first', () => {
+      // A pasted hundred-thousand-digit string is over the bound whatever its digits are;
+      // converting it to a BigInt just to reject it is work the input box does on keystroke
+      expect(reason('9'.repeat(100_000), 18)).toBe('EXCEEDS_UINT256');
+    });
+
+    it('does not count leading zeros as magnitude', () => {
+      expect(ok('0'.repeat(200) + '5', 0)).toBe(BigInt(5));
+    });
+
     it('refuses one above the largest representable value', () => {
       expect(reason((UINT256_MAX + BigInt(1)).toString(), 0)).toBe('EXCEEDS_UINT256');
     });

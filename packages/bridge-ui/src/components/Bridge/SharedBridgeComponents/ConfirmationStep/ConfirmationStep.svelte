@@ -27,9 +27,10 @@
   import type { ERC1155Bridge } from '$libs/bridge/ERC1155Bridge';
   import { getBridgeArgs } from '$libs/bridge/getBridgeArgs';
   import { handleBridgeError } from '$libs/bridge/handleBridgeErrors';
-  import { BridgePausedError, TransactionTimeoutError } from '$libs/error';
+  import { BridgePausedError, ReceiptUnavailableError, TransactionTimeoutError } from '$libs/error';
   import { bridgeTxService } from '$libs/storage';
   import { TokenType } from '$libs/token';
+  import { ApprovalStatus } from '$libs/token/getTokenApprovalStatus';
   import { isToken } from '$libs/token/isToken';
   import { waitForApprovalStatus } from '$libs/token/waitForApprovalStatus';
   import { refreshUserBalance } from '$libs/util/balance';
@@ -102,12 +103,13 @@
           values: { url: `${explorer}/tx/${txHash}` },
         });
       } catch (error) {
-        if (error instanceof TransactionTimeoutError) {
-          // The transaction may still confirm later, so keep it in the local history
+        if (waitGaveUp(error)) {
+          // Only the wait gave up - a timeout, or a receipt that could not be read. The
+          // transaction may still confirm, so keep it in the local history
           bridgeTxService.addTxByAddress(userAccount, bridgeTx);
           handleTimeout(txHash);
         } else {
-          // Reverted or failed: recording it would leave a phantom pending transaction
+          // Reverted: recording it would leave a phantom pending transaction
           handleBridgeError(error as Error);
         }
       }
@@ -115,6 +117,23 @@
       bridging = false;
     }
   };
+
+  /**
+   * @dev Whether the receipt wait gave up rather than the transaction failing.
+   *
+   *      Only a receipt that came back reverted is a failure. A wait that timed out, or an
+   *      RPC that could not be read, says nothing about a transaction still in the
+   *      mempool - and dropping it from the local history on that basis loses it until the
+   *      relayer indexes it.
+   *
+   * @param error What pendingTransactions.add rejected with
+   * @return gaveUp_ Whether the transaction's fate is simply unknown
+   */
+  const waitGaveUp = (error: unknown) =>
+    // Named rather than inferred from "not a failure". These two are the only rejections
+    // that mean the wait gave up; anything else here is unexpected, and reporting it as
+    // "your transaction may still confirm" would bury a real error behind a reassurance.
+    error instanceof TransactionTimeoutError || error instanceof ReceiptUnavailableError;
 
   const handleTimeout = (txHash: Hex) => {
     const currentChain = $connectedSourceChain?.id;
@@ -138,7 +157,16 @@
     });
   };
 
-  const handleApproveTxHash = async (txHash: Hash) => {
+  /**
+   * @param txHash The approval or reset transaction
+   * @param pendingStatus The status that still means "not seen yet" for this transition -
+   *        an approval waits off APPROVAL_REQUIRED, an allowance reset waits off
+   *        RESET_REQUIRED
+   */
+  const handleApproveTxHash = async (
+    txHash: Hash,
+    pendingStatus: ApprovalStatus = ApprovalStatus.APPROVAL_REQUIRED,
+  ) => {
     const currentChain = $connectedSourceChain?.id;
 
     const destinationChain = $destNetwork?.id;
@@ -178,8 +206,8 @@
         }),
       });
     } catch (error) {
-      if (error instanceof TransactionTimeoutError) {
-        // A wait that timed out may still confirm, so the status is still worth polling
+      if (waitGaveUp(error)) {
+        // A wait that gave up may still confirm, so the status is still worth polling
         handleTimeout(txHash);
       } else {
         approvalFailed = true;
@@ -190,7 +218,7 @@
       // did: a timed-out wait does not mean the approval failed, and leaving the status
       // stale is what forced a page reload before Bridge would enable.
       try {
-        await waitForApprovalStatus($selectedToken, approvalFailed ? { attempts: 1 } : {});
+        await waitForApprovalStatus($selectedToken, approvalFailed ? { attempts: 1 } : { pendingStatus });
       } catch (error) {
         console.error('Could not refresh the approval status', error);
       }
@@ -209,7 +237,8 @@
       const args: ApproveArgs = { tokenAddress, spenderAddress, wallet: walletClient, amount: 0n };
       approveTxHash = await (bridges[type] as ERC20Bridge).approve(args, true);
 
-      if (approveTxHash) await handleApproveTxHash(approveTxHash);
+      // A reset moves RESET_REQUIRED -> APPROVAL_REQUIRED, the opposite of an approval
+      if (approveTxHash) await handleApproveTxHash(approveTxHash, ApprovalStatus.RESET_REQUIRED);
     } catch (err) {
       console.error(err);
       handleBridgeError(err as Error);
@@ -218,8 +247,10 @@
 
   async function approve() {
     try {
-      if (await isBridgePaused()) throw new BridgePausedError('Bridge is paused');
       if (!$selectedToken || !$connectedSourceChain || !$destNetwork?.id) return;
+      // Scoped to the chain the approval is for. Unscoped, a pause on any other configured
+      // chain refused an approval that has nothing to do with it
+      if (await isBridgePaused($connectedSourceChain.id)) throw new BridgePausedError('Bridge is paused');
       const type: TokenType = $selectedToken.type;
       const walletClient = await getConnectedWallet($connectedSourceChain.id);
 

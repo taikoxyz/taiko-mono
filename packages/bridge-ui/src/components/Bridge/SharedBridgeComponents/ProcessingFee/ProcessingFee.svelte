@@ -1,6 +1,5 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { get } from 'svelte/store';
   import { t } from 'svelte-i18n';
   import { formatEther } from 'viem';
 
@@ -14,7 +13,7 @@
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { ProcessingFeeMethod } from '$libs/fee';
 
-  import { parseCustomFeeInput } from './customFee';
+  import { isCustomFeeInputBlank, parseCustomFeeInput } from './customFee';
   import NoneOption from './NoneOption.svelte';
   import RecommendedFee from './RecommendedFee.svelte';
 
@@ -36,6 +35,14 @@
 
   let tempProcessingFeeMethod = $processingFeeMethod;
 
+  /**
+   * The zero-gas-limit choice while the dialog is open. It stays local until Confirm for
+   * the same reason the method does: writing the committed store on the checkbox meant
+   * Cancel left the fee at NONE/0, and the user's next bridge went out with no relayer
+   * fee and silent manual claiming - a state they had explicitly cancelled.
+   */
+  let tempGasLimitZero = $gasLimitZero;
+
   let tempprocessingFee = $processingFee;
 
   // Set when the custom fee box holds text that does not parse, so tempprocessingFee
@@ -52,6 +59,10 @@
   export function resetProcessingFee() {
     inputBox?.clear();
     $processingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
+    // Without this the zero-gas-limit choice outlives the bridge that made it, and the
+    // reactive below drags the freshly reset method straight back to NONE
+    $gasLimitZero = false;
+    tempGasLimitZero = false;
   }
 
   function confirmChanges() {
@@ -71,6 +82,13 @@
       inputBox?.clear();
       $processingFeeMethod = tempProcessingFeeMethod;
     }
+    // Committed together: Bridge.sol rejects a zero gas limit carrying a fee, so the two
+    // may only ever change as a pair
+    $gasLimitZero = tempGasLimitZero;
+    if (tempGasLimitZero) {
+      $processingFeeMethod = ProcessingFeeMethod.NONE;
+      $processingFee = BigInt(0);
+    }
     closeModal();
   }
 
@@ -81,19 +99,31 @@
 
   function openModal() {
     tempProcessingFeeMethod = $processingFeeMethod;
+    tempGasLimitZero = $gasLimitZero;
     modalOpen = true;
-    $gasLimitZero = false;
     manuallyConfirmed = false;
     invalidCustomFee = false;
-    // The input only renders while CUSTOM is selected, so it mounts empty every time
-    customFeeUsable = false;
+    // Reopening on an already-committed custom fee starts from that fee rather than an
+    // empty box: requiring the amount to be retyped to confirm anything else in the
+    // dialog is friction the "must hold a usable fee" rule never meant to add
+    // The method is what says a custom fee was committed, not its value: parseCustomFeeInput
+    // accepts zero, so gating on a positive amount left a committed zero fee reopening to
+    // an empty box with Confirm disabled until it was retyped
+    const reopeningOnCustomFee = $processingFeeMethod === ProcessingFeeMethod.CUSTOM;
+    customFeeUsable = reopeningOnCustomFee;
+    if (reopeningOnCustomFee) {
+      tempprocessingFee = $processingFee;
+      // The input mounts with the CUSTOM branch, so fill it once it exists
+      tick().then(() => inputBox?.setValue(formatEther($processingFee)));
+    }
   }
 
   function cancelModal() {
     inputBox?.clear();
     invalidCustomFee = false;
     customFeeUsable = false;
-    $gasLimitZero = false;
+    // Nothing committed, so nothing to restore - the draft simply goes
+    tempGasLimitZero = $gasLimitZero;
 
     if (tempProcessingFeeMethod === ProcessingFeeMethod.CUSTOM) {
       tempprocessingFee = $processingFee;
@@ -113,8 +143,9 @@
     // recommended amount is a deliberate choice the warning below covers
     const parsed = parseCustomFeeInput(value);
     // An empty box is not an error, it is simply not filled in yet - but it is still not
-    // something that can be confirmed. Anything else that fails to parse is both.
-    invalidCustomFee = parsed === null && value.trim() !== '';
+    // something that can be confirmed. Anything else that fails to parse is both. The
+    // parser decides what counts as empty, because a lone `.` is not-yet-filled too
+    invalidCustomFee = parsed === null && !isCustomFeeInputBlank(value);
     customFeeUsable = parsed !== null;
     if (parsed === null) return;
     tempprocessingFee = parsed;
@@ -140,19 +171,25 @@
   }
 
   const handleGasLimitZero = () => {
-    $gasLimitZero = !$gasLimitZero;
-    if ($gasLimitZero) {
+    tempGasLimitZero = !tempGasLimitZero;
+    if (tempGasLimitZero) {
       tempProcessingFeeMethod = ProcessingFeeMethod.NONE;
     } else {
       tempProcessingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
     }
   };
 
-  function unselectNoneIfNotEnoughETH(method: ProcessingFeeMethod, enoughEth: boolean) {
+  /**
+   * @dev zeroGasLimit is a parameter rather than a `get(gasLimitZero)` read because Svelte
+   *      tracks only what the reactive statement itself references, not what the function
+   *      it calls reads. Reading the store in here left the guard out of the dependency
+   *      list, so turning the zero-gas-limit option back off never re-ran this.
+   */
+  function unselectNoneIfNotEnoughETH(method: ProcessingFeeMethod, enoughEth: boolean, zeroGasLimit: boolean) {
     // A zero gas limit fixes the fee at zero, so there is nothing to afford and nothing to
     // switch away from. Overriding it here is what let a recommended fee ride along with a
     // zero gas limit, which the bridge rejects outright with B_INVALID_FEE.
-    if (get(gasLimitZero)) return;
+    if (zeroGasLimit) return;
 
     if (method === ProcessingFeeMethod.NONE && enoughEth === false) {
       $processingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
@@ -169,11 +206,11 @@
   $: {
     updateProcessingFee($processingFeeMethod, recommendedAmount);
   }
-  $: unselectNoneIfNotEnoughETH($processingFeeMethod, hasEnoughEth);
+  $: unselectNoneIfNotEnoughETH($processingFeeMethod, hasEnoughEth, $gasLimitZero);
 
-  // Bridge.sol rejects a message whose gasLimit is 0 while its fee is not. Keeping the two
-  // in step here means the user sees the fee fall to zero when they choose a zero gas
-  // limit, rather than having it dropped silently at send time or hitting a revert.
+  // Bridge.sol rejects a message whose gasLimit is 0 while its fee is not. The pairing is
+  // established when the choice is committed in confirmChanges; this only catches a
+  // committed state that has drifted since, which the method reset paths can produce.
   $: if ($gasLimitZero && $processingFee !== BigInt(0)) {
     $processingFeeMethod = ProcessingFeeMethod.NONE;
     $processingFee = BigInt(0);
@@ -181,7 +218,7 @@
 
   $: manuallyConfirmed = false;
 
-  $: needsConfirmation = tempProcessingFeeMethod !== ProcessingFeeMethod.RECOMMENDED || $gasLimitZero;
+  $: needsConfirmation = tempProcessingFeeMethod !== ProcessingFeeMethod.RECOMMENDED || tempGasLimitZero;
 
   // Leaving CUSTOM discards the draft along with its error. This has to follow the
   // dialog's own method: updateProcessingFee runs on the committed $processingFeeMethod,
@@ -290,7 +327,7 @@
                 id="input-recommended"
                 class="radio w-6 h-6 checked:bg-primary-interactive-accent hover:border-primary-interactive-hover"
                 type="radio"
-                disabled={$gasLimitZero}
+                disabled={tempGasLimitZero}
                 value={ProcessingFeeMethod.RECOMMENDED}
                 name="processingFeeMethod"
                 bind:group={tempProcessingFeeMethod} />
@@ -338,7 +375,7 @@
                 id="input-custom"
                 class="radio w-6 h-6 checked:bg-primary-interactive-accent hover:border-primary-interactive-hover"
                 type="radio"
-                disabled={$gasLimitZero}
+                disabled={tempGasLimitZero}
                 value={ProcessingFeeMethod.CUSTOM}
                 name="processingFeeMethod"
                 bind:group={tempProcessingFeeMethod} />
@@ -382,12 +419,12 @@
               </div>
               <input
                 type="checkbox"
-                checked={$gasLimitZero}
+                checked={tempGasLimitZero}
                 on:click={handleGasLimitZero}
                 class="checkbox checkbox-primary" />
             </div>
 
-            {#if $gasLimitZero}
+            {#if tempGasLimitZero}
               <div class="my-5">
                 <Alert type="warning">
                   <span class="body-small">

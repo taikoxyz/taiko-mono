@@ -1,10 +1,12 @@
-import type { Address, Hash } from 'viem';
+import type { Address } from 'viem';
 
+import type { FailedBridgeTx } from '$libs/relayer';
 import { relayerApiServices } from '$libs/relayer';
 import { bridgeTxService } from '$libs/storage';
 import { getLogger } from '$libs/util/logger';
 import { mergeAndCaptureOutdatedTransactions } from '$libs/util/mergeTransactions';
 
+import { bridgeTxKey, isSameBridgeTx } from './bridgeTxIdentity';
 import { type BridgeTransaction, MessageStatus } from './types';
 
 const log = getLogger('bridge:fetchTransactions');
@@ -17,19 +19,19 @@ async function fetchAllRelayerPages(
   relayerApiService: (typeof relayerApiServices)[number],
   userAddress: Address,
   chainId?: number,
-): Promise<{ txs: BridgeTransaction[]; failedTxHashes: Hash[]; error?: Error }> {
+): Promise<{ txs: BridgeTransaction[]; failedTxs: FailedBridgeTx[]; error?: Error }> {
   const txs: BridgeTransaction[] = [];
-  const failedTxHashes: Hash[] = [];
+  const failedTxs: FailedBridgeTx[] = [];
 
   for (let page = 0; page < MAX_RELAYER_PAGES; page++) {
     let pageTxs;
     let paginationInfo;
-    let pageFailedTxHashes;
+    let pageFailedTxs;
     try {
       ({
         txs: pageTxs,
         paginationInfo,
-        failedTxHashes: pageFailedTxHashes,
+        failedTxs: pageFailedTxs,
       } = await relayerApiService.getAllBridgeTransactionByAddress(
         userAddress,
         { page, size: RELAYER_PAGE_SIZE },
@@ -45,18 +47,25 @@ async function fetchAllRelayerPages(
       log(`relayer page ${page} failed, returning ${txs.length} transactions already fetched`, error);
       // Degrading is fine; degrading in silence is not. A partial history that looks
       // complete is the one outcome the user cannot tell apart from a correct one.
-      // failedTxHashes carries what the completed pages already lost to failed on-chain reads.
-      return { txs, failedTxHashes, error: error as Error };
+      // failedTxs carries what the completed pages already lost to failed on-chain reads.
+      return { txs, failedTxs, error: error as Error };
     }
     txs.push(...pageTxs);
-    failedTxHashes.push(...pageFailedTxHashes);
+    failedTxs.push(...pageFailedTxs);
 
     if (paginationInfo.max_page === undefined || page >= paginationInfo.max_page) break;
     if (page === MAX_RELAYER_PAGES - 1) {
+      // Same rule as a failed page: degrading is fine, degrading in silence is not. A
+      // history cut off at the backstop looks exactly like a complete one.
       log(`relayer history truncated at ${MAX_RELAYER_PAGES} pages for ${userAddress}`);
+      return {
+        txs,
+        failedTxs,
+        error: new Error(`Relayer history truncated at ${MAX_RELAYER_PAGES} pages; older transactions are not shown`),
+      };
     }
   }
-  return { txs, failedTxHashes };
+  return { txs, failedTxs };
 }
 
 export async function fetchTransactions(userAddress: Address, chainId?: number) {
@@ -84,11 +93,13 @@ export async function fetchTransactions(userAddress: Address, chainId?: number) 
   // rejected outright has nothing to report, and `error` speaks for it instead. Collected as a
   // set rather than summed: the same transaction can come back from several pages or several
   // relayers, and adding raw tallies would report one loss more than once
-  const failedTxHashes = new Set<string>();
+  // Keyed by message identity so the same failure arriving from two pages or two relayers is
+  // held once
+  const failedByKey = new Map<string, FailedBridgeTx>();
   for (const result of relayerResults) {
     if (result.status === 'fulfilled') {
       relayerTxsArrays.push(result.value.txs);
-      for (const hash of result.value.failedTxHashes) failedTxHashes.add(hash);
+      for (const failed of result.value.failedTxs) failedByKey.set(bridgeTxKey(failed), failed);
       // A relayer that answered some pages and then failed still reports that failure,
       // so a partial history is not presented as a complete one
       if (result.value.error) {
@@ -103,13 +114,15 @@ export async function fetchTransactions(userAddress: Address, chainId?: number) 
     error ??= result.reason as Error;
   }
 
-  // Flatten the arrays into a single array, dropping duplicate hashes the relayer
-  // may return across pages or relayers
+  // Flatten the arrays into a single array, dropping messages the relayer may return
+  // twice across pages or relayers. Keyed by message, not by transaction: a transaction
+  // that emitted two messages has two claimable rows, and the second was being dropped
   const relayerTxsFlattened = relayerTxsArrays.reduce((acc, txs) => acc.concat(txs), []);
-  const seenTxHashes = new Set<string>();
+  const seenMessages = new Set<string>();
   const dedupedRelayerTxs = relayerTxsFlattened.filter((tx) => {
-    if (seenTxHashes.has(tx.srcTxHash)) return false;
-    seenTxHashes.add(tx.srcTxHash);
+    const key = bridgeTxKey(tx);
+    if (seenMessages.has(key)) return false;
+    seenMessages.add(key);
     return true;
   });
 
@@ -120,14 +133,20 @@ export async function fetchTransactions(userAddress: Address, chainId?: number) 
 
   const { mergedTransactions, outdatedLocalTransactions } = mergeAndCaptureOutdatedTransactions(localTxs, relayerTxs);
 
-  // The count answers "how many of your transactions are missing from this list", so it is taken
-  // against the finished list rather than the relayer half of it. A transaction can reach the list
-  // by a route other than the one that failed: another page or relayer returned it, or - because
-  // the merge keeps a local transaction precisely when the relayer set lacks its hash - the row
-  // came from local storage. Counting those would tell the user something is missing while it is
-  // on screen in front of them.
-  for (const tx of mergedTransactions) failedTxHashes.delete(tx.srcTxHash);
-  const failedCount = failedTxHashes.size;
+  // The count answers "how many of your messages are missing from this list", so it is taken
+  // against the finished list rather than the relayer half of it. A message can reach the list by
+  // a route other than the one that failed: another page or relayer returned it, or - because the
+  // merge keeps a local transaction precisely when the relayer set lacks it - the row came from
+  // local storage. Counting those would tell the user something is missing while it is on screen.
+  //
+  // Compared with isSameBridgeTx rather than by transaction hash, because the two sides are not
+  // identified the same way: a failed relayer row knows its message hash while the local row that
+  // rescues it usually does not, and two messages from one transaction share a transaction hash
+  // without being interchangeable. Reusing the shared predicate keeps this from drifting from the
+  // rule the list itself is deduplicated by.
+  const failedCount = [...failedByKey.values()].filter(
+    (failed) => !mergedTransactions.some((tx) => isSameBridgeTx(failed, tx)),
+  ).length;
 
   if (outdatedLocalTransactions.length > 0) {
     log(

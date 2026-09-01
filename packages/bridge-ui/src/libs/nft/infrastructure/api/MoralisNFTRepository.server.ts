@@ -20,11 +20,53 @@ type PaginationState = {
 // keyed per wallet+chain — module-level cursor/nft state would leak one user's NFTs to another.
 export const MAX_CACHED_WALLETS = 500;
 
+/**
+ * How long one page request may take before it is abandoned.
+ *
+ * The bound is on the request, not on the queue wait ahead of it. An earlier attempt raced
+ * the wait against a timer, which let a second fetch start against the same
+ * PaginationState - one cursor read twice, one page appended twice, the exact corruption
+ * the queue exists to prevent. Timing out the request instead keeps the queue strictly
+ * serial: an abandoned request mutates nothing (every write happens after the await), so
+ * the cursor is untouched and the next call simply refetches that page.
+ */
+export const PAGE_REQUEST_TIMEOUT_MS = 30_000;
+
+/**
+ * @dev Rejects if the given promise has not settled within PAGE_REQUEST_TIMEOUT_MS.
+ *
+ *      Promise.race attaches a handler to both sides, so neither the abandoned request nor
+ *      the losing timer can surface as an unhandled rejection; the timer is cleared either
+ *      way so it never fires after the race is decided.
+ *
+ * @param promise The request to bound
+ * @return result_ Whatever the request resolved to, if it did so in time
+ */
+async function withTimeout<T>(promise: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expiry = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`Moralis request timed out after ${PAGE_REQUEST_TIMEOUT_MS}ms`)),
+      PAGE_REQUEST_TIMEOUT_MS,
+    );
+  });
+  try {
+    return await Promise.race([promise, expiry]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 class MoralisNFTRepository implements INFTRepository {
   private static instance: MoralisNFTRepository;
   private static isInitialized = false;
 
   private stateByWallet: Map<string, PaginationState> = new Map();
+  /**
+   * At most one entry per wallet+chain, deleted when its request settles (see releaseSlot
+   * below), so this holds only what is genuinely in flight. It needs no MAX_CACHED_WALLETS
+   * of its own: a cap here could only be enforced by refusing requests.
+   */
   private requestQueueByWallet: Map<string, Promise<NFT[]>> = new Map();
 
   private constructor() {
@@ -50,6 +92,8 @@ class MoralisNFTRepository implements INFTRepository {
     // Serialize requests per wallet+chain: concurrent calls would read the same cursor,
     // fetch the same page twice, and append duplicates to the shared pagination state
     const previous = this.requestQueueByWallet.get(key) ?? Promise.resolve([]);
+    // Strictly serialized, and every entry is bounded by PAGE_REQUEST_TIMEOUT_MS, so a
+    // hung Moralis call cannot hold this wallet's queue for the life of the process
     const request = previous.catch(() => []).then(() => this.fetchNextPage({ address, chainId, refresh }));
     this.requestQueueByWallet.set(key, request);
 
@@ -77,14 +121,16 @@ class MoralisNFTRepository implements INFTRepository {
     }
 
     try {
-      const response = await Moralis.EvmApi.nft.getWalletNFTs({
-        cursor: state.cursor,
-        chain: chainId,
-        excludeSpam: moralisApiConfig.excludeSpam,
-        mediaItems: moralisApiConfig.mediaItems,
-        address: address,
-        limit: moralisApiConfig.limit,
-      });
+      const response = await withTimeout(
+        Moralis.EvmApi.nft.getWalletNFTs({
+          cursor: state.cursor,
+          chain: chainId,
+          excludeSpam: moralisApiConfig.excludeSpam,
+          mediaItems: moralisApiConfig.mediaItems,
+          address: address,
+          limit: moralisApiConfig.limit,
+        }),
+      );
 
       state.cursor = response.pagination.cursor || '';
       state.hasFetchedAll = !state.cursor; // If there is no cursor, we have fetched all NFTs
@@ -108,6 +154,10 @@ class MoralisNFTRepository implements INFTRepository {
 
     if (!state || refresh) {
       state = { cursor: '', hasFetchedAll: false, nfts: [] };
+      // Delete first: setting an existing key leaves its position in the Map untouched, so
+      // a refreshed wallet kept whatever position it had and could be evicted by the very
+      // next arrival despite having just been used
+      this.stateByWallet.delete(key);
       this.evictLeastRecentlyUsedIfFull();
       this.stateByWallet.set(key, state);
       return state;

@@ -35,15 +35,18 @@ export const fetchNFTImageUrl = async (token: NFT): Promise<NFT> => {
 
     const [imageUrl, tokenInfo] = await Promise.all([imageUrlPromise, tokenInfoPromise]);
 
-    token.metadata = {
+    // Bound to a local so what reaches the cache is visibly this object and not a field
+    // that might since have become undefined - a reading five separate reviews have taken
+    const resolvedMetadata = {
       ...metadata,
       image: imageUrl,
     };
+    token.metadata = resolvedMetadata;
 
     if (!tokenInfo || !tokenInfo.canonical?.address) return token;
 
     // Store the resolved metadata so the next lookup hits the cache
-    addMetadataToCache({ address: tokenInfo.canonical.address, id: token.tokenId }, token.metadata);
+    addMetadataToCache({ address: tokenInfo.canonical.address, id: token.tokenId }, resolvedMetadata);
 
     return token;
   } catch (error) {

@@ -17,6 +17,7 @@ import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { apiService } from '$config';
 import type { BridgeTransaction, Message, MessageStatus } from '$libs/bridge';
+import { bridgeTxKey } from '$libs/bridge/bridgeTxIdentity';
 import { isSupportedChain } from '$libs/chain';
 import { TokenType } from '$libs/token';
 import { getLogger } from '$libs/util/logger';
@@ -26,6 +27,7 @@ import {
   type APIRequestParams,
   type APIResponse,
   type APIResponseTransaction,
+  type FailedBridgeTx,
   type Fee,
   type FeeType,
   type GetAllByAddressResponse,
@@ -166,8 +168,19 @@ export class RelayerAPIService {
     }
   }
 
+  /**
+   * @dev Drops rows the relayer repeated and rows for routes this UI does not serve.
+   *
+   *      Keyed by message, not by transaction. One transaction can emit several
+   *      MessageSent events - a batching wallet, a contract that bridges twice - and each
+   *      is a separately claimable row. Keying on the transaction hash dropped every one
+   *      after the first here, before the message-level dedupe downstream could see them.
+   *
+   * @param items The rows one relayer page returned
+   * @return filtered_ The rows worth transforming
+   */
   private static _filterDuplicateAndWrongBridge(items: APIResponseTransaction[]): APIResponseTransaction[] {
-    const uniqueHashes = new Set<string>();
+    const uniqueMessages = new Set<string>();
     const filteredItems: APIResponseTransaction[] = [];
     for (const item of items) {
       const { Message, Raw } = item.data || {};
@@ -182,11 +195,13 @@ export class RelayerAPIService {
       // single unknown pair cannot throw and take the whole transaction list down with it.
       const bridgeAddress = routingContractsMap[Number(srcChainId)]?.[Number(destChainId)]?.bridgeAddress;
       const { transactionHash, address } = Raw;
+      // The message hash when the relayer gave us one, the transaction hash otherwise
+      const identity = bridgeTxKey({ msgHash: item.msgHash, srcTxHash: transactionHash });
 
       // Check all conditions
       const isTransactionHashPresent = Boolean(transactionHash);
       const isAddressPresent = Boolean(address);
-      const isUniqueHash = !uniqueHashes.has(transactionHash);
+      const isUniqueHash = !uniqueMessages.has(identity);
       const isCorrectBridgeAddress = address?.toLowerCase() === bridgeAddress?.toLowerCase();
       const areChainsSupported = isSupportedChain(Number(destChainId)) && isSupportedChain(Number(srcChainId));
 
@@ -199,9 +214,9 @@ export class RelayerAPIService {
         areChainsSupported,
       ].every(Boolean);
 
-      // Invalid rows must not consume the hash and hide a later valid duplicate.
+      // Invalid rows must not consume the identity and hide a later valid duplicate.
       if (satisfiesAllConditions) {
-        uniqueHashes.add(transactionHash);
+        uniqueMessages.add(identity);
         filteredItems.push(item);
       }
     }
@@ -471,7 +486,7 @@ export class RelayerAPIService {
     };
 
     if (!apiTxs.items || apiTxs.items.length === 0) {
-      return { txs: [], paginationInfo, failedTxHashes: [] };
+      return { txs: [], paginationInfo, failedTxs: [] };
     }
 
     const items = RelayerAPIService._filterDuplicateAndWrongBridge(apiTxs.items);
@@ -493,7 +508,7 @@ export class RelayerAPIService {
     // loss that never happened.
     // Hashes, not a tally: the caller merges these across pages and relayers, where the same
     // transaction can appear more than once and can even succeed elsewhere.
-    const failedTxHashes: Hash[] = [];
+    const failedTxs: FailedBridgeTx[] = [];
 
     const txsPromises = txs.map(async (bridgeTx) => {
       if (!bridgeTx) return;
@@ -501,20 +516,36 @@ export class RelayerAPIService {
         return await RelayerAPIService._enhanceTransaction(bridgeTx, address);
       } catch (error) {
         // One failing RPC read must not reject the surrounding Promise.all and wipe the list
-        failedTxHashes.push(bridgeTx.srcTxHash);
+        failedTxs.push({ msgHash: bridgeTx.msgHash, srcTxHash: bridgeTx.srcTxHash });
         log('Skipping transaction that failed to enhance', { error, srcTxHash: bridgeTx.srcTxHash });
         return;
       }
     });
 
-    const bridgeTxs: BridgeTransaction[] = (await Promise.all(txsPromises)).filter((tx): tx is BridgeTransaction =>
+    const enhanced: BridgeTransaction[] = (await Promise.all(txsPromises)).filter((tx): tx is BridgeTransaction =>
       Boolean(tx),
     ); // Removes undefined values
+
+    // A second dedupe, now that each row carries the message hash its receipt log proves.
+    // Both are needed and neither subsumes the other: the filter above cannot tell a
+    // relayer row whose msgHash is corrupt from a genuine second message, because the
+    // corrupt hash is a hash like any other; enhancement resolves it to the log the
+    // transaction actually emitted, and only then are the two rows visibly the same one.
+    const seenMessages = new Set<string>();
+    const bridgeTxs = enhanced.filter((bridgeTx) => {
+      const identity = bridgeTxKey(bridgeTx);
+      if (seenMessages.has(identity)) {
+        log('Dropping a relayer row the receipt resolved onto an already-seen message', identity);
+        return false;
+      }
+      seenMessages.add(identity);
+      return true;
+    });
 
     // Spreading to preserve original txs in case of array mutation
     log('Enhanced transactions', [...bridgeTxs]);
 
-    return { txs: bridgeTxs, paginationInfo, failedTxHashes };
+    return { txs: bridgeTxs, paginationInfo, failedTxs };
   }
 
   private static _transformTransaction(tx: APIResponseTransaction): BridgeTransaction {
@@ -540,7 +571,11 @@ export class RelayerAPIService {
         status: tx.status,
         amount: BigInt(tx.amount),
         symbol: tx.canonicalTokenSymbol || 'ETH',
-        decimals: tx.canonicalTokenDecimals,
+        // The relayer nils canonicalToken for ETH rows and the Go field is a plain uint8,
+        // so every ETH transaction arrives as decimals 0. The correct 18 is otherwise only
+        // applied later from the source-chain receipt, and that fetch is allowed to fail -
+        // a row that keeps 0 renders one ETH as 1000000000000000000
+        decimals: tokenType === TokenType.ETH ? 18 : tx.canonicalTokenDecimals,
         srcTxHash: tx.data.Raw.transactionHash,
         destTxHash: tx.processedTxHash,
         from: getAddress(tx.messageOwner),
@@ -552,6 +587,10 @@ export class RelayerAPIService {
         canonicalTokenAddress: tx.canonicalTokenAddress,
         processingFee: messageFee,
         claimedBy: tx.claimedBy ? getAddress(tx.claimedBy) : undefined,
+        // A relayer that has not claimed the message reports zero here, so zero means "no
+        // relayer has been paid yet" rather than "the fee was zero" - undefined says that
+        // without inviting a reader to treat it as a settled amount. Both consumers render
+        // it as `formatEther(fee ?? 0n)`, so nothing downstream tells the two apart.
         fee: relayerFee && relayerFee !== BigInt(0) ? relayerFee : undefined,
         message: {
           id: messageId,

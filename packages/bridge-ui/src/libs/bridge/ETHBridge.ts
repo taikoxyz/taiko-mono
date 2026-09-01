@@ -1,36 +1,30 @@
 import { getWalletClient, simulateContract, writeContract } from '@wagmi/core';
-import { get } from 'svelte/store';
-import { getContract, UserRejectedRequestError } from 'viem';
+import { UserRejectedRequestError } from 'viem';
 
 import { bridgeAbi } from '$abi';
-import { destOwnerAddress, gasLimitZero } from '$components/Bridge/state';
-import { BridgePausedError, SendMessageError } from '$libs/error';
+import { SendMessageError } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
-import { isBridgePaused } from '$libs/util/checkForPausedContracts';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
-import { estimateMessageGasLimit } from './estimateMessageGasLimit';
-import { feeForGasLimit } from './messageFeeInvariant';
 import { assertNoViolations, checkETHMessage } from './messageInvariants';
 import type { ETHBridgeArgs, Message } from './types';
 
 const log = getLogger('bridge:ETHBridge');
 
 export class ETHBridge extends Bridge {
-  private static async _prepareTransaction(args: ETHBridgeArgs) {
-    const { to, amount, wallet, srcChainId, destChainId, bridgeAddress, fee: processingFee } = args;
+  private async _prepareTransaction(args: ETHBridgeArgs) {
+    const { to, amount, srcChainId, destChainId, bridgeAddress } = args;
 
-    if (!wallet || !wallet.account) throw new Error('No wallet found');
-
-    const bridgeContract = getContract({
-      client: wallet,
-      abi: bridgeAbi,
-      address: bridgeAddress,
-    });
-
-    const owner = wallet.account.address;
+    const {
+      contract: bridgeContract,
+      owner,
+      destOwner,
+      gasLimit,
+      fee,
+      commonFields,
+    } = await this.prepareSend({ args, abi: bridgeAbi, address: bridgeAddress });
 
     // TODO: contract actually supports bridging to ourselves as well as
     //       to another address at the same time
@@ -43,32 +37,19 @@ export class ETHBridge extends Bridge {
       value = senderAmount;
     }
 
-    let gasLimit: number;
-    if (get(gasLimitZero)) {
-      log('Gas limit is set to 0');
-      gasLimit = 0;
-    } else {
-      gasLimit = await estimateMessageGasLimit({
-        token: args.tokenObject,
-        srcChainId,
-        destChainId,
-      });
-    }
-
     const message: Message = {
       to,
       srcOwner: owner,
       from: owner,
 
-      destOwner: get(destOwnerAddress) || to,
+      destOwner,
 
       srcChainId: BigInt(srcChainId),
       destChainId: BigInt(destChainId),
 
-      gasLimit: Number(gasLimit),
+      gasLimit,
       value,
-      // A zero gas limit cannot carry a fee - the bridge reverts with B_INVALID_FEE
-      fee: feeForGasLimit(Number(gasLimit), processingFee),
+      fee,
 
       data: '0x',
       id: BigInt(0), // will be set in contract
@@ -78,17 +59,7 @@ export class ETHBridge extends Bridge {
 
     // Refuse a message the bridge is guaranteed to reject, while the reason is still
     // something we can name
-    assertNoViolations(
-      checkETHMessage({
-        to: message.to,
-        destOwner: message.destOwner,
-        srcChainId,
-        destChainId,
-        gasLimit: message.gasLimit,
-        fee: message.fee,
-      }),
-      'This ETH transfer',
-    );
+    assertNoViolations(checkETHMessage(commonFields), 'This ETH transfer');
 
     return { bridgeContract, message };
   }
@@ -98,7 +69,7 @@ export class ETHBridge extends Bridge {
   }
 
   async estimateGas(args: ETHBridgeArgs) {
-    const { bridgeContract, message } = await ETHBridge._prepareTransaction(args);
+    const { bridgeContract, message } = await this._prepareTransaction(args);
     const { value: callValue, fee: processingFee } = message;
 
     const value = callValue + processingFee;
@@ -113,9 +84,7 @@ export class ETHBridge extends Bridge {
   }
 
   async bridge(args: ETHBridgeArgs) {
-    if (await isBridgePaused()) throw new BridgePausedError('Bridge is paused');
-
-    const { bridgeContract, message } = await ETHBridge._prepareTransaction(args);
+    const { bridgeContract, message } = await this._prepareTransaction(args);
     const { value: callValue, fee: processingFee } = message;
 
     const value = callValue + processingFee;

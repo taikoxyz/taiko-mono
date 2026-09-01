@@ -26,6 +26,7 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 export type MessageInvariantViolation =
   | 'ZERO_RECIPIENT'
   | 'ZERO_DEST_OWNER'
+  | 'ZERO_SRC_OWNER'
   | 'SAME_CHAIN'
   | 'MISSING_DEST_CHAIN'
   | 'MISSING_SRC_CHAIN'
@@ -42,6 +43,11 @@ const isZeroAddress = (address: Maybe<string>) => !address || address.toLowerCas
 export type CommonMessageFields = {
   to: Maybe<string>;
   destOwner: Maybe<string>;
+  /**
+   * The message sender. Omit where the UI does not set it - the vaults fill it in with
+   * their own caller - and the rule is then skipped rather than guessed.
+   */
+  srcOwner?: Maybe<string>;
   srcChainId: Maybe<number>;
   destChainId: Maybe<number>;
   gasLimit: number;
@@ -56,6 +62,7 @@ export function checkCommonMessage(message: CommonMessageFields): MessageInvaria
 
   if (isZeroAddress(message.to)) violations.push('ZERO_RECIPIENT');
   if (isZeroAddress(message.destOwner)) violations.push('ZERO_DEST_OWNER');
+  if (message.srcOwner !== undefined && isZeroAddress(message.srcOwner)) violations.push('ZERO_SRC_OWNER');
   // Both chains matter, and not only for completeness: SAME_CHAIN is a comparison, and an
   // absent source chain makes it silently pass for a message that does not cross anything
   if (!message.srcChainId) violations.push('MISSING_SRC_CHAIN');

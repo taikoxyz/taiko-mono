@@ -52,6 +52,13 @@
     // watcher treat the replacement itself as the stale one and cancel its lookup.
     lastValidatedAddress = null;
     pendingAddressLookup = null;
+    // The ids belong to the discarded subject too. Leaving them made displayOwnershipError
+    // true the moment this ran for a chain switch - "you are not the owner of all tokens"
+    // for a chain on which nothing had been checked, with no way to retrigger validation
+    // short of editing the id field.
+    enteredIds = [];
+    nftIdsToImport = [];
+    if (nftIdInputComponent) nftIdInputComponent.clearIds();
   }
 
   // A contract-type lookup describes one address on one chain. Without this, a lookup

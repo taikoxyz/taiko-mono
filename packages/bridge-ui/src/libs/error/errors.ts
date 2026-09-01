@@ -175,3 +175,14 @@ export class ClientError extends Error {
 export class TransactionTimeoutError extends Error {
   name = 'TransactionTimeoutError';
 }
+
+/**
+ * The receipt could not be read - the wait itself failed, not the transaction.
+ *
+ * Distinct from FailedTransactionError, which means a receipt came back reverted. An RPC
+ * that drops the connection says nothing about a transaction that is still in the mempool,
+ * and callers that cannot tell the two apart re-offer an action already under way.
+ */
+export class ReceiptUnavailableError extends Error {
+  name = 'ReceiptUnavailableError';
+}

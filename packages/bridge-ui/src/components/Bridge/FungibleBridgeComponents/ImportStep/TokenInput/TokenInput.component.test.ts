@@ -28,8 +28,30 @@ vi.mock('$components/TokenDropdown', async () => ({
   TokenDropdown: (await import('../../../../../tests/StubComponent.svelte')).default,
 }));
 
-import { enteredAmount, selectedToken } from '$components/Bridge/state';
+const fetchBalance = vi.fn();
+vi.mock('$libs/token', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('$libs/token')>()),
+  fetchBalance: (...args: unknown[]) => fetchBalance(...args),
+}));
+
+// Both reach into the automocked @wagmi/core, which has no usable getAccount, and the
+// balance reset path calls them on every token switch
+vi.mock('$libs/util/balance', () => ({
+  refreshUserBalance: vi.fn().mockResolvedValue(undefined),
+  renderBalance: (balance: { formatted?: string; symbol?: string } | null | undefined) =>
+    balance ? `${balance.formatted ?? '0'} ${balance.symbol ?? ''}` : '0.00',
+  renderEthBalance: () => '0 ETH',
+}));
+
+import {
+  computingBalance,
+  enteredAmount,
+  errorComputingBalance,
+  selectedToken,
+  tokenBalance,
+} from '$components/Bridge/state';
 import { TokenType } from '$libs/token';
+import { account } from '$stores/account';
 
 import TokenInput from './TokenInput.svelte';
 
@@ -49,7 +71,12 @@ const errorShown = () => target.textContent?.includes('bridge.errors.invalid_amo
 const usdc = { type: TokenType.ERC20, symbol: 'USDC', name: 'USDC', decimals: 6, addresses: {} };
 
 beforeEach(() => {
+  fetchBalance.mockReset().mockResolvedValue({ value: BigInt(0), decimals: 6, symbol: 'USDC', formatted: '0' });
   enteredAmount.set(BigInt(0));
+  tokenBalance.set(undefined as never);
+  // Disconnected at mount, so the only balance reads in a test are the ones it makes:
+  // the account store is module-level and otherwise carries over between tests
+  account.set({ isConnected: false } as never);
   selectedToken.set(usdc as never);
   target = document.createElement('div');
   document.body.appendChild(target);
@@ -114,5 +141,107 @@ describe('fungible amount input', () => {
     await type('3');
     expect(get(enteredAmount)).toBe(BigInt(3000000));
     expect(errorShown()).toBe(false);
+  });
+
+  describe('balance reads', () => {
+    it("does not let a slow token switch overwrite a newer token's balance", async () => {
+      account.set({ address: '0xaaaa', isConnected: true } as never);
+      // Connecting triggers its own balance read; let it settle so the race below is
+      // between the two token switches and nothing else
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await tick();
+
+      const slow = { type: TokenType.ERC20, symbol: 'SLOW', name: 'Slow', decimals: 18, addresses: {} };
+      const fast = { type: TokenType.ERC20, symbol: 'FAST', name: 'Fast', decimals: 18, addresses: {} };
+
+      let resolveSlow!: (value: unknown) => void;
+      fetchBalance.mockReturnValueOnce(new Promise((resolve) => (resolveSlow = resolve)));
+      selectedToken.set(slow as never);
+      await tick();
+
+      // A second switch, whose read answers first
+      fetchBalance.mockResolvedValueOnce({ value: BigInt(5), decimals: 18, symbol: 'FAST', formatted: '5' });
+      selectedToken.set(fast as never);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await tick();
+
+      // The earlier read lands late. Publishing it would validate amounts against SLOW's
+      // balance while FAST is selected, and walk the user through an approval for an
+      // amount they do not hold
+      resolveSlow({ value: BigInt(999), decimals: 18, symbol: 'SLOW', formatted: '999' });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await tick();
+
+      // Whatever the interleaving, the balance on screen belongs to the selected token
+      expect(get(tokenBalance)).toEqual({ value: BigInt(5), decimals: 18, symbol: 'FAST', formatted: '5' });
+    });
+
+    it('stops computing when the balance read fails', async () => {
+      account.set({ address: '0xaaaa', isConnected: true, chainId: 1 } as never);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await tick();
+
+      const token = { type: TokenType.ERC20, symbol: 'X', name: 'X', decimals: 18, addresses: {} };
+      fetchBalance.mockRejectedValueOnce(new Error('rpc down'));
+      selectedToken.set(token as never);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await tick();
+
+      // Without a catch this escapes as an unhandled rejection and the spinner never stops
+      expect(get(computingBalance)).toBe(false);
+      expect(get(errorComputingBalance)).toBe(true);
+    });
+
+    it('does not let a superseded failing read raise the error flag', async () => {
+      account.set({ address: '0xaaaa', isConnected: true, chainId: 1 } as never);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await tick();
+
+      // A slow read for token A fails after the user has already moved to token B, whose
+      // balance loaded fine. The failure describes a token no longer on screen
+      let failSlowRead: (error: Error) => void = () => undefined;
+      fetchBalance.mockReturnValueOnce(new Promise((_, reject) => (failSlowRead = reject)));
+      selectedToken.set({ type: TokenType.ERC20, symbol: 'A', name: 'A', decimals: 18, addresses: {} } as never);
+      await tick();
+
+      fetchBalance.mockResolvedValueOnce({ value: BigInt(9), decimals: 18, symbol: 'B', formatted: '9' });
+      selectedToken.set({ type: TokenType.ERC20, symbol: 'B', name: 'B', decimals: 18, addresses: {} } as never);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await tick();
+
+      failSlowRead(new Error('rpc down'));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await tick();
+
+      expect(get(errorComputingBalance)).toBe(false);
+      expect(get(tokenBalance)).toEqual({ value: BigInt(9), decimals: 18, symbol: 'B', formatted: '9' });
+    });
+
+    it('stops computing when an account change supersedes an in-flight reset', async () => {
+      account.set({ address: '0xaaaa', isConnected: true, chainId: 1 } as never);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await tick();
+
+      // A token switch starts a read that will not answer for a while
+      const slow = { type: TokenType.ERC20, symbol: 'SLOW', name: 'Slow', decimals: 18, addresses: {} };
+      let resolveSlow!: (value: unknown) => void;
+      fetchBalance.mockReturnValueOnce(new Promise((resolve) => (resolveSlow = resolve)));
+      selectedToken.set(slow as never);
+      await tick();
+
+      // The same account on another chain takes the other branch of onAccountChange,
+      // which reads the balance without going through reset
+      fetchBalance.mockResolvedValueOnce({ value: BigInt(7), decimals: 18, symbol: 'SLOW', formatted: '7' });
+      account.set({ address: '0xaaaa', isConnected: true, chainId: 2 } as never);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await tick();
+
+      resolveSlow({ value: BigInt(999), decimals: 18, symbol: 'SLOW', formatted: '999' });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await tick();
+
+      // The superseded reset declines to clear this, so the read that superseded it must
+      expect(get(computingBalance)).toBe(false);
+    });
   });
 });

@@ -167,7 +167,16 @@
     // different contract on a different chain, so detecting the type against one chain
     // and then reading the token info off another describes no contract that exists
     const srcChainId = $connectedSourceChain?.id;
-    if (!srcChainId) return;
+    if (!srcChainId) {
+      // Guard, not a fix for a reachable path: a lookup can only be in flight if the chain
+      // was set when it started, and losing it since then runs onSourceChainChanged, which
+      // discards the lookup and clears this. Leaving a return that sets no state is still
+      // the wrong shape for a function whose other exits all clean up after themselves.
+      pendingTokenLookup = null;
+      lookupChainId = null;
+      loadingTokenDetails = false;
+      return;
+    }
     pendingTokenLookup = tokenAddress;
     lookupChainId = srcChainId;
     loadingTokenDetails = true;

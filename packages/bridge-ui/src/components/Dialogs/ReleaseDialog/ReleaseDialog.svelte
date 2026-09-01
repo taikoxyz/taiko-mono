@@ -3,11 +3,9 @@
   import { t } from 'svelte-i18n';
   import { ContractFunctionExecutionError, type Hash, UserRejectedRequestError } from 'viem';
 
-  import { chainConfig } from '$chainConfig';
   import { CloseButton } from '$components/Button';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
-  import { errorToast, successToast, warningToast } from '$components/NotificationToast';
-  import { infoToast } from '$components/NotificationToast/NotificationToast.svelte';
+  import { errorToast, warningToast } from '$components/NotificationToast';
   import { OnAccount } from '$components/OnAccount';
   import type { BridgeTransaction } from '$libs/bridge';
   import {
@@ -18,10 +16,10 @@
     RetryError,
   } from '$libs/error';
   import { getLogger } from '$libs/util/logger';
-  import { pendingTransactions } from '$stores/pendingTransactions';
 
   import Claim from '../Claim.svelte';
   import { ClaimConfirmStep, ReviewStep } from '../Shared';
+  import { reportDialogTransaction } from '../Shared/dialogTransactionFlow';
   import { ClaimAction } from '../Shared/types';
   import { DialogStep, DialogStepper } from '../Stepper';
   import ReleaseStepNavigation from './ReleaseStepNavigation.svelte';
@@ -41,6 +39,12 @@
   let activeStep: ReleaseSteps = INITIAL_STEP;
   let txHash: Hash;
   let releasing = false;
+  /**
+   * A release transaction is on chain and its outcome is not known yet. Distinct from
+   * `releasing`, which `reset` clears: this survives a close so reopening the dialog cannot
+   * offer a second release for a message whose first release may still confirm.
+   */
+  let releaseTxPending = false;
   let releasingDone = false;
   let ClaimComponent: Claim;
   let hideContinueButton: boolean;
@@ -56,6 +60,10 @@
   };
 
   const reset = () => {
+    // Closing the dialog or switching accounts does not cancel a release already on chain.
+    // Rewinding the steps and clearing `releasing` here would hand the user a fresh Release
+    // button for that same message, so a still-pending transaction keeps the dialog as is.
+    if (releaseTxPending) return;
     releasing = false;
     releasingDone = false;
     activeStep = INITIAL_STEP;
@@ -64,47 +72,29 @@
   const handleClaimTxSent = async (event: CustomEvent<{ txHash: Hash; action: ClaimAction }>) => {
     const { txHash: transactionHash, action } = event.detail;
     txHash = transactionHash;
-    log('handle claim tx sent', txHash, action);
+    log('handle release tx sent', txHash, action);
     releasing = true;
+    releaseTxPending = true;
 
-    // recallMessage executes on the source chain, so both the receipt wait and the
-    // explorer link must use the source chain, not the destination
-    const releaseChainId = Number(bridgeTx.srcChainId);
-    const explorer = chainConfig[releaseChainId]?.blockExplorers?.default.url;
-
-    infoToast({
-      title: $t('transactions.actions.claim.tx.title'),
-      message: $t('transactions.actions.claim.tx.message', {
-        values: {
-          token: bridgeTx.symbol,
-          url: `${explorer}/tx/${txHash}`,
-        },
-      }),
+    const outcome = await reportDialogTransaction({
+      // recallMessage executes on the source chain, so both the receipt wait and the
+      // explorer link belong there rather than on the destination
+      txHash,
+      chainId: Number(bridgeTx.srcChainId),
+      t: $t,
+      failureTitleKey: 'bridge.errors.process_message_error',
     });
 
-    try {
-      await pendingTransactions.add(txHash, releaseChainId);
-    } catch (error) {
-      // A reverted or timed-out release must not leave the dialog spinning forever
-      log('release transaction failed or timed out', { txHash, error });
-      releasing = false;
-      errorToast({ title: $t('bridge.errors.process_message_error') });
-      return;
-    }
+    // A wait that gave up leaves the transaction live and may yet release the funds. Lowering
+    // the flags would re-enable Release for it, so the dialog stays as it is
+    if (outcome === 'pending') return;
 
     releasing = false;
+    releaseTxPending = false;
+    if (outcome === 'failed') return;
+
     releasingDone = true;
-
     dispatch('claimingDone');
-
-    successToast({
-      title: $t('transactions.actions.claim.success.title'),
-      message: $t('transactions.actions.claim.success.message', {
-        values: {
-          url: `${explorer}/tx/${txHash}`,
-        },
-      }),
-    });
   };
 
   const handleClaimError = (event: CustomEvent<{ error: unknown; type: ClaimAction }>) => {

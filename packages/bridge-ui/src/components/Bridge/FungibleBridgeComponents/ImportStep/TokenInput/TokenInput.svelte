@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
+  import type { Address } from 'viem';
   import { formatUnits, parseUnits } from 'viem/utils';
 
   import { FlatAlert } from '$components/Alert';
@@ -26,6 +27,7 @@
   import { getMaxAmountToBridge } from '$libs/bridge';
   import { fetchBalance, tokens } from '$libs/token';
   import { isToken } from '$libs/token/isToken';
+  import type { NFT, Token } from '$libs/token/types';
   import { refreshUserBalance, renderBalance } from '$libs/util/balance';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
@@ -121,7 +123,11 @@
         // re-derived from it: what the user sees is exactly what gets bridged. The
         // truncation stays on the string, since a float round-trip yields scientific
         // notation for tiny balances, which parseUnits rejects
-        value = truncateDecimalString(formatUnits(maxAmount, $selectedToken.decimals), 12);
+        const exact = formatUnits(maxAmount, $selectedToken.decimals);
+        const truncated = truncateDecimalString(exact, 12);
+        // Below 1e-12 the truncation rounds the whole balance away, and MAX would show
+        // and bridge zero. Showing every digit is better than offering nothing
+        value = parseUnits(truncated, $selectedToken.decimals) > BigInt(0) ? truncated : exact;
         $enteredAmount = parseUnits(value, $selectedToken.decimals);
         amountRejected = false;
         validateAmount();
@@ -131,23 +137,61 @@
     }
   };
 
+  // Balance reads resolve out of order: a bridged ERC20 goes through getAddress and its
+  // own RPCs while ETH answers immediately, so an earlier selection's balance could land
+  // against a later token - and validInput would then accept an amount the wallet does
+  // not hold. Every writer of $tokenBalance goes through this.
+  let balanceGeneration = 0;
+
+  /**
+   * @dev Reads the balance and publishes it only if no newer read has started meanwhile.
+   * @param token The token the read belongs to
+   * @param userAddress The account to read for
+   * @param srcChainId The chain to read on
+   * @return published_ Whether this read was still the latest when it resolved
+   */
+  const publishLatestBalance = async (token: Token | NFT, userAddress: Address, srcChainId?: number) => {
+    const generation = ++balanceGeneration;
+    let fetched: Awaited<ReturnType<typeof fetchBalance>>;
+    try {
+      fetched = await fetchBalance({ userAddress, token, srcChainId });
+    } catch (error) {
+      // A rejection here would otherwise escape as an unhandled rejection and leave the
+      // computing flag raised for good. Reporting the read as settled hands the caller
+      // back the job of lowering it; the balance itself is simply left as it was.
+      log('Error fetching balance', error);
+      // Superseded reads report nothing: a slow read failing for a token the user has
+      // already replaced would otherwise raise the error flag over a balance that loaded
+      // fine, which is the same staleness the generation counter exists to stop
+      if (generation !== balanceGeneration) return false;
+      $errorComputingBalance = true;
+      return true;
+    }
+    if (generation !== balanceGeneration) return false;
+    $errorComputingBalance = false;
+    $tokenBalance = fetched;
+    return true;
+  };
+
   const reset = async () => {
     log('reset');
+    const tokenForThisReset = $selectedToken;
     $computingBalance = true;
     value = '';
     amountRejected = false;
     $enteredAmount = 0n;
-    if ($account && $account.address && $account?.isConnected && $selectedToken) {
-      validateAmount($selectedToken);
+    if ($account && $account.address && $account?.isConnected && tokenForThisReset) {
+      validateAmount(tokenForThisReset);
       refreshUserBalance();
       log('fetching on chain', $connectedSourceChain?.name);
-      $tokenBalance = await fetchBalance({
-        userAddress: $account.address,
-        token: $selectedToken,
-        srcChainId: $connectedSourceChain?.id,
-      });
+      const published = await publishLatestBalance(tokenForThisReset, $account.address, $connectedSourceChain?.id);
+      // A superseded read leaves the flag to whichever read is current now - clearing it
+      // here would stop the spinner while that one is still in flight. Every caller of
+      // publishLatestBalance raises the flag and clears it on the winning path, so the
+      // last read standing always turns it off.
+      if (!published) return;
       log('tokenBalance', $tokenBalance);
-      previousSelectedToken = $selectedToken;
+      previousSelectedToken = tokenForThisReset;
     } else {
       balance = '0.00';
     }
@@ -218,11 +262,12 @@
       reset();
     } else if (newAccount?.address && newAccount?.isConnected && $selectedToken) {
       log('refreshing user balance', $connectedSourceChain?.name);
-      $tokenBalance = await fetchBalance({
-        userAddress: newAccount.address,
-        token: $selectedToken,
-        srcChainId: newAccount.chainId,
-      });
+      // The other writer of $tokenBalance, and it races the same way. It has to carry the
+      // computing flag too: superseding a reset without owning the flag left the spinner
+      // on forever, because the reset it superseded had already declined to clear it.
+      $computingBalance = true;
+      const published = await publishLatestBalance($selectedToken, newAccount.address, newAccount.chainId);
+      if (published) $computingBalance = false;
     } else {
       console.error('No account connected or token selected');
     }

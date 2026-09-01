@@ -90,7 +90,7 @@ export const getBridgeArgs = async (
         tokenVaultAddress,
         isTokenAlreadyDeployed,
         tokenIds: tokenIds.map((id) => Number(id)),
-        amounts: [token.type === TokenType.ERC721 ? 0 : Number(amount)],
+        amounts: [token.type === TokenType.ERC721 ? 0n : amount],
       };
       return args as BridgeArgsMap[typeof token.type];
     }

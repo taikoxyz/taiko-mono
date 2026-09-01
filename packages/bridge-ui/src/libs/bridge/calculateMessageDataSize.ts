@@ -30,7 +30,7 @@ export async function calculateMessageDataSize({
   token: Token | NFT | NFT[];
   chainId: number;
   tokenIds?: number[];
-  amounts?: number[];
+  amounts?: bigint[];
 }): Promise<{ size: number }> {
   if (Array.isArray(token)) {
     let totalSize = 0;
@@ -63,7 +63,7 @@ export async function calculateMessageDataSize({
   }
 }
 
-async function encodeData(token: Token | NFT, chainId: number, tokenIds?: number[], amounts?: number[]): Promise<Hex> {
+async function encodeData(token: Token | NFT, chainId: number, tokenIds?: number[], amounts?: bigint[]): Promise<Hex> {
   if (token.type === TokenType.ERC20) {
     const fungibleToken = token as Token;
     const cToken = {
@@ -159,7 +159,7 @@ async function encodeData(token: Token | NFT, chainId: number, tokenIds?: number
     ];
 
     const encodedTokenIds = normalizeTokenIds(tokenIds);
-    const encodedAmounts = (amounts?.length ? amounts : encodedTokenIds.map(() => 1)).map(BigInt);
+    const encodedAmounts = amounts?.length ? amounts : encodedTokenIds.map(() => 1n);
     const values = [
       [cNFT.chainId, cNFT.addr, cNFT.symbol, cNFT.name],
       zeroAddress,

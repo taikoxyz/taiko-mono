@@ -64,9 +64,26 @@ const confirmButton = () =>
  * The acknowledgement checkbox is the last one in the dialog. The earlier one toggles
  * gasLimitZero, which switches the method to NONE and removes the fee input entirely.
  */
+/** The zero-gas-limit checkbox is the first one in the dialog */
+const toggleZeroGasLimit = async () => {
+  const checkboxes = Array.from(target.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[];
+  checkboxes[0].click();
+  await tick();
+};
+
+const cancelButton = () =>
+  Array.from(target.querySelectorAll('button')).find((b) =>
+    b.textContent?.includes('common.cancel'),
+  ) as HTMLButtonElement;
+
 const acknowledge = async () => {
   const checkboxes = Array.from(target.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[];
   checkboxes[checkboxes.length - 1].click();
+  await tick();
+};
+
+const flushMicrotasks = async () => {
+  await new Promise((resolve) => setTimeout(resolve, 0));
   await tick();
 };
 
@@ -95,6 +112,64 @@ describe('zero gas limit', () => {
 
     expect(get(processingFeeMethod)).toBe(ProcessingFeeMethod.NONE);
     expect(get(gasLimitZero) && get(processingFee) !== BigInt(0)).toBe(false);
+  });
+
+  it('re-applies the switch when the zero gas limit is turned back off', async () => {
+    gasLimitZero.set(true);
+    processingFeeMethod.set(ProcessingFeeMethod.NONE);
+
+    component?.$destroy();
+    component = new ProcessingFee({ target, props: { hasEnoughEth: false } });
+    await tick();
+    expect(get(processingFeeMethod)).toBe(ProcessingFeeMethod.NONE);
+
+    // The guard read gasLimitZero with get() inside the called function, which Svelte does
+    // not track - so the reason for holding NONE could go away without anything re-running
+    gasLimitZero.set(false);
+    await tick();
+
+    expect(get(processingFeeMethod)).toBe(ProcessingFeeMethod.RECOMMENDED);
+  });
+
+  it('does not commit the zero-gas-limit choice when the dialog is cancelled', async () => {
+    // A committed, non-zero fee first - the reactive under test only fired when the
+    // committed fee was non-zero, which the recommended fee never is in this harness
+    await openCustom();
+    await acknowledge();
+    await type('0.002');
+    confirmButton().click();
+    await tick();
+    expect(get(processingFeeMethod)).toBe(ProcessingFeeMethod.CUSTOM);
+    expect(get(processingFee)).toBe(BigInt('2000000000000000'));
+
+    // Now reopen, look at the zero-gas-limit option, and change your mind
+    await openCustom();
+    await toggleZeroGasLimit();
+    cancelButton()?.click();
+    await tick();
+
+    // Toggling the checkbox used to write the committed stores immediately, so Cancel
+    // left the method at NONE with fee 0 - the next bridge going out with no relayer fee
+    // and silent manual claiming, a state the user had explicitly cancelled
+    expect(get(gasLimitZero)).toBe(false);
+    expect(get(processingFeeMethod)).toBe(ProcessingFeeMethod.CUSTOM);
+    expect(get(processingFee)).toBe(BigInt('2000000000000000'));
+  });
+
+  it('clears the zero-gas-limit choice when the fee is reset', async () => {
+    gasLimitZero.set(true);
+    processingFeeMethod.set(ProcessingFeeMethod.NONE);
+    component?.$destroy();
+    component = new ProcessingFee({ target, props: { hasEnoughEth: true } });
+    await tick();
+
+    (component as unknown as { resetProcessingFee: () => void }).resetProcessingFee();
+    await tick();
+
+    // Leaving it set meant the reactive dragged the freshly reset method back to NONE,
+    // and the next transfer went out with gasLimit 0 without being acknowledged again
+    expect(get(gasLimitZero)).toBe(false);
+    expect(get(processingFeeMethod)).toBe(ProcessingFeeMethod.RECOMMENDED);
   });
 
   it('still switches away from the zero-fee method when the gas limit is not zero', async () => {
@@ -172,6 +247,21 @@ describe('custom processing fee', () => {
     expect(confirmButton().disabled).toBe(true);
   });
 
+  it('treats a lone decimal point as mid-typing, not as a mistake', async () => {
+    await openCustom();
+    await acknowledge();
+    // What a user typing ".5" passes through on the way
+    await type('.');
+
+    expect(errorShown()).toBe(false);
+    // Still nothing to confirm, but nothing to complain about either
+    expect(confirmButton().disabled).toBe(true);
+
+    await type('.5');
+    expect(errorShown()).toBe(false);
+    expect(confirmButton().disabled).toBe(false);
+  });
+
   it('says why a fee that cannot be parsed is blocked', async () => {
     await openCustom();
     await acknowledge();
@@ -179,6 +269,44 @@ describe('custom processing fee', () => {
 
     expect(confirmButton().disabled).toBe(true);
     expect(errorShown()).toBe(true);
+  });
+
+  it('reopens on a committed custom fee without making the user retype it', async () => {
+    await openCustom();
+    await acknowledge();
+    await type('0.002');
+    confirmButton().click();
+    await tick();
+    expect(get(processingFeeMethod)).toBe(ProcessingFeeMethod.CUSTOM);
+
+    await openCustom();
+    await flushMicrotasks();
+
+    // The "box must hold a usable fee" rule was never meant to demand a retype just to
+    // reach anything else in the dialog
+    expect(feeInput().value).toBe('0.002');
+    await acknowledge();
+    expect(confirmButton().disabled).toBe(false);
+  });
+
+  it('reopens on a committed custom fee of zero the same way', async () => {
+    // parseCustomFeeInput accepts zero, so a zero fee is a committed custom fee like any
+    // other. Gating the prefill on a positive amount left it reopening to an empty box
+    // with Confirm disabled until the user retyped a fee they had already chosen
+    await openCustom();
+    await acknowledge();
+    await type('0');
+    confirmButton().click();
+    await tick();
+    expect(get(processingFeeMethod)).toBe(ProcessingFeeMethod.CUSTOM);
+    expect(get(processingFee)).toBe(BigInt(0));
+
+    await openCustom();
+    await flushMicrotasks();
+
+    expect(feeInput().value).toBe('0');
+    await acknowledge();
+    expect(confirmButton().disabled).toBe(false);
   });
 
   it('clears the invalid draft across a CUSTOM -> RECOMMENDED -> CUSTOM round trip', async () => {

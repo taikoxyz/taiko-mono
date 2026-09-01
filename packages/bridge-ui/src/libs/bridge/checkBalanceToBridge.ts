@@ -130,7 +130,7 @@ async function handleErc1155Bridge(args: CheckBalanceToBridgeTokenArgs) {
     estimatedCost = await estimateCostOfBridging(bridges.ERC1155, {
       ...args,
       wallet,
-      amounts: _amount.map((a) => Number(a)),
+      amounts: _amount,
       token: tokenAddress,
       tokenVaultAddress: erc1155VaultAddress,
       isTokenAlreadyDeployed,

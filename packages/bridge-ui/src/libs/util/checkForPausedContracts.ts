@@ -9,14 +9,24 @@ import { getLogger } from './logger';
 
 const log = getLogger('bridge:checkForPausedContracts');
 
-export const isBridgePaused = async () => {
-  return await checkForPausedContracts();
+/** A `paused()` read that threw: the contract's state is unknown, not paused. */
+const UNKNOWN = 'unknown';
+
+/**
+ * @dev Reports whether a bridge contract is paused.
+ * @param srcChainId Restricts the check to the bridge that sends from this chain. Omit to
+ *                   check every configured bridge, which is what the global paused modal
+ *                   is driven off.
+ * @return paused_ Whether a bridge that could be read reports itself paused
+ */
+export const isBridgePaused = async (srcChainId?: number) => {
+  return await checkForPausedContracts(srcChainId);
 };
 
-export const checkForPausedContracts = async () => {
-  const bridgeContractInfo = getConfiguredBridges();
+export const checkForPausedContracts = async (srcChainId?: number) => {
+  const bridgeContractInfo = getConfiguredBridges(srcChainId);
 
-  const pausedContracts = await Promise.all(
+  const states = await Promise.all(
     bridgeContractInfo.map(async (bridgeInfo) => {
       const { srcChainId, bridgeAddress } = bridgeInfo;
       log(`Checking if bridge ${bridgeAddress} is paused on chain ${srcChainId}`);
@@ -28,35 +38,49 @@ export const checkForPausedContracts = async () => {
           functionName: 'paused',
         });
       } catch (error) {
-        //todo: will this ever happen and if so what do we do?
-        // Right now we assume something is very off and we should stop the user from doing anything
+        // An unreachable RPC says nothing about the contract. Reporting it as paused
+        // blocked every bridge action on a single transient error, and the block bought
+        // nothing: sendMessage and processMessage are `whenNotPaused` on chain, so a
+        // genuinely paused bridge rejects the transaction regardless of what this read did.
         console.error('Error checking for paused contracts', error);
-
-        return true;
+        return UNKNOWN;
       }
     }),
   );
 
-  if (pausedContracts.some((isPaused) => isPaused)) {
+  // One chain reporting itself paused settles it, whatever the others did
+  if (states.some((state) => state === true)) {
     bridgePausedModal.set(true);
     return true;
-  } else {
-    bridgePausedModal.set(false);
-    return false;
   }
+
+  // Clearing the modal is an assertion that nothing is paused, so it takes complete
+  // information. A chain that could not be read might be the paused one - dismissing a
+  // real pause because the *other* chains answered false is the failure this avoids, and
+  // it covers the all-unknown case as the same rule rather than a special one.
+  if (!states.includes(UNKNOWN)) {
+    bridgePausedModal.set(false);
+  }
+  return false;
 };
 
-function getConfiguredBridges() {
+function getConfiguredBridges(srcChainId?: number) {
   const bridges = [];
+  // The same bridge address is configured once per destination chain; reading it once per
+  // pair multiplied the RPC calls by the number of destinations for no extra information
+  const seen = new Set<string>();
 
-  for (const srcChainId in routingContractsMap) {
-    for (const destChainId in routingContractsMap[srcChainId]) {
-      const bridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
-      bridges.push({
-        srcChainId: parseInt(srcChainId),
-        destChainId: parseInt(destChainId),
-        bridgeAddress: bridgeAddress,
-      });
+  for (const configuredSrcChainId in routingContractsMap) {
+    const chainId = parseInt(configuredSrcChainId);
+    if (srcChainId !== undefined && chainId !== srcChainId) continue;
+
+    for (const destChainId in routingContractsMap[configuredSrcChainId]) {
+      const bridgeAddress = routingContractsMap[configuredSrcChainId][destChainId].bridgeAddress;
+      const key = `${chainId}:${bridgeAddress.toLowerCase()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      bridges.push({ srcChainId: chainId, bridgeAddress });
     }
   }
 

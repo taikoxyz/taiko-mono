@@ -3,26 +3,20 @@
   import { t } from 'svelte-i18n';
   import { type Hash, UserRejectedRequestError } from 'viem';
 
-  import { chainConfig } from '$chainConfig';
   import { CloseButton } from '$components/Button';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { DialogStep, DialogStepper } from '$components/Dialogs/Stepper';
-  import {
-    errorToast,
-    infoToast,
-    successToast,
-    warningToast,
-  } from '$components/NotificationToast/NotificationToast.svelte';
+  import { errorToast, warningToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { OnAccount } from '$components/OnAccount';
   import type { BridgeTransaction } from '$libs/bridge';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { getLogger } from '$libs/util/logger';
-  import { pendingTransactions } from '$stores/pendingTransactions';
 
   import Claim from '../Claim.svelte';
   import { claimWithQuotaGuard, showQuotaToastForClaimError } from '../ClaimDialog/quota';
   import { ClaimConfirmStep, ReviewStep } from '../Shared';
   import ClaimPreCheck from '../Shared/ClaimPreCheck.svelte';
+  import { reportDialogTransaction } from '../Shared/dialogTransactionFlow';
   import { ClaimAction } from '../Shared/types';
   import RetryStepNavigation from './RetryStepNavigation.svelte';
   import RetryOptionStep from './RetrySteps/RetryOptionStep.svelte';
@@ -44,6 +38,12 @@
 
   let canContinue = false;
   let retrying: boolean;
+  /**
+   * A retry transaction is on chain and its outcome is not known yet. Distinct from
+   * `retrying`, which `reset` clears: this survives a close so reopening the dialog cannot
+   * offer a second retry for a message whose first retry may still confirm.
+   */
+  let retryTxPending = false;
   let retryDone = false;
   let ClaimComponent: Claim;
   let isDesktopOrLarger = false;
@@ -87,6 +87,10 @@
   };
 
   const reset = () => {
+    // Closing the dialog or switching accounts does not cancel a retry already on chain.
+    // Rewinding the steps and clearing `retrying` here would hand the user a fresh Retry
+    // button for that same message, so a still-pending transaction keeps the dialog as is.
+    if (retryTxPending) return;
     activeStep = INITIAL_STEP;
     $selectedRetryMethod = RETRY_OPTION.CONTINUE;
     retryDone = false;
@@ -111,44 +115,27 @@
   const handleRetryTxSent = async (event: CustomEvent<{ txHash: Hash }>) => {
     const { txHash: transactionHash } = event.detail;
     txHash = transactionHash;
-    log('handle claim tx sent', txHash);
+    log('handle retry tx sent', txHash);
     retrying = true;
+    retryTxPending = true;
 
-    const explorer = chainConfig[Number(bridgeTx.destChainId)]?.blockExplorers?.default.url;
-    log('explorer', explorer);
-    infoToast({
-      title: $t('transactions.actions.claim.tx.title'),
-      message: $t('transactions.actions.claim.tx.message', {
-        values: {
-          token: bridgeTx.symbol,
-          url: `${explorer}/tx/${txHash}`,
-        },
-      }),
+    const outcome = await reportDialogTransaction({
+      txHash,
+      chainId: Number(bridgeTx.destChainId),
+      t: $t,
+      failureTitleKey: 'bridge.errors.retry_error',
     });
 
-    try {
-      await pendingTransactions.add(txHash, Number(bridgeTx.destChainId));
-    } catch (error) {
-      // A reverted or timed-out retry must not leave the dialog spinning forever
-      log('retry transaction failed or timed out', { txHash, error });
-      retrying = false;
-      errorToast({ title: $t('bridge.errors.retry_error') });
-      return;
-    }
+    // A wait that gave up leaves the transaction live and may yet process the message.
+    // Lowering the flags would re-enable Retry for it, so the dialog stays as it is
+    if (outcome === 'pending') return;
 
     retrying = false;
+    retryTxPending = false;
+    if (outcome === 'failed') return;
+
     retryDone = true;
-
     dispatch('retryDone');
-
-    successToast({
-      title: $t('transactions.actions.claim.success.title'),
-      message: $t('transactions.actions.claim.tx.message', {
-        values: {
-          url: `${explorer}/tx/${txHash}`,
-        },
-      }),
-    });
   };
 </script>
 

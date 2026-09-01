@@ -5,6 +5,7 @@
  * so selecting an NFT and then loading more pages silently deselected it - and so did a
  * page fetch that failed, which deliberately keeps the pages already on screen.
  */
+import { tick } from 'svelte';
 import { get } from 'svelte/store';
 import { vi } from 'vitest';
 
@@ -32,10 +33,12 @@ vi.mock('$libs/bridge/fetchNFTs', () => ({
 }));
 
 import { destNetwork as destChain, selectedNFTs } from '$components/Bridge/state';
+import { ImportMethod } from '$components/Bridge/types';
 import { account } from '$stores/account';
 import { connectedSourceChain as srcChain } from '$stores/network';
 
 import ImportStep from './ImportStep.svelte';
+import { foundNFTs, selectedImportMethod } from './state';
 
 const NFT_A = { tokenId: 1, name: 'A', addresses: {} } as never;
 const NFT_B = { tokenId: 2, name: 'B', addresses: {} } as never;
@@ -53,6 +56,9 @@ const buttonWith = (text: string) =>
 beforeEach(() => {
   fetchNFTs.mockReset();
   selectedNFTs.set([]);
+  // Module-level stores now hold the scan results, so they outlive a test unless reset
+  foundNFTs.set([]);
+  selectedImportMethod.set(ImportMethod.NONE);
   account.set({ address: '0xaaaa', isConnected: true } as never);
   srcChain.set({ id: 1 } as never);
   destChain.set({ id: 2 } as never);
@@ -132,6 +138,67 @@ describe('scanned NFT pagination', () => {
 
     expect(buttonWith('paginator.more')).toBeFalsy();
     expect(buttonWith('paginator.everything_loaded')).toBeTruthy();
+  });
+
+  it('keeps "load more" usable when the scan could not run at all', async () => {
+    await scan([NFT_A]);
+
+    // The destination chain goes away while the scanned view stays mounted, so
+    // scanForNFTs returns without fetching. Nothing arrived, but nothing was asked for
+    // either. (Losing the account instead resets the whole view via OnAccount.)
+    destChain.set(undefined as never);
+    await tick();
+
+    fetchNFTs.mockClear();
+    buttonWith('paginator.more')?.click();
+    await flush();
+    await flush();
+
+    expect(fetchNFTs).not.toHaveBeenCalled();
+    expect(buttonWith('paginator.more')).toBeTruthy();
+  });
+
+  it('keeps the scan results when the step is remounted', async () => {
+    await scan([NFT_A, NFT_B]);
+    selectedNFTs.set([NFT_A]);
+    expect(get(foundNFTs)).toHaveLength(2);
+
+    // Back-navigation destroys and recreates ImportStep. A mount reset here dumped the
+    // user on the initial scan chooser with their results and selection gone
+    component?.$destroy();
+    target.remove();
+    target = document.createElement('div');
+    document.body.appendChild(target);
+    component = new ImportStep({ target, props: {} });
+    await flush();
+
+    expect(get(foundNFTs)).toHaveLength(2);
+    expect(get(selectedNFTs)).toEqual([NFT_A]);
+    expect(get(selectedImportMethod)).toBe(ImportMethod.SCAN);
+  });
+
+  it('discards the scan when the source chain changes', async () => {
+    await scan([NFT_A, NFT_B]);
+    selectedNFTs.set([NFT_A]);
+
+    // The list describes what the wallet holds on chain 1. Kept across a chain switch it
+    // offers NFTs the user does not own on chain 3, and the scanned view stays mounted
+    // through the switch so nothing else was clearing it
+    srcChain.set({ id: 3 } as never);
+    await flush();
+
+    expect(get(foundNFTs)).toEqual([]);
+    expect(get(selectedNFTs)).toEqual([]);
+    expect(get(selectedImportMethod)).toBe(ImportMethod.NONE);
+  });
+
+  it('keeps the scan when the source chain has not actually changed', async () => {
+    await scan([NFT_A, NFT_B]);
+
+    srcChain.set({ id: 1 } as never);
+    await flush();
+
+    expect(get(foundNFTs)).toHaveLength(2);
   });
 
   it('still clears the selection on a fresh scan', async () => {
