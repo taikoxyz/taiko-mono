@@ -211,6 +211,10 @@ the lockfile.
       build-info standard input/output, validates format/compiler/settings/exact source content and
       source AST, rejects duplicate compiler outputs, and byte-for-byte cross-checks the single
       `output.contracts[sourcePath][contractName]` object against the emitted artifact JSON. The
+      AST for every managed source must be a structurally valid Solidity `SourceUnit`: its root
+      `nodeType` is `SourceUnit`, `nodes` is an array, and every child is an object with a string
+      `nodeType`. Missing, falsy or malformed AST data is never evidence, including for a
+      `free-definitions` row that emits no contract artifact. The
       artifact-owned checker key is
       `(sourcePath, contractName, profile, solcVersion, evmVersion, optimizerRuns, abiHash,
 linkReferencesHash, immutableReferencesHash, creationHash, runtimeHash)` and fails closed on
@@ -249,7 +253,9 @@ linkReferencesHash, immutableReferencesHash, creationHash, runtimeHash)` and fai
       compiler output.
 - [ ] **Step 6: Wire one clean-checkout aggregate command into protocol CI.** It runs the isolated
       default exclusion build, forced shared/L1/L2 builds, both cross-profile Solidity consumer
-      tests, the ownership checker and all adversarial checker tests in that order. Standalone L1/L2
+      tests and all adversarial checker tests. Because Forge tests have FFI authority and build
+      outputs are mutable, the final trust point then force-rebuilds shared, L1 and L2 once more and
+      immediately runs the ownership checker with no executable test in between. Standalone L1/L2
       test commands force-rebuild the shared owner artifact before use; existence alone is not
       freshness evidence.
 - [ ] **Step 7: Treat this as a stop gate.** If the checker cannot distinguish and enforce

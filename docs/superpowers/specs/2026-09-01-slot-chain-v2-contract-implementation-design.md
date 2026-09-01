@@ -86,6 +86,11 @@ not source-import and recompile the implementation under another EVM or optimize
 Build-info does not self-authenticate a Foundry profile name. Profile identity is therefore the
 trusted clean-build invocation plus its fixed output root, checked against the resolved
 `forge config --json` compiler, source, test, script, output and cache settings.
+Every managed build-info AST must be a structurally valid Solidity `SourceUnit` with an array of
+typed child nodes; missing, falsy or malformed AST data proves nothing, even for a
+`free-definitions` source that emits no contract artifact. Since Forge tests have FFI authority and
+build outputs are mutable, the final ownership trust point force-rebuilds shared, L1 and L2 and
+immediately checks those fresh outputs after all executable tests have completed.
 
 The artifact and address ownership classes are:
 
