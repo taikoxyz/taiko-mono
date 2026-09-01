@@ -203,9 +203,17 @@ for it. The retained record goes when the next nonce mines, so at most one settl
 Receipts are read before the transaction manager has confirmation depth, so one can be observed for
 a transaction a reorg then removes. The nonce is live again and may be recycled to a different
 claim: an acceptance carrying a claim other than the retained one replaces it, while a repeat of
-the claim already recorded is treated as the stale fee variant it is. The hash index is bounded as
-well — a mined nonce collects the variants it replaced, since a nonce executes once, and a cap
-covers a nonce that never lands at all, where no later receipt can ever collect anything.
+the claim already recorded is treated as the stale fee variant it is. Sends answer in any order, so
+each acceptance also records which send learned it, and an older send's success cannot displace a
+newer one — a resend of the claim the reorg removed can otherwise report success after its
+replacement was recorded and put the departed claim back in front.
+
+The hash index is bounded: a mined nonce collects the variants it replaced, since a nonce executes
+once, and a cap covers a nonce that never lands at all, where no later receipt can ever collect
+anything. The cap drops the oldest send first, the one a relay is least likely still to hold.
+Because a cap can in principle drop the hash that does land, a receipt this index cannot resolve is
+settled against the account's nonce on `DEST_RPC_URL` instead, so releasing never depends on the
+cache hitting.
 
 Plain `http://` is rejected unless the host is the name `localhost` or an IP literal in a loopback,
 private or link-local range: a signed claim on the wire in cleartext can be read and front-run,

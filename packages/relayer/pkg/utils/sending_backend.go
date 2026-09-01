@@ -123,6 +123,25 @@ type refusalRun struct {
 	count int
 }
 
+// acceptance is what one endpoint took under one nonce: which claim, and which send learned it.
+//
+// The send is what orders two answers about the same nonce. Sends run concurrently and their
+// results come back in any order, so an endpoint's success can describe a state two steps out of
+// date: a resend of a claim that has since been reorged out and replaced can report success after
+// the replacement was already recorded, and by claim alone that reads as the chain having moved
+// again. The claim says what; this says when.
+type acceptance struct {
+	claim common.Hash
+	send  uint64
+}
+
+// sentTx is a transaction this backend put on the wire: the nonce it occupies, so a receipt can be
+// resolved to one, and the send that put it there, so the index can be trimmed oldest-first.
+type sentTx struct {
+	nonce uint64
+	send  uint64
+}
+
 // claimIdentity identifies the message a transaction carries, across the re-signing that changes
 // everything else about it.
 //
@@ -224,8 +243,11 @@ type SendingBackend struct {
 	generation       []uint64
 	highestAccepted  []uint64
 	hasAccepted      []bool
-	accepted         []map[uint64]common.Hash
-	sentTxNonces     map[common.Hash]uint64
+	accepted         []map[uint64]acceptance
+	sentTxNonces     map[common.Hash]sentTx
+	sends            uint64
+	account          common.Address
+	hasAccount       bool
 	minedThrough     uint64
 	hasMined         bool
 	failureThreshold int
@@ -273,7 +295,7 @@ func NewSendingBackend(
 		highestAccepted:  make([]uint64, len(private)),
 		hasAccepted:      make([]bool, len(private)),
 		accepted:         newAcceptedNonceSets(len(private)),
-		sentTxNonces:     make(map[common.Hash]uint64),
+		sentTxNonces:     make(map[common.Hash]sentTx),
 		failureThreshold: DefaultPrivateRPCFailureThreshold,
 		failureCeiling:   DefaultPrivateRPCConsecutiveFailureCeiling,
 		allRefused:       make(map[uint64]refusalRun),
@@ -309,6 +331,10 @@ func NewSendingBackend(
 // context, fail instantly, and be counted as failing, which is how the failover for the outage
 // mode it matters most for would take the healthy relays down with it.
 func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	// Taken before anything is offered anywhere, so that two sends of one nonce are ordered by when
+	// they started rather than by when their answers happen to come back.
+	send := b.nextSend()
+
 	inRotation := b.inRotation()
 
 	if len(inRotation) == 0 {
@@ -323,7 +349,7 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 		err := b.ETHBackend.SendTransaction(ctx, tx)
 
 		if err == nil {
-			b.rememberSentNonce(tx)
+			b.rememberSentNonce(tx, send)
 		}
 
 		// Counted only once the broadcast actually went out. A send that failed against our own
@@ -373,7 +399,7 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 
 		if err == nil {
 			b.clearAllRefused(tx.Nonce())
-			b.recordSuccess(endpoint.index, tx)
+			b.recordSuccess(endpoint.index, tx, send)
 			relayer.PrivateRPCSends.WithLabelValues(strconv.Itoa(endpoint.index)).Inc()
 
 			return nil
@@ -489,7 +515,7 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 
 		publicErr := b.ETHBackend.SendTransaction(ctx, tx)
 		if publicErr == nil {
-			b.rememberSentNonce(tx)
+			b.rememberSentNonce(tx, send)
 
 			// The run is deliberately kept. This claim is in the open now, so every resend of it
 			// belongs in the public pool too until a relay takes it back — see countAllRefused.
@@ -532,8 +558,8 @@ func (b *SendingBackend) TransactionReceipt(
 	txHash common.Hash,
 ) (*types.Receipt, error) {
 	receipt, err := b.ETHBackend.TransactionReceipt(ctx, txHash)
-	if err == nil && receipt != nil {
-		b.clearAcceptedThrough(txHash)
+	if err == nil && receipt != nil && !b.clearAcceptedThrough(txHash) {
+		b.clearAcceptedBelowChain(ctx)
 	}
 
 	return receipt, err
@@ -548,12 +574,12 @@ func (b *SendingBackend) TransactionReceipt(
 // so the private records for that nonce stay for the life of the process. These records have no
 // cap — that was removed so a burst larger than the old bound could not evict a live acceptance —
 // which makes every landing path having to be recognisable here a requirement rather than a tidy-up.
-func (b *SendingBackend) rememberSentNonce(tx *types.Transaction) {
+func (b *SendingBackend) rememberSentNonce(tx *types.Transaction, send uint64) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	b.sentTxNonces[tx.Hash()] = tx.Nonce()
-	b.boundSentNonces(tx.Nonce())
+	b.sentTxNonces[tx.Hash()] = sentTx{nonce: tx.Nonce(), send: send}
+	b.boundSentNonces()
 }
 
 // boundSentNonces caps the index. The caller holds the lock.
@@ -564,21 +590,23 @@ func (b *SendingBackend) rememberSentNonce(tx *types.Transaction) {
 // TX_SEND_TIMEOUT keeps handing the nonce back out and every fee variant of every attempt adds a
 // hash. Without a bound that grows for the life of the process.
 //
-// Dropping an entry costs a lookup, not correctness: a receipt that cannot be resolved to a nonce
-// simply releases nothing that time, and the next receipt that can resolve releases everything
-// below it anyway. Nonces ascend, so the lowest is the stalest — and when one nonce is stuck it is
-// the only one here, which leaves the oldest variants of it, the low-fee ones its own resends have
-// already replaced.
-func (b *SendingBackend) boundSentNonces(justAdded uint64) {
+// The oldest send goes first. Every entry under a stuck nonce shares that nonce, so the nonce
+// cannot order them and map iteration carries no age; the send number can, and it is the only thing
+// here that says which resend a relay is least likely to still be holding — its own later variants
+// have replaced it. A receipt whose entry has gone is not a correctness problem either: the caller
+// settles it against the chain instead, so releasing never depends on this cache hitting. See
+// clearAcceptedBelowChain.
+func (b *SendingBackend) boundSentNonces() {
 	for len(b.sentTxNonces) > maxTrackedSentNonces {
 		var (
-			stalest = justAdded
-			evict   common.Hash
+			oldest uint64
+			evict  common.Hash
+			found  bool
 		)
 
-		for hash, nonce := range b.sentTxNonces {
-			if evict == (common.Hash{}) || nonce < stalest {
-				stalest, evict = nonce, hash
+		for hash, sent := range b.sentTxNonces {
+			if !found || sent.send < oldest {
+				oldest, evict, found = sent.send, hash, true
 			}
 		}
 
@@ -589,14 +617,89 @@ func (b *SendingBackend) boundSentNonces(justAdded uint64) {
 // clearAcceptedThrough removes exact acceptance state made obsolete by a mined transaction. The
 // tx hash identifies its nonce because every transaction this backend sends is indexed by
 // rememberSentNonce; a receipt for a transaction this backend never sent has no state to release.
-func (b *SendingBackend) clearAcceptedThrough(txHash common.Hash) {
+// nextSend hands out the ticket that orders one send against every other.
+func (b *SendingBackend) nextSend() uint64 {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	nonce, ok := b.sentTxNonces[txHash]
-	if !ok {
+	b.sends++
+
+	return b.sends
+}
+
+// PendingNonceAt forwards to the public endpoint and remembers the account it was asked about.
+//
+// The nonce itself has to come from our own node — resolving it against a private endpoint is what
+// would let two concurrent claims be signed with the same nonce. The account is kept because it is
+// the only place this backend learns which address it is sending for, and settling a receipt it
+// cannot resolve from its own index needs it; see clearAcceptedBelowChain.
+func (b *SendingBackend) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
+	b.mu.Lock()
+	b.account, b.hasAccount = account, true
+	b.mu.Unlock()
+
+	return b.ETHBackend.PendingNonceAt(ctx, account)
+}
+
+// clearAcceptedBelowChain releases exact state against the account's settled nonce rather than
+// against this backend's own index.
+//
+// The index is a cache and is capped, so a receipt can arrive for a transaction whose hash has been
+// evicted. Left there, nothing would release the exact records, and those are deliberately uncapped
+// — a burst larger than any fixed bound must not evict a live acceptance. Asking the chain what the
+// account has settled makes the release independent of whether the lookup hit.
+//
+// The transaction at the settled nonce minus one is the most recent to execute, and its record is
+// the one an already-in-flight resend still needs, so the release stops below it exactly as the
+// index-driven path does.
+func (b *SendingBackend) clearAcceptedBelowChain(ctx context.Context) {
+	b.mu.Lock()
+	account, known := b.account, b.hasAccount
+	b.mu.Unlock()
+
+	if !known {
 		return
 	}
+
+	settled, err := b.NonceAt(ctx, account, nil)
+	if err != nil || settled == 0 {
+		return
+	}
+
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	mined := settled - 1
+
+	if !b.hasMined || mined > b.minedThrough {
+		b.minedThrough, b.hasMined = mined, true
+	}
+
+	for index := range b.accepted {
+		for acceptedNonce := range b.accepted[index] {
+			if acceptedNonce < mined {
+				delete(b.accepted[index], acceptedNonce)
+			}
+		}
+	}
+
+	for sentHash, sent := range b.sentTxNonces {
+		if sent.nonce < mined {
+			delete(b.sentTxNonces, sentHash)
+		}
+	}
+}
+
+func (b *SendingBackend) clearAcceptedThrough(txHash common.Hash) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	landed, ok := b.sentTxNonces[txHash]
+	if !ok {
+		return false
+	}
+
+	nonce := landed.nonce
 
 	if !b.hasMined || nonce > b.minedThrough {
 		b.minedThrough = nonce
@@ -629,11 +732,13 @@ func (b *SendingBackend) clearAcceptedThrough(txHash common.Hash) {
 	// nonce executes once, so every other transaction recorded at it — the lower-fee variants the
 	// resends replaced — can never produce a receipt again. The one that landed is kept, because
 	// the transaction manager reads its receipt more than once.
-	for sentHash, sentNonce := range b.sentTxNonces {
-		if sentNonce < nonce || (sentNonce == nonce && sentHash != txHash) {
+	for sentHash, sent := range b.sentTxNonces {
+		if sent.nonce < nonce || (sent.nonce == nonce && sentHash != txHash) {
 			delete(b.sentTxNonces, sentHash)
 		}
 	}
+
+	return true
 }
 
 // clearAllRefused forgets the refusal run for this nonce, because a private endpoint has just taken
@@ -1092,7 +1197,7 @@ func (b *SendingBackend) recordHeldNonce(
 	accepted, known := b.accepted[index][nonce]
 
 	switch {
-	case known && accepted == claim:
+	case known && accepted.claim == claim:
 		answer = heldThisClaim
 	case known:
 		answer = heldOtherClaim
@@ -1166,7 +1271,7 @@ func (b *SendingBackend) leaveRotation(index int) {
 // demonstrably just accepted a transaction, so it belongs back in rotation whatever the tally from
 // the outage says. The generation is left alone, which keeps the failures still in flight from that
 // outage from being charged against the budget this clears.
-func (b *SendingBackend) recordSuccess(index int, tx *types.Transaction) {
+func (b *SendingBackend) recordSuccess(index int, tx *types.Transaction, send uint64) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -1189,6 +1294,16 @@ func (b *SendingBackend) recordSuccess(index int, tx *types.Transaction) {
 	b.hasAccepted[index] = true
 
 	claim := claimIdentity(tx)
+	recorded, known := b.accepted[index][nonce]
+
+	// Sends run concurrently and answer in any order, so this success can be older than the record
+	// it would replace: a resend of a claim that has since been reorged out and recycled can report
+	// success after the replacement was already recorded, and by claim alone that reads as the
+	// chain having moved again — putting the claim that is gone back in front of the one this
+	// endpoint is actually carrying. The send number says which answer is newer.
+	if known && recorded.send > send {
+		return
+	}
 
 	// A receipt query and the next private send can be in flight together. If the receipt wins the
 	// lock, a success that comes back afterwards is a fee-bumped variant of the transaction that
@@ -1202,7 +1317,7 @@ func (b *SendingBackend) recordSuccess(index int, tx *types.Transaction) {
 	// claim that went away, so the new claim's own holder answered for it and was read as holding
 	// someone else's — and the send carried on to a backup that had no reason to be asked. A
 	// different claim under a mined nonce is the chain having moved, not a stale variant.
-	if b.hasMined && nonce <= b.minedThrough && b.accepted[index][nonce] == claim {
+	if b.hasMined && nonce <= b.minedThrough && known && recorded.claim == claim {
 		return
 	}
 
@@ -1219,19 +1334,19 @@ func (b *SendingBackend) recordSuccess(index int, tx *types.Transaction) {
 	// on the nonce alone, that message inherits the acceptance, and the endpoint answering
 	// "replacement transaction underpriced" about the claim it is still holding would end the new
 	// claim's send with nobody carrying it.
-	b.accepted[index][nonce] = claim
-	b.sentTxNonces[tx.Hash()] = nonce
+	b.accepted[index][nonce] = acceptance{claim: claim, send: send}
+	b.sentTxNonces[tx.Hash()] = sentTx{nonce: nonce, send: send}
 
-	b.boundSentNonces(nonce)
+	b.boundSentNonces()
 }
 
 // newAcceptedNonceSets builds one accepted-nonce record per endpoint, mapping each nonce to the
 // claim that was accepted under it.
-func newAcceptedNonceSets(endpoints int) []map[uint64]common.Hash {
-	sets := make([]map[uint64]common.Hash, endpoints)
+func newAcceptedNonceSets(endpoints int) []map[uint64]acceptance {
+	sets := make([]map[uint64]acceptance, endpoints)
 
 	for i := range sets {
-		sets[i] = make(map[uint64]common.Hash)
+		sets[i] = make(map[uint64]acceptance)
 	}
 
 	return sets

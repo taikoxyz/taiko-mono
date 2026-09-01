@@ -36,6 +36,17 @@ type fakeBackend struct {
 	closed            bool
 	closeCalls        int
 	receipt           *types.Receipt
+	settledNonce      uint64
+	settledNonceCalls int
+}
+
+func (f *fakeBackend) NonceAt(_ context.Context, _ common.Address, _ *big.Int) (uint64, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.settledNonceCalls++
+
+	return f.settledNonce, nil
 }
 
 func (f *fakeBackend) PendingNonceAt(_ context.Context, _ common.Address) (uint64, error) {
@@ -113,6 +124,39 @@ func (f *fakeSender) SendTransaction(_ context.Context, tx *types.Transaction) e
 }
 
 func (f *fakeSender) Close() { f.closed = true }
+
+// stallingSender holds one send inside the endpoint until the test lets it finish, so its result
+// can be made to arrive after later sends of the same nonce have already been recorded. Unlike
+// gatedSender below it gates a single send rather than a set of nonces, and it still records what
+// it takes.
+type stallingSender struct {
+	fakeSender
+	stallMu sync.Mutex
+	armed   bool
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (s *stallingSender) arm() {
+	s.stallMu.Lock()
+	defer s.stallMu.Unlock()
+
+	s.armed = true
+}
+
+func (s *stallingSender) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	s.stallMu.Lock()
+	hold := s.armed
+	s.armed = false
+	s.stallMu.Unlock()
+
+	if hold {
+		close(s.entered)
+		<-s.release
+	}
+
+	return s.fakeSender.SendTransaction(ctx, tx)
+}
 
 // rpcRejection models a JSON-RPC error response: the relay was reachable and answered that it will
 // not take this transaction. go-ethereum surfaces these as rpc.Error, which is how the backend
@@ -437,7 +481,7 @@ func TestSendingBackend_ASuccessfulSendReadmitsATrippedEndpoint(t *testing.T) {
 	require.Equal(t, []int{1}, rotation(b))
 
 	// An endpoint that just took a transaction is not down, whatever its recent record.
-	b.recordSuccess(0, txWithNonce(1))
+	b.recordSuccess(0, txWithNonce(1), b.nextSend())
 
 	assert.Equal(t, []int{0, 1}, rotation(b))
 }
@@ -2174,7 +2218,7 @@ func TestSendingBackend_DoesNotRestoreAcceptanceAfterReceiptWinsRace(t *testing.
 		GasTipCap: big.NewInt(2),
 		Data:      mined.Data(),
 	})
-	b.recordSuccess(0, late)
+	b.recordSuccess(0, late, b.nextSend())
 
 	// The mined nonce keeps the record it already had — an in-flight resend still needs it — but
 	// the stale variant adds nothing of its own, so it cannot reopen the window a later receipt
@@ -2278,6 +2322,59 @@ func TestSendingBackend_APostReorgAcceptanceReplacesTheStaleHolderRecord(t *test
 	assert.Empty(t, backup.sent, "the endpoint that accepted this claim is still its holder")
 }
 
+func TestSendingBackend_ALateSuccessDoesNotUnseatANewerAcceptance(t *testing.T) {
+	public := &fakeBackend{receipt: &types.Receipt{}}
+	holder := &stallingSender{entered: make(chan struct{}), release: make(chan struct{})}
+	backup := &fakeSender{}
+
+	b := NewSendingBackend(public, []TxSender{holder, backup}, nil, nil)
+
+	first := txWithNonceAndCall(40, "the claim that mined")
+
+	require.NoError(t, b.SendTransaction(context.Background(), first))
+
+	_, err := b.TransactionReceipt(context.Background(), first.Hash())
+	require.NoError(t, err)
+
+	// A fee-bumped resend of the first claim goes out and stalls inside the endpoint.
+	stalled := types.NewTx(&types.DynamicFeeTx{
+		Nonce:     first.Nonce(),
+		Gas:       21_000,
+		GasTipCap: big.NewInt(9),
+		Data:      first.Data(),
+	})
+
+	holder.arm()
+
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+
+		_ = b.SendTransaction(context.Background(), stalled)
+	}()
+
+	<-holder.entered
+
+	// While it is stalled the reorg puts the nonce back, and it is recycled to a different claim
+	// which this endpoint accepts.
+	second := txWithNonceAndCall(40, "the claim that inherited the nonce")
+
+	require.NoError(t, b.SendTransaction(context.Background(), second))
+
+	// Only now does the stalled send report success. It describes a state two steps out of date,
+	// and reading it as the chain having moved again puts the claim that is gone back in front of
+	// the one this endpoint is actually carrying.
+	close(holder.release)
+	<-done
+
+	holder.err = rpcRejection{txpool.ErrAlreadyKnown.Error()}
+
+	require.NoError(t, b.SendTransaction(context.Background(), second))
+
+	assert.Empty(t, backup.sent, "an older result cannot unseat the acceptance that replaced it")
+}
+
 func TestSendingBackend_CollectsTheDeadVariantsOfAMinedNonce(t *testing.T) {
 	public := &fakeBackend{receipt: &types.Receipt{}}
 	only := &fakeSender{}
@@ -2307,6 +2404,36 @@ func TestSendingBackend_CollectsTheDeadVariantsOfAMinedNonce(t *testing.T) {
 	assert.Contains(t, b.sentTxNonces, landed.Hash(), "the one that landed is still read more than once")
 }
 
+func TestSendingBackend_AnEvictedLookupStillReleasesOlderRecords(t *testing.T) {
+	public := &fakeBackend{receipt: &types.Receipt{}, settledNonce: 42}
+	only := &fakeSender{}
+
+	b := NewSendingBackend(public, []TxSender{only}, nil, nil)
+
+	settled := txWithNonceAndCall(40, "the settled claim")
+	landed := txWithNonceAndCall(41, "the claim that lands")
+
+	require.NoError(t, b.SendTransaction(context.Background(), settled))
+	require.NoError(t, b.SendTransaction(context.Background(), landed))
+
+	// The backend learns which account it sends for the way it does in production.
+	_, err := b.PendingNonceAt(context.Background(), common.Address{})
+	require.NoError(t, err)
+
+	// The index is a capped cache, so the hash of the transaction that lands can have been evicted
+	// before its receipt is read. The exact records are deliberately uncapped, so nothing else
+	// would ever release them.
+	delete(b.sentTxNonces, landed.Hash())
+
+	_, err = b.TransactionReceipt(context.Background(), landed.Hash())
+	require.NoError(t, err)
+
+	assert.NotContains(t, b.accepted[0], settled.Nonce(),
+		"releasing has to survive a lookup the cache cannot answer")
+	assert.Contains(t, b.accepted[0], landed.Nonce(),
+		"and still stop below the nonce that just settled")
+}
+
 func TestSendingBackend_BoundsTheSentTransactionIndex(t *testing.T) {
 	only := &fakeSender{}
 
@@ -2315,9 +2442,26 @@ func TestSendingBackend_BoundsTheSentTransactionIndex(t *testing.T) {
 	// A nonce that never lands has no later receipt to collect its variants — nothing above it can
 	// mine either — while TX_SEND_TIMEOUT keeps handing the nonce back out and every fee variant of
 	// every attempt adds a hash.
+	var first, last *types.Transaction
+
 	for tip := int64(1); tip <= int64(maxTrackedSentNonces)*2; tip++ {
-		require.NoError(t, b.SendTransaction(context.Background(), txWithNonceAndTip(40, tip)))
+		variant := txWithNonceAndTip(40, tip)
+
+		require.NoError(t, b.SendTransaction(context.Background(), variant))
+
+		if first == nil {
+			first = variant
+		}
+
+		last = variant
 	}
 
 	assert.LessOrEqual(t, len(b.sentTxNonces), maxTrackedSentNonces)
+
+	// The bound alone says nothing about which entries survive it, and every variant here shares a
+	// nonce, so nothing about the nonce can order them either. Dropping the newest would satisfy
+	// the bound while discarding the resend most likely still to be live in a relay's pool, so the
+	// send number is what decides.
+	assert.NotContains(t, b.sentTxNonces, first.Hash(), "the oldest send is the one to drop")
+	assert.Contains(t, b.sentTxNonces, last.Hash(), "the newest send is the one to keep")
 }
