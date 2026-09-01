@@ -134,6 +134,31 @@ func claimIdentity(tx *types.Transaction) common.Hash {
 	return crypto.Keccak256Hash(tx.Data())
 }
 
+// heldAnswer says what an endpoint answering that it already holds a nonce means for the claim
+// being offered. The three cases do not agree on either question the caller has to settle: whether
+// the send is finished, and whether the answer shields this claim from the public fallback.
+type heldAnswer int
+
+const (
+	// heldUnattributed is a hold for a nonce this endpoint never took from us. It may be carrying
+	// our claim, learned from another relay's gossip, or it may be answering about something we
+	// cannot see. Nothing distinguishes them here, so the claim keeps the benefit of the doubt: the
+	// send goes on to the endpoints behind it, and the answer still keeps the claim out of the
+	// public mempool.
+	heldUnattributed heldAnswer = iota
+
+	// heldThisClaim is a hold for the exact claim being offered. The endpoint is carrying it, so
+	// the send is complete and there is nothing to gain by asking anyone else.
+	heldThisClaim
+
+	// heldOtherClaim is a hold for a nonce this endpoint took under a different claim — a recycled
+	// nonce whose earlier claim it is still carrying. That is a refusal of this claim in everything
+	// but wording: the endpoint has something else under this nonce, we cannot replace it, and it
+	// is demonstrably not holding what we are offering. Shielding this claim from the public
+	// fallback on the strength of that answer would leave nobody carrying it at all.
+	heldOtherClaim
+)
+
 // admission is one endpoint's place in a send's rotation snapshot: which endpoint, and which of
 // that endpoint's admissions the send was let in under.
 //
@@ -358,11 +383,6 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 		// a failure; a nonce this endpoint has not answered for before does count towards the
 		// consecutive ceiling, so answering this to everything still ends. See recordHeldNonce.
 		if holdsTheNonce(err) {
-			// Not a refusal, so it cannot count towards the public fallback either. Every endpoint
-			// answering that it holds this nonce means the claim is already everywhere it needs to
-			// be — broadcasting it publicly then would leak a claim the relays are all carrying.
-			allAnsweredRejection = false
-
 			relayer.PrivateRPCHeldNonce.WithLabelValues(strconv.Itoa(endpoint.index)).Inc()
 
 			// Charged against the consecutive count but not the failure tally. An endpoint that
@@ -370,7 +390,18 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 			// recordFailure entirely meant it could never reach the ceiling that exists to end
 			// exactly that: it would hold its place indefinitely while nothing was ever sent
 			// through it.
-			tripped, demonstrated := b.recordHeldNonce(endpoint, tx.Nonce(), claimIdentity(tx))
+			tripped, answer := b.recordHeldNonce(endpoint, tx.Nonce(), claimIdentity(tx))
+
+			// An endpoint that might be carrying this claim is not refusing it, so it cannot count
+			// towards the public fallback: every endpoint answering that way means the claim is
+			// already where it needs to be, and broadcasting it then would leak one the relays are
+			// all holding. An endpoint holding a different claim under a recycled nonce is the
+			// opposite — it is proof this claim is not there — and treating it as protection left
+			// a claim nobody carried looping until TX_SEND_TIMEOUT with the fallback suppressed.
+			if answer != heldOtherClaim {
+				allAnsweredRejection = false
+			}
+
 			if tripped {
 				relayer.PrivateRPCTrips.WithLabelValues(strconv.Itoa(endpoint.index)).Inc()
 
@@ -384,7 +415,8 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 			slog.Info("Private endpoint already holds this nonce",
 				"endpoint", endpoint.index,
 				"nonce", tx.Nonce(),
-				"endsSend", demonstrated,
+				"endsSend", answer == heldThisClaim,
+				"holdsAnotherClaim", answer == heldOtherClaim,
 			)
 
 			// A nonce this endpoint has demonstrably taken makes it the holder, so the claim is
@@ -397,12 +429,13 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 			// first, so three claims took a healthy backup out of rotation. Returning nil is also
 			// the honest answer for the transaction manager, which is what arms the fee bump and
 			// what TxNotInMempoolTimeout reads: the transaction is at a relay.
-			if demonstrated {
+			if answer == heldThisClaim {
 				return nil
 			}
 
-			// For a nonce it never took, the answer may be about a claim it learned from another
-			// relay's gossip. The endpoints behind it genuinely have not been asked.
+			// For anything else the endpoints behind this one genuinely have not been asked: the
+			// answer was either about a claim we cannot attribute, or about a different claim
+			// under a recycled nonce.
 			continue
 		}
 
@@ -914,27 +947,35 @@ func (b *SendingBackend) recordHeldNonce(
 	endpoint admission,
 	nonce uint64,
 	claim common.Hash,
-) (tripped, demonstrated bool) {
+) (tripped bool, answer heldAnswer) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	index := endpoint.index
 
-	// Which transactions this endpoint took is a fact about the endpoint's mempool, not a
-	// judgement about its health, so it is read before the generation guard and survives it. A
-	// concurrent send can trip this endpoint while our answer is still on the wire; that says the
-	// endpoint is unhealthy, it does not unsay what it is carrying. Suppressing the accounting is
-	// what the guard is for — dropping the acceptance too would send the claim onward and leave
-	// the same signed transaction live in a second builder's pool.
-	// Both halves have to match. A nonce this endpoint took, now carrying a different claim, is a
-	// recycled nonce: the endpoint is answering about the transaction it still holds, which is not
-	// the one being offered, and the endpoints behind it have not been asked about this claim at
-	// all.
+	// What this endpoint took is a fact about its mempool, not a judgement about its health, so it
+	// is read before the generation guard and survives it. A concurrent send can trip this
+	// endpoint while our answer is still on the wire; that says the endpoint is unhealthy, it does
+	// not unsay what it is carrying. Suppressing the accounting is what the guard is for —
+	// dropping the acceptance too would send the claim onward and leave the same signed
+	// transaction live in a second builder's pool.
+	//
+	// Both halves have to match for this to be our claim. A nonce this endpoint took, now carrying
+	// a different claim, is a recycled nonce: the endpoint is answering about the transaction it
+	// still holds, which is not the one being offered.
 	accepted, known := b.accepted[index][nonce]
-	demonstrated = known && accepted == claim
+
+	switch {
+	case known && accepted == claim:
+		answer = heldThisClaim
+	case known:
+		answer = heldOtherClaim
+	default:
+		answer = heldUnattributed
+	}
 
 	if b.generation[index] != endpoint.generation {
-		return false, demonstrated
+		return false, answer
 	}
 
 	// An endpoint answering for a nonce it has demonstrably taken is the holder by construction,
@@ -949,7 +990,7 @@ func (b *SendingBackend) recordHeldNonce(
 	// nobody holding it until TX_SEND_TIMEOUT. So the exemption keeps the mark and the caller gets
 	// the exact answer.
 	if b.hasAccepted[index] && nonce <= b.highestAccepted[index] {
-		return false, demonstrated
+		return false, answer
 	}
 
 	// Kept as well, for a nonce this endpoint never accepted: it may be answering for a claim it
@@ -963,7 +1004,7 @@ func (b *SendingBackend) recordHeldNonce(
 	// endpoint took satisfies the mark above and never reaches these lines, so today the two are
 	// the same value; carrying it keeps them the same if that stops being true.
 	if b.hasHeld[index] && b.lastHeld[index] == nonce {
-		return false, demonstrated
+		return false, answer
 	}
 
 	b.lastHeld[index] = nonce
@@ -974,10 +1015,10 @@ func (b *SendingBackend) recordHeldNonce(
 	if b.consecutive[index] >= b.failureCeiling {
 		b.leaveRotation(index)
 
-		return true, demonstrated
+		return true, answer
 	}
 
-	return false, demonstrated
+	return false, answer
 }
 
 // leaveRotation takes the endpoint at index out of rotation for the retry interval, ending the

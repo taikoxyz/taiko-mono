@@ -1881,10 +1881,10 @@ func TestSendingBackend_DropsAHeldAnswerFromAnEndpointThatHasSinceLeft(t *testin
 
 	// A held answer that outlived the trip belongs to the admission that is over, not to the fresh
 	// budget the endpoint comes back with, so it must not move the count at all.
-	tripped, demonstrated := b.recordHeldNonce(stale, 5, claimIdentity(txWithNonce(5)))
+	tripped, answer := b.recordHeldNonce(stale, 5, claimIdentity(txWithNonce(5)))
 
 	require.False(t, tripped)
-	require.False(t, demonstrated, "this endpoint never accepted that nonce")
+	require.Equal(t, heldUnattributed, answer, "this endpoint never accepted that nonce")
 	assert.Equal(t, before, b.consecutive[0], "a stale admission spends nothing")
 }
 
@@ -2018,10 +2018,10 @@ func TestSendingBackend_AStaleAdmissionStillKnowsWhatItAccepted(t *testing.T) {
 	// The generation guard exists to stop a stale result from spending the fresh budget, so it
 	// suppresses the accounting — but the claim really is at this relay, and offering it onward
 	// would put the same signed transaction in a second builder's pool.
-	tripped, demonstrated := b.recordHeldNonce(stale, 5, claimIdentity(txWithNonce(5)))
+	tripped, answer := b.recordHeldNonce(stale, 5, claimIdentity(txWithNonce(5)))
 
 	assert.False(t, tripped)
-	assert.True(t, demonstrated, "acceptance is a fact, not a judgement about health")
+	assert.Equal(t, heldThisClaim, answer, "acceptance is a fact, not a judgement about health")
 	assert.Equal(t, before, b.consecutive[0], "a stale admission still spends nothing")
 }
 
@@ -2044,6 +2044,51 @@ func TestSendingBackend_ARecycledNonceIsNotTheClaimThatWasAccepted(t *testing.T)
 	require.NoError(t, b.SendTransaction(context.Background(), txWithNonceAndCall(81, "the message that inherited the nonce")))
 
 	assert.Len(t, backup.sent, 1, "a recycled nonce is not evidence about the claim now carrying it")
+}
+
+func TestSendingBackend_AHolderOfSomeoneElsesClaimDoesNotBlockTheFallback(t *testing.T) {
+	public := &fakeBackend{}
+	holder := &fakeSender{}
+	backup := &fakeSender{}
+
+	b := NewSendingBackend(public, []TxSender{holder, backup}, nil, nil)
+
+	require.NoError(t, b.SendTransaction(context.Background(), txWithNonceAndCall(81, "the accepted claim")))
+
+	// The holder is answering about the claim it still has, and the backup will not take the one
+	// that inherited the nonce. Nobody is carrying the new claim, so the privacy argument for
+	// suppressing the public fallback — that every relay already has it — does not hold here, and
+	// suppressing it anyway leaves the claim looping until TX_SEND_TIMEOUT.
+	holder.err = rpcRejection{txpool.ErrReplaceUnderpriced.Error()}
+	backup.err = rpcRejection{"claim not accepted"}
+
+	inherited := txWithNonceAndCall(81, "the message that inherited the nonce")
+
+	for i := 0; i < DefaultPrivateRPCAllRefusedLimit; i++ {
+		_ = b.SendTransaction(context.Background(), inherited)
+	}
+
+	assert.Equal(t, 1, public.attempts(),
+		"a relay holding someone else's claim is not carrying this one")
+}
+
+func TestSendingBackend_AGossipedHoldStillProtectsTheClaim(t *testing.T) {
+	public := &fakeBackend{}
+	first := &fakeSender{err: rpcRejection{txpool.ErrAlreadyKnown.Error()}}
+	second := &fakeSender{err: rpcRejection{"claim not accepted"}}
+
+	b := NewSendingBackend(public, []TxSender{first, second}, nil, nil)
+
+	tx := txWithNonce(31)
+
+	// This endpoint never took this nonce, so its answer may be about our claim, learned from
+	// another relay's gossip. Unlike the case above there is no evidence it is carrying something
+	// else, and broadcasting on a maybe would leak a claim the relays are already holding.
+	for i := 0; i < 2*DefaultPrivateRPCAllRefusedLimit; i++ {
+		_ = b.SendTransaction(context.Background(), tx)
+	}
+
+	assert.Empty(t, public.sent, "an unattributed hold is still not a refusal")
 }
 
 func TestSendingBackend_BoundsTheAcceptedNonceTracking(t *testing.T) {
