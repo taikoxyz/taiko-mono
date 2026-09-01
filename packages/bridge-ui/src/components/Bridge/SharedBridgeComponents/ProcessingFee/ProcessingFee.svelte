@@ -103,8 +103,16 @@
     modalOpen = true;
     manuallyConfirmed = false;
     invalidCustomFee = false;
-    // The input only renders while CUSTOM is selected, so it mounts empty every time
-    customFeeUsable = false;
+    // Reopening on an already-committed custom fee starts from that fee rather than an
+    // empty box: requiring the amount to be retyped to confirm anything else in the
+    // dialog is friction the "must hold a usable fee" rule never meant to add
+    const reopeningOnCustomFee = $processingFeeMethod === ProcessingFeeMethod.CUSTOM && $processingFee > BigInt(0);
+    customFeeUsable = reopeningOnCustomFee;
+    if (reopeningOnCustomFee) {
+      tempprocessingFee = $processingFee;
+      // The input mounts with the CUSTOM branch, so fill it once it exists
+      tick().then(() => inputBox?.setValue(formatEther($processingFee)));
+    }
   }
 
   function cancelModal() {

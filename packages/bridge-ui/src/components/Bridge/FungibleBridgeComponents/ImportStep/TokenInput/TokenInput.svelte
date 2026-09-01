@@ -123,7 +123,11 @@
         // re-derived from it: what the user sees is exactly what gets bridged. The
         // truncation stays on the string, since a float round-trip yields scientific
         // notation for tiny balances, which parseUnits rejects
-        value = truncateDecimalString(formatUnits(maxAmount, $selectedToken.decimals), 12);
+        const exact = formatUnits(maxAmount, $selectedToken.decimals);
+        const truncated = truncateDecimalString(exact, 12);
+        // Below 1e-12 the truncation rounds the whole balance away, and MAX would show
+        // and bridge zero. Showing every digit is better than offering nothing
+        value = parseUnits(truncated, $selectedToken.decimals) > BigInt(0) ? truncated : exact;
         $enteredAmount = parseUnits(value, $selectedToken.decimals);
         amountRejected = false;
         validateAmount();

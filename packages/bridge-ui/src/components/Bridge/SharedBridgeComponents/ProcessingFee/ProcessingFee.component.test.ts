@@ -82,6 +82,11 @@ const acknowledge = async () => {
   await tick();
 };
 
+const flushMicrotasks = async () => {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await tick();
+};
+
 const type = async (value: string) => {
   const input = feeInput();
   input.value = value;
@@ -249,6 +254,24 @@ describe('custom processing fee', () => {
 
     expect(confirmButton().disabled).toBe(true);
     expect(errorShown()).toBe(true);
+  });
+
+  it('reopens on a committed custom fee without making the user retype it', async () => {
+    await openCustom();
+    await acknowledge();
+    await type('0.002');
+    confirmButton().click();
+    await tick();
+    expect(get(processingFeeMethod)).toBe(ProcessingFeeMethod.CUSTOM);
+
+    await openCustom();
+    await flushMicrotasks();
+
+    // The "box must hold a usable fee" rule was never meant to demand a retype just to
+    // reach anything else in the dialog
+    expect(feeInput().value).toBe('0.002');
+    await acknowledge();
+    expect(confirmButton().disabled).toBe(false);
   });
 
   it('clears the invalid draft across a CUSTOM -> RECOMMENDED -> CUSTOM round trip', async () => {
