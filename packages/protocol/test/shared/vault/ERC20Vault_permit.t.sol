@@ -264,6 +264,43 @@ contract TestERC20VaultPermit is CommonTest {
         assertEq(uint32(IPermit2.permitTransferFrom.selector), uint32(0x30f28b7a));
     }
 
+    /// @dev The selector pins the *types* tuple, but `nonce` and `deadline` are both `uint256`, so
+    /// transposing them leaves the selector unchanged and a self-consistent mock would agree with
+    /// the mistake. This pins the canonical wire order Permit2 decodes -- permitted.token,
+    /// permitted.amount, nonce, deadline -- by inspecting the calldata our interface produces.
+    /// `Permit2Fork.t.sol` proves the same property end-to-end against the deployed contract.
+    function test_20Vault_permit2_encodes_nonce_before_deadline() public {
+        uint256 nonce = 0x1111;
+        uint256 deadline = 0x2222;
+        uint256 amount = 7;
+        address token = address(0xBEEF);
+
+        IPermit2.PermitTransferFrom memory permit = IPermit2.PermitTransferFrom({
+            permitted: IPermit2.TokenPermissions({ token: token, amount: amount }),
+            nonce: nonce,
+            deadline: deadline
+        });
+        IPermit2.SignatureTransferDetails memory details =
+            IPermit2.SignatureTransferDetails({ to: address(0xCAFE), requestedAmount: amount });
+
+        bytes memory cd = abi.encodeCall(
+            IPermit2.permitTransferFrom, (permit, details, address(0xD00D), hex"00")
+        );
+
+        // PermitTransferFrom is fully static, so it is inlined in the calldata head.
+        assertEq(_word(cd, 0), uint256(uint160(token)));
+        assertEq(_word(cd, 1), amount);
+        assertEq(_word(cd, 2), nonce);
+        assertEq(_word(cd, 3), deadline);
+    }
+
+    /// @dev Reads the `_i`th 32-byte word of `_cd` after its 4-byte selector.
+    function _word(bytes memory _cd, uint256 _i) private pure returns (uint256 w_) {
+        assembly {
+            w_ := mload(add(_cd, add(36, mul(_i, 32))))
+        }
+    }
+
     /// @dev A call to a codeless address cannot be allowed to look like a successful pull. Solidity
     /// emits an extcodesize check for an external call with no return value, so this reverts rather
     /// than silently transferring nothing and bridging a zero balance change.
