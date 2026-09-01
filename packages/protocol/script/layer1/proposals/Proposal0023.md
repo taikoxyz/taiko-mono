@@ -309,7 +309,7 @@ PRIVATE_KEY=<deployer> FOUNDRY_PROFILE=layer1 forge script \
 ```
 
 ```bash
-# Taiko Alethia
+# Taiko L2
 PRIVATE_KEY=<deployer> FOUNDRY_PROFILE=layer2 forge script \
   script/layer2/mainnet/DeployBridgeUpgradeL2.s.sol:DeployBridgeUpgradeL2 \
   --rpc-url https://rpc.mainnet.taiko.xyz --broadcast
@@ -421,7 +421,7 @@ commit:
 
 The two L2 runs matched their creation code and then aborted before the runtime comparison with
 `foundry config error: invalid type: found string "taiko", expected u64` — foundry resolves chain
-167000 to the named alias and then mis-types it. That is a tooling limitation on Taiko Alethia, not
+167000 to the named alias and then mis-types it. That is a tooling limitation on Taiko L2, not
 a discrepancy in the contracts; dropping `--chain` instead makes foundry simulate the deployment
 locally and fail on gas funding, so `--chain 167000` is the right invocation and this is as far as
 it goes today. A full creation-code match is the substantive result in any case: runtime code is
