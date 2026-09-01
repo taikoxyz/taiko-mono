@@ -61,14 +61,21 @@ export async function fetchTransactions(userAddress: Address, chainId?: number) 
     return txs;
   });
 
-  let relayerTxsArrays: BridgeTransaction[][];
-  // Wait for all promises to resolve
-  try {
-    relayerTxsArrays = await Promise.all(relayerTxPromises);
-  } catch (e) {
-    log('error fetching transactions from relayers', e);
-    error = e as Error;
-    relayerTxsArrays = [];
+  // allSettled, not all: relayers are independent sources, and one of them failing on its
+  // first page must not throw away the history the others returned. Promise.all rejected
+  // on the first failure and the catch blanked every result, so a single relayer being
+  // offline showed the user an empty transaction list
+  const relayerResults = await Promise.allSettled(relayerTxPromises);
+  const relayerTxsArrays: BridgeTransaction[][] = [];
+  for (const result of relayerResults) {
+    if (result.status === 'fulfilled') {
+      relayerTxsArrays.push(result.value);
+      continue;
+    }
+    log('error fetching transactions from a relayer', result.reason);
+    // The caller shows one warning, so the first failure is the one reported. The
+    // transactions the other relayers did return are still handed back alongside it
+    error ??= result.reason as Error;
   }
 
   // Flatten the arrays into a single array, dropping duplicate hashes the relayer

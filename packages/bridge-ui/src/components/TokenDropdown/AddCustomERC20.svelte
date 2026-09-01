@@ -133,7 +133,13 @@
     discardLookup();
   }
 
-  /** @dev Drops whatever the form is offering and supersedes any lookup still in flight */
+  /**
+   * @dev Drops whatever the form is offering and supersedes any lookup still in flight.
+   *
+   *      Deliberately leaves `state` alone. It is two-way bound to AddressInput, which
+   *      writes VALID/INVALID as the user types, and resetting it from a path that also
+   *      runs on an invalid address would erase the field's own verdict.
+   */
   function discardLookup() {
     lookupGeneration++;
     pendingTokenLookup = null;
@@ -228,6 +234,8 @@
   function onSourceChainChanged(chainId: Maybe<number>) {
     if (lookupChainId === null || lookupChainId === chainId) return;
     discardLookup();
+    // Safe to reset here, unlike in discardLookup: no validation is racing a chain switch,
+    // and an address accepted against the previous chain says nothing about this one
     state = AddressInputState.DEFAULT;
   }
 
