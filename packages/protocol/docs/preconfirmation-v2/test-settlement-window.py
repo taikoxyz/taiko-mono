@@ -13475,6 +13475,166 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
                 self.assertIs(settlement.source_bridge_for_test(router), old_source)
                 self.assertEqual(router.migration_gate.mode, "READY")
 
+    def test_historical_reward_lifecycle_survives_cutover_and_late_fault(self):
+        rows = production_migration_fixture()
+        old_protocol, old_history, new_history = rows[:3]
+        manager = rows[4]
+
+        recovery_trigger = settlement.Clock(
+            1_000,
+            settlement.GENESIS_TIMESTAMP
+            + old_protocol.core.tip_slot
+            + settlement.DELTA_FINAL_LAG
+            + 1,
+        )
+        self.assertTrue(old_protocol.sync(recovery_trigger))
+        reward_clock = settlement.recovery_submit_clock(old_protocol)
+        reward_candidate = settlement.candidate(
+            old_protocol,
+            reward_clock,
+            "historical-reward-lifecycle",
+            tier=settlement.Tier.ESCAPE_UNSIGNED,
+            signed=False,
+            slot=old_protocol.recovery.escape_slot,
+            discretionary=False,
+            recovery_fields_zero=False,
+            beneficiary=addr("hist-beneficiary"),
+            gas_used=7,
+        )
+        self.assertEqual(
+            old_protocol.submit(reward_candidate, reward_clock), "COMMITTED"
+        )
+        committed = old_protocol.reward_events[-1]
+        receipt, claimed = old_protocol.reward_receipt_state_v1(
+            committed.candidate_id
+        )
+        self.assertIsNotNone(receipt)
+        self.assertFalse(claimed)
+        self.assertEqual(receipt.reward_class, 3)
+        reward_class = old_protocol.reward_class_registry.class_by_id(
+            receipt.reward_class
+        )
+        reward_amount = old_protocol.reward_amount_v1(receipt, reward_class)
+        old_protocol.fund_reward_class_v1(
+            receipt.reward_class,
+            reward_amount,
+            funder=addr("hist-funder"),
+        )
+
+        # The production fixture constructs the successor before this source
+        # commit. Model a real deployment after the reward-bearing canonical
+        # state by refreshing only its constructor-copied canonical snapshot.
+        new_history.core = copy.deepcopy(old_protocol.core)
+        new_history.canonicalized_at_block = (
+            old_protocol.canonical.canonicalized_at_block
+        )
+        new_history.live_protocol.canonical = copy.deepcopy(
+            old_protocol.canonical
+        )
+
+        def reward_projection(protocol):
+            return copy.deepcopy((
+                protocol.reward_receipts,
+                protocol.reward_funded_by_class,
+                protocol.total_reward_funding,
+                protocol.settlement_eth_balance,
+                protocol.reward_events,
+                protocol.reward_accounting_events,
+                protocol.reward_payments,
+                protocol.reward_execution_profile_hash,
+                protocol.reward_class_registry_address,
+                protocol.reward_class_registry_runtime_hash,
+                protocol.reward_class_registry_configuration_hash,
+                protocol.reward_class_registry,
+            ))
+
+        source_reward_state = reward_projection(old_protocol)
+        arm_clock = settlement.Clock(
+            max(1_100, reward_clock.block_number + 10),
+            reward_clock.timestamp + 10,
+        )
+        manifest, proof = prepare_production_activation(
+            rows, clock=arm_clock
+        )
+        activation_clock = migration_proof_clock(proof)
+
+        manager.fault_point = "after_activation_receipt_write"
+        with self.assertRaises(RuntimeError):
+            manager.activate_seat_migration(
+                manifest_key=manifest.key,
+                activation_proof=proof,
+                executor=addr("fault-executor"),
+                clock=activation_clock,
+            )
+        self.assertEqual(reward_projection(old_protocol), source_reward_state)
+        self.assertEqual(old_history.mode, "MIGRATION_READY")
+        self.assertEqual(manager.router.active_version, 25)
+
+        manager.fault_point = None
+        manager.activate_seat_migration(
+            manifest_key=manifest.key,
+            activation_proof=proof,
+            executor=addr("executor"),
+            clock=activation_clock,
+        )
+        new_protocol = new_history.live_protocol
+        self.assertEqual(old_history.mode, "FROZEN")
+        self.assertEqual(new_history.mode, "ACTIVE")
+        self.assertEqual(reward_projection(old_protocol), source_reward_state)
+        self.assertEqual(set(new_protocol.reward_receipts), {1, 2, 3})
+        self.assertTrue(all(
+            cell == settlement.RewardReceiptCellV1()
+            for ring in new_protocol.reward_receipts.values()
+            for cell in ring
+        ))
+        self.assertEqual(
+            new_protocol.reward_funded_by_class, {1: 0, 2: 0, 3: 0}
+        )
+        self.assertEqual(new_protocol.total_reward_funding, 0)
+        self.assertEqual(new_protocol.settlement_eth_balance, 0)
+        self.assertEqual(
+            old_protocol.reward_receipt_state_v1(committed.candidate_id),
+            (receipt, False),
+        )
+        self.assertEqual(
+            old_protocol.reward_funded_by_class,
+            {1: 0, 2: 0, 3: reward_amount},
+        )
+        self.assertEqual(old_protocol.total_reward_funding, reward_amount)
+        self.assertEqual(old_protocol.settlement_eth_balance, reward_amount)
+
+        transfers = []
+        self.assertEqual(
+            old_protocol.claim_reward_v1(
+                committed.candidate_id,
+                activation_clock,
+                transfer=lambda beneficiary, amount, exact_settlement: (
+                    transfers.append((
+                        beneficiary, amount, exact_settlement is old_protocol
+                    )) or True
+                ),
+            ),
+            reward_amount,
+        )
+        self.assertEqual(transfers, [(
+            receipt.beneficiary, reward_amount, True
+        )])
+        accounting_events = len(old_protocol.reward_accounting_events)
+        with self.assertRaises(settlement.RewardClaimRevert):
+            old_protocol.claim_reward_v1(
+                committed.candidate_id,
+                activation_clock,
+                transfer=lambda *_args: transfers.append("duplicate") or True,
+            )
+        self.assertEqual(len(old_protocol.reward_accounting_events), accounting_events)
+        self.assertEqual(len(transfers), 1)
+        self.assertEqual(
+            old_protocol.reward_receipt_state_v1(committed.candidate_id),
+            (receipt, True),
+        )
+        self.assertEqual(old_protocol.total_reward_funding, 0)
+        self.assertEqual(old_protocol.settlement_eth_balance, 0)
+
     def test_source_successor_reuses_front_run_bundle_and_retains_history(self):
         successor_descriptor = replace(
             settlement.canonical_source_bridge_descriptor(),
@@ -17737,7 +17897,7 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
         self.assertEqual(
             (p.session_live_count, p.session_refund_count,
              p.session_occupied_count,
-             p.data_session_balance, p.data_session_live_bond_liability),
+             p.settlement_eth_balance, p.data_session_live_bond_liability),
             (1, 0, 1, 10, 10),
         )
         self.assertEqual(p.data_session_events, [
@@ -17910,7 +18070,7 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
         readiness_raw = settlement.encode_migration_readiness_v1(readiness)
         accounting_raw = settlement.encode_data_session_accounting_v1(accounting)
         self.assertEqual(len(readiness_raw), 256)
-        self.assertEqual(len(accounting_raw), 384)
+        self.assertEqual(len(accounting_raw), 512)
         self.assertEqual(
             settlement.decode_migration_readiness_v1(readiness_raw), readiness
         )
@@ -17922,7 +18082,7 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
         class ReadyCaller:
             settlement_address = "source-settlement"
             migration_gate = gate
-            data_session_balance = 30
+            settlement_eth_balance = 30
 
             def __init__(self, ready, accounted):
                 self.ready = ready
@@ -18010,7 +18170,7 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
                 caller="attacker", generation=1,
             )
         insolvent = ReadyCaller(readiness_raw, accounting_raw)
-        insolvent.data_session_balance = 29
+        insolvent.settlement_eth_balance = 29
         with self.assertRaises(ValueError):
             gate._mark_ready_from_protocol(
                 protocol=insolvent,
@@ -18075,7 +18235,7 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
                 integrated
             )
         )
-        integrated.data_session_balance -= 1
+        integrated.settlement_eth_balance -= 1
         self.assertFalse(
             integrated.migration_gate._ready_views_valid_for_activation(
                 integrated
@@ -18175,7 +18335,7 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
         self.assertEqual(p.open_session(
             now, owner, 0, expiry, payment=10
         ), session_id)
-        self.assertEqual(p.data_session_balance, 10)
+        self.assertEqual(p.settlement_eth_balance, 10)
         self.assertEqual(p.data_session_live_bond_liability, 7)
         lengths = (0, 126_972)
         expected_fee = 843_768
@@ -18223,12 +18383,13 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
             p.data_session_events[1:],
             [
                 settlement.DataRecord(
-                    session_id, index, hashes[index], derived_leaves[index]
+                    session_id, index, hashes[index], derived_leaves[index],
+                    posts[index].chunk_byte_length,
                 )
                 for index in range(2)
             ],
         )
-        self.assertEqual(p.data_session_balance, 10 + expected_fee)
+        self.assertEqual(p.settlement_eth_balance, 10 + expected_fee)
         self.assertEqual(p.data_session_accounted_liabilities, 7)
 
         rejected = [
@@ -18405,7 +18566,7 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
              direct.session_occupied_count,
              direct.data_session_live_bond_liability,
              direct.data_session_refund_bond_liability,
-             direct.data_session_balance),
+             direct.settlement_eth_balance),
             (0, 0, 0, 0, 0, 0),
         )
         self.assertNotIn(session.session_id, direct.session_cell_by_id)
@@ -19064,7 +19225,7 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
             self.assertEqual(p.session_occupied_count, 0)
             self.assertFalse(p.session_cell_by_id)
             self.assertEqual(p.data_session_accounted_liabilities, 0)
-        self.assertEqual(p.data_session_balance, 20_480)
+        self.assertEqual(p.settlement_eth_balance, 20_480)
         self.assertTrue(p.force_data_session_eth(5))
 
         nested = []
@@ -19111,7 +19272,7 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
             now, owner, 0, expiry, payment=10
         ), "REJECTED")
         self.assertEqual(equal.sweep_session_surplus(), 0)
-        equal.data_session_balance -= 1
+        equal.settlement_eth_balance -= 1
         with self.assertRaises(settlement.DataSessionRevert):
             equal.sweep_session_surplus()
         with self.assertRaises(settlement.DataSessionRevert):
@@ -19132,7 +19293,7 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
             settlement_address="preactive-target",
             mode=settlement.Mode.PREACTIVE,
             migration_gate=shared,
-            data_session_balance=77,
+            settlement_eth_balance=77,
         )
         before = target.snapshot()
         with self.assertRaises(settlement.DataSessionRevert):
@@ -19158,7 +19319,7 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
             target.sweep_session_surplus()
         self.assertEqual(target.data_rent_sink.balance, 0)
         self.assertTrue(target.identical(before))
-        self.assertEqual(target.data_session_balance, 77)
+        self.assertEqual(target.settlement_eth_balance, 77)
 
         dirty = settlement.protocol(seat=False)
         dirty.session_cells[0] = settlement.DataSessionCell(
@@ -19241,7 +19402,7 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
         accounting = settlement.decode_data_session_accounting_v1(
             accounting_raw
         )
-        self.assertEqual(len(accounting_raw), 384)
+        self.assertEqual(len(accounting_raw), 512)
         self.assertEqual(
             (accounting.live_count, accounting.refund_count,
              accounting.occupied_count, accounting.live_bond_liability,
@@ -19339,6 +19500,846 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
         self.assertFalse(p._sessions_ok(
             replace(candidate, session_refs=(refs[0], refs[0])), now
         ))
+
+
+def reward_rows(*, class_one=(10, 2, 3, 100)):
+    return (
+        settlement.RewardClassV1(1, *class_one),
+        settlement.RewardClassV1(2, 20, 3, 4, 200),
+        settlement.RewardClassV1(3, 30, 4, 5, 300),
+    )
+
+
+def reward_protocol(
+    rows=None, *, claim_window_seconds=100, reorg_margin_seconds=10
+):
+    registry = settlement.RewardClassRegistryV1(
+        reward_rows() if rows is None else rows
+    )
+    return settlement.protocol(
+        seat=False,
+        refund_claim_window_seconds=claim_window_seconds,
+        reward_reorg_margin_seconds=reorg_margin_seconds,
+        reward_class_registry=registry,
+        reward_execution_profile_hash=b"e" * 32,
+    )
+
+
+def reward_candidate(
+    protocol,
+    clock,
+    candidate_id,
+    *,
+    tier=settlement.Tier.NORMAL_SIGNED,
+    execution_gas=7,
+    data_records=(),
+    beneficiary=None,
+):
+    return settlement.candidate(
+        protocol,
+        clock,
+        candidate_id,
+        tier=tier,
+        beneficiary=(
+            addr("reward-beneficiary")
+            if beneficiary is None else beneficiary
+        ),
+        gas_used=execution_gas,
+        data_records=tuple(data_records),
+    )
+
+
+class RewardReceiptV1Tests(unittest.TestCase):
+    def setUp(self):
+        self.rows = reward_rows()
+        self.claim_window_seconds = 100
+        self.reorg_margin_seconds = 10
+        self.protocol = reward_protocol(
+            self.rows,
+            claim_window_seconds=self.claim_window_seconds,
+            reorg_margin_seconds=self.reorg_margin_seconds,
+        )
+        self.committed_at = settlement.Clock(
+            901, settlement.GENESIS_TIMESTAMP + 1_001
+        )
+
+    def _record(self, candidate_id, **candidate_kwargs):
+        candidate = reward_candidate(
+            self.protocol,
+            self.committed_at,
+            candidate_id,
+            **candidate_kwargs,
+        )
+        event = self.protocol._record_reward_receipt_v1(
+            candidate, self.committed_at
+        )
+        cell = self.protocol.reward_receipts[candidate.tier.value][
+            settlement.reward_receipt_index_v1(candidate_id)
+        ]
+        return candidate, event, cell
+
+    def _fund(self, receipt, amount=None):
+        exact_amount = (
+            self.protocol.reward_amount_v1(
+                receipt,
+                self.protocol.reward_class_registry.class_by_id(
+                    receipt.reward_class
+                ),
+            )
+            if amount is None else amount
+        )
+        event = self.protocol.fund_reward_class_v1(
+            receipt.reward_class,
+            exact_amount,
+            funder=addr("reward-funder"),
+        )
+        self.assertEqual(event, settlement.RewardClassFundedV1(
+            receipt.reward_class,
+            addr("reward-funder"),
+            exact_amount,
+            exact_amount,
+            exact_amount,
+        ))
+        return exact_amount
+
+    def _view(self, candidate_id):
+        return self.protocol.reward_receipt_v1(
+            settlement.REWARD_RECEIPT_V1_SELECTOR
+            + settlement._model_fixed_bytes32(candidate_id),
+            caller=addr("reward-viewer"),
+            gas=settlement.REWARD_RECEIPT_READ_GAS,
+            value=0,
+        )
+
+    def test_tier_is_the_only_reward_class_and_metrics_are_proof_bound(self):
+        self.assertNotIn(
+            "reward_class", settlement.Candidate.__dataclass_fields__
+        )
+        owner = addr("reward-publisher")
+        session_id = self.protocol.next_data_session_id(owner)
+        self.protocol._install_data_session_for_test(
+            settlement.DataSession(
+                session_id,
+                owner,
+                self.committed_at.timestamp + 1_000,
+                refundable_bond=10,
+            ),
+            0,
+        )
+        posts = tuple(
+            settlement.DataPost(
+                bytes((marker,)) * 32,
+                0,
+                offset,
+                2,
+                length,
+                bytes((marker + 10,)) * 32,
+                marker,
+                bytes((marker + 20,)) * 32,
+                bytes((marker + 20,)) * 16,
+                bytes((marker + 30,)) * 32,
+                bytes((marker + 30,)) * 16,
+            )
+            for offset, (length, marker) in enumerate(((5, 1), (9, 2)))
+        )
+        versioned_hashes = tuple(
+            settlement.kzg_commitment_to_versioned_hash(post.commitment)
+            for post in posts
+        )
+        self.protocol.post_data(
+            self.committed_at,
+            session_id,
+            owner,
+            posts=posts,
+            tx_blob_hashes=versioned_hashes,
+            blob_base_fee=0,
+            payment=0,
+        )
+        self.assertEqual(
+            tuple(row.chunk_byte_length
+                  for row in self.protocol.data_record_events),
+            (5, 9),
+        )
+        self.protocol.seal_session(self.committed_at, session_id, owner)
+        candidate, event, cell = self._record(
+            "11" * 32,
+            tier=settlement.Tier.NORMAL_SIGNED,
+            execution_gas=7,
+            data_records=((session_id, 0), (session_id, 1)),
+        )
+        receipt = cell.receipt
+        self.assertTrue(event.receipt_stored)
+        self.assertIsNotNone(receipt)
+        self.assertEqual(receipt.reward_class, 1)
+        self.assertEqual(event.candidate_id, receipt.candidate_id)
+        self.assertEqual(event.beneficiary, receipt.beneficiary)
+        self.assertEqual(event.reward_class, receipt.reward_class)
+        self.assertEqual(
+            event.reward_execution_gas, receipt.reward_execution_gas
+        )
+        self.assertEqual(
+            event.reward_published_bytes, receipt.reward_published_bytes
+        )
+        self.assertEqual(event.receipt_index, 0x11)
+        self.assertEqual(event.receipt_commitment, receipt.commitment)
+        self.assertEqual(
+            (receipt.reward_execution_gas, receipt.reward_published_bytes),
+            (7, 14),
+        )
+        self.assertEqual(
+            settlement.reward_candidate_metrics_v1(self.protocol, candidate),
+            (7, 14),
+        )
+        exact_digest = settlement.candidate_inbox_execution_digest(candidate)
+        for substituted in (
+            replace(candidate, tier=settlement.Tier.RECOVERY_SIGNED),
+            replace(candidate, reward_execution_gas=8),
+            replace(candidate, reward_published_bytes=12),
+        ):
+            self.assertNotEqual(
+                settlement.candidate_inbox_execution_digest(substituted),
+                exact_digest,
+            )
+        duplicate = replace(
+            candidate,
+            blocks=(replace(
+                candidate.blocks[0],
+                data_records=((session_id, 0), (session_id, 0)),
+            ),),
+            reward_published_bytes=10,
+        )
+        self.assertFalse(settlement.reward_candidate_metrics_valid_v1(
+            duplicate, self.protocol
+        ))
+        wrong_total = replace(candidate, reward_published_bytes=15)
+        before_events = self.protocol.reward_events.copy()
+        with self.assertRaises(AssertionError):
+            self.protocol._record_reward_receipt_v1(
+                wrong_total, self.committed_at
+            )
+        self.assertEqual(self.protocol.reward_events, before_events)
+
+        hit = self._view(receipt.candidate_id)
+        self.assertEqual(len(hit), 384)
+        hit_words = tuple(hit[offset:offset + 32]
+                          for offset in range(0, len(hit), 32))
+        self.assertEqual(hit_words[0], b"RRV1" + bytes(28))
+        self.assertEqual(hit_words[1], bytes(31) + b"\x01")
+        self.assertEqual(hit_words[4], receipt.reward_execution_gas.to_bytes(32, "big"))
+        self.assertEqual(hit_words[5], receipt.reward_published_bytes.to_bytes(32, "big"))
+        self.assertEqual(hit_words[11], receipt.commitment)
+        miss = self._view("99" * 31 + "11")
+        self.assertEqual(miss[:32], b"RRV1" + bytes(28))
+        self.assertEqual(miss[32:], bytes(352))
+
+        amount = self._fund(receipt)
+        self.assertFalse(cell.claimed)
+        self.assertEqual(
+            tuple(inspect.signature(self.protocol.claim_reward_v1).parameters),
+            ("candidate_id", "clock", "transfer"),
+        )
+        with self.assertRaises(settlement.RewardClaimRevert):
+            self.protocol.claim_reward_v1(
+                "99" * 31 + "11", self.committed_at
+            )
+        self.assertFalse(cell.claimed)
+        self.assertFalse(hasattr(settlement, "RewardDistributorV1"))
+        self.assertEqual(self.protocol.claim_reward_v1(
+            receipt.candidate_id, self.committed_at
+        ), amount)
+
+    def test_receipt_uses_seconds_and_allows_claim_at_exact_deadline(self):
+        candidate, _, cell = self._record("22" * 32)
+        receipt = cell.receipt
+        self.assertEqual(receipt.committed_at_block, self.committed_at.block_number)
+        self.assertEqual(
+            receipt.committed_at_timestamp, self.committed_at.timestamp
+        )
+        self.assertEqual(
+            receipt.claim_until,
+            self.committed_at.timestamp
+            + self.claim_window_seconds,
+        )
+        self.assertNotEqual(
+            receipt.claim_until,
+            self.committed_at.block_number
+            + self.claim_window_seconds,
+        )
+        amount = self._fund(receipt)
+        deadline = settlement.Clock(
+            self.committed_at.block_number + 50_000,
+            receipt.claim_until,
+        )
+        self.assertEqual(
+            self.protocol.claim_reward_v1(receipt.candidate_id, deadline),
+            amount,
+        )
+
+    def test_claimed_collision_reuses_at_exact_reorg_margin(self):
+        _, _, first_cell = self._record("01" * 32)
+        first = first_cell.receipt
+        amount = self._fund(first)
+        self.assertEqual(self.protocol.claim_reward_v1(
+            first.candidate_id, self.committed_at
+        ), amount)
+
+        replacement = reward_candidate(
+            self.protocol,
+            self.committed_at,
+            "02" * 31 + "01",
+        )
+        before_margin = settlement.Clock(
+            self.committed_at.block_number + 1,
+            self.committed_at.timestamp
+            + self.reorg_margin_seconds - 1,
+        )
+        self.assertFalse(
+            self.protocol._record_reward_receipt_v1(
+                replacement, before_margin
+            ).receipt_stored
+        )
+        at_margin = replace(
+            before_margin, timestamp=before_margin.timestamp + 1
+        )
+        self.assertTrue(
+            self.protocol._record_reward_receipt_v1(
+                replacement, at_margin
+            ).receipt_stored
+        )
+        self.assertEqual(first_cell.receipt.candidate_id, bytes.fromhex(
+            replacement.candidate_id
+        ))
+        self.assertFalse(first_cell.claimed)
+
+    def test_expired_collision_still_waits_for_reorg_margin(self):
+        claim_window_seconds = 5
+        reorg_margin_seconds = 10
+        protocol = reward_protocol(
+            self.rows,
+            claim_window_seconds=claim_window_seconds,
+            reorg_margin_seconds=reorg_margin_seconds,
+        )
+        first = reward_candidate(protocol, self.committed_at, "31" * 32)
+        self.assertTrue(protocol._record_reward_receipt_v1(
+            first, self.committed_at
+        ).receipt_stored)
+        replacement = reward_candidate(
+            protocol, self.committed_at, "32" * 31 + "31"
+        )
+        at_claim_until = settlement.Clock(
+            self.committed_at.block_number + 1,
+            self.committed_at.timestamp
+            + claim_window_seconds,
+        )
+        self.assertFalse(protocol._record_reward_receipt_v1(
+            replacement, at_claim_until
+        ).receipt_stored)
+        expired_before_margin = settlement.Clock(
+            self.committed_at.block_number + 1,
+            self.committed_at.timestamp
+            + claim_window_seconds
+            + reorg_margin_seconds - 1,
+        )
+        self.assertFalse(protocol._record_reward_receipt_v1(
+            replacement, expired_before_margin
+        ).receipt_stored)
+        at_margin = replace(expired_before_margin, timestamp=(
+            self.committed_at.timestamp
+            + claim_window_seconds
+            + reorg_margin_seconds
+        ))
+        self.assertTrue(protocol._record_reward_receipt_v1(
+            replacement, at_margin
+        ).receipt_stored)
+
+    def test_funding_shortage_does_not_consume_receipt(self):
+        _, _, cell = self._record("44" * 32)
+        receipt = cell.receipt
+        amount = self.protocol.reward_amount_v1(
+            receipt,
+            self.protocol.reward_class_registry.class_by_id(
+                receipt.reward_class
+            ),
+        )
+        self.assertTrue(self.protocol.force_reward_eth_v1(amount * 2))
+        self.assertEqual(self.protocol.reward_funded_by_class, {1: 0, 2: 0, 3: 0})
+        with self.assertRaises(settlement.RewardClaimRevert):
+            self.protocol.claim_reward_v1(
+                receipt.candidate_id, self.committed_at
+            )
+        self.assertFalse(self.protocol.reward_receipt_state_v1(
+            receipt.candidate_id
+        )[1])
+        self.assertEqual(self.protocol.sweep_session_surplus(), amount * 2)
+        first_funding = self.protocol.fund_reward_class_v1(
+            receipt.reward_class,
+            amount - 1,
+            funder=addr("reward-funder"),
+        )
+        self.assertEqual(first_funding, settlement.RewardClassFundedV1(
+            receipt.reward_class,
+            addr("reward-funder"),
+            amount - 1,
+            amount - 1,
+            amount - 1,
+        ))
+        with self.assertRaises(settlement.RewardClaimRevert):
+            self.protocol.claim_reward_v1(
+                receipt.candidate_id, self.committed_at
+            )
+        self.assertFalse(self.protocol.reward_receipt_state_v1(
+            receipt.candidate_id
+        )[1])
+        self.assertEqual(
+            self.protocol.reward_funded_by_class[receipt.reward_class], amount - 1
+        )
+        second_funding = self.protocol.fund_reward_class_v1(
+            receipt.reward_class, 1, funder=addr("second-funder")
+        )
+        self.assertEqual(second_funding, settlement.RewardClassFundedV1(
+            receipt.reward_class,
+            addr("second-funder"),
+            1,
+            amount,
+            amount,
+        ))
+        accounting = settlement.decode_data_session_accounting_v1(
+            self.protocol.data_session_accounting_v1()
+        )
+        self.assertEqual(
+            (accounting.reward_funding_class_1,
+             accounting.reward_funding_class_2,
+             accounting.reward_funding_class_3,
+             accounting.total_reward_funding),
+            (amount, 0, 0, amount),
+        )
+        self.assertEqual(self.protocol.claim_reward_v1(
+            receipt.candidate_id, self.committed_at
+        ), amount)
+        self.assertEqual(self.protocol.settlement_eth_balance, 0)
+        self.assertEqual(self.protocol.total_reward_funding, 0)
+        self.assertFalse(hasattr(self.protocol, "data_session_balance"))
+        self.assertFalse(hasattr(self.protocol, "withdraw_reward_v1"))
+
+        preactive = reward_protocol(self.rows)
+        preactive.mode = settlement.Mode.PREACTIVE
+        with self.assertRaises(settlement.RewardFundingRevert):
+            preactive.fund_reward_class_v1(
+                1, 1, funder=addr("preactive-funder")
+            )
+        self.assertEqual(preactive.reward_accounting_events, [])
+        self.assertEqual(preactive.reward_funded_by_class, {1: 0, 2: 0, 3: 0})
+        self.assertEqual(preactive.total_reward_funding, 0)
+        self.assertEqual(preactive.settlement_eth_balance, 0)
+        historical = reward_protocol(self.rows)
+        historical.versioned_history = object()
+        historical_event = historical.fund_reward_class_v1(
+            1, 1, funder=addr("historical-funder")
+        )
+        self.assertEqual(historical_event, settlement.RewardClassFundedV1(
+            1, addr("historical-funder"), 1, 1, 1
+        ))
+
+        invalid = reward_protocol(self.rows)
+        invalid_before = (
+            invalid.reward_funded_by_class.copy(),
+            invalid.total_reward_funding,
+            invalid.settlement_eth_balance,
+            invalid.reward_accounting_events.copy(),
+        )
+        for class_id, funding in ((4, 1), (1, 0)):
+            with self.assertRaises(settlement.RewardFundingRevert):
+                invalid.fund_reward_class_v1(
+                    class_id, funding, funder=addr("invalid-funder")
+                )
+            self.assertEqual((
+                invalid.reward_funded_by_class,
+                invalid.total_reward_funding,
+                invalid.settlement_eth_balance,
+                invalid.reward_accounting_events,
+            ), invalid_before)
+
+    def test_transfer_failure_rolls_back_and_reentry_cannot_double_claim(self):
+        _, _, cell = self._record("55" * 32)
+        receipt = cell.receipt
+        amount = self._fund(receipt)
+        nested_clock = settlement.Clock(
+            self.committed_at.block_number + 1,
+            self.committed_at.timestamp + 2_000,
+        )
+        nested_candidate = reward_candidate(
+            self.protocol, nested_clock, "56" * 32
+        )
+        snapshot = self.protocol.snapshot()
+        caught = []
+
+        def mutate_then_fail(_beneficiary, _amount, exact_settlement):
+            for mutation in (
+                lambda: exact_settlement.claim_reward_v1(
+                    receipt.candidate_id, self.committed_at
+                ),
+                lambda: exact_settlement.sync(nested_clock),
+                lambda: exact_settlement.submit(
+                    nested_candidate, nested_clock
+                ),
+                exact_settlement.tombstone,
+            ):
+                try:
+                    mutation()
+                except settlement.SharedSettlementReentrancy:
+                    caught.append(True)
+            try:
+                exact_settlement.fund_reward_class_v1(
+                    1, 1, funder=addr("nested-funder")
+                )
+            except settlement.SharedSettlementReentrancy:
+                caught.append(True)
+            return False
+
+        with self.assertRaises(settlement.RewardClaimRevert):
+            self.protocol.claim_reward_v1(
+                receipt.candidate_id,
+                self.committed_at,
+                transfer=mutate_then_fail,
+            )
+        self.assertEqual(caught, [True, True, True, True, True])
+        self.assertEqual(self.protocol, snapshot)
+        self.assertFalse(self.protocol.reward_receipt_state_v1(
+            receipt.candidate_id
+        )[1])
+        self.assertEqual(
+            len(self.protocol.reward_accounting_events), 1
+        )
+
+        uncaught_snapshot = self.protocol.snapshot()
+
+        def uncaught_nested_mutation(
+            _beneficiary, _amount, exact_settlement
+        ):
+            exact_settlement.sync(nested_clock)
+
+        with self.assertRaises(settlement.RewardClaimRevert):
+            self.protocol.claim_reward_v1(
+                receipt.candidate_id,
+                self.committed_at,
+                transfer=uncaught_nested_mutation,
+            )
+        self.assertEqual(self.protocol, uncaught_snapshot)
+
+        reentries = []
+
+        def reenter(_beneficiary, _amount, exact_settlement):
+            try:
+                exact_settlement.claim_reward_v1(
+                    receipt.candidate_id, self.committed_at
+                )
+            except settlement.SharedSettlementReentrancy:
+                reentries.append("claim")
+            try:
+                exact_settlement.submit(nested_candidate, nested_clock)
+            except settlement.SharedSettlementReentrancy:
+                reentries.append("submit")
+            return True
+
+        self.assertEqual(self.protocol.claim_reward_v1(
+            receipt.candidate_id, self.committed_at, transfer=reenter
+        ), amount)
+        self.assertEqual(reentries, ["claim", "submit"])
+        self.assertTrue(self.protocol.reward_receipt_state_v1(
+            receipt.candidate_id
+        )[1])
+        with self.assertRaises(settlement.RewardClaimRevert):
+            self.protocol.claim_reward_v1(
+                receipt.candidate_id, self.committed_at
+            )
+        self.assertEqual(len(self.protocol.reward_payments), 1)
+        self.assertEqual(
+            tuple(type(row) for row in self.protocol.reward_accounting_events),
+            (settlement.RewardClassFundedV1, settlement.RewardClaimedV1),
+        )
+
+    def test_builder_registry_code_config_and_class_faults_revert_exactly(self):
+        _, _, cell = self._record("58" * 32)
+        receipt = cell.receipt
+        amount = self._fund(receipt)
+        faults = (
+            ("observed_runtime_hash_override", b"x" * 32),
+            ("component_config_return_override", b"y" * 32),
+            ("return_overrides", {
+                1: settlement.encode_reward_class_return_v1(
+                    self.rows[1],
+                    self.protocol.reward_class_registry_configuration_hash,
+                )
+            }),
+        )
+        for attribute, value in faults:
+            setattr(self.protocol.reward_class_registry, attribute, value)
+            snapshot = self.protocol.snapshot()
+            with self.assertRaises(settlement.RewardClaimRevert):
+                self.protocol.claim_reward_v1(
+                    receipt.candidate_id, self.committed_at
+                )
+            self.assertEqual(self.protocol, snapshot)
+            setattr(
+                self.protocol.reward_class_registry,
+                attribute,
+                {} if attribute == "return_overrides" else None,
+            )
+        self.assertEqual(self.protocol.claim_reward_v1(
+            receipt.candidate_id, self.committed_at
+        ), amount)
+
+    def test_zero_reward_consumes_without_transfer_and_emits_claim(self):
+        rows = reward_rows(class_one=(0, 0, 0, 0))
+        protocol = reward_protocol(rows)
+        candidate = reward_candidate(
+            protocol, self.committed_at, "59" * 32
+        )
+        self.assertTrue(protocol._record_reward_receipt_v1(
+            candidate, self.committed_at
+        ).receipt_stored)
+        called = []
+        self.assertEqual(protocol.claim_reward_v1(
+            bytes.fromhex(candidate.candidate_id),
+            self.committed_at,
+            transfer=lambda *_args: called.append(True) or True,
+        ), 0)
+        self.assertEqual(called, [])
+        self.assertTrue(protocol.reward_receipt_state_v1(
+            candidate.candidate_id
+        )[1])
+        self.assertEqual(protocol.reward_accounting_events, [
+            settlement.RewardClaimedV1(
+                bytes.fromhex(candidate.candidate_id),
+                candidate.beneficiary,
+                1,
+                0,
+            )
+        ])
+
+    def test_cap_aware_arithmetic_never_builds_a_uint256_overflow(self):
+        rows = reward_rows(
+            class_one=(
+                settlement.SEAT_UINT256_MAX - 5,
+                settlement.SEAT_UINT256_MAX,
+                settlement.SEAT_UINT256_MAX,
+                settlement.SEAT_UINT256_MAX,
+            )
+        )
+        protocol = reward_protocol(rows)
+        protocol.data_record_events.append(settlement.DataRecord(
+            "reward-wide-record",
+            0,
+            b"v" * 32,
+            b"l" * 32,
+            settlement.UINT64_MAX,
+        ))
+        candidate = reward_candidate(
+            protocol,
+            self.committed_at,
+            "66" * 32,
+            execution_gas=settlement.SEAT_UINT256_MAX,
+            data_records=(("reward-wide-record", 0),),
+        )
+        protocol._record_reward_receipt_v1(candidate, self.committed_at)
+        receipt = protocol.reward_receipts[1][0x66].receipt
+        self.assertEqual(
+            protocol.reward_amount_v1(receipt, rows[0]),
+            settlement.SEAT_UINT256_MAX,
+        )
+
+    def test_profile_timings_and_registry_rows_have_one_authority_each(self):
+        self.assertNotIn(
+            "reward_configuration", settlement.Protocol.__dataclass_fields__
+        )
+        self.assertFalse(hasattr(settlement, "RewardConfigurationV1"))
+        standalone = settlement.protocol(seat=False)
+        self.assertEqual((
+            standalone.refund_claim_window_seconds,
+            standalone.reward_reorg_margin_seconds,
+        ), (
+            settlement.REWARD_CLAIM_WINDOW_SECONDS,
+            settlement.REORG_MARGIN_SECONDS,
+        ))
+        settlement.routed_ingress_for_test(standalone)
+        words = settlement._execution_profile_abi_words_v2(
+            standalone.versioned_history.execution_profile
+                .canonical_profile_bytes
+        )
+        self.assertEqual(
+            int.from_bytes(words[106], "big"),
+            standalone.refund_claim_window_seconds,
+        )
+        self.assertEqual(
+            int.from_bytes(words[85], "big"),
+            standalone.reward_reorg_margin_seconds,
+        )
+        self.assertTrue(standalone._reward_profile_bindings_valid_v1())
+
+        mismatched = reward_protocol(
+            self.rows, claim_window_seconds=5, reorg_margin_seconds=10
+        )
+        candidate = reward_candidate(
+            mismatched, self.committed_at, "profile-timing-mismatch"
+        )
+        settlement.routed_ingress_for_test(mismatched)
+        self.assertFalse(mismatched._reward_profile_bindings_valid_v1())
+        with self.assertRaises(AssertionError):
+            mismatched._record_reward_receipt_v1(
+                candidate, self.committed_at
+            )
+
+    def test_first_middle_and_last_block_tiers_are_candidate_bound(self):
+        protocol = settlement.protocol(seat=False)
+        now = settlement.Clock(
+            901, settlement.GENESIS_TIMESTAMP + 1_001
+        )
+        settlement.activate_normal(protocol, now)
+        base = settlement.candidate(
+            protocol, now, "three-block-tier", gas_used=1
+        )
+        first = base.blocks[0]
+        middle = replace(
+            first,
+            slot=first.slot + 1,
+            evm_timestamp=first.evm_timestamp + 1,
+            block_hash="2" * 64,
+            parent_hash=first.block_hash,
+            gas_used=2,
+        )
+        last = replace(
+            middle,
+            slot=middle.slot + 1,
+            evm_timestamp=middle.evm_timestamp + 1,
+            block_hash="3" * 64,
+            parent_hash=middle.block_hash,
+            gas_used=3,
+        )
+        exact = replace(
+            base,
+            blocks=(first, middle, last),
+            end_l2_block_number=protocol.core.l2_block_number + 3,
+            reward_execution_gas=6,
+        )
+        self.assertTrue(protocol._valid_normal(exact, now))
+        for position in (0, 1, 2):
+            mixed = list(exact.blocks)
+            mixed[position] = replace(
+                mixed[position], tier=settlement.Tier.RECOVERY_SIGNED
+            )
+            self.assertFalse(protocol._valid_normal(
+                replace(exact, blocks=tuple(mixed)), now
+            ))
+
+    def test_explicit_allocation_outcomes_and_local_corruption_scope(self):
+        conversion = replace(
+            reward_candidate(
+                self.protocol, self.committed_at, "conversion-skip"
+            ),
+            candidate_id=object(),
+        )
+        decision = self.protocol._reward_receipt_allocation_decision_v1(
+            conversion, self.committed_at
+        )
+        self.assertIs(
+            decision.outcome,
+            settlement.RewardReceiptAllocationOutcomeV1.SKIP_ID_CONVERSION,
+        )
+        self.assertFalse(self.protocol._record_reward_receipt_v1(
+            conversion, self.committed_at
+        ).receipt_stored)
+
+        selected = reward_protocol(self.rows)
+        selected_candidate = reward_candidate(
+            selected, self.committed_at, "aa" * 32
+        )
+        selected.reward_receipts[1][0xAA] = \
+            settlement.RewardReceiptCellV1(None, True)
+        selected_snapshot = selected.snapshot()
+        with self.assertRaises(AssertionError):
+            selected._commit(selected_candidate, self.committed_at)
+        self.assertEqual(selected, selected_snapshot)
+
+        unrelated = reward_protocol(self.rows)
+        unrelated.reward_receipts[1][0xAB] = \
+            settlement.RewardReceiptCellV1(None, True)
+        self.assertFalse(unrelated._reward_receipt_state_valid_v1())
+        unrelated_candidate = reward_candidate(
+            unrelated, self.committed_at, "aa" * 32
+        )
+        prior_l2_block = unrelated.core.l2_block_number
+        unrelated._commit(unrelated_candidate, self.committed_at)
+        self.assertEqual(
+            unrelated.core.l2_block_number, prior_l2_block + 1
+        )
+        self.assertTrue(unrelated.reward_events[-1].receipt_stored)
+
+    def test_class_local_ring_capacity_and_deadline_skip_canonical_progress(self):
+        # A full class-1 ring still retains the documented same-class
+        # low-byte collision behavior, but cannot consume class-3 capacity.
+        for index in range(settlement.MAX_REWARD_RECEIPTS):
+            candidate_id = ((1 << 248) | index).to_bytes(32, "big").hex()
+            candidate = reward_candidate(
+                self.protocol, self.committed_at, candidate_id
+            )
+            self.assertTrue(self.protocol._record_reward_receipt_v1(
+                candidate, self.committed_at
+            ).receipt_stored)
+        self.assertTrue(all(
+            cell.receipt is not None
+            for cell in self.protocol.reward_receipts[1]
+        ))
+        class_three = reward_candidate(
+            self.protocol,
+            self.committed_at,
+            ((3 << 248) | 42).to_bytes(32, "big").hex(),
+            tier=settlement.Tier.ESCAPE_UNSIGNED,
+        )
+        class_three_event = self.protocol._record_reward_receipt_v1(
+            class_three, self.committed_at
+        )
+        self.assertTrue(class_three_event.receipt_stored)
+        self.assertEqual(
+            self.protocol.reward_receipts[3][42].receipt.candidate_id,
+            bytes.fromhex(class_three.candidate_id),
+        )
+        self.assertEqual(
+            self.protocol.reward_receipt_state_v1(class_three.candidate_id)[0],
+            self.protocol.reward_receipts[3][42].receipt,
+        )
+
+        progress_clock = settlement.Clock(
+            self.committed_at.block_number + 1,
+            self.committed_at.timestamp + 1,
+        )
+        colliding = reward_candidate(
+            self.protocol,
+            progress_clock,
+            ((2 << 248) | 42).to_bytes(32, "big").hex(),
+        )
+        prior_l2_block = self.protocol.core.l2_block_number
+        self.protocol._commit(colliding, progress_clock)
+        self.assertEqual(
+            self.protocol.core.l2_block_number, prior_l2_block + 1
+        )
+        self.assertFalse(self.protocol.reward_events[-1].receipt_stored)
+
+        overflow_protocol = reward_protocol(self.rows)
+        overflow_clock = settlement.Clock(901, settlement.UINT64_MAX)
+        overflow = reward_candidate(
+            overflow_protocol, overflow_clock, "77" * 32
+        )
+        prior_l2_block = overflow_protocol.core.l2_block_number
+        overflow_protocol._commit(overflow, overflow_clock)
+        self.assertEqual(
+            overflow_protocol.core.l2_block_number, prior_l2_block + 1
+        )
+        self.assertFalse(
+            overflow_protocol.reward_events[-1].receipt_stored
+        )
+        self.assertIsNone(
+            overflow_protocol.reward_receipts[1][0x77].receipt
+        )
 
 
 if __name__ == "__main__":

@@ -1246,6 +1246,19 @@ PROFILE_RELATIONS = (
         (False, True, True),
     ),
     _relation(
+        "reward-claim-window-profile-word",
+        (
+            "rewards.claimWindowSeconds",
+            "dataSession.refundClaimWindowSeconds",
+        ),
+        "==",
+        lambda p: _at(p, "rewards.claimWindowSeconds")
+        == _at(p, "dataSession.refundClaimWindowSeconds"),
+        "rewards.claimWindowSeconds",
+        lambda p: _at(p, "dataSession.refundClaimWindowSeconds"),
+        (False, True, False),
+    ),
+    _relation(
         "canonical-history-reorg-capacity",
         (
             "geometry.canonicalHistoryCells",
@@ -1871,6 +1884,14 @@ def production_blockers(profile: Any) -> tuple[str, ...]:
             blockers.add("rewards.classes must contain at least one class")
         elif len(reward_classes) > _at(profile, "geometry.maximumRewardClasses"):
             blockers.add("rewards.classes exceeds maximumRewardClasses")
+        elif [reward_class.get("classId") for reward_class in reward_classes] != [
+            1,
+            2,
+            3,
+        ]:
+            blockers.add(
+                "rewards.classes must define exactly tier class IDs 1, 2, and 3"
+            )
     except (KeyError, TypeError, ValueError):
         blockers.add("rewards.classes unavailable")
 

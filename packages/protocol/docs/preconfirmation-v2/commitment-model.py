@@ -39,6 +39,7 @@ LEGACY_MAX_FORCED_ROW_BYTES = 256
 LEGACY_MAX_SCAN_BYTES = 4_194_304
 COMPONENT_CONFIG_GETTER_GAS_LIMIT = 50_000
 SOURCE_CREDIT_READ_GAS_LIMIT = 200_000
+BRIDGE_PROCESS_TTL_SECONDS = 2_592_000
 FORCE_DEPTH = 64
 TERMINAL_DEPTH = 64
 
@@ -82,8 +83,11 @@ D_DISPOSITIONS = b"slot-chain-dispositions-v1"
 D_BRIDGE_RESULT = b"slot-chain-bridge-credit-result-v11"
 D_BRIDGE_CREDIT_ID = b"slot-chain-bridge-credit-id-v6"
 D_BRIDGE_ESCROW = b"slot-chain-bridge-escrow-v2"
-D_INBOX_CREDIT_SLOT = b"slot-chain-inbox-credit-slot-v4"
+D_INBOX_CREDIT_SLOT = b"slot-chain-inbox-credit-slot-v5"
 D_INBOX_ROUTE_CONFIG = b"slot-chain-inbox-route-config-v1"
+D_DESTINATION_ATTEMPT_V2 = b"slot-chain-destination-attempt-v2"
+D_NATIVE_QUOTA_V2 = b"slot-chain-native-quota-v2"
+NATIVE_QUOTA_ASSET = b"NATIVE_ETH"
 D_TERMINAL_EMPTY = b"slot-chain-terminal-empty-v2"
 D_TERMINAL_LEAF = b"slot-chain-terminal-leaf-v2"
 D_TERMINAL_NODE = b"slot-chain-terminal-node-v2"
@@ -144,8 +148,29 @@ DATA_SESSION_EVENT_SIGNATURES = {
         b"DataSessionsMaintained(uint8,uint16,uint16,uint8,uint8)"
     ),
 }
+REWARD_EVENT_SIGNATURES = {
+    "candidate_committed_v2_topic": (
+        b"CandidateCommittedV2(bytes32,address,uint8,uint256,uint64,bool,"
+        b"uint8,bytes32)"
+    ),
+    "reward_class_funded_v1_topic": (
+        b"RewardClassFundedV1(uint8,address,uint256,uint256,uint256)"
+    ),
+    "reward_claimed_v1_topic": (
+        b"RewardClaimedV1(bytes32,address,uint8,uint256)"
+    ),
+}
 COMPONENT_CONFIG_GETTER_SELECTOR = keccak256(
     b"componentConfigHashV2()")[:4]
+REWARD_CLASS_V1_SELECTOR = keccak256(b"rewardClassV1(uint8)")[:4]
+REWARD_CLASS_V1_MAGIC = b"RCV1"
+REWARD_CLASS_V1_RETURN_LENGTH = 7 * 32
+FUND_REWARD_CLASS_V1_SELECTOR = keccak256(
+    b"fundRewardClassV1(uint8)")[:4]
+CLAIM_REWARD_V1_SELECTOR = keccak256(b"claimRewardV1(bytes32)")[:4]
+REWARD_RECEIPT_V1_SELECTOR = keccak256(b"rewardReceiptV1(bytes32)")[:4]
+REWARD_RECEIPT_V1_MAGIC = b"RRV1"
+REWARD_RECEIPT_V1_RETURN_LENGTH = 12 * 32
 D_DESTINATION_INFRASTRUCTURE = b"slot-chain-destination-infrastructure-v3"
 D_DESTINATION_REGISTRATION = b"slot-chain-destination-registration-v1"
 D_SETTLEMENT_DEPLOYMENT = b"slot-chain-settlement-deployment-v1"
@@ -560,10 +585,10 @@ MARK_INBOX_BATCH_SIGNATURE = (
 MARK_INBOX_BATCH_SELECTOR = keccak256(MARK_INBOX_BATCH_SIGNATURE)[:4]
 INBOX_BATCH_MAGIC = bytes.fromhex("49425632")  # IBV2
 ROUTE_CONFIG_GETTER_SELECTOR = keccak256(b"routeConfigHashV2()")[:4]
-VERIFY_INBOX_CREDIT_SELECTOR = keccak256(
-    b"verifyInboxCredit(uint64,bytes32,uint64,address,bytes32,bytes32)")[:4]
-GET_INBOX_CREDIT_SLOT_SELECTOR = keccak256(
-    b"getInboxCreditSlot(bytes32,address,bytes32,bytes32)")[:4]
+VERIFY_INBOX_CREDIT_V2_SELECTOR = keccak256(
+    b"verifyInboxCreditV2(bytes32)")[:4]
+VERIFY_INBOX_CREDIT_V2_MAGIC = b"ICV2"
+VERIFY_INBOX_CREDIT_V2_RETURN_LENGTH = 8 * 32
 LIQUIDITY_QUOTE_SELECTOR = keccak256(b"liquidityQuoteV2(bytes32)")[:4]
 LIQUIDITY_FUNDING_STATE_SELECTOR = keccak256(
     b"liquidityFundingStateV2(bytes32)")[:4]
@@ -700,6 +725,7 @@ D_SCHEDULE_LIST = b"slot-chain-schedule-list-v1"
 D_SESSION_LIST = b"slot-chain-session-list-v1"
 D_OUTPUTS = b"slot-chain-outputs-v2"
 D_STATEMENT = b"slot-chain-statement-v2"
+D_REWARD_RECEIPT_V1 = b"slot-chain-reward-receipt-v1"
 D_NORMAL_CONTEXT = b"slot-chain-normal-context-v1"
 D_MIGRATION_DATA = b"slot-chain-migration-data-v2"
 
@@ -1058,16 +1084,335 @@ STATEMENT_KINDS = (
     "bytes", "bytes", "uint", "uint", "bytes", "uint", "uint", "uint",
     "uint", "bytes", "bytes", "uint", "bytes", "uint", "bytes", "uint",
     "uint", "bytes", "uint", "uint", "bytes", "bytes", "uint", "bytes",
-    "uint", "uint", "bytes", "address",
+    "uint", "uint", "uint", "uint", "bytes", "address",
 )
 
 
 def statement_hash(values: tuple[int | bytes, ...]) -> bytes:
     assert len(values) == len(STATEMENT_KINDS)
+    assert (type(values[41]) is int
+            and 0 <= values[41] < 1 << 256
+            and type(values[42]) is int
+            and 0 <= values[42] <= UINT64_MAX)
     encoded = []
     for kind, value in zip(STATEMENT_KINDS, values):
         encoded.append(address_word(value) if kind == "address" else word(value))
     return keccak256(D_STATEMENT + b"".join(encoded))
+
+
+def validate_candidate_statement_tiers(
+        statement_values: tuple[int | bytes, ...], candidate_tier: int,
+        block_values_rows: tuple[tuple[int | bytes, ...], ...]) -> None:
+    """Reject any candidate whose statement or block tier is inconsistent."""
+
+    assert (len(statement_values) == len(STATEMENT_KINDS)
+            and type(candidate_tier) is int
+            and candidate_tier in (1, 2, 3)
+            and type(statement_values[7]) is int
+            and statement_values[7] == candidate_tier
+            and len(block_values_rows) > 0)
+    for block_values_row in block_values_rows:
+        assert (type(block_values_row) is tuple
+                and len(block_values_row) == 24
+                and type(block_values_row[17]) is int
+                and block_values_row[17] == candidate_tier)
+
+
+def reward_receipt_v1_commitment(
+        candidate_id: bytes, beneficiary: int, reward_class: int,
+        reward_execution_gas: int, reward_published_bytes: int,
+        execution_profile_hash_: bytes, committed_at_block: int,
+        committed_at_timestamp: int, claim_until: int) -> bytes:
+    """Commit the exact immutable RewardReceiptV1 entitlement fields."""
+
+    assert (type(candidate_id) is bytes and len(candidate_id) == 32
+            and candidate_id != bytes(32)
+            and type(beneficiary) is int and beneficiary != 0
+            and type(reward_class) is int and reward_class in (1, 2, 3)
+            and type(reward_execution_gas) is int
+            and 0 <= reward_execution_gas < 1 << 256
+            and type(reward_published_bytes) is int
+            and 0 <= reward_published_bytes <= UINT64_MAX
+            and type(execution_profile_hash_) is bytes
+            and len(execution_profile_hash_) == 32
+            and execution_profile_hash_ != bytes(32)
+            and type(committed_at_block) is int
+            and 0 < committed_at_block <= UINT64_MAX
+            and type(committed_at_timestamp) is int
+            and type(claim_until) is int
+            and 0 < committed_at_timestamp < claim_until <= UINT64_MAX)
+    return keccak256(
+        D_REWARD_RECEIPT_V1 + b32(candidate_id) + address20(beneficiary)
+        + u8(reward_class) + u256(reward_execution_gas)
+        + u64(reward_published_bytes) + b32(execution_profile_hash_)
+        + u64(committed_at_block) + u64(committed_at_timestamp)
+        + u64(claim_until))
+
+
+def encode_reward_receipt_v1_calldata(candidate_id: bytes) -> bytes:
+    assert (type(candidate_id) is bytes and len(candidate_id) == 32
+            and candidate_id != bytes(32))
+    encoded = REWARD_RECEIPT_V1_SELECTOR + candidate_id
+    assert len(encoded) == 36
+    return encoded
+
+
+def decode_reward_receipt_v1_calldata(calldata: bytes) -> bytes:
+    assert (len(calldata) == 36
+            and calldata[:4] == REWARD_RECEIPT_V1_SELECTOR)
+    candidate_id = b32(calldata[4:])
+    assert candidate_id != bytes(32)
+    assert calldata == encode_reward_receipt_v1_calldata(candidate_id)
+    return candidate_id
+
+
+def encode_reward_receipt_v1_present_return(
+        candidate_id: bytes, beneficiary: int, reward_class: int,
+        reward_execution_gas: int, reward_published_bytes: int,
+        execution_profile_hash_: bytes, committed_at_block: int,
+        committed_at_timestamp: int, claim_until: int,
+        claimed: bool) -> bytes:
+    assert type(claimed) is bool
+    commitment = reward_receipt_v1_commitment(
+        candidate_id, beneficiary, reward_class, reward_execution_gas,
+        reward_published_bytes, execution_profile_hash_, committed_at_block,
+        committed_at_timestamp, claim_until)
+    encoded = (
+        bytes4_word(REWARD_RECEIPT_V1_MAGIC) + u256(1)
+        + address_word(beneficiary) + u256(reward_class)
+        + u256(reward_execution_gas) + u256(reward_published_bytes)
+        + b32(execution_profile_hash_) + u256(committed_at_block)
+        + u256(committed_at_timestamp) + u256(claim_until)
+        + u256(1 if claimed else 0) + commitment)
+    assert len(encoded) == REWARD_RECEIPT_V1_RETURN_LENGTH
+    return encoded
+
+
+def encode_reward_receipt_v1_missing_return() -> bytes:
+    encoded = bytes4_word(REWARD_RECEIPT_V1_MAGIC) + bytes(11 * 32)
+    assert len(encoded) == REWARD_RECEIPT_V1_RETURN_LENGTH
+    return encoded
+
+
+def reward_receipt_v1_view_return(
+        query_candidate_id: bytes,
+        stored_receipt_arguments: tuple[object, ...] | None,
+        claimed: bool = False) -> bytes:
+    encode_reward_receipt_v1_calldata(query_candidate_id)
+    if stored_receipt_arguments is None:
+        return encode_reward_receipt_v1_missing_return()
+    assert len(stored_receipt_arguments) == 9
+    reward_receipt_v1_commitment(*stored_receipt_arguments)
+    if stored_receipt_arguments[0] != query_candidate_id:
+        return encode_reward_receipt_v1_missing_return()
+    return encode_reward_receipt_v1_present_return(
+        *stored_receipt_arguments, claimed)
+
+
+def decode_reward_receipt_v1_return(
+        returndata: bytes, expected_candidate_id: bytes
+) -> tuple[bool, int, int, int, int, bytes, int, int, int, bool, bytes]:
+    encode_reward_receipt_v1_calldata(expected_candidate_id)
+    assert (len(returndata) == REWARD_RECEIPT_V1_RETURN_LENGTH
+            and bytes4_word_value(returndata[:32])
+                == REWARD_RECEIPT_V1_MAGIC)
+    present_word = uint_word_value(returndata[32:64], 8)
+    assert present_word in (0, 1)
+    if present_word == 0:
+        assert returndata == encode_reward_receipt_v1_missing_return()
+        return (False, 0, 0, 0, 0, bytes(32), 0, 0, 0, False,
+                bytes(32))
+    claimed_word = uint_word_value(returndata[320:352], 8)
+    assert claimed_word in (0, 1)
+    result = (
+        True, address_word_value(returndata[64:96]),
+        uint_word_value(returndata[96:128], 8),
+        uint_word_value(returndata[128:160]),
+        uint_word_value(returndata[160:192], 64),
+        b32(returndata[192:224]),
+        uint_word_value(returndata[224:256], 64),
+        uint_word_value(returndata[256:288], 64),
+        uint_word_value(returndata[288:320], 64),
+        claimed_word == 1, b32(returndata[352:384]),
+    )
+    canonical = encode_reward_receipt_v1_present_return(
+        expected_candidate_id, result[1], result[2], result[3], result[4],
+        result[5], result[6], result[7], result[8], result[9])
+    assert returndata == canonical and result[10] == canonical[-32:]
+    return result
+
+
+def encode_fund_reward_class_v1_calldata(reward_class: int) -> bytes:
+    assert type(reward_class) is int and reward_class in (1, 2, 3)
+    encoded = FUND_REWARD_CLASS_V1_SELECTOR + u256(reward_class)
+    assert len(encoded) == 36
+    return encoded
+
+
+def decode_fund_reward_class_v1_calldata(calldata: bytes) -> int:
+    assert (len(calldata) == 36
+            and calldata[:4] == FUND_REWARD_CLASS_V1_SELECTOR)
+    reward_class = uint_word_value(calldata[4:], 8)
+    assert reward_class in (1, 2, 3)
+    assert calldata == encode_fund_reward_class_v1_calldata(reward_class)
+    return reward_class
+
+
+def decode_fund_reward_class_v1_return(returndata: bytes) -> None:
+    assert type(returndata) is bytes and returndata == b""
+
+
+def encode_claim_reward_v1_calldata(candidate_id: bytes) -> bytes:
+    assert (type(candidate_id) is bytes and len(candidate_id) == 32
+            and candidate_id != bytes(32))
+    encoded = CLAIM_REWARD_V1_SELECTOR + candidate_id
+    assert len(encoded) == 36
+    return encoded
+
+
+def decode_claim_reward_v1_calldata(calldata: bytes) -> bytes:
+    assert len(calldata) == 36 and calldata[:4] == CLAIM_REWARD_V1_SELECTOR
+    candidate_id = b32(calldata[4:])
+    assert candidate_id != bytes(32)
+    assert calldata == encode_claim_reward_v1_calldata(candidate_id)
+    return candidate_id
+
+
+def encode_claim_reward_v1_return(paid_wei: int) -> bytes:
+    assert type(paid_wei) is int and 0 <= paid_wei < 1 << 256
+    encoded = u256(paid_wei)
+    assert len(encoded) == 32
+    return encoded
+
+
+def decode_claim_reward_v1_return(returndata: bytes) -> int:
+    assert len(returndata) == 32
+    paid_wei = uint_word_value(returndata)
+    assert returndata == encode_claim_reward_v1_return(paid_wei)
+    return paid_wei
+
+
+def encode_candidate_committed_v2_log(
+        candidate_id: bytes, beneficiary: int, reward_class: int,
+        reward_execution_gas: int, reward_published_bytes: int,
+        receipt_stored: bool, receipt_index: int,
+        receipt_commitment: bytes) -> tuple[tuple[bytes, ...], bytes]:
+    assert (type(candidate_id) is bytes and len(candidate_id) == 32
+            and candidate_id != bytes(32)
+            and type(beneficiary) is int and beneficiary != 0
+            and type(reward_class) is int and reward_class in (1, 2, 3)
+            and type(reward_execution_gas) is int
+            and 0 <= reward_execution_gas < 1 << 256
+            and type(reward_published_bytes) is int
+            and 0 <= reward_published_bytes <= UINT64_MAX
+            and type(receipt_stored) is bool
+            and type(receipt_index) is int
+            and receipt_index == candidate_id[-1]
+            and type(receipt_commitment) is bytes
+            and len(receipt_commitment) == 32
+            and (not receipt_stored or receipt_commitment != bytes(32)))
+    topics = (
+        keccak256(REWARD_EVENT_SIGNATURES["candidate_committed_v2_topic"]),
+        candidate_id, address_word(beneficiary),
+    )
+    data = (
+        u256(reward_class) + u256(reward_execution_gas)
+        + u256(reward_published_bytes) + u256(1 if receipt_stored else 0)
+        + u256(receipt_index) + receipt_commitment)
+    assert len(topics) == 3 and len(data) == 192
+    return topics, data
+
+
+def decode_candidate_committed_v2_log(
+        topics: tuple[bytes, ...], data: bytes
+) -> tuple[bytes, int, int, int, int, bool, int, bytes]:
+    assert (type(topics) is tuple and len(topics) == 3
+            and topics[0]
+                == keccak256(
+                    REWARD_EVENT_SIGNATURES["candidate_committed_v2_topic"])
+            and len(data) == 192)
+    receipt_stored_word = uint_word_value(data[96:128], 8)
+    assert receipt_stored_word in (0, 1)
+    result = (
+        b32(topics[1]), address_word_value(topics[2]),
+        uint_word_value(data[:32], 8),
+        uint_word_value(data[32:64]),
+        uint_word_value(data[64:96], 64),
+        receipt_stored_word == 1,
+        uint_word_value(data[128:160], 8), b32(data[160:192]),
+    )
+    assert (topics, data) == encode_candidate_committed_v2_log(*result)
+    return result
+
+
+def encode_reward_class_funded_v1_log(
+        reward_class: int, funder: int, amount: int,
+        class_funding_after: int,
+        total_funding_after: int) -> tuple[tuple[bytes, ...], bytes]:
+    assert (type(reward_class) is int and reward_class in (1, 2, 3)
+            and type(funder) is int and funder != 0
+            and all(type(value) is int and 0 <= value < 1 << 256
+                    for value in (
+                        amount, class_funding_after, total_funding_after))
+            and amount > 0 and class_funding_after >= amount
+            and total_funding_after >= class_funding_after)
+    topics = (
+        keccak256(REWARD_EVENT_SIGNATURES["reward_class_funded_v1_topic"]),
+        u256(reward_class), address_word(funder),
+    )
+    data = u256(amount) + u256(class_funding_after) + u256(total_funding_after)
+    assert len(topics) == 3 and len(data) == 96
+    return topics, data
+
+
+def decode_reward_class_funded_v1_log(
+        topics: tuple[bytes, ...], data: bytes
+) -> tuple[int, int, int, int, int]:
+    assert (type(topics) is tuple and len(topics) == 3
+            and topics[0]
+                == keccak256(
+                    REWARD_EVENT_SIGNATURES[
+                        "reward_class_funded_v1_topic"])
+            and len(data) == 96)
+    result = (
+        uint_word_value(topics[1], 8), address_word_value(topics[2]),
+        uint_word_value(data[:32]), uint_word_value(data[32:64]),
+        uint_word_value(data[64:96]),
+    )
+    assert (topics, data) == encode_reward_class_funded_v1_log(*result)
+    return result
+
+
+def encode_reward_claimed_v1_log(
+        candidate_id: bytes, beneficiary: int, reward_class: int,
+        paid_wei: int) -> tuple[tuple[bytes, ...], bytes]:
+    assert (type(candidate_id) is bytes and len(candidate_id) == 32
+            and candidate_id != bytes(32)
+            and type(beneficiary) is int and beneficiary != 0
+            and type(reward_class) is int and reward_class in (1, 2, 3)
+            and type(paid_wei) is int and 0 <= paid_wei < 1 << 256)
+    topics = (
+        keccak256(REWARD_EVENT_SIGNATURES["reward_claimed_v1_topic"]),
+        candidate_id, address_word(beneficiary),
+    )
+    data = u256(reward_class) + u256(paid_wei)
+    assert len(topics) == 3 and len(data) == 64
+    return topics, data
+
+
+def decode_reward_claimed_v1_log(
+        topics: tuple[bytes, ...], data: bytes
+) -> tuple[bytes, int, int, int]:
+    assert (type(topics) is tuple and len(topics) == 3
+            and topics[0]
+                == keccak256(REWARD_EVENT_SIGNATURES["reward_claimed_v1_topic"])
+            and len(data) == 64)
+    result = (
+        b32(topics[1]), address_word_value(topics[2]),
+        uint_word_value(data[:32], 8), uint_word_value(data[32:64]),
+    )
+    assert (topics, data) == encode_reward_claimed_v1_log(*result)
+    return result
 
 
 @dataclass(frozen=True)
@@ -1586,6 +1931,82 @@ def validate_component_config_getter(
             and gas_limit == COMPONENT_CONFIG_GETTER_GAS_LIMIT)
     return decode_configuration_hash_return(
         returndata, expected_configuration_hash)
+
+
+def encode_reward_class_v1_calldata(reward_class: int) -> bytes:
+    assert type(reward_class) is int and reward_class in (1, 2, 3)
+    encoded = REWARD_CLASS_V1_SELECTOR + u256(reward_class)
+    assert len(encoded) == 36
+    return encoded
+
+
+def decode_reward_class_v1_calldata(calldata: bytes) -> int:
+    assert (len(calldata) == 36
+            and calldata[:4] == REWARD_CLASS_V1_SELECTOR)
+    reward_class = uint_word_value(calldata[4:], 8)
+    assert reward_class in (1, 2, 3)
+    assert calldata == encode_reward_class_v1_calldata(reward_class)
+    return reward_class
+
+
+def encode_reward_class_v1_return(
+        builder_registry_configuration_hash: bytes, returned_class_id: int,
+        fixed_wei: int, per_execution_gas_wei: int,
+        per_published_byte_wei: int, cap_wei: int) -> bytes:
+    assert (type(builder_registry_configuration_hash) is bytes
+            and len(builder_registry_configuration_hash) == 32
+            and builder_registry_configuration_hash != bytes(32)
+            and type(returned_class_id) is int
+            and returned_class_id in (1, 2, 3)
+            and all(type(value) is int and 0 <= value < 1 << 256
+                    for value in (fixed_wei, per_execution_gas_wei,
+                                  per_published_byte_wei, cap_wei)))
+    encoded = (
+        bytes4_word(REWARD_CLASS_V1_MAGIC)
+        + b32(builder_registry_configuration_hash)
+        + u256(returned_class_id) + u256(fixed_wei)
+        + u256(per_execution_gas_wei) + u256(per_published_byte_wei)
+        + u256(cap_wei))
+    assert len(encoded) == REWARD_CLASS_V1_RETURN_LENGTH
+    return encoded
+
+
+def decode_reward_class_v1_return(
+        returndata: bytes, expected_configuration_hash: bytes,
+        expected_class_id: int) -> tuple[bytes, int, int, int, int, int]:
+    assert (len(returndata) == REWARD_CLASS_V1_RETURN_LENGTH
+            and bytes4_word_value(returndata[:32])
+                == REWARD_CLASS_V1_MAGIC
+            and b32(returndata[32:64]) == expected_configuration_hash
+            and expected_configuration_hash != bytes(32))
+    result = (
+        b32(returndata[32:64]), uint_word_value(returndata[64:96], 8),
+        uint_word_value(returndata[96:128]),
+        uint_word_value(returndata[128:160]),
+        uint_word_value(returndata[160:192]),
+        uint_word_value(returndata[192:224]),
+    )
+    assert (type(expected_class_id) is int
+            and expected_class_id in (1, 2, 3)
+            and result[1] == expected_class_id
+            and returndata == encode_reward_class_v1_return(*result))
+    return result
+
+
+def validate_reward_class_v1_getter(
+        expected_runtime_hash: bytes, observed_extcodehash: bytes,
+        expected_configuration_hash: bytes, expected_class_id: int,
+        calldata: bytes, gas_limit: int,
+        returndata: bytes) -> tuple[bytes, int, int, int, int, int]:
+    """Model the profile-owned BuilderRegistry class-table read."""
+
+    assert (expected_runtime_hash != bytes(32)
+            and observed_extcodehash == expected_runtime_hash
+            and gas_limit == COMPONENT_CONFIG_GETTER_GAS_LIMIT
+            and decode_reward_class_v1_calldata(calldata)
+                == expected_class_id)
+    return decode_reward_class_v1_return(
+        returndata, expected_configuration_hash, expected_class_id)
 
 
 def bridge_kernel_profile_hash(bridge_v2_abi_hash: bytes,
@@ -5157,14 +5578,42 @@ def decode_pool_value_magic_return(returndata: bytes) -> bytes:
     return POOL_VALUE_MAGIC
 
 
-def decode_verify_inbox_credit_return(
-        returndata: bytes) -> tuple[bytes, int, int, int, int, bytes]:
-    assert len(returndata) == 6 * 32
-    return (b32(returndata[:32]), uint_word_value(returndata[32:64], 64),
-            uint_word_value(returndata[64:96]),
-            uint_word_value(returndata[96:128], 64),
-            uint_word_value(returndata[128:160], 64),
-            b32(returndata[160:192]))
+def encode_verify_inbox_credit_v2_return(
+        credit_id: bytes, result_hash: bytes, process_by: int, value: int,
+        execution_fee: int, liquidity_fee: int,
+        source_context_hash_: bytes) -> bytes:
+    assert (credit_id != bytes(32) and result_hash != bytes(32)
+            and 0 < process_by <= UINT64_MAX and 0 <= value < 1 << 256
+            and 0 <= execution_fee <= UINT64_MAX
+            and 0 <= liquidity_fee <= UINT64_MAX
+            and source_context_hash_ != bytes(32))
+    encoded = (
+        bytes4_word(VERIFY_INBOX_CREDIT_V2_MAGIC) + b32(credit_id)
+        + b32(result_hash) + u256(process_by) + u256(value)
+        + u256(execution_fee) + u256(liquidity_fee)
+        + b32(source_context_hash_))
+    assert len(encoded) == VERIFY_INBOX_CREDIT_V2_RETURN_LENGTH
+    return encoded
+
+
+def decode_verify_inbox_credit_v2_return(
+        returndata: bytes, expected_credit_id: bytes
+) -> tuple[bytes, bytes, int, int, int, int, bytes]:
+    assert len(returndata) == VERIFY_INBOX_CREDIT_V2_RETURN_LENGTH
+    assert bytes4_word_value(returndata[:32]) == VERIFY_INBOX_CREDIT_V2_MAGIC
+    result = (
+        b32(returndata[32:64]), b32(returndata[64:96]),
+        uint_word_value(returndata[96:128], 64),
+        uint_word_value(returndata[128:160]),
+        uint_word_value(returndata[160:192], 64),
+        uint_word_value(returndata[192:224], 64),
+        b32(returndata[224:256]),
+    )
+    assert (result[0] == b32(expected_credit_id)
+            and result[1] != bytes(32) and result[2] > 0
+            and result[6] != bytes(32))
+    assert returndata == encode_verify_inbox_credit_v2_return(*result)
+    return result
 
 
 def encode_process_with_liquidity_calldata(
@@ -5375,6 +5824,34 @@ def decode_pool_bridge_result_return(
 
 def target_call_failed_error(attempt_digest: bytes) -> bytes:
     return TARGET_CALL_FAILED_SELECTOR + b32(attempt_digest)
+
+
+def destination_attempt_digest_v2(
+        credit_id: bytes, source_context_hash_: bytes,
+        destination_context_hash_: bytes, processor: int,
+        expected_entry_status: int, is_last_attempt: bool,
+        ticket_id: bytes, authorization_hash: bytes) -> bytes:
+    """Bind the one child-failure frame accepted by the Bridge wrapper."""
+
+    assert (credit_id != bytes(32) and source_context_hash_ != bytes(32)
+            and destination_context_hash_ != bytes(32) and processor != 0
+            and expected_entry_status in (0, 1)
+            and type(is_last_attempt) is bool and ticket_id != bytes(32)
+            and authorization_hash != bytes(32))
+    return keccak256(
+        D_DESTINATION_ATTEMPT_V2 + b32(credit_id)
+        + b32(source_context_hash_) + b32(destination_context_hash_)
+        + address20(processor) + u8(expected_entry_status)
+        + u8(1 if is_last_attempt else 0) + b32(ticket_id)
+        + b32(authorization_hash))
+
+
+def native_quota_key_v2(destination_domain_id_: bytes) -> bytes:
+    """Derive the sole destination-native quota lane key."""
+
+    assert destination_domain_id_ != bytes(32)
+    return keccak256(
+        D_NATIVE_QUOTA_V2 + b32(destination_domain_id_) + NATIVE_QUOTA_ASSET)
 
 
 def decode_target_call_failed_error(returndata: bytes,
@@ -6352,7 +6829,7 @@ TARGET_CONSTRUCTOR_STATE_LENGTH = 96
 DATA_SESSION_ACCOUNTING_SELECTOR = keccak256(
     b"dataSessionAccountingV1()")[:4]
 DATA_SESSION_ACCOUNTING_MAGIC = b"DSV1"
-DATA_SESSION_ACCOUNTING_LENGTH = 384
+DATA_SESSION_ACCOUNTING_LENGTH = 512
 
 
 def eip2935_read_configuration_hash_v1(first_supported_block: int) -> bytes:
@@ -6457,13 +6934,89 @@ def encode_target_constructor_state_return_v2(
     return encoded
 
 
-def encode_empty_data_session_accounting_v1(
-        data_session_configuration_hash: bytes) -> bytes:
-    assert data_session_configuration_hash != bytes(32)
-    encoded = (DATA_SESSION_ACCOUNTING_MAGIC + bytes(28)
-               + u256(0) * 10 + b32(data_session_configuration_hash))
+def encode_data_session_accounting_v1(
+        live_count: int, refund_count: int, occupied_count: int,
+        gc_cursor: int, next_session_sequence: int,
+        live_bond_liability: int, refund_bond_liability: int,
+        migration_refund_generation: int,
+        migration_refund_claim_deadline: int, guard_entered: bool,
+        data_session_configuration_hash: bytes,
+        reward_funding_class_1: int, reward_funding_class_2: int,
+        reward_funding_class_3: int, total_reward_funding: int) -> bytes:
+    assert (all(type(value) is int and 0 <= value < 1 << 16
+                for value in (live_count, refund_count, occupied_count,
+                              gc_cursor))
+            and live_count + refund_count == occupied_count
+            and all(type(value) is int and 0 <= value <= UINT64_MAX
+                    for value in (next_session_sequence,
+                                  migration_refund_generation,
+                                  migration_refund_claim_deadline))
+            and type(guard_entered) is bool
+            and type(data_session_configuration_hash) is bytes
+            and len(data_session_configuration_hash) == 32
+            and data_session_configuration_hash != bytes(32)
+            and all(type(value) is int and 0 <= value < 1 << 256
+                    for value in (
+                        live_bond_liability, refund_bond_liability,
+                        reward_funding_class_1, reward_funding_class_2,
+                        reward_funding_class_3, total_reward_funding))
+            and reward_funding_class_1 + reward_funding_class_2
+                + reward_funding_class_3 == total_reward_funding
+            and total_reward_funding < 1 << 256)
+    encoded = (
+        bytes4_word(DATA_SESSION_ACCOUNTING_MAGIC)
+        + u256(live_count) + u256(refund_count) + u256(occupied_count)
+        + u256(gc_cursor) + u256(next_session_sequence)
+        + u256(live_bond_liability) + u256(refund_bond_liability)
+        + u256(migration_refund_generation)
+        + u256(migration_refund_claim_deadline)
+        + u256(1 if guard_entered else 0)
+        + b32(data_session_configuration_hash)
+        + u256(reward_funding_class_1) + u256(reward_funding_class_2)
+        + u256(reward_funding_class_3) + u256(total_reward_funding))
     assert len(encoded) == DATA_SESSION_ACCOUNTING_LENGTH
     return encoded
+
+
+def encode_empty_data_session_accounting_v1(
+        data_session_configuration_hash: bytes) -> bytes:
+    return encode_data_session_accounting_v1(
+        0, 0, 0, 0, 0, 0, 0, 0, 0, False,
+        data_session_configuration_hash, 0, 0, 0, 0)
+
+
+def decode_data_session_accounting_v1(
+        returndata: bytes, expected_configuration_hash: bytes,
+        *, require_empty: bool = False
+) -> tuple[int, int, int, int, int, int, int, int, int, bool,
+           bytes, int, int, int, int]:
+    assert (len(returndata) == DATA_SESSION_ACCOUNTING_LENGTH
+            and bytes4_word_value(returndata[:32])
+                == DATA_SESSION_ACCOUNTING_MAGIC)
+    guard_word = uint_word_value(returndata[320:352], 8)
+    assert guard_word in (0, 1)
+    result = (
+        uint_word_value(returndata[32:64], 16),
+        uint_word_value(returndata[64:96], 16),
+        uint_word_value(returndata[96:128], 16),
+        uint_word_value(returndata[128:160], 16),
+        uint_word_value(returndata[160:192], 64),
+        uint_word_value(returndata[192:224]),
+        uint_word_value(returndata[224:256]),
+        uint_word_value(returndata[256:288], 64),
+        uint_word_value(returndata[288:320], 64),
+        guard_word == 1, b32(returndata[352:384]),
+        uint_word_value(returndata[384:416]),
+        uint_word_value(returndata[416:448]),
+        uint_word_value(returndata[448:480]),
+        uint_word_value(returndata[480:512]),
+    )
+    assert (result[10] == expected_configuration_hash
+            and expected_configuration_hash != bytes(32)
+            and returndata == encode_data_session_accounting_v1(*result))
+    if require_empty:
+        assert all(value in (0, False) for value in (*result[:10], *result[11:]))
+    return result
 
 
 def live_registration_validation_commitment_v2(
@@ -6472,6 +7025,9 @@ def live_registration_validation_commitment_v2(
         constructor_return: bytes) -> bytes:
     assert (len(accounting_return) == DATA_SESSION_ACCOUNTING_LENGTH
             and len(constructor_return) == TARGET_CONSTRUCTOR_STATE_LENGTH)
+    decode_data_session_accounting_v1(
+        accounting_return, derived.data_session_configuration_hash,
+        require_empty=True)
     return keccak256(
         b"slot-chain-live-deployment-validation-v2"
         + settlement_deployment_descriptor_hash(
@@ -9228,11 +9784,63 @@ def bridge_credit_id(src_chain_id: int, source_domain_id_: bytes, src_epoch: int
                      + b32(msg_hash) + u64(liquidity_fee))
 
 
-def inbox_credit_slot(source_domain_id_: bytes, src_bridge: int,
-                      destination_domain_id_: bytes, credit_id: bytes) -> bytes:
-    return keccak256(D_INBOX_CREDIT_SLOT + b32(source_domain_id_)
-                     + address20(src_bridge) + b32(destination_domain_id_)
-                     + b32(credit_id))
+def inbox_credit_slot(credit_id: bytes) -> bytes:
+    assert credit_id != bytes(32)
+    return keccak256(D_INBOX_CREDIT_SLOT + b32(credit_id))
+
+
+def inbox_credit_packed_terms(process_by: int, execution_fee: int,
+                              liquidity_fee: int) -> int:
+    assert (0 < process_by <= UINT64_MAX
+            and 0 <= execution_fee <= UINT64_MAX
+            and 0 <= liquidity_fee <= UINT64_MAX)
+    return process_by | (execution_fee << 64) | (liquidity_fee << 128)
+
+
+def decode_inbox_credit_packed_terms(packed_terms: int) -> tuple[int, int, int]:
+    assert 0 <= packed_terms < 1 << 192
+    return (packed_terms & UINT64_MAX,
+            (packed_terms >> 64) & UINT64_MAX,
+            (packed_terms >> 128) & UINT64_MAX)
+
+
+@dataclass(frozen=True)
+class InboxCreditPinV2:
+    result_hash: bytes
+    source_context_hash: bytes
+    value: int
+    process_by: int
+    execution_fee: int
+    liquidity_fee: int
+
+    def __post_init__(self) -> None:
+        assert (self.result_hash != bytes(32)
+                and self.source_context_hash != bytes(32)
+                and 0 <= self.value < 1 << 256)
+        inbox_credit_packed_terms(
+            self.process_by, self.execution_fee, self.liquidity_fee)
+
+    @property
+    def packed_terms(self) -> int:
+        return inbox_credit_packed_terms(
+            self.process_by, self.execution_fee, self.liquidity_fee)
+
+    @property
+    def storage_values(self) -> tuple[bytes, bytes, int, int]:
+        """Return the four exact mapping values stored under the v5 key."""
+
+        return (self.result_hash, self.source_context_hash,
+                self.value, self.packed_terms)
+
+
+def verified_inbox_credit_v2_from_store(
+        store: dict[bytes, InboxCreditPinV2], credit_id: bytes) -> bytes:
+    key = inbox_credit_slot(credit_id)
+    assert key in store
+    pin = store[key]
+    return encode_verify_inbox_credit_v2_return(
+        credit_id, pin.result_hash, pin.process_by, pin.value,
+        pin.execution_fee, pin.liquidity_fee, pin.source_context_hash)
 
 
 def terminal_leaf(index: int, destination_domain_id_: bytes,
@@ -9377,44 +9985,51 @@ def bridge_escrow_id(credit_id: bytes) -> bytes:
     return keccak256(D_BRIDGE_ESCROW + b32(credit_id))
 
 
-def pin_inbox_credit(store: dict[bytes, bytes], src_chain_id: int,
-                     source_domain_id_: bytes, src_epoch: int,
-                     src_bridge: int, destination_domain_id_: bytes,
-                     msg_hash: bytes, liquidity_fee: int,
-                     result_hash: bytes) -> bool:
-    if src_bridge == 0 or msg_hash == bytes(32) or result_hash == bytes(32):
+def pin_inbox_credit(store: dict[bytes, InboxCreditPinV2], row: InboxCreditV2,
+                     process_by: int) -> bool:
+    try:
+        canonical_inbox_credit(row)
+        if (row.src_bridge == 0 or row.msg_hash == bytes(32)
+                or row.result_hash == bytes(32)
+                or row.source_context_hash == bytes(32)):
+            return False
+        credit_id = bridge_credit_id(
+            row.src_chain_id, row.source_domain_id, row.src_epoch,
+            row.src_bridge, row.destination_domain_id, row.msg_hash,
+            row.liquidity_fee)
+        key = inbox_credit_slot(credit_id)
+        candidate = InboxCreditPinV2(
+            row.result_hash, row.source_context_hash, row.value, process_by,
+            row.execution_fee, row.liquidity_fee)
+    except AssertionError:
         return False
-    credit_id = bridge_credit_id(
-        src_chain_id, source_domain_id_, src_epoch, src_bridge,
-        destination_domain_id_, msg_hash, liquidity_fee)
-    key = inbox_credit_slot(
-        source_domain_id_, src_bridge, destination_domain_id_, credit_id)
     existing = store.get(key)
     if existing is None:
-        store[key] = result_hash
+        store[key] = candidate
         return True
-    return existing == result_hash
+    return existing == candidate
 
 
 def pin_inbox_credit_batch(
-    store: dict[bytes, bytes],
-    rows: tuple[tuple[int, int, bytes, int, int, bytes, bytes, int, bytes], ...],
+    store: dict[bytes, InboxCreditPinV2], rows: tuple[InboxCreditV2, ...],
+    process_by: int,
 ) -> bool:
     if len(rows) > 64:
         return False
-    indices = tuple(row[0] for row in rows)
+    indices = tuple(row.queue_index for row in rows)
     if indices != tuple(sorted(indices)) or len(set(indices)) != len(indices):
         return False
     staged = dict(store)
     seen: set[bytes] = set()
-    for (_, src_chain_id, source_domain_id_, src_epoch, src_bridge,
-         destination_domain_id_, msg_hash, liquidity_fee, result) in rows:
-        credit_id = bridge_credit_id(
-            src_chain_id, source_domain_id_, src_epoch, src_bridge,
-            destination_domain_id_, msg_hash, liquidity_fee)
-        if credit_id in seen or not pin_inbox_credit(
-                staged, src_chain_id, source_domain_id_, src_epoch, src_bridge,
-                destination_domain_id_, msg_hash, liquidity_fee, result):
+    for row in rows:
+        try:
+            credit_id = bridge_credit_id(
+                row.src_chain_id, row.source_domain_id, row.src_epoch,
+                row.src_bridge, row.destination_domain_id, row.msg_hash,
+                row.liquidity_fee)
+        except AssertionError:
+            return False
+        if credit_id in seen or not pin_inbox_credit(staged, row, process_by):
             return False
         seen.add(credit_id)
     store.clear()
@@ -9553,6 +10168,45 @@ def vectors() -> dict[str, str]:
     empty_data_session_accounting_return = \
         encode_empty_data_session_accounting_v1(
             derived_release_authority.data_session_configuration_hash)
+    funded_data_session_accounting_return = encode_data_session_accounting_v1(
+        0, 0, 0, 0, 0, 0, 0, 0, 0, False,
+        derived_release_authority.data_session_configuration_hash,
+        1_000, 2_000, 3_000, 6_000)
+    assert decode_data_session_accounting_v1(
+        empty_data_session_accounting_return,
+        derived_release_authority.data_session_configuration_hash,
+        require_empty=True)[11:] == (0, 0, 0, 0)
+    assert decode_data_session_accounting_v1(
+        funded_data_session_accounting_return,
+        derived_release_authority.data_session_configuration_hash)[11:] \
+        == (1_000, 2_000, 3_000, 6_000)
+    for malformed_accounting_return in (
+            funded_data_session_accounting_return[:-1],
+            funded_data_session_accounting_return + b"\x00",
+            b"BAD!" + funded_data_session_accounting_return[4:],
+            funded_data_session_accounting_return[:32] + b"\x01"
+                + funded_data_session_accounting_return[33:],
+            funded_data_session_accounting_return[:320] + u256(2)
+                + funded_data_session_accounting_return[352:],
+            funded_data_session_accounting_return[:480] + u256(6_001)):
+        assert_rejects(
+            lambda value=malformed_accounting_return:
+                decode_data_session_accounting_v1(
+                    value,
+                    derived_release_authority
+                        .data_session_configuration_hash),
+            "malformed 512-byte DataSession accounting return accepted")
+    assert_rejects(
+        lambda: decode_data_session_accounting_v1(
+            funded_data_session_accounting_return,
+            bytes.fromhex("a5" * 32)),
+        "wrong DataSession configuration accepted by accounting view")
+    assert_rejects(
+        lambda: live_registration_validation_commitment_v2(
+            derived_release_authority,
+            funded_data_session_accounting_return,
+            target_constructor_state_return),
+        "funded PREACTIVE reward custody accepted as empty")
     live_registration_validation_commitment = \
         live_registration_validation_commitment_v2(
             derived_release_authority,
@@ -9574,7 +10228,7 @@ def vectors() -> dict[str, str]:
             and DATA_SESSION_ACCOUNTING_SELECTOR
                 == keccak256(b"dataSessionAccountingV1()")[:4]
             and len(target_constructor_state_return) == 96
-            and len(empty_data_session_accounting_return) == 384)
+            and len(empty_data_session_accounting_return) == 512)
     deployment = derived_release_authority.settlement_deployment_descriptor
     assert (deployment.factory == SETTLEMENT_FACTORY_ADDRESS_V2
             and deployment.factory_runtime_hash
@@ -9675,6 +10329,19 @@ def vectors() -> dict[str, str]:
         key: keccak256(signature)
         for key, signature in DATA_SESSION_EVENT_SIGNATURES.items()
     }
+    reward_event_topics = {
+        key: keccak256(signature)
+        for key, signature in REWARD_EVENT_SIGNATURES.items()
+    }
+    assert reward_event_topics["candidate_committed_v2_topic"].hex() == (
+        "51629f6515f461b4c6f912a8eecad46d8ff89ab5e8235d95c30004be2c9ac738"
+    )
+    assert reward_event_topics["reward_class_funded_v1_topic"].hex() == (
+        "d979ecc5f5821fb9e6643744111b04290fc1da57eebaba07def52e526c6eb49e"
+    )
+    assert reward_event_topics["reward_claimed_v1_topic"].hex() == (
+        "9f41046da255bf29062408ae9f20e06ea2453df29227caf32b709ccfed59d506"
+    )
     assert len(set(session_function_selectors.values())) == len(
         session_function_selectors
     )
@@ -9743,6 +10410,8 @@ def vectors() -> dict[str, str]:
         tuple((0, forced_descriptor(envs[i])) for i in range(2, 66)),
         (0, forced_descriptor(envs[66])),
     )
+    reward_execution_gas = 12_345_678
+    reward_published_bytes = len(chunk0) + len(chunk1)
     statement_values = (
         settlement_chain_id, l2_chain_id, 2, profile_hash, contract,
         2, bytes.fromhex("b7" * 32), 1, base,
@@ -9752,8 +10421,356 @@ def vectors() -> dict[str, str]:
         101, 0, 1_000, bytes.fromhex("99" * 32), bytes.fromhex("aa" * 32), 999,
         force.root, len(envs), forced_descriptors, 2, 12, adm_root,
         0, 0, bytes(32), schedules_hash, 1,
-        sessions_hash, 1, 2, outputs_hash, 0xCAFE,
+        sessions_hash, 1, 2, reward_execution_gas,
+        reward_published_bytes, outputs_hash, 0xCAFE,
     )
+    statement_commitment = statement_hash(statement_values)
+    assert len(STATEMENT_KINDS) == len(statement_values) == 45
+    candidate_tier = 1
+    block_tier_rows = (block_values, block_values, block_values)
+    validate_candidate_statement_tiers(
+        statement_values, candidate_tier, block_tier_rows)
+    for block_position in (0, 1, 2):
+        changed_block_tier_rows = list(block_tier_rows)
+        changed_block = list(changed_block_tier_rows[block_position])
+        changed_block[17] = 2
+        changed_block_tier_rows[block_position] = tuple(changed_block)
+        assert_rejects(
+            lambda rows=tuple(changed_block_tier_rows):
+                validate_candidate_statement_tiers(
+                    statement_values, candidate_tier, rows),
+            "first/middle/last block tier substitution accepted")
+    assert_rejects(
+        lambda: validate_candidate_statement_tiers(
+            statement_values, 2, block_tier_rows),
+        "candidate tier disagreed with Settlement statement tier")
+    for index, replacement_value in (
+            (41, reward_execution_gas + 1),
+            (42, reward_published_bytes + 1)):
+        changed_statement = list(statement_values)
+        changed_statement[index] = replacement_value
+        assert statement_hash(tuple(changed_statement)) != statement_commitment
+    invalid_statement = list(statement_values)
+    invalid_statement[42] = 1 << 64
+    assert_rejects(
+        lambda: statement_hash(tuple(invalid_statement)),
+        "wide rewardPublishedBytes accepted by SettlementStatementV2")
+    invalid_statement[42] = reward_published_bytes
+    invalid_statement[41] = 1 << 256
+    assert_rejects(
+        lambda: statement_hash(tuple(invalid_statement)),
+        "wide rewardExecutionGas accepted by SettlementStatementV2")
+    reward_receipt_arguments = (
+        statement_commitment, 0xCAFE, 1, reward_execution_gas,
+        reward_published_bytes, profile_hash, 1_234_567, 1_800_000_000,
+        1_800_086_400,
+    )
+    reward_receipt_commitment = reward_receipt_v1_commitment(
+        *reward_receipt_arguments)
+    for index, replacement_value in enumerate((
+            bytes.fromhex("a1" * 32), 0xCAFF, 2,
+            reward_execution_gas + 1, reward_published_bytes + 1,
+            bytes.fromhex("a2" * 32), 1_234_568, 1_800_000_001,
+            1_800_086_401)):
+        changed_receipt = list(reward_receipt_arguments)
+        changed_receipt[index] = replacement_value
+        assert (reward_receipt_v1_commitment(*changed_receipt)
+                != reward_receipt_commitment)
+    reward_receipt_calldata = encode_reward_receipt_v1_calldata(
+        statement_commitment)
+    reward_receipt_present_return = reward_receipt_v1_view_return(
+        statement_commitment, reward_receipt_arguments)
+    collision_candidate_id = (
+        bytes.fromhex("a4" * 31) + statement_commitment[-1:])
+    assert (collision_candidate_id != statement_commitment
+            and collision_candidate_id[-1] == statement_commitment[-1])
+    reward_receipt_missing_return = reward_receipt_v1_view_return(
+        collision_candidate_id, reward_receipt_arguments)
+    assert (reward_receipt_missing_return
+                == reward_receipt_v1_view_return(
+                    collision_candidate_id, None)
+            == encode_reward_receipt_v1_missing_return()
+            and decode_reward_receipt_v1_calldata(reward_receipt_calldata)
+                == statement_commitment
+            and decode_reward_receipt_v1_return(
+                reward_receipt_present_return, statement_commitment)[-1]
+                == reward_receipt_commitment
+            and decode_reward_receipt_v1_return(
+                reward_receipt_missing_return, collision_candidate_id)
+                == (False, 0, 0, 0, 0, bytes(32), 0, 0, 0, False,
+                    bytes(32))
+            and len(reward_receipt_calldata) == 36
+            and len(reward_receipt_present_return)
+                == len(reward_receipt_missing_return)
+                == REWARD_RECEIPT_V1_RETURN_LENGTH == 384
+            and FUND_REWARD_CLASS_V1_SELECTOR.hex() == "15e08308"
+            and CLAIM_REWARD_V1_SELECTOR.hex() == "aa5498cb"
+            and REWARD_RECEIPT_V1_SELECTOR.hex() == "3ed526c7")
+    for malformed_receipt_calldata in (
+            reward_receipt_calldata[:-1], reward_receipt_calldata + b"\x00",
+            bytes.fromhex("00000000") + reward_receipt_calldata[4:],
+            REWARD_RECEIPT_V1_SELECTOR + bytes(32)):
+        assert_rejects(
+            lambda value=malformed_receipt_calldata:
+                decode_reward_receipt_v1_calldata(value),
+            "malformed rewardReceiptV1 calldata accepted")
+    for malformed_receipt_return in (
+            reward_receipt_present_return[:-1],
+            reward_receipt_present_return + b"\x00",
+            b"BAD!" + reward_receipt_present_return[4:],
+            reward_receipt_present_return[:4] + b"\x01"
+                + reward_receipt_present_return[5:],
+            reward_receipt_present_return[:32] + u256(2)
+                + reward_receipt_present_return[64:],
+            reward_receipt_present_return[:64] + b"\x01"
+                + reward_receipt_present_return[65:],
+            reward_receipt_present_return[:96] + b"\x01"
+                + reward_receipt_present_return[97:],
+            reward_receipt_present_return[:160] + b"\x01"
+                + reward_receipt_present_return[161:],
+            reward_receipt_present_return[:224] + b"\x01"
+                + reward_receipt_present_return[225:],
+            reward_receipt_present_return[:320] + u256(2)
+                + reward_receipt_present_return[352:],
+            reward_receipt_present_return[:-32] + bytes.fromhex("a5" * 32),
+            reward_receipt_missing_return[:64] + u256(1)
+                + reward_receipt_missing_return[96:]):
+        assert_rejects(
+            lambda value=malformed_receipt_return:
+                decode_reward_receipt_v1_return(
+                    value, statement_commitment),
+            "malformed rewardReceiptV1 return accepted")
+    assert_rejects(
+        lambda: decode_reward_receipt_v1_return(
+            reward_receipt_present_return, collision_candidate_id),
+        "rewardReceiptV1 accepted another candidate identity")
+    profile_words = decode_execution_profile_v2(profile_bytes)
+    builder_registry_runtime_hash = profile_words[30]
+    builder_registry_configuration_hash = profile_words[31]
+    reward_class_id = 1
+    reward_class_terms = (100, 2, 1, 1_000_000)
+    reward_class_calldata = encode_reward_class_v1_calldata(reward_class_id)
+    reward_class_return = encode_reward_class_v1_return(
+        builder_registry_configuration_hash, reward_class_id,
+        *reward_class_terms)
+    expected_reward_class_result = (
+        builder_registry_configuration_hash, reward_class_id,
+        *reward_class_terms)
+    assert (REWARD_CLASS_V1_SELECTOR.hex() == "3d273ee7"
+            and len(reward_class_calldata) == 36
+            and len(reward_class_return) == REWARD_CLASS_V1_RETURN_LENGTH
+            == 224
+            and validate_reward_class_v1_getter(
+                builder_registry_runtime_hash,
+                builder_registry_runtime_hash,
+                builder_registry_configuration_hash, reward_class_id,
+                reward_class_calldata, COMPONENT_CONFIG_GETTER_GAS_LIMIT,
+                reward_class_return) == expected_reward_class_result)
+    for malformed_reward_class_calldata in (
+            reward_class_calldata[:-1], reward_class_calldata + b"\x00",
+            bytes.fromhex("00000000") + reward_class_calldata[4:],
+            reward_class_calldata[:4] + b"\x01"
+                + reward_class_calldata[5:]):
+        assert_rejects(
+            lambda value=malformed_reward_class_calldata:
+                decode_reward_class_v1_calldata(value),
+            "malformed rewardClassV1 calldata accepted")
+    for observed_runtime_hash, gas_limit in (
+            (bytes.fromhex("a4" * 32), COMPONENT_CONFIG_GETTER_GAS_LIMIT),
+            (builder_registry_runtime_hash,
+             COMPONENT_CONFIG_GETTER_GAS_LIMIT - 1)):
+        assert_rejects(
+            lambda runtime=observed_runtime_hash, gas=gas_limit:
+                validate_reward_class_v1_getter(
+                    builder_registry_runtime_hash, runtime,
+                    builder_registry_configuration_hash, reward_class_id,
+                    reward_class_calldata, gas, reward_class_return),
+            "unbound rewardClassV1 call accepted")
+    for malformed_reward_class_return in (
+            reward_class_return[:-1], reward_class_return + b"\x00",
+            b"BAD!" + reward_class_return[4:],
+            reward_class_return[:4] + b"\x01"
+                + reward_class_return[5:],
+            reward_class_return[:64] + b"\x01"
+                + reward_class_return[65:]):
+        assert_rejects(
+            lambda value=malformed_reward_class_return:
+                decode_reward_class_v1_return(
+                    value, builder_registry_configuration_hash,
+                    reward_class_id),
+            "malformed rewardClassV1 return accepted")
+    assert_rejects(
+        lambda: decode_reward_class_v1_return(
+            reward_class_return, bytes.fromhex("a3" * 32), reward_class_id),
+        "wrong BuilderRegistry configuration accepted by rewardClassV1")
+    assert_rejects(
+        lambda: decode_reward_class_v1_return(
+            reward_class_return, builder_registry_configuration_hash, 2),
+        "wrong requested-class echo accepted by rewardClassV1")
+    for index, replacement_value in enumerate((
+            101, 3, 2, 1_000_001), start=2):
+        changed_reward_class = list(expected_reward_class_result)
+        changed_reward_class[index] = replacement_value
+        assert (encode_reward_class_v1_return(*changed_reward_class)
+                != reward_class_return)
+    fund_reward_class_calldata = encode_fund_reward_class_v1_calldata(
+        reward_class_id)
+    fund_reward_class_returndata = b""
+    claim_reward_calldata = encode_claim_reward_v1_calldata(
+        statement_commitment)
+    claim_reward_paid_wei = min(
+        reward_class_terms[3],
+        reward_class_terms[0]
+        + reward_class_terms[1] * reward_execution_gas
+        + reward_class_terms[2] * reward_published_bytes)
+    claim_reward_return = encode_claim_reward_v1_return(
+        claim_reward_paid_wei)
+    assert (decode_fund_reward_class_v1_calldata(
+                fund_reward_class_calldata) == reward_class_id == 1
+            and len(fund_reward_class_calldata) == 36
+            and decode_fund_reward_class_v1_return(
+                fund_reward_class_returndata) is None
+            and decode_claim_reward_v1_calldata(claim_reward_calldata)
+                == statement_commitment
+            and len(claim_reward_calldata) == 36
+            and decode_claim_reward_v1_return(claim_reward_return)
+                == claim_reward_paid_wei == 1_000_000
+            and len(claim_reward_return) == 32)
+    for malformed_fund_calldata in (
+            fund_reward_class_calldata[:-1],
+            fund_reward_class_calldata + b"\x00",
+            bytes.fromhex("00000000") + fund_reward_class_calldata[4:],
+            fund_reward_class_calldata[:4] + b"\x01"
+                + fund_reward_class_calldata[5:]):
+        assert_rejects(
+            lambda value=malformed_fund_calldata:
+                decode_fund_reward_class_v1_calldata(value),
+            "malformed fundRewardClassV1 calldata accepted")
+    assert (keccak256(encode_fund_reward_class_v1_calldata(2))
+            != keccak256(fund_reward_class_calldata))
+    assert_rejects(
+        lambda: decode_fund_reward_class_v1_return(b"\x00"),
+        "trailing fundRewardClassV1 returndata accepted")
+    for malformed_claim_calldata in (
+            claim_reward_calldata[:-1], claim_reward_calldata + b"\x00",
+            bytes.fromhex("00000000") + claim_reward_calldata[4:],
+            CLAIM_REWARD_V1_SELECTOR + bytes(32)):
+        assert_rejects(
+            lambda value=malformed_claim_calldata:
+                decode_claim_reward_v1_calldata(value),
+            "malformed claimRewardV1 calldata accepted")
+    assert (keccak256(encode_claim_reward_v1_calldata(
+                collision_candidate_id)) != keccak256(claim_reward_calldata)
+            and keccak256(encode_claim_reward_v1_return(
+                claim_reward_paid_wei + 1)) != keccak256(claim_reward_return))
+    for malformed_claim_return in (
+            claim_reward_return[:-1], claim_reward_return + b"\x00"):
+        assert_rejects(
+            lambda value=malformed_claim_return:
+                decode_claim_reward_v1_return(value),
+            "malformed claimRewardV1 return accepted")
+    candidate_committed_log = encode_candidate_committed_v2_log(
+        statement_commitment, 0xCAFE, reward_class_id,
+        reward_execution_gas, reward_published_bytes, True,
+        statement_commitment[-1], reward_receipt_commitment)
+    reward_class_funded_log = encode_reward_class_funded_v1_log(
+        reward_class_id, 0xF00D, 1_000_000, 1_000_000, 6_000_000)
+    reward_claimed_log = encode_reward_claimed_v1_log(
+        statement_commitment, 0xCAFE, reward_class_id,
+        claim_reward_paid_wei)
+    candidate_log_topics, candidate_log_data = candidate_committed_log
+    funded_log_topics, funded_log_data = reward_class_funded_log
+    claimed_log_topics, claimed_log_data = reward_claimed_log
+    assert (candidate_log_topics == (
+                reward_event_topics["candidate_committed_v2_topic"],
+                statement_commitment, address_word(0xCAFE))
+            and funded_log_topics == (
+                reward_event_topics["reward_class_funded_v1_topic"],
+                u256(reward_class_id), address_word(0xF00D))
+            and claimed_log_topics == (
+                reward_event_topics["reward_claimed_v1_topic"],
+                statement_commitment, address_word(0xCAFE))
+            and decode_candidate_committed_v2_log(
+                *candidate_committed_log) == (
+                    statement_commitment, 0xCAFE, reward_class_id,
+                    reward_execution_gas, reward_published_bytes, True,
+                    statement_commitment[-1], reward_receipt_commitment)
+            and decode_reward_class_funded_v1_log(
+                *reward_class_funded_log)
+                == (reward_class_id, 0xF00D, 1_000_000,
+                    1_000_000, 6_000_000)
+            and decode_reward_claimed_v1_log(*reward_claimed_log)
+                == (statement_commitment, 0xCAFE, reward_class_id,
+                    claim_reward_paid_wei))
+    for malformed_topics, malformed_data in (
+            (candidate_log_topics[:-1], candidate_log_data),
+            (candidate_log_topics + (bytes(32),), candidate_log_data),
+            ((bytes.fromhex("a6" * 32), *candidate_log_topics[1:]),
+             candidate_log_data),
+            ((candidate_log_topics[0], bytes(32), candidate_log_topics[2]),
+             candidate_log_data),
+            ((candidate_log_topics[0], candidate_log_topics[1],
+              b"\x01" + candidate_log_topics[2][1:]), candidate_log_data),
+            (candidate_log_topics, candidate_log_data[:-1]),
+            (candidate_log_topics, candidate_log_data + b"\x00"),
+            (candidate_log_topics,
+             b"\x01" + candidate_log_data[1:]),
+            (candidate_log_topics,
+             candidate_log_data[:64] + b"\x01"
+                + candidate_log_data[65:]),
+            (candidate_log_topics,
+             candidate_log_data[:96] + u256(2)
+                + candidate_log_data[128:]),
+            (candidate_log_topics,
+             candidate_log_data[:128] + u256(
+                (statement_commitment[-1] + 1) % 256)
+                + candidate_log_data[160:])):
+        assert_rejects(
+            lambda topics=malformed_topics, data=malformed_data:
+                decode_candidate_committed_v2_log(topics, data),
+            "malformed CandidateCommittedV2 log accepted")
+    for malformed_topics, malformed_data in (
+            (funded_log_topics[:-1], funded_log_data),
+            (funded_log_topics + (bytes(32),), funded_log_data),
+            ((bytes.fromhex("a7" * 32), *funded_log_topics[1:]),
+             funded_log_data),
+            ((funded_log_topics[0], b"\x01" + funded_log_topics[1][1:],
+              funded_log_topics[2]), funded_log_data),
+            ((funded_log_topics[0], funded_log_topics[1],
+              b"\x01" + funded_log_topics[2][1:]), funded_log_data),
+            (funded_log_topics, funded_log_data[:-1]),
+            (funded_log_topics, funded_log_data + b"\x00")):
+        assert_rejects(
+            lambda topics=malformed_topics, data=malformed_data:
+                decode_reward_class_funded_v1_log(topics, data),
+            "malformed RewardClassFundedV1 log accepted")
+    for malformed_topics, malformed_data in (
+            (claimed_log_topics[:-1], claimed_log_data),
+            (claimed_log_topics + (bytes(32),), claimed_log_data),
+            ((bytes.fromhex("a8" * 32), *claimed_log_topics[1:]),
+             claimed_log_data),
+            ((claimed_log_topics[0], bytes(32), claimed_log_topics[2]),
+             claimed_log_data),
+            ((claimed_log_topics[0], claimed_log_topics[1],
+              b"\x01" + claimed_log_topics[2][1:]), claimed_log_data),
+            (claimed_log_topics, claimed_log_data[:-1]),
+            (claimed_log_topics, claimed_log_data + b"\x00"),
+            (claimed_log_topics, b"\x01" + claimed_log_data[1:])):
+        assert_rejects(
+            lambda topics=malformed_topics, data=malformed_data:
+                decode_reward_claimed_v1_log(topics, data),
+            "malformed RewardClaimedV1 log accepted")
+    assert (encode_candidate_committed_v2_log(
+                collision_candidate_id, 0xCAFE, reward_class_id,
+                reward_execution_gas, reward_published_bytes, False,
+                collision_candidate_id[-1], reward_receipt_commitment)
+            != candidate_committed_log
+            and encode_reward_class_funded_v1_log(
+                2, 0xF00D, 1_000_000, 1_000_000, 6_000_000)
+            != reward_class_funded_log
+            and encode_reward_claimed_v1_log(
+                collision_candidate_id, 0xCAFE, reward_class_id,
+                claim_reward_paid_wei) != reward_claimed_log)
     bridge_kernel = bridge_kernel_profile_hash(
         bytes.fromhex("2a" * 32), bytes.fromhex("2b" * 32),
         bytes.fromhex("2c" * 32))
@@ -11759,31 +12776,27 @@ def vectors() -> dict[str, str]:
         source_context_hash(source_context), bridge.value, bridge.fee,
         bridge.liquidity_fee)
     inbox_batch_calldata = encode_mark_inbox_batch_calldata((inbox_credit,))
+    inbox_received_at = 800_345
+    inbox_process_by = inbox_received_at + BRIDGE_PROCESS_TTL_SECONDS
+    inbox_pin = InboxCreditPinV2(
+        inbox_credit.result_hash, inbox_credit.source_context_hash,
+        inbox_credit.value, inbox_process_by, inbox_credit.execution_fee,
+        inbox_credit.liquidity_fee)
+    inbox_store = {inbox_credit_slot(bridge_credit): inbox_pin}
     liquidity_quote_return = (
         inbox_credit.result_hash + u256(inbox_credit.value)
         + u256(inbox_credit.execution_fee) + u256(inbox_credit.liquidity_fee)
-        + u256(bridge.enqueue_by))
+        + u256(inbox_process_by))
     funding_state_return = (
         destination_domain + address_word(0xB200) + address_word(0x5101)
         + u256(1) + u256(0))
-    verify_inbox_return = (
-        bridge_credit + u256(bridge.enqueue_by) + u256(bridge.value)
-        + u256(bridge.fee) + u256(bridge.liquidity_fee)
-        + source_context_hash(source_context))
+    verify_inbox_return = verified_inbox_credit_v2_from_store(
+        inbox_store, bridge_credit)
     route_config_getter_calldata = ROUTE_CONFIG_GETTER_SELECTOR
-    verify_inbox_calldata = (
-        VERIFY_INBOX_CREDIT_SELECTOR + u256(1) + source_domain + u256(7)
-        + address_word(source_bridge_address) + destination_domain
-        + bridge_msg_hash)
-    inbox_slot_calldata = (
-        GET_INBOX_CREDIT_SLOT_SELECTOR + source_domain
-        + address_word(source_bridge_address)
-        + destination_domain + bridge_credit)
+    verify_inbox_calldata = VERIFY_INBOX_CREDIT_V2_SELECTOR + bridge_credit
     liquidity_quote_calldata = LIQUIDITY_QUOTE_SELECTOR + bridge_credit
     funding_state_calldata = LIQUIDITY_FUNDING_STATE_SELECTOR + bridge_credit
     status_return = encode_status_return(1, 7)
-    attempt_digest = bytes.fromhex("96" * 32)
-    target_error = target_call_failed_error(attempt_digest)
     terminal_commitment_return = encode_terminal_commitment_return(
         destination_domain, 0xB200, 1, UINT64_MAX,
         liquidity_settlement_hash(bytes.fromhex("45" * 32), 0x7777,
@@ -11804,6 +12817,49 @@ def vectors() -> dict[str, str]:
         bridge_credit, ticket_hash, 0x8888, inbox_credit.result_hash,
         pool_amount, source_context_hash(source_context),
         destination_context_hash(destination_context), 2, False)
+    attempt_digest = destination_attempt_digest_v2(
+        bridge_credit, source_context_hash(source_context),
+        destination_context_hash(destination_context), 0x8888, 1, False,
+        ticket_hash, pool_authorization)
+    target_error = target_call_failed_error(attempt_digest)
+    native_quota_key = native_quota_key_v2(destination_domain)
+    for changed_attempt in (
+        destination_attempt_digest_v2(
+            bytes.fromhex("91" * 32), source_context_hash(source_context),
+            destination_context_hash(destination_context), 0x8888, 1, False,
+            ticket_hash, pool_authorization),
+        destination_attempt_digest_v2(
+            bridge_credit, bytes.fromhex("92" * 32),
+            destination_context_hash(destination_context), 0x8888, 1, False,
+            ticket_hash, pool_authorization),
+        destination_attempt_digest_v2(
+            bridge_credit, source_context_hash(source_context),
+            bytes.fromhex("93" * 32), 0x8888, 1, False,
+            ticket_hash, pool_authorization),
+        destination_attempt_digest_v2(
+            bridge_credit, source_context_hash(source_context),
+            destination_context_hash(destination_context), 0x8889, 1, False,
+            ticket_hash, pool_authorization),
+        destination_attempt_digest_v2(
+            bridge_credit, source_context_hash(source_context),
+            destination_context_hash(destination_context), 0x8888, 0, False,
+            ticket_hash, pool_authorization),
+        destination_attempt_digest_v2(
+            bridge_credit, source_context_hash(source_context),
+            destination_context_hash(destination_context), 0x8888, 1, True,
+            ticket_hash, pool_authorization),
+        destination_attempt_digest_v2(
+            bridge_credit, source_context_hash(source_context),
+            destination_context_hash(destination_context), 0x8888, 1, False,
+            bytes.fromhex("94" * 32), pool_authorization),
+        destination_attempt_digest_v2(
+            bridge_credit, source_context_hash(source_context),
+            destination_context_hash(destination_context), 0x8888, 1, False,
+            ticket_hash, bytes.fromhex("95" * 32)),
+    ):
+        assert changed_attempt != attempt_digest
+    assert (native_quota_key_v2(bytes.fromhex("96" * 32))
+            != native_quota_key)
     pool_process_calldata = encode_process_with_liquidity_calldata(
         ticket_hash, 0xB200, normalized_message, source_context,
         destination_context)
@@ -13060,17 +14116,44 @@ def vectors() -> dict[str, str]:
         "trailing Inbox Store magic accepted")
     assert decode_liquidity_quote_return(liquidity_quote_return) \
         == (inbox_credit.result_hash, inbox_credit.value, inbox_credit.execution_fee,
-            inbox_credit.liquidity_fee, bridge.enqueue_by)
+            inbox_credit.liquidity_fee, inbox_process_by)
     assert decode_liquidity_funding_state_return(funding_state_return) \
         == (destination_domain, 0xB200, 0x5101, 1, 0)
-    assert decode_verify_inbox_credit_return(verify_inbox_return) \
-        == (bridge_credit, bridge.enqueue_by, bridge.value, bridge.fee,
-            bridge.liquidity_fee, source_context_hash(source_context))
+    assert (VERIFY_INBOX_CREDIT_V2_SELECTOR.hex() == "720f747b"
+            and decode_verify_inbox_credit_v2_return(
+                verify_inbox_return, bridge_credit)
+            == (bridge_credit, inbox_credit.result_hash, inbox_process_by,
+                bridge.value, bridge.fee, bridge.liquidity_fee,
+                source_context_hash(source_context)))
     assert (len(route_config_getter_calldata) == 4
-            and len(verify_inbox_calldata) == 196
-            and len(inbox_slot_calldata) == 132
+            and len(verify_inbox_calldata) == 36
+            and len(verify_inbox_return) == 256
             and len(liquidity_quote_calldata) == 36
             and len(funding_state_calldata) == 36)
+    malformed_verify_returns = (
+        verify_inbox_return[:-1],
+        verify_inbox_return + b"\x00",
+        b"BAD!" + verify_inbox_return[4:],
+        verify_inbox_return[:4] + b"\x01" + verify_inbox_return[5:],
+        verify_inbox_return[:32] + bytes.fromhex("ff" * 32)
+            + verify_inbox_return[64:],
+        verify_inbox_return[:64] + bytes(32) + verify_inbox_return[96:],
+        verify_inbox_return[:96] + b"\x01" + verify_inbox_return[97:],
+        verify_inbox_return[:160] + b"\x01" + verify_inbox_return[161:],
+        verify_inbox_return[:192] + b"\x01" + verify_inbox_return[193:],
+    )
+    for malformed_verify_return in malformed_verify_returns:
+        assert_rejects(
+            lambda value=malformed_verify_return:
+                decode_verify_inbox_credit_v2_return(value, bridge_credit),
+            "malformed ICV2 return accepted")
+    assert_rejects(
+        lambda: decode_verify_inbox_credit_v2_return(
+            verify_inbox_return, bytes.fromhex("fe" * 32)),
+        "ICV2 returned-credit echo mismatch accepted")
+    assert_rejects(
+        lambda: verified_inbox_credit_v2_from_store({}, bridge_credit),
+        "absent v5 Inbox credit returned a verification receipt")
     for malformed_view in (
         liquidity_quote_return[:-1], liquidity_quote_return + bytes(32),
         funding_state_return[:96] + u256(5)
@@ -13302,7 +14385,40 @@ def vectors() -> dict[str, str]:
         "schedule_list": schedules_hash.hex(),
         "session_list": sessions_hash.hex(),
         "execution_outputs": outputs_hash.hex(),
-        "statement_hash": statement_hash(statement_values).hex(),
+        "statement_hash": statement_commitment.hex(),
+        "statement_reward_execution_gas": str(reward_execution_gas),
+        "statement_reward_published_bytes": str(reward_published_bytes),
+        "reward_receipt_v1_commitment": reward_receipt_commitment.hex(),
+        "fund_reward_class_v1_selector":
+            FUND_REWARD_CLASS_V1_SELECTOR.hex(),
+        "fund_reward_class_v1_calldata_hash":
+            keccak256(fund_reward_class_calldata).hex(),
+        "fund_reward_class_v1_calldata_length":
+            str(len(fund_reward_class_calldata)),
+        "fund_reward_class_v1_return_length":
+            str(len(fund_reward_class_returndata)),
+        "claim_reward_v1_selector": CLAIM_REWARD_V1_SELECTOR.hex(),
+        "claim_reward_v1_calldata_hash":
+            keccak256(claim_reward_calldata).hex(),
+        "claim_reward_v1_calldata_length": str(len(claim_reward_calldata)),
+        "claim_reward_v1_return_hash": keccak256(
+            claim_reward_return).hex(),
+        "claim_reward_v1_return_length": str(len(claim_reward_return)),
+        "claim_reward_v1_paid_wei": str(claim_reward_paid_wei),
+        "reward_receipt_v1_selector": REWARD_RECEIPT_V1_SELECTOR.hex(),
+        "reward_receipt_v1_calldata_hash":
+            keccak256(reward_receipt_calldata).hex(),
+        "reward_receipt_v1_calldata_length":
+            str(len(reward_receipt_calldata)),
+        "reward_receipt_v1_magic": REWARD_RECEIPT_V1_MAGIC.hex(),
+        "reward_receipt_v1_present_return_hash":
+            keccak256(reward_receipt_present_return).hex(),
+        "reward_receipt_v1_missing_return_hash":
+            keccak256(reward_receipt_missing_return).hex(),
+        "reward_receipt_v1_return_length":
+            str(len(reward_receipt_present_return)),
+        "reward_receipt_v1_collision_candidate_id":
+            collision_candidate_id.hex(),
         "registry_root": reg_root.hex(),
         "admission_root": adm_root.hex(),
         "admission_reuse_root": adm_reuse_root.hex(),
@@ -13317,9 +14433,8 @@ def vectors() -> dict[str, str]:
         "liquidity_fee_substitution_credit_id":
             changed_liquidity_fee_credit.hex(),
         "bridge_escrow_id": bridge_escrow_id(bridge_credit).hex(),
-        "inbox_credit_slot": inbox_credit_slot(
-            bridge.source_domain_id, bridge.src_bridge,
-            bridge.destination_domain_id, bridge_credit).hex(),
+        "inbox_credit_slot": inbox_credit_slot(bridge_credit).hex(),
+        "inbox_credit_packed_terms": str(inbox_pin.packed_terms),
         "terminal_done_leaf": done_leaf.hex(),
         "liquidity_settlement_hash": settlement_hash.hex(),
         "settlement_tuple_substitution_terminal_leaf":
@@ -13343,6 +14458,20 @@ def vectors() -> dict[str, str]:
         "component_config_getter_selector":
             COMPONENT_CONFIG_GETTER_SELECTOR.hex(),
         "component_config_getter_gas_limit":
+            str(COMPONENT_CONFIG_GETTER_GAS_LIMIT),
+        "builder_registry_configuration_hash":
+            builder_registry_configuration_hash.hex(),
+        "reward_class_v1_selector": REWARD_CLASS_V1_SELECTOR.hex(),
+        "reward_class_v1_calldata_hash":
+            keccak256(reward_class_calldata).hex(),
+        "reward_class_v1_calldata_length":
+            str(len(reward_class_calldata)),
+        "reward_class_v1_magic": REWARD_CLASS_V1_MAGIC.hex(),
+        "reward_class_v1_return_hash": keccak256(
+            reward_class_return).hex(),
+        "reward_class_v1_return_length": str(len(reward_class_return)),
+        "reward_class_v1_class_id": str(reward_class_id),
+        "reward_class_v1_call_gas":
             str(COMPONENT_CONFIG_GETTER_GAS_LIMIT),
         "source_factory_config_getter_return":
             source_bridge_descriptor.factory_configuration_hash.hex(),
@@ -13489,11 +14618,12 @@ def vectors() -> dict[str, str]:
         "route_config_getter_selector": ROUTE_CONFIG_GETTER_SELECTOR.hex(),
         "verify_inbox_credit_calldata_hash":
             keccak256(verify_inbox_calldata).hex(),
-        "verify_inbox_credit_selector": VERIFY_INBOX_CREDIT_SELECTOR.hex(),
-        "get_inbox_credit_slot_selector":
-            GET_INBOX_CREDIT_SLOT_SELECTOR.hex(),
-        "get_inbox_credit_slot_calldata_hash":
-            keccak256(inbox_slot_calldata).hex(),
+        "verify_inbox_credit_selector":
+            VERIFY_INBOX_CREDIT_V2_SELECTOR.hex(),
+        "verify_inbox_credit_magic": VERIFY_INBOX_CREDIT_V2_MAGIC.hex(),
+        "verify_inbox_credit_return_hash":
+            keccak256(verify_inbox_return).hex(),
+        "verify_inbox_credit_return_length": str(len(verify_inbox_return)),
         "liquidity_quote_selector": LIQUIDITY_QUOTE_SELECTOR.hex(),
         "liquidity_quote_calldata_hash":
             keccak256(liquidity_quote_calldata).hex(),
@@ -13516,6 +14646,8 @@ def vectors() -> dict[str, str]:
         "status_return_hash": keccak256(status_return).hex(),
         "target_call_failed_selector": TARGET_CALL_FAILED_SELECTOR.hex(),
         "target_call_failed_error_hash": keccak256(target_error).hex(),
+        "destination_attempt_digest": attempt_digest.hex(),
+        "native_quota_key": native_quota_key.hex(),
         "append_terminal_selector": APPEND_TERMINAL_SELECTOR.hex(),
         "append_terminal_calldata_hash":
             keccak256(append_terminal_calldata).hex(),
@@ -13615,6 +14747,10 @@ def vectors() -> dict[str, str]:
             keccak256(target_constructor_state_return).hex(),
         "empty_data_session_accounting_return_hash":
             keccak256(empty_data_session_accounting_return).hex(),
+        "funded_data_session_accounting_return_hash":
+            keccak256(funded_data_session_accounting_return).hex(),
+        "data_session_accounting_return_length":
+            str(len(empty_data_session_accounting_return)),
         "live_registration_validation_commitment":
             live_registration_validation_commitment.hex(),
         "register_release_profile_bytes_hash": keccak256(profile_bytes).hex(),
@@ -14227,6 +15363,38 @@ def vectors() -> dict[str, str]:
             for key, value in ROUTER_SESSION_GATE_MAGICS.items()
         },
         **{key: value.hex() for key, value in session_event_topics.items()},
+        **{key: value.hex() for key, value in reward_event_topics.items()},
+        "candidate_committed_v2_topic_count":
+            str(len(candidate_log_topics)),
+        "candidate_committed_v2_topic1_candidate_id":
+            candidate_log_topics[1].hex(),
+        "candidate_committed_v2_topic2_beneficiary":
+            candidate_log_topics[2].hex(),
+        "candidate_committed_v2_topics_hash":
+            keccak256(b"".join(candidate_log_topics)).hex(),
+        "candidate_committed_v2_data_hash":
+            keccak256(candidate_log_data).hex(),
+        "candidate_committed_v2_data_length": str(len(candidate_log_data)),
+        "reward_class_funded_v1_topic_count":
+            str(len(funded_log_topics)),
+        "reward_class_funded_v1_topic1_reward_class":
+            funded_log_topics[1].hex(),
+        "reward_class_funded_v1_topic2_funder":
+            funded_log_topics[2].hex(),
+        "reward_class_funded_v1_topics_hash":
+            keccak256(b"".join(funded_log_topics)).hex(),
+        "reward_class_funded_v1_data_hash":
+            keccak256(funded_log_data).hex(),
+        "reward_class_funded_v1_data_length": str(len(funded_log_data)),
+        "reward_claimed_v1_topic_count": str(len(claimed_log_topics)),
+        "reward_claimed_v1_topic1_candidate_id":
+            claimed_log_topics[1].hex(),
+        "reward_claimed_v1_topic2_beneficiary":
+            claimed_log_topics[2].hex(),
+        "reward_claimed_v1_topics_hash":
+            keccak256(b"".join(claimed_log_topics)).hex(),
+        "reward_claimed_v1_data_hash": keccak256(claimed_log_data).hex(),
+        "reward_claimed_v1_data_length": str(len(claimed_log_data)),
         "forced_root": force.root.hex(),
         "empty_forced_root": ForceVector(()).root.hex(),
         "force_range_digest": keccak256(b"".join(proof)).hex(),
@@ -14295,6 +15463,59 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'c0d778314c7fdd2e84
  'chunk_root_0': 'e652cb05b1f44f3c09c650870b7b9ade4132548bd0c769bdda35b5bfcac5139e',
  'component_config_getter_gas_limit': '50000',
  'component_config_getter_selector': 'f6c0f7d2',
+ 'candidate_committed_v2_topic': '51629f6515f461b4c6f912a8eecad46d8ff89ab5e8235d95c30004be2c9ac738',
+ 'candidate_committed_v2_data_hash': '91426c0531837b0b5c449aa8f2fa5cf429b2a4fc39951181bd9efff64d2b5549',
+ 'candidate_committed_v2_data_length': '192',
+ 'candidate_committed_v2_topic1_candidate_id': '595572878b741314aaba69c75e2d93afdaae2f502727f80e758c6d9b9a04bb49',
+ 'candidate_committed_v2_topic2_beneficiary': '000000000000000000000000000000000000000000000000000000000000cafe',
+ 'candidate_committed_v2_topic_count': '3',
+ 'candidate_committed_v2_topics_hash': '322f07b53e70a0f06ed49e66c5747400d058f74ac3893965393451defadb57d6',
+ 'claim_reward_v1_calldata_hash': '240965806050d9b6be5d79e8377ddb0c67caff227beaaa8ea5d802b1036df3d0',
+ 'claim_reward_v1_calldata_length': '36',
+ 'claim_reward_v1_paid_wei': '1000000',
+ 'claim_reward_v1_return_hash': 'c1af4b94166cd32fc49b7b926cbb91ee421de2d04450e8ae57857b9b56ac7e53',
+ 'claim_reward_v1_return_length': '32',
+ 'fund_reward_class_v1_calldata_hash': '1086e7c6ffda5d1b4d31999795549a413160e18f638c43801cf6bd8293b430f1',
+ 'fund_reward_class_v1_calldata_length': '36',
+ 'fund_reward_class_v1_return_length': '0',
+ 'reward_claimed_v1_topic': '9f41046da255bf29062408ae9f20e06ea2453df29227caf32b709ccfed59d506',
+ 'reward_claimed_v1_data_hash': 'db2be80ad7fe2991fbabee31c9917dca99f927a94e09c6a4e810cec6d4a8cbae',
+ 'reward_claimed_v1_data_length': '64',
+ 'reward_claimed_v1_topic1_candidate_id': '595572878b741314aaba69c75e2d93afdaae2f502727f80e758c6d9b9a04bb49',
+ 'reward_claimed_v1_topic2_beneficiary': '000000000000000000000000000000000000000000000000000000000000cafe',
+ 'reward_claimed_v1_topic_count': '3',
+ 'reward_claimed_v1_topics_hash': 'd24ad07e74a5644fef99a21b3b48f8aa60bb75eb841420a273c0c7a681db685c',
+ 'reward_class_funded_v1_topic': 'd979ecc5f5821fb9e6643744111b04290fc1da57eebaba07def52e526c6eb49e',
+ 'reward_class_funded_v1_data_hash': 'e1aede520e7a9dc85a896fcdc9cc395ef1f2fd03d93f7e4f6acbd5fda09bf690',
+ 'reward_class_funded_v1_data_length': '96',
+ 'reward_class_funded_v1_topic1_reward_class': '0000000000000000000000000000000000000000000000000000000000000001',
+ 'reward_class_funded_v1_topic2_funder': '000000000000000000000000000000000000000000000000000000000000f00d',
+ 'reward_class_funded_v1_topic_count': '3',
+ 'reward_class_funded_v1_topics_hash': 'dec401d3769ac3d7c894189f394a778a66106bd32460f51135caea4824360efe',
+ 'builder_registry_configuration_hash': '5c2fe6d16935d1557c545b24c0b5982391f7a8ac702d7db3a6c55e467427ed79',
+ 'claim_reward_v1_selector': 'aa5498cb',
+ 'data_session_accounting_return_length': '512',
+ 'fund_reward_class_v1_selector': '15e08308',
+ 'funded_data_session_accounting_return_hash': '83a2038c29ca1256677eab2f562e42376f7ba8366c67bfd57536987c2957066b',
+ 'reward_class_v1_call_gas': '50000',
+ 'reward_class_v1_calldata_hash': '3717990a97396f7a0a947025434cf954d9937932f5e00fdf793c129bfbfb3006',
+ 'reward_class_v1_calldata_length': '36',
+ 'reward_class_v1_class_id': '1',
+ 'reward_class_v1_magic': '52435631',
+ 'reward_class_v1_return_hash': '3d21e30cd424ac4eb52ed85673aac8960a703cce5dd930fceb901b0ce5e93490',
+ 'reward_class_v1_return_length': '224',
+ 'reward_class_v1_selector': '3d273ee7',
+ 'reward_receipt_v1_calldata_hash': '485d1a0dc44ee366c3cfd1c384deaa990edd041ae61797c929fb53d11109ee93',
+ 'reward_receipt_v1_calldata_length': '36',
+ 'reward_receipt_v1_collision_candidate_id': 'a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a449',
+ 'reward_receipt_v1_commitment': '00b3741f3922737e7c3cd07d45c93301068436e8fcd750758f495218304b8630',
+ 'reward_receipt_v1_magic': '52525631',
+ 'reward_receipt_v1_missing_return_hash': '910614e273a7326ae3c583449cfdf24c64d9ef3d7d6f448b6d3042d3ba95ae80',
+ 'reward_receipt_v1_present_return_hash': 'ec2ce3e7c263308b2332ba92e64ce2beaa347f7f528ae28ef631e43085792403',
+ 'reward_receipt_v1_return_length': '384',
+ 'reward_receipt_v1_selector': '3ed526c7',
+ 'statement_reward_execution_gas': '12345678',
+ 'statement_reward_published_bytes': '9',
  'credit_authorization_v2_calldata_hash': '4699e3402908715d0fad91491939e2d7604fa9c5ad74b14edd88e67471f5de04',
  'credit_authorization_v2_return_hash': '358c623d78196d273c9062722f986d74a3132cd387e0f82eb6406bc632e55211',
  'credit_authorization_v2_return_length': '704',
@@ -14313,6 +15534,7 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'c0d778314c7fdd2e84
  'derived_source_registry_address': '248e8ea138dc3f011fa746acd1f7668b250a8b1c',
  'destination_activation_receipt_id': '6ce60f3fa70ebb69ce5c2cdeea0221fe47a70f5b8f2bb8ea17ca16bf9825600d',
  'destination_activation_receipt_magic': '44525632',
+ 'destination_attempt_digest': 'a9ae92d5f2d8ff6dc77a25bb2ebb08570f37d4bce68b4c5e9b7893bf126784d6',
  'destination_bridge_execution_hash': 'e356731fbadc537ccd8c8cf4db19e343016889c5233aa592cb5d2751ace3faf6',
  'destination_context_hash': '36315df131571f95b47391a034fa011084715419695fd10bc3c59471ffc42b1a',
  'destination_context_typehash': 'b8170dbf684e1fc4dd4dae8fb78ad24984cc0aa0c03cbd1e29b1b2eb5728eefb',
@@ -14324,7 +15546,7 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'c0d778314c7fdd2e84
  'domain_separator': 'e68571dca46842abc561c1ea35b556152b15d93a1d29f5c441ae2fdcdd01725c',
  'eip712_digest': 'bf50900a66dd735bbed4a20b7ebe909b61d15185146813b3105b9d2eefa91c68',
  'empty_body_root': 'f0e00da8dbc00feb028a8bc92342c0771372b947acf5989b2d4a5f23bb2f459a',
- 'empty_data_session_accounting_return_hash': '8494873028da98098891fa021c71b62b14c2c70c9d277707111b60224f6769e6',
+ 'empty_data_session_accounting_return_hash': '7720a5a8d9d219e06852dd2661541c06c0278e2044d27ec21400506cac036719',
  'empty_forced_root': '4001bca0d3c5171a99a50118f1219024e1bef9302262ea3b075ecbed36be7592',
  'empty_manifest_root': '0bb15f38645cecc1748b17fe3bd966ba8016c169ebd1266fd38150766177b5f6',
  'empty_session_list': '8827f09b5799bab18f29ea5b9cb9cbb5a88ddb96bc4b3ffc4d69cbcbdfe50279',
@@ -14384,15 +15606,14 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'c0d778314c7fdd2e84
  'genesis_queue_post_state_return_hash': '528088a64d97d66aa14f03ac5bcf620cb69693c3ee1169c4b7376398ccffa110',
  'genesis_source_post_state_return_hash': '2602183fac3f6fb768287742b8ebedb20713d56b0399c6b53b768afcbfb216e7',
  'genesis_target_post_state_return_hash': '0fae53ae11933e6854ca96e41e090ec60814fa0283f76c7a791accbcf2889273',
- 'get_inbox_credit_slot_calldata_hash': 'e1c1dcb554e1356b94f84a7740991a8af9d8b12237ed355bb3c907e89153fa9e',
- 'get_inbox_credit_slot_selector': '31e85ab1',
  'governance_delay_authority_descriptor_hash': '442d9b608ecc43eea4009fb7f95c764c747636f42c885174c1442681cc0ab495',
  'inbox_apply_calldata_hash': '65332d0b3230b33c0ae8bddd8a1f3be8473739f865e73fc8e52f4f99cecc89d7',
  'inbox_apply_calldata_length': '14436',
  'inbox_apply_maximum_calldata_hash': 'e2471d846ec84d5f4306c8cc64c17b9b96ce7f582cfa6d94a1320d36e671e499',
  'inbox_apply_selector': '6b326168',
  'inbox_batch_magic': '49425632',
- 'inbox_credit_slot': 'e27069ab260071d5f8999b35665379dfbbf0f45bf7507fb6a8a939472e2032ca',
+ 'inbox_credit_packed_terms': '1932123279377088595567804303184537494733657',
+ 'inbox_credit_slot': '3e7e0776ebd7cc805f9331d1b15dd1d5e78cdf00022ca9d208b3c104012f3f4a',
  'inbox_route_config_hash': '4c94818f95ae8519842d7cd8813be02a8244327224f8b5bb18b47749a59450fa',
  'ingress_authorization_root': 'a88025f59f4c1b1547b3bedb93e214417d38c2f0064f9a7800eb6d5ae32f62f2',
  'ingress_authorization_root_typehash': 'c7b11126d8d1984cc17cbc108be2a1be0ef9c4e8fd519fa9033c949962f1b042',
@@ -14549,12 +15770,12 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'c0d778314c7fdd2e84
  'liquidity_funding_state_return_hash': '010cb5767e3a2885564bef4950e2d6a85ba8397fbec7f696c15be22170552570',
  'liquidity_funding_state_selector': '6a9a6c32',
  'liquidity_quote_calldata_hash': 'dd253ecc0bc6eab7b2ad5371d827f579bce6e07c10caabafab3edd14b1ea2074',
- 'liquidity_quote_return_hash': 'a2a4f1c77b13ca902873a013dc275d50bdbc9207ad372e282b6302b48ee4ff68',
+ 'liquidity_quote_return_hash': '033cee4d08de5e1ca391eeda14e10df82c41a5eeba9d34a5fc4f7924c2d6febb',
  'liquidity_quote_selector': '43dc48e0',
  'liquidity_settlement_hash': '625ff42ed879b94a7499fecb7abc07988b348300d1c4e9cc1f7596968eaf2f19',
  'liquidity_ticket_id': '5dc074de7029f6762c8c386b15cbd61cc7ad94b9432c25a35a5ae48e72c3bf2b',
  'liquidity_withdrawn_topic': '1c7f587c4a1403966578e0bc3326f08fab3ad01d6c34b92e43af37a84ad98e38',
- 'live_registration_validation_commitment': '4d88b23a1cacf60129486b832486acf32e6605e99559f473a36a5c073b349d77',
+ 'live_registration_validation_commitment': '910c936d963141feec8701cd1207f3cae5e4391e2e9ca91d1b55346bc35568fa',
  'live_version_migration_lease_selector': 'aaac4c97',
  'manifest_components_hash': 'b186c3e23fa4afa228977e22eebba7df0191b70f95b182469d0378947f5a67f1',
  'manifest_root': '417be737a57e38eb410f2d6e65c77ee19d5c314cdaf432067861c6a36c6a990f',
@@ -14635,7 +15856,8 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'c0d778314c7fdd2e84
  'pool_ticket_calldata_hash': '7f489c048d7a27a5fe4624ac37cacdef2ae1ba1ba08d68471ad5e00dd7c47dfe',
  'pool_ticket_return_hash': '4cb85eb7ea2f272ca7a4d558694de56d4e9d2455a7cd3074c442c849213a9c31',
  'pool_ticket_selector': '5defa7e1',
- 'pool_value_acceptance_commitment': '4b6cc0c05efc21201e066b965320752dd1989d675cabfa66b3efdf1aa9097558',
+ 'native_quota_key': 'b8ff0da5b6d7fc9dc4b45040e13dee561bbd0a8aed718dda16d4bd274be8df39',
+ 'pool_value_acceptance_commitment': '6bd6f239686de71cd47f1c246c19cb267fec19f2f86a744dfdb5299f7beeef9a',
  'pool_value_callback_calldata_hash': '97fc94d5fd621f07d8c2d24b383de36d1454d4eb01fd4d4c3e1c9a0d2f16fd51',
  'pool_value_callback_gas': '100000',
  'pool_value_callback_return_hash': '632cf02c0c8f06fd37a4ea096b77ae3cb51bbcd26f7920bb0bd053c5b0df10e2',
@@ -14784,7 +16006,7 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'c0d778314c7fdd2e84
  'source_registry_config_getter_return': '81d538ec2bf4cf246008838e0908d61eff83a01740a58abec23d7aa573087ee1',
  'source_support_registry_config_getter_return': 'c8beb33d334a9cf76d329ab18cb3b197276e878c5b5a54397c6f0e5c41904b0d',
  'source_terminal_verifier_config_getter_return': 'c7297de84fb29fa53cf5f96d02a6254e970e20ac10991766cb58b4981485290f',
- 'statement_hash': '58f1161a0d530fc335a87fb2f3ffacb32bf5018c63fdf0006a4d54d65d986a4b',
+ 'statement_hash': '595572878b741314aaba69c75e2d93afdaae2f502727f80e758c6d9b9a04bb49',
  'status_return_hash': 'b39221ace053465ec3453ce2b36430bd138b997ecea25c1043da0c366812b828',
  'successor_migration_activation_profile_record_hash': '446c3edee46876e796417e1900b29a849969e52abe02504580a26bf68253589a',
  'successor_release_manifest_hash': 'f3a18c9d5df79d935af24e127d435c2c75a1c9548ed0d91719ed8d1ed6ac5b37',
@@ -14793,7 +16015,7 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'c0d778314c7fdd2e84
  'sync_ingress_selector': '6c880b72',
  'sync_ingress_stamp_return_hash': '1fd01b194948c635358fbb51b4a5f32f8ceab4dc4153e0230215f8afc94ee434',
  'sync_ingress_synced_return_hash': 'ef662a629ce07c9ed715124d8141a6e430d0a3065f8ce8074a7ea95e8751f184',
- 'target_call_failed_error_hash': '1e5dd0ffe211b83cfe975af6e5c84015b6cfae3a2135c70a7c42426b899a59ac',
+ 'target_call_failed_error_hash': 'fb182e91f98d716413c51b87747dde9564a7f56abf4a3e2c18d10de4fd86ae35',
  'target_call_failed_selector': 'f9cc2b44',
  'target_constructor_state_return_hash': '0a006f1021ef64351a3bbb74d6faf540947ae8de11ff18a354f0017096e43e6a',
  'target_constructor_state_selector': '654f7fce',
@@ -14816,8 +16038,11 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'c0d778314c7fdd2e84
  'tranche_leaf': '80fce6c2421807d961f9207d30b439bd423c05e206a18021b93217513ecc5551',
  'typehash': 'ee6a8c8e31e8245cd527869508f6e464d6084893991203876f734d1855aed87c',
  'v11_bridge_descriptor': '2121212121212121212121212121212121212121212121212121212121212121000000000000000000000000000000000000000000000000000000000000000190d17b25434418f73547f0a925f8829b1329c3921e357c133ca45d4c3bcfe7c50000000000000007fff25f997872e08385a4dc63163e60181c213f62fc36592a3ce1c728fadafc407194dc1435df539cb0954d73f07ce51a7b58f20f000000000000300cf5cd16d49c1f88557f70f9162d3bb6366667a956cfcd8cc5b43532d3c73a094e000000000000000000000000000000000000000000000000000000000000419400000000000c35000000000000000000000000000000000000003333000000000000000000000000000000000000111100000000000000000000000000000000000022220000000000000000000000000000000000000000000000000de0b6b3a764000000000000000004d2000000000000162e2222222222222222222222222222222222222222222222222222222222222222010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000014aaab6b096419fe36f3b3d6645c8173765a2f4a903ea336790040b82eec5af100000060000000000001d4c0000000000000000000000000000000000000beef00000000000002bc0000000000000898000000000000000000000000000000000000000000000000002386f26fc10000',
- 'verify_inbox_credit_calldata_hash': '929ba3a9dbcbd38a5368dd9d5d2789035476102d1d4cb36794e7c789e6bd3154',
- 'verify_inbox_credit_selector': '28933d28',
+ 'verify_inbox_credit_calldata_hash': 'bda76e8392d84ca874b1c3dc045d489e3b4582d9037381c733a2a0d4d3637f09',
+ 'verify_inbox_credit_magic': '49435632',
+ 'verify_inbox_credit_return_hash': 'ea4b4aee5e985f6e69fb050de18b11ab01681ed5cb407e16d734dcdf74875397',
+ 'verify_inbox_credit_return_length': '256',
+ 'verify_inbox_credit_selector': '720f747b',
  'verify_registration_calldata_hash': '710c7863ec96da255fde57220772b0f173d7931ed21bc878586820012f33bb50',
  'verify_registration_calldata_length': '516',
  'verify_registration_selector': '33639818',
@@ -14980,47 +16205,63 @@ if __name__ == "__main__":
             raise AssertionError("non-DIRECT V11 projection accepted")
         except AssertionError as error:
             assert str(error) != "non-DIRECT V11 projection accepted"
-    pins: dict[bytes, bytes] = {}
-    assert pin_inbox_credit(pins, bridge.src_chain_id, bridge.source_domain_id,
-                            bridge.src_epoch, bridge.src_bridge,
-                            bridge.destination_domain_id,
-                            bridge.msg_hash, bridge.liquidity_fee, bridge_result)
-    assert pin_inbox_credit(pins, bridge.src_chain_id, bridge.source_domain_id,
-                            bridge.src_epoch, bridge.src_bridge,
-                            bridge.destination_domain_id,
-                            bridge.msg_hash, bridge.liquidity_fee, bridge_result)
+    inbox_process_by = 3_392_345
+
+    def inbox_row(index: int, envelope: BridgeEnvelope,
+                  result_hash: bytes) -> InboxCreditV2:
+        return InboxCreditV2(
+            index, envelope.src_chain_id, envelope.source_domain_id,
+            envelope.src_epoch, envelope.src_bridge,
+            envelope.destination_domain_id, envelope.msg_hash, result_hash,
+            keccak256(b"inbox-source-context" + u64(index)), envelope.value,
+            envelope.fee, envelope.liquidity_fee)
+
+    pins: dict[bytes, InboxCreditPinV2] = {}
+    primary_row = inbox_row(70, bridge, bridge_result)
+    assert pin_inbox_credit(pins, primary_row, inbox_process_by)
+    assert pin_inbox_credit(pins, primary_row, inbox_process_by)
     rotated_result = bridge_credit_result(71, rotated)
-    assert pin_inbox_credit(pins, rotated.src_chain_id, rotated.source_domain_id,
-                            rotated.src_epoch, rotated.src_bridge,
-                            rotated.destination_domain_id,
-                            rotated.msg_hash, rotated.liquidity_fee, rotated_result)
-    batch_rows = (
-        (70, bridge.src_chain_id, bridge.source_domain_id, bridge.src_epoch,
-         bridge.src_bridge, bridge.destination_domain_id,
-         bridge.msg_hash, bridge.liquidity_fee, bridge_result),
-        (71, rotated.src_chain_id, rotated.source_domain_id, rotated.src_epoch,
-         rotated.src_bridge, rotated.destination_domain_id,
-         rotated.msg_hash, rotated.liquidity_fee, rotated_result),
-    )
-    batch_store: dict[bytes, bytes] = {}
-    assert pin_inbox_credit_batch(batch_store, batch_rows) and len(batch_store) == 2
+    rotated_row = inbox_row(71, rotated, rotated_result)
+    assert pin_inbox_credit(pins, rotated_row, inbox_process_by)
+    batch_rows = (primary_row, rotated_row)
+    batch_store: dict[bytes, InboxCreditPinV2] = {}
+    assert (pin_inbox_credit_batch(
+                batch_store, batch_rows, inbox_process_by)
+            and len(batch_store) == 2)
     batch_snapshot = dict(batch_store)
-    conflicting_rows = (batch_rows[0], (*batch_rows[1][:-1], bytes.fromhex("44" * 32)))
-    assert (not pin_inbox_credit_batch(batch_store, tuple(reversed(batch_rows)))
+    conflicting_rows = (
+        batch_rows[0],
+        replace(batch_rows[1], result_hash=bytes.fromhex("44" * 32)),
+    )
+    assert (not pin_inbox_credit_batch(
+                batch_store, tuple(reversed(batch_rows)), inbox_process_by)
             and batch_store == batch_snapshot
-            and not pin_inbox_credit_batch(batch_store, conflicting_rows)
+            and not pin_inbox_credit_batch(
+                batch_store, conflicting_rows, inbox_process_by)
             and batch_store == batch_snapshot)
-    assert not pin_inbox_credit(pins, bridge.src_chain_id, bridge.source_domain_id,
-                                bridge.src_epoch, bridge.src_bridge,
-                                bridge.destination_domain_id, bridge.msg_hash,
-                                bridge.liquidity_fee, bytes.fromhex("44" * 32))
+    for conflicting_row in (
+        replace(primary_row, result_hash=bytes.fromhex("44" * 32)),
+        replace(primary_row, source_context_hash=bytes.fromhex("45" * 32)),
+        replace(primary_row, value=primary_row.value + 1),
+        replace(primary_row, execution_fee=primary_row.execution_fee + 1),
+    ):
+        assert not pin_inbox_credit(pins, conflicting_row, inbox_process_by)
+    assert not pin_inbox_credit(pins, primary_row, inbox_process_by + 1)
     bridge_credit = bridge_credit_id(
         bridge.src_chain_id, bridge.source_domain_id, bridge.src_epoch,
         bridge.src_bridge, bridge.destination_domain_id, bridge.msg_hash,
         bridge.liquidity_fee)
-    assert pins[inbox_credit_slot(
-        bridge.source_domain_id, bridge.src_bridge,
-        bridge.destination_domain_id, bridge_credit)] == bridge_result
+    stored_pin = pins[inbox_credit_slot(bridge_credit)]
+    assert (stored_pin.storage_values == (
+                primary_row.result_hash, primary_row.source_context_hash,
+                primary_row.value, stored_pin.packed_terms)
+            and decode_inbox_credit_packed_terms(stored_pin.packed_terms)
+                == (inbox_process_by, primary_row.execution_fee,
+                    primary_row.liquidity_fee)
+            and stored_pin.packed_terms >> 192 == 0)
+    assert_rejects(
+        lambda: decode_inbox_credit_packed_terms(1 << 192),
+        "nonzero reserved packed-term bits accepted")
     reused = replace(bridge, src_epoch=9)
     reused_result = bridge_credit_result(72, reused)
     assert bridge_credit_id(reused.src_chain_id, reused.source_domain_id, reused.src_epoch,
@@ -15029,10 +16270,8 @@ if __name__ == "__main__":
                                 bridge.src_chain_id, bridge.source_domain_id, bridge.src_epoch,
                                 bridge.src_bridge, bridge.destination_domain_id,
                                 bridge.msg_hash, bridge.liquidity_fee)
-    assert pin_inbox_credit(pins, reused.src_chain_id, reused.source_domain_id,
-                            reused.src_epoch,
-                            reused.src_bridge, reused.destination_domain_id,
-                            reused.msg_hash, reused.liquidity_fee, reused_result)
+    assert pin_inbox_credit(
+        pins, inbox_row(72, reused, reused_result), inbox_process_by)
     domain_r2 = source_domain_id(
         1, bytes.fromhex("25" * 32), 0xD004, 0xD101,
         source_bridge_address,
@@ -15051,12 +16290,8 @@ if __name__ == "__main__":
             bridge.src_bridge, bridge.destination_domain_id, bridge.msg_hash,
             bridge.liquidity_fee)
     assert pin_inbox_credit(
-        pins, replacement_registry.src_chain_id,
-        replacement_registry.source_domain_id, replacement_registry.src_epoch,
-        replacement_registry.src_bridge,
-        replacement_registry.destination_domain_id,
-        replacement_registry.msg_hash, replacement_registry.liquidity_fee,
-        replacement_result)
+        pins, inbox_row(73, replacement_registry, replacement_result),
+        inbox_process_by)
     assert len(pins) == 4
 
     done_leaf = bytes.fromhex(actual["terminal_done_leaf"])
@@ -15426,7 +16661,10 @@ if __name__ == "__main__":
         "inboxMagic": "inbox_batch_magic",
         "routeCfgSel": "route_config_getter_selector",
         "verifyPinSel": "verify_inbox_credit_selector",
-        "getPinSel": "get_inbox_credit_slot_selector",
+        "verifyPinCall": "verify_inbox_credit_calldata_hash",
+        "verifyPinMagic": "verify_inbox_credit_magic",
+        "verifyPinRet": "verify_inbox_credit_return_hash",
+        "verifyPinRetLen": "verify_inbox_credit_return_length",
         "liqQuoteSel": "liquidity_quote_selector",
         "fundStateSel": "liquidity_funding_state_selector",
         "attemptSel": "execute_attempt_selector",
@@ -15434,6 +16672,8 @@ if __name__ == "__main__":
         "attemptLen": "execute_attempt_calldata_length",
         "finalFailSel": "finalize_failed_attempt_selector",
         "targetErrSel": "target_call_failed_selector",
+        "attemptDigest": "destination_attempt_digest",
+        "nativeQuota": "native_quota_key",
         "appendTermSel": "append_terminal_selector",
         "termCommitSel": "terminal_commitment_selector",
         "termStateSel": "terminal_state_selector",
@@ -15830,6 +17070,7 @@ if __name__ == "__main__":
         "feeCreditAlt": "liquidity_fee_substitution_credit_id",
         "escrowId": "bridge_escrow_id",
         "inboxSlot": "inbox_credit_slot",
+        "inboxTerms": "inbox_credit_packed_terms",
         "terminalDone": "terminal_done_leaf",
         "liquiditySet": "liquidity_settlement_hash",
         "settleLeafAlt": "settlement_tuple_substitution_terminal_leaf",
@@ -15842,8 +17083,63 @@ if __name__ == "__main__":
         "migrationData": "migration_data",
         "winningData": "winning_data",
         "statementHash": "statement_hash",
+        "stmtRewardGas": "statement_reward_execution_gas",
+        "stmtRewardBytes": "statement_reward_published_bytes",
+        "rewardReceipt": "reward_receipt_v1_commitment",
+        "candidateCommitTopic": "candidate_committed_v2_topic",
+        "candidateLogTopics": "candidate_committed_v2_topics_hash",
+        "candidateLogTopicCount": "candidate_committed_v2_topic_count",
+        "candidateLogId": "candidate_committed_v2_topic1_candidate_id",
+        "candidateLogBeneficiary": "candidate_committed_v2_topic2_beneficiary",
+        "candidateLogData": "candidate_committed_v2_data_hash",
+        "candidateLogDataLen": "candidate_committed_v2_data_length",
+        "rewardFundTopic": "reward_class_funded_v1_topic",
+        "rewardFundLogTopics": "reward_class_funded_v1_topics_hash",
+        "rewardFundLogTopicCount": "reward_class_funded_v1_topic_count",
+        "rewardFundLogClass": "reward_class_funded_v1_topic1_reward_class",
+        "rewardFundLogFunder": "reward_class_funded_v1_topic2_funder",
+        "rewardFundLogData": "reward_class_funded_v1_data_hash",
+        "rewardFundLogDataLen": "reward_class_funded_v1_data_length",
+        "rewardClaimTopic": "reward_claimed_v1_topic",
+        "rewardClaimLogTopics": "reward_claimed_v1_topics_hash",
+        "rewardClaimLogTopicCount": "reward_claimed_v1_topic_count",
+        "rewardClaimLogId": "reward_claimed_v1_topic1_candidate_id",
+        "rewardClaimLogBeneficiary": "reward_claimed_v1_topic2_beneficiary",
+        "rewardClaimLogData": "reward_claimed_v1_data_hash",
+        "rewardClaimLogDataLen": "reward_claimed_v1_data_length",
+        "fundRewardSel": "fund_reward_class_v1_selector",
+        "fundRewardCall": "fund_reward_class_v1_calldata_hash",
+        "fundRewardCallLen": "fund_reward_class_v1_calldata_length",
+        "fundRewardRetLen": "fund_reward_class_v1_return_length",
+        "claimRewardSel": "claim_reward_v1_selector",
+        "claimRewardCall": "claim_reward_v1_calldata_hash",
+        "claimRewardCallLen": "claim_reward_v1_calldata_length",
+        "claimRewardPaid": "claim_reward_v1_paid_wei",
+        "claimRewardRet": "claim_reward_v1_return_hash",
+        "claimRewardRetLen": "claim_reward_v1_return_length",
+        "rewardViewSel": "reward_receipt_v1_selector",
+        "rewardViewCall": "reward_receipt_v1_calldata_hash",
+        "rewardViewCallLen": "reward_receipt_v1_calldata_length",
+        "rewardViewMagic": "reward_receipt_v1_magic",
+        "rewardViewHit": "reward_receipt_v1_present_return_hash",
+        "rewardViewMiss": "reward_receipt_v1_missing_return_hash",
+        "rewardViewLen": "reward_receipt_v1_return_length",
+        "rewardCollision": "reward_receipt_v1_collision_candidate_id",
+        "builderCfg": "builder_registry_configuration_hash",
+        "rewardClassSel": "reward_class_v1_selector",
+        "rewardClassCall": "reward_class_v1_calldata_hash",
+        "rewardClassCallLen": "reward_class_v1_calldata_length",
+        "rewardClassMagic": "reward_class_v1_magic",
+        "rewardClassRet": "reward_class_v1_return_hash",
+        "rewardClassRetLen": "reward_class_v1_return_length",
+        "rewardClassId": "reward_class_v1_class_id",
+        "rewardClassGas": "reward_class_v1_call_gas",
+        "dsAcctEmpty": "empty_data_session_accounting_return_hash",
+        "dsAcctFunded": "funded_data_session_accounting_return_hash",
+        "dsAcctLen": "data_session_accounting_return_length",
         "recoveryId": "recovery_id",
         "bodyRoot": "body_root",
+        "chunkRoot": "chunk_root_0",
     }
     publication_rows: dict[str, str] = {}
     in_vector_table = False

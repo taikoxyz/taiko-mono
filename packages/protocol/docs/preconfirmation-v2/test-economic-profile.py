@@ -776,6 +776,17 @@ EXPECTED_RELATION_SPECS = (
         (False, True, True),
     ),
     relation_spec(
+        "reward-claim-window-profile-word",
+        (
+            "rewards.claimWindowSeconds",
+            "dataSession.refundClaimWindowSeconds",
+        ),
+        "==",
+        "rewards.claimWindowSeconds",
+        lambda p: oracle_get(p, "dataSession.refundClaimWindowSeconds"),
+        (False, True, False),
+    ),
+    relation_spec(
         "canonical-history-reorg-capacity",
         (
             "geometry.canonicalHistoryCells",
@@ -1153,12 +1164,28 @@ class EconomicProfileTests(unittest.TestCase):
         profile["rewards"]["classes"] = [
             {
                 "classId": 1,
-                "name": "validity-proof",
+                "name": "tier-1-proof",
                 "fixedWei": "100",
                 "perExecutionGasWei": "2",
                 "perPublishedByteWei": "1",
                 "capWei": "1000000",
-            }
+            },
+            {
+                "classId": 2,
+                "name": "tier-2-proof",
+                "fixedWei": "200",
+                "perExecutionGasWei": "3",
+                "perPublishedByteWei": "2",
+                "capWei": "2000000",
+            },
+            {
+                "classId": 3,
+                "name": "tier-3-recovery",
+                "fixedWei": "300",
+                "perExecutionGasWei": "4",
+                "perPublishedByteWei": "3",
+                "capWei": "3000000",
+            },
         ]
         for index, sink in enumerate(profile["sinks"].values(), start=5):
             sink["address"] = "0x" + f"{index:02x}" * 20
@@ -1207,6 +1234,39 @@ class EconomicProfileTests(unittest.TestCase):
         self.assertEqual(
             self.model.execution_profile_economic_binding_blockers(
                 self.example, tuple(words)
+            ),
+            ("economic profile projection is unavailable",),
+        )
+
+    def test_reward_claim_window_is_the_existing_profile_word_106(self):
+        profile = self.calibrated_profile()
+        self.assertEqual(
+            self.model.get_path(profile, "rewards.claimWindowSeconds"),
+            self.model.get_path(
+                profile, "dataSession.refundClaimWindowSeconds"
+            ),
+        )
+        projection = self.model.execution_profile_economic_projection_v2(
+            profile
+        )
+        self.assertEqual(
+            int.from_bytes(projection[106], "big"),
+            self.model.get_path(profile, "rewards.claimWindowSeconds"),
+        )
+
+        mismatched = copy.deepcopy(profile)
+        mismatched["rewards"]["claimWindowSeconds"] += 1
+        mismatched["profileId"] = None
+        mismatched["profileId"] = (
+            "0x" + self.model.economic_profile_hash_v2(mismatched).hex()
+        )
+        self.assertIn(
+            "relation reward-claim-window-profile-word failed",
+            self.model.production_blockers(mismatched),
+        )
+        self.assertEqual(
+            self.model.execution_profile_economic_binding_blockers(
+                mismatched, tuple(bytes(32) for _ in range(267))
             ),
             ("economic profile projection is unavailable",),
         )
@@ -1888,6 +1948,14 @@ class EconomicProfileTests(unittest.TestCase):
             self.model.validate_schema(profile),
         )
 
+    def test_production_requires_exact_tier_reward_classes(self):
+        profile = self.calibrated_profile()
+        profile["rewards"]["classes"].pop()
+        self.assertIn(
+            "rewards.classes must define exactly tier class IDs 1, 2, and 3",
+            self.model.production_blockers(profile),
+        )
+
     def test_checked_u256_arithmetic_boundaries_and_type_checks(self):
         self.assertEqual(
             self.model.checked_add_u256(self.model.UINT256_MAX, 0),
@@ -2039,7 +2107,7 @@ class EconomicProfileTests(unittest.TestCase):
         actual = {
             relation.name: relation for relation in self.model.PROFILE_RELATIONS
         }
-        self.assertEqual(len(expected), 58)
+        self.assertEqual(len(expected), 59)
         self.assertEqual(set(actual), set(expected))
         tex = MAIN_TEX.read_text()
         profile = self.calibrated_profile()

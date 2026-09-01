@@ -140,8 +140,8 @@ the lockfile.
   /Users/d/.pyenv/shims/python3 test-settlement-window.py
   ```
 
-  Expected: 591 commitment vectors / 1,317 assertion sites, 38 lookahead properties, 184 settlement
-  properties, 102 seat tests, 36 economics tests and 240 settlement tests.
+  Expected: 648 commitment vectors / 1,409 assertion sites, 38 lookahead properties, 184 settlement
+  properties, 102 seat tests, 38 economics tests and 254 settlement tests.
 
 - [ ] **Step 3: Record existing Solidity baselines**
 
@@ -282,7 +282,7 @@ linkReferencesHash, immutableReferencesHash, creationHash, runtimeHash)` and fai
 - [ ] **Step 1: Generate the JSON oracle** from `commitment-model.py` without changing its normal
       no-argument results.
 - [ ] **Step 2: Write failing tests** for every on-chain Appendix encoding: builder/tranche,
-      schedule, signed header/context, data, queue, candidate, canonical history, reward, migration,
+      schedule, signed header/context, data, queue, candidate, canonical history, reward receipt, migration,
       Bridge, release, retirement/successor, ICV2 and terminal commitments.
 - [ ] **Step 3: Run**
       `FOUNDRY_PROFILE=shared forge test --match-path 'test/shared/slotchain/libs/LibSlotChainEncoding.t.sol' -vv`
@@ -291,7 +291,10 @@ linkReferencesHash, immutableReferencesHash, creationHash, runtimeHash)` and fai
       caller-selectable domain. A representative API is:
 
   ```solidity
-  function hashForcedLeaf(SlotChainTypes.ForcedDescriptor memory _descriptor)
+  function hashForcedUserLeaf(
+      uint64 _index,
+      SlotChainTypes.Kind0ForcedDescriptorV2 memory _descriptor
+  )
       internal
       pure
       returns (bytes32 hash_);
@@ -380,9 +383,11 @@ linkReferencesHash, immutableReferencesHash, creationHash, runtimeHash)` and fai
 - Create: `packages/protocol/test/shared/slotchain/vectors/SlotChainEconomicVectors.sol`
 
 - [ ] **Step 1: Write failing differential vectors** for lease collateral, data rent/bond, forced
-      deposit, dynamic blob reimbursement, reward caps, seat runway, slash and release horizons.
-- [ ] **Step 2: Write invariant handlers** asserting `balance >= accountedLiability`, disjoint
-      buckets and exact conservation under forced ETH.
+      deposit, the non-consensus reward cap formula, seat runway, slash and release horizons.
+- [ ] **Step 2: Write invariant handlers** asserting the one-Settlement-account relation
+      `balance >= liveBondLiability + refundBondLiability + totalRewardFunding`, exact equality of
+      the reward total to its three class buckets, disjoint liabilities and exact conservation/
+      surplus sweeping under forced ETH.
 - [ ] **Step 3: Implement checked formulas** with explicit rounding direction and typed immutable
       NATIVE_ETH sink boundaries; reject zero/uncalibrated production fields. The sink fixture must
       reject callbacks/reentrancy and cannot become canonical-progress authority.
@@ -413,10 +418,15 @@ linkReferencesHash, immutableReferencesHash, creationHash, runtimeHash)` and fai
       bounded replacement and idempotent `(builder,window)` evidence. A first valid report atomically
       tombstones the key, slashes only that window's retained tranche and creates the exact reporter
       pull credit; no operator callback or push payment is permitted.
-- [ ] **Step 5: Fuzz** maximum churn and prove a retained key cannot re-enter before all evidence
+- [ ] **Step 5: Implement and fault-test** the immutable `componentConfigHashV2()` and
+      `rewardClassV1(uint8)` views over the constructor-written, writerless tier rows. Pin exact
+      selector, 36-byte calldata, 224-byte RCV1/config-echo/class-echo/term return, 50,000-gas
+      STATICCALL behavior, canonical padding, unknown-class rejection and short/trailing/OOG/
+      caller-dependent faults.
+- [ ] **Step 6: Fuzz** maximum churn and prove a retained key cannot re-enter before all evidence
       horizons expire, while distinct windows remain independently slashable.
-- [ ] **Step 6: Run** L1 tests, layout, gas and artifact checks.
-- [ ] **Step 7: Commit** `feat(protocol): add slot chain builder registry`.
+- [ ] **Step 7: Run** L1 tests, layout, gas and artifact checks.
+- [ ] **Step 8: Commit** `feat(protocol): add slot chain builder registry`.
 
 ### Round 7: Authenticated schedule and cross-window builder boundaries
 
@@ -500,10 +510,12 @@ linkReferencesHash, immutableReferencesHash, creationHash, runtimeHash)` and fai
       pull credits. A representative boundary is:
 
   ```solidity
-  function appendFromAdapter(
-      SlotChainTypes.ForcedDescriptor calldata _descriptor,
-      SlotChainTypes.IngressStamp calldata _stamp
-  ) external payable returns (uint64 index_);
+  function appendFromAdapterV2(
+      uint64 _activeProtocolVersion,
+      uint64 _routerGeneration,
+      uint8 _kind,
+      bytes calldata _descriptorBytes
+  ) external payable returns (uint8 result_, uint64 index_);
   ```
 
 - [ ] **Step 4: Fault-inject** every write boundary and assert adapter/Router/Queue atomicity.
@@ -609,20 +621,27 @@ linkReferencesHash, immutableReferencesHash, creationHash, runtimeHash)` and fai
 **Files:**
 
 - Modify: `packages/protocol/contracts/layer1/slotchain/impl/SlotChainSettlement.sol`
-- Create: `packages/protocol/contracts/layer1/slotchain/iface/IRewardDistributorV2.sol`
-- Create: `packages/protocol/contracts/layer1/slotchain/impl/RewardDistributorV2.sol`
 - Create: `packages/protocol/contracts/layer1/slotchain/libs/LibRewardMetering.sol`
 - Create: `packages/protocol/test/layer1/slotchain/settlement/RewardReceipts.t.sol`
 - Create: `packages/protocol/test/layer1/slotchain/migration/MigrationReadiness.t.sol`
 
-- [ ] **Step 1: Write failing reward tests** for one fixed cost per `(count, tipSlot)` level,
-      smallest-tip-hash holder, legitimate marginal-block reward, blob-indexed data reimbursement
-      and total caps.
-- [ ] **Step 2: Pin the 40-candidate grind regression** so shared-cap and per-improvement rules fail
-      against the same inputs.
-- [ ] **Step 3: Implement best-effort immutable receipts** and a separate funded distributor with
-      pull claims; it is not a vault, custody root or canonical dependency, and payout failure never
-      reverts canonical settlement.
+- [ ] **Step 1: Write failing reward tests** for tier-derived class selection,
+      proof-authenticated execution-gas/published-byte metrics, cap-aware payout arithmetic, exact
+      receipt commitment, timestamp/deadline and reorg-margin equality boundaries, all 256
+      collision positions in each class-local ring, cross-class saturation isolation, expiration,
+      insufficient funding, transfer failure, reentry and double
+      claim. Exercise reward-to-session/sweep/canonical and session/sweep-to-reward cross-reentry
+      against the single Settlement guard and the one physical ETH balance.
+- [ ] **Step 2: Prove class, metric, profile, beneficiary and timestamp substitution fail.** Pin
+      that losing candidates and improvement levels receive no protocol receipt, data rent remains
+      unreimbursed, and a full/live same-class receipt ring only emits `receiptStored=false` without reverting
+      canonical progress.
+- [ ] **Step 3: Implement three class-isolated 256-cell best-effort immutable receipt rings** and separately accounted per-class
+      funding buckets on the immutable Settlement with permissionless exact-beneficiary pull claims. The claim path computes
+      `min(cap,fixed+perGas*gas+perByte*bytes)` with cap-aware checked arithmetic, marks/debits
+      before transfer in one revert domain, exact-reads the immutable BuilderRegistry class row,
+      has no funding withdrawal/sweep, uses the profile's immutable word-106 claim window and
+      word-85 reorg margin, and is not a canonical dependency.
 - [ ] **Step 4: Implement bounded readiness** for sessions, seats, queue and canonical boundary with
       exact fixed-width views.
 - [ ] **Step 5: Run** economics oracle, focused tests, L1 profile and gas.

@@ -172,6 +172,30 @@ POINT_EVALUATION_OK = (
 )
 UINT64_MAX = (1 << 64) - 1
 SEAT_UINT256_MAX = (1 << 256) - 1
+MAX_REWARD_RECEIPTS = 256
+REWARD_CLAIM_WINDOW_SECONDS = 86_400
+REWARD_RECEIPT_DOMAIN_V1 = b"slot-chain-reward-receipt-v1"
+REWARD_CLASS_V1_SELECTOR = bytes.fromhex("3d273ee7")
+REWARD_CLASS_V1_MAGIC = b"RCV1"
+REWARD_CLASS_READ_GAS = 50_000
+REWARD_RECEIPT_V1_SELECTOR = bytes.fromhex("3ed526c7")
+REWARD_RECEIPT_V1_MAGIC = b"RRV1"
+REWARD_RECEIPT_READ_GAS = 100_000
+REWARD_RECEIPT_RETURN_LENGTH = 384
+BUILDER_REGISTRY_PROFILE_ADDRESS = "0x" + keccak256(
+    b"slot-chain-execution-profile-fixture-v2:builder-registry"
+)[-20:].hex()
+BUILDER_REGISTRY_PROFILE_RUNTIME_HASH = keccak256(
+    b"slot-chain-execution-profile-fixture-v2:builder-registry-runtime"
+)
+BUILDER_REGISTRY_PROFILE_CONFIGURATION_HASH = keccak256(
+    b"slot-chain-execution-profile-fixture-v2:builder-registry-config"
+)
+if keccak256(b"rewardClassV1(uint8)")[:4] != REWARD_CLASS_V1_SELECTOR:
+    raise AssertionError("rewardClassV1 selector drifted")
+if keccak256(b"rewardReceiptV1(bytes32)")[:4] \
+        != REWARD_RECEIPT_V1_SELECTOR:
+    raise AssertionError("rewardReceiptV1 selector drifted")
 G_MAX = DELTA_FINAL_LAG
 
 
@@ -2204,6 +2228,7 @@ class DataRecord:
     index: int
     versioned_hash: bytes
     canonical_leaf: bytes
+    chunk_byte_length: int = 0
 
 
 @dataclass(frozen=True)
@@ -2440,6 +2465,18 @@ class DataSessionMaintenanceMode(Enum):
 
 class DataSessionRevert(RuntimeError):
     """Exact transaction-revert signal for session custody selectors."""
+
+
+class SharedSettlementReentrancy(RuntimeError):
+    """A nested mutating Settlement selector hit the shared call guard."""
+
+
+class RewardClaimRevert(RuntimeError):
+    """Exact transaction-revert signal for reward claims."""
+
+
+class RewardFundingRevert(RuntimeError):
+    """Exact transaction-revert signal for reward-class funding."""
 
 
 @dataclass
@@ -2728,6 +2765,7 @@ class Block:
     context_id: str
     admission_version: int
     admission_root: str
+    tier: Tier
     inbox_pre_cursor: int = 0
     inbox_post_cursor: int = 0
     force_gas_budget: int = FORCE_GAS_BUDGET
@@ -2741,6 +2779,7 @@ class Block:
     inbox_system_calldata_hash: str = ""
     anchor_system_tx_position: int = 0
     inbox_system_tx_position: int = 1
+    gas_used: int = 0
 
 
 @dataclass(frozen=True)
@@ -2763,6 +2802,8 @@ class Candidate:
     session_refs: tuple[SessionRef, ...] = ()
     manifest_exact: bool = True
     beneficiary: str = "prover"
+    reward_execution_gas: int = 0
+    reward_published_bytes: int = 0
     recovery_fields_zero: bool = True
     end_terminal_root: str = "terminal:empty"
     end_terminal_count: int = 0
@@ -2782,6 +2823,466 @@ class Candidate:
     @property
     def order(self) -> tuple[int, int, int]:
         return (self.count, self.tip.slot, -int(self.tip.block_hash, 16))
+
+
+@dataclass(frozen=True)
+class RewardClassV1:
+    class_id: int
+    fixed_wei: int
+    per_execution_gas_wei: int
+    per_published_byte_wei: int
+    cap_wei: int
+
+    def __post_init__(self) -> None:
+        if (type(self.class_id) is not int
+                or self.class_id not in {tier.value for tier in Tier}
+                or any(type(value) is not int
+                       or not 0 <= value <= SEAT_UINT256_MAX
+                       for value in (
+                           self.fixed_wei,
+                           self.per_execution_gas_wei,
+                           self.per_published_byte_wei,
+                           self.cap_wei,
+                       ))):
+            raise ValueError("reward class is not a bounded tier schedule")
+
+
+def default_reward_class_rows_v1() -> tuple[RewardClassV1, ...]:
+    """Return fixture rows owned only by the queried BuilderRegistry."""
+
+    return (
+        RewardClassV1(1, 10, 1, 1, 1_000_000),
+        RewardClassV1(2, 20, 2, 2, 2_000_000),
+        RewardClassV1(3, 30, 3, 3, 3_000_000),
+    )
+
+
+def encode_reward_class_return_v1(
+    row: RewardClassV1, configuration_hash: bytes
+) -> bytes:
+    if type(row) is not RewardClassV1:
+        raise ValueError("reward class getter row is malformed")
+    exact_configuration_hash = _model_fixed_bytes32(configuration_hash)
+    if exact_configuration_hash == bytes(32):
+        raise ValueError("reward class configuration hash is zero")
+    encoded = b"".join((
+        REWARD_CLASS_V1_MAGIC + bytes(28),
+        exact_configuration_hash,
+        _model_uint(row.class_id, 32, "returned reward class"),
+        _model_uint(row.fixed_wei, 32, "returned reward fixed amount"),
+        _model_uint(
+            row.per_execution_gas_wei, 32,
+            "returned reward execution-gas rate",
+        ),
+        _model_uint(
+            row.per_published_byte_wei, 32,
+            "returned reward published-byte rate",
+        ),
+        _model_uint(row.cap_wei, 32, "returned reward cap"),
+    ))
+    if len(encoded) != 224:
+        raise AssertionError("rewardClassV1 return must be exactly 224 bytes")
+    return encoded
+
+
+def decode_reward_class_return_v1(
+    returndata: bytes, expected_class_id: int,
+    expected_configuration_hash: bytes,
+) -> RewardClassV1:
+    exact_configuration_hash = _model_fixed_bytes32(
+        expected_configuration_hash
+    )
+    if (type(returndata) is not bytes or len(returndata) != 224
+            or type(expected_class_id) is not int
+            or expected_class_id not in (1, 2, 3)
+            or exact_configuration_hash == bytes(32)):
+        raise ValueError("rewardClassV1 return length or class is invalid")
+    words = tuple(
+        returndata[offset:offset + 32]
+        for offset in range(0, len(returndata), 32)
+    )
+    if (words[0] != REWARD_CLASS_V1_MAGIC + bytes(28)
+            or words[1] != exact_configuration_hash):
+        raise ValueError("rewardClassV1 magic or configuration is invalid")
+    row = RewardClassV1(
+        _decode_uint_word_v1(words[2], 8, "returned reward class"),
+        int.from_bytes(words[3], "big"),
+        int.from_bytes(words[4], "big"),
+        int.from_bytes(words[5], "big"),
+        int.from_bytes(words[6], "big"),
+    )
+    if (row.class_id != expected_class_id
+            or encode_reward_class_return_v1(
+                row, exact_configuration_hash
+            ) != returndata):
+        raise ValueError("rewardClassV1 echo or padding is invalid")
+    return row
+
+
+@dataclass
+class RewardClassRegistryV1:
+    rows: tuple[RewardClassV1, ...] = field(
+        default_factory=default_reward_class_rows_v1
+    )
+    address: str = BUILDER_REGISTRY_PROFILE_ADDRESS
+    runtime_hash: bytes = BUILDER_REGISTRY_PROFILE_RUNTIME_HASH
+    configuration_hash: bytes = BUILDER_REGISTRY_PROFILE_CONFIGURATION_HASH
+    return_overrides: dict[int, bytes] = field(
+        default_factory=dict, compare=False, repr=False
+    )
+    faulted_classes: set[int] = field(
+        default_factory=set, compare=False, repr=False
+    )
+    component_config_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    component_config_call_fault: bool = field(
+        default=False, compare=False, repr=False
+    )
+    observed_runtime_hash_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    codehash_call_fault: bool = field(
+        default=False, compare=False, repr=False
+    )
+    calls: list[tuple[str, int]] = field(
+        default_factory=list, compare=False, repr=False
+    )
+    component_config_calls: list[str] = field(
+        default_factory=list, compare=False, repr=False
+    )
+    codehash_calls: list[str] = field(
+        default_factory=list, compare=False, repr=False
+    )
+
+    def __post_init__(self) -> None:
+        if (type(self.rows) is not tuple
+                or tuple(row.class_id for row in self.rows) != (1, 2, 3)
+                or any(type(row) is not RewardClassV1 for row in self.rows)
+                or not self.address
+                or type(self.runtime_hash) is not bytes
+                or len(self.runtime_hash) != 32
+                or self.runtime_hash == bytes(32)
+                or type(self.configuration_hash) is not bytes
+                or len(self.configuration_hash) != 32
+                or self.configuration_hash == bytes(32)
+                or self.return_overrides or self.faulted_classes
+                or self.component_config_return_override is not None
+                or self.component_config_call_fault
+                or self.observed_runtime_hash_override is not None
+                or self.codehash_call_fault
+                or self.calls or self.component_config_calls
+                or self.codehash_calls):
+            raise ValueError("reward class registry is not immutable and empty")
+
+    def class_by_id(self, class_id: int) -> RewardClassV1:
+        if type(class_id) is not int or class_id not in (1, 2, 3):
+            raise ValueError("reward class is outside the tier schedule")
+        row = self.rows[class_id - 1]
+        if row.class_id != class_id:
+            raise ValueError("reward class schedule changed")
+        return row
+
+    def extcodehash(self, *, caller: str) -> bytes:
+        if not caller:
+            raise ValueError("BuilderRegistry EXTCODEHASH caller is empty")
+        self.codehash_calls.append(caller)
+        if self.codehash_call_fault:
+            raise ValueError("BuilderRegistry EXTCODEHASH failed")
+        return (
+            self.runtime_hash
+            if self.observed_runtime_hash_override is None
+            else self.observed_runtime_hash_override
+        )
+
+    def component_config_staticcall(
+        self, calldata: bytes, *, caller: str, gas: int, value: int
+    ) -> bytes:
+        if (calldata != COMPONENT_CONFIG_GETTER_SELECTOR
+                or not caller or gas != COMPONENT_CONFIG_GETTER_GAS
+                or value != 0):
+            raise ValueError("componentConfigHashV2 STATICCALL frame is inexact")
+        self.component_config_calls.append(caller)
+        if self.component_config_call_fault:
+            raise ValueError("componentConfigHashV2 STATICCALL failed")
+        return (
+            self.configuration_hash
+            if self.component_config_return_override is None
+            else self.component_config_return_override
+        )
+
+    def staticcall(
+        self, calldata: bytes, *, caller: str, gas: int, value: int
+    ) -> bytes:
+        if (type(calldata) is not bytes or len(calldata) != 36
+                or calldata[:4] != REWARD_CLASS_V1_SELECTOR
+                or calldata[4:35] != bytes(31)
+                or not caller or gas != REWARD_CLASS_READ_GAS or value != 0):
+            raise ValueError("rewardClassV1 STATICCALL frame is inexact")
+        class_id = calldata[35]
+        row = self.class_by_id(class_id)
+        self.calls.append((caller, class_id))
+        if class_id in self.faulted_classes:
+            raise ValueError("rewardClassV1 STATICCALL failed")
+        return self.return_overrides.get(
+            class_id,
+            encode_reward_class_return_v1(row, self.configuration_hash),
+        )
+
+
+@dataclass(frozen=True)
+class RewardReceiptV1:
+    candidate_id: bytes
+    beneficiary: str
+    reward_class: int
+    reward_execution_gas: int
+    reward_published_bytes: int
+    execution_profile_hash: bytes
+    committed_at_block: int
+    committed_at_timestamp: int
+    claim_until: int
+
+    def __post_init__(self) -> None:
+        if (type(self.candidate_id) is not bytes
+                or len(self.candidate_id) != 32
+                or self.candidate_id == bytes(32)
+                or not self.beneficiary
+                or type(self.reward_class) is not int
+                or self.reward_class not in (1, 2, 3)
+                or type(self.reward_execution_gas) is not int
+                or not 0 <= self.reward_execution_gas <= SEAT_UINT256_MAX
+                or type(self.reward_published_bytes) is not int
+                or not 0 <= self.reward_published_bytes <= UINT64_MAX
+                or type(self.execution_profile_hash) is not bytes
+                or len(self.execution_profile_hash) != 32
+                or self.execution_profile_hash == bytes(32)
+                or any(type(value) is not int
+                       or not 0 < value <= UINT64_MAX
+                       for value in (
+                           self.committed_at_block,
+                           self.committed_at_timestamp,
+                           self.claim_until,
+                       ))
+                or self.claim_until <= self.committed_at_timestamp):
+            raise ValueError("reward receipt is not a canonical V1 entitlement")
+        _model_address20(self.beneficiary)
+
+    @property
+    def commitment(self) -> bytes:
+        return keccak256(b"".join((
+            REWARD_RECEIPT_DOMAIN_V1,
+            self.candidate_id,
+            _model_address20(self.beneficiary),
+            _model_uint(self.reward_class, 1, "receipt reward class"),
+            _model_uint(
+                self.reward_execution_gas, 32, "receipt execution gas"
+            ),
+            _model_uint(
+                self.reward_published_bytes, 8, "receipt published bytes"
+            ),
+            self.execution_profile_hash,
+            _model_uint(
+                self.committed_at_block, 8, "receipt commit block"
+            ),
+            _model_uint(
+                self.committed_at_timestamp, 8, "receipt commit timestamp"
+            ),
+            _model_uint(self.claim_until, 8, "receipt claim deadline"),
+        )))
+
+
+@dataclass
+class RewardReceiptCellV1:
+    receipt: RewardReceiptV1 | None = None
+    claimed: bool = False
+
+
+class RewardReceiptAllocationOutcomeV1(Enum):
+    STORE = "STORE"
+    SKIP_ID_CONVERSION = "SKIP_ID_CONVERSION"
+    SKIP_DEADLINE_OVERFLOW = "SKIP_DEADLINE_OVERFLOW"
+    SKIP_LIVE_COLLISION = "SKIP_LIVE_COLLISION"
+    REJECT_CANDIDATE_INVARIANT = "REJECT_CANDIDATE_INVARIANT"
+    REJECT_SETTLEMENT_INVARIANT = "REJECT_SETTLEMENT_INVARIANT"
+
+
+@dataclass(frozen=True)
+class RewardReceiptAllocationDecisionV1:
+    outcome: RewardReceiptAllocationOutcomeV1
+    candidate_id: bytes = bytes(32)
+    beneficiary: str = ""
+    reward_class: int = 0
+    reward_execution_gas: int = 0
+    reward_published_bytes: int = 0
+    receipt_index: int = 0
+    receipt: RewardReceiptV1 | None = None
+
+    @property
+    def skips_receipt(self) -> bool:
+        return self.outcome in {
+            RewardReceiptAllocationOutcomeV1.SKIP_ID_CONVERSION,
+            RewardReceiptAllocationOutcomeV1.SKIP_DEADLINE_OVERFLOW,
+            RewardReceiptAllocationOutcomeV1.SKIP_LIVE_COLLISION,
+        }
+
+
+@dataclass(frozen=True)
+class CandidateCommittedV2:
+    candidate_id: bytes
+    beneficiary: str
+    reward_class: int
+    reward_execution_gas: int
+    reward_published_bytes: int
+    receipt_stored: bool
+    receipt_index: int
+    receipt_commitment: bytes
+
+
+@dataclass(frozen=True)
+class RewardClassFundedV1:
+    reward_class: int
+    funder: str
+    amount: int
+    class_funding_after: int
+    total_funding_after: int
+
+
+@dataclass(frozen=True)
+class RewardClaimedV1:
+    candidate_id: bytes
+    beneficiary: str
+    reward_class: int
+    paid_wei: int
+
+
+def encode_reward_receipt_return_v1(
+    receipt: RewardReceiptV1 | None, claimed: bool = False
+) -> bytes:
+    if receipt is None:
+        if claimed:
+            raise ValueError("absent reward receipt cannot be claimed")
+        encoded = b"".join((
+            REWARD_RECEIPT_V1_MAGIC + bytes(28),
+            bytes(32),
+            *(bytes(32) for _ in range(10)),
+        ))
+    else:
+        if type(receipt) is not RewardReceiptV1 or type(claimed) is not bool:
+            raise ValueError("reward receipt view state is malformed")
+        encoded = b"".join((
+            REWARD_RECEIPT_V1_MAGIC + bytes(28),
+            bytes(31) + b"\x01",
+            bytes(12) + _model_address20(receipt.beneficiary),
+            _model_uint(receipt.reward_class, 32, "view reward class"),
+            _model_uint(
+                receipt.reward_execution_gas, 32, "view reward execution gas"
+            ),
+            _model_uint(
+                receipt.reward_published_bytes, 32,
+                "view reward published bytes",
+            ),
+            receipt.execution_profile_hash,
+            _model_uint(
+                receipt.committed_at_block, 32, "view reward commit block"
+            ),
+            _model_uint(
+                receipt.committed_at_timestamp, 32,
+                "view reward commit timestamp",
+            ),
+            _model_uint(receipt.claim_until, 32, "view reward deadline"),
+            bytes(31) + bytes((int(claimed),)),
+            receipt.commitment,
+        ))
+    if len(encoded) != REWARD_RECEIPT_RETURN_LENGTH:
+        raise AssertionError("rewardReceiptV1 return must be exactly 384 bytes")
+    return encoded
+
+
+def reward_receipt_index_v1(candidate_id: object) -> int:
+    exact = _model_fixed_bytes32(candidate_id)
+    if exact == bytes(32):
+        raise ValueError("zero candidate identity has no reward-ring cell")
+    return exact[-1]
+
+
+def reward_candidate_id_word_v1(candidate_id: object) -> bytes | None:
+    """Convert supported model identities without exceptions or fallback repr."""
+
+    if type(candidate_id) is bytes:
+        return candidate_id if len(candidate_id) == 32 else None
+    if type(candidate_id) is not str:
+        return None
+    unprefixed = candidate_id.removeprefix("0x")
+    if (len(unprefixed) == 64
+            and all(character in "0123456789abcdefABCDEF"
+                    for character in unprefixed)):
+        return bytes.fromhex(unprefixed)
+    return hashlib.sha256(
+        b"TAIKO_MODEL_FIXED_BYTES32_V1\x00" + repr(candidate_id).encode()
+    ).digest()
+
+
+def reward_candidate_metrics_v1(
+    protocol: object, candidate: object
+) -> tuple[int, int]:
+    """Derive reward metrics from executed blocks and consumed data records."""
+
+    if (type(candidate) is not Candidate
+            or not hasattr(protocol, "data_record_events")):
+        raise ValueError("reward metric source is malformed")
+    execution_gas = 0
+    for block in candidate.blocks:
+        if (type(block) is not Block or type(block.gas_used) is not int
+                or not 0 <= block.gas_used <= SEAT_UINT256_MAX):
+            raise ValueError("candidate block gasUsed is malformed")
+        execution_gas = seat_checked_add(
+            execution_gas, block.gas_used, "candidate reward execution gas"
+        )
+    records: dict[tuple[str, int], DataRecord] = {}
+    for record in protocol.data_record_events:
+        if (type(record) is not DataRecord
+                or type(record.chunk_byte_length) is not int
+                or not 0 <= record.chunk_byte_length <= UINT64_MAX):
+            raise ValueError("reward data record is malformed")
+        key = (record.session_id, record.index)
+        if key in records:
+            raise ValueError("reward data record identity is duplicated")
+        records[key] = record
+    consumed = tuple(
+        record_id for block in candidate.blocks
+        for record_id in block.data_records
+    )
+    if len(consumed) != len(set(consumed)):
+        raise ValueError("reward data record was consumed twice")
+    published_bytes = 0
+    for record_id in consumed:
+        record = records.get(record_id)
+        if record is None:
+            raise ValueError("consumed reward data record is unavailable")
+        if published_bytes > UINT64_MAX - record.chunk_byte_length:
+            raise ValueError("candidate reward published bytes overflow uint64")
+        published_bytes += record.chunk_byte_length
+    return execution_gas, published_bytes
+
+
+def reward_candidate_metrics_valid_v1(
+    candidate: object, protocol: object | None = None
+) -> bool:
+    if (type(candidate) is not Candidate
+            or type(candidate.reward_execution_gas) is not int
+            or not 0 <= candidate.reward_execution_gas <= SEAT_UINT256_MAX
+            or type(candidate.reward_published_bytes) is not int
+            or not 0 <= candidate.reward_published_bytes <= UINT64_MAX):
+        return False
+    if protocol is None:
+        return True
+    try:
+        return reward_candidate_metrics_v1(protocol, candidate) == (
+            candidate.reward_execution_gas,
+            candidate.reward_published_bytes,
+        )
+    except (TypeError, ValueError, OverflowError):
+        return False
 
 
 @dataclass
@@ -3024,7 +3525,7 @@ MIGRATION_READINESS_MAGIC = b"MRS1"
 MIGRATION_READINESS_LENGTH = 256
 MIGRATION_READINESS_GAS = 100_000
 DATA_SESSION_ACCOUNTING_MAGIC = b"DSV1"
-DATA_SESSION_ACCOUNTING_LENGTH = 384
+DATA_SESSION_ACCOUNTING_LENGTH = 512
 DATA_SESSION_ACCOUNTING_GAS = 100_000
 MARK_MIGRATION_READY_MAGIC = b"MRDY"
 MARK_MIGRATION_READY_RETURN = MARK_MIGRATION_READY_MAGIC + bytes(28)
@@ -3198,6 +3699,10 @@ class DataSessionAccountingV1:
     migration_refund_claim_deadline: int
     guard_entered: bool
     data_session_config_hash: bytes
+    reward_funding_class_1: int = 0
+    reward_funding_class_2: int = 0
+    reward_funding_class_3: int = 0
+    total_reward_funding: int = 0
 
 
 def encode_active_settlement_state_v1(
@@ -3355,7 +3860,20 @@ def encode_data_session_accounting_v1(
             or type(state.guard_entered) is not bool
             or type(state.data_session_config_hash) is not bytes
             or len(state.data_session_config_hash) != 32
-            or state.data_session_config_hash == bytes(32)):
+            or state.data_session_config_hash == bytes(32)
+            or any(type(value) is not int
+                   or not 0 <= value <= SEAT_UINT256_MAX
+                   for value in (
+                       state.reward_funding_class_1,
+                       state.reward_funding_class_2,
+                       state.reward_funding_class_3,
+                       state.total_reward_funding,
+                   ))
+            or state.total_reward_funding != sum((
+                state.reward_funding_class_1,
+                state.reward_funding_class_2,
+                state.reward_funding_class_3,
+            ))):
         raise ValueError("data-session accounting is malformed")
     return b"".join((
         DATA_SESSION_ACCOUNTING_MAGIC + bytes(28),
@@ -3378,6 +3896,18 @@ def encode_data_session_accounting_v1(
         ),
         bytes(31) + bytes((int(state.guard_entered),)),
         state.data_session_config_hash,
+        _model_uint(
+            state.reward_funding_class_1, 32, "class-one reward funding"
+        ),
+        _model_uint(
+            state.reward_funding_class_2, 32, "class-two reward funding"
+        ),
+        _model_uint(
+            state.reward_funding_class_3, 32, "class-three reward funding"
+        ),
+        _model_uint(
+            state.total_reward_funding, 32, "total reward funding"
+        ),
     ))
 
 
@@ -3403,6 +3933,10 @@ def decode_data_session_accounting_v1(raw: bytes) -> DataSessionAccountingV1:
         int.from_bytes(words[9][24:], "big"),
         bool(words[10][-1]),
         words[11],
+        int.from_bytes(words[12], "big"),
+        int.from_bytes(words[13], "big"),
+        int.from_bytes(words[14], "big"),
+        int.from_bytes(words[15], "big"),
     )
     if encode_data_session_accounting_v1(state) != raw:
         raise ValueError("data-session accounting returndata is invalid")
@@ -3700,12 +4234,17 @@ class MigrationGate:
                 or accounting.data_session_config_hash
                     != self.active_data_session_config_hash):
             raise ValueError("migration READY authenticated views rejected")
-        liabilities = seat_checked_add(
+        session_liabilities = seat_checked_add(
             accounting.live_bond_liability,
             accounting.refund_bond_liability,
             "migration READY session liabilities",
         )
-        if protocol.data_session_balance < liabilities:
+        liabilities = seat_checked_add(
+            session_liabilities,
+            accounting.total_reward_funding,
+            "migration READY Settlement liabilities",
+        )
+        if protocol.settlement_eth_balance < liabilities:
             raise ValueError("migration READY source custody is insolvent")
         self.mode = "READY"
         return (
@@ -3729,10 +4268,15 @@ class MigrationGate:
             accounting = decode_data_session_accounting_v1(
                 protocol.data_session_accounting_v1()
             )
-            liabilities = seat_checked_add(
+            session_liabilities = seat_checked_add(
                 accounting.live_bond_liability,
                 accounting.refund_bond_liability,
                 "activation session liabilities",
+            )
+            liabilities = seat_checked_add(
+                session_liabilities,
+                accounting.total_reward_funding,
+                "activation Settlement liabilities",
             )
         except (ValueError, AttributeError, AssertionError):
             return False
@@ -3754,7 +4298,7 @@ class MigrationGate:
             and not accounting.guard_entered
             and accounting.data_session_config_hash
                 == self.active_data_session_config_hash
-            and protocol.data_session_balance >= liabilities
+            and protocol.settlement_eth_balance >= liabilities
         )
 
     def _activate_from_router(
@@ -4024,7 +4568,7 @@ class Protocol:
     session_live_count: int = 0
     session_refund_count: int = 0
     session_occupied_count: int = 0
-    data_session_balance: int = 0
+    settlement_eth_balance: int = 0
     data_session_live_bond_liability: int = 0
     data_session_refund_bond_liability: int = 0
     data_session_required_bond: int = 10
@@ -4037,6 +4581,7 @@ class Protocol:
         default_factory=PointEvaluationAdapter
     )
     refund_claim_window_seconds: int = DATA_TTL_SECONDS
+    reward_reorg_margin_seconds: int = REORG_MARGIN_SECONDS
     migration_refund_generation: int = 0
     migration_refund_claim_deadline: int = 0
     data_rent_sink: DataRentSink = field(default_factory=DataRentSink)
@@ -4052,6 +4597,42 @@ class Protocol:
     data_session_events: list[object] = field(
         default_factory=list, compare=False
     )
+    reward_execution_profile_hash: bytes = field(
+        default_factory=lambda: keccak256(
+            b"slot-chain-model-execution-profile-v1"
+        )
+    )
+    reward_class_registry: RewardClassRegistryV1 = field(
+        default_factory=RewardClassRegistryV1
+    )
+    reward_class_registry_address: str = BUILDER_REGISTRY_PROFILE_ADDRESS
+    reward_class_registry_runtime_hash: bytes = (
+        BUILDER_REGISTRY_PROFILE_RUNTIME_HASH
+    )
+    reward_class_registry_configuration_hash: bytes = (
+        BUILDER_REGISTRY_PROFILE_CONFIGURATION_HASH
+    )
+    reward_funded_by_class: dict[int, int] = field(
+        default_factory=lambda: {1: 0, 2: 0, 3: 0}
+    )
+    total_reward_funding: int = 0
+    reward_receipts: dict[int, list[RewardReceiptCellV1]] = field(
+        default_factory=lambda: {
+            reward_class: [
+                RewardReceiptCellV1() for _ in range(MAX_REWARD_RECEIPTS)
+            ]
+            for reward_class in (1, 2, 3)
+        }
+    )
+    reward_events: list[CandidateCommittedV2] = field(
+        default_factory=list, compare=False
+    )
+    reward_payments: list[tuple[bytes, str, int, int]] = field(
+        default_factory=list, compare=False
+    )
+    reward_accounting_events: list[
+        RewardClassFundedV1 | RewardClaimedV1
+    ] = field(default_factory=list, compare=False)
     gc_cursor: int = 0
     events: list[str] = field(default_factory=list)
     boundary_queries: int = 0
@@ -4074,7 +4655,6 @@ class Protocol:
     _canonical_commit_frame: tuple[int, str] | None = field(
         default=None, init=False, compare=False, repr=False
     )
-
     def __post_init__(self) -> None:
         if (type(self.session_cells) is not list
                 or len(self.session_cells) != MAX_LIVE_DATA_SESSIONS
@@ -4092,8 +4672,8 @@ class Protocol:
                 or self.session_live_count != 0
                 or self.session_refund_count != 0
                 or self.session_occupied_count != 0
-                or type(self.data_session_balance) is not int
-                or self.data_session_balance < 0
+                or type(self.settlement_eth_balance) is not int
+                or self.settlement_eth_balance < 0
                 or self.data_session_live_bond_liability != 0
                 or self.data_session_refund_bond_liability != 0
                 or type(self.data_session_required_bond) is not int
@@ -4116,13 +4696,48 @@ class Protocol:
                 or not self.point_evaluation_adapter.structurally_valid()
                 or type(self.refund_claim_window_seconds) is not int
                 or not 0 < self.refund_claim_window_seconds <= UINT64_MAX
+                or type(self.reward_reorg_margin_seconds) is not int
+                or not 0 <= self.reward_reorg_margin_seconds <= UINT64_MAX
                 or self.migration_refund_generation != 0
                 or self.migration_refund_claim_deadline != 0
                 or type(self.data_rent_sink) is not DataRentSink
                 or not self.data_rent_sink.address
                 or self.data_session_callback_entered
                 or self.data_record_events
-                or self.data_session_events):
+                or self.data_session_events
+                or type(self.reward_execution_profile_hash) is not bytes
+                or len(self.reward_execution_profile_hash) != 32
+                or self.reward_execution_profile_hash == bytes(32)
+                or type(self.reward_class_registry)
+                    is not RewardClassRegistryV1
+                or self.reward_class_registry.address
+                    != self.reward_class_registry_address
+                or self.reward_class_registry.runtime_hash
+                    != self.reward_class_registry_runtime_hash
+                or self.reward_class_registry.configuration_hash
+                    != self.reward_class_registry_configuration_hash
+                or not self.reward_class_registry_address
+                or type(self.reward_class_registry_runtime_hash) is not bytes
+                or len(self.reward_class_registry_runtime_hash) != 32
+                or self.reward_class_registry_runtime_hash == bytes(32)
+                or type(self.reward_class_registry_configuration_hash)
+                    is not bytes
+                or len(self.reward_class_registry_configuration_hash) != 32
+                or self.reward_class_registry_configuration_hash == bytes(32)
+                or self.reward_funded_by_class != {1: 0, 2: 0, 3: 0}
+                or type(self.total_reward_funding) is not int
+                or self.total_reward_funding != 0
+                or type(self.reward_receipts) is not dict
+                or set(self.reward_receipts) != {1, 2, 3}
+                or any(type(ring) is not list
+                       or len(ring) != MAX_REWARD_RECEIPTS
+                       or any(type(cell) is not RewardReceiptCellV1
+                              or cell.receipt is not None or cell.claimed
+                              for cell in ring)
+                       for ring in self.reward_receipts.values())
+                or self.reward_events
+                or self.reward_payments
+                or self.reward_accounting_events):
             # Protocol construction starts with an empty bounded ring. Tests
             # that need occupied cells use the explicit fixture installer.
             raise ValueError("initial data-session ring is malformed")
@@ -4148,10 +4763,33 @@ class Protocol:
         )
 
     def __setattr__(self, name: str, value: object) -> None:
+        if name == "versioned_history" \
+                and type(value) is VersionedSettlementHistory:
+            profile_words = _execution_profile_abi_words_v2(
+                value.execution_profile.canonical_profile_bytes
+            )
+            registry_address = "0x" + profile_words[29][12:].hex()
+            object.__setattr__(
+                self, "reward_class_registry_address", registry_address
+            )
+            object.__setattr__(
+                self, "reward_class_registry_runtime_hash", profile_words[30]
+            )
+            object.__setattr__(
+                self,
+                "reward_class_registry_configuration_hash",
+                profile_words[31],
+            )
+            registry = self.__dict__.get("reward_class_registry")
+            if type(registry) is RewardClassRegistryV1:
+                registry.address = registry_address
+                registry.runtime_hash = profile_words[30]
+                registry.configuration_hash = profile_words[31]
         if name in {
             "header_oracle", "forced_queue", "inbox_apply_router",
             "migration_gate", "settlement_address",
             "data_session_required_bond", "refund_claim_window_seconds",
+            "reward_reorg_margin_seconds",
             "data_session_base_rent_wei",
             "data_session_rent_per_published_byte_wei",
             "data_session_blob_base_fee_multiplier_bps",
@@ -4159,6 +4797,10 @@ class Protocol:
             "data_session_protocol_version",
             "point_evaluation_adapter",
             "data_rent_sink",
+            "reward_execution_profile_hash", "reward_class_registry",
+            "reward_class_registry_address",
+            "reward_class_registry_runtime_hash",
+            "reward_class_registry_configuration_hash",
             "_inbox_execution_authority", "inbox_apply_descriptor",
         } and name in self.__dict__:
             raise AttributeError(f"Protocol {name} is immutable")
@@ -4167,6 +4809,536 @@ class Protocol:
     @property
     def core(self) -> CanonicalCore:
         return self.canonical.core
+
+    def _active_reward_execution_profile_hash_v1(self) -> bytes:
+        history = self.versioned_history
+        if type(history) is VersionedSettlementHistory:
+            return _model_fixed_bytes32(history.execution_profile_hash)
+        return self.reward_execution_profile_hash
+
+    def _reward_profile_bindings_valid_v1(self) -> bool:
+        """Check immutable reward timings and BuilderRegistry profile pins."""
+
+        if (type(self.refund_claim_window_seconds) is not int
+                or not 0 < self.refund_claim_window_seconds <= UINT64_MAX
+                or type(self.reward_reorg_margin_seconds) is not int
+                or not 0 <= self.reward_reorg_margin_seconds <= UINT64_MAX
+                or type(self.reward_execution_profile_hash) is not bytes
+                or len(self.reward_execution_profile_hash) != 32
+                or self.reward_execution_profile_hash == bytes(32)
+                or type(self.reward_class_registry_address) is not str
+                or not self.reward_class_registry_address
+                or type(self.reward_class_registry_runtime_hash) is not bytes
+                or len(self.reward_class_registry_runtime_hash) != 32
+                or self.reward_class_registry_runtime_hash == bytes(32)
+                or type(self.reward_class_registry_configuration_hash)
+                    is not bytes
+                or len(self.reward_class_registry_configuration_hash) != 32
+                or self.reward_class_registry_configuration_hash == bytes(32)):
+            return False
+        history = self.versioned_history
+        if type(history) is not VersionedSettlementHistory:
+            return history is None or type(history) is not VersionedSettlementHistory
+        try:
+            words = _execution_profile_abi_words_v2(
+                history.execution_profile.canonical_profile_bytes
+            )
+        except (AttributeError, TypeError, ValueError):
+            return False
+        return (
+            int.from_bytes(words[85], "big")
+                == self.reward_reorg_margin_seconds
+            and int.from_bytes(words[106], "big")
+                == self.refund_claim_window_seconds
+            and words[29] == _abi_address_word(
+                self.reward_class_registry_address
+            )
+            and words[30] == self.reward_class_registry_runtime_hash
+            and words[31] == self.reward_class_registry_configuration_hash
+            and _model_fixed_bytes32(history.execution_profile_hash)
+                == self._active_reward_execution_profile_hash_v1()
+        )
+
+    def _reward_receipt_state_valid_v1(self) -> bool:
+        """Validate all three class-local rings without mutating state."""
+
+        if (not self._reward_profile_bindings_valid_v1()
+                or type(self.reward_receipts) is not dict
+                or set(self.reward_receipts) != {1, 2, 3}):
+            return False
+        candidate_ids: set[bytes] = set()
+        for reward_class in (1, 2, 3):
+            ring = self.reward_receipts[reward_class]
+            if type(ring) is not list or len(ring) != MAX_REWARD_RECEIPTS:
+                return False
+            for index, cell in enumerate(ring):
+                if (type(cell) is not RewardReceiptCellV1
+                        or type(cell.claimed) is not bool):
+                    return False
+                receipt = cell.receipt
+                if receipt is None:
+                    if cell.claimed:
+                        return False
+                    continue
+                if (type(receipt) is not RewardReceiptV1
+                        or receipt.reward_class != reward_class
+                        or receipt.candidate_id[-1] != index
+                        or receipt.candidate_id in candidate_ids
+                        or receipt.committed_at_timestamp
+                            > UINT64_MAX - self.refund_claim_window_seconds
+                        or receipt.claim_until
+                            != receipt.committed_at_timestamp
+                                + self.refund_claim_window_seconds):
+                    return False
+                candidate_ids.add(receipt.candidate_id)
+        return True
+
+    def _reward_receipt_allocation_decision_v1(
+        self, candidate: object, clock: object
+    ) -> RewardReceiptAllocationDecisionV1:
+        """Return one explicit allocation outcome; this decision never throws."""
+
+        if (not self._reward_profile_bindings_valid_v1()
+                or type(self.reward_class_registry)
+                    is not RewardClassRegistryV1
+                or type(self.reward_receipts) is not dict
+                or set(self.reward_receipts) != {1, 2, 3}):
+            return RewardReceiptAllocationDecisionV1(
+                RewardReceiptAllocationOutcomeV1.REJECT_SETTLEMENT_INVARIANT
+            )
+        if (type(candidate) is not Candidate
+                or type(clock) is not Clock
+                or type(candidate.beneficiary) is not str
+                or not candidate.beneficiary
+                or type(candidate.tier) is not Tier
+                or any(type(block) is not Block
+                       or block.tier is not candidate.tier
+                       for block in candidate.blocks)
+                or not reward_candidate_metrics_valid_v1(candidate, self)
+                or type(clock.block_number) is not int
+                or not 0 < clock.block_number <= UINT64_MAX
+                or type(clock.timestamp) is not int
+                or not 0 < clock.timestamp <= UINT64_MAX):
+            return RewardReceiptAllocationDecisionV1(
+                RewardReceiptAllocationOutcomeV1.REJECT_CANDIDATE_INVARIANT
+            )
+        candidate_id = reward_candidate_id_word_v1(candidate.candidate_id)
+        if candidate_id is None or candidate_id == bytes(32):
+            return RewardReceiptAllocationDecisionV1(
+                RewardReceiptAllocationOutcomeV1.SKIP_ID_CONVERSION,
+                beneficiary=candidate.beneficiary,
+                reward_class=candidate.tier.value,
+                reward_execution_gas=candidate.reward_execution_gas,
+                reward_published_bytes=candidate.reward_published_bytes,
+            )
+        reward_class = candidate.tier.value
+        receipt_index = candidate_id[-1]
+        common = dict(
+            candidate_id=candidate_id,
+            beneficiary=candidate.beneficiary,
+            reward_class=reward_class,
+            reward_execution_gas=candidate.reward_execution_gas,
+            reward_published_bytes=candidate.reward_published_bytes,
+            receipt_index=receipt_index,
+        )
+        if clock.timestamp > UINT64_MAX - self.refund_claim_window_seconds:
+            return RewardReceiptAllocationDecisionV1(
+                RewardReceiptAllocationOutcomeV1.SKIP_DEADLINE_OVERFLOW,
+                **common,
+            )
+        ring = self.reward_receipts[reward_class]
+        if type(ring) is not list or len(ring) != MAX_REWARD_RECEIPTS:
+            return RewardReceiptAllocationDecisionV1(
+                RewardReceiptAllocationOutcomeV1.REJECT_SETTLEMENT_INVARIANT,
+                **common,
+            )
+        cell = ring[receipt_index]
+        if (type(cell) is not RewardReceiptCellV1
+                or type(cell.claimed) is not bool
+                or (cell.receipt is None and cell.claimed)):
+            return RewardReceiptAllocationDecisionV1(
+                RewardReceiptAllocationOutcomeV1.REJECT_SETTLEMENT_INVARIANT,
+                **common,
+            )
+        prior = cell.receipt
+        if prior is not None:
+            if (type(prior) is not RewardReceiptV1
+                    or prior.reward_class != reward_class
+                    or prior.candidate_id[-1] != receipt_index
+                    or prior.committed_at_timestamp
+                        > UINT64_MAX - self.refund_claim_window_seconds
+                    or prior.claim_until
+                        != prior.committed_at_timestamp
+                            + self.refund_claim_window_seconds):
+                return RewardReceiptAllocationDecisionV1(
+                    RewardReceiptAllocationOutcomeV1.REJECT_SETTLEMENT_INVARIANT,
+                    **common,
+                )
+            if cell.claimed:
+                reusable = (
+                    prior.committed_at_timestamp
+                        <= UINT64_MAX - self.reward_reorg_margin_seconds
+                    and clock.timestamp >= prior.committed_at_timestamp
+                        + self.reward_reorg_margin_seconds
+                )
+            else:
+                reusable = (
+                    prior.claim_until
+                        <= UINT64_MAX - self.reward_reorg_margin_seconds
+                    and clock.timestamp > prior.claim_until
+                    and clock.timestamp >= prior.claim_until
+                        + self.reward_reorg_margin_seconds
+                )
+            if not reusable:
+                return RewardReceiptAllocationDecisionV1(
+                    RewardReceiptAllocationOutcomeV1.SKIP_LIVE_COLLISION,
+                    **common,
+                )
+        receipt = RewardReceiptV1(
+            candidate_id,
+            candidate.beneficiary,
+            reward_class,
+            candidate.reward_execution_gas,
+            candidate.reward_published_bytes,
+            self._active_reward_execution_profile_hash_v1(),
+            clock.block_number,
+            clock.timestamp,
+            clock.timestamp + self.refund_claim_window_seconds,
+        )
+        return RewardReceiptAllocationDecisionV1(
+            RewardReceiptAllocationOutcomeV1.STORE,
+            receipt=receipt,
+            **common,
+        )
+
+    def _record_reward_receipt_v1(
+        self, candidate: Candidate, clock: Clock
+    ) -> CandidateCommittedV2:
+        """Apply the explicit bounded allocation decision after commit."""
+
+        decision = self._reward_receipt_allocation_decision_v1(
+            candidate, clock
+        )
+        if decision.outcome in {
+            RewardReceiptAllocationOutcomeV1.REJECT_CANDIDATE_INVARIANT,
+            RewardReceiptAllocationOutcomeV1.REJECT_SETTLEMENT_INVARIANT,
+        }:
+            raise AssertionError(
+                f"reward receipt invariant failed: {decision.outcome.value}"
+            )
+        receipt = decision.receipt
+        stored = decision.outcome is RewardReceiptAllocationOutcomeV1.STORE
+        if stored:
+            if type(receipt) is not RewardReceiptV1:
+                raise AssertionError("stored reward decision has no receipt")
+            cell = self.reward_receipts[
+                decision.reward_class
+            ][decision.receipt_index]
+            cell.receipt = receipt
+            cell.claimed = False
+        event = CandidateCommittedV2(
+            decision.candidate_id,
+            decision.beneficiary,
+            decision.reward_class,
+            decision.reward_execution_gas,
+            decision.reward_published_bytes,
+            stored,
+            decision.receipt_index,
+            bytes(32) if receipt is None else receipt.commitment,
+        )
+        self.reward_events.append(event)
+        return event
+
+    def _reward_receipt_match_v1(
+        self, exact_candidate_id: bytes
+    ) -> tuple[RewardReceiptV1 | None, bool, RewardReceiptCellV1 | None]:
+        """Scan exactly one low-byte cell in each of the three class rings."""
+
+        if (type(exact_candidate_id) is not bytes
+                or len(exact_candidate_id) != 32
+                or exact_candidate_id == bytes(32)):
+            return None, False, None
+        index = exact_candidate_id[-1]
+        matches: list[tuple[RewardReceiptV1, bool, RewardReceiptCellV1]] = []
+        for reward_class in (1, 2, 3):
+            if (type(self.reward_receipts) is not dict
+                    or set(self.reward_receipts) != {1, 2, 3}
+                    or type(self.reward_receipts[reward_class]) is not list
+                    or len(self.reward_receipts[reward_class])
+                        != MAX_REWARD_RECEIPTS):
+                raise ValueError("reward receipt ring geometry is malformed")
+            cell = self.reward_receipts[reward_class][index]
+            if (type(cell) is not RewardReceiptCellV1
+                    or type(cell.claimed) is not bool
+                    or (cell.receipt is None and cell.claimed)):
+                raise ValueError("probed reward receipt cell is malformed")
+            receipt = cell.receipt
+            if (receipt is not None
+                    and (type(receipt) is not RewardReceiptV1
+                         or receipt.reward_class != reward_class
+                         or receipt.candidate_id[-1] != index)):
+                raise ValueError("probed reward receipt is malformed")
+            if receipt is not None and receipt.candidate_id == exact_candidate_id:
+                matches.append((receipt, cell.claimed, cell))
+        if len(matches) > 1:
+            raise ValueError("candidate identity appears in multiple reward rings")
+        return (None, False, None) if not matches else matches[0]
+
+    def reward_receipt_state_v1(
+        self, candidate_id: object
+    ) -> tuple[RewardReceiptV1 | None, bool]:
+        exact = reward_candidate_id_word_v1(candidate_id)
+        if exact is None:
+            return None, False
+        receipt, claimed, _cell = self._reward_receipt_match_v1(exact)
+        return receipt, claimed
+
+    def reward_receipt_v1(
+        self, calldata: bytes, *, caller: str, gas: int, value: int
+    ) -> bytes:
+        """Model the exact live 36-byte RRV1 ring view call."""
+
+        if (type(calldata) is not bytes or len(calldata) != 36
+                or calldata[:4] != REWARD_RECEIPT_V1_SELECTOR
+                or not caller or gas != REWARD_RECEIPT_READ_GAS
+                or value != 0):
+            raise ValueError("rewardReceiptV1 call frame is inexact")
+        receipt, claimed = self.reward_receipt_state_v1(calldata[4:])
+        return encode_reward_receipt_return_v1(receipt, claimed)
+
+    def _reward_class_registry_exact_v1(self) -> RewardClassRegistryV1:
+        """Return the profile-pinned BuilderRegistry reward-class reader."""
+
+        registry = self.reward_class_registry
+        if (type(registry) is not RewardClassRegistryV1
+                or not self._reward_profile_bindings_valid_v1()
+                or registry.address != self.reward_class_registry_address):
+            raise ValueError("reward class registry binding changed")
+        if registry.extcodehash(
+                caller=self.settlement_address
+        ) != self.reward_class_registry_runtime_hash:
+            raise ValueError("BuilderRegistry observed code hash changed")
+        return registry
+
+    def fund_reward_class_v1(
+        self, class_id: int, amount: int, *, funder: str
+    ) -> RewardClassFundedV1:
+        """Credit one immutable reward-class bucket with received ETH."""
+
+        try:
+            if self.data_session_callback_entered:
+                raise SharedSettlementReentrancy(
+                    "nested reward funding hit the shared Settlement guard"
+                )
+            if self.mode is Mode.PREACTIVE:
+                raise ValueError("PREACTIVE Settlement cannot accept funding")
+            _model_address20(funder)
+            if type(class_id) is not int or class_id not in (1, 2, 3):
+                raise ValueError("reward class is outside authenticated tiers")
+            if not self._reward_funding_state_valid_v1():
+                raise ValueError("reward funding scalars are inconsistent")
+            funded = self.reward_funded_by_class[class_id]
+            if (type(amount) is not int or amount <= 0
+                    or amount > SEAT_UINT256_MAX
+                    or type(funded) is not int or funded < 0
+                    or funded > SEAT_UINT256_MAX - amount
+                    or type(self.total_reward_funding) is not int
+                    or not 0 <= self.total_reward_funding <= SEAT_UINT256_MAX
+                    or self.total_reward_funding
+                        > SEAT_UINT256_MAX - amount
+                    or type(self.settlement_eth_balance) is not int
+                    or not 0 <= self.settlement_eth_balance <= SEAT_UINT256_MAX
+                    or self.settlement_eth_balance
+                        > SEAT_UINT256_MAX - amount):
+                raise ValueError("reward funding is outside uint256")
+            event = RewardClassFundedV1(
+                class_id,
+                funder,
+                amount,
+                funded + amount,
+                self.total_reward_funding + amount,
+            )
+        except SharedSettlementReentrancy:
+            raise
+        except BaseException as exc:
+            raise RewardFundingRevert("reward funding reverted") from exc
+        self.reward_funded_by_class[class_id] = event.class_funding_after
+        self.total_reward_funding = event.total_funding_after
+        self.settlement_eth_balance += amount
+        self.reward_accounting_events.append(event)
+        return event
+
+    def force_reward_eth_v1(self, amount: int) -> bool:
+        """Model forced ETH, which increases balance but no funded bucket."""
+
+        return self.force_data_session_eth(amount)
+
+    @staticmethod
+    def _capped_reward_product_v1(
+        total: int, rate: int, units: int, cap: int
+    ) -> int:
+        """Return min(cap,total+rate*units) without a wide intermediate."""
+
+        if total >= cap or rate == 0 or units == 0:
+            return min(total, cap)
+        remaining = cap - total
+        if units > remaining // rate:
+            return cap
+        return total + rate * units
+
+    def reward_amount_v1(
+        self,
+        receipt: RewardReceiptV1,
+        reward_class: RewardClassV1,
+    ) -> int:
+        """Compute from the one exact profile-pinned getter row."""
+
+        if (type(receipt) is not RewardReceiptV1
+                or type(reward_class) is not RewardClassV1
+                or receipt.execution_profile_hash
+                    != self._active_reward_execution_profile_hash_v1()
+                or receipt.committed_at_timestamp
+                    > UINT64_MAX
+                        - self.refund_claim_window_seconds
+                or receipt.claim_until
+                    != receipt.committed_at_timestamp
+                        + self.refund_claim_window_seconds
+                or reward_class.class_id != receipt.reward_class):
+            raise ValueError("reward receipt uses another immutable schedule")
+        row = reward_class
+        total = min(row.fixed_wei, row.cap_wei)
+        total = self._capped_reward_product_v1(
+            total,
+            row.per_execution_gas_wei,
+            receipt.reward_execution_gas,
+            row.cap_wei,
+        )
+        return self._capped_reward_product_v1(
+            total,
+            row.per_published_byte_wei,
+            receipt.reward_published_bytes,
+            row.cap_wei,
+        )
+
+    def claim_reward_v1(
+        self,
+        candidate_id: object,
+        clock: Clock,
+        *,
+        transfer: Callable[[str, int, "Protocol"], bool] | None = None,
+    ) -> int:
+        """Consume and pay the exact live reward receipt, if fully funded."""
+
+        if self.data_session_callback_entered:
+            raise SharedSettlementReentrancy(
+                "nested reward claim hit the shared Settlement guard"
+            )
+        if (type(clock) is not Clock
+                or type(clock.timestamp) is not int
+                or not 0 <= clock.timestamp <= UINT64_MAX):
+            raise RewardClaimRevert("reward claim clock is malformed")
+        snapshot = self._canonical_transaction_snapshot()
+        guard_held = False
+        try:
+            exact_candidate_id = _model_fixed_bytes32(candidate_id)
+            receipt, claimed, claimed_cell = self._reward_receipt_match_v1(
+                exact_candidate_id
+            )
+            if (receipt is None or claimed
+                    or clock.timestamp > receipt.claim_until):
+                raise ValueError("reward receipt is absent, claimed or expired")
+            registry = self._reward_class_registry_exact_v1()
+            component_configuration = registry.component_config_staticcall(
+                COMPONENT_CONFIG_GETTER_SELECTOR,
+                caller=self.settlement_address,
+                gas=COMPONENT_CONFIG_GETTER_GAS,
+                value=0,
+            )
+            if (type(component_configuration) is not bytes
+                    or len(component_configuration) != 32
+                    or component_configuration
+                        != self.reward_class_registry_configuration_hash):
+                raise ValueError("BuilderRegistry configuration read differs")
+            calldata = (
+                REWARD_CLASS_V1_SELECTOR
+                + bytes(31)
+                + bytes((receipt.reward_class,))
+            )
+            returned_class = decode_reward_class_return_v1(
+                registry.staticcall(
+                    calldata,
+                    caller=self.settlement_address,
+                    gas=REWARD_CLASS_READ_GAS,
+                    value=0,
+                ),
+                receipt.reward_class,
+                self.reward_class_registry_configuration_hash,
+            )
+            amount = self.reward_amount_v1(receipt, returned_class)
+            funded = self.reward_funded_by_class[receipt.reward_class]
+            if (type(funded) is not int or funded < amount
+                    or type(self.total_reward_funding) is not int
+                    or self.total_reward_funding < amount
+                    or type(self.settlement_eth_balance) is not int
+                    or self.settlement_eth_balance < amount):
+                raise ValueError("reward class funding is insufficient")
+            if (type(claimed_cell) is not RewardReceiptCellV1
+                    or claimed_cell.receipt is not receipt
+                    or claimed_cell.claimed):
+                raise ValueError("reward ring cell changed before consumption")
+            self.data_session_callback_entered = True
+            guard_held = True
+            # Checks-effects-interactions: Settlement owns the claim bit and
+            # class bucket, and updates both before the beneficiary call.
+            claimed_cell.claimed = True
+            self.reward_funded_by_class[receipt.reward_class] -= amount
+            self.total_reward_funding -= amount
+            self.settlement_eth_balance -= amount
+            if amount == 0:
+                self.reward_payments.append((
+                    receipt.candidate_id,
+                    receipt.beneficiary,
+                    receipt.reward_class,
+                    0,
+                ))
+                self.reward_accounting_events.append(RewardClaimedV1(
+                    receipt.candidate_id,
+                    receipt.beneficiary,
+                    receipt.reward_class,
+                    0,
+                ))
+                if not self._reward_funding_state_valid_v1():
+                    raise AssertionError("zero reward broke funding solvency")
+                return 0
+            succeeded = (
+                True
+                if transfer is None
+                else transfer(receipt.beneficiary, amount, self)
+            )
+            if succeeded is not True:
+                raise RuntimeError("reward transfer rejected")
+            self.reward_payments.append((
+                receipt.candidate_id,
+                receipt.beneficiary,
+                receipt.reward_class,
+                amount,
+            ))
+            self.reward_accounting_events.append(RewardClaimedV1(
+                receipt.candidate_id,
+                receipt.beneficiary,
+                receipt.reward_class,
+                amount,
+            ))
+            if not self._reward_funding_state_valid_v1():
+                raise AssertionError("reward claim broke funding solvency")
+            return amount
+        except BaseException as exc:
+            self._restore_canonical_transaction(snapshot)
+            guard_held = False
+            raise RewardClaimRevert("reward claim reverted") from exc
+        finally:
+            if guard_held:
+                self.data_session_callback_entered = False
 
     def _is_current_settlement_target(self) -> bool:
         history = self.versioned_history
@@ -5547,6 +6719,10 @@ class Protocol:
     ) -> dict[str, object]:
         """Snapshot only L1 state; live L2 objects are outside the journal."""
 
+        if self.data_session_callback_entered:
+            raise SharedSettlementReentrancy(
+                "shared Settlement mutation guard is entered"
+            )
         _ = execution_output
         history = self.versioned_history
         authority = self._inbox_execution_authority
@@ -5697,6 +6873,10 @@ class Protocol:
     def _leading_seat_sync(self, clock: Clock) -> bool:
         """Run canonical sync without persisting model-only read counters."""
 
+        if self.data_session_callback_entered:
+            raise SharedSettlementReentrancy(
+                "nested seat mutation hit the shared Settlement guard"
+            )
         if (
             self.versioned_history is not None
             and self.versioned_history.mode == "FROZEN"
@@ -7071,6 +8251,10 @@ class Protocol:
             self.migration_refund_claim_deadline,
             self.data_session_callback_entered,
             self.data_session_config_hash_v1(),
+            self.reward_funded_by_class[1],
+            self.reward_funded_by_class[2],
+            self.reward_funded_by_class[3],
+            self.total_reward_funding,
         ))
 
     def _migration_refund_deadline_at_arm(self, clock: Clock) -> int:
@@ -7315,7 +8499,7 @@ class Protocol:
             return False
         return (not boundary_open
                 and self.session_live_count == 0
-                and self.data_session_balance >= accounted
+                and self.settlement_eth_balance >= accounted
                 and self.seat_migration_local_generation
                     == self.migration_gate.generation
                 and self.migration_refund_generation
@@ -7388,6 +8572,10 @@ class Protocol:
         return changed
 
     def sync(self, clock: Clock) -> bool:
+        if self.data_session_callback_entered:
+            raise SharedSettlementReentrancy(
+                "nested sync hit the shared Settlement guard"
+            )
         if self.mode is Mode.PREACTIVE:
             return False
         if not self._is_current_settlement_target():
@@ -7469,6 +8657,10 @@ class Protocol:
         return changed
 
     def tombstone(self) -> None:
+        if self.data_session_callback_entered:
+            raise SharedSettlementReentrancy(
+                "nested admission mutation hit the shared Settlement guard"
+            )
         self.admission_version += 1
         self.admission_root = f"admission:{self.admission_version}"
 
@@ -7608,6 +8800,10 @@ class Protocol:
         return encode_data_session_by_id_v1(row)
 
     def _assert_data_session_state(self, *, require_solvency: bool = True) -> None:
+        try:
+            self.reward_accounted_funding_v1
+        except ValueError as exc:
+            raise AssertionError("reward funding accounting diverged") from exc
         live = refund = occupied = 0
         owner_counts: dict[str, int] = {}
         live_liability = refund_liability = 0
@@ -7651,7 +8847,7 @@ class Protocol:
                 or type(self.gc_cursor) is not int
                 or not 0 <= self.gc_cursor < MAX_LIVE_DATA_SESSIONS
                 or (require_solvency
-                    and self.data_session_balance
+                    and self.settlement_eth_balance
                         < self.data_session_accounted_liabilities)):
             raise AssertionError("data-session bounded accounting diverged")
         current = self._is_current_settlement_target()
@@ -7693,7 +8889,7 @@ class Protocol:
             self.next_session_sequence, installed.sequence + 1
         )
         self.session_occupied_count += 1
-        self.data_session_balance += installed.refundable_bond
+        self.settlement_eth_balance += installed.refundable_bond
         if tag is DataSessionCellTag.LIVE:
             self.session_live_count += 1
             self.session_owner_live_count[installed.owner] = (
@@ -7779,11 +8975,43 @@ class Protocol:
         return session
 
     @property
+    def reward_accounted_funding_v1(self) -> int:
+        if (type(self.reward_funded_by_class) is not dict
+                or set(self.reward_funded_by_class) != {1, 2, 3}):
+            raise ValueError("reward funding buckets are malformed")
+        total = 0
+        for class_id in (1, 2, 3):
+            value = self.reward_funded_by_class[class_id]
+            total = seat_checked_add(
+                total, value, "reward funding bucket sum"
+            )
+        if (type(self.total_reward_funding) is not int
+                or total != self.total_reward_funding):
+            raise ValueError("total reward funding diverged")
+        return total
+
+    def _reward_funding_state_valid_v1(self) -> bool:
+        """Check only the three buckets and aggregate custody scalars."""
+
+        try:
+            liabilities = self.data_session_accounted_liabilities
+        except (TypeError, ValueError):
+            return False
+        return (type(self.settlement_eth_balance) is int
+                and 0 <= liabilities <= self.settlement_eth_balance
+                    <= SEAT_UINT256_MAX)
+
+    @property
     def data_session_accounted_liabilities(self) -> int:
-        return seat_checked_add(
+        session_liabilities = seat_checked_add(
             self.data_session_live_bond_liability,
             self.data_session_refund_bond_liability,
             "data-session accounted liabilities",
+        )
+        return seat_checked_add(
+            session_liabilities,
+            self.reward_accounted_funding_v1,
+            "Settlement session/reward liabilities",
         )
 
     def _migration_activation_accounting_ok(self) -> bool:
@@ -7793,17 +9021,18 @@ class Protocol:
             accounted = self.data_session_accounted_liabilities
         except ValueError:
             return False
-        return self.session_live_count == 0 and self.data_session_balance >= accounted
+        return (self.session_live_count == 0
+                and self.settlement_eth_balance >= accounted)
 
     def force_data_session_eth(self, amount: int) -> bool:
         """Forced ETH is surplus and never becomes a refundable liability."""
 
         if type(amount) is not int or amount <= 0:
             return False
-        self.data_session_balance = seat_checked_add(
-            self.data_session_balance, amount, "data-session forced balance"
+        self.settlement_eth_balance = seat_checked_add(
+            self.settlement_eth_balance, amount, "Settlement forced balance"
         )
-        return (self.data_session_balance
+        return (self.settlement_eth_balance
                 >= self.data_session_accounted_liabilities)
 
     def _scan_data_session_ring(
@@ -7925,7 +9154,7 @@ class Protocol:
             raise DataSessionRevert("data-session OPEN id collision")
         try:
             next_balance = seat_checked_add(
-                self.data_session_balance,
+                self.settlement_eth_balance,
                 payment,
                 "data-session open balance",
             )
@@ -7954,7 +9183,7 @@ class Protocol:
         )
         self.session_live_count += 1
         self.session_occupied_count += 1
-        self.data_session_balance = next_balance
+        self.settlement_eth_balance = next_balance
         self.data_session_live_bond_liability = next_live_liability
         self._assert_data_session_state()
         self.data_session_events.append(SessionOpenedEvent(
@@ -8130,7 +9359,7 @@ class Protocol:
                     > MAX_DATA_RECORDS_PER_SESSION):
             raise DataSessionRevert("data-session POST preflight rejected")
         first_record_index = session.count
-        derived_leaves: list[bytes] = []
+        derived_records: list[tuple[bytes, bytes, int]] = []
         for offset, (post, versioned_hash) in enumerate(
             zip(posts, tx_blob_hashes)
         ):
@@ -8149,7 +9378,9 @@ class Protocol:
                     or len(return_data) != 64
                     or return_data != POINT_EVALUATION_OK):
                 raise DataSessionRevert("data-session POST point evaluation rejected")
-            derived_leaves.append(leaf)
+            derived_records.append((
+                leaf, versioned_hash, post.chunk_byte_length
+            ))
         try:
             expected_payment = self.data_session_post_fee(
                 tuple(post.chunk_byte_length for post in posts),
@@ -8162,7 +9393,7 @@ class Protocol:
             raise DataSessionRevert("data-session POST payment is not exact")
         try:
             next_balance = seat_checked_add(
-                self.data_session_balance,
+                self.settlement_eth_balance,
                 payment,
                 "data-session POST balance",
             )
@@ -8173,22 +9404,22 @@ class Protocol:
         next_root = session.root
         pending_events: list[DataRecord] = []
         try:
-            for canonical_leaf, versioned_hash in zip(
-                derived_leaves, tx_blob_hashes
-            ):
+            for (canonical_leaf, versioned_hash,
+                 chunk_byte_length) in derived_records:
                 index = next_count
                 next_frontier, next_count, next_root = append_data_mmr(
                     next_frontier, next_count, canonical_leaf
                 )
                 pending_events.append(DataRecord(
-                    session.session_id, index, versioned_hash, canonical_leaf
+                    session.session_id, index, versioned_hash, canonical_leaf,
+                    chunk_byte_length,
                 ))
         except ValueError:
             raise DataSessionRevert("data-session POST MMR append rejected")
         session.frontier = next_frontier
         session.count = next_count
         session.root = next_root
-        self.data_session_balance = next_balance
+        self.settlement_eth_balance = next_balance
         self.data_record_events.extend(pending_events)
         self.data_session_events.extend(pending_events)
         self._assert_data_session_state()
@@ -8231,7 +9462,7 @@ class Protocol:
             raise DataSessionRevert(
                 "data-session custody liabilities overflowed"
             ) from exc
-        if self.data_session_balance < liabilities:
+        if self.settlement_eth_balance < liabilities:
             raise DataSessionRevert("data-session custody is insolvent")
         if (self.mode is Mode.PREACTIVE
                 or type(clock) is not Clock
@@ -8284,7 +9515,7 @@ class Protocol:
                     index, claim_deadline, emit_event=False
                 )
             self._clear_refund_cell(index)
-            self.data_session_balance -= amount
+            self.settlement_eth_balance -= amount
             if not recipient.receive(self, session_id, amount):
                 raise RuntimeError("data-session refund receiver rejected")
             self.data_session_events.append(SessionBondClaimedEvent(
@@ -8315,15 +9546,15 @@ class Protocol:
             raise DataSessionRevert(
                 "data-session custody liabilities overflowed"
             ) from exc
-        if self.data_session_balance < liabilities:
+        if self.settlement_eth_balance < liabilities:
             raise DataSessionRevert("data-session custody is insolvent")
-        amount = self.data_session_balance - liabilities
+        amount = self.settlement_eth_balance - liabilities
         if amount == 0:
             return 0
         snapshot = self._canonical_transaction_snapshot()
         self.data_session_callback_entered = True
         try:
-            self.data_session_balance -= amount
+            self.settlement_eth_balance -= amount
             if not self.data_rent_sink.receive(self, amount):
                 raise RuntimeError("data-rent sink rejected")
             self.data_session_events.append(SessionSurplusSweptEvent(
@@ -8436,6 +9667,11 @@ class Protocol:
                     != self.core.l2_block_number + candidate.count
                 or candidate.next_base_fee <= 0
                 or candidate.next_excess_blob_gas < 0
+                or not self._reward_profile_bindings_valid_v1()
+                or not reward_candidate_metrics_valid_v1(candidate, self)
+                or any(type(block) is not Block
+                       or block.tier is not candidate.tier
+                       for block in candidate.blocks)
                 or len({b.window for b in candidate.blocks}) > MAX_WINDOWS_PER_CANDIDATE
                 or candidate.blocks[0].slot <= self.core.tip_slot
                 or any(b.slot < min_slot for b in candidate.blocks)
@@ -8563,6 +9799,10 @@ class Protocol:
         return False
 
     def submit(self, candidate: Candidate, clock: Clock) -> str:
+        if self.data_session_callback_entered:
+            raise SharedSettlementReentrancy(
+                "nested candidate submission hit the shared Settlement guard"
+            )
         if not self._is_current_settlement_target():
             return "REJECTED_HISTORICAL"
         if self.mode is Mode.PREACTIVE:
@@ -8682,6 +9922,7 @@ class Protocol:
                 scan.sla_missed or prospective_sla,
                 scan.satisfied,
             )
+            self._record_reward_receipt_v1(candidate, clock)
             self.events.append(f"CANONICAL:{candidate.candidate_id}")
             self._assert_seat_valid()
             return outcome
@@ -21019,6 +22260,7 @@ def migration_transition_public_inputs_from_l1(
     if (type(router) is not ActiveSettlementRouter
             or type(settlement) is not VersionedSettlementHistory
             or type(candidate) is not Candidate
+            or not reward_candidate_metrics_valid_v1(candidate)
             or candidate.count != 1
             or type(rows) is not tuple
             or type(pre_inbox_last_applied_l2_block) is not int
@@ -21056,6 +22298,10 @@ def migration_transition_public_inputs_from_l1(
     manifest = preview.release_manifest
     target_registration_hash = target_registration_hash_v2(preview)
     if (type(source) is not SourceBridgeV2
+            or type(old.live_protocol) is not Protocol
+            or not reward_candidate_metrics_valid_v1(
+                candidate, old.live_protocol
+            )
             or source.credit_registry
                 is not router._bridge_credit_registry_authority
             or old_registration.execution_profile
@@ -34065,6 +35311,7 @@ class InboxValidityExecutionAuthority:
             and candidate.end_l2_block_number
                 == old.core.l2_block_number + 1
             and candidate.tier is Tier.ESCAPE_UNSIGNED
+            and block.tier is candidate.tier
             and candidate.recovery_fields_zero
             and block.parent_hash == old.core.tip_hash
             and block.slot > old.core.tip_slot
@@ -41571,7 +42818,10 @@ def protocol(tip_slot: int = 1_000, cursor: int = 0, seat: bool = True,
              data_session_protocol_version: int = 1,
              point_evaluation_adapter: PointEvaluationAdapter | None = None,
              refund_claim_window_seconds: int = DATA_TTL_SECONDS,
-             data_rent_sink: DataRentSink | None = None) -> Protocol:
+             reward_reorg_margin_seconds: int = REORG_MARGIN_SECONDS,
+             data_rent_sink: DataRentSink | None = None,
+             reward_class_registry: RewardClassRegistryV1 | None = None,
+             reward_execution_profile_hash: bytes | None = None) -> Protocol:
     # Preserve an explicitly supplied canonical address for byte-vector tests.
     # Human-readable fixture aliases are normalized to an actual CREATE2
     # deployment before they participate in a release registration.
@@ -41603,6 +42853,10 @@ def protocol(tip_slot: int = 1_000, cursor: int = 0, seat: bool = True,
         header_oracle = make_header_oracle(msgs)
     if migration_gate is None:
         migration_gate = MigrationGate()
+    exact_reward_registry = (
+        RewardClassRegistryV1()
+        if reward_class_registry is None else reward_class_registry
+    )
     canonical = Canonical(CanonicalCore(900, "a" * 64, tip_slot, "b" * 64, cursor), 900)
     result = Protocol(
         canonical, header_oracle, forced_queue, inbox_apply_router,
@@ -41623,8 +42877,20 @@ def protocol(tip_slot: int = 1_000, cursor: int = 0, seat: bool = True,
             if point_evaluation_adapter is None else point_evaluation_adapter
         ),
         refund_claim_window_seconds=refund_claim_window_seconds,
+        reward_reorg_margin_seconds=reward_reorg_margin_seconds,
         data_rent_sink=(DataRentSink()
                         if data_rent_sink is None else data_rent_sink),
+        reward_class_registry=exact_reward_registry,
+        reward_class_registry_address=exact_reward_registry.address,
+        reward_class_registry_runtime_hash=exact_reward_registry.runtime_hash,
+        reward_class_registry_configuration_hash=(
+            exact_reward_registry.configuration_hash
+        ),
+        reward_execution_profile_hash=(
+            keccak256(b"slot-chain-model-execution-profile-v1")
+            if reward_execution_profile_hash is None
+            else reward_execution_profile_hash
+        ),
     )
     if seat:
         installed_at = GENESIS_TIMESTAMP + tip_slot
@@ -41883,6 +43149,9 @@ def deploy_active_settlement_router(
     object.__setattr__(
         settlement, "execution_profile_hash", bound_profile.execution_profile_hash
     )
+    if settlement.live_protocol is not None:
+        # Rebind after Router graph materialization changes words 29--31.
+        settlement.live_protocol.versioned_history = settlement
     preview = settlement_registration(
         router,
         settlement,
@@ -42161,7 +43430,10 @@ def open_source_credit_for_test(
 def block(p: Protocol, c: Clock, ident: str, *, slot: int | None = None,
           signed: bool = True, message_end: int | None = None,
           dispositions_ok: bool = True, discretionary: bool = True,
-          release_activation: bool | None = None) -> Block:
+          release_activation: bool | None = None,
+          tier: Tier = Tier.NORMAL_SIGNED,
+          gas_used: int = 0,
+          data_records: tuple[tuple[str, int], ...] = ()) -> Block:
     if slot is None:
         slot = (c.l2_slot if p.mode is Mode.RECOVERY
                 else c.l2_slot)
@@ -42192,7 +43464,7 @@ def block(p: Protocol, c: Clock, ident: str, *, slot: int | None = None,
                  slot // 384, signed, start, end, anchor_number, header.block_hash,
                  header.timestamp, force_root, cutoff,
                  context,
-                 version, root,
+                 version, root, tier,
                  inbox_pre_cursor=start, inbox_post_cursor=end,
                  force_gas_budget=force_gas_budget,
                  release_activation=release_activation,
@@ -42202,7 +43474,10 @@ def block(p: Protocol, c: Clock, ident: str, *, slot: int | None = None,
                  release_manifest_hash=(
                      p.pending_release_manifest_hash
                      if release_activation else ""),
-                 dispositions_ok=dispositions_ok, discretionary_body=discretionary)
+                 dispositions_ok=dispositions_ok,
+                 discretionary_body=discretionary,
+                 data_records=data_records,
+                 gas_used=gas_used)
 
 
 def candidate(p: Protocol, c: Clock, ident="candidate", *, tier=Tier.NORMAL_SIGNED,
@@ -42210,10 +43485,15 @@ def candidate(p: Protocol, c: Clock, ident="candidate", *, tier=Tier.NORMAL_SIGN
               force_range_proof_ok=True, recovery_fields_zero=True,
               available_payload_hashes: frozenset[str] | None = None,
               release_activation: bool | None = None,
-              beneficiary: str = "prover") -> Candidate:
+              beneficiary: str = "prover",
+              gas_used: int = 0,
+              data_records: tuple[tuple[str, int], ...] = ()) -> Candidate:
     b = block(p, c, ident, slot=slot, signed=signed, message_end=message_end,
               discretionary=discretionary,
-              release_activation=release_activation)
+              release_activation=release_activation,
+              tier=tier,
+              gas_used=gas_used,
+              data_records=data_records)
     r = p.recovery
     next_due = p.next_due_at(b.message_end, b.force_cutoff)
     if available_payload_hashes is None:
@@ -42238,6 +43518,14 @@ def candidate(p: Protocol, c: Clock, ident="candidate", *, tier=Tier.NORMAL_SIGN
         recovery_fields_zero=recovery_fields_zero,
         end_terminal_root=p.core.terminal_root,
         end_terminal_count=p.core.terminal_count,
+    )
+    reward_execution_gas, reward_published_bytes = reward_candidate_metrics_v1(
+        p, result
+    )
+    result = replace(
+        result,
+        reward_execution_gas=reward_execution_gas,
+        reward_published_bytes=reward_published_bytes,
     )
     history = p.versioned_history
     authority = p._inbox_execution_authority
@@ -42385,6 +43673,7 @@ def migration_activation_candidate(
         ),
         admission_version=old_protocol.admission_version,
         admission_root=old_protocol.admission_root,
+        tier=Tier.ESCAPE_UNSIGNED,
         inbox_pre_cursor=start,
         inbox_post_cursor=end,
         force_gas_budget=ACTIVATION_FORCE_GAS_BUDGET,
@@ -43103,6 +44392,14 @@ def test_data_gc_reorg_and_geometry() -> None:
         base,
         blocks=(data_block,),
         session_refs=(SessionRef(late_data, 1, delayed.sessions[late_data].root),),
+    )
+    reward_execution_gas, reward_published_bytes = reward_candidate_metrics_v1(
+        delayed, with_data
+    )
+    with_data = replace(
+        with_data,
+        reward_execution_gas=reward_execution_gas,
+        reward_published_bytes=reward_published_bytes,
     )
     assert delayed.submit(with_data, opened) == "ACCEPTED"
     after_expiry = Clock(2_000, data_expiry + 1)

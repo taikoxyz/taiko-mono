@@ -264,9 +264,9 @@ recovery but does not weaken proof soundness or permissionless submission.
 
 \section{Clock domains and canonical state}\label{sec:state}
 
-Before activation, Settlement is in \code{PREACTIVE}; candidate submission,
-session open/post/seal and every ordinary target-local state mutation are
-disabled, and slot arithmetic saturates.  The sole exception is the immutable
+Before activation, Settlement is \code{PREACTIVE}.  Candidate submission,
+session mutation, reward funding/claim and every other ordinary local mutation
+are disabled; slot arithmetic saturates.  The sole exception is the immutable
 Router-only \code{adoptMigrationCanonicalV1} callback during lifecycle
 \code{ACTIVATING} under the exact nonzero activation context in
 \S\ref{sec:implementation}.  Off-chain data preparation may proceed but cannot
@@ -812,7 +812,7 @@ are independent of the per-block caps.
 \subsection{Verifier statement ABI}
 
 The L1 verifier accepts \code{verify(proof,uint256[2] digestLimbs)}.  Settlement
-constructs the following Solidity struct in exactly this order and computes
+constructs the following \code{SettlementStatementV2} Solidity struct in exactly this order and computes
 \code{statementHash} as legacy Keccak of the ASCII domain
 \code{"slot-chain-statement-v2"} followed by \code{abi.encode(S)}:
 \begin{verbatim}
@@ -836,7 +836,8 @@ S = (uint256 settlementChainId, uint256 l2ChainId, uint256 protocolVersion,
      uint64 episode, uint64 recoveryRevision, bytes32 recoveryId,
      bytes32 scheduleRootsCommitment, uint8 scheduleWindowCount,
      bytes32 sessionRefsCommitment, uint8 sessionCount,
-     uint16 dataRecordCount, bytes32 executionOutputsCommitment,
+     uint16 dataRecordCount, uint256 rewardExecutionGas,
+     uint64 rewardPublishedBytes, bytes32 executionOutputsCommitment,
      address proofBeneficiary)
 \end{verbatim}
 \code{digestLimbs[0]} and \code{[1]} are respectively the high and low 128 bits
@@ -854,6 +855,18 @@ core from the explicit
 endTerminalCount,endCursor)} fields plus that
 recomputed value and proved
 \code{(nextBaseFee,nextExcessBlobGas)}.
+The circuit derives \code{rewardExecutionGas} as the exact sum of the Ethereum
+\code{gasUsed} fields of all candidate blocks and \code{rewardPublishedBytes}
+as the exact sum of \code{chunkByteLength} over the distinct sealed data
+records consumed by the candidate.  Every consumed record is identified by its
+nonduplicated \code{(sessionId,recordIndex)} manifest reference; a repeated
+reference rejects rather than counting twice.  Both are reward-only metering outputs: they
+do not change candidate ordering or validity beyond being equal to the already
+executed and covered candidate.  The reward class is never a statement or
+caller choice; it is exactly the authenticated \code{tier} (1, 2 or 3), and
+every calibrated profile contains exactly those three class IDs.  The statement
+tier must equal the tier in every included \code{SlotChainBlock}; mixed-tier
+candidates reject before proof acceptance.
 It recomputes \code{executionOutputsCommitment} including the same explicit
 terminal pair; the circuit proves that pair equals the accumulator's exact
 post-state slots, so neither calldata nor Settlement can substitute a root.
@@ -921,14 +934,14 @@ at zero; the retired source retains its historical sequence.
 
 DataSession is a bounded storage region of the immutable Settlement, and the
 contract address in the ID above is that Settlement.  Settlement accepts native
-ETH only through the session open/post surfaces and has no Queue, reward,
-Market, Bridge or other native liability; each of those custodians is a separate
-account.  Its configuration binds the shared migration gate and immutable
-top-level \code{dataRent} sink.  Every other payable selector, fallback and
-receive path rejects, and conformance tests exercise \code{msg.value>0} against
-every such selector.  This exclusive custody makes the balance invariant and
-surplus calculation complete without a cross-contract caller-supplied
-``pinned'' or ``boundary closed'' flag.
+ETH only through the session open/post surfaces and the three-class
+\code{fundRewardClassV1} surface; it has no Queue, Market, Bridge or other
+native liability.  Its configuration binds the shared migration gate and
+immutable top-level \code{dataRent} sink.  Every other payable selector,
+fallback and receive path rejects, and conformance tests exercise
+\code{msg.value>0} against every such selector.  This complete custody inventory
+makes the balance invariant and surplus calculation independent of any
+cross-contract caller-supplied ``pinned'' or ``boundary closed'' flag.
 
 The profile/runtime geometry is exact: 1,024 physical cells, at most two LIVE
 cells per owner, 2,100 records per LIVE cell, at most six blobs per post, eight
@@ -1123,11 +1136,13 @@ dataSessionAccountingV1() returns
    uint16 gcCursor,uint64 nextSessionSequence,uint256 liveBondLiability,
    uint256 refundBondLiability,uint64 migrationRefundGeneration,
    uint64 migrationRefundClaimDeadline,bool guardEntered,
-   bytes32 dataSessionConfigHash)
+   bytes32 dataSessionConfigHash,uint256 rewardFundingClass1,
+   uint256 rewardFundingClass2,uint256 rewardFundingClass3,
+   uint256 totalRewardFunding)
 \end{verbatim}
 The accounting magic is \code{0x44535631} (ASCII \code{DSV1}); narrow words,
 booleans, addresses and the fixed array are canonically encoded, and returndata
-lengths are exactly 704, 320 and 384 bytes respectively.  FREE cell/by-ID misses
+lengths are exactly 704, 320 and 512 bytes respectively.  FREE cell/by-ID misses
 return canonical zero for every output.  A REFUND view returns only
 \code{sessionId}, owner, bond and deadline nonzero; it masks sequence, expiry,
 count, sealed, root and peaks to canonical zero without clearing their stale
@@ -1198,20 +1213,25 @@ migration deadline.  It always requires the exact owner,
 nonzero recipient and \code{block.timestamp<=claimDeadline};
 checks-effects-interactions clears
 the mapping/cell/counters/liability before transfer.  A failed recipient transfer
-reverts the whole claim.  A shared nonreentrancy guard rejects every nested
-session or surplus-sweep call without changing state; a recipient may catch that
+reverts the whole claim.  Every external Settlement mutation first requires the
+shared nonreentrancy guard to be NOT\_ENTERED; session claims, reward claims and
+surplus sweep hold it across their external CALL.  A nested canonical, session,
+reward or sweep mutation therefore rejects without changing state.  A recipient may catch that
 nested rejection and return normally, in which case the outer claim succeeds
 exactly once.  Claims remain unpausable on ACTIVE, ARMED,
 READY, FROZEN and historical components.  After the deadline, maintenance
 clears the REFUND and its ETH becomes surplus; no owner or sink is called.
 
-The Settlement account enforces
-\code{balance>=liveBondLiability+refundBondLiability}.  Nonrefundable rent,
-forfeited bonds and forced ETH are surplus and never inflate a refund.  A
+The Settlement account maintains checked \code{totalRewardFunding} equal to
+the sum of its three class buckets and enforces
+\code{balance>=liveBondLiability+refundBondLiability+totalRewardFunding}.
+Nonrefundable rent, forfeited bonds and forced ETH are surplus and never inflate
+a refund or reward bucket.  A
 separate permissionless, non-gating \code{sweepSessionSurplus()} sends exactly
-the balance above both liabilities to the immutable \code{dataRent} sink under
-one reentrancy guard.  Sink failure reverts only that sweep and cannot block GC,
-claims, READY, cutover or the forced lane.  The calibrated rent/bond combination
+the balance above all three accounted liabilities to the immutable
+\code{dataRent} sink under one shared reentrancy guard.  Sink failure reverts
+only that sweep and cannot block GC, claims, READY, cutover or the forced lane.
+The calibrated rent/bond combination
 prices the full possible occupancy through TTL and the 86,400-second refund
 window.  A Sybil can still buy all optional DA cells for that bounded period;
 the forced/escape lane is independent and this is not a protocol-liveness claim.
@@ -3175,7 +3195,7 @@ ETH custody and terminal index for the domain's entire lifetime.
 Its address, runtime and storage never rotate and it never delegates execution.
 This prevents another implementation or address from seeing an empty status
 and processing a pinned credit twice, and keeps RETRIABLE liquidity in the same
-account.  The sole V2 admission is \code{verifyInboxCredit}; there is no
+account.  The sole V2 admission is \code{verifyInboxCreditV2}; there is no
 caller-supplied nonempty source-proof path on L2.  \code{processMessageV2} is
 NEW-only.  A non-owner invocation failure remains NEW; only a destination-owner
 failed initial invocation becomes RETRIABLE.  \code{retryMessageV2} is
@@ -3789,15 +3809,20 @@ GENESIS\_IMPORT sentinel), recomputes the descriptor's 232-byte packed hash, the
 derives
 \begin{verbatim}
 targetRegistrationHash = H(
- "slot-chain-target-registration-v2" || u64(protocolVersion) ||
+ "slot-chain-target-registration-v3" || u64(protocolVersion) ||
  address20(targetSettlement) || targetRuntimeHash ||
  targetConfigurationHash || settlementDeploymentDescriptorHash ||
  executionProfileHash || migrationActivationProfileRecordHash ||
  releaseManifestHash ||
  u64(expectedPredecessorProtocolVersion) || u64(settlementChainId) ||
- ingressAuthorizationRoot || migrationVerifierDescriptorHash)
+ ingressAuthorizationRoot || migrationVerifierDescriptorHash ||
+ bridgeRouteExpansionHash)
 \end{verbatim}
-from the same manifest/profile and current Router predecessor.  It may only
+from the same manifest/profile and current Router predecessor, where
+\code{bridgeRouteExpansionHash} is the nonzero Keccak hash of the exact
+canonical 1,216-byte BRX1 return.  The \code{targetReleaseRegistrationV2}/RTR2
+wire ABI retains its V2 name; the target-registration \emph{hash grammar} is
+V3 and no V2 hash is accepted.  It may only
 append that exact version/deployment/registration, its profile-derived ingress
 rows and its Market authorization to the named immutable registries.  A
 different predecessor, target, manifest or registration requires a new delayed
@@ -4432,13 +4457,14 @@ registration and absent receipt, so permissionless retry or mature abort remains
 possible.
 
 ``Empty PREACTIVE target'' is an exact predicate, not a claimed constructor
-default.  The target Settlement's internal DataSession region requires all
+default.  The target Settlement's internal DataSession/reward region requires all
 1,024 cell tags FREE; empty ID-to-cell and live-owner maps;
 \code{liveCount=refundCount=occupiedCount=0};
 \code{nextSessionSequence=0}, \code{gcCursor=0};
 \code{migrationRefundGeneration=0},
-\code{migrationRefundClaimDeadline=0}, the shared session/sweep guard in its
-canonical NOT\_ENTERED state; and zero live- and
+\code{migrationRefundClaimDeadline=0}, all three 256-cell reward receipt rings empty,
+all three reward buckets and \code{totalRewardFunding} zero, the shared
+Settlement guard in its canonical NOT\_ENTERED state; and zero live- and
 refund-bond liability.  The actual target Settlement ETH balance is deliberately not
 required to be zero: CREATE2 prefunding or forced ETH is surplus and cannot
 veto activation.  Deployment may occur while the source has live sessions,
@@ -4476,9 +4502,10 @@ activation.  Hidden mapping emptiness follows only
 from that authenticated constructor and the lack of PREACTIVE mutation entry
 points; it is never inferred from runtime/config getters alone.  The same
 authenticated Settlement init code and its target configuration commitment bind the
-internal DataSession storage layout, shared gate, \code{dataRent} sink and the
-rule that every non-session payable selector, fallback and receive path rejects;
-there is no second custody contract or cross-contract session authority.  The
+internal DataSession/reward storage layout, shared gate, \code{dataRent} sink
+and the rule that only session open/post and \code{fundRewardClassV1} are
+payable while fallback and receive reject; there is no second custody contract
+or cross-contract session authority.  The
 delayed target registration, arm/cancel tuple, statement, deployment commitment,
 MACT context and sealed receipt all carry the same nonzero
 \code{targetRegistrationHash}; every mismatch rejects before ACTIVATING.
@@ -5608,6 +5635,17 @@ ExecutionProfileV2 word 31 MUST equal that derived hash.  Every integer encoded
 as \code{u8}, \code{u16} or \code{u64} here or in ExecutionProfileV2 is a
 production blocker when it is at least \(2^{8}\), \(2^{16}\) or \(2^{64}\),
 respectively; hashing a wider JSON number never makes it encodable.
+The reward claim window is not recoverable from that hash.  Production therefore
+requires \code{rewards.claimWindowSeconds ==
+dataSession.refundClaimWindowSeconds}; Settlement receives that exact value from
+ExecutionProfileV2 word 106.  Its reward reuse margin is the exact
+\code{reorgMarginSeconds} in word 85.  Registration derives word 31 and both
+constructor scalars from the same calibrated JSON object, so the registry hash,
+target timing and executable profile cannot select different schedules.
+The calibrated V2 schedule contains exactly reward class IDs 1, 2 and 3,
+mapped respectively to authenticated settlement tiers 1, 2 and 3.  Missing or
+additional classes, duplicate IDs, or any remapping of a tier to another class
+are production blockers; neither a prover nor a caller supplies a class ID.
 
 Units are not interchangeable: native amount is \code{wei}, native
 rate is \code{wei/second}, and builder amount is atomic units of the one
@@ -5643,6 +5681,7 @@ refundableBondWei + baseRentWei <= UINT256_MAX
 2100 * 126972 * rentPerPublishedByteWei <= UINT256_MAX
 DATA_TTL >= P_PROVE_MAX + W_SETTLE_SECONDS + REORG_MARGIN_SECONDS
 refundClaimWindowSeconds >= T_INCLUDE_MAX_SECONDS + REORG_MARGIN_SECONDS
+rewardClaimWindowSeconds = refundClaimWindowSeconds
 
 PREMIUM_CLAIM_DELAY_SECONDS >= REORG_STABILITY_SECONDS
 
@@ -5702,19 +5741,174 @@ This rule keeps evidence verification fixed-depth while the liability-capacity
 invariant retains every slashable generation through the replay deadline.
 
 Canonical settlement performs no reward calculation, token balance write or
-external call.  It always emits a candidate-committed event containing the ID,
-beneficiary and reward class.  Best-effort protocol claims use a fixed
-\code{MAX_REWARD_RECEIPTS=256} ring, selecting
-\code{uint8(uint256(candidateId))}: if that cell is empty or its prior
-receipt is both claimed/expired and past the reorg margin, Settlement records
-the three fields, commit block and \code{claimed=false}; otherwise it only emits
-the event.  Ring occupancy can therefore forfeit a reward but can never revert
-or delay canonical state.  A separate distributor verifies this stored receipt,
-sets \code{claimed=true} before transfer, and pays at most the funded class cap
-before \code{REWARD_CLAIM_WINDOW=86,400 s}.  Logs alone are explicitly not
-on-chain-verifiable entitlements.  Burns are never recycled into the same
-episode's bounty.  Normal service/data compensation likewise cannot affect
-candidate validity or canonical commit.
+external call.  The authenticated tier deterministically selects reward class
+1, 2 or 3.  For a calibrated class with immutable
+\code{(fixedWei,perExecutionGasWei,perPublishedByteWei,capWei)}, the later
+claim path computes
+\begin{verbatim}
+rewardWei = min(capWei,
+  fixedWei + perExecutionGasWei * rewardExecutionGas +
+  perPublishedByteWei * rewardPublishedBytes)
+\end{verbatim}
+with cap-aware checked arithmetic; no intermediate overflow can turn into a
+larger payment or revert canonical settlement.  The byte metric counts only the
+distinct sealed bytes consumed by the winning canonical candidate.  It is not
+data-rent reimbursement, does not pay losing candidates or improvement levels,
+and does not change the rule that data publication has no consensus-coupled
+reimbursement.
+
+Every successful ordinary normal or recovery commit governed by
+\code{SettlementStatementV2} emits
+\begin{verbatim}
+CandidateCommittedV2(bytes32 indexed candidateId,
+  address indexed beneficiary, uint8 rewardClass,
+  uint256 rewardExecutionGas, uint64 rewardPublishedBytes,
+  bool receiptStored, uint8 receiptIndex, bytes32 receiptCommitment)
+\end{verbatim}
+where \code{candidateId=statementHash}, \code{beneficiary=proofBeneficiary},
+\code{rewardClass=tier} and
+\code{receiptIndex=uint8(uint256(candidateId))}.  The fixed
+three class-local \code{MAX_REWARD_RECEIPTS_PER_CLASS=256} rings store
+\begin{verbatim}
+struct RewardReceiptV1 {
+  bytes32 candidateId; address beneficiary; uint8 rewardClass;
+  uint256 rewardExecutionGas; uint64 rewardPublishedBytes;
+  bytes32 executionProfileHash; uint64 committedAtBlock;
+  uint64 committedAtTimestamp; uint64 claimUntil; bool claimed;
+}
+rewardReceiptCommitment = H("slot-chain-reward-receipt-v1" ||
+  candidateId || address20(beneficiary) || u8(rewardClass) ||
+  u256(rewardExecutionGas) || u64(rewardPublishedBytes) ||
+  executionProfileHash || u64(committedAtBlock) ||
+  u64(committedAtTimestamp) || u64(claimUntil))
+\end{verbatim}
+The candidate ID, beneficiary, profile hash and both timestamps are nonzero;
+the block number and timestamp must fit \code{uint64}, and
+\code{claimUntil=committedAtTimestamp+rewardClaimWindowSeconds} uses the
+immutable word-106 constructor value and checked addition.  Receipt construction
+is a total internal decision tree over explicitly checked candidate, metric,
+timestamp, deadline and cell-reuse conditions; it contains no external call,
+unbounded work or catch-all exception path.  A named conversion or deadline
+failure only skips the optional receipt and sets \code{receiptStored=false}; it
+never reverts the canonical transition.  The commit preflight checks the
+immutable timing/registry pins and only the selected class/index cell before a
+canonical write; view and claim probe exactly three candidate-ID cells.  No
+production path scans a ring.  Global ring integrity follows inductively from
+constructor-empty state and the sole internal receipt writer.  A corrupt
+selected cell or immutable pin rejects atomically rather than becoming an
+optional miss, while an unrelated cell cannot veto canonical progress.
+When all receipt fields are well typed, \code{receiptCommitment} is the exact
+commitment below even if a live collision makes \code{receiptStored=false}; it
+is zero only when conversion or deadline arithmetic prevents construction of a
+well-typed receipt.  The event is never itself an entitlement.
+Each authenticated reward class owns an independent 256-cell ring, indexed by
+the candidate ID's low byte.  An empty cell has \code{candidateId=0}.  A claimed
+cell becomes reusable only at or after
+\code{committedAtTimestamp+rewardReorgMarginSeconds}; an unclaimed cell
+becomes reusable only strictly after \code{claimUntil} and at or after
+\code{claimUntil+rewardReorgMarginSeconds}.  Both timing scalars are the exact
+word-106/word-85 constructor values described above.  Failed equality, a live
+same-class collision or overflow only skips storage.  A class-1 receipt can
+never occupy or evict a class-2 or class-3 cell.  \code{claimed} is excluded
+from the commitment and is the sole mutable receipt field.
+
+The one-time genesis-import and later migration-transition proofs do not use
+\code{SettlementStatementV2}, do not emit \code{CandidateCommittedV2} and
+cannot create or overwrite a reward receipt or funding word while the target is
+PREACTIVE/ACTIVATING.  Their prover compensation, if any, is an external
+release-campaign expense.  This keeps the authenticated empty-target and MCAN
+poststate independent of an otherwise undefined migration reward tier or
+metering output.
+
+There is no separately deployed distributor and therefore no uncommitted
+address, code hash or constructor authority.  Each immutable Settlement owns
+three separately accounted native-ETH funding buckets and exposes exactly
+\begin{verbatim}
+fundRewardClassV1(uint8 rewardClass) payable
+claimRewardV1(bytes32 candidateId) returns (uint256 paidWei)
+rewardReceiptV1(bytes32 candidateId) returns
+ (bytes4 magic, bool present, address beneficiary, uint8 rewardClass,
+  uint256 rewardExecutionGas, uint64 rewardPublishedBytes,
+  bytes32 executionProfileHash, uint64 committedAtBlock,
+  uint64 committedAtTimestamp, uint64 claimUntil, bool claimed,
+  bytes32 receiptCommitment)
+\end{verbatim}
+with selectors \code{0x15e08308}, \code{0xaa5498cb} and \code{0x3ed526c7}.
+Each mutating call has exactly 36 calldata bytes and no suffix.  Successful
+funding returns zero bytes; a successful claim returns exactly one canonical
+32-byte \code{uint256 paidWei} word.
+The view has zero value, exactly 36 calldata bytes and exactly 384 return bytes;
+\code{magic=0x52525631} (RRV1).  It returns \code{present=true} only when the
+low-byte cell in exactly one of the three class-local rings equals the query,
+and then returns that exact stored fields and recomputed commitment.  It probes
+the three candidate-ID words in fixed class order, rejects an impossible
+duplicate exact hit as corrupt state, and loads a complete receipt only for the
+sole hit.  A miss returns \code{present=false} and canonical zero for every
+remaining word.  Funding requires class
+1, 2 or 3, positive value and checked bucket addition.  Only that entry point
+increases an accounted bucket.  It rejects PREACTIVE but remains permissionless
+after first activation in ACTIVE, ARMED, READY, FROZEN and historical targets,
+and neither receipts nor funding participate in migration readiness.  Direct donations and forced ETH are surplus,
+are never credited or spent by the reward path, and remain sweepable only by
+the existing permissionless \code{sweepSessionSurplus} route to
+\code{dataRent}.  Reward buckets have no withdrawal or sweep path.  At every
+exit \code{totalRewardFunding=sum(funded[1..3])} and the complete
+session/reward liability sum is at most the contract's native balance.
+
+A permissionless claim supplies only \code{candidateId}; Settlement probes the
+same low-byte cell in exactly three class-local rings, requires one exact ID,
+unclaimed status, matching
+execution-profile hash and \code{block.timestamp<=claimUntil}, and recomputes
+the receipt commitment.  It exact-STATICCALLs the profile-pinned, non-proxy
+BuilderRegistry at the stored address and checked runtime hash using
+\begin{verbatim}
+rewardClassV1(uint8 rewardClass) returns
+ (bytes4 magic, bytes32 builderRegistryConfigurationHash,
+  uint8 returnedClassId, uint256 fixedWei,
+  uint256 perExecutionGasWei, uint256 perPublishedByteWei, uint256 capWei)
+\end{verbatim}
+The selector is \code{0x3d273ee7}; calldata is exactly 36 bytes, value is zero,
+the stipend is the profile's fixed 50,000-gas
+\code{componentConfigurationReadGas}, returndata is exactly 224 bytes,
+\code{magic=0x52435631} (RCV1), the configuration hash equals stored profile
+word 31, the echoed class equals the receipt class and all padding is canonical.
+Before that read, the claim path repeats the exact four-byte
+\code{componentConfigHashV2()} STATICCALL with the same stipend and requires
+exactly 32 return bytes equal to word 31.  BuilderRegistry stores its three
+reward rows in constructor-written, writerless slots.  It is a
+protocol-lifetime identity, so all V2 execution profiles must derive the same
+word-31 class table; varying reward rates requires a future independently
+reviewed versioned registry ABI, not reinterpretation of this getter.
+That configuration hash commits the exact ordered class table and the same
+claim/reorg timing whose executable values arrive as profile words 106 and 85.
+Settlement stores no duplicate class table or second reward-configuration hash;
+the exact profile-pinned RCV1 row is the sole payout-rate authority.
+
+After the exact read and cap-aware calculation, Settlement enters the same
+reentrancy guard used by session claims and surplus sweep, marks
+\code{claimed=true} and debits the exact class bucket and
+\code{totalRewardFunding}
+before the sole beneficiary CALL.  A zero reward succeeds without a CALL.
+Insufficient funding, getter failure, a reverting transfer, an uncaught nested
+guard rejection or any mismatch reverts the whole transaction and restores the
+receipt, bucket, total and balance.  A beneficiary may catch a nested guarded
+rejection and return normally; then the outer claim succeeds exactly once.
+An old immutable Settlement retains its receipts, registry binding
+and funding after Router migration, so release retirement cannot strand a
+still-live claim.  Receipt recording and its event create no payment liability
+beyond available class funding; ring occupancy or an empty funding bucket can
+forfeit a reward but can never revert or delay canonical state.  Logs alone are
+not entitlements.  Burns are never recycled into the same episode's bounty,
+and no reward path calls a seat Market or data session.
+Successful calls emit exactly
+\begin{verbatim}
+RewardClassFundedV1(uint8 indexed rewardClass,address indexed funder,
+  uint256 amount,uint256 classFundingAfter,uint256 totalFundingAfter)
+RewardClaimedV1(bytes32 indexed candidateId,address indexed beneficiary,
+  uint8 rewardClass,uint256 paidWei)
+\end{verbatim}
+including \code{RewardClaimedV1} for a successful zero-valued claim; a reverted
+call emits nothing.
 
 Seat premium and bond accounting follows the conservation and maturity rules in
 \S\ref{sec:seat-market}.  Canonical progress never pushes ETH, waits for Market
@@ -5846,8 +6040,8 @@ delegatecall, owner or reinitializer.
 \item \code{Settlement}: permanent non-proxy state machine with
 \code{PREACTIVE}, \code{ACTIVE}, \code{MIGRATION_ARMED},
 \code{MIGRATION_READY} and \code{FROZEN} states; canonical core, one normal best, recovery
-episode/round, seat pointer, 256-cell sequence-tagged full-core history and a
-256-cell best-effort receipt ring.  A delayed cutover stops opening new work and
+episode/round, seat pointer, 256-cell sequence-tagged full-core history and
+three class-isolated 256-cell best-effort receipt rings.  A delayed cutover stops opening new work and
 reaches MIGRATION\_READY after the current transition settles, so an adversary
 cannot veto migration by continuously creating a best or recovery round.
 Rewards and burn disposal remain separate; no loop is proportional to chain age.
@@ -6213,7 +6407,7 @@ writes ACTIVE, the caller checks
 EXTCODEHASH and the already normative fixed-gas
 \code{componentConfigHashV2()} exact 32-byte getter against the independently
 derived \code{targetConfigurationHash}.  It also exact-reads the existing
-384-byte \code{dataSessionAccountingV1()} and requires its configuration word
+512-byte \code{dataSessionAccountingV1()} and requires its configuration word
 to equal the profile derivation and every counter, liability, generation,
 deadline and guard word to be canonical zero.  Word 111
 \code{componentConfigurationReadGas} is required to equal the protocol
@@ -8428,6 +8622,10 @@ Its nine node levels use
 supplies one inclusion proof for index \code{W mod 512} for every active cell,
 including canonical empty and \code{FREE} leaves.
 
+The two durable descriptor bodies are distinct fixed-width types named
+\code{Kind0ForcedDescriptorV2} and \code{Kind1ForcedDescriptorV11}.  There is
+no universal nullable superset struct.  The heterogeneous Queue/list wire
+retains an explicit kind byte and rejects every other kind or body length.
 Kind-0 forced leaf $i$ is legacy Keccak over this exact packed sequence:
 \begin{verbatim}
 "slot-chain-force-user-v2" || u64(i) ||
@@ -8918,6 +9116,17 @@ H("slot-chain-dispositions-v1" || u64(start) || u64(end) ||
 Here
 \code{UINT32_MAX} means no Ethereum transaction.
 
+For a raw discretionary body chunk, the byte-exact commitment omitted by any
+ABI convenience wrapper is
+\begin{verbatim}
+chunkRoot = H("slot-chain-body-chunk-v1" || fullBodyRoot ||
+  u16(blockOrdinal) || u16(chunkIndex) || u16(chunkCount) ||
+  u32(chunkByteLength) || chunkBytes)
+\end{verbatim}
+where \code{chunkByteLength=chunkBytes.length}; the explicit length precedes
+the sole dynamic suffix and trailing or differently partitioned bytes change
+the root.
+
 The recovery ID is the encoding in \S\ref{sec:machine}.  Schedule leaf/root,
 seed and tie hashes are as in \S\ref{sec:schedule}; body and blob encodings are
 as in \S\ref{sec:data}.  \code{commitment-model.py} is the normative executable
@@ -9007,8 +9216,11 @@ markBatchSel a92f72cd
 markBatch e153ec48024a67781bf2e908adcd9667cf30ead69bfa3e33e858decfa1db4bfc
 inboxMagic 49425632
 routeCfgSel 4b64fa11
-verifyPinSel 28933d28
-getPinSel 31e85ab1
+verifyPinSel 720f747b
+verifyPinCall bda76e8392d84ca874b1c3dc045d489e3b4582d9037381c733a2a0d4d3637f09
+verifyPinMagic 49435632
+verifyPinRet ea4b4aee5e985f6e69fb050de18b11ab01681ed5cb407e16d734dcdf74875397
+verifyPinRetLen 256
 liqQuoteSel 43dc48e0
 fundStateSel 6a9a6c32
 attemptSel 4cbe2fe2
@@ -9016,6 +9228,8 @@ attemptCall 29ff394c7d5acf9fa84748faf8a063b8f1ed41b258cc12c9419142d87ff2deff
 attemptLen 1124
 finalFailSel 745dcb69
 targetErrSel f9cc2b44
+attemptDigest a9ae92d5f2d8ff6dc77a25bb2ebb08570f37d4bce68b4c5e9b7893bf126784d6
+nativeQuota b8ff0da5b6d7fc9dc4b45040e13dee561bbd0a8aed718dda16d4bd274be8df39
 appendTermSel abc194f5
 termCommitSel 2c984c97
 termStateSel 998c57ed
@@ -9043,7 +9257,7 @@ poolAccMagic 504c4132
 poolValMagic 4e4c5632
 poolResultMagic 4c415632
 poolAuth 6c5ac75c0d7eb88ad081189d9cf0992408d683aa5eb03bbd355e0e163cc01155
-poolAccept 4b6cc0c05efc21201e066b965320752dd1989d675cabfa66b3efdf1aa9097558
+poolAccept 6bd6f239686de71cd47f1c246c19cb267fec19f2f86a744dfdb5299f7beeef9a
 policyType d702a337b74fc40bfc746fb1aeeaa705e60a95947bfc3076c76222703205b4b1
 policyHash 5eb7c00399d64d91e416d5a3dbe75187c39dfc2a4645b867864b5fd9e649f3e3
 policySel b2d0e286
@@ -9392,7 +9606,8 @@ feeLeafAlt 9aeeda0ae2094ed7cc70c334caa02ac2351f0e5bcb14b5d3c0a654fb29c4275b
 creditId 39b1bef40d007422eb9caf626a42a98fb4a40c9898db29d6beb7c3a6250b40f8
 feeCreditAlt 7ac2695e781466773a029e5a6dad12401011cf6bfb601607c3ef664e2c10de0c
 escrowId 14aaab6b096419fe36f3b3d6645c8173765a2f4a903ea336790040b82eec5af1
-inboxSlot e27069ab260071d5f8999b35665379dfbbf0f45bf7507fb6a8a939472e2032ca
+inboxSlot 3e7e0776ebd7cc805f9331d1b15dd1d5e78cdf00022ca9d208b3c104012f3f4a
+inboxTerms 1932123279377088595567804303184537494733657
 terminalDone 13e0e5ab57a472bfa8f883301b79b4cbe6dd0f7b787a6877f90f6c80ff13abb7
 liquiditySet 625ff42ed879b94a7499fecb7abc07988b348300d1c4e9cc1f7596968eaf2f19
 settleLeafAlt c26c0dd865cf2a2442eae4c0065a8cedf585c4bddd74333dd51207339ebcdfbf
@@ -9404,9 +9619,64 @@ manifestRoot 417be737a57e38eb410f2d6e65c77ee19d5c314cdaf432067861c6a36c6a990f
 normalContext 5b93691b397d8ab377682acee7cf6cc77ff2726cd83a8a7b725084f5d6f468bd
 migrationData 2c36740d76ae6192335d4c603f42edace094b33e8f54e959b40241a94c1f6deb
 winningData 4ae34aa9efb842528d353b175f94191d01cfd168b5ad828f64a0e7972a2ca9e3
-statementHash 58f1161a0d530fc335a87fb2f3ffacb32bf5018c63fdf0006a4d54d65d986a4b
+statementHash 595572878b741314aaba69c75e2d93afdaae2f502727f80e758c6d9b9a04bb49
+stmtRewardGas 12345678
+stmtRewardBytes 9
+rewardReceipt 00b3741f3922737e7c3cd07d45c93301068436e8fcd750758f495218304b8630
+candidateCommitTopic 51629f6515f461b4c6f912a8eecad46d8ff89ab5e8235d95c30004be2c9ac738
+rewardFundTopic d979ecc5f5821fb9e6643744111b04290fc1da57eebaba07def52e526c6eb49e
+rewardClaimTopic 9f41046da255bf29062408ae9f20e06ea2453df29227caf32b709ccfed59d506
+candidateLogTopics 322f07b53e70a0f06ed49e66c5747400d058f74ac3893965393451defadb57d6
+candidateLogTopicCount 3
+candidateLogId 595572878b741314aaba69c75e2d93afdaae2f502727f80e758c6d9b9a04bb49
+candidateLogBeneficiary 000000000000000000000000000000000000000000000000000000000000cafe
+candidateLogData 91426c0531837b0b5c449aa8f2fa5cf429b2a4fc39951181bd9efff64d2b5549
+candidateLogDataLen 192
+rewardFundLogTopics dec401d3769ac3d7c894189f394a778a66106bd32460f51135caea4824360efe
+rewardFundLogTopicCount 3
+rewardFundLogClass 0000000000000000000000000000000000000000000000000000000000000001
+rewardFundLogFunder 000000000000000000000000000000000000000000000000000000000000f00d
+rewardFundLogData e1aede520e7a9dc85a896fcdc9cc395ef1f2fd03d93f7e4f6acbd5fda09bf690
+rewardFundLogDataLen 96
+rewardClaimLogTopics d24ad07e74a5644fef99a21b3b48f8aa60bb75eb841420a273c0c7a681db685c
+rewardClaimLogTopicCount 3
+rewardClaimLogId 595572878b741314aaba69c75e2d93afdaae2f502727f80e758c6d9b9a04bb49
+rewardClaimLogBeneficiary 000000000000000000000000000000000000000000000000000000000000cafe
+rewardClaimLogData db2be80ad7fe2991fbabee31c9917dca99f927a94e09c6a4e810cec6d4a8cbae
+rewardClaimLogDataLen 64
+fundRewardSel 15e08308
+fundRewardCall 1086e7c6ffda5d1b4d31999795549a413160e18f638c43801cf6bd8293b430f1
+fundRewardCallLen 36
+fundRewardRetLen 0
+claimRewardSel aa5498cb
+claimRewardCall 240965806050d9b6be5d79e8377ddb0c67caff227beaaa8ea5d802b1036df3d0
+claimRewardCallLen 36
+claimRewardPaid 1000000
+claimRewardRet c1af4b94166cd32fc49b7b926cbb91ee421de2d04450e8ae57857b9b56ac7e53
+claimRewardRetLen 32
+rewardViewSel 3ed526c7
+rewardViewCall 485d1a0dc44ee366c3cfd1c384deaa990edd041ae61797c929fb53d11109ee93
+rewardViewCallLen 36
+rewardViewMagic 52525631
+rewardViewHit ec2ce3e7c263308b2332ba92e64ce2beaa347f7f528ae28ef631e43085792403
+rewardViewMiss 910614e273a7326ae3c583449cfdf24c64d9ef3d7d6f448b6d3042d3ba95ae80
+rewardViewLen 384
+rewardCollision a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a449
+builderCfg 5c2fe6d16935d1557c545b24c0b5982391f7a8ac702d7db3a6c55e467427ed79
+rewardClassSel 3d273ee7
+rewardClassCall 3717990a97396f7a0a947025434cf954d9937932f5e00fdf793c129bfbfb3006
+rewardClassCallLen 36
+rewardClassMagic 52435631
+rewardClassRet 3d21e30cd424ac4eb52ed85673aac8960a703cce5dd930fceb901b0ce5e93490
+rewardClassRetLen 224
+rewardClassId 1
+rewardClassGas 50000
+dsAcctEmpty 7720a5a8d9d219e06852dd2661541c06c0278e2044d27ec21400506cac036719
+dsAcctFunded 83a2038c29ca1256677eab2f562e42376f7ba8366c67bfd57536987c2957066b
+dsAcctLen 512
 recoveryId fd0552b28542fa3e236c86807695f3d5a4bc0436add285daa8506d9a79511b15
 bodyRoot 0f4e161a46c8b18c2a86f23a0a4e7169a838a12af8b389f65e97b547a99707e9
+chunkRoot e652cb05b1f44f3c09c650870b7b9ade4132548bd0c769bdda35b5bfcac5139e
 \end{verbatim}
 Release CI must reproduce every vector in Solidity, Go, Rust and the circuit.
 
@@ -9626,8 +9896,10 @@ external call is made after QMIG; only the three listed STATICCALL postreads may
 precede the internal suffix.
 
 No transfer, reward calculation, unbounded loop or caller-controlled external
-call occurs in canonical settlement.  Optional reward materialization is a
-later transaction in a separate module.
+call occurs in canonical settlement.  Its sole optional reward work is the
+bounded best-effort receipt write above; calculation, funding and transfer occur
+only through later reward entry-point transactions on the same immutable
+Settlement.
 
 \section{Rejected alternatives}\label{app:alternatives}
 
@@ -9709,12 +9981,12 @@ local destination binding, frontier/event terminal proofs, pause-independent
 escape, L2 release sealing, replay and timing
 geometry.  Cryptographic booleans in that model are not cryptographic
 evidence.
-The companion \code{test-settlement-window.py} suite runs 240 adversarial
+The companion \code{test-settlement-window.py} suite runs 254 adversarial
 regressions, including authorization substitution, callback/OOG, competing LP,
 owner-mode, target/quota/pull/terminal rollback, withdrawal/recreation and
 cross-version preservation cases for the atomic Pool path.
 
-\code{commitment-model.py} reports 591 golden vectors and 1317 executable
+\code{commitment-model.py} reports 648 golden vectors and 1409 executable
 assertion sites for
 exact EIP-712
 domain/struct/digest, canonical and statement hashes, registry/admission/entry/
@@ -9746,7 +10018,7 @@ The model is the executable state-machine and byte-level reference for Market
 custody and its Settlement/Router boundaries.
 
 \code{economic-profile-model.py} and its companion
-\code{test-economic-profile.py} suite run 36 schema and checked-arithmetic
+\code{test-economic-profile.py} suite run 38 schema and checked-arithmetic
 regressions over the versioned economic profile, published parameter
 relations, overflow boundaries and rejection of incomplete or uncalibrated
 profiles.  Passing those tests demonstrates internal consistency only; the
