@@ -30,6 +30,7 @@
   import { BridgePausedError, TransactionTimeoutError } from '$libs/error';
   import { bridgeTxService } from '$libs/storage';
   import { TokenType } from '$libs/token';
+  import { ApprovalStatus } from '$libs/token/getTokenApprovalStatus';
   import { isToken } from '$libs/token/isToken';
   import { waitForApprovalStatus } from '$libs/token/waitForApprovalStatus';
   import { refreshUserBalance } from '$libs/util/balance';
@@ -138,7 +139,16 @@
     });
   };
 
-  const handleApproveTxHash = async (txHash: Hash) => {
+  /**
+   * @param txHash The approval or reset transaction
+   * @param pendingStatus The status that still means "not seen yet" for this transition -
+   *        an approval waits off APPROVAL_REQUIRED, an allowance reset waits off
+   *        RESET_REQUIRED
+   */
+  const handleApproveTxHash = async (
+    txHash: Hash,
+    pendingStatus: ApprovalStatus = ApprovalStatus.APPROVAL_REQUIRED,
+  ) => {
     const currentChain = $connectedSourceChain?.id;
 
     const destinationChain = $destNetwork?.id;
@@ -190,7 +200,7 @@
       // did: a timed-out wait does not mean the approval failed, and leaving the status
       // stale is what forced a page reload before Bridge would enable.
       try {
-        await waitForApprovalStatus($selectedToken, approvalFailed ? { attempts: 1 } : {});
+        await waitForApprovalStatus($selectedToken, approvalFailed ? { attempts: 1 } : { pendingStatus });
       } catch (error) {
         console.error('Could not refresh the approval status', error);
       }
@@ -209,7 +219,8 @@
       const args: ApproveArgs = { tokenAddress, spenderAddress, wallet: walletClient, amount: 0n };
       approveTxHash = await (bridges[type] as ERC20Bridge).approve(args, true);
 
-      if (approveTxHash) await handleApproveTxHash(approveTxHash);
+      // A reset moves RESET_REQUIRED -> APPROVAL_REQUIRED, the opposite of an approval
+      if (approveTxHash) await handleApproveTxHash(approveTxHash, ApprovalStatus.RESET_REQUIRED);
     } catch (err) {
       console.error(err);
       handleBridgeError(err as Error);

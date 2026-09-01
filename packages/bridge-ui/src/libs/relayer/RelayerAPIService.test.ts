@@ -539,6 +539,41 @@ describe('RelayerAPIService', () => {
     );
   });
 
+  test('getAllBridgeTransactionByAddress gives ETH 18 decimals even when the receipt is unavailable', async () => {
+    // Given: the relayer nils canonicalToken for ETH, so the Go uint8 serializes as 0
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const paginationParams = { page: 1, size: 10 };
+    const relayerItem = createRelayerItem({
+      id: 1553883,
+      messageId: '6272',
+      msgHash: BAD_MSG_HASH,
+      blockNumber: '0x7ba91b',
+      eventType: 0,
+      amount: '1000000000000000000',
+      canonicalTokenSymbol: '',
+      canonicalTokenDecimals: 0,
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
+    // And: the source-chain receipt fetch fails, so nothing later corrects the decimals
+    mockedGetTransactionReceipt.mockResolvedValue(null as never);
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
+
+    // Then: keeping 0 here renders one ETH as 1000000000000000000 in the details dialogs
+    expect(result.txs).toHaveLength(1);
+    expect(result.txs[0]).toEqual(
+      expect.objectContaining({
+        amount: BigInt('1000000000000000000'),
+        decimals: 18,
+        symbol: 'ETH',
+        tokenType: TokenType.ETH,
+      }),
+    );
+  });
+
   test('getAllBridgeTransactionByAddress refreshes ERC721 metadata from the receipt message', async () => {
     // Given
     const relayerAPIService = new RelayerAPIService('http://example.com');

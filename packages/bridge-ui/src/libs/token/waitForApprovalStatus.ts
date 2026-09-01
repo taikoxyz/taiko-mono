@@ -20,6 +20,14 @@ type WaitForApprovalStatusDeps = {
    * caller holds its spinner up for every attempt.
    */
   attempts?: number;
+  /**
+   * The status that means "the transaction has not been seen yet", which is the one worth
+   * re-reading. It depends on the transition being waited out: an approval moves
+   * APPROVAL_REQUIRED -> NO_APPROVAL_REQUIRED, while an allowance reset moves
+   * RESET_REQUIRED -> APPROVAL_REQUIRED. Retrying the wrong one both returns the stale
+   * answer immediately and burns every attempt on the correct one.
+   */
+  pendingStatus?: ApprovalStatus;
 };
 
 const defaultWait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -31,8 +39,9 @@ const defaultWait = (ms: number) => new Promise<void>((resolve) => setTimeout(re
  *      single read taken the moment the receipt arrives can still return the pre-approval
  *      allowance, because an RPC gateway may answer from a node that has not applied the
  *      block yet - which leaves Approve enabled and Bridge disabled until the user reloads
- *      the page. Only APPROVAL_REQUIRED is retried: every other status is a settled answer.
- *      A read that throws is retried too, so one RPC blip cannot strand the buttons.
+ *      the page. Only the caller's pending status is retried: every other status is a
+ *      settled answer. A read that throws is retried too, so one RPC blip cannot strand
+ *      the buttons.
  *
  * @param token The token whose approval was just submitted
  * @param deps Attempt count, plus an injectable status reader and timer for tests
@@ -45,6 +54,7 @@ export async function waitForApprovalStatus(
   const getStatus = deps.getStatus ?? getTokenApprovalStatus;
   const wait = deps.wait ?? defaultWait;
   const attempts = Math.max(1, deps.attempts ?? APPROVAL_REFRESH_ATTEMPTS);
+  const pendingStatus = deps.pendingStatus ?? ApprovalStatus.APPROVAL_REQUIRED;
 
   let status: ApprovalStatus | null = null;
 
@@ -58,8 +68,8 @@ export async function waitForApprovalStatus(
       continue;
     }
 
-    // Anything other than "still needs approving" is a settled answer
-    if (status !== ApprovalStatus.APPROVAL_REQUIRED) return status;
+    // Anything other than the status we are waiting to move off is a settled answer
+    if (status !== pendingStatus) return status;
   }
 
   if (status === null) throw new Error('Could not read the approval status');

@@ -517,7 +517,11 @@ export class RelayerAPIService {
         status: tx.status,
         amount: BigInt(tx.amount),
         symbol: tx.canonicalTokenSymbol || 'ETH',
-        decimals: tx.canonicalTokenDecimals,
+        // The relayer nils canonicalToken for ETH rows and the Go field is a plain uint8,
+        // so every ETH transaction arrives as decimals 0. The correct 18 is otherwise only
+        // applied later from the source-chain receipt, and that fetch is allowed to fail -
+        // a row that keeps 0 renders one ETH as 1000000000000000000
+        decimals: tokenType === TokenType.ETH ? 18 : tx.canonicalTokenDecimals,
         srcTxHash: tx.data.Raw.transactionHash,
         destTxHash: tx.processedTxHash,
         from: getAddress(tx.messageOwner),

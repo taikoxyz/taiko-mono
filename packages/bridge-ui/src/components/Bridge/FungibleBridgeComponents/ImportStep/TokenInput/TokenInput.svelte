@@ -131,27 +131,36 @@
     }
   };
 
+  // Balance reads resolve out of order: a bridged ERC20 goes through getAddress and its
+  // own RPCs while ETH answers immediately, so switching A -> B -> C could land B's
+  // balance against token C. Only the latest reset may publish.
+  let balanceGeneration = 0;
+
   const reset = async () => {
     log('reset');
+    const generation = ++balanceGeneration;
+    const tokenForThisReset = $selectedToken;
     $computingBalance = true;
     value = '';
     amountRejected = false;
     $enteredAmount = 0n;
-    if ($account && $account.address && $account?.isConnected && $selectedToken) {
-      validateAmount($selectedToken);
+    if ($account && $account.address && $account?.isConnected && tokenForThisReset) {
+      validateAmount(tokenForThisReset);
       refreshUserBalance();
       log('fetching on chain', $connectedSourceChain?.name);
-      $tokenBalance = await fetchBalance({
+      const fetched = await fetchBalance({
         userAddress: $account.address,
-        token: $selectedToken,
+        token: tokenForThisReset,
         srcChainId: $connectedSourceChain?.id,
       });
+      if (generation !== balanceGeneration) return;
+      $tokenBalance = fetched;
       log('tokenBalance', $tokenBalance);
-      previousSelectedToken = $selectedToken;
+      previousSelectedToken = tokenForThisReset;
     } else {
       balance = '0.00';
     }
-    $computingBalance = false;
+    if (generation === balanceGeneration) $computingBalance = false;
   };
 
   let previousSelectedToken = $selectedToken;

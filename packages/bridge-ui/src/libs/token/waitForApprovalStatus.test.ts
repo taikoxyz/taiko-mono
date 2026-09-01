@@ -110,4 +110,48 @@ describe('waitForApprovalStatus', () => {
       expect(getStatus).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('which status counts as pending', () => {
+    it('retries RESET_REQUIRED when that is what the caller is waiting off', async () => {
+      // After approve(0) a lagging node still reports the old allowance as RESET_REQUIRED.
+      // Treating it as settled returned the stale answer on the first read, so the Reset
+      // button reappeared and a second no-op reset cost gas
+      const getStatus = vi
+        .fn()
+        .mockResolvedValueOnce(ApprovalStatus.RESET_REQUIRED)
+        .mockResolvedValueOnce(ApprovalStatus.APPROVAL_REQUIRED);
+
+      const status = await waitForApprovalStatus(token, {
+        getStatus,
+        wait,
+        pendingStatus: ApprovalStatus.RESET_REQUIRED,
+      });
+
+      expect(getStatus).toHaveBeenCalledTimes(2);
+      expect(status).toBe(ApprovalStatus.APPROVAL_REQUIRED);
+    });
+
+    it('settles immediately on APPROVAL_REQUIRED when waiting off a reset', async () => {
+      // The legitimate post-reset answer, which the default would have spent every
+      // attempt retrying - about six seconds of spinner on the success path
+      const getStatus = vi.fn().mockResolvedValue(ApprovalStatus.APPROVAL_REQUIRED);
+
+      await waitForApprovalStatus(token, { getStatus, wait, pendingStatus: ApprovalStatus.RESET_REQUIRED });
+
+      expect(getStatus).toHaveBeenCalledTimes(1);
+      expect(wait).not.toHaveBeenCalled();
+    });
+
+    it('still defaults to retrying APPROVAL_REQUIRED', async () => {
+      const getStatus = vi
+        .fn()
+        .mockResolvedValueOnce(ApprovalStatus.APPROVAL_REQUIRED)
+        .mockResolvedValueOnce(ApprovalStatus.NO_APPROVAL_REQUIRED);
+
+      const status = await waitForApprovalStatus(token, { getStatus, wait });
+
+      expect(getStatus).toHaveBeenCalledTimes(2);
+      expect(status).toBe(ApprovalStatus.NO_APPROVAL_REQUIRED);
+    });
+  });
 });

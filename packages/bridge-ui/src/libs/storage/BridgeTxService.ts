@@ -4,8 +4,8 @@ import { type Address, type Hash, numberToHex, type TransactionReceipt } from 'v
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { pendingTransaction, storageService } from '$config';
-import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
 import { getMessageStatusForMsgHash } from '$libs/bridge/getMessageStatusForMsgHash';
+import { type BridgeTransaction, MessageStatus } from '$libs/bridge/types';
 import { isSupportedChain } from '$libs/chain';
 import { FilterLogsError } from '$libs/error';
 import { jsonParseWithDefault } from '$libs/util/jsonParseWithDefault';
@@ -76,10 +76,34 @@ export class BridgeTxService {
     this.storage = storage;
   }
 
+  /**
+   * @dev Restores the bigint fields JSON cannot carry.
+   *
+   *      addTxByAddress stringifies every bigint on the way in, and JSON.parse has no
+   *      reviver on the way out, so a stored transaction comes back with strings where the
+   *      type promises bigints. That is not cosmetic: shouldShowManualClaimEntry compares
+   *      `processingFee === 0n`, which a string can never satisfy, so the manual claim
+   *      entry never appeared for exactly the zero-fee transactions it exists for. The
+   *      other three survive only because their consumers happen to be string-tolerant.
+   *
+   * @param tx A transaction as it came out of storage
+   * @return tx_ The same transaction with its numeric fields typed as declared
+   */
+  private static _restoreBigInts(tx: BridgeTransaction): BridgeTransaction {
+    return {
+      ...tx,
+      amount: BigInt(tx.amount ?? 0),
+      processingFee: BigInt(tx.processingFee ?? 0),
+      srcChainId: BigInt(tx.srcChainId ?? 0),
+      destChainId: BigInt(tx.destChainId ?? 0),
+      ...(tx.fee === undefined || tx.fee === null ? {} : { fee: BigInt(tx.fee) }),
+    };
+  }
+
   private _getTxFromStorage(address: Address) {
     const key = `${storageService.bridgeTxPrefix}-${address}`;
     const txs = jsonParseWithDefault(this.storage.getItem(key), []) as BridgeTransaction[];
-    return txs;
+    return txs.map(BridgeTxService._restoreBigInts);
   }
 
   private async _enhanceTx(tx: BridgeTransaction, address: Address, waitForTx: boolean) {
@@ -230,6 +254,22 @@ export class BridgeTxService {
     return enhancedTx;
   }
 
+  /**
+   * @dev Writes the list, serializing bigints as strings.
+   *
+   *      Both write paths go through here. updateByAddress used to call JSON.stringify
+   *      bare, which throws on a bigint - it only worked because everything read back out
+   *      of storage was a string. Now that reads restore the declared types, a bare
+   *      stringify would fail on the removal path.
+   */
+  private _setTxsInStorage(address: Address, txs: BridgeTransaction[]) {
+    const key = `${storageService.bridgeTxPrefix}-${address}`;
+    this.storage.setItem(
+      key,
+      JSON.stringify(txs, (_, value) => (typeof value === 'bigint' ? value.toString() : value)),
+    );
+  }
+
   addTxByAddress(address: Address, tx: BridgeTransaction) {
     const txs = this._getTxFromStorage(address);
 
@@ -237,18 +277,12 @@ export class BridgeTxService {
 
     log('Adding transaction to storage', tx);
 
-    const key = `${storageService.bridgeTxPrefix}-${address}`;
-    this.storage.setItem(
-      key,
-      // We need to serialize the BigInts as strings
-      JSON.stringify(txs, (_, value) => (typeof value === 'bigint' ? value.toString() : value)),
-    );
+    this._setTxsInStorage(address, txs);
   }
 
   updateByAddress(address: Address, txs: BridgeTransaction[]) {
     log('Updating storage with transactions', txs);
-    const key = `${storageService.bridgeTxPrefix}-${address}`;
-    this.storage.setItem(key, JSON.stringify(txs));
+    this._setTxsInStorage(address, txs);
   }
 
   removeTransactions(address: Address, txs: BridgeTransaction[]) {

@@ -28,8 +28,15 @@ vi.mock('$components/TokenDropdown', async () => ({
   TokenDropdown: (await import('../../../../../tests/StubComponent.svelte')).default,
 }));
 
-import { enteredAmount, selectedToken } from '$components/Bridge/state';
+const fetchBalance = vi.fn();
+vi.mock('$libs/token', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('$libs/token')>()),
+  fetchBalance: (...args: unknown[]) => fetchBalance(...args),
+}));
+
+import { enteredAmount, selectedToken, tokenBalance } from '$components/Bridge/state';
 import { TokenType } from '$libs/token';
+import { account } from '$stores/account';
 
 import TokenInput from './TokenInput.svelte';
 
@@ -49,7 +56,9 @@ const errorShown = () => target.textContent?.includes('bridge.errors.invalid_amo
 const usdc = { type: TokenType.ERC20, symbol: 'USDC', name: 'USDC', decimals: 6, addresses: {} };
 
 beforeEach(() => {
+  fetchBalance.mockReset().mockResolvedValue({ value: BigInt(0), decimals: 6, symbol: 'USDC' });
   enteredAmount.set(BigInt(0));
+  tokenBalance.set(undefined as never);
   selectedToken.set(usdc as never);
   target = document.createElement('div');
   document.body.appendChild(target);
@@ -114,5 +123,34 @@ describe('fungible amount input', () => {
     await type('3');
     expect(get(enteredAmount)).toBe(BigInt(3000000));
     expect(errorShown()).toBe(false);
+  });
+
+  describe('balance reads', () => {
+    it("does not let a slow token switch overwrite a newer token's balance", async () => {
+      account.set({ address: '0xaaaa', isConnected: true } as never);
+
+      const slow = { type: TokenType.ERC20, symbol: 'SLOW', name: 'Slow', decimals: 18, addresses: {} };
+      const fast = { type: TokenType.ERC20, symbol: 'FAST', name: 'Fast', decimals: 18, addresses: {} };
+
+      let resolveSlow!: (value: unknown) => void;
+      fetchBalance.mockReturnValueOnce(new Promise((resolve) => (resolveSlow = resolve)));
+      selectedToken.set(slow as never);
+      await tick();
+
+      // A second switch, whose read answers first
+      fetchBalance.mockResolvedValueOnce({ value: BigInt(5), decimals: 18, symbol: 'FAST' });
+      selectedToken.set(fast as never);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await tick();
+      expect(get(tokenBalance)).toEqual({ value: BigInt(5), decimals: 18, symbol: 'FAST' });
+
+      // The earlier read lands late. Publishing it would validate amounts against SLOW's
+      // balance while FAST is selected
+      resolveSlow({ value: BigInt(999), decimals: 18, symbol: 'SLOW' });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await tick();
+
+      expect(get(tokenBalance)).toEqual({ value: BigInt(5), decimals: 18, symbol: 'FAST' });
+    });
   });
 });
