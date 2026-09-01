@@ -315,6 +315,36 @@ describe('Recipient dialog', () => {
       expect(m.recipientInput().value).toBe(WALLET);
     });
 
+    it('discards a destination-owner lookup still in flight when the edit is cancelled', async () => {
+      // supersedePendingValidation is called from every invalidation path there is, but it
+      // bumped only the recipient's counter - so a pending owner lookup survived Cancel,
+      // Escape, destroy and a draft change alike, and wrote the shared store afterwards.
+      isSmartContract.mockImplementation((addr: unknown) => Promise.resolve(addr === CONTRACT));
+      const m = mount();
+      await m.type(m.recipientInput(), CONTRACT);
+      await flush();
+
+      // Escape only cancels while the dialog is open, so open it the way the trigger does
+      const editButton = Array.from(m.target.querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('common.edit'),
+      ) as HTMLButtonElement;
+      editButton.click();
+      await flush();
+
+      let resolveOwner!: (value: boolean) => void;
+      isSmartContract.mockImplementationOnce(() => new Promise<boolean>((resolve) => (resolveOwner = resolve)));
+      await m.type(m.destOwnerInput() as HTMLInputElement, DEST_OWNER);
+      await tick();
+
+      await pressEscape();
+
+      // The cancelled lookup answers afterwards and must not commit the owner
+      resolveOwner(false);
+      await flush();
+
+      expect(get(destOwnerAddress)).toBeNull();
+    });
+
     it('discards a classification still in flight when the edit is cancelled', async () => {
       const m = await withConfirmedRecipient();
 

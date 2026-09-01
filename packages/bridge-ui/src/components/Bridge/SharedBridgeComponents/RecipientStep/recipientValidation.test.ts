@@ -4,6 +4,7 @@ const WALLET = '0x1111111111111111111111111111111111111111';
 const CONTRACT = '0x2222222222222222222222222222222222222222';
 const DEST_OWNER = '0x3333333333333333333333333333333333333333';
 const DEST_CHAIN = 167000;
+const OTHER_CHAIN = 1;
 
 /** A plain wallet recipient that has been classified on the current destination chain */
 const validState = (overrides: Partial<RecipientDialogState> = {}): RecipientDialogState => ({
@@ -27,7 +28,7 @@ const contractState = (overrides: Partial<RecipientDialogState> = {}): Recipient
     validatedRecipient: { address: CONTRACT, chainId: DEST_CHAIN },
     recipientIsSmartContract: true,
     destOwnerDraft: DEST_OWNER,
-    validatedDestOwner: DEST_OWNER,
+    validatedDestOwner: { address: DEST_OWNER, chainId: DEST_CHAIN },
     ...overrides,
   });
 
@@ -119,5 +120,13 @@ describe('canConfirmRecipient', () => {
     // have nobody able to process it. The standalone DestOwner dialog refuses one and this
     // field writes the same store.
     expect(canConfirmRecipient(contractState({ destOwnerIsSmartContract: true }))).toBe(false);
+  });
+
+  it('refuses an owner classified on the previous destination chain', () => {
+    // The same address is a contract on one chain and an EOA on another, so an answer
+    // carried across a switch - or restored from the store on a remount - is no answer here
+    expect(
+      canConfirmRecipient(contractState({ validatedDestOwner: { address: DEST_OWNER, chainId: OTHER_CHAIN } })),
+    ).toBe(false);
   });
 });

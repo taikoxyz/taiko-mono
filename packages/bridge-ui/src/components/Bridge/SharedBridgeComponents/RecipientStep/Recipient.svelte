@@ -55,14 +55,14 @@
   // AddressInput stays silent for a cleared field and for text without a `0x` prefix, so
   // these are compared against the live drafts before Confirm is enabled.
   let validatedRecipient: Maybe<ValidatedRecipient> = null;
-  let validatedDestOwner: Maybe<Address> = null;
+  let validatedDestOwner: Maybe<ValidatedRecipient> = null;
 
   // Snapshot of everything Cancel has to restore
   let prevInvalidRecipient = false;
   let prevInvalidDestOwner = false;
   let prevRecipientIsSmartContract = false;
   let prevValidatedRecipient: Maybe<ValidatedRecipient> = null;
-  let prevValidatedDestOwner: Maybe<Address> = null;
+  let prevValidatedDestOwner: Maybe<ValidatedRecipient> = null;
 
   function closeModal() {
     modalOpen = false;
@@ -73,9 +73,19 @@
     addressInput.focus();
   }
 
-  /** Discard any in-flight classification so its result cannot be committed later */
+  /**
+   * Discard any in-flight classification so its result cannot be committed later.
+   *
+   * Both counters, deliberately. This is called from every invalidation path there is -
+   * cancel, destroy, clearRecipient, either draft watcher, a destination-chain change - and
+   * when it bumped only the recipient's, every one of those paths left a pending
+   * destination-owner lookup free to resolve afterwards and write the store. Keeping the two
+   * together here is what makes a new invalidation path correct without having to remember
+   * there are two.
+   */
   function supersedePendingValidation() {
     recipientValidationGeneration++;
+    destOwnerValidationGeneration++;
     pendingRecipientLookup = null;
     validatingRecipient = false;
   }
@@ -240,7 +250,11 @@
     }
 
     $destOwnerAddress = addr;
-    validatedDestOwner = addr;
+    // Carries the chain it ran against, exactly as the recipient's does: the same address is
+    // a contract on one chain and an EOA on another, so an answer without its chain cannot
+    // be trusted after a switch - including across a remount, where it is restored from the
+    // store rather than re-read.
+    validatedDestOwner = { address: addr, chainId: destChainId };
   };
 
   /**
@@ -269,12 +283,17 @@
   function onCommittedDestOwnerChanged(committed: Maybe<Address>) {
     if (lastCommittedDestOwner === committed) return;
     lastCommittedDestOwner = committed;
-    validatedDestOwner = committed ?? null;
+    // Restored against the chain in force now, not blindly trusted: if the destination
+    // changed while this component was unmounted, an owner committed for the old chain must
+    // not present itself as validated here. canConfirmRecipient compares the chain, so a
+    // mismatch simply requires the re-check rather than blocking silently.
+    const chainId = $destNetwork?.id;
+    validatedDestOwner = committed && chainId ? { address: committed, chainId } : null;
     if (committed) invalidDestOwner = false;
   }
 
   function syncDestOwnerDraft(draft: Maybe<string>) {
-    if (validatedDestOwner && !addressesEqual(validatedDestOwner, draft)) {
+    if (validatedDestOwner && !addressesEqual(validatedDestOwner.address, draft)) {
       // $destOwnerAddress is deliberately left alone: rewriting it here would feed back
       // into the binding and wipe what the user is typing. Confirm is gated on the
       // validated value matching the draft, so the stale store value cannot be submitted.

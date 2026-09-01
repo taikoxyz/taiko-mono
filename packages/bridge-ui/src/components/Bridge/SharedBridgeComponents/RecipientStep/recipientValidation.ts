@@ -15,8 +15,8 @@ export type RecipientDialogState = {
   destOwnerDraft: Maybe<string>;
   /** The recipient a classification actually completed for, if any */
   validatedRecipient: Maybe<ValidatedRecipient>;
-  /** The destination owner a successful validation actually completed for, if any */
-  validatedDestOwner: Maybe<string>;
+  /** The destination owner a successful validation completed for, and the chain it ran on */
+  validatedDestOwner: Maybe<ValidatedRecipient>;
   /** The chain the bridge will deliver to */
   destChainId: Maybe<number>;
   invalidRecipient: boolean;
@@ -62,7 +62,10 @@ export function canConfirmRecipient(state: RecipientDialogState): boolean {
     // dialog refuses one; this field writes the same store and must agree.
     if (state.destOwnerIsSmartContract) return false;
     if (!state.destOwnerDraft) return false;
-    if (!addressesEqual(state.validatedDestOwner, state.destOwnerDraft)) return false;
+    if (!addressesEqual(state.validatedDestOwner?.address, state.destOwnerDraft)) return false;
+    // The owner's classification is chain-specific too, so an answer from the previous
+    // destination chain is no answer here
+    if (state.validatedDestOwner?.chainId !== state.destChainId) return false;
   }
 
   return true;
