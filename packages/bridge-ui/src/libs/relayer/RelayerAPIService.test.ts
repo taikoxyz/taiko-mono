@@ -913,6 +913,39 @@ describe('RelayerAPIService', () => {
     expect(result.failedTxs).toHaveLength(1);
   });
 
+  test('getAllBridgeTransactionByAddress counts a row too malformed to transform', async () => {
+    // Given: the relayer reports a fractional amount, which BigInt() refuses. The row never
+    // reaches the on-chain reads, so the enhancement counter never sees it - and it used to be
+    // dropped with nothing but a log line, leaving the list one message short and silent about it.
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const paginationParams = { page: 1, size: 10 };
+    const malformedRelayerItem = createRelayerItem({
+      id: 1553893,
+      messageId: '6283',
+      msgHash: BAD_MSG_HASH,
+      blockNumber: '0x7baa33',
+      amount: '1.5',
+    });
+    const validRelayerItem = createRelayerItem({
+      id: 1553894,
+      messageId: '6284',
+      msgHash: GOOD_MSG_HASH,
+      blockNumber: '0x7baa34',
+      srcTxHash: SECOND_SRC_TX_HASH,
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([malformedRelayerItem, validRelayerItem]));
+    mockedGetTransactionReceipt.mockResolvedValue(createReceiptWithMessageSentLog());
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
+
+    // Then: the good row loads and the malformed one is reported, identified off the raw row
+    expect(result.txs).toHaveLength(1);
+    expect(result.failedTxs).toEqual([{ msgHash: BAD_MSG_HASH, srcTxHash: SRC_TX_HASH }]);
+  });
+
   test('getAllBridgeTransactionByAddress does not count legitimately filtered rows as failures', async () => {
     // Given: a row for a route this UI is not configured for. _enhanceTransaction returns undefined
     // for it via `if (msgStatus === undefined) return;` - a filter, not a load failure.

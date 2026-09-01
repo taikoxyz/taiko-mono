@@ -382,6 +382,42 @@ describe('Recipient dialog', () => {
       expect(m.confirmButton.disabled).toBe(false);
     });
 
+    it('refuses a committed owner that is a contract on the destination chain now in force', async () => {
+      // Navigating Review -> Recipient recreates the component, and the destination chain can
+      // have changed in between: the store keeps the owner but not the chain its classification
+      // ran on. Taking the address on trust and stamping the current chain onto it manufactured
+      // the agreement canConfirmRecipient exists to test, and DEST_OWNER is an EOA on the chain
+      // it was committed for but a contract here - the one thing this field refuses, because a
+      // contract cannot be relied on to process a gasLimit-0 message.
+      recipientAddress.set(CONTRACT as never);
+      destOwnerAddress.set(DEST_OWNER as never);
+      isSmartContract.mockImplementation((addr: unknown, chainId: unknown) =>
+        Promise.resolve(addr === CONTRACT || (addr === DEST_OWNER && chainId === DEST_CHAIN)),
+      );
+
+      const m = mount();
+      const editButton = Array.from(m.target.querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('common.edit'),
+      ) as HTMLButtonElement;
+      editButton.click();
+      await flush();
+
+      expect(m.confirmButton.disabled).toBe(true);
+    });
+
+    it('refuses a contract owner written into the store by a path that never classified it', async () => {
+      // Not every writer of $destOwnerAddress validates: NFTBridge seeds the connected wallet
+      // into it and DestOwner's reset path does the same. A smart contract wallet arriving that
+      // way used to be accepted here purely because the store held it.
+      const m = await withContractRecipient();
+      isSmartContract.mockImplementation((addr: unknown) => Promise.resolve(addr === CONTRACT || addr === WALLET));
+
+      destOwnerAddress.set(WALLET as never);
+      await flush();
+
+      expect(m.confirmButton.disabled).toBe(true);
+    });
+
     it('accepts an owner validated in the separate DestOwner editor while Recipient stays mounted', async () => {
       // RecipientStep mounts Recipient and DestOwner side by side against the same
       // $destOwnerAddress store, so the other editor can commit a new owner without

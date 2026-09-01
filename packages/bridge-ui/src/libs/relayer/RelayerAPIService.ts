@@ -489,6 +489,14 @@ export class RelayerAPIService {
       return { txs: [], paginationInfo, failedTxs: [] };
     }
 
+    // Only a thrown row is a load failure. _enhanceTransaction also returns undefined for four
+    // legitimate filters (not this user's transaction, ambiguous receipt, no msgHash, no
+    // configured route); those rows are deliberately not shown, so counting them would report a
+    // loss that never happened.
+    // Hashes, not a tally: the caller merges these across pages and relayers, where the same
+    // transaction can appear more than once and can even succeed elsewhere.
+    const failedTxs: FailedBridgeTx[] = [];
+
     const items = RelayerAPIService._filterDuplicateAndWrongBridge(apiTxs.items);
 
     const txs: BridgeTransaction[] = items
@@ -496,19 +504,19 @@ export class RelayerAPIService {
         try {
           return RelayerAPIService._transformTransaction(tx);
         } catch (error) {
+          // Counted, not just logged. Whether a row fell over on its own fields or on an
+          // on-chain read is the relayer's distinction, not the user's: either way this is a
+          // message they have and this list does not show, which is what the count is for.
+          // The identifiers are read off the raw row, so they survive the transform that did
+          // not. A row carrying neither is unreconcilable against the finished list, so it is
+          // left to the log rather than counted against a hash nothing can match.
+          const srcTxHash = tx.data?.Raw?.transactionHash;
+          if (tx.msgHash || srcTxHash) failedTxs.push({ msgHash: tx.msgHash, srcTxHash });
           log('Skipping malformed relayer transaction', { error, tx });
           return null;
         }
       })
       .filter((tx): tx is BridgeTransaction => tx !== null);
-
-    // Only a thrown enhancement is a load failure. _enhanceTransaction also returns undefined for
-    // four legitimate filters (not this user's transaction, ambiguous receipt, no msgHash, no
-    // configured route); those rows are deliberately not shown, so counting them would report a
-    // loss that never happened.
-    // Hashes, not a tally: the caller merges these across pages and relayers, where the same
-    // transaction can appear more than once and can even succeed elsewhere.
-    const failedTxs: FailedBridgeTx[] = [];
 
     const txsPromises = txs.map(async (bridgeTx) => {
       if (!bridgeTx) return;

@@ -273,23 +273,43 @@
   }
 
   /**
-   * The committed store, unlike the local draft, only ever holds an address that passed
-   * validation - here, in the separate DestOwner editor, or as the connected wallet. So a
-   * change to it carries its own provenance and must restore it, whether it came from a
-   * remount, from the other editor, or from its reset-to-wallet path. Watching the store
-   * rather than the draft is what keeps an unvalidated draft from promoting itself.
+   * Watching the committed store rather than the local draft is what keeps an unvalidated
+   * draft from promoting itself. But the store holds an address and nothing else - not the
+   * chain any classification ran on, and not whether one ever ran. Stamping the current
+   * chain onto whatever arrives manufactured the very agreement canConfirmRecipient exists
+   * to test, and two live paths write this store without classifying at all: NFTBridge
+   * seeds the connected wallet into it, and DestOwner's reset path does the same. A smart
+   * contract wallet arriving that way was accepted as the destination owner - the one thing
+   * this field refuses - and on a gasLimit-0 message that leaves nobody able to process it.
+   *
+   * So a committed owner is re-read against the destination chain in force now, exactly as
+   * the standalone dialog does when it opens, instead of being taken on trust. Confirm stays
+   * disabled for the moment that takes, which is the same moment any other classification
+   * costs.
    */
   let lastCommittedDestOwner: Maybe<Address> = undefined;
+  /** A committed owner that arrived before any destination chain did */
+  let destOwnerAwaitingChain = false;
   function onCommittedDestOwnerChanged(committed: Maybe<Address>) {
     if (lastCommittedDestOwner === committed) return;
     lastCommittedDestOwner = committed;
-    // Restored against the chain in force now, not blindly trusted: if the destination
-    // changed while this component was unmounted, an owner committed for the old chain must
-    // not present itself as validated here. canConfirmRecipient compares the chain, so a
-    // mismatch simply requires the re-check rather than blocking silently.
-    const chainId = $destNetwork?.id;
-    validatedDestOwner = committed && chainId ? { address: committed, chainId } : null;
-    if (committed) invalidDestOwner = false;
+
+    // Any answer held now describes the previous committed address
+    destOwnerValidationGeneration++;
+    validatedDestOwner = null;
+    destOwnerIsSmartContract = false;
+
+    destOwnerAwaitingChain = false;
+    if (!committed) return;
+    invalidDestOwner = false;
+    if ($destNetwork?.id) {
+      validateDestOwner(committed);
+    } else {
+      // Nothing to classify against yet. The destination chain arriving is the first run of
+      // onDestChainChanged, which skips its own invalidation, so the owner is handed to it
+      // explicitly rather than left silently unclassified.
+      destOwnerAwaitingChain = true;
+    }
   }
 
   function syncDestOwnerDraft(draft: Maybe<string>) {
@@ -309,7 +329,15 @@
     // own validation when it was committed
     const firstRun = lastDestChainId === undefined;
     lastDestChainId = chainId;
-    if (firstRun) return;
+    if (firstRun) {
+      // The mount already sent the committed owner for classification, unless there was no
+      // destination chain to classify it against at the time. There is one now.
+      if (chainId && destOwnerAwaitingChain && $destOwnerAddress) {
+        destOwnerAwaitingChain = false;
+        validateDestOwner($destOwnerAddress);
+      }
+      return;
+    }
 
     // Any classification or in-flight lookup belongs to the previous destination chain
     supersedePendingValidation();
