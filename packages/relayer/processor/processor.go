@@ -554,19 +554,7 @@ func (p *Processor) eventLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case msg := <-p.msgCh:
-			go func(m queue.Message) {
-				defer func() {
-					if r := recover(); r != nil {
-						slog.Error("panic processing message", "panic", r)
-
-						if err := p.queue.Nack(ctx, m, false); err != nil {
-							slog.Error("Err nacking panicked message", "err", err.Error())
-						}
-					}
-				}()
-
-				p.processDelivery(ctx, m)
-			}(msg)
+			go p.processDelivery(ctx, msg)
 		}
 	}
 }
@@ -574,10 +562,25 @@ func (p *Processor) eventLoop(ctx context.Context) {
 // processDelivery runs one delivery and settles it on the queue, holding the message's in-flight
 // claim across both so a duplicate cannot start while this delivery's Ack, Nack or transient
 // republish is still going out.
+//
+// A panic settles the delivery too, and inside the same claim. Recovering outside it — in the
+// goroutine that calls this — meant the release ran while the stack unwound and the nack went out
+// afterwards, so a duplicate could take the message back while that nack was still in flight or
+// failing, which is the window the claim exists to close.
 func (p *Processor) processDelivery(ctx context.Context, m queue.Message) {
 	release, err := p.claimDelivery(m)
 
 	defer release()
+
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("panic processing message", "panic", r)
+
+			if err := p.queue.Nack(ctx, m, false); err != nil {
+				slog.Error("Err nacking panicked message", "err", err.Error())
+			}
+		}
+	}()
 
 	if err != nil {
 		p.handleProcessMessageResult(ctx, m, false, 0, err)

@@ -470,6 +470,25 @@ func (q *blockingQueue) Ack(ctx context.Context, msg queue.Message) error {
 	return q.recordingQueue.Ack(ctx, msg)
 }
 
+// panickingQueue panics where a delivery's disposition would start, then blocks inside the nack the
+// recovery makes, so the window between the two can be inspected.
+type panickingQueue struct {
+	recordingQueue
+	nackStarted chan struct{}
+	nackGate    chan struct{}
+}
+
+func (q *panickingQueue) Ack(_ context.Context, _ queue.Message) error {
+	panic("settling this delivery blew up")
+}
+
+func (q *panickingQueue) Nack(ctx context.Context, msg queue.Message, requeue bool) error {
+	close(q.nackStarted)
+	<-q.nackGate
+
+	return q.recordingQueue.Nack(ctx, msg, requeue)
+}
+
 func Test_ProcessDelivery_HoldsTheClaimUntilTheDispositionCompletes(t *testing.T) {
 	release := make(chan struct{})
 	q := &blockingQueue{ackStarted: make(chan struct{}), ackGate: release}
@@ -501,6 +520,47 @@ func Test_ProcessDelivery_HoldsTheClaimUntilTheDispositionCompletes(t *testing.T
 
 	assert.ErrorIs(t, err, errAlreadyProcessing,
 		"the claim has to outlive the Ack, or a duplicate starts while it is still going out")
+}
+
+func Test_ProcessDelivery_HoldsTheClaimThroughAPanicsNack(t *testing.T) {
+	release := make(chan struct{})
+	q := &panickingQueue{nackStarted: make(chan struct{}), nackGate: release}
+
+	p := newTestProcessor(true)
+	p.queue = q
+
+	_, delivery := messageSentFromOneTransaction(
+		common.HexToHash("0xdead"),
+		common.HexToHash("0xaa"),
+	)
+
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+
+		// The caller's own net, standing in for the recovery that used to live out here. With the
+		// recovery inside the claim nothing reaches it; with the recovery out here it is what
+		// settles the delivery — after the claim has already been released on the way out.
+		defer func() {
+			if r := recover(); r != nil {
+				_ = p.queue.Nack(context.Background(), delivery, false)
+			}
+		}()
+
+		p.processDelivery(context.Background(), delivery)
+	}()
+
+	// Wait until the recovery's nack is going out.
+	<-q.nackStarted
+
+	_, err := p.claimDelivery(delivery)
+
+	close(release)
+	<-done
+
+	assert.ErrorIs(t, err, errAlreadyProcessing,
+		"a panic still settles the delivery, and that settlement is inside the claim")
 }
 
 func Test_ProcessMessage_unprofitable(t *testing.T) {
