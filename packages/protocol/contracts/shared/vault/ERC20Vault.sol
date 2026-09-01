@@ -313,7 +313,10 @@ contract ERC20Vault is BaseVault {
     /// @param _nonce The Permit2 unordered nonce.
     /// @param _deadline The Permit2 signature's expiry timestamp.
     /// @param _signature The caller's Permit2 signature, which must authorize exactly `_op.amount`
-    /// of `_op.token`.
+    /// of `_op.token`. Passed to Permit2 verbatim as `bytes`, so a smart-contract wallet may
+    /// authorize the transfer with an EIP-1271 signature: Permit2 routes a signer that has code to
+    /// `isValidSignature` instead of `ecrecover`. Helpers that take a split `(v, r, s)` cannot
+    /// express such a signature, which is why the raw bytes are threaded through here.
     /// @return message_ The constructed message.
     function sendTokenWithPermit2(
         BridgeTransferOp calldata _op,
