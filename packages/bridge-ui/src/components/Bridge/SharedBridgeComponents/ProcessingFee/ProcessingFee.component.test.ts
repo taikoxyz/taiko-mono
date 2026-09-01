@@ -136,6 +136,27 @@ describe('zero gas limit', () => {
     expect(get(processingFeeMethod)).toBe(ProcessingFeeMethod.RECOMMENDED);
   });
 
+  it('commits an edit to an already-committed custom fee', async () => {
+    await openCustom();
+    await acknowledge();
+    await type('0.002');
+    confirmButton().click();
+    await tick();
+    expect(get(processingFee)).toBe(BigInt('2000000000000000'));
+
+    // Reopen on the committed fee and raise it. The method does not change, so confirmChanges
+    // calls updateProcessingFee directly rather than through a store change - and closeModal
+    // runs after that call, so a bare modalOpen guard drops the edit and keeps the old fee.
+    await openCustom();
+    await acknowledge();
+    await type('0.01');
+    expect(confirmButton().disabled).toBe(false);
+    confirmButton().click();
+    await tick();
+
+    expect(get(processingFee)).toBe(BigInt('10000000000000000'));
+  });
+
   it('does not let a fee refresh commit the custom draft while the dialog is open', async () => {
     // Commit 0.002 first
     await openCustom();

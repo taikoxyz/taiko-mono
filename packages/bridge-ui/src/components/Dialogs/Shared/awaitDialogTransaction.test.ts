@@ -49,9 +49,12 @@ describe('awaitDialogTransaction', () => {
     expect(await awaitDialogTransaction(HASH, 1)).toBe('pending');
   });
 
-  it('treats an unrecognised rejection as pending, since it says nothing either', async () => {
+  it('surfaces an unrecognised rejection rather than calling it pending', async () => {
+    // The two errors above are the only ones that mean the wait gave up. Anything else is
+    // unexpected - a bug here, a new error type - and reporting it as "may still confirm"
+    // left the action disabled with the real error buried behind a reassurance.
     add.mockRejectedValue(new Error('something else'));
 
-    expect(await awaitDialogTransaction(HASH, 1)).toBe('pending');
+    expect(await awaitDialogTransaction(HASH, 1)).toBe('failed');
   });
 });

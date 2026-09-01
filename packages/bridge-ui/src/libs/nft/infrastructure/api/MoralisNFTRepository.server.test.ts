@@ -219,6 +219,29 @@ describe('MoralisNFTRepository.server', () => {
       expect(getWalletNFTs).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: 'cursor-0' }));
     });
 
+    /** Leaves the wallet finished: no cursor means nothing is left to page through */
+    const seedComplete = async (address: Address) => {
+      getWalletNFTs.mockResolvedValueOnce(moralisPage([1], null));
+      await repository.findByAddress({ address, chainId: CHAIN_ID, refresh: true });
+    };
+
+    it('evicts a finished wallet before one still walking its pages', async () => {
+      // The wallet mid-walk is the oldest, so plain LRU would take it. Its cursor is the
+      // one that cannot be reconstructed: restarting at page one returns what is already
+      // on screen, nextPage sees no growth, and ScannedImport retires "load more".
+      await seed(walletN(0), 'cursor-0');
+      for (let n = 1; n < MAX_CACHED_WALLETS; n++) {
+        await seedComplete(walletN(n));
+      }
+
+      await seed(walletN(MAX_CACHED_WALLETS), 'cursor-new');
+
+      getWalletNFTs.mockResolvedValueOnce(moralisPage([3], null));
+      await repository.findByAddress({ address: walletN(0), chainId: CHAIN_ID, refresh: false });
+
+      expect(getWalletNFTs).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: 'cursor-0' }));
+    });
+
     it('evicts the least recently used wallet, not the first one inserted', async () => {
       // Given: the cache is full
       for (let n = 0; n < MAX_CACHED_WALLETS; n++) {

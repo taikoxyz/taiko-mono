@@ -175,9 +175,29 @@ class MoralisNFTRepository implements INFTRepository {
     return state;
   }
 
-  /** @dev Map iteration is insertion-ordered, and getState re-inserts on every hit */
+  /**
+   * @dev Map iteration is insertion-ordered, and getState re-inserts on every hit, so the
+   *      first match of each pass below is the least recently used of its kind.
+   *
+   *      A finished wallet is evicted before one still walking its pages. Evicting mid-walk
+   *      drops that wallet's cursor, and the restart is not harmless: the next "load more"
+   *      begins at page one and returns what is already on screen, so `nextPage` sees no
+   *      growth, reports that nothing arrived, and ScannedImport retires the button until a
+   *      refresh. This endpoint is unauthenticated, so the churn needed to force that is
+   *      cheap to produce; preferring completed sessions keeps the cache bounded without
+   *      making an in-progress walk the easiest thing to throw away.
+   */
   private evictLeastRecentlyUsedIfFull(): void {
     if (this.stateByWallet.size < MAX_CACHED_WALLETS) return;
+
+    for (const [key, state] of this.stateByWallet) {
+      if (state.hasFetchedAll) {
+        this.stateByWallet.delete(key);
+        return;
+      }
+    }
+
+    // Every entry is mid-walk, so the cap has to be honoured at the oldest one's expense
     const leastRecentlyUsedKey = this.stateByWallet.keys().next().value;
     if (leastRecentlyUsedKey !== undefined) {
       this.stateByWallet.delete(leastRecentlyUsedKey);

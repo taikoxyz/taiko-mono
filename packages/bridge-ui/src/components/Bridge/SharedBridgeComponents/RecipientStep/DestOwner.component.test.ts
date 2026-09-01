@@ -162,6 +162,39 @@ describe('DestOwner dialog', () => {
     expect(get(destOwnerAddress)).toBeNull();
   });
 
+  it('opens on an owner committed elsewhere without needing it retyped', async () => {
+    // Recipient.svelte and NFTBridge.resetForm both write this store, so the dialog can be
+    // opened on an owner its own input never saw. That was cosmetic until Confirm began
+    // requiring a validation matching the draft - after that the box opened empty and
+    // Confirm was dead until the same address was retyped.
+    isSmartContract.mockResolvedValue(false);
+    destOwnerAddress.set(OWNER_A as never);
+    await tick();
+
+    await openDialog();
+    await flush();
+
+    expect(input().value).toBe(OWNER_A);
+    expect(confirmButton().disabled).toBe(false);
+  });
+
+  it('re-checks the owner against a new destination chain', async () => {
+    isSmartContract.mockResolvedValue(false);
+    await openDialog();
+    await type(OWNER_A);
+    await flush();
+    expect(confirmButton().disabled).toBe(false);
+
+    // The same address can be a contract on the new chain, so the old answer cannot stand.
+    // Without a re-check Confirm just goes dead with nothing explaining why.
+    isSmartContract.mockClear();
+    destNetwork.set({ id: 1 } as never);
+    await flush();
+
+    expect(isSmartContract).toHaveBeenCalledWith(OWNER_A, 1);
+    expect(confirmButton().disabled).toBe(false);
+  });
+
   it('restores the committed address when the edit is cancelled', async () => {
     isSmartContract.mockResolvedValue(false);
     await openDialog();

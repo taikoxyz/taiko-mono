@@ -79,7 +79,9 @@ const mount = (): Mounted => {
 
 /** Drives the dialog to a classified smart-contract recipient */
 const withContractRecipient = async () => {
-  isSmartContract.mockResolvedValue(true);
+  // Address-aware, not a blanket true: the destination owner is classified through the same
+  // helper now, and answering "contract" for it too would block Confirm for the wrong reason
+  isSmartContract.mockImplementation((addr: unknown) => Promise.resolve(addr === CONTRACT));
   const m = mount();
   await m.type(m.recipientInput(), CONTRACT);
   await flush();
@@ -154,6 +156,46 @@ describe('Recipient dialog', () => {
 
     expect(m.confirmButton.disabled).toBe(false);
     expect(get(destOwnerAddress)).toBe(DEST_OWNER);
+  });
+
+  it('discards a destination-owner classification made for the previous destination chain', async () => {
+    // The owner lookup is async and runs against the destination chain. One started before a
+    // switch used to land afterwards and commit, so an EOA on the old chain could be
+    // committed while being a contract on the new one - the one thing this field refuses.
+    const m = await withContractRecipient();
+
+    // The owner is an EOA on the current chain but a contract on the one switched to, which
+    // is the case the stale answer would hide
+    let resolveOwner!: (value: boolean) => void;
+    isSmartContract.mockImplementationOnce(() => new Promise<boolean>((resolve) => (resolveOwner = resolve)));
+    await m.type(m.destOwnerInput() as HTMLInputElement, DEST_OWNER);
+    await tick();
+
+    isSmartContract.mockImplementation((addr: unknown, chainId: unknown) =>
+      Promise.resolve(addr === CONTRACT || (addr === DEST_OWNER && chainId === OTHER_CHAIN)),
+    );
+    destNetwork.set({ id: OTHER_CHAIN } as never);
+    await tick();
+
+    // The old chain's answer arrives after the switch
+    resolveOwner(false);
+    await flush();
+
+    expect(m.confirmButton.disabled).toBe(true);
+    expect(get(destOwnerAddress)).toBeNull();
+  });
+
+  it('blocks Confirm for a destination owner that is itself a contract', async () => {
+    // The fallback processor has to be able to call processMessage. This check was commented
+    // out here while the standalone DestOwner dialog enforced it - two paths to the same
+    // store disagreeing, and on a gasLimit-0 message that strands the funds.
+    const m = await withContractRecipient();
+
+    await m.type(m.destOwnerInput() as HTMLInputElement, CONTRACT);
+    await flush();
+
+    expect(m.confirmButton.disabled).toBe(true);
+    expect(get(destOwnerAddress)).toBeNull();
   });
 
   it('blocks Confirm again when the destination owner draft is edited after validating', async () => {
@@ -273,6 +315,36 @@ describe('Recipient dialog', () => {
       expect(m.recipientInput().value).toBe(WALLET);
     });
 
+    it('discards a destination-owner lookup still in flight when the edit is cancelled', async () => {
+      // supersedePendingValidation is called from every invalidation path there is, but it
+      // bumped only the recipient's counter - so a pending owner lookup survived Cancel,
+      // Escape, destroy and a draft change alike, and wrote the shared store afterwards.
+      isSmartContract.mockImplementation((addr: unknown) => Promise.resolve(addr === CONTRACT));
+      const m = mount();
+      await m.type(m.recipientInput(), CONTRACT);
+      await flush();
+
+      // Escape only cancels while the dialog is open, so open it the way the trigger does
+      const editButton = Array.from(m.target.querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('common.edit'),
+      ) as HTMLButtonElement;
+      editButton.click();
+      await flush();
+
+      let resolveOwner!: (value: boolean) => void;
+      isSmartContract.mockImplementationOnce(() => new Promise<boolean>((resolve) => (resolveOwner = resolve)));
+      await m.type(m.destOwnerInput() as HTMLInputElement, DEST_OWNER);
+      await tick();
+
+      await pressEscape();
+
+      // The cancelled lookup answers afterwards and must not commit the owner
+      resolveOwner(false);
+      await flush();
+
+      expect(get(destOwnerAddress)).toBeNull();
+    });
+
     it('discards a classification still in flight when the edit is cancelled', async () => {
       const m = await withConfirmedRecipient();
 
@@ -296,7 +368,7 @@ describe('Recipient dialog', () => {
       // keep the contract recipient and its owner; the local validation record does not.
       recipientAddress.set(CONTRACT as never);
       destOwnerAddress.set(DEST_OWNER as never);
-      isSmartContract.mockResolvedValue(true);
+      isSmartContract.mockImplementation((addr: unknown) => Promise.resolve(addr === CONTRACT));
 
       const m = mount();
       const editButton = Array.from(m.target.querySelectorAll('button')).find((b) =>

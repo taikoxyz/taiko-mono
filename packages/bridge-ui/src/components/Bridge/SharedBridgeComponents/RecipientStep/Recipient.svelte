@@ -42,7 +42,7 @@
   let prevDestOwnerAddress: Maybe<Address> = null;
 
   let recipientIsSmartContract = false;
-  // let destOwnerIsSmartContract = false;
+  let destOwnerIsSmartContract = false;
 
   // Classifying a recipient needs an RPC round trip. Until it resolves we do not know
   // whether a destination owner is required, so confirming stays blocked; a superseded
@@ -55,14 +55,14 @@
   // AddressInput stays silent for a cleared field and for text without a `0x` prefix, so
   // these are compared against the live drafts before Confirm is enabled.
   let validatedRecipient: Maybe<ValidatedRecipient> = null;
-  let validatedDestOwner: Maybe<Address> = null;
+  let validatedDestOwner: Maybe<ValidatedRecipient> = null;
 
   // Snapshot of everything Cancel has to restore
   let prevInvalidRecipient = false;
   let prevInvalidDestOwner = false;
   let prevRecipientIsSmartContract = false;
   let prevValidatedRecipient: Maybe<ValidatedRecipient> = null;
-  let prevValidatedDestOwner: Maybe<Address> = null;
+  let prevValidatedDestOwner: Maybe<ValidatedRecipient> = null;
 
   function closeModal() {
     modalOpen = false;
@@ -73,9 +73,19 @@
     addressInput.focus();
   }
 
-  /** Discard any in-flight classification so its result cannot be committed later */
+  /**
+   * Discard any in-flight classification so its result cannot be committed later.
+   *
+   * Both counters, deliberately. This is called from every invalidation path there is -
+   * cancel, destroy, clearRecipient, either draft watcher, a destination-chain change - and
+   * when it bumped only the recipient's, every one of those paths left a pending
+   * destination-owner lookup free to resolve afterwards and write the store. Keeping the two
+   * together here is what makes a new invalidation path correct without having to remember
+   * there are two.
+   */
   function supersedePendingValidation() {
     recipientValidationGeneration++;
+    destOwnerValidationGeneration++;
     pendingRecipientLookup = null;
     validatingRecipient = false;
   }
@@ -201,16 +211,50 @@
     }
   }
 
+  /**
+   * The destination owner is the fallback processor for a message the recipient cannot
+   * claim, so it has to be an account that can actually call processMessage. This check was
+   * commented out, which let a contract be committed here while the standalone DestOwner
+   * dialog refused one - two paths to the same store disagreeing, and on a gasLimit-0
+   * message the disagreement strands the funds.
+   */
+  let destOwnerValidationGeneration = 0;
+
   const validateDestOwner = async (addr: Address) => {
-    $destOwnerAddress = addr;
-    validatedDestOwner = addr;
+    const generation = ++destOwnerValidationGeneration;
     invalidDestOwner = false;
-    // if ($destNetwork?.id && (await isSmartContract(addr, $destNetwork.id))) {
-    //   destOwnerIsSmartContract = true;
-    //   // invalidDestOwner = true;
-    // } else {
-    //   destOwnerIsSmartContract = false;
-    // }
+
+    const destChainId = $destNetwork?.id;
+    if (!destChainId) {
+      validatedDestOwner = null;
+      return;
+    }
+
+    let isContract: boolean;
+    try {
+      isContract = await isSmartContract(addr, destChainId);
+    } catch (error) {
+      // An unreadable chain is not a classification; it must not stand in for one
+      console.error('Could not classify the destination owner', error);
+      if (generation !== destOwnerValidationGeneration) return;
+      validatedDestOwner = null;
+      destOwnerIsSmartContract = false;
+      return;
+    }
+
+    if (generation !== destOwnerValidationGeneration) return;
+    destOwnerIsSmartContract = isContract;
+    if (isContract) {
+      validatedDestOwner = null;
+      return;
+    }
+
+    $destOwnerAddress = addr;
+    // Carries the chain it ran against, exactly as the recipient's does: the same address is
+    // a contract on one chain and an EOA on another, so an answer without its chain cannot
+    // be trusted after a switch - including across a remount, where it is restored from the
+    // store rather than re-read.
+    validatedDestOwner = { address: addr, chainId: destChainId };
   };
 
   /**
@@ -239,12 +283,17 @@
   function onCommittedDestOwnerChanged(committed: Maybe<Address>) {
     if (lastCommittedDestOwner === committed) return;
     lastCommittedDestOwner = committed;
-    validatedDestOwner = committed ?? null;
+    // Restored against the chain in force now, not blindly trusted: if the destination
+    // changed while this component was unmounted, an owner committed for the old chain must
+    // not present itself as validated here. canConfirmRecipient compares the chain, so a
+    // mismatch simply requires the re-check rather than blocking silently.
+    const chainId = $destNetwork?.id;
+    validatedDestOwner = committed && chainId ? { address: committed, chainId } : null;
     if (committed) invalidDestOwner = false;
   }
 
   function syncDestOwnerDraft(draft: Maybe<string>) {
-    if (validatedDestOwner && !addressesEqual(validatedDestOwner, draft)) {
+    if (validatedDestOwner && !addressesEqual(validatedDestOwner.address, draft)) {
       // $destOwnerAddress is deliberately left alone: rewriting it here would feed back
       // into the binding and wipe what the user is typing. Confirm is gated on the
       // validated value matching the draft, so the stale store value cannot be submitted.
@@ -255,11 +304,26 @@
   let lastDestChainId: Maybe<number> = undefined;
   function onDestChainChanged(chainId: Maybe<number>) {
     if (lastDestChainId === chainId) return;
+    // The first run is the mount, where there is nothing to discard - and the destination
+    // owner has just been seeded from the store, which is a value that already passed its
+    // own validation when it was committed
+    const firstRun = lastDestChainId === undefined;
     lastDestChainId = chainId;
+    if (firstRun) return;
+
     // Any classification or in-flight lookup belongs to the previous destination chain
     supersedePendingValidation();
     validatedRecipient = null;
     recipientIsSmartContract = false;
+
+    // The destination owner is classified on the destination chain too, and that lookup is
+    // async as well - one started on the old chain could otherwise land after the switch and
+    // commit an owner that is a contract here, which is the one thing this field refuses.
+    // The address on screen is re-checked against the new chain rather than left stale.
+    destOwnerValidationGeneration++;
+    validatedDestOwner = null;
+    destOwnerIsSmartContract = false;
+    if (destOwnerAddressBinding && destOwnerAddressInput) destOwnerAddressInput.validateAddress();
   }
 
   // Declared via <svelte:window> so Svelte owns the lifecycle: exactly one listener per
@@ -297,6 +361,7 @@
     destChainId: $destNetwork?.id ?? null,
     invalidRecipient,
     invalidDestOwner,
+    destOwnerIsSmartContract,
     recipientIsSmartContract,
     validatingRecipient,
   });

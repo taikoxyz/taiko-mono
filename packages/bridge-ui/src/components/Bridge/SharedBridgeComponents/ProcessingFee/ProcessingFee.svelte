@@ -73,7 +73,7 @@
         $processingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
       } else {
         if ($processingFeeMethod === tempProcessingFeeMethod) {
-          updateProcessingFee($processingFeeMethod, recommendedAmount);
+          updateProcessingFee($processingFeeMethod, recommendedAmount, true);
         } else {
           $processingFeeMethod = tempProcessingFeeMethod;
         }
@@ -152,23 +152,30 @@
     tempprocessingFee = parsed;
   }
 
-  async function updateProcessingFee(method: ProcessingFeeMethod, recommendedAmount: bigint) {
+  /**
+   * @param committing Whether Confirm asked for this. The reactive below re-runs on every
+   *        recommended-fee refresh and must not commit the draft, but `confirmChanges`
+   *        calls this directly when the method is unchanged - the "edit an already-committed
+   *        custom fee" path - and closeModal runs after that call, so a guard on `modalOpen`
+   *        alone silently dropped the edit and kept the old fee.
+   */
+  async function updateProcessingFee(method: ProcessingFeeMethod, recommendedAmount: bigint, committing = false) {
     switch (method) {
       case ProcessingFeeMethod.RECOMMENDED:
         $processingFee = recommendedAmount;
 
         break;
       case ProcessingFeeMethod.CUSTOM:
-        // Confirm is the only thing that may commit the draft. This reactive re-runs on
-        // every recommended-fee refresh, and tempprocessingFee is the live draft being
-        // typed, so a refresh landing mid-edit committed a fee nobody confirmed - and then
-        // Cancel resynced the draft from the store, making the leak permanent. Skipping it
-        // while the dialog is open also stops the refresh stealing focus back to the box.
-        if (modalOpen) break;
+        // Confirm is the only thing that may commit the draft. This runs from a reactive
+        // that re-fires on every recommended-fee refresh, and tempprocessingFee is the live
+        // draft being typed, so a refresh landing mid-edit committed a fee nobody confirmed
+        // - and then Cancel resynced the draft from the store, making the leak permanent.
+        // Skipping it while the dialog is open also stops the refresh stealing focus.
+        if (modalOpen && !committing) break;
         $processingFee = tempprocessingFee;
         // We need to wait for Svelte to set the attribute `disabled` on the input
-        // to false to be able to focus it
-        tick().then(focusInputBox);
+        // to false to be able to focus it. Not on the committing path: the dialog is closing.
+        if (!committing) tick().then(focusInputBox);
         break;
       case ProcessingFeeMethod.NONE:
         $processingFee = BigInt(0);
