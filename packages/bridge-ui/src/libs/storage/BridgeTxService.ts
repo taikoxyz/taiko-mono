@@ -51,37 +51,24 @@ export class BridgeTxService {
 
     if (!client) throw new Error('Could not get public client');
 
-    const filter = await client.createContractEventFilter({
-      abi: bridgeAbi,
-      address: bridgeAddress,
-      eventName: 'MessageSent',
-      fromBlock: BigInt(blockNumber),
-      toBlock: BigInt(blockNumber),
-    });
-
     try {
-      const messageSentEvents = await client.getFilterLogs({ filter });
+      // eth_getLogs, not eth_newFilter: creating a filter is a stateful RPC method, and a
+      // load-balanced gateway cannot serve it ("stateful method requires a single targeted
+      // upstream"). Retrying only recreated the same filter, so it failed identically.
+      // The range is a single block, so a direct log query is exactly equivalent.
+      const messageSentEvents = await client.getContractEvents({
+        abi: bridgeAbi,
+        address: bridgeAddress,
+        eventName: 'MessageSent',
+        fromBlock: BigInt(blockNumber),
+        toBlock: BigInt(blockNumber),
+      });
+
       // Filter out those events that are not from the current address
       return messageSentEvents.find(({ args }) => args.message?.srcOwner.toLowerCase() === userAddress.toLowerCase());
     } catch (error) {
-      log('Error getting logs via filter, retrying...', error);
-
-      // we try again, often recreating the filter fixes the issue
-      try {
-        const filter = await client.createContractEventFilter({
-          abi: bridgeAbi,
-          address: bridgeAddress,
-          eventName: 'MessageSent',
-          fromBlock: BigInt(blockNumber),
-          toBlock: BigInt(blockNumber),
-        });
-        const messageSentEvents = await client.getFilterLogs({ filter });
-        // Filter out those events that are not from the current address
-        return messageSentEvents.find(({ args }) => args.message?.srcOwner.toLowerCase() === userAddress.toLowerCase());
-      } catch (error) {
-        console.error('Error filtering logs', error);
-        throw new FilterLogsError('Error getting logs via filter');
-      }
+      console.error('Error getting MessageSent logs', error);
+      throw new FilterLogsError('Error getting logs via filter');
     }
   }
 

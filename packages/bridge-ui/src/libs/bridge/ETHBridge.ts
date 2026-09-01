@@ -12,6 +12,7 @@ import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
 import { estimateMessageGasLimit } from './estimateMessageGasLimit';
+import { feeForGasLimit } from './messageFeeInvariant';
 import type { ETHBridgeArgs, Message } from './types';
 
 const log = getLogger('bridge:ETHBridge');
@@ -65,7 +66,8 @@ export class ETHBridge extends Bridge {
 
       gasLimit: Number(gasLimit),
       value,
-      fee: processingFee,
+      // A zero gas limit cannot carry a fee - the bridge reverts with B_INVALID_FEE
+      fee: feeForGasLimit(Number(gasLimit), processingFee),
 
       data: '0x',
       id: BigInt(0), // will be set in contract

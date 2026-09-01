@@ -19,6 +19,7 @@ import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
 import { estimateMessageGasLimit } from './estimateMessageGasLimit';
+import { feeForGasLimit } from './messageFeeInvariant';
 import type { ERC1155BridgeArgs, NFTApproveArgs, NFTBridgeTransferOp, RequireApprovalArgs } from './types';
 
 const log = getLogger('ERC1155Bridge');
@@ -215,7 +216,8 @@ export class ERC1155Bridge extends Bridge {
       destOwner: get(destOwnerAddress) || to,
       token,
       gasLimit: Number(gasLimit),
-      fee,
+      // A zero gas limit cannot carry a fee - the bridge reverts with B_INVALID_FEE
+      fee: feeForGasLimit(Number(gasLimit), fee),
       tokenIds: tokenIds.map(BigInt),
       amounts: amounts.map(BigInt),
     };

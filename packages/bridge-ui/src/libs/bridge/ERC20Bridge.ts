@@ -19,6 +19,7 @@ import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
 import { estimateMessageGasLimit } from './estimateMessageGasLimit';
+import { feeForGasLimit } from './messageFeeInvariant';
 import type { ApproveArgs, ERC20BridgeArgs, ERC20BridgeTransferOp, RequireAllowanceArgs } from './types';
 
 const log = getLogger('ERC20Bridge');
@@ -67,7 +68,8 @@ export class ERC20Bridge extends Bridge {
       token,
       amount,
       gasLimit: Number(gasLimit),
-      fee,
+      // A zero gas limit cannot carry a fee - the bridge reverts with B_INVALID_FEE
+      fee: feeForGasLimit(Number(gasLimit), fee),
       solverFee: BigInt(0), // not supported in the UI yet, default to 0
     } satisfies ERC20BridgeTransferOp;
 
