@@ -86,6 +86,19 @@ describe('ERC1155 amount input', () => {
     expect(errorShown()).toBe(false);
   });
 
+  it('replaces a previous amount with a typed zero', async () => {
+    // The zero-decimal path leaves nothing on either side of the scaling, so a parse that
+    // threw here would escape inputAmount - which has no catch - and leave enteredAmount
+    // holding the 5 while the box on screen reads 0, bridging an amount nobody asked for
+    await type(input(), '5');
+    expect(get(enteredAmount)).toBe(BigInt(5));
+
+    await type(input(), '0');
+
+    expect(get(enteredAmount)).toBe(BigInt(0));
+    expect(errorShown()).toBe(false);
+  });
+
   // Hex, exponent form and padding are covered in parseDecimalAmount.test.ts: a
   // type="number" field sanitizes them to an empty string before any handler sees them,
   // so asserting on them here would pass whatever the parsing does. What a number field
