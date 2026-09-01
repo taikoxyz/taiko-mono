@@ -42,7 +42,13 @@ async function fetchAllRelayerPages(
 
     if (paginationInfo.max_page === undefined || page >= paginationInfo.max_page) break;
     if (page === MAX_RELAYER_PAGES - 1) {
+      // Same rule as a failed page: degrading is fine, degrading in silence is not. A
+      // history cut off at the backstop looks exactly like a complete one.
       log(`relayer history truncated at ${MAX_RELAYER_PAGES} pages for ${userAddress}`);
+      return {
+        txs,
+        error: new Error(`Relayer history truncated at ${MAX_RELAYER_PAGES} pages; older transactions are not shown`),
+      };
     }
   }
   return { txs };

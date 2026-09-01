@@ -119,6 +119,26 @@ describe('fetchTransactions', () => {
     ]);
   });
 
+  it('reports a history cut off at the page backstop', async () => {
+    // Ten pages that all claim more remain: the backstop stops the fetch, and a truncated
+    // history that looks complete is the outcome the error channel exists to prevent
+    getAllByAddress.mockResolvedValue(page([tx('0xa')], 99));
+
+    const { error } = await fetchTransactions(ADDRESS);
+
+    expect(getAllByAddress).toHaveBeenCalledTimes(10);
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toContain('truncated');
+  });
+
+  it('reports no error when the history ends before the backstop', async () => {
+    getAllByAddress.mockResolvedValueOnce(page([tx('0xa')], 0));
+
+    const { error } = await fetchTransactions(ADDRESS);
+
+    expect(error).toBeUndefined();
+  });
+
   describe('when one relayer fails', () => {
     it('keeps the transactions the other relayers returned', async () => {
       getAllByAddress.mockRejectedValue(new Error('relayer down'));

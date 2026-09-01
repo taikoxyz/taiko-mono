@@ -43,7 +43,7 @@ vi.mock('$libs/util/balance', () => ({
   renderEthBalance: () => '0 ETH',
 }));
 
-import { enteredAmount, selectedToken, tokenBalance } from '$components/Bridge/state';
+import { computingBalance, enteredAmount, selectedToken, tokenBalance } from '$components/Bridge/state';
 import { TokenType } from '$libs/token';
 import { account } from '$stores/account';
 
@@ -168,6 +168,33 @@ describe('fungible amount input', () => {
 
       // Whatever the interleaving, the balance on screen belongs to the selected token
       expect(get(tokenBalance)).toEqual({ value: BigInt(5), decimals: 18, symbol: 'FAST', formatted: '5' });
+    });
+
+    it('stops computing when an account change supersedes an in-flight reset', async () => {
+      account.set({ address: '0xaaaa', isConnected: true, chainId: 1 } as never);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await tick();
+
+      // A token switch starts a read that will not answer for a while
+      const slow = { type: TokenType.ERC20, symbol: 'SLOW', name: 'Slow', decimals: 18, addresses: {} };
+      let resolveSlow!: (value: unknown) => void;
+      fetchBalance.mockReturnValueOnce(new Promise((resolve) => (resolveSlow = resolve)));
+      selectedToken.set(slow as never);
+      await tick();
+
+      // The same account on another chain takes the other branch of onAccountChange,
+      // which reads the balance without going through reset
+      fetchBalance.mockResolvedValueOnce({ value: BigInt(7), decimals: 18, symbol: 'SLOW', formatted: '7' });
+      account.set({ address: '0xaaaa', isConnected: true, chainId: 2 } as never);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await tick();
+
+      resolveSlow({ value: BigInt(999), decimals: 18, symbol: 'SLOW', formatted: '999' });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await tick();
+
+      // The superseded reset declines to clear this, so the read that superseded it must
+      expect(get(computingBalance)).toBe(false);
     });
   });
 });

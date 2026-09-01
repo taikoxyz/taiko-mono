@@ -170,6 +170,10 @@
       refreshUserBalance();
       log('fetching on chain', $connectedSourceChain?.name);
       const published = await publishLatestBalance(tokenForThisReset, $account.address, $connectedSourceChain?.id);
+      // A superseded read leaves the flag to whichever read is current now - clearing it
+      // here would stop the spinner while that one is still in flight. Every caller of
+      // publishLatestBalance raises the flag and clears it on the winning path, so the
+      // last read standing always turns it off.
       if (!published) return;
       log('tokenBalance', $tokenBalance);
       previousSelectedToken = tokenForThisReset;
@@ -243,8 +247,12 @@
       reset();
     } else if (newAccount?.address && newAccount?.isConnected && $selectedToken) {
       log('refreshing user balance', $connectedSourceChain?.name);
-      // The other writer of $tokenBalance, and it races the same way
-      await publishLatestBalance($selectedToken, newAccount.address, newAccount.chainId);
+      // The other writer of $tokenBalance, and it races the same way. It has to carry the
+      // computing flag too: superseding a reset without owning the flag left the spinner
+      // on forever, because the reset it superseded had already declined to clear it.
+      $computingBalance = true;
+      const published = await publishLatestBalance($selectedToken, newAccount.address, newAccount.chainId);
+      if (published) $computingBalance = false;
     } else {
       console.error('No account connected or token selected');
     }
