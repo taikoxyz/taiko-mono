@@ -218,8 +218,10 @@ step of that was checked:
    back into the proxy. The governance message carries `value: 0` and `fee: 0`, so there is no refund
    path either.
 
-This is the part of the proposal that carries real risk, and it is the part the
-[fork rehearsal](#fork-rehearsal) was written to exercise against live mainnet state.
+This is the part of the proposal that carries real risk, and it is the part
+`test/layer1/proposals/Proposal0023Fork.t.sol` was written to exercise against live mainnet state.
+Run it with `L1_FORK_URL` and `L2_FORK_URL` set; without them it skips, since CI configures no RPC
+endpoints.
 
 ### EVM version
 
@@ -382,7 +384,8 @@ against live state before the vote rather than after it.
 preconditions (self-owned, `l2Bridge()` = the L2 bridge, `daoController()` = the L1 DAO controller)
 and then executes the three L2 actions. Note what it does **not** cover — it calls
 `DelegateController.dryrun` directly rather than delivering the batch through `processMessage`, so it
-does not exercise the mid-call self-upgrade. Only the [fork rehearsal](#fork-rehearsal) does that.
+does not exercise the mid-call self-upgrade. Only `test/layer1/proposals/Proposal0023Fork.t.sol`
+does that.
 
 The generated `Proposal0023.action.md` should be formatted with the repo formatter (the pre-commit
 hook does this automatically), or reviewers should compare only the calldata line. A second reviewer
@@ -413,11 +416,11 @@ All four are verified on their explorers as of 2026-09-01 — `Bridge`, `Bridge`
 `forge verify-bytecode` was re-run against this redeployment on 2026-09-01, from a build of this
 commit:
 
-| Contract                          | Creation code | Runtime code                    |
-| --------------------------------- | ------------- | ------------------------------- |
-| L1 `Bridge` implementation        | `status full` | `status full`                   |
-| L2 `Bridge` implementation        | `status full` | not reached — see below         |
-| L2 `DefaultResolver` implementation | `status full` | not reached — see below       |
+| Contract                            | Creation code | Runtime code            |
+| ----------------------------------- | ------------- | ----------------------- |
+| L1 `Bridge` implementation          | `status full` | `status full`           |
+| L2 `Bridge` implementation          | `status full` | not reached — see below |
+| L2 `DefaultResolver` implementation | `status full` | not reached — see below |
 
 The two L2 runs matched their creation code and then aborted before the runtime comparison with
 `foundry config error: invalid type: found string "taiko", expected u64` — foundry resolves chain
@@ -547,7 +550,8 @@ published in advance or reproduced independently. Nor does
 those 25 sites zero-filled. Both facts were measured on this branch on 2026-08-31 — artifact and
 locally deployed runtime are each 14,913 bytes and differ in exactly those 25 regions, one group of
 which is the deployer-dependent `__self`. `forge verify-bytecode` is immutable-aware and is what
-handles this correctly; explorer verification (below) is the human-checkable equivalent.
+handles this correctly; the explorer verification recorded in Deployed Addresses above is the
+human-checkable equivalent.
 
 **These checks are not redundant with the deploy scripts' own assertions, and one of them is the
 only defence against a specific failure.** Both scripts self-check their immutables, but that runs
@@ -569,181 +573,3 @@ contract that answers the same getters and does something else. The `forge verif
 creation-code comparison above and the explorer verification in the Deployment section are what
 close that gap, and the resolver's implementation slot is what closes it for the one address here
 that is a proxy rather than a bare implementation.
-
-### After execution
-
-```bash
-# Implementation slots now point at the new implementations.
-cast storage 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC \
-  0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc --rpc-url <L1_RPC>
-cast storage 0x1670000000000000000000000000000000000001 \
-  0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc \
-  --rpc-url https://rpc.mainnet.taiko.xyz
-
-# Smoke test: this is the exact resolver path that would revert if the L2 wiring were wrong.
-# Must return (true, 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC).
-cast call 0x1670000000000000000000000000000000000001 \
-  "isDestChainEnabled(uint64)(bool,address)" 1 --rpc-url https://rpc.mainnet.taiko.xyz
-
-# The chain-167000 registration (L2 action 2 / actions[1]), which no other check covers.
-# Must return 0x1670000000000000000000000000000000000001.
-cast call 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 "resolve(uint256,bytes32,bool)(address)" \
-  167000 0x6272696467650000000000000000000000000000000000000000000000000000 true \
-  --rpc-url https://rpc.mainnet.taiko.xyz
-```
-
-```bash
-# The production L2 message must have landed DONE, not RETRIABLE. Take <L2_GOVERNANCE_MSG_HASH>
-# from the `MessageSent(bytes32 indexed msgHash, Message)` event the L1 bridge emits when the
-# proposal's sendMessage action executes; it is the first indexed topic on that log.
-# `2` is Status.DONE, `1` is Status.RETRIABLE, `0` means the message was never processed.
-cast call 0x1670000000000000000000000000000000000001 \
-  "messageStatus(bytes32)(uint8)" <L2_GOVERNANCE_MSG_HASH> \
-  --rpc-url https://rpc.mainnet.taiko.xyz
-```
-
-Both `cast storage` results must equal the deployed implementation addresses, left-padded to 32
-bytes.
-
-The status check exists because production execution carries the **same swallowing hazard** the
-rehearsal did: 1.10.0's `_invokeMessageCall` uses a raw `call`, so a failed invocation becomes
-`Status.RETRIABLE` without reverting `processMessage`, and the L1 side would look entirely healthy.
-The implementation-slot check above would already expose that, but the status makes the failure
-mode legible directly, and it changes what recovery looks like.
-
-If the status reads `RETRIABLE`, **diagnose before retrying.** `retryMessage` replays the _same_
-calldata, so it only helps where the failure was not in the message itself — the realistic case is
-gas starvation, since the `destOwner` calling `retryMessage` forwards all remaining gas instead of
-the `l2GasLimit`-derived budget. A failure caused by the message's own content — a wrong
-`L2_SHARED_RESOLVER` or `BRIDGE_NEW_IMPL_L2` baked into the actions, or a malformed action array —
-will fail identically on every retry and needs a new proposal. Establish which case you are in from
-the L2 execution trace first; do not retry blindly.
-
-The `isDestChainEnabled(1)` smoke test is the one that matters: it is the call that reverts if the
-resolver wiring is wrong, and it is served by the new implementation reading the new resolver — so
-it covers the chain-1 registration and the L2 upgrade at once. The last command is the only check on
-the chain-167000 registration, since nothing reads that entry today.
-
-Post-execution, add dated bullets to `deployments/mainnet-contract-logs-L1.md` and
-`deployments/mainnet-contract-logs-L2.md` for the four newly deployed contracts — the L1 `Bridge`
-implementation, the L2 `DefaultResolver` implementation, its `ERC1967Proxy`, and the L2 `Bridge`
-implementation (the resolver's proxy and implementation share one `#### shared_resolver` entry, as
-those files are structured) — and add a `LibL2Addrs.SHARED_RESOLVER` constant for the new resolver.
-
-## Fork Rehearsal
-
-This rehearsal is committed as `test/layer1/proposals/Proposal0023Fork.t.sol` and re-runs on
-demand:
-
-```bash
-L1_FORK_URL=<l1 rpc> L2_FORK_URL=https://rpc.mainnet.taiko.xyz \
-  FOUNDRY_PROFILE=layer1 forge test --match-contract Proposal0023ForkTest -vv
-```
-
-CI configures no RPC endpoints, so both tests call `vm.skip` when their URL is unset and the suite
-stays green without them — re-run it yourself before the vote rather than relying on CI. It asserts
-the `processMessage` return value (`DONE` / `INVOCATION_OK`) alongside the implementation slot,
-which is what distinguishes a real upgrade from a swallowed one; mutating the message so the
-DelegateController rejects it makes the transaction still succeed and the status assertion fail with
-`1 != 2`. The output below was captured on 2026-08-31. The cap
-itself is separately covered by committed unit tests that #22077 added
-(`MessageReceiver_CreatingFreshStorageSlots.sol`, plus cases in `Bridge2_processMessage.t.sol` and
-`Bridge2_recallMessage.t.sol`); the rehearsal targets what unit tests cannot reach, namely the
-upgrade against live mainnet state.
-
-Both legs ran on `forge 1.5.1-stable`, forking each chain at its head.
-
-### L1 leg
-
-Chain head immediately before the run: `25875170`.
-
-```
-Compiling 1 files with Solc 0.8.30
-Solc 0.8.30 finished in 1.36s
-Compiler run successful!
-
-Ran 1 test for test/layer1/proposals/Proposal0023Rehearsal.t.sol:Proposal0023Rehearsal
-[PASS] test_l1_upgrade() (gas: 3092291)
-Logs:
-  L1 impl slot now: 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f
-
-Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 2.37s (2.36s CPU time)
-
-Ran 1 test suite in 2.37s (2.37s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
-```
-
-The test upgraded the live L1 proxy by pranking the DAO controller, then asserted all four
-immutables and that `isDestChainEnabled(167000)` returns
-`(true, 0x1670000000000000000000000000000000000001)`.
-
-### L2 leg
-
-Chain head immediately before the run: `10785761`.
-
-```
-No files changed, compilation skipped
-
-Ran 1 test for test/layer1/proposals/Proposal0023Rehearsal.t.sol:Proposal0023Rehearsal
-[PASS] test_l2_selfUpgradeThroughProcessMessage() (gas: 4434537)
-Logs:
-  L2 nextMessageId before/after: 10101 10102
-
-Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 8.98s (8.97s CPU time)
-
-Ran 1 test suite in 8.98s (8.97s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
-```
-
-The test deployed the resolver and implementation the deploy script deploys, then delivered the
-three L2 actions the way governance actually will — as a `processMessage` call on the L2 bridge
-carrying the `DelegateController.onMessageInvocation` payload, not by pranking the DelegateController
-directly. That is what exercises the mid-call self-upgrade. It then asserted `isDestChainEnabled(1)`,
-that `nextMessageId()` and `owner()` survived the 1.10.0 → `main` jump, that `resolver()`,
-`quotaManager()` and `pauser()` read as expected, and that a fresh outbound `sendMessage` increments
-`nextMessageId`.
-
-### What counts as success here, and what does not
-
-**"The transaction passed" is not evidence the upgrade worked**, and anyone re-running this rehearsal
-needs to know that. The 1.10.0 `_invokeMessageCall` uses a raw `call` and **swallows** a reverting
-invocation into `Status.RETRIABLE` without reverting `processMessage`. A silently failed upgrade
-would still have produced a passing transaction and a green test line.
-
-Two observations together rule that out. First, the implementation-slot assertion: the slot flipped
-to the new implementation. Second, the status the bridge emitted:
-
-```
-├─ emit MessageStatusChanged(msgHash: 0xc3e89e557a5db0feebcb420ab5f64929d4369ba85532d59abf3ec749b3d680d9, status: 2)
-```
-
-`status: 2` is `Status.DONE` with `StatusReason.INVOCATION_OK` — the invocation ran and succeeded. A
-swallowed revert would have shown `RETRIABLE` instead. **Check both when re-running.**
-
-### Two guards the rehearsal carries
-
-Both forks are taken at head, so once Proposal0023 executes the tests would otherwise rehearse
-current → current and stay green while no longer covering the transition they exist for — the L2
-case would silently stop exercising the 1.10.0 jump. Each leg therefore asserts the implementation
-it must be starting from (`0x1c94D798…` on L1, `0x95ae2918…` on L2) and fails with the block to pin
-against an archive node. Flipping either constant was confirmed to fail the tests.
-
-The L2 rehearsal runs twice, because the caller determines which gas path the legacy bridge takes.
-When the caller is the message's `destOwner` the bridge forwards `gasleft()`, so that case never
-exercises the 5,000,000 gas limit this proposal sets. Any address may process a message, and a
-relayer instead receives `_invocationGasLimit`. The second case covers it and pins the resulting
-budget at **4,177,472** — 5,000,000 less this message's own minimum of 822,528 (22,528 of calldata
-cost for its 964 bytes of data, plus the 800,000 `GAS_RESERVE`) — which is roughly twenty times
-what the three actions consume. That figure is asserted rather than assumed, so a change to the
-message size or the gas schedule fails the test instead of silently eroding the margin.
-
-### What the rehearsal does not establish
-
-The rehearsal proves the _mechanism_, not the production addresses. The implementations it upgraded
-to were deployed by the test inside its own fork — `0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f` on
-L1 and `0xF62849F9A0B5Bf2913b396098F7c7019b51A820a` on L2. Neither is a production address, and
-neither should ever appear in the proposal. The [Verification](#verification) checks against the real
-deployed addresses still have to be run.
-
-One further caveat on the L2 leg: a signal proof cannot be synthesised on a fork, so
-`ISignalService.proveSignalReceived` was mocked to return `0`. Nothing else was mocked — the
-post-upgrade `sendMessage` reached the real deployed L2 SignalService and emitted a real
-`SignalSent`. The signal service is not what this rehearsal exercises.
