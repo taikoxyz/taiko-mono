@@ -812,6 +812,8 @@ describe('RelayerAPIService', () => {
     // Then
     expect(result.txs).toHaveLength(0);
     expect(mockedReadContract).not.toHaveBeenCalled();
+    // An ambiguous receipt is a deliberate filter, not a failed load - it must not be counted.
+    expect(result.failedTxs).toEqual([]);
   });
 
   test('getTransactionsFromAPI preserves raw message fee digits before JSON parsing', async () => {
@@ -885,6 +887,161 @@ describe('RelayerAPIService', () => {
   test('parseApiBigInt preserves exact string input that Number.toString would shorten', () => {
     expect(Number(33_011_093_383_701_312n).toString()).toEqual('33011093383701310');
     expect(parseApiBigInt('33011093383701312')).toEqual(33_011_093_383_701_312n);
+  });
+
+  test('getAllBridgeTransactionByAddress counts a transaction whose RPC read threw', async () => {
+    // Given
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const paginationParams = { page: 1, size: 10 };
+    const relayerItem = createRelayerItem({
+      id: 1553890,
+      messageId: '6280',
+      msgHash: GOOD_MSG_HASH,
+      blockNumber: '0x7baa30',
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
+    mockedGetTransactionReceipt.mockResolvedValue(createReceiptWithMessageSentLog());
+    // The rate-limited gateway returns an HTML 429 body, which viem surfaces as a thrown error.
+    mockedReadContract.mockRejectedValue(new Error('HTTP request failed.'));
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
+
+    // Then: the transaction is dropped, but the caller is told how many were lost
+    expect(result.txs).toHaveLength(0);
+    expect(result.failedTxs).toHaveLength(1);
+  });
+
+  test('getAllBridgeTransactionByAddress does not count legitimately filtered rows as failures', async () => {
+    // Given: a row for a route this UI is not configured for. _enhanceTransaction returns undefined
+    // for it via `if (msgStatus === undefined) return;` - a filter, not a load failure.
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const paginationParams = { page: 1, size: 10 };
+    const unconfiguredRelayerItem = createRelayerItem({
+      id: 1553891,
+      messageId: '6281',
+      msgHash: BAD_MSG_HASH,
+      blockNumber: '0x7baa31',
+      destChainId: '424242',
+    });
+    const validRelayerItem = createRelayerItem({
+      id: 1553892,
+      messageId: '6282',
+      msgHash: GOOD_MSG_HASH,
+      blockNumber: '0x7baa32',
+      srcTxHash: SECOND_SRC_TX_HASH,
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([unconfiguredRelayerItem, validRelayerItem]));
+    mockedGetTransactionReceipt.mockResolvedValue(createReceiptWithMessageSentLog());
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
+
+    // Then: one row filtered out, zero reported as failed - warning the user here would be a lie
+    expect(result.txs).toHaveLength(1);
+    expect(result.failedTxs).toEqual([]);
+  });
+
+  test("getAllBridgeTransactionByAddress does not count another wallet's row as a failure", async () => {
+    // Given: a row owned by USER_ADDRESS, queried on behalf of a different wallet. _enhanceTransaction
+    // drops it via `if (!senderMatch && !receiverMatch) return;` - a filter, not a load failure.
+    // (createRelayerItem hardcodes every owner field to USER_ADDRESS, so vary the query address instead.)
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const OTHER_WALLET = '0x1111111111111111111111111111111111111111' as Address;
+    const relayerItem = createRelayerItem({
+      id: 1553893,
+      messageId: '6283',
+      msgHash: GOOD_MSG_HASH,
+      blockNumber: '0x7baa33',
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
+    mockedGetTransactionReceipt.mockResolvedValue(createReceiptWithMessageSentLog());
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(
+      OTHER_WALLET,
+      { page: 1, size: 10 },
+      167000,
+    );
+
+    // Then
+    expect(result.txs).toHaveLength(0);
+    expect(result.failedTxs).toEqual([]);
+  });
+
+  test('getAllBridgeTransactionByAddress reports zero failures for an empty relayer page', async () => {
+    // Given
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    mockedAxios.get.mockResolvedValue({ data: { page: 1, size: 10, total: 0, items: [] }, status: 200 });
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, { page: 1, size: 10 });
+
+    // Then
+    expect(result.failedTxs).toEqual([]);
+  });
+
+  test('getAllBridgeTransactionByAddress counts a transaction whose receipt read failed', async () => {
+    // Given: the receipt read fails the way a rate-limited gateway makes it fail. This used to be
+    // swallowed into `receipt = null`, which left the row visible but unclaimable and uncounted.
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const relayerItem = createRelayerItem({
+      id: 1553894,
+      messageId: '6284',
+      msgHash: GOOD_MSG_HASH,
+      blockNumber: '0x7baa34',
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
+    mockedGetTransactionReceipt.mockRejectedValue(new Error('HTTP request failed.'));
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(
+      USER_ADDRESS,
+      { page: 1, size: 10 },
+      167000,
+    );
+
+    // Then
+    expect(result.txs).toHaveLength(0);
+    expect(result.failedTxs).toHaveLength(1);
+  });
+
+  test('getAllBridgeTransactionByAddress keeps a transaction that is simply not mined yet', async () => {
+    // Given: viem throws TransactionReceiptNotFoundError for a transaction with no receipt yet.
+    // That is an expected state for a fresh bridge, not a load failure - the row must survive and
+    // must not be counted, or every pending bridge would warn the user it had failed to load.
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const notMined = new Error('Transaction receipt with hash "0x..." could not be found.');
+    notMined.name = 'TransactionReceiptNotFoundError';
+    const relayerItem = createRelayerItem({
+      id: 1553895,
+      messageId: '6285',
+      msgHash: GOOD_MSG_HASH,
+      blockNumber: '0x7baa35',
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
+    mockedGetTransactionReceipt.mockRejectedValue(notMined);
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(
+      USER_ADDRESS,
+      { page: 1, size: 10 },
+      167000,
+    );
+
+    // Then
+    expect(result.txs).toHaveLength(1);
+    expect(result.txs[0].receipt).toBeNull();
+    expect(result.failedTxs).toEqual([]);
   });
 });
 

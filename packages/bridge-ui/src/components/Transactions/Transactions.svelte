@@ -21,7 +21,6 @@
   import { transactionConfig } from '$config';
   import { type BridgeTransaction, fetchTransactions, MessageStatus } from '$libs/bridge';
   import { bridgeTxKey } from '$libs/bridge/bridgeTxIdentity';
-  import { loadFailureMessageKey } from '$libs/bridge/loadFailureMessage';
   import { chainIdToChain } from '$libs/chain';
   import { getAlternateNetwork } from '$libs/network';
   import { bridgeTxService } from '$libs/storage';
@@ -31,6 +30,7 @@
   import type { Account } from '$stores/account';
 
   import { StatusFilterDialog, StatusFilterDropdown } from './Filter';
+  import { getLoadWarning } from './loadWarning';
   import { FungibleTransactionRow, NftTransactionRow } from './Rows/';
   import { StatusInfoDialog } from './Status';
 
@@ -109,15 +109,16 @@
     inFlightAddress = address;
     loadingTxs = true;
     try {
-      const { mergedTransactions, outdatedLocalTransactions, error } = await fetchTransactions(address);
+      const { mergedTransactions, outdatedLocalTransactions, error, failedCount } = await fetchTransactions(address);
       if (generation !== fetchGeneration) return;
       transactions = mergedTransactions;
 
       if (outdatedLocalTransactions.length > 0) {
         await bridgeTxService.removeTransactions(address, outdatedLocalTransactions);
       }
-      if (error) {
-        warningToast({ title: $t(loadFailureMessageKey(error)) });
+      const warning = getLoadWarning({ error, failedCount });
+      if (warning) {
+        warningToast({ title: $t(warning.key, { values: warning.values }) });
       }
     } finally {
       if (generation === fetchGeneration) {

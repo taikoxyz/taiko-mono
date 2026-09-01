@@ -27,6 +27,7 @@ import {
   type APIRequestParams,
   type APIResponse,
   type APIResponseTransaction,
+  type FailedBridgeTx,
   type Fee,
   type FeeType,
   type GetAllByAddressResponse,
@@ -148,8 +149,22 @@ export class RelayerAPIService {
     try {
       return await getTransactionReceipt(config, { chainId, hash });
     } catch (error) {
+      // "Not mined yet" and "the RPC call failed" used to collapse into the same null, which hid
+      // the second one completely: the row rendered with no receipt, isTransactionProcessable
+      // returned false so it could never be claimed, and nothing counted it. Batching made that
+      // worse, since one rate-limited request now carries the receipt reads of up to 50 rows.
+      //
+      // Compared by name rather than instanceof: this monorepo carries three viem copies, and an
+      // error thrown from a different one would silently fail an identity check - turning every
+      // unmined transaction into a counted failure.
+      if ((error as Error)?.name === 'TransactionReceiptNotFoundError') {
+        log(`Transaction ${hash} is not mined yet`);
+        return null;
+      }
+
+      // A real read failure belongs to the caller's counter, not to a silent null.
       log(`Error getting transaction receipt for ${hash}: ${error}`);
-      return null;
+      throw error;
     }
   }
 
@@ -471,7 +486,7 @@ export class RelayerAPIService {
     };
 
     if (!apiTxs.items || apiTxs.items.length === 0) {
-      return { txs: [], paginationInfo };
+      return { txs: [], paginationInfo, failedTxs: [] };
     }
 
     const items = RelayerAPIService._filterDuplicateAndWrongBridge(apiTxs.items);
@@ -487,12 +502,21 @@ export class RelayerAPIService {
       })
       .filter((tx): tx is BridgeTransaction => tx !== null);
 
+    // Only a thrown enhancement is a load failure. _enhanceTransaction also returns undefined for
+    // four legitimate filters (not this user's transaction, ambiguous receipt, no msgHash, no
+    // configured route); those rows are deliberately not shown, so counting them would report a
+    // loss that never happened.
+    // Hashes, not a tally: the caller merges these across pages and relayers, where the same
+    // transaction can appear more than once and can even succeed elsewhere.
+    const failedTxs: FailedBridgeTx[] = [];
+
     const txsPromises = txs.map(async (bridgeTx) => {
       if (!bridgeTx) return;
       try {
         return await RelayerAPIService._enhanceTransaction(bridgeTx, address);
       } catch (error) {
         // One failing RPC read must not reject the surrounding Promise.all and wipe the list
+        failedTxs.push({ msgHash: bridgeTx.msgHash, srcTxHash: bridgeTx.srcTxHash });
         log('Skipping transaction that failed to enhance', { error, srcTxHash: bridgeTx.srcTxHash });
         return;
       }
@@ -521,7 +545,7 @@ export class RelayerAPIService {
     // Spreading to preserve original txs in case of array mutation
     log('Enhanced transactions', [...bridgeTxs]);
 
-    return { txs: bridgeTxs, paginationInfo };
+    return { txs: bridgeTxs, paginationInfo, failedTxs };
   }
 
   private static _transformTransaction(tx: APIResponseTransaction): BridgeTransaction {
