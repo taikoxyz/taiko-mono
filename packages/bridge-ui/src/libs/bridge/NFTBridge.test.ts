@@ -6,7 +6,7 @@
 import type { Address, WalletClient } from 'viem';
 import { vi } from 'vitest';
 
-import { NoApprovalRequiredError, NotApprovedError } from '$libs/error';
+import { NoApprovalRequiredError, NoCanonicalInfoFoundError, NotApprovedError, SendERC721Error } from '$libs/error';
 import { ALICE, L1_CHAIN_ID, L2_CHAIN_ID } from '$mocks';
 
 const readContract = vi.fn();
@@ -170,6 +170,20 @@ describe('deciding whether the vault needs approval', () => {
     readContract.mockResolvedValueOnce(OTHER).mockResolvedValueOnce(false);
 
     await expect(new ERC721Bridge(prover).bridge(args(TOKEN))).rejects.toThrow(NotApprovedError);
+  });
+
+  it('reports a failed approval read as a failure to send this token', async () => {
+    // Not a bare Error from a lookup the caller never invoked: an RPC that dies while
+    // asking about approval is a failure to send, and says so in the token's own error
+    readContract.mockRejectedValue(new Error('rpc down'));
+
+    await expect(new ERC721Bridge(prover).bridge(args(TOKEN))).rejects.toThrow(SendERC721Error);
+  });
+
+  it('keeps the two verdicts this phase exists to reach as themselves', async () => {
+    getCanonicalInfoForAddress.mockResolvedValue(null);
+
+    await expect(new ERC721Bridge(prover).bridge(args(TOKEN))).rejects.toThrow(NoCanonicalInfoFoundError);
   });
 
   it('skips the approval check for a genuinely bridged token', async () => {

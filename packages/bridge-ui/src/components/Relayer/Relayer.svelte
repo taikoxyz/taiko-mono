@@ -88,8 +88,12 @@
 
   $: inputDisabled = fetching || !$account?.isConnected;
 
-  // No address, no results: rows from a previously searched address must not linger
+  // No address, no results: rows from a previously searched address must not linger.
+  // Bumping the generation matters as much as clearing: a fetch for the address that was
+  // just erased is still in flight, and without this its response still matches and
+  // repopulates the table for an address no longer on screen.
   $: if (!addressToSearch) {
+    searchGeneration++;
     transactions = [];
   }
 

@@ -48,17 +48,19 @@ export const checkForPausedContracts = async (srcChainId?: number) => {
     }),
   );
 
-  const readable = states.filter((state) => state !== UNKNOWN);
-
-  if (readable.some((state) => state === true)) {
+  // One chain reporting itself paused settles it, whatever the others did
+  if (states.some((state) => state === true)) {
     bridgePausedModal.set(true);
     return true;
   }
-  // With nothing readable there is no verdict to publish; leaving the modal as it stands
-  // keeps a pause read successfully a moment ago from being dismissed by an RPC outage.
-  if (readable.length === 0) return false;
 
-  bridgePausedModal.set(false);
+  // Clearing the modal is an assertion that nothing is paused, so it takes complete
+  // information. A chain that could not be read might be the paused one - dismissing a
+  // real pause because the *other* chains answered false is the failure this avoids, and
+  // it covers the all-unknown case as the same rule rather than a special one.
+  if (!states.includes(UNKNOWN)) {
+    bridgePausedModal.set(false);
+  }
   return false;
 };
 

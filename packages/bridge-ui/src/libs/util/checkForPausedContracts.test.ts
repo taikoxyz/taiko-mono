@@ -70,6 +70,24 @@ describe('checkForPausedContracts', () => {
     expect(get(bridgePausedModal)).toBe(true);
   });
 
+  test('does not dismiss a known pause because the other chains answered', async () => {
+    // The unreadable chain might be the paused one. Clearing the modal on the strength of
+    // the chains that did answer asserts something no read established
+    bridgePausedModal.set(true);
+    vi.mocked(readContract).mockRejectedValueOnce(new Error('rpc down'));
+
+    expect(await checkForPausedContracts()).toBe(false);
+    expect(get(bridgePausedModal)).toBe(true);
+  });
+
+  test('clears the modal once every chain answers', async () => {
+    bridgePausedModal.set(true);
+    vi.mocked(readContract).mockResolvedValue(false);
+
+    expect(await checkForPausedContracts()).toBe(false);
+    expect(get(bridgePausedModal)).toBe(false);
+  });
+
   test('leaves a known pause standing when nothing can be read', async () => {
     bridgePausedModal.set(true);
     vi.mocked(readContract).mockRejectedValue(new Error('rpc down'));

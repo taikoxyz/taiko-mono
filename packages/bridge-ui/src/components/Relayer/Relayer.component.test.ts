@@ -131,6 +131,26 @@ describe('the results table', () => {
     message: { to: ADDRESS, destOwner: ADDRESS, gasLimit: 100000 },
   });
 
+  it('does not repopulate the table from a search the user cleared', async () => {
+    // The rows are cleared when the field empties, but the fetch for the address that was
+    // just erased is still in flight; without invalidating it, its response lands anyway
+    let resolveSearch: (value: unknown) => void = () => undefined;
+    fetchTransactions.mockReturnValue(new Promise((resolve) => (resolveSearch = resolve)));
+
+    await search();
+
+    const input = target.querySelector('input') as HTMLInputElement;
+    input.value = '';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await flush();
+
+    resolveSearch({ mergedTransactions: [row('0xtx', '0xmsgA')], error: undefined });
+    await flush();
+
+    expect(target.querySelectorAll('[data-testid="stub"]')).toHaveLength(0);
+    expect(target.textContent).toContain('relayer_component.no_tx_found');
+  });
+
   it('renders both messages a single transaction emitted', async () => {
     // Keyed by transaction, Svelte throws on the duplicate key and the table never
     // renders. This block was missed when the identity fix landed on the other one
