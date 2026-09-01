@@ -39,7 +39,13 @@ import {
 const log = getLogger('RelayerAPIService');
 
 const relayerMessageIntegerFields = ['Fee', 'Value', 'Id', 'SrcChainId', 'DestChainId', 'amount', 'fee'];
-const relayerMessageIntegerPattern = new RegExp(`("(${relayerMessageIntegerFields.join('|')})"\\s*:\\s*)(\\d+)`, 'g');
+// Only a complete integer token is rewritten. The trailing guard matters: `amount` and
+// `fee` can arrive as a decimal or in exponent form, and quoting just the leading digits
+// of `1.5` produces `"1".5` - invalid JSON that takes the whole response down with it.
+const relayerMessageIntegerPattern = new RegExp(
+  `("(${relayerMessageIntegerFields.join('|')})"\\s*:\\s*)(\\d+)(?![\\d.eE])`,
+  'g',
+);
 type DecodedBridgeMessage = Omit<Message, 'gasLimit'> & { gasLimit: bigint | number };
 type BridgeTransactionAssetDetails = {
   amount: bigint;

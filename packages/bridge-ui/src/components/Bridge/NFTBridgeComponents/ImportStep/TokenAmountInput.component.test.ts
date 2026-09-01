@@ -26,6 +26,11 @@ import TokenAmountInput from './TokenAmountInput.svelte';
 let target: HTMLElement;
 let component: { $destroy: () => void } | null = null;
 
+const errorShown = () =>
+  target.textContent?.includes('bridge.errors.no_decimals_allowed') ||
+  target.textContent?.includes('bridge.errors.invalid_amount') ||
+  false;
+
 const type = async (input: HTMLInputElement, value: string) => {
   input.value = value;
   input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -62,6 +67,7 @@ describe('ERC1155 amount input', () => {
 
     // Leaving 5n here would bridge 5 while the box reads 1.5
     expect(get(enteredAmount)).toBe(BigInt(0));
+    expect(target.textContent).toContain('bridge.errors.no_decimals_allowed');
   });
 
   it('clears a previously accepted amount when exponent notation is entered', async () => {
@@ -72,9 +78,37 @@ describe('ERC1155 amount input', () => {
     expect(get(enteredAmount)).toBe(BigInt(0));
   });
 
-  it('clears the amount when the field is emptied', async () => {
+  it('clears the amount when the field is emptied, without complaining', async () => {
     await type(input(), '5');
     await type(input(), '');
     expect(get(enteredAmount)).toBe(BigInt(0));
+    // A box nobody has filled in yet is not a mistake to report
+    expect(errorShown()).toBe(false);
+  });
+
+  // Hex, exponent form and padding are covered in parseDecimalAmount.test.ts: a
+  // type="number" field sanitizes them to an empty string before any handler sees them,
+  // so asserting on them here would pass whatever the parsing does. What a number field
+  // does pass through is a minus sign and an arbitrarily long digit string.
+  describe('values that would be silently reinterpreted', () => {
+    it('refuses a negative quantity', async () => {
+      // BigInt('-5') is -5n, which no vault can transfer
+      await type(input(), '-5');
+      expect(get(enteredAmount)).toBe(BigInt(0));
+      // and says so as an invalid amount, not as "decimals are not supported"
+      expect(target.textContent).toContain('bridge.errors.invalid_amount');
+    });
+
+    it('refuses a quantity larger than a uint256', async () => {
+      // BigInt is arbitrary precision, so this reached the vault call and reverted there
+      await type(input(), '1'.repeat(80));
+      expect(get(enteredAmount)).toBe(BigInt(0));
+    });
+
+    it('accepts the largest quantity a uint256 can carry', async () => {
+      const max = BigInt(2) ** BigInt(256) - BigInt(1);
+      await type(input(), max.toString());
+      expect(get(enteredAmount)).toBe(max);
+    });
   });
 });

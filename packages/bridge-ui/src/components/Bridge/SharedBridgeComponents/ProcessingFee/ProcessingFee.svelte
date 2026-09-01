@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
+  import { get } from 'svelte/store';
   import { t } from 'svelte-i18n';
   import { formatEther } from 'viem';
 
@@ -41,6 +42,12 @@
   // still describes whatever was typed before it
   let invalidCustomFee = false;
 
+  // Whether the custom fee box currently holds a fee that can be submitted. An empty box
+  // is not an error to report, but it is not a fee either: tempprocessingFee still holds
+  // the last value that parsed, so without this, typing a fee and then clearing the box
+  // left Confirm enabled and submitted the fee the box no longer shows
+  let customFeeUsable = false;
+
   // Public API
   export function resetProcessingFee() {
     inputBox?.clear();
@@ -78,11 +85,14 @@
     $gasLimitZero = false;
     manuallyConfirmed = false;
     invalidCustomFee = false;
+    // The input only renders while CUSTOM is selected, so it mounts empty every time
+    customFeeUsable = false;
   }
 
   function cancelModal() {
     inputBox?.clear();
     invalidCustomFee = false;
+    customFeeUsable = false;
     $gasLimitZero = false;
 
     if (tempProcessingFeeMethod === ProcessingFeeMethod.CUSTOM) {
@@ -102,10 +112,10 @@
     // Incomplete or invalid input keeps the previous fee; a custom fee below the
     // recommended amount is a deliberate choice the warning below covers
     const parsed = parseCustomFeeInput(value);
-    // An empty box is not an error, it is simply not filled in yet. Anything else that
-    // fails to parse must block Confirm: silently keeping the previous fee would submit
-    // an amount the user has already replaced on screen.
+    // An empty box is not an error, it is simply not filled in yet - but it is still not
+    // something that can be confirmed. Anything else that fails to parse is both.
     invalidCustomFee = parsed === null && value.trim() !== '';
+    customFeeUsable = parsed !== null;
     if (parsed === null) return;
     tempprocessingFee = parsed;
   }
@@ -139,6 +149,11 @@
   };
 
   function unselectNoneIfNotEnoughETH(method: ProcessingFeeMethod, enoughEth: boolean) {
+    // A zero gas limit fixes the fee at zero, so there is nothing to afford and nothing to
+    // switch away from. Overriding it here is what let a recommended fee ride along with a
+    // zero gas limit, which the bridge rejects outright with B_INVALID_FEE.
+    if (get(gasLimitZero)) return;
+
     if (method === ProcessingFeeMethod.NONE && enoughEth === false) {
       $processingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
 
@@ -156,6 +171,14 @@
   }
   $: unselectNoneIfNotEnoughETH($processingFeeMethod, hasEnoughEth);
 
+  // Bridge.sol rejects a message whose gasLimit is 0 while its fee is not. Keeping the two
+  // in step here means the user sees the fee fall to zero when they choose a zero gas
+  // limit, rather than having it dropped silently at send time or hitting a revert.
+  $: if ($gasLimitZero && $processingFee !== BigInt(0)) {
+    $processingFeeMethod = ProcessingFeeMethod.NONE;
+    $processingFee = BigInt(0);
+  }
+
   $: manuallyConfirmed = false;
 
   $: needsConfirmation = tempProcessingFeeMethod !== ProcessingFeeMethod.RECOMMENDED || $gasLimitZero;
@@ -164,10 +187,14 @@
   // dialog's own method: updateProcessingFee runs on the committed $processingFeeMethod,
   // which the radios do not change, so clearing there left the flag set and a
   // CUSTOM -> RECOMMENDED -> CUSTOM round trip came back to an empty but blocked input.
-  $: if (tempProcessingFeeMethod !== ProcessingFeeMethod.CUSTOM) invalidCustomFee = false;
+  $: if (tempProcessingFeeMethod !== ProcessingFeeMethod.CUSTOM) {
+    invalidCustomFee = false;
+    customFeeUsable = false;
+  }
 
-  // Text that never parsed leaves tempprocessingFee describing an earlier value
-  $: customFeeUnusable = tempProcessingFeeMethod === ProcessingFeeMethod.CUSTOM && invalidCustomFee;
+  // Covers both ways tempprocessingFee can describe something the box no longer shows:
+  // text that never parsed, and a box that has been emptied since it did
+  $: customFeeUnusable = tempProcessingFeeMethod === ProcessingFeeMethod.CUSTOM && !customFeeUsable;
 
   $: confirmDisabled = (needsConfirmation && !manuallyConfirmed) || customFeeUnusable;
 </script>
@@ -330,6 +357,13 @@
                 <span class="absolute right-6 uppercase body-bold text-secondary-content">ETH</span>
               {/if}
             </div>
+
+            {#if invalidCustomFee}
+              <!-- Confirm is disabled either way; without this the reason was invisible -->
+              <div class="mb-[20px]">
+                <FlatAlert type="error" message={$t('processing_fee.invalid_custom_fee')} />
+              </div>
+            {/if}
 
             {#if tempProcessingFeeMethod === ProcessingFeeMethod.CUSTOM}
               <div class="my-5">

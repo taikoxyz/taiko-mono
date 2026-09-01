@@ -48,11 +48,18 @@
     fetching = true;
     try {
       if (addressToSearch) {
-        const { mergedTransactions } = await fetchTransactions(addressToSearch);
+        const { mergedTransactions, error } = await fetchTransactions(addressToSearch);
         if (generation !== searchGeneration) return;
         log('mergedTransactions', mergedTransactions);
         // Also assign empty results: the previous address's transactions must not linger
         transactions = mergedTransactions;
+        // A relayer failure is reported, not thrown, so the catch below never sees it.
+        // Without this the search just showed an empty table and said nothing - the same
+        // outcome as an address that genuinely has no transactions
+        if (error) {
+          console.error('Error fetching transactions', error);
+          warningToast({ title: $t('transactions.errors.relayer_offline') });
+        }
       }
     } catch (error) {
       if (generation !== searchGeneration) return;

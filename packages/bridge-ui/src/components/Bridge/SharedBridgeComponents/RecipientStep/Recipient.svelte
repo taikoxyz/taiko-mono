@@ -16,10 +16,16 @@
 
   // Public API
   export const clearRecipient = () => {
+    // Discard an in-flight classification outright. Clearing the input empties the bound
+    // draft, so syncRecipientDraft retires the lookup on the next flush anyway - but that
+    // makes this function's guarantee depend on what AddressInput does to the binding,
+    // and the cost of stating it here is one call
+    supersedePendingValidation();
     if (addressInput) addressInput.clearAddress(); // update UI
     $recipientAddress = null; // update state
     validatedRecipient = null;
     recipientIsSmartContract = false;
+    invalidRecipient = false;
   };
 
   export let small = false;

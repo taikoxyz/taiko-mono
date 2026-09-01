@@ -5,6 +5,7 @@
   import { Icon } from '$components/Icon';
   import InputBox from '$components/InputBox/InputBox.svelte';
 
+  import { parseTokenIds } from './parseTokenIds';
   import { IDInputState as State } from './state';
 
   export let validIdNumbers: number[] = [];
@@ -28,37 +29,25 @@
   function validateInput(idInput: EventTarget | number[] | null = null) {
     state = State.VALIDATING;
 
-    let ids: number[] = [];
+    let raw = '';
     if (idInput && idInput instanceof EventTarget) {
-      ids = (idInput as HTMLInputElement).value
-        .split(',')
-        .map((item) => item.trim())
-        .filter((item) => item !== '')
-        // Strictly decimal: Number('0x10') is 16, so a pasted hex id would silently
-        // target a different token
-        .filter((item) => /^\d+$/.test(item))
-        .map((item) => Number(item));
+      raw = (idInput as HTMLInputElement).value;
     } else if (Array.isArray(idInput)) {
-      ids = idInput;
+      raw = idInput.join(',');
     }
 
-    if (ids.length > limit) {
-      ids = ids.slice(0, limit);
-    }
+    const { ids, validIds, empty } = parseTokenIds(raw, limit);
     enteredIds = ids;
+    validIdNumbers = validIds;
 
     // An empty field is neither valid nor an error: nothing has been entered yet
-    if (ids.length === 0) {
-      validIdNumbers = [];
+    if (empty) {
       state = State.DEFAULT;
       dispatch('inputValidation');
       return;
     }
-    // Token IDs above Number.MAX_SAFE_INTEGER silently lose precision as JS numbers,
-    // which would make the flow act on a different token — reject them instead
-    const isValid = ids.every((num) => Number.isSafeInteger(num) && num >= 0);
-    validIdNumbers = isValid ? ids : [];
-    state = isValid ? State.VALID : State.INVALID;
+
+    state = validIds.length > 0 ? State.VALID : State.INVALID;
     dispatch('inputValidation');
   }
 

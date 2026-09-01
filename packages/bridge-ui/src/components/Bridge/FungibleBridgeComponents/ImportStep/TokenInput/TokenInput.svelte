@@ -29,6 +29,7 @@
   import { refreshUserBalance, renderBalance } from '$libs/util/balance';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
+  import { parseDecimalAmount } from '$libs/util/parseDecimalAmount';
   import { truncateDecimalString } from '$libs/util/truncateDecimal';
   import { type Account, account } from '$stores/account';
   import { ethBalance } from '$stores/balance';
@@ -43,6 +44,7 @@
   let inputBox: InputBox;
 
   let value = '';
+  let amountRejected = false;
 
   async function validateAmount(token = $selectedToken) {
     // During validation, we disable all the actions
@@ -79,14 +81,21 @@
     $validatingAmount = true;
     $errorComputingBalance = false;
 
-    try {
-      // Number inputs also emit values parseUnits cannot parse, like '1e5'
-      $enteredAmount = parseUnits(value, $selectedToken.decimals);
-    } catch {
+    // parseUnits alone accepts hex ('0x10' becomes 268435456), negatives and a leading
+    // plus, and rounds excess precision - every one of those bridges an amount other than
+    // the one on screen
+    const parsed = parseDecimalAmount(value, $selectedToken.decimals);
+    if (!parsed.ok) {
+      // An empty box is not an error, it is a box nobody has filled in yet. Anything else
+      // needs saying out loud: the amount is now zero and Continue is disabled, and
+      // without a message there is nothing on screen explaining why
+      amountRejected = parsed.reason !== 'EMPTY';
       $enteredAmount = 0n;
       $validatingAmount = false;
       return;
     }
+    amountRejected = false;
+    $enteredAmount = parsed.value;
     debouncedValidateAmount();
   };
 
@@ -114,6 +123,7 @@
         // notation for tiny balances, which parseUnits rejects
         value = truncateDecimalString(formatUnits(maxAmount, $selectedToken.decimals), 12);
         $enteredAmount = parseUnits(value, $selectedToken.decimals);
+        amountRejected = false;
         validateAmount();
       }
     } catch (err) {
@@ -125,6 +135,7 @@
     log('reset');
     $computingBalance = true;
     value = '';
+    amountRejected = false;
     $enteredAmount = 0n;
     if ($account && $account.address && $account?.isConnected && $selectedToken) {
       validateAmount($selectedToken);
@@ -264,7 +275,9 @@
   </div>
 
   <div class="flex mt-[8px] min-h-[24px]">
-    {#if displayFeeMsg}
+    {#if amountRejected}
+      <FlatAlert type="error" message={$t('bridge.errors.invalid_amount')} class="relative" />
+    {:else if displayFeeMsg}
       <div class="f-row items-center gap-1">
         <Icon type="info-circle" size={15} fillClass="fill-tertiary-content" /><span
           class="text-sm text-tertiary-content"

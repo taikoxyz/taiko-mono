@@ -7,6 +7,7 @@
  * Confirm only checked the acknowledgement box, so that stale fee could be submitted.
  */
 import { tick } from 'svelte';
+import { get } from 'svelte/store';
 import { vi } from 'vitest';
 
 vi.mock('svelte-i18n', async () => {
@@ -14,12 +15,18 @@ vi.mock('svelte-i18n', async () => {
   return { t: readable((key: string) => key), locale: readable('en'), init: vi.fn(), addMessages: vi.fn() };
 });
 
+import { gasLimitZero, processingFee, processingFeeMethod } from '$components/Bridge/state';
+import { ProcessingFeeMethod } from '$libs/fee';
+
 import ProcessingFee from './ProcessingFee.svelte';
 
 let target: HTMLElement;
 let component: { $destroy: () => void } | null = null;
 
 beforeEach(() => {
+  gasLimitZero.set(false);
+  processingFee.set(BigInt(0));
+  processingFeeMethod.set(ProcessingFeeMethod.RECOMMENDED);
   target = document.createElement('div');
   document.body.appendChild(target);
   component = new ProcessingFee({ target, props: {} });
@@ -45,6 +52,9 @@ const openCustom = async () => {
 
 const feeInput = () => target.querySelector('input[type="number"]') as HTMLInputElement;
 
+/** The dialog only explains a bad custom fee through this alert */
+const errorShown = () => (target.textContent ?? '').includes('processing_fee.invalid_custom_fee');
+
 const confirmButton = () =>
   Array.from(target.querySelectorAll('button')).find((b) =>
     b.textContent?.includes('common.confirm'),
@@ -66,6 +76,39 @@ const type = async (value: string) => {
   input.dispatchEvent(new Event('input', { bubbles: true }));
   await tick();
 };
+
+describe('zero gas limit', () => {
+  /**
+   * Bridge.sol:200 reverts with B_INVALID_FEE when gasLimit is 0 and fee is not.
+   * `unselectNoneIfNotEnoughETH` force-switches the NONE method to RECOMMENDED, which
+   * raises the fee above zero - and it did so even while the zero-gas-limit option was
+   * on, producing exactly the pairing the contract rejects.
+   */
+  it('does not switch away from the zero-fee method while the gas limit is zero', async () => {
+    gasLimitZero.set(true);
+    processingFeeMethod.set(ProcessingFeeMethod.NONE);
+
+    // hasEnoughEth false is what previously forced the method to RECOMMENDED
+    component?.$destroy();
+    component = new ProcessingFee({ target, props: { hasEnoughEth: false } });
+    await tick();
+
+    expect(get(processingFeeMethod)).toBe(ProcessingFeeMethod.NONE);
+    expect(get(gasLimitZero) && get(processingFee) !== BigInt(0)).toBe(false);
+  });
+
+  it('still switches away from the zero-fee method when the gas limit is not zero', async () => {
+    // The guard must be specific to the zero-gas-limit case, not disable the behaviour
+    gasLimitZero.set(false);
+    processingFeeMethod.set(ProcessingFeeMethod.NONE);
+
+    component?.$destroy();
+    component = new ProcessingFee({ target, props: { hasEnoughEth: false } });
+    await tick();
+
+    expect(get(processingFeeMethod)).toBe(ProcessingFeeMethod.RECOMMENDED);
+  });
+});
 
 describe('custom processing fee', () => {
   it('switches to the custom method', async () => {
@@ -109,7 +152,33 @@ describe('custom processing fee', () => {
     await acknowledge();
     await type('');
 
+    // Not an error to report...
+    expect(errorShown()).toBe(false);
+    // ...but there is no fee in it to confirm either
+    expect(confirmButton().disabled).toBe(true);
+  });
+
+  it('does not submit the previous fee after the box is cleared', async () => {
+    await openCustom();
+    await acknowledge();
+    await type('0.002');
     expect(confirmButton().disabled).toBe(false);
+
+    await type('');
+
+    // tempprocessingFee still holds 0.002, so leaving Confirm enabled here bridged a fee
+    // the box no longer shows - the same "what you see is what you bridge" break the
+    // amount inputs had
+    expect(confirmButton().disabled).toBe(true);
+  });
+
+  it('says why a fee that cannot be parsed is blocked', async () => {
+    await openCustom();
+    await acknowledge();
+    await type('1e5');
+
+    expect(confirmButton().disabled).toBe(true);
+    expect(errorShown()).toBe(true);
   });
 
   it('clears the invalid draft across a CUSTOM -> RECOMMENDED -> CUSTOM round trip', async () => {
@@ -124,9 +193,14 @@ describe('custom processing fee', () => {
     await tick();
 
     // The round trip recreates an empty input, so the error belonging to the discarded
-    // draft must not still be blocking it
-    // The acknowledgement from before the round trip is still checked
+    // draft must not still be reported against it
     expect(feeInput().value).toBe('');
+    expect(errorShown()).toBe(false);
+
+    // Confirm is still blocked, but by the empty box rather than by the retired error:
+    // typing a valid fee releases it, which it could not do if the error had persisted
+    expect(confirmButton().disabled).toBe(true);
+    await type('0.002');
     expect(confirmButton().disabled).toBe(false);
   });
 

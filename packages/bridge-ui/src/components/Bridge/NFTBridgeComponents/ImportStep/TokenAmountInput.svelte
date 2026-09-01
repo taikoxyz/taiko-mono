@@ -10,6 +10,7 @@
   import { ETHToken, fetchBalance, fetchBalance as getTokenBalance, TokenType } from '$libs/token';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
+  import { parseDecimalAmount } from '$libs/util/parseDecimalAmount';
   import { account } from '$stores/account';
   import { ethBalance } from '$stores/balance';
   import { connectedSourceChain } from '$stores/network';
@@ -33,6 +34,7 @@
   let inputBox: InputBox;
   let computingMaxAmount = false;
   let invalidInput = false;
+  let invalidInputMessage = 'bridge.errors.no_decimals_allowed';
   let value = '';
 
   // Public API
@@ -115,8 +117,9 @@
    * let the import proceed with an amount the user has already replaced on screen: the
    * parents gate on `$enteredAmount > 0`, so clearing it is what blocks them.
    */
-  function rejectAmount() {
+  function rejectAmount(messageKey: string) {
     invalidInput = true;
+    invalidInputMessage = messageKey;
     $enteredAmount = BigInt(0);
   }
 
@@ -132,23 +135,26 @@
         throw new UnknownTokenTypeError($selectedToken.type);
       }
 
-      // For ERC1155, no decimals are allowed
-      if (/[.,]/.test(value)) {
-        rejectAmount();
-        return;
-      }
-
-      let parsed: bigint;
-      try {
-        // Number inputs also emit values like '1e5', which BigInt cannot parse
-        parsed = BigInt(value);
-      } catch {
-        rejectAmount();
+      // ERC1155 quantities are whole numbers, so zero decimals: that refuses any fraction
+      // along with hex, exponent form, negatives and anything above a uint256
+      const parsed = parseDecimalAmount(value, 0);
+      if (!parsed.ok) {
+        // An empty box is a box nobody has filled in yet, not a mistake to complain about
+        if (parsed.reason === 'EMPTY') {
+          sanitizedValue = value;
+          $enteredAmount = BigInt(0);
+          return;
+        }
+        // A fraction is the common case and has its own wording; a negative quantity or
+        // one past a uint256 is not "decimals are not supported"
+        rejectAmount(
+          parsed.reason === 'TOO_MANY_DECIMALS' ? 'bridge.errors.no_decimals_allowed' : 'bridge.errors.invalid_amount',
+        );
         return;
       }
 
       sanitizedValue = value;
-      $enteredAmount = parsed;
+      $enteredAmount = parsed.value;
 
       debouncedValidateAmount();
     } finally {
@@ -200,7 +206,7 @@
   // or there is an issue computing it
   $: showInsufficientBalanceAlert = $insufficientBalance && !$errorComputingBalance && !$computingBalance;
 
-  $: noDecimalsAllowedAlert = invalidInput;
+  $: invalidInputAlert = invalidInput;
 
   $: inputDisabled =
     computingMaxAmount ||
@@ -259,8 +265,8 @@
     <div class="flex mt-[8px] min-h-[24px]">
       {#if showInsufficientBalanceAlert}
         <FlatAlert type="error" message={$t('bridge.errors.insufficient_balance.title')} class="relative " />
-      {:else if noDecimalsAllowedAlert}
-        <FlatAlert type="error" message={$t('bridge.errors.no_decimals_allowed')} class="relative" />
+      {:else if invalidInputAlert}
+        <FlatAlert type="error" message={$t(invalidInputMessage)} class="relative" />
       {/if}
     </div>
   </div>

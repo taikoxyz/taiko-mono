@@ -30,8 +30,8 @@
   import { BridgePausedError, TransactionTimeoutError } from '$libs/error';
   import { bridgeTxService } from '$libs/storage';
   import { TokenType } from '$libs/token';
-  import { getTokenApprovalStatus } from '$libs/token/getTokenApprovalStatus';
   import { isToken } from '$libs/token/isToken';
+  import { waitForApprovalStatus } from '$libs/token/waitForApprovalStatus';
   import { refreshUserBalance } from '$libs/util/balance';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
@@ -158,6 +158,9 @@
     });
 
     refreshUserBalance();
+    // A reverted approval has no pending change for the status re-read to wait for, so
+    // retrying it only keeps the spinner up after the failure is already on screen
+    let approvalFailed = false;
     try {
       await pendingTransactions.add(approveTxHash, currentChain);
 
@@ -165,8 +168,6 @@
       statusDescription = $t('bridge.step.confirm.approve.success.message', {
         values: { url: `${explorer}/tx/${txHash}` },
       });
-
-      await getTokenApprovalStatus($selectedToken);
 
       successToast({
         title: $t('bridge.actions.approve.success.title'),
@@ -178,9 +179,20 @@
       });
     } catch (error) {
       if (error instanceof TransactionTimeoutError) {
+        // A wait that timed out may still confirm, so the status is still worth polling
         handleTimeout(txHash);
       } else {
+        approvalFailed = true;
         handleBridgeError(error as Error);
+      }
+    } finally {
+      // The buttons are driven off this read, so it has to happen whatever the wait above
+      // did: a timed-out wait does not mean the approval failed, and leaving the status
+      // stale is what forced a page reload before Bridge would enable.
+      try {
+        await waitForApprovalStatus($selectedToken, approvalFailed ? { attempts: 1 } : {});
+      } catch (error) {
+        console.error('Could not refresh the approval status', error);
       }
     }
   };

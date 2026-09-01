@@ -99,9 +99,12 @@
 
   async function updateMintButtonState(connected: boolean, token?: Token, network?: Chain) {
     const generation = ++mintCheckGeneration;
-    // Invalid inputs also invalidate any in-flight check, whose flags are reset here
+    // Invalid inputs also invalidate any in-flight check, whose flags are reset here.
+    // mintButtonEnabled goes with them: leaving it set kept Mint clickable after the
+    // token that earned it was deselected
     if (!token || !network) {
       checkingMintable = false;
+      mintButtonEnabled = false;
       return false;
     }
     checkingMintable = true;

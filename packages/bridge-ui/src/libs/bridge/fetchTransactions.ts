@@ -17,7 +17,7 @@ async function fetchAllRelayerPages(
   relayerApiService: (typeof relayerApiServices)[number],
   userAddress: Address,
   chainId?: number,
-): Promise<{ txs: BridgeTransaction[]; failedCount: number }> {
+): Promise<{ txs: BridgeTransaction[]; failedCount: number; error?: Error }> {
   const txs: BridgeTransaction[] = [];
   let failedCount = 0;
 
@@ -40,7 +40,10 @@ async function fetchAllRelayerPages(
       // not blank it. With nothing fetched yet the caller still needs to hear about it.
       if (txs.length === 0) throw error;
       log(`relayer page ${page} failed, returning ${txs.length} transactions already fetched`, error);
-      break;
+      // Degrading is fine; degrading in silence is not. A partial history that looks
+      // complete is the one outcome the user cannot tell apart from a correct one.
+      // failedCount carries what the completed pages already lost to failed on-chain reads.
+      return { txs, failedCount, error: error as Error };
     }
     txs.push(...pageTxs);
     failedCount += pageFailedCount;
@@ -62,29 +65,42 @@ export async function fetchTransactions(userAddress: Address, chainId?: number) 
   const localTxs: BridgeTransaction[] = await bridgeTxService.getAllTxByAddress(userAddress);
 
   // Get all transactions from all relayers
-  const relayerTxPromises: Promise<{ txs: BridgeTransaction[]; failedCount: number }>[] = relayerApiServices.map(
-    async (relayerApiService) => {
-      const result = await fetchAllRelayerPages(relayerApiService, userAddress, chainId);
-      log(`fetched ${result.txs.length} transactions from relayer`, result.txs);
-      return result;
-    },
-  );
+  const relayerTxPromises = relayerApiServices.map(async (relayerApiService) => {
+    const result = await fetchAllRelayerPages(relayerApiService, userAddress, chainId);
+    log(`fetched ${result.txs?.length ?? 0} transactions from relayer`, result.txs);
+    return result;
+  });
 
-  let relayerResults: { txs: BridgeTransaction[]; failedCount: number }[];
-  // Wait for all promises to resolve
-  try {
-    relayerResults = await Promise.all(relayerTxPromises);
-  } catch (e) {
-    log('error fetching transactions from relayers', e);
-    error = e as Error;
-    relayerResults = [];
+  // allSettled, not all: relayers are independent sources, and one of them failing on its
+  // first page must not throw away the history the others returned. Promise.all rejected
+  // on the first failure and the catch blanked every result, so a single relayer being
+  // offline showed the user an empty transaction list
+  const relayerResults = await Promise.allSettled(relayerTxPromises);
+  const relayerTxsArrays: BridgeTransaction[][] = [];
+  // Only a relayer that answered can report how many of its transactions failed to load; a
+  // relayer that rejected outright has no count to give, and `error` speaks for it instead
+  let failedCount = 0;
+  for (const result of relayerResults) {
+    if (result.status === 'fulfilled') {
+      relayerTxsArrays.push(result.value.txs);
+      failedCount += result.value.failedCount;
+      // A relayer that answered some pages and then failed still reports that failure,
+      // so a partial history is not presented as a complete one
+      if (result.value.error) {
+        log('a relayer stopped part-way through its pages', result.value.error);
+        error ??= result.value.error;
+      }
+      continue;
+    }
+    log('error fetching transactions from a relayer', result.reason);
+    // The caller shows one warning, so the first failure is the one reported. The
+    // transactions the other relayers did return are still handed back alongside it
+    error ??= result.reason as Error;
   }
-
-  const failedCount = relayerResults.reduce((total, result) => total + result.failedCount, 0);
 
   // Flatten the arrays into a single array, dropping duplicate hashes the relayer
   // may return across pages or relayers
-  const relayerTxsFlattened = relayerResults.reduce((acc, result) => acc.concat(result.txs), [] as BridgeTransaction[]);
+  const relayerTxsFlattened = relayerTxsArrays.reduce((acc, txs) => acc.concat(txs), []);
   const seenTxHashes = new Set<string>();
   const dedupedRelayerTxs = relayerTxsFlattened.filter((tx) => {
     if (seenTxHashes.has(tx.srcTxHash)) return false;

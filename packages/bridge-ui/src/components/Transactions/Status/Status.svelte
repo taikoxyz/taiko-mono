@@ -70,6 +70,11 @@
 
     dispatch('openModal', 'try_claim');
   }
+  // Date.now() is deliberately not reactive. The threshold exists to stop a *fresh*
+  // transaction being deleted for a transient polling failure - removing a stale one
+  // promptly is not the point, and a row that crosses 24h while still mounted is simply
+  // re-evaluated the next time the page loads. A timer here would keep a component alive
+  // for a cleanup nobody is waiting on.
   $: if (hasError && $account?.address && isEligibleForStorageRemoval(bridgeTx, Date.now())) {
     if (bridgeTxService.transactionIsStoredLocally($account.address, bridgeTx)) {
       // Polling could not start and the transaction is old enough that this cannot be a transient
