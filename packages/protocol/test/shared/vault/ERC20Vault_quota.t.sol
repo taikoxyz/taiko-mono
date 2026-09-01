@@ -44,6 +44,8 @@ contract TestERC20Vault_quota is CommonTest {
         );
         tBridge = new PrankDestBridge(eVault);
         register("bridge", address(tBridge));
+        // The bridged refund branch deploys a BridgedERC20, so the impl must resolve on this chain.
+        register("bridged_erc20", address(new BridgedERC20(address(eVault))));
     }
 
     function _canonical() internal view returns (ERC20Vault.CanonicalERC20 memory) {
@@ -131,7 +133,18 @@ contract TestERC20Vault_quota is CommonTest {
     /// @dev Builds a message shaped like one this vault would have sent, so it can be handed back
     /// through `onMessageRecalled`.
     function _recallMessage(uint64 _amount) internal view returns (IBridge.Message memory) {
-        bytes memory inner = abi.encode(_canonical(), Alice, Bob, uint256(_amount));
+        return _recallMessage(_canonical(), _amount);
+    }
+
+    function _recallMessage(
+        ERC20Vault.CanonicalERC20 memory _ctoken,
+        uint64 _amount
+    )
+        internal
+        view
+        returns (IBridge.Message memory)
+    {
+        bytes memory inner = abi.encode(_ctoken, Alice, Bob, uint256(_amount));
         return IBridge.Message({
             id: 0,
             fee: 0,
@@ -199,6 +212,35 @@ contract TestERC20Vault_quota is CommonTest {
         eVault.onMessageRecalled(message, bytes32(0));
 
         assertEq(eERC20Token1.balanceOf(Alice) - aliceBefore, amount);
+        assertEq(qm.totalConsumed(), 0);
+    }
+
+    // The exemption also covers the other branch of `_transferTokens`: a refund whose canonical
+    // lives on a third chain is settled by minting the bridged representation, which must likewise
+    // not be throttled.
+    function test_quota_recall_refund_of_a_bridged_token_is_exempt_from_quota() public {
+        vm.chainId(taikoChainId);
+
+        uint64 amount = 10;
+        qm.setLimit(1); // any debit of `amount` would revert
+
+        // chainId 999 != block.chainid, so the refund takes the mint branch.
+        ERC20Vault.CanonicalERC20 memory foreign = ERC20Vault.CanonicalERC20({
+            chainId: 999,
+            addr: address(eERC20Token1),
+            decimals: eERC20Token1.decimals(),
+            symbol: eERC20Token1.symbol(),
+            name: eERC20Token1.name()
+        });
+
+        IBridge.Message memory message = _recallMessage(foreign, amount);
+        vm.prank(address(tBridge));
+        eVault.onMessageRecalled(message, bytes32(0));
+
+        address btoken = eVault.canonicalToBridged(999, address(eERC20Token1));
+        assertTrue(btoken != address(0), "bridged token not deployed");
+        assertEq(BridgedERC20(btoken).balanceOf(Alice), amount);
+        assertEq(qm.calls(), 0);
         assertEq(qm.totalConsumed(), 0);
     }
 

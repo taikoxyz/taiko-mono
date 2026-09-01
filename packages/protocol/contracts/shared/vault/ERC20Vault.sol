@@ -270,6 +270,10 @@ contract ERC20Vault is BaseVault {
     /// allowance first, so no separate `approve` transaction is needed.
     /// @dev Only usable with tokens that implement EIP-2612; use `sendTokenWithPermit2` otherwise.
     /// The caller must be the permit signer.
+    /// @dev EIP-2612 `permit` *sets* the allowance rather than adding to it, so a caller who already
+    /// holds a larger standing allowance for this vault will see it replaced by `_op.amount` and
+    /// then spent down to zero. That is safe (it only ever reduces standing approval) but it is
+    /// destructive, so callers that keep a long-lived allowance should use `sendToken` instead.
     /// @param _op Option for sending ERC20 tokens.
     /// @param _deadline The permit signature's expiry timestamp.
     /// @param _v The permit signature's `v` value.
