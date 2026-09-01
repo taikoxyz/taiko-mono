@@ -54,12 +54,23 @@ contract TestERC20VaultPermit is CommonTest {
     }
 
     function _op(uint256 _amount) private view returns (ERC20Vault.BridgeTransferOp memory) {
+        return _op(address(eToken), _amount);
+    }
+
+    function _op(
+        address _token,
+        uint256 _amount
+    )
+        private
+        view
+        returns (ERC20Vault.BridgeTransferOp memory)
+    {
         return ERC20Vault.BridgeTransferOp({
             destChainId: taikoChainId,
             destOwner: address(0),
             to: Bob,
             fee: 0,
-            token: address(eToken),
+            token: _token,
             gasLimit: 1_000_000,
             amount: _amount
         });
@@ -76,8 +87,23 @@ contract TestERC20VaultPermit is CommonTest {
         view
         returns (bytes memory)
     {
+        return _signPermit2(_pk, address(eToken), _amount, _nonce, _deadline, _spender);
+    }
+
+    function _signPermit2(
+        uint256 _pk,
+        address _token,
+        uint256 _amount,
+        uint256 _nonce,
+        uint256 _deadline,
+        address _spender
+    )
+        private
+        view
+        returns (bytes memory)
+    {
         IPermit2.PermitTransferFrom memory permit = IPermit2.PermitTransferFrom({
-            permitted: IPermit2.TokenPermissions({ token: address(eToken), amount: _amount }),
+            permitted: IPermit2.TokenPermissions({ token: _token, amount: _amount }),
             nonce: _nonce,
             deadline: _deadline
         });
@@ -226,6 +252,124 @@ contract TestERC20VaultPermit is CommonTest {
         vm.prank(Alice);
         vm.expectRevert(Permit2Mock.SignatureExpired.selector);
         eVault.sendTokenWithPermit2(_op(amount), 0, deadline, sig);
+    }
+
+    /// @dev Pins the Permit2 interface to the selector actually present in the canonical deployed
+    /// Permit2. Uniswap's `PermitTransferFrom` has no `spender` member -- the spender is bound
+    /// into the EIP-712 typehash as `msg.sender` -- so adding one would silently change this
+    /// selector and make the vault call a function that does not exist on the real contract.
+    /// 0x30f28b7a is the selector found in Permit2's dispatcher at
+    /// 0x000000000022D473030F116dDEE9F6B43aC78BA3 on Ethereum mainnet and Taiko Alethia.
+    function test_20Vault_permit2_interface_matches_canonical_permit2_selector() public {
+        assertEq(uint32(IPermit2.permitTransferFrom.selector), uint32(0x30f28b7a));
+    }
+
+    /// @dev A call to a codeless address cannot be allowed to look like a successful pull. Solidity
+    /// emits an extcodesize check for an external call with no return value, so this reverts rather
+    /// than silently transferring nothing and bridging a zero balance change.
+    function test_20Vault_permit2_reverts_when_permit2_has_no_code() public {
+        uint256 amount = 1 ether;
+        uint256 deadline = block.timestamp + 1 hours;
+
+        vm.prank(Alice);
+        eToken.approve(permit2, type(uint256).max);
+
+        bytes memory sig = _signPermit2(AlicePK, amount, 0, deadline, address(eVault));
+
+        uint256 aliceBefore = eToken.balanceOf(Alice);
+        uint256 vaultBefore = eToken.balanceOf(address(eVault));
+
+        // Simulate a chain where Permit2 was never deployed.
+        vm.etch(permit2, "");
+
+        vm.prank(Alice);
+        vm.expectRevert();
+        eVault.sendTokenWithPermit2(_op(amount), 0, deadline, sig);
+
+        // Nothing moved: the call did not silently succeed.
+        assertEq(eToken.balanceOf(Alice), aliceBefore);
+        assertEq(eToken.balanceOf(address(eVault)), vaultBefore);
+    }
+
+    /// @dev `_pullTokens` is reached from both branches of `_handleMessage`. The canonical branch
+    /// locks and measures a balance delta; this is the other one -- the bridged "transfer and
+    /// burn" path -- where the pull is followed by `burn`, so a short pull would revert rather
+    /// than silently under-bridge.
+    function test_20Vault_permit2_bridges_a_bridged_token_via_transfer_and_burn() public {
+        (address btoken,) = _registerBridgedToken();
+
+        vm.prank(address(eVault));
+        BridgedERC20(btoken).mint(Alice, 10 ether);
+
+        uint256 amount = 3 ether;
+        uint256 deadline = block.timestamp + 1 hours;
+
+        vm.prank(Alice);
+        BridgedERC20(btoken).approve(permit2, type(uint256).max);
+        assertEq(BridgedERC20(btoken).allowance(Alice, address(eVault)), 0);
+
+        bytes memory sig = _signPermit2(AlicePK, btoken, amount, 0, deadline, address(eVault));
+
+        uint256 supplyBefore = BridgedERC20(btoken).totalSupply();
+
+        vm.prank(Alice);
+        IBridge.Message memory message =
+            eVault.sendTokenWithPermit2(_op(btoken, amount), 0, deadline, sig);
+
+        // Transfer and burn: Alice is debited, supply shrinks, and the vault keeps nothing.
+        assertEq(BridgedERC20(btoken).balanceOf(Alice), 10 ether - amount);
+        assertEq(BridgedERC20(btoken).totalSupply(), supplyBefore - amount);
+        assertEq(BridgedERC20(btoken).balanceOf(address(eVault)), 0);
+        assertEq(message.srcOwner, Alice);
+    }
+
+    /// @dev Registers a bridged token whose canonical lives on another chain, so `_handleMessage`
+    /// takes its bridged branch. Mirrors the setup used by the existing ERC20Vault suite.
+    function _registerBridgedToken()
+        private
+        returns (address btoken_, ERC20Vault.CanonicalERC20 memory canonical_)
+    {
+        FreeMintERC20TokenWithPermit origin = new FreeMintERC20TokenWithPermit("ORIG", "ORIG");
+
+        ERC20Vault.CanonicalERC20 memory canonical = ERC20Vault.CanonicalERC20({
+            chainId: 999, addr: address(origin), decimals: 18, symbol: "ORIG", name: "ORIG"
+        });
+
+        btoken_ = address(new BridgedERC20(address(eVault)));
+        canonical_ = canonical;
+
+        // changeBridgedToken enforces MIN_MIGRATION_DELAY against a zero baseline.
+        vm.warp(block.timestamp + 91 days);
+        vm.prank(deployer);
+        eVault.changeBridgedToken(canonical, btoken_);
+    }
+
+    /// @dev A bridged token that has been migrated away from is denylisted, and must stay
+    /// unbridgeable through the permit entrypoints too -- not just through `sendToken`.
+    function test_20Vault_permit2_rejects_a_denylisted_bridged_token() public {
+        (address btokenOld, ERC20Vault.CanonicalERC20 memory canonical) = _registerBridgedToken();
+
+        vm.prank(address(eVault));
+        BridgedERC20(btokenOld).mint(Alice, 10 ether);
+
+        // Migrate the canonical onto a new bridged token; the old one is denylisted.
+        address btokenNew = address(new BridgedERC20(address(eVault)));
+        vm.warp(block.timestamp + 91 days);
+        vm.prank(deployer);
+        eVault.changeBridgedToken(canonical, btokenNew);
+        assertTrue(eVault.btokenDenylist(btokenOld));
+
+        uint256 amount = 1 ether;
+        uint256 deadline = block.timestamp + 1 hours;
+
+        vm.prank(Alice);
+        BridgedERC20(btokenOld).approve(permit2, type(uint256).max);
+
+        bytes memory sig = _signPermit2(AlicePK, btokenOld, amount, 0, deadline, address(eVault));
+
+        vm.prank(Alice);
+        vm.expectRevert(ERC20Vault.VAULT_BTOKEN_BLACKLISTED.selector);
+        eVault.sendTokenWithPermit2(_op(btokenOld, amount), 0, deadline, sig);
     }
 
     // ---------------------------------------------------------------------------------------
