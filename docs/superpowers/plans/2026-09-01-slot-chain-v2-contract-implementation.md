@@ -165,6 +165,7 @@ the lockfile.
 
 **Files:**
 
+- Modify: `.github/workflows/protocol.yml`
 - Modify: `packages/protocol/foundry.toml`
 - Modify: `packages/protocol/package.json`
 - Create: `packages/protocol/utils/slotchain/checkArtifactOwnership.ts`
@@ -204,7 +205,12 @@ the lockfile.
       `test/layer2/slotchain`. Build-info has no trustworthy profile-name field: the checker binds a
       profile to the clean `FOUNDRY_PROFILE=<name>` invocation and fixed output directory, then
       compares `forge config --json` source/test/script/out/cache and compiler settings with the
-      manifest. The artifact-owned checker key is
+      manifest. `default`, `genesis` and `layer1o` are explicit forbidden-owner profiles whose
+      recursive Slot Chain skip is pinned and checked. The checker consumes the complete Foundry
+      build-info standard input/output, validates format/compiler/settings/exact source content and
+      source AST, rejects duplicate compiler outputs, and byte-for-byte cross-checks the single
+      `output.contracts[sourcePath][contractName]` object against the emitted artifact JSON. The
+      artifact-owned checker key is
       `(sourcePath, contractName, profile, solcVersion, evmVersion, optimizerRuns, abiHash,
 linkReferencesHash, immutableReferencesHash, creationHash, runtimeHash)` and fails closed on
       any absent or duplicate owner.
@@ -220,17 +226,24 @@ linkReferencesHash, immutableReferencesHash, creationHash, runtimeHash)` and fai
 - [ ] **Step 5: Add** `slotchain:artifact-owner:check` and run clean shared/L1/L2 builds twice.
       Each build uses `--force --build-info --ast --extra-output storage-layout`; a warm incremental
       artifact directory is not admissible evidence.
+      Run the default-profile exclusion build with CLI-overridden temporary out/cache/build-info
+      paths so it cannot erase the three owner-profile outputs, and inspect build-info inputs as
+      well as emitted artifacts so free-definition sources cannot escape the check.
       For source-inline rows, compare source hashes, allowed profile inputs, ABI and zero link
       references. For artifact-owned rows, compare creation/runtime/link/immutable-reference hashes
       and prove a later profile consumes the content-addressed shared artifact without producing a
       second owned artifact. Constructor-derived component configuration hashes are deliberately
       deferred to the Round-24 deployment-transcript checker; Round 1 must not invent them from
       compiler output.
-- [ ] **Step 6: Treat this as a stop gate.** If the checker cannot distinguish and enforce
+- [ ] **Step 6: Wire one clean-checkout aggregate command into protocol CI.** It runs the isolated
+      default exclusion build, forced shared/L1/L2 builds, both cross-profile Solidity consumer
+      tests, the ownership checker and all adversarial checker tests in that order. Standalone L1/L2
+      test commands prepare the shared owner artifact when it is absent.
+- [ ] **Step 7: Treat this as a stop gate.** If the checker cannot distinguish and enforce
       source-inline compilation from artifact-owned bytecode/ABI consumption, or Foundry cannot
       support either selected mechanism, do not weaken the checker or start Round 2. Return to PR
       #22064 and revise the artifact architecture first.
-- [ ] **Step 7: Commit** `build(protocol): isolate slot chain artifact ownership`.
+- [ ] **Step 8: Commit** `build(protocol): isolate slot chain artifact ownership`.
 
 ### Round 2: Consensus types, constants and golden encodings
 
