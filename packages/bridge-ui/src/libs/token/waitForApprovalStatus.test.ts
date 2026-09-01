@@ -78,4 +78,36 @@ describe('waitForApprovalStatus', () => {
     await expect(waitForApprovalStatus(token, { getStatus, wait })).rejects.toThrow('Could not read the approval');
     expect(getStatus).toHaveBeenCalledTimes(APPROVAL_REFRESH_ATTEMPTS);
   });
+
+  describe('attempt count', () => {
+    it('takes a single read when told the approval already failed', async () => {
+      const getStatus = vi.fn().mockResolvedValue(ApprovalStatus.APPROVAL_REQUIRED);
+      const wait = vi.fn().mockResolvedValue(undefined);
+
+      const status = await waitForApprovalStatus(token, { getStatus, wait, attempts: 1 });
+
+      // A reverted approval is not going to become approved, and the caller keeps its
+      // spinner up for every attempt spent finding that out
+      expect(getStatus).toHaveBeenCalledTimes(1);
+      expect(wait).not.toHaveBeenCalled();
+      expect(status).toBe(ApprovalStatus.APPROVAL_REQUIRED);
+    });
+
+    it('still polls the full count by default', async () => {
+      const getStatus = vi.fn().mockResolvedValue(ApprovalStatus.APPROVAL_REQUIRED);
+      const wait = vi.fn().mockResolvedValue(undefined);
+
+      await waitForApprovalStatus(token, { getStatus, wait });
+
+      expect(getStatus).toHaveBeenCalledTimes(APPROVAL_REFRESH_ATTEMPTS);
+    });
+
+    it('never takes fewer than one read', async () => {
+      const getStatus = vi.fn().mockResolvedValue(ApprovalStatus.NO_APPROVAL_REQUIRED);
+
+      await waitForApprovalStatus(token, { getStatus, wait: vi.fn(), attempts: 0 });
+
+      expect(getStatus).toHaveBeenCalledTimes(1);
+    });
+  });
 });
