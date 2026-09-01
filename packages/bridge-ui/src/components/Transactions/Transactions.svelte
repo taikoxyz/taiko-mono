@@ -21,6 +21,7 @@
   import { transactionConfig } from '$config';
   import { type BridgeTransaction, fetchTransactions, MessageStatus } from '$libs/bridge';
   import { bridgeTxKey } from '$libs/bridge/bridgeTxIdentity';
+  import { loadFailureMessageKey } from '$libs/bridge/loadFailureMessage';
   import { chainIdToChain } from '$libs/chain';
   import { getAlternateNetwork } from '$libs/network';
   import { bridgeTxService } from '$libs/storage';
@@ -116,7 +117,7 @@
         await bridgeTxService.removeTransactions(address, outdatedLocalTransactions);
       }
       if (error) {
-        warningToast({ title: $t('transactions.errors.relayer_offline') });
+        warningToast({ title: $t(loadFailureMessageKey(error)) });
       }
     } finally {
       if (generation === fetchGeneration) {

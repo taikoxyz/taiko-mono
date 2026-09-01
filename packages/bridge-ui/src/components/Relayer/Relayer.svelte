@@ -11,6 +11,7 @@
   import { FungibleTransactionRow, NftTransactionRow } from '$components/Transactions/Rows';
   import { type BridgeTransaction, fetchTransactions, MessageStatus } from '$libs/bridge';
   import { bridgeTxKey } from '$libs/bridge/bridgeTxIdentity';
+  import { loadFailureMessageKey } from '$libs/bridge/loadFailureMessage';
   import { TokenType } from '$libs/token';
   import { getLogger } from '$libs/util/logger';
   import { type Account, account } from '$stores/account';
@@ -69,13 +70,13 @@
         // outcome as an address that genuinely has no transactions
         if (error) {
           console.error('Error fetching transactions', error);
-          warningToast({ title: $t('transactions.errors.relayer_offline') });
+          warningToast({ title: $t(loadFailureMessageKey(error)) });
         }
       }
     } catch (error) {
       if (generation !== searchGeneration) return;
       console.error('Error fetching transactions', error);
-      warningToast({ title: $t('transactions.errors.relayer_offline') });
+      warningToast({ title: $t(loadFailureMessageKey(error)) });
     } finally {
       if (generation === searchGeneration) fetching = false;
     }

@@ -1,5 +1,6 @@
 import type { Address } from 'viem';
 
+import { RelayerHistoryTruncatedError } from '$libs/error';
 import { relayerApiServices } from '$libs/relayer';
 import { bridgeTxService } from '$libs/storage';
 import { getLogger } from '$libs/util/logger';
@@ -48,7 +49,9 @@ async function fetchAllRelayerPages(
       log(`relayer history truncated at ${MAX_RELAYER_PAGES} pages for ${userAddress}`);
       return {
         txs,
-        error: new Error(`Relayer history truncated at ${MAX_RELAYER_PAGES} pages; older transactions are not shown`),
+        error: new RelayerHistoryTruncatedError(
+          `Relayer history truncated at ${MAX_RELAYER_PAGES} pages; older transactions are not shown`,
+        ),
       };
     }
   }

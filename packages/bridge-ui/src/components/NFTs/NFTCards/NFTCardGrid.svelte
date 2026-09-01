@@ -4,6 +4,7 @@
   import { selectedNFTs, selectedToken } from '$components/Bridge/state';
   import { NFTCard } from '$components/NFTs/NFTCards';
   import type { NFT } from '$libs/token';
+  import { isSameNFT } from '$libs/token/tokenIdentity';
   import { groupNFTByCollection } from '$libs/util/groupNFTByCollection';
   import { connectedSourceChain } from '$stores/network';
 
@@ -17,7 +18,11 @@
     const address = nft.addresses[currentChainId];
     const foundNFT = nfts.find((n) => n.addresses[currentChainId] === address && nft.tokenId === n.tokenId);
 
-    if ($selectedNFTs && foundNFT && $selectedNFTs.includes(foundNFT)) {
+    // By value, not by reference: "load more" rebuilds $foundNFTs while deliberately
+    // keeping the selection, so a still-selected card renders checked (NFTCard compares
+    // with isSameNFT) while its object is no longer identical to anything in the selection.
+    // The click then took the select branch and needed a second click to clear.
+    if ($selectedNFTs && foundNFT && $selectedNFTs.some((selected) => isSameNFT(selected, foundNFT))) {
       $selectedNFTs = $selectedNFTs.filter((selected) => selected.tokenId !== nft.tokenId); // Deselect
       $selectedToken = null;
     } else {

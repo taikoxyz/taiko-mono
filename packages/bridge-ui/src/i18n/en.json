@@ -564,7 +564,8 @@
     },
     "errors": {
       "insufficient_balance": "Insufficient balance to claim yourself. Please wait for the relayer to claim for you automatically. Refer to our guide for more information.",
-      "relayer_offline": "Relayer did not respond. Your transactions may only be loaded partially."
+      "relayer_offline": "Relayer did not respond. Your transactions may only be loaded partially.",
+      "history_truncated": "Your transaction history is too long to show in full. The most recent transactions are listed."
     },
     "filter": {
       "all": "All",
