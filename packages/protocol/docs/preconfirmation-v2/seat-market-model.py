@@ -4403,7 +4403,7 @@ class SeatMarket:
     ) -> TransitionResult:
         def transition() -> TransitionResult:
             self._validate_clock(clock)
-            if self.stage is None or clock.timestamp < self.stage.expires_at:
+            if self.stage is None or clock.timestamp <= self.stage.expires_at:
                 raise TransitionRejected("stage has not expired")
             return self._restore_stage(stage_id)
 

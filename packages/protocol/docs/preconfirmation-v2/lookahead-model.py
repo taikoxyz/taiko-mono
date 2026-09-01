@@ -496,6 +496,32 @@ def test_quota_and_run_bounds():
             check(f"L18.{case} no real adjacent self-run",
                   all(a == VACANT or a != b for a, b in zip(schedule, schedule[1:])))
 
+    # Placement is deliberately window-local.  Position zero has no predecessor,
+    # so the same key may occupy W:383 and W+1:0, but never three consecutive
+    # positions: both interiors still enforce the adjacency rule.
+    schedules = [schedule_for_window(window, provider()) for window in range(12)]
+    cross_window_matches = [
+        window for window in range(len(schedules) - 1)
+        if schedules[window][-1] != VACANT
+        and schedules[window][-1] == schedules[window + 1][0]
+    ]
+    flattened = [address for schedule in schedules for address in schedule]
+    real_run = maximum_real_run = 0
+    previous = None
+    for address in flattened:
+        if address == VACANT:
+            real_run = 0
+        elif address == previous:
+            real_run += 1
+        else:
+            real_run = 1
+        maximum_real_run = max(maximum_real_run, real_run)
+        previous = address
+    check("L18a window boundary may repeat one real builder",
+          cross_window_matches == [0, 10])
+    check("L18b window-local placement bounds global real self-run at two",
+          maximum_real_run == 2)
+
 
 def test_capacity_and_old_sampler_regression():
     total = sum(entry.bond for entry in REG)

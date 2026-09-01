@@ -173,6 +173,19 @@ POINT_EVALUATION_OK = (
 UINT64_MAX = (1 << 64) - 1
 SEAT_UINT256_MAX = (1 << 256) - 1
 G_MAX = DELTA_FINAL_LAG
+
+
+def strict_slot_lag_exceeds(current: int, reference: int, limit: int) -> bool:
+    """Compare a uint64 slot lag without subtracting a future reference."""
+
+    if any(
+        type(value) is not int or not 0 <= value <= UINT64_MAX
+        for value in (current, reference, limit)
+    ):
+        raise ValueError("slot-lag input is outside uint64")
+    return current > reference and current - reference > limit
+
+
 SEAT_COUNT = 4
 DUTY_RING_CAPACITY = SEAT_COUNT
 DELTA_RECOVERY_LAG = 1_200
@@ -644,6 +657,11 @@ RELEASE_MANIFEST_V2_ABI_WORDS = 58
 RELEASE_MANIFEST_V2_BYTES = RELEASE_MANIFEST_V2_ABI_WORDS * 32
 ACTIVATE_RELEASE_V2_CALLDATA_BYTES = 4 + RELEASE_MANIFEST_V2_BYTES + 32
 ACTIVATE_RELEASE_V2_SELECTOR = bytes.fromhex("28f73572")
+RELEASE_ACTIVATION_V2_SELECTOR = keccak256(
+    b"releaseActivationV2(uint64)"
+)[:4]
+RELEASE_ACTIVATION_V2_GAS = 75_000
+RELEASE_ACTIVATION_V2_RETURN_LENGTH = 96
 RELEASE_MANIFEST_V2_TYPE = (
     "ReleaseManifestV2(uint64 protocolVersion,uint256 settlementChainId,"
     "uint256 destinationChainId,bytes32 destinationGenesisHash,"
@@ -686,6 +704,16 @@ ACCEPT_LIQUIDITY_VALUE_V2_MAGIC = b"NLV2"
 ACCEPT_LIQUIDITY_VALUE_V2_RETURN = (
     ACCEPT_LIQUIDITY_VALUE_V2_MAGIC + bytes(28)
 )
+TARGET_CALL_FAILED_V2_SELECTOR = keccak256(
+    b"TargetCallFailedV2(bytes32)"
+)[:4]
+DESTINATION_ATTEMPT_V2_DOMAIN = b"slot-chain-destination-attempt-v2"
+VERIFY_INBOX_CREDIT_V2_SELECTOR = keccak256(
+    b"verifyInboxCreditV2(bytes32)"
+)[:4]
+VERIFY_INBOX_CREDIT_V2_GAS = 100_000
+VERIFY_INBOX_CREDIT_V2_RETURN_LENGTH = 8 * 32
+VERIFY_INBOX_CREDIT_V2_MAGIC = b"ICV2"
 TERMINAL_COMMITMENT_ABI_BYTES = 5 * 32
 TERMINAL_TREE_DEPTH = 64
 
@@ -3945,6 +3973,7 @@ class Protocol:
     admission_version: int = 0
     admission_root: str = "admission:0"
     seat_terms: dict[bytes, SeatTerm] = field(default_factory=dict)
+    seat_term_by_tranche: dict[bytes, bytes] = field(default_factory=dict)
     seat_services: dict[bytes, SeatService] = field(default_factory=dict)
     seat_lineup: list[bytes] = field(default_factory=list)
     seat_duties: dict[bytes, Duty] = field(default_factory=dict)
@@ -3953,6 +3982,9 @@ class Protocol:
         default_factory=lambda: [SeatDutyCell() for _ in range(DUTY_RING_CAPACITY)]
     )
     duty_sequence: int = 0
+    # Exact count of OPEN or FAILED_OVER duties.  Retained duty history is
+    # append-only, so production migration readiness must never scan it.
+    unresolved_duty_count: int = 0
     seat_selections: dict[bytes, SelectionRecord] = field(default_factory=dict)
     term_selection: dict[bytes, bytes] = field(default_factory=dict)
     seat_selection: SelectionRecord | None = None
@@ -4324,6 +4356,17 @@ class Protocol:
             )
         )
 
+    def _record_seat_term(self, term: SeatTerm) -> None:
+        """Install one permanent term/tranche reverse binding in O(1)."""
+
+        if (
+            term.term_id in self.seat_terms
+            or term.tranche_id in self.seat_term_by_tranche
+        ):
+            raise ValueError("term installation collides with retained history")
+        self.seat_terms[term.term_id] = term
+        self.seat_term_by_tranche[term.tranche_id] = term.term_id
+
     def _assert_seat_valid(self) -> None:
         seat_u256(self.seat_lineup_revision, "seat lineup revision")
         if (
@@ -4337,6 +4380,15 @@ class Protocol:
             raise AssertionError("seat lineup contains duplicate terms")
         if len(self.duty_ring) != DUTY_RING_CAPACITY:
             raise AssertionError("duty ring geometry changed")
+        if (
+            type(self.unresolved_duty_count) is not int
+            or not 0 <= self.unresolved_duty_count <= DUTY_RING_CAPACITY
+            or self.unresolved_duty_count != sum(
+                duty.status in (DutyStatus.OPEN, DutyStatus.FAILED_OVER)
+                for duty in self.seat_duties.values()
+            )
+        ):
+            raise AssertionError("unresolved duty counter is inconsistent")
         if self.seat_selection is not None:
             selection = self.seat_selection
             if (
@@ -4413,7 +4465,7 @@ class Protocol:
             seen_selected_terms.add(selection.term_id)
         if set(self.term_selection) != seen_selected_terms:
             raise AssertionError("selection reverse index is incomplete")
-        seen_tranches: set[bytes] = set()
+        seen_tranches: dict[bytes, bytes] = {}
         for term_id, term in self.seat_terms.items():
             if term_id != term.term_id or len(term_id) != 32:
                 raise AssertionError("seat term identity mismatch")
@@ -4437,7 +4489,7 @@ class Protocol:
                 raise AssertionError("seat term authority tuple is malformed")
             if term.tranche_id in seen_tranches:
                 raise AssertionError("installed tranche bound more than once")
-            seen_tranches.add(term.tranche_id)
+            seen_tranches[term.tranche_id] = term_id
             if term_id not in self.seat_services:
                 raise AssertionError("seat term lacks service record")
             service = self.seat_services[term_id]
@@ -4477,7 +4529,13 @@ class Protocol:
                     "prospective duty tip time",
                 )
                 if (
-                    service.prospective_target_tip
+                    service.prospective_recovery_at
+                    < service.responsibility_start
+                    or service.prospective_failover_at
+                    < service.responsibility_start
+                    or service.prospective_slash_at
+                    < service.responsibility_start
+                    or service.prospective_target_tip
                     != seat_checked_add(
                         service.duty_base_tip_slot,
                         DELTA_RECOVERY_LAG,
@@ -4502,7 +4560,11 @@ class Protocol:
                         "prospective duty slash",
                     )
                 ):
-                    raise AssertionError("prospective duty thresholds changed")
+                    raise AssertionError(
+                        "prospective duty thresholds changed or predate service"
+                    )
+        if self.seat_term_by_tranche != seen_tranches:
+            raise AssertionError("term/tranche reverse index is incomplete")
         for term_id, duty_id in self.term_duty.items():
             duty = self.seat_duties.get(duty_id)
             if duty is None or duty.term_id != term_id:
@@ -4684,6 +4746,18 @@ class Protocol:
     def _clear_selected_successor(self) -> None:
         self.seat_selection = None
 
+    def _fresh_service_base_tip(self, responsibility_start: int) -> int:
+        """Never backdate a newly assumed primary duty before its start clock."""
+
+        return max(
+            self.core.tip_slot,
+            seat_checked_sub(
+                responsibility_start,
+                GENESIS_TIMESTAMP,
+                "fresh service responsibility slot",
+            ),
+        )
+
     def _set_prospective_duty(
         self, term_id: bytes, base_tip_slot: int, base_sequence: int
     ) -> None:
@@ -4796,8 +4870,40 @@ class Protocol:
         self.seat_duties[duty_id] = duty
         self.term_duty[term_id] = duty_id
         self.duty_ring[chosen] = SeatDutyCell(sequence, duty_id, False)
+        self.unresolved_duty_count = seat_checked_add(
+            self.unresolved_duty_count, 1, "unresolved duty count"
+        )
+        if self.unresolved_duty_count > DUTY_RING_CAPACITY:
+            raise AssertionError("unresolved duty count exceeds the fixed ring")
         service.ring_full_recovery_at = None
         return DutyAttachmentOutcome(DutyAttachmentStatus.ATTACHED, duty)
+
+    def _transition_duty_status(
+        self, duty: Duty, new_status: DutyStatus
+    ) -> None:
+        """Maintain the exact bounded unresolved counter on every transition."""
+
+        if type(duty) is not Duty or type(new_status) is not DutyStatus:
+            raise TypeError("duty status transition is malformed")
+        old_unresolved = duty.status in (
+            DutyStatus.OPEN, DutyStatus.FAILED_OVER
+        )
+        new_unresolved = new_status in (
+            DutyStatus.OPEN, DutyStatus.FAILED_OVER
+        )
+        if old_unresolved and not new_unresolved:
+            if self.unresolved_duty_count <= 0:
+                raise AssertionError("unresolved duty counter underflow")
+            self.unresolved_duty_count -= 1
+        elif new_unresolved and not old_unresolved:
+            self.unresolved_duty_count = seat_checked_add(
+                self.unresolved_duty_count, 1, "unresolved duty count"
+            )
+            if self.unresolved_duty_count > DUTY_RING_CAPACITY:
+                raise AssertionError(
+                    "unresolved duty count exceeds the fixed ring"
+                )
+        duty.status = new_status
 
     def _start_seat_service(
         self,
@@ -4847,11 +4953,11 @@ class Protocol:
             or len(term.tranche_id) != 32
             or len(term.offer_id) != 32
             or term.term_id in self.seat_terms
-            or any(row.tranche_id == term.tranche_id for row in self.seat_terms.values())
+            or term.tranche_id in self.seat_term_by_tranche
             or not 0 <= rank <= len(self.seat_lineup) < SEAT_COUNT
         ):
             raise ValueError("invalid synthetic seat term")
-        self.seat_terms[term.term_id] = term
+        self._record_seat_term(term)
         self.seat_services[term.term_id] = SeatService(
             None,
             seat_checked_add(
@@ -4875,7 +4981,7 @@ class Protocol:
             self._start_seat_service(
                 term.term_id,
                 term.installed_at,
-                base_tip_slot=self.core.tip_slot,
+                base_tip_slot=self._fresh_service_base_tip(term.installed_at),
                 base_sequence=self.core.l2_block_number,
             )
         if self.seat_lineup_revision == revision_before:
@@ -4994,10 +5100,7 @@ class Protocol:
         if not self._recovery_revision_usable(start):
             self._vacate_entire_lineup(start, "PROMOTION_REVISION_UNUSABLE")
             return False
-        fresh_base_tip = max(
-            self.core.tip_slot,
-            seat_checked_sub(start, GENESIS_TIMESTAMP, "promotion start slot"),
-        )
+        fresh_base_tip = self._fresh_service_base_tip(start)
         started = self._start_seat_service(
             term_id,
             start,
@@ -5051,14 +5154,7 @@ class Protocol:
                 return False
         try:
             exact_start = seat_u256(start, "selected responsibility start")
-            fresh_base_tip = max(
-                self.core.tip_slot,
-                seat_checked_sub(
-                    exact_start,
-                    GENESIS_TIMESTAMP,
-                    "selected responsibility slot",
-                ),
-            )
+            fresh_base_tip = self._fresh_service_base_tip(exact_start)
             tip_time = seat_checked_add(
                 GENESIS_TIMESTAMP,
                 fresh_base_tip,
@@ -5108,7 +5204,7 @@ class Protocol:
 
         changed = False
         if duty.status is DutyStatus.OPEN and clock.timestamp > duty.failover_at:
-            duty.status = DutyStatus.FAILED_OVER
+            self._transition_duty_status(duty, DutyStatus.FAILED_OVER)
             duty.disposition_at = duty.failover_at
             if self.seat_services[duty.term_id].closed_at is None:
                 self._close_service(duty.term_id, duty.failover_at, "FAILED_OVER")
@@ -5127,7 +5223,7 @@ class Protocol:
             self.events.append(f"SEAT_FAILED_OVER:{duty.duty_id.hex()}")
             changed = True
         if duty.status is DutyStatus.FAILED_OVER and clock.timestamp > duty.slash_at:
-            duty.status = DutyStatus.BREACHED
+            self._transition_duty_status(duty, DutyStatus.BREACHED)
             duty.disposition_at = clock.timestamp
             duty.breach_recorded_at = clock.timestamp
             self.events.append(f"SEAT_BREACH_RECORDED:{duty.duty_id.hex()}")
@@ -5138,7 +5234,7 @@ class Protocol:
         if duty.status is not DutyStatus.OPEN:
             return False
         revision_before = self.seat_lineup_revision
-        duty.status = DutyStatus.SATISFIED
+        self._transition_duty_status(duty, DutyStatus.SATISFIED)
         if duty.satisfied_at is None:
             duty.satisfied_at = clock.timestamp
             duty.disposition_at = clock.timestamp
@@ -5222,7 +5318,9 @@ class Protocol:
                 excuse_for_migration
                 and duty.status is DutyStatus.OPEN
             ):
-                duty.status = DutyStatus.EXCUSED_MIGRATION
+                self._transition_duty_status(
+                    duty, DutyStatus.EXCUSED_MIGRATION
+                )
                 duty.disposition_at = clock.timestamp
                 changed = True
             if (
@@ -5303,7 +5401,9 @@ class Protocol:
                             excuse_for_migration
                             and attached.status is DutyStatus.OPEN
                         ):
-                            attached.status = DutyStatus.EXCUSED_MIGRATION
+                            self._transition_duty_status(
+                                attached, DutyStatus.EXCUSED_MIGRATION
+                            )
                             attached.disposition_at = clock.timestamp
                             changed = True
                         sla_missed = attached.status in (
@@ -6169,13 +6269,12 @@ class Protocol:
             )
             if (
                 term.term_id in self.seat_terms
-                or any(row.tranche_id == term.tranche_id
-                       for row in self.seat_terms.values())
+                or term.tranche_id in self.seat_term_by_tranche
                 or not 0 <= stage.selected_rank <= len(self.seat_lineup)
                 or len(self.seat_lineup) >= SEAT_COUNT
             ):
                 raise ValueError("term installation collides with retained history")
-            self.seat_terms[term.term_id] = term
+            self._record_seat_term(term)
             self.seat_services[term.term_id] = SeatService(
                 None,
                 seat_checked_add(
@@ -6196,7 +6295,7 @@ class Protocol:
                 self._start_seat_service(
                     term.term_id,
                     clock.timestamp,
-                    base_tip_slot=self.core.tip_slot,
+                    base_tip_slot=self._fresh_service_base_tip(clock.timestamp),
                     base_sequence=self.core.l2_block_number,
                 )
             if self.seat_lineup_revision != install_revision - 1:
@@ -6233,7 +6332,7 @@ class Protocol:
         def transition() -> object:
             module = self._bound_market_module(market)
             stage = self.settlement_seat_stage
-            if stage is None or clock.timestamp < stage.expires_at:
+            if stage is None or clock.timestamp <= stage.expires_at:
                 raise ValueError("exact stage has not expired")
             result = market._settlement_expire_stage(
                 stage.stage_id, module.Clock(clock.timestamp, clock.block_number)
@@ -6440,14 +6539,7 @@ class Protocol:
                 self._start_seat_service(
                     successor,
                     clock.timestamp,
-                    base_tip_slot=max(
-                        self.core.tip_slot,
-                        seat_checked_sub(
-                            clock.timestamp,
-                            GENESIS_TIMESTAMP,
-                            "voluntary successor start slot",
-                        ),
-                    ),
+                    base_tip_slot=self._fresh_service_base_tip(clock.timestamp),
                     base_sequence=self.core.l2_block_number,
                 )
             if self.seat_lineup_revision == revision_before:
@@ -6613,9 +6705,13 @@ class Protocol:
         return self.forced_queue.descriptors
 
     def force_root(self, cutoff: int) -> str:
-        root = model_force_root(self.messages[:cutoff])
-        if cutoff == self.forced_queue.count:
-            assert root == self.forced_queue.root
+        if cutoff != self.forced_queue.count:
+            raise ValueError("only the live forced-queue root can be frozen")
+        # Production freezes the queue's stored append frontier.  Folding its
+        # fixed 64 words is independent of retained descriptor history and
+        # also fails closed if the stored wrapped root is inconsistent.
+        root = force_wrapped_root(self.forced_queue.frontier, cutoff)
+        assert root == self.forced_queue.root
         return root
 
     @staticmethod
@@ -6627,8 +6723,19 @@ class Protocol:
         limit = len(self.messages) if cutoff is None else cutoff
         return self._due_at(self.messages[cursor]) if cursor < limit else UINT64_MAX
 
+    def _boundary_due(self, cursor: int, clock: Clock) -> bool:
+        """Return due only for a present queue boundary.
+
+        ``UINT64_MAX`` is both a valid final deadline and the public getter's
+        absent-value sentinel, so the existence bit must be checked first.
+        """
+        return (
+            cursor < self.forced_queue.count
+            and self.next_due_at(cursor) <= clock.timestamp
+        )
+
     def force_due(self, clock: Clock) -> bool:
-        return self.next_due_at(self.core.message_cursor) <= clock.timestamp
+        return self._boundary_due(self.core.message_cursor, clock)
 
     def _prefix_end(self, start: int, cutoff: int,
                     gas_budget: int = FORCE_GAS_BUDGET) -> int:
@@ -6717,8 +6824,9 @@ class Protocol:
         try:
             outcome = None
             if (self.normal_best is not None
-                    and self.next_due_at(self.normal_best.tip.message_end)
-                        > clock.timestamp
+                    and not self._boundary_due(
+                        self.normal_best.tip.message_end, clock
+                    )
                     and clock.timestamp + REORG_MARGIN_SECONDS
                         <= self.normal_best_min_data_expiry):
                 outcome = self._commit(
@@ -6738,7 +6846,7 @@ class Protocol:
     def _new_round(self, clock: Clock, causes: Cause, revision: int) -> RecoveryRound:
         anchor_number = clock.block_number - 1
         anchor = self.header_oracle.header(anchor_number)
-        cutoff = len(self.messages)
+        cutoff = self.forced_queue.count
         escape_slot = max(clock.l2_slot + ESCAPE_OFFSET, self.core.tip_slot + 1)
         return RecoveryRound(
             self.episode, revision, self.canonical.base_hash, clock.l2_slot,
@@ -7234,10 +7342,7 @@ class Protocol:
                 # its strict slash boundary records BREACHED.  Freezing the
                 # target earlier would make that transition unreachable and
                 # permanently strand the reserve and duty-ring cell.
-                and all(
-                    duty.status not in (DutyStatus.OPEN, DutyStatus.FAILED_OVER)
-                    for duty in self.seat_duties.values()
-                ))
+                and self.unresolved_duty_count == 0)
 
     def _sync_migration(
         self, clock: Clock, *, allow_ready: bool = True
@@ -7351,7 +7456,9 @@ class Protocol:
             causes |= Cause.SLA
         elif (
             self.active_primary_term_id is None
-            and clock.l2_slot - self.core.tip_slot > DELTA_FINAL_LAG
+            and strict_slot_lag_exceeds(
+                clock.l2_slot, self.core.tip_slot, DELTA_FINAL_LAG
+            )
         ):
             causes |= Cause.SLA
         if self.force_due(clock):
@@ -8440,7 +8547,9 @@ class Protocol:
                 or any(b.admission_version != round_.admission_version
                        or b.admission_root != round_.admission_root for b in candidate.blocks)
                 or clock.block_number - round_.anchor_number < F_L1
-                or clock.l2_slot - candidate.tip.slot > DELTA_TIP
+                or strict_slot_lag_exceeds(
+                    clock.l2_slot, candidate.tip.slot, DELTA_TIP
+                )
                 or clock.timestamp > round_.expires_at):
             return False
         if round_.causes & Cause.FORCE_DUE and candidate.tip.message_end <= self.core.message_cursor:
@@ -15690,6 +15799,10 @@ MAF1_MAGIC = b"MAF1"
 PCO1_MAGIC = b"PCO1"
 PAP1_MAGIC = b"PAP1"
 VML1_MAGIC = b"VML1"
+VMC1_MAGIC = b"VMC1"
+VERSION_MIGRATION_CONSUME_SELECTOR = bytes.fromhex("ebb624e2")
+VERSION_MIGRATION_CONSUME_RETURN_LENGTH = 96
+VERSION_MIGRATION_CONSUME_GAS = 200_000
 LGP1_MAGIC = b"LGP1"
 SAI1_MAGIC = b"SAI1"
 SAT1_MAGIC = b"SAT1"
@@ -18573,6 +18686,9 @@ class ProtocolVersionManagerV1:
     migration_arms: dict[bytes, VersionMigrationLeaseV1] = field(
         default_factory=dict
     )
+    migration_arm_id_by_generation: dict[int, bytes] = field(
+        default_factory=dict
+    )
     fault_point: str | None = field(default=None, compare=False)
     _active_operation_kind: int = field(default=0, compare=False, repr=False)
     _active_operation_consumed: bool = field(
@@ -18777,6 +18893,7 @@ class ProtocolVersionManagerV1:
             self.published_genesis_campaign, self.generation,
             self.arm_fresh_after,
             self.migration_lease, dict(self.migration_arms),
+            dict(self.migration_arm_id_by_generation),
             self.market.authorization_snapshot_v1(),
             dict(self.profile_ingress_roots),
             dict(self.profile_ingress_rows),
@@ -18797,7 +18914,8 @@ class ProtocolVersionManagerV1:
         (self.lifecycle, consumed, releases, forks, fork_order,
          self.published_genesis_campaign, self.generation,
          self.arm_fresh_after,
-         self.migration_lease, migration_arms, market_snapshot,
+         self.migration_lease, migration_arms,
+         migration_arm_id_by_generation, market_snapshot,
          ingress_roots, ingress_rows,
          deployment_world_state,
          router_state, bridge_package_state, migration_source_state,
@@ -18811,6 +18929,7 @@ class ProtocolVersionManagerV1:
         self.fork_order = fork_order
         self.market.restore_authorization_snapshot_v1(market_snapshot)
         self.migration_arms = migration_arms
+        self.migration_arm_id_by_generation = migration_arm_id_by_generation
         self.profile_ingress_roots = ingress_roots
         self.profile_ingress_rows = ingress_rows
         self.deployment_world.restore(deployment_world_state)
@@ -19262,7 +19381,11 @@ class ProtocolVersionManagerV1:
                 1, self.generation, source, target, manifest_hash,
                 registration_hash, arm_id, clock.timestamp, abort_after,
             )
+            if (arm_id in self.migration_arms
+                    or self.generation in self.migration_arm_id_by_generation):
+                raise ValueError("migration arm history key is already used")
             self.migration_arms[arm_id] = self.migration_lease
+            self.migration_arm_id_by_generation[self.generation] = arm_id
             arm_result = router.arm_version_migration_v1(
                 self.migration_lease, manager=self, clock=clock
             )
@@ -19393,6 +19516,122 @@ class ProtocolVersionManagerV1:
             self._restore(snapshot)
             return False
 
+    def _consume_version_migration_lease_v1(
+        self,
+        arm_id: bytes,
+        old_authorization_id: bytes,
+        activation_receipt_id: bytes,
+        *,
+        router: "ActiveSettlementRouter",
+    ) -> bytes:
+        """Atomically terminalize the exact successfully activated lease."""
+
+        lease = self.migration_lease
+        if (
+            type(router) is not ActiveSettlementRouter
+            or router is not self.router
+            or router._version_manager_authority is not self
+            or self.lifecycle != "IDLE"
+            or router.migration_lifecycle
+                is not RouterMigrationLifecycle.IDLE
+            or type(lease) is not VersionMigrationLeaseV1
+            or lease.state != 1
+            or lease.arm_id != arm_id
+            or self.migration_arms.get(arm_id) != lease
+            or type(old_authorization_id) is not bytes
+            or len(old_authorization_id) != 32
+            or type(activation_receipt_id) is not bytes
+            or len(activation_receipt_id) != 32
+        ):
+            raise ValueError("migration consume frame is not exact")
+        prior = (self.lifecycle, self.migration_lease)
+        self.lifecycle = "FINALIZING"
+        try:
+            state = decode_active_settlement_state_v1(
+                router.active_settlement_state_v1()
+            )
+            successor = router.seat_successor_receipt_v1(
+                old_authorization_id
+            )
+            raw = router.activation_receipt_v1(activation_receipt_id)
+            words = tuple(
+                raw[offset:offset + 32]
+                for offset in range(0, len(raw), 32)
+            )
+            if (
+                state.phase is not RouterPhase.ACTIVE
+                or state.generation != lease.generation
+                or state.active_protocol_version
+                    != lease.target_protocol_version
+                or state.target_protocol_version != 0
+                or state.target_manifest_hash != bytes(32)
+                or state.target_registration_hash != bytes(32)
+                or successor[:32] != activation_receipt_id
+                or successor[64:] != b"ASV1" + bytes(28)
+                or words[0] != b"ARV1" + bytes(28)
+                or words[1] != activation_receipt_id
+                or int.from_bytes(words[4], "big") != lease.generation
+                or int.from_bytes(words[5], "big")
+                    != int.from_bytes(successor[32:64], "big")
+                or int.from_bytes(words[6], "big") != 2
+                or int.from_bytes(words[7], "big")
+                    != lease.source_protocol_version
+                or int.from_bytes(words[8], "big")
+                    != lease.target_protocol_version
+                or words[10] != lease.target_manifest_hash
+                or words[11] != old_authorization_id
+                or words[13] != lease.target_registration_hash
+                or int.from_bytes(words[31], "big") != 1
+            ):
+                raise ValueError(
+                    "migration consume receipt/state join is invalid"
+                )
+            if self.fault_point == "migration_consume_revert":
+                raise RuntimeError("injected migration consume fault")
+            self.migration_lease = VersionMigrationLeaseV1()
+            if self.fault_point == "migration_consume_after_clear":
+                raise RuntimeError("injected post-clear migration fault")
+            result = b"".join((
+                VMC1_MAGIC + bytes(28),
+                arm_id,
+                _model_uint(lease.generation, 32, "consume generation"),
+            ))
+            self.lifecycle = "IDLE"
+            if self.fault_point == "migration_consume_wrong_magic":
+                return b"FAIL" + result[4:]
+            if self.fault_point == "migration_consume_trailing":
+                return result + b"\x00"
+            return result
+        except BaseException:
+            self.lifecycle, self.migration_lease = prior
+            raise
+
+    def consume_version_migration_lease_v1(
+        self,
+        calldata: bytes,
+        *,
+        caller: "ActiveSettlementRouter",
+        value: int,
+        gas: int,
+    ) -> bytes:
+        """Execute the exact bounded Router-to-PVM VMC1 call envelope."""
+
+        if (
+            type(calldata) is not bytes
+            or len(calldata) != 100
+            or calldata[:4] != VERSION_MIGRATION_CONSUME_SELECTOR
+            or caller is not self.router
+            or value != 0
+            or gas != VERSION_MIGRATION_CONSUME_GAS
+        ):
+            raise ValueError("VMC1 call envelope is noncanonical")
+        return self._consume_version_migration_lease_v1(
+            calldata[4:36],
+            calldata[36:68],
+            calldata[68:100],
+            router=caller,
+        )
+
     def live_version_migration_lease_v1(self) -> bytes:
         """Derive the live view from Router gate authority, never a singleton."""
 
@@ -19403,18 +19642,20 @@ class ProtocolVersionManagerV1:
                 VersionMigrationLeaseV1()
             )
         gate = router.migration_gate
-        matches = tuple(
-            row for row in self.migration_arms.values()
-            if (row.generation == gate.generation
-                and row.source_protocol_version == gate.active_protocol_version
-                and row.target_protocol_version == gate.target_protocol_version
-                and row.target_manifest_hash == gate.target_manifest_hash
-                and row.target_registration_hash
-                    == gate.target_registration_hash)
-        )
-        if len(matches) != 1:
-            raise ValueError("Router gate has no unique append-only arm row")
-        return encode_live_version_migration_lease_return_v1(matches[0])
+        arm_id = self.migration_arm_id_by_generation.get(gate.generation)
+        row = None if arm_id is None else self.migration_arms.get(arm_id)
+        if (row is None
+                or row.arm_id != arm_id
+                or row.generation != gate.generation
+                or row.source_protocol_version
+                    != gate.active_protocol_version
+                or row.target_protocol_version
+                    != gate.target_protocol_version
+                or row.target_manifest_hash != gate.target_manifest_hash
+                or row.target_registration_hash
+                    != gate.target_registration_hash):
+            raise ValueError("Router gate has no indexed append-only arm row")
+        return encode_live_version_migration_lease_return_v1(row)
 
 
 @dataclass
@@ -27079,6 +27320,9 @@ class ActiveSettlementRouter:
             dict(self.activation_receipt_rows_v1),
             dict(self.seat_successor_rows_v1),
         )
+        manager_activation_snapshot = (
+            manager.lifecycle, manager.migration_lease
+        )
         queue_snapshot = queue._transaction_snapshot()
         source_factory_states = {
             address: (
@@ -27169,6 +27413,9 @@ class ActiveSettlementRouter:
             self.activation_successor_index_v1 = router_snapshot[19]
             self.activation_receipt_rows_v1 = router_snapshot[20]
             self.seat_successor_rows_v1 = router_snapshot[21]
+            (
+                manager.lifecycle, manager.migration_lease
+            ) = manager_activation_snapshot
             queue._restore_transaction_snapshot(queue_snapshot)
             for (factory, deployments, bundles,
                  adapter_deployments, adapters) in source_factory_states.values():
@@ -27420,7 +27667,7 @@ class ActiveSettlementRouter:
                 or any(len(row) != MIGRATION_ADOPTION_STATE_LENGTH
                        for row in (source_maps, target_maps, queue_maps))):
             raise ValueError("migration MAPS post-reads rejected")
-        self._append_activation_receipt_v1(
+        activation_receipt_id = self._append_activation_receipt_v1(
             context=frame,
             source_registration=old_registration,
             target_registration=registration,
@@ -27437,6 +27684,35 @@ class ActiveSettlementRouter:
             target_registration_hash=frame.target_registration_hash,
         )
         assert activated
+        if type(manager) is ProtocolVersionManagerV1:
+            consume_lease = manager.migration_lease
+            consume_arm_id = consume_lease.arm_id
+            consume_generation = consume_lease.generation
+            consume_result = manager.consume_version_migration_lease_v1(
+                VERSION_MIGRATION_CONSUME_SELECTOR
+                + consume_arm_id
+                + receipt.old_authorization_id
+                + activation_receipt_id,
+                caller=self,
+                value=0,
+                gas=VERSION_MIGRATION_CONSUME_GAS,
+            )
+            expected_consume = b"".join((
+                VMC1_MAGIC + bytes(28),
+                consume_arm_id,
+                _model_uint(
+                    consume_generation, 32, "consume return generation"
+                ),
+            ))
+            if (
+                consume_result != expected_consume
+                or len(consume_result)
+                    != VERSION_MIGRATION_CONSUME_RETURN_LENGTH
+                or manager.lifecycle != "IDLE"
+                or manager.migration_lease != VersionMigrationLeaseV1()
+                or manager.migration_arms.get(consume_arm_id) != consume_lease
+            ):
+                raise ValueError("migration lease consume return is malformed")
         return True
 
     def _abort_migration_for_test(self, *, generation: int,
@@ -28617,6 +28893,48 @@ def liquidity_acceptance_commitment_v2(
         _model_fixed_bytes32(operation),
         bytes(31) + bytes((int(is_last_attempt),)),
     ))).hex()
+
+
+def destination_attempt_digest_v2(
+    credit_id: str,
+    source_context_hash: str,
+    destination_context_hash: str,
+    processor: str,
+    expected_entry_status: str,
+    is_last_attempt: bool,
+    ticket_id: str,
+    authorization_hash: str,
+) -> bytes:
+    """Derive the only typed child-failure digest accepted by the wrapper."""
+
+    status_code = {"NEW": 0, "RETRIABLE": 1}.get(expected_entry_status)
+    if (not credit_id or not source_context_hash
+            or not destination_context_hash or not processor
+            or status_code is None or type(is_last_attempt) is not bool
+            or not ticket_id or not authorization_hash):
+        raise ValueError("destination attempt tuple is noncanonical")
+    return keccak256(b"".join((
+        DESTINATION_ATTEMPT_V2_DOMAIN,
+        _model_fixed_bytes32(credit_id),
+        _model_fixed_bytes32(source_context_hash),
+        _model_fixed_bytes32(destination_context_hash),
+        _model_address20(processor),
+        bytes((status_code,)),
+        bytes((int(is_last_attempt),)),
+        _model_fixed_bytes32(ticket_id),
+        _model_fixed_bytes32(authorization_hash),
+    )))
+
+
+class TargetCallFailedV2(RuntimeError):
+    """Exact 36-byte child error constructed by Bridge, never by the target."""
+
+    def __init__(self, attempt_digest: bytes) -> None:
+        if type(attempt_digest) is not bytes or len(attempt_digest) != 32:
+            raise ValueError("target-call failure digest is not bytes32")
+        self.attempt_digest = attempt_digest
+        self.return_data = TARGET_CALL_FAILED_V2_SELECTOR + attempt_digest
+        super().__init__(self.return_data.hex())
 
 
 def terminal_merkle_root(leaves: tuple[str, ...] | list[str]) -> str:
@@ -31874,6 +32192,60 @@ class InboxPin:
         )
 
 
+@dataclass(frozen=True)
+class VerifiedInboxCreditV2:
+    credit_id: str
+    result_hash: str
+    process_by: int
+    value: int
+    execution_fee: int
+    liquidity_fee: int
+    source_context_hash: str
+
+
+def encode_verified_inbox_credit_v2(
+    credit_id: str, pin: InboxPin,
+) -> bytes:
+    """Encode the exact fixed-width Store proof consumed by BridgeV2."""
+
+    encoded = b"".join((
+        VERIFY_INBOX_CREDIT_V2_MAGIC + bytes(28),
+        _model_fixed_bytes32(credit_id),
+        _model_fixed_bytes32(pin.result_hash),
+        _model_uint(pin.process_by, 32, "Inbox processBy"),
+        _model_uint(pin.value, 32, "Inbox value"),
+        _model_uint(pin.execution_fee, 32, "Inbox execution fee"),
+        _model_uint(pin.liquidity_fee, 32, "Inbox liquidity fee"),
+        _model_fixed_bytes32(pin.source_context_hash),
+    ))
+    if len(encoded) != VERIFY_INBOX_CREDIT_V2_RETURN_LENGTH:
+        raise AssertionError("ICV2 return width drifted")
+    return encoded
+
+
+def decode_verified_inbox_credit_v2(raw: bytes) -> VerifiedInboxCreditV2:
+    """Strictly decode the Bridge-facing Store proof."""
+
+    if (type(raw) is not bytes
+            or len(raw) != VERIFY_INBOX_CREDIT_V2_RETURN_LENGTH):
+        raise ValueError("ICV2 return length is malformed")
+    words = tuple(raw[offset:offset + 32]
+                  for offset in range(0, len(raw), 32))
+    if words[0] != VERIFY_INBOX_CREDIT_V2_MAGIC + bytes(28):
+        raise ValueError("ICV2 magic is malformed")
+    credit_id = words[1].hex()
+    verified = VerifiedInboxCreditV2(
+        credit_id,
+        words[2].hex(),
+        _decode_uint_word_v1(words[3], 64, "ICV2 processBy"),
+        _decode_uint_word_v1(words[4], 256, "ICV2 value"),
+        _decode_uint_word_v1(words[5], 64, "ICV2 execution fee"),
+        _decode_uint_word_v1(words[6], 64, "ICV2 liquidity fee"),
+        words[7].hex(),
+    )
+    return verified
+
+
 def inbox_pin_from_descriptor(
     descriptor: BridgeQueueDescriptorV11,
     *, queue_index: int, result_hash: str, process_by: int,
@@ -31927,6 +32299,12 @@ class InboxCreditStoreV2:
     declared_component_config_hash: str = ""
     batch_return_data: bytes = INBOX_BATCH_OK_V2_WORD
     batch_writes_enabled: bool = True
+    verify_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    verify_fault_point: str | None = field(
+        default=None, compare=False, repr=False
+    )
     _inbox_apply_authority: object | None = field(
         default=None, init=False, compare=False, repr=False
     )
@@ -31981,44 +32359,30 @@ class InboxCreditStoreV2:
                 f"{self.destination_bridge}:"
                 f"{self.terminal_registrar}")
 
-    def read(self, credit_id: str, *, caller: str,
-             destination_domain_id: str) -> InboxPin | None:
-        if (caller != self.destination_bridge
-                or destination_domain_id != self.destination_domain_id):
-            return None
-        return self.pins.get(credit_id)
+    def verify_inbox_credit_v2(
+        self, credit_id: str, *, caller: str,
+    ) -> bytes:
+        if self.verify_fault_point in {"revert", "oog"}:
+            raise RuntimeError("injected ICV2 staticcall fault")
+        pin = self.pins.get(credit_id)
+        if caller != self.destination_bridge or pin is None:
+            return b""
+        encoded = encode_verified_inbox_credit_v2(credit_id, pin)
+        return encoded if self.verify_return_override is None \
+            else self.verify_return_override
 
-    def verify_inbox_credit(
-        self, *, src_chain_id: int, source_domain_id: str, src_epoch: int,
-        src_bridge: str, destination_domain_id: str, msg_hash: str,
-        caller: str,
-    ) -> bytes | None:
-        if (caller != self.destination_bridge
-                or destination_domain_id != self.destination_domain_id):
-            return None
-        matches = tuple(
-            (credit_id, pin) for credit_id, pin in self.pins.items()
-            if (pin.src_chain_id == src_chain_id
-                and pin.source_domain_id == source_domain_id
-                and pin.src_epoch == src_epoch
-                and pin.src_bridge == src_bridge
-                and pin.destination_domain_id == destination_domain_id
-                and pin.msg_hash == msg_hash)
+    def staticcall_verify_inbox_credit_v2(
+        self, calldata: bytes, *, caller: str, value: int, gas: int,
+    ) -> bytes:
+        if (type(calldata) is not bytes
+                or len(calldata) != 36
+                or calldata[:4] != VERIFY_INBOX_CREDIT_V2_SELECTOR
+                or value != 0
+                or gas != VERIFY_INBOX_CREDIT_V2_GAS):
+            raise ValueError("ICV2 staticcall envelope is noncanonical")
+        return self.verify_inbox_credit_v2(
+            calldata[4:].hex(), caller=caller
         )
-        if len(matches) != 1:
-            return None
-        credit_id, pin = matches[0]
-        encoded = b"".join((
-            _model_fixed_bytes32(credit_id),
-            _model_uint(pin.process_by, 32, "Inbox processBy"),
-            _model_uint(pin.value, 32, "Inbox value"),
-            _model_uint(pin.execution_fee, 32, "Inbox execution fee"),
-            _model_uint(pin.liquidity_fee, 32, "Inbox liquidity fee"),
-            _model_fixed_bytes32(pin.source_context_hash),
-        ))
-        if len(encoded) != 192:
-            raise AssertionError("verifyInboxCredit return width drifted")
-        return encoded
 
     def liquidity_quote_v2(self, credit_id: str) -> bytes | None:
         pin = self.pins.get(credit_id)
@@ -32687,7 +33051,7 @@ class InboxValidityExecutionAuthority:
     _verifying_candidate_id: int | None = field(
         default=None, init=False, repr=False
     )
-    _release_activation_frame: tuple[int, bytes, int, str] | None = field(
+    _release_activation_frame: tuple[int, bytes, int, str, int] | None = field(
         default=None, init=False, repr=False
     )
     _observed_release_deployments: dict[
@@ -32916,6 +33280,9 @@ class InboxValidityExecutionAuthority:
         registrar = delta.registrar
         return {
             "releases": dict(registrar.authority.releases),
+            "release_retirement_queue_counts": dict(
+                registrar.authority.release_retirement_queue_counts
+            ),
             "release_manifests": dict(
                 registrar.authority.release_manifests
             ),
@@ -32924,7 +33291,28 @@ class InboxValidityExecutionAuthority:
             "bridge_activation_receipts": dict(
                 registrar.bridge_activation_receipts
             ),
+            "bridge_by_address_word": dict(
+                registrar.bridge_by_address_word
+            ),
             "active_destination_bridge": registrar.active_destination_bridge,
+            "active_destination_protocol_version": (
+                registrar.active_destination_protocol_version
+            ),
+            "active_destination_manifest_hash": (
+                registrar.active_destination_manifest_hash
+            ),
+            "active_destination_domain_id": (
+                registrar.active_destination_domain_id
+            ),
+            "destination_successor_index": (
+                registrar.destination_successor_index
+            ),
+            "destination_activation_receipt_rows": dict(
+                registrar.destination_activation_receipt_rows
+            ),
+            "destination_successor_receipt_rows": dict(
+                registrar.destination_successor_receipt_rows
+            ),
             "retirement_queue_watermarks": dict(
                 registrar.retirement_queue_watermarks
             ),
@@ -32933,7 +33321,16 @@ class InboxValidityExecutionAuthority:
                 delta.bridge_deployment.__dict__
             ),
             "routes": dict(registrar.inbox_router.routes),
+            "route_domain_by_store": dict(
+                registrar.inbox_router.route_domain_by_store
+            ),
+            "route_domain_by_bridge": dict(
+                registrar.inbox_router.route_domain_by_bridge
+            ),
             "domains": dict(registrar.accumulator.domains),
+            "domain_by_bridge": dict(
+                registrar.accumulator.domain_by_bridge
+            ),
             "terminalized_pinned_count": dict(
                 registrar.accumulator.terminalized_pinned_count
             ),
@@ -32948,6 +33345,9 @@ class InboxValidityExecutionAuthority:
     ) -> None:
         registrar = delta.registrar
         registrar.authority.releases = snapshot["releases"]
+        registrar.authority.release_retirement_queue_counts = snapshot[
+            "release_retirement_queue_counts"
+        ]
         registrar.authority.release_manifests = snapshot[
             "release_manifests"
         ]
@@ -32956,8 +33356,29 @@ class InboxValidityExecutionAuthority:
         registrar.bridge_activation_receipts = snapshot[
             "bridge_activation_receipts"
         ]
+        registrar.bridge_by_address_word = snapshot[
+            "bridge_by_address_word"
+        ]
         registrar.active_destination_bridge = snapshot[
             "active_destination_bridge"
+        ]
+        registrar.active_destination_protocol_version = snapshot[
+            "active_destination_protocol_version"
+        ]
+        registrar.active_destination_manifest_hash = snapshot[
+            "active_destination_manifest_hash"
+        ]
+        registrar.active_destination_domain_id = snapshot[
+            "active_destination_domain_id"
+        ]
+        registrar.destination_successor_index = snapshot[
+            "destination_successor_index"
+        ]
+        registrar.destination_activation_receipt_rows = snapshot[
+            "destination_activation_receipt_rows"
+        ]
+        registrar.destination_successor_receipt_rows = snapshot[
+            "destination_successor_receipt_rows"
         ]
         registrar.retirement_queue_watermarks = snapshot[
             "retirement_queue_watermarks"
@@ -32968,7 +33389,16 @@ class InboxValidityExecutionAuthority:
             snapshot["bridge_deployment"]
         )
         registrar.inbox_router.routes = snapshot["routes"]
+        registrar.inbox_router.route_domain_by_store = snapshot[
+            "route_domain_by_store"
+        ]
+        registrar.inbox_router.route_domain_by_bridge = snapshot[
+            "route_domain_by_bridge"
+        ]
         registrar.accumulator.domains = snapshot["domains"]
+        registrar.accumulator.domain_by_bridge = snapshot[
+            "domain_by_bridge"
+        ]
         registrar.accumulator.terminalized_pinned_count = snapshot[
             "terminalized_pinned_count"
         ]
@@ -33025,6 +33455,7 @@ class InboxValidityExecutionAuthority:
     def _activate_release_delta(
         self, delta: InboxRouteActivationDelta, *,
         expected_prestate_root: str | None = None,
+        activated_at_block: int | None = None,
     ) -> bool:
         if not self._activation_prestate_exact(
             delta, expected_prestate_root=expected_prestate_root
@@ -33038,12 +33469,19 @@ class InboxValidityExecutionAuthority:
         )
         if self._release_activation_frame is not None:
             return False
+        if activated_at_block is None:
+            activated_at_block = max(
+                1, self.protocol.canonical.canonicalized_at_block
+            )
+        if not 0 < activated_at_block <= UINT64_MAX:
+            return False
         self._release_activation_frame = (
             id(manifest), manifest.commitment,
             self.protocol.forced_queue.count,
             release_system_calldata_hash(
                 manifest, self.protocol.forced_queue.count
             ),
+            activated_at_block,
         )
         try:
             return activate_release_transaction(
@@ -33065,6 +33503,7 @@ class InboxValidityExecutionAuthority:
                 retirement_queue_watermark=(
                     self.protocol.forced_queue.count
                 ),
+                activated_at_block=activated_at_block,
             )
         finally:
             self._release_activation_frame = None
@@ -33311,7 +33750,9 @@ class InboxValidityExecutionAuthority:
             # The release block executes Anchor/ReleaseAuthority/Registrar at
             # tx0.  Only its candidate-local route is visible to tx1.
             if (activation is not None
-                    and not self._activate_release_delta(activation)):
+                    and not self._activate_release_delta(
+                        activation, activated_at_block=clock.block_number
+                    )):
                 raise ValueError("candidate release tx0 activation failed")
             for rows in rows_by_block:
                 for row in rows:
@@ -34221,13 +34662,26 @@ def l2_execution_state_commitment_for_test(protocol: Protocol) -> str:
         inbox.next_queue_index,
         inbox.last_applied_l2_block,
         routes,
+        tuple(sorted(inbox.route_domain_by_store.items())),
+        tuple(sorted(inbox.route_domain_by_bridge.items())),
         tuple(sorted(registrar.authority.releases.items())),
+        tuple(sorted(
+            registrar.authority.release_retirement_queue_counts.items()
+        )),
         tuple(sorted(registrar.registrations.items())),
         tuple(sorted(registrar.bridge_identities.items())),
+        tuple(sorted(registrar.bridge_by_address_word.items())),
         registrar.active_destination_bridge,
+        registrar.active_destination_protocol_version,
+        registrar.active_destination_manifest_hash,
+        registrar.active_destination_domain_id,
+        registrar.destination_successor_index,
+        tuple(sorted(registrar.destination_activation_receipt_rows.items())),
+        tuple(sorted(registrar.destination_successor_receipt_rows.items())),
         tuple(sorted(registrar.retirement_queue_watermarks.items())),
         registrar.liquidity_pool._snapshot(),
         tuple(sorted(registrar.accumulator.domains.items())),
+        tuple(sorted(registrar.accumulator.domain_by_bridge.items())),
         tuple(sorted(
             registrar.accumulator.terminalized_pinned_count.items()
         )),
@@ -34399,6 +34853,9 @@ def _execute_verified_migration_l2_replay_for_test(
                 or not authority._activate_release_delta(
                     activation,
                     expected_prestate_root=output.base_core.state_root,
+                    activated_at_block=(
+                        output.candidate.blocks[0].anchor_number + F_L1
+                    ),
                 )):
             raise ValueError("L2 replay tx0 failed")
         for row in output.rows:
@@ -34520,7 +34977,10 @@ def _execute_prepared_candidate_l2_replay_for_test(
     touched_counts: dict[int, tuple[InboxCreditStoreV2, int]] = {}
     try:
         if (activation is not None
-                and not authority._activate_release_delta(activation)):
+                and not authority._activate_release_delta(
+                    activation,
+                    activated_at_block=receipt.clock_block_number,
+                )):
             raise ValueError("canonical L2 replay rejected tx0")
         for rows in rows_by_block:
             for row in rows:
@@ -34911,6 +35371,8 @@ class InboxApplyRouterV2:
     next_queue_index: int = 0
     last_applied_l2_block: int = -1
     routes: dict[str, InboxRoute] = field(default_factory=dict)
+    route_domain_by_store: dict[str, str] = field(default_factory=dict)
+    route_domain_by_bridge: dict[str, str] = field(default_factory=dict)
     _terminal_registrar_authority: object | None = field(
         default=None, init=False, compare=False, repr=False
     )
@@ -34981,12 +35443,20 @@ class InboxApplyRouterV2:
         )
         existing = self.routes.get(domain_id)
         if existing is not None:
-            return existing == route
-        if any(row.store is store for row in self.routes.values()):
+            return (
+                existing == route
+                and self.route_domain_by_store.get(store.address) == domain_id
+                and self.route_domain_by_bridge.get(destination_bridge)
+                    == domain_id
+            )
+        if (store.address in self.route_domain_by_store
+                or destination_bridge in self.route_domain_by_bridge):
             return False
         if not store._bind_inbox_apply(self):
             return False
         self.routes[domain_id] = route
+        self.route_domain_by_store[store.address] = domain_id
+        self.route_domain_by_bridge[destination_bridge] = domain_id
         return True
 
     def apply(
@@ -35134,6 +35604,7 @@ class TerminalAccumulatorV2:
     """Protocol-lifetime append-only terminal vector with immutable old writers."""
 
     domains: dict[str, str]
+    domain_by_bridge: dict[str, str] = field(default_factory=dict)
     registrar: str = "terminal-domain-registrar"
     address: str = "terminal-accumulator"
     runtime_hash: str = "code:accumulator"
@@ -35187,6 +35658,15 @@ class TerminalAccumulatorV2:
             raise ValueError("terminal pinned counter is invalid")
         for domain_id in self.domains:
             self.terminalized_pinned_count.setdefault(domain_id, 0)
+        if self.domains:
+            derived = {bridge: domain for domain, bridge in self.domains.items()}
+            if (len(derived) != len(self.domains)
+                    or (self.domain_by_bridge
+                        and self.domain_by_bridge != derived)):
+                raise ValueError("terminal accumulator bridge index is invalid")
+            self.domain_by_bridge = derived
+        elif self.domain_by_bridge:
+            raise ValueError("terminal accumulator bridge index is orphaned")
 
     def __setattr__(self, name: str, value: object) -> None:
         if name in {
@@ -35203,7 +35683,20 @@ class TerminalAccumulatorV2:
     def root(self) -> str:
         return self._root
 
-    def _transaction_snapshot(self) -> dict[str, object]:
+    def _transaction_snapshot(
+        self, domain_id: str | None = None,
+    ) -> dict[str, object]:
+        if domain_id is not None:
+            return {
+                "bounded_domain": domain_id,
+                "frontier": list(self.frontier),
+                "count": self._count,
+                "root": self._root,
+                "leaf_events_length": len(self.leaf_events),
+                "terminalized_pinned_count": (
+                    self.terminalized_pinned_count.get(domain_id)
+                ),
+            }
         return {
             "frontier": list(self.frontier),
             "count": self._count,
@@ -35212,11 +35705,24 @@ class TerminalAccumulatorV2:
             "terminalized_pinned_count": dict(
                 self.terminalized_pinned_count
             ),
+            "domain_by_bridge": dict(self.domain_by_bridge),
         }
 
     def _restore_transaction_snapshot(
         self, snapshot: dict[str, object]
     ) -> None:
+        domain_id = snapshot.get("bounded_domain")
+        if domain_id is not None:
+            self.frontier[:] = snapshot["frontier"]
+            self._count = snapshot["count"]
+            self._root = snapshot["root"]
+            del self.leaf_events[snapshot["leaf_events_length"]:]
+            prior = snapshot["terminalized_pinned_count"]
+            if prior is None:
+                self.terminalized_pinned_count.pop(domain_id, None)
+            else:
+                self.terminalized_pinned_count[domain_id] = prior
+            return
         self.frontier[:] = snapshot["frontier"]
         self._count = snapshot["count"]
         self._root = snapshot["root"]
@@ -35225,6 +35731,8 @@ class TerminalAccumulatorV2:
         self.terminalized_pinned_count.update(
             snapshot["terminalized_pinned_count"]
         )
+        self.domain_by_bridge.clear()
+        self.domain_by_bridge.update(snapshot["domain_by_bridge"])
 
     def _bind_terminal_registrar(
         self, registrar: "TerminalDomainRegistrarV2"
@@ -35260,10 +35768,12 @@ class TerminalAccumulatorV2:
         existing = self.domains.get(domain_id)
         if existing is not None:
             return (existing == bridge
+                    and self.domain_by_bridge.get(bridge) == domain_id
                     and domain_id in self.terminalized_pinned_count)
-        if not domain_id or not bridge or bridge in self.domains.values():
+        if not domain_id or not bridge or bridge in self.domain_by_bridge:
             return False
         self.domains[domain_id] = bridge
+        self.domain_by_bridge[bridge] = domain_id
         self.terminalized_pinned_count[domain_id] = 0
         return True
 
@@ -36067,7 +36577,7 @@ class BridgeDeploymentStateV2:
         frame = getattr(registrar, "_activation_frame", None)
         if (capability is not _DESTINATION_BRIDGE_ACTIVATION_CAPABILITY
                 or type(registrar) is not TerminalDomainRegistrarV2
-                or type(frame) is not tuple or len(frame) != 4
+                or type(frame) is not tuple or len(frame) != 5
                 or frame[0] != id(manifest)
                 or frame[1] != manifest.commitment
                 or frame[3] != release_system_calldata_hash(
@@ -36142,7 +36652,7 @@ class DestinationBridgeActivationReceiptV2:
         deployment: BridgeDeploymentStateV2,
     ) -> bool:
         return (
-            self._capability is _DESTINATION_BRIDGE_ACTIVATION_CAPABILITY
+            self.sealed_identity_valid()
             and type(manifest) is ReleaseManifestV2
             and type(deployment) is BridgeDeploymentStateV2
             and deployment.v2_active
@@ -36159,6 +36669,24 @@ class DestinationBridgeActivationReceiptV2:
             and 0 <= self.retirement_queue_count <= UINT64_MAX
             and self.active_state_commitment
                 == deployment.observation_commitment
+        )
+
+    def sealed_identity_valid(self) -> bool:
+        """Authenticate the append-only identity fields without live state."""
+
+        return (
+            self._capability is _DESTINATION_BRIDGE_ACTIVATION_CAPABILITY
+            and len(self.manifest_commitment) == 32
+            and self.manifest_commitment != bytes(32)
+            and bool(self.destination_domain_id)
+            and bool(self.destination_bridge)
+            and type(self.retirement_queue_count) is int
+            and 0 <= self.retirement_queue_count <= UINT64_MAX
+            and type(self.activation_surplus) is int
+            and 0 <= self.activation_surplus <= SEAT_UINT256_MAX
+            and type(self.bridge_postbalance) is int
+            and self.bridge_postbalance == self.activation_surplus
+            and bool(self.active_state_commitment)
             and self.seal == hashlib.sha256(
                 b"TAIKO_DESTINATION_BRIDGE_ACTIVATION_RECEIPT_V2\x00"
                 + self.digest.encode()
@@ -36251,8 +36779,17 @@ class ProtocolReleaseAuthorityV2:
     system_sender: str = "system:anchor"
     manifest_namespace: str = "manifest:v2"
     releases: dict[int, bytes] = field(default_factory=dict)
+    release_retirement_queue_counts: dict[int, int] = field(
+        default_factory=dict
+    )
     release_manifests: dict[tuple[int, bytes], ReleaseManifestV2] = field(
         default_factory=dict
+    )
+    release_activation_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    release_activation_fault_point: str | None = field(
+        default=None, compare=False, repr=False
     )
 
     def __post_init__(self) -> None:
@@ -36273,10 +36810,18 @@ class ProtocolReleaseAuthorityV2:
             raise AttributeError(f"release authority {name} is immutable")
         object.__setattr__(self, name, value)
 
-    def activate(self, manifest: ReleaseManifestV2, *, caller: AnchorV4Model,
-                 tx_origin: str) -> bool:
+    def activate(
+        self,
+        manifest: ReleaseManifestV2,
+        retirement_queue_count: int,
+        *,
+        caller: AnchorV4Model,
+        tx_origin: str,
+    ) -> bool:
         manifest_hash = manifest.commitment
         if (not manifest.structurally_valid()
+                or type(retirement_queue_count) is not int
+                or not 0 <= retirement_queue_count <= UINT64_MAX
                 or caller.address != manifest.anchor
                 or caller.runtime_hash != manifest.anchor_runtime_hash
                 or tx_origin != self.system_sender
@@ -36285,15 +36830,54 @@ class ProtocolReleaseAuthorityV2:
                 or caller.active_release_manifest_hash != manifest_hash):
             return False
         existing = self.releases.get(manifest.protocol_version)
+        existing_count = self.release_retirement_queue_counts.get(
+            manifest.protocol_version
+        )
         if existing is not None:
-            if existing != manifest_hash:
+            if (existing != manifest_hash
+                    or existing_count != retirement_queue_count):
                 return False
         else:
             self.releases[manifest.protocol_version] = manifest_hash
+            self.release_retirement_queue_counts[
+                manifest.protocol_version
+            ] = retirement_queue_count
         self.release_manifests[
             (manifest.protocol_version, manifest_hash)
         ] = manifest
         return True
+
+    def release_activation_v2(self, protocol_version: int) -> bytes:
+        if self.release_activation_fault_point in {"revert", "oog"}:
+            raise RuntimeError("injected RAV2 staticcall fault")
+        manifest_hash = self.releases.get(protocol_version)
+        queue_count = self.release_retirement_queue_counts.get(
+            protocol_version
+        )
+        if manifest_hash is None or queue_count is None:
+            raise ValueError("RAV2 release is absent")
+        encoded = b"".join((
+            b"RAV2" + bytes(28),
+            manifest_hash,
+            _model_uint(queue_count, 32, "RAV2 Queue count"),
+        ))
+        return encoded if self.release_activation_return_override is None \
+            else self.release_activation_return_override
+
+    def staticcall_release_activation_v2(
+        self, calldata: bytes, *, caller: str, value: int, gas: int,
+    ) -> bytes:
+        _ = caller
+        if (type(calldata) is not bytes
+                or len(calldata) != 36
+                or calldata[:4] != RELEASE_ACTIVATION_V2_SELECTOR
+                or value != 0
+                or gas != RELEASE_ACTIVATION_V2_GAS):
+            raise ValueError("RAV2 staticcall envelope is noncanonical")
+        protocol_version = _decode_uint_word_v1(
+            calldata[4:], 64, "RAV2 protocol version"
+        )
+        return self.release_activation_v2(protocol_version)
 
 
 _NATIVE_LIQUIDITY_POOL_CAPABILITY = object()
@@ -36414,6 +36998,112 @@ class ReclaimResult(Enum):
     RECLAIMED_VALUE = 2
 
 
+DESTINATION_ACTIVATION_RECEIPT_SELECTOR = bytes.fromhex("18421618")
+DESTINATION_SUCCESSOR_RECEIPT_SELECTOR = bytes.fromhex("928d58de")
+DESTINATION_ACTIVATION_RECEIPT_GAS = 150_000
+DESTINATION_SUCCESSOR_RECEIPT_GAS = 75_000
+DESTINATION_ACTIVATION_RECEIPT_LENGTH = 448
+DESTINATION_SUCCESSOR_RECEIPT_LENGTH = 96
+
+
+@dataclass(frozen=True)
+class DestinationActivationReceiptRowV2:
+    receipt_id: bytes
+    successor_index: int
+    old_protocol_version: int
+    new_protocol_version: int
+    old_manifest_hash: bytes
+    new_manifest_hash: bytes
+    old_domain_id: bytes
+    new_domain_id: bytes
+    old_bridge: bytes
+    new_bridge: bytes
+    retirement_queue_count: int
+    activated_at_block: int
+    sealed: int = 1
+
+
+def destination_activation_receipt_id_v2(
+    destination_chain_id: int,
+    registrar_address: str,
+    row: DestinationActivationReceiptRowV2,
+) -> bytes:
+    if (
+        type(row) is not DestinationActivationReceiptRowV2
+        or len(row.receipt_id) != 32
+        or any(len(value) != 32 for value in (
+            row.old_manifest_hash, row.new_manifest_hash,
+            row.old_domain_id, row.new_domain_id,
+        ))
+        or len(row.old_bridge) != 20
+        or len(row.new_bridge) != 20
+    ):
+        raise ValueError("destination activation receipt is malformed")
+    return keccak256(b"".join((
+        b"slot-chain-destination-activation-receipt-v2",
+        _model_uint(destination_chain_id, 32, "destination chain"),
+        _model_address20(registrar_address),
+        _model_uint(row.successor_index, 8, "destination successor index"),
+        _model_uint(row.old_protocol_version, 8, "old destination version"),
+        _model_uint(row.new_protocol_version, 8, "new destination version"),
+        row.old_manifest_hash, row.new_manifest_hash,
+        row.old_domain_id, row.new_domain_id,
+        row.old_bridge, row.new_bridge,
+        _model_uint(
+            row.retirement_queue_count, 8, "retirement Queue count"
+        ),
+        _model_uint(row.activated_at_block, 8, "destination activation block"),
+    )))
+
+
+def encode_destination_activation_receipt_v2(
+    row: DestinationActivationReceiptRowV2,
+) -> bytes:
+    raw = b"".join((
+        b"DRV2" + bytes(28), row.receipt_id,
+        _model_uint(row.successor_index, 32, "DRV2 successor index"),
+        _model_uint(row.old_protocol_version, 32, "DRV2 old version"),
+        _model_uint(row.new_protocol_version, 32, "DRV2 new version"),
+        row.old_manifest_hash, row.new_manifest_hash,
+        row.old_domain_id, row.new_domain_id,
+        bytes(12) + row.old_bridge, bytes(12) + row.new_bridge,
+        _model_uint(row.retirement_queue_count, 32, "DRV2 Queue count"),
+        _model_uint(row.activated_at_block, 32, "DRV2 activation block"),
+        _model_uint(row.sealed, 32, "DRV2 sealed"),
+    ))
+    if len(raw) != DESTINATION_ACTIVATION_RECEIPT_LENGTH:
+        raise AssertionError("DRV2 return length changed")
+    return raw
+
+
+def decode_destination_activation_receipt_v2(
+    raw: bytes,
+) -> DestinationActivationReceiptRowV2:
+    if type(raw) is not bytes or len(raw) != DESTINATION_ACTIVATION_RECEIPT_LENGTH:
+        raise ValueError("DRV2 return length is invalid")
+    words = tuple(raw[offset:offset + 32] for offset in range(0, len(raw), 32))
+    if (
+        words[0] != b"DRV2" + bytes(28)
+        or words[9][:12] != bytes(12)
+        or words[10][:12] != bytes(12)
+    ):
+        raise ValueError("DRV2 magic/address padding is invalid")
+    row = DestinationActivationReceiptRowV2(
+        words[1],
+        _decode_uint_word_v1(words[2], 64, "DRV2 successor index"),
+        _decode_uint_word_v1(words[3], 64, "DRV2 old version"),
+        _decode_uint_word_v1(words[4], 64, "DRV2 new version"),
+        words[5], words[6], words[7], words[8],
+        words[9][12:], words[10][12:],
+        _decode_uint_word_v1(words[11], 64, "DRV2 Queue count"),
+        _decode_uint_word_v1(words[12], 64, "DRV2 activation block"),
+        _decode_uint_word_v1(words[13], 8, "DRV2 sealed"),
+    )
+    if row.sealed != 1 or encode_destination_activation_receipt_v2(row) != raw:
+        raise ValueError("DRV2 row is not canonical and sealed")
+    return row
+
+
 @dataclass
 class NativeLiquidityPoolV2:
     """Permissionless salted tickets consumed only inside an atomic attempt."""
@@ -36426,6 +37116,8 @@ class NativeLiquidityPoolV2:
     active: bool = False
     tickets: dict[str, NativeLiquidityTicketV2] = field(default_factory=dict)
     total_available: int = 0
+    bridge_by_domain: dict[str, str] = field(default_factory=dict)
+    domain_by_bridge: dict[str, str] = field(default_factory=dict)
     entered: bool = field(default=False, compare=False)
     withdraw_callback: Callable[
         ["NativeLiquidityPoolV2", str, int], bool
@@ -36453,7 +37145,14 @@ class NativeLiquidityPoolV2:
                 or type(self.balance) is not int
                 or not 0 <= self.balance <= SEAT_UINT256_MAX):
             raise ValueError("native liquidity Pool is invalid")
-        self._assert_accounting_invariant()
+        if (len(self.bridge_by_domain) != len(self.domain_by_bridge)
+                or any(
+                    not domain_id or not bridge
+                    or self.domain_by_bridge.get(bridge) != domain_id
+                    for domain_id, bridge in self.bridge_by_domain.items()
+                )):
+            raise ValueError("native liquidity Pool route index is invalid")
+        self._audit_accounting_invariant_for_test()
 
     def __setattr__(self, name: str, value: object) -> None:
         if name in {
@@ -36468,7 +37167,16 @@ class NativeLiquidityPoolV2:
     def ticket_liability(self) -> int:
         return self.total_available
 
-    def _assert_accounting_invariant(self) -> None:
+    def _assert_accounting_counters(self) -> None:
+        if (type(self.total_available) is not int
+                or not 0 <= self.total_available <= SEAT_UINT256_MAX
+                or type(self.balance) is not int
+                or not self.total_available <= self.balance <= SEAT_UINT256_MAX):
+            raise AssertionError("native liquidity counters are insolvent")
+
+    def _audit_accounting_invariant_for_test(self) -> None:
+        """Offline full-map audit; production hot paths never call this."""
+
         available = 0
         for ticket_id, ticket in self.tickets.items():
             if (not ticket_id or type(ticket) is not NativeLiquidityTicketV2
@@ -36497,12 +37205,106 @@ class NativeLiquidityPoolV2:
             "active": self.active,
             "tickets": self.tickets,
             "total_available": self.total_available,
+            "bridge_by_domain": self.bridge_by_domain,
+            "domain_by_bridge": self.domain_by_bridge,
         })
 
     def _restore(self, snapshot: dict[str, object]) -> None:
         for key, value in snapshot.items():
             object.__setattr__(self, key, copy.deepcopy(value))
-        self._assert_accounting_invariant()
+        self._audit_accounting_invariant_for_test()
+
+    def _ticket_journal(
+        self, ticket_id: str,
+    ) -> tuple[int, int, NativeLiquidityTicketV2 | None]:
+        ticket = self.tickets.get(ticket_id)
+        return (
+            self.balance,
+            self.total_available,
+            None if ticket is None else replace(ticket),
+        )
+
+    def _restore_ticket_journal(
+        self,
+        ticket_id: str,
+        journal: tuple[int, int, NativeLiquidityTicketV2 | None],
+    ) -> None:
+        self.balance, self.total_available, ticket = journal
+        if ticket is None:
+            self.tickets.pop(ticket_id, None)
+        else:
+            self.tickets[ticket_id] = replace(ticket)
+        self._assert_accounting_counters()
+
+    def _ticket_journal_unchanged(
+        self,
+        ticket_id: str,
+        journal: tuple[int, int, NativeLiquidityTicketV2 | None],
+    ) -> bool:
+        return (
+            (self.balance, self.total_available)
+                == journal[:2]
+            and self.tickets.get(ticket_id) == journal[2]
+        )
+
+    def _attempt_child_journal(
+        self,
+        *,
+        bridge: "DestinationBridgeLedger",
+        frame: "L2TransactionFrameV2",
+        credit_id: str,
+    ) -> tuple[
+        str, tuple[int, int, NativeLiquidityTicketV2 | None]
+    ] | None:
+        """Capture the one Pool ticket reachable by an active child attempt."""
+
+        authorization = self._active_liquidity_authorization
+        if (not self.entered
+                or type(authorization) is not AtomicLiquidityAuthorizationV2
+                or authorization.frame is not frame
+                or authorization.credit_id != credit_id
+                or authorization.destination_domain_id
+                    != bridge.local_domain_id
+                or authorization.destination_bridge != bridge.address
+                or self.bridge_by_domain.get(bridge.local_domain_id)
+                    != bridge.address
+                or self.domain_by_bridge.get(bridge.address)
+                    != bridge.local_domain_id
+                or self._bridge_authorities.get(bridge.local_domain_id)
+                    is not bridge):
+            return None
+        ticket_id = authorization.ticket_id
+        return ticket_id, self._ticket_journal(ticket_id)
+
+    def _restore_attempt_child_journal(
+        self,
+        child_journal: tuple[
+            str, tuple[int, int, NativeLiquidityTicketV2 | None]
+        ],
+        *,
+        bridge: "DestinationBridgeLedger",
+        frame: "L2TransactionFrameV2",
+        credit_id: str,
+        capability: object,
+    ) -> None:
+        """Model EVM child-call rollback for exactly one authorized ticket."""
+
+        authorization = self._active_liquidity_authorization
+        if (capability is not _NATIVE_LIQUIDITY_POOL_CAPABILITY
+                or not self.entered
+                or type(child_journal) is not tuple
+                or len(child_journal) != 2
+                or type(authorization) is not AtomicLiquidityAuthorizationV2
+                or authorization.frame is not frame
+                or authorization.credit_id != credit_id
+                or authorization.ticket_id != child_journal[0]
+                or authorization.destination_domain_id
+                    != bridge.local_domain_id
+                or authorization.destination_bridge != bridge.address
+                or self._bridge_authorities.get(bridge.local_domain_id)
+                    is not bridge):
+            raise ValueError("Pool child rollback journal is unauthorized")
+        self._restore_ticket_journal(child_journal[0], child_journal[1])
 
     def _bind_registrar_once(
         self, registrar: "TerminalDomainRegistrarV2"
@@ -36524,7 +37326,7 @@ class NativeLiquidityPoolV2:
         if (capability is not _NATIVE_LIQUIDITY_POOL_CAPABILITY
                 or self.entered
                 or registrar is not self._registrar_authority
-                or type(frame) is not tuple or len(frame) != 4
+                or type(frame) is not tuple or len(frame) != 5
                 or frame[0] != id(manifest)
                 or frame[1] != manifest.commitment
                 or manifest.destination_chain_id != self.destination_chain_id
@@ -36533,11 +37335,20 @@ class NativeLiquidityPoolV2:
                     != self.runtime_hash
                 or descriptor.native_liquidity_pool_configuration_hash
                     != self.configuration_hash
+                or manifest.destination_domain_id in self.bridge_by_domain
+                or manifest.destination_bridge in self.domain_by_bridge
                 or (not self.active and (
                     self.tickets or self.total_available != 0
+                    or self.bridge_by_domain or self.domain_by_bridge
                 ))):
             return False
         self.active = True
+        self.bridge_by_domain[manifest.destination_domain_id] = (
+            manifest.destination_bridge
+        )
+        self.domain_by_bridge[manifest.destination_bridge] = (
+            manifest.destination_domain_id
+        )
         return True
 
     def _bind_destination_bridge_once(
@@ -36549,7 +37360,9 @@ class NativeLiquidityPoolV2:
                 or bridge.local_domain_id != domain_id
                 or bridge.release_manifest.destination_bridge_descriptor
                     .native_liquidity_pool != self.address
-                or registrar.accumulator.domains.get(domain_id) != bridge.address):
+                or registrar.accumulator.domains.get(domain_id) != bridge.address
+                or self.bridge_by_domain.get(domain_id) != bridge.address
+                or self.domain_by_bridge.get(bridge.address) != domain_id):
             return False
         existing = self._bridge_authorities.get(domain_id)
         if existing is not None:
@@ -36617,7 +37430,7 @@ class NativeLiquidityPoolV2:
             existing.available_amount = next_ticket
         self.balance = next_balance
         self.total_available = next_total
-        self._assert_accounting_invariant()
+        self._assert_accounting_counters()
         return ticket_id
 
     def _prepare_authorization(
@@ -36691,6 +37504,10 @@ class NativeLiquidityPoolV2:
                 ) != bridge.address
                 or self._bridge_authorities.get(bridge.local_domain_id)
                     is not bridge
+                or self.bridge_by_domain.get(bridge.local_domain_id)
+                    != bridge.address
+                or self.domain_by_bridge.get(bridge.address)
+                    != bridge.local_domain_id
                 or not bridge._delivery_context_valid(
                     message_, source, destination, require_pin=False
                 )
@@ -36753,6 +37570,10 @@ class NativeLiquidityPoolV2:
         if (capability is not _NATIVE_LIQUIDITY_POOL_CAPABILITY
                 or self._bridge_authorities.get(bridge.local_domain_id)
                     is not bridge
+                or self.bridge_by_domain.get(bridge.local_domain_id)
+                    != bridge.address
+                or self.domain_by_bridge.get(bridge.address)
+                    != bridge.local_domain_id
                 or type(snapshot) is not tuple or len(snapshot) != 2):
             raise ValueError("native liquidity transient rollback is invalid")
         self._active_liquidity_authorization = snapshot[0]
@@ -36777,6 +37598,10 @@ class NativeLiquidityPoolV2:
                 or frame is not bridge.execution_environment._active_frame
                 or self._bridge_authorities.get(bridge.local_domain_id)
                     is not bridge
+                or self.bridge_by_domain.get(bridge.local_domain_id)
+                    != bridge.address
+                or self.domain_by_bridge.get(bridge.address)
+                    != bridge.local_domain_id
                 or (ticket_id, credit_id, amount)
                     != (authorization.ticket_id,
                         authorization.credit_id,
@@ -36803,7 +37628,7 @@ class NativeLiquidityPoolV2:
         settlement = NativeLiquiditySettlementV2(
             ticket_id, ticket.l1_recipient, amount
         )
-        pool_snapshot = self._snapshot()
+        pool_snapshot = self._ticket_journal(ticket_id)
         transient_snapshot = self._transient_snapshot()
         bridge_snapshot = bridge._liquidity_value_snapshot()
         try:
@@ -36852,10 +37677,10 @@ class NativeLiquidityPoolV2:
                     "destination Bridge rejected Pool value callback"
                 )
             self._liquidity_consumption_receipt = authorization.commitment
-            self._assert_accounting_invariant()
+            self._assert_accounting_counters()
             return settlement
         except BaseException:
-            self._restore(pool_snapshot)
+            self._restore_ticket_journal(ticket_id, pool_snapshot)
             self._active_liquidity_authorization = transient_snapshot[0]
             self._liquidity_consumption_receipt = transient_snapshot[1]
             bridge._restore_liquidity_value_snapshot(
@@ -36882,8 +37707,11 @@ class NativeLiquidityPoolV2:
         )
         if authorization is None:
             return "REJECTED"
-        pool_snapshot = self._snapshot()
-        bridge_snapshot = bridge._transaction_snapshot()
+        pool_snapshot = self._ticket_journal(ticket_id)
+        bridge_snapshot = bridge._bounded_transaction_snapshot(
+            authorization.credit_id,
+            (frame.caller, message_.destination_owner),
+        )
         environment_snapshot = bridge.execution_environment._transaction_snapshot()
         self.entered = True
         self._active_liquidity_authorization = authorization
@@ -36923,13 +37751,15 @@ class NativeLiquidityPoolV2:
                     }
                     and self._active_liquidity_authorization is authorization
                     and not self._liquidity_consumption_receipt
-                    and self._snapshot() == pool_snapshot
+                    and self._ticket_journal_unchanged(
+                        ticket_id, pool_snapshot
+                    )
                 )
             if not accepted:
                 raise RuntimeError("atomic native liquidity result is invalid")
             self._active_liquidity_authorization = None
             self._liquidity_consumption_receipt = ""
-            self._assert_accounting_invariant()
+            self._assert_accounting_counters()
             return result
         except BaseException:
             bridge._restore_transaction_snapshot(
@@ -36939,7 +37769,7 @@ class NativeLiquidityPoolV2:
             bridge.execution_environment._restore_transaction_snapshot(
                 environment_snapshot
             )
-            self._restore(pool_snapshot)
+            self._restore_ticket_journal(ticket_id, pool_snapshot)
             self._active_liquidity_authorization = None
             self._liquidity_consumption_receipt = ""
             return "REJECTED"
@@ -37003,7 +37833,7 @@ class NativeLiquidityPoolV2:
                 or amount > self.total_available
                 or self.balance < amount):
             return None
-        snapshot = self._snapshot()
+        snapshot = self._ticket_journal(ticket_id)
         self.entered = True
         try:
             ticket.available_amount -= amount
@@ -37017,10 +37847,10 @@ class NativeLiquidityPoolV2:
             callback = self.withdraw_callback
             if callback is not None and not callback(self, recipient, amount):
                 raise RuntimeError("native liquidity recipient rejected")
-            self._assert_accounting_invariant()
+            self._assert_accounting_counters()
             return remaining
         except BaseException:
-            self._restore(snapshot)
+            self._restore_ticket_journal(ticket_id, snapshot)
             return None
         finally:
             self.entered = False
@@ -37043,9 +37873,29 @@ class TerminalDomainRegistrarV2:
     bridge_activation_receipts: dict[
         str, DestinationBridgeActivationReceiptV2
     ] = field(default_factory=dict)
+    bridge_by_address_word: dict[bytes, str] = field(default_factory=dict)
     active_destination_bridge: str = ""
+    active_destination_protocol_version: int = 0
+    active_destination_manifest_hash: bytes = bytes(32)
+    active_destination_domain_id: bytes = bytes(32)
+    destination_successor_index: int = 0
+    destination_activation_receipt_rows: dict[bytes, bytes] = field(
+        default_factory=dict
+    )
+    destination_successor_receipt_rows: dict[
+        tuple[bytes, bytes], bytes
+    ] = field(default_factory=dict)
     retirement_queue_watermarks: dict[str, int] = field(default_factory=dict)
-    _activation_frame: tuple[int, bytes, int, str] | None = field(
+    destination_receipt_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    destination_successor_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    destination_receipt_fault_point: str | None = field(
+        default=None, compare=False, repr=False
+    )
+    _activation_frame: tuple[int, bytes, int, str, int] | None = field(
         default=None, init=False, compare=False, repr=False
     )
 
@@ -37062,6 +37912,63 @@ class TerminalDomainRegistrarV2:
                 or not self.inbox_router._bind_terminal_registrar(self)
                 or not self.accumulator._bind_terminal_registrar(self)):
             raise ValueError("terminal registrar authority graph is split")
+
+    def destination_activation_receipt_v2(self, receipt_id: bytes) -> bytes:
+        if self.destination_receipt_fault_point in {"revert", "oog"}:
+            raise RuntimeError("injected DRV2 staticcall fault")
+        raw = self.destination_activation_receipt_rows.get(receipt_id)
+        if raw is None:
+            raise ValueError("DRV2 receipt is absent")
+        return (
+            raw if self.destination_receipt_return_override is None
+            else self.destination_receipt_return_override
+        )
+
+    def destination_successor_receipt_v2(
+        self, old_domain_id: bytes, old_bridge: bytes
+    ) -> bytes:
+        if self.destination_receipt_fault_point in {"revert", "oog"}:
+            raise RuntimeError("injected DSV2 staticcall fault")
+        raw = self.destination_successor_receipt_rows.get(
+            (old_domain_id, old_bridge)
+        )
+        if raw is None:
+            raise ValueError("DSV2 successor receipt is absent")
+        return (
+            raw if self.destination_successor_return_override is None
+            else self.destination_successor_return_override
+        )
+
+    def staticcall_destination_activation_receipt_v2(
+        self, calldata: bytes, *, caller: str, value: int, gas: int
+    ) -> bytes:
+        _ = caller
+        if (
+            type(calldata) is not bytes
+            or len(calldata) != 36
+            or calldata[:4] != DESTINATION_ACTIVATION_RECEIPT_SELECTOR
+            or value != 0
+            or gas != DESTINATION_ACTIVATION_RECEIPT_GAS
+        ):
+            raise ValueError("DRV2 staticcall envelope is noncanonical")
+        return self.destination_activation_receipt_v2(calldata[4:])
+
+    def staticcall_destination_successor_receipt_v2(
+        self, calldata: bytes, *, caller: str, value: int, gas: int
+    ) -> bytes:
+        _ = caller
+        if (
+            type(calldata) is not bytes
+            or len(calldata) != 68
+            or calldata[:4] != DESTINATION_SUCCESSOR_RECEIPT_SELECTOR
+            or calldata[36:48] != bytes(12)
+            or value != 0
+            or gas != DESTINATION_SUCCESSOR_RECEIPT_GAS
+        ):
+            raise ValueError("DSV2 staticcall envelope is noncanonical")
+        return self.destination_successor_receipt_v2(
+            calldata[4:36], calldata[48:68]
+        )
 
     def _activate_domain_from_release(self, manifest: ReleaseManifestV2,
                         store: InboxCreditStoreV2, *,
@@ -37119,8 +38026,40 @@ class TerminalDomainRegistrarV2:
                 )
             )
         )
+        old_bridge = self.active_destination_bridge
+        old_version = self.active_destination_protocol_version
+        old_manifest_hash = self.active_destination_manifest_hash
+        old_domain_id = self.active_destination_domain_id
+        genesis = not old_bridge
+        old_bridge_bytes = (
+            bytes(20) if genesis else _model_address20(old_bridge)
+        )
+        new_bridge_bytes = _model_address20(bridge)
+        new_domain_id = _model_fixed_bytes32(domain_id)
+        successor_key = (old_domain_id, old_bridge_bytes)
+        try:
+            activation_raw = self.authority.staticcall_release_activation_v2(
+                RELEASE_ACTIVATION_V2_SELECTOR
+                + _model_uint(
+                    protocol_version, 32, "RAV2 protocol version"
+                ),
+                caller=self.address,
+                value=0,
+                gas=RELEASE_ACTIVATION_V2_GAS,
+            )
+            if (type(activation_raw) is not bytes
+                    or len(activation_raw)
+                        != RELEASE_ACTIVATION_V2_RETURN_LENGTH
+                    or activation_raw[:32] != b"RAV2" + bytes(28)):
+                raise ValueError("RAV2 return is malformed")
+            authority_manifest_hash = activation_raw[32:64]
+            authority_queue_count = _decode_uint_word_v1(
+                activation_raw[64:96], 64, "RAV2 Queue count"
+            )
+        except (ValueError, RuntimeError, TypeError):
+            return False
         if (type(self._activation_frame) is not tuple
-                or len(self._activation_frame) != 4
+                or len(self._activation_frame) != 5
                 or self._activation_frame[0] != id(manifest)
                 or self._activation_frame[1] != manifest_hash
                 or self._activation_frame[2] != retirement_queue_watermark
@@ -37128,6 +38067,7 @@ class TerminalDomainRegistrarV2:
                     != release_system_calldata_hash(
                         manifest, retirement_queue_watermark
                     )
+                or not 0 < self._activation_frame[4] <= UINT64_MAX
                 or not manifest.structurally_valid()
                 or not lifetime_rows_exact
                 or type(retirement_queue_watermark) is not int
@@ -37143,6 +38083,8 @@ class TerminalDomainRegistrarV2:
                     .native_liquidity_pool_configuration_hash
                     != self.liquidity_pool.configuration_hash
                 or self.authority.releases.get(protocol_version) != manifest_hash
+                or authority_manifest_hash != manifest_hash
+                or authority_queue_count != retirement_queue_watermark
                 or protocol_version in self.registrations
                 or observed_l2_components != manifest.components[3:]
                 or observed_bridge_descriptor
@@ -37154,12 +38096,53 @@ class TerminalDomainRegistrarV2:
                 or domain_id in self.accumulator.domains
                 or bridge in self.bridge_identities
                 or bridge in self.bridge_activation_receipts
+                or new_bridge_bytes in self.bridge_by_address_word
+                or self.destination_successor_index >= UINT64_MAX
+                or (genesis != (
+                    old_version == 0
+                    and old_manifest_hash == bytes(32)
+                    and old_domain_id == bytes(32)
+                ))
+                or (genesis and self.destination_successor_index != 0)
+                or (not genesis and (
+                    not 0 < old_version < protocol_version
+                    or old_manifest_hash == bytes(32)
+                    or old_domain_id == bytes(32)
+                    or self.bridge_by_address_word.get(old_bridge_bytes)
+                        != old_bridge
+                    or old_domain_id == new_domain_id
+                    or old_bridge_bytes == new_bridge_bytes
+                    or successor_key
+                        in self.destination_successor_receipt_rows
+                    or old_bridge in self.retirement_queue_watermarks
+                ))
                 or not endpoint_state.activatable
                 or not bridge_deployment.authenticates(
                     manifest, require_fresh=True)):
             return False
+        successor_index = self.destination_successor_index + 1
+        pending_row = DestinationActivationReceiptRowV2(
+            bytes(32), successor_index, old_version, protocol_version,
+            old_manifest_hash, manifest_hash, old_domain_id, new_domain_id,
+            old_bridge_bytes, new_bridge_bytes,
+            retirement_queue_watermark, self._activation_frame[4], 1,
+        )
+        receipt_id = destination_activation_receipt_id_v2(
+            manifest.destination_chain_id, self.address, pending_row
+        )
+        receipt_row = replace(pending_row, receipt_id=receipt_id)
+        receipt_raw = encode_destination_activation_receipt_v2(receipt_row)
+        if receipt_id in self.destination_activation_receipt_rows:
+            return False
         prior_routes = dict(self.inbox_router.routes)
+        prior_route_domain_by_store = dict(
+            self.inbox_router.route_domain_by_store
+        )
+        prior_route_domain_by_bridge = dict(
+            self.inbox_router.route_domain_by_bridge
+        )
         prior_domains = dict(self.accumulator.domains)
+        prior_domain_by_bridge = dict(self.accumulator.domain_by_bridge)
         prior_terminalized_pinned_count = dict(
             self.accumulator.terminalized_pinned_count
         )
@@ -37186,7 +38169,14 @@ class TerminalDomainRegistrarV2:
                         capability=_DESTINATION_BRIDGE_ACTIVATION_CAPABILITY,
                     )) is None):
             self.inbox_router.routes = prior_routes
+            self.inbox_router.route_domain_by_store = (
+                prior_route_domain_by_store
+            )
+            self.inbox_router.route_domain_by_bridge = (
+                prior_route_domain_by_bridge
+            )
             self.accumulator.domains = prior_domains
+            self.accumulator.domain_by_bridge = prior_domain_by_bridge
             self.accumulator.terminalized_pinned_count = (
                 prior_terminalized_pinned_count
             )
@@ -37202,12 +38192,23 @@ class TerminalDomainRegistrarV2:
             manifest
         )
         self.bridge_activation_receipts[bridge] = activation_receipt
+        self.bridge_by_address_word[new_bridge_bytes] = bridge
         self.registrations[protocol_version] = manifest.registration_commitment
-        if self.active_destination_bridge:
+        if old_bridge:
             self.retirement_queue_watermarks[
-                self.active_destination_bridge
+                old_bridge
             ] = retirement_queue_watermark
+            self.destination_successor_receipt_rows[successor_key] = b"".join((
+                receipt_id,
+                _model_uint(successor_index, 32, "DSV2 successor index"),
+                b"DSV2" + bytes(28),
+            ))
+        self.destination_activation_receipt_rows[receipt_id] = receipt_raw
+        self.destination_successor_index = successor_index
         self.active_destination_bridge = bridge
+        self.active_destination_protocol_version = protocol_version
+        self.active_destination_manifest_hash = manifest_hash
+        self.active_destination_domain_id = new_domain_id
         return True
 
 
@@ -37247,15 +38248,29 @@ def deploy_manifest_release_execution_graph_v2(
     if type(existing) is not TerminalDomainRegistrarV2:
         raise ValueError("release execution graph has no launch registrar")
     expected_inbox = manifest.components[3]
-    if (inbox.routes or existing.registrations or existing.bridge_identities
+    if (inbox.routes or inbox.route_domain_by_store
+            or inbox.route_domain_by_bridge
+            or existing.authority.releases
+            or existing.authority.release_retirement_queue_counts
+            or existing.registrations or existing.bridge_identities
             or existing.bridge_activation_receipts
+            or existing.bridge_by_address_word
             or existing.active_destination_bridge
+            or existing.active_destination_protocol_version != 0
+            or existing.active_destination_manifest_hash != bytes(32)
+            or existing.active_destination_domain_id != bytes(32)
+            or existing.destination_successor_index != 0
+            or existing.destination_activation_receipt_rows
+            or existing.destination_successor_receipt_rows
             or existing.retirement_queue_watermarks
             or existing.accumulator.count != 0
             or existing.accumulator.domains
+            or existing.accumulator.domain_by_bridge
             or existing.liquidity_pool.active
             or existing.liquidity_pool.tickets
             or existing.liquidity_pool.total_available != 0
+            or existing.liquidity_pool.bridge_by_domain
+            or existing.liquidity_pool.domain_by_bridge
             or _model_address20(inbox.address)
                 != _model_address20(expected_inbox.address)
             or _model_fixed_bytes32(inbox.runtime_hash)
@@ -37372,20 +38387,46 @@ def activate_release_transaction(
         endpoint_state: EndpointActivationStateV2 | None = None,
         bridge_deployment: BridgeDeploymentStateV2 | None = None,
         retirement_queue_watermark: int,
+        activated_at_block: int,
         ) -> bool:
     """Model the single system transaction and its all-or-revert EVM calls."""
     releases = dict(authority.releases)
+    release_retirement_queue_counts = dict(
+        authority.release_retirement_queue_counts
+    )
     release_manifests = dict(authority.release_manifests)
     registrations = dict(registrar.registrations)
     bridge_identities = dict(registrar.bridge_identities)
     bridge_activation_receipts = dict(registrar.bridge_activation_receipts)
+    bridge_by_address_word = dict(registrar.bridge_by_address_word)
     active_destination_bridge = registrar.active_destination_bridge
+    active_destination_protocol_version = (
+        registrar.active_destination_protocol_version
+    )
+    active_destination_manifest_hash = (
+        registrar.active_destination_manifest_hash
+    )
+    active_destination_domain_id = registrar.active_destination_domain_id
+    destination_successor_index = registrar.destination_successor_index
+    destination_activation_receipt_rows = dict(
+        registrar.destination_activation_receipt_rows
+    )
+    destination_successor_receipt_rows = dict(
+        registrar.destination_successor_receipt_rows
+    )
     retirement_queue_watermarks = dict(
         registrar.retirement_queue_watermarks
     )
     liquidity_pool_snapshot = registrar.liquidity_pool._snapshot()
     routes = dict(registrar.inbox_router.routes)
+    route_domain_by_store = dict(
+        registrar.inbox_router.route_domain_by_store
+    )
+    route_domain_by_bridge = dict(
+        registrar.inbox_router.route_domain_by_bridge
+    )
     domains = dict(registrar.accumulator.domains)
+    domain_by_bridge = dict(registrar.accumulator.domain_by_bridge)
     terminalized_pinned_count = dict(
         registrar.accumulator.terminalized_pinned_count
     )
@@ -37402,6 +38443,8 @@ def activate_release_transaction(
         and execution_authority.protocol.inbox_apply_router
             is registrar.inbox_router
         and type(retirement_queue_watermark) is int
+        and type(activated_at_block) is int
+        and 0 < activated_at_block <= UINT64_MAX
         and retirement_queue_watermark
             == execution_authority.protocol.forced_queue.count
         and registrar is registrar.inbox_router
@@ -37413,11 +38456,15 @@ def activate_release_transaction(
                 release_system_calldata_hash(
                     manifest, retirement_queue_watermark
                 ),
+                activated_at_block,
             )
         and authority is registrar.authority
         and anchor.authenticate(manifest)
         and authority.activate(
-            manifest, caller=anchor, tx_origin=authority.system_sender
+            manifest,
+            retirement_queue_watermark,
+            caller=anchor,
+            tx_origin=authority.system_sender,
         )
     )
     activated = False
@@ -37428,6 +38475,7 @@ def activate_release_transaction(
             release_system_calldata_hash(
                 manifest, retirement_queue_watermark
             ),
+            activated_at_block,
         )
         try:
             activated = registrar._activate_domain_from_release(
@@ -37447,17 +38495,40 @@ def activate_release_transaction(
             registrar._activation_frame = None
     if not activated:
         authority.releases = releases
+        authority.release_retirement_queue_counts = (
+            release_retirement_queue_counts
+        )
         authority.release_manifests = release_manifests
         registrar.registrations = registrations
         registrar.bridge_identities = bridge_identities
         registrar.bridge_activation_receipts = bridge_activation_receipts
+        registrar.bridge_by_address_word = bridge_by_address_word
         registrar.active_destination_bridge = active_destination_bridge
+        registrar.active_destination_protocol_version = (
+            active_destination_protocol_version
+        )
+        registrar.active_destination_manifest_hash = (
+            active_destination_manifest_hash
+        )
+        registrar.active_destination_domain_id = active_destination_domain_id
+        registrar.destination_successor_index = destination_successor_index
+        registrar.destination_activation_receipt_rows = (
+            destination_activation_receipt_rows
+        )
+        registrar.destination_successor_receipt_rows = (
+            destination_successor_receipt_rows
+        )
         registrar.retirement_queue_watermarks = retirement_queue_watermarks
         registrar.liquidity_pool._restore(liquidity_pool_snapshot)
         deployment.__dict__.clear()
         deployment.__dict__.update(deployment_snapshot)
         registrar.inbox_router.routes = routes
+        registrar.inbox_router.route_domain_by_store = route_domain_by_store
+        registrar.inbox_router.route_domain_by_bridge = (
+            route_domain_by_bridge
+        )
         registrar.accumulator.domains = domains
+        registrar.accumulator.domain_by_bridge = domain_by_bridge
         registrar.accumulator.terminalized_pinned_count = (
             terminalized_pinned_count
         )
@@ -37490,9 +38561,15 @@ def execute_release_activation_for_test(
             or not 0 <= watermark <= UINT64_MAX):
         return False
     kwargs["retirement_queue_watermark"] = watermark
+    activated_at_block = kwargs.get("activated_at_block", 1)
+    if (type(activated_at_block) is not int
+            or not 0 < activated_at_block <= UINT64_MAX):
+        return False
+    kwargs["activated_at_block"] = activated_at_block
     execution_authority._release_activation_frame = (
         id(manifest), manifest.commitment, watermark,
         release_system_calldata_hash(manifest, watermark),
+        activated_at_block,
     )
     try:
         if "bridge_deployment" not in kwargs:
@@ -37950,6 +39027,12 @@ def destination_bridge_for_test(
             manifest.execution_profile_hash,
             manifest.destination_chain_id,
         )
+        fixture_inbox.route_domain_by_store[store.address] = (
+            manifest.destination_domain_id
+        )
+        fixture_inbox.route_domain_by_bridge[
+            manifest.destination_bridge
+        ] = manifest.destination_domain_id
         # Do not consume the Store's one-shot writer binding in this fixture:
         # some integration tests subsequently bind the same deployment to the
         # proof-authorized InboxApply object. Terminal append authenticates the
@@ -37958,10 +39041,29 @@ def destination_bridge_for_test(
             manifest.registration_commitment
         )
         fixture_registrar.bridge_identities[manifest.destination_bridge] = ()
+        fixture_registrar.bridge_by_address_word[
+            _model_address20(manifest.destination_bridge)
+        ] = manifest.destination_bridge
         fixture_registrar.active_destination_bridge = (
             manifest.destination_bridge
         )
+        fixture_registrar.active_destination_protocol_version = (
+            manifest.protocol_version
+        )
+        fixture_registrar.active_destination_manifest_hash = (
+            manifest.commitment
+        )
+        fixture_registrar.active_destination_domain_id = (
+            _model_fixed_bytes32(manifest.destination_domain_id)
+        )
+        fixture_registrar.destination_successor_index = 1
         fixture_registrar.liquidity_pool.active = True
+        fixture_registrar.liquidity_pool.bridge_by_domain[
+            manifest.destination_domain_id
+        ] = manifest.destination_bridge
+        fixture_registrar.liquidity_pool.domain_by_bridge[
+            manifest.destination_bridge
+        ] = manifest.destination_domain_id
 
     environment = L2ExecutionEnvironmentV2(
         manifest.destination_chain_id,
@@ -38018,6 +39120,7 @@ def destination_bridge_for_test(
         paused=False,
         inbox_store=store,
         terminal_accumulator=accumulator,
+        terminal_registrar=registrar,
         liquidity_pool=registrar.liquidity_pool,
         bridge_surplus_sink=manifest.execution_profile.bridge_surplus_sink,
         release_manifest=manifest,
@@ -38570,6 +39673,9 @@ class DestinationBridgeLedger:
         InboxCreditStoreV2("inbox-apply", "bridge:A", "domain:D1"))
     terminal_accumulator: TerminalAccumulatorV2 = field(default_factory=lambda:
         TerminalAccumulatorV2({"domain:D1": "bridge:A"}))
+    terminal_registrar: TerminalDomainRegistrarV2 | None = field(
+        default=None, compare=False, repr=False
+    )
     release_manifest: "ReleaseManifestV2 | None" = field(
         default=None, compare=False, repr=False
     )
@@ -38634,6 +39740,10 @@ class DestinationBridgeLedger:
                 or not manifest.structurally_valid()
                 or type(descriptor) is not DestinationBridgeDescriptorV2
                 or type(environment) is not L2ExecutionEnvironmentV2
+                or type(self.terminal_registrar)
+                    is not TerminalDomainRegistrarV2
+                or self.terminal_registrar.accumulator
+                    is not self.terminal_accumulator
                 or type(self.activation_deployment)
                     is not BridgeDeploymentStateV2
                 or type(self.activation_receipt)
@@ -38711,7 +39821,7 @@ class DestinationBridgeLedger:
     def __setattr__(self, name: str, value: object) -> None:
         if name in {
             "address", "local_domain_id", "inbox_store",
-            "terminal_accumulator", "release_manifest",
+            "terminal_accumulator", "terminal_registrar", "release_manifest",
             "execution_environment", "quota_manager",
             "liquidity_pool", "bridge_surplus_sink",
             "activation_deployment", "activation_receipt",
@@ -38736,10 +39846,24 @@ class DestinationBridgeLedger:
     def terminal_index(self) -> MappingProxyType:
         return MappingProxyType(dict(self._terminal_index))
 
-    def _pin(self, credit_id: str, destination_domain_id: str) -> InboxPin | None:
-        return self.inbox_store.read(
-            credit_id, caller=self.address,
-            destination_domain_id=destination_domain_id)
+    def _pin(
+        self, credit_id: str, destination_domain_id: str,
+    ) -> VerifiedInboxCreditV2 | None:
+        if destination_domain_id != self.local_domain_id:
+            return None
+        try:
+            verified = decode_verified_inbox_credit_v2(
+                self.inbox_store.staticcall_verify_inbox_credit_v2(
+                    VERIFY_INBOX_CREDIT_V2_SELECTOR
+                    + _model_fixed_bytes32(credit_id),
+                    caller=self.address,
+                    value=0,
+                    gas=VERIFY_INBOX_CREDIT_V2_GAS,
+                )
+            )
+        except (ValueError, RuntimeError, TypeError):
+            return None
+        return verified if verified.credit_id == credit_id else None
 
     @property
     def destination_chain_id(self) -> int:
@@ -38759,20 +39883,45 @@ class DestinationBridgeLedger:
         object.__setattr__(self, "paused", paused)
         return True
 
-    def reclaim_surplus(
-        self, registrar: TerminalDomainRegistrarV2, *, caller: str,
-    ) -> tuple[ReclaimResult, int]:
+    def reclaim_surplus(self, *, caller: str) -> tuple[ReclaimResult, int]:
         """Permissionlessly send raw retired-Bridge surplus to the typed sink."""
 
         manifest = self.release_manifest
-        successor_bridge = (
-            registrar.active_destination_bridge
-            if type(registrar) is TerminalDomainRegistrarV2 else ""
-        )
-        watermark = (
-            registrar.retirement_queue_watermarks.get(self.address)
-            if type(registrar) is TerminalDomainRegistrarV2 else None
-        )
+        registrar = self.terminal_registrar
+        if type(registrar) is not TerminalDomainRegistrarV2:
+            return ReclaimResult.REJECTED, 0
+        old_domain_id = _model_fixed_bytes32(self.local_domain_id)
+        old_bridge = _model_address20(self.address)
+        try:
+            successor_raw = registrar.staticcall_destination_successor_receipt_v2(
+                DESTINATION_SUCCESSOR_RECEIPT_SELECTOR
+                + old_domain_id + bytes(12) + old_bridge,
+                caller=self.address,
+                value=0,
+                gas=DESTINATION_SUCCESSOR_RECEIPT_GAS,
+            )
+            if (
+                type(successor_raw) is not bytes
+                or len(successor_raw) != DESTINATION_SUCCESSOR_RECEIPT_LENGTH
+                or successor_raw[64:] != b"DSV2" + bytes(28)
+            ):
+                raise ValueError("DSV2 return is malformed")
+            destination_receipt_id = successor_raw[:32]
+            successor_index = _decode_uint_word_v1(
+                successor_raw[32:64], 64, "DSV2 successor index"
+            )
+            receipt = decode_destination_activation_receipt_v2(
+                registrar.staticcall_destination_activation_receipt_v2(
+                    DESTINATION_ACTIVATION_RECEIPT_SELECTOR
+                    + destination_receipt_id,
+                    caller=self.address,
+                    value=0,
+                    gas=DESTINATION_ACTIVATION_RECEIPT_GAS,
+                )
+            )
+        except (ValueError, RuntimeError, TypeError):
+            return ReclaimResult.REJECTED, 0
+        watermark = registrar.retirement_queue_watermarks.get(self.address)
         route = (
             registrar.inbox_router.routes.get(self.local_domain_id)
             if type(registrar) is TerminalDomainRegistrarV2 else None
@@ -38780,39 +39929,63 @@ class DestinationBridgeLedger:
         lifetime_rows_exact = (
             type(manifest) is ReleaseManifestV2
             and len(manifest.components) == 10
-            and manifest.components[3] == ReleaseComponentV2(
-                registrar.inbox_router.address,
-                registrar.inbox_router.runtime_hash,
-                registrar.inbox_router.configuration_hash,
-            )
-            and manifest.components[5] == ReleaseComponentV2(
-                registrar.authority.address,
-                registrar.authority.runtime_hash,
-                registrar.authority.configuration_hash,
-            )
-            and manifest.components[6] == ReleaseComponentV2(
-                registrar.address,
-                registrar.runtime_hash,
-                registrar.configuration_hash,
-            )
-            and manifest.components[7] == ReleaseComponentV2(
-                registrar.accumulator.address,
-                registrar.accumulator.runtime_hash,
-                registrar.accumulator.configuration_hash,
-            )
-            and manifest.components[8] == ReleaseComponentV2(
-                registrar.liquidity_pool.address,
-                registrar.liquidity_pool.runtime_hash,
-                registrar.liquidity_pool.configuration_hash,
+            and all(
+                _model_address20(expected.address)
+                    == _model_address20(actual.address)
+                and _model_fixed_bytes32(expected.runtime_hash)
+                    == _model_fixed_bytes32(actual.runtime_hash)
+                and _model_fixed_bytes32(expected.config_hash)
+                    == _model_fixed_bytes32(actual.config_hash)
+                for expected, actual in zip(
+                    (manifest.components[index]
+                     for index in (3, 5, 6, 7, 8)),
+                    (
+                        ReleaseComponentV2(
+                            registrar.inbox_router.address,
+                            registrar.inbox_router.runtime_hash,
+                            registrar.inbox_router.configuration_hash,
+                        ),
+                        ReleaseComponentV2(
+                            registrar.authority.address,
+                            registrar.authority.runtime_hash,
+                            registrar.authority.configuration_hash,
+                        ),
+                        ReleaseComponentV2(
+                            registrar.address,
+                            registrar.runtime_hash,
+                            registrar.configuration_hash,
+                        ),
+                        ReleaseComponentV2(
+                            registrar.accumulator.address,
+                            registrar.accumulator.runtime_hash,
+                            registrar.accumulator.configuration_hash,
+                        ),
+                        ReleaseComponentV2(
+                            registrar.liquidity_pool.address,
+                            registrar.liquidity_pool.runtime_hash,
+                            registrar.liquidity_pool.configuration_hash,
+                        ),
+                    ),
+                )
             )
         ) if type(registrar) is TerminalDomainRegistrarV2 else False
         if (not caller or type(manifest) is not ReleaseManifestV2
                 or not manifest.structurally_valid() or not lifetime_rows_exact
                 or self.retired or not self.v2_active or self.entered
                 or type(watermark) is not int
-                or not successor_bridge or successor_bridge == self.address
-                or successor_bridge not in registrar.bridge_identities
-                or successor_bridge not in registrar.bridge_activation_receipts
+                or receipt.receipt_id != destination_receipt_id
+                or receipt.successor_index != successor_index
+                or receipt.old_protocol_version != manifest.protocol_version
+                or receipt.new_protocol_version
+                    <= receipt.old_protocol_version
+                or receipt.old_manifest_hash != manifest.commitment
+                or receipt.old_domain_id != old_domain_id
+                or receipt.old_bridge != old_bridge
+                or receipt.new_bridge == bytes(20)
+                or receipt.new_bridge == old_bridge
+                or receipt.retirement_queue_count != watermark
+                or receipt.activated_at_block <= 0
+                or receipt.sealed != 1
                 or registrar.inbox_router.next_queue_index < watermark
                 or registrar.authority.releases.get(manifest.protocol_version)
                     != manifest.commitment
@@ -38883,11 +40056,107 @@ class DestinationBridgeLedger:
             ),
         }
 
+    def _bounded_transaction_snapshot(
+        self,
+        credit_id: str | None,
+        owners: tuple[str, ...] = (),
+    ) -> dict[str, object]:
+        """Journal only keys reachable from one Bridge operation."""
+
+        unique_owners = tuple(dict.fromkeys(
+            owner for owner in owners if owner
+        ))
+        return {
+            "bounded_credit": credit_id,
+            "balance": self.balance,
+            "quota_snapshot": self.quota_manager.snapshot(),
+            "pull_credits": {
+                owner: (owner in self._pull_credits,
+                        self._pull_credits.get(owner, 0))
+                for owner in unique_owners
+            },
+            "total_pull_liability": self.total_pull_liability,
+            "status": (
+                False, None
+            ) if credit_id is None else (
+                credit_id in self._status, self._status.get(credit_id)
+            ),
+            "terminal_index": (
+                False, None
+            ) if credit_id is None else (
+                credit_id in self._terminal_index,
+                self._terminal_index.get(credit_id),
+            ),
+            "terminal_settlement": (
+                False, None
+            ) if credit_id is None else (
+                credit_id in self._terminal_settlements,
+                self._terminal_settlements.get(credit_id),
+            ),
+            "liquidity_value_expectation": (
+                self._liquidity_value_expectation
+            ),
+            "liquidity_value_receipt": self._liquidity_value_receipt,
+            "pool_liquidity_transient": (
+                self.liquidity_pool._transient_snapshot()
+            ),
+            "terminal_accumulator": (
+                None if credit_id is None else
+                self.terminal_accumulator._transaction_snapshot(
+                    self.local_domain_id
+                )
+            ),
+        }
+
     def _restore_transaction_snapshot(
         self, snapshot: dict[str, object], *, capability: object,
     ) -> None:
         if capability is not _DESTINATION_BRIDGE_ROLLBACK_CAPABILITY:
             raise ValueError("destination Bridge rollback capability is wrong")
+        if "bounded_credit" in snapshot:
+            credit_id = snapshot["bounded_credit"]
+            self.balance = snapshot["balance"]
+            if self.quota_manager.snapshot() != snapshot["quota_snapshot"]:
+                self.quota_manager.restore(
+                    snapshot["quota_snapshot"],
+                    bridge=self,
+                    frame=self._active_execution_frame,
+                    capability=_NATIVE_QUOTA_ROLLBACK_CAPABILITY,
+                )
+            for owner, (existed, value) in snapshot["pull_credits"].items():
+                if existed:
+                    self._pull_credits[owner] = value
+                else:
+                    self._pull_credits.pop(owner, None)
+            self._total_pull_liability = snapshot["total_pull_liability"]
+            if credit_id is not None:
+                for mapping, key in (
+                    (self._status, "status"),
+                    (self._terminal_index, "terminal_index"),
+                    (self._terminal_settlements, "terminal_settlement"),
+                ):
+                    existed, value = snapshot[key]
+                    if existed:
+                        mapping[credit_id] = value
+                    else:
+                        mapping.pop(credit_id, None)
+            self._liquidity_value_expectation = snapshot[
+                "liquidity_value_expectation"
+            ]
+            self._liquidity_value_receipt = snapshot[
+                "liquidity_value_receipt"
+            ]
+            self.liquidity_pool._restore_transient_from_bridge(
+                snapshot["pool_liquidity_transient"],
+                bridge=self,
+                capability=_NATIVE_LIQUIDITY_POOL_CAPABILITY,
+            )
+            accumulator_snapshot = snapshot["terminal_accumulator"]
+            if accumulator_snapshot is not None:
+                self.terminal_accumulator._restore_transaction_snapshot(
+                    accumulator_snapshot
+                )
+            return
         self.balance = snapshot["balance"]
         if self.quota_manager.snapshot() != snapshot["quota_snapshot"]:
             self.quota_manager.restore(
@@ -39005,7 +40274,9 @@ class DestinationBridgeLedger:
                     frame, "WITHDRAW", allow_paused=True
                 )):
             return 0
-        bridge_snapshot = self._transaction_snapshot()
+        bridge_snapshot = self._bounded_transaction_snapshot(
+            None, (frame.caller,)
+        )
         assert self.execution_environment is not None
         environment_snapshot = self.execution_environment._transaction_snapshot()
         try:
@@ -39150,7 +40421,9 @@ class DestinationBridgeLedger:
         status_existed = credit_id in self.status
         prior_status = self.status.get(credit_id)
         accumulator_snapshot = (
-            self.terminal_accumulator._transaction_snapshot()
+            self.terminal_accumulator._transaction_snapshot(
+                self.local_domain_id
+            )
         )
         self._status[credit_id] = terminal
         self._terminal_index[credit_id] = APPENDING_SENTINEL
@@ -39347,6 +40620,74 @@ class DestinationBridgeLedger:
         self._terminal_settlements[credit_id] = settlement
         return True
 
+    def _target_call_failure_v2(
+        self,
+        credit_id: str,
+        source: SourceContextV2,
+        destination: DestinationContextV2,
+        *,
+        expected_entry_status: str,
+        is_last_attempt: bool,
+        frame: L2TransactionFrameV2,
+    ) -> TargetCallFailedV2:
+        """Construct the child error only after Bridge observed target failure."""
+
+        authorization = self.liquidity_pool._active_liquidity_authorization
+        if (type(authorization) is not AtomicLiquidityAuthorizationV2
+                or authorization.frame is not frame
+                or authorization.credit_id != credit_id
+                or authorization.processor != frame.caller):
+            raise RuntimeError("target failure has no exact Pool authorization")
+        digest = destination_attempt_digest_v2(
+            credit_id,
+            source.context_hash,
+            destination.context_hash,
+            frame.caller,
+            expected_entry_status,
+            is_last_attempt,
+            authorization.ticket_id,
+            authorization.commitment,
+        )
+        return TargetCallFailedV2(digest)
+
+    def _rollback_target_failure_child_v2(
+        self,
+        failure: TargetCallFailedV2,
+        expected_digest: bytes,
+        bridge_snapshot: dict[str, object],
+        environment_snapshot: dict[str, object],
+        pool_child_journal: tuple[
+            str, tuple[int, int, NativeLiquidityTicketV2 | None]
+        ] | None,
+        *,
+        credit_id: str,
+        frame: L2TransactionFrameV2,
+    ) -> None:
+        """Restore the exact child journal before the outer failure policy."""
+
+        self._restore_transaction_snapshot(
+            bridge_snapshot,
+            capability=_DESTINATION_BRIDGE_ROLLBACK_CAPABILITY,
+        )
+        assert self.execution_environment is not None
+        self.execution_environment._restore_transaction_snapshot(
+            environment_snapshot
+        )
+        if pool_child_journal is None:
+            raise RuntimeError("target failure omitted the Pool child journal")
+        self.liquidity_pool._restore_attempt_child_journal(
+            pool_child_journal,
+            bridge=self,
+            frame=frame,
+            credit_id=credit_id,
+            capability=_NATIVE_LIQUIDITY_POOL_CAPABILITY,
+        )
+        if (type(failure) is not TargetCallFailedV2
+                or failure.return_data
+                    != TARGET_CALL_FAILED_V2_SELECTOR + expected_digest
+                or len(failure.return_data) != 36):
+            raise RuntimeError("target failure returndata is unauthenticated")
+
     def accepts_message_target(self, target: str, *, version: str) -> bool:
         if version != "V2":
             return True
@@ -39526,11 +40867,16 @@ class DestinationBridgeLedger:
             if self._active_execution_frame is frame:
                 self._leave_execution(frame)
             return "REJECTED"
-        bridge_snapshot = self._transaction_snapshot()
+        credit_id = destination_credit_id_v2(message_, source, destination)
+        bridge_snapshot = self._bounded_transaction_snapshot(
+            credit_id, (frame.caller, message_.destination_owner)
+        )
         assert self.execution_environment is not None
         environment_snapshot = self.execution_environment._transaction_snapshot()
+        pool_child_journal = self.liquidity_pool._attempt_child_journal(
+            bridge=self, frame=frame, credit_id=credit_id
+        )
         try:
-            credit_id = destination_credit_id_v2(message_, source, destination)
             pin = self._pin(credit_id, destination.destination_domain_id)
             current = self.status.get(credit_id, "NEW")
             if (pin is None or current != "NEW"
@@ -39596,8 +40942,21 @@ class DestinationBridgeLedger:
                     - pre_call_cost
                     - V2_POST_CALL_GAS_RESERVE,
                 )
+            target_failure = (
+                self._target_call_failure_v2(
+                    credit_id, source, destination,
+                    expected_entry_status="NEW",
+                    is_last_attempt=False,
+                    frame=frame,
+                )
+                if operation == "POOL_PROCESS" else None
+            )
             if not self._fund_success_from_pool(credit_id, message_):
                 return "UNFUNDED"
+            if target_failure is None:
+                raise RuntimeError(
+                    "funded destination PROCESS omitted typed child failure"
+                )
             executed = (
                 self.balance - self.total_pull_liability >= message_.value
             )
@@ -39617,13 +40976,18 @@ class DestinationBridgeLedger:
             if exhausted:
                 raise RuntimeError("destination target exhausted forwarded gas")
             if not executed:
-                self._restore_transaction_snapshot(
-                    bridge_snapshot,
-                    capability=_DESTINATION_BRIDGE_ROLLBACK_CAPABILITY,
-                )
-                self.execution_environment._restore_transaction_snapshot(
-                    environment_snapshot
-                )
+                try:
+                    raise target_failure
+                except TargetCallFailedV2 as failure:
+                    self._rollback_target_failure_child_v2(
+                        failure,
+                        target_failure.attempt_digest,
+                        bridge_snapshot,
+                        environment_snapshot,
+                        pool_child_journal,
+                        credit_id=credit_id,
+                        frame=frame,
+                    )
                 if frame.caller == message_.destination_owner:
                     self._status[credit_id] = "RETRIABLE"
                     return "RETRIABLE"
@@ -39663,11 +41027,16 @@ class DestinationBridgeLedger:
             if self._active_execution_frame is frame:
                 self._leave_execution(frame)
             return "REJECTED"
-        bridge_snapshot = self._transaction_snapshot()
+        credit_id = destination_credit_id_v2(message_, source, destination)
+        bridge_snapshot = self._bounded_transaction_snapshot(
+            credit_id, (frame.caller, message_.destination_owner)
+        )
         assert self.execution_environment is not None
         environment_snapshot = self.execution_environment._transaction_snapshot()
+        pool_child_journal = self.liquidity_pool._attempt_child_journal(
+            bridge=self, frame=frame, credit_id=credit_id
+        )
         try:
-            credit_id = destination_credit_id_v2(message_, source, destination)
             pin = self._pin(credit_id, destination.destination_domain_id)
             if (pin is None or self.status.get(credit_id) != "RETRIABLE"
                     or frame.block_timestamp > pin.process_by):
@@ -39723,8 +41092,21 @@ class DestinationBridgeLedger:
             )
             if requested == 0:
                 return "REJECTED"
+            target_failure = (
+                self._target_call_failure_v2(
+                    credit_id, source, destination,
+                    expected_entry_status="RETRIABLE",
+                    is_last_attempt=is_last_attempt,
+                    frame=frame,
+                )
+                if operation == "POOL_RETRY" else None
+            )
             if not self._fund_success_from_pool(credit_id, message_):
                 return "UNFUNDED"
+            if target_failure is None:
+                raise RuntimeError(
+                    "funded destination RETRY omitted typed child failure"
+                )
             executed = (
                 self.balance - self.total_pull_liability >= message_.value
             )
@@ -39751,13 +41133,18 @@ class DestinationBridgeLedger:
                 if not self._terminalize(credit_id, "DONE", frame=frame):
                     raise RuntimeError("destination DONE terminal append reverted")
                 return "DONE"
-            self._restore_transaction_snapshot(
-                bridge_snapshot,
-                capability=_DESTINATION_BRIDGE_ROLLBACK_CAPABILITY,
-            )
-            self.execution_environment._restore_transaction_snapshot(
-                environment_snapshot
-            )
+            try:
+                raise target_failure
+            except TargetCallFailedV2 as failure:
+                self._rollback_target_failure_child_v2(
+                    failure,
+                    target_failure.attempt_digest,
+                    bridge_snapshot,
+                    environment_snapshot,
+                    pool_child_journal,
+                    credit_id=credit_id,
+                    frame=frame,
+                )
             if not is_last_attempt:
                 return "RETRIABLE"
             if not self._terminalize(credit_id, "FAILED", frame=frame):
@@ -39789,9 +41176,9 @@ class DestinationBridgeLedger:
             if self._active_execution_frame is frame:
                 self._leave_execution(frame)
             return False
-        bridge_snapshot = self._transaction_snapshot()
+        credit_id = destination_credit_id_v2(message_, source, destination)
+        bridge_snapshot = self._bounded_transaction_snapshot(credit_id)
         try:
-            credit_id = destination_credit_id_v2(message_, source, destination)
             if (frame.caller != message_.destination_owner
                     or self.status.get(credit_id) != "RETRIABLE"
                     or not self._terminalize(
@@ -39816,7 +41203,7 @@ class DestinationBridgeLedger:
 
         if not self._enter_execution(frame, "EXPIRE", allow_paused=True):
             return False
-        bridge_snapshot = self._transaction_snapshot()
+        bridge_snapshot = self._bounded_transaction_snapshot(credit_id)
         try:
             pin = self._pin(credit_id, self.local_domain_id)
             current = self.status.get(credit_id, "NEW")
@@ -41883,6 +43270,7 @@ def test_data_gc_reorg_and_geometry() -> None:
     assert support_anchor.authenticate(support_manifest)
     assert support_authority.activate(
         support_manifest,
+        0,
         caller=support_anchor,
         tx_origin=support_authority.system_sender,
     )
@@ -42357,12 +43745,14 @@ def test_data_gc_reorg_and_geometry() -> None:
     check("P50ca direct reserved-sender and Bridge release calls are rejected",
           not release_authority.activate(
               manifest_v1,
+              0,
               caller=AnchorV4Model(
                   "system:anchor", "code:system:anchor",
                   manifest_v1.commitment, manifest_v1.commitment),
               tx_origin="system:anchor")
           and not release_authority.activate(
               manifest_v1,
+              0,
               caller=AnchorV4Model(
                   "bridge:A", "code:bridge:A", manifest_v1.commitment,
                   manifest_v1.commitment),
@@ -42471,9 +43861,8 @@ def test_data_gc_reorg_and_geometry() -> None:
                   message_a.value,
                   message_a.fee,
               )
-          and inbox_store.read(
-              credit_a, caller="bridge:B",
-              destination_domain_id=d1_domain) is None)
+          and inbox_store.verify_inbox_credit_v2(
+              credit_a, caller="bridge:B") == b"")
     check("P50ar one destination domain binds one exact Bridge object",
           payable_reverted(lambda: destination_bridge_for_test(
               manifest_v1,

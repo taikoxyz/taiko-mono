@@ -1082,6 +1082,31 @@ class CanonicalNoMarketTests(unittest.TestCase):
         self.assertEqual(BombMarket.calls, 0)
         self.assertIn(term.term_id, protocol.term_duty)
 
+    def test_future_tip_lag_comparison_is_ordered_before_subtraction(self):
+        protocol = settlement.protocol(tip_slot=1_024, seat=False)
+        before_tip = settlement.Clock(1_000, settlement.GENESIS_TIMESTAMP + 1_000)
+        self.assertFalse(protocol.sync(before_tip))
+        self.assertIs(protocol.mode, settlement.Mode.NORMAL)
+        self.assertFalse(
+            settlement.strict_slot_lag_exceeds(1_000, 1_024, settlement.G_MAX)
+        )
+        self.assertFalse(
+            settlement.strict_slot_lag_exceeds(
+                1_024 + settlement.G_MAX,
+                1_024,
+                settlement.G_MAX,
+            )
+        )
+        self.assertTrue(
+            settlement.strict_slot_lag_exceeds(
+                1_024 + settlement.G_MAX + 1,
+                1_024,
+                settlement.G_MAX,
+            )
+        )
+        with self.assertRaises(ValueError):
+            settlement.strict_slot_lag_exceeds(0, 0, settlement.UINT64_MAX + 1)
+
 
 class ComposedTransactionTests(unittest.TestCase):
     def test_ordinary_progress_refreshes_prospective_duty_without_allocating_ring(self):
@@ -1096,15 +1121,26 @@ class ComposedTransactionTests(unittest.TestCase):
             quoted_block=100,
         )
         service = protocol.seat_services[term_id]
-        original_recovery_at = tip_time + settlement.DELTA_RECOVERY_LAG
+        fresh_base_tip = max(
+            protocol.core.tip_slot,
+            service.responsibility_start - settlement.GENESIS_TIMESTAMP,
+        )
+        original_recovery_at = (
+            settlement.GENESIS_TIMESTAMP
+            + fresh_base_tip
+            + settlement.DELTA_RECOVERY_LAG
+        )
         self.assertNotIn(term_id, protocol.term_duty)
         self.assertEqual(protocol.duty_sequence, 0)
         self.assertTrue(all(cell.reusable for cell in protocol.duty_ring))
-        self.assertEqual(service.duty_base_tip_slot, 1_000)
+        self.assertEqual(service.duty_base_tip_slot, fresh_base_tip)
         self.assertEqual(service.duty_base_sequence, 900)
         self.assertEqual(service.prospective_recovery_at, original_recovery_at)
 
-        for round_index, target_tip in enumerate((2_200, 3_400)):
+        for round_index, target_tip in enumerate((
+            fresh_base_tip + settlement.DELTA_RECOVERY_LAG,
+            fresh_base_tip + 2 * settlement.DELTA_RECOVERY_LAG,
+        )):
             service = protocol.seat_services[term_id]
             arm_at = max(service.responsibility_start, protocol.core.tip_slot
                          + settlement.GENESIS_TIMESTAMP) + round_index + 1
@@ -1181,9 +1217,16 @@ class ComposedTransactionTests(unittest.TestCase):
             service.premium_funded_until - settlement.SLA_TAIL_SECONDS,
         )
         self.assertNotIn(term_id, protocol.term_duty)
-        self.assertEqual(service.duty_base_tip_slot, 1_000)
+        fresh_base_tip = max(
+            protocol.core.tip_slot,
+            term.installed_at - settlement.GENESIS_TIMESTAMP,
+        )
+        self.assertEqual(service.duty_base_tip_slot, fresh_base_tip)
         self.assertEqual(service.duty_base_sequence, 900)
-        self.assertEqual(service.prospective_target_tip, 2_200)
+        self.assertEqual(
+            service.prospective_target_tip,
+            fresh_base_tip + settlement.DELTA_RECOVERY_LAG,
+        )
         self.assertTrue(all(cell.reusable for cell in protocol.duty_ring))
         self.assertEqual(protocol.active_primary_term_id, term_id)
         seat_market.assert_valid()
@@ -1271,11 +1314,26 @@ class ComposedTransactionTests(unittest.TestCase):
                     protocol.sync(settlement.Clock(400 + offset, sync_at))
                 )
                 duty = protocol.seat_duties[protocol.term_duty[primary]]
-                self.assertEqual(duty.base_tip_slot, 2_200)
+                expected_base_tip = (
+                    old_base_tip + settlement.DELTA_RECOVERY_LAG
+                )
+                self.assertEqual(duty.base_tip_slot, expected_base_tip)
                 self.assertEqual(duty.base_sequence, 901)
-                self.assertEqual(duty.recovery_at, 1_003_400)
-                self.assertEqual(duty.failover_at, 1_005_800)
-                self.assertEqual(duty.slash_at, 1_007_364)
+                self.assertEqual(
+                    duty.recovery_at,
+                    settlement.GENESIS_TIMESTAMP + expected_base_tip
+                    + settlement.DELTA_RECOVERY_LAG,
+                )
+                self.assertEqual(
+                    duty.failover_at,
+                    settlement.GENESIS_TIMESTAMP + expected_base_tip
+                    + settlement.DELTA_FINAL_LAG,
+                )
+                self.assertEqual(
+                    duty.slash_at,
+                    settlement.GENESIS_TIMESTAMP + expected_base_tip
+                    + settlement.DELTA_SLASH_LAG,
+                )
                 self.assertIs(duty.status, expected_status)
                 self.assertEqual(
                     protocol.seat_scan_count,
@@ -1759,6 +1817,176 @@ class ComposedTransactionTests(unittest.TestCase):
                 self.assertEqual(protocol, before[0])
                 self.assertEqual(seat_market, before[1])
 
+    def test_first_primary_duty_starts_at_apply_not_stale_canonical_tip(self):
+        protocol, seat_market = make_pair()
+        tip_time = settlement.GENESIS_TIMESTAMP + protocol.core.tip_slot
+        apply_at = tip_time + settlement.G_MAX
+        stage_at = apply_at - settlement.HANDOVER_DELAY_SECONDS
+        quote_at = stage_at - seat_market.quote_maturity_seconds
+        quote_block = 100
+        seat_market.sponsor_premium(seat_market.seat_runway_seconds)
+        insert_offer(seat_market, "boundary-primary", 1, quote_at, quote_block)
+        staged = protocol.stage_best(
+            seat_market,
+            settlement.Clock(
+                quote_block + seat_market.quote_maturity_blocks,
+                stage_at,
+            ),
+        )
+        self.assertEqual(staged.code, market.ResultCode.STAGED)
+        self.assertEqual(staged.stage.handover_at, apply_at)
+
+        installed = protocol.apply_stage(
+            seat_market,
+            settlement.Clock(
+                quote_block + seat_market.quote_maturity_blocks + 1,
+                apply_at,
+            ),
+        )
+        term_id = installed.tranche.installed_term_id
+        service = protocol.seat_services[term_id]
+        fresh_base = apply_at - settlement.GENESIS_TIMESTAMP
+        self.assertEqual(service.responsibility_start, apply_at)
+        self.assertEqual(service.duty_base_tip_slot, fresh_base)
+        self.assertEqual(
+            service.prospective_recovery_at,
+            apply_at + settlement.DELTA_RECOVERY_LAG,
+        )
+        self.assertEqual(
+            service.prospective_failover_at,
+            apply_at + settlement.DELTA_FINAL_LAG,
+        )
+        self.assertGreaterEqual(
+            protocol.preview_premium_cap(term_id), service.responsibility_start
+        )
+        self.assertFalse(protocol.sync(settlement.Clock(500, apply_at)))
+        self.assertNotIn(term_id, protocol.term_duty)
+        self.assertFalse(
+            protocol.sync(
+                settlement.Clock(501, service.prospective_recovery_at)
+            )
+        )
+        self.assertTrue(
+            protocol.sync(
+                settlement.Clock(502, service.prospective_recovery_at + 1)
+            )
+        )
+        self.assertIn(term_id, protocol.term_duty)
+
+    def test_competitive_primary_replacement_gets_its_own_fresh_duty(self):
+        protocol, seat_market = make_pair()
+        tip_time = settlement.GENESIS_TIMESTAMP + protocol.core.tip_slot
+        first_apply_at = tip_time + settlement.G_MAX
+        first_stage_at = first_apply_at - settlement.HANDOVER_DELAY_SECONDS
+        first_quote_at = first_stage_at - seat_market.quote_maturity_seconds
+        seat_market.sponsor_premium(10 * seat_market.seat_runway_seconds)
+        insert_offer(seat_market, "old-primary", 10, first_quote_at, 100)
+        first_stage = protocol.stage_best(
+            seat_market,
+            settlement.Clock(
+                100 + seat_market.quote_maturity_blocks,
+                first_stage_at,
+            ),
+        )
+        first_install = protocol.apply_stage(
+            seat_market,
+            settlement.Clock(
+                101 + seat_market.quote_maturity_blocks,
+                first_apply_at,
+            ),
+        )
+        old_term = first_install.tranche.installed_term_id
+        old_service = protocol.seat_services[old_term]
+        self.assertEqual(old_service.duty_base_tip_slot, settlement.G_MAX + 1_000)
+
+        replacement_apply_at = old_service.minimum_tenure_until
+        replacement_stage_at = (
+            replacement_apply_at - settlement.HANDOVER_DELAY_SECONDS
+        )
+        replacement_quote_at = (
+            replacement_stage_at - seat_market.quote_maturity_seconds
+        )
+        insert_offer(
+            seat_market,
+            "new-primary",
+            0,
+            replacement_quote_at,
+            200,
+        )
+        replacement_stage = protocol.stage_best(
+            seat_market,
+            settlement.Clock(
+                200 + seat_market.quote_maturity_blocks,
+                replacement_stage_at,
+            ),
+        )
+        self.assertEqual(replacement_stage.stage.selected_rank, 0)
+        self.assertEqual(
+            replacement_stage.stage.outgoing_primary_term_id, old_term
+        )
+        self.assertEqual(
+            replacement_stage.stage.handover_at, replacement_apply_at
+        )
+        replacement = protocol.apply_stage(
+            seat_market,
+            settlement.Clock(
+                201 + seat_market.quote_maturity_blocks,
+                replacement_apply_at,
+            ),
+        )
+        new_term = replacement.tranche.installed_term_id
+        new_service = protocol.seat_services[new_term]
+        self.assertEqual(
+            new_service.duty_base_tip_slot,
+            replacement_apply_at - settlement.GENESIS_TIMESTAMP,
+        )
+        self.assertEqual(
+            new_service.prospective_recovery_at,
+            replacement_apply_at + settlement.DELTA_RECOVERY_LAG,
+        )
+        self.assertGreaterEqual(
+            protocol.preview_premium_cap(new_term),
+            new_service.responsibility_start,
+        )
+        self.assertEqual(
+            protocol.seat_services[old_term].closed_at, replacement_apply_at
+        )
+        self.assertFalse(
+            protocol.sync(
+                settlement.Clock(500, new_service.prospective_recovery_at)
+            )
+        )
+        self.assertNotIn(new_term, protocol.term_duty)
+
+    def test_rank_zero_apply_after_old_final_lag_is_preempted_by_recovery(self):
+        protocol, seat_market = make_pair()
+        tip_time = settlement.GENESIS_TIMESTAMP + protocol.core.tip_slot
+        apply_at = tip_time + settlement.G_MAX + 1
+        stage_at = apply_at - settlement.HANDOVER_DELAY_SECONDS
+        quote_at = stage_at - seat_market.quote_maturity_seconds
+        seat_market.sponsor_premium(seat_market.seat_runway_seconds)
+        insert_offer(seat_market, "late-primary", 1, quote_at, 100)
+        staged = protocol.stage_best(
+            seat_market,
+            settlement.Clock(
+                100 + seat_market.quote_maturity_blocks,
+                stage_at,
+            ),
+        )
+        stage_id = staged.stage.stage_id
+        result = protocol.apply_stage(
+            seat_market,
+            settlement.Clock(
+                101 + seat_market.quote_maturity_blocks,
+                apply_at,
+            ),
+        )
+        self.assertEqual(result, "SYNCED")
+        self.assertIs(protocol.mode, settlement.Mode.RECOVERY)
+        self.assertEqual(protocol.seat_lineup, [])
+        self.assertIsNone(protocol.settlement_seat_stage)
+        self.assertIn(stage_id, protocol.stage_tombstones)
+
     def test_final_term_id_binds_actual_apply_time_and_install_revision(self):
         protocol, seat_market = make_pair()
         tip_time = settlement.GENESIS_TIMESTAMP + protocol.core.tip_slot
@@ -1825,7 +2053,7 @@ class ComposedTransactionTests(unittest.TestCase):
                 early_protocol._seat_term_id(*substituted), early_term
             )
 
-    def test_ordinary_expiry_is_atomic_before_and_at_equality(self):
+    def test_ordinary_expiry_is_strictly_after_apply_equality(self):
         protocol, seat_market = make_pair()
         tip_time = settlement.GENESIS_TIMESTAMP + protocol.core.tip_slot
         seat_market.sponsor_premium(seat_market.seat_runway_seconds)
@@ -1835,15 +2063,33 @@ class ComposedTransactionTests(unittest.TestCase):
         )
         stage = protocol.settlement_seat_stage
         before = (copy.deepcopy(protocol), copy.deepcopy(seat_market))
+        for timestamp in (stage.expires_at - 1, stage.expires_at):
+            with self.assertRaises(ValueError):
+                protocol.expire_stage(
+                    seat_market,
+                    settlement.Clock(104, timestamp),
+                )
+            self.assertEqual(protocol, before[0])
+            self.assertEqual(seat_market, before[1])
+
+        equality_protocol = copy.deepcopy(protocol)
+        equality_market = copy.deepcopy(seat_market)
+        installed = equality_protocol.apply_stage(
+            equality_market,
+            settlement.Clock(105, stage.expires_at),
+        )
+        self.assertEqual(
+            equality_protocol.active_primary_term_id,
+            installed.tranche.installed_term_id,
+        )
         with self.assertRaises(ValueError):
-            protocol.expire_stage(
-                seat_market,
-                settlement.Clock(104, stage.expires_at - 1),
+            equality_protocol.expire_stage(
+                equality_market,
+                settlement.Clock(106, stage.expires_at),
             )
-        self.assertEqual(protocol, before[0])
-        self.assertEqual(seat_market, before[1])
+
         protocol.expire_stage(
-            seat_market, settlement.Clock(104, stage.expires_at)
+            seat_market, settlement.Clock(104, stage.expires_at + 1)
         )
         self.assertIsNone(protocol.settlement_seat_stage)
         self.assertEqual(
@@ -1971,7 +2217,7 @@ class ComposedTransactionTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 protocol.expire_stage(
                     seat_market,
-                    settlement.Clock(104, stage.expires_at),
+                    settlement.Clock(104, stage.expires_at + 1),
                 )
             self.assertEqual(protocol, before[0], fault)
             self.assertEqual(seat_market, before[1], fault)
@@ -2026,7 +2272,7 @@ class ComposedTransactionTests(unittest.TestCase):
                 # Empty lineup commitment still changes when generation moves;
                 # add a retained synthetic standby for this stale snapshot.
                 term = synthetic_term(9, tip_time)
-                bad_protocol.seat_terms[term.term_id] = term
+                bad_protocol._record_seat_term(term)
                 bad_protocol.seat_services[term.term_id] = settlement.SeatService(
                     None,
                     tip_time + 600,
@@ -2217,7 +2463,11 @@ class ExitAndPremiumTests(unittest.TestCase):
         )
         service = protocol.seat_services[primary]
         expiry = service.service_eligible_until
-        self.assertEqual(service.prospective_recovery_at, expiry)
+        self.assertEqual(
+            service.prospective_recovery_at,
+            service.responsibility_start + settlement.DELTA_RECOVERY_LAG,
+        )
+        self.assertLess(expiry, service.prospective_recovery_at)
         removed_at = expiry + 570
         self.assertTrue(
             protocol.sync(settlement.Clock(200, removed_at))
@@ -2553,9 +2803,9 @@ class ExitAndPremiumTests(unittest.TestCase):
         )
 
     def test_objective_duty_strictly_precedes_cutoff_but_equality_is_healthy(self):
-        # Direct installation starts 15 seconds after the immutable old tip in
-        # this fixture, so these runways place recovery at E-1, E, and E+1.
-        for runway, relation in ((5_150, "DUTY"), (5_149, "EQUAL"), (5_148, "HEALTHY")):
+        # Fresh primary liability starts at the actual APPLY time, so these
+        # runways place recovery at E-1, E, and E+1 respectively.
+        for runway, relation in ((5_165, "DUTY"), (5_164, "EQUAL"), (5_163, "HEALTHY")):
             protocol, seat_market, _, terms = self.no_duty_expiry_lineup(
                 1, runway=runway
             )
@@ -2785,7 +3035,7 @@ class RingAndReclamationTests(unittest.TestCase):
         installed_at = settlement.GENESIS_TIMESTAMP + protocol.core.tip_slot
         for index in range(1, 5):
             term = synthetic_term(index, installed_at)
-            protocol.seat_terms[term.term_id] = term
+            protocol._record_seat_term(term)
             protocol.seat_services[term.term_id] = settlement.SeatService(
                 installed_at,
                 installed_at + settlement.MIN_PRIMARY_TENURE_SECONDS,
@@ -2815,6 +3065,7 @@ class RingAndReclamationTests(unittest.TestCase):
             duty.status = settlement.DutyStatus.SATISFIED
             duty.satisfied_at = installed_at + index
             duty.disposition_at = installed_at + index
+            protocol.unresolved_duty_count -= 1
             duties.append(duty)
         protocol._assert_seat_valid()
         return duties
@@ -3109,10 +3360,164 @@ class RingAndReclamationTests(unittest.TestCase):
 
 
 class BoundaryAndAuthorityTests(unittest.TestCase):
+    def test_absent_due_sentinel_never_becomes_a_real_boundary(self):
+        terminal = settlement.Clock(1, settlement.UINT64_MAX)
+        empty = settlement.protocol(seat=False)
+        self.assertFalse(empty.force_due(terminal))
+        self.assertEqual(empty.boundary_queries, 0)
+
+        last = replace(
+            settlement.message(0, "last-deadline"),
+            due_at=settlement.UINT64_MAX,
+        )
+        present = settlement.protocol(seat=False, messages=[last])
+        self.assertFalse(present.force_due(replace(
+            terminal, timestamp=settlement.UINT64_MAX - 1
+        )))
+        self.assertTrue(present.force_due(terminal))
+
+        present.core.message_cursor = present.forced_queue.count
+        present.forced_queue.cursor = present.forced_queue.count
+        self.assertFalse(present.force_due(terminal))
+
+    def test_recovery_root_freeze_never_reads_descriptor_history(self):
+        class IterationForbiddenList(list):
+            def __iter__(self):
+                raise AssertionError("descriptor history was iterated")
+
+            def __getitem__(self, key):
+                raise AssertionError("descriptor history was indexed")
+
+        protocol = settlement.protocol(
+            seat=False, messages=[settlement.message(0, "root")]
+        )
+        protocol.forced_queue.descriptors = IterationForbiddenList(
+            protocol.forced_queue.descriptors
+        )
+        self.assertEqual(
+            protocol.force_root(protocol.forced_queue.count),
+            protocol.forced_queue.root,
+        )
+        with self.assertRaises(ValueError):
+            protocol.force_root(0)
+
+    def test_normal_close_distinguishes_absent_and_live_due_boundaries(self):
+        deadline = settlement.GENESIS_TIMESTAMP + 5_000
+
+        def close_with(messages):
+            protocol = settlement.protocol(seat=False, messages=messages)
+            submit_clock = settlement.Clock(500, deadline - 1)
+            protocol.normal_best = settlement.candidate(
+                protocol, submit_clock, "boundary-best", message_end=0
+            )
+            protocol.normal_best_min_data_expiry = (
+                deadline + settlement.REORG_MARGIN_SECONDS
+            )
+            protocol.normal_deadline = deadline
+            closed, outcome = protocol._close_mature_normal(
+                settlement.Clock(501, deadline)
+            )
+            return protocol, closed, outcome
+
+        absent, closed, outcome = close_with([])
+        self.assertTrue(closed)
+        self.assertIsNotNone(outcome)
+        self.assertIn("NORMAL_COMMITTED", absent.events)
+
+        for offset in (-1, 0, 1):
+            with self.subTest(offset=offset):
+                row = replace(
+                    settlement.message(0, f"boundary-{offset}"),
+                    due_at=deadline + offset,
+                )
+                protocol, closed, outcome = close_with([row])
+                self.assertTrue(closed)
+                if offset <= 0:
+                    self.assertIsNone(outcome)
+                    self.assertIn(
+                        "NORMAL_CANCELED_FORCE_OMISSION", protocol.events
+                    )
+                else:
+                    self.assertIsNotNone(outcome)
+                    self.assertIn("NORMAL_COMMITTED", protocol.events)
+
+    def test_recovery_expiry_and_append_roll_are_strict_and_bounded(self):
+        protocol, manager = migration_manager_fixture(seat=False)
+        open_clock = settlement.Clock(
+            1_100,
+            settlement.GENESIS_TIMESTAMP
+            + protocol.core.tip_slot
+            + settlement.DELTA_FINAL_LAG
+            + 1,
+        )
+        protocol._activate(open_clock, settlement.Cause.SLA)
+        old = protocol.recovery
+        old_candidate = settlement.escape_candidate(
+            protocol, settlement.recovery_submit_clock(protocol), "old-round"
+        )
+        for offset in (-1, 0):
+            check_clock = settlement.Clock(
+                old.anchor_number + settlement.F_L1,
+                old.expires_at + offset,
+            )
+            self.assertFalse(protocol._roll_recovery(check_clock))
+            self.assertTrue(protocol._valid_recovery(
+                old_candidate, check_clock
+            ))
+
+        adapter_clock = settlement.Clock(
+            old.anchor_number + 1, old.expires_at - settlement.FORCE_DELAY
+        )
+        adapter = settlement.activate_ingress_adapter_for_test(
+            manager.router,
+            kind=settlement.ForceKind.USER_TX,
+            clock=adapter_clock,
+        )
+        descriptor = settlement.message(adapter_clock.l2_slot, "during-round")
+        self.assertEqual(
+            adapter.enqueue(
+                adapter_clock,
+                descriptor,
+                caller=descriptor.sender,
+                deposit=descriptor.prepaid,
+            ),
+            "QUEUED:0",
+        )
+        self.assertEqual(
+            protocol.forced_queue.descriptors[0].due_at, old.expires_at + 1
+        )
+
+        class IterationForbiddenList(list):
+            def __iter__(self):
+                raise AssertionError("recovery roll iterated descriptors")
+
+            def __getitem__(self, key):
+                raise AssertionError("recovery roll indexed descriptors")
+
+        protocol.forced_queue.descriptors = IterationForbiddenList(
+            protocol.forced_queue.descriptors
+        )
+        self.assertTrue(protocol._roll_recovery(settlement.Clock(
+            old.anchor_number + settlement.F_L1 + 1,
+            old.expires_at + 1,
+        )))
+        self.assertEqual(protocol.recovery.revision, old.revision + 1)
+        self.assertEqual(
+            (protocol.recovery.force_cutoff, protocol.recovery.force_root),
+            (protocol.forced_queue.count, protocol.forced_queue.root),
+        )
+        self.assertFalse(protocol._valid_recovery(
+            old_candidate,
+            settlement.Clock(
+                protocol.recovery.anchor_number + settlement.F_L1,
+                protocol.recovery.expires_at,
+            ),
+        ))
+
     def test_no_duty_and_closed_caps_choose_the_earliest_local_bound(self):
         protocol = settlement.protocol(tip_slot=1_000, seat=False)
         term = synthetic_term(1, settlement.GENESIS_TIMESTAMP + 1_000)
-        protocol.seat_terms[term.term_id] = term
+        protocol._record_seat_term(term)
         protocol.seat_services[term.term_id] = settlement.SeatService(
             responsibility_start=term.installed_at,
             minimum_tenure_until=term.installed_at + 1_000,
@@ -3188,6 +3593,59 @@ class BoundaryAndAuthorityTests(unittest.TestCase):
             protocol.seat_duties[duty.duty_id].status,
             settlement.DutyStatus.FAILED_OVER,
         )
+        self.assertEqual(protocol.unresolved_duty_count, 1)
+
+    def test_unresolved_duty_counter_tracks_every_terminal_transition(self):
+        def fixture():
+            protocol = settlement.protocol(tip_slot=1_000, seat=False)
+            term = synthetic_term(
+                1, settlement.GENESIS_TIMESTAMP + 1_000
+            )
+            protocol.install_seat_term_for_test(
+                term, rank=0, start_primary=True
+            )
+            return protocol, activate_current_duty(protocol)
+
+        satisfied, satisfied_duty = fixture()
+        canonical_cure(
+            satisfied,
+            satisfied_duty,
+            at=satisfied_duty.recovery_at,
+            tip=satisfied_duty.target_tip,
+        )
+        self.assertEqual(satisfied.unresolved_duty_count, 0)
+
+        breached, breached_duty = fixture()
+        breached.sync(settlement.Clock(901, breached_duty.failover_at + 1))
+        self.assertEqual(breached.unresolved_duty_count, 1)
+        breached.sync(settlement.Clock(902, breached_duty.slash_at + 1))
+        self.assertEqual(breached.unresolved_duty_count, 0)
+
+        excused, excused_duty = fixture()
+        excused._scan_seat_duties(
+            settlement.Clock(903, excused_duty.recovery_at),
+            allow_cure=False,
+            excuse_for_migration=True,
+        )
+        self.assertEqual(excused.unresolved_duty_count, 0)
+
+    def test_migration_readiness_does_not_scan_retained_duty_history(self):
+        class IterationForbiddenDict(dict):
+            def __iter__(self):
+                raise AssertionError("retained duty history was iterated")
+
+            def values(self):
+                raise AssertionError("retained duty history was scanned")
+
+        arm_clock = settlement.Clock(
+            1_000, settlement.GENESIS_TIMESTAMP + 2_000
+        )
+        old_protocol, manager = production_migration_fixture()[0::4]
+        execute_manager_arm(manager, arm_clock)
+        old_protocol.seat_duties = IterationForbiddenDict(
+            old_protocol.seat_duties
+        )
+        self.assertTrue(old_protocol._local_migration_arm_complete(False))
 
     def test_selection_record_commitment_and_term_replay_are_fail_closed(self):
         protocol = settlement.protocol(tip_slot=1_000, seat=False)
@@ -3249,6 +3707,9 @@ class BoundaryAndAuthorityTests(unittest.TestCase):
         protocol = settlement.protocol(tip_slot=1_000, seat=False)
         term = synthetic_term(1, settlement.GENESIS_TIMESTAMP + 1_000)
         protocol.install_seat_term_for_test(term, rank=0, start_primary=True)
+        self.assertEqual(
+            protocol.seat_term_by_tranche[term.tranche_id], term.term_id
+        )
         with self.assertRaises(ValueError):
             protocol.install_seat_term_for_test(
                 replace(term, term_id=b"x" * 32),
@@ -3262,6 +3723,55 @@ class BoundaryAndAuthorityTests(unittest.TestCase):
                 protocol.core.tip_slot,
                 protocol.core.l2_block_number,
             )
+
+    def test_term_tranche_adoption_is_constant_work_with_large_history(self):
+        class IterationForbiddenDict(dict):
+            def __iter__(self):
+                raise AssertionError("term adoption iterated append-only history")
+
+            def items(self):
+                raise AssertionError("term adoption iterated append-only history")
+
+            def values(self):
+                raise AssertionError("term adoption iterated append-only history")
+
+        protocol = settlement.protocol(tip_slot=1_000, seat=False)
+        history_size = 100_000
+        protocol.seat_terms = IterationForbiddenDict(
+            ((index + 1).to_bytes(32, "big"), None)
+            for index in range(history_size)
+        )
+        protocol.seat_term_by_tranche = IterationForbiddenDict(
+            ((index + history_size + 1).to_bytes(32, "big"),
+             (index + 1).to_bytes(32, "big"))
+            for index in range(history_size)
+        )
+        fresh = settlement.SeatTerm(
+            (3 * history_size + 1).to_bytes(32, "big"),
+            (3 * history_size + 2).to_bytes(32, "big"),
+            (3 * history_size + 3).to_bytes(32, "big"),
+            "operator-large-history",
+            "payout-large-history",
+            1,
+            settlement.GENESIS_TIMESTAMP + 1_000,
+        )
+        protocol._record_seat_term(fresh)
+        self.assertIs(protocol.seat_terms[fresh.term_id], fresh)
+        self.assertEqual(
+            protocol.seat_term_by_tranche[fresh.tranche_id], fresh.term_id
+        )
+
+        duplicate = replace(fresh, term_id=b"z" * 32)
+        with self.assertRaises(ValueError):
+            protocol._record_seat_term(duplicate)
+
+    def test_term_tranche_reverse_index_is_fail_closed(self):
+        protocol = settlement.protocol(tip_slot=1_000, seat=False)
+        term = synthetic_term(1, settlement.GENESIS_TIMESTAMP + 1_000)
+        protocol.install_seat_term_for_test(term, rank=0, start_primary=True)
+        protocol.seat_term_by_tranche[term.tranche_id] = b"z" * 32
+        with self.assertRaises(AssertionError):
+            protocol._assert_seat_valid()
 
     def test_checked_exit_overflow_rejects_without_recording_request(self):
         protocol = settlement.protocol(tip_slot=1_000, seat=False)
@@ -7212,6 +7722,31 @@ class ForcedIngressRouterTests(unittest.TestCase):
             ))
             self.assertFalse(deployment.v2_active)
             self.assertNotIn(80, registrar.registrations)
+        registrar.authority.release_activation_return_override = b"RAV2"
+        malformed_deployment = settlement.bridge_deployment_state_for_test(
+            manifest
+        )
+        self.assertFalse(settlement.execute_release_activation_for_test(
+            protocol._inbox_execution_authority,
+            registrar.authority,
+            registrar,
+            manifest=manifest,
+            anchor=settlement.AnchorV4Model(
+                manifest.anchor,
+                manifest.anchor_runtime_hash,
+                manifest.commitment,
+            ),
+            store=store,
+            bridge_deployment=malformed_deployment,
+            retirement_queue_watermark=9,
+        ))
+        self.assertNotIn(80, registrar.authority.releases)
+        self.assertNotIn(
+            80, registrar.authority.release_retirement_queue_counts
+        )
+        self.assertFalse(registrar.liquidity_pool.bridge_by_domain)
+        self.assertFalse(registrar.liquidity_pool.domain_by_bridge)
+        registrar.authority.release_activation_return_override = None
         exact_deployment = settlement.bridge_deployment_state_for_test(manifest)
         self.assertTrue(settlement.execute_release_activation_for_test(
             protocol._inbox_execution_authority,
@@ -7231,7 +7766,304 @@ class ForcedIngressRouterTests(unittest.TestCase):
             manifest.destination_bridge
         ]
         self.assertEqual(receipt.retirement_queue_count, 9)
+        self.assertEqual(
+            registrar.authority.release_activation_v2(80),
+            b"RAV2" + bytes(28) + manifest.commitment
+            + settlement._model_uint(9, 32, "test RAV2 Queue count"),
+        )
+        replay_anchor = settlement.AnchorV4Model(
+            manifest.anchor,
+            manifest.anchor_runtime_hash,
+            manifest.commitment,
+        )
+        self.assertTrue(replay_anchor.authenticate(manifest))
+        self.assertFalse(registrar.authority.activate(
+            manifest,
+            8,
+            caller=replay_anchor,
+            tx_origin=registrar.authority.system_sender,
+        ))
 
+    def test_destination_successor_receipts_gate_bounded_reclaim(self):
+        protocol, manager = migration_manager_fixture(seat=False)
+        registrar = protocol.inbox_apply_router._terminal_registrar_authority
+        authority = protocol._inbox_execution_authority
+        protocol.forced_queue.count = 9
+        registrar.inbox_router.next_queue_index = 3
+
+        def activate(version, label, block_number, *, expected=True):
+            store = settlement.InboxCreditStoreV2(
+                "inbox-apply", f"bridge:{label}", ""
+            )
+            manifest = settlement.release_manifest_fixture(
+                version, "", f"bridge:{label}", store,
+                router=manager.router,
+            )
+            deployment = settlement.bridge_deployment_state_for_test(manifest)
+            activated = settlement.execute_release_activation_for_test(
+                authority,
+                registrar.authority,
+                registrar,
+                manifest=manifest,
+                anchor=settlement.AnchorV4Model(
+                    manifest.anchor,
+                    manifest.anchor_runtime_hash,
+                    manifest.commitment,
+                ),
+                store=store,
+                bridge_deployment=deployment,
+                retirement_queue_watermark=9,
+                activated_at_block=block_number,
+            )
+            self.assertEqual(activated, expected)
+            return manifest, store
+
+        first, first_store = activate(80, "receipt-first", 1_000)
+        self.assertEqual(registrar.destination_successor_index, 1)
+        self.assertEqual(
+            registrar.liquidity_pool.bridge_by_domain[
+                first.destination_domain_id
+            ],
+            first.destination_bridge,
+        )
+        self.assertEqual(
+            registrar.liquidity_pool.domain_by_bridge[
+                first.destination_bridge
+            ],
+            first.destination_domain_id,
+        )
+        first_raw = next(iter(
+            registrar.destination_activation_receipt_rows.values()
+        ))
+        first_receipt = settlement.decode_destination_activation_receipt_v2(
+            first_raw
+        )
+        self.assertEqual(
+            (
+                first_receipt.old_protocol_version,
+                first_receipt.old_manifest_hash,
+                first_receipt.old_domain_id,
+                first_receipt.old_bridge,
+            ),
+            (0, bytes(32), bytes(32), bytes(20)),
+        )
+        self.assertFalse(registrar.destination_successor_receipt_rows)
+        self.assertFalse(registrar.liquidity_pool._bridge_authorities)
+
+        old_bridge = settlement.destination_bridge_for_test(
+            first,
+            first_store,
+            registrar.accumulator,
+            balance=17,
+        )
+        second, second_store = activate(81, "receipt-second", 1_001)
+        old_key = (
+            settlement._model_fixed_bytes32(first.destination_domain_id),
+            settlement._model_address20(first.destination_bridge),
+        )
+        successor_raw = registrar.destination_successor_receipt_rows[old_key]
+        receipt_id = successor_raw[:32]
+        second_receipt = settlement.decode_destination_activation_receipt_v2(
+            registrar.destination_activation_receipt_rows[receipt_id]
+        )
+        self.assertEqual(
+            (
+                second_receipt.successor_index,
+                second_receipt.old_protocol_version,
+                second_receipt.new_protocol_version,
+                second_receipt.old_manifest_hash,
+                second_receipt.new_manifest_hash,
+                second_receipt.retirement_queue_count,
+                second_receipt.activated_at_block,
+            ),
+            (2, 80, 81, first.commitment, second.commitment, 9, 1_001),
+        )
+
+        second_bridge = settlement.destination_bridge_for_test(
+            second,
+            second_store,
+            registrar.accumulator,
+            balance=23,
+        )
+        third, _ = activate(82, "receipt-third", 1_002)
+        self.assertEqual(
+            registrar.active_destination_manifest_hash, third.commitment
+        )
+        self.assertNotEqual(
+            second_receipt.new_manifest_hash,
+            registrar.active_destination_manifest_hash,
+        )
+
+        self.assertEqual(
+            old_bridge.reclaim_surplus(caller=addr("early-reclaimer")),
+            (settlement.ReclaimResult.REJECTED, 0),
+        )
+        registrar.inbox_router.next_queue_index = 9
+        registrar.destination_successor_return_override = b"DSV2"
+        self.assertEqual(
+            old_bridge.reclaim_surplus(caller=addr("bad-abi")),
+            (settlement.ReclaimResult.REJECTED, 0),
+        )
+        registrar.destination_successor_return_override = None
+        registrar.destination_receipt_fault_point = "revert"
+        self.assertEqual(
+            old_bridge.reclaim_surplus(caller=addr("revert-abi")),
+            (settlement.ReclaimResult.REJECTED, 0),
+        )
+        registrar.destination_receipt_fault_point = None
+        old_route = registrar.inbox_router.routes.get(
+            old_bridge.local_domain_id
+        )
+        old_manifest = old_bridge.release_manifest
+        self.assertTrue(old_manifest.structurally_valid())
+        self.assertFalse(old_bridge.retired)
+        self.assertTrue(old_bridge.v2_active)
+        self.assertFalse(old_bridge.entered)
+        self.assertEqual(
+            registrar.retirement_queue_watermarks.get(old_bridge.address), 9
+        )
+        self.assertGreater(second_receipt.new_protocol_version, 80)
+        self.assertNotEqual(second_receipt.new_bridge, bytes(20))
+        self.assertNotEqual(
+            second_receipt.new_bridge,
+            settlement._model_address20(old_bridge.address),
+        )
+        self.assertGreater(second_receipt.activated_at_block, 0)
+        self.assertGreaterEqual(registrar.inbox_router.next_queue_index, 9)
+        self.assertTrue(all(
+            settlement._model_address20(expected.address)
+                == settlement._model_address20(actual.address)
+            and settlement._model_fixed_bytes32(expected.runtime_hash)
+                == settlement._model_fixed_bytes32(actual.runtime_hash)
+            and settlement._model_fixed_bytes32(expected.config_hash)
+                == settlement._model_fixed_bytes32(actual.config_hash)
+            for expected, actual in zip(
+                (old_manifest.components[index]
+                 for index in (3, 5, 6, 7, 8)),
+                (
+                    settlement.ReleaseComponentV2(
+                        registrar.inbox_router.address,
+                        registrar.inbox_router.runtime_hash,
+                        registrar.inbox_router.configuration_hash,
+                    ),
+                    settlement.ReleaseComponentV2(
+                        registrar.authority.address,
+                        registrar.authority.runtime_hash,
+                        registrar.authority.configuration_hash,
+                    ),
+                    settlement.ReleaseComponentV2(
+                        registrar.address,
+                        registrar.runtime_hash,
+                        registrar.configuration_hash,
+                    ),
+                    settlement.ReleaseComponentV2(
+                        registrar.accumulator.address,
+                        registrar.accumulator.runtime_hash,
+                        registrar.accumulator.configuration_hash,
+                    ),
+                    settlement.ReleaseComponentV2(
+                        registrar.liquidity_pool.address,
+                        registrar.liquidity_pool.runtime_hash,
+                        registrar.liquidity_pool.configuration_hash,
+                    ),
+                ),
+            )
+        ))
+        self.assertEqual(
+            (
+                second_receipt.receipt_id,
+                second_receipt.old_protocol_version,
+                second_receipt.old_manifest_hash,
+                second_receipt.old_domain_id,
+                second_receipt.old_bridge,
+                second_receipt.retirement_queue_count,
+                second_receipt.sealed,
+            ),
+            (
+                receipt_id,
+                old_manifest.protocol_version,
+                old_manifest.commitment,
+                settlement._model_fixed_bytes32(
+                    old_bridge.local_domain_id
+                ),
+                settlement._model_address20(old_bridge.address),
+                9,
+                1,
+            ),
+        )
+        self.assertIs(old_route.store, old_bridge.inbox_store)
+        self.assertEqual(old_route.destination_bridge, old_bridge.address)
+        self.assertIs(
+            registrar.accumulator, old_bridge.terminal_accumulator
+        )
+        self.assertEqual(
+            registrar.accumulator.domains.get(old_bridge.local_domain_id),
+            old_bridge.address,
+        )
+        self.assertEqual(
+            registrar.accumulator.terminalized_pinned_count.get(
+                old_bridge.local_domain_id
+            ),
+            old_bridge.inbox_store.pinned_count,
+        )
+        self.assertEqual(old_bridge.total_pull_liability, 0)
+        self.assertEqual(
+            registrar.authority.releases.get(old_manifest.protocol_version),
+            old_manifest.commitment,
+        )
+        self.assertEqual(
+            registrar.registrations.get(old_manifest.protocol_version),
+            old_manifest.registration_commitment,
+        )
+        self.assertIs(
+            old_bridge.bridge_surplus_sink,
+            old_manifest.execution_profile.bridge_surplus_sink,
+        )
+        self.assertIsInstance(
+            old_manifest.execution_profile, settlement.ExecutionProfile
+        )
+        self.assertEqual(
+            old_manifest.execution_profile.execution_profile_hash,
+            old_manifest.execution_profile_hash,
+        )
+        self.assertEqual(old_bridge.bridge_surplus_sink.asset_id, "NATIVE_ETH")
+        self.assertTrue(old_bridge.bridge_surplus_sink.address)
+        self.assertEqual(
+            old_bridge.reclaim_surplus(caller=addr("reclaimer")),
+            (settlement.ReclaimResult.RECLAIMED_VALUE, 17),
+        )
+        self.assertTrue(old_bridge.retired)
+        self.assertEqual(
+            old_bridge.reclaim_surplus(caller=addr("double")),
+            (settlement.ReclaimResult.REJECTED, 0),
+        )
+        self.assertEqual(
+            second_bridge.reclaim_surplus(caller=addr("middle-reclaimer")),
+            (settlement.ReclaimResult.RECLAIMED_VALUE, 23),
+        )
+        self.assertTrue(second_bridge.retired)
+
+        registrar.destination_successor_index = settlement.UINT64_MAX - 1
+        fourth, _ = activate(83, "receipt-index-maximum", 1_003)
+        self.assertEqual(
+            registrar.destination_successor_index, settlement.UINT64_MAX
+        )
+        activation_rows = dict(
+            registrar.destination_activation_receipt_rows
+        )
+        activate(
+            84, "receipt-index-overflow", 1_004, expected=False
+        )
+        self.assertEqual(
+            registrar.destination_successor_index, settlement.UINT64_MAX
+        )
+        self.assertEqual(
+            registrar.destination_activation_receipt_rows, activation_rows
+        )
+        self.assertEqual(
+            registrar.active_destination_manifest_hash, fourth.commitment
+        )
+        self.assertNotIn(84, registrar.authority.releases)
 
     def test_atomic_ticket_salt_topup_partial_withdraw_delete_and_recreate(self):
         pool = self.destination_bridge.liquidity_pool
@@ -7376,6 +8208,12 @@ class ForcedIngressRouterTests(unittest.TestCase):
         self.assertEqual(pool._snapshot(), before)
 
     def test_atomic_target_failure_and_owner_last_failure_preserve_ticket(self):
+        typed_failure = settlement.TargetCallFailedV2(bytes.fromhex("11" * 32))
+        self.assertEqual(
+            typed_failure.return_data,
+            settlement.TARGET_CALL_FAILED_V2_SELECTOR + bytes.fromhex("11" * 32),
+        )
+        self.assertEqual(len(typed_failure.return_data), 36)
         delivery = self.destination_delivery(
             "atomic-last", value=5, fee=2, fund_liquidity=False,
         )
@@ -7397,6 +8235,25 @@ class ForcedIngressRouterTests(unittest.TestCase):
             self.destination_receiver._transaction_snapshot(), target_before
         )
         self.assertEqual(self.destination_bridge.ether_quota, quota_before)
+        nonowner_delivery = self.destination_delivery(
+            "atomic-nonowner-failure", value=5, fee=2,
+            fund_liquidity=False,
+        )
+        nonowner = addr("nonowner-failure")
+        nonowner_ticket = pool.deposit(
+            caller=nonowner, l1_recipient=addr("nonowner-failure-l1"),
+            salt="nonowner-failure", amount=7,
+        )
+        nonowner_before = pool._snapshot()
+        self.assertEqual(pool.process_with_liquidity(
+            nonowner_ticket, self.destination_bridge, *nonowner_delivery,
+            caller=nonowner,
+        ), "NEW")
+        self.assertEqual(pool._snapshot(), nonowner_before)
+        self.assertNotIn(
+            settlement.destination_credit_id_v2(*nonowner_delivery),
+            self.destination_bridge.status,
+        )
         observer = addr("last-observer")
         observer_ticket = pool.deposit(
             caller=observer, l1_recipient=addr("observer-l1"),
@@ -7971,6 +8828,31 @@ class ForcedIngressRouterTests(unittest.TestCase):
             salt="exact-message",
         )
         self.assertTrue(ticket_id)
+
+        class IterationForbiddenLeafEvents(list):
+            def __iter__(self):
+                raise AssertionError("terminal hot path iterated leaf history")
+
+        class IterationForbiddenTerminalCounters(dict):
+            def items(self):
+                raise AssertionError("terminal hot path iterated domain history")
+
+            def values(self):
+                raise AssertionError("terminal hot path iterated domain history")
+
+            def __iter__(self):
+                raise AssertionError("terminal hot path iterated domain history")
+
+        self.destination_accumulator.leaf_events = (
+            IterationForbiddenLeafEvents(
+                self.destination_accumulator.leaf_events
+            )
+        )
+        self.destination_accumulator.terminalized_pinned_count = (
+            IterationForbiddenTerminalCounters(
+                self.destination_accumulator.terminalized_pinned_count
+            )
+        )
         self.destination_environment.block_timestamp = self.clock.timestamp + 1
         self.assertEqual(
             self.destination_bridge.liquidity_pool.process_with_liquidity(
@@ -8047,6 +8929,82 @@ class ForcedIngressRouterTests(unittest.TestCase):
             self.assertNotIn(stale_bool, parameters)
         self.assertNotIn("available_gas", parameters)
         self.assertNotIn("base_fee", parameters)
+
+    def test_destination_bridge_uses_indexed_strict_store_verifier(self):
+        delivery = self.destination_delivery(
+            "strict-icv2", value=1, fee=1, fund_liquidity=False
+        )
+        credit_id = settlement.destination_credit_id_v2(*delivery)
+        store = self.destination_bridge.inbox_store
+        raw = store.staticcall_verify_inbox_credit_v2(
+            settlement.VERIFY_INBOX_CREDIT_V2_SELECTOR
+            + settlement._model_fixed_bytes32(credit_id),
+            caller=self.destination_bridge.address,
+            value=0,
+            gas=settlement.VERIFY_INBOX_CREDIT_V2_GAS,
+        )
+        returned_pin = settlement.decode_verified_inbox_credit_v2(raw)
+        stored_pin = store.pins[credit_id]
+        self.assertEqual(returned_pin.credit_id, credit_id)
+        self.assertEqual(
+            (
+                returned_pin.result_hash,
+                returned_pin.process_by,
+                returned_pin.value,
+                returned_pin.execution_fee,
+                returned_pin.liquidity_fee,
+                returned_pin.source_context_hash,
+            ),
+            (
+                stored_pin.result_hash,
+                stored_pin.process_by,
+                stored_pin.value,
+                stored_pin.execution_fee,
+                stored_pin.liquidity_fee,
+                stored_pin.source_context_hash,
+            ),
+        )
+
+        class IterationForbiddenPins(dict):
+            def values(self):
+                raise AssertionError("ICV2 lookup iterated pin history")
+
+            def items(self):
+                raise AssertionError("ICV2 lookup iterated pin history")
+
+            def __iter__(self):
+                raise AssertionError("ICV2 lookup iterated pin history")
+
+        store.pins = IterationForbiddenPins(store.pins)
+        self.assertEqual(
+            self.destination_bridge._pin(
+                credit_id, self.destination_bridge.local_domain_id
+            ),
+            returned_pin,
+        )
+        for malformed in (
+            raw[:-1], raw + b"\x00", b"FAIL" + raw[4:],
+            raw[:3 * 32] + (1 << 64).to_bytes(32, "big")
+                + raw[4 * 32:],
+        ):
+            store.verify_return_override = malformed
+            self.assertIsNone(self.destination_bridge._pin(
+                credit_id, self.destination_bridge.local_domain_id
+            ))
+        store.verify_return_override = None
+        store.verify_fault_point = "revert"
+        self.assertIsNone(self.destination_bridge._pin(
+            credit_id, self.destination_bridge.local_domain_id
+        ))
+        store.verify_fault_point = None
+        with self.assertRaises(ValueError):
+            store.staticcall_verify_inbox_credit_v2(
+                settlement.VERIFY_INBOX_CREDIT_V2_SELECTOR
+                + settlement._model_fixed_bytes32(credit_id),
+                caller=self.destination_bridge.address,
+                value=0,
+                gas=settlement.VERIFY_INBOX_CREDIT_V2_GAS - 1,
+            )
 
     def test_destination_retry_manual_owner_and_expiry_are_exact(self):
         owner = addr("manual-dest-owner")
@@ -16056,6 +17014,65 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         )
         self.assertTrue(old_protocol.sync(activation_clock))
         self.assertEqual(router.migration_gate.mode, "READY")
+        armed_lease = manager.migration_lease
+        self.assertEqual(
+            manager.migration_arm_id_by_generation[armed_lease.generation],
+            armed_lease.arm_id,
+        )
+
+        class IterationForbiddenArmHistory(dict):
+            def values(self):
+                raise AssertionError("live lease lookup iterated arm history")
+
+            def items(self):
+                raise AssertionError("live lease lookup iterated arm history")
+
+            def __iter__(self):
+                raise AssertionError("live lease lookup iterated arm history")
+
+        manager.migration_arms = IterationForbiddenArmHistory(
+            manager.migration_arms
+        )
+        self.assertEqual(
+            manager.live_version_migration_lease_v1(),
+            settlement.encode_live_version_migration_lease_return_v1(
+                armed_lease
+            ),
+        )
+        canonical_consume_probe = b"".join((
+            settlement.VERSION_MIGRATION_CONSUME_SELECTOR,
+            armed_lease.arm_id,
+            bytes.fromhex("11" * 32),
+            bytes.fromhex("22" * 32),
+        ))
+        malformed_envelopes = (
+            (canonical_consume_probe[:-1], router, 0,
+             settlement.VERSION_MIGRATION_CONSUME_GAS),
+            (b"FAIL" + canonical_consume_probe[4:], router, 0,
+             settlement.VERSION_MIGRATION_CONSUME_GAS),
+            (canonical_consume_probe, object(), 0,
+             settlement.VERSION_MIGRATION_CONSUME_GAS),
+            (canonical_consume_probe, router, 1,
+             settlement.VERSION_MIGRATION_CONSUME_GAS),
+            (canonical_consume_probe, router, 0,
+             settlement.VERSION_MIGRATION_CONSUME_GAS - 1),
+        )
+        for calldata, caller, value, gas in malformed_envelopes:
+            with self.assertRaises(ValueError):
+                manager.consume_version_migration_lease_v1(
+                    calldata, caller=caller, value=value, gas=gas
+                )
+        self.assertEqual(manager.migration_lease, armed_lease)
+        consume_calls = []
+        original_consume = manager.consume_version_migration_lease_v1
+
+        def recording_consume(calldata, *, caller, value, gas):
+            consume_calls.append((calldata, caller, value, gas))
+            return original_consume(
+                calldata, caller=caller, value=value, gas=gas
+            )
+
+        manager.consume_version_migration_lease_v1 = recording_consume
         target = witness.settlement
         candidate, inbox_rows = settlement.migration_activation_candidate(
             router, target, activation_clock,
@@ -16086,6 +17103,38 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         )
         self.assertEqual(router.active_version, decoded.protocol_version)
         self.assertEqual(router.migration_gate.mode, "ACTIVE")
+        self.assertEqual(
+            manager.migration_lease, settlement.VersionMigrationLeaseV1()
+        )
+        self.assertEqual(len(consume_calls), 1)
+        consume_calldata, consume_caller, consume_value, consume_gas = (
+            consume_calls[0]
+        )
+        self.assertEqual(len(consume_calldata), 100)
+        self.assertEqual(
+            consume_calldata[:4],
+            settlement.VERSION_MIGRATION_CONSUME_SELECTOR,
+        )
+        self.assertEqual(consume_calldata[4:36], armed_lease.arm_id)
+        self.assertEqual(consume_caller, router)
+        self.assertEqual(consume_value, 0)
+        self.assertEqual(
+            consume_gas, settlement.VERSION_MIGRATION_CONSUME_GAS
+        )
+        self.assertEqual(manager.migration_arms[armed_lease.arm_id], armed_lease)
+        self.assertEqual(
+            manager.live_version_migration_lease_v1(),
+            settlement.encode_live_version_migration_lease_return_v1(
+                settlement.VersionMigrationLeaseV1()
+            ),
+        )
+        self.assertFalse(manager.permissionless_abort_expired_migration_v1(
+            caller=addr("stale-abort"),
+            clock=settlement.Clock(
+                activation_clock.block_number + 1,
+                armed_lease.abort_after_timestamp,
+            ),
+        ))
         self.assertEqual(manager.arm_fresh_after, 0)
         self.assertEqual(
             manager.migration_arm_fresh_after_v1(),
@@ -16201,6 +17250,8 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             ("asr_return", b"ASR1"),
             ("rtr_return", b"RTR2"),
             ("after_consume", "after_activation_receipt_write"),
+            ("lease_consume_revert", "migration_consume_revert"),
+            ("lease_consume_bad_return", "migration_consume_wrong_magic"),
         )
         for kind, fault in scenarios:
             with self.subTest(kind=kind):

@@ -276,6 +276,14 @@ create a target session.  L2 slot zero is fixed by
 L2 slot and every deadline are timestamp seconds.  L1 confirmation depth is
 counted in L1 block numbers.  Beacon slot is used only in schedule
 authentication.  Implementations \mustnot substitute one clock for another.
+Every strict lag predicate uses the ordered form
+\begin{verbatim}
+lagExceeded(current, reference, limit) =
+  current > reference && current - reference > limit.
+\end{verbatim}
+The order check precedes subtraction.  This is consensus-relevant when a proved
+tip is ahead of the current wall slot by up to \code{CLOCK_SKEW}; a Solidity
+underflow/revert is not an allowed interpretation of a zero lag.
 \code{settlementChainId} is the L1 chain executing Settlement and domains every
 L1 contract commitment; \code{l2ChainId} is the EVM chain ID enforced for L2
 transactions and execution.  They are independent immutable launch constants
@@ -657,11 +665,18 @@ entry maximizing \code{bond/(allocation+1)}, with
 quotients use smallest \code{qTie}.  Remaining tickets are \code{VACANT}; six
 addresses are required to fill a window.
 
-Placement processes positions in order.  A real address is feasible if it has
-a ticket remaining, differs from the preceding real address, and removing it
+Placement processes positions in order within one window.  Position zero has
+no predecessor; there is no dependency on the prior window.  At every later
+position a real address is feasible if it has a ticket remaining, differs from
+the immediately preceding position when that position is real, and removing it
 preserves \code{remaining[a] <= otherRemaining + 1} for every real address.
 Choose the feasible value with smallest \code{sTie}; \code{VACANT} may repeat.
-The executable model and its golden vectors are normative test fixtures.
+Consequently one registration may occupy both slot 383 of $W$ and slot 0 of
+$W+1$, but its global self-run is at most two.  This boundary case is not a
+safety or liveness assumption: different registered keys may collude at any
+adjacent positions, every accepted block remains execution-proved, and separate
+windows retain separate equivocation tranches.  The executable model and its
+golden vectors are normative test fixtures.
 
 The seed and allocation/placement algorithm are protocol-lifetime scheduling
 rules, not release-profile rules.  In particular, neither a seal nor its seed
@@ -2275,8 +2290,14 @@ Settlement, Protocol nor either ingress adapter has a second descriptor array,
 root, count, cursor or due-time cache.  Settlement reads the queue's
 \code{dueAt} directly for the canonical head and
 a stored best's live boundary; there is no callback, cached deadline or
-duplicated scalar.  Missing indices return \code{UINT64_MAX}.  Thus \code{dueAt}
-is nondecreasing and force-due/coverage checks are one authoritative O(1) read.
+duplicated scalar.  Missing indices return \code{UINT64_MAX}.  Because that
+value is also a valid deadline, every force-due or live-boundary decision first
+requires \code{cursor<count}; only then may it compare \code{dueAt(cursor)} to
+the timestamp.  A consumed/absent boundary is never due, including at timestamp
+\code{UINT64_MAX}; a present final boundary whose stored deadline is exactly
+\code{UINT64_MAX} becomes due at equality.  Thus \code{dueAt} is nondecreasing
+and force-due/coverage checks are one authoritative O(1) read with one O(1)
+existence check.
 The queue exposes exactly two cursor-authority transitions:
 \begin{verbatim}
 advanceCursor(uint64 expectedStart, uint64 end,
@@ -2317,6 +2338,13 @@ The deliberately unused final tree leaf avoids a nonexistent height-64
 frontier slot when the old index has all 64 bits set.  At one billion appends
 per second the usable space lasts more than five centuries, so exhaustion is
 outside any credible Ethereum lifetime while remaining an explicit hard stop.
+
+Opening or refreshing recovery freezes only the current stored
+\code{(root,count)}.  Settlement requires the requested cutoff to equal the
+live queue count and may validate the wrapped root by folding the fixed 64-word
+append frontier; it never recomputes the root from retained descriptors.  Full
+descriptor-history root construction exists only as an off-chain differential
+test oracle.
 
 Each proved block consumes the unique maximum FIFO prefix satisfying all three
 bounds simultaneously.  \code{forceGasBudget} is 13,000,000 exactly for the
@@ -2434,15 +2462,10 @@ InboxApplyRouterV2.apply(uint64 forceStart, InboxRowV2[] calldata rows)
 markReceivedFromInboxBatch(InboxCreditV2[] calldata rows)
     returns (bytes4 magic)
 routeConfigHashV2() view returns (bytes32)
-verifyInboxCredit(uint64 srcChainId, bytes32 sourceDomainId,
-                  uint64 srcEpoch, address srcBridge,
-                  bytes32 destinationDomainId, bytes32 msgHash)
-    view returns (bytes32 creditId, uint64 processBy, uint256 value,
-                  uint64 executionFee, uint64 liquidityFee,
-                  bytes32 sourceContextHash)
-getInboxCreditSlot(bytes32 sourceDomainId, address srcBridge,
-                   bytes32 destinationDomainId,
-                   bytes32 creditId) pure returns (bytes32)
+verifyInboxCreditV2(bytes32 creditId) view returns
+  (bytes4 magic, bytes32 returnedCreditId, bytes32 resultHash,
+   uint64 processBy, uint256 value, uint64 executionFee,
+   uint64 liquidityFee, bytes32 sourceContextHash)
 liquidityQuoteV2(bytes32 creditId) view returns
   (bytes32 resultHash, uint256 value, uint64 executionFee,
    uint64 liquidityFee, uint64 processBy)
@@ -2520,7 +2543,15 @@ Bridge tuple rejects.
 The canonical empty vector requires \code{forceStart=nextQueueIndex}, makes no
 store call and leaves the cursor unchanged, but still records the exact L2 block
 number; a second apply in that block rejects.
-
+The Store lookup selector is the first four Keccak bytes of
+\code{"verifyInboxCreditV2(bytes32)"}.  Bridge calls it by zero-value
+\code{STATICCALL} with exactly 100,000 gas and accepts only the canonical
+256-byte return with magic \code{0x49435632} (\code{ICV2}), identical returned
+credit ID, nonzero result hash, canonical integer padding and no trailing data.
+The constructor-fixed destination Bridge is the only caller that receives a
+nonempty row.  Bridge first recomputes the v6 credit ID and typed source context
+from the supplied Message/contexts, so the Store performs one direct mapping
+lookup and never searches pins by a partial tuple.
 \code{kind1Descriptor} is empty for dispositions 0--4 and exactly the
 Appendix-defined 541-byte kind-1 descriptor for disposition 5; all other lengths
 reject.  The router decodes that descriptor, recomputes \code{creditId} and the
@@ -2548,13 +2579,14 @@ Each kind-1 row conservatively carries
 throughput but cannot leave an old head underfunded.  The 20,000,000 per-block
 forced-gas budget therefore admits at most four kind-1 rows per block.  The
 store validates widths and nonzero fields and performs all writes atomically.
-The slot is exactly
+The release-owned Store's logical key is exactly
 \begin{verbatim}
-H("slot-chain-inbox-credit-slot-v4" || sourceDomainId ||
-  address20(srcBridge) || destinationDomainId || creditId)
+H("slot-chain-inbox-credit-slot-v5" || creditId)
 \end{verbatim}
-Each pin occupies exactly four mapping values under the profile-pinned storage
-layout: \code{inboxResultHash[slot]}, \code{inboxSourceContextHash[slot]},
+under the profile-pinned storage layout; Store/domain/Bridge are immutable
+constructor values and therefore are not repeated in the key.  Each pin
+occupies exactly four mapping values:
+\code{inboxResultHash[slot]}, \code{inboxSourceContextHash[slot]},
 \code{inboxValue[slot]} and \code{inboxPackedTerms[slot]}.  Packed-term bits
 0--63 are \code{processBy}, 64--127 \code{executionFee}, 128--191
 \code{liquidityFee}, and 192--255 are zero.  A nonzero result hash is the
@@ -2565,10 +2597,10 @@ mutable writer/reader/domain target, arbitrary storage primitive or pause gate.
 A repeated row succeeds without writes only when the stored result, context,
 amounts and deadline match and
 never extends \code{processBy}; any conflict, ordering error or excess row
-reverts the whole batch before a write.  \code{verifyInboxCredit} recomputes
-\code{creditId} and the slot, requires the received bit and nonzero result, and
+reverts the whole batch before a write.  \code{verifyInboxCreditV2} indexes
+the supplied \code{creditId}, requires the received bit and nonzero result, and
 requires \code{msg.sender} to be the constructor-fixed destination Bridge for
-that exact local domain before returning all six exact words.  Runtime hash,
+that exact local domain before returning all eight exact words.  Runtime hash,
 constructor router/Bridge/gate values, the one-shot sealed local-domain slot and
 initial empty mappings are migration-proved; the noncircular construction
 descriptor deliberately excludes the derived domain value.  This is a new bytes32-domain ABI; it never
@@ -2615,8 +2647,9 @@ Each literal is the byte concatenation of its displayed quoted fragments with no
 inserted whitespace or newline.
 InboxApplyRouterV2 derives it only from the V11 descriptor, queue index and
 registrar-bound release version, and the Store pins it with the credit.
-\code{verifyInboxCredit} returns exactly six canonical ABI words including that
-hash.  Destination Bridge recomputes it from the supplied tuple and requires
+\code{verifyInboxCreditV2} returns exactly eight canonical ABI words including
+that hash, the stored result and both fee terms.  Destination Bridge recomputes
+the credit ID and source-context hash from the supplied tuple and requires
 equality; queue index, emission block and source execution hash are therefore
 not caller assertions hidden behind \code{creditId}.
 The existing send ABI remains V1; the complete additive V2/recovery ABI is:
@@ -2952,6 +2985,11 @@ NEW, RETRIABLE or owner-authorized FAILED result.  \code{isLastAttempt=true}
 still requires the effective processor to equal \code{destinationOwner}; an
 unrelated LP may only make a non-last retry.  Manual failure and strict expiry
 never call the Pool.
+The executable model represents that EVM child-revert boundary with an exact
+single-ticket journal (ticket row, Pool balance and aggregate), the touched
+Bridge/target/quota/accumulator keys and the OPEN transient authorization.  It
+restores those bounded fields before authenticating the 36-byte typed failure;
+it never snapshots or enumerates the Pool ticket mapping on this hot path.
 
 On return to the Pool, it requires the exact magic and credit and joins the
 wrapper result to its authorization state.  DONE requires CONSUMED, nonzero
@@ -3046,6 +3084,12 @@ recomputes every field, consumes only that authorization and owns the complete
 Pool--target--quota--pull--terminal journal.  The failure finalizer rechecks
 RETRIABLE, the same pin and absent terminal and owns only FAILED plus terminal;
 it never calls the Pool.  No other entry may invoke one of those steps.
+
+The direct, non-Pool code{process}/code{retry} entries never invoke
+code{executeAttemptV2}: without an authenticated Pool authorization they
+return code{UNFUNDED} before constructing a child-failure digest or touching
+the target.  Thus the typed failure boundary cannot convert an unfunded direct
+attempt into a generic rejection.
 
 The wrapper ABI-encodes only those derived values, reserves the profile-pinned
 \code{V2_OUTER_CATCH_GAS_RESERVE}, and makes a bounded external call to
@@ -3359,6 +3403,18 @@ The authority recomputes the commitment, requires \code{msg.sender} and its
 one-shot active manifest/count to match.  It permanently records the release
 and exact retirement watermark.  A direct call by that reserved sender, an EOA,
 Bridge or an Anchor from another manifest rejects.
+Its append-only read boundary is
+\begin{verbatim}
+releaseActivationV2(uint64 protocolVersion) view returns
+  (bytes4 magic, bytes32 manifestHash, uint64 retirementQueueCount)
+\end{verbatim}
+The selector is the first four Keccak bytes of that canonical signature.
+Registrar uses a zero-value \code{STATICCALL} with exactly 75,000 gas and
+accepts exactly 96 bytes with magic \code{0x52415632} (\code{RAV2}) and
+canonical padding.  Missing, short, trailing, caller-dependent or reverting
+records reject.  Replaying the same version/hash with a different count
+rejects; any Registrar failure rolls the Authority write back in the same tx0
+journal.
 Before either side hashes or stores the manifest, L1 requires
 \code{settlementChainId=block.chainid<=UINT64_MAX}; L2 independently requires
 \code{destinationChainId=block.chainid<=UINT64_MAX}.  The registrar constructor
@@ -3390,8 +3446,13 @@ TerminalDomainRegistrarV2, TerminalAccumulatorV2 and NativeLiquidityPoolV2 are
 protocol-lifetime objects repeated byte-exactly by every successor manifest.
 Their cursor, old routes/releases/registrations, Pool tickets and
 accumulator frontier/root/count remain intact; only the absent release, route,
-Registrar funding route and one-to-one writer are appended.  The Pool itself
-stores no domain row.  The registrar stores the single Appendix-defined
+Pool funding route and one-to-one writer are appended.  The Pool persistently
+stores the two O(1) reverse indexes
+\code{bridgeByDomain[domainId]=Bridge} and
+\code{domainByBridge[Bridge]=domainId}.  Tx0 writes both in the same rollback
+journal as the Registrar route; a duplicate domain/Bridge rejects.  A restarted
+implementation reconstructs only the ephemeral call harness from these rows,
+never from a post-activation object binding.  The registrar stores the single Appendix-defined
 \code{registrationCommitment[protocolVersion]} only after the full seal.
 The accumulator has no public registrar or root setter and calls only the
 registered Bridge's bounded terminal getter during append.  Status, sentinel,
@@ -3439,6 +3500,11 @@ one rollback domain.  Genesis uses canonical-zero predecessor fields and writes
 no predecessor index.  A successor requires nonzero old fields, distinct new
 domain/Bridge, exact stored old manifest, absent predecessor index and exact
 watermark; partial or duplicate sealing rejects.
+The DRV2 and DSV2 reads are zero-value \code{STATICCALL}s with exactly 150,000
+and 75,000 gas respectively.  \code{activatedAtBlock} is the proof-authenticated
+L2 block executing tx0, not a later read-time block.  The checked successor
+index may advance through \code{UINT64\_MAX}; no subsequent activation is then
+representable and must reject without mutation.
 
 Each release-owned \code{InboxCreditStoreV2} maintains a checked
 \code{uint64 pinnedCount}, incremented only when its authorized InboxApply route
@@ -3474,8 +3540,15 @@ returns (ReclaimResult result, uint256 amount)
 so sink rejection cannot masquerade as a valid zero-balance reclaim.  Only
 after an accepted full transfer does it set the one-shot \code{retired} bit;
 partial transfer, callback/reentrancy, later processing, double reclaim and any
-state mismatch revert or return REJECTED without mutation.  Historical status,
-terminal index/events and proof verification remain readable forever.
+state mismatch revert or return REJECTED without mutation.
+The old Bridge authenticates its immutable \emph{direct} successor receipt; it
+never requires that successor to remain the Registrar's latest active tip.
+Therefore A may first reclaim from its sealed A$\rightarrow$B receipt after
+B$\rightarrow$C or any later rotation, while B independently uses its
+B$\rightarrow$C receipt.  DRV2 was written only after the complete atomic
+successor seal, so reclaim neither reads a Python-only activation object nor
+requires a third unbounded historical lookup.  Historical status, terminal
+index/events and proof verification remain readable forever.
 Historical SourceBridges remain callable until every USER\_PULL and LP\_PULL is
 withdrawn; a DONE reimbursement is never reclaimable as surplus.  Repeated
 release rotation changes no ticket owner, source liability or
@@ -4069,8 +4142,10 @@ liveVersionMigrationLeaseV1() // selector 0xaaac4c97; 320 bytes
 The magic is \code{0x564d4c31}; NONE=0 and LIVE=1 are the only live-view
 states, and NONE requires every other word zero.  Arm rows are append-only and
 keyed by \code{armId}; they are historical evidence, never a singleton liveness
-lock.  On every call the getter exact-reads Router's active settlement state and
-migration gate.  It returns the unique matching row only while the gate is
+lock.  A permanent \code{generation -> armId} reverse index makes the live
+lookup O(1); the indexed row must reproduce the complete gate tuple.  On every
+call the getter exact-reads Router's active settlement state and migration gate.
+It returns that exact row only while the gate is
 ARMED/READY and otherwise returns canonical NONE, including immediately after
 successful activation.  REGISTER\_RELEASE and PUBLISH\_MIGRATION\_ARM likewise
 derive the current predecessor only from Router's exact ASR1 ACTIVE read; PVM
@@ -4147,6 +4222,24 @@ won, PVM skips the Router mutation, terminalizes only the matching stale lease
 and still exact-checks the receipt/ASR1.  Any callback, return, postread or final
 write failure reverts both contracts and the source callback.  No raw Router
 selector or second order is legal.
+
+Successful migration uses a separate Router-to-PVM terminal callback:
+\begin{verbatim}
+consumeVersionMigrationLeaseV1(
+  bytes32 armId, bytes32 oldAuthorizationId,
+  bytes32 activationReceiptId)
+ returns (bytes4 magic,bytes32 returnedArmId,uint64 generation) // VMC1
+\end{verbatim}
+Its selector is \code{0xebb624e2}; the Router supplies exactly 200,000 gas,
+uses exact 100-byte calldata (selector plus three \code{bytes32} words), zero
+value and the constructor-bound PVM, and accepts exactly 96 bytes with magic
+\code{0x564d4331}.  Only after ARV1/ASV1
+and ASR1 prove the same generation, source/target, manifests, registration,
+old authorization and sealed successor index does PVM clear the singleton
+LIVE lease and restore IDLE.  The append-only arm row and the abort freshness
+watermark remain unchanged.  Revert, OOG, bad magic, short/trailing data or a
+post-clear fault rolls Router, PVM, source, target, Queue and receipts back
+atomically.
 
 The Router derives the target Settlement, manifest, registration, execution
 profile and immutable verifier solely from the stored delayed gate or genesis
@@ -4301,12 +4394,23 @@ with selector \code{0x66e664cb}, 36-byte calldata, 128-byte return, magic
 \code{0x4d415053} (MAPS), and roles SOURCE=1, TARGET=2, QUEUE=3.  Router performs
 exactly these three bounded STATICCALLs after QMIG and independently recomputes
 all commitments.  The source reproduces MFRZ, target reproduces MCAN, and Queue
-reproduces QMIG.  No mutating external call is legal after QMIG.
+reproduces QMIG.  No mutating external call is legal after QMIG except the
+terminal VMC1 call below.  Router makes that sole exception only after sealing
+the activation receipt and successor row, publishing the new ACTIVE state,
+clearing its transient context and restoring its own lifecycle to IDLE.  VMC1
+may mutate only the constructor-bound PVM lease/lifecycle.  Its failure or
+noncanonical return still reverts the same outer Ethereum transaction and thus
+restores QMIG, all three MAPS states, receipts, the public Router state and the
+old LIVE lease.  No target, beneficiary, arbitrary sink or other mutating call
+is legal in this suffix.
 
 The exact VERSION\_MIGRATION journal is verifier STATICCALL; write
 ACTIVATING/context; MFRZ; MCAN; QMIG; the three MAPS reads; internal target-
 registration consumption, receipt and successor-index writes; the final current-
-target/public-ACTIVE word; clear context; and write IDLE last.  Every callback,
+target/public-ACTIVE word; clear context; write Router IDLE; exact VMC1 CALL;
+check its 96-byte return and exact-postread canonical NONE lease; and restore
+PVM IDLE.  VMC1 is the last external call and the sole post-QMIG mutating call.
+Every callback,
 post-read, return decoder and later write is in the outer transaction's single
 revert domain.  A fault at any boundary restores READY/IDLE, the old source and
 Queue authority, cursor/payment state, empty target, unused registration and
@@ -5227,11 +5331,18 @@ SEAT_RUNWAY_SECONDS >= MIN_PRIMARY_TENURE_SECONDS
 HANDOVER_EXECUTION_BUFFER_SECONDS >= HANDOVER_DELAY_SECONDS
   + STAGE_GRACE_SECONDS + T_INCLUDE_MAX_SECONDS
 SLA_TAIL_SECONDS = DELTA_SLASH_LAG - DELTA_RECOVERY_LAG
+responsibilityBaseTip = max(canonical.tipSlot,
+  responsibilityStart - GENESIS_TIMESTAMP)
 minimumTenureUntil = responsibilityStart + MIN_PRIMARY_TENURE_SECONDS
 premiumFundedUntil = responsibilityStart + SEAT_RUNWAY_SECONDS
 serviceEligibleUntil = premiumFundedUntil - SLA_TAIL_SECONDS.
 \end{verbatim}
-All operations are checked-width.  Standby tenure remains separately bounded by
+All operations are checked-width.  The same responsibility-base formula is
+used for direct vacancy fill, competitive primary replacement, duty failover,
+healthy-expiry promotion and voluntary primary exit.  Thus a newly responsible
+primary never inherits an already-aged recovery, failover or slash clock from a
+stale canonical tip; its first prospective thresholds are measured no earlier
+than its actual service start.  Standby tenure remains separately bounded by
 \code{MIN_STANDBY_TENURE_SECONDS}.  Primary tenure gates only competitive
 replacement and voluntary primary exit; duty completion, failover, funding
 expiry, ring-full vacancy and migration override it.
@@ -5250,7 +5361,11 @@ Settlement stage recording are one revert domain.
 Replacement handover is
 \code{max(active.minimumTenureUntil,now+HANDOVER_DELAY_SECONDS)}; vacancy fill or
 standby insertion uses \code{now+HANDOVER_DELAY_SECONDS}.  Expiry is handover
-plus \code{STAGE_GRACE_SECONDS}.  The stage binds target, generation, selected
+plus \code{STAGE_GRACE_SECONDS}.  APPLY owns the closed interval
+\code{handoverAt <= now <= stageExpiresAt}; ordinary permissionless expiry is
+valid only for \code{now > stageExpiresAt}.  At exact equality an expiry call
+rejects without mutation, so transaction ordering cannot preempt the last valid
+installation instant.  The stage binds target, generation, selected
 rank, outgoing primary or zero, offer, reserve and
 \begin{verbatim}
 lineupCommitment = H("TAIKO_SEAT_LINEUP_V1" || u64(lineupRevision) ||
@@ -5272,7 +5387,11 @@ seatTermId = H("TAIKO_SEAT_TERM_V1" || authorizationCommitment ||
   u64(installedAt) || u64(installRevision)).
 \end{verbatim}
 Market rekeys the reserve and binds the tranche in the same transaction in which
-Settlement changes the roster and revision.
+Settlement changes the roster and revision.  Settlement also writes the
+permanent reverse index code{seatTermByTranche[trancheId]=seatTermId}; a nonzero
+entry rejects before any roster write.  Term-ID and tranche-ID collision checks
+are therefore two constant-time mapping reads.  APPLY never scans retained term
+history, regardless of how long the perpetual auction has operated.
 
 Installed exit request is one-shot and operator-only.  Primary exit matures at
 the exact stored
@@ -5290,8 +5409,9 @@ cannot extend an installed term or postpone its exit.
 
 \subsection{Duty, failover, release and reclamation}
 
-Service start allocates no duty.  It stores one prospective canonical base and
-objective recovery/failover/slash thresholds.  A qualifying ordinary commit at
+Service start allocates no duty.  It stores the exact responsibility-base tip
+above, the current canonical sequence and objective recovery/failover/slash
+thresholds.  A qualifying ordinary commit at
 or before recovery refreshes that prospective base.  After strict
 \code{now>recoveryAt}, Settlement's one four-cell pass allocates at most one duty;
 equality remains curable.  If no duty cell is locally reusable, or the checked
@@ -5362,6 +5482,14 @@ stage and returns exact fixed-length \code{SEAT_ARMED_MAGIC} binding generation,
 versions, manifest, target registration and resulting seat generation.  Any
 mismatch, short/trailing return or local fault reverts the global arm.  After
 all local and Router writes succeed, IDLE is the transaction's final store.
+
+Settlement stores an exact \code{unresolvedDutyCount}, incremented only when a
+duty is attached and decremented exactly once when an OPEN or FAILED\_OVER duty
+becomes SATISFIED, BREACHED, EXCUSED or EXCUSED\_MIGRATION.  OPEN to
+FAILED\_OVER leaves the count unchanged.  The count is bounded by the four-cell
+duty ring, and migration READY requires it to be zero.  Retained append-only
+duty history is never scanned to decide readiness; an exhaustive recount is a
+debug/test invariant only.
 
 The two manager-only selectors are the canonical ABI selectors for
 \begin{verbatim}
@@ -7957,14 +8085,16 @@ specific authority gap, but the following High implementation blockers remain:
 the Registry model still resolves live code/configuration through Python object
 maps rather than an address-indexed EVM world with EXTCODEHASH and exact
 immutable/config getters; the fixed Source factory and real compiled adapter
-creation artifact are not yet deployed and sealed by the root receipt;
-\code{liveVersionMigrationLeaseV1}, historical deployment compatibility,
-Inbox-route registration, terminal-domain registration, seat-tranche adoption
-and migration-duty readiness still contain append-only-history scans; and
-\code{verifyInboxCredit} still scans pins and lacks the credit-ID/liquidity-fee
-ABI needed to recompute the v6 credit ID, while DestinationBridge bypasses that
-verifier with a model-direct read.  These paths require O(1) reverse indexes,
-bounded counters/rings and executable raw ABI fault corpora before production.
+creation artifact are not yet deployed and sealed by the root receipt; and
+historical deployment compatibility plus a few registration-uniqueness checks
+still need address-keyed reverse indexes.  ICV2 now gives DestinationBridge an
+exact O(1) credit-ID lookup, VML1 uses a generation reverse index, RAV2 binds
+the Authority watermark, and DRV2/DSV2 keep multi-hop reclaim independent of
+the latest active tip.  The executable model's broad Python rollback snapshots
+are semantic test journals, not contract-gas evidence; production relies on
+native EVM revert and must be measured against compiled bytecode.
+These remaining paths require address-indexed execution, bounded reverse
+indexes and executable raw ABI fault corpora before production.
 Restart/serialization behavior for every retained primitive row, the complete
 root-deployment transcript, and release/reclamation watermarks for all
 historical source, adapter, Queue and destination pins are likewise not yet
@@ -8167,10 +8297,11 @@ pause- and quota-independent.  Router foreign-storage assumptions are removed:
 source, target, Queue and legacy proxy now authenticate one context and commit
 their own poststate inside one rollback journal, with a complete sealed receipt.
 The broader design remains plausibly feasible, but it is not frozen for
-contract/circuit implementation until the address-indexed EVM component world,
-O(1) hot paths, exact \code{verifyInboxCredit} ABI, compiled root artifacts,
-restart/serialization and historical reclamation lifecycle are closed and the
-resulting ABI graph is re-audited.  These open defects do not yet prove the
+production deployment until the address-indexed EVM component world, remaining
+O(1) reverse indexes, compiled root artifacts and restart/serialization are
+closed and the resulting ABI graph is re-audited.  ICV2, RAV2 and the direct-
+successor reclamation lifecycle are now exact at the design/model boundary.
+These open defects do not yet prove the
 protocol impossible.  Safe in-place genesis migration is conditional on the
 deployed legacy Inbox accepting the exact final compatibility implementation;
 without that capability, in-place cutover for that deployment is impossible and
@@ -9536,7 +9667,7 @@ verifier safety root.
 
 \section{Executable consensus models}\label{app:models}
 
-\code{lookahead-model.py} reports 36 assertions over legacy Keccak, EIP-4788
+\code{lookahead-model.py} reports 38 assertions over legacy Keccak, EIP-4788
 carrier/parent selection, immutable seal deadlines, post-seal tombstones,
 partial/empty registry sealing, eligibility-before-ranking, capped D'Hondt and feasible placement, including
 absolute clock conversion, execution-block finality depth, version-independent
@@ -9562,7 +9693,7 @@ local destination binding, frontier/event terminal proofs, pause-independent
 escape, L2 release sealing, replay and timing
 geometry.  Cryptographic booleans in that model are not cryptographic
 evidence.
-The companion \code{test-settlement-window.py} suite runs 224 adversarial
+The companion \code{test-settlement-window.py} suite runs 239 adversarial
 regressions, including authorization substitution, callback/OOG, competing LP,
 owner-mode, target/quota/pull/terminal rollback, withdrawal/recreation and
 cross-version preservation cases for the atomic Pool path.

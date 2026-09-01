@@ -358,7 +358,8 @@ class ProductionWireOracleSmokeTests(unittest.TestCase):
             self.assertIsNotNone(stage)
             receipt_hashes.append(market.last_receipt_hash)
             market._settlement_expire_stage(
-                stage.stage_id, model.Clock(stage.expires_at, clock.block_number)
+                stage.stage_id,
+                model.Clock(stage.expires_at + 1, clock.block_number),
             )
             receipt_hashes.append(market.last_receipt_hash)
             clock = model.Clock(stage.expires_at + 1, clock.block_number + 1)
@@ -385,7 +386,7 @@ class ProductionWireOracleSmokeTests(unittest.TestCase):
         runtime.authority.generation = 8
         market.sync_seat_generation()
         result = market._settlement_expire_stage(
-            staged.stage_id, model.Clock(staged.expires_at, 54)
+            staged.stage_id, model.Clock(staged.expires_at + 1, 54)
         )
         self.assertIsNone(market.stage)
         self.assertEqual(market.pending_count, 0)
@@ -2439,7 +2440,10 @@ class Task3StagingTests(AtomicAssertions):
         fifth = insert(market, "E", 3)
         self.assertEqual((market.pending_count, market.staged_count), (3, 1))
         self.assertEqual(fifth.displaced_offer_id, rows[3].offer.offer_id)
-        market._settlement_expire_stage(staged.stage.stage_id, model.Clock(staged.stage.expires_at, 53))
+        market._settlement_expire_stage(
+            staged.stage.stage_id,
+            model.Clock(staged.stage.expires_at + 1, 53),
+        )
         self.assertEqual((market.pending_count, market.staged_count), (4, 0))
         self.assertIn(rows[0].offer.offer_id, market.pending_offer_ids)
         self.assertEqual(market.accounting.reserved_premium, 0)
@@ -2700,12 +2704,12 @@ class Task3StagingTests(AtomicAssertions):
                     market,
                     lambda: market._settlement_expire_stage(
                         staged.stage.stage_id,
-                        model.Clock(staged.stage.expires_at - 1, 53),
+                        model.Clock(staged.stage.expires_at, 53),
                     ),
                 )
                 market._settlement_expire_stage(
                     staged.stage.stage_id,
-                    model.Clock(staged.stage.expires_at, 53),
+                    model.Clock(staged.stage.expires_at + 1, 53),
                 )
             else:
                 self.assert_rejects_unchanged(
@@ -3580,7 +3584,7 @@ class Task3FrozenMatrixTests(AtomicAssertions):
         if event == "expire_stage":
             return market._settlement_expire_stage(
                 stage.stage_id if stage else b"S" * 32,
-                model.Clock(stage.expires_at if stage else 1_000, 53),
+                model.Clock(stage.expires_at + 1 if stage else 1_000, 53),
             )
         if event == "invalidate_stage":
             return market._settlement_invalidate_stage(
@@ -4027,14 +4031,14 @@ class Task3StatefulTests(unittest.TestCase):
                     "early_expire",
                     lambda: market._settlement_expire_stage(
                         staged.stage.stage_id,
-                        model.Clock(staged.stage.expires_at - 1, 56),
+                        model.Clock(staged.stage.expires_at, 56),
                     ),
                 )
                 record(
                     "expire",
                     lambda: market._settlement_expire_stage(
                         staged.stage.stage_id,
-                        model.Clock(staged.stage.expires_at, 56),
+                        model.Clock(staged.stage.expires_at + 1, 56),
                     ),
                 )
             elif resolution == "invalidate":
