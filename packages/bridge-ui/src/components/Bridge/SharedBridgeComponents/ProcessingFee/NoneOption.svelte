@@ -19,6 +19,15 @@
   export let headless = false;
   let manualClaimHref: string | null = null;
 
+  /**
+   * The inputs change faster than the two reads take: the token, chain, recipient and amount
+   * all re-fire this, and a slower earlier run resolving last would answer for inputs that
+   * are no longer on screen - re-enabling "None" where a manual claim is not affordable, or
+   * bouncing a chosen NONE back to RECOMMENDED on Review. Its sibling RecommendedFee already
+   * guards the same shape.
+   */
+  let computeGeneration = 0;
+
   async function compute(
     token: Maybe<Token | NFT>,
     userAddress?: Address,
@@ -28,6 +37,8 @@
     tokenIds?: number[],
     amounts?: bigint[],
   ) {
+    const generation = ++computeGeneration;
+
     if (!token || !userAddress || !srcChain || !destChain) {
       enoughEth = false;
       return;
@@ -60,15 +71,19 @@
         recommendedAmount = minimumClaimBalance;
       }
 
+      if (generation !== computeGeneration) return;
       // Does the user have enough ETH to claim manually on the destination chain?
       enoughEth = destBalance ? destBalance?.value >= recommendedAmount : false;
     } catch (err) {
       console.error(err);
 
+      if (generation !== computeGeneration) return;
       error = true;
       enoughEth = false;
     } finally {
-      calculating = false;
+      // The flag belongs to whichever run is current: clearing it from a superseded one
+      // would stop the spinner while the run that replaced it is still reading
+      if (generation === computeGeneration) calculating = false;
     }
   }
 

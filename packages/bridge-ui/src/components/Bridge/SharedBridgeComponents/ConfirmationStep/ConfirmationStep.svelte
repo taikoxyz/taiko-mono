@@ -35,6 +35,7 @@
   import { waitForApprovalStatus } from '$libs/token/waitForApprovalStatus';
   import { refreshUserBalance } from '$libs/util/balance';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
+  import { escapeHtml } from '$libs/util/escapeHtml';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
   import { account } from '$stores/account';
   import { connectedSourceChain } from '$stores/network';
@@ -106,7 +107,7 @@
         title: $t('bridge.actions.bridge.success.title'),
         message: $t('bridge.actions.bridge.success.message', {
           values: {
-            token: $selectedToken.symbol,
+            token: escapeHtml($selectedToken.symbol),
           },
         }),
       });
@@ -182,7 +183,7 @@
       title: $t('bridge.actions.approve.tx.title'),
       message: $t('bridge.actions.approve.tx.message', {
         values: {
-          token: $selectedToken.symbol,
+          token: escapeHtml($selectedToken.symbol),
           url: `${explorer}/tx/${approveTxHash}`,
         },
       }),
@@ -204,7 +205,7 @@
         title: $t('bridge.actions.approve.success.title'),
         message: $t('bridge.actions.approve.success.message', {
           values: {
-            token: $selectedToken.symbol,
+            token: escapeHtml($selectedToken.symbol),
           },
         }),
       });

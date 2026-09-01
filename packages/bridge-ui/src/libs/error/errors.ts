@@ -186,3 +186,13 @@ export class TransactionTimeoutError extends Error {
 export class ReceiptUnavailableError extends Error {
   name = 'ReceiptUnavailableError';
 }
+
+/**
+ * The relayer answered every page it was asked for, but the history is longer than the page
+ * cap allows. Distinct from a relayer that failed, because the two need opposite messages:
+ * this one is routine and complete up to the cap, and reporting it as "the relayer did not
+ * respond" both misdescribes it and makes a real outage indistinguishable from it.
+ */
+export class RelayerHistoryTruncatedError extends Error {
+  name = 'RelayerHistoryTruncatedError';
+}

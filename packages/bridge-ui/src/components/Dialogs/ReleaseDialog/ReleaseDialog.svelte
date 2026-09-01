@@ -191,6 +191,7 @@
       {:else if activeStep === ReleaseSteps.CONFIRM}
         <ClaimConfirmStep
           {bridgeTx}
+          txChainId={Number(bridgeTx.srcChainId)}
           bind:txHash
           on:claim={handleReleaseClick}
           bind:claiming={releasing}

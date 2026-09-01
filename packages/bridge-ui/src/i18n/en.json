@@ -567,7 +567,7 @@
       "relayer_offline": "Relayer did not respond. Your transactions may only be loaded partially.",
       "partial_load": "{count} transaction(s) could not be loaded. Try refreshing.",
       "relayer_offline_and_partial_load": "Relayer did not respond and {count} transaction(s) could not be loaded. Your transactions may only be loaded partially.",
-      "history_truncated": "Your transaction history is too long to show in full. The oldest transactions are not listed."
+      "history_truncated": "Your transaction history is too long to show in full. The most recent transactions are listed."
     },
     "filter": {
       "all": "All",

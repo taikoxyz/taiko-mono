@@ -1,3 +1,5 @@
+import { RelayerHistoryTruncatedError } from '$libs/error';
+
 import { getLoadWarning } from './loadWarning';
 
 describe('getLoadWarning', () => {
@@ -31,8 +33,7 @@ describe('getLoadWarning', () => {
   it('does not blame the relayer for a history cut off at the page backstop', () => {
     // The relayer answered every page it was asked for; the backstop is ours. Reusing
     // "did not respond" here would be the same misattribution aimed at a different cause.
-    const truncated = new Error('Relayer history truncated at 10 pages');
-    truncated.name = 'RelayerHistoryTruncatedError';
+    const truncated = new RelayerHistoryTruncatedError('Relayer history truncated at 10 pages');
 
     expect(getLoadWarning({ error: truncated, failedCount: 0 })).toEqual({
       key: 'transactions.errors.history_truncated',
@@ -40,8 +41,7 @@ describe('getLoadWarning', () => {
   });
 
   it('prefers the per-message count over a truncated history when both apply', () => {
-    const truncated = new Error('Relayer history truncated at 10 pages');
-    truncated.name = 'RelayerHistoryTruncatedError';
+    const truncated = new RelayerHistoryTruncatedError('Relayer history truncated at 10 pages');
 
     expect(getLoadWarning({ error: truncated, failedCount: 2 })).toEqual({
       key: 'transactions.errors.partial_load',

@@ -89,6 +89,51 @@ afterEach(() => {
   target.remove();
 });
 
+describe('token switching', () => {
+  const dai = { type: TokenType.ERC20, symbol: 'DAI', name: 'DAI', decimals: 18, addresses: {} };
+
+  const flush = async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await tick();
+  };
+
+  it('still resets when switching back to a token whose reset was superseded', async () => {
+    const USER = '0x1111111111111111111111111111111111111111';
+    account.set({ address: USER, isConnected: true, chainId: 1 } as never);
+    await tick();
+    await flush();
+
+    // Switch to an 18-decimal token whose balance read hangs
+    let resolveSlow!: (value: unknown) => void;
+    fetchBalance.mockReturnValueOnce(new Promise((resolve) => (resolveSlow = resolve)));
+    selectedToken.set(dai as never);
+    await tick();
+
+    // A chain switch emits an account event carrying the same address, which takes the
+    // refresh branch and supersedes the reset still in flight. previousSelectedToken used
+    // to be recorded only after the reset's own read won, so it was never updated here.
+    fetchBalance.mockResolvedValue({ value: BigInt(0), decimals: 18, symbol: 'DAI', formatted: '0' });
+    account.set({ address: USER, isConnected: true, chainId: 167000 } as never);
+    await flush();
+    resolveSlow({ value: BigInt(0), decimals: 18, symbol: 'DAI', formatted: '0' });
+    await flush();
+
+    // The amount belongs to the token on screen: with previousSelectedToken left describing
+    // the earlier one, the box and the store stop agreeing about which token this is for
+    await type('2.5');
+    expect(get(enteredAmount)).toBe(BigInt('2500000000000000000'));
+
+    // Back to the six-decimal token: the reset must run, or the box keeps DAI's amount and
+    // an 18-decimal raw value is validated and bridged as USDC
+    fetchBalance.mockResolvedValue({ value: BigInt(0), decimals: 6, symbol: 'USDC', formatted: '0' });
+    selectedToken.set(usdc as never);
+    await flush();
+
+    expect(get(enteredAmount)).toBe(BigInt(0));
+    expect((target.querySelector('input') as HTMLInputElement).value).toBe('');
+  });
+});
+
 describe('fungible amount input', () => {
   it('accepts an amount at the token precision', async () => {
     await type('1.234567');

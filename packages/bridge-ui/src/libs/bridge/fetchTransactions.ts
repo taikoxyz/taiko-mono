@@ -1,5 +1,6 @@
 import type { Address } from 'viem';
 
+import { RelayerHistoryTruncatedError } from '$libs/error';
 import type { FailedBridgeTx } from '$libs/relayer';
 import { relayerApiServices } from '$libs/relayer';
 import { bridgeTxService } from '$libs/storage';
@@ -10,18 +11,6 @@ import { bridgeTxKey, isSameBridgeTx } from './bridgeTxIdentity';
 import { type BridgeTransaction, MessageStatus } from './types';
 
 const log = getLogger('bridge:fetchTransactions');
-
-/**
- * The page backstop was reached, so the history shown is real but incomplete. Distinct from a
- * relayer that failed, because the two need different words: this one is not the relayer's fault
- * and "did not respond" would be the same misattribution this file exists to remove.
- */
-export class RelayerHistoryTruncatedError extends Error {
-  constructor(pages: number) {
-    super(`Relayer history truncated at ${pages} pages; older transactions are not shown`);
-    this.name = 'RelayerHistoryTruncatedError';
-  }
-}
 
 const RELAYER_PAGE_SIZE = 500;
 // Backstop against unbounded relayer histories; each page is one API call
@@ -73,7 +62,9 @@ async function fetchAllRelayerPages(
       return {
         txs,
         failedTxs,
-        error: new RelayerHistoryTruncatedError(MAX_RELAYER_PAGES),
+        error: new RelayerHistoryTruncatedError(
+          `Relayer history truncated at ${MAX_RELAYER_PAGES} pages; older transactions are not shown`,
+        ),
       };
     }
   }

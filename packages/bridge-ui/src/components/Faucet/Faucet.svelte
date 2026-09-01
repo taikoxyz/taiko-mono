@@ -16,6 +16,7 @@
   import { InsufficientBalanceError, MintError, TokenMintedError } from '$libs/error';
   import { getAlternateNetwork } from '$libs/network';
   import { checkMintable, isMintable, mint, testERC20Tokens, testNFT, type Token } from '$libs/token';
+  import { escapeHtml } from '$libs/util/escapeHtml';
   import { config } from '$libs/wagmi';
   import { account, connectedSourceChain, pendingTransactions } from '$stores';
   import { switchingNetwork } from '$stores/network';
@@ -52,7 +53,7 @@
         title: $t('faucet.mint.tx.title'),
         message: $t('faucet.mint.tx.message', {
           values: {
-            token: selectedToken.symbol,
+            token: escapeHtml(selectedToken.symbol),
             url: `${explorer}/tx/${txHash}`,
           },
         }),

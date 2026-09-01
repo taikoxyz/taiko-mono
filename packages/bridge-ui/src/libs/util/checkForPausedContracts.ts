@@ -58,7 +58,11 @@ export const checkForPausedContracts = async (srcChainId?: number) => {
   // information. A chain that could not be read might be the paused one - dismissing a
   // real pause because the *other* chains answered false is the failure this avoids, and
   // it covers the all-unknown case as the same rule rather than a special one.
-  if (!states.includes(UNKNOWN)) {
+  //
+  // Only the unscoped sweep may clear it. A scoped check speaks for one chain, so letting it
+  // clear the modal dismissed a warning the sweep had raised for a different chain that is
+  // genuinely paused - and the send paths call the scoped one on every attempt.
+  if (srcChainId === undefined && !states.includes(UNKNOWN)) {
     bridgePausedModal.set(false);
   }
   return false;
