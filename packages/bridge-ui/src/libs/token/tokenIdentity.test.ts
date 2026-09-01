@@ -1,6 +1,6 @@
 import type { Address } from 'viem';
 
-import { tokenIdentityKey, tokensAreSame } from './tokenIdentity';
+import { isSameNFT, tokenIdentityKey, tokensAreSame } from './tokenIdentity';
 import { type Token, TokenType } from './types';
 
 const token = (overrides: Partial<Token>): Token =>
@@ -60,5 +60,34 @@ describe('tokenIdentityKey', () => {
 
   it('falls back to the symbol for address-less tokens', () => {
     expect(tokenIdentityKey(token({}))).toBe('TKN');
+  });
+});
+
+describe('isSameNFT', () => {
+  const nft = (tokenId: number | string, address: string) => ({ tokenId, addresses: { 1: address } }) as never;
+
+  const ADDRESS = '0x1111111111111111111111111111111111111111';
+
+  it('matches equal NFTs held in different objects', () => {
+    // Every page load rebuilds these across the /api/nft JSON boundary, so a kept
+    // selection never matched the freshly parsed list and rendered unchecked
+    expect(isSameNFT(nft(7, ADDRESS), nft(7, ADDRESS))).toBe(true);
+  });
+
+  it('matches a token id that crossed JSON as a string', () => {
+    expect(isSameNFT(nft(7, ADDRESS), nft('7', ADDRESS))).toBe(true);
+  });
+
+  it('does not match a different token id at the same contract', () => {
+    expect(isSameNFT(nft(7, ADDRESS), nft(8, ADDRESS))).toBe(false);
+  });
+
+  it('does not match the same token id at a different contract', () => {
+    expect(isSameNFT(nft(7, ADDRESS), nft(7, '0x2222222222222222222222222222222222222222'))).toBe(false);
+  });
+
+  it('does not match when either side is missing', () => {
+    expect(isSameNFT(null, nft(7, ADDRESS))).toBe(false);
+    expect(isSameNFT(nft(7, ADDRESS), undefined)).toBe(false);
   });
 });

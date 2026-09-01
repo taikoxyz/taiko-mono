@@ -48,3 +48,22 @@ export function tokenIdentityKey(token: Token | NFT): string {
   const keys = tokenDeploymentKeys(token);
   return keys.length > 0 ? `${token.symbol}|${keys.join('|')}` : token.symbol;
 }
+
+/**
+ * @dev Whether two NFT objects describe the same token.
+ *
+ *      By value, not by reference. The lists these are matched against are rebuilt on
+ *      every page load - they cross the /api/nft JSON boundary, and the L2 path constructs
+ *      fresh objects too - so an identity comparison silently stopped matching a selection
+ *      that was deliberately kept, rendering every checkbox unchecked while the selection
+ *      was still live.
+ *
+ * @param a The first NFT
+ * @param b The second NFT
+ * @return same_ Whether both describe the same token
+ */
+export function isSameNFT(a: Maybe<NFT>, b: Maybe<NFT>): boolean {
+  if (!a || !b) return false;
+  if (String(a.tokenId) !== String(b.tokenId)) return false;
+  return tokensAreSame(a, b);
+}

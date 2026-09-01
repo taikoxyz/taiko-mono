@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
 
   import TokenAmountInput from '$components/Bridge/NFTBridgeComponents/ImportStep/TokenAmountInput.svelte';
@@ -97,9 +96,10 @@
     canProceed = false;
   }
 
-  onMount(() => {
-    $selectedNFTs = [];
-  });
+  // No mount reset here: this view remounts on every return to the import step, and
+  // clearing the selection then discards one the user made before navigating away.
+  // ImportStep.scanForNFTs already clears it on a fresh scan and deliberately keeps it
+  // across pagination, which is the distinction that matters.
 </script>
 
 <div class="f-col w-full gap-4">

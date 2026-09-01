@@ -33,10 +33,12 @@ vi.mock('$libs/bridge/fetchNFTs', () => ({
 }));
 
 import { destNetwork as destChain, selectedNFTs } from '$components/Bridge/state';
+import { ImportMethod } from '$components/Bridge/types';
 import { account } from '$stores/account';
 import { connectedSourceChain as srcChain } from '$stores/network';
 
 import ImportStep from './ImportStep.svelte';
+import { foundNFTs, selectedImportMethod } from './state';
 
 const NFT_A = { tokenId: 1, name: 'A', addresses: {} } as never;
 const NFT_B = { tokenId: 2, name: 'B', addresses: {} } as never;
@@ -54,6 +56,9 @@ const buttonWith = (text: string) =>
 beforeEach(() => {
   fetchNFTs.mockReset();
   selectedNFTs.set([]);
+  // Module-level stores now hold the scan results, so they outlive a test unless reset
+  foundNFTs.set([]);
+  selectedImportMethod.set(ImportMethod.NONE);
   account.set({ address: '0xaaaa', isConnected: true } as never);
   srcChain.set({ id: 1 } as never);
   destChain.set({ id: 2 } as never);
@@ -151,6 +156,25 @@ describe('scanned NFT pagination', () => {
 
     expect(fetchNFTs).not.toHaveBeenCalled();
     expect(buttonWith('paginator.more')).toBeTruthy();
+  });
+
+  it('keeps the scan results when the step is remounted', async () => {
+    await scan([NFT_A, NFT_B]);
+    selectedNFTs.set([NFT_A]);
+    expect(get(foundNFTs)).toHaveLength(2);
+
+    // Back-navigation destroys and recreates ImportStep. A mount reset here dumped the
+    // user on the initial scan chooser with their results and selection gone
+    component?.$destroy();
+    target.remove();
+    target = document.createElement('div');
+    document.body.appendChild(target);
+    component = new ImportStep({ target, props: {} });
+    await flush();
+
+    expect(get(foundNFTs)).toHaveLength(2);
+    expect(get(selectedNFTs)).toEqual([NFT_A]);
+    expect(get(selectedImportMethod)).toBe(ImportMethod.SCAN);
   });
 
   it('still clears the selection on a fresh scan', async () => {

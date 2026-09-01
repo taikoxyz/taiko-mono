@@ -9,6 +9,7 @@
   import { OnNetwork } from '$components/OnNetwork';
   import { Step, Stepper } from '$components/Stepper';
   import { hasBridge } from '$libs/bridge/bridges';
+  import { ProcessingFeeMethod } from '$libs/fee';
   import { ETHToken } from '$libs/token';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { type Account, account } from '$stores/account';
@@ -16,12 +17,13 @@
   import { ImportStep, ReviewStep, StepNavigation } from './NFTBridgeComponents';
   import { selectedImportMethod } from './NFTBridgeComponents/ImportStep/state';
   import { ConfirmationStep, RecipientStep } from './SharedBridgeComponents';
-  import type { ProcessingFee } from './SharedBridgeComponents/ProcessingFee';
   import {
     activeBridge,
     destNetwork as destinationChain,
     destOwnerAddress,
+    gasLimitZero,
     importDone,
+    processingFeeMethod,
     recipientAddress,
     selectedNFTs,
     selectedToken,
@@ -29,7 +31,6 @@
   import { BridgeSteps } from './types';
 
   let recipientStepComponent!: RecipientStep;
-  let processingFeeComponent!: ProcessingFee;
   let bridgingStatus: BridgingStatus;
 
   let hasEnoughEth: boolean = false;
@@ -67,7 +68,14 @@
     await isBridgePaused();
   };
 
-  function onAccountChange(account: Account) {
+  function onAccountChange(account: Account, oldAccount?: Account) {
+    // A different wallet invalidates the import, the ownership check behind it, and the
+    // recipient defaults. updateForm alone cannot do this: in manual mode it revalidates
+    // through importStepComponent, which is unmounted on any step past IMPORT, so the
+    // flow stayed on account A's NFT with account B connected.
+    if (oldAccount && account?.address !== oldAccount?.address && activeStep !== BridgeSteps.IMPORT) {
+      activeStep = BridgeSteps.IMPORT;
+    }
     updateForm();
     if (account && account.isDisconnected) {
       $selectedToken = null;
@@ -87,8 +95,12 @@
   }
 
   const resetForm = () => {
+    // The fee is reset through its stores rather than a component ref: the ProcessingFee
+    // instances live inside RecipientStep and ReviewStep, so nothing here could ever bind
+    // one - the same never-bound-ref bug this file fixed for the address and id inputs.
+    $processingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
+    $gasLimitZero = false;
     //we check if these are still mounted, as the user might have left the page
-    if (processingFeeComponent) processingFeeComponent.resetProcessingFee();
     importStepComponent?.resetManualImport();
 
     $recipientAddress = $account?.address || null;
@@ -119,9 +131,13 @@
 
   $: validatingImport = false;
 
-  // Only a completed bridge wipes the form when landing back on IMPORT;
-  // plain back-navigation must keep the user's input
+  // Only a completed bridge wipes the form when landing back on IMPORT; plain
+  // back-navigation must keep the user's input. Clearing the flag as the wipe fires makes
+  // it one-shot: bridgingStatus is only reset to PENDING in ConfirmationStep's onMount,
+  // which does not run again until the CONFIRM step, so a stale DONE otherwise re-fired
+  // this on every later step change.
   $: if (activeStep === BridgeSteps.IMPORT && bridgingStatus === BridgingStatus.DONE) {
+    bridgingStatus = BridgingStatus.PENDING;
     resetForm();
   }
 
