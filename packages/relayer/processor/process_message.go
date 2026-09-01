@@ -29,7 +29,7 @@ import (
 
 var (
 	errUnprocessable     = errors.New("message is unprocessable")
-	errAlreadyProcessing = errors.New("already processing txHash")
+	errAlreadyProcessing = errors.New("already processing msgHash")
 )
 
 const gasRefundPerCacheOperation uint64 = 20_000

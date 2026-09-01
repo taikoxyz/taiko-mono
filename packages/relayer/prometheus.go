@@ -32,10 +32,11 @@ var (
 		Name: "private_rpc_held_nonce_ops_total",
 		Help: "The total number of sends a private RPC endpoint answered by saying it already " +
 			"holds that nonce, labelled by that endpoint's position in the configured order. " +
-			"Not counted as a failure — the endpoint is carrying the claim — but a nonce it has " +
-			"not answered for before does count towards the consecutive ceiling, so an endpoint " +
-			"answering this to everything still steps aside. Without this counter the path is " +
-			"invisible, since nothing else records it",
+			"The answer reports that the nonce is occupied, not necessarily that the endpoint " +
+			"carries the claim being offered: a recycled nonce may belong to an earlier claim. " +
+			"Not counted as a failure, but a nonce it has not answered for before does count " +
+			"towards the consecutive ceiling, so an endpoint answering this to everything still " +
+			"steps aside. Without this counter the path is invisible, since nothing else records it",
 	}, []string{"endpoint"})
 	PrivateRPCTrips = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "private_rpc_trips_ops_total",
@@ -76,7 +77,7 @@ var (
 	MessageSentEventsDuplicateDelivery = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "message_sent_events_duplicate_delivery_ops_total",
 		Help: "The total number of deliveries discarded because this replica was already " +
-			"processing that source transaction. The crawler republishes every message still in " +
+			"processing that message hash. The crawler republishes every message still in " +
 			"NEW status on each pass, so a claim waiting on a checkpoint is redelivered for as " +
 			"long as it waits. Nothing else records this once the duplicates stop being logged " +
 			"as errors, and a counter climbing on its own is a claim that is not moving",
