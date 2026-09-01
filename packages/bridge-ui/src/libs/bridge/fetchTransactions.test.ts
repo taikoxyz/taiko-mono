@@ -11,15 +11,18 @@ vi.mock('$libs/relayer', () => ({
 vi.mock('$libs/storage', () => ({
   bridgeTxService: {
     getAllTxByAddress: vi.fn().mockResolvedValue([]),
+    removeTransactions: vi.fn(),
   },
 }));
 
 import { relayerApiServices } from '$libs/relayer';
+import { bridgeTxService } from '$libs/storage';
 
 const ADDRESS = '0x1111111111111111111111111111111111111111' as Address;
 
 const getAllByAddress = vi.mocked(relayerApiServices[0].getAllBridgeTransactionByAddress);
 const getAllByAddressSecond = vi.mocked(relayerApiServices[1].getAllBridgeTransactionByAddress);
+const getLocalTxs = vi.mocked(bridgeTxService.getAllTxByAddress);
 
 const tx = (srcTxHash: string, msgStatus?: MessageStatus) => ({ srcTxHash, msgStatus }) as unknown as BridgeTransaction;
 
@@ -34,6 +37,7 @@ describe('fetchTransactions', () => {
     getAllByAddress.mockReset();
     // The second relayer stays quiet unless a test says otherwise
     getAllByAddressSecond.mockReset().mockResolvedValue(page([], 0));
+    getLocalTxs.mockReset().mockResolvedValue([]);
   });
 
   it('does not keep reporting an error after the relayer has recovered', async () => {
@@ -162,6 +166,32 @@ describe('fetchTransactions', () => {
     // Then
     expect(mergedTransactions.map((transaction) => transaction.srcTxHash).sort()).toEqual(['0xa', '0xdupe']);
     expect(failedCount).toBe(0);
+  });
+
+  it('does not count a transaction the local history still shows', async () => {
+    // Given: the relayer could not enhance 0xlocal, but the user bridged it from this browser so
+    // it is in local storage. The merge keeps a local transaction exactly when the relayer set
+    // lacks its hash, so the row is on screen - reporting it as unloadable would contradict what
+    // the user can see.
+    getLocalTxs.mockResolvedValue([tx('0xlocal')]);
+    getAllByAddress.mockResolvedValueOnce(page([tx('0xa')], 0, ['0xlocal']));
+
+    // When
+    const { failedCount, mergedTransactions } = await fetchTransactions(ADDRESS);
+
+    // Then
+    expect(mergedTransactions.map((transaction) => transaction.srcTxHash).sort()).toEqual(['0xa', '0xlocal']);
+    expect(failedCount).toBe(0);
+  });
+
+  it('still counts a failed transaction the local history does not have', async () => {
+    // The companion case: nothing else brings 0xgone back, so it really is missing
+    getLocalTxs.mockResolvedValue([tx('0xunrelated')]);
+    getAllByAddress.mockResolvedValueOnce(page([tx('0xa')], 0, ['0xgone']));
+
+    const { failedCount } = await fetchTransactions(ADDRESS);
+
+    expect(failedCount).toBe(1);
   });
 
   it('reports no failures when every page loaded cleanly', async () => {

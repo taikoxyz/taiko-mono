@@ -113,17 +113,22 @@ export async function fetchTransactions(userAddress: Address, chainId?: number) 
     return true;
   });
 
-  // A transaction that failed on one page or relayer and loaded on another is not lost, so it
-  // must not be reported as such. seenTxHashes is exactly the set that made it into the list.
-  for (const hash of seenTxHashes) failedTxHashes.delete(hash);
-  const failedCount = failedTxHashes.size;
-
   // Reverse the flattened array to sort transactions in descending order, placing the most recent transactions first
   const relayerTxs: BridgeTransaction[] = dedupedRelayerTxs.reverse();
 
   log(`fetched ${relayerTxs?.length ?? 0} transactions from all relayers`, relayerTxs);
 
   const { mergedTransactions, outdatedLocalTransactions } = mergeAndCaptureOutdatedTransactions(localTxs, relayerTxs);
+
+  // The count answers "how many of your transactions are missing from this list", so it is taken
+  // against the finished list rather than the relayer half of it. A transaction can reach the list
+  // by a route other than the one that failed: another page or relayer returned it, or - because
+  // the merge keeps a local transaction precisely when the relayer set lacks its hash - the row
+  // came from local storage. Counting those would tell the user something is missing while it is
+  // on screen in front of them.
+  for (const tx of mergedTransactions) failedTxHashes.delete(tx.srcTxHash);
+  const failedCount = failedTxHashes.size;
+
   if (outdatedLocalTransactions.length > 0) {
     log(
       `found ${outdatedLocalTransactions.length} outdated transaction(s)`,
