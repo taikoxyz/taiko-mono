@@ -28,6 +28,7 @@ const tx = (srcTxHash: string, msgStatus?: MessageStatus) => ({ srcTxHash, msgSt
 const page = (txs: BridgeTransaction[], max_page: number) => ({
   txs,
   paginationInfo: { page: 0, size: 500, total: txs.length, total_pages: 1, first: true, last: true, max_page },
+  failedCount: 0,
 });
 
 describe('fetchTransactions', () => {
