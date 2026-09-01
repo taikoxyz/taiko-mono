@@ -2167,5 +2167,69 @@ func TestSendingBackend_DoesNotRestoreAcceptanceAfterReceiptWinsRace(t *testing.
 	b.recordSuccess(0, late)
 
 	assert.NotContains(t, b.accepted[0], mined.Nonce())
-	assert.NotContains(t, b.acceptedTxNonces, late.Hash())
+	assert.NotContains(t, b.sentTxNonces, late.Hash())
+}
+
+func TestSendingBackend_AReceiptDoesNotStrandAResendAlreadyAtItsHolder(t *testing.T) {
+	public := &fakeBackend{receipt: &types.Receipt{}}
+	holder := &fakeSender{}
+	backup := &fakeSender{}
+
+	b := NewSendingBackend(public, []TxSender{holder, backup}, nil, nil)
+
+	tx := txWithNonce(7210)
+
+	require.NoError(t, b.SendTransaction(context.Background(), tx))
+	require.Empty(t, backup.sent)
+
+	// The manager polls for the receipt while a fee-bumped resend is already on its way to the
+	// holder. The receipt wins the lock and releases the exact acceptance.
+	_, err := b.TransactionReceipt(context.Background(), tx.Hash())
+	require.NoError(t, err)
+
+	// Only then does the holder answer the resend that was already in flight. It is still the
+	// endpoint carrying this claim, and the whole point of the exact record is that the send ends
+	// there rather than handing the same signed transaction to a backup that will refuse a claim
+	// which is now done — and be charged for it.
+	holder.err = rpcRejection{txpool.ErrAlreadyKnown.Error()}
+
+	require.NoError(t, b.SendTransaction(context.Background(), tx))
+
+	assert.Empty(t, backup.sent, "a resend already in flight still ends at the endpoint holding it")
+}
+
+func TestSendingBackend_APublicLandingReleasesThePrivateAcceptance(t *testing.T) {
+	public := &fakeBackend{receipt: &types.Receipt{}}
+	only := &fakeSender{}
+
+	b := NewSendingBackend(public, []TxSender{only}, nil, nil)
+	b.failureThreshold = 1 << 30
+	b.failureCeiling = 1 << 30
+
+	accepted := txWithNonceAndCall(81, "the accepted claim")
+
+	require.NoError(t, b.SendTransaction(context.Background(), accepted))
+	require.Contains(t, b.accepted[0], accepted.Nonce())
+
+	// The nonce is recycled, every private endpoint refuses the claim that inherited it, and it
+	// goes out publicly instead.
+	only.err = rpcRejection{"claim not accepted"}
+
+	inherited := txWithNonceAndCall(81, "the message that inherited the nonce")
+
+	for i := 0; i < DefaultPrivateRPCAllRefusedLimit; i++ {
+		_ = b.SendTransaction(context.Background(), inherited)
+	}
+
+	require.Equal(t, 1, public.attempts(), "the claim reached the public endpoint")
+
+	// That transaction lands. The account's nonces execute in order, so nothing at or below it is
+	// still pending anywhere — including the private acceptance the earlier claim left behind.
+	_, err := b.TransactionReceipt(context.Background(), inherited.Hash())
+	require.NoError(t, err)
+
+	assert.NotContains(t, b.accepted[0], accepted.Nonce(),
+		"a nonce that mined publicly leaves nothing private still pending at it")
+	assert.Empty(t, b.sentTxNonces,
+		"the records have no cap, so a landing they cannot recognise accumulates for good")
 }

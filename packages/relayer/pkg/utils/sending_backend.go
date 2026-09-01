@@ -216,7 +216,7 @@ type SendingBackend struct {
 	highestAccepted  []uint64
 	hasAccepted      []bool
 	accepted         []map[uint64]common.Hash
-	acceptedTxNonces map[common.Hash]uint64
+	sentTxNonces     map[common.Hash]uint64
 	minedThrough     uint64
 	hasMined         bool
 	failureThreshold int
@@ -264,7 +264,7 @@ func NewSendingBackend(
 		highestAccepted:  make([]uint64, len(private)),
 		hasAccepted:      make([]bool, len(private)),
 		accepted:         newAcceptedNonceSets(len(private)),
-		acceptedTxNonces: make(map[common.Hash]uint64),
+		sentTxNonces:     make(map[common.Hash]uint64),
 		failureThreshold: DefaultPrivateRPCFailureThreshold,
 		failureCeiling:   DefaultPrivateRPCConsecutiveFailureCeiling,
 		allRefused:       make(map[uint64]refusalRun),
@@ -312,6 +312,10 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 
 		// DEST_RPC_URL can carry an API key too, so the public path is redacted the same way.
 		err := b.ETHBackend.SendTransaction(ctx, tx)
+
+		if err == nil {
+			b.rememberSentNonce(tx)
+		}
 
 		// Counted only once the broadcast actually went out. A send that failed against our own
 		// node never reached the mempool, so counting it would overstate the exposure this metric
@@ -476,6 +480,8 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 
 		publicErr := b.ETHBackend.SendTransaction(ctx, tx)
 		if publicErr == nil {
+			b.rememberSentNonce(tx)
+
 			// The run is deliberately kept. This claim is in the open now, so every resend of it
 			// belongs in the public pool too until a relay takes it back — see countAllRefused.
 			relayer.PrivateRPCAllRefused.Inc()
@@ -524,15 +530,30 @@ func (b *SendingBackend) TransactionReceipt(
 	return receipt, err
 }
 
+// rememberSentNonce indexes a transaction this backend put on the wire, so that a receipt for it
+// can later be resolved to the nonce it occupied.
+//
+// Every transaction, not only the ones a private endpoint accepted. A claim that no relay would
+// take goes out through the public endpoint and lands there under a hash no private endpoint ever
+// saw; without it in the index, clearAcceptedThrough cannot recover the nonce and releases nothing,
+// so the private records for that nonce stay for the life of the process. These records have no
+// cap — that was removed so a burst larger than the old bound could not evict a live acceptance —
+// which makes every landing path having to be recognisable here a requirement rather than a tidy-up.
+func (b *SendingBackend) rememberSentNonce(tx *types.Transaction) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	b.sentTxNonces[tx.Hash()] = tx.Nonce()
+}
+
 // clearAcceptedThrough removes exact acceptance state made obsolete by a mined transaction. The
-// tx hash identifies its nonce because recordSuccess records every signed variant accepted by a
-// private endpoint; a receipt for an unrelated or publicly broadcast transaction has no private
-// state to release here.
+// tx hash identifies its nonce because every transaction this backend sends is indexed by
+// rememberSentNonce; a receipt for a transaction this backend never sent has no state to release.
 func (b *SendingBackend) clearAcceptedThrough(txHash common.Hash) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	nonce, ok := b.acceptedTxNonces[txHash]
+	nonce, ok := b.sentTxNonces[txHash]
 	if !ok {
 		return
 	}
@@ -550,9 +571,9 @@ func (b *SendingBackend) clearAcceptedThrough(txHash common.Hash) {
 		}
 	}
 
-	for acceptedHash, acceptedNonce := range b.acceptedTxNonces {
+	for acceptedHash, acceptedNonce := range b.sentTxNonces {
 		if acceptedNonce <= nonce {
-			delete(b.acceptedTxNonces, acceptedHash)
+			delete(b.sentTxNonces, acceptedHash)
 		}
 	}
 }
@@ -1017,6 +1038,22 @@ func (b *SendingBackend) recordHeldNonce(
 		answer = heldThisClaim
 	case known:
 		answer = heldOtherClaim
+
+	// The exact record is released as soon as a receipt says the nonce is mined, and a resend can
+	// already be on its way to its holder when that happens: the receipt wins the lock, the record
+	// goes, and the answer that comes back afterwards would look like an endpoint holding a nonce
+	// it never took. On the mainnet claim this failover was built for, the receipt was on chain
+	// twelve seconds before the holder answered, so this is the ordinary ordering rather than a
+	// narrow race.
+	//
+	// A mined nonce settles the question on its own. The account's nonces execute in order, so once
+	// N is on chain nothing at N can ever land again, and passing the transaction to the endpoints
+	// behind this one can only earn a refusal from a relay that did nothing wrong — the exact
+	// failure this whole path exists to stop. It is also the claim that mined: resetNonce only ever
+	// recycles a nonce the account has not spent.
+	case b.hasMined && nonce <= b.minedThrough:
+		answer = heldThisClaim
+
 	default:
 		answer = heldUnattributed
 	}
@@ -1130,7 +1167,7 @@ func (b *SendingBackend) recordSuccess(index int, tx *types.Transaction) {
 	// "replacement transaction underpriced" about the claim it is still holding would end the new
 	// claim's send with nobody carrying it.
 	b.accepted[index][nonce] = claimIdentity(tx)
-	b.acceptedTxNonces[tx.Hash()] = nonce
+	b.sentTxNonces[tx.Hash()] = nonce
 }
 
 // newAcceptedNonceSets builds one accepted-nonce record per endpoint, mapping each nonce to the
