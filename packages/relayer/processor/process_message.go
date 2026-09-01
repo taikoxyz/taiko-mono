@@ -34,6 +34,48 @@ var (
 
 const gasRefundPerCacheOperation uint64 = 20_000
 
+// inFlightKey identifies the message a delivery carries, so that two deliveries of it can be told
+// from two deliveries that merely arrived together.
+//
+// The message, not the transaction that emitted it. One transaction can emit several MessageSent
+// events — a contract bridging more than one token does exactly that — and the indexer publishes one
+// queue message per event, so siblings arrive as separate deliveries sharing a source transaction
+// hash. Keyed on that hash, the second sibling looked like a duplicate of the first and was
+// discarded although nothing had processed it.
+func inFlightKey(event *bridge.BridgeMessageSent) common.Hash {
+	return common.Hash(event.MsgHash)
+}
+
+// beginProcessing claims a message for this replica, reporting errAlreadyProcessing when another
+// delivery of the same message is already being worked on. The caller must pair a successful claim
+// with endProcessing.
+func (p *Processor) beginProcessing(event *bridge.BridgeMessageSent) error {
+	key := inFlightKey(event)
+
+	p.processingMsgHashMu.Lock()
+	defer p.processingMsgHashMu.Unlock()
+
+	if _, ok := p.processingMsgHashes[key]; ok {
+		slog.Debug("already processing msgHash", "msgHash", key.Hex())
+
+		return errAlreadyProcessing
+	}
+
+	p.processingMsgHashes[key] = true
+
+	return nil
+}
+
+// endProcessing releases the claim beginProcessing took.
+func (p *Processor) endProcessing(event *bridge.BridgeMessageSent) {
+	key := inFlightKey(event)
+
+	p.processingMsgHashMu.Lock()
+	defer p.processingMsgHashMu.Unlock()
+
+	delete(p.processingMsgHashes, key)
+}
+
 // eventStatusFromMsgHash will check the event's msgHash/signal, and
 // get its on-chain current status.
 func (p *Processor) eventStatusFromMsgHash(
@@ -79,32 +121,13 @@ func (p *Processor) processMessage(
 
 	slog.Info("message received", "srcTxHash", msgBody.Event.Raw.TxHash.Hex())
 
-	// check if we already processing this hash
-	checkHash := func(hash common.Hash) error {
-		p.processingTxHashMu.Lock()
-		defer p.processingTxHashMu.Unlock()
-
-		if _, ok := p.processingTxHashes[hash]; ok {
-			slog.Debug("already processing txHash", "txhash", hash.Hex())
-			return errAlreadyProcessing
-		}
-
-		p.processingTxHashes[hash] = true
-
-		return nil
-	}
-
-	// if we are, we don't need to continue
-	if err := checkHash(msgBody.Event.Raw.TxHash); err != nil {
+	// if another delivery of this message is already being worked on, we don't need to continue
+	if err := p.beginProcessing(msgBody.Event); err != nil {
 		return false, 0, err
 	}
 
-	// otherwise, make sure when we exit, we remove this hash from being checked
-	defer func(hash common.Hash) {
-		p.processingTxHashMu.Lock()
-		defer p.processingTxHashMu.Unlock()
-		delete(p.processingTxHashes, hash)
-	}(msgBody.Event.Raw.TxHash)
+	// otherwise, make sure when we exit, this message stops being claimed
+	defer p.endProcessing(msgBody.Event)
 
 	if msgBody.TimesRetried >= p.maxMessageRetries {
 		slog.Warn("max retries reached", "timesRetried", msgBody.TimesRetried)

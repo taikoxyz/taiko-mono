@@ -392,6 +392,69 @@ func Test_ProcessMessage_messageUnprocessable(t *testing.T) {
 	assert.Equal(t, false, shouldRequeue)
 }
 
+// messageSentFromOneTransaction builds a delivery for one MessageSent event, letting a test give
+// two events the same source transaction and different messages — which is what a contract bridging
+// more than one token emits.
+func messageSentFromOneTransaction(
+	txHash, msgHash common.Hash,
+) (*bridge.BridgeMessageSent, queue.Message) {
+	event := &bridge.BridgeMessageSent{
+		MsgHash: msgHash,
+		Message: bridge.IBridgeMessage{
+			GasLimit:   1,
+			SrcChainId: mock.MockChainID.Uint64(),
+			Id:         1,
+		},
+		Raw: types.Log{
+			Address: relayer.ZeroAddress,
+			Topics:  []common.Hash{relayer.ZeroHash},
+			Data:    []byte{0xff},
+			TxHash:  txHash,
+		},
+	}
+
+	marshalled, _ := json.Marshal(&queue.QueueMessageSentBody{Event: event, ID: 0})
+
+	return event, queue.Message{Body: marshalled}
+}
+
+func Test_ProcessMessage_ASiblingOfTheSameTransactionIsNotADuplicate(t *testing.T) {
+	p := newTestProcessor(true)
+
+	txHash := common.HexToHash("0x01a64b21f1c8df54600a462c5ba521bff7c09f83d67ebe314a666e079d1b68dd")
+
+	first, _ := messageSentFromOneTransaction(txHash, common.HexToHash("0xaa"))
+	_, second := messageSentFromOneTransaction(txHash, common.HexToHash("0xbb"))
+
+	// Claimed through the same path production uses, so the claim is whatever the key says it is
+	// rather than whatever this test assumed.
+	require.NoError(t, p.beginProcessing(first))
+	defer p.endProcessing(first)
+
+	_, _, err := p.processMessage(context.Background(), second)
+
+	assert.NotErrorIs(t, err, errAlreadyProcessing,
+		"one transaction can emit several messages; a sibling is not a duplicate")
+}
+
+func Test_ProcessMessage_TheSameMessageInFlightIsADuplicate(t *testing.T) {
+	p := newTestProcessor(true)
+
+	txHash := common.HexToHash("0xdead")
+	msgHash := common.HexToHash("0xaa")
+
+	inFlight, _ := messageSentFromOneTransaction(txHash, msgHash)
+	_, redelivered := messageSentFromOneTransaction(txHash, msgHash)
+
+	require.NoError(t, p.beginProcessing(inFlight))
+	defer p.endProcessing(inFlight)
+
+	_, _, err := p.processMessage(context.Background(), redelivered)
+
+	assert.ErrorIs(t, err, errAlreadyProcessing,
+		"the delivery already being processed is the authoritative one")
+}
+
 func Test_ProcessMessage_unprofitable(t *testing.T) {
 	p := newTestProcessor(true)
 

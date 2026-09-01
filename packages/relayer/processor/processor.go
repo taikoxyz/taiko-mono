@@ -116,8 +116,8 @@ type Processor struct {
 
 	maxMessageRetries uint64
 
-	processingTxHashes map[common.Hash]bool
-	processingTxHashMu sync.Mutex
+	processingMsgHashes map[common.Hash]bool
+	processingMsgHashMu sync.Mutex
 
 	minFeeToProcess uint64
 
@@ -376,7 +376,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 
 	p.maxMessageRetries = cfg.MaxMessageRetries
 
-	p.processingTxHashes = make(map[common.Hash]bool, 0)
+	p.processingMsgHashes = make(map[common.Hash]bool, 0)
 
 	p.minFeeToProcess = p.cfg.MinFeeToProcess
 
