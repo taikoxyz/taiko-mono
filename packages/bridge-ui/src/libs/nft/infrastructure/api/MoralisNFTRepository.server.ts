@@ -25,6 +25,11 @@ class MoralisNFTRepository implements INFTRepository {
   private static isInitialized = false;
 
   private stateByWallet: Map<string, PaginationState> = new Map();
+  /**
+   * At most one entry per wallet+chain, deleted when its request settles (see releaseSlot
+   * below), so this holds only what is genuinely in flight. It needs no MAX_CACHED_WALLETS
+   * of its own: a cap here could only be enforced by refusing requests.
+   */
   private requestQueueByWallet: Map<string, Promise<NFT[]>> = new Map();
 
   private constructor() {

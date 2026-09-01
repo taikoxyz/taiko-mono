@@ -115,7 +115,10 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
   // transaction hash, so a subscriber may only ever remove the handlers it added.
   // A no-arg teardown would silently stop polling for all other rows.
   const destroy = (handlers: PollingHandlers) => {
-    for (const [event, handler] of Object.entries(handlers)) {
+    // The parameter stays required so TypeScript still rejects a no-arg teardown, but the
+    // read is guarded: an untyped caller getting a TypeError here would take down the
+    // whole row, and removing nothing is the safe answer for a shared emitter anyway
+    for (const [event, handler] of Object.entries(handlers ?? {})) {
       if (handler) emitter.removeListener(event, handler);
     }
 
