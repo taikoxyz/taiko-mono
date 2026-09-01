@@ -130,7 +130,20 @@ export class BridgeTxService {
   private _getTxFromStorage(address: Address) {
     const key = `${storageService.bridgeTxPrefix}-${address}`;
     const txs = jsonParseWithDefault(this.storage.getItem(key), []) as BridgeTransaction[];
-    return txs.map(BridgeTxService._restoreBigInts);
+
+    // One unreadable entry must not hide the rest of the history. BigInt() throws on
+    // anything that is not an integer string, so mapping the whole array let a single
+    // corrupt record - a null amount, an object where a number belonged - take down every
+    // transaction the user has, with no way back short of clearing storage.
+    const restored: BridgeTransaction[] = [];
+    for (const tx of txs) {
+      try {
+        restored.push(BridgeTxService._restoreBigInts(tx));
+      } catch (error) {
+        console.error('Skipping a stored transaction that could not be restored', { error, tx });
+      }
+    }
+    return restored;
   }
 
   private async _enhanceTx(tx: BridgeTransaction, address: Address, waitForTx: boolean) {
