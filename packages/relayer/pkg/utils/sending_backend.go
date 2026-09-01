@@ -571,8 +571,10 @@ func (b *SendingBackend) rememberSentNonce(tx *types.Transaction) {
 // already replaced.
 func (b *SendingBackend) boundSentNonces(justAdded uint64) {
 	for len(b.sentTxNonces) > maxTrackedSentNonces {
-		stalest := justAdded
-		var evict common.Hash
+		var (
+			stalest = justAdded
+			evict   common.Hash
+		)
 
 		for hash, nonce := range b.sentTxNonces {
 			if evict == (common.Hash{}) || nonce < stalest {
