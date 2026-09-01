@@ -276,6 +276,7 @@ linkReferencesHash, immutableReferencesHash, creationHash, runtimeHash)` and fai
 - Create: `packages/protocol/test/shared/slotchain/vectors/SlotChainGoldenVectors.sol`
 - Create: `packages/protocol/test/shared/slotchain/vectors/slot-chain-commitments.json`
 - Create: `packages/protocol/utils/slotchain/generateGoldenVectors.ts`
+- Modify: `packages/protocol/utils/slotchain/artifact-ownership.json`
 - Modify: `packages/protocol/package.json`
 
 - [ ] **Step 1: Generate the JSON oracle** from `commitment-model.py` without changing its normal
@@ -296,8 +297,16 @@ linkReferencesHash, immutableReferencesHash, creationHash, runtimeHash)` and fai
       returns (bytes32 hash_);
   ```
 
-- [ ] **Step 5: Regenerate and compare** JSON and Solidity vectors byte-for-byte.
-- [ ] **Step 6: Run** focused tests, all Python models, shared build/test and artifact ownership.
+- [ ] **Step 5: Regenerate and compare** JSON and Solidity vectors byte-for-byte. The generator has
+      a check-only mode and obtains expected values one-way from the Python model; it does not
+      recompute a second expected result in TypeScript or Solidity. Solidity tests independently
+      construct the fixture inputs and call the production encoding library.
+- [ ] **Step 6: Extend the exhaustive ownership manifest** before running the focused tests, all
+      Python models, shared build/test and artifact ownership. Classify production types/constants/
+      encodings and the generated vector helper as source-inline rows with the appropriate kind and
+      profile allowlist, and classify the shared Forge test as a test-only artifact-owned row. No
+      new Slot Chain source may be exempted from the Round-1 gate merely because it is generated or
+      test-only.
 - [ ] **Step 7: Commit** `feat(protocol): add slot chain consensus encodings`.
 
 ### Round 3: Fixed trees, MMR, signatures and checked calls
