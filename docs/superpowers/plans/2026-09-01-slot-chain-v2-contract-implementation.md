@@ -173,6 +173,7 @@ the lockfile.
 - Create: `packages/protocol/integration/slotchain/shared-artifact-consumption.test.ts`
 - Create: `packages/protocol/integration/slotchain/tsconfig.json`
 - Create: `packages/protocol/test/shared/slotchain/fixtures/LibSourceInlineProbe.sol`
+- Create: `packages/protocol/test/shared/slotchain/fixtures/ISharedArtifactProbe.sol`
 - Create: `packages/protocol/test/shared/slotchain/fixtures/SharedArtifactProbe.sol`
 - Create: `packages/protocol/test/layer1/slotchain/build/SourceInlineL1Consumer.t.sol`
 - Create: `packages/protocol/test/layer2/slotchain/build/SourceInlineL2Consumer.t.sol`
@@ -189,31 +190,42 @@ the lockfile.
       ABI-only interfaces may declare external functions but must produce no bytecode; internal
       libraries must expose no public/external production function and consumers must produce no
       link reference. No source-inline row may have independently loaded bytecode, a deployed
-      address or a release-manifest row. `artifact-owned` covers every deployable, externally
-      linked library, raw creation artifact and ABI-only consumer boundary, and pins its sole owning
-      profile/output, compiler tuple, consumption mode, factory class and lifecycle/address scope.
+      address or a release-manifest row. `artifact-owned` covers every deployable and raw creation
+      artifact and pins its sole owning profile/output, compiler tuple, consumption mode, factory
+      class and lifecycle/address scope. An ABI-only consumer imports a separately classified
+      source-inline interface, never the artifact-owned implementation. Any externally linked
+      library is confined to its artifact-owner profile; logic shared by L1 and L2 must be internal
+      source-inline code or an ordinary external ABI boundary.
       The manifest-named owning profile for the
       storage-compatible legacy Inbox/SignalService artifacts is exactly `layer1` (`out/layer1`,
       `cache/layer1`), and AnchorV4 is exactly `layer2` (`out/layer2`, `cache/layer2`); neither is
       compiled by `default` or a second profile. Configure `default` to skip every Slot Chain source,
       and route each test only through `test/shared/slotchain`, `test/layer1/slotchain` or
-      `test/layer2/slotchain`. The artifact-owned checker key is
-      `(sourcePath, profile, solcVersion, evmVersion, optimizerRuns, creationHash, runtimeHash)` and
-      fails closed on any absent or duplicate owner.
+      `test/layer2/slotchain`. Build-info has no trustworthy profile-name field: the checker binds a
+      profile to the clean `FOUNDRY_PROFILE=<name>` invocation and fixed output directory, then
+      compares `forge config --json` source/test/script/out/cache and compiler settings with the
+      manifest. The artifact-owned checker key is
+      `(sourcePath, contractName, profile, solcVersion, evmVersion, optimizerRuns, abiHash,
+linkReferencesHash, immutableReferencesHash, creationHash, runtimeHash)` and fails closed on
+      any absent or duplicate owner.
 - [ ] **Step 4: Prove both real cross-profile consumption mechanisms before protocol code exists.**
       First, implement a test-only internal hashing library with the same call shape as the planned
       encoding/proof libraries and import it from L1 and L2 consumers. Inspect build-info/ABI/link
       references to prove both profiles compiled the exact manifest-pinned source, exposed no
       external/public library function and inlined it with zero link references. Second, build one
-      shared deployable artifact and consume only its already-built bytecode or ABI-only boundary
-      from both L1 and L2; prove neither consumer recompiled that artifact-owned implementation. A
-      source import of an artifact-owned implementation is an explicit failure even when its hash
-      happens to match.
+      shared deployable artifact and a separate source-inline interface. Both L1 and L2 tests load
+      the exact creation bytes only from `out/shared`, deploy them, and call through that interface;
+      prove neither consumer recompiled the artifact-owned implementation. A source import of an
+      artifact-owned implementation is an explicit failure even when its hash happens to match.
 - [ ] **Step 5: Add** `slotchain:artifact-owner:check` and run clean shared/L1/L2 builds twice.
+      Each build uses `--force --build-info --ast --extra-output storage-layout`; a warm incremental
+      artifact directory is not admissible evidence.
       For source-inline rows, compare source hashes, allowed profile inputs, ABI and zero link
-      references. For artifact-owned rows, compare creation/runtime/link/config hashes and prove a
-      later profile consumes the content-addressed shared artifact without producing a second owned
-      artifact.
+      references. For artifact-owned rows, compare creation/runtime/link/immutable-reference hashes
+      and prove a later profile consumes the content-addressed shared artifact without producing a
+      second owned artifact. Constructor-derived component configuration hashes are deliberately
+      deferred to the Round-24 deployment-transcript checker; Round 1 must not invent them from
+      compiler output.
 - [ ] **Step 6: Treat this as a stop gate.** If the checker cannot distinguish and enforce
       source-inline compilation from artifact-owned bytecode/ABI consumption, or Foundry cannot
       support either selected mechanism, do not weaken the checker or start Round 2. Return to PR
