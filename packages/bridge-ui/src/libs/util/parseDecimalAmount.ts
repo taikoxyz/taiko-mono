@@ -1,6 +1,13 @@
 /** The largest value a uint256 can hold; anything above it cannot be encoded */
 export const UINT256_MAX = BigInt(2) ** BigInt(256) - BigInt(1);
 
+/**
+ * Digits in UINT256_MAX. An integer part longer than this is over the bound whatever its
+ * digits are, which lets the refusal happen before a BigInt is built from it - a pasted
+ * hundred-thousand-digit string would otherwise be converted just to be rejected.
+ */
+const UINT256_MAX_DIGITS = 78;
+
 export type AmountParseFailure =
   /** Nothing to parse yet - the box is empty or holds only a decimal point */
   | 'EMPTY'
@@ -47,6 +54,9 @@ export function parseDecimalAmount(raw: string, decimals: number): AmountParseRe
 
   const [whole = '', fraction = ''] = raw.split('.');
   if (fraction.length > decimals) return { ok: false, reason: 'TOO_MANY_DECIMALS' };
+
+  // Leading zeros are not magnitude: '000...5' is five, however long it is
+  if (whole.replace(/^0+/, '').length > UINT256_MAX_DIGITS) return { ok: false, reason: 'EXCEEDS_UINT256' };
 
   // Scaled here rather than by parseUnits. PLAIN_DECIMAL has already established that the
   // input is digits with at most one point, and the fraction is no longer than the token

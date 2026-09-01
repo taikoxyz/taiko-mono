@@ -149,6 +149,9 @@ describe('the results table', () => {
 
     expect(target.querySelectorAll('[data-testid="stub"]')).toHaveLength(0);
     expect(target.textContent).toContain('relayer_component.no_tx_found');
+    // Superseding the fetch orphans the `finally` that would have lowered `fetching`, so
+    // the field has to be re-enabled here or the user can never search again
+    expect((target.querySelector('input') as HTMLInputElement).disabled).toBe(false);
   });
 
   it('renders both messages a single transaction emitted', async () => {

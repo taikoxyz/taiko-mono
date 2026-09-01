@@ -95,6 +95,10 @@
   $: if (!addressToSearch) {
     searchGeneration++;
     transactions = [];
+    // Superseding the in-flight fetch also orphans its `finally`, which only lowers this
+    // for the generation it belongs to. Left set, the address field stays disabled for
+    // good - the search cleared, and no way to start another one.
+    fetching = false;
   }
 
   $: searchDisabled = fetching || !addressToSearch || addressState !== AddressInputState.VALID || inputDisabled;

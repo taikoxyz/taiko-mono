@@ -141,6 +141,10 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
       allApproved.set(false);
       // The error itself was dropped here, leaving a bare "isApprovedForAll error" line
       console.error('Could not read the NFT approval status', error);
+      // Stated rather than left to the function's final return: an unknown approval is
+      // the conservative answer, and it should not depend on a fall-through fifty lines
+      // below that a later edit could quietly change
+      return ApprovalStatus.APPROVAL_REQUIRED;
     }
   } else {
     log('unknown token type:', token);
