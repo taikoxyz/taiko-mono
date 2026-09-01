@@ -390,6 +390,29 @@ describe('Recipient dialog', () => {
     });
   });
 
+  // Guard, not a regression test: this passes without the supersede call in clearRecipient
+  // too, because clearAddress() empties the bound draft and syncRecipientDraft retires the
+  // lookup on the next flush. It pins the behaviour to clearRecipient's own contract so it
+  // cannot quietly come to depend on what AddressInput does to the binding.
+  it('does not let a pending classification undo clearRecipient', async () => {
+    let resolveLookup!: (value: boolean) => void;
+    isSmartContract.mockReturnValue(new Promise<boolean>((resolve) => (resolveLookup = resolve)));
+    const m = mount();
+
+    await m.type(m.recipientInput(), WALLET);
+    await tick();
+    expect(isSmartContract).toHaveBeenCalledWith(WALLET, DEST_CHAIN);
+
+    // The parent clears the form while the classification is still out
+    (m.component as unknown as { clearRecipient: () => void }).clearRecipient();
+    resolveLookup(false);
+    await flush();
+
+    // Without superseding the lookup, its own generation check still passed and it wrote
+    // the recipient straight back into the store the parent had just emptied
+    expect(get(recipientAddress)).toBeNull();
+  });
+
   it('does not commit a pending classification after the component is destroyed', async () => {
     let resolveLookup!: (value: boolean) => void;
     isSmartContract.mockReturnValue(new Promise<boolean>((resolve) => (resolveLookup = resolve)));

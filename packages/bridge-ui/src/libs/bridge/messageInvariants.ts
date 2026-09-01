@@ -19,6 +19,8 @@
  *   - every ERC1155 amount is non-zero                       VAULT_INVALID_AMOUNT
  */
 
+import { InvalidMessageError } from '$libs/error';
+
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 export type MessageInvariantViolation =
@@ -103,3 +105,19 @@ export function checkERC1155Message(
 
 /** @dev ETH goes straight to Bridge.sendMessage, so only the common rules apply */
 export const checkETHMessage = checkCommonMessage;
+
+/**
+ * @dev Throws when a message breaks any of the rules above.
+ *
+ *      Called from the bridges just before the contract call, so a message that cannot
+ *      succeed is refused here with the rule it breaks rather than on chain as a bare
+ *      selector. `0xc9f51787` reaching a user as "reverted with the following signature"
+ *      is what this exists to prevent.
+ *
+ * @param violations The result of one of the check functions above
+ * @param context What was being sent, for the error message
+ */
+export function assertNoViolations(violations: MessageInvariantViolation[], context: string): void {
+  if (violations.length === 0) return;
+  throw new InvalidMessageError(`${context} would be rejected by the bridge: ${violations.join(', ')}`);
+}

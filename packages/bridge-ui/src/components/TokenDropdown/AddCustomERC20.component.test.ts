@@ -116,4 +116,69 @@ describe('custom ERC20 lookup', () => {
 
     expect(showsToken()).toBe(false);
   });
+
+  it('stops offering a resolved token once the address is cleared', async () => {
+    detectContractType.mockResolvedValue(TokenType.ERC20);
+    getTokenWithInfoFromAddress.mockResolvedValue({ symbol: 'MOCK', decimals: 18, addresses: {} });
+
+    await type(ADDRESS_A);
+    await flush();
+    expect(showsToken()).toBe(true);
+
+    // A finished lookup leaves nothing pending, and clearing the field dispatches no
+    // event: the form kept offering a token for an address no longer on screen
+    await type('');
+    await flush();
+
+    expect(showsToken()).toBe(false);
+  });
+
+  describe('source chain changes', () => {
+    it('resolves the token against the chain the lookup started on', async () => {
+      detectContractType.mockResolvedValue(TokenType.ERC20);
+      let resolveToken!: (value: unknown) => void;
+      getTokenWithInfoFromAddress.mockReturnValue(new Promise((resolve) => (resolveToken = resolve)));
+
+      await type(ADDRESS_A);
+      await flush();
+
+      // Not the chain that happens to be selected by the time the await lands
+      expect(detectContractType).toHaveBeenCalledWith(ADDRESS_A, 1);
+      expect(getTokenWithInfoFromAddress).toHaveBeenCalledWith(
+        expect.objectContaining({ contractAddress: ADDRESS_A, srcChainId: 1 }),
+      );
+      resolveToken(null);
+    });
+
+    it('drops a lookup that was started on the previous chain', async () => {
+      detectContractType.mockResolvedValue(TokenType.ERC20);
+      let resolveToken!: (value: unknown) => void;
+      getTokenWithInfoFromAddress.mockReturnValue(new Promise((resolve) => (resolveToken = resolve)));
+
+      await type(ADDRESS_A);
+      await tick();
+
+      // The same address is a different contract on a different chain
+      connectedSourceChain.set({ id: 2 } as never);
+      await tick();
+      resolveToken({ symbol: 'MOCK', decimals: 18, addresses: {} });
+      await flush();
+
+      expect(showsToken()).toBe(false);
+    });
+
+    it('drops a token that already resolved against the previous chain', async () => {
+      detectContractType.mockResolvedValue(TokenType.ERC20);
+      getTokenWithInfoFromAddress.mockResolvedValue({ symbol: 'MOCK', decimals: 18, addresses: {} });
+
+      await type(ADDRESS_A);
+      await flush();
+      expect(showsToken()).toBe(true);
+
+      connectedSourceChain.set({ id: 2 } as never);
+      await flush();
+
+      expect(showsToken()).toBe(false);
+    });
+  });
 });

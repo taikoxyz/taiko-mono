@@ -153,6 +153,10 @@ export class InvalidParametersProvidedError extends Error {
   name = 'InvalidParametersProvidedError';
 }
 
+export class InvalidMessageError extends Error {
+  name = 'InvalidMessageError';
+}
+
 export class InternalError extends Error {
   name = 'InternalError';
 }

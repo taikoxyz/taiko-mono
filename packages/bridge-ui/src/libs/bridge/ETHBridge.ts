@@ -13,6 +13,7 @@ import { config } from '$libs/wagmi';
 import { Bridge } from './Bridge';
 import { estimateMessageGasLimit } from './estimateMessageGasLimit';
 import { feeForGasLimit } from './messageFeeInvariant';
+import { assertNoViolations, checkETHMessage } from './messageInvariants';
 import type { ETHBridgeArgs, Message } from './types';
 
 const log = getLogger('bridge:ETHBridge');
@@ -74,6 +75,20 @@ export class ETHBridge extends Bridge {
     };
 
     log('Preparing transaction with message', message);
+
+    // Refuse a message the bridge is guaranteed to reject, while the reason is still
+    // something we can name
+    assertNoViolations(
+      checkETHMessage({
+        to: message.to,
+        destOwner: message.destOwner,
+        srcChainId,
+        destChainId,
+        gasLimit: message.gasLimit,
+        fee: message.fee,
+      }),
+      'This ETH transfer',
+    );
 
     return { bridgeContract, message };
   }

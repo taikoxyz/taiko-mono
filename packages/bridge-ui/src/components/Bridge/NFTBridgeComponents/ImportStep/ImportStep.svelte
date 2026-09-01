@@ -32,7 +32,9 @@
   export const resetManualImport = () => manualImportComponent?.reset();
 
   const nextPage = async () => {
-    await scanForNFTs(false);
+    // Another page adds to what is already on screen, so a selection made on an earlier
+    // page still describes an NFT the user can see and bridge
+    await scanForNFTs(false, { keepSelection: true });
   };
 
   /**
@@ -40,10 +42,13 @@
    * rather than throwing: nothing failed, so an error toast would be wrong, but the
    * caller must not read the resolved promise as "the wallet holds no NFTs" either.
    */
-  const scanForNFTs = async (refresh: boolean): Promise<boolean> => {
+  const scanForNFTs = async (refresh: boolean, { keepSelection = false } = {}): Promise<boolean> => {
     scanning = true;
     try {
-      $selectedNFTs = [];
+      // A fresh scan replaces the list, so the selection goes with it. Pagination does
+      // not, and clearing there dropped the user's selection on every "load more" - and
+      // on a failed page fetch, which keeps the earlier pages on screen deliberately
+      if (!keepSelection) $selectedNFTs = [];
       const accountAddress = $account?.address;
       const srcChainId = $srcChain?.id;
       const destChainId = $destChain?.id;

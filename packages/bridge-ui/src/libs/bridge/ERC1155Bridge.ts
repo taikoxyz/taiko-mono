@@ -20,6 +20,7 @@ import { config } from '$libs/wagmi';
 import { Bridge } from './Bridge';
 import { estimateMessageGasLimit } from './estimateMessageGasLimit';
 import { feeForGasLimit } from './messageFeeInvariant';
+import { assertNoViolations, checkERC1155Message } from './messageInvariants';
 import type { ERC1155BridgeArgs, NFTApproveArgs, NFTBridgeTransferOp, RequireApprovalArgs } from './types';
 
 const log = getLogger('ERC1155Bridge');
@@ -223,6 +224,23 @@ export class ERC1155Bridge extends Bridge {
     };
 
     log('Preparing transaction with args', sendERC1155Args);
+
+    // Refuse a message the bridge is guaranteed to reject, while the reason is still
+    // something we can name
+    assertNoViolations(
+      checkERC1155Message({
+        to: sendERC1155Args.to,
+        destOwner: sendERC1155Args.destOwner,
+        srcChainId,
+        destChainId,
+        gasLimit: sendERC1155Args.gasLimit,
+        fee: sendERC1155Args.fee,
+        tokenAddress: sendERC1155Args.token,
+        tokenIds: sendERC1155Args.tokenIds,
+        amounts: sendERC1155Args.amounts,
+      }),
+      'This NFT transfer',
+    );
 
     return { tokenVaultContract, sendERC1155Args };
   }

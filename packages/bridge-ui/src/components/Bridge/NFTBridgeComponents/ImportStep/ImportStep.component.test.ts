@@ -1,0 +1,122 @@
+/**
+ * Loading another page of scanned NFTs must not drop the selection.
+ *
+ * `nextPage` and a fresh scan shared one code path that cleared `$selectedNFTs` up front,
+ * so selecting an NFT and then loading more pages silently deselected it - and so did a
+ * page fetch that failed, which deliberately keeps the pages already on screen.
+ */
+import { get } from 'svelte/store';
+import { vi } from 'vitest';
+
+window.matchMedia = vi.fn().mockReturnValue({
+  matches: true,
+  addEventListener: vi.fn(),
+  removeEventListener: vi.fn(),
+}) as never;
+
+vi.mock('svelte-i18n', async () => {
+  const { readable } = await import('svelte/store');
+  return { t: readable((key: string) => key), locale: readable('en'), init: vi.fn(), addMessages: vi.fn() };
+});
+vi.mock('@wagmi/core');
+
+// Chrome only, and it needs a populated chainConfig the test environment does not generate
+vi.mock('$components/ChainSelectors', async () => ({
+  ChainSelector: (await import('../../../../tests/StubComponent.svelte')).default,
+  ChainSelectorType: { COMBINED: 'COMBINED' },
+}));
+
+const fetchNFTs = vi.fn();
+vi.mock('$libs/bridge/fetchNFTs', () => ({
+  fetchNFTs: (...args: unknown[]) => fetchNFTs(...args),
+}));
+
+import { destNetwork as destChain, selectedNFTs } from '$components/Bridge/state';
+import { account } from '$stores/account';
+import { connectedSourceChain as srcChain } from '$stores/network';
+
+import ImportStep from './ImportStep.svelte';
+
+const NFT_A = { tokenId: 1, name: 'A', addresses: {} } as never;
+const NFT_B = { tokenId: 2, name: 'B', addresses: {} } as never;
+
+let target: HTMLElement;
+let component: { $destroy: () => void } | null = null;
+
+const flush = async () => {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+};
+
+const buttonWith = (text: string) =>
+  Array.from(target.querySelectorAll('button')).find((b) => b.textContent?.includes(text));
+
+beforeEach(() => {
+  fetchNFTs.mockReset();
+  selectedNFTs.set([]);
+  account.set({ address: '0xaaaa', isConnected: true } as never);
+  srcChain.set({ id: 1 } as never);
+  destChain.set({ id: 2 } as never);
+  target = document.createElement('div');
+  document.body.appendChild(target);
+  component = new ImportStep({ target, props: {} });
+});
+
+afterEach(() => {
+  component?.$destroy();
+  component = null;
+  target.remove();
+});
+
+/** Runs the initial scan so the scanned view, and its "load more" button, are on screen */
+const scan = async (nfts: unknown[]) => {
+  fetchNFTs.mockResolvedValue({ nfts, error: null });
+  buttonWith('bridge.actions.nft_scan')?.click();
+  await flush();
+  await flush();
+};
+
+describe('scanned NFT pagination', () => {
+  it('keeps the selection when another page loads', async () => {
+    await scan([NFT_A]);
+    // The selection is made on the page already on screen
+    selectedNFTs.set([NFT_A]);
+
+    fetchNFTs.mockResolvedValue({ nfts: [NFT_A, NFT_B], error: null });
+    const more = buttonWith('paginator.more');
+    expect(more).toBeTruthy();
+    more?.click();
+    await flush();
+    await flush();
+
+    // Clearing here deselected an NFT that is still on screen and still selectable
+    expect(get(selectedNFTs)).toEqual([NFT_A]);
+  });
+
+  it('keeps the selection when a page fetch fails', async () => {
+    await scan([NFT_A]);
+    selectedNFTs.set([NFT_A]);
+
+    fetchNFTs.mockResolvedValue({ nfts: [], error: new Error('relayer down') });
+    buttonWith('paginator.more')?.click();
+    await flush();
+    await flush();
+
+    // The earlier pages are deliberately kept on screen, so their selection stays valid
+    expect(get(selectedNFTs)).toEqual([NFT_A]);
+  });
+
+  it('still clears the selection on a fresh scan', async () => {
+    await scan([NFT_A]);
+    selectedNFTs.set([NFT_A]);
+
+    // A rescan replaces the list, so a selection from the old one has nothing behind it.
+    // The refresh control is the scanned header's icon-only circular button
+    const refresh = target.querySelector('button.btn-circle') as HTMLButtonElement | null;
+    expect(refresh).toBeTruthy();
+    refresh?.click();
+    await flush();
+    await flush();
+
+    expect(get(selectedNFTs)).toEqual([]);
+  });
+});
