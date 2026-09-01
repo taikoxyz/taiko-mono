@@ -23,6 +23,10 @@ export type TokenIdParseResult = {
  *      import then ran an ownership check over an empty id list - which every() answers
  *      `true` for.
  *
+ *      More entries than the flow can carry is refused for the same reason. Trimming to
+ *      the first `limit` reported the list as valid while quietly discarding the rest, so
+ *      pasting two ids into a field that carries one bridged the first without saying so.
+ *
  * @param raw The raw input text
  * @param limit The most ids the flow can carry
  * @return result_ The ids to display, the ids that may be used, and whether the field is empty
@@ -40,7 +44,8 @@ export function parseTokenIds(raw: string, limit: number): TokenIdParseResult {
 
   const allEntriesWellFormed = wellFormed.length === entries.length;
   const allInSafeRange = wellFormed.every((num) => Number.isSafeInteger(num) && num >= 0);
-  const valid = allEntriesWellFormed && ids.length > 0 && allInSafeRange;
+  const withinLimit = entries.length <= limit;
+  const valid = allEntriesWellFormed && withinLimit && ids.length > 0 && allInSafeRange;
 
   return { ids, validIds: valid ? ids : [], empty: false };
 }

@@ -52,6 +52,9 @@ const openCustom = async () => {
 
 const feeInput = () => target.querySelector('input[type="number"]') as HTMLInputElement;
 
+/** The dialog only explains a bad custom fee through this alert */
+const errorShown = () => (target.textContent ?? '').includes('processing_fee.invalid_custom_fee');
+
 const confirmButton = () =>
   Array.from(target.querySelectorAll('button')).find((b) =>
     b.textContent?.includes('common.confirm'),
@@ -149,7 +152,33 @@ describe('custom processing fee', () => {
     await acknowledge();
     await type('');
 
+    // Not an error to report...
+    expect(errorShown()).toBe(false);
+    // ...but there is no fee in it to confirm either
+    expect(confirmButton().disabled).toBe(true);
+  });
+
+  it('does not submit the previous fee after the box is cleared', async () => {
+    await openCustom();
+    await acknowledge();
+    await type('0.002');
     expect(confirmButton().disabled).toBe(false);
+
+    await type('');
+
+    // tempprocessingFee still holds 0.002, so leaving Confirm enabled here bridged a fee
+    // the box no longer shows - the same "what you see is what you bridge" break the
+    // amount inputs had
+    expect(confirmButton().disabled).toBe(true);
+  });
+
+  it('says why an unparseable fee is blocked', async () => {
+    await openCustom();
+    await acknowledge();
+    await type('1e5');
+
+    expect(confirmButton().disabled).toBe(true);
+    expect(errorShown()).toBe(true);
   });
 
   it('clears the invalid draft across a CUSTOM -> RECOMMENDED -> CUSTOM round trip', async () => {
@@ -164,9 +193,14 @@ describe('custom processing fee', () => {
     await tick();
 
     // The round trip recreates an empty input, so the error belonging to the discarded
-    // draft must not still be blocking it
-    // The acknowledgement from before the round trip is still checked
+    // draft must not still be reported against it
     expect(feeInput().value).toBe('');
+    expect(errorShown()).toBe(false);
+
+    // Confirm is still blocked, but by the empty box rather than by the retired error:
+    // typing a valid fee releases it, which it could not do if the error had persisted
+    expect(confirmButton().disabled).toBe(true);
+    await type('0.002');
     expect(confirmButton().disabled).toBe(false);
   });
 

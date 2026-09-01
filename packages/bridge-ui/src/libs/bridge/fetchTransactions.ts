@@ -17,7 +17,7 @@ async function fetchAllRelayerPages(
   relayerApiService: (typeof relayerApiServices)[number],
   userAddress: Address,
   chainId?: number,
-): Promise<BridgeTransaction[]> {
+): Promise<{ txs: BridgeTransaction[]; error?: Error }> {
   const txs: BridgeTransaction[] = [];
 
   for (let page = 0; page < MAX_RELAYER_PAGES; page++) {
@@ -34,7 +34,9 @@ async function fetchAllRelayerPages(
       // not blank it. With nothing fetched yet the caller still needs to hear about it.
       if (txs.length === 0) throw error;
       log(`relayer page ${page} failed, returning ${txs.length} transactions already fetched`, error);
-      break;
+      // Degrading is fine; degrading in silence is not. A partial history that looks
+      // complete is the one outcome the user cannot tell apart from a correct one
+      return { txs, error: error as Error };
     }
     txs.push(...pageTxs);
 
@@ -43,7 +45,7 @@ async function fetchAllRelayerPages(
       log(`relayer history truncated at ${MAX_RELAYER_PAGES} pages for ${userAddress}`);
     }
   }
-  return txs;
+  return { txs };
 }
 
 export async function fetchTransactions(userAddress: Address, chainId?: number) {
@@ -55,10 +57,10 @@ export async function fetchTransactions(userAddress: Address, chainId?: number) 
   const localTxs: BridgeTransaction[] = await bridgeTxService.getAllTxByAddress(userAddress);
 
   // Get all transactions from all relayers
-  const relayerTxPromises: Promise<BridgeTransaction[]>[] = relayerApiServices.map(async (relayerApiService) => {
-    const txs = await fetchAllRelayerPages(relayerApiService, userAddress, chainId);
-    log(`fetched ${txs?.length ?? 0} transactions from relayer`, txs);
-    return txs;
+  const relayerTxPromises = relayerApiServices.map(async (relayerApiService) => {
+    const result = await fetchAllRelayerPages(relayerApiService, userAddress, chainId);
+    log(`fetched ${result.txs?.length ?? 0} transactions from relayer`, result.txs);
+    return result;
   });
 
   // allSettled, not all: relayers are independent sources, and one of them failing on its
@@ -69,7 +71,13 @@ export async function fetchTransactions(userAddress: Address, chainId?: number) 
   const relayerTxsArrays: BridgeTransaction[][] = [];
   for (const result of relayerResults) {
     if (result.status === 'fulfilled') {
-      relayerTxsArrays.push(result.value);
+      relayerTxsArrays.push(result.value.txs);
+      // A relayer that answered some pages and then failed still reports that failure,
+      // so a partial history is not presented as a complete one
+      if (result.value.error) {
+        log('a relayer stopped part-way through its pages', result.value.error);
+        error ??= result.value.error;
+      }
       continue;
     }
     log('error fetching transactions from a relayer', result.reason);

@@ -69,8 +69,11 @@ class MoralisNFTRepository implements INFTRepository {
   private async fetchNextPage({ address, chainId, refresh = false }: FetchNftArgs): Promise<NFT[]> {
     const state = this.getState(address, chainId, refresh);
 
+    // A copy, not the array itself. This is a server-side singleton shared by every
+    // request, so handing out the stored array lets any caller's mutation rewrite one
+    // wallet's cached pages for everyone who asks next
     if (state.hasFetchedAll) {
-      return state.nfts;
+      return [...state.nfts];
     }
 
     try {
@@ -88,7 +91,7 @@ class MoralisNFTRepository implements INFTRepository {
 
       const mappedData = response.result.map((nft) => mapToNFTFromMoralis(nft as unknown as NFTApiData, chainId));
       state.nfts = [...state.nfts, ...mappedData];
-      return state.nfts;
+      return [...state.nfts];
     } catch (e) {
       console.error('Failed to fetch NFTs from Moralis:', e);
       // The accumulated pages and the cursor stay in `state`, so the failed page is

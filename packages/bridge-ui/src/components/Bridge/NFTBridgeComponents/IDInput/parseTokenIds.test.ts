@@ -64,8 +64,11 @@ describe('parseTokenIds', () => {
   });
 
   describe('limit', () => {
-    it('caps the displayed ids at the limit', () => {
-      expect(parseTokenIds('1,2,3', 2)).toEqual({ ids: [1, 2], validIds: [1, 2], empty: false });
+    it('refuses a list longer than the limit instead of trimming it', () => {
+      // Trimming reported the list as valid while discarding the rest, so pasting two ids
+      // into a field that carries one bridged the first without saying so
+      expect(parseTokenIds('1,2,3', 2)).toEqual({ ids: [1, 2], validIds: [], empty: false });
+      expect(parseTokenIds('1,2', 1).validIds).toEqual([]);
     });
 
     it('accepts a list exactly at the limit', () => {

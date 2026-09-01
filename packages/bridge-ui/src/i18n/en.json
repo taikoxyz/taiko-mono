@@ -421,6 +421,7 @@
         "message": "This will prevent any relayer from claiming for you, you will have to claim manually. Do not use this option if you are not 100% sure what you are doing. "
       }
     },
+    "invalid_custom_fee": "Enter a plain decimal amount in ETH",
     "link": "Customize fee",
     "none": {
       "alert": "Setting the processing fee to 'None' will require manual claiming.  No relayer will claim for you.",

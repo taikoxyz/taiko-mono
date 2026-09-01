@@ -78,9 +78,11 @@ describe('fetchTransactions', () => {
 
     const { mergedTransactions, error } = await fetchTransactions(ADDRESS);
 
-    // The first page survives and the fetch is not reported as a total failure
+    // The first page survives...
     expect(mergedTransactions.map((transaction) => transaction.srcTxHash)).toEqual(['0xa']);
-    expect(error).toBeUndefined();
+    // ...and the caller is told the history is partial. Degrading is fine; degrading in
+    // silence leaves a partial list looking exactly like a complete one
+    expect(error).toBeInstanceOf(Error);
   });
 
   it('reports the error when the very first page fails', async () => {

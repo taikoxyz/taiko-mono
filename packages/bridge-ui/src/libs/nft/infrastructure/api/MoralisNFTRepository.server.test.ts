@@ -171,6 +171,26 @@ describe('MoralisNFTRepository.server', () => {
     expect(getWalletNFTs).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: 'cursor-page2' }));
   });
 
+  it('hands out a copy, so a caller cannot rewrite the cached pages', async () => {
+    getWalletNFTs.mockResolvedValueOnce(moralisPage([1, 2], 'cursor-next'));
+    const first = await repository.findByAddress({ address: ADDRESS_A, chainId: CHAIN_ID, refresh: true });
+    expect(first).toHaveLength(2);
+
+    // This is a server-side singleton shared by every request, so a caller mutating what
+    // it returns would rewrite one wallet's cached pages for everyone who asks next
+    first.length = 0;
+    first.push({ tokenId: 999, chainId: CHAIN_ID } as never);
+
+    getWalletNFTs.mockResolvedValueOnce(moralisPage([3], null));
+    const second = await repository.findByAddress({ address: ADDRESS_A, chainId: CHAIN_ID, refresh: false });
+
+    expect(second).toEqual([
+      { tokenId: 1, chainId: CHAIN_ID },
+      { tokenId: 2, chainId: CHAIN_ID },
+      { tokenId: 3, chainId: CHAIN_ID },
+    ]);
+  });
+
   describe('cache eviction', () => {
     /** A distinct wallet address for index n */
     const walletN = (n: number) => `0x${n.toString(16).padStart(40, '0')}` as Address;
