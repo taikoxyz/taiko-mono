@@ -27,7 +27,7 @@
   import type { ERC1155Bridge } from '$libs/bridge/ERC1155Bridge';
   import { getBridgeArgs } from '$libs/bridge/getBridgeArgs';
   import { handleBridgeError } from '$libs/bridge/handleBridgeErrors';
-  import { BridgePausedError, FailedTransactionError } from '$libs/error';
+  import { BridgePausedError, ReceiptUnavailableError, TransactionTimeoutError } from '$libs/error';
   import { bridgeTxService } from '$libs/storage';
   import { TokenType } from '$libs/token';
   import { ApprovalStatus } from '$libs/token/getTokenApprovalStatus';
@@ -129,7 +129,11 @@
    * @param error What pendingTransactions.add rejected with
    * @return gaveUp_ Whether the transaction's fate is simply unknown
    */
-  const waitGaveUp = (error: unknown) => !(error instanceof FailedTransactionError);
+  const waitGaveUp = (error: unknown) =>
+    // Named rather than inferred from "not a failure". These two are the only rejections
+    // that mean the wait gave up; anything else here is unexpected, and reporting it as
+    // "your transaction may still confirm" would bury a real error behind a reassurance.
+    error instanceof TransactionTimeoutError || error instanceof ReceiptUnavailableError;
 
   const handleTimeout = (txHash: Hex) => {
     const currentChain = $connectedSourceChain?.id;
