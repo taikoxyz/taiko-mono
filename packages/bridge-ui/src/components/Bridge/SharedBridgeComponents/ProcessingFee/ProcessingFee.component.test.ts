@@ -10,6 +10,10 @@ import { tick } from 'svelte';
 import { get } from 'svelte/store';
 import { vi } from 'vitest';
 
+// The real RecommendedFee polls the chain and pushes the answer up through bind:amount.
+// The stub exposes that push so a refresh can be fired at a chosen moment.
+vi.mock('./RecommendedFee.svelte', async () => await import('../../../../tests/RecommendedFeeStub.svelte'));
+
 vi.mock('svelte-i18n', async () => {
   const { readable } = await import('svelte/store');
   return { t: readable((key: string) => key), locale: readable('en'), init: vi.fn(), addMessages: vi.fn() };
@@ -18,6 +22,7 @@ vi.mock('svelte-i18n', async () => {
 import { gasLimitZero, processingFee, processingFeeMethod } from '$components/Bridge/state';
 import { ProcessingFeeMethod } from '$libs/fee';
 
+import { stubRecommendedAmount } from '../../../../tests/RecommendedFeeStub.svelte';
 import ProcessingFee from './ProcessingFee.svelte';
 
 let target: HTMLElement;
@@ -129,6 +134,31 @@ describe('zero gas limit', () => {
     await tick();
 
     expect(get(processingFeeMethod)).toBe(ProcessingFeeMethod.RECOMMENDED);
+  });
+
+  it('does not let a fee refresh commit the custom draft while the dialog is open', async () => {
+    // Commit 0.002 first
+    await openCustom();
+    await acknowledge();
+    await type('0.002');
+    confirmButton().click();
+    await tick();
+    expect(get(processingFee)).toBe(BigInt('2000000000000000'));
+
+    // Reopen on the committed fee and type a replacement without confirming it
+    await openCustom();
+    await type('0.01');
+
+    // RecommendedFee refreshes on an interval while mounted; the update reactive re-runs on
+    // every tick of it, and the CUSTOM branch wrote the live draft straight to the store
+    stubRecommendedAmount.set(BigInt('123'));
+    await tick();
+    expect(get(processingFee)).toBe(BigInt('2000000000000000'));
+
+    // Cancel resyncs the draft from the store, so a leak here would have been permanent
+    cancelButton().click();
+    await tick();
+    expect(get(processingFee)).toBe(BigInt('2000000000000000'));
   });
 
   it('does not commit the zero-gas-limit choice when the dialog is cancelled', async () => {

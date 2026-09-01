@@ -37,15 +37,16 @@ export class BridgeTxService {
     srcChainId,
     destChainId,
     blockNumber,
+    srcTxHash,
   }: {
     userAddress: Address;
     srcChainId: number;
     destChainId: number;
     blockNumber: number;
+    srcTxHash: Hash;
   }) {
-    // Gets the event MessageSent from the bridge contract
-    // in the block where the transaction was mined, and find
-    // our event MessageSent whose owner is the address passed in
+    // Gets the event MessageSent from the bridge contract in the block where the
+    // transaction was mined, and finds the one this transaction emitted
 
     const bridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
     const client = await getPublicClient(config, { chainId: srcChainId });
@@ -65,8 +66,17 @@ export class BridgeTxService {
         toBlock: BigInt(blockNumber),
       });
 
-      // Filter out those events that are not from the current address
-      return messageSentEvents.find(({ args }) => args.message?.srcOwner.toLowerCase() === userAddress.toLowerCase());
+      // Matched on the transaction that emitted it, not on the block and sender alone. Two
+      // bridge sends from one address in the same block share both, so every row enhanced
+      // from that block took the first event's msgHash - duplicate keys in the transaction
+      // list, which is the crash bridgeTxKey exists to prevent, and a merge that can retire
+      // the wrong record. The relayer-side sibling reads the receipt's own logs and is
+      // transaction-scoped for free; this one has to say so.
+      return messageSentEvents.find(
+        (event) =>
+          event.transactionHash?.toLowerCase() === srcTxHash.toLowerCase() &&
+          event.args.message?.srcOwner.toLowerCase() === userAddress.toLowerCase(),
+      );
     } catch (error) {
       console.error('Error getting MessageSent logs', error);
       throw new FilterLogsError('Error getting logs via filter');
@@ -188,6 +198,7 @@ export class BridgeTxService {
         srcChainId: Number(srcChainId),
         destChainId: Number(destChainId),
         blockNumber: Number(receipt.blockNumber),
+        srcTxHash,
       });
     } catch (error) {
       //TODO: handle error

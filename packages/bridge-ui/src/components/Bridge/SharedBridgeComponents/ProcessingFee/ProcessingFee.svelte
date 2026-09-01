@@ -125,9 +125,10 @@
     // Nothing committed, so nothing to restore - the draft simply goes
     tempGasLimitZero = $gasLimitZero;
 
-    if (tempProcessingFeeMethod === ProcessingFeeMethod.CUSTOM) {
-      tempprocessingFee = $processingFee;
-    }
+    // Unconditionally, not only while the CUSTOM radio happens to be selected: the draft is
+    // discarded whatever method the dialog was left on, and leaving it behind meant the
+    // next open of a custom fee started from an abandoned amount
+    tempprocessingFee = $processingFee;
     closeModal();
   }
 
@@ -158,6 +159,12 @@
 
         break;
       case ProcessingFeeMethod.CUSTOM:
+        // Confirm is the only thing that may commit the draft. This reactive re-runs on
+        // every recommended-fee refresh, and tempprocessingFee is the live draft being
+        // typed, so a refresh landing mid-edit committed a fee nobody confirmed - and then
+        // Cancel resynced the draft from the store, making the leak permanent. Skipping it
+        // while the dialog is open also stops the refresh stealing focus back to the box.
+        if (modalOpen) break;
         $processingFee = tempprocessingFee;
         // We need to wait for Svelte to set the attribute `disabled` on the input
         // to false to be able to focus it

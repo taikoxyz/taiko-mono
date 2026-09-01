@@ -176,6 +176,13 @@
   const reset = async () => {
     log('reset');
     const tokenForThisReset = $selectedToken;
+    // Recorded here rather than after the balance read: this is selection bookkeeping, not
+    // fetch-success bookkeeping. A reset superseded by a concurrent balance refresh returned
+    // below without recording its token, so switching back to the previous one found
+    // `$selectedToken === previousSelectedToken` and skipped the reset entirely - keeping
+    // the other token's typed amount, its raw units and its balance, and validating the
+    // transfer against them.
+    previousSelectedToken = tokenForThisReset;
     $computingBalance = true;
     value = '';
     amountRejected = false;
@@ -191,7 +198,6 @@
       // last read standing always turns it off.
       if (!published) return;
       log('tokenBalance', $tokenBalance);
-      previousSelectedToken = tokenForThisReset;
     } else {
       balance = '0.00';
     }
