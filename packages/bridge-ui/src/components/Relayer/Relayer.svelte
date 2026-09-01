@@ -8,6 +8,7 @@
   import Card from '$components/Card/Card.svelte';
   import { warningToast } from '$components/NotificationToast';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
+  import { getLoadWarning } from '$components/Transactions/loadWarning';
   import { FungibleTransactionRow, NftTransactionRow } from '$components/Transactions/Rows';
   import { type BridgeTransaction, fetchTransactions, MessageStatus } from '$libs/bridge';
   import { bridgeTxKey } from '$libs/bridge/bridgeTxIdentity';
@@ -60,17 +61,21 @@
       if (addressToSearch) {
         // Cast, not a check: the Search button is disabled until addressState is VALID,
         // so nothing reaches here that the address input has not already validated
-        const { mergedTransactions, error } = await fetchTransactions(addressToSearch as Address);
+        const { mergedTransactions, error, failedCount } = await fetchTransactions(addressToSearch as Address);
         if (generation !== searchGeneration) return;
         log('mergedTransactions', mergedTransactions);
         // Also assign empty results: the previous address's transactions must not linger
         transactions = mergedTransactions;
-        // A relayer failure is reported, not thrown, so the catch below never sees it.
-        // Without this the search just showed an empty table and said nothing - the same
-        // outcome as an address that genuinely has no transactions
-        if (error) {
-          console.error('Error fetching transactions', error);
-          warningToast({ title: $t(loadFailureMessageKey(error)) });
+        // Neither signal reaches the catch below: a relayer failure is reported rather than
+        // thrown, and a message the relayer returned but could not be read on-chain is simply
+        // absent from the list with nothing to mark it. Without both, a failed search looked
+        // like an address with no transactions and a partial one like a complete short history.
+        // The same decision as the transactions page, taken in the same place, so the two
+        // cannot drift.
+        const warning = getLoadWarning({ error, failedCount });
+        if (warning) {
+          if (error) console.error('Error fetching transactions', error);
+          warningToast({ title: $t(warning.key, { values: warning.values }) });
         }
       }
     } catch (error) {

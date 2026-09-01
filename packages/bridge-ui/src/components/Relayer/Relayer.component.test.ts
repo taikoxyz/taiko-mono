@@ -1,9 +1,11 @@
 /**
- * The manual-claim search has to say when a relayer failed.
+ * The manual-claim search has to say when transactions are missing from its results.
  *
- * fetchTransactions reports a relayer failure by returning an `error` rather than
- * throwing, so the component's catch never sees it. Reading only `mergedTransactions`
- * left a failed search looking exactly like an address with no transactions.
+ * Neither signal reaches the component's catch. fetchTransactions reports a relayer failure
+ * by returning an `error` rather than throwing, and a message the relayer returned but whose
+ * on-chain reads failed is simply absent from `mergedTransactions`. Reading only
+ * `mergedTransactions` left a failed search looking exactly like an address with no
+ * transactions, and a partial one like a complete but shorter history.
  */
 import { tick } from 'svelte';
 import { vi } from 'vitest';
@@ -16,7 +18,11 @@ window.matchMedia = vi.fn().mockReturnValue({
 
 vi.mock('svelte-i18n', async () => {
   const { readable } = await import('svelte/store');
-  return { t: readable((key: string) => key), locale: readable('en'), init: vi.fn(), addMessages: vi.fn() };
+  // Interpolated values are folded into the returned string so the assertions below can see
+  // the count, not just the key it was passed with. A key used without values is unchanged.
+  const translate = (key: string, options?: { values?: Record<string, unknown> }) =>
+    options?.values ? `${key}:${JSON.stringify(options.values)}` : key;
+  return { t: readable(translate), locale: readable('en'), init: vi.fn(), addMessages: vi.fn() };
 });
 vi.mock('@wagmi/core');
 
@@ -118,6 +124,41 @@ describe('manual claim search', () => {
     await search();
 
     expect(warningToast).toHaveBeenCalledWith({ title: 'transactions.errors.relayer_offline' });
+  });
+
+  it('reports the messages the relayer answered for but could not load', async () => {
+    // The relayer itself is fine here, so `error` is undefined and the old `if (error)` branch
+    // said nothing. The rows those messages would have become are missing from the table with
+    // nothing to distinguish the result from an address that has exactly this many
+    // transactions - the one outcome the user cannot tell apart from a correct one.
+    fetchTransactions.mockResolvedValue({
+      mergedTransactions: [],
+      outdatedLocalTransactions: [],
+      error: undefined,
+      failedCount: 3,
+    });
+
+    await search();
+
+    expect(warningToast).toHaveBeenCalledWith({ title: 'transactions.errors.partial_load:{"count":3}' });
+  });
+
+  it('reports a dead relayer and lost messages together, in one toast', async () => {
+    // Routine combination: one relayer rejects while another answers and loses rows to
+    // rate-limited on-chain reads. Reporting only the relayer would swallow the count.
+    fetchTransactions.mockResolvedValue({
+      mergedTransactions: [],
+      outdatedLocalTransactions: [],
+      error: new Error('relayer down'),
+      failedCount: 2,
+    });
+
+    await search();
+
+    expect(warningToast).toHaveBeenCalledTimes(1);
+    expect(warningToast).toHaveBeenCalledWith({
+      title: 'transactions.errors.relayer_offline_and_partial_load:{"count":2}',
+    });
   });
 });
 
