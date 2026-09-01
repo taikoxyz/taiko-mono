@@ -20,13 +20,6 @@ type PaginationState = {
 // keyed per wallet+chain — module-level cursor/nft state would leak one user's NFTs to another.
 export const MAX_CACHED_WALLETS = 500;
 
-/**
- * How long a queued request waits for the one ahead of it before going anyway. The queue
- * exists to stop two concurrent calls reading the same cursor, which is worth a short
- * wait; it is not worth blocking a wallet's requests indefinitely behind one hung fetch.
- */
-export const QUEUE_WAIT_TIMEOUT_MS = 30_000;
-
 class MoralisNFTRepository implements INFTRepository {
   private static instance: MoralisNFTRepository;
   private static isInitialized = false;
@@ -62,13 +55,13 @@ class MoralisNFTRepository implements INFTRepository {
     // Serialize requests per wallet+chain: concurrent calls would read the same cursor,
     // fetch the same page twice, and append duplicates to the shared pagination state
     const previous = this.requestQueueByWallet.get(key) ?? Promise.resolve([]);
-    // Bounded: a Moralis call that never settles would otherwise hold every later request
-    // for this wallet behind it for the life of the process
-    const previousSettled = Promise.race([
-      previous.catch(() => []),
-      new Promise((resolve) => setTimeout(resolve, QUEUE_WAIT_TIMEOUT_MS)),
-    ]);
-    const request = previousSettled.then(() => this.fetchNextPage({ address, chainId, refresh }));
+    // Strictly serialized, with no timeout escape. A previous attempt raced the wait
+    // against a timer so a hung fetch could not block later requests - but proceeding on
+    // that timer runs two fetchNextPage calls against the same PaginationState, which
+    // reads one cursor twice and appends the page twice. That is the exact corruption
+    // this queue exists to prevent, so a hung request holding the queue is the lesser
+    // failure: it degrades one wallet's requests rather than duplicating its NFTs.
+    const request = previous.catch(() => []).then(() => this.fetchNextPage({ address, chainId, refresh }));
     this.requestQueueByWallet.set(key, request);
 
     const releaseSlot = () => {

@@ -152,8 +152,19 @@
    */
   const publishLatestBalance = async (token: Token | NFT, userAddress: Address, srcChainId?: number) => {
     const generation = ++balanceGeneration;
-    const fetched = await fetchBalance({ userAddress, token, srcChainId });
+    let fetched: Awaited<ReturnType<typeof fetchBalance>>;
+    try {
+      fetched = await fetchBalance({ userAddress, token, srcChainId });
+    } catch (error) {
+      // A rejection here would otherwise escape as an unhandled rejection and leave the
+      // computing flag raised for good. Reporting the read as settled hands the caller
+      // back the job of lowering it; the balance itself is simply left as it was.
+      log('Error fetching balance', error);
+      $errorComputingBalance = true;
+      return generation === balanceGeneration;
+    }
     if (generation !== balanceGeneration) return false;
+    $errorComputingBalance = false;
     $tokenBalance = fetched;
     return true;
   };

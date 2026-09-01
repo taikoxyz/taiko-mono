@@ -43,7 +43,13 @@ vi.mock('$libs/util/balance', () => ({
   renderEthBalance: () => '0 ETH',
 }));
 
-import { computingBalance, enteredAmount, selectedToken, tokenBalance } from '$components/Bridge/state';
+import {
+  computingBalance,
+  enteredAmount,
+  errorComputingBalance,
+  selectedToken,
+  tokenBalance,
+} from '$components/Bridge/state';
 import { TokenType } from '$libs/token';
 import { account } from '$stores/account';
 
@@ -168,6 +174,22 @@ describe('fungible amount input', () => {
 
       // Whatever the interleaving, the balance on screen belongs to the selected token
       expect(get(tokenBalance)).toEqual({ value: BigInt(5), decimals: 18, symbol: 'FAST', formatted: '5' });
+    });
+
+    it('stops computing when the balance read fails', async () => {
+      account.set({ address: '0xaaaa', isConnected: true, chainId: 1 } as never);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await tick();
+
+      const token = { type: TokenType.ERC20, symbol: 'X', name: 'X', decimals: 18, addresses: {} };
+      fetchBalance.mockRejectedValueOnce(new Error('rpc down'));
+      selectedToken.set(token as never);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await tick();
+
+      // Without a catch this escapes as an unhandled rejection and the spinner never stops
+      expect(get(computingBalance)).toBe(false);
+      expect(get(errorComputingBalance)).toBe(true);
     });
 
     it('stops computing when an account change supersedes an in-flight reset', async () => {
