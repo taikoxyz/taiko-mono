@@ -39,8 +39,11 @@ const PLAIN_DECIMAL = /^(?:\d+(?:\.\d*)?|\.\d+)$/;
  * @return result_ The parsed base-unit amount, or the reason it was refused
  */
 export function parseDecimalAmount(raw: string, decimals: number): AmountParseResult {
+  // A box holding nothing but spaces is a box nobody has filled in, not a mistake to
+  // report - the same answer parseTokenIds gives for the same input. Padding *around* a
+  // value is still refused below, since ' 5 ' is a value that was typed carelessly
+  if (raw.trim() === '' || raw === '.') return { ok: false, reason: 'EMPTY' };
   if (raw !== raw.trim()) return { ok: false, reason: 'NOT_DECIMAL' };
-  if (raw === '' || raw === '.') return { ok: false, reason: 'EMPTY' };
   if (raw.startsWith('-')) return { ok: false, reason: 'NEGATIVE' };
   if (!PLAIN_DECIMAL.test(raw)) return { ok: false, reason: 'NOT_DECIMAL' };
 

@@ -36,6 +36,9 @@ describe('Bridge.sendMessage rules', () => {
 
   it('rejects a missing or same-chain destination', () => {
     expect(checkETHMessage(common({ destChainId: null }))).toContain('MISSING_DEST_CHAIN');
+    expect(checkETHMessage(common({ srcChainId: null }))).toContain('MISSING_SRC_CHAIN');
+    // The same-chain rule is a comparison, so an absent source chain quietly satisfies it
+    expect(checkETHMessage(common({ srcChainId: null, destChainId: null }))).toContain('MISSING_SRC_CHAIN');
     expect(checkETHMessage(common({ srcChainId: 1, destChainId: 1 }))).toContain('SAME_CHAIN');
   });
 

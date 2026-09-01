@@ -31,10 +31,19 @@
   /** Clears the manual import form; a no-op when it is not mounted */
   export const resetManualImport = () => manualImportComponent?.reset();
 
-  const nextPage = async () => {
+  /**
+   * @returns whether the page actually added anything. ScannedImport used to answer that
+   * by reading its own bound `foundNFTs` after awaiting this, which is the parent's array
+   * arriving through a prop update - a value that has not necessarily been flushed to the
+   * child yet. Reading it here, where it is owned, removes the ordering question, and
+   * getting this wrong retires the "load more" button for good.
+   */
+  const nextPage = async (): Promise<boolean> => {
+    const countBefore = foundNFTs.length;
     // Another page adds to what is already on screen, so a selection made on an earlier
     // page still describes an NFT the user can see and bridge
     await scanForNFTs(false, { keepSelection: true });
+    return foundNFTs.length > countBefore;
   };
 
   /**

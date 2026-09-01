@@ -16,7 +16,8 @@
   import { selectedImportMethod } from './state';
 
   export let refresh: () => Promise<void>;
-  export let nextPage: () => Promise<void>;
+  /** Resolves to whether the page added anything; see ImportStep.nextPage */
+  export let nextPage: () => Promise<boolean>;
 
   export let foundNFTs: NFT[] = [];
 
@@ -29,10 +30,10 @@
   let tokenAmountInput: TokenAmountInput;
 
   const handleNextPage = async () => {
-    const previousCount = foundNFTs.length;
     scanning = true;
+    let addedMore: boolean;
     try {
-      await nextPage();
+      addedMore = await nextPage();
     } catch (error) {
       // A failed page keeps the button usable for a retry
       console.error('Error fetching next NFT page', error);
@@ -40,8 +41,9 @@
     } finally {
       scanning = false;
     }
-    // Only after the fetch resolves do we know whether anything new arrived
-    if (foundNFTs.length === previousCount) {
+    // The parent counted this, against the array it owns. Comparing our own bound copy
+    // here would depend on that prop update having been flushed first
+    if (!addedMore) {
       hasMoreNFTs = false;
     }
   };

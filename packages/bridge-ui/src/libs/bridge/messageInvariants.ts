@@ -28,6 +28,7 @@ export type MessageInvariantViolation =
   | 'ZERO_DEST_OWNER'
   | 'SAME_CHAIN'
   | 'MISSING_DEST_CHAIN'
+  | 'MISSING_SRC_CHAIN'
   | 'FEE_WITH_ZERO_GAS_LIMIT'
   | 'GAS_LIMIT_BELOW_MINIMUM'
   | 'ZERO_AMOUNT'
@@ -55,6 +56,9 @@ export function checkCommonMessage(message: CommonMessageFields): MessageInvaria
 
   if (isZeroAddress(message.to)) violations.push('ZERO_RECIPIENT');
   if (isZeroAddress(message.destOwner)) violations.push('ZERO_DEST_OWNER');
+  // Both chains matter, and not only for completeness: SAME_CHAIN is a comparison, and an
+  // absent source chain makes it silently pass for a message that does not cross anything
+  if (!message.srcChainId) violations.push('MISSING_SRC_CHAIN');
   if (!message.destChainId) violations.push('MISSING_DEST_CHAIN');
   else if (message.destChainId === message.srcChainId) violations.push('SAME_CHAIN');
 

@@ -24,7 +24,7 @@ vi.mock('$nftAPI/infrastructure/mappers/nft/MoralisNFTMapper', () => ({
 
 import Moralis from 'moralis';
 
-import repository from './MoralisNFTRepository.server';
+import repository, { MAX_CACHED_WALLETS } from './MoralisNFTRepository.server';
 
 const ADDRESS_A = '0x1111111111111111111111111111111111111111' as Address;
 const ADDRESS_B = '0x2222222222222222222222222222222222222222' as Address;
@@ -169,6 +169,38 @@ describe('MoralisNFTRepository.server', () => {
       { tokenId: 2, chainId: CHAIN_ID },
     ]);
     expect(getWalletNFTs).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: 'cursor-page2' }));
+  });
+
+  describe('cache eviction', () => {
+    /** A distinct wallet address for index n */
+    const walletN = (n: number) => `0x${n.toString(16).padStart(40, '0')}` as Address;
+
+    /** Leaves the wallet holding a cursor, so its pagination state is worth keeping */
+    const seed = async (address: Address, cursor: string) => {
+      getWalletNFTs.mockResolvedValueOnce(moralisPage([1], cursor));
+      await repository.findByAddress({ address, chainId: CHAIN_ID, refresh: true });
+    };
+
+    it('evicts the least recently used wallet, not the first one inserted', async () => {
+      // Given: the cache is full
+      for (let n = 0; n < MAX_CACHED_WALLETS; n++) {
+        await seed(walletN(n), `cursor-${n}`);
+      }
+
+      // And: the oldest-inserted wallet is used again, which should renew it
+      getWalletNFTs.mockResolvedValueOnce(moralisPage([2], 'cursor-0-page3'));
+      await repository.findByAddress({ address: walletN(0), chainId: CHAIN_ID, refresh: false });
+
+      // When: a new wallet arrives and forces an eviction
+      await seed(walletN(MAX_CACHED_WALLETS), 'cursor-new');
+
+      // Then: wallet 0 still has its cursor. Evicting by insertion order dropped the
+      // wallet part-way through pagination and restarted it from the first page
+      getWalletNFTs.mockResolvedValueOnce(moralisPage([3], null));
+      await repository.findByAddress({ address: walletN(0), chainId: CHAIN_ID, refresh: false });
+
+      expect(getWalletNFTs).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: 'cursor-0-page3' }));
+    });
   });
 
   it('does not cache a failure as complete', async () => {

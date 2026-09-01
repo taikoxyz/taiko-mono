@@ -94,5 +94,16 @@ describe('parseDecimalAmount', () => {
       expect(reason('', 18)).toBe('EMPTY');
       expect(reason('.', 18)).toBe('EMPTY');
     });
+
+    it('reports a whitespace-only box as empty too', () => {
+      // Consistent with parseTokenIds, and it decides whether the field shows an error:
+      // spaces are a box nobody filled in, not a mistake worth reporting
+      expect(reason('   ', 18)).toBe('EMPTY');
+      expect(reason('\t', 18)).toBe('EMPTY');
+    });
+
+    it('still refuses padding around an actual value', () => {
+      expect(reason(' 5 ', 6)).toBe('NOT_DECIMAL');
+    });
   });
 });

@@ -105,6 +105,35 @@ describe('scanned NFT pagination', () => {
     expect(get(selectedNFTs)).toEqual([NFT_A]);
   });
 
+  // Guards, not regression tests: both pass against the previous code too. Svelte queues
+  // the parent's flush when foundNFTs is assigned, which is before scanForNFTs returns, so
+  // the child's prop was in fact updated by the time the await in handleNextPage resumed.
+  // These pin the behaviour to what nextPage reports rather than to that ordering holding.
+  it('keeps "load more" usable when a page actually arrived', async () => {
+    await scan([NFT_A]);
+
+    fetchNFTs.mockResolvedValue({ nfts: [NFT_A, NFT_B], error: null });
+    buttonWith('paginator.more')?.click();
+    await flush();
+    await flush();
+
+    // ScannedImport decides this from what nextPage reports, not from its own bound copy
+    // of foundNFTs - retiring the button here would end pagination for good
+    expect(buttonWith('paginator.more')).toBeTruthy();
+  });
+
+  it('retires "load more" once a page brings nothing new', async () => {
+    await scan([NFT_A]);
+
+    fetchNFTs.mockResolvedValue({ nfts: [NFT_A], error: null });
+    buttonWith('paginator.more')?.click();
+    await flush();
+    await flush();
+
+    expect(buttonWith('paginator.more')).toBeFalsy();
+    expect(buttonWith('paginator.everything_loaded')).toBeTruthy();
+  });
+
   it('still clears the selection on a fresh scan', async () => {
     await scan([NFT_A]);
     selectedNFTs.set([NFT_A]);

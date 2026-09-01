@@ -18,7 +18,7 @@ type PaginationState = {
 
 // The repository is a server-side singleton shared by every request, so pagination state must be
 // keyed per wallet+chain — module-level cursor/nft state would leak one user's NFTs to another.
-const MAX_CACHED_WALLETS = 500;
+export const MAX_CACHED_WALLETS = 500;
 
 class MoralisNFTRepository implements INFTRepository {
   private static instance: MoralisNFTRepository;
@@ -105,17 +105,25 @@ class MoralisNFTRepository implements INFTRepository {
 
     if (!state || refresh) {
       state = { cursor: '', hasFetchedAll: false, nfts: [] };
-      this.evictOldestIfFull();
+      this.evictLeastRecentlyUsedIfFull();
       this.stateByWallet.set(key, state);
+      return state;
     }
+
+    // Move to the end so eviction follows use rather than insertion order. Without this a
+    // wallet part-way through pagination could be evicted ahead of one that fetched once
+    // and left, and it would restart from the first page
+    this.stateByWallet.delete(key);
+    this.stateByWallet.set(key, state);
     return state;
   }
 
-  private evictOldestIfFull(): void {
+  /** @dev Map iteration is insertion-ordered, and getState re-inserts on every hit */
+  private evictLeastRecentlyUsedIfFull(): void {
     if (this.stateByWallet.size < MAX_CACHED_WALLETS) return;
-    const oldestKey = this.stateByWallet.keys().next().value;
-    if (oldestKey !== undefined) {
-      this.stateByWallet.delete(oldestKey);
+    const leastRecentlyUsedKey = this.stateByWallet.keys().next().value;
+    if (leastRecentlyUsedKey !== undefined) {
+      this.stateByWallet.delete(leastRecentlyUsedKey);
     }
   }
 }
