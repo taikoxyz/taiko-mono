@@ -34,6 +34,15 @@ vi.mock('$libs/token', async (importOriginal) => ({
   fetchBalance: (...args: unknown[]) => fetchBalance(...args),
 }));
 
+// Both reach into the automocked @wagmi/core, which has no usable getAccount, and the
+// balance reset path calls them on every token switch
+vi.mock('$libs/util/balance', () => ({
+  refreshUserBalance: vi.fn().mockResolvedValue(undefined),
+  renderBalance: (balance: { formatted?: string; symbol?: string } | null | undefined) =>
+    balance ? `${balance.formatted ?? '0'} ${balance.symbol ?? ''}` : '0.00',
+  renderEthBalance: () => '0 ETH',
+}));
+
 import { enteredAmount, selectedToken, tokenBalance } from '$components/Bridge/state';
 import { TokenType } from '$libs/token';
 import { account } from '$stores/account';
@@ -56,9 +65,12 @@ const errorShown = () => target.textContent?.includes('bridge.errors.invalid_amo
 const usdc = { type: TokenType.ERC20, symbol: 'USDC', name: 'USDC', decimals: 6, addresses: {} };
 
 beforeEach(() => {
-  fetchBalance.mockReset().mockResolvedValue({ value: BigInt(0), decimals: 6, symbol: 'USDC' });
+  fetchBalance.mockReset().mockResolvedValue({ value: BigInt(0), decimals: 6, symbol: 'USDC', formatted: '0' });
   enteredAmount.set(BigInt(0));
   tokenBalance.set(undefined as never);
+  // Disconnected at mount, so the only balance reads in a test are the ones it makes:
+  // the account store is module-level and otherwise carries over between tests
+  account.set({ isConnected: false } as never);
   selectedToken.set(usdc as never);
   target = document.createElement('div');
   document.body.appendChild(target);
@@ -128,6 +140,10 @@ describe('fungible amount input', () => {
   describe('balance reads', () => {
     it("does not let a slow token switch overwrite a newer token's balance", async () => {
       account.set({ address: '0xaaaa', isConnected: true } as never);
+      // Connecting triggers its own balance read; let it settle so the race below is
+      // between the two token switches and nothing else
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await tick();
 
       const slow = { type: TokenType.ERC20, symbol: 'SLOW', name: 'Slow', decimals: 18, addresses: {} };
       const fast = { type: TokenType.ERC20, symbol: 'FAST', name: 'Fast', decimals: 18, addresses: {} };
@@ -138,19 +154,20 @@ describe('fungible amount input', () => {
       await tick();
 
       // A second switch, whose read answers first
-      fetchBalance.mockResolvedValueOnce({ value: BigInt(5), decimals: 18, symbol: 'FAST' });
+      fetchBalance.mockResolvedValueOnce({ value: BigInt(5), decimals: 18, symbol: 'FAST', formatted: '5' });
       selectedToken.set(fast as never);
       await new Promise((resolve) => setTimeout(resolve, 0));
       await tick();
-      expect(get(tokenBalance)).toEqual({ value: BigInt(5), decimals: 18, symbol: 'FAST' });
 
       // The earlier read lands late. Publishing it would validate amounts against SLOW's
-      // balance while FAST is selected
-      resolveSlow({ value: BigInt(999), decimals: 18, symbol: 'SLOW' });
+      // balance while FAST is selected, and walk the user through an approval for an
+      // amount they do not hold
+      resolveSlow({ value: BigInt(999), decimals: 18, symbol: 'SLOW', formatted: '999' });
       await new Promise((resolve) => setTimeout(resolve, 0));
       await tick();
 
-      expect(get(tokenBalance)).toEqual({ value: BigInt(5), decimals: 18, symbol: 'FAST' });
+      // Whatever the interleaving, the balance on screen belongs to the selected token
+      expect(get(tokenBalance)).toEqual({ value: BigInt(5), decimals: 18, symbol: 'FAST', formatted: '5' });
     });
   });
 });
