@@ -18,14 +18,27 @@ library LibSlotChainConstants {
 
     uint256 internal constant REGISTRY_TREE_DEPTH = 6;
     uint256 internal constant ADMISSION_TREE_DEPTH = 11;
+    uint256 internal constant RANKED_ENTRY_TREE_DEPTH = 6;
     uint256 internal constant TRANCHE_TREE_DEPTH = 9;
     uint256 internal constant FORCED_TREE_DEPTH = 64;
     uint256 internal constant TERMINAL_TREE_DEPTH = 64;
     uint256 internal constant DATA_MMR_DEPTH = 12;
+    uint256 internal constant MANIFEST_TREE_DEPTH = 12;
 
     uint256 internal constant REGISTRY_CELL_COUNT = 64;
+    uint256 internal constant ADMISSION_LEAF_COUNT = 2048;
     uint256 internal constant ADMISSION_USED_LEAF_COUNT = 1136;
+    uint256 internal constant RANKED_ENTRY_LEAF_COUNT = 64;
     uint256 internal constant TRANCHE_LEAF_COUNT = 512;
+
+    bytes32 internal constant EMPTY_REGISTRY_ROOT =
+        0x2f40c290594200091bcd31881e40bf56ba1960016a24c9931cf3b1a9a8705ae8;
+    bytes32 internal constant EMPTY_ADMISSION_ROOT =
+        0x71a511ce5247c6c3b0411e182c8e4b4dcbd0adc97163c585cac94ca3b031ac54;
+    bytes32 internal constant EMPTY_RANKED_ENTRY_ROOT =
+        0x986d3e795bd9ddfabe213b93cea0211eea5a663e895bfc112d90c5bf2fff1564;
+    bytes32 internal constant EMPTY_TRANCHE_ROOT =
+        0xdee49bfb4494eee086cf6485f471866cd49591358b3490d4a156813702501768;
 
     uint256 internal constant KIND0_FORCED_DESCRIPTOR_LENGTH = 220;
     uint256 internal constant KIND1_FORCED_DESCRIPTOR_LENGTH = 541;

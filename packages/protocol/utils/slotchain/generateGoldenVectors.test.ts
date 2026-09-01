@@ -18,14 +18,32 @@ const vectors = validateTypedVectorJson(
     JSON.stringify(JSON.parse(canonicalJson) as TypedVector[]),
 );
 
-assert.equal(vectors.length, 654);
-assert.equal(vectors.filter((vector) => vector.kind === "hex").length, 547);
-assert.equal(vectors.filter((vector) => vector.kind === "uint").length, 107);
+assert.equal(vectors.length, 675);
+assert.equal(vectors.filter((vector) => vector.kind === "hex").length, 566);
+assert.equal(vectors.filter((vector) => vector.kind === "uint").length, 109);
 
 const solidity = renderSolidity(vectors);
-assert.match(solidity, /uint256 internal constant GOLDEN_VECTOR_COUNT = 654;/);
+assert.match(solidity, /uint256 internal constant GOLDEN_VECTOR_COUNT = 675;/);
 assert.match(solidity, /bytes32 internal constant CANDIDATE_COMMITMENT =/);
 assert.match(solidity, /bytes internal constant V11_BRIDGE_DESCRIPTOR =/);
+const descriptorStart = solidity.indexOf(
+    "bytes internal constant V11_BRIDGE_DESCRIPTOR =",
+);
+const descriptorEnd = solidity.indexOf(";", descriptorStart);
+const descriptorDeclaration = solidity.slice(descriptorStart, descriptorEnd);
+const descriptorChunks = Array.from(
+    descriptorDeclaration.matchAll(/hex"([0-9a-f]+)"/g),
+    (match) => match[1],
+);
+const descriptorVector = vectors.find(
+    (vector) => vector.name === "v11_bridge_descriptor",
+);
+assert.ok(
+    descriptorChunks.length > 1 &&
+        descriptorChunks.every((chunk) => chunk.length <= 60),
+    "long byte constants must use bounded hex-literal chunks",
+);
+assert.equal(descriptorChunks.join(""), descriptorVector?.value);
 
 function encoded(copy: TypedVector[]): string {
     return `${JSON.stringify(copy)}\n`;
@@ -33,7 +51,7 @@ function encoded(copy: TypedVector[]): string {
 
 assert.throws(
     () => validateTypedVectorJson(JSON.stringify(vectors.slice(1))),
-    /expected 654/,
+    /expected 675/,
 );
 
 const duplicate = structuredClone(vectors);

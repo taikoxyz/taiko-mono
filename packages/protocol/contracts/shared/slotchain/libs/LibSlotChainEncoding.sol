@@ -469,6 +469,7 @@ library LibSlotChainEncoding {
         pure
         returns (bytes32 hash_)
     {
+        if (_height >= LibSlotChainConstants.REGISTRY_TREE_DEPTH) revert InvalidNodeHeight();
         return _hashNode(LibSlotChainConstants.REGISTRY_NODE_DOMAIN, _height, _left, _right);
     }
 
@@ -482,6 +483,7 @@ library LibSlotChainEncoding {
         pure
         returns (bytes32 hash_)
     {
+        if (_height >= LibSlotChainConstants.ADMISSION_TREE_DEPTH) revert InvalidNodeHeight();
         return _hashNode(LibSlotChainConstants.ADMISSION_NODE_DOMAIN, _height, _left, _right);
     }
 
@@ -495,6 +497,9 @@ library LibSlotChainEncoding {
         pure
         returns (bytes32 hash_)
     {
+        if (_height >= LibSlotChainConstants.RANKED_ENTRY_TREE_DEPTH) {
+            revert InvalidNodeHeight();
+        }
         return _hashNode(LibSlotChainConstants.ENTRY_NODE_DOMAIN, _height, _left, _right);
     }
 
@@ -508,6 +513,7 @@ library LibSlotChainEncoding {
         pure
         returns (bytes32 hash_)
     {
+        if (_height >= LibSlotChainConstants.TRANCHE_TREE_DEPTH) revert InvalidNodeHeight();
         return _hashNode(LibSlotChainConstants.TRANCHE_NODE_DOMAIN, _height, _left, _right);
     }
 
@@ -650,6 +656,7 @@ library LibSlotChainEncoding {
         pure
         returns (bytes32 hash_)
     {
+        if (_height >= LibSlotChainConstants.FORCED_TREE_DEPTH) revert InvalidNodeHeight();
         return _hashNode(LibSlotChainConstants.FORCE_NODE_DOMAIN, _height, _left, _right);
     }
 
@@ -770,6 +777,7 @@ library LibSlotChainEncoding {
         pure
         returns (bytes32 hash_)
     {
+        if (_height >= LibSlotChainConstants.DATA_MMR_DEPTH) revert InvalidNodeHeight();
         return _hashNode(LibSlotChainConstants.DATA_NODE_DOMAIN, _height, _left, _right);
     }
 
@@ -863,6 +871,7 @@ library LibSlotChainEncoding {
         pure
         returns (bytes32 hash_)
     {
+        if (_height >= LibSlotChainConstants.MANIFEST_TREE_DEPTH) revert InvalidNodeHeight();
         return _hashNode(LibSlotChainConstants.MANIFEST_NODE_DOMAIN, _height, _left, _right);
     }
 
@@ -1170,6 +1179,7 @@ library LibSlotChainEncoding {
         pure
         returns (bytes32 hash_)
     {
+        if (_height >= LibSlotChainConstants.TERMINAL_TREE_DEPTH) revert InvalidNodeHeight();
         return _hashNode(LibSlotChainConstants.TERMINAL_NODE_DOMAIN, _height, _left, _right);
     }
 
@@ -1475,6 +1485,7 @@ library LibSlotChainEncoding {
     error InvalidRewardReceipt();
     error InvalidAdmissionLocation();
     error InvalidTrancheState();
+    error InvalidNodeHeight();
     error InvalidKind1Descriptor();
     error InvalidForcedRange();
     error NonContiguousForcedDescriptor(uint256 index);

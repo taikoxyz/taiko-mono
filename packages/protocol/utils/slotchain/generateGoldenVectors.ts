@@ -3,17 +3,18 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-const EXPECTED_VECTOR_COUNT = 654;
-const EXPECTED_HEX_VECTOR_COUNT = 547;
-const EXPECTED_UINT_VECTOR_COUNT = 107;
+const EXPECTED_VECTOR_COUNT = 675;
+const EXPECTED_HEX_VECTOR_COUNT = 566;
+const EXPECTED_UINT_VECTOR_COUNT = 109;
 const VECTOR_NAME_SCHEMA_SHA256 =
-    "3f011fdb670388d6346a8c4a3118cd3187282213ee9797a2d3d0dc501bd8447c";
+    "ffbc653892c53dfea254b5309b95303a5c59f65e75ad1c9172e89cb4c8029920";
 const MAX_UINT256_DECIMAL =
     "115792089237316195423570985008687907853269984665640564039457584007913129639935";
 const MAX_BUFFER_BYTES = 16 * 1024 * 1024;
 const PROBE_TIMEOUT_MS = 10_000;
 const MODEL_TIMEOUT_MS = 120_000;
 const FORMATTER_TIMEOUT_MS = 30_000;
+const HEX_LITERAL_CHARS_PER_LINE = 60;
 
 const protocolRoot = path.resolve(__dirname, "../..");
 const modelPath = path.join(
@@ -245,9 +246,31 @@ export function renderSolidity(vectors: TypedVector[]): string {
             const byteLength = vector.value.length / 2;
             const solidityType =
                 byteLength <= 32 ? `bytes${byteLength}` : "bytes";
-            lines.push(
-                `    ${solidityType} internal constant ${identifier} = hex"${vector.value}";`,
-            );
+            if (byteLength <= 32) {
+                lines.push(
+                    `    ${solidityType} internal constant ${identifier} = hex"${vector.value}";`,
+                );
+            } else {
+                lines.push(
+                    `    ${solidityType} internal constant ${identifier} =`,
+                );
+                for (
+                    let offset = 0;
+                    offset < vector.value.length;
+                    offset += HEX_LITERAL_CHARS_PER_LINE
+                ) {
+                    const chunk = vector.value.slice(
+                        offset,
+                        offset + HEX_LITERAL_CHARS_PER_LINE,
+                    );
+                    const terminator =
+                        offset + HEX_LITERAL_CHARS_PER_LINE >=
+                        vector.value.length
+                            ? ";"
+                            : "";
+                    lines.push(`        hex"${chunk}"${terminator}`);
+                }
+            }
         }
     }
 
@@ -311,7 +334,9 @@ function assertFileMatches(targetPath: string, expected: string): void {
         actual = fs.readFileSync(targetPath, "utf8");
     } catch (error) {
         fail(
-            `${path.relative(protocolRoot, targetPath)} is missing: ${(error as Error).message}`,
+            `${path.relative(protocolRoot, targetPath)} is missing: ${
+                (error as Error).message
+            }`,
         );
     }
     if (actual !== expected) {
@@ -362,7 +387,7 @@ export function main(args: string[]): void {
     );
     if (
         !normalOutput.includes(
-            "RESULTS: commitment encoding model — ALL 654 GOLDEN VECTORS / 1432 ASSERTION SITES PASS",
+            "RESULTS: commitment encoding model — ALL 675 GOLDEN VECTORS / 1466 ASSERTION SITES PASS",
         )
     ) {
         fail(

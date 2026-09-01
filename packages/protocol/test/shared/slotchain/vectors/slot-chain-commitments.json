@@ -44,6 +44,11 @@
   },
   {
     "kind": "hex",
+    "name": "admission_proof_digest",
+    "value": "65a5501dc5440301031bc0d21ac6506ce1f98b226139c93ab54251883d5bd12d"
+  },
+  {
+    "kind": "hex",
     "name": "admission_reuse_root",
     "value": "a1e22890dd835872055e53dcad82d9e12759a2920853fe6e9f735d7f2c87ceca"
   },
@@ -321,6 +326,38 @@
   },
   {
     "kind": "hex",
+    "name": "data_mmr_frontier_after_3_digest",
+    "value": "7e141a72088ecc5ed590e1e619b607fb5d97aafb003c4a56230cff2832c2af01"
+  },
+  {
+    "kind": "hex",
+    "name": "data_mmr_frontier_root_3",
+    "value": "dea2c7de9f14ce6f9c59fda963520ced2cb6e6ebef7c6abe6cb773afab888e89"
+  },
+  {
+    "kind": "hex",
+    "name": "data_mmr_mountain_siblings_digest",
+    "value": "3ad2e114ce1d543a3a479e69b945dfeabdfdd0fc6df543b28c069469ea5e26fa"
+  },
+  {
+    "kind": "hex",
+    "name": "data_mmr_other_peaks_digest",
+    "value": "d5b32274fe3e21ffa9dbaf5853b469ecaaf4ac295e788fc95c16b4220a00b196"
+  },
+  { "kind": "uint", "name": "data_mmr_proof_count", "value": "15" },
+  { "kind": "uint", "name": "data_mmr_proof_index", "value": "10" },
+  {
+    "kind": "hex",
+    "name": "data_mmr_proof_leaf",
+    "value": "39d13a13b5803fd94af45496a7b19e2e666957cd75780ed2508c702a703ca85b"
+  },
+  {
+    "kind": "hex",
+    "name": "data_mmr_proof_root",
+    "value": "7c7185dfbebadab3501e051b2960e8fb4b22dd11821fc4e474ef14b2edb27b22"
+  },
+  {
+    "kind": "hex",
     "name": "data_node_height_7",
     "value": "e60d61327adb017addbf3012131b62c0a5897d30e302fcfac9ffad46d0fe848a"
   },
@@ -436,6 +473,11 @@
   },
   {
     "kind": "hex",
+    "name": "empty_admission_root",
+    "value": "71a511ce5247c6c3b0411e182c8e4b4dcbd0adc97163c585cac94ca3b031ac54"
+  },
+  {
+    "kind": "hex",
     "name": "empty_body_root",
     "value": "f0e00da8dbc00feb028a8bc92342c0771372b947acf5989b2d4a5f23bb2f459a"
   },
@@ -451,6 +493,11 @@
   },
   {
     "kind": "hex",
+    "name": "empty_entry_root",
+    "value": "986d3e795bd9ddfabe213b93cea0211eea5a663e895bfc112d90c5bf2fff1564"
+  },
+  {
+    "kind": "hex",
     "name": "empty_forced_root",
     "value": "4001bca0d3c5171a99a50118f1219024e1bef9302262ea3b075ecbed36be7592"
   },
@@ -461,6 +508,11 @@
   },
   {
     "kind": "hex",
+    "name": "empty_registry_root",
+    "value": "2f40c290594200091bcd31881e40bf56ba1960016a24c9931cf3b1a9a8705ae8"
+  },
+  {
+    "kind": "hex",
     "name": "empty_session_list",
     "value": "8827f09b5799bab18f29ea5b9cb9cbb5a88ddb96bc4b3ffc4d69cbcbdfe50279"
   },
@@ -468,6 +520,11 @@
     "kind": "hex",
     "name": "empty_terminal_root",
     "value": "c5da197edc2f03c7023cc6afe137ccb77d01fc56514d322b6ba66a149315bcb0"
+  },
+  {
+    "kind": "hex",
+    "name": "empty_tranche_root",
+    "value": "dee49bfb4494eee086cf6485f471866cd49591358b3490d4a156813702501768"
   },
   {
     "kind": "hex",
@@ -493,6 +550,11 @@
     "kind": "hex",
     "name": "enqueue_forced_transaction_selector",
     "value": "9f06b1b4"
+  },
+  {
+    "kind": "hex",
+    "name": "entry_proof_digest",
+    "value": "89655918472451054bf7362e8e7b19bbded634877c532efdfb545e0ca36667f3"
   },
   {
     "kind": "hex",
@@ -551,6 +613,16 @@
     "kind": "hex",
     "name": "finalize_failed_attempt_selector",
     "value": "745dcb69"
+  },
+  {
+    "kind": "hex",
+    "name": "force_frontier_after_1_digest",
+    "value": "1ba50296675195de90944defd33d2e346c1a996aa6edbb5bfb1b187cc64b3c1d"
+  },
+  {
+    "kind": "hex",
+    "name": "force_frontier_root_1",
+    "value": "5cb37cac8283fe7742e0f8e40bacececf85c1f8c15a05c8a9c9dc2018ac532e8"
   },
   {
     "kind": "hex",
@@ -2293,6 +2365,11 @@
   },
   {
     "kind": "hex",
+    "name": "registry_proof_digest",
+    "value": "188d53708f68cd601ace09953d87031b89c92f5b9d7bffd847e324ab7adc8261"
+  },
+  {
+    "kind": "hex",
     "name": "registry_root",
     "value": "0bf297d7b9b6a5529a319a06cb08484923a89bab15d51f8baeaf5c30bebdf3fd"
   },
@@ -2800,6 +2877,16 @@
   },
   {
     "kind": "hex",
+    "name": "terminal_frontier_after_2_digest",
+    "value": "2c6f371f051bd1c5527cbeaed9f8783236b0b250b0c5f2bed60fa2e8f3dee82c"
+  },
+  {
+    "kind": "hex",
+    "name": "terminal_frontier_root_2",
+    "value": "c4438d841e19055e73f0045bc7cd86349dd671a4d6401d338a4e1bea03023f87"
+  },
+  {
+    "kind": "hex",
     "name": "terminal_root_2",
     "value": "c4438d841e19055e73f0045bc7cd86349dd671a4d6401d338a4e1bea03023f87"
   },
@@ -2813,6 +2900,16 @@
     "kind": "hex",
     "name": "tranche_leaf",
     "value": "80fce6c2421807d961f9207d30b439bd423c05e206a18021b93217513ecc5551"
+  },
+  {
+    "kind": "hex",
+    "name": "tranche_proof_digest",
+    "value": "8d56574545d36cb4cbb7f1452055275a3dbd8e5b2aa9062e717095f387a0a2d8"
+  },
+  {
+    "kind": "hex",
+    "name": "tranche_root",
+    "value": "12ce6da6104ea0fb21edbc0e932f7500fabf18173911a48bc5e1d4d2af1cc336"
   },
   {
     "kind": "hex",
