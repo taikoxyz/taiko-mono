@@ -118,7 +118,10 @@ Other live values a reviewer will want:
 - L2 bridge balance ≈ **999,998,918.6 ETH**. This is the L2 premint float and it is what the L2 leg
   puts at risk; it moves with bridge traffic, so re-read it at execution time rather than trusting
   the digits here.
-- L2 bridge `nextMessageId()` = `10101`, `paused()` = `false`.
+- L2 bridge `paused()` = `false`. This one is a precondition, not trivia: `processMessage` is
+  `whenNotPaused`, so the L2 leg cannot land while the bridge is paused. `nextMessageId()` is
+  deliberately not quoted here — it climbs with every outbound message, and the fork test reads
+  it dynamically rather than pinning a value.
 - `DelegateController.lastExecutionId()` = `1`.
 
 ## Why L2 Needs a New Resolver
