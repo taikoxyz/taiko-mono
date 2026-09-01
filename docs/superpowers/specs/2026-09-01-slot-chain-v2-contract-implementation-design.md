@@ -75,6 +75,21 @@ Shared, L1, and L2 artifacts are compiled under their owning Foundry profiles. C
 load the already compiled artifact; they do not source-import and recompile it under another EVM or
 optimizer configuration.
 
+The artifact and address ownership classes are:
+
+| Component class                                                                                                                     | Chain               | Build profile and artifact root                                                                                         | Lifecycle/address rule                                                                                                                                            |
+| ----------------------------------------------------------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Encodings, trees, proof/call libraries and chain-neutral deployables                                                                | Both                | `shared`, `out/shared`, oldest supported fork                                                                           | Libraries have one artifact owner. L1/L2 consumers link or load that artifact without recompilation. A deployed object's manifest scope determines address reuse. |
+| BuilderRegistry, ScheduleOracle, ForcedQueue, ActiveSettlementRouter, PVM/gate, AggregatorSeatMarket and other L1 permanent objects | L1                  | `layer1`, `out/layer1`                                                                                                  | Protocol-lifetime address and state repeat byte-exactly unless the normative descriptor explicitly marks the object release-scoped.                               |
+| Settlement, release ingress adapters, TerminalSignalVerifier and SourceBridge/Registry/Quota bundle                                 | L1                  | `layer1`, `out/layer1`; chain-neutral custody bytecode may instead be owned by `shared` and loaded as raw creation code | Fresh release-scoped accounts. Historical accounts serve only retained liabilities/proofs and never become current again.                                         |
+| InboxApplyRouterV2, ProtocolReleaseAuthorityV2, TerminalDomainRegistrarV2, TerminalAccumulatorV2 and NativeLiquidityPoolV2          | L2                  | `layer2`, `out/layer2`                                                                                                  | Protocol-lifetime objects; successors repeat address, runtime and configuration and preserve cursor/routes/releases/writers/tickets/frontier.                     |
+| InboxCreditStoreV2, DestinationBridgeV2 and native QuotaManager                                                                     | L2                  | `layer2`, `out/layer2`; chain-neutral custody bytecode may be loaded from `out/shared`                                  | Fresh release-scoped accounts and endpoint domain. Reuse is forbidden even when code is identical.                                                                |
+| Frozen legacy facades and AnchorV4                                                                                                  | Owning legacy chain | Manifest-named profile; compiled artifact hash recorded before installation tests                                       | Installation is exercised only in isolated migration tests. This PR does not select it on the production path.                                                    |
+
+The release manifest's exhaustive component table remains authoritative for individual kinds. The
+artifact-owner checker rejects a missing owner, cross-profile recompilation, output-path drift, a
+fresh address for a protocol-lifetime object, or reuse of a release-scoped address.
+
 ## 4. Component Boundaries
 
 ### 4.1 Shared primitives
@@ -128,8 +143,11 @@ latest tip.
 
 Recipient calls, liquidity callbacks, Store writes, Bridge lifecycle changes, terminal appends,
 and source liability changes are separately bounded and joined only in the normative revert
-domains. A failed target or callback restores the exact parent state; no partial credit, ticket,
-liability, quota, queue, or terminal mutation survives.
+domains. A failed target restores the complete inner child frame, including Pool/ticket transfer,
+quota, pull and terminal effects, to its entry state. The authenticated outer catch may then perform
+only the normative result transition: leave NEW/RETRIABLE unchanged, write owner-initial RETRIABLE,
+or make the separate owner-last failure finalizer atomically write FAILED and its terminal leaf.
+Failure of that finalizer restores the outer entry state. No unlisted partial mutation survives.
 
 ### 4.5 Deterministic deployment and profiles
 
@@ -148,10 +166,14 @@ The following invariants are release-blocking:
 
 - canonical safety never depends on an honest, present, or distinct builder or seat holder;
 - every canonical transition is monotone, authenticated, replay-protected, and bounded;
-- the last builder of one window and first builder of the next may be the same key, but the global
-  same-key run is at most two slots and a new primary duty is created at APPLY;
+- the last scheduled builder of one window and first builder of the next may be the same key, but
+  the global same-key run is at most two slots; each window has its own immutable slashable builder
+  tranche and no builder liability or clock is silently inherited across the boundary;
 - a malicious boundary builder can withhold only its own service; it cannot forge execution,
   inherit an expired duty, suppress forced recovery, or prevent later permissionless progress;
+- aggregator-seat APPLY installs a term and may start service but allocates no duty; a fresh duty is
+  created only after strict `now > recoveryAt`, using the then-current responsibility base, and
+  builder scheduling never creates, cures, fails over or slashes a seat duty;
 - equality at a deadline follows the frozen inclusive/exclusive rule; subtraction cannot underflow
   and a zero sentinel cannot become accidentally due;
 - all history, frontier, queue, duty, tranche, offer, journal, and scan work has a fixed capacity or
@@ -183,6 +205,48 @@ and callback reentry revert without effect.
 External faults use custom typed errors. Tests assert both the selector and unchanged state, not
 merely that a call reverted.
 
+### 6.1 Delayed genesis campaign
+
+Genesis is not the later-version migration path. A delayed, finite campaign binds the exact legacy
+resume profile, target, proposal and forced cutoffs, hard block/time deadlines and maximum scan
+geometry. Permissionless bounded scans produce the review envelope and abandonment receipt before
+the legacy gate enters reversible QUIESCENT. The landing transaction verifies the proof first, then
+executes LGAR, LGFN, MCAN, QMIG, MAPS and publication in one revert domain.
+
+If no proof lands, hard expiry permissionlessly restores the unchanged legacy ACTIVE path. A bad
+target requires a higher-nonce delayed campaign. Pending legacy rows are abandoned only under the
+frozen receipt rules; if the deployed Inbox cannot accept the exact final storage-compatible
+implementation, or lossless pending-row treatment is required, in-place cutover stops and an
+independently initialized state migration is required.
+
+### 6.2 Later-version migration
+
+Later migration retains the old canonical authority through ARMED and READY. The proof is verified
+before Router enters ACTIVATING. The exact journal is `MFRZ -> MCAN -> Kind0 ingress binding ->
+SourceBridge activation -> source authority/index install -> BRC1 consume/post-read -> destination
+adapter seal -> Bridge ingress binding -> QMIG -> MAPS -> internal registration/receipt/successor
+writes -> public target ACTIVE -> clear context -> Router IDLE -> VMC1 -> PVM IDLE`. ACTIVATING
+gates all newly installed ingress until publication. VMC1 is the final external call and sole
+mutating external-call exception after QMIG. Any fault, malformed return or failed post-read
+restores old READY/IDLE authority, Queue cursor/liability, empty target, every prepared adapter's
+unsealed state, inactive target SourceBridge, pre-cutover ingress/profile maps, unused registration,
+absent receipts and the original LIVE lease. The separate permissionless abort remains available
+until successful activation consumes it.
+
+### 6.3 Destination retirement and reclamation
+
+Release rotation atomically records a proof-bound retirement Queue watermark and an immutable local
+direct-successor DRV2/DSV2 receipt. Reclaim is permissionless but succeeds only after InboxApply has
+reached the watermark, `terminalizedPinnedCount[oldDomain] == oldStore.pinnedCount`, aggregate old
+Bridge pull liability is zero, the old route/writer and complete lifetime graph still authenticate,
+and the direct-successor receipt matches the old/new versions, manifests, domains and Bridges.
+
+The old Bridge transfers its complete raw surplus to the typed sink before setting the one-shot
+retired bit. A rejected or partial transfer, callback, reentrancy, graph mismatch or duplicate call
+changes nothing. The receipt is direct-successor based rather than latest-tip based, so A may
+reclaim from A-to-B after B-to-C while B independently uses B-to-C. Historical source liabilities
+and terminal proof reads remain available and cannot be reclaimed as surplus.
+
 ## 7. Implementation and Commit Strategy
 
 The work remains one stacked PR but is implemented as dependency-ordered TDD commits. Each slice
@@ -203,9 +267,14 @@ Verification includes:
 - golden-vector and differential tests against all Python commitment/state models;
 - fuzz tests for widths, deadlines, malformed ABI/returndata, ordering and replay;
 - invariant/handler tests for solvency, monotonicity, terminality, bounded work and authority;
-- explicit first/last builder and cross-window traces, including same-key two-slot runs, handover,
-  late cure, failover, slash, release, migration, retirement and restart at each boundary;
-- target revert, out-of-gas, reentrancy, callback rollback and EIP-150 envelope tests;
+- explicit builder-window traces for first/last placement, independent tranches and same-key
+  two-slot runs, separately from seat-term tests for APPLY-without-duty, strict recoveryAt duty
+  creation, handover, late cure, failover and slash;
+- target revert, out-of-gas, reentrancy, callback rollback and EIP-150 envelope tests, including
+  every owner/non-owner, initial/retry/last-attempt outer-catch branch;
+- delayed-genesis scan/QUIESCENT/resume/abandonment and unsupported-in-place fallback tests;
+- later-migration exact journal/rollback tests and retirement/reclamation tests for every watermark,
+  cursor, pinned/terminal count, pull-liability, graph, transfer and direct-successor gate;
 - two-Anvil-chain integration for normal/recovery settlement, DIRECT ETH ingress, LP funding,
   DONE/FAILED/cancel/refund, proof-first activation, abort and multi-hop reclamation;
 - storage-layout compatibility tests only for explicitly supported legacy facades;

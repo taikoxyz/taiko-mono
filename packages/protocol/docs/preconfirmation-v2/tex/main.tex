@@ -94,9 +94,11 @@ Settlement--Market mutation wire in this revision remain design candidates.
 The bridge-route preparation path now uses only fixed Router/PVM primitive
 records and exact raw ABI reads; it no longer treats an in-process
 \code{SettlementRegistration} object as production authority.  The executable
-address-indexed component world, root factory deployment certificate, bounded
-historical indexes and exact Inbox-credit verification boundary listed in
-\S\ref{sec:gates} are still High blockers.
+address-indexed component world, root factory deployment certificate and
+remaining bounded historical indexes listed in \S\ref{sec:gates} are still
+High blockers.  The exact ICV2 Inbox-credit verification boundary is now
+closed in this specification but still requires compiled-contract and gas
+conformance evidence.
 \end{abstract}
 
 {\small\tableofcontents}
@@ -4405,16 +4407,23 @@ old LIVE lease.  No target, beneficiary, arbitrary sink or other mutating call
 is legal in this suffix.
 
 The exact VERSION\_MIGRATION journal is verifier STATICCALL; write
-ACTIVATING/context; MFRZ; MCAN; QMIG; the three MAPS reads; internal target-
+ACTIVATING/context; MFRZ; MCAN; publish the exact kind-0 ingress binding; execute
+the target SourceBridge inactive-to-active call; install its source authority
+indexes; execute and post-read exact BRC1; one-shot seal the destination adapter;
+publish its Bridge ingress binding; QMIG; the three MAPS reads; internal target-
 registration consumption, receipt and successor-index writes; the final current-
 target/public-ACTIVE word; clear context; write Router IDLE; exact VMC1 CALL;
 check its 96-byte return and exact-postread canonical NONE lease; and restore
-PVM IDLE.  VMC1 is the last external call and the sole post-QMIG mutating call.
+PVM IDLE.  ACTIVATING makes every newly published ingress binding inert until
+the current-target/public-ACTIVE write.  VMC1 is the last external call and the
+sole post-QMIG mutating call.
 Every callback,
 post-read, return decoder and later write is in the outer transaction's single
 revert domain.  A fault at any boundary restores READY/IDLE, the old source and
-Queue authority, cursor/payment state, empty target, unused registration and
-absent receipt, so permissionless retry or mature abort remains possible.
+Queue authority, cursor/payment state, empty target, every prepared adapter's
+prior seal, the inactive target SourceBridge, both ingress/profile maps, unused
+registration and absent receipt, so permissionless retry or mature abort remains
+possible.
 
 ``Empty PREACTIVE target'' is an exact predicate, not a claimed constructor
 default.  The target Settlement's internal DataSession region requires all
@@ -9776,10 +9785,15 @@ Settlement and transient ledgers, opens no new context, ends the current boundar
 without recovery renewal and reaches READY after at most 128 bounded cleanup
 calls.  While old authority remains intact, a target proof executes the exact
 release activation from that frozen base; cutover verifies it before writing
-ACTIVATING/context, then executes source MFRZ, target MCAN,
-Queue QMIG, all three MAPS joins, receipt/index/registration writes and the final
-READY-to-ACTIVE switch in one rollback domain.  Context clears before IDLE, which
-is the last write; no mutating external call follows QMIG.  The immutable LIVE
+ACTIVATING/context, then executes source MFRZ, target MCAN, kind-0 binding,
+SourceBridge activation, source-index install, BRC1 consumption, destination
+seal, Bridge binding, Queue QMIG, all three MAPS joins,
+receipt/index/registration writes and the final READY-to-ACTIVE switch in one
+rollback domain.  A fault also restores every prepared adapter's prior seal,
+the target SourceBridge and both ingress/profile maps.  Context clears before Router
+IDLE; the exact terminal VMC1 call is the sole post-QMIG mutating external call
+and its canonical post-read restores PVM IDLE.  No other mutating external call
+follows QMIG.  The immutable LIVE
 lease's permissionless hard-expiry abort runs under ABORTING and restores old
 ACTIVE operation from ARMED or READY if no cutover occurred, with no post-abort
 sync callback and no governance dependency.

@@ -10640,8 +10640,16 @@ class BridgeDomainRegistry:
                     != getattr(registration, "release_manifest_hash", b"")
                 or frame.target_registration_hash
                     != target_registration_hash_v2(registration)
-                or router.registrations.get(frame.target_protocol_version)
-                    is not registration):
+                or (
+                    router.registrations.get(frame.target_protocol_version)
+                        is not registration
+                    and not (
+                        frame.target_protocol_version
+                            not in router.registrations
+                        and frame.target_protocol_version
+                            == registration.settlement.protocol_version
+                    )
+                )):
             return False
         entry = self.arm_ready_entry(
             registration,
@@ -23050,6 +23058,9 @@ class ActiveSettlementRouter:
     genesis_activation_trace: list[str] = field(
         default_factory=list, compare=False
     )
+    version_migration_activation_trace: list[str] = field(
+        default_factory=list, compare=False
+    )
     _migration_callback_frame: MigrationCanonicalContextV2 | None = field(
         default=None, compare=False, repr=False
     )
@@ -24143,7 +24154,17 @@ class ActiveSettlementRouter:
                 or (prepare_only and type(clock) is not Clock)
                 or (not prepare_only and self.registrations.get(
                     registration.settlement.protocol_version
-                ) is not registration)
+                ) is not registration and not (
+                    self.migration_lifecycle
+                        is RouterMigrationLifecycle.ACTIVATING
+                    and type(self._migration_callback_frame)
+                        is MigrationCanonicalContextV2
+                    and self._migration_callback_frame.target_protocol_version
+                        == registration.settlement.protocol_version
+                    and self._migration_callback_frame
+                        .target_registration_hash
+                        == target_registration_hash_v2(registration)
+                ))
                 or (manager is not None
                     and (type(manager) not in {
                             ProtocolVersionManager, ProtocolVersionManagerV1
@@ -24164,6 +24185,15 @@ class ActiveSettlementRouter:
             if prior is not registration
         ):
             return False
+        trace_version_migration = (
+            not prepare_only
+            and self.migration_lifecycle
+                is RouterMigrationLifecycle.ACTIVATING
+            and type(self._migration_callback_frame)
+                is MigrationCanonicalContextV2
+            and self._migration_callback_frame.transition_kind
+                == "VERSION_MIGRATION"
+        )
 
         bindings_before = self._authorized_ingress
         by_address_before = self._authorized_ingress_by_address
@@ -24192,6 +24222,9 @@ class ActiveSettlementRouter:
             in self._source_bridge_factories_by_address.items()
             if type(factory) is ImmutableV2BridgeFactory
         }
+        # At most one profile Bridge adapter is touched by this call.  Capture
+        # it when resolved below rather than scanning historical adapters.
+        source_adapter_states_before: dict[int, tuple[object, str]] = {}
         source_bundle_states_before: dict[int, tuple[object, ...]] = {}
         for factory, _, bundles, _, _ in source_factory_states.values():
             for bundle in bundles.values():
@@ -24249,6 +24282,8 @@ class ActiveSettlementRouter:
                         kind0, kind0_authorization
                     )):
                 raise ValueError("release Kind0 deployment is not exact")
+            if trace_version_migration:
+                self.version_migration_activation_trace.append("K0ING")
             deployments[kind0_authorization.authorization_id] = kind0
 
             if manager is not None:
@@ -24382,6 +24417,8 @@ class ActiveSettlementRouter:
                         raise ValueError(
                             "source Bridge inactive-to-active seal failed"
                         )
+                if trace_version_migration:
+                    self.version_migration_activation_trace.append("SACT")
                 prior_descriptor_id = self._source_descriptor_id_by_version.get(
                     registration.settlement.protocol_version
                 )
@@ -24450,6 +24487,10 @@ class ActiveSettlementRouter:
                         bridge_authorization.configuration_hash),
                     caller="permissionless-deployer",
                 )
+                if type(bridge) is BridgeAdapter:
+                    source_adapter_states_before.setdefault(
+                        id(bridge), (bridge, bridge.destination_domain_id)
+                    )
                 retained_bridge = deployments.get(
                     bridge_authorization.authorization_id)
                 if (retained_bridge is not None
@@ -24528,6 +24569,8 @@ class ActiveSettlementRouter:
                         raise ValueError(
                             "release Bridge package is not ARM_READY"
                         )
+                    if trace_version_migration:
+                        self.version_migration_activation_trace.append("BRC1")
                     if (not bridge.destination_sealed
                             and not bridge._seal_destination_from_profile(
                                 authorization=bridge_authorization,
@@ -24540,12 +24583,16 @@ class ActiveSettlementRouter:
                         raise ValueError(
                             "release Bridge destination seal failed"
                         )
+                    if trace_version_migration:
+                        self.version_migration_activation_trace.append("BSEAL")
                     if not self._append_ingress_binding(
                         bridge, bridge_authorization
                     ):
                         raise ValueError(
                             "release Bridge ingress activation failed"
                         )
+                    if trace_version_migration:
+                        self.version_migration_activation_trace.append("BIND")
             self._profile_deployments_by_version[
                 registration.settlement.protocol_version
             ] = MappingProxyType(deployments)
@@ -24583,6 +24630,12 @@ class ActiveSettlementRouter:
                 factory._bundles = bundles_state
                 factory._adapter_deployments = adapter_states
                 factory._adapters = adapters
+            for adapter, destination_domain_id in (
+                source_adapter_states_before.values()
+            ):
+                object.__setattr__(
+                    adapter, "_destination_domain_id", destination_domain_id
+                )
             for bridge, bridge_state, registry, registry_state in (
                 source_bundle_states_before.values()
             ):
@@ -27319,6 +27372,7 @@ class ActiveSettlementRouter:
             self.activation_successor_index_v1,
             dict(self.activation_receipt_rows_v1),
             dict(self.seat_successor_rows_v1),
+            list(self.version_migration_activation_trace),
         )
         manager_activation_snapshot = (
             manager.lifecycle, manager.migration_lease
@@ -27332,6 +27386,15 @@ class ActiveSettlementRouter:
             for address, factory
             in self._source_bridge_factories_by_address.items()
             if type(factory) is ImmutableV2BridgeFactory
+        }
+        # The target profile has a consensus-bounded authorization count.  Only
+        # its prepared adapter can be sealed by this activation.
+        source_adapter_states = {
+            id(adapter): (adapter, adapter.destination_domain_id)
+            for adapter in self._profile_deployments_by_version.get(
+                lease.target_protocol_version, {}
+            ).values()
+            if type(adapter) is BridgeAdapter
         }
         source_bundle_states: dict[int, tuple[object, ...]] = {}
         for factory, _, bundles, _, _ in source_factory_states.values():
@@ -27351,11 +27414,13 @@ class ActiveSettlementRouter:
         )
 
         try:
+            self.version_migration_activation_trace = ["VERIFIED"]
             self._enter_migration_lifecycle(
                 RouterMigrationLifecycle.ACTIVATING,
                 manager=manager,
                 frame=frame,
             )
+            self.version_migration_activation_trace.append("ACTIVATING")
             if not self._activate_version_with_proof(
                 settlement=settlement,
                 clock=clock,
@@ -27413,6 +27478,7 @@ class ActiveSettlementRouter:
             self.activation_successor_index_v1 = router_snapshot[19]
             self.activation_receipt_rows_v1 = router_snapshot[20]
             self.seat_successor_rows_v1 = router_snapshot[21]
+            self.version_migration_activation_trace = router_snapshot[22]
             (
                 manager.lifecycle, manager.migration_lease
             ) = manager_activation_snapshot
@@ -27423,6 +27489,10 @@ class ActiveSettlementRouter:
                 factory._bundles = bundles
                 factory._adapter_deployments = adapter_deployments
                 factory._adapters = adapters
+            for adapter, destination_domain_id in source_adapter_states.values():
+                object.__setattr__(
+                    adapter, "_destination_domain_id", destination_domain_id
+                )
             for bridge, bridge_state, registry, registry_state in (
                 source_bundle_states.values()
             ):
@@ -27574,6 +27644,7 @@ class ActiveSettlementRouter:
                     old.last_canonical_l1_block, old.history,
                 )):
             raise ValueError("source migration freeze post-read rejected")
+        self.version_migration_activation_trace.append("MFRZ")
         if self.migration_fault_point == "after_source_freeze":
             raise RuntimeError("injected Router fault after source freeze")
 
@@ -27598,6 +27669,7 @@ class ActiveSettlementRouter:
                 or target_entry.canonical_sequence
                     != frame.target_canonical_sequence):
             raise ValueError("target MCAN96 post-read rejected")
+        self.version_migration_activation_trace.append("MCAN")
         if self.migration_fault_point == "after_target_adopt":
             raise RuntimeError("injected Router fault after target adopt")
         if manager.fault_point == "after_target_import":
@@ -27613,30 +27685,16 @@ class ActiveSettlementRouter:
         if target_registration_hash_v2(registration) \
                 != frame.target_registration_hash:
             raise ValueError("target registration changed before adoption")
-        self.registrations[settlement.protocol_version] = registration
         if not self._install_profile_deployments(
             registration, manager=manager, clock=clock
         ):
             raise ValueError("target release deployments are not exact")
-        self.used_target_addresses.add(settlement.address)
-        self.activation_receipts[receipt.key] = receipt
-        self.activation_receipt_keys_by_generation[
-            receipt.router_generation
-        ] = receipt.key
-        self.successor_receipt_key_by_old_authorization_id[
-            receipt.old_authorization_id
-        ] = receipt.key
-        if manager.fault_point == "after_activation_receipt_write":
-            raise RuntimeError(
-                "injected activation fault: after_activation_receipt_write"
-            )
         if self.migration_fault_point == "before_queue_migrate":
             raise RuntimeError("injected Router fault before Queue migrate")
 
         new_data_config_hash = (
             settlement.live_protocol.data_session_config_hash_v1()
         )
-        self.active_version = settlement.protocol_version
         object.__setattr__(self, "_queue_transition_frame", (
             "MIGRATE", id(frame), frame.commitment.hex()
         ))
@@ -27652,6 +27710,7 @@ class ActiveSettlementRouter:
             raise AssertionError(
                 "validated queue switch/advance transaction failed"
             )
+        self.version_migration_activation_trace.append("QMIG")
         source_maps = old.migration_source_post_state_v2(
             frame.maps_calldata, router=self
         )
@@ -27667,6 +27726,18 @@ class ActiveSettlementRouter:
                 or any(len(row) != MIGRATION_ADOPTION_STATE_LENGTH
                        for row in (source_maps, target_maps, queue_maps))):
             raise ValueError("migration MAPS post-reads rejected")
+        self.version_migration_activation_trace.append("MAPS")
+
+        self.registrations[settlement.protocol_version] = registration
+        self.used_target_addresses.add(settlement.address)
+        self.activation_receipts[receipt.key] = receipt
+        self.activation_receipt_keys_by_generation[
+            receipt.router_generation
+        ] = receipt.key
+        self.successor_receipt_key_by_old_authorization_id[
+            receipt.old_authorization_id
+        ] = receipt.key
+        self.active_version = settlement.protocol_version
         activation_receipt_id = self._append_activation_receipt_v1(
             context=frame,
             source_registration=old_registration,
@@ -27674,8 +27745,12 @@ class ActiveSettlementRouter:
             seat_generation=receipt.seat_generation,
             transition_auxiliary_hash=bytes(32),
         )
+        if manager.fault_point == "after_activation_receipt_write":
+            raise RuntimeError(
+                "injected activation fault: after_activation_receipt_write"
+            )
+        self.version_migration_activation_trace.append("REGISTERED")
         active_gate = old.migration_gate
-        self._leave_migration_lifecycle_before_publication(manager=manager)
         activated = active_gate._activate_from_router(
             active_gate.generation, old_version,
             settlement.protocol_version,
@@ -27684,6 +27759,9 @@ class ActiveSettlementRouter:
             target_registration_hash=frame.target_registration_hash,
         )
         assert activated
+        self.version_migration_activation_trace.append("PUBLISHED")
+        self._leave_migration_lifecycle_before_publication(manager=manager)
+        self.version_migration_activation_trace.append("IDLE")
         if type(manager) is ProtocolVersionManagerV1:
             consume_lease = manager.migration_lease
             consume_arm_id = consume_lease.arm_id
@@ -27713,6 +27791,7 @@ class ActiveSettlementRouter:
                 or manager.migration_arms.get(consume_arm_id) != consume_lease
             ):
                 raise ValueError("migration lease consume return is malformed")
+            self.version_migration_activation_trace.append("VMC1")
         return True
 
     def _abort_migration_for_test(self, *, generation: int,
@@ -30844,9 +30923,20 @@ class SourceBridgeV2:
                 or type(router) is not ActiveSettlementRouter
                 or router is not self.domain_registry.router
                 or type(registration) is not SettlementRegistration
-                or router.registrations.get(
+                or (router.registrations.get(
                     registration.settlement.protocol_version
-                ) is not registration
+                ) is not registration and not (
+                    router.migration_lifecycle
+                        is RouterMigrationLifecycle.ACTIVATING
+                    and type(router._migration_callback_frame)
+                        is MigrationCanonicalContextV2
+                    and router._migration_callback_frame
+                        .target_protocol_version
+                        == registration.settlement.protocol_version
+                    and router._migration_callback_frame
+                        .target_registration_hash
+                        == target_registration_hash_v2(registration)
+                ))
                 or type(authorization) is not ProfileIngressAuthorization
                 or authorization.kind is not ForceKind.BRIDGE_CREDIT
                 or registration.ingress_authorizations_by_address.get(
@@ -31798,8 +31888,18 @@ class BridgeAdapter:
                 or registration.ingress_authorizations_by_id.get(
                     authorization.authorization_id
                 ) != authorization
-                or router.registrations.get(protocol_version)
-                    is not registration
+                or (router.registrations.get(protocol_version)
+                    is not registration and not (
+                        router.migration_lifecycle
+                            is RouterMigrationLifecycle.ACTIVATING
+                        and type(router._migration_callback_frame)
+                            is MigrationCanonicalContextV2
+                        and router._migration_callback_frame
+                            .target_protocol_version == protocol_version
+                        and router._migration_callback_frame
+                            .target_registration_hash
+                            == target_registration_hash_v2(registration)
+                    ))
                 or router._profile_deployments_by_version.get(
                     protocol_version, {}
                 ).get(authorization.authorization_id) is not self

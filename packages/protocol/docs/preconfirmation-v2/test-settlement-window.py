@@ -17122,6 +17122,11 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             consume_gas, settlement.VERSION_MIGRATION_CONSUME_GAS
         )
         self.assertEqual(manager.migration_arms[armed_lease.arm_id], armed_lease)
+        self.assertEqual(router.version_migration_activation_trace, [
+            "VERIFIED", "ACTIVATING", "MFRZ", "MCAN", "K0ING", "SACT",
+            "BRC1", "BSEAL", "BIND", "QMIG", "MAPS", "REGISTERED",
+            "PUBLISHED", "IDLE", "VMC1",
+        ])
         self.assertEqual(
             manager.live_version_migration_lease_v1(),
             settlement.encode_live_version_migration_lease_return_v1(
@@ -17324,7 +17329,38 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                     if item.protocol_version == decoded.protocol_version
                 )
                 self.assertFalse(entry.arm_ready_consumed)
+                target_deployments = (
+                    router._profile_deployments_by_version[
+                        decoded.protocol_version
+                    ]
+                )
+                target_adapter = next(
+                    item for item in target_deployments.values()
+                    if type(item) is settlement.BridgeAdapter
+                )
+                target_source = target_adapter.source_bridge
                 old_version = router.active_version
+                trace_before = list(
+                    router.version_migration_activation_trace
+                )
+                lease_before = manager.migration_lease
+                queue_before = router.forced_queue._transaction_snapshot()
+                receipt_rows_before = (
+                    dict(router.activation_receipts),
+                    dict(router.activation_receipt_rows_v1),
+                    dict(router.seat_successor_rows_v1),
+                )
+                target_before = (
+                    target.mode, target.current_sequence, target.core,
+                )
+                adapter_seal_before = target_adapter.destination_domain_id
+                source_before = target_source._transaction_snapshot()
+                profile_before = dict(target_deployments)
+                ingress_before = (
+                    router._authorized_ingress,
+                    router._authorized_ingress_by_address,
+                    router._authorized_ingress_adapter_ids,
+                )
                 if kind == "registry_fault":
                     registry.consume_bridge_route_fault_point = fault
                 elif kind == "registry_return":
@@ -17349,6 +17385,39 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                 self.assertFalse(restored.arm_ready_consumed)
                 self.assertEqual(router.active_version, old_version)
                 self.assertEqual(router.migration_gate.mode, "READY")
+                self.assertEqual(
+                    router.version_migration_activation_trace, trace_before
+                )
+                self.assertEqual(manager.migration_lease, lease_before)
+                self.assertEqual(
+                    router.forced_queue._transaction_snapshot(), queue_before
+                )
+                self.assertEqual((
+                    router.activation_receipts,
+                    router.activation_receipt_rows_v1,
+                    router.seat_successor_rows_v1,
+                ), receipt_rows_before)
+                self.assertEqual(
+                    (target.mode, target.current_sequence, target.core),
+                    target_before,
+                )
+                self.assertEqual(
+                    target_adapter.destination_domain_id, adapter_seal_before
+                )
+                self.assertEqual(
+                    target_source._transaction_snapshot(), source_before
+                )
+                self.assertEqual(
+                    dict(router._profile_deployments_by_version[
+                        decoded.protocol_version
+                    ]),
+                    profile_before,
+                )
+                self.assertEqual((
+                    router._authorized_ingress,
+                    router._authorized_ingress_by_address,
+                    router._authorized_ingress_adapter_ids,
+                ), ingress_before)
                 registry.consume_bridge_route_fault_point = None
                 registry.consume_bridge_route_return_override = None
                 router.migration_activation_context_return_override = None
