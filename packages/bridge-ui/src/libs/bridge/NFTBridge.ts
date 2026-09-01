@@ -1,5 +1,5 @@
 import { simulateContract, writeContract } from '@wagmi/core';
-import { type Hash, UserRejectedRequestError } from 'viem';
+import { getAddress, type Hash, UserRejectedRequestError } from 'viem';
 
 import type { erc721VaultAbi, erc1155VaultAbi } from '$abi';
 import { ApproveError, NoApprovalRequiredError, NoCanonicalInfoFoundError, NotApprovedError } from '$libs/error';
@@ -98,7 +98,11 @@ export abstract class NFTBridge extends Bridge {
     const { address: canonicalTokenAddress } = info;
     if (!wallet || !wallet.account || !wallet.chain) throw new Error('Wallet is not connected');
 
-    if (canonicalTokenAddress === token) {
+    // Checksummed before comparing. These two addresses come from different places - one
+    // from the canonical lookup, one from the args - and an EVM address is the same address
+    // whatever its casing. A mismatch here reads as "bridged", which skips the approval
+    // check entirely and sends a transfer the vault is not allowed to make.
+    if (getAddress(canonicalTokenAddress) === getAddress(token)) {
       // A native token still lives in the user's wallet, so the vault needs permission to
       // take it. A bridged one is minted by the vault itself and needs none.
       const requireApproval = await this.requiresApproval({

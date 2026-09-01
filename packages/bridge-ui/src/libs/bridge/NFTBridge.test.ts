@@ -6,8 +6,8 @@
 import type { Address, WalletClient } from 'viem';
 import { vi } from 'vitest';
 
-import { NoApprovalRequiredError } from '$libs/error';
-import { ALICE, L1_CHAIN_ID } from '$mocks';
+import { NoApprovalRequiredError, NotApprovedError } from '$libs/error';
+import { ALICE, L1_CHAIN_ID, L2_CHAIN_ID } from '$mocks';
 
 const readContract = vi.fn();
 const simulateContract = vi.fn();
@@ -20,17 +20,41 @@ vi.mock('@wagmi/core', () => ({
   getPublicClient: (...args: unknown[]) => getPublicClient(...args),
 }));
 vi.mock('$libs/wagmi', () => ({ config: {} }));
+vi.mock('$bridgeConfig');
+
+const getCanonicalInfoForAddress = vi.fn();
+vi.mock('$libs/token/getCanonicalInfoForToken', () => ({
+  getCanonicalInfoForAddress: (...args: unknown[]) => getCanonicalInfoForAddress(...args),
+}));
+
+const estimateMessageGasLimit = vi.fn();
+vi.mock('./estimateMessageGasLimit', () => ({
+  estimateMessageGasLimitWithMinimum: (...args: unknown[]) => estimateMessageGasLimit(...args),
+}));
+
+const isBridgePaused = vi.fn();
+vi.mock('$libs/util/checkForPausedContracts', () => ({
+  isBridgePaused: (...args: unknown[]) => isBridgePaused(...args),
+}));
 
 import { ERC721Bridge } from './ERC721Bridge';
 import { ERC1155Bridge } from './ERC1155Bridge';
 
-const TOKEN = '0x0000000000000000000000000000000000000123' as Address;
+const TOKEN = '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599' as Address;
 const VAULT = '0x0000000000000000000000000000000000000456' as Address;
 const OTHER = '0x0000000000000000000000000000000000000999' as Address;
 const prover = {} as never;
 
 const wallet = { account: { address: ALICE }, chain: { id: L1_CHAIN_ID } } as unknown as WalletClient;
 const approveArgs = { tokenAddress: TOKEN, spenderAddress: VAULT, wallet, tokenIds: [BigInt(7)] };
+
+const base = {
+  to: ALICE as Address,
+  srcChainId: L1_CHAIN_ID,
+  destChainId: L2_CHAIN_ID,
+  fee: BigInt(1000),
+  tokenObject: { type: 'ERC721', symbol: 'NFT', decimals: 0, addresses: {} },
+};
 
 /** Stands in for the ERC1155 token contract handle */
 const isApprovedForAll = vi.fn();
@@ -118,6 +142,43 @@ describe('ERC1155Bridge approval', () => {
       {},
       expect.objectContaining({ functionName: 'setApprovalForAll', args: [VAULT, true] }),
     );
+  });
+});
+
+describe('deciding whether the vault needs approval', () => {
+  const args = (token: string) =>
+    ({
+      ...base,
+      token,
+      tokenVaultAddress: VAULT,
+      tokenIds: [1],
+      amounts: [0n],
+      wallet,
+    }) as never;
+
+  beforeEach(() => {
+    // A well-formed message, so the send reaches the canonical-address branch
+    estimateMessageGasLimit.mockResolvedValue({ gasLimit: 1_000_000, minGasLimit: 100_000 });
+    isBridgePaused.mockResolvedValue(false);
+    getCanonicalInfoForAddress.mockResolvedValue({ address: TOKEN.toLowerCase() });
+  });
+
+  it('checks approval for a native token whose canonical address differs only in casing', async () => {
+    // The canonical lookup and the args reach here from different places. Compared
+    // strictly, a casing difference reads as "bridged" and skips the approval check
+    // entirely - sending a transfer the vault has no permission to make
+    readContract.mockResolvedValueOnce(OTHER).mockResolvedValueOnce(false);
+
+    await expect(new ERC721Bridge(prover).bridge(args(TOKEN))).rejects.toThrow(NotApprovedError);
+  });
+
+  it('skips the approval check for a genuinely bridged token', async () => {
+    getCanonicalInfoForAddress.mockResolvedValue({ address: OTHER });
+
+    // Straight through to the contract call: the vault mints a bridged token itself, so
+    // there is no approval to read and none to demand
+    await expect(new ERC721Bridge(prover).bridge(args(TOKEN))).resolves.toBe('0xtx');
+    expect(readContract).not.toHaveBeenCalled();
   });
 });
 

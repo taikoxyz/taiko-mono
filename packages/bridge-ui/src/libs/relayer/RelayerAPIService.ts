@@ -563,6 +563,10 @@ export class RelayerAPIService {
         canonicalTokenAddress: tx.canonicalTokenAddress,
         processingFee: messageFee,
         claimedBy: tx.claimedBy ? getAddress(tx.claimedBy) : undefined,
+        // A relayer that has not claimed the message reports zero here, so zero means "no
+        // relayer has been paid yet" rather than "the fee was zero" - undefined says that
+        // without inviting a reader to treat it as a settled amount. Both consumers render
+        // it as `formatEther(fee ?? 0n)`, so nothing downstream tells the two apart.
         fee: relayerFee && relayerFee !== BigInt(0) ? relayerFee : undefined,
         message: {
           id: messageId,

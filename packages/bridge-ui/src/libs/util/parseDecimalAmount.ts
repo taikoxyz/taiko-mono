@@ -1,5 +1,3 @@
-import { parseUnits } from 'viem';
-
 /** The largest value a uint256 can hold; anything above it cannot be encoded */
 export const UINT256_MAX = BigInt(2) ** BigInt(256) - BigInt(1);
 
@@ -47,15 +45,18 @@ export function parseDecimalAmount(raw: string, decimals: number): AmountParseRe
   if (raw.startsWith('-')) return { ok: false, reason: 'NEGATIVE' };
   if (!PLAIN_DECIMAL.test(raw)) return { ok: false, reason: 'NOT_DECIMAL' };
 
-  const [, fraction = ''] = raw.split('.');
+  const [whole = '', fraction = ''] = raw.split('.');
   if (fraction.length > decimals) return { ok: false, reason: 'TOO_MANY_DECIMALS' };
 
-  let value: bigint;
-  try {
-    value = parseUnits(raw, decimals);
-  } catch {
-    return { ok: false, reason: 'NOT_DECIMAL' };
-  }
+  // Scaled here rather than by parseUnits. PLAIN_DECIMAL has already established that the
+  // input is digits with at most one point, and the fraction is no longer than the token
+  // can represent, so padding it to `decimals` digits *is* the base-units integer.
+  //
+  // Doing it directly keeps the bound deterministic. Routing through parseUnits made the
+  // EXCEEDS_UINT256 branch depend on viem not throwing for an over-large value: the day it
+  // starts enforcing the maximum itself, that throw would be caught below and reported as
+  // NOT_DECIMAL, which is the wrong reason for the right refusal.
+  const value = BigInt(whole + fraction.padEnd(decimals, '0'));
 
   if (value > UINT256_MAX) return { ok: false, reason: 'EXCEEDS_UINT256' };
   return { ok: true, value };

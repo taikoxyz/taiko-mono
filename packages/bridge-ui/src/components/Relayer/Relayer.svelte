@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
+  import type { Address } from 'viem';
 
   import AddressInput from '$components/Bridge/SharedBridgeComponents/AddressInput/AddressInput.svelte';
   import { AddressInputState } from '$components/Bridge/SharedBridgeComponents/AddressInput/state';
@@ -9,6 +10,7 @@
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import { FungibleTransactionRow, NftTransactionRow } from '$components/Transactions/Rows';
   import { type BridgeTransaction, fetchTransactions, MessageStatus } from '$libs/bridge';
+  import { bridgeTxKey } from '$libs/bridge/bridgeTxIdentity';
   import { TokenType } from '$libs/token';
   import { getLogger } from '$libs/util/logger';
   import { type Account, account } from '$stores/account';
@@ -18,6 +20,13 @@
   let transactions: BridgeTransaction[] = [];
   let fetching = false;
   let addressState = AddressInputState.DEFAULT;
+  /**
+   * Two-way bound to the address input. A plain declaration, not a reactive one: as
+   * `$: addressToSearch = undefined` it ran once on mount and looked deliberate, but any
+   * dependency added to that statement later would have re-run it on every change and
+   * wiped the search - taking the results with it through the clear below.
+   */
+  let addressToSearch: string | undefined = undefined;
 
   const onAccountChange = async (newAccount: Account, oldAccount?: Account) => {
     // Any change of address resets, including a transition to no address: a search
@@ -48,7 +57,9 @@
     fetching = true;
     try {
       if (addressToSearch) {
-        const { mergedTransactions, error } = await fetchTransactions(addressToSearch);
+        // Cast, not a check: the Search button is disabled until addressState is VALID,
+        // so nothing reaches here that the address input has not already validated
+        const { mergedTransactions, error } = await fetchTransactions(addressToSearch as Address);
         if (generation !== searchGeneration) return;
         log('mergedTransactions', mergedTransactions);
         // Also assign empty results: the previous address's transactions must not linger
@@ -82,7 +93,6 @@
     transactions = [];
   }
 
-  $: addressToSearch = undefined;
   $: searchDisabled = fetching || !addressToSearch || addressState !== AddressInputState.VALID || inputDisabled;
 
   $: transactionsToShow = transactions.filter((tx) => {
@@ -132,7 +142,7 @@
     {/if}
   </div>
 
-  {#each transactionsToShow as bridgeTx (bridgeTx.srcTxHash)}
+  {#each transactionsToShow as bridgeTx (bridgeTxKey(bridgeTx))}
     {@const status = bridgeTx.msgStatus}
     {@const isFungible = bridgeTx.tokenType === TokenType.ERC20 || bridgeTx.tokenType === TokenType.ETH}
     {#if isFungible}

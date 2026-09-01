@@ -28,6 +28,12 @@ vi.mock('$components/NotificationToast', () => ({
   infoToast: vi.fn(),
 }));
 
+// The rows are not under test here and need chain config the environment does not generate
+vi.mock('$components/Transactions/Rows', async () => {
+  const Stub = (await import('../../tests/StubComponent.svelte')).default;
+  return { FungibleTransactionRow: Stub, NftTransactionRow: Stub };
+});
+
 const fetchTransactions = vi.fn();
 vi.mock('$libs/bridge', async (importOriginal) => ({
   ...(await importOriginal<typeof import('$libs/bridge')>()),
@@ -112,5 +118,30 @@ describe('manual claim search', () => {
     await search();
 
     expect(warningToast).toHaveBeenCalledWith({ title: 'transactions.errors.relayer_offline' });
+  });
+});
+
+describe('the results table', () => {
+  const row = (srcTxHash: string, msgHash: string) => ({
+    srcTxHash,
+    msgHash,
+    status: 0, // MessageStatus.NEW
+    msgStatus: 0,
+    tokenType: 'ETH',
+    message: { to: ADDRESS, destOwner: ADDRESS, gasLimit: 100000 },
+  });
+
+  it('renders both messages a single transaction emitted', async () => {
+    // Keyed by transaction, Svelte throws on the duplicate key and the table never
+    // renders. This block was missed when the identity fix landed on the other one
+    fetchTransactions.mockResolvedValue({
+      mergedTransactions: [row('0xtx', '0xmsgA'), row('0xtx', '0xmsgB')],
+      error: undefined,
+    });
+
+    await search();
+
+    expect(target.textContent).not.toContain('relayer_component.no_tx_found');
+    expect(target.querySelectorAll('[data-testid="stub"]')).toHaveLength(2);
   });
 });
