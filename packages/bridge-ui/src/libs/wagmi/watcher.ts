@@ -16,10 +16,24 @@ const log = getLogger('wagmi:watcher');
 let isWatching = false;
 let unWatchAccount: () => void;
 
+/**
+ * The account event this handler is currently acting on. wagmi emits overlapping events -
+ * `connecting` then `connected`, or a fast switch back and forth - and each one awaits, so
+ * without this the earlier continuation can resume last and write its stale snapshot over
+ * the newer one, leaving the app "disconnected" while the wallet is connected.
+ */
+let accountChangeGeneration = 0;
+
 async function handleAccountChange(data: GetAccountReturnType) {
-  await checkForPausedContracts();
+  const generation = ++accountChangeGeneration;
   log('Account changed', data);
+  // Set first, and synchronously. Awaiting the pause check before this made every reader of
+  // $account and $connectedSourceChain lag the real wallet by an RPC round trip, longer
+  // when an endpoint is degraded - and the pause check does not describe the account, it
+  // only decides whether a modal is raised.
   account.set(data);
+
+  checkForPausedContracts().catch((error) => log('Pause check failed', error));
 
   refreshUserBalance();
   const { chainId, address } = data;
@@ -31,9 +45,14 @@ async function handleAccountChange(data: GetAccountReturnType) {
     } catch (error) {
       console.error('Error checking for smart contract wallet', error);
     } finally {
-      connectedSmartContractWallet.set(smartWallet);
+      // A classification speaks for the account it ran against, not for whichever is current
+      if (generation === accountChangeGeneration) connectedSmartContractWallet.set(smartWallet);
     }
   }
+
+  // Everything below decides what is on screen for this account, so a superseded event
+  // must stop here rather than reinstate the previous chain's modal or source chain
+  if (generation !== accountChangeGeneration) return;
 
   // We need to check if the chain is supported, and if not
   // we present the user with a modal to switch networks.
@@ -54,6 +73,9 @@ async function handleAccountChange(data: GetAccountReturnType) {
     switchChainModal.set(false);
   }
 }
+
+/** @dev Exported for tests: the handler is otherwise only reachable through watchAccount. */
+export const handleAccountChangeForTest = handleAccountChange;
 
 export async function startWatching() {
   checkForPausedContracts();
@@ -87,6 +109,8 @@ export async function startWatching() {
 }
 
 export function stopWatching() {
-  unWatchAccount();
+  // A layout can tear down before startWatching has awaited its way to the assignment,
+  // which threw on a call that only means "there is nothing to unwatch"
+  unWatchAccount?.();
   isWatching = false;
 }

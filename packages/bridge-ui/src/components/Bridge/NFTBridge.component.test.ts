@@ -40,7 +40,7 @@ import { connectedSourceChain } from '$stores/network';
 
 import NFTBridge from './NFTBridge.svelte';
 import { foundNFTs, selectedImportMethod } from './NFTBridgeComponents/ImportStep/state';
-import { destNetwork, selectedNFTs } from './state';
+import { destNetwork, destOwnerAddress, recipientAddress, selectedNFTs } from './state';
 
 const NFT_A = { tokenId: 1, name: 'A', addresses: {} } as never;
 
@@ -88,6 +88,24 @@ describe('NFTBridge state on a wallet change', () => {
     expect(get(foundNFTs)).toEqual([]);
     expect(get(selectedNFTs)).toEqual([]);
     expect(get(selectedImportMethod)).toBe(ImportMethod.NONE);
+  });
+
+  it('re-seeds the recipient defaults for a manual import, not just a scan', async () => {
+    await mountWithScanResults();
+    // A manual import: the branch that revalidates the inputs rather than resetting the form
+    selectedImportMethod.set(ImportMethod.MANUAL);
+    recipientAddress.set('0xaaaa' as never);
+    destOwnerAddress.set('0xaaaa' as never);
+    await flush();
+
+    account.set({ address: '0xbbbb', isConnected: true } as never);
+    await flush();
+
+    // Only resetForm used to re-seed these, and the manual branch never reaches it - so
+    // Review kept showing the previous account as recipient, tagged "customized" though
+    // nothing had been, and would have bridged with it as destination owner
+    expect(get(recipientAddress)).toBe('0xbbbb');
+    expect(get(destOwnerAddress)).toBe('0xbbbb');
   });
 
   it('discards the scan results when the network changes', async () => {

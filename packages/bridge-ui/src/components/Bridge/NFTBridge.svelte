@@ -83,10 +83,25 @@
     }
   }
 
+  /**
+   * The recipient and the destination owner default to the connected wallet. They are not
+   * import inputs, so a manual import that only revalidates still has to re-seed them:
+   * re-entering the contract and ids for account B passed its own ownership check, while
+   * Review went on showing account A as the recipient - tagged "customized" though nothing
+   * had been - and would have bridged the NFT with A as its destination owner.
+   */
+  const seedAccountDefaults = () => {
+    $recipientAddress = $account?.address || null;
+    $destOwnerAddress = $account?.address || null;
+  };
+
   function updateForm() {
     tick().then(() => {
       if ($selectedImportMethod === ImportMethod.MANUAL) {
-        // run validations again if we are in manual mode
+        // The import inputs are revalidated rather than cleared - the contract and ids are
+        // still worth checking against the new account or chain - but everything the old
+        // account seeded is reset, the way the scan branch does through resetForm
+        seedAccountDefaults();
         runValidations().catch((error) => console.error('Error running validations', error));
       } else {
         resetForm();
@@ -103,8 +118,7 @@
     //we check if these are still mounted, as the user might have left the page
     importStepComponent?.resetManualImport();
 
-    $recipientAddress = $account?.address || null;
-    $destOwnerAddress = $account?.address || null;
+    seedAccountDefaults();
     bridgingStatus = BridgingStatus.PENDING;
     $selectedToken = ETHToken;
     $importDone = false;
