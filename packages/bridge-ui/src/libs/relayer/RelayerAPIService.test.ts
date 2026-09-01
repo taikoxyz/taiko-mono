@@ -734,6 +734,8 @@ describe('RelayerAPIService', () => {
     // Then
     expect(result.txs).toHaveLength(0);
     expect(mockedReadContract).not.toHaveBeenCalled();
+    // An ambiguous receipt is a deliberate filter, not a failed load - it must not be counted.
+    expect(result.failedCount).toBe(0);
   });
 
   test('getTransactionsFromAPI preserves raw message fee digits before JSON parsing', async () => {

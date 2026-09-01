@@ -469,7 +469,8 @@ export class RelayerAPIService {
 
     // Only a thrown enhancement is a load failure. _enhanceTransaction also returns undefined for
     // four legitimate filters (not this user's transaction, ambiguous receipt, no msgHash, no
-    // configured route); counting those would warn the user about transactions that were never theirs.
+    // configured route); those rows are deliberately not shown, so counting them would report a
+    // loss that never happened.
     let failedCount = 0;
 
     const txsPromises = txs.map(async (bridgeTx) => {

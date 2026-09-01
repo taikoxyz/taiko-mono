@@ -6,8 +6,8 @@ export type GetAllByAddressResponse = {
   txs: BridgeTransaction[];
   paginationInfo: PaginationInfo;
   // Transactions the relayer returned but whose on-chain enhancement threw (typically a
-  // rate-limited RPC). Required, not optional: an optional field lets a caller silently
-  // forget to thread it through, which is how these failures went unreported before.
+  // rate-limited RPC). Required, not optional: an optional field would let a caller drop it
+  // on the way to the UI without the type checker noticing.
   failedCount: number;
 };
 
