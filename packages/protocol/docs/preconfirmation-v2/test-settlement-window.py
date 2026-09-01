@@ -3878,6 +3878,14 @@ def protocol_authority_fixture():
     profile_words = settlement._execution_profile_abi_words_v2(
         decoded.profile_bytes
     )
+    root_factory_address = "0x" + profile_words[202][12:].hex()
+    router._source_bridge_factories_by_address[root_factory_address] = (
+        settlement.ImmutableV2BridgeFactory(
+            root_factory_address,
+            "0x" + profile_words[203].hex(),
+            "0x" + profile_words[204].hex(),
+        )
+    )
     pvm_authorization = market.TargetAuthorization(
         witness.settlement.address,
         int.from_bytes(profile_words[2], "big"),
@@ -4016,6 +4024,14 @@ def genesis_protocol_authority_fixture():
     profile_words = settlement._execution_profile_abi_words_v2(
         decoded.profile_bytes
     )
+    root_factory_address = "0x" + profile_words[202][12:].hex()
+    router._source_bridge_factories_by_address[root_factory_address] = (
+        settlement.ImmutableV2BridgeFactory(
+            root_factory_address,
+            "0x" + profile_words[203].hex(),
+            "0x" + profile_words[204].hex(),
+        )
+    )
     market_authority = settlement.PvmDerivedMarketAuthorizationV1(
         int.from_bytes(profile_words[2], "big"),
         "0x" + profile_words[35][12:].hex(), pvm_address,
@@ -4045,9 +4061,32 @@ def genesis_protocol_authority_fixture():
         release_witnesses={history.protocol_version: witness},
         schedule_oracle=schedule_oracle,
     )
-    support_registry = router._bridge_domain_registry_authority
-    if type(support_registry) is settlement.BridgeDomainRegistry:
-        object.__setattr__(support_registry, "manager", manager)
+    bridge_authorizations = tuple(
+        authorization
+        for authorization in witness.ingress_authorizations_by_address.values()
+        if authorization.kind is settlement.ForceKind.BRIDGE_CREDIT
+    )
+    assert len(bridge_authorizations) == 1
+    source_descriptor = bridge_authorizations[0].source_descriptor
+    assert type(source_descriptor) is settlement.SourceBridgeDescriptor
+    support_registry = settlement.BridgeDomainRegistry(
+        router,
+        manager,
+        settlement.release_authority_descriptor_from_manifest(
+            witness.release_manifest
+        ),
+        settlement.TestRegistrationMptVerifier(
+            settlement.canonical_registration_mpt_verifier_descriptor()
+        ),
+        address=source_descriptor.support_registry_address,
+        runtime_hash=source_descriptor.support_registry_runtime_hash,
+        configuration_hash=(
+            source_descriptor.support_registry_configuration_hash
+        ),
+    )
+    object.__setattr__(
+        router, "_bridge_domain_registry_authority", support_registry
+    )
     timelock = settlement.ProtocolChangeTimelockV1(
         manager.timelock_address, manager.settlement_chain_id,
         "0x" + profile_words[19][12:].hex(), manager, profile_words[17],
@@ -5256,7 +5295,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
                 len(authorization_return),
                 len(liability_return),
             ),
-            ("05ecb6c2", "c978978a", 36, 36, 576, 288),
+            ("05ecb6c2", "c978978a", 36, 36, 704, 288),
         )
         self.assertIsNone(registry.credit_authorization_v2(
             b"\x00" * 36, gas=settlement.SOURCE_READ_GAS
@@ -5264,6 +5303,69 @@ class ForcedIngressRouterTests(unittest.TestCase):
         self.assertIsNone(bridge.credit_liability_v2(
             liability_call + b"\x00", gas=settlement.SOURCE_READ_GAS
         ))
+        decoded_authorization = registry.decode_credit_authorization_v2(
+            receipt.credit_id, authorization_return
+        )
+        decoded_liability = bridge.decode_credit_liability_v2(
+            receipt.credit_id, liability_return
+        )
+        self.assertEqual(
+            settlement.encode_credit_authorization_v2(decoded_authorization),
+            settlement.encode_credit_authorization_v2(
+                registry.authorizations[receipt.credit_id]
+            ),
+        )
+        self.assertIsNot(
+            decoded_authorization,
+            registry.authorizations[receipt.credit_id],
+        )
+        self.assertIsNotNone(decoded_liability)
+        self.assertIsNot(
+            decoded_liability[0], bridge._credits[receipt.credit_id]
+        )
+        wrong_credit_id = (b"\xff" * 32).hex()
+        self.assertIsNone(registry.decode_credit_authorization_v2(
+            wrong_credit_id, authorization_return
+        ))
+
+        class NoHistoryScanDict(dict):
+            def items(self):
+                raise AssertionError("fixed-gas source read scanned history")
+
+            def values(self):
+                raise AssertionError("fixed-gas source read scanned history")
+
+        original_authorizations = registry._authorizations
+        original_credits = bridge._credits
+        indexed_authorizations = NoHistoryScanDict(original_authorizations)
+        indexed_credits = NoHistoryScanDict(original_credits)
+        for index in range(10_000):
+            key = f"{index:064x}"
+            if key != receipt.credit_id:
+                dict.__setitem__(
+                    indexed_authorizations, key, decoded_authorization
+                )
+                dict.__setitem__(
+                    indexed_credits, key, decoded_liability[0]
+                )
+        registry._authorizations = indexed_authorizations
+        bridge._credits = indexed_credits
+        try:
+            self.assertEqual(
+                registry.credit_authorization_v2(
+                    authorization_call, gas=settlement.SOURCE_READ_GAS
+                ),
+                authorization_return,
+            )
+            self.assertEqual(
+                bridge.credit_liability_v2(
+                    liability_call, gas=settlement.SOURCE_READ_GAS
+                ),
+                liability_return,
+            )
+        finally:
+            registry._authorizations = original_authorizations
+            bridge._credits = original_credits
 
         def assert_rejected_before_mutation():
             before = (
@@ -5691,21 +5793,25 @@ class ForcedIngressRouterTests(unittest.TestCase):
             clock,
             source_bridge=bridge.address,
             caller=bridge.address,
+            target="ordinary-target",
         )
         self.assertIsNotNone(support)
-        denyset = (
-            support.manifest.destination_bridge_descriptor
-                .privileged_target_denyset
-        )
+        # A source send is authorized by the currently active release's BIP1,
+        # not by a separately constructed future destination release.  Fresh
+        # successor domains cannot receive an old route's credit.
+        active_manifest = self.router.registrations[
+            self.router.active_version
+        ].release_manifest
+        denyset = active_manifest.destination_bridge_descriptor \
+            .privileged_target_denyset
         self.assertIn("signal-service", denyset)
         self.assertIn("delegate-controller", denyset)
         self.assertIn(
-            support.manifest.destination_bridge_descriptor
-                .native_quota_manager,
+            active_manifest.destination_bridge_descriptor.native_quota_manager,
             denyset,
         )
         self.assertIn(
-            support.manifest.destination_bridge_descriptor
+            active_manifest.destination_bridge_descriptor
                 .deployment_descriptor.pauser,
             denyset,
         )
@@ -5740,6 +5846,33 @@ class ForcedIngressRouterTests(unittest.TestCase):
                     bridge.credit_registry.authorizations,
                     registry_before,
                 )
+
+    def test_legacy_active_route_accepts_final_or_consumed_row(self):
+        bridge = self.source_bridge
+        clock = bridge.support_final_clock(self.clock.timestamp)
+        entry = bridge.domain_registry.latest_final_entry(
+            bridge.source_domain_id,
+            bridge.frozen_bridge_execution_hash,
+            self.destination_manifest.destination_chain_id,
+            clock,
+            source_bridge=bridge.address,
+            caller=bridge.address,
+            target="ordinary-target",
+        )
+        self.assertIsNotNone(entry)
+        self.assertEqual(entry.route_kind, "LEGACY")
+        self.assertFalse(entry.arm_ready_consumed)
+        message = settlement.bridge_message(
+            clock.timestamp, "legacy-route-two-states", to="ordinary-target",
+            value=1, fee=0,
+        )
+        self.assertTrue(bridge.credit_id_for(message, clock))
+
+        # Once a legacy row was atomically consumed it no longer needs the
+        # older confirmation-finality fallback, but remains the same route.
+        entry.arm_ready_consumed = True
+        entry.confirmed_at_block = None
+        self.assertTrue(bridge.credit_id_for(message, clock))
 
     def test_destination_privileged_defense_fails_without_payout_or_quota(self):
         descriptor = self.destination_manifest.destination_bridge_descriptor
@@ -11999,22 +12132,23 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             settlement.ACTIVE_BRIDGE_ROUTE_SELECTOR,
             settlement._model_uint(
                 message.message.destination_chain_id,
-                32, "test ABR1 destination chain",
+                32, "test ABR2 destination chain",
             ),
             bytes(12) + settlement._model_address20(source.address),
             settlement._model_fixed_bytes32(source.source_domain_id),
             settlement._model_fixed_bytes32(
                 source.frozen_bridge_execution_hash
             ),
+            bytes(12) + settlement._model_address20(message.message.to),
         ))
-        abr = registry.active_bridge_route_v1(
+        abr = registry.active_bridge_route_v2(
             abr_call, caller=source.address, value=0,
             gas=settlement.ACTIVE_BRIDGE_ROUTE_READ_GAS, clock=now,
         )
-        self.assertEqual((len(abr), abr[:32]), (288, b"ABR1" + bytes(28)))
+        self.assertEqual((len(abr), abr[:32]), (384, b"ABR2" + bytes(28)))
         self.assertEqual(
-            settlement.encode_active_bridge_route_v1(
-                settlement.decode_active_bridge_route_v1(abr)
+            settlement.encode_active_bridge_route_v2(
+                settlement.decode_active_bridge_route_v2(abr)
             ),
             abr,
         )
@@ -12037,7 +12171,7 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
              settlement.ACTIVE_BRIDGE_ROUTE_READ_GAS - 1),
         ):
             with self.assertRaises(ValueError):
-                registry.active_bridge_route_v1(
+                registry.active_bridge_route_v2(
                     candidate, caller=caller, value=value, gas=gas, clock=now
                 )
 
@@ -12096,7 +12230,7 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
                 source.credit_id_for(message, now)
             self.assertEqual(source._transaction_snapshot(), before)
         router.active_settlement_state_fault_point = None
-        registry.active_bridge_route_return_override = b"ABR1"
+        registry.active_bridge_route_return_override = b"ABR2"
         with self.assertRaises(ValueError):
             source.credit_id_for(message, now)
         registry.active_bridge_route_return_override = None
@@ -14208,7 +14342,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             caller=addr("permissionless"), clock=mature,
         ))
         version = witness.settlement.protocol_version
-        self.assertEqual(len(router.target_release_registration_v2(version)), 384)
+        self.assertEqual(len(router.target_release_registration_v2(version)), 416)
         self.assertEqual(len(router.migration_activation_profile_v2(version)), 768)
         self.assertEqual(len(manager.profile_ingress_root_v2(version)), 128)
         root, ids = manager.profile_ingress_roots[version]
@@ -14261,14 +14395,23 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         )
         self.assertEqual((len(brd), brd[:32]), (128, b"BRD1" + bytes(28)))
         self.assertEqual(registry._transaction_snapshot(), package_before)
-        brs = registry.stage_bridge_route_package_v1(
-            settlement.STAGE_BRIDGE_ROUTE_PACKAGE_SELECTOR + version_word,
-            caller=router.address, value=0,
-            gas=settlement.STAGE_BRIDGE_ROUTE_PACKAGE_GAS,
-            clock=retry_clock,
+        entry = next(
+            row for row in registry.entries.values()
+            if row.protocol_version == version
         )
-        self.assertEqual((len(brs), brs[:32]), (128, b"BRS1" + bytes(28)))
-        self.assertEqual(brs[96:128], brd[96:128])
+        self.assertEqual(brd[64:96], entry.package_root)
+        self.assertEqual(
+            int.from_bytes(brd[96:128], "big"),
+            entry.staged_at_block
+                + settlement.BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
+        )
+        with self.assertRaises(ValueError):
+            registry.stage_bridge_route_package_v1(
+                settlement.STAGE_BRIDGE_ROUTE_PACKAGE_SELECTOR + version_word,
+                caller=router.address, value=0,
+                gas=settlement.STAGE_BRIDGE_ROUTE_PACKAGE_GAS,
+                clock=retry_clock,
+            )
         brp_call = (
             settlement.BRIDGE_ROUTE_PACKAGE_SELECTOR
             + settlement._model_uint(
@@ -14292,7 +14435,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             rtr_call, caller=registry.address, value=0,
             gas=settlement.TARGET_RELEASE_REGISTRATION_READ_GAS,
         )
-        self.assertEqual((len(rtr), rtr[:32]), (384, b"RTR2" + bytes(28)))
+        self.assertEqual((len(rtr), rtr[:32]), (416, b"RTR2" + bytes(28)))
         self.assertEqual(
             settlement.decode_target_release_registration_return_v2(rtr),
             router.target_release_registrations_v2[version],
@@ -14337,11 +14480,11 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             before = registry._transaction_snapshot()
             router.release_registration_getter_override = malformed
             with self.assertRaises(ValueError):
-                registry.stage_bridge_route_package_v1(
-                    settlement.STAGE_BRIDGE_ROUTE_PACKAGE_SELECTOR
+                router.prepare_bridge_route_package_v1(
+                    settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_SELECTOR
                         + version_word,
-                    caller=router.address, value=0,
-                    gas=settlement.STAGE_BRIDGE_ROUTE_PACKAGE_GAS,
+                    caller=addr("preparer"), value=0,
+                    gas=settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_GAS,
                     clock=retry_clock,
                 )
             self.assertEqual(registry._transaction_snapshot(), before)
@@ -14350,11 +14493,11 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             before = registry._transaction_snapshot()
             router.release_registration_getter_fault_point = fault
             with self.assertRaises(RuntimeError):
-                registry.stage_bridge_route_package_v1(
-                    settlement.STAGE_BRIDGE_ROUTE_PACKAGE_SELECTOR
+                router.prepare_bridge_route_package_v1(
+                    settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_SELECTOR
                         + version_word,
-                    caller=router.address, value=0,
-                    gas=settlement.STAGE_BRIDGE_ROUTE_PACKAGE_GAS,
+                    caller=addr("preparer"), value=0,
+                    gas=settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_GAS,
                     clock=retry_clock,
                 )
             self.assertEqual(registry._transaction_snapshot(), before)
@@ -14705,6 +14848,9 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         ):
             with self.subTest(fault=fault):
                 current = protocol_authority_fixture()
+                registrations_before = copy.deepcopy(
+                    current[1].target_release_registrations_v2
+                )
                 package_before = current[1]._bridge_package_snapshot_v1()
                 operation_id, mature, success = self._execute_release(
                     current, fault=fault
@@ -14713,7 +14859,10 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                 router, manager, timelock, market = (
                     current[1], current[4], current[5], current[6]
                 )
-                self.assertFalse(router.target_release_registrations_v2)
+                self.assertEqual(
+                    router.target_release_registrations_v2,
+                    registrations_before,
+                )
                 self.assertFalse(router.migration_activation_profiles_v2)
                 self.assertFalse(manager.profile_ingress_roots)
                 self.assertFalse(manager.profile_ingress_rows)
@@ -14759,13 +14908,19 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                                  ("market", "after_install")):
             with self.subTest(component=component):
                 current = protocol_authority_fixture()
+                registrations_before = copy.deepcopy(
+                    current[1].target_release_registrations_v2
+                )
                 if component == "router":
                     current[1].release_registration_fault_point = fault
                 else:
                     current[6].fault_point = fault
                 operation_id, _mature, success = self._execute_release(current)
                 self.assertFalse(success)
-                self.assertFalse(current[1].target_release_registrations_v2)
+                self.assertEqual(
+                    current[1].target_release_registrations_v2,
+                    registrations_before,
+                )
                 self.assertFalse(current[6].authorizations)
         self._assert_register_release_live_deployment_world_is_exact_and_atomic()
 
@@ -14781,6 +14936,22 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         commitment_derived = commitment.derive_register_release_authority_v2(
             decoded_positive.profile_bytes,
             decoded_positive.expected_predecessor_protocol_version,
+        )
+        self.assertEqual(
+            settlement_derived.bridge_route_expansion,
+            commitment_derived.bridge_route_expansion,
+        )
+        self.assertEqual(
+            settlement_derived.bridge_invocation_policy,
+            commitment_derived.bridge_invocation_policy,
+        )
+        self.assertEqual(
+            settlement_derived.bridge_route_expansion_hash,
+            commitment_derived.bridge_route_expansion_hash,
+        )
+        self.assertEqual(
+            settlement_derived.target_registration_hash,
+            commitment_derived.target_registration_hash,
         )
         commitment_inventory = commitment.target_constructor_inventory_v2(
             decoded_positive.profile_bytes, commitment_derived
@@ -14885,6 +15056,9 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
 
         def assert_rejected(mutate):
             current = protocol_authority_fixture()
+            registrations_before = copy.deepcopy(
+                current[1].target_release_registrations_v2
+            )
             decoded = settlement.decode_register_release_payload_v1(current[3])
             derived = settlement.derive_register_release_authority_v2(
                 decoded.profile_bytes,
@@ -14893,7 +15067,10 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             mutate(current, derived)
             operation_id, _mature, success = self._execute_release(current)
             self.assertFalse(success)
-            self.assertFalse(current[1].target_release_registrations_v2)
+            self.assertEqual(
+                current[1].target_release_registrations_v2,
+                registrations_before,
+            )
             self.assertFalse(current[1].migration_activation_profiles_v2)
             self.assertFalse(current[4].profile_ingress_rows)
             self.assertFalse(current[6].authorizations)
@@ -14978,6 +15155,9 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         for caller_role, trailing in (("manager", False), ("router", True)):
             with self.subTest(pvm1_caller=caller_role, trailing=trailing):
                 current = protocol_authority_fixture()
+                registrations_before = copy.deepcopy(
+                    current[1].target_release_registrations_v2
+                )
                 manager, router = current[4], current[1]
                 caller = manager.address if caller_role == "manager" \
                     else router.address
@@ -14987,7 +15167,10 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                 )
                 operation_id, _mature, success = self._execute_release(current)
                 self.assertFalse(success)
-                self.assertFalse(router.target_release_registrations_v2)
+                self.assertEqual(
+                    router.target_release_registrations_v2,
+                    registrations_before,
+                )
                 self.assertFalse(manager.profile_ingress_rows)
                 self.assertFalse(current[6].authorizations)
                 self.assertEqual(current[5].operations[operation_id].state, 1)
@@ -15023,6 +15206,9 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         # A lookalike Market deployment bound to a different Router cannot
         # consume an authentic row from the manager's Router.
         substituted_router = protocol_authority_fixture()
+        registrations_before = copy.deepcopy(
+            substituted_router[1].target_release_registrations_v2
+        )
         original_market = substituted_router[6]
         wrong_market = settlement.PvmDerivedMarketAuthorizationV1(
             original_market.market_chain_id, original_market.address,
@@ -15036,7 +15222,10 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             substituted_router
         )
         self.assertFalse(success)
-        self.assertFalse(substituted_router[1].target_release_registrations_v2)
+        self.assertEqual(
+            substituted_router[1].target_release_registrations_v2,
+            registrations_before,
+        )
         self.assertFalse(wrong_market.authorizations)
         self.assertEqual(
             substituted_router[5].operations[operation_id].state, 1
@@ -15046,6 +15235,9 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         # downstream DAG hash is recomputed, a lookalike Market tuple must fail
         # the live PVM/Router/Market root join before any protocol write.
         profile_substitution = list(protocol_authority_fixture())
+        registrations_before = copy.deepcopy(
+            profile_substitution[1].target_release_registrations_v2
+        )
         original = settlement.decode_register_release_payload_v1(
             profile_substitution[3]
         )
@@ -15082,8 +15274,9 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             profile_substitution
         )
         self.assertFalse(success)
-        self.assertFalse(
-            profile_substitution[1].target_release_registrations_v2
+        self.assertEqual(
+            profile_substitution[1].target_release_registrations_v2,
+            registrations_before,
         )
         self.assertFalse(profile_substitution[6].authorizations)
         self.assertEqual(
@@ -15093,6 +15286,9 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         # A mutation introduced only after Router returns is detected by the
         # PVM target postread and is reverted with the outer transaction.
         toctou = protocol_authority_fixture()
+        registrations_before = copy.deepcopy(
+            toctou[1].target_release_registrations_v2
+        )
         decoded = settlement.decode_register_release_payload_v1(toctou[3])
         target = decoded.target_address
 
@@ -15105,7 +15301,10 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             mutate_after_router
         operation_id, _mature, success = self._execute_release(toctou)
         self.assertFalse(success)
-        self.assertFalse(toctou[1].target_release_registrations_v2)
+        self.assertEqual(
+            toctou[1].target_release_registrations_v2,
+            registrations_before,
+        )
         self.assertFalse(toctou[6].authorizations)
         self.assertEqual(toctou[5].operations[operation_id].state, 1)
         self.assertNotIn(
@@ -15116,13 +15315,19 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         for point in ("router_direct_read", "pvm_postread"):
             with self.subTest(point=point):
                 current = protocol_authority_fixture()
+                registrations_before = copy.deepcopy(
+                    current[1].target_release_registrations_v2
+                )
                 if point == "router_direct_read":
                     current[1].release_registration_getter_override = b""
                 else:
                     current[4].postread_override = b""
                 operation_id, _mature, success = self._execute_release(current)
                 self.assertFalse(success)
-                self.assertFalse(current[1].target_release_registrations_v2)
+                self.assertEqual(
+                    current[1].target_release_registrations_v2,
+                    registrations_before,
+                )
                 self.assertFalse(current[4].profile_ingress_rows)
                 self.assertFalse(current[6].authorizations)
                 self.assertEqual(current[5].operations[operation_id].state, 1)
@@ -15132,6 +15337,9 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         for deployment_word in range(59, 67):
             with self.subTest(deployment_word=deployment_word):
                 current = protocol_authority_fixture()
+                registrations_before = copy.deepcopy(
+                    current[1].target_release_registrations_v2
+                )
                 changed = bytearray(current[3])
                 changed[deployment_word * 32 + 31] ^= 1
                 changed = bytes(changed)
@@ -15153,11 +15361,17 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                             + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
                     ),
                 ))
-                self.assertFalse(current[1].target_release_registrations_v2)
+                self.assertEqual(
+                    current[1].target_release_registrations_v2,
+                    registrations_before,
+                )
                 self.assertFalse(current[6].authorizations)
 
     def test_register_release_rejects_alternate_manifest_namespace_before_writes(self):
         current = list(protocol_authority_fixture())
+        registrations_before = copy.deepcopy(
+            current[1].target_release_registrations_v2
+        )
         original = settlement.decode_register_release_payload_v1(current[3])
         original_words = settlement._execution_profile_abi_words_v2(
             original.profile_bytes
@@ -15207,7 +15421,10 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         self.assertEqual(current[4].lifecycle, "IDLE")
         self.assertFalse(current[4].consumed_operation_ids)
         self.assertFalse(current[4].profile_ingress_rows)
-        self.assertFalse(current[1].target_release_registrations_v2)
+        self.assertEqual(
+            current[1].target_release_registrations_v2,
+            registrations_before,
+        )
         self.assertFalse(current[6].authorizations)
         self.assertEqual(current[5].operations[operation_id].state, 1)
 
@@ -15289,16 +15506,25 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         for trailing in (False, True):
             with self.subTest(pct1_trailing=trailing):
                 current = protocol_authority_fixture()
+                registrations_before = copy.deepcopy(
+                    current[1].target_release_registrations_v2
+                )
                 raw = current[5].config_return_v1()
                 current[5].config_return_overrides[current[4].address] = (
                     raw + bytes(32) if trailing else raw[:-1]
                 )
                 operation_id, _mature, success = self._execute_release(current)
                 self.assertFalse(success)
-                self.assertFalse(current[1].target_release_registrations_v2)
+                self.assertEqual(
+                    current[1].target_release_registrations_v2,
+                    registrations_before,
+                )
                 self.assertEqual(current[5].operations[operation_id].state, 1)
 
         malicious = protocol_authority_fixture()
+        registrations_before = copy.deepcopy(
+            malicious[1].target_release_registrations_v2
+        )
         attacker = addr("malicious-dao")
         malicious[5].dao_proposer = attacker
         malicious_operation = malicious[5].queue_protocol_change_v1(
@@ -15315,7 +15541,10 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                     + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
             ),
         ))
-        self.assertFalse(malicious[1].target_release_registrations_v2)
+        self.assertEqual(
+            malicious[1].target_release_registrations_v2,
+            registrations_before,
+        )
         self.assertEqual(
             malicious[5].operations[malicious_operation].state, 1
         )
@@ -15862,6 +16091,107 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             manager.migration_arm_fresh_after_v1(),
             commitment.encode_migration_arm_fresh_after_return(0),
         )
+
+        active_registration = router.registrations[router.active_version]
+        bridge_authorization = next(
+            authorization
+            for authorization in active_registration.ingress_authorizations
+            if authorization.kind is settlement.ForceKind.BRIDGE_CREDIT
+        )
+        source_descriptor_id = router._source_descriptor_id_by_version[
+            router.active_version
+        ]
+        source, _credit_registry, _quota = (
+            router._source_bundles_by_descriptor_id[source_descriptor_id]
+        )
+        adapter = router._profile_deployments_by_version[
+            router.active_version
+        ][bridge_authorization.authorization_id]
+        self.assertTrue(source.v2_active)
+        self.assertTrue(adapter.destination_sealed)
+        support_entry = router._bridge_domain_registry_authority \
+            .latest_final_entry(
+                source.source_domain_id,
+                source.frozen_bridge_execution_hash,
+                active_registration.release_manifest.destination_chain_id,
+                settlement.Clock(
+                    activation_clock.block_number,
+                    activation_clock.timestamp + 1,
+                ),
+                source_bridge=source.address,
+                caller=source.address,
+                target=addr("c3-recipient"),
+            )
+        self.assertIsNotNone(support_entry)
+        self.assertEqual(support_entry.route_kind, "PRIMITIVE")
+        self.assertTrue(support_entry.arm_ready_consumed)
+
+        post_cutover_clock = source.support_final_clock(
+            activation_clock.timestamp + 1
+        )
+        denied_target = active_registration.release_manifest \
+            .destination_bridge_descriptor.privileged_target_denyset[0]
+        denied = settlement.bridge_message(
+            post_cutover_clock.timestamp,
+            "strict-c3-denied-target",
+            to=denied_target,
+            value=3,
+            fee=1,
+            liquidity_fee=1,
+        )
+        source_before_denied = source._transaction_snapshot()
+        with self.assertRaises(ValueError):
+            source.send_message(
+                denied,
+                caller=denied.sender,
+                msg_value=5,
+                clock=post_cutover_clock,
+                enqueue_by=(
+                    post_cutover_clock.timestamp
+                    + settlement.MAX_BRIDGE_ENQUEUE_DELAY
+                ),
+            )
+        self.assertEqual(source._transaction_snapshot(), source_before_denied)
+
+        message = settlement.bridge_message(
+            post_cutover_clock.timestamp,
+            "strict-c3-post-cutover",
+            to=addr("c3-recipient"),
+            value=3,
+            fee=1,
+            liquidity_fee=1,
+        )
+        receipt = source.send_message(
+            message,
+            caller=message.sender,
+            msg_value=5,
+            clock=post_cutover_clock,
+            enqueue_by=(
+                post_cutover_clock.timestamp
+                + settlement.MAX_BRIDGE_ENQUEUE_DELAY
+            ),
+        )
+        self.assertEqual(source.credits[receipt.credit_id].status, "NEW")
+        deposit = router.required_ingress_deposit(receipt.envelope, adapter)
+        relayer = addr("strict-c3-relayer")
+        self.assertEqual(
+            adapter.enqueue(
+                post_cutover_clock,
+                envelope=receipt.envelope,
+                caller=relayer,
+                deposit=deposit,
+            ),
+            "SYNCED_REFUNDED",
+        )
+        self.assertEqual(adapter.withdraw_refund(relayer), deposit)
+        queued = adapter.enqueue(
+            post_cutover_clock,
+            envelope=receipt.envelope,
+            caller=relayer,
+            deposit=deposit,
+        )
+        self.assertTrue(queued.startswith("QUEUED:"))
+        self.assertEqual(source.credits[receipt.credit_id].status, "QUEUED")
 
     def test_strict_brc_faults_restore_arm_ready_consumption(self):
         scenarios = (

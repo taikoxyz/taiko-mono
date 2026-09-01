@@ -328,19 +328,47 @@ BRIDGE_ROUTE_PACKAGE_SELECTOR = bytes.fromhex("52e2562f")
 BRIDGE_ROUTE_PACKAGE_CALLDATA_LENGTH = 68
 BRIDGE_ROUTE_PACKAGE_RETURN_LENGTH = 480
 BRIDGE_ROUTE_PACKAGE_READ_GAS = 100_000
-ACTIVE_BRIDGE_ROUTE_SELECTOR = bytes.fromhex("39893c49")
-ACTIVE_BRIDGE_ROUTE_MAGIC = b"ABR1"
-ACTIVE_BRIDGE_ROUTE_CALLDATA_LENGTH = 132
-ACTIVE_BRIDGE_ROUTE_RETURN_LENGTH = 288
-ACTIVE_BRIDGE_ROUTE_READ_GAS = 100_000
+ACTIVE_BRIDGE_ROUTE_SELECTOR = bytes.fromhex("9266ca8d")
+ACTIVE_BRIDGE_ROUTE_MAGIC = b"ABR2"
+ACTIVE_BRIDGE_ROUTE_CALLDATA_LENGTH = 164
+ACTIVE_BRIDGE_ROUTE_RETURN_LENGTH = 384
+ACTIVE_BRIDGE_ROUTE_READ_GAS = 1_200_000
+BRIDGE_ROUTE_EXPANSION_SELECTOR = bytes.fromhex("118464c5")
+BRIDGE_ROUTE_EXPANSION_MAGIC = b"BRX1"
+BRIDGE_ROUTE_EXPANSION_CALLDATA_LENGTH = 36
+BRIDGE_ROUTE_EXPANSION_RETURN_LENGTH = 38 * 32
+BRIDGE_ROUTE_EXPANSION_READ_GAS = 200_000
+BRIDGE_INVOCATION_POLICY_SELECTOR = bytes.fromhex("c1b06888")
+BRIDGE_INVOCATION_POLICY_MAGIC = b"BIP1"
+BRIDGE_INVOCATION_POLICY_CALLDATA_LENGTH = 36
+BRIDGE_INVOCATION_POLICY_RETURN_LENGTH = 68 * 32
+BRIDGE_INVOCATION_POLICY_READ_GAS = 250_000
+BRIDGE_INVOCATION_DECISION_SELECTOR = bytes.fromhex("6bfa2ef0")
+BRIDGE_INVOCATION_DECISION_MAGIC = b"BID1"
+BRIDGE_INVOCATION_DECISION_CALLDATA_LENGTH = 68
+BRIDGE_INVOCATION_DECISION_RETURN_LENGTH = 128
+BRIDGE_INVOCATION_DECISION_READ_GAS = 100_000
+PROFILE_INGRESS_MEMBERSHIP_SELECTOR = bytes.fromhex("4c4455b8")
+PROFILE_INGRESS_MEMBERSHIP_MAGIC = b"PIM2"
+PROFILE_INGRESS_MEMBERSHIP_CALLDATA_LENGTH = 68
+PROFILE_INGRESS_MEMBERSHIP_RETURN_LENGTH = 160
+PROFILE_INGRESS_MEMBERSHIP_READ_GAS = 100_000
+PROFILE_INGRESS_ROOT_SELECTOR = bytes.fromhex("2d2bbe23")
+PROFILE_INGRESS_ROOT_CALLDATA_LENGTH = 36
+PROFILE_INGRESS_ROOT_RETURN_LENGTH = 128
+PROFILE_INGRESS_ROOT_READ_GAS = 100_000
+PROFILE_INGRESS_AUTHORIZATION_SELECTOR = bytes.fromhex("2181b974")
+PROFILE_INGRESS_AUTHORIZATION_CALLDATA_LENGTH = 36
+PROFILE_INGRESS_AUTHORIZATION_RETURN_LENGTH = 800
+PROFILE_INGRESS_AUTHORIZATION_READ_GAS = 250_000
 STAGE_BRIDGE_ROUTE_PACKAGE_SELECTOR = bytes.fromhex("9dad437b")
-STAGE_BRIDGE_ROUTE_PACKAGE_GAS = 2_000_000
+STAGE_BRIDGE_ROUTE_PACKAGE_GAS = 12_000_000
 STAGE_BRIDGE_ROUTE_PACKAGE_RETURN_LENGTH = 128
 PREPARE_BRIDGE_ROUTE_PACKAGE_SELECTOR = bytes.fromhex("1ccbc24a")
-PREPARE_BRIDGE_ROUTE_PACKAGE_GAS = 5_000_000
+PREPARE_BRIDGE_ROUTE_PACKAGE_GAS = 25_000_000
 PREPARE_BRIDGE_ROUTE_PACKAGE_RETURN_LENGTH = 128
 CONSUME_BRIDGE_ROUTE_ARM_READY_SELECTOR = bytes.fromhex("68034634")
-CONSUME_BRIDGE_ROUTE_ARM_READY_GAS = 200_000
+CONSUME_BRIDGE_ROUTE_ARM_READY_GAS = 2_500_000
 CONSUME_BRIDGE_ROUTE_ARM_READY_RETURN_LENGTH = 128
 MAX_BRIDGE_TOPOLOGIES_PER_PROFILE = 64
 MAX_PROFILE_INGRESS_AUTHORIZATIONS = 64
@@ -460,9 +488,20 @@ EMPTY_V2_BRIDGE_STATE_COMMITMENT = "v2-state:empty:slot257:v1"
 LEGACY_V1_SOURCE_BRIDGE = "bridge-v1:source:A"
 SOURCE_V2_CREATE2_FACTORY = "v2-bridge-create2-factory"
 SOURCE_V2_CREATE2_FACTORY_RUNTIME_HASH = "code:v2-bridge-factory:v1"
-SOURCE_V2_CREATE2_FACTORY_CONFIGURATION_HASH = (
-    "config:v2-bridge-factory:immutable:v1"
+BRIDGE_ADAPTER_CREATION_CODE_V1 = (
+    b"slot-chain-model-bridge-adapter-creation-code-v1"
 )
+BRIDGE_ADAPTER_CREATION_CODE_HASH_V1 = keccak256(
+    BRIDGE_ADAPTER_CREATION_CODE_V1
+)
+SOURCE_BUNDLE_CREATION_CODE_HASH_V1 = keccak256(
+    b"slot-chain-model-source-bundle-creation-code-v1"
+)
+SOURCE_V2_CREATE2_FACTORY_CONFIGURATION_HASH = keccak256(
+    b"slot-chain-v2-bridge-factory-config-v2"
+    + SOURCE_BUNDLE_CREATION_CODE_HASH_V1
+    + BRIDGE_ADAPTER_CREATION_CODE_HASH_V1
+).hex()
 SOURCE_V2_CREATE2_SALT = "salt:v2-source-bridge:v1"
 SOURCE_V2_GENERIC_INITCODE_HASH = "initcode:generic-inactive-source-bridge:v2"
 SOURCE_V2_BUNDLE_DEPLOYER_RUNTIME_HASH = "code:source-bundle-deployer:v2"
@@ -711,6 +750,54 @@ def source_bridge_create2_address(
     return "0x" + digest[-20:].hex()
 
 
+def bridge_adapter_create2_salt_v1(
+    protocol_version: int, source_descriptor_id: str | bytes,
+) -> bytes:
+    """Derive the unique per-release adapter salt without its own address."""
+
+    return keccak256(
+        b"slot-chain-bridge-adapter-salt-v1"
+        + _model_uint(protocol_version, 8, "adapter protocol version")
+        + _model_fixed_bytes32(source_descriptor_id)
+    )
+
+
+def bridge_adapter_initcode_hash_v1(
+    *, configuration_hash: str | bytes, source_bridge: str,
+    credit_registry: str, router: str, queue: str, seal_authority: str,
+) -> bytes:
+    """Hash the pinned creation artifact and canonical constructor ABI."""
+
+    constructor_abi = b"".join((
+        _model_fixed_bytes32(configuration_hash),
+        bytes(12) + _model_address20(source_bridge),
+        bytes(12) + _model_address20(credit_registry),
+        bytes(12) + _model_address20(router),
+        bytes(12) + _model_address20(queue),
+        bytes(12) + _model_address20(seal_authority),
+    ))
+    if len(constructor_abi) != 192:
+        raise AssertionError("Bridge adapter constructor ABI width drifted")
+    return keccak256(BRIDGE_ADAPTER_CREATION_CODE_V1 + constructor_abi)
+
+
+def bridge_adapter_create2_address_v1(
+    *, factory: str, protocol_version: int,
+    source_descriptor_id: str | bytes, configuration_hash: str | bytes,
+    source_bridge: str, credit_registry: str, router: str, queue: str,
+    seal_authority: str,
+) -> str:
+    salt = bridge_adapter_create2_salt_v1(
+        protocol_version, source_descriptor_id)
+    initcode_hash = bridge_adapter_initcode_hash_v1(
+        configuration_hash=configuration_hash,
+        source_bridge=source_bridge, credit_registry=credit_registry,
+        router=router, queue=queue, seal_authority=seal_authority,
+    )
+    return source_bridge_create2_address(
+        factory, salt.hex(), initcode_hash.hex())
+
+
 def exact_component_config_staticcall(
     component: object, *, expected_runtime_hash: str | bytes,
     expected_configuration_hash: str | bytes,
@@ -853,14 +940,15 @@ def bridge_ingress_component_configuration_hash(
         raise ValueError("Bridge ingress configuration is incomplete")
     # Runtime/code identities are independently exact-read.  Repeating them
     # here formerly produced a second, incompatible configuration schema.
-    # These four addresses are the complete constructor authority surface.
+    # These five addresses are the complete constructor authority surface.
     config = b"".join((
         _model_address20(source_registry_address),
         _model_address20(source_bridge_address),
         _model_address20(router_address),
+        _model_address20(queue_address),
         _model_address20(seal_authority),
     ))
-    if len(config) != 80:
+    if len(config) != 100:
         raise AssertionError("Bridge ingress component config drifted")
     return "0x" + keccak256(b"".join((
         D_COMPONENT_CONFIG,
@@ -1557,6 +1645,25 @@ def canonical_invocation_policy(
         hook_selector + bytes(28),
     ))).hex()
     return denied, policy_hash
+
+
+def versioned_bridge_invocation_policy(
+    protocol_version: int,
+    denied: tuple[str, ...],
+    *, hook_selector: bytes = ON_MESSAGE_INVOCATION_SELECTOR,
+) -> tuple[tuple[str, ...], str]:
+    """Bind one canonical policy to exactly one release version."""
+
+    canonical, base_hash = canonical_invocation_policy(
+        denied, hook_selector=hook_selector
+    )
+    if not 0 < protocol_version <= UINT64_MAX:
+        raise ValueError("invocation policy version is outside uint64")
+    return canonical, keccak256(b"".join((
+        b"slot-chain-versioned-invocation-policy-v1",
+        _model_uint(protocol_version, 8, "invocation policy version"),
+        _model_fixed_bytes32(base_hash),
+    ))).hex()
 
 
 def invocation_policy_returndata(
@@ -2854,6 +2961,7 @@ class RouterMigrationLifecycle(Enum):
     ACTIVATING = 4
     REGISTERING = 5
     PUBLISHING = 6
+    BRIDGE_PREPARING = 7
 
 
 class MigrationBoundaryState(Enum):
@@ -2882,7 +2990,7 @@ MIGRATION_ACTIVATION_CONTEXT_LENGTH = 320
 MIGRATION_ACTIVATION_CONTEXT_GAS = 100_000
 TARGET_RELEASE_REGISTRATION_SELECTOR = bytes.fromhex("f588fec3")
 TARGET_RELEASE_REGISTRATION_CALLDATA_LENGTH = 36
-TARGET_RELEASE_REGISTRATION_RETURN_LENGTH = 384
+TARGET_RELEASE_REGISTRATION_RETURN_LENGTH = 416
 TARGET_RELEASE_REGISTRATION_READ_GAS = 100_000
 MIGRATION_READINESS_MAGIC = b"MRS1"
 MIGRATION_READINESS_LENGTH = 256
@@ -8484,7 +8592,7 @@ class BridgeRecord:
 @dataclass
 class BridgeSupportEntry:
     protocol_version: int
-    manifest: "ReleaseManifestV2"
+    manifest: "ReleaseManifestV2 | None"
     registration_commitment: bytes
     source_chain_id: int
     source_registration_epoch: int
@@ -8494,12 +8602,35 @@ class BridgeSupportEntry:
     adapter_address: str = ""
     package_root: bytes = bytes(32)
     package_count: int = 0
+    destination_chain_id: int = 0
+    source_domain_id: bytes = bytes(32)
+    bridge_execution_hash: bytes = bytes(32)
+    destination_domain_id: bytes = bytes(32)
+    destination_bridge: bytes = bytes(20)
+    target_settlement: bytes = bytes(20)
+    release_manifest_hash: bytes = bytes(32)
+    execution_profile_hash: bytes = bytes(32)
+    invocation_policy_hash: bytes = bytes(32)
+    bridge_authorization_id: bytes = bytes(32)
+    bridge_route_expansion_hash: bytes = bytes(32)
+    adapter_runtime_hash: bytes = bytes(32)
+    adapter_configuration_hash: bytes = bytes(32)
+    source_bridge_address: bytes = bytes(20)
+    source_credit_registry_address: bytes = bytes(20)
+    source_quota_manager_address: bytes = bytes(20)
+    rtr_hash: bytes = bytes(32)
+    brx_hash: bytes = bytes(32)
+    pir_hash: bytes = bytes(32)
+    pim_hash: bytes = bytes(32)
+    pia_hash: bytes = bytes(32)
+    bip_hash: bytes = bytes(32)
     arm_ready_consumed: bool = False
     confirmed_at_block: int | None = None
+    route_kind: str = "PRIMITIVE"
 
 
 @dataclass(frozen=True)
-class ActiveBridgeRouteV1:
+class ActiveBridgeRouteV2:
     active_protocol_version: int
     source_chain_id: int
     source_registration_epoch: int
@@ -8508,51 +8639,63 @@ class ActiveBridgeRouteV1:
     destination_domain_id: bytes
     destination_bridge: bytes
     release_manifest_hash: bytes
+    execution_profile_hash: bytes
+    invocation_policy_hash: bytes
+    checked_target: bytes
 
 
-def encode_active_bridge_route_v1(route: ActiveBridgeRouteV1) -> bytes:
-    if (type(route) is not ActiveBridgeRouteV1
+def encode_active_bridge_route_v2(route: ActiveBridgeRouteV2) -> bytes:
+    if (type(route) is not ActiveBridgeRouteV2
             or any(type(value) is not bytes or len(value) != 32
                    or value == bytes(32) for value in (
                        route.source_domain_id, route.bridge_execution_hash,
                        route.destination_domain_id,
                        route.release_manifest_hash,
+                       route.execution_profile_hash,
+                       route.invocation_policy_hash,
                    ))
             or type(route.destination_bridge) is not bytes
             or len(route.destination_bridge) != 20
-            or route.destination_bridge == bytes(20)):
+            or route.destination_bridge == bytes(20)
+            or type(route.checked_target) is not bytes
+            or len(route.checked_target) != 20
+            or route.checked_target == bytes(20)):
         raise ValueError("active Bridge route is malformed")
     encoded = b"".join((
         ACTIVE_BRIDGE_ROUTE_MAGIC + bytes(28),
-        _model_uint(route.active_protocol_version, 32, "ABR1 version"),
-        _model_uint(route.source_chain_id, 32, "ABR1 source chain"),
-        _model_uint(route.source_registration_epoch, 32, "ABR1 source epoch"),
+        _model_uint(route.active_protocol_version, 32, "ABR2 version"),
+        _model_uint(route.source_chain_id, 32, "ABR2 source chain"),
+        _model_uint(route.source_registration_epoch, 32, "ABR2 source epoch"),
         route.source_domain_id, route.bridge_execution_hash,
         route.destination_domain_id,
         bytes(12) + route.destination_bridge,
-        route.release_manifest_hash,
+        route.release_manifest_hash, route.execution_profile_hash,
+        route.invocation_policy_hash,
+        bytes(12) + route.checked_target,
     ))
     if len(encoded) != ACTIVE_BRIDGE_ROUTE_RETURN_LENGTH:
-        raise AssertionError("ABR1 return width drifted")
+        raise AssertionError("ABR2 return width drifted")
     return encoded
 
 
-def decode_active_bridge_route_v1(raw: bytes) -> ActiveBridgeRouteV1:
+def decode_active_bridge_route_v2(raw: bytes) -> ActiveBridgeRouteV2:
     if type(raw) is not bytes or len(raw) != ACTIVE_BRIDGE_ROUTE_RETURN_LENGTH:
-        raise ValueError("ABR1 return length is invalid")
+        raise ValueError("ABR2 return length is invalid")
     words = tuple(raw[index:index + 32]
                   for index in range(0, len(raw), 32))
     if (words[0] != ACTIVE_BRIDGE_ROUTE_MAGIC + bytes(28)
-            or words[7][:12] != bytes(12)):
-        raise ValueError("ABR1 magic or address padding is invalid")
-    route = ActiveBridgeRouteV1(
-        _decode_uint_word_v1(words[1], 64, "ABR1 version"),
-        _decode_uint_word_v1(words[2], 64, "ABR1 source chain"),
-        _decode_uint_word_v1(words[3], 64, "ABR1 source epoch"),
-        words[4], words[5], words[6], words[7][12:], words[8],
+            or words[7][:12] != bytes(12)
+            or words[11][:12] != bytes(12)):
+        raise ValueError("ABR2 magic or address padding is invalid")
+    route = ActiveBridgeRouteV2(
+        _decode_uint_word_v1(words[1], 64, "ABR2 version"),
+        _decode_uint_word_v1(words[2], 64, "ABR2 source chain"),
+        _decode_uint_word_v1(words[3], 64, "ABR2 source epoch"),
+        words[4], words[5], words[6], words[7][12:], words[8], words[9],
+        words[10], words[11][12:],
     )
-    if encode_active_bridge_route_v1(route) != raw:
-        raise ValueError("ABR1 return is noncanonical")
+    if encode_active_bridge_route_v2(route) != raw:
+        raise ValueError("ABR2 return is noncanonical")
     return route
 
 
@@ -9286,6 +9429,218 @@ class BridgeDomainRegistry:
             ),
         )))
 
+    @staticmethod
+    def _primitive_package_root_v2(
+        rtr_raw: bytes, brx_raw: bytes, pir_raw: bytes, pim_raw: bytes,
+        pia_raw: bytes, bip_raw: bytes,
+    ) -> bytes:
+        """Commit the six exact raw authority rows read before first write."""
+
+        expected_lengths = (
+            TARGET_RELEASE_REGISTRATION_RETURN_LENGTH,
+            BRIDGE_ROUTE_EXPANSION_RETURN_LENGTH,
+            PROFILE_INGRESS_ROOT_RETURN_LENGTH,
+            PROFILE_INGRESS_MEMBERSHIP_RETURN_LENGTH,
+            PROFILE_INGRESS_AUTHORIZATION_RETURN_LENGTH,
+            BRIDGE_INVOCATION_POLICY_RETURN_LENGTH,
+        )
+        rows = (rtr_raw, brx_raw, pir_raw, pim_raw, pia_raw, bip_raw)
+        if any(type(raw) is not bytes or len(raw) != length
+               for raw, length in zip(rows, expected_lengths)):
+            raise ValueError("route package primitive width is invalid")
+        return keccak256(b"".join((
+            b"slot-chain-source-route-package-v2",
+            *(keccak256(raw) for raw in rows),
+        )))
+
+    def _primitive_package_exact(self, entry: BridgeSupportEntry) -> bool:
+        if type(entry) is not BridgeSupportEntry:
+            return False
+        hashes = (
+            entry.rtr_hash, entry.brx_hash, entry.pir_hash, entry.pim_hash,
+            entry.pia_hash, entry.bip_hash,
+        )
+        return (
+            entry.manifest is None
+            and entry.package_count == 1
+            and all(value != bytes(32) for value in hashes)
+            and entry.brx_hash == entry.bridge_route_expansion_hash
+            and entry.package_root == keccak256(b"".join((
+                b"slot-chain-source-route-package-v2", *hashes,
+            )))
+            and entry.source_domain_id != bytes(32)
+            and entry.bridge_execution_hash != bytes(32)
+            and entry.destination_domain_id != bytes(32)
+            and entry.destination_bridge != bytes(20)
+            and entry.target_settlement != bytes(20)
+            and entry.release_manifest_hash != bytes(32)
+            and entry.execution_profile_hash != bytes(32)
+            and entry.invocation_policy_hash != bytes(32)
+            and entry.bridge_authorization_id != bytes(32)
+            and entry.source_bridge_address != bytes(20)
+            and entry.source_credit_registry_address != bytes(20)
+            and entry.source_quota_manager_address != bytes(20)
+        )
+
+    def _primitive_entry_matches_rows_v2(
+        self, entry: BridgeSupportEntry, rtr: "TargetReleaseRegistrationRowV2",
+        brx: BridgeRouteExpansionV1, pir_raw: bytes, pim_raw: bytes,
+        pia_raw: bytes, bip: BridgeInvocationPolicyV1, bip_raw: bytes,
+        rtr_raw: bytes, brx_raw: bytes,
+    ) -> bool:
+        """Pure full scalar/hash join shared by stage and consume."""
+
+        try:
+            pir_version, pir_count, pir_root = decode_profile_ingress_root_v2(
+                pir_raw)
+            pim_version, pim_id, pim_count, pim_root = (
+                decode_profile_ingress_membership_v2(pim_raw))
+            pia_id, pia = decode_profile_ingress_authorization_v2(pia_raw)
+            descriptor = brx.source_descriptor_words
+            version = entry.protocol_version
+            return (
+                rtr.protocol_version == brx.protocol_version == version
+                and pir_version == pim_version == bip.protocol_version == version
+                and pir_count == pim_count and pir_root == pim_root
+                and pim_id == pia_id == brx.bridge_authorization_id
+                and entry.target_settlement == rtr.target_settlement
+                and entry.target_registration_hash
+                    == rtr.target_registration_hash
+                and entry.release_manifest_hash == rtr.release_manifest_hash
+                and entry.execution_profile_hash == rtr.execution_profile_hash
+                and entry.bridge_route_expansion_hash
+                    == rtr.bridge_route_expansion_hash == keccak256(brx_raw)
+                and entry.source_chain_id == brx.source_chain_id
+                and entry.source_registration_epoch == _decode_uint_word_v1(
+                    descriptor[27], 64, "route source epoch")
+                and entry.source_domain_id == brx.source_domain_id == pia[10]
+                and entry.bridge_execution_hash
+                    == brx.source_bridge_execution_hash == pia[12]
+                and entry.destination_chain_id
+                    == _decode_uint_word_v1(pia[13], 256,
+                                            "route destination chain")
+                and entry.destination_domain_id == pia[14]
+                and entry.destination_bridge == pia[15][12:]
+                and entry.registration_commitment
+                    == brx.destination_registration_commitment
+                and entry.invocation_policy_hash
+                    == brx.invocation_policy_hash
+                    == bip.invocation_policy_hash
+                and entry.bridge_authorization_id
+                    == brx.bridge_authorization_id
+                and entry.source_descriptor_id
+                    == brx.source_bridge_execution_hash
+                and _model_address20(entry.adapter_address) == pia[1][12:]
+                and entry.adapter_runtime_hash == pia[2]
+                and entry.adapter_configuration_hash == pia[3]
+                and entry.source_bridge_address == descriptor[8][12:]
+                and entry.source_credit_registry_address == descriptor[12][12:]
+                and entry.source_quota_manager_address == descriptor[15][12:]
+                and entry.rtr_hash == keccak256(rtr_raw)
+                and entry.brx_hash == keccak256(brx_raw)
+                and entry.pir_hash == keccak256(pir_raw)
+                and entry.pim_hash == keccak256(pim_raw)
+                and entry.pia_hash == keccak256(pia_raw)
+                and entry.bip_hash == keccak256(bip_raw)
+                and entry.package_root == self._primitive_package_root_v2(
+                    rtr_raw, brx_raw, pir_raw, pim_raw, pia_raw, bip_raw)
+                and self._primitive_package_exact(entry)
+            )
+        except (TypeError, ValueError):
+            return False
+
+    def _primitive_entry_live_exact_v2(
+        self, entry: BridgeSupportEntry,
+    ) -> bool:
+        """Re-read every primitive row and the exact prepared live package."""
+
+        manager = self.manager
+        router = self.router
+        version = entry.protocol_version
+        try:
+            rtr_raw = router.staticcall_target_release_registration_v2(
+                TARGET_RELEASE_REGISTRATION_SELECTOR
+                + _model_uint(version, 32, "route RTR2 version"),
+                caller=self.address, value=0,
+                gas=TARGET_RELEASE_REGISTRATION_READ_GAS,
+            )
+            rtr = decode_target_release_registration_return_v2(rtr_raw)
+            brx_raw = router.staticcall_bridge_route_expansion_v1(
+                BRIDGE_ROUTE_EXPANSION_SELECTOR
+                + _model_uint(version, 32, "route BRX1 version"),
+                caller=self.address, value=0,
+                gas=BRIDGE_ROUTE_EXPANSION_READ_GAS,
+            )
+            brx = decode_bridge_route_expansion_v1(brx_raw)
+            pir_raw = manager.staticcall_profile_ingress_root_v2(
+                PROFILE_INGRESS_ROOT_SELECTOR
+                + _model_uint(version, 32, "route PIR2 version"),
+                caller=self.address, value=0,
+                gas=PROFILE_INGRESS_ROOT_READ_GAS,
+            )
+            pim_raw = manager.staticcall_profile_ingress_membership_v2(
+                PROFILE_INGRESS_MEMBERSHIP_SELECTOR
+                + _model_uint(version, 32, "route PIM2 version")
+                + brx.bridge_authorization_id,
+                caller=self.address, value=0,
+                gas=PROFILE_INGRESS_MEMBERSHIP_READ_GAS,
+            )
+            pia_raw = manager.staticcall_profile_ingress_authorization_v2(
+                PROFILE_INGRESS_AUTHORIZATION_SELECTOR
+                + brx.bridge_authorization_id,
+                caller=self.address, value=0,
+                gas=PROFILE_INGRESS_AUTHORIZATION_READ_GAS,
+            )
+            _pia_id, pia = decode_profile_ingress_authorization_v2(pia_raw)
+            bip_raw = router.staticcall_bridge_invocation_policy_v1(
+                BRIDGE_INVOCATION_POLICY_SELECTOR
+                + _model_uint(version, 32, "route BIP1 version"),
+                caller=self.address, value=0,
+                gas=BRIDGE_INVOCATION_POLICY_READ_GAS,
+            )
+            bip = decode_bridge_invocation_policy_v1(bip_raw)
+            if not self._primitive_entry_matches_rows_v2(
+                    entry, rtr, brx, pir_raw, pim_raw, pia_raw, bip, bip_raw,
+                    rtr_raw, brx_raw):
+                return False
+            descriptor = brx.source_descriptor_words
+            factory = router._source_bridge_factories_by_address.get(
+                "0x" + descriptor[0][12:].hex())
+            deployment = router._profile_deployments_by_version.get(
+                version, {}).get(brx.bridge_authorization_id)
+            bundle = router._source_bundles_by_descriptor_id.get(
+                brx.source_bridge_execution_hash)
+            expected_adapter = bridge_adapter_create2_address_v1(
+                factory="0x" + descriptor[0][12:].hex(),
+                protocol_version=version,
+                source_descriptor_id=brx.source_bridge_execution_hash,
+                configuration_hash=pia[3],
+                source_bridge="0x" + descriptor[8][12:].hex(),
+                credit_registry="0x" + descriptor[12][12:].hex(),
+                router=router.address, queue=router.forced_queue.address,
+                seal_authority=router.version_manager,
+            )
+            return (
+                type(factory) is ImmutableV2BridgeFactory
+                and _model_fixed_bytes32(factory.runtime_hash)
+                    == descriptor[1]
+                and _model_fixed_bytes32(factory.configuration_hash)
+                    == descriptor[2]
+                and type(deployment) is BridgeAdapter
+                and bundle is not None and len(bundle) == 3
+                and deployment is factory._adapters.get(expected_adapter)
+                and deployment.source_bridge is bundle[0]
+                and deployment.credit_registry is bundle[1]
+                and bundle[0].quota_manager is bundle[2]
+                and _model_address20(deployment.address) == pia[1][12:]
+                and _model_fixed_bytes32(deployment.runtime_hash) == pia[2]
+                and _model_fixed_bytes32(deployment.configuration_hash)
+                    == pia[3]
+                and _model_address20(deployment.queue_address) == pia[7][12:]
+            )
+        except (AttributeError, TypeError, ValueError, RuntimeError):
+            return False
+
     def _package_exact(self, entry: BridgeSupportEntry) -> bool:
         registration = self.router.registrations.get(entry.protocol_version)
         # A registered target is not yet in Router.registrations.  Its exact
@@ -9413,34 +9768,108 @@ class BridgeDomainRegistry:
         version_key = (
             manifest.destination_chain_id, manifest.protocol_version
         )
+        derived = derive_register_release_authority_v2(
+            registration.execution_profile.canonical_profile_bytes,
+            registration.predecessor_version,
+        )
+        # Genesis fixtures predate REGISTER_RELEASE.  Root deployment installs
+        # an equally exact RTR2 row for the already-live Settlement address;
+        # successors never use this compatibility derivation.
+        genesis_rtr = replace(
+            derived.target_registration_row,
+            target_settlement=_model_address20(registration.settlement.address),
+            target_registration_hash=target_registration_hash_v2(registration),
+        )
+        rtr_raw = encode_target_release_registration_return_v2(
+            genesis_rtr)
+        brx_raw = derived.bridge_route_expansion
+        bip_raw = derived.bridge_invocation_policy
+        ids = derived.ingress_ids
+        pir_raw = b"".join((
+            b"PIR2" + bytes(28),
+            _model_uint(manifest.protocol_version, 32, "PIR2 version"),
+            _model_uint(len(ids), 32, "PIR2 count"),
+            derived.ingress_authorization_root,
+        ))
+        pim_raw = b"".join((
+            PROFILE_INGRESS_MEMBERSHIP_MAGIC + bytes(28),
+            _model_uint(manifest.protocol_version, 32, "PIM2 version"),
+            authorization.authorization_id,
+            _model_uint(len(ids), 32, "PIM2 count"),
+            derived.ingress_authorization_root,
+        ))
+        pia_raw = (b"PIA2" + bytes(28) + authorization.authorization_id
+                   + profile_ingress_authorization_abi_v2(authorization))
+        bip = decode_bridge_invocation_policy_v1(bip_raw)
+        existing_rtr = self.router.target_release_registrations_v2.get(
+            manifest.protocol_version)
+        if (existing_rtr is not None
+                and existing_rtr != genesis_rtr):
+            return False
+        self.router.target_release_registrations_v2.setdefault(
+            manifest.protocol_version, genesis_rtr)
+        self.router.bridge_route_expansions_v1.setdefault(
+            manifest.protocol_version, brx_raw)
+        self.router.bridge_invocation_policies_v1.setdefault(
+            manifest.protocol_version, bip_raw)
         entry = BridgeSupportEntry(
-            manifest.protocol_version,
-            manifest,
-            manifest.registration_commitment,
-            authorization.source_chain_id,
-            authorization.source_registration_epoch,
-            clock.block_number,
-            target_registration_hash_v2(registration),
-            authorization.source_descriptor_id,
-            authorization.adapter_address,
-            self._package_root(registration, authorization),
-            1,
+            protocol_version=manifest.protocol_version, manifest=None,
+            registration_commitment=manifest.registration_commitment,
+            source_chain_id=authorization.source_chain_id,
+            source_registration_epoch=authorization.source_registration_epoch,
+            staged_at_block=clock.block_number,
+            target_registration_hash=genesis_rtr.target_registration_hash,
+            source_descriptor_id=authorization.source_descriptor_id,
+            adapter_address=authorization.adapter_address,
+            # Compatibility rows retain the original one-route commitment.
+            # The six-raw-row root is reserved for BRS1 PRIMITIVE rows; using
+            # it here would make the LEGACY arm-ready verifier permanently
+            # reject this entry.
+            package_root=self._package_root(registration, authorization),
+            package_count=1,
+            destination_chain_id=manifest.destination_chain_id,
+            source_domain_id=_model_fixed_bytes32(
+                authorization.source_domain_id),
+            bridge_execution_hash=_model_fixed_bytes32(
+                authorization.frozen_bridge_execution_hash),
+            destination_domain_id=_model_fixed_bytes32(
+                authorization.destination_domain_id),
+            destination_bridge=_model_address20(
+                authorization.destination_bridge),
+            target_settlement=_model_address20(registration.settlement.address),
+            release_manifest_hash=manifest.commitment,
+            execution_profile_hash=_model_fixed_bytes32(
+                registration.execution_profile_hash),
+            invocation_policy_hash=bip.invocation_policy_hash,
+            bridge_authorization_id=authorization.authorization_id,
+            bridge_route_expansion_hash=keccak256(brx_raw),
+            adapter_runtime_hash=_model_fixed_bytes32(authorization.runtime_hash),
+            adapter_configuration_hash=_model_fixed_bytes32(
+                authorization.configuration_hash),
+            source_bridge_address=_model_address20(
+                authorization.source_descriptor.source_bridge),
+            source_credit_registry_address=_model_address20(
+                authorization.source_descriptor.bridge_credit_registry),
+            source_quota_manager_address=_model_address20(
+                authorization.source_descriptor.native_quota_manager),
+            rtr_hash=keccak256(rtr_raw), brx_hash=keccak256(brx_raw),
+            pir_hash=keccak256(pir_raw), pim_hash=keccak256(pim_raw),
+            pia_hash=keccak256(pia_raw), bip_hash=keccak256(bip_raw),
+            route_kind="LEGACY",
         )
         if key in self.entries:
             existing = self.entries[key]
             exact = (
                 existing.protocol_version == manifest.protocol_version
-                and existing.manifest.commitment == manifest.commitment
                 and existing.registration_commitment
                     == manifest.registration_commitment
                 and existing.source_chain_id == entry.source_chain_id
                 and existing.source_registration_epoch
                     == entry.source_registration_epoch
-                and existing.manifest.destination_bridge
-                    == manifest.destination_bridge
-                and existing.manifest.canonical_destination_descriptor
-                    == manifest.canonical_destination_descriptor
-                and existing.manifest.components == manifest.components
+                and existing.destination_bridge
+                    == _model_address20(manifest.destination_bridge)
+                and existing.destination_domain_id
+                    == _model_fixed_bytes32(manifest.destination_domain_id)
                 and existing.target_registration_hash
                     == entry.target_registration_hash
                 and existing.source_descriptor_id == entry.source_descriptor_id
@@ -9449,14 +9878,8 @@ class BridgeDomainRegistry:
                 and existing.package_count == entry.package_count
                 and self._key_by_destination_chain_version.get(version_key)
                     == key
-                and type(self._staged_registrations_by_version.get(
-                    manifest.protocol_version
-                )) is SettlementRegistration
-                and target_registration_hash_v2(
-                    self._staged_registrations_by_version[
-                        manifest.protocol_version
-                    ]
-                ) == entry.target_registration_hash
+                and existing.route_kind == "LEGACY"
+                and self._package_exact(existing)
             )
             return exact
         existing_manifest = self._destinations_by_domain.get(
@@ -9495,7 +9918,7 @@ class BridgeDomainRegistry:
         gas: int,
         clock: Clock,
     ) -> bytes:
-        """Executable Router-only BRS1 boundary derived from RTR2/witness."""
+        """Stage one package solely from exact Router/PVM primitive reads."""
 
         if self.stage_bridge_route_fault_point in {"revert", "oog"}:
             raise RuntimeError("injected BRS1 call fault")
@@ -9504,47 +9927,202 @@ class BridgeDomainRegistry:
                 or calldata[4:28] != bytes(24)
                 or caller != self.router.address or value != 0
                 or gas != STAGE_BRIDGE_ROUTE_PACKAGE_GAS
-                or type(clock) is not Clock):
+                or type(clock) is not Clock
+                or self.router.migration_lifecycle
+                    is not RouterMigrationLifecycle.BRIDGE_PREPARING):
             raise ValueError("BRS1 call envelope is noncanonical")
         version = int.from_bytes(calldata[28:36], "big")
-        witness = getattr(self.manager, "release_witnesses", {}).get(version)
-        if type(self.manager) is not ProtocolVersionManagerV1 \
-                or type(witness) is not SettlementRegistration:
-            raise ValueError("BRS1 has no strict registered release witness")
-        row = decode_target_release_registration_return_v2(
-            self.router.staticcall_target_release_registration_v2(
-                TARGET_RELEASE_REGISTRATION_SELECTOR
-                + _model_uint(version, 32, "RTR2 protocol version"),
-                caller=self.address, value=0,
-                gas=TARGET_RELEASE_REGISTRATION_READ_GAS,
-            )
+        if type(self.manager) is not ProtocolVersionManagerV1 or version == 0:
+            raise ValueError("BRS1 requires the strict production PVM")
+
+        # Normative read order.  No persistent write occurs until all exact
+        # raw rows, every cross-row join and the live adapter observation pass.
+        mact_raw = self.router.staticcall_migration_activation_context_v1(
+            MIGRATION_ACTIVATION_CONTEXT_SELECTOR,
+            caller=self.address, value=0, gas=MIGRATION_ACTIVATION_CONTEXT_GAS,
         )
-        registration_hash = target_registration_hash_v2(witness)
-        if (row.protocol_version != version
-                or row.target_settlement
-                    != _model_address20(witness.settlement.address)
-                or row.release_manifest_hash != witness.release_manifest_hash
-                or row.target_registration_hash != registration_hash):
-            raise ValueError("BRS1 RTR2/witness join is inexact")
-        authorization = next(
-            (candidate for candidate in witness.ingress_authorizations
-             if candidate.kind is ForceKind.BRIDGE_CREDIT),
-            None,
+        mact = decode_migration_activation_context_v1(mact_raw)
+        rtr_raw = self.router.staticcall_target_release_registration_v2(
+            TARGET_RELEASE_REGISTRATION_SELECTOR
+            + _model_uint(version, 32, "RTR2 protocol version"),
+            caller=self.address, value=0,
+            gas=TARGET_RELEASE_REGISTRATION_READ_GAS,
         )
-        if (type(authorization) is not ProfileIngressAuthorization
-                or not self.stage(
-                    authorization.source_domain_id,
-                    authorization.frozen_bridge_execution_hash,
-                    witness.release_manifest,
-                    manager=self.manager, clock=clock, registration=witness,
-                )):
-            raise ValueError("BRS1 exact package stage rejected")
-        key = self._key_by_destination_chain_version.get((
-            witness.release_manifest.destination_chain_id, version
-        ))
-        entry = self.entries.get(key) if key is not None else None
-        if entry is None:
-            raise ValueError("BRS1 staged row is absent")
+        rtr = decode_target_release_registration_return_v2(rtr_raw)
+        brx_raw = self.router.staticcall_bridge_route_expansion_v1(
+            BRIDGE_ROUTE_EXPANSION_SELECTOR
+            + _model_uint(version, 32, "BRX1 protocol version"),
+            caller=self.address, value=0, gas=BRIDGE_ROUTE_EXPANSION_READ_GAS,
+        )
+        brx = decode_bridge_route_expansion_v1(brx_raw)
+        pir_raw = self.manager.staticcall_profile_ingress_root_v2(
+            PROFILE_INGRESS_ROOT_SELECTOR
+            + _model_uint(version, 32, "PIR2 protocol version"),
+            caller=self.address, value=0, gas=PROFILE_INGRESS_ROOT_READ_GAS,
+        )
+        pir_version, pir_count, pir_root = decode_profile_ingress_root_v2(
+            pir_raw)
+        pim_raw = self.manager.staticcall_profile_ingress_membership_v2(
+            PROFILE_INGRESS_MEMBERSHIP_SELECTOR
+            + _model_uint(version, 32, "PIM2 protocol version")
+            + brx.bridge_authorization_id,
+            caller=self.address, value=0,
+            gas=PROFILE_INGRESS_MEMBERSHIP_READ_GAS,
+        )
+        pim_version, pim_id, pim_count, pim_root = (
+            decode_profile_ingress_membership_v2(pim_raw))
+        pia_raw = self.manager.staticcall_profile_ingress_authorization_v2(
+            PROFILE_INGRESS_AUTHORIZATION_SELECTOR
+            + brx.bridge_authorization_id,
+            caller=self.address, value=0,
+            gas=PROFILE_INGRESS_AUTHORIZATION_READ_GAS,
+        )
+        pia_id, pia = decode_profile_ingress_authorization_v2(pia_raw)
+        bip_raw = self.router.staticcall_bridge_invocation_policy_v1(
+            BRIDGE_INVOCATION_POLICY_SELECTOR
+            + _model_uint(version, 32, "BIP1 protocol version"),
+            caller=self.address, value=0,
+            gas=BRIDGE_INVOCATION_POLICY_READ_GAS,
+        )
+        bip = decode_bridge_invocation_policy_v1(bip_raw)
+
+        descriptor = brx.source_descriptor_words
+        adapter_address = pia[1][12:]
+        factory = self.router._source_bridge_factories_by_address.get(
+            "0x" + descriptor[0][12:].hex())
+        expected_adapter_address = bridge_adapter_create2_address_v1(
+            factory="0x" + descriptor[0][12:].hex(),
+            protocol_version=version,
+            source_descriptor_id=brx.source_bridge_execution_hash,
+            configuration_hash=pia[3],
+            source_bridge="0x" + descriptor[8][12:].hex(),
+            credit_registry="0x" + descriptor[12][12:].hex(),
+            router=self.router.address, queue=self.router.forced_queue.address,
+            seal_authority=self.router.version_manager,
+        )
+        deployment = self.router._profile_deployments_by_version.get(
+            version, {}).get(brx.bridge_authorization_id)
+        live_adapter_exact = (
+            type(factory) is ImmutableV2BridgeFactory
+            and _model_fixed_bytes32(factory.runtime_hash) == descriptor[1]
+            and _model_fixed_bytes32(factory.configuration_hash)
+                == descriptor[2]
+            and type(deployment) is BridgeAdapter
+            and _model_address20(deployment.address) == adapter_address
+            and _model_address20(expected_adapter_address) == adapter_address
+            and factory._adapters.get(expected_adapter_address) is deployment
+            and _model_fixed_bytes32(deployment.runtime_hash) == pia[2]
+            and _model_fixed_bytes32(deployment.configuration_hash) == pia[3]
+            and _model_address20(deployment.queue_address) == pia[7][12:]
+        )
+        expected_registration_commitment = keccak256(b"".join((
+            D_DESTINATION_REGISTRATION,
+            _model_uint(version, 8, "registration version"),
+            rtr.release_manifest_hash,
+            _model_uint(
+                _decode_uint_word_v1(pia[13], 256, "PIA2 destination"),
+                32, "registration destination chain"),
+            brx.destination_namespace, pia[14], pia[15][12:], pia[17],
+            rtr.execution_profile_hash,
+        )))
+        if (mact.lifecycle is not RouterMigrationLifecycle.BRIDGE_PREPARING
+                or rtr.protocol_version != version
+                or brx.protocol_version != version
+                or pir_version != version or pim_version != version
+                or bip.protocol_version != version
+                or rtr.bridge_route_expansion_hash != keccak256(brx_raw)
+                or pir_count != pim_count or pir_root != pim_root
+                or pim_id != brx.bridge_authorization_id
+                or pia_id != brx.bridge_authorization_id
+                or _decode_uint_word_v1(pia[0], 8, "PIA2 bridge kind")
+                    != ForceKind.BRIDGE_CREDIT.value
+                or pia[4][12:] != _model_address20(self.router.address)
+                or pia[5] != _model_fixed_bytes32(self.router.runtime_hash)
+                or pia[6]
+                    != _model_fixed_bytes32(self.router.configuration_hash)
+                or pia[7][12:]
+                    != _model_address20(self.router.forced_queue.address)
+                or pia[8]
+                    != _model_fixed_bytes32(self.router.forced_queue.runtime_hash)
+                or pia[9]
+                    != _model_fixed_bytes32(self.router.forced_queue.config_hash)
+                or pia[10] != brx.source_domain_id
+                or _decode_uint_word_v1(pia[11], 64, "PIA2 source epoch")
+                    != _decode_uint_word_v1(
+                        descriptor[27], 64, "BRX1 source epoch")
+                or pia[12] != brx.source_bridge_execution_hash
+                or _decode_uint_word_v1(pia[13], 256, "PIA2 destination")
+                    != self.release_authority_descriptor.destination_chain_id
+                or pia[14] == bytes(32) or pia[15][12:] == bytes(20)
+                or brx.invocation_policy_hash != bip.invocation_policy_hash
+                or brx.invocation_policy_count != len(bip.denied)
+                or brx.destination_registration_commitment
+                    in {bytes(32), rtr.target_registration_hash}
+                or brx.destination_registration_commitment
+                    != expected_registration_commitment
+                or descriptor[18][12:] != _model_address20(self.address)
+                or descriptor[19] != _model_fixed_bytes32(self.runtime_hash)
+                or descriptor[20]
+                    != _model_fixed_bytes32(self.configuration_hash)
+                or not live_adapter_exact):
+            raise ValueError("BRS1 primitive authority join is inexact")
+        package_root = self._primitive_package_root_v2(
+            rtr_raw, brx_raw, pir_raw, pim_raw, pia_raw, bip_raw)
+        key = (brx.source_domain_id.hex(),
+               brx.source_bridge_execution_hash.hex(), pia[14].hex())
+        version_key = (
+            self.release_authority_descriptor.destination_chain_id, version)
+        candidate = BridgeSupportEntry(
+            protocol_version=version, manifest=None,
+            registration_commitment=(
+                brx.destination_registration_commitment),
+            source_chain_id=brx.source_chain_id,
+            source_registration_epoch=_decode_uint_word_v1(
+                descriptor[27], 64, "BRX1 source epoch"),
+            staged_at_block=clock.block_number,
+            target_registration_hash=rtr.target_registration_hash,
+            source_descriptor_id=brx.source_bridge_execution_hash,
+            adapter_address="0x" + adapter_address.hex(),
+            package_root=package_root, package_count=1,
+            destination_chain_id=version_key[0],
+            source_domain_id=brx.source_domain_id,
+            bridge_execution_hash=brx.source_bridge_execution_hash,
+            destination_domain_id=pia[14], destination_bridge=pia[15][12:],
+            target_settlement=rtr.target_settlement,
+            release_manifest_hash=rtr.release_manifest_hash,
+            execution_profile_hash=rtr.execution_profile_hash,
+            invocation_policy_hash=bip.invocation_policy_hash,
+            bridge_authorization_id=brx.bridge_authorization_id,
+            bridge_route_expansion_hash=rtr.bridge_route_expansion_hash,
+            adapter_runtime_hash=pia[2], adapter_configuration_hash=pia[3],
+            source_bridge_address=descriptor[8][12:],
+            source_credit_registry_address=descriptor[12][12:],
+            source_quota_manager_address=descriptor[15][12:],
+            rtr_hash=keccak256(rtr_raw), brx_hash=keccak256(brx_raw),
+            pir_hash=keccak256(pir_raw), pim_hash=keccak256(pim_raw),
+            pia_hash=keccak256(pia_raw), bip_hash=keccak256(bip_raw),
+        )
+        if not self._primitive_entry_matches_rows_v2(
+                candidate, rtr, brx, pir_raw, pim_raw, pia_raw, bip, bip_raw,
+                rtr_raw, brx_raw):
+            raise ValueError("BRS1 candidate primitive row is inexact")
+        existing = self.entries.get(key)
+        if existing is not None:
+            # Idempotence never refreshes the review clock.
+            if replace(candidate, staged_at_block=existing.staged_at_block) \
+                    != existing:
+                raise ValueError("BRS1 existing primitive row is polluted")
+            entry = existing
+        else:
+            if (version_key in self._key_by_destination_chain_version
+                    or self.profile_additions.get(version, 0)
+                        >= MAX_BRIDGE_TOPOLOGIES_PER_PROFILE):
+                raise ValueError("BRS1 route key is already occupied")
+            self.entries[key] = candidate
+            self._key_by_destination_chain_version[version_key] = key
+            self.profile_additions[version] = (
+                self.profile_additions.get(version, 0) + 1)
+            entry = candidate
         result = b"".join((
             b"BRS1" + bytes(28),
             _model_uint(version, 32, "BRS1 version"),
@@ -9575,18 +10153,27 @@ class BridgeDomainRegistry:
                     "protocol_version", 0),
         ))
         entry = self.entries.get(key) if key is not None else None
+        package_exact = (
+            False if entry is None
+            else (
+                self._primitive_entry_live_exact_v2(entry)
+                if entry.route_kind == "PRIMITIVE"
+                else self._package_exact(entry)
+                    if entry.route_kind == "LEGACY" else False
+            )
+        )
         if (type(registration) is not SettlementRegistration
                 or type(clock) is not Clock or entry is None
                 or entry.protocol_version
                     != registration.settlement.protocol_version
-                or entry.manifest.commitment
+                or entry.release_manifest_hash
                     != registration.release_manifest.commitment
                 or entry.target_registration_hash
                     != target_registration_hash_v2(registration)
                 or entry.arm_ready_consumed
                 or clock.block_number < entry.staged_at_block
                     + BRIDGE_ROUTE_ARM_REVIEW_BLOCKS
-                or not self._package_exact(entry)):
+                or not package_exact):
             return None
         return entry
 
@@ -9602,23 +10189,15 @@ class BridgeDomainRegistry:
             destination_chain_id, protocol_version
         ))
         entry = self.entries.get(key) if key is not None else None
-        registration = self._staged_registrations_by_version.get(
-            protocol_version
+        package_exact = (
+            False if entry is None
+            else self._primitive_package_exact(entry)
+                if entry.route_kind == "PRIMITIVE"
+            else self._package_exact(entry)
+                if entry.route_kind == "LEGACY"
+            else False
         )
-        authorization = (
-            None if type(registration) is not SettlementRegistration
-            else registration.ingress_authorizations_by_address.get(
-                "" if entry is None else entry.adapter_address
-            )
-        )
-        descriptor_id = self.router._source_descriptor_id_by_version.get(
-            protocol_version
-        )
-        bundle = self.router._source_bundles_by_descriptor_id.get(descriptor_id)
-        if (type(clock) is not Clock or entry is None
-                or type(authorization) is not ProfileIngressAuthorization
-                or bundle is None or len(bundle) != 3
-                or not self._package_exact(entry)):
+        if (type(clock) is not Clock or entry is None or not package_exact):
             raise ValueError("unknown or polluted Bridge route package")
         state = (
             3 if entry.arm_ready_consumed
@@ -9626,7 +10205,6 @@ class BridgeDomainRegistry:
                     + BRIDGE_ROUTE_ARM_REVIEW_BLOCKS else 1)
         )
         ready_at = entry.staged_at_block + BRIDGE_ROUTE_ARM_REVIEW_BLOCKS
-        source, credit_registry, quota = bundle
         encoded = b"".join((
             BRIDGE_ROUTE_PACKAGE_MAGIC + bytes(28),
             _model_uint(state, 32, "BRP1 state"),
@@ -9636,12 +10214,12 @@ class BridgeDomainRegistry:
             _model_uint(ready_at, 32, "BRP1 ready block"),
             entry.target_registration_hash,
             entry.source_descriptor_id,
-            authorization.authorization_id,
+            entry.bridge_authorization_id,
             entry.package_root,
             _model_uint(entry.package_count, 32, "BRP1 package count"),
-            bytes(12) + _model_address20(source.address),
-            bytes(12) + _model_address20(credit_registry.address),
-            bytes(12) + _model_address20(quota.address),
+            bytes(12) + entry.source_bridge_address,
+            bytes(12) + entry.source_credit_registry_address,
+            bytes(12) + entry.source_quota_manager_address,
             bytes(12) + _model_address20(entry.adapter_address),
         ))
         if len(encoded) != BRIDGE_ROUTE_PACKAGE_RETURN_LENGTH:
@@ -9724,7 +10302,72 @@ class BridgeDomainRegistry:
                 gas=TARGET_RELEASE_REGISTRATION_READ_GAS,
             )
         )
-        registration = self.router.registrations.get(version)
+        brx_raw = self.router.staticcall_bridge_route_expansion_v1(
+            BRIDGE_ROUTE_EXPANSION_SELECTOR
+            + _model_uint(version, 32, "BRC1 BRX1 version"),
+            caller=self.address, value=0, gas=BRIDGE_ROUTE_EXPANSION_READ_GAS,
+        )
+        brx = decode_bridge_route_expansion_v1(brx_raw)
+        pir_raw = self.manager.staticcall_profile_ingress_root_v2(
+            PROFILE_INGRESS_ROOT_SELECTOR
+            + _model_uint(version, 32, "BRC1 PIR2 version"),
+            caller=self.address, value=0, gas=PROFILE_INGRESS_ROOT_READ_GAS,
+        )
+        pir_version, pir_count, pir_root = decode_profile_ingress_root_v2(
+            pir_raw)
+        pim_raw = self.manager.staticcall_profile_ingress_membership_v2(
+            PROFILE_INGRESS_MEMBERSHIP_SELECTOR
+            + _model_uint(version, 32, "BRC1 PIM2 version")
+            + brx.bridge_authorization_id,
+            caller=self.address, value=0,
+            gas=PROFILE_INGRESS_MEMBERSHIP_READ_GAS,
+        )
+        pim_version, pim_id, pim_count, pim_root = (
+            decode_profile_ingress_membership_v2(pim_raw))
+        pia_raw = self.manager.staticcall_profile_ingress_authorization_v2(
+            PROFILE_INGRESS_AUTHORIZATION_SELECTOR
+            + brx.bridge_authorization_id,
+            caller=self.address, value=0,
+            gas=PROFILE_INGRESS_AUTHORIZATION_READ_GAS,
+        )
+        pia_id, pia = decode_profile_ingress_authorization_v2(pia_raw)
+        bip_raw = self.router.staticcall_bridge_invocation_policy_v1(
+            BRIDGE_INVOCATION_POLICY_SELECTOR
+            + _model_uint(version, 32, "BRC1 BIP1 version"),
+            caller=self.address, value=0,
+            gas=BRIDGE_INVOCATION_POLICY_READ_GAS,
+        )
+        bip = decode_bridge_invocation_policy_v1(bip_raw)
+        descriptor = brx.source_descriptor_words
+        adapter_address = pia[1][12:]
+        factory = self.router._source_bridge_factories_by_address.get(
+            "0x" + descriptor[0][12:].hex())
+        expected_adapter_address = bridge_adapter_create2_address_v1(
+            factory="0x" + descriptor[0][12:].hex(),
+            protocol_version=version,
+            source_descriptor_id=brx.source_bridge_execution_hash,
+            configuration_hash=pia[3],
+            source_bridge="0x" + descriptor[8][12:].hex(),
+            credit_registry="0x" + descriptor[12][12:].hex(),
+            router=self.router.address, queue=self.router.forced_queue.address,
+            seal_authority=self.router.version_manager,
+        )
+        deployment = self.router._profile_deployments_by_version.get(
+            version, {}).get(brx.bridge_authorization_id)
+        expected_registration_commitment = keccak256(b"".join((
+            D_DESTINATION_REGISTRATION,
+            _model_uint(version, 8, "BRC1 registration version"),
+            row.release_manifest_hash,
+            _model_uint(
+                _decode_uint_word_v1(pia[13], 256, "BRC1 destination"),
+                32, "BRC1 registration destination"),
+            brx.destination_namespace, pia[14], pia[15][12:], pia[17],
+            row.execution_profile_hash,
+        )))
+        key = self._key_by_destination_chain_version.get((
+            self.release_authority_descriptor.destination_chain_id, version
+        ))
+        entry = self.entries.get(key) if key is not None else None
         if (type(self.manager) is not ProtocolVersionManagerV1
                 or mact.lifecycle
                     is not RouterMigrationLifecycle.ACTIVATING
@@ -9752,19 +10395,101 @@ class BridgeDomainRegistry:
                     != target_registration_hash
                 or row.target_registration_hash
                     != target_registration_hash
-                or type(registration) is not SettlementRegistration
-                or target_registration_hash_v2(registration)
-                    != target_registration_hash
-                or registration.release_manifest_hash
-                    != row.release_manifest_hash
-                or _model_address20(registration.settlement.address)
-                    != row.target_settlement):
-            raise ValueError("BRC1 MACT/RTR2/registration join is inexact")
-        entry = self.arm_ready_entry(
-            registration,
-            registration.release_manifest.destination_chain_id,
-            clock,
-        )
+                or brx.protocol_version != version
+                or pir_version != version or pim_version != version
+                or bip.protocol_version != version
+                or row.bridge_route_expansion_hash != keccak256(brx_raw)
+                or pim_id != brx.bridge_authorization_id
+                or pia_id != brx.bridge_authorization_id
+                or pir_count != pim_count or pir_root != pim_root
+                or brx.invocation_policy_hash != bip.invocation_policy_hash
+                or brx.invocation_policy_count != len(bip.denied)
+                or brx.destination_registration_commitment
+                    != expected_registration_commitment
+                or _decode_uint_word_v1(pia[0], 8, "BRC1 bridge kind")
+                    != ForceKind.BRIDGE_CREDIT.value
+                or pia[4][12:] != _model_address20(self.router.address)
+                or pia[5] != _model_fixed_bytes32(self.router.runtime_hash)
+                or pia[6]
+                    != _model_fixed_bytes32(self.router.configuration_hash)
+                or pia[7][12:]
+                    != _model_address20(self.router.forced_queue.address)
+                or pia[8]
+                    != _model_fixed_bytes32(self.router.forced_queue.runtime_hash)
+                or pia[9]
+                    != _model_fixed_bytes32(self.router.forced_queue.config_hash)
+                or pia[10] != brx.source_domain_id
+                or pia[12] != brx.source_bridge_execution_hash
+                or _decode_uint_word_v1(pia[13], 256,
+                                        "BRC1 destination chain")
+                    != self.release_authority_descriptor.destination_chain_id
+                or pia[14] != (bytes(32) if key is None
+                               else _model_fixed_bytes32(key[2]))
+                or descriptor[18][12:] != _model_address20(self.address)
+                or descriptor[19] != _model_fixed_bytes32(self.runtime_hash)
+                or descriptor[20]
+                    != _model_fixed_bytes32(self.configuration_hash)
+                or type(deployment) is not BridgeAdapter
+                or _model_address20(deployment.address) != adapter_address
+                or _model_address20(expected_adapter_address) != adapter_address
+                or type(factory) is not ImmutableV2BridgeFactory
+                or _model_fixed_bytes32(factory.runtime_hash) != descriptor[1]
+                or _model_fixed_bytes32(factory.configuration_hash)
+                    != descriptor[2]
+                or factory._adapters.get(expected_adapter_address)
+                    is not deployment
+                or _model_fixed_bytes32(deployment.runtime_hash) != pia[2]
+                or _model_fixed_bytes32(deployment.configuration_hash) != pia[3]
+                or _model_address20(deployment.queue_address) != pia[7][12:]
+                or entry is None
+                or entry.protocol_version != version
+                or entry.target_settlement != row.target_settlement
+                or entry.target_registration_hash != target_registration_hash
+                or entry.release_manifest_hash != row.release_manifest_hash
+                or entry.execution_profile_hash != row.execution_profile_hash
+                or entry.bridge_route_expansion_hash
+                    != row.bridge_route_expansion_hash
+                or entry.rtr_hash != keccak256(
+                    encode_target_release_registration_return_v2(row))
+                or entry.brx_hash != keccak256(brx_raw)
+                or entry.pir_hash != keccak256(pir_raw)
+                or entry.pim_hash != keccak256(pim_raw)
+                or entry.pia_hash != keccak256(pia_raw)
+                or entry.bip_hash != keccak256(bip_raw)
+                or entry.package_root != self._primitive_package_root_v2(
+                    encode_target_release_registration_return_v2(row),
+                    brx_raw, pir_raw, pim_raw, pia_raw, bip_raw)
+                or entry.registration_commitment
+                    != brx.destination_registration_commitment
+                or entry.source_chain_id != brx.source_chain_id
+                or entry.source_registration_epoch != _decode_uint_word_v1(
+                    descriptor[27], 64, "BRC1 cached source epoch")
+                or entry.source_domain_id != brx.source_domain_id
+                or entry.bridge_execution_hash
+                    != brx.source_bridge_execution_hash
+                or entry.destination_chain_id
+                    != _decode_uint_word_v1(
+                        pia[13], 256, "BRC1 cached destination")
+                or entry.destination_domain_id != pia[14]
+                or entry.destination_bridge != pia[15][12:]
+                or entry.invocation_policy_hash
+                    != bip.invocation_policy_hash
+                or entry.bridge_authorization_id
+                    != brx.bridge_authorization_id
+                or _model_address20(entry.adapter_address) != adapter_address
+                or entry.adapter_runtime_hash != pia[2]
+                or entry.adapter_configuration_hash != pia[3]
+                or entry.source_bridge_address != descriptor[8][12:]
+                or entry.source_credit_registry_address != descriptor[12][12:]
+                or entry.source_quota_manager_address != descriptor[15][12:]
+                or not self._primitive_entry_matches_rows_v2(
+                    entry, row, brx, pir_raw, pim_raw, pia_raw, bip, bip_raw,
+                    encode_target_release_registration_return_v2(row), brx_raw)
+                or not self._primitive_package_exact(entry)
+                or entry.arm_ready_consumed
+                or clock.block_number < entry.staged_at_block
+                    + BRIDGE_ROUTE_ARM_REVIEW_BLOCKS):
+            raise ValueError("BRC1 MACT/RTR2/primitive join is inexact")
         if entry is None:
             raise ValueError("BRC1 package is not ARM_READY")
         entry.arm_ready_consumed = True
@@ -9925,12 +10650,13 @@ class BridgeDomainRegistry:
         *,
         source_bridge: str,
         caller: str,
+        target: str,
     ) -> BridgeSupportEntry | None:
-        """Compatibility name routed through the exact ABR1 ABI boundary."""
+        """Compatibility name routed through the exact ABR2 ABI boundary."""
 
         return self.active_route_entry(
             source_domain_id, execution_hash, destination_chain_id, clock,
-            source_bridge=source_bridge, caller=caller,
+            source_bridge=source_bridge, caller=caller, target=target,
         )
 
     def active_route_entry(
@@ -9942,22 +10668,24 @@ class BridgeDomainRegistry:
         *,
         source_bridge: str,
         caller: str,
+        target: str,
     ) -> BridgeSupportEntry | None:
-        """Call and decode ABR1, then rejoin its exact retained route row."""
+        """Call and decode ABR2, then rejoin its exact retained route row."""
 
         calldata = b"".join((
             ACTIVE_BRIDGE_ROUTE_SELECTOR,
-            _model_uint(destination_chain_id, 32, "ABR1 destination chain"),
+            _model_uint(destination_chain_id, 32, "ABR2 destination chain"),
             bytes(12) + _model_address20(source_bridge),
             _model_fixed_bytes32(source_domain_id),
             _model_fixed_bytes32(execution_hash),
+            bytes(12) + _model_address20(target),
         ))
         try:
-            raw = self.active_bridge_route_v1(
+            raw = self.active_bridge_route_v2(
                 calldata, caller=caller, value=0,
                 gas=ACTIVE_BRIDGE_ROUTE_READ_GAS, clock=clock,
             )
-            route = decode_active_bridge_route_v1(raw)
+            route = decode_active_bridge_route_v2(raw)
         except (AttributeError, TypeError, ValueError, RuntimeError):
             return None
         key = self._key_by_destination_chain_version.get((
@@ -9966,6 +10694,7 @@ class BridgeDomainRegistry:
         entry = self.entries.get(key) if key is not None else None
         if (entry is None or key[0] != source_domain_id
                 or key[1] != execution_hash
+                or entry.protocol_version != route.active_protocol_version
                 or route.source_chain_id != entry.source_chain_id
                 or route.source_registration_epoch
                     != entry.source_registration_epoch
@@ -9973,12 +10702,17 @@ class BridgeDomainRegistry:
                 or route.bridge_execution_hash != _model_fixed_bytes32(key[1])
                 or route.destination_domain_id != _model_fixed_bytes32(key[2])
                 or route.destination_bridge
-                    != _model_address20(entry.manifest.destination_bridge)
-                or route.release_manifest_hash != entry.manifest.commitment):
+                    != entry.destination_bridge
+                or route.release_manifest_hash != entry.release_manifest_hash
+                or route.execution_profile_hash
+                    != entry.execution_profile_hash
+                or route.invocation_policy_hash
+                    != entry.invocation_policy_hash
+                or route.checked_target != _model_address20(target)):
             return None
         return entry
 
-    def active_bridge_route_v1(
+    def active_bridge_route_v2(
         self,
         calldata: bytes,
         *,
@@ -9987,85 +10721,83 @@ class BridgeDomainRegistry:
         gas: int,
         clock: Clock,
     ) -> bytes:
-        """Executable ABR1 boundary used identically by source and adapter."""
+        """Executable ABR2 boundary used identically by source and adapter."""
 
         if self.active_bridge_route_fault_point in {"revert", "oog"}:
-            raise RuntimeError("injected ABR1 call fault")
+            raise RuntimeError("injected ABR2 call fault")
         if (type(calldata) is not bytes
                 or len(calldata) != ACTIVE_BRIDGE_ROUTE_CALLDATA_LENGTH
                 or calldata[:4] != ACTIVE_BRIDGE_ROUTE_SELECTOR
                 or not caller or value != 0
                 or gas != ACTIVE_BRIDGE_ROUTE_READ_GAS
-                or calldata[36:48] != bytes(12)):
-            raise ValueError("ABR1 call envelope is noncanonical")
+                or calldata[36:48] != bytes(12)
+                or calldata[132:144] != bytes(12)):
+            raise ValueError("ABR2 call envelope is noncanonical")
         destination_chain_id = int.from_bytes(calldata[4:36], "big")
         source_bridge_word = calldata[48:68]
         source_domain_word = calldata[68:100]
         execution_word = calldata[100:132]
+        checked_target = calldata[144:164]
         if (destination_chain_id == 0
                 or source_bridge_word == bytes(20)
                 or source_domain_word == bytes(32)
-                or execution_word == bytes(32)):
-            raise ValueError("ABR1 call tuple is zero")
-        matching_keys = tuple(
-            key for key in self.entries
-            if (_model_fixed_bytes32(key[0]) == source_domain_word
-                and _model_fixed_bytes32(key[1]) == execution_word)
-                and self.entries[key].manifest.destination_chain_id
-                    == destination_chain_id
-        )
-        if len(matching_keys) != 1:
-            raise ValueError("ABR1 source tuple is ambiguous or absent")
-        source_domain_id, execution_hash, _ = matching_keys[0]
-        entry = self._resolve_active_route_entry_v1(
-            source_domain_id, execution_hash, destination_chain_id, clock
+                or execution_word == bytes(32)
+                or checked_target == bytes(20)):
+            raise ValueError("ABR2 call tuple is zero")
+        entry = self._resolve_active_route_entry_v2(
+            source_domain_word.hex(), execution_word.hex(),
+            destination_chain_id, clock
         )
         if entry is None:
-            raise ValueError("ABR1 route is not active")
-        descriptor_id = self.router._source_descriptor_id_by_version.get(
-            entry.protocol_version
-        )
-        bundle = self.router._source_bundles_by_descriptor_id.get(descriptor_id)
-        source = None if bundle is None or len(bundle) != 3 else bundle[0]
-        binding = self.router._authorized_ingress_by_address.get(caller)
+            raise ValueError("ABR2 route is not active")
         caller_is_source = (
-            type(source) is SourceBridgeV2
-            and caller == source.address
-            and source_bridge_word == _model_address20(source.address)
+            _model_address20(caller) == entry.source_bridge_address
+            and source_bridge_word == entry.source_bridge_address
         )
         caller_is_adapter = (
-            type(source) is SourceBridgeV2
-            and binding is not None
-            and binding.address == caller
-            and type(binding.adapter) is BridgeAdapter
-            and binding.adapter.source_bridge is source
-            and source_bridge_word == _model_address20(source.address)
+            _model_address20(caller) == _model_address20(entry.adapter_address)
+            and source_bridge_word == entry.source_bridge_address
         )
         if not (caller_is_source or caller_is_adapter):
-            raise ValueError("ABR1 caller/source binding is inexact")
-        result = encode_active_bridge_route_v1(ActiveBridgeRouteV1(
+            raise ValueError("ABR2 caller/source binding is inexact")
+        decision = decode_bridge_invocation_decision_v1(
+            self.router.staticcall_bridge_invocation_decision_v1(
+                BRIDGE_INVOCATION_DECISION_SELECTOR
+                + _model_uint(entry.protocol_version, 32, "BID1 version")
+                + bytes(12) + checked_target,
+                caller=self.address, value=0,
+                gas=BRIDGE_INVOCATION_DECISION_READ_GAS,
+            ))
+        if decision != (
+            entry.protocol_version, entry.invocation_policy_hash, False
+        ):
+            raise ValueError("ABR2 checked target is denied or policy drifted")
+        result = encode_active_bridge_route_v2(ActiveBridgeRouteV2(
             entry.protocol_version,
             entry.source_chain_id,
             entry.source_registration_epoch,
-            _model_fixed_bytes32(source_domain_id),
-            _model_fixed_bytes32(execution_hash),
-            _model_fixed_bytes32(entry.manifest.destination_domain_id),
-            _model_address20(entry.manifest.destination_bridge),
-            entry.manifest.commitment,
+            entry.source_domain_id,
+            entry.bridge_execution_hash,
+            entry.destination_domain_id,
+            entry.destination_bridge,
+            entry.release_manifest_hash,
+            entry.execution_profile_hash,
+            entry.invocation_policy_hash,
+            checked_target,
         ))
         return (
             result if self.active_bridge_route_return_override is None
             else self.active_bridge_route_return_override
         )
 
-    def _resolve_active_route_entry_v1(
+    def _resolve_active_route_entry_v2(
         self,
         source_domain_id: str,
         execution_hash: str,
         destination_chain_id: int,
         clock: Clock,
     ) -> BridgeSupportEntry | None:
-        """Resolve the semantic row only behind the executable ABR1 envelope."""
+        """Resolve the semantic row only behind the executable ABR2 envelope."""
 
         if type(clock) is not Clock:
             return None
@@ -10089,18 +10821,31 @@ class BridgeDomainRegistry:
                 gas=BRIDGE_ACTIVE_ROUTE_ROUTER_STATE_GAS,
             )
             state = decode_active_settlement_state_v1(raw)
+            version = state.active_protocol_version
+            rtr_raw = self.router.staticcall_target_release_registration_v2(
+                TARGET_RELEASE_REGISTRATION_SELECTOR
+                + _model_uint(version, 32, "ABR2 RTR2 version"),
+                caller=self.address, value=0,
+                gas=TARGET_RELEASE_REGISTRATION_READ_GAS,
+            )
+            rtr = decode_target_release_registration_return_v2(rtr_raw)
+            brx_raw = self.router.staticcall_bridge_route_expansion_v1(
+                BRIDGE_ROUTE_EXPANSION_SELECTOR
+                + _model_uint(version, 32, "ABR2 BRX1 version"),
+                caller=self.address, value=0,
+                gas=BRIDGE_ROUTE_EXPANSION_READ_GAS,
+            )
+            brx = decode_bridge_route_expansion_v1(brx_raw)
         except (AttributeError, TypeError, ValueError, RuntimeError):
             return None
-        active_registration = self.router.registrations.get(
-            state.active_protocol_version
-        )
         if (len(raw) != ACTIVE_SETTLEMENT_STATE_LENGTH
                 or BRIDGE_ACTIVE_ROUTE_ROUTER_STATE_GAS
                     != ACTIVE_SETTLEMENT_STATE_GAS
                 or state.phase is not RouterPhase.ACTIVE
-                or type(active_registration) is not SettlementRegistration
-                or state.active_settlement
-                    != _model_address20(active_registration.settlement.address)):
+                or state.active_protocol_version == 0
+                or rtr.protocol_version != state.active_protocol_version
+                or brx.protocol_version != state.active_protocol_version
+                or rtr.bridge_route_expansion_hash != keccak256(brx_raw)):
             return None
         key = self._key_by_destination_chain_version.get((
             destination_chain_id, state.active_protocol_version
@@ -10108,17 +10853,57 @@ class BridgeDomainRegistry:
         entry = self.entries.get(key) if key is not None else None
         if (entry is None or key[0] != source_domain_id
                 or key[1] != execution_hash
-                or entry.manifest.commitment
-                    != active_registration.release_manifest.commitment
-                or not self._package_exact(entry)):
+                or entry.protocol_version != state.active_protocol_version
+                or entry.destination_chain_id != destination_chain_id
+                or entry.target_settlement != state.active_settlement
+                or entry.target_settlement != rtr.target_settlement
+                or entry.release_manifest_hash != rtr.release_manifest_hash
+                or entry.target_registration_hash
+                    != rtr.target_registration_hash
+                or entry.execution_profile_hash != rtr.execution_profile_hash
+                or entry.rtr_hash != keccak256(rtr_raw)
+                or entry.bridge_route_expansion_hash
+                    != rtr.bridge_route_expansion_hash
+                or entry.brx_hash != keccak256(brx_raw)
+                or entry.bridge_authorization_id
+                    != brx.bridge_authorization_id
+                or entry.source_descriptor_id
+                    != brx.source_bridge_execution_hash
+                or entry.source_chain_id != brx.source_chain_id
+                or entry.source_domain_id != brx.source_domain_id
+                or entry.bridge_execution_hash
+                    != brx.source_bridge_execution_hash
+                or entry.registration_commitment
+                    != brx.destination_registration_commitment
+                or entry.invocation_policy_hash
+                    != brx.invocation_policy_hash
+                or entry.source_registration_epoch != _decode_uint_word_v1(
+                    brx.source_descriptor_words[27], 64,
+                    "ABR2 source registration epoch")
+                or entry.source_bridge_address
+                    != brx.source_descriptor_words[8][12:]
+                or entry.source_credit_registry_address
+                    != brx.source_descriptor_words[12][12:]
+                or entry.source_quota_manager_address
+                    != brx.source_descriptor_words[15][12:]
+                or not (
+                    self._primitive_package_exact(entry)
+                    if entry.route_kind == "PRIMITIVE"
+                    else self._package_exact(entry)
+                        if entry.route_kind == "LEGACY" else False
+                )):
             return None
-        # Genesis/predecessor compatibility may still be enabled by the older
-        # destination-registration confirmation.  Every successor consumes
-        # ARM_READY atomically at cutover and has no post-cutover delay.
-        return (
-            entry if entry.arm_ready_consumed
-            else self.final_entry(*key, clock)
-        )
+        # Genesis/predecessor compatibility alone may use the older
+        # destination-registration finality path.  Primitive successor rows
+        # are unusable until BRC consumes ARM_READY in the activation journal.
+        if entry.route_kind == "PRIMITIVE":
+            return entry if entry.arm_ready_consumed else None
+        if entry.route_kind == "LEGACY":
+            return (
+                entry if entry.arm_ready_consumed
+                else self.final_entry(*key, clock)
+            )
+        return None
 
     def finalized_destination_manifest(
         self, destination_domain_id: str, clock: Clock
@@ -14390,6 +15175,228 @@ class SourceBridgeDescriptor:
         ))).hex()
 
 
+_SOURCE_DESCRIPTOR_ADDRESS_WORDS = frozenset({
+    0, 5, 7, 8, 12, 15, 18, 21, 24, 25,
+})
+
+
+@dataclass(frozen=True)
+class BridgeRouteExpansionV1:
+    """Exact Router-retained primitive expansion for one Bridge route."""
+
+    protocol_version: int
+    bridge_authorization_id: bytes
+    source_chain_id: int
+    source_genesis_hash: bytes
+    source_namespace: bytes
+    destination_namespace: bytes
+    destination_registration_commitment: bytes
+    invocation_policy_hash: bytes
+    invocation_policy_count: int
+    source_descriptor_words: tuple[bytes, ...]
+
+    @property
+    def source_descriptor_bytes(self) -> bytes:
+        if len(self.source_descriptor_words) != 28:
+            raise ValueError("BRX1 source descriptor word count is invalid")
+        packed: list[bytes] = []
+        for index, word in enumerate(self.source_descriptor_words):
+            if type(word) is not bytes or len(word) != 32:
+                raise ValueError("BRX1 source descriptor word is malformed")
+            if index in _SOURCE_DESCRIPTOR_ADDRESS_WORDS:
+                if word[:12] != bytes(12) or word[12:] == bytes(20):
+                    raise ValueError("BRX1 source descriptor address is invalid")
+                packed.append(word[12:])
+            elif index == 27:
+                _decode_uint_word_v1(word, 64, "BRX1 source epoch")
+                packed.append(word[-8:])
+            else:
+                if word == bytes(32):
+                    raise ValueError("BRX1 source descriptor hash is zero")
+                packed.append(word)
+        encoded = b"".join(packed)
+        if len(encoded) != 752:
+            raise AssertionError("BRX1 source descriptor width drifted")
+        return encoded
+
+    @property
+    def source_bridge_execution_hash(self) -> bytes:
+        descriptor = self.source_descriptor_bytes
+        return keccak256(
+            D_SOURCE_BRIDGE_EXECUTION
+            + _model_uint(len(descriptor), 4, "BRX1 descriptor bytes")
+            + descriptor
+        )
+
+    @property
+    def source_domain_id(self) -> bytes:
+        descriptor = self.source_descriptor_words
+        return keccak256(b"".join((
+            D_SOURCE_DOMAIN,
+            _model_uint(self.source_chain_id, 8, "BRX1 source chain"),
+            self.source_genesis_hash,
+            descriptor[12][12:], descriptor[21][12:], descriptor[8][12:],
+            self.source_bridge_execution_hash, self.source_namespace,
+        )))
+
+
+def encode_bridge_route_expansion_v1(
+    row: BridgeRouteExpansionV1,
+) -> bytes:
+    if (type(row) is not BridgeRouteExpansionV1
+            or not 0 < row.protocol_version <= UINT64_MAX
+            or not 0 < row.source_chain_id <= UINT64_MAX
+            or type(row.bridge_authorization_id) is not bytes
+            or len(row.bridge_authorization_id) != 32
+            or row.bridge_authorization_id == bytes(32)
+            or any(type(value) is not bytes or len(value) != 32
+                   or value == bytes(32) for value in (
+                       row.source_genesis_hash, row.source_namespace,
+                       row.destination_namespace,
+                       row.destination_registration_commitment,
+                       row.invocation_policy_hash,
+                   ))
+            or not 1 <= row.invocation_policy_count <= 64):
+        raise ValueError("BRX1 route expansion is malformed")
+    _ = row.source_descriptor_bytes
+    encoded = b"".join((
+        BRIDGE_ROUTE_EXPANSION_MAGIC + bytes(28),
+        _model_uint(row.protocol_version, 32, "BRX1 version"),
+        row.bridge_authorization_id,
+        _model_uint(row.source_chain_id, 32, "BRX1 source chain"),
+        row.source_genesis_hash, row.source_namespace,
+        row.destination_namespace, row.destination_registration_commitment,
+        row.invocation_policy_hash,
+        _model_uint(row.invocation_policy_count, 32, "BRX1 policy count"),
+        *row.source_descriptor_words,
+    ))
+    if len(encoded) != BRIDGE_ROUTE_EXPANSION_RETURN_LENGTH:
+        raise AssertionError("BRX1 return width drifted")
+    return encoded
+
+
+def decode_bridge_route_expansion_v1(raw: bytes) -> BridgeRouteExpansionV1:
+    if (type(raw) is not bytes
+            or len(raw) != BRIDGE_ROUTE_EXPANSION_RETURN_LENGTH):
+        raise ValueError("BRX1 return length is invalid")
+    words = tuple(raw[index:index + 32] for index in range(0, len(raw), 32))
+    if words[0] != BRIDGE_ROUTE_EXPANSION_MAGIC + bytes(28):
+        raise ValueError("BRX1 magic is invalid")
+    row = BridgeRouteExpansionV1(
+        _decode_uint_word_v1(words[1], 64, "BRX1 version"),
+        words[2],
+        _decode_uint_word_v1(words[3], 64, "BRX1 source chain"),
+        words[4], words[5], words[6], words[7], words[8],
+        _decode_uint_word_v1(words[9], 16, "BRX1 policy count"),
+        words[10:38],
+    )
+    if encode_bridge_route_expansion_v1(row) != raw:
+        raise ValueError("BRX1 return is noncanonical")
+    return row
+
+
+@dataclass(frozen=True)
+class BridgeInvocationPolicyV1:
+    protocol_version: int
+    invocation_policy_hash: bytes
+    denied: tuple[bytes, ...]
+
+
+def bridge_invocation_policy_hash_v1(
+    protocol_version: int, denied: tuple[bytes, ...],
+) -> bytes:
+    if (not 0 < protocol_version <= UINT64_MAX or not 1 <= len(denied) <= 64
+            or denied != tuple(sorted(denied))
+            or len(set(denied)) != len(denied)
+            or bytes(20) not in denied
+            or any(type(value) is not bytes or len(value) != 20
+                   for value in denied)):
+        raise ValueError("BIP1 hash input is noncanonical")
+    base_hash = keccak256(b"".join((
+        INVOCATION_POLICY_TYPEHASH,
+        _model_uint(len(denied), 32, "BIP1 denyset count"),
+        keccak256(b"".join(denied)),
+        ON_MESSAGE_INVOCATION_SELECTOR + bytes(28),
+    )))
+    return keccak256(b"".join((
+        b"slot-chain-versioned-invocation-policy-v1",
+        _model_uint(protocol_version, 8, "BIP1 version"), base_hash,
+    )))
+
+
+def encode_bridge_invocation_policy_v1(
+    row: BridgeInvocationPolicyV1,
+) -> bytes:
+    if (type(row) is not BridgeInvocationPolicyV1
+            or not 0 < row.protocol_version <= UINT64_MAX
+            or type(row.invocation_policy_hash) is not bytes
+            or len(row.invocation_policy_hash) != 32
+            or row.invocation_policy_hash == bytes(32)
+            or type(row.denied) is not tuple
+            or not 1 <= len(row.denied) <= 64
+            or any(type(address) is not bytes or len(address) != 20
+                   for address in row.denied)
+            or len(set(row.denied)) != len(row.denied)
+            or row.denied != tuple(sorted(row.denied))
+            or bytes(20) not in row.denied
+            or row.invocation_policy_hash
+                != bridge_invocation_policy_hash_v1(
+                    row.protocol_version, row.denied)):
+        raise ValueError("BIP1 policy is noncanonical")
+    padded = tuple(bytes(12) + address for address in row.denied) + (
+        (bytes(32),) * (64 - len(row.denied))
+    )
+    encoded = b"".join((
+        BRIDGE_INVOCATION_POLICY_MAGIC + bytes(28),
+        _model_uint(row.protocol_version, 32, "BIP1 version"),
+        row.invocation_policy_hash,
+        _model_uint(len(row.denied), 32, "BIP1 count"),
+        *padded,
+    ))
+    if len(encoded) != BRIDGE_INVOCATION_POLICY_RETURN_LENGTH:
+        raise AssertionError("BIP1 return width drifted")
+    return encoded
+
+
+def decode_bridge_invocation_policy_v1(raw: bytes) -> BridgeInvocationPolicyV1:
+    if (type(raw) is not bytes
+            or len(raw) != BRIDGE_INVOCATION_POLICY_RETURN_LENGTH):
+        raise ValueError("BIP1 return length is invalid")
+    words = tuple(raw[index:index + 32] for index in range(0, len(raw), 32))
+    if words[0] != BRIDGE_INVOCATION_POLICY_MAGIC + bytes(28):
+        raise ValueError("BIP1 magic is invalid")
+    version = _decode_uint_word_v1(words[1], 64, "BIP1 version")
+    count = _decode_uint_word_v1(words[3], 16, "BIP1 count")
+    if not 1 <= count <= 64:
+        raise ValueError("BIP1 count is invalid")
+    address_words = words[4:4 + count]
+    if (any(word[:12] != bytes(12) for word in address_words)
+            or any(word != bytes(32) for word in words[4 + count:])):
+        raise ValueError("BIP1 address padding or tail is invalid")
+    row = BridgeInvocationPolicyV1(
+        version, words[2], tuple(word[12:] for word in address_words)
+    )
+    if encode_bridge_invocation_policy_v1(row) != raw:
+        raise ValueError("BIP1 return is noncanonical")
+    return row
+
+
+def decode_bridge_invocation_decision_v1(
+    raw: bytes,
+) -> tuple[int, bytes, bool]:
+    if (type(raw) is not bytes
+            or len(raw) != BRIDGE_INVOCATION_DECISION_RETURN_LENGTH):
+        raise ValueError("BID1 return length is invalid")
+    words = tuple(raw[index:index + 32] for index in range(0, len(raw), 32))
+    if words[0] != BRIDGE_INVOCATION_DECISION_MAGIC + bytes(28):
+        raise ValueError("BID1 magic is invalid")
+    version = _decode_uint_word_v1(words[1], 64, "BID1 version")
+    denied_int = _decode_uint_word_v1(words[3], 1, "BID1 denied")
+    if words[2] == bytes(32):
+        raise ValueError("BID1 policy hash is zero")
+    return version, words[2], bool(denied_int)
+
+
 def canonical_source_bridge_descriptor(
     settlement_chain_id: int = 1,
     router: "ActiveSettlementRouter | None" = None,
@@ -14589,8 +15596,16 @@ def target_registration_hash_v2(registration: SettlementRegistration) -> bytes:
             or deployment.target_configuration_hash
                 != _model_fixed_bytes32(settlement.market_configuration_hash)):
         raise ValueError("target registration deployment tuple is inconsistent")
+    words = _execution_profile_abi_words_v2(
+        registration.execution_profile.canonical_profile_bytes
+    )
+    expansion_raw, _policy_raw = _bridge_route_primitives_from_profile_v1(
+        words, registration.ingress_authorizations,
+        _model_fixed_bytes32(registration.release_manifest_hash),
+        _model_fixed_bytes32(registration.execution_profile_hash),
+    )
     payload = b"".join((
-        b"slot-chain-target-registration-v2",
+        b"slot-chain-target-registration-v3",
         _model_uint(settlement.protocol_version, 8, "target protocol version"),
         _model_address20(settlement.address),
         _model_fixed_bytes32(registration.runtime_hash),
@@ -14614,6 +15629,7 @@ def target_registration_hash_v2(registration: SettlementRegistration) -> bytes:
             registration.execution_profile
                 .migration_transition_verifier_descriptor.commitment
         ),
+        keccak256(expansion_raw),
     ))
     return keccak256(payload)
 
@@ -14639,7 +15655,7 @@ PROTOCOL_VERSION_MANAGER_CONFIG_DOMAIN = \
     b"slot-chain-protocol-version-manager-config-v1"
 PROTOCOL_VERSION_MANAGER_DOMAIN = b"slot-chain-protocol-version-manager-v1"
 VERSION_MIGRATION_ARM_DOMAIN = b"slot-chain-version-migration-arm-v2"
-TARGET_REGISTRATION_V2_DOMAIN = b"slot-chain-target-registration-v2"
+TARGET_REGISTRATION_V2_DOMAIN = b"slot-chain-target-registration-v3"
 EXECUTION_PROFILE_DOMAIN = b"slot-chain-execution-profile-v2"
 SETTLEMENT_DEPLOYMENT_DOMAIN = b"slot-chain-settlement-deployment-v1"
 SOURCE_BUNDLE_SALT_DOMAIN = b"slot-chain-source-bundle-salt-v1"
@@ -14923,6 +15939,9 @@ class DerivedRegisterReleaseAuthorityV2:
     ingress_authorization_root: bytes
     manifest_abi: bytes
     release_manifest_hash: bytes
+    bridge_route_expansion: bytes
+    bridge_invocation_policy: bytes
+    bridge_route_expansion_hash: bytes
     target_registration_hash: bytes
 
     @property
@@ -14936,7 +15955,8 @@ class DerivedRegisterReleaseAuthorityV2:
             self.execution_profile_hash,
             self.migration_activation_profile.activation_profile_record_hash,
             self.data_session_configuration_hash,
-            self.release_manifest_hash, self.target_registration_hash,
+            self.release_manifest_hash, self.bridge_route_expansion_hash,
+            self.target_registration_hash,
         )
 
     # Bound separately because it is an input to registration rather than a
@@ -15225,6 +16245,7 @@ class TargetReleaseRegistrationRowV2:
     migration_activation_profile_record_hash: bytes
     data_session_configuration_hash: bytes
     release_manifest_hash: bytes
+    bridge_route_expansion_hash: bytes
     target_registration_hash: bytes
 
 
@@ -15241,7 +16262,8 @@ def encode_target_release_registration_return_v2(
                 row.execution_profile_hash,
                 row.migration_activation_profile_record_hash,
                 row.data_session_configuration_hash,
-                row.release_manifest_hash, row.target_registration_hash,
+                row.release_manifest_hash, row.bridge_route_expansion_hash,
+                row.target_registration_hash,
             ))):
         raise ValueError("RTR2 registration row is malformed")
     encoded = b"".join((
@@ -15255,21 +16277,22 @@ def encode_target_release_registration_return_v2(
         row.execution_profile_hash,
         row.migration_activation_profile_record_hash,
         row.data_session_configuration_hash,
-        row.release_manifest_hash, row.target_registration_hash,
+        row.release_manifest_hash, row.bridge_route_expansion_hash,
+        row.target_registration_hash,
     ))
-    if len(encoded) != 384:
-        raise AssertionError("RTR2 must be exactly 384 bytes")
+    if len(encoded) != 416:
+        raise AssertionError("RTR2 must be exactly 416 bytes")
     return encoded
 
 
 def decode_target_release_registration_return_v2(
     encoded: bytes,
 ) -> TargetReleaseRegistrationRowV2:
-    """Strictly decode the exact 384-byte Router RTR2 view."""
+    """Strictly decode the exact 416-byte Router RTR2 view."""
 
-    if type(encoded) is not bytes or len(encoded) != 384:
+    if type(encoded) is not bytes or len(encoded) != 416:
         raise ValueError("RTR2 registration return length is invalid")
-    words = tuple(encoded[index:index + 32] for index in range(0, 384, 32))
+    words = tuple(encoded[index:index + 32] for index in range(0, 416, 32))
     if words[0] != b"RTR2" + bytes(28):
         raise ValueError("RTR2 registration magic is invalid")
     protocol_version = _decode_uint_word_v1(
@@ -15400,6 +16423,11 @@ def canonicalize_execution_profile_authority_graph_v2(profile: bytes) -> bytes:
     # The source descriptor has one acyclic primitive set.  CREATE2/CREATE
     # addresses and every constructor configuration are outputs, never
     # independently supplied profile labels.
+    decoded[202] = _abi_address_word(SOURCE_V2_CREATE2_FACTORY)
+    decoded[203] = _model_fixed_bytes32(
+        SOURCE_V2_CREATE2_FACTORY_RUNTIME_HASH)
+    decoded[204] = _model_fixed_bytes32(
+        SOURCE_V2_CREATE2_FACTORY_CONFIGURATION_HASH)
     source_descriptor = SourceBridgeDescriptor(
         int.from_bytes(decoded[2], "big"),
         int.from_bytes(decoded[2], "big"),
@@ -15476,6 +16504,23 @@ def canonicalize_execution_profile_authority_graph_v2(profile: bytes) -> bytes:
     # The control-plane aliases must name the exact source registry deployment
     # before the aggregate PVM configuration is derived.
     decoded[41:44] = decoded[214:217]
+    kind1_config = b"".join((
+        decoded[214][12:], decoded[210][12:], decoded[23][12:],
+        decoded[26][12:], decoded[20][12:],
+    ))
+    decoded[162] = _profile_component_config_hash_v2(1, kind1_config)
+    decoded[160] = _abi_address_word(bridge_adapter_create2_address_v1(
+        factory=source_descriptor.deployment_factory,
+        protocol_version=_decode_uint_word_v1(
+            decoded[1], 64, "profile protocol version"),
+        source_descriptor_id=source_descriptor.descriptor_id,
+        configuration_hash=decoded[162],
+        source_bridge=source_descriptor.source_bridge,
+        credit_registry=source_descriptor.bridge_credit_registry,
+        router="0x" + decoded[23][12:].hex(),
+        queue="0x" + decoded[26][12:].hex(),
+        seal_authority="0x" + decoded[20][12:].hex(),
+    ))
 
     # Destination component 2/4/7 are the lifetime Router/Inbox/Registrar
     # graph.  Component 9 and the quota manager use the single supported
@@ -15526,11 +16571,6 @@ def canonicalize_execution_profile_authority_graph_v2(profile: bytes) -> bytes:
             account_runtime_hash=destination_descriptor.facade_runtime_hash,
         )
     )
-    kind1_config = b"".join((
-        decoded[214][12:], decoded[210][12:], decoded[23][12:],
-        decoded[20][12:],
-    ))
-    decoded[162] = _profile_component_config_hash_v2(1, kind1_config)
     decoded[230:235] = tuple(
         _model_uint(value, 32, "canonical ingress fee")
         for value in (
@@ -15889,7 +16929,7 @@ def _settlement_deployment_descriptor_hash_from_abi_v1(
 
 
 def _profile_component_config_hash_v2(kind: int, config: bytes) -> bytes:
-    expected_lengths = (80, 344, 21, 73, 60, 52, 80, 21, 76, 164)
+    expected_lengths = (100, 344, 21, 73, 60, 52, 80, 21, 76, 164)
     if (type(kind) is not int or not 1 <= kind <= 10
             or type(config) is not bytes
             or len(config) != expected_lengths[kind - 1]):
@@ -16066,7 +17106,8 @@ def _profile_destination_graph_v2(
     # Component 1 is the sole kind-1 adapter and its constructor commits the
     # exact source Registry/Bridge plus immutable Router/PVM graph.
     kind1_config = b"".join((
-        words[214][12:], words[210][12:], words[23][12:], words[20][12:],
+        words[214][12:], words[210][12:], words[23][12:], words[26][12:],
+        words[20][12:],
     ))
     if components[0][2] != _profile_component_config_hash_v2(1, kind1_config):
         raise ValueError("kind-1 adapter configuration is not derived")
@@ -16235,6 +17276,76 @@ def _profile_ingress_rows_v2(
     return kind0, kind1
 
 
+def _bridge_route_primitives_from_profile_v1(
+    words: tuple[bytes, ...],
+    rows: tuple["ProfileIngressAuthorization", ...],
+    release_manifest_hash: bytes,
+    execution_profile_hash: bytes,
+) -> tuple[bytes, bytes]:
+    """Return the exact BRX1 expansion and fixed-width BIP1 policy."""
+
+    bridge_rows = tuple(row for row in rows
+                        if row.kind is ForceKind.BRIDGE_CREDIT)
+    if len(bridge_rows) != 1:
+        raise ValueError("BRX1 profile must contain exactly one Bridge row")
+    descriptor_words = (
+        words[202], words[203], words[204], words[205], words[206],
+        words[207], words[208], words[209], words[210], words[211],
+        words[212], words[213], words[214], words[215], words[216],
+        words[217], words[218], words[219], words[220], words[221],
+        words[222], words[166], words[167], words[168], words[223],
+        words[224], words[191], words[225],
+    )
+    denied_strings = tuple(sorted({
+        "0x" + "00" * 20,
+        *("0x" + words[160 + index * 3][12:].hex()
+          for index in range(10)),
+        "0x" + words[223][12:].hex(),
+        "0x" + words[195][12:].hex(),
+        "0x" + words[184][12:].hex(),
+        *V2_PRIVILEGED_DESTINATION_ADDRESSES,
+    }, key=_model_address20))
+    version = _decode_uint_word_v1(words[1], 64, "BIP1 profile version")
+    denied, policy_hash_hex = versioned_bridge_invocation_policy(
+        version, denied_strings
+    )
+    policy = BridgeInvocationPolicyV1(
+        version,
+        bytes.fromhex(policy_hash_hex),
+        tuple(_model_address20(address) for address in denied),
+    )
+    bridge_row = bridge_rows[0]
+    destination_registration_commitment = keccak256(b"".join((
+        D_DESTINATION_REGISTRATION,
+        _model_uint(version, 8, "registration protocol version"),
+        release_manifest_hash,
+        _model_uint(bridge_row.destination_chain_id, 32,
+                    "registration destination chain"),
+        _model_fixed_bytes32(bridge_row.destination_namespace),
+        _model_fixed_bytes32(bridge_row.destination_domain_id),
+        _model_address20(bridge_row.destination_bridge),
+        _model_fixed_bytes32(bridge_row.destination_infrastructure_hash),
+        execution_profile_hash,
+    )))
+    expansion = BridgeRouteExpansionV1(
+        policy.protocol_version,
+        bridge_rows[0].authorization_id,
+        _decode_uint_word_v1(words[2], 64, "BRX1 source chain"),
+        words[227], words[226], words[10],
+        destination_registration_commitment,
+        policy.invocation_policy_hash, len(policy.denied),
+        descriptor_words,
+    )
+    expansion_raw = encode_bridge_route_expansion_v1(expansion)
+    policy_raw = encode_bridge_invocation_policy_v1(policy)
+    if (expansion.source_bridge_execution_hash
+            != _model_fixed_bytes32(bridge_rows[0].frozen_bridge_execution_hash)
+            or expansion.source_domain_id
+            != _model_fixed_bytes32(bridge_rows[0].source_domain_id)):
+        raise ValueError("BRX1 source descriptor differs from PIA2")
+    return expansion_raw, policy_raw
+
+
 def derive_register_release_authority_v2(
     profile: bytes, expected_predecessor_protocol_version: int,
 ) -> DerivedRegisterReleaseAuthorityV2:
@@ -16288,6 +17399,10 @@ def derive_register_release_authority_v2(
         raise AssertionError("derived release manifest width drifted")
     manifest_abi = b"".join(manifest_words)
     release_hash = keccak256(RELEASE_MANIFEST_V2_TYPEHASH + manifest_abi)
+    bridge_expansion, bridge_policy = _bridge_route_primitives_from_profile_v1(
+        words, rows, release_hash, execution_hash
+    )
+    bridge_expansion_hash = keccak256(bridge_expansion)
     target_registration = keccak256(b"".join((
         TARGET_REGISTRATION_V2_DOMAIN,
         _model_uint(protocol_version, 8, "target version"), target,
@@ -16296,7 +17411,7 @@ def derive_register_release_authority_v2(
         _model_uint(expected_predecessor_protocol_version, 8,
                     "target predecessor"),
         _model_uint(settlement_chain_id, 8, "settlement chain ID"),
-        ingress_root, migration_descriptor_hash,
+        ingress_root, migration_descriptor_hash, bridge_expansion_hash,
     )))
     return DerivedRegisterReleaseAuthorityV2(
         words, execution_hash, activation, migration_descriptor_hash,
@@ -16305,6 +17420,7 @@ def derive_register_release_authority_v2(
             profile, target, execution_hash
         ),
         rows, ids, ingress_root, manifest_abi, release_hash,
+        bridge_expansion, bridge_policy, bridge_expansion_hash,
         target_registration, expected_predecessor_protocol_version,
     )
 
@@ -17490,6 +18606,24 @@ class ProtocolVersionManagerV1:
     profile_ingress_rows: dict[bytes, ProfileIngressAuthorization] = field(
         default_factory=dict, compare=False
     )
+    profile_ingress_membership_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    profile_ingress_membership_fault_point: str | None = field(
+        default=None, compare=False, repr=False
+    )
+    profile_ingress_root_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    profile_ingress_root_fault_point: str | None = field(
+        default=None, compare=False, repr=False
+    )
+    profile_ingress_authorization_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    profile_ingress_authorization_fault_point: str | None = field(
+        default=None, compare=False, repr=False
+    )
     postread_override: bytes | None = field(
         default=None, compare=False, repr=False
     )
@@ -17704,6 +18838,23 @@ class ProtocolVersionManagerV1:
             raise AssertionError("PIR2 must be exactly 128 bytes")
         return encoded
 
+    def staticcall_profile_ingress_root_v2(
+        self, calldata: bytes, *, caller: str, value: int, gas: int,
+    ) -> bytes:
+        _ = caller
+        if self.profile_ingress_root_fault_point in {"revert", "oog"}:
+            raise RuntimeError("injected PIR2 staticcall fault")
+        if (type(calldata) is not bytes
+                or len(calldata) != PROFILE_INGRESS_ROOT_CALLDATA_LENGTH
+                or calldata[:4] != PROFILE_INGRESS_ROOT_SELECTOR
+                or calldata[4:28] != bytes(24) or value != 0
+                or gas != PROFILE_INGRESS_ROOT_READ_GAS):
+            raise ValueError("PIR2 staticcall envelope is noncanonical")
+        version = int.from_bytes(calldata[28:36], "big")
+        result = self.profile_ingress_root_v2(version)
+        return (result if self.profile_ingress_root_return_override is None
+                else self.profile_ingress_root_return_override)
+
     def profile_ingress_authorization_v2(
         self, authorization_id: bytes,
     ) -> bytes:
@@ -17717,6 +18868,69 @@ class ProtocolVersionManagerV1:
         if len(encoded) != 800:
             raise AssertionError("PIA2 must be exactly 800 bytes")
         return encoded
+
+    def staticcall_profile_ingress_authorization_v2(
+        self, calldata: bytes, *, caller: str, value: int, gas: int,
+    ) -> bytes:
+        _ = caller
+        if self.profile_ingress_authorization_fault_point in {"revert", "oog"}:
+            raise RuntimeError("injected PIA2 staticcall fault")
+        if (type(calldata) is not bytes
+                or len(calldata)
+                    != PROFILE_INGRESS_AUTHORIZATION_CALLDATA_LENGTH
+                or calldata[:4] != PROFILE_INGRESS_AUTHORIZATION_SELECTOR
+                or value != 0
+                or gas != PROFILE_INGRESS_AUTHORIZATION_READ_GAS):
+            raise ValueError("PIA2 staticcall envelope is noncanonical")
+        result = self.profile_ingress_authorization_v2(calldata[4:36])
+        return (
+            result
+            if self.profile_ingress_authorization_return_override is None
+            else self.profile_ingress_authorization_return_override
+        )
+
+    def profile_ingress_membership_v2(
+        self, protocol_version: int, authorization_id: bytes,
+    ) -> bytes:
+        row = self.profile_ingress_roots.get(protocol_version)
+        if row is None:
+            raise ValueError("unknown PIM2 versioned authorization")
+        root, ids = row
+        lo, hi = 0, len(ids)
+        while lo < hi:
+            mid = (lo + hi) // 2
+            if ids[mid] < authorization_id:
+                lo = mid + 1
+            else:
+                hi = mid
+        if lo >= len(ids) or ids[lo] != authorization_id:
+            raise ValueError("unknown PIM2 versioned authorization")
+        encoded = b"".join((
+            PROFILE_INGRESS_MEMBERSHIP_MAGIC + bytes(28),
+            _model_uint(protocol_version, 32, "PIM2 version"),
+            authorization_id,
+            _model_uint(len(ids), 32, "PIM2 count"), root,
+        ))
+        if len(encoded) != PROFILE_INGRESS_MEMBERSHIP_RETURN_LENGTH:
+            raise AssertionError("PIM2 return width drifted")
+        return (encoded
+                if self.profile_ingress_membership_return_override is None
+                else self.profile_ingress_membership_return_override)
+
+    def staticcall_profile_ingress_membership_v2(
+        self, calldata: bytes, *, caller: str, value: int, gas: int,
+    ) -> bytes:
+        _ = caller
+        if self.profile_ingress_membership_fault_point in {"revert", "oog"}:
+            raise RuntimeError("injected PIM2 staticcall fault")
+        if (type(calldata) is not bytes
+                or len(calldata) != PROFILE_INGRESS_MEMBERSHIP_CALLDATA_LENGTH
+                or calldata[:4] != PROFILE_INGRESS_MEMBERSHIP_SELECTOR
+                or calldata[4:28] != bytes(24) or value != 0
+                or gas != PROFILE_INGRESS_MEMBERSHIP_READ_GAS):
+            raise ValueError("PIM2 staticcall envelope is noncanonical")
+        version = int.from_bytes(calldata[28:36], "big")
+        return self.profile_ingress_membership_v2(version, calldata[36:68])
 
     def apply_protocol_change_v1(
         self, operation_id: bytes, row: ProtocolChangeOperationRowV1,
@@ -18600,6 +19814,58 @@ def profile_ingress_authorization_root(
     )))
 
 
+def decode_profile_ingress_membership_v2(
+    raw: bytes,
+) -> tuple[int, bytes, int, bytes]:
+    if (type(raw) is not bytes
+            or len(raw) != PROFILE_INGRESS_MEMBERSHIP_RETURN_LENGTH):
+        raise ValueError("PIM2 return length is invalid")
+    words = tuple(raw[index:index + 32] for index in range(0, len(raw), 32))
+    if words[0] != PROFILE_INGRESS_MEMBERSHIP_MAGIC + bytes(28):
+        raise ValueError("PIM2 magic is invalid")
+    version = _decode_uint_word_v1(words[1], 64, "PIM2 version")
+    count = _decode_uint_word_v1(words[3], 8, "PIM2 count")
+    if (words[2] == bytes(32) or words[4] == bytes(32)
+            or not 1 <= count <= MAX_PROFILE_INGRESS_AUTHORIZATIONS):
+        raise ValueError("PIM2 row is malformed")
+    return version, words[2], count, words[4]
+
+
+def decode_profile_ingress_root_v2(raw: bytes) -> tuple[int, int, bytes]:
+    if type(raw) is not bytes or len(raw) != PROFILE_INGRESS_ROOT_RETURN_LENGTH:
+        raise ValueError("PIR2 return length is invalid")
+    words = tuple(raw[index:index + 32] for index in range(0, len(raw), 32))
+    if words[0] != b"PIR2" + bytes(28):
+        raise ValueError("PIR2 magic is invalid")
+    version = _decode_uint_word_v1(words[1], 64, "PIR2 version")
+    count = _decode_uint_word_v1(words[2], 8, "PIR2 count")
+    if not 1 <= count <= MAX_PROFILE_INGRESS_AUTHORIZATIONS \
+            or words[3] == bytes(32):
+        raise ValueError("PIR2 row is malformed")
+    return version, count, words[3]
+
+
+def decode_profile_ingress_authorization_v2(
+    raw: bytes,
+) -> tuple[bytes, tuple[bytes, ...]]:
+    if (type(raw) is not bytes
+            or len(raw) != PROFILE_INGRESS_AUTHORIZATION_RETURN_LENGTH):
+        raise ValueError("PIA2 return length is invalid")
+    words = tuple(raw[index:index + 32] for index in range(0, len(raw), 32))
+    if words[0] != b"PIA2" + bytes(28) or words[1] == bytes(32):
+        raise ValueError("PIA2 magic/id is invalid")
+    abi_words = words[2:]
+    if (len(abi_words) != 23
+            or keccak256(INGRESS_AUTHORIZATION_TYPEHASH + b"".join(abi_words))
+                != words[1]
+            or any(abi_words[index][:12] != bytes(12)
+                   for index in (1, 4, 7, 15))):
+        raise ValueError("PIA2 authorization ABI is noncanonical")
+    _decode_uint_word_v1(abi_words[0], 8, "PIA2 kind")
+    _decode_uint_word_v1(abi_words[11], 64, "PIA2 source epoch")
+    return words[1], abi_words
+
+
 def canonical_destination_release_topology(
     router: "ActiveSettlementRouter", *, adapter_address: str,
     adapter_configuration_hash: str, destination_bridge: str,
@@ -18727,6 +19993,7 @@ def canonical_destination_release_topology(
 def profile_ingress_authorization_for(
     router: "ActiveSettlementRouter", *, kind: ForceKind,
     adapter_address: str, destination_bridge: str = "",
+    protocol_version: int,
     settlement_chain_id: int = 1,
     source_descriptor_override: SourceBridgeDescriptor | None = None,
     fee_schedule: tuple[int, int, int, int, int] = (
@@ -18740,7 +20007,8 @@ def profile_ingress_authorization_for(
     """Construct a typed component tuple before any profile/release labels."""
 
     if (type(router) is not ActiveSettlementRouter
-            or settlement_chain_id != router.settlement_chain_context_id):
+            or settlement_chain_id != router.settlement_chain_context_id
+            or not 0 < protocol_version <= UINT64_MAX):
         raise ValueError("ingress authorization changed settlement chain context")
     if kind is ForceKind.USER_TX:
         if (adapter_address != "kind0-adapter" or destination_bridge
@@ -18830,6 +20098,20 @@ def profile_ingress_authorization_for(
             ),
             seal_authority=router.version_manager,
         )
+        expected_adapter_address = bridge_adapter_create2_address_v1(
+            factory=source_descriptor.deployment_factory,
+            protocol_version=protocol_version,
+            source_descriptor_id=source_descriptor.descriptor_id,
+            configuration_hash=configuration_hash,
+            source_bridge=source_bridge,
+            credit_registry=source_address,
+            router=router.address,
+            queue=router.forced_queue.address,
+            seal_authority=router.version_manager,
+        )
+        # The release spec's address is no longer authority.  The only
+        # canonical kind-1 address is the CREATE2 result derived above.
+        adapter_address = expected_adapter_address
         _, _, _, descriptor = canonical_destination_release_topology(
             router,
             adapter_address=adapter_address,
@@ -18916,6 +20198,7 @@ def release_profile_ingress_authorizations(
             adapter_address=address,
             destination_bridge=destination_bridge,
             settlement_chain_id=settlement.market_settlement_chain_id,
+            protocol_version=settlement.protocol_version,
             source_descriptor_override=(
                 settlement.source_bridge_descriptor
                 if kind is ForceKind.BRIDGE_CREDIT else None
@@ -19970,9 +21253,7 @@ def _validate_execution_profile_value_words_v2(
             )
             or words[209]
                 != _abi_address_word(LEGACY_V1_SOURCE_BRIDGE)):
-        raise ValueError(
-            "source bundle salt or legacy Bridge binding is unsupported"
-        )
+        raise ValueError("source salt or legacy Bridge binding is unsupported")
     empty_immutables = keccak256(
         b"slot-chain-solc-immutable-references-v1" + bytes(4)
     )
@@ -19988,6 +21269,41 @@ def _validate_execution_profile_value_words_v2(
     expected_market_authority_configuration = \
         aggregator_seat_market_configuration_hash_v2(words)
     if validate_authority_graph:
+        if (words[202] != _abi_address_word(SOURCE_V2_CREATE2_FACTORY)
+                or words[203] != _model_fixed_bytes32(
+                    SOURCE_V2_CREATE2_FACTORY_RUNTIME_HASH)
+                or words[204] != _model_fixed_bytes32(
+                    SOURCE_V2_CREATE2_FACTORY_CONFIGURATION_HASH)
+                or words[161] != _model_fixed_bytes32(
+                    BRIDGE_INGRESS_RUNTIME_HASH)):
+            raise ValueError(
+                "source factory or Bridge adapter runtime is unsupported"
+            )
+        _source_raw, source_descriptor_id, _source_domain = (
+            _profile_source_descriptor_v2(words))
+        expected_kind1_config = _profile_component_config_hash_v2(
+            1, b"".join((
+                words[214][12:], words[210][12:], words[23][12:],
+                words[26][12:], words[20][12:],
+            )))
+        expected_adapter = _model_address20(
+            bridge_adapter_create2_address_v1(
+                factory="0x" + words[202][12:].hex(),
+                protocol_version=protocol_version,
+                source_descriptor_id=source_descriptor_id,
+                configuration_hash=expected_kind1_config,
+                source_bridge="0x" + words[210][12:].hex(),
+                credit_registry="0x" + words[214][12:].hex(),
+                router="0x" + words[23][12:].hex(),
+                queue="0x" + words[26][12:].hex(),
+                seal_authority="0x" + words[20][12:].hex(),
+            )
+        )
+        if (words[162] != expected_kind1_config
+                or words[160][12:] != expected_adapter):
+            raise ValueError(
+                "Bridge adapter CREATE2 projection is unsupported"
+            )
         expected_timelock_descriptor = \
             governance_delay_authority_descriptor_hash_from_profile_v1(words)
         if (words[37] != expected_market_authority_configuration
@@ -21351,6 +22667,12 @@ class ActiveSettlementRouter:
     migration_activation_profiles_v2: dict[
         int, MigrationActivationProfileRecordV2
     ] = field(default_factory=dict, compare=False)
+    bridge_route_expansions_v1: dict[int, bytes] = field(
+        default_factory=dict, compare=False
+    )
+    bridge_invocation_policies_v1: dict[int, bytes] = field(
+        default_factory=dict, compare=False
+    )
     release_registration_fault_point: str | None = field(
         default=None, compare=False, repr=False
     )
@@ -21361,6 +22683,24 @@ class ActiveSettlementRouter:
         default=None, compare=False, repr=False
     )
     release_registration_getter_fault_point: str | None = field(
+        default=None, compare=False, repr=False
+    )
+    bridge_route_expansion_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    bridge_route_expansion_fault_point: str | None = field(
+        default=None, compare=False, repr=False
+    )
+    bridge_invocation_policy_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    bridge_invocation_policy_fault_point: str | None = field(
+        default=None, compare=False, repr=False
+    )
+    bridge_invocation_decision_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    bridge_invocation_decision_fault_point: str | None = field(
         default=None, compare=False, repr=False
     )
     migration_profile_getter_override: bytes | None = field(
@@ -21794,6 +23134,8 @@ class ActiveSettlementRouter:
             self.migration_lifecycle,
             dict(self.target_release_registrations_v2),
             dict(self.migration_activation_profiles_v2),
+            dict(self.bridge_route_expansions_v1),
+            dict(self.bridge_invocation_policies_v1),
             copy.deepcopy(self.migration_gate.__dict__),
             self.genesis_campaign_nonce,
             self.scheduled_genesis_campaign,
@@ -21806,12 +23148,14 @@ class ActiveSettlementRouter:
     def _restore_protocol_release_registry_v2(
         self, snapshot: tuple[object, ...]
     ) -> None:
-        (lifecycle, registrations, profiles, gate_state,
+        (lifecycle, registrations, profiles, expansions, policies, gate_state,
          campaign_nonce, scheduled_campaign, campaign, terminal_ids,
          terminal_campaign, legacy_state) = snapshot
         self.migration_lifecycle = lifecycle
         self.target_release_registrations_v2 = registrations
         self.migration_activation_profiles_v2 = profiles
+        self.bridge_route_expansions_v1 = expansions
+        self.bridge_invocation_policies_v1 = policies
         self.migration_gate.__dict__.clear()
         self.migration_gate.__dict__.update(gate_state)
         self.genesis_campaign_nonce = campaign_nonce
@@ -21872,6 +23216,33 @@ class ActiveSettlementRouter:
             self.migration_activation_profiles_v2[
                 row.protocol_version
             ] = derived.migration_activation_profile
+            self.bridge_route_expansions_v1[row.protocol_version] = (
+                derived.bridge_route_expansion
+            )
+            self.bridge_invocation_policies_v1[row.protocol_version] = (
+                derived.bridge_invocation_policy
+            )
+            installed_policy = decode_bridge_invocation_policy_v1(
+                derived.bridge_invocation_policy
+            )
+            for denied_target in installed_policy.denied:
+                decision = decode_bridge_invocation_decision_v1(
+                    self.staticcall_bridge_invocation_decision_v1(
+                        BRIDGE_INVOCATION_DECISION_SELECTOR
+                        + _model_uint(
+                            row.protocol_version, 32, "BID1 postread version"
+                        )
+                        + bytes(12) + denied_target,
+                        caller=self.address, value=0,
+                        gas=BRIDGE_INVOCATION_DECISION_READ_GAS,
+                    )
+                )
+                if decision != (
+                    row.protocol_version,
+                    installed_policy.invocation_policy_hash,
+                    True,
+                ):
+                    raise ValueError("Router BID1 policy postread differs")
             if self.release_registration_fault_point == "after_write":
                 raise RuntimeError("injected Router registration fault")
             self.migration_lifecycle = RouterMigrationLifecycle.IDLE
@@ -21919,6 +23290,93 @@ class ActiveSettlementRouter:
         if len(raw) != TARGET_RELEASE_REGISTRATION_RETURN_LENGTH:
             return raw
         return raw
+
+    def bridge_route_expansion_v1(self, protocol_version: int) -> bytes:
+        raw = self.bridge_route_expansions_v1.get(protocol_version)
+        if raw is None:
+            raise ValueError("unknown Router BRX1 expansion")
+        result = (raw if self.bridge_route_expansion_return_override is None
+                  else self.bridge_route_expansion_return_override)
+        return result
+
+    def staticcall_bridge_route_expansion_v1(
+        self, calldata: bytes, *, caller: str, value: int, gas: int,
+    ) -> bytes:
+        _ = caller
+        if self.bridge_route_expansion_fault_point in {"revert", "oog"}:
+            raise RuntimeError("injected BRX1 staticcall fault")
+        if (type(calldata) is not bytes
+                or len(calldata) != BRIDGE_ROUTE_EXPANSION_CALLDATA_LENGTH
+                or calldata[:4] != BRIDGE_ROUTE_EXPANSION_SELECTOR
+                or calldata[4:28] != bytes(24) or value != 0
+                or gas != BRIDGE_ROUTE_EXPANSION_READ_GAS):
+            raise ValueError("BRX1 staticcall envelope is noncanonical")
+        version = int.from_bytes(calldata[28:36], "big")
+        return self.bridge_route_expansion_v1(version)
+
+    def bridge_invocation_policy_v1(self, protocol_version: int) -> bytes:
+        raw = self.bridge_invocation_policies_v1.get(protocol_version)
+        if raw is None:
+            raise ValueError("unknown Router BIP1 policy")
+        return (raw if self.bridge_invocation_policy_return_override is None
+                else self.bridge_invocation_policy_return_override)
+
+    def staticcall_bridge_invocation_policy_v1(
+        self, calldata: bytes, *, caller: str, value: int, gas: int,
+    ) -> bytes:
+        _ = caller
+        if self.bridge_invocation_policy_fault_point in {"revert", "oog"}:
+            raise RuntimeError("injected BIP1 staticcall fault")
+        if (type(calldata) is not bytes
+                or len(calldata) != BRIDGE_INVOCATION_POLICY_CALLDATA_LENGTH
+                or calldata[:4] != BRIDGE_INVOCATION_POLICY_SELECTOR
+                or calldata[4:28] != bytes(24) or value != 0
+                or gas != BRIDGE_INVOCATION_POLICY_READ_GAS):
+            raise ValueError("BIP1 staticcall envelope is noncanonical")
+        version = int.from_bytes(calldata[28:36], "big")
+        return self.bridge_invocation_policy_v1(version)
+
+    def bridge_invocation_decision_v1(
+        self, protocol_version: int, target: bytes,
+    ) -> bytes:
+        policy = decode_bridge_invocation_policy_v1(
+            self.bridge_invocation_policy_v1(protocol_version)
+        )
+        if type(target) is not bytes or len(target) != 20:
+            raise ValueError("BID1 target is malformed")
+        lo, hi = 0, len(policy.denied)
+        while lo < hi:
+            mid = (lo + hi) // 2
+            if policy.denied[mid] < target:
+                lo = mid + 1
+            else:
+                hi = mid
+        denied = lo < len(policy.denied) and policy.denied[lo] == target
+        result = b"".join((
+            BRIDGE_INVOCATION_DECISION_MAGIC + bytes(28),
+            _model_uint(protocol_version, 32, "BID1 version"),
+            policy.invocation_policy_hash,
+            _model_uint(int(denied), 32, "BID1 denied"),
+        ))
+        return (result if self.bridge_invocation_decision_return_override is None
+                else self.bridge_invocation_decision_return_override)
+
+    def staticcall_bridge_invocation_decision_v1(
+        self, calldata: bytes, *, caller: str, value: int, gas: int,
+    ) -> bytes:
+        _ = caller
+        if self.bridge_invocation_decision_fault_point in {"revert", "oog"}:
+            raise RuntimeError("injected BID1 staticcall fault")
+        if (type(calldata) is not bytes
+                or len(calldata) != BRIDGE_INVOCATION_DECISION_CALLDATA_LENGTH
+                or calldata[:4] != BRIDGE_INVOCATION_DECISION_SELECTOR
+                or calldata[4:28] != bytes(24)
+                or calldata[36:48] != bytes(12)
+                or value != 0 or gas != BRIDGE_INVOCATION_DECISION_READ_GAS):
+            raise ValueError("BID1 staticcall envelope is noncanonical")
+        version = int.from_bytes(calldata[28:36], "big")
+        target = calldata[48:68]
+        return self.bridge_invocation_decision_v1(version, target)
 
     def migration_activation_profile_v2(self, protocol_version: int) -> bytes:
         row = self.migration_activation_profiles_v2.get(protocol_version)
@@ -22486,13 +23944,15 @@ class ActiveSettlementRouter:
                 factory,
                 dict(factory._deployments),
                 dict(factory._bundles),
+                dict(factory._adapter_deployments),
+                dict(factory._adapters),
             )
             for address, factory
             in self._source_bridge_factories_by_address.items()
             if type(factory) is ImmutableV2BridgeFactory
         }
         source_bundle_states_before: dict[int, tuple[object, ...]] = {}
-        for factory, _, bundles in source_factory_states.values():
+        for factory, _, bundles, _, _ in source_factory_states.values():
             for bundle in bundles.values():
                 if (len(bundle) == 5
                         and type(bundle[0]) is SourceBridgeV2
@@ -22605,15 +24065,8 @@ class ActiveSettlementRouter:
                     )
                 )
                 if source_bridge_factory is None:
-                    source_bridge_factory = ImmutableV2BridgeFactory(
-                        source_descriptor.deployment_factory,
-                        source_descriptor.deployment_factory_runtime_hash,
-                        source_descriptor
-                            .deployment_factory_configuration_hash,
-                    )
-                    self._source_bridge_factories_by_address[
-                        source_descriptor.deployment_factory
-                    ] = source_bridge_factory
+                    raise ValueError(
+                        "root-predeployed source factory is absent")
                 elif (type(source_bridge_factory)
                         is not ImmutableV2BridgeFactory
                         or source_bridge_factory.runtime_hash
@@ -22734,54 +24187,6 @@ class ActiveSettlementRouter:
                         GENESIS_TIMESTAMP,
                     )
                 )
-                if type(manager) is ProtocolVersionManagerV1:
-                    stage_result = registry.stage_bridge_route_package_v1(
-                        STAGE_BRIDGE_ROUTE_PACKAGE_SELECTOR
-                        + _model_uint(
-                            registration.settlement.protocol_version,
-                            32, "BRS1 protocol version",
-                        ),
-                        caller=self.address, value=0,
-                        gas=STAGE_BRIDGE_ROUTE_PACKAGE_GAS,
-                        clock=stage_clock,
-                    )
-                    stage_key = registry._key_by_destination_chain_version.get((
-                        registration.release_manifest.destination_chain_id,
-                        registration.settlement.protocol_version,
-                    ))
-                    staged_entry = (
-                        registry.entries.get(stage_key)
-                        if stage_key is not None else None
-                    )
-                    if staged_entry is None:
-                        raise ValueError("BRS1 staged package row is absent")
-                    expected_stage = b"".join((
-                        b"BRS1" + bytes(28),
-                        _model_uint(
-                            registration.settlement.protocol_version,
-                            32, "BRS1 version",
-                        ),
-                        registry._package_root(
-                            registration, bridge_authorization
-                        ),
-                        _model_uint(
-                            staged_entry.staged_at_block
-                                + BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
-                            32, "BRS1 ready block",
-                        ),
-                    ))
-                    if stage_result != expected_stage:
-                        raise ValueError("release BRS1 post-read is inexact")
-                elif not registry.stage(
-                        source_bridge.source_domain_id,
-                        source_bridge.frozen_bridge_execution_hash,
-                        manifest,
-                        manager=manager,
-                        clock=stage_clock,
-                        registration=registration):
-                    # Compatibility fixtures remain behavioral oracles only;
-                    # the production PVMv2 path above is the raw BRS1 call.
-                    raise ValueError("release Bridge support was not staged")
                 existing_bridge = self._authorized_ingress_by_address.get(
                     bridge_authorization.adapter_address
                 )
@@ -22793,22 +24198,30 @@ class ActiveSettlementRouter:
                     raise ValueError(
                         "Bridge adapter address cannot cross destination domains"
                     )
-                bridge = (
-                    deployments.get(bridge_authorization.authorization_id)
-                    if deployments.get(
-                        bridge_authorization.authorization_id
-                    ) is not None
-                    else (existing_bridge.adapter
-                          if existing_bridge is not None
-                          else BridgeAdapter(
-                        self,
-                        credit_registry,
-                        source_bridge,
-                        address=bridge_authorization.adapter_address,
-                        runtime_hash=bridge_authorization.runtime_hash,
-                    ))
+                bridge = source_bridge_factory.deploy_bridge_adapter_v1(
+                    protocol_version=(
+                        registration.settlement.protocol_version),
+                    source_descriptor_id=descriptor_id,
+                    router=self, credit_registry=credit_registry,
+                    source_bridge=source_bridge,
+                    expected_runtime_hash=bridge_authorization.runtime_hash,
+                    expected_configuration_hash=(
+                        bridge_authorization.configuration_hash),
+                    caller="permissionless-deployer",
                 )
+                retained_bridge = deployments.get(
+                    bridge_authorization.authorization_id)
+                if (retained_bridge is not None
+                        and retained_bridge is not bridge):
+                    raise ValueError(
+                        "release retained adapter is not CREATE2 deployment")
+                if (existing_bridge is not None
+                        and existing_bridge.adapter is not bridge):
+                    raise ValueError(
+                        "active adapter is not CREATE2 deployment")
                 if (type(bridge) is not BridgeAdapter
+                        or bridge.address
+                            != bridge_authorization.adapter_address
                         or bridge.credit_registry is not credit_registry
                         or bridge.source_bridge is not source_bridge
                         or bridge.configuration_hash
@@ -22821,6 +24234,15 @@ class ActiveSettlementRouter:
                 self._profile_deployments_by_version[
                     registration.settlement.protocol_version
                 ] = MappingProxyType(dict(deployments))
+                if (type(manager) is not ProtocolVersionManagerV1
+                        and not registry.stage(
+                        source_bridge.source_domain_id,
+                        source_bridge.frozen_bridge_execution_hash,
+                        manifest,
+                        manager=manager,
+                        clock=stage_clock,
+                        registration=registration)):
+                    raise ValueError("release Bridge support was not staged")
                 if not prepare_only:
                     is_successor = (
                         registration.settlement.protocol_version
@@ -22913,11 +24335,13 @@ class ActiveSettlementRouter:
             self._source_bundles_by_descriptor_id = source_bundles_before
             self._source_descriptor_id_by_version = source_versions_before
             self._used_source_component_addresses = used_source_addresses_before
-            for factory, deployments_state, bundles_state in (
+            for factory, deployments_state, bundles_state, adapter_states, adapters in (
                 source_factory_states.values()
             ):
                 factory._deployments = deployments_state
                 factory._bundles = bundles_state
+                factory._adapter_deployments = adapter_states
+                factory._adapters = adapters
             for bridge, bridge_state, registry, registry_state in (
                 source_bundle_states_before.values()
             ):
@@ -22942,14 +24366,15 @@ class ActiveSettlementRouter:
 
         factories = {
             address: (
-                factory, dict(factory._deployments), dict(factory._bundles)
+                factory, dict(factory._deployments), dict(factory._bundles),
+                dict(factory._adapter_deployments), dict(factory._adapters)
             )
             for address, factory
             in self._source_bridge_factories_by_address.items()
             if type(factory) is ImmutableV2BridgeFactory
         }
         bundles: dict[int, tuple[object, ...]] = {}
-        for factory, _, factory_bundles in factories.values():
+        for factory, _, factory_bundles, _, _ in factories.values():
             for bundle in factory_bundles.values():
                 if (len(bundle) == 5
                         and type(bundle[0]) is SourceBridgeV2
@@ -22984,9 +24409,12 @@ class ActiveSettlementRouter:
         self._source_bundles_by_descriptor_id = bundle_map
         self._source_descriptor_id_by_version = version_map
         self._used_source_component_addresses = used_addresses
-        for factory, factory_deployments, factory_bundles in factories.values():
+        for (factory, factory_deployments, factory_bundles,
+             adapter_deployments, adapters) in factories.values():
             factory._deployments = factory_deployments
             factory._bundles = factory_bundles
+            factory._adapter_deployments = adapter_deployments
+            factory._adapters = adapters
         for bridge, bridge_state, registry, registry_state in bundles.values():
             bridge._restore_transaction_snapshot(
                 bridge_state, capability=_SOURCE_BRIDGE_ROLLBACK_CAPABILITY
@@ -23071,6 +24499,120 @@ class ActiveSettlementRouter:
             clock=clock,
         )
 
+    def _prepare_bridge_primitives_v1(
+        self, version: int, brx: BridgeRouteExpansionV1,
+        pia: tuple[bytes, ...],
+    ) -> None:
+        """Deploy the source bundle and adapter from BRX1/PIA2 only."""
+
+        descriptor = brx.source_descriptor_words
+        address = lambda index: "0x" + descriptor[index][12:].hex()
+        hash_hex = lambda index: "0x" + descriptor[index].hex()
+        source_descriptor = SourceBridgeDescriptor(
+            self.settlement_chain_context_id, brx.source_chain_id,
+            "0x" + brx.source_genesis_hash.hex(),
+            "0x" + brx.source_namespace.hex(),
+            address(8), address(12), hash_hex(9), hash_hex(11), hash_hex(26),
+            address(21),
+            native_quota_manager=address(15),
+            native_quota_manager_runtime_hash=NATIVE_QUOTA_MANAGER_RUNTIME_HASH,
+            native_quota_period=NATIVE_QUOTA_PERIOD_SECONDS,
+            native_eth_quota=UINT64_MAX,
+            source_domain_registrar=address(18),
+            source_registration_epoch=_decode_uint_word_v1(
+                descriptor[27], 64, "BRD1 source epoch"),
+            support_registry_address=address(18),
+            support_registry_runtime_hash=hash_hex(19),
+            support_registry_configuration_hash=hash_hex(20),
+            source_terminal_verifier_runtime_hash=hash_hex(22),
+            source_terminal_verifier_configuration_hash=hash_hex(23),
+            deployment_factory=address(0),
+            deployment_factory_runtime_hash=hash_hex(1),
+            deployment_factory_configuration_hash=hash_hex(2),
+            deployment_salt=hash_hex(3),
+            deployment_initcode_hash=descriptor[4].hex(),
+            bundle_deployer=address(5),
+            bundle_deployer_runtime_hash=hash_hex(6),
+            legacy_v1_bridge=address(7),
+        )
+        if (source_descriptor.canonical_bytes != brx.source_descriptor_bytes
+                or source_descriptor.descriptor_id
+                    != brx.source_bridge_execution_hash
+                or source_descriptor.source_domain_id != brx.source_domain_id.hex()):
+            raise ValueError("BRD1 reconstructed source descriptor drifted")
+        support = self._bridge_domain_registry_authority
+        if (type(support) is not BridgeDomainRegistry
+                or _model_address20(support.address) != descriptor[18][12:]
+                or _model_fixed_bytes32(support.runtime_hash) != descriptor[19]
+                or _model_fixed_bytes32(support.configuration_hash)
+                    != descriptor[20]):
+            raise ValueError("BRD1 support Registry is not the root instance")
+        factory = self._source_bridge_factories_by_address.get(
+            source_descriptor.deployment_factory)
+        if factory is None:
+            raise ValueError("BRD1 root-predeployed source factory is absent")
+        if (type(factory) is not ImmutableV2BridgeFactory
+                or _model_fixed_bytes32(factory.runtime_hash)
+                    != descriptor[1]
+                or _model_fixed_bytes32(factory.configuration_hash)
+                    != descriptor[2]):
+            raise ValueError("BRD1 predeployed factory is polluted")
+        bundle = self._source_bundles_by_descriptor_id.get(
+            source_descriptor.descriptor_id)
+        source, credit, _receipt = factory.deploy_source_bundle(
+            source_descriptor, support, caller="permissionless-preparer")
+        exact_bundle = (source, credit, source.quota_manager)
+        if bundle is None:
+            bundle = exact_bundle
+            self._source_bundles_by_descriptor_id[
+                source_descriptor.descriptor_id] = bundle
+            self._used_source_component_addresses.update({
+                source_descriptor.source_bridge,
+                source_descriptor.bridge_credit_registry,
+                source_descriptor.native_quota_manager,
+            })
+        elif bundle != exact_bundle:
+            raise ValueError("BRD1 retained source bundle is polluted")
+        source, credit, quota = bundle
+        if (type(source) is not SourceBridgeV2
+                or type(credit) is not BridgeCreditRegistryV2
+                or type(quota) is not FrozenNativeQuotaManagerV2):
+            raise ValueError("BRD1 source bundle types are invalid")
+        adapter_address = "0x" + pia[1][12:].hex()
+        deployments = dict(self._profile_deployments_by_version.get(version, {}))
+        expected_adapter_address = bridge_adapter_create2_address_v1(
+            factory=factory.address, protocol_version=version,
+            source_descriptor_id=source_descriptor.descriptor_id,
+            configuration_hash=pia[3], source_bridge=source.address,
+            credit_registry=credit.address, router=self.address,
+            queue=self.forced_queue.address,
+            seal_authority=self.version_manager,
+        )
+        if (_model_address20(adapter_address)
+                != _model_address20(expected_adapter_address)):
+            raise ValueError("BRD1 PIA2 adapter is not the CREATE2 result")
+        adapter = factory.deploy_bridge_adapter_v1(
+            protocol_version=version,
+            source_descriptor_id=source_descriptor.descriptor_id,
+            router=self, credit_registry=credit, source_bridge=source,
+            expected_runtime_hash=pia[2],
+            expected_configuration_hash=pia[3],
+            caller="permissionless-preparer",
+        )
+        retained_adapter = deployments.get(brx.bridge_authorization_id)
+        if retained_adapter is not None and retained_adapter is not adapter:
+            raise ValueError("BRD1 retained adapter is not factory deployment")
+        if (type(adapter) is not BridgeAdapter
+                or _model_address20(adapter.address)
+                    != _model_address20(adapter_address)
+                or _model_fixed_bytes32(adapter.configuration_hash) != pia[3]):
+            raise ValueError("BRD1 adapter live configuration is inexact")
+        deployments[brx.bridge_authorization_id] = adapter
+        self._profile_deployments_by_version[version] = MappingProxyType(
+            deployments)
+        self._source_descriptor_id_by_version[version] = (
+            source_descriptor.descriptor_id)
+
     def prepare_bridge_route_package_v1(
         self,
         calldata: bytes,
@@ -23095,9 +24637,6 @@ class ActiveSettlementRouter:
             raise ValueError("BRD1 call envelope is noncanonical")
         version = int.from_bytes(calldata[28:36], "big")
         manager = self._version_manager_authority
-        witness = manager.release_witnesses.get(version)
-        if type(witness) is not SettlementRegistration:
-            raise ValueError("BRD1 registered witness is absent")
         row = decode_target_release_registration_return_v2(
             self.staticcall_target_release_registration_v2(
                 TARGET_RELEASE_REGISTRATION_SELECTOR
@@ -23106,27 +24645,82 @@ class ActiveSettlementRouter:
                 gas=TARGET_RELEASE_REGISTRATION_READ_GAS,
             )
         )
-        if (row.target_registration_hash != target_registration_hash_v2(witness)
-                or row.release_manifest_hash != witness.release_manifest_hash
-                or row.target_settlement
-                    != _model_address20(witness.settlement.address)):
-            raise ValueError("BRD1 RTR2/witness join is inexact")
+        brx_raw = self.staticcall_bridge_route_expansion_v1(
+                BRIDGE_ROUTE_EXPANSION_SELECTOR
+                + _model_uint(version, 32, "BRD1 BRX1 version"),
+                caller=self.address, value=0,
+                gas=BRIDGE_ROUTE_EXPANSION_READ_GAS,
+            )
+        brx = decode_bridge_route_expansion_v1(brx_raw)
+        if (row.protocol_version != version or brx.protocol_version != version
+                or row.bridge_route_expansion_hash
+                    != keccak256(brx_raw)):
+            raise ValueError("BRD1 RTR2/BRX1 join is inexact")
         snapshot = self._bridge_package_snapshot_v1()
+        lifecycle_before = self.migration_lifecycle
         try:
-            if not self._install_profile_deployments(
-                    witness, manager=manager, prepare_only=True, clock=clock):
-                raise ValueError("BRD1 exact package preparation failed")
+            self.migration_lifecycle = RouterMigrationLifecycle.BRIDGE_PREPARING
+            pir_raw = manager.staticcall_profile_ingress_root_v2(
+                PROFILE_INGRESS_ROOT_SELECTOR
+                + _model_uint(version, 32, "BRD1 PIR2 version"),
+                caller=self.address, value=0,
+                gas=PROFILE_INGRESS_ROOT_READ_GAS,
+            )
+            pir_version, pir_count, pir_root = decode_profile_ingress_root_v2(
+                pir_raw)
+            pim_raw = manager.staticcall_profile_ingress_membership_v2(
+                PROFILE_INGRESS_MEMBERSHIP_SELECTOR
+                + _model_uint(version, 32, "BRD1 PIM2 version")
+                + brx.bridge_authorization_id,
+                caller=self.address, value=0,
+                gas=PROFILE_INGRESS_MEMBERSHIP_READ_GAS,
+            )
+            pim_version, pim_id, pim_count, pim_root = (
+                decode_profile_ingress_membership_v2(pim_raw))
+            pia_raw = manager.staticcall_profile_ingress_authorization_v2(
+                PROFILE_INGRESS_AUTHORIZATION_SELECTOR
+                + brx.bridge_authorization_id,
+                caller=self.address, value=0,
+                gas=PROFILE_INGRESS_AUTHORIZATION_READ_GAS,
+            )
+            pia_id, pia = decode_profile_ingress_authorization_v2(pia_raw)
+            bip = decode_bridge_invocation_policy_v1(
+                self.staticcall_bridge_invocation_policy_v1(
+                    BRIDGE_INVOCATION_POLICY_SELECTOR
+                    + _model_uint(version, 32, "BRD1 BIP1 version"),
+                    caller=self.address, value=0,
+                    gas=BRIDGE_INVOCATION_POLICY_READ_GAS,
+                ))
+            if (pir_version != version or pim_version != version
+                    or bip.protocol_version != version
+                    or pim_id != brx.bridge_authorization_id
+                    or pia_id != brx.bridge_authorization_id
+                    or pir_count != pim_count or pir_root != pim_root
+                    or brx.invocation_policy_hash
+                        != bip.invocation_policy_hash
+                    or brx.invocation_policy_count != len(bip.denied)):
+                raise ValueError("BRD1 primitive predeployment join is inexact")
+            self._prepare_bridge_primitives_v1(version, brx, pia)
             if self.prepare_bridge_route_fault_point in {
                     "after_stage", "revert", "oog"}:
                 raise RuntimeError("injected BRD1 preparation fault")
             registry = self._bridge_domain_registry_authority
-            authorization = next(
-                candidate for candidate in witness.ingress_authorizations
-                if candidate.kind is ForceKind.BRIDGE_CREDIT
+            if type(registry) is not BridgeDomainRegistry:
+                raise ValueError("BRD1 Registry authority is absent")
+            stage_result = registry.stage_bridge_route_package_v1(
+                STAGE_BRIDGE_ROUTE_PACKAGE_SELECTOR
+                + _model_uint(version, 32, "BRD1 BRS1 version"),
+                caller=self.address, value=0,
+                gas=STAGE_BRIDGE_ROUTE_PACKAGE_GAS, clock=clock,
             )
             package_key = registry._key_by_destination_chain_version.get((
-                witness.release_manifest.destination_chain_id, version
+                self.settlement_chain_context_id, version
             ))
+            if package_key is None:
+                package_key = registry._key_by_destination_chain_version.get((
+                    registry.release_authority_descriptor.destination_chain_id,
+                    version,
+                ))
             package_entry = (
                 registry.entries.get(package_key)
                 if package_key is not None else None
@@ -23136,7 +24730,7 @@ class ActiveSettlementRouter:
             result = b"".join((
                 b"BRD1" + bytes(28),
                 _model_uint(version, 32, "BRD1 version"),
-                registry._package_root(witness, authorization),
+                package_entry.package_root,
                 _model_uint(
                     package_entry.staged_at_block
                         + BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
@@ -23144,12 +24738,15 @@ class ActiveSettlementRouter:
                 ),
             ))
             if (len(result) != PREPARE_BRIDGE_ROUTE_PACKAGE_RETURN_LENGTH
+                    or stage_result[64:96] != package_entry.package_root
                     or (self.prepare_bridge_route_return_override is not None
                         and self.prepare_bridge_route_return_override
                             != result)):
                 raise ValueError("BRD1 returndata is inexact")
+            self.migration_lifecycle = RouterMigrationLifecycle.IDLE
             return result
         except BaseException:
+            self.migration_lifecycle = lifecycle_before
             self._restore_bridge_package_snapshot_v1(snapshot)
             raise
 
@@ -23388,6 +24985,7 @@ class ActiveSettlementRouter:
                 clock,
             )
         )
+        target_row = self.target_release_registrations_v2.get(protocol_version)
         if (not executor or type(clock) is not Clock
                 or type(protocol_version) is not int
                 or type(adapter) is not BridgeAdapter
@@ -23401,7 +24999,14 @@ class ActiveSettlementRouter:
                 or source.quota_manager is not bundle[2]
                 or authorization.source_descriptor_id != descriptor_id
                 or support is None
-                or support.manifest is not registration.release_manifest
+                or support.release_manifest_hash
+                    != registration.release_manifest.commitment
+                or (target_row is not None
+                    and support.target_registration_hash
+                        != target_row.target_registration_hash)
+                or support.execution_profile_hash
+                    != _model_fixed_bytes32(
+                        registration.execution_profile_hash)
                 or support.source_chain_id != authorization.source_chain_id
                 or support.source_registration_epoch
                     != authorization.source_registration_epoch):
@@ -25476,13 +27081,16 @@ class ActiveSettlementRouter:
         )
         queue_snapshot = queue._transaction_snapshot()
         source_factory_states = {
-            address: (factory, dict(factory._deployments), dict(factory._bundles))
+            address: (
+                factory, dict(factory._deployments), dict(factory._bundles),
+                dict(factory._adapter_deployments), dict(factory._adapters)
+            )
             for address, factory
             in self._source_bridge_factories_by_address.items()
             if type(factory) is ImmutableV2BridgeFactory
         }
         source_bundle_states: dict[int, tuple[object, ...]] = {}
-        for factory, _, bundles in source_factory_states.values():
+        for factory, _, bundles, _, _ in source_factory_states.values():
             for bundle in bundles.values():
                 if (len(bundle) == 5
                         and type(bundle[0]) is SourceBridgeV2
@@ -25562,9 +27170,12 @@ class ActiveSettlementRouter:
             self.activation_receipt_rows_v1 = router_snapshot[20]
             self.seat_successor_rows_v1 = router_snapshot[21]
             queue._restore_transaction_snapshot(queue_snapshot)
-            for factory, deployments, bundles in source_factory_states.values():
+            for (factory, deployments, bundles,
+                 adapter_deployments, adapters) in source_factory_states.values():
                 factory._deployments = deployments
                 factory._bundles = bundles
+                factory._adapter_deployments = adapter_deployments
+                factory._adapters = adapters
             for bridge, bridge_state, registry, registry_state in (
                 source_bundle_states.values()
             ):
@@ -26347,13 +27958,15 @@ class ProtocolVersionManager:
                 factory,
                 dict(factory._deployments),
                 dict(factory._bundles),
+                dict(factory._adapter_deployments),
+                dict(factory._adapters),
             )
             for address, factory
             in self.router._source_bridge_factories_by_address.items()
             if type(factory) is ImmutableV2BridgeFactory
         }
         source_bundle_states: dict[int, tuple[object, ...]] = {}
-        for factory, _, bundles in source_factory_states.values():
+        for factory, _, bundles, _, _ in source_factory_states.values():
             for bundle in bundles.values():
                 if (len(bundle) == 5
                         and type(bundle[0]) is SourceBridgeV2
@@ -26528,11 +28141,14 @@ class ProtocolVersionManager:
             self.router.activation_successor_index_v1 = router_snapshot[19]
             self.router.activation_receipt_rows_v1 = router_snapshot[20]
             self.router.seat_successor_rows_v1 = router_snapshot[21]
-            for factory, deployments_state, bundles_state in (
+            for (factory, deployments_state, bundles_state,
+                 adapter_states, adapters) in (
                 source_factory_states.values()
             ):
                 factory._deployments = deployments_state
                 factory._bundles = bundles_state
+                factory._adapter_deployments = adapter_states
+                factory._adapters = adapters
             for bridge, bridge_state, registry, registry_state in (
                 source_bundle_states.values()
             ):
@@ -27600,9 +29216,13 @@ class CreditAuthorization:
 def encode_credit_authorization_v2(
     authorization: CreditAuthorization,
 ) -> bytes:
-    if type(authorization) is not CreditAuthorization:
+    if (type(authorization) is not CreditAuthorization
+            or authorization.refund_mode != "DIRECT"
+            or authorization.refund_vault
+            or authorization.destination_bridge == ""):
         raise ValueError("credit authorization has the wrong type")
     encoded = b"".join((
+        b"CAU2" + bytes(28),
         _model_fixed_bytes32(authorization.source_domain_id),
         _model_uint(authorization.src_epoch, 32, "authorization source epoch"),
         bytes(12) + _model_address20(authorization.src_bridge),
@@ -27613,6 +29233,7 @@ def encode_credit_authorization_v2(
         _model_fixed_bytes32(authorization.destination_domain_id),
         _model_uint(authorization.destination_chain_id, 32,
                     "authorization destination chain id"),
+        bytes(12) + _model_address20(authorization.destination_bridge),
         _model_uint(authorization.enqueue_by, 32,
                     "authorization enqueue deadline"),
         bytes(12) + _model_address20(authorization.sender),
@@ -27625,9 +29246,12 @@ def encode_credit_authorization_v2(
         _model_fixed_bytes32(authorization.calldata_hash),
         _model_uint(authorization.calldata_length, 32,
                     "authorization calldata length"),
-        _model_fixed_bytes32(authorization.escrow_id),
+        _model_uint(authorization.protocol_version, 32,
+                    "authorization protocol version"),
+        _model_fixed_bytes32(authorization.release_manifest_hash),
+        _model_fixed_bytes32(authorization.execution_profile_hash),
     ))
-    if len(encoded) != 576:
+    if len(encoded) != 704:
         raise AssertionError("creditAuthorizationV2 return width drifted")
     return encoded
 
@@ -27949,32 +29573,70 @@ class BridgeCreditRegistryV2:
                 or getattr(self, "credit_authorization_call_fault", False)):
             return None
         credit_word = calldata[4:]
-        matches = tuple(
-            authorization
-            for credit_id, authorization in self._authorizations.items()
-            if _model_fixed_bytes32(credit_id) == credit_word
-        )
-        if len(matches) != 1:
+        authorization = self._authorizations.get(credit_word.hex())
+        if authorization is None:
             return None
         override = getattr(
             self, "credit_authorization_return_override", None
         )
         return (
-            encode_credit_authorization_v2(matches[0])
+            encode_credit_authorization_v2(authorization)
             if override is None else override
         )
 
     def decode_credit_authorization_v2(
         self, credit_id: str, returndata: bytes | None,
     ) -> CreditAuthorization | None:
-        authorization = self._authorizations.get(credit_id)
-        if (authorization is None or type(returndata) is not bytes
-                or len(returndata) != 576
-                or returndata != encode_credit_authorization_v2(
-                    authorization
-                )):
+        if type(returndata) is not bytes or len(returndata) != 704:
             return None
-        return authorization
+        words = tuple(returndata[index:index + 32]
+                      for index in range(0, len(returndata), 32))
+        try:
+            if (words[0] != b"CAU2" + bytes(28)
+                    or any(words[index][:12] != bytes(12)
+                           for index in (3, 9, 11, 12, 13))):
+                return None
+            decoded = CreditAuthorization(
+                src_chain_id=self.source_descriptor.source_chain_id,
+                source_domain_id=words[1].hex(),
+                src_epoch=_decode_uint_word_v1(
+                    words[2], 64, "CAU2 source epoch"),
+                src_bridge="0x" + words[3][12:].hex(),
+                destination_domain_id=words[7].hex(),
+                destination_bridge="0x" + words[9][12:].hex(),
+                bridge_execution_hash=words[4].hex(),
+                emitted_at_block=_decode_uint_word_v1(
+                    words[5], 64, "CAU2 emitted block"),
+                escrow_id=bridge_escrow_id(credit_id),
+                msg_hash=words[6].hex(),
+                calldata_hash=words[17].hex(),
+                calldata_length=_decode_uint_word_v1(
+                    words[18], 32, "CAU2 calldata length"),
+                enqueue_by=_decode_uint_word_v1(
+                    words[10], 64, "CAU2 enqueue deadline"),
+                sender="0x" + words[11][12:].hex(),
+                owner="0x" + words[12][12:].hex(),
+                destination_owner="0x" + words[13][12:].hex(),
+                value=int.from_bytes(words[14], "big"),
+                fee=int.from_bytes(words[15], "big"),
+                liquidity_fee=int.from_bytes(words[16], "big"),
+                protocol_version=_decode_uint_word_v1(
+                    words[19], 64, "CAU2 protocol version"),
+                destination_chain_id=int.from_bytes(words[8], "big"),
+                release_manifest_hash=words[20],
+                execution_profile_hash=words[21].hex(),
+            )
+            expected_credit_id = BridgeAdapter.credit_id(
+                decoded.src_chain_id, decoded.source_domain_id,
+                decoded.src_epoch, decoded.src_bridge,
+                decoded.destination_domain_id, decoded.msg_hash,
+                decoded.liquidity_fee)
+            if (expected_credit_id != credit_id
+                    or encode_credit_authorization_v2(decoded) != returndata):
+                return None
+            return decoded
+        except (TypeError, ValueError, OverflowError):
+            return None
 
     def _authorization_snapshot(self) -> dict[str, CreditAuthorization]:
         return copy.deepcopy(self._authorizations)
@@ -28146,6 +29808,12 @@ class ImmutableV2BridgeFactory:
         default_factory=dict, init=False, repr=False
     )
     _bundles: dict[str, tuple[object, ...]] = field(
+        default_factory=dict, init=False, repr=False
+    )
+    _adapter_deployments: dict[str, tuple[object, ...]] = field(
+        default_factory=dict, init=False, repr=False
+    )
+    _adapters: dict[str, object] = field(
         default_factory=dict, init=False, repr=False
     )
     _secret: object = field(default_factory=object, init=False, repr=False)
@@ -28450,6 +30118,93 @@ class ImmutableV2BridgeFactory:
                 )
             )
         )
+
+    def deploy_bridge_adapter_v1(
+        self, *, protocol_version: int, source_descriptor_id: str | bytes,
+        router: "ActiveSettlementRouter", credit_registry: BridgeCreditRegistryV2,
+        source_bridge: "SourceBridgeV2", expected_runtime_hash: str | bytes,
+        expected_configuration_hash: str | bytes, caller: str,
+    ) -> "BridgeAdapter":
+        """CREATE2-deploy or exactly reuse the canonical release adapter."""
+
+        if (not caller or type(router) is not ActiveSettlementRouter
+                or type(credit_registry) is not BridgeCreditRegistryV2
+                or type(source_bridge) is not SourceBridgeV2
+                or source_bridge.credit_registry is not credit_registry
+                or not 0 < protocol_version <= UINT64_MAX
+                or _model_fixed_bytes32(self.configuration_hash)
+                    != _model_fixed_bytes32(
+                        SOURCE_V2_CREATE2_FACTORY_CONFIGURATION_HASH)
+                or not self.immutable_nonproxy
+                or not self.selfdestruct_disabled):
+            raise ValueError("Bridge adapter factory authority is invalid")
+        config = bridge_ingress_component_configuration_hash(
+            router_address=router.address,
+            router_runtime_hash=router.runtime_hash,
+            router_configuration_hash=router.configuration_hash,
+            queue_address=router.forced_queue.address,
+            queue_runtime_hash=router.forced_queue.runtime_hash,
+            queue_configuration_hash=router.forced_queue.config_hash,
+            source_registry_address=credit_registry.address,
+            source_registry_runtime_hash=credit_registry.runtime_hash,
+            source_registry_configuration_hash=credit_registry.configuration_hash,
+            source_bridge_address=source_bridge.address,
+            source_bridge_runtime_hash=source_bridge.runtime_hash,
+            source_bridge_configuration_hash_=source_bridge.configuration_hash,
+            seal_authority=router.version_manager,
+        )
+        runtime_word = _model_fixed_bytes32(expected_runtime_hash)
+        config_word = _model_fixed_bytes32(config)
+        if (config_word != _model_fixed_bytes32(expected_configuration_hash)
+                or runtime_word
+                    != _model_fixed_bytes32(BRIDGE_INGRESS_RUNTIME_HASH)):
+            raise ValueError("Bridge adapter constructor tuple drifted")
+        salt = bridge_adapter_create2_salt_v1(
+            protocol_version, source_descriptor_id)
+        initcode_hash = bridge_adapter_initcode_hash_v1(
+            configuration_hash=config,
+            source_bridge=source_bridge.address,
+            credit_registry=credit_registry.address,
+            router=router.address,
+            queue=router.forced_queue.address,
+            seal_authority=router.version_manager,
+        )
+        address = source_bridge_create2_address(
+            self.address, salt.hex(), initcode_hash.hex())
+        expected = (
+            protocol_version, _model_fixed_bytes32(source_descriptor_id),
+            salt, initcode_hash, runtime_word, config_word,
+            _model_address20(source_bridge.address),
+            _model_address20(credit_registry.address),
+            _model_address20(router.address),
+            _model_address20(router.forced_queue.address),
+            _model_address20(router.version_manager),
+        )
+        retained = self._adapter_deployments.get(address)
+        adapter = self._adapters.get(address)
+        if retained is not None:
+            if retained != expected or type(adapter) is not BridgeAdapter:
+                raise ValueError("CREATE2 adapter slot is polluted")
+            if (adapter.router is not router
+                    or adapter.source_bridge is not source_bridge
+                    or adapter.credit_registry is not credit_registry
+                    or _model_fixed_bytes32(adapter.runtime_hash) != runtime_word
+                    or _model_fixed_bytes32(adapter.configuration_hash)
+                        != config_word
+                    or _model_address20(adapter.address)
+                        != _model_address20(address)):
+                raise ValueError("CREATE2 adapter current code/config changed")
+            return adapter
+        adapter = BridgeAdapter(
+            router, credit_registry, source_bridge, address=address,
+            queue_address=router.forced_queue.address,
+            runtime_hash="0x" + runtime_word.hex(),
+        )
+        if (_model_fixed_bytes32(adapter.configuration_hash) != config_word):
+            raise ValueError("CREATE2 adapter postdeploy config changed")
+        self._adapter_deployments[address] = expected
+        self._adapters[address] = adapter
+        return adapter
 
     def valid_source_receipt(
         self, receipt: V2BridgeFactoryDeploymentReceipt,
@@ -28917,29 +30672,49 @@ class SourceBridgeV2:
                 or getattr(self, "credit_liability_call_fault", False)):
             return None
         credit_word = calldata[4:]
-        matches = tuple(
-            credit for credit_id, credit in self._credits.items()
-            if _model_fixed_bytes32(credit_id) == credit_word
-        )
-        if len(matches) != 1:
+        credit = self._credits.get(credit_word.hex())
+        if credit is None:
             return None
         override = getattr(self, "credit_liability_return_override", None)
         return (
-            encode_credit_liability_v2(matches[0], self.total_live_liability)
+            encode_credit_liability_v2(credit, self.total_live_liability)
             if override is None else override
         )
 
     def decode_credit_liability_v2(
         self, credit_id: str, returndata: bytes | None,
     ) -> tuple[SourceCredit, int] | None:
-        credit = self._credits.get(credit_id)
-        if (credit is None or type(returndata) is not bytes
-                or len(returndata) != 288
-                or returndata != encode_credit_liability_v2(
-                    credit, self.total_live_liability
-                )):
+        if type(returndata) is not bytes or len(returndata) != 288:
             return None
-        return copy.deepcopy(credit), self.total_live_liability
+        words = tuple(returndata[index:index + 32]
+                      for index in range(0, len(returndata), 32))
+        statuses = {1: "NEW", 2: "QUEUED", 3: "DELIVERED",
+                    4: "RECALLED", 5: "CANCELLED"}
+        pull_classes = {0: "PENDING", 1: "USER_PULL", 2: "LP_PULL"}
+        try:
+            status = statuses[_decode_uint_word_v1(
+                words[3], 8, "liability status")]
+            queue_word = int.from_bytes(words[4], "big")
+            queue_index = None if queue_word == UINT64_MAX else (
+                _decode_uint_word_v1(words[4], 64, "liability queue index"))
+            pull_class = pull_classes[_decode_uint_word_v1(
+                words[5], 8, "liability pull class")]
+            if words[6][:12] != bytes(12):
+                return None
+            beneficiary = ("" if words[6][12:] == bytes(20)
+                           else "0x" + words[6][12:].hex())
+            decoded = SourceCredit(
+                int.from_bytes(words[0], "big"),
+                int.from_bytes(words[1], "big"), status, queue_index,
+                int.from_bytes(words[2], "big"), pull_class, beneficiary,
+                int.from_bytes(words[7], "big"),
+            )
+            total = int.from_bytes(words[8], "big")
+            if encode_credit_liability_v2(decoded, total) != returndata:
+                return None
+            return decoded, total
+        except (KeyError, TypeError, ValueError, OverflowError):
+            return None
 
     @property
     def ether_quota(self) -> int:
@@ -28989,12 +30764,13 @@ class SourceBridgeV2:
             clock,
             source_bridge=self.address,
             caller=self.address,
+            target=preimage.to,
         )
         if (support_entry is None
                 or not preimage.sender
                 or preimage.sender == self.address
-                or preimage.sender
-                    == support_entry.manifest.destination_bridge
+                or _model_address20(preimage.sender)
+                    == support_entry.destination_bridge
                 or support_entry.source_chain_id != self.source_chain_id
                 or support_entry.source_registration_epoch
                     != self.source_registration_epoch):
@@ -29004,7 +30780,7 @@ class SourceBridgeV2:
             self.source_domain_id,
             self.source_registration_epoch,
             self.frozen_bridge,
-            support_entry.manifest.destination_domain_id,
+            support_entry.destination_domain_id.hex(),
             msg_hash,
             normalized_envelope.liquidity_fee,
         )
@@ -29065,14 +30841,15 @@ class SourceBridgeV2:
             clock,
             source_bridge=self.address,
             caller=self.address,
+            target=normalized_preimage.to,
         )
         destination_domain_id = (
             "" if support_entry is None
-            else support_entry.manifest.destination_domain_id
+            else support_entry.destination_domain_id.hex()
         )
         destination_bridge = (
             None if support_entry is None
-            else support_entry.manifest.destination_bridge
+            else "0x" + support_entry.destination_bridge.hex()
         )
         expected_credit_id = BridgeAdapter.credit_id(
             self.source_chain_id,
@@ -29093,17 +30870,12 @@ class SourceBridgeV2:
                 or not effective_caller
                 or normalized_preimage.sender == self.address
                 or destination_bridge is None
-                or normalized_preimage.sender == destination_bridge
-                or normalized_preimage.to in (
-                    () if support_entry is None
-                    else support_entry.manifest
-                        .destination_bridge_descriptor
-                        .privileged_target_denyset
-                )
+                or _model_address20(normalized_preimage.sender)
+                    == support_entry.destination_bridge
                 or support_entry.source_chain_id != self.source_chain_id
                 or support_entry.source_registration_epoch
                     != self.source_registration_epoch
-                or support_entry.manifest.destination_chain_id
+                or support_entry.destination_chain_id
                     != normalized_preimage.destination_chain_id
                 or type(clock) is not Clock
                 or not 0 < clock.block_number <= UINT64_MAX
@@ -29148,10 +30920,10 @@ class SourceBridgeV2:
             refund_vault="",
             liquidity_fee=normalized_envelope.liquidity_fee,
             protocol_version=support_entry.protocol_version,
-            destination_chain_id=support_entry.manifest.destination_chain_id,
-            release_manifest_hash=support_entry.manifest.commitment,
+            destination_chain_id=support_entry.destination_chain_id,
+            release_manifest_hash=support_entry.release_manifest_hash,
             execution_profile_hash=(
-                support_entry.manifest.execution_profile_hash
+                support_entry.execution_profile_hash
             ),
         )
         registry_before = self.credit_registry._authorization_snapshot()
@@ -29755,12 +31527,12 @@ class BridgeAdapter:
             preimage.data_length,
             authorization.msg_hash,
             envelope.prepaid,
-            preimage.sender,
+            authorization.sender,
             preimage.fee,
             preimage.source_chain_id,
-            preimage.source_owner,
+            authorization.owner,
             preimage.destination_chain_id,
-            preimage.destination_owner,
+            authorization.destination_owner,
             preimage.value,
             preimage.data_hash,
             authorization.source_domain_id,
@@ -29895,6 +31667,7 @@ class BridgeAdapter:
                 clock_,
                 source_bridge=source_bridge.address,
                 caller=self.address,
+                target=preimage.to,
             )
         )
         queue_descriptor = None
@@ -29942,10 +31715,12 @@ class BridgeAdapter:
                 or source_authorization.destination_domain_id
                     != destination_domain_id
                 or source_authorization.msg_hash != msg_hash
-                or source_authorization.sender != preimage.sender
-                or source_authorization.owner != preimage.source_owner
-                or source_authorization.destination_owner
-                    != preimage.destination_owner
+                or _model_address20(source_authorization.sender)
+                    != _model_address20(preimage.sender)
+                or _model_address20(source_authorization.owner)
+                    != _model_address20(preimage.source_owner)
+                or _model_address20(source_authorization.destination_owner)
+                    != _model_address20(preimage.destination_owner)
                 or source_authorization.calldata_hash
                     != preimage.data_hash
                 or source_authorization.calldata_length
@@ -29953,8 +31728,18 @@ class BridgeAdapter:
                 or not 0 < source_authorization.emitted_at_block <= UINT64_MAX
                 or source_authorization.emitted_at_block > clock_.block_number
                 or support_entry is None
-                or source_authorization.destination_bridge
-                    != support_entry.manifest.destination_bridge
+                or source_authorization.protocol_version
+                    != support_entry.protocol_version
+                or source_authorization.destination_chain_id
+                    != support_entry.destination_chain_id
+                or _model_fixed_bytes32(
+                    source_authorization.release_manifest_hash)
+                    != support_entry.release_manifest_hash
+                or _model_fixed_bytes32(
+                    source_authorization.execution_profile_hash)
+                    != support_entry.execution_profile_hash
+                or _model_address20(source_authorization.destination_bridge)
+                    != support_entry.destination_bridge
                 or source_credit.value != source_authorization.value
                 or source_credit.fee != source_authorization.fee
                 or source_credit.liquidity_fee
@@ -37325,8 +39110,9 @@ class DestinationBridgeLedger:
                     != self.destination_chain_id
                 or destination.release_manifest_hash
                     != self.release_manifest.commitment
-                or destination.execution_profile_hash
-                    != self.release_manifest.execution_profile_hash
+                or _model_fixed_bytes32(destination.execution_profile_hash)
+                    != _model_fixed_bytes32(
+                        self.release_manifest.execution_profile_hash)
                 or not 0 <= destination.queue_index < UINT64_MAX
                 or source.queue_index != destination.queue_index
                 or message_.destination_chain_id
@@ -38617,6 +40403,20 @@ def deploy_active_settlement_router(
         predecessor_version=0,
         release_manifest_hash=None,
     )
+    bridge_rows = tuple(
+        row for row in preview.ingress_authorizations
+        if row.kind is ForceKind.BRIDGE_CREDIT)
+    if len(bridge_rows) != 1:
+        raise ValueError("launch profile has no unique Bridge factory")
+    launch_source = bridge_rows[0].source_descriptor
+    if type(launch_source) is not SourceBridgeDescriptor:
+        raise ValueError("launch source descriptor is absent")
+    router._source_bridge_factories_by_address[
+        launch_source.deployment_factory] = ImmutableV2BridgeFactory(
+            launch_source.deployment_factory,
+            launch_source.deployment_factory_runtime_hash,
+            launch_source.deployment_factory_configuration_hash,
+        )
     if settlement.live_protocol is None:
         raise ValueError("launch release has no executable Settlement target")
     deploy_manifest_release_execution_graph_v2(
