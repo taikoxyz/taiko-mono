@@ -23,7 +23,10 @@
     // with isSameNFT) while its object is no longer identical to anything in the selection.
     // The click then took the select branch and needed a second click to clear.
     if ($selectedNFTs && foundNFT && $selectedNFTs.some((selected) => isSameNFT(selected, foundNFT))) {
-      $selectedNFTs = $selectedNFTs.filter((selected) => selected.tokenId !== nft.tokenId); // Deselect
+      // Removed by the same identity the branch above matched on. Filtering by tokenId alone
+      // took every NFT carrying that id with it, so deselecting one of two same-numbered
+      // tokens from different collections cleared both.
+      $selectedNFTs = $selectedNFTs.filter((selected) => !isSameNFT(selected, foundNFT)); // Deselect
       $selectedToken = null;
     } else {
       $selectedNFTs = foundNFT ? [foundNFT] : null; // Select

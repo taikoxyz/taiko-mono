@@ -44,6 +44,14 @@
   function openModal() {
     if (modalOpen) return;
     modalOpen = true;
+    // Seeded from what is committed. The box used to open empty even with an owner already
+    // configured, which was cosmetic until Confirm began requiring a validation that matches
+    // the draft - after that it meant retyping the same address to change anything else.
+    // setAddress does not announce itself, so the validation is requested explicitly.
+    if (addressInput) {
+      addressInput.setAddress($destOwnerAddress ?? '');
+      if ($destOwnerAddress) addressInput.validateAddress();
+    }
     addressInput.focus();
   }
 
@@ -148,12 +156,32 @@
     }
   }
 
+  /**
+   * A classification belongs to one chain - the same address is a contract on one and an
+   * EOA on another - so `canConfirmDestOwner` rejects one made for a different chain.
+   * Without this the answer simply went stale on a chain switch and Confirm stayed disabled
+   * with nothing on screen explaining why; now the address on screen is re-checked.
+   */
+  let lastDestChainId: Maybe<number> = undefined;
+  function onDestChainChanged(chainId: Maybe<number>) {
+    if (lastDestChainId === chainId) return;
+    const firstRun = lastDestChainId === undefined;
+    lastDestChainId = chainId;
+    if (firstRun) return;
+
+    supersedePendingValidation();
+    validated = null;
+    destOwnerIsSmartContract = false;
+    if (destOwnerDraft && addressInput) addressInput.validateAddress();
+  }
+
   onDestroy(() => {
     // The store outlives this component, so a check still in flight must not commit
     supersedePendingValidation();
   });
 
   $: modalOpenChange(modalOpen);
+  $: onDestChainChanged($destNetwork?.id);
 
   let destOwnerDraft: string | undefined = undefined;
   $: syncDraft(destOwnerDraft);
