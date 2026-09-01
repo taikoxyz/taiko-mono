@@ -108,6 +108,10 @@ class MoralisNFTRepository implements INFTRepository {
 
     if (!state || refresh) {
       state = { cursor: '', hasFetchedAll: false, nfts: [] };
+      // Delete first: setting an existing key leaves its position in the Map untouched, so
+      // a refreshed wallet kept whatever position it had and could be evicted by the very
+      // next arrival despite having just been used
+      this.stateByWallet.delete(key);
       this.evictLeastRecentlyUsedIfFull();
       this.stateByWallet.set(key, state);
       return state;

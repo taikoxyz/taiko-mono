@@ -97,6 +97,23 @@ describe('zero gas limit', () => {
     expect(get(gasLimitZero) && get(processingFee) !== BigInt(0)).toBe(false);
   });
 
+  it('re-applies the switch when the zero gas limit is turned back off', async () => {
+    gasLimitZero.set(true);
+    processingFeeMethod.set(ProcessingFeeMethod.NONE);
+
+    component?.$destroy();
+    component = new ProcessingFee({ target, props: { hasEnoughEth: false } });
+    await tick();
+    expect(get(processingFeeMethod)).toBe(ProcessingFeeMethod.NONE);
+
+    // The guard read gasLimitZero with get() inside the called function, which Svelte does
+    // not track - so the reason for holding NONE could go away without anything re-running
+    gasLimitZero.set(false);
+    await tick();
+
+    expect(get(processingFeeMethod)).toBe(ProcessingFeeMethod.RECOMMENDED);
+  });
+
   it('still switches away from the zero-fee method when the gas limit is not zero', async () => {
     // The guard must be specific to the zero-gas-limit case, not disable the behaviour
     gasLimitZero.set(false);

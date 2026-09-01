@@ -1,6 +1,5 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { get } from 'svelte/store';
   import { t } from 'svelte-i18n';
   import { formatEther } from 'viem';
 
@@ -148,11 +147,17 @@
     }
   };
 
-  function unselectNoneIfNotEnoughETH(method: ProcessingFeeMethod, enoughEth: boolean) {
+  /**
+   * @dev zeroGasLimit is a parameter rather than a `get(gasLimitZero)` read because Svelte
+   *      tracks only what the reactive statement itself references, not what the function
+   *      it calls reads. Reading the store in here left the guard out of the dependency
+   *      list, so turning the zero-gas-limit option back off never re-ran this.
+   */
+  function unselectNoneIfNotEnoughETH(method: ProcessingFeeMethod, enoughEth: boolean, zeroGasLimit: boolean) {
     // A zero gas limit fixes the fee at zero, so there is nothing to afford and nothing to
     // switch away from. Overriding it here is what let a recommended fee ride along with a
     // zero gas limit, which the bridge rejects outright with B_INVALID_FEE.
-    if (get(gasLimitZero)) return;
+    if (zeroGasLimit) return;
 
     if (method === ProcessingFeeMethod.NONE && enoughEth === false) {
       $processingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
@@ -169,7 +174,7 @@
   $: {
     updateProcessingFee($processingFeeMethod, recommendedAmount);
   }
-  $: unselectNoneIfNotEnoughETH($processingFeeMethod, hasEnoughEth);
+  $: unselectNoneIfNotEnoughETH($processingFeeMethod, hasEnoughEth, $gasLimitZero);
 
   // Bridge.sol rejects a message whose gasLimit is 0 while its fee is not. Keeping the two
   // in step here means the user sees the fee fall to zero when they choose a zero gas

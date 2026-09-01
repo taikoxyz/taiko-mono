@@ -201,6 +201,22 @@ describe('MoralisNFTRepository.server', () => {
       await repository.findByAddress({ address, chainId: CHAIN_ID, refresh: true });
     };
 
+    it('does not evict anyone when an existing wallet refreshes', async () => {
+      for (let n = 0; n < MAX_CACHED_WALLETS; n++) {
+        await seed(walletN(n), `cursor-${n}`);
+      }
+
+      // A refresh replaces an entry that is already there, so the cache does not grow and
+      // nothing needs evicting. The old code ran the eviction anyway and took out the
+      // oldest wallet, which had done nothing wrong
+      await seed(walletN(250), 'cursor-250-refreshed');
+
+      getWalletNFTs.mockResolvedValueOnce(moralisPage([3], null));
+      await repository.findByAddress({ address: walletN(0), chainId: CHAIN_ID, refresh: false });
+
+      expect(getWalletNFTs).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: 'cursor-0' }));
+    });
+
     it('evicts the least recently used wallet, not the first one inserted', async () => {
       // Given: the cache is full
       for (let n = 0; n < MAX_CACHED_WALLETS; n++) {
