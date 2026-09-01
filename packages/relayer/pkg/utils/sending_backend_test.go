@@ -2132,9 +2132,11 @@ func TestSendingBackend_ReleasesExactAcceptancesThroughAMinedNonce(t *testing.T)
 	holder := &fakeSender{}
 	b := NewSendingBackend(public, []TxSender{holder}, nil, nil)
 
+	settled := txWithNonceAndCall(39, "settled")
 	mined := txWithNonceAndCall(40, "mined")
 	stillPending := txWithNonceAndCall(41, "pending")
 
+	require.NoError(t, b.SendTransaction(context.Background(), settled))
 	require.NoError(t, b.SendTransaction(context.Background(), mined))
 	require.NoError(t, b.SendTransaction(context.Background(), stillPending))
 
@@ -2142,8 +2144,16 @@ func TestSendingBackend_ReleasesExactAcceptancesThroughAMinedNonce(t *testing.T)
 
 	require.NoError(t, err)
 	require.Same(t, public.receipt, receipt)
-	assert.NotContains(t, b.accepted[0], mined.Nonce(), "a mined nonce no longer needs exact holder state")
+	assert.NotContains(t, b.accepted[0], settled.Nonce(), "an earlier nonce cannot still be pending")
+	assert.Contains(t, b.accepted[0], mined.Nonce(),
+		"the mined nonce's own record is what an already-in-flight resend still needs")
 	assert.Contains(t, b.accepted[0], stillPending.Nonce(), "a later live acceptance is retained")
+
+	// It goes in turn, so at most one settled nonce is ever retained.
+	_, err = b.TransactionReceipt(context.Background(), stillPending.Hash())
+
+	require.NoError(t, err)
+	assert.NotContains(t, b.accepted[0], mined.Nonce(), "the next nonce to mine releases it")
 }
 
 func TestSendingBackend_DoesNotRestoreAcceptanceAfterReceiptWinsRace(t *testing.T) {
@@ -2166,7 +2176,10 @@ func TestSendingBackend_DoesNotRestoreAcceptanceAfterReceiptWinsRace(t *testing.
 	})
 	b.recordSuccess(0, late)
 
-	assert.NotContains(t, b.accepted[0], mined.Nonce())
+	// The mined nonce keeps the record it already had — an in-flight resend still needs it — but
+	// the stale variant adds nothing of its own, so it cannot reopen the window a later receipt
+	// closes.
+	assert.Contains(t, b.accepted[0], mined.Nonce())
 	assert.NotContains(t, b.sentTxNonces, late.Hash())
 }
 
@@ -2206,30 +2219,30 @@ func TestSendingBackend_APublicLandingReleasesThePrivateAcceptance(t *testing.T)
 	b.failureThreshold = 1 << 30
 	b.failureCeiling = 1 << 30
 
-	accepted := txWithNonceAndCall(81, "the accepted claim")
+	accepted := txWithNonceAndCall(80, "the accepted claim")
 
 	require.NoError(t, b.SendTransaction(context.Background(), accepted))
 	require.Contains(t, b.accepted[0], accepted.Nonce())
 
-	// The nonce is recycled, every private endpoint refuses the claim that inherited it, and it
-	// goes out publicly instead.
+	// The next claim is one every private endpoint refuses, so it goes out publicly instead — under
+	// a hash no private endpoint ever saw.
 	only.err = rpcRejection{"claim not accepted"}
 
-	inherited := txWithNonceAndCall(81, "the message that inherited the nonce")
+	public81 := txWithNonceAndCall(81, "the claim no relay would take")
 
 	for i := 0; i < DefaultPrivateRPCAllRefusedLimit; i++ {
-		_ = b.SendTransaction(context.Background(), inherited)
+		_ = b.SendTransaction(context.Background(), public81)
 	}
 
 	require.Equal(t, 1, public.attempts(), "the claim reached the public endpoint")
 
-	// That transaction lands. The account's nonces execute in order, so nothing at or below it is
-	// still pending anywhere — including the private acceptance the earlier claim left behind.
-	_, err := b.TransactionReceipt(context.Background(), inherited.Hash())
+	// It lands there. The account's nonces execute in order, so nothing below it can still be
+	// pending — including the private acceptance at 80. A landing this backend cannot resolve to a
+	// nonce releases nothing, and these records have no cap, so it would stay for the life of the
+	// process.
+	_, err := b.TransactionReceipt(context.Background(), public81.Hash())
 	require.NoError(t, err)
 
 	assert.NotContains(t, b.accepted[0], accepted.Nonce(),
-		"a nonce that mined publicly leaves nothing private still pending at it")
-	assert.Empty(t, b.sentTxNonces,
-		"the records have no cap, so a landing they cannot recognise accumulates for good")
+		"a public landing has to release the private state it settles")
 }

@@ -563,17 +563,31 @@ func (b *SendingBackend) clearAcceptedThrough(txHash common.Hash) {
 		b.hasMined = true
 	}
 
+	// Strictly below the mined nonce, never including it. A resend can already be on its way to the
+	// endpoint holding that nonce when its receipt arrives: the receipt wins the lock, and the
+	// answer that comes back afterwards would find no record and look like an endpoint holding a
+	// nonce it never took — so the send would continue to a backup, which refuses a claim that is
+	// now done and is charged for it. That is the failure this whole path exists to stop, and on
+	// the mainnet claim it was built for the receipt was on chain twelve seconds before the holder
+	// answered, so it is the ordinary ordering rather than a narrow race.
+	//
+	// Keeping this one record rather than concluding from the mined nonce alone also keeps the
+	// answer claim-aware. A watermark would say "mined, so end the send" for a nonce that a reorg
+	// had made live again and that had since been recycled to a different claim, stranding that
+	// claim with nobody carrying it. The record says which claim the endpoint actually took.
+	//
+	// It is released in turn by the next nonce to mine, so at most one settled nonce is retained.
 	for index := range b.accepted {
 		for acceptedNonce := range b.accepted[index] {
-			if acceptedNonce <= nonce {
+			if acceptedNonce < nonce {
 				delete(b.accepted[index], acceptedNonce)
 			}
 		}
 	}
 
-	for acceptedHash, acceptedNonce := range b.sentTxNonces {
-		if acceptedNonce <= nonce {
-			delete(b.sentTxNonces, acceptedHash)
+	for sentHash, sentNonce := range b.sentTxNonces {
+		if sentNonce < nonce {
+			delete(b.sentTxNonces, sentHash)
 		}
 	}
 }
@@ -1038,21 +1052,6 @@ func (b *SendingBackend) recordHeldNonce(
 		answer = heldThisClaim
 	case known:
 		answer = heldOtherClaim
-
-	// The exact record is released as soon as a receipt says the nonce is mined, and a resend can
-	// already be on its way to its holder when that happens: the receipt wins the lock, the record
-	// goes, and the answer that comes back afterwards would look like an endpoint holding a nonce
-	// it never took. On the mainnet claim this failover was built for, the receipt was on chain
-	// twelve seconds before the holder answered, so this is the ordinary ordering rather than a
-	// narrow race.
-	//
-	// A mined nonce settles the question on its own. The account's nonces execute in order, so once
-	// N is on chain nothing at N can ever land again, and passing the transaction to the endpoints
-	// behind this one can only earn a refusal from a relay that did nothing wrong — the exact
-	// failure this whole path exists to stop. It is also the claim that mined: resetNonce only ever
-	// recycles a nonce the account has not spent.
-	case b.hasMined && nonce <= b.minedThrough:
-		answer = heldThisClaim
 
 	default:
 		answer = heldUnattributed

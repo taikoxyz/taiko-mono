@@ -194,11 +194,11 @@ ordering only. Every transaction the backend sends is indexed by hash so that an
 resolved to its nonce — including a claim that no relay would take and that landed through the
 public fallback, whose hash no private endpoint ever saw.
 
-That release and a resend can cross: the receipt arrives while a fee-bumped resend is already on
-its way to the endpoint holding that nonce, and the answer comes back after the record is gone. A
-nonce known to have mined therefore ends a send on its own. Nothing at that nonce can land again,
-so the endpoints behind the holder have nothing to offer but a refusal they would then be charged
-for.
+The release stops strictly below the mined nonce, keeping that nonce's own record. A receipt and a
+resend can cross — the receipt arrives while a fee-bumped resend is already on its way to the
+endpoint holding that nonce — and the answer that comes back afterwards needs the record to still
+be there, or the send continues to a backup that refuses a claim which is now done and is charged
+for it. The retained record goes when the next nonce mines, so at most one settled nonce is held.
 
 Plain `http://` is rejected unless the host is the name `localhost` or an IP literal in a loopback,
 private or link-local range: a signed claim on the wire in cleartext can be read and front-run,
