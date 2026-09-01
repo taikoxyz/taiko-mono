@@ -3,16 +3,10 @@
   import { t } from 'svelte-i18n';
   import { ContractFunctionExecutionError, type Hash, UserRejectedRequestError } from 'viem';
 
-  import { chainConfig } from '$chainConfig';
   import { CloseButton } from '$components/Button';
   import DesktopOrLarger from '$components/DesktopOrLarger/DesktopOrLarger.svelte';
   import Claim from '$components/Dialogs/Claim.svelte';
-  import {
-    errorToast,
-    infoToast,
-    successToast,
-    warningToast,
-  } from '$components/NotificationToast/NotificationToast.svelte';
+  import { errorToast, warningToast } from '$components/NotificationToast/NotificationToast.svelte';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import type { BridgeTransaction } from '$libs/bridge/types';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
@@ -27,8 +21,8 @@
   import { getLogger } from '$libs/util/logger';
 
   import { ClaimConfirmStep, ReviewStep } from '../Shared';
-  import { awaitDialogTransaction } from '../Shared/awaitDialogTransaction';
   import ClaimPreCheck from '../Shared/ClaimPreCheck.svelte';
+  import { reportDialogTransaction } from '../Shared/dialogTransactionFlow';
   import { ClaimAction } from '../Shared/types';
   import { DialogStep, DialogStepper } from '../Stepper';
   import ClaimStepNavigation from './ClaimStepNavigation.svelte';
@@ -96,59 +90,23 @@
     claiming = true;
     claimTxPending = true;
 
-    const explorer = chainConfig[Number(bridgeTx.destChainId)]?.blockExplorers?.default.url;
-
-    infoToast({
-      title: $t('transactions.actions.claim.tx.title'),
-      message: $t('transactions.actions.claim.tx.message', {
-        values: {
-          token: bridgeTx.symbol,
-          url: `${explorer}/tx/${txHash}`,
-        },
-      }),
+    const outcome = await reportDialogTransaction({
+      txHash,
+      chainId: Number(bridgeTx.destChainId),
+      t: $t,
+      failureTitleKey: 'bridge.errors.process_message_error',
     });
 
-    const outcome = await awaitDialogTransaction(txHash, Number(bridgeTx.destChainId));
-
-    if (outcome === 'timed_out') {
-      // Only the wait gave up; the transaction is still live and may yet claim the
-      // message. Lowering the flags here would re-enable Claim for it, so the dialog
-      // stays as it is and the toast points at the explorer instead.
-      log('claim transaction timed out', { txHash, action });
-      warningToast({
-        title: $t('bridge.actions.bridge.timeout.title'),
-        message: $t('bridge.actions.bridge.timeout.message', {
-          values: { url: `${explorer}/tx/${txHash}` },
-        }),
-      });
-      return;
-    }
-
-    if (outcome === 'failed') {
-      // Reverted: nothing is pending any more, so the dialog must not keep spinning
-      log('claim transaction failed', { txHash, action });
-      claiming = false;
-      claimTxPending = false;
-      errorToast({
-        title: $t('bridge.errors.process_message_error'),
-      });
-      return;
-    }
+    // A timed-out wait leaves the transaction live and may yet claim the message. Lowering
+    // the flags would re-enable Claim for it, so the dialog stays exactly as it is
+    if (outcome === 'timed_out') return;
 
     claiming = false;
     claimTxPending = false;
+    if (outcome === 'failed') return;
+
     claimingDone = true;
-
     dispatch('claimingDone');
-
-    successToast({
-      title: $t('transactions.actions.claim.success.title'),
-      message: $t('transactions.actions.claim.success.message', {
-        values: {
-          url: `${explorer}/tx/${txHash}`,
-        },
-      }),
-    });
   };
 
   const showQuotaReachedToast = () => {

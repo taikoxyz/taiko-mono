@@ -3,16 +3,10 @@
   import { t } from 'svelte-i18n';
   import { type Hash, UserRejectedRequestError } from 'viem';
 
-  import { chainConfig } from '$chainConfig';
   import { CloseButton } from '$components/Button';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { DialogStep, DialogStepper } from '$components/Dialogs/Stepper';
-  import {
-    errorToast,
-    infoToast,
-    successToast,
-    warningToast,
-  } from '$components/NotificationToast/NotificationToast.svelte';
+  import { errorToast, warningToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { OnAccount } from '$components/OnAccount';
   import type { BridgeTransaction } from '$libs/bridge';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
@@ -21,8 +15,8 @@
   import Claim from '../Claim.svelte';
   import { claimWithQuotaGuard, showQuotaToastForClaimError } from '../ClaimDialog/quota';
   import { ClaimConfirmStep, ReviewStep } from '../Shared';
-  import { awaitDialogTransaction } from '../Shared/awaitDialogTransaction';
   import ClaimPreCheck from '../Shared/ClaimPreCheck.svelte';
+  import { reportDialogTransaction } from '../Shared/dialogTransactionFlow';
   import { ClaimAction } from '../Shared/types';
   import RetryStepNavigation from './RetryStepNavigation.svelte';
   import RetryOptionStep from './RetrySteps/RetryOptionStep.svelte';
@@ -121,61 +115,27 @@
   const handleRetryTxSent = async (event: CustomEvent<{ txHash: Hash }>) => {
     const { txHash: transactionHash } = event.detail;
     txHash = transactionHash;
-    log('handle claim tx sent', txHash);
+    log('handle retry tx sent', txHash);
     retrying = true;
     retryTxPending = true;
 
-    const explorer = chainConfig[Number(bridgeTx.destChainId)]?.blockExplorers?.default.url;
-    log('explorer', explorer);
-    infoToast({
-      title: $t('transactions.actions.claim.tx.title'),
-      message: $t('transactions.actions.claim.tx.message', {
-        values: {
-          token: bridgeTx.symbol,
-          url: `${explorer}/tx/${txHash}`,
-        },
-      }),
+    const outcome = await reportDialogTransaction({
+      txHash,
+      chainId: Number(bridgeTx.destChainId),
+      t: $t,
+      failureTitleKey: 'bridge.errors.retry_error',
     });
 
-    const outcome = await awaitDialogTransaction(txHash, Number(bridgeTx.destChainId));
-
-    if (outcome === 'timed_out') {
-      // Only the wait gave up; the transaction is still live and may yet process the
-      // message. Lowering the flags here would re-enable Retry for it, so the dialog
-      // stays as it is and the toast points at the explorer instead.
-      log('retry transaction timed out', { txHash });
-      warningToast({
-        title: $t('bridge.actions.bridge.timeout.title'),
-        message: $t('bridge.actions.bridge.timeout.message', {
-          values: { url: `${explorer}/tx/${txHash}` },
-        }),
-      });
-      return;
-    }
-
-    if (outcome === 'failed') {
-      // Reverted: nothing is pending any more, so the dialog must not keep spinning
-      log('retry transaction failed', { txHash });
-      retrying = false;
-      retryTxPending = false;
-      errorToast({ title: $t('bridge.errors.retry_error') });
-      return;
-    }
+    // A timed-out wait leaves the transaction live and may yet process the message.
+    // Lowering the flags would re-enable Retry for it, so the dialog stays as it is
+    if (outcome === 'timed_out') return;
 
     retrying = false;
     retryTxPending = false;
+    if (outcome === 'failed') return;
+
     retryDone = true;
-
     dispatch('retryDone');
-
-    successToast({
-      title: $t('transactions.actions.claim.success.title'),
-      message: $t('transactions.actions.claim.tx.message', {
-        values: {
-          url: `${explorer}/tx/${txHash}`,
-        },
-      }),
-    });
   };
 </script>
 

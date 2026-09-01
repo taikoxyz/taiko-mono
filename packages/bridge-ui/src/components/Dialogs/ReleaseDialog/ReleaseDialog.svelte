@@ -3,11 +3,9 @@
   import { t } from 'svelte-i18n';
   import { ContractFunctionExecutionError, type Hash, UserRejectedRequestError } from 'viem';
 
-  import { chainConfig } from '$chainConfig';
   import { CloseButton } from '$components/Button';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
-  import { errorToast, successToast, warningToast } from '$components/NotificationToast';
-  import { infoToast } from '$components/NotificationToast/NotificationToast.svelte';
+  import { errorToast, warningToast } from '$components/NotificationToast';
   import { OnAccount } from '$components/OnAccount';
   import type { BridgeTransaction } from '$libs/bridge';
   import {
@@ -21,7 +19,7 @@
 
   import Claim from '../Claim.svelte';
   import { ClaimConfirmStep, ReviewStep } from '../Shared';
-  import { awaitDialogTransaction } from '../Shared/awaitDialogTransaction';
+  import { reportDialogTransaction } from '../Shared/dialogTransactionFlow';
   import { ClaimAction } from '../Shared/types';
   import { DialogStep, DialogStepper } from '../Stepper';
   import ReleaseStepNavigation from './ReleaseStepNavigation.svelte';
@@ -74,64 +72,29 @@
   const handleClaimTxSent = async (event: CustomEvent<{ txHash: Hash; action: ClaimAction }>) => {
     const { txHash: transactionHash, action } = event.detail;
     txHash = transactionHash;
-    log('handle claim tx sent', txHash, action);
+    log('handle release tx sent', txHash, action);
     releasing = true;
     releaseTxPending = true;
 
-    // recallMessage executes on the source chain, so both the receipt wait and the
-    // explorer link must use the source chain, not the destination
-    const releaseChainId = Number(bridgeTx.srcChainId);
-    const explorer = chainConfig[releaseChainId]?.blockExplorers?.default.url;
-
-    infoToast({
-      title: $t('transactions.actions.claim.tx.title'),
-      message: $t('transactions.actions.claim.tx.message', {
-        values: {
-          token: bridgeTx.symbol,
-          url: `${explorer}/tx/${txHash}`,
-        },
-      }),
+    const outcome = await reportDialogTransaction({
+      // recallMessage executes on the source chain, so both the receipt wait and the
+      // explorer link belong there rather than on the destination
+      txHash,
+      chainId: Number(bridgeTx.srcChainId),
+      t: $t,
+      failureTitleKey: 'bridge.errors.process_message_error',
     });
 
-    const outcome = await awaitDialogTransaction(txHash, releaseChainId);
-
-    if (outcome === 'timed_out') {
-      // Only the wait gave up; the transaction is still live and may yet release the
-      // funds. Lowering the flags here would re-enable Release for it, so the dialog
-      // stays as it is and the toast points at the explorer instead.
-      log('release transaction timed out', { txHash });
-      warningToast({
-        title: $t('bridge.actions.bridge.timeout.title'),
-        message: $t('bridge.actions.bridge.timeout.message', {
-          values: { url: `${explorer}/tx/${txHash}` },
-        }),
-      });
-      return;
-    }
-
-    if (outcome === 'failed') {
-      // Reverted: nothing is pending any more, so the dialog must not keep spinning
-      log('release transaction failed', { txHash });
-      releasing = false;
-      releaseTxPending = false;
-      errorToast({ title: $t('bridge.errors.process_message_error') });
-      return;
-    }
+    // A timed-out wait leaves the transaction live and may yet release the funds. Lowering
+    // the flags would re-enable Release for it, so the dialog stays as it is
+    if (outcome === 'timed_out') return;
 
     releasing = false;
     releaseTxPending = false;
+    if (outcome === 'failed') return;
+
     releasingDone = true;
-
     dispatch('claimingDone');
-
-    successToast({
-      title: $t('transactions.actions.claim.success.title'),
-      message: $t('transactions.actions.claim.success.message', {
-        values: {
-          url: `${explorer}/tx/${txHash}`,
-        },
-      }),
-    });
   };
 
   const handleClaimError = (event: CustomEvent<{ error: unknown; type: ClaimAction }>) => {
