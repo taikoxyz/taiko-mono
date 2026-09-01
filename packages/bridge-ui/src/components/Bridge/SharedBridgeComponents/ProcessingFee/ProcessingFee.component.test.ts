@@ -172,7 +172,7 @@ describe('custom processing fee', () => {
     expect(confirmButton().disabled).toBe(true);
   });
 
-  it('says why an unparseable fee is blocked', async () => {
+  it('says why a fee that cannot be parsed is blocked', async () => {
     await openCustom();
     await acknowledge();
     await type('1e5');
