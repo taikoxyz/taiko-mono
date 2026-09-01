@@ -90,8 +90,11 @@ describe('parseDecimalAmount', () => {
       expect(reason('9'.repeat(100_000), 18)).toBe('EXCEEDS_UINT256');
     });
 
-    it('does not count leading zeros as magnitude', () => {
-      expect(ok('0'.repeat(200) + '5', 0)).toBe(BigInt(5));
+    it('does not count leading zeros as magnitude, however many there are', () => {
+      // Stripped before the bound check and before the BigInt: counting the stripped
+      // length but scaling the unstripped string let the guard pass and the large parse
+      // happen anyway, which is the cost the guard exists to avoid
+      expect(ok('0'.repeat(100_000) + '5', 0)).toBe(BigInt(5));
     });
 
     it('refuses one above the largest representable value', () => {
