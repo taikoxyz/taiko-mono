@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
+  import { get } from 'svelte/store';
   import { t } from 'svelte-i18n';
   import { formatEther } from 'viem';
 
@@ -139,6 +140,11 @@
   };
 
   function unselectNoneIfNotEnoughETH(method: ProcessingFeeMethod, enoughEth: boolean) {
+    // A zero gas limit fixes the fee at zero, so there is nothing to afford and nothing to
+    // switch away from. Overriding it here is what let a recommended fee ride along with a
+    // zero gas limit, which the bridge rejects outright with B_INVALID_FEE.
+    if (get(gasLimitZero)) return;
+
     if (method === ProcessingFeeMethod.NONE && enoughEth === false) {
       $processingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
 
@@ -155,6 +161,14 @@
     updateProcessingFee($processingFeeMethod, recommendedAmount);
   }
   $: unselectNoneIfNotEnoughETH($processingFeeMethod, hasEnoughEth);
+
+  // Bridge.sol rejects a message whose gasLimit is 0 while its fee is not. Keeping the two
+  // in step here means the user sees the fee fall to zero when they choose a zero gas
+  // limit, rather than having it dropped silently at send time or hitting a revert.
+  $: if ($gasLimitZero && $processingFee !== BigInt(0)) {
+    $processingFeeMethod = ProcessingFeeMethod.NONE;
+    $processingFee = BigInt(0);
+  }
 
   $: manuallyConfirmed = false;
 

@@ -7,6 +7,7 @@
  * Confirm only checked the acknowledgement box, so that stale fee could be submitted.
  */
 import { tick } from 'svelte';
+import { get } from 'svelte/store';
 import { vi } from 'vitest';
 
 vi.mock('svelte-i18n', async () => {
@@ -14,12 +15,18 @@ vi.mock('svelte-i18n', async () => {
   return { t: readable((key: string) => key), locale: readable('en'), init: vi.fn(), addMessages: vi.fn() };
 });
 
+import { gasLimitZero, processingFee, processingFeeMethod } from '$components/Bridge/state';
+import { ProcessingFeeMethod } from '$libs/fee';
+
 import ProcessingFee from './ProcessingFee.svelte';
 
 let target: HTMLElement;
 let component: { $destroy: () => void } | null = null;
 
 beforeEach(() => {
+  gasLimitZero.set(false);
+  processingFee.set(BigInt(0));
+  processingFeeMethod.set(ProcessingFeeMethod.RECOMMENDED);
   target = document.createElement('div');
   document.body.appendChild(target);
   component = new ProcessingFee({ target, props: {} });
@@ -66,6 +73,39 @@ const type = async (value: string) => {
   input.dispatchEvent(new Event('input', { bubbles: true }));
   await tick();
 };
+
+describe('zero gas limit', () => {
+  /**
+   * Bridge.sol:200 reverts with B_INVALID_FEE when gasLimit is 0 and fee is not.
+   * `unselectNoneIfNotEnoughETH` force-switches the NONE method to RECOMMENDED, which
+   * raises the fee above zero - and it did so even while the zero-gas-limit option was
+   * on, producing exactly the pairing the contract rejects.
+   */
+  it('does not switch away from the zero-fee method while the gas limit is zero', async () => {
+    gasLimitZero.set(true);
+    processingFeeMethod.set(ProcessingFeeMethod.NONE);
+
+    // hasEnoughEth false is what previously forced the method to RECOMMENDED
+    component?.$destroy();
+    component = new ProcessingFee({ target, props: { hasEnoughEth: false } });
+    await tick();
+
+    expect(get(processingFeeMethod)).toBe(ProcessingFeeMethod.NONE);
+    expect(get(gasLimitZero) && get(processingFee) !== BigInt(0)).toBe(false);
+  });
+
+  it('still switches away from the zero-fee method when the gas limit is not zero', async () => {
+    // The guard must be specific to the zero-gas-limit case, not disable the behaviour
+    gasLimitZero.set(false);
+    processingFeeMethod.set(ProcessingFeeMethod.NONE);
+
+    component?.$destroy();
+    component = new ProcessingFee({ target, props: { hasEnoughEth: false } });
+    await tick();
+
+    expect(get(processingFeeMethod)).toBe(ProcessingFeeMethod.RECOMMENDED);
+  });
+});
 
 describe('custom processing fee', () => {
   it('switches to the custom method', async () => {
