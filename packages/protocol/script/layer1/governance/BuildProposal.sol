@@ -134,7 +134,12 @@ abstract contract BuildProposal is Script {
         });
     }
 
-    function _buildAllActions() private pure returns (Controller.Action[] memory allActions_) {
+    /// @dev Internal rather than private so a proposal's tests can pin the committed
+    /// `.action.md` calldata against what this actually builds. That file is the payload the DAO
+    /// executes, and nothing else checks that it was regenerated after the proposal changed.
+    /// @return allActions_ The L1 actions, plus the bridge message carrying the L2 batch when
+    /// there is one.
+    function _buildAllActions() internal pure returns (Controller.Action[] memory allActions_) {
         Controller.Action[] memory l1Actions = buildL1Actions();
         uint256 len = l1Actions.length;
 

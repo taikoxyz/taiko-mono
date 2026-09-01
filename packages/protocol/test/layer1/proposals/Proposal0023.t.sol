@@ -106,9 +106,43 @@ contract Proposal0023Test is Test {
             actions[2].data, abi.encodeCall(UUPSUpgradeable.upgradeTo, (DEPLOYED_BRIDGE_IMPL_L2))
         );
     }
+
+    /// @dev `Proposal0023.action.md` is the payload the DAO actually executes, and it is generated
+    /// out-of-band by `P=0023 pnpm proposal`. Nothing else in the repository checks that it was
+    /// regenerated after the proposal changed, so a stale file would present one set of actions
+    /// for review while the code describes another. This compares the committed calldata against
+    /// what `_buildAllActions` builds right now — including the bridge message that wraps the L2
+    /// batch, which no other test covers.
+    function test_actionFileMatchesTheBuiltCalldata() external {
+        Proposal0023Harness proposal = new Proposal0023Harness();
+
+        string memory file = vm.readFile("script/layer1/proposals/Proposal0023.action.md");
+
+        // Split on the label rather than on backtick position: the file is prettier-formatted by
+        // the pre-commit hook, so line breaks are not stable but the label is.
+        string[] memory afterLabel = vm.split(file, "- Calldata: `");
+        assertEq(afterLabel.length, 2, "action file has no single Calldata line");
+        string memory committedHex = vm.split(afterLabel[1], "`")[0];
+
+        assertEq(
+            vm.parseBytes(committedHex),
+            abi.encode(proposal.exposedBuildAllActions()),
+            "Proposal0023.action.md is stale -- regenerate with `P=0023 pnpm proposal`"
+        );
+
+        // The generated header names the contract the calldata must be submitted to.
+        assertTrue(
+            vm.contains(file, vm.toString(L1.DAO_CONTROLLER)),
+            "action file targets the wrong contract"
+        );
+    }
 }
 
 contract Proposal0023Harness is Proposal0023 {
+    function exposedBuildAllActions() external pure returns (Controller.Action[] memory) {
+        return _buildAllActions();
+    }
+
     function exposedBuildL1Actions() external pure returns (Controller.Action[] memory) {
         return buildL1Actions();
     }
