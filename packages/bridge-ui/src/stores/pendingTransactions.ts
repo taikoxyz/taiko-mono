@@ -67,10 +67,14 @@ export const pendingTransactions = {
         })
         .catch((err) => {
           console.error(err);
+          // The two are not interchangeable: callers branch on the timeout to keep a still
+          // live transaction from being treated as a failed one. Without the else the
+          // second reject was merely inert on an already-settled promise
           if (err instanceof WaitForTransactionReceiptTimeoutError) {
             deferred.reject(new TransactionTimeoutError(`transaction with hash "${hash}" timed out`, { cause: err }));
+          } else {
+            deferred.reject(new FailedTransactionError(`transaction with hash "${hash}" failed`, { cause: err }));
           }
-          deferred.reject(new FailedTransactionError(`transaction with hash "${hash}" failed`, { cause: err }));
         })
         .finally(() => {
           refreshUserBalance();

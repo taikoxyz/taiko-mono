@@ -6,7 +6,6 @@ import { erc721Abi, erc721VaultAbi } from '$abi';
 import { destOwnerAddress, gasLimitZero } from '$components/Bridge/state';
 import {
   ApproveError,
-  BridgePausedError,
   NoApprovalRequiredError,
   NoCanonicalInfoFoundError,
   NotApprovedError,
@@ -15,7 +14,6 @@ import {
 import type { BridgeProver } from '$libs/proof';
 import { TokenType } from '$libs/token';
 import { getCanonicalInfoForAddress } from '$libs/token/getCanonicalInfoForToken';
-import { isBridgePaused } from '$libs/util/checkForPausedContracts';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
@@ -33,8 +31,9 @@ export class ERC721Bridge extends Bridge {
   }
 
   async requiresApproval({ tokenAddress, spenderAddress, tokenId, owner }: RequireApprovalArgs) {
-    if (await isBridgePaused()) throw new BridgePausedError('Bridge is paused');
-
+    // No pause check: reading an approval is unaffected by a paused bridge, and the read
+    // ran the check against every configured chain on every call. The send path guards
+    // itself in _prepareTransaction, which is where a pause actually matters.
     const wallet = await getWalletClient(config);
     const chainId = wallet.chain.id;
 
@@ -73,8 +72,6 @@ export class ERC721Bridge extends Bridge {
   }
 
   async estimateGas(args: ERC721BridgeArgs): Promise<bigint> {
-    if (await isBridgePaused()) throw new BridgePausedError('Bridge is paused');
-
     const { tokenVaultContract, sendERC721Args } = await ERC721Bridge._prepareTransaction(args);
     const { fee: value } = sendERC721Args;
 
@@ -217,13 +214,17 @@ export class ERC721Bridge extends Bridge {
       amounts,
     } = args;
 
+    // Checked before the contract is built: getContract with an undefined client throws
+    // its own opaque error, which is what this guard exists to replace
+    if (!wallet || !wallet.account) throw new Error('Wallet is not connected');
+
+    await ERC721Bridge.assertNotPaused(srcChainId);
+
     const tokenVaultContract = getContract({
       client: wallet,
       abi: erc721VaultAbi,
       address: tokenVaultAddress,
     });
-
-    if (!wallet || !wallet.account) throw new Error('Wallet is not connected');
 
     let gasLimit: number;
     if (get(gasLimitZero)) {

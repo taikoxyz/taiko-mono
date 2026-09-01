@@ -4,9 +4,8 @@ import { getContract, UserRejectedRequestError } from 'viem';
 
 import { bridgeAbi } from '$abi';
 import { destOwnerAddress, gasLimitZero } from '$components/Bridge/state';
-import { BridgePausedError, SendMessageError } from '$libs/error';
+import { SendMessageError } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
-import { isBridgePaused } from '$libs/util/checkForPausedContracts';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
@@ -23,6 +22,8 @@ export class ETHBridge extends Bridge {
     const { to, amount, wallet, srcChainId, destChainId, bridgeAddress, fee: processingFee } = args;
 
     if (!wallet || !wallet.account) throw new Error('No wallet found');
+
+    await ETHBridge.assertNotPaused(srcChainId);
 
     const bridgeContract = getContract({
       client: wallet,
@@ -113,8 +114,6 @@ export class ETHBridge extends Bridge {
   }
 
   async bridge(args: ETHBridgeArgs) {
-    if (await isBridgePaused()) throw new BridgePausedError('Bridge is paused');
-
     const { bridgeContract, message } = await ETHBridge._prepareTransaction(args);
     const { value: callValue, fee: processingFee } = message;
 

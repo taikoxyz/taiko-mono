@@ -10,71 +10,72 @@ vi.mock('viem');
 
 vi.mock('$bridgeConfig', () => ({
   routingContractsMap: {
+    // Two destinations sharing one bridge, which is how a real multi-chain config looks
     1: {
-      2: {
-        erc20VaultAddress: '0x00001',
-        bridgeAddress: '0x00002',
-        erc721VaultAddress: '0x00003',
-        erc1155VaultAddress: '0x00004',
-        signalServiceAddress: '0x00006',
-      },
+      2: { bridgeAddress: '0x00002' },
+      3: { bridgeAddress: '0x00002' },
     },
     2: {
-      1: {
-        erc20VaultAddress: '0x00007',
-        bridgeAddress: '0x00008',
-        erc721VaultAddress: '0x00009',
-        erc1155VaultAddress: '0x00010',
-        signalServiceAddress: '0x00012',
-      },
+      1: { bridgeAddress: '0x00008' },
     },
     3: {
-      2: {
-        erc20VaultAddress: '0x00007',
-        bridgeAddress: '0x00008',
-        erc721VaultAddress: '0x00009',
-        erc1155VaultAddress: '0x00010',
-        signalServiceAddress: '0x00012',
-      },
+      2: { bridgeAddress: '0x00018' },
     },
   },
 }));
 
+const chainOf = (call: unknown[]) => (call[1] as { chainId: number }).chainId;
+
 describe('checkForPausedContracts', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    bridgePausedModal.set(false);
   });
 
-  test('should return false if no contracts are paused', async () => {
-    // when
-    await checkForPausedContracts();
+  test('reads each configured bridge once, not once per destination', async () => {
+    expect(await checkForPausedContracts()).toBe(false);
 
-    // then
     expect(readContract).toHaveBeenCalledTimes(3);
+    expect(vi.mocked(readContract).mock.calls.map(chainOf).sort()).toEqual([1, 2, 3]);
     expect(get(bridgePausedModal)).toBe(false);
   });
 
-  test('should return true if at least one contract is paused', async () => {
-    // given
+  test('reports paused when at least one contract is paused', async () => {
     vi.mocked(readContract).mockResolvedValueOnce(true);
 
-    // when
-    await checkForPausedContracts();
-
-    // then
-    expect(readContract).toHaveBeenCalledTimes(3);
+    expect(await checkForPausedContracts()).toBe(true);
     expect(get(bridgePausedModal)).toBe(true);
   });
 
-  test('should handle errors', async () => {
-    // given
+  test('reads only the given source chain when one is passed', async () => {
+    expect(await checkForPausedContracts(2)).toBe(false);
+
+    expect(readContract).toHaveBeenCalledTimes(1);
+    expect(chainOf(vi.mocked(readContract).mock.calls[0])).toBe(2);
+  });
+
+  test('a chain that cannot be read does not make the bridge paused', async () => {
+    // The other two answer normally, so an unreachable RPC on one chain used to be the
+    // difference between bridging and a "bridge is paused" modal
     vi.mocked(readContract).mockRejectedValueOnce(new Error('some error'));
 
-    // when
-    await checkForPausedContracts();
+    expect(await checkForPausedContracts()).toBe(false);
+    expect(get(bridgePausedModal)).toBe(false);
+  });
 
-    // then
+  test('a chain that cannot be read still yields to one that reports paused', async () => {
+    vi.mocked(readContract).mockRejectedValueOnce(new Error('some error')).mockResolvedValueOnce(true);
+
+    expect(await checkForPausedContracts()).toBe(true);
     expect(get(bridgePausedModal)).toBe(true);
-    expect(readContract).toHaveBeenCalledTimes(3);
+  });
+
+  test('leaves a known pause standing when nothing can be read', async () => {
+    bridgePausedModal.set(true);
+    vi.mocked(readContract).mockRejectedValue(new Error('rpc down'));
+
+    // No verdict either way: the modal must not be dismissed by an outage
+    expect(await checkForPausedContracts()).toBe(false);
+    expect(get(bridgePausedModal)).toBe(true);
   });
 });

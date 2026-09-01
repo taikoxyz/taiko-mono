@@ -17,11 +17,11 @@
   import type { BridgeTransaction } from '$libs/bridge';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { getLogger } from '$libs/util/logger';
-  import { pendingTransactions } from '$stores/pendingTransactions';
 
   import Claim from '../Claim.svelte';
   import { claimWithQuotaGuard, showQuotaToastForClaimError } from '../ClaimDialog/quota';
   import { ClaimConfirmStep, ReviewStep } from '../Shared';
+  import { awaitDialogTransaction } from '../Shared/awaitDialogTransaction';
   import ClaimPreCheck from '../Shared/ClaimPreCheck.svelte';
   import { ClaimAction } from '../Shared/types';
   import RetryStepNavigation from './RetryStepNavigation.svelte';
@@ -44,6 +44,12 @@
 
   let canContinue = false;
   let retrying: boolean;
+  /**
+   * A retry transaction is on chain and its outcome is not known yet. Distinct from
+   * `retrying`, which `reset` clears: this survives a close so reopening the dialog cannot
+   * offer a second retry for a message whose first retry may still confirm.
+   */
+  let retryTxPending = false;
   let retryDone = false;
   let ClaimComponent: Claim;
   let isDesktopOrLarger = false;
@@ -87,6 +93,10 @@
   };
 
   const reset = () => {
+    // Closing the dialog or switching accounts does not cancel a retry already on chain.
+    // Rewinding the steps and clearing `retrying` here would hand the user a fresh Retry
+    // button for that same message, so a still-pending transaction keeps the dialog as is.
+    if (retryTxPending) return;
     activeStep = INITIAL_STEP;
     $selectedRetryMethod = RETRY_OPTION.CONTINUE;
     retryDone = false;
@@ -113,6 +123,7 @@
     txHash = transactionHash;
     log('handle claim tx sent', txHash);
     retrying = true;
+    retryTxPending = true;
 
     const explorer = chainConfig[Number(bridgeTx.destChainId)]?.blockExplorers?.default.url;
     log('explorer', explorer);
@@ -126,17 +137,33 @@
       }),
     });
 
-    try {
-      await pendingTransactions.add(txHash, Number(bridgeTx.destChainId));
-    } catch (error) {
-      // A reverted or timed-out retry must not leave the dialog spinning forever
-      log('retry transaction failed or timed out', { txHash, error });
+    const outcome = await awaitDialogTransaction(txHash, Number(bridgeTx.destChainId));
+
+    if (outcome === 'timed_out') {
+      // Only the wait gave up; the transaction is still live and may yet process the
+      // message. Lowering the flags here would re-enable Retry for it, so the dialog
+      // stays as it is and the toast points at the explorer instead.
+      log('retry transaction timed out', { txHash });
+      warningToast({
+        title: $t('bridge.actions.bridge.timeout.title'),
+        message: $t('bridge.actions.bridge.timeout.message', {
+          values: { url: `${explorer}/tx/${txHash}` },
+        }),
+      });
+      return;
+    }
+
+    if (outcome === 'failed') {
+      // Reverted: nothing is pending any more, so the dialog must not keep spinning
+      log('retry transaction failed', { txHash });
       retrying = false;
+      retryTxPending = false;
       errorToast({ title: $t('bridge.errors.retry_error') });
       return;
     }
 
     retrying = false;
+    retryTxPending = false;
     retryDone = true;
 
     dispatch('retryDone');

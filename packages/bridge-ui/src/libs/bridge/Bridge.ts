@@ -3,8 +3,16 @@ import { getAddress, getContract, type Hash, UserRejectedRequestError, type Wall
 
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
-import { MessageStatusError, ProcessMessageError, ReleaseError, WrongChainError, WrongOwnerError } from '$libs/error';
+import {
+  BridgePausedError,
+  MessageStatusError,
+  ProcessMessageError,
+  ReleaseError,
+  WrongChainError,
+  WrongOwnerError,
+} from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
+import { isBridgePaused } from '$libs/util/checkForPausedContracts';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { isSmartContract } from '$libs/util/isSmartContract';
 import { getLogger } from '$libs/util/logger';
@@ -27,6 +35,20 @@ export abstract class Bridge {
 
   constructor(prover: BridgeProver) {
     this._prover = prover;
+  }
+
+  /**
+   * @dev Refuses to build a transaction the source bridge would reject anyway.
+   *
+   *      Every token type goes through its own `_prepareTransaction`, so this is the one
+   *      place all four send paths share. Guarding the individual `estimateGas`/`bridge`
+   *      methods instead left ERC1155 unguarded entirely and ERC721 guarded only while
+   *      estimating.
+   *
+   * @param srcChainId The chain the message would be sent from
+   */
+  protected static async assertNotPaused(srcChainId: number) {
+    if (await isBridgePaused(srcChainId)) throw new BridgePausedError('Bridge is paused');
   }
 
   /**

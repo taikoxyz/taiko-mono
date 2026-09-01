@@ -4,15 +4,8 @@ import { getContract, UserRejectedRequestError } from 'viem';
 
 import { erc20Abi, erc20VaultAbi } from '$abi';
 import { destOwnerAddress, gasLimitZero } from '$components/Bridge/state';
-import {
-  ApproveError,
-  BridgePausedError,
-  InsufficientAllowanceError,
-  NoAllowanceRequiredError,
-  SendERC20Error,
-} from '$libs/error';
+import { ApproveError, InsufficientAllowanceError, NoAllowanceRequiredError, SendERC20Error } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
-import { isBridgePaused } from '$libs/util/checkForPausedContracts';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
@@ -40,6 +33,8 @@ export class ERC20Bridge extends Bridge {
       isTokenAlreadyDeployed,
     } = args;
     if (!wallet || !wallet.account) throw new Error('No wallet found');
+
+    await ERC20Bridge.assertNotPaused(srcChainId);
 
     const tokenVaultContract = getContract({
       client: wallet,
@@ -100,8 +95,6 @@ export class ERC20Bridge extends Bridge {
   }
 
   async estimateGas(args: ERC20BridgeArgs) {
-    if (await isBridgePaused()) throw new BridgePausedError('Bridge is paused');
-
     const { tokenVaultContract, sendERC20Args } = await ERC20Bridge._prepareTransaction(args as ERC20BridgeArgs);
     const { fee } = sendERC20Args;
 
@@ -117,8 +110,9 @@ export class ERC20Bridge extends Bridge {
   }
 
   async getAllowance({ amount, tokenAddress, ownerAddress, spenderAddress }: RequireAllowanceArgs) {
-    if (await isBridgePaused()) throw new BridgePausedError('Bridge is paused');
-
+    // No pause check: reading an allowance is unaffected by a paused bridge, and the read
+    // ran the check against every configured chain on every call. The send path guards
+    // itself in _prepareTransaction, which is where a pause actually matters.
     log('Checking allowance for the amount', amount);
     const allowance = await readContract(config, {
       abi: erc20Abi,

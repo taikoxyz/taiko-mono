@@ -190,6 +190,8 @@ export class ERC1155Bridge extends Bridge {
 
     if (!wallet || !wallet.account) throw new Error('Wallet is not connected');
 
+    await ERC1155Bridge.assertNotPaused(srcChainId);
+
     const tokenVaultContract = getContract({
       client: wallet,
       abi: erc1155VaultAbi,

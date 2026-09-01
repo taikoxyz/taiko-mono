@@ -25,9 +25,9 @@
   } from '$libs/error';
   import type { NFT } from '$libs/token';
   import { getLogger } from '$libs/util/logger';
-  import { pendingTransactions } from '$stores/pendingTransactions';
 
   import { ClaimConfirmStep, ReviewStep } from '../Shared';
+  import { awaitDialogTransaction } from '../Shared/awaitDialogTransaction';
   import ClaimPreCheck from '../Shared/ClaimPreCheck.svelte';
   import { ClaimAction } from '../Shared/types';
   import { DialogStep, DialogStepper } from '../Stepper';
@@ -67,6 +67,12 @@
   // let canForceTransaction = false;
   let canContinue = false;
   let claiming: boolean;
+  /**
+   * A claim transaction is on chain and its outcome is not known yet. Distinct from
+   * `claiming`, which `reset` clears: this survives a close so reopening the dialog cannot
+   * offer a second claim for a message whose first claim may still confirm.
+   */
+  let claimTxPending = false;
   let claimingDone = false;
   let ClaimComponent: Claim;
   let txHash: Hash;
@@ -88,6 +94,7 @@
     txHash = transactionHash;
     log('handle claim tx sent', txHash, action);
     claiming = true;
+    claimTxPending = true;
 
     const explorer = chainConfig[Number(bridgeTx.destChainId)]?.blockExplorers?.default.url;
 
@@ -101,12 +108,27 @@
       }),
     });
 
-    try {
-      await pendingTransactions.add(txHash, Number(bridgeTx.destChainId));
-    } catch (error) {
-      // A reverted or timed-out claim must not leave the dialog spinning forever
-      log('claim transaction failed or timed out', { txHash, action, error });
+    const outcome = await awaitDialogTransaction(txHash, Number(bridgeTx.destChainId));
+
+    if (outcome === 'timed_out') {
+      // Only the wait gave up; the transaction is still live and may yet claim the
+      // message. Lowering the flags here would re-enable Claim for it, so the dialog
+      // stays as it is and the toast points at the explorer instead.
+      log('claim transaction timed out', { txHash, action });
+      warningToast({
+        title: $t('bridge.actions.bridge.timeout.title'),
+        message: $t('bridge.actions.bridge.timeout.message', {
+          values: { url: `${explorer}/tx/${txHash}` },
+        }),
+      });
+      return;
+    }
+
+    if (outcome === 'failed') {
+      // Reverted: nothing is pending any more, so the dialog must not keep spinning
+      log('claim transaction failed', { txHash, action });
       claiming = false;
+      claimTxPending = false;
       errorToast({
         title: $t('bridge.errors.process_message_error'),
       });
@@ -114,6 +136,7 @@
     }
 
     claiming = false;
+    claimTxPending = false;
     claimingDone = true;
 
     dispatch('claimingDone');
@@ -196,6 +219,10 @@
   };
 
   const reset = () => {
+    // Closing the dialog or switching accounts does not cancel a claim already on chain.
+    // Rewinding the steps and clearing `claiming` here would hand the user a fresh Claim
+    // button for that same message, so a still-pending transaction keeps the dialog as is.
+    if (claimTxPending) return;
     activeStep = INITIAL_STEP;
     claimingDone = false;
     claiming = false;

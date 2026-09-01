@@ -4,22 +4,29 @@
  * refused before any contract call - the checks existed but were wired into nothing, so
  * every one of these reached the chain and came back as a bare revert selector.
  */
+import { readContract } from '@wagmi/core';
 import type { Address, WalletClient } from 'viem';
 import { vi } from 'vitest';
 
-import { InvalidMessageError } from '$libs/error';
+import { BridgePausedError, InvalidMessageError } from '$libs/error';
 import { ALICE, L1_CHAIN_ID, L2_CHAIN_ID } from '$mocks';
 
 vi.mock('@wagmi/core');
 vi.mock('$bridgeConfig');
 
+const isBridgePaused = vi.fn();
 vi.mock('$libs/util/checkForPausedContracts', () => ({
-  isBridgePaused: vi.fn().mockResolvedValue(false),
+  isBridgePaused: (...args: unknown[]) => isBridgePaused(...args),
 }));
 
 const estimateMessageGasLimit = vi.fn();
 vi.mock('./estimateMessageGasLimit', () => ({
   estimateMessageGasLimit: (...args: unknown[]) => estimateMessageGasLimit(...args),
+}));
+
+// ERC20Bridge.bridge reads the allowance before it prepares the transaction
+vi.mock('$libs/util/getConnectedWallet', () => ({
+  getConnectedWallet: () => Promise.resolve({ account: { address: ALICE }, chain: { id: 1 } }),
 }));
 
 // The contract handle is built before the check runs, and the check must fire first
@@ -43,7 +50,7 @@ const ZERO = '0x0000000000000000000000000000000000000000' as Address;
 const TOKEN = '0x0000000000000000000000000000000000000123' as Address;
 const VAULT = '0x0000000000000000000000000000000000000456' as Address;
 
-const wallet = { account: { address: ALICE } } as unknown as WalletClient;
+const wallet = { account: { address: ALICE }, chain: { id: L1_CHAIN_ID } } as unknown as WalletClient;
 const prover = {} as never;
 
 const base = {
@@ -58,6 +65,7 @@ const base = {
 beforeEach(() => {
   vi.clearAllMocks();
   estimateMessageGasLimit.mockResolvedValue(1_000_000);
+  isBridgePaused.mockResolvedValue(false);
   gasLimitZero.set(false);
   destOwnerAddress.set(null);
 });
@@ -181,5 +189,46 @@ describe('bridges refuse messages the contracts would reject', () => {
       await new ERC1155Bridge(prover).estimateGas(args());
       expect(estimateGasSpy).toHaveBeenCalledOnce();
     });
+  });
+});
+
+/**
+ * A paused bridge reverts sendMessage/sendToken on chain, so building the transaction at
+ * all is wasted gas and an unexplained revert. The check used to sit on the individual
+ * methods, which left ERC1155 without one anywhere and ERC721/ERC20 without one on the
+ * send itself; it now sits on the `_prepareTransaction` every token type shares.
+ */
+describe('bridges refuse to build a message while the source bridge is paused', () => {
+  const erc20Args = { ...base, amount: BigInt(10), token: TOKEN, tokenVaultAddress: VAULT } as never;
+  const ethArgs = { ...base, amount: BigInt(10), bridgeAddress: VAULT } as never;
+  const erc721Args = { ...base, token: TOKEN, tokenVaultAddress: VAULT, tokenIds: [1], amounts: [0] } as never;
+  const erc1155Args = { ...base, token: TOKEN, tokenVaultAddress: VAULT, tokenIds: [1], amounts: [5] } as never;
+
+  const cases = [
+    ['ETH', () => new ETHBridge(prover), ethArgs],
+    ['ERC20', () => new ERC20Bridge(prover), erc20Args],
+    ['ERC721', () => new ERC721Bridge(prover), erc721Args],
+    ['ERC1155', () => new ERC1155Bridge(prover), erc1155Args],
+  ] as const;
+
+  it.each(cases)('%s refuses to estimate', async (_name, make, args) => {
+    isBridgePaused.mockResolvedValue(true);
+
+    await expect(make().estimateGas(args)).rejects.toThrow(BridgePausedError);
+    expect(estimateGasSpy).not.toHaveBeenCalled();
+  });
+
+  it.each(cases)('%s refuses to send', async (_name, make, args) => {
+    isBridgePaused.mockResolvedValue(true);
+    // ERC20 reads the allowance first; a satisfied one lets it reach the shared guard
+    vi.mocked(readContract).mockResolvedValue(BigInt(1e30));
+
+    await expect(make().bridge(args)).rejects.toThrow(BridgePausedError);
+  });
+
+  it.each(cases)('%s asks about its own source chain, not every configured one', async (_name, make, args) => {
+    await make().estimateGas(args);
+
+    expect(isBridgePaused).toHaveBeenCalledWith(L1_CHAIN_ID);
   });
 });

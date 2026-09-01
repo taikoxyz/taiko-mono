@@ -18,10 +18,10 @@
     RetryError,
   } from '$libs/error';
   import { getLogger } from '$libs/util/logger';
-  import { pendingTransactions } from '$stores/pendingTransactions';
 
   import Claim from '../Claim.svelte';
   import { ClaimConfirmStep, ReviewStep } from '../Shared';
+  import { awaitDialogTransaction } from '../Shared/awaitDialogTransaction';
   import { ClaimAction } from '../Shared/types';
   import { DialogStep, DialogStepper } from '../Stepper';
   import ReleaseStepNavigation from './ReleaseStepNavigation.svelte';
@@ -41,6 +41,12 @@
   let activeStep: ReleaseSteps = INITIAL_STEP;
   let txHash: Hash;
   let releasing = false;
+  /**
+   * A release transaction is on chain and its outcome is not known yet. Distinct from
+   * `releasing`, which `reset` clears: this survives a close so reopening the dialog cannot
+   * offer a second release for a message whose first release may still confirm.
+   */
+  let releaseTxPending = false;
   let releasingDone = false;
   let ClaimComponent: Claim;
   let hideContinueButton: boolean;
@@ -56,6 +62,10 @@
   };
 
   const reset = () => {
+    // Closing the dialog or switching accounts does not cancel a release already on chain.
+    // Rewinding the steps and clearing `releasing` here would hand the user a fresh Release
+    // button for that same message, so a still-pending transaction keeps the dialog as is.
+    if (releaseTxPending) return;
     releasing = false;
     releasingDone = false;
     activeStep = INITIAL_STEP;
@@ -66,6 +76,7 @@
     txHash = transactionHash;
     log('handle claim tx sent', txHash, action);
     releasing = true;
+    releaseTxPending = true;
 
     // recallMessage executes on the source chain, so both the receipt wait and the
     // explorer link must use the source chain, not the destination
@@ -82,17 +93,33 @@
       }),
     });
 
-    try {
-      await pendingTransactions.add(txHash, releaseChainId);
-    } catch (error) {
-      // A reverted or timed-out release must not leave the dialog spinning forever
-      log('release transaction failed or timed out', { txHash, error });
+    const outcome = await awaitDialogTransaction(txHash, releaseChainId);
+
+    if (outcome === 'timed_out') {
+      // Only the wait gave up; the transaction is still live and may yet release the
+      // funds. Lowering the flags here would re-enable Release for it, so the dialog
+      // stays as it is and the toast points at the explorer instead.
+      log('release transaction timed out', { txHash });
+      warningToast({
+        title: $t('bridge.actions.bridge.timeout.title'),
+        message: $t('bridge.actions.bridge.timeout.message', {
+          values: { url: `${explorer}/tx/${txHash}` },
+        }),
+      });
+      return;
+    }
+
+    if (outcome === 'failed') {
+      // Reverted: nothing is pending any more, so the dialog must not keep spinning
+      log('release transaction failed', { txHash });
       releasing = false;
+      releaseTxPending = false;
       errorToast({ title: $t('bridge.errors.process_message_error') });
       return;
     }
 
     releasing = false;
+    releaseTxPending = false;
     releasingDone = true;
 
     dispatch('claimingDone');
