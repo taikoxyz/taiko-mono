@@ -360,7 +360,8 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 			// recordFailure entirely meant it could never reach the ceiling that exists to end
 			// exactly that: it would hold its place indefinitely while nothing was ever sent
 			// through it.
-			if tripped := b.recordHeldNonce(endpoint, tx.Nonce()); tripped {
+			tripped, demonstrated := b.recordHeldNonce(endpoint, tx.Nonce())
+			if tripped {
 				relayer.PrivateRPCTrips.WithLabelValues(strconv.Itoa(endpoint.index)).Inc()
 
 				slog.Warn("Private endpoint taken out of rotation",
@@ -373,8 +374,25 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 			slog.Info("Private endpoint already holds this nonce",
 				"endpoint", endpoint.index,
 				"nonce", tx.Nonce(),
+				"endsSend", demonstrated,
 			)
 
+			// A nonce this endpoint has demonstrably taken makes it the holder, so the claim is
+			// already where it needs to be and this send is complete. Offering the same signed
+			// transaction to the endpoints behind it leaves the stale variant live in a second
+			// builder's pool — the thing steering a resend to its holder exists to avoid — and
+			// earns a refusal from a relay that did nothing wrong: the receipt lands while a
+			// resubmission is still in flight, and the next endpoint simulates a claim that is
+			// now done. Nothing resets that count while the holder keeps taking every claim
+			// first, so three claims took a healthy backup out of rotation. Returning nil is also
+			// the honest answer for the transaction manager, which is what arms the fee bump and
+			// what TxNotInMempoolTimeout reads: the transaction is at a relay.
+			if demonstrated {
+				return nil
+			}
+
+			// For a nonce it never took, the answer may be about a claim it learned from another
+			// relay's gossip. The endpoints behind it genuinely have not been asked.
 			continue
 		}
 
@@ -870,14 +888,20 @@ func (b *SendingBackend) recordFailure(endpoint admission, nonce uint64, rejecti
 // Two answers are free: one for a nonce the endpoint has demonstrably taken, and one repeat of the
 // last nonce it answered for. What is left to charge is an endpoint answering this way for a
 // succession of distinct claims it never took, which is the state the ceiling exists to end.
-func (b *SendingBackend) recordHeldNonce(endpoint admission, nonce uint64) (tripped bool) {
+//
+// It also reports whether this endpoint is the demonstrated holder of the nonce — the first of
+// those two free answers. The caller ends the send there rather than offering the same signed
+// transaction to the endpoints behind it; see SendTransaction. The predicate lives here because
+// this is the one place that owns hasAccepted and highestAccepted, and a second copy of it would
+// drift.
+func (b *SendingBackend) recordHeldNonce(endpoint admission, nonce uint64) (tripped, demonstrated bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	index := endpoint.index
 
 	if b.generation[index] != endpoint.generation {
-		return false
+		return false, false
 	}
 
 	// An endpoint answering for a nonce it has demonstrably taken is the holder by construction,
@@ -886,7 +910,7 @@ func (b *SendingBackend) recordHeldNonce(endpoint admission, nonce uint64) (trip
 	// answer counts, and ten answers — about four minutes at the resubmission default — took the
 	// endpoint holding both of them out of rotation.
 	if b.hasAccepted[index] && nonce <= b.highestAccepted[index] {
-		return false
+		return false, true
 	}
 
 	// Kept as well, for a nonce this endpoint never accepted: it may be answering for a claim it
@@ -897,7 +921,7 @@ func (b *SendingBackend) recordHeldNonce(endpoint admission, nonce uint64) (trip
 	// endpoint holding it; with one endpoint configured the claim then went public through the
 	// unavailable path, which is the exposure the exemption exists to prevent.
 	if b.hasHeld[index] && b.lastHeld[index] == nonce {
-		return false
+		return false, false
 	}
 
 	b.lastHeld[index] = nonce
@@ -908,10 +932,10 @@ func (b *SendingBackend) recordHeldNonce(endpoint admission, nonce uint64) (trip
 	if b.consecutive[index] >= b.failureCeiling {
 		b.leaveRotation(index)
 
-		return true
+		return true, false
 	}
 
-	return false
+	return false, false
 }
 
 // leaveRotation takes the endpoint at index out of rotation for the retry interval, ending the

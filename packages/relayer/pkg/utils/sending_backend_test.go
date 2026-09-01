@@ -1881,7 +1881,10 @@ func TestSendingBackend_DropsAHeldAnswerFromAnEndpointThatHasSinceLeft(t *testin
 
 	// A held answer that outlived the trip belongs to the admission that is over, not to the fresh
 	// budget the endpoint comes back with, so it must not move the count at all.
-	require.False(t, b.recordHeldNonce(stale, 5))
+	tripped, demonstrated := b.recordHeldNonce(stale, 5)
+
+	require.False(t, tripped)
+	require.False(t, demonstrated, "a stale admission is not a holder this send may stop at")
 	assert.Equal(t, before, b.consecutive[0], "a stale admission spends nothing")
 }
 
@@ -1906,4 +1909,73 @@ func TestSendingBackend_AnOutageIsNotAnAnsweredRefusal(t *testing.T) {
 	}
 
 	assert.Empty(t, public.sent, "an endpoint being down is what tripping handles")
+}
+
+func TestSendingBackend_AHolderAnsweringForItsOwnNonceEndsTheSend(t *testing.T) {
+	public := &fakeBackend{}
+	holder := &fakeSender{}
+	// Healthy, because fakeSender records a transaction only when it takes one: a backup that
+	// refuses leaves `sent` empty whether or not it was asked, which would assert nothing.
+	backup := &fakeSender{}
+
+	b := NewSendingBackend(public, []TxSender{holder, backup}, nil, nil)
+
+	tx := txWithNonce(7210)
+
+	// Taking the claim is what makes this nonce demonstrably the holder's.
+	require.NoError(t, b.SendTransaction(context.Background(), tx))
+	require.Empty(t, backup.sent, "the first endpoint took it, so the second was never asked")
+
+	holder.err = rpcRejection{txpool.ErrAlreadyKnown.Error()}
+
+	// The manager resubmits while the receipt is still in flight, and the holder says it is still
+	// holding the nonce. The claim is already where it needs to be: offering the same signed
+	// transaction to the endpoint behind it leaves the stale variant live in a second builder's
+	// pool, which is the thing steering resends to the holder exists to avoid.
+	require.NoError(t, b.SendTransaction(context.Background(), tx))
+
+	assert.Empty(t, backup.sent, "a claim its holder is carrying goes nowhere else")
+	assert.Empty(t, public.sent, "and it is certainly not broadcast publicly")
+}
+
+func TestSendingBackend_AHoldersResendDoesNotTripTheBackup(t *testing.T) {
+	holder := &fakeSender{}
+	// What MEV Blocker actually answered on mainnet once the claim had been mined: it simulates
+	// against the pending block and the message is already done.
+	backup := &fakeSender{err: rpcRejection{"Failed in pending block with: Reverted"}}
+
+	b := NewSendingBackend(&fakeBackend{}, []TxSender{holder, backup}, nil, nil)
+
+	var resend error
+
+	// Every claim ends this way in production: the receipt lands, and the resubmission already in
+	// flight finds the holder still holding the nonce. The backup is reached only on that last
+	// resend and refuses for a reason that is about the claim, not about the backup. Nothing ever
+	// resets its count, because the holder takes every claim first — so three claims took a
+	// perfectly healthy relay out of rotation.
+	for nonce := uint64(1); nonce <= uint64(DefaultPrivateRPCFailureThreshold); nonce++ {
+		holder.err = nil
+		require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(nonce)))
+
+		holder.err = rpcRejection{txpool.ErrAlreadyKnown.Error()}
+		resend = b.SendTransaction(context.Background(), txWithNonce(nonce))
+	}
+
+	assert.Equal(t, []int{0, 1}, rotation(b), "a backup that was never asked stays in rotation")
+	assert.Equal(t, 0, b.failures[1], "it was never asked, so it refused nothing")
+	assert.NoError(t, resend, "a claim the holder is carrying is not a failed publish")
+}
+
+func TestSendingBackend_AHeldAnswerForANonceItNeverTookStillTriesTheNext(t *testing.T) {
+	first := &fakeSender{err: rpcRejection{txpool.ErrAlreadyKnown.Error()}}
+	second := &fakeSender{}
+
+	b := NewSendingBackend(&fakeBackend{}, []TxSender{first, second}, nil, nil)
+
+	// This endpoint never took this nonce, so its answer may be about a claim it learned from
+	// another relay's gossip rather than from us. The endpoints behind it genuinely have not been
+	// asked, and stopping here would leave the claim with nobody carrying it.
+	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(55)))
+
+	assert.Len(t, second.sent, 1, "an endpoint that never took this nonce does not end the send")
 }
