@@ -198,7 +198,7 @@ type SendingBackend struct {
 	generation       []uint64
 	highestAccepted  []uint64
 	hasAccepted      []bool
-	accepted         []map[uint64]struct{}
+	accepted         []map[uint64]common.Hash
 	failureThreshold int
 	failureCeiling   int
 	retryInterval    time.Duration
@@ -339,7 +339,7 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 
 		if err == nil {
 			b.clearAllRefused(tx.Nonce())
-			b.recordSuccess(endpoint.index, tx.Nonce())
+			b.recordSuccess(endpoint.index, tx.Nonce(), claimIdentity(tx))
 			relayer.PrivateRPCSends.WithLabelValues(strconv.Itoa(endpoint.index)).Inc()
 
 			return nil
@@ -370,7 +370,7 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 			// recordFailure entirely meant it could never reach the ceiling that exists to end
 			// exactly that: it would hold its place indefinitely while nothing was ever sent
 			// through it.
-			tripped, demonstrated := b.recordHeldNonce(endpoint, tx.Nonce())
+			tripped, demonstrated := b.recordHeldNonce(endpoint, tx.Nonce(), claimIdentity(tx))
 			if tripped {
 				relayer.PrivateRPCTrips.WithLabelValues(strconv.Itoa(endpoint.index)).Inc()
 
@@ -910,7 +910,11 @@ func (b *SendingBackend) recordFailure(endpoint admission, nonce uint64, rejecti
 //
 // The answer is about the endpoint's mempool rather than its health, so it is read before the
 // generation guard and survives it.
-func (b *SendingBackend) recordHeldNonce(endpoint admission, nonce uint64) (tripped, demonstrated bool) {
+func (b *SendingBackend) recordHeldNonce(
+	endpoint admission,
+	nonce uint64,
+	claim common.Hash,
+) (tripped, demonstrated bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -922,7 +926,12 @@ func (b *SendingBackend) recordHeldNonce(endpoint admission, nonce uint64) (trip
 	// endpoint is unhealthy, it does not unsay what it is carrying. Suppressing the accounting is
 	// what the guard is for — dropping the acceptance too would send the claim onward and leave
 	// the same signed transaction live in a second builder's pool.
-	_, demonstrated = b.accepted[index][nonce]
+	// Both halves have to match. A nonce this endpoint took, now carrying a different claim, is a
+	// recycled nonce: the endpoint is answering about the transaction it still holds, which is not
+	// the one being offered, and the endpoints behind it have not been asked about this claim at
+	// all.
+	accepted, known := b.accepted[index][nonce]
+	demonstrated = known && accepted == claim
 
 	if b.generation[index] != endpoint.generation {
 		return false, demonstrated
@@ -989,7 +998,7 @@ func (b *SendingBackend) leaveRotation(index int) {
 // demonstrably just accepted a transaction, so it belongs back in rotation whatever the tally from
 // the outage says. The generation is left alone, which keeps the failures still in flight from that
 // outage from being charged against the budget this clears.
-func (b *SendingBackend) recordSuccess(index int, nonce uint64) {
+func (b *SendingBackend) recordSuccess(index int, nonce uint64, claim common.Hash) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -1013,9 +1022,16 @@ func (b *SendingBackend) recordSuccess(index int, nonce uint64) {
 	// is all the accounting exemption and the holder-first ordering need. It cannot answer "did
 	// this endpoint take this exact transaction", because claims are signed in nonce order and
 	// sent concurrently: a later nonce can be accepted while an earlier one never was, and the
-	// mark then covers a nonce nobody here has seen. Ending a send needs the stronger fact, so the
-	// nonces actually accepted are kept as well.
-	b.accepted[index][nonce] = struct{}{}
+	// mark then covers a nonce nobody here has seen. Ending a send needs the stronger fact, so
+	// what was accepted is kept as well.
+	//
+	// Stamped with the claim for the same reason the refusal runs are: nonces recycle. A claim
+	// abandoned at TX_SEND_TIMEOUT leaves this entry behind — only an accepted send writes one,
+	// and an abandoned claim never comes back to be accepted — and resetNonce then hands the nonce
+	// to an unrelated message. Keyed on the nonce alone, that message inherits the acceptance, and
+	// the endpoint answering "replacement transaction underpriced" about the claim it is still
+	// holding would end the new claim's send with nobody carrying it.
+	b.accepted[index][nonce] = claim
 
 	// Bounded the way the refusal counts are, and for the same reason: a claim abandoned at
 	// TX_SEND_TIMEOUT never comes back to clear its entry. Nonces only ascend, so the smallest is
@@ -1033,12 +1049,13 @@ func (b *SendingBackend) recordSuccess(index int, nonce uint64) {
 	}
 }
 
-// newAcceptedNonceSets builds one accepted-nonce set per endpoint.
-func newAcceptedNonceSets(endpoints int) []map[uint64]struct{} {
-	sets := make([]map[uint64]struct{}, endpoints)
+// newAcceptedNonceSets builds one accepted-nonce record per endpoint, mapping each nonce to the
+// claim that was accepted under it.
+func newAcceptedNonceSets(endpoints int) []map[uint64]common.Hash {
+	sets := make([]map[uint64]common.Hash, endpoints)
 
 	for i := range sets {
-		sets[i] = make(map[uint64]struct{})
+		sets[i] = make(map[uint64]common.Hash)
 	}
 
 	return sets

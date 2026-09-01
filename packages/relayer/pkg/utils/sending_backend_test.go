@@ -429,7 +429,7 @@ func TestSendingBackend_ASuccessfulSendReadmitsATrippedEndpoint(t *testing.T) {
 	require.Equal(t, []int{1}, rotation(b))
 
 	// An endpoint that just took a transaction is not down, whatever its recent record.
-	b.recordSuccess(0, 1)
+	b.recordSuccess(0, 1, claimIdentity(txWithNonce(1)))
 
 	assert.Equal(t, []int{0, 1}, rotation(b))
 }
@@ -1881,10 +1881,10 @@ func TestSendingBackend_DropsAHeldAnswerFromAnEndpointThatHasSinceLeft(t *testin
 
 	// A held answer that outlived the trip belongs to the admission that is over, not to the fresh
 	// budget the endpoint comes back with, so it must not move the count at all.
-	tripped, demonstrated := b.recordHeldNonce(stale, 5)
+	tripped, demonstrated := b.recordHeldNonce(stale, 5, claimIdentity(txWithNonce(5)))
 
 	require.False(t, tripped)
-	require.False(t, demonstrated, "a stale admission is not a holder this send may stop at")
+	require.False(t, demonstrated, "this endpoint never accepted that nonce")
 	assert.Equal(t, before, b.consecutive[0], "a stale admission spends nothing")
 }
 
@@ -2018,11 +2018,32 @@ func TestSendingBackend_AStaleAdmissionStillKnowsWhatItAccepted(t *testing.T) {
 	// The generation guard exists to stop a stale result from spending the fresh budget, so it
 	// suppresses the accounting — but the claim really is at this relay, and offering it onward
 	// would put the same signed transaction in a second builder's pool.
-	tripped, demonstrated := b.recordHeldNonce(stale, 5)
+	tripped, demonstrated := b.recordHeldNonce(stale, 5, claimIdentity(txWithNonce(5)))
 
 	assert.False(t, tripped)
 	assert.True(t, demonstrated, "acceptance is a fact, not a judgement about health")
 	assert.Equal(t, before, b.consecutive[0], "a stale admission still spends nothing")
+}
+
+func TestSendingBackend_ARecycledNonceIsNotTheClaimThatWasAccepted(t *testing.T) {
+	holder := &fakeSender{}
+	backup := &fakeSender{}
+
+	b := NewSendingBackend(&fakeBackend{}, []TxSender{holder, backup}, nil, nil)
+
+	// One claim is accepted at this nonce and then abandoned at TX_SEND_TIMEOUT — only an accepted
+	// send clears the record, and an abandoned claim never comes back to be accepted. resetNonce
+	// then hands the same nonce to an unrelated message, whose encoded message and proof make it a
+	// different claim.
+	require.NoError(t, b.SendTransaction(context.Background(), txWithNonceAndCall(81, "the accepted claim")))
+
+	// The endpoint is still holding the first claim, so it answers that the replacement is
+	// underpriced. That is an answer about the transaction it has, not about the one being offered.
+	holder.err = rpcRejection{txpool.ErrReplaceUnderpriced.Error()}
+
+	require.NoError(t, b.SendTransaction(context.Background(), txWithNonceAndCall(81, "the message that inherited the nonce")))
+
+	assert.Len(t, backup.sent, 1, "a recycled nonce is not evidence about the claim now carrying it")
 }
 
 func TestSendingBackend_BoundsTheAcceptedNonceTracking(t *testing.T) {
