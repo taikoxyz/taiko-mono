@@ -190,7 +190,15 @@ fixed entry cap: `QUEUE_PREFETCH_COUNT` is configurable, so an arbitrary cap cou
 claim while it is still waiting for inclusion. Its size instead follows the unresolved accepted
 nonce window. A receipt observed through `DEST_RPC_URL` for nonce N releases exact records through
 N, because transactions from one account execute in nonce order; the high-water mark remains for
-ordering only.
+ordering only. Every transaction the backend sends is indexed by hash so that any receipt can be
+resolved to its nonce — including a claim that no relay would take and that landed through the
+public fallback, whose hash no private endpoint ever saw.
+
+That release and a resend can cross: the receipt arrives while a fee-bumped resend is already on
+its way to the endpoint holding that nonce, and the answer comes back after the record is gone. A
+nonce known to have mined therefore ends a send on its own. Nothing at that nonce can land again,
+so the endpoints behind the holder have nothing to offer but a refusal they would then be charged
+for.
 
 Plain `http://` is rejected unless the host is the name `localhost` or an IP literal in a loopback,
 private or link-local range: a signed claim on the wire in cleartext can be read and front-run,
