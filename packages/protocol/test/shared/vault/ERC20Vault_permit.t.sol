@@ -8,6 +8,16 @@ import { IPermit2 } from "src/shared/vault/IPermit2.sol";
 
 /// @notice Covers ERC20Vault's approval-free entrypoints: `sendTokenWithPermit` (EIP-2612) and
 /// `sendTokenWithPermit2` (Uniswap Permit2 `SignatureTransfer`).
+/// @dev Records whether `permit` was reached, so the ordering of validation vs. the external call
+/// can be asserted rather than assumed.
+contract PermitCallRecorder {
+    uint256 public permitCalls;
+
+    function permit(address, address, uint256, uint256, uint8, bytes32, bytes32) external {
+        ++permitCalls;
+    }
+}
+
 contract TestERC20VaultPermit is CommonTest {
     uint256 private constant AlicePK = 0x1;
     uint256 private constant BobPK = 0x2;
@@ -379,6 +389,66 @@ contract TestERC20VaultPermit is CommonTest {
         vm.warp(block.timestamp + 91 days);
         vm.prank(deployer);
         eVault.changeBridgedToken(canonical, btoken_);
+    }
+
+    /// @dev The permit is an external call to a caller-chosen address, so an operation that cannot
+    /// proceed must be rejected before the token is ever touched.
+    function test_20Vault_permit_validates_before_calling_the_token() public {
+        PermitCallRecorder recorder = new PermitCallRecorder();
+        uint256 deadline = block.timestamp + 1 hours;
+
+        // A state counter cannot serve here: the revert under test rolls it back, so it reads zero
+        // either way. The cheatcode engine tracks calls independently of state.
+        vm.expectCall(
+            address(recorder),
+            abi.encodeWithSelector(
+                PermitCallRecorder.permit.selector,
+                Alice,
+                address(eVault),
+                uint256(0),
+                deadline,
+                uint8(0),
+                bytes32(0),
+                bytes32(0)
+            ),
+            0
+        );
+
+        vm.prank(Alice);
+        vm.expectRevert(ERC20Vault.VAULT_INVALID_AMOUNT.selector);
+        eVault.sendTokenWithPermit(_op(address(recorder), 0), deadline, 0, bytes32(0), bytes32(0));
+    }
+
+    /// @dev Likewise for a denylisted bridged token: no call to it at all.
+    function test_20Vault_permit_rejects_a_denylisted_token_before_calling_it() public {
+        (address btokenOld, ERC20Vault.CanonicalERC20 memory canonical) = _registerBridgedToken();
+
+        address btokenNew = address(new BridgedERC20(address(eVault)));
+        vm.warp(block.timestamp + 91 days);
+        vm.prank(deployer);
+        eVault.changeBridgedToken(canonical, btokenNew);
+
+        uint256 deadline = block.timestamp + 1 hours;
+
+        // The denylist check must come before the permit, so the denylisted token is never called.
+        vm.expectCall(
+            btokenOld,
+            abi.encodeWithSelector(
+                PermitCallRecorder.permit.selector,
+                Alice,
+                address(eVault),
+                uint256(1 ether),
+                deadline,
+                uint8(0),
+                bytes32(0),
+                bytes32(0)
+            ),
+            0
+        );
+
+        vm.prank(Alice);
+        vm.expectRevert(ERC20Vault.VAULT_BTOKEN_BLACKLISTED.selector);
+        eVault.sendTokenWithPermit(_op(btokenOld, 1 ether), deadline, 0, bytes32(0), bytes32(0));
     }
 
     /// @dev A bridged token that has been migrated away from is denylisted, and must stay

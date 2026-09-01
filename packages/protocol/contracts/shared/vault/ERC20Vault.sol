@@ -274,6 +274,11 @@ contract ERC20Vault is BaseVault {
     /// holds a larger standing allowance for this vault will see it replaced by `_op.amount` and
     /// then spent down to zero. That is safe (it only ever reduces standing approval) but it is
     /// destructive, so callers that keep a long-lived allowance should use `sendToken` instead.
+    /// @dev A failed permit is swallowed, so a caller who already holds a sufficient allowance
+    /// bridges against it even when the signature is bad. That is the intended outcome -- the
+    /// caller is the token owner and asked for exactly this transfer -- and it is also what makes
+    /// the front-run case survivable, since a replayed signature leaves the allowance in place.
+    /// A bad signature with no allowance behind it still reverts at the pull.
     /// @param _op Option for sending ERC20 tokens.
     /// @param _deadline The permit signature's expiry timestamp.
     /// @param _v The permit signature's `v` value.
@@ -293,6 +298,13 @@ contract ERC20Vault is BaseVault {
         nonReentrant
         returns (IBridge.Message memory message_)
     {
+        // Validate before calling into `_op.token`. The permit is an external call to a
+        // caller-chosen address, so it must not happen for an operation that cannot proceed
+        // anyway; `_sendToken` re-checks these along with the rest.
+        if (_op.amount == 0) revert VAULT_INVALID_AMOUNT();
+        if (_op.token == address(0)) revert VAULT_INVALID_TOKEN();
+        if (btokenDenylist[_op.token]) revert VAULT_BTOKEN_BLACKLISTED();
+
         // The permit is best-effort: anyone can front-run it by replaying the same signature
         // directly against the token, which consumes the nonce and would make an unguarded call
         // revert. Only the resulting allowance matters, so a failed permit is swallowed here and
