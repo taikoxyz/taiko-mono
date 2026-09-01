@@ -2,13 +2,11 @@
 pragma solidity ^0.8.24;
 
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { LibFasterReentryLock } from "src/layer1/mainnet/LibFasterReentryLock.sol";
 
 import "./DevnetInbox_Layout.sol"; // DO NOT DELETE
 
 /// @title DevnetInbox
-/// @dev This contract extends the base Inbox contract for devnet deployment
-/// with optimized reentrancy lock implementation.
+/// @dev This contract extends the base Inbox contract with the devnet configuration.
 /// @custom:security-contact security@taiko.xyz
 contract DevnetInbox is Inbox {
     // ---------------------------------------------------------------
@@ -49,16 +47,4 @@ contract DevnetInbox is Inbox {
                 permissionlessInclusionMultiplier: 160
             }))
     { }
-
-    // ---------------------------------------------------------------
-    // Internal Functions
-    // ---------------------------------------------------------------
-
-    function _storeReentryLock(uint8 _reentry) internal override {
-        LibFasterReentryLock.storeReentryLock(_reentry);
-    }
-
-    function _loadReentryLock() internal view override returns (uint8) {
-        return LibFasterReentryLock.loadReentryLock();
-    }
 }

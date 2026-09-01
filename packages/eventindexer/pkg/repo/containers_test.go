@@ -22,7 +22,10 @@ var (
 	dbPassword = "password"
 )
 
-func testMysql(t *testing.T) (db.DB, func(), error) {
+// testMysql starts a throwaway mysql container. extraDSNParams are appended to
+// the connection string, so a test can pin a driver setting that replay
+// correctness must not depend on.
+func testMysql(t *testing.T, extraDSNParams ...string) (db.DB, func(), error) {
 	req := testcontainers.ContainerRequest{
 		Image:        "mysql:latest",
 		ExposedPorts: []string{"3306/tcp", "33060/tcp"},
@@ -67,7 +70,11 @@ func testMysql(t *testing.T) (db.DB, func(), error) {
 
 	// nolint: lll
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify&parseTime=true&multiStatements=true&timeout=30s&readTimeout=30s&writeTimeout=30s",
-		dbUsername, dbPassword, host, port.Int(), dbName)
+		dbUsername, dbPassword, host, port.Num(), dbName)
+
+	for _, p := range extraDSNParams {
+		dsn += "&" + p
+	}
 
 	deadline := time.Now().Add(2 * time.Minute)
 

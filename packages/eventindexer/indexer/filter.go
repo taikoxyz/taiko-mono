@@ -79,7 +79,7 @@ func (i *Indexer) filter(
 		"batchSize", i.blockBatchSize,
 	)
 
-	for j := i.latestIndexedBlockNumber + 1; j <= endBlockID; j += i.blockBatchSize {
+	for j := i.nextFilterStartBlock(); j <= endBlockID; j += i.blockBatchSize {
 		end := min(j+i.blockBatchSize-1, endBlockID)
 
 		slog.Info("block batch", "start", j, "end", end)
@@ -118,4 +118,11 @@ func (i *Indexer) filter(
 	}
 
 	return nil
+}
+
+// nextFilterStartBlock returns the first block the next filter pass requests.
+// latestIndexedBlockNumber is the last block already filtered, so scanning
+// resumes at the block after it.
+func (i *Indexer) nextFilterStartBlock() uint64 {
+	return i.latestIndexedBlockNumber + 1
 }

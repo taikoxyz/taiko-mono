@@ -44,6 +44,13 @@ func (r *EventRepository) SavedCount() int {
 	return len(r.events)
 }
 
+// SavedEvents returns the events persisted via Save, in order. For tests that need to assert what
+// was written rather than only how much: a row count cannot tell a correct block number from a
+// zero, and the fields it would miss are the ones every claim is gated on.
+func (r *EventRepository) SavedEvents() []*relayer.Event {
+	return slices.Clone(r.events)
+}
+
 func (r *EventRepository) Save(ctx context.Context, opts *relayer.SaveEventOpts) (*relayer.Event, error) {
 	event := &relayer.Event{
 		ID:           rand.Int(), // nolint: gosec
@@ -52,9 +59,27 @@ func (r *EventRepository) Save(ctx context.Context, opts *relayer.SaveEventOpts)
 		ChainID:      opts.ChainID.Int64(),
 		DestChainID:  opts.DestChainID.Int64(),
 		Name:         opts.Name,
+		Event:        opts.Event,
 		MessageOwner: opts.MessageOwner,
 		MsgHash:      opts.MsgHash,
 		EventType:    opts.EventType,
+
+		// The checkpoint fields have to be carried, not dropped. wait_header_synced gates every
+		// claim on the block numbers these hold, so a handler that wrote the wrong one would leave
+		// a test asserting only a row count perfectly green while every claim waited on a header
+		// that never syncs, or was released against one that had not.
+		SyncedChainID:   opts.SyncedChainID,
+		BlockID:         opts.BlockID,
+		EmittedBlockID:  opts.EmittedBlockID,
+		SyncedInBlockID: opts.SyncedInBlockID,
+		SyncData:        opts.SyncData,
+		Kind:            opts.Kind,
+
+		CanonicalTokenAddress:  opts.CanonicalTokenAddress,
+		CanonicalTokenSymbol:   opts.CanonicalTokenSymbol,
+		CanonicalTokenName:     opts.CanonicalTokenName,
+		CanonicalTokenDecimals: opts.CanonicalTokenDecimals,
+		Amount:                 opts.Amount,
 	}
 
 	r.events = append(r.events, event)

@@ -10,6 +10,7 @@ alethia-reth-consensus = { workspace = true }
 alethia-reth-primitives = { workspace = true, features = ["net"] }
 alloy = { workspace = true }
 alloy-consensus = { workspace = true }
+alloy-contract = { workspace = true }
 alloy-eips = { workspace = true }
 alloy-primitives = { workspace = true }
 alloy-provider = { workspace = true }
@@ -34,7 +35,9 @@ protocol = { path = "../protocol" }
 rpc = { path = "../rpc" }
 
 [dev-dependencies]
+alloy-json-rpc = { workspace = true }
 alloy-rlp = { workspace = true }
+alloy-rpc-client = { workspace = true }
 alloy-signer = { workspace = true }
 alloy-signer-local = { workspace = true }
 alloy-transport = { workspace = true }
@@ -49,4 +52,5 @@ test-log = { workspace = true }
 # `test-util` enables paused-time (`start_paused`) unit tests; the workspace default is `full`,
 # which does not include it.
 tokio = { workspace = true, features = ["test-util"] }
+tower = { workspace = true }
 tracing-subscriber = { workspace = true }

@@ -45,7 +45,6 @@ func NewChainConfig(chainID *big.Int, _ uint64) *ChainConfig {
 // NetworkNames are user friendly names to use in the chain spec banner.
 var NetworkNames = map[uint64]string{
 	params.TaikoInternalNetworkID.Uint64(): "Taiko Internal Devnet",
-	params.MasayaDevnetNetworkID.Uint64():  "Taiko Masaya Devnet",
 	params.TaikoHoodiNetworkID.Uint64():    "Taiko Hoodi Testnet",
 	params.TaikoMainnetNetworkID.Uint64():  "Taiko Mainnet",
 }
@@ -102,13 +101,6 @@ func (c *ChainConfig) forkInfo() (forkInfo, bool) {
 			pacayaBlock: gethcore.InternalDevnetPacayaBlock,
 			shastaTime:  gethcore.InternalShastaTime,
 			unzenTime:   gethcore.DevnetUnzenTime,
-		}, true
-	case params.MasayaDevnetNetworkID.Uint64():
-		return forkInfo{
-			ontakeBlock: gethcore.MasayaDevnetOntakeBlock,
-			pacayaBlock: gethcore.MasayaDevnetPacayaBlock,
-			shastaTime:  gethcore.MasayaShastaTime,
-			unzenTime:   gethcore.MasayaUnzenTime,
 		}, true
 	case params.TaikoHoodiNetworkID.Uint64():
 		return forkInfo{

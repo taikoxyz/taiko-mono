@@ -28,7 +28,8 @@ use tokio::time::{MissedTickBehavior, interval};
 use tracing::{debug, info, instrument, warn};
 
 use super::{
-    FINALIZED_BLOCK_NOT_FOUND, SyncError, SyncStage, checkpoint_resume_head::CheckpointResumeHead,
+    SyncError, SyncStage, checkpoint_resume_head::CheckpointResumeHead, contract_rpc_error,
+    is_finalized_block_not_found, is_historical_state_unavailable,
 };
 use crate::{config::DriverConfig, error::DriverError, metrics::DriverMetrics};
 
@@ -87,15 +88,27 @@ impl BeaconSyncer {
             .await
         {
             Ok(core_state) => core_state,
-            Err(err) if err.to_string().contains(FINALIZED_BLOCK_NOT_FOUND) => self
-                .rpc
-                .shasta
-                .inbox
-                .getCoreState()
-                .call()
-                .await
-                .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?,
-            Err(err) => return Err(SyncError::Rpc(RpcClientError::Provider(err.to_string()))),
+            Err(err)
+                if contract_rpc_error(&err)
+                    .is_some_and(|(code, message)| is_finalized_block_not_found(code, message)) =>
+            {
+                self.rpc
+                    .shasta
+                    .inbox
+                    .getCoreState()
+                    .call()
+                    .await
+                    .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
+            }
+            Err(err) => {
+                let historical_state_message = contract_rpc_error(&err)
+                    .filter(|(code, message)| is_historical_state_unavailable(*code, message))
+                    .map(|(_, message)| message.to_owned());
+                if let Some(message) = historical_state_message {
+                    return Err(SyncError::HistoricalStateUnavailable { message });
+                }
+                return Err(SyncError::Rpc(RpcClientError::Provider(err.to_string())));
+            }
         };
 
         Ok(FinalizedSyncTarget {
@@ -244,6 +257,11 @@ impl SyncStage for BeaconSyncer {
                     target_seen_once = true;
                     target
                 }
+                Err(err @ SyncError::HistoricalStateUnavailable { .. }) => {
+                    DriverMetrics::beacon_sync_finalized_state_unavailable_total().inc();
+                    warn!(error = %err, "finalized L1 state is temporarily unavailable; retrying");
+                    continue;
+                }
                 Err(err) => {
                     let err = super::retryable_after_first_success(target_seen_once, err)?;
                     warn!(error = %err, "failed to read finalized sync target from L1; retrying");
@@ -389,6 +407,143 @@ impl SyncStage for BeaconSyncer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloy::{primitives::Bytes, sol_types::SolCall};
+    use alloy_provider::ProviderBuilder;
+    use alloy_transport::mock::Asserter;
+    use bindings::inbox::{IInbox::CoreState, Inbox::getCoreStateCall};
+
+    use crate::test_support::{mock_client_with_asserters, mock_client_with_l1_asserter};
+
+    fn push_geth_server_error(asserter: &Asserter, message: &str) {
+        asserter.push_failure(alloy_json_rpc::ErrorPayload {
+            code: -32000,
+            message: message.to_owned().into(),
+            data: None,
+        });
+    }
+
+    fn empty_core_state() -> CoreState {
+        CoreState {
+            nextProposalId: Default::default(),
+            lastProposalBlockId: Default::default(),
+            lastFinalizedProposalId: Default::default(),
+            lastFinalizedTimestamp: Default::default(),
+            lastCheckpointTimestamp: Default::default(),
+            lastFinalizedBlockHash: B256::ZERO,
+        }
+    }
+
+    #[test_log::test(tokio::test(start_paused = true))]
+    async fn run_retries_historical_state_gap_before_first_finalized_target() {
+        let unavailable_before =
+            DriverMetrics::beacon_sync_finalized_state_unavailable_total().get();
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        l2_asserter.push_success(&0u64);
+        push_geth_server_error(
+            &l1_asserter,
+            concat!(
+                "historical state ",
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                " is not available"
+            ),
+        );
+        l2_asserter.push_success(&0u64);
+        l1_asserter
+            .push_success(&Bytes::from(getCoreStateCall::abi_encode_returns(&empty_core_state())));
+
+        let checkpoint_resume_head = Arc::new(CheckpointResumeHead::default());
+        let syncer = BeaconSyncer {
+            retry_interval: Duration::from_secs(1),
+            rpc: mock_client_with_asserters(
+                l1_asserter.clone(),
+                l2_asserter.clone(),
+                Asserter::new(),
+                Default::default(),
+            ),
+            checkpoint: Some(
+                ProviderBuilder::new()
+                    .disable_recommended_fillers()
+                    .connect_mocked_client(Asserter::new()),
+            ),
+            checkpoint_resume_head: checkpoint_resume_head.clone(),
+        };
+        let run = syncer.run();
+        tokio::pin!(run);
+
+        assert!(
+            tokio::time::timeout(Duration::from_millis(100), &mut run).await.is_err(),
+            "known historical-state gap must remain pending before the first successful target"
+        );
+        tokio::time::advance(Duration::from_secs(1)).await;
+        tokio::time::timeout(Duration::from_millis(100), &mut run)
+            .await
+            .expect("beacon sync should retry on the next poll")
+            .expect("beacon sync should accept the retried finalized target");
+
+        assert_eq!(checkpoint_resume_head.get(), Some(0));
+        assert!(
+            DriverMetrics::beacon_sync_finalized_state_unavailable_total().get() >
+                unavailable_before,
+            "beacon sync must expose the degraded finalized-state read"
+        );
+        assert!(l1_asserter.read_q().is_empty());
+        assert!(l2_asserter.read_q().is_empty());
+    }
+
+    #[test_log::test(tokio::test(start_paused = true))]
+    async fn run_fails_fast_on_unrelated_error_before_first_finalized_target() {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        l2_asserter.push_success(&0u64);
+        push_geth_server_error(&l1_asserter, "historical state database is not available");
+
+        let syncer = BeaconSyncer {
+            retry_interval: Duration::from_secs(1),
+            rpc: mock_client_with_asserters(
+                l1_asserter,
+                l2_asserter,
+                Asserter::new(),
+                Default::default(),
+            ),
+            checkpoint: Some(
+                ProviderBuilder::new()
+                    .disable_recommended_fillers()
+                    .connect_mocked_client(Asserter::new()),
+            ),
+            checkpoint_resume_head: Arc::new(CheckpointResumeHead::default()),
+        };
+
+        let err = tokio::time::timeout(Duration::from_millis(100), syncer.run())
+            .await
+            .expect("unrelated startup error must not enter the retry loop")
+            .expect_err("unrelated startup error must fail fast");
+
+        assert!(matches!(err, SyncError::Rpc(RpcClientError::Provider(_))));
+    }
+
+    #[tokio::test]
+    async fn finalized_target_uses_latest_only_before_first_l1_finality() {
+        let l1_asserter = Asserter::new();
+        push_geth_server_error(&l1_asserter, crate::sync::FINALIZED_BLOCK_NOT_FOUND);
+        l1_asserter
+            .push_success(&Bytes::from(getCoreStateCall::abi_encode_returns(&empty_core_state())));
+        let syncer = BeaconSyncer {
+            retry_interval: Duration::from_secs(1),
+            rpc: mock_client_with_l1_asserter(l1_asserter.clone()),
+            checkpoint: None,
+            checkpoint_resume_head: Arc::new(CheckpointResumeHead::default()),
+        };
+
+        let target = syncer
+            .finalized_sync_target()
+            .await
+            .expect("fresh devnet should use latest until its first finalized block exists");
+
+        assert_eq!(target.proposal_id, 0);
+        assert_eq!(target.block_hash, B256::ZERO);
+        assert!(l1_asserter.read_q().is_empty());
+    }
 
     #[test]
     fn checkpoint_forkchoice_accepts_syncing_and_valid() {

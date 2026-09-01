@@ -14,12 +14,15 @@
             }
           },
           "url": {
-            "type": "string"
+            "type": "string",
+            "format": "http-url"
           }
         },
-        "required": ["chainIds", "url"]
+        "required": ["chainIds", "url"],
+        "additionalProperties": false
       }
     }
   },
-  "required": ["configuredRelayer"]
+  "required": ["configuredRelayer"],
+  "additionalProperties": false
 }

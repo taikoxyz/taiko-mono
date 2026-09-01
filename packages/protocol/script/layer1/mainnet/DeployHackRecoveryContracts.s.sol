@@ -3,15 +3,15 @@ pragma solidity ^0.8.24;
 
 import { Script, console2 } from "forge-std/src/Script.sol";
 import { LibL1Addrs } from "src/layer1/mainnet/LibL1Addrs.sol";
-import { MainnetBridge } from "src/layer1/mainnet/MainnetBridge.sol";
-import { MainnetERC20Vault } from "src/layer1/mainnet/MainnetERC20Vault.sol";
 import { MainnetInbox } from "src/layer1/mainnet/MainnetInbox.sol";
 import { MainnetVerifier } from "src/layer1/mainnet/MainnetVerifier.sol";
 import { SecureSgxVerifier } from "src/layer1/verifiers/SecureSgxVerifier.sol";
 import { LibL2Addrs } from "src/layer2/mainnet/LibL2Addrs.sol";
+import { Bridge } from "src/shared/bridge/Bridge.sol";
 import { QuotaManager } from "src/shared/bridge/QuotaManager.sol";
 import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
+import { ERC20Vault } from "src/shared/vault/ERC20Vault.sol";
 
 /// @title DeployHackRecoveryContracts
 /// @notice Deploys mainnet implementation contracts for the hack recovery upgrade bundle.
@@ -68,7 +68,7 @@ contract DeployHackRecoveryContracts is Script {
         );
 
         deployment_.mainnetBridgeImpl = address(
-            new MainnetBridge(
+            new Bridge(
                 LibL1Addrs.SHARED_RESOLVER,
                 LibL1Addrs.SIGNAL_SERVICE,
                 deployment_.quotaManager,
@@ -77,7 +77,7 @@ contract DeployHackRecoveryContracts is Script {
         );
 
         deployment_.mainnetErc20VaultImpl =
-            address(new MainnetERC20Vault(LibL1Addrs.SHARED_RESOLVER, deployment_.quotaManager));
+            address(new ERC20Vault(LibL1Addrs.SHARED_RESOLVER, deployment_.quotaManager));
 
         deployment_.sgxGethVerifier = address(
             new SecureSgxVerifier(

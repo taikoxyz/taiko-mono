@@ -8,6 +8,7 @@ import type { BridgeConfig, ConfiguredBridgesType, RoutingMap } from '../../src/
 import { decodeBase64ToJson } from '../utils/decodeBase64ToJson';
 import { formatSourceFile } from '../utils/formatSourceFile';
 import { PluginLogger } from '../utils/PluginLogger';
+import { toTsLiteral } from '../utils/toTsLiteral';
 import { validateJsonAgainstSchema } from '../utils/validateJson';
 
 dotenv.config();
@@ -87,22 +88,7 @@ async function storeTypes(sourceFile: SourceFile) {
 
 async function buildBridgeConfig(sourceFile: SourceFile, configuredBridgesConfigFile: ConfiguredBridgesType) {
   logger.info('Building bridge config...');
-  const routingContractsMap: RoutingMap = {};
 
-  const bridges: ConfiguredBridgesType = configuredBridgesConfigFile;
-
-  if (!skip) {
-    if (!bridges.configuredBridges || !Array.isArray(bridges.configuredBridges)) {
-      logger.error('configuredBridges is not an array. Please check the content of the configuredBridgesConfigFile.');
-      throw new Error();
-    }
-    bridges.configuredBridges.forEach((item: BridgeConfig) => {
-      if (!routingContractsMap[item.source]) {
-        routingContractsMap[item.source] = {};
-      }
-      routingContractsMap[item.source][item.destination] = item.addresses;
-    });
-  }
   if (skip) {
     // Add empty routingContractsMap variable
     sourceFile.addVariableStatement({
@@ -117,47 +103,46 @@ async function buildBridgeConfig(sourceFile: SourceFile, configuredBridgesConfig
       isExported: true,
     });
     logger.info(`Skipped bridge.`);
-  } else {
-    // Add routingContractsMap variable
-    sourceFile.addVariableStatement({
-      declarationKind: VariableDeclarationKind.Const,
-      declarations: [
-        {
-          name: 'routingContractsMap',
-          type: 'RoutingMap',
-          initializer: _formatObjectToTsLiteral(routingContractsMap),
-        },
-      ],
-      isExported: true,
-    });
-    logger.info(`Configured ${bridges.configuredBridges.length} bridges.`);
+    return sourceFile;
   }
+
+  const bridges: ConfiguredBridgesType = configuredBridgesConfigFile;
+
+  // Add routingContractsMap variable
+  sourceFile.addVariableStatement({
+    declarationKind: VariableDeclarationKind.Const,
+    declarations: [
+      {
+        name: 'routingContractsMap',
+        type: 'RoutingMap',
+        initializer: _formatObjectToTsLiteral(_buildRoutingMap(bridges)),
+      },
+    ],
+    isExported: true,
+  });
+  logger.info(`Configured ${bridges.configuredBridges.length} bridges.`);
+
   return sourceFile;
 }
 
-const _formatObjectToTsLiteral = (obj: RoutingMap): string => {
-  const formatValue = (value: string | number | boolean | null | object): string => {
-    if (typeof value === 'string') {
-      return `"${value}"`;
-    }
-    if (typeof value === 'object') {
-      return JSON.stringify(value);
-    }
-    return String(value);
-  };
+// Builds the source -> destination routing map. Both levels are null-prototype objects so that a
+// config-supplied source/destination such as `__proto__` is stored as data instead of reaching
+// Object.prototype. Exported for testing.
+export const _buildRoutingMap = (bridges: ConfiguredBridgesType): RoutingMap => {
+  if (!bridges.configuredBridges || !Array.isArray(bridges.configuredBridges)) {
+    logger.error('configuredBridges is not an array. Please check the content of the configuredBridgesConfigFile.');
+    throw new Error();
+  }
 
-  const entries = Object.entries(obj);
-  const formattedEntries = entries.map(([key, value]) => {
-    const innerEntries = Object.entries(value);
-    const innerFormattedEntries = innerEntries.map(([innerKey, innerValue]) => {
-      const innerInnerEntries = Object.entries(innerValue);
-      const innerInnerFormattedEntries = innerInnerEntries.map(
-        ([innerInnerKey, innerInnerValue]) => `${innerInnerKey}: ${formatValue(innerInnerValue)}`,
-      );
-      return `${innerKey}: {${innerInnerFormattedEntries.join(', ')}}`;
-    });
-    return `${key}: {${innerFormattedEntries.join(', ')}}`;
+  const routingContractsMap: RoutingMap = Object.create(null);
+  bridges.configuredBridges.forEach((item: BridgeConfig) => {
+    if (!Object.prototype.hasOwnProperty.call(routingContractsMap, item.source)) {
+      routingContractsMap[item.source] = Object.create(null);
+    }
+    routingContractsMap[item.source][item.destination] = item.addresses;
   });
 
-  return `{${formattedEntries.join(', ')}}`;
+  return routingContractsMap;
 };
+
+export const _formatObjectToTsLiteral = (obj: RoutingMap): string => toTsLiteral(obj);

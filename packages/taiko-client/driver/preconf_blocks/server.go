@@ -64,6 +64,10 @@ type preconfBlockChainSyncer interface {
 	InsertPreconfBlocksFromEnvelopes(context.Context, []*preconf.Envelope, bool) ([]*types.Header, error)
 }
 
+type gossipSubTopicPeerLister interface {
+	ListPeers(string) []peer.ID
+}
+
 // @title Taiko Preconfirmation Block Server API
 // @version 1.0
 // @termsOfService http://swagger.io/terms/
@@ -82,8 +86,9 @@ type PreconfBlockAPIServer struct {
 	anchorValidator               *validator.AnchorTxValidator
 	highestUnsafeL2PayloadBlockID uint64
 	// P2P network for preconfirmation block propagation
-	p2pNode   *p2p.NodeP2P
-	p2pSigner p2p.Signer
+	p2pNode             *p2p.NodeP2P
+	p2pSigner           p2p.Signer
+	gossipSubTopicPeers gossipSubTopicPeerLister
 	// WebSocket server for preconfirmation block notifications
 	ws *webSocketSever
 	// Lookahead information for the current and next operator
@@ -179,6 +184,7 @@ func New(
 // SetP2PNode sets the P2P node for the preconfirmation block server.
 func (s *PreconfBlockAPIServer) SetP2PNode(p2pNode *p2p.NodeP2P) {
 	s.p2pNode = p2pNode
+	s.gossipSubTopicPeers = p2pNode.GossipSub()
 }
 
 // SetP2PSigner sets the P2P signer for the preconfirmation block server.
@@ -794,6 +800,17 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 				}
 
 				publishRequest := func() {
+					// Skipping here leaves `blockRequestsCache` untouched on purpose, so a later
+					// inbound payload can drive this walk again once a peer can answer.
+					if !s.hasPreconfBlockRequestPeers() {
+						log.Info(
+							"No peers on preconfirmation block request topic, skip publishing L2Request",
+							"blockID", parentNum,
+							"hash", currentPayload.Payload.ParentHash.Hex(),
+						)
+						return
+					}
+
 					log.Info(
 						"Publishing preconfirmation block request",
 						"blockID", parentNum,
@@ -881,6 +898,22 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 	metrics.DriverImportedPreconBlocksFromCacheCounter.Add(float64(len(payloadsToImport)))
 
 	return nil
+}
+
+// hasPreconfBlockRequestPeers reports whether any connected peer is subscribed to the
+// preconfirmation block request topic. Publishing to a topic nobody listens on still succeeds,
+// and would consume the `blockRequestsCache` slot for that parent hash, so the caller skips the
+// request instead of burning it on a message no one receives.
+//
+// The topic string mirrors `preconfBlocksRequestTopic` in the op-node fork, which does not
+// export it.
+func (s *PreconfBlockAPIServer) hasPreconfBlockRequestPeers() bool {
+	if s.gossipSubTopicPeers == nil || s.rpc == nil || s.rpc.L2 == nil || s.rpc.L2.ChainID == nil {
+		return false
+	}
+
+	topic := fmt.Sprintf("/taiko/%s/0/requestPreconfBlocks", s.rpc.L2.ChainID.String())
+	return len(s.gossipSubTopicPeers.ListPeers(topic)) > 0
 }
 
 // ImportChildBlocksFromCache tries to import the longest cached child envelopes from the cached payload queue.

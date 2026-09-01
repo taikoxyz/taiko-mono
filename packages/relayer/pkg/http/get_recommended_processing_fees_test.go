@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"math"
 	"math/big"
 	"testing"
 
@@ -117,4 +118,59 @@ func blockWithBaseFee(baseFee *big.Int) *types.Block {
 	header.BaseFee = baseFee
 
 	return types.NewBlockWithHeader(&header)
+}
+
+func Test_FeeTypeString(t *testing.T) {
+	// The string is the "type" field of every fee in the API response, so a wrong or empty one
+	// silently changes a published contract.
+	tests := map[FeeType]string{
+		Eth:                "eth",
+		ERC20Deployed:      "erc20Deployed",
+		ERC20NotDeployed:   "erc20NotDeployed",
+		ERC721Deployed:     "erc721Deployed",
+		ERC721NotDeployed:  "erc721NotDeployed",
+		ERC1155Deployed:    "erc1155Deployed",
+		ERC1155NotDeployed: "erc1155NotDeployed",
+	}
+
+	for feeType, want := range tests {
+		assert.Equal(t, want, feeType.String())
+	}
+
+	// Every type the handler iterates has to name itself, or a fee would be published under "".
+	for _, feeType := range feeTypes {
+		assert.NotEmpty(t, feeType.String(), "fee type %d has no name", uint64(feeType))
+	}
+
+	assert.Equal(t, "", FeeType(0).String(), "an unknown gas limit has no name")
+}
+
+func Test_parseMultiplier(t *testing.T) {
+	tests := []struct {
+		name       string
+		multiplier float64
+		want       *big.Rat
+	}{
+		{name: "one is the identity", multiplier: 1, want: big.NewRat(1, 1)},
+		{name: "a normal multiplier", multiplier: 1.5, want: big.NewRat(3, 2)},
+		{name: "many decimal places survive", multiplier: 1.125, want: big.NewRat(9, 8)},
+		{
+			// Below one would quote a fee under cost, so it is floored rather than honoured.
+			name:       "below one falls back to one",
+			multiplier: 0.5,
+			want:       big.NewRat(1, 1),
+		},
+		{name: "zero falls back to one", multiplier: 0, want: big.NewRat(1, 1)},
+		{name: "negative falls back to one", multiplier: -2, want: big.NewRat(1, 1)},
+		{name: "NaN falls back to one", multiplier: math.NaN(), want: big.NewRat(1, 1)},
+		{name: "+Inf falls back to one", multiplier: math.Inf(1), want: big.NewRat(1, 1)},
+		{name: "-Inf falls back to one", multiplier: math.Inf(-1), want: big.NewRat(1, 1)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Zero(t, parseMultiplier(tt.multiplier).Cmp(tt.want),
+				"got %s want %s", parseMultiplier(tt.multiplier), tt.want)
+		})
+	}
 }
