@@ -58,19 +58,36 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// value-bearing CALL additionally grants the callee the unchanged 2,300 stipend). The
     /// figures below are historical transaction-level measurements that include the 21k intrinsic
     /// cost (an EOA callee consumes ~0 gas), so the callee-side margin is far larger than they
-    /// suggest. State-access repricing forks such as EIP-8038 raise mostly caller-side costs
-    /// (value-transfer account write, cold-recipient access) that are paid by this contract
-    /// before forwarding and do not draw on this budget, so no headroom bump is needed for them.
-    /// State-creation repricing (EIP-8037, scheduled for Glamsterdam) does draw on this budget:
-    /// creating a fresh storage slot charges 64 state bytes * 1,530 gas/byte = 97,920 gas, and
-    /// unless the transaction buys gas beyond the 16.7M per-transaction execution cap (which no
-    /// realistic claim transaction does, leaving its state-gas reservoir empty), that charge is
-    /// deducted from the callee frame's own gas. A smart wallet that writes a single fresh slot
-    /// when receiving Ether would then run out of gas under the previous 35,000 cap, and since a
-    /// failed send reverts processing, its messages would become unclaimable. The cap is
-    /// therefore the legacy 35,000 callee budget plus one EIP-8037 slot-creation charge
-    /// (97,920), rounded up — wallets that fit before the fork still fit after it, as long as
-    /// their receive path creates at most one storage slot.
+    /// suggest. Glamsterdam reprices state on two axes and both reach this budget. EIP-8038
+    /// (state access) raises ACCOUNT_WRITE 6,700 -> 9,000 and COLD_ACCOUNT_ACCESS 2,600 -> 3,000,
+    /// which this contract pays before forwarding, but it also raises STORAGE_WRITE 2,800 ->
+    /// 10,000 in the frame doing the write: +7,100 on a cold existing-slot write, +7,200 on a
+    /// warm one. EIP-8037 (state creation) meters a *fresh* slot as 64 state bytes * 1,530
+    /// gas/byte = 97,920 of state gas; unless the transaction buys gas beyond the 16.7M
+    /// per-transaction execution cap (which no realistic claim transaction does, leaving its
+    /// state-gas reservoir empty), that charge also falls on the callee frame. A fresh cold slot
+    /// therefore goes from 2,100 + 20,000 = 22,100 today to 2,100 + 10,000 + 97,920 = 110,020.
+    /// A smart wallet writing one fresh slot on receive would run out of gas under the previous
+    /// 35,000 cap, and since a failed send reverts processing its messages would become
+    /// unclaimable. Preserving that wallet's budget costs 35,000 - 22,100 + 110,020 = 122,920;
+    /// the cap was sized as 35,000 + 97,920 rounded up, before EIP-8038 was accounted for, and
+    /// still clears that requirement with roughly 12,000 to spare.
+    /// That margin is what this number buys, and it is NOT a general "fits before, fits after"
+    /// guarantee — do not read it as one. Glamsterdam reprices enough distinct operations that a
+    /// receive path within the old budget can exceed this one while looking modest. Account
+    /// creation costs 120 state bytes = 183,600, so forwarding value to a never-used address or
+    /// running CREATE fits today and not after. STORAGE_WRITE is charged on every departure from
+    /// a slot's transaction-start value, and the restoring credit goes only to the transaction
+    /// refund counter, so a slot driven away from that value repeatedly (x->y->x->z) bills 10,000
+    /// each departure while the frame's own gas never gets the credit back — note this is per
+    /// departure, not per write: a plain x->y->z pays the write once and WARM_ACCESS thereafter.
+    /// A single extra warm existing-slot write in the receive path costs +7,200, which is already
+    /// 60% of the margin above. Smaller effects add up rather than dominate: EXTCODESIZE now
+    /// bills two warm accesses rather than one, but that is only +100 warm (+500 cold), so it
+    /// takes on the order of 75 of them to matter. Recipients doing more than one fresh slot's
+    /// worth of bookkeeping should be measured against the new schedule rather than assumed safe.
+    /// Both EIP-8037 and EIP-8038 are still in Review; re-check every figure here before the
+    /// fork.
     // - EOA gas used is < 21000
     // - For Loopring smart wallet, gas used is about 23000
     // - For Argent smart wallet on Ethereum, gas used is about 24000
