@@ -28,6 +28,27 @@ describe('getLoadWarning', () => {
     });
   });
 
+  it('does not blame the relayer for a history cut off at the page backstop', () => {
+    // The relayer answered every page it was asked for; the backstop is ours. Reusing
+    // "did not respond" here would be the same misattribution aimed at a different cause.
+    const truncated = new Error('Relayer history truncated at 10 pages');
+    truncated.name = 'RelayerHistoryTruncatedError';
+
+    expect(getLoadWarning({ error: truncated, failedCount: 0 })).toEqual({
+      key: 'transactions.errors.history_truncated',
+    });
+  });
+
+  it('prefers the per-message count over a truncated history when both apply', () => {
+    const truncated = new Error('Relayer history truncated at 10 pages');
+    truncated.name = 'RelayerHistoryTruncatedError';
+
+    expect(getLoadWarning({ error: truncated, failedCount: 2 })).toEqual({
+      key: 'transactions.errors.partial_load',
+      values: { count: 2 },
+    });
+  });
+
   it('does not use the combined message when only the relayer failed', () => {
     expect(getLoadWarning({ error: new Error('relayer down'), failedCount: 0 })).toEqual({
       key: 'transactions.errors.relayer_offline',

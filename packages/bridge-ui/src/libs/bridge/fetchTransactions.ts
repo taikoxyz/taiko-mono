@@ -11,6 +11,18 @@ import { type BridgeTransaction, MessageStatus } from './types';
 
 const log = getLogger('bridge:fetchTransactions');
 
+/**
+ * The page backstop was reached, so the history shown is real but incomplete. Distinct from a
+ * relayer that failed, because the two need different words: this one is not the relayer's fault
+ * and "did not respond" would be the same misattribution this file exists to remove.
+ */
+export class RelayerHistoryTruncatedError extends Error {
+  constructor(pages: number) {
+    super(`Relayer history truncated at ${pages} pages; older transactions are not shown`);
+    this.name = 'RelayerHistoryTruncatedError';
+  }
+}
+
 const RELAYER_PAGE_SIZE = 500;
 // Backstop against unbounded relayer histories; each page is one API call
 const MAX_RELAYER_PAGES = 10;
@@ -61,7 +73,7 @@ async function fetchAllRelayerPages(
       return {
         txs,
         failedTxs,
-        error: new Error(`Relayer history truncated at ${MAX_RELAYER_PAGES} pages; older transactions are not shown`),
+        error: new RelayerHistoryTruncatedError(MAX_RELAYER_PAGES),
       };
     }
   }
@@ -141,12 +153,18 @@ export async function fetchTransactions(userAddress: Address, chainId?: number) 
   //
   // Compared with isSameBridgeTx rather than by transaction hash, because the two sides are not
   // identified the same way: a failed relayer row knows its message hash while the local row that
-  // rescues it usually does not, and two messages from one transaction share a transaction hash
-  // without being interchangeable. Reusing the shared predicate keeps this from drifting from the
-  // rule the list itself is deduplicated by.
-  const failedCount = [...failedByKey.values()].filter(
-    (failed) => !mergedTransactions.some((tx) => isSameBridgeTx(failed, tx)),
-  ).length;
+  // rescues it usually does not.
+  //
+  // Each row rescues at most one failure. That only matters for the transaction-hash fallback,
+  // which is ambiguous: a local row carries no message hash, so it cannot tell which of several
+  // messages from its transaction it stands for - and it stands for one of them, not all. Exact
+  // message matches are one-to-one anyway, so consuming them changes nothing there.
+  const unrescued = [...failedByKey.values()];
+  for (const tx of mergedTransactions) {
+    const rescued = unrescued.findIndex((failed) => isSameBridgeTx(failed, tx));
+    if (rescued !== -1) unrescued.splice(rescued, 1);
+  }
+  const failedCount = unrescued.length;
 
   if (outdatedLocalTransactions.length > 0) {
     log(

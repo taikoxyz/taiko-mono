@@ -196,6 +196,22 @@ describe('fetchTransactions', () => {
     expect(failedCount).toBe(0);
   });
 
+  it('lets a local row stand in for one message of its transaction, not every one', async () => {
+    // Given: a batching wallet sent one transaction that emitted two messages, and both failed to
+    // enhance. The local row carries no message hash, so it cannot say which of the two it is -
+    // it stands for one of them. Letting it absorb both would report a complete history while a
+    // claimable message is missing from the list.
+    getLocalTxs.mockResolvedValue([tx('0xtx')]);
+    getAllByAddress.mockResolvedValueOnce(page([], 0, [failedRow('0xtx', '0xmsgA'), failedRow('0xtx', '0xmsgB')]));
+
+    // When
+    const { failedCount, mergedTransactions } = await fetchTransactions(ADDRESS);
+
+    // Then: one row on screen, one message still unaccounted for
+    expect(mergedTransactions).toHaveLength(1);
+    expect(failedCount).toBe(1);
+  });
+
   it('still counts a failed message when a sibling message of the same transaction loaded', async () => {
     // Given: one transaction emitted two messages. 0xmsgB loaded, 0xmsgA did not. They share a
     // transaction hash but are claimed separately, so the one that loaded cannot stand in for

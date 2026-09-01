@@ -50,6 +50,15 @@ describe('createTransports', () => {
     expect(urls).toEqual(['https://l1.example/', 'https://l2.example/']);
   });
 
+  it('refuses to build a transport for a chain with no RPC URL', () => {
+    // An empty `http` array would resolve to undefined and hand the shared-scheduler trap back,
+    // silently - reads would still resolve, against the wrong chain's endpoint. Failing here is
+    // the signal misrouting never gives you.
+    expect(() =>
+      createTransports([{ id: 1, rpcUrls: { default: { http: [] } } }] as unknown as readonly Chain[]),
+    ).toThrow(/no RPC URL/);
+  });
+
   it('keeps the batch size bounded so one rate-limited request cannot drop a whole page', () => {
     expect(RPC_BATCH_CONFIG.batchSize).toBe(50);
     // wait must be non-zero: the second read wave resolves on later ticks and would not group.

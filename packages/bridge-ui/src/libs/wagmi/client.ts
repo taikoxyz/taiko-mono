@@ -24,7 +24,16 @@ export function createTransports(chains: readonly Chain[]) {
       // Pass the resolved URL, never undefined: viem 2.9.31 keys its batch scheduler on the URL
       // *argument* and caches schedulers in a module-level map, so http(undefined, ...) would give
       // every chain the same scheduler and send one chain's reads to another chain's endpoint.
-      return { ...acc, [id]: http(chain.rpcUrls.default.http[0], { batch: RPC_BATCH_CONFIG }) };
+      const url = chain.rpcUrls.default.http[0];
+
+      // A chain configured with an empty `http` array would hand `undefined` straight back into
+      // that trap, and silently: reads would still resolve, just against another chain's endpoint.
+      // Refusing to build the config is the loud failure that misrouting never gives you - one of
+      // its symptoms is an uncloseable "bridge is paused" modal for every user, because
+      // checkForPausedContracts reads `paused` per chain and treats an unreadable answer as paused.
+      if (!url) throw new Error(`Chain ${id} has no RPC URL configured; batched transports need one per chain`);
+
+      return { ...acc, [id]: http(url, { batch: RPC_BATCH_CONFIG }) };
     },
     {} as Record<number, ReturnType<typeof http>>,
   );
