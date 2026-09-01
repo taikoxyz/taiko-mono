@@ -63,14 +63,16 @@ contract TestBridge2_recallMessage is TestBridge2Base {
     }
 
     /// @dev A recalled message must be able to return its value to a smart-wallet srcOwner that
-    /// creates fresh storage slots when receiving Ether (~112k gas here, comparable to one fresh
-    /// slot plus overhead under EIP-8037), which exceeded the previous 35k send cap.
+    /// creates fresh storage slots when receiving Ether (5+1 slots, ~133k gas here, clearing the
+    /// 122,920 a one-slot wallet needs after Glamsterdam), far above the previous 35k send cap.
     function test_bridge2_recallMessage_storage_creating_wallet_srcOwner()
         public
         transactBy(Carol)
     {
         MessageReceiver_CreatingFreshStorageSlots wallet =
-            new MessageReceiver_CreatingFreshStorageSlots(4);
+            new MessageReceiver_CreatingFreshStorageSlots(5);
+
+        uint256 totalBalance = getBalanceForAccounts() + address(wallet).balance;
 
         IBridge.Message memory message;
         message.srcOwner = address(wallet);
@@ -88,6 +90,7 @@ contract TestBridge2_recallMessage is TestBridge2Base {
 
         assertEq(address(wallet).balance, 1 ether);
         assertEq(wallet.receiveCount(), 1);
+        assertEq(getBalanceForAccounts() + address(wallet).balance, totalBalance);
     }
 
     function test_bridge2_recallMessage_callable_sender() public dealEther(Carol) {
