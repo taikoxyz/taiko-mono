@@ -1,6 +1,6 @@
 import type { Hex } from 'viem';
 
-import { FailedTransactionError } from '$libs/error';
+import { ReceiptUnavailableError, TransactionTimeoutError } from '$libs/error';
 import { pendingTransactions } from '$stores/pendingTransactions';
 
 /**
@@ -27,8 +27,12 @@ export const awaitDialogTransaction = async (txHash: Hex, chainId: number): Prom
     await pendingTransactions.add(txHash, chainId);
     return 'confirmed';
   } catch (error) {
-    // Every other rejection - a timeout, an unreadable receipt, anything unrecognised -
-    // leaves the transaction's fate unknown, and unknown is not failed
-    return error instanceof FailedTransactionError ? 'failed' : 'pending';
+    // Named, not inferred from "not a failure". These two are the only rejections that mean
+    // the wait gave up; anything else - a bug here, a new error type - would otherwise be
+    // dressed up as "your transaction may still confirm" and leave the action disabled with
+    // the real error buried. ConfirmationStep already classifies this way; this is the same
+    // rule for the dialogs.
+    const waitGaveUp = error instanceof TransactionTimeoutError || error instanceof ReceiptUnavailableError;
+    return waitGaveUp ? 'pending' : 'failed';
   }
 };

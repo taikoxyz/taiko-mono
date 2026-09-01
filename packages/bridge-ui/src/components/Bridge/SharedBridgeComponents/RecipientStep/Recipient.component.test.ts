@@ -79,7 +79,9 @@ const mount = (): Mounted => {
 
 /** Drives the dialog to a classified smart-contract recipient */
 const withContractRecipient = async () => {
-  isSmartContract.mockResolvedValue(true);
+  // Address-aware, not a blanket true: the destination owner is classified through the same
+  // helper now, and answering "contract" for it too would block Confirm for the wrong reason
+  isSmartContract.mockImplementation((addr: unknown) => Promise.resolve(addr === CONTRACT));
   const m = mount();
   await m.type(m.recipientInput(), CONTRACT);
   await flush();
@@ -154,6 +156,19 @@ describe('Recipient dialog', () => {
 
     expect(m.confirmButton.disabled).toBe(false);
     expect(get(destOwnerAddress)).toBe(DEST_OWNER);
+  });
+
+  it('blocks Confirm for a destination owner that is itself a contract', async () => {
+    // The fallback processor has to be able to call processMessage. This check was commented
+    // out here while the standalone DestOwner dialog enforced it - two paths to the same
+    // store disagreeing, and on a gasLimit-0 message that strands the funds.
+    const m = await withContractRecipient();
+
+    await m.type(m.destOwnerInput() as HTMLInputElement, CONTRACT);
+    await flush();
+
+    expect(m.confirmButton.disabled).toBe(true);
+    expect(get(destOwnerAddress)).toBeNull();
   });
 
   it('blocks Confirm again when the destination owner draft is edited after validating', async () => {
@@ -296,7 +311,7 @@ describe('Recipient dialog', () => {
       // keep the contract recipient and its owner; the local validation record does not.
       recipientAddress.set(CONTRACT as never);
       destOwnerAddress.set(DEST_OWNER as never);
-      isSmartContract.mockResolvedValue(true);
+      isSmartContract.mockImplementation((addr: unknown) => Promise.resolve(addr === CONTRACT));
 
       const m = mount();
       const editButton = Array.from(m.target.querySelectorAll('button')).find((b) =>

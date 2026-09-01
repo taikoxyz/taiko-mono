@@ -42,7 +42,7 @@
   let prevDestOwnerAddress: Maybe<Address> = null;
 
   let recipientIsSmartContract = false;
-  // let destOwnerIsSmartContract = false;
+  let destOwnerIsSmartContract = false;
 
   // Classifying a recipient needs an RPC round trip. Until it resolves we do not know
   // whether a destination owner is required, so confirming stays blocked; a superseded
@@ -201,16 +201,46 @@
     }
   }
 
+  /**
+   * The destination owner is the fallback processor for a message the recipient cannot
+   * claim, so it has to be an account that can actually call processMessage. This check was
+   * commented out, which let a contract be committed here while the standalone DestOwner
+   * dialog refused one - two paths to the same store disagreeing, and on a gasLimit-0
+   * message the disagreement strands the funds.
+   */
+  let destOwnerValidationGeneration = 0;
+
   const validateDestOwner = async (addr: Address) => {
+    const generation = ++destOwnerValidationGeneration;
+    invalidDestOwner = false;
+
+    const destChainId = $destNetwork?.id;
+    if (!destChainId) {
+      validatedDestOwner = null;
+      return;
+    }
+
+    let isContract: boolean;
+    try {
+      isContract = await isSmartContract(addr, destChainId);
+    } catch (error) {
+      // An unreadable chain is not a classification; it must not stand in for one
+      console.error('Could not classify the destination owner', error);
+      if (generation !== destOwnerValidationGeneration) return;
+      validatedDestOwner = null;
+      destOwnerIsSmartContract = false;
+      return;
+    }
+
+    if (generation !== destOwnerValidationGeneration) return;
+    destOwnerIsSmartContract = isContract;
+    if (isContract) {
+      validatedDestOwner = null;
+      return;
+    }
+
     $destOwnerAddress = addr;
     validatedDestOwner = addr;
-    invalidDestOwner = false;
-    // if ($destNetwork?.id && (await isSmartContract(addr, $destNetwork.id))) {
-    //   destOwnerIsSmartContract = true;
-    //   // invalidDestOwner = true;
-    // } else {
-    //   destOwnerIsSmartContract = false;
-    // }
   };
 
   /**
@@ -297,6 +327,7 @@
     destChainId: $destNetwork?.id ?? null,
     invalidRecipient,
     invalidDestOwner,
+    destOwnerIsSmartContract,
     recipientIsSmartContract,
     validatingRecipient,
   });

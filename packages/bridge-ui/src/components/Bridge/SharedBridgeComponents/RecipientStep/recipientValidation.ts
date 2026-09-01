@@ -22,6 +22,8 @@ export type RecipientDialogState = {
   invalidRecipient: boolean;
   invalidDestOwner: boolean;
   recipientIsSmartContract: boolean;
+  /** Whether the destination owner entered is itself a contract */
+  destOwnerIsSmartContract: boolean;
   validatingRecipient: boolean;
 };
 
@@ -55,6 +57,10 @@ export function canConfirmRecipient(state: RecipientDialogState): boolean {
     // plain wallet the field is gone, and a flag left behind by a discarded draft would
     // block Confirm with no visible control that could clear it
     if (state.invalidDestOwner) return false;
+    // A contract destination owner cannot be relied on to call processMessage either, so it
+    // leaves a gasLimit-0 message with nobody able to process it. The standalone DestOwner
+    // dialog refuses one; this field writes the same store and must agree.
+    if (state.destOwnerIsSmartContract) return false;
     if (!state.destOwnerDraft) return false;
     if (!addressesEqual(state.validatedDestOwner, state.destOwnerDraft)) return false;
   }

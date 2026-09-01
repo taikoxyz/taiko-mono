@@ -15,6 +15,7 @@ const validState = (overrides: Partial<RecipientDialogState> = {}): RecipientDia
   invalidRecipient: false,
   invalidDestOwner: false,
   recipientIsSmartContract: false,
+  destOwnerIsSmartContract: false,
   validatingRecipient: false,
   ...overrides,
 });
@@ -111,5 +112,12 @@ describe('canConfirmRecipient', () => {
       // The owner field is gone, so nothing on screen could clear its error flag.
       expect(canConfirmRecipient(validState({ invalidDestOwner: true }))).toBe(true);
     });
+  });
+
+  it('refuses a destination owner that is itself a contract', () => {
+    // It cannot be relied on to call processMessage either, so a gasLimit-0 message would
+    // have nobody able to process it. The standalone DestOwner dialog refuses one and this
+    // field writes the same store.
+    expect(canConfirmRecipient(contractState({ destOwnerIsSmartContract: true }))).toBe(false);
   });
 });
