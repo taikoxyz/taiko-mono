@@ -85,7 +85,7 @@ func (p *Processor) processMessage(
 		defer p.processingTxHashMu.Unlock()
 
 		if _, ok := p.processingTxHashes[hash]; ok {
-			slog.Warn("already processing txHash", "txhash", hash.Hex())
+			slog.Debug("already processing txHash", "txhash", hash.Hex())
 			return errAlreadyProcessing
 		}
 

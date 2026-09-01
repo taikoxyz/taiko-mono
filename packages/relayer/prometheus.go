@@ -73,6 +73,14 @@ var (
 			"failure that may resolve on its own. A message climbing this counter on its own is " +
 			"one the relayer cannot land and keeps re-reading",
 	})
+	MessageSentEventsDuplicateDelivery = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "message_sent_events_duplicate_delivery_ops_total",
+		Help: "The total number of deliveries discarded because this replica was already " +
+			"processing that source transaction. The crawler republishes every message still in " +
+			"NEW status on each pass, so a claim waiting on a checkpoint is redelivered for as " +
+			"long as it waits. Nothing else records this once the duplicates stop being logged " +
+			"as errors, and a counter climbing on its own is a claim that is not moving",
+	})
 	QueueMessageAcknowledged = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "queue_message_acknowledged_ops_total",
 		Help: "The total number of acknowledged queue events",

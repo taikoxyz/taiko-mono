@@ -591,6 +591,18 @@ func (p *Processor) handleProcessMessageResult(
 			slog.Error("process message failed", "err", err.Error())
 
 			p.handleTransientProcessMessageError(ctx, m)
+		case errors.Is(err, errAlreadyProcessing):
+			// A duplicate of a delivery this replica is still working on. The in-flight one is
+			// authoritative — processMessage registers the delete of its hash as a defer the
+			// moment it takes it, so every exit path releases it — which makes the copy carry
+			// nothing. Acking discards the copy without touching the claim. Falling through to
+			// default nacked it with requeue=false instead, dead-lettering a message that was
+			// never a failure, about six times a minute for every claim waiting on a checkpoint.
+			relayer.MessageSentEventsDuplicateDelivery.Inc()
+
+			if err := p.queue.Ack(ctx, m); err != nil {
+				slog.Error("Err acking message", "err", err.Error())
+			}
 		default:
 			slog.Error("process message failed", "err", err.Error())
 

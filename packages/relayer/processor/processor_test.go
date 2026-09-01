@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
@@ -331,6 +332,32 @@ func TestHandleProcessMessageResultAcksUnprocessableMessages(t *testing.T) {
 
 	assert.Equal(t, 1, q.acked)
 	assert.Equal(t, 0, q.nacked)
+}
+
+func TestHandleProcessMessageResultAcksDuplicateDeliveries(t *testing.T) {
+	q := &recordingQueue{}
+	p := newTestProcessor(false)
+	p.queue = q
+
+	before := testutil.ToFloat64(relayer.MessageSentEventsDuplicateDelivery)
+
+	// The crawler republishes every message still in NEW status on each pass, so a claim waiting
+	// on a checkpoint is redelivered for as long as it waits. The delivery already being processed
+	// is the authoritative one and releases the hash on every exit path, so the copy carries
+	// nothing. Nacking it dead-lettered a message that was never a failure.
+	p.handleProcessMessageResult(
+		context.Background(),
+		queue.Message{Body: []byte(`{}`)},
+		true,
+		0,
+		errAlreadyProcessing,
+	)
+
+	assert.Equal(t, 1, q.acked)
+	assert.Equal(t, 0, q.nacked)
+	assert.Equal(t, float64(1),
+		testutil.ToFloat64(relayer.MessageSentEventsDuplicateDelivery)-before,
+		"the path has to be visible once it stops being logged as an error")
 }
 
 func TestHandleProcessMessageResultRespectsShouldRequeueOnUnknownErrors(t *testing.T) {
