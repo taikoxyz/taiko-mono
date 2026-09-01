@@ -565,11 +565,29 @@ func (p *Processor) eventLoop(ctx context.Context) {
 					}
 				}()
 
-				shouldRequeue, timesRetried, err := p.processMessage(ctx, m)
-				p.handleProcessMessageResult(ctx, m, shouldRequeue, timesRetried, err)
+				p.processDelivery(ctx, m)
 			}(msg)
 		}
 	}
+}
+
+// processDelivery runs one delivery and settles it on the queue, holding the message's in-flight
+// claim across both so a duplicate cannot start while this delivery's Ack, Nack or transient
+// republish is still going out.
+func (p *Processor) processDelivery(ctx context.Context, m queue.Message) {
+	release, err := p.claimDelivery(m)
+
+	defer release()
+
+	if err != nil {
+		p.handleProcessMessageResult(ctx, m, false, 0, err)
+
+		return
+	}
+
+	shouldRequeue, timesRetried, err := p.processMessage(ctx, m)
+
+	p.handleProcessMessageResult(ctx, m, shouldRequeue, timesRetried, err)
 }
 
 func (p *Processor) handleProcessMessageResult(

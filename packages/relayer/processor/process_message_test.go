@@ -431,7 +431,7 @@ func Test_ProcessMessage_ASiblingOfTheSameTransactionIsNotADuplicate(t *testing.
 	require.NoError(t, p.beginProcessing(first))
 	defer p.endProcessing(first)
 
-	_, _, err := p.processMessage(context.Background(), second)
+	_, err := p.claimDelivery(second)
 
 	assert.NotErrorIs(t, err, errAlreadyProcessing,
 		"one transaction can emit several messages; a sibling is not a duplicate")
@@ -449,10 +449,58 @@ func Test_ProcessMessage_TheSameMessageInFlightIsADuplicate(t *testing.T) {
 	require.NoError(t, p.beginProcessing(inFlight))
 	defer p.endProcessing(inFlight)
 
-	_, _, err := p.processMessage(context.Background(), redelivered)
+	_, err := p.claimDelivery(redelivered)
 
 	assert.ErrorIs(t, err, errAlreadyProcessing,
 		"the delivery already being processed is the authoritative one")
+}
+
+// blockingQueue holds a delivery inside its Ack until the test lets go, so the window between
+// processMessage returning and the disposition finishing can be inspected.
+type blockingQueue struct {
+	recordingQueue
+	ackStarted chan struct{}
+	ackGate    chan struct{}
+}
+
+func (q *blockingQueue) Ack(ctx context.Context, msg queue.Message) error {
+	close(q.ackStarted)
+	<-q.ackGate
+
+	return q.recordingQueue.Ack(ctx, msg)
+}
+
+func Test_ProcessDelivery_HoldsTheClaimUntilTheDispositionCompletes(t *testing.T) {
+	release := make(chan struct{})
+	q := &blockingQueue{ackStarted: make(chan struct{}), ackGate: release}
+
+	p := newTestProcessor(true)
+	p.queue = q
+
+	_, delivery := messageSentFromOneTransaction(
+		common.HexToHash("0xdead"),
+		common.HexToHash("0xaa"),
+	)
+
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+
+		p.processDelivery(context.Background(), delivery)
+	}()
+
+	// Wait until the delivery is inside its disposition: processMessage has returned, so the old
+	// defer would already have released the claim here.
+	<-q.ackStarted
+
+	_, err := p.claimDelivery(delivery)
+
+	close(release)
+	<-done
+
+	assert.ErrorIs(t, err, errAlreadyProcessing,
+		"the claim has to outlive the Ack, or a duplicate starts while it is still going out")
 }
 
 func Test_ProcessMessage_unprofitable(t *testing.T) {

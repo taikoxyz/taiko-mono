@@ -46,6 +46,33 @@ func inFlightKey(event *bridge.BridgeMessageSent) common.Hash {
 	return common.Hash(event.MsgHash)
 }
 
+// claimDelivery takes the in-flight claim for the message a delivery carries and returns the
+// release for it, which the caller must run once the delivery is completely finished with.
+//
+// The claim has to outlive processMessage. Acking, nacking or republishing a delivery happens after
+// processMessage returns, and a duplicate that arrived in between would otherwise take the claim
+// and start work while the first delivery's disposition was still in flight — which is exactly what
+// the claim exists to prevent, and QUEUE_PREFETCH_COUNT above one makes ordinary.
+//
+// A body that will not decode never held a claim, so its release is a no-op and the caller can
+// defer it unconditionally.
+func (p *Processor) claimDelivery(m queue.Message) (release func(), err error) {
+	msgBody := &queue.QueueMessageSentBody{}
+	if err := json.Unmarshal(m.Body, msgBody); err != nil {
+		return func() {}, nil
+	}
+
+	if msgBody.Event == nil {
+		return func() {}, nil
+	}
+
+	if err := p.beginProcessing(msgBody.Event); err != nil {
+		return func() {}, err
+	}
+
+	return func() { p.endProcessing(msgBody.Event) }, nil
+}
+
 // beginProcessing claims a message for this replica, reporting errAlreadyProcessing when another
 // delivery of the same message is already being worked on. The caller must pair a successful claim
 // with endProcessing.
@@ -120,14 +147,6 @@ func (p *Processor) processMessage(
 	}
 
 	slog.Info("message received", "srcTxHash", msgBody.Event.Raw.TxHash.Hex())
-
-	// if another delivery of this message is already being worked on, we don't need to continue
-	if err := p.beginProcessing(msgBody.Event); err != nil {
-		return false, 0, err
-	}
-
-	// otherwise, make sure when we exit, this message stops being claimed
-	defer p.endProcessing(msgBody.Event)
 
 	if msgBody.TimesRetried >= p.maxMessageRetries {
 		slog.Warn("max retries reached", "timesRetried", msgBody.TimesRetried)
