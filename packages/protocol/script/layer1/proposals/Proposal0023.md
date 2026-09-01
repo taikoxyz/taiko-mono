@@ -323,13 +323,18 @@ branch pins — `solc 0.8.30`, `optimizer_runs = 200`, `evm_version = "osaka"` �
 arguments the scripts pass. `osaka` applies on both chains: `profile.default` sets it and the L1
 profile inherits, so the L1 and L2 contracts verify under the same settings.
 
-Run the `forge verify-bytecode` commands in the pre-execution checklist as well, but not because
-they are an independent second route — they are not. Both go through the same Etherscan API, and
-`verify-bytecode` fails without a key. What it adds is a different comparison, not different
-infrastructure: the explorer tells a delegate what source the operator submitted, while
-`verify-bytecode` compares the deployed creation code against a build of **this commit** on the
-machine running it. It does not require the contract to have been verified on the explorer first —
-it fetches the creation transaction, not the source — so the two can be run in either order.
+Do the explorer verification **first**, then run the `forge verify-bytecode` commands in the
+pre-execution checklist. They are not an independent second route — both go through the same
+Etherscan API, and `verify-bytecode` fails without a key. What it adds is a different comparison,
+not different infrastructure: the explorer tells a delegate what source the operator submitted,
+while `verify-bytecode` compares the deployed creation code against a build of **this commit** on
+the machine running it.
+
+> **The `verify-bytecode` findings below were measured on `forge 1.5.1-stable`, but this repo pins
+> `foundry v1.4.2` (`.tool-versions`).** They have not been revalidated on the pinned version, and
+> `verify-bytecode`'s explorer handling has changed across releases. Treat the explorer-first order
+> as the supported one rather than relying on any particular version tolerating an unverified
+> contract, and re-run the commands on the pinned toolchain if you need that guarantee.
 
 Note that the L1 implementation will show as `Bridge`, not `MainnetBridge` — see Current State for
 why that rename is expected.
@@ -349,12 +354,14 @@ The fill-in commit, also done, did three things:
    transposition in the source cannot be mirrored in the test; transposing the two arguments was
    confirmed to fail them. `test_buildL1Actions_UsesDeployedImplementations` in `Proposal0017.t.sol`
    is the precedent.
-3. Regenerated the calldata into `Proposal0023.action.md`. Still to run before submission — it
-   needs a signer, so it is not part of the commit:
+3. Regenerated the calldata with `P=0023 pnpm proposal`. `Proposal0023.action.md` is committed, so
+   this step needs no re-running — repeat it only to reproduce the file and confirm it matches.
+
+One step remains before submission. It broadcasts, so it needs a signer and is not part of any
+commit:
 
 ```bash
 cd packages/protocol
-P=0023 pnpm proposal            # writes Proposal0023.action.md
 P=0023 pnpm proposal:dryrun:l1
 ```
 
@@ -522,10 +529,10 @@ serve the narrower purpose of confirming the intended creation code and argument
 
 **Getters and a non-zero code size do not authenticate the bytecode.** They confirm the constructor
 arguments landed; they cannot distinguish the reviewed `Bridge` and `DefaultResolver` from a
-contract that answers the same getters and does something else. The `codehash` comparison above and
-the explorer verification in the Deployment section are what close that gap, and the resolver's
-implementation slot is what closes it for the one address here that is a proxy rather than a bare
-implementation.
+contract that answers the same getters and does something else. The `forge verify-bytecode`
+creation-code comparison above and the explorer verification in the Deployment section are what
+close that gap, and the resolver's implementation slot is what closes it for the one address here
+that is a proxy rather than a bare implementation.
 
 ### After execution
 
