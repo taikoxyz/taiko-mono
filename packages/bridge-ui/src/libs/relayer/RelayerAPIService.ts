@@ -147,8 +147,22 @@ export class RelayerAPIService {
     try {
       return await getTransactionReceipt(config, { chainId, hash });
     } catch (error) {
+      // "Not mined yet" and "the RPC call failed" used to collapse into the same null, which hid
+      // the second one completely: the row rendered with no receipt, isTransactionProcessable
+      // returned false so it could never be claimed, and nothing counted it. Batching made that
+      // worse, since one rate-limited request now carries the receipt reads of up to 50 rows.
+      //
+      // Compared by name rather than instanceof: this monorepo carries three viem copies, and an
+      // error thrown from a different one would silently fail an identity check - turning every
+      // unmined transaction into a counted failure.
+      if ((error as Error)?.name === 'TransactionReceiptNotFoundError') {
+        log(`Transaction ${hash} is not mined yet`);
+        return null;
+      }
+
+      // A real read failure belongs to the caller's counter, not to a silent null.
       log(`Error getting transaction receipt for ${hash}: ${error}`);
-      return null;
+      throw error;
     }
   }
 

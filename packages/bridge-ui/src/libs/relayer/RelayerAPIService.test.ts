@@ -907,6 +907,64 @@ describe('RelayerAPIService', () => {
     // Then
     expect(result.failedCount).toBe(0);
   });
+
+  test('getAllBridgeTransactionByAddress counts a transaction whose receipt read failed', async () => {
+    // Given: the receipt read fails the way a rate-limited gateway makes it fail. This used to be
+    // swallowed into `receipt = null`, which left the row visible but unclaimable and uncounted.
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const relayerItem = createRelayerItem({
+      id: 1553894,
+      messageId: '6284',
+      msgHash: GOOD_MSG_HASH,
+      blockNumber: '0x7baa34',
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
+    mockedGetTransactionReceipt.mockRejectedValue(new Error('HTTP request failed.'));
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(
+      USER_ADDRESS,
+      { page: 1, size: 10 },
+      167000,
+    );
+
+    // Then
+    expect(result.txs).toHaveLength(0);
+    expect(result.failedCount).toBe(1);
+  });
+
+  test('getAllBridgeTransactionByAddress keeps a transaction that is simply not mined yet', async () => {
+    // Given: viem throws TransactionReceiptNotFoundError for a transaction with no receipt yet.
+    // That is an expected state for a fresh bridge, not a load failure - the row must survive and
+    // must not be counted, or every pending bridge would warn the user it had failed to load.
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const notMined = new Error('Transaction receipt with hash "0x..." could not be found.');
+    notMined.name = 'TransactionReceiptNotFoundError';
+    const relayerItem = createRelayerItem({
+      id: 1553895,
+      messageId: '6285',
+      msgHash: GOOD_MSG_HASH,
+      blockNumber: '0x7baa35',
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
+    mockedGetTransactionReceipt.mockRejectedValue(notMined);
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(
+      USER_ADDRESS,
+      { page: 1, size: 10 },
+      167000,
+    );
+
+    // Then
+    expect(result.txs).toHaveLength(1);
+    expect(result.txs[0].receipt).toBeNull();
+    expect(result.failedCount).toBe(0);
+  });
 });
 
 function createRelayerItem({
