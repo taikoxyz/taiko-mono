@@ -14,18 +14,18 @@ import { LibNames } from "src/shared/libs/LibNames.sol";
 /// @custom:security-contact security@taiko.xyz
 contract Proposal0023 is BuildProposal {
     /// @dev Deployed by `DeployBridgeUpgradeL1` on Ethereum mainnet.
-    /// https://codediff.taiko.xyz/?addr=0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC&newimpl=0x8636d9707ED54443808bA89F1B1b74f4b134AAa6&chainid=1
-    address public constant BRIDGE_NEW_IMPL_L1 = 0x8636d9707ED54443808bA89F1B1b74f4b134AAa6;
+    /// https://codediff.taiko.xyz/?addr=0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC&newimpl=0xA15dca0A72da684f20e0FC708DECFb230a715462&chainid=1
+    address public constant BRIDGE_NEW_IMPL_L1 = 0xA15dca0A72da684f20e0FC708DECFb230a715462;
 
     /// @dev Deployed by `DeployBridgeUpgradeL2` on Taiko Alethia.
-    /// https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000001&newimpl=0x097BBBef669AaD66030aB223195D200eF9A47dc3&chainid=167000
-    address public constant BRIDGE_NEW_IMPL_L2 = 0x097BBBef669AaD66030aB223195D200eF9A47dc3;
+    /// https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000001&newimpl=0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb&chainid=167000
+    address public constant BRIDGE_NEW_IMPL_L2 = 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb;
 
     /// @dev The new L2 resolver, an ERC1967 proxy over implementation
-    /// `0x4F750D13005444407D44dAA30922128db0374ca1`, owned by the DelegateController. It has no
+    /// `0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a`, owned by the DelegateController. It has no
     /// predecessor to diff against: the legacy registry `0x1670…0006` is a different contract that
     /// stays in place for the L2 vaults.
-    address public constant L2_SHARED_RESOLVER = 0x2dfef0339009Ce10786fc118C883BB97af3163eD;
+    address public constant L2_SHARED_RESOLVER = 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984;
 
     uint256 private constant _L1_CHAIN_ID = 1;
     uint256 private constant _L2_CHAIN_ID = 167_000;

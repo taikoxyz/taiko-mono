@@ -18,10 +18,10 @@ contract Proposal0023Test is Test {
 
     // The real deployed addresses, written out so a transposed forward in Proposal0023 cannot be
     // mirrored by reading its own constants back.
-    address internal constant DEPLOYED_BRIDGE_IMPL_L1 = 0x8636d9707ED54443808bA89F1B1b74f4b134AAa6;
-    address internal constant DEPLOYED_BRIDGE_IMPL_L2 = 0x097BBBef669AaD66030aB223195D200eF9A47dc3;
+    address internal constant DEPLOYED_BRIDGE_IMPL_L1 = 0xA15dca0A72da684f20e0FC708DECFb230a715462;
+    address internal constant DEPLOYED_BRIDGE_IMPL_L2 = 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb;
     address internal constant DEPLOYED_L2_SHARED_RESOLVER =
-        0x2dfef0339009Ce10786fc118C883BB97af3163eD;
+        0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984;
 
     function test_buildL1Actions_EncodesBridgeUpgrade() external {
         Proposal0023Harness proposal = new Proposal0023Harness();

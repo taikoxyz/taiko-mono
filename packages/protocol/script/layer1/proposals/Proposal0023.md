@@ -43,9 +43,9 @@ and populates the new resolver:
 
 | Chain | Contract                                                                 | Change                                                        |
 | ----- | ------------------------------------------------------------------------ | ------------------------------------------------------------- |
-| L1    | Bridge proxy `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`                | implementation → `0x8636d9707ED54443808bA89F1B1b74f4b134AAa6` |
-| L2    | Bridge proxy `0x1670000000000000000000000000000000000001`                | implementation → `0x097BBBef669AaD66030aB223195D200eF9A47dc3` |
-| L2    | New `DefaultResolver` proxy `0x2dfef0339009Ce10786fc118C883BB97af3163eD` | `bridge` registered for chains 1 and 167000                   |
+| L1    | Bridge proxy `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`                | implementation → `0xA15dca0A72da684f20e0FC708DECFb230a715462` |
+| L2    | Bridge proxy `0x1670000000000000000000000000000000000001`                | implementation → `0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb` |
+| L2    | New `DefaultResolver` proxy `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984` | `bridge` registered for chains 1 and 167000                   |
 
 Explicitly **not** touched by this proposal:
 
@@ -66,7 +66,7 @@ Explicitly **not** touched by this proposal:
 
 ## Current State
 
-Verified on-chain 2026-08-31.
+Verified on-chain 2026-09-01.
 
 |     | proxy                                        | owner                                                                                | live impl                                    | impl provenance                               |
 | --- | -------------------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------- | --------------------------------------------- |
@@ -230,7 +230,7 @@ This is the part of the proposal that carries real risk, and it is the part the
 
 ### L1 — 2 top-level actions
 
-1. `upgradeTo(0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC, 0x8636d9707ED54443808bA89F1B1b74f4b134AAa6)` — point the mainnet
+1. `upgradeTo(0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC, 0xA15dca0A72da684f20e0FC708DECFb230a715462)` — point the mainnet
    bridge at the implementation carrying the EIP-8037 send cap.
 2. `sendMessage(...)` on `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC` — carries the L2 batch below to
    the DelegateController. This action is **not written in `Proposal0023.s.sol`**;
@@ -252,11 +252,11 @@ proves this before the vote.
 
 Numbered here from 1; in `Proposal0023.s.sol` these are `actions[0]`, `actions[1]` and `actions[2]`.
 
-1. (`actions[0]`) `0x2dfef0339009Ce10786fc118C883BB97af3163eD.registerAddress(1, LibNames.B_BRIDGE, 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC)`
+1. (`actions[0]`) `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984.registerAddress(1, LibNames.B_BRIDGE, 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC)`
    — the entry the new implementation actually reads.
-2. (`actions[1]`) `0x2dfef0339009Ce10786fc118C883BB97af3163eD.registerAddress(167000, LibNames.B_BRIDGE, 0x1670000000000000000000000000000000000001)`
+2. (`actions[1]`) `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984.registerAddress(167000, LibNames.B_BRIDGE, 0x1670000000000000000000000000000000000001)`
    — registered for symmetry and future consumers; the bridge itself never reads it.
-3. (`actions[2]`) `upgradeTo(0x1670000000000000000000000000000000000001, 0x097BBBef669AaD66030aB223195D200eF9A47dc3)` — the
+3. (`actions[2]`) `upgradeTo(0x1670000000000000000000000000000000000001, 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb)` — the
    mid-call self-upgrade described above.
 
 `registerAddress` is encoded with `LibNames.B_BRIDGE` (`bytes32("bridge")`), not a hand-written
@@ -390,21 +390,54 @@ should re-run `P=0023 pnpm proposal` independently and diff the result.
 
 ## Deployed Addresses
 
-Deployed 2026-08-31 and verified on-chain before the proposal was created. The codediff links show
+Deployed 2026-09-01 and verified on-chain before the proposal was created. The codediff links show
 the live implementation against the new one for each proxy being upgraded.
+
+These are a **redeployment**. #22082 landed comment-only changes to `contracts/shared/bridge/Bridge.sol`
+after the first set was deployed; comments feed the solc metadata hash, so the runtime bytecode
+changed and the original implementations no longer corresponded to `main`. The addresses here are
+built from this branch, which sits on the post-#22082 `main`. Nothing about the proposal's actions
+or arguments changed — only the addresses they point at.
 
 | What                                | Address                                      |                                                                                                                                                           |
 | ----------------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| L1 `Bridge` implementation          | `0x8636d9707ED54443808bA89F1B1b74f4b134AAa6` | [codediff](https://codediff.taiko.xyz/?addr=0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC&newimpl=0x8636d9707ED54443808bA89F1B1b74f4b134AAa6&chainid=1)      |
-| L2 `Bridge` implementation          | `0x097BBBef669AaD66030aB223195D200eF9A47dc3` | [codediff](https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000001&newimpl=0x097BBBef669AaD66030aB223195D200eF9A47dc3&chainid=167000) |
-| L2 `DefaultResolver` proxy          | `0x2dfef0339009Ce10786fc118C883BB97af3163eD` | new proxy, nothing to diff                                                                                                                                |
-| L2 `DefaultResolver` implementation | `0x4F750D13005444407D44dAA30922128db0374ca1` | new contract, nothing to diff                                                                                                                             |
+| L1 `Bridge` implementation          | `0xA15dca0A72da684f20e0FC708DECFb230a715462` | [codediff](https://codediff.taiko.xyz/?addr=0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC&newimpl=0xA15dca0A72da684f20e0FC708DECFb230a715462&chainid=1)      |
+| L2 `Bridge` implementation          | `0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb` | [codediff](https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000001&newimpl=0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb&chainid=167000) |
+| L2 `DefaultResolver` proxy          | `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984` | new proxy, nothing to diff                                                                                                                                |
+| L2 `DefaultResolver` implementation | `0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a` | new contract, nothing to diff                                                                                                                             |
 
-All four are verified on their explorers as of 2026-08-31 — `Bridge`, `Bridge`, `ERC1967Proxy` and
+All four are verified on their explorers as of 2026-09-01 — `Bridge`, `Bridge`, `ERC1967Proxy` and
 `DefaultResolver` respectively, each under `solc v0.8.30`, optimizer on at 200 runs, `evm_version`
-`osaka`. All four also report `Creation code matched with status full` under `forge verify-bytecode`
-against a local build of this commit. The L1 entry reads `Bridge`, not `MainnetBridge` — see
-Current State.
+`osaka`. The L1 entry reads `Bridge`, not `MainnetBridge` — see Current State.
+
+`forge verify-bytecode` was re-run against this redeployment on 2026-09-01, from a build of this
+commit:
+
+| Contract                          | Creation code | Runtime code                    |
+| --------------------------------- | ------------- | ------------------------------- |
+| L1 `Bridge` implementation        | `status full` | `status full`                   |
+| L2 `Bridge` implementation        | `status full` | not reached — see below         |
+| L2 `DefaultResolver` implementation | `status full` | not reached — see below       |
+
+The two L2 runs matched their creation code and then aborted before the runtime comparison with
+`foundry config error: invalid type: found string "taiko", expected u64` — foundry resolves chain
+167000 to the named alias and then mis-types it. That is a tooling limitation on Taiko Alethia, not
+a discrepancy in the contracts; dropping `--chain` instead makes foundry simulate the deployment
+locally and fail on gas funding, so `--chain 167000` is the right invocation and this is as far as
+it goes today. A full creation-code match is the substantive result in any case: runtime code is
+what executing that creation code produces, and the immutables it patches in are separately read
+back below.
+
+The L2 `DefaultResolver` proxy is not covered by `forge verify-bytecode` here. It is an unmodified
+OpenZeppelin `ERC1967Proxy`; what pins it is that its EIP-1967 implementation slot points at the
+`DefaultResolver` implementation above, which did match, and that its `owner()` is the
+DelegateController.
+
+What has been checked on-chain for these four addresses: code sizes are 14,913 / 14,913 / 170 /
+4,504 bytes; the L1 implementation's four immutables equal the live L1 proxy's; the L2
+implementation's `resolver()` is the new proxy with `quotaManager()` and `pauser()` both zero; the
+proxy's EIP-1967 slot points at the `DefaultResolver` implementation listed above; its `owner()` is
+the DelegateController; and it holds no registrations yet, since registering is L2 actions 0 and 1.
 
 The L1 codediff is the one that carries the proposal's whole argument: the only difference it should
 show against the live `MainnetBridge` is `_SEND_ETHER_GAS_LIMIT` rising from 35,000 to 135,000, plus
@@ -427,26 +460,26 @@ Substitute the deployed addresses. Every commented value is the expected result.
 
 ```bash
 # L1 implementation immutables — all four must match the live proxy.
-cast call 0x8636d9707ED54443808bA89F1B1b74f4b134AAa6 "resolver()(address)"      --rpc-url <L1_RPC>  # 0x8Efa01564425692d0a0838DC10E300BD310Cb43e
-cast call 0x8636d9707ED54443808bA89F1B1b74f4b134AAa6 "signalService()(address)" --rpc-url <L1_RPC>  # 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C
-cast call 0x8636d9707ED54443808bA89F1B1b74f4b134AAa6 "quotaManager()(address)"  --rpc-url <L1_RPC>  # 0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC
-cast call 0x8636d9707ED54443808bA89F1B1b74f4b134AAa6 "pauser()(address)"        --rpc-url <L1_RPC>  # 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F
+cast call 0xA15dca0A72da684f20e0FC708DECFb230a715462 "resolver()(address)"      --rpc-url <L1_RPC>  # 0x8Efa01564425692d0a0838DC10E300BD310Cb43e
+cast call 0xA15dca0A72da684f20e0FC708DECFb230a715462 "signalService()(address)" --rpc-url <L1_RPC>  # 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C
+cast call 0xA15dca0A72da684f20e0FC708DECFb230a715462 "quotaManager()(address)"  --rpc-url <L1_RPC>  # 0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC
+cast call 0xA15dca0A72da684f20e0FC708DECFb230a715462 "pauser()(address)"        --rpc-url <L1_RPC>  # 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F
 
 # L2 resolver and implementation.
-cast call 0x2dfef0339009Ce10786fc118C883BB97af3163eD "owner()(address)"         --rpc-url https://rpc.mainnet.taiko.xyz  # 0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C
-cast call 0x097BBBef669AaD66030aB223195D200eF9A47dc3 "resolver()(address)"      --rpc-url https://rpc.mainnet.taiko.xyz  # 0x2dfef0339009Ce10786fc118C883BB97af3163eD
-cast call 0x097BBBef669AaD66030aB223195D200eF9A47dc3 "signalService()(address)" --rpc-url https://rpc.mainnet.taiko.xyz  # 0x1670000000000000000000000000000000000005
-cast call 0x097BBBef669AaD66030aB223195D200eF9A47dc3 "quotaManager()(address)"  --rpc-url https://rpc.mainnet.taiko.xyz  # 0x0000000000000000000000000000000000000000
-cast call 0x097BBBef669AaD66030aB223195D200eF9A47dc3 "pauser()(address)"        --rpc-url https://rpc.mainnet.taiko.xyz  # 0x0000000000000000000000000000000000000000
+cast call 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 "owner()(address)"         --rpc-url https://rpc.mainnet.taiko.xyz  # 0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C
+cast call 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb "resolver()(address)"      --rpc-url https://rpc.mainnet.taiko.xyz  # 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984
+cast call 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb "signalService()(address)" --rpc-url https://rpc.mainnet.taiko.xyz  # 0x1670000000000000000000000000000000000005
+cast call 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb "quotaManager()(address)"  --rpc-url https://rpc.mainnet.taiko.xyz  # 0x0000000000000000000000000000000000000000
+cast call 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb "pauser()(address)"        --rpc-url https://rpc.mainnet.taiko.xyz  # 0x0000000000000000000000000000000000000000
 
 # Both must be non-zero.
-cast codesize 0x8636d9707ED54443808bA89F1B1b74f4b134AAa6 --rpc-url <L1_RPC>
-cast codesize 0x097BBBef669AaD66030aB223195D200eF9A47dc3 --rpc-url https://rpc.mainnet.taiko.xyz
+cast codesize 0xA15dca0A72da684f20e0FC708DECFb230a715462 --rpc-url <L1_RPC>
+cast codesize 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb --rpc-url https://rpc.mainnet.taiko.xyz
 
 # The resolver is a proxy, and L2 actions 0-1 make the DAO call registerAddress on it. owner()
 # says who controls it, not what code runs. Pin the implementation it delegates to: must equal the
 # address DeployBridgeUpgradeL2 logged as `resolver impl`, left-padded to 32 bytes.
-cast storage 0x2dfef0339009Ce10786fc118C883BB97af3163eD \
+cast storage 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 \
   0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc \
   --rpc-url https://rpc.mainnet.taiko.xyz
 
@@ -460,24 +493,24 @@ cast storage 0x2dfef0339009Ce10786fc118C883BB97af3163eD \
 # One Etherscan V2 key covers both chains; chain 1 and chain 167000 are both in its chain list.
 export ETHERSCAN_API_KEY=<key>
 
-FOUNDRY_PROFILE=layer1 forge verify-bytecode 0x8636d9707ED54443808bA89F1B1b74f4b134AAa6 \
+FOUNDRY_PROFILE=layer1 forge verify-bytecode 0xA15dca0A72da684f20e0FC708DECFb230a715462 \
   contracts/shared/bridge/Bridge.sol:Bridge --rpc-url <L1_RPC> \
   --encoded-constructor-args $(cast abi-encode "c(address,address,address,address)" \
     0x8Efa01564425692d0a0838DC10E300BD310Cb43e 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C \
     0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F)
 
-FOUNDRY_PROFILE=layer2 forge verify-bytecode 0x097BBBef669AaD66030aB223195D200eF9A47dc3 \
+FOUNDRY_PROFILE=layer2 forge verify-bytecode 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb \
   contracts/shared/bridge/Bridge.sol:Bridge --rpc-url https://rpc.mainnet.taiko.xyz \
   --encoded-constructor-args $(cast abi-encode "c(address,address,address,address)" \
-    0x2dfef0339009Ce10786fc118C883BB97af3163eD 0x1670000000000000000000000000000000000005 \
+    0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 0x1670000000000000000000000000000000000005 \
     0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000)
 
-FOUNDRY_PROFILE=layer2 forge verify-bytecode 0x4F750D13005444407D44dAA30922128db0374ca1 \
+FOUNDRY_PROFILE=layer2 forge verify-bytecode 0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a \
   contracts/shared/common/DefaultResolver.sol:DefaultResolver --rpc-url https://rpc.mainnet.taiko.xyz
 
-FOUNDRY_PROFILE=layer2 forge verify-bytecode 0x2dfef0339009Ce10786fc118C883BB97af3163eD \
+FOUNDRY_PROFILE=layer2 forge verify-bytecode 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 \
   ERC1967Proxy --rpc-url https://rpc.mainnet.taiko.xyz \
-  --encoded-constructor-args $(cast abi-encode "c(address,bytes)" 0x4F750D13005444407D44dAA30922128db0374ca1 \
+  --encoded-constructor-args $(cast abi-encode "c(address,bytes)" 0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a \
     $(cast calldata "init(address)" 0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C))
 ```
 
@@ -496,7 +529,7 @@ Two things will happen after that line which are not failures of the contracts:
   its own value: `foundry config error: invalid type: found string "taiko", expected u64`. The
   chain is derived from `--rpc-url` anyway.
 
-In the second command, the first constructor argument is `0x2dfef0339009Ce10786fc118C883BB97af3163eD` — the proxy, not
+In the second command, the first constructor argument is `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984` — the proxy, not
 the implementation. `DeployBridgeUpgradeL2` passes the proxy address to the `Bridge` constructor.
 
 The flag is `--encoded-constructor-args`, not `--constructor-args`. The latter takes the arguments
@@ -523,7 +556,7 @@ as a constructor argument to the `Bridge` — so if the deployer's on-chain nonc
 time from what the simulation assumed, the `CREATE` addresses shift while the `Bridge` creation
 calldata, with the _simulated_ resolver address already baked into it, does not. The result is a
 deployed implementation whose `resolver` immutable points at a contract that does not exist, and
-nothing in the script catches it. `cast call 0x097BBBef669AaD66030aB223195D200eF9A47dc3 "resolver()(address)"`, compared
+nothing in the script catches it. `cast call 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb "resolver()(address)"`, compared
 against the logged `L2_SHARED_RESOLVER`, is what catches it. Run it, and read the answer rather than
 just checking that the call succeeded.
 
@@ -554,7 +587,7 @@ cast call 0x1670000000000000000000000000000000000001 \
 
 # The chain-167000 registration (L2 action 2 / actions[1]), which no other check covers.
 # Must return 0x1670000000000000000000000000000000000001.
-cast call 0x2dfef0339009Ce10786fc118C883BB97af3163eD "resolve(uint256,bytes32,bool)(address)" \
+cast call 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 "resolve(uint256,bytes32,bool)(address)" \
   167000 0x6272696467650000000000000000000000000000000000000000000000000000 true \
   --rpc-url https://rpc.mainnet.taiko.xyz
 ```
