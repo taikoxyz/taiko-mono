@@ -55,8 +55,12 @@ export function parseDecimalAmount(raw: string, decimals: number): AmountParseRe
   const [whole = '', fraction = ''] = raw.split('.');
   if (fraction.length > decimals) return { ok: false, reason: 'TOO_MANY_DECIMALS' };
 
-  // Leading zeros are not magnitude: '000...5' is five, however long it is
-  if (whole.replace(/^0+/, '').length > UINT256_MAX_DIGITS) return { ok: false, reason: 'EXCEEDS_UINT256' };
+  // Leading zeros are not magnitude: '000...5' is five, however long it is. Stripped once
+  // and reused below, so a string of a hundred thousand zeros is neither counted against
+  // the bound nor handed to BigInt - checking the stripped length and then scaling the
+  // unstripped string left the guard passing and the large parse happening anyway.
+  const significantWhole = whole.replace(/^0+/, '');
+  if (significantWhole.length > UINT256_MAX_DIGITS) return { ok: false, reason: 'EXCEEDS_UINT256' };
 
   // Scaled here rather than by parseUnits. PLAIN_DECIMAL has already established that the
   // input is digits with at most one point, and the fraction is no longer than the token
@@ -66,7 +70,7 @@ export function parseDecimalAmount(raw: string, decimals: number): AmountParseRe
   // EXCEEDS_UINT256 branch depend on viem not throwing for an over-large value: the day it
   // starts enforcing the maximum itself, that throw would be caught below and reported as
   // NOT_DECIMAL, which is the wrong reason for the right refusal.
-  const value = BigInt(whole + fraction.padEnd(decimals, '0'));
+  const value = BigInt(significantWhole + fraction.padEnd(decimals, '0'));
 
   if (value > UINT256_MAX) return { ok: false, reason: 'EXCEEDS_UINT256' };
   return { ok: true, value };

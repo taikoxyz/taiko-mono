@@ -27,6 +27,9 @@ export async function estimateCostOfBridging(
   } catch (error) {
     log('EIP-1559 fee estimation unavailable, falling back to the legacy gas price', error);
   }
-  const feePerGas = maxFeePerGas ?? (await publicClient.getGasPrice());
+  // Zero counts as unavailable, not as free. `??` only falls back on null or undefined, so
+  // a chain answering 0n produced a cost estimate of zero - under-reserving exactly the way
+  // the comment above says this function exists to prevent.
+  const feePerGas = maxFeePerGas || (await publicClient.getGasPrice());
   return estimatedGas * feePerGas;
 }

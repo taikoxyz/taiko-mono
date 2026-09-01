@@ -132,10 +132,14 @@ class MoralisNFTRepository implements INFTRepository {
         }),
       );
 
+      // Map before touching the state. Advancing the cursor first meant a mapping that threw
+      // on a malformed item left the cursor past a page whose NFTs were never appended, so
+      // the retry below skipped it - and if that page was the last one, `hasFetchedAll` was
+      // already true and the gap became permanent until a refresh.
+      const mappedData = response.result.map((nft) => mapToNFTFromMoralis(nft as unknown as NFTApiData, chainId));
+
       state.cursor = response.pagination.cursor || '';
       state.hasFetchedAll = !state.cursor; // If there is no cursor, we have fetched all NFTs
-
-      const mappedData = response.result.map((nft) => mapToNFTFromMoralis(nft as unknown as NFTApiData, chainId));
       state.nfts = [...state.nfts, ...mappedData];
       return [...state.nfts];
     } catch (e) {

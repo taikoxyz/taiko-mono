@@ -28,7 +28,7 @@
   import { getBridgeArgs } from '$libs/bridge/getBridgeArgs';
   import { handleBridgeError } from '$libs/bridge/handleBridgeErrors';
   import { BridgePausedError, ReceiptUnavailableError, TransactionTimeoutError } from '$libs/error';
-  import { bridgeTxService } from '$libs/storage';
+  import { recordBridgeTx } from '$libs/storage/recordBridgeTx';
   import { TokenType } from '$libs/token';
   import { ApprovalStatus } from '$libs/token/getTokenApprovalStatus';
   import { isToken } from '$libs/token/isToken';
@@ -83,36 +83,39 @@
       } as BridgeTransaction;
 
       try {
+        // The only thing this try classifies is the wait: anything else in here would
+        // reach the catch below as if the transaction itself had failed
         await pendingTransactions.add(txHash, currentChain);
-
-        // Confirmed on-chain: record it in the local history
-        bridgeTxService.addTxByAddress(userAccount, bridgeTx);
-
-        successToast({
-          title: $t('bridge.actions.bridge.success.title'),
-          message: $t('bridge.actions.bridge.success.message', {
-            values: {
-              token: $selectedToken.symbol,
-            },
-          }),
-        });
-        icon = successIcon;
-        bridgingStatus = BridgingStatus.DONE;
-        statusTitle = $t('bridge.actions.bridge.success.title');
-        statusDescription = $t('bridge.step.confirm.bridge.success.message', {
-          values: { url: `${explorer}/tx/${txHash}` },
-        });
       } catch (error) {
         if (waitGaveUp(error)) {
           // Only the wait gave up - a timeout, or a receipt that could not be read. The
           // transaction may still confirm, so keep it in the local history
-          bridgeTxService.addTxByAddress(userAccount, bridgeTx);
+          recordBridgeTx(userAccount, bridgeTx);
           handleTimeout(txHash);
         } else {
           // Reverted: recording it would leave a phantom pending transaction
           handleBridgeError(error as Error);
         }
+        return;
       }
+
+      // Confirmed on-chain: record it in the local history
+      recordBridgeTx(userAccount, bridgeTx);
+
+      successToast({
+        title: $t('bridge.actions.bridge.success.title'),
+        message: $t('bridge.actions.bridge.success.message', {
+          values: {
+            token: $selectedToken.symbol,
+          },
+        }),
+      });
+      icon = successIcon;
+      bridgingStatus = BridgingStatus.DONE;
+      statusTitle = $t('bridge.actions.bridge.success.title');
+      statusDescription = $t('bridge.step.confirm.bridge.success.message', {
+        values: { url: `${explorer}/tx/${txHash}` },
+      });
     } finally {
       bridging = false;
     }

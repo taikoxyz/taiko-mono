@@ -204,6 +204,27 @@ describe('ManualImport contract address', () => {
       expect(get(importDone)).toBe(false);
     });
 
+    it('does not revalidate an address the user has since cleared', async () => {
+      // The draft is two-way bound, so clearing the field sets it to '' and the chain
+      // switch has no address to look up - it must not fall back to the last one that
+      // validated and mark an empty field as a valid NFT contract
+      detectContractType.mockResolvedValue(TokenType.ERC721);
+      await type(addressInput(), ADDRESS_A);
+      await flush();
+      expect(addressIsMarkedValid()).toBe(true);
+
+      await type(addressInput(), '');
+      await flush();
+
+      detectContractType.mockClear();
+      connectedSourceChain.set({ id: 167000 } as never);
+      await flush();
+
+      expect(detectContractType).not.toHaveBeenCalled();
+      expect(addressIsMarkedValid()).toBe(false);
+      expect(get(importDone)).toBe(false);
+    });
+
     it('clears a completed selection when the chain changes', async () => {
       detectContractType.mockResolvedValue(TokenType.ERC721);
       await type(addressInput(), ADDRESS_A);

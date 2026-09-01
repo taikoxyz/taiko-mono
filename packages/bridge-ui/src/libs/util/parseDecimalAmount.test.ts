@@ -73,6 +73,17 @@ describe('parseDecimalAmount', () => {
       expect(ok('5', 0)).toBe(BigInt(5));
       expect(reason('1.5', 0)).toBe('TOO_MANY_DECIMALS');
     });
+
+    it('parses a typed zero at every precision, including none', () => {
+      // Zero with no decimals leaves nothing on either side of the scaling: the integer
+      // part is all zeros, so stripping them empties it, and there is no fraction to pad.
+      // ERC1155 amounts are the zero-decimal case, and a throw here would leave the box
+      // showing 0 while the previously entered amount was still the one about to bridge
+      expect(ok('0', 0)).toBe(BigInt(0));
+      expect(ok('0', 18)).toBe(BigInt(0));
+      expect(ok('0.0', 18)).toBe(BigInt(0));
+      expect(ok('000', 0)).toBe(BigInt(0));
+    });
   });
 
   describe('bounds', () => {
@@ -90,8 +101,11 @@ describe('parseDecimalAmount', () => {
       expect(reason('9'.repeat(100_000), 18)).toBe('EXCEEDS_UINT256');
     });
 
-    it('does not count leading zeros as magnitude', () => {
-      expect(ok('0'.repeat(200) + '5', 0)).toBe(BigInt(5));
+    it('does not count leading zeros as magnitude, however many there are', () => {
+      // Stripped before the bound check and before the BigInt: counting the stripped
+      // length but scaling the unstripped string let the guard pass and the large parse
+      // happen anyway, which is the cost the guard exists to avoid
+      expect(ok('0'.repeat(100_000) + '5', 0)).toBe(BigInt(5));
     });
 
     it('refuses one above the largest representable value', () => {

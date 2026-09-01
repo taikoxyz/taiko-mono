@@ -51,9 +51,11 @@ const tx = (srcTxHash: string, overrides: Partial<BridgeTransaction> = {}): Brid
   }) as BridgeTransaction;
 
 let service: BridgeTxService;
+let storage: Storage;
 
 beforeEach(() => {
-  service = new BridgeTxService(createStorage());
+  storage = createStorage();
+  service = new BridgeTxService(storage);
 });
 
 describe('BridgeTxService storage round trip', () => {
@@ -121,6 +123,24 @@ describe('BridgeTxService storage round trip', () => {
     const [stored] = await service.getAllTxByAddress(ADDRESS);
 
     expect(stored.message).toBeUndefined();
+  });
+
+  it('skips an entry it cannot restore rather than losing the whole history', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    service.addTxByAddress(ADDRESS, tx('0xa'));
+    service.addTxByAddress(ADDRESS, tx('0xb'));
+
+    // A record corrupted the way a partial write or a version skew would leave it. BigInt()
+    // throws on this, and restoring the array with map took every other transaction with it
+    const key = storage.key(0) as string;
+    const raw = JSON.parse(storage.getItem(key) as string) as { srcTxHash: string; amount: unknown }[];
+    (raw.find((entry) => entry.srcTxHash === '0xa') as { amount: unknown }).amount = { not: 'a number' };
+    storage.setItem(key, JSON.stringify(raw));
+
+    const stored = await service.getAllTxByAddress(ADDRESS);
+
+    expect(stored.map((entry) => entry.srcTxHash)).toEqual(['0xb']);
+    vi.restoreAllMocks();
   });
 
   it('can remove a stored transaction after reading it back', () => {
