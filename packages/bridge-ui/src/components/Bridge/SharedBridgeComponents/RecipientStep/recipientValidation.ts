@@ -61,3 +61,38 @@ export function canConfirmRecipient(state: RecipientDialogState): boolean {
 
   return true;
 }
+
+export type DestOwnerDialogState = {
+  /** Raw value the destination owner input currently holds */
+  draft: Maybe<string>;
+  /** The address a classification actually completed for, if any */
+  validated: Maybe<ValidatedRecipient>;
+  /** The chain the bridge will deliver to */
+  destChainId: Maybe<number>;
+  invalidAddress: boolean;
+  isSmartContract: boolean;
+  validating: boolean;
+};
+
+/**
+ * Whether the destination-owner dialog may be confirmed.
+ *
+ * Same rule as `canConfirmRecipient` and for the same reason: AddressInput stays silent for
+ * a cleared field and for text without a `0x` prefix, so `invalidAddress` alone can describe
+ * an address the box no longer holds. Replacing a validated address with `bob.eth` used to
+ * leave Confirm enabled while the store still held the previous value.
+ *
+ * The destination owner is the one address that can process a `gasLimit: 0` message or drive
+ * a last-attempt retry, so committing an unvalidated one is value-bearing.
+ */
+export function canConfirmDestOwner(state: DestOwnerDialogState): boolean {
+  if (state.validating) return false;
+  if (state.invalidAddress) return false;
+  if (state.isSmartContract) return false;
+  if (!state.draft) return false;
+  if (!state.validated) return false;
+  if (!addressesEqual(state.validated.address, state.draft)) return false;
+  // A classification only speaks for the chain it ran against: the same address is a
+  // contract on one chain and an EOA on another
+  return !!state.destChainId && state.validated.chainId === state.destChainId;
+}
