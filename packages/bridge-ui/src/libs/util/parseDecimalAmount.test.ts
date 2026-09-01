@@ -73,6 +73,17 @@ describe('parseDecimalAmount', () => {
       expect(ok('5', 0)).toBe(BigInt(5));
       expect(reason('1.5', 0)).toBe('TOO_MANY_DECIMALS');
     });
+
+    it('parses a typed zero at every precision, including none', () => {
+      // Zero with no decimals leaves nothing on either side of the scaling: the integer
+      // part is all zeros, so stripping them empties it, and there is no fraction to pad.
+      // ERC1155 amounts are the zero-decimal case, and a throw here would leave the box
+      // showing 0 while the previously entered amount was still the one about to bridge
+      expect(ok('0', 0)).toBe(BigInt(0));
+      expect(ok('0', 18)).toBe(BigInt(0));
+      expect(ok('0.0', 18)).toBe(BigInt(0));
+      expect(ok('000', 0)).toBe(BigInt(0));
+    });
   });
 
   describe('bounds', () => {
