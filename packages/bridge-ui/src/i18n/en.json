@@ -104,6 +104,7 @@
         "message": "Sorry, your wallet balance is too low to cover this token.",
         "title": "Insufficient wallet balance"
       },
+      "invalid_amount": "Enter a plain decimal amount within this token's precision",
       "invalid_proof_provided": "An invalid proof was provided for this action.",
       "no_allowance_required": {
         "message": "You already have sufficient allowance for this request.",

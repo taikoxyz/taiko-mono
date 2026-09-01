@@ -182,7 +182,10 @@
     validating = true;
 
     try {
-      if (canValidateIdInput && enteredIds && enteredIds.length > 0) {
+      // nftIdsToImport, not enteredIds: a field holding a malformed id is non-empty while
+      // nothing is carried forward, and checkOwnership over an empty list answers "owner
+      // of all" - every() is true for nothing
+      if (canValidateIdInput && nftIdsToImport && nftIdsToImport.length > 0) {
         const tokenId = nftIdsToImport[0]; // Handle multiple tokens if needed
 
         const ownershipResults = await checkOwnership(

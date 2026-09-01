@@ -89,4 +89,38 @@ describe('getMaxAmountToBridge()', () => {
       tokenObject: ETHToken,
     });
   });
+
+  describe('when the balance does not cover the cost of bridging', () => {
+    it('returns zero rather than a negative amount', async () => {
+      // MAX feeds this straight into the amount box, and formatUnits renders a negative
+      // bigint without complaint - the field then showed a negative amount to bridge
+      const args = { ...MOCK_ARGS, token: ETHToken, balance: BigInt(5) };
+
+      vi.mocked(getWalletClient).mockReturnValue({} as WalletClient);
+      vi.mocked(estimateCostOfBridging).mockResolvedValue(MOCK_COST);
+
+      const result = await getMaxAmountToBridge(args);
+
+      expect(result).toBe(BigInt(0));
+    });
+
+    it('returns zero when the fee alone tips it over', async () => {
+      // balance 21, cost 20, fee 2
+      const args = { ...MOCK_ARGS, token: ETHToken, balance: BigInt(21) };
+
+      vi.mocked(getWalletClient).mockReturnValue({} as WalletClient);
+      vi.mocked(estimateCostOfBridging).mockResolvedValue(MOCK_COST);
+
+      expect(await getMaxAmountToBridge(args)).toBe(BigInt(0));
+    });
+
+    it('still returns the remainder when the balance does cover it', async () => {
+      const args = { ...MOCK_ARGS, token: ETHToken, balance: BigInt(23) };
+
+      vi.mocked(getWalletClient).mockReturnValue({} as WalletClient);
+      vi.mocked(estimateCostOfBridging).mockResolvedValue(MOCK_COST);
+
+      expect(await getMaxAmountToBridge(args)).toBe(BigInt(1));
+    });
+  });
 });

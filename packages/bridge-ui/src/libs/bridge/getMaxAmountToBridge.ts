@@ -40,8 +40,13 @@ export async function getMaxAmountToBridge({ to, token, balance, fee, srcChainId
 
     log('Estimated cost of bridging', estimatedCost, 'with argument', bridgeArgs);
 
-    // We also need to take into account the processing fee if any
-    maxAmount = balance - estimatedCost - (fee ?? BigInt(0));
+    // We also need to take into account the processing fee if any. The subtraction goes
+    // negative whenever the balance does not cover gas plus the fee, and MAX feeds its
+    // result straight into the amount box: formatUnits happily renders a negative bigint,
+    // so the field showed a negative amount and enteredAmount carried one. There is no
+    // such thing as a negative maximum - the answer in that case is zero
+    const remaining = balance - estimatedCost - (fee ?? BigInt(0));
+    maxAmount = remaining > BigInt(0) ? remaining : BigInt(0);
   }
   return maxAmount;
 }
