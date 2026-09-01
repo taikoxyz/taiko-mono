@@ -247,6 +247,21 @@ describe('custom processing fee', () => {
     expect(confirmButton().disabled).toBe(true);
   });
 
+  it('treats a lone decimal point as mid-typing, not as a mistake', async () => {
+    await openCustom();
+    await acknowledge();
+    // What a user typing ".5" passes through on the way
+    await type('.');
+
+    expect(errorShown()).toBe(false);
+    // Still nothing to confirm, but nothing to complain about either
+    expect(confirmButton().disabled).toBe(true);
+
+    await type('.5');
+    expect(errorShown()).toBe(false);
+    expect(confirmButton().disabled).toBe(false);
+  });
+
   it('says why a fee that cannot be parsed is blocked', async () => {
     await openCustom();
     await acknowledge();

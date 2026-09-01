@@ -17,6 +17,7 @@ import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { apiService } from '$config';
 import type { BridgeTransaction, Message, MessageStatus } from '$libs/bridge';
+import { bridgeTxKey } from '$libs/bridge/bridgeTxIdentity';
 import { isSupportedChain } from '$libs/chain';
 import { TokenType } from '$libs/token';
 import { getLogger } from '$libs/util/logger';
@@ -152,8 +153,19 @@ export class RelayerAPIService {
     }
   }
 
+  /**
+   * @dev Drops rows the relayer repeated and rows for routes this UI does not serve.
+   *
+   *      Keyed by message, not by transaction. One transaction can emit several
+   *      MessageSent events - a batching wallet, a contract that bridges twice - and each
+   *      is a separately claimable row. Keying on the transaction hash dropped every one
+   *      after the first here, before the message-level dedupe downstream could see them.
+   *
+   * @param items The rows one relayer page returned
+   * @return filtered_ The rows worth transforming
+   */
   private static _filterDuplicateAndWrongBridge(items: APIResponseTransaction[]): APIResponseTransaction[] {
-    const uniqueHashes = new Set<string>();
+    const uniqueMessages = new Set<string>();
     const filteredItems: APIResponseTransaction[] = [];
     for (const item of items) {
       const { Message, Raw } = item.data || {};
@@ -168,11 +180,13 @@ export class RelayerAPIService {
       // single unknown pair cannot throw and take the whole transaction list down with it.
       const bridgeAddress = routingContractsMap[Number(srcChainId)]?.[Number(destChainId)]?.bridgeAddress;
       const { transactionHash, address } = Raw;
+      // The message hash when the relayer gave us one, the transaction hash otherwise
+      const identity = bridgeTxKey({ msgHash: item.msgHash, srcTxHash: transactionHash });
 
       // Check all conditions
       const isTransactionHashPresent = Boolean(transactionHash);
       const isAddressPresent = Boolean(address);
-      const isUniqueHash = !uniqueHashes.has(transactionHash);
+      const isUniqueHash = !uniqueMessages.has(identity);
       const isCorrectBridgeAddress = address?.toLowerCase() === bridgeAddress?.toLowerCase();
       const areChainsSupported = isSupportedChain(Number(destChainId)) && isSupportedChain(Number(srcChainId));
 
@@ -185,9 +199,9 @@ export class RelayerAPIService {
         areChainsSupported,
       ].every(Boolean);
 
-      // Invalid rows must not consume the hash and hide a later valid duplicate.
+      // Invalid rows must not consume the identity and hide a later valid duplicate.
       if (satisfiesAllConditions) {
-        uniqueHashes.add(transactionHash);
+        uniqueMessages.add(identity);
         filteredItems.push(item);
       }
     }
@@ -484,9 +498,25 @@ export class RelayerAPIService {
       }
     });
 
-    const bridgeTxs: BridgeTransaction[] = (await Promise.all(txsPromises)).filter((tx): tx is BridgeTransaction =>
+    const enhanced: BridgeTransaction[] = (await Promise.all(txsPromises)).filter((tx): tx is BridgeTransaction =>
       Boolean(tx),
     ); // Removes undefined values
+
+    // A second dedupe, now that each row carries the message hash its receipt log proves.
+    // Both are needed and neither subsumes the other: the filter above cannot tell a
+    // relayer row whose msgHash is corrupt from a genuine second message, because the
+    // corrupt hash is a hash like any other; enhancement resolves it to the log the
+    // transaction actually emitted, and only then are the two rows visibly the same one.
+    const seenMessages = new Set<string>();
+    const bridgeTxs = enhanced.filter((bridgeTx) => {
+      const identity = bridgeTxKey(bridgeTx);
+      if (seenMessages.has(identity)) {
+        log('Dropping a relayer row the receipt resolved onto an already-seen message', identity);
+        return false;
+      }
+      seenMessages.add(identity);
+      return true;
+    });
 
     // Spreading to preserve original txs in case of array mutation
     log('Enhanced transactions', [...bridgeTxs]);

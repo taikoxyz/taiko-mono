@@ -184,6 +184,49 @@ describe('RelayerAPIService', () => {
     );
   });
 
+  test('keeps both messages when one transaction emitted two of them', async () => {
+    // One source transaction, two MessageSent logs: two separately claimable rows. The
+    // duplicate filter used to key on the transaction hash and drop the second outright,
+    // before anything downstream could tell it apart from a repeated row
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const first = createRelayerItem({ id: 1, messageId: '6268', msgHash: GOOD_MSG_HASH, blockNumber: '0x7baa21' });
+    const second = createRelayerItem({ id: 2, messageId: '6269', msgHash: BAD_MSG_HASH, blockNumber: '0x7baa21' });
+
+    mockedAxios.get.mockResolvedValue({
+      data: {
+        page: 1,
+        size: 10,
+        total: 2,
+        total_pages: 1,
+        max_page: 1,
+        first: true,
+        last: true,
+        visible: 2,
+        items: [first, second],
+      },
+      status: 200,
+    });
+    // The receipt proves both: each row matches a log of its own
+    mockedGetTransactionReceipt.mockResolvedValue(
+      createReceiptWithMessageSentLogs([
+        { msgHash: GOOD_MSG_HASH, id: 6268n, logIndex: 1 },
+        { msgHash: BAD_MSG_HASH, id: 6269n, logIndex: 2 },
+      ]),
+    );
+    mockedReadContract.mockResolvedValue(0);
+
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(
+      USER_ADDRESS,
+      { page: 1, size: 10 },
+      167000,
+    );
+
+    expect(result.txs).toHaveLength(2);
+    expect(result.txs.map((tx) => tx.msgHash).sort()).toEqual([GOOD_MSG_HASH, BAD_MSG_HASH].sort());
+    // ...and they still describe one transaction
+    expect(new Set(result.txs.map((tx) => tx.srcTxHash)).size).toBe(1);
+  });
+
   test('getAllBridgeTransactionByAddress syncs canonical status to the relayer status field', async () => {
     // Given
     const baseUrl = 'http://example.com';

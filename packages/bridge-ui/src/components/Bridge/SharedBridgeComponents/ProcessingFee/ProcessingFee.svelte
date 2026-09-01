@@ -13,7 +13,7 @@
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { ProcessingFeeMethod } from '$libs/fee';
 
-  import { parseCustomFeeInput } from './customFee';
+  import { isCustomFeeInputBlank, parseCustomFeeInput } from './customFee';
   import NoneOption from './NoneOption.svelte';
   import RecommendedFee from './RecommendedFee.svelte';
 
@@ -143,8 +143,9 @@
     // recommended amount is a deliberate choice the warning below covers
     const parsed = parseCustomFeeInput(value);
     // An empty box is not an error, it is simply not filled in yet - but it is still not
-    // something that can be confirmed. Anything else that fails to parse is both.
-    invalidCustomFee = parsed === null && value.trim() !== '';
+    // something that can be confirmed. Anything else that fails to parse is both. The
+    // parser decides what counts as empty, because a lone `.` is not-yet-filled too
+    invalidCustomFee = parsed === null && !isCustomFeeInputBlank(value);
     customFeeUsable = parsed !== null;
     if (parsed === null) return;
     tempprocessingFee = parsed;
