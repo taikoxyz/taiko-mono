@@ -140,7 +140,7 @@ the lockfile.
   /Users/d/.pyenv/shims/python3 test-settlement-window.py
   ```
 
-  Expected: 648 commitment vectors / 1,409 assertion sites, 38 lookahead properties, 184 settlement
+  Expected: 648 commitment vectors / 1,425 assertion sites, 38 lookahead properties, 184 settlement
   properties, 102 seat tests, 38 economics tests and 254 settlement tests.
 
 - [ ] **Step 3: Record existing Solidity baselines**
@@ -276,19 +276,42 @@ linkReferencesHash, immutableReferencesHash, creationHash, runtimeHash)` and fai
 - Create: `packages/protocol/test/shared/slotchain/vectors/SlotChainGoldenVectors.sol`
 - Create: `packages/protocol/test/shared/slotchain/vectors/slot-chain-commitments.json`
 - Create: `packages/protocol/utils/slotchain/generateGoldenVectors.ts`
+- Modify: `packages/protocol/utils/slotchain/checkArtifactOwnership.ts`
 - Modify: `packages/protocol/utils/slotchain/artifact-ownership.json`
+- Modify: `packages/protocol/integration/slotchain/artifact-ownership.test.ts`
 - Modify: `packages/protocol/package.json`
 
-- [ ] **Step 1: Generate the JSON oracle** from `commitment-model.py` without changing its normal
-      no-argument results.
-- [ ] **Step 2: Write failing tests** for every on-chain Appendix encoding: builder/tranche,
-      schedule, signed header/context, data, queue, candidate, canonical history, reward receipt, migration,
-      Bridge, release, retirement/successor, ICV2 and terminal commitments.
+- [ ] **Step 1: Generate one typed JSON oracle** from `commitment-model.py` without changing its
+      normal no-argument results. The generator first spawns the model with no arguments and requires
+      its complete normal self-test to pass, then spawns its dedicated typed-export mode; it never
+      scrapes the human-readable normal output. Every subprocess uses an argument array with
+      `shell: false`. Before either model invocation, the generator rejects a nonzero
+      `PYTHONOPTIMIZE` and probes the selected interpreter to require `sys.flags.optimize==0`; it
+      also fails closed on signal, timeout, nonzero status, malformed schema, duplicate key,
+      unexpected type or a record count other than exactly 648. The typed
+      export contains all 648 oracle records in deterministic key order now, including records whose
+      production consumer belongs to a later round. `--check` writes nothing and compares the
+      would-be JSON and generated Solidity helper byte-for-byte with the tracked files; ordinary mode
+      writes both atomically.
+- [ ] **Step 2: Write failing tests** for every checked fixed-preimage encoding owned by Round 2,
+      including the core/base/candidate/output commitments, bounded schedule and sealed-session
+      lists, forced-descriptor list, per-block manifest records, disposition list, signed
+      header/context and the leaf/node/wrapper hash primitives needed by later algorithms. Candidate
+      validation accepts only 1--4,096 blocks with strictly increasing `uint64` slots; schedule lists
+      contain at most 12 strictly increasing `uint64` windows; session lists contain at most 16
+      strictly increasing IDs and each `recordCount<=2,100`. The forced list accepts only
+      kinds 0 and 1 with respective descriptor lengths 220 and 541, at most 256 contiguous consumed
+      `uint64` indices and exactly zero or one immediately following boundary row. Each per-block
+      manifest contains at most 2,100 positions and every entry carries the one expected enclosing
+      `blockOrdinal`. A disposition list contains at most 64 rows, has checked
+      `end=start+count`, and requires row `i` to carry `queueIndex=start+i`; no index arithmetic may
+      narrow or wrap. Reject zero candidate count, duplicate/out-of-order keys, wrong counts,
+      surplus rows and every one-below/at/one-above boundary violation.
 - [ ] **Step 3: Run**
       `FOUNDRY_PROFILE=shared forge test --match-path 'test/shared/slotchain/libs/LibSlotChainEncoding.t.sol' -vv`
       and confirm a missing-library red state.
-- [ ] **Step 4: Implement width-specific helpers** using explicit casts before arithmetic and no
-      caller-selectable domain. A representative API is:
+- [ ] **Step 4: Implement width-specific checked fixed-preimage helpers** using explicit casts before
+      arithmetic and no caller-selectable domain. A representative API is:
 
   ```solidity
   function hashForcedUserLeaf(
@@ -300,16 +323,26 @@ linkReferencesHash, immutableReferencesHash, creationHash, runtimeHash)` and fai
       returns (bytes32 hash_);
   ```
 
-- [ ] **Step 5: Regenerate and compare** JSON and Solidity vectors byte-for-byte. The generator has
-      a check-only mode and obtains expected values one-way from the Python model; it does not
-      recompute a second expected result in TypeScript or Solidity. Solidity tests independently
-      construct the fixture inputs and call the production encoding library.
+- [ ] **Step 5: Regenerate and compare** JSON and Solidity vectors byte-for-byte. The generated
+      artifacts preserve all 648 typed model records, but the Round-2 Solidity test has an explicit
+      reviewed allowlist and executes only records for the fixed-preimage encoders owned by this
+      round. It must not implement a tree/MMR traversal, append/frontier or inclusion-proof algorithm;
+      those consume their already-exported records in Round 3. Exact external-call/returndata codecs,
+      production component ABIs and migration/legacy campaign codecs likewise consume the remaining
+      typed records in their owning later rounds. The generator obtains expected values one-way from
+      the Python typed export and never recomputes a second expected result in TypeScript or Solidity.
+      Solidity tests independently construct fixture inputs and call the production encoding library.
 - [ ] **Step 6: Extend the exhaustive ownership manifest** before running the focused tests, all
       Python models, shared build/test and artifact ownership. Classify production types/constants/
       encodings and the generated vector helper as source-inline rows with the appropriate kind and
       profile allowlist, and classify the shared Forge test as a test-only artifact-owned row. No
       new Slot Chain source may be exempted from the Round-1 gate merely because it is generated or
-      test-only.
+      test-only. Modify the checker and its adversarial tests only as needed for a Solidity compiler's
+      error-only ABI on a source-inline internal library: every ABI item must have `type: "error"`,
+      and the AST must still prove that all production library functions are internal/private and
+      that it declares no event, public state getter, constructor, fallback, receive or other callable
+      ABI. Any function/event/callable ABI item, public/external production member or link reference
+      remains a hard failure; this exception does not apply to another source-inline kind.
 - [ ] **Step 7: Commit** `feat(protocol): add slot chain consensus encodings`.
 
 ### Round 3: Fixed trees, MMR, signatures and checked calls

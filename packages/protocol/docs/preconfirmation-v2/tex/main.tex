@@ -1747,7 +1747,15 @@ creditLiabilityV2(bytes32 creditId) view returns
 Their selectors are respectively \code{0x05ecb6c2} and \code{0xc978978a};
 calldata is exactly 36 bytes, gas is capped at 200,000 for each call, and return
 length is exactly 704 (22 words) and 288 bytes.  The escrow ID is independently
-derived from the queried credit ID; it is not a duplicated CAU2 word.  All
+derived from the queried credit ID; it is not a duplicated CAU2 word.  The
+stored \code{CreditAuthorizationV2} tuple order is normative: its
+\code{escrowId} word immediately precedes the three version-metadata words
+\code{protocolVersion}, \code{releaseManifestHash} and
+\code{executionProfileHash}, exactly as displayed above.  The getter preserves
+that stored-field order after intentionally omitting only \code{escrowId}, which
+the adapter derives as
+\code{H("slot-chain-bridge-escrow-v2"||creditId)} from the queried key; the
+omission is not permission to reorder or omit any other stored field.  All
 narrow words have canonical zero high
 padding.  Before either read the adapter checks the descriptor-pinned runtime
 and exact \code{componentConfigHashV2()} result.  It joins every duplicated
@@ -8552,8 +8560,14 @@ winningDataCommitment = H("slot-chain-winning-data-v1" ||
 H("slot-chain-outputs-v2" || stateRoot || transactionsRoot || receiptsRoot ||
   logsBloomHash || withdrawalsRoot || terminalRoot || u64(terminalCount))
 \end{verbatim}
-Here $n\le4096$; schedule windows are ascending and sessions are ascending by
-ID.  \code{blockStructHash} is the EIP-712 struct hash of the exact signed
+Candidate encoding accepts exactly $1\le n\le4096$ rows, and their
+\code{uint64 slot} values are strictly increasing.  A schedule list contains
+at most 12 rows with strictly increasing \code{uint64 window} values.  A
+sealed-session list contains at most 16 rows with strictly increasing
+\code{bytes32 sessionId} values, and every \code{recordCount} is at most 2,100.
+Every bound and addition is checked before narrowing; an empty candidate,
+duplicate or descending key, surplus row or width overflow rejects rather than
+being hashed.  \code{blockStructHash} is the EIP-712 struct hash of the exact signed
 \code{SlotChainBlock} fields in \S\ref{sec:signed-header}; tier-3 recovery uses
 the same struct fields without a signature.  These hashes are respectively the statement's
 \code{baseCanonicalHash}, \code{candidateCommitment},
@@ -8659,7 +8673,13 @@ already supplies index and kind, so neither leaf ASCII domain nor index is
 duplicated inside it.  Its fixed byte length is 220 for kind 0 and 541 for kind
 1.  The list encoding and optional first excluded boundary are defined in
 \S\ref{sec:escape}.  The circuit prepends the correct leaf domain and index to
-reconstruct every Merkle leaf; any other length rejects.
+reconstruct every Merkle leaf; any other length rejects.  The checked list
+encoder accepts only kind 0 or 1, at most 256 consumed rows, and exactly zero or
+one boundary row.  Row indices are the contiguous \code{uint64} sequence
+\code{start+i}; when present, the boundary is exactly
+\code{start+consumedCount}.  Every index addition is checked in 64 bits before
+encoding, so a gap, duplicate, caller-supplied replacement index, narrowing or
+wrap rejects.
 
 The DIRECT-only acyclic \code{canonicalBridgeKernelDescriptor} is exactly 115 bytes:
 \begin{verbatim}
@@ -9103,18 +9123,23 @@ domain-separated empty leaf.  For zero entries,
 transaction body is the ordinary body encoding \code{u32(0)} and therefore
 \code{H("slot-chain-body-v1"||u32(4)||u32(0))}.  Tier 3 requires exactly those
 empty body/manifest values and the zero-count session-list commitment.
-This tree is instantiated separately for every block.  \code{position} starts
-at zero inside that block; \code{blockOrdinal} remains the candidate-wide block
-index.  A two-block candidate therefore commits two signed manifest roots and
-never hashes their leaves into one shared tree.
+This tree is instantiated separately for every block and contains at most
+2,100 entries.  \code{position} is exactly $0,\ldots,count-1$ inside that block,
+and every entry must carry the single expected enclosing block's
+\code{blockOrdinal}; \code{blockOrdinal} remains the candidate-wide block
+index.  A missing, mixed or substituted ordinal rejects.  A two-block candidate
+therefore commits two signed manifest roots and never hashes their leaves into
+one shared tree.
 The InboxApply disposition commitment is:
 \begin{verbatim}
 H("slot-chain-dispositions-v1" || u64(start) || u64(end) ||
   u16(count) ||
   (u64(queueIndex)||u8(disposition)||u32(txIndex)||resultHash)*)
 \end{verbatim}
-Here
-\code{UINT32_MAX} means no Ethereum transaction.
+The list contains at most 64 rows, checked arithmetic requires
+\code{end=start+count}, and row $i$ must carry
+\code{queueIndex=start+i}.  A gap, duplicate, reordered index or \code{uint64}
+wrap rejects.  Here \code{UINT32_MAX} means no Ethereum transaction.
 
 For a raw discretionary body chunk, the byte-exact commitment omitted by any
 ABI convenience wrapper is
@@ -9129,8 +9154,26 @@ the root.
 
 The recovery ID is the encoding in \S\ref{sec:machine}.  Schedule leaf/root,
 seed and tie hashes are as in \S\ref{sec:schedule}; body and blob encodings are
-as in \S\ref{sec:data}.  \code{commitment-model.py} is the normative executable
-fixture.  Its initial vectors are:
+as in \S\ref{sec:data}.
+
+The implementation rounds deliberately separate encoding primitives from
+stateful algorithms and wire protocols.  Round 2 owns checked,
+domain-fixed preimage encoders: width conversion, canonical validation and the
+individual fixed-record, bounded-list, leaf, node and root-wrapper hashes above.
+It does not own tree/MMR construction, frontier append/fold, proof traversal or
+inclusion verification; Round 3 implements those algorithms while consuming
+the Round-2 hash primitives.  Exact external-call and returndata codecs,
+component ABIs, and migration or legacy-campaign wire codecs are implemented
+and exercised only in their later owning rounds.  Treating a later algorithm
+or call codec as a generic Round-2 ``encoding'' is a scope error.
+
+\code{commitment-model.py} is the normative executable fixture.  Round 2 exports
+all 648 records through one deterministic typed oracle, including records owned
+by later rounds, but its Solidity conformance test executes only an explicit
+reviewed allowlist for the checked fixed-preimage encoders owned by Round 2.
+Later rounds consume and execute the remaining already-exported records when
+their production algorithms and ABIs exist; export is not evidence of premature
+implementation or coverage.  The initial vectors are:
 \begin{verbatim}
 TYPEHASH      ee6a8c8e31e8245cd527869508f6e464d6084893991203876f734d1855aed87c
 registryRoot 0bf297d7b9b6a5529a319a06cb08484923a89bab15d51f8baeaf5c30bebdf3fd
@@ -9986,7 +10029,7 @@ regressions, including authorization substitution, callback/OOG, competing LP,
 owner-mode, target/quota/pull/terminal rollback, withdrawal/recreation and
 cross-version preservation cases for the atomic Pool path.
 
-\code{commitment-model.py} reports 648 golden vectors and 1409 executable
+\code{commitment-model.py} reports 648 golden vectors and 1425 executable
 assertion sites for
 exact EIP-712
 domain/struct/digest, canonical and statement hashes, registry/admission/entry/

@@ -17,7 +17,9 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import json
 import runpy
+import sys
 from dataclasses import dataclass, fields, replace
 from functools import lru_cache
 from pathlib import Path
@@ -1042,6 +1044,11 @@ def migration_data(settlement_chain_id: int, l2_chain_id: int,
 
 def candidate_commitment(base_hash: bytes,
                          rows: tuple[tuple[int, bytes, bytes, bytes, bytes, int], ...]) -> bytes:
+    slots = tuple(slot for slot, *_ in rows)
+    assert (1 <= len(rows) <= 4_096
+            and all(type(slot) is int and 0 <= slot <= UINT64_MAX
+                    for slot in slots)
+            and all(left < right for left, right in zip(slots, slots[1:])))
     payload = b"".join(u64(slot) + b32(block_struct) + b32(block_hash)
                        + b32(body_root_hash) + b32(data_manifest_root)
                        + u64(message_end)
@@ -1055,14 +1062,23 @@ def winning_data(candidate_hash: bytes, sessions_hash: bytes) -> bytes:
 
 
 def schedule_list(rows: tuple[tuple[int, bytes, bytes], ...]) -> bytes:
-    assert tuple(sorted(window for window, _, _ in rows)) == tuple(window for window, _, _ in rows)
+    windows = tuple(window for window, _, _ in rows)
+    assert (len(rows) <= 12
+            and all(type(window) is int and 0 <= window <= UINT64_MAX
+                    for window in windows)
+            and all(left < right for left, right in zip(windows, windows[1:])))
     return keccak256(D_SCHEDULE_LIST + u8(len(rows)) + b"".join(
         u64(window) + b32(entry_root_hash) + b32(seed_hash)
         for window, entry_root_hash, seed_hash in rows))
 
 
 def session_list(rows: tuple[tuple[bytes, int, bytes], ...]) -> bytes:
-    assert tuple(sorted(session for session, _, _ in rows)) == tuple(session for session, _, _ in rows)
+    session_ids = tuple(b32(session) for session, _, _ in rows)
+    assert (len(rows) <= 16
+            and all(type(count) is int and 0 <= count <= 2_100
+                    for _, count, _ in rows)
+            and all(left < right
+                    for left, right in zip(session_ids, session_ids[1:])))
     return keccak256(D_SESSION_LIST + u8(len(rows)) + b"".join(
         b32(session) + u16(count) + b32(root) for session, count, root in rows))
 
@@ -1567,10 +1583,10 @@ class CreditAuthorizationV2:
     liquidity_fee: int
     calldata_hash: bytes
     calldata_length: int
+    escrow_id: bytes
     protocol_version: int
     release_manifest_hash: bytes
     execution_profile_hash: bytes
-    escrow_id: bytes
 
 
 @dataclass(frozen=True)
@@ -1596,8 +1612,8 @@ def credit_authorization_from_envelope(
         envelope.enqueue_by, envelope.sender,
         envelope.src_owner, envelope.dest_owner, envelope.value, envelope.fee,
         envelope.liquidity_fee, envelope.calldata_hash, envelope.byte_length,
-        envelope.protocol_version, envelope.release_manifest_hash,
-        envelope.execution_profile_hash, envelope.escrow_id)
+        envelope.escrow_id, envelope.protocol_version,
+        envelope.release_manifest_hash, envelope.execution_profile_hash)
 
 
 def encode_credit_authorization_return(
@@ -1623,6 +1639,7 @@ def encode_credit_authorization_return(
         + b32(authorization.execution_profile_hash))
     assert (authorization.src_epoch <= UINT64_MAX
             and authorization.emitted_at_block <= UINT64_MAX
+            and authorization.dest_chain_id <= UINT64_MAX
             and authorization.enqueue_by <= UINT64_MAX
             and authorization.fee <= UINT64_MAX
             and authorization.liquidity_fee <= UINT64_MAX
@@ -1645,13 +1662,13 @@ def decode_credit_authorization_return(
         b32(words[1]), uint_word_value(words[2], 64),
         address_word_value(words[3]), b32(words[4]),
         uint_word_value(words[5], 64), b32(words[6]), b32(words[7]),
-        uint_word_value(words[8]), address_word_value(words[9]),
+        uint_word_value(words[8], 64), address_word_value(words[9]),
         uint_word_value(words[10], 64), address_word_value(words[11]),
         address_word_value(words[12]), address_word_value(words[13]),
         uint_word_value(words[14]), uint_word_value(words[15], 64),
         uint_word_value(words[16], 64), b32(words[17]),
-        uint_word_value(words[18], 32), uint_word_value(words[19], 64),
-        b32(words[20]), b32(words[21]), bridge_escrow_id(expected_credit_id))
+        uint_word_value(words[18], 32), bridge_escrow_id(expected_credit_id),
+        uint_word_value(words[19], 64), b32(words[20]), b32(words[21]))
     decoded_credit_id = bridge_credit_id(
         source_chain_id, result.source_domain_id, result.src_epoch,
         result.src_bridge, result.destination_domain_id, result.msg_hash,
@@ -9519,6 +9536,15 @@ def force_descriptor_list(start: int,
                           consumed: tuple[tuple[int, bytes], ...],
                           boundary: tuple[int, bytes] | None) -> bytes:
     rows = consumed + (() if boundary is None else (boundary,))
+    assert (type(start) is int and 0 <= start <= UINT64_MAX
+            and len(consumed) <= 256 and len(rows) <= 257
+            and (not rows or len(rows) <= UINT64_MAX - start))
+    assert all(
+        type(kind) is int and kind in (0, 1)
+        and type(descriptor) is bytes
+        and len(descriptor) == (220 if kind == 0 else 541)
+        for kind, descriptor in rows
+    )
     payload = b"".join(
         u64(start + offset) + u8(kind) + u16(len(descriptor)) + descriptor
         for offset, (kind, descriptor) in enumerate(rows)
@@ -9675,6 +9701,7 @@ def data_leaf(session: bytes, index: int, versioned_hash: bytes,
 
 
 def mmr_root(leaves: tuple[bytes, ...]) -> bytes:
+    assert len(leaves) <= 2_100
     peaks: list[tuple[int, bytes]] = []
     for leaf in leaves:
         height, node = 0, b32(leaf)
@@ -9732,7 +9759,13 @@ def manifest_leaf(position: int, entry: ManifestEntry) -> bytes:
                      + b32(entry.chunk_root))
 
 
-def manifest_root(entries: tuple[ManifestEntry, ...]) -> bytes:
+def manifest_root(expected_block_ordinal: int,
+                  entries: tuple[ManifestEntry, ...]) -> bytes:
+    assert (type(expected_block_ordinal) is int
+            and 0 <= expected_block_ordinal < 4_096
+            and len(entries) <= 2_100
+            and all(entry.block_ordinal == expected_block_ordinal
+                    for entry in entries))
     if not entries:
         return keccak256(D_MANIFEST_ROOT + u16(0) + keccak256(D_MANIFEST_EMPTY))
     leaves = [manifest_leaf(i, entry) for i, entry in enumerate(entries)]
@@ -9745,6 +9778,10 @@ def manifest_root(entries: tuple[ManifestEntry, ...]) -> bytes:
 
 
 def dispositions(start: int, rows: tuple[tuple[int, int, int, bytes], ...]) -> bytes:
+    assert (type(start) is int and 0 <= start <= UINT64_MAX
+            and len(rows) <= 64 and len(rows) <= UINT64_MAX - start
+            and all(type(index) is int and index == start + offset
+                    for offset, (index, _, _, _) in enumerate(rows)))
     end = start + len(rows)
     payload = b"".join(u64(index) + u8(code) + u32(tx_index) + b32(result)
                        for index, code, tx_index, result in rows)
@@ -10364,11 +10401,11 @@ def vectors() -> dict[str, str]:
     mmr_frontier = append_mmr_frontier(mmr_frontier, 0, leaf0)
     mmr_frontier = append_mmr_frontier(mmr_frontier, 1, leaf1)
     assert mmr_frontier_root(mmr_frontier, 2) == mmr_root((leaf0, leaf1))
-    manifest = manifest_root((
+    manifest = manifest_root(0, (
         ManifestEntry(0, sid, 0, 0, 2, len(chunk0), body, c0),
         ManifestEntry(0, sid, 1, 1, 2, len(chunk1), body, c1),
     ))
-    manifest_block_1 = manifest_root((
+    manifest_block_1 = manifest_root(1, (
         ManifestEntry(1, sid, 0, 0, 2, len(chunk0), body, c0),
         ManifestEntry(1, sid, 1, 1, 2, len(chunk1), body, c1),
     ))
@@ -11212,7 +11249,7 @@ def vectors() -> dict[str, str]:
         canonical_core_v2_hash(genesis_base_core), 1_000)
     genesis_block_hash = bytes.fromhex("78" * 32)
     genesis_block_body = body_root(())
-    genesis_block_manifest = manifest_root(())
+    genesis_block_manifest = manifest_root(0, ())
     genesis_candidate_hash = candidate_commitment(
         genesis_base,
         ((imported_header_number + 1,
@@ -12487,7 +12524,7 @@ def vectors() -> dict[str, str]:
                 decode_credit_authorization_return(
                     value, bridge_credit, bridge.src_chain_id),
             "malformed source authorization return accepted")
-    for noncanonical_word in (2, 3, 5, 9, 10, 11, 12, 13, 15, 16, 18, 19):
+    for noncanonical_word in (2, 3, 5, 8, 9, 10, 11, 12, 13, 15, 16, 18, 19):
         malformed_padding = (
             credit_authorization_return[:noncanonical_word * 32]
             + b"\x01"
@@ -12955,7 +12992,7 @@ def vectors() -> dict[str, str]:
         infrastructure_components[9],
     )
     empty_body = body_root(())
-    empty_manifest = manifest_root(())
+    empty_manifest = manifest_root(0, ())
     empty_sessions = session_list(())
     assert_all_fields_bound(genesis_deployment, deployment_commitment_hash)
     assert_all_fields_bound(version_deployment, deployment_commitment_hash)
@@ -16064,7 +16101,168 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'c0d778314c7fdd2e84
  'version_migration_statement_hash': 'fecf17e6d81ea60b3712f796cddc4780e295bd5c0e20c233cfb7fb477113c4de',
  'winning_data': '4ae34aa9efb842528d353b175f94191d01cfd168b5ad828f64a0e7972a2ca9e3'}
 
+
+# The export schema is deliberately keyed by semantic meaning, never inferred
+# from the spelling of a value.  Every name not in this explicit uint set is a
+# hex record only after the complete canonical name-set fingerprint matches.
+UINT_VECTOR_NAMES = frozenset({
+    "adopt_migration_canonical_calldata_length",
+    "append_kind0_calldata_length",
+    "append_kind1_calldata_length",
+    "apply_protocol_change_calldata_length",
+    "cancel_protocol_change_calldata_length",
+    "component_config_getter_gas_limit",
+    "candidate_committed_v2_data_length",
+    "candidate_committed_v2_topic_count",
+    "claim_reward_v1_calldata_length",
+    "claim_reward_v1_paid_wei",
+    "claim_reward_v1_return_length",
+    "fund_reward_class_v1_calldata_length",
+    "fund_reward_class_v1_return_length",
+    "reward_claimed_v1_data_length",
+    "reward_claimed_v1_topic_count",
+    "reward_class_funded_v1_data_length",
+    "reward_class_funded_v1_topic_count",
+    "data_session_accounting_return_length",
+    "reward_class_v1_call_gas",
+    "reward_class_v1_calldata_length",
+    "reward_class_v1_class_id",
+    "reward_class_v1_return_length",
+    "reward_receipt_v1_calldata_length",
+    "reward_receipt_v1_return_length",
+    "statement_reward_execution_gas",
+    "statement_reward_published_bytes",
+    "credit_authorization_v2_return_length",
+    "credit_liability_v2_return_length",
+    "enqueue_forced_transaction_calldata_length",
+    "execute_attempt_calldata_length",
+    "execute_protocol_change_calldata_length",
+    "execution_profile_abi_length",
+    "execution_profile_creation_offset",
+    "execution_profile_static_words",
+    "genesis_activation_calldata_length",
+    "genesis_activation_receipt_return_length",
+    "inbox_apply_calldata_length",
+    "inbox_credit_packed_terms",
+    "legacy_blob_slice_maximum_length",
+    "legacy_blob_slice_one_length",
+    "legacy_checkpoint_config_return_length",
+    "legacy_derivation_source_mixed_length",
+    "legacy_descriptor_call_gas",
+    "legacy_forced_inclusion_encoding_length",
+    "legacy_full_scan_capacity_bytes",
+    "legacy_full_scan_capacity_headroom_bytes",
+    "legacy_genesis_arm_calldata_length",
+    "legacy_genesis_arm_return_length",
+    "legacy_genesis_blob_data_expiry",
+    "legacy_genesis_campaign_return_length",
+    "legacy_genesis_finalize_calldata_length",
+    "legacy_genesis_preparation_return_length",
+    "legacy_genesis_scan_proposals_one_calldata_length",
+    "legacy_genesis_scan_proposals_sixteen_calldata_length",
+    "legacy_genesis_scan_state_return_length",
+    "legacy_genesis_state_return_length",
+    "legacy_inbox_config_return_length",
+    "legacy_maximum_forced_row_bytes",
+    "legacy_maximum_proposal_row_bytes",
+    "legacy_maximum_scan_bytes_bound",
+    "legacy_maximum_sixteen_proposal_raw_bytes",
+    "legacy_maximum_sixteen_proposal_scan_calldata_length",
+    "legacy_profile_maximum_forced_inclusions_per_proposal",
+    "legacy_profile_maximum_normal_blob_hashes_per_proposal",
+    "legacy_proposal_maximum_encoding_length",
+    "legacy_proposal_mixed_encoding_length",
+    "legacy_resume_proof_generation_max_seconds",
+    "legacy_resume_risc0_config_return_length",
+    "legacy_resume_sp1_config_return_length",
+    "legacy_resume_verifier_config_return_length",
+    "maximum_genesis_activation_calldata_length",
+    "maximum_live_version_migration_seconds",
+    "maximum_migration_proof_bytes",
+    "maximum_version_activation_calldata_length",
+    "migration_activation_context_return_length",
+    "migration_activation_profile_return_length",
+    "migration_arm_execution_window_seconds",
+    "normalized_message_hash_preimage_length",
+    "pool_auth_cleanup_gas",
+    "pool_bridge_attempt_calldata_length",
+    "pool_external_read_gas",
+    "pool_process_calldata_length",
+    "pool_retry_calldata_length",
+    "pool_value_callback_gas",
+    "protocol_authority_read_gas",
+    "protocol_change_delay_seconds",
+    "publish_genesis_campaign_payload_length",
+    "publish_migration_arm_payload_length",
+    "pvm_router_mutation_gas",
+    "queue_migration_calldata_length",
+    "queue_migration_credited_wei",
+    "queue_protocol_change_calldata_length",
+    "register_fork_verifier_payload_length",
+    "register_release_payload_length",
+    "register_target_release_calldata_length",
+    "seat_authority_read_gas",
+    "send_message_v2_calldata_length",
+    "settlement_deployment_descriptor_abi_length",
+    "source_bridge_descriptor_length",
+    "source_credit_read_gas_limit",
+    "target_release_registration_return_length",
+    "verify_inbox_credit_return_length",
+    "verify_registration_calldata_length",
+    "verify_schedule_carrier_calldata_length",
+    "version_activation_calldata_length",
+    "version_migration_abort_after_timestamp",
+    "version_migration_lease_return_length",
+})
+VECTOR_NAME_SCHEMA_SHA256 = (
+    "67d4a0bb8d0ac3fd7c57b6bbc35f62d518c795b0f3c972868772a46b26b3af4f"
+)
+
+
+def typed_vectors() -> tuple[dict[str, str], ...]:
+    """Return the canonical vectors as deterministic, explicitly typed rows."""
+
+    if not __debug__:
+        raise RuntimeError("typed vector export requires assertions")
+    actual = vectors()
+    assert actual == EXPECTED
+    names = tuple(sorted(actual))
+    assert (len(names) == 648 and len(set(names)) == len(names)
+            and UINT_VECTOR_NAMES <= set(names)
+            and hashlib.sha256(
+                b"\0".join(name.encode("ascii") for name in names)
+            ).hexdigest() == VECTOR_NAME_SCHEMA_SHA256)
+    records: list[dict[str, str]] = []
+    for name in names:
+        value = actual[name]
+        if name in UINT_VECTOR_NAMES:
+            kind = "uint"
+            assert (value != "" and all("0" <= char <= "9" for char in value)
+                    and (value == "0" or value[0] != "0")
+                    and str(int(value)) == value)
+        else:
+            kind = "hex"
+            assert (value != "" and len(value) % 2 == 0
+                    and all(char in "0123456789abcdef" for char in value)
+                    and bytes.fromhex(value).hex() == value)
+        records.append({"kind": kind, "name": name, "value": value})
+    assert len(records) == len(actual)
+    return tuple(records)
+
+
+def typed_vectors_json() -> str:
+    """Return compact JSON with stable row and object-key ordering."""
+
+    return json.dumps(typed_vectors(), sort_keys=True, separators=(",", ":"))
+
 if __name__ == "__main__":
+    if not __debug__:
+        raise SystemExit("commitment model refuses optimized Python")
+    if sys.argv[1:]:
+        if sys.argv[1:] != ["--export-json"]:
+            raise SystemExit("usage: commitment-model.py [--export-json]")
+        print(typed_vectors_json())
+        raise SystemExit(0)
     actual = vectors()
     if "UPDATE" in EXPECTED.values():
         for key, value in actual.items():
@@ -16082,10 +16280,172 @@ if __name__ == "__main__":
     blob = encode_blob_payload(payload)
     assert decode_blob_payload(blob) == payload
 
+    # Normative constructor boundaries reject before emitting a commitment.
+    hash_a, hash_b = bytes.fromhex("11" * 32), bytes.fromhex("22" * 32)
+    candidate_row = (1, hash_a, hash_b, hash_a, hash_b, 0)
+    assert_rejects(
+        lambda: candidate_commitment(hash_a, ()),
+        "empty candidate accepted")
+    assert_rejects(
+        lambda: candidate_commitment(hash_a, (candidate_row,) * 4_097),
+        "candidate block cap exceeded")
+    assert_rejects(
+        lambda: candidate_commitment(hash_a, (candidate_row, candidate_row)),
+        "duplicate candidate slot accepted")
+    assert_rejects(
+        lambda: candidate_commitment(
+            hash_a, ((2, *candidate_row[1:]), candidate_row)),
+        "descending candidate slots accepted")
+    assert_rejects(
+        lambda: candidate_commitment(
+            hash_a, ((-1, *candidate_row[1:]),)),
+        "negative candidate slot accepted")
+    assert_rejects(
+        lambda: candidate_commitment(
+            hash_a, ((UINT64_MAX + 1, *candidate_row[1:]),)),
+        "candidate slot beyond uint64 accepted")
+
+    schedule_row = (1, hash_a, hash_b)
+    assert_rejects(
+        lambda: schedule_list(tuple(
+            (window, hash_a, hash_b) for window in range(13))),
+        "schedule window cap exceeded")
+    assert_rejects(
+        lambda: schedule_list((schedule_row, schedule_row)),
+        "duplicate schedule window accepted")
+    assert_rejects(
+        lambda: schedule_list(((2, hash_a, hash_b), schedule_row)),
+        "descending schedule windows accepted")
+    assert_rejects(
+        lambda: schedule_list(((-1, hash_a, hash_b),)),
+        "negative schedule window accepted")
+    assert_rejects(
+        lambda: schedule_list(((UINT64_MAX + 1, hash_a, hash_b),)),
+        "schedule window beyond uint64 accepted")
+
+    session_row = (bytes.fromhex("01" * 32), 0, hash_a)
+    assert_rejects(
+        lambda: session_list(tuple(
+            (index.to_bytes(32, "big"), 0, hash_a)
+            for index in range(1, 18))),
+        "sealed-session cap exceeded")
+    assert_rejects(
+        lambda: session_list((session_row, session_row)),
+        "duplicate sealed session accepted")
+    assert_rejects(
+        lambda: session_list((
+            (bytes.fromhex("02" * 32), 0, hash_a), session_row)),
+        "descending sealed sessions accepted")
+    assert_rejects(
+        lambda: session_list(((session_row[0], -1, session_row[2]),)),
+        "negative session record count accepted")
+    assert_rejects(
+        lambda: session_list(((session_row[0], 2_101, session_row[2]),)),
+        "session record cap exceeded")
+    assert_rejects(
+        lambda: mmr_root((hash_a,) * 2_101),
+        "MMR record cap exceeded")
+
+    manifest_entry = ManifestEntry(0, hash_a, 0, 0, 1, 0,
+                                   hash_a, hash_b)
+    assert_rejects(
+        lambda: manifest_root(0, (manifest_entry,) * 2_101),
+        "manifest record cap exceeded")
+    assert_rejects(
+        lambda: manifest_root(1, (manifest_entry,)),
+        "cross-block manifest entry accepted")
+    assert_rejects(
+        lambda: manifest_root(-1, ()),
+        "negative manifest block ordinal accepted")
+    assert_rejects(
+        lambda: manifest_root(4_096, ()),
+        "manifest block ordinal beyond candidate cap accepted")
+    assert len(manifest_root(4_095, ())) == 32
+
+    disposition_row = (2, 0, UINT32_MAX, bytes(32))
+    assert_rejects(
+        lambda: dispositions(2, tuple(
+            (2 + offset, 0, UINT32_MAX, bytes(32))
+            for offset in range(65))),
+        "disposition cap exceeded")
+    assert_rejects(
+        lambda: dispositions(2, (disposition_row, disposition_row)),
+        "duplicate disposition queue index accepted")
+    assert_rejects(
+        lambda: dispositions(3, (
+            (3, 0, UINT32_MAX, bytes(32)),
+            (2, 0, UINT32_MAX, bytes(32)))),
+        "descending disposition queue indices accepted")
+    assert_rejects(
+        lambda: dispositions(2, (
+            disposition_row, (4, 0, UINT32_MAX, bytes(32)))),
+        "gapped disposition queue indices accepted")
+    assert_rejects(
+        lambda: dispositions(-1, ()),
+        "negative disposition start accepted")
+    assert_rejects(
+        lambda: dispositions(UINT64_MAX + 1, ()),
+        "disposition start beyond uint64 accepted")
+    assert_rejects(
+        lambda: dispositions(
+            UINT64_MAX, ((UINT64_MAX, 0, UINT32_MAX, bytes(32)),)),
+        "disposition exclusive end overflow accepted")
+    assert len(dispositions(UINT64_MAX, ())) == 32
+
     # Negative queue properties: skip, reorder, boundary/count/root tampering.
     envs = tuple(ForcedEnvelope(1, i, 16_788, keccak256(u64(i)), 10, 21_000,
                                 21_000, 1, 9_999, 2, 3, 4 + i, 5)
                  for i in range(70))
+    kind0_descriptor = forced_descriptor(envs[0])
+    kind1_descriptor = bytes(541)
+    maximum_consumed = ((0, kind0_descriptor),) * 256
+    assert (len(force_descriptor_list(
+        0, maximum_consumed, (1, kind1_descriptor))) == 32
+        and len(force_descriptor_list(UINT64_MAX, (), None)) == 32)
+    assert len(force_descriptor_list(
+        UINT64_MAX - 1, ((0, kind0_descriptor),), None)) == 32
+    assert len(force_descriptor_list(
+        UINT64_MAX - 2, ((0, kind0_descriptor),),
+        (1, kind1_descriptor))) == 32
+    assert_rejects(
+        lambda: force_descriptor_list(
+            0, maximum_consumed + ((0, kind0_descriptor),), None),
+        "forced consumed-item cap exceeded")
+    assert_rejects(
+        lambda: force_descriptor_list(
+            0, maximum_consumed + ((0, kind0_descriptor),),
+            (1, kind1_descriptor)),
+        "forced total descriptor cap exceeded")
+    for invalid_kind in (-1, 2, True):
+        assert_rejects(
+            lambda invalid_kind=invalid_kind: force_descriptor_list(
+                0, ((invalid_kind, kind0_descriptor),), None),
+            "invalid forced descriptor kind accepted")
+    for invalid_kind0 in (bytes(219), bytes(221)):
+        assert_rejects(
+            lambda invalid_kind0=invalid_kind0: force_descriptor_list(
+                0, ((0, invalid_kind0),), None),
+            "invalid kind-0 descriptor length accepted")
+    for invalid_kind1 in (bytes(540), bytes(542)):
+        assert_rejects(
+            lambda invalid_kind1=invalid_kind1: force_descriptor_list(
+                0, ((1, invalid_kind1),), None),
+            "invalid kind-1 descriptor length accepted")
+    assert_rejects(
+        lambda: force_descriptor_list(-1, (), None),
+        "negative forced descriptor start accepted")
+    assert_rejects(
+        lambda: force_descriptor_list(UINT64_MAX + 1, (), None),
+        "forced descriptor start beyond uint64 accepted")
+    assert_rejects(
+        lambda: force_descriptor_list(
+            UINT64_MAX, ((0, kind0_descriptor),), None),
+        "unused final forced descriptor index accepted")
+    assert_rejects(
+        lambda: force_descriptor_list(
+            UINT64_MAX - 1, ((0, kind0_descriptor),),
+            (1, kind1_descriptor)),
+        "forced descriptor boundary index overflow accepted")
     leaves = tuple(forced_leaf(i, env) for i, env in enumerate(envs))
     vector = ForceVector(leaves)
     proof = vector.range_proof(2, 66)
