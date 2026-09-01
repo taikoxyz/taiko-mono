@@ -392,7 +392,7 @@ contract ERC20Vault is BaseVault {
         checkToAddressOnDestChain(to);
 
         // Transfer the ETH and the tokens to the `to` address
-        address token = _transferTokens(ctoken, to, amount);
+        address token = _transferTokens(ctoken, to, amount, true);
         to.sendEtherAndVerify(msg.value);
 
         emit TokenReceived({
@@ -422,8 +422,10 @@ contract ERC20Vault is BaseVault {
         (CanonicalERC20 memory ctoken,,, uint256 amount) =
             abi.decode(data, (CanonicalERC20, address, address, uint256));
 
-        // Transfer the ETH and tokens back to the owner
-        address token = _transferTokens(ctoken, _message.srcOwner, amount);
+        // Transfer the ETH and tokens back to the owner. The quota is deliberately not debited:
+        // these tokens never left this chain, so returning a failed deposit is not a bridge
+        // inflow and must not be blocked when the quota is exhausted.
+        address token = _transferTokens(ctoken, _message.srcOwner, amount, false);
         _message.srcOwner.sendEtherAndVerify(_message.value);
 
         emit TokenReleased({
@@ -440,10 +442,21 @@ contract ERC20Vault is BaseVault {
         return LibNames.B_ERC20_VAULT;
     }
 
+    /// @dev Releases tokens to `_to`, either by transferring the canonical token this vault
+    /// custodies or by minting the bridged representation.
+    /// @param _ctoken The canonical token.
+    /// @param _to The recipient of the released tokens.
+    /// @param _amount The amount to release.
+    /// @param _consumeQuota Whether to debit the withdrawal quota. True when delivering a message
+    /// from another chain, which is the inflow the quota exists to rate-limit. False when refunding
+    /// a recalled message: those tokens never left this chain, so handing a user back their own
+    /// failed deposit must not be throttled by unrelated bridge traffic.
+    /// @return token_ The address of the token transferred or minted.
     function _transferTokens(
         CanonicalERC20 memory _ctoken,
         address _to,
-        uint256 _amount
+        uint256 _amount,
+        bool _consumeQuota
     )
         private
         returns (address token_)
@@ -457,7 +470,7 @@ contract ERC20Vault is BaseVault {
             // check.
             IBridgedERC20(token_).mint(_to, _amount);
         }
-        _consumeTokenQuota(token_, _amount);
+        if (_consumeQuota) _consumeTokenQuota(token_, _amount);
     }
 
     /// @dev Consumes a given amount of token quota from the quota manager; reverts if quota is
@@ -467,7 +480,8 @@ contract ERC20Vault is BaseVault {
     /// atomically: the token transfer/mint is undone and no partial state remains. Integrators
     /// driving this flow externally (or via a custom vault) must expect the entire release to
     /// revert when quota is exhausted, never a partial release. Skips the external call when nothing
-    /// is released (`_amount == 0`).
+    /// is released (`_amount == 0`). Only cross-chain deliveries reach here; refunds of recalled
+    /// messages are exempt (see `_transferTokens`).
     /// @param _token The token address.
     /// @param _amount The amount of token quota to consume.
     function _consumeTokenQuota(address _token, uint256 _amount) private {

@@ -128,6 +128,80 @@ contract TestERC20Vault_quota is CommonTest {
         assertEq(qm.totalConsumed(), 2 * uint256(amount));
     }
 
+    /// @dev Builds a message shaped like one this vault would have sent, so it can be handed back
+    /// through `onMessageRecalled`.
+    function _recallMessage(uint64 _amount) internal view returns (IBridge.Message memory) {
+        bytes memory inner = abi.encode(_canonical(), Alice, Bob, uint256(_amount));
+        return IBridge.Message({
+            id: 0,
+            fee: 0,
+            gasLimit: 0,
+            from: address(eVault),
+            srcChainId: taikoChainId,
+            srcOwner: Alice,
+            destChainId: ethereumChainId,
+            destOwner: Alice,
+            to: address(0),
+            value: 0,
+            data: abi.encodeCall(ERC20Vault.onMessageInvocation, (inner))
+        });
+    }
+
+    // Refunding a recalled message is exempt from the quota: those tokens never left this chain,
+    // so returning a user's own failed deposit must not be throttled by unrelated bridge traffic.
+    function test_quota_recall_refund_is_exempt_from_quota() public {
+        vm.chainId(taikoChainId);
+
+        uint64 amount = 10;
+        qm.setLimit(1); // any debit of `amount` would revert
+
+        uint256 aliceBefore = eERC20Token1.balanceOf(Alice);
+
+        // Pre-build the message: it reads token metadata, which would consume the prank.
+        IBridge.Message memory message = _recallMessage(amount);
+        vm.prank(address(tBridge));
+        eVault.onMessageRecalled(message, bytes32(0));
+
+        assertEq(eERC20Token1.balanceOf(Alice) - aliceBefore, amount);
+        // The quota manager is not consulted at all on the refund path.
+        assertEq(qm.calls(), 0);
+        assertEq(qm.totalConsumed(), 0);
+    }
+
+    // The exemption is specific to refunds: under the very same exhausted quota, a cross-chain
+    // delivery is still rejected.
+    function test_quota_blocks_delivery_but_not_refund_under_the_same_limit() public {
+        vm.chainId(taikoChainId);
+
+        uint64 amount = 10;
+        qm.setLimit(1);
+
+        // A delivery from another chain is throttled ...
+        ERC20Vault.CanonicalERC20 memory canonical = _canonical();
+        vm.expectRevert(QuotaManager.QM_OUT_OF_QUOTA.selector);
+        tBridge.sendReceiveERC20ToERC20Vault(
+            canonical,
+            Alice,
+            Bob,
+            amount,
+            0,
+            bytes32(0),
+            bytes32(0),
+            address(eVault),
+            ethereumChainId,
+            0
+        );
+
+        // ... while a refund of a failed message goes through.
+        uint256 aliceBefore = eERC20Token1.balanceOf(Alice);
+        IBridge.Message memory message = _recallMessage(amount);
+        vm.prank(address(tBridge));
+        eVault.onMessageRecalled(message, bytes32(0));
+
+        assertEq(eERC20Token1.balanceOf(Alice) - aliceBefore, amount);
+        assertEq(qm.totalConsumed(), 0);
+    }
+
     // Releasing zero tokens skips the quota manager call entirely.
     function test_quota_zero_amount_skips_external_call() public {
         vm.chainId(taikoChainId);
