@@ -136,3 +136,19 @@ describe('ERC1155Vault rules', () => {
     );
   });
 });
+
+describe('the source owner rule', () => {
+  const message = { to: '0x1', destOwner: '0x2', srcChainId: 1, destChainId: 2, gasLimit: 100, fee: BigInt(0) };
+
+  it('refuses a zero source owner when the caller supplies one', () => {
+    expect(checkETHMessage({ ...message, srcOwner: ZERO })).toContain('ZERO_SRC_OWNER');
+  });
+
+  it('accepts a real source owner', () => {
+    expect(checkETHMessage({ ...message, srcOwner: '0x3' })).toEqual([]);
+  });
+
+  it('skips the rule where the vault fills the sender in itself', () => {
+    expect(checkETHMessage(message)).toEqual([]);
+  });
+});

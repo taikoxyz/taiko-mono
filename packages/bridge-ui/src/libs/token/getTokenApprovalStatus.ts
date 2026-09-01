@@ -135,6 +135,10 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
       allApproved.set(!requiresApproval);
       return requiresApproval ? ApprovalStatus.APPROVAL_REQUIRED : ApprovalStatus.NO_APPROVAL_REQUIRED;
     } catch (error) {
+      // A read that failed says nothing, and the ERC20 branch above already knows this: a
+      // stale allApproved=true from a previously selected token otherwise leaves Bridge
+      // enabled for an NFT whose approval could not be read at all
+      allApproved.set(false);
       // The error itself was dropped here, leaving a bare "isApprovedForAll error" line
       console.error('Could not read the NFT approval status', error);
     }

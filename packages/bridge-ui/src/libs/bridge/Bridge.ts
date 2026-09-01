@@ -118,7 +118,16 @@ export abstract class Bridge {
       gasLimit,
       fee,
       /** Exactly what every check in messageInvariants takes, so callers add only their own */
-      commonFields: { to, destOwner, srcChainId, destChainId, gasLimit, fee, minGasLimit },
+      commonFields: {
+        to,
+        destOwner,
+        srcOwner: wallet.account.address,
+        srcChainId,
+        destChainId,
+        gasLimit,
+        fee,
+        minGasLimit,
+      },
     };
   }
 
