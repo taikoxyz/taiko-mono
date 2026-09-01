@@ -91,6 +91,10 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm snapshot:l1 && pnpm layout:l1
 
+      - name: Verify Slot Chain artifact ownership
+        working-directory: ./packages/protocol
+        run: pnpm slotchain:ownership:ci
+
       # - name: Generate coverage report
       #   if: ${{ secrets.CODECOV_TOKEN != '' }}
       #   working-directory: ./packages/protocol

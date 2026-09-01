@@ -15,6 +15,9 @@ evm_version = "osaka"
 fuzz = { runs = 200, show_logs = false }
 # Exclude genesis tests - they require special setup via genesis.test.sh
 no_match_path = "test/genesis/*"
+# Slot Chain V2 is built only by its explicit owner profiles. The dedicated profiles below
+# override this list so a default-profile build cannot silently emit a second artifact.
+skip = ["**/slotchain/**"]
 
 # Note: yul is not a standard Foundry config option in newer versions
 
@@ -116,6 +119,8 @@ cache_path = "cache/layer1"
 # L1 build/test stays non-IR here, and the only file that pulls in the Automata verifier
 # (DeployAutomataDcapAttestation) is skipped. Deploy it under profile.layer1o, which enables via_ir.
 skip = ["*DeployAutomataDcapAttestation.s.sol"]
+ast = true
+build_info = true
 
 [profile.layer1o]
 src = "contracts/layer1"
@@ -138,6 +143,9 @@ cache_path = "cache/layer2"
 # Taiko L2 EVM version. Kept explicit (rather than inherited from profile.default) so L2 can be
 # pinned to a different fork than L1 whenever the two chains diverge again.
 evm_version = "osaka"
+skip = []
+ast = true
+build_info = true
 
 [profile.shared]
 src = "contracts/shared"
@@ -148,6 +156,9 @@ cache_path = "cache/shared"
 # Shared contracts are deployed on both L1 and L2, so this must stay at the oldest fork of the two.
 # Both are on Osaka today; drop this back to the lagging chain's fork if they diverge again.
 evm_version = "osaka"
+skip = []
+ast = true
+build_info = true
 
 [profile.genesis]
 src = "contracts/layer2"
