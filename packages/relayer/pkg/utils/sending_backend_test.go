@@ -2246,3 +2246,78 @@ func TestSendingBackend_APublicLandingReleasesThePrivateAcceptance(t *testing.T)
 	assert.NotContains(t, b.accepted[0], accepted.Nonce(),
 		"a public landing has to release the private state it settles")
 }
+
+func TestSendingBackend_APostReorgAcceptanceReplacesTheStaleHolderRecord(t *testing.T) {
+	public := &fakeBackend{receipt: &types.Receipt{}}
+	holder := &fakeSender{}
+	backup := &fakeSender{}
+
+	b := NewSendingBackend(public, []TxSender{holder, backup}, nil, nil)
+
+	first := txWithNonceAndCall(40, "the claim that mined")
+
+	require.NoError(t, b.SendTransaction(context.Background(), first))
+
+	// The transaction manager reads the receipt before it has confirmation depth, so this can be
+	// observed for a transaction that a reorg then removes.
+	_, err := b.TransactionReceipt(context.Background(), first.Hash())
+	require.NoError(t, err)
+
+	// The nonce is live again and gets recycled to a different claim, which this endpoint accepts.
+	second := txWithNonceAndCall(40, "the claim that inherited the nonce")
+
+	require.NoError(t, b.SendTransaction(context.Background(), second))
+	require.Empty(t, backup.sent, "the first endpoint took it")
+
+	// Its resend has to end here. This endpoint demonstrably holds the claim being offered, and a
+	// record left over from the transaction the reorg removed does not say otherwise.
+	holder.err = rpcRejection{txpool.ErrAlreadyKnown.Error()}
+
+	require.NoError(t, b.SendTransaction(context.Background(), second))
+
+	assert.Empty(t, backup.sent, "the endpoint that accepted this claim is still its holder")
+}
+
+func TestSendingBackend_CollectsTheDeadVariantsOfAMinedNonce(t *testing.T) {
+	public := &fakeBackend{receipt: &types.Receipt{}}
+	only := &fakeSender{}
+
+	b := NewSendingBackend(public, []TxSender{only}, nil, nil)
+
+	// One claim resent at rising fees: the same nonce under a new hash each time, and only one of
+	// them can ever execute.
+	var variants []*types.Transaction
+
+	for tip := int64(1); tip <= 6; tip++ {
+		variant := txWithNonceAndTip(40, tip)
+
+		require.NoError(t, b.SendTransaction(context.Background(), variant))
+
+		variants = append(variants, variant)
+	}
+
+	require.Len(t, b.sentTxNonces, len(variants))
+
+	landed := variants[len(variants)-1]
+
+	_, err := b.TransactionReceipt(context.Background(), landed.Hash())
+	require.NoError(t, err)
+
+	assert.Len(t, b.sentTxNonces, 1, "the variants a mined nonce replaced can never produce a receipt")
+	assert.Contains(t, b.sentTxNonces, landed.Hash(), "the one that landed is still read more than once")
+}
+
+func TestSendingBackend_BoundsTheSentTransactionIndex(t *testing.T) {
+	only := &fakeSender{}
+
+	b := NewSendingBackend(&fakeBackend{}, []TxSender{only}, nil, nil)
+
+	// A nonce that never lands has no later receipt to collect its variants — nothing above it can
+	// mine either — while TX_SEND_TIMEOUT keeps handing the nonce back out and every fee variant of
+	// every attempt adds a hash.
+	for tip := int64(1); tip <= int64(maxTrackedSentNonces)*2; tip++ {
+		require.NoError(t, b.SendTransaction(context.Background(), txWithNonceAndTip(40, tip)))
+	}
+
+	assert.LessOrEqual(t, len(b.sentTxNonces), maxTrackedSentNonces)
+}

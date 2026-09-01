@@ -200,6 +200,13 @@ endpoint holding that nonce — and the answer that comes back afterwards needs 
 be there, or the send continues to a backup that refuses a claim which is now done and is charged
 for it. The retained record goes when the next nonce mines, so at most one settled nonce is held.
 
+Receipts are read before the transaction manager has confirmation depth, so one can be observed for
+a transaction a reorg then removes. The nonce is live again and may be recycled to a different
+claim: an acceptance carrying a claim other than the retained one replaces it, while a repeat of
+the claim already recorded is treated as the stale fee variant it is. The hash index is bounded as
+well — a mined nonce collects the variants it replaced, since a nonce executes once, and a cap
+covers a nonce that never lands at all, where no later receipt can ever collect anything.
+
 Plain `http://` is rejected unless the host is the name `localhost` or an IP literal in a loopback,
 private or link-local range: a signed claim on the wire in cleartext can be read and front-run,
 which is the exposure these endpoints exist to remove, reached by another route. Names are not

@@ -90,6 +90,15 @@ const DefaultPrivateRPCAllRefusedLimit = 3
 // than the processor has in flight at once, so a live claim is never evicted in practice.
 const maxTrackedRefusedNonces = 256
 
+// maxTrackedSentNonces bounds the index of transactions this backend has sent.
+//
+// Deliberately far above the exact acceptance records it serves, which are one per endpoint per
+// unresolved nonce: this holds every fee variant of every one of them, and a send produces a
+// variant per RESUBMISSION_TIMEOUT for as long as TX_SEND_TIMEOUT allows. At the defaults that is
+// six or seven per attempt, so this is hundreds of attempts deep on a nonce that never lands. See
+// boundSentNonces for why an evicted entry costs a lookup rather than correctness.
+const maxTrackedSentNonces = 1024
+
 // DefaultPrivateRPCAttemptTimeout caps a single attempt when the caller supplied no deadline.
 //
 // The transaction manager always calls SendTransaction under its NetworkTimeout, so this does not
@@ -544,6 +553,35 @@ func (b *SendingBackend) rememberSentNonce(tx *types.Transaction) {
 	defer b.mu.Unlock()
 
 	b.sentTxNonces[tx.Hash()] = tx.Nonce()
+	b.boundSentNonces(tx.Nonce())
+}
+
+// boundSentNonces caps the index. The caller holds the lock.
+//
+// A mined nonce collects its own variants and everything below it, which is what keeps this index
+// the size of the unresolved window in ordinary running. A nonce that never lands has no later
+// receipt to do that: nonces execute in order, so nothing above it can mine either, while
+// TX_SEND_TIMEOUT keeps handing the nonce back out and every fee variant of every attempt adds a
+// hash. Without a bound that grows for the life of the process.
+//
+// Dropping an entry costs a lookup, not correctness: a receipt that cannot be resolved to a nonce
+// simply releases nothing that time, and the next receipt that can resolve releases everything
+// below it anyway. Nonces ascend, so the lowest is the stalest — and when one nonce is stuck it is
+// the only one here, which leaves the oldest variants of it, the low-fee ones its own resends have
+// already replaced.
+func (b *SendingBackend) boundSentNonces(justAdded uint64) {
+	for len(b.sentTxNonces) > maxTrackedSentNonces {
+		stalest := justAdded
+		var evict common.Hash
+
+		for hash, nonce := range b.sentTxNonces {
+			if evict == (common.Hash{}) || nonce < stalest {
+				stalest, evict = nonce, hash
+			}
+		}
+
+		delete(b.sentTxNonces, evict)
+	}
 }
 
 // clearAcceptedThrough removes exact acceptance state made obsolete by a mined transaction. The
@@ -585,8 +623,12 @@ func (b *SendingBackend) clearAcceptedThrough(txHash common.Hash) {
 		}
 	}
 
+	// The index goes the same way, and the variants of the nonce that just mined go with it. A
+	// nonce executes once, so every other transaction recorded at it — the lower-fee variants the
+	// resends replaced — can never produce a receipt again. The one that landed is kept, because
+	// the transaction manager reads its receipt more than once.
 	for sentHash, sentNonce := range b.sentTxNonces {
-		if sentNonce < nonce {
+		if sentNonce < nonce || (sentNonce == nonce && sentHash != txHash) {
 			delete(b.sentTxNonces, sentHash)
 		}
 	}
@@ -1144,11 +1186,21 @@ func (b *SendingBackend) recordSuccess(index int, tx *types.Transaction) {
 
 	b.hasAccepted[index] = true
 
+	claim := claimIdentity(tx)
+
 	// A receipt query and the next private send can be in flight together. If the receipt wins the
-	// lock, a success that comes back afterwards belongs to a transaction whose nonce is already
-	// mined and must not restore the exact state just released. The health reset and high-water
-	// update above still describe the endpoint accurately.
-	if b.hasMined && nonce <= b.minedThrough {
+	// lock, a success that comes back afterwards is a fee-bumped variant of the transaction that
+	// just mined, and re-recording it would only add a hash nothing can ever produce a receipt for.
+	// The health reset and high-water update above still describe the endpoint accurately.
+	//
+	// Judged by the claim rather than by the mined nonce alone. A receipt is read before the
+	// transaction manager has confirmation depth, so one can be observed for a transaction a reorg
+	// then removes; the nonce is live again and can be recycled to a different claim, which this
+	// endpoint may then accept. Skipping on the nonce meant the retained record still named the
+	// claim that went away, so the new claim's own holder answered for it and was read as holding
+	// someone else's — and the send carried on to a backup that had no reason to be asked. A
+	// different claim under a mined nonce is the chain having moved, not a stale variant.
+	if b.hasMined && nonce <= b.minedThrough && b.accepted[index][nonce] == claim {
 		return
 	}
 
@@ -1165,8 +1217,10 @@ func (b *SendingBackend) recordSuccess(index int, tx *types.Transaction) {
 	// on the nonce alone, that message inherits the acceptance, and the endpoint answering
 	// "replacement transaction underpriced" about the claim it is still holding would end the new
 	// claim's send with nobody carrying it.
-	b.accepted[index][nonce] = claimIdentity(tx)
+	b.accepted[index][nonce] = claim
 	b.sentTxNonces[tx.Hash()] = nonce
+
+	b.boundSentNonces(nonce)
 }
 
 // newAcceptedNonceSets builds one accepted-nonce record per endpoint, mapping each nonce to the
