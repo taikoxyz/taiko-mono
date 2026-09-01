@@ -90,14 +90,6 @@ const DefaultPrivateRPCAllRefusedLimit = 3
 // than the processor has in flight at once, so a live claim is never evicted in practice.
 const maxTrackedRefusedNonces = 256
 
-// maxTrackedAcceptedNonces bounds the per-endpoint record of which nonces it took.
-//
-// Same shape and same reason as maxTrackedRefusedNonces, and deliberately the same size: both are
-// far more than the processor has in flight at once, so a live claim is never evicted in practice.
-// Evicting one is not a correctness problem either — the send simply stops treating that endpoint
-// as the nonce's holder and offers the claim onward, which is where it started.
-const maxTrackedAcceptedNonces = 256
-
 // DefaultPrivateRPCAttemptTimeout caps a single attempt when the caller supplied no deadline.
 //
 // The transaction manager always calls SendTransaction under its NetworkTimeout, so this does not
@@ -224,6 +216,9 @@ type SendingBackend struct {
 	highestAccepted  []uint64
 	hasAccepted      []bool
 	accepted         []map[uint64]common.Hash
+	acceptedTxNonces map[common.Hash]uint64
+	minedThrough     uint64
+	hasMined         bool
 	failureThreshold int
 	failureCeiling   int
 	retryInterval    time.Duration
@@ -269,6 +264,7 @@ func NewSendingBackend(
 		highestAccepted:  make([]uint64, len(private)),
 		hasAccepted:      make([]bool, len(private)),
 		accepted:         newAcceptedNonceSets(len(private)),
+		acceptedTxNonces: make(map[common.Hash]uint64),
 		failureThreshold: DefaultPrivateRPCFailureThreshold,
 		failureCeiling:   DefaultPrivateRPCConsecutiveFailureCeiling,
 		allRefused:       make(map[uint64]refusalRun),
@@ -364,7 +360,7 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 
 		if err == nil {
 			b.clearAllRefused(tx.Nonce())
-			b.recordSuccess(endpoint.index, tx.Nonce(), claimIdentity(tx))
+			b.recordSuccess(endpoint.index, tx)
 			relayer.PrivateRPCSends.WithLabelValues(strconv.Itoa(endpoint.index)).Inc()
 
 			return nil
@@ -508,6 +504,57 @@ func (b *SendingBackend) SendTransaction(ctx context.Context, tx *types.Transact
 	}
 
 	return b.redacted(err)
+}
+
+// TransactionReceipt forwards receipt reads to the public endpoint and releases exact acceptance
+// records once one of the transactions behind them has landed on the observed chain. A sender
+// account's nonces execute in order, so a receipt for nonce N makes the pending-holder records at or
+// below N obsolete. The high-water marks are deliberately retained: they only prioritise an
+// endpoint and never end a send, while the exact records below are the stronger fact used to do
+// that.
+func (b *SendingBackend) TransactionReceipt(
+	ctx context.Context,
+	txHash common.Hash,
+) (*types.Receipt, error) {
+	receipt, err := b.ETHBackend.TransactionReceipt(ctx, txHash)
+	if err == nil && receipt != nil {
+		b.clearAcceptedThrough(txHash)
+	}
+
+	return receipt, err
+}
+
+// clearAcceptedThrough removes exact acceptance state made obsolete by a mined transaction. The
+// tx hash identifies its nonce because recordSuccess records every signed variant accepted by a
+// private endpoint; a receipt for an unrelated or publicly broadcast transaction has no private
+// state to release here.
+func (b *SendingBackend) clearAcceptedThrough(txHash common.Hash) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	nonce, ok := b.acceptedTxNonces[txHash]
+	if !ok {
+		return
+	}
+
+	if !b.hasMined || nonce > b.minedThrough {
+		b.minedThrough = nonce
+		b.hasMined = true
+	}
+
+	for index := range b.accepted {
+		for acceptedNonce := range b.accepted[index] {
+			if acceptedNonce <= nonce {
+				delete(b.accepted[index], acceptedNonce)
+			}
+		}
+	}
+
+	for acceptedHash, acceptedNonce := range b.acceptedTxNonces {
+		if acceptedNonce <= nonce {
+			delete(b.acceptedTxNonces, acceptedHash)
+		}
+	}
 }
 
 // clearAllRefused forgets the refusal run for this nonce, because a private endpoint has just taken
@@ -1039,9 +1086,11 @@ func (b *SendingBackend) leaveRotation(index int) {
 // demonstrably just accepted a transaction, so it belongs back in rotation whatever the tally from
 // the outage says. The generation is left alone, which keeps the failures still in flight from that
 // outage from being charged against the budget this clears.
-func (b *SendingBackend) recordSuccess(index int, nonce uint64, claim common.Hash) {
+func (b *SendingBackend) recordSuccess(index int, tx *types.Transaction) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
+	nonce := tx.Nonce()
 
 	b.failures[index] = 0
 	b.failedAt[index] = time.Time{}
@@ -1059,6 +1108,14 @@ func (b *SendingBackend) recordSuccess(index int, nonce uint64, claim common.Has
 
 	b.hasAccepted[index] = true
 
+	// A receipt query and the next private send can be in flight together. If the receipt wins the
+	// lock, a success that comes back afterwards belongs to a transaction whose nonce is already
+	// mined and must not restore the exact state just released. The health reset and high-water
+	// update above still describe the endpoint accurately.
+	if b.hasMined && nonce <= b.minedThrough {
+		return
+	}
+
 	// The mark above answers "is this endpoint plausibly carrying claims around this nonce", which
 	// is all the accounting exemption and the holder-first ordering need. It cannot answer "did
 	// this endpoint take this exact transaction", because claims are signed in nonce order and
@@ -1067,27 +1124,13 @@ func (b *SendingBackend) recordSuccess(index int, nonce uint64, claim common.Has
 	// what was accepted is kept as well.
 	//
 	// Stamped with the claim for the same reason the refusal runs are: nonces recycle. A claim
-	// abandoned at TX_SEND_TIMEOUT leaves this entry behind — only an accepted send writes one,
-	// and an abandoned claim never comes back to be accepted — and resetNonce then hands the nonce
-	// to an unrelated message. Keyed on the nonce alone, that message inherits the acceptance, and
-	// the endpoint answering "replacement transaction underpriced" about the claim it is still
-	// holding would end the new claim's send with nobody carrying it.
-	b.accepted[index][nonce] = claim
-
-	// Bounded the way the refusal counts are, and for the same reason: a claim abandoned at
-	// TX_SEND_TIMEOUT never comes back to clear its entry. Nonces only ascend, so the smallest is
-	// the stalest, and a stale entry only ever costs a send that ends one endpoint too early.
-	for len(b.accepted[index]) > maxTrackedAcceptedNonces {
-		stalest := nonce
-
-		for tracked := range b.accepted[index] {
-			if tracked < stalest {
-				stalest = tracked
-			}
-		}
-
-		delete(b.accepted[index], stalest)
-	}
+	// abandoned at TX_SEND_TIMEOUT can leave this entry behind until a transaction at this nonce or
+	// a later one lands, and resetNonce can meanwhile hand the nonce to an unrelated message. Keyed
+	// on the nonce alone, that message inherits the acceptance, and the endpoint answering
+	// "replacement transaction underpriced" about the claim it is still holding would end the new
+	// claim's send with nobody carrying it.
+	b.accepted[index][nonce] = claimIdentity(tx)
+	b.acceptedTxNonces[tx.Hash()] = nonce
 }
 
 // newAcceptedNonceSets builds one accepted-nonce record per endpoint, mapping each nonce to the

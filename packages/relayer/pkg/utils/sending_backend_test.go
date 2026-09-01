@@ -35,6 +35,7 @@ type fakeBackend struct {
 	sent              []*types.Transaction
 	closed            bool
 	closeCalls        int
+	receipt           *types.Receipt
 }
 
 func (f *fakeBackend) PendingNonceAt(_ context.Context, _ common.Address) (uint64, error) {
@@ -59,6 +60,13 @@ func (f *fakeBackend) SendTransaction(_ context.Context, tx *types.Transaction) 
 	f.sent = append(f.sent, tx)
 
 	return nil
+}
+
+func (f *fakeBackend) TransactionReceipt(_ context.Context, _ common.Hash) (*types.Receipt, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.receipt, nil
 }
 
 // attempts counts every send offered to this backend, including the ones it refused. For tests
@@ -429,7 +437,7 @@ func TestSendingBackend_ASuccessfulSendReadmitsATrippedEndpoint(t *testing.T) {
 	require.Equal(t, []int{1}, rotation(b))
 
 	// An endpoint that just took a transaction is not down, whatever its recent record.
-	b.recordSuccess(0, 1, claimIdentity(txWithNonce(1)))
+	b.recordSuccess(0, txWithNonce(1))
 
 	assert.Equal(t, []int{0, 1}, rotation(b))
 }
@@ -1955,6 +1963,7 @@ func TestSendingBackend_AHoldersResendDoesNotTripTheBackup(t *testing.T) {
 	// perfectly healthy relay out of rotation.
 	for nonce := uint64(1); nonce <= uint64(DefaultPrivateRPCFailureThreshold); nonce++ {
 		holder.err = nil
+
 		require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(nonce)))
 
 		holder.err = rpcRejection{txpool.ErrAlreadyKnown.Error()}
@@ -2041,7 +2050,10 @@ func TestSendingBackend_ARecycledNonceIsNotTheClaimThatWasAccepted(t *testing.T)
 	// underpriced. That is an answer about the transaction it has, not about the one being offered.
 	holder.err = rpcRejection{txpool.ErrReplaceUnderpriced.Error()}
 
-	require.NoError(t, b.SendTransaction(context.Background(), txWithNonceAndCall(81, "the message that inherited the nonce")))
+	require.NoError(t, b.SendTransaction(
+		context.Background(),
+		txWithNonceAndCall(81, "the message that inherited the nonce"),
+	))
 
 	assert.Len(t, backup.sent, 1, "a recycled nonce is not evidence about the claim now carrying it")
 }
@@ -2091,25 +2103,69 @@ func TestSendingBackend_AGossipedHoldStillProtectsTheClaim(t *testing.T) {
 	assert.Empty(t, public.sent, "an unattributed hold is still not a refusal")
 }
 
-func TestSendingBackend_BoundsTheAcceptedNonceTracking(t *testing.T) {
-	only := &fakeSender{}
-	b := NewSendingBackend(&fakeBackend{}, []TxSender{only}, nil, nil)
+func TestSendingBackend_PreservesEveryAcceptanceUntilItsNonceMines(t *testing.T) {
+	holder := &fakeSender{}
+	backup := &fakeSender{}
+	b := NewSendingBackend(&fakeBackend{}, []TxSender{holder, backup}, nil, nil)
 
-	// Every accepted nonce is remembered so a resend can be recognised as one this endpoint took,
-	// and a claim abandoned at TX_SEND_TIMEOUT never comes back to clear its entry — so the record
-	// has to be bounded or it grows for as long as the relayer runs.
-	for nonce := uint64(0); nonce < uint64(maxTrackedAcceptedNonces)*2; nonce++ {
-		require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(nonce)))
+	const acceptedClaims = 300
+
+	first := txWithNonceAndCall(0, "claim-0")
+	require.NoError(t, b.SendTransaction(context.Background(), first))
+
+	for nonce := uint64(1); nonce < acceptedClaims; nonce++ {
+		tx := txWithNonceAndCall(nonce, fmt.Sprintf("claim-%d", nonce))
+		require.NoError(t, b.SendTransaction(context.Background(), tx))
 	}
 
-	assert.LessOrEqual(t, len(b.accepted[0]), maxTrackedAcceptedNonces)
+	// A large prefetch can leave more than 256 accepted claims awaiting receipts at once. The
+	// oldest is still live, so the holder's response must end its resend instead of offering it to
+	// a second relay.
+	holder.err = rpcRejection{txpool.ErrAlreadyKnown.Error()}
 
-	// Nonces only ascend, so the lowest is the stalest, and the newest is the one whose resend
-	// still has to be recognised. Evicting that one instead would quietly undo the fix on every
-	// send while leaving the bound satisfied.
-	_, keptLowest := b.accepted[0][0]
-	_, keptHighest := b.accepted[0][uint64(maxTrackedAcceptedNonces)*2-1]
+	require.NoError(t, b.SendTransaction(context.Background(), first))
+	assert.Empty(t, backup.sent, "a live acceptance is not evicted by an arbitrary tracking cap")
+}
 
-	assert.False(t, keptLowest, "the stalest entry is the one to drop")
-	assert.True(t, keptHighest, "the newest entry is the one most likely to be a live claim")
+func TestSendingBackend_ReleasesExactAcceptancesThroughAMinedNonce(t *testing.T) {
+	public := &fakeBackend{receipt: &types.Receipt{}}
+	holder := &fakeSender{}
+	b := NewSendingBackend(public, []TxSender{holder}, nil, nil)
+
+	mined := txWithNonceAndCall(40, "mined")
+	stillPending := txWithNonceAndCall(41, "pending")
+
+	require.NoError(t, b.SendTransaction(context.Background(), mined))
+	require.NoError(t, b.SendTransaction(context.Background(), stillPending))
+
+	receipt, err := b.TransactionReceipt(context.Background(), mined.Hash())
+
+	require.NoError(t, err)
+	require.Same(t, public.receipt, receipt)
+	assert.NotContains(t, b.accepted[0], mined.Nonce(), "a mined nonce no longer needs exact holder state")
+	assert.Contains(t, b.accepted[0], stillPending.Nonce(), "a later live acceptance is retained")
+}
+
+func TestSendingBackend_DoesNotRestoreAcceptanceAfterReceiptWinsRace(t *testing.T) {
+	public := &fakeBackend{receipt: &types.Receipt{}}
+	b := NewSendingBackend(public, []TxSender{&fakeSender{}}, nil, nil)
+
+	mined := txWithNonceAndCall(40, "the claim")
+	require.NoError(t, b.SendTransaction(context.Background(), mined))
+
+	_, err := b.TransactionReceipt(context.Background(), mined.Hash())
+	require.NoError(t, err)
+
+	// A fee-bumped send can already be in flight when a receipt watcher finds the mined variant.
+	// Its later success is stale and must not make the confirmed nonce look live again.
+	late := types.NewTx(&types.DynamicFeeTx{
+		Nonce:     mined.Nonce(),
+		Gas:       21_000,
+		GasTipCap: big.NewInt(2),
+		Data:      mined.Data(),
+	})
+	b.recordSuccess(0, late)
+
+	assert.NotContains(t, b.accepted[0], mined.Nonce())
+	assert.NotContains(t, b.acceptedTxNonces, late.Hash())
 }

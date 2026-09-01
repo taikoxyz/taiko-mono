@@ -116,6 +116,7 @@ To fix an existing queue, either is enough:
   rabbitmqctl set_policy dlrk "^<queue>$" \
     '{"dead-letter-routing-key":"<queue>-process"}' --apply-to queues --priority 1
   ```
+
 - Drain the queue and delete it, so the next start declares it afresh. This loses anything still
   queued, so drain first.
 
@@ -176,10 +177,20 @@ offered **first** any transaction whose nonce is at or below the highest it has 
 relay replaces a transaction the way a mempool does — same nonce, higher fee — so the endpoint
 already holding a nonce is the one place a resend achieves something, retiring the stale low-fee
 variant. Offering it elsewhere leaves both variants live in different builders' pools with nothing
-to enforce one transaction per nonce. Claims are handled concurrently, so this is a high-water mark
-rather than a record of each nonce; the cost is that a first send arriving out of order behind a
-higher nonce is treated as a resend, which only reorders private endpoints against each other.
-Nothing is charged for that reordering.
+to enforce one transaction per nonce. Claims are handled concurrently, so a high-water mark does
+this ordering; the cost is that a first send arriving out of order behind a higher nonce is treated
+as a resend, which only reorders private endpoints against each other. Nothing is charged for that
+reordering.
+
+Ending a send needs stronger evidence than that high-water mark. For each private acceptance the
+backend also records the endpoint, nonce and claim calldata hash. If that endpoint later answers
+`already known` or `replacement transaction underpriced` for the same nonce and claim, the resend
+ends there instead of offering another copy to the endpoints behind it. The exact record has no
+fixed entry cap: `QUEUE_PREFETCH_COUNT` is configurable, so an arbitrary cap could evict an older
+claim while it is still waiting for inclusion. Its size instead follows the unresolved accepted
+nonce window. A receipt observed through `DEST_RPC_URL` for nonce N releases exact records through
+N, because transactions from one account execute in nonce order; the high-water mark remains for
+ordering only.
 
 Plain `http://` is rejected unless the host is the name `localhost` or an IP literal in a loopback,
 private or link-local range: a signed claim on the wire in cleartext can be read and front-run,
@@ -231,10 +242,17 @@ transport failure always counts, even for the same transaction, since that is wh
 being down looks like. Only once no endpoint is left in
 rotation does a transaction go out through `DEST_RPC_URL`.
 
+The exact record also distinguishes a recycled nonce. If the endpoint accepted the same claim,
+the held answer ends the send immediately. If it accepted a different claim under that nonce, the
+answer is a refusal of the current claim and routing continues, including the all-refused public
+fallback. If there is no exact record, routing continues to the remaining private endpoints, but
+the unattributed hold still shields the claim from the public fallback because it may have reached
+that relay through private gossip.
+
 One claim can be refused by every endpoint without any of them being unhealthy — each is charged
 once for it, so none trips, and the claim would otherwise loop until `TX_SEND_TIMEOUT` while the
 relays go on serving everything else. After three consecutive sends that every endpoint in rotation
-*answered* with a refusal, that claim is broadcast publicly and
+_answered_ with a refusal, that claim is broadcast publicly and
 `private_rpc_all_refused_ops_total` counts it.
 
 That probation is served once per claim, not once per exposure. Once a claim has been broadcast it
@@ -250,11 +268,13 @@ of, and be broadcast on its first refusal instead of its third. The claim is ide
 calldata, which is the message and its proof: unchanged by the fee bumps that change everything else
 about the transaction, and different for every other claim.
 
-Two answers do not count towards this. A timeout or transport failure means the endpoint is down,
-which tripping handles, and counting it here would push claims into the open during an outage before
-the rotation had a chance to empty. An endpoint answering that it already holds the nonce does not
-count either — the claim is already where it needs to be, so broadcasting it would leak one every
-relay is carrying. Broadcasting publicly gives a
+Two situations do not count towards this. A timeout or transport failure means the endpoint is
+down, which tripping handles, and counting it here would push claims into the open during an outage
+before the rotation had a chance to empty. A held answer for this exact claim does not count either,
+nor does one with no exact local attribution: the relay may already be carrying the claim, so a
+public broadcast could leak it. A held answer attributed to a different claim under a recycled
+nonce does count as a refusal, because it proves the endpoint is not carrying the current claim.
+Broadcasting publicly gives a
 competitor the message and proof, so it is deliberately the last resort — but a claim that never
 lands is worth less than one landed in the open.
 
