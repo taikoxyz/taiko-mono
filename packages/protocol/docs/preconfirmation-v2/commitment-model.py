@@ -44,6 +44,10 @@ SOURCE_CREDIT_READ_GAS_LIMIT = 200_000
 BRIDGE_PROCESS_TTL_SECONDS = 2_592_000
 FORCE_DEPTH = 64
 TERMINAL_DEPTH = 64
+REGISTRY_DEPTH = 6
+ADMISSION_DEPTH = 11
+ENTRY_DEPTH = 6
+TRANCHE_DEPTH = 9
 
 TYPE_STRING = (
     "SlotChainBlock(uint256 settlementChainId,uint256 l2ChainId,"
@@ -1461,6 +1465,71 @@ def fixed_root(leaves: list[bytes], node_domain: bytes) -> bytes:
     return level[0]
 
 
+def fixed_tree_proof(leaves: list[bytes], index: int,
+                     node_domain: bytes) -> tuple[bytes, ...]:
+    """Return bottom-up siblings for one leaf in a perfect fixed tree."""
+
+    assert (leaves and len(leaves) & (len(leaves) - 1) == 0
+            and type(index) is int and 0 <= index < len(leaves))
+    level = [b32(leaf) for leaf in leaves]
+    position = index
+    proof: list[bytes] = []
+    height = 0
+    while len(level) > 1:
+        proof.append(level[position ^ 1])
+        level = [keccak256(node_domain + u8(height) + level[i] + level[i + 1])
+                 for i in range(0, len(level), 2)]
+        position >>= 1
+        height += 1
+    return tuple(proof)
+
+
+def verify_fixed_tree_proof(leaf: bytes, index: int, depth: int,
+                            siblings: tuple[bytes, ...], node_domain: bytes,
+                            expected_root: bytes) -> bool:
+    """Verify the unique exact-depth proof; orientation comes only from index."""
+
+    if (type(index) is not int or type(depth) is not int or depth < 0
+            or not 0 <= index < 1 << depth
+            or type(siblings) is not tuple or len(siblings) != depth):
+        return False
+    try:
+        node = b32(leaf)
+        root = b32(expected_root)
+        for height, sibling in enumerate(siblings):
+            sibling = b32(sibling)
+            node = (keccak256(node_domain + u8(height) + sibling + node)
+                    if (index >> height) & 1 else
+                    keccak256(node_domain + u8(height) + node + sibling))
+        return node == root
+    except AssertionError:
+        return False
+
+
+def verify_registry_proof(leaf: bytes, index: int,
+                          siblings: tuple[bytes, ...], expected_root: bytes) -> bool:
+    return verify_fixed_tree_proof(
+        leaf, index, REGISTRY_DEPTH, siblings, D_REG_NODE, expected_root)
+
+
+def verify_admission_proof(leaf: bytes, index: int,
+                           siblings: tuple[bytes, ...], expected_root: bytes) -> bool:
+    return verify_fixed_tree_proof(
+        leaf, index, ADMISSION_DEPTH, siblings, D_ADM_NODE, expected_root)
+
+
+def verify_entry_proof(leaf: bytes, index: int,
+                       siblings: tuple[bytes, ...], expected_root: bytes) -> bool:
+    return verify_fixed_tree_proof(
+        leaf, index, ENTRY_DEPTH, siblings, D_ENTRY_NODE, expected_root)
+
+
+def verify_tranche_proof(leaf: bytes, index: int,
+                         siblings: tuple[bytes, ...], expected_root: bytes) -> bool:
+    return verify_fixed_tree_proof(
+        leaf, index, TRANCHE_DEPTH, siblings, D_TRANCHE_NODE, expected_root)
+
+
 def registry_root(cells: tuple[RegistryCell | None, ...]) -> bytes:
     assert len(cells) == 64
     return fixed_root([registry_leaf(i, cell) for i, cell in enumerate(cells)], D_REG_NODE)
@@ -1493,6 +1562,22 @@ def canonical_admission_root(active: tuple[RegistryCell | None, ...],
                     for index, cell in enumerate(liabilities)
                     if cell is not None})
     return admission_root(records)
+
+
+def canonical_admission_leaves(
+        active: tuple[RegistryCell | None, ...],
+        liabilities: tuple[RegistryCell | None, ...]) -> list[bytes]:
+    """Materialize the exact 2,048 position-bound admission leaves."""
+
+    assert len(active) == 64 and len(liabilities) == 1_072
+    records: dict[int, tuple[int, RegistryCell]] = {}
+    records.update({index: (1, cell) for index, cell in enumerate(active)
+                    if cell is not None})
+    records.update({64 + index: (2, cell)
+                    for index, cell in enumerate(liabilities)
+                    if cell is not None})
+    return [admission_leaf(i, *(records[i] if i in records else (0, None)))
+            for i in range(2_048)]
 
 
 def tranche_leaf(index: int, window: int, state: int, amount: int,
@@ -9754,6 +9839,97 @@ def mmr_frontier_root(frontier: tuple[bytes, ...], count: int) -> bytes:
 
 
 @dataclass(frozen=True)
+class DataMmrProofV1:
+    """Minimal proof: every height, base and orientation is derived."""
+
+    mountain_siblings: tuple[bytes, ...]
+    other_peaks: tuple[bytes, ...]
+
+    def __post_init__(self) -> None:
+        assert (type(self.mountain_siblings) is tuple
+                and type(self.other_peaks) is tuple)
+        for node in self.mountain_siblings + self.other_peaks:
+            b32(node)
+
+
+def data_mmr_target(count: int, index: int) -> tuple[int, int]:
+    """Derive the unique target mountain height and base from public inputs."""
+
+    assert (type(count) is int and type(index) is int
+            and 0 < count <= 2_100 and 0 <= index < count)
+    base = 0
+    for height in range(11, -1, -1):
+        if not (count >> height) & 1:
+            continue
+        next_base = base + (1 << height)
+        if index < next_base:
+            return height, base
+        base = next_base
+    raise AssertionError("MMR target mountain not found")
+
+
+def data_mmr_proof(leaves: tuple[bytes, ...], index: int) -> DataMmrProofV1:
+    """Generate the canonical minimal inclusion proof for one data-MMR leaf."""
+
+    count = len(leaves)
+    target_height, target_base = data_mmr_target(count, index)
+    peaks: dict[int, bytes] = {}
+    base = 0
+    target_siblings: tuple[bytes, ...] | None = None
+    for height in range(11, -1, -1):
+        if not (count >> height) & 1:
+            continue
+        size = 1 << height
+        mountain = [b32(leaf) for leaf in leaves[base:base + size]]
+        peaks[height] = (mountain[0] if height == 0
+                         else fixed_root(mountain, D_MMR_NODE))
+        if height == target_height and base == target_base:
+            target_siblings = fixed_tree_proof(
+                mountain, index - base, D_MMR_NODE)
+        base += size
+    assert base == count and target_siblings is not None
+    other_peaks = tuple(
+        peaks[height] for height in range(12)
+        if (count >> height) & 1 and height != target_height)
+    return DataMmrProofV1(target_siblings, other_peaks)
+
+
+def verify_data_mmr_proof(count: int, index: int, leaf: bytes,
+                          proof: DataMmrProofV1,
+                          expected_root: bytes) -> bool:
+    """Verify DataMmrProofV1 without caller-supplied height/orientation metadata."""
+
+    if type(proof) is not DataMmrProofV1:
+        return False
+    try:
+        target_height, target_base = data_mmr_target(count, index)
+        if (len(proof.mountain_siblings) != target_height
+                or len(proof.other_peaks) != bin(count).count("1") - 1):
+            return False
+        node = b32(leaf)
+        local_index = index - target_base
+        for height, sibling in enumerate(proof.mountain_siblings):
+            sibling = b32(sibling)
+            node = (data_node(height, sibling, node)
+                    if (local_index >> height) & 1 else
+                    data_node(height, node, sibling))
+        peaks: list[tuple[int, bytes]] = []
+        other_at = 0
+        for height in range(12):
+            if not (count >> height) & 1:
+                continue
+            if height == target_height:
+                peaks.append((height, node))
+            else:
+                peaks.append((height, b32(proof.other_peaks[other_at])))
+                other_at += 1
+        return (other_at == len(proof.other_peaks)
+                and data_bag(count, tuple(peaks)) == b32(expected_root))
+    except (AssertionError, IndexError):
+        return False
+
+
+@dataclass(frozen=True)
 class ManifestEntry:
     block_ordinal: int
     session: bytes
@@ -10325,9 +10501,12 @@ def vectors() -> dict[str, str]:
     cells = [None] * 64
     cells[3] = cell
     reg_root = registry_root(tuple(cells))
+    empty_registry_root = registry_root((None,) * 64)
     liabilities = [None] * 1_072
     liabilities[0] = cell
     adm_root = canonical_admission_root(tuple(cells), tuple(liabilities))
+    empty_admission_root = canonical_admission_root(
+        (None,) * 64, (None,) * 1_072)
     tranche_mutation = replace(cell, tranche_root=bytes.fromhex("22" * 32))
     mutated_cells = list(cells)
     mutated_cells[3] = tranche_mutation
@@ -10339,12 +10518,75 @@ def vectors() -> dict[str, str]:
     adm_reuse_root = canonical_admission_root(tuple(cells), tuple(liabilities))
     entries = [entry_leaf(0, cell, tranche)] + [entry_leaf(i, None, None) for i in range(1, 64)]
     ent_root = fixed_root(entries, D_ENTRY_NODE)
+    empty_entry_root = fixed_root(
+        [entry_leaf(i, None, None) for i in range(64)], D_ENTRY_NODE)
+    registry_proof = fixed_tree_proof(
+        [registry_leaf(i, value) for i, value in enumerate(cells)], 3,
+        D_REG_NODE)
+    proof_liabilities = (cell, *((None,) * 1_071))
+    admission_leaves = canonical_admission_leaves(
+        tuple(cells), proof_liabilities)
+    admission_proof = fixed_tree_proof(admission_leaves, 64, D_ADM_NODE)
+    entry_proof = fixed_tree_proof(entries, 0, D_ENTRY_NODE)
+    tranche_leaves = [
+        tranche if index == 7
+        else tranche_leaf(index, UINT64_MAX, 0, 0, 0)
+        for index in range(512)
+    ]
+    tranche_root_hash = fixed_root(tranche_leaves, D_TRANCHE_NODE)
+    empty_tranche_root = fixed_root(
+        [tranche_leaf(index, UINT64_MAX, 0, 0, 0)
+         for index in range(512)], D_TRANCHE_NODE)
+    tranche_proof = fixed_tree_proof(tranche_leaves, 7, D_TRANCHE_NODE)
+    registry_leaf_3 = registry_leaf(3, cell)
+    admission_leaf_64 = admission_leaf(64, 2, cell)
+    entry_leaf_0 = entries[0]
+    assert (len(registry_proof) == REGISTRY_DEPTH
+            and len(admission_proof) == ADMISSION_DEPTH
+            and len(entry_proof) == ENTRY_DEPTH
+            and len(tranche_proof) == TRANCHE_DEPTH)
+    assert verify_registry_proof(
+        registry_leaf_3, 3, registry_proof, reg_root)
+    assert verify_admission_proof(
+        admission_leaf_64, 64, admission_proof, adm_root)
+    assert verify_entry_proof(entry_leaf_0, 0, entry_proof, ent_root)
+    assert verify_tranche_proof(tranche, 7, tranche_proof, tranche_root_hash)
+    assert (registry_leaf(0, None) != registry_leaf(1, None)
+            and admission_leaf(0, 0, None) != admission_leaf(1, 0, None)
+            and entry_leaf(0, None, None) != entry_leaf(1, None, None)
+            and tranche_leaf(0, UINT64_MAX, 0, 0, 0)
+                != tranche_leaf(1, UINT64_MAX, 0, 0, 0))
+    assert not verify_registry_proof(
+        registry_leaf_3, 2, registry_proof, reg_root), \
+        "fixed-tree proof accepted caller orientation through a wrong index"
+    assert not verify_registry_proof(
+        registry_leaf_3, 3, registry_proof[:-1], reg_root), \
+        "fixed-tree proof accepted a missing sibling"
+    assert not verify_registry_proof(
+        registry_leaf_3, 3, registry_proof + (bytes(32),), reg_root), \
+        "fixed-tree proof accepted an extra sibling"
+    assert not verify_registry_proof(
+        registry_leaf_3, 3, tuple(reversed(registry_proof)), reg_root), \
+        "fixed-tree proof accepted reversed sibling heights"
+    changed_registry_proof = (
+        bytes.fromhex("a3" * 32), *registry_proof[1:])
+    assert not verify_registry_proof(
+        registry_leaf_3, 3, changed_registry_proof, reg_root), \
+        "fixed-tree proof accepted a substituted sibling"
+    assert not verify_registry_proof(
+        registry_leaf_3, 3, registry_proof, bytes.fromhex("a4" * 32)), \
+        "fixed-tree proof accepted the wrong root"
     envs = tuple(ForcedEnvelope(0xCAFE, i, l2_chain_id, keccak256(u64(i)), 123, 80_000,
                                 80_000, 10**12, 9_999, 0xBEEF, 555,
                                 2_055 + i, 10**15) for i in range(70))
     force_leaves = tuple(forced_leaf(i, env) for i, env in enumerate(envs))
     force = ForceVector(force_leaves)
     proof = force.range_proof(2, 66)
+    force_frontier_after_1 = append_fixed_frontier(
+        tuple(bytes(32) for _ in range(FORCE_DEPTH)), 0, force_leaves[0],
+        D_FORCE_NODE)
+    force_frontier_root_1 = force_frontier_root(force_frontier_after_1, 1)
+    assert force_frontier_root_1 == ForceVector(force_leaves[:1]).root
     force_frontier = tuple(bytes(32) for _ in range(FORCE_DEPTH))
     for count, force_leaf in enumerate(force_leaves):
         assert force_frontier_root(force_frontier, count) \
@@ -10423,6 +10665,11 @@ def vectors() -> dict[str, str]:
     mmr_frontier = append_mmr_frontier(mmr_frontier, 0, leaf0)
     mmr_frontier = append_mmr_frontier(mmr_frontier, 1, leaf1)
     assert mmr_frontier_root(mmr_frontier, 2) == mmr_root((leaf0, leaf1))
+    data_mmr_frontier_after_3 = append_mmr_frontier(
+        mmr_frontier, 2, leaf2)
+    data_mmr_frontier_root_3 = mmr_frontier_root(
+        data_mmr_frontier_after_3, 3)
+    assert data_mmr_frontier_root_3 == mmr_root((leaf0, leaf1, leaf2))
     mmr_node_01 = data_node(0, leaf0, leaf1)
     mmr_root_3 = mmr_root((leaf0, leaf1, leaf2))
     assert mmr_root(()) == data_bag(0, ())
@@ -10430,6 +10677,95 @@ def vectors() -> dict[str, str]:
     assert_rejects(
         lambda: data_bag(3, ((1, mmr_node_01), (0, leaf2))),
         "descending data-bag peaks accepted")
+    proof_leaves = tuple(
+        keccak256(b"slot-chain-round3-mmr-proof-fixture-v1" + u16(index))
+        for index in range(15)
+    )
+    data_mmr_proof_count = len(proof_leaves)
+    data_mmr_proof_index = 10
+    data_mmr_proof_leaf = proof_leaves[data_mmr_proof_index]
+    data_mmr_proof_root = mmr_root(proof_leaves)
+    data_mmr_proof_fixture = data_mmr_proof(
+        proof_leaves, data_mmr_proof_index)
+    assert (tuple(field.name for field in fields(DataMmrProofV1)) == (
+                "mountain_siblings", "other_peaks")
+            and data_mmr_target(
+                data_mmr_proof_count, data_mmr_proof_index) == (2, 8)
+            and len(data_mmr_proof_fixture.mountain_siblings) == 2
+            and len(data_mmr_proof_fixture.other_peaks) == 3)
+    assert verify_data_mmr_proof(
+        data_mmr_proof_count, data_mmr_proof_index, data_mmr_proof_leaf,
+        data_mmr_proof_fixture, data_mmr_proof_root)
+    assert not verify_data_mmr_proof(
+        data_mmr_proof_count, data_mmr_proof_index + 1, data_mmr_proof_leaf,
+        data_mmr_proof_fixture, data_mmr_proof_root), \
+        "data MMR proof accepted a wrong index"
+    assert not verify_data_mmr_proof(
+        data_mmr_proof_count - 1, data_mmr_proof_index, data_mmr_proof_leaf,
+        data_mmr_proof_fixture, data_mmr_proof_root), \
+        "data MMR proof accepted a wrong count"
+    assert not verify_data_mmr_proof(
+        data_mmr_proof_count, data_mmr_proof_index, data_mmr_proof_leaf,
+        data_mmr_proof_fixture, bytes.fromhex("d3" * 32)), \
+        "data MMR proof accepted a wrong wrapped root"
+    wrong_target_proof = data_mmr_proof(proof_leaves, 2)
+    assert not verify_data_mmr_proof(
+        data_mmr_proof_count, data_mmr_proof_index, data_mmr_proof_leaf,
+        wrong_target_proof, data_mmr_proof_root), \
+        "data MMR proof accepted siblings from the wrong target mountain/base"
+    wrong_orientation_proof = data_mmr_proof(
+        proof_leaves, data_mmr_proof_index + 1)
+    assert not verify_data_mmr_proof(
+        data_mmr_proof_count, data_mmr_proof_index, data_mmr_proof_leaf,
+        wrong_orientation_proof, data_mmr_proof_root), \
+        "data MMR proof accepted sibling orientation from another leaf"
+    changed_mountain_siblings = (
+        bytes.fromhex("d4" * 32),
+        *data_mmr_proof_fixture.mountain_siblings[1:])
+    assert not verify_data_mmr_proof(
+        data_mmr_proof_count, data_mmr_proof_index, data_mmr_proof_leaf,
+        replace(data_mmr_proof_fixture,
+                mountain_siblings=changed_mountain_siblings),
+        data_mmr_proof_root), \
+        "data MMR proof accepted a substituted mountain sibling"
+    assert not verify_data_mmr_proof(
+        data_mmr_proof_count, data_mmr_proof_index, data_mmr_proof_leaf,
+        replace(data_mmr_proof_fixture,
+                mountain_siblings=data_mmr_proof_fixture.mountain_siblings[:-1]),
+        data_mmr_proof_root), \
+        "data MMR proof accepted a missing mountain sibling"
+    assert not verify_data_mmr_proof(
+        data_mmr_proof_count, data_mmr_proof_index, data_mmr_proof_leaf,
+        replace(data_mmr_proof_fixture,
+                mountain_siblings=(
+                    *data_mmr_proof_fixture.mountain_siblings, bytes(32))),
+        data_mmr_proof_root), \
+        "data MMR proof accepted an extra mountain sibling"
+    assert not verify_data_mmr_proof(
+        data_mmr_proof_count, data_mmr_proof_index, data_mmr_proof_leaf,
+        replace(data_mmr_proof_fixture,
+                other_peaks=tuple(reversed(data_mmr_proof_fixture.other_peaks))),
+        data_mmr_proof_root), \
+        "data MMR proof accepted reversed other-peak order"
+    changed_other_peaks = (
+        bytes.fromhex("d5" * 32), *data_mmr_proof_fixture.other_peaks[1:])
+    assert not verify_data_mmr_proof(
+        data_mmr_proof_count, data_mmr_proof_index, data_mmr_proof_leaf,
+        replace(data_mmr_proof_fixture, other_peaks=changed_other_peaks),
+        data_mmr_proof_root), \
+        "data MMR proof accepted a substituted other peak"
+    assert not verify_data_mmr_proof(
+        data_mmr_proof_count, data_mmr_proof_index, data_mmr_proof_leaf,
+        replace(data_mmr_proof_fixture,
+                other_peaks=data_mmr_proof_fixture.other_peaks[:-1]),
+        data_mmr_proof_root), \
+        "data MMR proof accepted a missing other peak"
+    assert not verify_data_mmr_proof(
+        data_mmr_proof_count, data_mmr_proof_index, data_mmr_proof_leaf,
+        replace(data_mmr_proof_fixture,
+                other_peaks=(*data_mmr_proof_fixture.other_peaks, bytes(32))),
+        data_mmr_proof_root), \
+        "data MMR proof accepted an extra other peak"
 
     asymmetric_block_ordinal = 3
     asymmetric_record_index = 7
@@ -13045,6 +13381,15 @@ def vectors() -> dict[str, str]:
     failed_leaf = terminal_leaf(1, destination_domain, 0xB200,
                                 bytes.fromhex("24" * 32), 2, bytes(32))
     terminal_vector = TerminalVector((done_leaf, failed_leaf))
+    terminal_frontier_after_2 = tuple(
+        bytes(32) for _ in range(TERMINAL_DEPTH))
+    terminal_frontier_after_2 = append_fixed_frontier(
+        terminal_frontier_after_2, 0, done_leaf, D_TERMINAL_NODE)
+    terminal_frontier_after_2 = append_fixed_frontier(
+        terminal_frontier_after_2, 1, failed_leaf, D_TERMINAL_NODE)
+    terminal_frontier_root_2 = terminal_frontier_root(
+        terminal_frontier_after_2, 2)
+    assert terminal_frontier_root_2 == terminal_vector.root
     changed_liquidity_fee_leaf = bridge_leaf(
         70, replace(bridge, liquidity_fee=bridge.liquidity_fee + 1))
     changed_liquidity_fee_credit = bridge_credit_id(
@@ -14528,10 +14873,19 @@ def vectors() -> dict[str, str]:
         "reward_receipt_v1_collision_candidate_id":
             collision_candidate_id.hex(),
         "registry_root": reg_root.hex(),
+        "empty_registry_root": empty_registry_root.hex(),
         "admission_root": adm_root.hex(),
+        "empty_admission_root": empty_admission_root.hex(),
         "admission_reuse_root": adm_reuse_root.hex(),
         "entry_root": ent_root.hex(),
+        "empty_entry_root": empty_entry_root.hex(),
         "tranche_leaf": tranche.hex(),
+        "registry_proof_digest": keccak256(b"".join(registry_proof)).hex(),
+        "admission_proof_digest": keccak256(b"".join(admission_proof)).hex(),
+        "entry_proof_digest": keccak256(b"".join(entry_proof)).hex(),
+        "tranche_root": tranche_root_hash.hex(),
+        "empty_tranche_root": empty_tranche_root.hex(),
+        "tranche_proof_digest": keccak256(b"".join(tranche_proof)).hex(),
         "forced_leaf": force_leaves[0].hex(),
         "bridge_leaf": bridge_hash.hex(),
         "bridge_result": bridge_credit_result(70, bridge).hex(),
@@ -15506,10 +15860,24 @@ def vectors() -> dict[str, str]:
         "forced_root": force.root.hex(),
         "empty_forced_root": ForceVector(()).root.hex(),
         "force_range_digest": keccak256(b"".join(proof)).hex(),
+        "force_frontier_after_1_digest": keccak256(
+            b"".join(force_frontier_after_1)).hex(),
+        "force_frontier_root_1": force_frontier_root_1.hex(),
         "session_id": sid.hex(),
         "empty_data_bag": mmr_root(()).hex(),
         "mmr_root_2": mmr_root((leaf0, leaf1)).hex(),
         "mmr_root_3": mmr_root_3.hex(),
+        "data_mmr_frontier_after_3_digest": keccak256(
+            b"".join(data_mmr_frontier_after_3)).hex(),
+        "data_mmr_frontier_root_3": data_mmr_frontier_root_3.hex(),
+        "data_mmr_proof_count": str(data_mmr_proof_count),
+        "data_mmr_proof_index": str(data_mmr_proof_index),
+        "data_mmr_proof_leaf": data_mmr_proof_leaf.hex(),
+        "data_mmr_proof_root": data_mmr_proof_root.hex(),
+        "data_mmr_mountain_siblings_digest": keccak256(
+            b"".join(data_mmr_proof_fixture.mountain_siblings)).hex(),
+        "data_mmr_other_peaks_digest": keccak256(
+            b"".join(data_mmr_proof_fixture.other_peaks)).hex(),
         "asymmetric_data_leaf": asymmetric_data_leaf.hex(),
         "data_node_height_7": data_node_height_7.hex(),
         "manifest_root": manifest.hex(),
@@ -15518,6 +15886,9 @@ def vectors() -> dict[str, str]:
         "manifest_node_height_5": manifest_node_height_5.hex(),
         "empty_body_root": empty_body.hex(),
         "empty_manifest_root": empty_manifest.hex(),
+        "terminal_frontier_after_2_digest": keccak256(
+            b"".join(terminal_frontier_after_2)).hex(),
+        "terminal_frontier_root_2": terminal_frontier_root_2.hex(),
         "empty_session_list": empty_sessions.hex(),
         "dispositions": dispositions(2, ((2, 1, UINT32_MAX, bytes(32)),
                                           (3, 4, 2, keccak256(b"raw-signed-tx")))).hex(),
@@ -15540,6 +15911,7 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'c0d778314c7fdd2e84
  'activation_successor_receipt_magic': '41535631',
  'active_settlement_state_magic': '41535231',
  'active_settlement_state_selector': '4a95c306',
+ 'admission_proof_digest': '65a5501dc5440301031bc0d21ac6506ce1f98b226139c93ab54251883d5bd12d',
  'admission_reuse_root': 'a1e22890dd835872055e53dcad82d9e12759a2920853fe6e9f735d7f2c87ceca',
  'admission_root': '3bf2dcaf78292c832108e29205bf99cc2d22137a0545e4528d8da7309d4b482b',
  'adopt_migration_canonical_calldata_hash': '4548b55aa6c4ac42891fb05ee7fac6d92f36e139fc82f21a88751d3661b396c7',
@@ -15640,6 +16012,14 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'c0d778314c7fdd2e84
  'credit_liability_v2_return_hash': 'ad3bba6e04fff6bfefacfdf034f4aaf7bba7149ef0f4dfa0625a5653290f9195',
  'credit_liability_v2_return_length': '288',
  'credit_liability_v2_selector': 'c978978a',
+ 'data_mmr_frontier_after_3_digest': '7e141a72088ecc5ed590e1e619b607fb5d97aafb003c4a56230cff2832c2af01',
+ 'data_mmr_frontier_root_3': 'dea2c7de9f14ce6f9c59fda963520ced2cb6e6ebef7c6abe6cb773afab888e89',
+ 'data_mmr_mountain_siblings_digest': '3ad2e114ce1d543a3a479e69b945dfeabdfdd0fc6df543b28c069469ea5e26fa',
+ 'data_mmr_other_peaks_digest': 'd5b32274fe3e21ffa9dbaf5853b469ecaaf4ac295e788fc95c16b4220a00b196',
+ 'data_mmr_proof_count': '15',
+ 'data_mmr_proof_index': '10',
+ 'data_mmr_proof_leaf': '39d13a13b5803fd94af45496a7b19e2e666957cd75780ed2508c702a703ca85b',
+ 'data_mmr_proof_root': '7c7185dfbebadab3501e051b2960e8fb4b22dd11821fc4e474ef14b2edb27b22',
  'data_node_height_7': 'e60d61327adb017addbf3012131b62c0a5897d30e302fcfac9ffad46d0fe848a',
  'data_record_appended_topic': '30ee2de166c53a480d028e5b94d4f8759dbd84b5f7b6af1f23e0c5889ea17f8c',
  'data_session_config_hash': '32a737efe0057f71292a45fb94c7625a42452e73b2c7bfd953b10b91d1607bb4',
@@ -15662,18 +16042,23 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'c0d778314c7fdd2e84
  'dispositions': 'ab253c1204a53b6e095a887dfa6acfc8e8c0c6f89badcef5f73fee716fa94b93',
  'domain_separator': 'e68571dca46842abc561c1ea35b556152b15d93a1d29f5c441ae2fdcdd01725c',
  'eip712_digest': 'bf50900a66dd735bbed4a20b7ebe909b61d15185146813b3105b9d2eefa91c68',
+ 'empty_admission_root': '71a511ce5247c6c3b0411e182c8e4b4dcbd0adc97163c585cac94ca3b031ac54',
  'empty_body_root': 'f0e00da8dbc00feb028a8bc92342c0771372b947acf5989b2d4a5f23bb2f459a',
  'empty_data_bag': 'b3caa2379816b63eebbf789e33e7d84ef29d6d350179803dd000102e8182f66a',
  'empty_data_session_accounting_return_hash': '7720a5a8d9d219e06852dd2661541c06c0278e2044d27ec21400506cac036719',
+ 'empty_entry_root': '986d3e795bd9ddfabe213b93cea0211eea5a663e895bfc112d90c5bf2fff1564',
  'empty_forced_root': '4001bca0d3c5171a99a50118f1219024e1bef9302262ea3b075ecbed36be7592',
  'empty_manifest_root': '0bb15f38645cecc1748b17fe3bd966ba8016c169ebd1266fd38150766177b5f6',
+ 'empty_registry_root': '2f40c290594200091bcd31881e40bf56ba1960016a24c9931cf3b1a9a8705ae8',
  'empty_session_list': '8827f09b5799bab18f29ea5b9cb9cbb5a88ddb96bc4b3ffc4d69cbcbdfe50279',
  'empty_terminal_root': 'c5da197edc2f03c7023cc6afe137ccb77d01fc56514d322b6ba66a149315bcb0',
+ 'empty_tranche_root': 'dee49bfb4494eee086cf6485f471866cd49591358b3490d4a156813702501768',
  'enqueue_bridge_credit_v2_calldata_hash': '02db9c77025d4c2bae1d3f79849020e6d8711c4b6b6c54ec45ce9181e48cfeb4',
  'enqueue_bridge_credit_v2_selector': '81805d6b',
  'enqueue_forced_transaction_calldata_hash': '3e802e6f72e50c267cc18d256c2863d04446eb8f2d47bc474bbcb9c68876d19a',
  'enqueue_forced_transaction_calldata_length': '196',
  'enqueue_forced_transaction_selector': '9f06b1b4',
+ 'entry_proof_digest': '89655918472451054bf7362e8e7b19bbded634877c532efdfb545e0ca36667f3',
  'entry_root': 'acee83a690b868a4a7960c55a9f7228f91cad26b704e24106d4db87e9c7a8f34',
  'execute_attempt_calldata_hash': '29ff394c7d5acf9fa84748faf8a063b8f1ed41b258cc12c9419142d87ff2deff',
  'execute_attempt_calldata_length': '1124',
@@ -15688,6 +16073,8 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'c0d778314c7fdd2e84
  'execution_profile_static_words': '268',
  'finalize_failed_attempt_calldata_hash': 'df45ce5f7dd38e82ff157bbb6f1c0a6ca54a1d2eb16dbdcfcc41d0422f34a3c4',
  'finalize_failed_attempt_selector': '745dcb69',
+ 'force_frontier_after_1_digest': '1ba50296675195de90944defd33d2e346c1a996aa6edbb5bfb1b187cc64b3c1d',
+ 'force_frontier_root_1': '5cb37cac8283fe7742e0f8e40bacececf85c1f8c15a05c8a9c9dc2018ac532e8',
  'force_range_digest': '75c75611d9eaa6c05e56a1fb646cea4c9d796adfd205df5c5ff1b0b52cc93dd2',
  'forced_descriptors': 'ccc81a65638181195f6ebd5b5902bc3a62716d7c3e70b32cbabdd250b9ebf42f',
  'forced_leaf': 'c75c50d8b8573f217a20c9018a3d23d7fa5cda240f2a2e9eb4260c4af4c367e4',
@@ -16058,6 +16445,7 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'c0d778314c7fdd2e84
  'registration_storage_statement_hash': 'c99a6d83d5667046e4cb17857acec32562fe197b4324217cd61c9c3e082cc85d',
  'registration_storage_statement_typehash': 'c049f967468e58f1a5c9b9e1a147dfc233695ae69c5d4a95ec4ffb49b5687da0',
  'registration_verifier_return': 'c99a6d83d5667046e4cb17857acec32562fe197b4324217cd61c9c3e082cc85d',
+ 'registry_proof_digest': '188d53708f68cd601ace09953d87031b89c92f5b9d7bffd847e324ab7adc8261',
  'registry_root': '0bf297d7b9b6a5529a319a06cb08484923a89bab15d51f8baeaf5c30bebdf3fd',
  'release_manifest_base_slot': 'a0b7a29a75032f37561036cd3741e7b375213309367f37b5ffec4ad55cf6154f',
  'release_manifest_hash': '2eed453340352d5acf0990db614bcf43b562de22e4bc56a7bd71ce265c744292',
@@ -16152,10 +16540,14 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'c0d778314c7fdd2e84
  'terminal_commitment_selector': '2c984c97',
  'terminal_done_leaf': '13e0e5ab57a472bfa8f883301b79b4cbe6dd0f7b787a6877f90f6c80ff13abb7',
  'terminal_failed_leaf': '9edd78b2e1393d20c1c7ae1390633c65ce14ebd08af366a10d2b025af1c7d00e',
+ 'terminal_frontier_after_2_digest': '2c6f371f051bd1c5527cbeaed9f8783236b0b250b0c5f2bed60fa2e8f3dee82c',
+ 'terminal_frontier_root_2': 'c4438d841e19055e73f0045bc7cd86349dd671a4d6401d338a4e1bea03023f87',
  'terminal_root_2': 'c4438d841e19055e73f0045bc7cd86349dd671a4d6401d338a4e1bea03023f87',
  'terminal_state_return_hash': '3e3b1f39f0b0fc42adb4a6c15987dc52d6c0bac9497db88ab1b07b9fb96bfbcd',
  'terminal_state_selector': '998c57ed',
  'tranche_leaf': '80fce6c2421807d961f9207d30b439bd423c05e206a18021b93217513ecc5551',
+ 'tranche_proof_digest': '8d56574545d36cb4cbb7f1452055275a3dbd8e5b2aa9062e717095f387a0a2d8',
+ 'tranche_root': '12ce6da6104ea0fb21edbc0e932f7500fabf18173911a48bc5e1d4d2af1cc336',
  'typehash': 'ee6a8c8e31e8245cd527869508f6e464d6084893991203876f734d1855aed87c',
  'v11_bridge_descriptor': '2121212121212121212121212121212121212121212121212121212121212121000000000000000000000000000000000000000000000000000000000000000190d17b25434418f73547f0a925f8829b1329c3921e357c133ca45d4c3bcfe7c50000000000000007fff25f997872e08385a4dc63163e60181c213f62fc36592a3ce1c728fadafc407194dc1435df539cb0954d73f07ce51a7b58f20f000000000000300cf5cd16d49c1f88557f70f9162d3bb6366667a956cfcd8cc5b43532d3c73a094e000000000000000000000000000000000000000000000000000000000000419400000000000c35000000000000000000000000000000000000003333000000000000000000000000000000000000111100000000000000000000000000000000000022220000000000000000000000000000000000000000000000000de0b6b3a764000000000000000004d2000000000000162e2222222222222222222222222222222222222222222222222222222222222222010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000014aaab6b096419fe36f3b3d6645c8173765a2f4a903ea336790040b82eec5af100000060000000000001d4c0000000000000000000000000000000000000beef00000000000002bc0000000000000898000000000000000000000000000000000000000000000000002386f26fc10000',
  'verify_inbox_credit_calldata_hash': 'bda76e8392d84ca874b1c3dc045d489e3b4582d9037381c733a2a0d4d3637f09',
@@ -16217,6 +16609,8 @@ UINT_VECTOR_NAMES = frozenset({
     "statement_reward_published_bytes",
     "credit_authorization_v2_return_length",
     "credit_liability_v2_return_length",
+    "data_mmr_proof_count",
+    "data_mmr_proof_index",
     "enqueue_forced_transaction_calldata_length",
     "execute_attempt_calldata_length",
     "execute_protocol_change_calldata_length",
@@ -16298,7 +16692,7 @@ UINT_VECTOR_NAMES = frozenset({
     "version_migration_lease_return_length",
 })
 VECTOR_NAME_SCHEMA_SHA256 = (
-    "3f011fdb670388d6346a8c4a3118cd3187282213ee9797a2d3d0dc501bd8447c"
+    "ffbc653892c53dfea254b5309b95303a5c59f65e75ad1c9172e89cb4c8029920"
 )
 
 
@@ -16310,7 +16704,7 @@ def typed_vectors() -> tuple[dict[str, str], ...]:
     actual = vectors()
     assert actual == EXPECTED
     names = tuple(sorted(actual))
-    assert (len(names) == 654 and len(set(names)) == len(names)
+    assert (len(names) == 675 and len(set(names)) == len(names)
             and UINT_VECTOR_NAMES <= set(names)
             and hashlib.sha256(
                 b"\0".join(name.encode("ascii") for name in names)
@@ -17024,6 +17418,17 @@ if __name__ == "__main__":
         "admissionRoot": "admission_root",
         "entryRoot": "entry_root",
         "forcedRoot": "forced_root",
+        "emptyRegistry": "empty_registry_root",
+        "emptyAdmission": "empty_admission_root",
+        "emptyEntry": "empty_entry_root",
+        "emptyTranche": "empty_tranche_root",
+        "registryProof": "registry_proof_digest",
+        "admissionProof": "admission_proof_digest",
+        "entryProof": "entry_proof_digest",
+        "trancheRoot": "tranche_root",
+        "trancheProof": "tranche_proof_digest",
+        "forceFrontier1": "force_frontier_after_1_digest",
+        "forceFrontierRoot1": "force_frontier_root_1",
         "sourceDomain": "source_domain_id",
         "destDomain": "destination_domain_id",
         "bridgeKernel": "bridge_kernel_profile_hash",
@@ -17520,10 +17925,20 @@ if __name__ == "__main__":
         "terminalFail": "terminal_failed_leaf",
         "terminalRoot2": "terminal_root_2",
         "emptyTermRoot": "empty_terminal_root",
+        "terminalFrontier2": "terminal_frontier_after_2_digest",
+        "terminalFrontierRoot2": "terminal_frontier_root_2",
         "bridgeResult": "bridge_result",
         "manifestRoot": "manifest_root",
         "emptyDataBag": "empty_data_bag",
         "mmrRoot3": "mmr_root_3",
+        "dataFrontier3": "data_mmr_frontier_after_3_digest",
+        "dataFrontierRoot3": "data_mmr_frontier_root_3",
+        "dataMmrCount": "data_mmr_proof_count",
+        "dataMmrIndex": "data_mmr_proof_index",
+        "dataMmrLeaf": "data_mmr_proof_leaf",
+        "dataMmrRoot": "data_mmr_proof_root",
+        "dataMmrSiblings": "data_mmr_mountain_siblings_digest",
+        "dataMmrPeaks": "data_mmr_other_peaks_digest",
         "asymDataLeaf": "asymmetric_data_leaf",
         "dataNodeH7": "data_node_height_7",
         "asymManifestLeaf": "asymmetric_manifest_leaf",

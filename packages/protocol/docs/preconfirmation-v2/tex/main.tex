@@ -8636,6 +8636,25 @@ Its nine node levels use
 supplies one inclusion proof for index \code{W mod 512} for every active cell,
 including canonical empty and \code{FREE} leaves.
 
+Every fixed-tree inclusion proof has one canonical grammar.  Its sibling array
+contains exactly one \code{bytes32} per level, bottom-up at heights
+$0,\ldots,depth-1$.  The four fixed depths are registry 6, admission 11,
+ranked-entry 6 and tranche 9.  At height $h$, bit $h$ of the separately bound
+leaf index alone determines whether the sibling is left or right; the proof
+carries no direction bit, height, depth or node-domain field.  The leaf itself
+continues to commit that same index or rank, and verification requires both
+uses to agree.  Domain-specific verifiers fix the depth and node domain and
+reject an out-of-range index, a missing or extra sibling, an incorrectly
+ordered sibling, a substituted leaf/root or any unused element.  Thus neither
+an alternative proof length nor redundant metadata can encode the same proof.
+The executable oracle additionally pins the four canonical empty roots.  They
+are built from all 64 position-bound empty registry leaves, all 2,048
+position-bound empty admission leaves, all 64 rank-bound empty entry leaves and
+all 512 index-bound tranche leaves with
+\code{(window=UINT64_MAX,state=EMPTY,amount=0,liableUntil=0)}.  These are reviewed
+constants for initialization and conformance; production code must not replace
+them with a repeated positionless leaf or reconstruct them on a runtime path.
+
 The two durable descriptor bodies are distinct fixed-width types named
 \code{Kind0ForcedDescriptorV2} and \code{Kind1ForcedDescriptorV11}.  There is
 no universal nullable superset struct.  The heterogeneous Queue/list wire
@@ -9105,6 +9124,28 @@ never supplied as a caller bit.  It then accepts exactly
 height, duplicate, missing or extra sibling/peak, inconsistent count or unused
 proof element rejects.
 
+The proof value is exactly \code{DataMmrProofV1}, containing only two
+\code{bytes32[]} sequences named \code{mountainSiblings} and
+\code{otherPeaks}.  It has no caller-supplied target height, mountain base, peak
+height or orientation.  Verification initializes \code{base=0} and visits set
+bits of count from height 11 down to zero.  For each set height $h$, its mountain
+is \code{[base,base+2^h)}; the first such interval containing index uniquely
+fixes \code{targetHeight=h}, \code{targetBase=base}, and otherwise base advances
+by $2^h$.  It requires
+\code{mountainSiblings.length=targetHeight}, hashes them bottom-up, and derives
+left/right at level $h$ only from bit $h$ of
+\code{localIndex=index-targetBase}.  It then requires
+\code{otherPeaks.length=popcount(count)-1}, consumes those hashes while visiting
+count's set heights from zero to 11 and skipping the target height, inserts the
+reconstructed target peak, and rebuilds the exact ascending-height bag.  Exact
+array lengths plus final root equality reject wrong index, count, target
+mountain/base, orientation, order, value, root and every unused element.  Empty
+MMRs have no inclusion proof.  Proof identity is semantic: no signature,
+commitment or replay key is derived from raw ABI calldata for either array, so
+ABI offset placement or unrelated trailing call bytes cannot create a second
+protocol proof identity.  Implementations decode the two arrays and apply the
+checks above; they must not hash the undecoded proof bytes.
+
 A manifest leaf is:
 \begin{verbatim}
 H("slot-chain-manifest-leaf-v1" || u16(position) ||
@@ -9183,19 +9224,42 @@ where \code{recordIndex=chunkIndex}, a one-peak-only bag, or a height-zero-only
 node check is insufficient because it lets a field swap, reversed peak order,
 or ignored height pass without changing the expected hash.
 
-\code{commitment-model.py} is the normative executable fixture.  Round 2 exports
-all 654 records through one deterministic typed oracle, including records owned
-by later rounds, but its Solidity conformance test executes only an explicit
-reviewed allowlist for the checked fixed-preimage encoders owned by Round 2.
-Later rounds consume and execute the remaining already-exported records when
-their production algorithms and ABIs exist; export is not evidence of premature
-implementation or coverage.  The initial vectors are:
+Round-3 conformance fixes proofs without redundant choices.  The fixed-tree
+fixtures cover registry index 3, admission index 64, ranked-entry index 0 and
+tranche index 7, including exact proof digests and roots.  The independent data
+MMR fixture has 15 leaves
+\code{H("slot-chain-round3-mmr-proof-fixture-v1"||u16(i))}, target index 10,
+target height 2 and target base 8.  Its other peaks occur at heights 0, 1 and 3
+in that derived ascending order.  Named rejects cover wrong index, count, root,
+target mountain/base, sibling orientation/value/length and other-peak
+order/value/length.  The four position-bound empty roots and direct Force-count-1,
+data-MMR-count-3 and Terminal-count-2 frontier digests/roots pin initialization,
+append and fold independently of full-history root construction.
+
+\code{commitment-model.py} is the normative executable fixture.  It exports all
+675 records through one deterministic typed oracle, including records owned by
+later rounds.  The Round-2 Solidity conformance test executes only an explicit
+reviewed allowlist for checked fixed-preimage encoders; Round 3 consumes the
+tree, frontier and proof records above.  Still-later rounds consume their
+remaining records when production algorithms and ABIs exist; export is not
+evidence of premature implementation or coverage.  The initial vectors are:
 \begin{verbatim}
 TYPEHASH      ee6a8c8e31e8245cd527869508f6e464d6084893991203876f734d1855aed87c
 registryRoot 0bf297d7b9b6a5529a319a06cb08484923a89bab15d51f8baeaf5c30bebdf3fd
 admissionRoot 3bf2dcaf78292c832108e29205bf99cc2d22137a0545e4528d8da7309d4b482b
 entryRoot acee83a690b868a4a7960c55a9f7228f91cad26b704e24106d4db87e9c7a8f34
 forcedRoot a54e9f797ffe7f04dd5ca7df4c858edf02ce45a81808522633fc9cee8fe72e57
+emptyRegistry 2f40c290594200091bcd31881e40bf56ba1960016a24c9931cf3b1a9a8705ae8
+emptyAdmission 71a511ce5247c6c3b0411e182c8e4b4dcbd0adc97163c585cac94ca3b031ac54
+emptyEntry 986d3e795bd9ddfabe213b93cea0211eea5a663e895bfc112d90c5bf2fff1564
+emptyTranche dee49bfb4494eee086cf6485f471866cd49591358b3490d4a156813702501768
+registryProof 188d53708f68cd601ace09953d87031b89c92f5b9d7bffd847e324ab7adc8261
+admissionProof 65a5501dc5440301031bc0d21ac6506ce1f98b226139c93ab54251883d5bd12d
+entryProof 89655918472451054bf7362e8e7b19bbded634877c532efdfb545e0ca36667f3
+trancheRoot 12ce6da6104ea0fb21edbc0e932f7500fabf18173911a48bc5e1d4d2af1cc336
+trancheProof 8d56574545d36cb4cbb7f1452055275a3dbd8e5b2aa9062e717095f387a0a2d8
+forceFrontier1 1ba50296675195de90944defd33d2e346c1a996aa6edbb5bfb1b187cc64b3c1d
+forceFrontierRoot1 5cb37cac8283fe7742e0f8e40bacececf85c1f8c15a05c8a9c9dc2018ac532e8
 sourceDomain 90d17b25434418f73547f0a925f8829b1329c3921e357c133ca45d4c3bcfe7c5
 destDomain f5cd16d49c1f88557f70f9162d3bb6366667a956cfcd8cc5b43532d3c73a094e
 bridgeKernel a23f9994e8d1c475500768b67cf2b2d1f7a0f367df6f44bac5ccf1fa12bc1338
@@ -9673,10 +9737,20 @@ settleLeafAlt c26c0dd865cf2a2442eae4c0065a8cedf585c4bddd74333dd51207339ebcdfbf
 terminalFail 9edd78b2e1393d20c1c7ae1390633c65ce14ebd08af366a10d2b025af1c7d00e
 terminalRoot2 c4438d841e19055e73f0045bc7cd86349dd671a4d6401d338a4e1bea03023f87
 emptyTermRoot c5da197edc2f03c7023cc6afe137ccb77d01fc56514d322b6ba66a149315bcb0
+terminalFrontier2 2c6f371f051bd1c5527cbeaed9f8783236b0b250b0c5f2bed60fa2e8f3dee82c
+terminalFrontierRoot2 c4438d841e19055e73f0045bc7cd86349dd671a4d6401d338a4e1bea03023f87
 bridgeResult bafcdb87053dabcbe8d8f1aa6b192027eb7c6ef91ead585fde838669c56afa3b
 manifestRoot 417be737a57e38eb410f2d6e65c77ee19d5c314cdaf432067861c6a36c6a990f
 emptyDataBag b3caa2379816b63eebbf789e33e7d84ef29d6d350179803dd000102e8182f66a
 mmrRoot3 dea2c7de9f14ce6f9c59fda963520ced2cb6e6ebef7c6abe6cb773afab888e89
+dataFrontier3 7e141a72088ecc5ed590e1e619b607fb5d97aafb003c4a56230cff2832c2af01
+dataFrontierRoot3 dea2c7de9f14ce6f9c59fda963520ced2cb6e6ebef7c6abe6cb773afab888e89
+dataMmrCount 15
+dataMmrIndex 10
+dataMmrLeaf 39d13a13b5803fd94af45496a7b19e2e666957cd75780ed2508c702a703ca85b
+dataMmrRoot 7c7185dfbebadab3501e051b2960e8fb4b22dd11821fc4e474ef14b2edb27b22
+dataMmrSiblings 3ad2e114ce1d543a3a479e69b945dfeabdfdd0fc6df543b28c069469ea5e26fa
+dataMmrPeaks d5b32274fe3e21ffa9dbaf5853b469ecaaf4ac295e788fc95c16b4220a00b196
 asymDataLeaf 204849a6179174bd92e677b252370e3e2904cf4eb2a94fe1ba154e1310b9cd64
 dataNodeH7 e60d61327adb017addbf3012131b62c0a5897d30e302fcfac9ffad46d0fe848a
 asymManifestLeaf 92ed7b0f26f1048042ad681be312e3d79d6942ea6da03445c1cc8fd6b1eb1d6b
@@ -10051,7 +10125,7 @@ regressions, including authorization substitution, callback/OOG, competing LP,
 owner-mode, target/quota/pull/terminal rollback, withdrawal/recreation and
 cross-version preservation cases for the atomic Pool path.
 
-\code{commitment-model.py} reports 654 golden vectors and 1432 executable
+\code{commitment-model.py} reports 675 golden vectors and 1466 executable
 assertion sites for
 exact EIP-712
 domain/struct/digest, canonical and statement hashes, registry/admission/entry/
