@@ -1,6 +1,6 @@
 import { getTransactionReceipt } from '@wagmi/core';
 import { EventEmitter } from 'events';
-import { createPublicClient, getContract, type Hash, type Hex, http, toHex } from 'viem';
+import { createPublicClient, getContract, type Hash, http, toHex } from 'viem';
 
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
@@ -145,6 +145,18 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
       const messageStatus: MessageStatus = await destBridgeContract.read.messageStatus([bridgeTx.msgHash]);
       emitter.emit(PollingEvent.STATUS, messageStatus);
 
+      // Terminal, so nothing below can change the answer - and nothing below may be allowed
+      // to prevent it being acted on. This used to sit after the receipt read, so a source
+      // RPC that could not serve the receipt threw past it into the catch: every tick then
+      // re-read DONE, re-emitted it, retried the receipt and never stopped, for a message
+      // that was already finalised. The block number is only needed by the proof paths, and
+      // a processed message has none left.
+      if (messageStatus === MessageStatus.DONE) {
+        log(`Poller has picked up the change of status to DONE for hash ${srcTxHash}.`);
+        stopPolling();
+        return;
+      }
+
       if (messageStatus === MessageStatus.FAILED) {
         // check if the message is recalled
         const recallStatus = await srcBridgeContract.read.messageStatus([bridgeTx.msgHash]);
@@ -156,20 +168,19 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
         }
       }
 
-      let blockNumber: Hex;
       if (!bridgeTx.blockNumber) {
-        // The bridge tx lives on the source chain; the wallet may be connected elsewhere
-        const receipt = await getTransactionReceipt(config, {
-          hash: bridgeTx.srcTxHash,
-          chainId: Number(srcChainId),
-        });
-        blockNumber = toHex(receipt.blockNumber);
-        bridgeTx.blockNumber = blockNumber;
-      }
-
-      if (messageStatus === MessageStatus.DONE) {
-        log(`Poller has picked up the change of status to DONE for hash ${srcTxHash}.`);
-        stopPolling();
+        // The bridge tx lives on the source chain; the wallet may be connected elsewhere.
+        // Isolated the way the processable read above is: this only fills in a block number
+        // for the proof paths, so failing to read it must not skip the rest of the tick.
+        try {
+          const receipt = await getTransactionReceipt(config, {
+            hash: bridgeTx.srcTxHash,
+            chainId: Number(srcChainId),
+          });
+          bridgeTx.blockNumber = toHex(receipt.blockNumber);
+        } catch (err) {
+          console.error('Error while reading the source transaction receipt, will retry', err);
+        }
       }
     } catch (err) {
       // A transient RPC failure must not permanently end polling for this transaction;

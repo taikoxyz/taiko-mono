@@ -6,17 +6,25 @@
  */
 import { BridgeTxPollingError } from '$libs/error';
 
-vi.mock('@wagmi/core');
+const messageStatusRead = vi.hoisted(() => vi.fn());
+// The manual mock at __mocks__/@wagmi/core.ts does not stub getTransactionReceipt, and an
+// automocked export is undefined rather than a spy, so it is supplied here
+const getTransactionReceiptMock = vi.hoisted(() => vi.fn());
+
+vi.mock('@wagmi/core', async () => ({
+  ...(await vi.importActual<Record<string, unknown>>('../../../__mocks__/@wagmi/core')),
+  getTransactionReceipt: getTransactionReceiptMock,
+}));
 vi.mock('$bridgeConfig');
 vi.mock('viem', async (importOriginal) => ({
   ...(await importOriginal<typeof import('viem')>()),
   createPublicClient: () => ({}),
-  getContract: () => ({ read: { messageStatus: vi.fn() } }),
+  getContract: () => ({ read: { messageStatus: messageStatusRead } }),
 }));
 
-import type { BridgeTransaction } from '$libs/bridge';
+import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
 
-import { startPolling } from './messageStatusPoller';
+import { PollingEvent, startPolling } from './messageStatusPoller';
 
 const tx = (overrides: Partial<BridgeTransaction> = {}) =>
   ({
@@ -58,5 +66,30 @@ describe('startPolling', () => {
     expect(first?.emitter).toBe(second?.emitter);
 
     first?.destroy({});
+  });
+
+  it('stops polling a completed message even when the source receipt cannot be read', async () => {
+    // The DONE check used to sit after the receipt read, so a source RPC that could not
+    // serve the receipt threw past it into the catch that deliberately keeps the interval
+    // alive: every tick re-read DONE, re-emitted it and never stopped, for a message that
+    // was already finalised.
+    vi.useFakeTimers();
+    messageStatusRead.mockResolvedValue(MessageStatus.DONE);
+    getTransactionReceiptMock.mockRejectedValue(new Error('source rpc down'));
+
+    const polling = startPolling(tx({ msgHash: '0xdone', blockNumber: undefined }));
+    const onStatus = vi.fn();
+    polling?.emitter.on(PollingEvent.STATUS, onStatus);
+
+    // The first run is deferred to the next tick so listeners can attach first
+    await vi.advanceTimersByTimeAsync(1);
+    expect(onStatus).toHaveBeenCalledWith(MessageStatus.DONE);
+
+    // Several intervals later there must have been no second read of a finalised message
+    await vi.advanceTimersByTimeAsync(20_000 * 3);
+    expect(onStatus).toHaveBeenCalledTimes(1);
+
+    polling?.destroy({});
+    vi.useRealTimers();
   });
 });
