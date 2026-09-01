@@ -16,8 +16,14 @@ export function tokenDeploymentKeys(token: Token | NFT): string[] {
 }
 
 /**
- * @dev Two tokens are the same token if they share any chain-qualified deployment;
- *      the symbol is only a fallback for entries that carry no addresses.
+ * @dev Two tokens are the same token if they share any chain-qualified deployment; the
+ *      symbol is only a fallback for entries that carry no addresses at all.
+ *
+ *      One side having deployments and the other having none is not a match. Symbols are
+ *      not unique, and this decides whether storeToken suppresses an entry and which entry
+ *      removeToken deletes - so an identity that cannot be established should answer "not
+ *      the same" rather than act on a guess.
+ *
  * @param a The first token
  * @param b The second token
  * @return Whether both describe the same token
@@ -26,7 +32,7 @@ export function tokensAreSame(a: Token | NFT, b: Token | NFT): boolean {
   const aKeys = tokenDeploymentKeys(a);
   const bKeys = new Set(tokenDeploymentKeys(b));
 
-  if (aKeys.length > 0 && bKeys.size > 0) {
+  if (aKeys.length > 0 || bKeys.size > 0) {
     return aKeys.some((key) => bKeys.has(key));
   }
   return a.symbol === b.symbol;

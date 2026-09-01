@@ -30,6 +30,25 @@ describe('tokensAreSame', () => {
     expect(tokensAreSame(token({}), token({}))).toBe(true);
     expect(tokensAreSame(token({}), token({ symbol: 'OTHER' }))).toBe(false);
   });
+
+  describe('when only one side carries addresses', () => {
+    it('does not treat them as the same token', () => {
+      const withAddresses = { symbol: 'TKN', addresses: { 1: '0x1111111111111111111111111111111111111111' } } as never;
+      const withoutAddresses = { symbol: 'TKN', addresses: {} } as never;
+
+      // An identity that cannot be established must not authorise storeToken to suppress
+      // an entry or removeToken to delete one
+      expect(tokensAreSame(withAddresses, withoutAddresses)).toBe(false);
+      expect(tokensAreSame(withoutAddresses, withAddresses)).toBe(false);
+    });
+
+    it('still matches two address-less entries by symbol', () => {
+      const a = { symbol: 'TKN', addresses: {} } as never;
+      const b = { symbol: 'TKN', addresses: {} } as never;
+
+      expect(tokensAreSame(a, b)).toBe(true);
+    });
+  });
 });
 
 describe('tokenIdentityKey', () => {
