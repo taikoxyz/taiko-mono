@@ -1,4 +1,4 @@
-import type { Address } from 'viem';
+import type { Address, Hash } from 'viem';
 
 import { fetchTransactions } from './fetchTransactions';
 import { type BridgeTransaction, MessageStatus } from './types';
@@ -23,10 +23,10 @@ const getAllByAddressSecond = vi.mocked(relayerApiServices[1].getAllBridgeTransa
 
 const tx = (srcTxHash: string, msgStatus?: MessageStatus) => ({ srcTxHash, msgStatus }) as unknown as BridgeTransaction;
 
-const page = (txs: BridgeTransaction[], max_page: number, failedCount = 0) => ({
+const page = (txs: BridgeTransaction[], max_page: number, failedTxHashes: Hash[] = []) => ({
   txs,
   paginationInfo: { page: 0, size: 500, total: txs.length, total_pages: 1, first: true, last: true, max_page },
-  failedCount,
+  failedTxHashes,
 });
 
 describe('fetchTransactions', () => {
@@ -122,7 +122,9 @@ describe('fetchTransactions', () => {
 
   it('sums transactions that failed to load across every relayer page', async () => {
     // Given: page 0 lost 2 transactions to failed RPC reads, page 1 lost 3
-    getAllByAddress.mockResolvedValueOnce(page([tx('0xa')], 1, 2)).mockResolvedValueOnce(page([tx('0xb')], 1, 3));
+    getAllByAddress
+      .mockResolvedValueOnce(page([tx('0xa')], 1, ['0xf1', '0xf2']))
+      .mockResolvedValueOnce(page([tx('0xb')], 1, ['0xf3', '0xf4', '0xf5']));
 
     // When
     const { failedCount, mergedTransactions } = await fetchTransactions(ADDRESS);
@@ -130,6 +132,36 @@ describe('fetchTransactions', () => {
     // Then
     expect(failedCount).toBe(5);
     expect(mergedTransactions).toHaveLength(2);
+  });
+
+  it('counts a transaction that failed on more than one page only once', async () => {
+    // Given: the relayer returns the same transaction on both pages and it fails both times.
+    // Summing raw per-page tallies would report one lost transaction as two.
+    getAllByAddress
+      .mockResolvedValueOnce(page([tx('0xa')], 1, ['0xf1']))
+      .mockResolvedValueOnce(page([tx('0xb')], 1, ['0xf1']));
+
+    // When
+    const { failedCount } = await fetchTransactions(ADDRESS);
+
+    // Then
+    expect(failedCount).toBe(1);
+  });
+
+  it('does not count a transaction that failed once but loaded from elsewhere', async () => {
+    // Given: page 0 could not enhance 0xdupe, page 1 returned it successfully. It is in the
+    // list, so reporting it as unloadable would be telling the user about a loss they can see
+    // did not happen.
+    getAllByAddress
+      .mockResolvedValueOnce(page([tx('0xa')], 1, ['0xdupe']))
+      .mockResolvedValueOnce(page([tx('0xdupe')], 1));
+
+    // When
+    const { failedCount, mergedTransactions } = await fetchTransactions(ADDRESS);
+
+    // Then
+    expect(mergedTransactions.map((transaction) => transaction.srcTxHash).sort()).toEqual(['0xa', '0xdupe']);
+    expect(failedCount).toBe(0);
   });
 
   it('reports no failures when every page loaded cleanly', async () => {
@@ -157,7 +189,7 @@ describe('fetchTransactions', () => {
     // fetchAllRelayerPages returns early here, so the count it already accumulated has to travel
     // out with the error rather than being discarded with the rest of the history.
     getAllByAddress
-      .mockResolvedValueOnce(page([tx('0xa')], 1, 2))
+      .mockResolvedValueOnce(page([tx('0xa')], 1, ['0xf1', '0xf2']))
       .mockRejectedValueOnce(new Error('page 1 unavailable'));
 
     // When
@@ -167,6 +199,23 @@ describe('fetchTransactions', () => {
     expect(error).toBeInstanceOf(Error);
     expect(failedCount).toBe(2);
     expect(mergedTransactions).toHaveLength(1);
+  });
+
+  it('keeps the count when a completed page produced no surviving rows', async () => {
+    // Given: page 0 answers, but every row on it fails to enhance, so it contributes 0
+    // transactions and a count of 2. Page 1 then throws. Keying the "nothing was fetched"
+    // check on txs.length would rethrow here and discard those 2 - the page did answer.
+    getAllByAddress
+      .mockResolvedValueOnce(page([], 1, ['0xf1', '0xf2']))
+      .mockRejectedValueOnce(new Error('page 1 unavailable'));
+
+    // When
+    const { error, failedCount, mergedTransactions } = await fetchTransactions(ADDRESS);
+
+    // Then
+    expect(error).toBeInstanceOf(Error);
+    expect(failedCount).toBe(2);
+    expect(mergedTransactions).toHaveLength(0);
   });
 
   describe('when one relayer fails', () => {
@@ -206,7 +255,7 @@ describe('fetchTransactions', () => {
       // A rejected relayer has no count to give; the ones that answered still do, and losing
       // their count because a sibling died would under-report what the user cannot see
       getAllByAddress.mockRejectedValue(new Error('relayer down'));
-      getAllByAddressSecond.mockResolvedValueOnce(page([tx('0xa')], 0, 4));
+      getAllByAddressSecond.mockResolvedValueOnce(page([tx('0xa')], 0, ['0xf1', '0xf2', '0xf3', '0xf4']));
 
       const { error, failedCount } = await fetchTransactions(ADDRESS);
 

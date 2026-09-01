@@ -735,7 +735,7 @@ describe('RelayerAPIService', () => {
     expect(result.txs).toHaveLength(0);
     expect(mockedReadContract).not.toHaveBeenCalled();
     // An ambiguous receipt is a deliberate filter, not a failed load - it must not be counted.
-    expect(result.failedCount).toBe(0);
+    expect(result.failedTxHashes).toEqual([]);
   });
 
   test('getTransactionsFromAPI preserves raw message fee digits before JSON parsing', async () => {
@@ -832,7 +832,7 @@ describe('RelayerAPIService', () => {
 
     // Then: the transaction is dropped, but the caller is told how many were lost
     expect(result.txs).toHaveLength(0);
-    expect(result.failedCount).toBe(1);
+    expect(result.failedTxHashes).toHaveLength(1);
   });
 
   test('getAllBridgeTransactionByAddress does not count legitimately filtered rows as failures', async () => {
@@ -864,7 +864,7 @@ describe('RelayerAPIService', () => {
 
     // Then: one row filtered out, zero reported as failed - warning the user here would be a lie
     expect(result.txs).toHaveLength(1);
-    expect(result.failedCount).toBe(0);
+    expect(result.failedTxHashes).toEqual([]);
   });
 
   test("getAllBridgeTransactionByAddress does not count another wallet's row as a failure", async () => {
@@ -893,7 +893,7 @@ describe('RelayerAPIService', () => {
 
     // Then
     expect(result.txs).toHaveLength(0);
-    expect(result.failedCount).toBe(0);
+    expect(result.failedTxHashes).toEqual([]);
   });
 
   test('getAllBridgeTransactionByAddress reports zero failures for an empty relayer page', async () => {
@@ -905,7 +905,7 @@ describe('RelayerAPIService', () => {
     const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, { page: 1, size: 10 });
 
     // Then
-    expect(result.failedCount).toBe(0);
+    expect(result.failedTxHashes).toEqual([]);
   });
 
   test('getAllBridgeTransactionByAddress counts a transaction whose receipt read failed', async () => {
@@ -932,7 +932,7 @@ describe('RelayerAPIService', () => {
 
     // Then
     expect(result.txs).toHaveLength(0);
-    expect(result.failedCount).toBe(1);
+    expect(result.failedTxHashes).toHaveLength(1);
   });
 
   test('getAllBridgeTransactionByAddress keeps a transaction that is simply not mined yet', async () => {
@@ -963,7 +963,7 @@ describe('RelayerAPIService', () => {
     // Then
     expect(result.txs).toHaveLength(1);
     expect(result.txs[0].receipt).toBeNull();
-    expect(result.failedCount).toBe(0);
+    expect(result.failedTxHashes).toEqual([]);
   });
 });
 

@@ -471,7 +471,7 @@ export class RelayerAPIService {
     };
 
     if (!apiTxs.items || apiTxs.items.length === 0) {
-      return { txs: [], paginationInfo, failedCount: 0 };
+      return { txs: [], paginationInfo, failedTxHashes: [] };
     }
 
     const items = RelayerAPIService._filterDuplicateAndWrongBridge(apiTxs.items);
@@ -491,7 +491,9 @@ export class RelayerAPIService {
     // four legitimate filters (not this user's transaction, ambiguous receipt, no msgHash, no
     // configured route); those rows are deliberately not shown, so counting them would report a
     // loss that never happened.
-    let failedCount = 0;
+    // Hashes, not a tally: the caller merges these across pages and relayers, where the same
+    // transaction can appear more than once and can even succeed elsewhere.
+    const failedTxHashes: Hash[] = [];
 
     const txsPromises = txs.map(async (bridgeTx) => {
       if (!bridgeTx) return;
@@ -499,7 +501,7 @@ export class RelayerAPIService {
         return await RelayerAPIService._enhanceTransaction(bridgeTx, address);
       } catch (error) {
         // One failing RPC read must not reject the surrounding Promise.all and wipe the list
-        failedCount++;
+        failedTxHashes.push(bridgeTx.srcTxHash);
         log('Skipping transaction that failed to enhance', { error, srcTxHash: bridgeTx.srcTxHash });
         return;
       }
@@ -512,7 +514,7 @@ export class RelayerAPIService {
     // Spreading to preserve original txs in case of array mutation
     log('Enhanced transactions', [...bridgeTxs]);
 
-    return { txs: bridgeTxs, paginationInfo, failedCount };
+    return { txs: bridgeTxs, paginationInfo, failedTxHashes };
   }
 
   private static _transformTransaction(tx: APIResponseTransaction): BridgeTransaction {

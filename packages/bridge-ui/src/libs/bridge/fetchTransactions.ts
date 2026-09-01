@@ -1,4 +1,4 @@
-import type { Address } from 'viem';
+import type { Address, Hash } from 'viem';
 
 import { relayerApiServices } from '$libs/relayer';
 import { bridgeTxService } from '$libs/storage';
@@ -17,19 +17,19 @@ async function fetchAllRelayerPages(
   relayerApiService: (typeof relayerApiServices)[number],
   userAddress: Address,
   chainId?: number,
-): Promise<{ txs: BridgeTransaction[]; failedCount: number; error?: Error }> {
+): Promise<{ txs: BridgeTransaction[]; failedTxHashes: Hash[]; error?: Error }> {
   const txs: BridgeTransaction[] = [];
-  let failedCount = 0;
+  const failedTxHashes: Hash[] = [];
 
   for (let page = 0; page < MAX_RELAYER_PAGES; page++) {
     let pageTxs;
     let paginationInfo;
-    let pageFailedCount;
+    let pageFailedTxHashes;
     try {
       ({
         txs: pageTxs,
         paginationInfo,
-        failedCount: pageFailedCount,
+        failedTxHashes: pageFailedTxHashes,
       } = await relayerApiService.getAllBridgeTransactionByAddress(
         userAddress,
         { page, size: RELAYER_PAGE_SIZE },
@@ -37,23 +37,26 @@ async function fetchAllRelayerPages(
       ));
     } catch (error) {
       // Keep the pages already fetched: losing a later page should degrade the history,
-      // not blank it. With nothing fetched yet the caller still needs to hear about it.
-      if (txs.length === 0) throw error;
+      // not blank it. Only a first-page failure means nothing was fetched at all, and the
+      // caller needs to hear about that as a rejection. Keyed on the page index, not on
+      // `txs.length`: a completed page whose rows all failed to enhance leaves `txs` empty
+      // while still carrying failed hashes, and rethrowing there would discard them.
+      if (page === 0) throw error;
       log(`relayer page ${page} failed, returning ${txs.length} transactions already fetched`, error);
       // Degrading is fine; degrading in silence is not. A partial history that looks
       // complete is the one outcome the user cannot tell apart from a correct one.
-      // failedCount carries what the completed pages already lost to failed on-chain reads.
-      return { txs, failedCount, error: error as Error };
+      // failedTxHashes carries what the completed pages already lost to failed on-chain reads.
+      return { txs, failedTxHashes, error: error as Error };
     }
     txs.push(...pageTxs);
-    failedCount += pageFailedCount;
+    failedTxHashes.push(...pageFailedTxHashes);
 
     if (paginationInfo.max_page === undefined || page >= paginationInfo.max_page) break;
     if (page === MAX_RELAYER_PAGES - 1) {
       log(`relayer history truncated at ${MAX_RELAYER_PAGES} pages for ${userAddress}`);
     }
   }
-  return { txs, failedCount };
+  return { txs, failedTxHashes };
 }
 
 export async function fetchTransactions(userAddress: Address, chainId?: number) {
@@ -77,13 +80,15 @@ export async function fetchTransactions(userAddress: Address, chainId?: number) 
   // offline showed the user an empty transaction list
   const relayerResults = await Promise.allSettled(relayerTxPromises);
   const relayerTxsArrays: BridgeTransaction[][] = [];
-  // Only a relayer that answered can report how many of its transactions failed to load; a
-  // relayer that rejected outright has no count to give, and `error` speaks for it instead
-  let failedCount = 0;
+  // Only a relayer that answered can name the transactions it failed to load; a relayer that
+  // rejected outright has nothing to report, and `error` speaks for it instead. Collected as a
+  // set rather than summed: the same transaction can come back from several pages or several
+  // relayers, and adding raw tallies would report one loss more than once
+  const failedTxHashes = new Set<string>();
   for (const result of relayerResults) {
     if (result.status === 'fulfilled') {
       relayerTxsArrays.push(result.value.txs);
-      failedCount += result.value.failedCount;
+      for (const hash of result.value.failedTxHashes) failedTxHashes.add(hash);
       // A relayer that answered some pages and then failed still reports that failure,
       // so a partial history is not presented as a complete one
       if (result.value.error) {
@@ -107,6 +112,11 @@ export async function fetchTransactions(userAddress: Address, chainId?: number) 
     seenTxHashes.add(tx.srcTxHash);
     return true;
   });
+
+  // A transaction that failed on one page or relayer and loaded on another is not lost, so it
+  // must not be reported as such. seenTxHashes is exactly the set that made it into the list.
+  for (const hash of seenTxHashes) failedTxHashes.delete(hash);
+  const failedCount = failedTxHashes.size;
 
   // Reverse the flattened array to sort transactions in descending order, placing the most recent transactions first
   const relayerTxs: BridgeTransaction[] = dedupedRelayerTxs.reverse();

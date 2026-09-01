@@ -5,10 +5,14 @@ import type { BridgeTransaction, RelayerMessage } from '$libs/bridge';
 export type GetAllByAddressResponse = {
   txs: BridgeTransaction[];
   paginationInfo: PaginationInfo;
-  // Transactions the relayer returned but whose on-chain enhancement threw (typically a
-  // rate-limited RPC). Required, not optional: an optional field would let a caller drop it
-  // on the way to the UI without the type checker noticing.
-  failedCount: number;
+  // Source hashes of the transactions the relayer returned but whose on-chain enhancement
+  // threw (typically a rate-limited RPC). Hashes rather than a count, because the caller has
+  // to deduplicate them: the relayer may return the same transaction on more than one page or
+  // from more than one relayer, and summing raw counts would report one loss several times, or
+  // report a loss for a transaction another page loaded successfully.
+  // Required, not optional: an optional field would let a caller drop it on the way to the UI
+  // without the type checker noticing.
+  failedTxHashes: Hash[];
 };
 
 export type PaginationParams = {
