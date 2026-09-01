@@ -171,6 +171,7 @@ the lockfile.
 - Create: `packages/protocol/utils/slotchain/checkArtifactOwnership.ts`
 - Create: `packages/protocol/utils/slotchain/artifact-ownership.json`
 - Create: `packages/protocol/integration/slotchain/artifact-ownership.test.ts`
+- Create: `packages/protocol/integration/slotchain/default-profile-isolation.test.ts`
 - Create: `packages/protocol/integration/slotchain/shared-artifact-consumption.test.ts`
 - Create: `packages/protocol/integration/slotchain/tsconfig.json`
 - Create: `packages/protocol/test/shared/slotchain/fixtures/LibSourceInlineProbe.sol`
@@ -223,6 +224,14 @@ linkReferencesHash, immutableReferencesHash, creationHash, runtimeHash)` and fai
       the exact creation bytes only from `out/shared`, deploy them, and call through that interface;
       prove neither consumer recompiled the artifact-owned implementation. A source import of an
       artifact-owned implementation is an explicit failure even when its hash happens to match.
+      Every usage row binds the owned module to an exact artifact-owned consumer module and its
+      owning profile, and names the exact source-inline interface when ABI consumption is claimed.
+      The checker proves that the consumer and interface are present in that profile's build input,
+      that their source and ABI hashes match their manifest rows, that the consumer imports the
+      named interface, and that raw-bytecode consumption names the owner's canonical artifact path.
+      A test-only direct-CREATE usage must additionally be a `.t.sol` consumer containing the
+      `vm.getCode` and `CREATE` path. A declaration without this compiled, hash-pinned evidence is
+      not consumption and cannot satisfy a required consumer profile.
 - [ ] **Step 5: Add** `slotchain:artifact-owner:check` and run clean shared/L1/L2 builds twice.
       Each build uses `--force --build-info --ast --extra-output storage-layout`; a warm incremental
       artifact directory is not admissible evidence.
@@ -230,7 +239,9 @@ linkReferencesHash, immutableReferencesHash, creationHash, runtimeHash)` and fai
       paths so it cannot erase the three owner-profile outputs, and inspect build-info inputs as
       well as emitted artifacts so free-definition sources cannot escape the check.
       For source-inline rows, compare source hashes, allowed profile inputs, ABI and zero link
-      references. For artifact-owned rows, compare creation/runtime/link/immutable-reference hashes
+      references across every compiler output, including consumers outside the Slot Chain source
+      subtree. Reject a symlink at a scanned source/output root as well as any nested symlink. For
+      artifact-owned rows, compare creation/runtime/link/immutable-reference hashes
       and prove a later profile consumes the content-addressed shared artifact without producing a
       second owned artifact. Constructor-derived component configuration hashes are deliberately
       deferred to the Round-24 deployment-transcript checker; Round 1 must not invent them from
