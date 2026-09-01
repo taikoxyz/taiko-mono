@@ -33,8 +33,11 @@
     "slotchain:artifact-owner:check": "pnpm compile:shared && pnpm compile:l1 && pnpm compile:l2 && ts-node --project integration/slotchain/tsconfig.json utils/slotchain/checkArtifactOwnership.ts",
     "slotchain:artifact-owner:test": "ts-node --project integration/slotchain/tsconfig.json integration/slotchain/artifact-ownership.test.ts && ts-node --project integration/slotchain/tsconfig.json integration/slotchain/shared-artifact-consumption.test.ts",
     "slotchain:default-profile:test": "ts-node --project integration/slotchain/tsconfig.json integration/slotchain/default-profile-isolation.test.ts",
+    "slotchain:vectors:generate": "ts-node --project integration/slotchain/tsconfig.json utils/slotchain/generateGoldenVectors.ts",
+    "slotchain:vectors:check": "ts-node --project integration/slotchain/tsconfig.json utils/slotchain/generateGoldenVectors.ts --check",
+    "slotchain:vectors:test": "ts-node --project integration/slotchain/tsconfig.json utils/slotchain/generateGoldenVectors.test.ts && pnpm slotchain:vectors:check",
     "slotchain:prepare-shared": "pnpm compile:shared",
-    "slotchain:ownership:ci": "pnpm slotchain:default-profile:test && pnpm compile:shared && pnpm compile:l1 && pnpm compile:l2 && FOUNDRY_PROFILE=layer1 forge test --match-path 'test/layer1/slotchain/**/*.t.sol' && FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/slotchain/**/*.t.sol' && pnpm slotchain:artifact-owner:test && pnpm slotchain:artifact-owner:check"
+    "slotchain:ownership:ci": "pnpm slotchain:vectors:test && pnpm slotchain:default-profile:test && pnpm compile:shared && pnpm compile:l1 && pnpm compile:l2 && FOUNDRY_PROFILE=layer1 forge test --match-path 'test/layer1/slotchain/**/*.t.sol' && FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/slotchain/**/*.t.sol' && pnpm slotchain:artifact-owner:test && pnpm slotchain:artifact-owner:check"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",

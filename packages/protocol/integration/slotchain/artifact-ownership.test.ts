@@ -309,6 +309,30 @@ function expectCode(code: string, callback: () => void): void {
     });
 }
 
+function makeSourceInlineLibrary(
+    fixture: Fixture,
+    abi: Record<string, any>[],
+    nodes: Record<string, any>[],
+): void {
+    const owned = fixture.manifest.modules[0] as ArtifactOwnedModule;
+    fixture.manifest.modules[0] = {
+        ownership: "source-inline",
+        sourcePath: owned.sourcePath,
+        contractName: owned.contractName,
+        kind: "internal-library",
+        sourceHash: owned.sourceHash,
+        abiHash: canonicalHash(abi),
+        allowedProfiles: ["shared"],
+        requiredProfiles: ["shared"],
+    };
+    mutateArtifact(fixture, (artifact) => {
+        artifact.abi = abi;
+        artifact.ast.nodes[0].contractKind = "library";
+        artifact.ast.nodes[0].nodes = nodes;
+    });
+    syncSharedCompilerOutput(fixture);
+}
+
 function run(name: string, callback: () => void): void {
     callback();
     console.log(`PASS ${name}`);
@@ -513,6 +537,79 @@ run("artifact and compiler output mismatch fails", () => {
     const fixture = validFixture();
     mutateArtifact(fixture, (artifact) => {
         artifact.bytecode.object = "0x6002";
+    });
+    expectCode("ARTIFACT_BUILD_INFO_MISMATCH", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+});
+
+run("artifact and compiler ABI mismatch fails", () => {
+    const fixture = validFixture();
+    mutateArtifact(fixture, (artifact) => {
+        artifact.abi = [
+            {
+                type: "function",
+                name: "unexpected",
+                inputs: [],
+                outputs: [],
+            },
+        ];
+    });
+    expectCode("ARTIFACT_BUILD_INFO_MISMATCH", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+});
+
+run("foundry-stripped contract devdoc metadata is normalized", () => {
+    const fixture = validFixture();
+    mutateArtifact(fixture, (artifact) => {
+        artifact.metadata.output = {
+            devdoc: { kind: "dev", methods: {}, version: 1 },
+        };
+    });
+    syncSharedCompilerOutput(fixture);
+    mutateBuildInfo(fixture, "shared", (value) => {
+        const contract = value.output.contracts[fixture.sourcePath].Owned;
+        const metadata = JSON.parse(contract.metadata);
+        metadata.output.devdoc.title = "Owned contract";
+        metadata.output.devdoc.details = "Contract-level details";
+        metadata.output.devdoc["custom:security-contact"] =
+            "security@example.invalid";
+        contract.metadata = JSON.stringify(metadata);
+    });
+    validateArtifactOwnership(fixture.root, fixture.manifest);
+});
+
+run("non-normalized devdoc metadata drift fails", () => {
+    const fixture = validFixture();
+    mutateArtifact(fixture, (artifact) => {
+        artifact.metadata.output = {
+            devdoc: {
+                kind: "dev",
+                methods: { "owned()": { details: "expected" } },
+                version: 1,
+            },
+        };
+    });
+    syncSharedCompilerOutput(fixture);
+    mutateBuildInfo(fixture, "shared", (value) => {
+        const contract = value.output.contracts[fixture.sourcePath].Owned;
+        const metadata = JSON.parse(contract.metadata);
+        metadata.output.devdoc.methods["owned()"].details = "semantic drift";
+        contract.metadata = JSON.stringify(metadata);
+    });
+    expectCode("ARTIFACT_BUILD_INFO_MISMATCH", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+});
+
+run("non-document compiler metadata drift fails", () => {
+    const fixture = validFixture();
+    mutateBuildInfo(fixture, "shared", (value) => {
+        const contract = value.output.contracts[fixture.sourcePath].Owned;
+        const metadata = JSON.parse(contract.metadata);
+        metadata.settings.compilationTarget[fixture.sourcePath] = "Other";
+        contract.metadata = JSON.stringify(metadata);
     });
     expectCode("ARTIFACT_BUILD_INFO_MISMATCH", () =>
         validateArtifactOwnership(fixture.root, fixture.manifest),
@@ -920,6 +1017,153 @@ run("addressable source-inline interface fails", () => {
     );
 });
 
+run("source-inline internal library permits an error-only ABI", () => {
+    const fixture = validFixture();
+    makeSourceInlineLibrary(
+        fixture,
+        [
+            {
+                type: "error",
+                name: "InvalidCandidate",
+                inputs: [{ name: "candidate", type: "bytes32" }],
+            },
+        ],
+        [
+            { nodeType: "ErrorDefinition", name: "InvalidCandidate" },
+            {
+                nodeType: "VariableDeclaration",
+                name: "DOMAIN",
+                stateVariable: true,
+                visibility: "private",
+            },
+            {
+                nodeType: "FunctionDefinition",
+                name: "hashCandidate",
+                visibility: "internal",
+            },
+            {
+                nodeType: "FunctionDefinition",
+                name: "validateCandidate",
+                visibility: "private",
+            },
+        ],
+    );
+    const inventory = validateArtifactOwnership(fixture.root, fixture.manifest);
+    assert.equal(inventory.modules[0].ownership, "source-inline");
+});
+
+run("source-inline internal library rejects callable ABI entries", () => {
+    for (const type of [
+        "function",
+        "constructor",
+        "fallback",
+        "receive",
+        "event",
+    ]) {
+        const fixture = validFixture();
+        makeSourceInlineLibrary(
+            fixture,
+            [{ type, name: "callable", inputs: [], outputs: [] }],
+            [
+                {
+                    nodeType: "FunctionDefinition",
+                    name: "helper",
+                    visibility: "internal",
+                },
+            ],
+        );
+        expectCode("ADDRESSABLE_SOURCE_INLINE", () =>
+            validateArtifactOwnership(fixture.root, fixture.manifest),
+        );
+    }
+});
+
+run("source-inline internal library rejects malformed ABI containers", () => {
+    const fixture = validFixture();
+    makeSourceInlineLibrary(fixture, [], []);
+    mutateArtifact(fixture, (artifact) => {
+        artifact.abi = { type: "error", name: "NotAnArray" };
+    });
+    syncSharedCompilerOutput(fixture);
+    (fixture.manifest.modules[0] as SourceInlineModule).abiHash = canonicalHash(
+        { type: "error", name: "NotAnArray" },
+    );
+    expectCode("ADDRESSABLE_SOURCE_INLINE", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+});
+
+run(
+    "source-inline internal library rejects events even with error-only ABI",
+    () => {
+        const fixture = validFixture();
+        makeSourceInlineLibrary(
+            fixture,
+            [{ type: "error", name: "Failure", inputs: [] }],
+            [
+                { nodeType: "ErrorDefinition", name: "Failure" },
+                { nodeType: "EventDefinition", name: "Observed" },
+            ],
+        );
+        expectCode("ADDRESSABLE_SOURCE_INLINE", () =>
+            validateArtifactOwnership(fixture.root, fixture.manifest),
+        );
+    },
+);
+
+run("source-inline internal library rejects non-internal functions", () => {
+    for (const visibility of ["public", "external", undefined]) {
+        const fixture = validFixture();
+        makeSourceInlineLibrary(
+            fixture,
+            [],
+            [
+                {
+                    nodeType: "FunctionDefinition",
+                    name: "callable",
+                    visibility,
+                },
+            ],
+        );
+        expectCode("ADDRESSABLE_SOURCE_INLINE", () =>
+            validateArtifactOwnership(fixture.root, fixture.manifest),
+        );
+    }
+});
+
+run("source-inline internal library rejects non-internal state", () => {
+    for (const visibility of ["public", "external", undefined]) {
+        const fixture = validFixture();
+        makeSourceInlineLibrary(
+            fixture,
+            [],
+            [
+                {
+                    nodeType: "VariableDeclaration",
+                    name: "STATE",
+                    stateVariable: true,
+                    visibility,
+                },
+            ],
+        );
+        expectCode("ADDRESSABLE_SOURCE_INLINE", () =>
+            validateArtifactOwnership(fixture.root, fixture.manifest),
+        );
+    }
+});
+
+run("source-inline internal library requires a complete member AST", () => {
+    const fixture = validFixture();
+    makeSourceInlineLibrary(fixture, [], []);
+    mutateArtifact(fixture, (artifact) => {
+        delete artifact.ast.nodes[0].nodes;
+    });
+    syncSharedCompilerOutput(fixture);
+    expectCode("MALFORMED_SOURCE_AST", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+});
+
 run("source-inline library link reference fails", () => {
     const fixture = validFixture();
     const owned = fixture.manifest.modules[0] as ArtifactOwnedModule;
@@ -938,6 +1182,32 @@ run("source-inline library link reference fails", () => {
         artifact.ast.nodes[0].contractKind = "library";
         artifact.bytecode.linkReferences = {
             [fixture.sourcePath]: { Owned: [{ start: 1, length: 20 }] },
+        };
+    });
+    syncSharedCompilerOutput(fixture);
+    expectCode("SOURCE_INLINE_LINK_REFERENCE", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+});
+
+run("source-inline library cannot carry links to another library", () => {
+    const fixture = validFixture();
+    makeSourceInlineLibrary(
+        fixture,
+        [],
+        [
+            {
+                nodeType: "FunctionDefinition",
+                name: "hashCandidate",
+                visibility: "internal",
+            },
+        ],
+    );
+    mutateArtifact(fixture, (artifact) => {
+        artifact.deployedBytecode.linkReferences = {
+            "contracts/External.sol": {
+                External: [{ start: 1, length: 20 }],
+            },
         };
     });
     syncSharedCompilerOutput(fixture);

@@ -368,14 +368,24 @@ function normalizeCompilerMetadata(value: unknown): unknown {
         );
     }
     const output = normalized.output;
-    if (isRecord(output) && Array.isArray(output.abi)) {
-        for (const entry of output.abi) {
-            if (
-                isRecord(entry) &&
-                Array.isArray(entry.outputs) &&
-                entry.outputs.length === 0
-            ) {
-                delete entry.outputs;
+    if (isRecord(output)) {
+        if (Array.isArray(output.abi)) {
+            for (const entry of output.abi) {
+                if (
+                    isRecord(entry) &&
+                    Array.isArray(entry.outputs) &&
+                    entry.outputs.length === 0
+                ) {
+                    delete entry.outputs;
+                }
+            }
+        }
+        const devdoc = output.devdoc;
+        if (isRecord(devdoc)) {
+            delete devdoc.title;
+            delete devdoc.details;
+            for (const key of Object.keys(devdoc)) {
+                if (key.startsWith("custom:")) delete devdoc[key];
             }
         }
     }
@@ -1093,6 +1103,73 @@ function contractDefinition(
     );
 }
 
+function assertInternalLibrarySurface(
+    definition: AstNode,
+    abi: unknown,
+    creationLinkReferences: unknown,
+    runtimeLinkReferences: unknown,
+    id: string,
+): void {
+    if (
+        !Array.isArray(abi) ||
+        abi.some((entry) => !isRecord(entry) || entry.type !== "error")
+    ) {
+        fail(
+            "ADDRESSABLE_SOURCE_INLINE",
+            `${id} ABI contains a non-error entry`,
+        );
+    }
+    for (const [where, references] of [
+        ["creation", creationLinkReferences],
+        ["runtime", runtimeLinkReferences],
+    ] as const) {
+        if (!isRecord(references) || Object.keys(references).length !== 0) {
+            fail(
+                "SOURCE_INLINE_LINK_REFERENCE",
+                `${id} has ${where} link references`,
+            );
+        }
+    }
+    if (
+        !Array.isArray(definition.nodes) ||
+        definition.nodes.some(
+            (node) => !isRecord(node) || typeof node.nodeType !== "string",
+        )
+    ) {
+        fail("MALFORMED_SOURCE_AST", id);
+    }
+    for (const node of definition.nodes) {
+        if (node.nodeType === "EventDefinition") {
+            fail("ADDRESSABLE_SOURCE_INLINE", `${id} declares an event`);
+        }
+        if (
+            node.nodeType === "FunctionDefinition" &&
+            node.visibility !== "internal" &&
+            node.visibility !== "private"
+        ) {
+            fail(
+                "ADDRESSABLE_SOURCE_INLINE",
+                `${id} has ${node.visibility ?? "unknown-visibility"} function ${
+                    node.name ?? "<anonymous>"
+                }`,
+            );
+        }
+        if (
+            node.nodeType === "VariableDeclaration" &&
+            node.stateVariable &&
+            node.visibility !== "internal" &&
+            node.visibility !== "private"
+        ) {
+            fail(
+                "ADDRESSABLE_SOURCE_INLINE",
+                `${id} has ${node.visibility ?? "unknown-visibility"} state ${
+                    node.name ?? "<anonymous>"
+                }`,
+            );
+        }
+    }
+}
+
 function assertNoLibraryLinks(
     consumers: CompilerLinkConsumer[],
     module: SourceInlineModule,
@@ -1257,30 +1334,13 @@ function verifySourceInline(
         } else if (module.kind === "internal-library") {
             if (definition?.contractKind !== "library")
                 fail("SOURCE_INLINE_KIND_MISMATCH", id);
-            if ((record.artifact.abi ?? []).length !== 0)
-                fail("ADDRESSABLE_SOURCE_INLINE", `${id} has ABI`);
-            for (const node of definition.nodes ?? []) {
-                if (
-                    node.nodeType === "FunctionDefinition" &&
-                    (node.visibility === "public" ||
-                        node.visibility === "external")
-                ) {
-                    fail(
-                        "ADDRESSABLE_SOURCE_INLINE",
-                        `${id} has ${node.visibility} function ${node.name}`,
-                    );
-                }
-                if (
-                    node.nodeType === "VariableDeclaration" &&
-                    node.stateVariable &&
-                    node.visibility === "public"
-                ) {
-                    fail(
-                        "ADDRESSABLE_SOURCE_INLINE",
-                        `${id} has public state ${node.name}`,
-                    );
-                }
-            }
+            assertInternalLibrarySurface(
+                definition,
+                record.artifact.abi ?? [],
+                record.artifact.bytecode?.linkReferences ?? {},
+                record.artifact.deployedBytecode?.linkReferences ?? {},
+                id,
+            );
         } else if (definition) {
             fail(
                 "SOURCE_INLINE_KIND_MISMATCH",
