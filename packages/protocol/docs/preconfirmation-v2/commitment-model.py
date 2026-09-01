@@ -9700,6 +9700,23 @@ def data_leaf(session: bytes, index: int, versioned_hash: bytes,
                      + address20(publisher) + u64(valid_until) + u256(z) + u256(y))
 
 
+def data_node(height: int, left: bytes, right: bytes) -> bytes:
+    """Hash one fixed data-MMR node without performing frontier traversal."""
+
+    return keccak256(D_MMR_NODE + u8(height) + b32(left) + b32(right))
+
+
+def data_bag(count: int, peaks: tuple[tuple[int, bytes], ...]) -> bytes:
+    """Hash the unique ascending-height peak encoding for one record count."""
+
+    expected_heights = tuple(
+        height for height in range(12) if (count >> height) & 1)
+    assert (type(count) is int and 0 <= count <= 2_100
+            and tuple(height for height, _ in peaks) == expected_heights)
+    encoded = b"".join(u8(height) + b32(node) for height, node in peaks)
+    return keccak256(D_MMR_BAG + u16(count) + u8(len(peaks)) + encoded)
+
+
 def mmr_root(leaves: tuple[bytes, ...]) -> bytes:
     assert len(leaves) <= 2_100
     peaks: list[tuple[int, bytes]] = []
@@ -9707,11 +9724,10 @@ def mmr_root(leaves: tuple[bytes, ...]) -> bytes:
         height, node = 0, b32(leaf)
         while peaks and peaks[-1][0] == height:
             _, left = peaks.pop()
-            node = keccak256(D_MMR_NODE + u8(height) + left + node)
+            node = data_node(height, left, node)
             height += 1
         peaks.append((height, node))
-    encoded = b"".join(u8(height) + node for height, node in reversed(peaks))
-    return keccak256(D_MMR_BAG + u16(len(leaves)) + u8(len(peaks)) + encoded)
+    return data_bag(len(leaves), tuple(reversed(peaks)))
 
 
 def append_mmr_frontier(frontier: tuple[bytes, ...], count: int,
@@ -9722,8 +9738,7 @@ def append_mmr_frontier(frontier: tuple[bytes, ...], count: int,
     updated = [b32(node) for node in frontier]
     carry, height = b32(leaf), 0
     while (count >> height) & 1:
-        carry = keccak256(D_MMR_NODE + u8(height)
-                          + updated[height] + carry)
+        carry = data_node(height, updated[height], carry)
         height += 1
     updated[height] = carry
     return tuple(updated)
@@ -9734,9 +9749,8 @@ def mmr_frontier_root(frontier: tuple[bytes, ...], count: int) -> bytes:
 
     assert len(frontier) == 12 and 0 <= count <= 2_100
     heights = tuple(height for height in range(12) if (count >> height) & 1)
-    encoded = b"".join(u8(height) + b32(frontier[height])
-                       for height in heights)
-    return keccak256(D_MMR_BAG + u16(count) + u8(len(heights)) + encoded)
+    return data_bag(
+        count, tuple((height, frontier[height]) for height in heights))
 
 
 @dataclass(frozen=True)
@@ -9757,6 +9771,12 @@ def manifest_leaf(position: int, entry: ManifestEntry) -> bytes:
                      + u16(entry.chunk_index) + u16(entry.chunk_count)
                      + u32(entry.chunk_length) + b32(entry.full_body_root)
                      + b32(entry.chunk_root))
+
+
+def manifest_node(height: int, left: bytes, right: bytes) -> bytes:
+    """Hash one fixed manifest-tree node without performing tree construction."""
+
+    return keccak256(D_MANIFEST_NODE + u8(height) + b32(left) + b32(right))
 
 
 def manifest_root(expected_block_ordinal: int,
@@ -10391,16 +10411,67 @@ def vectors() -> dict[str, str]:
     )
     assert len(set(session_event_topics.values())) == len(session_event_topics)
     body = body_root((bytes.fromhex("0102"), bytes.fromhex("030405")))
-    chunk0, chunk1 = b"alpha", b"beta"
+    chunk0, chunk1, chunk2 = b"alpha", b"beta", b"gamma"
     c0, c1 = chunk_root(body, 0, 0, 2, chunk0), chunk_root(body, 0, 1, 2, chunk1)
     leaf0 = data_leaf(sid, 0, bytes.fromhex("33" * 32), body, 0, 0, 2,
                       chunk0, 0xCAFE, 9_999, 5, 6)
     leaf1 = data_leaf(sid, 1, bytes.fromhex("55" * 32), body, 0, 1, 2,
                       chunk1, 0xCAFE, 9_999, 7, 8)
+    leaf2 = data_leaf(sid, 2, bytes.fromhex("77" * 32), body, 1, 0, 1,
+                      chunk2, 0xBEEF, 10_001, 9, 10)
     mmr_frontier = tuple(bytes(32) for _ in range(12))
     mmr_frontier = append_mmr_frontier(mmr_frontier, 0, leaf0)
     mmr_frontier = append_mmr_frontier(mmr_frontier, 1, leaf1)
     assert mmr_frontier_root(mmr_frontier, 2) == mmr_root((leaf0, leaf1))
+    mmr_node_01 = data_node(0, leaf0, leaf1)
+    mmr_root_3 = mmr_root((leaf0, leaf1, leaf2))
+    assert mmr_root(()) == data_bag(0, ())
+    assert mmr_root_3 == data_bag(3, ((0, leaf2), (1, mmr_node_01)))
+    assert_rejects(
+        lambda: data_bag(3, ((1, mmr_node_01), (0, leaf2))),
+        "descending data-bag peaks accepted")
+
+    asymmetric_block_ordinal = 3
+    asymmetric_record_index = 7
+    asymmetric_chunk_index = 1
+    asymmetric_chunk_count = 9
+    asymmetric_chunk = b"asymmetric-data-record"
+    asymmetric_body = bytes.fromhex("61" * 32)
+    asymmetric_versioned_hash = bytes.fromhex("57" * 32)
+    asymmetric_chunk_root = chunk_root(
+        asymmetric_body, asymmetric_block_ordinal, asymmetric_chunk_index,
+        asymmetric_chunk_count, asymmetric_chunk)
+    asymmetric_data_leaf = data_leaf(
+        sid, asymmetric_record_index, asymmetric_versioned_hash,
+        asymmetric_body, asymmetric_block_ordinal, asymmetric_chunk_index,
+        asymmetric_chunk_count, asymmetric_chunk, 0xDADA, 65_535, 11, 13)
+    swapped_data_leaf = keccak256(
+        D_MMR_LEAF + b32(sid) + u16(asymmetric_chunk_index)
+        + b32(asymmetric_versioned_hash) + b32(asymmetric_body)
+        + u16(asymmetric_block_ordinal) + u16(asymmetric_record_index)
+        + u16(asymmetric_chunk_count) + u32(len(asymmetric_chunk))
+        + asymmetric_chunk_root + address20(0xDADA) + u64(65_535)
+        + u256(11) + u256(13))
+    assert asymmetric_data_leaf != swapped_data_leaf
+    data_node_height_7 = data_node(
+        7, asymmetric_data_leaf, bytes.fromhex("a7" * 32))
+    assert data_node_height_7 != data_node(
+        0, asymmetric_data_leaf, bytes.fromhex("a7" * 32))
+
+    asymmetric_manifest_entry = ManifestEntry(
+        asymmetric_block_ordinal, sid, asymmetric_record_index,
+        asymmetric_chunk_index, asymmetric_chunk_count,
+        len(asymmetric_chunk), asymmetric_body, asymmetric_chunk_root)
+    asymmetric_manifest_leaf = manifest_leaf(11, asymmetric_manifest_entry)
+    swapped_manifest_entry = replace(
+        asymmetric_manifest_entry,
+        record_index=asymmetric_manifest_entry.chunk_index,
+        chunk_index=asymmetric_manifest_entry.record_index)
+    assert asymmetric_manifest_leaf != manifest_leaf(11, swapped_manifest_entry)
+    manifest_node_height_5 = manifest_node(
+        5, asymmetric_manifest_leaf, bytes.fromhex("b5" * 32))
+    assert manifest_node_height_5 != manifest_node(
+        0, asymmetric_manifest_leaf, bytes.fromhex("b5" * 32))
     manifest = manifest_root(0, (
         ManifestEntry(0, sid, 0, 0, 2, len(chunk0), body, c0),
         ManifestEntry(0, sid, 1, 1, 2, len(chunk1), body, c1),
@@ -15436,9 +15507,15 @@ def vectors() -> dict[str, str]:
         "empty_forced_root": ForceVector(()).root.hex(),
         "force_range_digest": keccak256(b"".join(proof)).hex(),
         "session_id": sid.hex(),
+        "empty_data_bag": mmr_root(()).hex(),
         "mmr_root_2": mmr_root((leaf0, leaf1)).hex(),
+        "mmr_root_3": mmr_root_3.hex(),
+        "asymmetric_data_leaf": asymmetric_data_leaf.hex(),
+        "data_node_height_7": data_node_height_7.hex(),
         "manifest_root": manifest.hex(),
         "manifest_root_block_1": manifest_block_1.hex(),
+        "asymmetric_manifest_leaf": asymmetric_manifest_leaf.hex(),
+        "manifest_node_height_5": manifest_node_height_5.hex(),
         "empty_body_root": empty_body.hex(),
         "empty_manifest_root": empty_manifest.hex(),
         "empty_session_list": empty_sessions.hex(),
@@ -15482,6 +15559,8 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'c0d778314c7fdd2e84
  'arm_version_migration_calldata_hash': '612a94fc586c81d6f89619adec58afd862d6cf35a2fcf458984b767455d19781',
  'arm_version_migration_return_hash': '41c5c0a68182ca363e5ff0359be2e780e0be718b4abd8e6cf69dc9f925e4a741',
  'arm_version_migration_selector': 'e3bcfcb4',
+ 'asymmetric_data_leaf': '204849a6179174bd92e677b252370e3e2904cf4eb2a94fe1ba154e1310b9cd64',
+ 'asymmetric_manifest_leaf': '92ed7b0f26f1048042ad681be312e3d79d6942ea6da03445c1cc8fd6b1eb1d6b',
  'base_canonical': '67b52faab1709aff021dcb9c16acf86b5b4853de7eb5e36bf1b48566f448621e',
  'block_struct_hash': '6bc4d67c1c53b6793ace07f9e20b6466207dc7e8285232fbd063900c1bb7614e',
  'body_root': '0f4e161a46c8b18c2a86f23a0a4e7169a838a12af8b389f65e97b547a99707e9',
@@ -15561,6 +15640,7 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'c0d778314c7fdd2e84
  'credit_liability_v2_return_hash': 'ad3bba6e04fff6bfefacfdf034f4aaf7bba7149ef0f4dfa0625a5653290f9195',
  'credit_liability_v2_return_length': '288',
  'credit_liability_v2_selector': 'c978978a',
+ 'data_node_height_7': 'e60d61327adb017addbf3012131b62c0a5897d30e302fcfac9ffad46d0fe848a',
  'data_record_appended_topic': '30ee2de166c53a480d028e5b94d4f8759dbd84b5f7b6af1f23e0c5889ea17f8c',
  'data_session_config_hash': '32a737efe0057f71292a45fb94c7625a42452e73b2c7bfd953b10b91d1607bb4',
  'data_sessions_maintained_topic': '920669b9670911aa86cd718dceebaa1372d224ca0fdac50a63dc1d45a53e1e89',
@@ -15583,6 +15663,7 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'c0d778314c7fdd2e84
  'domain_separator': 'e68571dca46842abc561c1ea35b556152b15d93a1d29f5c441ae2fdcdd01725c',
  'eip712_digest': 'bf50900a66dd735bbed4a20b7ebe909b61d15185146813b3105b9d2eefa91c68',
  'empty_body_root': 'f0e00da8dbc00feb028a8bc92342c0771372b947acf5989b2d4a5f23bb2f459a',
+ 'empty_data_bag': 'b3caa2379816b63eebbf789e33e7d84ef29d6d350179803dd000102e8182f66a',
  'empty_data_session_accounting_return_hash': '7720a5a8d9d219e06852dd2661541c06c0278e2044d27ec21400506cac036719',
  'empty_forced_root': '4001bca0d3c5171a99a50118f1219024e1bef9302262ea3b075ecbed36be7592',
  'empty_manifest_root': '0bb15f38645cecc1748b17fe3bd966ba8016c169ebd1266fd38150766177b5f6',
@@ -15815,6 +15896,7 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'c0d778314c7fdd2e84
  'live_registration_validation_commitment': '910c936d963141feec8701cd1207f3cae5e4391e2e9ca91d1b55346bc35568fa',
  'live_version_migration_lease_selector': 'aaac4c97',
  'manifest_components_hash': 'b186c3e23fa4afa228977e22eebba7df0191b70f95b182469d0378947f5a67f1',
+ 'manifest_node_height_5': '9f4c64a89c253d4d65f93cba1f55e7a17a3e4027be7351650060632ed1bc70f0',
  'manifest_root': '417be737a57e38eb410f2d6e65c77ee19d5c314cdaf432067861c6a36c6a990f',
  'manifest_root_block_1': 'c58ab29bdccb3e06cc5431fbbcea1abc6d6f1a38120c5d896e18b7f1ca1cf43e',
  'mark_inbox_batch_calldata_hash': 'e153ec48024a67781bf2e908adcd9667cf30ead69bfa3e33e858decfa1db4bfc',
@@ -15859,6 +15941,7 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'c0d778314c7fdd2e84
  'migration_verifier_descriptor_hash': 'ba4e50bfb5fabf8cd253f48ed38e4cc1a4f3fc04174ae94e4dd971b1d6e36eed',
  'migration_verifier_descriptor_typehash': '6f1be44c261607b4c2345985bfb5a081aabd621b9168982df9b7820c7dedebd6',
  'mmr_root_2': 'd20459aeb2fe916a18dd584d39b2ae25075c6b6c14104d9d64a8b1d7882eb4df',
+ 'mmr_root_3': 'dea2c7de9f14ce6f9c59fda963520ced2cb6e6ebef7c6abe6cb773afab888e89',
  'normal_context': '5b93691b397d8ab377682acee7cf6cc77ff2726cd83a8a7b725084f5d6f468bd',
  'normalized_message_hash': 'f3010702b7b7bf10b6dbfe396a4c7ab07e7c560c28ffdbf6ff8d01d9a96ea4c7',
  'normalized_message_hash_preimage_length': '576',
@@ -16215,7 +16298,7 @@ UINT_VECTOR_NAMES = frozenset({
     "version_migration_lease_return_length",
 })
 VECTOR_NAME_SCHEMA_SHA256 = (
-    "67d4a0bb8d0ac3fd7c57b6bbc35f62d518c795b0f3c972868772a46b26b3af4f"
+    "3f011fdb670388d6346a8c4a3118cd3187282213ee9797a2d3d0dc501bd8447c"
 )
 
 
@@ -16227,7 +16310,7 @@ def typed_vectors() -> tuple[dict[str, str], ...]:
     actual = vectors()
     assert actual == EXPECTED
     names = tuple(sorted(actual))
-    assert (len(names) == 648 and len(set(names)) == len(names)
+    assert (len(names) == 654 and len(set(names)) == len(names)
             and UINT_VECTOR_NAMES <= set(names)
             and hashlib.sha256(
                 b"\0".join(name.encode("ascii") for name in names)
@@ -17439,6 +17522,12 @@ if __name__ == "__main__":
         "emptyTermRoot": "empty_terminal_root",
         "bridgeResult": "bridge_result",
         "manifestRoot": "manifest_root",
+        "emptyDataBag": "empty_data_bag",
+        "mmrRoot3": "mmr_root_3",
+        "asymDataLeaf": "asymmetric_data_leaf",
+        "dataNodeH7": "data_node_height_7",
+        "asymManifestLeaf": "asymmetric_manifest_leaf",
+        "manifestNodeH5": "manifest_node_height_5",
         "normalContext": "normal_context",
         "migrationData": "migration_data",
         "winningData": "winning_data",

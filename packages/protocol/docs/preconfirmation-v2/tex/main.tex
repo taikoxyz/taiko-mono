@@ -9167,8 +9167,24 @@ component ABIs, and migration or legacy-campaign wire codecs are implemented
 and exercised only in their later owning rounds.  Treating a later algorithm
 or call codec as a generic Round-2 ``encoding'' is a scope error.
 
+Round-2 conformance fixtures must be mutation-sensitive rather than merely
+representative.  The oracle therefore publishes the wrapped empty data bag and
+a three-record MMR root whose two bag tuples are exactly height 0 followed by
+height 1.  Reversing those tuples rejects.  It also publishes deliberately
+asymmetric data and manifest leaves with
+\code{recordIndex=7}, \code{chunkIndex=1}, \code{blockOrdinal=3} and
+\code{chunkCount=9}; the manifest position is 11 and the chunk bytes are the
+ASCII string \code{asymmetric-data-record}.  The corresponding independent
+node fixtures use data-node height 7 with right child \code{0xa7...a7} and
+manifest-node height 5 with right child \code{0xb5...b5}.  A Round-2
+conformance suite must compare these leaf and node results directly, exercise
+the valid two-peak ascending bag, and reject its reversed encoding.  A fixture
+where \code{recordIndex=chunkIndex}, a one-peak-only bag, or a height-zero-only
+node check is insufficient because it lets a field swap, reversed peak order,
+or ignored height pass without changing the expected hash.
+
 \code{commitment-model.py} is the normative executable fixture.  Round 2 exports
-all 648 records through one deterministic typed oracle, including records owned
+all 654 records through one deterministic typed oracle, including records owned
 by later rounds, but its Solidity conformance test executes only an explicit
 reviewed allowlist for the checked fixed-preimage encoders owned by Round 2.
 Later rounds consume and execute the remaining already-exported records when
@@ -9659,6 +9675,12 @@ terminalRoot2 c4438d841e19055e73f0045bc7cd86349dd671a4d6401d338a4e1bea03023f87
 emptyTermRoot c5da197edc2f03c7023cc6afe137ccb77d01fc56514d322b6ba66a149315bcb0
 bridgeResult bafcdb87053dabcbe8d8f1aa6b192027eb7c6ef91ead585fde838669c56afa3b
 manifestRoot 417be737a57e38eb410f2d6e65c77ee19d5c314cdaf432067861c6a36c6a990f
+emptyDataBag b3caa2379816b63eebbf789e33e7d84ef29d6d350179803dd000102e8182f66a
+mmrRoot3 dea2c7de9f14ce6f9c59fda963520ced2cb6e6ebef7c6abe6cb773afab888e89
+asymDataLeaf 204849a6179174bd92e677b252370e3e2904cf4eb2a94fe1ba154e1310b9cd64
+dataNodeH7 e60d61327adb017addbf3012131b62c0a5897d30e302fcfac9ffad46d0fe848a
+asymManifestLeaf 92ed7b0f26f1048042ad681be312e3d79d6942ea6da03445c1cc8fd6b1eb1d6b
+manifestNodeH5 9f4c64a89c253d4d65f93cba1f55e7a17a3e4027be7351650060632ed1bc70f0
 normalContext 5b93691b397d8ab377682acee7cf6cc77ff2726cd83a8a7b725084f5d6f468bd
 migrationData 2c36740d76ae6192335d4c603f42edace094b33e8f54e959b40241a94c1f6deb
 winningData 4ae34aa9efb842528d353b175f94191d01cfd168b5ad828f64a0e7972a2ca9e3
@@ -10029,7 +10051,7 @@ regressions, including authorization substitution, callback/OOG, competing LP,
 owner-mode, target/quota/pull/terminal rollback, withdrawal/recreation and
 cross-version preservation cases for the atomic Pool path.
 
-\code{commitment-model.py} reports 648 golden vectors and 1425 executable
+\code{commitment-model.py} reports 654 golden vectors and 1432 executable
 assertion sites for
 exact EIP-712
 domain/struct/digest, canonical and statement hashes, registry/admission/entry/
