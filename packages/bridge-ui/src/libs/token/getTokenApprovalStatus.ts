@@ -98,7 +98,17 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
   } else if (token.type === TokenType.ERC721 || token.type === TokenType.ERC1155) {
     log('checking approval status for NFT type' + token.type);
     const nft = token as NFT;
-    const ownerShipChecks = await checkOwnershipOfNFT(token as NFT, ownerAddress, currentChainId);
+    let ownerShipChecks;
+    try {
+      ownerShipChecks = await checkOwnershipOfNFT(nft, ownerAddress, currentChainId);
+    } catch (error) {
+      // Same reason the not-owner branch below clears it: a stale allApproved=true from a
+      // previously selected token must not survive a read that could not be made, or the
+      // Bridge button stays enabled for an NFT whose approval state is unknown
+      log('checkOwnershipOfNFT error', error);
+      allApproved.set(false);
+      throw error;
+    }
     if (!ownerShipChecks.every((item) => item.isOwner === true)) {
       // A stale allApproved=true from a previously selected token must not survive
       allApproved.set(false);

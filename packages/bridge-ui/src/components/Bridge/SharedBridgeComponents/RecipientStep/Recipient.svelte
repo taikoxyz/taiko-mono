@@ -285,11 +285,26 @@
   let lastDestChainId: Maybe<number> = undefined;
   function onDestChainChanged(chainId: Maybe<number>) {
     if (lastDestChainId === chainId) return;
+    // The first run is the mount, where there is nothing to discard - and the destination
+    // owner has just been seeded from the store, which is a value that already passed its
+    // own validation when it was committed
+    const firstRun = lastDestChainId === undefined;
     lastDestChainId = chainId;
+    if (firstRun) return;
+
     // Any classification or in-flight lookup belongs to the previous destination chain
     supersedePendingValidation();
     validatedRecipient = null;
     recipientIsSmartContract = false;
+
+    // The destination owner is classified on the destination chain too, and that lookup is
+    // async as well - one started on the old chain could otherwise land after the switch and
+    // commit an owner that is a contract here, which is the one thing this field refuses.
+    // The address on screen is re-checked against the new chain rather than left stale.
+    destOwnerValidationGeneration++;
+    validatedDestOwner = null;
+    destOwnerIsSmartContract = false;
+    if (destOwnerAddressBinding && destOwnerAddressInput) destOwnerAddressInput.validateAddress();
   }
 
   // Declared via <svelte:window> so Svelte owns the lifecycle: exactly one listener per

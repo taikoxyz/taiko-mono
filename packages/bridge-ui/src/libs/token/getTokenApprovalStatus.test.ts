@@ -96,4 +96,16 @@ describe('getTokenApprovalStatus for NFTs', () => {
     );
     expect(requiresApproval).toHaveBeenCalledOnce();
   });
+
+  it('clears a stale approval when the NFT ownership read fails', async () => {
+    // The not-owner branch already clears it for the same reason: a previously selected
+    // token's allApproved=true must not survive, or Bridge stays enabled for an NFT whose
+    // approval state could not be read at all
+    allApproved.set(true);
+    checkOwnershipOfNFT.mockRejectedValue(new Error('rpc down'));
+
+    await expect(getTokenApprovalStatus(nft)).rejects.toThrow('rpc down');
+
+    expect(get(allApproved)).toBe(false);
+  });
 });

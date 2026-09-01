@@ -158,6 +158,33 @@ describe('Recipient dialog', () => {
     expect(get(destOwnerAddress)).toBe(DEST_OWNER);
   });
 
+  it('discards a destination-owner classification made for the previous destination chain', async () => {
+    // The owner lookup is async and runs against the destination chain. One started before a
+    // switch used to land afterwards and commit, so an EOA on the old chain could be
+    // committed while being a contract on the new one - the one thing this field refuses.
+    const m = await withContractRecipient();
+
+    // The owner is an EOA on the current chain but a contract on the one switched to, which
+    // is the case the stale answer would hide
+    let resolveOwner!: (value: boolean) => void;
+    isSmartContract.mockImplementationOnce(() => new Promise<boolean>((resolve) => (resolveOwner = resolve)));
+    await m.type(m.destOwnerInput() as HTMLInputElement, DEST_OWNER);
+    await tick();
+
+    isSmartContract.mockImplementation((addr: unknown, chainId: unknown) =>
+      Promise.resolve(addr === CONTRACT || (addr === DEST_OWNER && chainId === OTHER_CHAIN)),
+    );
+    destNetwork.set({ id: OTHER_CHAIN } as never);
+    await tick();
+
+    // The old chain's answer arrives after the switch
+    resolveOwner(false);
+    await flush();
+
+    expect(m.confirmButton.disabled).toBe(true);
+    expect(get(destOwnerAddress)).toBeNull();
+  });
+
   it('blocks Confirm for a destination owner that is itself a contract', async () => {
     // The fallback processor has to be able to call processMessage. This check was commented
     // out here while the standalone DestOwner dialog enforced it - two paths to the same
