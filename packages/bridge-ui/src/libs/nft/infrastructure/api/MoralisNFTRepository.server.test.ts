@@ -24,6 +24,8 @@ vi.mock('$nftAPI/infrastructure/mappers/nft/MoralisNFTMapper', () => ({
 
 import Moralis from 'moralis';
 
+import { mapToNFTFromMoralis } from '$nftAPI/infrastructure/mappers/nft/MoralisNFTMapper';
+
 import repository, { MAX_CACHED_WALLETS, PAGE_REQUEST_TIMEOUT_MS } from './MoralisNFTRepository.server';
 
 const ADDRESS_A = '0x1111111111111111111111111111111111111111' as Address;
@@ -294,5 +296,56 @@ describe('a hung Moralis request', () => {
     await repository.findByAddress({ address: ADDRESS_C, chainId: CHAIN_ID, refresh: false });
 
     expect(getWalletNFTs).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: 'cursor-1' }));
+  });
+});
+
+describe('a page whose NFTs cannot be mapped', () => {
+  const ADDRESS_D = '0x4444444444444444444444444444444444444444' as Address;
+  const mapper = vi.mocked(mapToNFTFromMoralis);
+
+  beforeEach(() => {
+    getWalletNFTs.mockReset();
+  });
+
+  it('does not advance the cursor past it', async () => {
+    // Given: a first page that maps, leaving a cursor
+    getWalletNFTs.mockResolvedValueOnce(moralisPage([1], 'cursor-d-page2'));
+    await repository.findByAddress({ address: ADDRESS_D, chainId: CHAIN_ID, refresh: true });
+
+    // When: the second page comes back but one of its items cannot be mapped
+    getWalletNFTs.mockResolvedValueOnce(moralisPage([2], 'cursor-d-page3'));
+    mapper.mockImplementationOnce(() => {
+      throw new Error('malformed NFT');
+    });
+    await expect(repository.findByAddress({ address: ADDRESS_D, chainId: CHAIN_ID, refresh: false })).rejects.toThrow(
+      'malformed NFT',
+    );
+
+    // Then: the retry refetches that same page rather than skipping to the one after it
+    getWalletNFTs.mockResolvedValueOnce(moralisPage([2], null));
+    const retried = await repository.findByAddress({ address: ADDRESS_D, chainId: CHAIN_ID, refresh: false });
+
+    expect(getWalletNFTs).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: 'cursor-d-page2' }));
+    expect(retried).toEqual([
+      { tokenId: 1, chainId: CHAIN_ID },
+      { tokenId: 2, chainId: CHAIN_ID },
+    ]);
+  });
+
+  it('does not mark the wallet as fully fetched', async () => {
+    // A last page (no cursor) that fails to map used to set hasFetchedAll before mapping,
+    // so every later call returned the list without it and never went back to the API
+    getWalletNFTs.mockResolvedValueOnce(moralisPage([1], null));
+    mapper.mockImplementationOnce(() => {
+      throw new Error('malformed NFT');
+    });
+    await expect(repository.findByAddress({ address: ADDRESS_D, chainId: CHAIN_ID, refresh: true })).rejects.toThrow(
+      'malformed NFT',
+    );
+
+    getWalletNFTs.mockResolvedValueOnce(moralisPage([1], null));
+    const retried = await repository.findByAddress({ address: ADDRESS_D, chainId: CHAIN_ID, refresh: false });
+
+    expect(retried).toEqual([{ tokenId: 1, chainId: CHAIN_ID }]);
   });
 });
