@@ -424,10 +424,9 @@ commit:
 
 The two L2 runs matched their creation code and then aborted before the runtime comparison with
 `foundry config error: invalid type: found string "taiko", expected u64` — foundry resolves chain
-167000 to the named alias and then mis-types it. That is a tooling limitation on Taiko L2, not
-a discrepancy in the contracts; dropping `--chain` instead makes foundry simulate the deployment
-locally and fail on gas funding, so `--chain 167000` is the right invocation and this is as far as
-it goes today. A full creation-code match is the substantive result in any case: runtime code is
+167000 to the named alias and then fails to read that alias back as the numeric chain id it
+expects. That is a tooling limitation on Taiko L2, not a discrepancy in the contracts, and it is
+as far as that check goes today. A full creation-code match is the substantive result in any case: runtime code is
 what executing that creation code produces, and the immutables it patches in are separately read
 back below.
 
@@ -459,117 +458,75 @@ L2 codediff is necessarily large — it spans the protocol 1.10.0 implementation
 
 ### Before execution
 
-Substitute the deployed addresses. Every commented value is the expected result.
+Every commented value is the expected result.
 
 ```bash
-# L1 implementation immutables — all four must match the live proxy.
-cast call 0xA15dca0A72da684f20e0FC708DECFb230a715462 "resolver()(address)"      --rpc-url <L1_RPC>  # 0x8Efa01564425692d0a0838DC10E300BD310Cb43e
-cast call 0xA15dca0A72da684f20e0FC708DECFb230a715462 "signalService()(address)" --rpc-url <L1_RPC>  # 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C
-cast call 0xA15dca0A72da684f20e0FC708DECFb230a715462 "quotaManager()(address)"  --rpc-url <L1_RPC>  # 0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC
-cast call 0xA15dca0A72da684f20e0FC708DECFb230a715462 "pauser()(address)"        --rpc-url <L1_RPC>  # 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F
+export L1_RPC=<l1 rpc>
+export L2_RPC=https://rpc.mainnet.taiko.xyz
 
-# L2 resolver and implementation.
-cast call 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 "owner()(address)"         --rpc-url https://rpc.mainnet.taiko.xyz  # 0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C
-cast call 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb "resolver()(address)"      --rpc-url https://rpc.mainnet.taiko.xyz  # 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984
-cast call 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb "signalService()(address)" --rpc-url https://rpc.mainnet.taiko.xyz  # 0x1670000000000000000000000000000000000005
-cast call 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb "quotaManager()(address)"  --rpc-url https://rpc.mainnet.taiko.xyz  # 0x0000000000000000000000000000000000000000
-cast call 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb "pauser()(address)"        --rpc-url https://rpc.mainnet.taiko.xyz  # 0x0000000000000000000000000000000000000000
+# L1 implementation immutables — all four must equal the live proxy's.
+cast call 0xA15dca0A72da684f20e0FC708DECFb230a715462 "resolver()(address)"      --rpc-url $L1_RPC  # 0x8Efa01564425692d0a0838DC10E300BD310Cb43e
+cast call 0xA15dca0A72da684f20e0FC708DECFb230a715462 "signalService()(address)" --rpc-url $L1_RPC  # 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C
+cast call 0xA15dca0A72da684f20e0FC708DECFb230a715462 "quotaManager()(address)"  --rpc-url $L1_RPC  # 0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC
+cast call 0xA15dca0A72da684f20e0FC708DECFb230a715462 "pauser()(address)"        --rpc-url $L1_RPC  # 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F
 
-# Both must be non-zero.
-cast codesize 0xA15dca0A72da684f20e0FC708DECFb230a715462 --rpc-url <L1_RPC>
-cast codesize 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb --rpc-url https://rpc.mainnet.taiko.xyz
+# L2 implementation immutables. `resolver()` is the load-bearing one — see the note below.
+cast call 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb "resolver()(address)"      --rpc-url $L2_RPC  # 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984
+cast call 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb "signalService()(address)" --rpc-url $L2_RPC  # 0x1670000000000000000000000000000000000005
+cast call 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb "quotaManager()(address)"  --rpc-url $L2_RPC  # 0x0000000000000000000000000000000000000000
+cast call 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb "pauser()(address)"        --rpc-url $L2_RPC  # 0x0000000000000000000000000000000000000000
 
-# The resolver is a proxy, and L2 actions 0-1 make the DAO call registerAddress on it. owner()
-# says who controls it, not what code runs. Pin the implementation it delegates to: must equal the
-# address DeployBridgeUpgradeL2 logged as `resolver impl`, left-padded to 32 bytes.
+# The resolver is a proxy the DAO will call registerAddress on. owner() says who controls it;
+# the EIP-1967 slot says what code runs.
+cast call    0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 "owner()(address)" --rpc-url $L2_RPC  # 0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C
 cast storage 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 \
-  0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc \
-  --rpc-url https://rpc.mainnet.taiko.xyz
+  0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc --rpc-url $L2_RPC  # 0x8Af4669E…07a9a
 
-# Authenticate the code itself, not just its getters, for all four deployed contracts. A
-# substituted contract can answer every getter above while carrying different logic, and these
-# implementations become the logic of proxies holding roughly 1,000,000 ETH.
-#
-# ETHERSCAN_API_KEY is REQUIRED. forge verify-bytecode fetches the creation transaction from the
-# explorer API, and without a key it aborts with
-#   Error: Error fetching creation data from verifier-url: InvalidApiKey
-# One Etherscan V2 key covers both chains; chain 1 and chain 167000 are both in its chain list.
+# Authenticate the code, not just the getters. A substituted contract can answer every getter
+# above while carrying different logic. ETHERSCAN_API_KEY is required — one Etherscan V2 key
+# covers both chains.
 export ETHERSCAN_API_KEY=<key>
 
 FOUNDRY_PROFILE=layer1 forge verify-bytecode 0xA15dca0A72da684f20e0FC708DECFb230a715462 \
-  contracts/shared/bridge/Bridge.sol:Bridge --rpc-url <L1_RPC> \
+  contracts/shared/bridge/Bridge.sol:Bridge --rpc-url $L1_RPC \
   --encoded-constructor-args $(cast abi-encode "c(address,address,address,address)" \
     0x8Efa01564425692d0a0838DC10E300BD310Cb43e 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C \
     0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F)
 
+# First argument is the resolver PROXY, not its implementation.
 FOUNDRY_PROFILE=layer2 forge verify-bytecode 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb \
-  contracts/shared/bridge/Bridge.sol:Bridge --rpc-url https://rpc.mainnet.taiko.xyz \
+  contracts/shared/bridge/Bridge.sol:Bridge --rpc-url $L2_RPC \
   --encoded-constructor-args $(cast abi-encode "c(address,address,address,address)" \
     0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 0x1670000000000000000000000000000000000005 \
     0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000)
 
 FOUNDRY_PROFILE=layer2 forge verify-bytecode 0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a \
-  contracts/shared/common/DefaultResolver.sol:DefaultResolver --rpc-url https://rpc.mainnet.taiko.xyz
+  contracts/shared/common/DefaultResolver.sol:DefaultResolver --rpc-url $L2_RPC
 
 FOUNDRY_PROFILE=layer2 forge verify-bytecode 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 \
-  ERC1967Proxy --rpc-url https://rpc.mainnet.taiko.xyz \
+  ERC1967Proxy --rpc-url $L2_RPC \
   --encoded-constructor-args $(cast abi-encode "c(address,bytes)" 0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a \
     $(cast calldata "init(address)" 0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C))
 ```
 
-**The pass signal is `Creation code matched with status full`.** That line is the authentication
-this checklist is for: it proves the deployed creation code, constructor arguments included, is
-what a local build of this commit produces. Measured on 2026-08-31, all four report it.
+**The pass signal is `Creation code matched with status full`** — it proves the deployed creation
+code, constructor arguments included, is what a local build of this commit produces.
 
-Two things will happen after that line which are not failures of the contracts:
+Notes, in the order you will trip over them:
 
-- **The runtime phase needs an archive node.** `verify-bytecode` re-executes the creation
-  transaction at its historical block to derive runtime code. Public endpoints refuse: L1
-  `ethereum.publicnode.com` answers `403 … Archive requests require a personal token`, and the L2
-  endpoint failed the re-execution with `lack of funds … for max fee`. Point `--rpc-url` at an
-  archive node to complete it, or stop at the creation-code match.
-- **Do not add `--chain <id>`.** Foundry resolves the numeric id to a named chain and then rejects
-  its own value: `foundry config error: invalid type: found string "taiko", expected u64`. The
-  chain is derived from `--rpc-url` anyway.
+- Use `--encoded-constructor-args`, not `--constructor-args`. The latter wants individual raw
+  values and rejects a pre-encoded blob on the pinned `forge v1.4.2`.
+- Do not add `--chain <id>`; the chain comes from `--rpc-url`. Passing it makes foundry resolve the
+  id to a named chain and then reject its own value.
+- The runtime phase after the creation match needs an archive node, and public endpoints refuse it.
+  Stopping at the creation-code match is fine.
+- `cast codehash` is not a substitute. `Bridge` has five immutables at 25 patch sites, one being
+  OpenZeppelin `UUPSUpgradeable`'s `__self = address(this)`, so identical code at different
+  addresses hashes differently and no expected hash can be published.
 
-In the second command, the first constructor argument is `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984` — the proxy, not
-the implementation. `DeployBridgeUpgradeL2` passes the proxy address to the `Bridge` constructor.
-
-The flag is `--encoded-constructor-args`, not `--constructor-args`. The latter takes the arguments
-as individual raw values; handing it one pre-encoded blob fails with an argument-count mismatch on
-the `forge` version this repo pins (`.tool-versions`: `foundry v1.4.2`). The argument-free
-`DefaultResolver` command needs neither flag.
-
-**Do not substitute a `cast codehash` comparison for this.** Hashing the runtime looks like the
-obvious check and does not work here: `Bridge` carries **five** immutables at **25** patch sites —
-`__resolver`, `signalService`, `quotaManager`, `pauser`, and OpenZeppelin `UUPSUpgradeable`'s
-`__self = address(this)`. Because `__self` is the contract's own address, **two byte-identical
-deployments at different addresses have different runtime hashes**, so no expected hash can be
-published in advance or reproduced independently. Nor does
-`keccak256(forge inspect Bridge deployedBytecode)` match a live deployment: the artifact carries
-those 25 sites zero-filled. Both facts were measured on this branch on 2026-08-31 — artifact and
-locally deployed runtime are each 14,913 bytes and differ in exactly those 25 regions, one group of
-which is the deployer-dependent `__self`. `forge verify-bytecode` is immutable-aware and is what
-handles this correctly; the explorer verification recorded in Deployed Addresses above is the
-human-checkable equivalent.
-
-**These checks are not redundant with the deploy scripts' own assertions, and one of them is the
-only defence against a specific failure.** Both scripts self-check their immutables, but that runs
-during _simulation_. `DeployBridgeUpgradeL2` deploys the resolver proxy and then passes its address
-as a constructor argument to the `Bridge` — so if the deployer's on-chain nonce differs at broadcast
-time from what the simulation assumed, the `CREATE` addresses shift while the `Bridge` creation
-calldata, with the _simulated_ resolver address already baked into it, does not. The result is a
-deployed implementation whose `resolver` immutable points at a contract that does not exist, and
-nothing in the script catches it. `cast call 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb "resolver()(address)"`, compared
-against the logged `L2_SHARED_RESOLVER`, is what catches it. Run it, and read the answer rather than
-just checking that the call succeeded.
-
-The L1 immutables cannot dangle the same way — all four are library constants — so those four checks
-serve the narrower purpose of confirming the intended creation code and argument order landed.
-
-**Getters and a non-zero code size do not authenticate the bytecode.** They confirm the constructor
-arguments landed; they cannot distinguish the reviewed `Bridge` and `DefaultResolver` from a
-contract that answers the same getters and does something else. The `forge verify-bytecode`
-creation-code comparison above and the explorer verification in the Deployment section are what
-close that gap, and the resolver's implementation slot is what closes it for the one address here
-that is a proxy rather than a bare implementation.
+**Why the L2 `resolver()` read matters more than the others.** Both deploy scripts self-check their
+immutables, but during _simulation_. `DeployBridgeUpgradeL2` deploys the resolver proxy and passes
+its address into the `Bridge` constructor, so if the deployer's nonce differs at broadcast time the
+`CREATE` addresses shift while the already-built `Bridge` creation calldata keeps the simulated
+address — leaving an implementation whose `resolver` immutable points at nothing, which the script
+cannot catch. The L1 immutables are all library constants and cannot dangle this way.
