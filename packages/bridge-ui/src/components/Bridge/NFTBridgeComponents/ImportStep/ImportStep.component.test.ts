@@ -5,6 +5,7 @@
  * so selecting an NFT and then loading more pages silently deselected it - and so did a
  * page fetch that failed, which deliberately keeps the pages already on screen.
  */
+import { tick } from 'svelte';
 import { get } from 'svelte/store';
 import { vi } from 'vitest';
 
@@ -132,6 +133,24 @@ describe('scanned NFT pagination', () => {
 
     expect(buttonWith('paginator.more')).toBeFalsy();
     expect(buttonWith('paginator.everything_loaded')).toBeTruthy();
+  });
+
+  it('keeps "load more" usable when the scan could not run at all', async () => {
+    await scan([NFT_A]);
+
+    // The destination chain goes away while the scanned view stays mounted, so
+    // scanForNFTs returns without fetching. Nothing arrived, but nothing was asked for
+    // either. (Losing the account instead resets the whole view via OnAccount.)
+    destChain.set(undefined as never);
+    await tick();
+
+    fetchNFTs.mockClear();
+    buttonWith('paginator.more')?.click();
+    await flush();
+    await flush();
+
+    expect(fetchNFTs).not.toHaveBeenCalled();
+    expect(buttonWith('paginator.more')).toBeTruthy();
   });
 
   it('still clears the selection on a fresh scan', async () => {

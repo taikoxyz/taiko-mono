@@ -23,6 +23,11 @@ export type TokenIdParseResult = {
  *      import then ran an ownership check over an empty id list - which every() answers
  *      `true` for.
  *
+ *      Known restriction: an ERC721 id is a uint256, so ids above Number.MAX_SAFE_INTEGER
+ *      are valid on chain but cannot be entered here. Lifting that means carrying ids as
+ *      bigint through checkOwnership and the NFT types, which is a wider change than this
+ *      guard; refusing them beats importing a different token.
+ *
  *      More entries than the flow can carry is refused for the same reason. Trimming to
  *      the first `limit` reported the list as valid while quietly discarding the rest, so
  *      pasting two ids into a field that carries one bridged the first without saying so.

@@ -42,7 +42,11 @@
     const countBefore = foundNFTs.length;
     // Another page adds to what is already on screen, so a selection made on an earlier
     // page still describes an NFT the user can see and bridge
-    await scanForNFTs(false, { keepSelection: true });
+    const scanRan = await scanForNFTs(false, { keepSelection: true });
+    // A scan that never ran - a wallet disconnected while the scanned view stayed mounted,
+    // say - says nothing about whether more pages exist. Reporting it as "nothing arrived"
+    // retires the "load more" button for good over a condition that can come back
+    if (!scanRan) return true;
     return foundNFTs.length > countBefore;
   };
 
