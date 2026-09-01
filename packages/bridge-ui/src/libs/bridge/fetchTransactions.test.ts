@@ -25,10 +25,10 @@ const getAllByAddress = vi.mocked(relayerApiServices[0].getAllBridgeTransactionB
 
 const tx = (srcTxHash: string, msgStatus?: MessageStatus) => ({ srcTxHash, msgStatus }) as unknown as BridgeTransaction;
 
-const page = (txs: BridgeTransaction[], max_page: number) => ({
+const page = (txs: BridgeTransaction[], max_page: number, failedCount = 0) => ({
   txs,
   paginationInfo: { page: 0, size: 500, total: txs.length, total_pages: 1, first: true, last: true, max_page },
-  failedCount: 0,
+  failedCount,
 });
 
 describe('fetchTransactions', () => {
@@ -116,5 +116,37 @@ describe('fetchTransactions', () => {
       '0xrecalled',
       '0xdone',
     ]);
+  });
+
+  it('sums transactions that failed to load across every relayer page', async () => {
+    // Given: page 0 lost 2 transactions to failed RPC reads, page 1 lost 3
+    getAllByAddress.mockResolvedValueOnce(page([tx('0xa')], 1, 2)).mockResolvedValueOnce(page([tx('0xb')], 1, 3));
+
+    // When
+    const { failedCount, mergedTransactions } = await fetchTransactions(ADDRESS);
+
+    // Then
+    expect(failedCount).toBe(5);
+    expect(mergedTransactions).toHaveLength(2);
+  });
+
+  it('reports no failures when every page loaded cleanly', async () => {
+    getAllByAddress.mockResolvedValueOnce(page([tx('0xa')], 0));
+
+    const { failedCount } = await fetchTransactions(ADDRESS);
+
+    expect(failedCount).toBe(0);
+  });
+
+  it('reports no failure count when the relayer itself failed', async () => {
+    // Given: the first page throws, so nothing was ever enhanced
+    getAllByAddress.mockRejectedValueOnce(new Error('relayer down'));
+
+    // When
+    const { error, failedCount } = await fetchTransactions(ADDRESS);
+
+    // Then: the relayer error is the story, not a per-transaction count
+    expect(error).toBeInstanceOf(Error);
+    expect(failedCount).toBe(0);
   });
 });

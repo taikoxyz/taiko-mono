@@ -17,14 +17,20 @@ async function fetchAllRelayerPages(
   relayerApiService: (typeof relayerApiServices)[number],
   userAddress: Address,
   chainId?: number,
-): Promise<BridgeTransaction[]> {
+): Promise<{ txs: BridgeTransaction[]; failedCount: number }> {
   const txs: BridgeTransaction[] = [];
+  let failedCount = 0;
 
   for (let page = 0; page < MAX_RELAYER_PAGES; page++) {
     let pageTxs;
     let paginationInfo;
+    let pageFailedCount;
     try {
-      ({ txs: pageTxs, paginationInfo } = await relayerApiService.getAllBridgeTransactionByAddress(
+      ({
+        txs: pageTxs,
+        paginationInfo,
+        failedCount: pageFailedCount,
+      } = await relayerApiService.getAllBridgeTransactionByAddress(
         userAddress,
         { page, size: RELAYER_PAGE_SIZE },
         chainId,
@@ -37,13 +43,14 @@ async function fetchAllRelayerPages(
       break;
     }
     txs.push(...pageTxs);
+    failedCount += pageFailedCount;
 
     if (paginationInfo.max_page === undefined || page >= paginationInfo.max_page) break;
     if (page === MAX_RELAYER_PAGES - 1) {
       log(`relayer history truncated at ${MAX_RELAYER_PAGES} pages for ${userAddress}`);
     }
   }
-  return txs;
+  return { txs, failedCount };
 }
 
 export async function fetchTransactions(userAddress: Address, chainId?: number) {
@@ -55,25 +62,29 @@ export async function fetchTransactions(userAddress: Address, chainId?: number) 
   const localTxs: BridgeTransaction[] = await bridgeTxService.getAllTxByAddress(userAddress);
 
   // Get all transactions from all relayers
-  const relayerTxPromises: Promise<BridgeTransaction[]>[] = relayerApiServices.map(async (relayerApiService) => {
-    const txs = await fetchAllRelayerPages(relayerApiService, userAddress, chainId);
-    log(`fetched ${txs?.length ?? 0} transactions from relayer`, txs);
-    return txs;
-  });
+  const relayerTxPromises: Promise<{ txs: BridgeTransaction[]; failedCount: number }>[] = relayerApiServices.map(
+    async (relayerApiService) => {
+      const result = await fetchAllRelayerPages(relayerApiService, userAddress, chainId);
+      log(`fetched ${result.txs.length} transactions from relayer`, result.txs);
+      return result;
+    },
+  );
 
-  let relayerTxsArrays: BridgeTransaction[][];
+  let relayerResults: { txs: BridgeTransaction[]; failedCount: number }[];
   // Wait for all promises to resolve
   try {
-    relayerTxsArrays = await Promise.all(relayerTxPromises);
+    relayerResults = await Promise.all(relayerTxPromises);
   } catch (e) {
     log('error fetching transactions from relayers', e);
     error = e as Error;
-    relayerTxsArrays = [];
+    relayerResults = [];
   }
+
+  const failedCount = relayerResults.reduce((total, result) => total + result.failedCount, 0);
 
   // Flatten the arrays into a single array, dropping duplicate hashes the relayer
   // may return across pages or relayers
-  const relayerTxsFlattened = relayerTxsArrays.reduce((acc, txs) => acc.concat(txs), []);
+  const relayerTxsFlattened = relayerResults.reduce((acc, result) => acc.concat(result.txs), [] as BridgeTransaction[]);
   const seenTxHashes = new Set<string>();
   const dedupedRelayerTxs = relayerTxsFlattened.filter((tx) => {
     if (seenTxHashes.has(tx.srcTxHash)) return false;
@@ -108,5 +119,5 @@ export async function fetchTransactions(userAddress: Address, chainId?: number) 
     const bStatusIndex = b.msgStatus !== undefined ? statusOrder.indexOf(b.msgStatus) : -1;
     return aStatusIndex - bStatusIndex;
   });
-  return { mergedTransactions, outdatedLocalTransactions, error };
+  return { mergedTransactions, outdatedLocalTransactions, error, failedCount };
 }
