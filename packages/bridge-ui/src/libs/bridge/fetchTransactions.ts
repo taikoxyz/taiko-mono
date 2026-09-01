@@ -5,6 +5,7 @@ import { bridgeTxService } from '$libs/storage';
 import { getLogger } from '$libs/util/logger';
 import { mergeAndCaptureOutdatedTransactions } from '$libs/util/mergeTransactions';
 
+import { bridgeTxKey } from './bridgeTxIdentity';
 import { type BridgeTransaction, MessageStatus } from './types';
 
 const log = getLogger('bridge:fetchTransactions');
@@ -92,13 +93,15 @@ export async function fetchTransactions(userAddress: Address, chainId?: number) 
     error ??= result.reason as Error;
   }
 
-  // Flatten the arrays into a single array, dropping duplicate hashes the relayer
-  // may return across pages or relayers
+  // Flatten the arrays into a single array, dropping messages the relayer may return
+  // twice across pages or relayers. Keyed by message, not by transaction: a transaction
+  // that emitted two messages has two claimable rows, and the second was being dropped
   const relayerTxsFlattened = relayerTxsArrays.reduce((acc, txs) => acc.concat(txs), []);
-  const seenTxHashes = new Set<string>();
+  const seenMessages = new Set<string>();
   const dedupedRelayerTxs = relayerTxsFlattened.filter((tx) => {
-    if (seenTxHashes.has(tx.srcTxHash)) return false;
-    seenTxHashes.add(tx.srcTxHash);
+    const key = bridgeTxKey(tx);
+    if (seenMessages.has(key)) return false;
+    seenMessages.add(key);
     return true;
   });
 

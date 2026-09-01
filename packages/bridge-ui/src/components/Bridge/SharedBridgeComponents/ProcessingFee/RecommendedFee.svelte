@@ -32,7 +32,7 @@
     destChainId?: number,
     to?: Address,
     tokenIds?: number[],
-    amounts?: number[],
+    amounts?: bigint[],
     periodicRefresh = false,
   ) {
     // A periodic refresh re-runs identical inputs, so it must not supersede a slower
@@ -84,7 +84,7 @@
     $destNetwork?.id,
     $recipientAddress || $account?.address,
     $selectedNFTs?.map((nft) => nft.tokenId),
-    $selectedToken?.type === TokenType.ERC1155 ? [Number($enteredAmount)] : undefined,
+    $selectedToken?.type === TokenType.ERC1155 ? [$enteredAmount] : undefined,
   );
 
   onMount(() => {
@@ -95,7 +95,7 @@
         $destNetwork?.id,
         $recipientAddress || $account?.address,
         $selectedNFTs?.map((nft) => nft.tokenId),
-        $selectedToken?.type === TokenType.ERC1155 ? [Number($enteredAmount)] : undefined,
+        $selectedToken?.type === TokenType.ERC1155 ? [$enteredAmount] : undefined,
         true,
       );
     }, processingFeeComponent.intervalComputeRecommendedFee);

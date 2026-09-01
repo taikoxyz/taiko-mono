@@ -249,7 +249,7 @@ export class ERC721Bridge extends Bridge {
       // A zero gas limit cannot carry a fee - the bridge reverts with B_INVALID_FEE
       fee: feeForGasLimit(Number(gasLimit), fee),
       tokenIds: tokenIds.map(BigInt),
-      amounts: amounts.map(BigInt),
+      amounts,
     } satisfies NFTBridgeTransferOp;
 
     log('Preparing transaction with args', sendERC721Args);

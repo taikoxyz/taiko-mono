@@ -18,7 +18,7 @@ type RecommendProcessingFeeArgs = {
   srcChainId?: number;
   to?: Address;
   tokenIds?: number[];
-  amounts?: number[];
+  amounts?: bigint[];
 };
 
 export async function recommendProcessingFee({

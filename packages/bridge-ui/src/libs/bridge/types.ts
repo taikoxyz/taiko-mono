@@ -184,7 +184,9 @@ export type ERC721BridgeArgs = BridgeArgs & {
   tokenVaultAddress: Address;
   isTokenAlreadyDeployed?: boolean;
   tokenIds: number[];
-  amounts: number[];
+  // bigint, unlike tokenIds: an ERC1155 quantity is a uint256 the user types in, and
+  // carrying it as a number silently truncated anything past 2^53 on the way to the vault
+  amounts: bigint[];
 };
 
 export type ERC1155BridgeArgs = ERC721BridgeArgs;

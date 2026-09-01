@@ -4,6 +4,7 @@ import { type Address, type Hash, numberToHex, type TransactionReceipt } from 'v
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { pendingTransaction, storageService } from '$config';
+import { isSameBridgeTx } from '$libs/bridge/bridgeTxIdentity';
 import { getMessageStatusForMsgHash } from '$libs/bridge/getMessageStatusForMsgHash';
 import { type BridgeTransaction, MessageStatus } from '$libs/bridge/types';
 import { isSupportedChain } from '$libs/chain';
@@ -289,9 +290,7 @@ export class BridgeTxService {
     log('Removing transactions from storage', txs);
     const txsFromStorage = this._getTxFromStorage(address);
 
-    const txsToRemove = txs.map((tx) => tx.srcTxHash);
-
-    const filteredTxs = txsFromStorage.filter((tx) => !txsToRemove.includes(tx.srcTxHash));
+    const filteredTxs = txsFromStorage.filter((tx) => !txs.some((toRemove) => isSameBridgeTx(tx, toRemove)));
 
     this.updateByAddress(address, filteredTxs);
   }
@@ -304,6 +303,6 @@ export class BridgeTxService {
 
   transactionIsStoredLocally(address: Address, tx: BridgeTransaction) {
     const txs = this._getTxFromStorage(address);
-    return txs.some((t) => t.srcTxHash === tx.srcTxHash);
+    return txs.some((t) => isSameBridgeTx(t, tx));
   }
 }

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
@@ -20,6 +20,7 @@
   import StatusDot from '$components/StatusDot/StatusDot.svelte';
   import { transactionConfig } from '$config';
   import { type BridgeTransaction, fetchTransactions, MessageStatus } from '$libs/bridge';
+  import { bridgeTxKey } from '$libs/bridge/bridgeTxIdentity';
   import { chainIdToChain } from '$libs/chain';
   import { getAlternateNetwork } from '$libs/network';
   import { bridgeTxService } from '$libs/storage';
@@ -54,10 +55,19 @@
     menuOpen = !menuOpen;
   };
 
-  const handlePageChange = (detail: number) => {
+  let blurTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /**
+   * The page itself has already moved: Paginator writes it back through the binding, which
+   * is also what keeps the clamp below authoritative. Re-assigning it here after the
+   * transition raced that clamp - a page number the filters had just pulled back into
+   * range was pushed straight out of it again - so this only runs the fade.
+   */
+  const handlePageChange = () => {
     isBlurred = true;
-    setTimeout(() => {
-      currentPage = detail;
+    // A second page change during the fade must not have the first one's timer un-blur it
+    clearTimeout(blurTimer);
+    blurTimer = setTimeout(() => {
       isBlurred = false;
     }, transitionTime);
   };
@@ -176,6 +186,10 @@
       // if only two chains are available, set the destination chain to the other one
       $destNetwork = chainIdToChain(alternateChainID);
     }
+  });
+
+  onDestroy(() => {
+    clearTimeout(blurTimer);
   });
 </script>
 
@@ -304,7 +318,7 @@
           <div
             class="flex flex-col items-center"
             style={isBlurred ? `filter: blur(5px); transition: filter ${transitionTime / 1000}s ease-in-out` : ''}>
-            {#each transactionsToShow as bridgeTx (bridgeTx.srcTxHash)}
+            {#each transactionsToShow as bridgeTx (bridgeTxKey(bridgeTx))}
               {@const status = bridgeTx.msgStatus}
               {@const isFungible = bridgeTx.tokenType === TokenType.ERC20 || bridgeTx.tokenType === TokenType.ETH}
               {#if isFungible}
@@ -327,7 +341,7 @@
   </Card>
 
   <div class="flex justify-center lg:justify-end pb-5">
-    <Paginator bind:currentPage {pageSize} {totalItems} on:pageChange={({ detail }) => handlePageChange(detail)} />
+    <Paginator bind:currentPage {pageSize} {totalItems} on:pageChange={handlePageChange} />
   </div>
 
   <StatusFilterDialog bind:selectedStatus bind:menuOpen />

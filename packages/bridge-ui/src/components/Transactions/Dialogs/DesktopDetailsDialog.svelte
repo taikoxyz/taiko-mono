@@ -22,6 +22,7 @@
 
   import ChainSymbolName from '../ChainSymbolName.svelte';
   import { Status } from '../Status';
+  import { claimedByRelayer } from './claimedByRelayer';
 
   const log = getLogger('DesktopDetailsDialog');
   const placeholderUrl = '/placeholder.svg';
@@ -105,13 +106,7 @@
   $: bridgeTx && getInitiatedDate();
 
   $: claimedBy = bridgeTx.claimedBy || null;
-  $: isRelayer = false;
-
-  $: if (claimedBy !== to && claimedBy !== destOwner && effectiveStatus === MessageStatus.DONE) {
-    isRelayer = true;
-  } else {
-    isRelayer = false;
-  }
+  $: isRelayer = claimedByRelayer({ claimedBy, to, destOwner, status: effectiveStatus });
 
   $: paidFee = formatEther(bridgeTx.fee ? bridgeTx.fee : BigInt(0));
 

@@ -138,18 +138,18 @@ describe('bridges refuse messages the contracts would reject', () => {
         token: TOKEN,
         tokenVaultAddress: VAULT,
         tokenIds: [1],
-        amounts: [0],
+        amounts: [0n],
         ...overrides,
       }) as never;
 
     it('refuses a non-zero amount', async () => {
       // ERC721Vault requires every amount to be zero
-      await expect(new ERC721Bridge(prover).estimateGas(args({ amounts: [1] }))).rejects.toThrow(InvalidMessageError);
+      await expect(new ERC721Bridge(prover).estimateGas(args({ amounts: [1n] }))).rejects.toThrow(InvalidMessageError);
       expect(estimateGasSpy).not.toHaveBeenCalled();
     });
 
     it('refuses mismatched id and amount arrays', async () => {
-      await expect(new ERC721Bridge(prover).estimateGas(args({ tokenIds: [1, 2], amounts: [0] }))).rejects.toThrow(
+      await expect(new ERC721Bridge(prover).estimateGas(args({ tokenIds: [1, 2], amounts: [0n] }))).rejects.toThrow(
         InvalidMessageError,
       );
       expect(estimateGasSpy).not.toHaveBeenCalled();
@@ -168,18 +168,18 @@ describe('bridges refuse messages the contracts would reject', () => {
         token: TOKEN,
         tokenVaultAddress: VAULT,
         tokenIds: [1],
-        amounts: [5],
+        amounts: [5n],
         ...overrides,
       }) as never;
 
     it('refuses a zero quantity', async () => {
       // ERC1155Vault requires every amount to be non-zero
-      await expect(new ERC1155Bridge(prover).estimateGas(args({ amounts: [0] }))).rejects.toThrow(InvalidMessageError);
+      await expect(new ERC1155Bridge(prover).estimateGas(args({ amounts: [0n] }))).rejects.toThrow(InvalidMessageError);
       expect(estimateGasSpy).not.toHaveBeenCalled();
     });
 
     it('refuses mismatched id and amount arrays', async () => {
-      await expect(new ERC1155Bridge(prover).estimateGas(args({ tokenIds: [1, 2], amounts: [5] }))).rejects.toThrow(
+      await expect(new ERC1155Bridge(prover).estimateGas(args({ tokenIds: [1, 2], amounts: [5n] }))).rejects.toThrow(
         InvalidMessageError,
       );
       expect(estimateGasSpy).not.toHaveBeenCalled();
@@ -201,8 +201,8 @@ describe('bridges refuse messages the contracts would reject', () => {
 describe('bridges refuse to build a message while the source bridge is paused', () => {
   const erc20Args = { ...base, amount: BigInt(10), token: TOKEN, tokenVaultAddress: VAULT } as never;
   const ethArgs = { ...base, amount: BigInt(10), bridgeAddress: VAULT } as never;
-  const erc721Args = { ...base, token: TOKEN, tokenVaultAddress: VAULT, tokenIds: [1], amounts: [0] } as never;
-  const erc1155Args = { ...base, token: TOKEN, tokenVaultAddress: VAULT, tokenIds: [1], amounts: [5] } as never;
+  const erc721Args = { ...base, token: TOKEN, tokenVaultAddress: VAULT, tokenIds: [1], amounts: [0n] } as never;
+  const erc1155Args = { ...base, token: TOKEN, tokenVaultAddress: VAULT, tokenIds: [1], amounts: [5n] } as never;
 
   const cases = [
     ['ETH', () => new ETHBridge(prover), ethArgs],

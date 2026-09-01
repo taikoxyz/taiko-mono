@@ -23,6 +23,8 @@ const getAllByAddressSecond = vi.mocked(relayerApiServices[1].getAllBridgeTransa
 
 const tx = (srcTxHash: string, msgStatus?: MessageStatus) => ({ srcTxHash, msgStatus }) as unknown as BridgeTransaction;
 
+const message = (srcTxHash: string, msgHash: string) => ({ srcTxHash, msgHash }) as unknown as BridgeTransaction;
+
 const page = (txs: BridgeTransaction[], max_page: number) => ({
   txs,
   paginationInfo: { page: 0, size: 500, total: txs.length, total_pages: 1, first: true, last: true, max_page },
@@ -61,6 +63,25 @@ describe('fetchTransactions', () => {
     expect(getAllByAddress).toHaveBeenNthCalledWith(1, ADDRESS, { page: 0, size: 500 }, undefined);
     expect(getAllByAddress).toHaveBeenNthCalledWith(2, ADDRESS, { page: 1, size: 500 }, undefined);
     expect(mergedTransactions.map((transaction) => transaction.srcTxHash).sort()).toEqual(['0xa', '0xb', '0xc']);
+  });
+
+  it('keeps both messages a single transaction emitted', async () => {
+    // One transaction, two MessageSent events: two rows, each claimed on its own. Keying
+    // the dedupe off the transaction hash dropped the second and the user could not claim it
+    getAllByAddress.mockResolvedValueOnce(page([message('0xtx', '0xmsgA'), message('0xtx', '0xmsgB')], 0));
+
+    const { mergedTransactions } = await fetchTransactions(ADDRESS);
+
+    expect(mergedTransactions.map((transaction) => transaction.msgHash).sort()).toEqual(['0xmsgA', '0xmsgB']);
+  });
+
+  it('still drops a message two relayers both returned', async () => {
+    getAllByAddress.mockResolvedValueOnce(page([message('0xtx', '0xmsg')], 0));
+    getAllByAddressSecond.mockResolvedValueOnce(page([message('0xtx', '0xmsg')], 0));
+
+    const { mergedTransactions } = await fetchTransactions(ADDRESS);
+
+    expect(mergedTransactions).toHaveLength(1);
   });
 
   it('stops after the first page when the relayer reports no further pages', async () => {

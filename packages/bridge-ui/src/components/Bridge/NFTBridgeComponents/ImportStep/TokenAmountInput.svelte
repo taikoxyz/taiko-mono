@@ -110,7 +110,6 @@
   // We want to debounce this function for input events.
   // Could happen as the user enters an amount
   const debouncedValidateAmount = debounce(validateAmount, 300);
-  let sanitizedValue = '';
 
   /**
    * Invalid input means no amount was entered. Leaving the previous value in place would
@@ -141,7 +140,6 @@
       if (!parsed.ok) {
         // An empty box is a box nobody has filled in yet, not a mistake to complain about
         if (parsed.reason === 'EMPTY') {
-          sanitizedValue = value;
           $enteredAmount = BigInt(0);
           return;
         }
@@ -153,7 +151,6 @@
         return;
       }
 
-      sanitizedValue = value;
       $enteredAmount = parsed.value;
 
       debouncedValidateAmount();
@@ -196,9 +193,11 @@
     });
   }
 
-  $: if (inputBox && sanitizedValue !== value) {
-    inputBox.setValue(sanitizedValue); // Update InputBox value if sanitizedValue changes
-  }
+  // No rewriting of the box from here. This used to push the last accepted text back into
+  // the input whenever the newest keystroke was refused, which erased what the user had
+  // just typed - they could never get as far as a decimal point to be told decimals are
+  // not allowed. A refused amount is reported by the alert below and blocked by
+  // enteredAmount being zeroed; the text stays exactly as the user left it.
 
   $: hasBalance = $tokenBalance && $tokenBalance?.value > 0n;
 

@@ -222,7 +222,7 @@ export class ERC1155Bridge extends Bridge {
       // A zero gas limit cannot carry a fee - the bridge reverts with B_INVALID_FEE
       fee: feeForGasLimit(Number(gasLimit), fee),
       tokenIds: tokenIds.map(BigInt),
-      amounts: amounts.map(BigInt),
+      amounts,
     };
 
     log('Preparing transaction with args', sendERC1155Args);

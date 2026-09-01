@@ -15,7 +15,7 @@ type EstimateMessageGasLimitArgs = {
   destChainId: number;
   isTokenAlreadyDeployed?: boolean;
   tokenIds?: number[];
-  amounts?: number[];
+  amounts?: bigint[];
 };
 
 export async function estimateMessageGasLimit({

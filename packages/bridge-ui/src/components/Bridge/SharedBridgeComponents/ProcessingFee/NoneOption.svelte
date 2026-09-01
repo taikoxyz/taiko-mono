@@ -26,7 +26,7 @@
     destChain?: number,
     to?: Address,
     tokenIds?: number[],
-    amounts?: number[],
+    amounts?: bigint[],
   ) {
     if (!token || !userAddress || !srcChain || !destChain) {
       enoughEth = false;
@@ -79,7 +79,7 @@
     $destNetwork?.id,
     $recipientAddress || $account?.address,
     $selectedNFTs?.map((nft) => nft.tokenId),
-    $selectedToken?.type === TokenType.ERC1155 ? [Number($enteredAmount)] : undefined,
+    $selectedToken?.type === TokenType.ERC1155 ? [$enteredAmount] : undefined,
   );
   $: manualClaimHref = getManualClaimHref({ selected, enoughEth });
 </script>
