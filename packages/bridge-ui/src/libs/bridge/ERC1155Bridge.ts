@@ -1,9 +1,7 @@
 import { getPublicClient, simulateContract, writeContract } from '@wagmi/core';
-import { get } from 'svelte/store';
 import { getContract, UserRejectedRequestError } from 'viem';
 
 import { erc1155Abi, erc1155VaultAbi } from '$abi';
-import { destOwnerAddress, gasLimitZero } from '$components/Bridge/state';
 import {
   ApproveError,
   NoApprovalRequiredError,
@@ -18,8 +16,6 @@ import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
-import { estimateMessageGasLimit } from './estimateMessageGasLimit';
-import { feeForGasLimit } from './messageFeeInvariant';
 import { assertNoViolations, checkERC1155Message } from './messageInvariants';
 import type { ERC1155BridgeArgs, NFTApproveArgs, NFTBridgeTransferOp, RequireApprovalArgs } from './types';
 
@@ -174,56 +170,32 @@ export class ERC1155Bridge extends Bridge {
   }
 
   private static async _prepareTransaction(args: ERC1155BridgeArgs) {
+    const { destChainId, token, tokenVaultAddress, isTokenAlreadyDeployed, tokenIds, amounts } = args;
+
     const {
+      contract: tokenVaultContract,
       to,
-      wallet,
-      srcChainId,
-      destChainId,
-      token,
-      tokenObject,
+      destOwner,
+      gasLimit,
       fee,
-      tokenVaultAddress,
-      isTokenAlreadyDeployed,
-      tokenIds,
-      amounts,
-    } = args;
-
-    if (!wallet || !wallet.account) throw new Error('Wallet is not connected');
-
-    await ERC1155Bridge.assertNotPaused(srcChainId);
-
-    const tokenVaultContract = getContract({
-      client: wallet,
+      commonFields,
+    } = await ERC1155Bridge.prepareSend({
+      args,
       abi: erc1155VaultAbi,
       address: tokenVaultAddress,
+      gasEstimate: { isTokenAlreadyDeployed, tokenIds, amounts },
     });
 
-    let gasLimit: number;
-    if (get(gasLimitZero)) {
-      log('Gas limit is set to 0');
-      gasLimit = 0;
-    } else {
-      gasLimit = await estimateMessageGasLimit({
-        token: tokenObject,
-        srcChainId,
-        destChainId,
-        isTokenAlreadyDeployed,
-        tokenIds,
-        amounts,
-      });
-    }
-
-    const sendERC1155Args: NFTBridgeTransferOp = {
+    const sendERC1155Args = {
       destChainId: BigInt(destChainId),
       to,
-      destOwner: get(destOwnerAddress) || to,
+      destOwner,
       token,
-      gasLimit: Number(gasLimit),
-      // A zero gas limit cannot carry a fee - the bridge reverts with B_INVALID_FEE
-      fee: feeForGasLimit(Number(gasLimit), fee),
+      gasLimit,
+      fee,
       tokenIds: tokenIds.map(BigInt),
       amounts,
-    };
+    } satisfies NFTBridgeTransferOp;
 
     log('Preparing transaction with args', sendERC1155Args);
 
@@ -231,12 +203,7 @@ export class ERC1155Bridge extends Bridge {
     // something we can name
     assertNoViolations(
       checkERC1155Message({
-        to: sendERC1155Args.to,
-        destOwner: sendERC1155Args.destOwner,
-        srcChainId,
-        destChainId,
-        gasLimit: sendERC1155Args.gasLimit,
-        fee: sendERC1155Args.fee,
+        ...commonFields,
         tokenAddress: sendERC1155Args.token,
         tokenIds: sendERC1155Args.tokenIds,
         amounts: sendERC1155Args.amounts,

@@ -1,9 +1,7 @@
 import { getWalletClient, readContract, simulateContract, writeContract } from '@wagmi/core';
-import { get } from 'svelte/store';
-import { getAddress, getContract, UserRejectedRequestError } from 'viem';
+import { getAddress, UserRejectedRequestError } from 'viem';
 
 import { erc721Abi, erc721VaultAbi } from '$abi';
-import { destOwnerAddress, gasLimitZero } from '$components/Bridge/state';
 import {
   ApproveError,
   NoApprovalRequiredError,
@@ -18,8 +16,6 @@ import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
-import { estimateMessageGasLimit } from './estimateMessageGasLimit';
-import { feeForGasLimit } from './messageFeeInvariant';
 import { assertNoViolations, checkERC721Message } from './messageInvariants';
 import type { ERC721BridgeArgs, NFTApproveArgs, NFTBridgeTransferOp, RequireApprovalArgs } from './types';
 
@@ -200,54 +196,29 @@ export class ERC721Bridge extends Bridge {
   }
 
   private static async _prepareTransaction(args: ERC721BridgeArgs) {
+    const { destChainId, token, tokenVaultAddress, isTokenAlreadyDeployed, tokenIds, amounts } = args;
+
     const {
+      contract: tokenVaultContract,
       to,
-      wallet,
-      srcChainId,
-      destChainId,
-      tokenObject,
-      token,
+      destOwner,
+      gasLimit,
       fee,
-      tokenVaultAddress,
-      isTokenAlreadyDeployed,
-      tokenIds,
-      amounts,
-    } = args;
-
-    // Checked before the contract is built: getContract with an undefined client throws
-    // its own opaque error, which is what this guard exists to replace
-    if (!wallet || !wallet.account) throw new Error('Wallet is not connected');
-
-    await ERC721Bridge.assertNotPaused(srcChainId);
-
-    const tokenVaultContract = getContract({
-      client: wallet,
+      commonFields,
+    } = await ERC721Bridge.prepareSend({
+      args,
       abi: erc721VaultAbi,
       address: tokenVaultAddress,
+      gasEstimate: { isTokenAlreadyDeployed, tokenIds },
     });
 
-    let gasLimit: number;
-    if (get(gasLimitZero)) {
-      log('Gas limit is set to 0');
-      gasLimit = 0;
-    } else {
-      gasLimit = await estimateMessageGasLimit({
-        token: tokenObject,
-        srcChainId,
-        destChainId,
-        isTokenAlreadyDeployed,
-        tokenIds,
-      });
-    }
-
-    const sendERC721Args: NFTBridgeTransferOp = {
+    const sendERC721Args = {
       destChainId: BigInt(destChainId),
       to,
-      destOwner: get(destOwnerAddress) || to,
+      destOwner,
       token,
-      gasLimit: Number(gasLimit),
-      // A zero gas limit cannot carry a fee - the bridge reverts with B_INVALID_FEE
-      fee: feeForGasLimit(Number(gasLimit), fee),
+      gasLimit,
+      fee,
       tokenIds: tokenIds.map(BigInt),
       amounts,
     } satisfies NFTBridgeTransferOp;
@@ -258,12 +229,7 @@ export class ERC721Bridge extends Bridge {
     // something we can name
     assertNoViolations(
       checkERC721Message({
-        to: sendERC721Args.to,
-        destOwner: sendERC721Args.destOwner,
-        srcChainId,
-        destChainId,
-        gasLimit: sendERC721Args.gasLimit,
-        fee: sendERC721Args.fee,
+        ...commonFields,
         tokenAddress: sendERC721Args.token,
         tokenIds: sendERC721Args.tokenIds,
         amounts: sendERC721Args.amounts,

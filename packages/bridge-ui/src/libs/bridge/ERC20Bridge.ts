@@ -1,9 +1,7 @@
 import { readContract, simulateContract, writeContract } from '@wagmi/core';
-import { get } from 'svelte/store';
-import { getContract, UserRejectedRequestError } from 'viem';
+import { UserRejectedRequestError } from 'viem';
 
 import { erc20Abi, erc20VaultAbi } from '$abi';
-import { destOwnerAddress, gasLimitZero } from '$components/Bridge/state';
 import { ApproveError, InsufficientAllowanceError, NoAllowanceRequiredError, SendERC20Error } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
@@ -11,8 +9,6 @@ import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
-import { estimateMessageGasLimit } from './estimateMessageGasLimit';
-import { feeForGasLimit } from './messageFeeInvariant';
 import { assertNoViolations, checkERC20Message } from './messageInvariants';
 import type { ApproveArgs, ERC20BridgeArgs, ERC20BridgeTransferOp, RequireAllowanceArgs } from './types';
 
@@ -20,52 +16,30 @@ const log = getLogger('ERC20Bridge');
 
 export class ERC20Bridge extends Bridge {
   private static async _prepareTransaction(args: ERC20BridgeArgs) {
+    const { amount, destChainId, token, tokenVaultAddress, isTokenAlreadyDeployed } = args;
+
     const {
+      contract: tokenVaultContract,
       to,
-      amount,
-      wallet,
-      srcChainId,
-      destChainId,
-      token,
-      tokenObject,
+      destOwner,
+      gasLimit,
       fee,
-      tokenVaultAddress,
-      isTokenAlreadyDeployed,
-    } = args;
-    if (!wallet || !wallet.account) throw new Error('No wallet found');
-
-    await ERC20Bridge.assertNotPaused(srcChainId);
-
-    const tokenVaultContract = getContract({
-      client: wallet,
+      commonFields,
+    } = await ERC20Bridge.prepareSend({
+      args,
       abi: erc20VaultAbi,
       address: tokenVaultAddress,
+      gasEstimate: { isTokenAlreadyDeployed },
     });
-
-    let gasLimit: number;
-    if (get(gasLimitZero)) {
-      log('Gas limit is set to 0');
-      gasLimit = 0;
-    } else {
-      gasLimit = await estimateMessageGasLimit({
-        token: tokenObject,
-        srcChainId,
-        destChainId,
-        isTokenAlreadyDeployed,
-      });
-    }
-
-    log('Calculated gasLimit for message', gasLimit);
 
     const sendERC20Args = {
       destChainId: BigInt(destChainId),
-      destOwner: get(destOwnerAddress) || to,
+      destOwner,
       to,
       token,
       amount,
-      gasLimit: Number(gasLimit),
-      // A zero gas limit cannot carry a fee - the bridge reverts with B_INVALID_FEE
-      fee: feeForGasLimit(Number(gasLimit), fee),
+      gasLimit,
+      fee,
       solverFee: BigInt(0), // not supported in the UI yet, default to 0
     } satisfies ERC20BridgeTransferOp;
 
@@ -73,19 +47,7 @@ export class ERC20Bridge extends Bridge {
 
     // Refuse a message the bridge is guaranteed to reject, while the reason is still
     // something we can name
-    assertNoViolations(
-      checkERC20Message({
-        to: sendERC20Args.to,
-        destOwner: sendERC20Args.destOwner,
-        srcChainId,
-        destChainId,
-        gasLimit: sendERC20Args.gasLimit,
-        fee: sendERC20Args.fee,
-        amount: sendERC20Args.amount,
-        tokenAddress: sendERC20Args.token,
-      }),
-      'This token transfer',
-    );
+    assertNoViolations(checkERC20Message({ ...commonFields, amount, tokenAddress: token }), 'This token transfer');
 
     return { tokenVaultContract, sendERC20Args };
   }

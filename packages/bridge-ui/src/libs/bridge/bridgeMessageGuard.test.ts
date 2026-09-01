@@ -232,3 +232,64 @@ describe('bridges refuse to build a message while the source bridge is paused', 
     expect(isBridgePaused).toHaveBeenCalledWith(L1_CHAIN_ID);
   });
 });
+
+/**
+ * ETH, ERC20, ERC721 and ERC1155 reach their contract call through one shared preamble.
+ * These pin the parts of a message that preamble decides, for every token type at once -
+ * the pause check, the zero-gas-limit fee rule and the destination-owner default were each
+ * fixed in one bridge at a time before they lived in a single place.
+ */
+describe('every token type builds the shared message fields the same way', () => {
+  const erc20Args = { ...base, amount: BigInt(10), token: TOKEN, tokenVaultAddress: VAULT } as never;
+  const ethArgs = { ...base, amount: BigInt(10), bridgeAddress: VAULT } as never;
+  const erc721Args = { ...base, token: TOKEN, tokenVaultAddress: VAULT, tokenIds: [1], amounts: [0n] } as never;
+  const erc1155Args = { ...base, token: TOKEN, tokenVaultAddress: VAULT, tokenIds: [1], amounts: [5n] } as never;
+
+  const cases = [
+    ['ETH', () => new ETHBridge(prover), ethArgs],
+    ['ERC20', () => new ERC20Bridge(prover), erc20Args],
+    ['ERC721', () => new ERC721Bridge(prover), erc721Args],
+    ['ERC1155', () => new ERC1155Bridge(prover), erc1155Args],
+  ] as const;
+
+  /** The message or transfer op the bridge handed the contract */
+  const sentMessage = () => estimateGasSpy.mock.calls[0][0][0];
+
+  it.each(cases)('%s zeroes the fee alongside a zero gas limit', async (_name, make, args) => {
+    // Paired: the bridge reverts with B_INVALID_FEE on a fee attached to a zero gas limit
+    gasLimitZero.set(true);
+
+    await make().estimateGas(args);
+
+    expect(sentMessage().gasLimit).toBe(0);
+    expect(sentMessage().fee).toBe(BigInt(0));
+  });
+
+  it.each(cases)('%s keeps the processing fee when the gas limit is not zero', async (_name, make, args) => {
+    await make().estimateGas(args);
+
+    expect(sentMessage().gasLimit).toBe(1_000_000);
+    expect(sentMessage().fee).toBe(BigInt(1000));
+  });
+
+  it.each(cases)('%s sends to the recipient when no destination owner is set', async (_name, make, args) => {
+    await make().estimateGas(args);
+
+    expect(sentMessage().destOwner).toBe(ALICE);
+  });
+
+  it.each(cases)('%s honours an explicit destination owner', async (_name, make, args) => {
+    const BOB = '0x0000000000000000000000000000000000000b0b';
+    destOwnerAddress.set(BOB);
+
+    await make().estimateGas(args);
+
+    expect(sentMessage().destOwner).toBe(BOB);
+  });
+
+  it.each(cases)('%s reports a wallet that is not connected', async (_name, make, args) => {
+    await expect(make().estimateGas({ ...(args as object), wallet: undefined } as never)).rejects.toThrow(
+      'Wallet is not connected',
+    );
+  });
+});

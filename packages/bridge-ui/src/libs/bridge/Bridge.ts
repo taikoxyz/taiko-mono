@@ -1,8 +1,18 @@
 import { getPublicClient, readContract, simulateContract, writeContract } from '@wagmi/core';
-import { getAddress, getContract, type Hash, UserRejectedRequestError, type WalletClient } from 'viem';
+import { get } from 'svelte/store';
+import {
+  type Abi,
+  type Address,
+  getAddress,
+  getContract,
+  type Hash,
+  UserRejectedRequestError,
+  type WalletClient,
+} from 'viem';
 
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
+import { destOwnerAddress, gasLimitZero } from '$components/Bridge/state';
 import {
   BridgePausedError,
   MessageStatusError,
@@ -18,6 +28,8 @@ import { isSmartContract } from '$libs/util/isSmartContract';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
+import { estimateMessageGasLimit, type MessageGasEstimateExtras } from './estimateMessageGasLimit';
+import { feeForGasLimit } from './messageFeeInvariant';
 import {
   type BridgeArgs,
   type BridgeTransaction,
@@ -35,6 +47,70 @@ export abstract class Bridge {
 
   constructor(prover: BridgeProver) {
     this._prover = prover;
+  }
+
+  /**
+   * @dev The preamble every token type runs before it can build its message.
+   *
+   *      ETH, ERC20, ERC721 and ERC1155 differ in the vault they call and the operation
+   *      they hand it, but they reach that point the same way: the same wallet guard, the
+   *      same pause check, the same contract handle, the same gas-limit choice, the same
+   *      destination-owner default and the same fee rule. Each carried its own copy, and
+   *      every fix to one of them - the pause check, the zero-gas-limit fee, the invariant
+   *      assertions - had to be made four times, which is how three of them ended up
+   *      applied to only some.
+   *
+   * @param args The bridge arguments common to every token type
+   * @param abi The vault or bridge ABI the transaction is built against
+   * @param address The contract to send to
+   * @param gasEstimate What the destination gas estimate needs beyond the token itself
+   * @return prepared_ The contract handle, the sender, and the fields shared by every
+   *                   message, including the set the invariant checks take verbatim
+   */
+  protected static async prepareSend<const TAbi extends Abi>({
+    args,
+    abi,
+    address,
+    gasEstimate,
+  }: {
+    args: BridgeArgs;
+    abi: TAbi;
+    address: Address;
+    gasEstimate?: MessageGasEstimateExtras;
+  }) {
+    const { to, wallet, srcChainId, destChainId, fee: processingFee, tokenObject } = args;
+
+    // Checked before the contract is built: getContract with an undefined client throws
+    // its own opaque error, which is what this guard exists to replace
+    if (!wallet || !wallet.account) throw new Error('Wallet is not connected');
+
+    await this.assertNotPaused(srcChainId);
+
+    const contract = getContract({ client: wallet, abi, address });
+
+    let gasLimit: number;
+    if (get(gasLimitZero)) {
+      log('Gas limit is set to 0');
+      gasLimit = 0;
+    } else {
+      gasLimit = Number(await estimateMessageGasLimit({ token: tokenObject, srcChainId, destChainId, ...gasEstimate }));
+    }
+    log('Calculated gasLimit for message', gasLimit);
+
+    // A zero gas limit cannot carry a fee - the bridge reverts with B_INVALID_FEE
+    const fee = feeForGasLimit(gasLimit, processingFee);
+    const destOwner = get(destOwnerAddress) || to;
+
+    return {
+      contract,
+      owner: wallet.account.address,
+      to,
+      destOwner,
+      gasLimit,
+      fee,
+      /** Exactly what every check in messageInvariants takes, so callers add only their own */
+      commonFields: { to, destOwner, srcChainId, destChainId, gasLimit, fee },
+    };
   }
 
   /**

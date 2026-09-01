@@ -9,13 +9,20 @@ import { config } from '$libs/wagmi';
 
 import { calculateMessageDataSize } from './calculateMessageDataSize';
 
-type EstimateMessageGasLimitArgs = {
-  token: Token | NFT;
-  srcChainId: number;
-  destChainId: number;
+/**
+ * What the destination gas estimate needs beyond the token and the two chains. Named so
+ * the shared send preamble can pass a token type's own sizing inputs straight through.
+ */
+export type MessageGasEstimateExtras = {
   isTokenAlreadyDeployed?: boolean;
   tokenIds?: number[];
   amounts?: bigint[];
+};
+
+type EstimateMessageGasLimitArgs = MessageGasEstimateExtras & {
+  token: Token | NFT;
+  srcChainId: number;
+  destChainId: number;
 };
 
 export async function estimateMessageGasLimit({
