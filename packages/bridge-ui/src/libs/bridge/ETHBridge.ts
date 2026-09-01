@@ -14,7 +14,7 @@ import type { ETHBridgeArgs, Message } from './types';
 const log = getLogger('bridge:ETHBridge');
 
 export class ETHBridge extends Bridge {
-  private static async _prepareTransaction(args: ETHBridgeArgs) {
+  private async _prepareTransaction(args: ETHBridgeArgs) {
     const { to, amount, srcChainId, destChainId, bridgeAddress } = args;
 
     const {
@@ -24,7 +24,7 @@ export class ETHBridge extends Bridge {
       gasLimit,
       fee,
       commonFields,
-    } = await ETHBridge.prepareSend({ args, abi: bridgeAbi, address: bridgeAddress });
+    } = await this.prepareSend({ args, abi: bridgeAbi, address: bridgeAddress });
 
     // TODO: contract actually supports bridging to ourselves as well as
     //       to another address at the same time
@@ -69,7 +69,7 @@ export class ETHBridge extends Bridge {
   }
 
   async estimateGas(args: ETHBridgeArgs) {
-    const { bridgeContract, message } = await ETHBridge._prepareTransaction(args);
+    const { bridgeContract, message } = await this._prepareTransaction(args);
     const { value: callValue, fee: processingFee } = message;
 
     const value = callValue + processingFee;
@@ -84,7 +84,7 @@ export class ETHBridge extends Bridge {
   }
 
   async bridge(args: ETHBridgeArgs) {
-    const { bridgeContract, message } = await ETHBridge._prepareTransaction(args);
+    const { bridgeContract, message } = await this._prepareTransaction(args);
     const { value: callValue, fee: processingFee } = message;
 
     const value = callValue + processingFee;

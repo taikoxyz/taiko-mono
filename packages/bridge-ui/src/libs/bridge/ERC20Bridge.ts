@@ -15,7 +15,7 @@ import type { ApproveArgs, ERC20BridgeArgs, ERC20BridgeTransferOp, RequireAllowa
 const log = getLogger('ERC20Bridge');
 
 export class ERC20Bridge extends Bridge {
-  private static async _prepareTransaction(args: ERC20BridgeArgs) {
+  private async _prepareTransaction(args: ERC20BridgeArgs) {
     const { amount, destChainId, token, tokenVaultAddress, isTokenAlreadyDeployed } = args;
 
     const {
@@ -25,7 +25,7 @@ export class ERC20Bridge extends Bridge {
       gasLimit,
       fee,
       commonFields,
-    } = await ERC20Bridge.prepareSend({
+    } = await this.prepareSend({
       args,
       abi: erc20VaultAbi,
       address: tokenVaultAddress,
@@ -57,7 +57,7 @@ export class ERC20Bridge extends Bridge {
   }
 
   async estimateGas(args: ERC20BridgeArgs) {
-    const { tokenVaultContract, sendERC20Args } = await ERC20Bridge._prepareTransaction(args as ERC20BridgeArgs);
+    const { tokenVaultContract, sendERC20Args } = await this._prepareTransaction(args as ERC20BridgeArgs);
     const { fee } = sendERC20Args;
 
     const value = fee;
@@ -182,7 +182,7 @@ export class ERC20Bridge extends Bridge {
       throw new InsufficientAllowanceError(`Insufficient allowance for the amount ${amount}`);
     }
 
-    const { tokenVaultContract, sendERC20Args } = await ERC20Bridge._prepareTransaction(args);
+    const { tokenVaultContract, sendERC20Args } = await this._prepareTransaction(args);
     const { fee } = sendERC20Args;
 
     try {

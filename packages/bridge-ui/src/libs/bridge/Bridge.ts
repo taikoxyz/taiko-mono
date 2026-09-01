@@ -67,7 +67,7 @@ export abstract class Bridge {
    * @return prepared_ The contract handle, the sender, and the fields shared by every
    *                   message, including the set the invariant checks take verbatim
    */
-  protected static async prepareSend<const TAbi extends Abi>({
+  protected async prepareSend<const TAbi extends Abi>({
     args,
     abi,
     address,
@@ -123,7 +123,7 @@ export abstract class Bridge {
    *
    * @param srcChainId The chain the message would be sent from
    */
-  protected static async assertNotPaused(srcChainId: number) {
+  protected async assertNotPaused(srcChainId: number) {
     if (await isBridgePaused(srcChainId)) throw new BridgePausedError('Bridge is paused');
   }
 
