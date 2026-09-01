@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "src/shared/vault/IPermit2.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IPermit2 } from "src/shared/vault/IPermit2.sol";
 
 /// @notice A faithful stand-in for Uniswap's Permit2 `SignatureTransfer` flow, reproducing its
 /// EIP-712 domain, typehashes and signature checks so tests exercise the real signing scheme.

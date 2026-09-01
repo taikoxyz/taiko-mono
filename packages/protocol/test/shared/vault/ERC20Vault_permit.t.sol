@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../helpers/FreeMintERC20TokenWithPermit.sol";
-import "../helpers/Permit2Mock.sol";
+import { FreeMintERC20TokenWithPermit } from "../helpers/FreeMintERC20TokenWithPermit.sol";
+import { Permit2Mock } from "../helpers/Permit2Mock.sol";
 import "./ERC20Vault.h.sol";
+import { IPermit2 } from "src/shared/vault/IPermit2.sol";
 
 /// @notice Covers ERC20Vault's approval-free entrypoints: `sendTokenWithPermit` (EIP-2612) and
 /// `sendTokenWithPermit2` (Uniswap Permit2 `SignatureTransfer`).
