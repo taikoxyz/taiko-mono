@@ -3,6 +3,9 @@ pragma solidity ^0.8.24;
 
 import "../helpers/CountingQuotaManager.sol";
 import "./TestBridge2Base.sol";
+import {
+    MessageReceiver_CreatingFreshStorageSlots
+} from "test/shared/bridge/helpers/MessageReceiver_CreatingFreshStorageSlots.sol";
 
 contract QuotaTarget is IMessageInvocable {
     bool public toFail;
@@ -179,5 +182,34 @@ contract TestBridge2_quotaAccounting is TestBridge2Base {
         eBridge.recallMessage(m, FAKE_PROOF);
         assertTrue(eBridge.messageStatus(eBridge.hashMessage(m)) == IBridge.Status.RECALLED);
         assertEq(qm.calls(), 0);
+    }
+
+    // The capped Ether send to a storage-creating destOwner, with a real QuotaManager wired.
+    // Every other test of that send inherits getQuotaManager() == address(0), which makes
+    // _consumeEtherQuota a no-op and leaves its external call out of the post-invocation tail.
+    function test_quota_processMessage_storage_creating_destOwner_debits_and_refunds()
+        public
+        dealEther(Carol)
+    {
+        MessageReceiver_CreatingFreshStorageSlots wallet =
+            new MessageReceiver_CreatingFreshStorageSlots(5);
+
+        IBridge.Message memory message;
+        message.destChainId = ethereumChainId;
+        message.srcChainId = taikoChainId;
+        message.gasLimit = 1_000_000;
+        message.fee = 0;
+        message.value = 2 ether;
+        message.destOwner = address(wallet);
+        message.to = address(eBridge); // invocation prohibited -> full value refunded
+
+        vm.prank(Carol);
+        eBridge.processMessage(message, FAKE_PROOF);
+
+        bytes32 hash = eBridge.hashMessage(message);
+        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
+        assertEq(address(wallet).balance, 2 ether);
+        assertEq(wallet.receiveCount(), 1);
+        assertEq(_ethConsumed(), message.value);
     }
 }
