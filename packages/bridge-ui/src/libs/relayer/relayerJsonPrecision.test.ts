@@ -47,4 +47,22 @@ describe('preserveMessageIntegerPrecision', () => {
   it('leaves values that are already strings alone', () => {
     expect(roundTrip('{"amount":"500"}').amount).toBe('500');
   });
+
+  it('does not rewrite a field name that appears inside a string value', () => {
+    // JSON escapes a quote inside a string, so the closing quote the pattern needs after
+    // the field name is never there - a match cannot start inside string content
+    const raw = `{"note":${JSON.stringify('the "amount":5 was rejected')},"amount":500000000000000}`;
+    const parsed = roundTrip(raw);
+
+    expect(parsed.note).toBe('the "amount":5 was rejected');
+    expect(parsed.amount).toBe('500000000000000');
+  });
+
+  it('does not rewrite a field name written with unicode escapes in a string value', () => {
+    const raw = String.raw`{"note":"\u0022fee\u0022:7","fee":130220640000000}`;
+    const parsed = roundTrip(raw);
+
+    expect(parsed.note).toBe('"fee":7');
+    expect(parsed.fee).toBe('130220640000000');
+  });
 });

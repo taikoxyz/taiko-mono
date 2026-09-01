@@ -95,6 +95,18 @@
     reset();
   };
 
+  // A scan lists what the wallet holds on one chain; the same list against another chain
+  // describes tokens the user does not own there. OnAccount covers the wallet changing,
+  // nothing covered the chain changing, and the scanned view stays mounted through it.
+  let previousSrcChainId: Maybe<number> = undefined;
+  $: {
+    const srcChainId = $srcChain?.id;
+    if (previousSrcChainId !== undefined && srcChainId !== previousSrcChainId) {
+      reset();
+    }
+    previousSrcChainId = srcChainId;
+  }
+
   $: canImport = ($account?.isConnected && $srcChain?.id && $destChain && !scanning) || false;
 
   $: {

@@ -86,6 +86,43 @@ describe('BridgeTxService storage round trip', () => {
     expect(stored.processingFee).toBe(BigInt('130220640000000'));
   });
 
+  it('restores the bigints inside a stored message', async () => {
+    // Nothing writes a message to storage today, but a message whose id, value and fee
+    // came back as strings goes straight to proof generation and the recall path, which
+    // encode them as uint256 - a failure nothing else here would report
+    const message = {
+      id: BigInt(7),
+      srcChainId: BigInt(1),
+      destChainId: BigInt(167000),
+      value: BigInt('2500000000000000000'),
+      fee: BigInt('130220640000000'),
+      gasLimit: 140000,
+      from: ADDRESS,
+      srcOwner: ADDRESS,
+      destOwner: ADDRESS,
+      to: ADDRESS,
+      data: '0x' as const,
+    };
+    service.addTxByAddress(ADDRESS, tx('0xa', { message } as Partial<BridgeTransaction>));
+
+    const [stored] = await service.getAllTxByAddress(ADDRESS);
+
+    expect(stored.message?.id).toBe(BigInt(7));
+    expect(stored.message?.value).toBe(BigInt('2500000000000000000'));
+    expect(stored.message?.fee).toBe(BigInt('130220640000000'));
+    expect(stored.message?.srcChainId).toBe(BigInt(1));
+    expect(stored.message?.destChainId).toBe(BigInt(167000));
+    expect(stored.message?.gasLimit).toBe(140000);
+  });
+
+  it('leaves a transaction without a message alone', async () => {
+    service.addTxByAddress(ADDRESS, tx('0xa'));
+
+    const [stored] = await service.getAllTxByAddress(ADDRESS);
+
+    expect(stored.message).toBeUndefined();
+  });
+
   it('can remove a stored transaction after reading it back', () => {
     // removeTransactions writes what it read, and a bare JSON.stringify throws on a
     // bigint - so restoring the types on read has to be matched on the write side

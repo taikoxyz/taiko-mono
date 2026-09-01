@@ -15,7 +15,7 @@
   import { type Account, account } from '$stores/account';
 
   import { ImportStep, ReviewStep, StepNavigation } from './NFTBridgeComponents';
-  import { selectedImportMethod } from './NFTBridgeComponents/ImportStep/state';
+  import { foundNFTs, selectedImportMethod } from './NFTBridgeComponents/ImportStep/state';
   import { ConfirmationStep, RecipientStep } from './SharedBridgeComponents';
   import {
     activeBridge,
@@ -109,6 +109,11 @@
     $selectedToken = ETHToken;
     $importDone = false;
     $selectedNFTs = [];
+    // The scan results are a store so they survive back-navigation, which also means they
+    // survive a wallet or network change: ImportStep is unmounted past the import step, so
+    // its own reset never runs, and it remounts showing the previous account's NFTs.
+    $foundNFTs = [];
+    $selectedImportMethod = ImportMethod.NONE;
     activeStep = BridgeSteps.IMPORT;
   };
 

@@ -24,7 +24,7 @@ vi.mock('$nftAPI/infrastructure/mappers/nft/MoralisNFTMapper', () => ({
 
 import Moralis from 'moralis';
 
-import repository, { MAX_CACHED_WALLETS } from './MoralisNFTRepository.server';
+import repository, { MAX_CACHED_WALLETS, PAGE_REQUEST_TIMEOUT_MS } from './MoralisNFTRepository.server';
 
 const ADDRESS_A = '0x1111111111111111111111111111111111111111' as Address;
 const ADDRESS_B = '0x2222222222222222222222222222222222222222' as Address;
@@ -247,5 +247,52 @@ describe('MoralisNFTRepository.server', () => {
     getWalletNFTs.mockResolvedValueOnce(moralisPage([7], null));
     const retried = await repository.findByAddress({ address: ADDRESS_A, chainId: CHAIN_ID, refresh: false });
     expect(retried).toEqual([{ tokenId: 7, chainId: CHAIN_ID }]);
+  });
+});
+
+describe('a hung Moralis request', () => {
+  const ADDRESS_C = '0x3333333333333333333333333333333333333333' as Address;
+
+  beforeEach(() => {
+    getWalletNFTs.mockReset();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('is abandoned instead of holding the wallet queue for good', async () => {
+    // Never settles. Without a bound this held every later request for this wallet behind
+    // it for the life of the process; bounding the queue *wait* instead would have let a
+    // second fetch run against the same cursor, which is what the queue exists to prevent
+    getWalletNFTs.mockReturnValueOnce(new Promise(() => {}) as never);
+
+    const hung = repository.findByAddress({ address: ADDRESS_C, chainId: CHAIN_ID, refresh: true });
+    const settled = expect(hung).rejects.toThrow('timed out');
+    await vi.advanceTimersByTimeAsync(PAGE_REQUEST_TIMEOUT_MS);
+    await settled;
+
+    // The queue moved on, and the abandoned page is simply refetched
+    getWalletNFTs.mockResolvedValueOnce(moralisPage([7], null));
+    await expect(repository.findByAddress({ address: ADDRESS_C, chainId: CHAIN_ID, refresh: false })).resolves.toEqual([
+      { tokenId: 7, chainId: CHAIN_ID },
+    ]);
+  });
+
+  it('leaves the cursor untouched, so no page is skipped', async () => {
+    getWalletNFTs.mockResolvedValueOnce(moralisPage([1], 'cursor-1'));
+    await repository.findByAddress({ address: ADDRESS_C, chainId: CHAIN_ID, refresh: true });
+
+    getWalletNFTs.mockReturnValueOnce(new Promise(() => {}) as never);
+    const hung = repository.findByAddress({ address: ADDRESS_C, chainId: CHAIN_ID, refresh: false });
+    const settled = expect(hung).rejects.toThrow('timed out');
+    await vi.advanceTimersByTimeAsync(PAGE_REQUEST_TIMEOUT_MS);
+    await settled;
+
+    getWalletNFTs.mockResolvedValueOnce(moralisPage([2], null));
+    await repository.findByAddress({ address: ADDRESS_C, chainId: CHAIN_ID, refresh: false });
+
+    expect(getWalletNFTs).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: 'cursor-1' }));
   });
 });

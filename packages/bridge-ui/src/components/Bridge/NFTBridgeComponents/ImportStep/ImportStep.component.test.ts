@@ -177,6 +177,30 @@ describe('scanned NFT pagination', () => {
     expect(get(selectedImportMethod)).toBe(ImportMethod.SCAN);
   });
 
+  it('discards the scan when the source chain changes', async () => {
+    await scan([NFT_A, NFT_B]);
+    selectedNFTs.set([NFT_A]);
+
+    // The list describes what the wallet holds on chain 1. Kept across a chain switch it
+    // offers NFTs the user does not own on chain 3, and the scanned view stays mounted
+    // through the switch so nothing else was clearing it
+    srcChain.set({ id: 3 } as never);
+    await flush();
+
+    expect(get(foundNFTs)).toEqual([]);
+    expect(get(selectedNFTs)).toEqual([]);
+    expect(get(selectedImportMethod)).toBe(ImportMethod.NONE);
+  });
+
+  it('keeps the scan when the source chain has not actually changed', async () => {
+    await scan([NFT_A, NFT_B]);
+
+    srcChain.set({ id: 1 } as never);
+    await flush();
+
+    expect(get(foundNFTs)).toHaveLength(2);
+  });
+
   it('still clears the selection on a fresh scan', async () => {
     await scan([NFT_A]);
     selectedNFTs.set([NFT_A]);

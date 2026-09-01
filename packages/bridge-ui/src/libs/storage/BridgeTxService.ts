@@ -6,7 +6,7 @@ import { routingContractsMap } from '$bridgeConfig';
 import { pendingTransaction, storageService } from '$config';
 import { isSameBridgeTx } from '$libs/bridge/bridgeTxIdentity';
 import { getMessageStatusForMsgHash } from '$libs/bridge/getMessageStatusForMsgHash';
-import { type BridgeTransaction, MessageStatus } from '$libs/bridge/types';
+import { type BridgeTransaction, type Message, MessageStatus } from '$libs/bridge/types';
 import { isSupportedChain } from '$libs/chain';
 import { FilterLogsError } from '$libs/error';
 import { jsonParseWithDefault } from '$libs/util/jsonParseWithDefault';
@@ -98,6 +98,32 @@ export class BridgeTxService {
       srcChainId: BigInt(tx.srcChainId ?? 0),
       destChainId: BigInt(tx.destChainId ?? 0),
       ...(tx.fee === undefined || tx.fee === null ? {} : { fee: BigInt(tx.fee) }),
+      ...(tx.message ? { message: BridgeTxService._restoreMessageBigInts(tx.message) } : {}),
+    };
+  }
+
+  /**
+   * @dev Restores the bigints inside a stored message.
+   *
+   *      Nothing writes a message to storage today - ConfirmationStep records a
+   *      transaction without one, and the message _enhanceTx reads off the receipt is
+   *      returned rather than written back - so this is a guard rather than a fix for a
+   *      reachable path. It is here because the failure it prevents is silent: a message
+   *      whose id, value and fee came back as strings is handed straight to proof
+   *      generation and to the recall path, which encode them as uint256.
+   *
+   * @param message A message as it came out of storage
+   * @return message_ The same message with its numeric fields typed as declared
+   */
+  private static _restoreMessageBigInts(message: Message): Message {
+    return {
+      ...message,
+      id: BigInt(message.id ?? 0),
+      srcChainId: BigInt(message.srcChainId ?? 0),
+      destChainId: BigInt(message.destChainId ?? 0),
+      value: BigInt(message.value ?? 0),
+      fee: BigInt(message.fee ?? 0),
+      gasLimit: Number(message.gasLimit ?? 0),
     };
   }
 
