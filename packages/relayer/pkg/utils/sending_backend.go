@@ -90,6 +90,14 @@ const DefaultPrivateRPCAllRefusedLimit = 3
 // than the processor has in flight at once, so a live claim is never evicted in practice.
 const maxTrackedRefusedNonces = 256
 
+// maxTrackedAcceptedNonces bounds the per-endpoint record of which nonces it took.
+//
+// Same shape and same reason as maxTrackedRefusedNonces, and deliberately the same size: both are
+// far more than the processor has in flight at once, so a live claim is never evicted in practice.
+// Evicting one is not a correctness problem either — the send simply stops treating that endpoint
+// as the nonce's holder and offers the claim onward, which is where it started.
+const maxTrackedAcceptedNonces = 256
+
 // DefaultPrivateRPCAttemptTimeout caps a single attempt when the caller supplied no deadline.
 //
 // The transaction manager always calls SendTransaction under its NetworkTimeout, so this does not
@@ -190,6 +198,7 @@ type SendingBackend struct {
 	generation       []uint64
 	highestAccepted  []uint64
 	hasAccepted      []bool
+	accepted         []map[uint64]struct{}
 	failureThreshold int
 	failureCeiling   int
 	retryInterval    time.Duration
@@ -234,6 +243,7 @@ func NewSendingBackend(
 		generation:       make([]uint64, len(private)),
 		highestAccepted:  make([]uint64, len(private)),
 		hasAccepted:      make([]bool, len(private)),
+		accepted:         newAcceptedNonceSets(len(private)),
 		failureThreshold: DefaultPrivateRPCFailureThreshold,
 		failureCeiling:   DefaultPrivateRPCConsecutiveFailureCeiling,
 		allRefused:       make(map[uint64]refusalRun),
@@ -889,19 +899,33 @@ func (b *SendingBackend) recordFailure(endpoint admission, nonce uint64, rejecti
 // last nonce it answered for. What is left to charge is an endpoint answering this way for a
 // succession of distinct claims it never took, which is the state the ceiling exists to end.
 //
-// It also reports whether this endpoint is the demonstrated holder of the nonce — the first of
-// those two free answers. The caller ends the send there rather than offering the same signed
-// transaction to the endpoints behind it; see SendTransaction. The predicate lives here because
-// this is the one place that owns hasAccepted and highestAccepted, and a second copy of it would
-// drift.
+// It also reports whether this endpoint actually took this nonce, which the caller uses to end the
+// send there rather than offer the same signed transaction to the endpoints behind it; see
+// SendTransaction. That is a stricter question than the first free answer above, and deliberately
+// so: not charging an endpoint that is plausibly carrying claims around this nonce costs nothing
+// when the guess is generous, while ending a send on the same guess leaves the claim with nobody
+// holding it. The two are read from different state for that reason — the exemption from the
+// high-water mark, the answer from the nonces actually accepted. Both live here because this is
+// the one place that owns them, and a second copy would drift.
+//
+// The answer is about the endpoint's mempool rather than its health, so it is read before the
+// generation guard and survives it.
 func (b *SendingBackend) recordHeldNonce(endpoint admission, nonce uint64) (tripped, demonstrated bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	index := endpoint.index
 
+	// Which transactions this endpoint took is a fact about the endpoint's mempool, not a
+	// judgement about its health, so it is read before the generation guard and survives it. A
+	// concurrent send can trip this endpoint while our answer is still on the wire; that says the
+	// endpoint is unhealthy, it does not unsay what it is carrying. Suppressing the accounting is
+	// what the guard is for — dropping the acceptance too would send the claim onward and leave
+	// the same signed transaction live in a second builder's pool.
+	_, demonstrated = b.accepted[index][nonce]
+
 	if b.generation[index] != endpoint.generation {
-		return false, false
+		return false, demonstrated
 	}
 
 	// An endpoint answering for a nonce it has demonstrably taken is the holder by construction,
@@ -909,8 +933,14 @@ func (b *SendingBackend) recordHeldNonce(endpoint admission, nonce uint64) (trip
 	// remembered nonce below cannot see that: two concurrently held claims alternate past it, every
 	// answer counts, and ten answers — about four minutes at the resubmission default — took the
 	// endpoint holding both of them out of rotation.
+	//
+	// The high-water mark is the right instrument for that exemption and the wrong one for ending
+	// a send. Not charging an endpoint that is plausibly carrying claims around this nonce costs
+	// nothing if the guess is generous; ending a send on the same guess strands the claim with
+	// nobody holding it until TX_SEND_TIMEOUT. So the exemption keeps the mark and the caller gets
+	// the exact answer.
 	if b.hasAccepted[index] && nonce <= b.highestAccepted[index] {
-		return false, true
+		return false, demonstrated
 	}
 
 	// Kept as well, for a nonce this endpoint never accepted: it may be answering for a claim it
@@ -920,8 +950,11 @@ func (b *SendingBackend) recordHeldNonce(endpoint admission, nonce uint64) (trip
 	// resends of a single claim reached the ceiling in about eight minutes and took out the very
 	// endpoint holding it; with one endpoint configured the claim then went public through the
 	// unavailable path, which is the exposure the exemption exists to prevent.
+	// Everything from here reports the acceptance it read rather than a literal false. A nonce this
+	// endpoint took satisfies the mark above and never reaches these lines, so today the two are
+	// the same value; carrying it keeps them the same if that stops being true.
 	if b.hasHeld[index] && b.lastHeld[index] == nonce {
-		return false, false
+		return false, demonstrated
 	}
 
 	b.lastHeld[index] = nonce
@@ -932,10 +965,10 @@ func (b *SendingBackend) recordHeldNonce(endpoint admission, nonce uint64) (trip
 	if b.consecutive[index] >= b.failureCeiling {
 		b.leaveRotation(index)
 
-		return true, false
+		return true, demonstrated
 	}
 
-	return false, false
+	return false, demonstrated
 }
 
 // leaveRotation takes the endpoint at index out of rotation for the retry interval, ending the
@@ -975,6 +1008,40 @@ func (b *SendingBackend) recordSuccess(index int, nonce uint64) {
 	}
 
 	b.hasAccepted[index] = true
+
+	// The mark above answers "is this endpoint plausibly carrying claims around this nonce", which
+	// is all the accounting exemption and the holder-first ordering need. It cannot answer "did
+	// this endpoint take this exact transaction", because claims are signed in nonce order and
+	// sent concurrently: a later nonce can be accepted while an earlier one never was, and the
+	// mark then covers a nonce nobody here has seen. Ending a send needs the stronger fact, so the
+	// nonces actually accepted are kept as well.
+	b.accepted[index][nonce] = struct{}{}
+
+	// Bounded the way the refusal counts are, and for the same reason: a claim abandoned at
+	// TX_SEND_TIMEOUT never comes back to clear its entry. Nonces only ascend, so the smallest is
+	// the stalest, and a stale entry only ever costs a send that ends one endpoint too early.
+	for len(b.accepted[index]) > maxTrackedAcceptedNonces {
+		stalest := nonce
+
+		for tracked := range b.accepted[index] {
+			if tracked < stalest {
+				stalest = tracked
+			}
+		}
+
+		delete(b.accepted[index], stalest)
+	}
+}
+
+// newAcceptedNonceSets builds one accepted-nonce set per endpoint.
+func newAcceptedNonceSets(endpoints int) []map[uint64]struct{} {
+	sets := make([]map[uint64]struct{}, endpoints)
+
+	for i := range sets {
+		sets[i] = make(map[uint64]struct{})
+	}
+
+	return sets
 }
 
 // prioritiseNonceHolder moves the endpoints that have already accepted this nonce to the front of

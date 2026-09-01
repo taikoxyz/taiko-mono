@@ -1979,3 +1979,71 @@ func TestSendingBackend_AHeldAnswerForANonceItNeverTookStillTriesTheNext(t *test
 
 	assert.Len(t, second.sent, 1, "an endpoint that never took this nonce does not end the send")
 }
+
+func TestSendingBackend_AHighWaterMarkIsNotProofOfHoldingThisNonce(t *testing.T) {
+	holder := &fakeSender{}
+	backup := &fakeSender{}
+
+	b := NewSendingBackend(&fakeBackend{}, []TxSender{holder, backup}, nil, nil)
+
+	// Claims are signed in nonce order but sent concurrently, so a later nonce can be accepted
+	// while an earlier one still has not been. The high-water mark cannot tell those apart, and it
+	// is exempting the accounting rather than deciding where a claim lives, so it does not have to.
+	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(9)))
+
+	holder.err = rpcRejection{txpool.ErrAlreadyKnown.Error()}
+
+	// Nonce 4 was never taken here. The answer may be about a claim this relay learned from
+	// another's gossip, so the backup is the only endpoint that might actually end up carrying it:
+	// ending the send on the strength of the mark alone would strand the claim until
+	// TX_SEND_TIMEOUT with nobody holding it.
+	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(4)))
+
+	assert.Len(t, backup.sent, 1, "a nonce below the high-water mark is not one this endpoint took")
+}
+
+func TestSendingBackend_AStaleAdmissionStillKnowsWhatItAccepted(t *testing.T) {
+	b, _, _, _, _ := newTestBackend(t, nil)
+
+	require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(5)))
+
+	stale := admit(b, 0)
+
+	trip(b, 0)
+
+	before := b.consecutive[0]
+
+	// A concurrent send can trip this endpoint while our held answer is still on the wire. Leaving
+	// the rotation says the endpoint is unhealthy; it does not unsay which transaction it took.
+	// The generation guard exists to stop a stale result from spending the fresh budget, so it
+	// suppresses the accounting — but the claim really is at this relay, and offering it onward
+	// would put the same signed transaction in a second builder's pool.
+	tripped, demonstrated := b.recordHeldNonce(stale, 5)
+
+	assert.False(t, tripped)
+	assert.True(t, demonstrated, "acceptance is a fact, not a judgement about health")
+	assert.Equal(t, before, b.consecutive[0], "a stale admission still spends nothing")
+}
+
+func TestSendingBackend_BoundsTheAcceptedNonceTracking(t *testing.T) {
+	only := &fakeSender{}
+	b := NewSendingBackend(&fakeBackend{}, []TxSender{only}, nil, nil)
+
+	// Every accepted nonce is remembered so a resend can be recognised as one this endpoint took,
+	// and a claim abandoned at TX_SEND_TIMEOUT never comes back to clear its entry — so the record
+	// has to be bounded or it grows for as long as the relayer runs.
+	for nonce := uint64(0); nonce < uint64(maxTrackedAcceptedNonces)*2; nonce++ {
+		require.NoError(t, b.SendTransaction(context.Background(), txWithNonce(nonce)))
+	}
+
+	assert.LessOrEqual(t, len(b.accepted[0]), maxTrackedAcceptedNonces)
+
+	// Nonces only ascend, so the lowest is the stalest, and the newest is the one whose resend
+	// still has to be recognised. Evicting that one instead would quietly undo the fix on every
+	// send while leaving the bound satisfied.
+	_, keptLowest := b.accepted[0][0]
+	_, keptHighest := b.accepted[0][uint64(maxTrackedAcceptedNonces)*2-1]
+
+	assert.False(t, keptLowest, "the stalest entry is the one to drop")
+	assert.True(t, keptHighest, "the newest entry is the one most likely to be a live claim")
+}
