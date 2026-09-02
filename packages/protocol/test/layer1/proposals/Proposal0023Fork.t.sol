@@ -180,7 +180,12 @@ contract Proposal0023ForkTest is Test {
     /// token from the new implementation and mints.
     /// @param _newImpl The `BridgedERC20` the resolver must now name.
     /// @param _vaultOwner The vault's owner, which every bridged token it deploys is owned by.
-    function _assertL1BridgedErc20AfterRegistration(address _newImpl, address _vaultOwner) private {
+    function _assertL1BridgedErc20AfterRegistration(
+        address _newImpl,
+        address _vaultOwner
+    )
+        private
+    {
         assertEq(
             DefaultResolver(L1.SHARED_RESOLVER).resolve(1, LibNames.B_BRIDGED_ERC20, false),
             _newImpl
