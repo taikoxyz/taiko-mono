@@ -230,6 +230,66 @@ function validFixture(): Fixture {
     return { root, manifest, artifactPath, sourcePath };
 }
 
+function addArtifactOwnedFixtureModule(
+    fixture: Fixture,
+    sourcePath: string,
+    contractName: string,
+): ArtifactOwnedModule {
+    const contents = `contract ${contractName} {}\n`;
+    const artifactPath = `out/shared/${path.posix.basename(sourcePath)}/${contractName}.json`;
+    const artifact = readArtifact(fixture);
+    artifact.metadata.settings.compilationTarget = {
+        [sourcePath]: contractName,
+    };
+    artifact.metadata.sources = {
+        [sourcePath]: { keccak256: sourceHash(contents) },
+    };
+    artifact.ast.nodes[0].name = contractName;
+
+    fs.mkdirSync(path.join(fixture.root, path.dirname(sourcePath)), {
+        recursive: true,
+    });
+    fs.writeFileSync(path.join(fixture.root, sourcePath), contents);
+    writeJson(path.join(fixture.root, artifactPath), artifact);
+
+    const module: ArtifactOwnedModule = {
+        ownership: "artifact-owned",
+        sourcePath,
+        contractName,
+        ownerProfile: "shared",
+        artifactPath,
+        sourceHash: sourceHash(contents),
+        abiHash: canonicalHash(artifact.abi),
+        creationCodeHash: bytecodeHash(artifact.bytecode.object),
+        runtimeCodeHash: bytecodeHash(artifact.deployedBytecode.object),
+        creationLinkReferencesHash: canonicalHash(
+            artifact.bytecode.linkReferences,
+        ),
+        runtimeLinkReferencesHash: canonicalHash(
+            artifact.deployedBytecode.linkReferences,
+        ),
+        immutableReferencesHash: canonicalHash(
+            artifact.deployedBytecode.immutableReferences,
+        ),
+        consumptionModes: [],
+        factoryClass: "direct-create-test",
+        lifecycleScope: "test-only",
+        requiredConsumerProfiles: [],
+    };
+    fixture.manifest.modules.push(module);
+    mutateBuildInfo(fixture, "shared", (value) => {
+        value.source_id_to_path[
+            String(Object.keys(value.source_id_to_path).length)
+        ] = sourcePath;
+        value.input.sources[sourcePath] = { content: contents };
+        value.output.sources[sourcePath] = { ast: artifact.ast };
+        value.output.contracts[sourcePath] = {
+            [contractName]: compilerContract(artifact),
+        };
+    });
+    return module;
+}
+
 function readArtifact(fixture: Fixture): Record<string, any> {
     return JSON.parse(
         fs.readFileSync(path.join(fixture.root, fixture.artifactPath), "utf8"),
@@ -243,6 +303,21 @@ function mutateArtifact(
     const artifact = readArtifact(fixture);
     callback(artifact);
     writeJson(path.join(fixture.root, fixture.artifactPath), artifact);
+}
+
+function mutateModuleArtifact(
+    fixture: Fixture,
+    module: ArtifactOwnedModule,
+    callback: (artifact: Record<string, any>) => void,
+): void {
+    const artifactFile = path.join(fixture.root, module.artifactPath);
+    const artifact = JSON.parse(fs.readFileSync(artifactFile, "utf8"));
+    callback(artifact);
+    writeJson(artifactFile, artifact);
+    mutateBuildInfo(fixture, module.ownerProfile, (value) => {
+        value.output.contracts[module.sourcePath][module.contractName] =
+            compilerContract(artifact);
+    });
 }
 
 function buildInfoPath(
@@ -983,6 +1058,41 @@ run("bytecode drift fails", () => {
     expectCodeAndMessage(
         "ARTIFACT_HASH_MISMATCH",
         `${fixture.sourcePath}:Owned:creationCodeHash:expected=${module.creationCodeHash}:observed=${observed}`,
+        () => validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+});
+
+run("hash drift aggregates all modules and fields deterministically", () => {
+    const fixture = validFixture();
+    const first = fixture.manifest.modules[0] as ArtifactOwnedModule;
+    const second = addArtifactOwnedFixtureModule(
+        fixture,
+        "contracts/shared/slotchain/Second.sol",
+        "Second",
+    );
+    const firstCreation = "0x6002";
+    const firstRuntime = "0x6003";
+    const secondCreation = "0x6004";
+    const secondImmutables = { "1": [{ start: 0, length: 32 }] };
+
+    mutateModuleArtifact(fixture, first, (artifact) => {
+        artifact.bytecode.object = firstCreation;
+        artifact.deployedBytecode.object = firstRuntime;
+    });
+    mutateModuleArtifact(fixture, second, (artifact) => {
+        artifact.bytecode.object = secondCreation;
+        artifact.deployedBytecode.immutableReferences = secondImmutables;
+    });
+    fixture.manifest.modules.reverse();
+
+    expectCodeAndMessage(
+        "ARTIFACT_HASH_MISMATCH",
+        [
+            `${first.sourcePath}:${first.contractName}:creationCodeHash:expected=${first.creationCodeHash}:observed=${bytecodeHash(firstCreation)}`,
+            `${first.sourcePath}:${first.contractName}:runtimeCodeHash:expected=${first.runtimeCodeHash}:observed=${bytecodeHash(firstRuntime)}`,
+            `${second.sourcePath}:${second.contractName}:creationCodeHash:expected=${second.creationCodeHash}:observed=${bytecodeHash(secondCreation)}`,
+            `${second.sourcePath}:${second.contractName}:immutableReferencesHash:expected=${second.immutableReferencesHash}:observed=${canonicalHash(secondImmutables)}`,
+        ].join("\n"),
         () => validateArtifactOwnership(fixture.root, fixture.manifest),
     );
 });

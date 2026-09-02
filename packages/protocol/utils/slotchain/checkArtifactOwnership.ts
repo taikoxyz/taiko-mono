@@ -1371,7 +1371,7 @@ function verifyArtifactOwned(
     module: ArtifactOwnedModule,
     records: ArtifactRecord[],
     buildInputs: Map<ProfileName, Set<string>>,
-): void {
+): string[] {
     const id = fqn(module.sourcePath, module.contractName);
     if (records.length !== 1 || records[0].profile !== module.ownerProfile) {
         fail(
@@ -1431,16 +1431,17 @@ function verifyArtifactOwned(
             record.artifact.deployedBytecode?.immutableReferences ?? {},
         ),
     };
+    const mismatches: string[] = [];
     for (const [field, value] of Object.entries(actual)) {
         if (value !== module[field as keyof ArtifactOwnedModule]) {
-            fail(
-                "ARTIFACT_HASH_MISMATCH",
+            mismatches.push(
                 `${id}:${field}:expected=${
                     module[field as keyof ArtifactOwnedModule]
                 }:observed=${value}`,
             );
         }
     }
+    return mismatches;
 }
 
 function astSome(
@@ -1704,6 +1705,7 @@ export function validateArtifactOwnership(
     }
 
     const inventory: OwnershipInventory["modules"] = [];
+    const artifactHashMismatches: string[] = [];
     for (const [id, module] of [...modules.entries()].sort(([left], [right]) =>
         compareUtf8(left, right),
     )) {
@@ -1736,7 +1738,9 @@ export function validateArtifactOwnership(
             if (module.kind === "internal-library")
                 assertNoLibraryLinks(linkConsumers, module);
         } else {
-            verifyArtifactOwned(manifest, module, records, buildInputs);
+            artifactHashMismatches.push(
+                ...verifyArtifactOwned(manifest, module, records, buildInputs),
+            );
         }
         inventory.push({
             fqn: id,
@@ -1751,6 +1755,10 @@ export function validateArtifactOwnership(
             ).sort(compareUtf8) as ProfileName[],
             fingerprint: canonicalHash(module),
         });
+    }
+
+    if (artifactHashMismatches.length !== 0) {
+        fail("ARTIFACT_HASH_MISMATCH", artifactHashMismatches.join("\n"));
     }
 
     validateUsages(manifest, modules, buildInputs, buildSources);
@@ -1917,13 +1925,16 @@ export function loadOwnedArtifact(
             canonicalHash(artifact.deployedBytecode?.immutableReferences ?? {}),
         ],
     ] as const;
+    const mismatches: string[] = [];
     for (const [field, observed] of observedHashes) {
         if (observed !== module[field]) {
-            fail(
-                "ARTIFACT_HASH_MISMATCH",
+            mismatches.push(
                 `${moduleId}:${field}:expected=${module[field]}:observed=${observed}`,
             );
         }
+    }
+    if (mismatches.length !== 0) {
+        fail("ARTIFACT_HASH_MISMATCH", mismatches.join("\n"));
     }
     return artifact;
 }
