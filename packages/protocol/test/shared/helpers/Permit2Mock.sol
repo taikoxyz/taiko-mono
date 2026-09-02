@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IPermit2 } from "src/shared/vault/IPermit2.sol";
@@ -26,11 +27,16 @@ contract Permit2Mock {
 
     mapping(address owner => mapping(uint256 nonce => bool used)) public nonceUsed;
 
-    error InvalidAmount();
+    /// @dev Signatures mirror Uniswap's `SignatureVerification` and `SignatureExpired` errors,
+    /// arguments included: a test that pins a revert reason here pins the one the deployed Permit2
+    /// emits, not a mock-only shape.
+    error InvalidAmount(uint256 maxAmount);
     error InvalidNonce();
+    error InvalidContractSignature();
+    error InvalidSigner();
     error InvalidSignature();
     error InvalidSignatureLength();
-    error SignatureExpired();
+    error SignatureExpired(uint256 signatureDeadline);
 
     function DOMAIN_SEPARATOR() public view returns (bytes32) {
         return keccak256(
@@ -48,14 +54,14 @@ contract Permit2Mock {
     )
         external
     {
-        if (block.timestamp > permit.deadline) revert SignatureExpired();
-        if (transferDetails.requestedAmount > permit.permitted.amount) revert InvalidAmount();
+        if (block.timestamp > permit.deadline) revert SignatureExpired(permit.deadline);
+        if (transferDetails.requestedAmount > permit.permitted.amount) {
+            revert InvalidAmount(permit.permitted.amount);
+        }
         if (nonceUsed[owner][permit.nonce]) revert InvalidNonce();
         nonceUsed[owner][permit.nonce] = true;
 
-        if (_recover(hashTypedData(permit, msg.sender), signature) != owner) {
-            revert InvalidSignature();
-        }
+        _verify(hashTypedData(permit, msg.sender), signature, owner);
 
         IERC20(permit.permitted.token)
             .safeTransferFrom(owner, transferDetails.to, transferDetails.requestedAmount);
@@ -81,14 +87,26 @@ contract Permit2Mock {
         return keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR(), structHash));
     }
 
-    function _recover(
+    /// @dev Mirrors Permit2's `SignatureVerification.verify`: a claimed signer that has code is
+    /// routed to EIP-1271 with the signature passed through verbatim -- no length is imposed on it,
+    /// so a wallet that authorizes from stored state validates even an empty one. Only an EOA
+    /// signature is required to be 65 bytes.
+    function _verify(
         bytes32 _digest,
-        bytes calldata _signature
+        bytes calldata _signature,
+        address _claimedSigner
     )
         private
-        pure
-        returns (address)
+        view
     {
+        if (_claimedSigner.code.length != 0) {
+            if (
+                IERC1271(_claimedSigner).isValidSignature(_digest, _signature)
+                    != IERC1271.isValidSignature.selector
+            ) revert InvalidContractSignature();
+            return;
+        }
+
         if (_signature.length != 65) revert InvalidSignatureLength();
 
         bytes32 r = bytes32(_signature[0:32]);
@@ -97,6 +115,6 @@ contract Permit2Mock {
 
         address signer = ecrecover(_digest, v, r, s);
         if (signer == address(0)) revert InvalidSignature();
-        return signer;
+        if (signer != _claimedSigner) revert InvalidSigner();
     }
 }

@@ -4,6 +4,9 @@ pragma solidity ^0.8.24;
 import { FreeMintERC20TokenWithPermit } from "../helpers/FreeMintERC20TokenWithPermit.sol";
 import { Permit2Mock } from "../helpers/Permit2Mock.sol";
 import "./ERC20Vault.h.sol";
+import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { IERC20Permit } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import { IPermit2 } from "src/shared/vault/IPermit2.sol";
 
 /// @notice Covers ERC20Vault's approval-free entrypoints: `sendTokenWithPermit` (EIP-2612) and
@@ -15,6 +18,87 @@ contract PermitCallRecorder {
 
     function permit(address, address, uint256, uint256, uint8, bytes32, bytes32) external {
         ++permitCalls;
+    }
+}
+
+/// @notice An ERC20 whose fallback silently accepts unknown selectors, which is what WETH9 does.
+/// @dev `permit` therefore neither reverts nor grants anything: the vault's `try` takes its success
+/// branch with the allowance untouched. This is the shape the repo's reverting WETH9 mock cannot
+/// reproduce, and the reason the allowance is checked rather than the call's outcome.
+contract SilentPermitToken is ERC20 {
+    constructor() ERC20("Silent", "SLNT") {
+        _mint(msg.sender, 100 ether);
+    }
+
+    fallback() external payable { }
+    receive() external payable { }
+}
+
+/// @notice A token whose `permit` re-enters `sendTokenWithPermit`, so `nonReentrant` is exercised.
+/// @dev The reentrant call bridges the token's *own* balance against an allowance it grants itself,
+/// so without the guard it would complete a second full bridge. The guard's revert is swallowed by
+/// the outer `catch {}`, which is exactly why the assertion has to be on tokens moved rather than on
+/// the revert reason.
+contract ReenteringPermitToken is ERC20 {
+    ERC20Vault public immutable vault;
+    ERC20Vault.BridgeTransferOp private op;
+
+    constructor(ERC20Vault _vault) ERC20("Reenter", "RNTR") {
+        vault = _vault;
+        _mint(msg.sender, 100 ether);
+    }
+
+    function arm(ERC20Vault.BridgeTransferOp calldata _op) external {
+        op = _op;
+        _mint(address(this), _op.amount);
+        _approve(address(this), address(vault), type(uint256).max);
+    }
+
+    function permit(address, address, uint256, uint256, uint8, bytes32, bytes32) external {
+        ERC20Vault.BridgeTransferOp memory reentrant = op;
+        reentrant.token = address(this);
+        vault.sendTokenWithPermit(reentrant, block.timestamp + 1 hours, 0, bytes32(0), bytes32(0));
+    }
+}
+
+/// @notice A token whose `transferFrom` re-enters `sendTokenWithPermit2`.
+/// @dev Nothing catches on that path, so the guard's revert propagates and can be asserted directly.
+contract ReenteringPermit2Token is ERC20 {
+    ERC20Vault public immutable vault;
+    ERC20Vault.BridgeTransferOp private op;
+
+    constructor(ERC20Vault _vault) ERC20("Reenter2", "RNTR2") {
+        vault = _vault;
+        _mint(msg.sender, 100 ether);
+    }
+
+    function arm(ERC20Vault.BridgeTransferOp calldata _op) external {
+        op = _op;
+    }
+
+    function transferFrom(address, address, uint256) public override returns (bool) {
+        vault.sendTokenWithPermit2(op, 0, block.timestamp + 1 hours, "");
+        return true;
+    }
+}
+
+/// @notice A smart-contract wallet that authorizes a pre-approved digest from stored state.
+/// @dev Signature bytes are irrelevant to it, empty included -- the Safe `signMessage` shape. Real
+/// Permit2 routes a signer with code straight to `isValidSignature`, so the vault must not impose a
+/// length of its own or this wallet cannot bridge.
+contract PreApprovingWallet is IERC1271 {
+    mapping(bytes32 digest => bool approved) public approvedHashes;
+
+    function approveHash(bytes32 _digest) external {
+        approvedHashes[_digest] = true;
+    }
+
+    function approve(address _token, address _spender, uint256 _amount) external {
+        IERC20(_token).approve(_spender, _amount);
+    }
+
+    function isValidSignature(bytes32 _hash, bytes memory) external view returns (bytes4) {
+        return approvedHashes[_hash] ? IERC1271.isValidSignature.selector : bytes4(0xffffffff);
     }
 }
 
@@ -132,6 +216,21 @@ contract TestERC20VaultPermit is CommonTest {
         view
         returns (uint8 v, bytes32 r, bytes32 s)
     {
+        return _signPermitFor(_pk, address(eToken), _owner, _amount, _deadline);
+    }
+
+    /// @dev Same, for any EIP-2612 token -- `BridgedERC20V2` carries its own domain separator.
+    function _signPermitFor(
+        uint256 _pk,
+        address _token,
+        address _owner,
+        uint256 _amount,
+        uint256 _deadline
+    )
+        private
+        view
+        returns (uint8 v, bytes32 r, bytes32 s)
+    {
         bytes32 structHash = keccak256(
             abi.encode(
                 keccak256(
@@ -140,12 +239,13 @@ contract TestERC20VaultPermit is CommonTest {
                 _owner,
                 address(eVault),
                 _amount,
-                eToken.nonces(_owner),
+                IERC20Permit(_token).nonces(_owner),
                 _deadline
             )
         );
-        bytes32 digest =
-            keccak256(abi.encodePacked("\x19\x01", eToken.DOMAIN_SEPARATOR(), structHash));
+        bytes32 digest = keccak256(
+            abi.encodePacked("\x19\x01", IERC20Permit(_token).DOMAIN_SEPARATOR(), structHash)
+        );
         return vm.sign(_pk, digest);
     }
 
@@ -188,17 +288,70 @@ contract TestERC20VaultPermit is CommonTest {
 
         bytes memory sig = _signPermit2(AlicePK, amount, 7, deadline, address(eVault));
 
+        // A distinct `destOwner` is the whole point: with the default `address(0)` both `srcOwner`
+        // and the `destOwner` fallback resolve to `msg.sender`, so sourcing `srcOwner` from the
+        // wrong field would still pass.
+        ERC20Vault.BridgeTransferOp memory op = _op(amount);
+        op.destOwner = Carol;
+
         vm.prank(Alice);
-        IBridge.Message memory message = eVault.sendTokenWithPermit2(_op(amount), 7, deadline, sig);
+        IBridge.Message memory message = eVault.sendTokenWithPermit2(op, 7, deadline, sig);
 
         assertEq(message.srcOwner, Alice);
-        assertEq(message.destOwner, Alice);
+        assertEq(message.destOwner, Carol);
     }
 
-    function test_20Vault_permit2_reverts_on_an_empty_signature() public {
+    /// @dev The vault imposes no length on the signature; Permit2 decides. For an EOA that means
+    /// Permit2's own `InvalidSignatureLength`, so a vault-side guard would add nothing here -- and
+    /// would break the contract-signer case below, which is why there is none.
+    function test_20Vault_permit2_leaves_an_empty_eoa_signature_to_permit2() public {
         vm.prank(Alice);
-        vm.expectRevert(ERC20Vault.VAULT_INVALID_PERMIT2_SIG.selector);
+        vm.expectRevert(Permit2Mock.InvalidSignatureLength.selector);
         eVault.sendTokenWithPermit2(_op(1 ether), 0, block.timestamp + 1 hours, "");
+    }
+
+    /// @dev Real Permit2 routes a claimed signer that has code straight to
+    /// `IERC1271.isValidSignature` with the signature passed through verbatim, so a wallet that
+    /// authorizes from stored state (a pre-approved hash, as Safe's `signMessage` produces)
+    /// validates an empty signature and transfers. A vault-side length guard would reject this
+    /// documented flow before Permit2 ever saw it.
+    function test_20Vault_permit2_bridges_for_a_contract_wallet_with_an_empty_signature() public {
+        PreApprovingWallet wallet = new PreApprovingWallet();
+
+        uint256 amount = 2 ether;
+        uint256 deadline = block.timestamp + 1 hours;
+
+        eToken.mint(address(wallet));
+        wallet.approve(address(eToken), permit2, type(uint256).max);
+
+        IPermit2.PermitTransferFrom memory permit = IPermit2.PermitTransferFrom({
+            permitted: IPermit2.TokenPermissions({ token: address(eToken), amount: amount }),
+            nonce: 0,
+            deadline: deadline
+        });
+        wallet.approveHash(Permit2Mock(permit2).hashTypedData(permit, address(eVault)));
+
+        uint256 walletBefore = eToken.balanceOf(address(wallet));
+        uint256 vaultBefore = eToken.balanceOf(address(eVault));
+
+        vm.prank(address(wallet));
+        eVault.sendTokenWithPermit2(_op(amount), 0, deadline, "");
+
+        assertEq(eToken.balanceOf(address(wallet)), walletBefore - amount);
+        assertEq(eToken.balanceOf(address(eVault)), vaultBefore + amount);
+    }
+
+    /// @dev The same wallet without the digest approved is rejected -- the empty signature is not a
+    /// bearer instrument, it is only as good as what `isValidSignature` says about it.
+    function test_20Vault_permit2_reverts_for_a_contract_wallet_that_did_not_approve() public {
+        PreApprovingWallet wallet = new PreApprovingWallet();
+
+        eToken.mint(address(wallet));
+        wallet.approve(address(eToken), permit2, type(uint256).max);
+
+        vm.prank(address(wallet));
+        vm.expectRevert(Permit2Mock.InvalidContractSignature.selector);
+        eVault.sendTokenWithPermit2(_op(2 ether), 0, block.timestamp + 1 hours, "");
     }
 
     function test_20Vault_permit2_reverts_when_the_nonce_is_replayed() public {
@@ -229,7 +382,7 @@ contract TestERC20VaultPermit is CommonTest {
         bytes memory sig = _signPermit2(BobPK, amount, 0, deadline, address(eVault));
 
         vm.prank(Alice);
-        vm.expectRevert(Permit2Mock.InvalidSignature.selector);
+        vm.expectRevert(Permit2Mock.InvalidSigner.selector);
         eVault.sendTokenWithPermit2(_op(amount), 0, deadline, sig);
     }
 
@@ -240,11 +393,12 @@ contract TestERC20VaultPermit is CommonTest {
         vm.prank(Alice);
         eToken.approve(permit2, type(uint256).max);
 
-        // Signed for Carol as spender; the vault redeems it, so the digest will not match.
+        // Signed for Carol as spender; the vault redeems it, so the digest will not match and
+        // recovery lands on some other address.
         bytes memory sig = _signPermit2(AlicePK, amount, 0, deadline, Carol);
 
         vm.prank(Alice);
-        vm.expectRevert(Permit2Mock.InvalidSignature.selector);
+        vm.expectRevert(Permit2Mock.InvalidSigner.selector);
         eVault.sendTokenWithPermit2(_op(amount), 0, deadline, sig);
     }
 
@@ -260,8 +414,16 @@ contract TestERC20VaultPermit is CommonTest {
         vm.warp(deadline + 1);
 
         vm.prank(Alice);
-        vm.expectRevert(Permit2Mock.SignatureExpired.selector);
+        vm.expectRevert(abi.encodeWithSelector(Permit2Mock.SignatureExpired.selector, deadline));
         eVault.sendTokenWithPermit2(_op(amount), 0, deadline, sig);
+    }
+
+    /// @dev Every other test in this file etches the mock at whatever `eVault.PERMIT2()` returns,
+    /// so none of them would notice the constant being wrong. This pins the literal: Permit2's
+    /// address is CREATE2-derived from `(factory, salt, initcode hash)`, none of which vary by
+    /// chain, so it is the same on every chain the vault is deployed to.
+    function test_20Vault_permit2_uses_the_canonical_permit2_address() public view {
+        assertEq(eVault.PERMIT2(), 0x000000000022D473030F116dDEE9F6B43aC78BA3);
     }
 
     /// @dev Pins the Permit2 interface to the selector actually present in the canonical deployed
@@ -329,8 +491,11 @@ contract TestERC20VaultPermit is CommonTest {
         // Simulate a chain where Permit2 was never deployed.
         vm.etch(permit2, "");
 
+        // `bytes("")` rather than a bare `expectRevert()`: it matches only the empty revert an
+        // extcodesize check produces, so replacing that mechanism with anything that reverts for a
+        // different reason fails here.
         vm.prank(Alice);
-        vm.expectRevert();
+        vm.expectRevert(bytes(""));
         eVault.sendTokenWithPermit2(_op(amount), 0, deadline, sig);
 
         // Nothing moved: the call did not silently succeed.
@@ -340,8 +505,12 @@ contract TestERC20VaultPermit is CommonTest {
 
     /// @dev `_pullTokens` is reached from both branches of `_handleMessage`. The canonical branch
     /// locks and measures a balance delta; this is the other one -- the bridged "transfer and
-    /// burn" path -- where the pull is followed by `burn`, so a short pull would revert rather
-    /// than silently under-bridge.
+    /// burn" path, where the pull is followed by `burn(_op.amount)` and the full `_op.amount` is
+    /// bridged without measuring what actually arrived. Note that `burn` takes from the vault's own
+    /// balance, so a short pull of a bridged token over-credits the destination rather than
+    /// reverting. That is pre-existing and reachable only for a fee-on-transfer bridged token,
+    /// which is DAO-gated via `changeBridgedToken`; measuring the delta here is not the fix,
+    /// because the canonical branch tolerates short pulls by design.
     function test_20Vault_permit2_bridges_a_bridged_token_via_transfer_and_burn() public {
         (address btoken,) = _registerBridgedToken();
 
@@ -507,11 +676,16 @@ contract TestERC20VaultPermit is CommonTest {
 
         (uint8 v, bytes32 r, bytes32 s) = _signPermit(AlicePK, Alice, amount, deadline);
 
+        // See the Permit2 counterpart: `destOwner` must differ from the caller for this to have
+        // any teeth.
+        ERC20Vault.BridgeTransferOp memory op = _op(amount);
+        op.destOwner = Carol;
+
         vm.prank(Alice);
-        IBridge.Message memory message = eVault.sendTokenWithPermit(_op(amount), deadline, v, r, s);
+        IBridge.Message memory message = eVault.sendTokenWithPermit(op, deadline, v, r, s);
 
         assertEq(message.srcOwner, Alice);
-        assertEq(message.destOwner, Alice);
+        assertEq(message.destOwner, Carol);
     }
 
     /// @dev A griefer can replay the permit straight at the token to burn the nonce. The vault must
@@ -546,7 +720,239 @@ contract TestERC20VaultPermit is CommonTest {
         (uint8 v, bytes32 r, bytes32 s) = _signPermit(BobPK, Alice, amount, deadline);
 
         vm.prank(Alice);
-        vm.expectRevert("ERC20: insufficient allowance");
+        vm.expectRevert(ERC20Vault.VAULT_PERMIT_NO_ALLOWANCE.selector);
         eVault.sendTokenWithPermit(_op(amount), deadline, v, r, s);
+    }
+
+    /// @dev The case the `try/catch` alone cannot see: a token whose fallback silently accepts
+    /// unknown selectors takes the *success* branch with the allowance still zero. WETH9 is exactly
+    /// this shape and is one of the quota-capped vault tokens, so the failure must be decodable
+    /// rather than a generic `SafeERC20` string from deep inside the pull.
+    function test_20Vault_permit_reverts_when_permit_silently_grants_nothing() public {
+        SilentPermitToken silent = new SilentPermitToken();
+        assertTrue(silent.transfer(Alice, 10 ether));
+
+        uint256 amount = 2 ether;
+        uint256 deadline = block.timestamp + 1 hours;
+
+        // The call succeeds and grants nothing, so only the allowance distinguishes the outcome.
+        assertEq(silent.allowance(Alice, address(eVault)), 0);
+
+        vm.prank(Alice);
+        vm.expectRevert(ERC20Vault.VAULT_PERMIT_NO_ALLOWANCE.selector);
+        eVault.sendTokenWithPermit(
+            _op(address(silent), amount), deadline, 0, bytes32(0), bytes32(0)
+        );
+    }
+
+    /// @dev The allowance check must not undo the front-run tolerance: a standing allowance is a
+    /// legitimate basis to bridge on, whoever set it. Same token, same failed permit, allowance
+    /// present -- and it goes through.
+    function test_20Vault_permit_bridges_on_a_standing_allowance_when_permit_grants_nothing()
+        public
+    {
+        SilentPermitToken silent = new SilentPermitToken();
+        assertTrue(silent.transfer(Alice, 10 ether));
+
+        uint256 amount = 2 ether;
+        uint256 deadline = block.timestamp + 1 hours;
+
+        vm.prank(Alice);
+        silent.approve(address(eVault), amount);
+
+        uint256 aliceBefore = silent.balanceOf(Alice);
+        uint256 vaultBefore = silent.balanceOf(address(eVault));
+
+        vm.prank(Alice);
+        eVault.sendTokenWithPermit(
+            _op(address(silent), amount), deadline, 0, bytes32(0), bytes32(0)
+        );
+
+        assertEq(silent.balanceOf(Alice), aliceBefore - amount);
+        assertEq(silent.balanceOf(address(eVault)), vaultBefore + amount);
+    }
+
+    /// @dev EIP-2612 through the bridged "transfer and burn" branch. `BridgedERC20` has no `permit`,
+    /// so this needs a `BridgedERC20V2`; without it the burn branch is covered for Permit2 only.
+    function test_20Vault_permit_bridges_a_bridged_token_via_transfer_and_burn() public {
+        (BridgedERC20V2 btoken,) = _registerBridgedTokenV2();
+
+        vm.prank(address(eVault));
+        btoken.mint(Alice, 10 ether);
+
+        uint256 amount = 3 ether;
+        uint256 deadline = block.timestamp + 1 hours;
+
+        assertEq(btoken.allowance(Alice, address(eVault)), 0);
+
+        (uint8 v, bytes32 r, bytes32 s) =
+            _signPermitFor(AlicePK, address(btoken), Alice, amount, deadline);
+
+        uint256 supplyBefore = btoken.totalSupply();
+
+        vm.prank(Alice);
+        IBridge.Message memory message =
+            eVault.sendTokenWithPermit(_op(address(btoken), amount), deadline, v, r, s);
+
+        assertEq(btoken.balanceOf(Alice), 10 ether - amount);
+        assertEq(btoken.totalSupply(), supplyBefore - amount);
+        assertEq(btoken.balanceOf(address(eVault)), 0);
+        assertEq(message.srcOwner, Alice);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Modifiers, fee and value
+    // ---------------------------------------------------------------------------------------
+
+    function test_20Vault_permit_reverts_when_paused() public {
+        vm.prank(deployer);
+        eVault.pause();
+
+        vm.prank(Alice);
+        vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
+        eVault.sendTokenWithPermit(
+            _op(1 ether), block.timestamp + 1 hours, 0, bytes32(0), bytes32(0)
+        );
+    }
+
+    function test_20Vault_permit2_reverts_when_paused() public {
+        vm.prank(deployer);
+        eVault.pause();
+
+        vm.prank(Alice);
+        vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
+        eVault.sendTokenWithPermit2(_op(1 ether), 0, block.timestamp + 1 hours, "");
+    }
+
+    /// @dev `nonReentrant` is load-bearing on `sendTokenWithPermit`: `permit` hands execution to a
+    /// caller-chosen address before the pull. The guard's revert is swallowed by the surrounding
+    /// `catch {}`, so the observable consequence is what is asserted -- the reentrant bridge moves
+    /// no tokens. Drop the modifier and the vault receives `2 * amount` instead.
+    function test_20Vault_permit_blocks_a_reentrant_bridge() public {
+        ReenteringPermitToken token = new ReenteringPermitToken(eVault);
+        assertTrue(token.transfer(Alice, 10 ether));
+
+        uint256 amount = 1 ether;
+        token.arm(_op(address(token), amount));
+
+        vm.prank(Alice);
+        token.approve(address(eVault), amount);
+
+        uint256 aliceBefore = token.balanceOf(Alice);
+        uint256 tokenBefore = token.balanceOf(address(token));
+
+        // The reentrant call is attempted -- the guard is what stops it, not a missing call.
+        vm.expectCall(
+            address(eVault), abi.encodeWithSelector(ERC20Vault.sendTokenWithPermit.selector), 2
+        );
+
+        vm.prank(Alice);
+        eVault.sendTokenWithPermit(
+            _op(address(token), amount), block.timestamp + 1 hours, 0, bytes32(0), bytes32(0)
+        );
+
+        // Only Alice's bridge went through; the token's own armed balance is untouched.
+        assertEq(token.balanceOf(Alice), aliceBefore - amount);
+        assertEq(token.balanceOf(address(token)), tokenBefore);
+        assertEq(token.balanceOf(address(eVault)), amount);
+    }
+
+    /// @dev Nothing catches on the Permit2 path, so there the guard's revert is directly observable.
+    function test_20Vault_permit2_reverts_on_reentrancy() public {
+        ReenteringPermit2Token token = new ReenteringPermit2Token(eVault);
+        assertTrue(token.transfer(Alice, 10 ether));
+
+        uint256 amount = 1 ether;
+        token.arm(_op(address(token), amount));
+
+        vm.prank(Alice);
+        token.approve(permit2, type(uint256).max);
+
+        bytes memory sig = _signPermit2(
+            AlicePK, address(token), amount, 0, block.timestamp + 1 hours, address(eVault)
+        );
+
+        vm.prank(Alice);
+        vm.expectRevert(EssentialContract.REENTRANT_CALL.selector);
+        eVault.sendTokenWithPermit2(_op(address(token), amount), 0, block.timestamp + 1 hours, sig);
+    }
+
+    function test_20Vault_permit_reverts_when_value_is_below_the_fee() public {
+        uint256 amount = 1 ether;
+        uint256 deadline = block.timestamp + 1 hours;
+
+        ERC20Vault.BridgeTransferOp memory op = _op(amount);
+        op.fee = 1000;
+
+        (uint8 v, bytes32 r, bytes32 s) = _signPermit(AlicePK, Alice, amount, deadline);
+
+        vm.prank(Alice);
+        vm.expectRevert(BaseVault.VAULT_INSUFFICIENT_FEE.selector);
+        eVault.sendTokenWithPermit{ value: 999 }(op, deadline, v, r, s);
+    }
+
+    function test_20Vault_permit2_reverts_when_value_is_below_the_fee() public {
+        uint256 amount = 1 ether;
+        uint256 deadline = block.timestamp + 1 hours;
+
+        vm.prank(Alice);
+        eToken.approve(permit2, type(uint256).max);
+
+        ERC20Vault.BridgeTransferOp memory op = _op(amount);
+        op.fee = 1000;
+
+        bytes memory sig = _signPermit2(AlicePK, amount, 0, deadline, address(eVault));
+
+        vm.prank(Alice);
+        vm.expectRevert(BaseVault.VAULT_INSUFFICIENT_FEE.selector);
+        eVault.sendTokenWithPermit2{ value: 999 }(op, 0, deadline, sig);
+    }
+
+    /// @dev The value path end to end: `msg.value - fee` becomes the message value and the fee is
+    /// carried on the message, exactly as `sendToken` does it.
+    function test_20Vault_permit2_carries_value_and_fee_onto_the_message() public {
+        uint256 amount = 1 ether;
+        uint256 deadline = block.timestamp + 1 hours;
+
+        vm.prank(Alice);
+        eToken.approve(permit2, type(uint256).max);
+
+        ERC20Vault.BridgeTransferOp memory op = _op(amount);
+        op.fee = 1000;
+
+        bytes memory sig = _signPermit2(AlicePK, amount, 0, deadline, address(eVault));
+
+        vm.prank(Alice);
+        IBridge.Message memory message =
+            eVault.sendTokenWithPermit2{ value: 5000 }(op, 0, deadline, sig);
+
+        assertEq(message.fee, 1000);
+        assertEq(message.value, 4000);
+    }
+
+    /// @dev Registers a `BridgedERC20V2`, which unlike `BridgedERC20` implements EIP-2612.
+    function _registerBridgedTokenV2()
+        private
+        returns (BridgedERC20V2 btoken_, ERC20Vault.CanonicalERC20 memory canonical_)
+    {
+        FreeMintERC20TokenWithPermit origin = new FreeMintERC20TokenWithPermit("ORIGV2", "ORIGV2");
+
+        canonical_ = ERC20Vault.CanonicalERC20({
+            chainId: 999, addr: address(origin), decimals: 18, symbol: "ORIGV2", name: "ORIGV2"
+        });
+
+        btoken_ = BridgedERC20V2(
+            deploy({
+                name: "",
+                impl: address(new BridgedERC20V2(address(eVault))),
+                data: abi.encodeCall(
+                    BridgedERC20V2.init, (deployer, address(origin), 999, 18, "ORIGV2", "ORIGV2")
+                )
+            })
+        );
+
+        vm.warp(block.timestamp + 91 days);
+        vm.prank(deployer);
+        eVault.changeBridgedToken(canonical_, address(btoken_));
     }
 }

@@ -7,8 +7,12 @@ import "./ERC20Vault.h.sol";
 
 /// @dev Verifies that the ERC20Vault debits the token quota exactly for the tokens actually
 /// released to a recipient ("debit only on actual release"). Because the vault consumes quota in
-/// the same atomic call that transfers/mints the tokens, a reverted (e.g. out-of-quota) delivery
-/// releases nothing and debits nothing, and each successful delivery is debited exactly once.
+/// the same atomic call that transfers/mints the tokens, a reverted (e.g. out-of-quota) release
+/// releases nothing and debits nothing, and each successful release is debited exactly once.
+/// @dev Both release paths are covered: delivering a message from another chain, and refunding a
+/// message that was recalled. Both debit the same bucket -- a recall is reached through the same
+/// destination-chain failure proof a delivery is, and on the bridged branch it mints supply that no
+/// vault balance bounds, so exempting it would leave that path with no numeric ceiling at all.
 contract TestERC20Vault_quota is CommonTest {
     SignalService private eSignalService;
     ERC20Vault private eVault;
@@ -160,14 +164,12 @@ contract TestERC20Vault_quota is CommonTest {
         });
     }
 
-    // Refunding a recalled message is exempt from the quota: those tokens never left this chain,
-    // so returning a user's own failed deposit must not be throttled by unrelated bridge traffic.
-    function test_quota_recall_refund_is_exempt_from_quota() public {
+    // A refund debits the quota exactly like a delivery does. A recall is reached through the same
+    // destination-chain failure proof a delivery is, so the quota is the backstop for a forged one.
+    function test_quota_recall_refund_debits_amount() public {
         vm.chainId(taikoChainId);
 
         uint64 amount = 10;
-        qm.setLimit(1); // any debit of `amount` would revert
-
         uint256 aliceBefore = eERC20Token1.balanceOf(Alice);
 
         // Pre-build the message: it reads token metadata, which would consume the prank.
@@ -176,53 +178,57 @@ contract TestERC20Vault_quota is CommonTest {
         eVault.onMessageRecalled(message, bytes32(0));
 
         assertEq(eERC20Token1.balanceOf(Alice) - aliceBefore, amount);
-        // The quota manager is not consulted at all on the refund path.
-        assertEq(qm.calls(), 0);
-        assertEq(qm.totalConsumed(), 0);
+        assertEq(qm.consumed(address(eERC20Token1)), amount);
+        assertEq(qm.totalConsumed(), amount);
     }
 
-    // The exemption is specific to refunds: under the very same exhausted quota, a cross-chain
-    // delivery is still rejected.
-    function test_quota_blocks_delivery_but_not_refund_under_the_same_limit() public {
+    // An exhausted quota blocks a refund just as it blocks a delivery, and the refund releases
+    // nothing: the debit is the last step of `_transferTokens`, so the revert unwinds the transfer.
+    function test_quota_recall_refund_insufficient_reverts_and_releases_nothing() public {
         vm.chainId(taikoChainId);
 
         uint64 amount = 10;
-        qm.setLimit(1);
+        qm.setLimit(amount - 1);
 
-        // A delivery from another chain is throttled ...
-        ERC20Vault.CanonicalERC20 memory canonical = _canonical();
-        vm.expectRevert(QuotaManager.QM_OUT_OF_QUOTA.selector);
-        tBridge.sendReceiveERC20ToERC20Vault(
-            canonical,
-            Alice,
-            Bob,
-            amount,
-            0,
-            bytes32(0),
-            bytes32(0),
-            address(eVault),
-            ethereumChainId,
-            0
-        );
-
-        // ... while a refund of a failed message goes through.
         uint256 aliceBefore = eERC20Token1.balanceOf(Alice);
+        uint256 vaultBefore = eERC20Token1.balanceOf(address(eVault));
+
         IBridge.Message memory message = _recallMessage(amount);
         vm.prank(address(tBridge));
+        vm.expectRevert(QuotaManager.QM_OUT_OF_QUOTA.selector);
         eVault.onMessageRecalled(message, bytes32(0));
 
-        assertEq(eERC20Token1.balanceOf(Alice) - aliceBefore, amount);
+        assertEq(eERC20Token1.balanceOf(Alice), aliceBefore);
+        assertEq(eERC20Token1.balanceOf(address(eVault)), vaultBefore);
         assertEq(qm.totalConsumed(), 0);
     }
 
-    // The exemption also covers the other branch of `_transferTokens`: a refund whose canonical
-    // lives on a third chain is settled by minting the bridged representation, which must likewise
-    // not be throttled.
-    function test_quota_recall_refund_of_a_bridged_token_is_exempt_from_quota() public {
+    // Deliveries and refunds draw on the same bucket: a delivery that spends the quota leaves a
+    // refund of the same size unaffordable. This is the mainnet-L1 property the exemption removed.
+    function test_quota_delivery_and_refund_share_the_same_limit() public {
         vm.chainId(taikoChainId);
 
         uint64 amount = 10;
-        qm.setLimit(1); // any debit of `amount` would revert
+        qm.setLimit(amount);
+
+        // The delivery spends the whole bucket ...
+        _receive(amount);
+        assertEq(qm.totalConsumed(), amount);
+
+        // ... so a refund of the same size no longer fits.
+        IBridge.Message memory message = _recallMessage(amount);
+        vm.prank(address(tBridge));
+        vm.expectRevert(QuotaManager.QM_OUT_OF_QUOTA.selector);
+        eVault.onMessageRecalled(message, bytes32(0));
+    }
+
+    // The debit covers the other branch of `_transferTokens` too: a refund whose canonical lives on
+    // a third chain is settled by *minting* the bridged representation. That branch is bounded by no
+    // vault balance, so the quota is the only numeric ceiling on it.
+    function test_quota_recall_refund_of_a_bridged_token_debits_amount() public {
+        vm.chainId(taikoChainId);
+
+        uint64 amount = 10;
 
         // chainId 999 != block.chainid, so the refund takes the mint branch.
         ERC20Vault.CanonicalERC20 memory foreign = ERC20Vault.CanonicalERC20({
@@ -240,7 +246,31 @@ contract TestERC20Vault_quota is CommonTest {
         address btoken = eVault.canonicalToBridged(999, address(eERC20Token1));
         assertTrue(btoken != address(0), "bridged token not deployed");
         assertEq(BridgedERC20(btoken).balanceOf(Alice), amount);
-        assertEq(qm.calls(), 0);
+        // Debited against the bridged token, which is what was released.
+        assertEq(qm.consumed(btoken), amount);
+        assertEq(qm.totalConsumed(), amount);
+    }
+
+    // And the mint branch is throttled, not just metered: an exhausted quota mints nothing.
+    function test_quota_recall_refund_of_a_bridged_token_is_throttled() public {
+        vm.chainId(taikoChainId);
+
+        uint64 amount = 10;
+        qm.setLimit(amount - 1);
+
+        ERC20Vault.CanonicalERC20 memory foreign = ERC20Vault.CanonicalERC20({
+            chainId: 999,
+            addr: address(eERC20Token1),
+            decimals: eERC20Token1.decimals(),
+            symbol: eERC20Token1.symbol(),
+            name: eERC20Token1.name()
+        });
+
+        IBridge.Message memory message = _recallMessage(foreign, amount);
+        vm.prank(address(tBridge));
+        vm.expectRevert(QuotaManager.QM_OUT_OF_QUOTA.selector);
+        eVault.onMessageRecalled(message, bytes32(0));
+
         assertEq(qm.totalConsumed(), 0);
     }
 
