@@ -95,8 +95,9 @@ contract Proposal0023 is BuildProposal {
 
         // 1: Upgrade the mainnet ERC20 vault to the implementation carrying EIP-2612 permit and
         // Permit2 support (#22093). The new implementation is built with the same resolver and
-        // quota manager immutables the live one carries, and the L1 shared resolver already holds
-        // every name the vault reads, so no registration accompanies this upgrade.
+        // quota manager immutables the live one carries. The L1 shared resolver already holds
+        // the vault's `bridge` and `erc20_vault` entries; its `bridged_erc20` entry is the one
+        // stale name, corrected by action 2.
         actions[1] = buildUpgradeAction(L1.ERC20_VAULT, _d.erc20VaultImpl);
 
         // 2: Point the L1 shared resolver's `bridged_erc20` at a `BridgedERC20V2` built from `main`.
