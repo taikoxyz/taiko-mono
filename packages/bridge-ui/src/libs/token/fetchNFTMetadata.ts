@@ -5,8 +5,8 @@ import { destNetwork } from '$components/Bridge/state';
 import { ipfsConfig } from '$config';
 import { FetchMetadataError, NoMetadataFoundError, WrongChainError } from '$libs/error';
 import { decodeBase64ToJson } from '$libs/util/decodeBase64ToJson';
+import { fetchFromIPFSGateways, toIPFSPath } from '$libs/util/ipfsGateways';
 import { getLogger } from '$libs/util/logger';
-import { resolveIPFSUri, toIPFSPath } from '$libs/util/resolveIPFSUri';
 import { addMetadataToCache, getMetadataFromCache, isMetadataCached } from '$stores/metadata';
 import { connectedSourceChain } from '$stores/network';
 
@@ -31,21 +31,18 @@ const log = getLogger('libs:token:fetchNFTMetadata');
  * disabled`, while the same CID still resolves through the public gateways.
  */
 async function fetchMetadataDocument(uri: string): Promise<NFTMetadata> {
-  // An `ipfs://` URI has no host to try first, so it goes straight to a gateway.
-  if (uri.startsWith('ipfs:')) {
-    const response = await axios.get<NFTMetadata>(await resolveIPFSUri(uri), axiosConfig);
-    return response.data;
-  }
+  const get = async (url: string) => (await axios.get<NFTMetadata>(url, axiosConfig)).data;
+
+  // An `ipfs://` URI names no host to try first, so it goes straight to the gateways.
+  if (uri.startsWith('ipfs:')) return fetchFromIPFSGateways(uri, get);
 
   try {
-    const response = await axios.get<NFTMetadata>(uri, axiosConfig);
-    return response.data;
+    return await get(uri);
   } catch (error) {
     if (toIPFSPath(uri) === null) throw error;
 
     log('metadata uri failed, retrying through the configured IPFS gateways', uri, error);
-    const response = await axios.get<NFTMetadata>(await resolveIPFSUri(uri), axiosConfig);
-    return response.data;
+    return fetchFromIPFSGateways(uri, get);
   }
 }
 

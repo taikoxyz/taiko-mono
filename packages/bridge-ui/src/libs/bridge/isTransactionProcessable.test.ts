@@ -58,8 +58,14 @@ describe('isTransactionProcessable', () => {
     await expect(isTransactionProcessable(l2ToL1({ message: undefined }))).resolves.toBe(false);
   });
 
-  it('is null when the transaction carries no source block to compare against', async () => {
-    await expect(isTransactionProcessable(l2ToL1({ blockNumber: undefined }))).resolves.toBe(null);
+  it('is false when the transaction carries no source block to prove against', async () => {
+    // Settled, not unknown: BridgeProver rejects a row with no blockNumber outright, so no chain
+    // state can turn it into a working claim and no action may be offered on it
+    await expect(isTransactionProcessable(l2ToL1({ blockNumber: undefined }))).resolves.toBe(false);
+  });
+
+  it('is false when the source block is in a shape BigInt cannot read', async () => {
+    await expect(isTransactionProcessable(l2ToL1({ blockNumber: 'not a number' as never }))).resolves.toBe(false);
   });
 
   describe('L2 to L1', () => {
@@ -95,16 +101,15 @@ describe('isTransactionProcessable', () => {
       await expect(isTransactionProcessable(l2ToL1())).resolves.toBe(null);
     });
 
-    it('falls back to the receipt when the row was never given a block number', async () => {
+    it('does not read a height off the receipt that BridgeProver would not read', async () => {
+      // BridgeProver proves against bridgeTx.blockNumber alone, so answering from the receipt
+      // would clear a row it then rejects with `Block number is not defined`. Both producers of a
+      // receipt already copy its height into blockNumber, so nothing is lost by refusing here.
       vi.mocked(getPublicClient).mockReturnValue(clientWithCheckpoints([10_867_539n]) as never);
 
       await expect(
-        isTransactionProcessable(l2ToL1({ blockNumber: undefined, receipt: { blockNumber: 10_867_665n } as never })),
-      ).resolves.toBe(false);
-
-      await expect(
         isTransactionProcessable(l2ToL1({ blockNumber: undefined, receipt: { blockNumber: 10_000_000n } as never })),
-      ).resolves.toBe(true);
+      ).resolves.toBe(false);
     });
   });
 

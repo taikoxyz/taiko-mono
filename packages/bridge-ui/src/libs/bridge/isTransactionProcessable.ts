@@ -14,11 +14,12 @@ const log = getLogger('libs:bridge:isTransactionProcessable');
 /**
  * Whether a transaction can be claimed, retried or released on the destination chain.
  *
- * `null` is not a quieter `false`. It says the question could not be answered - the synced height
- * could not be read, or the transaction does not carry a source block to compare it against -
- * whereas `false` asserts that the destination chain has not synced the source block yet. Callers
- * that only render a pending state may treat the two alike, but anything offering the user an
- * action must not: an action offered on a `false` is one BridgeProver is about to reject.
+ * `null` is not a quieter `false`. It says the question could not be answered, which for this gate
+ * means only one thing: the destination chain's synced height could not be read. `false` says the
+ * claim cannot be made from this row as it stands - the destination has not synced the source block
+ * yet, or the row carries nothing to prove against. Callers that only render a pending state may
+ * treat the two alike, but anything offering the user an action must not: an action offered on a
+ * `false` is one BridgeProver is about to reject.
  */
 export type Processability = boolean | null;
 
@@ -30,8 +31,12 @@ export async function isTransactionProcessable(bridgeTx: BridgeTransaction): Pro
   if (!message) return false;
   if (msgStatus !== MessageStatus.NEW) return true;
 
+  // Settled for the same reason. A row with no readable source height is one BridgeProver rejects
+  // outright with `Block number is not defined`, so no chain state can turn it into a claim that
+  // works and no action may be offered on it. Waiting is the honest answer: the height is missing
+  // because the transaction has not been mined and enhanced yet, and it arrives when it is.
   const srcBlockNumber = sourceBlockNumber(bridgeTx);
-  if (srcBlockNumber === null) return null;
+  if (srcBlockNumber === null) return false;
 
   try {
     const src = Number(srcChainId);
@@ -52,23 +57,25 @@ export async function isTransactionProcessable(bridgeTx: BridgeTransaction): Pro
 /**
  * @dev The source-chain height the destination has to have synced for this message to be provable.
  *
- *      `blockNumber` comes first because it is the field BridgeProver compares against, so this
- *      gate and the proof it gates agree on what "synced" means. The receipt is a fallback for
- *      rows that carry one without ever having been given a block number of their own.
+ *      Only `blockNumber`, because that is the single field BridgeProver reads, so this gate and
+ *      the proof it gates agree on what "synced" means by construction. Reading the receipt as a
+ *      second source would let this gate answer for a row the prover cannot prove. Nothing is lost
+ *      by leaving it out: both producers of a receipt already copy its height into `blockNumber`
+ *      (RelayerAPIService and BridgeTxService._enhanceTx), so a row with a receipt and no block
+ *      number does not occur.
  *
  * @param bridgeTx The transaction to locate on its source chain
  * @return blockNumber_ The block the message was sent in, or null if the row does not say
  */
-function sourceBlockNumber({ blockNumber, receipt }: BridgeTransaction): bigint | null {
-  const value = blockNumber ?? receipt?.blockNumber;
-  if (!value) return null;
+function sourceBlockNumber({ blockNumber }: BridgeTransaction): bigint | null {
+  if (!blockNumber) return null;
 
   try {
-    return BigInt(value);
+    return BigInt(blockNumber);
   } catch {
-    // A relayer that reports the height in a shape BigInt cannot read leaves us without an
-    // answer, which is not the same as the message not being synced
-    log('Unreadable source block number', value);
+    // A height in a shape BigInt cannot read is a height BridgeProver's own hexToBigInt cannot
+    // read either, so the row is unprovable rather than merely unread
+    log('Unreadable source block number', blockNumber);
     return null;
   }
 }
