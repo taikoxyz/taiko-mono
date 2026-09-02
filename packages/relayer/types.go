@@ -276,11 +276,11 @@ func decodeDataAsNFT(decodedData []byte) (EventType, CanonicalToken, *big.Int, e
 	token.Symbol = symbol
 	token.Name = name
 
-	if offset.Int64() == 128 {
+	if offset.Int64() == sharedCanonicalTokenOffset {
 		amount := big.NewInt(1)
 
 		return EventTypeSendERC721, token, amount, nil
-	} else if offset.Int64() == 160 {
+	} else if offset.Int64() == erc1155CanonicalTokenOffset {
 		offset, ok := new(big.Int).SetString(common.Bytes2Hex((chunks[canonicalTokenDataStartingindex+4])), 16)
 		if !ok || offset.Int64()%32 != 0 {
 			return EventTypeSendETH, token, big.NewInt(0), errors.New("data for BigInt is invalid")
@@ -327,6 +327,58 @@ func decodeABI(types []string, data []byte) ([]interface{}, error) {
 	return values, nil
 }
 
+const (
+	// Index of the 32-byte word holding the head offset of the canonical token, once an
+	// onMessageInvocation payload is split into words: [bytes head][bytes length][token head].
+	canonicalTokenOffsetWordIndex = int64(2)
+	// That head offset is 128 when the payload has four head words (ERC20Vault, ERC721Vault)
+	// and 160 when it has five (ERC1155Vault).
+	sharedCanonicalTokenOffset  = int64(128)
+	erc1155CanonicalTokenOffset = int64(160)
+)
+
+// carriesCanonicalNFT reports whether an onMessageInvocation payload was built by one of the
+// NFT vaults rather than by the ERC20 vault, reading the ABI head layout instead of trial
+// decoding. The three vaults encode:
+//
+//	ERC20Vault:   abi.encode(CanonicalERC20, address, address, uint256)             -> 4 head words
+//	ERC721Vault:  abi.encode(CanonicalNFT,   address, address, uint256[])           -> 4 head words
+//	ERC1155Vault: abi.encode(CanonicalNFT,   address, address, uint256[], uint256[]) -> 5 head words
+//
+// so the head offset of the canonical token is 160 only for an ERC1155 send. At 128 the two
+// layouts are told apart by the third word of the canonical tuple itself: CanonicalNFT has four
+// head words, making its third word the head of `symbol`, which is always 128, whereas
+// CanonicalERC20 carries `decimals` in that slot. An ERC20 would need 128 decimals to collide.
+func carriesCanonicalNFT(decodedData []byte) bool {
+	chunks := splitByteArray(decodedData, 32)
+
+	if int64(len(chunks)) <= canonicalTokenOffsetWordIndex {
+		return false
+	}
+
+	offset, ok := new(big.Int).SetString(common.Bytes2Hex(chunks[canonicalTokenOffsetWordIndex]), 16)
+	if !ok {
+		return false
+	}
+
+	switch offset.Int64() {
+	case erc1155CanonicalTokenOffset:
+		return true
+	case sharedCanonicalTokenOffset:
+		// Third word of the canonical tuple, which starts at byte offset+64.
+		index := offset.Int64()/32 + canonicalTokenOffsetWordIndex + 2
+		if int64(len(chunks)) <= index {
+			return false
+		}
+
+		word, ok := new(big.Int).SetString(common.Bytes2Hex(chunks[index]), 16)
+
+		return ok && word.Int64() == sharedCanonicalTokenOffset
+	default:
+		return false
+	}
+}
+
 // DecodeMessageData tries to tell if it's an ETH, ERC20, ERC721, or ERC1155 bridge,
 // which lets the processor look up whether the contract has already been deployed or not,
 // to help better estimate gas needed for processing the message.
@@ -343,18 +395,34 @@ func DecodeMessageData(eventData []byte, value *big.Int) (EventType, CanonicalTo
 	// Check if eventData is valid
 	if len(eventData) > 3 &&
 		common.Bytes2Hex(eventData[:4]) == onMessageInvocationFunctionSig {
-		// Try to decode data as ERC20
-		canonicalToken, amount, err := decodeDataAsERC20(eventData[4:])
+		payload := eventData[4:]
 
-		if err == nil {
-			return EventTypeSendERC20, canonicalToken, amount, nil
+		asERC20 := func() (EventType, CanonicalToken, *big.Int, error) {
+			token, amount, err := decodeDataAsERC20(payload)
+
+			return EventTypeSendERC20, token, amount, err
 		}
 
-		// Try to decode data as NFT
-		eventType, canonicalToken, amount, err = decodeDataAsNFT(eventData[4:])
+		asNFT := func() (EventType, CanonicalToken, *big.Int, error) {
+			return decodeDataAsNFT(payload)
+		}
 
-		if err == nil {
-			return eventType, canonicalToken, amount, nil
+		// The decoders are tried in the order the head layout suggests rather than ERC20 first
+		// unconditionally, because decodeDataAsERC20 reads whatever sits at the ERC20 offsets: an
+		// NFT payload whose canonical symbol and name are both empty decodes without erroring into
+		// garbage, taking the symbol head (128) for `decimals` and the tokenIds array offset for
+		// the amount. The other decoder is still tried second, so a payload the layout check
+		// misreads is no worse off than before.
+		attempts := []func() (EventType, CanonicalToken, *big.Int, error){asERC20, asNFT}
+		if carriesCanonicalNFT(payload) {
+			attempts = []func() (EventType, CanonicalToken, *big.Int, error){asNFT, asERC20}
+		}
+
+		for _, attempt := range attempts {
+			decodedType, decodedToken, decodedAmount, err := attempt()
+			if err == nil {
+				return decodedType, decodedToken, decodedAmount, nil
+			}
 		}
 	}
 
