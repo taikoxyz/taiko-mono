@@ -46,7 +46,7 @@
         {/each}
       </div>
       {#if Object.keys(collections).length > 1 || nfts.length > 3}
-        <div class="h-sep my-[30px]" />
+        <div class="h-sep my-[30px]"></div>
       {/if}
     {/if}
   </div>

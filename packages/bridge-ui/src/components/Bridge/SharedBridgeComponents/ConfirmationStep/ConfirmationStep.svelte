@@ -320,7 +320,7 @@
   </section>
   {#if bridgingStatus === BridgingStatus.PENDING}
     <section id="actions" class="f-col w-full">
-      <div class="h-sep mb-[30px]" />
+      <div class="h-sep mb-[30px]"></div>
       <Actions {approve} {bridge} bind:bridging bind:approving bind:checking bind:resetting {resetApproval} />
     </section>
   {/if}

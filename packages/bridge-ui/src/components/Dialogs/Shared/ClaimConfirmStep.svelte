@@ -87,7 +87,7 @@
     </section>
     {#if !claimingDone}
       <section id="actions" class="f-col w-full gap-2">
-        <div class="h-sep mb-[30px]" />
+        <div class="h-sep mb-[30px]"></div>
         <ActionButton
           onPopup
           priority="primary"

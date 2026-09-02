@@ -192,7 +192,7 @@
         {/if}
       </div>
     </div>
-    <div class="h-sep" />
+    <div class="h-sep"></div>
     {#if customTokens.length > 0}
       <div class="flex h-full w-full flex-col justify-between mt-6">
         <h3 class="title-body-bold mb-7">{$t('token_dropdown.imported_tokens')}</h3>
@@ -211,12 +211,12 @@
     {:else}
       <span>{$t('token_dropdown.no_imported_token')}</span>
     {/if}
-    <div class="h-sep" />
+    <div class="h-sep"></div>
     <ActionButton priority="primary" {disabled} on:click={addCustomErc20Token} onPopup>
       {$t('token_dropdown.custom_token.button')}
     </ActionButton>
   </div>
   <!-- We catch key events above -->
   <!-- svelte-ignore a11y-click-events-have-key-events -->
-  <div role="button" tabindex="0" class="overlay-backdrop" on:click={closeModalIfClickedOutside} />
+  <div role="button" tabindex="0" class="overlay-backdrop" on:click={closeModalIfClickedOutside}></div>
 </dialog>

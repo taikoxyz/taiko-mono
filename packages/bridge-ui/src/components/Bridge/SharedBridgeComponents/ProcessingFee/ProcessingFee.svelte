@@ -345,7 +345,7 @@
               </div>
             {/if}
             {#if needsConfirmation}
-              <div class="h-sep" />
+              <div class="h-sep"></div>
               <div class="f-between-center">
                 <div class="f-col mr-[18px]">
                   <label for="input-custom" class="body-bold"> Confirm changes</label>
@@ -357,7 +357,7 @@
                   on:click={() => (manuallyConfirmed = !manuallyConfirmed)}
                   class="checkbox checkbox-primary" />
               </div>
-              <div class="h-sep" />
+              <div class="h-sep"></div>
             {/if}
             <div class="grid grid-cols-2 gap-[20px]">
               <ActionButton on:click={cancelModal} priority="secondary">

@@ -140,7 +140,7 @@
       <CloseButton onClick={closeDialog} />
       <h3 class="title-body-bold">{$t('transactions.retry.steps.title')}</h3>
     </div>
-    <div class="h-sep mx-[-24px] mt-[20px]" />
+    <div class="h-sep mx-[-24px] mt-[20px]"></div>
 
     <div class="w-full h-full f-col">
       <DialogStepper>
@@ -190,7 +190,7 @@
       </div>
     </div>
   </div>
-  <button class="overlay-backdrop" data-modal-uuid={dialogId} />
+  <button aria-label={$t('common.close')} class="overlay-backdrop" data-modal-uuid={dialogId}></button>
 </dialog>
 
 <Claim bind:bridgeTx bind:this={ClaimComponent} on:error={handleRetryError} on:claimingTxSent={handleRetryTxSent} />

@@ -75,7 +75,7 @@
 
 <div class="f-col w-full justify-content-center gap-4">
   {#if activeStep === BridgeSteps.IMPORT}
-    <div class="h-sep mt-0" />
+    <div class="h-sep mt-0"></div>
     <ActionButton
       priority="primary"
       disabled={!$importDone || disabled}

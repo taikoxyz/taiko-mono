@@ -187,7 +187,7 @@
           </li>
         {/each}
 
-        <div class="h-sep my-[8px]" />
+        <div class="h-sep my-[8px]"></div>
         <li>
           <button on:click={showAddERC20} class="flex hover:bg-dark-5 justify-center items-center rounded-lg h-[64px]">
             <Icon type="plus-circle" fillClass="fill-primary-icon" size={32} vWidth={28} vHeight={28} />

@@ -199,7 +199,7 @@
       <div
         class="flex flex-col"
         style={`min-height: calc(${transactionsToShow.length} * ${isDesktopOrLarger ? '80px' : '66px'});`}>
-        <div class="h-sep !mb-0 display-inline" />
+        <div class="h-sep !mb-0 display-inline"></div>
 
         <div class="text-primary-content flex text-primary-content w-full my-[5px] md:my-[0px] px-[14px] py-[10px]">
           {#if $activeBridge === BridgeTypes.FUNGIBLE}
@@ -263,7 +263,7 @@
             {/if}
           {/if}
         </div>
-        <div class="h-sep !my-0" />
+        <div class="h-sep !my-0"></div>
 
         {#if renderLoading}
           <div class="flex items-center justify-center text-primary-content h-[80px]">
@@ -283,7 +283,7 @@
               {:else}
                 <NftTransactionRow bind:bridgeTx {handleTransactionRemoved} bridgeTxStatus={status} />
               {/if}
-              <div class="h-sep !my-0 display-inline" />
+              <div class="h-sep !my-0 display-inline"></div>
             {/each}
           </div>
         {/if}

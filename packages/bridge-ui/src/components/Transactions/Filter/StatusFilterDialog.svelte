@@ -34,7 +34,7 @@
       <CloseButton onClick={closeMenu} />
       <h3 class="font-bold">{$t('transactions.filter.title')}</h3>
     </div>
-    <div class="h-sep my-[20px]" />
+    <div class="h-sep my-[20px]"></div>
     <div class="w-full px-[24px] text-left">
       <h3 class="font-bold text-left">{$t('common.status')}</h3>
       <div class="flex flex-wrap justify-center gap-[9px] mt-[16px]">
@@ -47,10 +47,10 @@
         {/each}
       </div>
     </div>
-    <div class="h-sep mt-[20px] mb-0" />
+    <div class="h-sep mt-[20px] mb-0"></div>
     <div class="w-full px-[24px] my-[20px]">
       <ActionButton priority="primary" on:click={closeMenu}>{$t('common.see_results')}</ActionButton>
     </div>
   </div>
-  <button class="overlay-backdrop" on:click={closeMenu} />
+  <button aria-label={$t('common.close')} class="overlay-backdrop" on:click={closeMenu}></button>
 </dialog>

@@ -121,7 +121,7 @@
           <div class="f-col">
             <Alert type="info"
               >{$t('transactions.claim.steps.pre_check.only_destowner_can_claim')}
-              <div class="h-sep" />
+              <div class="h-sep"></div>
               <span class="font-bold">{$t('common.owner.destination')}: </span>{shortenAddress(
                 tx.message?.destOwner,
                 6,
@@ -170,7 +170,7 @@
           {/if}
         </div>
         {#if hasPaidProcessingFee}
-          <div class="h-sep" />
+          <div class="h-sep"></div>
           <div class="f-between-center">
             {#if checkingPrerequisites}
               <Spinner />
@@ -183,7 +183,7 @@
     {/if}
   </div>
   {#if !canContinue && !correctChain && !onlyDestOwnerCanClaimWarning}
-    <div class="h-sep" />
+    <div class="h-sep"></div>
     <div class="f-col space-y-[16px]">
       <ActionButton
         onPopup
@@ -195,7 +195,7 @@
         }}>{$t('common.switch_to')} {txDestChainName}</ActionButton>
     </div>
   {:else if !canContinue}
-    <div class="h-sep" />
+    <div class="h-sep"></div>
     <div class="f-col space-y-[16px]">
       <ActionButton
         onPopup

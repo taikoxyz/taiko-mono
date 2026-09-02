@@ -158,7 +158,7 @@ NFT List or Card View
   <NFTDisplay loading={false} nfts={$selectedNFTs} {nftView} viewOnly />
 </section>
 
-<div class="h-sep" />
+<div class="h-sep"></div>
 <!-- 
 Recipient & Processing Fee
 -->
@@ -172,4 +172,4 @@ Recipient & Processing Fee
   <ProcessingFee bind:this={processingFeeComponent} small bind:hasEnoughEth />
 </div>
 
-<div class="h-sep" />
+<div class="h-sep"></div>

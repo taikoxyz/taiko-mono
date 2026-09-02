@@ -132,7 +132,7 @@
     <div class="w-dvw fixed pt-[20px] px-[24px] z-40 bg-neutral-background">
       <CloseButton onClick={closeDetails} />
       <h3 class="font-bold">{title}</h3>
-      <div class="h-sep mx-[-24px] mb-0" />
+      <div class="h-sep mx-[-24px] mb-0"></div>
     </div>
     <div class="w-full py-[50px] px-[24px] overflow-y-auto flex-grow relative">
       <div class="w-full my-[50px] text-left">
@@ -165,7 +165,7 @@
             </li>
 
             <!-- Spacer -->
-            <div class="h-[24px]" />
+            <div class="h-[24px]"></div>
 
             <!-- To -->
             <li class="f-between-center space-y-[8px]">
@@ -188,12 +188,12 @@
             </li>
           </ul>
 
-          <div class="h-sep my-[20px] mx-[-24px]" />
+          <div class="h-sep my-[20px] mx-[-24px]"></div>
 
           <ul class="space-y-[8px] body-small-regular w-full">
             {#if stillProcessing}
               <div class="f-row">
-                <div class="f-col min-h-full border border-dashed border-primary-border-dark mr-[20px] my-[10px]" />
+                <div class="f-col min-h-full border border-dashed border-primary-border-dark mr-[20px] my-[10px]"></div>
                 <!-- Vertical line -->
                 <div class="f-col space-y-[30px]">
                   <div class="f-col relative">
@@ -330,13 +330,13 @@
       </div>
     </div>
     <div class="fixed bottom-[20px] left-0 w-full bg-neutral-background">
-      <div class="h-sep mb-[20px] mt-0" />
+      <div class="h-sep mb-[20px] mt-0"></div>
       <div class="px-[24px] w-full max-h-[56px]">
         <ActionButton priority="primary" on:click={closeDetails}>{$t('common.close')}</ActionButton>
       </div>
     </div>
   </div>
-  <button class="overlay-backdrop" data-modal-uuid={dialogId} />
+  <button aria-label={$t('common.close')} class="overlay-backdrop" data-modal-uuid={dialogId}></button>
 </dialog>
 
 <StatusInfoDialog bind:modalOpen={openStatusDialog} noIcon />

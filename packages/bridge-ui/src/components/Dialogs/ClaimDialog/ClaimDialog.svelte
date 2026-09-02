@@ -222,7 +222,7 @@
       <CloseButton onClick={closeDialog} />
       <h3 class="title-body-bold">{$t('transactions.claim.steps.title')}</h3>
     </div>
-    <div class="h-sep mx-[-24px] mt-[20px]" />
+    <div class="h-sep mx-[-24px] mt-[20px]"></div>
     <div class="w-full h-full f-col">
       <DialogStepper>
         <DialogStep
@@ -265,7 +265,7 @@
       </div>
     </div>
   </div>
-  <button class="overlay-backdrop" data-modal-uuid={dialogId} />
+  <button aria-label={$t('common.close')} class="overlay-backdrop" data-modal-uuid={dialogId}></button>
 </dialog>
 
 <Claim bind:bridgeTx bind:this={ClaimComponent} on:error={handleClaimError} on:claimingTxSent={handleClaimTxSent} />

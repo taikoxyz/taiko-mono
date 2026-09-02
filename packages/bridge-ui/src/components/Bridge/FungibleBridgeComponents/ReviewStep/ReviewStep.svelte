@@ -102,7 +102,7 @@
   <Alert type="warning">{$t('bridge.alerts.slow_bridging')}</Alert>
 {/if}
 
-<div class="h-sep" />
+<div class="h-sep"></div>
 <!-- 
 Recipient & Processing Fee
 -->
@@ -119,7 +119,7 @@ Recipient & Processing Fee
   <ProcessingFee bind:this={processingFeeComponent} small bind:hasEnoughEth />
 </div>
 
-<div class="h-sep" />
+<div class="h-sep"></div>
 {#if !hasEnoughFundsToContinue}
   <Alert type="error">{$t('bridge.alerts.not_enough_funds')}</Alert>
 {/if}

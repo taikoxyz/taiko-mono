@@ -239,7 +239,7 @@
         class="min-h-[64px] pl-[15px] w-full border-0 h-full !rounded-r-none z-20  {$$props.class}" />
 
       <!-- vertical separator -->
-      <div class="border-l border-r bg-primary-border-dark border-neutral-background h-[64px] w-[3px]" />
+      <div class="border-l border-r bg-primary-border-dark border-neutral-background h-[64px] w-[3px]"></div>
 
       <!-- Max Button -->
       <button

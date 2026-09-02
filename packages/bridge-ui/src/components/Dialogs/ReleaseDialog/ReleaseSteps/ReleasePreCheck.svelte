@@ -56,7 +56,7 @@
     </div>
   </div>
   {#if !canContinue && !correctChain}
-    <div class="h-sep" />
+    <div class="h-sep"></div>
     <div class="f-col space-y-[16px]">
       <ActionButton
         onPopup
