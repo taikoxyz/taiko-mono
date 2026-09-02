@@ -116,7 +116,13 @@ contract Proposal0023ForkTest is Test {
     /// governance message left through the new implementation.
     /// @param _newImpl The implementation the proxy must now run.
     /// @param _messageIdBefore The bridge's `nextMessageId` before the batch.
-    function _assertL1BridgeAfterUpgrade(address _newImpl, uint64 _messageIdBefore) private view {
+    function _assertL1BridgeAfterUpgrade(
+        address _newImpl,
+        uint64 _messageIdBefore
+    )
+        private
+        view
+    {
         Bridge bridge = Bridge(payable(L1.BRIDGE));
         assertEq(_implementationOf(L1.BRIDGE), _newImpl);
         assertEq(bridge.resolver(), L1.SHARED_RESOLVER);
@@ -277,7 +283,12 @@ contract Proposal0023ForkTest is Test {
     /// can still send.
     /// @param _resolverProxy The new resolver.
     /// @param _before The live values read before the batch.
-    function _assertL2BridgeAfterUpgrade(address _resolverProxy, L2Before memory _before) private {
+    function _assertL2BridgeAfterUpgrade(
+        address _resolverProxy,
+        L2Before memory _before
+    )
+        private
+    {
         Bridge bridge = Bridge(payable(L2.BRIDGE));
 
         // This is the call that reverts if the wiring is wrong.
