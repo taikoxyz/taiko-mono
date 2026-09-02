@@ -1433,7 +1433,12 @@ function verifyArtifactOwned(
     };
     for (const [field, value] of Object.entries(actual)) {
         if (value !== module[field as keyof ArtifactOwnedModule]) {
-            fail("ARTIFACT_HASH_MISMATCH", `${id}:${field}`);
+            fail(
+                "ARTIFACT_HASH_MISMATCH",
+                `${id}:${field}:expected=${
+                    module[field as keyof ArtifactOwnedModule]
+                }:observed=${value}`,
+            );
         }
     }
 }
@@ -1913,8 +1918,12 @@ export function loadOwnedArtifact(
         ],
     ] as const;
     for (const [field, observed] of observedHashes) {
-        if (observed !== module[field])
-            fail("ARTIFACT_HASH_MISMATCH", `${moduleId}:${field}`);
+        if (observed !== module[field]) {
+            fail(
+                "ARTIFACT_HASH_MISMATCH",
+                `${moduleId}:${field}:expected=${module[field]}:observed=${observed}`,
+            );
+        }
     }
     return artifact;
 }

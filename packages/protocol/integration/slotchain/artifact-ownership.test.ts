@@ -309,6 +309,20 @@ function expectCode(code: string, callback: () => void): void {
     });
 }
 
+function expectCodeAndMessage(
+    code: string,
+    message: string,
+    callback: () => void,
+): void {
+    assert.throws(callback, (error: unknown) => {
+        return (
+            error instanceof OwnershipError &&
+            error.code === code &&
+            error.message === `${code}: ${message}`
+        );
+    });
+}
+
 function makeSourceInlineLibrary(
     fixture: Fixture,
     abi: Record<string, any>[],
@@ -960,12 +974,16 @@ run("source drift fails", () => {
 
 run("bytecode drift fails", () => {
     const fixture = validFixture();
+    const module = fixture.manifest.modules[0] as ArtifactOwnedModule;
+    const observed = bytecodeHash("0x6002");
     mutateArtifact(fixture, (artifact) => {
         artifact.bytecode.object = "0x6002";
     });
     syncSharedCompilerOutput(fixture);
-    expectCode("ARTIFACT_HASH_MISMATCH", () =>
-        validateArtifactOwnership(fixture.root, fixture.manifest),
+    expectCodeAndMessage(
+        "ARTIFACT_HASH_MISMATCH",
+        `${fixture.sourcePath}:Owned:creationCodeHash:expected=${module.creationCodeHash}:observed=${observed}`,
+        () => validateArtifactOwnership(fixture.root, fixture.manifest),
     );
 });
 
