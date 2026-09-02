@@ -3,11 +3,11 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-const EXPECTED_VECTOR_COUNT = 675;
-const EXPECTED_HEX_VECTOR_COUNT = 566;
-const EXPECTED_UINT_VECTOR_COUNT = 109;
+const EXPECTED_VECTOR_COUNT = 764;
+const EXPECTED_HEX_VECTOR_COUNT = 624;
+const EXPECTED_UINT_VECTOR_COUNT = 140;
 const VECTOR_NAME_SCHEMA_SHA256 =
-    "ffbc653892c53dfea254b5309b95303a5c59f65e75ad1c9172e89cb4c8029920";
+    "66dd621021be6549d5dfa95c0e83cf92b82174c5b8d146a4dbdb67750b0acf7c";
 const MAX_UINT256_DECIMAL =
     "115792089237316195423570985008687907853269984665640564039457584007913129639935";
 const MAX_BUFFER_BYTES = 16 * 1024 * 1024;
@@ -387,7 +387,7 @@ export function main(args: string[]): void {
     );
     if (
         !normalOutput.includes(
-            "RESULTS: commitment encoding model — ALL 675 GOLDEN VECTORS / 1466 ASSERTION SITES PASS",
+            "RESULTS: commitment encoding model — ALL 764 GOLDEN VECTORS / 1503 ASSERTION SITES PASS",
         )
     ) {
         fail(
