@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy, tick } from 'svelte';
   import { t } from 'svelte-i18n';
-  import type { Address } from 'viem';
+  import { type Address, isAddress } from 'viem';
 
   import { destNetwork, destOwnerAddress, recipientAddress } from '$components/Bridge/state';
   import { ActionButton, CloseButton } from '$components/Button';
@@ -61,6 +61,7 @@
   let prevInvalidRecipient = false;
   let prevInvalidDestOwner = false;
   let prevRecipientIsSmartContract = false;
+  let prevDestOwnerIsSmartContract = false;
   let prevValidatedRecipient: Maybe<ValidatedRecipient> = null;
   let prevValidatedDestOwner: Maybe<ValidatedRecipient> = null;
 
@@ -109,6 +110,10 @@
     invalidRecipient = prevInvalidRecipient;
     invalidDestOwner = prevInvalidDestOwner;
     recipientIsSmartContract = prevRecipientIsSmartContract;
+    // A contract typed into the owner box raises this without touching the store, and
+    // nothing below re-classifies an owner the store still holds - so left alone, it kept
+    // Confirm refused on reopen beside an owner the box showed as valid
+    destOwnerIsSmartContract = prevDestOwnerIsSmartContract;
     // The snapshot was taken before a destination-chain change could invalidate it;
     // restoring a classification for a chain we no longer bridge to would make the
     // dialog skip reclassification on reopen while the predicate rejects the mismatch
@@ -135,6 +140,7 @@
       prevInvalidRecipient = invalidRecipient;
       prevInvalidDestOwner = invalidDestOwner;
       prevRecipientIsSmartContract = recipientIsSmartContract;
+      prevDestOwnerIsSmartContract = destOwnerIsSmartContract;
       prevValidatedRecipient = validatedRecipient;
       prevValidatedDestOwner = validatedDestOwner;
 
@@ -145,7 +151,23 @@
       if ($recipientAddress && !recipientClassificationIsCurrent()) {
         validateRecipient($recipientAddress);
       }
+      // The same for the owner. It is classified when the store changes and when the user
+      // types, and neither covers a committed owner whose record is missing at open time -
+      // the store-triggered lookup still pending, or failed on an RPC error. Cancel restored
+      // that missing record, so no reopen could enable Confirm while box and store both
+      // held the owner, and nothing said why.
+      if (destOwnerAddressBinding && isAddress(destOwnerAddressBinding) && !destOwnerClassificationIsCurrent()) {
+        validateDestOwner(destOwnerAddressBinding);
+      }
     }
+  }
+
+  function destOwnerClassificationIsCurrent() {
+    return (
+      !!validatedDestOwner &&
+      addressesEqual(validatedDestOwner.address, destOwnerAddressBinding) &&
+      validatedDestOwner.chainId === $destNetwork?.id
+    );
   }
 
   async function onRecipientValidation(event: CustomEvent<{ isValidEthereumAddress: boolean; addr: Address }>) {

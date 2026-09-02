@@ -7,14 +7,16 @@
 <script lang="ts" context="module">
   import { writable } from 'svelte/store';
 
-  export const stubRecommendedAmount = writable<bigint>(BigInt(0));
+  // Undefined until a test sets it: the real component leaves the parent's amount alone
+  // until a recommendation lands, and pushing 0 on mount would hide exactly that window
+  export const stubRecommendedAmount = writable<bigint | undefined>(undefined);
 </script>
 
 <script lang="ts">
   export let amount: bigint = BigInt(0);
   export let error: boolean = false;
 
-  $: amount = $stubRecommendedAmount;
+  $: if ($stubRecommendedAmount !== undefined) amount = $stubRecommendedAmount;
   $: error = false;
 </script>
 

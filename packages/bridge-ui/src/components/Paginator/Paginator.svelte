@@ -8,13 +8,25 @@
   export let totalItems = 0;
   export let pageSize = 5;
 
+  /**
+   * What the page box shows while the user types. The box used to be bound straight to
+   * `currentPage`, which the parent binds in turn, so every keystroke reached the list
+   * before goToPage could clamp it: an emptied box became page `null`, a typed 0 or a
+   * negative a page that does not exist, and the rows vanished behind "No transactions"
+   * until blur. The page only moves through goToPage, on Enter or blur.
+   */
+  let pageDraft: number | null = currentPage;
+  $: pageDraft = currentPage;
+
   $: totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
   const dispatch = createEventDispatcher<{ pageChange: number }>();
 
-  function goToPage(page: number) {
+  function goToPage(page: number | null) {
     // Dispatch the clamped value: the raw input can be out of range (typed page numbers)
-    currentPage = Math.min(totalPages, Math.max(1, page));
+    currentPage = Math.min(totalPages, Math.max(1, Number.isInteger(page) ? (page as number) : 1));
+    // The box shows the page that was actually reached, also when the clamp left the page as it was
+    pageDraft = currentPage;
     dispatch('pageChange', currentPage);
   }
 
@@ -46,11 +58,11 @@
     <input
       type="number"
       class="form-control mx-1 text-center rounded-full bg-neutral-background border-none py-1 px-8"
-      bind:value={currentPage}
+      bind:value={pageDraft}
       min={1}
       max={totalPages}
       on:keydown={handleKeydown}
-      on:blur={() => goToPage(currentPage)} />
+      on:blur={() => goToPage(pageDraft)} />
     {$t('paginator.of')}
     {totalPages}
     <!-- Button to go to next page -->

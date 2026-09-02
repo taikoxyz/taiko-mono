@@ -35,12 +35,20 @@ vi.mock('./SharedBridgeComponents', async () => {
 });
 
 import { ImportMethod } from '$components/Bridge/types';
+import { ProcessingFeeMethod } from '$libs/fee';
 import { account } from '$stores/account';
 import { connectedSourceChain } from '$stores/network';
 
 import NFTBridge from './NFTBridge.svelte';
 import { foundNFTs, selectedImportMethod } from './NFTBridgeComponents/ImportStep/state';
-import { destNetwork, destOwnerAddress, recipientAddress, selectedNFTs } from './state';
+import {
+  destNetwork,
+  destOwnerAddress,
+  gasLimitZero,
+  processingFeeMethod,
+  recipientAddress,
+  selectedNFTs,
+} from './state';
 
 const NFT_A = { tokenId: 1, name: 'A', addresses: {} } as never;
 
@@ -106,6 +114,23 @@ describe('NFTBridge state on a wallet change', () => {
     // nothing had been, and would have bridged with it as destination owner
     expect(get(recipientAddress)).toBe('0xbbbb');
     expect(get(destOwnerAddress)).toBe('0xbbbb');
+  });
+
+  it("drops the previous transfer's fee choice for a manual import too", async () => {
+    await mountWithScanResults();
+    selectedImportMethod.set(ImportMethod.MANUAL);
+    // Chosen for the transfer the previous account was building
+    processingFeeMethod.set(ProcessingFeeMethod.NONE);
+    gasLimitZero.set(true);
+    await flush();
+
+    account.set({ address: '0xbbbb', isConnected: true } as never);
+    await flush();
+
+    // The scan branch reset these through resetForm; the manual branch kept them, so the
+    // next account's transfer went to Review with no fee and a zero gas limit preselected
+    expect(get(processingFeeMethod)).toBe(ProcessingFeeMethod.RECOMMENDED);
+    expect(get(gasLimitZero)).toBe(false);
   });
 
   it('discards the scan results when the network changes', async () => {

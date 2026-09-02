@@ -24,7 +24,12 @@
 
   let dialogId = `dialog-${crypto.randomUUID()}`;
 
-  let recommendedAmount = BigInt(0);
+  // Seeded from the committed fee rather than 0: the reactive below runs at init and, in
+  // RECOMMENDED mode, writes this into $processingFee - so every mount (one per wizard
+  // step) reset the fee the previous step had settled on to 0 until its own recommendation
+  // landed, and only the calculating flag stood between that placeholder and a send.
+  let recommendedAmount =
+    $processingFeeMethod === ProcessingFeeMethod.RECOMMENDED ? ($processingFee ?? BigInt(0)) : BigInt(0);
   let errorCalculatingRecommendedAmount = false;
 
   let calculatingEnoughEth = false;

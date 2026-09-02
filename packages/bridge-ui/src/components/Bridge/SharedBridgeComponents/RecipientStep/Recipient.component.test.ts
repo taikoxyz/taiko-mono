@@ -13,6 +13,7 @@ import { vi } from 'vitest';
 const WALLET = '0x1111111111111111111111111111111111111111';
 const CONTRACT = '0x2222222222222222222222222222222222222222';
 const DEST_OWNER = '0x3333333333333333333333333333333333333333';
+const OTHER_OWNER = '0x4444444444444444444444444444444444444444';
 const DEST_CHAIN = 167000;
 const OTHER_CHAIN = 1;
 
@@ -343,6 +344,62 @@ describe('Recipient dialog', () => {
       await flush();
 
       expect(get(destOwnerAddress)).toBeNull();
+    });
+
+    it('does not keep refusing Confirm after a contract typed as the owner is cancelled', async () => {
+      // Recipient C with owner O confirmed. Typing a contract into the owner box flags it
+      // without touching the store; Cancel restored everything but that flag, so the
+      // reopened dialog showed O as valid beside a Confirm nothing could enable - and the
+      // in-dialog alert that would have explained it is not rendered
+      const m = await withContractRecipient();
+      await m.type(m.destOwnerInput() as HTMLInputElement, DEST_OWNER);
+      await flush();
+      expect(m.confirmButton.disabled).toBe(false);
+
+      // Escape only cancels while the dialog is open, so open it the way the trigger does
+      const editButton = Array.from(m.target.querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('common.edit'),
+      ) as HTMLButtonElement;
+      editButton.click();
+      await flush();
+      await m.type(m.destOwnerInput() as HTMLInputElement, CONTRACT);
+      await flush();
+      expect(m.confirmButton.disabled).toBe(true);
+      await pressEscape();
+
+      editButton.click();
+      await flush();
+
+      expect(m.destOwnerInput()?.value).toBe(DEST_OWNER);
+      expect(get(destOwnerAddress)).toBe(DEST_OWNER);
+      expect(m.confirmButton.disabled).toBe(false);
+    });
+
+    it('classifies a committed owner whose earlier lookup failed when the dialog opens', async () => {
+      // The owner also changes through the sibling DestOwner dialog and the NFT flow's
+      // seeding. When the classification that follows fails on the RPC, no record exists;
+      // opening only re-checked the recipient, and Cancel put the missing record back, so no
+      // reopen could enable Confirm while the box and the store both held the owner
+      const m = await withContractRecipient();
+      isSmartContract.mockRejectedValueOnce(new Error('rpc down'));
+      destOwnerAddress.set(OTHER_OWNER);
+      await flush();
+
+      const editButton = Array.from(m.target.querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('common.edit'),
+      ) as HTMLButtonElement;
+      editButton.click();
+      await flush();
+
+      expect(m.destOwnerInput()?.value).toBe(OTHER_OWNER);
+      expect(m.confirmButton.disabled).toBe(false);
+
+      // And again after a cancel, which restores the record the open found missing
+      await pressEscape();
+      editButton.click();
+      await flush();
+
+      expect(m.confirmButton.disabled).toBe(false);
     });
 
     it('discards a classification still in flight when the edit is cancelled', async () => {

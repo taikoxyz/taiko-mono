@@ -23,6 +23,7 @@
   import { ClaimConfirmStep, ReviewStep } from '../Shared';
   import ClaimPreCheck from '../Shared/ClaimPreCheck.svelte';
   import { reportDialogTransaction } from '../Shared/dialogTransactionFlow';
+  import { createResetGate } from '../Shared/resetGate';
   import { ClaimAction } from '../Shared/types';
   import { DialogStep, DialogStepper } from '../Stepper';
   import ClaimStepNavigation from './ClaimStepNavigation.svelte';
@@ -55,6 +56,9 @@
       showQuotaReachedToast,
       onQuotaCheckError: logQuotaCheckError,
     });
+    // The attempt settled without a transaction - the quota refused it, or the error handler
+    // has already reported it - unless one is pending now, which the gate leaves alone
+    resetGate.settle();
   };
 
   let force = false;
@@ -62,9 +66,9 @@
   let canContinue = false;
   let claiming: boolean;
   /**
-   * A claim transaction is on chain and its outcome is not known yet. Distinct from
-   * `claiming`, which `reset` clears: this survives a close so reopening the dialog cannot
-   * offer a second claim for a message whose first claim may still confirm.
+   * A claim transaction is on chain and its outcome is not known yet. With `claiming` this
+   * is what holds the reset gate below closed, so reopening the dialog cannot offer a second
+   * claim for a message whose first claim may still confirm.
    */
   let claimTxPending = false;
   let claimingDone = false;
@@ -103,10 +107,12 @@
 
     claiming = false;
     claimTxPending = false;
-    if (outcome === 'failed') return;
-
-    claimingDone = true;
-    dispatch('claimingDone');
+    if (outcome !== 'failed') {
+      claimingDone = true;
+      dispatch('claimingDone');
+    }
+    // A close refused while the transaction was pending is applied now
+    resetGate.settle();
   };
 
   const showQuotaReachedToast = () => {
@@ -174,17 +180,29 @@
         break;
     }
     claiming = false;
+    resetGate.settle();
   };
 
+  /**
+   * Closing the dialog or switching accounts cancels neither a claim awaiting the wallet's
+   * signature nor one already on chain. Rewinding the steps here - and clearing `claiming`,
+   * as this used to - handed the user a fresh Claim button for that same message as soon as
+   * the dialog was reopened from the row, while the first request was still in the wallet.
+   * The gate refuses the rewind while the claim is in flight and applies it once the attempt
+   * has settled; `claiming` itself is only ever lowered by the error and outcome handlers.
+   */
+  const resetGate = createResetGate({
+    inFlight: () => claiming || claimTxPending,
+    isOpen: () => dialogOpen,
+    rewind: () => {
+      activeStep = INITIAL_STEP;
+      claimingDone = false;
+      // canForceTransaction = false;
+    },
+  });
+
   const reset = () => {
-    // Closing the dialog or switching accounts does not cancel a claim already on chain.
-    // Rewinding the steps and clearing `claiming` here would hand the user a fresh Claim
-    // button for that same message, so a still-pending transaction keeps the dialog as is.
-    if (claimTxPending) return;
-    activeStep = INITIAL_STEP;
-    claimingDone = false;
-    claiming = false;
-    // canForceTransaction = false;
+    resetGate.request();
   };
 
   $: claimMode = directClaim ? 'try_claim' : 'claim';

@@ -1,3 +1,15 @@
+<script lang="ts" context="module">
+  /**
+   * Instances with a fee read in flight. `$calculatingProcessingFee` is one store shared by
+   * every instance, and the fungible wizard mounts a fresh instance on each step, so the
+   * flag has to follow all of them: with each instance clearing it on its own schedule, an
+   * instance destroyed by a step change still cleared the flag when its read came back,
+   * while the next step's instance was computing - and that step's Continue came alive on
+   * a 0 ETH placeholder fee.
+   */
+  const computing = new Set<symbol>();
+</script>
+
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte';
   import type { Address } from 'viem';
@@ -26,6 +38,20 @@
   let computeGeneration = 0;
   let inFlight = false;
 
+  const instance = Symbol('RecommendedFee');
+
+  /** @dev Raises the shared flag on this instance's behalf. */
+  const startComputing = () => {
+    computing.add(instance);
+    $calculatingProcessingFee = true;
+  };
+
+  /** @dev Withdraws this instance; the flag stays up while any other instance is still computing. */
+  const stopComputing = () => {
+    computing.delete(instance);
+    $calculatingProcessingFee = computing.size > 0;
+  };
+
   async function compute(
     token: Maybe<Token | NFT>,
     srcChainId?: number,
@@ -46,13 +72,13 @@
     // stops an in-flight result for the old inputs from publishing, so the flags it
     // can no longer clear are reset here
     if (!token || !destChainId) {
-      $calculatingProcessingFee = false;
+      stopComputing();
       inFlight = false;
       return;
     }
 
     inFlight = true;
-    $calculatingProcessingFee = true;
+    startComputing();
     error = false;
 
     try {
@@ -72,7 +98,7 @@
       error = true;
     } finally {
       if (generation === computeGeneration) {
-        $calculatingProcessingFee = false;
+        stopComputing();
         inFlight = false;
       }
     }
@@ -103,5 +129,8 @@
 
   onDestroy(() => {
     clearInterval(interval);
+    // Nothing will show this instance's result any more, so it must not keep the flag up
+    // either; the late read finds the instance withdrawn and leaves the flag alone
+    stopComputing();
   });
 </script>

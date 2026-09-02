@@ -83,10 +83,14 @@
         timestamp: Date.now(),
       } as BridgeTransaction;
 
+      // The wallet may have repriced the transaction, in which case this is the hash that
+      // mined and the one the local record must carry - the original never will
+      let minedTxHash: Hash = txHash;
       try {
         // The only thing this try classifies is the wait: anything else in here would
         // reach the catch below as if the transaction itself had failed
-        await pendingTransactions.add(txHash, currentChain);
+        const receipt = await pendingTransactions.add(txHash, currentChain);
+        minedTxHash = receipt.transactionHash;
       } catch (error) {
         if (waitGaveUp(error)) {
           // Only the wait gave up - a timeout, or a receipt that could not be read. The
@@ -101,7 +105,7 @@
       }
 
       // Confirmed on-chain: record it in the local history
-      recordBridgeTx(userAccount, bridgeTx);
+      recordBridgeTx(userAccount, { ...bridgeTx, srcTxHash: minedTxHash });
 
       // No values: the message carries no placeholder, so a token passed here was silently
       // dropped by the formatter. The symbol is still escaped where a string does interpolate it.
@@ -113,7 +117,7 @@
       bridgingStatus = BridgingStatus.DONE;
       statusTitle = $t('bridge.actions.bridge.success.title');
       statusDescription = $t('bridge.step.confirm.bridge.success.message', {
-        values: { url: `${explorer}/tx/${txHash}` },
+        values: { url: `${explorer}/tx/${minedTxHash}` },
       });
     } finally {
       bridging = false;

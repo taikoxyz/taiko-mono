@@ -16,6 +16,21 @@
   let scanning = false;
   let canProceed = false;
 
+  /**
+   * Bumped whenever the scan results stop being wanted: a wallet or chain change resets the
+   * step, a switch to manual import leaves the scanned view, and a newer scan replaces the
+   * older one. A scan still in flight at that point used to resume and publish anyway -
+   * handing wallet B wallet A's NFTs as selectable, or unmounting the manual form the user
+   * had just opened to put the scanned view back.
+   */
+  let scanGeneration = 0;
+
+  /** @dev Retires whatever scan is in flight; its result is discarded when it arrives. */
+  const abandonScans = () => {
+    scanGeneration++;
+    scanning = false;
+  };
+
   export let validating = false;
 
   let manualImportComponent: ManualImport;
@@ -51,6 +66,7 @@
    * caller must not read the resolved promise as "the wallet holds no NFTs" either.
    */
   const scanForNFTs = async (refresh: boolean, { keepSelection = false } = {}): Promise<boolean> => {
+    const generation = ++scanGeneration;
     scanning = true;
     try {
       // A fresh scan replaces the list, so the selection goes with it. Pagination does
@@ -62,6 +78,10 @@
       const destChainId = $destChain?.id;
       if (!accountAddress || !srcChainId || !destChainId) return false;
       const nftsFromAPIs = await fetchNFTs({ address: accountAddress, chainId: srcChainId, refresh });
+
+      // Retired while it ran: nothing here describes what is on screen any more. Reported
+      // as "did not run" so a page load does not read it as "nothing more to load".
+      if (generation !== scanGeneration) return false;
 
       if (nftsFromAPIs.error) {
         // Keep the pages already on screen and let the caller decide: overwriting with the
@@ -76,11 +96,13 @@
       }
       return true;
     } finally {
-      scanning = false;
+      // A retired scan has already been marked as not running; a newer one owns the flag
+      if (generation === scanGeneration) scanning = false;
     }
   };
 
   const reset = () => {
+    abandonScans();
     $foundNFTs = [];
     $selectedNFTs = [];
     $selectedImportMethod = ImportMethod.NONE;
@@ -106,6 +128,10 @@
     }
     previousSrcChainId = srcChainId;
   }
+
+  // The user has left the scanned view for the manual form; a page still loading must not
+  // bring it back
+  $: if ($selectedImportMethod === ImportMethod.MANUAL) abandonScans();
 
   $: canImport = ($account?.isConnected && $srcChain?.id && $destChain && !scanning) || false;
 

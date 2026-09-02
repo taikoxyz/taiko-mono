@@ -201,6 +201,43 @@ describe('scanned NFT pagination', () => {
     expect(get(foundNFTs)).toHaveLength(2);
   });
 
+  it('does not publish a scan that resolves after the wallet changed', async () => {
+    // Wallet A's scan is slow; the user switches to wallet B, which resets the step. The
+    // scan then landed anyway and showed B wallet A's NFTs, selectable and bridgeable
+    let resolveScan!: (result: unknown) => void;
+    fetchNFTs.mockReturnValueOnce(new Promise((resolve) => (resolveScan = resolve)));
+    buttonWith('bridge.actions.nft_scan')?.click();
+    await flush();
+
+    account.set({ address: '0xbbbb', isConnected: true } as never);
+    await flush();
+
+    resolveScan({ nfts: [NFT_A], error: null });
+    await flush();
+    await flush();
+
+    expect(get(foundNFTs)).toEqual([]);
+    expect(get(selectedImportMethod)).toBe(ImportMethod.NONE);
+  });
+
+  it('does not put the scanned view back over a manual import the user opened', async () => {
+    await scan([NFT_A]);
+    let resolvePage!: (result: unknown) => void;
+    fetchNFTs.mockReturnValueOnce(new Promise((resolve) => (resolvePage = resolve)));
+    buttonWith('paginator.more')?.click();
+    await flush();
+
+    // The user opens the manual form while the page is still loading
+    selectedImportMethod.set(ImportMethod.MANUAL);
+    await flush();
+
+    resolvePage({ nfts: [NFT_A, NFT_B], error: null });
+    await flush();
+    await flush();
+
+    expect(get(selectedImportMethod)).toBe(ImportMethod.MANUAL);
+  });
+
   it('still clears the selection on a fresh scan', async () => {
     await scan([NFT_A]);
     selectedNFTs.set([NFT_A]);

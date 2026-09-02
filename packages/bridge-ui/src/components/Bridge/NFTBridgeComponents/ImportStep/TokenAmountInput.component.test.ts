@@ -18,7 +18,7 @@ vi.mock('$libs/token', async (importOriginal) => ({
   fetchBalance: vi.fn().mockResolvedValue({ value: BigInt(100), decimals: 0, symbol: 'NFT' }),
 }));
 
-import { enteredAmount, selectedToken, tokenBalance } from '$components/Bridge/state';
+import { enteredAmount, errorComputingBalance, selectedToken, tokenBalance } from '$components/Bridge/state';
 import { fetchBalance, TokenType } from '$libs/token';
 import { account } from '$stores/account';
 
@@ -148,6 +148,51 @@ describe('balance reads that overlap', () => {
     resolveA({ value: BigInt(1), decimals: 0, symbol: 'A' });
     await readA;
 
+    expect(get(tokenBalance)?.value).toBe(BigInt(7));
+  });
+});
+
+describe('a balance read that fails', () => {
+  beforeEach(() => {
+    account.set({ address: '0x1111111111111111111111111111111111111111', isConnected: true } as never);
+    errorComputingBalance.set(false);
+  });
+
+  it('is reported rather than escaping as an unhandled rejection', async () => {
+    // The read runs unawaited from onMount; a rejection used to be unhandled, and the
+    // previous token's balance stayed on screen as if it were this one's
+    vi.mocked(fetchBalance).mockRejectedValueOnce(new Error('rpc down'));
+
+    await expect(component!.determineBalance()).resolves.toBeUndefined();
+
+    expect(get(errorComputingBalance)).toBe(true);
+  });
+
+  it('clears the report once a later read succeeds', async () => {
+    vi.mocked(fetchBalance).mockRejectedValueOnce(new Error('rpc down'));
+    await component!.determineBalance();
+
+    vi.mocked(fetchBalance).mockResolvedValueOnce({ value: BigInt(3), decimals: 0, symbol: 'NFT' } as never);
+    await component!.determineBalance();
+
+    expect(get(errorComputingBalance)).toBe(false);
+    expect(get(tokenBalance)?.value).toBe(BigInt(3));
+  });
+
+  it('leaves the report to the newest read when a stale one fails', async () => {
+    // The failure belongs to a token the user has already replaced
+    const mockedFetch = vi.mocked(fetchBalance);
+    let rejectA!: (reason: unknown) => void;
+    mockedFetch.mockReturnValueOnce(new Promise((_, reject) => (rejectA = reject)) as never);
+    const readA = component!.determineBalance();
+
+    mockedFetch.mockResolvedValueOnce({ value: BigInt(7), decimals: 0, symbol: 'B' } as never);
+    await component!.determineBalance();
+
+    rejectA(new Error('rpc down'));
+    await readA;
+
+    expect(get(errorComputingBalance)).toBe(false);
     expect(get(tokenBalance)?.value).toBe(BigInt(7));
   });
 });

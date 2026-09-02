@@ -1,6 +1,11 @@
-import { waitForTransactionReceipt } from '@wagmi/core';
+import { getPublicClient } from '@wagmi/core';
 import { writable } from 'svelte/store';
-import { type Hex, type TransactionReceipt, WaitForTransactionReceiptTimeoutError } from 'viem';
+import {
+  type Hex,
+  type ReplacementReturnType,
+  type TransactionReceipt,
+  WaitForTransactionReceiptTimeoutError,
+} from 'viem';
 
 import { pendingTransaction } from '$config';
 import { FailedTransactionError, ReceiptUnavailableError, TransactionTimeoutError } from '$libs/error';
@@ -37,17 +42,30 @@ export const pendingTransactions = {
       // before removing it from the store.
 
       /**
-       * Returns a Promise which will not resolve until transactionHash is mined.
-       * If confirms is 0, this method is non-blocking and if the transaction
-       * has not been mined returns null. Otherwise, this method will block until
-       * the transaction has confirms blocks mined on top of the block in which
-       * is was mined.
+       * Waits on the chain's own client rather than through @wagmi/core's wrapper. The
+       * wrapper never returns a reverted receipt: it re-simulates the transaction and throws
+       * a plain Error for it, so a revert never reached the status check below and landed in
+       * the catch instead - where anything that is not a timeout reads as "the receipt could
+       * not be read", which every caller treats as a transaction that may still confirm.
+       *
+       * Returns a Promise which will not resolve until transactionHash is mined, or the
+       * configured timeout has passed.
        */
-      waitForTransactionReceipt(config, {
-        hash,
-        chainId,
-        timeout: pendingTransaction.waitTimeout,
-      })
+      const client = getPublicClient(config, { chainId });
+      // The wallet can replace the transaction under the same nonce, and the wait then
+      // resolves with the replacement's receipt. A MetaMask "cancel" is a successful
+      // 0-value self-transfer, so it read as "transaction completed" and was recorded in
+      // the local history under a hash that never mined.
+      let replacement: ReplacementReturnType | undefined;
+      const receiptWait = client
+        ? client.waitForTransactionReceipt({
+            hash,
+            timeout: pendingTransaction.waitTimeout,
+            onReplaced: (details) => (replacement = details),
+          })
+        : Promise.reject(new Error(`no client configured for chain ${chainId}`));
+
+      receiptWait
         .then((receipt) => {
           log('Transaction mined with receipt', receipt);
 
@@ -58,7 +76,16 @@ export const pendingTransactions = {
           );
 
           // Resolves or rejects the promise depending on the transaction status.
-          if (receipt.status === 'success') {
+          if (replacement && replacement.reason !== 'repriced') {
+            // Cancelled, or replaced by something else: what the user asked for never ran.
+            // A repriced transaction is the same call under a new hash, and its receipt is
+            // the one that counts - callers that record the hash take it from there.
+            deferred.reject(
+              new FailedTransactionError(`transaction with hash "${hash}" was ${replacement.reason} in the wallet`, {
+                cause: replacement,
+              }),
+            );
+          } else if (receipt.status === 'success') {
             log('Transaction successful');
             deferred.resolve(receipt);
           } else {

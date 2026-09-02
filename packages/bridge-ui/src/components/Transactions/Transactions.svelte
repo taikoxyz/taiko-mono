@@ -114,7 +114,14 @@
       transactions = mergedTransactions;
 
       if (outdatedLocalTransactions.length > 0) {
-        await bridgeTxService.removeTransactions(address, outdatedLocalTransactions);
+        // The list is on screen and complete by now. A refused localStorage write here only
+        // means the prune runs again on the next load, so it must not fall through to the
+        // catch below and be reported as the relayer not responding.
+        try {
+          await bridgeTxService.removeTransactions(address, outdatedLocalTransactions);
+        } catch (pruneError) {
+          console.error('Could not prune the local transaction history', pruneError);
+        }
       }
       const warning = getLoadWarning({ error, failedCount });
       if (warning) {
@@ -122,9 +129,8 @@
       }
     } catch (error) {
       // fetchTransactions reports relayer trouble by returning it, so what reaches here is
-      // the fetch itself or storage throwing - a localStorage write refused mid-prune, for
-      // one. Without this it was an unhandled rejection that skipped the warning above and
-      // left the previous list on screen looking current.
+      // the fetch itself throwing. Without this it was an unhandled rejection that skipped
+      // the warning above and left the previous list on screen looking current.
       if (generation !== fetchGeneration) return;
       console.error('Could not load the transactions', error);
       warningToast({

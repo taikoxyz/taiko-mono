@@ -99,10 +99,12 @@
         userAddress,
       });
       if (generation !== balanceReadGeneration) return;
+      $errorComputingBalance = false;
       $tokenBalance = balance;
     } catch (err) {
       if (generation !== balanceReadGeneration) return;
       log('Error updating balance: ', err);
+      $errorComputingBalance = true;
       clearAmount();
     } finally {
       // The newer read owns the spinner now
@@ -189,13 +191,26 @@
   export async function determineBalance() {
     if (!$account?.address || !$selectedToken) return;
     const generation = ++balanceReadGeneration;
-    const balance = await fetchBalance({
-      userAddress: $account?.address,
-      token: $selectedToken,
-      srcChainId: $connectedSourceChain?.id,
-      destChainId: $destNetwork?.id,
-    });
+    let balance: Awaited<ReturnType<typeof fetchBalance>>;
+    try {
+      balance = await fetchBalance({
+        userAddress: $account?.address,
+        token: $selectedToken,
+        srcChainId: $connectedSourceChain?.id,
+        destChainId: $destNetwork?.id,
+      });
+    } catch (error) {
+      // Called unawaited from onMount, so a rejection here escaped as an unhandled one and
+      // left whatever balance was on screen standing under this token's name. A read that
+      // failed is reported the way the fungible input reports it: the field is disabled
+      // until a later read succeeds.
+      if (generation !== balanceReadGeneration) return;
+      log('Error fetching balance', error);
+      $errorComputingBalance = true;
+      return;
+    }
     if (generation !== balanceReadGeneration) return;
+    $errorComputingBalance = false;
     $tokenBalance = balance;
   }
 

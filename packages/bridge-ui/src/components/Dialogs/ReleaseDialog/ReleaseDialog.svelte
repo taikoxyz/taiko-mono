@@ -24,6 +24,7 @@
   import { isMessageNotReceivedError } from '../ClaimDialog/error';
   import { ClaimConfirmStep, ReviewStep } from '../Shared';
   import { reportDialogTransaction } from '../Shared/dialogTransactionFlow';
+  import { createResetGate } from '../Shared/resetGate';
   import { ClaimAction } from '../Shared/types';
   import { DialogStep, DialogStepper } from '../Stepper';
   import ReleaseStepNavigation from './ReleaseStepNavigation.svelte';
@@ -44,9 +45,9 @@
   let txHash: Hash;
   let releasing = false;
   /**
-   * A release transaction is on chain and its outcome is not known yet. Distinct from
-   * `releasing`, which `reset` clears: this survives a close so reopening the dialog cannot
-   * offer a second release for a message whose first release may still confirm.
+   * A release transaction is on chain and its outcome is not known yet. With `releasing` this
+   * is what holds the reset gate below closed, so reopening the dialog cannot offer a second
+   * release for a message whose first release may still confirm.
    */
   let releaseTxPending = false;
   let releasingDone = false;
@@ -63,14 +64,26 @@
     reset();
   };
 
+  /**
+   * Closing the dialog or switching accounts cancels neither a release awaiting the wallet's
+   * signature nor one already on chain. Rewinding the steps here - and clearing `releasing`,
+   * as this used to - handed the user a fresh Release button for that same message as soon
+   * as the dialog was reopened from the row, while the first request was still in the wallet.
+   * The gate refuses the rewind while the release is in flight and applies it once the
+   * attempt has settled; `releasing` itself is only ever lowered by the click, error and
+   * outcome handlers.
+   */
+  const resetGate = createResetGate({
+    inFlight: () => releasing || releaseTxPending,
+    isOpen: () => dialogOpen,
+    rewind: () => {
+      releasingDone = false;
+      activeStep = INITIAL_STEP;
+    },
+  });
+
   const reset = () => {
-    // Closing the dialog or switching accounts does not cancel a release already on chain.
-    // Rewinding the steps and clearing `releasing` here would hand the user a fresh Release
-    // button for that same message, so a still-pending transaction keeps the dialog as is.
-    if (releaseTxPending) return;
-    releasing = false;
-    releasingDone = false;
-    activeStep = INITIAL_STEP;
+    resetGate.request();
   };
 
   const handleClaimTxSent = async (event: CustomEvent<{ txHash: Hash; action: ClaimAction }>) => {
@@ -95,10 +108,12 @@
 
     releasing = false;
     releaseTxPending = false;
-    if (outcome === 'failed') return;
-
-    releasingDone = true;
-    dispatch('claimingDone');
+    if (outcome !== 'failed') {
+      releasingDone = true;
+      dispatch('claimingDone');
+    }
+    // A close refused while the transaction was pending is applied now
+    resetGate.settle();
   };
 
   const handleClaimError = (event: CustomEvent<{ error: unknown; type: ClaimAction }>) => {
@@ -160,6 +175,7 @@
         break;
     }
     releasing = false;
+    resetGate.settle();
   };
 
   const handleReleaseClick = async () => {
@@ -175,6 +191,9 @@
       releasing = false;
       errorToast({ title: $t('bridge.errors.unknown_error.title') });
     }
+    // The attempt settled without a transaction, or the error handler has already reported
+    // it - unless one is pending now, which the gate leaves alone
+    resetGate.settle();
   };
 
   $: loading = releasing;

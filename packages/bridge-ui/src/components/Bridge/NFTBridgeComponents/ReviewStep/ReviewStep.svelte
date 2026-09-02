@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from 'svelte';
+  import { createEventDispatcher, onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
 
   import { chainConfig } from '$chainConfig';
@@ -40,6 +40,9 @@
     }
   };
 
+  let destroyed = false;
+  onDestroy(() => (destroyed = true));
+
   const fetchImage = async () => {
     if (!$selectedNFTs || $selectedNFTs?.length === 0) return;
     const srcChainId = $connectedSourceChain?.id;
@@ -48,7 +51,13 @@
 
     // Await every lookup and publish the full selection once: assigning inside each
     // callback collapsed a multi-NFT selection to whichever image resolved last
-    const nftsWithUrl = await Promise.all($selectedNFTs.map((nft) => fetchNFTImageUrl(nft)));
+    const selection = $selectedNFTs;
+    const nftsWithUrl = await Promise.all(selection.map((nft) => fetchNFTImageUrl(nft)));
+
+    // The lookup fills each NFT in place; these writes only exist to re-render. Image hosts
+    // are slow, and a user who pressed Back and picked another NFT meanwhile - or a form
+    // reset on a wallet change - must not have that selection replaced by this one.
+    if (destroyed || $selectedNFTs !== selection) return;
 
     $selectedNFTs = nftsWithUrl;
     $selectedToken = nftsWithUrl[0];

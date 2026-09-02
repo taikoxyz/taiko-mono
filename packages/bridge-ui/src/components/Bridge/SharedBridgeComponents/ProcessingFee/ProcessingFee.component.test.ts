@@ -99,6 +99,37 @@ const type = async (value: string) => {
   await tick();
 };
 
+describe('mounting in recommended mode', () => {
+  afterEach(() => {
+    stubRecommendedAmount.set(undefined);
+  });
+
+  it('keeps the committed fee until its own recommendation lands', async () => {
+    // Each wizard step mounts its own instance. The init reactive wrote the 0 placeholder
+    // into the store, so between the mount and the recommendation the fee read 0 ETH -
+    // and a step advancing in that window bridged with it
+    component?.$destroy();
+    processingFee.set(BigInt(5000));
+
+    component = new ProcessingFee({ target, props: {} });
+    await tick();
+
+    expect(get(processingFee)).toBe(BigInt(5000));
+  });
+
+  it('still takes the recommendation once it lands', async () => {
+    component?.$destroy();
+    processingFee.set(BigInt(5000));
+    component = new ProcessingFee({ target, props: {} });
+    await tick();
+
+    stubRecommendedAmount.set(BigInt(7000));
+    await tick();
+
+    expect(get(processingFee)).toBe(BigInt(7000));
+  });
+});
+
 describe('zero gas limit', () => {
   /**
    * Bridge.sol:200 reverts with B_INVALID_FEE when gasLimit is 0 and fee is not.

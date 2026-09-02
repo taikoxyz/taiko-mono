@@ -17,6 +17,7 @@
   import { ClaimConfirmStep, ReviewStep } from '../Shared';
   import ClaimPreCheck from '../Shared/ClaimPreCheck.svelte';
   import { reportDialogTransaction } from '../Shared/dialogTransactionFlow';
+  import { createResetGate } from '../Shared/resetGate';
   import { ClaimAction } from '../Shared/types';
   import RetryStepNavigation from './RetryStepNavigation.svelte';
   import RetryOptionStep from './RetrySteps/RetryOptionStep.svelte';
@@ -39,9 +40,9 @@
   let canContinue = false;
   let retrying: boolean;
   /**
-   * A retry transaction is on chain and its outcome is not known yet. Distinct from
-   * `retrying`, which `reset` clears: this survives a close so reopening the dialog cannot
-   * offer a second retry for a message whose first retry may still confirm.
+   * A retry transaction is on chain and its outcome is not known yet. With `retrying` this
+   * is what holds the reset gate below closed, so reopening the dialog cannot offer a second
+   * retry for a message whose first retry may still confirm.
    */
   let retryTxPending = false;
   let retryDone = false;
@@ -80,21 +81,33 @@
       }
     }
     retrying = false;
+    resetGate.settle();
   };
 
   const handleAccountChange = () => {
     reset();
   };
 
+  /**
+   * Closing the dialog or switching accounts cancels neither a retry awaiting the wallet's
+   * signature nor one already on chain. Rewinding the steps here - and clearing `retrying`,
+   * as this used to - handed the user a fresh Retry button for that same message as soon as
+   * the dialog was reopened from the row, while the first request was still in the wallet.
+   * The gate refuses the rewind while the retry is in flight and applies it once the attempt
+   * has settled; `retrying` itself is only ever lowered by the error and outcome handlers.
+   */
+  const resetGate = createResetGate({
+    inFlight: () => retrying || retryTxPending,
+    isOpen: () => dialogOpen,
+    rewind: () => {
+      activeStep = INITIAL_STEP;
+      $selectedRetryMethod = RETRY_OPTION.CONTINUE;
+      retryDone = false;
+    },
+  });
+
   const reset = () => {
-    // Closing the dialog or switching accounts does not cancel a retry already on chain.
-    // Rewinding the steps and clearing `retrying` here would hand the user a fresh Retry
-    // button for that same message, so a still-pending transaction keeps the dialog as is.
-    if (retryTxPending) return;
-    activeStep = INITIAL_STEP;
-    $selectedRetryMethod = RETRY_OPTION.CONTINUE;
-    retryDone = false;
-    retrying = false;
+    resetGate.request();
   };
 
   const closeDialog = () => {
@@ -110,6 +123,9 @@
       showQuotaReachedToast,
       onQuotaCheckError: logQuotaCheckError,
     });
+    // The attempt settled without a transaction - the quota refused it, or the error handler
+    // has already reported it - unless one is pending now, which the gate leaves alone
+    resetGate.settle();
   };
 
   const handleRetryTxSent = async (event: CustomEvent<{ txHash: Hash }>) => {
@@ -132,10 +148,12 @@
 
     retrying = false;
     retryTxPending = false;
-    if (outcome === 'failed') return;
-
-    retryDone = true;
-    dispatch('retryDone');
+    if (outcome !== 'failed') {
+      retryDone = true;
+      dispatch('retryDone');
+    }
+    // A close refused while the transaction was pending is applied now
+    resetGate.settle();
   };
 </script>
 

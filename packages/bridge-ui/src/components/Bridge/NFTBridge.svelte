@@ -95,6 +95,17 @@
     $destOwnerAddress = $account?.address || null;
   };
 
+  /**
+   * The zero-gas-limit choice and the fee method belong to the transfer they were chosen
+   * for. A wallet or network change past the import step restarts the transfer in both
+   * branches of updateForm, so both must drop them - the manual branch used to keep them,
+   * and the next account's transfer went to Review with a zero gas limit and no fee.
+   */
+  const resetFeeChoice = () => {
+    $processingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
+    $gasLimitZero = false;
+  };
+
   function updateForm() {
     tick().then(() => {
       if ($selectedImportMethod === ImportMethod.MANUAL) {
@@ -102,6 +113,7 @@
         // still worth checking against the new account or chain - but everything the old
         // account seeded is reset, the way the scan branch does through resetForm
         seedAccountDefaults();
+        resetFeeChoice();
         runValidations().catch((error) => console.error('Error running validations', error));
       } else {
         resetForm();
@@ -113,8 +125,7 @@
     // The fee is reset through its stores rather than a component ref: the ProcessingFee
     // instances live inside RecipientStep and ReviewStep, so nothing here could ever bind
     // one - the same never-bound-ref bug this file fixed for the address and id inputs.
-    $processingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
-    $gasLimitZero = false;
+    resetFeeChoice();
     //we check if these are still mounted, as the user might have left the page
     importStepComponent?.resetManualImport();
 
