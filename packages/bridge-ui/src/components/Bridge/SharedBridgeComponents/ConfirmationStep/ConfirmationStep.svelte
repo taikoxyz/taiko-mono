@@ -27,6 +27,7 @@
   import type { ERC1155Bridge } from '$libs/bridge/ERC1155Bridge';
   import { getBridgeArgs } from '$libs/bridge/getBridgeArgs';
   import { handleBridgeError } from '$libs/bridge/handleBridgeErrors';
+  import { isSlowL1Bridging } from '$libs/chain';
   import { BridgePausedError, ReceiptUnavailableError, TransactionTimeoutError } from '$libs/error';
   import { recordBridgeTx } from '$libs/storage/recordBridgeTx';
   import { TokenType } from '$libs/token';
@@ -70,6 +71,7 @@
     from: Address;
     srcChainId: number;
     destChainId: number;
+    destChainName: string;
     token: Token | NFT;
     amount: bigint;
     fee: bigint;
@@ -118,18 +120,24 @@
       // Confirmed on-chain: record it in the local history
       recordBridgeTx(sent.from, { ...bridgeTx, srcTxHash: minedTxHash });
 
-      // No values: the message carries no placeholder, so a token passed here was silently
-      // dropped by the formatter. The symbol is still escaped where a string does interpolate it.
+      // The funds are claimed on the destination, which is only Taiko in one direction. The
+      // name is interpolated into a string rendered with {@html}, so it is escaped like every
+      // other interpolated value
       successToast({
         title: $t('bridge.actions.bridge.success.title'),
-        message: $t('bridge.actions.bridge.success.message'),
+        message: $t('bridge.actions.bridge.success.message', { values: { chain: escapeHtml(sent.destChainName) } }),
       });
       icon = successIcon;
       bridgingStatus = BridgingStatus.DONE;
       statusTitle = $t('bridge.actions.bridge.success.title');
-      statusDescription = $t('bridge.step.confirm.bridge.success.message', {
-        values: { url: `${explorer}/tx/${minedTxHash}` },
-      });
+      // An L2 -> L1 transfer is claimable hours later, not in a few minutes. The review step
+      // warned about that one screen earlier, and this screen has to agree with it
+      statusDescription = $t(
+        isSlowL1Bridging(sent.destChainId)
+          ? 'bridge.step.confirm.bridge.success.message_slow_l1'
+          : 'bridge.step.confirm.bridge.success.message',
+        { values: { url: `${explorer}/tx/${minedTxHash}` } },
+      );
     } finally {
       bridging = false;
     }
@@ -312,6 +320,7 @@
         from: $account.address,
         srcChainId: $connectedSourceChain.id,
         destChainId: $destNetwork.id,
+        destChainName: $destNetwork.name,
         token: $selectedToken,
         amount: $enteredAmount,
         fee: $processingFee,

@@ -13,3 +13,5 @@ export const CONFIGURED_RELAYER = '';
 // prefix, so no test could see how a gateway URL is actually built.
 export const PUBLIC_IPFS_GATEWAYS = 'https://ipfs.io,https://cloudflare-ipfs.com,https://dweb.link';
 export const PUBLIC_FEE_MULTIPLIER = '';
+// Off unless a test turns it on: the slow-L1 copy is opt-in per deployment
+export const PUBLIC_SLOW_L1_BRIDGING_WARNING = '';

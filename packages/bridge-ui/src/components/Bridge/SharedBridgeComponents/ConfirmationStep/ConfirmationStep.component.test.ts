@@ -3,6 +3,9 @@
  * when the wallet returns. The prompt can sit open for minutes, and a wallet that switched
  * account or network meanwhile used to file the transaction under the new account or chain:
  * the sender's history lost it, and the receipt wait watched the wrong chain.
+ *
+ * The confirmation copy is direction-aware for the same reason it is chain-aware: an
+ * L2 -> L1 transfer is claimed on L1, hours later, not "on Taiko" in "a few minutes".
  */
 import { tick } from 'svelte';
 import { vi } from 'vitest';
@@ -21,6 +24,10 @@ vi.mock('svelte-i18n', async () => {
     options?.values ? `${key} ${JSON.stringify(options.values)}` : key;
   return { t: readable(t), locale: readable('en'), init: vi.fn(), addMessages: vi.fn() };
 });
+vi.mock('$env/static/public', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('$env/static/public')>()),
+  PUBLIC_SLOW_L1_BRIDGING_WARNING: 'true',
+}));
 vi.mock('$chainConfig', () => ({
   chainConfig: {
     // rpcUrls: the wagmi config builds one transport per configured chain at import time
@@ -182,5 +189,40 @@ describe('the local record of a sent bridge', () => {
 
     expect(sendBridge).toHaveBeenCalledTimes(1);
     expect(recordBridgeTx.mock.calls[0][1]).toMatchObject({ symbol: 'ETH', tokenType: TokenType.ETH });
+  });
+});
+
+describe('the confirmation copy', () => {
+  it('names the chain the funds will be claimed on', async () => {
+    sendBridge.mockResolvedValueOnce(TX_HASH);
+    await startBridge();
+    await flush();
+
+    expect(successToast).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining('"chain":"Ethereum"') }),
+    );
+  });
+
+  it('says an L2 -> L1 transfer takes hours when the deployment warns about slow L1 bridging', async () => {
+    sendBridge.mockResolvedValueOnce(TX_HASH);
+    await startBridge();
+    await flush();
+
+    expect(target.textContent).toContain('bridge.step.confirm.bridge.success.message_slow_l1 ');
+    expect(target.textContent).toContain('https://l2.explorer/tx/');
+  });
+
+  it('keeps the usual copy for a transfer to L2', async () => {
+    connectedSourceChain.set({ id: 1, name: 'Ethereum' } as never);
+    destNetwork.set({ id: 2, name: 'Taiko' } as never);
+    sendBridge.mockResolvedValueOnce(TX_HASH);
+    await startBridge();
+    await flush();
+
+    expect(target.textContent).toContain('bridge.step.confirm.bridge.success.message ');
+    expect(target.textContent).not.toContain('message_slow_l1');
+    expect(successToast).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining('"chain":"Taiko"') }),
+    );
   });
 });
