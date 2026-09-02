@@ -16992,6 +16992,29 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         executor = settlement.RootMigrationExecutorModelV1(
             executor_address, 167, dao
         )
+        exhausted_executor = settlement.RootMigrationExecutorModelV1(
+            executor_address, 167, dao,
+            next_operation_nonce=settlement.UINT64_MAX,
+        )
+        with self.assertRaises(ValueError):
+            exhausted_executor.queue_v1(
+                factory_address, manifest.manifest_hash(),
+                factory_runtime_hash, factory_configuration_hash, 100,
+                caller=dao,
+            )
+        exhausted_factory = settlement.ProtocolRootFactoryModelV1(
+            factory_address, 167, namespace, proxy_creation_hash,
+            factory_runtime_hash, factory_configuration_hash,
+            generation=settlement.UINT64_MAX,
+        )
+        terminal_manifest = settlement.ProtocolRootManifestV1(
+            167, settlement.UINT64_MAX, namespace, bytes(32), rows
+        )
+        with self.assertRaises(ValueError):
+            exhausted_factory.stage_v1(
+                bytes.fromhex("77" * 32), terminal_manifest, 100,
+                authorized=True,
+            )
         with self.assertRaises(ValueError):
             factory.stage_v1(
                 bytes.fromhex("77" * 32), manifest, 100, authorized=False
@@ -17074,6 +17097,11 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             key, execute_at
             + settlement.PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS + 1
         )
+        staged_expiry = executor.operations[operation_id].staged_expires_at
+        campaign.expires_at += 1
+        with self.assertRaises(ValueError):
+            executor.clear_aborted_v1(operation_id, factory, key)
+        campaign.expires_at = staged_expiry
         executor.clear_aborted_v1(operation_id, factory, key)
         self.assertEqual(executor.operations[operation_id].state, 7)
         self.assertEqual(executor.authority_state, 0)
@@ -17129,6 +17157,28 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                 first_managed_window=first_managed_window - 1,
                 executor=executor,
             )
+        with self.assertRaises(ValueError):
+            factory.finalize_v1(
+                retry_key, finalize_at, postvalidated=True,
+                genesis_timestamp=0,
+                first_managed_window=settlement.UINT64_MAX,
+                executor=executor,
+            )
+        expected_generation = (
+            executor.operations[retry_operation_id].staged_generation
+        )
+        executor.operations[retry_operation_id].staged_generation = 99
+        with self.assertRaises(ValueError):
+            factory.finalize_v1(
+                retry_key, finalize_at, postvalidated=True,
+                genesis_timestamp=0,
+                first_managed_window=first_managed_window,
+                executor=executor,
+            )
+        self.assertEqual(retry_campaign.active_roles, set())
+        executor.operations[retry_operation_id].staged_generation = (
+            expected_generation
+        )
         receipt = factory.finalize_v1(
             retry_key, finalize_at, postvalidated=True,
             genesis_timestamp=0,
@@ -21291,9 +21341,15 @@ class RegistryLifecycleRound4Tests(unittest.TestCase):
         with self.assertRaises(ValueError):
             rollback.expire_batch(0, lambda _: True)
 
+        with self.assertRaises(ValueError):
+            settlement.ScheduleReleaseCursor(
+                first_managed_window=settlement.UINT64_MAX
+            )
         terminal = settlement.ScheduleReleaseCursor(
-            first_managed_window=settlement.UINT64_MAX
+            first_managed_window=settlement.UINT64_MAX - 1,
+            objectively_vacant={settlement.UINT64_MAX - 1},
         )
+        self.assertEqual(terminal.expire_batch(1, lambda _: True), 1)
         self.assertEqual(terminal.expire_batch(1, lambda _: True), 0)
         self.assertEqual(terminal.next_release_window, settlement.UINT64_MAX)
 

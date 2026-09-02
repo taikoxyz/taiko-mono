@@ -653,23 +653,32 @@ That entry is exactly \code{deployV1(bytes)} (selector \code{0x5d5fb6bc}),
 nonpayable, canonical offset \code{0x20}, total calldata length
 \code{68+ceil32(initCodeLength)}, zero padding and no gap, alias or suffix.
 Success returns exactly one canonically padded nonzero address word equal to
-the nonce-1 child; short/trailing/dirty return rejects.  Factory forwards
-EIP-150-safe gas.  Immediately after the proxy call it requires
+the nonce-1 child; short/trailing/dirty return rejects.  Factory first builds
+the complete proxy calldata in memory and warms the already-deployed proxy.
+Let \code{g0=gasleft()} immediately before CALL.  It requires
+\code{g0>510000}, requests exactly \code{g0-510000} gas, supplies zero output
+space, checks success and exact returndata size before copying, and then requires
 \code{gasleft()>=500000} before any runtime/configuration/activation postcheck;
 otherwise the whole deployment reverts.  The per-role deployment certificate
 must succeed at its published transaction gas limit, while the boundary vector
-with 499,999 gas remaining after the proxy call rejects before a postcheck or
-state write.
+with 499,999 gas remaining after the proxy call rejects before a returndata
+copy, postcheck or state write.  The 10,000-gas gap is the fixed warm-CALL and
+return-envelope reserve; release measurement must prove it covers that path.
 
-Staging does not waive EIP-170.  Before the DAO may queue the root operation,
-the reproducible compiled-artifact gate requires every one of the nine runtime
-byte arrays to be at most 24,576 bytes and every complete init code to be at
-most 49,152 bytes, with the committed hashes equal to those exact bytes.
+Staging does not waive EIP-170 or EIP-3860.  Before the DAO may queue the root
+operation, the reproducible compiled-artifact gate covers all twelve immutable
+bootstrap artifacts: RootMigrationExecutor, ProtocolRootFactory, the fixed
+CREATE3 proxy and all nine component roles.  Every runtime byte array must be
+at most 24,576 bytes and every complete init code must be at most 49,152 bytes,
+with the committed hashes equal to those exact bytes.
 BuilderRegistry and ScheduleOracle are specifically blocking until their real
-optimized artifacts pass both bounds.  If either exceeds EIP-170, the design
+optimized artifacts pass both bounds.  ProtocolRootFactory is also specifically
+blocking because it owns strict manifest parsing, CREATE3 and the complete
+BRC1/SOC1/PVM1 postvalidation graph; V1 currently authorizes no Factory helper.
+If any artifact exceeds EIP-170, the design
 must first specify an exact immutable helper topology: helper addresses,
 runtimes, configurations, transitive reachable-code closure, STATICCALL ABI and
-gas must enter the root artifact/configuration DAG.  A linked library using
+gas must enter that artifact's configuration and the root DAG.  A linked library using
 DELEGATECALL, an uncommitted parser/verifier, or silently split mutable code is
 forbidden.  No manifest may be queued on the assumption that a later compiler
 or implementation will make the size problem disappear.
@@ -705,7 +714,9 @@ The DAO alone calls
 \code{0x3499bb4a}) with exact Factory address, root-manifest hash, expected
 Factory runtime hash and expected Factory configuration hash; calldata is the
 canonical 132 bytes.  The checked monotone
-\code{nextOperationNonce} starts at one and the call returns exactly one
+\code{nextOperationNonce} starts at one, must be strictly below
+\code{UINT64_MAX} when queued and increments after storing the row.
+\code{UINT64_MAX} is its terminal unused exhaustion sentinel.  The call returns exactly one
 \code{bytes32 operationId}, where
 \begin{verbatim}
 operationId = H("slot-chain-root-migration-operation-v1" ||
@@ -713,7 +724,8 @@ operationId = H("slot-chain-root-migration-operation-v1" ||
  address20(factory) || manifestHash ||
  factoryRuntimeHash || factoryConfigurationHash)
 \end{verbatim}
-The Executor must be IDLE when queueing.  Queue stores a distinct row before
+The Executor must be IDLE when queueing.  Queue requires
+\code{block.timestamp<=UINT64_MAX-604800-604800}, stores a distinct row before
 incrementing the nonce and cannot replace or accelerate an earlier row.  The
 two queued Factory hashes are execution predicates, not self-reported labels:
 the release gate rejects a proxy, beacon, delegatecall, replaceable target,
@@ -773,6 +785,13 @@ operation/key/ABORTED checks change STAGED to ABORTED and return RMA1 to IDLE;
 deadline alone is insufficient.  Thus a failed or abandoned campaign can retry
 even with another DAO-approved immutable Factory, while an activated root can
 never be replaced or coexist with a second root through this Executor.
+When the STAGED receipt is accepted, Executor stores its exact generation and
+expiry as internal operation metadata.  Every later PRC1 decode validates all
+narrow-word padding and compares those two values exactly; no terminal integer
+is a wildcard.  ACTIVE additionally requires
+\code{deployedBitmap=0x01ff} and the exact nonzero confirmation root receipt.
+ABORTED requires that \code{deployedBitmap} has no bit outside
+\code{0x01ff}, and requires a zero root receipt.
 Executor has no generic target call.  ERC-2470 address/runtime, executor
 creation/runtime/configuration, DAO and salt are genesis-deployment receipt
 constants.  Because executor address is derived before and independently of
@@ -868,8 +887,11 @@ independent byte prefix or nested ABI tuple.  Solidity's canonical ABI defines
 every static word and any role-local dynamic offset/tail; a release manifest
 pins the resulting complete init-code bytes, and no initializer or suffix may
 follow them.  All 27 component hashes are nonzero.  Generation starts at zero
-and is the Factory's exact next
-generation; namespace and chain equal its configuration; predecessor is
+and is the Factory's exact next generation; staging additionally requires
+\code{nextGeneration<UINT64_MAX}.  \code{UINT64_MAX} is the terminal unused
+generation sentinel: generation \code{UINT64_MAX-1} may finalize or abort and
+advance to it, but no campaign can then stage.  Namespace and chain equal its
+configuration; predecessor is
 canonical zero.  ProtocolRootFactoryV1 installs exactly one genesis root; it
 does not implement root succession.  No manifest word,
 component init code or configuration hash enters the campaign key, proxy salt
@@ -939,9 +961,15 @@ Every one of the nine root components is nonfunctional until its sole
 \code{activateProtocolRootV1(bytes32)} entry (selector \code{0x74e3aa45}) is
 called by the pinned factory with its constructor-stored campaign key.  The key
 is independent of the manifest and is constructor-written writerless storage,
-not a bytecode immutable.  Before activation every functional/mutating entry
-reverts \code{RootInactive}; read-only deployment/configuration/activation views
-remain available.  The exact zero-argument view
+not a bytecode immutable.  Before activation every functional or mutating entry,
+including a functional read, reverts \code{RootInactive}.  The complete
+pre-activation read allowlist is: every role's
+\code{componentConfigHashV2()} and \code{protocolRootActivationV1()}, plus
+\code{builderRegistryConfigV1()} for role 1,
+\code{scheduleOracleConfigV1()} for role 2 and
+\code{protocolVersionManagerConfigV1()} for role 4.  No other role-specific
+view is callable before activation; in particular SWR1, SWV1, operational
+topology getters and all mutation surfaces revert.  The exact zero-argument view
 \code{protocolRootActivationV1()} (selector \code{0xda930d69}) returns exactly
 128 bytes \code{(PRA1,protocolRootFactory,campaignKey,state)}, with INACTIVE=0
 and ACTIVE=1 and canonical padding.
@@ -960,8 +988,9 @@ activation/cross-view uses 100,000 gas; every call has exact selector-only
 calldata and exact return length/padding.  It requires BRC1 and SOC1 to agree on
 \code{genesisTimestamp} and \code{firstManagedWindow}, derives
 \code{currentWindow=max(0,(block.timestamp-genesisTimestamp)/384)} with checked
-arithmetic, and requires
+arithmetic, and requires both
 \begin{verbatim}
+firstManagedWindow < UINT64_MAX
 firstManagedWindow >= currentWindow + 18.
 \end{verbatim}
 This finalization-time check, rather than a stale constructor-time promise,
@@ -1491,7 +1520,8 @@ HISTORY_STORAGE_ADDRESS = 0x0000F90827F1C53a10cb7A02335B175320002935
 \end{verbatim}
 Neither is a constructor argument.  Every address/hash is nonzero,
 \code{settlementChainId=block.chainid},
-\code{leasePerWindowAtomic} equals the BuilderRegistry economic value, the
+\code{leasePerWindowAtomic} equals the BuilderRegistry economic value,
+\code{firstManagedWindow<UINT64_MAX}, the
 initial fork row has \code{firstWindow=0}, and its constants/configuration obey
 the fork formula below.  The Registry genesis/first-managed values must equal
 the Schedule values, \code{lookaheadSeconds=768}, and the first managed window

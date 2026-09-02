@@ -4481,6 +4481,7 @@ class ProtocolRootFactoryModelV1:
                 or operation_id == bytes(32)
                 or manifest.settlement_chain_id != self.settlement_chain_id
                 or manifest.generation != self.generation
+                or self.generation >= UINT64_MAX
                 or manifest.manifest_namespace != self.manifest_namespace
                 or manifest.predecessor_root_receipt != bytes(32)
                 or not 0 <= now <= UINT64_MAX -
@@ -4529,7 +4530,7 @@ class ProtocolRootFactoryModelV1:
     ) -> bytes:
         campaign = self.live
         if (not 0 <= genesis_timestamp <= UINT64_MAX
-                or not 0 <= first_managed_window <= UINT64_MAX):
+                or not 0 <= first_managed_window < UINT64_MAX):
             raise ValueError("protocol-root managed-window inputs are invalid")
         current_window = (
             0 if now < genesis_timestamp
@@ -4590,6 +4591,8 @@ class RootMigrationOperationModelV1:
     execute_after: int
     execute_before: int
     state: int = 1
+    staged_generation: int | None = None
+    staged_expires_at: int | None = None
 
 
 @dataclass
@@ -4645,7 +4648,7 @@ class RootMigrationExecutorModelV1:
         now: int, *, caller: bytes,
     ) -> bytes:
         nonce = self.next_operation_nonce
-        if (caller != self.dao_proposer or nonce > UINT64_MAX
+        if (caller != self.dao_proposer or nonce >= UINT64_MAX
                 or not 0 <= now <= UINT64_MAX
                 - ROOT_MIGRATION_MINIMUM_DELAY_SECONDS
                 - ROOT_MIGRATION_EXECUTION_WINDOW_SECONDS
@@ -4716,6 +4719,8 @@ class RootMigrationExecutorModelV1:
             self.candidate_operation_id = bytes(32)
             self.candidate_campaign_key = bytes(32)
             raise
+        operation.staged_generation = manifest.generation
+        operation.staged_expires_at = expected[4]
         operation.state = 3
         return expected[1]
 
@@ -4735,6 +4740,10 @@ class RootMigrationExecutorModelV1:
                 != factory.configuration_hash
                 or campaign is None or campaign.operation_id != operation_id
                 or campaign.state != 2 or campaign.root_receipt != root_receipt
+                or operation.staged_generation != campaign.manifest.generation
+                or operation.staged_expires_at != campaign.expires_at
+                or campaign.deployed_bitmap
+                != (1 << PROTOCOL_ROOT_ROLE_COUNT) - 1
                 or root_receipt == bytes(32)):
             raise ValueError("root-migration activation cannot confirm")
         operation.state = 4
@@ -4762,7 +4771,12 @@ class RootMigrationExecutorModelV1:
                 or operation.factory_configuration_hash
                 != factory.configuration_hash
                 or campaign is None or campaign.operation_id != operation_id
-                or campaign.state != 3):
+                or campaign.state != 3
+                or operation.staged_generation != campaign.manifest.generation
+                or operation.staged_expires_at != campaign.expires_at
+                or campaign.deployed_bitmap
+                & ~((1 << PROTOCOL_ROOT_ROLE_COUNT) - 1)
+                or campaign.root_receipt != bytes(32)):
             raise ValueError("root-migration aborted candidate cannot clear")
         operation.state = 7
         self.authority_state = 0
@@ -5159,7 +5173,8 @@ class ScheduleReleaseCursor:
             self.next_release_window = self.first_managed_window
         if (type(self.first_managed_window) is not int
                 or type(self.next_release_window) is not int
-                or not 0 <= self.first_managed_window <= self.next_release_window
+                or not 0 <= self.first_managed_window < UINT64_MAX
+                or not self.first_managed_window <= self.next_release_window
                 <= UINT64_MAX):
             raise ValueError("malformed schedule release cursor")
 
