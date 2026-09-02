@@ -2,61 +2,35 @@
 
 ## Executive Summary
 
-Proposal0023 ships two already-merged changes to production by upgrading four proxies, two per
-chain. **No contract source changes ship with this proposal** — deploy scripts, the DAO proposal, a
-runbook and tests only.
+Proposal0023 ships two merged changes to production by upgrading four proxies, two per chain. No
+contract source changes ship with it — deploy scripts, the DAO proposal, this runbook and tests
+only.
 
-**The bridges.** [PR #22077](https://github.com/taikoxyz/taiko-mono/pull/22077) raised
-`Bridge._SEND_ETHER_GAS_LIMIT` from 35,000 to 135,000 gas. That constant is the `CALL` gas operand
-the bridge uses whenever it sends Ether to a message recipient. EIP-8037 (state-creation repricing,
-scheduled for Glamsterdam) charges 64 state bytes × 1,530 gas/byte = 97,920 gas to create one fresh
-storage slot. In any realistic claim transaction — one that does not buy gas beyond the 16.7M
-per-transaction execution cap, and so has an empty state-gas reservoir — that charge is deducted
-from the callee frame's own gas. A smart wallet that writes a single fresh slot on its receive path
-would therefore run out of gas under the old 35,000 cap, and because a failed Ether send reverts
-message processing, that wallet's inbound messages would become permanently unclaimable. The new cap
-is the legacy 35,000 callee budget plus one slot-creation charge, rounded up: 35,000 + 97,920 =
-132,920 → 135,000. Wallets that fit before the fork still fit after it, as long as their receive
-path creates at most one storage slot.
+- **Bridges.** [PR #22077](https://github.com/taikoxyz/taiko-mono/pull/22077) raised
+  `Bridge._SEND_ETHER_GAS_LIMIT` from 35,000 to 135,000 gas, the `CALL` gas operand for every Ether
+  send to a message recipient. Under EIP-8037 (Glamsterdam) creating one fresh storage slot costs
+  97,920 gas out of the callee's own budget, so a smart wallet that writes a single slot on its
+  receive path would run out of gas under the old cap, and because a failed send reverts message
+  processing its inbound messages would become permanently unclaimable. The new cap is
+  35,000 + 97,920, rounded up.
+- **ERC20 vaults.** [PR #22093](https://github.com/taikoxyz/taiko-mono/pull/22093) added
+  `sendTokenWithPermit` (an EIP-2612 `permit`, so no separate `approve`) and `sendTokenWithPermit2`
+  (Uniswap's Permit2 `0x000000000022D473030F116dDEE9F6B43aC78BA3`, deployed on both chains, so it
+  works for every ERC20). Both are opt-in additions on the send path; `sendToken`, deliveries and
+  recalls are unchanged.
 
-**The ERC20 vaults.** [PR #22093](https://github.com/taikoxyz/taiko-mono/pull/22093) added two
-entrypoints to `ERC20Vault`: `sendTokenWithPermit`, which consumes an EIP-2612 `permit` signature so
-no separate `approve` transaction is needed, and `sendTokenWithPermit2`, which pulls the tokens
-through Uniswap's Permit2 (`0x000000000022D473030F116dDEE9F6B43aC78BA3`, deployed at that address on
-both chains) and so works for every ERC20 whether or not it implements EIP-2612. Both are opt-in
-additions on the send path; `sendToken`, deliveries and recalls are unchanged.
-
-Both changes are compiled into implementations, so they reach production only when the proxies are
-pointed at new ones. **Proposal0023 is that bundle, and nothing else.** #22077, #22093, #22058
-(transient-storage unification) and #22059 (gas-schedule docs) are all already on `main`.
-
-On **L1** both legs are like-for-like redeploys. Diffing each implementation's whole dependency tree
-from Proposal0017's commit `b73608696` to `main` turns up, for the bridge, `Bridge.sol`,
-`EssentialContract.sol` and `LibNames.sol`; for the vault, `ERC20Vault.sol`, the new `IPermit2.sol`,
-`EssentialContract.sol` and `LibNames.sol`. `LibNames` only gained an unused `B_PRECONF_SLASHER`
-constant, `EssentialContract` carries the transient-storage refactor — which reuses the exact slot
-constant the live implementations already use — and the remaining two files carry the cap and the
-permit entrypoints respectively.
-
-On **L2** neither leg is like-for-like. The L2 bridge and the L2 ERC20 vault both still run protocol
-1.10.0 implementations from October 2024, which predate the resolver refactor, so they additionally
-need a resolver that speaks the modern `IResolver` interface — and the vault needs a modern
-`BridgedERC20` implementation behind it. [Why L2 Needs a New Resolver](#why-l2-needs-a-new-resolver)
+On L1 both legs are like-for-like redeploys. On L2 the bridge and the ERC20 vault both still run
+protocol 1.10.0 implementations from October 2024, which predate the resolver refactor, so they
+additionally need a resolver that speaks `IResolver` and, for the vault, a `BridgedERC20`
+implementation built from `main`. [Why L2 Needs a New Resolver](#why-l2-needs-a-new-resolver)
 covers both.
 
-The proposal executes **3 top-level L1 actions** and **7 L2 actions**.
-
-**Where this stands.** All seven contracts are deployed and verified: the bridge-side four on
-2026-08-31 (redeployed 2026-09-01 after #22082), the vault-side three on 2026-09-02. Every constant
-in `Proposal0023.s.sol` is filled in, `Proposal0023.action.md` carries the executable calldata, and
-the fork rehearsal executes that calldata against the deployed implementations.
-[Deployment](#deployment) records what was run.
+The proposal executes **3 top-level L1 actions** and **7 L2 actions**. All seven contracts it
+points at are deployed and verified — the bridge-side four on 2026-08-31 (redeployed 2026-09-01
+after #22082), the vault-side three on 2026-09-02 — and `Proposal0023.action.md` carries the
+executable calldata.
 
 ## Scope
-
-Seven contracts are deployed ahead of the vote — two `Bridge` implementations, two `ERC20Vault`
-implementations, a `BridgedERC20` implementation on L2, plus a `DefaultResolver` implementation and
-its `ERC1967Proxy` on L2. The proposal then re-points four proxies and populates the new resolver:
 
 | Chain | Contract                                                                 | Change                                                                                                                                   |
 | ----- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
@@ -66,485 +40,227 @@ its `ERC1967Proxy` on L2. The proposal then re-points four proxies and populates
 | L2    | ERC20Vault proxy `0x1670000000000000000000000000000000000002`            | implementation → `0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3`                                                                            |
 | L2    | New `DefaultResolver` proxy `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984` | `bridge` and `erc20_vault` registered for chains 1 and 167000; `bridged_erc20` → `0x3505a0700DB72dEc7AbFF1aF231BB5D87aBF2944` for 167000 |
 
-Explicitly **not** touched by this proposal:
+Not touched: the L2 NFT vaults and the legacy L2 `AddressManager` `0x1670000000000000000000000000000000000006`,
+which keeps serving them and every bridged token the 1.10.0 vault ever deployed; the L1 resolver
+`0x8Efa01564425692d0a0838DC10E300BD310Cb43e`, which both L1 legs reuse unchanged; ownership (no
+`transferOwnership`, `acceptOwnership` or initializer call on any live contract); Hoodi and every
+other network.
 
-- **The L2 NFT vaults** — `ERC721Vault` `0x1670000000000000000000000000000000000003` and
-  `ERC1155Vault` `0x1670000000000000000000000000000000000004`. They are also on 1.10.0
-  implementations and keep resolving through the legacy registry.
-- **The legacy L2 `AddressManager` `0x1670000000000000000000000000000000000006`.** It is neither
-  migrated nor retired nor modified. It keeps serving the NFT vaults, and — this matters for the
-  vault leg — every bridged token the 1.10.0 vault ever deployed, all of which resolve the vault
-  through it by name and keep working because the vault's proxy address does not change.
-- **`Bridge.sol`, `ERC20Vault.sol`, `BridgedERC20.sol` and the gas constants.** Those changed in
-  #22077 and #22093, which are already merged. This proposal only ships the already-merged code.
-- **The L1 resolver `0x8Efa01564425692d0a0838DC10E300BD310Cb43e`.** Both L1 legs reuse it unchanged;
-  it already carries every name the new implementations read. Only L2 gets a new resolver.
-- **Ownership.** No `transferOwnership`, no `acceptOwnership`, no initializer call on any live
-  contract. The new L2 resolver is initialised with the DelegateController as owner at deploy time,
-  before the proposal runs.
-- **Hoodi and every other network.** This proposal targets mainnet governance only.
-
-**Known, pre-existing, and not addressed here — the L1 `bridged_erc20`.** The L1 shared resolver
-answers `bridged_erc20` with `0x65666141a541423606365123Ed280AB16a09A2e1`, the July 2024
-implementation whose only initializer is the seven-argument, address-manager based
-`init(address,address,address,uint256,uint8,string,string)` (selector `0xbb86ef93`). The live L1
-vault, since Proposal0017, initialises new bridged tokens through the six-argument
-`IBridgedERC20Initializable.init` (selector `0x6c0db62b`), which that implementation does not have —
-both facts read from the deployed bytecode. So the first delivery to L1 of a token that is canonical
-on another chain already reverts today, inside `_deployBridgedToken`, and this proposal neither fixes
-nor worsens that: the new L1 vault calls the same initializer. The fix is the L2 fix mirrored —
-deploy a `BridgedERC20(L1.ERC20_VAULT)` and register it as `bridged_erc20` on the L1 shared resolver
-— which is one deploy plus one action and could be folded into this proposal. It is left out because
-it is a separate defect with its own decision to make, not because it is hard.
+**Known, pre-existing, not addressed here.** The L1 resolver's `bridged_erc20` is
+`0x65666141a541423606365123Ed280AB16a09A2e1`, a July 2024 implementation with only the
+seven-argument `init` (selector `0xbb86ef93`), while the live L1 vault has called the six-argument
+`IBridgedERC20Initializable.init` (`0x6c0db62b`) since Proposal0017. So the first delivery to L1 of
+a token canonical on another chain already reverts today inside `_deployBridgedToken`, and this
+proposal neither fixes nor worsens that. The fix mirrors the L2 leg — deploy a
+`BridgedERC20(L1.ERC20_VAULT)` and register it on the L1 resolver — and is left for its own
+decision.
 
 ## Current State
 
 Verified on-chain 2026-09-02.
 
-|           | proxy                                        | owner                                                                                | live impl                                    | impl provenance                               |
+|           | proxy                                        | owner                                                                                | live impl                                    | provenance                                    |
 | --------- | -------------------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------- | --------------------------------------------- |
 | L1 bridge | `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC` | DAO controller `0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a` (`controller.taiko.eth`) | `0x1c94D798CFA08F396E5BA9F81697289c53273381` | Proposal0017, 2026-06-29, commit `b73608696`  |
-| L1 vault  | `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab` | DAO controller `0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a` (`controller.taiko.eth`) | `0x024253C6FDC27d3161aFd43fb0241411A28dDc3c` | Proposal0017, 2026-06-29, commit `b73608696`  |
+| L1 vault  | `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab` | DAO controller                                                                       | `0x024253C6FDC27d3161aFd43fb0241411A28dDc3c` | Proposal0017, 2026-06-29, commit `b73608696`  |
 | L2 bridge | `0x1670000000000000000000000000000000000001` | DelegateController `0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C`                      | `0x95ae2918dcbc6aFF8B4c1F1BCC1bf819b6e08B83` | protocol 1.10.0, 2024-10-31, commit `9345f14` |
-| L2 vault  | `0x1670000000000000000000000000000000000002` | DelegateController `0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C`                      | `0xb96AbB41b01E3ad519D00E80355a1c3801910F62` | protocol 1.10.0, 2024-10-31, commit `9345f14` |
+| L2 vault  | `0x1670000000000000000000000000000000000002` | DelegateController                                                                   | `0xb96AbB41b01E3ad519D00E80355a1c3801910F62` | protocol 1.10.0, 2024-10-31, commit `9345f14` |
 
-**The live L1 implementations are a `MainnetBridge` and a `MainnetERC20Vault`, not a `Bridge` and
-an `ERC20Vault`.** Those were the L1-only subclasses that #22058 deleted; this proposal deploys the
-unified shared contracts. Reviewers diffing "the live implementation" against `Bridge.sol` or
-`ERC20Vault.sol` should expect that type change, and block explorers will show different contract
-names once the new implementations are verified. It is not a behavioural change: the subclasses
-existed only to override the reentrancy lock (and, for the bridge, the call context) onto transient
-storage, and #22058 folded both mechanisms into the base contracts at **byte-identical slot
-constants** —
+The live L1 implementations are a `MainnetBridge` and a `MainnetERC20Vault`, the L1-only subclasses
+#22058 deleted; this proposal deploys the unified `Bridge` and `ERC20Vault`, which explorers show
+under those names. The subclasses only moved the reentrancy lock (and the bridge's call context) to
+transient storage, and #22058 folded both into the base contracts at byte-identical slot constants
+(`_REENTRY_SLOT` `0xa5054f72…31d9721b`, `_CTX_SLOT` `0xe4ece821…dbadc2b9`), so the rename is not a
+behavioural change. Diffing each implementation's dependency tree from `b73608696` to `main` leaves
+`Bridge.sol` (the cap), `ERC20Vault.sol` with the new `IPermit2.sol` (the permit entrypoints),
+`EssentialContract.sol` (that folding) and an unused `LibNames` constant.
 
-|                 | `MainnetBridge` / `MainnetERC20Vault` / `LibFasterReentryLock` | `Bridge` / `ERC20Vault` on `main` |
-| --------------- | -------------------------------------------------------------- | --------------------------------- |
-| call context    | `_CTX_SLOT = 0xe4ece821…dbadc2b9` (bridge only)                | identical                         |
-| reentrancy lock | `_REENTRY_SLOT = 0xa5054f72…31d9721b`                          | identical                         |
+The new implementations' immutables:
 
-— the reentry constant is present verbatim in the live vault implementation's bytecode. So the claim
-that the only behavioural deltas on L1 are the send cap and the permit entrypoints holds. Storage
-layout is unchanged.
+| Contract  | `resolver()`                                                 | `signalService()`                            | `quotaManager()`                             | `pauser()`                                                       |
+| --------- | ------------------------------------------------------------ | -------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------- |
+| L1 bridge | `0x8Efa01564425692d0a0838DC10E300BD310Cb43e` (unchanged)     | `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C` | `0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC` | `0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F` (`admin.taiko.eth`) |
+| L1 vault  | `0x8Efa01564425692d0a0838DC10E300BD310Cb43e` (unchanged)     | —                                            | `0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC` | —                                                                |
+| L2 bridge | `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984` (the new proxy) | `0x1670000000000000000000000000000000000005` | zero                                         | zero                                                             |
+| L2 vault  | `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984` (the new proxy) | —                                            | zero                                         | —                                                                |
 
-The generation gap between the two chains shows up in what each live implementation answers:
+The L1 values equal the live proxies' (both L1 deploy scripts check that). The L2 zeros preserve
+today's behaviour: `quota_manager`, `chain_watchdog` and `bridge_watchdog` are all unset on the
+legacy L2 registry, so L2 has no quota and only the owner can pause, and the 1.10.0 bridge has no
+`receive()` at all, so the pauser-only `receive()` is strictly more permissive. The new
+`BridgedERC20`'s `erc20Vault` immutable is the vault proxy `0x1670000000000000000000000000000000000002`.
 
-- The L1 implementations answer `resolver()` → `0x8Efa01564425692d0a0838DC10E300BD310Cb43e` and
-  `quotaManager()` → `0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC`; `addressManager()` reverts.
-- The L2 implementations answer `addressManager()` → `0x1670000000000000000000000000000000000006`;
-  `resolver()` and `quotaManager()` (and, on the bridge, `signalService()` and `pauser()`) **all
-  revert**. That is the 1.10.0 signature: those are immutables that did not exist yet.
-
-The immutables on the live L1 proxies, which the new L1 implementations must reproduce exactly:
-
-| Contract | Immutable         | Value                                        | `LibL1Addrs` constant                          |
-| -------- | ----------------- | -------------------------------------------- | ---------------------------------------------- |
-| bridge   | `resolver()`      | `0x8Efa01564425692d0a0838DC10E300BD310Cb43e` | `SHARED_RESOLVER`                              |
-| bridge   | `signalService()` | `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C` | `SIGNAL_SERVICE`                               |
-| bridge   | `quotaManager()`  | `0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC` | `QUOTA_MANAGER`                                |
-| bridge   | `pauser()`        | `0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F` | `MULTISIG_ADMIN_TAIKO_ETH` (`admin.taiko.eth`) |
-| vault    | `resolver()`      | `0x8Efa01564425692d0a0838DC10E300BD310Cb43e` | `SHARED_RESOLVER`                              |
-| vault    | `quotaManager()`  | `0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC` | `QUOTA_MANAGER`                                |
-
-`DeployERC20VaultUpgradeL1` reads the two vault values back from the live proxy before it
-broadcasts, so a drifted `LibL1Addrs` constant aborts the run rather than baking into the new
-immutables.
-
-The new L2 implementations instead take the newly deployed resolver, and **zero** for
-`quotaManager` (both), `pauser` (bridge) and the bridge's `SIGNAL_SERVICE`
-`0x1670000000000000000000000000000000000005`. Zero preserves today's behaviour rather than removing
-anything: `quota_manager@167000`, `chain_watchdog@167000` and `bridge_watchdog@167000` are all unset
-on the legacy L2 registry, so L2 has no Ether quota and no token quota today and only the owner can
-pause. The 1.10.0 `Bridge` has no `receive()` at all, so the new pauser-only `receive()` is strictly
-more permissive than the status quo, not less. The new `BridgedERC20` takes the vault **proxy**
-`0x1670000000000000000000000000000000000002` as its `erc20Vault` immutable.
-
-Other live values a reviewer will want:
-
-- L2 bridge balance ≈ **999,998,918.6 ETH**. This is the L2 premint float and it is what the L2
-  bridge leg puts at risk; it moves with bridge traffic, so re-read it at execution time rather than
-  trusting the digits here.
-- L2 bridge `paused()` = `false` and L2 vault `paused()` = `false`. The first is a precondition,
-  not trivia: `processMessage` is `whenNotPaused`, so the L2 leg cannot land while the bridge is
-  paused. `nextMessageId()` is deliberately not quoted here — it climbs with every outbound message,
-  and the fork test reads it dynamically rather than pinning a value.
-- `DelegateController.lastExecutionId()` = `1`.
-- L2 bridged tokens the 1.10.0 vault deployed, which the fork rehearsal uses as its canary:
-  bridged USDT `0x2DEF195713CF4a606B49D07E520e22C17899a736` and bridged WETH
-  `0x0038cbAC16db1E2EA27f976784235090d9751CD4`, both `ERC1967Proxy` over the V1 `BridgedERC20`
-  `0x0167000000000000000000000000000000010096`, both answering `addressManager()` →
-  `0x1670…0006`. Bridged USDC `0x07d83526730c7438048D55A4fc0b850e2aaB6f0b` and bridged TAIKO
-  `0xA9d23408b9bA935c230493c40C73824Df71A0975` were linked with `changeBridgedToken` and are not
-  vault-deployed proxies.
+Preconditions to re-read at execution time: the L2 bridge must not be paused (`processMessage` is
+`whenNotPaused`), and `DelegateController.lastExecutionId()` is `1`. The L2 bridge balance, about
+999,998,918 ETH of premint float, is what the L2 leg puts at risk.
 
 ## Why L2 Needs a New Resolver
 
-`Bridge` on `main` looks up `LibNames.B_BRIDGE` through `IResolver.resolve(uint256,bytes32,bool)`
-(selector `0x6c6563f6`) at exactly three call sites — `Bridge.sol:491` (`isDestChainEnabled`),
-`Bridge.sol:607` (`_proveSignalReceived`) and `Bridge.sol:658` (`_isSignalReceived`).
+The L2 registry `0x1670000000000000000000000000000000000006` is the 1.10.0 `AddressManager`. It only
+answers `getAddress(uint64,bytes32)`; `IResolver.resolve(uint256,bytes32,bool)`, which `Bridge` and
+`ERC20Vault` on `main` call, reverts on it. Pointing either new implementation at it would revert
+every `sendMessage`, `processMessage`, `sendToken` and delivery on L2. The fix mirrors what L1 did in
+May 2025: a separate `DefaultResolver` for the contracts that receive new implementations, the NFT
+vaults left on the legacy registry, and only the names the migrated contracts read registered.
 
-`ERC20Vault` on `main` resolves through the same interface at six:
+| Registration                  | Read by                                                                                                                                                                                                |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `bridge`, chain 1             | the bridge, on every send, recall and claim: all three of its lookups (`Bridge.sol:491`, `:607`, `:658`) pass the counterparty id                                                                      |
+| `bridge`, chain 167000        | the vault's `onlyFromNamed(B_BRIDGE)` on every delivery and recall (`BaseVault.sol:56`, `ERC20Vault.sol:482`) and the bridge it sends through (`ERC20Vault.sol:424`); the bridge itself never reads it |
+| `erc20_vault`, chain 1        | the vault: a delivery must come from it (`BaseVault.sol:60`), a send goes to it (`ERC20Vault.sol:415`), and it is the forbidden recipient (`BaseVault.sol:69`)                                         |
+| `erc20_vault`, chain 167000   | nothing today; symmetry with the L1 resolver, which carries its own chain's entry                                                                                                                      |
+| `bridged_erc20`, chain 167000 | the vault, on the first delivery of a canonical token it has not seen before (`ERC20Vault.sol:664`)                                                                                                    |
 
-| Site                                   | Name            | Chain id passed          | Reached by                                     |
-| -------------------------------------- | --------------- | ------------------------ | ---------------------------------------------- |
-| `BaseVault.sol:56` (`onlyFromNamed`)   | `bridge`        | `block.chainid` = 167000 | every delivery (`onMessageInvocation`)         |
-| `BaseVault.sol:60`                     | `erc20_vault`   | `ctx.srcChainId` = 1     | every delivery — the message must come from it |
-| `BaseVault.sol:69`                     | `erc20_vault`   | `_op.destChainId` = 1    | every `sendToken`, as the forbidden recipient  |
-| `ERC20Vault.sol:415`                   | `erc20_vault`   | `_op.destChainId` = 1    | every `sendToken`, as the message's `to`       |
-| `ERC20Vault.sol:424`                   | `bridge`        | `block.chainid` = 167000 | every `sendToken`, as the bridge it calls      |
-| `ERC20Vault.sol:482` (`onlyFromNamed`) | `bridge`        | `block.chainid` = 167000 | every recall (`onMessageRecalled`)             |
-| `ERC20Vault.sol:664`                   | `bridged_erc20` | `block.chainid` = 167000 | the first delivery of a token not seen before  |
-
-- The L1 resolver `0x8Efa0156…` is a modern `DefaultResolver`. It answers every one of these for
-  both chains — `bridge`, `erc20_vault` and `bridged_erc20` for chain 1, `bridge` and `erc20_vault`
-  for chain 167000 — which is why the L1 legs need no registration.
-- The L2 registry `0x1670000000000000000000000000000000000006` is the 1.10.0 `AddressManager`.
-  `resolve(uint256,bytes32,bool)` **reverts** — the selector does not exist on it. Only
-  `getAddress(uint64,bytes32)` works.
-
-Pointing either new implementation at `0x1670…0006` would therefore revert every `sendMessage`,
-`processMessage`, `sendToken` and delivery on L2. L2 needs a registry that answers the modern
-selector.
-
-The fix mirrors what L1 already did. Rather than migrating the legacy registry, L1 deployed a
-separate `shared_resolver` in May 2025 and moved onto it only the contracts that received new
-implementations (bridge, `erc20_vault`). The L1 NFT vaults still resolve through the legacy
-`shared_address_manager` today. Proposal0023 replays that split on L2: a new `DefaultResolver`
-serves the new bridge and the new vault, the untouched NFT vaults keep using `0x1670…0006`, and only
-the names the two migrated contracts actually read are registered.
-
-### Which registrations are load-bearing
-
-Every registration but one is read by the new code on a hot path:
-
-| Registration                     | Read by                                                                                          |
-| -------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `bridge` for chain 1             | the bridge, on every send, recall and claim — all three bridge sites pass the counterparty id    |
-| `bridge` for chain 167000        | the vault, on every delivery, recall and `sendToken` — never by the bridge itself                |
-| `erc20_vault` for chain 1        | the vault, on every delivery and every `sendToken`                                               |
-| `erc20_vault` for chain 167000   | nothing today; registered for symmetry with the L1 resolver, which carries its own chain's entry |
-| `bridged_erc20` for chain 167000 | the vault, on the first delivery of a canonical token it has not seen before                     |
-
-The bridge's three call sites use the explicit-`_chainId` overload of `resolve`, never the
-`block.chainid` overload, and every bridge operation that reaches them passes the _counterparty_
-chain id, because a same-chain check runs first in each case:
-
-| Caller              | Reaches a lookup at | Chain id passed        | Same-chain check                                              |
-| ------------------- | ------------------- | ---------------------- | ------------------------------------------------------------- |
-| `sendMessage`       | `Bridge.sol:207`    | `_message.destChainId` | `diffChain(_message.destChainId)` at `:195`                   |
-| `recallMessage`     | `Bridge.sol:246`    | `_message.destChainId` | `diffChain(_message.destChainId)` at `:235`                   |
-| `processMessage`    | `Bridge.sol:311`    | `_message.srcChainId`  | `srcChainId == block.chainid` reverts at `:292`               |
-| `isMessageFailed`   | `Bridge.sol:451`    | `_message.destChainId` | returns `false` unless `srcChainId == block.chainid`, `:449`  |
-| `isMessageReceived` | `Bridge.sol:473`    | `_message.srcChainId`  | returns `false` unless `destChainId == block.chainid`, `:472` |
-
-The chain-167000 `bridge` entry, which the first version of this proposal registered only for
-symmetry, is now load-bearing: it is what `onlyFromNamed(LibNames.B_BRIDGE)` at `BaseVault.sol:56`
-resolves on every delivery to the upgraded vault.
-
-### Why `bridged_erc20` must be a new implementation
-
-The L2 registry names `bridged_erc20` = `0x98161D67f762A9E589E502348579FA38B1Ac47A8`, the same July
-2024 lineage as L1's. The obvious move — register that address on the new resolver too — does not
-work, and would fail silently until the first new token arrived:
-
-- `ERC20Vault._deployBridgedToken` (`ERC20Vault.sol:652`) creates each bridged token as
-  `new ERC1967Proxy(resolve("bridged_erc20"), init)` where `init` is the six-argument
-  `IBridgedERC20Initializable.init(owner, srcToken, srcChainId, decimals, symbol, name)`, selector
-  `0x6c0db62b`. The legacy implementation's bytecode carries only the seven-argument
-  `init(address,address,address,uint256,uint8,string,string)`, selector `0xbb86ef93`, and no
-  fallback. The proxy constructor's delegatecall would hit no function and revert, the delivery
-  would revert with it, and the bridge would park the message as `RETRIABLE` — for every first-time
-  token, forever.
-- Even with a matching initializer the legacy token would authorise `mint`/`burn` through
-  `AddressResolver`, i.e. `IAddressManager(addressManager).getAddress(uint64,bytes32)` — a selector
-  the new `DefaultResolver` does not have either.
-
-`BridgedERC20` on `main` has neither problem: it takes the vault as a constructor immutable
-(`erc20Vault`) and authorises `mint`/`burn` against that address directly, with no resolver at all.
-`DeployERC20VaultUpgradeL2` deploys it with the vault **proxy** as the immutable, so tokens deployed
-after this proposal keep working across future vault upgrades too.
-
-Existing bridged tokens are unaffected in the other direction: they were initialised with the legacy
-registry as their address manager, and it still names `erc20_vault` = the unchanged proxy
-`0x1670…0002`, so their `onlyFromNamed(erc20_vault)` guards keep admitting the upgraded vault. The
-fork rehearsal mints bridged USDT through exactly that path after the upgrade.
+**`bridged_erc20` must be a `BridgedERC20` built from `main`, not the legacy
+`0x98161D67f762A9E589E502348579FA38B1Ac47A8`.** `ERC20Vault._deployBridgedToken` creates each bridged
+token as `new ERC1967Proxy(resolve("bridged_erc20"), init)` with the six-argument
+`IBridgedERC20Initializable.init` (`0x6c0db62b`). The legacy implementation's bytecode carries only
+the seven-argument init (`0xbb86ef93`) and no fallback, so the proxy constructor's delegatecall
+would revert and the bridge would park every first-time token delivery as `RETRIABLE`; even with a
+matching initializer it would authorise `mint`/`burn` through `IAddressManager.getAddress`, which
+`DefaultResolver` does not have. `BridgedERC20` on `main` takes the vault as a constructor immutable
+instead, and `0x3505a070…` was deployed with the vault proxy, so tokens deployed after this proposal
+survive future vault upgrades too. Existing bridged tokens keep working the other way round: they
+resolve `erc20_vault` through the legacy registry, which still names the unchanged proxy.
 
 ## Upgrade Safety
 
 ### Storage layout
 
-Slot boundaries are identical between the 1.10.0 lineage and `main` for both contracts. Bridge:
+Slot boundaries are identical between the 1.10.0 lineage and `main` for both contracts
+(`forge inspect … storage-layout` at `9345f14` against the `*_Layout.sol` files on `main`):
 
-| slot    | 1.10.0                                                                                        | `main`                               |
-| ------- | --------------------------------------------------------------------------------------------- | ------------------------------------ |
-| 151     | `AddressResolver.addressManager`                                                              | `__gapFromOldAddressResolver[0]`     |
-| 152–200 | `AddressResolver.__gap[49]`                                                                   | `__gapFromOldAddressResolver[1..49]` |
-| 201.0   | `__reentry`                                                                                   | `__reentry`                          |
-| 201.1   | `__paused`                                                                                    | `__paused`                           |
-| 201.2   | `lastUnpausedAt` (uint64)                                                                     | unused                               |
-| 202–250 | `__gap[49]`                                                                                   | `__gap[49]`                          |
-| 251–300 | `__reserved1`/`nextMessageId`/`messageStatus`/`__ctx`/`__reserved2`/`__reserved3`/`__gap[44]` | identical                            |
+| slot          | 1.10.0                                                                                                   | `main`                               |
+| ------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| 151           | `AddressResolver.addressManager`                                                                         | `__gapFromOldAddressResolver[0]`     |
+| 152–200       | `AddressResolver.__gap[49]`                                                                              | `__gapFromOldAddressResolver[1..49]` |
+| 201.0 / 201.1 | `__reentry` / `__paused`                                                                                 | identical                            |
+| 201.2         | `lastUnpausedAt` (uint64)                                                                                | unused                               |
+| 202–250       | `__gap[49]`                                                                                              | identical                            |
+| 251–300       | bridge: `nextMessageId`, `messageStatus`, `__ctx`, reserved slots, `__gap`; vault: `BaseVault.__gap[50]` | identical                            |
+| 301–350       | vault: `bridgedToCanonical`, `canonicalToBridged`, `btokenDenylist`, `lastMigrationStart`, `__gap[46]`   | identical                            |
 
-ERC20Vault, from `forge inspect ERC20Vault storage-layout` at commit `9345f14` against
-`contracts/shared/vault/ERC20Vault_Layout.sol` on `main`:
-
-| slot    | 1.10.0                                      | `main`                               |
-| ------- | ------------------------------------------- | ------------------------------------ |
-| 0–150   | `Initializable` / `Ownable2StepUpgradeable` | identical                            |
-| 151     | `AddressResolver.addressManager`            | `__gapFromOldAddressResolver[0]`     |
-| 152–200 | `AddressResolver.__gap[49]`                 | `__gapFromOldAddressResolver[1..49]` |
-| 201.0   | `__reentry`                                 | `__reentry`                          |
-| 201.1   | `__paused`                                  | `__paused`                           |
-| 201.2   | `lastUnpausedAt` (uint64)                   | unused                               |
-| 202–250 | `__gap[49]`                                 | `__gap[49]`                          |
-| 251–300 | `BaseVault.__gap[50]`                       | identical                            |
-| 301     | `bridgedToCanonical`                        | identical                            |
-| 302     | `canonicalToBridged`                        | identical                            |
-| 303     | `btokenDenylist`                            | identical                            |
-| 304     | `lastMigrationStart`                        | identical                            |
-| 305–350 | `__gap[46]`                                 | identical                            |
-
-`lastUnpausedAt` was dropped from `EssentialContract`, leaving stale bytes in slot 201 that nothing
-reads. `addressManager` is absorbed by the gap that exists for exactly this reason — which is why
-the live L2 proxies still answer `addressManager()` with `0x1670…0006`.
-
-The decisive precedent: **the L1 bridge and the L1 vault already made this exact jump.** Both went
-from the same 1.10.0 implementation lineage (commit `9345f14`) straight to their current
-implementations in Proposal0017 on 2026-06-29, and the vault has custodied mainnet deposits on
-that layout since. L2 is the same migration, two months later.
+`lastUnpausedAt` was dropped, leaving stale bytes nothing reads; `addressManager` is absorbed by the
+gap that exists for exactly this reason. The L1 bridge and vault already made this exact jump in
+Proposal0017, and the vault has custodied mainnet deposits on that layout since.
 
 ### ABI
 
-The vault's `BridgeTransferOp` struct, its five events (`BridgedTokenDeployed`,
-`BridgedTokenChanged`, `TokenSent`, `TokenReleased`, `TokenReceived`) and its errors are identical
-between 1.10.0 and `main`, so `sendToken`'s selector, the relayer, the event indexer and the bridge
-UI are unaffected by the L2 vault jump. `main` adds `sendTokenWithPermit`, `sendTokenWithPermit2`,
-the `VAULT_PERMIT_NO_ALLOWANCE` error and the `PERMIT2` constant, and drops the second parameter of
-`init`, which no live contract calls.
+The vault's `BridgeTransferOp` struct, its five events and its errors are identical between 1.10.0
+and `main`; `main` adds `sendTokenWithPermit`, `sendTokenWithPermit2`, `VAULT_PERMIT_NO_ALLOWANCE`
+and `PERMIT2`, and drops the second parameter of `init`, which nothing live calls. The relayer, the
+indexer and the bridge UI are unaffected.
 
 ### The L2 bridge upgrades itself mid-call
 
-The L2 bridge proxy is owned by the DelegateController, which is only reachable through a bridged
-message that the L2 bridge itself processes. So `upgradeTo` on the L2 bridge necessarily executes
-**inside the bridge's own `processMessage` frame**, while that frame's reentrancy lock is held. Each
-step of that was checked:
+The L2 bridge proxy is owned by the DelegateController, reachable only through a bridged message the
+L2 bridge itself processes, so `upgradeTo` on it executes inside the bridge's own `processMessage`
+frame while that frame's reentrancy lock is held. Each step was checked:
 
-1. `_authorizeUpgrade` is `onlyOwner` with **no** `nonReentrant` in both the 1.10.0 and the `main`
-   `EssentialContract`, so the active reentrancy lock does not block `upgradeTo`.
-2. `DelegateController.onMessageInvocation` reads `IBridge(msg.sender).context()` **before**
-   `_executeActions`, so the context check runs against the old implementation's storage context,
-   which is populated at that point.
-3. After the swap, the new implementation reads the reentrancy lock from transient storage. A fresh
-   transient slot reads `0`, and `_checkReentrancy()` only rejects `_TRUE` (2), so the next
-   transaction passes. The stale storage `__reentry = _FALSE` the old implementation leaves behind
-   is never read again.
-4. The old implementation's frame continues after the swap using already-resolved delegatecall code.
-   Its remaining writes — `messageStatus` (slot 252), the context slots (253–254), the `nonReentrant`
-   epilogue on slot 201 — all land on slots the new layout agrees with, and it makes no external call
-   back into the proxy. The governance message carries `value: 0` and `fee: 0`, so there is no refund
-   path either.
+1. `_authorizeUpgrade` is `onlyOwner` with no `nonReentrant` in both the 1.10.0 and the `main`
+   `EssentialContract`.
+2. `DelegateController.onMessageInvocation` reads `IBridge(msg.sender).context()` before
+   `_executeActions`, against the old implementation's populated storage context.
+3. After the swap the new implementation reads its lock from transient storage; a fresh slot reads
+   `0`, which `_checkReentrancy()` accepts. The stale storage `__reentry` is never read again.
+4. The old frame's remaining writes — `messageStatus` (slot 252), the context slots (253–254), the
+   `nonReentrant` epilogue on 201 — land on slots the new layout agrees with, and it makes no call
+   back into the proxy. The message carries `value: 0` and `fee: 0`, so there is no refund path.
 
-The vault upgrade is not a self-upgrade: the vault proxy is owned by the same DelegateController, the
-vault is not on the call stack while the batch executes, and `upgradeTo` on it is a plain owner
-upgrade. It is ordered **before** the bridge swap so that the bridge's self-upgrade is the final
-action and the batch makes no further call once the bridge's own code has been swapped under its
-frame. The 1.10.0 vault's `_authorizeUpgrade` is the same `onlyOwner`, no `nonReentrant`.
-
-This is the part of the proposal that carries real risk, and it is the part
-`test/layer1/proposals/Proposal0023Fork.t.sol` was written to exercise against live mainnet state.
-Run it with `L1_FORK_URL` and `L2_FORK_URL` set; without them it skips, since CI configures no RPC
-endpoints. The rehearsal deploys nothing: it executes the calldata `Proposal0023.s.sol` builds from
-its constants — the same `_buildAllActions` output `Proposal0023.action.md` pins — against the
-implementations those constants name, which already exist on both chains. After each leg it bridges
-tokens through the upgraded contracts: on L1, WETH out through the new vault and bridge; on L2, USDT
-in through the existing bridged token, a never-seen token in through a `BridgedERC20` proxy deployed
-from `0x3505a070…`, and bridged USDT back out. It passed on both forks on 2026-09-02, against the
-deployed implementations.
+The vault upgrade is a plain owner upgrade — the vault is not on the call stack — and is ordered
+before the bridge swap so the batch makes no further call once the bridge's code has changed under
+its frame. `test/layer1/proposals/Proposal0023Fork.t.sol` rehearses both legs against live state;
+see [Verification](#verification).
 
 ### EVM version
 
-`foundry.toml` pins `evm_version = "osaka"` for both `profile.layer2` and `profile.shared`, so
+`foundry.toml` pins `evm_version = "osaka"` for `profile.layer2` and `profile.shared`, so
 `TSTORE`/`TLOAD` are available on L2.
 
 ## Action Order
 
 ### L1 — 3 top-level actions
 
-1. `upgradeTo(0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC, 0xA15dca0A72da684f20e0FC708DECFb230a715462)` — point the mainnet
-   bridge at the implementation carrying the EIP-8037 send cap.
-2. `upgradeTo(0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab, 0x32E47c04E8c329E8c10062731448e7658aDEEB8e)` — point the
-   mainnet ERC20 vault at the implementation carrying the permit and Permit2 entrypoints.
-3. `sendMessage(...)` on `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC` — carries the L2 batch below to
-   the DelegateController. This action is **not written in `Proposal0023.s.sol`**;
-   `BuildProposal._buildAllActions()` appends it automatically whenever `buildL2Actions()` returns a
-   non-empty array. It carries `value: 0`, zero fee, `gasLimit = 5_000_000`,
-   `srcOwner = 0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a` (the DAO controller),
-   `to = 0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C` (the DelegateController) and
-   `destOwner = 0x4EBeC8a624ac6f01Bb6C7F13947E6Af3727319CA` (`PERMISSIONLESS_EXECUTOR`, so anyone
-   can relay it on L2).
+1. `upgradeTo(0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC, 0xA15dca0A72da684f20e0FC708DECFb230a715462)` — the mainnet bridge.
+2. `upgradeTo(0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab, 0x32E47c04E8c329E8c10062731448e7658aDEEB8e)` — the mainnet ERC20 vault.
+3. `sendMessage(...)` on `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC` — carries the L2 batch to the
+   DelegateController. Not written in `Proposal0023.s.sol`: `BuildProposal._buildAllActions()`
+   appends it whenever `buildL2Actions()` is non-empty, with `value: 0`, zero fee,
+   `gasLimit = 5_000_000`, `srcOwner` = the DAO controller, `to` = the DelegateController
+   `0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C` and `destOwner` = `PERMISSIONLESS_EXECUTOR`
+   `0x4EBeC8a624ac6f01Bb6C7F13947E6Af3727319CA`, so anyone can relay it.
 
-Note that `_buildAllActions()` appends the `sendMessage` **after** the `upgradeTo` on the same proxy,
-so the L2 message is sent through the just-upgraded L1 bridge. That is safe — `upgradeTo` touches no
-reentrancy lock, and with `value: 0` and zero fee the send cap is never reached — but it does mean
-the new implementation's `sendMessage` runs `isDestChainEnabled(167000)` against its own immutable
-resolver in the same transaction it goes live. The L1 fork rehearsal executes all three actions in
-this order from the DAO controller; see [Deployment](#deployment) for the dry run that proves it
-against live state before the vote.
+The message is sent through the just-upgraded bridge, so the new implementation's `sendMessage`
+runs `isDestChainEnabled(167000)` against the L1 resolver in the same transaction it goes live. The
+L1 dry run and the fork rehearsal both prove that against live state.
 
 ### L2 — 7 actions, `l2ExecutionId = 0`, `l2GasLimit = 5_000_000`
 
-Numbered here from 1; in `Proposal0023.s.sol` these are `actions[0]` through `actions[6]`.
+Numbered from 1 here, `actions[0]` to `actions[6]` in `Proposal0023.s.sol`. The registrations are
+on the new resolver `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984`, with names encoded from
+`LibNames` constants.
 
-1. (`actions[0]`) `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984.registerAddress(1, LibNames.B_BRIDGE, 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC)`
-   — what the new bridge implementation reads.
-2. (`actions[1]`) `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984.registerAddress(167000, LibNames.B_BRIDGE, 0x1670000000000000000000000000000000000001)`
-   — what the new vault implementation reads on every delivery, recall and send.
-3. (`actions[2]`) `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984.registerAddress(1, LibNames.B_ERC20_VAULT, 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab)`
-   — what the new vault implementation reads on every delivery and send.
-4. (`actions[3]`) `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984.registerAddress(167000, LibNames.B_ERC20_VAULT, 0x1670000000000000000000000000000000000002)`
-   — registered for symmetry with the L1 resolver; read by nothing today.
-5. (`actions[4]`) `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984.registerAddress(167000, LibNames.B_BRIDGED_ERC20, 0x3505a0700DB72dEc7AbFF1aF231BB5D87aBF2944)`
-   — the implementation behind every bridged token the new vault deploys.
-6. (`actions[5]`) `upgradeTo(0x1670000000000000000000000000000000000002, 0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3)` —
-   the plain owner upgrade of the vault.
-7. (`actions[6]`) `upgradeTo(0x1670000000000000000000000000000000000001, 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb)` — the
-   mid-call self-upgrade described above, deliberately last.
+1. `registerAddress(1, "bridge", 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC)`
+2. `registerAddress(167000, "bridge", 0x1670000000000000000000000000000000000001)`
+3. `registerAddress(1, "erc20_vault", 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab)`
+4. `registerAddress(167000, "erc20_vault", 0x1670000000000000000000000000000000000002)`
+5. `registerAddress(167000, "bridged_erc20", 0x3505a0700DB72dEc7AbFF1aF231BB5D87aBF2944)`
+6. `upgradeTo(0x1670000000000000000000000000000000000002, 0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3)` — the vault.
+7. `upgradeTo(0x1670000000000000000000000000000000000001, 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb)` — the bridge's
+   mid-call self-upgrade, deliberately last.
 
-`registerAddress` is encoded with the `LibNames` constants (`bytes32("bridge")`,
-`bytes32("erc20_vault")`, `bytes32("bridged_erc20")`), not hand-written literals.
+All seven execute in one transaction, so the order inside the batch is defensive; what matters is
+that the registrations and the upgrades ship together. An upgrade landing without its registrations
+would leave L2 reverting every bridge and vault call until they did.
 
-**On the ordering.** All seven L2 actions execute in a **single transaction**:
-`DelegateController.onMessageInvocation` calls `_executeActions` once, and
-`Controller._executeActions` (`contracts/shared/governance/Controller.sol:58-64`) loops the whole
-array in one frame. `upgradeTo` reads no name from the resolver, so an upgrade-first ordering would
-revert nothing and would leave exactly the same end state — there is no window inside the batch in
-which an outside caller could reach a new implementation against an empty registry. The
-register-then-upgrade order shipped here is the correct, defensive choice, not a correctness
-requirement.
-
-The hazard the ordering is defending against is a different one: **the registrations must not land in
-a later transaction or a later proposal.** If an upgrade shipped alone and the registrations
-followed separately, then between the two the L2 bridge or vault would be live with an
-implementation reading an empty resolver, and every `sendMessage`, `processMessage`, `sendToken` and
-delivery on L2 would revert until the second transaction landed. Keeping all seven in one message is
-what closes that window. Reviewers should check that the five registrations and the two upgrades are
-present in the same bundle, not that they appear in a particular sequence within it.
-
-### Parameter choices
-
-- **`l2ExecutionId = 0`**, matching Proposal0007 and Proposal0011. `DelegateController` accepts
-  `executionId == 0` as "unordered" or `executionId == ++lastExecutionId` as ordered.
-  `lastExecutionId()` is currently `1`, so the ordered value would be `2` — which adds replay and
-  ordering protection but breaks if any other L2 proposal executes first. Zero is the conventional
-  choice here.
-- **`l2GasLimit = 5_000_000`**, matching Proposal0011, which also bundled proxy upgrades. The seven
-  actions need well under 400k. `Bridge.GAS_RESERVE` (800,000) and the 1.10.0 bridge's calldata
-  charge (39,936 gas for this message's 2,052 bytes of data) are deducted from the limit before
-  invocation, leaving a relayer-driven invocation 4,160,064 gas — pinned by the fork test's relayer
-  case, which processes the message under exactly that budget.
-- **Resolver ownership.** The resolver is initialised with `DELEGATE_CONTROLLER` as owner at deploy
-  time, and the five `registerAddress` calls are proposal actions so they are auditable in the DAO
-  calldata. The alternative — registering at deploy time and then handing ownership over — would
-  need an extra `acceptOwnership` action, because `EssentialContract` is `Ownable2Step`.
+Parameter choices: `l2ExecutionId = 0` is the unordered mode Proposal0007 and Proposal0011 used
+(the ordered value would be `2`, and would break if another L2 proposal executed first).
+`l2GasLimit = 5_000_000` matches Proposal0011; after the 1.10.0 bridge deducts `GAS_RESERVE`
+(800,000) and the calldata charge (39,936 for this 2,052-byte message), a relayer-driven invocation
+gets 4,160,064 gas, more than ten times what the seven actions need, and the fork test's relayer
+case pins that budget. The resolver was initialised with the DelegateController as owner at deploy
+time so that the registrations are proposal actions, auditable in the DAO calldata, rather than
+deploy-time calls plus an `acceptOwnership`.
 
 ## Deployment
 
-### Bridge side — done on 2026-08-31
-
-The addresses are recorded in Deployed Addresses below and are baked into `Proposal0023.s.sol`; the
-commands are kept so the deployment can be reproduced or audited.
+Bridge side, run on 2026-08-31. `DeployBridgeUpgradeL1` logs `BRIDGE_NEW_IMPL_L1`;
+`DeployBridgeUpgradeL2` logs `L2_SHARED_RESOLVER`, its implementation and `BRIDGE_NEW_IMPL_L2`.
 
 ```bash
-# Ethereum mainnet
 PRIVATE_KEY=<deployer> FOUNDRY_PROFILE=layer1 forge script \
   script/layer1/mainnet/DeployBridgeUpgradeL1.s.sol:DeployBridgeUpgradeL1 \
   --rpc-url <L1_RPC> --broadcast
 ```
 
 ```bash
-# Taiko L2
 PRIVATE_KEY=<deployer> FOUNDRY_PROFILE=layer2 forge script \
   script/layer2/mainnet/DeployBridgeUpgradeL2.s.sol:DeployBridgeUpgradeL2 \
   --rpc-url https://rpc.mainnet.taiko.xyz --broadcast
 ```
 
-`DeployBridgeUpgradeL1` logs `BRIDGE_NEW_IMPL_L1`; `DeployBridgeUpgradeL2` logs
-`L2_SHARED_RESOLVER`, its implementation, and `BRIDGE_NEW_IMPL_L2`. Do **not** re-run these: a
-second run would deploy a second set of contracts that the constants do not point at.
-
-### Vault side — done on 2026-09-02
-
-The addresses are recorded in Deployed Addresses below and are baked into `Proposal0023.s.sol`;
-the commands are kept so the deployment can be reproduced or audited. Do **not** re-run these
-either.
+Vault side, run on 2026-09-02 with `--verify`. `DeployERC20VaultUpgradeL1` checks the live proxy's
+immutables against `LibL1Addrs` before broadcasting and logs `ERC20_VAULT_NEW_IMPL_L1`;
+`DeployERC20VaultUpgradeL2` checks that the resolver is owned by the DelegateController and logs
+`BRIDGED_ERC20_NEW_IMPL_L2` and `ERC20_VAULT_NEW_IMPL_L2`.
 
 ```bash
-# Ethereum mainnet
 PRIVATE_KEY=<deployer> FOUNDRY_PROFILE=layer1 forge script \
   script/layer1/mainnet/DeployERC20VaultUpgradeL1.s.sol:DeployERC20VaultUpgradeL1 \
   --rpc-url <L1_RPC> --broadcast
 ```
 
 ```bash
-# Taiko L2
 PRIVATE_KEY=<deployer> FOUNDRY_PROFILE=layer2 forge script \
   script/layer2/mainnet/DeployERC20VaultUpgradeL2.s.sol:DeployERC20VaultUpgradeL2 \
   --rpc-url https://rpc.mainnet.taiko.xyz --broadcast
 ```
 
-Both scripts deploy only. Neither upgrades a proxy nor calls an initializer on a live contract.
-`DeployERC20VaultUpgradeL1` logs `ERC20_VAULT_NEW_IMPL_L1`; `DeployERC20VaultUpgradeL2` logs
-`BRIDGED_ERC20_NEW_IMPL_L2` and `ERC20_VAULT_NEW_IMPL_L2`. That is **three** more contracts across
-the two chains, seven in total. Both ran from this branch with `--verify`, so the explorer
-verification happened in the same run. Both scripts read the live chain before broadcasting — the L1 one
-checks the live vault's immutables against `LibL1Addrs`, the L2 one checks that the resolver at
-`L2_SHARED_RESOLVER` is owned by the DelegateController — and both check the new immutables after.
-
-All seven contracts are verified on the block explorers, so a delegate can read the source behind
-each address rather than trusting the deployer. Re-verifying uses the same compiler settings the
-branch pins — `solc 0.8.30`, `optimizer_runs = 200`, `evm_version = "osaka"` — and the constructor
-arguments the scripts pass. `osaka` applies on both chains: `profile.default` sets it and the L1
-profile inherits, so the L1 and L2 contracts verify under the same settings.
-
-Do the explorer verification **first**, then run the `forge verify-bytecode` commands in the
-pre-execution checklist. They are not an independent second route — both go through the same
-Etherscan API, and `verify-bytecode` fails without a key. What it adds is a different comparison,
-not different infrastructure: the explorer tells a delegate what source the operator submitted,
-while `verify-bytecode` compares the deployed creation code against a build of **this commit** on
-the machine running it.
-
-> **The `verify-bytecode` findings below were measured on `forge 1.5.1-stable`, but this repo pins
-> `foundry v1.4.2` (`.tool-versions`).** They have not been revalidated on the pinned version, and
-> `verify-bytecode`'s explorer handling has changed across releases. Treat the explorer-first order
-> as the supported one rather than relying on any particular version tolerating an unverified
-> contract, and re-run the commands on the pinned toolchain if you need that guarantee.
-
-Note that the L1 implementations will show as `Bridge` and `ERC20Vault`, not `MainnetBridge` and
-`MainnetERC20Vault` — see Current State for why that rename is expected.
-
-### The fill-in commit — done
-
-Once the three vault-side addresses existed, the fill-in commit did four things:
-
-1. Set `ERC20_VAULT_NEW_IMPL_L1`, `ERC20_VAULT_NEW_IMPL_L2` and `BRIDGED_ERC20_NEW_IMPL_L2` in
-   `Proposal0023.s.sol` from the logged addresses, each verified on-chain first (immutables,
-   explorer verification, `forge verify-bytecode`), and added the codediff links for the two vault
-   proxies next to the bridge ones.
-2. **Replaced — did not delete — `test_placeholderConstantsStillGuardTheBuilders`** in
-   `Proposal0023.t.sol`. While the constants were zero that test was the only thing proving the
-   no-argument builders refuse to encode them. It became
-   `test_buildL1Actions_UsesDeployedImplementations`,
-   `test_buildL2Actions_UsesDeployedImplementations` and
-   `test_buildAllActions_UsesDeployedImplementations`, which assert the no-argument builders return
-   what the parameterised builders return for the deployed addresses, written as literals rather
-   than read back from `Proposal0023` so an edit there cannot be mirrored. The
-   `L1Deployment`/`L2Deployment` structs have named fields, so the transposed-forward hazard the
-   bridge-only version of this test guarded against no longer exists.
-3. Regenerated the calldata with `P=0023 pnpm proposal` and committed `Proposal0023.action.md`.
-   `test_actionFileMatchesTheBuiltCalldata` pins it from now on.
-4. Switched the fork rehearsal from deploying its own copies of the implementations to executing
-   the proposal's calldata against the deployed ones.
-
-Both dry runs were then run as simulations against the RPCs used for deployment:
+All four scripts deploy only — no proxy upgrade, no initializer call on a live contract — and none
+should be re-run: a second run deploys contracts the constants do not point at. The logged
+addresses were verified on-chain before being written into `Proposal0023.s.sol`, the calldata was
+regenerated with `P=0023 pnpm proposal`, and both dry runs were simulated against the deployment
+RPCs:
 
 ```bash
 cd packages/protocol
@@ -552,39 +268,14 @@ MODE=l1dryrun FOUNDRY_PROFILE=layer1 forge script script/layer1/proposals/Propos
 MODE=l2dryrun FOUNDRY_PROFILE=layer1 forge script script/layer1/proposals/Proposal0023.s.sol:Proposal0023 --rpc-url https://rpc.mainnet.taiko.xyz
 ```
 
-Both reverted with `DryrunSucceeded()` on 2026-09-02 — that is the success signal, not a failure.
-`Controller.dryrun` is permissionless and always reverts, so the `--broadcast` flag the
-`pnpm proposal:dryrun:*` scripts carry can never actually send anything; the simulation is the whole
-check, and it needs no signer.
-
-The L1 dry run matters more than usual here. Because `_buildAllActions()` appends the `sendMessage`
-after the `upgradeTo` on the same proxy, the dry run is what proves the just-upgraded implementation
-can actually send: its `sendMessage` calls `isDestChainEnabled(167000)` against its own immutable
-resolver, the L1 `SHARED_RESOLVER` `0x8Efa01564425692d0a0838DC10E300BD310Cb43e`. That resolver does
-carry the entry — `resolve(167000, "bridge", true)` returns
-`0x1670000000000000000000000000000000000001` — so it passes, and the dry run demonstrates it against
-live state before the vote rather than after it.
-
-The L2 dry run asserts the DelegateController's preconditions (self-owned, `l2Bridge()` = the L2
-bridge, `daoController()` = the L1 DAO controller) and then executes the seven L2 actions. Note what
-it does **not** cover — it calls `DelegateController.dryrun` directly rather than delivering the
-batch through `processMessage`, so it does not exercise the mid-call self-upgrade. Only
-`test/layer1/proposals/Proposal0023Fork.t.sol` does that.
-
-`Proposal0023.action.md` is formatted with the repo formatter (the pre-commit hook does this
-automatically), so reviewers should compare the calldata line. A second reviewer should re-run
-`P=0023 pnpm proposal` independently and diff the result.
+Both revert with `DryrunSucceeded()`, which is the success signal. `Controller.dryrun` is
+permissionless and always reverts, so the `--broadcast` in the `pnpm proposal:dryrun:*` scripts can
+never send anything; the simulation is the whole check. The L2 dry run calls
+`DelegateController.dryrun` directly and so does not exercise the mid-call self-upgrade; only the
+fork test does. A second reviewer should re-run `P=0023 pnpm proposal` and diff
+`Proposal0023.action.md`; `test_actionFileMatchesTheBuiltCalldata` pins it in CI.
 
 ## Deployed Addresses
-
-Every address was verified on-chain before being written in. The codediff links show the live
-implementation against the new one for each proxy being upgraded.
-
-The bridge implementations are a **redeployment** from 2026-09-01. #22082 landed comment-only
-changes to `contracts/shared/bridge/Bridge.sol` after the first set was deployed; comments feed the
-solc metadata hash, so the runtime bytecode changed and the original implementations no longer
-corresponded to `main`. The vault-side contracts were deployed on 2026-09-02 from this branch, which
-sits on the post-#22093 `main`.
 
 | What                                | Address                                      |                                                                                                                                                           |
 | ----------------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -592,11 +283,11 @@ sits on the post-#22093 `main`.
 | L1 `ERC20Vault` implementation      | `0x32E47c04E8c329E8c10062731448e7658aDEEB8e` | [codediff](https://codediff.taiko.xyz/?addr=0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab&newimpl=0x32E47c04E8c329E8c10062731448e7658aDEEB8e&chainid=1)      |
 | L2 `Bridge` implementation          | `0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb` | [codediff](https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000001&newimpl=0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb&chainid=167000) |
 | L2 `ERC20Vault` implementation      | `0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3` | [codediff](https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000002&newimpl=0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3&chainid=167000) |
-| L2 `BridgedERC20` implementation    | `0x3505a0700DB72dEc7AbFF1aF231BB5D87aBF2944` | new contract, nothing to diff; registered as `bridged_erc20`, not a proxy target                                                                          |
+| L2 `BridgedERC20` implementation    | `0x3505a0700DB72dEc7AbFF1aF231BB5D87aBF2944` | registered as `bridged_erc20`, not a proxy target; nothing to diff                                                                                        |
 | L2 `DefaultResolver` proxy          | `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984` | new proxy, nothing to diff                                                                                                                                |
 | L2 `DefaultResolver` implementation | `0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a` | new contract, nothing to diff                                                                                                                             |
 
-The vault-side creation transactions, all from deployer `0x56706f118e42ae069f20c5636141b844d1324ae1`:
+Vault-side creation transactions, all from deployer `0x56706f118e42ae069f20c5636141b844d1324ae1`:
 
 | Contract                         | Chain  | Block      | Transaction                                                          |
 | -------------------------------- | ------ | ---------- | -------------------------------------------------------------------- |
@@ -604,62 +295,27 @@ The vault-side creation transactions, all from deployer `0x56706f118e42ae069f20c
 | L2 `BridgedERC20` implementation | 167000 | 10,865,570 | `0xa40d7656f405988c26aa9c1e1754c09c9f04605cc94b46fb0e2bd5f612781ca4` |
 | L2 `ERC20Vault` implementation   | 167000 | 10,865,570 | `0x00371d3b209576df1ce447011477f0c27b816e12c123a207588790644dbc10b3` |
 
-All seven are verified on their explorers — `Bridge`, `ERC20Vault`, `Bridge`, `ERC20Vault`,
-`BridgedERC20`, `ERC1967Proxy` and `DefaultResolver` respectively, each under `solc v0.8.30`,
-optimizer on at 200 runs, `evm_version` `osaka`. The L1 entries read `Bridge` and `ERC20Vault`, not
-`MainnetBridge` and `MainnetERC20Vault` — see Current State.
+All seven are verified on their explorers under `solc v0.8.30`, optimizer at 200 runs,
+`evm_version` `osaka`; the L1 entries read `Bridge` and `ERC20Vault`, not `Mainnet*`.
+`forge verify-bytecode` from a build of this branch matches creation code with `status full` for all
+six implementations, and runtime code for all but the two bridge-side L2 runs, which aborted after
+the creation match on a foundry chain-alias error (`found string "taiko", expected u64`). The
+creation-code match is the substantive result, and the immutables are read back in Verification.
+The resolver proxy is an unmodified OpenZeppelin `ERC1967Proxy`, pinned by its implementation slot
+and its `owner()`.
 
-`forge verify-bytecode`, from a build of this branch:
+The bridge implementations are a redeployment: #22082 changed comments in `Bridge.sol` after the
+first set was deployed, and comments feed the metadata hash. The L1 codediffs carry the proposal's
+argument — the bridge one should show only the cap plus the `MainnetBridge` → `Bridge` folding, the
+vault one only #22093 plus the `MainnetERC20Vault` → `ERC20Vault` folding — while the L2 codediffs
+span 1.10.0 to `main`, which is what Current State and Upgrade Safety exist to explain.
 
-| Contract                            | Creation code | Runtime code            |
-| ----------------------------------- | ------------- | ----------------------- |
-| L1 `Bridge` implementation          | `status full` | `status full`           |
-| L1 `ERC20Vault` implementation      | `status full` | `status full`           |
-| L2 `Bridge` implementation          | `status full` | not reached — see below |
-| L2 `ERC20Vault` implementation      | `status full` | `status full`           |
-| L2 `BridgedERC20` implementation    | `status full` | `status full`           |
-| L2 `DefaultResolver` implementation | `status full` | not reached — see below |
-
-The two bridge-side L2 runs on 2026-09-01 matched their creation code and then aborted before the
-runtime comparison with `foundry config error: invalid type: found string "taiko", expected u64` —
-foundry resolves chain 167000 to the named alias and then fails to read that alias back as the
-numeric chain id it expects. The vault-side runs on 2026-09-02, against `https://rpc.mainnet.taiko.xyz`
-and passing only `--rpc-url`, completed both phases. A full creation-code match is the substantive
-result in any case: runtime code is what executing that creation code produces, and the immutables
-it patches in are separately read back below.
-
-The L2 `DefaultResolver` proxy is not covered by `forge verify-bytecode` here. It is an unmodified
-OpenZeppelin `ERC1967Proxy`; what pins it is that its EIP-1967 implementation slot points at the
-`DefaultResolver` implementation above, which did match, and that its `owner()` is the
-DelegateController.
-
-What has been checked on-chain for these seven addresses: code sizes are 14,913 / 19,630 / 14,913 /
-19,630 / 9,426 / 170 / 4,504 bytes in the table's order; the L1 bridge implementation's four
-immutables and the L1 vault implementation's two equal the live L1 proxies'; the L2 bridge and vault
-implementations' `resolver()` is the new proxy with `quotaManager()` (both) and `pauser()` (bridge)
-zero; the `BridgedERC20`'s `erc20Vault()` is the L2 vault proxy; the resolver proxy's EIP-1967 slot
-points at the `DefaultResolver` implementation listed above; its `owner()` is the DelegateController;
-and it holds no registrations yet, since registering is L2 actions 0 to 4.
-
-The L1 codediffs carry the proposal's whole argument: the bridge one should show only
-`_SEND_ETHER_GAS_LIMIT` rising from 35,000 to 135,000 plus the `MainnetBridge` → `Bridge` folding
-that #22058 performed at byte-identical slot constants; the vault one should show only #22093's
-permit and Permit2 entrypoints plus the same `MainnetERC20Vault` → `ERC20Vault` folding. The L2
-codediffs are necessarily large — they span the protocol 1.10.0 implementations from October 2024 to
-`main`, which is what Current State and Upgrade Safety exist to explain.
-
-> **Read the L2 addresses on L2 only.** Every L2 address here has, or collides with, unrelated code
-> on L1: `0x2dfef033…`, `0x4F750D13…` and `0x097BBBef…` appear in
-> `deployments/mainnet-contract-logs-L1.md` as former `erc721_vault`, `erc20_vault` and
-> `erc1155_vault` implementations, `0x3505a070…` holds a 23,901-byte contract on L1 and
-> `0xa01d464c…` a 170-byte proxy. They are unrelated contracts that share addresses because the same
-> deployer reached the same nonces on both chains; the L1 and L2 code at each address differs.
-> Confirmed: `0x097BBBef…` is 14,913 bytes on L2 and 17,997 on L1. The L1 vault implementation
-> `0x32E47c04…` has no code on L2.
+> **Read the L2 addresses on L2 only.** Every one of them has, or collides with, unrelated code on
+> L1 — the bridge-side ones with vault implementations retired in 2024, `0x3505a070…` with a
+> 23,901-byte contract, `0xa01d464c…` with a 170-byte proxy — because the same deployer reached the
+> same nonces on both chains.
 
 ## Verification
-
-### Before execution
 
 Every commented value is the expected result.
 
@@ -667,111 +323,78 @@ Every commented value is the expected result.
 export L1_RPC=<l1 rpc>
 export L2_RPC=https://rpc.mainnet.taiko.xyz
 
-# L1 bridge implementation immutables — all four must equal the live proxy's.
+# New implementations' immutables; the L1 ones must equal the live proxies'.
 cast call 0xA15dca0A72da684f20e0FC708DECFb230a715462 "resolver()(address)"      --rpc-url $L1_RPC  # 0x8Efa01564425692d0a0838DC10E300BD310Cb43e
 cast call 0xA15dca0A72da684f20e0FC708DECFb230a715462 "signalService()(address)" --rpc-url $L1_RPC  # 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C
 cast call 0xA15dca0A72da684f20e0FC708DECFb230a715462 "quotaManager()(address)"  --rpc-url $L1_RPC  # 0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC
 cast call 0xA15dca0A72da684f20e0FC708DECFb230a715462 "pauser()(address)"        --rpc-url $L1_RPC  # 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F
-
-# L1 vault implementation immutables — both must equal the live proxy's.
-cast call 0x32E47c04E8c329E8c10062731448e7658aDEEB8e "resolver()(address)"     --rpc-url $L1_RPC  # 0x8Efa01564425692d0a0838DC10E300BD310Cb43e
-cast call 0x32E47c04E8c329E8c10062731448e7658aDEEB8e "quotaManager()(address)" --rpc-url $L1_RPC  # 0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC
-cast call 0x32E47c04E8c329E8c10062731448e7658aDEEB8e "PERMIT2()(address)"      --rpc-url $L1_RPC  # 0x000000000022D473030F116dDEE9F6B43aC78BA3
-
-# L2 bridge implementation immutables. `resolver()` is the load-bearing one — see the note below.
+cast call 0x32E47c04E8c329E8c10062731448e7658aDEEB8e "resolver()(address)"      --rpc-url $L1_RPC  # 0x8Efa01564425692d0a0838DC10E300BD310Cb43e
+cast call 0x32E47c04E8c329E8c10062731448e7658aDEEB8e "quotaManager()(address)"  --rpc-url $L1_RPC  # 0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC
+cast call 0x32E47c04E8c329E8c10062731448e7658aDEEB8e "PERMIT2()(address)"       --rpc-url $L1_RPC  # 0x000000000022D473030F116dDEE9F6B43aC78BA3
 cast call 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb "resolver()(address)"      --rpc-url $L2_RPC  # 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984
 cast call 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb "signalService()(address)" --rpc-url $L2_RPC  # 0x1670000000000000000000000000000000000005
 cast call 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb "quotaManager()(address)"  --rpc-url $L2_RPC  # 0x0000000000000000000000000000000000000000
 cast call 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb "pauser()(address)"        --rpc-url $L2_RPC  # 0x0000000000000000000000000000000000000000
+cast call 0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3 "resolver()(address)"      --rpc-url $L2_RPC  # 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984
+cast call 0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3 "quotaManager()(address)"  --rpc-url $L2_RPC  # 0x0000000000000000000000000000000000000000
+cast call 0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3 "PERMIT2()(address)"       --rpc-url $L2_RPC  # 0x000000000022D473030F116dDEE9F6B43aC78BA3
+cast call 0x3505a0700DB72dEc7AbFF1aF231BB5D87aBF2944 "erc20Vault()(address)"    --rpc-url $L2_RPC  # 0x1670000000000000000000000000000000000002
 
-# L2 vault implementation immutables, and the bridged-token implementation's.
-cast call 0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3 "resolver()(address)"       --rpc-url $L2_RPC  # 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984
-cast call 0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3 "quotaManager()(address)"   --rpc-url $L2_RPC  # 0x0000000000000000000000000000000000000000
-cast call 0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3 "PERMIT2()(address)"        --rpc-url $L2_RPC  # 0x000000000022D473030F116dDEE9F6B43aC78BA3
-cast call 0x3505a0700DB72dEc7AbFF1aF231BB5D87aBF2944 "erc20Vault()(address)"   --rpc-url $L2_RPC  # 0x1670000000000000000000000000000000000002
+# Permit2 is a constant in the vault, so it must exist on both chains.
+cast code 0x000000000022D473030F116dDEE9F6B43aC78BA3 --rpc-url $L1_RPC | wc -c  # 18307
+cast code 0x000000000022D473030F116dDEE9F6B43aC78BA3 --rpc-url $L2_RPC | wc -c  # 18307
 
-# Permit2 is a constant in the vault, so it must actually exist on both chains.
-cast code 0x000000000022D473030F116dDEE9F6B43aC78BA3 --rpc-url $L1_RPC | wc -c  # 18307 (non-empty)
-cast code 0x000000000022D473030F116dDEE9F6B43aC78BA3 --rpc-url $L2_RPC | wc -c  # 18307 (non-empty)
-
-# The resolver is a proxy the DAO will call registerAddress on. owner() says who controls it;
-# the EIP-1967 slot says what code runs.
+# The resolver the DAO registers on: who controls it, and what code runs. Both vault proxies are
+# owned by the controller that will call upgradeTo on them.
 cast call    0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 "owner()(address)" --rpc-url $L2_RPC  # 0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C
 cast storage 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 \
   0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc --rpc-url $L2_RPC  # 0x8Af4669E…07a9a
-
-# Both vault proxies are owned by the controller that will call upgradeTo on them.
 cast call 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab "owner()(address)" --rpc-url $L1_RPC  # 0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a
 cast call 0x1670000000000000000000000000000000000002 "owner()(address)" --rpc-url $L2_RPC  # 0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C
 
-# Authenticate the code, not just the getters. A substituted contract can answer every getter
-# above while carrying different logic. ETHERSCAN_API_KEY is required — one Etherscan V2 key
-# covers both chains.
+# Authenticate the code, not just the getters. Pass signal: "Creation code matched with status full".
+# ETHERSCAN_API_KEY is required; one Etherscan V2 key covers both chains.
 export ETHERSCAN_API_KEY=<key>
-
 FOUNDRY_PROFILE=layer1 forge verify-bytecode 0xA15dca0A72da684f20e0FC708DECFb230a715462 \
   contracts/shared/bridge/Bridge.sol:Bridge --rpc-url $L1_RPC \
   --encoded-constructor-args $(cast abi-encode "c(address,address,address,address)" \
     0x8Efa01564425692d0a0838DC10E300BD310Cb43e 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C \
     0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F)
-
 FOUNDRY_PROFILE=layer1 forge verify-bytecode 0x32E47c04E8c329E8c10062731448e7658aDEEB8e \
   contracts/shared/vault/ERC20Vault.sol:ERC20Vault --rpc-url $L1_RPC \
   --encoded-constructor-args $(cast abi-encode "c(address,address)" \
     0x8Efa01564425692d0a0838DC10E300BD310Cb43e 0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC)
-
-# First argument is the resolver PROXY, not its implementation.
+# First argument of the L2 bridge and vault is the resolver PROXY, not its implementation.
 FOUNDRY_PROFILE=layer2 forge verify-bytecode 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb \
   contracts/shared/bridge/Bridge.sol:Bridge --rpc-url $L2_RPC \
   --encoded-constructor-args $(cast abi-encode "c(address,address,address,address)" \
     0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 0x1670000000000000000000000000000000000005 \
     0x0000000000000000000000000000000000000000 0x0000000000000000000000000000000000000000)
-
 FOUNDRY_PROFILE=layer2 forge verify-bytecode 0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3 \
   contracts/shared/vault/ERC20Vault.sol:ERC20Vault --rpc-url $L2_RPC \
   --encoded-constructor-args $(cast abi-encode "c(address,address)" \
     0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 0x0000000000000000000000000000000000000000)
-
 FOUNDRY_PROFILE=layer2 forge verify-bytecode 0x3505a0700DB72dEc7AbFF1aF231BB5D87aBF2944 \
   contracts/shared/vault/BridgedERC20.sol:BridgedERC20 --rpc-url $L2_RPC \
   --encoded-constructor-args $(cast abi-encode "c(address)" 0x1670000000000000000000000000000000000002)
-
 FOUNDRY_PROFILE=layer2 forge verify-bytecode 0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a \
   contracts/shared/common/DefaultResolver.sol:DefaultResolver --rpc-url $L2_RPC
-
 FOUNDRY_PROFILE=layer2 forge verify-bytecode 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 \
   ERC1967Proxy --rpc-url $L2_RPC \
   --encoded-constructor-args $(cast abi-encode "c(address,bytes)" 0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a \
     $(cast calldata "init(address)" 0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C))
 
-# Rehearse the exact batch against live state; both legs must pass.
+# Rehearse the exact batch against live state; both legs must pass. Deploys nothing: it executes
+# the committed calldata against the deployed implementations, then bridges tokens through the
+# upgraded contracts (WETH out on L1; on L2, USDT in, a never-seen token in, bridged USDT out).
 L1_FORK_URL=$L1_RPC L2_FORK_URL=$L2_RPC FOUNDRY_PROFILE=layer1 \
   forge test --match-contract Proposal0023ForkTest -vv
 ```
 
-**The pass signal is `Creation code matched with status full`** — it proves the deployed creation
-code, constructor arguments included, is what a local build of this commit produces.
-
-Notes, in the order you will trip over them:
-
-- Use `--encoded-constructor-args`, not `--constructor-args`. The latter wants individual raw
-  values and rejects a pre-encoded blob on the pinned `forge v1.4.2`.
-- Do not add `--chain <id>`; the chain comes from `--rpc-url`. Passing it makes foundry resolve the
-  id to a named chain and then reject its own value.
-- The runtime phase after the creation match needs historical state. With the two RPCs above it
-  completed for all three vault-side contracts; on an endpoint that refuses it, stopping at the
-  creation-code match is fine.
-- `cast codehash` is not a substitute. `Bridge` has five immutables at 25 patch sites, one being
-  OpenZeppelin `UUPSUpgradeable`'s `__self = address(this)`, and `ERC20Vault` and `BridgedERC20`
-  carry the same `__self`, so identical code at different addresses hashes differently and no
-  expected hash can be published.
-
-**Why the L2 `resolver()` reads matter more than the others.** All deploy scripts self-check their
-immutables, but during _simulation_. `DeployBridgeUpgradeL2` deploys the resolver proxy and passes
-its address into the `Bridge` constructor, so if the deployer's nonce differs at broadcast time the
-`CREATE` addresses shift while the already-built `Bridge` creation calldata keeps the simulated
-address — leaving an implementation whose `resolver` immutable points at nothing, which the script
-cannot catch. `DeployERC20VaultUpgradeL2` avoids that class of problem by taking the resolver as a
-constant that already exists on-chain, but its `erc20Vault()` and `resolver()` reads above are what
-prove the constant was the right one. The L1 immutables are all library constants and cannot dangle
-this way.
+Notes: use `--encoded-constructor-args`, not `--constructor-args`, which rejects a pre-encoded blob
+on the pinned `forge v1.4.2`; do not pass `--chain`, the chain comes from `--rpc-url`; the runtime
+phase of `verify-bytecode` needs historical state and may abort after the creation match on an
+endpoint without it. The results above were measured on `forge 1.5.1`, not the pinned `1.4.2`.
+`cast codehash` cannot substitute for any of this: every implementation carries OpenZeppelin
+`UUPSUpgradeable`'s `__self = address(this)` immutable, so identical code at different addresses
+hashes differently.
