@@ -59,8 +59,10 @@ a token canonical on another chain reverts today inside `_deployBridgedToken` â€
 L2 leg would have without its new `BridgedERC20`, and the same fix: L1 action 3 registers a
 `BridgedERC20` built from `main` with the L1 vault proxy as its `erc20Vault` immutable. Existing
 L1 bridged tokens are untouched; only tokens deployed from now on use the new implementation. The
-fork rehearsal delivers a never-seen token to L1 after the batch and asserts it mints from the new
-implementation.
+fork rehearsal delivers a never-seen token to L1 before the batch and asserts it parks as
+`RETRIABLE`, then retries that same message after the batch and asserts it lands `DONE`, minting
+from the new implementation â€” so a message this defect has already parked becomes claimable by
+retrying it once the proposal executes.
 
 ## Current State
 
@@ -113,7 +115,7 @@ vaults left on the legacy registry, and only the names the migrated contracts re
 
 | Registration                  | Read by                                                                                                                                                                                                |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `bridge`, chain 1             | the bridge, on every send, recall and claim: all three of its lookups (`Bridge.sol:491`, `:607`, `:658`) pass the counterparty id                                                                      |
+| `bridge`, chain 1             | the bridge, on every send, recall and claim: all three of its lookups (`Bridge.sol:508`, `:624`, `:675`) pass the counterparty id                                                                      |
 | `bridge`, chain 167000        | the vault's `onlyFromNamed(B_BRIDGE)` on every delivery and recall (`BaseVault.sol:56`, `ERC20Vault.sol:482`) and the bridge it sends through (`ERC20Vault.sol:424`); the bridge itself never reads it |
 | `erc20_vault`, chain 1        | the vault: a delivery must come from it (`BaseVault.sol:60`), a send goes to it (`ERC20Vault.sol:415`), and it is the forbidden recipient (`BaseVault.sol:69`)                                         |
 | `erc20_vault`, chain 167000   | nothing today; symmetry with the L1 resolver, which carries its own chain's entry                                                                                                                      |
@@ -464,8 +466,8 @@ FOUNDRY_PROFILE=layer2 forge verify-bytecode 0x2ea05A9CD06984Cf533a1829d8b0BE628
 
 # Rehearse the exact batch against live state; both legs must pass. Deploys nothing: it executes
 # the committed calldata against the deployed implementations, then bridges tokens through the
-# upgraded contracts (WETH out and a never-seen token in on L1; on L2, USDT in, a never-seen token
-# in, bridged USDT out).
+# upgraded contracts (WETH out on L1 and a never-seen token that parked RETRIABLE before the batch
+# retried to DONE; on L2, USDT in, a never-seen token in, bridged USDT out).
 L1_FORK_URL=$L1_RPC L2_FORK_URL=$L2_RPC FOUNDRY_PROFILE=layer1 \
   forge test --match-contract Proposal0023ForkTest -vv
 ```

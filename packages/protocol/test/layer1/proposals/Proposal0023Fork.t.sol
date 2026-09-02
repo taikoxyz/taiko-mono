@@ -96,16 +96,20 @@ contract Proposal0023ForkTest is Test {
         assertGt(l1.erc20VaultImpl.code.length, 0, "L1 vault implementation is not deployed");
         assertGt(l1.bridgedErc20Impl.code.length, 0, "L1 BridgedERC20 is not deployed");
 
-        // Execute the whole L1 batch the way the DAO controller will: both upgrades, then the
-        // sendMessage that BuildProposal appends, through the just-upgraded bridge. This is the
-        // calldata `Proposal0023.action.md` carries.
+        // Pin the defect the third L1 action fixes: today a first delivery of a token canonical
+        // on L2 cannot deploy its bridged token and parks as RETRIABLE.
+        IBridge.Message memory stuck = _deliverNeverSeenTokenToL1();
+
+        // Execute the whole L1 batch the way the DAO controller will: both upgrades and the
+        // registration, then the sendMessage that BuildProposal appends, through the
+        // just-upgraded bridge. This is the calldata `Proposal0023.action.md` carries.
         Controller.Action[] memory actions = harness.exposedBuildAllActions();
         assertEq(actions.length, 4);
         _executeAs(L1.DAO_CONTROLLER, actions);
 
         _assertL1BridgeAfterUpgrade(l1.bridgeImpl, messageIdBefore);
         _assertL1VaultAfterUpgrade(l1.erc20VaultImpl, vaultOwnerBefore, messageIdBefore);
-        _assertL1BridgedErc20AfterRegistration(l1.bridgedErc20Impl, vaultOwnerBefore);
+        _assertL1BridgedErc20AfterRegistration(l1.bridgedErc20Impl, vaultOwnerBefore, stuck);
     }
 
     function test_l2_selfUpgradeThroughProcessMessage() external {
@@ -126,13 +130,7 @@ contract Proposal0023ForkTest is Test {
     /// governance message left through the new implementation.
     /// @param _newImpl The implementation the proxy must now run.
     /// @param _messageIdBefore The bridge's `nextMessageId` before the batch.
-    function _assertL1BridgeAfterUpgrade(
-        address _newImpl,
-        uint64 _messageIdBefore
-    )
-        private
-        view
-    {
+    function _assertL1BridgeAfterUpgrade(address _newImpl, uint64 _messageIdBefore) private view {
         Bridge bridge = Bridge(payable(L1.BRIDGE));
         assertEq(_implementationOf(L1.BRIDGE), _newImpl);
         assertEq(bridge.resolver(), L1.SHARED_RESOLVER);
@@ -173,25 +171,12 @@ contract Proposal0023ForkTest is Test {
         assertEq(Bridge(payable(L1.BRIDGE)).nextMessageId(), _messageIdBefore + 2);
     }
 
-    /// @dev The registration fixes the pre-existing L1 defect: the resolver named the July 2024
-    /// `BridgedERC20`, whose only initializer is the seven-argument one, while the vault has
-    /// called the six-argument init since Proposal0017, so the first delivery to L1 of a token
-    /// canonical on another chain reverted. After the batch such a delivery deploys a bridged
-    /// token from the new implementation and mints.
-    /// @param _newImpl The `BridgedERC20` the resolver must now name.
-    /// @param _vaultOwner The vault's owner, which every bridged token it deploys is owned by.
-    function _assertL1BridgedErc20AfterRegistration(
-        address _newImpl,
-        address _vaultOwner
-    )
-        private
-    {
-        assertEq(
-            DefaultResolver(L1.SHARED_RESOLVER).resolve(1, LibNames.B_BRIDGED_ERC20, false),
-            _newImpl
-        );
-        assertEq(BridgedERC20(_newImpl).erc20Vault(), L1.ERC20_VAULT);
-
+    /// @dev Delivers a token canonical on L2 that L1 has never seen, the way a relayer delivers a
+    /// `sendToken` from L2. Today the vault's `_deployBridgedToken` initialises the July 2024
+    /// `BridgedERC20` the L1 resolver names through the six-argument init that implementation
+    /// does not have, so the invocation reverts and the bridge parks the message as RETRIABLE.
+    /// @return message_ The message, so the post-batch check can retry exactly it.
+    function _deliverNeverSeenTokenToL1() private returns (IBridge.Message memory message_) {
         // A valid signal proof cannot be synthesised on a fork.
         vm.mockCall(
             L1.SIGNAL_SERVICE,
@@ -199,23 +184,21 @@ contract Proposal0023ForkTest is Test {
             abi.encode(uint256(0))
         );
 
-        address ctoken = makeAddr("canonical L2 token with no L1 representation");
         address recipient = makeAddr("recipient on L1");
-        IBridge.Message memory message;
-        message.id = 424_243;
-        message.from = L2.ERC20_VAULT;
-        message.srcChainId = 167_000;
-        message.srcOwner = recipient;
-        message.destChainId = 1;
-        message.destOwner = recipient;
-        message.to = L1.ERC20_VAULT;
-        message.gasLimit = 3_000_000;
-        message.data = abi.encodeCall(
+        message_.id = 424_243;
+        message_.from = L2.ERC20_VAULT;
+        message_.srcChainId = 167_000;
+        message_.srcOwner = recipient;
+        message_.destChainId = 1;
+        message_.destOwner = recipient;
+        message_.to = L1.ERC20_VAULT;
+        message_.gasLimit = 3_000_000;
+        message_.data = abi.encodeCall(
             IMessageInvocable.onMessageInvocation,
             (abi.encode(
                     ERC20Vault.CanonicalERC20({
                         chainId: 167_000,
-                        addr: ctoken,
+                        addr: makeAddr("canonical L2 token with no L1 representation"),
                         decimals: 18,
                         symbol: "NEW",
                         name: "New Token"
@@ -228,12 +211,43 @@ contract Proposal0023ForkTest is Test {
 
         vm.prank(recipient);
         (IBridge.Status status, IBridge.StatusReason reason) =
-            Bridge(payable(L1.BRIDGE)).processMessage(message, "");
-        assertEq(uint8(status), uint8(IBridge.Status.DONE), "delivery was not invoked");
-        assertEq(uint8(reason), uint8(IBridge.StatusReason.INVOCATION_OK), "delivery failed");
+            Bridge(payable(L1.BRIDGE)).processMessage(message_, "");
+        assertEq(uint8(status), uint8(IBridge.Status.RETRIABLE), "delivery did not park");
+        assertEq(uint8(reason), uint8(IBridge.StatusReason.INVOCATION_FAILED));
+    }
 
+    /// @dev The registration fixes that defect, and fixes it for messages already parked: the
+    /// resolver now names the new implementation, and retrying the message that failed before
+    /// the batch deploys a bridged token from it and mints.
+    /// @param _newImpl The `BridgedERC20` the resolver must now name.
+    /// @param _vaultOwner The vault's owner, which every bridged token it deploys is owned by.
+    /// @param _stuck The message `_deliverNeverSeenTokenToL1` parked.
+    function _assertL1BridgedErc20AfterRegistration(
+        address _newImpl,
+        address _vaultOwner,
+        IBridge.Message memory _stuck
+    )
+        private
+    {
+        assertEq(
+            DefaultResolver(L1.SHARED_RESOLVER).resolve(1, LibNames.B_BRIDGED_ERC20, false),
+            _newImpl
+        );
+        assertEq(BridgedERC20(_newImpl).erc20Vault(), L1.ERC20_VAULT);
+
+        // Anyone may retry a message with a non-zero gasLimit while it is not the last attempt.
+        Bridge bridge = Bridge(payable(L1.BRIDGE));
+        vm.prank(makeAddr("relayer"));
+        bridge.retryMessage(_stuck, false);
+        assertEq(
+            uint8(bridge.messageStatus(bridge.hashMessage(_stuck))), uint8(IBridge.Status.DONE)
+        );
+
+        // The same labels `_deliverNeverSeenTokenToL1` used; makeAddr is deterministic.
+        address ctoken = makeAddr("canonical L2 token with no L1 representation");
+        address recipient = makeAddr("recipient on L1");
         address btoken = ERC20Vault(L1.ERC20_VAULT).canonicalToBridged(167_000, ctoken);
-        assertTrue(btoken != address(0), "delivery deployed no bridged token");
+        assertTrue(btoken != address(0), "retry deployed no bridged token");
         assertEq(_implementationOf(btoken), _newImpl);
         assertEq(BridgedERC20(btoken).erc20Vault(), L1.ERC20_VAULT);
         assertEq(BridgedERC20(btoken).owner(), _vaultOwner);
@@ -405,12 +419,7 @@ contract Proposal0023ForkTest is Test {
     /// can still send.
     /// @param _resolverProxy The new resolver.
     /// @param _before The live values read before the batch.
-    function _assertL2BridgeAfterUpgrade(
-        address _resolverProxy,
-        L2Before memory _before
-    )
-        private
-    {
+    function _assertL2BridgeAfterUpgrade(address _resolverProxy, L2Before memory _before) private {
         Bridge bridge = Bridge(payable(L2.BRIDGE));
 
         // This is the call that reverts if the wiring is wrong.
