@@ -81,6 +81,47 @@ describe('fetchFromIPFSGateways', () => {
     expect(attempt).not.toHaveBeenCalledWith(alreadyFailed);
   });
 
+  it('skips the failed host however its url was spelled', async () => {
+    // Same host, four spellings: upper case, an explicit default port, a fragment, and the
+    // subdomain gateway form. Comparing whole URL strings would re-ask every one of them.
+    const [first] = PUBLIC_IPFS_GATEWAYS.split(',');
+    const host = new URL(first).host;
+    const spellings = [
+      `https://${host.toUpperCase()}/ipfs/${CID}`,
+      `https://${host}:443/ipfs/${CID}`,
+      `https://${host}/ipfs/${CID}#fragment`,
+      `https://${CID_V1}.ipfs.${host}/`,
+    ];
+
+    for (const spelling of spellings) {
+      const attempt = vi.fn().mockResolvedValue('metadata');
+      await fetchFromIPFSGateways(spelling, attempt);
+
+      expect(attempt.mock.calls.map(([url]) => new URL(url).host)).not.toContain(host);
+    }
+  });
+
+  it('gives up on a gateway that never settles and moves to the next', async () => {
+    // The failure the previous shape could not survive: `overallTimeout` was only consulted after
+    // an attempt rejected, so an attempt that never settled held the search open for good.
+    const attempt = vi
+      .fn()
+      .mockImplementationOnce(() => new Promise(() => {}))
+      .mockResolvedValueOnce('metadata');
+
+    await expect(fetchFromIPFSGateways(`ipfs://${CID}`, attempt, { attemptTimeout: 20 })).resolves.toBe('metadata');
+    expect(attempt).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops once the budget is spent rather than trying every gateway regardless', async () => {
+    const attempt = vi.fn().mockImplementation(() => new Promise(() => {}));
+
+    await expect(
+      fetchFromIPFSGateways(`ipfs://${CID}`, attempt, { attemptTimeout: 20, budget: 30 }),
+    ).rejects.toBeInstanceOf(IpfsError);
+    expect(attempt.mock.calls.length).toBeLessThan(PUBLIC_IPFS_GATEWAYS.split(',').length + 1);
+  });
+
   it('throws without calling a gateway when the uri names no cid', async () => {
     const attempt = vi.fn();
 

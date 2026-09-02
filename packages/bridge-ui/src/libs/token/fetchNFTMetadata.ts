@@ -31,7 +31,17 @@ const log = getLogger('libs:token:fetchNFTMetadata');
  * disabled`, while the same CID still resolves through the public gateways.
  */
 async function fetchMetadataDocument(uri: string): Promise<NFTMetadata> {
-  const get = async (url: string) => (await axios.get<NFTMetadata>(url, axiosConfig)).data;
+  const get = async (url: string) => {
+    const { data } = await axios.get<NFTMetadata>(url, axiosConfig);
+
+    // Checked here, inside the attempt, rather than once on whatever came back: a gateway can
+    // answer 200 with an HTML interstitial, a rate-limit page or an empty object, and a document
+    // this app cannot use is a gateway failure like any other. Validating afterwards would let the
+    // first such answer end the search with healthy gateways still untried.
+    if (!data?.image) throw new NoMetadataFoundError(`No image in the metadata served by ${url}`);
+
+    return data;
+  };
 
   // An `ipfs://` URI names no host to try first, so it goes straight to the gateways.
   if (uri.startsWith('ipfs:')) return fetchFromIPFSGateways(uri, get);

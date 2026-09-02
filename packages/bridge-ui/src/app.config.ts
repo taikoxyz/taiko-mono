@@ -65,6 +65,12 @@ export const apiService = {
 export const ipfsConfig = {
   gatewayTimeout: 1_000,
   overallTimeout: 5_000,
+  // An image load has no transport timeout of its own the way an axios request does, and a
+  // gateway that stalls fires neither `onload` nor `onerror`, so this is what bounds it. Set well
+  // above a real load - hundreds of KB over a slow connection - so a legitimate image is not
+  // abandoned; it exists to cap a hang, not to race the network.
+  imageLoadTimeout: 10_000,
+  imageOverallTimeout: 20_000,
 };
 
 export const moralisApiConfig = {

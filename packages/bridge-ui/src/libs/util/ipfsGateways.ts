@@ -59,40 +59,100 @@ export function toIPFSPath(uri: string): string | null {
 }
 
 /**
+ * @dev The gateway a URL is served by, normalized so two spellings of the same host compare equal.
+ *
+ *      `URL.host` already lower-cases and drops a default port, and a subdomain gateway carries
+ *      the CID in the host, so stripping that leaves the gateway itself. Comparing whole URL
+ *      strings instead would re-ask a host that has just failed whenever the casing, the port or
+ *      the gateway spelling differed by a character.
+ *
+ * @param uri The address to read a host from
+ * @return host_ The gateway host, or null when the address names no HTTP host
+ */
+function gatewayHost(uri: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(uri);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+
+  const subdomain = /^[^.]+\.ipfs\.(.+)$/.exec(url.host);
+  return (subdomain ? subdomain[1] : url.host).toLowerCase();
+}
+
+/**
+ * @dev Rejects once `ms` has passed, whatever `work` is doing.
+ *
+ *      A promise that never settles is the failure this exists for: an `Image` whose gateway
+ *      stalls fires neither `onload` nor `onerror`, and awaiting it would hold the whole fallback
+ *      open rather than moving to the next gateway. Racing bounds the wait; the caller is
+ *      responsible for releasing whatever it started.
+ *
+ * @param work The operation to bound
+ * @param ms How long to allow it
+ * @param url The gateway URL, for the timeout message
+ * @return result_ Whatever `work` produced, if it produced it in time
+ */
+function withDeadline<T>(work: Promise<T>, ms: number, url: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+
+  return Promise.race([
+    work.finally(() => clearTimeout(timer)),
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new IpfsError(`IPFS gateway timed out: ${url}`)), ms);
+    }),
+  ]);
+}
+
+/**
  * Runs `attempt` against each configured IPFS gateway in turn and returns the first result it
- * produces, throwing an IpfsError once they are exhausted or the overall time budget is spent.
+ * produces, throwing an IpfsError once they are exhausted or the time budget is spent.
  *
  * The attempt is the caller's real request - the metadata GET, the image load - rather than a HEAD
  * probe used to pick one gateway that then has to carry it. A gateway that answers HEAD can still
  * fail or rate-limit the request that follows, and with a probe that failure ends the fallback on
- * the very first gateway instead of moving to the next one.
+ * the very first gateway instead of moving to the next one. For the same reason the attempt should
+ * reject on a response it cannot use: a 200 carrying an interstitial or an empty document is a
+ * gateway failure, and only the caller can tell.
+ *
+ * Each attempt carries its own deadline, and the search as a whole carries a budget. Both are
+ * needed: without the per-attempt deadline a gateway that hangs holds the search open for good,
+ * and with only a shared budget that same hang spends every other gateway's turn.
  *
  * @param uri The address to resolve, in any spelling toIPFSPath accepts
  * @param attempt What to do with a candidate gateway URL; rejecting moves on to the next gateway
+ * @param options attemptTimeout caps one gateway, budget caps the whole search
  * @return result_ Whatever the first successful attempt returned
  */
-export async function fetchFromIPFSGateways<T>(uri: string, attempt: (url: string) => Promise<T>): Promise<T> {
+export async function fetchFromIPFSGateways<T>(
+  uri: string,
+  attempt: (url: string) => Promise<T>,
+  { attemptTimeout = ipfsConfig.gatewayTimeout, budget = ipfsConfig.overallTimeout } = {},
+): Promise<T> {
   const path = toIPFSPath(uri);
   if (path === null) throw new IpfsError(`Not an IPFS URI: ${uri}`);
   if (gateways.length === 0) throw new ConfigError('No IPFS gateways configured');
 
-  let elapsedTime = 0;
+  const failedHost = gatewayHost(uri);
+  const deadline = Date.now() + budget;
   let lastError: unknown;
 
   for (const gateway of gateways) {
     const url = `${gateway}/ipfs/${path}`;
     // The caller reached us because `uri` already failed, so asking the same host again is a
     // round trip spent to learn what we know
-    if (url === uri) continue;
+    if (failedHost !== null && gatewayHost(url) === failedHost) continue;
 
-    const start = Date.now();
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+
     try {
-      return await attempt(url);
+      return await withDeadline(attempt(url), Math.min(remaining, attemptTimeout), url);
     } catch (error) {
       lastError = error;
       log('IPFS gateway failed', url, error);
-      elapsedTime += Date.now() - start;
-      if (elapsedTime > ipfsConfig.overallTimeout) break;
     }
   }
 

@@ -217,6 +217,43 @@ describe('fetchNFTMetadata()', () => {
       expect(vi.mocked(axios.get).mock.calls[1][0]).not.toContain('mypinata');
     });
 
+    it('should keep trying gateways when one answers 200 with a document it cannot use', async () => {
+      // A rate-limit page or an interstitial comes back as a successful response. Ending the
+      // search on it leaves healthy gateways untried and the NFT without an image.
+      const CID = 'QmUknZyMdhJDgeDGnd3wGB69oC97uGaKLsCgpGg7LKQx1U';
+      const MOCK_NFT = {
+        ...MOCK_ERC721,
+        uri: `https://3land.mypinata.cloud/ipfs/${CID}`,
+      };
+
+      const mockTokenInfo = {
+        canonical: {
+          chainId: L1_CHAIN_ID,
+          address: MOCK_ERC721.addresses[L1_CHAIN_ID] as Address,
+        },
+        bridged: {
+          chainId: L2_CHAIN_ID,
+          address: MOCK_ERC721.addresses[L2_CHAIN_ID] as Address,
+        },
+      } satisfies TokenInfo;
+
+      vi.mocked(getTokenAddresses).mockResolvedValue(mockTokenInfo);
+      vi.mocked(isMetadataCached).mockReturnValue(false);
+      vi.mocked(axios.get).mockReset();
+      vi.mocked(axios.get)
+        .mockRejectedValueOnce(new Error('Request failed with status code 403'))
+        .mockResolvedValueOnce({ status: 200, data: '<html>Too Many Requests</html>' })
+        .mockResolvedValueOnce({ status: 200, data: {} })
+        .mockResolvedValueOnce({ status: 200, data: MOCK_METADATA });
+
+      // When
+      const result = await fetchNFTMetadata(MOCK_NFT);
+
+      // Then
+      expect(result).toBe(MOCK_METADATA);
+      expect(vi.mocked(axios.get)).toHaveBeenCalledTimes(4);
+    });
+
     it('should not retry a failing uri that names no CID', async () => {
       // Given
       const MOCK_NFT = {
