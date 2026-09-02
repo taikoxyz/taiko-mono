@@ -368,6 +368,25 @@ EXPECTED_RELATION_SPECS = (
         (True, True, False),
     ),
     relation_spec(
+        "builder-reporter-reward-uint192-cap",
+        ("builder.reporterRewardCapAtomic",),
+        "<=",
+        "builder.reporterRewardCapAtomic",
+        lambda _p: (1 << 192) - 1,
+        (True, True, False),
+    ),
+    relation_spec(
+        "builder-reporter-reward-sink-floor",
+        (
+            "builder.reporterRewardCapAtomic",
+            "builder.leasePerWindowAtomic",
+        ),
+        "5* <=",
+        "builder.reporterRewardCapAtomic",
+        lambda p: oracle_get(p, "builder.leasePerWindowAtomic") // 5,
+        (True, True, False),
+    ),
+    relation_spec(
         "liability-residence",
         (
             "geometry.maximumTrancheAheadWindows",
@@ -1443,6 +1462,28 @@ class EconomicProfileTests(unittest.TestCase):
                     expected,
                 )
 
+        overwide = self.calibrated_profile()
+        overwide["builder"]["reporterRewardCapAtomic"] = str(1 << 192)
+        overwide["profileId"] = None
+        overwide["profileId"] = (
+            "0x" + self.model.economic_profile_hash_v2(overwide).hex()
+        )
+        self.assertIn(
+            "relation builder-reporter-reward-uint192-cap failed",
+            self.model.production_blockers(overwide),
+        )
+
+        self_report = self.calibrated_profile()
+        self_report["builder"]["reporterRewardCapAtomic"] = "200001"
+        self_report["profileId"] = None
+        self_report["profileId"] = (
+            "0x" + self.model.economic_profile_hash_v2(self_report).hex()
+        )
+        self.assertIn(
+            "relation builder-reporter-reward-sink-floor failed",
+            self.model.production_blockers(self_report),
+        )
+
     def test_exact_schema_rejects_unknown_and_missing_keys_at_any_level(self):
         cases = []
         unknown_top = copy.deepcopy(self.example)
@@ -2107,7 +2148,7 @@ class EconomicProfileTests(unittest.TestCase):
         actual = {
             relation.name: relation for relation in self.model.PROFILE_RELATIONS
         }
-        self.assertEqual(len(expected), 59)
+        self.assertEqual(len(expected), 61)
         self.assertEqual(set(actual), set(expected))
         tex = MAIN_TEX.read_text()
         profile = self.calibrated_profile()

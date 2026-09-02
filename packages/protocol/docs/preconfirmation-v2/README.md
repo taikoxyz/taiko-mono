@@ -36,7 +36,7 @@ a successful LaTeX exit status alone is not layout verification.
 
 ```sh
 python3 settlement-window-model.py   # 184 assertions
-python3 test-settlement-window.py    # 270 adversarial regression tests
+python3 test-settlement-window.py    # 274 adversarial regression tests
 python3 lookahead-model.py           # 38 assertions
 python3 commitment-model.py          # 764 golden vectors / 1503 assertion sites
 python3 commitment-model.py --export-json # 764 sorted typed oracle rows
@@ -67,8 +67,9 @@ RTR2/BRX1/PIR2/PIM2/PIA2/BIP1/BID1 raw reads rather than an in-process
 `SettlementRegistration` witness. Production is still blocked by the lack of an address-indexed EVM
 component world for Registry code/config/immutable reads, a root receipt deploying the fixed Source
 factory and real compiled adapter artifact, and O(1) indexes for the remaining append-only-history
-hot paths. Restart and serialization coverage, the complete root-deployment transcript, historical
-release/reclamation restart fixtures and measured EIP-150 gas certificates also remain open. ICV2
+hot paths. Restart and serialization coverage, compiled Factory/executor/proxy artifacts, measured
+root activation/deployment EIP-150 gas certificates, and historical release/reclamation restart
+fixtures also remain open. ICV2
 now supplies the exact O(1) credit-ID and fee lookup; RAV2 binds the Authority retirement watermark;
 and DRV2/DSV2 preserve direct-successor, multi-hop reclamation independently of the latest tip. The exact
 Settlement--Market roster wire, direct historical economics and Router-authenticated rotation are

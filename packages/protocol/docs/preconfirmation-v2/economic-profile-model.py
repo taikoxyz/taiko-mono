@@ -709,6 +709,29 @@ PROFILE_RELATIONS = (
         (True, True, False),
     ),
     _relation(
+        "builder-reporter-reward-uint192-cap",
+        ("builder.reporterRewardCapAtomic",),
+        "<=",
+        lambda p: _at(p, "builder.reporterRewardCapAtomic") <= (1 << 192) - 1,
+        "builder.reporterRewardCapAtomic",
+        lambda _p: (1 << 192) - 1,
+        (True, True, False),
+    ),
+    _relation(
+        "builder-reporter-reward-sink-floor",
+        (
+            "builder.reporterRewardCapAtomic",
+            "builder.leasePerWindowAtomic",
+        ),
+        "5* <=",
+        lambda p: checked_mul_u256(
+            _at(p, "builder.reporterRewardCapAtomic"), 5,
+        ) <= _at(p, "builder.leasePerWindowAtomic"),
+        "builder.reporterRewardCapAtomic",
+        lambda p: _at(p, "builder.leasePerWindowAtomic") // 5,
+        (True, True, False),
+    ),
+    _relation(
         "liability-residence",
         (
             "geometry.maximumTrancheAheadWindows",

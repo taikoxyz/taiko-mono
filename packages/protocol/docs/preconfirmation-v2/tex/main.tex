@@ -340,8 +340,10 @@ Settlement stores them but does not calculate fork arithmetic.
 A candidate has one prior-block anchor.  Normal activation stores the hash of
 its earlier arm block using native \code{blockhash}; candidate submissions hash
 the supplied execution header to that stored value and use MPT proofs,
-including the historical forced-queue root/count.  EIP-2935 is used later to
-authenticate that arm hash for equivocation evidence.  A recovery round instead stores
+including the historical forced-queue root/count.  EIP-2935 is used later for
+schedule-carrier authentication.  Equivocation evidence instead treats the
+signed context ID as an opaque, release-domain-scoped builder promise and does
+not attempt to reconstruct overwritten Settlement context storage.  A recovery round instead stores
 \code{(block.number-1, blockhash(block.number-1))}, directly stores the current
 queue root/count, and requires that anchor to reach depth \code{F_L1}.  The EVM
 does not expose the parent timestamp.  At candidate submission Settlement
@@ -419,8 +421,8 @@ mutable tranche root and therefore changes on reservation transitions.  It is
 used only by schedule sealing.  A separate eleven-level \code{admissionRoot}
 over 2,048 fixed positions contains stable generation identity for the 64
 active and 1,072 liability records plus canonical empty padding; its leaves do
-\emph{not} contain tranche roots.  Only generation admission, movement,
-tombstoning, slashing or release increments \code{admissionVersion} and updates
+\emph{not} contain tranche roots.  Only generation admission, movement, first
+tombstoning or generation release increments \code{admissionVersion} and updates
 \code{admissionRoot}.  A \code{FREE/RESERVED/LIABLE} tranche transition updates
 the tranche and registry roots but cannot invalidate signed blocks or proofs by
 changing the admission pair.  The admission root retains displaced scheduled
@@ -505,12 +507,580 @@ Where earlier explanatory prose is less specific, the rules below control.
 \code{BuilderRegistry} is one protocol-lifetime, non-proxy, ownerless and
 unpausable contract.  It does not inherit an administrative base contract and
 has no setter, redirect, arbitrary call or emergency withdrawal.  It pins the
-builder-token, Router and ScheduleOracle addresses, runtime hashes,
-configuration hashes and bounded read gas in constructor immutables.  The
-builder token must be an exact-balance ERC-20: every transfer checks the
-contract's before/after balance, and fee-on-transfer or rebasing behavior
-reverts.  Every token-moving path is non-reentrant and writes pull credit before
-an external transfer.
+builder-token and Router addresses/runtime/configuration, plus the
+ScheduleOracle address/runtime and bounded read gas in constructor-only
+writerless state.  Scalar/local values may use Solidity immutables, but a peer
+runtime hash must not be bytecode-patched when that peer also binds the
+Registry: those cross-hashes remain ordinary constructor-written storage with
+no reachable writer, avoiding a cryptographic runtime-hash fixed point.  The
+builder token must be an exact-balance ERC-20.  It is a release-audited,
+immutable non-proxy artifact with no delegatecall, beacon, replaceable
+implementation, fee switch, rebase, blacklist/confiscation authority,
+privileged balance mutation, transfer callback or external hook.  Its complete
+runtime and reachable code dependencies are manifest-pinned; pinning only a
+proxy shell's \code{EXTCODEHASH} is invalid.  Every token-moving path is
+non-reentrant and writes pull credit before an external transfer.
+
+The actual Solidity constructor argument list begins with the three root-
+activation fields and continues with every BuilderRegistry-local field below.
+Their canonical ABI encoding and init code are frozen in the protocol-root
+deployment paragraphs; the local field suffix is
+\begin{verbatim}
+BuilderRegistryConstructorV1(
+ uint256 settlementChainId,
+ address builderLeaseToken,bytes32 builderLeaseTokenRuntimeHash,
+ uint8 builderLeaseTokenDecimals,uint192 leasePerWindowAtomic,
+ uint192 maximumBondAtomic,uint192 reporterRewardCapAtomic,
+ uint64 genesisTimestamp,uint64 evidenceDelaySeconds,
+ uint64 reorgMarginSeconds,uint64 firstManagedWindow,
+ address builderPenaltySink,uint64 rewardClaimWindowSeconds,
+ address activeSettlementRouter,bytes32 routerRuntimeHash,
+ bytes32 routerConfigurationHash,address scheduleOracle,
+ bytes32 scheduleOracleRuntimeHash,
+ BuilderRewardClassConfigV1[3] rewardClasses)
+
+BuilderRewardClassConfigV1 =
+ (uint8 classId,bytes32 nameHash,uint256 fixedWei,
+  uint256 perExecutionGasWei,uint256 perPublishedByteWei,uint256 capWei)
+\end{verbatim}
+It requires \code{settlementChainId=block.chainid}, every address/runtime/config
+word nonzero, and all of
+\begin{verbatim}
+0 < leasePerWindowAtomic <= maximumBondAtomic <= UINT192_MAX
+reporterRewardCapAtomic <= UINT192_MAX
+5 * reporterRewardCapAtomic <= leasePerWindowAtomic
+\end{verbatim}
+with checked arithmetic, and
+class IDs exactly 1, 2 and 3 in that order with nonzero name hashes.  It checks
+the token's runtime, exact 50,000-gas \code{decimals()} return and configured
+decimal value, and recomputes the economic
+\code{builderRegistryConfigurationHash} from these values, the fixed geometry
+\code{(64,76,8,268,16,1072,4)} and the three supplied name hashes/rate rows.
+The final hash is never a constructor input.  \code{componentConfigHashV2()}
+returns exactly that derived 32-byte hash.  The immutable
+\code{firstManagedWindow} is deployment topology, not part of the economic
+hash; release registration must derive it together with the ScheduleOracle
+configuration below and reject disagreement.
+
+Because the profile's historical \code{builderRegistryConfigurationHash} is
+specifically the economic hash, topology has a separate noncircular identity.
+Let B be
+\begin{verbatim}
+u256(settlementChainId) || address20(builderLeaseToken) ||
+builderLeaseTokenRuntimeHash || u8(builderLeaseTokenDecimals) ||
+u64(genesisTimestamp) || u64(evidenceDelaySeconds) ||
+u64(reorgMarginSeconds) || u64(firstManagedWindow) ||
+address20(builderPenaltySink) || u64(rewardClaimWindowSeconds) ||
+address20(activeSettlementRouter) || routerRuntimeHash ||
+routerConfigurationHash || address20(scheduleOracle) ||
+scheduleOracleRuntimeHash || builderRegistryConfigurationHash
+\end{verbatim}
+and
+\begin{verbatim}
+builderRegistryTopologyHash = H(
+ "slot-chain-builder-registry-topology-v1" || u16(byteLength(B)) || B).
+\end{verbatim}
+Here \code{byteLength(B)=313}; any other width or field order is a different
+topology.
+Both hashes are derived, stored writerlessly and exposed by the exact deployment
+read
+\begin{verbatim}
+builderRegistryConfigV1() returns
+ (bytes4 magic,uint256 settlementChainId,address builderLeaseToken,
+  bytes32 builderLeaseTokenRuntimeHash,uint8 builderLeaseTokenDecimals,
+  uint192 leasePerWindowAtomic,uint192 maximumBondAtomic,
+  uint192 reporterRewardCapAtomic,uint64 genesisTimestamp,
+  uint64 evidenceDelaySeconds,uint64 reorgMarginSeconds,
+  uint64 firstManagedWindow,address builderPenaltySink,
+  uint64 rewardClaimWindowSeconds,address activeSettlementRouter,
+  bytes32 routerRuntimeHash,bytes32 routerConfigurationHash,
+  address scheduleOracle,bytes32 scheduleOracleRuntimeHash,
+  bytes32 economicConfigurationHash,bytes32 topologyHash)
+// selector 0x66f0bd82; exact 672 bytes; magic BRC1=0x42524331
+
+builderRegistryTopologyHashV1() returns (bytes32 topologyHash)
+// selector 0xa571e34b; exact 32 bytes
+\end{verbatim}
+Release registration exact-reads BRC1, recomputes the topology hash and
+compares the economic hash to the manifest-pinned calibrated profile and the
+exact \code{componentConfigHashV2()} result.  BRC1 deliberately does not repeat
+the three reward-class rows and therefore is not an alternate economic-hash
+preimage.  The one-word
+topology getter exists for bounded operational authentication; it is not a
+caller-supplied substitute for the full deployment check.
+
+Before every Router functional read, Registry rechecks the pinned
+\code{EXTCODEHASH}, exact 50,000-gas \code{componentConfigHashV2()} result and
+only then performs ASR1 or RTR2.  Before SWR1 it rechecks the pinned
+ScheduleOracle \code{EXTCODEHASH}; no Schedule configuration hash is a Registry
+constructor field.  ProtocolRootFactory finalization has already exact-read
+and cross-validated that writerless Schedule instance before activating the
+root.  Later REGISTER\_RELEASE validation repeats the same join as a secondary
+release check; it is not root publication authority.  Schedule's address and
+runtime cannot change, and its own configuration binds the Registry in the
+opposite direction.  A code/config mismatch, call fault or noncanonical return
+reverts before token movement or a root write.
+Every token path similarly rechecks the token runtime.  \code{balanceOf}
+uses selector-only canonical ABI, 50,000 gas and exactly one 32-byte return;
+\code{transfer}/\code{transferFrom} accept only empty return or one canonical
+true word.  An incoming transfer must increase Registry balance by exactly its
+nominal amount.  An outgoing transfer rejects a zero or Registry recipient and
+must both decrease Registry balance and increase that recipient's balance by
+exactly the same nominal amount; checking only the sender delta is forbidden.
+After every token call, and before any later token-dependent state transition,
+Registry re-reads its balance and requires it to cover
+\code{accountedBuilderToken}.  A mismatch reverts the entire operation.
+These runtime checks detect transfer fees and transaction-local balance
+mutation; the immutable-asset release rule excludes asynchronous rebases,
+confiscation and proxy upgrades that a local delta check cannot make safe.
+Registry and Schedule are protocol-root objects, not children of a later
+REGISTER\_RELEASE call.  A monolithic root constructor is forbidden: its child
+creation code cannot fit the EIP-3860 49,152-byte init-code bound and aggregate
+code-deposit gas is not assumed to fit one L1 block.  Root deployment instead
+uses the immutable, non-proxy \code{ProtocolRootFactoryV1}.  The factory pins
+the settlement chain, manifest namespace and delayed root-migration executor's
+address/runtime/configuration.  It contains one reviewed no-argument
+\code{ProtocolRootCreate3ProxyV1} creation artifact; its hash is in the factory
+configuration and no caller supplies or replaces proxy code.  The proxy
+constructor writes \code{msg.sender} to storage slot zero as the factory and
+initializes its one-shot flag in storage slot one.  Its creation and runtime
+bytecode are fixed and identical for every factory; neither uses an immutable
+or bytecode patch containing the factory address.  Its sole runtime entry accepts
+nonempty init code only from that factory, sets \code{used=true} before CREATE
+nonce 1, returns the child address, and thereafter rejects every call.  It has
+no arbitrary target, second CREATE, withdrawal, upgrade or selfdestruct.
+That entry is exactly \code{deployV1(bytes)} (selector \code{0x5d5fb6bc}),
+nonpayable, canonical offset \code{0x20}, total calldata length
+\code{68+ceil32(initCodeLength)}, zero padding and no gap, alias or suffix.
+Success returns exactly one canonically padded nonzero address word equal to
+the nonce-1 child; short/trailing/dirty return rejects.  Factory forwards
+EIP-150-safe gas.  Immediately after the proxy call it requires
+\code{gasleft()>=500000} before any runtime/configuration/activation postcheck;
+otherwise the whole deployment reverts.  The per-role deployment certificate
+must succeed at its published transaction gas limit, while the boundary vector
+with 499,999 gas remaining after the proxy call rejects before a postcheck or
+state write.
+
+Staging does not waive EIP-170.  Before the DAO may queue the root operation,
+the reproducible compiled-artifact gate requires every one of the nine runtime
+byte arrays to be at most 24,576 bytes and every complete init code to be at
+most 49,152 bytes, with the committed hashes equal to those exact bytes.
+BuilderRegistry and ScheduleOracle are specifically blocking until their real
+optimized artifacts pass both bounds.  If either exceeds EIP-170, the design
+must first specify an exact immutable helper topology: helper addresses,
+runtimes, configurations, transitive reachable-code closure, STATICCALL ABI and
+gas must enter the root artifact/configuration DAG.  A linked library using
+DELEGATECALL, an uncommitted parser/verifier, or silently split mutable code is
+forbidden.  No manifest may be queued on the assumption that a later compiler
+or implementation will make the size problem disappear.
+
+The sole bootstrap authority is the immutable non-proxy
+\code{RootMigrationExecutorV1}.  Its reviewed executor artifact is
+permissionlessly deployed through the canonical ERC-2470 singleton factory;
+its CREATE2 init code binds only settlement chain and the release-pinned
+genesis DAO proposer, never the ProtocolRootFactory or a root component.  Its
+exact configuration is
+\begin{verbatim}
+rootMigrationExecutorConfigurationHash = H(
+ "slot-chain-root-migration-executor-config-v1" ||
+ u256(settlementChainId) || address20(daoProposer) ||
+ u64(604800) || u64(604800) ||
+ u64(100000) || u64(50000) || u64(1500000) || u64(300000))
+rootMigrationExecutorConfigV1() // selector 0xe9d1d099; 320 bytes; RME1
+ returns (bytes4,uint256 settlementChainId,address daoProposer,
+          uint64 minimumDelay,uint64 executionWindow,
+          uint64 factoryConfigReadGas,uint64 componentConfigReadGas,
+          uint64 factoryStageCallGas,uint64 postStageReserveGas,
+          bytes32 configurationHash)
+componentConfigHashV2() // selector 0xf6c0f7d2; exact 32 bytes
+ returns (bytes32 configurationHash)
+rootMigrationAuthorityV1() // selector 0xccf788d5; exact 288 bytes; RMA1
+ returns (bytes4 magic,uint8 state,address candidateFactory,
+          bytes32 candidateOperationId,bytes32 candidateCampaignKey,
+          address activeFactory,bytes32 activeOperationId,
+          bytes32 activeCampaignKey,bytes32 activeRootReceipt)
+\end{verbatim}
+The DAO alone calls
+\code{queueRootMigrationV1(address,bytes32,bytes32,bytes32)} (selector
+\code{0x3499bb4a}) with exact Factory address, root-manifest hash, expected
+Factory runtime hash and expected Factory configuration hash; calldata is the
+canonical 132 bytes.  The checked monotone
+\code{nextOperationNonce} starts at one and the call returns exactly one
+\code{bytes32 operationId}, where
+\begin{verbatim}
+operationId = H("slot-chain-root-migration-operation-v1" ||
+ u256(settlementChainId) || address20(executor) || u64(nonce) ||
+ address20(factory) || manifestHash ||
+ factoryRuntimeHash || factoryConfigurationHash)
+\end{verbatim}
+The Executor must be IDLE when queueing.  Queue stores a distinct row before
+incrementing the nonce and cannot replace or accelerate an earlier row.  The
+two queued Factory hashes are execution predicates, not self-reported labels:
+the release gate rejects a proxy, beacon, delegatecall, replaceable target,
+selfdestruct or mutable reachable dependency, and execution requires the live
+\code{EXTCODEHASH} and exact \code{componentConfigHashV2()} to equal the queued
+words.  Binding them per operation creates no Executor/Factory address cycle.
+After 604,800 seconds and through the inclusive following 604,800-second
+execution window, anyone calls
+\code{executeRootMigrationV1(bytes32,address,bytes)} (selector
+\code{0x9987f8ae}) with that operation ID, factory and canonical manifest ABI.
+The dynamic offset is \code{0x60}; the address word is canonically padded; the
+manifest length is 969; total calldata length is 1,124; and zero tail padding
+has no gap, alias or suffix.
+It recomputes the manifest hash and operation ID from the complete stored row,
+requires exact queued runtime/configuration, IDLE authority and QUEUED state,
+then tentatively writes CANDIDATE/EXECUTING before any external call.  It
+exact-reads the 544-byte PRF1 and 32-byte configuration result with the fixed
+stipends, requires the configured delayed executor to be itself, then calls
+the Factory stage entry with exactly 1,500,000 gas while preserving 300,000 gas
+for receipt/poststate checks.  It accepts only the exact STG1 return and exact
+288-byte PRC1 STAGED postread frozen below before changing the operation to
+STAGED and publishing the candidate key.  Call failure, OOG, short/trailing or
+dirty data, wrong poststate, or insufficient reserve reverts the Factory stage,
+candidate and operation together.  A bare successful no-op can never select a
+candidate.  The DAO may call
+\code{cancelRootMigrationV1(bytes32)} (selector \code{0xfcb20098}) only while
+the row is QUEUED; after \code{block.timestamp>executeBefore}, anyone calls
+\code{expireRootMigrationV1(bytes32)} (selector \code{0xe55926d1}) to mark a
+still-QUEUED row EXPIRED.  Cancellation is legal before an execution
+transaction begins, including during the execution window; execution at both
+inclusive endpoints is legal, and expiry at the upper endpoint is not.  Each
+successful terminal transition emits respectively
+\code{RootMigrationCancelled(operationId)} or
+\code{RootMigrationExpired(operationId)}; reverts emit nothing.  The exact
+320-byte \code{rootMigrationOperationV1(bytes32)} view (selector
+\code{0xdade63bb}, magic RMO1) returns state, nonce, factory, manifest hash,
+Factory runtime/configuration hashes, queuedAt, executeAfter and executeBefore.
+NONE=0, QUEUED=1, EXECUTING=2, STAGED=3, ACTIVATED=4, CANCELLED=5, EXPIRED=6
+and ABORTED=7; NONE zeroes every other word.  RMA1 authority states are IDLE=0,
+CANDIDATE=1 and ACTIVE=2.  IDLE zeroes all authority fields; CANDIDATE has only
+the three candidate fields; ACTIVE has only nonzero active Factory, operation,
+campaign and root-receipt fields.
+While CANDIDATE or ACTIVE, no operation may queue or execute.  An independently
+queued operation cannot create a second candidate.
+
+Factory finalization calls
+\code{confirmRootMigrationV1(bytes32,bytes32,bytes32)} (selector
+\code{0xb1372f22}; canonical 100-byte calldata) with operation ID, campaign key
+and root receipt.  Executor accepts only its current queued-hash-authenticated
+candidate Factory, exact-reads that Factory's PRC1 ACTIVE row, and atomically
+changes STAGED to ACTIVATED and RMA1 CANDIDATE to ACTIVE.  It returns exactly
+one padded \code{RAC1} magic word.  If the Factory instead reaches authenticated
+ABORTED, anyone calls
+\code{clearAbortedRootMigrationV1(bytes32,bytes32)} (selector
+\code{0x95b71205}; canonical 68 bytes).  Exact Factory code/config and PRC1
+operation/key/ABORTED checks change STAGED to ABORTED and return RMA1 to IDLE;
+deadline alone is insufficient.  Thus a failed or abandoned campaign can retry
+even with another DAO-approved immutable Factory, while an activated root can
+never be replaced or coexist with a second root through this Executor.
+Executor has no generic target call.  ERC-2470 address/runtime, executor
+creation/runtime/configuration, DAO and salt are genesis-deployment receipt
+constants.  Because executor address is derived before and independently of
+Factory init code, Factory may safely bind it without an address cycle.
+The exact executor event declarations are
+\begin{verbatim}
+event RootMigrationQueued(
+ bytes32 indexed operationId,address indexed factory,
+ bytes32 indexed manifestHash,bytes32 factoryRuntimeHash,
+ bytes32 factoryConfigurationHash,uint64 nonce,
+ uint64 executeAfter,uint64 executeBefore);
+event RootMigrationStaged(bytes32 indexed operationId,
+ bytes32 indexed campaignKey,uint64 indexed generation,uint64 expiresAt);
+event RootMigrationActivated(bytes32 indexed operationId,
+ bytes32 indexed campaignKey,bytes32 indexed rootReceipt);
+event RootMigrationCandidateCleared(bytes32 indexed operationId,
+ bytes32 indexed campaignKey);
+event RootMigrationCancelled(bytes32 indexed operationId);
+event RootMigrationExpired(bytes32 indexed operationId);
+\end{verbatim}
+
+The factory constructor is exactly
+\begin{verbatim}
+ProtocolRootFactoryConstructorV1(
+ uint256 settlementChainId,bytes32 manifestNamespace,
+ address delayedRootMigrationExecutor,bytes32 executorRuntimeHash,
+ bytes32 executorConfigurationHash)
+\end{verbatim}
+It requires the live chain, all nonzero identities and exact executor
+runtime/\code{componentConfigHashV2()}.  Because the proxy has neither
+constructor arguments nor immutables, Factory derives
+\code{create3ProxyCreationCodeHash=H(type(ProtocolRootCreate3ProxyV1).creationCode)}
+and \code{create3ProxyRuntimeHash=H(type(ProtocolRootCreate3ProxyV1).runtimeCode)};
+neither hash is a constructor input.  Factory derives, rather than accepts,
+\begin{verbatim}
+protocolRootFactoryConfigurationHash = H(
+ "slot-chain-protocol-root-factory-config-v1" ||
+ u256(settlementChainId) || manifestNamespace ||
+ address20(delayedRootMigrationExecutor) || executorRuntimeHash ||
+ executorConfigurationHash || create3ProxyCreationCodeHash ||
+ create3ProxyRuntimeHash || u64(2592000) || u64(500000) || u8(18) ||
+ u64(100000) || u64(50000) || u64(50000) || u64(100000) || u64(500000))
+\end{verbatim}
+and exposes it through \code{componentConfigHashV2()} and the exact 544-byte
+\code{protocolRootFactoryConfigV1()} view (selector \code{0xd7b40838}, magic
+PRF1) returning those constructor fields, derived proxy hashes, lifetime,
+deployment postcheck reserve, \code{minimumFirstManagedRunwayWindows=18}, then
+Executor-config read, component-config read, activation-call, external-read and
+Executor-confirm-call gas constants
+\code{(100000,50000,50000,100000,500000)}, and the derived hash.  The last is
+a separate outer-call stipend: it leaves enough EIP-150 headroom for Executor's
+nested 50,000-gas configuration read, 100,000-gas PRC1 read, state writes and
+return.  Release boundary tests must show 500,000 succeeds and the measured
+minimum successful nested-call budget plus safety margin remains below that
+stipend; an OOG at any smaller test budget rejects atomically.
+The factory is permissionlessly deployed through ERC-2470 with
+release-pinned creation/runtime/configuration and salt after the independently
+addressed executor; its address/runtime/configuration do not depend on any
+root component, manifest or generation.
+
+One campaign has the exact 969-byte packed \code{ProtocolRootManifestV1}:
+\begin{verbatim}
+u8(schema=1) || u256(settlementChainId) || u64(generation) ||
+bytes32(manifestNamespace) || bytes32(predecessorRootReceipt) ||
+for role=1..9 in exact order:
+  bytes32(initCodeHash) || bytes32(runtimeHash) || bytes32(configurationHash)
+
+roles = 1 BuilderRegistry, 2 ScheduleOracle, 3 ProtocolChangeTimelock,
+        4 ProtocolVersionManager, 5 ActiveSettlementRouter, 6 ForcedQueue,
+        7 AggregatorSeatMarket, 8 BridgeDomainRegistry,
+        9 BridgeCreditRegistry
+campaignKey = H("slot-chain-protocol-root-campaign-v1" ||
+  u256(settlementChainId) || address20(factory) || u64(generation) ||
+  manifestNamespace || predecessorRootReceipt)
+componentSalt(role) = H(
+  "slot-chain-protocol-root-component-v1" || campaignKey || u8(role))
+proxy(role) = CREATE2(factory,componentSalt(role),fixedProxyCreationCodeHash)
+component(role) = low20(H(0xd6||0x94||address20(proxy(role))||0x01))
+manifestHash = H("slot-chain-protocol-root-manifest-v1" ||
+                 u16(969) || packedManifest)
+\end{verbatim}
+For compile-time role contract \code{RoleV1}, the first committed word is
+exactly
+\begin{verbatim}
+constructorArgs = abi.encode(
+ protocolRootFactory,factoryRuntimeHash,campaignKey,
+ <every RoleV1-local constructor field in its displayed order>)
+initCode = type(RoleV1).creationCode || constructorArgs
+initCodeHash = H(initCode)
+\end{verbatim}
+The activation fields are the first three constructor arguments, not an
+independent byte prefix or nested ABI tuple.  Solidity's canonical ABI defines
+every static word and any role-local dynamic offset/tail; a release manifest
+pins the resulting complete init-code bytes, and no initializer or suffix may
+follow them.  All 27 component hashes are nonzero.  Generation starts at zero
+and is the Factory's exact next
+generation; namespace and chain equal its configuration; predecessor is
+canonical zero.  ProtocolRootFactoryV1 installs exactly one genesis root; it
+does not implement root succession.  No manifest word,
+component init code or configuration hash enters the campaign key, proxy salt
+or component address, so code/configuration commitments may safely contain all
+nine already-derived addresses without an address fixed point.
+
+Only the pinned delayed executor may call
+\code{stageProtocolRootV1(bytes32,bytes)} (selector \code{0x53c99a5f}) with
+the nonzero operation ID and canonical ABI wrapping exactly those 969 bytes:
+dynamic offset \code{0x40}, total calldata length 1,092, zero tail padding and
+no gap, alias or suffix.  Factory rechecks executor EXTCODEHASH, its exact
+320-byte configuration, 32-byte configuration hash and RMA1 CANDIDATE fields
+against this Factory, operation and derived campaign key before storing the
+operation/key/hash, a checked
+\code{expiresAt=block.timestamp+2592000}, zero deployment bitmap and STAGED
+state.  Generation begins at zero.  It accepts no second live campaign or same
+generation.  The call returns exactly 192 canonical bytes
+\begin{verbatim}
+(STG1,operationId,campaignKey,manifestHash,generation,expiresAt)
+\end{verbatim}
+with no short/trailing/dirty word.  After staging, anyone may call
+\begin{verbatim}
+deployProtocolRootComponentV1(bytes32,uint8,bytes)
+selector 0x31f4d140
+\end{verbatim}
+The call requires the exact campaign key, role 1--9,
+unset role bit, live deadline, nonempty init code of at most 49,152 bytes and
+its committed \code{initCodeHash}.  Its dynamic offset is \code{0x60}, role has
+canonical uint8 padding, total calldata length is
+\code{132+ceil32(initCodeLength)}, and tail padding is zero with no gap, alias
+or suffix.  Factory CREATE2-deploys the fixed proxy and calls
+it in the same frame only after its EXTCODEHASH equals the configured proxy
+runtime hash.  It requires the returned derived component address,
+committed EXTCODEHASH, the exact 32-byte \code{componentConfigHashV2()} under
+50,000 gas and canonical 128-byte inactive activation view under 100,000 gas
+before setting exactly
+\code{deployedBitmap |= uint16(1) << (role-1)}.  No other bit may be set.
+Constructor failure,
+wrong code/config/view or late failure reverts the proxy, child and bit
+together; no adversary can consume the proxy nonce with another init code.
+
+Every component-local constructor displayed for one of the nine roles is the
+local suffix of the actual Solidity constructor argument list whose first
+three fields are the exact tuple
+\begin{verbatim}
+RootActivationConstructorV1 = (
+  address protocolRootFactory,
+  bytes32 factoryRuntimeHash,
+  bytes32 campaignKey
+)
+\end{verbatim}
+The factory address may be an
+immutable address; the cross-runtime hash and key are constructor-written
+writerless storage.  Constructor deployment requires the pinned factory code,
+the exact campaign key, \code{msg.sender=proxy(role)} and
+\code{address(this)=component(role)} derived from its compile-time role, but
+does not read not-yet-deployed peers.  The committed init-code hash covers the
+compiled creation code plus canonical ABI encoding of that complete argument
+list.  The
+activation prefix is deployment topology and is excluded from every previously
+defined component-local economic or configuration hash unless that hash's
+explicit preimage says otherwise.  In particular it does not change the
+Builder Registry economic/topology formulas or Schedule configuration
+constructor order.  No optional initializer suffix or later setter exists.
+
+Every one of the nine root components is nonfunctional until its sole
+\code{activateProtocolRootV1(bytes32)} entry (selector \code{0x74e3aa45}) is
+called by the pinned factory with its constructor-stored campaign key.  The key
+is independent of the manifest and is constructor-written writerless storage,
+not a bytecode immutable.  Before activation every functional/mutating entry
+reverts \code{RootInactive}; read-only deployment/configuration/activation views
+remain available.  The exact zero-argument view
+\code{protocolRootActivationV1()} (selector \code{0xda930d69}) returns exactly
+128 bytes \code{(PRA1,protocolRootFactory,campaignKey,state)}, with INACTIVE=0
+and ACTIVE=1 and canonical padding.
+Activation only changes that one local state, emits no external call and
+returns exactly one padded \code{RAA1} magic word.  Factory supplies exactly
+50,000 gas and then exact-reads PRA1 with 100,000 gas; fault, OOG,
+short/trailing/dirty return or wrong state reverts the full finalization.
+
+Once all nine bits are set, anyone may call
+\code{finalizeProtocolRootV1(bytes32)} (selector \code{0x95f759ad}) before or
+at the deadline.  Factory requires that no root was previously installed and
+rechecks the zero predecessor, all nine addresses,
+runtimes, exact configuration/activation views and the complete BRC1/SOC1/PVM1
+cross-graph.  Component configuration calls use 50,000 gas and every larger
+activation/cross-view uses 100,000 gas; every call has exact selector-only
+calldata and exact return length/padding.  It requires BRC1 and SOC1 to agree on
+\code{genesisTimestamp} and \code{firstManagedWindow}, derives
+\code{currentWindow=max(0,(block.timestamp-genesisTimestamp)/384)} with checked
+arithmetic, and requires
+\begin{verbatim}
+firstManagedWindow >= currentWindow + 18.
+\end{verbatim}
+This finalization-time check, rather than a stale constructor-time promise,
+allows one complete boundary window after activation before registration,
+eight entry-delay windows, the eight-window historical snapshot offset and one
+additional boundary window.  It also leaves time to reserve the first managed
+window under the 16-window ahead cap: an activation at the end of the current
+window can register in the next, reserve at most by the second, and is
+effective strictly before the first target snapshot.  Overflow or a smaller
+runway rejects before any activation call.  Factory then calls the nine
+activation entries in role order, exact-
+reads all nine ACTIVE views, and only then stores
+\begin{verbatim}
+rootReceipt = H("slot-chain-protocol-root-receipt-v1" || campaignKey ||
+  manifestHash || address20(component(1)) || ... || address20(component(9)))
+\end{verbatim}
+as its sole root receipt and marks the campaign ACTIVE.  It then calls the
+pinned Executor's \code{confirmRootMigrationV1} with exactly 500,000 gas and
+requires the exact padded \code{RAC1} word.  Only after that confirmation does
+it increment generation and permanently close staging/finalization.
+All activation calls, local publication, Executor ACTIVE confirmation and final
+Factory state share one revert domain.  The final call
+contains no creation code and production requires a measured worst-case gas
+certificate below the supported L1 block gas limit.  After the deadline,
+\code{abortProtocolRootCampaignV1(bytes32)} (selector \code{0x3774c8a5}) is
+permissionless, marks the generation ABORTED and advances generation without
+activating or deleting anything.  Partial children remain permanently
+INACTIVE; after the separate authenticated Executor candidate-clear, a retry
+before the first successful root uses a new generation,
+salts and addresses.  Staging, withholding and abandonment therefore cannot
+install a partial root.  Root succession is deliberately absent: a future
+incompatible root requires a separately specified cutover that preserves old
+historical/claim surfaces and prevents dual mutable authority; this factory
+cannot perform or approximate that migration.
+
+The exact bounded reads are
+\begin{verbatim}
+protocolRootCampaignV1(bytes32 campaignKey) // 288 bytes, magic PRC1
+ returns (bytes4,bytes32 operationId,bytes32 key,bytes32 manifestHash,uint8 state,
+          uint64 generation,uint64 expiresAt,uint16 deployedBitmap,
+          bytes32 rootReceipt)
+protocolRootComponentV1(bytes32 campaignKey,uint8 role) // 224 bytes, PRD1
+ returns (bytes4,bytes32 key,uint8 role,address component,
+          bytes32 initCodeHash,bytes32 runtimeHash,
+          bytes32 configurationHash)
+\end{verbatim}
+with selectors \code{0xe6139cad} and \code{0x007f4b23}; NONE=0, STAGED=1,
+ACTIVE=2 and ABORTED=3 are the only campaign states, and NONE requires every
+other word zero.  Successful state changes emit exactly
+\begin{verbatim}
+event ProtocolRootCampaignStaged(
+ bytes32 indexed campaignKey,bytes32 indexed manifestHash,
+ uint64 indexed generation,bytes32 operationId,uint64 expiresAt);
+event ProtocolRootComponentDeployed(
+ bytes32 indexed campaignKey,uint64 indexed generation,
+ uint8 indexed role,address component);
+event ProtocolRootActivated(
+ bytes32 indexed campaignKey,bytes32 indexed rootReceipt,
+ uint64 indexed generation);
+event ProtocolRootCampaignAborted(
+ bytes32 indexed campaignKey,uint64 indexed generation);
+\end{verbatim}
+Reverts and repeated calls emit nothing.
+
+Registry and ScheduleOracle may therefore receive each other's addresses
+before either exists.  Peer runtime hashes live in writerless constructor
+storage rather than Solidity immutable bytecode.  Configuration
+binding is deliberately acyclic: Registry's derived configuration commits the
+Schedule address/runtime but not its configuration hash; Schedule's derived
+configuration commits the Registry address/runtime/configuration.
+ProtocolRootFactory postvalidates every child address, runtime/configuration
+and this one-way cross-pin atomically before root activation/publication.
+REGISTER\_RELEASE later repeats that validation only as a secondary release
+gate.  Thus neither a
+runtime-hash nor configuration-hash fixed point exists, and no independently
+deployed or partially validated pair is accepted.
+
+The bytecode dependency rule is exact.  Let \code{RUNTIME_R} and
+\code{RUNTIME_S} be the Registry and Schedule runtime hashes, \code{E} the
+Registry economic hash, \code{T} its topology hash and \code{C} the Schedule
+configuration hash.  Both runtimes may contain fixed protocol constants and
+the consecutively precomputed peer address, but their compiler
+\code{immutableReferences} MUST exclude \code{E}, \code{T}, \code{C}, every
+peer runtime/configuration hash and every value derived from those words.
+Those values exist only in constructor-written storage with no reachable
+writer.  If \code{R} is the independently derived Router configuration hash,
+the only relevant hash-dependency edges are
+\code{(RUNTIME_R,RUNTIME_S,E,R,other Registry topology fields)->T} and
+\code{(RUNTIME_R,RUNTIME_S,E,T,R,other Schedule fields)->C}; there is no edge
+from \code{T} or \code{C} back into either runtime.  Release tooling rejects
+runtime metadata that violates this DAG even when the resulting addresses
+would otherwise match.
+
+The same rule applies to all nine staged root roles.  Their runtime bytecode may
+patch only code-independent CREATE3 addresses and local scalar constants.
+Compiler \code{immutableReferences} MUST exclude the campaign key, the
+component's own configuration hash, every peer runtime/configuration hash and
+every value derived from those hashes.  All such words are constructor-written
+storage with no post-activation writer.  Configuration derivation has the
+following exact levels.  Level 0 contains all code-independent component
+addresses and runtime hashes.  Level 1 derives the true leaves: Builder
+economic identity E and the local Timelock and Router configurations from
+profile scalars plus Level-0 identities only.  In particular Router
+configuration cannot depend on any peer configuration, E, T or C.  Level 2
+derives Registry topology T from E, Router configuration and the explicit
+Level-0 identities in B.  It also derives the ForcedQueue, Market and two
+Bridge-registry configurations from their already displayed exact formulas;
+those formulas may consume Router configuration (Market does through profile
+word 25) but must not consume T, C, PVM configuration or another Level-2
+configuration.  Level 3 derives Schedule configuration C from E, T, Router
+configuration and its displayed local fields.  Level 4 derives PVM
+configuration as the sole final root over the other eight committed
+configurations.  No edge within a level or from a lower-numbered level to a
+higher-numbered consumer may point backward.  The reproducible-build/root-artifact gate inspects compiler metadata,
+full constructor preimages and this graph and refuses to queue a manifest with
+a forbidden edge; these are not facts an on-chain getter can prove.  On-chain
+Factory finalization checks the committed runtime hashes, exact configuration
+and explicit cross-views.  Thus staged deployment removes address cycles without replacing them
+with runtime- or configuration-hash fixed points.
 
 \paragraph{Generation and custody state.}
 Each generation stores the builder, \code{uint192 baseBondAtomic}, registration
@@ -531,6 +1101,9 @@ There is no \code{registerFor}, \code{tx.origin}, EIP-1271 delegation or
 caller-selected refund owner.  The caller supplies only race guards and proofs;
 the contract derives the builder, active index, replacement victim, liability
 index, tranche index, current slot/window, tombstone slot and every deadline.
+The supplied \code{baseBondAtomic} must satisfy
+\code{leasePerWindowAtomic<=baseBondAtomic<=maximumBondAtomic}; both inclusive
+boundaries are checked before proof mutation, token movement or state writes.
 \code{nextRegistrationIndex} is checked before increment and exhaustion is
 permanent.  The entry delay is
 \code{effectiveL2Slot=currentL2Slot+8*384}, not rounded to a window.
@@ -577,6 +1150,14 @@ touches at most 17 tranche leaves; no release or exit scans all 512.  A witness
 must contain the complete bitmap popcount for movement or the exact stale-mask
 popcount for reservation/normalization, consume all bytes and contain no
 caller-selected height, orientation or leaf index.
+The counter transition is exact: first successful creation of
+\code{RESERVED(W)} increments \code{unreleasedTrancheCount} once; idempotent
+re-reservation and \code{RESERVED->LIABLE} leave it unchanged;
+\code{LIABLE->RELEASED} and either slash transition decrement it once; terminal
+reuse for a different W increments once only after the old terminal leaf passes
+its overwrite predicate.  No other path changes the counter.  Every increment
+or decrement is checked, and an underflow/overflow or leaf/counter disagreement
+reverts before a root, escrow or credit write.
 
 \paragraph{Exit, tombstone and movement.}
 An exit request is one-shot, closes future reservation immediately, stores
@@ -584,7 +1165,9 @@ An exit request is one-shot, closes future reservation immediately, stores
 \code{requestWindow+268}.  Records are appended by checked sequence.  Requests
 created in one window have the same maturity and are processed by sequence, so
 the global queue is strict FIFO.  Before a full-table registration, resolved
-heads may be skipped, but any active tombstone or an oldest live matured exit causes
+heads may be skipped, but that path inspects at most 64 FIFO records; if a 65th
+head would be needed it reverts \code{MaintenanceRequired}.  Any active
+tombstone or an oldest live matured exit causes
 \code{MaintenanceRequired} before any token pull.  The permissionless bounded
 maintenance entry inspects at most 64 FIFO records and performs at most the
 caller's requested number of moves, capped by the remaining four-move window
@@ -606,12 +1189,15 @@ eligibility for source slots at or after S but cannot mutate an already-frozen
 admission pair.
 
 For movement sequence q the liability position is
-\code{64+(q mod 1072)}.  The contract first closes tranches and updates the
-six-level registry leaf.  It then verifies/releases the old liability occupant
+\code{64+(q mod 1072)}.  The contract first closes tranches and derives the
+victim's retained liability state, then uses the sole six-level registry proof
+to replace the old victim active leaf directly by the replacement or canonical
+empty leaf.  It then verifies/releases the old liability occupant
 against the pre-root and writes the moved generation, producing intermediate
 admission root R1.  The active-position proof is valid only against R1 and
 writes the replacement or canonical empty leaf, producing R2.  Only R2 is
-published and \code{admissionVersion} increments exactly once.  Two proofs
+the next record's pre-root; the external call publishes only its final R2 and
+increments \code{admissionVersion} exactly once.  Two proofs
 against the pre-root, the reverse order, an explicit witness index or unused
 suffix bytes reject.  Sequence 0 maps to position 64, 1,071 to 1,135 and 1,072
 wraps to 64 only after its former occupant satisfies generation release.
@@ -670,6 +1256,29 @@ submitBuilderEquivocationV1(bytes evidence)
           uint64 admissionVersion,bytes32 admissionRoot)
                                                              0x979c1f72 BEV1/256
 \end{verbatim}
+The complete event ABI is
+\begin{verbatim}
+BuilderRegistered(address indexed builder,uint64 indexed registrationIndex,
+ uint8 activeIndex,uint192 baseBondAtomic,uint64 effectiveL2Slot)
+BuilderWindowReserved(address indexed builder,uint64 indexed registrationIndex,
+ uint64 indexed window)
+BuilderExitRequested(address indexed builder,uint64 indexed registrationIndex,
+ uint64 requestWindow,uint64 matureWindow,uint64 exitSequence)
+BuilderGenerationMoved(address indexed builder,uint64 indexed registrationIndex,
+ uint8 indexed formerActiveIndex,uint16 liabilityPosition,uint64 movementSequence)
+BuilderTrancheReleased(address indexed builder,uint64 indexed registrationIndex,
+ uint64 indexed window,uint256 amount)
+BuilderGenerationReleased(address indexed builder,uint64 indexed registrationIndex,
+ uint256 baseBondAtomic)
+BuilderEquivocationSubmitted(address indexed builder,
+ uint64 indexed registrationIndex,uint64 indexed window,address reporter,
+ uint256 reporterAmount,uint256 penaltyAmount)
+BuilderLeaseCreditClaimed(address indexed owner,address indexed recipient,
+ uint256 amount)
+\end{verbatim}
+Events are observations of already-committed state and never substitute for a
+root, locator, credit or custody write.  Exactly one corresponding event is
+emitted for each successful state-changing result; canonical no-ops emit none.
 All dynamic tails are minimal canonical ABI tails and their internal parsers
 consume every byte.  The column suffix is selector, magic and exact ABI return
 length.  The unnamed return fields occur in the same order as the prose state
@@ -700,8 +1309,11 @@ bytes32 activeAdmissionSibling[11]    // against intermediate R1
 \end{verbatim}
 where \code{closeCount} equals the complete reservation-bitmap popcount and is
 at most 17.  Its exact length is \code{897+296*closeCount}.  The registry proof
-anchors the original active cell under the pre-registry root and replaces it
-with its final post-close value.  The liability admission proof anchors the
+anchors the original victim active cell under the pre-registry root and replaces
+it directly with the caller-independent replacement generation for a full-table
+registration or canonical empty for maintenance.  There is no intermediate
+registry root containing the victim's post-close tranche root; that root is
+retained only in the moved liability generation.  The liability admission proof anchors the
 pre-admission root and produces R1; the active proof anchors R1 and produces
 R2.
 
@@ -742,11 +1354,16 @@ For every path, the expected registration index must equal the stored reverse
 locator and all exact byte lengths are checked before a token call or state
 write.  \code{registryMutationVersion} increments exactly once iff the
 registry root changes; \code{admissionVersion} increments exactly once iff the
-admission root changes.
+admission root changes.  These are per-external-call increments: a maintenance
+call that performs two through four sequential moves still increments each
+changed-root version by exactly one, not once per move.
 
 A maintenance tail is the concatenation
 \code{u32(moveLength)||MoveWitness} for each move; empty bytes is canonical
-when no move is eligible.  \code{maxMoves} is 1--4.  After inspecting at most
+when no move is eligible or the current window's four-move budget is already
+exhausted.  \code{maxMoves} is 1--4.  A budget-exhausted call returns
+\code{moved=0} with empty witness even when an otherwise eligible record exists;
+it cannot inspect or skip that record.  After inspecting at most
 64 FIFO records, the contract derives FIFO-matured exits first and then active
 tombstones in their canonical order.  The record count must equal the complete
 derived prefix until \code{maxMoves}, the remaining per-window move budget, or
@@ -763,15 +1380,33 @@ u64(window) || bytes32 currentTrancheSibling[9] ||
 bytes32 currentAdmissionSibling[11] || bytes32 currentRegistrySibling[6]
 \end{verbatim}
 Both block encodings use the fixed widths and field order of the signed-header
-tuple in \S\ref{sec:signed-header}.  They must have the same chain, version,
-verifying contract, slot, context, admission pair and recovered builder but
-distinct block hashes; their EIP-712 digests are supplied in increasing byte
-order.  Only tiers 1 and 2 are signed evidence tiers.  Tier 1 requires exact
+tuple in \S\ref{sec:signed-header}.  They must have equal
+\code{settlementChainId}, \code{l2ChainId}, \code{protocolVersion}, verifying
+contract, slot, context, admission pair and recovered builder but
+also the same tier, anchor number/hash, force root/cutoff, episode, recovery
+revision and recovery ID.  Define each \code{hashStruct} as the exact
+\code{Keccak256(abi.encode(TYPEHASH,...))} from
+Section~\ref{sec:signed-header}; these two values must be distinct and occur in
+increasing byte order.  Signature recovery uses the corresponding full
+\code{Keccak256(bytes2(0x1901)||domainSeparator||hashStruct)} signing digest.
+Because the enumerated domain fields are equal, either distinctness test is
+equivalent, but implementations MUST order and compare \code{hashStruct}, not
+choose another field predicate.  Their common \code{contextId} must be
+nonzero.  Parent, body, state,
+message, data and coinbase fields may differ and are precisely the conflicting
+block claims.  Only tiers 1 and 2 are signed evidence tiers.  Tier 1 requires exact
 zero episode, recovery revision and recovery ID.  Tier 2 requires nonzero
 recovery ID, \code{contextId=recoveryId}, and nonzero episode and recovery
-revision.  These are the header-local semantic checks; proof admission still
-checks the exact live normal or recovery context.  Window is derived again from
-slot.
+revision.  These are the complete header-local semantic checks.  Evidence does
+not claim that overwritten Settlement context storage is still readable: the
+same constrained \code{contextId} is an opaque promise namespace
+inside the authenticated registered Settlement EIP-712 domain.  The two block
+hashes may happen to be equal only when some other signed claim differs; that
+is still equivocation, for example two data-manifest promises for one execution
+header.  A builder must therefore never sign two distinct struct digests for
+the same such namespace and slot, whether or not either claim was eventually
+submitted or scheduled.
+Window is derived again from slot.
 
 Before signature recovery the Registry exact-reads, with 100,000 gas, Router's
 416-byte \code{targetReleaseRegistrationV2(protocolVersion)} (RTR2), requires
@@ -781,9 +1416,24 @@ verifying contract.  Revert, OOG, unknown version, short/trailing data or any
 substitution rejects.  Thus arbitrary EIP-712 contracts are not slash domains;
 every accepted signature domain is an immutable Router-registered release.
 
-The historical admission position is witness data only: its position-bound
-leaf and eleven siblings prove this generation against the signed admission
-root.  The current registration reverse locator independently derives the live
+The historical admission position is witness data only and must be below
+1,136.  It reconstructs, rather than supplies, the exact historical leaf as
+\begin{verbatim}
+location = historicalAdmissionPosition < 64 ? ACTIVE(1) : LIABILITY(2)
+historicalLeaf = H("slot-chain-admission-leaf-v1" ||
+ u16(historicalAdmissionPosition) || u8(1) || u8(location) ||
+ address20(currentRetainedBuilder) || u192(currentRetainedBond) ||
+ u64(currentRetainedRegistrationIndex) ||
+ u64(currentRetainedEffectiveL2Slot) || u64(UINT64_MAX))
+\end{verbatim}
+Builder, bond, registration index and effective slot are immutable identity
+fields read from the retained current generation; the historical tombstone is
+canonical \code{UINT64_MAX}, because a signer eligible in that frozen signed
+context had not yet been tombstoned.  It must not copy the current location or
+current tombstone into the historical leaf.  This exact leaf and the eleven
+siblings prove the generation against the signed admission root, including
+when a healthy generation moved or a first slash tombstoned it after that root
+was frozen.  The current registration reverse locator independently derives the live
 ACTIVE or LIABILITY position.  Its current admission path proves that exact
 position against the current pre-admission root, and its exact RESERVED or
 LIABLE tranche leaf is proven at the derived tranche index.  For ACTIVE, the
@@ -809,7 +1459,102 @@ sole additional Router read.  No caller supplies a phase or Settlement address.
 ScheduleOracle owns a 268-cell schedule ring, immutable
 \code{firstManagedWindow} and monotonic \code{nextReleaseWindow}, initialized
 to that immutable at construction.  Reservations and seals below the first
-managed window reject and migration never resets either value.  It exposes
+managed window reject and migration never resets either value.  Its actual
+Solidity constructor argument list is exactly the three activation fields
+followed by every field of \code{ScheduleOracleConstructorV1}; the exact
+Schedule-local suffix is:
+\begin{verbatim}
+ScheduleOracleConstructorV1(
+ uint256 settlementChainId,address protocolVersionManager,
+ address activeSettlementRouter,bytes32 routerRuntimeHash,
+ bytes32 routerConfigurationHash,address builderRegistry,
+ bytes32 builderRegistryRuntimeHash,bytes32 builderRegistryConfigurationHash,
+ bytes32 builderRegistryTopologyHash,
+ uint64 firstManagedWindow,uint64 genesisTimestamp,uint64 beaconGenesisTime,
+ uint64 lookaheadSeconds,uint192 leasePerWindowAtomic,
+ bytes32 beaconRootsRuntimeHash,uint64 beaconRootsFirstSupportedTimestamp,
+ bytes32 historyStorageRuntimeHash,uint64 historyFirstSupportedBlock,
+ ScheduleForkConstructorV1 initialFork)
+
+ScheduleForkConstructorV1 =
+ (bytes4 forkDigest,address verifier,bytes32 runtimeHash,
+  uint64 beaconSlotGindex,uint64 executionPayloadGindex,
+  uint64 stateRootGindex,uint64 prevRandaoGindex,
+  uint64 timestampGindex,uint64 blockHashGindex,
+  bytes32 witnessSchemaHash,bytes32 configurationHash,
+  bytes4 selector,uint64 gasLimit)
+\end{verbatim}
+The two system addresses are protocol constants:
+\begin{verbatim}
+BEACON_ROOTS_ADDRESS = 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02
+HISTORY_STORAGE_ADDRESS = 0x0000F90827F1C53a10cb7A02335B175320002935
+\end{verbatim}
+Neither is a constructor argument.  Every address/hash is nonzero,
+\code{settlementChainId=block.chainid},
+\code{leasePerWindowAtomic} equals the BuilderRegistry economic value, the
+initial fork row has \code{firstWindow=0}, and its constants/configuration obey
+the fork formula below.  The Registry genesis/first-managed values must equal
+the Schedule values, \code{lookaheadSeconds=768}, and the first managed window
+start must be numerically at least \code{lookaheadSeconds} and at least 256
+beacon slots after \code{beaconGenesisTime}; these checked constructor
+inequalities make its first deadline and target nonnegative.  The beacon-roots
+support boundary must be no later than the first derived query; the historical
+block boundary is enforced against the authenticated carrier number per call.
+Every later multiplication/addition is checked before narrowing.  The protocol
+constants are window size 384, ring size
+268, expiry batch cap 8, carrier scan 64, assignment cap 76, early-seal bound
+8, configuration/ASR1/SWR1/SWV1/history read gas 50,000, RTR2/fork-config read gas
+100,000, beacon-roots read gas 50,000 and SSR1 read gas 100,000.
+
+Let \code{S} be the exact packed concatenation, in constructor order, of all
+scalar constructor fields above; replace each nested initial-fork value by its
+fixed-width fields in displayed order, and insert the two fixed system
+addresses immediately before their runtime/boundary pairs.  Append
+\begin{verbatim}
+u16(384)||u16(268)||u8(8)||u8(64)||u8(8)||u16(76)||
+u8(12)||u8(32)||u16(256)||u8(64)||u16(8191)||
+u16(2048)||u8(32)||u8(66)||u16(600)||u32(120000)||
+u32(131072)||u32(280000)||
+u64(50000)||u64(50000)||u64(100000)||u64(50000)||u64(50000)||
+u64(50000)||u64(50000)||u64(100000)||u64(100000)
+\end{verbatim}
+where the added constants are, in order, window/ring/expiry/scan/early-seal
+geometry, assignment cap, beacon seconds/epoch slots, eight-epoch snapshot
+lag, carrier finality, history serve window, header-byte and header-field
+bounds, MPT path/node/aggregate bounds, fork-witness bound and whole
+seal-witness bound.  The final nine values are configuration, ASR1, RTR2,
+SWR1, SWV1, history, beacon-roots, fork-config and SSR1 gas.
+Then
+\begin{verbatim}
+scheduleOracleConfigurationHash = H(
+ "slot-chain-schedule-oracle-config-v1" || u32(byteLength(S)) || S).
+\end{verbatim}
+The constructor derives this hash; it is never supplied.  The universal
+\code{componentConfigHashV2()} returns exactly that 32-byte value.  The exact
+peer runtime/configuration hashes, the Builder topology hash and this Schedule
+configuration hash are constructor-written writerless storage, not Solidity
+immutable bytecode, under the exact dependency DAG in
+Section~\ref{sec:builder-registry-freeze}.  The exact
+zero-argument deployment read is
+\begin{verbatim}
+scheduleOracleConfigV1() returns
+ (bytes4 magic,uint256 settlementChainId,address protocolVersionManager,
+  address activeSettlementRouter,address builderRegistry,
+  uint64 firstManagedWindow,uint64 genesisTimestamp,uint64 beaconGenesisTime,
+  uint64 lookaheadSeconds,uint256 leasePerWindowAtomic,
+  bytes4 initialForkDigest,bytes32 builderRegistryTopologyHash,
+  bytes32 configurationHash)
+// selector 0xe3d91a33; exact 416 bytes; magic SOC1=0x534f4331
+\end{verbatim}
+Release registration exact-reads this SOC1 view, BRC1 and both components'
+\code{componentConfigHashV2()} values.  It recomputes \code{T} from the complete
+BRC1 topology preimage; compares \code{E} and \code{C} to the manifest-pinned
+calibrated profile and component results; checks both pinned runtime hashes;
+and rejects any cross-pin, first-window or lease disagreement before publishing
+the two protocol-lifetime objects.  SOC1 is a bounded deployment join, not a
+second complete Schedule-configuration preimage.
+
+It further exposes
 \begin{verbatim}
 scheduleWindowReleaseStateV1(uint64) returns
  (bytes4 magic,uint64 returnedWindow,uint8 state,
@@ -817,18 +1562,113 @@ scheduleWindowReleaseStateV1(uint64) returns
 // selector 0xf4cd9a5e; exact 160 bytes; magic SWR1
 // state UNSEALED=0, SEALED=1, VACANT=2, EXPIRED=3
 
+scheduleWindowV1(uint64) returns
+ (bytes4 magic,uint64 returnedWindow,uint8 state,
+  bytes32 entryRoot,bytes32 seed)
+// selector 0x15fadbaa; exact 160 bytes; magic SWV1=0x53575631
+
 expireScheduleWindowsV1(uint8 maxWindows) returns
  (bytes4 magic,uint8 expired,uint64 nextReleaseWindow)
 // selector 0xb1357479; exact 96 bytes; magic SWE1; 1<=maxWindows<=8
+
+sealScheduleWindowV1(uint64 window,bytes4 forkDigest,bytes witness) returns
+ (bytes4 magic,uint64 returnedWindow,bytes32 entryRoot,bytes32 seed)
+// selector 0x68949048; exact 128 bytes; magic SSW1=0x53535731
 \end{verbatim}
+Seal calldata is the sole canonical ABI encoding: the two narrow fixed words
+have zero padding, the dynamic offset is exactly \code{0x60}, the tail is
+minimal and contiguous, its final word padding is zero, and no suffix follows.
+The total calldata length is therefore
+\code{132+ceil32(byteLength(witness))}; the parser rejects an ABI-equivalent
+alternative before an external call.  The nonempty packed witness is at most
+280,000 bytes and has exactly this version-one grammar:
+\begin{verbatim}
+u8(1)
+u32(forkWitnessBytes) || bytes[forkWitnessBytes] forkWitness
+u16(carrierHeaderBytes) || bytes[carrierHeaderBytes] carrierHeaderRlp
+MptPath accountPath
+MptPath headerSlotPath
+MptPath rootSlotPath
+repeat activeIndex=0..63: RegistryCell
+repeat each present RegistryCell in ascending activeIndex: TrancheRecord
+
+MptPath = u8(nodeCount) ||
+          repeat nodeCount: u16(nodeBytes) || bytes[nodeBytes] canonicalRlpNode
+RegistryCell = u8(present) || address20(builder) || u192(bond) ||
+               u64(registrationIndex) || u64(effectiveL2Slot) ||
+               bytes32(trancheRoot) || u64(tombstonedAtL2Slot) // 101 bytes
+TrancheRecord = u64(storedWindow) || u8(state) || u192(amount) ||
+                u64(liableUntil) || bytes32 trancheSibling[9] // 329 bytes
+\end{verbatim}
+Here \code{1<=forkWitnessBytes<=131072},
+\code{1<=carrierHeaderBytes<=2048}, every path has
+\code{1<=nodeCount<=66}, every node is one complete canonical RLP list of at
+most 600 bytes, the three path encodings together are at most 120,000 bytes,
+and the carrier header is one complete canonical RLP list with 20--32 fields.
+The first 20 header fields have the post-Cancun order through
+\code{parentBeaconBlockRoot}; appended fields are hashed and must be canonical
+but are otherwise uninterpreted.  Every path traversal must consume every
+listed node, enforce canonical hex-prefix and embedded-versus-hashed child
+rules, and end at exactly the requested value; missing, unused or trailing
+nodes reject.  The account key is
+\code{keccak256(address20(builderRegistry))}.  Its four-field account leaf must
+have the pinned BuilderRegistry code hash and yields the sole storage root.
+The two storage keys are \code{keccak256(bytes32(HEADER_SLOT))} and
+\code{keccak256(bytes32(ROOT_SLOT))}; both paths use that same storage root and
+must end in exactly one canonical nonzero RLP byte string of length 1--32 with
+no leading zero byte.  The verifier left-pads that value to 32 bytes.  The
+decoded HEADER value must already be 32 bytes and start with BRH1; the decoded
+ROOT value may be shorter before left-padding.  Zero, absent, branch-value,
+noncanonical integer/string or alternative RLP encodings reject.  This rule
+matches Ethereum's leading-zero-stripping storage-trie encoding without making
+roots whose first byte is zero unprovable.
+
+The ordinal supplies each RegistryCell's leaf index.  An absent cell has
+\code{present=0}, all remaining 100 bytes zero and no TrancheRecord.  A present
+cell has \code{present=1}, nonzero builder and tranche root, bond at least the
+lease, registration index below the authenticated next index and exactly one
+following record.  The record carries no index: both its leaf index and proof
+orientation are derived only as \code{window mod 512}.  Thus the derived
+two-byte index plus its 41-byte supplied leaf payload and nine bottom-up
+siblings must reconstruct that cell's
+tranche root.  The number of records is derived solely from the 64 presence
+bits; any missing byte or suffix rejects.  States outside 0--5 reject and the
+EMPTY encoding is canonical
+\code{(UINT64_MAX,EMPTY,0,0)}.  FREE requires zero amount and deadline;
+RESERVED/LIABLE require exactly \code{leasePerWindowAtomic}; and
+RELEASED/SLASHED require zero amount while preserving their authenticated
+deadline.  Only
+\code{(window,RESERVED,leasePerWindowAtomic,liableUntil)} is eligible; every
+other authenticated leaf is ineligible irrespective of caller claims.
+
+Its complete event ABI is
+\begin{verbatim}
+ScheduleWindowSealed(uint64 indexed window,bytes32 entryRoot,
+ bytes32 seed,bytes4 forkDigest,bytes32 carrierStatementHash)
+ScheduleWindowsExpired(uint64 indexed firstWindow,uint8 expired,
+ uint64 nextReleaseWindow)
+ScheduleForkVerifierInstalled(bytes4 indexed forkDigest,
+ uint64 indexed firstWindow,address verifier,bytes32 runtimeHash,
+ bytes32 configurationHash,bytes4 selector,uint64 gasLimit)
+\end{verbatim}
+A successful nonempty expiry batch emits one event for the whole committed
+prefix; a zero-length safe stop emits none.  Seal and fork-install events are
+emitted after their corresponding ring/registry state is complete and never
+serve as authority for a later read.
 \code{maxWindows=0} rejects.  Expiry advances strictly in W order, so
-\code{W<nextReleaseWindow} proves an overwritten ring generation expired.  A
+\code{firstManagedWindow<=W<nextReleaseWindow} proves an overwritten managed
+ring generation expired.  A
 call commits the maximal releasable prefix up to \code{maxWindows} and stops,
 without reverting that prefix, at the first authenticated but not-yet-safe
 window.  An external-read authentication failure reverts the whole call.  A
 cursor equal to \code{UINT64_MAX} is terminal and is never incremented or
-wrapped; a call reaching it returns its already-completed prefix.  For each
-step Oracle exact-reads ASR1 and the active Settlement's
+wrapped; a call reaching it returns its already-completed prefix.  At the start
+of the call Oracle rechecks Router's pinned runtime and configuration, then
+exact-reads ASR1.  For each candidate W it exact-reads
+RTR2(activeProtocolVersion), requires RTR2's version/target to equal ASR1 and a
+nonzero registration hash, rechecks the returned target runtime and its exact
+50,000-gas \code{componentConfigHashV2()} against RTR2, and only then calls the
+active Settlement's
 \begin{verbatim}
 settlementScheduleReleaseStateV1(uint64) returns
  (bytes4 magic,uint64 returnedWindow,uint64 protocolVersion,
@@ -836,8 +1676,8 @@ settlementScheduleReleaseStateV1(uint64) returns
   uint8 referenceMaskForWindow)
 // selector 0xa4574c77; exact 192 bytes; magic SSR1
 \end{verbatim}
-with pinned code/configuration and bounded gas.  The returned version must equal
-ASR1, \code{windowEndSlot(W)<globalMinReferencedSlot}, and the mask must be
+with exactly 100,000 gas.  The returned version must equal
+ASR1/RTR2, \code{windowEndSlot(W)<globalMinReferencedSlot}, and the mask must be
 zero.  Canonical ASR1 ACTIVE, ARMED and READY are all accepted: the returned
 active Settlement/version is always the authority, while ARMED/READY merely
 carry a nonzero target tuple.  Only a stored SEALED record or an objectively
@@ -846,11 +1686,27 @@ late unsealed VACANT record advances.
 SWR1 has one exact root rule.  A stored unexpired SEALED cell returns its stored
 entry root.  UNSEALED returns zero.  An objectively late unsealed VACANT cell
 returns the canonical all-empty ranked-entry root.  Every
-\code{W<nextReleaseWindow}, including a just-expired cell and an already-pruned
-generation, returns EXPIRED with zero entry root.  BuilderRegistry releases W
+\code{firstManagedWindow<=W<nextReleaseWindow}, including a just-expired cell
+and an already-pruned managed generation, returns EXPIRED with zero entry root.
+Every \code{W<firstManagedWindow} returns UNSEALED with zero root and can never
+authenticate release.  BuilderRegistry releases W
 only after an exact 50,000-gas SWR1 read authenticates EXPIRED and
 \code{block.timestamp>evidenceReplayDeadline(W)}.  Evidence remains admissible
 through equality, leaving no boundary gap.
+
+SWV1 is the candidate/proof authentication view and uses the same state
+classification at the same block.  SEALED returns the stored entry root and
+seed; VACANT returns the canonical all-empty ranked-entry root and zero seed;
+UNSEALED and EXPIRED return two zero words.  It also echoes the exact window and
+uses canonical padding.  Settlement exact-reads SWV1 with 50,000 gas for every
+strictly increasing schedule-list row, accepts only SEALED or VACANT, and
+requires the caller's entry root and seed to equal the return before verifier
+dispatch.  It rechecks the pinned Schedule runtime/configuration before the
+first read of each candidate batch; a later row fault reverts the entire
+candidate submission.  Thus an
+event, seal transaction return or caller-supplied seed is never authority, and
+expiry cannot erase a schedule while Settlement still reports a reference to
+that window.
 
 \paragraph{Historical registry proof slots.}
 BuilderRegistry exclusively writes the following two raw storage slots in the
@@ -871,7 +1727,7 @@ u64(registryMutationVersion)||u64(admissionVersion)||
 u64(nextRegistrationIndex)}; ROOT\_SLOT is the raw registry root.  A schedule
 witness authenticates the pinned registry account and code hash from the
 carrier state root, proves both keys against the same account storage root,
-requires canonical RLP without duplicate/trailing nodes, checks header reserved
+requires canonical RLP without unused/trailing nodes, checks header reserved
 bytes, matches present-cell count to \code{activeCount}, and recomputes the
 six-level root from all 64 serialized cells.  Getter/raw-slot conformance,
 cell 0/cell 63 orientation and both liability wrap boundaries are deployment
@@ -888,6 +1744,22 @@ execution block has \code{F_FINAL} L1-block depth and
 \code{block.timestamp < sealDeadline(W)}.  Beacon slots are not used as a
 surrogate for execution-block depth.  At or after the deadline an unsealed
 window is permanently all-\code{VACANT}; a late transaction cannot change it.
+Before touching the witness the entry point uses checked arithmetic to derive
+\code{currentWindow=max(0,block.timestamp-GENESIS_TIMESTAMP)/384} and rejects
+unless
+\code{W>=firstManagedWindow}, \code{W>=nextReleaseWindow},
+\code{W<UINT64_MAX}, \code{currentWindow<=W<=currentWindow+8}, and the strict
+deadline holds.  A
+stored seal for W rejects.  A different still-unexpired generation in cell
+\code{W mod 268} rejects rather than being overwritten; a generation below
+\code{nextReleaseWindow} is already authenticated EXPIRED and may be replaced.
+At call start Oracle rechecks the pinned BuilderRegistry, EIP-4788 and EIP-2935
+runtime hashes and exact-reads the Registry's 50,000-gas one-word topology hash
+against its constructor pin.  That topology hash commits the Registry economic
+hash and its Schedule address/runtime; the release-time BRC1 check already
+proved the full preimage.  Every subsequent
+external operation is a bounded STATICCALL.  No ring write or event occurs
+until all checks and all root computations below complete.
 The contract performs this procedure:
 
 \begin{enumerate}
@@ -922,14 +1794,15 @@ proof at index \code{W mod 512}.  An absent registry cell has
 For a present cell, canonical \code{EMPTY}, \code{FREE}, or a nonempty leaf for
 a different stored window is valid but ineligible; only exact
 \code{RESERVED(W)} with \code{amount=L_LEASE} is eligible.  Proofs occur in
-ascending cell-index order, and extra/missing proofs reject.  The fixed cell count
-proves completeness with one MPT path rather than 64 independent storage paths.
+ascending cell-index order, and extra/missing proofs reject.  The fixed cell
+count proves completeness with one registry-root storage path rather than 64
+independent storage paths.
 The carrier satisfies
 \code{currentExecutionBlock-carrierBlockNumber >= F_FINAL}; the source payload
 is necessarily older.
 \end{enumerate}
 
-\code{sealWindow} is permissionless.  An optional maintenance distributor may
+\code{sealScheduleWindowV1} is permissionless.  An optional maintenance distributor may
 pay its event in a later transaction.  At or after its deadline a missing
 stored seal is consumed as \code{VACANT}; a failing pre-deadline seal attempt
 never stores that result and cannot give an address an unauthorized ticket.  The snapshot
@@ -953,6 +1826,24 @@ changes the container requires a reviewed verifier, constants, fixtures and
 delayed registration before its activation.  That registration may change
 witness parsing only: it cannot change the protocol-lifetime seed,
 eligibility, allocation or placement rules.
+
+For both the constructor-installed row and every later installation,
+``reviewed verifier'' is an enforceable release property.  The verifier is an
+immutable non-proxy artifact with no \code{DELEGATECALL}, beacon, replaceable
+implementation/target, target setter, arbitrary call, selfdestruct or mutable
+output-affecting dependency.  Release tooling closes the complete reachable
+code graph for every CALL/STATICCALL/CREATE dependency that can influence
+SFV1/SFC1, pins every runtime and constructor configuration transitively, and
+rejects a proxy-shell-only identity even when its shell EXTCODEHASH and getter
+remain stable.  The initial root release certificate and every delayed change
+package record that closed graph; production tooling refuses to build the root
+manifest or queue REGISTER\_FORK\_VERIFIER unless the certificate matches the
+row's runtime/configuration identity.  PVM enforces the queued row words.  The
+graph-closure judgment is necessarily an external release/governance validity
+rule, not a commitment hidden in the fixed row or something EVM introspection
+can prove.  ScheduleOracle's per-call EXTCODEHASH/SFV1 checks are defense in
+depth, not permission for mutable reachable code.  An artifact that cannot
+satisfy this closure is not registrable in a production release.
 
 The fork registry and verifier wire format are exact.  The deployment
 constructor installs one reviewed current-fork row at \code{firstWindow=0}.
@@ -989,7 +1880,7 @@ previous latest row's formerly zero successor pair once and appends the new
 row; neither boundary can later change.  The getter for the latest row has a
 zero successor pair.  Thus a digest is valid for window $W$ iff
 \code{firstWindow<=W} and either successor is zero or
-\code{W<successorFirstWindow}; \code{sealWindow} rejects every caller-selected
+\code{W<successorFirstWindow}; \code{sealScheduleWindowV1} rejects every caller-selected
 row outside that unique interval.
 
 The exact configuration layers are
@@ -1012,8 +1903,58 @@ For Deneb, Electra and Fulu the six gindices are exactly 8, 201, 6,434,
 constants and witness schema through a new delayed row; an opaque
 configuration hash is not accepted.
 
-ScheduleOracle authenticates the caller-supplied beacon root through the exact
-EIP-4788 path, then STATICCALLs the interval-selected verifier using only
+The initial row's fork witness is not opaque.  Its exact current-fork schema is
+\begin{verbatim}
+ScheduleSszMultiproofV1 =
+ u64(window) || u64(parentSlot) || u64(carrierExecutionBlockNumber) ||
+ u64(payloadTimestamp) || bytes32(blockHash) || bytes32(stateRoot) ||
+ bytes32(prevRandao) || bytes32 helperNode[17]
+\end{verbatim}
+and is exactly 672 bytes.  The four uint64 values in this packed outer format
+are big-endian.  For the two SSZ-proven values, parent slot and payload
+timestamp, the verifier reconstructs the canonical little-endian uint64
+followed by 24 zero bytes; window and carrier number remain context fields.
+The 17 helper generalized
+indices, in the only accepted descending order, are
+\begin{verbatim}
+6445, 6440, 6436, 6435, 3223, 3221, 3219, 3216,
+403, 200, 101, 51, 24, 13, 9, 7, 5
+\end{verbatim}
+and are derived from the five proved leaves under the displayed fork constants,
+not supplied in the witness.  The four execution-payload leaves must all be
+descendants of gindex 201.  The exact initial
+\code{witnessSchemaHash} is
+\begin{verbatim}
+H("slot-chain-schedule-ssz-multiproof-v1" || forkConstantsHash ||
+  u32(672) || u16(17) ||
+  u64(6445)||u64(6440)||u64(6436)||u64(6435)||u64(3223)||
+  u64(3221)||u64(3219)||u64(3216)||u64(403)||u64(200)||
+  u64(101)||u64(51)||u64(24)||u64(13)||u64(9)||u64(7)||u64(5))
+\end{verbatim}
+which is
+\code{0x4d3c1d3a7f2921c2f8e7526a2e8aa2c47dc6bdcd3dc9e2b14c58f2b9d39ed30f}.
+Verification uses SSZ \code{hash_tree_root} binary compression exactly as
+\code{SHA256(leftChild||rightChild)}.  The verifier seeds the five fixed target
+gindices with the canonical chunks above and the 17 fixed helper gindices with
+their witness words.  A repeated, missing or ancestor/descendant-overlapping
+position rejects.  It repeatedly combines a complete sibling pair exactly
+once, taking the even gindex as the left child and the odd gindex as the right,
+and rejects an already-present or previously derived parent.  Verification
+succeeds only when every supplied position has been consumed into the sole
+gindex-1 root and that root equals the exact nonzero EIP-4788 word.  Keccak,
+reversed child order, a separately supplied helper index and an unconsumed
+node are invalid.
+The constructor rejects any different initial value.  A future delayed row
+may install a different reviewed schema hash and verifier only at its protected
+window boundary; it cannot reinterpret a current-fork row.
+
+ScheduleOracle obtains the beacon root through the exact contract-selected
+EIP-4788 path; the root itself is never a witness field.  Each query is exactly
+the 32-byte timestamp, 50,000 gas and zero value.  Revert means absent and is
+the only result that advances the scan; a successful call must return exactly
+one nonzero word.  Oracle chooses the first success, so no caller supplies a
+query index or timestamp.  It then rechecks the interval-selected verifier's
+code and exact SFV1 configuration before STATICCALLing it using only
 \begin{verbatim}
 verifyScheduleCarrierV1(bytes witness,bytes32 beaconBlockRoot)
  returns (bytes4 magic,bytes32 statementHash,uint64 parentSlot,
@@ -1033,12 +1974,45 @@ statementHash = H(
  blockHash || stateRoot || prevRandao)
 \end{verbatim}
 from the six returned payload fields and requires exact equality before using
-any leaf.  It then repeats the existing carrier age, parent, timestamp and
-execution-header checks and uses only the returned state root/randao.  Revert,
+any leaf.  Every reviewed fork-witness schema binds the outer \code{u64(W)};
+the verifier uses that bound value, \code{block.chainid}, \code{msg.sender}
+and its configured fork digest when constructing the statement.  Oracle's
+independent recomputation with the public W makes a substituted inner value
+fail.  The returned \code{executionBlockNumber} means the carrier-header block
+number; it is not claimed to be one of the six SSZ leaves.  Oracle requires it
+to be nonzero and equal the canonical header field 8.  Field 0 is the exact
+32-byte parent hash, field 11 is the minimally encoded uint64 query timestamp,
+and field 19 is the exact 32-byte parent-beacon root; wrong widths reject.
+The number must lie in
+\code{[max(historyFirstSupportedBlock,block.number-8191),block.number-1]}.
+Oracle authenticates
+\code{keccak256(carrierHeaderRlp)} with the exact EIP-2935 read, and checks
+\code{block.number-executionBlockNumber>=64}.  The returned payload block hash
+must equal the header parent hash; the returned parent payload timestamp must
+equal \code{BEACON_GENESIS_TIME+12*parentSlot}, with
+\code{parentSlot<=targetSlot}.  The header timestamp is the contract-selected
+query timestamp and its parent-beacon-root field is the EIP-4788 word.  Oracle
+requires nonzero returned block hash, parent state root and prevRandao, and
+uses only the returned parent payload state root and prevRandao after all these
+joins hold.  Revert,
 OOG, wrong interval/code/config/magic/hash, short/trailing returndata, bad
 padding or inconsistent header reverts with no write; only a
 consumer at or after \code{sealDeadline(W)} interprets the still-unsealed
 window as VACANT, while a valid pre-deadline retry remains possible.
+
+The parent payload timestamp derives
+\code{sourceL2Slot=max(0,payloadTimestamp-GENESIS_TIMESTAMP)}.  After the MPT
+and all 64 tranche proofs verify, Oracle keeps exactly those present,
+non-tombstoned-at-source, effective-at-source cells whose tranche is the exact
+eligible RESERVED tuple.  It sorts them by decreasing bond then increasing
+registration index, hashes these entries at ranks 0 upward and fills every
+remaining rank through 63 with its position-bound canonical empty leaf.  It
+derives \code{seed_W} from the authenticated prevRandao, writes
+\code{(W,SEALED,entryRoot,seed)} once, emits the one seal event including the
+verified statement hash, and returns SSW1.  Duplicate builders or registration
+indices, a present registration index not below BRH1's next index, an active
+count different from BRH1, a recomputed 64-cell root mismatch
+or a noncanonical empty rank reject before that write.
 
 \subsection{Consensus byte encoding and allocation}
 
@@ -1791,11 +2765,12 @@ to that stored hash and never repeat an EIP-2935 recency lookup.  A reorg that
 removes the arm block necessarily changes the context.  If the arm block
 survives but the activation transaction is reorged, reactivation intentionally
 recreates the same context: the builder must retain and honor its prior
-same-context signature.  Evidence independently authenticates the arm hash as
-canonical through EIP-2935 and is accepted only while that history entry is
-available.  The enforced evidence horizon is strictly shorter than 8,191 L1
-slots.  Thus neither a shallow reorg nor a builder-selected historical anchor
-can create false or free equivocation.
+same-context signature.  Evidence compares the exact common anchor/force tuple
+and treats this derived context ID as the signed promise namespace; it does not
+need activation storage or an EIP-2935 lookup after the builder has produced
+both signatures.  Thus a shallow reorg cannot erase culpability, and an
+attacker cannot choose an anchor without the builder signing both conflicting
+registered-domain headers.
 
 Activation is permissionless, reserves no builder, and does not block
 submissions.  An empty activated window merely cancels at deadline, so an
@@ -4240,7 +5215,7 @@ exactly \code{0x7e981e0b}, the window is strictly future, and
 ScheduleOracle grammar below.  The runtime/configuration getter is checked, and
 \code{forkDigest} occupies the high four word bytes with
 28 zero trailing bytes; it is the
-one-shot ScheduleOracle registry key used by \code{sealWindow}.
+one-shot ScheduleOracle registry key used by \code{sealScheduleWindowV1}.
 \item PUBLISH\_GENESIS\_CAMPAIGN is
 \code{abi.encode(uint64 forceCutoffBlock,uint64 proposalCutoffBlock,
 uint64 quiesceNotBeforeBlock,uint64 resumeByBlock,
@@ -6257,7 +7232,10 @@ are production blockers; neither a prover nor a caller supplies a class ID.
 Units are not interchangeable: native amount is \code{wei}, native
 rate is \code{wei/second}, and builder amount is atomic units of the one
 profile-bound builder lease token.  That token binds chain ID, nonzero address,
-\code{EXTCODEHASH} and decimals.  Its fields are exactly
+\code{EXTCODEHASH}, decimals and the manifest proof that it is the immutable,
+non-proxy, no-hook/no-fee/no-rebase/no-confiscation artifact required by
+Section~\ref{sec:builder-registry-freeze}; a proxy runtime hash is not a valid
+asset identity.  Its fields are exactly
 \code{leasePerWindowAtomic}, \code{maximumBondAtomic} and
 \code{reporterRewardCapAtomic}; no generic untyped ``bond'' scalar is decoded.
 For one builder slash,
@@ -6266,6 +7244,12 @@ reporterRewardAtomic = min(reporterRewardCapAtomic, builderSlashAtomic)
 builderPenaltyAtomic = builderSlashAtomic - reporterRewardAtomic.
 \end{verbatim}
 Both operations are checked in that token's atomic units.
+The production profile and Registry constructor both require
+\code{5*reporterRewardCapAtomic<=leasePerWindowAtomic}.  Therefore even a
+builder that Sybil-self-reports or front-runs its own evidence loses at least
+80 percent of the slashed tranche to the immutable penalty sink, in addition
+to tombstoning.  Comparing reporter and builder addresses would not provide
+this property and is not a substitute for the inequality.
 
 There is one top-level immutable sink table.  Each entry is the typed pair
 \code{(assetId,address)}.  \code{builderPenalty} must use BUILDER\_LEASE;
@@ -6306,6 +7290,8 @@ SLA_BOND_WEI >= MAX_ASK_WEI_PER_SECOND
   + MAX_AVOIDED_SERVICE_COST_WEI + COLLUSION_SAFETY_MARGIN_WEI
 
 maximumBondAtomic <= 2^192-1
+reporterRewardCapAtomic <= 2^192-1
+5 * reporterRewardCapAtomic <= leasePerWindowAtomic
 maximumBondAtomic * (Q_MAX+1) < 2^256.
 \end{verbatim}
 The first bond inequality prevents cheap closed-tail capital grief; the second
@@ -6324,11 +7310,14 @@ is atomic with the first valid slash; future snapshots exclude the key.
 Evidence does not depend on retaining an obsolete \code{admissionRoot}.  It
 contains two distinct low-$s$ EIP-712 headers with the same recovered nonzero
 key, slot, tier, context ID, admission version, admission root, episode,
-revision and recovery ID.  For tier 1 it recomputes the normal context from the
-same base, admission pair and arm-block anchor carried by both headers and
-authenticates that arm hash as canonical through EIP-2935; tier 2 recomputes
-the recovery context.  The contract enforces at launch that the last tier-1
-evidence/replay instant precedes expiry of that 8,191-block history entry.  It
+revision and recovery ID, and also equal anchor and force-root tuples.  The
+context ID is an opaque nonzero promise namespace inside the exact
+Router-registered Settlement domain; Registry does not pretend to reconstruct
+an overwritten normal base or recovery-round record from fields absent from the
+evidence.  Signing two different complete \code{SlotChainBlock} EIP-712 struct
+digests for one such domain/context/slot is the complete culpable act; equal
+\code{blockHash} fields do not make two otherwise different signed structs
+non-conflicting.  It
 supplies one proof under the signed admission root
 and one under the \emph{current} admission root for the same address and
 \code{registrationIndex}; the latter must be that still-retained
@@ -6346,6 +7335,21 @@ tail has no replay guarantee.  Address reuse is forbidden while that retained
 generation exists, so the current proof cannot select a newer incarnation.
 This rule keeps evidence verification fixed-depth while the liability-capacity
 invariant retains every slashable generation through the replay deadline.
+An accepted \code{RESERVED(W)->SLASHED(W)} or
+\code{LIABLE(W)->SLASHED(W)} transition decrements that generation's
+\code{unreleasedTrancheCount} exactly once.  For an ACTIVE generation whose
+exact RESERVED window is represented in the 17-bit reservation bitmap, it also
+clears that one derived bit; a LIABILITY generation has no reservation bit to
+clear.  It preserves \code{reservationBaseWindow} and
+\code{maximumLiableUntil}, writes the zero-amount terminal tranche leaf, and
+atomically updates the tranche root, the active registry root when applicable,
+escrow accounting and both pull credits.  If and only if the current admission
+leaf is not yet tombstoned, it also installs the first tombstone and updates the
+admission root/version; later per-window slashes preserve that already-
+tombstoned admission pair.  Evidence against an already terminal leaf rejects without another
+counter decrement or credit.  Consequently later close-count witnesses never
+have to close an already-SLASHED bitmap entry and generation release cannot be
+stranded by a stale unreleased counter.
 
 Canonical settlement performs no reward calculation, token balance write or
 external call.  The authenticated tier deterministically selects reward class
@@ -6681,8 +7685,10 @@ value.
 \subsection{Historical authentication}
 
 Native \code{blockhash} plus a supplied matching RLP header authenticates a
-fresh normal arm block; EIP-2935 authenticates later normal-context evidence
-and schedule carrier headers.  A
+fresh normal arm block; EIP-2935 authenticates schedule carrier headers.
+Equivocation evidence needs no historical context read because its culpability
+predicate is two builder signatures under one registered domain/context/slot.
+A
 recovery round captures its immediately preceding block hash with
 \code{blockhash(block.number-1)} and later hashes a supplied RLP header to that
 stored value; it never tries to read an unavailable parent timestamp, queries
@@ -8885,7 +9891,8 @@ registration; it is an L1 package review, not MPT finality. \\
 Live windows / sessions & 268 / 1,024 & Fixed rings with safe-eviction predicates and bounded GC. \\
 EIP history / max arm age & 8,191 / 255 blocks &
 $255+\lceil(W_{settle}+CLOCK\_SKEW+384+EVIDENCE\_DELAY+REORG\_MARGIN)/12\rceil+2<8,191$;
-greater than every normal-context evidence and schedule path. \\
+the conservative profile bound remains greater than every schedule carrier
+path; BuilderRegistry evidence does not consume this history. \\
 \bottomrule
 \end{xltabular}
 
@@ -9032,7 +10039,7 @@ proof ecosystem must block activation but must not block permissionless expiry
 and local resume.  A drill also advances beyond SGX instance expiry and proves
 that freshly generated route proofs, rather than cached SGX bytes, finalize the
 retained legacy suffix.
-\item \textbf{Contract gas.} \code{sealWindow}, \code{postData}, normal submit,
+\item \textbf{Contract gas.} \code{sealScheduleWindowV1}, \code{postData}, normal submit,
 \code{sync}, direct source-credit enqueue, recovery submit, slash and garbage
 collection fit current L1 gas limits with 30\% margin.  The same compiled-
 bytecode harness exercises cold maximum REGISTER\_RELEASE with the release's
@@ -9510,14 +10517,13 @@ legacyBootstrapDescriptorHash = Keccak256(
 The 344-byte Router payload is acyclic: it contains no Router self-address or
 self-runtime, no Market identity, no activation receipt and no PVM
 configuration hash.  Conversely the PVM configuration may commit the completed
-Router identity.  PVM, Router and Queue addresses that occur mutually in these
-immutable configurations are obtained by nonce-precomputing the consecutive
-CREATE addresses of one audited one-shot deployment transaction; they MUST NOT
-be claimed to arise from mutually dependent CREATE2 init-code hashes.  The
-deployer uses the frozen nonce order with no intervening creation, deploys each
-contract exactly once, checks every predicted address, EXTCODEHASH and exact
-configuration getter, then irreversibly disables further deployment.  Any
-address/configuration mismatch reverts the entire root deployment.
+Router identity.  Every mutually referenced root address is the code-independent
+factory/campaign/role CREATE3 address defined in
+Section~\ref{sec:builder-registry-freeze}; it MUST NOT be claimed to arise from
+mutually dependent component CREATE2 init-code hashes.  Each role deploys in a
+separate bounded transaction and remains INACTIVE.  The final factory call
+checks every predicted address, EXTCODEHASH, exact configuration getter and the
+acyclic cross-graph, then activates and publishes all nine in one revert domain.
 
 The component scope is exhaustive.  Kinds 1 (BridgeInboxAdapter), 3
 (TerminalSignalVerifier), 5 (InboxCreditStoreV2) and 10
@@ -10720,7 +11726,7 @@ local destination binding, frontier/event terminal proofs, pause-independent
 escape, L2 release sealing, replay and timing
 geometry.  Cryptographic booleans in that model are not cryptographic
 evidence.
-The companion \code{test-settlement-window.py} suite runs 270 adversarial
+The companion \code{test-settlement-window.py} suite runs 274 adversarial
 regressions, including authorization substitution, callback/OOG, competing LP,
 owner-mode, target/quota/pull/terminal rollback, withdrawal/recreation and
 cross-version preservation cases for the atomic Pool path.

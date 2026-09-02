@@ -16881,6 +16881,285 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             settlement.eip2935_read_configuration_hash_v1(101),
         )
 
+    def test_protocol_root_staging_is_code_independent_atomic_and_retryable(self):
+        factory_address = bytes.fromhex("11" * 20)
+        namespace = bytes.fromhex("aa" * 32)
+        proxy_creation_hash = settlement.keccak256(b"proxy-creation")
+        codes = tuple(f"root-role-{role}".encode() for role in range(1, 10))
+        rows = tuple(
+            (
+                settlement.keccak256(code),
+                settlement.keccak256(b"runtime:" + code),
+                settlement.keccak256(b"config:" + code),
+            )
+            for code in codes
+        )
+        manifest = settlement.ProtocolRootManifestV1(
+            167, 0, namespace, bytes(32), rows
+        )
+        self.assertEqual(len(manifest.encode()), 969)
+        self.assertEqual(
+            manifest.manifest_hash().hex(),
+            "422d77c7719bf286024546a4fb020f8a71e1fa63135edda59118e38091075a69",
+        )
+        key = manifest.campaign_key(factory_address)
+        self.assertEqual(
+            key.hex(),
+            "8b21eab918002e94fc1bbde9c35a8d2ed5f93e1f622edd72468cf643c896c1bb",
+        )
+        self.assertEqual(
+            settlement.protocol_root_component_address_v1(
+                factory_address, key, 1, proxy_creation_hash
+            ).hex(),
+            "612f1fcc216b9927dc78b640fbe0448698c37b0a",
+        )
+        historical_generation = settlement.Generation(
+            "0x" + "66" * 20, 1_000_000, 7, 0,
+            effective_l2_slot=12_345, tombstoned_at_l2_slot=12_999,
+        )
+        historical_active_leaf = (
+            settlement.historical_evidence_admission_leaf_hash_v1(
+                3, historical_generation
+            )
+        )
+        self.assertEqual(
+            historical_active_leaf,
+            settlement.historical_evidence_admission_leaf_hash_v1(
+                3, replace(
+                    historical_generation, tombstoned_at_l2_slot=13_999
+                )
+            ),
+        )
+        self.assertNotEqual(
+            historical_active_leaf,
+            settlement.historical_evidence_admission_leaf_hash_v1(
+                64, historical_generation
+            ),
+        )
+        with self.assertRaises(ValueError):
+            settlement.historical_evidence_admission_leaf_hash_v1(
+                1_136, historical_generation
+            )
+        mutated_rows = list(rows)
+        mutated_rows[0] = (
+            mutated_rows[0][0], settlement.keccak256(b"other-runtime"),
+            mutated_rows[0][2],
+        )
+        mutated = settlement.ProtocolRootManifestV1(
+            167, 0, namespace, bytes(32), tuple(mutated_rows)
+        )
+        self.assertEqual(mutated.campaign_key(factory_address), key)
+        self.assertNotEqual(mutated.manifest_hash(), manifest.manifest_hash())
+        self.assertEqual(
+            settlement.protocol_root_component_address_v1(
+                factory_address, mutated.campaign_key(factory_address), 1,
+                proxy_creation_hash,
+            ),
+            settlement.protocol_root_component_address_v1(
+                factory_address, key, 1, proxy_creation_hash
+            ),
+        )
+
+        dao = bytes.fromhex("33" * 20)
+        executor_address = bytes.fromhex("22" * 20)
+        executor_runtime_hash = settlement.keccak256(
+            b"root-migration-executor-runtime"
+        )
+        executor_configuration_hash = (
+            settlement.root_migration_executor_configuration_hash_v1(167, dao)
+        )
+        self.assertEqual(
+            executor_configuration_hash.hex(),
+            "700e063c053c74241d8aa271fd40a9385469973df3e74453ef3ffaad00c147de",
+        )
+        proxy_runtime_hash = settlement.keccak256(b"proxy-runtime")
+        factory_runtime_hash = settlement.keccak256(b"root-factory-runtime")
+        factory_configuration_hash = (
+            settlement.protocol_root_factory_configuration_hash_v1(
+                167, namespace, executor_address, executor_runtime_hash,
+                executor_configuration_hash, proxy_creation_hash,
+                proxy_runtime_hash,
+            )
+        )
+        self.assertEqual(
+            factory_configuration_hash.hex(),
+            "0bf49377f06f1e4b4ab25c4a2485261fcd7644b8149bc4f61dc02fd5fe5242e5",
+        )
+        factory = settlement.ProtocolRootFactoryModelV1(
+            factory_address, 167, namespace, proxy_creation_hash,
+            factory_runtime_hash, factory_configuration_hash,
+        )
+        executor = settlement.RootMigrationExecutorModelV1(
+            executor_address, 167, dao
+        )
+        with self.assertRaises(ValueError):
+            factory.stage_v1(
+                bytes.fromhex("77" * 32), manifest, 100, authorized=False
+            )
+        with self.assertRaises(ValueError):
+            executor.queue_v1(
+                factory_address, manifest.manifest_hash(),
+                factory_runtime_hash, factory_configuration_hash, 100,
+                caller=bytes.fromhex("44" * 20),
+            )
+        operation_id = executor.queue_v1(
+            factory_address, manifest.manifest_hash(), factory_runtime_hash,
+            factory_configuration_hash, 100, caller=dao
+        )
+        self.assertEqual(
+            operation_id.hex(),
+            "65e83b875d2b5aa67597efd52ab23ae03102a41a314bab138557c9eb6202d7c1",
+        )
+        duplicate_id = executor.queue_v1(
+            factory_address, manifest.manifest_hash(), factory_runtime_hash,
+            factory_configuration_hash, 101, caller=dao
+        )
+        self.assertNotEqual(operation_id, duplicate_id)
+        other_factory_address = bytes.fromhex("55" * 20)
+        other_operation_id = executor.queue_v1(
+            other_factory_address, manifest.manifest_hash(),
+            factory_runtime_hash, factory_configuration_hash, 102, caller=dao
+        )
+        expiring_id = executor.queue_v1(
+            factory_address, manifest.manifest_hash(), factory_runtime_hash,
+            factory_configuration_hash, 103, caller=dao,
+        )
+        self.assertEqual(executor.authority_state, 0)
+        execute_at = 100 + settlement.ROOT_MIGRATION_MINIMUM_DELAY_SECONDS
+        with self.assertRaises(ValueError):
+            executor.execute_v1(
+                operation_id, factory, manifest, execute_at - 1
+            )
+        mutated_factory = settlement.ProtocolRootFactoryModelV1(
+            factory_address, 167, namespace, proxy_creation_hash,
+            settlement.keccak256(b"mutated-runtime"),
+            factory_configuration_hash,
+        )
+        with self.assertRaises(ValueError):
+            executor.execute_v1(
+                operation_id, mutated_factory, manifest, execute_at
+            )
+        self.assertEqual(executor.authority_state, 0)
+        self.assertEqual(
+            executor.execute_v1(operation_id, factory, manifest, execute_at),
+            key,
+        )
+        self.assertEqual(executor.operations[operation_id].state, 3)
+        self.assertEqual(executor.authority_state, 1)
+        self.assertEqual(executor.candidate_factory, factory_address)
+        other_factory = settlement.ProtocolRootFactoryModelV1(
+            other_factory_address, 167, namespace, proxy_creation_hash,
+            factory_runtime_hash, factory_configuration_hash,
+        )
+        with self.assertRaises(ValueError):
+            executor.execute_v1(
+                other_operation_id, other_factory, manifest,
+                102 + settlement.ROOT_MIGRATION_MINIMUM_DELAY_SECONDS,
+            )
+        self.assertEqual(executor.operations[other_operation_id].state, 1)
+        executor.cancel_v1(other_operation_id, caller=dao)
+        executor.cancel_v1(duplicate_id, caller=dao)
+        self.assertEqual(executor.operations[duplicate_id].state, 5)
+        campaign = factory.live
+        self.assertIsNotNone(campaign)
+        with self.assertRaises(ValueError):
+            factory.deploy_component_v1(
+                key, 1, b"wrong", rows[0][1], rows[0][2], execute_at + 1
+            )
+        self.assertEqual(campaign.deployed_bitmap, 0)
+        factory.deploy_component_v1(
+            key, 1, codes[0], rows[0][1], rows[0][2], execute_at + 1
+        )
+        factory.abort_v1(
+            key, execute_at
+            + settlement.PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS + 1
+        )
+        executor.clear_aborted_v1(operation_id, factory, key)
+        self.assertEqual(executor.operations[operation_id].state, 7)
+        self.assertEqual(executor.authority_state, 0)
+        expiring_before = executor.operations[expiring_id].execute_before
+        with self.assertRaises(ValueError):
+            executor.expire_v1(expiring_id, expiring_before)
+        executor.expire_v1(expiring_id, expiring_before + 1)
+        self.assertEqual(executor.operations[expiring_id].state, 6)
+        self.assertEqual(factory.active_root_receipt, bytes(32))
+        self.assertEqual(factory.generation, 1)
+        self.assertEqual(factory.history[key].state, 3)
+
+        retry = settlement.ProtocolRootManifestV1(
+            167, 1, namespace, bytes(32), rows
+        )
+        retry_queued_at = (
+            execute_at + settlement.PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS + 2
+        )
+        retry_operation_id = executor.queue_v1(
+            factory_address, retry.manifest_hash(), factory_runtime_hash,
+            factory_configuration_hash, retry_queued_at, caller=dao
+        )
+        retry_execute_at = (
+            retry_queued_at + settlement.ROOT_MIGRATION_MINIMUM_DELAY_SECONDS
+        )
+        retry_key = executor.execute_v1(
+            retry_operation_id, factory, retry, retry_execute_at
+        )
+        retry_campaign = factory.live
+        self.assertIsNotNone(retry_campaign)
+        for role, (code, row) in enumerate(zip(codes, rows), 1):
+            factory.deploy_component_v1(
+                retry_key, role, code, row[1], row[2], retry_execute_at + 1
+            )
+        finalize_at = retry_execute_at + 2
+        current_window = finalize_at // settlement.PROTOCOL_ROOT_WINDOW_SECONDS
+        first_managed_window = (
+            current_window
+            + settlement.PROTOCOL_ROOT_FIRST_MANAGED_RUNWAY_WINDOWS
+        )
+        with self.assertRaises(ValueError):
+            factory.finalize_v1(
+                retry_key, finalize_at, postvalidated=False,
+                genesis_timestamp=0,
+                first_managed_window=first_managed_window,
+                executor=executor,
+            )
+        self.assertEqual(retry_campaign.active_roles, set())
+        with self.assertRaises(ValueError):
+            factory.finalize_v1(
+                retry_key, finalize_at, postvalidated=True,
+                genesis_timestamp=0,
+                first_managed_window=first_managed_window - 1,
+                executor=executor,
+            )
+        receipt = factory.finalize_v1(
+            retry_key, finalize_at, postvalidated=True,
+            genesis_timestamp=0,
+            first_managed_window=first_managed_window,
+            executor=executor,
+        )
+        self.assertEqual(retry_campaign.active_roles, set(range(1, 10)))
+        self.assertEqual(factory.active_root_receipt, receipt)
+        self.assertEqual(factory.generation, 2)
+        self.assertEqual(factory.history[retry_key].state, 2)
+        self.assertEqual(executor.operations[retry_operation_id].state, 4)
+        self.assertEqual(executor.authority_state, 2)
+        self.assertEqual(executor.active_factory, factory_address)
+        self.assertEqual(executor.active_operation_id, retry_operation_id)
+        self.assertEqual(executor.active_campaign_key, retry_key)
+        self.assertEqual(executor.active_root_receipt, receipt)
+        with self.assertRaises(ValueError):
+            factory.stage_v1(
+                bytes.fromhex("88" * 32),
+                settlement.ProtocolRootManifestV1(
+                    167, 2, namespace, bytes(32), rows
+                ),
+                retry_execute_at + 3, authorized=True,
+            )
+        with self.assertRaises(ValueError):
+            executor.queue_v1(
+                factory_address, manifest.manifest_hash(),
+                factory_runtime_hash, factory_configuration_hash,
+                retry_execute_at + 4, caller=dao,
+            )
+
     def test_schedule_registry_successors_bounds_and_vacant_is_not_stored(self):
         fixture = protocol_authority_fixture()
         manager, timelock, oracle, clock = (
@@ -16888,9 +17167,9 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         )
 
         def fork_row(digest, first_window, gas=500_000):
-            gindices = (8, 201, 6_434, 6_437, 6_441, 6_444)
-            witness_schema = settlement.keccak256(
-                b"schedule-witness:" + digest
+            gindices = settlement.CURRENT_SCHEDULE_FORK_GINDICES
+            witness_schema = (
+                settlement.current_schedule_ssz_multiproof_schema_hash_v1()
             )
             selector = bytes.fromhex("7e981e0b")
             config = settlement.schedule_fork_verifier_configuration_hash_v1(
@@ -16903,6 +17182,10 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             )
 
         first = fork_row(bytes.fromhex("01020304"), 109)
+        self.assertEqual(
+            first.witness_schema_hash.hex(),
+            "4d3c1d3a7f2921c2f8e7526a2e8aa2c47dc6bdcd3dc9e2b14c58f2b9d39ed30f",
+        )
         first_payload = settlement.encode_register_fork_verifier_payload_v1(
             first
         )
@@ -16943,18 +17226,64 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         self.assertIsNone(oracle._eligible_row(120, first.fork_digest))
         self.assertIsNotNone(oracle._eligible_row(120, second.fork_digest))
 
+        empty_cell = settlement.ScheduleRegistryCellWitnessV1(
+            0, bytes(20), 0, 0, 0, bytes(32), 0
+        )
+        path = settlement.ScheduleMptPathV1((bytes.fromhex("c0"),))
+        current_fork_witness = b"".join((
+            (120).to_bytes(8, "big"), (1).to_bytes(8, "big"),
+            (2).to_bytes(8, "big"), (3).to_bytes(8, "big"),
+            b"b" * 32, b"r" * 32, b"p" * 32, bytes(17 * 32),
+        ))
+        self.assertEqual(len(current_fork_witness), 672)
+        expected_beacon_root = bytes.fromhex(
+            "96d2e95d97012aa78d3b1352ceafe50ffbf333ff71171e45ee0817cb11d365af"
+        )
+        self.assertEqual(
+            settlement.current_schedule_ssz_multiproof_root_v1(
+                current_fork_witness, 120
+            ),
+            expected_beacon_root,
+        )
+        settlement.verify_current_schedule_ssz_multiproof_witness_v1(
+            current_fork_witness, 120, expected_beacon_root
+        )
+        for bad_window, bad_root in (
+            (119, expected_beacon_root),
+            (120, bytes.fromhex("ff") + expected_beacon_root[1:]),
+        ):
+            with self.assertRaises(ValueError):
+                settlement.verify_current_schedule_ssz_multiproof_witness_v1(
+                    current_fork_witness, bad_window, bad_root
+                )
+        seal_witness = settlement.ScheduleSealWitnessV1(
+            current_fork_witness,
+            bytes.fromhex("d4") + bytes.fromhex("80") * 20,
+            path, path, path, (empty_cell,) * 64, (),
+        ).encode()
+        oracle.current_window = 112
         deadline = second_mature.timestamp + 100
         before = dict(oracle.sealed_windows)
         for bad_return in (b"", b"SFC1" + bytes(251), bytes(256)):
             with self.assertRaises(ValueError):
                 oracle.seal_window_v1(
-                    120, second.fork_digest, b"retryable-witness", bad_return,
+                    120, second.fork_digest, seal_witness, bad_return,
                     seal_deadline=deadline, clock=second_mature,
                 )
         self.assertEqual(oracle.sealed_windows, before)
         carrier = b"SFC1" + bytes(28) + b"s" * 32 + bytes(192)
+        wrong_inner_window = settlement.ScheduleSealWitnessV1(
+            (119).to_bytes(8, "big") + current_fork_witness[8:],
+            bytes.fromhex("d4") + bytes.fromhex("80") * 20,
+            path, path, path, (empty_cell,) * 64, (),
+        ).encode()
+        with self.assertRaises(ValueError):
+            oracle.seal_window_v1(
+                120, second.fork_digest, wrong_inner_window, carrier,
+                seal_deadline=deadline, clock=second_mature,
+            )
         seal = oracle.seal_window_v1(
-            120, second.fork_digest, b"valid-witness", carrier,
+            120, second.fork_digest, seal_witness, carrier,
             seal_deadline=deadline, clock=second_mature,
         )
         self.assertEqual(oracle.consume_window_v1(
@@ -16971,6 +17300,99 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             121, seal_deadline=deadline, clock=after_deadline
         ), bytes(32))
         self.assertNotIn(121, oracle.sealed_windows)
+
+    def test_schedule_seal_witness_and_outer_abi_are_canonical(self):
+        empty = settlement.ScheduleRegistryCellWitnessV1(
+            0, bytes(20), 0, 0, 0, bytes(32), 0
+        )
+        path = settlement.ScheduleMptPathV1((bytes.fromhex("c0"),))
+        witness = settlement.ScheduleSealWitnessV1(
+            b"fork-proof", bytes.fromhex("d4") + bytes.fromhex("80") * 20,
+            path, path, path, (empty,) * 64, (),
+        )
+        encoded = witness.encode()
+        self.assertEqual(
+            settlement.decode_schedule_seal_witness_v1(encoded), witness
+        )
+        self.assertEqual(len(empty.encode()), 101)
+        calldata = settlement.encode_schedule_seal_calldata_v1(
+            120, bytes.fromhex("01020304"), witness
+        )
+        self.assertEqual(calldata[:4].hex(), "68949048")
+        self.assertEqual(
+            len(calldata), 132 + (len(encoded) + 31) // 32 * 32
+        )
+        self.assertEqual(
+            settlement.decode_schedule_seal_calldata_v1(calldata),
+            (120, bytes.fromhex("01020304"), witness),
+        )
+        returned = settlement.encode_schedule_seal_return_v1(
+            120, b"e" * 32, b"s" * 32
+        )
+        self.assertEqual(len(returned), 128)
+        self.assertEqual(returned[:32], b"SSW1" + bytes(28))
+
+        present = settlement.ScheduleRegistryCellWitnessV1(
+            1, b"b" * 20, 1, 0, 0, b"t" * 32,
+            settlement.UINT64_MAX,
+        )
+        record = settlement.ScheduleTrancheRecordWitnessV1(
+            settlement.UINT64_MAX, 0, 0, 0, (bytes(32),) * 9
+        )
+        self.assertEqual(len(record.encode()), 329)
+        one_present = settlement.ScheduleSealWitnessV1(
+            b"fork-proof", bytes.fromhex("d4") + bytes.fromhex("80") * 20,
+            path, path, path, (present,) + (empty,) * 63, (record,),
+        )
+        self.assertEqual(
+            settlement.decode_schedule_seal_witness_v1(one_present.encode()),
+            one_present,
+        )
+
+        malformed = []
+        dirty_window = bytearray(calldata)
+        dirty_window[4] = 1
+        malformed.append(bytes(dirty_window))
+        dirty_fork = bytearray(calldata)
+        dirty_fork[40] = 1
+        malformed.append(bytes(dirty_fork))
+        bad_offset = bytearray(calldata)
+        bad_offset[99] = 0x61
+        malformed.append(bytes(bad_offset))
+        dirty_padding = bytearray(calldata)
+        dirty_padding[-1] = 1
+        malformed.extend((bytes(dirty_padding), calldata + b"\x00"))
+        for bad in malformed:
+            with self.assertRaises(ValueError):
+                settlement.decode_schedule_seal_calldata_v1(bad)
+        for bad_witness in (
+                b"\x00" + encoded[1:], encoded[:-1], encoded + b"\x00"):
+            with self.assertRaises(ValueError):
+                settlement.decode_schedule_seal_witness_v1(bad_witness)
+
+    def test_schedule_seal_witness_bounds_and_rlp_are_fail_closed(self):
+        empty = settlement.ScheduleRegistryCellWitnessV1(
+            0, bytes(20), 0, 0, 0, bytes(32), 0
+        )
+        path = settlement.ScheduleMptPathV1((bytes.fromhex("c0"),))
+
+        def witness(header, mpt=path):
+            return settlement.ScheduleSealWitnessV1(
+                b"f", header, mpt, path, path, (empty,) * 64, ()
+            )
+
+        for fields in (19, 33):
+            header = bytes((0xC0 + fields,)) + bytes.fromhex("80") * fields
+            with self.assertRaises(ValueError):
+                witness(header).encode()
+        with self.assertRaises(ValueError):
+            witness(bytes.fromhex("b80100")).encode()
+        with self.assertRaises(ValueError):
+            settlement.ScheduleMptPathV1((bytes.fromhex("c0"),) * 67).encode()
+        oversized_node = bytes.fromhex("f90256") + bytes.fromhex("80") * 598
+        self.assertEqual(len(oversized_node), 601)
+        with self.assertRaises(ValueError):
+            settlement.ScheduleMptPathV1((oversized_node,)).encode()
 
     def test_nonextendable_version_lease_arm_abort_and_rollback(self):
         fixture = protocol_authority_fixture()
@@ -20526,7 +20948,9 @@ class RegistryLifecycleRound4Tests(unittest.TestCase):
         self.assertEqual(registry.active[63].registration_index, 64)
 
     def test_registration_index_and_bond_floor_are_derived(self):
-        registry = settlement.RegistryLifecycle([], lease_per_window_atomic=10)
+        registry = settlement.RegistryLifecycle(
+            [], lease_per_window_atomic=10, maximum_bond_atomic=20
+        )
         wrong_index = self.generation(1, bond=10)
         self.assertFalse(registry.admit(
             wrong_index, 0, caller=wrong_index.address
@@ -20535,6 +20959,19 @@ class RegistryLifecycleRound4Tests(unittest.TestCase):
         self.assertFalse(registry.admit(
             below_floor, 0, caller=below_floor.address
         ))
+        above_cap = self.generation(0, bond=21)
+        self.assertFalse(registry.admit(
+            above_cap, 0, caller=above_cap.address
+        ))
+        at_cap = self.generation(0, bond=20, effective_window=999)
+        self.assertTrue(registry.admit(
+            at_cap, 0, caller=at_cap.address, current_l2_slot=19
+        ))
+        self.assertEqual(registry.next_registration_index, 1)
+
+        registry = settlement.RegistryLifecycle(
+            [], lease_per_window_atomic=10, maximum_bond_atomic=20
+        )
         first = self.generation(0, bond=10, effective_window=999)
         self.assertTrue(registry.admit(
             first, 0, caller=first.address, current_l2_slot=19
@@ -20755,10 +21192,53 @@ class RegistryLifecycleRound4Tests(unittest.TestCase):
         cursor = settlement.ScheduleReleaseCursor(first_managed_window=1_000_000)
         self.assertEqual(cursor.next_release_window, 1_000_000)
         self.assertFalse(cursor.is_expired(999_999))
+        self.assertEqual(
+            cursor.release_state(999_999),
+            (settlement.ScheduleReleaseState.UNSEALED, bytes(32)),
+        )
+        self.assertEqual(
+            cursor.window_state(999_999),
+            (settlement.ScheduleReleaseState.UNSEALED, bytes(32), bytes(32)),
+        )
+        cursor.sealed_entry_roots[1_000_000] = b"r" * 32
+        cursor.sealed_seeds[1_000_000] = b"s" * 32
+        self.assertEqual(
+            cursor.window_state(1_000_000),
+            (settlement.ScheduleReleaseState.SEALED, b"r" * 32, b"s" * 32),
+        )
+        swv = settlement.encode_schedule_window_return_v1(
+            1_000_000, *cursor.window_state(1_000_000)
+        )
+        self.assertEqual(len(swv), 160)
+        self.assertEqual(swv[:32], b"SWV1" + bytes(28))
         self.assertFalse(cursor.expire(0, releasable=True))
         self.assertTrue(cursor.expire(1_000_000, releasable=True))
         self.assertTrue(cursor.is_expired(1_000_000))
         self.assertFalse(cursor.is_expired(999_999))
+        self.assertEqual(
+            cursor.window_state(1_000_000),
+            (settlement.ScheduleReleaseState.EXPIRED, bytes(32), bytes(32)),
+        )
+        vacant = settlement.ScheduleReleaseCursor(first_managed_window=5)
+        vacant.objectively_vacant.add(5)
+        self.assertEqual(
+            vacant.window_state(5),
+            (settlement.ScheduleReleaseState.VACANT,
+             settlement.EMPTY_RANKED_ENTRY_ROOT, bytes(32)),
+        )
+
+    def test_registration_exit_head_skip_is_bounded_to_64_records(self):
+        registry = settlement.RegistryLifecycle([])
+        registry.next_exit_sequence = 65
+        registry.exit_requests = {
+            sequence: settlement.BuilderExitRequest(
+                sequence, sequence, 0, 0, resolved=True
+            )
+            for sequence in range(65)
+        }
+        self.assertTrue(registry._mature_live_exit_pending(0))
+        registry.exit_head_sequence = 1
+        self.assertFalse(registry._mature_live_exit_pending(0))
 
     def test_schedule_expiry_commits_safe_prefix_and_auth_fault_rolls_back(self):
         root_10 = b"a" * 32

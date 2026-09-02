@@ -152,6 +152,7 @@ SESSION_MAINTENANCE_NOOP = 0
 SESSION_MAINTENANCE_SYNCED = 1
 SESSION_MAINTENANCE_SCANNED = 2
 MAX_LIVE_WINDOWS = 268
+MAX_BUILDERS = 64
 ENTRY_DELAY_WINDOWS = 8
 MAX_TRANCHE_AHEAD_WINDOWS = 16
 EVIDENCE_DELAY_SECONDS = 86_400
@@ -4136,6 +4137,49 @@ class Generation:
     effective_l2_slot: int | None = None
 
 
+def builder_admission_leaf_hash_v1(
+    position: int, location: int, builder: object, bond: int,
+    registration_index: int, effective_l2_slot: int,
+    tombstoned_at_l2_slot: int,
+) -> bytes:
+    if (not 0 <= position < 2_048 or location not in {1, 2}
+            or (location == 1 and position >= MAX_BUILDERS)
+            or (location == 2 and not MAX_BUILDERS <= position
+                < MAX_BUILDERS + MAX_LIABILITY_GENERATIONS)):
+        raise ValueError("builder admission position/location is invalid")
+    builder_address = _model_address20(builder)
+    if (builder_address == bytes(20) or not 0 < bond < 1 << 192
+            or not 0 <= registration_index <= UINT64_MAX
+            or not 0 <= effective_l2_slot <= UINT64_MAX
+            or not 0 <= tombstoned_at_l2_slot <= UINT64_MAX):
+        raise ValueError("builder admission identity is invalid")
+    return keccak256(b"".join((
+        b"slot-chain-admission-leaf-v1",
+        _model_uint(position, 2, "builder admission position"),
+        b"\x01", bytes((location,)), builder_address,
+        _model_uint(bond, 24, "builder admission bond"),
+        _model_uint(registration_index, 8, "builder registration index"),
+        _model_uint(effective_l2_slot, 8, "builder effective L2 slot"),
+        _model_uint(
+            tombstoned_at_l2_slot, 8, "builder tombstone L2 slot"
+        ),
+    )))
+
+
+def historical_evidence_admission_leaf_hash_v1(
+    position: int, generation: Generation,
+) -> bytes:
+    if (type(generation) is not Generation
+            or generation.effective_l2_slot is None):
+        raise ValueError("historical evidence generation is invalid")
+    location = 1 if position < MAX_BUILDERS else 2
+    return builder_admission_leaf_hash_v1(
+        position, location, generation.address, generation.bond,
+        generation.registration_index, generation.effective_l2_slot,
+        UINT64_MAX,
+    )
+
+
 class TrancheState(Enum):
     EMPTY = 0
     FREE = 1
@@ -4173,6 +4217,932 @@ EMPTY_RANKED_ENTRY_ROOT = bytes.fromhex(
     "986d3e795bd9ddfabe213b93cea0211eea5a663e895bfc112d90c5bf2fff1564"
 )
 
+SCHEDULE_SEAL_SELECTOR = bytes.fromhex("68949048")
+SCHEDULE_SEAL_MAGIC = b"SSW1"
+SCHEDULE_WINDOW_SELECTOR = bytes.fromhex("15fadbaa")
+SCHEDULE_WINDOW_MAGIC = b"SWV1"
+SCHEDULE_SEAL_WITNESS_VERSION = 1
+MAX_SCHEDULE_FORK_WITNESS_BYTES = 131_072
+MAX_SCHEDULE_SEAL_WITNESS_BYTES = 280_000
+MAX_SCHEDULE_CARRIER_HEADER_BYTES = 2_048
+MAX_SCHEDULE_HEADER_FIELDS = 32
+MIN_SCHEDULE_HEADER_FIELDS = 20
+MAX_SCHEDULE_MPT_PATH_NODES = 66
+MAX_SCHEDULE_MPT_NODE_BYTES = 600
+MAX_SCHEDULE_MPT_BYTES = 120_000
+SCHEDULE_REGISTRY_CELL_BYTES = 101
+SCHEDULE_TRANCHE_RECORD_BYTES = 329
+PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS = 2_592_000
+PROTOCOL_ROOT_ROLE_COUNT = 9
+PROTOCOL_ROOT_MANIFEST_BYTES = 969
+PROTOCOL_ROOT_FIRST_MANAGED_RUNWAY_WINDOWS = 18
+PROTOCOL_ROOT_WINDOW_SECONDS = 384
+ROOT_MIGRATION_MINIMUM_DELAY_SECONDS = 604_800
+ROOT_MIGRATION_EXECUTION_WINDOW_SECONDS = 604_800
+ROOT_MIGRATION_FACTORY_CONFIG_READ_GAS = 100_000
+ROOT_MIGRATION_COMPONENT_CONFIG_READ_GAS = 50_000
+ROOT_MIGRATION_FACTORY_STAGE_CALL_GAS = 1_500_000
+ROOT_MIGRATION_POST_STAGE_RESERVE_GAS = 300_000
+PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIG_READ_GAS = 100_000
+PROTOCOL_ROOT_FACTORY_COMPONENT_CONFIG_READ_GAS = 50_000
+PROTOCOL_ROOT_FACTORY_ACTIVATION_CALL_GAS = 50_000
+PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS = 100_000
+PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIRM_CALL_GAS = 500_000
+PROTOCOL_ROOT_FACTORY_DEPLOYMENT_POSTCHECK_RESERVE_GAS = 500_000
+PROTOCOL_ROOT_SELECTORS_V1 = {
+    "queueRootMigrationV1(address,bytes32,bytes32,bytes32)": "3499bb4a",
+    "executeRootMigrationV1(bytes32,address,bytes)": "9987f8ae",
+    "cancelRootMigrationV1(bytes32)": "fcb20098",
+    "expireRootMigrationV1(bytes32)": "e55926d1",
+    "rootMigrationOperationV1(bytes32)": "dade63bb",
+    "rootMigrationExecutorConfigV1()": "e9d1d099",
+    "rootMigrationAuthorityV1()": "ccf788d5",
+    "stageProtocolRootV1(bytes32,bytes)": "53c99a5f",
+    "deployProtocolRootComponentV1(bytes32,uint8,bytes)": "31f4d140",
+    "finalizeProtocolRootV1(bytes32)": "95f759ad",
+    "abortProtocolRootCampaignV1(bytes32)": "3774c8a5",
+    "protocolRootCampaignV1(bytes32)": "e6139cad",
+    "protocolRootComponentV1(bytes32,uint8)": "007f4b23",
+    "activateProtocolRootV1(bytes32)": "74e3aa45",
+    "protocolRootActivationV1()": "da930d69",
+    "confirmRootMigrationV1(bytes32,bytes32,bytes32)": "b1372f22",
+    "clearAbortedRootMigrationV1(bytes32,bytes32)": "95b71205",
+    "protocolRootFactoryConfigV1()": "d7b40838",
+}
+for _root_signature, _root_selector in PROTOCOL_ROOT_SELECTORS_V1.items():
+    if keccak256(_root_signature.encode())[:4].hex() != _root_selector:
+        raise AssertionError(f"protocol-root selector drifted: {_root_signature}")
+
+
+def root_migration_executor_configuration_hash_v1(
+    settlement_chain_id: int, dao_proposer: bytes,
+) -> bytes:
+    if (not 0 < settlement_chain_id < 1 << 256
+            or type(dao_proposer) is not bytes or len(dao_proposer) != 20
+            or dao_proposer == bytes(20)):
+        raise ValueError("root-migration executor configuration is invalid")
+    return keccak256(b"".join((
+        b"slot-chain-root-migration-executor-config-v1",
+        _model_uint(settlement_chain_id, 32, "root-migration chain"),
+        dao_proposer,
+        _model_uint(
+            ROOT_MIGRATION_MINIMUM_DELAY_SECONDS, 8,
+            "root-migration minimum delay",
+        ),
+        _model_uint(
+            ROOT_MIGRATION_EXECUTION_WINDOW_SECONDS, 8,
+            "root-migration execution window",
+        ),
+        _model_uint(
+            ROOT_MIGRATION_FACTORY_CONFIG_READ_GAS, 8,
+            "root-migration Factory config read gas",
+        ),
+        _model_uint(
+            ROOT_MIGRATION_COMPONENT_CONFIG_READ_GAS, 8,
+            "root-migration component config read gas",
+        ),
+        _model_uint(
+            ROOT_MIGRATION_FACTORY_STAGE_CALL_GAS, 8,
+            "root-migration Factory stage gas",
+        ),
+        _model_uint(
+            ROOT_MIGRATION_POST_STAGE_RESERVE_GAS, 8,
+            "root-migration post-stage reserve gas",
+        ),
+    )))
+
+
+def protocol_root_factory_configuration_hash_v1(
+    settlement_chain_id: int, manifest_namespace: bytes,
+    delayed_executor: bytes, executor_runtime_hash: bytes,
+    executor_configuration_hash: bytes, proxy_creation_code_hash: bytes,
+    proxy_runtime_hash: bytes,
+) -> bytes:
+    words = (
+        manifest_namespace, executor_runtime_hash,
+        executor_configuration_hash, proxy_creation_code_hash,
+        proxy_runtime_hash,
+    )
+    if (not 0 < settlement_chain_id < 1 << 256
+            or type(delayed_executor) is not bytes
+            or len(delayed_executor) != 20 or delayed_executor == bytes(20)
+            or any(type(word) is not bytes or len(word) != 32
+                   or word == bytes(32) for word in words)):
+        raise ValueError("protocol-root Factory configuration is invalid")
+    return keccak256(b"".join((
+        b"slot-chain-protocol-root-factory-config-v1",
+        _model_uint(settlement_chain_id, 32, "protocol-root chain"),
+        manifest_namespace, delayed_executor, executor_runtime_hash,
+        executor_configuration_hash, proxy_creation_code_hash,
+        proxy_runtime_hash,
+        _model_uint(
+            PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS, 8,
+            "protocol-root campaign lifetime",
+        ),
+        _model_uint(
+            PROTOCOL_ROOT_FACTORY_DEPLOYMENT_POSTCHECK_RESERVE_GAS, 8,
+            "protocol-root deployment postcheck reserve",
+        ),
+        _model_uint(
+            PROTOCOL_ROOT_FIRST_MANAGED_RUNWAY_WINDOWS, 1,
+            "protocol-root first managed runway",
+        ),
+        _model_uint(
+            PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIG_READ_GAS, 8,
+            "protocol-root Executor config read gas",
+        ),
+        _model_uint(
+            PROTOCOL_ROOT_FACTORY_COMPONENT_CONFIG_READ_GAS, 8,
+            "protocol-root component config read gas",
+        ),
+        _model_uint(
+            PROTOCOL_ROOT_FACTORY_ACTIVATION_CALL_GAS, 8,
+            "protocol-root activation call gas",
+        ),
+        _model_uint(
+            PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, 8,
+            "protocol-root external read gas",
+        ),
+        _model_uint(
+            PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIRM_CALL_GAS, 8,
+            "protocol-root Executor confirmation gas",
+        ),
+    )))
+
+
+@dataclass(frozen=True)
+class ProtocolRootManifestV1:
+    settlement_chain_id: int
+    generation: int
+    manifest_namespace: bytes
+    predecessor_root_receipt: bytes
+    components: tuple[tuple[bytes, bytes, bytes], ...]
+
+    def encode(self) -> bytes:
+        if (self.settlement_chain_id <= 0
+                or not 0 <= self.generation <= UINT64_MAX
+                or len(self.manifest_namespace) != 32
+                or self.manifest_namespace == bytes(32)
+                or len(self.predecessor_root_receipt) != 32
+                or len(self.components) != PROTOCOL_ROOT_ROLE_COUNT):
+            raise ValueError("protocol-root manifest header is invalid")
+        flat = []
+        for row in self.components:
+            if (len(row) != 3 or any(type(value) is not bytes
+                                    or len(value) != 32
+                                    or value == bytes(32) for value in row)):
+                raise ValueError("protocol-root component descriptor is invalid")
+            flat.extend(row)
+        encoded = b"".join((
+            b"\x01",
+            _model_uint(self.settlement_chain_id, 32, "root settlement chain"),
+            _model_uint(self.generation, 8, "root generation"),
+            self.manifest_namespace, self.predecessor_root_receipt, *flat,
+        ))
+        if len(encoded) != PROTOCOL_ROOT_MANIFEST_BYTES:
+            raise AssertionError("protocol-root manifest width drift")
+        return encoded
+
+    def campaign_key(self, factory: bytes) -> bytes:
+        if type(factory) is not bytes or len(factory) != 20 \
+                or factory == bytes(20):
+            raise ValueError("protocol-root factory address is invalid")
+        return keccak256(b"".join((
+            b"slot-chain-protocol-root-campaign-v1",
+            _model_uint(self.settlement_chain_id, 32, "root settlement chain"),
+            factory, _model_uint(self.generation, 8, "root generation"),
+            self.manifest_namespace, self.predecessor_root_receipt,
+        )))
+
+    def manifest_hash(self) -> bytes:
+        encoded = self.encode()
+        return keccak256(
+            b"slot-chain-protocol-root-manifest-v1"
+            + len(encoded).to_bytes(2, "big") + encoded
+        )
+
+
+def protocol_root_component_address_v1(
+    factory: bytes, campaign_key: bytes, role: int,
+    proxy_creation_code_hash: bytes,
+) -> bytes:
+    if (type(factory) is not bytes or len(factory) != 20
+            or factory == bytes(20) or type(campaign_key) is not bytes
+            or len(campaign_key) != 32 or campaign_key == bytes(32)
+            or role not in range(1, PROTOCOL_ROOT_ROLE_COUNT + 1)
+            or type(proxy_creation_code_hash) is not bytes
+            or len(proxy_creation_code_hash) != 32
+            or proxy_creation_code_hash == bytes(32)):
+        raise ValueError("protocol-root component address inputs are invalid")
+    salt = keccak256(
+        b"slot-chain-protocol-root-component-v1"
+        + campaign_key + bytes((role,))
+    )
+    proxy = keccak256(
+        b"\xff" + factory + salt + proxy_creation_code_hash
+    )[12:]
+    return keccak256(b"\xd6\x94" + proxy + b"\x01")[12:]
+
+
+@dataclass
+class ProtocolRootCampaignModelV1:
+    manifest: ProtocolRootManifestV1
+    operation_id: bytes
+    key: bytes
+    manifest_hash: bytes
+    expires_at: int
+    state: int = 1
+    deployed_bitmap: int = 0
+    components: dict[int, bytes] = field(default_factory=dict)
+    active_roles: set[int] = field(default_factory=set)
+    root_receipt: bytes = bytes(32)
+
+
+@dataclass
+class ProtocolRootFactoryModelV1:
+    address: bytes
+    settlement_chain_id: int
+    manifest_namespace: bytes
+    proxy_creation_code_hash: bytes
+    runtime_hash: bytes
+    configuration_hash: bytes
+    generation: int = 0
+    active_root_receipt: bytes = bytes(32)
+    live: ProtocolRootCampaignModelV1 | None = None
+    history: dict[bytes, ProtocolRootCampaignModelV1] = field(default_factory=dict)
+
+    def stage_v1(
+        self, operation_id: bytes, manifest: ProtocolRootManifestV1, now: int,
+        *, authorized: bool,
+    ) -> tuple[bytes, bytes, bytes, int, int]:
+        if (not authorized or self.live is not None
+                or self.active_root_receipt != bytes(32)
+                or type(operation_id) is not bytes or len(operation_id) != 32
+                or operation_id == bytes(32)
+                or manifest.settlement_chain_id != self.settlement_chain_id
+                or manifest.generation != self.generation
+                or manifest.manifest_namespace != self.manifest_namespace
+                or manifest.predecessor_root_receipt != bytes(32)
+                or not 0 <= now <= UINT64_MAX -
+                PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS):
+            raise ValueError("protocol-root campaign cannot be staged")
+        key = manifest.campaign_key(self.address)
+        self.live = ProtocolRootCampaignModelV1(
+            manifest, operation_id, key, manifest.manifest_hash(),
+            now + PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS,
+        )
+        self.history[key] = self.live
+        return (
+            operation_id, key, self.live.manifest_hash, manifest.generation,
+            self.live.expires_at,
+        )
+
+    def deploy_component_v1(
+        self, key: bytes, role: int, init_code: bytes,
+        observed_runtime_hash: bytes, observed_configuration_hash: bytes,
+        now: int, *, inactive: bool = True,
+    ) -> bytes:
+        campaign = self.live
+        if (campaign is None or campaign.key != key or campaign.state != 1
+                or now > campaign.expires_at
+                or role not in range(1, PROTOCOL_ROOT_ROLE_COUNT + 1)
+                or campaign.deployed_bitmap & (1 << (role - 1))
+                or type(init_code) is not bytes
+                or not 0 < len(init_code) <= 49_152 or not inactive):
+            raise ValueError("protocol-root component deployment is invalid")
+        expected = campaign.manifest.components[role - 1]
+        if (keccak256(init_code) != expected[0]
+                or observed_runtime_hash != expected[1]
+                or observed_configuration_hash != expected[2]):
+            raise ValueError("protocol-root component observation mismatch")
+        component = protocol_root_component_address_v1(
+            self.address, key, role, self.proxy_creation_code_hash
+        )
+        campaign.components[role] = component
+        campaign.deployed_bitmap |= 1 << (role - 1)
+        return component
+
+    def finalize_v1(
+        self, key: bytes, now: int, *, postvalidated: bool,
+        genesis_timestamp: int, first_managed_window: int,
+        executor: RootMigrationExecutorModelV1,
+    ) -> bytes:
+        campaign = self.live
+        if (not 0 <= genesis_timestamp <= UINT64_MAX
+                or not 0 <= first_managed_window <= UINT64_MAX):
+            raise ValueError("protocol-root managed-window inputs are invalid")
+        current_window = (
+            0 if now < genesis_timestamp
+            else (now - genesis_timestamp) // PROTOCOL_ROOT_WINDOW_SECONDS
+        )
+        if (campaign is None or campaign.key != key or campaign.state != 1
+                or now > campaign.expires_at or not postvalidated
+                or current_window > UINT64_MAX
+                - PROTOCOL_ROOT_FIRST_MANAGED_RUNWAY_WINDOWS
+                or first_managed_window < current_window
+                + PROTOCOL_ROOT_FIRST_MANAGED_RUNWAY_WINDOWS
+                or campaign.deployed_bitmap
+                != (1 << PROTOCOL_ROOT_ROLE_COUNT) - 1):
+            raise ValueError("protocol-root campaign cannot finalize")
+        addresses = b"".join(campaign.components[role]
+                             for role in range(1, 10))
+        receipt = keccak256(
+            b"slot-chain-protocol-root-receipt-v1" + key
+            + campaign.manifest_hash + addresses
+        )
+        campaign.active_roles = set(range(1, 10))
+        campaign.root_receipt = receipt
+        campaign.state = 2
+        self.active_root_receipt = receipt
+        try:
+            executor.confirm_v1(
+                campaign.operation_id, self, key, receipt
+            )
+        except Exception:
+            campaign.active_roles = set()
+            campaign.root_receipt = bytes(32)
+            campaign.state = 1
+            self.active_root_receipt = bytes(32)
+            raise
+        self.generation += 1
+        self.live = None
+        return receipt
+
+    def abort_v1(self, key: bytes, now: int) -> None:
+        campaign = self.live
+        if (campaign is None or campaign.key != key or campaign.state != 1
+                or now <= campaign.expires_at):
+            raise ValueError("protocol-root campaign cannot abort")
+        campaign.state = 3
+        self.generation += 1
+        self.live = None
+
+
+@dataclass
+class RootMigrationOperationModelV1:
+    operation_id: bytes
+    nonce: int
+    factory: bytes
+    manifest_hash: bytes
+    factory_runtime_hash: bytes
+    factory_configuration_hash: bytes
+    queued_at: int
+    execute_after: int
+    execute_before: int
+    state: int = 1
+
+
+@dataclass
+class RootMigrationExecutorModelV1:
+    address: bytes
+    settlement_chain_id: int
+    dao_proposer: bytes
+    next_operation_nonce: int = 1
+    authority_state: int = 0
+    candidate_factory: bytes = bytes(20)
+    candidate_operation_id: bytes = bytes(32)
+    candidate_campaign_key: bytes = bytes(32)
+    active_factory: bytes = bytes(20)
+    active_operation_id: bytes = bytes(32)
+    active_campaign_key: bytes = bytes(32)
+    active_root_receipt: bytes = bytes(32)
+    operations: dict[bytes, RootMigrationOperationModelV1] = field(
+        default_factory=dict
+    )
+
+    def operation_id_v1(
+        self, nonce: int, factory: bytes, manifest_hash: bytes,
+        factory_runtime_hash: bytes, factory_configuration_hash: bytes,
+    ) -> bytes:
+        if (not 1 <= nonce <= UINT64_MAX
+                or type(factory) is not bytes or len(factory) != 20
+                or factory == bytes(20)
+                or type(manifest_hash) is not bytes
+                or len(manifest_hash) != 32 or manifest_hash == bytes(32)
+                or type(factory_runtime_hash) is not bytes
+                or len(factory_runtime_hash) != 32
+                or factory_runtime_hash == bytes(32)
+                or type(factory_configuration_hash) is not bytes
+                or len(factory_configuration_hash) != 32
+                or factory_configuration_hash == bytes(32)):
+            raise ValueError("root-migration operation identity is invalid")
+        return keccak256(b"".join((
+            b"slot-chain-root-migration-operation-v1",
+            _model_uint(
+                self.settlement_chain_id, 32, "root-migration settlement chain"
+            ),
+            self.address,
+            _model_uint(nonce, 8, "root-migration operation nonce"),
+            factory,
+            manifest_hash,
+            factory_runtime_hash,
+            factory_configuration_hash,
+        )))
+
+    def queue_v1(
+        self, factory: bytes, manifest_hash: bytes,
+        factory_runtime_hash: bytes, factory_configuration_hash: bytes,
+        now: int, *, caller: bytes,
+    ) -> bytes:
+        nonce = self.next_operation_nonce
+        if (caller != self.dao_proposer or nonce > UINT64_MAX
+                or not 0 <= now <= UINT64_MAX
+                - ROOT_MIGRATION_MINIMUM_DELAY_SECONDS
+                - ROOT_MIGRATION_EXECUTION_WINDOW_SECONDS
+                or self.authority_state != 0):
+            raise ValueError("root-migration operation cannot be queued")
+        operation_id = self.operation_id_v1(
+            nonce, factory, manifest_hash, factory_runtime_hash,
+            factory_configuration_hash,
+        )
+        if operation_id in self.operations:
+            raise ValueError("root-migration operation already exists")
+        execute_after = now + ROOT_MIGRATION_MINIMUM_DELAY_SECONDS
+        operation = RootMigrationOperationModelV1(
+            operation_id, nonce, factory, manifest_hash,
+            factory_runtime_hash, factory_configuration_hash, now,
+            execute_after, execute_after
+            + ROOT_MIGRATION_EXECUTION_WINDOW_SECONDS,
+        )
+        self.operations[operation_id] = operation
+        self.next_operation_nonce += 1
+        return operation_id
+
+    def execute_v1(
+        self, operation_id: bytes, factory: ProtocolRootFactoryModelV1,
+        manifest: ProtocolRootManifestV1, now: int,
+    ) -> bytes:
+        operation = self.operations.get(operation_id)
+        if (operation is None or operation.state != 1
+                or operation.factory != factory.address
+                or self.authority_state != 0
+                or operation.factory_runtime_hash != factory.runtime_hash
+                or operation.factory_configuration_hash
+                != factory.configuration_hash
+                or manifest.manifest_hash() != operation.manifest_hash
+                or self.operation_id_v1(
+                    operation.nonce, operation.factory, operation.manifest_hash,
+                    operation.factory_runtime_hash,
+                    operation.factory_configuration_hash,
+                ) != operation_id
+                or not operation.execute_after <= now <= operation.execute_before):
+            raise ValueError("root-migration operation cannot execute")
+        self.authority_state = 1
+        self.candidate_factory = factory.address
+        self.candidate_operation_id = operation_id
+        self.candidate_campaign_key = manifest.campaign_key(factory.address)
+        operation.state = 2
+        try:
+            receipt = factory.stage_v1(
+                operation_id, manifest, now, authorized=True
+            )
+            expected = (
+                operation_id, self.candidate_campaign_key,
+                operation.manifest_hash, manifest.generation,
+                now + PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS,
+            )
+            campaign = factory.live
+            if (receipt != expected or campaign is None
+                    or campaign.operation_id != operation_id
+                    or campaign.key != expected[1]
+                    or campaign.manifest_hash != operation.manifest_hash
+                    or campaign.state != 1
+                    or campaign.expires_at != expected[4]):
+                raise ValueError("root-migration stage receipt is invalid")
+        except Exception:
+            operation.state = 1
+            self.authority_state = 0
+            self.candidate_factory = bytes(20)
+            self.candidate_operation_id = bytes(32)
+            self.candidate_campaign_key = bytes(32)
+            raise
+        operation.state = 3
+        return expected[1]
+
+    def confirm_v1(
+        self, operation_id: bytes, factory: ProtocolRootFactoryModelV1,
+        campaign_key: bytes, root_receipt: bytes,
+    ) -> None:
+        operation = self.operations.get(operation_id)
+        campaign = factory.history.get(campaign_key)
+        if (self.authority_state != 1 or operation is None
+                or operation.state != 3
+                or self.candidate_factory != factory.address
+                or self.candidate_operation_id != operation_id
+                or self.candidate_campaign_key != campaign_key
+                or operation.factory_runtime_hash != factory.runtime_hash
+                or operation.factory_configuration_hash
+                != factory.configuration_hash
+                or campaign is None or campaign.operation_id != operation_id
+                or campaign.state != 2 or campaign.root_receipt != root_receipt
+                or root_receipt == bytes(32)):
+            raise ValueError("root-migration activation cannot confirm")
+        operation.state = 4
+        self.authority_state = 2
+        self.active_factory = factory.address
+        self.active_operation_id = operation_id
+        self.active_campaign_key = campaign_key
+        self.active_root_receipt = root_receipt
+        self.candidate_factory = bytes(20)
+        self.candidate_operation_id = bytes(32)
+        self.candidate_campaign_key = bytes(32)
+
+    def clear_aborted_v1(
+        self, operation_id: bytes, factory: ProtocolRootFactoryModelV1,
+        campaign_key: bytes,
+    ) -> None:
+        operation = self.operations.get(operation_id)
+        campaign = factory.history.get(campaign_key)
+        if (self.authority_state != 1 or operation is None
+                or operation.state != 3
+                or self.candidate_factory != factory.address
+                or self.candidate_operation_id != operation_id
+                or self.candidate_campaign_key != campaign_key
+                or operation.factory_runtime_hash != factory.runtime_hash
+                or operation.factory_configuration_hash
+                != factory.configuration_hash
+                or campaign is None or campaign.operation_id != operation_id
+                or campaign.state != 3):
+            raise ValueError("root-migration aborted candidate cannot clear")
+        operation.state = 7
+        self.authority_state = 0
+        self.candidate_factory = bytes(20)
+        self.candidate_operation_id = bytes(32)
+        self.candidate_campaign_key = bytes(32)
+
+    def cancel_v1(self, operation_id: bytes, *, caller: bytes) -> None:
+        operation = self.operations.get(operation_id)
+        if (caller != self.dao_proposer or operation is None
+                or operation.state != 1):
+            raise ValueError("root-migration operation cannot cancel")
+        operation.state = 5
+
+    def expire_v1(self, operation_id: bytes, now: int) -> None:
+        operation = self.operations.get(operation_id)
+        if (operation is None or operation.state != 1
+                or now <= operation.execute_before):
+            raise ValueError("root-migration operation cannot expire")
+        operation.state = 6
+
+
+def _canonical_rlp_list_field_count(encoded: bytes) -> int:
+    """Return the immediate field count for one complete canonical RLP list."""
+
+    if type(encoded) is not bytes or not encoded:
+        raise ValueError("RLP item is empty")
+
+    def item(offset: int) -> tuple[int, bool, int, int]:
+        if offset >= len(encoded):
+            raise ValueError("RLP item is truncated")
+        prefix = encoded[offset]
+        if prefix <= 0x7F:
+            return offset + 1, False, offset, offset + 1
+        if prefix <= 0xB7:
+            size = prefix - 0x80
+            start = offset + 1
+            end = start + size
+            if end > len(encoded) or (size == 1 and encoded[start] <= 0x7F):
+                raise ValueError("RLP short string is noncanonical")
+            return end, False, start, end
+        if prefix <= 0xBF:
+            size_bytes = prefix - 0xB7
+            size_start = offset + 1
+            size_end = size_start + size_bytes
+            if size_end > len(encoded) or encoded[size_start] == 0:
+                raise ValueError("RLP long-string length is noncanonical")
+            size = int.from_bytes(encoded[size_start:size_end], "big")
+            if size <= 55 or size_end + size > len(encoded):
+                raise ValueError("RLP long string is noncanonical")
+            return size_end + size, False, size_end, size_end + size
+        if prefix <= 0xF7:
+            size = prefix - 0xC0
+            start = offset + 1
+            end = start + size
+            if end > len(encoded):
+                raise ValueError("RLP short list is truncated")
+            return end, True, start, end
+        size_bytes = prefix - 0xF7
+        size_start = offset + 1
+        size_end = size_start + size_bytes
+        if size_end > len(encoded) or encoded[size_start] == 0:
+            raise ValueError("RLP long-list length is noncanonical")
+        size = int.from_bytes(encoded[size_start:size_end], "big")
+        if size <= 55 or size_end + size > len(encoded):
+            raise ValueError("RLP long list is noncanonical")
+        return size_end + size, True, size_end, size_end + size
+
+    end, is_list, payload_start, payload_end = item(0)
+    if end != len(encoded) or not is_list:
+        raise ValueError("RLP value is not one complete list")
+    count = 0
+    cursor = payload_start
+    while cursor < payload_end:
+        child_end, child_is_list, child_start, child_payload_end = item(cursor)
+        if child_end > payload_end:
+            raise ValueError("RLP child exceeds its parent")
+        if child_is_list:
+            raise ValueError("RLP list contains a nested list")
+        cursor = child_end
+        count += 1
+    if cursor != payload_end:
+        raise ValueError("RLP list has a suffix")
+    return count
+
+
+@dataclass(frozen=True)
+class ScheduleMptPathV1:
+    nodes: tuple[bytes, ...]
+
+    def encode(self) -> bytes:
+        if (not 1 <= len(self.nodes) <= MAX_SCHEDULE_MPT_PATH_NODES
+                or any(type(node) is not bytes
+                       or not 0 < len(node) <= MAX_SCHEDULE_MPT_NODE_BYTES
+                       for node in self.nodes)):
+            raise ValueError("Schedule MPT path bounds are invalid")
+        for node in self.nodes:
+            _canonical_rlp_list_field_count(node)
+        return bytes((len(self.nodes),)) + b"".join(
+            len(node).to_bytes(2, "big") + node for node in self.nodes
+        )
+
+
+@dataclass(frozen=True)
+class ScheduleRegistryCellWitnessV1:
+    present: int
+    builder: bytes
+    bond: int
+    registration_index: int
+    effective_l2_slot: int
+    tranche_root: bytes
+    tombstoned_at_l2_slot: int
+
+    def encode(self) -> bytes:
+        if self.present not in {0, 1}:
+            raise ValueError("Schedule registry presence bit is invalid")
+        if (type(self.builder) is not bytes or len(self.builder) != 20
+                or type(self.tranche_root) is not bytes
+                or len(self.tranche_root) != 32):
+            raise ValueError("Schedule registry cell bytes are malformed")
+        if self.present == 0:
+            if self != ScheduleRegistryCellWitnessV1(
+                    0, bytes(20), 0, 0, 0, bytes(32), 0):
+                raise ValueError("absent Schedule registry cell is not zero")
+        elif (self.builder == bytes(20) or self.bond == 0
+              or self.tranche_root == bytes(32)):
+            raise ValueError("present Schedule registry cell is empty")
+        encoded = b"".join((
+            bytes((self.present,)), self.builder,
+            _model_uint(self.bond, 24, "Schedule registry bond"),
+            _model_uint(
+                self.registration_index, 8, "Schedule registration index"
+            ),
+            _model_uint(
+                self.effective_l2_slot, 8, "Schedule effective L2 slot"
+            ),
+            self.tranche_root,
+            _model_uint(
+                self.tombstoned_at_l2_slot, 8,
+                "Schedule tombstone L2 slot",
+            ),
+        ))
+        if len(encoded) != SCHEDULE_REGISTRY_CELL_BYTES:
+            raise AssertionError("Schedule registry cell width drifted")
+        return encoded
+
+
+@dataclass(frozen=True)
+class ScheduleTrancheRecordWitnessV1:
+    stored_window: int
+    state: int
+    amount: int
+    liable_until: int
+    siblings: tuple[bytes, ...]
+
+    def encode(self) -> bytes:
+        if (self.state not in range(6) or len(self.siblings) != 9
+                or any(type(row) is not bytes or len(row) != 32
+                       for row in self.siblings)):
+            raise ValueError("Schedule tranche record is malformed")
+        if self.state == TrancheState.EMPTY.value and (
+                self.stored_window != UINT64_MAX
+                or self.amount != 0 or self.liable_until != 0):
+            raise ValueError("Schedule EMPTY tranche is noncanonical")
+        encoded = b"".join((
+            _model_uint(self.stored_window, 8, "Schedule tranche window"),
+            bytes((self.state,)),
+            _model_uint(self.amount, 24, "Schedule tranche amount"),
+            _model_uint(self.liable_until, 8, "Schedule tranche deadline"),
+            *self.siblings,
+        ))
+        if len(encoded) != SCHEDULE_TRANCHE_RECORD_BYTES:
+            raise AssertionError("Schedule tranche record width drifted")
+        return encoded
+
+
+@dataclass(frozen=True)
+class ScheduleSealWitnessV1:
+    fork_witness: bytes
+    carrier_header_rlp: bytes
+    account_path: ScheduleMptPathV1
+    header_slot_path: ScheduleMptPathV1
+    root_slot_path: ScheduleMptPathV1
+    cells: tuple[ScheduleRegistryCellWitnessV1, ...]
+    tranche_records: tuple[ScheduleTrancheRecordWitnessV1, ...]
+
+    def encode(self) -> bytes:
+        if (type(self.fork_witness) is not bytes
+                or not 1 <= len(self.fork_witness)
+                    <= MAX_SCHEDULE_FORK_WITNESS_BYTES
+                or type(self.carrier_header_rlp) is not bytes
+                or not 1 <= len(self.carrier_header_rlp)
+                    <= MAX_SCHEDULE_CARRIER_HEADER_BYTES
+                or len(self.cells) != 64
+                or len(self.tranche_records)
+                    != sum(cell.present for cell in self.cells)):
+            raise ValueError("Schedule seal witness geometry is invalid")
+        fields = _canonical_rlp_list_field_count(self.carrier_header_rlp)
+        if not MIN_SCHEDULE_HEADER_FIELDS <= fields <= MAX_SCHEDULE_HEADER_FIELDS:
+            raise ValueError("Schedule carrier header field count is invalid")
+        paths = (
+            self.account_path.encode() + self.header_slot_path.encode()
+            + self.root_slot_path.encode()
+        )
+        if len(paths) > MAX_SCHEDULE_MPT_BYTES:
+            raise ValueError("Schedule MPT paths exceed the aggregate cap")
+        encoded = b"".join((
+            bytes((SCHEDULE_SEAL_WITNESS_VERSION,)),
+            len(self.fork_witness).to_bytes(4, "big"), self.fork_witness,
+            len(self.carrier_header_rlp).to_bytes(2, "big"),
+            self.carrier_header_rlp, paths,
+            *(cell.encode() for cell in self.cells),
+            *(record.encode() for record in self.tranche_records),
+        ))
+        if len(encoded) > MAX_SCHEDULE_SEAL_WITNESS_BYTES:
+            raise ValueError("Schedule seal witness exceeds its absolute cap")
+        return encoded
+
+
+def _decode_schedule_mpt_path_v1(
+    data: bytes, offset: int,
+) -> tuple[ScheduleMptPathV1, int]:
+    if offset >= len(data):
+        raise ValueError("Schedule MPT path count is missing")
+    count = data[offset]
+    offset += 1
+    nodes: list[bytes] = []
+    for _ in range(count):
+        if offset + 2 > len(data):
+            raise ValueError("Schedule MPT node length is missing")
+        size = int.from_bytes(data[offset:offset + 2], "big")
+        offset += 2
+        if offset + size > len(data):
+            raise ValueError("Schedule MPT node is truncated")
+        nodes.append(data[offset:offset + size])
+        offset += size
+    path = ScheduleMptPathV1(tuple(nodes))
+    path.encode()
+    return path, offset
+
+
+def decode_schedule_seal_witness_v1(data: bytes) -> ScheduleSealWitnessV1:
+    if (type(data) is not bytes or not data
+            or len(data) > MAX_SCHEDULE_SEAL_WITNESS_BYTES
+            or data[0] != SCHEDULE_SEAL_WITNESS_VERSION):
+        raise ValueError("Schedule seal witness version or size is invalid")
+    offset = 1
+    if offset + 4 > len(data):
+        raise ValueError("Schedule fork witness length is missing")
+    fork_size = int.from_bytes(data[offset:offset + 4], "big")
+    offset += 4
+    fork_witness = data[offset:offset + fork_size]
+    offset += fork_size
+    if len(fork_witness) != fork_size or offset + 2 > len(data):
+        raise ValueError("Schedule fork witness is truncated")
+    header_size = int.from_bytes(data[offset:offset + 2], "big")
+    offset += 2
+    header = data[offset:offset + header_size]
+    offset += header_size
+    if len(header) != header_size:
+        raise ValueError("Schedule carrier header is truncated")
+    account, offset = _decode_schedule_mpt_path_v1(data, offset)
+    header_path, offset = _decode_schedule_mpt_path_v1(data, offset)
+    root_path, offset = _decode_schedule_mpt_path_v1(data, offset)
+    cells: list[ScheduleRegistryCellWitnessV1] = []
+    for _ in range(64):
+        end = offset + SCHEDULE_REGISTRY_CELL_BYTES
+        if end > len(data):
+            raise ValueError("Schedule registry cell list is truncated")
+        raw = data[offset:end]
+        cell = ScheduleRegistryCellWitnessV1(
+            raw[0], raw[1:21], int.from_bytes(raw[21:45], "big"),
+            int.from_bytes(raw[45:53], "big"),
+            int.from_bytes(raw[53:61], "big"), raw[61:93],
+            int.from_bytes(raw[93:101], "big"),
+        )
+        cell.encode()
+        cells.append(cell)
+        offset = end
+    records: list[ScheduleTrancheRecordWitnessV1] = []
+    for _ in range(sum(cell.present for cell in cells)):
+        end = offset + SCHEDULE_TRANCHE_RECORD_BYTES
+        if end > len(data):
+            raise ValueError("Schedule tranche records are truncated")
+        raw = data[offset:end]
+        record = ScheduleTrancheRecordWitnessV1(
+            int.from_bytes(raw[0:8], "big"), raw[8],
+            int.from_bytes(raw[9:33], "big"),
+            int.from_bytes(raw[33:41], "big"),
+            tuple(raw[index:index + 32] for index in range(41, 329, 32)),
+        )
+        record.encode()
+        records.append(record)
+        offset = end
+    if offset != len(data):
+        raise ValueError("Schedule seal witness has a suffix")
+    witness = ScheduleSealWitnessV1(
+        fork_witness, header, account, header_path, root_path,
+        tuple(cells), tuple(records),
+    )
+    if witness.encode() != data:
+        raise ValueError("Schedule seal witness is not canonical")
+    return witness
+
+
+def encode_schedule_seal_calldata_v1(
+    window: int, fork_digest: bytes, witness: ScheduleSealWitnessV1,
+) -> bytes:
+    if type(fork_digest) is not bytes or len(fork_digest) != 4 \
+            or fork_digest == bytes(4):
+        raise ValueError("Schedule fork digest is invalid")
+    payload = witness.encode()
+    padded = (len(payload) + 31) // 32 * 32
+    return b"".join((
+        SCHEDULE_SEAL_SELECTOR,
+        _model_uint(window, 32, "Schedule seal window"),
+        fork_digest + bytes(28),
+        _model_uint(0x60, 32, "Schedule seal witness offset"),
+        _model_uint(len(payload), 32, "Schedule seal witness length"),
+        payload, bytes(padded - len(payload)),
+    ))
+
+
+def decode_schedule_seal_calldata_v1(
+    calldata: bytes,
+) -> tuple[int, bytes, ScheduleSealWitnessV1]:
+    if (type(calldata) is not bytes or len(calldata) < 132
+            or calldata[:4] != SCHEDULE_SEAL_SELECTOR):
+        raise ValueError("Schedule seal calldata selector or length is invalid")
+    words = calldata[4:100]
+    window = _decode_uint_word_v1(words[0:32], 64, "Schedule seal window")
+    fork_digest = _decode_bytes4_word_v1(words[32:64], "Schedule fork digest")
+    if int.from_bytes(words[64:96], "big") != 0x60:
+        raise ValueError("Schedule seal witness offset is noncanonical")
+    size = int.from_bytes(calldata[100:132], "big")
+    padded = (size + 31) // 32 * 32
+    if len(calldata) != 132 + padded:
+        raise ValueError("Schedule seal calldata has a suffix")
+    payload = calldata[132:132 + size]
+    if calldata[132 + size:] != bytes(padded - size):
+        raise ValueError("Schedule seal calldata padding is nonzero")
+    return window, fork_digest, decode_schedule_seal_witness_v1(payload)
+
+
+def encode_schedule_seal_return_v1(
+    window: int, entry_root: bytes, seed: bytes,
+) -> bytes:
+    encoded = b"".join((
+        SCHEDULE_SEAL_MAGIC + bytes(28),
+        _model_uint(window, 32, "Schedule returned window"),
+        _model_fixed_bytes32(entry_root), _model_fixed_bytes32(seed),
+    ))
+    if len(encoded) != 128 or entry_root == bytes(32) or seed == bytes(32):
+        raise ValueError("Schedule seal return is invalid")
+    return encoded
+
+
+def encode_schedule_window_return_v1(
+    window: int, state: ScheduleReleaseState, entry_root: bytes, seed: bytes,
+) -> bytes:
+    if type(state) is not ScheduleReleaseState:
+        raise ValueError("Schedule window state is invalid")
+    if state is ScheduleReleaseState.SEALED:
+        if entry_root == bytes(32) or seed == bytes(32):
+            raise ValueError("SEALED Schedule window is empty")
+    elif state is ScheduleReleaseState.VACANT:
+        if entry_root != EMPTY_RANKED_ENTRY_ROOT or seed != bytes(32):
+            raise ValueError("VACANT Schedule window projection is invalid")
+    elif entry_root != bytes(32) or seed != bytes(32):
+        raise ValueError("inactive Schedule window projection is nonzero")
+    encoded = b"".join((
+        SCHEDULE_WINDOW_MAGIC + bytes(28),
+        _model_uint(window, 32, "Schedule window return window"),
+        _model_uint(state.value, 32, "Schedule window return state"),
+        _model_fixed_bytes32(entry_root), _model_fixed_bytes32(seed),
+    ))
+    if len(encoded) != 160:
+        raise AssertionError("SWV1 return width drifted")
+    return encoded
+
 
 @dataclass
 class ScheduleReleaseCursor:
@@ -4181,6 +5151,7 @@ class ScheduleReleaseCursor:
     first_managed_window: int = 0
     next_release_window: int | None = None
     sealed_entry_roots: dict[int, bytes] = field(default_factory=dict)
+    sealed_seeds: dict[int, bytes] = field(default_factory=dict)
     objectively_vacant: set[int] = field(default_factory=set)
 
     def __post_init__(self) -> None:
@@ -4208,6 +5179,8 @@ class ScheduleReleaseCursor:
         assert self.next_release_window is not None
         if type(window) is not int or not 0 <= window <= UINT64_MAX:
             raise ValueError("release-state window is outside uint64")
+        if window < self.first_managed_window:
+            return ScheduleReleaseState.UNSEALED, bytes(32)
         if window < self.next_release_window:
             return ScheduleReleaseState.EXPIRED, bytes(32)
         root = self.sealed_entry_roots.get(window)
@@ -4218,6 +5191,22 @@ class ScheduleReleaseCursor:
         if window in self.objectively_vacant:
             return ScheduleReleaseState.VACANT, EMPTY_RANKED_ENTRY_ROOT
         return ScheduleReleaseState.UNSEALED, bytes(32)
+
+    def window_state(
+        self, window: int,
+    ) -> tuple[ScheduleReleaseState, bytes, bytes]:
+        """Return the exact SWV1 state/root/seed projection."""
+
+        state, root = self.release_state(window)
+        if state is ScheduleReleaseState.SEALED:
+            seed = self.sealed_seeds.get(window)
+            if type(seed) is not bytes or len(seed) != 32 \
+                    or seed == bytes(32):
+                raise ValueError("sealed Schedule seed is malformed")
+            return state, root, seed
+        if state is ScheduleReleaseState.VACANT:
+            return state, root, bytes(32)
+        return state, bytes(32), bytes(32)
 
     def expire_batch(
         self,
@@ -4604,6 +5593,7 @@ class RegistryLifecycle:
     open_reservations: set[tuple[int, int]] = field(default_factory=set)
     liable_reservations: set[tuple[int, int]] = field(default_factory=set)
     lease_per_window_atomic: int = 1
+    maximum_bond_atomic: int = (1 << 192) - 1
     penalty_sink: str = "builder-penalty-sink"
     tranches: dict[tuple[int, int], TrancheLifecycle] = field(
         default_factory=dict)
@@ -4623,7 +5613,10 @@ class RegistryLifecycle:
         if (len(self.active) > 64
                 or len(self.liability_ring) != MAX_LIABILITY_GENERATIONS
                 or type(self.lease_per_window_atomic) is not int
-                or self.lease_per_window_atomic <= 0):
+                or self.lease_per_window_atomic <= 0
+                or type(self.maximum_bond_atomic) is not int
+                or not self.lease_per_window_atomic
+                <= self.maximum_bond_atomic < 1 << 192):
             raise ValueError("malformed BuilderRegistry geometry")
         seen_addresses: set[str] = set()
         seen_registrations: set[int] = set()
@@ -4632,7 +5625,8 @@ class RegistryLifecycle:
                 continue
             if (generation.address in seen_addresses
                     or generation.registration_index in seen_registrations
-                    or generation.bond < self.lease_per_window_atomic):
+                    or not self.lease_per_window_atomic
+                    <= generation.bond <= self.maximum_bond_atomic):
                 raise ValueError("duplicate or malformed active generation")
             seen_addresses.add(generation.address)
             seen_registrations.add(generation.registration_index)
@@ -4642,7 +5636,8 @@ class RegistryLifecycle:
             generation = occupant[0]
             if (generation.address in seen_addresses
                     or generation.registration_index in seen_registrations
-                    or generation.bond < self.lease_per_window_atomic):
+                    or not self.lease_per_window_atomic
+                    <= generation.bond <= self.maximum_bond_atomic):
                 raise ValueError("duplicate or malformed liability generation")
             seen_addresses.add(generation.address)
             seen_registrations.add(generation.registration_index)
@@ -4961,10 +5956,15 @@ class RegistryLifecycle:
         self._mark_exit_resolved(victim.registration_index)
         return True
 
-    def _mature_live_exit_pending(self, current_window: int) -> bool:
+    def _mature_live_exit_pending(
+        self, current_window: int, max_inspections: int = 64,
+    ) -> bool:
         sequence = self.exit_head_sequence
-        while sequence < self.next_exit_sequence:
+        inspected = 0
+        while (sequence < self.next_exit_sequence
+               and inspected < max_inspections):
             request = self.exit_requests.get(sequence)
+            inspected += 1
             if request is None or request.resolved:
                 sequence += 1
                 continue
@@ -4973,7 +5973,10 @@ class RegistryLifecycle:
                 sequence += 1
                 continue
             return request.mature_window <= current_window
-        return False
+        # A registration never scans a 65th record.  It conservatively requires
+        # bounded maintenance even if that unseen record might already be
+        # resolved, so adversarial churn cannot make admission unbounded.
+        return sequence < self.next_exit_sequence
 
     def admit(self, entry: Generation, current_window: int, *,
               caller: str | None = None,
@@ -4983,7 +5986,8 @@ class RegistryLifecycle:
                            else current_l2_slot)
         assert self.next_registration_index is not None
         if (caller != entry.address or entry.address == ""
-                or not self.lease_per_window_atomic <= entry.bond < 1 << 192
+                or not self.lease_per_window_atomic <= entry.bond
+                <= self.maximum_bond_atomic
                 or self.next_registration_index >= UINT64_MAX
                 or entry.registration_index != self.next_registration_index
                 or not 0 <= current_l2_slot <= UINT64_MAX
@@ -19627,6 +20631,117 @@ SCHEDULE_FORK_OUTPUT_SCHEMA_LITERAL = (
     b"uint64 executionBlockNumber,uint64 payloadTimestamp,bytes32 blockHash,"
     b"bytes32 stateRoot,bytes32 prevRandao)"
 )
+CURRENT_SCHEDULE_FORK_GINDICES = (8, 201, 6_434, 6_437, 6_441, 6_444)
+CURRENT_SCHEDULE_HELPER_GINDICES = (
+    6_445, 6_440, 6_436, 6_435, 3_223, 3_221, 3_219, 3_216,
+    403, 200, 101, 51, 24, 13, 9, 7, 5,
+)
+
+
+def schedule_fork_constants_hash_v1(
+    gindices: tuple[int, int, int, int, int, int],
+) -> bytes:
+    if len(gindices) != 6 or any(not 0 < row <= UINT64_MAX
+                                 for row in gindices):
+        raise ValueError("Schedule fork generalized indices are invalid")
+    return keccak256(
+        SCHEDULE_FORK_CONSTANTS_DOMAIN
+        + b"".join(_model_uint(row, 8, "fork generalized index")
+                   for row in gindices)
+    )
+
+
+def current_schedule_ssz_multiproof_schema_hash_v1() -> bytes:
+    return keccak256(b"".join((
+        b"slot-chain-schedule-ssz-multiproof-v1",
+        schedule_fork_constants_hash_v1(CURRENT_SCHEDULE_FORK_GINDICES),
+        _model_uint(672, 4, "current Schedule witness bytes"),
+        _model_uint(
+            len(CURRENT_SCHEDULE_HELPER_GINDICES), 2,
+            "current Schedule helper count",
+        ),
+        *(_model_uint(row, 8, "current Schedule helper gindex")
+          for row in CURRENT_SCHEDULE_HELPER_GINDICES),
+    )))
+
+
+def validate_current_schedule_ssz_multiproof_witness_v1(
+    witness: bytes, window: int,
+) -> None:
+    if (type(witness) is not bytes or len(witness) != 672
+            or int.from_bytes(witness[0:8], "big") != window
+            or int.from_bytes(witness[8:16], "big") == 0
+            or int.from_bytes(witness[16:24], "big") == 0
+            or int.from_bytes(witness[24:32], "big") == 0
+            or witness[32:64] == bytes(32)
+            or witness[64:96] == bytes(32)
+            or witness[96:128] == bytes(32)):
+        raise ValueError("current Schedule SSZ multiproof witness is malformed")
+
+
+def current_schedule_ssz_multiproof_root_v1(
+    witness: bytes, window: int,
+) -> bytes:
+    """Execute the frozen current-fork SSZ SHA-256 multiproof."""
+
+    validate_current_schedule_ssz_multiproof_witness_v1(witness, window)
+    parent_slot = int.from_bytes(witness[8:16], "big")
+    payload_timestamp = int.from_bytes(witness[24:32], "big")
+    target_gindices = (
+        CURRENT_SCHEDULE_FORK_GINDICES[0],
+        *CURRENT_SCHEDULE_FORK_GINDICES[2:],
+    )
+    target_nodes = (
+        parent_slot.to_bytes(8, "little") + bytes(24),
+        witness[64:96],
+        witness[96:128],
+        payload_timestamp.to_bytes(8, "little") + bytes(24),
+        witness[32:64],
+    )
+    positions = target_gindices + CURRENT_SCHEDULE_HELPER_GINDICES
+    if len(set(positions)) != len(positions) or 1 in positions:
+        raise ValueError("current Schedule SSZ positions are not a frontier")
+    nodes = dict(zip(positions, target_nodes + tuple(
+        witness[offset:offset + 32] for offset in range(128, 672, 32)
+    )))
+    derived: set[int] = set()
+    while set(nodes) != {1}:
+        pairs = sorted(
+            (
+                gindex for gindex in nodes
+                if gindex > 1 and not gindex & 1
+                and gindex + 1 in nodes
+            ),
+            reverse=True,
+        )
+        if not pairs:
+            raise ValueError("current Schedule SSZ proof is incomplete")
+        for left_index in pairs:
+            right_index = left_index + 1
+            if left_index not in nodes or right_index not in nodes:
+                continue
+            parent = left_index >> 1
+            if parent in nodes or parent in derived:
+                raise ValueError("current Schedule SSZ parent is ambiguous")
+            parent_node = hashlib.sha256(
+                nodes[left_index] + nodes[right_index]
+            ).digest()
+            del nodes[left_index]
+            del nodes[right_index]
+            nodes[parent] = parent_node
+            derived.add(parent)
+    return nodes[1]
+
+
+def verify_current_schedule_ssz_multiproof_witness_v1(
+    witness: bytes, window: int, beacon_block_root: bytes,
+) -> None:
+    if (type(beacon_block_root) is not bytes
+            or len(beacon_block_root) != 32
+            or beacon_block_root == bytes(32)
+            or current_schedule_ssz_multiproof_root_v1(witness, window)
+            != beacon_block_root):
+        raise ValueError("current Schedule SSZ root mismatch")
 
 
 def schedule_fork_verifier_configuration_hash_v1(
@@ -19640,11 +20755,7 @@ def schedule_fork_verifier_configuration_hash_v1(
             or selector != bytes.fromhex("7e981e0b")
             or not 100_000 <= gas_limit <= 5_000_000):
         raise ValueError("Schedule fork verifier configuration is unsupported")
-    constants = keccak256(
-        SCHEDULE_FORK_CONSTANTS_DOMAIN
-        + b"".join(_model_uint(row, 8, "fork generalized index")
-                   for row in gindices)
-    )
+    constants = schedule_fork_constants_hash_v1(gindices)
     output_schema = keccak256(SCHEDULE_FORK_OUTPUT_SCHEMA_LITERAL)
     return keccak256(
         SCHEDULE_FORK_CONFIG_DOMAIN + fork_digest + constants
@@ -19816,13 +20927,21 @@ class ScheduleOracleV1:
         self, window: int, fork_digest: bytes, witness: bytes,
         verifier_return: bytes, *, seal_deadline: int, clock: Clock,
     ) -> bytes:
-        if (window in self.sealed_windows or clock.timestamp >= seal_deadline
-                or not witness or len(witness) > 131_072):
+        if (window in self.sealed_windows or window == UINT64_MAX
+                or window < self.current_window
+                or window - self.current_window > 8
+                or clock.timestamp >= seal_deadline):
             raise ValueError("Schedule seal attempt is not live")
+        decoded_witness = decode_schedule_seal_witness_v1(witness)
         row = self._eligible_row(window, fork_digest)
         if (row is None or len(verifier_return) != 256
                 or verifier_return[:32] != b"SFC1" + bytes(28)):
             raise ValueError("Schedule carrier verifier rejected without write")
+        if row.witness_schema_hash \
+                == current_schedule_ssz_multiproof_schema_hash_v1():
+            validate_current_schedule_ssz_multiproof_witness_v1(
+                decoded_witness.fork_witness, window
+            )
         statement = verifier_return[32:64]
         if statement == bytes(32):
             raise ValueError("Schedule carrier statement is empty")
