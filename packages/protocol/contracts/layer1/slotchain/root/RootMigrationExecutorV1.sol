@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {IRootMigrationExecutorV1} from "./iface/IRootMigrationExecutorV1.sol";
-import {IComponentConfigV2} from "../../../shared/slotchain/iface/IComponentConfigV2.sol";
-import {LibRootBootstrapV1} from "./libs/LibRootBootstrapV1.sol";
+import { IComponentConfigV2 } from "../../../shared/slotchain/iface/IComponentConfigV2.sol";
+import { IRootMigrationExecutorV1 } from "./iface/IRootMigrationExecutorV1.sol";
+import { LibRootBootstrapV1 } from "./libs/LibRootBootstrapV1.sol";
 
 /// @title Immutable delayed protocol-root migration executor
 /// @notice Selects at most one staged genesis root and permanently seals authority after activation.
@@ -206,7 +206,10 @@ contract RootMigrationExecutorV1 is IRootMigrationExecutorV1 {
         bytes32 _manifestHash,
         bytes32 _factoryRuntimeHash,
         bytes32 _factoryConfigurationHash
-    ) external returns (bytes32 operationId_) {
+    )
+        external
+        returns (bytes32 operationId_)
+    {
         uint256 factoryWord;
         assembly ("memory-safe") {
             factoryWord := calldataload(4)
@@ -217,8 +220,8 @@ contract RootMigrationExecutorV1 is IRootMigrationExecutorV1 {
         if (msg.sender != _daoProposer) revert UnauthorizedDaoProposer();
         if (_authority.state != _AUTHORITY_IDLE) revert RootAuthorityNotIdle();
         if (
-            _factory == address(0) || _manifestHash == bytes32(0) || _factoryRuntimeHash == bytes32(0)
-                || _factoryConfigurationHash == bytes32(0)
+            _factory == address(0) || _manifestHash == bytes32(0)
+                || _factoryRuntimeHash == bytes32(0) || _factoryConfigurationHash == bytes32(0)
         ) {
             revert InvalidRootMigrationOperation();
         }
@@ -233,8 +236,9 @@ contract RootMigrationExecutorV1 is IRootMigrationExecutorV1 {
         uint64 executeAfter = queuedAt + _MINIMUM_DELAY;
         uint64 executeBefore = executeAfter + _EXECUTION_WINDOW;
 
-        operationId_ =
-            _deriveOperationId(nonce, _factory, _manifestHash, _factoryRuntimeHash, _factoryConfigurationHash);
+        operationId_ = _deriveOperationId(
+            nonce, _factory, _manifestHash, _factoryRuntimeHash, _factoryConfigurationHash
+        );
         if (_operations[operationId_].state != _OPERATION_NONE) {
             revert RootMigrationOperationExists();
         }
@@ -266,12 +270,19 @@ contract RootMigrationExecutorV1 is IRootMigrationExecutorV1 {
     }
 
     /// @inheritdoc IRootMigrationExecutorV1
-    function executeRootMigrationV1(bytes32 _operationId, address _factory, bytes calldata _manifest) external {
+    function executeRootMigrationV1(
+        bytes32 _operationId,
+        address _factory,
+        bytes calldata _manifest
+    )
+        external
+    {
         _requireCanonicalManifestCalldata(_factory, _manifest);
         Operation storage operation = _operations[_operationId];
         if (
-            operation.state != _OPERATION_QUEUED || operation.factory != _factory || _authority.state != _AUTHORITY_IDLE
-                || block.timestamp < operation.executeAfter || block.timestamp > operation.executeBefore
+            operation.state != _OPERATION_QUEUED || operation.factory != _factory
+                || _authority.state != _AUTHORITY_IDLE || block.timestamp < operation.executeAfter
+                || block.timestamp > operation.executeBefore
         ) {
             revert RootMigrationNotExecutable();
         }
@@ -363,7 +374,11 @@ contract RootMigrationExecutorV1 is IRootMigrationExecutorV1 {
     }
 
     /// @inheritdoc IRootMigrationExecutorV1
-    function confirmRootMigrationV1(bytes32 _operationId, bytes32 _campaignKeyValue, bytes32 _rootReceipt)
+    function confirmRootMigrationV1(
+        bytes32 _operationId,
+        bytes32 _campaignKeyValue,
+        bytes32 _rootReceipt
+    )
         external
         returns (bytes4 magic_)
     {
@@ -372,8 +387,10 @@ contract RootMigrationExecutorV1 is IRootMigrationExecutorV1 {
         Operation storage operation = _operations[_operationId];
         if (
             authority.state != _AUTHORITY_CANDIDATE || msg.sender != authority.candidateFactory
-                || authority.candidateOperationId != _operationId || authority.candidateCampaignKey != _campaignKeyValue
-                || operation.state != _OPERATION_STAGED || operation.factory != msg.sender || _rootReceipt == bytes32(0)
+                || authority.candidateOperationId != _operationId
+                || authority.candidateCampaignKey != _campaignKeyValue
+                || operation.state != _OPERATION_STAGED || operation.factory != msg.sender
+                || _rootReceipt == bytes32(0)
         ) {
             revert InvalidRootActivationConfirmation();
         }
@@ -410,13 +427,20 @@ contract RootMigrationExecutorV1 is IRootMigrationExecutorV1 {
     }
 
     /// @inheritdoc IRootMigrationExecutorV1
-    function clearAbortedRootMigrationV1(bytes32 _operationId, bytes32 _campaignKeyValue) external {
+    function clearAbortedRootMigrationV1(
+        bytes32 _operationId,
+        bytes32 _campaignKeyValue
+    )
+        external
+    {
         if (msg.data.length != 68) revert NonCanonicalExecutorCalldata();
         Authority memory authority = _authority;
         Operation storage operation = _operations[_operationId];
         if (
-            authority.state != _AUTHORITY_CANDIDATE || authority.candidateOperationId != _operationId
-                || authority.candidateCampaignKey != _campaignKeyValue || operation.state != _OPERATION_STAGED
+            authority.state != _AUTHORITY_CANDIDATE
+                || authority.candidateOperationId != _operationId
+                || authority.candidateCampaignKey != _campaignKeyValue
+                || operation.state != _OPERATION_STAGED
                 || operation.factory != authority.candidateFactory
         ) {
             revert InvalidAbortedRootCandidate();
@@ -446,7 +470,10 @@ contract RootMigrationExecutorV1 is IRootMigrationExecutorV1 {
     /// @dev Validates PRF1's exact immutable Executor binding and configuration result.
     function _requireFactoryConfig(address _factory, bytes32 _expectedConfig) private view {
         bytes memory raw = LibRootBootstrapV1.staticcallExact(
-            _factory, abi.encodeWithSelector(_FACTORY_CONFIG_SELECTOR), _FACTORY_CONFIG_READ_GAS, 544
+            _factory,
+            abi.encodeWithSelector(_FACTORY_CONFIG_SELECTOR),
+            _FACTORY_CONFIG_READ_GAS,
+            544
         );
         LibRootBootstrapV1.requireMagic(raw, _PRF1_MAGIC);
         bytes32 executorRuntimeHash;
@@ -459,11 +486,16 @@ contract RootMigrationExecutorV1 is IRootMigrationExecutorV1 {
                 || LibRootBootstrapV1.addressWord(raw, 3) != address(this)
                 || LibRootBootstrapV1.word(raw, 4) != executorRuntimeHash
                 || LibRootBootstrapV1.word(raw, 5) != _configurationHash
-                || LibRootBootstrapV1.word(raw, 6) == bytes32(0) || LibRootBootstrapV1.word(raw, 7) == bytes32(0)
-                || LibRootBootstrapV1.u64Word(raw, 8) != 2_592_000 || LibRootBootstrapV1.u64Word(raw, 9) != 500_000
-                || LibRootBootstrapV1.u8Word(raw, 10) != 18 || LibRootBootstrapV1.u64Word(raw, 11) != 100_000
-                || LibRootBootstrapV1.u64Word(raw, 12) != 50_000 || LibRootBootstrapV1.u64Word(raw, 13) != 50_000
-                || LibRootBootstrapV1.u64Word(raw, 14) != 100_000 || LibRootBootstrapV1.u64Word(raw, 15) != 500_000
+                || LibRootBootstrapV1.word(raw, 6) == bytes32(0)
+                || LibRootBootstrapV1.word(raw, 7) == bytes32(0)
+                || LibRootBootstrapV1.u64Word(raw, 8) != 2_592_000
+                || LibRootBootstrapV1.u64Word(raw, 9) != 500_000
+                || LibRootBootstrapV1.u8Word(raw, 10) != 18
+                || LibRootBootstrapV1.u64Word(raw, 11) != 100_000
+                || LibRootBootstrapV1.u64Word(raw, 12) != 50_000
+                || LibRootBootstrapV1.u64Word(raw, 13) != 50_000
+                || LibRootBootstrapV1.u64Word(raw, 14) != 100_000
+                || LibRootBootstrapV1.u64Word(raw, 15) != 500_000
                 || LibRootBootstrapV1.word(raw, 16) != _expectedConfig
         ) {
             revert InvalidFactoryConfiguration();
@@ -482,7 +514,10 @@ contract RootMigrationExecutorV1 is IRootMigrationExecutorV1 {
         uint16 _deployedBitmap,
         bool _allowBitmapSubset,
         bytes32 _rootReceipt
-    ) private view {
+    )
+        private
+        view
+    {
         bytes memory raw = LibRootBootstrapV1.staticcallExact(
             _factory,
             abi.encodeWithSelector(_FACTORY_CAMPAIGN_SELECTOR, _campaignKeyValue),
@@ -494,10 +529,14 @@ contract RootMigrationExecutorV1 is IRootMigrationExecutorV1 {
         uint64 observedExpiresAt = LibRootBootstrapV1.u64Word(raw, 6);
         uint16 observedBitmap = LibRootBootstrapV1.u16Word(raw, 7);
         if (
-            LibRootBootstrapV1.word(raw, 1) != _operationId || LibRootBootstrapV1.word(raw, 2) != _campaignKeyValue
-                || LibRootBootstrapV1.word(raw, 3) != _manifestHashValue || LibRootBootstrapV1.u8Word(raw, 4) != _state
-                || observedGeneration != _generation || observedExpiresAt != _expiresAt
-                || (_allowBitmapSubset ? (observedBitmap & ~_deployedBitmap) != 0 : observedBitmap != _deployedBitmap)
+            LibRootBootstrapV1.word(raw, 1) != _operationId
+                || LibRootBootstrapV1.word(raw, 2) != _campaignKeyValue
+                || LibRootBootstrapV1.word(raw, 3) != _manifestHashValue
+                || LibRootBootstrapV1.u8Word(raw, 4) != _state || observedGeneration != _generation
+                || observedExpiresAt != _expiresAt
+                || (_allowBitmapSubset
+                        ? (observedBitmap & ~_deployedBitmap) != 0
+                        : observedBitmap != _deployedBitmap)
                 || LibRootBootstrapV1.word(raw, 8) != _rootReceipt
         ) {
             revert InvalidFactoryCampaignState();
@@ -511,7 +550,11 @@ contract RootMigrationExecutorV1 is IRootMigrationExecutorV1 {
         bytes32 _manifestHashValue,
         bytes32 _runtimeHash,
         bytes32 _configHash
-    ) private view returns (bytes32 operationId_) {
+    )
+        private
+        view
+        returns (bytes32 operationId_)
+    {
         return keccak256(
             abi.encodePacked(
                 "slot-chain-root-migration-operation-v1",
@@ -528,11 +571,20 @@ contract RootMigrationExecutorV1 is IRootMigrationExecutorV1 {
 
     /// @dev Derives the manifest commitment with its pinned width prefix.
     function _deriveManifestHash(bytes calldata _manifest) private pure returns (bytes32 hash_) {
-        return keccak256(abi.encodePacked("slot-chain-protocol-root-manifest-v1", uint16(969), _manifest));
+        return keccak256(
+            abi.encodePacked("slot-chain-protocol-root-manifest-v1", uint16(969), _manifest)
+        );
     }
 
     /// @dev Parses only the campaign header after the exact manifest length is established.
-    function _campaignKey(address _factory, bytes calldata _manifest) private view returns (bytes32 key_) {
+    function _campaignKey(
+        address _factory,
+        bytes calldata _manifest
+    )
+        private
+        view
+        returns (bytes32 key_)
+    {
         uint8 schema;
         uint256 chainId;
         uint64 generation;
@@ -546,20 +598,31 @@ contract RootMigrationExecutorV1 is IRootMigrationExecutorV1 {
             predecessor := calldataload(add(_manifest.offset, 73))
         }
         if (
-            schema != 1 || chainId != _settlementChainId || namespace == bytes32(0) || predecessor != bytes32(0)
-                || generation == type(uint64).max
+            schema != 1 || chainId != _settlementChainId || namespace == bytes32(0)
+                || predecessor != bytes32(0) || generation == type(uint64).max
         ) {
             revert InvalidProtocolRootManifestHeader();
         }
         return keccak256(
             abi.encodePacked(
-                "slot-chain-protocol-root-campaign-v1", chainId, _factory, generation, namespace, predecessor
+                "slot-chain-protocol-root-campaign-v1",
+                chainId,
+                _factory,
+                generation,
+                namespace,
+                predecessor
             )
         );
     }
 
     /// @dev Enforces the canonical execute ABI before any Factory read or authority write.
-    function _requireCanonicalManifestCalldata(address _factory, bytes calldata _manifest) private pure {
+    function _requireCanonicalManifestCalldata(
+        address _factory,
+        bytes calldata _manifest
+    )
+        private
+        pure
+    {
         uint256 addressWordValue;
         uint256 dynamicOffset;
         uint256 dynamicLength;
@@ -570,7 +633,7 @@ contract RootMigrationExecutorV1 is IRootMigrationExecutorV1 {
         }
         if (
             _factory == address(0) || addressWordValue > type(uint160).max || dynamicOffset != 96
-                || dynamicLength != 969 || _manifest.length != 969 || msg.data.length != 1_124
+                || dynamicLength != 969 || _manifest.length != 969 || msg.data.length != 1124
         ) {
             revert NonCanonicalExecutorCalldata();
         }

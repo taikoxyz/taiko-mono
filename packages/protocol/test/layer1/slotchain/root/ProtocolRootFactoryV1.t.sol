@@ -147,9 +147,10 @@ contract ProtocolRootFactoryV1Test is Test {
         assertEq(canonical.length, 1092);
 
         bytes32 operationId = _stage();
-        (bool success, bytes memory raw) = address(_factory).staticcall(
-            abi.encodeCall(IProtocolRootFactoryV1.protocolRootCampaignV1, (_campaignKey))
-        );
+        (bool success, bytes memory raw) = address(_factory)
+            .staticcall(
+                abi.encodeCall(IProtocolRootFactoryV1.protocolRootCampaignV1, (_campaignKey))
+            );
         assertTrue(success);
         assertEq(raw.length, 288);
         (
@@ -162,7 +163,9 @@ contract ProtocolRootFactoryV1Test is Test {
             uint64 expiresAt,
             uint16 bitmap,
             bytes32 receipt
-        ) = abi.decode(raw, (bytes4, bytes32, bytes32, bytes32, uint8, uint64, uint64, uint16, bytes32));
+        ) = abi.decode(
+            raw, (bytes4, bytes32, bytes32, bytes32, uint8, uint64, uint64, uint16, bytes32)
+        );
         assertEq(magic, bytes4(0x50524331));
         assertEq(storedOperationId, operationId);
         assertEq(key, _campaignKey);
@@ -175,9 +178,8 @@ contract ProtocolRootFactoryV1Test is Test {
     }
 
     function test_protocolRootFactoryConfigV1_ReturnsExact544ByteStaticStruct() external view {
-        (bool success, bytes memory raw) = address(_factory).staticcall(
-            abi.encodeCall(IProtocolRootFactoryV1.protocolRootFactoryConfigV1, ())
-        );
+        (bool success, bytes memory raw) = address(_factory)
+            .staticcall(abi.encodeCall(IProtocolRootFactoryV1.protocolRootFactoryConfigV1, ()));
         assertTrue(success);
         assertEq(raw.length, 544);
         IProtocolRootFactoryV1.ProtocolRootFactoryConfigV1 memory config =
@@ -189,8 +191,7 @@ contract ProtocolRootFactoryV1Test is Test {
         assertEq(config.executorRuntimeHash, address(_executor).codehash);
         assertEq(config.executorConfigurationHash, _executor.componentConfigHashV2());
         assertEq(
-            config.proxyCreationCodeHash,
-            keccak256(type(ProtocolRootCreate3ProxyV1).creationCode)
+            config.proxyCreationCodeHash, keccak256(type(ProtocolRootCreate3ProxyV1).creationCode)
         );
         assertEq(config.proxyRuntimeHash, keccak256(type(ProtocolRootCreate3ProxyV1).runtimeCode));
         assertEq(config.campaignLifetime, _CAMPAIGN_LIFETIME);
@@ -257,9 +258,7 @@ contract ProtocolRootFactoryV1Test is Test {
         bytes memory dirtyPadding = canonical;
         dirtyPadding[dirtyPadding.length - 1] = 0x01;
         _assertFactoryRawRevert(
-            dirtyPadding,
-            ProtocolRootFactoryV1.NonCanonicalFactoryCalldata.selector,
-            address(this)
+            dirtyPadding, ProtocolRootFactoryV1.NonCanonicalFactoryCalldata.selector, address(this)
         );
 
         _gate.setAllowed(false);
@@ -277,8 +276,7 @@ contract ProtocolRootFactoryV1Test is Test {
 
         _gate.setAllowed(true);
         assertEq(
-            _factory.deployProtocolRootComponentV1(_campaignKey, 1, _initCode[0]),
-            _component[0]
+            _factory.deployProtocolRootComponentV1(_campaignKey, 1, _initCode[0]), _component[0]
         );
         assertGt(proxy.code.length, 0);
         assertGt(_component[0].code.length, 0);
@@ -306,7 +304,9 @@ contract ProtocolRootFactoryV1Test is Test {
         assertEq(authorityState, 0);
     }
 
-    function test_finalizeProtocolRootV1_AcceptsExactRunwayAndAtomicallyConfirmsExecutor() external {
+    function test_finalizeProtocolRootV1_AcceptsExactRunwayAndAtomicallyConfirmsExecutor()
+        external
+    {
         bytes32 operationId = _stage();
         _deployAll();
         bytes32 receipt = _factory.finalizeProtocolRootV1(_campaignKey);
@@ -319,8 +319,13 @@ contract ProtocolRootFactoryV1Test is Test {
         assertEq(storedReceipt, receipt);
         (, uint8 operationState,,,,,,,,) = _executor.rootMigrationOperationV1(operationId);
         assertEq(operationState, 4);
-        (, uint8 authorityState,,,, address activeFactory, bytes32 activeOperationId,, bytes32 activeReceipt) =
-            _executor.rootMigrationAuthorityV1();
+        (
+            ,
+            uint8 authorityState,,,,
+            address activeFactory,
+            bytes32 activeOperationId,,
+            bytes32 activeReceipt
+        ) = _executor.rootMigrationAuthorityV1();
         assertEq(authorityState, 2);
         assertEq(activeFactory, address(_factory));
         assertEq(activeOperationId, operationId);
@@ -380,17 +385,23 @@ contract ProtocolRootFactoryV1Test is Test {
     {
         _assertGraphMutation(
             _MUTATE_PCT_DAO,
-            abi.encodeWithSelector(ProtocolRootFactoryV1.InvalidProtocolChangeTimelockRootJoin.selector)
+            abi.encodeWithSelector(
+                ProtocolRootFactoryV1.InvalidProtocolChangeTimelockRootJoin.selector
+            )
         );
         setUp();
         _assertGraphMutation(
             _MUTATE_PCT_DOMAIN,
-            abi.encodeWithSelector(ProtocolRootFactoryV1.InvalidProtocolChangeTimelockRootJoin.selector)
+            abi.encodeWithSelector(
+                ProtocolRootFactoryV1.InvalidProtocolChangeTimelockRootJoin.selector
+            )
         );
         setUp();
         _assertGraphMutation(
             _MUTATE_PVM_TIMELOCK,
-            abi.encodeWithSelector(ProtocolRootFactoryV1.InvalidProtocolChangeTimelockRootJoin.selector)
+            abi.encodeWithSelector(
+                ProtocolRootFactoryV1.InvalidProtocolChangeTimelockRootJoin.selector
+            )
         );
     }
 
@@ -399,23 +410,27 @@ contract ProtocolRootFactoryV1Test is Test {
     {
         _assertGraphMutation(
             _MUTATE_PVM_CLOCK,
-            abi.encodeWithSelector(ProtocolRootFactoryV1.InvalidProtocolVersionManagerRootJoin.selector)
+            abi.encodeWithSelector(
+                ProtocolRootFactoryV1.InvalidProtocolVersionManagerRootJoin.selector
+            )
         );
         setUp();
         _assertGraphMutation(
             _MUTATE_PVM_ZERO_GAS,
-            abi.encodeWithSelector(ProtocolRootFactoryV1.InvalidProtocolVersionManagerRootJoin.selector)
+            abi.encodeWithSelector(
+                ProtocolRootFactoryV1.InvalidProtocolVersionManagerRootJoin.selector
+            )
         );
         setUp();
         _assertGraphMutation(
             _MUTATE_PVM_PAIR,
-            abi.encodeWithSelector(ProtocolRootFactoryV1.InvalidProtocolVersionManagerRootJoin.selector)
+            abi.encodeWithSelector(
+                ProtocolRootFactoryV1.InvalidProtocolVersionManagerRootJoin.selector
+            )
         );
     }
 
-    function test_finalizeProtocolRootV1_RevertWhen_BrcWidthEconomicsOrRuntimeMutates()
-        external
-    {
+    function test_finalizeProtocolRootV1_RevertWhen_BrcWidthEconomicsOrRuntimeMutates() external {
         _assertGraphMutation(
             _MUTATE_BRC_WIDE_LEASE,
             abi.encodeWithSelector(LibRootBootstrapV1.BootstrapMalformedWord.selector, 5)
@@ -530,7 +545,7 @@ contract ProtocolRootFactoryV1Test is Test {
         if (_mutation == _MUTATE_BRC_WIDE_LEASE) {
             _setRowWord(brc, 5, bytes32(uint256(1) << 192));
         } else if (_mutation == _MUTATE_BRC_ECONOMICS) {
-            _setRowWord(brc, 5, bytes32(uint256(2_001)));
+            _setRowWord(brc, 5, bytes32(uint256(2001)));
         } else if (_mutation == _MUTATE_BRC_RUNTIME) {
             _setRowWord(brc, 15, keccak256("wrong-router-runtime"));
             _setRowWord(brc, 20, _builderTopologyHash(brc));
@@ -539,9 +554,8 @@ contract ProtocolRootFactoryV1Test is Test {
         if (_mutation == _MUTATE_SOC_LOOKAHEAD) {
             _setRowWord(soc, 8, bytes32(uint256(767)));
         } else if (_mutation == _MUTATE_SOC_SUPPORT) {
-            uint256 firstManagedStart =
-                uint256(_GENESIS) + uint256(_firstManagedWindow) * 384;
-            _setRowWord(soc, 7, bytes32(firstManagedStart - 3_071));
+            uint256 firstManagedStart = uint256(_GENESIS) + uint256(_firstManagedWindow) * 384;
+            _setRowWord(soc, 7, bytes32(firstManagedStart - 3071));
         }
 
         for (uint8 role = 1; role <= 9; ++role) {
@@ -602,7 +616,10 @@ contract ProtocolRootFactoryV1Test is Test {
         );
     }
 
-    function _buildBrcRow(bytes32 _runtimeHash, uint64 _firstManagedWindow)
+    function _buildBrcRow(
+        bytes32 _runtimeHash,
+        uint64 _firstManagedWindow
+    )
         private
         view
         returns (bytes memory row_)
@@ -613,8 +630,8 @@ contract ProtocolRootFactoryV1Test is Test {
         _setRowWord(row_, 2, bytes32(uint256(uint160(address(0x1111)))));
         _setRowWord(row_, 3, keccak256("token-runtime"));
         _setRowWord(row_, 4, bytes32(uint256(18)));
-        _setRowWord(row_, 5, bytes32(uint256(1_000)));
-        _setRowWord(row_, 6, bytes32(uint256(2_000)));
+        _setRowWord(row_, 5, bytes32(uint256(1000)));
+        _setRowWord(row_, 6, bytes32(uint256(2000)));
         _setRowWord(row_, 7, bytes32(uint256(200)));
         _setRowWord(row_, 8, bytes32(uint256(_GENESIS)));
         _setRowWord(row_, 9, bytes32(uint256(64)));
@@ -650,7 +667,7 @@ contract ProtocolRootFactoryV1Test is Test {
         _setRowWord(row_, 6, bytes32(uint256(_GENESIS)));
         _setRowWord(row_, 7, bytes32(uint256(_GENESIS - 10_000)));
         _setRowWord(row_, 8, bytes32(uint256(768)));
-        _setRowWord(row_, 9, bytes32(uint256(1_000)));
+        _setRowWord(row_, 9, bytes32(uint256(1000)));
         _setRowWord(row_, 10, bytes32(bytes4(0x01020304)));
         _setRowWord(row_, 11, _rowWord(_brc, 20));
         _setRowWord(row_, 12, _configurationHash[1]);
@@ -751,9 +768,7 @@ contract ProtocolRootFactoryV1Test is Test {
             _rowWord(_pvm, 31)
         );
         bytes memory controlsC = abi.encodePacked(
-            address(uint160(uint256(_rowWord(_pvm, 11)))),
-            _rowWord(_pvm, 32),
-            _rowWord(_pvm, 33)
+            address(uint160(uint256(_rowWord(_pvm, 11)))), _rowWord(_pvm, 32), _rowWord(_pvm, 33)
         );
         bytes memory policy = abi.encodePacked(
             _rowWord(_pvm, 13),
@@ -822,18 +837,30 @@ contract ProtocolRootFactoryV1Test is Test {
         );
     }
 
-    function _componentAddress(bytes32 _key, uint8 _role) private view returns (address component_) {
+    function _componentAddress(
+        bytes32 _key,
+        uint8 _role
+    )
+        private
+        view
+        returns (address component_)
+    {
         address proxy = _proxyAddress(_key, _role);
         return address(uint160(uint256(keccak256(abi.encodePacked(hex"d694", proxy, hex"01")))));
     }
 
-    function _gappedStageCalldata(bytes32 _operationId, bytes memory _value)
+    function _gappedStageCalldata(
+        bytes32 _operationId,
+        bytes memory _value
+    )
         private
         pure
         returns (bytes memory calldata_)
     {
         bytes memory padded = new bytes(992);
-        for (uint256 i; i < _value.length; ++i) padded[i] = _value[i];
+        for (uint256 i; i < _value.length; ++i) {
+            padded[i] = _value[i];
+        }
         return bytes.concat(
             IProtocolRootFactoryV1.stageProtocolRootV1.selector,
             _operationId,
@@ -844,7 +871,11 @@ contract ProtocolRootFactoryV1Test is Test {
         );
     }
 
-    function _assertFactoryRawRevert(bytes memory _calldata, bytes4 _selector, address _caller)
+    function _assertFactoryRawRevert(
+        bytes memory _calldata,
+        bytes4 _selector,
+        address _caller
+    )
         private
     {
         vm.prank(_caller);

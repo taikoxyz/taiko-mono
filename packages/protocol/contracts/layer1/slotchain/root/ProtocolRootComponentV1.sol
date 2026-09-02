@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {IProtocolRootActivationV1} from "../../../shared/slotchain/iface/IProtocolRootActivationV1.sol";
-import {ProtocolRootCreate3ProxyV1} from "./ProtocolRootCreate3ProxyV1.sol";
+import {
+    IProtocolRootActivationV1
+} from "../../../shared/slotchain/iface/IProtocolRootActivationV1.sol";
+import { ProtocolRootCreate3ProxyV1 } from "./ProtocolRootCreate3ProxyV1.sol";
 
 /// @title Shared protocol root activation state
 /// @notice Keeps a root component nonfunctional until its pinned factory activates the campaign.
@@ -27,22 +29,32 @@ abstract contract ProtocolRootComponentV1 is IProtocolRootActivationV1 {
     /// @param _factoryRuntimeHash The manifest-pinned factory runtime hash.
     /// @param _campaignKey The code-independent campaign key.
     /// @param _role The derived contract's compile-time role in the root manifest.
-    constructor(address _factory, bytes32 _factoryRuntimeHash, bytes32 _campaignKey, uint8 _role) {
+    constructor(
+        address _factory,
+        bytes32 _factoryRuntimeHash,
+        bytes32 _campaignKey,
+        uint8 _role
+    ) {
         if (
-            _factory == address(0) || _factoryRuntimeHash == bytes32(0) || _campaignKey == bytes32(0) || _role == 0
-                || _role > 9
+            _factory == address(0) || _factoryRuntimeHash == bytes32(0)
+                || _campaignKey == bytes32(0) || _role == 0 || _role > 9
         ) {
             revert InvalidProtocolRootActivationConfig();
         }
         if (_runtimeHash(_factory) != _factoryRuntimeHash) revert ProtocolRootFactoryCodeChanged();
 
-        bytes32 salt = keccak256(abi.encodePacked("slot-chain-protocol-root-component-v1", _campaignKey, _role));
+        bytes32 salt = keccak256(
+            abi.encodePacked("slot-chain-protocol-root-component-v1", _campaignKey, _role)
+        );
         address expectedProxy = address(
             uint160(
                 uint256(
                     keccak256(
                         abi.encodePacked(
-                            bytes1(0xff), _factory, salt, keccak256(type(ProtocolRootCreate3ProxyV1).creationCode)
+                            bytes1(0xff),
+                            _factory,
+                            salt,
+                            keccak256(type(ProtocolRootCreate3ProxyV1).creationCode)
                         )
                     )
                 )
@@ -64,13 +76,19 @@ abstract contract ProtocolRootComponentV1 is IProtocolRootActivationV1 {
         returns (bytes4 magic_, address protocolRootFactory_, bytes32 campaignKey_, uint8 state_)
     {
         return (
-            PROTOCOL_ROOT_ACTIVATION_MAGIC, _protocolRootFactory, _protocolRootCampaignKey, _protocolRootActivationState
+            PROTOCOL_ROOT_ACTIVATION_MAGIC,
+            _protocolRootFactory,
+            _protocolRootCampaignKey,
+            _protocolRootActivationState
         );
     }
 
     /// @inheritdoc IProtocolRootActivationV1
     function activateProtocolRootV1(bytes32 _campaignKey) external returns (bytes4 magic_) {
-        if (msg.sender != _protocolRootFactory || _runtimeHash(msg.sender) != _protocolRootFactoryRuntimeHash) {
+        if (
+            msg.sender != _protocolRootFactory
+                || _runtimeHash(msg.sender) != _protocolRootFactoryRuntimeHash
+        ) {
             revert UnauthorizedProtocolRootFactory();
         }
         if (_campaignKey == bytes32(0) || _campaignKey != _protocolRootCampaignKey) {
@@ -92,7 +110,8 @@ abstract contract ProtocolRootComponentV1 is IProtocolRootActivationV1 {
 
     /// @dev Returns the CREATE address for a proxy whose first CREATE uses nonce one.
     function _createNonceOneAddress(address _proxy) private pure returns (address component_) {
-        component_ = address(uint160(uint256(keccak256(abi.encodePacked(hex"d694", _proxy, hex"01")))));
+        component_ =
+            address(uint160(uint256(keccak256(abi.encodePacked(hex"d694", _proxy, hex"01")))));
     }
 
     /// @dev Returns EXTCODEHASH without allowing an empty account to masquerade as a component.

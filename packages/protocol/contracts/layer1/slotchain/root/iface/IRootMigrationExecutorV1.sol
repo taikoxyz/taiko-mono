@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {IComponentConfigV2} from "../../../../shared/slotchain/iface/IComponentConfigV2.sol";
+import { IComponentConfigV2 } from "../../../../shared/slotchain/iface/IComponentConfigV2.sol";
 
 /// @title Delayed protocol-root migration executor interface
 /// @custom:security-contact security@taiko.xyz
@@ -17,9 +17,14 @@ interface IRootMigrationExecutorV1 is IComponentConfigV2 {
         uint64 executeBefore
     );
     event RootMigrationStaged(
-        bytes32 indexed operationId, bytes32 indexed campaignKey, uint64 indexed generation, uint64 expiresAt
+        bytes32 indexed operationId,
+        bytes32 indexed campaignKey,
+        uint64 indexed generation,
+        uint64 expiresAt
     );
-    event RootMigrationActivated(bytes32 indexed operationId, bytes32 indexed campaignKey, bytes32 indexed rootReceipt);
+    event RootMigrationActivated(
+        bytes32 indexed operationId, bytes32 indexed campaignKey, bytes32 indexed rootReceipt
+    );
     event RootMigrationCandidateCleared(bytes32 indexed operationId, bytes32 indexed campaignKey);
     event RootMigrationCancelled(bytes32 indexed operationId);
     event RootMigrationExpired(bytes32 indexed operationId);
@@ -35,13 +40,20 @@ interface IRootMigrationExecutorV1 is IComponentConfigV2 {
         bytes32 _manifestHash,
         bytes32 _factoryRuntimeHash,
         bytes32 _factoryConfigurationHash
-    ) external returns (bytes32 operationId_);
+    )
+        external
+        returns (bytes32 operationId_);
 
     /// @notice Executes one mature queued operation and atomically authenticates Factory staging.
     /// @param _operationId The queued operation identity.
     /// @param _factory The exact Factory repeated as a race and substitution guard.
     /// @param _manifest The canonical packed 969-byte root manifest.
-    function executeRootMigrationV1(bytes32 _operationId, address _factory, bytes calldata _manifest) external;
+    function executeRootMigrationV1(
+        bytes32 _operationId,
+        address _factory,
+        bytes calldata _manifest
+    )
+        external;
 
     /// @notice Cancels a still-queued operation before execution starts.
     /// @param _operationId The queued operation identity.
@@ -56,14 +68,22 @@ interface IRootMigrationExecutorV1 is IComponentConfigV2 {
     /// @param _campaignKey The staged campaign key.
     /// @param _rootReceipt The Factory-published nonzero root receipt.
     /// @return magic_ The RAC1 acknowledgement.
-    function confirmRootMigrationV1(bytes32 _operationId, bytes32 _campaignKey, bytes32 _rootReceipt)
+    function confirmRootMigrationV1(
+        bytes32 _operationId,
+        bytes32 _campaignKey,
+        bytes32 _rootReceipt
+    )
         external
         returns (bytes4 magic_);
 
     /// @notice Clears one authenticated, expired and Factory-aborted candidate.
     /// @param _operationId The staged operation identity.
     /// @param _campaignKey The aborted campaign key.
-    function clearAbortedRootMigrationV1(bytes32 _operationId, bytes32 _campaignKey) external;
+    function clearAbortedRootMigrationV1(
+        bytes32 _operationId,
+        bytes32 _campaignKey
+    )
+        external;
 
     /// @notice Returns the immutable executor configuration.
     /// @return magic_ The RME1 response magic.

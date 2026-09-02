@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {SlotChainTypes} from "../../../shared/slotchain/SlotChainTypes.sol";
-import {LibMptProof} from "../../../shared/slotchain/libs/LibMptProof.sol";
-import {LibSlotChainConstants} from "../../../shared/slotchain/libs/LibSlotChainConstants.sol";
-import {LibSlotChainEncoding} from "../../../shared/slotchain/libs/LibSlotChainEncoding.sol";
-import {LibSlotChainFixedTrees} from "../../../shared/slotchain/libs/LibSlotChainFixedTrees.sol";
-import {LibScheduleForkVerifierCallV1} from "./LibScheduleForkVerifierCallV1.sol";
-import {LibScheduleSealWitnessV1} from "./LibScheduleSealWitnessV1.sol";
+import { SlotChainTypes } from "../../../shared/slotchain/SlotChainTypes.sol";
+import { LibMptProof } from "../../../shared/slotchain/libs/LibMptProof.sol";
+import { LibSlotChainConstants } from "../../../shared/slotchain/libs/LibSlotChainConstants.sol";
+import { LibSlotChainEncoding } from "../../../shared/slotchain/libs/LibSlotChainEncoding.sol";
+import { LibSlotChainFixedTrees } from "../../../shared/slotchain/libs/LibSlotChainFixedTrees.sol";
+import { LibScheduleForkVerifierCallV1 } from "./LibScheduleForkVerifierCallV1.sol";
+import { LibScheduleSealWitnessV1 } from "./LibScheduleSealWitnessV1.sol";
 
 /// @title Authenticated Schedule builder-snapshot evaluation
 /// @custom:security-contact security@taiko.xyz
@@ -77,9 +77,14 @@ library LibScheduleSnapshotEvaluatorV1 {
         bytes calldata _witness,
         SnapshotContext memory _context,
         LibScheduleForkVerifierCallV1.Carrier memory _carrier
-    ) internal pure returns (bytes32 entryRoot_) {
+    )
+        internal
+        pure
+        returns (bytes32 entryRoot_)
+    {
         _requireContext(_context, _carrier);
-        LibScheduleSealWitnessV1.Witness memory parsed = LibScheduleSealWitnessV1.parseFraming(_witness);
+        LibScheduleSealWitnessV1.Witness memory parsed =
+            LibScheduleSealWitnessV1.parseFraming(_witness);
 
         bytes32 storageRoot = LibMptProof.verifyAccount(
             _witness,
@@ -89,10 +94,13 @@ library LibScheduleSnapshotEvaluatorV1 {
             _context.builderRegistryRuntimeHash
         );
         RegistryHeader memory header = _decodeHeader(
-            LibMptProof.verifyStorageValue(_witness, parsed.headerSlotPath, storageRoot, HEADER_STORAGE_TRIE_KEY)
+            LibMptProof.verifyStorageValue(
+                _witness, parsed.headerSlotPath, storageRoot, HEADER_STORAGE_TRIE_KEY
+            )
         );
-        bytes32 authenticatedRegistryRoot =
-            LibMptProof.verifyStorageValue(_witness, parsed.rootSlotPath, storageRoot, ROOT_STORAGE_TRIE_KEY);
+        bytes32 authenticatedRegistryRoot = LibMptProof.verifyStorageValue(
+            _witness, parsed.rootSlotPath, storageRoot, ROOT_STORAGE_TRIE_KEY
+        );
 
         Traversal memory traversal = Traversal({
             parsed: parsed,
@@ -120,8 +128,9 @@ library LibScheduleSnapshotEvaluatorV1 {
         for (uint256 rank; rank < LibSlotChainConstants.RANKED_ENTRY_LEAF_COUNT; ++rank) {
             bool occupied = rank < work.eligibleCount;
             Candidate memory candidate = work.ranked[rank];
-            work.entryLeaves[rank] =
-                LibSlotChainEncoding.hashRankedEntry(uint8(rank), occupied, candidate.cell, candidate.trancheLeafHash);
+            work.entryLeaves[rank] = LibSlotChainEncoding.hashRankedEntry(
+                uint8(rank), occupied, candidate.cell, candidate.trancheLeafHash
+            );
         }
         return LibSlotChainFixedTrees.rankedEntryRoot(work.entryLeaves);
     }
@@ -131,7 +140,8 @@ library LibScheduleSnapshotEvaluatorV1 {
         uint256 value = uint256(_word);
         if (
             bytes4(_word) != HEADER_MAGIC || uint8(value >> 216) != HEADER_VERSION
-                || uint8(value >> 208) > LibSlotChainConstants.REGISTRY_CELL_COUNT || uint16(value >> 192) != 0
+                || uint8(value >> 208) > LibSlotChainConstants.REGISTRY_CELL_COUNT
+                || uint16(value >> 192) != 0
         ) {
             revert InvalidBuilderRegistryHeader();
         }
@@ -142,13 +152,22 @@ library LibScheduleSnapshotEvaluatorV1 {
     }
 
     /// @dev Streams all 64 cells and the ascending present-cell record sequence.
-    function _consumeCells(bytes calldata _witness, Traversal memory _traversal, Work memory _work) private pure {
+    function _consumeCells(
+        bytes calldata _witness,
+        Traversal memory _traversal,
+        Work memory _work
+    )
+        private
+        pure
+    {
         SlotChainTypes.RegistryCellV1 memory emptyCell;
         for (uint256 index; index < LibSlotChainConstants.REGISTRY_CELL_COUNT; ++index) {
-            uint256 cellOffset = LibScheduleSealWitnessV1.registryCellOffset(_traversal.parsed, index);
+            uint256 cellOffset =
+                LibScheduleSealWitnessV1.registryCellOffset(_traversal.parsed, index);
             bool present = _readU8(_witness, cellOffset) == 1;
             if (!present) {
-                _work.registryLeaves[index] = LibSlotChainEncoding.hashRegistryLeaf(uint8(index), false, emptyCell);
+                _work.registryLeaves[index] =
+                    LibSlotChainEncoding.hashRegistryLeaf(uint8(index), false, emptyCell);
                 continue;
             }
             _consumePresentCell(_witness, cellOffset, uint8(index), _traversal, _work);
@@ -162,13 +181,19 @@ library LibScheduleSnapshotEvaluatorV1 {
         uint8 _cellIndex,
         Traversal memory _traversal,
         Work memory _work
-    ) private pure {
+    )
+        private
+        pure
+    {
         SlotChainTypes.RegistryCellV1 memory cell = _decodeCell(_witness, _cellOffset);
         _requireCell(cell, _cellIndex, _traversal, _work);
-        _work.registryLeaves[_cellIndex] = LibSlotChainEncoding.hashRegistryLeaf(_cellIndex, true, cell);
+        _work.registryLeaves[_cellIndex] =
+            LibSlotChainEncoding.hashRegistryLeaf(_cellIndex, true, cell);
 
-        uint256 recordOffset = LibScheduleSealWitnessV1.trancheRecordOffset(_traversal.parsed, _work.presentCount);
-        (bytes32 trancheLeafHash, bool eligible) = _consumeTranche(_witness, recordOffset, cell, _traversal, _cellIndex);
+        uint256 recordOffset =
+            LibScheduleSealWitnessV1.trancheRecordOffset(_traversal.parsed, _work.presentCount);
+        (bytes32 trancheLeafHash, bool eligible) =
+            _consumeTranche(_witness, recordOffset, cell, _traversal, _cellIndex);
         if (eligible) _insertCandidate(_work, Candidate(cell, trancheLeafHash));
 
         uint8 presentOrdinal = _work.presentCount;
@@ -180,7 +205,10 @@ library LibScheduleSnapshotEvaluatorV1 {
     }
 
     /// @dev Decodes the fixed 100-byte occupied-cell payload after its presence byte.
-    function _decodeCell(bytes calldata _witness, uint256 _offset)
+    function _decodeCell(
+        bytes calldata _witness,
+        uint256 _offset
+    )
         private
         pure
         returns (SlotChainTypes.RegistryCellV1 memory cell_)
@@ -200,7 +228,10 @@ library LibScheduleSnapshotEvaluatorV1 {
         uint8 _cellIndex,
         Traversal memory _traversal,
         Work memory _work
-    ) private pure {
+    )
+        private
+        pure
+    {
         if (
             _cell.builder == address(0) || _cell.trancheRoot == bytes32(0)
                 || _cell.bond < _traversal.snapshot.leasePerWindowAtomic
@@ -223,7 +254,11 @@ library LibScheduleSnapshotEvaluatorV1 {
         SlotChainTypes.RegistryCellV1 memory _cell,
         Traversal memory _traversal,
         uint8 _cellIndex
-    ) private pure returns (bytes32 leafHash_, bool eligible_) {
+    )
+        private
+        pure
+        returns (bytes32 leafHash_, bool eligible_)
+    {
         SlotChainTypes.TrancheLeafV1 memory leaf;
         leaf.index = uint16(uint256(_traversal.snapshot.window) & TRANCHE_INDEX_MASK);
         leaf.window = _readU64(_witness, _offset);
@@ -237,13 +272,17 @@ library LibScheduleSnapshotEvaluatorV1 {
         for (uint256 height; height < LibSlotChainConstants.TRANCHE_TREE_DEPTH; ++height) {
             siblings[height] = _readBytes32(_witness, _offset + 41 + height * 32);
         }
-        if (LibSlotChainFixedTrees.computeTrancheRoot(leaf.index, leafHash_, siblings) != _cell.trancheRoot) {
+        if (
+            LibSlotChainFixedTrees.computeTrancheRoot(leaf.index, leafHash_, siblings)
+                != _cell.trancheRoot
+        ) {
             revert BuilderTrancheRootMismatch(_cellIndex);
         }
 
         eligible_ = leaf.window == _traversal.snapshot.window
             && leaf.state == uint8(SlotChainTypes.TrancheState.RESERVED)
-            && _cell.effectiveL2Slot <= _traversal.sourceL2Slot && _cell.tombstonedAtL2Slot > _traversal.sourceL2Slot;
+            && _cell.effectiveL2Slot <= _traversal.sourceL2Slot
+            && _cell.tombstonedAtL2Slot > _traversal.sourceL2Slot;
     }
 
     /// @dev Enforces the only canonical encoding for each tranche state and its exact deadline.
@@ -251,7 +290,10 @@ library LibScheduleSnapshotEvaluatorV1 {
         SlotChainTypes.TrancheLeafV1 memory _leaf,
         SnapshotContext memory _context,
         uint8 _cellIndex
-    ) private pure {
+    )
+        private
+        pure
+    {
         uint8 state = _leaf.state;
         if (state == uint8(SlotChainTypes.TrancheState.EMPTY)) {
             if (_leaf.window != type(uint64).max || _leaf.amount != 0 || _leaf.liableUntil != 0) {
@@ -260,9 +302,11 @@ library LibScheduleSnapshotEvaluatorV1 {
             return;
         }
         if (
-            state > uint8(SlotChainTypes.TrancheState.SLASHED) || _leaf.window < _context.firstManagedWindow
+            state > uint8(SlotChainTypes.TrancheState.SLASHED)
+                || _leaf.window < _context.firstManagedWindow
                 || _leaf.window > _context.lastManagedWindow
-                || (uint256(_leaf.window) & TRANCHE_INDEX_MASK) != (uint256(_context.window) & TRANCHE_INDEX_MASK)
+                || (uint256(_leaf.window) & TRANCHE_INDEX_MASK)
+                    != (uint256(_context.window) & TRANCHE_INDEX_MASK)
         ) {
             revert InvalidBuilderTranche(_cellIndex);
         }
@@ -274,13 +318,16 @@ library LibScheduleSnapshotEvaluatorV1 {
             return;
         }
 
-        uint256 deadline = uint256(_context.genesisTimestamp) + WINDOW_SECONDS * (uint256(_leaf.window) + 1)
-            + _context.evidenceDelaySeconds + _context.reorgMarginSeconds;
+        uint256 deadline = uint256(_context.genesisTimestamp) + WINDOW_SECONDS
+            * (uint256(_leaf.window) + 1) + _context.evidenceDelaySeconds
+            + _context.reorgMarginSeconds;
         if (deadline > type(uint64).max || _leaf.liableUntil != uint64(deadline)) {
             revert InvalidBuilderTranche(_cellIndex);
         }
-        if (state == uint8(SlotChainTypes.TrancheState.RESERVED) || state == uint8(SlotChainTypes.TrancheState.LIABLE))
-        {
+        if (
+            state == uint8(SlotChainTypes.TrancheState.RESERVED)
+                || state == uint8(SlotChainTypes.TrancheState.LIABLE)
+        ) {
             if (_leaf.amount != _context.leasePerWindowAtomic) {
                 revert InvalidBuilderTranche(_cellIndex);
             }
@@ -305,33 +352,61 @@ library LibScheduleSnapshotEvaluatorV1 {
     }
 
     /// @dev Returns whether `_left` ranks strictly before `_right`.
-    function _precedes(Candidate memory _left, Candidate memory _right) private pure returns (bool precedes_) {
+    function _precedes(
+        Candidate memory _left,
+        Candidate memory _right
+    )
+        private
+        pure
+        returns (bool precedes_)
+    {
         return _left.cell.bond > _right.cell.bond
-            || (_left.cell.bond == _right.cell.bond && _left.cell.registrationIndex < _right.cell.registrationIndex);
+            || (_left.cell.bond == _right.cell.bond
+                && _left.cell.registrationIndex < _right.cell.registrationIndex);
     }
 
     /// @dev Rejects impossible or unpinned evaluator context before consuming proof bytes.
-    function _requireContext(SnapshotContext memory _context, LibScheduleForkVerifierCallV1.Carrier memory _carrier)
+    function _requireContext(
+        SnapshotContext memory _context,
+        LibScheduleForkVerifierCallV1.Carrier memory _carrier
+    )
         private
         pure
     {
         if (
-            _carrier.stateRoot == bytes32(0) || _carrier.payloadTimestamp == 0 || _context.builderRegistry == address(0)
-                || _context.builderRegistryRuntimeHash == bytes32(0) || _context.firstManagedWindow > _context.window
-                || _context.window > _context.lastManagedWindow || _context.leasePerWindowAtomic == 0
+            _carrier.stateRoot == bytes32(0) || _carrier.payloadTimestamp == 0
+                || _context.builderRegistry == address(0)
+                || _context.builderRegistryRuntimeHash == bytes32(0)
+                || _context.firstManagedWindow > _context.window
+                || _context.window > _context.lastManagedWindow
+                || _context.leasePerWindowAtomic == 0
         ) {
             revert InvalidScheduleSnapshotContext();
         }
     }
 
     /// @dev Reads one fixed-width big-endian byte from already parser-bounded calldata.
-    function _readU8(bytes calldata _input, uint256 _offset) private pure returns (uint8 value_) {
+    function _readU8(
+        bytes calldata _input,
+        uint256 _offset
+    )
+        private
+        pure
+        returns (uint8 value_)
+    {
         if (_offset >= _input.length) revert TruncatedScheduleSnapshot();
         return uint8(_input[_offset]);
     }
 
     /// @dev Reads one fixed-width big-endian uint64 from already parser-bounded calldata.
-    function _readU64(bytes calldata _input, uint256 _offset) private pure returns (uint64 value_) {
+    function _readU64(
+        bytes calldata _input,
+        uint256 _offset
+    )
+        private
+        pure
+        returns (uint64 value_)
+    {
         if (_offset > _input.length || 8 > _input.length - _offset) {
             revert TruncatedScheduleSnapshot();
         }
@@ -341,7 +416,14 @@ library LibScheduleSnapshotEvaluatorV1 {
     }
 
     /// @dev Reads one fixed-width big-endian uint192 from already parser-bounded calldata.
-    function _readU192(bytes calldata _input, uint256 _offset) private pure returns (uint192 value_) {
+    function _readU192(
+        bytes calldata _input,
+        uint256 _offset
+    )
+        private
+        pure
+        returns (uint192 value_)
+    {
         if (_offset > _input.length || 24 > _input.length - _offset) {
             revert TruncatedScheduleSnapshot();
         }
@@ -351,7 +433,14 @@ library LibScheduleSnapshotEvaluatorV1 {
     }
 
     /// @dev Reads one fixed-width address from already parser-bounded calldata.
-    function _readAddress(bytes calldata _input, uint256 _offset) private pure returns (address value_) {
+    function _readAddress(
+        bytes calldata _input,
+        uint256 _offset
+    )
+        private
+        pure
+        returns (address value_)
+    {
         if (_offset > _input.length || 20 > _input.length - _offset) {
             revert TruncatedScheduleSnapshot();
         }
@@ -361,7 +450,14 @@ library LibScheduleSnapshotEvaluatorV1 {
     }
 
     /// @dev Reads one exact bytes32 from already parser-bounded calldata.
-    function _readBytes32(bytes calldata _input, uint256 _offset) private pure returns (bytes32 value_) {
+    function _readBytes32(
+        bytes calldata _input,
+        uint256 _offset
+    )
+        private
+        pure
+        returns (bytes32 value_)
+    {
         if (_offset > _input.length || 32 > _input.length - _offset) {
             revert TruncatedScheduleSnapshot();
         }

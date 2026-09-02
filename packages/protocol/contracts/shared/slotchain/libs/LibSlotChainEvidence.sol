@@ -1,24 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {SlotChainTypes} from "../SlotChainTypes.sol";
-import {LibSlotChainConstants} from "./LibSlotChainConstants.sol";
-import {LibSlotChainEncoding} from "./LibSlotChainEncoding.sol";
+import { SlotChainTypes } from "../SlotChainTypes.sol";
+import { LibSlotChainConstants } from "./LibSlotChainConstants.sol";
+import { LibSlotChainEncoding } from "./LibSlotChainEncoding.sol";
 
 /// @title Slot Chain equivocation evidence codec
 /// @custom:security-contact security@taiko.xyz
 library LibSlotChainEvidence {
     uint256 internal constant PACKED_BLOCK_LENGTH = 521;
     uint256 internal constant SIGNATURE_LENGTH = 65;
-    uint256 internal constant EQUIVOCATION_EVIDENCE_LENGTH = 2_366;
+    uint256 internal constant EQUIVOCATION_EVIDENCE_LENGTH = 2366;
 
-    uint256 private constant _SECP256K1N_HALF = 0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0;
+    uint256 private constant _SECP256K1N_HALF =
+        0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0;
 
     /// @dev Decodes the exact 521-byte signed-header tuple at `_offset`.
     /// @param _encoded The containing canonical evidence bytes.
     /// @param _offset The byte offset of the packed block.
     /// @return block_ The decoded SlotChainBlock tuple.
-    function decodePackedBlock(bytes calldata _encoded, uint256 _offset)
+    function decodePackedBlock(
+        bytes calldata _encoded,
+        uint256 _offset
+    )
         internal
         pure
         returns (SlotChainTypes.SlotChainBlock memory block_)
@@ -60,7 +64,11 @@ library LibSlotChainEvidence {
     /// @param _encoded The containing canonical evidence bytes.
     /// @param _offset The signature's byte offset.
     /// @return signer_ The nonzero recovered ECDSA signer.
-    function recoverSigner(bytes32 _digest, bytes calldata _encoded, uint256 _offset)
+    function recoverSigner(
+        bytes32 _digest,
+        bytes calldata _encoded,
+        uint256 _offset
+    )
         internal
         pure
         returns (address signer_)
@@ -77,7 +85,10 @@ library LibSlotChainEvidence {
             s := calldataload(add(add(_encoded.offset, _offset), 32))
             v := byte(0, calldataload(add(add(_encoded.offset, _offset), 64)))
         }
-        if (r == bytes32(0) || s == bytes32(0) || uint256(s) > _SECP256K1N_HALF || (v != 27 && v != 28)) {
+        if (
+            r == bytes32(0) || s == bytes32(0) || uint256(s) > _SECP256K1N_HALF
+                || (v != 27 && v != 28)
+        ) {
             revert InvalidSignature();
         }
         signer_ = ecrecover(_digest, v, r, s);
@@ -99,15 +110,22 @@ library LibSlotChainEvidence {
         bytes calldata _evidence,
         uint256 _signatureAOffset,
         uint256 _signatureBOffset
-    ) internal pure returns (address builder_, bytes32 digestA_, bytes32 digestB_) {
+    )
+        internal
+        pure
+        returns (address builder_, bytes32 digestA_, bytes32 digestB_)
+    {
         if (
             _a.settlementChainId != _b.settlementChainId || _a.l2ChainId != _b.l2ChainId
-                || _a.protocolVersion != _b.protocolVersion || _a.verifyingContract != _b.verifyingContract
-                || _a.slot != _b.slot || _a.contextId == bytes32(0) || _a.contextId != _b.contextId
-                || _a.admissionVersion != _b.admissionVersion || _a.admissionRoot != _b.admissionRoot
-                || _a.tier != _b.tier || _a.anchorNumber != _b.anchorNumber || _a.anchorHash != _b.anchorHash
-                || _a.forceRoot != _b.forceRoot || _a.forceCutoff != _b.forceCutoff || _a.episode != _b.episode
-                || _a.recoveryRevision != _b.recoveryRevision || _a.recoveryId != _b.recoveryId
+                || _a.protocolVersion != _b.protocolVersion
+                || _a.verifyingContract != _b.verifyingContract || _a.slot != _b.slot
+                || _a.contextId == bytes32(0) || _a.contextId != _b.contextId
+                || _a.admissionVersion != _b.admissionVersion
+                || _a.admissionRoot != _b.admissionRoot || _a.tier != _b.tier
+                || _a.anchorNumber != _b.anchorNumber || _a.anchorHash != _b.anchorHash
+                || _a.forceRoot != _b.forceRoot || _a.forceCutoff != _b.forceCutoff
+                || _a.episode != _b.episode || _a.recoveryRevision != _b.recoveryRevision
+                || _a.recoveryId != _b.recoveryId
         ) {
             revert InvalidEquivocationPair();
         }
@@ -116,8 +134,12 @@ library LibSlotChainEvidence {
         bytes32 structHashB = LibSlotChainEncoding.hashSlotChainBlock(_b);
         if (uint256(structHashA) >= uint256(structHashB)) revert InvalidStructHashOrder();
 
-        digestA_ = LibSlotChainEncoding.hashSlotChainDigest(_a.settlementChainId, _a.verifyingContract, _a);
-        digestB_ = LibSlotChainEncoding.hashSlotChainDigest(_b.settlementChainId, _b.verifyingContract, _b);
+        digestA_ = LibSlotChainEncoding.hashSlotChainDigest(
+            _a.settlementChainId, _a.verifyingContract, _a
+        );
+        digestB_ = LibSlotChainEncoding.hashSlotChainDigest(
+            _b.settlementChainId, _b.verifyingContract, _b
+        );
 
         builder_ = recoverSigner(digestA_, _evidence, _signatureAOffset);
         if (recoverSigner(digestB_, _evidence, _signatureBOffset) != builder_) {
@@ -126,12 +148,26 @@ library LibSlotChainEvidence {
     }
 
     /// @dev Loads one bottom-up fixed-tree sibling from calldata.
-    function readBytes32(bytes calldata _encoded, uint256 _offset) internal pure returns (bytes32 value_) {
+    function readBytes32(
+        bytes calldata _encoded,
+        uint256 _offset
+    )
+        internal
+        pure
+        returns (bytes32 value_)
+    {
         return _readBytes32(_encoded, _offset);
     }
 
     /// @dev Loads one canonical big-endian u16 from calldata.
-    function readU16(bytes calldata _encoded, uint256 _offset) internal pure returns (uint16 value_) {
+    function readU16(
+        bytes calldata _encoded,
+        uint256 _offset
+    )
+        internal
+        pure
+        returns (uint16 value_)
+    {
         if (_offset > _encoded.length || _encoded.length - _offset < 2) {
             revert EvidenceReadOutOfBounds();
         }
@@ -141,20 +177,30 @@ library LibSlotChainEvidence {
     }
 
     /// @dev Loads one canonical big-endian u64 from calldata.
-    function readU64(bytes calldata _encoded, uint256 _offset) internal pure returns (uint64 value_) {
+    function readU64(
+        bytes calldata _encoded,
+        uint256 _offset
+    )
+        internal
+        pure
+        returns (uint64 value_)
+    {
         return _readU64(_encoded, _offset);
     }
 
     /// @dev Enforces the signed-header tier-local zero/nonzero grammar.
     function _validateTier(SlotChainTypes.SlotChainBlock memory _block) private pure {
         if (_block.tier == LibSlotChainConstants.NORMAL_TIER) {
-            if (_block.episode != 0 || _block.recoveryRevision != 0 || _block.recoveryId != bytes32(0)) {
+            if (
+                _block.episode != 0 || _block.recoveryRevision != 0
+                    || _block.recoveryId != bytes32(0)
+            ) {
                 revert InvalidTierFields();
             }
         } else if (_block.tier == LibSlotChainConstants.SIGNED_RECOVERY_TIER) {
             if (
-                _block.episode == 0 || _block.recoveryRevision == 0 || _block.recoveryId == bytes32(0)
-                    || _block.contextId != _block.recoveryId
+                _block.episode == 0 || _block.recoveryRevision == 0
+                    || _block.recoveryId == bytes32(0) || _block.contextId != _block.recoveryId
             ) {
                 revert InvalidTierFields();
             }
@@ -164,7 +210,14 @@ library LibSlotChainEvidence {
     }
 
     /// @dev Loads one uint256 from calldata.
-    function _readU256(bytes calldata _encoded, uint256 _offset) private pure returns (uint256 value_) {
+    function _readU256(
+        bytes calldata _encoded,
+        uint256 _offset
+    )
+        private
+        pure
+        returns (uint256 value_)
+    {
         if (_offset > _encoded.length || _encoded.length - _offset < 32) {
             revert EvidenceReadOutOfBounds();
         }
@@ -174,7 +227,14 @@ library LibSlotChainEvidence {
     }
 
     /// @dev Loads one address from an exact packed 20-byte field.
-    function _readAddress(bytes calldata _encoded, uint256 _offset) private pure returns (address value_) {
+    function _readAddress(
+        bytes calldata _encoded,
+        uint256 _offset
+    )
+        private
+        pure
+        returns (address value_)
+    {
         if (_offset > _encoded.length || _encoded.length - _offset < 20) {
             revert EvidenceReadOutOfBounds();
         }
@@ -184,7 +244,14 @@ library LibSlotChainEvidence {
     }
 
     /// @dev Loads one canonical big-endian u64 from calldata.
-    function _readU64(bytes calldata _encoded, uint256 _offset) private pure returns (uint64 value_) {
+    function _readU64(
+        bytes calldata _encoded,
+        uint256 _offset
+    )
+        private
+        pure
+        returns (uint64 value_)
+    {
         if (_offset > _encoded.length || _encoded.length - _offset < 8) {
             revert EvidenceReadOutOfBounds();
         }
@@ -194,7 +261,14 @@ library LibSlotChainEvidence {
     }
 
     /// @dev Loads one canonical u8 from calldata.
-    function _readU8(bytes calldata _encoded, uint256 _offset) private pure returns (uint8 value_) {
+    function _readU8(
+        bytes calldata _encoded,
+        uint256 _offset
+    )
+        private
+        pure
+        returns (uint8 value_)
+    {
         if (_offset >= _encoded.length) revert EvidenceReadOutOfBounds();
         assembly ("memory-safe") {
             value_ := byte(0, calldataload(add(_encoded.offset, _offset)))
@@ -202,7 +276,14 @@ library LibSlotChainEvidence {
     }
 
     /// @dev Loads one bytes32 from calldata.
-    function _readBytes32(bytes calldata _encoded, uint256 _offset) private pure returns (bytes32 value_) {
+    function _readBytes32(
+        bytes calldata _encoded,
+        uint256 _offset
+    )
+        private
+        pure
+        returns (bytes32 value_)
+    {
         if (_offset > _encoded.length || _encoded.length - _offset < 32) {
             revert EvidenceReadOutOfBounds();
         }

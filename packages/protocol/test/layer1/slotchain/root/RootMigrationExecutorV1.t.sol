@@ -100,21 +100,16 @@ contract RootFactoryMock {
         _rootReceipt = bytes32(0);
 
         if (_mode == 3) {
-            bytes memory shortReturn =
-                abi.encode(_STG1, _expectedOperationId, derivedCampaignKey, manifestHash, _generation);
+            bytes memory shortReturn = abi.encode(
+                _STG1, _expectedOperationId, derivedCampaignKey, manifestHash, _generation
+            );
             assembly ("memory-safe") {
                 return(add(shortReturn, 32), mload(shortReturn))
             }
         }
         if (_mode == 1) _expectedOperationId = keccak256("wrong-operation");
-        return (
-            _STG1,
-            _expectedOperationId,
-            derivedCampaignKey,
-            manifestHash,
-            _generation,
-            _expiresAt
-        );
+        return
+            (_STG1, _expectedOperationId, derivedCampaignKey, manifestHash, _generation, _expiresAt);
     }
 
     function protocolRootCampaignV1(bytes32)
