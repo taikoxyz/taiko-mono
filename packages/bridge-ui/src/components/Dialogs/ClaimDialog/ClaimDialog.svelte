@@ -11,10 +11,12 @@
   import type { BridgeTransaction } from '$libs/bridge/types';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import {
+    BlockNotSyncedError,
     InsufficientBalanceError,
     InvalidProofError,
     NotConnectedError,
     ProcessMessageError,
+    ProofGenerationError,
     RetryError,
   } from '$libs/error';
   import type { NFT } from '$libs/token';
@@ -155,6 +157,19 @@
         break;
       case err instanceof RetryError:
         errorToast({ title: $t('bridge.errors.retry_error') });
+        break;
+      // BridgeProver refuses a claim before any transaction exists when the destination chain
+      // has not synced the source block yet, or cannot build a proof against the state it has.
+      // That is the same "not yet" a B_SIGNAL_NOT_RECEIVED revert reports below, reached
+      // client-side; it used to fall through to "Unknown error - please try again", which
+      // reads as a failure when the next checkpoint resolves it with no action at all
+      case err instanceof BlockNotSyncedError:
+      case err instanceof ProofGenerationError:
+        console.error(err);
+        warningToast({
+          title: $t('bridge.errors.claim.not_synced.title'),
+          message: $t('bridge.errors.claim.not_synced.message'),
+        });
         break;
       case err instanceof ContractFunctionExecutionError:
         console.error(err);

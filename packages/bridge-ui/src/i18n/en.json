@@ -90,6 +90,10 @@
           "message": "The message is not proven and cannot be claimed right now.",
           "title": "Not received"
         },
+        "not_synced": {
+          "message": "The destination chain has not synced this message yet, so it cannot be claimed right now. Your funds are safe; wait a few minutes and try again.",
+          "title": "Not synced yet"
+        },
         "quota_reached": {
           "message": "This asset's withdrawal quota is currently used up. Your funds are safe; wait for the quota to replenish, then try claiming again.",
           "title": "Withdrawal quota reached"

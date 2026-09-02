@@ -59,7 +59,9 @@ vi.mock('../Shared/dialogTransactionFlow', () => ({
   reportDialogTransaction: (...args: unknown[]) => reportDialogTransaction(...args),
 }));
 
+import { errorToast, warningToast } from '$components/NotificationToast/NotificationToast.svelte';
 import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
+import { BlockNotSyncedError, ProofGenerationError } from '$libs/error';
 import { TokenType } from '$libs/token';
 import { account } from '$stores/account';
 
@@ -217,5 +219,56 @@ describe('closing the claim dialog while a claim is in flight', () => {
     await reopen();
 
     expect(preCheck()).not.toBeNull();
+  });
+});
+
+/**
+ * A claim can be refused before any transaction exists: BridgeProver throws when the destination
+ * chain has not synced the source block yet, or cannot build a proof against the state it has.
+ * That is the same "not yet" a B_SIGNAL_NOT_RECEIVED revert reports, but it used to fall through
+ * to "Unknown error - please try again", which reads as a failure rather than as a wait.
+ */
+describe('a claim the prover refuses before any transaction', () => {
+  const notSyncedToast = {
+    title: 'bridge.errors.claim.not_synced.title',
+    message: 'bridge.errors.claim.not_synced.message',
+  };
+
+  const claimRefusedWith = async (error: unknown) => {
+    await mountAtConfirm();
+    claimControl.next = Promise.resolve({ error });
+    claimButton()!.click();
+    await flush();
+  };
+
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  it('reports a source block the destination chain has not synced as not synced yet', async () => {
+    await claimRefusedWith(new BlockNotSyncedError('block is not synced yet'));
+
+    expect(warningToast).toHaveBeenCalledWith(notSyncedToast);
+    expect(errorToast).not.toHaveBeenCalled();
+    // Nothing was sent, so the same button serves the retry once the block has synced
+    expect(claimButton()?.disabled).toBe(false);
+  });
+
+  it('reports a proof that cannot be built against the synced state the same way', async () => {
+    await claimRefusedWith(new ProofGenerationError('proof will not be valid, expected storageProof to not be 0'));
+
+    expect(warningToast).toHaveBeenCalledWith(notSyncedToast);
+    expect(errorToast).not.toHaveBeenCalled();
+    expect(claimButton()?.disabled).toBe(false);
+  });
+
+  it('still reports a failure it cannot classify as an unknown error', async () => {
+    await claimRefusedWith(new Error('boom'));
+
+    expect(errorToast).toHaveBeenCalledWith({
+      title: 'bridge.errors.unknown_error.title',
+      message: 'bridge.errors.unknown_error.message',
+    });
+    expect(warningToast).not.toHaveBeenCalled();
   });
 });
