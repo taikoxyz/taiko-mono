@@ -21,18 +21,18 @@ only.
 - **The L1 `bridged_erc20`.** The L1 shared resolver still names the July 2024 `BridgedERC20`
   implementation, which the live L1 vault has been unable to initialise since Proposal0017, so the
   first delivery to L1 of a token canonical on another chain reverts today. The proposal registers
-  a `BridgedERC20` built from `main`, the same fix the L2 leg needs anyway.
+  a `BridgedERC20V2` built from `main`, the same fix the L2 leg needs anyway.
 
 On L1 both legs are like-for-like redeploys. On L2 the bridge and the ERC20 vault both still run
 protocol 1.10.0 implementations from October 2024, which predate the resolver refactor, so they
-additionally need a resolver that speaks `IResolver` and, for the vault, a `BridgedERC20`
+additionally need a resolver that speaks `IResolver` and, for the vault, a `BridgedERC20V2`
 implementation built from `main`. [Why L2 Needs a New Resolver](#why-l2-needs-a-new-resolver)
 covers both.
 
 The proposal executes **4 top-level L1 actions** and **7 L2 actions**. All eight contracts it
 points at are deployed and verified — the bridge-side four on 2026-08-31 (redeployed 2026-09-01
-after #22082), the vault-side three and the L1 `BridgedERC20` on 2026-09-02 — and
-`Proposal0023.action.md` carries the executable calldata.
+after #22082), the two `ERC20Vault` and the two `BridgedERC20V2` implementations on 2026-09-02 —
+and `Proposal0023.action.md` carries the executable calldata.
 
 ## Scope
 
@@ -40,10 +40,10 @@ after #22082), the vault-side three and the L1 `BridgedERC20` on 2026-09-02 — 
 | ----- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | L1    | Bridge proxy `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`                | implementation → `0xA15dca0A72da684f20e0FC708DECFb230a715462`                                                                            |
 | L1    | ERC20Vault proxy `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab`            | implementation → `0x32E47c04E8c329E8c10062731448e7658aDEEB8e`                                                                            |
-| L1    | Shared resolver `0x8Efa01564425692d0a0838DC10E300BD310Cb43e`             | `bridged_erc20` → `0xFcbc02A2AdED1B9464B37369091279D297E20a96` for chain 1                                                               |
+| L1    | Shared resolver `0x8Efa01564425692d0a0838DC10E300BD310Cb43e`             | `bridged_erc20` → `0x9ccB9eBa4335096c5B64f050C3c734632D497c3b` for chain 1                                                               |
 | L2    | Bridge proxy `0x1670000000000000000000000000000000000001`                | implementation → `0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb`                                                                            |
 | L2    | ERC20Vault proxy `0x1670000000000000000000000000000000000002`            | implementation → `0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3`                                                                            |
-| L2    | New `DefaultResolver` proxy `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984` | `bridge` and `erc20_vault` registered for chains 1 and 167000; `bridged_erc20` → `0x3505a0700DB72dEc7AbFF1aF231BB5D87aBF2944` for 167000 |
+| L2    | New `DefaultResolver` proxy `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984` | `bridge` and `erc20_vault` registered for chains 1 and 167000; `bridged_erc20` → `0xD6601cdea5857338EbdEE4CF38298aff43f01431` for 167000 |
 
 Not touched: the L2 NFT vaults and the legacy L2 `AddressManager` `0x1670000000000000000000000000000000000006`,
 which keeps serving them and every bridged token the 1.10.0 vault ever deployed; every other entry
@@ -56,8 +56,8 @@ and every other network.
 seven-argument `init` (selector `0xbb86ef93`), while the live L1 vault has called the six-argument
 `IBridgedERC20Initializable.init` (`0x6c0db62b`) since Proposal0017. So the first delivery to L1 of
 a token canonical on another chain reverts today inside `_deployBridgedToken` — the same defect the
-L2 leg would have without its new `BridgedERC20`, and the same fix: L1 action 3 registers a
-`BridgedERC20` built from `main` with the L1 vault proxy as its `erc20Vault` immutable. Existing
+L2 leg would have without its new `BridgedERC20V2`, and the same fix: L1 action 3 registers a
+`BridgedERC20V2` built from `main` with the L1 vault proxy as its `erc20Vault` immutable. Existing
 L1 bridged tokens are untouched; only tokens deployed from now on use the new implementation. The
 fork rehearsal delivers a never-seen token to L1 before the batch and asserts it parks as
 `RETRIABLE`, then retries that same message after the batch and asserts it lands `DONE`, minting
@@ -98,7 +98,7 @@ today's behaviour: `quota_manager`, `chain_watchdog` and `bridge_watchdog` are a
 legacy L2 registry, so L2 has no quota and only the owner can pause. The 1.10.0 bridge has no
 `receive()` and the new one's `receive()` admits only `pauser`, which no sender can be when it is
 zero, so direct Ether transfers to the L2 bridge keep reverting exactly as today. The new
-`BridgedERC20`'s `erc20Vault` immutable is the vault proxy `0x1670000000000000000000000000000000000002`.
+`BridgedERC20V2`'s `erc20Vault` immutable is the vault proxy `0x1670000000000000000000000000000000000002`.
 
 Preconditions to re-read at execution time: the L2 bridge must not be paused (`processMessage` is
 `whenNotPaused`), and `DelegateController.lastExecutionId()` is `1`. The L2 bridge balance, about
@@ -121,7 +121,7 @@ vaults left on the legacy registry, and only the names the migrated contracts re
 | `erc20_vault`, chain 167000   | nothing today; symmetry with the L1 resolver, which carries its own chain's entry                                                                                                                      |
 | `bridged_erc20`, chain 167000 | the vault, on the first delivery of a canonical token it has not seen before (`ERC20Vault.sol:664`)                                                                                                    |
 
-**`bridged_erc20` must be a `BridgedERC20` built from `main`, not the legacy
+**`bridged_erc20` must be built from `main`, not the legacy
 `0x98161D67f762A9E589E502348579FA38B1Ac47A8`.** `ERC20Vault._deployBridgedToken` creates each bridged
 token as `new ERC1967Proxy(resolve("bridged_erc20"), init)` with the six-argument
 `IBridgedERC20Initializable.init` (`0x6c0db62b`). The legacy implementation's bytecode carries only
@@ -129,11 +129,15 @@ the seven-argument init (`0xbb86ef93`) and no fallback, so the proxy constructor
 would revert and the bridge would park every first-time token delivery as `RETRIABLE`; even with a
 matching initializer it would authorise `mint`/`burn` through `IAddressManager.getAddress`, which
 `DefaultResolver` does not have. `BridgedERC20` on `main` takes the vault as a constructor immutable
-instead, and `0x3505a070…` was deployed with the vault proxy, so tokens deployed after this proposal
-survive future vault upgrades too. Existing bridged tokens keep working the other way round: they
+instead, and the registered implementation is deployed with the vault proxy, so tokens deployed
+after this proposal survive future vault upgrades too. It is the `BridgedERC20V2` flavour — the same
+constructor and the same six-argument `init`, plus EIP-2612 `permit` — because the July 2024
+implementation has `permit` and the vault's new `sendTokenWithPermit` reverts
+`VAULT_PERMIT_NO_ALLOWANCE` on a token without it; plain `BridgedERC20` would have taken that
+capability away from every bridged token deployed from now on. Existing bridged tokens keep working the other way round: they
 resolve `erc20_vault` through the legacy registry, which still names the unchanged proxy. L1 has
 the same mismatch today — its resolver names the same July 2024 lineage — which is why L1 action 3
-registers a `BridgedERC20` built from `main` there as well.
+registers a `BridgedERC20V2` there as well.
 
 ## Upgrade Safety
 
@@ -200,8 +204,9 @@ from `git diff 9345f14 main` of `Bridge.sol` and `ERC20Vault.sol` rather than as
 - **Unchanged:** the `Message` struct and `hashMessage`, so every in-flight message keeps its hash
   and its signal; `getMessageMinGasLimit` and the fee math; the events; quota (none on L2 before
   or after); who can pause (the owner). The vault keeps its struct, events and errors, gains the two
-  permit entrypoints, and deploys new bridged tokens from `0x3505a070…` as described above; its
-  delivery and recall semantics are unchanged.
+  permit entrypoints, and deploys new bridged tokens from the `BridgedERC20V2` registered as
+  `bridged_erc20`, which keeps the EIP-2612 `permit` the legacy implementation has, so
+  `sendTokenWithPermit` works on them; its delivery and recall semantics are unchanged.
 
 ### The L2 bridge upgrades itself mid-call
 
@@ -235,7 +240,7 @@ see [Verification](#verification).
 
 1. `upgradeTo(0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC, 0xA15dca0A72da684f20e0FC708DECFb230a715462)` — the mainnet bridge.
 2. `upgradeTo(0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab, 0x32E47c04E8c329E8c10062731448e7658aDEEB8e)` — the mainnet ERC20 vault.
-3. `0x8Efa01564425692d0a0838DC10E300BD310Cb43e.registerAddress(1, LibNames.B_BRIDGED_ERC20, 0xFcbc02A2AdED1B9464B37369091279D297E20a96)`
+3. `0x8Efa01564425692d0a0838DC10E300BD310Cb43e.registerAddress(1, LibNames.B_BRIDGED_ERC20, 0x9ccB9eBa4335096c5B64f050C3c734632D497c3b)`
    — the L1 `bridged_erc20` fix. Independent of the two upgrades, so its position does not matter.
 4. `sendMessage(...)` on `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC` — carries the L2 batch to the
    DelegateController. Not written in `Proposal0023.s.sol`: `BuildProposal._buildAllActions()`
@@ -258,7 +263,7 @@ on the new resolver `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984`, with names enc
 2. `registerAddress(167000, "bridge", 0x1670000000000000000000000000000000000001)`
 3. `registerAddress(1, "erc20_vault", 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab)`
 4. `registerAddress(167000, "erc20_vault", 0x1670000000000000000000000000000000000002)`
-5. `registerAddress(167000, "bridged_erc20", 0x3505a0700DB72dEc7AbFF1aF231BB5D87aBF2944)`
+5. `registerAddress(167000, "bridged_erc20", 0xD6601cdea5857338EbdEE4CF38298aff43f01431)`
 6. `upgradeTo(0x1670000000000000000000000000000000000002, 0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3)` — the vault.
 7. `upgradeTo(0x1670000000000000000000000000000000000001, 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb)` — the bridge's
    mid-call self-upgrade, deliberately last.
@@ -296,7 +301,7 @@ PRIVATE_KEY=<deployer> FOUNDRY_PROFILE=layer2 forge script \
 Vault side, run on 2026-09-02 with `--verify`. `DeployERC20VaultUpgradeL1` checks the live proxy's
 immutables against `LibL1Addrs` before broadcasting and logs `ERC20_VAULT_NEW_IMPL_L1`;
 `DeployERC20VaultUpgradeL2` checks that the resolver is owned by the DelegateController and logs
-`BRIDGED_ERC20_NEW_IMPL_L2` and `ERC20_VAULT_NEW_IMPL_L2`.
+`ERC20_VAULT_NEW_IMPL_L2`, plus a plain `BridgedERC20` the proposal no longer uses (see below).
 
 ```bash
 PRIVATE_KEY=<deployer> FOUNDRY_PROFILE=layer1 forge script \
@@ -310,17 +315,27 @@ PRIVATE_KEY=<deployer> FOUNDRY_PROFILE=layer2 forge script \
   --rpc-url https://rpc.mainnet.taiko.xyz --broadcast
 ```
 
-L1 `bridged_erc20`, run on 2026-09-02 with `--verify`. `DeployBridgedERC20L1` deploys a
-`BridgedERC20` with the L1 vault proxy as its immutable and logs `BRIDGED_ERC20_NEW_IMPL_L1`; the
-registration itself is L1 action 3, because the resolver is owned by the DAO controller.
+Bridged-token side, run on 2026-09-02 with `--verify`. `DeployBridgedERC20V2L1` and
+`DeployBridgedERC20V2L2` each deploy a
+`BridgedERC20V2` with that chain's vault proxy as its immutable and log `BRIDGED_ERC20_NEW_IMPL_L1`
+/ `BRIDGED_ERC20_NEW_IMPL_L2`; the registrations themselves are L1 action 3 and L2 action 5. The
+plain `BridgedERC20` deployments of 2026-09-02 — `0xFcbc02A2AdED1B9464B37369091279D297E20a96` on
+L1 and `0x3505a0700DB72dEc7AbFF1aF231BB5D87aBF2944` on L2 — lack EIP-2612 `permit` and are
+superseded; nothing references them.
 
 ```bash
 PRIVATE_KEY=<deployer> FOUNDRY_PROFILE=layer1 forge script \
-  script/layer1/mainnet/DeployBridgedERC20L1.s.sol:DeployBridgedERC20L1 \
+  script/layer1/mainnet/DeployBridgedERC20V2L1.s.sol:DeployBridgedERC20V2L1 \
   --rpc-url <L1_RPC> --broadcast
 ```
 
-All five scripts deploy only — no proxy upgrade, no initializer call on a live contract — and none
+```bash
+PRIVATE_KEY=<deployer> FOUNDRY_PROFILE=layer2 forge script \
+  script/layer2/mainnet/DeployBridgedERC20V2L2.s.sol:DeployBridgedERC20V2L2 \
+  --rpc-url https://rpc.mainnet.taiko.xyz --broadcast
+```
+
+All six scripts deploy only — no proxy upgrade, no initializer call on a live contract — and none
 should be re-run: a second run deploys contracts the constants do not point at. The logged
 addresses were verified on-chain before being written into `Proposal0023.s.sol`, the calldata was
 regenerated with `P=0023 pnpm proposal`, and both dry runs were simulated against the deployment
@@ -341,16 +356,16 @@ fork test does. A second reviewer should re-run `P=0023 pnpm proposal` and diff
 
 ## Deployed Addresses
 
-| What                                | Address                                      |                                                                                       |
-| ----------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------- |
-| L1 `Bridge` implementation          | `0xA15dca0A72da684f20e0FC708DECFb230a715462` | proxy upgrade; codediff in the table below                                            |
-| L1 `ERC20Vault` implementation      | `0x32E47c04E8c329E8c10062731448e7658aDEEB8e` | proxy upgrade; codediff in the table below                                            |
-| L1 `BridgedERC20` implementation    | `0xFcbc02A2AdED1B9464B37369091279D297E20a96` | registered as `bridged_erc20` on the L1 resolver, not a proxy target; nothing to diff |
-| L2 `Bridge` implementation          | `0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb` | proxy upgrade; codediff in the table below                                            |
-| L2 `ERC20Vault` implementation      | `0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3` | proxy upgrade; codediff in the table below                                            |
-| L2 `BridgedERC20` implementation    | `0x3505a0700DB72dEc7AbFF1aF231BB5D87aBF2944` | registered as `bridged_erc20`, not a proxy target; nothing to diff                    |
-| L2 `DefaultResolver` proxy          | `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984` | new proxy, nothing to diff                                                            |
-| L2 `DefaultResolver` implementation | `0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a` | new contract, nothing to diff                                                         |
+| What                                | Address                                      |                                                                                           |
+| ----------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| L1 `Bridge` implementation          | `0xA15dca0A72da684f20e0FC708DECFb230a715462` | proxy upgrade; codediff in the table below                                                |
+| L1 `ERC20Vault` implementation      | `0x32E47c04E8c329E8c10062731448e7658aDEEB8e` | proxy upgrade; codediff in the table below                                                |
+| L1 `BridgedERC20V2` implementation  | `0x9ccB9eBa4335096c5B64f050C3c734632D497c3b` | registered as `bridged_erc20` on the L1 resolver, not a proxy target; nothing to diff     |
+| L2 `Bridge` implementation          | `0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb` | proxy upgrade; codediff in the table below                                                |
+| L2 `ERC20Vault` implementation      | `0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3` | proxy upgrade; codediff in the table below                                                |
+| L2 `BridgedERC20V2` implementation  | `0xD6601cdea5857338EbdEE4CF38298aff43f01431` | registered as `bridged_erc20` on the new L2 resolver, not a proxy target; nothing to diff |
+| L2 `DefaultResolver` proxy          | `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984` | new proxy, nothing to diff                                                                |
+| L2 `DefaultResolver` implementation | `0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a` | new contract, nothing to diff                                                             |
 
 Codediff of each proxy upgrade, the live implementation against the new one:
 
@@ -361,20 +376,24 @@ Codediff of each proxy upgrade, the live implementation against the new one:
 | L2 Bridge     | https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000001&newimpl=0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb&chainid=167000 |
 | L2 ERC20Vault | https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000002&newimpl=0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3&chainid=167000 |
 
-Vault-side creation transactions, all from deployer `0x56706f118e42ae069f20c5636141b844d1324ae1`:
+Vault-side and bridged-token creation transactions, all from deployer `0x56706f118e42ae069f20c5636141b844d1324ae1`
+(the superseded plain `BridgedERC20` deployments were tx `0x758d9b70…` on L1 and `0xa40d7656…` on
+L2):
 
-| Contract                         | Chain  | Block      | Transaction                                                          |
-| -------------------------------- | ------ | ---------- | -------------------------------------------------------------------- |
-| L1 `ERC20Vault` implementation   | 1      | 25,888,605 | `0x83c8f81f1241428453e25e04e32539136bb9db3e1c148f8892a2559b0e53057e` |
-| L1 `BridgedERC20` implementation | 1      | 25,889,196 | `0x758d9b70f5e2dfb03b4730e56002199631ced14fe52055bf347958e90f28c8ad` |
-| L2 `BridgedERC20` implementation | 167000 | 10,865,570 | `0xa40d7656f405988c26aa9c1e1754c09c9f04605cc94b46fb0e2bd5f612781ca4` |
-| L2 `ERC20Vault` implementation   | 167000 | 10,865,570 | `0x00371d3b209576df1ce447011477f0c27b816e12c123a207588790644dbc10b3` |
+| Contract                           | Chain | Block      | Transaction                                                          |
+| ---------------------------------- | ----- | ---------- | -------------------------------------------------------------------- |
+| L1 `ERC20Vault` implementation     | 1     | 25,888,605 | `0x83c8f81f1241428453e25e04e32539136bb9db3e1c148f8892a2559b0e53057e` |
+| L1 `BridgedERC20V2` implementation | 1     | 25,889,748 | `0x37b6b435fdc5cd2961ad1de3ada2deb8dde7eff39e298210d20e50fdb10e3e77` |
+
+| L2 `ERC20Vault` implementation | 167000 | 10,865,570 | `0x00371d3b209576df1ce447011477f0c27b816e12c123a207588790644dbc10b3` |
+| L2 `BridgedERC20V2` implementation | 167000 | 10,872,359 | `0x68248af36eb1828a21e5f94f5508a9938e5ef27151f512da229ac6102fb6022b` |
 
 All eight are verified on their explorers under `solc v0.8.30`, optimizer at 200 runs,
 `evm_version` `osaka`; the L1 entries read `Bridge` and `ERC20Vault`, not `Mainnet*`.
 `forge verify-bytecode` from a build of this branch matches creation code with `status full` for all
-seven implementations, and runtime code for all but the two bridge-side L2 runs, which aborted after
-the creation match on a foundry chain-alias error (`found string "taiko", expected u64`). The
+seven implementations, and runtime code for all but the two bridge-side L2 runs, which
+aborted after the creation match on a foundry chain-alias error (`found string "taiko", expected
+u64`). The
 creation-code match is the substantive result, and the immutables are read back in Verification.
 The resolver proxy is an unmodified OpenZeppelin `ERC1967Proxy`, pinned by its implementation slot
 and its `owner()`.
@@ -386,9 +405,9 @@ vault one only #22093 plus the `MainnetERC20Vault` → `ERC20Vault` folding — 
 span 1.10.0 to `main`, which is what Current State and Upgrade Safety exist to explain.
 
 > **Read the L2 addresses on L2 only.** Every one of them has, or collides with, unrelated code on
-> L1 — the bridge-side ones with vault implementations retired in 2024, `0x3505a070…` with a
-> 23,901-byte contract, `0xa01d464c…` with a 170-byte proxy — because the same deployer reached the
-> same nonces on both chains.
+> L1 — the bridge-side ones with vault implementations retired in 2024, `0xa01d464c…` with a
+> 170-byte proxy — because the same deployer reached the same nonces on both chains. The two
+> `BridgedERC20V2` addresses have no code on the other chain.
 
 ## Verification
 
@@ -413,8 +432,10 @@ cast call 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb "pauser()(address)"        
 cast call 0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3 "resolver()(address)"      --rpc-url $L2_RPC  # 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984
 cast call 0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3 "quotaManager()(address)"  --rpc-url $L2_RPC  # 0x0000000000000000000000000000000000000000
 cast call 0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3 "PERMIT2()(address)"       --rpc-url $L2_RPC  # 0x000000000022D473030F116dDEE9F6B43aC78BA3
-cast call 0x3505a0700DB72dEc7AbFF1aF231BB5D87aBF2944 "erc20Vault()(address)"    --rpc-url $L2_RPC  # 0x1670000000000000000000000000000000000002
-cast call 0xFcbc02A2AdED1B9464B37369091279D297E20a96 "erc20Vault()(address)"                       --rpc-url $L1_RPC  # 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab
+cast call 0xD6601cdea5857338EbdEE4CF38298aff43f01431 "erc20Vault()(address)"                       --rpc-url $L2_RPC  # 0x1670000000000000000000000000000000000002
+cast call 0xD6601cdea5857338EbdEE4CF38298aff43f01431 "DOMAIN_SEPARATOR()(bytes32)"                 --rpc-url $L2_RPC  # non-zero: a V2, with permit
+cast call 0x9ccB9eBa4335096c5B64f050C3c734632D497c3b "erc20Vault()(address)"                       --rpc-url $L1_RPC  # 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab
+cast call 0x9ccB9eBa4335096c5B64f050C3c734632D497c3b "DOMAIN_SEPARATOR()(bytes32)"                 --rpc-url $L1_RPC  # non-zero: a V2, with permit
 
 # Permit2 is a constant in the vault, so it must exist on both chains.
 cast code 0x000000000022D473030F116dDEE9F6B43aC78BA3 --rpc-url $L1_RPC | wc -c  # 18307
@@ -441,8 +462,8 @@ FOUNDRY_PROFILE=layer1 forge verify-bytecode 0x32E47c04E8c329E8c10062731448e7658
   contracts/shared/vault/ERC20Vault.sol:ERC20Vault --rpc-url $L1_RPC \
   --encoded-constructor-args $(cast abi-encode "c(address,address)" \
     0x8Efa01564425692d0a0838DC10E300BD310Cb43e 0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC)
-FOUNDRY_PROFILE=layer1 forge verify-bytecode 0xFcbc02A2AdED1B9464B37369091279D297E20a96 \
-  contracts/shared/vault/BridgedERC20.sol:BridgedERC20 --rpc-url $L1_RPC \
+FOUNDRY_PROFILE=layer1 forge verify-bytecode 0x9ccB9eBa4335096c5B64f050C3c734632D497c3b \
+  contracts/shared/vault/BridgedERC20V2.sol:BridgedERC20V2 --rpc-url $L1_RPC \
   --encoded-constructor-args $(cast abi-encode "c(address)" 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab)
 # First argument of the L2 bridge and vault is the resolver PROXY, not its implementation.
 FOUNDRY_PROFILE=layer2 forge verify-bytecode 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb \
@@ -454,8 +475,8 @@ FOUNDRY_PROFILE=layer2 forge verify-bytecode 0xa01d464ca3982DAa97B19fa7F8a232eB1
   contracts/shared/vault/ERC20Vault.sol:ERC20Vault --rpc-url $L2_RPC \
   --encoded-constructor-args $(cast abi-encode "c(address,address)" \
     0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984 0x0000000000000000000000000000000000000000)
-FOUNDRY_PROFILE=layer2 forge verify-bytecode 0x3505a0700DB72dEc7AbFF1aF231BB5D87aBF2944 \
-  contracts/shared/vault/BridgedERC20.sol:BridgedERC20 --rpc-url $L2_RPC \
+FOUNDRY_PROFILE=layer2 forge verify-bytecode 0xD6601cdea5857338EbdEE4CF38298aff43f01431 \
+  contracts/shared/vault/BridgedERC20V2.sol:BridgedERC20V2 --rpc-url $L2_RPC \
   --encoded-constructor-args $(cast abi-encode "c(address)" 0x1670000000000000000000000000000000000002)
 FOUNDRY_PROFILE=layer2 forge verify-bytecode 0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a \
   contracts/shared/common/DefaultResolver.sol:DefaultResolver --rpc-url $L2_RPC
@@ -467,7 +488,8 @@ FOUNDRY_PROFILE=layer2 forge verify-bytecode 0x2ea05A9CD06984Cf533a1829d8b0BE628
 # Rehearse the exact batch against live state; both legs must pass. Deploys nothing: it executes
 # the committed calldata against the deployed implementations, then bridges tokens through the
 # upgraded contracts (WETH out on L1 and a never-seen token that parked RETRIABLE before the batch
-# retried to DONE; on L2, USDT in, a never-seen token in, bridged USDT out).
+# retried to DONE; on L2, USDT in, a never-seen token in, bridged USDT out; the never-seen tokens
+# go back through sendTokenWithPermit, proving the V2 permit).
 L1_FORK_URL=$L1_RPC L2_FORK_URL=$L2_RPC FOUNDRY_PROFILE=layer1 \
   forge test --match-contract Proposal0023ForkTest -vv
 ```

@@ -14,6 +14,7 @@ import { Controller } from "src/shared/governance/Controller.sol";
 import { LibNames } from "src/shared/libs/LibNames.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
 import { BridgedERC20 } from "src/shared/vault/BridgedERC20.sol";
+import { BridgedERC20V2 } from "src/shared/vault/BridgedERC20V2.sol";
 import { ERC20Vault } from "src/shared/vault/ERC20Vault.sol";
 
 /// @notice Rehearses the Proposal0023 upgrades against live mainnet state.
@@ -54,6 +55,11 @@ contract Proposal0023ForkTest is Test {
 
     /// @dev The amount every token movement below uses, in the token's smallest unit.
     uint256 private constant _AMOUNT = 50e6;
+
+    /// @dev EIP-2612's permit struct hash, as `BridgedERC20V2` uses it.
+    bytes32 private constant _PERMIT_TYPEHASH = keccak256(
+        "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+    );
 
     /// @dev The implementations each proxy must still be running when the rehearsal starts. Both
     /// forks are taken at head, so once Proposal0023 executes these tests would otherwise rehearse
@@ -258,6 +264,11 @@ contract Proposal0023ForkTest is Test {
         assertEq(BridgedERC20(btoken).erc20Vault(), L1.ERC20_VAULT);
         assertEq(BridgedERC20(btoken).owner(), _vaultOwner);
         assertEq(IERC20(btoken).balanceOf(recipient), _AMOUNT);
+
+        // It is a V2, so it carries EIP-2612 permit: the recipient sends it back through
+        // sendTokenWithPermit, the entrypoint #22093 added, with no approve transaction.
+        assertTrue(BridgedERC20V2(btoken).DOMAIN_SEPARATOR() != bytes32(0));
+        _sendBackWithPermit(ERC20Vault(L1.ERC20_VAULT), btoken, "recipient on L1", 167_000);
     }
 
     /// @dev Runs the L2 rehearsal with `_caller` processing the governance message.
@@ -515,6 +526,11 @@ contract Proposal0023ForkTest is Test {
         assertEq(BridgedERC20(btoken).srcChainId(), 1);
         assertEq(BridgedERC20(btoken).decimals(), 18);
 
+        // It is a V2, so it carries EIP-2612 permit: the recipient sends it back through
+        // sendTokenWithPermit, the entrypoint #22093 added, with no approve transaction.
+        assertTrue(BridgedERC20V2(btoken).DOMAIN_SEPARATOR() != bytes32(0));
+        _sendBackWithPermit(vault, btoken, "recipient of NEW", 1);
+
         // Sending a bridged token back burns it and routes the message to the L1 vault, both
         // resolved through the new registry, out through the upgraded bridge.
         uint64 messageIdBefore = bridge.nextMessageId();
@@ -581,6 +597,91 @@ contract Proposal0023ForkTest is Test {
             assertTrue(btoken_ != address(0), "delivery deployed no bridged token");
         }
         assertEq(IERC20(btoken_).balanceOf(recipient), _AMOUNT);
+    }
+
+    /// @dev Sends `_AMOUNT` of a V2 bridged token back to `_destChainId` through
+    /// `sendTokenWithPermit`: the holder signs an EIP-2612 permit for the vault instead of sending
+    /// an approve transaction. `_label` is the holder's makeAddr label, which also yields its key.
+    /// @param _vault The vault to send through.
+    /// @param _btoken The V2 bridged token the holder received.
+    /// @param _label The makeAddr label the holder was created with.
+    /// @param _destChainId The destination chain.
+    function _sendBackWithPermit(
+        ERC20Vault _vault,
+        address _btoken,
+        string memory _label,
+        uint64 _destChainId
+    )
+        private
+    {
+        (address holder, uint256 key) = makeAddrAndKey(_label);
+        uint256 deadline = block.timestamp + 1 hours;
+        (uint8 v, bytes32 r, bytes32 s) =
+            vm.sign(key, _permitDigest(_btoken, holder, address(_vault), deadline));
+
+        assertEq(IERC20(_btoken).allowance(holder, address(_vault)), 0);
+        vm.prank(holder);
+        _vault.sendTokenWithPermit(_transferOp(_btoken, holder, _destChainId), deadline, v, r, s);
+
+        assertEq(IERC20(_btoken).balanceOf(holder), 0);
+        assertEq(BridgedERC20V2(_btoken).nonces(holder), 1);
+    }
+
+    /// @dev The EIP-712 digest `BridgedERC20V2.permit` verifies for `_AMOUNT`.
+    /// @param _btoken The token.
+    /// @param _owner The token holder signing the permit.
+    /// @param _spender The vault.
+    /// @param _deadline The permit's expiry.
+    /// @return The digest to sign.
+    function _permitDigest(
+        address _btoken,
+        address _owner,
+        address _spender,
+        uint256 _deadline
+    )
+        private
+        view
+        returns (bytes32)
+    {
+        bytes32 structHash = keccak256(
+            abi.encode(
+                _PERMIT_TYPEHASH,
+                _owner,
+                _spender,
+                _AMOUNT,
+                BridgedERC20V2(_btoken).nonces(_owner),
+                _deadline
+            )
+        );
+        return keccak256(
+            abi.encodePacked("\x19\x01", BridgedERC20V2(_btoken).DOMAIN_SEPARATOR(), structHash)
+        );
+    }
+
+    /// @dev A `BridgeTransferOp` sending `_AMOUNT` of `_token` from `_holder` to itself on
+    /// `_destChainId`, with no fee.
+    /// @param _token The token.
+    /// @param _holder The sender, who is also the recipient and destination owner.
+    /// @param _destChainId The destination chain.
+    /// @return The op.
+    function _transferOp(
+        address _token,
+        address _holder,
+        uint64 _destChainId
+    )
+        private
+        pure
+        returns (ERC20Vault.BridgeTransferOp memory)
+    {
+        return ERC20Vault.BridgeTransferOp({
+            destChainId: _destChainId,
+            destOwner: _holder,
+            to: _holder,
+            fee: 0,
+            token: _token,
+            gasLimit: 1_000_000,
+            amount: _AMOUNT
+        });
     }
 
     /// @dev Sends `_AMOUNT` of `_token` from a fresh holder through `sendToken`, the plain

@@ -30,14 +30,14 @@ contract Proposal0023Test is Test {
     address internal constant DEPLOYED_ERC20_VAULT_IMPL_L1 =
         0x32E47c04E8c329E8c10062731448e7658aDEEB8e;
     address internal constant DEPLOYED_BRIDGED_ERC20_IMPL_L1 =
-        0xFcbc02A2AdED1B9464B37369091279D297E20a96;
+        0x9ccB9eBa4335096c5B64f050C3c734632D497c3b;
     address internal constant DEPLOYED_BRIDGE_IMPL_L2 = 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb;
     address internal constant DEPLOYED_L2_SHARED_RESOLVER =
         0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984;
     address internal constant DEPLOYED_ERC20_VAULT_IMPL_L2 =
         0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3;
     address internal constant DEPLOYED_BRIDGED_ERC20_IMPL_L2 =
-        0x3505a0700DB72dEc7AbFF1aF231BB5D87aBF2944;
+        0xD6601cdea5857338EbdEE4CF38298aff43f01431;
 
     Proposal0023Harness internal proposal;
 

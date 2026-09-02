@@ -20,7 +20,7 @@ contract Proposal0023 is BuildProposal {
         address bridgeImpl;
         // The `ERC20Vault` implementation the L1 ERC20 vault proxy upgrades to.
         address erc20VaultImpl;
-        // The `BridgedERC20` implementation the L1 shared resolver registers as `bridged_erc20`.
+        // The `BridgedERC20V2` implementation the L1 shared resolver registers as `bridged_erc20`.
         address bridgedErc20Impl;
     }
 
@@ -32,7 +32,7 @@ contract Proposal0023 is BuildProposal {
         address bridgeImpl;
         // The `ERC20Vault` implementation the L2 ERC20 vault proxy upgrades to.
         address erc20VaultImpl;
-        // The `BridgedERC20` implementation the new resolver registers as `bridged_erc20`.
+        // The `BridgedERC20V2` implementation the new resolver registers as `bridged_erc20`.
         address bridgedErc20Impl;
     }
 
@@ -44,10 +44,11 @@ contract Proposal0023 is BuildProposal {
     /// https://codediff.taiko.xyz/?addr=0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab&newimpl=0x32E47c04E8c329E8c10062731448e7658aDEEB8e&chainid=1
     address public constant ERC20_VAULT_NEW_IMPL_L1 = 0x32E47c04E8c329E8c10062731448e7658aDEEB8e;
 
-    /// @dev Deployed by `DeployBridgedERC20L1` on Ethereum mainnet, with the vault proxy as its
-    /// `erc20Vault` immutable. Registered as `bridged_erc20` on the L1 shared resolver, replacing
-    /// the July 2024 implementation `0x65666141…` that the live vault can no longer initialise.
-    address public constant BRIDGED_ERC20_NEW_IMPL_L1 = 0xFcbc02A2AdED1B9464B37369091279D297E20a96;
+    /// @dev Deployed by `DeployBridgedERC20V2L1` on Ethereum mainnet: a `BridgedERC20V2` (EIP-2612
+    /// `permit` included) with the vault proxy as its `erc20Vault` immutable, registered as
+    /// `bridged_erc20` on the L1 shared resolver in place of the July 2024 implementation
+    /// `0x65666141…` that the live vault can no longer initialise.
+    address public constant BRIDGED_ERC20_NEW_IMPL_L1 = 0x9ccB9eBa4335096c5B64f050C3c734632D497c3b;
 
     /// @dev Deployed by `DeployBridgeUpgradeL2` on Taiko L2.
     /// https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000001&newimpl=0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb&chainid=167000
@@ -63,10 +64,11 @@ contract Proposal0023 is BuildProposal {
     /// https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000002&newimpl=0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3&chainid=167000
     address public constant ERC20_VAULT_NEW_IMPL_L2 = 0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3;
 
-    /// @dev Deployed by `DeployERC20VaultUpgradeL2` on Taiko L2, with the vault proxy as its
-    /// `erc20Vault` immutable. It is registered as `bridged_erc20` rather than set as a proxy
-    /// target, so there is no predecessor to diff against.
-    address public constant BRIDGED_ERC20_NEW_IMPL_L2 = 0x3505a0700DB72dEc7AbFF1aF231BB5D87aBF2944;
+    /// @dev Deployed by `DeployBridgedERC20V2L2` on Taiko L2: a `BridgedERC20V2` (EIP-2612 `permit`
+    /// included) with the vault proxy as its `erc20Vault` immutable. It is registered as
+    /// `bridged_erc20` rather than set as a proxy target, so there is no predecessor to diff
+    /// against.
+    address public constant BRIDGED_ERC20_NEW_IMPL_L2 = 0xD6601cdea5857338EbdEE4CF38298aff43f01431;
 
     uint256 private constant _L1_CHAIN_ID = 1;
     uint256 private constant _L2_CHAIN_ID = 167_000;
@@ -110,7 +112,7 @@ contract Proposal0023 is BuildProposal {
         // every name the vault reads, so no registration accompanies this upgrade.
         actions[1] = buildUpgradeAction(L1.ERC20_VAULT, _d.erc20VaultImpl);
 
-        // 2: Point the L1 shared resolver's `bridged_erc20` at a `BridgedERC20` built from `main`.
+        // 2: Point the L1 shared resolver's `bridged_erc20` at a `BridgedERC20V2` built from `main`.
         // The entry still names the July 2024 implementation, which only has the seven-argument,
         // address-manager based init, while the live vault has called the six-argument
         // IBridgedERC20Initializable.init since Proposal0017 — so the first delivery to L1 of a
@@ -186,12 +188,13 @@ contract Proposal0023 is BuildProposal {
         );
         // 4: `bridged_erc20` for chain 167000 — the implementation behind every bridged token the
         //    new vault deploys, read on the first delivery of a canonical token it has not seen
-        //    before. This must be a `BridgedERC20` built from `main`: the new vault initialises the
-        //    token through the six-argument IBridgedERC20Initializable.init and the token
-        //    authorises minting through its `erc20Vault` immutable, while the legacy
-        //    implementation `0x98161D67…` registered on the old registry only implements the
-        //    seven-argument, address-manager based init. Registering the legacy one would make
-        //    every first-time token delivery to L2 revert.
+        //    before. This must be built from `main`: the new vault initialises the token through
+        //    the six-argument IBridgedERC20Initializable.init and the token authorises minting
+        //    through its `erc20Vault` immutable, while the legacy implementation `0x98161D67…`
+        //    registered on the old registry only implements the seven-argument, address-manager
+        //    based init. Registering the legacy one would make every first-time token delivery to
+        //    L2 revert. `BridgedERC20V2` rather than plain `BridgedERC20` so new bridged tokens keep
+        //    the EIP-2612 `permit` the legacy implementation has and `sendTokenWithPermit` needs.
         actions[4] = _registerAction(
             _d.sharedResolver, _L2_CHAIN_ID, LibNames.B_BRIDGED_ERC20, _d.bridgedErc20Impl
         );

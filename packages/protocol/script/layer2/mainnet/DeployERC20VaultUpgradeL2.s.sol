@@ -8,11 +8,14 @@ import { BridgedERC20 } from "src/shared/vault/BridgedERC20.sol";
 import { ERC20Vault } from "src/shared/vault/ERC20Vault.sol";
 
 /// @title DeployERC20VaultUpgradeL2
-/// @notice Deploys the L2 `ERC20Vault` and `BridgedERC20` implementations that Proposal0023 wires
-/// up.
+/// @notice Deploys the L2 `ERC20Vault` implementation that Proposal0023 upgrades the L2 vault proxy
+/// to, plus a plain `BridgedERC20` that the proposal no longer uses.
 /// @dev Deploys new contracts only. It does not upgrade the vault proxy and registers no names:
 /// Proposal0023 registers `bridged_erc20` and both `erc20_vault` entries on the resolver as DAO
-/// actions.
+/// actions. The `BridgedERC20` this script deployed on 2026-09-02 (`0x3505a070…`) was superseded the
+/// same day by the `BridgedERC20V2` from `DeployBridgedERC20V2L2`, which adds the EIP-2612 `permit`
+/// the vault's new `sendTokenWithPermit` relies on; the script is kept as it ran, because the vault
+/// implementation it deployed is the one the proposal points at.
 ///
 /// The vault implementation reads the resolver `DeployBridgeUpgradeL2` deployed on 2026-08-31
 /// (`L2_SHARED_RESOLVER` below, the constant `Proposal0023.s.sol` carries). The live L2 vault
