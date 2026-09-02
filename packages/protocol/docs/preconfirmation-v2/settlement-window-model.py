@@ -620,9 +620,10 @@ V2_PRIVILEGED_DESTINATION_ADDRESSES = (
     "delegate-controller",
     *V1_OFFICIAL_VAULT_ADDRESSES,
 )
-MAX_REGISTRATION_PROOF_PATH_NODES = 66
-MAX_REGISTRATION_PROOF_NODES = 132
-MAX_REGISTRATION_PROOF_BYTES = 80_000
+MPT_HASHED_KEY_NIBBLES = 64
+MAX_REGISTRATION_PROOF_PATH_NODES = 65
+MAX_REGISTRATION_PROOF_NODES = 130
+MAX_REGISTRATION_PROOF_BYTES = 78_264
 MAX_REGISTRATION_PROOF_NODE_BYTES = 600
 MAX_MIGRATION_PROOF_BYTES = 131_072
 REGISTRATION_MPT_VERIFIER_ADDRESS = "registration-mpt-verifier:v2"
@@ -631,8 +632,8 @@ REGISTRATION_MPT_PROOF_SCHEMA = (
     "MptProofV1=be16(accountNodeCount)||be16(storageNodeCount)||"
     "(be16(nodeLength)||canonicalRlpNode)*accountNodeCount||"
     "(be16(nodeLength)||canonicalRlpNode)*storageNodeCount;rootToLeaf;"
-    "EthereumKeccak;canonicalHexPrefix;canonicalRlp;absenceRejected;"
-    "valueRequired"
+    "EthereumKeccak;canonicalHexPrefix;canonicalRlp;selectedNodesValidated;"
+    "unselectedInlineOpaque;emptyBranchValue;absenceRejected;valueRequired"
 )
 REGISTRATION_MPT_PROOF_SCHEMA_HASH = keccak256(
     REGISTRATION_MPT_PROOF_SCHEMA.encode()
@@ -691,7 +692,33 @@ REGISTRATION_MPT_CONFIG_GETTER_SELECTOR = keccak256(
 )[:4]
 REGISTRATION_MPT_CONFIG_GETTER_GAS = 50_000
 REGISTRATION_MPT_CONFIG_GETTER_BYTES = 32
-REGISTRATION_MPT_VERIFIER_GAS_LIMIT = 8_000_000
+REGISTRATION_MPT_VERIFIER_GAS_LIMIT = 11_000_000
+REGISTRATION_MPT_WORST_ACCEPTED_GAS = 7_940_171
+REGISTRATION_MPT_RELEASE_MARGIN_NUMERATOR = 130
+REGISTRATION_MPT_RELEASE_MARGIN_DENOMINATOR = 100
+REGISTRATION_MPT_FIRST_REJECTED_PATH_NODES = 66
+
+
+def canonical_mpt_maximum_membership_path_nodes(key_nibbles: int) -> int:
+    """Return the complete path bound for a canonical compact MPT key."""
+
+    if type(key_nibbles) is not int or key_nibbles < 1:
+        raise ValueError("canonical MPT key nibble count is invalid")
+    # Each nonterminal branch consumes one nibble and each extension at least
+    # one.  At most one terminal leaf remains after all key nibbles.
+    return key_nibbles + 1
+
+
+def registration_mpt_release_gas_requirement() -> int:
+    """Return ceil(1.30 * the frozen worst-accepted verifier fixture)."""
+
+    numerator = (
+        REGISTRATION_MPT_WORST_ACCEPTED_GAS
+        * REGISTRATION_MPT_RELEASE_MARGIN_NUMERATOR
+    )
+    return (
+        numerator + REGISTRATION_MPT_RELEASE_MARGIN_DENOMINATOR - 1
+    ) // REGISTRATION_MPT_RELEASE_MARGIN_DENOMINATOR
 SEND_MESSAGE_V2_SIGNATURE = (
     "sendMessageV2((uint64,uint64,uint32,address,uint64,address,uint64,"
     "address,address,uint256,bytes),uint64)"
@@ -4227,9 +4254,9 @@ MAX_SCHEDULE_SEAL_WITNESS_BYTES = 280_000
 MAX_SCHEDULE_CARRIER_HEADER_BYTES = 2_048
 MAX_SCHEDULE_HEADER_FIELDS = 32
 MIN_SCHEDULE_HEADER_FIELDS = 20
-MAX_SCHEDULE_MPT_PATH_NODES = 66
+MAX_SCHEDULE_MPT_PATH_NODES = 65
 MAX_SCHEDULE_MPT_NODE_BYTES = 600
-MAX_SCHEDULE_MPT_BYTES = 120_000
+MAX_SCHEDULE_MPT_BYTES = 117_393
 SCHEDULE_REGISTRY_CELL_BYTES = 101
 SCHEDULE_TRANCHE_RECORD_BYTES = 329
 PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS = 2_592_000
@@ -4799,7 +4826,9 @@ class RootMigrationExecutorModelV1:
         operation.state = 6
 
 
-def _canonical_rlp_list_field_count(encoded: bytes) -> int:
+def _canonical_rlp_list_field_count(
+    encoded: bytes, *, allow_inline_lists: bool = False
+) -> int:
     """Return the immediate field count for one complete canonical RLP list."""
 
     if type(encoded) is not bytes or not encoded:
@@ -4854,7 +4883,7 @@ def _canonical_rlp_list_field_count(encoded: bytes) -> int:
         child_end, child_is_list, child_start, child_payload_end = item(cursor)
         if child_end > payload_end:
             raise ValueError("RLP child exceeds its parent")
-        if child_is_list:
+        if child_is_list and not allow_inline_lists:
             raise ValueError("RLP list contains a nested list")
         cursor = child_end
         count += 1
@@ -4874,7 +4903,7 @@ class ScheduleMptPathV1:
                        for node in self.nodes)):
             raise ValueError("Schedule MPT path bounds are invalid")
         for node in self.nodes:
-            _canonical_rlp_list_field_count(node)
+            _canonical_rlp_list_field_count(node, allow_inline_lists=True)
         return bytes((len(self.nodes),)) + b"".join(
             len(node).to_bytes(2, "big") + node for node in self.nodes
         )

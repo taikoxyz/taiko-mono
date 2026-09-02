@@ -570,6 +570,7 @@ REGISTRATION_MPT_PROOF_SCHEMA_LITERAL = (
     b"(be16(nodeLength)||canonicalRlpNode)*accountNodeCount||"
     b"(be16(nodeLength)||canonicalRlpNode)*storageNodeCount;"
     b"rootToLeaf;EthereumKeccak;canonicalHexPrefix;canonicalRlp;"
+    b"selectedNodesValidated;unselectedInlineOpaque;emptyBranchValue;"
     b"absenceRejected;valueRequired"
 )
 REGISTRATION_MPT_PROOF_SCHEMA_HASH = keccak256(
@@ -594,6 +595,11 @@ REGISTRATION_MPT_VERIFIER_DESCRIPTOR_TYPEHASH = keccak256(
     REGISTRATION_MPT_VERIFIER_DESCRIPTOR_TYPE)
 REGISTRATION_MPT_VERIFIER_CONFIG_GETTER_SELECTOR = keccak256(
     b"registrationMptVerifierConfigHashV2()")[:4]
+MAX_REGISTRATION_MPT_NODES_PER_PATH = 65
+MAX_REGISTRATION_MPT_TOTAL_NODES = 130
+MAX_REGISTRATION_MPT_NODE_BYTES = 600
+MAX_REGISTRATION_MPT_PROOF_BYTES = 78_264
+REGISTRATION_MPT_VERIFICATION_GAS_LIMIT = 11_000_000
 SEND_MESSAGE_V2_SIGNATURE = (
     b"sendMessageV2((uint64,uint64,uint32,address,uint64,address,uint64,"
     b"address,address,uint256,bytes),uint64)"
@@ -5324,11 +5330,15 @@ def _registration_mpt_verifier_configuration_hash(
             and descriptor.proof_schema_hash
                 == REGISTRATION_MPT_PROOF_SCHEMA_HASH
             and descriptor.selector == VERIFY_REGISTRATION_SELECTOR
-            and descriptor.maximum_nodes_per_path == 66
-            and descriptor.maximum_total_nodes == 132
-            and descriptor.maximum_node_bytes == 600
-            and descriptor.maximum_proof_bytes == 80_000
-            and descriptor.verification_gas_limit == 8_000_000)
+            and descriptor.maximum_nodes_per_path
+                == MAX_REGISTRATION_MPT_NODES_PER_PATH
+            and descriptor.maximum_total_nodes
+                == MAX_REGISTRATION_MPT_TOTAL_NODES
+            and descriptor.maximum_node_bytes == MAX_REGISTRATION_MPT_NODE_BYTES
+            and descriptor.maximum_proof_bytes
+                == MAX_REGISTRATION_MPT_PROOF_BYTES
+            and descriptor.verification_gas_limit
+                == REGISTRATION_MPT_VERIFICATION_GAS_LIMIT)
     encoded = (
         REGISTRATION_MPT_VERIFIER_CONFIG_TYPEHASH
         + b32(descriptor.public_input_schema_hash)
@@ -5373,7 +5383,7 @@ def registration_mpt_verifier_descriptor_hash(
 
 def encode_verify_registration_calldata(
         statement: RegistrationStorageStatementV2, proof: bytes) -> bytes:
-    assert len(proof) <= 80_000
+    assert len(proof) <= MAX_REGISTRATION_MPT_PROOF_BYTES
     encoded = (VERIFY_REGISTRATION_SELECTOR
                + canonical_registration_storage_statement(statement)
                + u256(13 * 32) + abi_bytes_tail(proof))
@@ -5395,7 +5405,7 @@ def decode_verify_registration_calldata(
         b32(words[7]), address_word_value(words[8]), b32(words[9]),
         b32(words[10]), b32(words[11]))
     proof_length = uint_word_value(arguments[13 * 32:14 * 32])
-    assert proof_length <= 80_000
+    assert proof_length <= MAX_REGISTRATION_MPT_PROOF_BYTES
     proof_start = 14 * 32
     proof = arguments[proof_start:proof_start + proof_length]
     assert calldata == encode_verify_registration_calldata(statement, proof)
@@ -13010,7 +13020,11 @@ def vectors() -> dict[str, str]:
         0x6002, bytes.fromhex("95" * 32), bytes(32),
         REGISTRATION_STORAGE_STATEMENT_TYPEHASH,
         REGISTRATION_MPT_PROOF_SCHEMA_HASH, VERIFY_REGISTRATION_SELECTOR,
-        66, 132, 600, 80_000, 8_000_000)
+        MAX_REGISTRATION_MPT_NODES_PER_PATH,
+        MAX_REGISTRATION_MPT_TOTAL_NODES,
+        MAX_REGISTRATION_MPT_NODE_BYTES,
+        MAX_REGISTRATION_MPT_PROOF_BYTES,
+        REGISTRATION_MPT_VERIFICATION_GAS_LIMIT)
     registration_mpt_verifier = replace(
         registration_mpt_verifier,
         configuration_hash=_registration_mpt_verifier_configuration_hash(
@@ -17049,12 +17063,12 @@ EXPECTED = {
  'registration_commitment_base_slot': '20b3dfc457e3cecf32b0c047177351f0814e426c1548e87b79f58830655810c3',
  'registration_commitment_slot': 'dfa6283b763bbadeb604401a78e2fefeddb72000addcdb94ed2e3de5cc69846b',
  'registration_commitment_trie_key': '200031adff46d90b1cd5c67ff8e31098235d1dddb08ec98b0d20f5f8660c0ac8',
- 'registration_config_getter_return': 'b266045c553f010d052a847ea18459bb268cbaacde008574e8cf4c738453911f',
- 'registration_mpt_proof_schema_hash': '50ac70c83c4d85e9e0790d2413e35216b0c490814ee435879d0ce27e4a12e5e5',
+ 'registration_config_getter_return': '015ea002adbfab085cf51db1714c889961bb1a416cd69b7d22f1f816a5787e4c',
+ 'registration_mpt_proof_schema_hash': '0027acbf8d87ef5b7c901c3dc27af4b56f1e4fb64953cf87f6fcd6ee878c963c',
  'registration_mpt_verifier_config_getter_selector': '59bfe418',
  'registration_mpt_verifier_config_typehash': '38f7fbc63e45f650bd5cbaffba0d81d5ca69f21ebdddfa74280d7e6eb5c319d6',
- 'registration_mpt_verifier_configuration_hash': 'b266045c553f010d052a847ea18459bb268cbaacde008574e8cf4c738453911f',
- 'registration_mpt_verifier_descriptor_hash': '99491cce6d0ea603e0b9862bd3a2509953ea05e50e9243f8086a19aa92b2f1bf',
+ 'registration_mpt_verifier_configuration_hash': '015ea002adbfab085cf51db1714c889961bb1a416cd69b7d22f1f816a5787e4c',
+ 'registration_mpt_verifier_descriptor_hash': 'e3c4dd9d13404822af1360b3bc97f3d82dc1dd7124a137e900c6351270505310',
  'registration_mpt_verifier_descriptor_typehash': '9533e2f6ac9bcf6830306a9ef5d14e21a06008f9ceb59208d09a8d7ab1e6100f',
  'registration_route_key': 'db81cf13785d1f87ec9287c3d1473207c36a08db3e07990de18b4c5edf25e8ad',
  'registration_route_key_typehash': '4368ad9403b46ef3830e21af8cddcaedbd444c8c57bc3414ebc6fdd250e1e6da',

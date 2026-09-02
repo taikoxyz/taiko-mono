@@ -1584,7 +1584,7 @@ addresses immediately before their runtime/boundary pairs.  Append
 \begin{verbatim}
 u16(384)||u16(268)||u8(8)||u8(64)||u8(8)||u16(76)||
 u8(12)||u8(32)||u16(256)||u8(64)||u16(8191)||
-u16(2048)||u8(32)||u8(66)||u16(600)||u32(120000)||
+u16(2048)||u8(32)||u8(65)||u16(600)||u32(117393)||
 u32(131072)||u32(280000)||
 u64(50000)||u64(50000)||u64(100000)||u64(50000)||u64(50000)||
 u64(50000)||u64(50000)||u64(100000)||u64(100000)
@@ -1673,8 +1673,9 @@ TrancheRecord = u64(storedWindow) || u8(state) || u192(amount) ||
 \end{verbatim}
 Here \code{1<=forkWitnessBytes<=131072},
 \code{1<=carrierHeaderBytes<=2048}, every path has
-\code{1<=nodeCount<=66}, every node is one complete canonical RLP list of at
-most 600 bytes, the three path encodings together are at most 120,000 bytes,
+\code{1<=nodeCount<=65}, every framed path node is one complete canonical RLP
+list of at most 600 bytes, and the three path encodings together are at most
+117,393 bytes (exactly \code{3*(1+65*(2+600))}),
 and the carrier header is one complete canonical RLP list with 20--32 fields.
 The first 20 header fields have the post-Cancun order through
 \code{parentBeaconBlockRoot}; appended fields are hashed and must be canonical
@@ -1693,6 +1694,21 @@ ROOT value may be shorter before left-padding.  Zero, absent, branch-value,
 noncanonical integer/string or alternative RLP encodings reject.  This rule
 matches Ethereum's leading-zero-stripping storage-trie encoding without making
 roots whose first byte is zero unprovable.
+
+The 65-node limit is complete for a 64-nibble hashed Ethereum key: every
+nonterminal branch consumes one nibble, every extension consumes at least one,
+and at most one terminal leaf remains.  Thus the verifier accepts every
+canonical membership-path depth and rejects 66 before traversal; no
+probabilistic prefix-grinding assumption is used for proof availability.
+At a branch, the first 16 direct RLP items must have canonical outer framing
+and an allowed empty/hash/inline reference type; the seventeenth item must be
+the canonical empty byte string.  This is complete for fixed-length hashed
+keys, none of which can be a prefix of another, and rejects the unused
+branch-value representation.  The selected inline child must equal the next
+framed path node, which is fully decoded and semantically validated.  An
+unselected inline child is already authenticated by the current node hash and
+cannot affect the selected membership statement, so its nested payload is
+opaque and must not be recursively traversed.
 
 The ordinal supplies each RegistryCell's leaf index.  An absent cell has
 \code{present=0}, all remaining 100 bytes zero and no TrancheRecord.  A present
@@ -3278,6 +3294,7 @@ REGISTRATION_MPT_PROOF_SCHEMA_LITERAL = concat(
   "(be16(nodeLength)||canonicalRlpNode)*accountNodeCount||",
   "(be16(nodeLength)||canonicalRlpNode)*storageNodeCount;",
   "rootToLeaf;EthereumKeccak;canonicalHexPrefix;canonicalRlp;",
+  "selectedNodesValidated;unselectedInlineOpaque;emptyBranchValue;",
   "absenceRejected;valueRequired")
 proofSchemaHash = keccak256(REGISTRATION_MPT_PROOF_SCHEMA_LITERAL)
 \end{verbatim}
@@ -3290,7 +3307,7 @@ REGISTRATION_MPT_VERIFIER_CONFIG_TYPE_LITERAL = concat(
   "uint32 maximumProofBytes,uint64 verificationGasLimit)")
 registrationMptVerifierConfigurationHash = keccak256(abi.encode(
   keccak256(REGISTRATION_MPT_VERIFIER_CONFIG_TYPE_LITERAL),
-  publicInputSchemaHash, proofSchemaHash, selector, 66, 132, 600, 80000, 8000000))
+  publicInputSchemaHash, proofSchemaHash, selector, 65, 130, 600, 78264, 11000000))
 
 REGISTRATION_MPT_VERIFIER_DESCRIPTOR_TYPE_LITERAL = concat(
   "RegistrationMptVerifierDescriptorV2(address verifier,bytes32 runtimeHash,",
@@ -3301,7 +3318,7 @@ REGISTRATION_MPT_VERIFIER_DESCRIPTOR_TYPE_LITERAL = concat(
 registrationMptVerifierDescriptorHash = keccak256(abi.encode(
   keccak256(REGISTRATION_MPT_VERIFIER_DESCRIPTOR_TYPE_LITERAL),
   verifier, runtimeHash, registrationMptVerifierConfigurationHash,
-  publicInputSchemaHash, proofSchemaHash, selector, 66, 132, 600, 80000, 8000000))
+  publicInputSchemaHash, proofSchemaHash, selector, 65, 130, 600, 78264, 11000000))
 \end{verbatim}
 The configuration layer deliberately excludes verifier, runtime hash and itself;
 the descriptor repeats every configuration field and rejects unless its
@@ -3328,9 +3345,9 @@ uint64,bytes32,address,bytes32,bytes32,bytes32),bytes)"}.  Its ABI head is the
 twelve statement words followed by the proof offset word
 \code{0x1a0}; the tail is canonical bytes length/data/zero-padding with no
 trailing calldata.  Its total calldata length is exactly
-\code{452+ceil32(proof.length)} bytes; the 80,000-byte cap measures the packed
+\code{452+ceil32(proof.length)} bytes; the 78,264-byte cap measures the packed
 inner \code{proof.length}, not the outer ABI envelope.  BridgeDomainRegistry
-makes one zero-value \code{STATICCALL} forwarding exactly 8,000,000 gas and
+makes one zero-value \code{STATICCALL} forwarding exactly 11,000,000 gas and
 accepts exactly 32 return bytes equal to its locally recomputed statement hash.
 Revert, OOG, malformed return,
 substituted statement or a Boolean result rejects before support state changes.
@@ -3338,9 +3355,11 @@ substituted statement or a Boolean result rejects before support state changes.
 \code{proof} is \code{MptProofV1}: big-endian
 \code{u16(accountNodeCount)||u16(storageNodeCount)} followed by each
 root-to-leaf canonical-RLP node as \code{u16(nodeLength)||nodeBytes}.  Each path
-has at most 66 nodes, each node at most 600 bytes, the whole proof at most
-80,000 bytes, and any noncanonical RLP, wrong inline/hash reference, surplus
-node/byte or gas use above 8,000,000 rejects.  The account proof fixes the
+has at most 65 nodes, the two paths have at most 130 nodes, each node is at most
+600 bytes, and the whole proof is at most
+\code{4+130*(2+600)=78,264} bytes.  Any noncanonical framed path node, wrong
+inline/hash reference, surplus node/byte or gas use above 11,000,000 rejects.
+The account proof fixes the
 registrar address and code hash; the storage proof fixes
 one nonzero \code{registrationCommitment[protocolVersion]} word.  No Solidity
 struct or adjacent slot is inferred from that one path.  The registrar exposes
@@ -3382,6 +3401,26 @@ substitution of any field, mapping key, code hash, account or root rejects.
 That destination proof does not authorize a source cutover.  Each release adds
 at most 64 entries; there is no global cap, deletion, redirect or
 reinterpretation.
+
+An inline child on the selected path must byte-equal the next framed node, which
+is then fully decoded and semantically validated.  An unselected branch child
+is authenticated by the already verified parent-node hash but cannot affect
+membership; it is therefore checked only as one canonically framed RLP item of
+an allowed empty/hash/inline reference type.  The verifier must not recursively
+walk an unselected inline subtree.  Doing so would make verification gas depend
+on unrelated state and permit gas amplification without strengthening the
+selected-key proof.  The seventeenth branch item must be the canonical empty
+byte string: all keys proved here are fixed 32-byte hashes, so no such key can
+terminate as the prefix of another at a branch value.
+
+The release gas certificate uses the exact production compiler, optimizer and
+EVM revision and includes full 65-node account and storage paths with maximum
+eligible branch references, selected inline nodes, and deeply nested
+unselected inline items near key exhaustion.  Deployment is permitted only
+while \code{ceil(1.30*measuredWorstAcceptedGas)<=11,000,000}.  The frozen
+reference build's worst accepted fixture consumes 7,940,171 gas, so the gate
+requires 10,322,223 gas.  Any compiler, RLP traversal or EVM-gas-schedule
+change invalidates the certificate and requires remeasurement before release.
 
 The source package becomes \code{ARM_READY} only at
 \code{stagedAtBlock+214}.  This is an explicit L1 code/configuration/package
@@ -9935,9 +9974,13 @@ Settlement canonical history & 256 version-sequence cells &
 $256>\lceil(T_{include}+REORG\_MARGIN)/12\rceil+2$ with at most one canonical
 write per L1 block; the exact version/sequence tag prevents sparse L2 heights
 from choosing or churning a cell, and frozen versions never overwrite again. \\
-Registration MPT proof & 66 nodes/path; 600 B/node; 80,000 B; 8m gas &
+Registration MPT proof & 65 nodes/path; 130 nodes total; 600 B/node; 78,264 B; 11m gas &
 Canonical RLP and exact account/storage paths under the routed canonical
-state root; all bounds reject before an unbounded allocation or call. \\
+state root; all bounds reject before an unbounded allocation or call.  Selected
+nodes are fully validated; unselected inline subtrees remain authenticated
+opaque items so unrelated state cannot amplify traversal gas.  The frozen
+adversarial fixture consumes 7,940,171 gas and passes the 1.30x release gate at
+10,322,223 gas. \\
 L1 migration activation & Genesis: 0 rows/2,048-B header; version: 64 rows/0-B header; at most 131,072-B proof &
 Let \code{ceil32(x)=32*ceil(x/32)} and
 \code{genesisActivationBytes=4+82*32+32+
@@ -10976,11 +11019,11 @@ regRouteType 4368ad9403b46ef3830e21af8cddcaedbd444c8c57bc3414ebc6fdd250e1e6da
 regRoute db81cf13785d1f87ec9287c3d1473207c36a08db3e07990de18b4c5edf25e8ad
 verifyRegSel 33639818
 regStmtHash c99a6d83d5667046e4cb17857acec32562fe197b4324217cd61c9c3e082cc85d
-regProof 50ac70c83c4d85e9e0790d2413e35216b0c490814ee435879d0ce27e4a12e5e5
+regProof 0027acbf8d87ef5b7c901c3dc27af4b56f1e4fb64953cf87f6fcd6ee878c963c
 regCfgType 38f7fbc63e45f650bd5cbaffba0d81d5ca69f21ebdddfa74280d7e6eb5c319d6
-regCfgHash b266045c553f010d052a847ea18459bb268cbaacde008574e8cf4c738453911f
+regCfgHash 015ea002adbfab085cf51db1714c889961bb1a416cd69b7d22f1f816a5787e4c
 regDescType 9533e2f6ac9bcf6830306a9ef5d14e21a06008f9ceb59208d09a8d7ab1e6100f
-regDescHash 99491cce6d0ea603e0b9862bd3a2509953ea05e50e9243f8086a19aa92b2f1bf
+regDescHash e3c4dd9d13404822af1360b3bc97f3d82dc1dd7124a137e900c6351270505310
 regCfgSel 59bfe418
 verifyRegCall 710c7863ec96da255fde57220772b0f173d7931ed21bc878586820012f33bb50
 verifyRegLen 516
@@ -11802,7 +11845,7 @@ local destination binding, frontier/event terminal proofs, pause-independent
 escape, L2 release sealing, replay and timing
 geometry.  Cryptographic booleans in that model are not cryptographic
 evidence.
-The companion \code{test-settlement-window.py} suite runs 274 adversarial
+The companion \code{test-settlement-window.py} suite runs 275 adversarial
 regressions, including authorization substitution, callback/OOG, competing LP,
 owner-mode, target/quota/pull/terminal rollback, withdrawal/recreation and
 cross-version preservation cases for the atomic Pool path.

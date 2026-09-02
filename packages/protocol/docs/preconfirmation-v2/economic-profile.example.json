@@ -131,12 +131,12 @@
     "refundErc1155Pairs": 128,
     "terminalAccumulatorDepth": 64,
     "maximumTerminalCount": "18446744073709551615",
-    "registrationProofMaximumNodesPerPath": 66,
+    "registrationProofMaximumNodesPerPath": 65,
     "registrationProofPathCount": 2,
-    "registrationProofMaximumTotalNodes": 132,
+    "registrationProofMaximumTotalNodes": 130,
     "registrationProofMaximumNodeBytes": 600,
-    "registrationProofMaximumBytes": 80000,
-    "registrationProofMaximumGas": 8000000
+    "registrationProofMaximumBytes": 78264,
+    "registrationProofMaximumGas": 11000000
   },
   "seat": {
     "slaBondWei": null,

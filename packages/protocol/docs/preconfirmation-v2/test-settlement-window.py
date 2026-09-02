@@ -6210,10 +6210,21 @@ class ForcedIngressRouterTests(unittest.TestCase):
                 account_nodes=(b"a" * 601,),
                 storage_nodes=(b"b",),
             )
-        verifier.verification_gas_limit = 8_000_001
+        boundary_proof = settlement.issue_registration_mpt_proof_for_test(
+            verifier,
+            statement,
+            account_nodes=(b"a",) * 65,
+            storage_nodes=(b"b",) * 65,
+        )
+        self.assertEqual(len(boundary_proof.canonical_bytes), 4 + 130 * 3)
+        with self.assertRaises(ValueError):
+            settlement.CanonicalMptMembershipProof(
+                (b"a",) * 66, (b"b",)
+            ).canonical_bytes
+        verifier.verification_gas_limit = 11_000_001
         with self.assertRaises(ValueError):
             verifier.verify_membership(statement, proof)
-        verifier.verification_gas_limit = 8_000_000
+        verifier.verification_gas_limit = 11_000_000
         verifier.calldata_override = bytes(4) + calldata[4:]
         with self.assertRaises(ValueError):
             verifier.verify_membership(statement, proof)
@@ -17437,12 +17448,46 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                 witness(header).encode()
         with self.assertRaises(ValueError):
             witness(bytes.fromhex("b80100")).encode()
+        accepted_path = settlement.ScheduleMptPathV1(
+            (bytes.fromhex("c0"),) * 65
+        )
+        self.assertEqual(len(accepted_path.encode()), 1 + 65 * 3)
+        self.assertEqual(
+            settlement.ScheduleMptPathV1((bytes.fromhex("c2c180"),)).encode(),
+            bytes.fromhex("010003c2c180"),
+        )
         with self.assertRaises(ValueError):
-            settlement.ScheduleMptPathV1((bytes.fromhex("c0"),) * 67).encode()
+            settlement.ScheduleMptPathV1((bytes.fromhex("c0"),) * 66).encode()
         oversized_node = bytes.fromhex("f90256") + bytes.fromhex("80") * 598
         self.assertEqual(len(oversized_node), 601)
         with self.assertRaises(ValueError):
             settlement.ScheduleMptPathV1((oversized_node,)).encode()
+
+    def test_mpt_geometry_completeness_and_gas_gate_are_exact(self):
+        self.assertEqual(
+            settlement.MAX_REGISTRATION_PROOF_BYTES,
+            4 + 130 * (2 + 600),
+        )
+        self.assertEqual(
+            settlement.MAX_SCHEDULE_MPT_BYTES,
+            3 * (1 + 65 * (2 + 600)),
+        )
+        self.assertEqual(
+            settlement.canonical_mpt_maximum_membership_path_nodes(
+                settlement.MPT_HASHED_KEY_NIBBLES
+            ),
+            65,
+        )
+        self.assertEqual(
+            settlement.REGISTRATION_MPT_FIRST_REJECTED_PATH_NODES, 66
+        )
+        self.assertEqual(
+            settlement.registration_mpt_release_gas_requirement(), 10_322_223
+        )
+        self.assertLessEqual(
+            settlement.registration_mpt_release_gas_requirement(),
+            settlement.REGISTRATION_MPT_VERIFIER_GAS_LIMIT,
+        )
 
     def test_nonextendable_version_lease_arm_abort_and_rollback(self):
         fixture = protocol_authority_fixture()
