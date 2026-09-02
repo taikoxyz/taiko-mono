@@ -40,7 +40,6 @@ export class ERC20Bridge extends Bridge {
       amount,
       gasLimit,
       fee,
-      solverFee: BigInt(0), // not supported in the UI yet, default to 0
     } satisfies ERC20BridgeTransferOp;
 
     log('Preparing transaction with args', sendERC20Args);

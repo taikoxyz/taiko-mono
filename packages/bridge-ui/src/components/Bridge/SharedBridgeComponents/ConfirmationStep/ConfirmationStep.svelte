@@ -103,13 +103,11 @@
       // Confirmed on-chain: record it in the local history
       recordBridgeTx(userAccount, bridgeTx);
 
+      // No values: the message carries no placeholder, so a token passed here was silently
+      // dropped by the formatter. The symbol is still escaped where a string does interpolate it.
       successToast({
         title: $t('bridge.actions.bridge.success.title'),
-        message: $t('bridge.actions.bridge.success.message', {
-          values: {
-            token: escapeHtml($selectedToken.symbol),
-          },
-        }),
+        message: $t('bridge.actions.bridge.success.message'),
       });
       icon = successIcon;
       bridgingStatus = BridgingStatus.DONE;

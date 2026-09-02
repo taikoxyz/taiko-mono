@@ -82,3 +82,15 @@ describe('handleAccountChange', () => {
     expect(get(account)?.address).toBe(ADDRESS_A);
   });
 });
+
+describe('a wallet whose code cannot be read', () => {
+  it('is treated as a contract wallet rather than as an EOA', async () => {
+    // This flag routes a contract-wallet user through the recipient acknowledgement. A read
+    // that failed used to answer "false", skipping the gate for exactly the user it protects.
+    isSmartContract.mockRejectedValue(new Error('rpc down'));
+
+    await handleAccountChange({ address: ADDRESS_A, isConnected: true, chainId: 1 } as never);
+
+    expect(get(connectedSmartContractWallet)).toBe(true);
+  });
+});

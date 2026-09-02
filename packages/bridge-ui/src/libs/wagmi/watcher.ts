@@ -14,7 +14,13 @@ import { config, reconnectionPromise } from './client';
 const log = getLogger('wagmi:watcher');
 
 let isWatching = false;
-let unWatchAccount: () => void;
+let unWatchAccount: (() => void) | undefined;
+/**
+ * Bumped by stopWatching. startWatching awaits the wallet reconnection before it installs
+ * its subscription, and a layout torn down during that wait used to find nothing to
+ * unwatch - then the await returned and installed a subscription nothing would ever remove.
+ */
+let watchGeneration = 0;
 
 /**
  * The account event this handler is currently acting on. wagmi emits overlapping events -
@@ -39,15 +45,20 @@ async function handleAccountChange(data: GetAccountReturnType) {
   const { chainId, address } = data;
 
   if (chainId && address) {
-    let smartWallet = false;
+    let smartWallet: boolean;
     try {
       smartWallet = (await isSmartContract(address, Number(chainId))) || false;
     } catch (error) {
-      console.error('Error checking for smart contract wallet', error);
-    } finally {
-      // A classification speaks for the account it ran against, not for whichever is current
-      if (generation === accountChangeGeneration) connectedSmartContractWallet.set(smartWallet);
+      // Unknown is not "no". This flag is what routes a contract-wallet user through the
+      // recipient acknowledgement; answering false for a read that never happened skipped
+      // that gate for exactly the user it protects. A wallet whose code could not be read is
+      // treated as a contract wallet: the cost is one extra confirmation for an EOA behind a
+      // failing RPC, against a stranded message the other way.
+      console.error('Could not classify the connected wallet; treating it as a contract wallet', error);
+      smartWallet = true;
     }
+    // A classification speaks for the account it ran against, not for whichever is current
+    if (generation === accountChangeGeneration) connectedSmartContractWallet.set(smartWallet);
   }
 
   // Everything below decides what is on screen for this account, so a superseded event
@@ -81,6 +92,7 @@ export async function startWatching() {
   checkForPausedContracts();
 
   if (!isWatching) {
+    const generation = watchGeneration;
     // Wait for wagmi reconnection to complete before checking initial state
     // This ensures we get the correct connection status
     try {
@@ -88,6 +100,9 @@ export async function startWatching() {
     } catch (error) {
       log('Reconnection failed or not needed', error);
     }
+
+    // The layout that asked for this is gone; whoever mounts next starts its own
+    if (generation !== watchGeneration) return;
 
     // Get initial account state and sync it immediately
     const initialAccount = getAccount(config);
@@ -97,6 +112,7 @@ export async function startWatching() {
     // Handle initial account state if connected
     if (initialAccount.isConnected) {
       await handleAccountChange(initialAccount);
+      if (generation !== watchGeneration) return;
     }
 
     // Set up watcher for future changes
@@ -112,5 +128,7 @@ export function stopWatching() {
   // A layout can tear down before startWatching has awaited its way to the assignment,
   // which threw on a call that only means "there is nothing to unwatch"
   unWatchAccount?.();
+  unWatchAccount = undefined;
   isWatching = false;
+  watchGeneration++;
 }

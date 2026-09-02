@@ -33,3 +33,14 @@ describe('isSameBridgeTx', () => {
     expect(isSameBridgeTx(tx('0xone'), tx('0xtwo', '0xmsg'))).toBe(false);
   });
 });
+
+describe('an empty message hash', () => {
+  it('is no identity: the row is keyed by its transaction hash instead', () => {
+    // Every sibling treats '' as absent; `??` did not, so two such rows shared the key '' and
+    // the keyed {#each} threw on the duplicate
+    expect(bridgeTxKey({ msgHash: '' as never, srcTxHash: '0xtx1' as never })).toBe('0xtx1');
+    expect(bridgeTxKey({ msgHash: '' as never, srcTxHash: '0xtx1' as never })).not.toBe(
+      bridgeTxKey({ msgHash: '' as never, srcTxHash: '0xtx2' as never }),
+    );
+  });
+});

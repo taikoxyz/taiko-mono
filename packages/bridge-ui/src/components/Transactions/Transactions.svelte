@@ -120,6 +120,18 @@
       if (warning) {
         warningToast({ title: $t(warning.key, { values: warning.values }) });
       }
+    } catch (error) {
+      // fetchTransactions reports relayer trouble by returning it, so what reaches here is
+      // the fetch itself or storage throwing - a localStorage write refused mid-prune, for
+      // one. Without this it was an unhandled rejection that skipped the warning above and
+      // left the previous list on screen looking current.
+      if (generation !== fetchGeneration) return;
+      console.error('Could not load the transactions', error);
+      warningToast({
+        title: $t(
+          getLoadWarning({ error: error as Error, failedCount: 0 })?.key ?? 'transactions.errors.relayer_offline',
+        ),
+      });
     } finally {
       if (generation === fetchGeneration) {
         loadingTxs = false;

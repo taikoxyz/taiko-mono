@@ -1,5 +1,6 @@
 import type { Address } from 'viem';
 
+import { RelayerHistoryTruncatedError } from '$libs/error';
 import type { FailedBridgeTx } from '$libs/relayer';
 
 import { fetchTransactions } from './fetchTransactions';
@@ -377,5 +378,34 @@ describe('fetchTransactions', () => {
       expect(error).toBeInstanceOf(Error);
       expect(failedCount).toBe(4);
     });
+  });
+});
+
+describe('which error the one warning reports', () => {
+  /** Ten full pages: the first relayer hits the page backstop and reports a truncated history */
+  const truncatedHistory = () => {
+    for (let i = 0; i < 10; i++) getAllByAddress.mockResolvedValueOnce(page([tx(`0x${i}`)], 20));
+  };
+
+  it('reports a relayer that rejected outright over another that merely truncated', async () => {
+    // Keeping whichever error arrived first let relayer A's truncation hide relayer B being
+    // down: the user was told their history was too long while B's transactions were absent
+    truncatedHistory();
+    getAllByAddressSecond.mockRejectedValueOnce(new Error('relayer B down'));
+
+    const { error, mergedTransactions } = await fetchTransactions(ADDRESS);
+
+    expect(error).toBeInstanceOf(Error);
+    expect(error).not.toBeInstanceOf(RelayerHistoryTruncatedError);
+    expect(error?.message).toBe('relayer B down');
+    expect(mergedTransactions).toHaveLength(10);
+  });
+
+  it('still reports the truncation when nothing worse happened', async () => {
+    truncatedHistory();
+
+    const { error } = await fetchTransactions(ADDRESS);
+
+    expect(error).toBeInstanceOf(RelayerHistoryTruncatedError);
   });
 });

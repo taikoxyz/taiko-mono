@@ -45,12 +45,19 @@
     closeModal();
   };
 
-  $: if (isOpen) {
-    pendingChain = null;
-    selectedChainId = value?.id;
-    modalOpen = true;
-  } else {
-    closeModal();
+  // The reset belongs to the moment the dialog opens, not to every change of `value`: a
+  // reactive block referencing both re-ran on a wallet-side chain change while the dialog
+  // was open, discarding the chain the user had just picked
+  let wasOpen = false;
+  $: if (isOpen !== wasOpen) {
+    wasOpen = isOpen;
+    if (isOpen) {
+      pendingChain = null;
+      selectedChainId = value?.id;
+      modalOpen = true;
+    } else {
+      closeModal();
+    }
   }
 </script>
 

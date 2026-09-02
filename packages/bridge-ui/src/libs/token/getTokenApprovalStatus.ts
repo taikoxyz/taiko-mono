@@ -20,6 +20,7 @@ import { account, connectedSourceChain } from '$stores';
 
 import { tokenNeedsAllowanceReset } from './approvalReset';
 import { checkOwnershipOfNFT } from './checkOwnership';
+import { isSameNFT, tokensAreSame } from './tokenIdentity';
 import { type NFT, type Token, TokenType } from './types';
 
 const log = getLogger('util:token:getTokenApprovalStatus');
@@ -42,6 +43,19 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
     log('token is ETH');
     return ApprovalStatus.ETH_NO_APPROVAL_REQUIRED;
   }
+  /**
+   * Every store written below describes "the selected token". This read is polled for
+   * seconds after an approval and the user can switch tokens meanwhile; a late answer for
+   * the previous token must return its status without publishing it, or the new token
+   * inherits an allowance nothing read for it. Compared by deployment rather than by
+   * reference: the selection is rebuilt on every list refresh.
+   */
+  const stillSelected = () => {
+    const current = get(selectedToken);
+    if (!current) return false;
+    return 'tokenId' in token ? isSameNFT(token as NFT, current as NFT) : tokensAreSame(token, current);
+  };
+
   const currentChainId = get(connectedSourceChain)?.id;
   const destinationChainId = get(destNetwork)?.id;
   if (!currentChainId || !destinationChainId) {
@@ -50,8 +64,10 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
   }
 
   const ownerAddress = get(account)?.address;
-  const tokenAddress = get(selectedToken)?.addresses[currentChainId];
-  log('selectedToken', get(selectedToken));
+  // The argument, not the store: this is polled after an approval and can be running for a
+  // token the user has since switched away from, and reading the store here answered the
+  // new token's question with the old token's name on it
+  const tokenAddress = token.addresses[currentChainId];
 
   if (!ownerAddress || !tokenAddress) {
     log('no ownerAddress or tokenAddress', ownerAddress, tokenAddress);
@@ -72,6 +88,8 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
         spenderAddress: tokenVaultAddress,
       });
       log('erc20 requiresApproval', requireAllowance);
+      if (!stillSelected())
+        return requireAllowance ? ApprovalStatus.APPROVAL_REQUIRED : ApprovalStatus.NO_APPROVAL_REQUIRED;
       insufficientAllowance.set(requireAllowance);
       allApproved.set(!requireAllowance);
       if (requireAllowance) {
@@ -84,7 +102,7 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
             spenderAddress: tokenVaultAddress,
           });
           if (allowance > 0n) {
-            needsApprovalReset.set(true);
+            if (stillSelected()) needsApprovalReset.set(true);
             return ApprovalStatus.RESET_REQUIRED;
           }
         }
@@ -93,7 +111,7 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
       return ApprovalStatus.NO_APPROVAL_REQUIRED;
     } catch (error) {
       log('erc20 requireAllowance error', error);
-      allApproved.set(false);
+      if (stillSelected()) allApproved.set(false);
     }
   } else if (token.type === TokenType.ERC721 || token.type === TokenType.ERC1155) {
     log('checking approval status for NFT type' + token.type);
@@ -106,12 +124,12 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
       // previously selected token must not survive a read that could not be made, or the
       // Bridge button stays enabled for an NFT whose approval state is unknown
       log('checkOwnershipOfNFT error', error);
-      allApproved.set(false);
+      if (stillSelected()) allApproved.set(false);
       throw error;
     }
     if (!ownerShipChecks.every((item) => item.isOwner === true)) {
       // A stale allApproved=true from a previously selected token must not survive
-      allApproved.set(false);
+      if (stillSelected()) allApproved.set(false);
       return ApprovalStatus.APPROVAL_REQUIRED;
     }
     const wallet = await getConnectedWallet();
@@ -142,13 +160,13 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
     const bridge = bridges[nft.type] as NFTBridge;
     try {
       const requiresApproval = await bridge.requiresApproval(args);
-      allApproved.set(!requiresApproval);
+      if (stillSelected()) allApproved.set(!requiresApproval);
       return requiresApproval ? ApprovalStatus.APPROVAL_REQUIRED : ApprovalStatus.NO_APPROVAL_REQUIRED;
     } catch (error) {
       // A read that failed says nothing, and the ERC20 branch above already knows this: a
       // stale allApproved=true from a previously selected token otherwise leaves Bridge
       // enabled for an NFT whose approval could not be read at all
-      allApproved.set(false);
+      if (stillSelected()) allApproved.set(false);
       // The error itself was dropped here, leaving a bare "isApprovedForAll error" line
       console.error('Could not read the NFT approval status', error);
       // Stated rather than left to the function's final return: an unknown approval is

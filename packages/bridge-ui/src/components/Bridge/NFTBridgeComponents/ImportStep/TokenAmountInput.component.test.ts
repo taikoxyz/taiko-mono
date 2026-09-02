@@ -18,13 +18,14 @@ vi.mock('$libs/token', async (importOriginal) => ({
   fetchBalance: vi.fn().mockResolvedValue({ value: BigInt(100), decimals: 0, symbol: 'NFT' }),
 }));
 
-import { enteredAmount, selectedToken } from '$components/Bridge/state';
-import { TokenType } from '$libs/token';
+import { enteredAmount, selectedToken, tokenBalance } from '$components/Bridge/state';
+import { fetchBalance, TokenType } from '$libs/token';
+import { account } from '$stores/account';
 
 import TokenAmountInput from './TokenAmountInput.svelte';
 
 let target: HTMLElement;
-let component: { $destroy: () => void } | null = null;
+let component: { $destroy: () => void; determineBalance: () => Promise<void> } | null = null;
 
 const errorShown = () =>
   target.textContent?.includes('bridge.errors.no_decimals_allowed') ||
@@ -123,5 +124,30 @@ describe('ERC1155 amount input', () => {
       await type(input(), max.toString());
       expect(get(enteredAmount)).toBe(max);
     });
+  });
+});
+
+describe('balance reads that overlap', () => {
+  it('lets only the newest read publish, so a slow read for the previous token cannot land', async () => {
+    // Token A's balance read is slow; the user selects B and its read answers first. Left
+    // unguarded, A's answer arrived last and showed A's balance under B's name - with
+    // Continue enabled for a quantity B does not have.
+    // determineBalance needs a connected account; the other tests never read a balance
+    account.set({ address: '0x1111111111111111111111111111111111111111', isConnected: true } as never);
+    tokenBalance.set(undefined as never);
+    const mockedFetch = vi.mocked(fetchBalance);
+    let resolveA!: (value: unknown) => void;
+    mockedFetch.mockReturnValueOnce(new Promise((resolve) => (resolveA = resolve)) as never);
+    const readA = component!.determineBalance();
+
+    selectedToken.set({ type: TokenType.ERC1155, symbol: 'B', decimals: 0, addresses: {} } as never);
+    mockedFetch.mockResolvedValueOnce({ value: BigInt(7), decimals: 0, symbol: 'B' } as never);
+    await component!.determineBalance();
+    expect(get(tokenBalance)?.value).toBe(BigInt(7));
+
+    resolveA({ value: BigInt(1), decimals: 0, symbol: 'A' });
+    await readA;
+
+    expect(get(tokenBalance)?.value).toBe(BigInt(7));
   });
 });

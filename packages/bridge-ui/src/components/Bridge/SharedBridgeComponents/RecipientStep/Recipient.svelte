@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import { onDestroy, tick } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
@@ -321,6 +321,23 @@
     }
   }
 
+  /**
+   * The destination-owner field is rendered only while the recipient is a contract, and a
+   * keystroke in the recipient box makes that momentarily false: the field is destroyed and
+   * recreated. The draft survives (the input no longer clears it on destroy) and so does the
+   * validation record, but the new input instance starts in its neutral visual state, so it
+   * is asked to re-announce the address it was handed.
+   */
+  let destOwnerFieldShown = false;
+  function onDestOwnerFieldToggled(shown: boolean) {
+    if (shown === destOwnerFieldShown) return;
+    destOwnerFieldShown = shown;
+    if (!shown || !destOwnerAddressBinding) return;
+    tick().then(() => {
+      if (destOwnerFieldShown && destOwnerAddressBinding) destOwnerAddressInput?.validateAddress();
+    });
+  }
+
   let lastDestChainId: Maybe<number> = undefined;
   function onDestChainChanged(chainId: Maybe<number>) {
     if (lastDestChainId === chainId) return;
@@ -378,6 +395,7 @@
   $: onCommittedDestOwnerChanged($destOwnerAddress);
   $: syncDestOwnerDraft(destOwnerAddressBinding);
   $: onDestChainChanged($destNetwork?.id);
+  $: onDestOwnerFieldToggled(recipientIsSmartContract);
 
   $: displayedRecipient = $recipientAddress || $account?.address;
 

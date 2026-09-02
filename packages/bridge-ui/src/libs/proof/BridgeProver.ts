@@ -10,7 +10,6 @@ import {
   hexToBigInt,
   keccak256,
   numberToHex,
-  toHex,
 } from 'viem';
 
 import { signalServiceAbi } from '$abi';
@@ -290,7 +289,11 @@ export class BridgeProver {
       params: [signalServiceAddress, [key], numberToHex(blockNumber)],
     });
 
-    if (ethProof.storageProof[0].value === toHex(0)) {
+    // Compared as a number, not as the string `0x0`: a node that answers `0x00` or a
+    // zero-padded word for an empty slot was slipping past a text comparison, and an empty
+    // storageProof array threw a TypeError on the index instead of the error this is for
+    const [slot] = ethProof.storageProof ?? [];
+    if (!slot || hexToBigInt(slot.value) === 0n) {
       throw new ProofGenerationError('proof will not be valid, expected storageProof to not be 0');
     }
 

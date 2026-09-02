@@ -33,6 +33,13 @@
   let inputId = `input-${crypto.randomUUID()}`;
   let inputBox: InputBox;
   let computingMaxAmount = false;
+  /**
+   * Only the most recent balance read may publish. Two reads race whenever the selection
+   * changes while one is in flight - the fungible input already guards this - and a slower
+   * read for token A landing after B is selected showed A's balance under B's name, with
+   * Continue enabled for a quantity B does not have.
+   */
+  let balanceReadGeneration = 0;
   let invalidInput = false;
   let invalidInputMessage = 'bridge.errors.no_decimals_allowed';
   let value = '';
@@ -81,29 +88,25 @@
     destChainId = $destNetwork?.id,
   ) {
     if (!token || !srcChainId || !userAddress) return;
+    const generation = ++balanceReadGeneration;
     $computingBalance = true;
 
     try {
-      if (token.type === TokenType.ETH) {
-        $tokenBalance = await getTokenBalance({
-          token: ETHToken,
-          srcChainId,
-          destChainId,
-          userAddress,
-        });
-      } else {
-        $tokenBalance = await getTokenBalance({
-          token,
-          srcChainId,
-          destChainId,
-          userAddress,
-        });
-      }
+      const balance = await getTokenBalance({
+        token: token.type === TokenType.ETH ? ETHToken : token,
+        srcChainId,
+        destChainId,
+        userAddress,
+      });
+      if (generation !== balanceReadGeneration) return;
+      $tokenBalance = balance;
     } catch (err) {
+      if (generation !== balanceReadGeneration) return;
       log('Error updating balance: ', err);
       clearAmount();
     } finally {
-      $computingBalance = false;
+      // The newer read owns the spinner now
+      if (generation === balanceReadGeneration) $computingBalance = false;
     }
   }
 
@@ -185,12 +188,15 @@
 
   export async function determineBalance() {
     if (!$account?.address || !$selectedToken) return;
-    $tokenBalance = await fetchBalance({
+    const generation = ++balanceReadGeneration;
+    const balance = await fetchBalance({
       userAddress: $account?.address,
       token: $selectedToken,
       srcChainId: $connectedSourceChain?.id,
       destChainId: $destNetwork?.id,
     });
+    if (generation !== balanceReadGeneration) return;
+    $tokenBalance = balance;
   }
 
   // No rewriting of the box from here. This used to push the last accepted text back into

@@ -29,16 +29,24 @@ vi.mock('$libs/util/getConnectedWallet', () => ({
   getConnectedWallet: () => Promise.resolve({ account: { address: ALICE }, chain: { id: 1 } }),
 }));
 
-// The contract handle is built before the check runs, and the check must fire first
+// The contract handle is built before the check runs, and the check must fire first.
+// The stub echoes what it was built with: after the four send paths were folded onto one
+// preamble, nothing else pinned which vault each token type talks to.
 const estimateGasSpy = vi.fn();
+const getContractSpy = vi.fn();
 vi.mock('viem', async (importOriginal) => ({
   ...(await importOriginal<typeof import('viem')>()),
-  getContract: () => ({
-    address: '0x0000000000000000000000000000000000000005',
-    estimateGas: { sendToken: estimateGasSpy, sendMessage: estimateGasSpy },
-  }),
+  getContract: (options: { address: string; abi: unknown }) => {
+    getContractSpy(options);
+    return {
+      address: options.address,
+      abi: options.abi,
+      estimateGas: { sendToken: estimateGasSpy, sendMessage: estimateGasSpy },
+    };
+  },
 }));
 
+import { bridgeAbi, erc20VaultAbi, erc721VaultAbi, erc1155VaultAbi } from '$abi';
 import { destOwnerAddress, gasLimitZero } from '$components/Bridge/state';
 
 import { ERC20Bridge } from './ERC20Bridge';
@@ -318,5 +326,55 @@ describe('every token type builds the shared message fields the same way', () =>
     await expect(make().estimateGas({ ...(args as object), wallet: undefined } as never)).rejects.toThrow(
       'Wallet is not connected',
     );
+  });
+});
+
+describe('each send path builds its transaction against its own contract', () => {
+  const ERC20_VAULT = '0x00000000000000000000000000000000000000e2' as Address;
+  const ERC721_VAULT = '0x0000000000000000000000000000000000000721' as Address;
+  const ERC1155_VAULT = '0x0000000000000000000000000000000000001155' as Address;
+  const BRIDGE = '0x00000000000000000000000000000000000000b1' as Address;
+
+  it('ERC20 -> ERC20Vault with the ERC20 vault ABI', async () => {
+    await new ERC20Bridge(prover).estimateGas({
+      ...base,
+      amount: BigInt(10),
+      token: TOKEN,
+      tokenVaultAddress: ERC20_VAULT,
+    } as never);
+    expect(getContractSpy).toHaveBeenCalledWith(expect.objectContaining({ address: ERC20_VAULT, abi: erc20VaultAbi }));
+  });
+
+  it('ETH -> Bridge with the bridge ABI', async () => {
+    await new ETHBridge(prover).estimateGas({ ...base, amount: BigInt(10), bridgeAddress: BRIDGE } as never);
+    expect(getContractSpy).toHaveBeenCalledWith(expect.objectContaining({ address: BRIDGE, abi: bridgeAbi }));
+  });
+
+  it('ERC721 -> ERC721Vault with the ERC721 vault ABI', async () => {
+    await new ERC721Bridge(prover).estimateGas({
+      ...base,
+      token: TOKEN,
+      tokenVaultAddress: ERC721_VAULT,
+      tokenIds: [1],
+      amounts: [0n],
+    } as never);
+    expect(getContractSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ address: ERC721_VAULT, abi: erc721VaultAbi }),
+    );
+    expect(getContractSpy).not.toHaveBeenCalledWith(expect.objectContaining({ abi: erc1155VaultAbi }));
+  });
+
+  it('ERC1155 -> ERC1155Vault with the ERC1155 vault ABI', async () => {
+    await new ERC1155Bridge(prover).estimateGas({
+      ...base,
+      token: TOKEN,
+      tokenVaultAddress: ERC1155_VAULT,
+      tokenIds: [1],
+      amounts: [1n],
+    } as never);
+    expect(getContractSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ address: ERC1155_VAULT, abi: erc1155VaultAbi }),
+    );
+    expect(getContractSpy).not.toHaveBeenCalledWith(expect.objectContaining({ abi: erc721VaultAbi }));
   });
 });

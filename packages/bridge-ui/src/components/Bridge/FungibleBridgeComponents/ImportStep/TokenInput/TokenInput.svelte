@@ -55,12 +55,13 @@
     $validatingAmount = true;
     $insufficientBalance = false;
     $insufficientAllowance = false;
-    $computingBalance = true;
+    // No balance is read here, so the computing flag is not touched: raising and lowering
+    // it synchronously showed no spinner and, during a token switch, let the previous
+    // token's balance stand in for the new one
 
     if (skipValidate) {
       log('skipped validation');
       $validatingAmount = false;
-      $computingBalance = false;
       return;
     }
 
@@ -68,12 +69,14 @@
 
     if (!to || !token) {
       $validatingAmount = false;
-      $computingBalance = false;
       return;
     }
 
+    // The one check this used to delegate to a helper nothing called: an amount above the
+    // balance is refused here, and Actions gates Bridge on the same flag, so the Confirm
+    // step cannot send more than the wallet holds. The NFT input does exactly this.
+    $insufficientBalance = !!$tokenBalance && $tokenBalance.value < $enteredAmount;
     $validatingAmount = false;
-    $computingBalance = false;
   }
 
   const debouncedValidateAmount = debounce(validateAmount, 300);

@@ -129,7 +129,6 @@ interface BaseBridgeTransferOp {
 
 export interface ERC20BridgeTransferOp extends BaseBridgeTransferOp {
   amount: bigint;
-  solverFee: bigint;
 }
 
 export interface NFTBridgeTransferOp {

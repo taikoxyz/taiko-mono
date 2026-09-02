@@ -12,6 +12,8 @@ import { vi } from 'vitest';
 vi.mock('@wagmi/core');
 vi.mock('$bridgeConfig');
 
+import { shouldShowManualClaimEntry } from '$components/Transactions/Status/status';
+import { storageService } from '$config';
 import { type BridgeTransaction, MessageStatus } from '$libs/bridge/types';
 import { TokenType } from '$libs/token/types';
 
@@ -152,5 +154,65 @@ describe('BridgeTxService storage round trip', () => {
     expect(() => service.removeTransactions(ADDRESS, [tx('0xa')])).not.toThrow();
     expect(service.transactionIsStoredLocally(ADDRESS, tx('0xa'))).toBe(false);
     expect(service.transactionIsStoredLocally(ADDRESS, tx('0xb'))).toBe(true);
+  });
+});
+
+describe('rows recorded before this version', () => {
+  const key = `${storageService.bridgeTxPrefix}-${ADDRESS}`;
+  /** Exactly what main's ConfirmationStep wrote: the relayer fee under `fee`, no `processingFee` */
+  const preBranchRow = {
+    srcTxHash: '0xold',
+    msgHash: '0xold-msg',
+    from: ADDRESS,
+    amount: '1000000000000000000',
+    symbol: 'ETH',
+    decimals: 18,
+    srcChainId: '1',
+    destChainId: '167000',
+    tokenType: TokenType.ETH,
+    status: MessageStatus.NEW,
+    fee: '130220640000000',
+  };
+
+  it('restores the fee a pre-branch row paid instead of inventing a zero one', async () => {
+    // Defaulting an absent processingFee to 0n made every returning user's history look
+    // zero-fee, which is the one condition the manual "try claim" entry keys on - and that
+    // entry ends in "Missing msgHash or message" for these rows
+    storage.setItem(key, JSON.stringify([preBranchRow]));
+
+    const [stored] = await service.getAllTxByAddress(ADDRESS);
+
+    expect(stored.processingFee).toBe(BigInt('130220640000000'));
+    expect(
+      shouldShowManualClaimEntry({
+        bridgeTxStatus: MessageStatus.NEW,
+        isProcessable: false,
+        processingFee: stored.processingFee,
+      }),
+    ).toBe(false);
+  });
+
+  it('leaves the fee absent for a row that recorded neither field', async () => {
+    // Absent is not zero: no consumer reads undefined as "no fee was paid"
+    // JSON.stringify drops an undefined field, so this is a row that never had `fee`
+    storage.setItem(key, JSON.stringify([{ ...preBranchRow, fee: undefined }]));
+
+    const [stored] = await service.getAllTxByAddress(ADDRESS);
+
+    expect(stored.processingFee).toBeUndefined();
+    expect(
+      shouldShowManualClaimEntry({
+        bridgeTxStatus: MessageStatus.NEW,
+        isProcessable: false,
+        processingFee: stored.processingFee,
+      }),
+    ).toBe(false);
+  });
+
+  it('treats a stored value that is not a list as an empty history', async () => {
+    // Iterating an object threw "not iterable" and took the whole page down with it
+    storage.setItem(key, JSON.stringify({ not: 'a list' }));
+
+    await expect(service.getAllTxByAddress(ADDRESS)).resolves.toEqual([]);
   });
 });

@@ -26,7 +26,7 @@
           "title": "Transaction completed"
         },
         "timeout": {
-          "message": "It took longer than expected to process your transaction, check your wallet for the status.",
+          "message": "It took longer than expected to process your transaction. Track it <a href=\"{url}\" target=\"_blank\" rel=\"noopener noreferrer\"><b>here</b></a> or check your wallet for the status.",
           "title": "Timed out"
         },
         "tx": {
@@ -80,6 +80,10 @@
       "approve_rejected": {
         "title": "Request to approve rejected by user"
       },
+      "bridge_paused": {
+        "message": "Bridging is paused on this network right now. Please try again later.",
+        "title": "Bridge paused"
+      },
       "cannot_fetch_balance": "Error fetching balance. Wrong chain?",
       "claim": {
         "not_received": {
@@ -105,6 +109,10 @@
         "title": "Insufficient wallet balance"
       },
       "invalid_amount": "Enter a plain decimal amount within this token's precision",
+      "invalid_message": {
+        "message": "The bridge would reject this transfer. Check the recipient, destination owner, amount and gas limit, then try again.",
+        "title": "Invalid transfer"
+      },
       "invalid_proof_provided": "An invalid proof was provided for this action.",
       "no_allowance_required": {
         "message": "You already have sufficient allowance for this request.",
@@ -113,6 +121,16 @@
       "no_decimals_allowed": "Decimals are not supported for this token",
       "not_the_owner_of_all": "You must be the owner of all tokens",
       "process_message_error": "Unable to process message",
+      "release": {
+        "not_received": {
+          "message": "The failed message is not proven on the source chain yet, so the funds cannot be released right now. Wait a few minutes and try again.",
+          "title": "Not received yet"
+        },
+        "not_synced": {
+          "message": "The source chain has not synced the failed message yet. Your funds are safe; wait a few minutes and try again.",
+          "title": "Not synced yet"
+        }
+      },
       "release_error": {
         "message": "Unable to release the funds."
       },
@@ -176,7 +194,7 @@
             "message": "Your bridge transaction was confirmed. The transaction can take a few minutes to complete, track it <a class='link' href=\"{url}\" target=\"_blank\" rel=\"noopener noreferrer\"><b>here</b></a>."
           },
           "timeout": {
-            "message": "The network experiences heavy load and it took longer than expected for your transaction to process. You can track the status on the <a class=\"link\" href=\\\"{url}\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\"><b>explorer</b></a> and in your wallet."
+            "message": "The network experiences heavy load and it took longer than expected for your transaction to process. You can track the status on the <a class='link' href=\"{url}\" target=\"_blank\" rel=\"noopener noreferrer\"><b>explorer</b></a> and in your wallet."
           }
         },
         "button": {
@@ -315,10 +333,6 @@
       "not_mintable": "This token is not mintable on this network. Please switch to the correct network.",
       "token_minted": "You have already minted this token.",
       "unknown": "Something did not work"
-    },
-    "wrong_chain": {
-      "button": "Switch to {network}",
-      "message": "It appears you are on the wrong network. Switch to {network} to mint tokens."
     }
   },
   "inputs": {

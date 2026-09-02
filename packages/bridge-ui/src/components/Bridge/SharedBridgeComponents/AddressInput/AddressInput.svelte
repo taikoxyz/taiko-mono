@@ -1,6 +1,6 @@
 <script lang="ts">
   import { isAddress } from 'ethereum-address';
-  import { createEventDispatcher, onDestroy } from 'svelte';
+  import { createEventDispatcher } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
@@ -94,9 +94,12 @@
 
   $: classes = classNames($$props.class, borderState);
 
-  onDestroy(() => {
-    clearAddress();
-  });
+  // No clearing on destroy. `ethereumAddress` is a bound prop, and Svelte runs on_destroy
+  // before it detaches the binding, so the write reached the parent: the destination-owner
+  // field in the recipient dialog is mounted conditionally, and every time it went away its
+  // parent's draft was blanked while the committed store still held the owner - an empty box
+  // beside a populated summary and a Confirm button nothing could re-enable. The element is
+  // gone with the component; the parent owns the value.
 </script>
 
 <div class="f-col space-y-2">

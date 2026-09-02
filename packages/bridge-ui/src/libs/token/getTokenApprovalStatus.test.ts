@@ -9,9 +9,11 @@ vi.mock('$bridgeConfig');
 vi.mock('@wagmi/core');
 
 const requiresApproval = vi.fn();
+const requireAllowance = vi.fn();
 vi.mock('$libs/bridge', async (importOriginal) => ({
   ...(await importOriginal<typeof import('$libs/bridge')>()),
   bridges: {
+    ERC20: { requireAllowance: (...args: unknown[]) => requireAllowance(...args), getAllowance: vi.fn() },
     ERC721: { requiresApproval: (...args: unknown[]) => requiresApproval(...args) },
     ERC1155: { requiresApproval: (...args: unknown[]) => requiresApproval(...args) },
   },
@@ -30,11 +32,11 @@ vi.mock('$libs/bridge/getContractAddressByType', () => ({
   getContractAddressByType: () => '0x0000000000000000000000000000000000000456',
 }));
 
-import { allApproved, destNetwork, selectedToken } from '$components/Bridge/state';
+import { allApproved, destNetwork, insufficientAllowance, selectedToken } from '$components/Bridge/state';
 import { account, connectedSourceChain } from '$stores';
 
 import { ApprovalStatus, getTokenApprovalStatus } from './getTokenApprovalStatus';
-import { type NFT, TokenType } from './types';
+import { type NFT, type Token, TokenType } from './types';
 
 const nft: NFT = {
   type: TokenType.ERC721,
@@ -107,5 +109,85 @@ describe('getTokenApprovalStatus for NFTs', () => {
     await expect(getTokenApprovalStatus(nft)).rejects.toThrow('rpc down');
 
     expect(get(allApproved)).toBe(false);
+  });
+});
+
+describe('getTokenApprovalStatus answers for the token it was given', () => {
+  const otherNft: NFT = {
+    ...nft,
+    tokenId: 2,
+    addresses: { 1: '0x0000000000000000000000000000000000000def' },
+  } as unknown as NFT;
+
+  it('reads the allowance of the token it was given, not of the selected one', async () => {
+    // The read is polled for seconds after an approval, and the user can switch tokens in
+    // that window. The ERC20 branch took its token address off the store, so it answered
+    // the new token's question with the old token's name on it. (The NFT branch always read
+    // its argument, which is why this is pinned on ERC20.)
+    const erc20 = {
+      type: TokenType.ERC20,
+      symbol: 'TKN',
+      name: 'Token',
+      decimals: 18,
+      addresses: { 1: '0x0000000000000000000000000000000000000aaa' },
+    } as unknown as Token;
+    const otherErc20 = {
+      ...erc20,
+      symbol: 'OTHER',
+      addresses: { 1: '0x0000000000000000000000000000000000000bbb' },
+    } as unknown as Token;
+    selectedToken.set(otherErc20);
+    requireAllowance.mockResolvedValue(true);
+
+    await getTokenApprovalStatus(erc20);
+
+    expect(requireAllowance).toHaveBeenCalledWith(expect.objectContaining({ tokenAddress: erc20.addresses[1] }));
+  });
+
+  it('does not publish a late answer for a token that is no longer selected', async () => {
+    // A store write describes "the selected token"; a stale answer landing in it hands the
+    // new token an approval nothing read for it
+    selectedToken.set(otherNft);
+    allApproved.set(false);
+    requiresApproval.mockResolvedValue(false); // the previous token happens to be approved
+
+    expect(await getTokenApprovalStatus(nft)).toBe(ApprovalStatus.NO_APPROVAL_REQUIRED);
+
+    expect(get(allApproved)).toBe(false);
+  });
+
+  it('still publishes for the same token behind a fresh object', async () => {
+    // Token lists are rebuilt on every refresh, so identity is by deployment, not by reference
+    selectedToken.set({ ...nft });
+    allApproved.set(false);
+    requiresApproval.mockResolvedValue(false);
+
+    await getTokenApprovalStatus(nft);
+
+    expect(get(allApproved)).toBe(true);
+  });
+
+  it("keeps a late ERC20 allowance answer out of the current token's stores", async () => {
+    const erc20 = {
+      type: TokenType.ERC20,
+      symbol: 'TKN',
+      name: 'Token',
+      decimals: 18,
+      addresses: { 1: '0x0000000000000000000000000000000000000aaa' },
+    } as unknown as Token;
+    const otherErc20 = {
+      ...erc20,
+      symbol: 'OTHER',
+      addresses: { 1: '0x0000000000000000000000000000000000000bbb' },
+    } as unknown as Token;
+    selectedToken.set(otherErc20);
+    allApproved.set(false);
+    insufficientAllowance.set(true);
+    requireAllowance.mockResolvedValue(false); // the previous token has allowance
+
+    expect(await getTokenApprovalStatus(erc20)).toBe(ApprovalStatus.NO_APPROVAL_REQUIRED);
+
+    expect(get(allApproved)).toBe(false);
+    expect(get(insufficientAllowance)).toBe(true);
   });
 });

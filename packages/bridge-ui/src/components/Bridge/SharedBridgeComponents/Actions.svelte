@@ -60,8 +60,16 @@
       $allApproved = false;
       checking = true;
 
-      await getTokenApprovalStatus($selectedToken);
-      checking = false;
+      try {
+        await getTokenApprovalStatus($selectedToken);
+      } catch (error) {
+        // Left to throw, this kept `checking` raised for good: a permanent spinner with
+        // Approve and Bridge both disabled on the one step that sends. The read already
+        // lowered allApproved on its way out, which is the conservative answer.
+        console.error('Could not read the approval status', error);
+      } finally {
+        checking = false;
+      }
     }
   });
 

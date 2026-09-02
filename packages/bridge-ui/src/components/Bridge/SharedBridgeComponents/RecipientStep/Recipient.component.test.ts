@@ -382,6 +382,27 @@ describe('Recipient dialog', () => {
       expect(m.confirmButton.disabled).toBe(false);
     });
 
+    it('keeps the committed destination owner when the recipient is retyped', async () => {
+      // The owner field lives inside {#if recipientIsSmartContract}. Any keystroke in the
+      // recipient box makes the address momentarily invalid, the block is destroyed, and the
+      // input used to clear its bound draft on the way out: on remount the box was empty, the
+      // store still held the owner, and Confirm was dead with nothing on screen to revive it.
+      const m = await withContractRecipient();
+      await m.type(m.destOwnerInput() as HTMLInputElement, DEST_OWNER);
+      await flush();
+      expect(m.confirmButton.disabled).toBe(false);
+
+      await m.type(m.recipientInput(), '0x22'); // partial: recipientIsSmartContract flips to false
+      await flush();
+      await m.type(m.recipientInput(), CONTRACT);
+      await flush();
+      await flush();
+
+      expect(get(destOwnerAddress)).toBe(DEST_OWNER);
+      expect((m.destOwnerInput() as HTMLInputElement).value).toBe(DEST_OWNER);
+      expect(m.confirmButton.disabled).toBe(false);
+    });
+
     it('refuses a committed owner that is a contract on the destination chain now in force', async () => {
       // Navigating Review -> Recipient recreates the component, and the destination chain can
       // have changed in between: the store keeps the owner but not the chain its classification

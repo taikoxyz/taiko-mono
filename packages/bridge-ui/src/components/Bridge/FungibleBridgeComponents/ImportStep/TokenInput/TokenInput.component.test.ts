@@ -45,13 +45,17 @@ vi.mock('$libs/util/balance', () => ({
 
 import {
   computingBalance,
+  destNetwork,
   enteredAmount,
   errorComputingBalance,
+  insufficientBalance,
   selectedToken,
   tokenBalance,
 } from '$components/Bridge/state';
 import { TokenType } from '$libs/token';
 import { account } from '$stores/account';
+import { ethBalance } from '$stores/balance';
+import { connectedSourceChain } from '$stores/network';
 
 import TokenInput from './TokenInput.svelte';
 
@@ -288,5 +292,39 @@ describe('fungible amount input', () => {
       // The superseded reset declines to clear this, so the read that superseded it must
       expect(get(computingBalance)).toBe(false);
     });
+  });
+});
+
+describe('an amount above the balance', () => {
+  /** validateAmount is debounced by 300ms behind the input event */
+  const settle = async () => {
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    await tick();
+  };
+
+  beforeEach(() => {
+    // Everything skipValidate wants before it lets the check run. The connected account
+    // also triggers the component's own balance read, so the mock has to answer with the
+    // same balance the test seeds, or the read overwrites it with the default zero.
+    fetchBalance.mockResolvedValue({ value: BigInt(5_000_000), decimals: 6, symbol: 'USDC', formatted: '5' });
+    account.set({ address: '0x1111111111111111111111111111111111111111', isConnected: true } as never);
+    connectedSourceChain.set({ id: 1 } as never);
+    destNetwork.set({ id: 2 } as never);
+    ethBalance.set(BigInt(1));
+    tokenBalance.set({ value: BigInt(5_000_000), decimals: 6, symbol: 'USDC', formatted: '5' } as never);
+    insufficientBalance.set(false);
+  });
+
+  it('is refused, and the refusal clears once the amount fits', async () => {
+    // The check lived in a helper nothing called, so the alert was dead and the Confirm
+    // step's Bridge button - gated on the same flag - never learned the wallet was short
+    await type('10');
+    await settle();
+    expect(get(enteredAmount)).toBe(BigInt(10_000_000));
+    expect(get(insufficientBalance)).toBe(true);
+
+    await type('3');
+    await settle();
+    expect(get(insufficientBalance)).toBe(false);
   });
 });

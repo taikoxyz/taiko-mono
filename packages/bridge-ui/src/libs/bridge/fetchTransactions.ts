@@ -72,9 +72,9 @@ async function fetchAllRelayerPages(
 }
 
 export async function fetchTransactions(userAddress: Address, chainId?: number) {
-  // The error must be scoped per call: a module-level variable would keep reporting
-  // "relayer offline" on every later, successful fetch
-  let error: Error | undefined = undefined;
+  // Scoped per call: a module-level variable would keep reporting "relayer offline" on
+  // every later, successful fetch. Collected rather than kept-first, see below.
+  const errors: Error[] = [];
 
   // Transactions from local storage
   const localTxs: BridgeTransaction[] = await bridgeTxService.getAllTxByAddress(userAddress);
@@ -107,15 +107,20 @@ export async function fetchTransactions(userAddress: Address, chainId?: number) 
       // so a partial history is not presented as a complete one
       if (result.value.error) {
         log('a relayer stopped part-way through its pages', result.value.error);
-        error ??= result.value.error;
+        errors.push(result.value.error);
       }
       continue;
     }
     log('error fetching transactions from a relayer', result.reason);
-    // The caller shows one warning, so the first failure is the one reported. The
-    // transactions the other relayers did return are still handed back alongside it
-    error ??= result.reason as Error;
+    // The transactions the other relayers did return are still handed back alongside it
+    errors.push(result.reason as Error);
   }
+
+  // One warning is shown, so one error is reported - but not simply the first. A truncated
+  // history is the mildest thing a relayer can report, and keeping it because relayer A
+  // happened to answer first hid relayer B rejecting outright: the user was told their
+  // history was too long while B's transactions were silently absent.
+  const error = errors.find((candidate) => !(candidate instanceof RelayerHistoryTruncatedError)) ?? errors[0];
 
   // Flatten the arrays into a single array, dropping messages the relayer may return
   // twice across pages or relayers. Keyed by message, not by transaction: a transaction

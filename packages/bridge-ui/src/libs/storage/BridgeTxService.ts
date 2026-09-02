@@ -101,10 +101,19 @@ export class BridgeTxService {
    * @return tx_ The same transaction with its numeric fields typed as declared
    */
   private static _restoreBigInts(tx: BridgeTransaction): BridgeTransaction {
+    // `processingFee` is a field this branch introduced; rows recorded before it carry the
+    // fee paid to the relayer under `fee` only. Defaulting an absent value to 0n turned every
+    // one of those rows into exactly what shouldShowManualClaimEntry looks for - a zero-fee
+    // message - and offered a "try claim" entry that ends in "Missing msgHash or message".
+    // The older field is the same value, so it is taken when the new one is absent; a row
+    // carrying neither keeps neither, which no consumer reads as "zero fee".
+    const storedProcessingFee = tx.processingFee ?? tx.fee;
     return {
       ...tx,
       amount: BigInt(tx.amount ?? 0),
-      processingFee: BigInt(tx.processingFee ?? 0),
+      ...(storedProcessingFee === undefined || storedProcessingFee === null
+        ? {}
+        : { processingFee: BigInt(storedProcessingFee) }),
       srcChainId: BigInt(tx.srcChainId ?? 0),
       destChainId: BigInt(tx.destChainId ?? 0),
       ...(tx.fee === undefined || tx.fee === null ? {} : { fee: BigInt(tx.fee) }),
@@ -139,7 +148,10 @@ export class BridgeTxService {
 
   private _getTxFromStorage(address: Address) {
     const key = `${storageService.bridgeTxPrefix}-${address}`;
-    const txs = jsonParseWithDefault(this.storage.getItem(key), []) as BridgeTransaction[];
+    const parsed: unknown = jsonParseWithDefault(this.storage.getItem(key), []);
+    // Anything but an array is a corrupt entry, and iterating it threw "not iterable" for the
+    // whole history rather than for the one record that was wrong
+    const txs = Array.isArray(parsed) ? (parsed as BridgeTransaction[]) : [];
 
     // One unreadable entry must not hide the rest of the history. BigInt() throws on
     // anything that is not an integer string, so mapping the whole array let a single
@@ -289,20 +301,6 @@ export class BridgeTxService {
     log('Enhanced transactions', [...enhancedTxs]);
 
     return enhancedTxs;
-  }
-
-  async getTxByHash(hash: Hash, address: Address) {
-    const txs = this._getTxFromStorage(address);
-
-    const tx = txs.find((tx) => tx.srcTxHash === hash) as BridgeTransaction;
-
-    log('Transaction from storage', { ...tx });
-
-    const enhancedTx = await this._enhanceTx(tx, address, true);
-
-    log('Enhanced transaction', enhancedTx);
-
-    return enhancedTx;
   }
 
   /**

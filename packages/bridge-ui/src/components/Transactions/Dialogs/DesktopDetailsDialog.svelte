@@ -112,7 +112,10 @@
 
   $: stillProcessing = true;
 
-  $: $account.isConnected && checkStatus();
+  // Only while the dialog is actually open: every row mounts both this dialog and its
+  // mobile/desktop twin, so an unconditional read here cost three processability lookups
+  // per row on the page whose RPC load the batching change set out to cut
+  $: if (detailsOpen && $account.isConnected) checkStatus();
   $: hasAmount = bridgeTx.tokenType !== TokenType.ERC721;
   $: imgUrl = token?.metadata?.image || placeholderUrl;
 

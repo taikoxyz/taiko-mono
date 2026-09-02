@@ -17,7 +17,9 @@ type Identifiable = Pick<BridgeTransaction, 'msgHash' | 'srcTxHash'>;
  * @param tx The transaction to identify
  * @return key_ The message hash if known, the source transaction hash otherwise
  */
-export const bridgeTxKey = (tx: Identifiable) => tx.msgHash ?? tx.srcTxHash;
+// `||`, not `??`: every sibling treats an empty msgHash as absent, and `??` accepted '' as an
+// identity - two such rows shared the key '' and the keyed {#each} threw on the duplicate
+export const bridgeTxKey = (tx: Identifiable) => tx.msgHash || tx.srcTxHash;
 
 /**
  * @dev Whether two records describe the same bridged message.

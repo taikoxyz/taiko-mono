@@ -268,7 +268,10 @@
     }
   };
   const closeModalIfKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
+    // Gated on the dialog being open: the listener is on window, and closeModal resets the
+    // form, so an Escape pressed anywhere else on the page was discarding a lookup and
+    // clearing a token nobody was looking at
+    if (e.key === 'Escape' && modalOpen) {
       closeModal();
     }
   };
