@@ -2731,12 +2731,12 @@
   {
     "kind": "hex",
     "name": "registration_config_getter_return",
-    "value": "b266045c553f010d052a847ea18459bb268cbaacde008574e8cf4c738453911f"
+    "value": "015ea002adbfab085cf51db1714c889961bb1a416cd69b7d22f1f816a5787e4c"
   },
   {
     "kind": "hex",
     "name": "registration_mpt_proof_schema_hash",
-    "value": "50ac70c83c4d85e9e0790d2413e35216b0c490814ee435879d0ce27e4a12e5e5"
+    "value": "0027acbf8d87ef5b7c901c3dc27af4b56f1e4fb64953cf87f6fcd6ee878c963c"
   },
   {
     "kind": "hex",
@@ -2751,12 +2751,12 @@
   {
     "kind": "hex",
     "name": "registration_mpt_verifier_configuration_hash",
-    "value": "b266045c553f010d052a847ea18459bb268cbaacde008574e8cf4c738453911f"
+    "value": "015ea002adbfab085cf51db1714c889961bb1a416cd69b7d22f1f816a5787e4c"
   },
   {
     "kind": "hex",
     "name": "registration_mpt_verifier_descriptor_hash",
-    "value": "99491cce6d0ea603e0b9862bd3a2509953ea05e50e9243f8086a19aa92b2f1bf"
+    "value": "e3c4dd9d13404822af1360b3bc97f3d82dc1dd7124a137e900c6351270505310"
   },
   {
     "kind": "hex",

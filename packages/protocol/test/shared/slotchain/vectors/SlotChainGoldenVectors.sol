@@ -952,16 +952,16 @@ library SlotChainGoldenVectors {
     bytes32 internal constant REGISTRATION_COMMITMENT_TRIE_KEY =
         hex"200031adff46d90b1cd5c67ff8e31098235d1dddb08ec98b0d20f5f8660c0ac8";
     bytes32 internal constant REGISTRATION_CONFIG_GETTER_RETURN =
-        hex"b266045c553f010d052a847ea18459bb268cbaacde008574e8cf4c738453911f";
+        hex"015ea002adbfab085cf51db1714c889961bb1a416cd69b7d22f1f816a5787e4c";
     bytes32 internal constant REGISTRATION_MPT_PROOF_SCHEMA_HASH =
-        hex"50ac70c83c4d85e9e0790d2413e35216b0c490814ee435879d0ce27e4a12e5e5";
+        hex"0027acbf8d87ef5b7c901c3dc27af4b56f1e4fb64953cf87f6fcd6ee878c963c";
     bytes4 internal constant REGISTRATION_MPT_VERIFIER_CONFIG_GETTER_SELECTOR = hex"59bfe418";
     bytes32 internal constant REGISTRATION_MPT_VERIFIER_CONFIG_TYPEHASH =
         hex"38f7fbc63e45f650bd5cbaffba0d81d5ca69f21ebdddfa74280d7e6eb5c319d6";
     bytes32 internal constant REGISTRATION_MPT_VERIFIER_CONFIGURATION_HASH =
-        hex"b266045c553f010d052a847ea18459bb268cbaacde008574e8cf4c738453911f";
+        hex"015ea002adbfab085cf51db1714c889961bb1a416cd69b7d22f1f816a5787e4c";
     bytes32 internal constant REGISTRATION_MPT_VERIFIER_DESCRIPTOR_HASH =
-        hex"99491cce6d0ea603e0b9862bd3a2509953ea05e50e9243f8086a19aa92b2f1bf";
+        hex"e3c4dd9d13404822af1360b3bc97f3d82dc1dd7124a137e900c6351270505310";
     bytes32 internal constant REGISTRATION_MPT_VERIFIER_DESCRIPTOR_TYPEHASH =
         hex"9533e2f6ac9bcf6830306a9ef5d14e21a06008f9ceb59208d09a8d7ab1e6100f";
     bytes32 internal constant REGISTRATION_ROUTE_KEY =
