@@ -280,7 +280,8 @@ deploy-time calls plus an `acceptOwnership`.
 ## Deployment
 
 Bridge side, run on 2026-08-31. `DeployBridgeUpgradeL1` logs `BRIDGE_NEW_IMPL_L1`;
-`DeployBridgeUpgradeL2` logs `L2_SHARED_RESOLVER`, its implementation and `BRIDGE_NEW_IMPL_L2`.
+`DeployBridgeUpgradeL2` logs `LibL2Addrs.SHARED_RESOLVER`, its implementation and
+`BRIDGE_NEW_IMPL_L2`.
 
 ```bash
 PRIVATE_KEY=<deployer> FOUNDRY_PROFILE=layer1 forge script \
@@ -312,12 +313,12 @@ PRIVATE_KEY=<deployer> FOUNDRY_PROFILE=layer2 forge script \
 ```
 
 Bridged-token side, run on 2026-09-02 with `--verify`. `DeployBridgedERC20V2L1` and
-`DeployBridgedERC20V2L2` each deploy a
-`BridgedERC20V2` with that chain's vault proxy as its immutable and log `BRIDGED_ERC20_NEW_IMPL_L1`
-/ `BRIDGED_ERC20_NEW_IMPL_L2`; the registrations themselves are L1 action 3 and L2 action 5. The
-plain `BridgedERC20` deployments of 2026-09-02 — `0xFcbc02A2AdED1B9464B37369091279D297E20a96` on
-L1 and `0x3505a0700DB72dEc7AbFF1aF231BB5D87aBF2944` on L2 — lack EIP-2612 `permit` and are
-superseded; nothing references them.
+`DeployBridgedERC20V2L2` each deploy a `BridgedERC20V2` with that chain's vault proxy as its
+immutable and log `LibL1Addrs.BRIDGED_ERC20` / `LibL2Addrs.BRIDGED_ERC20`; the registrations
+themselves are L1 action 3 and L2 action 5. The plain `BridgedERC20` deployments of 2026-09-02 —
+`0xFcbc02A2AdED1B9464B37369091279D297E20a96` on L1 and
+`0x3505a0700DB72dEc7AbFF1aF231BB5D87aBF2944` on L2 — lack EIP-2612 `permit` and are superseded;
+nothing references them.
 
 ```bash
 PRIVATE_KEY=<deployer> FOUNDRY_PROFILE=layer1 forge script \
@@ -333,9 +334,9 @@ PRIVATE_KEY=<deployer> FOUNDRY_PROFILE=layer2 forge script \
 
 All six scripts deploy only — no proxy upgrade, no initializer call on a live contract — and none
 should be re-run: a second run deploys contracts the constants do not point at. The logged
-addresses were verified on-chain before being written into `Proposal0023.s.sol`, the calldata was
-regenerated with `P=0023 pnpm proposal`, and both dry runs were simulated against the deployment
-RPCs:
+addresses were verified on-chain before being written into `Proposal0023.s.sol` and the address
+libraries, the calldata was regenerated with `P=0023 pnpm proposal`, and both dry runs were
+simulated against the deployment RPCs:
 
 ```bash
 cd packages/protocol
@@ -362,6 +363,11 @@ fork test does. A second reviewer should re-run `P=0023 pnpm proposal` and diff
 | L2 `BridgedERC20V2` implementation  | `0xD6601cdea5857338EbdEE4CF38298aff43f01431` | registered as `bridged_erc20` on the new L2 resolver, not a proxy target; nothing to diff |
 | L2 `DefaultResolver` proxy          | `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984` | new proxy, nothing to diff                                                                |
 | L2 `DefaultResolver` implementation | `0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a` | new contract, nothing to diff                                                             |
+
+The four proxy implementations are constants in `Proposal0023.s.sol`. The addresses the resolvers
+name from this proposal on live in the address libraries: `LibL2Addrs.SHARED_RESOLVER` is new, and
+`LibL1Addrs.BRIDGED_ERC20` / `LibL2Addrs.BRIDGED_ERC20` now hold the two `BridgedERC20V2`
+implementations in place of the July 2024 ones the proposal retires.
 
 Codediff of each proxy upgrade, the live implementation against the new one:
 

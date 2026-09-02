@@ -41,7 +41,7 @@ contract DeployBridgeUpgradeL2 is Script {
 
         _checkDeployment(deployment);
 
-        console2.log("L2_SHARED_RESOLVER:", deployment.resolverProxy);
+        console2.log("LibL2Addrs.SHARED_RESOLVER:", deployment.resolverProxy);
         console2.log("  resolver impl   :", deployment.resolverImpl);
         console2.log("BRIDGE_NEW_IMPL_L2:", deployment.bridgeImpl);
     }

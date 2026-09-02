@@ -18,9 +18,9 @@ import { ERC20Vault } from "src/shared/vault/ERC20Vault.sol";
 /// implementation it deployed is the one the proposal points at.
 ///
 /// The vault implementation reads the resolver `DeployBridgeUpgradeL2` deployed on 2026-08-31
-/// (`L2_SHARED_RESOLVER` below, the constant `Proposal0023.s.sol` carries). The live L2 vault
-/// implementation (`0xb96AbB41…`, protocol 1.10.0) predates the resolver refactor for the same
-/// reason the live bridge does, so the vault moves onto the new resolver alongside the bridge.
+/// (`LibL2Addrs.SHARED_RESOLVER`). The live L2 vault implementation (`0xb96AbB41…`, protocol
+/// 1.10.0) predates the resolver refactor for the same reason the live bridge does, so the vault
+/// moves onto the new resolver alongside the bridge.
 ///
 /// A new `BridgedERC20` implementation is required, not optional. `ERC20Vault` on `main`
 /// initialises each bridged token it deploys through the six-argument
@@ -32,10 +32,6 @@ import { ERC20Vault } from "src/shared/vault/ERC20Vault.sol";
 /// vault upgrades too.
 /// @custom:security-contact security@taiko.xyz
 contract DeployERC20VaultUpgradeL2 is Script {
-    /// @dev The L2 `DefaultResolver` proxy deployed by `DeployBridgeUpgradeL2`, owned by the
-    /// DelegateController. Must equal `Proposal0023.L2_SHARED_RESOLVER`.
-    address public constant L2_SHARED_RESOLVER = 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984;
-
     struct Deployment {
         address bridgedErc20Impl;
         address erc20VaultImpl;
@@ -52,7 +48,7 @@ contract DeployERC20VaultUpgradeL2 is Script {
         // Read from the live chain before broadcasting: the resolver address bakes into the vault's
         // immutable, so a wrong constant here would only surface once the proxy is pointed at it.
         require(
-            DefaultResolver(L2_SHARED_RESOLVER).owner() == LibL2Addrs.DELEGATE_CONTROLLER,
+            DefaultResolver(LibL2Addrs.SHARED_RESOLVER).owner() == LibL2Addrs.DELEGATE_CONTROLLER,
             ResolverOwnerMismatch()
         );
 
@@ -74,7 +70,7 @@ contract DeployERC20VaultUpgradeL2 is Script {
 
         // No quota manager on L2: `quota_manager` is unset on the legacy L2 registry, so the live
         // vault enforces no token quota today, and zero preserves that.
-        deployment_.erc20VaultImpl = address(new ERC20Vault(L2_SHARED_RESOLVER, address(0)));
+        deployment_.erc20VaultImpl = address(new ERC20Vault(LibL2Addrs.SHARED_RESOLVER, address(0)));
     }
 
     /// @dev Aborts if an immutable did not take the intended value.
@@ -83,7 +79,7 @@ contract DeployERC20VaultUpgradeL2 is Script {
         ERC20Vault vaultImpl = ERC20Vault(_deployment.erc20VaultImpl);
         require(
             BridgedERC20(_deployment.bridgedErc20Impl).erc20Vault() == LibL2Addrs.ERC20_VAULT
-                && vaultImpl.resolver() == L2_SHARED_RESOLVER
+                && vaultImpl.resolver() == LibL2Addrs.SHARED_RESOLVER
                 && address(vaultImpl.quotaManager()) == address(0),
             ImmutableMismatch()
         );

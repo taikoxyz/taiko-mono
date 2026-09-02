@@ -90,13 +90,13 @@ contract Proposal0023ForkTest is Test {
         uint64 messageIdBefore = Bridge(payable(L1.BRIDGE)).nextMessageId();
         address vaultOwnerBefore = ERC20Vault(L1.ERC20_VAULT).owner();
 
-        // The implementations DeployBridgeUpgradeL1 and DeployERC20VaultUpgradeL1 deployed, as the
-        // proposal names them.
+        // The implementations DeployBridgeUpgradeL1, DeployERC20VaultUpgradeL1 and
+        // DeployBridgedERC20V2L1 deployed, as the proposal and LibL1Addrs name them.
         Proposal0023Harness harness = new Proposal0023Harness();
         Proposal0023.L1Deployment memory l1 = Proposal0023.L1Deployment({
             bridgeImpl: harness.BRIDGE_NEW_IMPL_L1(),
             erc20VaultImpl: harness.ERC20_VAULT_NEW_IMPL_L1(),
-            bridgedErc20Impl: harness.BRIDGED_ERC20_NEW_IMPL_L1()
+            bridgedErc20Impl: L1.BRIDGED_ERC20
         });
         assertGt(l1.bridgeImpl.code.length, 0, "L1 bridge implementation is not deployed");
         assertGt(l1.erc20VaultImpl.code.length, 0, "L1 vault implementation is not deployed");
@@ -290,14 +290,14 @@ contract Proposal0023ForkTest is Test {
         });
         assertTrue(before.bridgedUsdt != address(0), "no bridged USDT on this fork");
 
-        // The contracts DeployBridgeUpgradeL2 and DeployERC20VaultUpgradeL2 deployed, as the
-        // proposal names them.
+        // The contracts DeployBridgeUpgradeL2, DeployERC20VaultUpgradeL2 and DeployBridgedERC20V2L2
+        // deployed, as the proposal and LibL2Addrs name them.
         Proposal0023Harness harness = new Proposal0023Harness();
         Proposal0023.L2Deployment memory l2 = Proposal0023.L2Deployment({
-            sharedResolver: harness.L2_SHARED_RESOLVER(),
+            sharedResolver: L2.SHARED_RESOLVER,
             bridgeImpl: harness.BRIDGE_NEW_IMPL_L2(),
             erc20VaultImpl: harness.ERC20_VAULT_NEW_IMPL_L2(),
-            bridgedErc20Impl: harness.BRIDGED_ERC20_NEW_IMPL_L2()
+            bridgedErc20Impl: L2.BRIDGED_ERC20
         });
         _assertL2ContractsDeployed(l2);
 

@@ -36,6 +36,11 @@ contract Proposal0023 is BuildProposal {
         address bridgedErc20Impl;
     }
 
+    // Only the proxy implementations are proposal-local. The addresses the resolvers name from
+    // this proposal on (the new L2 resolver, the two `BridgedERC20V2` implementations) live in
+    // `LibL2Addrs.SHARED_RESOLVER`, `LibL1Addrs.BRIDGED_ERC20` and `LibL2Addrs.BRIDGED_ERC20`,
+    // updated ahead of execution.
+
     /// @dev Deployed by `DeployBridgeUpgradeL1` on Ethereum mainnet.
     /// https://codediff.taiko.xyz/?addr=0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC&newimpl=0xA15dca0A72da684f20e0FC708DECFb230a715462&chainid=1
     address public constant BRIDGE_NEW_IMPL_L1 = 0xA15dca0A72da684f20e0FC708DECFb230a715462;
@@ -44,31 +49,13 @@ contract Proposal0023 is BuildProposal {
     /// https://codediff.taiko.xyz/?addr=0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab&newimpl=0x32E47c04E8c329E8c10062731448e7658aDEEB8e&chainid=1
     address public constant ERC20_VAULT_NEW_IMPL_L1 = 0x32E47c04E8c329E8c10062731448e7658aDEEB8e;
 
-    /// @dev Deployed by `DeployBridgedERC20V2L1` on Ethereum mainnet: a `BridgedERC20V2` (EIP-2612
-    /// `permit` included) with the vault proxy as its `erc20Vault` immutable, registered as
-    /// `bridged_erc20` on the L1 shared resolver in place of the July 2024 implementation
-    /// `0x65666141…` that the live vault can no longer initialise.
-    address public constant BRIDGED_ERC20_NEW_IMPL_L1 = 0x9ccB9eBa4335096c5B64f050C3c734632D497c3b;
-
     /// @dev Deployed by `DeployBridgeUpgradeL2` on Taiko L2.
     /// https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000001&newimpl=0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb&chainid=167000
     address public constant BRIDGE_NEW_IMPL_L2 = 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb;
 
-    /// @dev The new L2 resolver, an ERC1967 proxy over implementation
-    /// `0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a`, owned by the DelegateController. It has no
-    /// predecessor to diff against: the legacy registry `0x1670…0006` is a different contract that
-    /// stays in place for the L2 NFT vaults.
-    address public constant L2_SHARED_RESOLVER = 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984;
-
     /// @dev Deployed by `DeployERC20VaultUpgradeL2` on Taiko L2.
     /// https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000002&newimpl=0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3&chainid=167000
     address public constant ERC20_VAULT_NEW_IMPL_L2 = 0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3;
-
-    /// @dev Deployed by `DeployBridgedERC20V2L2` on Taiko L2: a `BridgedERC20V2` (EIP-2612 `permit`
-    /// included) with the vault proxy as its `erc20Vault` immutable. It is registered as
-    /// `bridged_erc20` rather than set as a proxy target, so there is no predecessor to diff
-    /// against.
-    address public constant BRIDGED_ERC20_NEW_IMPL_L2 = 0xD6601cdea5857338EbdEE4CF38298aff43f01431;
 
     uint256 private constant _L1_CHAIN_ID = 1;
     uint256 private constant _L2_CHAIN_ID = 167_000;
@@ -80,7 +67,7 @@ contract Proposal0023 is BuildProposal {
             L1Deployment({
                 bridgeImpl: BRIDGE_NEW_IMPL_L1,
                 erc20VaultImpl: ERC20_VAULT_NEW_IMPL_L1,
-                bridgedErc20Impl: BRIDGED_ERC20_NEW_IMPL_L1
+                bridgedErc20Impl: L1.BRIDGED_ERC20
             })
         );
     }
@@ -131,10 +118,10 @@ contract Proposal0023 is BuildProposal {
     {
         return buildL2Actions(
             L2Deployment({
-                sharedResolver: L2_SHARED_RESOLVER,
+                sharedResolver: L2.SHARED_RESOLVER,
                 bridgeImpl: BRIDGE_NEW_IMPL_L2,
                 erc20VaultImpl: ERC20_VAULT_NEW_IMPL_L2,
-                bridgedErc20Impl: BRIDGED_ERC20_NEW_IMPL_L2
+                bridgedErc20Impl: L2.BRIDGED_ERC20
             })
         );
     }

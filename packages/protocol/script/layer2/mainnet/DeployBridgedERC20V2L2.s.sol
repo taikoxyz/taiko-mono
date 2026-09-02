@@ -30,6 +30,6 @@ contract DeployBridgedERC20V2L2 is Script {
 
         require(impl.erc20Vault() == LibL2Addrs.ERC20_VAULT, ImmutableMismatch());
 
-        console2.log("BRIDGED_ERC20_NEW_IMPL_L2:", address(impl));
+        console2.log("LibL2Addrs.BRIDGED_ERC20:", address(impl));
     }
 }

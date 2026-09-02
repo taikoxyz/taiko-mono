@@ -24,8 +24,8 @@ contract Proposal0023Test is Test {
     address internal constant BRIDGED_ERC20_NEW_IMPL_L2 =
         0x5050505050505050505050505050505050505050;
 
-    // The deployed addresses, written out as literals rather than read back from `Proposal0023`,
-    // so an edit to a constant there cannot be mirrored here.
+    // The deployed addresses, written out as literals rather than read back from `Proposal0023`
+    // or the address libraries, so an edit to a constant there cannot be mirrored here.
     address internal constant DEPLOYED_BRIDGE_IMPL_L1 = 0xA15dca0A72da684f20e0FC708DECFb230a715462;
     address internal constant DEPLOYED_ERC20_VAULT_IMPL_L1 =
         0x32E47c04E8c329E8c10062731448e7658aDEEB8e;
@@ -159,8 +159,8 @@ contract Proposal0023Test is Test {
 
     /// @dev Pins what the no-argument builders forward. The encoding tests above call the
     /// parameterised overloads directly and so bypass the forwarding lines entirely. The expected
-    /// addresses are written as literals rather than read back from `Proposal0023`, so an edit to
-    /// a constant there cannot be mirrored here. Mirrors
+    /// addresses are written as literals rather than read back from `Proposal0023` or the address
+    /// libraries, so an edit to a constant there cannot be mirrored here. Mirrors
     /// `test_buildL1Actions_UsesDeployedImplementations` in `Proposal0017.t.sol`.
     function test_buildL1Actions_UsesDeployedImplementations() external view {
         Controller.Action[] memory actions = proposal.exposedBuildL1Actions();
