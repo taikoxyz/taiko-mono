@@ -1834,6 +1834,8 @@ unselected inline child is already authenticated by the current node hash and
 cannot affect the selected membership statement, so its nested payload is
 opaque and must not be recursively traversed.
 
+Snapshot evaluation reparses this exact witness byte string; it never accepts
+caller-supplied framing offsets that could refer to another calldata slice.
 The ordinal supplies each RegistryCell's leaf index.  An absent cell has
 \code{present=0}, all remaining 100 bytes zero and no TrancheRecord.  A present
 cell has \code{present=1}, nonzero builder and tranche root, bond at least the
@@ -1848,7 +1850,9 @@ EMPTY encoding is canonical
 \code{(UINT64_MAX,EMPTY,0,0)}.  FREE requires zero amount and deadline;
 RESERVED/LIABLE require exactly \code{leasePerWindowAtomic}; and
 RELEASED/SLASHED require zero amount while preserving their authenticated
-deadline.  Only
+deadline.  Every non-EMPTY record's stored window must lie in
+\code{[firstManagedWindow,lastManagedWindow]} and have the same modulo-512
+index as the requested window.  Only
 \code{(window,RESERVED,leasePerWindowAtomic,liableUntil)} is eligible; every
 other authenticated leaf is ineligible irrespective of caller claims.
 
@@ -2272,9 +2276,11 @@ window as VACANT, while a valid pre-deadline retry remains possible.
 
 The parent payload timestamp derives
 \code{sourceL2Slot=max(0,payloadTimestamp-GENESIS_TIMESTAMP)}.  After the MPT
-and all 64 tranche proofs verify, Oracle keeps exactly those present,
-non-tombstoned-at-source, effective-at-source cells whose tranche is the exact
-eligible RESERVED tuple.  It sorts them by decreasing bond then increasing
+and all 64 tranche proofs verify, Oracle keeps exactly those present cells with
+\code{effectiveL2Slot<=sourceL2Slot<tombstonedAtL2Slot} whose tranche is the
+exact eligible RESERVED tuple.  The live tombstone sentinel
+\code{UINT64_MAX} obeys the same strict inequality; it is not a special-case
+bypass at the uint64 boundary.  Oracle sorts them by decreasing bond then increasing
 registration index, hashes these entries at ranks 0 upward and fills every
 remaining rank through 63 with its position-bound canonical empty leaf.  It
 derives \code{seed_W} from the authenticated prevRandao, writes
