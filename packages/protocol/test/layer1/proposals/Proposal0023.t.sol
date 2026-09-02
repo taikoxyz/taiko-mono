@@ -21,12 +21,18 @@ contract Proposal0023Test is Test {
     address internal constant BRIDGED_ERC20_NEW_IMPL_L2 =
         0x5050505050505050505050505050505050505050;
 
-    // The bridge-side addresses deployed on 2026-08-31, written out as literals so an accidental
-    // edit to `Proposal0023` while the vault placeholders are being filled in cannot go unnoticed.
+    // The deployed addresses, written out as literals rather than read back from `Proposal0023`,
+    // so an edit to a constant there cannot be mirrored here.
     address internal constant DEPLOYED_BRIDGE_IMPL_L1 = 0xA15dca0A72da684f20e0FC708DECFb230a715462;
+    address internal constant DEPLOYED_ERC20_VAULT_IMPL_L1 =
+        0x32E47c04E8c329E8c10062731448e7658aDEEB8e;
     address internal constant DEPLOYED_BRIDGE_IMPL_L2 = 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb;
     address internal constant DEPLOYED_L2_SHARED_RESOLVER =
         0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984;
+    address internal constant DEPLOYED_ERC20_VAULT_IMPL_L2 =
+        0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3;
+    address internal constant DEPLOYED_BRIDGED_ERC20_IMPL_L2 =
+        0x3505a0700DB72dEc7AbFF1aF231BB5D87aBF2944;
 
     Proposal0023Harness internal proposal;
 
@@ -133,27 +139,59 @@ contract Proposal0023Test is Test {
         );
     }
 
-    /// @dev While the vault implementations are placeholders, the no-argument builders must refuse
-    /// to encode an upgrade to address(0). That refusal is also what keeps `P=0023 pnpm proposal`
-    /// from generating executable calldata too early. Replace this test when the vault addresses
-    /// land: assert that the no-argument builders return what the parameterised builders return
-    /// for the deployed addresses, written as literals (the struct's named fields already rule out
-    /// a transposed forward).
-    function test_placeholderConstantsStillGuardTheBuilders() external {
-        vm.expectRevert(Proposal0023.ImplementationNotDeployed.selector);
-        proposal.exposedBuildL1Actions();
+    /// @dev Pins what the no-argument builders forward. The encoding tests above call the
+    /// parameterised overloads directly and so bypass the forwarding lines entirely. The expected
+    /// addresses are written as literals rather than read back from `Proposal0023`, so an edit to
+    /// a constant there cannot be mirrored here. Mirrors
+    /// `test_buildL1Actions_UsesDeployedImplementations` in `Proposal0017.t.sol`.
+    function test_buildL1Actions_UsesDeployedImplementations() external view {
+        Controller.Action[] memory actions = proposal.exposedBuildL1Actions();
 
-        vm.expectRevert(Proposal0023.ImplementationNotDeployed.selector);
-        proposal.exposedBuildL2Actions();
+        assertEq(actions.length, 2);
+        _assertUpgrades(actions[0], L1.BRIDGE, DEPLOYED_BRIDGE_IMPL_L1);
+        _assertUpgrades(actions[1], L1.ERC20_VAULT, DEPLOYED_ERC20_VAULT_IMPL_L1);
+    }
 
-        vm.expectRevert(Proposal0023.ImplementationNotDeployed.selector);
-        proposal.exposedBuildAllActions();
+    function test_buildL2Actions_UsesDeployedImplementations() external view {
+        (uint64 executionId, uint32 gasLimit, Controller.Action[] memory actions) =
+            proposal.exposedBuildL2Actions();
 
-        // The bridge-side constants are deployed and must not move while the vault constants are
-        // filled in.
-        assertEq(proposal.BRIDGE_NEW_IMPL_L1(), DEPLOYED_BRIDGE_IMPL_L1);
-        assertEq(proposal.BRIDGE_NEW_IMPL_L2(), DEPLOYED_BRIDGE_IMPL_L2);
-        assertEq(proposal.L2_SHARED_RESOLVER(), DEPLOYED_L2_SHARED_RESOLVER);
+        assertEq(executionId, 0);
+        assertEq(gasLimit, 5_000_000);
+        assertEq(actions.length, 7);
+
+        for (uint256 i; i < 5; ++i) {
+            assertEq(actions[i].target, DEPLOYED_L2_SHARED_RESOLVER);
+        }
+        assertEq(
+            actions[4].data,
+            abi.encodeCall(
+                DefaultResolver.registerAddress,
+                (uint256(167_000), LibNames.B_BRIDGED_ERC20, DEPLOYED_BRIDGED_ERC20_IMPL_L2)
+            )
+        );
+        _assertUpgrades(actions[5], L2.ERC20_VAULT, DEPLOYED_ERC20_VAULT_IMPL_L2);
+        _assertUpgrades(actions[6], L2.BRIDGE, DEPLOYED_BRIDGE_IMPL_L2);
+    }
+
+    /// @dev The no-argument path is exactly the parameterised path fed the deployed addresses, so
+    /// everything the parameterised tests prove about the encoding carries over to what the DAO
+    /// executes.
+    function test_buildAllActions_UsesDeployedImplementations() external view {
+        Proposal0023.L1Deployment memory l1 = Proposal0023.L1Deployment({
+            bridgeImpl: DEPLOYED_BRIDGE_IMPL_L1, erc20VaultImpl: DEPLOYED_ERC20_VAULT_IMPL_L1
+        });
+        Proposal0023.L2Deployment memory l2 = Proposal0023.L2Deployment({
+            sharedResolver: DEPLOYED_L2_SHARED_RESOLVER,
+            bridgeImpl: DEPLOYED_BRIDGE_IMPL_L2,
+            erc20VaultImpl: DEPLOYED_ERC20_VAULT_IMPL_L2,
+            bridgedErc20Impl: DEPLOYED_BRIDGED_ERC20_IMPL_L2
+        });
+
+        assertEq(
+            abi.encode(proposal.exposedBuildAllActions()),
+            abi.encode(proposal.exposedBuildAllActions(l1, l2))
+        );
     }
 
     /// @dev `Proposal0023.action.md` is the payload the DAO actually executes, and it is generated
@@ -161,16 +199,12 @@ contract Proposal0023Test is Test {
     /// regenerated after the proposal changed, so a stale file would present one set of actions
     /// for review while the code describes another. This compares the committed calldata against
     /// what `_buildAllActions` builds right now — including the bridge message that wraps the L2
-    /// batch. The file cannot exist while any constant is a placeholder, so the test skips until
-    /// the vault implementations are deployed and the file is regenerated.
+    /// batch. The file cannot exist while any constant is a placeholder, so the test skips while
+    /// it is absent rather than failing the placeholder phase.
     function test_actionFileMatchesTheBuiltCalldata() external {
         string memory path = "script/layer1/proposals/Proposal0023.action.md";
         if (!vm.exists(path)) {
-            vm.skip(
-                true,
-                "Proposal0023.action.md is not generated yet: deploy the vault implementations, "
-                "fill in the constants and run `P=0023 pnpm proposal`"
-            );
+            vm.skip(true, "Proposal0023.action.md is not generated yet: run `P=0023 pnpm proposal`");
             return;
         }
 

@@ -38,8 +38,9 @@ contract Proposal0023 is BuildProposal {
     /// https://codediff.taiko.xyz/?addr=0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC&newimpl=0xA15dca0A72da684f20e0FC708DECFb230a715462&chainid=1
     address public constant BRIDGE_NEW_IMPL_L1 = 0xA15dca0A72da684f20e0FC708DECFb230a715462;
 
-    /// @dev Placeholder until `DeployERC20VaultUpgradeL1` has run on Ethereum mainnet.
-    address public constant ERC20_VAULT_NEW_IMPL_L1 = address(0);
+    /// @dev Deployed by `DeployERC20VaultUpgradeL1` on Ethereum mainnet.
+    /// https://codediff.taiko.xyz/?addr=0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab&newimpl=0x32E47c04E8c329E8c10062731448e7658aDEEB8e&chainid=1
+    address public constant ERC20_VAULT_NEW_IMPL_L1 = 0x32E47c04E8c329E8c10062731448e7658aDEEB8e;
 
     /// @dev Deployed by `DeployBridgeUpgradeL2` on Taiko L2.
     /// https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000001&newimpl=0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb&chainid=167000
@@ -51,9 +52,14 @@ contract Proposal0023 is BuildProposal {
     /// stays in place for the L2 NFT vaults.
     address public constant L2_SHARED_RESOLVER = 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984;
 
-    /// @dev Placeholders until `DeployERC20VaultUpgradeL2` has run on Taiko L2.
-    address public constant ERC20_VAULT_NEW_IMPL_L2 = address(0);
-    address public constant BRIDGED_ERC20_NEW_IMPL_L2 = address(0);
+    /// @dev Deployed by `DeployERC20VaultUpgradeL2` on Taiko L2.
+    /// https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000002&newimpl=0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3&chainid=167000
+    address public constant ERC20_VAULT_NEW_IMPL_L2 = 0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3;
+
+    /// @dev Deployed by `DeployERC20VaultUpgradeL2` on Taiko L2, with the vault proxy as its
+    /// `erc20Vault` immutable. It is registered as `bridged_erc20` rather than set as a proxy
+    /// target, so there is no predecessor to diff against.
+    address public constant BRIDGED_ERC20_NEW_IMPL_L2 = 0x3505a0700DB72dEc7AbFF1aF231BB5D87aBF2944;
 
     uint256 private constant _L1_CHAIN_ID = 1;
     uint256 private constant _L2_CHAIN_ID = 167_000;

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Test } from "forge-std/src/Test.sol";
 import { Proposal0023 } from "script/layer1/proposals/Proposal0023.s.sol";
@@ -27,8 +26,12 @@ import { ERC20Vault } from "src/shared/vault/ERC20Vault.sol";
 /// upgrades work, and the L2 leg is where that distinction matters: the live L2 bridge and ERC20
 /// vault both run protocol 1.10.0 implementations from October 2024, the bridge must upgrade
 /// *itself* from inside its own `processMessage` frame, and every resolver lookup the vault makes
-/// moves to a registry that is empty until the same batch populates it. Each leg therefore also
-/// bridges tokens through the upgraded contracts, on the exact actions the proposal encodes.
+/// moves to a registry that is empty until the same batch populates it.
+///
+/// The rehearsal executes exactly what the DAO will: the calldata `Proposal0023` builds from its
+/// constants, against the implementations those constants name, which already exist on both
+/// chains. Nothing is deployed by the test. After each leg it bridges tokens through the upgraded
+/// contracts.
 /// @custom:security-contact security@taiko.xyz
 contract Proposal0023ForkTest is Test {
     /// @dev Live values read before the L2 batch executes, compared against afterwards.
@@ -67,39 +70,27 @@ contract Proposal0023ForkTest is Test {
         if (!_forkOrSkip("L1_FORK_URL")) return;
 
         string memory notPreUpgrade =
-            "L1 fork is not pre-upgrade; pin --fork-block-number 25875170 against an archive node";
+            "L1 fork is not pre-upgrade; pin --fork-block-number 25888605 against an archive node";
         assertEq(_implementationOf(L1.BRIDGE), _LIVE_BRIDGE_IMPL_L1, notPreUpgrade);
         assertEq(_implementationOf(L1.ERC20_VAULT), _LIVE_ERC20_VAULT_IMPL_L1, notPreUpgrade);
 
         uint64 messageIdBefore = Bridge(payable(L1.BRIDGE)).nextMessageId();
         address vaultOwnerBefore = ERC20Vault(L1.ERC20_VAULT).owner();
 
-        // Deploy exactly what DeployBridgeUpgradeL1 and DeployERC20VaultUpgradeL1 deploy.
-        Proposal0023.L1Deployment memory l1 = Proposal0023.L1Deployment({
-            bridgeImpl: address(
-                new Bridge(
-                    L1.SHARED_RESOLVER,
-                    L1.SIGNAL_SERVICE,
-                    L1.QUOTA_MANAGER,
-                    L1.MULTISIG_ADMIN_TAIKO_ETH
-                )
-            ),
-            erc20VaultImpl: address(new ERC20Vault(L1.SHARED_RESOLVER, L1.QUOTA_MANAGER))
-        });
-
-        // The L2 addresses only shape the payload of the message the third L1 action sends; the
-        // L1 bridge never reads them. The L2 leg rehearses them on the L2 fork.
+        // The implementations DeployBridgeUpgradeL1 and DeployERC20VaultUpgradeL1 deployed, as the
+        // proposal names them.
         Proposal0023ForkHarness harness = new Proposal0023ForkHarness();
-        Proposal0023.L2Deployment memory l2 = Proposal0023.L2Deployment({
-            sharedResolver: harness.L2_SHARED_RESOLVER(),
-            bridgeImpl: harness.BRIDGE_NEW_IMPL_L2(),
-            erc20VaultImpl: makeAddr("ERC20_VAULT_NEW_IMPL_L2"),
-            bridgedErc20Impl: makeAddr("BRIDGED_ERC20_NEW_IMPL_L2")
+        Proposal0023.L1Deployment memory l1 = Proposal0023.L1Deployment({
+            bridgeImpl: harness.BRIDGE_NEW_IMPL_L1(),
+            erc20VaultImpl: harness.ERC20_VAULT_NEW_IMPL_L1()
         });
+        assertGt(l1.bridgeImpl.code.length, 0, "L1 bridge implementation is not deployed");
+        assertGt(l1.erc20VaultImpl.code.length, 0, "L1 vault implementation is not deployed");
 
         // Execute the whole L1 batch the way the DAO controller will: both upgrades, then the
-        // sendMessage that BuildProposal appends, through the just-upgraded bridge.
-        Controller.Action[] memory actions = harness.exposedBuildAllActions(l1, l2);
+        // sendMessage that BuildProposal appends, through the just-upgraded bridge. This is the
+        // calldata `Proposal0023.action.md` carries.
+        Controller.Action[] memory actions = harness.exposedBuildAllActions();
         assertEq(actions.length, 3);
         _executeAs(L1.DAO_CONTROLLER, actions);
 
@@ -125,13 +116,7 @@ contract Proposal0023ForkTest is Test {
     /// governance message left through the new implementation.
     /// @param _newImpl The implementation the proxy must now run.
     /// @param _messageIdBefore The bridge's `nextMessageId` before the batch.
-    function _assertL1BridgeAfterUpgrade(
-        address _newImpl,
-        uint64 _messageIdBefore
-    )
-        private
-        view
-    {
+    function _assertL1BridgeAfterUpgrade(address _newImpl, uint64 _messageIdBefore) private view {
         Bridge bridge = Bridge(payable(L1.BRIDGE));
         assertEq(_implementationOf(L1.BRIDGE), _newImpl);
         assertEq(bridge.resolver(), L1.SHARED_RESOLVER);
@@ -179,7 +164,7 @@ contract Proposal0023ForkTest is Test {
         ERC20Vault vault = ERC20Vault(L2.ERC20_VAULT);
 
         string memory notPreUpgrade =
-            "L2 fork is not pre-upgrade; pin --fork-block-number 10785761 against an archive node";
+            "L2 fork is not pre-upgrade; pin --fork-block-number 10865570 against an archive node";
         assertEq(_implementationOf(L2.BRIDGE), _LIVE_BRIDGE_IMPL_L2, notPreUpgrade);
         assertEq(_implementationOf(L2.ERC20_VAULT), _LIVE_ERC20_VAULT_IMPL_L2, notPreUpgrade);
 
@@ -191,12 +176,21 @@ contract Proposal0023ForkTest is Test {
         });
         assertTrue(before.bridgedUsdt != address(0), "no bridged USDT on this fork");
 
-        Proposal0023.L2Deployment memory l2 = _deployL2Contracts();
+        // The contracts DeployBridgeUpgradeL2 and DeployERC20VaultUpgradeL2 deployed, as the
+        // proposal names them.
+        Proposal0023ForkHarness harness = new Proposal0023ForkHarness();
+        Proposal0023.L2Deployment memory l2 = Proposal0023.L2Deployment({
+            sharedResolver: harness.L2_SHARED_RESOLVER(),
+            bridgeImpl: harness.BRIDGE_NEW_IMPL_L2(),
+            erc20VaultImpl: harness.ERC20_VAULT_NEW_IMPL_L2(),
+            bridgedErc20Impl: harness.BRIDGED_ERC20_NEW_IMPL_L2()
+        });
+        _assertL2ContractsDeployed(l2);
 
         // Deliver the seven L2 actions the way governance will: as a processMessage call on the
         // bridge itself, not by pranking the DelegateController. That is what exercises the
-        // mid-call self-upgrade.
-        IBridge.Message memory message = _governanceMessage(l2);
+        // mid-call self-upgrade. The message is the one BuildProposal wraps the L2 batch into.
+        IBridge.Message memory message = _governanceMessage(harness);
 
         // A valid signal proof cannot be synthesised on a fork, and the signal service is not what
         // this test exercises.
@@ -236,30 +230,32 @@ contract Proposal0023ForkTest is Test {
         _bridgeTokensThroughUpgradedL2(l2, before);
     }
 
-    /// @dev Deploys exactly what DeployBridgeUpgradeL2 and DeployERC20VaultUpgradeL2 deploy.
-    /// @return l2_ The four addresses the L2 leg points at.
-    function _deployL2Contracts() private returns (Proposal0023.L2Deployment memory l2_) {
-        l2_.sharedResolver = address(
-            new ERC1967Proxy(
-                address(new DefaultResolver()),
-                abi.encodeCall(DefaultResolver.init, (L2.DELEGATE_CONTROLLER))
-            )
+    /// @dev The four L2 addresses the proposal names exist on the fork, and the resolver is still
+    /// the empty, DelegateController-owned proxy the deploy script left.
+    /// @param _l2 The L2 addresses the batch points at.
+    function _assertL2ContractsDeployed(Proposal0023.L2Deployment memory _l2) private view {
+        assertGt(_l2.sharedResolver.code.length, 0, "L2 resolver is not deployed");
+        assertGt(_l2.bridgeImpl.code.length, 0, "L2 bridge implementation is not deployed");
+        assertGt(_l2.erc20VaultImpl.code.length, 0, "L2 vault implementation is not deployed");
+        assertGt(_l2.bridgedErc20Impl.code.length, 0, "L2 BridgedERC20 is not deployed");
+        assertEq(DefaultResolver(_l2.sharedResolver).owner(), L2.DELEGATE_CONTROLLER);
+        assertEq(
+            DefaultResolver(_l2.sharedResolver).resolve(1, LibNames.B_BRIDGE, true),
+            address(0),
+            "L2 resolver is already populated"
         );
-        l2_.bridgeImpl =
-            address(new Bridge(l2_.sharedResolver, L2.SIGNAL_SERVICE, address(0), address(0)));
-        l2_.erc20VaultImpl = address(new ERC20Vault(l2_.sharedResolver, address(0)));
-        l2_.bridgedErc20Impl = address(new BridgedERC20(L2.ERC20_VAULT));
     }
 
     /// @dev The message BuildProposal wraps the L2 batch into, as the L2 bridge receives it: the
     /// L1 bridge assigns `id`, `from` and `srcChainId` at send time.
-    /// @param _l2 The L2 addresses the batch points at.
+    /// @param _harness The proposal.
     /// @return message_ The message to hand to processMessage.
-    function _governanceMessage(Proposal0023.L2Deployment memory _l2)
+    function _governanceMessage(Proposal0023ForkHarness _harness)
         private
+        view
         returns (IBridge.Message memory message_)
     {
-        message_ = new Proposal0023ForkHarness().exposedBuildL2Message(_l2);
+        message_ = _harness.exposedBuildL2Message();
         message_.id = 999_999;
         message_.from = L1.DAO_CONTROLLER;
         message_.srcChainId = 1;
@@ -281,12 +277,7 @@ contract Proposal0023ForkTest is Test {
     /// can still send.
     /// @param _resolverProxy The new resolver.
     /// @param _before The live values read before the batch.
-    function _assertL2BridgeAfterUpgrade(
-        address _resolverProxy,
-        L2Before memory _before
-    )
-        private
-    {
+    function _assertL2BridgeAfterUpgrade(address _resolverProxy, L2Before memory _before) private {
         Bridge bridge = Bridge(payable(L2.BRIDGE));
 
         // This is the call that reverts if the wiring is wrong.
@@ -509,29 +500,16 @@ contract Proposal0023ForkTest is Test {
     }
 }
 
-/// @dev Exposes the proposal's parameterised builders so the rehearsal executes the actions the
-/// proposal encodes rather than a hand-written copy of them.
+/// @dev Exposes the proposal's builders so the rehearsal executes the calldata the proposal
+/// encodes from its constants rather than a hand-written copy of it.
 contract Proposal0023ForkHarness is Proposal0023 {
-    function exposedBuildAllActions(
-        L1Deployment memory _l1,
-        L2Deployment memory _l2
-    )
-        external
-        pure
-        returns (Controller.Action[] memory)
-    {
-        (uint64 l2ExecutionId, uint32 l2GasLimit, Controller.Action[] memory l2Actions) =
-            buildL2Actions(_l2);
-        return _buildAllActions(buildL1Actions(_l1), l2ExecutionId, l2GasLimit, l2Actions);
+    function exposedBuildAllActions() external pure returns (Controller.Action[] memory) {
+        return _buildAllActions();
     }
 
-    function exposedBuildL2Message(L2Deployment memory _l2)
-        external
-        pure
-        returns (IBridge.Message memory)
-    {
+    function exposedBuildL2Message() external pure returns (IBridge.Message memory) {
         (uint64 l2ExecutionId, uint32 l2GasLimit, Controller.Action[] memory l2Actions) =
-            buildL2Actions(_l2);
+            buildL2Actions();
         return _buildL2Message(l2ExecutionId, l2GasLimit, l2Actions);
     }
 }
