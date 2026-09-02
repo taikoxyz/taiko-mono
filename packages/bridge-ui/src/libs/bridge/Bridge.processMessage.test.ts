@@ -51,7 +51,7 @@ vi.mock('$libs/util/getConnectedWallet', () => ({
 }));
 
 import { routingContractsMap } from '$bridgeConfig';
-import { MessageStatusError, WrongChainError, WrongOwnerError } from '$libs/error';
+import { MessageStatusError, ProcessMessageError, WrongChainError, WrongOwnerError } from '$libs/error';
 
 import { ERC20Bridge } from './ERC20Bridge';
 import { type BridgeTransaction, MessageStatus } from './types';
@@ -174,6 +174,43 @@ describe('Bridge.processMessage routes each status to its contract call', () => 
     expect(simulateContract).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ address: destBridge, functionName: 'retryMessage', args: [expect.anything(), true] }),
+    );
+  });
+
+  it('refuses to claim a NEW message with no source height, which the proof needs', async () => {
+    readContract.mockResolvedValue(MessageStatus.NEW);
+
+    await expect(
+      new ERC20Bridge(prover as never).processMessage({
+        bridgeTx: bridgeTx({ blockNumber: undefined, receipt: undefined }),
+        wallet: walletOn(destChainId),
+      }),
+    ).rejects.toBeInstanceOf(ProcessMessageError);
+    expect(prover.getEncodedSignalProof).not.toHaveBeenCalled();
+  });
+
+  it('retries and releases without a source height, which neither path proves against', async () => {
+    // retryMessage sends no proof, and the recall proof is built against the destination chain, so
+    // requiring a source height ahead of the dispatch rejected work that would have succeeded - on
+    // a button the transaction list had already offered
+    readContract.mockResolvedValue(MessageStatus.RETRIABLE);
+    await new ERC20Bridge(prover as never).processMessage({
+      bridgeTx: bridgeTx({ blockNumber: undefined, receipt: undefined }),
+      wallet: walletOn(destChainId),
+    });
+    expect(simulateContract).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ functionName: 'retryMessage' }),
+    );
+
+    readContract.mockResolvedValue(MessageStatus.FAILED);
+    await new ERC20Bridge(prover as never).processMessage({
+      bridgeTx: bridgeTx({ blockNumber: undefined, receipt: undefined }),
+      wallet: walletOn(srcChainId),
+    });
+    expect(simulateContract).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ functionName: 'recallMessage' }),
     );
   });
 

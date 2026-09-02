@@ -303,19 +303,10 @@ export abstract class Bridge {
 
   async processMessage(args: ClaimArgs, force = false, skipMessageStatusCheck = false): Promise<Hash> {
     const { messageStatus, destBridgeAddress } = await this.beforeProcessing(args, skipMessageStatusCheck);
-    let blockNumber;
-
-    if (!args.bridgeTx.blockNumber && args.bridgeTx.receipt) {
-      blockNumber = args.bridgeTx.receipt?.blockNumber;
-    } else if (args.bridgeTx.blockNumber) {
-      blockNumber = args.bridgeTx.blockNumber;
-    } else {
-      throw new ProcessMessageError('Blocknumber is not defined');
-    }
 
     const { message, msgHash } = args.bridgeTx;
     if (!message || !msgHash)
-      throw new ProcessMessageError(`message or msgHash  is not defined, ${message}, ${msgHash}, ${blockNumber}`);
+      throw new ProcessMessageError(`message or msgHash is not defined, ${message}, ${msgHash}`);
 
     const client = await getConnectedWallet();
     if (!client) throw new Error('Client not found');
@@ -367,6 +358,15 @@ export abstract class Bridge {
     const { bridgeTx, bridgeContract, client } = args;
     const { message } = bridgeTx;
     if (!message) throw new ProcessMessageError('Message is not defined');
+
+    // Only the initial claim needs a source height, and it needs the one BridgeProver reads:
+    // getEncodedSignalProof rejects a row without `bridgeTx.blockNumber` whatever the receipt
+    // carries. Retrying and releasing prove nothing against the source chain - retryMessage sends
+    // no proof at all, and getEncodedSignalProofForRecall documents that there is no block number
+    // to gate on - so requiring one of them ahead of the dispatch rejected work that would have
+    // succeeded, on a button the UI had already offered.
+    if (!bridgeTx.blockNumber) throw new ProcessMessageError('Blocknumber is not defined');
+
     const proof = await this._prover.getEncodedSignalProof({ bridgeTx });
 
     const destClient = getPublicClient(config, { chainId: Number(message.destChainId) });

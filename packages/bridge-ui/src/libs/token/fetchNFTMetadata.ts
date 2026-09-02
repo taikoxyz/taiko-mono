@@ -5,8 +5,8 @@ import { destNetwork } from '$components/Bridge/state';
 import { ipfsConfig } from '$config';
 import { FetchMetadataError, NoMetadataFoundError, WrongChainError } from '$libs/error';
 import { decodeBase64ToJson } from '$libs/util/decodeBase64ToJson';
+import { fetchFromIPFSGateways, toIPFSPath } from '$libs/util/ipfsGateways';
 import { getLogger } from '$libs/util/logger';
-import { resolveIPFSUri } from '$libs/util/resolveIPFSUri';
 import { addMetadataToCache, getMetadataFromCache, isMetadataCached } from '$stores/metadata';
 import { connectedSourceChain } from '$stores/network';
 
@@ -19,6 +19,42 @@ const axiosConfig: AxiosRequestConfig = {
 };
 
 const log = getLogger('libs:token:fetchNFTMetadata');
+
+/**
+ * Fetches the metadata document, retrying through the configured IPFS gateways whenever the URI
+ * names a CID.
+ *
+ * Without the retry a token is only as reachable as the one gateway its `tokenURI` happens to
+ * name, even though the document is content-addressed and served identically by every other
+ * gateway. That is not hypothetical: the ERC1155 at `0x1f8483664620ff1278f4c1b0d11e4d7daa11a035`
+ * points at `https://3land.mypinata.cloud/ipfs/...`, which now answers 403 `Account has been
+ * disabled`, while the same CID still resolves through the public gateways.
+ */
+async function fetchMetadataDocument(uri: string): Promise<NFTMetadata> {
+  const get = async (url: string) => {
+    const { data } = await axios.get<NFTMetadata>(url, axiosConfig);
+
+    // Checked here, inside the attempt, rather than once on whatever came back: a gateway can
+    // answer 200 with an HTML interstitial, a rate-limit page or an empty object, and a document
+    // this app cannot use is a gateway failure like any other. Validating afterwards would let the
+    // first such answer end the search with healthy gateways still untried.
+    if (!data?.image) throw new NoMetadataFoundError(`No image in the metadata served by ${url}`);
+
+    return data;
+  };
+
+  // An `ipfs://` URI names no host to try first, so it goes straight to the gateways.
+  if (uri.startsWith('ipfs:')) return fetchFromIPFSGateways(uri, get);
+
+  try {
+    return await get(uri);
+  } catch (error) {
+    if (toIPFSPath(uri) === null) throw error;
+
+    log('metadata uri failed, retrying through the configured IPFS gateways', uri, error);
+    return fetchFromIPFSGateways(uri, get);
+  }
+}
 
 export async function fetchNFTMetadata(token: NFT): Promise<NFTMetadata | null> {
   let uri = token?.uri;
@@ -74,13 +110,8 @@ export async function fetchNFTMetadata(token: NFT): Promise<NFTMetadata | null> 
   }
   if (!uri) throw new FetchMetadataError('No uri found');
 
-  if (uri.startsWith('ipfs:')) {
-    uri = await resolveIPFSUri(uri);
-  }
-
   try {
-    const response = await axios.get<NFTMetadata>(uri, axiosConfig);
-    const metadata = response.data;
+    const metadata = await fetchMetadataDocument(uri);
 
     if (metadata.image) {
       // Update cache

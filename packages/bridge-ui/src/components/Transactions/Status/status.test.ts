@@ -12,21 +12,33 @@ import {
 } from './status';
 
 describe('shouldShowManualClaimEntry', () => {
-  it('returns true when a none-fee transaction is still processing but can be manually claimed', () => {
+  it('returns true for a zero-fee transaction whose processability could not be determined', () => {
+    expect(
+      shouldShowManualClaimEntry({
+        bridgeTxStatus: MessageStatus.NEW,
+        isProcessable: null,
+        processingFee: 0n,
+      }),
+    ).toBe(true);
+  });
+
+  it('returns false while the destination chain is known not to have synced the message yet', () => {
+    // `false` is a settled answer: the claim this entry would start is one BridgeProver rejects
+    // with BlockNotSyncedError, and the next checkpoint resolves it without the user doing anything
     expect(
       shouldShowManualClaimEntry({
         bridgeTxStatus: MessageStatus.NEW,
         isProcessable: false,
         processingFee: 0n,
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('returns false when a relayer fee exists or the transaction is already processable', () => {
     expect(
       shouldShowManualClaimEntry({
         bridgeTxStatus: MessageStatus.NEW,
-        isProcessable: false,
+        isProcessable: null,
         processingFee: 1n,
       }),
     ).toBe(false);
@@ -44,7 +56,7 @@ describe('shouldShowManualClaimEntry', () => {
     expect(
       shouldShowManualClaimEntry({
         bridgeTxStatus: MessageStatus.DONE,
-        isProcessable: false,
+        isProcessable: null,
         processingFee: 0n,
       }),
     ).toBe(false);
@@ -52,7 +64,7 @@ describe('shouldShowManualClaimEntry', () => {
     expect(
       shouldShowManualClaimEntry({
         bridgeTxStatus: MessageStatus.RETRIABLE,
-        isProcessable: false,
+        isProcessable: null,
         processingFee: 0n,
       }),
     ).toBe(false);
@@ -60,7 +72,7 @@ describe('shouldShowManualClaimEntry', () => {
     expect(
       shouldShowManualClaimEntry({
         bridgeTxStatus: null,
-        isProcessable: false,
+        isProcessable: null,
         processingFee: 0n,
       }),
     ).toBe(false);
@@ -68,7 +80,7 @@ describe('shouldShowManualClaimEntry', () => {
     expect(
       shouldShowManualClaimEntry({
         bridgeTxStatus: undefined,
-        isProcessable: false,
+        isProcessable: null,
         processingFee: 0n,
       }),
     ).toBe(false);

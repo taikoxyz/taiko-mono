@@ -1,10 +1,11 @@
 import { get } from 'svelte/store';
 
 import { destNetwork } from '$components/Bridge/state';
+import { ipfsConfig } from '$config';
 import { fetchNFTMetadata } from '$libs/token/fetchNFTMetadata';
 import { decodeBase64ToJson } from '$libs/util/decodeBase64ToJson';
+import { fetchFromIPFSGateways, toIPFSPath } from '$libs/util/ipfsGateways';
 import { getLogger } from '$libs/util/logger';
-import { resolveIPFSUri } from '$libs/util/resolveIPFSUri';
 import { addMetadataToCache } from '$stores/metadata';
 import { connectedSourceChain } from '$stores/network';
 
@@ -62,14 +63,21 @@ const fetchImageUrl = async (url: string): Promise<string> => {
     return url;
   } else {
     log('fetchImageUrl failed to load image');
-    if (url.startsWith('ipfs://')) {
-      const newUrl = await resolveIPFSUri(url);
-      if (newUrl) {
-        const gatewayImageLoaded = await testImageLoad(newUrl);
-        if (gatewayImageLoaded) {
-          return newUrl;
-        }
-      }
+    // Any URL a gateway serves, not only an `ipfs://` one. The image inside a metadata document
+    // usually points at the same project-owned gateway the document itself did, so a gateway
+    // that has stopped answering takes the image down with it even once the document has been
+    // recovered from elsewhere - the content is the same either way, addressed by hash.
+    if (toIPFSPath(url) !== null) {
+      return fetchFromIPFSGateways(
+        url,
+        async (candidate) => {
+          // Loading the image is the test, so a gateway that answers but does not serve this
+          // content hands the next one its turn rather than ending the search
+          if (!(await testImageLoad(candidate))) throw new Error(`Gateway did not serve the image: ${candidate}`);
+          return candidate;
+        },
+        { attemptTimeout: ipfsConfig.imageLoadTimeout, budget: ipfsConfig.imageOverallTimeout },
+      );
     } else if (url.startsWith('data:image/svg+xml;base64,')) {
       const base64 = url.replace('data:image/svg+xml;base64,', '');
       const decodedImage = decodeBase64ToJson(base64);
@@ -79,11 +87,32 @@ const fetchImageUrl = async (url: string): Promise<string> => {
   throw new Error(`No image found for ${url}`);
 };
 
+/**
+ * @dev Whether the browser can load `url` as an image, within a bounded wait.
+ *
+ *      A stalled gateway fires neither `onload` nor `onerror`, so without the timeout this never
+ *      settles and holds up everything waiting on it. Clearing `src` on the way out lets the
+ *      browser drop the request rather than leaving it in flight behind an answer nobody reads.
+ *
+ * @param url The image to load
+ * @return loaded_ Whether it loaded in time
+ */
 const testImageLoad = (url: string): Promise<boolean> => {
   return new Promise((resolve) => {
     const img = new Image();
-    img.onload = () => resolve(true);
-    img.onerror = () => resolve(false);
+
+    const settle = (loaded: boolean) => {
+      clearTimeout(timer);
+      img.onload = null;
+      img.onerror = null;
+      if (!loaded) img.src = '';
+      resolve(loaded);
+    };
+
+    const timer = setTimeout(() => settle(false), ipfsConfig.imageLoadTimeout);
+
+    img.onload = () => settle(true);
+    img.onerror = () => settle(false);
     img.src = url;
   });
 };
