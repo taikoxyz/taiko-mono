@@ -373,6 +373,13 @@ function normalizeCompilerMetadata(value: unknown): unknown {
             for (const entry of output.abi) {
                 if (
                     isRecord(entry) &&
+                    Array.isArray(entry.inputs) &&
+                    entry.inputs.length === 0
+                ) {
+                    delete entry.inputs;
+                }
+                if (
+                    isRecord(entry) &&
                     Array.isArray(entry.outputs) &&
                     entry.outputs.length === 0
                 ) {
@@ -388,6 +395,8 @@ function normalizeCompilerMetadata(value: unknown): unknown {
                 if (key.startsWith("custom:")) delete devdoc[key];
             }
         }
+        const userdoc = output.userdoc;
+        if (isRecord(userdoc)) delete userdoc.notice;
     }
     return normalized;
 }

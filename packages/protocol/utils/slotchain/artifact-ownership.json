@@ -20,7 +20,9 @@
       "metadataBytecodeHash": "ipfs",
       "metadataAppendCbor": true,
       "metadataUseLiteralContent": false,
-      "skip": ["**/slotchain/**"]
+      "skip": [
+        "**/slotchain/**"
+      ]
     },
     "genesis": {
       "out": "out/genesis",
@@ -40,7 +42,9 @@
       "metadataBytecodeHash": "ipfs",
       "metadataAppendCbor": true,
       "metadataUseLiteralContent": false,
-      "skip": ["**/slotchain/**"]
+      "skip": [
+        "**/slotchain/**"
+      ]
     },
     "layer1": {
       "out": "out/layer1",
@@ -60,7 +64,9 @@
       "metadataBytecodeHash": "ipfs",
       "metadataAppendCbor": true,
       "metadataUseLiteralContent": false,
-      "skip": ["*DeployAutomataDcapAttestation.s.sol"]
+      "skip": [
+        "*DeployAutomataDcapAttestation.s.sol"
+      ]
     },
     "layer1o": {
       "out": "out/layer1o",
@@ -80,7 +86,9 @@
       "metadataBytecodeHash": "ipfs",
       "metadataAppendCbor": true,
       "metadataUseLiteralContent": false,
-      "skip": ["**/slotchain/**"]
+      "skip": [
+        "**/slotchain/**"
+      ]
     },
     "layer2": {
       "out": "out/layer2",
@@ -126,13 +134,267 @@
   "modules": [
     {
       "ownership": "source-inline",
+      "sourcePath": "contracts/layer1/slotchain/iface/IRegistrationMptVerifierV2.sol",
+      "contractName": "IRegistrationMptVerifierV2",
+      "kind": "interface",
+      "sourceHash": "0x6c808a0f5645f769f535b3d5c39604929765d0a32ed4e44d1a510f773c59894d",
+      "abiHash": "0x40d3508978ae1ef4833a2bc6be8a64d1174295fef2066f6b4d75136d7594be53",
+      "allowedProfiles": [
+        "layer1"
+      ],
+      "requiredProfiles": [
+        "layer1"
+      ]
+    },
+    {
+      "ownership": "source-inline",
+      "sourcePath": "contracts/layer1/slotchain/iface/IScheduleForkVerifierV1.sol",
+      "contractName": "IScheduleForkVerifierV1",
+      "kind": "interface",
+      "sourceHash": "0xf9f902bd3e5fca54ec0c52e23613e86a1a86137ab6ac6dd1ac5daa0e9e36c6f4",
+      "abiHash": "0xcff487d2ff4ab7932b8360bf4468eec9a5ed7ba4adcfc796146946b389d51dc1",
+      "allowedProfiles": [
+        "layer1"
+      ],
+      "requiredProfiles": [
+        "layer1"
+      ]
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "contracts/layer1/slotchain/impl/RegistrationMptVerifierV2.sol",
+      "contractName": "RegistrationMptVerifierV2",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/RegistrationMptVerifierV2.sol/RegistrationMptVerifierV2.json",
+      "sourceHash": "0x4c541c41eab9009d05ebdafb3abef20d897bec8ceab59390f39037b0791331e7",
+      "abiHash": "0x1c46b9908e4e5144cb8785d19214f611dd51c17b36557871c3278e0530464e00",
+      "creationCodeHash": "0xd614987a9ced4f2c7166bb647e0ceb0bc3ee258f1653b05f7266c0332962f250",
+      "runtimeCodeHash": "0x4ea6f92ff71fe14485e5a38fbbf08bf185e791f1899d2a98036c8c9ea0b222f0",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "erc-2470-singleton",
+      "lifecycleScope": "release-scoped",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "contracts/layer1/slotchain/impl/ScheduleSszMultiproofVerifierV1.sol",
+      "contractName": "ScheduleSszMultiproofVerifierV1",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/ScheduleSszMultiproofVerifierV1.sol/ScheduleSszMultiproofVerifierV1.json",
+      "sourceHash": "0x4c0cb3eaac659afe9f3a21b81d3730f52018f29e40659d234ec1b5d5af9c091f",
+      "abiHash": "0x6268e875e07a957af0a7ac6ad801ae916562fe42574b28d45a9f4ecf2283f01d",
+      "creationCodeHash": "0x43c8c9a268133507d800a546c96e788f015db6e92846a99e36cd00c3c2c584d1",
+      "runtimeCodeHash": "0xf01ea5a3527997ec6013527a0513a994bf95202c5def5bec5fb6d1098dcc0a82",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xe943605208058dd44d9f0b7edb268712647eb43cb43cd9fe8678b910bfbf1ed9",
+      "consumptionModes": [],
+      "factoryClass": "erc-2470-singleton",
+      "lifecycleScope": "release-scoped",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "source-inline",
+      "sourcePath": "contracts/layer1/slotchain/libs/LibHistoryProof.sol",
+      "contractName": "LibHistoryProof",
+      "kind": "internal-library",
+      "sourceHash": "0x540a2f75dcf4083b0d0f0c0a81646f44fd4b9d85a0aefbe937a3f33beba5412b",
+      "abiHash": "0x543bab93ae9f8548273c1bb73df3e765cc4eba3308d079153c94abd76b06e158",
+      "allowedProfiles": [
+        "layer1"
+      ],
+      "requiredProfiles": [
+        "layer1"
+      ]
+    },
+    {
+      "ownership": "source-inline",
+      "sourcePath": "contracts/layer1/slotchain/libs/LibRegistrationMptVerifierCall.sol",
+      "contractName": "LibRegistrationMptVerifierCall",
+      "kind": "internal-library",
+      "sourceHash": "0x5b37049da9771275030da6cf88add7c967d1777e596d6fb6e0c43b60813284fb",
+      "abiHash": "0xb4bbfd1399694745fae61200de9d55dde67359e0ef812fe45949fcde435ada2f",
+      "allowedProfiles": [
+        "layer1"
+      ],
+      "requiredProfiles": [
+        "layer1"
+      ]
+    },
+    {
+      "ownership": "source-inline",
+      "sourcePath": "contracts/layer1/slotchain/libs/LibRegistrationStatementV2.sol",
+      "contractName": "LibRegistrationStatementV2",
+      "kind": "internal-library",
+      "sourceHash": "0xb2b8fca638c1e286267b312ce874f495c7de8630c00b6b532372bda01e63cd14",
+      "abiHash": "0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70",
+      "allowedProfiles": [
+        "layer1"
+      ],
+      "requiredProfiles": [
+        "layer1"
+      ]
+    },
+    {
+      "ownership": "source-inline",
+      "sourcePath": "contracts/layer1/slotchain/libs/LibScheduleForkVerifierCallV1.sol",
+      "contractName": "LibScheduleForkVerifierCallV1",
+      "kind": "internal-library",
+      "sourceHash": "0x581aef4c8a7d617c2f9c80acff3032ffa9ea32bbe5cf5c0244350bfb46e719b0",
+      "abiHash": "0xaf0c796b8a6b1ffb9ce096ea9a4c17c1a71f0fff06637a0075b90dc9e607b677",
+      "allowedProfiles": [
+        "layer1"
+      ],
+      "requiredProfiles": [
+        "layer1"
+      ]
+    },
+    {
+      "ownership": "source-inline",
+      "sourcePath": "contracts/layer1/slotchain/libs/LibScheduleSealWitnessV1.sol",
+      "contractName": "LibScheduleSealWitnessV1",
+      "kind": "internal-library",
+      "sourceHash": "0xdd949c175fd69e11d280e6223b3c1148b39842ee9ba5362b808adea0959a384a",
+      "abiHash": "0x23d037a5b405708883a08615ef822d0095b3d74eedde68abef8c092743555ce7",
+      "allowedProfiles": [
+        "layer1"
+      ],
+      "requiredProfiles": [
+        "layer1"
+      ]
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "contracts/layer1/slotchain/root/ProtocolRootComponentV1.sol",
+      "contractName": "ProtocolRootComponentV1",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/ProtocolRootComponentV1.sol/ProtocolRootComponentV1.json",
+      "sourceHash": "0xf1369c16ce20f9b25981387aed9677b0a63c9a5bd274c0d3381ed5b50aafff1d",
+      "abiHash": "0xfa2fb5ee75ad83599268599c046f45656b0878b797b88fd1c5efe5ab4bce2b6b",
+      "creationCodeHash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+      "runtimeCodeHash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "root-one-shot-create",
+      "lifecycleScope": "protocol-lifetime",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "contracts/layer1/slotchain/root/ProtocolRootCreate3ProxyV1.sol",
+      "contractName": "ProtocolRootCreate3ProxyV1",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/ProtocolRootCreate3ProxyV1.sol/ProtocolRootCreate3ProxyV1.json",
+      "sourceHash": "0x1779fddd811ae4566669115a0983b54e35611061c9351219fd86b10ee9cadd59",
+      "abiHash": "0x19d72fff6d839ba5f5da435e3bf73b88b6bb7c623056820a7c542c54a11600f2",
+      "creationCodeHash": "0x24708a3656990fe353d2ae87cfdf835983c02ef4b7d53c0469dc9496369935e4",
+      "runtimeCodeHash": "0xfa08ac6534ab367313cac1f3e291fd600c29527f40a253481aa338defa1eb839",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "protocol-root-source-factory",
+      "lifecycleScope": "release-scoped",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "contracts/layer1/slotchain/root/ProtocolRootFactoryV1.sol",
+      "contractName": "ProtocolRootFactoryV1",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/ProtocolRootFactoryV1.sol/ProtocolRootFactoryV1.json",
+      "sourceHash": "0xc8ef7d0bb177bdb98d05bd2a8f28df00bb94d33cdee83d0329e807e5da718f10",
+      "abiHash": "0x4efcfbbf37d60a3b87f2fcaf92e71d60b127436e1fb2d0bcc6c5fb6b973ec7d0",
+      "creationCodeHash": "0xe1808379d5e5892149e954488718e135b2f8ebc3a60e8f07d1726cd9fed0ff6f",
+      "runtimeCodeHash": "0x7cfd9038736a49f090fda19bbbf5213fc43b41f1e52c08331061440c1a7db0fe",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xa325f3031f7c543d0d9a6057225cdb0ea163ec51f232f2ff0c1d977a67179f0d",
+      "consumptionModes": [],
+      "factoryClass": "erc-2470-singleton",
+      "lifecycleScope": "release-scoped",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "contracts/layer1/slotchain/root/RootMigrationExecutorV1.sol",
+      "contractName": "RootMigrationExecutorV1",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/RootMigrationExecutorV1.sol/RootMigrationExecutorV1.json",
+      "sourceHash": "0x12d6cae655ff1e1250562de0c55c2e248a4da15ac361be31162065462ef60069",
+      "abiHash": "0x4bca5ecb189f39f287a5ba350b76b09f43bfc55a0eebbf49256f3bb6d0c81a54",
+      "creationCodeHash": "0x7dd2bd0de97833b6b39945cca2a216d22b0f1e2ec17fca84019c7640791417b6",
+      "runtimeCodeHash": "0x330e13aaad8e1498b21c1c951876be91e5b9ba02450268a5fcd15df4916e1839",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xae564cf7b8f337b05631ced9c45c4726e9d709e9c8d6b9a32bf405b9d9d5e3b2",
+      "consumptionModes": [],
+      "factoryClass": "erc-2470-singleton",
+      "lifecycleScope": "release-scoped",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "source-inline",
+      "sourcePath": "contracts/layer1/slotchain/root/iface/IProtocolRootFactoryV1.sol",
+      "contractName": "IProtocolRootFactoryV1",
+      "kind": "interface",
+      "sourceHash": "0x9591d6611a6997a7868c8e74b89e0463d294f9881d191b91893a4c0385860405",
+      "abiHash": "0x73be5c55b3bf41be04cd0ec712aa1f5da7614c75bbbc1ad2a5f9d23a9e194ac6",
+      "allowedProfiles": [
+        "layer1"
+      ],
+      "requiredProfiles": [
+        "layer1"
+      ]
+    },
+    {
+      "ownership": "source-inline",
+      "sourcePath": "contracts/layer1/slotchain/root/iface/IRootMigrationExecutorV1.sol",
+      "contractName": "IRootMigrationExecutorV1",
+      "kind": "interface",
+      "sourceHash": "0x5cf6e274d58260cbb6598e8da754f2bed2a12ee5304bcf10eedcf4ac7144ac72",
+      "abiHash": "0xf86e76d0c49dc6aa3a3d2e7d28579a1d1571d64c865b8d6fc2025d3eb80ceba6",
+      "allowedProfiles": [
+        "layer1"
+      ],
+      "requiredProfiles": [
+        "layer1"
+      ]
+    },
+    {
+      "ownership": "source-inline",
+      "sourcePath": "contracts/layer1/slotchain/root/libs/LibRootBootstrapV1.sol",
+      "contractName": "LibRootBootstrapV1",
+      "kind": "internal-library",
+      "sourceHash": "0x98018097963e6e3ed83609bd76fb490b359bda534dbc0a639dedcc693f59df44",
+      "abiHash": "0xf3b17eb15f0b492caf7aa709c5f7aa420744ed71531176c74f9c664ce25d8f43",
+      "allowedProfiles": [
+        "layer1"
+      ],
+      "requiredProfiles": [
+        "layer1"
+      ]
+    },
+    {
+      "ownership": "source-inline",
       "sourcePath": "contracts/shared/slotchain/SlotChainTypes.sol",
       "contractName": "SlotChainTypes",
       "kind": "internal-library",
       "sourceHash": "0xeff6bb39cbd24e526a3e149b02f22be7c0868ce7405abb5ad315877773a36340",
       "abiHash": "0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70",
-      "allowedProfiles": ["shared", "layer1", "layer2"],
-      "requiredProfiles": ["shared"]
+      "allowedProfiles": [
+        "layer1",
+        "layer2",
+        "shared"
+      ],
+      "requiredProfiles": [
+        "shared"
+      ]
     },
     {
       "ownership": "source-inline",
@@ -141,8 +403,59 @@
       "kind": "interface",
       "sourceHash": "0xedf9db88e9823dd4951f0d653b018bb08d2dd23cfb817c8ab847e87864acf34d",
       "abiHash": "0x82d4e87076c7dc898b1e059c40fb92bd8337be5e03b8fbe2d9ee59a4dd350713",
-      "allowedProfiles": ["shared", "layer1", "layer2"],
-      "requiredProfiles": ["shared"]
+      "allowedProfiles": [
+        "layer1",
+        "layer2",
+        "shared"
+      ],
+      "requiredProfiles": [
+        "shared"
+      ]
+    },
+    {
+      "ownership": "source-inline",
+      "sourcePath": "contracts/shared/slotchain/iface/IProtocolRootActivationV1.sol",
+      "contractName": "IProtocolRootActivationV1",
+      "kind": "interface",
+      "sourceHash": "0x3f1555a10fe8d85aae8ada43e7084fb3c0fac37f1f383c89d3b2dd0377c4062c",
+      "abiHash": "0x866c16ccfd88b332f385e92c3906e9da7d98ff95a3c24d4c5d1ed2cc145baeba",
+      "allowedProfiles": [
+        "layer1",
+        "shared"
+      ],
+      "requiredProfiles": [
+        "shared"
+      ]
+    },
+    {
+      "ownership": "source-inline",
+      "sourcePath": "contracts/shared/slotchain/libs/LibCanonicalRLP.sol",
+      "contractName": "LibCanonicalRLP",
+      "kind": "internal-library",
+      "sourceHash": "0xd4737b9fd4fff3cf87ec3a80b25bf3c25d459b5d098caaea116d558c895d7dac",
+      "abiHash": "0xe5c05f0b8a9f5a683167a79258fa3365838960193d0c7162047c809818e54570",
+      "allowedProfiles": [
+        "layer1",
+        "shared"
+      ],
+      "requiredProfiles": [
+        "shared"
+      ]
+    },
+    {
+      "ownership": "source-inline",
+      "sourcePath": "contracts/shared/slotchain/libs/LibMptProof.sol",
+      "contractName": "LibMptProof",
+      "kind": "internal-library",
+      "sourceHash": "0x5b5118ac4577240e3d91ed584647f1083ea21b6979d97bd4047a8917ff4e671a",
+      "abiHash": "0xf660346ea29855b087662c4bd03d9a2d968cbae327b37f39cebb5599df7e50fa",
+      "allowedProfiles": [
+        "layer1",
+        "shared"
+      ],
+      "requiredProfiles": [
+        "shared"
+      ]
     },
     {
       "ownership": "source-inline",
@@ -151,18 +464,14 @@
       "kind": "internal-library",
       "sourceHash": "0xcdd36d752b554b0da2691ddc136aa45283ffd618cf1f92512002bd75e3e3f2e6",
       "abiHash": "0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70",
-      "allowedProfiles": ["shared", "layer1", "layer2"],
-      "requiredProfiles": ["shared"]
-    },
-    {
-      "ownership": "source-inline",
-      "sourcePath": "contracts/shared/slotchain/libs/LibSlotChainEncoding.sol",
-      "contractName": "LibSlotChainEncoding",
-      "kind": "internal-library",
-      "sourceHash": "0xee78949fa8508796c4e942d81762bd0a386df24c703405d4d7982fd985bdb4a5",
-      "abiHash": "0x10962aa0fcb770aa1336c018f09f051e0a4f942ef39c974b7adb51996cac41b8",
-      "allowedProfiles": ["shared", "layer1", "layer2"],
-      "requiredProfiles": ["shared"]
+      "allowedProfiles": [
+        "layer1",
+        "layer2",
+        "shared"
+      ],
+      "requiredProfiles": [
+        "shared"
+      ]
     },
     {
       "ownership": "source-inline",
@@ -171,8 +480,14 @@
       "kind": "internal-library",
       "sourceHash": "0xf0912a8b48d71f541cc7b9b5a2b3e7dcd817fe04b6722580eff10d6ae18cda78",
       "abiHash": "0x25e286c73ba36147ee4b1cc90bce9f666dedc1b99e07ca87591efc120ae4395e",
-      "allowedProfiles": ["shared", "layer1", "layer2"],
-      "requiredProfiles": ["shared"]
+      "allowedProfiles": [
+        "layer1",
+        "layer2",
+        "shared"
+      ],
+      "requiredProfiles": [
+        "shared"
+      ]
     },
     {
       "ownership": "source-inline",
@@ -181,8 +496,44 @@
       "kind": "internal-library",
       "sourceHash": "0xe13415285780362186e12ab332a4285f8adcec35e33378f28c1709d73994b618",
       "abiHash": "0x37b683c6eaef5b5f3c362d9128d7cea0db949926f075a97c3e98ca3dee5417a9",
-      "allowedProfiles": ["shared", "layer1", "layer2"],
-      "requiredProfiles": ["shared"]
+      "allowedProfiles": [
+        "layer1",
+        "layer2",
+        "shared"
+      ],
+      "requiredProfiles": [
+        "shared"
+      ]
+    },
+    {
+      "ownership": "source-inline",
+      "sourcePath": "contracts/shared/slotchain/libs/LibSlotChainEncoding.sol",
+      "contractName": "LibSlotChainEncoding",
+      "kind": "internal-library",
+      "sourceHash": "0xee78949fa8508796c4e942d81762bd0a386df24c703405d4d7982fd985bdb4a5",
+      "abiHash": "0x10962aa0fcb770aa1336c018f09f051e0a4f942ef39c974b7adb51996cac41b8",
+      "allowedProfiles": [
+        "layer1",
+        "layer2",
+        "shared"
+      ],
+      "requiredProfiles": [
+        "shared"
+      ]
+    },
+    {
+      "ownership": "source-inline",
+      "sourcePath": "contracts/shared/slotchain/libs/LibSlotChainEvidence.sol",
+      "contractName": "LibSlotChainEvidence",
+      "kind": "internal-library",
+      "sourceHash": "0x83e40fc06606f158655bc518762e779256cf79810cb4fcd2ea5af48d523c8288",
+      "abiHash": "0x98e5209903688bc6c4a17879052dff8ff2bdda085ea05e43fba2c633601231d2",
+      "allowedProfiles": [
+        "shared"
+      ],
+      "requiredProfiles": [
+        "shared"
+      ]
     },
     {
       "ownership": "source-inline",
@@ -191,8 +542,14 @@
       "kind": "internal-library",
       "sourceHash": "0x18364c2eef330ec3a6d81d4d3183122afc6db2d8712f8ed23b8bd7a9f50c7409",
       "abiHash": "0xb4c7b7fe51134c068ed343bd0a1a3fd779b739c4c9456dfa33f8dfaad177e098",
-      "allowedProfiles": ["shared", "layer1", "layer2"],
-      "requiredProfiles": ["shared"]
+      "allowedProfiles": [
+        "layer1",
+        "layer2",
+        "shared"
+      ],
+      "requiredProfiles": [
+        "shared"
+      ]
     },
     {
       "ownership": "source-inline",
@@ -201,128 +558,14 @@
       "kind": "internal-library",
       "sourceHash": "0x47ffd90ddbbeb6f7a44248ca7eb2f4ca474ce51592dbf6f5694aa838985e4e00",
       "abiHash": "0xc277e6c9938a53ab08ffd5d05a5480b8d42f6ad0e29518b376187a4a2b73398e",
-      "allowedProfiles": ["shared", "layer1", "layer2"],
-      "requiredProfiles": ["shared"]
-    },
-    {
-      "ownership": "source-inline",
-      "sourcePath": "test/shared/slotchain/vectors/SlotChainGoldenVectors.sol",
-      "contractName": "SlotChainGoldenVectors",
-      "kind": "internal-library",
-      "sourceHash": "0xb4c8e2e848fbe64cc668ee2fca32fc4138a9d096caca17bf4d4885626a01341a",
-      "abiHash": "0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70",
-      "allowedProfiles": ["shared"],
-      "requiredProfiles": ["shared"]
-    },
-    {
-      "ownership": "artifact-owned",
-      "sourcePath": "test/shared/slotchain/libs/LibSlotChainEncoding.t.sol",
-      "contractName": "EncodingHarness",
-      "ownerProfile": "shared",
-      "artifactPath": "out/shared/LibSlotChainEncoding.t.sol/EncodingHarness.json",
-      "sourceHash": "0xb5de10b092ab8ae21707221cf20ba6da83f9c1b8fc89674f0dc61ee39a2a0af7",
-      "abiHash": "0xf69790993b7d6b209d541982679f251a15be512654f8c29e9c495d0fb203a2ea",
-      "creationCodeHash": "0x14b0ddbd33b6c701e825588f9d484430e6c82d882dfce572064961a5a1661577",
-      "runtimeCodeHash": "0x3286b2804d997e6ae8339c65cb10712bf375420eebf2eb8a034901c51a6f4048",
-      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
-      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
-      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
-      "consumptionModes": [],
-      "factoryClass": "direct-create-test",
-      "lifecycleScope": "test-only",
-      "requiredConsumerProfiles": []
-    },
-    {
-      "ownership": "artifact-owned",
-      "sourcePath": "test/shared/slotchain/libs/LibSlotChainEncoding.t.sol",
-      "contractName": "LibSlotChainEncodingTest",
-      "ownerProfile": "shared",
-      "artifactPath": "out/shared/LibSlotChainEncoding.t.sol/LibSlotChainEncodingTest.json",
-      "sourceHash": "0xb5de10b092ab8ae21707221cf20ba6da83f9c1b8fc89674f0dc61ee39a2a0af7",
-      "abiHash": "0x50dfd63e340065fbfa4451dbeebd4c2603dbf573dfa83691a4e25c9f52345173",
-      "creationCodeHash": "0xf8364f708ca5ffb284511fc5e75b210d0f9ff0c1f1f1a2717d3fc0bab0fa4939",
-      "runtimeCodeHash": "0xd968f7e9501d651888e055ca51e5acf51c1b2a4b7ed20a5d6a79e7e35c9ffc44",
-      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
-      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
-      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
-      "consumptionModes": [],
-      "factoryClass": "direct-create-test",
-      "lifecycleScope": "test-only",
-      "requiredConsumerProfiles": []
-    },
-    {
-      "ownership": "artifact-owned",
-      "sourcePath": "test/shared/slotchain/libs/LibSlotChainTrees.t.sol",
-      "contractName": "SlotChainTreesHarness",
-      "ownerProfile": "shared",
-      "artifactPath": "out/shared/LibSlotChainTrees.t.sol/SlotChainTreesHarness.json",
-      "sourceHash": "0xb310cdc059ba56fbb8cd859f89dd448b7c5ea78cdfab751ec9bab8cf5368c19f",
-      "abiHash": "0xc9b51adea7858eac1ad5f27c9fb1e183ebd2fce5041793bd1398ba466d4721a9",
-      "creationCodeHash": "0xbc51dcc7796a35981dec60f78f130f092c0ba022b2580a2a43a24ddcebd3d2fb",
-      "runtimeCodeHash": "0xf4978eb310ce6ca357a47b1d5d7550167d9dff8e52dd8b9bcecc1469a4104d4e",
-      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
-      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
-      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
-      "consumptionModes": [],
-      "factoryClass": "direct-create-test",
-      "lifecycleScope": "test-only",
-      "requiredConsumerProfiles": []
-    },
-    {
-      "ownership": "artifact-owned",
-      "sourcePath": "test/shared/slotchain/libs/LibSlotChainTrees.t.sol",
-      "contractName": "LibSlotChainTreesTest",
-      "ownerProfile": "shared",
-      "artifactPath": "out/shared/LibSlotChainTrees.t.sol/LibSlotChainTreesTest.json",
-      "sourceHash": "0xb310cdc059ba56fbb8cd859f89dd448b7c5ea78cdfab751ec9bab8cf5368c19f",
-      "abiHash": "0xa227ff935bf3f80bcd0ce94f01f54bbac8072845407ac8bed081a3ee245fbef1",
-      "creationCodeHash": "0x1fd2484937c9df6274b470f1b51b8004006dd62e788f200e32ea89b9d1148097",
-      "runtimeCodeHash": "0x60d242109422a0ef8f824ceab28b50d14e438ff9530cb438d449887066769939",
-      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
-      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
-      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
-      "consumptionModes": [],
-      "factoryClass": "direct-create-test",
-      "lifecycleScope": "test-only",
-      "requiredConsumerProfiles": []
-    },
-    {
-      "ownership": "source-inline",
-      "sourcePath": "test/shared/slotchain/fixtures/LibSourceInlineProbe.sol",
-      "contractName": "LibSourceInlineProbe",
-      "kind": "internal-library",
-      "sourceHash": "0xd17d2bac5453965a66f2b3d2895e055795531fb4fca6ca7b610dd4de99d30461",
-      "abiHash": "0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70",
-      "allowedProfiles": ["shared", "layer1", "layer2"],
-      "requiredProfiles": ["shared", "layer1", "layer2"]
-    },
-    {
-      "ownership": "source-inline",
-      "sourcePath": "test/shared/slotchain/fixtures/ISharedArtifactProbe.sol",
-      "contractName": "ISharedArtifactProbe",
-      "kind": "interface",
-      "sourceHash": "0x697ca4d150860311bdd85bc14ee6607510743891bb6b914f6acddb1d86a82ff9",
-      "abiHash": "0x602b20d173db76457a281517fb4e513508f8e51ebea31e3d42dac44c2fe523c0",
-      "allowedProfiles": ["shared", "layer1", "layer2"],
-      "requiredProfiles": ["shared", "layer1", "layer2"]
-    },
-    {
-      "ownership": "artifact-owned",
-      "sourcePath": "test/shared/slotchain/fixtures/SharedArtifactProbe.sol",
-      "contractName": "SharedArtifactProbe",
-      "ownerProfile": "shared",
-      "artifactPath": "out/shared/SharedArtifactProbe.sol/SharedArtifactProbe.json",
-      "sourceHash": "0x3b2f1aca23d5b35023f75639c184dacf6563f249b4ac2dba14e9b8655d7df1f9",
-      "abiHash": "0x602b20d173db76457a281517fb4e513508f8e51ebea31e3d42dac44c2fe523c0",
-      "creationCodeHash": "0xbb1fe988b9e3f3134d22f585823a9cb82b2428c5330d964f71025412d24c4557",
-      "runtimeCodeHash": "0x0f36d061854f20f9ce8f37ec83e508089edea80c90b740046424332d8a09c381",
-      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
-      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
-      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
-      "consumptionModes": ["abi-interface", "raw-creation-bytecode"],
-      "factoryClass": "direct-create-test",
-      "lifecycleScope": "test-only",
-      "requiredConsumerProfiles": ["layer1", "layer2"]
+      "allowedProfiles": [
+        "layer1",
+        "layer2",
+        "shared"
+      ],
+      "requiredProfiles": [
+        "shared"
+      ]
     },
     {
       "ownership": "artifact-owned",
@@ -332,8 +575,404 @@
       "artifactPath": "out/layer1/SourceInlineL1Consumer.t.sol/SourceInlineL1ConsumerTest.json",
       "sourceHash": "0x730c08c99da206c5c0b6d3d91e348f2a5028f1fada520cf92694c8ae6ffce998",
       "abiHash": "0x1988fe7ea60e646989d1129fc3e472c25f2d551fb854b1e5d703c2537f95db41",
-      "creationCodeHash": "0x08c858f9c575d791c4290b9363d9807bc93def21b9a2c28565683b7b32d9af98",
-      "runtimeCodeHash": "0xc7eaa0281c4ffa69d84a79abafb61046d8060716154c2dac687292cf10fd0dda",
+      "creationCodeHash": "0x2a4941af4ecefd211664828b9a6921ba06785943b7467a5d7c292d1322ea448d",
+      "runtimeCodeHash": "0xfd309f474d99110ef784acfdaaf6008c452791607e66ed390ccdb995bc36cbb3",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/layer1/slotchain/history/LibHistoryProof.t.sol",
+      "contractName": "ExactSystemReadMock",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/LibHistoryProof.t.sol/ExactSystemReadMock.json",
+      "sourceHash": "0xb6dd34378008075a8b2d8adb944922ee3ccfda5819b24b35e2b41b19575ececc",
+      "abiHash": "0x5445084baf83a0f3a6c1394e4eb97bc4a1017c05139dc565b0d9c1f289347a56",
+      "creationCodeHash": "0x026caca01284ff32a55e9486d43d384d825585e295d88cbfbe9516998354bac6",
+      "runtimeCodeHash": "0x6df049e38aef49685abab935a35e8065b07623eb92decd598f90086cae63df73",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xf6ddb52abd93de9268e0e06faded397c88cc681ae70d391b3e9fbf35d1457451",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/layer1/slotchain/history/LibHistoryProof.t.sol",
+      "contractName": "HistoryProofHarness",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/LibHistoryProof.t.sol/HistoryProofHarness.json",
+      "sourceHash": "0xb6dd34378008075a8b2d8adb944922ee3ccfda5819b24b35e2b41b19575ececc",
+      "abiHash": "0x38413e59eb783cc64f38af8b875b36ba6f75e13b4dcac4064c80d5a01f84da3b",
+      "creationCodeHash": "0x609c7f1e9dff6264226c4898ed9aa5c04359bc2e1819d05b5291ae11143d6654",
+      "runtimeCodeHash": "0x6c5ba4c50401f43fa7b5dc022fb1714eba8401541d8d3b9ecec0afe2c50765d1",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/layer1/slotchain/history/LibHistoryProof.t.sol",
+      "contractName": "LibHistoryProofTest",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/LibHistoryProof.t.sol/LibHistoryProofTest.json",
+      "sourceHash": "0xb6dd34378008075a8b2d8adb944922ee3ccfda5819b24b35e2b41b19575ececc",
+      "abiHash": "0xae08a7d41a0919adf4061784b9b387bfdd96445c5013e5e63c9ebec99962dd7a",
+      "creationCodeHash": "0x9ec1750c41d6b8e0be6d57af8355c7e679b0762f32d861b859bb622e51ea3bcf",
+      "runtimeCodeHash": "0x965b39d7ef67b663f4a0f9d841611dc97009de9a140304bc7826688f03f3e4b3",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/layer1/slotchain/history/LibHistoryProof.t.sol",
+      "contractName": "MalformedSystemReadMock",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/LibHistoryProof.t.sol/MalformedSystemReadMock.json",
+      "sourceHash": "0xb6dd34378008075a8b2d8adb944922ee3ccfda5819b24b35e2b41b19575ececc",
+      "abiHash": "0xfa9891b77649250e297f787fbd989a06db0cab46d088b6b83f9231bbb78ad108",
+      "creationCodeHash": "0xcbb7d8a8f1a94daf29574e913547122202e7973ae75876f9632f5c09924fa444",
+      "runtimeCodeHash": "0x367a76ff29fe8682fdfb5cfc230f107117bc24b9a95154d079ad0c8e839558ad",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0x41c034050cb76fc4c50757004bac0e4fdfbabb2500388e5278805f35a39cb8af",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/layer1/slotchain/libs/LibScheduleForkVerifierCallV1.t.sol",
+      "contractName": "ConfigurableScheduleForkVerifier",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/LibScheduleForkVerifierCallV1.t.sol/ConfigurableScheduleForkVerifier.json",
+      "sourceHash": "0x16acd28755615c34f38088d2af7b7cbae7ecabab6a28422855f7d8c909727138",
+      "abiHash": "0x0b23a72e45ed8891f1eacf21f1e36c7fd568f13a2eec9bdfa1660a5f75fe97dd",
+      "creationCodeHash": "0x20f69be04c653297e574af7a4aa7d4623a92a6658bca275a0d23e4a4508780ff",
+      "runtimeCodeHash": "0x90ddb8c103033c6f4278790fe3f76d396a5035db2e97d5b89e5b67a3ab13f7a9",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/layer1/slotchain/libs/LibScheduleForkVerifierCallV1.t.sol",
+      "contractName": "LibScheduleForkVerifierCallV1Test",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/LibScheduleForkVerifierCallV1.t.sol/LibScheduleForkVerifierCallV1Test.json",
+      "sourceHash": "0x16acd28755615c34f38088d2af7b7cbae7ecabab6a28422855f7d8c909727138",
+      "abiHash": "0x8871e5b0590f84d87b9eb723ff44d6abba208766d0522f13c111c8010632be9a",
+      "creationCodeHash": "0x5a50ca0be60c4b800f2975e1ee699c97af5b3d5f0c1f97dd67a5e93df05452b2",
+      "runtimeCodeHash": "0xbaf26288161b4d9fbcd22f71ed3a8b7b2fe2b952021684a7a01db953b547b04c",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/layer1/slotchain/libs/LibScheduleForkVerifierCallV1.t.sol",
+      "contractName": "ScheduleForkVerifierCallHarness",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/LibScheduleForkVerifierCallV1.t.sol/ScheduleForkVerifierCallHarness.json",
+      "sourceHash": "0x16acd28755615c34f38088d2af7b7cbae7ecabab6a28422855f7d8c909727138",
+      "abiHash": "0xc4d95e4ccdddd7ad870ac38991504a69323f96a8bb966728223e11a2cffaf24f",
+      "creationCodeHash": "0x075fd0c8760916cd8bf87c9c662410bbc45bd6a6087c30dc3908502811df9250",
+      "runtimeCodeHash": "0xaa4b6a2b130d64c043dc4cd2f9201efa5e7366e0a9a511aea42633153d07f235",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/layer1/slotchain/libs/LibScheduleSealWitnessV1.t.sol",
+      "contractName": "LibScheduleSealWitnessV1Test",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/LibScheduleSealWitnessV1.t.sol/LibScheduleSealWitnessV1Test.json",
+      "sourceHash": "0xd31ee264f305cb7c97a6231c4284425085dd394ab48429eafa5b018ba5f25fc0",
+      "abiHash": "0x52976f6eddf19d86c62f64a2d1bf61d1603978a35f57e4f5ed1c0965d85ee57e",
+      "creationCodeHash": "0xaee1b4c757960a1e028244e8d461aff1943c01df169c8d16a2025d67df703d5b",
+      "runtimeCodeHash": "0x0437bc1519064931f0f6eed1535fa33744fa9314db9562d6a162f70ca03addfa",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/layer1/slotchain/libs/LibScheduleSealWitnessV1.t.sol",
+      "contractName": "ScheduleSealWitnessHarness",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/LibScheduleSealWitnessV1.t.sol/ScheduleSealWitnessHarness.json",
+      "sourceHash": "0xd31ee264f305cb7c97a6231c4284425085dd394ab48429eafa5b018ba5f25fc0",
+      "abiHash": "0xd222f78f4c49ce1a268401bc6184ec7d3ac4168d38db6e82019b89dcf76a50b8",
+      "creationCodeHash": "0x989746074635126c27f820d1255d8823c9640a6f4642914a08941cfc1a780686",
+      "runtimeCodeHash": "0x1f1d37eb9b1e07dd4ea1c788ce4cb0cd301fda7f10a2c6a86ad283f6ca083c64",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/layer1/slotchain/root/ProtocolRootFactoryV1.t.sol",
+      "contractName": "FactoryRoleMock",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/ProtocolRootFactoryV1.t.sol/FactoryRoleMock.json",
+      "sourceHash": "0xe12d58e12dc445a79b580a8868172c01bf55749aaa4d32f3af5d5edb13314682",
+      "abiHash": "0x3d74717a00ee45e37018032888ea2db44f713ee1a0cde73858305be75f3914af",
+      "creationCodeHash": "0x793050df3d71291e565c941ada33ef167b7d09e764d3bc0cc069ff3df6361181",
+      "runtimeCodeHash": "0xf1a7e6836c903327b17f1da64d3bae3fe2a7d771bdda2cb817128bd51f15e701",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/layer1/slotchain/root/ProtocolRootFactoryV1.t.sol",
+      "contractName": "ProtocolRootFactoryV1Test",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/ProtocolRootFactoryV1.t.sol/ProtocolRootFactoryV1Test.json",
+      "sourceHash": "0xe12d58e12dc445a79b580a8868172c01bf55749aaa4d32f3af5d5edb13314682",
+      "abiHash": "0x826f11c575f0fcea386955a062eddd932278862c8f3f3a6bc2854e6109f3c9f2",
+      "creationCodeHash": "0x59482716bc493077f27a7c726aeaa452cdf940a88fe68fd6fe1f081e832b26c4",
+      "runtimeCodeHash": "0x4ca5c2aedff1602d0281982d55027a0aa9e9a880a0bd13ca408502f3d15c2e68",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/layer1/slotchain/root/ProtocolRootFactoryV1.t.sol",
+      "contractName": "RootDeployGate",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/ProtocolRootFactoryV1.t.sol/RootDeployGate.json",
+      "sourceHash": "0xe12d58e12dc445a79b580a8868172c01bf55749aaa4d32f3af5d5edb13314682",
+      "abiHash": "0x2986cc22f3fd222d6fee32b89cab1936ad96accd30e17dfeaa7efe0cb72aebfd",
+      "creationCodeHash": "0x17012a90cc81da1c371081ecc4a2ab6d925a1c47f737ef3e101324f82985bb34",
+      "runtimeCodeHash": "0xa3d7ecf61bfd2099a573c23e733703cba816c6c87e4bc2f5c666e3417a465408",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/layer1/slotchain/root/ProtocolRootPrimitives.t.sol",
+      "contractName": "ProtocolRootComponentHarness",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/ProtocolRootPrimitives.t.sol/ProtocolRootComponentHarness.json",
+      "sourceHash": "0x62ff0f206687495790f0dc8c92a25b3362c7ab21edeafb964bb93d26ba368913",
+      "abiHash": "0xc6b3527b0f83a1b7bcd43b71d0a73b440018bddbe178a7bf5f3ad23e60483f19",
+      "creationCodeHash": "0x41f0ac5bbed568e499888e244af7e7fcf3daddfa66b7b582d824f4e16970863c",
+      "runtimeCodeHash": "0xbfc65a7d47a2bda6450a6dd7d3996303e7587e5f69a790255373aa7a57f90a2b",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0x97b4cdaf0e90b88628ba91862fca895a5f246d7ccb19b593eeb020d468c52d06",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/layer1/slotchain/root/ProtocolRootPrimitives.t.sol",
+      "contractName": "ProtocolRootFactoryHarness",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/ProtocolRootPrimitives.t.sol/ProtocolRootFactoryHarness.json",
+      "sourceHash": "0x62ff0f206687495790f0dc8c92a25b3362c7ab21edeafb964bb93d26ba368913",
+      "abiHash": "0x774cb214dc0202273bc34f9648ae47210eaeace21bd58b7a4fbcc9f020750497",
+      "creationCodeHash": "0x67901adf9104a4950e8e422566898a5eaa3eb2acc59c688b1419759302bb7942",
+      "runtimeCodeHash": "0x7ddead066ba5d10d2c794c5692b37ae3584d2c7b544cc583e0a4a79fe01a0928",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/layer1/slotchain/root/ProtocolRootPrimitives.t.sol",
+      "contractName": "ProtocolRootPrimitivesTest",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/ProtocolRootPrimitives.t.sol/ProtocolRootPrimitivesTest.json",
+      "sourceHash": "0x62ff0f206687495790f0dc8c92a25b3362c7ab21edeafb964bb93d26ba368913",
+      "abiHash": "0xb17adde4f95cf059592685da5ec9ce32e49e455c0908061fb07044a4de9b8f93",
+      "creationCodeHash": "0x485f590c348f332969a9ebfd0126e9858939b79edc7e9524afcfb7ac4262484d",
+      "runtimeCodeHash": "0x2dd1ca9521c53ce0cc09c327724660121dcbf8722d057ded73b5a08596cc5d44",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/layer1/slotchain/root/RootMigrationExecutorV1.t.sol",
+      "contractName": "RootFactoryMock",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/RootMigrationExecutorV1.t.sol/RootFactoryMock.json",
+      "sourceHash": "0x6ad9d1764d440578902f21bc94c83a262faaa25aa908f31b98a591db6e0a2ae6",
+      "abiHash": "0xa18ef71feb535a3619b7690e86f9788e92329dc31950afd6e09c82d3f62b18f8",
+      "creationCodeHash": "0x6168e245c55027e2562de058cc5225e55187ba0e7b5c19a63771733885466880",
+      "runtimeCodeHash": "0x8c9055ac101c8efc782df65981c4863e4af882e70572f266f2a0c9ff7451d230",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0x64b020db719ba815d0e5945b8686e5cd937cfb398652ba089479dc3f783e9fc9",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/layer1/slotchain/root/RootMigrationExecutorV1.t.sol",
+      "contractName": "RootMigrationExecutorV1Test",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/RootMigrationExecutorV1.t.sol/RootMigrationExecutorV1Test.json",
+      "sourceHash": "0x6ad9d1764d440578902f21bc94c83a262faaa25aa908f31b98a591db6e0a2ae6",
+      "abiHash": "0xf9bb939bcd7b09a7b4454ed5c901ccded886d1c2b2cb48c742adf24911251e8a",
+      "creationCodeHash": "0x7a945d027753b8c490ce2e249a1a0676ccc5f65f5124808b7f96f282a54b2332",
+      "runtimeCodeHash": "0x46f3c33a7cc518fa5fa93a52e1c430cde5aa54ec16aba9a850b123a72cef0541",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/layer1/slotchain/verifier/RegistrationMptVerifierV2.t.sol",
+      "contractName": "MemoryStatementRegistryHarness",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/RegistrationMptVerifierV2.t.sol/MemoryStatementRegistryHarness.json",
+      "sourceHash": "0x5943df825b7d292f374d3d315369c5a61ccd58bccf69888b80db2048138204c8",
+      "abiHash": "0x93bb1b498d9dfbe200b0f6061fc8a005250a15fb79d8229cbfd23ea0deba300c",
+      "creationCodeHash": "0x63705803697e95aef6d6f1919e1e8c5486bcc7deb1d5296fbf397acd1d1f1bb2",
+      "runtimeCodeHash": "0xe5cc5594728f3e82b6051c6ffe7fd9c16d880fca76b7f829e7f2f8a2df660e4e",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/layer1/slotchain/verifier/RegistrationMptVerifierV2.t.sol",
+      "contractName": "RegistrationMptVerifierV2Test",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/RegistrationMptVerifierV2.t.sol/RegistrationMptVerifierV2Test.json",
+      "sourceHash": "0x5943df825b7d292f374d3d315369c5a61ccd58bccf69888b80db2048138204c8",
+      "abiHash": "0x484247a86053484991f0a1c2c60c6aa7436ace80fa7bc6520490ae108e6a7cee",
+      "creationCodeHash": "0x5771df56f4a92d13621a00d8724f46358b752b659ccc8b113b937425b896ca2a",
+      "runtimeCodeHash": "0xcc9a96109ddc7bb4dbb8a73a509a238a287089ae03e508f9b21901694d5f28ff",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/layer1/slotchain/verifier/RegistrationMptVerifierV2.t.sol",
+      "contractName": "RegistrationVerifierCallHarness",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/RegistrationMptVerifierV2.t.sol/RegistrationVerifierCallHarness.json",
+      "sourceHash": "0x5943df825b7d292f374d3d315369c5a61ccd58bccf69888b80db2048138204c8",
+      "abiHash": "0xfdccb7e2eb6510de77b4f393cc02dd76d0e994edfdf4dd42ad45f956ce025db5",
+      "creationCodeHash": "0x14ce4cf0b0f4274f68be6ae3b05621f24f34e15812e74832620fce4f8df6ac57",
+      "runtimeCodeHash": "0x703397c83f9ec02aa43b922b2e163d3aaa89554ad27558ec9b76d93218b45aff",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/layer1/slotchain/verifier/RegistrationMptVerifierV2.t.sol",
+      "contractName": "StaticWordReturnMock",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/RegistrationMptVerifierV2.t.sol/StaticWordReturnMock.json",
+      "sourceHash": "0x5943df825b7d292f374d3d315369c5a61ccd58bccf69888b80db2048138204c8",
+      "abiHash": "0xa7ce8a8e90fb9a4d5fe4a71300efed0e0aa00cdecfa5cbfba0ceb5479924adbe",
+      "creationCodeHash": "0x33a6c866c275ca19de515dc0cd04882f5762e67fa089894758032d6aea3cfd58",
+      "runtimeCodeHash": "0x11c332d0be19391867b62089cb0aadafc04f05b87e0898c7840ea6b7f0c0b104",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0x12a938ce26915dc5482cc73c3ecba6e6262b0e4449b550a018ae7709b125b25d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/layer1/slotchain/verifier/ScheduleSszMultiproofVerifierV1.t.sol",
+      "contractName": "ScheduleSszMultiproofVerifierV1Test",
+      "ownerProfile": "layer1",
+      "artifactPath": "out/layer1/ScheduleSszMultiproofVerifierV1.t.sol/ScheduleSszMultiproofVerifierV1Test.json",
+      "sourceHash": "0x703c1aeceb4634da1f53d8f9315048aae6e9551ee5cc74c6b7ccfb5fe3ced2da",
+      "abiHash": "0x4605c09511ff10515512f41e1da7c477f8fda76a49452adcd313ae16a240ee7e",
+      "creationCodeHash": "0x05a121661efab8ce5e925e448a82f15984a773f4ff6753b034b1f65273d28147",
+      "runtimeCodeHash": "0x1c7d447dabd53eaa0aa1e846f6dea96538feedaac3f7511d577406847ec3b198",
       "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
       "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
       "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
@@ -350,8 +989,8 @@
       "artifactPath": "out/layer2/SourceInlineL2Consumer.t.sol/SourceInlineL2ConsumerTest.json",
       "sourceHash": "0x84ea7a45580d9b64cffee66f2f4a9aa83ce97f47b389025e9a8d2bba0f3551fc",
       "abiHash": "0x1988fe7ea60e646989d1129fc3e472c25f2d551fb854b1e5d703c2537f95db41",
-      "creationCodeHash": "0x70bb766b8ee956bdeb424e5075a78c89d90451e1d60be7a6bbf73f4684591ec4",
-      "runtimeCodeHash": "0x0dee7fcdd0a1f958c76265350de74403be383c448ef6dbc4c08d12dae61c2a0e",
+      "creationCodeHash": "0xec74eab0e27c8cb3a489371654d842e85062f1b75c1fdbb7d28aa896893b5595",
+      "runtimeCodeHash": "0x71f0078e588d426929e4bd87770792423115a93896439c719c92a2920ca065f1",
       "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
       "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
       "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
@@ -359,6 +998,276 @@
       "factoryClass": "direct-create-test",
       "lifecycleScope": "test-only",
       "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "source-inline",
+      "sourcePath": "test/shared/slotchain/fixtures/ISharedArtifactProbe.sol",
+      "contractName": "ISharedArtifactProbe",
+      "kind": "interface",
+      "sourceHash": "0x697ca4d150860311bdd85bc14ee6607510743891bb6b914f6acddb1d86a82ff9",
+      "abiHash": "0x602b20d173db76457a281517fb4e513508f8e51ebea31e3d42dac44c2fe523c0",
+      "allowedProfiles": [
+        "layer1",
+        "layer2",
+        "shared"
+      ],
+      "requiredProfiles": [
+        "shared",
+        "layer1",
+        "layer2"
+      ]
+    },
+    {
+      "ownership": "source-inline",
+      "sourcePath": "test/shared/slotchain/fixtures/LibSourceInlineProbe.sol",
+      "contractName": "LibSourceInlineProbe",
+      "kind": "internal-library",
+      "sourceHash": "0xd17d2bac5453965a66f2b3d2895e055795531fb4fca6ca7b610dd4de99d30461",
+      "abiHash": "0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70",
+      "allowedProfiles": [
+        "layer1",
+        "layer2",
+        "shared"
+      ],
+      "requiredProfiles": [
+        "shared",
+        "layer1",
+        "layer2"
+      ]
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/shared/slotchain/fixtures/SharedArtifactProbe.sol",
+      "contractName": "SharedArtifactProbe",
+      "ownerProfile": "shared",
+      "artifactPath": "out/shared/SharedArtifactProbe.sol/SharedArtifactProbe.json",
+      "sourceHash": "0x3b2f1aca23d5b35023f75639c184dacf6563f249b4ac2dba14e9b8655d7df1f9",
+      "abiHash": "0x602b20d173db76457a281517fb4e513508f8e51ebea31e3d42dac44c2fe523c0",
+      "creationCodeHash": "0xcbb9ca9f50deafdafbdf3b03f3eda562472469a1fd3026d54bb078bd36d8b519",
+      "runtimeCodeHash": "0xb9069439e075d384cb7cdf7ef067a489138b2d1004274059d071d18a2686de25",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [
+        "abi-interface",
+        "raw-creation-bytecode"
+      ],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": [
+        "layer1",
+        "layer2"
+      ]
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/shared/slotchain/libs/LibCanonicalRLP.t.sol",
+      "contractName": "CanonicalRlpHarness",
+      "ownerProfile": "shared",
+      "artifactPath": "out/shared/LibCanonicalRLP.t.sol/CanonicalRlpHarness.json",
+      "sourceHash": "0x516c7d542e12f66d111b2d46773acab56a2d7444ad1042c8c63f4f728730bb67",
+      "abiHash": "0x47cc1237a75d650c1abb42d61b8131fbd9d2e7a369af73c404bd4dc57512009d",
+      "creationCodeHash": "0xc71ea3ce90b041fbd10cb1843330fd1e398cdf28140a44a4d32a4b8de1fbd9e0",
+      "runtimeCodeHash": "0xa7d4e165e850812d2544233706438ff9982a46bdd746a9e2594869c97298472c",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/shared/slotchain/libs/LibCanonicalRLP.t.sol",
+      "contractName": "LibCanonicalRLPTest",
+      "ownerProfile": "shared",
+      "artifactPath": "out/shared/LibCanonicalRLP.t.sol/LibCanonicalRLPTest.json",
+      "sourceHash": "0x516c7d542e12f66d111b2d46773acab56a2d7444ad1042c8c63f4f728730bb67",
+      "abiHash": "0xc885125fef39de0ac2a1f360f6db7bf24f14d149dffe91c928e76d5acfd32be5",
+      "creationCodeHash": "0x4af01b90ce8146e2fd4bbd51f67fd1d0bc9ea30dfce5bced0a08316c6a653314",
+      "runtimeCodeHash": "0xea8ee05307e4a2401600c1c30eb6ac2527fddcfa6cc1d78c2b63996f038631be",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/shared/slotchain/libs/LibMptProof.t.sol",
+      "contractName": "LibMptProofTest",
+      "ownerProfile": "shared",
+      "artifactPath": "out/shared/LibMptProof.t.sol/LibMptProofTest.json",
+      "sourceHash": "0x1f4315e0edba6872c97a63bf5868843e74f53e22344e3daea6b6ba8ce335fd91",
+      "abiHash": "0x45a102bb914b0aca27dd47ed28b275a7ff348d63951b5cd76eda57f68cd687d0",
+      "creationCodeHash": "0xeaf39922b25376663a8296e5dccab3aa43ccdde4a8ff06e492c81abdd0aa63c2",
+      "runtimeCodeHash": "0x4c096e5637bc034fc4223267380fc98f7284b5006bfbd213bf20507abd0a8d93",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/shared/slotchain/libs/LibMptProof.t.sol",
+      "contractName": "MptProofHarness",
+      "ownerProfile": "shared",
+      "artifactPath": "out/shared/LibMptProof.t.sol/MptProofHarness.json",
+      "sourceHash": "0x1f4315e0edba6872c97a63bf5868843e74f53e22344e3daea6b6ba8ce335fd91",
+      "abiHash": "0x9a9e2cab07f96600f4b7adf57d8050cd6573eadb8b0943c0a8226619036e8c78",
+      "creationCodeHash": "0x2cb12ef895007d455e309b88edb0491bbeb766e468da8fe9717be6800c8e4c20",
+      "runtimeCodeHash": "0x559e5e12e8f930951d70ed28a3d8e8f011130c88419d71f8cdaa10f28e890f9f",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/shared/slotchain/libs/LibSlotChainEncoding.t.sol",
+      "contractName": "EncodingHarness",
+      "ownerProfile": "shared",
+      "artifactPath": "out/shared/LibSlotChainEncoding.t.sol/EncodingHarness.json",
+      "sourceHash": "0xb5de10b092ab8ae21707221cf20ba6da83f9c1b8fc89674f0dc61ee39a2a0af7",
+      "abiHash": "0xf69790993b7d6b209d541982679f251a15be512654f8c29e9c495d0fb203a2ea",
+      "creationCodeHash": "0x2e2025accb4836c8bde0e515037343f0d35ecabffc0ab45f68d61eafa939a512",
+      "runtimeCodeHash": "0x9a36004a2d7e4a1004fe2d2cee5dedbefe46766c7a3c153ff5a122d26d96cc95",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/shared/slotchain/libs/LibSlotChainEncoding.t.sol",
+      "contractName": "LibSlotChainEncodingTest",
+      "ownerProfile": "shared",
+      "artifactPath": "out/shared/LibSlotChainEncoding.t.sol/LibSlotChainEncodingTest.json",
+      "sourceHash": "0xb5de10b092ab8ae21707221cf20ba6da83f9c1b8fc89674f0dc61ee39a2a0af7",
+      "abiHash": "0x50dfd63e340065fbfa4451dbeebd4c2603dbf573dfa83691a4e25c9f52345173",
+      "creationCodeHash": "0x79eae32d90a7bd3951a0099a9aba8c7b31a057246af67160506e1a8d7aaed1f1",
+      "runtimeCodeHash": "0xa03d14a6d27f32b7f2ba255b97bfa8c53eaa6fdd30011fe9904dc02d2f9057af",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/shared/slotchain/libs/LibSlotChainEvidence.t.sol",
+      "contractName": "LibSlotChainEvidenceTest",
+      "ownerProfile": "shared",
+      "artifactPath": "out/shared/LibSlotChainEvidence.t.sol/LibSlotChainEvidenceTest.json",
+      "sourceHash": "0xb385bd4b5628944c5a82c14af2a16619679669bf3ffd3ae2e12d375c9a126768",
+      "abiHash": "0xe4b0b9236512fe902df691f4234809a5c715a05806cdbc70612b213d392dd481",
+      "creationCodeHash": "0x09116b24cae58825432a35dba45474b2ee173570fb291437b1295194373473ff",
+      "runtimeCodeHash": "0xefdd93a38d9d415df20cd43e8f5b099afa7135a3c0fb0b5fa8d53210a7c7d12d",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/shared/slotchain/libs/LibSlotChainEvidence.t.sol",
+      "contractName": "SlotChainEvidenceHarness",
+      "ownerProfile": "shared",
+      "artifactPath": "out/shared/LibSlotChainEvidence.t.sol/SlotChainEvidenceHarness.json",
+      "sourceHash": "0xb385bd4b5628944c5a82c14af2a16619679669bf3ffd3ae2e12d375c9a126768",
+      "abiHash": "0x9de4d9362c541be1f4acdcff4cbed5805a8d8d684f305a9d5898929758a5ec0f",
+      "creationCodeHash": "0xab0cfd8083efea9c2deacdff1f4caa20eee3462575667ad1a8def8f75f9a84bb",
+      "runtimeCodeHash": "0xc8d2caeac1c76821c7889f4a44e887833170c209535de2b9c41f23e19f22482d",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/shared/slotchain/libs/LibSlotChainTrees.t.sol",
+      "contractName": "LibSlotChainTreesTest",
+      "ownerProfile": "shared",
+      "artifactPath": "out/shared/LibSlotChainTrees.t.sol/LibSlotChainTreesTest.json",
+      "sourceHash": "0xb310cdc059ba56fbb8cd859f89dd448b7c5ea78cdfab751ec9bab8cf5368c19f",
+      "abiHash": "0xa227ff935bf3f80bcd0ce94f01f54bbac8072845407ac8bed081a3ee245fbef1",
+      "creationCodeHash": "0x2bfddc4d427786cbda359a39fadae176bf22184b4d7a190d62bc656320350bab",
+      "runtimeCodeHash": "0x075acca0084d31dd3a485b7f4ee1b5cd7970b66dfe68d994f0f0f07b2bc2487a",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "artifact-owned",
+      "sourcePath": "test/shared/slotchain/libs/LibSlotChainTrees.t.sol",
+      "contractName": "SlotChainTreesHarness",
+      "ownerProfile": "shared",
+      "artifactPath": "out/shared/LibSlotChainTrees.t.sol/SlotChainTreesHarness.json",
+      "sourceHash": "0xb310cdc059ba56fbb8cd859f89dd448b7c5ea78cdfab751ec9bab8cf5368c19f",
+      "abiHash": "0xc9b51adea7858eac1ad5f27c9fb1e183ebd2fce5041793bd1398ba466d4721a9",
+      "creationCodeHash": "0xd06ac7fb4e267f253f7c04862b179de0f31d02bb04ab129fbe62ccb628142fed",
+      "runtimeCodeHash": "0xbdbca9cf793af03bca96d4c24798e8d2b7b6839df15c80a2360e786eb4b6ebb5",
+      "creationLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "runtimeLinkReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "immutableReferencesHash": "0xb48d38f93eaa084033fc5970bf96e559c33c4cdc07d889ab00b4d63f9590739d",
+      "consumptionModes": [],
+      "factoryClass": "direct-create-test",
+      "lifecycleScope": "test-only",
+      "requiredConsumerProfiles": []
+    },
+    {
+      "ownership": "source-inline",
+      "sourcePath": "test/shared/slotchain/utils/CanonicalTrieFixtures.sol",
+      "contractName": "CanonicalTrieFixtures",
+      "kind": "internal-library",
+      "sourceHash": "0x73ccd0089a48b4b54da90a4c257f3ea1faf49ab0ffc393067bab9530875f1f64",
+      "abiHash": "0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70",
+      "allowedProfiles": [
+        "layer1",
+        "shared"
+      ],
+      "requiredProfiles": [
+        "shared"
+      ]
+    },
+    {
+      "ownership": "source-inline",
+      "sourcePath": "test/shared/slotchain/vectors/SlotChainGoldenVectors.sol",
+      "contractName": "SlotChainGoldenVectors",
+      "kind": "internal-library",
+      "sourceHash": "0xfc41ae7adab756b6a7978adfc3818c49005ef634ece8b176f710e1f3fb428a62",
+      "abiHash": "0x518674ab2b227e5f11e9084f615d57663cde47bce1ba168b4c19c7ee22a73d70",
+      "allowedProfiles": [
+        "layer1",
+        "shared"
+      ],
+      "requiredProfiles": [
+        "shared"
+      ]
     }
   ],
   "usages": [
@@ -366,7 +1275,10 @@
       "module": "test/shared/slotchain/fixtures/SharedArtifactProbe.sol:SharedArtifactProbe",
       "consumerModule": "test/layer1/slotchain/build/SourceInlineL1Consumer.t.sol:SourceInlineL1ConsumerTest",
       "consumerProfile": "layer1",
-      "modes": ["abi-interface", "raw-creation-bytecode"],
+      "modes": [
+        "abi-interface",
+        "raw-creation-bytecode"
+      ],
       "interfaceModule": "test/shared/slotchain/fixtures/ISharedArtifactProbe.sol:ISharedArtifactProbe",
       "factoryClass": "direct-create-test",
       "lifecycleScope": "test-only"
@@ -375,7 +1287,10 @@
       "module": "test/shared/slotchain/fixtures/SharedArtifactProbe.sol:SharedArtifactProbe",
       "consumerModule": "test/layer2/slotchain/build/SourceInlineL2Consumer.t.sol:SourceInlineL2ConsumerTest",
       "consumerProfile": "layer2",
-      "modes": ["abi-interface", "raw-creation-bytecode"],
+      "modes": [
+        "abi-interface",
+        "raw-creation-bytecode"
+      ],
       "interfaceModule": "test/shared/slotchain/fixtures/ISharedArtifactProbe.sol:ISharedArtifactProbe",
       "factoryClass": "direct-create-test",
       "lifecycleScope": "test-only"

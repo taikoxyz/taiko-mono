@@ -560,6 +560,61 @@ run("artifact and compiler ABI mismatch fails", () => {
     );
 });
 
+run("fallback and receive empty-input metadata is normalized", () => {
+    const fixture = validFixture();
+    mutateArtifact(fixture, (artifact) => {
+        artifact.metadata.output = {
+            abi: [
+                {
+                    type: "fallback",
+                    stateMutability: "nonpayable",
+                    inputs: [],
+                },
+                {
+                    type: "receive",
+                    stateMutability: "payable",
+                    inputs: [],
+                },
+            ],
+        };
+    });
+    syncSharedCompilerOutput(fixture);
+    mutateBuildInfo(fixture, "shared", (value) => {
+        const contract = value.output.contracts[fixture.sourcePath].Owned;
+        const metadata = JSON.parse(contract.metadata);
+        for (const entry of metadata.output.abi) delete entry.inputs;
+        contract.metadata = JSON.stringify(metadata);
+    });
+    validateArtifactOwnership(fixture.root, fixture.manifest);
+});
+
+run("metadata normalization preserves nonempty input drift", () => {
+    const fixture = validFixture();
+    mutateArtifact(fixture, (artifact) => {
+        artifact.metadata.output = {
+            abi: [
+                {
+                    type: "function",
+                    name: "owned",
+                    stateMutability: "view",
+                    inputs: [{ name: "value", type: "uint256" }],
+                    outputs: [],
+                },
+            ],
+        };
+    });
+    syncSharedCompilerOutput(fixture);
+    mutateBuildInfo(fixture, "shared", (value) => {
+        const contract = value.output.contracts[fixture.sourcePath].Owned;
+        const metadata = JSON.parse(contract.metadata);
+        metadata.output.abi[0].inputs[0].type = "address";
+        contract.metadata = JSON.stringify(metadata);
+    });
+    expectCode("ARTIFACT_BUILD_INFO_MISMATCH", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+});
+
 run("foundry-stripped contract devdoc metadata is normalized", () => {
     const fixture = validFixture();
     mutateArtifact(fixture, (artifact) => {
@@ -578,6 +633,46 @@ run("foundry-stripped contract devdoc metadata is normalized", () => {
         contract.metadata = JSON.stringify(metadata);
     });
     validateArtifactOwnership(fixture.root, fixture.manifest);
+});
+
+run("foundry-stripped contract userdoc metadata is normalized", () => {
+    const fixture = validFixture();
+    mutateArtifact(fixture, (artifact) => {
+        artifact.metadata.output = {
+            userdoc: { kind: "user", methods: {}, version: 1 },
+        };
+    });
+    syncSharedCompilerOutput(fixture);
+    mutateBuildInfo(fixture, "shared", (value) => {
+        const contract = value.output.contracts[fixture.sourcePath].Owned;
+        const metadata = JSON.parse(contract.metadata);
+        metadata.output.userdoc.notice = "Owned contract";
+        contract.metadata = JSON.stringify(metadata);
+    });
+    validateArtifactOwnership(fixture.root, fixture.manifest);
+});
+
+run("userdoc method metadata drift fails", () => {
+    const fixture = validFixture();
+    mutateArtifact(fixture, (artifact) => {
+        artifact.metadata.output = {
+            userdoc: {
+                kind: "user",
+                methods: { "owned()": { notice: "expected" } },
+                version: 1,
+            },
+        };
+    });
+    syncSharedCompilerOutput(fixture);
+    mutateBuildInfo(fixture, "shared", (value) => {
+        const contract = value.output.contracts[fixture.sourcePath].Owned;
+        const metadata = JSON.parse(contract.metadata);
+        metadata.output.userdoc.methods["owned()"].notice = "semantic drift";
+        contract.metadata = JSON.stringify(metadata);
+    });
+    expectCode("ARTIFACT_BUILD_INFO_MISMATCH", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
 });
 
 run("non-normalized devdoc metadata drift fails", () => {
