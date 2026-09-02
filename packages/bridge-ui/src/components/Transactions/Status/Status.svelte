@@ -5,7 +5,7 @@
   import { Spinner } from '$components/Spinner';
   import { StatusDot } from '$components/StatusDot';
   import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
-  import { isTransactionProcessable } from '$libs/bridge/isTransactionProcessable';
+  import { isTransactionProcessable, type Processability } from '$libs/bridge/isTransactionProcessable';
   import { PollingEvent, startPolling } from '$libs/polling/messageStatusPoller';
   import { bridgeTxService } from '$libs/storage';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
@@ -21,7 +21,9 @@
   export let textOnly: boolean = false;
 
   // UI state
-  let isProcessable = false; // bridge tx state to be processed: claimed/retried/released
+  // bridge tx state to be processed: claimed/retried/released. `null` means the read could not
+  // answer, which the manual claim entry treats differently from a settled "not yet"
+  let isProcessable: Processability = false;
   let polling: ReturnType<typeof startPolling>;
   let loading = false;
   let hasError = false;
@@ -32,7 +34,7 @@
     processingFee: bridgeTx.processingFee,
   });
 
-  function onProcessable(isTxProcessable: boolean) {
+  function onProcessable(isTxProcessable: Processability) {
     isProcessable = isTxProcessable;
   }
 
@@ -106,13 +108,13 @@
 
       try {
         // Can we start claiming/retrying/releasing? A single failed read here must not
-        // prevent polling from starting: the poller re-reads this on every tick, so
-        // leaving it false is recoverable while never starting the poller is not.
+        // prevent polling from starting: the poller re-reads this on every tick, so an
+        // undetermined answer is recoverable while never starting the poller is not.
         try {
           isProcessable = await isTransactionProcessable(bridgeTx);
         } catch (err) {
           console.warn('Could not determine whether the transaction is processable', err);
-          isProcessable = false;
+          isProcessable = null;
         }
 
         if (destroyed) return;

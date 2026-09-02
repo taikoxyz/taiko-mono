@@ -122,3 +122,41 @@ describe('Status row polling lifecycle', () => {
     expect(startPolling).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * The manual claim entry exists for zero-fee messages, which no relayer will ever pick up. It must
+ * not replace the pending status while the destination chain is merely known not to have synced
+ * the message yet - that claim fails, and the next checkpoint fixes it without the user acting.
+ */
+describe('Status row manual claim entry', () => {
+  const zeroFeeTx = { msgStatus: 0, srcTxHash: '0x1', msgHash: '0x2', processingFee: 0n } as never;
+
+  const render = async (processable: boolean | null) => {
+    startPolling.mockReturnValue(makePoller().handle);
+    isTransactionProcessable.mockResolvedValue(processable);
+
+    const component = new Status({ target, props: { bridgeTx: zeroFeeTx, bridgeTxStatus: null } });
+    await flush();
+    return component;
+  };
+
+  it('shows the pending status while the message is known not to be synced yet', async () => {
+    await render(false);
+
+    expect(target.textContent).toContain('transactions.status.processing.name');
+    expect(target.textContent).not.toContain('transactions.button.try_claim');
+  });
+
+  it('offers the manual claim once processability could not be determined', async () => {
+    await render(null);
+
+    expect(target.textContent).toContain('transactions.button.try_claim');
+  });
+
+  it('offers the ordinary claim once the message is processable', async () => {
+    await render(true);
+
+    expect(target.textContent).toContain('transactions.button.claim');
+    expect(target.textContent).not.toContain('transactions.button.try_claim');
+  });
+});
