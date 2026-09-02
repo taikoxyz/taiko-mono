@@ -671,10 +671,15 @@ bootstrap artifacts: RootMigrationExecutor, ProtocolRootFactory, the fixed
 CREATE3 proxy and all nine component roles.  Every runtime byte array must be
 at most 24,576 bytes and every complete init code must be at most 49,152 bytes,
 with the committed hashes equal to those exact bytes.
+All twelve artifacts are compiled by one release-pinned compiler build and
+artifact-owner profile; Factory, proxy and role artifacts from mixed IR/non-IR
+or optimizer profiles are not a root.  In particular the Factory-embedded
+proxy creation/runtime hashes and every role's independently derived proxy
+hash must come from those same canonical bytes.
 BuilderRegistry and ScheduleOracle are specifically blocking until their real
 optimized artifacts pass both bounds.  ProtocolRootFactory is also specifically
 blocking because it owns strict manifest parsing, CREATE3 and the complete
-BRC1/SOC1/PVM1 postvalidation graph; V1 currently authorizes no Factory helper.
+BRC1/SOC1/PCT1/PVM1 postvalidation graph; V1 currently authorizes no Factory helper.
 If any artifact exceeds EIP-170, the design
 must first specify an exact immutable helper topology: helper addresses,
 runtimes, configurations, transitive reachable-code closure, STATICCALL ABI and
@@ -837,7 +842,24 @@ protocolRootFactoryConfigurationHash = H(
 \end{verbatim}
 and exposes it through \code{componentConfigHashV2()} and the exact 544-byte
 \code{protocolRootFactoryConfigV1()} view (selector \code{0xd7b40838}, magic
-PRF1) returning those constructor fields, derived proxy hashes, lifetime,
+PRF1).  To remain compilable under the release's non-IR Solidity profile, the
+interface returns one static \code{ProtocolRootFactoryConfigV1} struct whose
+17 fields, in exact wire order, are
+\begin{verbatim}
+(bytes4 magic,uint256 settlementChainId,bytes32 manifestNamespace,
+ address delayedRootMigrationExecutor,bytes32 executorRuntimeHash,
+ bytes32 executorConfigurationHash,bytes32 proxyCreationCodeHash,
+ bytes32 proxyRuntimeHash,uint64 campaignLifetime,
+ uint64 deploymentPostcheckReserve,
+ uint8 minimumFirstManagedRunwayWindows,uint64 executorConfigReadGas,
+ uint64 componentConfigReadGas,uint64 activationCallGas,
+ uint64 externalReadGas,uint64 executorConfirmCallGas,
+ bytes32 configurationHash)
+\end{verbatim}
+A single static tuple has the same 544-byte ABI returndata and selector as the
+flat list; outputs never enter the selector.  The named struct is normative so
+the generated ABI remains usable without a 17-output non-IR wrapper.  Its fields
+are those constructor fields, derived proxy hashes, lifetime,
 deployment postcheck reserve, \code{minimumFirstManagedRunwayWindows=18}, then
 Executor-config read, component-config read, activation-call, external-read and
 Executor-confirm-call gas constants
@@ -967,6 +989,7 @@ pre-activation read allowlist is: every role's
 \code{componentConfigHashV2()} and \code{protocolRootActivationV1()}, plus
 \code{builderRegistryConfigV1()} for role 1,
 \code{scheduleOracleConfigV1()} for role 2 and
+\code{protocolChangeTimelockConfigV1()} (PCT1) for role 3, and
 \code{protocolVersionManagerConfigV1()} for role 4.  No other role-specific
 view is callable before activation; in particular SWR1, SWV1, operational
 topology getters and all mutation surfaces revert.  The exact zero-argument view
@@ -982,8 +1005,26 @@ Once all nine bits are set, anyone may call
 \code{finalizeProtocolRootV1(bytes32)} (selector \code{0x95f759ad}) before or
 at the deadline.  Factory requires that no root was previously installed and
 rechecks the zero predecessor, all nine addresses,
-runtimes, exact configuration/activation views and the complete BRC1/SOC1/PVM1
-cross-graph.  Component configuration calls use 50,000 gas and every larger
+runtimes, exact configuration/activation views and the complete BRC1/SOC1/PCT1/PVM1
+cross-graph.  This is a strict word-by-word decode, not merely a comparison of
+the three outer configuration hashes: BRC1 requires a nonzero token runtime,
+canonical words 5--7 and
+\code{0 < leasePerWindowAtomic <= maximumBondAtomic} with
+\code{5 * reporterRewardCapAtomic <= leasePerWindowAtomic}; SOC1 requires
+canonical beacon-genesis/lookahead words, \code{lookaheadSeconds=768}, and the
+first managed-window start numerically at least 768 and at least 3,072 seconds
+after beacon genesis.  Factory exact-reads role 3's 160-byte PCT1, requires its
+PVM to be role 4, delay 604,800 and operation domain
+\code{H("slot-chain-protocol-change-operation-v1")}, and recomputes the
+governance descriptor from the actual chain, role-3 address/runtime, returned
+DAO and role-4 address.  The returned DAO must equal the genesis DAO proposer
+committed by the Executor's exact RME1/configuration row and be distinct from
+Factory, Executor and all nine component addresses.  That descriptor must equal both the
+role-3 component configuration and PVM1 word 12.  PVM1 words 14--16 are exactly
+604,800, word 17 is exactly
+64, and all four release gas caps in words 18--21 are nonzero.  Every address,
+narrow integer and bytes4 word in the three rows has canonical padding.
+Component configuration calls use 50,000 gas and every larger
 activation/cross-view uses 100,000 gas; every call has exact selector-only
 calldata and exact return length/padding.  It requires BRC1 and SOC1 to agree on
 \code{genesisTimestamp} and \code{firstManagedWindow}, derives
@@ -5367,7 +5408,7 @@ queued payload.
 
 PVM then derives all expected values from the raw strict profile and joins the
 complete control tuple to the actual root deployment.  It checks its own
-EXTCODEHASH against word 21 and exact-reads its own 1,056-byte PVM1 view;
+EXTCODEHASH against word 21 and exact-reads its own 1,088-byte PVM1 view;
 Router independently checks \code{msg.sender} EXTCODEHASH and makes the same
 100,000-gas, four-byte PVM1 STATICCALL before its first write.  Each caller
 strictly decodes PVM1, recomputes the complete PVM configuration hash against
@@ -5464,7 +5505,7 @@ protocolVersionManagerConfigurationHash = H(
  bridgeDomainRegistryConfigurationHash ||
  address20(bridgeCreditRegistry) || bridgeCreditRegistryRuntimeHash ||
  bridgeCreditRegistryConfigurationHash || manifestNamespace ||
- u64(604800) || u64(604800) || u16(64) ||
+ u64(604800) || u64(604800) || u64(604800) || u16(64) ||
  u64(releaseRouterRegistrationGas) ||
  u64(releaseMarketInstallationGas) || u64(releasePostreadGas) ||
  u64(releasePostCallbackReserveGas))
@@ -5473,6 +5514,11 @@ protocolVersionManagerDescriptorHash = H(
  address20(protocolVersionManager) || protocolVersionManagerRuntimeHash ||
  protocolVersionManagerConfigurationHash)
 \end{verbatim}
+The Timelock's immutable \code{componentConfigHashV2()} is exactly
+\code{governanceDelayAuthorityDescriptorHash}; PVM1 word 12 is the same value.
+Thus protocol-root finalization joins the live role-3 runtime/configuration to
+the PVM authority row rather than accepting two independently valid Timelock
+identities.
 For this protocol root \code{marketChainId=settlementChainId}.  The inner
 authority hash binds the five topology values, while the outer 1,376-byte
 projection additionally binds the penalty sink, inclusion/evidence/reorg
@@ -5530,7 +5576,7 @@ protocolVersionManagerConfigV1() // selector 0x4deb7821; 1088 bytes
           address activeSettlementRouter,address forcedQueue,
           address builderRegistry,address scheduleOracle,
           address aggregatorSeatMarket,bytes32 aggregatorSeatMarketRuntimeHash,
-          bytes32 marketAuthorityConfigurationHash,address bridgeDomainRegistry,
+          bytes32 aggregatorSeatMarketConfigurationHash,address bridgeDomainRegistry,
           address bridgeCreditRegistry,bytes32 timelockDescriptorHash,
           bytes32 manifestNamespace,uint64 minimumDelaySeconds,
           uint64 maximumLiveMigrationSeconds,
