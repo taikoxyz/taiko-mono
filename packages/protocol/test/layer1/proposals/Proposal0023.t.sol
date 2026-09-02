@@ -16,6 +16,8 @@ import { LibNames } from "src/shared/libs/LibNames.sol";
 contract Proposal0023Test is Test {
     address internal constant BRIDGE_NEW_IMPL_L1 = 0x1010101010101010101010101010101010101010;
     address internal constant ERC20_VAULT_NEW_IMPL_L1 = 0x1111111111111111111111111111111111111111;
+    address internal constant BRIDGED_ERC20_NEW_IMPL_L1 =
+        0x6060606060606060606060606060606060606060;
     address internal constant BRIDGE_NEW_IMPL_L2 = 0x2020202020202020202020202020202020202020;
     address internal constant L2_SHARED_RESOLVER = 0x3030303030303030303030303030303030303030;
     address internal constant ERC20_VAULT_NEW_IMPL_L2 = 0x4040404040404040404040404040404040404040;
@@ -27,6 +29,8 @@ contract Proposal0023Test is Test {
     address internal constant DEPLOYED_BRIDGE_IMPL_L1 = 0xA15dca0A72da684f20e0FC708DECFb230a715462;
     address internal constant DEPLOYED_ERC20_VAULT_IMPL_L1 =
         0x32E47c04E8c329E8c10062731448e7658aDEEB8e;
+    address internal constant DEPLOYED_BRIDGED_ERC20_IMPL_L1 =
+        0xFcbc02A2AdED1B9464B37369091279D297E20a96;
     address internal constant DEPLOYED_BRIDGE_IMPL_L2 = 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb;
     address internal constant DEPLOYED_L2_SHARED_RESOLVER =
         0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984;
@@ -41,12 +45,15 @@ contract Proposal0023Test is Test {
         proposal = new Proposal0023Harness();
     }
 
-    function test_buildL1Actions_EncodesBridgeThenVaultUpgrade() external view {
+    function test_buildL1Actions_EncodesUpgradesThenBridgedErc20Registration() external view {
         Controller.Action[] memory actions = proposal.exposedBuildL1Actions(_l1());
 
-        assertEq(actions.length, 2);
+        assertEq(actions.length, 3);
         _assertUpgrades(actions[0], L1.BRIDGE, BRIDGE_NEW_IMPL_L1);
         _assertUpgrades(actions[1], L1.ERC20_VAULT, ERC20_VAULT_NEW_IMPL_L1);
+        _assertRegistersOn(
+            actions[2], L1.SHARED_RESOLVER, 1, LibNames.B_BRIDGED_ERC20, BRIDGED_ERC20_NEW_IMPL_L1
+        );
     }
 
     function test_buildL1Actions_RevertsWhileAnImplementationIsMissing() external {
@@ -57,6 +64,11 @@ contract Proposal0023Test is Test {
 
         d = _l1();
         d.erc20VaultImpl = address(0);
+        vm.expectRevert(Proposal0023.ImplementationNotDeployed.selector);
+        proposal.exposedBuildL1Actions(d);
+
+        d = _l1();
+        d.bridgedErc20Impl = address(0);
         vm.expectRevert(Proposal0023.ImplementationNotDeployed.selector);
         proposal.exposedBuildL1Actions(d);
     }
@@ -106,13 +118,20 @@ contract Proposal0023Test is Test {
     function test_buildAllActions_AppendsTheL2MessageAfterTheL1Upgrades() external view {
         Controller.Action[] memory actions = proposal.exposedBuildAllActions();
 
-        assertEq(actions.length, 3);
+        assertEq(actions.length, 4);
         _assertUpgrades(actions[0], L1.BRIDGE, DEPLOYED_BRIDGE_IMPL_L1);
         _assertUpgrades(actions[1], L1.ERC20_VAULT, DEPLOYED_ERC20_VAULT_IMPL_L1);
-        assertEq(actions[2].target, L1.BRIDGE);
-        assertEq(actions[2].value, 0);
+        _assertRegistersOn(
+            actions[2],
+            L1.SHARED_RESOLVER,
+            1,
+            LibNames.B_BRIDGED_ERC20,
+            DEPLOYED_BRIDGED_ERC20_IMPL_L1
+        );
+        assertEq(actions[3].target, L1.BRIDGE);
+        assertEq(actions[3].value, 0);
 
-        IBridge.Message memory message = proposal.decodeSendMessage(actions[2].data);
+        IBridge.Message memory message = proposal.decodeSendMessage(actions[3].data);
         assertEq(message.srcOwner, L1.DAO_CONTROLLER);
         assertEq(message.destOwner, L2.PERMISSIONLESS_EXECUTOR);
         assertEq(message.destChainId, 167_000);
@@ -146,9 +165,16 @@ contract Proposal0023Test is Test {
     function test_buildL1Actions_UsesDeployedImplementations() external view {
         Controller.Action[] memory actions = proposal.exposedBuildL1Actions();
 
-        assertEq(actions.length, 2);
+        assertEq(actions.length, 3);
         _assertUpgrades(actions[0], L1.BRIDGE, DEPLOYED_BRIDGE_IMPL_L1);
         _assertUpgrades(actions[1], L1.ERC20_VAULT, DEPLOYED_ERC20_VAULT_IMPL_L1);
+        _assertRegistersOn(
+            actions[2],
+            L1.SHARED_RESOLVER,
+            1,
+            LibNames.B_BRIDGED_ERC20,
+            DEPLOYED_BRIDGED_ERC20_IMPL_L1
+        );
     }
 
     function test_buildL2Actions_UsesDeployedImplementations() external view {
@@ -204,7 +230,9 @@ contract Proposal0023Test is Test {
 
     function _l1() internal pure returns (Proposal0023.L1Deployment memory) {
         return Proposal0023.L1Deployment({
-            bridgeImpl: BRIDGE_NEW_IMPL_L1, erc20VaultImpl: ERC20_VAULT_NEW_IMPL_L1
+            bridgeImpl: BRIDGE_NEW_IMPL_L1,
+            erc20VaultImpl: ERC20_VAULT_NEW_IMPL_L1,
+            bridgedErc20Impl: BRIDGED_ERC20_NEW_IMPL_L1
         });
     }
 
@@ -239,7 +267,20 @@ contract Proposal0023Test is Test {
         internal
         pure
     {
-        assertEq(_action.target, L2_SHARED_RESOLVER);
+        _assertRegistersOn(_action, L2_SHARED_RESOLVER, _chainId, _name, _addr);
+    }
+
+    function _assertRegistersOn(
+        Controller.Action memory _action,
+        address _resolver,
+        uint256 _chainId,
+        bytes32 _name,
+        address _addr
+    )
+        internal
+        pure
+    {
+        assertEq(_action.target, _resolver);
         assertEq(_action.value, 0);
         assertEq(
             _action.data, abi.encodeCall(DefaultResolver.registerAddress, (_chainId, _name, _addr))

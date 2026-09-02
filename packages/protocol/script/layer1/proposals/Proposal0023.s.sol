@@ -20,6 +20,8 @@ contract Proposal0023 is BuildProposal {
         address bridgeImpl;
         // The `ERC20Vault` implementation the L1 ERC20 vault proxy upgrades to.
         address erc20VaultImpl;
+        // The `BridgedERC20` implementation the L1 shared resolver registers as `bridged_erc20`.
+        address bridgedErc20Impl;
     }
 
     /// @dev The contracts the L2 leg points at.
@@ -41,6 +43,11 @@ contract Proposal0023 is BuildProposal {
     /// @dev Deployed by `DeployERC20VaultUpgradeL1` on Ethereum mainnet.
     /// https://codediff.taiko.xyz/?addr=0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab&newimpl=0x32E47c04E8c329E8c10062731448e7658aDEEB8e&chainid=1
     address public constant ERC20_VAULT_NEW_IMPL_L1 = 0x32E47c04E8c329E8c10062731448e7658aDEEB8e;
+
+    /// @dev Deployed by `DeployBridgedERC20L1` on Ethereum mainnet, with the vault proxy as its
+    /// `erc20Vault` immutable. Registered as `bridged_erc20` on the L1 shared resolver, replacing
+    /// the July 2024 implementation `0x65666141…` that the live vault can no longer initialise.
+    address public constant BRIDGED_ERC20_NEW_IMPL_L1 = 0xFcbc02A2AdED1B9464B37369091279D297E20a96;
 
     /// @dev Deployed by `DeployBridgeUpgradeL2` on Taiko L2.
     /// https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000001&newimpl=0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb&chainid=167000
@@ -69,26 +76,30 @@ contract Proposal0023 is BuildProposal {
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
         return buildL1Actions(
             L1Deployment({
-                bridgeImpl: BRIDGE_NEW_IMPL_L1, erc20VaultImpl: ERC20_VAULT_NEW_IMPL_L1
+                bridgeImpl: BRIDGE_NEW_IMPL_L1,
+                erc20VaultImpl: ERC20_VAULT_NEW_IMPL_L1,
+                bridgedErc20Impl: BRIDGED_ERC20_NEW_IMPL_L1
             })
         );
     }
 
     /// @dev Encodes the L1 leg against injectable addresses so tests can assert the encoding
     /// while a constant above is still a placeholder.
-    /// @param _d The implementations the two L1 proxies upgrade to.
-    /// @return actions The two L1 actions, in execution order.
+    /// @param _d The implementations the two L1 proxies upgrade to, and the bridged-token
+    /// implementation the L1 resolver registers.
+    /// @return actions The three L1 actions, in execution order.
     function buildL1Actions(L1Deployment memory _d)
         internal
         pure
         returns (Controller.Action[] memory actions)
     {
         require(
-            _d.bridgeImpl != address(0) && _d.erc20VaultImpl != address(0),
+            _d.bridgeImpl != address(0) && _d.erc20VaultImpl != address(0)
+                && _d.bridgedErc20Impl != address(0),
             ImplementationNotDeployed()
         );
 
-        actions = new Controller.Action[](2);
+        actions = new Controller.Action[](3);
 
         // 0: Upgrade the mainnet bridge to the implementation carrying the EIP-8037 Ether send cap.
         actions[0] = buildUpgradeAction(L1.BRIDGE, _d.bridgeImpl);
@@ -98,6 +109,16 @@ contract Proposal0023 is BuildProposal {
         // quota manager immutables the live one carries, and the L1 shared resolver already holds
         // every name the vault reads, so no registration accompanies this upgrade.
         actions[1] = buildUpgradeAction(L1.ERC20_VAULT, _d.erc20VaultImpl);
+
+        // 2: Point the L1 shared resolver's `bridged_erc20` at a `BridgedERC20` built from `main`.
+        // The entry still names the July 2024 implementation, which only has the seven-argument,
+        // address-manager based init, while the live vault has called the six-argument
+        // IBridgedERC20Initializable.init since Proposal0017 — so the first delivery to L1 of a
+        // token canonical on another chain reverts today. Same fix as L2 action 4; independent of
+        // the two upgrades above, so its position in the batch does not matter.
+        actions[2] = _registerAction(
+            L1.SHARED_RESOLVER, _L1_CHAIN_ID, LibNames.B_BRIDGED_ERC20, _d.bridgedErc20Impl
+        );
     }
 
     function buildL2Actions()

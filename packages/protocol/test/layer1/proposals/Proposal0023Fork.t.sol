@@ -63,6 +63,7 @@ contract Proposal0023ForkTest is Test {
     /// archive node; the blocks the rehearsal was captured at are named in the failure messages for
     /// anyone who has one.
     address private constant _LIVE_BRIDGE_IMPL_L1 = 0x1c94D798CFA08F396E5BA9F81697289c53273381;
+    address private constant _LIVE_BRIDGED_ERC20_L1 = 0x65666141a541423606365123Ed280AB16a09A2e1;
     address private constant _LIVE_ERC20_VAULT_IMPL_L1 = 0x024253C6FDC27d3161aFd43fb0241411A28dDc3c;
     address private constant _LIVE_BRIDGE_IMPL_L2 = 0x95ae2918dcbc6aFF8B4c1F1BCC1bf819b6e08B83;
     address private constant _LIVE_ERC20_VAULT_IMPL_L2 = 0xb96AbB41b01E3ad519D00E80355a1c3801910F62;
@@ -74,6 +75,11 @@ contract Proposal0023ForkTest is Test {
             "L1 fork is not pre-upgrade; pin --fork-block-number 25888605 against an archive node";
         assertEq(_implementationOf(L1.BRIDGE), _LIVE_BRIDGE_IMPL_L1, notPreUpgrade);
         assertEq(_implementationOf(L1.ERC20_VAULT), _LIVE_ERC20_VAULT_IMPL_L1, notPreUpgrade);
+        assertEq(
+            DefaultResolver(L1.SHARED_RESOLVER).resolve(1, LibNames.B_BRIDGED_ERC20, false),
+            _LIVE_BRIDGED_ERC20_L1,
+            notPreUpgrade
+        );
 
         uint64 messageIdBefore = Bridge(payable(L1.BRIDGE)).nextMessageId();
         address vaultOwnerBefore = ERC20Vault(L1.ERC20_VAULT).owner();
@@ -83,20 +89,23 @@ contract Proposal0023ForkTest is Test {
         Proposal0023Harness harness = new Proposal0023Harness();
         Proposal0023.L1Deployment memory l1 = Proposal0023.L1Deployment({
             bridgeImpl: harness.BRIDGE_NEW_IMPL_L1(),
-            erc20VaultImpl: harness.ERC20_VAULT_NEW_IMPL_L1()
+            erc20VaultImpl: harness.ERC20_VAULT_NEW_IMPL_L1(),
+            bridgedErc20Impl: harness.BRIDGED_ERC20_NEW_IMPL_L1()
         });
         assertGt(l1.bridgeImpl.code.length, 0, "L1 bridge implementation is not deployed");
         assertGt(l1.erc20VaultImpl.code.length, 0, "L1 vault implementation is not deployed");
+        assertGt(l1.bridgedErc20Impl.code.length, 0, "L1 BridgedERC20 is not deployed");
 
         // Execute the whole L1 batch the way the DAO controller will: both upgrades, then the
         // sendMessage that BuildProposal appends, through the just-upgraded bridge. This is the
         // calldata `Proposal0023.action.md` carries.
         Controller.Action[] memory actions = harness.exposedBuildAllActions();
-        assertEq(actions.length, 3);
+        assertEq(actions.length, 4);
         _executeAs(L1.DAO_CONTROLLER, actions);
 
         _assertL1BridgeAfterUpgrade(l1.bridgeImpl, messageIdBefore);
         _assertL1VaultAfterUpgrade(l1.erc20VaultImpl, vaultOwnerBefore, messageIdBefore);
+        _assertL1BridgedErc20AfterRegistration(l1.bridgedErc20Impl, vaultOwnerBefore);
     }
 
     function test_l2_selfUpgradeThroughProcessMessage() external {
@@ -162,6 +171,68 @@ contract Proposal0023ForkTest is Test {
         IBridge.Message memory message = _sendToken(vault, L1.WETH_TOKEN, 167_000);
         assertEq(message.to, L2.ERC20_VAULT);
         assertEq(Bridge(payable(L1.BRIDGE)).nextMessageId(), _messageIdBefore + 2);
+    }
+
+    /// @dev The registration fixes the pre-existing L1 defect: the resolver named the July 2024
+    /// `BridgedERC20`, whose only initializer is the seven-argument one, while the vault has
+    /// called the six-argument init since Proposal0017, so the first delivery to L1 of a token
+    /// canonical on another chain reverted. After the batch such a delivery deploys a bridged
+    /// token from the new implementation and mints.
+    /// @param _newImpl The `BridgedERC20` the resolver must now name.
+    /// @param _vaultOwner The vault's owner, which every bridged token it deploys is owned by.
+    function _assertL1BridgedErc20AfterRegistration(address _newImpl, address _vaultOwner) private {
+        assertEq(
+            DefaultResolver(L1.SHARED_RESOLVER).resolve(1, LibNames.B_BRIDGED_ERC20, false),
+            _newImpl
+        );
+        assertEq(BridgedERC20(_newImpl).erc20Vault(), L1.ERC20_VAULT);
+
+        // A valid signal proof cannot be synthesised on a fork.
+        vm.mockCall(
+            L1.SIGNAL_SERVICE,
+            abi.encodeWithSelector(ISignalService.proveSignalReceived.selector),
+            abi.encode(uint256(0))
+        );
+
+        address ctoken = makeAddr("canonical L2 token with no L1 representation");
+        address recipient = makeAddr("recipient on L1");
+        IBridge.Message memory message;
+        message.id = 424_243;
+        message.from = L2.ERC20_VAULT;
+        message.srcChainId = 167_000;
+        message.srcOwner = recipient;
+        message.destChainId = 1;
+        message.destOwner = recipient;
+        message.to = L1.ERC20_VAULT;
+        message.gasLimit = 3_000_000;
+        message.data = abi.encodeCall(
+            IMessageInvocable.onMessageInvocation,
+            (abi.encode(
+                    ERC20Vault.CanonicalERC20({
+                        chainId: 167_000,
+                        addr: ctoken,
+                        decimals: 18,
+                        symbol: "NEW",
+                        name: "New Token"
+                    }),
+                    recipient,
+                    recipient,
+                    _AMOUNT
+                ))
+        );
+
+        vm.prank(recipient);
+        (IBridge.Status status, IBridge.StatusReason reason) =
+            Bridge(payable(L1.BRIDGE)).processMessage(message, "");
+        assertEq(uint8(status), uint8(IBridge.Status.DONE), "delivery was not invoked");
+        assertEq(uint8(reason), uint8(IBridge.StatusReason.INVOCATION_OK), "delivery failed");
+
+        address btoken = ERC20Vault(L1.ERC20_VAULT).canonicalToBridged(167_000, ctoken);
+        assertTrue(btoken != address(0), "delivery deployed no bridged token");
+        assertEq(_implementationOf(btoken), _newImpl);
+        assertEq(BridgedERC20(btoken).erc20Vault(), L1.ERC20_VAULT);
+        assertEq(BridgedERC20(btoken).owner(), _vaultOwner);
+        assertEq(IERC20(btoken).balanceOf(recipient), _AMOUNT);
     }
 
     /// @dev Runs the L2 rehearsal with `_caller` processing the governance message.
