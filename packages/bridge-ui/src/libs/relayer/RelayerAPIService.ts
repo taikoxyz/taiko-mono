@@ -41,13 +41,19 @@ import {
 const log = getLogger('RelayerAPIService');
 
 const relayerMessageIntegerFields = ['Fee', 'Value', 'Id', 'SrcChainId', 'DestChainId', 'amount', 'fee'];
-// Only a complete integer token is rewritten. The trailing guard matters: `amount` and
-// `fee` can arrive as a decimal or in exponent form, and quoting just the leading digits
-// of `1.5` produces `"1".5` - invalid JSON that takes the whole response down with it.
-const relayerMessageIntegerPattern = new RegExp(
-  `("(${relayerMessageIntegerFields.join('|')})"\\s*:\\s*)(\\d+)(?![\\d.eE])`,
+// The whole numeric token is matched, not just its leading digits. These fields come off Go
+// floats, so a value large enough to need this rewrite is exactly the one likely to arrive in
+// exponent form - 18.5 ETH is written `1.85e19` - and quoting only the digits before the point
+// produces `"1".85e19`, invalid JSON that takes the whole response down with it. Whether a token
+// denotes an integer is `asIntegerDigits`' decision; `amount` and `fee` are not guaranteed whole,
+// and a genuine fraction is left exactly as it was.
+const relayerMessageNumberPattern = new RegExp(
+  `("(${relayerMessageIntegerFields.join('|')})"\\s*:\\s*)(-?\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?)`,
   'g',
 );
+// A uint256 tops out at 78 digits, so a longer expansion is not a bridge value. Bounds the
+// string an absurd exponent could ask this to allocate; the token is left alone instead.
+const MAX_RELAYER_INTEGER_DIGITS = 100;
 type DecodedBridgeMessage = Omit<Message, 'gasLimit'> & { gasLimit: bigint | number };
 type BridgeTransactionAssetDetails = {
   amount: bigint;
@@ -114,8 +120,46 @@ const erc1155InvocationParameters = [
   { type: 'uint256[]' },
 ] as const;
 
+/**
+ * Expands a JSON number token to the integer it denotes, in digits, and returns null when it
+ * denotes anything else - a fraction, or a magnitude no bridge value has.
+ *
+ * Textual throughout: routing the token through a JS number is the precision loss this whole
+ * rewrite exists to avoid.
+ */
+function asIntegerDigits(token: string): string | null {
+  const parts = /^(-?)(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/.exec(token);
+  if (!parts) return null;
+
+  const [, sign, integerPart, fractionPart = '', exponentPart] = parts;
+  const exponent = exponentPart ? Number(exponentPart) : 0;
+  if (!Number.isSafeInteger(exponent)) return null;
+
+  const digits = integerPart + fractionPart;
+  // Where the decimal point lands once the exponent is applied, which is also the digit length
+  // of the result whenever the token has to be padded
+  const pointIndex = integerPart.length + exponent;
+  if (pointIndex <= 0) return null; // `5e-2` and friends are below one, so not an integer
+  if (pointIndex > MAX_RELAYER_INTEGER_DIGITS) return null;
+
+  let whole: string;
+  if (pointIndex >= digits.length) {
+    whole = digits + '0'.repeat(pointIndex - digits.length);
+  } else {
+    if (/[1-9]/.test(digits.slice(pointIndex))) return null; // `1.5` stays a fraction
+    whole = digits.slice(0, pointIndex);
+  }
+
+  // BigInt would accept leading zeros, but the relayer states some of these amounts twice - once
+  // as a number and once as a string - and a normalized form keeps the two comparable
+  return sign + whole.replace(/^0+(?=\d)/, '');
+}
+
 export function preserveMessageIntegerPrecision(rawResponse: string): string {
-  return rawResponse.replace(relayerMessageIntegerPattern, '$1"$3"');
+  return rawResponse.replace(relayerMessageNumberPattern, (match, prefix: string, _field: string, token: string) => {
+    const digits = asIntegerDigits(token);
+    return digits === null ? match : `${prefix}"${digits}"`;
+  });
 }
 
 export function parseRelayerApiResponse(rawResponse: string): APIResponse {

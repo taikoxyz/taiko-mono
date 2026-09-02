@@ -5,6 +5,9 @@ import { preserveMessageIntegerPrecision } from './RelayerAPIService';
  * their digits. The rewrite must never produce invalid JSON: `amount` and `fee` are not
  * guaranteed to be whole numbers, and quoting only the leading digits of `1.5` yields
  * `"1".5`, which takes the entire transaction list down.
+ *
+ * The fields come off Go floats, so the rewrite has to read exponent form as well as plain
+ * digits: the values large enough to need it are exactly the ones Go prints as `1.85e19`.
  */
 const roundTrip = (raw: string) => JSON.parse(preserveMessageIntegerPrecision(raw));
 
@@ -26,9 +29,31 @@ describe('preserveMessageIntegerPrecision', () => {
     expect(roundTrip('{"amount":1.5}').amount).toBe(1.5);
   });
 
-  it('leaves an exponent-formed amount as valid JSON', () => {
+  it('keeps an exponent-formed integer as digits', () => {
     expect(() => roundTrip('{"amount":1e5}')).not.toThrow();
-    expect(roundTrip('{"amount":1e5}').amount).toBe(100000);
+    expect(roundTrip('{"amount":1e5}').amount).toBe('100000');
+  });
+
+  it('keeps the digits of an exponent-formed value past 2^53', () => {
+    // 18.5 ETH. Go prints this float as `1.85e19`, which the earlier rewrite left as a JSON
+    // number: `parseApiBigInt` then rejected it as unsafe, `_transformTransaction` threw, and
+    // the transaction was dropped from the user's list on every refresh
+    expect(roundTrip('{"Value":1.85e19}').Value).toBe('18500000000000000000');
+  });
+
+  it('keeps an exponent-formed integer that carries a fraction', () => {
+    expect(roundTrip('{"Value":1.5e1}').Value).toBe('15');
+  });
+
+  it('leaves an exponent-formed fraction as valid JSON', () => {
+    expect(roundTrip('{"amount":1.55e1}').amount).toBe(15.5);
+    expect(roundTrip('{"amount":5e-2}').amount).toBe(0.05);
+  });
+
+  it('leaves a magnitude no bridge value has alone', () => {
+    // Nothing is allocated for an absurd exponent; the token stays a number and fails the
+    // caller's own check instead
+    expect(roundTrip('{"Value":1e1000}').Value).toBe(Infinity);
   });
 
   it('leaves a decimal fee as valid JSON', () => {

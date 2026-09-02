@@ -889,6 +889,40 @@ describe('RelayerAPIService', () => {
     expect(parseApiBigInt('33011093383701312')).toEqual(33_011_093_383_701_312n);
   });
 
+  test('getAllBridgeTransactionByAddress keeps a row whose value arrived in exponent form', async () => {
+    // Given: the relayer serializes Message.Value from a Go float, so 18.5 ETH goes over the wire
+    // as `1.85e19`. The rewrite that keeps large integers out of JSON doubles has to read that
+    // form too: left as a number it was rejected as unsafe, the row never transformed, and the
+    // transactions page told the user a message could not be loaded on every refresh.
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const paginationParams = { page: 1, size: 10 };
+    const relayerItem = createRelayerItem({
+      id: 1553895,
+      messageId: '6285',
+      msgHash: GOOD_MSG_HASH,
+      blockNumber: '0x7baa35',
+      amount: '18500000000000000000',
+    });
+    // Serialized, then rewritten to the literal the relayer actually emits - the mocked object
+    // responses the other tests use never reach the string the precision rewrite operates on
+    const rawResponse = JSON.stringify(createApiResponse([relayerItem]).data).replace(
+      '"Value":"185000000000000000"',
+      '"Value":1.85e19',
+    );
+    expect(rawResponse).toContain('"Value":1.85e19');
+
+    mockedAxios.get.mockResolvedValue({ data: rawResponse, status: 200 });
+    mockedGetTransactionReceipt.mockResolvedValue(createReceiptWithMessageSentLog());
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
+
+    // Then
+    expect(result.failedTxs).toEqual([]);
+    expect(result.txs).toHaveLength(1);
+  });
+
   test('getAllBridgeTransactionByAddress counts a transaction whose RPC read threw', async () => {
     // Given
     const relayerAPIService = new RelayerAPIService('http://example.com');
