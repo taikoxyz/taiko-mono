@@ -1184,6 +1184,8 @@ def encode_market_wire_state_v1(view: MarketWireStateV1) -> bytes:
                 raise TransitionRejected(f"MWV1 {name} must be nonzero")
         _wire_address(view.operator, "MWV1 operator")
         _wire_address(view.payout, "MWV1 payout")
+        if view.stage_generation == 0 or view.handover_at == 0:
+            raise TransitionRejected("MWV1 stage generation/clock must be nonzero")
         if view.expires_at < view.handover_at:
             raise TransitionRejected("MWV1 stage expiry precedes handover")
         if view.reserve_wei == 0:
@@ -1932,9 +1934,27 @@ def encode_seat_mutation_receipt_v1(receipt: SeatMutationReceiptV1) -> bytes:
             receipt.post_state_version != receipt.pre_state_version
             or receipt.post_wire_nonce != receipt.pre_wire_nonce
             or receipt.receipt_hash != ZERO_BYTES32
-            or any(item not in (0, False, ZERO_BYTES32) for item in payload)
         ):
-            raise TransitionRejected("SMR1 no-op changed state or used payload")
+            raise TransitionRejected("SMR1 no-op changed state")
+        if receipt.result is WireResult.NO_FEASIBLE:
+            if any(item not in (0, False, ZERO_BYTES32) for item in payload):
+                raise TransitionRejected("SMR1 NO_FEASIBLE used payload")
+        elif (
+            receipt.stage_id != ZERO_BYTES32
+            or receipt.offer_id == ZERO_BYTES32
+            or receipt.tranche_id == ZERO_BYTES32
+            or receipt.operator == ZERO_ADDRESS
+            or receipt.payout == ZERO_ADDRESS
+            or receipt.selected_rank != 0
+            or receipt.outgoing_term_id != ZERO_BYTES32
+            or receipt.handover_at != 0
+            or receipt.expires_at != 0
+            or receipt.reserve_id != ZERO_BYTES32
+            or receipt.credit_id != ZERO_BYTES32
+            or receipt.ask_wei_per_second == 0
+            or receipt.reserve_wei <= receipt.amount
+        ):
+            raise TransitionRejected("SMR1 UNDERFUNDED payload is noncanonical")
     else:
         if (
             receipt.post_state_version
@@ -1972,12 +1992,8 @@ def encode_seat_mutation_receipt_v1(receipt: SeatMutationReceiptV1) -> bytes:
                     raise TransitionRejected("SMR1 APPLIED zero reserve is noncanonical")
             elif receipt.ask_wei_per_second == 0 or receipt.reserve_id == ZERO_BYTES32:
                 raise TransitionRejected("SMR1 APPLIED funded reserve is incomplete")
-            if (receipt.credit_id == ZERO_BYTES32) != (receipt.amount == 0):
-                raise TransitionRejected("SMR1 APPLIED premium credit pair is incomplete")
-            if receipt.outgoing_term_id == ZERO_BYTES32 and (
-                receipt.credit_id != ZERO_BYTES32 or receipt.amount != 0
-            ):
-                raise TransitionRejected("SMR1 APPLIED has credit without outgoing term")
+            if receipt.credit_id != ZERO_BYTES32 or receipt.amount != 0:
+                raise TransitionRejected("SMR1 APPLIED cannot create a credit")
         elif receipt.result is WireResult.RESTORED:
             if receipt.operation not in (
                 WireOperation.EXPIRE, WireOperation.INVALIDATE
@@ -2473,6 +2489,12 @@ def offer_identity(
 ) -> bytes:
     """Encode one quote identity with the complete immutable quote tuple."""
 
+    # The public offer wire exposes both maturity clocks as uint64.  Validate
+    # that boundary first, then widen the same values only for this legacy
+    # u256 hash preimage.
+    exact_timestamp = int.from_bytes(u64(eligible_at_timestamp), "big")
+    exact_block = int.from_bytes(u64(eligible_at_block), "big")
+
     return hash_fixed(
         D_OFFER,
         _bytes32(authorization_id, "authorization ID"),
@@ -2480,8 +2502,8 @@ def offer_identity(
         _bytes32(tranche_id, "tranche ID"),
         address20(payout, "payout"),
         u256(ask_wei_per_second),
-        u256(eligible_at_timestamp),
-        u256(eligible_at_block),
+        u256(exact_timestamp),
+        u256(exact_block),
         u256(quote_sequence),
     )
 
@@ -2926,8 +2948,8 @@ class SeatMarket:
     def _validate_clock(clock: Clock) -> None:
         if type(clock) is not Clock:
             raise TransitionRejected("invalid clock")
-        _uint(clock.timestamp, "clock timestamp")
-        _uint(clock.block_number, "clock block number")
+        u64(clock.timestamp)
+        u64(clock.block_number)
 
     @staticmethod
     def _validate_authorization_record(auth: TargetAuthorization) -> None:
@@ -3369,11 +3391,16 @@ class SeatMarket:
 
     def _validate_lineup_authority(self, snapshot: LineupSnapshot) -> None:
         self._validate_lineup(snapshot)
+        observed = self._read_authorized_target(
+            snapshot.authorization_id, expected_phase="ACTIVE"
+        )
+        observed_generation = self._validate_exact_target_view(observed)
         if (
             snapshot.target != self.authorization.target
             or snapshot.authorization_id != self.current_authorization_id
             or self.cached_generation is None
             or snapshot.generation != self.cached_generation
+            or observed_generation != self.cached_generation
             or not self.insertion_enabled
         ):
             raise TransitionRejected("lineup authority is stale")
@@ -3529,7 +3556,10 @@ class SeatMarket:
             raise TransitionRejected("stale generation")
 
     def _validate_exact_target_view(
-        self, view: ExactTargetView, *, expected_phase: str = "ACTIVE"
+        self,
+        view: ExactTargetView,
+        *,
+        expected_phase: str | tuple[str, ...] = "ACTIVE",
     ) -> int:
         if type(view) is not ExactTargetView:
             raise TransitionRejected("malformed target view")
@@ -3539,12 +3569,26 @@ class SeatMarket:
         _bytes32(view.runtime_hash, "view runtime hash")
         _bytes32(view.configuration_hash, "view configuration hash")
         _bytes4(view.magic, "view magic")
-        if type(view.phase) is not str or view.phase != expected_phase:
-            raise TransitionRejected(f"view phase is not exact {expected_phase}")
+        allowed = (
+            (expected_phase,)
+            if type(expected_phase) is str
+            else expected_phase
+        )
+        if (
+            type(allowed) is not tuple
+            or not allowed
+            or any(type(phase) is not str for phase in allowed)
+            or type(view.phase) is not str
+            or view.phase not in allowed
+        ):
+            raise TransitionRejected(f"view phase is not in {allowed}")
         return int.from_bytes(u64(view.generation), "big")
 
     def _read_authorized_target(
-        self, authorization_id: bytes, *, expected_phase: str
+        self,
+        authorization_id: bytes,
+        *,
+        expected_phase: str | tuple[str, ...],
     ) -> ExactTargetView:
         auth = self.authorizations.get(authorization_id)
         runtime = self.target_runtimes.get(authorization_id)
@@ -4156,6 +4200,10 @@ class SeatMarket:
             else:
                 handover_at = handover_floor
             expires_at = checked_add(handover_at, self.stage_grace_seconds)
+            # MWV1/SMR1 expose both values as uint64.  Hash only the validated
+            # widened values so the identity and wire cannot disagree.
+            u64(handover_at)
+            u64(expires_at)
             stage_id = hash_fixed(
                 D_STAGE,
                 self.current_authorization_id,
@@ -4213,7 +4261,9 @@ class SeatMarket:
 
         return self._atomic(transition, wire_operation=WireOperation.STAGE)
 
-    def _restore_stage(self, stage_id: bytes) -> TransitionResult:
+    def _restore_stage(
+        self, stage_id: bytes, *, force_owner_terminal: bool = False
+    ) -> TransitionResult:
         stage = self.stage
         if stage is None or stage.stage_id != _bytes32(stage_id, "stage ID"):
             raise TransitionRejected("stage identity mismatch")
@@ -4226,7 +4276,8 @@ class SeatMarket:
         ):
             raise TransitionRejected("stage binding is not restorable")
         restore_current = (
-            offer.authorization_id == self.current_authorization_id
+            not force_owner_terminal
+            and offer.authorization_id == self.current_authorization_id
             and self.authorization_enabled.get(offer.authorization_id) is True
             and self.cached_generation is not None
             and offer.generation == self.cached_generation
@@ -4279,6 +4330,18 @@ class SeatMarket:
             self._validate_clock(clock)
             if self.stage is None or clock.timestamp <= self.stage.expires_at:
                 raise TransitionRejected("stage has not expired")
+            offer = self.offers[self.stage.offer_id]
+            observed = self._read_authorized_target(
+                offer.authorization_id, expected_phase="ACTIVE"
+            )
+            if (
+                offer.authorization_id != self.current_authorization_id
+                or not self.authorization_enabled.get(offer.authorization_id, False)
+                or self.cached_generation is None
+                or offer.generation != self.cached_generation
+                or observed.generation != self.cached_generation
+            ):
+                raise TransitionRejected("ordinary EXPIRE authority is stale")
             return self._restore_stage(stage_id)
 
         return self._atomic(transition, wire_operation=WireOperation.EXPIRE)
@@ -4295,7 +4358,22 @@ class SeatMarket:
                 != _bytes32(lineup_commitment, "lineup commitment")
             ):
                 raise TransitionRejected("lineup tombstone does not bind stage")
-            return self._restore_stage(stage_id)
+            offer = self.offers[self.stage.offer_id]
+            observed = self._read_authorized_target(
+                offer.authorization_id,
+                expected_phase=("ACTIVE", "ARMED", "READY", "FROZEN"),
+            )
+            restore_current = (
+                observed.phase == "ACTIVE"
+                and offer.authorization_id == self.current_authorization_id
+                and self.authorization_enabled.get(offer.authorization_id, False)
+                and self.cached_generation is not None
+                and offer.generation == self.cached_generation
+                and observed.generation == self.cached_generation
+            )
+            return self._restore_stage(
+                stage_id, force_owner_terminal=not restore_current
+            )
 
         return self._atomic(transition, wire_operation=WireOperation.INVALIDATE)
 
@@ -4314,6 +4392,10 @@ class SeatMarket:
                 raise TransitionRejected("migration tombstone does not bind stage")
             offer = self.offers[stage.offer_id]
             tranche = self.tranches[offer.tranche_id]
+            self._read_authorized_target(
+                offer.authorization_id,
+                expected_phase=("ACTIVE", "ARMED", "READY", "FROZEN"),
+            )
             released = 0
             if stage.reserve_id is not None:
                 reserve = self.accounting.live_reserves.pop(stage.reserve_id)

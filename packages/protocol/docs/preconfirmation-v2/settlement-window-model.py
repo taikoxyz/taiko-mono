@@ -253,6 +253,69 @@ def seat_u256(value: int, name: str) -> int:
     return value
 
 
+def _seat_bytes32(value: bytes, name: str) -> bytes:
+    if type(value) is not bytes or len(value) != 32:
+        raise ValueError(f"{name} is not bytes32")
+    return value
+
+
+def _seat_u64_bytes(value: int, name: str) -> bytes:
+    if type(value) is not int or not 0 <= value <= UINT64_MAX:
+        raise ValueError(f"{name} is outside uint64")
+    return value.to_bytes(8, "big")
+
+
+def seat_duty_id_v1(
+    term_id: bytes,
+    duty_sequence: int,
+    base_canonical_sequence: int,
+    base_tip_slot: int,
+) -> bytes:
+    """Exact legacy-Keccak TAIKO_SEAT_DUTY_V1 identity."""
+
+    return keccak256(b"".join((
+        b"TAIKO_SEAT_DUTY_V1",
+        _seat_bytes32(term_id, "duty term"),
+        _seat_u64_bytes(duty_sequence, "duty sequence"),
+        _seat_u64_bytes(base_canonical_sequence, "duty base sequence"),
+        _seat_u64_bytes(base_tip_slot, "duty base tip"),
+    )))
+
+
+def seat_selection_id_v1(
+    term_id: bytes,
+    tranche_id: bytes,
+    offer_id: bytes,
+    selected_canonical_sequence: int,
+    selected_at: int,
+    target_tip: int,
+    source: "SelectionSource",
+    predecessor_duty_id: bytes | None,
+) -> bytes:
+    """Exact legacy-Keccak TAIKO_SEAT_SELECTION_V1 identity."""
+
+    if type(source) is not SelectionSource:
+        raise ValueError("selection source is not canonical")
+    predecessor = (
+        bytes(32)
+        if predecessor_duty_id is None
+        else _seat_bytes32(predecessor_duty_id, "selection predecessor")
+    )
+    return keccak256(b"".join((
+        b"TAIKO_SEAT_SELECTION_V1",
+        _seat_bytes32(term_id, "selection term"),
+        _seat_bytes32(tranche_id, "selection tranche"),
+        _seat_bytes32(offer_id, "selection offer"),
+        _seat_u64_bytes(
+            selected_canonical_sequence, "selection canonical sequence"
+        ),
+        _seat_u64_bytes(selected_at, "selection time"),
+        _seat_u64_bytes(target_tip, "selection target tip"),
+        source.value.to_bytes(1, "big"),
+        predecessor,
+    )))
+
+
 def seat_checked_add(left: int, right: int, name: str) -> int:
     result = seat_u256(left, f"{name} left") + seat_u256(right, f"{name} right")
     if result > SEAT_UINT256_MAX:
@@ -4099,12 +4162,26 @@ class BuilderExitRequest:
     resolved: bool = False
 
 
+class ScheduleReleaseState(Enum):
+    UNSEALED = 0
+    SEALED = 1
+    VACANT = 2
+    EXPIRED = 3
+
+
+EMPTY_RANKED_ENTRY_ROOT = bytes.fromhex(
+    "986d3e795bd9ddfabe213b93cea0211eea5a663e895bfc112d90c5bf2fff1564"
+)
+
+
 @dataclass
 class ScheduleReleaseCursor:
     """Monotonic proof that pruned schedule-ring windows were once expired."""
 
     first_managed_window: int = 0
     next_release_window: int | None = None
+    sealed_entry_roots: dict[int, bytes] = field(default_factory=dict)
+    objectively_vacant: set[int] = field(default_factory=set)
 
     def __post_init__(self) -> None:
         if self.next_release_window is None:
@@ -4122,6 +4199,59 @@ class ScheduleReleaseCursor:
             return False
         self.next_release_window += 1
         return True
+
+    def release_state(
+        self, window: int
+    ) -> tuple[ScheduleReleaseState, bytes]:
+        """Return the exact SWR1 state/root projection."""
+
+        assert self.next_release_window is not None
+        if type(window) is not int or not 0 <= window <= UINT64_MAX:
+            raise ValueError("release-state window is outside uint64")
+        if window < self.next_release_window:
+            return ScheduleReleaseState.EXPIRED, bytes(32)
+        root = self.sealed_entry_roots.get(window)
+        if root is not None:
+            if type(root) is not bytes or len(root) != 32 or root == bytes(32):
+                raise ValueError("sealed entry root is malformed")
+            return ScheduleReleaseState.SEALED, root
+        if window in self.objectively_vacant:
+            return ScheduleReleaseState.VACANT, EMPTY_RANKED_ENTRY_ROOT
+        return ScheduleReleaseState.UNSEALED, bytes(32)
+
+    def expire_batch(
+        self,
+        max_windows: int,
+        authenticated_releasable: Callable[[int], bool],
+    ) -> int:
+        """Commit the maximal safe prefix; rollback on authentication faults."""
+
+        if type(max_windows) is not int or not 1 <= max_windows <= 8:
+            raise ValueError("schedule expiry batch is outside 1..8")
+        if not callable(authenticated_releasable):
+            raise ValueError("schedule release authenticator is absent")
+        assert self.next_release_window is not None
+        pre_cursor = self.next_release_window
+        expired = 0
+        try:
+            while expired < max_windows:
+                window = self.next_release_window
+                if window == UINT64_MAX:
+                    break
+                state, _ = self.release_state(window)
+                if state not in (
+                    ScheduleReleaseState.SEALED,
+                    ScheduleReleaseState.VACANT,
+                ):
+                    break
+                if not authenticated_releasable(window):
+                    break
+                self.next_release_window += 1
+                expired += 1
+        except BaseException:
+            self.next_release_window = pre_cursor
+            raise
+        return expired
 
     def is_expired(self, window: int) -> bool:
         assert self.next_release_window is not None
@@ -5132,6 +5262,10 @@ class Protocol:
     outstanding_stage_tombstone_id: bytes | None = None
     seat_generation: int = 7
     seat_lineup_revision: int = 0
+    # Canonical transition sequence used by seat duty/selection identities in
+    # isolated fixtures.  Production-linked protocols read the identical
+    # sequence from VersionedSettlementHistory.
+    seat_canonical_sequence: int = 0
     seat_authorization_id: bytes | None = None
     seat_market_address: str | None = None
     seat_runway_seconds: int = SEAT_RUNWAY_SECONDS
@@ -6042,22 +6176,20 @@ class Protocol:
     def identical(self, other: "Protocol") -> bool:
         return self == other
 
-    @staticmethod
-    def _seat_hash(*parts: object) -> bytes:
-        encoded = b"TAIKO_SETTLEMENT_SEAT_MODEL_V1"
-        for part in parts:
-            if isinstance(part, bytes):
-                encoded += len(part).to_bytes(4, "big") + part
-            elif isinstance(part, int) and not isinstance(part, bool) and part >= 0:
-                encoded += seat_u256(part, "seat commitment integer").to_bytes(
-                    32, "big"
-                )
-            elif isinstance(part, str):
-                raw = part.encode("utf-8")
-                encoded += len(raw).to_bytes(4, "big") + raw
-            else:
-                raise ValueError("seat commitment input is not canonical")
-        return hashlib.sha256(encoded).digest()
+    def _seat_current_canonical_sequence(self) -> int:
+        history = self.versioned_history
+        if (
+            history is not None
+            and type(history).__name__ == "VersionedSettlementHistory"
+            and type(getattr(history, "current_sequence", None)) is int
+            and history.current_sequence >= 0
+        ):
+            sequence = history.current_sequence
+        else:
+            sequence = self.seat_canonical_sequence
+        if not 0 <= sequence <= UINT64_MAX:
+            raise ValueError("seat canonical sequence is outside uint64")
+        return sequence
 
     def _seat_fault(self, name: str) -> None:
         if self.seat_fault_point == name:
@@ -6182,16 +6314,15 @@ class Protocol:
                 != (selection.predecessor_duty_id is not None)
             ):
                 raise AssertionError("selection source/duty binding is ambiguous")
-            expected_selection_id = self._seat_hash(
-                "SELECTION",
+            expected_selection_id = seat_selection_id_v1(
                 selection.term_id,
                 selection.tranche_id,
                 selection.offer_id,
                 selection.selected_canonical_sequence,
                 selection.selected_at,
                 selection.target_tip,
-                selection.source.name,
-                selection.predecessor_duty_id or b"",
+                selection.source,
+                selection.predecessor_duty_id,
             )
             if selection.selection_id != expected_selection_id:
                 raise AssertionError("selected successor record commitment changed")
@@ -6216,16 +6347,15 @@ class Protocol:
                     != (selection.predecessor_duty_id is not None)
                 )
                 or selection.selection_id
-                    != self._seat_hash(
-                        "SELECTION",
+                    != seat_selection_id_v1(
                         selection.term_id,
                         selection.tranche_id,
                         selection.offer_id,
                         selection.selected_canonical_sequence,
                         selection.selected_at,
                         selection.target_tip,
-                        selection.source.name,
-                        selection.predecessor_duty_id or b"",
+                        selection.source,
+                        selection.predecessor_duty_id,
                     )
             ):
                 raise AssertionError("retained selection history is not exact")
@@ -6348,8 +6478,7 @@ class Protocol:
                 or duty.tranche_id != term.tranche_id
                 or duty.operator != term.operator
                 or duty.duty_id
-                    != self._seat_hash(
-                        "DUTY",
+                    != seat_duty_id_v1(
                         duty.term_id,
                         duty.sequence,
                         duty.base_sequence,
@@ -6617,8 +6746,8 @@ class Protocol:
             )
         self.duty_sequence += 1
         sequence = self.duty_sequence
-        duty_id = self._seat_hash(
-            "DUTY", term_id, sequence, exact_base_sequence, exact_base_tip_slot
+        duty_id = seat_duty_id_v1(
+            term_id, sequence, exact_base_sequence, exact_base_tip_slot
         )
         duty = Duty(
             duty_id=duty_id,
@@ -6749,7 +6878,7 @@ class Protocol:
                 term.term_id,
                 term.installed_at,
                 base_tip_slot=self._fresh_service_base_tip(term.installed_at),
-                base_sequence=self.core.l2_block_number,
+                base_sequence=self._seat_current_canonical_sequence(),
             )
         if self.seat_lineup_revision == revision_before:
             self._advance_lineup_revision()
@@ -6830,23 +6959,22 @@ class Protocol:
             if target_tip is None
             else seat_u256(target_tip, "selected successor target tip")
         )
-        selection_id = self._seat_hash(
-            "SELECTION",
+        selection_id = seat_selection_id_v1(
             term.term_id,
             term.tranche_id,
             term.offer_id,
-            self.core.l2_block_number,
+            self._seat_current_canonical_sequence(),
             selected_at,
             exact_target_tip,
-            source.name,
-            trigger_duty_id or b"",
+            source,
+            trigger_duty_id,
         )
         self.seat_selection = SelectionRecord(
             selection_id,
             term.term_id,
             term.tranche_id,
             term.offer_id,
-            self.core.l2_block_number,
+            self._seat_current_canonical_sequence(),
             selected_at,
             exact_target_tip,
             source,
@@ -6872,7 +7000,7 @@ class Protocol:
             term_id,
             start,
             base_tip_slot=fresh_base_tip,
-            base_sequence=self.core.l2_block_number,
+            base_sequence=self._seat_current_canonical_sequence(),
         )
         if started:
             self._invalidate_local_stage("PROMOTION")
@@ -6998,14 +7126,19 @@ class Protocol:
         return changed
 
     def _satisfy_activated_duty(self, duty: Duty, clock: Clock) -> bool:
-        if duty.status is not DutyStatus.OPEN:
+        if duty.status not in (DutyStatus.OPEN, DutyStatus.FAILED_OVER):
             return False
+        cured_after_failover = duty.status is DutyStatus.FAILED_OVER
         revision_before = self.seat_lineup_revision
         self._transition_duty_status(duty, DutyStatus.SATISFIED)
         if duty.satisfied_at is None:
             duty.satisfied_at = clock.timestamp
             duty.disposition_at = clock.timestamp
-        start_successor = False
+        start_successor = (
+            cured_after_failover
+            and self.seat_selection is not None
+            and self.seat_selection.predecessor_duty_id == duty.duty_id
+        )
         roster_changed = False
         if duty.term_id in self.seat_lineup:
             was_primary = self.seat_lineup[0] == duty.term_id
@@ -7058,12 +7191,12 @@ class Protocol:
             changed |= self._process_activated_duty(duty, clock)
             if (
                 allow_cure
-                and duty.status is DutyStatus.OPEN
+                and duty.status in (DutyStatus.OPEN, DutyStatus.FAILED_OVER)
                 and clock.timestamp <= duty.slash_at
                 and duty.operator == self.seat_terms[duty.term_id].operator
                 and duty.tranche_id == self.seat_terms[duty.term_id].tranche_id
                 and duty.term_id == self.seat_terms[duty.term_id].term_id
-                and self.core.l2_block_number > duty.base_sequence
+                and self._seat_current_canonical_sequence() > duty.base_sequence
                 and self.core.tip_slot >= duty.target_tip
             ):
                 self._satisfy_activated_duty(duty, clock)
@@ -7074,7 +7207,7 @@ class Protocol:
                 and duty.status is DutyStatus.FAILED_OVER
                 and self.seat_selection is not None
                 and self.seat_selection.predecessor_duty_id == duty.duty_id
-                and self.core.l2_block_number > duty.base_sequence
+                and self._seat_current_canonical_sequence() > duty.base_sequence
                 and self.core.tip_slot >= duty.target_tip
             ):
                 # Failover is economically irreversible, but the first usable
@@ -7100,7 +7233,7 @@ class Protocol:
             and not start_successor
             and self.seat_selection is not None
             and self.seat_selection.predecessor_duty_id is None
-            and self.core.l2_block_number
+            and self._seat_current_canonical_sequence()
                 > self.seat_selection.selected_canonical_sequence
             and self.core.tip_slot >= self.seat_selection.target_tip
         ):
@@ -7119,14 +7252,15 @@ class Protocol:
         if (
             service.duty_base_sequence is None
             or service.prospective_target_tip is None
-            or self.core.l2_block_number <= service.duty_base_sequence
+            or self._seat_current_canonical_sequence()
+                <= service.duty_base_sequence
             or self.core.tip_slot < service.prospective_target_tip
         ):
             return False
         self._set_prospective_duty(
             active,
             self.core.tip_slot,
-            self.core.l2_block_number,
+            self._seat_current_canonical_sequence(),
         )
         return True
 
@@ -8069,7 +8203,7 @@ class Protocol:
                     term.term_id,
                     clock.timestamp,
                     base_tip_slot=self._fresh_service_base_tip(clock.timestamp),
-                    base_sequence=self.core.l2_block_number,
+                    base_sequence=self._seat_current_canonical_sequence(),
                 )
             if self.seat_lineup_revision != install_revision - 1:
                 raise AssertionError("compound install changed lineup revision twice")
@@ -8272,7 +8406,7 @@ class Protocol:
     def finalize_installed_exit(
         self, market: object, term_id: bytes, clock: Clock
     ) -> object:
-        """Permissionless exact roster removal with mandatory leading sync."""
+        """Settlement-local roster removal; reserve reconciliation is later."""
 
         market_before = copy.deepcopy(market)
         if self._leading_seat_sync(clock):
@@ -8281,7 +8415,6 @@ class Protocol:
             return "SYNCED"
 
         def transition() -> object:
-            module = self._bound_market_module(market)
             if (
                 term_id not in self.seat_lineup
                 or term_id == self.selected_successor_term_id
@@ -8289,21 +8422,10 @@ class Protocol:
             ):
                 raise ValueError("installed exit is not removable")
             was_primary = self.active_primary_term_id == term_id
-            duty_id = self.term_duty.get(term_id)
-            duty = self.seat_duties.get(duty_id) if duty_id is not None else None
-            unresolved = duty is not None and duty.status in (
-                DutyStatus.OPEN, DutyStatus.FAILED_OVER
-            )
             revision_before = self.seat_lineup_revision
             self._close_service(term_id, clock.timestamp, "VOLUNTARY_EXIT")
             self._remove_lineup_term(term_id, clock.timestamp)
             self._seat_fault("after_exit_roster_removal")
-            result = market._settlement_close_reserve(
-                self._market_service_view(market, term_id),
-                module.Clock(clock.timestamp, clock.block_number),
-                atomic_healthy=True,
-            )
-            self._seat_fault("after_exit_reserve_reconciliation")
             if was_primary and self.seat_lineup:
                 successor = self.seat_lineup[0]
                 if self.seat_services[successor].responsibility_start is not None:
@@ -8312,12 +8434,12 @@ class Protocol:
                     successor,
                     clock.timestamp,
                     base_tip_slot=self._fresh_service_base_tip(clock.timestamp),
-                    base_sequence=self.core.l2_block_number,
+                    base_sequence=self._seat_current_canonical_sequence(),
                 )
             if self.seat_lineup_revision == revision_before:
                 self._advance_lineup_revision()
             self._invalidate_local_stage("VOLUNTARY_EXIT")
-            return result
+            return "REMOVED"
 
         return self._composed_seat_call(market, transition)
 
@@ -10496,6 +10618,10 @@ class Protocol:
                 ) is None:
                     raise AssertionError("atomic canonical-history write rejected")
                 self._seat_fault("after_history_record")
+            else:
+                if self.seat_canonical_sequence >= UINT64_MAX:
+                    raise AssertionError("seat canonical sequence exhausted")
+                self.seat_canonical_sequence += 1
             scan = self._scan_seat_duties(
                 clock,
                 allow_cure=True,
@@ -17764,7 +17890,7 @@ def canonical_seat_wire_cross_model_fixture_v1() -> dict[str, bytes]:
         magic(b"SMR1"), word(3), word(2), word(10), intent, word(11),
         word(12), word(9), word(10), last, zero, stage, offer, tranche,
         operator, payout, word(4), word(1), outgoing, word(120), word(140),
-        incoming, word(400), credit, word(7),
+        incoming, word(400), zero, zero,
     ]
     smr_zero = b"".join(smr_words)
     smr_words[10] = keccak256(

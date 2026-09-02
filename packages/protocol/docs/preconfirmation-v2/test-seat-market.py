@@ -277,6 +277,51 @@ class ProductionWireOracleSmokeTests(unittest.TestCase):
         )
         with self.assertRaises(model.TransitionRejected):
             model.encode_seat_mutation_receipt_v1(noop)
+        underfunded = replace(
+            smr1,
+            result=model.WireResult.UNDERFUNDED,
+            post_state_version=smr1.pre_state_version,
+            post_wire_nonce=smr1.pre_wire_nonce,
+            receipt_hash=model.ZERO_BYTES32,
+            stage_id=model.ZERO_BYTES32,
+            ask_wei_per_second=7,
+            handover_at=0,
+            expires_at=0,
+            reserve_id=model.ZERO_BYTES32,
+            reserve_wei=700,
+            credit_id=model.ZERO_BYTES32,
+            amount=699,
+        )
+        raw_underfunded = model.encode_seat_mutation_receipt_v1(underfunded)
+        self.assertEqual(
+            model.decode_seat_mutation_receipt_v1(raw_underfunded),
+            underfunded,
+        )
+        with self.assertRaises(model.TransitionRejected):
+            model.encode_seat_mutation_receipt_v1(
+                replace(underfunded, amount=underfunded.reserve_wei)
+            )
+        applied = replace(
+            smr1,
+            result=model.WireResult.APPLIED,
+            operation=model.WireOperation.APPLY,
+        )
+        applied = replace(
+            applied, receipt_hash=model.seat_mutation_receipt_hash(applied)
+        )
+        model.encode_seat_mutation_receipt_v1(applied)
+        credited_applied = replace(
+            applied,
+            credit_id=b"c" * 32,
+            amount=1,
+            receipt_hash=model.ZERO_BYTES32,
+        )
+        credited_applied = replace(
+            credited_applied,
+            receipt_hash=model.seat_mutation_receipt_hash(credited_applied),
+        )
+        with self.assertRaises(model.TransitionRejected):
+            model.encode_seat_mutation_receipt_v1(credited_applied)
         with self.assertRaises(model.TransitionRejected):
             model.encode_market_rotation_receipt_v1(replace(
                 mro1,
@@ -373,7 +418,7 @@ class ProductionWireOracleSmokeTests(unittest.TestCase):
             ],
         )
 
-    def test_stale_generation_expiry_terminalizes_instead_of_restoring(self):
+    def test_stale_generation_requires_invalidation_and_terminalizes(self):
         market = make_market()
         market.sponsor_premium(10_000)
         row = insert(market, "alice", 5, clock=model.Clock(100, 50))
@@ -385,18 +430,24 @@ class ProductionWireOracleSmokeTests(unittest.TestCase):
         runtime = market.target_runtimes[market.current_authorization_id]
         runtime.authority.generation = 8
         market.sync_seat_generation()
-        result = market._settlement_expire_stage(
-            staged.stage_id, model.Clock(staged.expires_at + 1, 54)
+        with self.assertRaises(model.TransitionRejected):
+            market._settlement_expire_stage(
+                staged.stage_id, model.Clock(staged.expires_at + 1, 54)
+            )
+        result = market._settlement_invalidate_stage(
+            staged.stage_id, staged.lineup_commitment
         )
         self.assertIsNone(market.stage)
         self.assertEqual(market.pending_count, 0)
-        self.assertIs(row.offer.location, model.OfferLocation.NONE)
-        self.assertIs(row.tranche.usage, model.TrancheUsage.CLOSED_UNINSTALLED)
+        live_offer = market.offers[row.offer.offer_id]
+        live_tranche = market.tranches[row.tranche.tranche_id]
+        self.assertIs(live_offer.location, model.OfferLocation.NONE)
+        self.assertIs(live_tranche.usage, model.TrancheUsage.CLOSED_UNINSTALLED)
         self.assertIs(
-            row.tranche.disposition, model.BondDisposition.OWNER_CREDITED
+            live_tranche.disposition, model.BondDisposition.OWNER_CREDITED
         )
         self.assertEqual(result.credit_id, market.credit_id(
-            row.tranche.tranche_id, model.BondDisposition.OWNER_CREDITED
+            live_tranche.tranche_id, model.BondDisposition.OWNER_CREDITED
         ))
         self.assertNotEqual(market.last_receipt_hash, prior_receipt)
 

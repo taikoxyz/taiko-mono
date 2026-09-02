@@ -822,6 +822,138 @@ def abi_bytes_tail(value: bytes) -> bytes:
     return u256(len(value)) + value + bytes(ceil32(len(value)) - len(value))
 
 
+def canonical_packed_slot_chain_block(
+    values: tuple[int | bytes, ...],
+) -> bytes:
+    """Encode the exact 521-byte signed-header tuple used by BEV1."""
+
+    assert len(values) == 24
+    encoded = b"".join((
+        u256(values[0]), u256(values[1]), u256(values[2]),
+        address20(values[3]), u64(values[4]),
+        *(b32(values[index]) for index in range(5, 9)),
+        u64(values[9]), b32(values[10]), b32(values[11]),
+        u64(values[12]), u64(values[13]), u64(values[14]),
+        b32(values[15]), address20(values[16]),
+        int(values[17]).to_bytes(1, "big"), b32(values[18]),
+        u64(values[19]), b32(values[20]), u64(values[21]),
+        u64(values[22]), b32(values[23]),
+    ))
+    assert len(encoded) == 521 and int(values[17]) in (1, 2)
+    return encoded
+
+
+def builder_dynamic_bytes_calldata(
+    selector: bytes, static_words: tuple[bytes, ...], payload: bytes
+) -> bytes:
+    """Encode one ABI whose sole dynamic bytes argument is last."""
+
+    assert len(selector) == 4 and all(len(value) == 32 for value in static_words)
+    offset = 32 * (len(static_words) + 1)
+    encoded = (
+        selector + b"".join(static_words) + u256(offset)
+        + abi_bytes_tail(payload)
+    )
+    assert len(encoded) == 4 + offset + 32 + ceil32(len(payload))
+    return encoded
+
+
+def builder_close_records(
+    records: tuple[tuple[int, tuple[bytes, ...]], ...]
+) -> bytes:
+    """Encode strictly ascending 296-byte tranche-close records."""
+
+    assert len(records) <= 17
+    previous = -1
+    encoded = bytearray()
+    for window, proof in records:
+        assert window > previous and len(proof) == TRANCHE_DEPTH
+        assert all(len(sibling) == 32 for sibling in proof)
+        encoded.extend(u64(window))
+        encoded.extend(b"".join(proof))
+        previous = window
+    assert len(encoded) == 296 * len(records)
+    return bytes(encoded)
+
+
+def builder_move_witness(
+    records: tuple[tuple[int, tuple[bytes, ...]], ...],
+    registry_path: tuple[bytes, ...],
+    liability_path: tuple[bytes, ...],
+    active_path: tuple[bytes, ...],
+) -> bytes:
+    assert len(registry_path) == REGISTRY_DEPTH
+    assert len(liability_path) == len(active_path) == ADMISSION_DEPTH
+    encoded = (
+        len(records).to_bytes(1, "big") + builder_close_records(records)
+        + b"".join(registry_path) + b"".join(liability_path)
+        + b"".join(active_path)
+    )
+    assert len(encoded) == 897 + 296 * len(records)
+    return encoded
+
+
+def builder_normalize_witness(
+    records: tuple[tuple[int, tuple[bytes, ...]], ...],
+    registry_path: tuple[bytes, ...],
+) -> bytes:
+    assert len(registry_path) == REGISTRY_DEPTH
+    if not records:
+        return b"\x00"
+    encoded = (
+        len(records).to_bytes(1, "big") + builder_close_records(records)
+        + b"".join(registry_path)
+    )
+    assert len(encoded) == 193 + 296 * len(records)
+    return encoded
+
+
+def builder_reserve_witness(
+    records: tuple[tuple[int, tuple[bytes, ...]], ...],
+    target_path: tuple[bytes, ...],
+    registry_path: tuple[bytes, ...],
+) -> bytes:
+    assert len(target_path) == TRANCHE_DEPTH
+    assert len(registry_path) == REGISTRY_DEPTH
+    encoded = (
+        len(records).to_bytes(1, "big") + builder_close_records(records)
+        + b"".join(target_path) + b"".join(registry_path)
+    )
+    assert len(encoded) == 481 + 296 * len(records)
+    return encoded
+
+
+def builder_equivocation_witness(
+    block_a: bytes,
+    signature_a: bytes,
+    block_b: bytes,
+    signature_b: bytes,
+    historical_position: int,
+    historical_path: tuple[bytes, ...],
+    window: int,
+    tranche_path: tuple[bytes, ...],
+    current_admission_path: tuple[bytes, ...],
+    current_registry_path: tuple[bytes, ...],
+    *,
+    active: bool,
+) -> bytes:
+    assert len(block_a) == len(block_b) == 521
+    assert len(signature_a) == len(signature_b) == 65
+    assert len(historical_path) == len(current_admission_path) == ADMISSION_DEPTH
+    assert len(tranche_path) == TRANCHE_DEPTH
+    assert len(current_registry_path) == REGISTRY_DEPTH
+    if not active:
+        assert current_registry_path == (bytes(32),) * REGISTRY_DEPTH
+    encoded = b"".join((
+        block_a, signature_a, block_b, signature_b,
+        historical_position.to_bytes(2, "big"), b"".join(historical_path),
+        u64(window), b"".join(tranche_path),
+        b"".join(current_admission_path), b"".join(current_registry_path),
+    ))
+    assert len(encoded) == 2_366
+    return encoded
+
+
 def uint_word_value(encoded: bytes, bits: int = 256) -> int:
     assert len(encoded) == 32 and 0 < bits <= 256
     value = int.from_bytes(encoded, "big")
@@ -14961,6 +15093,141 @@ def vectors() -> dict[str, str]:
             replace(registration_mpt_verifier,
                     configuration_hash=bytes.fromhex("99" * 32))),
         "mismatched registration verifier config hash accepted")
+
+    # Exact BuilderRegistry proof tails, full calldata and fixed returns.  The
+    # fixture covers every prestate-derived witness branch rather than freezing
+    # selectors alone.
+    vacancy_registry_path = fixed_tree_proof(
+        [registry_leaf(i, value) for i, value in enumerate(cells)],
+        1, D_REG_NODE,
+    )
+    vacancy_admission_path = fixed_tree_proof(
+        admission_leaves, 1, D_ADM_NODE
+    )
+    vacancy_registration_witness = (
+        b"".join(vacancy_registry_path) + b"".join(vacancy_admission_path)
+    )
+    assert len(vacancy_registration_witness) == 544
+    move_registry_path = fixed_tree_proof(
+        [registry_leaf(i, value) for i, value in enumerate(move_active)],
+        0, D_REG_NODE,
+    )
+    close_records = ((519, tranche_proof),)
+    movement_witness = builder_move_witness(
+        close_records, move_registry_path,
+        liability_64_proof, active_0_intermediate_proof,
+    )
+    maintenance_witness = len(movement_witness).to_bytes(4, "big") \
+        + movement_witness
+    normalize_noop_witness = builder_normalize_witness((), registry_proof)
+    normalize_witness = builder_normalize_witness(close_records, registry_proof)
+    reserve_witness = builder_reserve_witness(
+        close_records, tranche_proof, registry_proof
+    )
+    active_tranche_release_witness = (
+        b"".join(tranche_proof) + b"".join(registry_proof)
+    )
+    liability_tranche_release_witness = b"".join(tranche_proof)
+    generation_release_witness = b"".join(admission_proof)
+    block_a = canonical_packed_slot_chain_block(block_values)
+    block_b_values = list(block_values)
+    block_b_values[6] = bytes.fromhex("89" * 32)
+    block_b = canonical_packed_slot_chain_block(tuple(block_b_values))
+    signature_a = (1).to_bytes(32, "big") + (1).to_bytes(32, "big") + b"\x1b"
+    signature_b = (2).to_bytes(32, "big") + (2).to_bytes(32, "big") + b"\x1c"
+    active_equivocation_witness = builder_equivocation_witness(
+        block_a, signature_a, block_b, signature_b,
+        64, admission_proof, 20, tranche_proof,
+        active_0_pre_proof, registry_proof, active=True,
+    )
+    liability_equivocation_witness = builder_equivocation_witness(
+        block_a, signature_a, block_b, signature_b,
+        64, admission_proof, 20, tranche_proof,
+        admission_proof, (bytes(32),) * REGISTRY_DEPTH, active=False,
+    )
+
+    register_builder_calldata = builder_dynamic_bytes_calldata(
+        BUILDER_REGISTRY_SELECTORS["register_builder_selector"],
+        (u256(1_000), u256(42), u256(1)), vacancy_registration_witness,
+    )
+    reserve_builder_calldata = builder_dynamic_bytes_calldata(
+        BUILDER_REGISTRY_SELECTORS["reserve_builder_window_selector"],
+        (u256(42), u256(519)), reserve_witness,
+    )
+    request_exit_calldata = (
+        BUILDER_REGISTRY_SELECTORS["request_builder_exit_selector"] + u256(42)
+    )
+    maintenance_calldata = builder_dynamic_bytes_calldata(
+        BUILDER_REGISTRY_SELECTORS["process_builder_maintenance_selector"],
+        (u256(1),), maintenance_witness,
+    )
+    normalize_calldata = builder_dynamic_bytes_calldata(
+        BUILDER_REGISTRY_SELECTORS["normalize_builder_tranches_selector"],
+        (address_word(cell.address), u256(cell.registration_index)),
+        normalize_witness,
+    )
+    release_tranche_calldata = builder_dynamic_bytes_calldata(
+        BUILDER_REGISTRY_SELECTORS["release_builder_tranche_selector"],
+        (address_word(cell.address), u256(cell.registration_index), u256(519)),
+        active_tranche_release_witness,
+    )
+    release_generation_calldata = builder_dynamic_bytes_calldata(
+        BUILDER_REGISTRY_SELECTORS["release_builder_generation_selector"],
+        (address_word(cell.address), u256(cell.registration_index)),
+        generation_release_witness,
+    )
+    claim_builder_credit_calldata = (
+        BUILDER_REGISTRY_SELECTORS["claim_builder_lease_credit_selector"]
+        + address_word(0xCAFE)
+    )
+    equivocation_calldata = builder_dynamic_bytes_calldata(
+        BUILDER_REGISTRY_SELECTORS["submit_builder_equivocation_selector"],
+        (), active_equivocation_witness,
+    )
+    expire_schedule_calldata = (
+        BUILDER_REGISTRY_SELECTORS["expire_schedule_windows_selector"] + u256(8)
+    )
+
+    register_builder_return = (
+        bytes4_word(b"BRG1") + u256(42) + u256(1) + u256(3_456)
+        + u256(8) + move_final_root
+    )
+    reserve_builder_return = (
+        bytes4_word(b"BRV1") + u256(42) + u256(519) + u256(10) + reg_root
+    )
+    request_exit_return = (
+        bytes4_word(b"BRE1") + u256(42) + u256(800) + u256(1)
+    )
+    maintenance_return = (
+        bytes4_word(b"BRM1") + u256(7) + u256(1) + u256(8) + move_final_root
+    )
+    normalize_return = (
+        bytes4_word(b"BRN1") + u256(42) + u256(1) + u256(10) + reg_root
+    )
+    release_tranche_return = (
+        bytes4_word(b"BTR1") + u256(42) + u256(519)
+        + address_word(cell.address) + u256(10**17) + u256(10) + reg_root
+    )
+    release_generation_return = (
+        bytes4_word(b"BGR1") + u256(42) + address_word(cell.address)
+        + u256(cell.bond) + u256(8) + move_final_root
+    )
+    claim_builder_credit_return = (
+        bytes4_word(b"BCL1") + address_word(0xCAFE) + u256(10**17)
+    )
+    equivocation_return = (
+        bytes4_word(b"BEV1") + u256(42) + u256(20)
+        + address_word(cell.address) + u256(10**16) + u256(9 * 10**16)
+        + u256(8) + move_final_root
+    )
+    expire_schedule_return = bytes4_word(b"SWE1") + u256(8) + u256(521)
+    assert tuple(map(len, (
+        register_builder_return, reserve_builder_return, request_exit_return,
+        maintenance_return, normalize_return, release_tranche_return,
+        release_generation_return, claim_builder_credit_return,
+        equivocation_return, expire_schedule_return,
+    ))) == (192, 160, 128, 160, 160, 224, 192, 96, 256, 96)
+
     assert_all_fields_bound(destination_receipt,
                             destination_activation_receipt_id)
     # Keep this assertion beside the vector: 64 consumed plus one boundary.
@@ -15049,6 +15316,98 @@ def vectors() -> dict[str, str]:
             keccak256(schedule_window_release_return).hex(),
         "builder_settlement_schedule_release_return_hash":
             keccak256(settlement_schedule_release_return).hex(),
+        "builder_vacancy_registration_witness_hash":
+            keccak256(vacancy_registration_witness).hex(),
+        "builder_vacancy_registration_witness_length":
+            str(len(vacancy_registration_witness)),
+        "builder_movement_witness_hash": keccak256(movement_witness).hex(),
+        "builder_movement_witness_length": str(len(movement_witness)),
+        "builder_maintenance_witness_hash":
+            keccak256(maintenance_witness).hex(),
+        "builder_maintenance_witness_length": str(len(maintenance_witness)),
+        "builder_normalize_noop_witness_hash":
+            keccak256(normalize_noop_witness).hex(),
+        "builder_normalize_noop_witness_length":
+            str(len(normalize_noop_witness)),
+        "builder_normalize_witness_hash": keccak256(normalize_witness).hex(),
+        "builder_normalize_witness_length": str(len(normalize_witness)),
+        "builder_reserve_witness_hash": keccak256(reserve_witness).hex(),
+        "builder_reserve_witness_length": str(len(reserve_witness)),
+        "builder_active_tranche_release_witness_hash":
+            keccak256(active_tranche_release_witness).hex(),
+        "builder_active_tranche_release_witness_length":
+            str(len(active_tranche_release_witness)),
+        "builder_liability_tranche_release_witness_hash":
+            keccak256(liability_tranche_release_witness).hex(),
+        "builder_liability_tranche_release_witness_length":
+            str(len(liability_tranche_release_witness)),
+        "builder_generation_release_witness_hash":
+            keccak256(generation_release_witness).hex(),
+        "builder_generation_release_witness_length":
+            str(len(generation_release_witness)),
+        "builder_active_equivocation_witness_hash":
+            keccak256(active_equivocation_witness).hex(),
+        "builder_active_equivocation_witness_length":
+            str(len(active_equivocation_witness)),
+        "builder_liability_equivocation_witness_hash":
+            keccak256(liability_equivocation_witness).hex(),
+        "builder_liability_equivocation_witness_length":
+            str(len(liability_equivocation_witness)),
+        "builder_register_calldata_hash":
+            keccak256(register_builder_calldata).hex(),
+        "builder_register_calldata_length": str(len(register_builder_calldata)),
+        "builder_register_return_hash": keccak256(register_builder_return).hex(),
+        "builder_register_return_length": str(len(register_builder_return)),
+        "builder_reserve_calldata_hash":
+            keccak256(reserve_builder_calldata).hex(),
+        "builder_reserve_calldata_length": str(len(reserve_builder_calldata)),
+        "builder_reserve_return_hash": keccak256(reserve_builder_return).hex(),
+        "builder_reserve_return_length": str(len(reserve_builder_return)),
+        "builder_request_exit_calldata_hash":
+            keccak256(request_exit_calldata).hex(),
+        "builder_request_exit_calldata_length": str(len(request_exit_calldata)),
+        "builder_request_exit_return_hash": keccak256(request_exit_return).hex(),
+        "builder_request_exit_return_length": str(len(request_exit_return)),
+        "builder_maintenance_calldata_hash": keccak256(maintenance_calldata).hex(),
+        "builder_maintenance_calldata_length": str(len(maintenance_calldata)),
+        "builder_maintenance_return_hash": keccak256(maintenance_return).hex(),
+        "builder_maintenance_return_length": str(len(maintenance_return)),
+        "builder_normalize_calldata_hash": keccak256(normalize_calldata).hex(),
+        "builder_normalize_calldata_length": str(len(normalize_calldata)),
+        "builder_normalize_return_hash": keccak256(normalize_return).hex(),
+        "builder_normalize_return_length": str(len(normalize_return)),
+        "builder_release_tranche_calldata_hash":
+            keccak256(release_tranche_calldata).hex(),
+        "builder_release_tranche_calldata_length":
+            str(len(release_tranche_calldata)),
+        "builder_release_tranche_return_hash":
+            keccak256(release_tranche_return).hex(),
+        "builder_release_tranche_return_length": str(len(release_tranche_return)),
+        "builder_release_generation_calldata_hash":
+            keccak256(release_generation_calldata).hex(),
+        "builder_release_generation_calldata_length":
+            str(len(release_generation_calldata)),
+        "builder_release_generation_return_hash":
+            keccak256(release_generation_return).hex(),
+        "builder_release_generation_return_length":
+            str(len(release_generation_return)),
+        "builder_claim_credit_calldata_hash":
+            keccak256(claim_builder_credit_calldata).hex(),
+        "builder_claim_credit_calldata_length":
+            str(len(claim_builder_credit_calldata)),
+        "builder_claim_credit_return_hash":
+            keccak256(claim_builder_credit_return).hex(),
+        "builder_claim_credit_return_length": str(len(claim_builder_credit_return)),
+        "builder_equivocation_calldata_hash": keccak256(equivocation_calldata).hex(),
+        "builder_equivocation_calldata_length": str(len(equivocation_calldata)),
+        "builder_equivocation_return_hash": keccak256(equivocation_return).hex(),
+        "builder_equivocation_return_length": str(len(equivocation_return)),
+        "builder_expire_schedule_calldata_hash":
+            keccak256(expire_schedule_calldata).hex(),
+        "builder_expire_schedule_calldata_length": str(len(expire_schedule_calldata)),
+        "builder_expire_schedule_return_hash":
+            keccak256(expire_schedule_return).hex(),
+        "builder_expire_schedule_return_length": str(len(expire_schedule_return)),
         **{
             f"builder_{name}": selector.hex()
             for name, selector in BUILDER_REGISTRY_SELECTORS.items()
@@ -16068,6 +16427,68 @@ def vectors() -> dict[str, str]:
 
 
 EXPECTED = {
+ 'builder_active_equivocation_witness_hash': 'fd6f6de0248d52b478637f787e84c60695d5637891cbb3a5071045550d29be75',
+ 'builder_active_equivocation_witness_length': '2366',
+ 'builder_active_tranche_release_witness_hash': '2246b6c4067d8dbfffd57072507c4fa03fa9f59b18747907fdde87cf4fbc2c8d',
+ 'builder_active_tranche_release_witness_length': '480',
+ 'builder_claim_credit_calldata_hash': '870c91e9f2ed3494f25ca60447440e8af94c7fe849aeaca24c7020cbe2dad7c2',
+ 'builder_claim_credit_calldata_length': '36',
+ 'builder_claim_credit_return_hash': '84a21bcf213c894bd35733058dfa3a592bbe8a1ae5f74e36ff3be371c0c3be9b',
+ 'builder_claim_credit_return_length': '96',
+ 'builder_equivocation_calldata_hash': 'b5054f2630ff0185f4d93bd09547fe7265dcdaa2bb4f4efc916a4dacf0ce53b7',
+ 'builder_equivocation_calldata_length': '2436',
+ 'builder_equivocation_return_hash': 'eb9cab44a43adcc764cf488ade4f8e8fab85dab8cab6a5762cd6e3cbd9939eb6',
+ 'builder_equivocation_return_length': '256',
+ 'builder_expire_schedule_calldata_hash': '4f1b5f49458cc8f4f22f9745a61accc177cd37d4412bfadd74c9c5006b9083f5',
+ 'builder_expire_schedule_calldata_length': '36',
+ 'builder_expire_schedule_return_hash': '347b76314feb452be5b5f8dfa655b368cf0ae1656b7e14e0488b4bc170d0ac6f',
+ 'builder_expire_schedule_return_length': '96',
+ 'builder_generation_release_witness_hash': '65a5501dc5440301031bc0d21ac6506ce1f98b226139c93ab54251883d5bd12d',
+ 'builder_generation_release_witness_length': '352',
+ 'builder_liability_equivocation_witness_hash': '716284bc32c79d50444b03d91aaf4eb02c4f5f6412db0efdd944778b4a2ea2d9',
+ 'builder_liability_equivocation_witness_length': '2366',
+ 'builder_liability_tranche_release_witness_hash': '8d56574545d36cb4cbb7f1452055275a3dbd8e5b2aa9062e717095f387a0a2d8',
+ 'builder_liability_tranche_release_witness_length': '288',
+ 'builder_maintenance_calldata_hash': '43c78baee19458e9328ff2b4da6b599d2837762bc2c59fd3bd2c99c9a4ef90ae',
+ 'builder_maintenance_calldata_length': '1316',
+ 'builder_maintenance_return_hash': '71d89327348795bdfb10797b1a4d8fbed80736e9e283d99f004dd4a3eeb3ca55',
+ 'builder_maintenance_return_length': '160',
+ 'builder_maintenance_witness_hash': 'd39a171735fce188e821a1f30d45690e429d1980c8a9ca784d197fc9146fd67b',
+ 'builder_maintenance_witness_length': '1197',
+ 'builder_movement_witness_hash': '03028017c34313fc451f9327085f6cbe2f2d24c05303a7d29c69c035b9e689d0',
+ 'builder_movement_witness_length': '1193',
+ 'builder_normalize_calldata_hash': 'a5fe18f847780330e44bfd30b196a3aefb5bdd60a0c5bcfc2160d1dcf4738f65',
+ 'builder_normalize_calldata_length': '644',
+ 'builder_normalize_noop_witness_hash': 'bc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a',
+ 'builder_normalize_noop_witness_length': '1',
+ 'builder_normalize_return_hash': 'a1074a8b86686267c3a23a084c9a9ae67808925eb857e4c87f66904cb354e098',
+ 'builder_normalize_return_length': '160',
+ 'builder_normalize_witness_hash': '41aa2500f6787f0ff38398f6a481ab02641b948e56609939ae1ac4311a05eaa7',
+ 'builder_normalize_witness_length': '489',
+ 'builder_register_calldata_hash': '9f18fd55e769f2cb66a0886f78c2c27e975a5cc1bd6a91cc505587350ecf12d3',
+ 'builder_register_calldata_length': '708',
+ 'builder_register_return_hash': '4297459afb1ea5b55dfde89615c2fc6fcf9a3c5169992544cf455ac40b34d3fd',
+ 'builder_register_return_length': '192',
+ 'builder_release_generation_calldata_hash': '3a737cfe76c2cd421f226d122366b8eb4b2c0d15ff8ce9ee9662fb1ebdbd0ef5',
+ 'builder_release_generation_calldata_length': '484',
+ 'builder_release_generation_return_hash': 'e10ddf1201ccd056229850f387844bb41a5dc22095e1d6eaff44aaee1dda7705',
+ 'builder_release_generation_return_length': '192',
+ 'builder_release_tranche_calldata_hash': '3abab4635081cb16695ba53983b7f77f512196f554b9d02a4f523dc265e87fea',
+ 'builder_release_tranche_calldata_length': '644',
+ 'builder_release_tranche_return_hash': '0775b71ba1f5c778f429c183127db5b39699a4c28a34acd8c9c7e43e59472d3f',
+ 'builder_release_tranche_return_length': '224',
+ 'builder_request_exit_calldata_hash': '83df22506dc47e476d2f4ffac8545afbda7c63d90e099ff0f531d81928a48297',
+ 'builder_request_exit_calldata_length': '36',
+ 'builder_request_exit_return_hash': '2b6bf8ef73a6acb0795c0cd086f3c906b83d2883f555b6b163a468bf41645fb9',
+ 'builder_request_exit_return_length': '128',
+ 'builder_reserve_calldata_hash': '7042284258b75a7e1154eb3d9ed48780c1099ef78ac5cb4d1f71222064dfd3f7',
+ 'builder_reserve_calldata_length': '932',
+ 'builder_reserve_return_hash': '84d4b9be382a7c941e0af0304e4feec46929c40ca71770121c21b08afef7aced',
+ 'builder_reserve_return_length': '160',
+ 'builder_reserve_witness_hash': 'e41b49dd7050df0b699dfe13a197c0ca366bfed9f06d8f823771f678a565d409',
+ 'builder_reserve_witness_length': '777',
+ 'builder_vacancy_registration_witness_hash': '5338baeca36696fec8f42f2f4f9d183c182f5ebc479478e0e4c9e59c9355771b',
+ 'builder_vacancy_registration_witness_length': '544',
  'builder_admission_state_return_hash': '4adb66ffb320e14ef37f1630bacdd71f03bcdfbb006d0c1a15a0312c3b80a91d',
  'builder_admission_state_selector': '4a9dfa3f',
  'builder_cell_63_admission_root': 'a7331d780dab70d17c02c0cedf929a63f970b0baef2c456688c21537efcd1845',
@@ -16776,6 +17197,37 @@ EXPECTED = {
 # from the spelling of a value.  Every name not in this explicit uint set is a
 # hex record only after the complete canonical name-set fingerprint matches.
 UINT_VECTOR_NAMES = frozenset({
+    "builder_active_equivocation_witness_length",
+    "builder_active_tranche_release_witness_length",
+    "builder_claim_credit_calldata_length",
+    "builder_claim_credit_return_length",
+    "builder_equivocation_calldata_length",
+    "builder_equivocation_return_length",
+    "builder_expire_schedule_calldata_length",
+    "builder_expire_schedule_return_length",
+    "builder_generation_release_witness_length",
+    "builder_liability_equivocation_witness_length",
+    "builder_liability_tranche_release_witness_length",
+    "builder_maintenance_calldata_length",
+    "builder_maintenance_return_length",
+    "builder_maintenance_witness_length",
+    "builder_movement_witness_length",
+    "builder_normalize_calldata_length",
+    "builder_normalize_noop_witness_length",
+    "builder_normalize_return_length",
+    "builder_normalize_witness_length",
+    "builder_register_calldata_length",
+    "builder_register_return_length",
+    "builder_release_generation_calldata_length",
+    "builder_release_generation_return_length",
+    "builder_release_tranche_calldata_length",
+    "builder_release_tranche_return_length",
+    "builder_request_exit_calldata_length",
+    "builder_request_exit_return_length",
+    "builder_reserve_calldata_length",
+    "builder_reserve_return_length",
+    "builder_reserve_witness_length",
+    "builder_vacancy_registration_witness_length",
     "adopt_migration_canonical_calldata_length",
     "append_kind0_calldata_length",
     "append_kind1_calldata_length",
@@ -16887,7 +17339,7 @@ UINT_VECTOR_NAMES = frozenset({
     "version_migration_lease_return_length",
 })
 VECTOR_NAME_SCHEMA_SHA256 = (
-    "ffbc653892c53dfea254b5309b95303a5c59f65e75ad1c9172e89cb4c8029920"
+    "66dd621021be6549d5dfa95c0e83cf92b82174c5b8d146a4dbdb67750b0acf7c"
 )
 
 
@@ -16899,7 +17351,7 @@ def typed_vectors() -> tuple[dict[str, str], ...]:
     actual = vectors()
     assert actual == EXPECTED
     names = tuple(sorted(actual))
-    assert (len(names) == 675 and len(set(names)) == len(names)
+    assert (len(names) == 764 and len(set(names)) == len(names)
             and UINT_VECTOR_NAMES <= set(names)
             and hashlib.sha256(
                 b"\0".join(name.encode("ascii") for name in names)

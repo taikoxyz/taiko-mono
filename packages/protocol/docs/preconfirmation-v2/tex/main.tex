@@ -574,7 +574,8 @@ set bit below the new current window in ascending W order using exact
 nine-sibling proofs, then shifts the base.  Active-to-liability movement closes
 all remaining RESERVED bits in the same order.  Consequently one operation
 touches at most 17 tranche leaves; no release or exit scans all 512.  A witness
-must contain exactly the bitmap popcount, consume all bytes and contain no
+must contain the complete bitmap popcount for movement or the exact stale-mask
+popcount for reservation/normalization, consume all bytes and contain no
 caller-selected height, orientation or leaf index.
 
 \paragraph{Exit, tombstone and movement.}
@@ -628,27 +629,45 @@ scheduleRegistryStateV1() returns
   uint64 nextRegistrationIndex,bytes32 registryRoot)
 // selector 0xad95cea1; exact 224 bytes; magic BRS1; schema=1
 \end{verbatim}
-The mutation signatures and computed selectors are
+The mutation signatures, parameter meanings and computed selectors are
 \begin{verbatim}
-registerBuilderV1(uint192,uint64,uint8,bytes)
- returns (bytes4,uint64,uint8,uint64,uint64,bytes32)       0x5fc42c69 BRG1/192
-reserveBuilderWindowV1(uint64,uint64,bytes)
- returns (bytes4,uint64,uint64,uint64,bytes32)             0x46a53315 BRV1/160
-requestBuilderExitV1(uint64)
- returns (bytes4,uint64,uint64,uint8)                      0xc8f20b55 BRE1/128
-processBuilderMaintenanceV1(uint8,bytes)
- returns (bytes4,uint8,uint8,uint64,bytes32)               0x0e1ffc68 BRM1/160
-normalizeBuilderTranchesV1(address,uint64,bytes)
- returns (bytes4,uint64,uint8,uint64,bytes32)              0x5e7c8afe BRN1/160
-releaseBuilderTrancheV1(address,uint64,uint64,bytes)
- returns (bytes4,uint64,uint64,address,uint256,uint64,bytes32)
+registerBuilderV1(uint192 baseBondAtomic,
+ uint64 expectedNextRegistrationIndex,uint8 expectedActiveIndex,bytes witness)
+ returns (bytes4 magic,uint64 registrationIndex,uint8 activeIndex,
+          uint64 effectiveL2Slot,uint64 admissionVersion,bytes32 admissionRoot)
+                                                             0x5fc42c69 BRG1/192
+reserveBuilderWindowV1(uint64 expectedRegistrationIndex,uint64 window,
+ bytes witness)
+ returns (bytes4 magic,uint64 registrationIndex,uint64 window,
+          uint64 registryMutationVersion,bytes32 registryRoot)
+                                                             0x46a53315 BRV1/160
+requestBuilderExitV1(uint64 expectedRegistrationIndex)
+ returns (bytes4 magic,uint64 registrationIndex,uint64 matureWindow,
+          uint8 activeIndex)                                0xc8f20b55 BRE1/128
+processBuilderMaintenanceV1(uint8 maxMoves,bytes witness)
+ returns (bytes4 magic,uint8 inspected,uint8 moved,
+          uint64 admissionVersion,bytes32 admissionRoot)    0x0e1ffc68 BRM1/160
+normalizeBuilderTranchesV1(address builder,
+ uint64 expectedRegistrationIndex,bytes witness)
+ returns (bytes4 magic,uint64 registrationIndex,uint8 closedCount,
+          uint64 registryMutationVersion,bytes32 registryRoot)
+                                                             0x5e7c8afe BRN1/160
+releaseBuilderTrancheV1(address builder,uint64 expectedRegistrationIndex,
+ uint64 window,bytes witness)
+ returns (bytes4 magic,uint64 registrationIndex,uint64 window,address builder,
+          uint256 creditedAmount,uint64 registryMutationVersion,bytes32 registryRoot)
                                                              0xf8668bb9 BTR1/224
-releaseBuilderGenerationV1(address,uint64,bytes)
- returns (bytes4,uint64,address,uint256,uint64,bytes32)     0xe7bae370 BGR1/192
-claimBuilderLeaseCreditV1(address)
- returns (bytes4,address,uint256)                          0x8f73793c BCL1/96
-submitBuilderEquivocationV1(bytes)
- returns (bytes4,uint64,uint64,address,uint256,uint256,uint64,bytes32)
+releaseBuilderGenerationV1(address builder,
+ uint64 expectedRegistrationIndex,bytes witness)
+ returns (bytes4 magic,uint64 registrationIndex,address builder,
+          uint256 creditedBond,uint64 admissionVersion,bytes32 admissionRoot)
+                                                             0xe7bae370 BGR1/192
+claimBuilderLeaseCreditV1(address recipient)
+ returns (bytes4 magic,address recipient,uint256 paidAmount) 0x8f73793c BCL1/96
+submitBuilderEquivocationV1(bytes evidence)
+ returns (bytes4 magic,uint64 registrationIndex,uint64 window,address builder,
+          uint256 reporterAmount,uint256 penaltyAmount,
+          uint64 admissionVersion,bytes32 admissionRoot)
                                                              0x979c1f72 BEV1/256
 \end{verbatim}
 All dynamic tails are minimal canonical ABI tails and their internal parsers
@@ -660,6 +679,17 @@ Golden vectors freeze selector, calldata, return, padding and one-field
 substitutions.  A mutation never uses a return from an untrusted external
 caller as an authority fact.
 
+The contract stores every nonempty tranche leaf preimage by
+\code{(registrationIndex,leafIndex)}.  Proofs therefore carry siblings, not a
+caller-supplied old leaf.  The three primitive paths are exactly
+\code{TranchePath=bytes32[9]} (288 bytes),
+\code{RegistryPath=bytes32[6]} (192 bytes), and
+\code{AdmissionPath=bytes32[11]} (352 bytes), with siblings bottom-up.  A close
+record is exactly \code{u64(window)||TranchePath} (296 bytes).  Close records
+are strictly ascending by window; record zero proves against the pre-tranche
+root and every later record proves against the root produced by its
+predecessor.
+
 The canonical move witness is
 \begin{verbatim}
 u8 closeCount
@@ -668,28 +698,104 @@ bytes32 registrySibling[6]
 bytes32 liabilityAdmissionSibling[11] // against pre-root
 bytes32 activeAdmissionSibling[11]    // against intermediate R1
 \end{verbatim}
-where \code{closeCount} equals the exact reservation-bitmap popcount and is at
-most 17.  A multi-move maintenance tail prefixes each move by its checked
-\code{u32 byteLength}; the number of records equals the returned move count and
-there is no trailing record.
+where \code{closeCount} equals the complete reservation-bitmap popcount and is
+at most 17.  Its exact length is \code{897+296*closeCount}.  The registry proof
+anchors the original active cell under the pre-registry root and replaces it
+with its final post-close value.  The liability admission proof anchors the
+pre-admission root and produces R1; the active proof anchors R1 and produces
+R2.
 
-The equivocation tail is exactly 1,822 bytes:
+Every other dynamic registry tail has exactly one prestate-derived grammar:
+\begin{itemize}
+\item Vacant registration is \code{RegistryPath||AdmissionPath}, exactly 544
+bytes.  The two paths prove the derived lowest vacant active cell under the two
+independent pre-roots.  A full-table competitive registration uses the move
+witness above.  \code{expectedActiveIndex} must equal that lowest vacancy or,
+when full, the deterministically ranked victim.  The registration race guard
+must equal \code{nextRegistrationIndex} before any transfer.
+\item Normalization derives the exact stale bitmap set, namely every set window
+strictly below the current window.  It is
+\code{u8(closeCount)||CloseRecord[closeCount]||RegistryPath}, exactly
+\code{193+296*closeCount} bytes when nonempty.  The canonical no-op is the sole
+byte \code{0x00}; it changes no root or version.
+\item Reservation first closes that same exact stale set.  If the target is
+already the exact live RESERVED window, zero closures use sole byte
+\code{0x00}; nonzero closures use the normalization grammar and do not pull a
+second tranche.  Otherwise the tail is
+\code{u8(closeCount)||CloseRecord[closeCount]||TranchePath||RegistryPath},
+exactly \code{481+296*closeCount} bytes.  The target path proves against the
+post-close tranche root and the registry path replaces the original cell by
+the final cell under the pre-registry root.
+\item Tranche release derives location from the reverse locator.  Liability is
+exactly \code{TranchePath} (288 bytes); active is
+\code{TranchePath||RegistryPath} (480 bytes).  The current leaf must be exact
+LIABLE for the requested window and the ScheduleOracle predicate below must be
+safe.  No location bit or leaf index is supplied.
+\item Generation release is exactly \code{AdmissionPath} (352 bytes), requires
+the derived locator to be LIABILITY, the unreleased-tranche count to be zero,
+and \code{block.timestamp>maximumLiableUntil}.  All its tranche leaves must
+already be terminal through authenticated tranche release or slash; the
+liability admission leaf is then replaced by canonical empty.  It never scans
+the tranche ring and no caller supplies a position.
+\end{itemize}
+For every path, the expected registration index must equal the stored reverse
+locator and all exact byte lengths are checked before a token call or state
+write.  \code{registryMutationVersion} increments exactly once iff the
+registry root changes; \code{admissionVersion} increments exactly once iff the
+admission root changes.
+
+A maintenance tail is the concatenation
+\code{u32(moveLength)||MoveWitness} for each move; empty bytes is canonical
+when no move is eligible.  \code{maxMoves} is 1--4.  After inspecting at most
+64 FIFO records, the contract derives FIFO-matured exits first and then active
+tombstones in their canonical order.  The record count must equal the complete
+derived prefix until \code{maxMoves}, the remaining per-window move budget, or
+no eligible item is reached; a caller cannot omit an eligible derived record.
+Each record anchors the roots produced by the prior record, every length prefix
+must equal that record's canonical length, and no suffix is accepted.
+
+The equivocation tail is exactly 2,366 bytes:
 \begin{verbatim}
 canonicalPackedSlotChainBlockA[521] || canonicalLowS65SignatureA ||
 canonicalPackedSlotChainBlockB[521] || canonicalLowS65SignatureB ||
-u16(admissionPosition) || bytes32 admissionSibling[11] ||
-u64(window) || bytes32 currentTrancheSibling[9]
+u16(historicalAdmissionPosition) || bytes32 historicalAdmissionSibling[11] ||
+u64(window) || bytes32 currentTrancheSibling[9] ||
+bytes32 currentAdmissionSibling[11] || bytes32 currentRegistrySibling[6]
 \end{verbatim}
 Both block encodings use the fixed widths and field order of the signed-header
 tuple in \S\ref{sec:signed-header}.  They must have the same chain, version,
 verifying contract, slot, context, admission pair and recovered builder but
 distinct block hashes; their EIP-712 digests are supplied in increasing byte
-order.  Window is derived again from slot.  The historical admission position
-is witness data only: its position-bound leaf and eleven siblings must prove
-this exact generation against the signed admission root.  The current
-registration reverse locator independently finds the live liability record,
-whose exact RESERVED or LIABLE leaf is proven at the derived tranche index.
-Thus a witness position cannot select a generation or redirect a slash.
+order.  Only tiers 1 and 2 are signed evidence tiers.  Tier 1 requires exact
+zero episode, recovery revision and recovery ID.  Tier 2 requires nonzero
+recovery ID, \code{contextId=recoveryId}, and nonzero episode and recovery
+revision.  These are the header-local semantic checks; proof admission still
+checks the exact live normal or recovery context.  Window is derived again from
+slot.
+
+Before signature recovery the Registry exact-reads, with 100,000 gas, Router's
+416-byte \code{targetReleaseRegistrationV2(protocolVersion)} (RTR2), requires
+canonical padding and a nonzero registration hash, and requires its returned
+version and target Settlement to equal the signed protocol version and
+verifying contract.  Revert, OOG, unknown version, short/trailing data or any
+substitution rejects.  Thus arbitrary EIP-712 contracts are not slash domains;
+every accepted signature domain is an immutable Router-registered release.
+
+The historical admission position is witness data only: its position-bound
+leaf and eleven siblings prove this generation against the signed admission
+root.  The current registration reverse locator independently derives the live
+ACTIVE or LIABILITY position.  Its current admission path proves that exact
+position against the current pre-admission root, and its exact RESERVED or
+LIABLE tranche leaf is proven at the derived tranche index.  For ACTIVE, the
+registry path proves the same generation's current cell against the
+pre-registry root and atomically updates its tranche root and first tombstone;
+for LIABILITY all six registry sibling words must be zero and the registry root
+does not change.  The current admission path atomically installs the first
+tombstone at its derived live position; a later per-window slash proves the
+already-tombstoned leaf and does not postpone it.  All proofs and exact lengths
+are checked before either root or escrow changes.  Thus a historical position,
+current position, or padding word cannot select a generation or redirect a
+slash.
 
 \paragraph{Migration and release authority.}
 Only new reservations read Router's exact 50,000-gas ASR1 view.  ACTIVE is
@@ -697,7 +803,8 @@ accepted only with zero target tuple; ARMED, READY, malformed data, wrong code,
 magic, length or padding reject before token movement.  Registration,
 replacement, exit, maintenance, evidence, normalization, release and claims
 remain live in every Router phase.  Existing RESERVED bytes are not rewritten
-by arm, abort or cutover.  No caller supplies a phase or Settlement address.
+by arm, abort or cutover.  Evidence's historical RTR2 authentication is the
+sole additional Router read.  No caller supplies a phase or Settlement address.
 
 ScheduleOracle owns a 268-cell schedule ring, immutable
 \code{firstManagedWindow} and monotonic \code{nextReleaseWindow}, initialized
@@ -710,13 +817,18 @@ scheduleWindowReleaseStateV1(uint64) returns
 // selector 0xf4cd9a5e; exact 160 bytes; magic SWR1
 // state UNSEALED=0, SEALED=1, VACANT=2, EXPIRED=3
 
-expireScheduleWindowsV1(uint8) returns
+expireScheduleWindowsV1(uint8 maxWindows) returns
  (bytes4 magic,uint8 expired,uint64 nextReleaseWindow)
-// selector 0xb1357479; exact 96 bytes; magic SWE1; maxWindows<=8
+// selector 0xb1357479; exact 96 bytes; magic SWE1; 1<=maxWindows<=8
 \end{verbatim}
-Expiry advances strictly in W order, so \code{W<nextReleaseWindow} proves an
-overwritten ring generation expired.  For each step Oracle exact-reads ASR1 and
-the active Settlement's
+\code{maxWindows=0} rejects.  Expiry advances strictly in W order, so
+\code{W<nextReleaseWindow} proves an overwritten ring generation expired.  A
+call commits the maximal releasable prefix up to \code{maxWindows} and stops,
+without reverting that prefix, at the first authenticated but not-yet-safe
+window.  An external-read authentication failure reverts the whole call.  A
+cursor equal to \code{UINT64_MAX} is terminal and is never incremented or
+wrapped; a call reaching it returns its already-completed prefix.  For each
+step Oracle exact-reads ASR1 and the active Settlement's
 \begin{verbatim}
 settlementScheduleReleaseStateV1(uint64) returns
  (bytes4 magic,uint64 returnedWindow,uint64 protocolVersion,
@@ -726,10 +838,19 @@ settlementScheduleReleaseStateV1(uint64) returns
 \end{verbatim}
 with pinned code/configuration and bounded gas.  The returned version must equal
 ASR1, \code{windowEndSlot(W)<globalMinReferencedSlot}, and the mask must be
-zero.  Only a stored SEALED record or an objectively late unsealed VACANT
-record advances.  BuilderRegistry releases W only when SWR1 authenticates
-EXPIRED and \code{block.timestamp>evidenceReplayDeadline(W)}.  Evidence remains
-admissible through equality, leaving no boundary gap.
+zero.  Canonical ASR1 ACTIVE, ARMED and READY are all accepted: the returned
+active Settlement/version is always the authority, while ARMED/READY merely
+carry a nonzero target tuple.  Only a stored SEALED record or an objectively
+late unsealed VACANT record advances.
+
+SWR1 has one exact root rule.  A stored unexpired SEALED cell returns its stored
+entry root.  UNSEALED returns zero.  An objectively late unsealed VACANT cell
+returns the canonical all-empty ranked-entry root.  Every
+\code{W<nextReleaseWindow}, including a just-expired cell and an already-pruned
+generation, returns EXPIRED with zero entry root.  BuilderRegistry releases W
+only after an exact 50,000-gas SWR1 read authenticates EXPIRED and
+\code{block.timestamp>evidenceReplayDeadline(W)}.  Evidence remains admissible
+through equality, leaving no boundary gap.
 
 \paragraph{Historical registry proof slots.}
 BuilderRegistry exclusively writes the following two raw storage slots in the
@@ -5159,10 +5280,12 @@ seatMarketWireStateV1() returns
 as exactly 768 bytes / 24 words with magic \code{MWV1=0x4d575631}.
 The journal is IDLE=0 or EXECUTING=1.  Address and narrow-word padding is
 canonical.  When \code{stagePresent=0}, words 9--23 are zero; when it is one,
-every stage field is nonzero except the permitted outgoing term and the
-zero-ask pair \code{reserveId=reserveWei=0}.  A positive ask has a nonzero
-reserve ID and amount.  V1 has no funding-mode, outgoing-reserve reuse or
-contingent-premium field.
+stage, authorization, offer, tranche, operator, payout, lineup commitment,
+handover and expiry are nonzero; \code{selectedRank} is exactly 0--3 and may be
+zero; the outgoing term may be zero; and ask may be zero.  Exactly
+\code{askWeiPerSecond=0} iff \code{reserveId=0} and \code{reserveWei=0}; a
+positive ask has a nonzero reserve ID and amount.  V1 has no funding-mode,
+outgoing-reserve reuse or contingent-premium field.
 \code{marketStateVersion} increments exactly once for
 each successful state-changing top-level Market operation;
 \code{crossWireNonce} increments only for a successful state-changing roster
@@ -5240,8 +5363,9 @@ Market no-ops: pre/post version and nonce are equal, the pre-last-receipt is
 echoed and \code{receiptHash=0}.  NO\_FEASIBLE zeros words 11--24.
 UNDERFUNDED zeros stage, rank, outgoing term, clocks, reserve ID and credit ID;
 it reports only offer, tranche, operator, payout, ask, required reserve in word
-22 and the gross available free premium in word 24.  Market writes no counter,
-journal, event-derived record or receipt for either no-op.  Every other result
+22 and the strictly smaller gross available free premium in word 24.  Market
+writes no counter, journal, event-derived record or receipt for either no-op.
+Every other result
 has checked \code{postStateVersion=preStateVersion+1},
 \code{postWireNonce=preWireNonce+1}, and writes \code{lastReceiptHash} last.
 The receipt hash is
@@ -5253,7 +5377,13 @@ The embedded intent hash already binds chain, Settlement, Market and every
 request field; the receipt preimage retains the magic and every other response
 word and zeroes only its own word.  Every result has a fixed
 used/zero union mask; zero ask always has zero reserve ID/amount and cannot
-create or rekey a zero-valued reserve.
+create or rekey a zero-valued reserve.  STAGED uses the complete stage identity
+and clocks, has zero credit ID, and echoes its reserve amount in word 24.
+APPLIED uses that identity, rekeys only the incoming reserve, and requires both
+credit ID and word-24 amount to be zero even when an outgoing term exists.
+RESTORED has zero reserve/credit IDs and word 24 is the returned stage reserve;
+OWNER\_TERMINALIZED has a zero reserve pair and a nonzero owner-credit/amount
+pair.  No result may borrow a used word from another union arm.
 
 Settlement first enters PREPARING, exact-reads MWV1, validates its immutable
 Market binding and writes EXECUTING SMI1.  STAGE exposes the unchanged current
@@ -5284,9 +5414,14 @@ MIGRATION\_CANCEL.  Nonpayable selector \code{0xc96a3543},
 \code{executePendingSeatMutationV1()}, is permissionless in ACTIVE, ARMED,
 READY and FROZEN, performs no leading sync, exact-reads MWV1, fills the three
 expected Market words, changes PENDING to EXECUTING and invokes the same Market
-entry.  INVALIDATE/EXPIRE restores the offer only while its authorization is
-still current/enabled and its generation equals the cache; otherwise it owner-
-terminalizes it.  MIGRATION\_CANCEL always owner-terminalizes.  The durable
+entry.  STAGE, APPLY and ordinary EXPIRE require the exact ACTIVE target and
+the current cached generation.  INVALIDATE restores only while its
+authorization is still current/enabled and its generation equals that cache;
+otherwise it owner-terminalizes.  MIGRATION\_CANCEL instead authenticates the
+stage's pinned authorization and accepts its canonical target in ACTIVE,
+ARMED, READY or FROZEN, ignores current-generation equality, and always
+owner-terminalizes.  Returning an aborted target to ACTIVE never resurrects or
+restores a canceled stage.  The durable
 single slot, not a Market call, is therefore the only canonical-path output;
 failure can stall the optional auction but cannot stall canonical chain or
 migration progress.
@@ -5526,7 +5661,10 @@ breachReceiptId = H("TAIKO_SEAT_BREACH_V1" || dutyId || seatTermId ||
   trancheId || u64(recordedAt))
 \end{verbatim}
 Absent lineup terms and predecessor duty are \code{bytes32(0)}; selection source
-is DUTY\_FAILOVER=1 or HEALTHY\_EXPIRY=2.  All widths are checked before hashing,
+is DUTY\_FAILOVER=1 or HEALTHY\_EXPIRY=2.  In the two legacy-u256 offer-clock
+fields and two legacy-u256 stage-clock fields, the value is first required to
+fit its public uint64 wire and that exact uint64 value is then widened to u256
+for hashing; no wider hidden clock is accepted.  All widths are checked before hashing,
 all counters are monotone, and a hash collision reverts rather than overwriting
 an existing record.  Market and Settlement recompute the same ID at every
 handoff; the release bundle contains cross-language golden and one-field-
@@ -5754,7 +5892,7 @@ recovery tombstones the stage before returning SYNCED.  Apply derives the term
 only at its actual timestamp:
 \begin{verbatim}
 installRevision = checked(lineupRevision + 1)
-seatTermId = H("TAIKO_SEAT_TERM_V1" || authorizationCommitment ||
+seatTermId = H("TAIKO_SEAT_TERM_V1" || authorizationId ||
   u64(seatGeneration) || offerId || trancheId ||
   u64(installedAt) || u64(installRevision)).
 \end{verbatim}
@@ -5928,8 +6066,12 @@ no duty, calls no Market and never waits for \code{DELTA_FINAL_LAG}.
 
 The pass applies objective failover/slash to existing duties before cure and
 then performs prospective/selection work.  A commit after strict failover may
-still satisfy the failed-over predecessor but starts a selected successor only
-when its exact selection record names that duty.  A commit after strict slash
+still transition the failed-over predecessor to SATISFIED through slash
+equality; it never restores the removed former primary and starts a selected
+successor only when its exact selection record names that duty.  This cure is
+valid regardless of whether a permissionless sync executed the failover in an
+earlier transaction or the committing transaction observes and applies it
+first.  A commit after strict slash
 may advance canonical state but cannot cure BREACHED.  Recovery candidates use
 one O(1) preflight followed by that same pass.  Failed history adoption restores
 all state.
@@ -9695,7 +9837,7 @@ data-MMR-count-3 and Terminal-count-2 frontier digests/roots pin initialization,
 append and fold independently of full-history root construction.
 
 \code{commitment-model.py} is the normative executable fixture.  It exports all
-702 records through one deterministic typed oracle, including records owned by
+764 records through one deterministic typed oracle, including records owned by
 later rounds.  The Round-2 Solidity conformance test executes only an explicit
 reviewed allowlist for checked fixed-preimage encoders; Round 3 consumes the
 tree, frontier and proof records above.  Still-later rounds consume their
@@ -10578,12 +10720,12 @@ local destination binding, frontier/event terminal proofs, pause-independent
 escape, L2 release sealing, replay and timing
 geometry.  Cryptographic booleans in that model are not cryptographic
 evidence.
-The companion \code{test-settlement-window.py} suite runs 267 adversarial
+The companion \code{test-settlement-window.py} suite runs 270 adversarial
 regressions, including authorization substitution, callback/OOG, competing LP,
 owner-mode, target/quota/pull/terminal rollback, withdrawal/recreation and
 cross-version preservation cases for the atomic Pool path.
 
-\code{commitment-model.py} reports 702 golden vectors and 1478 executable
+\code{commitment-model.py} reports 764 golden vectors and 1503 executable
 assertion sites for
 exact EIP-712
 domain/struct/digest, canonical and statement hashes, registry/admission/entry/

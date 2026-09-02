@@ -643,6 +643,48 @@ class SourceFreezeTests(unittest.TestCase):
 
 
 class CanonicalDutyTests(unittest.TestCase):
+    def test_duty_and_selection_identity_goldens_are_exact_legacy_keccak(self):
+        term = bytes.fromhex("11" * 32)
+        tranche = bytes.fromhex("22" * 32)
+        offer = bytes.fromhex("33" * 32)
+        predecessor = bytes.fromhex("44" * 32)
+        self.assertEqual(
+            settlement.seat_duty_id_v1(term, 7, 9, 11).hex(),
+            "9d3748bde1efb24b0352360aa2e155bbdbcd5b3caee4626a3a8902f78a2c9aaf",
+        )
+        self.assertEqual(
+            settlement.seat_selection_id_v1(
+                term,
+                tranche,
+                offer,
+                13,
+                15,
+                17,
+                settlement.SelectionSource.DUTY_FAILOVER,
+                predecessor,
+            ).hex(),
+            "5778f1e12c1095f38c12bf31f7493fa92d6c90285c6d3ae357fe6efa6f04bdde",
+        )
+        self.assertEqual(
+            settlement.seat_selection_id_v1(
+                term,
+                tranche,
+                offer,
+                13,
+                15,
+                17,
+                settlement.SelectionSource.HEALTHY_EXPIRY,
+                None,
+            ).hex(),
+            "66e2f28dd0812f714a4e1e78ade0467d76ee8acc088e9c793f3ea73c6893f8c7",
+        )
+        self.assertNotEqual(
+            settlement.seat_duty_id_v1(term, 7, 9, 12),
+            settlement.seat_duty_id_v1(term, 7, 9, 11),
+        )
+        with self.assertRaises(ValueError):
+            settlement.seat_duty_id_v1(term, 7, 1 << 64, 11)
+
     def primary(self):
         protocol = settlement.protocol(tip_slot=1_000, seat=False)
         term = synthetic_term(1, settlement.GENESIS_TIMESTAMP + 1_000)
@@ -656,7 +698,7 @@ class CanonicalDutyTests(unittest.TestCase):
         self.assertEqual(duty.term_id, term.term_id)
         self.assertEqual(duty.tranche_id, term.tranche_id)
         self.assertEqual(duty.operator, term.operator)
-        self.assertEqual(duty.base_sequence, 900)
+        self.assertEqual(duty.base_sequence, 0)
         self.assertEqual(duty.target_tip, 1_000 + settlement.DELTA_RECOVERY_LAG)
         self.assertEqual(
             duty.recovery_at, tip_time + settlement.DELTA_RECOVERY_LAG
@@ -707,7 +749,7 @@ class CanonicalDutyTests(unittest.TestCase):
     def test_cure_requires_both_sequence_and_target_tip(self):
         protocol, _, duty = self.primary()
         sequence_only = copy.deepcopy(protocol)
-        sequence_only.core.l2_block_number += 1
+        sequence_only.seat_canonical_sequence += 1
         self.assertEqual(
             sequence_only._latch_canonical_cures(
                 settlement.Clock(1_100, duty.recovery_at)
@@ -768,8 +810,8 @@ class CanonicalDutyTests(unittest.TestCase):
             ),
             failover_commit,
         )
-        self.assertEqual(duty.status, settlement.DutyStatus.FAILED_OVER)
-        self.assertIsNone(duty.satisfied_at)
+        self.assertEqual(duty.status, settlement.DutyStatus.SATISFIED)
+        self.assertEqual(duty.satisfied_at, failover_commit.timestamp)
         self.assertEqual(
             protocol.seat_services[duty.term_id].closed_at,
             duty.failover_at,
@@ -795,6 +837,32 @@ class CanonicalDutyTests(unittest.TestCase):
         self.assertEqual(
             breached.seat_scan_count, settlement.DUTY_RING_CAPACITY
         )
+
+    def test_prior_failover_sync_cannot_preempt_cure_through_slash_equality(self):
+        for timestamp_kind in ("failover+1", "slash-1", "slash"):
+            protocol, _, duty = self.primary()
+            standby = synthetic_term(2, settlement.GENESIS_TIMESTAMP + 1_000)
+            protocol.install_seat_term_for_test(
+                standby, rank=1, start_primary=False
+            )
+            self.assertTrue(
+                protocol.sync(settlement.Clock(1_250, duty.failover_at + 1))
+            )
+            self.assertIs(
+                protocol.seat_duties[duty.duty_id].status,
+                settlement.DutyStatus.FAILED_OVER,
+            )
+            timestamp = {
+                "failover+1": duty.failover_at + 1,
+                "slash-1": duty.slash_at - 1,
+                "slash": duty.slash_at,
+            }[timestamp_kind]
+            canonical_cure(protocol, duty, at=timestamp)
+            retained = protocol.seat_duties[duty.duty_id]
+            self.assertIs(retained.status, settlement.DutyStatus.SATISFIED)
+            self.assertEqual(retained.satisfied_at, timestamp)
+            self.assertEqual(protocol.active_primary_term_id, standby.term_id)
+
     def test_failover_selects_but_cure_later_starts_same_standby_identity(self):
         protocol, primary, duty = self.primary()
         standby = synthetic_term(2, primary.installed_at)
@@ -941,8 +1009,8 @@ class CanonicalDutyTests(unittest.TestCase):
             protocol.seat_scan_visits_total - visits_before,
             settlement.DUTY_RING_CAPACITY,
         )
-        self.assertIs(duty.status, settlement.DutyStatus.FAILED_OVER)
-        self.assertIsNone(duty.satisfied_at)
+        self.assertIs(duty.status, settlement.DutyStatus.SATISFIED)
+        self.assertEqual(duty.satisfied_at, commit_clock.timestamp)
         self.assertEqual(
             protocol.seat_services[primary.term_id].closed_at,
             duty.failover_at,
@@ -1038,7 +1106,7 @@ class CanonicalDutyTests(unittest.TestCase):
             protocol._commit(cure, cure_clock)
             self.assertIs(
                 protocol.seat_duties[first_duty.duty_id].status,
-                settlement.DutyStatus.FAILED_OVER,
+                settlement.DutyStatus.SATISFIED,
             )
             self.assertEqual(protocol.seat_selection, selection)
             self.assertIsNone(third_service.responsibility_start)
@@ -1130,7 +1198,7 @@ class ComposedTransactionTests(unittest.TestCase):
         self.assertEqual(protocol.duty_sequence, 0)
         self.assertTrue(all(cell.reusable for cell in protocol.duty_ring))
         self.assertEqual(service.duty_base_tip_slot, fresh_base_tip)
-        self.assertEqual(service.duty_base_sequence, 900)
+        self.assertEqual(service.duty_base_sequence, 0)
         self.assertEqual(service.prospective_recovery_at, original_recovery_at)
 
         for round_index, target_tip in enumerate((
@@ -1177,7 +1245,7 @@ class ComposedTransactionTests(unittest.TestCase):
             self.assertEqual(protocol.duty_sequence, 0)
             self.assertTrue(all(cell.reusable for cell in protocol.duty_ring))
             self.assertEqual(service.duty_base_tip_slot, target_tip)
-            self.assertEqual(service.duty_base_sequence, 901 + round_index)
+            self.assertEqual(service.duty_base_sequence, 1 + round_index)
             self.assertEqual(
                 service.prospective_recovery_at,
                 settlement.GENESIS_TIMESTAMP
@@ -1218,7 +1286,7 @@ class ComposedTransactionTests(unittest.TestCase):
             term.installed_at - settlement.GENESIS_TIMESTAMP,
         )
         self.assertEqual(service.duty_base_tip_slot, fresh_base_tip)
-        self.assertEqual(service.duty_base_sequence, 900)
+        self.assertEqual(service.duty_base_sequence, 0)
         self.assertEqual(
             service.prospective_target_tip,
             fresh_base_tip + settlement.DELTA_RECOVERY_LAG,
@@ -1314,7 +1382,7 @@ class ComposedTransactionTests(unittest.TestCase):
                     old_base_tip + settlement.DELTA_RECOVERY_LAG
                 )
                 self.assertEqual(duty.base_tip_slot, expected_base_tip)
-                self.assertEqual(duty.base_sequence, 901)
+                self.assertEqual(duty.base_sequence, 1)
                 self.assertEqual(
                     duty.recovery_at,
                     settlement.GENESIS_TIMESTAMP + expected_base_tip
@@ -2297,7 +2365,6 @@ class ComposedTransactionTests(unittest.TestCase):
         for fault in (
             "after_outgoing_close",
             "after_exit_roster_removal",
-            "after_exit_reserve_reconciliation",
         ):
             protocol, seat_market = make_pair()
             tip_time = settlement.GENESIS_TIMESTAMP + protocol.core.tip_slot
@@ -2426,9 +2493,11 @@ class ExitAndPremiumTests(unittest.TestCase):
             )
         self.assertEqual(protocol, before[0])
         self.assertEqual(seat_market, before[1])
+        market_before_finalization = copy.deepcopy(seat_market)
         protocol.finalize_installed_exit(
             seat_market, primary, settlement.Clock(123, deadline)
         )
+        self.assertEqual(seat_market, market_before_finalization)
         self.assertNotIn(primary, protocol.seat_lineup)
         self.assertIsNone(protocol.selected_successor_term_id)
         self.assertEqual(protocol.active_primary_term_id, standby)
@@ -2557,6 +2626,10 @@ class ExitAndPremiumTests(unittest.TestCase):
         )
         self.assertEqual(protocol.seat_lineup, [primary])
         self.assertEqual(protocol.active_primary_term_id, primary)
+        self.assertIn(standby, seat_market.accounting.live_reserves)
+        protocol.reconcile_seat_reserve(
+            seat_market, standby, settlement.Clock(122, deadline)
+        )
         self.assertNotIn(standby, seat_market.accounting.live_reserves)
 
     def test_pre_requested_standby_recomputes_primary_tenure_after_promotion(self):
@@ -20686,6 +20759,63 @@ class RegistryLifecycleRound4Tests(unittest.TestCase):
         self.assertTrue(cursor.expire(1_000_000, releasable=True))
         self.assertTrue(cursor.is_expired(1_000_000))
         self.assertFalse(cursor.is_expired(999_999))
+
+    def test_schedule_expiry_commits_safe_prefix_and_auth_fault_rolls_back(self):
+        root_10 = b"a" * 32
+        root_11 = b"b" * 32
+        cursor = settlement.ScheduleReleaseCursor(
+            first_managed_window=10,
+            sealed_entry_roots={10: root_10, 11: root_11},
+            objectively_vacant={12},
+        )
+        self.assertEqual(
+            cursor.release_state(10),
+            (settlement.ScheduleReleaseState.SEALED, root_10),
+        )
+        self.assertEqual(
+            cursor.release_state(12),
+            (
+                settlement.ScheduleReleaseState.VACANT,
+                settlement.EMPTY_RANKED_ENTRY_ROOT,
+            ),
+        )
+        self.assertEqual(
+            cursor.expire_batch(8, lambda window: window < 12), 2
+        )
+        self.assertEqual(cursor.next_release_window, 12)
+        self.assertEqual(
+            cursor.release_state(10),
+            (settlement.ScheduleReleaseState.EXPIRED, bytes(32)),
+        )
+        self.assertEqual(
+            cursor.release_state(12),
+            (
+                settlement.ScheduleReleaseState.VACANT,
+                settlement.EMPTY_RANKED_ENTRY_ROOT,
+            ),
+        )
+
+        rollback = settlement.ScheduleReleaseCursor(
+            first_managed_window=20,
+            sealed_entry_roots={20: b"c" * 32, 21: b"d" * 32},
+        )
+
+        def authenticate(window):
+            if window == 21:
+                raise RuntimeError("malformed ASR1/SSR1")
+            return True
+
+        with self.assertRaises(RuntimeError):
+            rollback.expire_batch(8, authenticate)
+        self.assertEqual(rollback.next_release_window, 20)
+        with self.assertRaises(ValueError):
+            rollback.expire_batch(0, lambda _: True)
+
+        terminal = settlement.ScheduleReleaseCursor(
+            first_managed_window=settlement.UINT64_MAX
+        )
+        self.assertEqual(terminal.expire_batch(1, lambda _: True), 0)
+        self.assertEqual(terminal.next_release_window, settlement.UINT64_MAX)
 
     def test_normalization_never_releases_or_credits(self):
         builder = self.generation(0, bond=100, effective_window=0)
