@@ -277,15 +277,24 @@ fork test does. A second reviewer should re-run `P=0023 pnpm proposal` and diff
 
 ## Deployed Addresses
 
-| What                                | Address                                      |                                                                                                                                                           |
-| ----------------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| L1 `Bridge` implementation          | `0xA15dca0A72da684f20e0FC708DECFb230a715462` | [codediff](https://codediff.taiko.xyz/?addr=0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC&newimpl=0xA15dca0A72da684f20e0FC708DECFb230a715462&chainid=1)      |
-| L1 `ERC20Vault` implementation      | `0x32E47c04E8c329E8c10062731448e7658aDEEB8e` | [codediff](https://codediff.taiko.xyz/?addr=0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab&newimpl=0x32E47c04E8c329E8c10062731448e7658aDEEB8e&chainid=1)      |
-| L2 `Bridge` implementation          | `0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb` | [codediff](https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000001&newimpl=0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb&chainid=167000) |
-| L2 `ERC20Vault` implementation      | `0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3` | [codediff](https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000002&newimpl=0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3&chainid=167000) |
-| L2 `BridgedERC20` implementation    | `0x3505a0700DB72dEc7AbFF1aF231BB5D87aBF2944` | registered as `bridged_erc20`, not a proxy target; nothing to diff                                                                                        |
-| L2 `DefaultResolver` proxy          | `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984` | new proxy, nothing to diff                                                                                                                                |
-| L2 `DefaultResolver` implementation | `0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a` | new contract, nothing to diff                                                                                                                             |
+| What                                | Address                                      |                                                                    |
+| ----------------------------------- | -------------------------------------------- | ------------------------------------------------------------------ |
+| L1 `Bridge` implementation          | `0xA15dca0A72da684f20e0FC708DECFb230a715462` | proxy upgrade; codediff in the table below                         |
+| L1 `ERC20Vault` implementation      | `0x32E47c04E8c329E8c10062731448e7658aDEEB8e` | proxy upgrade; codediff in the table below                         |
+| L2 `Bridge` implementation          | `0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb` | proxy upgrade; codediff in the table below                         |
+| L2 `ERC20Vault` implementation      | `0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3` | proxy upgrade; codediff in the table below                         |
+| L2 `BridgedERC20` implementation    | `0x3505a0700DB72dEc7AbFF1aF231BB5D87aBF2944` | registered as `bridged_erc20`, not a proxy target; nothing to diff |
+| L2 `DefaultResolver` proxy          | `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984` | new proxy, nothing to diff                                         |
+| L2 `DefaultResolver` implementation | `0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a` | new contract, nothing to diff                                      |
+
+Codediff of each proxy upgrade, the live implementation against the new one:
+
+| Contract      | codediff                                                                                                                                      |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| L1 Bridge     | https://codediff.taiko.xyz/?addr=0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC&newimpl=0xA15dca0A72da684f20e0FC708DECFb230a715462&chainid=1      |
+| L1 ERC20Vault | https://codediff.taiko.xyz/?addr=0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab&newimpl=0x32E47c04E8c329E8c10062731448e7658aDEEB8e&chainid=1      |
+| L2 Bridge     | https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000001&newimpl=0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb&chainid=167000 |
+| L2 ERC20Vault | https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000002&newimpl=0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3&chainid=167000 |
 
 Vault-side creation transactions, all from deployer `0x56706f118e42ae069f20c5636141b844d1324ae1`:
 
