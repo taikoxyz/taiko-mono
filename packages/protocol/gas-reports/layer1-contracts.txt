@@ -218,7 +218,7 @@ Proposal0018Test:test_buildL1Actions_EncodesBridgeAndErc20VaultUnpause() (gas: 1
 Proposal0023ForkTest:test_l1_upgradesAgainstLiveState() (gas: 0)
 Proposal0023ForkTest:test_l2_selfUpgradeThroughProcessMessage() (gas: 0)
 Proposal0023ForkTest:test_l2_selfUpgradeThroughProcessMessage_byRelayer() (gas: 0)
-Proposal0023Test:test_actionFileMatchesTheBuiltCalldata() (gas: 61139)
+Proposal0023Test:test_actionFileMatchesTheBuiltCalldata() (gas: 60279)
 Proposal0023Test:test_buildAllActions_AppendsTheL2MessageAfterTheL1Upgrades() (gas: 68784)
 Proposal0023Test:test_buildL1Actions_EncodesBridgeThenVaultUpgrade() (gas: 17470)
 Proposal0023Test:test_buildL1Actions_RevertsWhileAnImplementationIsMissing() (gas: 15335)
