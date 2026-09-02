@@ -126,25 +126,37 @@ func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations u
 	}
 }
 
-// The three vault payloads, exactly as the vaults build them:
+// The vault payloads, exactly as the vaults build them:
 //
 //	ERC20Vault:   abi.encode(CanonicalERC20, address from, address to, uint256 amount)
 //	ERC721Vault:  abi.encode(CanonicalNFT,   address from, address to, uint256[] tokenIds)
 //	ERC1155Vault: abi.encode(CanonicalNFT,   address from, address to, uint256[] tokenIds, uint256[] amounts)
 //
+// plus the shape the solver-era ERC20Vault used between #18616 (Dec 2024) and #19959 (Aug 2025):
+//
+//	ERC20Vault:   abi.encode(CanonicalERC20, address from, address to, uint256 amount,
+//	                         uint256 solverFee, bytes32 solverCondition)
+//
 // Held as real ABI schemas so the payload is decoded rather than read at hand-computed offsets.
 var (
 	erc20PayloadArgs = mustArguments(
-		tupleType("ctoken",
-			abi.ArgumentMarshaling{Name: "chainId", Type: "uint64"},
-			abi.ArgumentMarshaling{Name: "addr", Type: "address"},
-			abi.ArgumentMarshaling{Name: "decimals", Type: "uint8"},
-			abi.ArgumentMarshaling{Name: "symbol", Type: "string"},
-			abi.ArgumentMarshaling{Name: "name", Type: "string"},
-		),
+		canonicalERC20Tuple(),
 		abi.ArgumentMarshaling{Name: "from", Type: "address"},
 		abi.ArgumentMarshaling{Name: "to", Type: "address"},
 		abi.ArgumentMarshaling{Name: "amount", Type: "uint256"},
+	)
+
+	// No mainnet or Hoodi vault implementation was cut from the solver window, but Hekla's was, and
+	// those sends are still ERC20 transfers: `amount` is the recipient's, as the vault's TokenSent
+	// event reports it, and the fee rides separately. Six head words, so no other schema here can
+	// reproduce this payload and vice versa.
+	erc20SolverPayloadArgs = mustArguments(
+		canonicalERC20Tuple(),
+		abi.ArgumentMarshaling{Name: "from", Type: "address"},
+		abi.ArgumentMarshaling{Name: "to", Type: "address"},
+		abi.ArgumentMarshaling{Name: "amount", Type: "uint256"},
+		abi.ArgumentMarshaling{Name: "solverFee", Type: "uint256"},
+		abi.ArgumentMarshaling{Name: "solverCondition", Type: "bytes32"},
 	)
 
 	erc721PayloadArgs = mustArguments(
@@ -165,6 +177,16 @@ var (
 	// onMessageInvocation takes a single `bytes`, so the payload is wrapped once more.
 	invocationArgs = mustArguments(abi.ArgumentMarshaling{Name: "data", Type: "bytes"})
 )
+
+func canonicalERC20Tuple() abi.ArgumentMarshaling {
+	return tupleType("ctoken",
+		abi.ArgumentMarshaling{Name: "chainId", Type: "uint64"},
+		abi.ArgumentMarshaling{Name: "addr", Type: "address"},
+		abi.ArgumentMarshaling{Name: "decimals", Type: "uint8"},
+		abi.ArgumentMarshaling{Name: "symbol", Type: "string"},
+		abi.ArgumentMarshaling{Name: "name", Type: "string"},
+	)
+}
 
 func canonicalNFTTuple() abi.ArgumentMarshaling {
 	return tupleType("ctoken",
@@ -265,7 +287,13 @@ func DecodeMessageData(eventData []byte, value *big.Int) (EventType, CanonicalTo
 
 	// Each schema is exact, so the order only settles a payload that is canonical under more than
 	// one of them - which the differing head-word counts make unreachable for the real vaults.
-	if values, ok := decodeExactly(erc20PayloadArgs, payload); ok {
+	// Both ERC20 shapes carry the amount in the fourth word.
+	for _, args := range []abi.Arguments{erc20PayloadArgs, erc20SolverPayloadArgs} {
+		values, ok := decodeExactly(args, payload)
+		if !ok {
+			continue
+		}
+
 		ctoken := *abi.ConvertType(values[0], new(CanonicalERC20)).(*CanonicalERC20)
 		sent, ok := values[3].(*big.Int)
 
