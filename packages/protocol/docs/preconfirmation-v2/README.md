@@ -36,7 +36,7 @@ a successful LaTeX exit status alone is not layout verification.
 
 ```sh
 python3 settlement-window-model.py   # 184 assertions
-python3 test-settlement-window.py    # 275 adversarial regression tests
+python3 test-settlement-window.py    # 277 adversarial regression tests
 python3 lookahead-model.py           # 38 assertions
 python3 commitment-model.py          # 764 golden vectors / 1503 assertion sites
 python3 commitment-model.py --export-json # 764 sorted typed oracle rows

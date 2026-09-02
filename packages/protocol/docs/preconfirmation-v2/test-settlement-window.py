@@ -17243,6 +17243,16 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             )
 
         first = fork_row(bytes.fromhex("01020304"), 109)
+        too_late = fork_row(
+            bytes.fromhex("f1f2f3f4"),
+            oracle.last_managed_window + 1,
+        )
+        # The generic governance codec owns only canonical uint64 syntax.  The
+        # deployment-bound ScheduleOracle/PVM path owns the terminal bound.
+        self.assertEqual(
+            len(settlement.encode_register_fork_verifier_payload_v1(too_late)),
+            14 * 32,
+        )
         self.assertEqual(
             first.witness_schema_hash.hex(),
             "4d3c1d3a7f2921c2f8e7526a2e8aa2c47dc6bdcd3dc9e2b14c58f2b9d39ed30f",
@@ -17281,6 +17291,21 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             caller=addr("fork-installer"), clock=second_mature,
         ))
         self.assertEqual(timelock.operations[queued].state, 4)
+        too_late_payload = \
+            settlement.encode_register_fork_verifier_payload_v1(too_late)
+        rejected = timelock.queue_protocol_change_v1(
+            settlement.REGISTER_FORK_VERIFIER, too_late_payload,
+            caller=timelock.dao_proposer, clock=second_mature,
+        )
+        rejected_mature = settlement.Clock(
+            second_mature.block_number + 1,
+            second_mature.timestamp + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
+        )
+        self.assertFalse(timelock.execute_protocol_change_v1(
+            3, settlement.REGISTER_FORK_VERIFIER, too_late_payload,
+            caller=addr("fork-installer"), clock=rejected_mature,
+        ))
+        self.assertEqual(timelock.operations[rejected].state, 1)
         first_view = oracle.fork_verifier_registration_v1(first.fork_digest)
         self.assertEqual(first_view[3 * 32:3 * 32 + 4], second.fork_digest)
         self.assertIsNotNone(oracle._eligible_row(119, first.fork_digest))
@@ -21390,13 +21415,391 @@ class RegistryLifecycleRound4Tests(unittest.TestCase):
             settlement.ScheduleReleaseCursor(
                 first_managed_window=settlement.UINT64_MAX
             )
+        with self.assertRaises(ValueError):
+            settlement.ScheduleReleaseCursor(
+                first_managed_window=settlement.LAST_MANAGED_SCHEDULE_WINDOW + 1
+            )
         terminal = settlement.ScheduleReleaseCursor(
-            first_managed_window=settlement.UINT64_MAX - 1,
-            objectively_vacant={settlement.UINT64_MAX - 1},
+            first_managed_window=settlement.LAST_MANAGED_SCHEDULE_WINDOW,
+            objectively_vacant={settlement.LAST_MANAGED_SCHEDULE_WINDOW},
         )
         self.assertEqual(terminal.expire_batch(1, lambda _: True), 1)
         self.assertEqual(terminal.expire_batch(1, lambda _: True), 0)
         self.assertEqual(terminal.next_release_window, settlement.UINT64_MAX)
+        self.assertTrue(
+            terminal.is_expired(settlement.LAST_MANAGED_SCHEDULE_WINDOW)
+        )
+        self.assertFalse(
+            terminal.is_expired(settlement.LAST_MANAGED_SCHEDULE_WINDOW + 1)
+        )
+        self.assertEqual(
+            terminal.release_state(settlement.LAST_MANAGED_SCHEDULE_WINDOW + 1),
+            (settlement.ScheduleReleaseState.UNSEALED, bytes(32)),
+        )
+        last_slot_end = (
+            settlement.SCHEDULE_WINDOW_SLOTS
+            * (settlement.LAST_MANAGED_SCHEDULE_WINDOW + 1) - 1
+        )
+        self.assertLessEqual(last_slot_end, settlement.UINT64_MAX)
+        last_deadline = (
+            settlement.GENESIS_TIMESTAMP + last_slot_end + 1
+            + settlement.EVIDENCE_DELAY_SECONDS
+            + settlement.REORG_MARGIN_SECONDS
+        )
+        self.assertLessEqual(last_deadline, settlement.UINT64_MAX - 1)
+        self.assertGreater(
+            settlement.GENESIS_TIMESTAMP
+            + settlement.SCHEDULE_WINDOW_SLOTS
+            * (settlement.LAST_MANAGED_SCHEDULE_WINDOW + 2)
+            + settlement.EVIDENCE_DELAY_SECONDS
+            + settlement.REORG_MARGIN_SECONDS,
+            settlement.UINT64_MAX - 1,
+        )
+        self.assertTrue(settlement.tranche_releasable(
+            settlement.LAST_MANAGED_SCHEDULE_WINDOW,
+            settlement.UINT64_MAX,
+            last_deadline + 1,
+            last_deadline,
+        ))
+        self.assertFalse(settlement.tranche_releasable(
+            settlement.LAST_MANAGED_SCHEDULE_WINDOW + 1,
+            settlement.UINT64_MAX,
+            last_deadline + 1,
+            last_deadline,
+        ))
+
+        def terminal_state(cursor, window, *, actual=None, mask=0):
+            return settlement.encode_settlement_schedule_terminal_state_v1(
+                window,
+                1,
+                settlement.UINT64_MAX if actual is None else actual,
+                mask,
+                caller=cursor.schedule_oracle,
+                pinned_schedule_oracle=cursor.schedule_oracle,
+            )
+
+        backlogged = settlement.ScheduleReleaseCursor()
+        self.assertEqual(backlogged.next_release_window, 0)
+        self.assertGreater(backlogged.last_managed_window, 1_000_000)
+        self.assertTrue(backlogged.finalize_expiry(
+            last_deadline + 1,
+            1,
+            lambda window: terminal_state(backlogged, window),
+        ))
+        self.assertEqual(
+            backlogged.next_release_window, settlement.UINT64_MAX
+        )
+        self.assertEqual(
+            settlement.keccak256(b"finalizeScheduleExpiryV1()")[:4],
+            settlement.SCHEDULE_FINALIZE_EXPIRY_SELECTOR,
+        )
+        self.assertEqual(
+            settlement.keccak256(
+                b"settlementScheduleTerminalStateV1(uint64)"
+            )[:4],
+            settlement.SETTLEMENT_SCHEDULE_TERMINAL_SELECTOR,
+        )
+        swt = settlement.encode_schedule_finalize_expiry_return_v1(
+            0, backlogged.last_managed_window,
+            backlogged.next_release_window,
+        )
+        self.assertEqual(len(swt), 128)
+        self.assertEqual(swt[:32], b"SWT1" + bytes(28))
+
+        faulting = settlement.ScheduleReleaseCursor()
+
+        def terminal_fault(_):
+            raise RuntimeError("malformed terminal SSR1")
+
+        with self.assertRaises(RuntimeError):
+            faulting.finalize_expiry(
+                last_deadline + 1, 1, terminal_fault
+            )
+        self.assertEqual(faulting.next_release_window, 0)
+
+        very_late = settlement.ScheduleReleaseCursor()
+        self.assertEqual(
+            settlement.capped_schedule_terminal_global_min(
+                settlement.UINT64_MAX + 10_000
+            ),
+            settlement.UINT64_MAX,
+        )
+        sts = settlement.encode_settlement_schedule_terminal_state_v1(
+            very_late.last_managed_window,
+            1,
+            settlement.UINT64_MAX + 10_000,
+            0,
+            caller=very_late.schedule_oracle,
+            pinned_schedule_oracle=very_late.schedule_oracle,
+        )
+        self.assertEqual(len(sts), 160)
+        self.assertEqual(sts[:32], b"STS1" + bytes(28))
+        self.assertEqual(
+            int.from_bytes(sts[3 * 32:4 * 32], "big"),
+            settlement.UINT64_MAX,
+        )
+        self.assertTrue(very_late.finalize_expiry(
+            settlement.GENESIS_TIMESTAMP + settlement.UINT64_MAX + 1,
+            1,
+            lambda window: terminal_state(
+                very_late, window,
+                actual=settlement.UINT64_MAX + 10_000,
+            ),
+        ))
+        self.assertEqual(
+            very_late.next_release_window, settlement.UINT64_MAX
+        )
+
+    def test_terminal_active_release_is_deadline_safe_and_ring_independent(self):
+        # Select deployment inputs whose last managed window is exactly eight,
+        # and whose inclusive replay deadline is UINT64_MAX - 1.  This pins the
+        # final admission, final tranche and strict-release boundaries.
+        last_managed = 8
+        genesis = (
+            settlement.UINT64_MAX - 1
+            - settlement.SCHEDULE_WINDOW_SLOTS * (last_managed + 1)
+        )
+        active = [
+            self.generation(index, bond=100 + index, effective_window=0)
+            for index in range(64)
+        ]
+        blocked_liability = self.generation(
+            64, bond=1_000, effective_window=0
+        )
+        liability_ring = [None] * settlement.MAX_LIABILITY_GENERATIONS
+        liability_ring[0] = (blocked_liability, settlement.UINT64_MAX)
+        registry = settlement.RegistryLifecycle(
+            active,
+            genesis_timestamp=genesis,
+            evidence_delay_seconds=0,
+            reorg_margin_seconds=0,
+            liability_ring=liability_ring,
+            lease_per_window_atomic=10,
+        )
+        self.assertEqual(registry.last_managed_window, last_managed)
+        self.assertEqual(
+            registry.tranche_deadline(last_managed),
+            settlement.UINT64_MAX - 1,
+        )
+
+        # Slot zero admits a generation exactly at the last window.  One slot
+        # into the next source window would make it effective too late.
+        empty_registry = settlement.RegistryLifecycle(
+            [],
+            genesis_timestamp=genesis,
+            evidence_delay_seconds=0,
+            reorg_margin_seconds=0,
+            lease_per_window_atomic=10,
+        )
+        exact = self.generation(0, bond=10)
+        self.assertTrue(empty_registry.admit(
+            exact, 0, caller=exact.address,
+            current_l2_slot=settlement.SCHEDULE_WINDOW_SLOTS - 1,
+        ))
+        late = self.generation(1, bond=11)
+        self.assertFalse(empty_registry.admit(
+            late, 1, caller=late.address,
+            current_l2_slot=settlement.SCHEDULE_WINDOW_SLOTS,
+        ))
+
+        self.assertTrue(registry.reserve(
+            active[0].address, last_managed, last_managed
+        ))
+        self.assertTrue(registry.reserve(
+            active[63].address, last_managed, last_managed
+        ))
+        self.assertFalse(registry.reserve(
+            active[1].address, last_managed + 1, last_managed
+        ))
+        cursor = settlement.ScheduleReleaseCursor(
+            genesis_timestamp=genesis,
+            evidence_delay_seconds=0,
+            reorg_margin_seconds=0,
+            first_managed_window=0,
+            last_managed_window=last_managed,
+            objectively_vacant={last_managed},
+        )
+        self.assertEqual(registry.process_maintenance(
+            last_managed + 1,
+            current_l2_slot=(last_managed + 1) * 384,
+        ), (0, 0))
+
+        # Equality evidence lands before terminal expiry.  The O(1) terminal
+        # jump then discharges the entire 0..8 cursor backlog from only the
+        # final window's monotonic release predicates.
+        self.assertFalse(cursor.finalize_expiry(
+            settlement.UINT64_MAX - 1,
+            1,
+            lambda window: settlement.encode_settlement_schedule_terminal_state_v1(
+                window,
+                1,
+                settlement.UINT64_MAX,
+                0,
+                caller=cursor.schedule_oracle,
+                pinned_schedule_oracle=cursor.schedule_oracle,
+            ),
+        ))
+        self.assertTrue(registry.slash_tranche(
+            0,
+            last_managed,
+            settlement.UINT64_MAX - 1,
+            reporter="terminal-reporter",
+            reporter_cap_atomic=3,
+            current_l2_slot=settlement.UINT64_MAX,
+        ))
+        self.assertTrue(cursor.finalize_expiry(
+            settlement.UINT64_MAX,
+            1,
+            lambda window: settlement.encode_settlement_schedule_terminal_state_v1(
+                window,
+                1,
+                settlement.UINT64_MAX,
+                0,
+                caller=cursor.schedule_oracle,
+                pinned_schedule_oracle=cursor.schedule_oracle,
+            ),
+        ))
+        self.assertEqual(cursor.next_release_window, settlement.UINT64_MAX)
+        substituted_cursor = settlement.ScheduleReleaseCursor(
+            schedule_oracle="substituted-oracle",
+            genesis_timestamp=genesis,
+            evidence_delay_seconds=0,
+            reorg_margin_seconds=0,
+            first_managed_window=0,
+            last_managed_window=last_managed,
+            next_release_window=settlement.UINT64_MAX,
+        )
+        self.assertFalse(registry.release_terminal_active(
+            1, settlement.UINT64_MAX + 1, substituted_cursor
+        ))
+        no_reservation = registry.active[1]
+        self.assertEqual(registry.normalize_reservations(
+            1,
+            settlement.UINT64_MAX + 10_000,
+            cursor,
+        ), 0)
+        self.assertEqual(registry.active[1], no_reservation)
+        self.assertEqual(registry.normalize_reservations(
+            63,
+            settlement.UINT64_MAX + 10_000,
+            cursor,
+        ), 1)
+        self.assertEqual(
+            registry.active[63].reservation_base_window,
+            last_managed,
+        )
+        self.assertEqual(registry.active[63].reservation_bitmap, 0)
+        self.assertFalse(registry.active[63].reservations_closed)
+        self.assertEqual(
+            registry.liability_ring[0][0].registration_index, 64
+        )
+        self.assertFalse(registry.release_terminal_active(
+            63, settlement.UINT64_MAX - 1, cursor
+        ))
+        self.assertTrue(registry.release_tranche(
+            63, last_managed, settlement.UINT64_MAX, cursor
+        ))
+        self.assertTrue(registry.release_terminal_active(
+            63, settlement.UINT64_MAX + 1, cursor
+        ))
+        self.assertTrue(registry.release_terminal_active(
+            0, settlement.UINT64_MAX + 2, cursor
+        ))
+        for index in range(1, 63):
+            self.assertTrue(registry.release_terminal_active(
+                index, settlement.UINT64_MAX + 2 + index, cursor
+            ))
+        self.assertEqual(registry.active_count, 0)
+        self.assertIsNotNone(registry.liability_ring[0])
+        self.assertFalse(registry.release_liability(
+            0, last_managed + 1
+        ))
+        self.assertTrue(registry.release_liability(
+            0,
+            last_managed + 1,
+            now=settlement.UINT64_MAX + 66,
+            schedule_cursor=cursor,
+        ))
+        registry.assert_custody_conservation()
+
+    def test_terminal_bound_is_derived_and_cross_component_mismatch_rejects(self):
+        derived = settlement.derive_last_managed_schedule_window(
+            settlement.GENESIS_TIMESTAMP,
+            settlement.EVIDENCE_DELAY_SECONDS,
+            settlement.REORG_MARGIN_SECONDS,
+        )
+        self.assertEqual(derived, settlement.LAST_MANAGED_SCHEDULE_WINDOW)
+        with self.assertRaises(ValueError):
+            settlement.RegistryLifecycle(
+                [], last_managed_window=derived - 1
+            )
+        with self.assertRaises(ValueError):
+            settlement.ScheduleOracleV1(
+                "schedule-oracle", "version-manager",
+                last_managed_window=derived - 1,
+            )
+        bounded_oracle = settlement.ScheduleOracleV1(
+            "schedule-oracle", "version-manager", first_managed_window=5
+        )
+        boundary_clock = settlement.Clock(1, settlement.GENESIS_TIMESTAMP)
+        with self.assertRaises(ValueError):
+            bounded_oracle.seal_window_v1(
+                4, bytes.fromhex("01020304"), b"", b"",
+                seal_deadline=settlement.GENESIS_TIMESTAMP + 1,
+                clock=boundary_clock,
+            )
+        with self.assertRaises(ValueError):
+            bounded_oracle.consume_window_v1(
+                4,
+                seal_deadline=settlement.GENESIS_TIMESTAMP,
+                clock=boundary_clock,
+            )
+        self.assertEqual(
+            bounded_oracle.consume_window_v1(
+                5,
+                seal_deadline=settlement.GENESIS_TIMESTAMP,
+                clock=boundary_clock,
+            ),
+            bytes(32),
+        )
+        with self.assertRaises(ValueError):
+            settlement.derive_last_managed_schedule_window(
+                settlement.UINT64_MAX,
+                settlement.EVIDENCE_DELAY_SECONDS,
+                settlement.REORG_MARGIN_SECONDS,
+            )
+
+        bounded = settlement.RegistryLifecycle(
+            [self.generation(0, bond=100, effective_window=0)],
+            first_managed_window=5,
+            lease_per_window_atomic=10,
+        )
+        self.assertFalse(bounded.reserve(
+            bounded.active[0].address, 4, 4
+        ))
+        self.assertEqual(bounded.tranches, {})
+        self.assertTrue(bounded.reserve(
+            bounded.active[0].address, 5, 5
+        ))
+
+        wrap_safe = settlement.RegistryLifecycle(
+            [
+                self.generation(index, bond=10 + index, effective_window=0)
+                for index in range(64)
+            ],
+            first_managed_window=5,
+            lease_per_window_atomic=10,
+        )
+        victim = wrap_safe.active[0]
+        self.assertFalse(wrap_safe.reserve(victim.address, 4, 4))
+        replacement = self.generation(64, bond=10_000)
+        self.assertTrue(wrap_safe.admit(
+            replacement, 0, caller=replacement.address
+        ))
+        self.assertEqual(
+            wrap_safe.liability_ring[0][0].unreleased_tranche_count, 0
+        )
+        self.assertTrue(wrap_safe.release_liability(0, 1_000))
 
     def test_normalization_never_releases_or_credits(self):
         builder = self.generation(0, bond=100, effective_window=0)

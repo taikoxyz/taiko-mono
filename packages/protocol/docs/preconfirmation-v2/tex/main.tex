@@ -381,7 +381,8 @@ can still land, the address may register again with a fresh
 \code{registrationIndex}.  No permanent address tombstone mapping exists.  With
 \code{currentWindow=floor(currentL2Slot/384)}, a reservation is accepted only
 for
-\code{currentWindow <= W <= currentWindow+MAX_TRANCHE_AHEAD_WINDOWS}, where the
+\code{currentWindow <= W <= currentWindow+MAX_TRANCHE_AHEAD_WINDOWS} and
+\code{firstManagedWindow<=W<=lastManagedWindow}, where the
 initial ahead bound is 16; an exit request permanently disables new
 reservations for that generation.  Only a present \emph{active} generation
 with no exit request and no tombstone may execute \code{FREE -> RESERVED}; a
@@ -392,7 +393,11 @@ never extended with a new reservation.
 The active table has exactly 64 indexed cells.  On accepted registration,
 \code{effectiveL2Slot=currentL2Slot+384*ENTRY_DELAY_WINDOWS}; the stored value,
 not a later recomputation from a window boundary, is authoritative.  Thus a
-registration becomes effective only after \code{ENTRY_DELAY_WINDOWS=8}.  A
+registration becomes effective only after \code{ENTRY_DELAY_WINDOWS=8}, and
+registration rejects unless
+\code{floor(effectiveL2Slot/384)<=lastManagedWindow}.  This exact-slot check
+admits the final builder only if it can become effective in a real managed
+window.  A
 non-full table always writes the lowest vacant active-cell index: the first
 registration therefore uses cell 0, the 64th uses cell 63, and a later hole is
 filled before a greater index.  If the table is full it may replace only the
@@ -486,6 +491,29 @@ floor, an open normal window's frozen floor, an active round's start and the
 first slot of any stored best (absent values are ignored).  Slot indices are
 never compared with timestamps or window numbers.
 
+The schedule domain contains only complete windows whose slot end and absolute
+evidence/reorg deadline leave a representable strictly later release time in
+the \code{uint64} ABI.  Define, with checked unsigned arithmetic,
+\begin{verbatim}
+LAST_FULL_SLOT_WINDOW = floor((UINT64_MAX - 383) / 384)
+                      = 48038396025285289
+lastManagedWindow = min(
+  LAST_FULL_SLOT_WINDOW,
+  floor((UINT64_MAX - 1 - genesisTimestamp
+         - evidenceDelaySeconds - reorgMarginSeconds) / 384) - 1)
+\end{verbatim}
+The fixed bound's end slot is \code{18446744073709551359}, strictly below
+\code{UINT64_MAX}; the following 256-slot suffix of the numerical
+\code{uint64} domain is deliberately outside the protocol schedule.  This
+first bound prevents the release cursor from entering a window whose end cannot
+be strictly below the 64-bit \code{globalMinReferencedSlot}.  The
+deployment-derived second bound additionally guarantees
+\code{evidenceReplayDeadline(lastManagedWindow)<=UINT64_MAX-1}, so the
+strictly later release instant is representable.  Constructor validation
+rejects underflow, a result below \code{firstManagedWindow}, or a supplied
+peer value unequal to this derivation.  Neither bound is independently
+configurable.  \code{UINT64_MAX} remains the distinct terminal cursor sentinel.
+
 The liability-capacity proof is a launch invariant, not an assertion by
 inspection.  A generation moved in window $C$ can have no reservation beyond
 \code{C+MAX_TRANCHE_AHEAD_WINDOWS}.  Therefore
@@ -499,6 +527,54 @@ cover boundary ordering and bounded maintenance.  At four moves per window,
 the ring position reused 268 windows later is consequently releasable.  Each
 generation maintains an exact unreleased-tranche counter, so release and reuse
 do not scan 512 leaves.
+
+\paragraph{Protocol-lifetime terminal drain.}
+No generation may be admitted if its exact \code{effectiveL2Slot} falls after
+\code{lastManagedWindow}, and no reservation, schedule seal or fork boundary
+may name a greater window.  Once ScheduleOracle has expired
+\code{lastManagedWindow}, its authenticated next-release cursor is the exact
+\code{UINT64_MAX} sentinel and every greater-window SWR1 read remains
+UNSEALED.  At that point ordinary movement from active into liability is disabled;
+there is no future schedule for which such a move is useful.  An exit request
+after \code{lastManagedWindow} likewise rejects.
+
+Instead, existing permissionless normalization closes one active generation's
+at-most-17 reservation leaves in place.  Its terminal branch first exact-reads
+\code{SWR1(lastManagedWindow)}, requires EXPIRED and the exact
+\code{UINT64_MAX} cursor, and executes before narrowing or storing a derived
+current window.  Since every managed window is then stale, it converts every
+represented RESERVED leaf to LIABILITY, clears the bitmap, and retains the
+already-representable bitmap base; even a first call after
+\code{genesisTimestamp+UINT64_MAX} therefore cannot overflow a stored clock.
+It preserves \code{reservationsClosed}: the terminal window bounds already
+make every new reservation impossible, and a zero-leaf normalization remains
+the canonical no-root-change \code{0x00} case.
+The generation remains in its canonical active admission position, so evidence
+is still admissible through each inclusive replay deadline.  After its exact
+unreleased-tranche count is zero, no stored tranche is RESERVED or LIABILITY,
+and \code{block.timestamp>maximumLiableUntil}, anyone may release that active
+generation directly.  The call exact-reads
+\code{SWR1(lastManagedWindow)}, requires EXPIRED and
+\code{nextReleaseWindow=UINT64_MAX}, clears the six-level registry leaf and
+eleven-level active admission leaf atomically, resolves any exit row, and
+creates the builder's pull credit.  It consumes neither a liability-ring cell
+nor the four-move allowance.  One call releases one derived generation, so an
+arbitrarily late caller can drain all 64 positions without an early-maintenance
+assumption, and a blocked liability-ring occupant cannot strand the first or
+last active builder.  This terminal rule does not accelerate evidence or
+tranche release: equality remains slashable and release remains strictly later.
+The same authenticated sentinel permits an already-LIABILITY generation to
+release after its tranche/deadline predicates even if its conservative
+\code{releaseWindow} lies beyond the last representable current-window value.
+This matters for valid zero-delay deployments where the fixed complete-slot
+bound, rather than the timestamp bound, selects \code{lastManagedWindow}; it
+cannot bypass \code{maximumLiableUntil} or clear a live tranche.
+Terminal finalization, tranche/generation release and pull-credit claims compare
+the \code{uint64} stored deadline against the native \code{uint256}
+\code{block.timestamp}; they do not narrow the current timestamp or require it
+to remain at most \code{UINT64_MAX}.  Thus the derived one-second minimum
+strict-release point is not a finite processing window: all 64 generations and
+all existing liability cells remain permissionlessly releasable later.
 
 \subsection{BuilderRegistry implementation freeze}\label{sec:builder-registry-freeze}
 
@@ -558,9 +634,12 @@ decimal value, and recomputes the economic
 \code{(64,76,8,268,16,1072,4)} and the three supplied name hashes/rate rows.
 The final hash is never a constructor input.  \code{componentConfigHashV2()}
 returns exactly that derived 32-byte hash.  The immutable
-\code{firstManagedWindow} is deployment topology, not part of the economic
-hash; release registration must derive it together with the ScheduleOracle
-configuration below and reject disagreement.
+\code{firstManagedWindow} and derived immutable \code{lastManagedWindow}
+are deployment topology, not part of the economic hash; release registration
+must derive and cross-check both together with the ScheduleOracle configuration
+below.  The constructor derives \code{lastManagedWindow} by the formula above
+from its genesis/evidence/reorg values and rejects if it is below
+\code{firstManagedWindow}.
 
 Because the profile's historical \code{builderRegistryConfigurationHash} is
 specifically the economic hash, topology has a separate noncircular identity.
@@ -570,6 +649,7 @@ u256(settlementChainId) || address20(builderLeaseToken) ||
 builderLeaseTokenRuntimeHash || u8(builderLeaseTokenDecimals) ||
 u64(genesisTimestamp) || u64(evidenceDelaySeconds) ||
 u64(reorgMarginSeconds) || u64(firstManagedWindow) ||
+u64(lastManagedWindow) ||
 address20(builderPenaltySink) || u64(rewardClaimWindowSeconds) ||
 address20(activeSettlementRouter) || routerRuntimeHash ||
 routerConfigurationHash || address20(scheduleOracle) ||
@@ -580,7 +660,7 @@ and
 builderRegistryTopologyHash = H(
  "slot-chain-builder-registry-topology-v1" || u16(byteLength(B)) || B).
 \end{verbatim}
-Here \code{byteLength(B)=313}; any other width or field order is a different
+Here \code{byteLength(B)=321}; any other width or field order is a different
 topology.
 Both hashes are derived, stored writerlessly and exposed by the exact deployment
 read
@@ -591,12 +671,13 @@ builderRegistryConfigV1() returns
   uint192 leasePerWindowAtomic,uint192 maximumBondAtomic,
   uint192 reporterRewardCapAtomic,uint64 genesisTimestamp,
   uint64 evidenceDelaySeconds,uint64 reorgMarginSeconds,
-  uint64 firstManagedWindow,address builderPenaltySink,
+  uint64 firstManagedWindow,uint64 lastManagedWindow,
+  address builderPenaltySink,
   uint64 rewardClaimWindowSeconds,address activeSettlementRouter,
   bytes32 routerRuntimeHash,bytes32 routerConfigurationHash,
   address scheduleOracle,bytes32 scheduleOracleRuntimeHash,
   bytes32 economicConfigurationHash,bytes32 topologyHash)
-// selector 0x66f0bd82; exact 672 bytes; magic BRC1=0x42524331
+// selector 0x66f0bd82; exact 704 bytes; magic BRC1=0x42524331
 
 builderRegistryTopologyHashV1() returns (bytes32 topologyHash)
 // selector 0xa571e34b; exact 32 bytes
@@ -1027,11 +1108,14 @@ narrow integer and bytes4 word in the three rows has canonical padding.
 Component configuration calls use 50,000 gas and every larger
 activation/cross-view uses 100,000 gas; every call has exact selector-only
 calldata and exact return length/padding.  It requires BRC1 and SOC1 to agree on
-\code{genesisTimestamp} and \code{firstManagedWindow}, derives
+\code{genesisTimestamp}, \code{evidenceDelaySeconds},
+\code{reorgMarginSeconds}, \code{firstManagedWindow} and
+\code{lastManagedWindow}; independently recomputes \code{lastManagedWindow}
+by the checked formula above; derives
 \code{currentWindow=max(0,(block.timestamp-genesisTimestamp)/384)} with checked
 arithmetic, and requires both
 \begin{verbatim}
-firstManagedWindow < UINT64_MAX
+firstManagedWindow <= lastManagedWindow <= LAST_FULL_SLOT_WINDOW
 firstManagedWindow >= currentWindow + 18.
 \end{verbatim}
 This finalization-time check, rather than a stale constructor-time promise,
@@ -1176,7 +1260,10 @@ The supplied \code{baseBondAtomic} must satisfy
 boundaries are checked before proof mutation, token movement or state writes.
 \code{nextRegistrationIndex} is checked before increment and exhaustion is
 permanent.  The entry delay is
-\code{effectiveL2Slot=currentL2Slot+8*384}, not rounded to a window.
+\code{effectiveL2Slot=currentL2Slot+8*384}, not rounded to a window.  The
+addition is checked and registration rejects unless
+\code{floor(effectiveL2Slot/384)<=lastManagedWindow}; this applies equally to
+vacant-cell and competitive registration.
 
 Base-bond and per-window escrow are disjoint.  Registration pulls exactly the
 immutable base bond; each first reservation of a window separately pulls
@@ -1209,7 +1296,11 @@ their original window and deadline.  The leaf index is derived as
 stored window strictly smaller than W and the same modulo index; a nonterminal
 old generation is never overwritten.  Thus W=511 uses leaf 511 and W=512 uses
 leaf 0.  Every multiplication, deadline addition and \code{uint64} boundary is
-checked before a token transfer or state write.
+checked before a token transfer or state write.  Reservation additionally
+requires \code{firstManagedWindow<=W<=lastManagedWindow}; idempotent
+re-reservation cannot bypass either bound.  In particular, the activation
+runway cannot fund a pre-first tranche that SWR1 would permanently classify
+UNSEALED.
 
 The bitmap is always relative to a stored \code{reservationBaseWindow} and may
 set only offsets 0 through 16.  Before reserving, the transaction closes every
@@ -1232,7 +1323,9 @@ reverts before a root, escrow or credit write.
 \paragraph{Exit, tombstone and movement.}
 An exit request is one-shot, closes future reservation immediately, stores
 \code{requestWindow=currentWindow} and matures at equality with
-\code{requestWindow+268}.  Records are appended by checked sequence.  Requests
+\code{requestWindow+268}.  It rejects once
+\code{currentWindow>lastManagedWindow}; terminal direct release below is then
+the only active-generation exit.  Records are appended by checked sequence.  Requests
 created in one window have the same maturity and are processed by sequence, so
 the global queue is strict FIFO.  Before a full-table registration, resolved
 heads may be skipped, but that path inspects at most 64 FIFO records; if a 65th
@@ -1244,6 +1337,8 @@ caller's requested number of moves, capped by the remaining four-move window
 budget.  It moves matured exits first, then active slash tombstones ordered by
 \code{(tombstonedAtL2Slot,registrationIndex)}.  A not-yet-mature exit may still
 be competitively replaced and its queue record becomes resolved atomically.
+When \code{currentWindow>lastManagedWindow}, this ordinary movement entry is a
+canonical no-op; terminal active release does not use it or its budget.
 
 Healthy competitive replacement or matured exit preserves the moved
 generation's live tombstone sentinel in liability.  It closes reservations and
@@ -1326,6 +1421,12 @@ submitBuilderEquivocationV1(bytes evidence)
           uint64 admissionVersion,bytes32 admissionRoot)
                                                              0x979c1f72 BEV1/256
 \end{verbatim}
+Normalization derives \code{currentWindow} in \code{uint256}.  At or below
+\code{lastManagedWindow} it uses the ordinary 17-bit sliding-window rule and
+stores the safely bounded base.  Above that bound it rejects unless the exact
+terminal SWR1 read described above succeeds, then closes every set bit without
+storing or narrowing the derived window.  A malformed, substituted or
+nonterminal Schedule read reverts before any tranche or root write.
 The complete event ABI is
 \begin{verbatim}
 BuilderRegistered(address indexed builder,uint64 indexed registrationIndex,
@@ -1413,12 +1514,19 @@ exactly \code{TranchePath} (288 bytes); active is
 \code{TranchePath||RegistryPath} (480 bytes).  The current leaf must be exact
 LIABLE for the requested window and the ScheduleOracle predicate below must be
 safe.  No location bit or leaf index is supplied.
-\item Generation release is exactly \code{AdmissionPath} (352 bytes), requires
-the derived locator to be LIABILITY, the unreleased-tranche count to be zero,
-and \code{block.timestamp>maximumLiableUntil}.  All its tranche leaves must
-already be terminal through authenticated tranche release or slash; the
-liability admission leaf is then replaced by canonical empty.  It never scans
-the tranche ring and no caller supplies a position.
+\item Generation release derives location from the reverse locator.
+LIABILITY release is exactly \code{AdmissionPath} (352 bytes).  It uses the
+ordinary derived release-window guard when reachable, or the terminal sentinel
+guard below.  Terminal ACTIVE release is exactly
+\code{RegistryPath||AdmissionPath} (544 bytes).  Either terminal variant
+additionally exact-authenticates EXPIRED plus the \code{UINT64_MAX} cursor
+from \code{SWR1(lastManagedWindow)}.  All variants require the unreleased-tranche
+count to be zero, no stored RESERVED or LIABILITY tranche for the generation,
+and \code{block.timestamp>maximumLiableUntil}.  All tranche leaves are already
+terminal through authenticated tranche release or slash.  Liability release
+clears its admission leaf; terminal active release clears both its registry and
+active admission leaves and resolves any exit row.  Neither scans the tranche
+ring, and no caller supplies a location or position.
 \end{itemize}
 For every path, the expected registration index must equal the stored reverse
 locator and all exact byte lengths are checked before a token call or state
@@ -1527,9 +1635,10 @@ by arm, abort or cutover.  Evidence's historical RTR2 authentication is the
 sole additional Router read.  No caller supplies a phase or Settlement address.
 
 ScheduleOracle owns a 268-cell schedule ring, immutable
-\code{firstManagedWindow} and monotonic \code{nextReleaseWindow}, initialized
-to that immutable at construction.  Reservations and seals below the first
-managed window reject and migration never resets either value.  Its actual
+\code{firstManagedWindow}, derived immutable \code{lastManagedWindow} and
+monotonic \code{nextReleaseWindow}, initialized to the first bound at
+construction.  Reservations and seals outside the inclusive managed interval
+reject and migration never resets any of these values.  Its actual
 Solidity constructor argument list is exactly the three activation fields
 followed by every field of \code{ScheduleOracleConstructorV1}; the exact
 Schedule-local suffix is:
@@ -1540,7 +1649,9 @@ ScheduleOracleConstructorV1(
  bytes32 routerConfigurationHash,address builderRegistry,
  bytes32 builderRegistryRuntimeHash,bytes32 builderRegistryConfigurationHash,
  bytes32 builderRegistryTopologyHash,
- uint64 firstManagedWindow,uint64 genesisTimestamp,uint64 beaconGenesisTime,
+ uint64 firstManagedWindow,uint64 genesisTimestamp,
+ uint64 evidenceDelaySeconds,uint64 reorgMarginSeconds,
+ uint64 beaconGenesisTime,
  uint64 lookaheadSeconds,uint192 leasePerWindowAtomic,
  bytes32 beaconRootsRuntimeHash,uint64 beaconRootsFirstSupportedTimestamp,
  bytes32 historyStorageRuntimeHash,uint64 historyFirstSupportedBlock,
@@ -1562,10 +1673,15 @@ HISTORY_STORAGE_ADDRESS = 0x0000F90827F1C53a10cb7A02335B175320002935
 Neither is a constructor argument.  Every address/hash is nonzero,
 \code{settlementChainId=block.chainid},
 \code{leasePerWindowAtomic} equals the BuilderRegistry economic value,
-\code{firstManagedWindow<UINT64_MAX}, the
+and the checked window bound is
+\begin{verbatim}
+firstManagedWindow <= lastManagedWindow <= LAST_FULL_SLOT_WINDOW.
+\end{verbatim}
+The
 initial fork row has \code{firstWindow=0}, and its constants/configuration obey
 the fork formula below.  The Registry genesis/first-managed values must equal
-the Schedule values, \code{lookaheadSeconds=768}, and the first managed window
+the Schedule values; its evidence/reorg values and independently derived
+\code{lastManagedWindow} must also agree; \code{lookaheadSeconds=768}; and the first managed window
 start must be numerically at least \code{lookaheadSeconds} and at least 256
 beacon slots after \code{beaconGenesisTime}; these checked constructor
 inequalities make its first deadline and target nonnegative.  The beacon-roots
@@ -1574,8 +1690,9 @@ block boundary is enforced against the authenticated carrier number per call.
 Every later multiplication/addition is checked before narrowing.  The protocol
 constants are window size 384, ring size
 268, expiry batch cap 8, carrier scan 64, assignment cap 76, early-seal bound
-8, configuration/ASR1/SWR1/SWV1/history read gas 50,000, RTR2/fork-config read gas
-100,000, beacon-roots read gas 50,000 and SSR1 read gas 100,000.
+8, and configuration/ASR1/SWR1/SWV1/history read gas 50,000.  RTR2 and
+fork-config reads use 100,000 gas, beacon-roots uses 50,000, and SSR1/STS1
+share a 100,000-gas limit.
 
 Let \code{S} be the exact packed concatenation, in constructor order, of all
 scalar constructor fields above; replace each nested initial-fork value by its
@@ -1594,7 +1711,7 @@ geometry, assignment cap, beacon seconds/epoch slots, eight-epoch snapshot
 lag, carrier finality, history serve window, header-byte and header-field
 bounds, MPT path/node/aggregate bounds, fork-witness bound and whole
 seal-witness bound.  The final nine values are configuration, ASR1, RTR2,
-SWR1, SWV1, history, beacon-roots, fork-config and SSR1 gas.
+SWR1, SWV1, history, beacon-roots, fork-config and the shared SSR1/STS1 gas.
 Then
 \begin{verbatim}
 scheduleOracleConfigurationHash = H(
@@ -1611,17 +1728,19 @@ zero-argument deployment read is
 scheduleOracleConfigV1() returns
  (bytes4 magic,uint256 settlementChainId,address protocolVersionManager,
   address activeSettlementRouter,address builderRegistry,
-  uint64 firstManagedWindow,uint64 genesisTimestamp,uint64 beaconGenesisTime,
+  uint64 firstManagedWindow,uint64 lastManagedWindow,
+  uint64 genesisTimestamp,uint64 evidenceDelaySeconds,
+  uint64 reorgMarginSeconds,uint64 beaconGenesisTime,
   uint64 lookaheadSeconds,uint256 leasePerWindowAtomic,
   bytes4 initialForkDigest,bytes32 builderRegistryTopologyHash,
   bytes32 configurationHash)
-// selector 0xe3d91a33; exact 416 bytes; magic SOC1=0x534f4331
+// selector 0xe3d91a33; exact 512 bytes; magic SOC1=0x534f4331
 \end{verbatim}
 Release registration exact-reads this SOC1 view, BRC1 and both components'
 \code{componentConfigHashV2()} values.  It recomputes \code{T} from the complete
 BRC1 topology preimage; compares \code{E} and \code{C} to the manifest-pinned
 calibrated profile and component results; checks both pinned runtime hashes;
-and rejects any cross-pin, first-window or lease disagreement before publishing
+and rejects any cross-pin, timing-bound, first/last-window or lease disagreement before publishing
 the two protocol-lifetime objects.  SOC1 is a bounded deployment join, not a
 second complete Schedule-configuration preimage.
 
@@ -1641,6 +1760,11 @@ scheduleWindowV1(uint64) returns
 expireScheduleWindowsV1(uint8 maxWindows) returns
  (bytes4 magic,uint8 expired,uint64 nextReleaseWindow)
 // selector 0xb1357479; exact 96 bytes; magic SWE1; 1<=maxWindows<=8
+
+finalizeScheduleExpiryV1() returns
+ (bytes4 magic,uint64 firstExpiredWindow,uint64 lastManagedWindow,
+  uint64 nextReleaseWindow)
+// selector 0x774167d9; exact 128 bytes; magic SWT1=0x53575431
 
 sealScheduleWindowV1(uint64 window,bytes4 forkDigest,bytes witness) returns
  (bytes4 magic,uint64 returnedWindow,bytes32 entryRoot,bytes32 seed)
@@ -1734,6 +1858,8 @@ ScheduleWindowSealed(uint64 indexed window,bytes32 entryRoot,
  bytes32 seed,bytes4 forkDigest,bytes32 carrierStatementHash)
 ScheduleWindowsExpired(uint64 indexed firstWindow,uint8 expired,
  uint64 nextReleaseWindow)
+ScheduleExpiryFinalized(uint64 indexed firstExpiredWindow,
+ uint64 indexed lastManagedWindow)
 ScheduleForkVerifierInstalled(bytes4 indexed forkDigest,
  uint64 indexed firstWindow,address verifier,bytes32 runtimeHash,
  bytes32 configurationHash,bytes4 selector,uint64 gasLimit)
@@ -1743,13 +1869,16 @@ prefix; a zero-length safe stop emits none.  Seal and fork-install events are
 emitted after their corresponding ring/registry state is complete and never
 serve as authority for a later read.
 \code{maxWindows=0} rejects.  Expiry advances strictly in W order, so
-\code{firstManagedWindow<=W<nextReleaseWindow} proves an overwritten managed
-ring generation expired.  A
+\code{firstManagedWindow<=W<=lastManagedWindow} and
+\code{W<nextReleaseWindow} proves an overwritten managed ring generation
+expired.  A
 call commits the maximal releasable prefix up to \code{maxWindows} and stops,
 without reverting that prefix, at the first authenticated but not-yet-safe
 window.  An external-read authentication failure reverts the whole call.  A
 cursor equal to \code{UINT64_MAX} is terminal and is never incremented or
-wrapped; a call reaching it returns its already-completed prefix.  At the start
+wrapped.  Releasing \code{lastManagedWindow} sets the cursor directly
+to that sentinel rather than to the intervening invalid partial-window index;
+a call reaching it returns its already-completed prefix.  At the start
 of the call Oracle rechecks Router's pinned runtime and configuration, then
 exact-reads ASR1.  For each candidate W it exact-reads
 RTR2(activeProtocolVersion), requires RTR2's version/target to equal ASR1 and a
@@ -1762,6 +1891,11 @@ settlementScheduleReleaseStateV1(uint64) returns
   uint64 currentL2Slot,uint64 globalMinReferencedSlot,
   uint8 referenceMaskForWindow)
 // selector 0xa4574c77; exact 192 bytes; magic SSR1
+
+settlementScheduleTerminalStateV1(uint64) returns
+ (bytes4 magic,uint64 returnedWindow,uint64 protocolVersion,
+  uint64 cappedGlobalMinReferencedSlot,uint8 referenceMaskForWindow)
+// selector 0x9338be7d; exact 160 bytes; magic STS1=0x53545331
 \end{verbatim}
 with exactly 100,000 gas.  The returned version must equal
 ASR1/RTR2, \code{windowEndSlot(W)<globalMinReferencedSlot}, and the mask must be
@@ -1773,13 +1907,54 @@ late unsealed VACANT record advances.
 SWR1 has one exact root rule.  A stored unexpired SEALED cell returns its stored
 entry root.  UNSEALED returns zero.  An objectively late unsealed VACANT cell
 returns the canonical all-empty ranked-entry root.  Every
-\code{firstManagedWindow<=W<nextReleaseWindow}, including a just-expired cell
-and an already-pruned managed generation, returns EXPIRED with zero entry root.
-Every \code{W<firstManagedWindow} returns UNSEALED with zero root and can never
-authenticate release.  BuilderRegistry releases W
+\code{firstManagedWindow<=W<=lastManagedWindow} with either
+\code{W<nextReleaseWindow} or terminal \code{nextReleaseWindow=UINT64_MAX},
+including a just-expired cell and an already-pruned managed generation, returns
+EXPIRED with zero entry root.
+Every \code{W<firstManagedWindow} and every
+\code{W>lastManagedWindow} returns UNSEALED with zero root and can
+never authenticate release, including after the cursor reaches its terminal
+sentinel.  BuilderRegistry releases W
 only after an exact 50,000-gas SWR1 read authenticates EXPIRED and
 \code{block.timestamp>evidenceReplayDeadline(W)}.  Evidence remains admissible
 through equality, leaving no boundary gap.
+
+\code{finalizeScheduleExpiryV1} is the O(1) permissionless terminal path and
+is valid from any nonterminal cursor position.  It records the pre-call cursor
+as \code{firstExpiredWindow}, performs the same exact Router, RTR2 and target
+runtime/configuration authentication, then exact-reads STS1 once for
+\code{lastManagedWindow}, and requires
+\begin{verbatim}
+windowEndSlot(lastManagedWindow) < cappedGlobalMinReferencedSlot
+referenceMaskForWindow == 0
+block.timestamp > evidenceReplayDeadline(lastManagedWindow).
+\end{verbatim}
+Window
+ends and replay deadlines are monotonic in W, so these last-window predicates
+prove every earlier managed window safe without scanning or assuming prior
+cursor maintenance.  At that timestamp an unsealed last window is necessarily
+past its earlier seal deadline and is objectively VACANT; no stored-state claim
+is needed.  The call atomically writes \code{nextReleaseWindow=UINT64_MAX},
+emits its single event and returns SWT1 with the echoed bounds and sentinel.
+An already-terminal call, malformed external read, nonzero reference or failed
+strict inequality reverts without an event or cursor change.  This terminal
+jump affects only Schedule classification and reclamation: it cannot admit a
+new window, erase evidence at equality or create a builder credit.
+
+STS1 exists specifically so this terminal proof never acquires SSR1's finite
+\code{uint64 currentL2Slot} encoding deadline.  Settlement computes the same
+actual global minimum over its dynamic floor, open normal floor, active-round
+start and stored-best first slots, but returns
+\code{min(actualGlobalMinReferencedSlot,UINT64_MAX)} and omits the current
+slot.  Saturation is a conservative lower bound; it cannot turn a false strict
+inequality into a true one.  All retained reference slots and the mask remain
+exact \code{uint64} state.  STS1 derives and echoes the caller's exact window,
+requires the caller to be Settlement's release-pinned ScheduleOracle; the
+Oracle itself supplies and verifies \code{window=lastManagedWindow}.  STS1 uses
+canonical narrow-word padding and remains callable after
+\code{block.timestamp>genesisTimestamp+UINT64_MAX}.  It is read-only,
+unpausable, contains no callback, and is assigned the same exact 100,000-gas
+stipend as SSR1.
 
 SWV1 is the candidate/proof authentication view and uses the same state
 classification at the same block.  SEALED returns the stored entry root and
@@ -1835,7 +2010,8 @@ Before touching the witness the entry point uses checked arithmetic to derive
 \code{currentWindow=max(0,block.timestamp-GENESIS_TIMESTAMP)/384} and rejects
 unless
 \code{W>=firstManagedWindow}, \code{W>=nextReleaseWindow},
-\code{W<UINT64_MAX}, \code{currentWindow<=W<=currentWindow+8}, and the strict
+\code{W<=lastManagedWindow},
+\code{currentWindow<=W<=currentWindow+8}, and the strict
 deadline holds.  A
 stored seal for W rejects.  A different still-unexpired generation in cell
 \code{W mod 268} rejects rather than being overwritten; a generation below
@@ -1960,8 +2136,13 @@ The selectors are \code{0xf171816c}, \code{0xc614591c} and
 \code{0x46564931}, 320/FVR1 \code{0x46565231} and 320/SFV1
 \code{0x53465631}.  Install is PVM-only and receives exactly 500,000 gas.
 The verifier getter is a 100,000-gas STATICCALL returning the complete row.
-PVM checks runtime, getter, configuration formula, unused digest and
-\code{firstWindow >= currentWindow+MAX_EARLY_SEAL_WINDOWS+1}, and requires
+PVM checks runtime, getter, configuration formula, unused digest, the checked
+bounds
+\begin{verbatim}
+currentWindow + MAX_EARLY_SEAL_WINDOWS + 1 <= firstWindow
+firstWindow <= lastManagedWindow
+\end{verbatim}
+and requires
 \code{100000<=gasLimit<=5000000}.  It sets the
 previous latest row's formerly zero successor pair once and appends the new
 row; neither boundary can later change.  The getter for the latest row has a
@@ -11845,7 +12026,7 @@ local destination binding, frontier/event terminal proofs, pause-independent
 escape, L2 release sealing, replay and timing
 geometry.  Cryptographic booleans in that model are not cryptographic
 evidence.
-The companion \code{test-settlement-window.py} suite runs 275 adversarial
+The companion \code{test-settlement-window.py} suite runs 277 adversarial
 regressions, including authorization substitution, callback/OOG, competing LP,
 owner-mode, target/quota/pull/terminal rollback, withdrawal/recreation and
 cross-version preservation cases for the atomic Pool path.

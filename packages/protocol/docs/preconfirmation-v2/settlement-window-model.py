@@ -172,6 +172,37 @@ POINT_EVALUATION_OK = (
     + BLS_MODULUS.to_bytes(32, "big")
 )
 UINT64_MAX = (1 << 64) - 1
+SCHEDULE_WINDOW_SLOTS = 384
+# A uint64 slot domain contains one final partial 256-slot interval.
+LAST_FULL_SLOT_WINDOW = (
+    UINT64_MAX - (SCHEDULE_WINDOW_SLOTS - 1)
+) // SCHEDULE_WINDOW_SLOTS
+
+
+def derive_last_managed_schedule_window(
+    genesis_timestamp: int,
+    evidence_delay_seconds: int,
+    reorg_margin_seconds: int,
+) -> int:
+    """Last window whose full slot and inclusive replay deadline fit uint64."""
+
+    if any(type(value) is not int or not 0 <= value <= UINT64_MAX for value in (
+            genesis_timestamp, evidence_delay_seconds,
+            reorg_margin_seconds)):
+        raise ValueError("schedule terminal inputs are outside uint64")
+    fixed = (genesis_timestamp + evidence_delay_seconds
+             + reorg_margin_seconds)
+    if fixed > UINT64_MAX - 1 - SCHEDULE_WINDOW_SLOTS:
+        raise ValueError("schedule has no deadline-safe complete window")
+    timestamp_bound = (
+        (UINT64_MAX - 1 - fixed) // SCHEDULE_WINDOW_SLOTS
+    ) - 1
+    return min(LAST_FULL_SLOT_WINDOW, timestamp_bound)
+
+
+LAST_MANAGED_SCHEDULE_WINDOW = derive_last_managed_schedule_window(
+    GENESIS_TIMESTAMP, EVIDENCE_DELAY_SECONDS, REORG_MARGIN_SECONDS
+)
 SEAT_UINT256_MAX = (1 << 256) - 1
 MAX_REWARD_RECEIPTS = 256
 REWARD_CLAIM_WINDOW_SECONDS = 86_400
@@ -4248,6 +4279,10 @@ SCHEDULE_SEAL_SELECTOR = bytes.fromhex("68949048")
 SCHEDULE_SEAL_MAGIC = b"SSW1"
 SCHEDULE_WINDOW_SELECTOR = bytes.fromhex("15fadbaa")
 SCHEDULE_WINDOW_MAGIC = b"SWV1"
+SCHEDULE_FINALIZE_EXPIRY_SELECTOR = bytes.fromhex("774167d9")
+SCHEDULE_FINALIZE_EXPIRY_MAGIC = b"SWT1"
+SETTLEMENT_SCHEDULE_TERMINAL_SELECTOR = bytes.fromhex("9338be7d")
+SETTLEMENT_SCHEDULE_TERMINAL_MAGIC = b"STS1"
 SCHEDULE_SEAL_WITNESS_VERSION = 1
 MAX_SCHEDULE_FORK_WITNESS_BYTES = 131_072
 MAX_SCHEDULE_SEAL_WITNESS_BYTES = 280_000
@@ -4556,8 +4591,17 @@ class ProtocolRootFactoryModelV1:
         executor: RootMigrationExecutorModelV1,
     ) -> bytes:
         campaign = self.live
+        try:
+            last_managed_window = derive_last_managed_schedule_window(
+                genesis_timestamp, EVIDENCE_DELAY_SECONDS,
+                REORG_MARGIN_SECONDS,
+            )
+        except ValueError as exc:
+            raise ValueError(
+                "protocol-root managed-window inputs are invalid"
+            ) from exc
         if (not 0 <= genesis_timestamp <= UINT64_MAX
-                or not 0 <= first_managed_window < UINT64_MAX):
+                or not 0 <= first_managed_window <= last_managed_window):
             raise ValueError("protocol-root managed-window inputs are invalid")
         current_window = (
             0 if now < genesis_timestamp
@@ -5187,32 +5231,82 @@ def encode_schedule_window_return_v1(
     return encoded
 
 
+def encode_schedule_finalize_expiry_return_v1(
+    first_expired_window: int,
+    last_managed_window: int,
+    next_release_window: int,
+) -> bytes:
+    if (type(first_expired_window) is not int
+            or type(last_managed_window) is not int
+            or type(next_release_window) is not int
+            or not 0 <= first_expired_window <= last_managed_window
+            <= LAST_FULL_SLOT_WINDOW
+            or next_release_window != UINT64_MAX):
+        raise ValueError("Schedule terminal return is invalid")
+    encoded = b"".join((
+        SCHEDULE_FINALIZE_EXPIRY_MAGIC + bytes(28),
+        _model_uint(first_expired_window, 32,
+                    "Schedule terminal first window"),
+        _model_uint(last_managed_window, 32,
+                    "Schedule terminal last window"),
+        _model_uint(next_release_window, 32,
+                    "Schedule terminal cursor"),
+    ))
+    if len(encoded) != 128:
+        raise AssertionError("SWT1 return width drifted")
+    return encoded
+
+
 @dataclass
 class ScheduleReleaseCursor:
     """Monotonic proof that pruned schedule-ring windows were once expired."""
 
+    schedule_oracle: str = "schedule-oracle"
+    genesis_timestamp: int = GENESIS_TIMESTAMP
+    evidence_delay_seconds: int = EVIDENCE_DELAY_SECONDS
+    reorg_margin_seconds: int = REORG_MARGIN_SECONDS
     first_managed_window: int = 0
+    last_managed_window: int | None = None
     next_release_window: int | None = None
     sealed_entry_roots: dict[int, bytes] = field(default_factory=dict)
     sealed_seeds: dict[int, bytes] = field(default_factory=dict)
     objectively_vacant: set[int] = field(default_factory=set)
 
     def __post_init__(self) -> None:
+        derived_last_managed_window = derive_last_managed_schedule_window(
+            self.genesis_timestamp,
+            self.evidence_delay_seconds,
+            self.reorg_margin_seconds,
+        )
+        if self.last_managed_window is None:
+            self.last_managed_window = derived_last_managed_window
+        elif self.last_managed_window != derived_last_managed_window:
+            raise ValueError("Schedule cursor terminal bound is inconsistent")
         if self.next_release_window is None:
             self.next_release_window = self.first_managed_window
-        if (type(self.first_managed_window) is not int
+        if (not self.schedule_oracle
+                or type(self.first_managed_window) is not int
                 or type(self.next_release_window) is not int
-                or not 0 <= self.first_managed_window < UINT64_MAX
-                or not self.first_managed_window <= self.next_release_window
-                <= UINT64_MAX):
+                or type(self.last_managed_window) is not int
+                or not 0 <= self.first_managed_window
+                <= self.last_managed_window <= LAST_FULL_SLOT_WINDOW
+                or not (
+                    self.first_managed_window <= self.next_release_window
+                    <= self.last_managed_window
+                    or self.next_release_window == UINT64_MAX
+                )):
             raise ValueError("malformed schedule release cursor")
 
     def expire(self, window: int, *, releasable: bool) -> bool:
+        assert self.last_managed_window is not None
         assert self.next_release_window is not None
         if (type(window) is not int or window != self.next_release_window
-                or not releasable or window == UINT64_MAX):
+                or not releasable or window > self.last_managed_window):
             return False
-        self.next_release_window += 1
+        self.next_release_window = (
+            UINT64_MAX
+            if window == self.last_managed_window else window + 1
+        )
         return True
 
     def release_state(
@@ -5220,10 +5314,12 @@ class ScheduleReleaseCursor:
     ) -> tuple[ScheduleReleaseState, bytes]:
         """Return the exact SWR1 state/root projection."""
 
+        assert self.last_managed_window is not None
         assert self.next_release_window is not None
         if type(window) is not int or not 0 <= window <= UINT64_MAX:
             raise ValueError("release-state window is outside uint64")
-        if window < self.first_managed_window:
+        if (window < self.first_managed_window
+                or window > self.last_managed_window):
             return ScheduleReleaseState.UNSEALED, bytes(32)
         if window < self.next_release_window:
             return ScheduleReleaseState.EXPIRED, bytes(32)
@@ -5279,18 +5375,88 @@ class ScheduleReleaseCursor:
                     break
                 if not authenticated_releasable(window):
                     break
-                self.next_release_window += 1
+                self.next_release_window = (
+                    UINT64_MAX
+                    if window == self.last_managed_window else window + 1
+                )
                 expired += 1
         except BaseException:
             self.next_release_window = pre_cursor
             raise
         return expired
 
+    def finalize_expiry(
+        self,
+        now: int,
+        expected_protocol_version: int,
+        authenticated_terminal_state: Callable[[int], bytes],
+    ) -> bool:
+        """O(1) terminal jump justified by the last window's predicates.
+
+        Window ends and replay deadlines are monotonic in W.  Therefore an
+        authenticated proof that the final managed window is unreferenced and
+        past its replay deadline simultaneously proves every earlier managed
+        window safe, regardless of cursor-maintenance backlog.
+        """
+
+        assert self.last_managed_window is not None
+        assert self.next_release_window is not None
+        if (self.next_release_window == UINT64_MAX
+                or type(now) is not int or now < 0
+                or type(expected_protocol_version) is not int
+                or not 0 < expected_protocol_version <= UINT64_MAX
+                or not callable(authenticated_terminal_state)):
+            return False
+        replay_deadline = (
+            self.genesis_timestamp
+            + SCHEDULE_WINDOW_SLOTS * (self.last_managed_window + 1)
+            + self.evidence_delay_seconds + self.reorg_margin_seconds
+        )
+        if now <= replay_deadline:
+            return False
+        pre_cursor = self.next_release_window
+        try:
+            raw = authenticated_terminal_state(self.last_managed_window)
+            if type(raw) is not bytes or len(raw) != 160:
+                raise ValueError("STS1 call envelope is noncanonical")
+            words = tuple(raw[offset:offset + 32]
+                          for offset in range(0, len(raw), 32))
+            if words[0] != SETTLEMENT_SCHEDULE_TERMINAL_MAGIC + bytes(28):
+                raise ValueError("STS1 magic is invalid")
+            returned_window = _decode_uint_word_v1(
+                words[1], 64, "STS1 returned window"
+            )
+            returned_version = _decode_uint_word_v1(
+                words[2], 64, "STS1 protocol version"
+            )
+            capped_global_min = _decode_uint_word_v1(
+                words[3], 64, "STS1 capped global minimum"
+            )
+            reference_mask = _decode_uint_word_v1(
+                words[4], 8, "STS1 reference mask"
+            )
+            last_end = (
+                SCHEDULE_WINDOW_SLOTS * (self.last_managed_window + 1) - 1
+            )
+            if (returned_window != self.last_managed_window
+                    or returned_version != expected_protocol_version
+                    or reference_mask != 0
+                    or not last_end < capped_global_min):
+                return False
+            self.next_release_window = UINT64_MAX
+            return True
+        except BaseException:
+            self.next_release_window = pre_cursor
+            raise
+
     def is_expired(self, window: int) -> bool:
+        assert self.last_managed_window is not None
         assert self.next_release_window is not None
         return (type(window) is int
                 and self.first_managed_window <= window
-                < self.next_release_window)
+                <= self.last_managed_window
+                and (self.next_release_window == UINT64_MAX
+                     or window < self.next_release_window))
 
 
 def admission_move_proof_order(
@@ -5629,6 +5795,12 @@ class MigrationGate:
 @dataclass
 class RegistryLifecycle:
     active: list[Generation | None]
+    schedule_oracle: str = "schedule-oracle"
+    genesis_timestamp: int = GENESIS_TIMESTAMP
+    evidence_delay_seconds: int = EVIDENCE_DELAY_SECONDS
+    reorg_margin_seconds: int = REORG_MARGIN_SECONDS
+    first_managed_window: int = 0
+    last_managed_window: int | None = None
     liability_ring: list[tuple[Generation, int] | None] = field(
         default_factory=lambda: [None] * MAX_LIABILITY_GENERATIONS)
     replacements: dict[int, int] = field(default_factory=dict)
@@ -5654,7 +5826,20 @@ class RegistryLifecycle:
     next_registration_index: int | None = None
 
     def __post_init__(self) -> None:
-        if (len(self.active) > 64
+        derived_last_managed_window = derive_last_managed_schedule_window(
+            self.genesis_timestamp,
+            self.evidence_delay_seconds,
+            self.reorg_margin_seconds,
+        )
+        if self.last_managed_window is None:
+            self.last_managed_window = derived_last_managed_window
+        elif self.last_managed_window != derived_last_managed_window:
+            raise ValueError("Builder last managed window is inconsistent")
+        if (not self.schedule_oracle
+                or type(self.first_managed_window) is not int
+                or not 0 <= self.first_managed_window
+                <= self.last_managed_window
+                or len(self.active) > 64
                 or len(self.liability_ring) != MAX_LIABILITY_GENERATIONS
                 or type(self.lease_per_window_atomic) is not int
                 or self.lease_per_window_atomic <= 0
@@ -5736,12 +5921,33 @@ class RegistryLifecycle:
     def moves_used(self, current_window: int) -> int:
         return self.replacements.get(current_window, 0)
 
-    @staticmethod
-    def tranche_deadline(window: int) -> int:
-        if type(window) is not int or not 0 <= window < UINT64_MAX:
+    def _schedule_cursor_matches(
+        self, schedule_cursor: ScheduleReleaseCursor,
+    ) -> bool:
+        return (
+            type(schedule_cursor) is ScheduleReleaseCursor
+            and schedule_cursor.schedule_oracle == self.schedule_oracle
+            and schedule_cursor.genesis_timestamp == self.genesis_timestamp
+            and schedule_cursor.evidence_delay_seconds
+            == self.evidence_delay_seconds
+            and schedule_cursor.reorg_margin_seconds
+            == self.reorg_margin_seconds
+            and schedule_cursor.first_managed_window
+            == self.first_managed_window
+            and schedule_cursor.last_managed_window
+            == self.last_managed_window
+        )
+
+    def tranche_deadline(self, window: int) -> int:
+        assert self.last_managed_window is not None
+        if (type(window) is not int
+                or not self.first_managed_window
+                <= window <= self.last_managed_window):
             raise ValueError("tranche window is outside uint64")
-        deadline = (384 * (window + 1) + EVIDENCE_DELAY_SECONDS
-                    + REORG_MARGIN_SECONDS)
+        deadline = (
+            self.genesis_timestamp + SCHEDULE_WINDOW_SLOTS * (window + 1)
+            + self.evidence_delay_seconds + self.reorg_margin_seconds
+        )
         if deadline > UINT64_MAX:
             raise ValueError("tranche deadline overflows uint64")
         return deadline
@@ -5832,8 +6038,12 @@ class RegistryLifecycle:
             reservation_bitmap=bitmap,
         )
 
-    def normalize_reservations(self, registration_index: int,
-                               current_window: int) -> int:
+    def normalize_reservations(
+        self,
+        registration_index: int,
+        current_window: int,
+        schedule_cursor: ScheduleReleaseCursor | None = None,
+    ) -> int:
         """Bound one generation's RESERVED->LIABLE normalization to 17 leaves.
 
         Normalization never releases escrow.  Only ``release_tranche`` with an
@@ -5842,8 +6052,29 @@ class RegistryLifecycle:
         """
 
         location = self._generation_location(registration_index)
-        if location is None or location[0] != "ACTIVE":
+        if (location is None or location[0] != "ACTIVE"
+                or type(current_window) is not int or current_window < 0):
             return 0
+        assert self.last_managed_window is not None
+        if current_window > self.last_managed_window:
+            # The ordinary path stores ``current_window`` as a uint64 bitmap
+            # base.  Once the finite schedule has ended, never narrow an
+            # arbitrarily late wall-clock window.  The terminal cursor proves
+            # every possible reservation is stale; close all represented
+            # leaves and retain the already-representable bitmap base.
+            if (schedule_cursor is None
+                    or not self._schedule_cursor_matches(schedule_cursor)
+                    or schedule_cursor.next_release_window != UINT64_MAX):
+                return 0
+            generation = location[2]
+            closed = self._move_reservations_to_liability(
+                generation.registration_index
+            )
+            self.active[location[1]] = replace(
+                generation,
+                reservation_bitmap=0,
+            )
+            return closed
         expired = {
             row for row in self.open_reservations
             if row[0] == registration_index and row[1] < current_window
@@ -5863,11 +6094,14 @@ class RegistryLifecycle:
 
     def reserve(self, address: str, window: int, current_window: int,
                 *, caller: str | None = None) -> bool:
+        assert self.last_managed_window is not None
         if (self.migration_gate.mode != "ACTIVE"
                 or type(window) is not int
                 or type(current_window) is not int
                 or window < current_window
-                or window > current_window + MAX_TRANCHE_AHEAD_WINDOWS):
+                or window < self.first_managed_window
+                or window > current_window + MAX_TRANCHE_AHEAD_WINDOWS
+                or window > self.last_managed_window):
             return False
         caller = address if caller is None else caller
         if caller != address:
@@ -5938,11 +6172,28 @@ class RegistryLifecycle:
                 tranche, state=TrancheState.LIABLE)
         return len(moved)
 
-    def release_liability(self, ring_index: int, current_window: int) -> bool:
+    def release_liability(
+        self,
+        ring_index: int,
+        current_window: int,
+        *,
+        now: int | None = None,
+        schedule_cursor: ScheduleReleaseCursor | None = None,
+    ) -> bool:
         if not 0 <= ring_index < MAX_LIABILITY_GENERATIONS:
             return False
         occupant = self.liability_ring[ring_index]
-        if occupant is None or occupant[1] > current_window:
+        if occupant is None:
+            return False
+        assert self.last_managed_window is not None
+        terminal_release = (
+            schedule_cursor is not None
+            and self._schedule_cursor_matches(schedule_cursor)
+            and schedule_cursor.next_release_window == UINT64_MAX
+            and type(now) is int
+            and occupant[0].maximum_liable_until < now
+        )
+        if occupant[1] > current_window and not terminal_release:
             return False
         registration_index = occupant[0].registration_index
         if (occupant[0].unreleased_tranche_count != 0
@@ -5991,7 +6242,10 @@ class RegistryLifecycle:
         )
         release_window = (
             victim.max_reserved_window + 1
-            + (EVIDENCE_DELAY_SECONDS + REORG_MARGIN_SECONDS + 383) // 384 + 2
+            + (
+                self.evidence_delay_seconds + self.reorg_margin_seconds
+                + SCHEDULE_WINDOW_SLOTS - 1
+            ) // SCHEDULE_WINDOW_SLOTS + 2
         )
         self.liability_ring[ring_index] = (retained, release_window)
         self.active[active_index] = replacement
@@ -6029,6 +6283,7 @@ class RegistryLifecycle:
         current_l2_slot = (current_window * 384 if current_l2_slot is None
                            else current_l2_slot)
         assert self.next_registration_index is not None
+        assert self.last_managed_window is not None
         if (caller != entry.address or entry.address == ""
                 or not self.lease_per_window_atomic <= entry.bond
                 <= self.maximum_bond_atomic
@@ -6040,7 +6295,9 @@ class RegistryLifecycle:
                 or any(g.address == entry.address for g in self.liabilities)):
             return False
         effective_l2_slot = current_l2_slot + ENTRY_DELAY_WINDOWS * 384
-        if effective_l2_slot > UINT64_MAX:
+        if (effective_l2_slot > UINT64_MAX
+                or effective_l2_slot // SCHEDULE_WINDOW_SLOTS
+                > self.last_managed_window):
             return False
         entry = replace(
             entry,
@@ -6097,9 +6354,11 @@ class RegistryLifecycle:
 
     def request_exit(self, address: str, current_window: int, *,
                      caller: str | None = None) -> bool:
+        assert self.last_managed_window is not None
         caller = address if caller is None else caller
         index = self._active_index(address=address)
-        if caller != address or index is None:
+        if (caller != address or index is None
+                or current_window > self.last_managed_window):
             return False
         generation = self.active[index]
         assert generation is not None
@@ -6129,9 +6388,15 @@ class RegistryLifecycle:
         current_l2_slot: int,
         max_inspections: int = 64,
     ) -> tuple[int, int]:
+        assert self.last_managed_window is not None
         if (type(max_inspections) is not int
                 or not 0 <= max_inspections <= 64):
             raise ValueError("exit inspection bound is outside 0..64")
+        # Once every managed Schedule window is globally expired, active
+        # generations use the collision-free terminal close/release path
+        # below.  Ordinary movement into the liability ring is then disabled.
+        if current_window > self.last_managed_window:
+            return 0, 0
         inspected = 0
         moved = 0
         while (self.exit_head_sequence < self.next_exit_sequence
@@ -6172,6 +6437,47 @@ class RegistryLifecycle:
                 break
             moved += 1
         return inspected, moved
+
+    def release_terminal_active(
+        self,
+        active_index: int,
+        now: int,
+        schedule_cursor: ScheduleReleaseCursor,
+    ) -> bool:
+        """Release one fully terminal active generation without ring movement."""
+
+        assert self.last_managed_window is not None
+        if (not 0 <= active_index < MAX_BUILDERS
+                or type(now) is not int or now < 0
+                or not self._schedule_cursor_matches(schedule_cursor)
+                or schedule_cursor.next_release_window != UINT64_MAX):
+            return False
+        generation = self.active[active_index]
+        if (generation is None
+                or generation.unreleased_tranche_count != 0
+                or now <= generation.maximum_liable_until
+                or any(
+                    key[0] == generation.registration_index
+                    and tranche.state in {
+                        TrancheState.RESERVED, TrancheState.LIABLE,
+                    }
+                    for key, tranche in self.tranches.items()
+                )):
+            return False
+        self.base_bond_escrow -= generation.bond
+        self._credit(generation.address, generation.bond)
+        self.active[active_index] = None
+        self.open_reservations = {
+            row for row in self.open_reservations
+            if row[0] != generation.registration_index
+        }
+        self.liable_reservations = {
+            row for row in self.liable_reservations
+            if row[0] != generation.registration_index
+        }
+        self._mark_exit_resolved(generation.registration_index)
+        self.assert_custody_conservation()
+        return True
 
     def slash_tranche(
         self,
@@ -6232,6 +6538,7 @@ class RegistryLifecycle:
         if (location is None or tranche is None
                 or tranche.state is not TrancheState.LIABLE
                 or now <= tranche.liable_until
+                or not self._schedule_cursor_matches(schedule_cursor)
                 or not schedule_cursor.is_expired(window)):
             return False
         self.tranche_escrow -= tranche.amount
@@ -6248,11 +6555,61 @@ class RegistryLifecycle:
         return True
 
 
-def tranche_releasable(window: int, global_min_referenced_slot: int,
-                       now: int, evidence_and_reorg_deadline: int) -> bool:
-    window_end_slot = 384 * (window + 1) - 1
+def tranche_releasable(
+    window: int,
+    global_min_referenced_slot: int,
+    now: int,
+    evidence_and_reorg_deadline: int,
+    last_managed_window: int = LAST_MANAGED_SCHEDULE_WINDOW,
+) -> bool:
+    if (type(window) is not int
+            or not 0 <= window <= last_managed_window
+            or type(global_min_referenced_slot) is not int
+            or not 0 <= global_min_referenced_slot <= UINT64_MAX):
+        return False
+    window_end_slot = SCHEDULE_WINDOW_SLOTS * (window + 1) - 1
     return (window_end_slot < global_min_referenced_slot
             and now > evidence_and_reorg_deadline)
+
+
+def capped_schedule_terminal_global_min(
+    actual_global_min_referenced_slot: int,
+) -> int:
+    """STS1's conservative uint64 projection of an unbounded live floor."""
+
+    if (type(actual_global_min_referenced_slot) is not int
+            or actual_global_min_referenced_slot < 0):
+        raise ValueError("terminal global minimum is malformed")
+    return min(actual_global_min_referenced_slot, UINT64_MAX)
+
+
+def encode_settlement_schedule_terminal_state_v1(
+    window: int,
+    protocol_version: int,
+    actual_global_min_referenced_slot: int,
+    reference_mask_for_window: int,
+    *,
+    caller: str,
+    pinned_schedule_oracle: str,
+) -> bytes:
+    capped = capped_schedule_terminal_global_min(
+        actual_global_min_referenced_slot
+    )
+    if (not pinned_schedule_oracle or caller != pinned_schedule_oracle
+            or type(reference_mask_for_window) is not int
+            or not 0 <= reference_mask_for_window <= 0xFF):
+        raise ValueError("terminal reference mask is malformed")
+    encoded = b"".join((
+        SETTLEMENT_SCHEDULE_TERMINAL_MAGIC + bytes(28),
+        _model_uint(window, 32, "STS1 returned window"),
+        _model_uint(protocol_version, 32, "STS1 protocol version"),
+        _model_uint(capped, 32, "STS1 capped global minimum"),
+        _model_uint(reference_mask_for_window, 32,
+                    "STS1 reference mask"),
+    ))
+    if len(encoded) != 160:
+        raise AssertionError("STS1 return width drifted")
+    return encoded
 
 
 def normal_context_id(base_hash: str, admission_version: int, admission_root: str,
@@ -20856,6 +21213,11 @@ class ScheduleOracleV1:
 
     address: str
     protocol_version_manager: str
+    first_managed_window: int = 0
+    genesis_timestamp: int = GENESIS_TIMESTAMP
+    evidence_delay_seconds: int = EVIDENCE_DELAY_SECONDS
+    reorg_margin_seconds: int = REORG_MARGIN_SECONDS
+    last_managed_window: int | None = None
     current_window: int = 0
     registrations: dict[bytes, RegisterForkVerifierPayloadV1] = field(
         default_factory=dict
@@ -20864,6 +21226,20 @@ class ScheduleOracleV1:
     sealed_windows: dict[int, bytes] = field(default_factory=dict)
     fault_point: str | None = field(default=None, compare=False)
     getter_override: bytes | None = field(default=None, compare=False)
+
+    def __post_init__(self) -> None:
+        derived = derive_last_managed_schedule_window(
+            self.genesis_timestamp, self.evidence_delay_seconds,
+            self.reorg_margin_seconds,
+        )
+        if self.last_managed_window is None:
+            self.last_managed_window = derived
+        elif self.last_managed_window != derived:
+            raise ValueError("Schedule last managed window is inconsistent")
+        if (type(self.first_managed_window) is not int
+                or not 0 <= self.first_managed_window
+                <= self.last_managed_window):
+            raise ValueError("Schedule managed interval is inconsistent")
 
     def _snapshot(self) -> tuple[object, ...]:
         return (
@@ -20887,6 +21263,7 @@ class ScheduleOracleV1:
                 or manager._active_operation_kind != REGISTER_FORK_VERIFIER
                 or not manager._active_operation_consumed
                 or row.fork_digest in self.registrations
+                or row.first_window > self.last_managed_window
                 or row.first_window < self.current_window + 9
                 or (self.order and row.first_window
                     <= self.registrations[self.order[-1]].first_window)):
@@ -20971,7 +21348,9 @@ class ScheduleOracleV1:
         self, window: int, fork_digest: bytes, witness: bytes,
         verifier_return: bytes, *, seal_deadline: int, clock: Clock,
     ) -> bytes:
-        if (window in self.sealed_windows or window == UINT64_MAX
+        if (window in self.sealed_windows
+                or not self.first_managed_window
+                <= window <= self.last_managed_window
                 or window < self.current_window
                 or window - self.current_window > 8
                 or clock.timestamp >= seal_deadline):
@@ -21000,6 +21379,10 @@ class ScheduleOracleV1:
     def consume_window_v1(
         self, window: int, *, seal_deadline: int, clock: Clock,
     ) -> bytes:
+        if (type(window) is not int
+                or not self.first_managed_window
+                <= window <= self.last_managed_window):
+            raise ValueError("Schedule consume window is unmanaged")
         seal = self.sealed_windows.get(window)
         if seal is not None:
             return seal
@@ -22384,6 +22767,7 @@ class ProtocolVersionManagerV1:
             if (type(oracle) is not ScheduleOracleV1
                     or oracle.address != self.schedule_oracle_address
                     or decoded.fork_digest in self.fork_verifiers
+                    or decoded.first_window > oracle.last_managed_window
                     or decoded.first_window < self.current_window + 9
                     or (self.fork_order and decoded.first_window
                         <= self.fork_verifiers[self.fork_order[-1]]
