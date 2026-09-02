@@ -403,6 +403,35 @@ describe('Recipient dialog', () => {
       expect(m.confirmButton.disabled).toBe(false);
     });
 
+    it('keeps the committed destination owner across a cancelled edit', async () => {
+      // A remount seeded from the stores classifies the recipient only once the dialog opens,
+      // so the snapshot Cancel restores has recipientIsSmartContract === false: cancelling
+      // unmounts the owner field. On reopen the field remounts and must show the owner the
+      // store still holds, with Confirm live - not an empty box beside a populated summary.
+      recipientAddress.set(CONTRACT as never);
+      destOwnerAddress.set(DEST_OWNER as never);
+      isSmartContract.mockImplementation((addr: unknown) => Promise.resolve(addr === CONTRACT));
+
+      const m = mount();
+      const editButton = () =>
+        Array.from(m.target.querySelectorAll('button')).find((b) =>
+          b.textContent?.includes('common.edit'),
+        ) as HTMLButtonElement;
+      editButton().click();
+      await flush();
+      expect(m.destOwnerInput()).toBeTruthy();
+
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); // cancel
+      await flush();
+      editButton().click();
+      await flush();
+      await flush();
+
+      expect(get(destOwnerAddress)).toBe(DEST_OWNER);
+      expect((m.destOwnerInput() as HTMLInputElement).value).toBe(DEST_OWNER);
+      expect(m.confirmButton.disabled).toBe(false);
+    });
+
     it('refuses a committed owner that is a contract on the destination chain now in force', async () => {
       // Navigating Review -> Recipient recreates the component, and the destination chain can
       // have changed in between: the store keeps the owner but not the chain its classification

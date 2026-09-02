@@ -27,7 +27,8 @@
                       "type": "array",
                       "minItems": 1,
                       "items": {
-                        "type": "string"
+                        "type": "string",
+                        "format": "http-url"
                       }
                     }
                   },
