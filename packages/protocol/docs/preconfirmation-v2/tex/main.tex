@@ -1988,7 +1988,8 @@ The header is the exact big-endian 32 bytes
 u64(registryMutationVersion)||u64(admissionVersion)||
 u64(nextRegistrationIndex)}; ROOT\_SLOT is the raw registry root.  A schedule
 witness authenticates the pinned registry account and code hash from the
-carrier state root, proves both keys against the same account storage root,
+fork-verifier-returned parent payload state root, proves both keys against the
+same account storage root,
 requires canonical RLP without unused/trailing nodes, checks header reserved
 bytes, matches present-cell count to \code{activeCount}, and recomputes the
 six-level root from all 64 serialized cells.  Getter/raw-slot conformance,
@@ -2046,7 +2047,8 @@ only a completely valid seal writes; adversarial query timing or witness bytes
 can never manufacture a vacant seal.  At or after the deadline, consumers
 deterministically synthesize permanent all-\code{VACANT} only from the
 objective absence of a stored valid seal.
-\item Verify Merkle--Patricia storage proofs from that execution state root for
+\item Verify Merkle--Patricia storage proofs from that authenticated parent-payload
+state root for
 the registry header and \code{registryRoot}.  The caller supplies all 64
 canonical serialized cells, including empty cells; recompute their six-level
 Keccak tree and require equality to \code{registryRoot}.  Filter eligibility and
