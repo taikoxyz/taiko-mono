@@ -6,7 +6,7 @@ import { ipfsConfig } from '$config';
 import { FetchMetadataError, NoMetadataFoundError, WrongChainError } from '$libs/error';
 import { decodeBase64ToJson } from '$libs/util/decodeBase64ToJson';
 import { getLogger } from '$libs/util/logger';
-import { resolveIPFSUri } from '$libs/util/resolveIPFSUri';
+import { resolveIPFSUri, toIPFSPath } from '$libs/util/resolveIPFSUri';
 import { addMetadataToCache, getMetadataFromCache, isMetadataCached } from '$stores/metadata';
 import { connectedSourceChain } from '$stores/network';
 
@@ -19,6 +19,35 @@ const axiosConfig: AxiosRequestConfig = {
 };
 
 const log = getLogger('libs:token:fetchNFTMetadata');
+
+/**
+ * Fetches the metadata document, retrying through the configured IPFS gateways whenever the URI
+ * names a CID.
+ *
+ * Without the retry a token is only as reachable as the one gateway its `tokenURI` happens to
+ * name, even though the document is content-addressed and served identically by every other
+ * gateway. That is not hypothetical: the ERC1155 at `0x1f8483664620ff1278f4c1b0d11e4d7daa11a035`
+ * points at `https://3land.mypinata.cloud/ipfs/...`, which now answers 403 `Account has been
+ * disabled`, while the same CID still resolves through the public gateways.
+ */
+async function fetchMetadataDocument(uri: string): Promise<NFTMetadata> {
+  // An `ipfs://` URI has no host to try first, so it goes straight to a gateway.
+  if (uri.startsWith('ipfs:')) {
+    const response = await axios.get<NFTMetadata>(await resolveIPFSUri(uri), axiosConfig);
+    return response.data;
+  }
+
+  try {
+    const response = await axios.get<NFTMetadata>(uri, axiosConfig);
+    return response.data;
+  } catch (error) {
+    if (toIPFSPath(uri) === null) throw error;
+
+    log('metadata uri failed, retrying through the configured IPFS gateways', uri, error);
+    const response = await axios.get<NFTMetadata>(await resolveIPFSUri(uri), axiosConfig);
+    return response.data;
+  }
+}
 
 export async function fetchNFTMetadata(token: NFT): Promise<NFTMetadata | null> {
   let uri = token?.uri;
@@ -74,13 +103,8 @@ export async function fetchNFTMetadata(token: NFT): Promise<NFTMetadata | null> 
   }
   if (!uri) throw new FetchMetadataError('No uri found');
 
-  if (uri.startsWith('ipfs:')) {
-    uri = await resolveIPFSUri(uri);
-  }
-
   try {
-    const response = await axios.get<NFTMetadata>(uri, axiosConfig);
-    const metadata = response.data;
+    const metadata = await fetchMetadataDocument(uri);
 
     if (metadata.image) {
       // Update cache

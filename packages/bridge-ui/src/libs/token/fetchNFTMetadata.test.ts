@@ -180,6 +180,71 @@ describe('fetchNFTMetadata()', () => {
       expect(result).toBe(MOCK_METADATA);
     });
 
+    it("should retry through the configured IPFS gateways when the token's own gateway fails", async () => {
+      // Given: the shape most tokens use - a project-owned gateway naming a CID - which has
+      // stopped answering. The document is content-addressed, so it is still served elsewhere.
+      const CID = 'QmUknZyMdhJDgeDGnd3wGB69oC97uGaKLsCgpGg7LKQx1U';
+      const MOCK_NFT = {
+        ...MOCK_ERC721,
+        uri: `https://3land.mypinata.cloud/ipfs/${CID}`,
+      };
+
+      const mockTokenInfo = {
+        canonical: {
+          chainId: L1_CHAIN_ID,
+          address: MOCK_ERC721.addresses[L1_CHAIN_ID] as Address,
+        },
+        bridged: {
+          chainId: L2_CHAIN_ID,
+          address: MOCK_ERC721.addresses[L2_CHAIN_ID] as Address,
+        },
+      } satisfies TokenInfo;
+
+      vi.mocked(getTokenAddresses).mockResolvedValue(mockTokenInfo);
+      vi.mocked(isMetadataCached).mockReturnValue(false);
+      vi.mocked(axios.get).mockReset();
+      vi.mocked(axios.get)
+        .mockRejectedValueOnce(new Error('Request failed with status code 403'))
+        .mockResolvedValueOnce({ status: 200, data: MOCK_METADATA });
+      vi.mocked(axios.head).mockResolvedValue({ status: 200 });
+
+      // When
+      const result = await fetchNFTMetadata(MOCK_NFT);
+
+      // Then
+      expect(result).toBe(MOCK_METADATA);
+      expect(vi.mocked(axios.get).mock.calls[1][0]).toContain(CID);
+      expect(vi.mocked(axios.get).mock.calls[1][0]).not.toContain('mypinata');
+    });
+
+    it('should not retry a failing uri that names no CID', async () => {
+      // Given
+      const MOCK_NFT = {
+        ...MOCK_ERC721,
+        uri: 'https://example.com/metadata/42.json',
+      };
+
+      const mockTokenInfo = {
+        canonical: {
+          chainId: L1_CHAIN_ID,
+          address: MOCK_ERC721.addresses[L1_CHAIN_ID] as Address,
+        },
+        bridged: {
+          chainId: L2_CHAIN_ID,
+          address: MOCK_ERC721.addresses[L2_CHAIN_ID] as Address,
+        },
+      } satisfies TokenInfo;
+
+      vi.mocked(getTokenAddresses).mockResolvedValue(mockTokenInfo);
+      vi.mocked(isMetadataCached).mockReturnValue(false);
+      vi.mocked(axios.get).mockReset();
+      vi.mocked(axios.get).mockRejectedValue(new Error('nope'));
+
+      // Then
+      await expect(fetchNFTMetadata(MOCK_NFT)).rejects.toBeInstanceOf(FetchMetadataError);
+      expect(vi.mocked(axios.get)).toHaveBeenCalledTimes(1);
+    });
+
     describe('when uri is not found', () => {
       describe('fetchCrossChainNFTMetadata', () => {
         beforeAll(() => {

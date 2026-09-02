@@ -4,7 +4,7 @@ import { destNetwork } from '$components/Bridge/state';
 import { fetchNFTMetadata } from '$libs/token/fetchNFTMetadata';
 import { decodeBase64ToJson } from '$libs/util/decodeBase64ToJson';
 import { getLogger } from '$libs/util/logger';
-import { resolveIPFSUri } from '$libs/util/resolveIPFSUri';
+import { resolveIPFSUri, toIPFSPath } from '$libs/util/resolveIPFSUri';
 import { addMetadataToCache } from '$stores/metadata';
 import { connectedSourceChain } from '$stores/network';
 
@@ -62,7 +62,11 @@ const fetchImageUrl = async (url: string): Promise<string> => {
     return url;
   } else {
     log('fetchImageUrl failed to load image');
-    if (url.startsWith('ipfs://')) {
+    // Any URL naming a CID, not only an `ipfs://` one. The image inside a metadata document
+    // usually points at the same project-owned gateway the document itself did, so a gateway
+    // that has stopped answering takes the image down with it even once the document has been
+    // recovered from elsewhere - the content is the same either way, addressed by hash.
+    if (toIPFSPath(url) !== null) {
       const newUrl = await resolveIPFSUri(url);
       if (newUrl) {
         const gatewayImageLoaded = await testImageLoad(newUrl);
