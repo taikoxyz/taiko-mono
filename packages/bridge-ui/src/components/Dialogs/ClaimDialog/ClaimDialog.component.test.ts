@@ -61,7 +61,7 @@ vi.mock('../Shared/dialogTransactionFlow', () => ({
 
 import { errorToast, warningToast } from '$components/NotificationToast/NotificationToast.svelte';
 import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
-import { BlockNotSyncedError, ProofGenerationError } from '$libs/error';
+import { BlockNotSyncedError, ProofGenerationError, WrongBridgeConfigError } from '$libs/error';
 import { TokenType } from '$libs/token';
 import { account } from '$stores/account';
 
@@ -260,6 +260,18 @@ describe('a claim the prover refuses before any transaction', () => {
     expect(warningToast).toHaveBeenCalledWith(notSyncedToast);
     expect(errorToast).not.toHaveBeenCalled();
     expect(claimButton()?.disabled).toBe(false);
+  });
+
+  it('reports a misconfiguration the prover detected as an unknown error, not as a wait', async () => {
+    // The one refusal the prover knows to be permanent: the anchor keeps its checkpoints in a
+    // contract other than the configured SignalService. Telling the user to wait would be a lie
+    await claimRefusedWith(new WrongBridgeConfigError("Anchor's checkpointStore does NOT match SignalService"));
+
+    expect(errorToast).toHaveBeenCalledWith({
+      title: 'bridge.errors.unknown_error.title',
+      message: 'bridge.errors.unknown_error.message',
+    });
+    expect(warningToast).not.toHaveBeenCalled();
   });
 
   it('still reports a failure it cannot classify as an unknown error', async () => {

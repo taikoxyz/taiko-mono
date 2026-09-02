@@ -13,7 +13,7 @@ import {
 import { signalServiceAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import type { BridgeTransaction } from '$libs/bridge';
-import { BlockNotSyncedError, ClientError, ProofGenerationError } from '$libs/error';
+import { BlockNotSyncedError, ClientError, ProofGenerationError, WrongBridgeConfigError } from '$libs/error';
 import { BridgeProver } from '$libs/proof/BridgeProver';
 import {
   CacheOption,
@@ -698,6 +698,56 @@ describe('BridgeProver', () => {
       await expect(bridgeProver.getEncodedSignalProof({ bridgeTx: realBridgeTransaction })).rejects.toThrow(
         ProofGenerationError,
       );
+    });
+
+    /** The mocked L1->L2 route is the one with an anchor to ask about its checkpoint store */
+    const l1ToL2Transaction = (): BridgeTransaction => ({
+      ...realBridgeTransaction,
+      srcChainId: BigInt(L1_CHAIN_ID),
+      destChainId: BigInt(L2_CHAIN_ID),
+      message: {
+        ...realBridgeTransaction.message!,
+        srcChainId: BigInt(L1_CHAIN_ID),
+        destChainId: BigInt(L2_CHAIN_ID),
+      },
+    });
+
+    /** The checkpoint lookup fails; the diagnostic read of the anchor answers with `checkpointStore` */
+    const checkpointMissingWithAnchorStore = (checkpointStore: string) =>
+      vi.mocked(readContract).mockImplementation((async (
+        _config: unknown,
+        { functionName }: { functionName: string },
+      ) => {
+        if (functionName === 'checkpointStore') return checkpointStore;
+        throw new Error('SS_CHECKPOINT_NOT_FOUND');
+      }) as unknown as typeof readContract);
+
+    it('throws WrongBridgeConfigError when the anchor keeps its checkpoints outside the SignalService', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+      const bridgeTx = l1ToL2Transaction();
+
+      vi.spyOn(bridgeProver, 'getSignalSlot').mockResolvedValue(validSignalSlot);
+      vi.spyOn(bridgeProver, 'getLatestSyncedBlockNumber').mockResolvedValue(BigInt(bridgeTx.blockNumber!));
+      checkpointMissingWithAnchorStore('0x000000000000000000000000000000000000dEaD');
+
+      // When / Then: a deployment mismatch no later checkpoint can cure is not a "not synced yet"
+      await expect(bridgeProver.getEncodedSignalProof({ bridgeTx })).rejects.toThrow(WrongBridgeConfigError);
+    });
+
+    it('keeps a missing checkpoint a ProofGenerationError when the anchor does use the SignalService', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+      const bridgeTx = l1ToL2Transaction();
+
+      vi.spyOn(bridgeProver, 'getSignalSlot').mockResolvedValue(validSignalSlot);
+      vi.spyOn(bridgeProver, 'getLatestSyncedBlockNumber').mockResolvedValue(BigInt(bridgeTx.blockNumber!));
+      // The same store, reported in a different letter case as a node may
+      const signalService = routingContractsMap[L2_CHAIN_ID][L1_CHAIN_ID].signalServiceAddress;
+      checkpointMissingWithAnchorStore('0x' + signalService.slice(2).toUpperCase());
+
+      // When / Then
+      await expect(bridgeProver.getEncodedSignalProof({ bridgeTx })).rejects.toThrow(ProofGenerationError);
     });
   });
 
