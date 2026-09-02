@@ -86,8 +86,9 @@ The new implementations' immutables:
 
 The L1 values equal the live proxies' (both L1 deploy scripts check that). The L2 zeros preserve
 today's behaviour: `quota_manager`, `chain_watchdog` and `bridge_watchdog` are all unset on the
-legacy L2 registry, so L2 has no quota and only the owner can pause, and the 1.10.0 bridge has no
-`receive()` at all, so the pauser-only `receive()` is strictly more permissive. The new
+legacy L2 registry, so L2 has no quota and only the owner can pause. The 1.10.0 bridge has no
+`receive()` and the new one's `receive()` admits only `pauser`, which no sender can be when it is
+zero, so direct Ether transfers to the L2 bridge keep reverting exactly as today. The new
 `BridgedERC20`'s `erc20Vault` immutable is the vault proxy `0x1670000000000000000000000000000000000002`.
 
 Preconditions to re-read at execution time: the L2 bridge must not be paused (`processMessage` is
@@ -150,6 +151,46 @@ The vault's `BridgeTransferOp` struct, its five events and its errors are identi
 and `main`; `main` adds `sendTokenWithPermit`, `sendTokenWithPermit2`, `VAULT_PERMIT_NO_ALLOWANCE`
 and `PERMIT2`, and drops the second parameter of `init`, which nothing live calls. The relayer, the
 indexer and the bridge UI are unaffected.
+
+### What else changes on L2
+
+The L2 codediffs span two years, so the differences a user or relayer can observe were enumerated
+from `git diff 9345f14 main` of `Bridge.sol` and `ERC20Vault.sol` rather than assumed:
+
+- **The send cap**, `_SEND_ETHER_GAS_LIMIT` 35,000 → 135,000 (#22077), the point of the proposal.
+- **Calldata to a recipient without code — the one change that touches messages already in
+  flight.** The legacy `_unableToInvokeMessageCall` refuses calldata that is not
+  `onMessageInvocation` only when `to` has code, so such a message to an EOA is delivered to `to`
+  together with its value. `main` refuses it regardless of `to` (`Bridge.sol:699`, #20939, audit
+  finding L-4: with EIP-7702 an EOA can carry code, so the distinction was unreliable) and refunds
+  value and fee to `destOwner` as `INVOCATION_PROHIBITED`, in `processMessage` and `retryMessage`
+  alike. The message still completes as `DONE`; only the recipient differs, and only when
+  `destOwner != to`. An L1→L2 message sent before execution and claimed after it takes the new
+  path. L1 made this exact transition in Proposal0017 on 2026-06-29. The fork rehearsal pins both
+  sides (`_deliverToEoaWithCalldata` in `Proposal0023Fork.t.sol`): the 1.10.0 bridge delivers 1 ETH
+  to the EOA, the upgraded bridge refunds it to `destOwner`.
+
+  Outstanding messages were audited on 2026-09-02: every `MessageSent` of the L1 bridge from its
+  deployment block 19,773,963 to L1 block 25,889,001 was decoded and filtered to
+  `destChainId = 167000` with `data` of at least 4 bytes and a selector other than `0x7f07c947`,
+  and each match was checked on L2 for code at `to` and for a `messageStatus` still `NEW` or
+  `RETRIABLE`. Of the 40,494 messages, 20 carry such calldata; 19 of those target contracts, which both implementations refuse alike, and the one to a code-less address (block 20,029,081, `destOwner == to`) was delivered long ago. No outstanding message matches, so nothing in flight changes hands at execution. Re-run the same query right before execution; messages can be sent
+  until then.
+
+- **`sendMessage` rejects `to == address(0)`** (`nonZeroAddr(_message.to)`). The legacy bridge
+  accepted such messages and refunded them on delivery. New sends only.
+- **`selfDelegate(token)` is gone and `init3(bytes32[])` is new.** The former let anyone make the
+  bridge delegate an ERC20Votes token's voting power to itself; the latter is the owner-only
+  `reinitializer(3)` Proposal0017 used on L1 to force-mark message hashes `DONE`. Neither is used
+  here.
+- **The vault checks the recipient at send time.** `sendToken` now rejects a zero recipient or the
+  destination-chain vault (`checkToAddressOnSrcChain`); 1.10.0 only rejected a zero or self
+  recipient at delivery, which `main` still does.
+- **Unchanged:** the `Message` struct and `hashMessage`, so every in-flight message keeps its hash
+  and its signal; `getMessageMinGasLimit` and the fee math; the events; quota (none on L2 before
+  or after); who can pause (the owner). The vault keeps its struct, events and errors, gains the two
+  permit entrypoints, and deploys new bridged tokens from `0x3505a070…` as described above; its
+  delivery and recall semantics are unchanged.
 
 ### The L2 bridge upgrades itself mid-call
 

@@ -117,13 +117,7 @@ contract Proposal0023ForkTest is Test {
     /// governance message left through the new implementation.
     /// @param _newImpl The implementation the proxy must now run.
     /// @param _messageIdBefore The bridge's `nextMessageId` before the batch.
-    function _assertL1BridgeAfterUpgrade(
-        address _newImpl,
-        uint64 _messageIdBefore
-    )
-        private
-        view
-    {
+    function _assertL1BridgeAfterUpgrade(address _newImpl, uint64 _messageIdBefore) private view {
         Bridge bridge = Bridge(payable(L1.BRIDGE));
         assertEq(_implementationOf(L1.BRIDGE), _newImpl);
         assertEq(bridge.resolver(), L1.SHARED_RESOLVER);
@@ -207,6 +201,9 @@ contract Proposal0023ForkTest is Test {
             abi.encode(uint256(0))
         );
 
+        // Pin the legacy side of the in-flight calldata transition before the batch runs.
+        _deliverToEoaWithCalldata(false);
+
         // On the relayer branch the invocation receives message.gasLimit minus the message's own
         // minimum, not gasleft(). Pin that budget so the 5,000,000 in the proposal is shown to be
         // sufficient rather than assumed: 5,000,000 - (39,936 calldata cost + 800,000 GAS_RESERVE)
@@ -235,6 +232,48 @@ contract Proposal0023ForkTest is Test {
         _assertL2BridgeAfterUpgrade(l2.sharedResolver, before);
         _assertL2VaultAfterUpgrade(l2.sharedResolver, before);
         _bridgeTokensThroughUpgradedL2(l2, before);
+        _deliverToEoaWithCalldata(true);
+    }
+
+    /// @dev The one behavioural change of the bridge's 1.10.0 -> main jump that touches messages
+    /// already in flight. The legacy `_unableToInvokeMessageCall` refuses calldata that is not
+    /// `onMessageInvocation` only when `to` has code, so such a message to an EOA is delivered to
+    /// `to` together with its value; `main` refuses it regardless of `to` and refunds the value to
+    /// `destOwner` as INVOCATION_PROHIBITED. Pins both sides of the transition so the runbook's
+    /// description of it stays true.
+    /// @param _afterUpgrade Whether the batch has executed.
+    function _deliverToEoaWithCalldata(bool _afterUpgrade) private {
+        string memory phase = _afterUpgrade ? "after" : "before";
+        address to = makeAddr(string.concat("EOA recipient ", phase));
+        address destOwner = makeAddr(string.concat("destination owner ", phase));
+
+        IBridge.Message memory message;
+        message.id = 424_242;
+        message.from = makeAddr("L1 sender");
+        message.srcChainId = 1;
+        message.srcOwner = message.from;
+        message.destChainId = 167_000;
+        message.destOwner = destOwner;
+        message.to = to;
+        message.value = 1 ether;
+        message.gasLimit = 200_000;
+        // Four bytes that are not onMessageInvocation's selector, plus an argument.
+        message.data = abi.encodeWithSelector(bytes4(0xdeadbeef), uint256(1));
+
+        vm.prank(destOwner);
+        (IBridge.Status status, IBridge.StatusReason reason) =
+            Bridge(payable(L2.BRIDGE)).processMessage(message, "");
+        assertEq(uint8(status), uint8(IBridge.Status.DONE));
+
+        if (_afterUpgrade) {
+            assertEq(uint8(reason), uint8(IBridge.StatusReason.INVOCATION_PROHIBITED));
+            assertEq(to.balance, 0, "main delivered to the EOA");
+            assertEq(destOwner.balance, 1 ether, "main did not refund destOwner");
+        } else {
+            assertEq(uint8(reason), uint8(IBridge.StatusReason.INVOCATION_OK));
+            assertEq(to.balance, 1 ether, "1.10.0 did not deliver to the EOA");
+            assertEq(destOwner.balance, 0, "1.10.0 refunded destOwner");
+        }
     }
 
     /// @dev The four L2 addresses the proposal names exist on the fork, and the resolver is still
@@ -284,12 +323,7 @@ contract Proposal0023ForkTest is Test {
     /// can still send.
     /// @param _resolverProxy The new resolver.
     /// @param _before The live values read before the batch.
-    function _assertL2BridgeAfterUpgrade(
-        address _resolverProxy,
-        L2Before memory _before
-    )
-        private
-    {
+    function _assertL2BridgeAfterUpgrade(address _resolverProxy, L2Before memory _before) private {
         Bridge bridge = Bridge(payable(L2.BRIDGE));
 
         // This is the call that reverts if the wiring is wrong.

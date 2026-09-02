@@ -178,17 +178,10 @@ contract Proposal0023Test is Test {
     /// regenerated after the proposal changed, so a stale file would present one set of actions
     /// for review while the code describes another. This compares the committed calldata against
     /// what the proposal builds right now — including the bridge message that wraps the L2 batch,
-    /// which `BuildProposal` builds privately and `Proposal0023Harness` reproduces. The file cannot
-    /// exist while any constant is a placeholder, so the test skips while it is absent rather than
-    /// failing the placeholder phase.
+    /// which `BuildProposal` builds privately and `Proposal0023Harness` reproduces. Every address is
+    /// final, so a missing file is a failure, not a placeholder phase to skip.
     function test_actionFileMatchesTheBuiltCalldata() external {
-        string memory path = "script/layer1/proposals/Proposal0023.action.md";
-        if (!vm.exists(path)) {
-            vm.skip(true, "Proposal0023.action.md is not generated yet: run `P=0023 pnpm proposal`");
-            return;
-        }
-
-        string memory file = vm.readFile(path);
+        string memory file = vm.readFile("script/layer1/proposals/Proposal0023.action.md");
 
         // Split on the label rather than on backtick position: the file is prettier-formatted by
         // the pre-commit hook, so line breaks are not stable but the label is.
