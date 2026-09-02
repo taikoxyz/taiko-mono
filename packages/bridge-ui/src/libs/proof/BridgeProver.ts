@@ -16,7 +16,7 @@ import { signalServiceAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
 import { isL2Chain } from '$libs/chain';
-import { BlockNotSyncedError, ClientError, ProofGenerationError } from '$libs/error';
+import { BlockNotSyncedError, ClientError, ProofGenerationError, WrongBridgeConfigError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
@@ -166,23 +166,21 @@ export class BridgeProver {
     } catch (error) {
       log('Checkpoint NOT found', { blockNumber, error });
 
-      // Diagnostic: check if Anchor's checkpointStore matches SignalService
+      // Diagnostic: an anchor that keeps its checkpoints in a contract other than the configured
+      // SignalService is a deployment mismatch no later checkpoint can cure. It gets its own class
+      // so the dialogs do not report it as the transient "cannot prove this yet" thrown below
       const anchorAddress = routingContractsMap[destChainId][srcChainId].anchorForkRouter;
       if (anchorAddress) {
-        try {
-          const checkpointStore = await readContract(config, {
-            address: anchorAddress,
-            abi: anchorGetBlockStateAbi,
-            functionName: 'checkpointStore',
-            chainId: destChainId,
-          });
-          if (checkpointStore.toLowerCase() !== destSignalService.toLowerCase()) {
-            throw new ProofGenerationError(
-              `Anchor's checkpointStore (${checkpointStore}) does NOT match SignalService (${destSignalService})`,
-            );
-          }
-        } catch (e) {
-          if (e instanceof ProofGenerationError) throw e;
+        const checkpointStore = await readContract(config, {
+          address: anchorAddress,
+          abi: anchorGetBlockStateAbi,
+          functionName: 'checkpointStore',
+          chainId: destChainId,
+        }).catch(() => undefined);
+        if (checkpointStore && checkpointStore.toLowerCase() !== destSignalService.toLowerCase()) {
+          throw new WrongBridgeConfigError(
+            `Anchor's checkpointStore (${checkpointStore}) does NOT match SignalService (${destSignalService})`,
+          );
         }
       }
 
