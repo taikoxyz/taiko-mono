@@ -49,6 +49,33 @@ ADMISSION_DEPTH = 11
 ENTRY_DEPTH = 6
 TRANCHE_DEPTH = 9
 
+BUILDER_REGISTRY_FUNCTION_SIGNATURES = {
+    "admission_state_selector": b"admissionStateV1()",
+    "schedule_registry_state_selector": b"scheduleRegistryStateV1()",
+    "register_builder_selector": b"registerBuilderV1(uint192,uint64,uint8,bytes)",
+    "reserve_builder_window_selector": b"reserveBuilderWindowV1(uint64,uint64,bytes)",
+    "request_builder_exit_selector": b"requestBuilderExitV1(uint64)",
+    "process_builder_maintenance_selector": b"processBuilderMaintenanceV1(uint8,bytes)",
+    "normalize_builder_tranches_selector": b"normalizeBuilderTranchesV1(address,uint64,bytes)",
+    "release_builder_tranche_selector": b"releaseBuilderTrancheV1(address,uint64,uint64,bytes)",
+    "release_builder_generation_selector": b"releaseBuilderGenerationV1(address,uint64,bytes)",
+    "claim_builder_lease_credit_selector": b"claimBuilderLeaseCreditV1(address)",
+    "submit_builder_equivocation_selector": b"submitBuilderEquivocationV1(bytes)",
+    "schedule_window_release_selector": b"scheduleWindowReleaseStateV1(uint64)",
+    "expire_schedule_windows_selector": b"expireScheduleWindowsV1(uint8)",
+    "settlement_schedule_release_selector": b"settlementScheduleReleaseStateV1(uint64)",
+}
+BUILDER_REGISTRY_SELECTORS = {
+    name: keccak256(signature)[:4]
+    for name, signature in BUILDER_REGISTRY_FUNCTION_SIGNATURES.items()
+}
+BUILDER_REGISTRY_HEADER_SLOT = bytes.fromhex(
+    "e7ce7a505bf18b9ed57a0785851385323c9487991c55b422861381f92e5c245a"
+)
+BUILDER_REGISTRY_ROOT_SLOT = bytes.fromhex(
+    "4dc6f1bf199f7518c646d40ed35ca04703f646273e6de1d7eace0746cc7100a6"
+)
+
 TYPE_STRING = (
     "SlotChainBlock(uint256 settlementChainId,uint256 l2ChainId,"
     "uint256 protocolVersion,address verifyingContract,"
@@ -1504,6 +1531,34 @@ def verify_fixed_tree_proof(leaf: bytes, index: int, depth: int,
         return node == root
     except AssertionError:
         return False
+
+
+def root_from_fixed_tree_proof(leaf: bytes, index: int, depth: int,
+                               siblings: tuple[bytes, ...],
+                               node_domain: bytes) -> bytes:
+    """Return the unique root for an exact-depth, index-oriented proof."""
+
+    assert (type(index) is int and type(depth) is int and depth >= 0
+            and 0 <= index < 1 << depth and type(siblings) is tuple
+            and len(siblings) == depth)
+    node = b32(leaf)
+    for height, sibling in enumerate(siblings):
+        sibling = b32(sibling)
+        node = (keccak256(node_domain + u8(height) + sibling + node)
+                if (index >> height) & 1 else
+                keccak256(node_domain + u8(height) + node + sibling))
+    return node
+
+
+def builder_registry_header(active_count: int, registry_mutation_version: int,
+                            admission_version: int,
+                            next_registration_index: int) -> bytes:
+    """Encode the exact BRH1 raw storage word."""
+
+    assert 0 <= active_count <= 64
+    return (b"BRH1" + u8(1) + u8(active_count) + bytes(2)
+            + u64(registry_mutation_version) + u64(admission_version)
+            + u64(next_registration_index))
 
 
 def verify_registry_proof(leaf: bytes, index: int,
@@ -10576,6 +10631,97 @@ def vectors() -> dict[str, str]:
     assert not verify_registry_proof(
         registry_leaf_3, 3, registry_proof, bytes.fromhex("a4" * 32)), \
         "fixed-tree proof accepted the wrong root"
+
+    # BuilderRegistry's move grammar is liability-first.  The active proof is
+    # necessarily rooted in the intermediate tree, not the common pre-root.
+    move_victim = RegistryCell(
+        0xB001, 1_000, 1, 3_072, empty_tranche_root, UINT64_MAX)
+    move_replacement = RegistryCell(
+        0xB002, 1_001, 2, 3_073, empty_tranche_root, UINT64_MAX)
+    move_active = [None] * 64
+    move_active[0] = move_victim
+    move_liabilities = [None] * 1_072
+    move_pre_leaves = canonical_admission_leaves(
+        tuple(move_active), tuple(move_liabilities))
+    move_pre_root = fixed_root(move_pre_leaves, D_ADM_NODE)
+    liability_64_proof = fixed_tree_proof(
+        move_pre_leaves, 64, D_ADM_NODE)
+    move_intermediate_root = root_from_fixed_tree_proof(
+        admission_leaf(64, 2, move_victim), 64, ADMISSION_DEPTH,
+        liability_64_proof, D_ADM_NODE)
+    move_liabilities[0] = move_victim
+    move_intermediate_leaves = canonical_admission_leaves(
+        tuple(move_active), tuple(move_liabilities))
+    assert fixed_root(move_intermediate_leaves, D_ADM_NODE) \
+        == move_intermediate_root
+    active_0_intermediate_proof = fixed_tree_proof(
+        move_intermediate_leaves, 0, D_ADM_NODE)
+    active_0_pre_proof = fixed_tree_proof(move_pre_leaves, 0, D_ADM_NODE)
+    move_final_root = root_from_fixed_tree_proof(
+        admission_leaf(0, 1, move_replacement), 0, ADMISSION_DEPTH,
+        active_0_intermediate_proof, D_ADM_NODE)
+    assert not verify_admission_proof(
+        admission_leaf(0, 1, move_replacement), 0, active_0_pre_proof,
+        move_final_root), "pair proofs against one pre-root were accepted"
+    move_active[0] = move_replacement
+    assert canonical_admission_root(
+        tuple(move_active), tuple(move_liabilities)) == move_final_root
+
+    cell_63_active = [None] * 64
+    cell_63_active[63] = move_replacement
+    cell_63_admission_root = canonical_admission_root(
+        tuple(cell_63_active), (None,) * 1_072)
+    cell_63_leaves = canonical_admission_leaves(
+        tuple(cell_63_active), (None,) * 1_072)
+    cell_63_proof = fixed_tree_proof(cell_63_leaves, 63, D_ADM_NODE)
+    assert verify_admission_proof(
+        admission_leaf(63, 1, move_replacement), 63, cell_63_proof,
+        cell_63_admission_root)
+
+    br_header = builder_registry_header(63, 0x0102030405060708,
+                                        0x1112131415161718,
+                                        0x2122232425262728)
+    assert len(br_header) == 32 and br_header[:8] == b"BRH1\x01?\x00\x00"
+    br_header_trie_key = keccak256(BUILDER_REGISTRY_HEADER_SLOT)
+    br_root_trie_key = keccak256(BUILDER_REGISTRY_ROOT_SLOT)
+    assert br_header_trie_key.hex() == (
+        "3dc336ad17079f9525d2b0708a8773321ab29957d522a6f2d10fc522b7362aec"
+    )
+    assert br_root_trie_key.hex() == (
+        "04bafd6333ae949248e59a002ce1fbccb8a4bc8da3a0c3228ae523d727170880"
+    )
+    assert BUILDER_REGISTRY_SELECTORS == {
+        "admission_state_selector": bytes.fromhex("4a9dfa3f"),
+        "schedule_registry_state_selector": bytes.fromhex("ad95cea1"),
+        "register_builder_selector": bytes.fromhex("5fc42c69"),
+        "reserve_builder_window_selector": bytes.fromhex("46a53315"),
+        "request_builder_exit_selector": bytes.fromhex("c8f20b55"),
+        "process_builder_maintenance_selector": bytes.fromhex("0e1ffc68"),
+        "normalize_builder_tranches_selector": bytes.fromhex("5e7c8afe"),
+        "release_builder_tranche_selector": bytes.fromhex("f8668bb9"),
+        "release_builder_generation_selector": bytes.fromhex("e7bae370"),
+        "claim_builder_lease_credit_selector": bytes.fromhex("8f73793c"),
+        "submit_builder_equivocation_selector": bytes.fromhex("979c1f72"),
+        "schedule_window_release_selector": bytes.fromhex("f4cd9a5e"),
+        "expire_schedule_windows_selector": bytes.fromhex("b1357479"),
+        "settlement_schedule_release_selector": bytes.fromhex("a4574c77"),
+    }
+    admission_state_return = (
+        bytes4_word(b"ADS1") + u256(7) + move_final_root)
+    schedule_registry_state_return = (
+        bytes4_word(b"BRS1") + u256(1) + u256(63) + u256(9)
+        + u256(7) + u256(42) + reg_root)
+    schedule_window_release_return = (
+        bytes4_word(b"SWR1") + u256(512) + u256(3) + u256(513) + ent_root)
+    settlement_schedule_release_return = (
+        bytes4_word(b"SSR1") + u256(512) + u256(2) + u256(200_000)
+        + u256(197_000) + u256(0))
+    assert (len(admission_state_return) == 96
+            and len(schedule_registry_state_return) == 224
+            and len(schedule_window_release_return) == 160
+            and len(settlement_schedule_release_return) == 192)
+    assert (1071 % 1072 == 1071 and 64 + 1071 == 1135
+            and 1072 % 1072 == 0 and 64 + 0 == 64)
     envs = tuple(ForcedEnvelope(0xCAFE, i, l2_chain_id, keccak256(u64(i)), 123, 80_000,
                                 80_000, 10**12, 9_999, 0xBEEF, 555,
                                 2_055 + i, 10**15) for i in range(70))
@@ -14886,6 +15032,27 @@ def vectors() -> dict[str, str]:
         "tranche_root": tranche_root_hash.hex(),
         "empty_tranche_root": empty_tranche_root.hex(),
         "tranche_proof_digest": keccak256(b"".join(tranche_proof)).hex(),
+        "builder_registry_header_slot": BUILDER_REGISTRY_HEADER_SLOT.hex(),
+        "builder_registry_root_slot": BUILDER_REGISTRY_ROOT_SLOT.hex(),
+        "builder_registry_header_trie_key": br_header_trie_key.hex(),
+        "builder_registry_root_trie_key": br_root_trie_key.hex(),
+        "builder_registry_header_word": br_header.hex(),
+        "builder_move_pre_root": move_pre_root.hex(),
+        "builder_move_intermediate_root": move_intermediate_root.hex(),
+        "builder_move_final_root": move_final_root.hex(),
+        "builder_cell_63_admission_root": cell_63_admission_root.hex(),
+        "builder_admission_state_return_hash":
+            keccak256(admission_state_return).hex(),
+        "builder_schedule_registry_state_return_hash":
+            keccak256(schedule_registry_state_return).hex(),
+        "builder_schedule_window_release_return_hash":
+            keccak256(schedule_window_release_return).hex(),
+        "builder_settlement_schedule_release_return_hash":
+            keccak256(settlement_schedule_release_return).hex(),
+        **{
+            f"builder_{name}": selector.hex()
+            for name, selector in BUILDER_REGISTRY_SELECTORS.items()
+        },
         "forced_leaf": force_leaves[0].hex(),
         "bridge_leaf": bridge_hash.hex(),
         "bridge_result": bridge_credit_result(70, bridge).hex(),
@@ -15900,7 +16067,35 @@ def vectors() -> dict[str, str]:
     }
 
 
-EXPECTED = {'abort_expired_version_migration_calldata_hash': 'c0d778314c7fdd2e840b63f87298a8d2c51f071800a1303feb738afb9db79f0c',
+EXPECTED = {
+ 'builder_admission_state_return_hash': '4adb66ffb320e14ef37f1630bacdd71f03bcdfbb006d0c1a15a0312c3b80a91d',
+ 'builder_admission_state_selector': '4a9dfa3f',
+ 'builder_cell_63_admission_root': 'a7331d780dab70d17c02c0cedf929a63f970b0baef2c456688c21537efcd1845',
+ 'builder_claim_builder_lease_credit_selector': '8f73793c',
+ 'builder_expire_schedule_windows_selector': 'b1357479',
+ 'builder_move_final_root': '6ffdad931d0bc04bd668e66d5deb74ce13feb987ad05525f2e1634e1dc4ccc95',
+ 'builder_move_intermediate_root': 'e65acea99c98a79044078e8835688758b97b5fb9931f449ab785b3aa3ab3809c',
+ 'builder_move_pre_root': '3e961c42d94ba762f1d8e855bc9ac168bcdcd35177c381403574ae2c5fa03a0e',
+ 'builder_normalize_builder_tranches_selector': '5e7c8afe',
+ 'builder_process_builder_maintenance_selector': '0e1ffc68',
+ 'builder_register_builder_selector': '5fc42c69',
+ 'builder_registry_header_slot': 'e7ce7a505bf18b9ed57a0785851385323c9487991c55b422861381f92e5c245a',
+ 'builder_registry_header_trie_key': '3dc336ad17079f9525d2b0708a8773321ab29957d522a6f2d10fc522b7362aec',
+ 'builder_registry_header_word': '42524831013f0000010203040506070811121314151617182122232425262728',
+ 'builder_registry_root_slot': '4dc6f1bf199f7518c646d40ed35ca04703f646273e6de1d7eace0746cc7100a6',
+ 'builder_registry_root_trie_key': '04bafd6333ae949248e59a002ce1fbccb8a4bc8da3a0c3228ae523d727170880',
+ 'builder_release_builder_generation_selector': 'e7bae370',
+ 'builder_release_builder_tranche_selector': 'f8668bb9',
+ 'builder_request_builder_exit_selector': 'c8f20b55',
+ 'builder_reserve_builder_window_selector': '46a53315',
+ 'builder_schedule_registry_state_return_hash': '4abc972ad2bcb73d21e82e60a4fba80df1c6646fa376fe873da7eecae3baa492',
+ 'builder_schedule_registry_state_selector': 'ad95cea1',
+ 'builder_schedule_window_release_return_hash': 'f0160669e33a104e916a3d5bdf5c3051fbe0f06ab42a445ccd7708631e64b77e',
+ 'builder_schedule_window_release_selector': 'f4cd9a5e',
+ 'builder_settlement_schedule_release_return_hash': 'dad610bad2145e2431a6a6298f62dc7e08fc01f5a80d6f933a91b557a4ee9a84',
+ 'builder_settlement_schedule_release_selector': 'a4574c77',
+ 'builder_submit_builder_equivocation_selector': '979c1f72',
+ 'abort_expired_version_migration_calldata_hash': 'c0d778314c7fdd2e840b63f87298a8d2c51f071800a1303feb738afb9db79f0c',
  'abort_expired_version_migration_return_hash': '69db8526e861cfa2e8d712634f0c4f53217fca17210a9e481b26288c78441591',
  'abort_expired_version_migration_selector': 'c4eee12d',
  'activate_release_selector': '28f73572',

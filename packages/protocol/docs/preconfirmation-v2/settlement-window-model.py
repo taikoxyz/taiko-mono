@@ -4064,6 +4064,104 @@ class Generation:
     effective_window: int
     max_reserved_window: int = 0
     reservations_closed: bool = False
+    tombstoned_at_l2_slot: int = UINT64_MAX
+    reservation_base_window: int = 0
+    reservation_bitmap: int = 0
+    unreleased_tranche_count: int = 0
+    maximum_liable_until: int = 0
+    exit_sequence: int | None = None
+    effective_l2_slot: int | None = None
+
+
+class TrancheState(Enum):
+    EMPTY = 0
+    FREE = 1
+    RESERVED = 2
+    LIABLE = 3
+    RELEASED = 4
+    SLASHED = 5
+
+
+@dataclass(frozen=True)
+class TrancheLifecycle:
+    window: int
+    state: TrancheState
+    amount: int
+    liable_until: int
+
+
+@dataclass
+class BuilderExitRequest:
+    sequence: int
+    registration_index: int
+    request_window: int
+    mature_window: int
+    resolved: bool = False
+
+
+@dataclass
+class ScheduleReleaseCursor:
+    """Monotonic proof that pruned schedule-ring windows were once expired."""
+
+    first_managed_window: int = 0
+    next_release_window: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.next_release_window is None:
+            self.next_release_window = self.first_managed_window
+        if (type(self.first_managed_window) is not int
+                or type(self.next_release_window) is not int
+                or not 0 <= self.first_managed_window <= self.next_release_window
+                <= UINT64_MAX):
+            raise ValueError("malformed schedule release cursor")
+
+    def expire(self, window: int, *, releasable: bool) -> bool:
+        assert self.next_release_window is not None
+        if (type(window) is not int or window != self.next_release_window
+                or not releasable or window == UINT64_MAX):
+            return False
+        self.next_release_window += 1
+        return True
+
+    def is_expired(self, window: int) -> bool:
+        assert self.next_release_window is not None
+        return (type(window) is int
+                and self.first_managed_window <= window
+                < self.next_release_window)
+
+
+def admission_move_proof_order(
+    pre_root: bytes,
+    *,
+    liability_position: int,
+    active_position: int,
+    liability_proof_root: bytes,
+    active_proof_root: bytes | None,
+) -> tuple[bytes, bytes]:
+    """Pin liability-first, active-second sequential admission proof roots."""
+
+    if (type(pre_root) is not bytes or len(pre_root) != 32
+            or type(liability_proof_root) is not bytes
+            or len(liability_proof_root) != 32
+            or liability_proof_root != pre_root
+            or type(liability_position) is not int
+            or not 64 <= liability_position < 64 + MAX_LIABILITY_GENERATIONS
+            or type(active_position) is not int
+            or not 0 <= active_position < 64):
+        raise ValueError("malformed liability-first admission proof")
+    intermediate = keccak256(
+        b"slot-chain-admission-move-liability-v1"
+        + pre_root
+        + liability_position.to_bytes(2, "big")
+    )
+    if active_proof_root is not None and active_proof_root != intermediate:
+        raise ValueError("active proof is not anchored to liability post-root")
+    final = keccak256(
+        b"slot-chain-admission-move-active-v1"
+        + intermediate
+        + active_position.to_bytes(1, "big")
+    )
+    return intermediate, final
 
 
 @dataclass
@@ -4367,7 +4465,7 @@ class MigrationGate:
 
 @dataclass
 class RegistryLifecycle:
-    active: list[Generation]
+    active: list[Generation | None]
     liability_ring: list[tuple[Generation, int] | None] = field(
         default_factory=lambda: [None] * MAX_LIABILITY_GENERATIONS)
     replacements: dict[int, int] = field(default_factory=dict)
@@ -4375,50 +4473,283 @@ class RegistryLifecycle:
     migration_gate: MigrationGate = field(default_factory=MigrationGate)
     open_reservations: set[tuple[int, int]] = field(default_factory=set)
     liable_reservations: set[tuple[int, int]] = field(default_factory=set)
+    lease_per_window_atomic: int = 1
+    penalty_sink: str = "builder-penalty-sink"
+    tranches: dict[tuple[int, int], TrancheLifecycle] = field(
+        default_factory=dict)
+    tranche_ring_windows: dict[tuple[int, int], int] = field(
+        default_factory=dict)
+    credits: dict[str, int] = field(default_factory=dict)
+    base_bond_escrow: int = 0
+    tranche_escrow: int = 0
+    token_balance: int = 0
+    exit_requests: dict[int, BuilderExitRequest] = field(default_factory=dict)
+    exit_by_registration: dict[int, int] = field(default_factory=dict)
+    next_exit_sequence: int = 0
+    exit_head_sequence: int = 0
+    next_registration_index: int | None = None
+
+    def __post_init__(self) -> None:
+        if (len(self.active) > 64
+                or len(self.liability_ring) != MAX_LIABILITY_GENERATIONS
+                or type(self.lease_per_window_atomic) is not int
+                or self.lease_per_window_atomic <= 0):
+            raise ValueError("malformed BuilderRegistry geometry")
+        seen_addresses: set[str] = set()
+        seen_registrations: set[int] = set()
+        for generation in self.active:
+            if generation is None:
+                continue
+            if (generation.address in seen_addresses
+                    or generation.registration_index in seen_registrations
+                    or generation.bond < self.lease_per_window_atomic):
+                raise ValueError("duplicate or malformed active generation")
+            seen_addresses.add(generation.address)
+            seen_registrations.add(generation.registration_index)
+        for occupant in self.liability_ring:
+            if occupant is None:
+                continue
+            generation = occupant[0]
+            if (generation.address in seen_addresses
+                    or generation.registration_index in seen_registrations
+                    or generation.bond < self.lease_per_window_atomic):
+                raise ValueError("duplicate or malformed liability generation")
+            seen_addresses.add(generation.address)
+            seen_registrations.add(generation.registration_index)
+        self.active.extend([None] * (64 - len(self.active)))
+        derived_next_registration_index = (
+            0 if not seen_registrations else max(seen_registrations) + 1
+        )
+        if self.next_registration_index is None:
+            self.next_registration_index = derived_next_registration_index
+        elif (type(self.next_registration_index) is not int
+              or self.next_registration_index != derived_next_registration_index
+              or not 0 <= self.next_registration_index <= UINT64_MAX):
+            raise ValueError("malformed next registration index")
+        initial_base = sum(
+            generation.bond for generation in self.active
+            if generation is not None
+        ) + sum(
+            occupant[0].bond for occupant in self.liability_ring
+            if occupant is not None
+        )
+        if any((self.base_bond_escrow, self.tranche_escrow,
+                self.token_balance, self.credits)):
+            raise ValueError("custom initial custody is not canonical")
+        self.base_bond_escrow = initial_base
+        self.token_balance = initial_base
+        self.assert_custody_conservation()
+
+    @property
+    def active_count(self) -> int:
+        return sum(generation is not None for generation in self.active)
 
     @property
     def liabilities(self) -> list[Generation]:
         return [item[0] for item in self.liability_ring if item is not None]
 
-    def _prune_liable_reservations(self, current_window: int) -> int:
-        releasable = {
-            row for row in self.liable_reservations
-            if row[1] + RESERVATION_EVIDENCE_RETENTION_WINDOWS
-            <= current_window
-        }
-        self.liable_reservations.difference_update(releasable)
-        return len(releasable)
+    @property
+    def total_credit_liability(self) -> int:
+        return sum(self.credits.values())
 
-    def settle_reservations_before(self, current_window: int) -> int:
-        """Ordinary evidence-safe lifecycle; migration never mutates tranches."""
-        self._prune_liable_reservations(current_window)
-        expired = {row for row in self.open_reservations
-                   if row[1] < current_window}
+    @property
+    def accounted_builder_token(self) -> int:
+        return (self.base_bond_escrow + self.tranche_escrow
+                + self.total_credit_liability)
+
+    def assert_custody_conservation(self) -> None:
+        if (min(self.base_bond_escrow, self.tranche_escrow,
+                self.token_balance) < 0
+                or any(amount < 0 for amount in self.credits.values())
+                or self.accounted_builder_token > self.token_balance):
+            raise AssertionError("builder-token custody is not conserved")
+
+    def moves_used(self, current_window: int) -> int:
+        return self.replacements.get(current_window, 0)
+
+    @staticmethod
+    def tranche_deadline(window: int) -> int:
+        if type(window) is not int or not 0 <= window < UINT64_MAX:
+            raise ValueError("tranche window is outside uint64")
+        deadline = (384 * (window + 1) + EVIDENCE_DELAY_SECONDS
+                    + REORG_MARGIN_SECONDS)
+        if deadline > UINT64_MAX:
+            raise ValueError("tranche deadline overflows uint64")
+        return deadline
+
+    def tranche_state(self, registration_index: int,
+                      window: int) -> TrancheState:
+        tranche = self.tranches.get((registration_index, window))
+        return TrancheState.EMPTY if tranche is None else tranche.state
+
+    def tranche_ring_window(self, registration_index: int,
+                            window: int) -> int | None:
+        return self.tranche_ring_windows.get(
+            (registration_index, window % 512))
+
+    def _active_index(self, *, address: str | None = None,
+                      registration_index: int | None = None) -> int | None:
+        for index, generation in enumerate(self.active):
+            if generation is None:
+                continue
+            if ((address is None or generation.address == address)
+                    and (registration_index is None
+                         or generation.registration_index
+                         == registration_index)):
+                return index
+        return None
+
+    def _generation_location(
+        self, registration_index: int,
+    ) -> tuple[str, int, Generation] | None:
+        active_index = self._active_index(
+            registration_index=registration_index)
+        if active_index is not None:
+            generation = self.active[active_index]
+            assert generation is not None
+            return "ACTIVE", active_index, generation
+        for index, occupant in enumerate(self.liability_ring):
+            if (occupant is not None
+                    and occupant[0].registration_index == registration_index):
+                return "LIABILITY", index, occupant[0]
+        return None
+
+    def _write_generation(self, location: str, index: int,
+                          generation: Generation) -> None:
+        if location == "ACTIVE":
+            self.active[index] = generation
+        else:
+            occupant = self.liability_ring[index]
+            assert occupant is not None
+            self.liability_ring[index] = (generation, occupant[1])
+
+    def _credit(self, beneficiary: str, amount: int) -> None:
+        if not beneficiary or amount < 0:
+            raise ValueError("malformed builder-token credit")
+        if amount:
+            self.credits[beneficiary] = self.credits.get(beneficiary, 0) + amount
+
+    def claim_credit(self, owner: str, recipient: str, *, caller: str) -> int:
+        if caller != owner or not recipient:
+            raise ValueError("builder-token credit claim lacks self-consent")
+        amount = self.credits.get(owner, 0)
+        if amount == 0:
+            raise ValueError("builder-token credit is empty")
+        self.credits[owner] = 0
+        self.token_balance -= amount
+        self.assert_custody_conservation()
+        return amount
+
+    def force_token_surplus(self, amount: int) -> None:
+        if type(amount) is not int or amount < 0:
+            raise ValueError("malformed forced builder-token surplus")
+        self.token_balance += amount
+        self.assert_custody_conservation()
+
+    def _recompute_reservation_bitmap(self, active_index: int,
+                                      current_window: int) -> None:
+        generation = self.active[active_index]
+        assert generation is not None
+        bitmap = 0
+        for registration_index, window in self.open_reservations:
+            if registration_index != generation.registration_index:
+                continue
+            if not current_window <= window <= current_window + 16:
+                raise AssertionError("open reservation escaped 17-window horizon")
+            bitmap |= 1 << (window - current_window)
+        self.active[active_index] = replace(
+            generation,
+            reservation_base_window=current_window,
+            reservation_bitmap=bitmap,
+        )
+
+    def normalize_reservations(self, registration_index: int,
+                               current_window: int) -> int:
+        """Bound one generation's RESERVED->LIABLE normalization to 17 leaves.
+
+        Normalization never releases escrow.  Only ``release_tranche`` with an
+        authenticated schedule-release cursor and strict timestamp may create
+        a builder credit.
+        """
+
+        location = self._generation_location(registration_index)
+        if location is None or location[0] != "ACTIVE":
+            return 0
+        expired = {
+            row for row in self.open_reservations
+            if row[0] == registration_index and row[1] < current_window
+        }
+        if len(expired) > MAX_TRANCHE_AHEAD_WINDOWS + 1:
+            raise AssertionError("normalization exceeded 17 tranche leaves")
         self.open_reservations.difference_update(expired)
         self.liable_reservations.update(expired)
+        for registration_index, window in expired:
+            key = (registration_index, window)
+            tranche = self.tranches.get(key)
+            if tranche is not None and tranche.state is TrancheState.RESERVED:
+                self.tranches[key] = replace(
+                    tranche, state=TrancheState.LIABLE)
+        self._recompute_reservation_bitmap(location[1], current_window)
         return len(expired)
 
-    def reserve(self, address: str, window: int, current_window: int) -> bool:
-        if self.migration_gate.mode != "ACTIVE":
+    def reserve(self, address: str, window: int, current_window: int,
+                *, caller: str | None = None) -> bool:
+        if (self.migration_gate.mode != "ACTIVE"
+                or type(window) is not int
+                or type(current_window) is not int
+                or window < current_window
+                or window > current_window + MAX_TRANCHE_AHEAD_WINDOWS):
             return False
-        self.settle_reservations_before(current_window)
-        for index, generation in enumerate(self.active):
-            if generation.address != address:
-                continue
-            if (generation.reservations_closed
-                    or window < current_window
-                    or window > current_window + MAX_TRANCHE_AHEAD_WINDOWS):
-                return False
-            self.active[index] = replace(
-                generation, max_reserved_window=max(generation.max_reserved_window, window))
-            reservation = (generation.registration_index, window)
-            if reservation in self.liable_reservations:
-                return False
-            if reservation not in self.open_reservations:
-                self.open_reservations.add(reservation)
-                assert len(self.open_reservations) <= MAX_LIVE_RESERVATIONS
+        caller = address if caller is None else caller
+        if caller != address:
+            return False
+        index = self._active_index(address=address)
+        if index is None:
+            return False
+        generation = self.active[index]
+        assert generation is not None
+        if (generation.reservations_closed
+                or generation.tombstoned_at_l2_slot != UINT64_MAX):
+            return False
+        self.normalize_reservations(
+            generation.registration_index, current_window)
+        generation = self.active[index]
+        assert generation is not None
+        key = (generation.registration_index, window)
+        existing = self.tranches.get(key)
+        if existing is not None and existing.state is TrancheState.RESERVED:
             return True
-        return False
+        old_window = self.tranche_ring_windows.get(
+            (generation.registration_index, window % 512))
+        if old_window == window:
+            return False
+        if old_window is not None:
+            old = self.tranches[(generation.registration_index, old_window)]
+            if not (old_window < window and old.state in {
+                    TrancheState.RELEASED, TrancheState.SLASHED}):
+                return False
+        liable_until = self.tranche_deadline(window)
+        self.tranches[key] = TrancheLifecycle(
+            window, TrancheState.RESERVED,
+            self.lease_per_window_atomic, liable_until,
+        )
+        self.tranche_ring_windows[
+            (generation.registration_index, window % 512)] = window
+        self.open_reservations.add(key)
+        self.tranche_escrow += self.lease_per_window_atomic
+        self.token_balance += self.lease_per_window_atomic
+        generation = replace(
+            generation,
+            max_reserved_window=max(generation.max_reserved_window, window),
+            unreleased_tranche_count=generation.unreleased_tranche_count + 1,
+            maximum_liable_until=max(
+                generation.maximum_liable_until, liable_until),
+        )
+        self.active[index] = generation
+        self._recompute_reservation_bitmap(index, current_window)
+        assert len(self.open_reservations) <= MAX_LIVE_RESERVATIONS
+        self.assert_custody_conservation()
+        return True
 
     def arm_migration(self) -> None:
         # The shared gate is the reversible migration veto.  The permanent
@@ -4430,48 +4761,312 @@ class RegistryLifecycle:
                  if row[0] == registration_index}
         self.open_reservations.difference_update(moved)
         self.liable_reservations.update(moved)
+        for key in moved:
+            tranche = self.tranches[key]
+            if tranche.state is not TrancheState.RESERVED:
+                raise AssertionError("open reservation is not RESERVED")
+            self.tranches[key] = replace(
+                tranche, state=TrancheState.LIABLE)
         return len(moved)
 
     def release_liability(self, ring_index: int, current_window: int) -> bool:
+        if not 0 <= ring_index < MAX_LIABILITY_GENERATIONS:
+            return False
         occupant = self.liability_ring[ring_index]
         if occupant is None or occupant[1] > current_window:
             return False
         registration_index = occupant[0].registration_index
+        if (occupant[0].unreleased_tranche_count != 0
+                or any(key[0] == registration_index
+                       and tranche.state in {
+                           TrancheState.RESERVED, TrancheState.LIABLE,
+                       }
+                       for key, tranche in self.tranches.items())):
+            return False
+        self.base_bond_escrow -= occupant[0].bond
+        self._credit(occupant[0].address, occupant[0].bond)
         self.liability_ring[ring_index] = None
         self.liable_reservations = {
             row for row in self.liable_reservations
             if row[0] != registration_index}
+        self.assert_custody_conservation()
         return True
 
-    def admit(self, entry: Generation, current_window: int) -> bool:
-        if any(g.address == entry.address for g in self.active + self.liabilities):
+    def _mark_exit_resolved(self, registration_index: int) -> None:
+        sequence = self.exit_by_registration.get(registration_index)
+        if sequence is not None and sequence in self.exit_requests:
+            self.exit_requests[sequence].resolved = True
+
+    def _move_active_to_liability(
+        self,
+        active_index: int,
+        current_window: int,
+        current_l2_slot: int,
+        replacement: Generation | None,
+    ) -> bool:
+        if self.moves_used(current_window) >= MAX_REPLACEMENTS_PER_WINDOW:
             return False
-        if entry.effective_window < current_window + ENTRY_DELAY_WINDOWS:
-            return False
-        if len(self.active) < 64:
-            self.active.append(entry)
-            return True
-        if self.replacements.get(current_window, 0) >= MAX_REPLACEMENTS_PER_WINDOW:
-            return False
-        victim = min(self.active, key=lambda item: (item.bond, -item.registration_index))
-        if entry.bond <= victim.bond:
-            return False
-        if victim.max_reserved_window > current_window + MAX_TRANCHE_AHEAD_WINDOWS:
+        victim = self.active[active_index]
+        if victim is None:
             return False
         ring_index = self.movement_sequence % MAX_LIABILITY_GENERATIONS
-        occupant = self.liability_ring[ring_index]
-        if occupant is not None and occupant[1] > current_window:
+        if (self.liability_ring[ring_index] is not None
+                and not self.release_liability(ring_index, current_window)):
             return False
+        self._move_reservations_to_liability(victim.registration_index)
+        retained = replace(
+            victim,
+            reservations_closed=True,
+            reservation_base_window=current_window,
+            reservation_bitmap=0,
+        )
         release_window = (
             victim.max_reserved_window + 1
             + (EVIDENCE_DELAY_SECONDS + REORG_MARGIN_SECONDS + 383) // 384 + 2
         )
-        self._move_reservations_to_liability(victim.registration_index)
-        self.active.remove(victim)
-        self.active.append(entry)
-        self.liability_ring[ring_index] = (replace(victim, reservations_closed=True), release_window)
+        self.liability_ring[ring_index] = (retained, release_window)
+        self.active[active_index] = replacement
         self.movement_sequence += 1
-        self.replacements[current_window] = self.replacements.get(current_window, 0) + 1
+        self.replacements[current_window] = self.moves_used(current_window) + 1
+        self._mark_exit_resolved(victim.registration_index)
+        return True
+
+    def _mature_live_exit_pending(self, current_window: int) -> bool:
+        sequence = self.exit_head_sequence
+        while sequence < self.next_exit_sequence:
+            request = self.exit_requests.get(sequence)
+            if request is None or request.resolved:
+                sequence += 1
+                continue
+            location = self._generation_location(request.registration_index)
+            if location is None or location[0] != "ACTIVE":
+                sequence += 1
+                continue
+            return request.mature_window <= current_window
+        return False
+
+    def admit(self, entry: Generation, current_window: int, *,
+              caller: str | None = None,
+              current_l2_slot: int | None = None) -> bool:
+        caller = entry.address if caller is None else caller
+        current_l2_slot = (current_window * 384 if current_l2_slot is None
+                           else current_l2_slot)
+        assert self.next_registration_index is not None
+        if (caller != entry.address or entry.address == ""
+                or not self.lease_per_window_atomic <= entry.bond < 1 << 192
+                or self.next_registration_index >= UINT64_MAX
+                or entry.registration_index != self.next_registration_index
+                or not 0 <= current_l2_slot <= UINT64_MAX
+                or any(g is not None and g.address == entry.address
+                       for g in self.active)
+                or any(g.address == entry.address for g in self.liabilities)):
+            return False
+        effective_l2_slot = current_l2_slot + ENTRY_DELAY_WINDOWS * 384
+        if effective_l2_slot > UINT64_MAX:
+            return False
+        entry = replace(
+            entry,
+            effective_window=effective_l2_slot // 384,
+            effective_l2_slot=effective_l2_slot,
+            max_reserved_window=0,
+            reservations_closed=False,
+            tombstoned_at_l2_slot=UINT64_MAX,
+            reservation_base_window=current_window,
+            reservation_bitmap=0,
+            unreleased_tranche_count=0,
+            maximum_liable_until=0,
+            exit_sequence=None,
+        )
+        vacant_index = next(
+            (index for index, generation in enumerate(self.active)
+             if generation is None), None)
+        if vacant_index is not None:
+            self.active[vacant_index] = entry
+            self.base_bond_escrow += entry.bond
+            self.token_balance += entry.bond
+            self.next_registration_index += 1
+            self.assert_custody_conservation()
+            return True
+        if (self.moves_used(current_window) >= MAX_REPLACEMENTS_PER_WINDOW
+                or self._mature_live_exit_pending(current_window)
+                or any(g is not None
+                       and g.tombstoned_at_l2_slot != UINT64_MAX
+                       for g in self.active)):
+            return False
+        candidates = [
+            (index, generation) for index, generation in enumerate(self.active)
+            if (generation is not None
+                and generation.tombstoned_at_l2_slot == UINT64_MAX)
+        ]
+        if not candidates:
+            return False
+        victim_index, victim = min(
+            candidates,
+            key=lambda item: (item[1].bond, -item[1].registration_index),
+        )
+        if entry.bond <= victim.bond:
+            return False
+        if victim.max_reserved_window > current_window + MAX_TRANCHE_AHEAD_WINDOWS:
+            return False
+        if not self._move_active_to_liability(
+                victim_index, current_window, current_l2_slot, entry):
+            return False
+        self.base_bond_escrow += entry.bond
+        self.token_balance += entry.bond
+        self.next_registration_index += 1
+        self.assert_custody_conservation()
+        return True
+
+    def request_exit(self, address: str, current_window: int, *,
+                     caller: str | None = None) -> bool:
+        caller = address if caller is None else caller
+        index = self._active_index(address=address)
+        if caller != address or index is None:
+            return False
+        generation = self.active[index]
+        assert generation is not None
+        if (generation.reservations_closed
+                or generation.tombstoned_at_l2_slot != UINT64_MAX
+                or generation.registration_index in self.exit_by_registration
+                or self.next_exit_sequence == UINT64_MAX):
+            return False
+        sequence = self.next_exit_sequence
+        mature_window = current_window + MAX_LIVE_WINDOWS
+        if mature_window > UINT64_MAX:
+            return False
+        self.next_exit_sequence += 1
+        self.exit_requests[sequence] = BuilderExitRequest(
+            sequence, generation.registration_index,
+            current_window, mature_window,
+        )
+        self.exit_by_registration[generation.registration_index] = sequence
+        self.active[index] = replace(
+            generation, reservations_closed=True, exit_sequence=sequence)
+        return True
+
+    def process_maintenance(
+        self,
+        current_window: int,
+        *,
+        current_l2_slot: int,
+        max_inspections: int = 64,
+    ) -> tuple[int, int]:
+        if (type(max_inspections) is not int
+                or not 0 <= max_inspections <= 64):
+            raise ValueError("exit inspection bound is outside 0..64")
+        inspected = 0
+        moved = 0
+        while (self.exit_head_sequence < self.next_exit_sequence
+               and inspected < max_inspections):
+            request = self.exit_requests.get(self.exit_head_sequence)
+            inspected += 1
+            if request is None or request.resolved:
+                self.exit_head_sequence += 1
+                continue
+            location = self._generation_location(request.registration_index)
+            if location is None or location[0] != "ACTIVE":
+                request.resolved = True
+                self.exit_head_sequence += 1
+                continue
+            if request.mature_window > current_window:
+                break
+            if not self._move_active_to_liability(
+                    location[1], current_window, current_l2_slot, None):
+                break
+            request.resolved = True
+            self.exit_head_sequence += 1
+            moved += 1
+        if self._mature_live_exit_pending(current_window):
+            return inspected, moved
+        while self.moves_used(current_window) < MAX_REPLACEMENTS_PER_WINDOW:
+            tombstones = [
+                (generation.tombstoned_at_l2_slot,
+                 generation.registration_index, index)
+                for index, generation in enumerate(self.active)
+                if generation is not None
+                and generation.tombstoned_at_l2_slot != UINT64_MAX
+            ]
+            if not tombstones:
+                break
+            _, _, index = min(tombstones)
+            if not self._move_active_to_liability(
+                    index, current_window, current_l2_slot, None):
+                break
+            moved += 1
+        return inspected, moved
+
+    def slash_tranche(
+        self,
+        registration_index: int,
+        window: int,
+        now: int,
+        *,
+        reporter: str,
+        reporter_cap_atomic: int,
+        current_l2_slot: int,
+    ) -> bool:
+        location = self._generation_location(registration_index)
+        tranche = self.tranches.get((registration_index, window))
+        if (location is None or tranche is None
+                or tranche.state not in {
+                    TrancheState.RESERVED, TrancheState.LIABLE,
+                }
+                or now > tranche.liable_until
+                or reporter_cap_atomic < 0):
+            return False
+        reward = min(reporter_cap_atomic, tranche.amount)
+        penalty = tranche.amount - reward
+        self.tranche_escrow -= tranche.amount
+        self._credit(reporter, reward)
+        self._credit(self.penalty_sink, penalty)
+        self.tranches[(registration_index, window)] = replace(
+            tranche, state=TrancheState.SLASHED, amount=0)
+        self.open_reservations.discard((registration_index, window))
+        self.liable_reservations.discard((registration_index, window))
+        reservation_bitmap = location[2].reservation_bitmap
+        offset = window - location[2].reservation_base_window
+        if location[0] == "ACTIVE" and 0 <= offset <= 16:
+            reservation_bitmap &= ~(1 << offset)
+        generation = replace(
+            location[2],
+            unreleased_tranche_count=location[2].unreleased_tranche_count - 1,
+            reservation_bitmap=reservation_bitmap,
+            tombstoned_at_l2_slot=(
+                current_l2_slot
+                if location[2].tombstoned_at_l2_slot == UINT64_MAX
+                else location[2].tombstoned_at_l2_slot
+            ),
+            reservations_closed=True,
+        )
+        self._write_generation(location[0], location[1], generation)
+        self.assert_custody_conservation()
+        return True
+
+    def release_tranche(
+        self,
+        registration_index: int,
+        window: int,
+        now: int,
+        schedule_cursor: ScheduleReleaseCursor,
+    ) -> bool:
+        location = self._generation_location(registration_index)
+        tranche = self.tranches.get((registration_index, window))
+        if (location is None or tranche is None
+                or tranche.state is not TrancheState.LIABLE
+                or now <= tranche.liable_until
+                or not schedule_cursor.is_expired(window)):
+            return False
+        self.tranche_escrow -= tranche.amount
+        self._credit(location[2].address, tranche.amount)
+        self.tranches[(registration_index, window)] = replace(
+            tranche, state=TrancheState.RELEASED, amount=0)
+        self.liable_reservations.discard((registration_index, window))
+        generation = replace(
+            location[2],
+            unreleased_tranche_count=location[2].unreleased_tranche_count - 1,
+        )
+        self._write_generation(location[0], location[1], generation)
+        self.assert_custody_conservation()
         return True
 
 
@@ -7385,7 +7980,6 @@ class Protocol:
                 install_revision,
             )
             outgoing = stage.outgoing_primary_term_id
-            outgoing_view = None
             if outgoing is not None:
                 active = self.active_primary_term_id
                 service = self.seat_services.get(outgoing)
@@ -7423,7 +8017,6 @@ class Protocol:
                     close_reason = "COMPETITIVE_STANDBY_REPLACEMENT"
                 self._close_service(outgoing, clock.timestamp, close_reason)
                 self._remove_lineup_term(outgoing, clock.timestamp)
-                outgoing_view = self._market_service_view(market, outgoing)
                 self._seat_fault("after_outgoing_close")
             install = module.InstallationView(
                 target=stage.target,
@@ -7486,7 +8079,6 @@ class Protocol:
             self._seat_fault("after_settlement_stage_clear")
             market_result = market._settlement_apply_stage_atomic(
                 install,
-                outgoing_view,
                 self._lineup_snapshot_for_market(market),
                 module.Clock(clock.timestamp, clock.block_number),
             )
@@ -17152,7 +17744,7 @@ def canonical_seat_wire_cross_model_fixture_v1() -> dict[str, bytes]:
         magic(b"MWV1"), word(1), word(11), word(9), last, authorization,
         word(1), word(7), word(1), stage, authorization, word(7), offer,
         tranche, operator, payout, word(3), word(1), outgoing, pre_lineup,
-        word(120), word(140), reserve, word(300), word(0), word(0), word(0),
+        word(120), word(140), reserve, word(300),
     ))
     smi1 = b"".join((
         magic(b"SMI1"), word(2), word(2), word(10), authorization, word(7),
@@ -17193,7 +17785,7 @@ def canonical_seat_wire_cross_model_fixture_v1() -> dict[str, bytes]:
         "SMR1": smr1, "MEC1": mec1, "MHS1": mhs1, "MRO1": mro1,
     }
     expected = {
-        "MWV1": 864, "SMI1": 512, "SLV1": 544, "SIR1": 352,
+        "MWV1": 768, "SMI1": 512, "SLV1": 544, "SIR1": 352,
         "SMR1": 800, "MEC1": 192, "MHS1": 64, "MRO1": 256,
     }
     if any(len(rows[name]) != length for name, length in expected.items()):
@@ -44228,7 +44820,7 @@ def test_registry_liability_and_release_units() -> None:
     active = [Generation(f"builder-{i}", 100 + (i // 2), i, 0) for i in range(64)]
     registry = RegistryLifecycle(active)
     # Builders 0 and 1 tie at minimum bond; greatest registration index loses.
-    newcomer = Generation("new", 101, 1000, ENTRY_DELAY_WINDOWS)
+    newcomer = Generation("new", 101, 64, ENTRY_DELAY_WINDOWS)
     check("P35 full-table replacement is delayed and strict", registry.admit(newcomer, 0))
     check("P36 deterministic tie victim moves to liability", registry.liabilities[0].registration_index == 1)
     check("P37 displaced generation remains retained", len(registry.active) == 64 and len(registry.liabilities) == 1)
@@ -44236,19 +44828,23 @@ def test_registry_liability_and_release_units() -> None:
           not registry.reserve("builder-1", 1, 0))
     retained = registry.liability_ring[0]
     assert retained is not None
-    reuse = Generation("builder-1", 50_000, 9_999,
+    reuse = Generation("builder-1", 50_000, 65,
                        retained[1] + ENTRY_DELAY_WINDOWS)
     check("P37b retained address cannot be reused", not registry.admit(reuse, retained[1]))
     assert registry.release_liability(0, retained[1])
     check("P37c address reuse after safe release gets a new generation",
           registry.admit(reuse, retained[1]))
-    low = Generation("low", 1, 1001, ENTRY_DELAY_WINDOWS)
+    low = Generation("low", 1, 66, ENTRY_DELAY_WINDOWS)
     check("P38 lower bond cannot displace", not registry.admit(low, 0))
     for j in range(3):
-        assert registry.admit(Generation(f"high-{j}", 10_000 + j, 2000 + j,
-                                         ENTRY_DELAY_WINDOWS), 0)
+        next_registration = registry.next_registration_index
+        assert next_registration is not None
+        assert registry.admit(Generation(
+            f"high-{j}", 10_000 + j, next_registration,
+            ENTRY_DELAY_WINDOWS), 0)
     check("P39 per-window replacement rate is hard", not registry.admit(
-        Generation("fifth", 20_000, 3000, ENTRY_DELAY_WINDOWS), 0))
+        Generation("fifth", 20_000, registry.next_registration_index,
+                   ENTRY_DELAY_WINDOWS), 0))
     check("P40 liability residence is strictly below ring horizon",
           MAX_LIABILITY_RESIDENCE_WINDOWS < MAX_LIVE_WINDOWS)
     check("P41 tranche release compares slots with slots",
@@ -44263,7 +44859,8 @@ def test_registry_liability_and_release_units() -> None:
         for _ in range(MAX_REPLACEMENTS_PER_WINDOW):
             serial += 1
             assert churn.admit(
-                Generation(f"churn-{serial}", 1_000_000 + serial, serial,
+                Generation(f"churn-{serial}", 1_000_000 + serial,
+                           churn.next_registration_index,
                            window + ENTRY_DELAY_WINDOWS,
                            window + MAX_TRANCHE_AHEAD_WINDOWS),
                 window,
@@ -44276,13 +44873,29 @@ def test_registry_liability_and_release_units() -> None:
     assert bounded_gate._bootstrap_from_router(1)
     bounded = RegistryLifecycle(
         [Generation("long-lived", 10, 0, 0)], migration_gate=bounded_gate)
+    release_cursor = ScheduleReleaseCursor(first_managed_window=0)
     for current_window in range(2_000):
+        if current_window:
+            # Advance the schedule-release proof one window at a time and
+            # release the tranche that reserve() normalized into liability.
+            # Without this permissionless maintenance, the 512-cell ring is
+            # intentionally fail-closed rather than overwriting live escrow.
+            bounded.normalize_reservations(0, current_window)
+            expired_window = current_window - 1
+            assert release_cursor.expire(expired_window, releasable=True)
+            if expired_window >= MAX_TRANCHE_AHEAD_WINDOWS:
+                assert bounded.release_tranche(
+                    0,
+                    expired_window,
+                    bounded.tranche_deadline(expired_window) + 1,
+                    release_cursor,
+                )
         assert bounded.reserve("long-lived", current_window + 16,
                                current_window)
         assert len(bounded.open_reservations) <= 17
     check("P41b historical reservations enter evidence-safe liability",
           len(bounded.open_reservations) == 17
-          and bounded.settle_reservations_before(2_015) == 16
+          and bounded.normalize_reservations(0, 2_015) == 16
           and len(bounded.open_reservations) == 1)
 
     churn_gate = MigrationGate(coordinator="version-manager")

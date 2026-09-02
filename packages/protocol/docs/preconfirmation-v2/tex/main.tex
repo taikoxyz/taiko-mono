@@ -367,8 +367,9 @@ transition in the same transaction.
 
 \subsection{Registry lifecycle}
 
-A registration contains a nonzero address, a \code{uint192} bond not exceeding
-\code{BOND_MAX}, a monotonic \code{uint64 registrationIndex}, an
+A registration contains a nonzero address, a \code{uint192} base bond in the
+closed interval \code{[L_LEASE,BOND_MAX]}, a monotonic
+\code{uint64 registrationIndex}, an
 \code{effectiveL2Slot}, and separately reserved \code{L_LEASE[window]}
 tranches.  Address zero is permanently \code{VACANT}.  Duplicate live
 addresses and reuse while any prior generation remains active or liable are
@@ -389,9 +390,16 @@ never extended with a new reservation.
 The active table has exactly 64 indexed cells.  On accepted registration,
 \code{effectiveL2Slot=currentL2Slot+384*ENTRY_DELAY_WINDOWS}; the stored value,
 not a later recomputation from a window boundary, is authoritative.  Thus a
-registration becomes effective only after \code{ENTRY_DELAY_WINDOWS=8}.  If the table is full it may
-replace only the smallest-bond effective live entry, breaking ties by greatest
-registration index, and only with a strictly greater bond.  At most
+registration becomes effective only after \code{ENTRY_DELAY_WINDOWS=8}.  A
+non-full table always writes the lowest vacant active-cell index: the first
+registration therefore uses cell 0, the 64th uses cell 63, and a later hole is
+filled before a greater index.  If the table is full it may replace only the
+smallest-bond live, non-tombstoned entry whether or not that entry is effective,
+breaking ties by greatest registration index, and only with a strictly greater
+bond.  Full-table registration first rejects with \code{MaintenanceRequired}
+if any active tombstone or oldest live matured exit exists; it never evicts a
+healthy entry while a tombstone occupies a cell.  Including ineffective entries prevents 64 fresh minimum-bond
+registrations from creating an eight-window replacement fence.  At most
 \code{MAX_GENERATION_MOVES_PER_WINDOW=4} replacements or effective exits are
 processed.  Exit requests receive a monotonic sequence and mature at
 \code{requestWindow+EXIT_DELAY_WINDOWS}.  Every replacement path first processes
@@ -416,11 +424,14 @@ tombstoning, slashing or release increments \code{admissionVersion} and updates
 \code{admissionRoot}.  A \code{FREE/RESERVED/LIABLE} tranche transition updates
 the tranche and registry roots but cannot invalidate signed blocks or proofs by
 changing the admission pair.  The admission root retains displaced scheduled
-keys.  Normal activation and every recovery round freeze
+keys.  A healthy replacement changes such a key from active to liability but
+does not tombstone it: already-sealed tickets can still prove the same
+generation, while removal from the active registry prevents every later
+snapshot or reservation.  Normal activation and every recovery round freeze
 the pair \code{(admissionVersion,admissionRoot)}.  Each scheduled signer carries
 an inclusion proof for a non-tombstoned record effective at that L2 slot; a
 slash cannot retroactively invalidate an already frozen window.
-Outside an already-open normal window or live recovery round, a tombstone makes
+Outside an already-open normal window or live recovery round, a slash tombstone makes
 sealed future tickets at or after its effective slot return \code{VACANT};
 inside that frozen candidate context the stored admission pair remains
 authoritative until close/commit/expiry.
@@ -434,7 +445,8 @@ cell or writes the replacement, increments \code{movementSequence}, then
 updates both affected roots and increments \code{admissionVersion}; the new
 admission pair is published atomically.  Reservation-only mutations publish
 only the registry root and leave that pair byte-for-byte unchanged.
-There is no first-free search, compaction or caller-chosen liability position.
+There is no caller-chosen active or liability position and no compaction.  The
+bounded 64-cell lowest-vacancy scan above is the sole active placement rule.
 
 Eligibility is evaluated before ranking.  A cell's effective L2 slot must be no
 later than the source-derived L2 slot, its fully reserved tranche for $W$ must
@@ -459,12 +471,14 @@ the normal window's frozen minimum (or the recovery round start), not merely its
 tip.  Let \code{windowEndSlot(W)=384*(W+1)-1}.  Release requires
 \code{windowEndSlot(W) < globalMinReferencedSlot}, no stored best or active round
 references it, and the absolute evidence and L1-reorg deadlines have expired.
-At that point maintenance atomically marks the schedule cell \code{EXPIRED} and
-may release its tranches; an unexpired sealed record is never overwritten.
+At that point ScheduleOracle maintenance atomically marks the schedule cell
+\code{EXPIRED}; BuilderRegistry may release a tranche only after an exact
+authenticated read of that state.  An unexpired sealed record is never
+overwritten.
 \code{evidenceDeadline(W)=GENESIS_TIMESTAMP+384*(W+1)+EVIDENCE_DELAY_SECONDS};
 \code{evidenceReplayDeadline(W)=evidenceDeadline(W)+REORG_MARGIN_SECONDS} is
-both the contract's last admissible evidence time and the tranche's absolute
-release boundary.  Evidence intended to survive a reorg must first be submitted
+the contract's inclusive last admissible evidence time.  Release is legal only
+at a strictly later timestamp.  Evidence intended to survive a reorg must first be submitted
 by \code{evidenceDeadline(W)}.  \code{globalMinReferencedSlot} is the minimum of the current dynamic
 floor, an open normal window's frozen floor, an active round's start and the
 first slot of any stored best (absent values are ignored).  Slot indices are
@@ -483,6 +497,264 @@ cover boundary ordering and bounded maintenance.  At four moves per window,
 the ring position reused 268 windows later is consequently releasable.  Each
 generation maintains an exact unreleased-tranche counter, so release and reuse
 do not scan 512 leaves.
+
+\subsection{BuilderRegistry implementation freeze}\label{sec:builder-registry-freeze}
+
+This subsection is the implementation authority for the registry lifecycle.
+Where earlier explanatory prose is less specific, the rules below control.
+\code{BuilderRegistry} is one protocol-lifetime, non-proxy, ownerless and
+unpausable contract.  It does not inherit an administrative base contract and
+has no setter, redirect, arbitrary call or emergency withdrawal.  It pins the
+builder-token, Router and ScheduleOracle addresses, runtime hashes,
+configuration hashes and bounded read gas in constructor immutables.  The
+builder token must be an exact-balance ERC-20: every transfer checks the
+contract's before/after balance, and fee-on-transfer or rebasing behavior
+reverts.  Every token-moving path is non-reentrant and writes pull credit before
+an external transfer.
+
+\paragraph{Generation and custody state.}
+Each generation stores the builder, \code{uint192 baseBondAtomic}, registration
+index, effective and tombstone L2 slots, tranche root, a reservation base
+window, a 17-bit reservation bitmap, unreleased-tranche count, maximum liable
+deadline, one-shot exit record and its active/liability locator.  The live
+tombstone sentinel is \code{UINT64_MAX}.  Storage consists of exactly 64 active
+cells, 1,072 liability cells, address and registration reverse locators, a
+monotonic \code{nextRegistrationIndex}, a monotonic
+\code{movementSequence}, a per-window move counter and a global append-only exit
+FIFO.  Default all-zero Solidity storage is never decoded as a tranche:
+canonical \code{EMPTY} is
+\code{(window=UINT64_MAX,state=EMPTY,amount=0,liableUntil=0)}.
+
+Registration is self-consenting: \code{builder=msg.sender}.  Reservation and
+exit likewise require that same ECDSA address and registration generation.
+There is no \code{registerFor}, \code{tx.origin}, EIP-1271 delegation or
+caller-selected refund owner.  The caller supplies only race guards and proofs;
+the contract derives the builder, active index, replacement victim, liability
+index, tranche index, current slot/window, tombstone slot and every deadline.
+\code{nextRegistrationIndex} is checked before increment and exhaustion is
+permanent.  The entry delay is
+\code{effectiveL2Slot=currentL2Slot+8*384}, not rounded to a window.
+
+Base-bond and per-window escrow are disjoint.  Registration pulls exactly the
+immutable base bond; each first reservation of a window separately pulls
+exactly \code{L_LEASE}.  The base bond ranks the generation and cannot be
+changed in place.  Moving active to liability moves both obligations without a
+credit.  Tranche release debits tranche escrow and credits the builder.  A
+slash debits one tranche once, credits
+\code{min(reporterRewardCapAtomic,L_LEASE)} to the evidence submitter and the
+remainder to the immutable builder-penalty sink.  Generation release debits
+base escrow and credits the builder only after every tranche is terminal and
+all evidence/reorg predicates are safe.  Therefore at every external boundary
+\begin{verbatim}
+accountedBuilderToken = baseBondEscrow + trancheEscrow
+                      + totalBuilderTokenPullCredits
+builderToken.balanceOf(BuilderRegistry) >= accountedBuilderToken.
+\end{verbatim}
+Unsolicited token transfers are surplus and are permanently unclaimable in V1;
+they cannot create a credit or block ordinary claims.
+
+\paragraph{Tranche transition and wrap.}
+The only funded transition is an atomic
+\code{EMPTY/safe-old-FREE/RELEASED/SLASHED -> FREE(W) -> RESERVED(W)};
+the intermediate FREE value is not published by a public V1 operation.
+\code{RESERVED(W)->LIABLE(W)},
+\code{RESERVED/LIABLE->SLASHED} and \code{LIABLE->RELEASED} are the other
+legal transitions.  RESERVED and LIABLE carry exactly \code{L_LEASE} and
+\code{evidenceReplayDeadline(W)}; terminal leaves carry zero amount but retain
+their original window and deadline.  The leaf index is derived as
+\code{W mod 512}.  Reuse requires the old leaf to be EMPTY or terminal, its
+stored window strictly smaller than W and the same modulo index; a nonterminal
+old generation is never overwritten.  Thus W=511 uses leaf 511 and W=512 uses
+leaf 0.  Every multiplication, deadline addition and \code{uint64} boundary is
+checked before a token transfer or state write.
+
+The bitmap is always relative to a stored \code{reservationBaseWindow} and may
+set only offsets 0 through 16.  Before reserving, the transaction closes every
+set bit below the new current window in ascending W order using exact
+nine-sibling proofs, then shifts the base.  Active-to-liability movement closes
+all remaining RESERVED bits in the same order.  Consequently one operation
+touches at most 17 tranche leaves; no release or exit scans all 512.  A witness
+must contain exactly the bitmap popcount, consume all bytes and contain no
+caller-selected height, orientation or leaf index.
+
+\paragraph{Exit, tombstone and movement.}
+An exit request is one-shot, closes future reservation immediately, stores
+\code{requestWindow=currentWindow} and matures at equality with
+\code{requestWindow+268}.  Records are appended by checked sequence.  Requests
+created in one window have the same maturity and are processed by sequence, so
+the global queue is strict FIFO.  Before a full-table registration, resolved
+heads may be skipped, but any active tombstone or an oldest live matured exit causes
+\code{MaintenanceRequired} before any token pull.  The permissionless bounded
+maintenance entry inspects at most 64 FIFO records and performs at most the
+caller's requested number of moves, capped by the remaining four-move window
+budget.  It moves matured exits first, then active slash tombstones ordered by
+\code{(tombstonedAtL2Slot,registrationIndex)}.  A not-yet-mature exit may still
+be competitively replaced and its queue record becomes resolved atomically.
+
+Healthy competitive replacement or matured exit preserves the moved
+generation's live tombstone sentinel in liability.  It closes reservations and
+removes the generation from every later active snapshot, but its already-sealed
+tickets remain provable against the current admission root throughout the
+newcomer's entry delay.  The first valid slash of either an active or liability
+generation sets its tombstone to the current L2 slot; an existing tombstone is
+never postponed.  Slash itself
+does not consume the movement budget, and later maintenance performs the move.
+Thus many evidence submissions cannot bypass the four-move capacity proof or
+overwrite the liability ring.  A tombstone at slot S excludes new schedule
+eligibility for source slots at or after S but cannot mutate an already-frozen
+admission pair.
+
+For movement sequence q the liability position is
+\code{64+(q mod 1072)}.  The contract first closes tranches and updates the
+six-level registry leaf.  It then verifies/releases the old liability occupant
+against the pre-root and writes the moved generation, producing intermediate
+admission root R1.  The active-position proof is valid only against R1 and
+writes the replacement or canonical empty leaf, producing R2.  Only R2 is
+published and \code{admissionVersion} increments exactly once.  Two proofs
+against the pre-root, the reverse order, an explicit witness index or unused
+suffix bytes reject.  Sequence 0 maps to position 64, 1,071 to 1,135 and 1,072
+wraps to 64 only after its former occupant satisfies generation release.
+
+\paragraph{Exact registry surface.}
+The fixed reads are
+\begin{verbatim}
+admissionStateV1() returns
+ (bytes4 magic,uint64 admissionVersion,bytes32 admissionRoot)
+// selector 0x4a9dfa3f; exact 96 bytes; magic ADS1
+
+scheduleRegistryStateV1() returns
+ (bytes4 magic,uint8 schema,uint8 activeCount,
+  uint64 registryMutationVersion,uint64 admissionVersion,
+  uint64 nextRegistrationIndex,bytes32 registryRoot)
+// selector 0xad95cea1; exact 224 bytes; magic BRS1; schema=1
+\end{verbatim}
+The mutation signatures and computed selectors are
+\begin{verbatim}
+registerBuilderV1(uint192,uint64,uint8,bytes)
+ returns (bytes4,uint64,uint8,uint64,uint64,bytes32)       0x5fc42c69 BRG1/192
+reserveBuilderWindowV1(uint64,uint64,bytes)
+ returns (bytes4,uint64,uint64,uint64,bytes32)             0x46a53315 BRV1/160
+requestBuilderExitV1(uint64)
+ returns (bytes4,uint64,uint64,uint8)                      0xc8f20b55 BRE1/128
+processBuilderMaintenanceV1(uint8,bytes)
+ returns (bytes4,uint8,uint8,uint64,bytes32)               0x0e1ffc68 BRM1/160
+normalizeBuilderTranchesV1(address,uint64,bytes)
+ returns (bytes4,uint64,uint8,uint64,bytes32)              0x5e7c8afe BRN1/160
+releaseBuilderTrancheV1(address,uint64,uint64,bytes)
+ returns (bytes4,uint64,uint64,address,uint256,uint64,bytes32)
+                                                             0xf8668bb9 BTR1/224
+releaseBuilderGenerationV1(address,uint64,bytes)
+ returns (bytes4,uint64,address,uint256,uint64,bytes32)     0xe7bae370 BGR1/192
+claimBuilderLeaseCreditV1(address)
+ returns (bytes4,address,uint256)                          0x8f73793c BCL1/96
+submitBuilderEquivocationV1(bytes)
+ returns (bytes4,uint64,uint64,address,uint256,uint256,uint64,bytes32)
+                                                             0x979c1f72 BEV1/256
+\end{verbatim}
+All dynamic tails are minimal canonical ABI tails and their internal parsers
+consume every byte.  The column suffix is selector, magic and exact ABI return
+length.  The unnamed return fields occur in the same order as the prose state
+above; all IDs, windows, versions, beneficiaries, amounts and roots are echoed
+from stored or derived state, and every narrow word has zero high padding.
+Golden vectors freeze selector, calldata, return, padding and one-field
+substitutions.  A mutation never uses a return from an untrusted external
+caller as an authority fact.
+
+The canonical move witness is
+\begin{verbatim}
+u8 closeCount
+repeat closeCount in ascending W: u64(W) || bytes32 trancheSibling[9]
+bytes32 registrySibling[6]
+bytes32 liabilityAdmissionSibling[11] // against pre-root
+bytes32 activeAdmissionSibling[11]    // against intermediate R1
+\end{verbatim}
+where \code{closeCount} equals the exact reservation-bitmap popcount and is at
+most 17.  A multi-move maintenance tail prefixes each move by its checked
+\code{u32 byteLength}; the number of records equals the returned move count and
+there is no trailing record.
+
+The equivocation tail is exactly 1,822 bytes:
+\begin{verbatim}
+canonicalPackedSlotChainBlockA[521] || canonicalLowS65SignatureA ||
+canonicalPackedSlotChainBlockB[521] || canonicalLowS65SignatureB ||
+u16(admissionPosition) || bytes32 admissionSibling[11] ||
+u64(window) || bytes32 currentTrancheSibling[9]
+\end{verbatim}
+Both block encodings use the fixed widths and field order of the signed-header
+tuple in \S\ref{sec:signed-header}.  They must have the same chain, version,
+verifying contract, slot, context, admission pair and recovered builder but
+distinct block hashes; their EIP-712 digests are supplied in increasing byte
+order.  Window is derived again from slot.  The historical admission position
+is witness data only: its position-bound leaf and eleven siblings must prove
+this exact generation against the signed admission root.  The current
+registration reverse locator independently finds the live liability record,
+whose exact RESERVED or LIABLE leaf is proven at the derived tranche index.
+Thus a witness position cannot select a generation or redirect a slash.
+
+\paragraph{Migration and release authority.}
+Only new reservations read Router's exact 50,000-gas ASR1 view.  ACTIVE is
+accepted only with zero target tuple; ARMED, READY, malformed data, wrong code,
+magic, length or padding reject before token movement.  Registration,
+replacement, exit, maintenance, evidence, normalization, release and claims
+remain live in every Router phase.  Existing RESERVED bytes are not rewritten
+by arm, abort or cutover.  No caller supplies a phase or Settlement address.
+
+ScheduleOracle owns a 268-cell schedule ring, immutable
+\code{firstManagedWindow} and monotonic \code{nextReleaseWindow}, initialized
+to that immutable at construction.  Reservations and seals below the first
+managed window reject and migration never resets either value.  It exposes
+\begin{verbatim}
+scheduleWindowReleaseStateV1(uint64) returns
+ (bytes4 magic,uint64 returnedWindow,uint8 state,
+  uint64 nextReleaseWindow,bytes32 entryRoot)
+// selector 0xf4cd9a5e; exact 160 bytes; magic SWR1
+// state UNSEALED=0, SEALED=1, VACANT=2, EXPIRED=3
+
+expireScheduleWindowsV1(uint8) returns
+ (bytes4 magic,uint8 expired,uint64 nextReleaseWindow)
+// selector 0xb1357479; exact 96 bytes; magic SWE1; maxWindows<=8
+\end{verbatim}
+Expiry advances strictly in W order, so \code{W<nextReleaseWindow} proves an
+overwritten ring generation expired.  For each step Oracle exact-reads ASR1 and
+the active Settlement's
+\begin{verbatim}
+settlementScheduleReleaseStateV1(uint64) returns
+ (bytes4 magic,uint64 returnedWindow,uint64 protocolVersion,
+  uint64 currentL2Slot,uint64 globalMinReferencedSlot,
+  uint8 referenceMaskForWindow)
+// selector 0xa4574c77; exact 192 bytes; magic SSR1
+\end{verbatim}
+with pinned code/configuration and bounded gas.  The returned version must equal
+ASR1, \code{windowEndSlot(W)<globalMinReferencedSlot}, and the mask must be
+zero.  Only a stored SEALED record or an objectively late unsealed VACANT
+record advances.  BuilderRegistry releases W only when SWR1 authenticates
+EXPIRED and \code{block.timestamp>evidenceReplayDeadline(W)}.  Evidence remains
+admissible through equality, leaving no boundary gap.
+
+\paragraph{Historical registry proof slots.}
+BuilderRegistry exclusively writes the following two raw storage slots in the
+same transaction as their ordinary mirrors:
+\begin{verbatim}
+HEADER_SLOT =
+  0xe7ce7a505bf18b9ed57a0785851385323c9487991c55b422861381f92e5c245a
+ROOT_SLOT =
+  0x4dc6f1bf199f7518c646d40ed35ca04703f646273e6de1d7eace0746cc7100a6
+keccak256(HEADER_SLOT) =
+  0x3dc336ad17079f9525d2b0708a8773321ab29957d522a6f2d10fc522b7362aec
+keccak256(ROOT_SLOT) =
+  0x04bafd6333ae949248e59a002ce1fbccb8a4bc8da3a0c3228ae523d727170880
+\end{verbatim}
+The header is the exact big-endian 32 bytes
+\code{"BRH1"||u8(1)||u8(activeCount)||u16(0)||
+u64(registryMutationVersion)||u64(admissionVersion)||
+u64(nextRegistrationIndex)}; ROOT\_SLOT is the raw registry root.  A schedule
+witness authenticates the pinned registry account and code hash from the
+carrier state root, proves both keys against the same account storage root,
+requires canonical RLP without duplicate/trailing nodes, checks header reserved
+bytes, matches present-cell count to \code{activeCount}, and recomputes the
+six-level root from all 64 serialized cells.  Getter/raw-slot conformance,
+cell 0/cell 63 orientation and both liability wrap boundaries are deployment
+tests, not operational assumptions.
 
 \subsection{Authenticated snapshot}
 
@@ -4810,14 +5082,16 @@ ARMED=2, READY=3 or FROZEN=4.  Return length is exactly 256 bytes; address,
 checks the target's pinned \code{EXTCODEHASH} before a descriptor-gas-bounded
 \code{STATICCALL} and compares every word with the append-only authorization.
 Revert, OOG, short/trailing data or any mismatch fails closed.
-\code{AggregatorSeatMarket.syncSeatGeneration()} returns exactly
-\code{(uint8 result,uint8 purgedCount,uint64 generation)} as three ABI words,
+\code{AggregatorSeatMarket.syncSeatGenerationV1()} returns exactly
+\code{(bytes4 MSG1,uint8 result,uint8 purgedCount,uint8 targetPhase,
+uint64 generation)} as five ABI words,
 where result is UNCHANGED=0 or SYNCED=1 and \code{purgedCount<=4}; it reads the
 current target, terminalizes every stale waiting tranche in one rollback domain
-and commits the generation cache last.  It is the sole permissionless
-\emph{offer-book} entry point that reads Settlement.  Insertion, requote,
-pending exit/refund and pull withdrawal perform no target read and require the
-already initialized cached generation.  Stage/apply authenticate the same
+and commits the generation cache last.  A new offer also performs that same
+exact target read and accepts only ACTIVE with the cached generation; it does so
+before incrementing a sequence, retaining ETH or displacing another offer.
+Requote, pending exit/refund and pull withdrawal perform no target read and use
+only already-owned records.  Stage/apply authenticate the same
 generation only inside their enclosing atomic Settlement call.  Premium,
 installed-release, breach and duty-reclamation paths may make only the two
 separately bounded historical reads below:
@@ -4880,19 +5154,15 @@ seatMarketWireStateV1() returns
   bytes32 stageAuthorizationId,uint64 stageGeneration,bytes32 offerId,
   bytes32 trancheId,address operator,address payout,uint256 askWeiPerSecond,
   uint8 selectedRank,bytes32 outgoingTermId,bytes32 lineupCommitment,
-  uint64 handoverAt,uint64 expiresAt,bytes32 reserveId,uint256 reserveWei,
-  uint8 fundingMode,uint256 sourceReserveWei,
-  uint256 contingentSurplusWei)
+  uint64 handoverAt,uint64 expiresAt,bytes32 reserveId,uint256 reserveWei)
 \end{verbatim}
-as exactly 864 bytes / 27 words with magic \code{MWV1=0x4d575631}.
+as exactly 768 bytes / 24 words with magic \code{MWV1=0x4d575631}.
 The journal is IDLE=0 or EXECUTING=1.  Address and narrow-word padding is
-canonical.  When \code{stagePresent=0}, words 9--26 are zero; when it is one,
+canonical.  When \code{stagePresent=0}, words 9--23 are zero; when it is one,
 every stage field is nonzero except the permitted outgoing term and the
-zero-ask pair \code{reserveId=reserveWei=0}.  Funding mode ORDINARY=0 requires
-zero source reserve and contingent surplus.  REUSED\_OUTGOING=1 requires a
-nonzero outgoing term and source reserve with
-\code{sourceReserveWei=reserveWei+contingentSurplusWei} and nonzero contingent
-surplus.  A positive ask has a nonzero reserve ID and amount.
+zero-ask pair \code{reserveId=reserveWei=0}.  A positive ask has a nonzero
+reserve ID and amount.  V1 has no funding-mode, outgoing-reserve reuse or
+contingent-premium field.
 \code{marketStateVersion} increments exactly once for
 each successful state-changing top-level Market operation;
 \code{crossWireNonce} increments only for a successful state-changing roster
@@ -4967,8 +5237,11 @@ The return is exactly 800 bytes / 25 words with
 \code{SMR1=0x534d5231}.  Results are NO\_FEASIBLE=0, UNDERFUNDED=1, STAGED=2,
 APPLIED=3, RESTORED=4 and OWNER\_TERMINALIZED=5.  The first two are strict
 Market no-ops: pre/post version and nonce are equal, the pre-last-receipt is
-echoed, \code{receiptHash=0}, and words 11--24 are zero.  Market writes no
-counter, journal, event-derived record or receipt for them.  Every other result
+echoed and \code{receiptHash=0}.  NO\_FEASIBLE zeros words 11--24.
+UNDERFUNDED zeros stage, rank, outgoing term, clocks, reserve ID and credit ID;
+it reports only offer, tranche, operator, payout, ask, required reserve in word
+22 and the gross available free premium in word 24.  Market writes no counter,
+journal, event-derived record or receipt for either no-op.  Every other result
 has checked \code{postStateVersion=preStateVersion+1},
 \code{postWireNonce=preWireNonce+1}, and writes \code{lastReceiptHash} last.
 The receipt hash is
@@ -4990,11 +5263,13 @@ otherwise Market could not authenticate the install.  EXPIRE first clears the
 local stage under the same rollback frame.  Market writes its EXECUTING lock,
 maps \code{msg.sender} through the unique reverse authorization, checks the
 pinned code/configuration and SEAT target state, then exact-reads SMI1 and the
-operation's SLV1/SIR1/SHR1 rows.  Except for the lock, every external read and
+operation's required SLV1/SIR1 rows.  SHR1 is reserved for later asynchronous
+economics and is not read by APPLY.  Except for the lock, every external read and
 validation finishes before the first offer, tranche, reserve, credit or
-accounting write.  APPLY closes the outgoing reserve and installs/rekeys the
-incoming stage atomically; selection never anticipates the outgoing release as
-funding.  Market writes IDLE last and returns SMR1.  Settlement strictly
+accounting write.  APPLY validates the outgoing term's absence from the
+post-lineup and installs/rekeys only the incoming stage reserve.  It neither
+closes nor reuses an outgoing reserve; later permissionless reconciliation
+reads permanent Settlement history.  Market writes IDLE last and returns SMR1.  Settlement strictly
 decodes it, exact-reads MWV1 again, recomputes the receipt and compares every
 touched stage/counter/hash field, performs its remaining local write (STAGE
 records the returned stage), commits its sequence and clears its journal last.
@@ -5022,10 +5297,10 @@ Permissionless payable \code{sponsorPremiumV1()} has selector
 nonzero \code{msg.value}, performs no external call or refund, and atomically
 adds that value to both the Market balance and the accounted
 \code{freePremium} bucket with checked \code{uint256} arithmetic.  It advances
-the Market state version because the exact accounting projection changed, but
-does not advance the roster wire nonce or replace the last roster receipt.  It rejects
-while the roster wire or credit-claim lock is active; it does not change the
-roster state version, wire nonce or last receipt.  ETH arriving without this
+\code{marketStateVersion} exactly once because the accounting projection
+changed, but leaves Settlement \code{lineupRevision}, Market
+\code{crossWireNonce} and \code{lastReceiptHash} unchanged.  It rejects while
+the roster wire or credit-claim lock is active.  ETH arriving without this
 selector, including forced ETH, remains unaccounted surplus and cannot fund an
 ask.  Thus any account may permissionlessly fund positive reverse-auction asks
 without gaining rank, refund or withdrawal authority.
@@ -5296,7 +5571,7 @@ Market accounting obeys
 \begin{verbatim}
 accountedMarketBalance = bondEscrow + outstandingOwnerBondCredits
   + outstandingPenaltyCredits + freePremium + reservedPremium
-  + outstandingPremiumClaims + contingentPremium
+  + outstandingPremiumClaims
 actualMarketBalance >= accountedMarketBalance
 reservedPremium = sum(live PremiumReserve.reservedWei).
 \end{verbatim}
@@ -5347,8 +5622,9 @@ remains.
 Pending offers sort by ascending \code{askWeiPerSecond},
 \code{eligibleAtTimestamp}, \code{eligibleAtBlock}, \code{quoteSequence}, then
 operator address.  A fifth offer must strictly beat the worst under this full
-order or revert without retaining funds; displacement creates the exact owner
-bond credit atomically.  Stale target/generation offers cannot rank or displace.
+order or revert without retaining funds; no absolute/BPS threshold applies to
+the four-cell waiting book.  Displacement creates the exact owner bond credit
+atomically.  Stale target/generation offers cannot rank or displace.
 Acceptance derives, with checked arithmetic,
 \code{eligibleAtTimestamp=block.timestamp+quoteMaturitySeconds} and
 \code{eligibleAtBlock=block.number+quoteMaturityBlocks} from profile words 252
@@ -5356,6 +5632,30 @@ and 253; neither clock nor maturity is caller-supplied.  Both equalities must be
 reached before selection.  The two-clock delay is committed by the complete
 Market configuration hash and cannot differ across release tooling, runtime and
 model.
+
+Submission also proves at admission time that
+\code{askWeiPerSecond*SEAT_RUNWAY_SECONDS} fits \code{uint256}; an offer that
+would overflow only later at staging is never accepted.  Operator is always
+\code{msg.sender}, the supplied nonzero payout is only a beneficiary, and exact
+\code{msg.value=SLA_BOND_WEI}.  No user supplies target, authorization,
+generation, maturity clock, rank, outgoing term, service clock or refund owner.
+
+The primary and standby comparisons deliberately use different rules.  A
+healthy primary is competitively replaceable by every strictly cheaper ask;
+there is no minimum decrement because a perpetual reverse auction must continue
+to discover price.  Only a full-lineup replacement of the worst standby uses
+the anti-churn threshold.  For incumbent ask x define, with full-precision
+ceil-mul-div,
+\begin{verbatim}
+relative = ceil(x * minimumAskImprovementBps / 10000)
+required = min(x, max(minimumAskImprovementWeiPerSecond, relative))
+improves = candidateAsk < x && x-candidateAsk >= required.
+\end{verbatim}
+The BPS value is at most 10,000 and the absolute/BPS pair is not both zero.  The
+outer \code{min(x,...)} is consensus critical: for every positive x, a zero ask
+can replace it even when the absolute floor exceeds x.  A zero incumbent cannot
+be competitively displaced and instead leaves only through its bounded standby
+lease or ordinary lifecycle.
 
 Requote is pending-only and requires the immutable operator, exact live
 offer/tranche, no exit, exact active authorization/generation, nonzero payout and
@@ -5381,13 +5681,20 @@ SEAT_RUNWAY_SECONDS >= MIN_PRIMARY_TENURE_SECONDS
 HANDOVER_EXECUTION_BUFFER_SECONDS >= HANDOVER_DELAY_SECONDS
   + STAGE_GRACE_SECONDS + T_INCLUDE_MAX_SECONDS
 SLA_TAIL_SECONDS = DELTA_SLASH_LAG - DELTA_RECOVERY_LAG
-responsibilityBaseTip = max(canonical.tipSlot,
-  responsibilityStart - GENESIS_TIMESTAMP)
+currentL2Slot(t) = t - GENESIS_TIMESTAMP
+responsibilityBaseTip = max(canonical.tipSlot,currentL2Slot(t))
+responsibilityBaseCanonicalSequence = canonical.canonicalSequence
+responsibilityBaseTime = GENESIS_TIMESTAMP + responsibilityBaseTip
+targetTip = responsibilityBaseTip + DELTA_RECOVERY_LAG
+recoveryAt = responsibilityBaseTime + DELTA_RECOVERY_LAG
+failoverAt = responsibilityBaseTime + DELTA_FINAL_LAG
+slashAt = responsibilityBaseTime + DELTA_SLASH_LAG
 minimumTenureUntil = responsibilityStart + MIN_PRIMARY_TENURE_SECONDS
 premiumFundedUntil = responsibilityStart + SEAT_RUNWAY_SECONDS
 serviceEligibleUntil = premiumFundedUntil - SLA_TAIL_SECONDS.
 \end{verbatim}
-All operations are checked-width.  The same responsibility-base formula is
+State mutation before genesis rejects; equality is slot zero.  All operations
+are checked-width and require \code{recoveryAt<failoverAt<slashAt}.  The same responsibility-base formula is
 used for direct vacancy fill, competitive primary replacement, duty failover,
 healthy-expiry promotion and voluntary primary exit.  Thus a newly responsible
 primary never inherits an already-aged recovery, failover or slash clock from a
@@ -5397,15 +5704,30 @@ than its actual service start.  Standby tenure remains separately bounded by
 replacement and voluntary primary exit; duty completion, failover, funding
 expiry, ring-full vacancy and migration override it.
 
+A qualifying canonical commit refreshes a prospective, not-yet-allocated duty
+only when it has a greater canonical sequence, reaches the old target tip and
+lands no later than the old recovery equality.  The refresh recomputes the full
+base from the new canonical tip and current L2 slot; it never preserves an
+already-aged time.  Once a duty is allocated, target and all three thresholds
+are immutable.  Allocation, failover and breach require strict
+\code{now>recoveryAt}, \code{now>failoverAt} and \code{now>slashAt}; equality
+remains curable.  A promoted standby receives fresh clocks and never inherits a
+predecessor duty, tenure or base.  Duty and selection IDs bind canonical
+sequence, not L2 height.
+
 Anyone may call \code{stageBest()}.  Settlement first performs its bounded
 leading sync.  If sync changes canonical/recovery state it returns SYNCED with
 no Market call.  Otherwise Market scans at most four offers in total order and
 selects the first mature, current and structurally feasible transition: direct
 primary into vacancy, strictly cheaper primary replacement preserving all
-standbys, or deterministic standby insertion when fewer than four terms exist.
+standbys, deterministic standby insertion when fewer than four terms exist, or
+replacement of the exact worst standby in a full lineup under the threshold
+above.
 The first structurally feasible candidate must be fully funded from the same
-gross reserve snapshot; staging cannot anticipate release of the outgoing
-primary reserve.  Candidate selection, reserve debit, PENDING-to-STAGED and
+gross \code{freePremium} snapshot; staging cannot anticipate, close or reuse
+the outgoing primary or standby reserve.  An underfunded feasible candidate
+returns UNDERFUNDED byte-identically and does not skip to a more expensive
+offer.  Candidate selection, reserve debit, PENDING-to-STAGED and
 Settlement stage recording are one revert domain.
 
 Replacement handover is
@@ -5438,17 +5760,54 @@ seatTermId = H("TAIKO_SEAT_TERM_V1" || authorizationCommitment ||
 \end{verbatim}
 Market rekeys the reserve and binds the tranche in the same transaction in which
 Settlement changes the roster and revision.  Settlement also writes the
-permanent reverse index code{seatTermByTranche[trancheId]=seatTermId}; a nonzero
+permanent reverse index \code{seatTermByTranche[trancheId]=seatTermId}; a nonzero
 entry rejects before any roster write.  Term-ID and tranche-ID collision checks
 are therefore two constant-time mapping reads.  APPLY never scans retained term
 history, regardless of how long the perpetual auction has operated.
 
-Installed exit request is one-shot and operator-only.  Primary exit matures at
-the exact stored
-\code{primaryExitAt=max(exitRequestedAt+EXIT_DELAY_SECONDS,minimumTenureUntil)};
-standby exit matures at
-\code{standbyExitAt=max(exitRequestedAt+EXIT_DELAY_SECONDS,
-minimumStandbyTenureUntil)}.  The immutable one-shot
+The lineup is always compact and unique: rank 0 is the serving primary or one
+selected-but-unstarted successor, ranks 1--3 are unstarted standbys, there is no
+standby without rank 0 and standby asks are nondecreasing.  Equal-ask incumbents
+remain ahead of a newly installed equal-ask standby.  For each pending offer in
+total order, structural lanes are tried in this order: fill vacancy; challenge
+a healthy primary; insert after all standby asks not greater than the candidate
+when fewer than four terms exist; otherwise challenge only rank 3 and stably
+reinsert among the surviving standbys.  If a primary challenge lacks tenure or
+headroom, the same offer may still use a feasible standby lane.  No caller
+chooses a rank or outgoing term.  A full-lineup standby lane exact-reads
+\code{seatInstallRecordV1(rank3TermId)} and authenticates authorization,
+generation, term, tranche/offer binding, operator and ask against SLV1 before
+deriving tenure and lease from its \code{installedAt}.  Removing reserve reuse
+does not remove this SIR1 authority read; malformed, substituted or reverting
+SIR1 leaves both contracts byte-identical.
+
+Every installed term stores
+\code{standbyLeaseExpiresAt=installedAt+MAXIMUM_STANDBY_LEASE_SECONDS}.  The
+lease applies while \code{responsibilityStart=0}, including after selection as
+an unstarted rank-0 successor.  At exact
+\code{now>=standbyLeaseExpiresAt}, leading sync removes every due unstarted term
+in one four-cell pass, records \code{serviceCloseAt=standbyLeaseExpiresAt},
+preserves survivor order and advances lineup revision once.  Any stage over the
+old lineup is durably invalidated without calling Market; Market later returns
+the untouched reserve from permanent history.  If a selected successor expires,
+the first surviving standby is selected under the same immutable predecessor
+semantics, or the lineup becomes vacant.  Starting primary responsibility
+permanently disables the former standby lease.  The profile enforces
+\begin{verbatim}
+MAXIMUM_STANDBY_LEASE_SECONDS >= MIN_STANDBY_TENURE_SECONDS
+  + HANDOVER_DELAY_SECONDS + STAGE_GRACE_SECONDS + T_INCLUDE_MAX_SECONDS.
+\end{verbatim}
+A full-lineup standby stage additionally requires the outgoing rank-3 tenure at
+equality and
+\code{stageExpiresAt+T_INCLUDE_MAX_SECONDS<=standbyLeaseExpiresAt}; therefore
+leading sync cannot remove it during its valid APPLY interval.
+
+Installed exit request is one-shot and operator-only.  Maturity is derived from
+the term's role at finalization, not frozen at request.  A serving primary uses
+\code{max(exitRequestedAt+EXIT_DELAY_SECONDS,minimumTenureUntil)}; an unstarted
+standby uses \code{max(exitRequestedAt+EXIT_DELAY_SECONDS,
+installedAt+MIN_STANDBY_TENURE_SECONDS)}.  Therefore a standby that requests and
+is later promoted must also satisfy its fresh primary minimum tenure.  The immutable one-shot
 \code{exitRequestedAt} can be written only from zero, and a request requires
 \code{seatTermId!=selectedSuccessorTermId}; the latter is the exact term ID in
 the current immutable selection record, or zero when no successor is selected.
@@ -5456,6 +5815,104 @@ Finalization is permissionless, begins with sync and removes the term only on a
 fresh retry if sync changed state.  Until removal the bond and every attached
 duty remain live.  Funding expiry may close service earlier; later sponsorship
 cannot extend an installed term or postpone its exit.
+
+\subsection{Public seat ABI freeze}\label{sec:seat-public-abi}
+
+The Market's user-facing mutations are exactly
+\begin{verbatim}
+submitSeatOfferV1(address,uint256)
+ returns (bytes4,uint8,bytes32,bytes32,bytes32,bytes32,
+          uint64,uint64,uint256)                    0xae6526dd MOF1/288
+requoteSeatOfferV1(bytes32,address,uint256)
+ returns (bytes4,uint8,bytes32,bytes32,bytes32,
+          uint64,uint64,uint256)                    0x25920dbe MRQ1/256
+requestPendingSeatExitV1(bytes32)
+ returns (bytes4,uint8,bytes32,bytes32,uint64)       0x37a00d91 MPR1/160
+finalizePendingSeatExitV1(bytes32)
+ returns (bytes4,uint8,bytes32,bytes32,uint256)      0xfed8975c MPF1/160
+claimSeatBondCreditV1(bytes32)
+ returns (bytes4,uint8,bytes32,address,uint256)      0xa4da9607 MBC1/160
+claimSeatPremiumCreditV1(bytes32)
+ returns (bytes4,uint8,bytes32,address,uint256)      0x20b34d18 MPC1/160
+syncSeatGenerationV1()
+ returns (bytes4,uint8,uint8,uint8,uint64)           0x66ea370e MSG1/160
+\end{verbatim}
+Submit results are ACCEPTED=1 and ACCEPTED\_AND\_DISPLACED=2; requote and the
+two pending-exit transitions use result 1.  Claim result 1 means claimed and is
+never returned twice.  Submit's fields after the result are offer, tranche,
+displaced offer, owner-credit, eligibility timestamp/block and quote sequence;
+absent displacement fields are zero.  Requote returns old offer, new offer,
+tranche, the unchanged eligibility clocks and new sequence.  Pending request
+returns offer, tranche and refund time; finalization returns tranche, credit and
+amount.  Claims echo credit, immutable beneficiary and amount.  Sync returns
+UNCHANGED=0 or SYNCED=1, purged count at most four, exact target phase and
+cached generation.  All result unions have published used/zero masks, every
+narrow word has canonical padding, and state is written before a claim transfer.
+
+The fixed Market views are
+\begin{verbatim}
+pendingSeatOffersV1()                                      0xe7631a19
+ returns (bytes4,uint8,bytes32[4])                         MPO1/192
+seatOfferV1(bytes32)                                       0xc552344a
+ returns (bytes4,uint8,bytes32,bytes32,bytes32,uint64,
+          address,address,uint256,uint64,uint64,uint256,uint8) MOV1/416
+seatTrancheV1(bytes32)                                     0x6407311c
+ returns (bytes4,uint8,bytes32,bytes32,uint64,address,
+          uint256,bytes32,bytes32,uint64,uint64,uint8,bytes32) MTV1/416
+seatBondCreditV1(bytes32)                                  0xd25ae0f4
+seatPremiumCreditV1(bytes32)                               0x554075d2
+ returns (bytes4,uint8,bytes32,address,uint256,uint8)       MCV1/192
+seatMarketAccountingV1()                                  0x6abe143e
+ returns (bytes4,uint256,uint256,uint256,uint256,uint256,
+          uint256,uint256,uint256,uint256,uint256,uint256) MAC1/384
+\end{verbatim}
+An \code{exists=0} keyed view echoes only its queried ID and zeros all other
+payload words.  Live-offer status is PENDING=1 or STAGED=2.  Tranche disposition
+is NONE=0, OWNER=1 or PENALTY=2.  Accounting fields after magic are state
+version, wire nonce, free premium, reserved premium, bond escrow, outstanding
+owner credits, outstanding penalty credits, outstanding premium claims,
+accounted balance, actual balance and forced surplus.  The last two must satisfy
+\code{actual>=accounted} and \code{surplus=actual-accounted}.
+
+Settlement's public auction and exit wrappers are
+\begin{verbatim}
+stageBestSeatV1()
+ returns (bytes4,uint8,bytes32,bytes32,bytes32,uint8,bytes32,
+          uint64,uint64,uint256,uint256)             0x0c9abfb4 SSB1/352
+applySeatStageV1()
+ returns (bytes4,uint8,bytes32,bytes32,bytes32,uint8,
+          uint64,uint64,bytes32)                     0xd7ce3714 SSA1/288
+expireSeatStageV1()
+ returns (bytes4,uint8,bytes32,bytes32,bytes32,uint256)
+                                                       0xc323777c SSE1/192
+requestInstalledSeatExitV1(bytes32)
+ returns (bytes4,uint8,bytes32,uint64,uint64)          0x07e884eb SXQ1/160
+finalizeInstalledSeatExitV1(bytes32)
+ returns (bytes4,uint8,bytes32,bytes32,uint64,uint64,bytes32)
+                                                       0xd210e9d0 SXF1/224
+\end{verbatim}
+Stage results are SYNCED=0, NO\_FEASIBLE=1, UNDERFUNDED=2 and STAGED=3; their
+payload is stage, offer, tranche, selected rank, outgoing term, handover,
+expiry, required reserve and available free premium.  NO\_FEASIBLE zeros the
+payload.  UNDERFUNDED reports only the structurally selected offer/tranche,
+required and available values and changes no state, version, nonce or receipt.
+Apply is SYNCED=0 or APPLIED=1 and returns stage, installed term, outgoing term,
+rank, installation time, lineup revision and commitment.  Expire is SYNCED=0,
+RESTORED=1 or OWNER\_TERMINALIZED=2.  Exit request is SYNCED=0, REQUESTED=1 or
+ALREADY\_REQUESTED=2; finalization is SYNCED=0 or REMOVED=1.  Every SYNCED
+return zeros every field after result, commits only the leading sync and
+requires a fresh retry.  Exit paths are Settlement-local: they never call
+Market, do not require at least one remaining seat, preserve unresolved duty
+history, and later reserve/bond reconciliation is permissionless.
+
+Both contracts are non-proxy, ownerless and unpausable.  Their constructors pin
+the Router, PVM, counterpart, chain IDs, code/configuration hashes, sinks,
+economic profile and every gas/timing bound.  They reject wrong topology,
+missing code, BPS above 10,000, a zero improvement pair, overflowable reserve
+products, inconsistent runway/standby-lease relations or an UNCALIBRATED
+profile.  There is no generic call, setter, pause, admin withdrawal or
+caller-installable authority.  Forced ETH is excluded from accounting and no
+V1 surplus withdrawal exists.
 
 \subsection{Duty, failover, release and reclamation}
 
@@ -5936,6 +6393,7 @@ Invalid execution or forged state & Proof rejects. & Finalized-state safety redu
 Aggregator offline/byzantine & Objective duty recovery/failover proceeds without Market; any prover uses tier 2 or 3. & At most the configured recovery trigger plus 2,164 s under stated inclusion/proof and head-data bounds; economic enforcement is asynchronous. \\
 No seat or no standby & State remains valid; escape has no seat dependency. & Same protocol bound; reward may be zero. \\
 All builders collude/absent & Unsigned escape advances anchor and forced queue. & Meaningful discretionary throughput falls to forced envelopes; no builder censorship veto. \\
+Capital-ranked registration churn & A healthy displaced generation remains a non-tombstoned liability key for its already-sealed tickets; removal from the active table prevents new reservations/snapshots, and the newcomer becomes effective only after eight windows. & Four moves per window and strictly increasing victim bond bound transition rate/capital, but a funded adversary may still capture the normal top-64 market; the unsigned escape lane is the independent liveness floor. \\
 Builder equivocation & Competing signed branches; one may win normal order. & Direct per-window slash; pre-close promises remain revocable. \\
 Builder skips/withholds body & Honest tail may be unprovable or omitted. & Not objectively slashable; eventual escape restores state progress but may revoke promises. \\
 Data-session spam & Exact rent/bond buys at most 1,024 bounded LIVE/REFUND cells. & A funded Sybil may censor the optional session market through TTL plus refund grace; escape uses no blob session. \\
@@ -9237,7 +9695,7 @@ data-MMR-count-3 and Terminal-count-2 frontier digests/roots pin initialization,
 append and fold independently of full-history root construction.
 
 \code{commitment-model.py} is the normative executable fixture.  It exports all
-675 records through one deterministic typed oracle, including records owned by
+702 records through one deterministic typed oracle, including records owned by
 later rounds.  The Round-2 Solidity conformance test executes only an explicit
 reviewed allowlist for checked fixed-preimage encoders; Round 3 consumes the
 tree, frontier and proof records above.  Still-later rounds consume their
@@ -10120,12 +10578,12 @@ local destination binding, frontier/event terminal proofs, pause-independent
 escape, L2 release sealing, replay and timing
 geometry.  Cryptographic booleans in that model are not cryptographic
 evidence.
-The companion \code{test-settlement-window.py} suite runs 254 adversarial
+The companion \code{test-settlement-window.py} suite runs 267 adversarial
 regressions, including authorization substitution, callback/OOG, competing LP,
 owner-mode, target/quota/pull/terminal rollback, withdrawal/recreation and
 cross-version preservation cases for the atomic Pool path.
 
-\code{commitment-model.py} reports 675 golden vectors and 1466 executable
+\code{commitment-model.py} reports 702 golden vectors and 1478 executable
 assertion sites for
 exact EIP-712
 domain/struct/digest, canonical and statement hashes, registry/admission/entry/
@@ -10149,7 +10607,7 @@ valid KZG-opening, signature-recovery, independent-implementation and proof
 gates remain mandatory.
 
 \code{seat-market-model.py} and its companion
-\code{test-seat-market.py} suite run 102 adversarial regressions over the
+\code{test-seat-market.py} suite run 114 adversarial regressions over the
 four-cell perpetual reverse auction, offer ranking and maturity, staged
 handover, premium-reserve custody, pull credits, bond terminalization and
 release rotation and strict MWV1/SMI1/SLV1/SIR1/SMR1/MEC1/MHS1/MRO1 codecs.
@@ -10190,9 +10648,13 @@ anchor no later than its L2 time.
 unexpired authenticated data record.
 \item Schedule inputs share one authenticated execution payload and use exact
 Keccak encodings.
-\item A tombstoned generation cannot re-enter while retained; safe later address
-reuse receives a fresh registration index only after every evidence deadline.
-Each window has an independent slashable tranche and finite release state.
+\item A healthy displaced generation remains non-tombstoned in liability so an
+already-sealed ticket survives the replacement boundary; removal from the
+active table prevents new reservations and snapshots.  A proven slash
+tombstones either an active or liability generation at the current L2 slot.  A
+tombstoned generation cannot re-enter while retained; safe later address reuse
+receives a fresh registration index only after every evidence deadline.  Each
+window has an independent slashable tranche and finite release state.
 \item Candidate, window, data-session, Merkle range proof, queue
 count/bytes/gas, history and storage-retention work is bounded by consensus
 constants and safe eviction.

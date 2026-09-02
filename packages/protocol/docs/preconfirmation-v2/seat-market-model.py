@@ -260,11 +260,6 @@ class ReserveLifecycle(Enum):
     CLOSED_TAIL = 3
 
 
-class StageFundingMode(Enum):
-    ORDINARY = 0
-    REUSE_UNSTARTED_STANDBY = 1
-
-
 class ResultCode(Enum):
     STAGED = 1
     NO_FEASIBLE_OFFER = 2
@@ -445,10 +440,6 @@ class Stage:
     handover_at: int = 0
     expires_at: int = 0
     reserve_id: bytes | None = None
-    reused_outgoing_reserve_wei: int = 0
-    reused_outgoing_reserve: "PremiumReserve | None" = None
-    funding_mode: StageFundingMode = StageFundingMode.ORDINARY
-    contingent_surplus_wei: int = 0
 
 
 @dataclass
@@ -565,7 +556,6 @@ class MarketAccounting:
     free_premium: int = 0
     reserved_premium: int = 0
     outstanding_premium_claims: int = 0
-    contingent_premium: int = 0
     live_reserves: dict[bytes, PremiumReserve] = field(default_factory=dict)
 
     @property
@@ -578,7 +568,6 @@ class MarketAccounting:
             self.free_premium,
             self.reserved_premium,
             self.outstanding_premium_claims,
-            self.contingent_premium,
         ):
             total = checked_add(total, amount)
         return total
@@ -592,7 +581,6 @@ class MarketAccounting:
             "free_premium",
             "reserved_premium",
             "outstanding_premium_claims",
-            "contingent_premium",
         ):
             _uint(getattr(self, name), name)
         reserve_sum = 0
@@ -657,9 +645,6 @@ class MarketWireStateV1:
     expires_at: int
     reserve_id: bytes
     reserve_wei: int
-    funding_mode: StageFundingMode = StageFundingMode.ORDINARY
-    source_reserve_wei: int = 0
-    contingent_surplus_wei: int = 0
 
 
 @dataclass(frozen=True)
@@ -1068,7 +1053,7 @@ def decode_exact_target_view(raw: bytes) -> ExactTargetView:
     )
 
 
-MWV1_RESPONSE_LENGTH = 27 * 32
+MWV1_RESPONSE_LENGTH = 24 * 32
 SMI1_RESPONSE_LENGTH = 16 * 32
 SLV1_RESPONSE_LENGTH = 17 * 32
 SIR1_RESPONSE_LENGTH = 11 * 32
@@ -1169,11 +1154,6 @@ def encode_market_wire_state_v1(view: MarketWireStateV1) -> bytes:
         u64(value)
     _uint(view.ask_wei_per_second, "MWV1 ask")
     _uint(view.reserve_wei, "MWV1 reserve")
-    funding_mode = _wire_enum(
-        view.funding_mode, StageFundingMode, "MWV1 funding mode"
-    )
-    _uint(view.source_reserve_wei, "MWV1 source reserve")
-    _uint(view.contingent_surplus_wei, "MWV1 contingent surplus")
     if not 0 <= view.selected_rank < 4:
         raise TransitionRejected("MWV1 selected rank is outside four seats")
     if not view.stage_present:
@@ -1187,9 +1167,6 @@ def encode_market_wire_state_v1(view: MarketWireStateV1) -> bytes:
             view.handover_at,
             view.expires_at,
             view.reserve_wei,
-            funding_mode,
-            view.source_reserve_wei,
-            view.contingent_surplus_wei,
         )
         if any(item not in (0, False, ZERO_BYTES32) for item in unused):
             raise TransitionRejected("MWV1 absent-stage fields must be zero")
@@ -1214,17 +1191,6 @@ def encode_market_wire_state_v1(view: MarketWireStateV1) -> bytes:
                 raise TransitionRejected("MWV1 zero reserve is not canonical")
         elif view.ask_wei_per_second == 0 or view.reserve_id == ZERO_BYTES32:
             raise TransitionRejected("MWV1 funded reserve is incomplete")
-        if view.funding_mode is StageFundingMode.ORDINARY:
-            if view.source_reserve_wei != 0 or view.contingent_surplus_wei != 0:
-                raise TransitionRejected("MWV1 ordinary funding carries reuse words")
-        elif (
-            view.outgoing_term_id == ZERO_BYTES32
-            or view.source_reserve_wei == 0
-            or view.source_reserve_wei
-                != checked_add(view.reserve_wei, view.contingent_surplus_wei)
-            or view.contingent_surplus_wei == 0
-        ):
-            raise TransitionRejected("MWV1 reuse funding is incomplete")
     return b"".join((
         _abi_magic_word(MWV1_MAGIC),
         _abi_uint_word(journal, 8, "MWV1 journal"),
@@ -1250,14 +1216,11 @@ def encode_market_wire_state_v1(view: MarketWireStateV1) -> bytes:
         _abi_uint_word(view.expires_at, 64, "MWV1 expiry"),
         view.reserve_id,
         u256(view.reserve_wei),
-        _abi_uint_word(funding_mode, 8, "MWV1 funding mode"),
-        u256(view.source_reserve_wei),
-        u256(view.contingent_surplus_wei),
     ))
 
 
 def decode_market_wire_state_v1(raw: bytes) -> MarketWireStateV1:
-    words = _fixed_wire_words(raw, 27, MWV1_MAGIC, "MWV1")
+    words = _fixed_wire_words(raw, 24, MWV1_MAGIC, "MWV1")
     view = MarketWireStateV1(
         _decode_wire_enum(words[1], WireJournal, "MWV1 journal"),  # type: ignore[arg-type]
         _decode_uint_word(words[2], 256, "MWV1 state version"),
@@ -1278,11 +1241,6 @@ def decode_market_wire_state_v1(raw: bytes) -> MarketWireStateV1:
         _decode_uint_word(words[21], 64, "MWV1 expiry"),
         words[22],
         _decode_uint_word(words[23], 256, "MWV1 reserve"),
-        _decode_wire_enum(
-            words[24], StageFundingMode, "MWV1 funding mode"
-        ),  # type: ignore[arg-type]
-        _decode_uint_word(words[25], 256, "MWV1 source reserve"),
-        _decode_uint_word(words[26], 256, "MWV1 contingent surplus"),
     )
     if encode_market_wire_state_v1(view) != raw:
         raise TransitionRejected("MWV1 is not canonical")
@@ -2654,6 +2612,7 @@ class SeatMarket:
         self._seat_runway_seconds = _uint(
             seat_runway_seconds, "seat runway seconds"
         )
+        checked_mul(self.immutable_maximum_ask, self._seat_runway_seconds)
         self._handover_delay_seconds = _uint(
             handover_delay_seconds, "handover delay seconds"
         )
@@ -3067,9 +3026,6 @@ class SeatMarket:
             stage.expires_at,
             ZERO_BYTES32 if stage.reserve_id is None else stage.reserve_id,
             0 if reserve is None else reserve.reserved_wei,
-            stage.funding_mode,
-            stage.reused_outgoing_reserve_wei,
-            stage.contingent_surplus_wei,
         )
 
     def encode_market_wire_state_v1(self) -> bytes:
@@ -3344,21 +3300,23 @@ class SeatMarket:
     def _settlement_apply_stage_atomic(
         self,
         install: InstallationView,
-        close_view: ServiceView | None,
         post_lineup: LineupSnapshot,
         clock: Clock,
     ) -> TransitionResult:
-        """Close an outgoing reserve and install one stage under one version.
+        """Install one stage while leaving outgoing reserve reconciliation async.
 
-        This is the behavioral oracle for the single APPLY roster wire.  Both
-        legacy primitives run nested under this outer Market transaction, so
-        only the outer frame advances stateVersion/wireNonce and emits SMR1.
+        This is the behavioral oracle for the single APPLY roster wire.  An
+        outgoing reserve remains independently conserved until a later exact,
+        permissionless reconciliation call consumes its permanent close row.
         """
 
         def transition() -> TransitionResult:
+            self._validate_clock(clock)
             stage = self.stage
             if stage is None:
                 raise TransitionRejected("APPLY has no exact Market stage")
+            if install.applied_at != clock.timestamp:
+                raise TransitionRejected("APPLY clock differs from installation")
             self._validate_lineup_authority(post_lineup)
             if (
                 post_lineup.commitment == stage.lineup_commitment
@@ -3376,60 +3334,7 @@ class SeatMarket:
                     != install.term_id
             ):
                 raise TransitionRejected("APPLY post-lineup is not exact")
-            close_result = None
-            reuse_outgoing = (
-                stage.funding_mode
-                is StageFundingMode.REUSE_UNSTARTED_STANDBY
-            )
-            if reuse_outgoing:
-                outgoing = stage.outgoing_primary_term_id
-                source_tranche_id = self.tranche_id_by_term.get(outgoing)
-                source_tranche = (
-                    None
-                    if source_tranche_id is None
-                    else self.tranches.get(source_tranche_id)
-                )
-                if (
-                    type(close_view) is not ServiceView
-                    or source_tranche is None
-                    or close_view.term_id != outgoing
-                    or close_view.responsibility_start is not None
-                    or not close_view.closed
-                    or close_view.roster_occupied
-                    or close_view.service_close_at != clock.timestamp
-                    or close_view.term_removed_at != clock.timestamp
-                    or close_view.duty_disposition != "NO_DUTY"
-                    or close_view.duty_id is not None
-                    or close_view.breached
-                    or stage.reused_outgoing_reserve is None
-                    or stage.reused_outgoing_reserve.reserve_id != outgoing
-                    or stage.reused_outgoing_reserve_wei
-                        != stage.reused_outgoing_reserve.reserved_wei
-                ):
-                    raise TransitionRejected(
-                        "reused outgoing standby close is not exact"
-                    )
-                self._validate_service_view(close_view, source_tranche)
-            elif close_view is not None:
-                close_result = self._settlement_close_reserve(
-                    close_view, clock, atomic_healthy=True
-                )
-            elif stage.outgoing_primary_term_id is not None:
-                raise TransitionRejected("APPLY omitted its outgoing close")
-            contingent = stage.contingent_surplus_wei
-            installed = self._settlement_install_stage(install)
-            if reuse_outgoing:
-                self.accounting.contingent_premium = checked_sub(
-                    self.accounting.contingent_premium, contingent
-                )
-                self.accounting.free_premium = checked_add(
-                    self.accounting.free_premium, contingent
-                )
-            if close_result is not None:
-                installed.premium_credit_id = close_result.premium_credit_id
-                installed.amount = close_result.amount
-                installed.deadline = close_result.deadline
-            return installed
+            return self._settlement_install_stage(install)
 
         return self._atomic(transition, wire_operation=WireOperation.APPLY)
 
@@ -3721,7 +3626,7 @@ class SeatMarket:
     def _sort_pending(self) -> None:
         self.pending_offer_ids.sort(key=lambda offer_id: self.offers[offer_id].order_key)
 
-    def insert_offer(
+    def _insert_offer(
         self,
         *,
         caller: str,
@@ -3736,10 +3641,22 @@ class SeatMarket:
             operator = _canonical_address(caller, "caller")
             payout_value = _canonical_address(payout, "payout")
             self._validate_clock(clock)
+            observed = self._read_authorized_target(
+                self.current_authorization_id, expected_phase="ACTIVE"
+            )
+            observed_generation = self._validate_exact_target_view(observed)
+            if (self.cached_generation is None
+                    or observed_generation != self.cached_generation):
+                raise TransitionRejected(
+                    "offer submission requires the exact cached ACTIVE generation"
+                )
             self._require_current_authority(target, generation)
             ask = _uint(ask_wei_per_second, "ask")
             if ask > self.immutable_maximum_ask:
                 raise TransitionRejected("ask exceeds immutable maximum")
+            # Reject arithmetic-poison offers at admission rather than leaving
+            # a quote that can never pass the later reserve calculation.
+            checked_mul(ask, self.seat_runway_seconds)
             if _uint(value, "inserted value") != self.sla_bond:
                 raise TransitionRejected("insertion must escrow exactly one SLA bond")
 
@@ -3825,7 +3742,30 @@ class SeatMarket:
 
         return self._atomic(transition)
 
-    def requote(
+    def submit_seat_offer_v1(
+        self,
+        *,
+        caller: str,
+        payout: str,
+        ask_wei_per_second: int,
+        clock: Clock,
+        value: int,
+    ) -> TransitionResult:
+        """Exact public offer shape; target and generation are derived."""
+
+        if self.cached_generation is None:
+            raise TransitionRejected("generation cache is uninitialized")
+        return self._insert_offer(
+            caller=caller,
+            payout=payout,
+            ask_wei_per_second=ask_wei_per_second,
+            target=self.authorization.target,
+            generation=self.cached_generation,
+            clock=clock,
+            value=value,
+        )
+
+    def _requote(
         self,
         *,
         caller: str,
@@ -3914,6 +3854,29 @@ class SeatMarket:
 
         return self._atomic(transition)
 
+    def requote_seat_offer_v1(
+        self,
+        *,
+        caller: str,
+        offer_id: bytes,
+        payout: str,
+        ask_wei_per_second: int,
+        clock: Clock,
+    ) -> TransitionResult:
+        """Exact public requote shape; authority comes from owned state."""
+
+        if self.cached_generation is None:
+            raise TransitionRejected("generation cache is uninitialized")
+        return self._requote(
+            caller=caller,
+            offer_id=offer_id,
+            payout=payout,
+            ask_wei_per_second=ask_wei_per_second,
+            target=self.authorization.target,
+            generation=self.cached_generation,
+            clock=clock,
+        )
+
     def request_pending_exit(
         self, caller: str, offer_id: bytes, clock: Clock
     ) -> TransitionResult:
@@ -3995,33 +3958,33 @@ class SeatMarket:
             selected_rank = 0
             outgoing: bytes | None = None
             reserve_wei = 0
-            reuse_outgoing_reserve = False
-            reuse_surplus = 0
 
-            def reusable_standby(
+            def replaceable_standby(
                 offer: Offer,
                 terms: tuple[LineupTerm, ...],
                 short_handover: int,
             ) -> tuple[bytes, int] | None:
-                """Return the exact worst-standby reuse lane for this bid."""
+                """Return the deterministic full-lineup standby replacement."""
 
                 if len(terms) != 4:
                     return None
                 worst = terms[-1]
-                improvement = (
-                    checked_sub(
-                        worst.ask_wei_per_second, offer.ask_wei_per_second
-                    )
-                    if offer.ask_wei_per_second <= worst.ask_wei_per_second
-                    else 0
+                if offer.ask_wei_per_second >= worst.ask_wei_per_second:
+                    return None
+                improvement = checked_sub(
+                    worst.ask_wei_per_second, offer.ask_wei_per_second
                 )
                 relative = checked_mul_div_up(
                     worst.ask_wei_per_second,
                     self._minimum_ask_improvement_bps,
                     10_000,
                 )
-                required = max(
-                    self._minimum_ask_improvement_wei_per_second, relative
+                required = min(
+                    worst.ask_wei_per_second,
+                    max(
+                        self._minimum_ask_improvement_wei_per_second,
+                        relative,
+                    ),
                 )
                 if improvement < required:
                     return None
@@ -4046,44 +4009,26 @@ class SeatMarket:
                     or install_record.payout != worst.payout
                     or install_record.ask_wei_per_second
                         != worst.ask_wei_per_second
+                    or install_record.installed_at != worst.installed_at
                 ):
                     raise TransitionRejected(
                         "worst standby SIR1 differs from SLV1"
-                    )
-                source_reserve = self.accounting.live_reserves.get(
-                    worst.term_id
-                )
-                expected_source_reserve = checked_mul(
-                    worst.ask_wei_per_second, self.seat_runway_seconds
-                )
-                if (
-                    source_reserve is None
-                    or source_reserve.lifecycle
-                        is not ReserveLifecycle.UNSTARTED
-                    or source_reserve.reserve_id != worst.term_id
-                    or source_reserve.owner_id != worst.term_id
-                    or source_reserve.term_id != worst.term_id
-                    or source_reserve.tranche_id != worst.tranche_id
-                    or source_reserve.payout != worst.payout
-                    or source_reserve.ask_wei_per_second
-                        != worst.ask_wei_per_second
-                    or source_reserve.reserved_wei != expected_source_reserve
-                ):
-                    raise TransitionRejected(
-                        "worst standby reserve is not reusable"
                     )
                 lease_expiry = checked_add(
                     install_record.installed_at,
                     self.maximum_standby_lease_seconds,
                 )
+                u64(lease_expiry)
                 minimum_tenure_until = checked_add(
                     install_record.installed_at,
                     self.minimum_standby_tenure_seconds,
                 )
+                u64(minimum_tenure_until)
                 bounded_apply = checked_add(
                     checked_add(short_handover, self.stage_grace_seconds),
                     self.maximum_inclusion_seconds,
                 )
+                u64(bounded_apply)
                 if (
                     clock.timestamp < minimum_tenure_until
                     or bounded_apply > lease_expiry
@@ -4142,9 +4087,11 @@ class SeatMarket:
                             structural = has_headroom
                             outgoing_term = active.term_id
                             rank = 0
-                        elif len(terms) < 4:
+                        if not structural and len(terms) < 4:
                             # Standby fill never reads or waits for the primary's
                             # minimum tenure because it does not replace service.
+                            # This lane remains available when a cheaper primary
+                            # challenge cannot fit its longer handover deadline.
                             expires = checked_add(
                                 short_handover, self.stage_grace_seconds
                             )
@@ -4155,34 +4102,28 @@ class SeatMarket:
                                 <= active.service_eligible_until
                             )
                             structural = has_headroom
-                            # Preserve the primary and insert among standby asks.
-                            rank = 1
-                            while (
-                                rank < len(terms)
-                                and terms[rank].ask_wei_per_second
-                                <= offer.ask_wei_per_second
-                            ):
-                                rank += 1
-                        else:
-                            reuse = reusable_standby(
-                                offer, terms, short_handover
-                            )
-                            if reuse is not None:
-                                structural = True
-                                outgoing_term, rank = reuse
-                                reuse_outgoing_reserve = True
+                            if structural:
+                                outgoing_term = None
+                                # Preserve the primary and insert after every
+                                # existing standby with an equal ask.
+                                rank = 1
+                                while (
+                                    rank < len(terms)
+                                    and terms[rank].ask_wei_per_second
+                                    <= offer.ask_wei_per_second
+                                ):
+                                    rank += 1
                 if not structural and len(terms) == 4:
-                    reuse = reusable_standby(
+                    replacement = replaceable_standby(
                         offer,
                         terms,
                         checked_add(
                             clock.timestamp, self.handover_delay_seconds
                         ),
                     )
-                    if reuse is not None:
+                    if replacement is not None:
                         structural = True
-                        outgoing_term, rank = reuse
-                        reuse_outgoing_reserve = True
+                        outgoing_term, rank = replacement
                 if not structural:
                     continue
                 reserve = checked_mul(
@@ -4193,27 +4134,13 @@ class SeatMarket:
                 outgoing = outgoing_term
                 reserve_wei = reserve
                 self._fault("after_candidate_selection")
-                if reserve > free_snapshot and not reuse_outgoing_reserve:
-                    # Price priority is preserved across funding lanes: an
-                    # underfunded primary challenge gets the same bid's exact
-                    # reserve-reuse opportunity before it may block the book.
-                    reuse = reusable_standby(
-                        offer,
-                        snapshot.terms,
-                        checked_add(
-                            clock.timestamp, self.handover_delay_seconds
-                        ),
+                if reserve > free_snapshot:
+                    return TransitionResult(
+                        code=ResultCode.UNDERFUNDED,
+                        offer=offer,
+                        tranche=tranche,
+                        amount=reserve,
                     )
-                    if reuse is not None:
-                        outgoing, selected_rank = reuse
-                        reuse_outgoing_reserve = True
-                    else:
-                        return TransitionResult(
-                            code=ResultCode.UNDERFUNDED,
-                            offer=offer,
-                            tranche=tranche,
-                            amount=reserve,
-                        )
                 break
 
             if candidate is None:
@@ -4222,7 +4149,7 @@ class SeatMarket:
             handover_floor = checked_add(
                 clock.timestamp, self.handover_delay_seconds
             )
-            if outgoing is not None and not reuse_outgoing_reserve:
+            if outgoing is not None and selected_rank == 0:
                 handover_at = max(
                     snapshot.terms[0].minimum_tenure_until, handover_floor
                 )
@@ -4240,33 +4167,12 @@ class SeatMarket:
                 u256(expires_at),
             )
             reserve_id = stage_id if reserve_wei != 0 else None
-            reused_reserve = None
-            if reuse_outgoing_reserve:
-                if outgoing is None:
-                    raise AssertionError("reserve reuse lost outgoing standby")
-                reused_reserve = self.accounting.live_reserves.pop(outgoing, None)
-                if (
-                    reused_reserve is None
-                    or reused_reserve.lifecycle is not ReserveLifecycle.UNSTARTED
-                    or reused_reserve.term_id != outgoing
-                    or reused_reserve.reserved_wei < reserve_wei
-                ):
-                    raise TransitionRejected("outgoing standby reserve is not reusable")
-                surplus = checked_sub(reused_reserve.reserved_wei, reserve_wei)
-                reuse_surplus = surplus
-                self.accounting.reserved_premium = checked_sub(
-                    self.accounting.reserved_premium, surplus
-                )
-                self.accounting.contingent_premium = checked_add(
-                    self.accounting.contingent_premium, surplus
-                )
-            else:
-                self.accounting.free_premium = checked_sub(
-                    self.accounting.free_premium, reserve_wei
-                )
-                self.accounting.reserved_premium = checked_add(
-                    self.accounting.reserved_premium, reserve_wei
-                )
+            self.accounting.free_premium = checked_sub(
+                self.accounting.free_premium, reserve_wei
+            )
+            self.accounting.reserved_premium = checked_add(
+                self.accounting.reserved_premium, reserve_wei
+            )
             if reserve_id is not None:
                 if reserve_id in self.accounting.live_reserves:
                     raise TransitionRejected("stage reserve identity collision")
@@ -4295,16 +4201,6 @@ class SeatMarket:
                 handover_at=handover_at,
                 expires_at=expires_at,
                 reserve_id=reserve_id,
-                reused_outgoing_reserve_wei=(
-                    0 if reused_reserve is None else reused_reserve.reserved_wei
-                ),
-                reused_outgoing_reserve=copy.deepcopy(reused_reserve),
-                funding_mode=(
-                    StageFundingMode.REUSE_UNSTARTED_STANDBY
-                    if reused_reserve is not None
-                    else StageFundingMode.ORDINARY
-                ),
-                contingent_surplus_wei=reuse_surplus,
             )
             return TransitionResult(
                 code=ResultCode.STAGED,
@@ -4350,31 +4246,9 @@ class SeatMarket:
             self.accounting.reserved_premium = checked_sub(
                 self.accounting.reserved_premium, reserve.reserved_wei
             )
-            if stage.reused_outgoing_reserve is None:
-                self.accounting.free_premium = checked_add(
-                    self.accounting.free_premium, reserve.reserved_wei
-                )
-        if stage.reused_outgoing_reserve is not None:
-            original = copy.deepcopy(stage.reused_outgoing_reserve)
-            outgoing = stage.outgoing_primary_term_id
-            if (
-                outgoing is None
-                or original.reserve_id != outgoing
-                or original.term_id != outgoing
-                or outgoing in self.accounting.live_reserves
-                or original.reserved_wei != stage.reused_outgoing_reserve_wei
-            ):
-                raise TransitionRejected("reused outgoing reserve restoration is inexact")
-            refill = checked_sub(original.reserved_wei, released_reserve)
-            if refill != stage.contingent_surplus_wei:
-                raise TransitionRejected("reused reserve surplus changed")
-            self.accounting.contingent_premium = checked_sub(
-                self.accounting.contingent_premium, refill
+            self.accounting.free_premium = checked_add(
+                self.accounting.free_premium, reserve.reserved_wei
             )
-            self.accounting.reserved_premium = checked_add(
-                self.accounting.reserved_premium, original.reserved_wei
-            )
-            self.accounting.live_reserves[outgoing] = original
         credit_id = None
         if restore_current:
             offer.location = OfferLocation.PENDING
@@ -4447,25 +4321,9 @@ class SeatMarket:
                 self.accounting.reserved_premium = checked_sub(
                     self.accounting.reserved_premium, reserve.reserved_wei
                 )
-                if stage.reused_outgoing_reserve is None:
-                    self.accounting.free_premium = checked_add(
-                        self.accounting.free_premium, reserve.reserved_wei
-                    )
-            if stage.reused_outgoing_reserve is not None:
-                original = copy.deepcopy(stage.reused_outgoing_reserve)
-                outgoing = stage.outgoing_primary_term_id
-                if outgoing is None or outgoing in self.accounting.live_reserves:
-                    raise TransitionRejected("migration reserve restore is inexact")
-                refill = checked_sub(original.reserved_wei, released)
-                if refill != stage.contingent_surplus_wei:
-                    raise TransitionRejected("migration reserve surplus changed")
-                self.accounting.contingent_premium = checked_sub(
-                    self.accounting.contingent_premium, refill
+                self.accounting.free_premium = checked_add(
+                    self.accounting.free_premium, reserve.reserved_wei
                 )
-                self.accounting.reserved_premium = checked_add(
-                    self.accounting.reserved_premium, original.reserved_wei
-                )
-                self.accounting.live_reserves[outgoing] = original
             offer.location = OfferLocation.NONE
             self._fault("after_offer_location_change")
             tranche.usage = TrancheUsage.CLOSED_UNINSTALLED
@@ -6062,7 +5920,7 @@ class SeatMarket:
             if self.stage.outgoing_primary_term_id is not None:
                 _bytes32(
                     self.stage.outgoing_primary_term_id,
-                    "outgoing primary term ID",
+                    "outgoing term ID",
                 )
             _bytes32(self.stage.lineup_commitment, "lineup commitment")
             _uint(self.stage.handover_at, "handover at")
@@ -6092,48 +5950,6 @@ class SeatMarket:
                 or staged_tranche.disposition is not BondDisposition.NONE
             ):
                 raise AssertionError("stage/tranche state mismatch")
-            staged_reserve_wei = (
-                0
-                if self.stage.reserve_id is None
-                else self.accounting.live_reserves[
-                    self.stage.reserve_id
-                ].reserved_wei
-            )
-            if self.stage.funding_mode is StageFundingMode.ORDINARY:
-                if (
-                    self.stage.reused_outgoing_reserve is not None
-                    or self.stage.reused_outgoing_reserve_wei != 0
-                    or self.stage.contingent_surplus_wei != 0
-                ):
-                    raise AssertionError("ordinary stage carries reuse state")
-            elif self.stage.funding_mode is StageFundingMode.REUSE_UNSTARTED_STANDBY:
-                original = self.stage.reused_outgoing_reserve
-                outgoing = self.stage.outgoing_primary_term_id
-                if (
-                    original is None
-                    or outgoing is None
-                    or original.reserve_id != outgoing
-                    or original.term_id != outgoing
-                    or original.lifecycle is not ReserveLifecycle.UNSTARTED
-                    or outgoing in self.accounting.live_reserves
-                    or original.reserved_wei
-                        != self.stage.reused_outgoing_reserve_wei
-                    or original.reserved_wei
-                        != checked_add(
-                            staged_reserve_wei,
-                            self.stage.contingent_surplus_wei,
-                        )
-                ):
-                    raise AssertionError("reuse stage source reserve is inexact")
-            else:
-                raise AssertionError("unknown stage funding mode")
-            if (
-                self.accounting.contingent_premium
-                != self.stage.contingent_surplus_wei
-            ):
-                raise AssertionError("stage contingent premium differs")
-        elif self.accounting.contingent_premium != 0:
-            raise AssertionError("contingent premium exists without a stage")
 
         quote_sequences: set[int] = set()
         for offer_id, offer in self.offers.items():

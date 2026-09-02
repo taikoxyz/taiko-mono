@@ -189,7 +189,7 @@ class ProductionWireOracleSmokeTests(unittest.TestCase):
 
     def test_fixed_width_round_trip_and_canonical_golden(self):
         expected_hashes = (
-            "6e3346b6683756e2560d1fd375bf0d01168ea9286e68c958f45e8097991bf374",
+            "994dcd746b84df612a6f0d80e36168b86a5aa5b8da3bce342f61bb69772847fd",
             "de3eeef7e9ce6878ead366e31d15a9103e86f8bb2e83506f4a3aa2648e0a578c",
             "c7e2a6a301de9c0615d29e35453189f992aab1497b100d7eeb16acf80f6c5c31",
             "fd2082ab306762a24c79e1e818b8017d01713cdb18e295c862f8788478b9a7f5",
@@ -600,7 +600,7 @@ class AuthorizationArchitectureAndCodecTests(unittest.TestCase):
 
     def test_tranche_offer_and_credit_ids_equal_one_direct_fixed_width_encoding(self):
         market = make_codec_market()
-        row = market.insert_offer(
+        row = market._insert_offer(
             caller=addr("alice"), payout=addr("alice-payout"),
             ask_wei_per_second=9, target=addr("settlement-v1"), generation=7,
             clock=model.Clock(100, 50), value=1_000,
@@ -675,7 +675,7 @@ class AuthorizationArchitectureAndCodecTests(unittest.TestCase):
 
     def test_manager_registration_cannot_repoint_market_or_historical_rows(self):
         market = make_codec_market()
-        owner = market.insert_offer(
+        owner = market._insert_offer(
             caller=addr("alice"), payout=addr("alice-payout"),
             ask_wei_per_second=10, target=addr("settlement-v1"), generation=7,
             clock=model.Clock(100, 50), value=1_000,
@@ -687,7 +687,7 @@ class AuthorizationArchitectureAndCodecTests(unittest.TestCase):
             owner.tranche.tranche_id, model.Clock(120, 50)
         ).credit_id
 
-        installed = market.insert_offer(
+        installed = market._insert_offer(
             caller=addr("bob"), payout=addr("bob-payout"),
             ask_wei_per_second=11, target=addr("settlement-v1"), generation=7,
             clock=model.Clock(100, 50), value=1_000,
@@ -749,7 +749,7 @@ class AuthorizationArchitectureAndCodecTests(unittest.TestCase):
 
     def test_registry_has_no_direct_market_control_and_live_rows_gate_state(self):
         live = make_codec_market()
-        row = live.insert_offer(
+        row = live._insert_offer(
             caller=addr("alice"), payout=addr("alice-payout"),
             ask_wei_per_second=9, target=addr("settlement-v1"), generation=7,
             clock=model.Clock(100, 50), value=1_000,
@@ -842,34 +842,34 @@ class AuthorizationArchitectureAndCodecTests(unittest.TestCase):
             self.assertNotEqual(substituted, authorization_id)
 
         base_market = make_codec_market()
-        base = base_market.insert_offer(
+        base = base_market._insert_offer(
             caller=addr("alice"), payout=addr("alice-payout"),
             ask_wei_per_second=9, target=auth.target, generation=7,
             clock=model.Clock(100, 50), value=1_000,
         )
-        operator = make_codec_market().insert_offer(
+        operator = make_codec_market()._insert_offer(
             caller=addr("bob"), payout=addr("alice-payout"),
             ask_wei_per_second=9, target=auth.target, generation=7,
             clock=model.Clock(100, 50), value=1_000,
         )
-        generation = make_codec_market(cached_generation=8).insert_offer(
+        generation = make_codec_market(cached_generation=8)._insert_offer(
             caller=addr("alice"), payout=addr("alice-payout"),
             ask_wei_per_second=9, target=auth.target, generation=8,
             clock=model.Clock(100, 50), value=1_000,
         )
         creation_sequence = make_codec_market(
             starting_creation_sequence=1
-        ).insert_offer(
+        )._insert_offer(
             caller=addr("alice"), payout=addr("alice-payout"),
             ask_wei_per_second=9, target=auth.target, generation=7,
             clock=model.Clock(100, 50), value=1_000,
         )
-        payout = make_codec_market().insert_offer(
+        payout = make_codec_market()._insert_offer(
             caller=addr("alice"), payout=addr("other-payout"),
             ask_wei_per_second=9, target=auth.target, generation=7,
             clock=model.Clock(100, 50), value=1_000,
         )
-        quote_sequence = make_codec_market(starting_quote_sequence=1).insert_offer(
+        quote_sequence = make_codec_market(starting_quote_sequence=1)._insert_offer(
             caller=addr("alice"), payout=addr("alice-payout"),
             ask_wei_per_second=9, target=auth.target, generation=7,
             clock=model.Clock(100, 50), value=1_000,
@@ -1008,7 +1008,15 @@ def insert(
     target="settlement-v1",
     generation=7,
 ):
-    return market.insert_offer(
+    if target == "settlement-v1" and generation == 7:
+        return market.submit_seat_offer_v1(
+            caller=addr(operator),
+            payout=addr(payout or f"payout-{operator}"),
+            ask_wei_per_second=ask,
+            clock=clock or model.Clock(100, 50),
+            value=market.sla_bond,
+        )
+    return market._insert_offer(
         caller=addr(operator),
         payout=addr(payout or f"payout-{operator}"),
         ask_wei_per_second=ask,
@@ -1173,20 +1181,46 @@ class OfferBookTests(AtomicAssertions):
         self.assertEqual(market.actual_balance, 5_000)
         market.assert_valid()
 
+    def test_fifth_offer_uses_only_the_strict_five_key_order(self):
+        market = make_market(
+            minimum_ask_improvement_wei_per_second=100,
+            minimum_ask_improvement_bps=10_000,
+        )
+        rows = [
+            insert(market, f"incumbent-{index}", ask, clock=model.Clock(101, 50))
+            for index, ask in enumerate((10, 20, 30, 40))
+        ]
+        # Equal price but earlier eligibility is strictly better in the frozen
+        # five-key order.  Standby replacement thresholds do not leak into
+        # pending-book admission.
+        accepted = insert(
+            market, "earlier-fifth", 40, clock=model.Clock(100, 50)
+        )
+        self.assertEqual(accepted.displaced_offer_id, rows[-1].offer.offer_id)
+        self.assertEqual(
+            [offer.order_key for offer in market.pending_offers],
+            sorted(offer.order_key for offer in market.pending_offers),
+        )
+
+        before = copy.deepcopy(market)
+        with self.assertRaises(model.TransitionRejected):
+            insert(market, "later-fifth", 40, clock=model.Clock(102, 50))
+        self.assertEqual(market, before)
+
     def test_insertion_derives_operator_and_rejects_bad_authority_or_value_atomically(self):
         market = make_market()
         accepted = insert(market, "alice", 10)
         self.assertEqual(accepted.offer.operator, addr("alice"))
         cases = (
-            lambda: market.insert_offer(
+            lambda: market._insert_offer(
                 caller=addr("bob"), payout=addr("p"), ask_wei_per_second=1,
                 target=addr("evil"), generation=7, clock=model.Clock(1, 1), value=1_000
             ),
-            lambda: market.insert_offer(
+            lambda: market._insert_offer(
                 caller=addr("bob"), payout=addr("p"), ask_wei_per_second=1,
                 target=addr("settlement-v1"), generation=6, clock=model.Clock(1, 1), value=1_000
             ),
-            lambda: market.insert_offer(
+            lambda: market._insert_offer(
                 caller=addr("bob"), payout=addr("p"), ask_wei_per_second=1,
                 target=addr("settlement-v1"), generation=7, clock=model.Clock(1, 1), value=999
             ),
@@ -1208,7 +1242,7 @@ class OfferBookTests(AtomicAssertions):
         self.assert_rejects_unchanged(market, lambda: insert(market, "alice", 101))
         self.assert_rejects_unchanged(
             market,
-            lambda: market.insert_offer(
+            lambda: market._insert_offer(
                 caller=addr("alice"), payout="", ask_wei_per_second=10,
                 target=addr("settlement-v1"), generation=7,
                 clock=model.Clock(1, 1), value=1_000,
@@ -1400,7 +1434,7 @@ class RequoteTests(AtomicAssertions):
     def test_requote_is_pending_only_preserves_tranche_and_admission_maturity(self):
         market = make_market()
         first = insert(market, "alice", 50, clock=model.Clock(100, 50))
-        result = market.requote(
+        result = market._requote(
             caller=addr("alice"),
             offer_id=first.offer.offer_id,
             payout=addr("alice-new"),
@@ -1426,7 +1460,7 @@ class RequoteTests(AtomicAssertions):
         )
         self.assert_rejects_unchanged(
             market,
-            lambda: market.requote(
+            lambda: market._requote(
                 caller=addr("alice"), offer_id=first.offer.offer_id,
                 payout=addr("stale"), ask_wei_per_second=39,
                 target=addr("settlement-v1"), generation=7,
@@ -1437,7 +1471,7 @@ class RequoteTests(AtomicAssertions):
     def test_same_ask_changed_payout_is_allowed(self):
         market = make_market()
         first = insert(market, "alice", 50)
-        result = market.requote(
+        result = market._requote(
             caller=addr("alice"), offer_id=first.offer.offer_id,
             payout=addr("new-payout"), ask_wei_per_second=50,
             target=addr("settlement-v1"), generation=7,
@@ -1467,7 +1501,7 @@ class RequoteTests(AtomicAssertions):
         ):
             for name, row in tuple(current.items()):
                 prior_id = row.offer.offer_id
-                updated = market.requote(
+                updated = market._requote(
                     caller=addr(name),
                     offer_id=prior_id,
                     payout=addr(f"{name}-p{round_index}"),
@@ -1522,7 +1556,7 @@ class RequoteTests(AtomicAssertions):
             {"generation": 6},
         ):
             args = {**common, **changes}
-            cases.append(lambda args=args: market.requote(**args))
+            cases.append(lambda args=args: market._requote(**args))
         for case in cases:
             self.assert_rejects_unchanged(market, case)
 
@@ -1530,7 +1564,7 @@ class RequoteTests(AtomicAssertions):
         for ask in (99, 100):
             market = make_market()
             first = insert(market, "alice", 100, payout="old")
-            market.requote(
+            market._requote(
                 caller=addr("alice"), offer_id=first.offer.offer_id,
                 payout=addr("new"), ask_wei_per_second=ask,
                 target=addr("settlement-v1"), generation=7,
@@ -1540,7 +1574,7 @@ class RequoteTests(AtomicAssertions):
         first = insert(market, "alice", 100)
         self.assert_rejects_unchanged(
             market,
-            lambda: market.requote(
+            lambda: market._requote(
                 caller=addr("alice"), offer_id=first.offer.offer_id,
                 payout=addr("new"), ask_wei_per_second=101,
                 target=addr("settlement-v1"), generation=7,
@@ -1552,7 +1586,7 @@ class RequoteTests(AtomicAssertions):
         market = make_market(starting_quote_sequence=model.UINT256_MAX - 2)
         first = insert(market, "alice", 50)
         self.assertEqual(first.offer.quote_sequence, model.UINT256_MAX - 1)
-        second = market.requote(
+        second = market._requote(
             caller=addr("alice"), offer_id=first.offer.offer_id,
             payout=addr("new"), ask_wei_per_second=49,
             target=addr("settlement-v1"), generation=7,
@@ -1562,7 +1596,7 @@ class RequoteTests(AtomicAssertions):
         self.assertEqual(len(second.offer.offer_id), 32)
         self.assert_rejects_unchanged(
             market,
-            lambda: market.requote(
+            lambda: market._requote(
                 caller=addr("alice"), offer_id=second.offer.offer_id,
                 payout=addr("newer"), ask_wei_per_second=48,
                 target=addr("settlement-v1"), generation=7,
@@ -1578,7 +1612,7 @@ class RequoteTests(AtomicAssertions):
         )
         self.assert_rejects_unchanged(
             market,
-            lambda: market.requote(
+            lambda: market._requote(
                 caller=addr("alice"), offer_id=row.offer.offer_id,
                 payout=addr("new"), ask_wei_per_second=40,
                 target=addr("settlement-v1"), generation=7,
@@ -1868,8 +1902,8 @@ class AccountingAndClaimTests(AtomicAssertions):
 
 class EdgeMatrixTests(AtomicAssertions):
     MUTATING_PUBLIC_EVENTS = {
-        "insert_offer",
-        "requote",
+        "submit_seat_offer_v1",
+        "requote_seat_offer_v1",
         "request_pending_exit",
         "finalize_pending_exit",
         "sync_seat_generation",
@@ -1986,7 +2020,7 @@ class EdgeMatrixTests(AtomicAssertions):
         accepted_market = make_market()
         accepted_market.assert_valid()
         accepted = insert(accepted_market, "alice", 10)
-        covered.add("insert_offer")
+        covered.add("submit_seat_offer_v1")
         self.assertEqual(accepted_market.pending_count, 1)
         self.assertEqual(accepted_market.accounting.bond_escrow, 1_000)
         accepted_market.assert_valid()
@@ -2004,13 +2038,12 @@ class EdgeMatrixTests(AtomicAssertions):
         requote_market = make_market()
         quote = insert(requote_market, "alice", 20)
         requote_market.assert_valid()
-        requoted = requote_market.requote(
+        requoted = requote_market.requote_seat_offer_v1(
             caller=addr("alice"), offer_id=quote.offer.offer_id,
             payout=addr("new"), ask_wei_per_second=19,
-            target=addr("settlement-v1"), generation=7,
             clock=model.Clock(200, 100),
         )
-        covered.add("requote")
+        covered.add("requote_seat_offer_v1")
         self.assertEqual(requoted.offer.ask_wei_per_second, 19)
         self.assertEqual(requote_market.accounting.bond_escrow, 1_000)
         requote_market.assert_valid()
@@ -2088,10 +2121,9 @@ class EdgeMatrixTests(AtomicAssertions):
             market.assert_valid()
             self.assert_rejects_unchanged(
                 market,
-                lambda market=market, row=row: market.requote(
+                lambda market=market, row=row: market.requote_seat_offer_v1(
                     caller=addr("alice"), offer_id=row.offer.offer_id,
                     payout=addr("new"), ask_wei_per_second=40,
-                    target=addr("settlement-v1"), generation=7,
                     clock=model.Clock(200, 100),
                 ),
             )
@@ -2147,16 +2179,15 @@ class EdgeMatrixTests(AtomicAssertions):
         forced = make_market()
 
         rows = {
-            "insert_offer": (
+            "submit_seat_offer_v1": (
                 full,
                 lambda: insert(full, "worse", 100),
             ),
-            "requote": (
+            "requote_seat_offer_v1": (
                 staged,
-                lambda: staged.requote(
+                lambda: staged.requote_seat_offer_v1(
                     caller=addr("alice"), offer_id=staged_row.offer.offer_id,
                     payout=addr("new"), ask_wei_per_second=40,
-                    target=addr("settlement-v1"), generation=7,
                     clock=model.Clock(200, 100),
                 ),
             ),
@@ -2231,7 +2262,7 @@ class EdgeMatrixTests(AtomicAssertions):
         market.finalize_pending_exit(row.tranche.tranche_id, model.Clock(30, 30))
         for event in ("requote", "request_exit"):
             if event == "requote":
-                call = lambda: market.requote(
+                call = lambda: market._requote(
                     caller=addr("alice"), offer_id=row.offer.offer_id,
                     payout=addr("new"), ask_wei_per_second=9,
                     target=addr("settlement-v1"), generation=7,
@@ -2260,6 +2291,10 @@ class ArithmeticAndInputTests(AtomicAssertions):
         for changes in (
             {"sla_bond": 0},
             {"immutable_maximum_ask": model.UINT256_MAX + 1},
+            {
+                "immutable_maximum_ask": model.UINT256_MAX,
+                "seat_runway_seconds": 2,
+            },
             {"quote_maturity_seconds": -1},
         ):
             with self.assertRaises((model.ArithmeticFault, model.TransitionRejected)):
@@ -2269,6 +2304,20 @@ class ArithmeticAndInputTests(AtomicAssertions):
             market,
             lambda: insert(market, "alice", 1, clock=model.Clock(-1, 1)),
         )
+
+    def test_submission_exact_reads_active_target_before_any_write(self):
+        market = make_market()
+        runtime = market.target_runtimes[market.current_authorization_id]
+        runtime.authority.phase = "ARMED"
+        before_sequences = (market.creation_sequence, market.quote_sequence)
+        before_balance = market.actual_balance
+        self.assert_rejects_unchanged(
+            market, lambda: insert(market, "armed", 1)
+        )
+        self.assertEqual(
+            (market.creation_sequence, market.quote_sequence), before_sequences
+        )
+        self.assertEqual(market.actual_balance, before_balance)
 
     def test_creation_sequence_reaches_uint256_max_then_fails_without_wrap(self):
         market = make_market(starting_creation_sequence=model.UINT256_MAX - 2)
@@ -2310,6 +2359,7 @@ def lineup_term(
     minimum_tenure_until=100,
     service_eligible_until=1_000,
     healthy=True,
+    installed_at=0,
 ):
     return model.LineupTerm(
         term_id=(label.encode("ascii")[:1] or b"t") * 32,
@@ -2321,7 +2371,40 @@ def lineup_term(
         minimum_tenure_until=minimum_tenure_until,
         service_eligible_until=service_eligible_until,
         healthy=healthy,
+        installed_at=installed_at,
     )
+
+
+def bind_exact_worst_install(market, terms, *, install_revision=1):
+    """Bind rank 3 to one canonical SIR1 row and return the updated lineup."""
+
+    worst = terms[-1]
+    term_id = model.seat_term_identity_v1(
+        market.current_authorization_id,
+        market.cached_generation,
+        worst.offer_id,
+        worst.tranche_id,
+        worst.installed_at,
+        install_revision,
+    )
+    worst = replace(worst, term_id=term_id)
+    terms = (*terms[:-1], worst)
+    record = model.SeatInstallRecordV1(
+        market.current_authorization_id,
+        market.cached_generation,
+        worst.term_id,
+        worst.tranche_id,
+        worst.offer_id,
+        worst.operator,
+        worst.payout,
+        worst.ask_wei_per_second,
+        worst.installed_at,
+        install_revision,
+    )
+    market.target_runtimes[
+        market.current_authorization_id
+    ].install_record_override = model.encode_seat_install_record_v1(record)
+    return terms, record
 
 
 def stage_and_install(market, operator="alice", ask=5, term_id=b"T" * 32):
@@ -2410,6 +2493,19 @@ def service_view(
 
 
 class Task3StagingTests(AtomicAssertions):
+    def test_stage_and_wire_have_no_reserve_reuse_or_contingent_state(self):
+        self.assertFalse(hasattr(model, "StageFundingMode"))
+        for record in (
+            model.Stage,
+            model.MarketAccounting,
+            model.MarketWireStateV1,
+        ):
+            fields = set(record.__dataclass_fields__)
+            self.assertFalse(any("reuse" in field for field in fields))
+            self.assertFalse(any("contingent" in field for field in fields))
+            self.assertNotIn("funding_mode", fields)
+            self.assertNotIn("source_reserve_wei", fields)
+
     def test_pretenure_standby_uses_its_own_short_deadline_not_primary_tenure(self):
         for service_eligible_until, expected in (
             (124, model.ResultCode.NO_FEASIBLE_OFFER),
@@ -2478,6 +2574,337 @@ class Task3StagingTests(AtomicAssertions):
         self.assertIsNone(result.stage.outgoing_primary_term_id)
         self.assertEqual(result.stage.handover_at, 115)
 
+    def test_primary_replacement_uses_only_strictly_lower_ask(self):
+        primary = lineup_term(
+            ask=50,
+            minimum_tenure_until=200,
+            service_eligible_until=1_000,
+        )
+        cheaper = make_market(
+            minimum_ask_improvement_wei_per_second=100,
+            minimum_ask_improvement_bps=10_000,
+        )
+        cheaper.sponsor_premium(4_900)
+        insert(cheaper, "cheap", 49)
+        result = cheaper._settlement_stage_best(
+            lineup(primary), model.Clock(110, 53)
+        )
+        self.assertIs(result.code, model.ResultCode.STAGED)
+        self.assertEqual(result.stage.selected_rank, 0)
+        self.assertEqual(result.stage.outgoing_primary_term_id, primary.term_id)
+        self.assertEqual(result.stage.handover_at, 200)
+
+        equal = make_market(
+            minimum_ask_improvement_wei_per_second=100,
+            minimum_ask_improvement_bps=10_000,
+        )
+        equal.sponsor_premium(5_000)
+        insert(equal, "equal-primary", 50)
+        result = equal._settlement_stage_best(
+            lineup(primary), model.Clock(110, 53)
+        )
+        self.assertIs(result.code, model.ResultCode.STAGED)
+        self.assertEqual(result.stage.selected_rank, 1)
+        self.assertIsNone(result.stage.outgoing_primary_term_id)
+
+    def test_full_lineup_improvement_formula_and_strict_boundaries(self):
+        cases = (
+            # Absolute term dominates; equality is accepted, one below is not.
+            (5, 1_000, (10, 20, 30, 40), 35, True),
+            (5, 1_000, (10, 20, 30, 40), 36, False),
+            # Relative term is rounded up: ceil(41 * 2500 / 10000) == 11.
+            (1, 2_500, (10, 20, 30, 41), 30, True),
+            (1, 2_500, (10, 20, 30, 41), 31, False),
+            # The incumbent-ask cap makes zero able to replace every positive
+            # worst standby even when the configured absolute term is larger.
+            (100, 10_000, (0, 1, 2, 3), 0, True),
+            (100, 10_000, (0, 1, 2, 3), 1, False),
+        )
+        for absolute, bps, asks, candidate_ask, expected in cases:
+            with self.subTest(
+                absolute=absolute,
+                bps=bps,
+                asks=asks,
+                candidate=candidate_ask,
+            ):
+                market = make_market(
+                    minimum_ask_improvement_wei_per_second=absolute,
+                    minimum_ask_improvement_bps=bps,
+                )
+                if candidate_ask:
+                    market.sponsor_premium(
+                        candidate_ask * market.seat_runway_seconds
+                    )
+                candidate = insert(market, "candidate", candidate_ask)
+                terms = tuple(
+                    lineup_term(
+                        label,
+                        ask=ask,
+                        minimum_tenure_until=900 if index == 0 else 110,
+                        installed_at=100,
+                    )
+                    for index, (label, ask) in enumerate(
+                        zip(("p", "a", "b", "c"), asks)
+                    )
+                )
+                if expected:
+                    terms, _record = bind_exact_worst_install(market, terms)
+                before = copy.deepcopy(market)
+                result = market._settlement_stage_best(
+                    lineup(*terms), model.Clock(110, 53)
+                )
+                if not expected:
+                    self.assertIs(
+                        result.code, model.ResultCode.NO_FEASIBLE_OFFER
+                    )
+                    self.assertEqual(market, before)
+                    continue
+                self.assertIs(result.code, model.ResultCode.STAGED)
+                self.assertEqual(result.offer.offer_id, candidate.offer.offer_id)
+                self.assertEqual(
+                    result.stage.outgoing_primary_term_id, terms[-1].term_id
+                )
+                expected_rank = 1 if candidate_ask == 0 else 3
+                self.assertEqual(result.stage.selected_rank, expected_rank)
+                # Standby replacement gets a fresh short clock and never
+                # inherits the primary's unrelated minimum tenure.
+                self.assertEqual(result.stage.handover_at, 115)
+                self.assertEqual(result.stage.expires_at, 120)
+
+    def test_standby_insertion_and_replacement_are_stable_on_equal_asks(self):
+        insertion = make_market()
+        insertion.sponsor_premium(2_000)
+        insert(insertion, "equal-fill", 20)
+        filled = insertion._settlement_stage_best(
+            lineup(
+                lineup_term("p", ask=10),
+                lineup_term("a", ask=20),
+                lineup_term("b", ask=20),
+            ),
+            model.Clock(110, 53),
+        )
+        self.assertEqual(filled.stage.selected_rank, 3)
+        self.assertIsNone(filled.stage.outgoing_primary_term_id)
+
+        replacement = make_market(
+            minimum_ask_improvement_wei_per_second=10,
+            minimum_ask_improvement_bps=0,
+        )
+        replacement.sponsor_premium(3_000)
+        insert(replacement, "equal-repl", 30)
+        terms = (
+            lineup_term("p", ask=10, installed_at=100),
+            lineup_term("a", ask=20, installed_at=100),
+            lineup_term("b", ask=30, installed_at=100),
+            lineup_term("c", ask=40, installed_at=100),
+        )
+        terms, _record = bind_exact_worst_install(replacement, terms)
+        staged = replacement._settlement_stage_best(
+            lineup(*terms), model.Clock(110, 53)
+        )
+        self.assertEqual(staged.stage.selected_rank, 3)
+        self.assertEqual(
+            staged.stage.outgoing_primary_term_id, terms[-1].term_id
+        )
+
+    def test_standby_tenure_and_selected_unstarted_lease_boundaries(self):
+        def attempt(now):
+            market = make_market(
+                quote_maturity_seconds=0,
+                quote_maturity_blocks=0,
+                minimum_standby_tenure_seconds=10,
+                maximum_standby_lease_seconds=100,
+                minimum_ask_improvement_wei_per_second=5,
+            )
+            market.sponsor_premium(3_500)
+            insert(market, f"candidate-{now}", 35)
+            terms = tuple(
+                lineup_term(label, ask=ask, installed_at=100)
+                for label, ask in zip(("p", "a", "b", "c"), (10, 20, 30, 40))
+            )
+            terms, _record = bind_exact_worst_install(market, terms)
+            return market._settlement_stage_best(
+                lineup(*terms), model.Clock(now, 53)
+            )
+
+        self.assertIs(
+            attempt(109).code, model.ResultCode.NO_FEASIBLE_OFFER
+        )
+        self.assertIs(attempt(110).code, model.ResultCode.STAGED)
+        # now + handover(5) + grace(5) + max inclusion(5) == install + lease.
+        self.assertIs(attempt(185).code, model.ResultCode.STAGED)
+        self.assertIs(
+            attempt(186).code, model.ResultCode.NO_FEASIBLE_OFFER
+        )
+
+    def test_full_lineup_muldiv_handles_uint256_boundary(self):
+        market = make_market(
+            immutable_maximum_ask=model.UINT256_MAX,
+            seat_runway_seconds=1,
+            minimum_ask_improvement_wei_per_second=1,
+            minimum_ask_improvement_bps=10_000,
+        )
+        insert(market, "zero", 0)
+        terms = tuple(
+            lineup_term(label, ask=ask, installed_at=100)
+            for label, ask in zip(
+                ("p", "a", "b", "c"),
+                (0, 1, 2, model.UINT256_MAX),
+            )
+        )
+        terms, _record = bind_exact_worst_install(market, terms)
+        result = market._settlement_stage_best(
+            lineup(*terms), model.Clock(110, 53)
+        )
+        self.assertIs(result.code, model.ResultCode.STAGED)
+        self.assertEqual(result.stage.selected_rank, 1)
+        self.assertEqual(
+            result.stage.outgoing_primary_term_id, terms[-1].term_id
+        )
+
+    def test_standby_policy_constructor_and_lease_overflow_boundaries(self):
+        # The default timing sum is 10 + 5 + 5 + 5 == 25 seconds.
+        make_market(maximum_standby_lease_seconds=25)
+        with self.assertRaises(model.TransitionRejected):
+            make_market(maximum_standby_lease_seconds=24)
+        make_market(
+            minimum_ask_improvement_wei_per_second=0,
+            minimum_ask_improvement_bps=10_000,
+        )
+        for values in (
+            dict(
+                minimum_ask_improvement_wei_per_second=0,
+                minimum_ask_improvement_bps=0,
+            ),
+            dict(minimum_ask_improvement_bps=10_001),
+        ):
+            with self.assertRaises(model.TransitionRejected):
+                make_market(**values)
+
+        overflow = make_market(
+            minimum_ask_improvement_wei_per_second=5,
+            minimum_ask_improvement_bps=0,
+        )
+        overflow.sponsor_premium(3_500)
+        insert(overflow, "overflow", 35)
+        terms = tuple(
+            lineup_term(
+                label,
+                ask=ask,
+                installed_at=(
+                    model.UINT64_MAX if index == 3 else 100
+                ),
+            )
+            for index, (label, ask) in enumerate(
+                zip(("p", "a", "b", "c"), (10, 20, 30, 40))
+            )
+        )
+        terms, _record = bind_exact_worst_install(overflow, terms)
+        self.assert_rejects_unchanged(
+            overflow,
+            lambda: overflow._settlement_stage_best(
+                lineup(*terms), model.Clock(110, 53)
+            ),
+            model.ArithmeticFault,
+        )
+
+    def test_full_lineup_requires_exact_install_record_read(self):
+        market = make_market(
+            minimum_ask_improvement_wei_per_second=5,
+            minimum_ask_improvement_bps=0,
+        )
+        market.sponsor_premium(3_500)
+        insert(market, "candidate", 35)
+        runtime = market.target_runtimes[market.current_authorization_id]
+        terms = tuple(
+            lineup_term(label, ask=ask, installed_at=100)
+            for label, ask in zip(("p", "a", "b", "c"), (10, 20, 30, 40))
+        )
+        terms, _record = bind_exact_worst_install(market, terms)
+        runtime.history_fault = "revert"
+        before = copy.deepcopy(market)
+        with self.assertRaises(RuntimeError):
+            market._settlement_stage_best(
+                lineup(*terms), model.Clock(110, 53)
+            )
+        self.assertEqual(market, before)
+        runtime = market.target_runtimes[market.current_authorization_id]
+        runtime.history_fault = None
+        runtime.install_record_override = b"malformed"
+        self.assert_rejects_unchanged(
+            market,
+            lambda: market._settlement_stage_best(
+                lineup(*terms), model.Clock(110, 53)
+            ),
+        )
+        def rekey(record):
+            return replace(
+                record,
+                term_id=model.seat_term_identity_v1(
+                    record.authorization_id,
+                    record.generation,
+                    record.offer_id,
+                    record.tranche_id,
+                    record.installed_at,
+                    record.install_revision,
+                ),
+            )
+
+        for changed in (
+            rekey(replace(_record, installed_at=_record.installed_at + 1)),
+            replace(_record, ask_wei_per_second=_record.ask_wei_per_second + 1),
+            rekey(replace(_record, offer_id=b"x" * 32)),
+            rekey(replace(_record, authorization_id=b"y" * 32)),
+        ):
+            runtime = market.target_runtimes[market.current_authorization_id]
+            runtime.install_record_override = \
+                model.encode_seat_install_record_v1(changed)
+            self.assert_rejects_unchanged(
+                market,
+                lambda: market._settlement_stage_best(
+                    lineup(*terms), model.Clock(110, 53)
+                ),
+            )
+
+    def test_full_lineup_market_fault_is_atomic(self):
+        market = make_market(
+            minimum_ask_improvement_wei_per_second=5,
+            minimum_ask_improvement_bps=0,
+        )
+        market.sponsor_premium(3_500)
+        insert(market, "candidate", 35)
+        terms = tuple(
+            lineup_term(label, ask=ask, installed_at=100)
+            for label, ask in zip(("p", "a", "b", "c"), (10, 20, 30, 40))
+        )
+        terms, _record = bind_exact_worst_install(market, terms)
+        market.fault_point = "after_reserve_debit"
+        self.assert_rejects_unchanged(
+            market,
+            lambda: market._settlement_stage_best(
+                lineup(*terms), model.Clock(110, 53)
+            ),
+            RuntimeError,
+        )
+
+    def test_installed_tranche_cannot_use_pending_exit_lifecycle(self):
+        market = make_market()
+        row, _term_id = stage_and_install(market, "inst-exit", 0)
+        self.assert_rejects_unchanged(
+            market,
+            lambda: market.request_pending_exit(
+                row.tranche.operator,
+                row.offer.offer_id,
+                model.Clock(120, 54),
+            ),
+        )
+        self.assert_rejects_unchanged(
+            market,
+            lambda: market.finalize_pending_exit(
+                row.tranche.tranche_id, model.Clock(1_000, 100)
+            ),
+        )
+
     def test_structural_infeasibility_is_skipped_but_first_feasible_underfunded_stops(self):
         # The best quote is structurally poisoned only by being immature; the
         # later mature quote must still stage.
@@ -2503,7 +2930,7 @@ class Task3StagingTests(AtomicAssertions):
             model.ResultCode.STAGED,
         )
 
-    def test_underfunded_primary_bid_cannot_mask_reserve_reuse_lane(self):
+    def test_full_lineup_replacement_never_reuses_outgoing_reserve(self):
         market = make_market()
         auth_id = market.current_authorization_id
         source_amount = 60 * market.seat_runway_seconds
@@ -2554,23 +2981,10 @@ class Task3StagingTests(AtomicAssertions):
             installed_at=source_stage.handover_at,
         )
         terms = (*prefix, worst)
-        install = model.SeatInstallRecordV1(
-            auth_id,
-            7,
-            worst.term_id,
-            worst.tranche_id,
-            worst.offer_id,
-            worst.operator,
-            worst.payout,
-            worst.ask_wei_per_second,
-            worst.installed_at,
-            1,
-        )
-        market.target_runtimes[auth_id].install_record_override = (
-            model.encode_seat_install_record_v1(install)
-        )
-        best = insert(market, "masking-best", 29)
-        insert(market, "later-honest", 59)
+        terms, _record = bind_exact_worst_install(market, terms)
+        self.assertEqual(terms[-1].term_id, worst_term_id)
+        worst = terms[-1]
+        candidate = insert(market, "fresh-only", 59)
         snapshot = model.LineupSnapshot(
             market.authorization.target,
             auth_id,
@@ -2580,19 +2994,29 @@ class Task3StagingTests(AtomicAssertions):
             ),
             terms,
         )
+        before = copy.deepcopy(market)
+        result = market._settlement_stage_best(
+            snapshot, model.Clock(125, 60)
+        )
+        self.assertIs(result.code, model.ResultCode.UNDERFUNDED)
+        self.assertEqual(result.offer.offer_id, candidate.offer.offer_id)
+        self.assertEqual(result.amount, 5_900)
+        self.assertEqual(market, before)
+        self.assertIn(worst.term_id, market.accounting.live_reserves)
+
+        market.sponsor_premium(5_900)
         result = market._settlement_stage_best(
             snapshot, model.Clock(125, 60)
         )
         self.assertIs(result.code, model.ResultCode.STAGED)
-        self.assertEqual(result.offer.offer_id, best.offer.offer_id)
-        self.assertIs(
-            result.stage.funding_mode,
-            model.StageFundingMode.REUSE_UNSTARTED_STANDBY,
-        )
         self.assertEqual(result.stage.outgoing_primary_term_id, worst.term_id)
-        self.assertEqual(result.stage.selected_rank, 1)
-        self.assertEqual(result.amount, 2_900)
-        self.assertEqual(result.stage.contingent_surplus_wei, 3_100)
+        self.assertEqual(result.stage.selected_rank, 3)
+        self.assertEqual(result.amount, 5_900)
+        self.assertEqual(
+            market.accounting.live_reserves[worst.term_id].reserved_wei,
+            source_amount,
+        )
+        self.assertEqual(market.accounting.free_premium, 0)
         market.assert_valid()
 
     def test_live_primary_headroom_and_gross_reserve_do_not_use_outgoing_release(self):
@@ -2603,11 +3027,13 @@ class Task3StagingTests(AtomicAssertions):
         market.sponsor_premium(10_000)
         insert(market, "alice", 9)
         before = copy.deepcopy(market)
-        self.assertEqual(
-            market._settlement_stage_best(lineup(primary), model.Clock(110, 53)).code,
-            model.ResultCode.NO_FEASIBLE_OFFER,
+        fallback = market._settlement_stage_best(
+            lineup(primary), model.Clock(110, 53)
         )
-        self.assertEqual(market, before)
+        self.assertEqual(fallback.code, model.ResultCode.STAGED)
+        self.assertEqual(fallback.stage.selected_rank, 1)
+        self.assertIsNone(fallback.stage.outgoing_primary_term_id)
+        self.assertNotEqual(market, before)
 
         # A large incumbent reserve exists, but only current freePremium counts.
         incumbent = make_market()
@@ -2893,17 +3319,11 @@ class Task3PremiumTests(AtomicAssertions):
         )
         self.assertEqual(earned.amount, 50)
 
-        overflow = make_market(
-            immutable_maximum_ask=model.UINT256_MAX,
-            seat_runway_seconds=2,
-        )
-        overflow.sponsor_premium(1)
-        insert(overflow, "overflow", model.UINT256_MAX)
-        self.assert_rejects_unchanged(
-            overflow,
-            lambda: overflow._settlement_stage_best(lineup(), model.Clock(110, 53)),
-            model.ArithmeticFault,
-        )
+        with self.assertRaises(model.ArithmeticFault):
+            make_market(
+                immutable_maximum_ask=model.UINT256_MAX,
+                seat_runway_seconds=2,
+            )
 
     def test_every_exact_target_identity_field_fails_closed(self):
         market, row, term = self.installed(ask=5)
@@ -3905,7 +4325,7 @@ class Task3StatefulTests(unittest.TestCase):
                 elif action == "requote":
                     result = record(
                         "requote",
-                        lambda step=step: market.requote(
+                        lambda step=step: market._requote(
                             caller=row.tranche.operator,
                             offer_id=row.offer.offer_id,
                             payout=addr(f"p{sequence}x{step}"),
@@ -3990,7 +4410,7 @@ class Task3StatefulTests(unittest.TestCase):
                 elif action == "bad_requote":
                     reject(
                         action,
-                        lambda: market.requote(
+                        lambda: market._requote(
                             caller=row.tranche.operator,
                             offer_id=row.offer.offer_id,
                             payout=addr("bad-stage-rq"),
@@ -4522,13 +4942,13 @@ class MigrationGenerationAndRotationTests(AtomicAssertions):
             market.sync_seat_generation()
         self.assertEqual(market, lower_before)
 
-    def test_insert_requote_and_pending_refund_never_read_settlement(self):
+    def test_submit_reads_active_target_but_owned_lifecycle_does_not(self):
         market = make_market()
         runtime = market.target_runtimes[market.current_authorization_id]
         reads = runtime.read_count
         row = insert(market, "zero-read", 10)
-        self.assertEqual(runtime.read_count, reads)
-        requoted = market.requote(
+        self.assertEqual(runtime.read_count, reads + 1)
+        requoted = market._requote(
             caller=addr("zero-read"),
             offer_id=row.offer.offer_id,
             ask_wei_per_second=9,
@@ -4537,16 +4957,16 @@ class MigrationGenerationAndRotationTests(AtomicAssertions):
             generation=market.cached_generation,
             clock=model.Clock(101, 51),
         )
-        self.assertEqual(runtime.read_count, reads)
+        self.assertEqual(runtime.read_count, reads + 1)
         market.request_pending_exit(
             addr("zero-read"), requoted.offer.offer_id, model.Clock(102, 52)
         )
-        self.assertEqual(runtime.read_count, reads)
+        self.assertEqual(runtime.read_count, reads + 1)
         market.finalize_pending_exit(
             row.tranche.tranche_id,
             model.Clock(102 + market.exit_delay_seconds, 53),
         )
-        self.assertEqual(runtime.read_count, reads)
+        self.assertEqual(runtime.read_count, reads + 1)
 
     def test_higher_generation_purges_only_pending_and_preserves_stage(self):
         market = make_market()
@@ -4710,12 +5130,16 @@ class MigrationGenerationAndRotationTests(AtomicAssertions):
         market, rows, new_auth, new_id, receipt, manager = fixture()
         old_runtime = market.target_runtimes[receipt.source_authorization_id]
         new_runtime = manager.target_runtimes[receipt.target_authorization_id]
+        reads_before = (old_runtime.read_count, new_runtime.read_count)
         result = model.decode_market_rotation_receipt_v1(
             market.rotate_settlement_authorization_v1(
                 model.Clock(1_001, 1_001)
             )
         )
-        self.assertEqual((old_runtime.read_count, new_runtime.read_count), (1, 1))
+        self.assertEqual(
+            (old_runtime.read_count, new_runtime.read_count),
+            (reads_before[0] + 1, reads_before[1] + 1),
+        )
         self.assertEqual(market.current_authorization_id, new_id)
         self.assertFalse(market.authorization_enabled[receipt.source_authorization_id])
         self.assertTrue(market.authorization_enabled[new_id])

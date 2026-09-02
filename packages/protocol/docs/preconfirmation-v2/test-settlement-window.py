@@ -162,12 +162,10 @@ def make_pair(
 
 
 def insert_offer(seat_market, operator, ask, timestamp, block_number):
-    return seat_market.insert_offer(
+    return seat_market.submit_seat_offer_v1(
         caller=addr(operator),
         payout=addr(f"pay-{operator}"),
         ask_wei_per_second=ask,
-        target=authorization().target,
-        generation=7,
         clock=market.Clock(timestamp, block_number),
         value=seat_market.sla_bond,
     )
@@ -216,12 +214,10 @@ def install_current_offer(
     quoted_block,
 ):
     seat_market.sponsor_premium(ask * seat_market.seat_runway_seconds)
-    row = seat_market.insert_offer(
+    row = seat_market.submit_seat_offer_v1(
         caller=addr(operator),
         payout=addr(f"pay-{operator}"),
         ask_wei_per_second=ask,
-        target=protocol.settlement_address,
-        generation=protocol.seat_generation,
         clock=market.Clock(quoted_at, quoted_block),
         value=seat_market.sla_bond,
     )
@@ -12709,7 +12705,7 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
     def _stage_old_target(rows):
         old_protocol, _old_history, _new_history, seat_market = rows[:4]
         seat_market.sponsor_premium(seat_market.seat_runway_seconds)
-        seat_market.insert_offer(
+        seat_market._insert_offer(
             caller=addr("stage-old"),
             payout=addr("stage-old-pay"),
             ask_wei_per_second=1,
@@ -12885,7 +12881,7 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
         self.assertEqual(
             seat_market.sync_seat_generation().purged_count, 0
         )
-        inserted = seat_market.insert_offer(
+        inserted = seat_market._insert_offer(
             caller=addr("after-abort"),
             payout=addr("after-abort-pay"),
             ask_wei_per_second=1,
@@ -12921,7 +12917,7 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             release_manager, old_id, new_id,
         ) = rows
         for index in range(4):
-            seat_market.insert_offer(
+            seat_market._insert_offer(
                 caller=addr(f"pending-{index}"),
                 payout=addr(f"pay-{index}"),
                 ask_wei_per_second=index + 1,
@@ -12963,7 +12959,7 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
         sync = seat_market.sync_seat_generation()
         self.assertEqual(sync.purged_count, 0)
         self.assertEqual(seat_market.cached_generation, new_protocol.seat_generation)
-        inserted = seat_market.insert_offer(
+        inserted = seat_market._insert_offer(
             caller=addr("new-operator"),
             payout=addr("new-payout"),
             ask_wei_per_second=1,
@@ -14279,7 +14275,7 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
         with self.assertRaises(market.TransitionRejected):
             seat_market.sync_seat_generation()
         with self.assertRaises(market.TransitionRejected):
-            seat_market.insert_offer(
+            seat_market._insert_offer(
                 caller=addr("frozen-hop"), payout=addr("frozen-hop-pay"),
                 ask_wei_per_second=1,
                 target=second_history.address,
@@ -14322,7 +14318,7 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             seat_market.sponsor_premium(
                 ask * seat_market.seat_runway_seconds
             )
-            inserted = seat_market.insert_offer(
+            inserted = seat_market._insert_offer(
                 caller=addr(label),
                 payout=addr(f"pay-{label}"),
                 ask_wei_per_second=ask,
@@ -14586,7 +14582,7 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             (second_protocol, second_row, second_term),
         ):
             with self.assertRaises(market.TransitionRejected):
-                seat_market.insert_offer(
+                seat_market._insert_offer(
                     caller=addr("old-insert"),
                     payout=addr("old-insert-pay"),
                     ask_wei_per_second=1,
@@ -14596,7 +14592,7 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
                     value=seat_market.sla_bond,
                 )
             with self.assertRaises(market.TransitionRejected):
-                seat_market.requote(
+                seat_market._requote(
                     caller=old_row.offer.operator,
                     offer_id=old_row.offer.offer_id,
                     payout=old_row.offer.payout,
@@ -14637,7 +14633,7 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             "COMMITTED",
         )
         seat_market.sponsor_premium(seat_market.seat_runway_seconds)
-        third_insert = seat_market.insert_offer(
+        third_insert = seat_market._insert_offer(
             caller=addr("v3-owner"),
             payout=addr("pay-v3-owner"),
             ask_wei_per_second=1,
@@ -20340,6 +20336,373 @@ class RewardReceiptV1Tests(unittest.TestCase):
         self.assertIsNone(
             overflow_protocol.reward_receipts[1][0x77].receipt
         )
+
+
+class RegistryLifecycleRound4Tests(unittest.TestCase):
+    """Adversarial boundaries for the Round-4 BuilderRegistry closure."""
+
+    @staticmethod
+    def generation(index, *, bond=None, effective_window=8):
+        return settlement.Generation(
+            f"registry-builder-{index}",
+            index + 1 if bond is None else bond,
+            index,
+            effective_window,
+        )
+
+    def test_self_consent_and_lowest_vacancy_cover_cell_zero_and_sixty_three(self):
+        registry = settlement.RegistryLifecycle([])
+        first = self.generation(0)
+        self.assertFalse(registry.admit(first, 0, caller="attacker"))
+        self.assertTrue(registry.admit(first, 0, caller=first.address))
+        self.assertEqual(registry.active[0].address, first.address)
+        self.assertEqual(registry.active[0].registration_index, 0)
+        self.assertEqual(registry.active[0].effective_l2_slot, 8 * 384)
+        for index in range(1, 64):
+            generation = self.generation(index)
+            self.assertTrue(registry.admit(
+                generation, 0, caller=generation.address
+            ))
+        self.assertEqual(registry.active[63].registration_index, 63)
+        self.assertEqual(registry.active_count, 64)
+
+        registry.active[17] = None
+        hole = self.generation(64, bond=10_000)
+        self.assertTrue(registry.admit(hole, 0, caller=hole.address))
+        self.assertEqual(registry.active[17].address, hole.address)
+        self.assertEqual(registry.active[17].registration_index, 64)
+
+    def test_full_fresh_table_has_no_eight_window_sybil_fence(self):
+        registry = settlement.RegistryLifecycle([
+            self.generation(index, bond=10, effective_window=8)
+            for index in range(64)
+        ], lease_per_window_atomic=10)
+        newcomer = self.generation(64, bond=11, effective_window=999)
+        self.assertTrue(registry.admit(
+            newcomer, 0, caller=newcomer.address, current_l2_slot=17
+        ))
+        self.assertEqual(registry.active[63].registration_index, 64)
+        self.assertEqual(registry.active[63].effective_l2_slot, 17 + 8 * 384)
+        self.assertEqual(registry.liability_ring[0][0].registration_index, 63)
+        self.assertEqual(
+            registry.liability_ring[0][0].tombstoned_at_l2_slot,
+            settlement.UINT64_MAX,
+        )
+
+    def test_healthy_movement_preserves_sealed_key_but_liability_slash_tombstones(self):
+        generations = [
+            self.generation(
+                index,
+                bond=(10 if index == 0 else 100 + index),
+                effective_window=0,
+            )
+            for index in range(64)
+        ]
+        registry = settlement.RegistryLifecycle(
+            generations, lease_per_window_atomic=10
+        )
+        victim = generations[0]
+        self.assertTrue(registry.reserve(victim.address, 8, 0))
+        newcomer = self.generation(64, bond=1_000)
+        self.assertTrue(registry.admit(
+            newcomer, 0, caller=newcomer.address, current_l2_slot=7
+        ))
+        retained = registry.liability_ring[0][0]
+        self.assertEqual(retained.registration_index, 0)
+        self.assertEqual(
+            retained.tombstoned_at_l2_slot, settlement.UINT64_MAX
+        )
+        self.assertEqual(
+            registry.tranche_state(0, 8), settlement.TrancheState.LIABLE
+        )
+
+        self.assertTrue(registry.slash_tranche(
+            0,
+            8,
+            registry.tranche_deadline(8),
+            reporter="reporter",
+            reporter_cap_atomic=3,
+            current_l2_slot=99,
+        ))
+        self.assertEqual(
+            registry.liability_ring[0][0].tombstoned_at_l2_slot, 99
+        )
+
+    def test_tombstone_maintenance_precedes_healthy_replacement(self):
+        registry = settlement.RegistryLifecycle([
+            self.generation(index, bond=100 + index, effective_window=0)
+            for index in range(64)
+        ])
+        victim = registry.active[63]
+        self.assertIsNotNone(victim)
+        registry.active[63] = replace(
+            victim, tombstoned_at_l2_slot=123, reservations_closed=True
+        )
+        healthy_before = tuple(registry.active[:63])
+        newcomer = self.generation(64, bond=100_000)
+        self.assertFalse(registry.admit(
+            newcomer, 0, caller=newcomer.address, current_l2_slot=123
+        ))
+        self.assertEqual(tuple(registry.active[:63]), healthy_before)
+        self.assertEqual(registry.process_maintenance(
+            0, current_l2_slot=123
+        )[1], 1)
+        self.assertTrue(registry.admit(
+            newcomer, 0, caller=newcomer.address, current_l2_slot=123
+        ))
+        self.assertEqual(registry.active[63].registration_index, 64)
+
+    def test_registration_index_and_bond_floor_are_derived(self):
+        registry = settlement.RegistryLifecycle([], lease_per_window_atomic=10)
+        wrong_index = self.generation(1, bond=10)
+        self.assertFalse(registry.admit(
+            wrong_index, 0, caller=wrong_index.address
+        ))
+        below_floor = self.generation(0, bond=9)
+        self.assertFalse(registry.admit(
+            below_floor, 0, caller=below_floor.address
+        ))
+        first = self.generation(0, bond=10, effective_window=999)
+        self.assertTrue(registry.admit(
+            first, 0, caller=first.address, current_l2_slot=19
+        ))
+        self.assertEqual(registry.next_registration_index, 1)
+        self.assertEqual(registry.active[0].effective_l2_slot, 19 + 8 * 384)
+
+    def test_empty_free_reserved_custody_and_window_ring_wrap(self):
+        gate = settlement.MigrationGate(coordinator="version-manager")
+        self.assertTrue(gate._bootstrap_from_router(1))
+        builder = self.generation(0, bond=100, effective_window=0)
+        registry = settlement.RegistryLifecycle(
+            [builder], migration_gate=gate, lease_per_window_atomic=10
+        )
+        self.assertEqual(registry.accounted_builder_token, 100)
+        self.assertFalse(registry.reserve(
+            builder.address, 511, 511, caller="attacker"
+        ))
+        self.assertTrue(registry.reserve(
+            builder.address, 511, 511, caller=builder.address
+        ))
+        self.assertEqual(registry.accounted_builder_token, 110)
+        self.assertEqual(registry.tranche_ring_window(0, 511), 511)
+        self.assertEqual(registry.active[0].reservation_bitmap, 1)
+
+        self.assertEqual(registry.normalize_reservations(
+            builder.registration_index, 512), 1)
+        self.assertEqual(
+            registry.tranche_state(builder.registration_index, 511),
+            settlement.TrancheState.LIABLE,
+        )
+        cursor = settlement.ScheduleReleaseCursor(next_release_window=511)
+        self.assertTrue(cursor.expire(511, releasable=True))
+        deadline = registry.tranche_deadline(511)
+        self.assertFalse(registry.release_tranche(
+            builder.registration_index, 511, deadline, cursor
+        ))
+        self.assertTrue(registry.release_tranche(
+            builder.registration_index, 511, deadline + 1, cursor
+        ))
+        self.assertTrue(registry.reserve(
+            builder.address, 512, 512, caller=builder.address
+        ))
+        self.assertEqual(registry.tranche_ring_window(0, 512), 512)
+        self.assertEqual(registry.active[0].reservation_bitmap, 1)
+        registry.assert_custody_conservation()
+
+    def test_evidence_accepts_deadline_equality_and_release_is_strict(self):
+        builder = self.generation(0, bond=100, effective_window=0)
+        registry = settlement.RegistryLifecycle(
+            [builder], lease_per_window_atomic=20
+        )
+        self.assertTrue(registry.reserve(builder.address, 9, 9))
+        self.assertEqual(registry.normalize_reservations(
+            builder.registration_index, 10), 1)
+        deadline = registry.tranche_deadline(9)
+        self.assertTrue(registry.slash_tranche(
+            builder.registration_index,
+            9,
+            deadline,
+            reporter="reporter",
+            reporter_cap_atomic=7,
+            current_l2_slot=3_999,
+        ))
+        self.assertEqual(registry.active[0].tombstoned_at_l2_slot, 3_999)
+        self.assertEqual(registry.credits["reporter"], 7)
+        self.assertEqual(registry.credits[registry.penalty_sink], 13)
+        self.assertFalse(registry.slash_tranche(
+            builder.registration_index,
+            9,
+            deadline,
+            reporter="reporter",
+            reporter_cap_atomic=7,
+            current_l2_slot=4_000,
+        ))
+        registry.assert_custody_conservation()
+
+    def test_base_and_tranche_credits_claim_once_without_sweeping_surplus(self):
+        builder = self.generation(0, bond=100, effective_window=0)
+        registry = settlement.RegistryLifecycle(
+            [builder], lease_per_window_atomic=10
+        )
+        self.assertTrue(registry.reserve(builder.address, 0, 0))
+        self.assertEqual(registry.normalize_reservations(0, 1), 1)
+        cursor = settlement.ScheduleReleaseCursor(next_release_window=0)
+        self.assertTrue(cursor.expire(0, releasable=True))
+        self.assertTrue(registry.release_tranche(
+            0, 0, registry.tranche_deadline(0) + 1, cursor
+        ))
+        self.assertEqual(registry.credits[builder.address], 10)
+
+        self.assertTrue(registry.request_exit(builder.address, 1))
+        self.assertEqual(registry.process_maintenance(
+            269, current_l2_slot=269 * 384
+        )[1], 1)
+        self.assertTrue(registry.release_liability(0, 269))
+        self.assertEqual(registry.credits[builder.address], 110)
+
+        registry.force_token_surplus(7)
+        self.assertEqual(registry.token_balance, 117)
+        self.assertEqual(registry.claim_credit(
+            builder.address, "recipient", caller=builder.address
+        ), 110)
+        self.assertEqual(registry.token_balance, 7)
+        self.assertEqual(registry.accounted_builder_token, 0)
+        with self.assertRaises(ValueError):
+            registry.claim_credit(
+                builder.address, "recipient", caller=builder.address
+            )
+        registry.assert_custody_conservation()
+
+    def test_fifo_maintenance_precedes_full_table_replacement_and_caps_moves(self):
+        registry = settlement.RegistryLifecycle([
+            self.generation(index, effective_window=0) for index in range(64)
+        ])
+        for index in range(5):
+            builder = registry.active[index]
+            self.assertIsNotNone(builder)
+            self.assertTrue(registry.request_exit(
+                builder.address, 0, caller=builder.address
+            ))
+        newcomer = self.generation(64, bond=100_000, effective_window=277)
+        self.assertFalse(registry.admit(
+            newcomer, 268, caller=newcomer.address
+        ))
+
+        inspected, moved = registry.process_maintenance(
+            268, current_l2_slot=268 * 384
+        )
+        self.assertGreaterEqual(inspected, 4)
+        self.assertEqual(moved, 4)
+        self.assertEqual(
+            [row.registration_index for row in registry.liabilities[:4]],
+            [0, 1, 2, 3],
+        )
+        self.assertEqual(registry.moves_used(268), 4)
+        self.assertEqual(registry.process_maintenance(
+            268, current_l2_slot=268 * 384
+        )[1], 0)
+        self.assertEqual(registry.process_maintenance(
+            269, current_l2_slot=269 * 384
+        )[1], 1)
+        self.assertTrue(registry.admit(
+            newcomer, 269, caller=newcomer.address
+        ))
+        self.assertEqual(registry.active[0].address, newcomer.address)
+        self.assertEqual(registry.active[0].registration_index, 64)
+        self.assertEqual(
+            registry.active[0].effective_l2_slot,
+            269 * 384 + 8 * 384,
+        )
+
+    def test_liability_last_cell_wrap_and_pair_proof_order(self):
+        registry = settlement.RegistryLifecycle([
+            self.generation(index, effective_window=0) for index in range(64)
+        ])
+        registry.movement_sequence = 1_071
+        first = self.generation(64, bond=100_000, effective_window=8)
+        second = self.generation(65, bond=100_001, effective_window=8)
+        self.assertTrue(registry.admit(first, 0, caller=first.address))
+        self.assertEqual(registry.liability_ring[1_071][0].registration_index, 0)
+        self.assertTrue(registry.admit(second, 0, caller=second.address))
+        self.assertEqual(registry.liability_ring[0][0].registration_index, 1)
+
+        pre_root = b"p" * 32
+        intermediate, final = settlement.admission_move_proof_order(
+            pre_root,
+            liability_position=64 + 1_071,
+            active_position=63,
+            liability_proof_root=pre_root,
+            active_proof_root=None,
+        )
+        self.assertEqual(len(intermediate), 32)
+        self.assertEqual(len(final), 32)
+        self.assertEqual(
+            settlement.admission_move_proof_order(
+                pre_root,
+                liability_position=64 + 1_071,
+                active_position=63,
+                liability_proof_root=pre_root,
+                active_proof_root=intermediate,
+            ),
+            (intermediate, final),
+        )
+        with self.assertRaises(ValueError):
+            settlement.admission_move_proof_order(
+                pre_root,
+                liability_position=64 + 1_071,
+                active_position=63,
+                liability_proof_root=b"a" * 32,
+                active_proof_root=pre_root,
+            )
+
+    def test_asr1_armed_blocks_only_new_reservations(self):
+        gate = settlement.MigrationGate(coordinator="version-manager")
+        self.assertTrue(gate._bootstrap_from_router(1))
+        builder = self.generation(0, bond=100, effective_window=0)
+        registry = settlement.RegistryLifecycle(
+            [builder], migration_gate=gate, lease_per_window_atomic=10
+        )
+        self.assertTrue(registry.reserve(builder.address, 0, 0))
+        gate.mode = "ARMED"
+        self.assertFalse(registry.reserve(builder.address, 1, 0))
+        self.assertTrue(registry.request_exit(
+            builder.address, 0, caller=builder.address
+        ))
+        self.assertEqual(registry.normalize_reservations(
+            builder.registration_index, 1), 1)
+        cursor = settlement.ScheduleReleaseCursor(next_release_window=0)
+        self.assertTrue(cursor.expire(0, releasable=True))
+        deadline = registry.tranche_deadline(0)
+        self.assertTrue(registry.release_tranche(
+            builder.registration_index, 0, deadline + 1, cursor
+        ))
+        registry.assert_custody_conservation()
+
+    def test_schedule_cursor_starts_at_launch_window_and_never_backfills_zero(self):
+        cursor = settlement.ScheduleReleaseCursor(first_managed_window=1_000_000)
+        self.assertEqual(cursor.next_release_window, 1_000_000)
+        self.assertFalse(cursor.is_expired(999_999))
+        self.assertFalse(cursor.expire(0, releasable=True))
+        self.assertTrue(cursor.expire(1_000_000, releasable=True))
+        self.assertTrue(cursor.is_expired(1_000_000))
+        self.assertFalse(cursor.is_expired(999_999))
+
+    def test_normalization_never_releases_or_credits(self):
+        builder = self.generation(0, bond=100, effective_window=0)
+        registry = settlement.RegistryLifecycle(
+            [builder], lease_per_window_atomic=10
+        )
+        self.assertTrue(registry.reserve(builder.address, 0, 0))
+        deadline = registry.tranche_deadline(0)
+        before_balance = registry.token_balance
+        self.assertEqual(registry.normalize_reservations(0, 10_000), 1)
+        self.assertEqual(registry.tranche_escrow, 10)
+        self.assertEqual(registry.credits, {})
+        self.assertEqual(registry.token_balance, before_balance)
+        cursor = settlement.ScheduleReleaseCursor(first_managed_window=0)
+        self.assertTrue(cursor.expire(0, releasable=True))
+        self.assertFalse(registry.release_tranche(0, 0, deadline, cursor))
+        self.assertTrue(registry.release_tranche(0, 0, deadline + 1, cursor))
 
 
 if __name__ == "__main__":
