@@ -6,8 +6,10 @@ import "../libs/LibAddress.sol";
 import "../libs/LibNames.sol";
 import "./BaseVault.sol";
 import "./IBridgedERC20.sol";
+import "./IPermit2.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 
@@ -27,6 +29,12 @@ contract ERC20Vault is BaseVault {
 
     uint256 public constant MIN_MIGRATION_DELAY = 90 days;
 
+    /// @notice The canonical Uniswap Permit2 contract. Permit2 is deployed at this same address on
+    /// every chain via the deterministic deployer, so it needs no per-chain configuration.
+    /// @dev Bridging with a Permit2 signature is opt-in, so on a chain where Permit2 is not
+    /// deployed only `sendTokenWithPermit2` is unavailable; every other entrypoint is unaffected.
+    address public constant PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
+
     IQuotaManager public immutable quotaManager;
 
     /// @dev Represents a canonical ERC20 token.
@@ -36,6 +44,18 @@ contract ERC20Vault is BaseVault {
         uint8 decimals;
         string symbol;
         string name;
+    }
+
+    /// @dev A Permit2 `SignatureTransfer` authorization, threaded from the entrypoint down to the
+    /// pull. Named members rather than a hand-encoded tuple: `nonce` and `deadline` are both
+    /// `uint256`, so transposing them is invisible to both the compiler and the function selector.
+    struct Permit2Data {
+        // The Permit2 unordered nonce.
+        uint256 nonce;
+        // The signature's expiry timestamp.
+        uint256 deadline;
+        // The owner's signature over the permit, passed to Permit2 verbatim.
+        bytes signature;
     }
 
     /// @dev Represents an operation to send tokens to another chain.
@@ -162,6 +182,7 @@ contract ERC20Vault is BaseVault {
     error VAULT_INVALID_CTOKEN();
     error VAULT_INVALID_NEW_BTOKEN();
     error VAULT_LAST_MIGRATION_TOO_CLOSE();
+    error VAULT_PERMIT_NO_ALLOWANCE();
 
     constructor(address _resolver, address _quotaManager) BaseVault(_resolver) {
         quotaManager = IQuotaManager(_quotaManager);
@@ -254,14 +275,135 @@ contract ERC20Vault is BaseVault {
         nonReentrant
         returns (IBridge.Message memory message_)
     {
+        Permit2Data memory noPermit2;
+        message_ = _sendToken(_op, noPermit2, false);
+    }
+
+    /// @notice Same as `sendToken`, but consumes an EIP-2612 permit signature to set this vault's
+    /// allowance first, so no separate `approve` transaction is needed.
+    /// @dev Only usable with tokens that implement EIP-2612; use `sendTokenWithPermit2` otherwise.
+    /// The caller must be the permit signer.
+    /// @dev EIP-2612 `permit` *sets* the allowance rather than adding to it, so a caller who already
+    /// holds a larger standing allowance for this vault will see it replaced by `_op.amount` and
+    /// then spent down to zero. That is safe (it only ever reduces standing approval) but it is
+    /// destructive, so callers that keep a long-lived allowance should use `sendToken` instead.
+    /// @dev A failed permit is swallowed, so a caller who already holds a sufficient allowance
+    /// bridges against it even when the signature is bad. That is the intended outcome -- the
+    /// caller is the token owner and asked for exactly this transfer -- and it is also what makes
+    /// the front-run case survivable, since a replayed signature leaves the allowance in place.
+    /// Only the resulting allowance matters, which is what is checked; a signature that leaves no
+    /// allowance behind reverts with `VAULT_PERMIT_NO_ALLOWANCE`.
+    /// @param _op Option for sending ERC20 tokens.
+    /// @param _deadline The permit signature's expiry timestamp.
+    /// @param _v The permit signature's `v` value.
+    /// @param _r The permit signature's `r` value.
+    /// @param _s The permit signature's `s` value.
+    /// @return message_ The constructed message.
+    function sendTokenWithPermit(
+        BridgeTransferOp calldata _op,
+        uint256 _deadline,
+        uint8 _v,
+        bytes32 _r,
+        bytes32 _s
+    )
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+        returns (IBridge.Message memory message_)
+    {
+        // Validate before calling into `_op.token`. The permit is an external call to a
+        // caller-chosen address, so it must not happen for an operation that cannot proceed
+        // anyway. `_sendToken` runs the same `_checkOp` again, so no entrypoint can skip it.
+        _checkOp(_op);
+
+        // The permit is best-effort: anyone can front-run it by replaying the same signature
+        // directly against the token, which consumes the nonce and would make an unguarded call
+        // revert. Only the allowance it leaves behind matters, so a failed permit is swallowed and
+        // the allowance is checked instead.
+        try IERC20Permit(_op.token)
+            .permit(msg.sender, address(this), _op.amount, _deadline, _v, _r, _s) { }
+            catch { }
+
+        // A `permit` call that neither reverts nor grants an allowance is not hypothetical: on a
+        // token whose fallback silently accepts unknown selectors (WETH9 being the obvious one)
+        // the `try` takes its success branch with the allowance still untouched. Checking the
+        // allowance rather than the call's outcome covers that alongside the front-run case, and
+        // fails here with a decodable error instead of deep inside `SafeERC20`.
+        if (IERC20(_op.token).allowance(msg.sender, address(this)) < _op.amount) {
+            revert VAULT_PERMIT_NO_ALLOWANCE();
+        }
+
+        Permit2Data memory noPermit2;
+        message_ = _sendToken(_op, noPermit2, false);
+    }
+
+    /// @notice Same as `sendToken`, but pulls the tokens with a Permit2 `SignatureTransfer`, so no
+    /// separate `approve` transaction is needed.
+    /// @dev Works for every ERC20 regardless of EIP-2612 support, and requires the caller to have
+    /// approved Permit2 once. The caller must be the permit signer. Reverts if Permit2 is not
+    /// deployed on this chain.
+    /// @param _op Option for sending ERC20 tokens.
+    /// @param _nonce The Permit2 unordered nonce.
+    /// @param _deadline The Permit2 signature's expiry timestamp.
+    /// @param _signature The caller's Permit2 signature, which must authorize exactly `_op.amount`
+    /// of `_op.token`. Passed to Permit2 verbatim as `bytes`, so a smart-contract wallet may
+    /// authorize the transfer with an EIP-1271 signature: Permit2 routes a signer that has code to
+    /// `isValidSignature` instead of `ecrecover`. Helpers that take a split `(v, r, s)` cannot
+    /// express such a signature, which is why the raw bytes are threaded through here. No length is
+    /// imposed on it for the same reason: Permit2 hands a contract signer whatever bytes it is
+    /// given, and an EIP-1271 wallet that authorizes from stored state (a pre-approved hash, say)
+    /// validates an empty signature. An EOA signature of the wrong length is rejected by Permit2
+    /// itself.
+    /// @return message_ The constructed message.
+    function sendTokenWithPermit2(
+        BridgeTransferOp calldata _op,
+        uint256 _nonce,
+        uint256 _deadline,
+        bytes calldata _signature
+    )
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+        returns (IBridge.Message memory message_)
+    {
+        Permit2Data memory permit2 =
+            Permit2Data({ nonce: _nonce, deadline: _deadline, signature: _signature });
+        message_ = _sendToken(_op, permit2, true);
+    }
+
+    /// @dev Validates a send operation. Every entrypoint reaches this through `_sendToken`, and
+    /// `sendTokenWithPermit` additionally runs it up front so it never hands execution to a
+    /// caller-chosen token for an operation that cannot proceed. Keeping the checks in one place is
+    /// what stops those two lists from drifting apart.
+    /// @param _op Option for sending ERC20 tokens.
+    function _checkOp(BridgeTransferOp calldata _op) private view {
         if (_op.amount == 0) revert VAULT_INVALID_AMOUNT();
         if (_op.token == address(0)) revert VAULT_INVALID_TOKEN();
         if (btokenDenylist[_op.token]) revert VAULT_BTOKEN_BLACKLISTED();
         if (msg.value < _op.fee) revert VAULT_INSUFFICIENT_FEE();
         checkToAddressOnSrcChain(_op.to, _op.destChainId);
+    }
+
+    /// @dev Shared implementation behind `sendToken`, `sendTokenWithPermit` and
+    /// `sendTokenWithPermit2`. The token pull is the only step that differs between them.
+    /// @param _op Option for sending ERC20 tokens.
+    /// @param _permit2 The Permit2 authorization; ignored unless `_usePermit2` is true.
+    /// @param _usePermit2 Whether to pull via Permit2 rather than a plain `transferFrom`.
+    /// @return message_ The constructed message.
+    function _sendToken(
+        BridgeTransferOp calldata _op,
+        Permit2Data memory _permit2,
+        bool _usePermit2
+    )
+        private
+        returns (IBridge.Message memory message_)
+    {
+        _checkOp(_op);
 
         (bytes memory data, CanonicalERC20 memory ctoken, uint256 balanceChange) =
-            _handleMessage(_op);
+            _handleMessage(_op, _permit2, _usePermit2);
 
         IBridge.Message memory message = IBridge.Message({
             id: 0, // will receive a new value
@@ -321,6 +463,15 @@ contract ERC20Vault is BaseVault {
     }
 
     /// @inheritdoc IRecallableSender
+    /// @dev The refund debits the withdrawal quota just like a cross-chain delivery does. A recall
+    /// is reached through the same destination-chain failure proof that a delivery is, and on the
+    /// bridged branch it mints supply bounded by no vault balance, so the quota is the only numeric
+    /// ceiling on this path and is deliberately kept.
+    /// @dev Consequence worth knowing: `QuotaManager` caps a token's refill at its configured
+    /// quota, so a single recall larger than that cap can never be refunded in one call. An
+    /// out-of-quota refund reverts atomically, leaving the message `NEW` and retryable once the
+    /// quota refills; a recall above the cap stays blocked until the owner raises the token's quota
+    /// via `QuotaManager.updateQuota`.
     function onMessageRecalled(
         IBridge.Message calldata _message,
         bytes32 _msgHash
@@ -336,7 +487,7 @@ contract ERC20Vault is BaseVault {
         (CanonicalERC20 memory ctoken,,, uint256 amount) =
             abi.decode(data, (CanonicalERC20, address, address, uint256));
 
-        // Transfer the ETH and tokens back to the owner
+        // Transfer the ETH and tokens back to the owner.
         address token = _transferTokens(ctoken, _message.srcOwner, amount);
         _message.srcOwner.sendEtherAndVerify(_message.value);
 
@@ -354,6 +505,17 @@ contract ERC20Vault is BaseVault {
         return LibNames.B_ERC20_VAULT;
     }
 
+    /// @dev Releases tokens to `_to`, either by transferring the canonical token this vault
+    /// custodies or by minting the bridged representation.
+    /// @dev Every release debits the withdrawal quota, whether it settles a delivery from another
+    /// chain or refunds a recalled message. A recall is not itself a cross-chain inflow, but it is
+    /// reached through the same failure-proof primitive as a delivery, and on the bridged branch it
+    /// mints supply that no vault balance bounds -- so the quota is the only numeric ceiling on
+    /// either path and is deliberately applied to both.
+    /// @param _ctoken The canonical token.
+    /// @param _to The recipient of the released tokens.
+    /// @param _amount The amount to release.
+    /// @return token_ The address of the token transferred or minted.
     function _transferTokens(
         CanonicalERC20 memory _ctoken,
         address _to,
@@ -390,15 +552,54 @@ contract ERC20Vault is BaseVault {
         }
     }
 
+    /// @dev Pulls `_amount` of `_token` from `msg.sender` into this vault. When `_usePermit2` is
+    /// true the pull is authorized by a Permit2 `SignatureTransfer`, which works for every ERC20
+    /// regardless of EIP-2612 support; otherwise a plain `transferFrom` against a pre-existing
+    /// allowance is used. The Permit2 owner is always `msg.sender`, so the caller remains the token
+    /// owner and `Message.srcOwner` keeps its meaning as the address a recall refunds.
+    /// @param _token The token to pull.
+    /// @param _amount The amount to pull.
+    /// @param _permit2 The Permit2 authorization; ignored unless `_usePermit2` is true.
+    /// @param _usePermit2 Whether to pull via Permit2 rather than a plain `transferFrom`.
+    function _pullTokens(
+        address _token,
+        uint256 _amount,
+        Permit2Data memory _permit2,
+        bool _usePermit2
+    )
+        private
+    {
+        if (!_usePermit2) {
+            IERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
+            return;
+        }
+
+        IPermit2.PermitTransferFrom memory permit = IPermit2.PermitTransferFrom({
+            permitted: IPermit2.TokenPermissions({ token: _token, amount: _amount }),
+            nonce: _permit2.nonce,
+            deadline: _permit2.deadline
+        });
+        IPermit2.SignatureTransferDetails memory details =
+            IPermit2.SignatureTransferDetails({ to: address(this), requestedAmount: _amount });
+
+        IPermit2(PERMIT2).permitTransferFrom(permit, details, msg.sender, _permit2.signature);
+    }
+
     /// @dev Handles the message on the source chain and returns the encoded
     /// call on the destination call.
     /// @param _op The BridgeTransferOp object.
+    /// @param _permit2 The Permit2 authorization; ignored unless `_usePermit2` is true.
+    /// @param _usePermit2 Whether to pull via Permit2 rather than a plain `transferFrom`.
     /// @return msgData_ Encoded message data.
     /// @return ctoken_ The canonical token.
     /// @return balanceChange_ User token balance actual change after the token
     /// transfer. This value is calculated so we do not assume token balance
     /// change is the amount of token transferred away.
-    function _handleMessage(BridgeTransferOp calldata _op)
+    function _handleMessage(
+        BridgeTransferOp calldata _op,
+        Permit2Data memory _permit2,
+        bool _usePermit2
+    )
         private
         returns (bytes memory msgData_, CanonicalERC20 memory ctoken_, uint256 balanceChange_)
     {
@@ -407,7 +608,7 @@ contract ERC20Vault is BaseVault {
         if (_ctoken.addr != address(0)) {
             ctoken_ = _ctoken;
             // Following the "transfer and burn" pattern, as used by USDC
-            IERC20(_op.token).safeTransferFrom(msg.sender, address(this), _op.amount);
+            _pullTokens(_op.token, _op.amount, _permit2, _usePermit2);
             IBridgedERC20(_op.token).burn(_op.amount);
             balanceChange_ = _op.amount;
         } else {
@@ -426,7 +627,7 @@ contract ERC20Vault is BaseVault {
             // transferred amount.
             IERC20 t = IERC20(_op.token);
             uint256 _balance = t.balanceOf(address(this));
-            t.safeTransferFrom(msg.sender, address(this), _op.amount);
+            _pullTokens(_op.token, _op.amount, _permit2, _usePermit2);
             balanceChange_ = t.balanceOf(address(this)) - _balance;
         }
 
