@@ -141,80 +141,41 @@ abstract contract BuildProposal is Script {
     /// there is one.
     function _buildAllActions() internal pure returns (Controller.Action[] memory allActions_) {
         Controller.Action[] memory l1Actions = buildL1Actions();
+        uint256 len = l1Actions.length;
+
         (uint64 l2ExecutionId, uint32 l2GasLimit, Controller.Action[] memory l2Actions) =
             buildL2Actions();
-        return _buildAllActions(l1Actions, l2ExecutionId, l2GasLimit, l2Actions);
-    }
-
-    /// @dev The parameterised form of `_buildAllActions`, so a proposal's fork rehearsal can
-    /// execute exactly the L1 batch the DAO will against implementations it deployed itself.
-    /// @param _l1Actions The L1 actions.
-    /// @param _l2ExecutionId The DelegateController execution id; zero means unordered.
-    /// @param _l2GasLimit The gas limit carried by the L1 to L2 message.
-    /// @param _l2Actions The L2 actions; empty when the proposal has no L2 leg.
-    /// @return allActions_ The L1 actions, plus the bridge message carrying the L2 batch when
-    /// there is one.
-    function _buildAllActions(
-        Controller.Action[] memory _l1Actions,
-        uint64 _l2ExecutionId,
-        uint32 _l2GasLimit,
-        Controller.Action[] memory _l2Actions
-    )
-        internal
-        pure
-        returns (Controller.Action[] memory allActions_)
-    {
-        uint256 len = _l1Actions.length;
-        if (_l2Actions.length > 0) {
+        if (l2Actions.length > 0) {
             len += 1;
         }
 
         allActions_ = new Controller.Action[](len);
 
-        for (uint256 i; i < _l1Actions.length; ++i) {
-            allActions_[i] = _l1Actions[i];
-            require(_l1Actions[i].target != address(0), TargetIsZeroAddress());
-            require(_l1Actions[i].target != L1.DAO_CONTROLLER, TargetIsDAOController());
+        for (uint256 i; i < l1Actions.length; ++i) {
+            allActions_[i] = l1Actions[i];
+            require(l1Actions[i].target != address(0), TargetIsZeroAddress());
+            require(l1Actions[i].target != L1.DAO_CONTROLLER, TargetIsDAOController());
         }
 
-        if (_l2Actions.length > 0) {
-            for (uint256 i; i < _l2Actions.length; ++i) {
-                require(_l2Actions[i].target != address(0), TargetIsZeroAddress());
+        if (l2Actions.length > 0) {
+            for (uint256 i; i < l2Actions.length; ++i) {
+                require(l2Actions[i].target != address(0), TargetIsZeroAddress());
             }
 
-            allActions_[_l1Actions.length] = Controller.Action({
-                target: L1.BRIDGE,
-                value: 0,
-                data: abi.encodeCall(
-                    IBridge.sendMessage, (_buildL2Message(_l2ExecutionId, _l2GasLimit, _l2Actions))
-                )
+            IBridge.Message memory message;
+            message.srcOwner = L1.DAO_CONTROLLER;
+            message.destOwner = L2.PERMISSIONLESS_EXECUTOR;
+            message.destChainId = 167_000;
+            message.gasLimit = l2GasLimit;
+            message.to = L2.DELEGATE_CONTROLLER;
+            message.data = abi.encodeCall(
+                IMessageInvocable.onMessageInvocation,
+                (abi.encodePacked(l2ExecutionId, abi.encode(l2Actions)))
+            );
+
+            allActions_[l1Actions.length] = Controller.Action({
+                target: L1.BRIDGE, value: 0, data: abi.encodeCall(IBridge.sendMessage, (message))
             });
         }
-    }
-
-    /// @dev The L1 to L2 message that carries an L2 batch to the DelegateController. `id`, `from`
-    /// and `srcChainId` are left zero: the L1 bridge assigns them when the DAO controller sends it.
-    /// @param _l2ExecutionId The DelegateController execution id; zero means unordered.
-    /// @param _l2GasLimit The gas limit carried by the message.
-    /// @param _l2Actions The L2 actions the DelegateController executes.
-    /// @return message_ The message, as `sendMessage` receives it.
-    function _buildL2Message(
-        uint64 _l2ExecutionId,
-        uint32 _l2GasLimit,
-        Controller.Action[] memory _l2Actions
-    )
-        internal
-        pure
-        returns (IBridge.Message memory message_)
-    {
-        message_.srcOwner = L1.DAO_CONTROLLER;
-        message_.destOwner = L2.PERMISSIONLESS_EXECUTOR;
-        message_.destChainId = 167_000;
-        message_.gasLimit = _l2GasLimit;
-        message_.to = L2.DELEGATE_CONTROLLER;
-        message_.data = abi.encodeCall(
-            IMessageInvocable.onMessageInvocation,
-            (abi.encodePacked(_l2ExecutionId, abi.encode(_l2Actions)))
-        );
     }
 }

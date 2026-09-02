@@ -116,13 +116,7 @@ contract Proposal0023ForkTest is Test {
     /// governance message left through the new implementation.
     /// @param _newImpl The implementation the proxy must now run.
     /// @param _messageIdBefore The bridge's `nextMessageId` before the batch.
-    function _assertL1BridgeAfterUpgrade(
-        address _newImpl,
-        uint64 _messageIdBefore
-    )
-        private
-        view
-    {
+    function _assertL1BridgeAfterUpgrade(address _newImpl, uint64 _messageIdBefore) private view {
         Bridge bridge = Bridge(payable(L1.BRIDGE));
         assertEq(_implementationOf(L1.BRIDGE), _newImpl);
         assertEq(bridge.resolver(), L1.SHARED_RESOLVER);
@@ -283,12 +277,7 @@ contract Proposal0023ForkTest is Test {
     /// can still send.
     /// @param _resolverProxy The new resolver.
     /// @param _before The live values read before the batch.
-    function _assertL2BridgeAfterUpgrade(
-        address _resolverProxy,
-        L2Before memory _before
-    )
-        private
-    {
+    function _assertL2BridgeAfterUpgrade(address _resolverProxy, L2Before memory _before) private {
         Bridge bridge = Bridge(payable(L2.BRIDGE));
 
         // This is the call that reverts if the wiring is wrong.
@@ -514,13 +503,26 @@ contract Proposal0023ForkTest is Test {
 /// @dev Exposes the proposal's builders so the rehearsal executes the calldata the proposal
 /// encodes from its constants rather than a hand-written copy of it.
 contract Proposal0023ForkHarness is Proposal0023 {
+    error NotSendMessage();
+
     function exposedBuildAllActions() external pure returns (Controller.Action[] memory) {
         return _buildAllActions();
     }
 
-    function exposedBuildL2Message() external pure returns (IBridge.Message memory) {
-        (uint64 l2ExecutionId, uint32 l2GasLimit, Controller.Action[] memory l2Actions) =
-            buildL2Actions();
-        return _buildL2Message(l2ExecutionId, l2GasLimit, l2Actions);
+    /// @dev The message the last L1 action sends, decoded from its calldata rather than rebuilt.
+    function exposedBuildL2Message() external view returns (IBridge.Message memory) {
+        Controller.Action[] memory actions = _buildAllActions();
+        return this.decodeSendMessage(actions[actions.length - 1].data);
+    }
+
+    function decodeSendMessage(bytes calldata _data)
+        external
+        pure
+        returns (IBridge.Message memory)
+    {
+        if (bytes4(_data[:4]) != IBridge.sendMessage.selector) {
+            revert NotSendMessage();
+        }
+        return abi.decode(_data[4:], (IBridge.Message));
     }
 }

@@ -101,19 +101,17 @@ contract Proposal0023Test is Test {
 
     /// @dev The DAO executes the L1 actions plus one `sendMessage` that `BuildProposal` appends,
     /// and the fork rehearsal executes exactly this batch. Pins its shape and the message it
-    /// carries.
+    /// carries, decoded from the `sendMessage` calldata rather than rebuilt here.
     function test_buildAllActions_AppendsTheL2MessageAfterTheL1Upgrades() external view {
-        Controller.Action[] memory actions = proposal.exposedBuildAllActions(_l1(), _l2());
+        Controller.Action[] memory actions = proposal.exposedBuildAllActions();
 
         assertEq(actions.length, 3);
-        _assertUpgrades(actions[0], L1.BRIDGE, BRIDGE_NEW_IMPL_L1);
-        _assertUpgrades(actions[1], L1.ERC20_VAULT, ERC20_VAULT_NEW_IMPL_L1);
-
-        IBridge.Message memory message = proposal.exposedBuildL2Message(_l2());
+        _assertUpgrades(actions[0], L1.BRIDGE, DEPLOYED_BRIDGE_IMPL_L1);
+        _assertUpgrades(actions[1], L1.ERC20_VAULT, DEPLOYED_ERC20_VAULT_IMPL_L1);
         assertEq(actions[2].target, L1.BRIDGE);
         assertEq(actions[2].value, 0);
-        assertEq(actions[2].data, abi.encodeCall(IBridge.sendMessage, (message)));
 
+        IBridge.Message memory message = proposal.decodeSendMessage(actions[2].data);
         assertEq(message.srcOwner, L1.DAO_CONTROLLER);
         assertEq(message.destOwner, L2.PERMISSIONLESS_EXECUTOR);
         assertEq(message.destChainId, 167_000);
@@ -122,7 +120,7 @@ contract Proposal0023Test is Test {
         assertEq(message.value, 0);
         assertEq(message.fee, 0);
 
-        (,, Controller.Action[] memory l2Actions) = proposal.exposedBuildL2Actions(_l2());
+        (,, Controller.Action[] memory l2Actions) = proposal.exposedBuildL2Actions();
         assertEq(
             message.data,
             abi.encodeCall(
@@ -172,26 +170,6 @@ contract Proposal0023Test is Test {
         );
         _assertUpgrades(actions[5], L2.ERC20_VAULT, DEPLOYED_ERC20_VAULT_IMPL_L2);
         _assertUpgrades(actions[6], L2.BRIDGE, DEPLOYED_BRIDGE_IMPL_L2);
-    }
-
-    /// @dev The no-argument path is exactly the parameterised path fed the deployed addresses, so
-    /// everything the parameterised tests prove about the encoding carries over to what the DAO
-    /// executes.
-    function test_buildAllActions_UsesDeployedImplementations() external view {
-        Proposal0023.L1Deployment memory l1 = Proposal0023.L1Deployment({
-            bridgeImpl: DEPLOYED_BRIDGE_IMPL_L1, erc20VaultImpl: DEPLOYED_ERC20_VAULT_IMPL_L1
-        });
-        Proposal0023.L2Deployment memory l2 = Proposal0023.L2Deployment({
-            sharedResolver: DEPLOYED_L2_SHARED_RESOLVER,
-            bridgeImpl: DEPLOYED_BRIDGE_IMPL_L2,
-            erc20VaultImpl: DEPLOYED_ERC20_VAULT_IMPL_L2,
-            bridgedErc20Impl: DEPLOYED_BRIDGED_ERC20_IMPL_L2
-        });
-
-        assertEq(
-            abi.encode(proposal.exposedBuildAllActions()),
-            abi.encode(proposal.exposedBuildAllActions(l1, l2))
-        );
     }
 
     /// @dev `Proposal0023.action.md` is the payload the DAO actually executes, and it is generated
@@ -275,31 +253,22 @@ contract Proposal0023Test is Test {
 }
 
 contract Proposal0023Harness is Proposal0023 {
+    error NotSendMessage();
+
     function exposedBuildAllActions() external pure returns (Controller.Action[] memory) {
         return _buildAllActions();
     }
 
-    function exposedBuildAllActions(
-        L1Deployment memory _l1,
-        L2Deployment memory _l2
-    )
-        external
-        pure
-        returns (Controller.Action[] memory)
-    {
-        (uint64 l2ExecutionId, uint32 l2GasLimit, Controller.Action[] memory l2Actions) =
-            buildL2Actions(_l2);
-        return _buildAllActions(buildL1Actions(_l1), l2ExecutionId, l2GasLimit, l2Actions);
-    }
-
-    function exposedBuildL2Message(L2Deployment memory _l2)
+    /// @dev Decodes the message a `sendMessage` action carries.
+    function decodeSendMessage(bytes calldata _data)
         external
         pure
         returns (IBridge.Message memory)
     {
-        (uint64 l2ExecutionId, uint32 l2GasLimit, Controller.Action[] memory l2Actions) =
-            buildL2Actions(_l2);
-        return _buildL2Message(l2ExecutionId, l2GasLimit, l2Actions);
+        if (bytes4(_data[:4]) != IBridge.sendMessage.selector) {
+            revert NotSendMessage();
+        }
+        return abi.decode(_data[4:], (IBridge.Message));
     }
 
     function exposedBuildL1Actions() external pure returns (Controller.Action[] memory) {
