@@ -10,8 +10,9 @@ import { DefaultResolver } from "src/shared/common/DefaultResolver.sol";
 /// @title DeployBridgeUpgradeL2
 /// @notice Deploys the L2 resolver and `Bridge` implementation that Proposal0023 wires up.
 /// @dev Deploys new contracts only. It does not upgrade the bridge proxy and registers no names:
-/// Proposal0023 registers the `bridge` name for chains 1 and 167000 as DAO actions, which is why
-/// the resolver is initialised with the DelegateController as its owner.
+/// Proposal0023 registers every entry on the resolver as a DAO action, which is why the resolver is
+/// initialised with the DelegateController as its owner. `DeployERC20VaultUpgradeL2` deploys the
+/// vault-side contracts against the resolver this script deployed.
 ///
 /// A new resolver is required because the live L2 bridge implementation (`0x95ae2918…`, protocol
 /// 1.10.0) predates the resolver refactor. The legacy L2 registry `0x1670…0006` only answers

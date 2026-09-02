@@ -13,9 +13,33 @@ import { LibNames } from "src/shared/libs/LibNames.sol";
 // To dryrun the proposal on L2: `P=0023 pnpm proposal:dryrun:l2`
 /// @custom:security-contact security@taiko.xyz
 contract Proposal0023 is BuildProposal {
+    /// @dev The contracts the L1 leg points at. A struct with named fields rather than positional
+    /// parameters: every member is an `address`, so a transposed pair would compile silently.
+    struct L1Deployment {
+        // The `Bridge` implementation the L1 bridge proxy upgrades to.
+        address bridgeImpl;
+        // The `ERC20Vault` implementation the L1 ERC20 vault proxy upgrades to.
+        address erc20VaultImpl;
+    }
+
+    /// @dev The contracts the L2 leg points at.
+    struct L2Deployment {
+        // The new L2 `DefaultResolver` proxy, owned by the DelegateController.
+        address sharedResolver;
+        // The `Bridge` implementation the L2 bridge proxy upgrades to.
+        address bridgeImpl;
+        // The `ERC20Vault` implementation the L2 ERC20 vault proxy upgrades to.
+        address erc20VaultImpl;
+        // The `BridgedERC20` implementation the new resolver registers as `bridged_erc20`.
+        address bridgedErc20Impl;
+    }
+
     /// @dev Deployed by `DeployBridgeUpgradeL1` on Ethereum mainnet.
     /// https://codediff.taiko.xyz/?addr=0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC&newimpl=0xA15dca0A72da684f20e0FC708DECFb230a715462&chainid=1
     address public constant BRIDGE_NEW_IMPL_L1 = 0xA15dca0A72da684f20e0FC708DECFb230a715462;
+
+    /// @dev Placeholder until `DeployERC20VaultUpgradeL1` has run on Ethereum mainnet.
+    address public constant ERC20_VAULT_NEW_IMPL_L1 = address(0);
 
     /// @dev Deployed by `DeployBridgeUpgradeL2` on Taiko L2.
     /// https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000001&newimpl=0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb&chainid=167000
@@ -24,8 +48,12 @@ contract Proposal0023 is BuildProposal {
     /// @dev The new L2 resolver, an ERC1967 proxy over implementation
     /// `0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a`, owned by the DelegateController. It has no
     /// predecessor to diff against: the legacy registry `0x1670…0006` is a different contract that
-    /// stays in place for the L2 vaults.
+    /// stays in place for the L2 NFT vaults.
     address public constant L2_SHARED_RESOLVER = 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984;
+
+    /// @dev Placeholders until `DeployERC20VaultUpgradeL2` has run on Taiko L2.
+    address public constant ERC20_VAULT_NEW_IMPL_L2 = address(0);
+    address public constant BRIDGED_ERC20_NEW_IMPL_L2 = address(0);
 
     uint256 private constant _L1_CHAIN_ID = 1;
     uint256 private constant _L2_CHAIN_ID = 167_000;
@@ -33,24 +61,37 @@ contract Proposal0023 is BuildProposal {
     error ImplementationNotDeployed();
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
-        return buildL1Actions(BRIDGE_NEW_IMPL_L1);
+        return buildL1Actions(
+            L1Deployment({
+                bridgeImpl: BRIDGE_NEW_IMPL_L1, erc20VaultImpl: ERC20_VAULT_NEW_IMPL_L1
+            })
+        );
     }
 
-    /// @dev Encodes the L1 leg against an injectable implementation address so tests can assert
-    /// the encoding while the constant above is still a placeholder.
-    /// @param _bridgeNewImplL1 The L1 `Bridge` implementation to upgrade to.
-    /// @return actions The single L1 action.
-    function buildL1Actions(address _bridgeNewImplL1)
+    /// @dev Encodes the L1 leg against injectable addresses so tests can assert the encoding
+    /// while a constant above is still a placeholder.
+    /// @param _d The implementations the two L1 proxies upgrade to.
+    /// @return actions The two L1 actions, in execution order.
+    function buildL1Actions(L1Deployment memory _d)
         internal
         pure
         returns (Controller.Action[] memory actions)
     {
-        require(_bridgeNewImplL1 != address(0), ImplementationNotDeployed());
+        require(
+            _d.bridgeImpl != address(0) && _d.erc20VaultImpl != address(0),
+            ImplementationNotDeployed()
+        );
 
-        actions = new Controller.Action[](1);
+        actions = new Controller.Action[](2);
 
-        // Upgrade the mainnet bridge to the implementation carrying the EIP-8037 Ether send cap.
-        actions[0] = buildUpgradeAction(L1.BRIDGE, _bridgeNewImplL1);
+        // 0: Upgrade the mainnet bridge to the implementation carrying the EIP-8037 Ether send cap.
+        actions[0] = buildUpgradeAction(L1.BRIDGE, _d.bridgeImpl);
+
+        // 1: Upgrade the mainnet ERC20 vault to the implementation carrying EIP-2612 permit and
+        // Permit2 support (#22093). The new implementation is built with the same resolver and
+        // quota manager immutables the live one carries, and the L1 shared resolver already holds
+        // every name the vault reads, so no registration accompanies this upgrade.
+        actions[1] = buildUpgradeAction(L1.ERC20_VAULT, _d.erc20VaultImpl);
     }
 
     function buildL2Actions()
@@ -59,62 +100,109 @@ contract Proposal0023 is BuildProposal {
         override
         returns (uint64 l2ExecutionId, uint32 l2GasLimit, Controller.Action[] memory actions)
     {
-        return buildL2Actions(L2_SHARED_RESOLVER, BRIDGE_NEW_IMPL_L2);
+        return buildL2Actions(
+            L2Deployment({
+                sharedResolver: L2_SHARED_RESOLVER,
+                bridgeImpl: BRIDGE_NEW_IMPL_L2,
+                erc20VaultImpl: ERC20_VAULT_NEW_IMPL_L2,
+                bridgedErc20Impl: BRIDGED_ERC20_NEW_IMPL_L2
+            })
+        );
     }
 
     /// @dev Encodes the L2 leg against injectable addresses, for the same reason as the L1
     /// overload.
-    /// @param _l2SharedResolver The newly deployed L2 `DefaultResolver` proxy.
-    /// @param _bridgeNewImplL2 The L2 `Bridge` implementation to upgrade to.
+    /// @param _d The new L2 resolver proxy and the three implementations the L2 leg points at.
     /// @return l2ExecutionId The DelegateController execution id; zero means unordered.
     /// @return l2GasLimit The gas limit carried by the L1 to L2 message.
-    /// @return actions The three L2 actions, in execution order.
-    function buildL2Actions(
-        address _l2SharedResolver,
-        address _bridgeNewImplL2
-    )
+    /// @return actions The seven L2 actions, in execution order.
+    function buildL2Actions(L2Deployment memory _d)
         internal
         pure
         returns (uint64 l2ExecutionId, uint32 l2GasLimit, Controller.Action[] memory actions)
     {
         require(
-            _l2SharedResolver != address(0) && _bridgeNewImplL2 != address(0),
+            _d.sharedResolver != address(0) && _d.bridgeImpl != address(0)
+                && _d.erc20VaultImpl != address(0) && _d.bridgedErc20Impl != address(0),
             ImplementationNotDeployed()
         );
 
         l2ExecutionId = 0;
         l2GasLimit = 5_000_000;
-        actions = new Controller.Action[](3);
+        actions = new Controller.Action[](7);
 
-        // 0-1: Populate the new resolver before action 2 makes the implementation that reads it
-        // live. Action 0 is the load-bearing one: `Bridge`'s three resolver lookups
-        // (isDestChainEnabled, _proveSignalReceived, _isSignalReceived) all pass an explicit chain
-        // id, and on L2 every reachable path passes the counterparty id 1, so the chain-1 entry is
-        // what the new implementation reads on every sendMessage and processMessage. The legacy L2
-        // registry `0x1670…0006` predates IResolver and cannot serve those calls, so registering
-        // after the upgrade, or not at all, would revert both. Action 1 adds the chain-167000
-        // entry for symmetry with the L1 resolver and for future consumers of the block.chainid
-        // overload (the vaults' onlyFromNamed(B_BRIDGE), still on the legacy registry today); the
-        // bridge itself never reads it.
-        actions[0] = Controller.Action({
-            target: _l2SharedResolver,
-            value: 0,
-            data: abi.encodeCall(
-                DefaultResolver.registerAddress, (_L1_CHAIN_ID, LibNames.B_BRIDGE, L1.BRIDGE)
-            )
-        });
-        actions[1] = Controller.Action({
-            target: _l2SharedResolver,
-            value: 0,
-            data: abi.encodeCall(
-                DefaultResolver.registerAddress, (_L2_CHAIN_ID, LibNames.B_BRIDGE, L2.BRIDGE)
-            )
-        });
+        // 0-4: Populate the new resolver before actions 5 and 6 make the implementations that read
+        // it live. The legacy L2 registry `0x1670…0006` predates IResolver and cannot serve any of
+        // these lookups, so a missing entry reverts the call that needs it. All seven actions
+        // execute in one transaction, so the order inside the batch is defensive; what matters is
+        // that the registrations and the upgrades ship in the same bundle.
+        //
+        // 0: `bridge` for chain 1 — what the new bridge implementation reads on every sendMessage
+        //    and processMessage. Its three resolver lookups (isDestChainEnabled,
+        //    _proveSignalReceived, _isSignalReceived) all pass the counterparty id, which on L2 is 1.
+        actions[0] = _registerAction(_d.sharedResolver, _L1_CHAIN_ID, LibNames.B_BRIDGE, L1.BRIDGE);
+        // 1: `bridge` for chain 167000 — what the new vault implementation reads: its
+        //    onlyFromNamed(B_BRIDGE) guard on every delivery and recall, and the bridge it sends
+        //    through on every sendToken. The bridge itself never reads this entry.
+        actions[1] = _registerAction(_d.sharedResolver, _L2_CHAIN_ID, LibNames.B_BRIDGE, L2.BRIDGE);
+        // 2: `erc20_vault` for chain 1 — what the new vault implementation reads on every delivery
+        //    (the message must come from the L1 vault), every sendToken (the message goes to the L1
+        //    vault) and every recipient check.
+        actions[2] = _registerAction(
+            _d.sharedResolver, _L1_CHAIN_ID, LibNames.B_ERC20_VAULT, L1.ERC20_VAULT
+        );
+        // 3: `erc20_vault` for chain 167000 — read by nothing today. Registered for symmetry with
+        //    the L1 resolver, which carries its own chain's `erc20_vault`, and for future consumers
+        //    of the block.chainid overload.
+        actions[3] = _registerAction(
+            _d.sharedResolver, _L2_CHAIN_ID, LibNames.B_ERC20_VAULT, L2.ERC20_VAULT
+        );
+        // 4: `bridged_erc20` for chain 167000 — the implementation behind every bridged token the
+        //    new vault deploys, read on the first delivery of a canonical token it has not seen
+        //    before. This must be a `BridgedERC20` built from `main`: the new vault initialises the
+        //    token through the six-argument IBridgedERC20Initializable.init and the token
+        //    authorises minting through its `erc20Vault` immutable, while the legacy
+        //    implementation `0x98161D67…` registered on the old registry only implements the
+        //    seven-argument, address-manager based init. Registering the legacy one would make
+        //    every first-time token delivery to L2 revert.
+        actions[4] = _registerAction(
+            _d.sharedResolver, _L2_CHAIN_ID, LibNames.B_BRIDGED_ERC20, _d.bridgedErc20Impl
+        );
 
-        // 2: Upgrade the L2 bridge. This executes inside the bridge's own processMessage frame,
+        // 5: Upgrade the L2 ERC20 vault. The vault proxy is owned by the DelegateController, which
+        // executes this batch, and the vault is not on the call stack, so this is a plain owner
+        // upgrade. Bridged tokens deployed by the old implementation keep resolving the vault
+        // through the legacy registry, which still names the unchanged proxy address.
+        actions[5] = buildUpgradeAction(L2.ERC20_VAULT, _d.erc20VaultImpl);
+
+        // 6: Upgrade the L2 bridge. This executes inside the bridge's own processMessage frame,
         // which is safe: _authorizeUpgrade carries no reentrancy guard, the DelegateController
         // reads the call context before executing actions, and the new implementation's transient
-        // reentry slot starts at zero rather than _TRUE.
-        actions[2] = buildUpgradeAction(L2.BRIDGE, _bridgeNewImplL2);
+        // reentry slot starts at zero rather than _TRUE. It is deliberately the last action so the
+        // batch makes no further call after the bridge's own code has been swapped under its frame.
+        actions[6] = buildUpgradeAction(L2.BRIDGE, _d.bridgeImpl);
+    }
+
+    /// @dev Encodes a `DefaultResolver.registerAddress` call.
+    /// @param _resolver The resolver proxy to register on.
+    /// @param _chainId The chain id the name is registered for.
+    /// @param _name The name to register.
+    /// @param _addr The address to register.
+    /// @return The action.
+    function _registerAction(
+        address _resolver,
+        uint256 _chainId,
+        bytes32 _name,
+        address _addr
+    )
+        private
+        pure
+        returns (Controller.Action memory)
+    {
+        return Controller.Action({
+            target: _resolver,
+            value: 0,
+            data: abi.encodeCall(DefaultResolver.registerAddress, (_chainId, _name, _addr))
+        });
     }
 }
