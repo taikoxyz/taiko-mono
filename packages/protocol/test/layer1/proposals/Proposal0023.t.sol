@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { Proposal0023Harness } from "./Proposal0023Harness.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { Test } from "forge-std/src/Test.sol";
 import { Proposal0023 } from "script/layer1/proposals/Proposal0023.s.sol";
@@ -176,9 +177,10 @@ contract Proposal0023Test is Test {
     /// out-of-band by `P=0023 pnpm proposal`. Nothing else in the repository checks that it was
     /// regenerated after the proposal changed, so a stale file would present one set of actions
     /// for review while the code describes another. This compares the committed calldata against
-    /// what `_buildAllActions` builds right now — including the bridge message that wraps the L2
-    /// batch. The file cannot exist while any constant is a placeholder, so the test skips while
-    /// it is absent rather than failing the placeholder phase.
+    /// what the proposal builds right now — including the bridge message that wraps the L2 batch,
+    /// which `BuildProposal` builds privately and `Proposal0023Harness` reproduces. The file cannot
+    /// exist while any constant is a placeholder, so the test skips while it is absent rather than
+    /// failing the placeholder phase.
     function test_actionFileMatchesTheBuiltCalldata() external {
         string memory path = "script/layer1/proposals/Proposal0023.action.md";
         if (!vm.exists(path)) {
@@ -249,53 +251,5 @@ contract Proposal0023Test is Test {
         assertEq(
             _action.data, abi.encodeCall(DefaultResolver.registerAddress, (_chainId, _name, _addr))
         );
-    }
-}
-
-contract Proposal0023Harness is Proposal0023 {
-    error NotSendMessage();
-
-    function exposedBuildAllActions() external pure returns (Controller.Action[] memory) {
-        return _buildAllActions();
-    }
-
-    /// @dev Decodes the message a `sendMessage` action carries.
-    function decodeSendMessage(bytes calldata _data)
-        external
-        pure
-        returns (IBridge.Message memory)
-    {
-        if (bytes4(_data[:4]) != IBridge.sendMessage.selector) {
-            revert NotSendMessage();
-        }
-        return abi.decode(_data[4:], (IBridge.Message));
-    }
-
-    function exposedBuildL1Actions() external pure returns (Controller.Action[] memory) {
-        return buildL1Actions();
-    }
-
-    function exposedBuildL1Actions(L1Deployment memory _l1)
-        external
-        pure
-        returns (Controller.Action[] memory)
-    {
-        return buildL1Actions(_l1);
-    }
-
-    function exposedBuildL2Actions()
-        external
-        pure
-        returns (uint64, uint32, Controller.Action[] memory)
-    {
-        return buildL2Actions();
-    }
-
-    function exposedBuildL2Actions(L2Deployment memory _l2)
-        external
-        pure
-        returns (uint64, uint32, Controller.Action[] memory)
-    {
-        return buildL2Actions(_l2);
     }
 }

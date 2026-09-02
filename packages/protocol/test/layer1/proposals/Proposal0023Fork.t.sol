@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { Proposal0023Harness } from "./Proposal0023Harness.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Test } from "forge-std/src/Test.sol";
 import { Proposal0023 } from "script/layer1/proposals/Proposal0023.s.sol";
@@ -79,7 +80,7 @@ contract Proposal0023ForkTest is Test {
 
         // The implementations DeployBridgeUpgradeL1 and DeployERC20VaultUpgradeL1 deployed, as the
         // proposal names them.
-        Proposal0023ForkHarness harness = new Proposal0023ForkHarness();
+        Proposal0023Harness harness = new Proposal0023Harness();
         Proposal0023.L1Deployment memory l1 = Proposal0023.L1Deployment({
             bridgeImpl: harness.BRIDGE_NEW_IMPL_L1(),
             erc20VaultImpl: harness.ERC20_VAULT_NEW_IMPL_L1()
@@ -116,13 +117,7 @@ contract Proposal0023ForkTest is Test {
     /// governance message left through the new implementation.
     /// @param _newImpl The implementation the proxy must now run.
     /// @param _messageIdBefore The bridge's `nextMessageId` before the batch.
-    function _assertL1BridgeAfterUpgrade(
-        address _newImpl,
-        uint64 _messageIdBefore
-    )
-        private
-        view
-    {
+    function _assertL1BridgeAfterUpgrade(address _newImpl, uint64 _messageIdBefore) private view {
         Bridge bridge = Bridge(payable(L1.BRIDGE));
         assertEq(_implementationOf(L1.BRIDGE), _newImpl);
         assertEq(bridge.resolver(), L1.SHARED_RESOLVER);
@@ -184,7 +179,7 @@ contract Proposal0023ForkTest is Test {
 
         // The contracts DeployBridgeUpgradeL2 and DeployERC20VaultUpgradeL2 deployed, as the
         // proposal names them.
-        Proposal0023ForkHarness harness = new Proposal0023ForkHarness();
+        Proposal0023Harness harness = new Proposal0023Harness();
         Proposal0023.L2Deployment memory l2 = Proposal0023.L2Deployment({
             sharedResolver: harness.L2_SHARED_RESOLVER(),
             bridgeImpl: harness.BRIDGE_NEW_IMPL_L2(),
@@ -256,7 +251,7 @@ contract Proposal0023ForkTest is Test {
     /// L1 bridge assigns `id`, `from` and `srcChainId` at send time.
     /// @param _harness The proposal.
     /// @return message_ The message to hand to processMessage.
-    function _governanceMessage(Proposal0023ForkHarness _harness)
+    function _governanceMessage(Proposal0023Harness _harness)
         private
         view
         returns (IBridge.Message memory message_)
@@ -283,12 +278,7 @@ contract Proposal0023ForkTest is Test {
     /// can still send.
     /// @param _resolverProxy The new resolver.
     /// @param _before The live values read before the batch.
-    function _assertL2BridgeAfterUpgrade(
-        address _resolverProxy,
-        L2Before memory _before
-    )
-        private
-    {
+    function _assertL2BridgeAfterUpgrade(address _resolverProxy, L2Before memory _before) private {
         Bridge bridge = Bridge(payable(L2.BRIDGE));
 
         // This is the call that reverts if the wiring is wrong.
@@ -508,32 +498,5 @@ contract Proposal0023ForkTest is Test {
     /// @return impl_ The implementation address it delegates to.
     function _implementationOf(address _proxy) private view returns (address impl_) {
         impl_ = address(uint160(uint256(vm.load(_proxy, _IMPL_SLOT))));
-    }
-}
-
-/// @dev Exposes the proposal's builders so the rehearsal executes the calldata the proposal
-/// encodes from its constants rather than a hand-written copy of it.
-contract Proposal0023ForkHarness is Proposal0023 {
-    error NotSendMessage();
-
-    function exposedBuildAllActions() external pure returns (Controller.Action[] memory) {
-        return _buildAllActions();
-    }
-
-    /// @dev The message the last L1 action sends, decoded from its calldata rather than rebuilt.
-    function exposedBuildL2Message() external view returns (IBridge.Message memory) {
-        Controller.Action[] memory actions = _buildAllActions();
-        return this.decodeSendMessage(actions[actions.length - 1].data);
-    }
-
-    function decodeSendMessage(bytes calldata _data)
-        external
-        pure
-        returns (IBridge.Message memory)
-    {
-        if (bytes4(_data[:4]) != IBridge.sendMessage.selector) {
-            revert NotSendMessage();
-        }
-        return abi.decode(_data[4:], (IBridge.Message));
     }
 }
