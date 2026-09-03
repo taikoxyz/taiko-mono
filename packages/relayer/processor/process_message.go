@@ -635,16 +635,14 @@ func (p *Processor) saveMessageStatusChangedEvent(
 	var statusLog *types.Log
 
 	for _, log := range receipt.Logs {
-		if log == nil || len(log.Topics) == 0 {
-			continue
-		}
-
-		if log.Topics[0] != bridgeAbi.Events["MessageStatusChanged"].ID {
-			continue
-		}
-
-		// The event indexes its message hash; the row must describe this message's transition
-		if len(log.Topics) > 1 && log.Topics[1] != common.Hash(event.MsgHash) {
+		// Only the destination bridge's own transition for this message. Anything the bridge
+		// calls while processing - the invoked contract, or destOwner when it is refunded -
+		// runs before the bridge emits its status and can emit a log with the same signature
+		// and hash; matched on the signature alone, a spoofed DONE ahead of the bridge's
+		// RETRIABLE was stored as the outcome, and would now be reported as a claim
+		if log == nil || log.Address != p.cfg.DestBridgeAddress || len(log.Topics) < 2 ||
+			log.Topics[0] != bridgeAbi.Events["MessageStatusChanged"].ID ||
+			log.Topics[1] != common.Hash(event.MsgHash) {
 			continue
 		}
 
