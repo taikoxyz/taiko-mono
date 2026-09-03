@@ -3,10 +3,12 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"html"
 	"log/slog"
 	"math/big"
 	"net/http"
+	"sort"
 	"strconv"
 
 	"github.com/cyberhorsey/webutils"
@@ -14,6 +16,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
+
+var errNotHexQuantity = errors.New("not a 0x-prefixed hex quantity")
 
 type JSONData struct {
 	Raw Raw `json:"Raw"`
@@ -157,24 +161,37 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 	return c.JSON(http.StatusOK, page)
 }
 
+// statusRow is a MessageStatusChanged row placed where its log sits on the chain.
+type statusRow struct {
+	status   relayer.EventStatus
+	raw      Raw
+	block    uint64
+	logIndex uint64
+	id       int
+}
+
 // claimLog returns the MessageStatusChanged log to read a message's claim from, or nil when
 // the message is not currently claimed.
 //
-// The newest row decides. A message has more than one such row when the relayer claims it:
-// the processor records its own claim before the destination chain's indexer stores the log,
-// and until now that record carried nothing but the transaction hash. Taking the first row
-// by id took that stub, and a stub cannot name the claimer, so every message the relayer
-// claimed came back with neither claimer nor claim hash while every self-claim came back
-// with both.
+// The latest transition decides, in the chain's own order: block number, then log index,
+// which both writers record verbatim from the log. Row ids do not order transitions - the
+// indexer stores the logs of one filter range from independent goroutines, so the DONE at
+// block N+1 can be committed before the RETRIABLE at block N.
 //
-// Only a newest row that is DONE is a claim. The chain cannot move a message on from DONE,
-// so a newer non-DONE row means the DONE was orphaned by a reorg of its block and the
-// message was then retried or recalled; reorg cleanup never removes status rows (it keys on
-// block_id, which they do not set), so the orphaned row stays and only the order can tell.
-// A retried message's RETRIABLE row and a recalled message's RECALLED row are not claims
-// either. The order is insertion order, which can briefly put an indexer row for an older
-// transition after the processor's row for a newer one; the answer is then "not claimed"
-// until the indexer catches up, which is what it was before the processor row could be read.
+// A message has more than one such row when the relayer claims it: the processor records
+// its own claim before the destination chain's indexer stores the log, and until now that
+// record carried nothing but the transaction hash. Taking the first row by id took that
+// stub, and a stub cannot name the claimer, so every message the relayer claimed came back
+// with neither claimer nor claim hash while every self-claim came back with both. A stub
+// has no position on the chain, so it is consulted only while the message has no
+// positioned row at all, whichever of the two was committed first.
+//
+// Only a latest transition that is DONE is a claim. The chain cannot move a message on
+// from DONE, so a later non-DONE row means the DONE was orphaned by a reorg of its block;
+// reorg cleanup never removes status rows (it keys on block_id, which they do not set), so
+// the orphaned row stays and only the order can tell. A RECALLED row anywhere means the
+// message is not claimed: a recall on the source chain proves the destination recorded
+// FAILED, which is terminal there, so the two chains' rows need no common order.
 func (srv *Server) claimLog(ctx context.Context, msgHash string) (*Raw, error) {
 	rows, err := srv.eventRepo.FindAllByEventAndMsgHash(ctx, relayer.EventNameMessageStatusChanged, msgHash)
 	if err != nil {
@@ -183,25 +200,70 @@ func (srv *Server) claimLog(ctx context.Context, msgHash string) (*Raw, error) {
 		return nil, err
 	}
 
-	if len(rows) == 0 {
+	var positioned, unpositioned []statusRow
+
+	for _, row := range rows {
+		if row.Status == relayer.EventStatusRecalled {
+			return nil, nil
+		}
+
+		r := &JSONData{}
+		if err := json.Unmarshal(row.Data, r); err != nil || r.Raw.TransactionHash == "" {
+			continue
+		}
+
+		s := statusRow{status: row.Status, raw: r.Raw, id: row.ID}
+
+		block, err := hexQuantity(r.Raw.BlockNumber)
+		if err != nil {
+			unpositioned = append(unpositioned, s)
+
+			continue
+		}
+
+		s.block = block
+		// Every real log carries its index; a row without one still has its block
+		s.logIndex, _ = hexQuantity(r.Raw.LogIndex)
+		positioned = append(positioned, s)
+	}
+
+	candidates := positioned
+	if len(candidates) == 0 {
+		candidates = unpositioned
+	}
+
+	if len(candidates) == 0 {
 		return nil, nil
 	}
 
-	latest := rows[len(rows)-1]
-	if latest.Status != relayer.EventStatusDone {
+	sort.SliceStable(candidates, func(a, b int) bool {
+		x, y := candidates[a], candidates[b]
+		if x.block != y.block {
+			return x.block < y.block
+		}
+
+		if x.logIndex != y.logIndex {
+			return x.logIndex < y.logIndex
+		}
+
+		return x.id < y.id
+	})
+
+	latest := candidates[len(candidates)-1]
+	if latest.status != relayer.EventStatusDone {
 		return nil, nil
 	}
 
-	r := &JSONData{}
-	if err := json.Unmarshal(latest.Data, r); err != nil {
-		return nil, nil
+	return &latest.raw, nil
+}
+
+// hexQuantity parses a 0x-prefixed hex quantity the way the logs carry block and log indices.
+func hexQuantity(s string) (uint64, error) {
+	if len(s) < 3 || s[:2] != "0x" {
+		return 0, errNotHexQuantity
 	}
 
-	if r.Raw.TransactionHash == "" {
-		return nil, nil
-	}
-
-	return &r.Raw, nil
+	return strconv.ParseUint(s[2:], 16, 64)
 }
 
 // claimChainID is the chain a message's claim was mined on: the message's destination.

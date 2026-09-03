@@ -157,15 +157,17 @@ func Test_GetEventsByAddress_claimedByTheRelayer(t *testing.T) {
 		assert.Nil(t, err)
 	}
 
-	// A status transition as the indexer stores it: the whole log
-	saveIndexed := func(srv *Server, status relayer.EventStatus, txHash string, chainID int64) {
+	// A status transition as the indexer stores it: the whole log, at the block it sits in
+	saveIndexed := func(srv *Server, status relayer.EventStatus, txHash string, chainID int64, block uint64) {
 		_, err := srv.eventRepo.Save(context.Background(), &relayer.SaveEventOpts{
 			Name:  relayer.EventNameMessageStatusChanged,
 			Event: relayer.EventNameMessageStatusChanged,
 			Data: fmt.Sprintf(
-				`{"Raw":{"transactionHash": "%s", "transactionIndex": "0x1", "blockHash": "0x%s", "blockNumber": "0x10"}}`,
+				`{"Raw":{"transactionHash": "%s", "transactionIndex": "0x1", "logIndex": "0x1", `+
+					`"blockHash": "0x%s", "blockNumber": "0x%x"}}`,
 				txHash,
 				strings.Repeat("ab", 32),
+				block,
 			),
 			ChainID:     big.NewInt(chainID),
 			DestChainID: big.NewInt(srcChainID),
@@ -187,7 +189,7 @@ func Test_GetEventsByAddress_claimedByTheRelayer(t *testing.T) {
 	t.Run("reads the claimer off the indexed log, not off the stub written before it", func(t *testing.T) {
 		srv := newServer()
 		saveStub(srv)
-		saveIndexed(srv, relayer.EventStatusDone, claimTxHash, destChainID)
+		saveIndexed(srv, relayer.EventStatusDone, claimTxHash, destChainID, 16)
 
 		body := get(srv)
 
@@ -210,7 +212,7 @@ func Test_GetEventsByAddress_claimedByTheRelayer(t *testing.T) {
 		// A complete row filed under the source chain, the way the processor files its own
 		// claim: the transaction was mined on the destination chain all the same
 		srv := newServer()
-		saveIndexed(srv, relayer.EventStatusDone, claimTxHash, srcChainID)
+		saveIndexed(srv, relayer.EventStatusDone, claimTxHash, srcChainID, 16)
 
 		body := get(srv)
 
@@ -221,8 +223,8 @@ func Test_GetEventsByAddress_claimedByTheRelayer(t *testing.T) {
 	t.Run("reports the claim, not the earlier attempt that left the message retriable", func(t *testing.T) {
 		// A retried message has two complete rows, and the older one is the failed attempt
 		srv := newServer()
-		saveIndexed(srv, relayer.EventStatusRetriable, retryTxHash, destChainID)
-		saveIndexed(srv, relayer.EventStatusDone, claimTxHash, destChainID)
+		saveIndexed(srv, relayer.EventStatusRetriable, retryTxHash, destChainID, 16)
+		saveIndexed(srv, relayer.EventStatusDone, claimTxHash, destChainID, 17)
 
 		body := get(srv)
 
@@ -233,7 +235,7 @@ func Test_GetEventsByAddress_claimedByTheRelayer(t *testing.T) {
 	t.Run("does not mistake a recall for a claim", func(t *testing.T) {
 		// A recall is a status transition too, mined on the source chain, and it is not a claim
 		srv := newServer()
-		saveIndexed(srv, relayer.EventStatusRecalled, recallTxHash, srcChainID)
+		saveIndexed(srv, relayer.EventStatusRecalled, recallTxHash, srcChainID, 9)
 
 		body := get(srv)
 
@@ -248,8 +250,8 @@ func Test_GetEventsByAddress_claimedByTheRelayer(t *testing.T) {
 	// never set), so the orphaned row stays, and the newest row has to be the one that counts.
 	t.Run("reports nothing for a claim a later retry superseded", func(t *testing.T) {
 		srv := newServer()
-		saveIndexed(srv, relayer.EventStatusDone, claimTxHash, destChainID)
-		saveIndexed(srv, relayer.EventStatusRetriable, retryTxHash, destChainID)
+		saveIndexed(srv, relayer.EventStatusDone, claimTxHash, destChainID, 16)
+		saveIndexed(srv, relayer.EventStatusRetriable, retryTxHash, destChainID, 17)
 
 		body := get(srv)
 
@@ -259,8 +261,8 @@ func Test_GetEventsByAddress_claimedByTheRelayer(t *testing.T) {
 
 	t.Run("reports nothing for a claim a later recall superseded", func(t *testing.T) {
 		srv := newServer()
-		saveIndexed(srv, relayer.EventStatusDone, claimTxHash, destChainID)
-		saveIndexed(srv, relayer.EventStatusRecalled, recallTxHash, srcChainID)
+		saveIndexed(srv, relayer.EventStatusDone, claimTxHash, destChainID, 16)
+		saveIndexed(srv, relayer.EventStatusRecalled, recallTxHash, srcChainID, 9)
 
 		body := get(srv)
 
@@ -273,13 +275,43 @@ func Test_GetEventsByAddress_claimedByTheRelayer(t *testing.T) {
 		// stub, the indexed DONE of the orphaned block, then the canonical RETRIABLE
 		srv := newServer()
 		saveStub(srv)
-		saveIndexed(srv, relayer.EventStatusDone, claimTxHash, destChainID)
-		saveIndexed(srv, relayer.EventStatusRetriable, retryTxHash, destChainID)
+		saveIndexed(srv, relayer.EventStatusDone, claimTxHash, destChainID, 16)
+		saveIndexed(srv, relayer.EventStatusRetriable, retryTxHash, destChainID, 17)
 
 		body := get(srv)
 
 		assert.Contains(t, body, `"processedTxHash":""`)
 		assert.Contains(t, body, `"claimedBy":""`)
+	})
+
+	// The indexer stores the logs of one filter range from independent goroutines, so the
+	// order rows were inserted in is not the order their logs sit in on the chain. The chain's
+	// own order - block number, then log index - is what both writers record, so that is the
+	// order that decides.
+	t.Run("orders by the block the status was emitted in, not by insertion", func(t *testing.T) {
+		// The claim at block 17 was stored before the failed attempt at block 16
+		srv := newServer()
+		saveIndexed(srv, relayer.EventStatusDone, claimTxHash, destChainID, 17)
+		saveIndexed(srv, relayer.EventStatusRetriable, retryTxHash, destChainID, 16)
+
+		body := get(srv)
+
+		assert.Contains(t, body, fmt.Sprintf(`"claimedBy":"%s"`, relayerAddr.Hex()))
+		assert.Contains(t, body, fmt.Sprintf(`"processedTxHash":"%s"`, claimTxHash))
+	})
+
+	t.Run("reads the claimer off the indexed log even when a legacy stub was stored after it", func(t *testing.T) {
+		// The old processor stored its stub only once its post-transaction work was done, so
+		// the indexer could commit the full log first. A stub carries no position on the chain
+		// and cannot outrank a row that does
+		srv := newServer()
+		saveIndexed(srv, relayer.EventStatusDone, claimTxHash, destChainID, 16)
+		saveStub(srv)
+
+		body := get(srv)
+
+		assert.Contains(t, body, fmt.Sprintf(`"claimedBy":"%s"`, relayerAddr.Hex()))
+		assert.Contains(t, body, fmt.Sprintf(`"processedTxHash":"%s"`, claimTxHash))
 	})
 }
 
