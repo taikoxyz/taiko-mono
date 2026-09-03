@@ -34,6 +34,16 @@ import { ERC20Vault } from "src/shared/vault/ERC20Vault.sol";
 /// constants, against the implementations those constants name, which already exist on both
 /// chains. Nothing is deployed by the test. After each leg it bridges tokens through the upgraded
 /// contracts.
+///
+/// The signal proofs are mocked on both forks: a valid proof cannot be synthesised against a fork,
+/// so the upgraded bridges' `proveSignalReceived` path against the live signal services is not
+/// exercised here, only the resolver lookup that feeds it. The Hoodi rehearsal of this upgrade
+/// (#22118) covered it live, with the relayer claiming through the upgraded bridges in both
+/// directions, and the Hoodi L2 `SignalService` implementation is the same build as mainnet's
+/// `0x18b27428…` (identical runtime bytecode apart from the immutables). The L2 leg also delivers
+/// a second governance message after the batch, so the DelegateController's `context()` read is
+/// exercised against the new transient-storage implementation and not only against the 1.10.0 code
+/// that invoked the batch.
 /// @custom:security-contact security@taiko.xyz
 contract Proposal0023ForkTest is Test {
     /// @dev Live values read before the L2 batch executes, compared against afterwards.
@@ -346,6 +356,7 @@ contract Proposal0023ForkTest is Test {
         _assertL2VaultAfterUpgrade(l2.sharedResolver, before);
         _bridgeTokensThroughUpgradedL2(l2, before);
         _deliverToEoaWithCalldata(true);
+        _deliverGovernanceMessageThroughUpgradedBridge(_caller, l2.sharedResolver);
     }
 
     /// @dev The one behavioural change of the bridge's 1.10.0 -> main jump that touches messages
@@ -387,6 +398,60 @@ contract Proposal0023ForkTest is Test {
             assertEq(to.balance, 1 ether, "1.10.0 did not deliver to the EOA");
             assertEq(destOwner.balance, 0, "1.10.0 refunded destOwner");
         }
+    }
+
+    /// @dev Delivers a second governance message through the upgraded bridge. The batch itself is
+    /// invoked by the 1.10.0 code, so the DelegateController authenticates it against the old
+    /// storage context; every later governance message is authenticated against the new
+    /// implementation's transient `context()`, which is what this delivery exercises. The action is
+    /// a no-op re-registration of the entry the proposal keeps for symmetry.
+    /// @param _caller The address that calls `processMessage`.
+    /// @param _resolver The new resolver.
+    function _deliverGovernanceMessageThroughUpgradedBridge(
+        address _caller,
+        address _resolver
+    )
+        private
+    {
+        Controller.Action[] memory actions = new Controller.Action[](1);
+        actions[0] = Controller.Action({
+            target: _resolver,
+            value: 0,
+            data: abi.encodeCall(
+                DefaultResolver.registerAddress,
+                (uint256(167_000), LibNames.B_ERC20_VAULT, L2.ERC20_VAULT)
+            )
+        });
+
+        IBridge.Message memory message;
+        message.id = 999_998;
+        message.from = L1.DAO_CONTROLLER;
+        message.srcChainId = 1;
+        message.srcOwner = L1.DAO_CONTROLLER;
+        message.destChainId = 167_000;
+        message.destOwner = L2.PERMISSIONLESS_EXECUTOR;
+        message.to = L2.DELEGATE_CONTROLLER;
+        message.gasLimit = 1_000_000;
+        message.data = abi.encodeCall(
+            IMessageInvocable.onMessageInvocation,
+            (abi.encodePacked(uint64(0), abi.encode(actions)))
+        );
+
+        // The DelegateController only executes after `IBridge(msg.sender).context()` named the DAO
+        // controller on chain 1, so this event proves the new implementation served the context.
+        vm.expectEmit(true, false, false, true, L2.DELEGATE_CONTROLLER);
+        emit Controller.ActionExecuted(actions[0].target, actions[0].value, actions[0].data);
+        vm.prank(_caller);
+        (IBridge.Status status, IBridge.StatusReason reason) =
+            Bridge(payable(L2.BRIDGE)).processMessage(message, "");
+        assertEq(uint8(status), uint8(IBridge.Status.DONE), "governance message was not invoked");
+        assertEq(
+            uint8(reason), uint8(IBridge.StatusReason.INVOCATION_OK), "governance action failed"
+        );
+        assertEq(
+            DefaultResolver(_resolver).resolve(167_000, LibNames.B_ERC20_VAULT, false),
+            L2.ERC20_VAULT
+        );
     }
 
     /// @dev The four L2 addresses the proposal names exist on the fork, and the resolver is still

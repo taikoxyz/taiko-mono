@@ -158,9 +158,13 @@ contract Proposal0023Test is Test {
     }
 
     /// @dev Pins what the no-argument builders forward. The encoding tests above call the
-    /// parameterised overloads directly and so bypass the forwarding lines entirely. The expected
-    /// addresses are written as literals rather than read back from `Proposal0023` or the address
-    /// libraries, so an edit to a constant there cannot be mirrored here. Mirrors
+    /// parameterised overloads directly and so bypass the forwarding lines entirely. The seven
+    /// forwarded addresses — the four implementations, the L2 resolver and the two
+    /// `BridgedERC20V2`s — are the `DEPLOYED_*` literals above rather than reads of `Proposal0023`
+    /// or the address libraries, so an edit to one of those constants cannot be mirrored here. The
+    /// proxies and the pre-existing registration targets are read from `LibL1Addrs`/`LibL2Addrs`
+    /// as in the encoding tests; an edit to those is caught by
+    /// `test_actionFileMatchesTheBuiltCalldata`, which compares the committed calldata. Mirrors
     /// `test_buildL1Actions_UsesDeployedImplementations` in `Proposal0017.t.sol`.
     function test_buildL1Actions_UsesDeployedImplementations() external view {
         Controller.Action[] memory actions = proposal.exposedBuildL1Actions();
