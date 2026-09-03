@@ -155,18 +155,28 @@ jobs:
               }
             }
 
-            if (!process.env.DEEPSEEK_API_KEY) {
-              core.setFailed('DEEPSEEK_API_KEY is not set.');
-              return;
-            }
-
-            // The PR/diff fetch, the model call and the comment post can all
-            // hit the network; wrap them in one try so any failure is reported
+            // The key check, the PR/diff fetch, the model call and the comment
+            // post can all fail; wrap them in one try so any failure is reported
             // as a visible comment instead of crashing the job silently.
             try {
+              if (!process.env.DEEPSEEK_API_KEY) {
+                throw new Error('`DEEPSEEK_API_KEY` is not configured. Add it under Settings \u2192 Secrets and variables \u2192 Actions.');
+              }
+
               const pr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
               const title = pr.data.title;
               const body = pr.data.body || '';
+              // The commit the review is about. The diff below is whatever the
+              // PR holds right now, not the commit that triggered this run, so
+              // this is the only honest record of what was reviewed - and what
+              // the post-time staleness check compares against.
+              const reviewedSha = pr.data.head.sha;
+
+              // Truncate the diff if too large. deepseek-v4-pro has a large
+              // context window, so default high and allow overriding via a repo
+              // variable. Declared here because the files-API fallback below
+              // stops assembling once it has this much.
+              const MAX_DIFF = intFromEnv('DEEPSEEK_MAX_DIFF', 2000000);
 
               // The diff media type refuses PRs over 20000 diff lines with a
               // 406, so fall back to reassembling the diff from the files API,
@@ -187,16 +197,25 @@ jobs:
                   const files = await github.paginate(github.rest.pulls.listFiles, {
                     owner, repo, pull_number: prNumber, per_page: 100
                   });
-                  return files.map((f) => {
+                  // Assembled with a running cap rather than joined whole:
+                  // the PRs that land here are the huge ones, and everything
+                  // past MAX_DIFF is about to be cut anyway.
+                  const parts = [];
+                  let size = 0;
+                  for (const f of files) {
                     const from = f.previous_filename || f.filename;
                     const header = `diff --git a/${from} b/${f.filename}\n`
                       + `--- ${f.status === 'added' ? '/dev/null' : 'a/' + from}\n`
                       + `+++ ${f.status === 'removed' ? '/dev/null' : 'b/' + f.filename}`;
                     // Binary and very large files come back without a patch.
-                    return f.patch
+                    const part = f.patch
                       ? `${header}\n${f.patch}`
                       : `${header}\n(patch omitted: ${f.status}, +${f.additions}/-${f.deletions})`;
-                  }).join('\n');
+                    parts.push(part);
+                    size += part.length + 1;
+                    if (size > MAX_DIFF) break;
+                  }
+                  return parts.join('\n');
                 }
               }
 
@@ -206,9 +225,6 @@ jobs:
                 return 'No diff to review.';
               }
 
-              // Truncate diff if too large. deepseek-v4-pro has a large context
-              // window, so default high and allow overriding via repo variable.
-              const MAX_DIFF = intFromEnv('DEEPSEEK_MAX_DIFF', 2000000);
               const truncatedDiff = diffText.length > MAX_DIFF
                 ? diffText.substring(0, MAX_DIFF) + '\n\n... (diff truncated)'
                 : diffText;
@@ -421,8 +437,10 @@ jobs:
               let finishReason = 'unknown';
               let usage = 'unknown';
               let lastError = null;
+              let attemptsMade = 0;
 
               for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+                attemptsMade = attempt;
                 try {
                   ({ reviewText, finishReason, usage } = await requestReview());
                   lastError = null;
@@ -456,9 +474,24 @@ jobs:
               // an empty-content diagnostic that misattributes the cause.
               if (lastError) throw lastError;
 
+              // Splitting the concurrency groups let a comment-triggered review
+              // and a push-triggered one run at once, and posting deletes what
+              // came before - so the slower run could bury the newer review with
+              // one of an older diff. Actions offers no lock, so the ordering is
+              // enforced here: a run whose diff is no longer the PR's head has
+              // been overtaken, and neither posts nor deletes.
+              const { data: latest } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+              if (latest.head.sha !== reviewedSha) {
+                core.notice(
+                  `Reviewed ${reviewedSha.slice(0, 8)} but the PR now points at ${latest.head.sha.slice(0, 8)}; `
+                  + 'discarding this review so the newer run\'s stands.'
+                );
+                return { success: false, skipped: 'overtaken', reviewedSha };
+              }
+
               await upsert(reviewText
                 ? reviewText
-                : `⚠️ The model returned no review content after ${MAX_ATTEMPTS} attempts `
+                : `⚠️ The model returned no review content after ${attemptsMade} attempt${attemptsMade === 1 ? '' : 's'} `
                   + `(model: \`${model}\`, finish_reason: \`${finishReason}\`, usage: \`${usage}\`). `
                   + `This usually means the configured model id is invalid/aliased or the token budget was `
                   + `exhausted before any visible output. Override via the \`DEEPSEEK_MODEL\` / `
