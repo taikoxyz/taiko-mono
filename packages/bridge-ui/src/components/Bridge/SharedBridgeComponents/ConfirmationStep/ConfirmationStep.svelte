@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
-  import type { Hash, Hex } from 'viem';
+  import type { Address, Hash, Hex } from 'viem';
 
   import { routingContractsMap } from '$bridgeConfig';
   import { chainConfig } from '$chainConfig';
@@ -10,7 +10,9 @@
     allApproved,
     bridgeService,
     destNetwork,
+    destOwnerAddress,
     enteredAmount,
+    gasLimitZero,
     processingFee,
     recipientAddress,
     selectedNFTs,
@@ -27,11 +29,13 @@
   import type { ERC1155Bridge } from '$libs/bridge/ERC1155Bridge';
   import { getBridgeArgs } from '$libs/bridge/getBridgeArgs';
   import { handleBridgeError } from '$libs/bridge/handleBridgeErrors';
+  import { isSlowL1Bridging } from '$libs/chain';
   import { BridgePausedError, ReceiptUnavailableError, TransactionTimeoutError } from '$libs/error';
   import { recordBridgeTx } from '$libs/storage/recordBridgeTx';
   import { TokenType } from '$libs/token';
   import { ApprovalStatus } from '$libs/token/getTokenApprovalStatus';
   import { isToken } from '$libs/token/isToken';
+  import type { NFT, Token } from '$libs/token/types';
   import { waitForApprovalStatus } from '$libs/token/waitForApprovalStatus';
   import { refreshUserBalance } from '$libs/util/balance';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
@@ -57,29 +61,43 @@
   $: statusTitle = '';
   $: statusDescription = '';
 
-  const handleBridgeTxHash = async (txHash: Hash) => {
-    const currentChain = $connectedSourceChain?.id;
+  /**
+   * What the wallet was asked to sign, captured before anything is awaited.
+   *
+   * The prompt can sit open for minutes, and a wallet that switches account or network
+   * meanwhile moves the stores with it. Everything the transaction, the local record, the
+   * receipt wait and the confirmation copy need is read from here rather than from the
+   * stores, so the entry lands in the sender's history and describes the transaction that
+   * was signed. The sender is the account the wallet client signs with: the screen showed
+   * the store's account, but if the wallet moved on during its own lookup, the signer is
+   * the one the transaction, its record and its default recipient must name.
+   */
+  type SentBridge = {
+    from: Address;
+    srcChainId: number;
+    destChainId: number;
+    destChainName: string;
+    token: Token | NFT;
+    amount: bigint;
+    fee: bigint;
+  };
 
-    const destinationChain = $destNetwork?.id;
-    const userAccount = $account?.address;
-
+  const handleBridgeTxHash = async (txHash: Hash, sent: SentBridge) => {
     try {
-      if (!currentChain || !destinationChain || !userAccount || !$selectedToken) return; //TODO error handling
-
-      const explorer = chainConfig[currentChain]?.blockExplorers?.default.url;
+      const explorer = chainConfig[sent.srcChainId]?.blockExplorers?.default.url;
 
       const bridgeTx = {
         srcTxHash: txHash,
-        from: userAccount,
-        amount: $enteredAmount,
-        symbol: $selectedToken?.symbol,
-        decimals: isToken($selectedToken) ? $selectedToken.decimals : undefined,
-        srcChainId: BigInt(currentChain),
-        destChainId: BigInt(destinationChain),
-        tokenType: $selectedToken?.type,
+        from: sent.from,
+        amount: sent.amount,
+        symbol: sent.token.symbol,
+        decimals: isToken(sent.token) ? sent.token.decimals : undefined,
+        srcChainId: BigInt(sent.srcChainId),
+        destChainId: BigInt(sent.destChainId),
+        tokenType: sent.token.type,
         msgStatus: MessageStatus.NEW,
         // Needed later to decide whether the manual "try claim" entry applies
-        processingFee: $processingFee,
+        processingFee: sent.fee,
         timestamp: Date.now(),
       } as BridgeTransaction;
 
@@ -89,14 +107,14 @@
       try {
         // The only thing this try classifies is the wait: anything else in here would
         // reach the catch below as if the transaction itself had failed
-        const receipt = await pendingTransactions.add(txHash, currentChain);
+        const receipt = await pendingTransactions.add(txHash, sent.srcChainId);
         minedTxHash = receipt.transactionHash;
       } catch (error) {
         if (waitGaveUp(error)) {
           // Only the wait gave up - a timeout, or a receipt that could not be read. The
           // transaction may still confirm, so keep it in the local history
-          recordBridgeTx(userAccount, bridgeTx);
-          handleTimeout(txHash);
+          recordBridgeTx(sent.from, bridgeTx);
+          handleTimeout(txHash, sent.srcChainId);
         } else {
           // Reverted: recording it would leave a phantom pending transaction
           handleBridgeError(error as Error);
@@ -105,20 +123,26 @@
       }
 
       // Confirmed on-chain: record it in the local history
-      recordBridgeTx(userAccount, { ...bridgeTx, srcTxHash: minedTxHash });
+      recordBridgeTx(sent.from, { ...bridgeTx, srcTxHash: minedTxHash });
 
-      // No values: the message carries no placeholder, so a token passed here was silently
-      // dropped by the formatter. The symbol is still escaped where a string does interpolate it.
+      // The funds are claimed on the destination, which is only Taiko in one direction. The
+      // name is interpolated into a string rendered with {@html}, so it is escaped like every
+      // other interpolated value
       successToast({
         title: $t('bridge.actions.bridge.success.title'),
-        message: $t('bridge.actions.bridge.success.message'),
+        message: $t('bridge.actions.bridge.success.message', { values: { chain: escapeHtml(sent.destChainName) } }),
       });
       icon = successIcon;
       bridgingStatus = BridgingStatus.DONE;
       statusTitle = $t('bridge.actions.bridge.success.title');
-      statusDescription = $t('bridge.step.confirm.bridge.success.message', {
-        values: { url: `${explorer}/tx/${minedTxHash}` },
-      });
+      // An L2 -> L1 transfer is claimable hours later, not in a few minutes. The review step
+      // warned about that one screen earlier, and this screen has to agree with it
+      statusDescription = $t(
+        isSlowL1Bridging(sent.destChainId)
+          ? 'bridge.step.confirm.bridge.success.message_slow_l1'
+          : 'bridge.step.confirm.bridge.success.message',
+        { values: { url: `${explorer}/tx/${minedTxHash}` } },
+      );
     } finally {
       bridging = false;
     }
@@ -141,9 +165,14 @@
     // "your transaction may still confirm" would bury a real error behind a reassurance.
     error instanceof TransactionTimeoutError || error instanceof ReceiptUnavailableError;
 
-  const handleTimeout = (txHash: Hex) => {
-    const currentChain = $connectedSourceChain?.id;
-    const explorer = chainConfig[currentChain]?.blockExplorers?.default.url;
+  /**
+   * @dev Reports a receipt wait that gave up: the transaction may still confirm, so the
+   *      user is pointed at the explorer rather than told it failed.
+   * @param txHash The transaction whose wait gave up
+   * @param chainId The chain it was sent on - passed in, since the wallet may have moved on
+   */
+  const handleTimeout = (txHash: Hex, chainId: number) => {
+    const explorer = chainConfig[chainId]?.blockExplorers?.default.url;
 
     warningToast({
       title: $t('bridge.actions.bridge.timeout.title'),
@@ -214,7 +243,7 @@
     } catch (error) {
       if (waitGaveUp(error)) {
         // A wait that gave up may still confirm, so the status is still worth polling
-        handleTimeout(txHash);
+        handleTimeout(txHash, currentChain);
       } else {
         approvalFailed = true;
         handleBridgeError(error as Error);
@@ -290,33 +319,44 @@
     if (!$bridgeService || !$selectedToken || !$connectedSourceChain || !$destNetwork?.id || !$account?.address) return;
     bridging = true;
     try {
-      const walletClient = await getConnectedWallet($connectedSourceChain.id);
-      const commonArgs = {
-        to: $recipientAddress || $account.address,
-        wallet: walletClient,
+      // Read once, before the first await, and used for the transaction, the wallet lookup
+      // and the record alike: see SentBridge. The bridge service is derived from the token,
+      // so it is read in the same breath; building the arguments goes over the network, and
+      // a token switch during that wait would otherwise move the dispatch to another token's
+      // bridge while the arguments still described this one
+      const submitted = {
         srcChainId: $connectedSourceChain.id,
-        destChainId: $destNetwork?.id,
+        destChainId: $destNetwork.id,
+        destChainName: $destNetwork.name,
+        token: $selectedToken,
+        amount: $enteredAmount,
         fee: $processingFee,
-        tokenObject: $selectedToken,
+      };
+      const recipient = $recipientAddress;
+      const destOwner = $destOwnerAddress;
+      const zeroGasLimit = $gasLimitZero;
+      const nfts = $selectedNFTs ?? undefined;
+      const service = $bridgeService;
+
+      const walletClient = await getConnectedWallet(submitted.srcChainId);
+      const sent: SentBridge = { ...submitted, from: walletClient.account.address };
+      const to = recipient || sent.from;
+      const commonArgs = {
+        to,
+        wallet: walletClient,
+        srcChainId: sent.srcChainId,
+        destChainId: sent.destChainId,
+        fee: sent.fee,
+        tokenObject: sent.token,
+        destOwner: destOwner || to,
+        gasLimitZero: zeroGasLimit,
       };
 
-      const type: TokenType = $selectedToken.type;
-      if (type === TokenType.ERC1155 || type === TokenType.ERC721) {
-        const tokenIds = $selectedNFTs && $selectedNFTs.map((nft) => nft.tokenId);
-        if (!tokenIds) throw new Error('tokenIds not found');
-        const bridgeArgs = await getBridgeArgs($selectedToken, $enteredAmount, commonArgs, tokenIds);
-
-        const args = { ...bridgeArgs, tokenIds, tokenObject: $selectedToken };
-
-        bridgeTxHash = await $bridgeService.bridge(args);
-      } else {
-        const bridgeArgs = await getBridgeArgs($selectedToken, $enteredAmount, commonArgs);
-
-        bridgeTxHash = await $bridgeService.bridge(bridgeArgs);
-      }
+      const bridgeArgs = await getBridgeArgs(sent.token, sent.amount, commonArgs, nfts);
+      bridgeTxHash = await service.bridge(bridgeArgs);
 
       if (bridgeTxHash) {
-        await handleBridgeTxHash(bridgeTxHash);
+        await handleBridgeTxHash(bridgeTxHash, sent);
       }
     } catch (err) {
       bridging = false;

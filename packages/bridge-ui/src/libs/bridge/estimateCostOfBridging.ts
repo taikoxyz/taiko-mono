@@ -12,7 +12,11 @@ export async function estimateCostOfBridging(
   bridge: Bridge,
   bridgeArgs: BridgeArgs | ERC1155BridgeArgs | ERC20BridgeArgs | ERC721BridgeArgs,
 ) {
-  const publicClient = getPublicClient(config);
+  // Resolved for the source chain, never for whichever chain the wallet happens to be on:
+  // the two differ during a network switch, and L1 and Taiko fee markets are orders of
+  // magnitude apart, so a MAX computed against the wrong one is either unsendable or leaves
+  // the wallet short of gas
+  const publicClient = getPublicClient(config, { chainId: bridgeArgs.srcChainId });
   if (!publicClient) throw new Error('No public client found');
 
   // Calculate the estimated cost of bridging. Reserve using the EIP-1559 max fee the wallet

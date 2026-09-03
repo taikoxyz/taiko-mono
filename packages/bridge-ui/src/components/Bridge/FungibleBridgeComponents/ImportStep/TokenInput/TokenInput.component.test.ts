@@ -43,6 +43,12 @@ vi.mock('$libs/util/balance', () => ({
   renderEthBalance: () => '0 ETH',
 }));
 
+const getMaxAmountToBridge = vi.fn();
+vi.mock('$libs/bridge', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('$libs/bridge')>()),
+  getMaxAmountToBridge: (...args: unknown[]) => getMaxAmountToBridge(...args),
+}));
+
 import {
   computingBalance,
   destNetwork,
@@ -326,5 +332,114 @@ describe('an amount above the balance', () => {
     await type('3');
     await settle();
     expect(get(insufficientBalance)).toBe(false);
+  });
+});
+
+describe('the MAX button', () => {
+  const dai = { type: TokenType.ERC20, symbol: 'DAI', name: 'DAI', decimals: 18, addresses: {} };
+
+  const flush = async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await tick();
+  };
+
+  const inputValue = () => (target.querySelector('input') as HTMLInputElement).value;
+
+  const clickMax = async () => {
+    (target.querySelector('button.max-button') as HTMLButtonElement).click();
+    await tick();
+  };
+
+  beforeEach(async () => {
+    fetchBalance.mockResolvedValue({ value: BigInt(5_000_000), decimals: 6, symbol: 'USDC', formatted: '5' });
+    account.set({ address: '0x1111111111111111111111111111111111111111', isConnected: true } as never);
+    connectedSourceChain.set({ id: 1 } as never);
+    destNetwork.set({ id: 2 } as never);
+    ethBalance.set(BigInt(1));
+    // Connecting starts a balance read that keeps the button disabled until it lands
+    await flush();
+  });
+
+  it('fills in the maximum for the selected token', async () => {
+    getMaxAmountToBridge.mockResolvedValue(BigInt(5_000_000));
+
+    await clickMax();
+    await flush();
+
+    expect(inputValue()).toBe('5');
+    expect(get(enteredAmount)).toBe(BigInt(5_000_000));
+  });
+
+  it('drops a maximum computed for a token the user has since switched away from', async () => {
+    let resolveMax!: (value: bigint) => void;
+    getMaxAmountToBridge.mockReturnValueOnce(new Promise<bigint>((resolve) => (resolveMax = resolve)));
+    await clickMax();
+
+    // The estimate is still running when the user picks an 18-decimal token
+    fetchBalance.mockResolvedValue({ value: BigInt(0), decimals: 18, symbol: 'DAI', formatted: '0' });
+    selectedToken.set(dai as never);
+    await flush();
+
+    // 100 USDC in USDC's raw units lands after the switch. Formatted with DAI's decimals it
+    // showed as 0.0000000001, while the bigint that would be bridged was the USDC maximum
+    resolveMax(BigInt(100_000_000));
+    await flush();
+
+    expect(get(enteredAmount)).toBe(BigInt(0));
+    expect(inputValue()).toBe('');
+  });
+
+  it('drops a maximum computed for a route the user has since changed', async () => {
+    let resolveMax!: (value: bigint) => void;
+    getMaxAmountToBridge.mockReturnValueOnce(new Promise<bigint>((resolve) => (resolveMax = resolve)));
+    await clickMax();
+
+    // Nothing else notices a destination change - no reset runs for it - so the estimate,
+    // which reserved gas for the route it was asked about, is only caught here
+    destNetwork.set({ id: 3 } as never);
+    await tick();
+
+    resolveMax(BigInt(5_000_000));
+    await flush();
+
+    expect(get(enteredAmount)).toBe(BigInt(0));
+    expect(inputValue()).toBe('');
+  });
+
+  it('drops a maximum started by an earlier instance of this step', async () => {
+    // Continuing to the review step and coming back mounts a new input while the old one's
+    // estimate is still out, and both write the shared amount store
+    let resolveMax!: (value: bigint) => void;
+    getMaxAmountToBridge.mockReturnValueOnce(new Promise<bigint>((resolve) => (resolveMax = resolve)));
+    await clickMax();
+
+    component?.$destroy();
+    target.remove();
+    target = document.createElement('div');
+    document.body.appendChild(target);
+    component = new TokenInput({ target, props: {} });
+    await flush();
+    await type('3');
+
+    resolveMax(BigInt(5_000_000));
+    await flush();
+
+    expect(get(enteredAmount)).toBe(BigInt(3_000_000));
+    expect(inputValue()).toBe('3');
+  });
+
+  it('lets an amount typed while the maximum was being computed stand', async () => {
+    let resolveMax!: (value: bigint) => void;
+    getMaxAmountToBridge.mockReturnValueOnce(new Promise<bigint>((resolve) => (resolveMax = resolve)));
+    await clickMax();
+
+    await type('3');
+
+    resolveMax(BigInt(5_000_000));
+    await flush();
+
+    // The later of the two actions is the one the user meant
+    expect(get(enteredAmount)).toBe(BigInt(3_000_000));
+    expect(inputValue()).toBe('3');
   });
 });

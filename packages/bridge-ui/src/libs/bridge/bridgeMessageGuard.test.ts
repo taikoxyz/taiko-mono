@@ -47,7 +47,6 @@ vi.mock('viem', async (importOriginal) => ({
 }));
 
 import { bridgeAbi, erc20VaultAbi, erc721VaultAbi, erc1155VaultAbi } from '$abi';
-import { destOwnerAddress, gasLimitZero } from '$components/Bridge/state';
 
 import { ERC20Bridge } from './ERC20Bridge';
 import { ERC721Bridge } from './ERC721Bridge';
@@ -74,8 +73,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   estimateMessageGasLimit.mockResolvedValue({ gasLimit: 1_000_000, minGasLimit: 100_000 });
   isBridgePaused.mockResolvedValue(false);
-  gasLimitZero.set(false);
-  destOwnerAddress.set(null);
 });
 
 describe('bridges refuse messages the contracts would reject', () => {
@@ -113,8 +110,7 @@ describe('bridges refuse messages the contracts would reject', () => {
     it('lets a zero gas limit through once the fee is zeroed with it', async () => {
       // This is the pairing that reverted with B_INVALID_FEE (0xc9f51787): feeForGasLimit
       // zeroes the fee, and the invariant check confirms the pair is consistent
-      gasLimitZero.set(true);
-      await bridge().estimateGas(args());
+      await bridge().estimateGas(args({ gasLimitZero: true }));
       expect(estimateGasSpy).toHaveBeenCalledOnce();
     });
   });
@@ -128,8 +124,7 @@ describe('bridges refuse messages the contracts would reject', () => {
     });
 
     it('refuses a zero destination owner', async () => {
-      destOwnerAddress.set(ZERO);
-      await expect(new ETHBridge(prover).estimateGas(args())).rejects.toThrow(InvalidMessageError);
+      await expect(new ETHBridge(prover).estimateGas(args({ destOwner: ZERO }))).rejects.toThrow(InvalidMessageError);
       expect(estimateGasSpy).not.toHaveBeenCalled();
     });
 
@@ -265,9 +260,7 @@ describe('every token type builds the shared message fields the same way', () =>
 
   it.each(cases)('%s zeroes the fee alongside a zero gas limit', async (_name, make, args) => {
     // Paired: the bridge reverts with B_INVALID_FEE on a fee attached to a zero gas limit
-    gasLimitZero.set(true);
-
-    await make().estimateGas(args);
+    await make().estimateGas({ ...(args as object), gasLimitZero: true } as never);
 
     expect(sentMessage().gasLimit).toBe(0);
     expect(sentMessage().fee).toBe(BigInt(0));
@@ -288,9 +281,8 @@ describe('every token type builds the shared message fields the same way', () =>
 
   it.each(cases)('%s honours an explicit destination owner', async (_name, make, args) => {
     const BOB = '0x0000000000000000000000000000000000000b0b';
-    destOwnerAddress.set(BOB);
 
-    await make().estimateGas(args);
+    await make().estimateGas({ ...(args as object), destOwner: BOB } as never);
 
     expect(sentMessage().destOwner).toBe(BOB);
   });
@@ -315,9 +307,7 @@ describe('every token type builds the shared message fields the same way', () =>
   it.each(cases)('%s skips the minimum rule when the gas limit is zero', async (_name, make, args) => {
     // No estimate runs, so no minimum is known - and a zero gas limit is governed by the
     // fee rule instead, which the case above pins
-    gasLimitZero.set(true);
-
-    await make().estimateGas(args);
+    await make().estimateGas({ ...(args as object), gasLimitZero: true } as never);
 
     expect(estimateGasSpy).toHaveBeenCalledOnce();
   });

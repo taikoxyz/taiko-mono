@@ -41,12 +41,8 @@ const nft = {
 } as unknown as NFT;
 
 describe('getBridgeArgs for ERC1155', () => {
-  beforeEach(() => {
-    selectedNFTs.set([nft]);
-  });
-
   it('carries the quantity through as a bigint', async () => {
-    const args = (await getBridgeArgs(nft, 5n, commonArgs)) as ERC1155BridgeArgs;
+    const args = (await getBridgeArgs(nft, 5n, commonArgs, [nft])) as ERC1155BridgeArgs;
 
     expect(args.amounts).toEqual([5n]);
   });
@@ -56,17 +52,36 @@ describe('getBridgeArgs for ERC1155', () => {
     // past 2^53 was bridged as a different amount than the user asked for
     const huge = BigInt(Number.MAX_SAFE_INTEGER) + 1n;
 
-    const args = (await getBridgeArgs(nft, huge, commonArgs)) as ERC1155BridgeArgs;
+    const args = (await getBridgeArgs(nft, huge, commonArgs, [nft])) as ERC1155BridgeArgs;
 
     expect(args.amounts).toEqual([huge]);
   });
 
   it('sends a zero quantity for an ERC721, which the vault requires', async () => {
     const erc721 = { ...nft, type: TokenType.ERC721 } as unknown as NFT;
-    selectedNFTs.set([erc721]);
 
-    const args = (await getBridgeArgs(erc721, 1n, commonArgs)) as ERC1155BridgeArgs;
+    const args = (await getBridgeArgs(erc721, 1n, commonArgs, [erc721])) as ERC1155BridgeArgs;
 
     expect(args.amounts).toEqual([0n]);
+  });
+
+  it('describes the NFTs it is given, not whatever the selection holds by now', async () => {
+    // The caller captured its selection before its first await; a selection change since
+    // then must not reach the transaction through a second read of the store
+    const other = {
+      ...nft,
+      tokenId: 99,
+      addresses: { 1: '0x0000000000000000000000000000000000000def' },
+    } as unknown as NFT;
+    selectedNFTs.set([other]);
+
+    const args = (await getBridgeArgs(nft, 5n, commonArgs, [nft])) as ERC1155BridgeArgs;
+
+    expect(args.token).toBe(nft.addresses[1]);
+    expect(args.tokenIds).toEqual([7]);
+  });
+
+  it('refuses to build a transfer without any NFT', async () => {
+    await expect(getBridgeArgs(nft, 5n, commonArgs, [])).rejects.toThrow(/No NFT/);
   });
 });

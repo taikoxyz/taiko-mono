@@ -29,8 +29,8 @@ export async function checkMintable(token: Token, chainId: number) {
   }
 
   // Check whether the user has enough balance to mint.
-  // Compute the cost of the transaction:
-  const publicClient = getPublicClient(config);
+  // Compute the cost of the transaction, on the chain the mint goes to
+  const publicClient = getPublicClient(config, { chainId });
   if (!publicClient) throw new Error('Could not get public client');
 
   const estimatedGas = await tokenContract.estimateGas.mint([userAddress]);

@@ -1,4 +1,4 @@
-import { getWalletClient, simulateContract, writeContract } from '@wagmi/core';
+import { simulateContract, writeContract } from '@wagmi/core';
 import { UserRejectedRequestError } from 'viem';
 
 import { bridgeAbi } from '$abi';
@@ -92,14 +92,15 @@ export class ETHBridge extends Bridge {
     try {
       log('Calling sendMessage with value', value);
 
-      const chainId = (await getWalletClient(config)).chain.id;
-
       const { request } = await simulateContract(config, {
         address: bridgeContract.address,
         abi: bridgeAbi,
         functionName: 'sendMessage',
         args: [message],
-        chainId,
+        // The wallet this was prepared for, on the chain it was prepared for: wagmi would
+        // otherwise sign with whatever account and chain the connector holds by now
+        account: args.wallet.account,
+        chainId: args.srcChainId,
         value,
       });
       log('Simulate contract', request);

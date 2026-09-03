@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
   import { formatUnits, parseUnits } from 'viem/utils';
@@ -11,6 +11,7 @@
     destNetwork,
     enteredAmount,
     errorComputingBalance,
+    gasLimitZero,
     insufficientAllowance,
     insufficientBalance,
     processingFee,
@@ -85,6 +86,8 @@
     if (!isToken($selectedToken)) return;
     $validatingAmount = true;
     $errorComputingBalance = false;
+    // A typed amount supersedes a MAX still being computed: the later action is the one meant
+    maxAmountGeneration++;
 
     // parseUnits alone accepts hex ('0x10' becomes 268435456), negatives and a leading
     // plus, and rounds excess precision - every one of those bridges an amount other than
@@ -104,37 +107,65 @@
     debouncedValidateAmount();
   };
 
+  // A MAX estimate goes over the network, and the selection can change while it is out. Every
+  // other async path in this component drops a superseded result; this one did not, and it
+  // re-read the token after the await as well: 100 USDC (100000000n) landing after a switch
+  // to ETH was formatted with 18 decimals as 0.0000000001, while the bigint that would be
+  // bridged stayed the USDC maximum. A typed amount and a reset supersede it too.
+  let maxAmountGeneration = 0;
+
+  // A MAX still out when this input is torn down must not land in the shared amount store
+  // under a newly mounted one: continuing to the review step and coming back does exactly
+  // that, and the new input's own counter knows nothing of the old request
+  onDestroy(() => {
+    maxAmountGeneration++;
+  });
+
   const useMaxAmount = async () => {
     log('useMaxAmount');
 
     if (!isToken($selectedToken) || !$connectedSourceChain || !$destNetwork || !$tokenBalance || !$account?.address)
       return;
 
-    try {
-      let maxAmount;
-      if ($tokenBalance) {
-        maxAmount = await getMaxAmountToBridge({
-          to: $account.address,
-          token: $selectedToken,
-          balance: $tokenBalance.value,
-          srcChainId: $connectedSourceChain.id,
-          destChainId: $destNetwork.id,
-          fee: $processingFee,
-        });
+    const generation = ++maxAmountGeneration;
+    // Captured before the await: what the estimate is for, and what its result is formatted with
+    const token = $selectedToken;
+    const srcChainId = $connectedSourceChain.id;
+    const destChainId = $destNetwork.id;
 
-        // The displayed value is truncated for readability, so the entered amount is
-        // re-derived from it: what the user sees is exactly what gets bridged. The
-        // truncation stays on the string, since a float round-trip yields scientific
-        // notation for tiny balances, which parseUnits rejects
-        const exact = formatUnits(maxAmount, $selectedToken.decimals);
-        const truncated = truncateDecimalString(exact, 12);
-        // Below 1e-12 the truncation rounds the whole balance away, and MAX would show
-        // and bridge zero. Showing every digit is better than offering nothing
-        value = parseUnits(truncated, $selectedToken.decimals) > BigInt(0) ? truncated : exact;
-        $enteredAmount = parseUnits(value, $selectedToken.decimals);
-        amountRejected = false;
-        validateAmount();
+    try {
+      const maxAmount = await getMaxAmountToBridge({
+        to: $account.address,
+        token,
+        balance: $tokenBalance.value,
+        srcChainId,
+        destChainId,
+        fee: $processingFee,
+        gasLimitZero: $gasLimitZero,
+      });
+
+      if (
+        generation !== maxAmountGeneration ||
+        token !== $selectedToken ||
+        srcChainId !== $connectedSourceChain?.id ||
+        destChainId !== $destNetwork?.id
+      ) {
+        log('Discarding a max amount computed for a superseded selection');
+        return;
       }
+
+      // The displayed value is truncated for readability, so the entered amount is
+      // re-derived from it: what the user sees is exactly what gets bridged. The
+      // truncation stays on the string, since a float round-trip yields scientific
+      // notation for tiny balances, which parseUnits rejects
+      const exact = formatUnits(maxAmount, token.decimals);
+      const truncated = truncateDecimalString(exact, 12);
+      // Below 1e-12 the truncation rounds the whole balance away, and MAX would show
+      // and bridge zero. Showing every digit is better than offering nothing
+      value = parseUnits(truncated, token.decimals) > BigInt(0) ? truncated : exact;
+      $enteredAmount = parseUnits(value, token.decimals);
+      amountRejected = false;
+      validateAmount();
     } catch (err) {
       log('Error getting max amount: ', err);
     }
@@ -179,6 +210,8 @@
   const reset = async () => {
     log('reset');
     const tokenForThisReset = $selectedToken;
+    // A MAX still in flight was computed for the previous selection or account
+    maxAmountGeneration++;
     // Recorded here rather than after the balance read: this is selection bookkeeping, not
     // fetch-success bookkeeping. A reset superseded by a concurrent balance refresh returned
     // below without recording its token, so switching back to the previous one found

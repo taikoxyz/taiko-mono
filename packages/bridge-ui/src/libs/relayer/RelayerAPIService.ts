@@ -16,8 +16,14 @@ import {
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { apiService } from '$config';
-import type { BridgeTransaction, Message, MessageStatus } from '$libs/bridge';
+import { type BridgeTransaction, type Message, MessageStatus } from '$libs/bridge';
 import { bridgeTxKey } from '$libs/bridge/bridgeTxIdentity';
+import {
+  erc20InvocationParameters,
+  erc721InvocationParameters,
+  erc1155InvocationParameters,
+  onMessageInvocationAbi,
+} from '$libs/bridge/vaultInvocation';
 import { isSupportedChain } from '$libs/chain';
 import { TokenType } from '$libs/token';
 import { getLogger } from '$libs/util/logger';
@@ -62,63 +68,6 @@ type BridgeTransactionAssetDetails = {
   symbol: string;
   decimals?: number;
 };
-
-const onMessageInvocationAbi = [
-  {
-    type: 'function',
-    name: 'onMessageInvocation',
-    inputs: [{ name: 'data', type: 'bytes' }],
-    outputs: [],
-    stateMutability: 'payable',
-  },
-] as const;
-
-const erc20InvocationParameters = [
-  {
-    type: 'tuple',
-    components: [
-      { name: 'chainId', type: 'uint64' },
-      { name: 'addr', type: 'address' },
-      { name: 'decimals', type: 'uint8' },
-      { name: 'symbol', type: 'string' },
-      { name: 'name', type: 'string' },
-    ],
-  },
-  { type: 'address' },
-  { type: 'address' },
-  { type: 'uint256' },
-] as const;
-
-const erc721InvocationParameters = [
-  {
-    type: 'tuple',
-    components: [
-      { name: 'chainId', type: 'uint64' },
-      { name: 'addr', type: 'address' },
-      { name: 'symbol', type: 'string' },
-      { name: 'name', type: 'string' },
-    ],
-  },
-  { type: 'address' },
-  { type: 'address' },
-  { type: 'uint256[]' },
-] as const;
-
-const erc1155InvocationParameters = [
-  {
-    type: 'tuple',
-    components: [
-      { name: 'chainId', type: 'uint64' },
-      { name: 'addr', type: 'address' },
-      { name: 'symbol', type: 'string' },
-      { name: 'name', type: 'string' },
-    ],
-  },
-  { type: 'address' },
-  { type: 'address' },
-  { type: 'uint256[]' },
-  { type: 'uint256[]' },
-] as const;
 
 /**
  * Expands a JSON number token to the integer it denotes, in digits, and returns null when it
@@ -598,6 +547,36 @@ export class RelayerAPIService {
     log('Enhanced transactions', [...bridgeTxs]);
 
     return { txs: bridgeTxs, paginationInfo, failedTxs };
+  }
+
+  /**
+   * @dev The claim transaction of a claimed message, from the relayer's status rows.
+   *
+   *      The relayer's own claim writes a status row carrying only the transaction hash, and
+   *      the API's per-message lookup takes that row and gives up on it, so every message the
+   *      relayer claimed arrives with neither claimer nor claim hash. The rows themselves are
+   *      still served under event=MessageStatusChanged, filed under the message's sender and
+   *      not under its recipient - which is why the caller names the sender, not the account
+   *      whose history is on screen.
+   *
+   * @param srcOwner The message's sender, whose name the status rows are filed under
+   * @param msgHash The message
+   * @return claimTxHash_ The claim transaction, or undefined when no claimed status row exists
+   */
+  async getClaimTxHash(srcOwner: Address, msgHash: Hash): Promise<Hash | undefined> {
+    const response = await this.getTransactionsFromAPI({
+      address: srcOwner,
+      event: 'MessageStatusChanged',
+      msgHash: msgHash.toLowerCase(),
+      page: 0,
+      size: 20,
+    });
+    const claimed = (response.items ?? []).filter(
+      (row) => row.status === MessageStatus.DONE && row.data?.Raw?.transactionHash,
+    );
+    // The indexed log over the relayer's stub, though both carry the hash
+    const row = claimed.find((candidate) => candidate.data.Raw.transactionIndex) ?? claimed[0];
+    return row ? (row.data.Raw.transactionHash as Hash) : undefined;
   }
 
   private static _transformTransaction(tx: APIResponseTransaction): BridgeTransaction {

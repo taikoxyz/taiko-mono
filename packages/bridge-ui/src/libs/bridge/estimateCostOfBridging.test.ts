@@ -5,21 +5,23 @@
  */
 const estimateFeesPerGas = vi.fn();
 const getGasPrice = vi.fn();
+const getPublicClient = vi.fn();
 vi.mock('@wagmi/core', () => ({
-  getPublicClient: () => ({
-    estimateFeesPerGas: (...args: unknown[]) => estimateFeesPerGas(...args),
-    getGasPrice: (...args: unknown[]) => getGasPrice(...args),
-  }),
+  getPublicClient: (...args: unknown[]) => getPublicClient(...args),
 }));
 vi.mock('$libs/wagmi', () => ({ config: {} }));
 
 import { estimateCostOfBridging } from './estimateCostOfBridging';
 
 const bridge = { estimateGas: vi.fn() } as never;
-const args = {} as never;
+const args = { srcChainId: 167000 } as never;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  getPublicClient.mockReturnValue({
+    estimateFeesPerGas: (...args: unknown[]) => estimateFeesPerGas(...args),
+    getGasPrice: (...args: unknown[]) => getGasPrice(...args),
+  });
   (bridge as unknown as { estimateGas: ReturnType<typeof vi.fn> }).estimateGas.mockResolvedValue(BigInt(21_000));
   getGasPrice.mockResolvedValue(BigInt(7));
 });
@@ -50,5 +52,16 @@ describe('estimateCostOfBridging', () => {
     estimateFeesPerGas.mockResolvedValue({ maxFeePerGas: BigInt(0) });
 
     expect(await estimateCostOfBridging(bridge, args)).toBe(BigInt(147_000));
+  });
+
+  it('reads the fee market of the source chain, not of whatever chain the wallet is on', async () => {
+    // Without a chainId the client resolves against the connected chain. The two differ
+    // during a network switch, and L1 and Taiko gas prices are orders of magnitude apart:
+    // a MAX derived from the wrong one is either unsendable or leaves the wallet short of gas
+    estimateFeesPerGas.mockResolvedValue({ maxFeePerGas: BigInt(10) });
+
+    await estimateCostOfBridging(bridge, args);
+
+    expect(getPublicClient).toHaveBeenCalledWith(expect.anything(), { chainId: 167000 });
   });
 });

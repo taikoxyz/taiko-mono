@@ -9,8 +9,7 @@
   import { ChainSelector, ChainSelectorDirection, ChainSelectorType } from '$components/ChainSelectors';
   import { IconFlipper } from '$components/Icon';
   import { NFTDisplay } from '$components/NFTs';
-  import { PUBLIC_SLOW_L1_BRIDGING_WARNING } from '$env/static/public';
-  import { LayerType } from '$libs/chain';
+  import { isSlowL1Bridging } from '$libs/chain';
   import { fetchNFTImageUrl } from '$libs/token/fetchNFTImageUrl';
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { connectedSourceChain } from '$stores/network';
@@ -19,9 +18,8 @@
 
   let recipientComponent: Recipient;
   let processingFeeComponent: ProcessingFee;
-  let slowL1Warning = PUBLIC_SLOW_L1_BRIDGING_WARNING || false;
 
-  $: displayL1Warning = slowL1Warning && $destChain?.id && chainConfig[$destChain.id].type === LayerType.L1;
+  $: displayL1Warning = isSlowL1Bridging($destChain?.id);
 
   const dispatch = createEventDispatcher();
 

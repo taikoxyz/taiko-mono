@@ -3,7 +3,6 @@
   import { t } from 'svelte-i18n';
   import { formatUnits } from 'viem';
 
-  import { chainConfig } from '$chainConfig';
   import { Alert } from '$components/Alert';
   import { ProcessingFee, Recipient } from '$components/Bridge/SharedBridgeComponents';
   import DestOwner from '$components/Bridge/SharedBridgeComponents/RecipientStep/DestOwner.svelte';
@@ -14,8 +13,7 @@
     processingFee,
     selectedToken,
   } from '$components/Bridge/state';
-  import { PUBLIC_SLOW_L1_BRIDGING_WARNING } from '$env/static/public';
-  import { LayerType } from '$libs/chain';
+  import { isSlowL1Bridging } from '$libs/chain';
   import { isWrapped, type Token, TokenType } from '$libs/token';
   import { isToken } from '$libs/token/isToken';
   import { account } from '$stores/account';
@@ -29,15 +27,11 @@
   let recipientComponent: Recipient;
   let destOwnerComponent: DestOwner;
   let processingFeeComponent: ProcessingFee;
-  let slowL1Warning = PUBLIC_SLOW_L1_BRIDGING_WARNING || false;
 
   $: renderedDisplay = isToken($selectedToken) ? formatUnits($enteredAmount, $selectedToken.decimals) : 0;
-  $: displayL1Warning = slowL1Warning && $destChain?.id && chainConfig[$destChain.id].type === LayerType.L1;
+  $: displayL1Warning = isSlowL1Bridging($destChain?.id);
 
   $: wrapped = $selectedToken !== null && isWrapped($selectedToken as Token);
-
-  // $: unsupportedStableCoin =
-  //   $selectedToken !== null && !isSupported($selectedToken as Token) && isStablecoin($selectedToken as Token);
 
   $: wrappedAssetWarning = $t('bridge.alerts.wrapped_eth');
 
