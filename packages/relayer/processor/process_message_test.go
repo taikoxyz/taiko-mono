@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -698,4 +700,132 @@ func Test_processSingleSkipsLogsThatAreNotMessageSent(t *testing.T) {
 	// A targeted transaction that emitted no MessageSent has nothing to claim, and that is a
 	// clean outcome rather than an error.
 	assert.NoError(t, p.processSingle(context.Background()))
+}
+
+// The row the processor writes for its own claim used to carry nothing but the transaction
+// hash. The API reads the claimer off a MessageStatusChanged row through the block it was
+// mined in, and this row is the first one it finds for any message the relayer claimed, so
+// those messages came back with no claimer at all. The whole log is stored now, in the shape
+// the indexer stores it, and keyed the way the indexer keys it, so the two writers' rows for
+// one message are one series.
+func Test_saveMessageStatusChangedEventStoresTheWholeLog(t *testing.T) {
+	repo := mock.NewEventRepository()
+	p := newTestProcessor(false)
+	p.eventRepo = repo
+
+	bridgeAbi, err := abi.JSON(strings.NewReader(bridge.BridgeABI))
+	require.NoError(t, err)
+
+	msgHash := common.HexToHash("0x789cd5dcc77d50bec34b6458af936a3bfa802f3aa8b8466c07b2c6b663c92575")
+	claimTxHash := common.HexToHash("0x27a4811c18012da320c7a1bf4d788aeca068ac2e34a5f2ff73df33fa5f0e4b44")
+	blockHash := common.HexToHash("0xabababababababababababababababababababababababababababababababab")
+
+	statusLog := &types.Log{
+		Address:     common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
+		Topics:      []common.Hash{bridgeAbi.Events["MessageStatusChanged"].ID, msgHash},
+		Data:        common.LeftPadBytes([]byte{uint8(relayer.EventStatusDone)}, 32),
+		BlockNumber: 16,
+		TxHash:      claimTxHash,
+		TxIndex:     1,
+		BlockHash:   blockHash,
+		Index:       3,
+	}
+
+	err = p.saveMessageStatusChangedEvent(
+		context.Background(),
+		&types.Receipt{TxHash: claimTxHash, Logs: []*types.Log{statusLog}},
+		&bridge.BridgeMessageSent{
+			MsgHash: msgHash,
+			Message: bridge.IBridgeMessage{
+				SrcChainId:  1,
+				DestChainId: 2,
+				SrcOwner:    common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
+			},
+			Raw: types.Log{BlockNumber: 7},
+		},
+	)
+	require.NoError(t, err)
+
+	saved := repo.SavedEvents()
+	require.Len(t, saved, 1)
+
+	// The same shape the indexer writes, so one reader serves both
+	stored := &bridge.BridgeMessageStatusChanged{}
+	require.NoError(t, json.Unmarshal(saved[0].Data, stored), "the stored row must be a complete log")
+	assert.Equal(t, claimTxHash, stored.Raw.TxHash)
+	assert.Equal(t, uint(1), stored.Raw.TxIndex)
+	assert.Equal(t, blockHash, stored.Raw.BlockHash)
+	assert.Equal(t, uint64(16), stored.Raw.BlockNumber)
+	assert.Equal(t, uint8(relayer.EventStatusDone), stored.Status)
+	assert.Equal(t, msgHash, common.Hash(stored.MsgHash))
+
+	// Keyed the way the indexer keys the same log: the chain the status was emitted on, the
+	// other chain, and the block it was emitted in
+	assert.Equal(t, relayer.EventStatusDone, saved[0].Status)
+	assert.Equal(t, int64(2), saved[0].ChainID)
+	assert.Equal(t, int64(1), saved[0].DestChainID)
+	assert.Equal(t, uint64(16), saved[0].EmittedBlockID)
+	assert.Equal(t, msgHash.Hex(), saved[0].MsgHash)
+}
+
+// Everything the bridge calls while processing runs before the bridge emits its own status:
+// the invoked contract, and destOwner when it is refunded. Either can emit a log with the
+// bridge event's signature and this message's hash, and a scan that matched on the signature
+// alone took the first such log - a spoofed DONE ahead of the bridge's RETRIABLE, which the
+// API would then have reported as a successful claim. Only the bridge's own log is the status.
+func Test_saveMessageStatusChangedEventIgnoresAStatusLogAnotherContractEmitted(t *testing.T) {
+	repo := mock.NewEventRepository()
+	p := newTestProcessor(false)
+	p.eventRepo = repo
+
+	bridgeAbi, err := abi.JSON(strings.NewReader(bridge.BridgeABI))
+	require.NoError(t, err)
+
+	msgHash := common.HexToHash("0x789cd5dcc77d50bec34b6458af936a3bfa802f3aa8b8466c07b2c6b663c92575")
+	claimTxHash := common.HexToHash("0x27a4811c18012da320c7a1bf4d788aeca068ac2e34a5f2ff73df33fa5f0e4b44")
+	destOwner := common.HexToAddress("0x000000000000000000000000000000000000dEaD")
+
+	statusLog := func(from common.Address, status relayer.EventStatus, index uint) *types.Log {
+		return &types.Log{
+			Address:     from,
+			Topics:      []common.Hash{bridgeAbi.Events["MessageStatusChanged"].ID, msgHash},
+			Data:        common.LeftPadBytes([]byte{uint8(status)}, 32),
+			BlockNumber: 16,
+			TxHash:      claimTxHash,
+			TxIndex:     1,
+			BlockHash:   common.HexToHash("0xabababababababababababababababababababababababababababababababab"),
+			Index:       index,
+		}
+	}
+
+	receipt := &types.Receipt{
+		TxHash: claimTxHash,
+		Logs: []*types.Log{
+			// The refund reached destOwner, a contract, before the bridge recorded the outcome
+			statusLog(destOwner, relayer.EventStatusDone, 3),
+			// A log from the bridge without the indexed hash is not this event either
+			{
+				Address: p.cfg.DestBridgeAddress,
+				Topics:  []common.Hash{bridgeAbi.Events["MessageStatusChanged"].ID},
+				Data:    common.LeftPadBytes([]byte{uint8(relayer.EventStatusDone)}, 32),
+			},
+			statusLog(p.cfg.DestBridgeAddress, relayer.EventStatusRetriable, 5),
+		},
+	}
+
+	err = p.saveMessageStatusChangedEvent(context.Background(), receipt, &bridge.BridgeMessageSent{
+		MsgHash: msgHash,
+		Message: bridge.IBridgeMessage{SrcChainId: 1, DestChainId: 2, DestOwner: destOwner},
+	})
+	require.NoError(t, err)
+
+	saved := repo.SavedEvents()
+	require.Len(t, saved, 1)
+	assert.Equal(t, relayer.EventStatusRetriable, saved[0].Status,
+		"the attempt failed; a claim reported here would be false")
+
+	stored := &bridge.BridgeMessageStatusChanged{}
+	require.NoError(t, json.Unmarshal(saved[0].Data, stored))
+	assert.Equal(t, p.cfg.DestBridgeAddress, stored.Raw.Address)
+	assert.Equal(t, uint(5), stored.Raw.Index)
 }
