@@ -23,7 +23,9 @@ contract MainnetSharedResolver is ResolverBase {
                 return 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC;
             }
             if (_name == LibNames.B_BRIDGED_ERC20) {
-                return 0x65666141a541423606365123Ed280AB16a09A2e1;
+                // BridgedERC20V2 registered as bridged_erc20 by Proposal0023;
+                // replaces 0x65666141a541423606365123Ed280AB16a09A2e1
+                return 0x9ccB9eBa4335096c5B64f050C3c734632D497c3b;
             }
             if (_name == LibNames.B_BRIDGED_ERC721) {
                 return 0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7;
