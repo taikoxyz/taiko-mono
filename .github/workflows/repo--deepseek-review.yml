@@ -38,9 +38,9 @@ jobs:
         && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
       )
     runs-on: ubuntu-latest
-    # Cap the whole job. Must exceed MAX_ATTEMPTS (3) full request timeouts
-    # (REQUEST_TIMEOUT_MS = 10 min each) plus the retry backoff and checkout
-    # overhead, so a slow attempt and its retries are never killed mid-run.
+    # Cap the whole job. Must exceed the review step's own TOTAL_BUDGET_MS
+    # (30 min, retries included) plus checkout and setup, so the step's budget
+    # is what stops a slow review and this is only the backstop behind it.
     timeout-minutes: 35
     permissions:
       contents: read
@@ -260,10 +260,18 @@ jobs:
               // leaves the socket idle until the answer is complete, and an idle
               // socket gets reaped in transit ("TypeError: terminated" /
               // "SocketError: other side closed").
-              const REQUEST_TIMEOUT_MS = 600000; // hard cap on one attempt
-              const STALL_TIMEOUT_MS = 120000;   // no bytes for this long = dead
+              // A healthy review of this repo's diffs legitimately runs long:
+              // the model call in successful run 33707326913 took 11m19s. So
+              // there is no per-attempt clock - a stream sending data is never
+              // interrupted for taking its time. The stall timer is what detects
+              // a dead connection, and one budget shared by every attempt bounds
+              // the step as a whole, inside the job's timeout-minutes.
+              const TOTAL_BUDGET_MS = 1800000;  // 30 min for the step, retries included
+              const STALL_TIMEOUT_MS = 120000;  // no bytes for this long = dead
+              const MIN_ATTEMPT_MS = 60000;     // too little budget left to bother retrying
               const MAX_ATTEMPTS = 3;
               const RETRY_DELAY_MS = [5000, 15000];
+              const deadline = Date.now() + TOTAL_BUDGET_MS;
 
               // A rejected key, an unknown model id or a malformed request fails
               // identically on every attempt, so those are not retried.
@@ -287,8 +295,8 @@ jobs:
                   );
                 };
                 const overallTimer = setTimeout(
-                  () => controller.abort(new Error(`DeepSeek request exceeded ${REQUEST_TIMEOUT_MS / 1000}s`)),
-                  REQUEST_TIMEOUT_MS
+                  () => controller.abort(new Error(`DeepSeek review exceeded its ${TOTAL_BUDGET_MS / 60000}-minute budget`)),
+                  Math.max(deadline - Date.now(), 1)
                 );
 
                 try {
@@ -435,7 +443,12 @@ jobs:
                   }
                 }
                 if (attempt < MAX_ATTEMPTS) {
-                  await sleep(RETRY_DELAY_MS[attempt - 1] || RETRY_DELAY_MS[RETRY_DELAY_MS.length - 1]);
+                  const delay = RETRY_DELAY_MS[attempt - 1] || RETRY_DELAY_MS[RETRY_DELAY_MS.length - 1];
+                  if (deadline - Date.now() < delay + MIN_ATTEMPT_MS) {
+                    core.warning('Too little of the time budget left for another attempt; stopping here.');
+                    break;
+                  }
+                  await sleep(delay);
                 }
               }
 
