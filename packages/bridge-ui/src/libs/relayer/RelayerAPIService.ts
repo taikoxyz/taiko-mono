@@ -16,7 +16,7 @@ import {
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { apiService } from '$config';
-import type { BridgeTransaction, Message, MessageStatus } from '$libs/bridge';
+import { type BridgeTransaction, type Message, MessageStatus } from '$libs/bridge';
 import { bridgeTxKey } from '$libs/bridge/bridgeTxIdentity';
 import {
   erc20InvocationParameters,
@@ -60,6 +60,11 @@ const relayerMessageNumberPattern = new RegExp(
 // A uint256 tops out at 78 digits, so a longer expansion is not a bridge value. Bounds the
 // string an absurd exponent could ask this to allocate; the token is left alone instead.
 const MAX_RELAYER_INTEGER_DIGITS = 100;
+// A message has one status row per transition it went through, plus the relayer's own stub per
+// processing attempt; only DONE rows are kept. Twice the pages fetchTransactions is willing to
+// read for the messages themselves. The API serves these oldest first, so a history that outgrows
+// the cap loses its newest claims, not its oldest
+const MAX_CLAIM_STATUS_PAGES = 20;
 type DecodedBridgeMessage = Omit<Message, 'gasLimit'> & { gasLimit: bigint | number };
 type BridgeTransactionAssetDetails = {
   amount: bigint;
@@ -543,10 +548,78 @@ export class RelayerAPIService {
       return true;
     });
 
+    await this._fillMissingClaimTxHashes(address, paginationParams.size, bridgeTxs);
+
     // Spreading to preserve original txs in case of array mutation
     log('Enhanced transactions', [...bridgeTxs]);
 
     return { txs: bridgeTxs, paginationInfo, failedTxs };
+  }
+
+  /**
+   * @dev Fills in the claim transaction of a claimed message the API reported without one.
+   *
+   *      The relayer's own claim writes a status row carrying only the transaction hash, and
+   *      the API's per-message lookup takes that row and gives up on it, so every message the
+   *      relayer claimed arrives with neither claimer nor claim hash. The hash is still in the
+   *      rows the API serves under event=MessageStatusChanged, which are read once for the
+   *      address whenever a claimed message lacks it. The claimer is not resolved here: that
+   *      is one transaction read on the destination chain, made on demand by the details
+   *      dialog, not once per row on the list.
+   *
+   * @param address The account whose messages these are
+   * @param size The page size to read the status rows with
+   * @param txs The transactions, updated in place
+   */
+  private async _fillMissingClaimTxHashes(address: Address, size: number, txs: BridgeTransaction[]) {
+    const missing = txs.filter((tx) => tx.status === MessageStatus.DONE && !tx.destTxHash);
+    if (missing.length === 0) return;
+
+    const wanted = new Set(missing.map((tx) => tx.msgHash.toLowerCase()));
+    let claimTxHashes: Map<string, Hash>;
+    try {
+      claimTxHashes = await this._getClaimTxHashes(address, size, wanted);
+    } catch (error) {
+      // The list is complete without these; the dialog keeps showing "-" for them, as before
+      log('Could not read the status rows for the missing claim transactions', error);
+      return;
+    }
+
+    for (const tx of missing) {
+      const claimTxHash = claimTxHashes.get(tx.msgHash.toLowerCase());
+      if (claimTxHash) tx.destTxHash = claimTxHash;
+    }
+  }
+
+  /**
+   * @dev The claim transactions of the wanted messages, from the relayer's status rows.
+   *
+   *      Read page by page until every wanted message has been seen or the rows run out. This
+   *      runs once per list page that has something missing, and the rows are not cached
+   *      between list pages: a claim can land between two refreshes, and a stale answer here
+   *      would hide it until the next reload.
+   *
+   * @param address The account whose messages these are
+   * @param size The page size to read with
+   * @param wanted The lower-cased message hashes to find
+   * @return byMsgHash_ Claim transaction hashes keyed by lower-cased message hash
+   */
+  private async _getClaimTxHashes(address: Address, size: number, wanted: Set<string>): Promise<Map<string, Hash>> {
+    const claimTxHashes = new Map<string, Hash>();
+    for (let page = 0; page < MAX_CLAIM_STATUS_PAGES; page++) {
+      const response = await this.getTransactionsFromAPI({ address, event: 'MessageStatusChanged', page, size });
+      const rows = response.items ?? [];
+      for (const row of rows) {
+        // Both the relayer's stub and the indexed log carry the hash; either will do
+        const claimTxHash = row.data?.Raw?.transactionHash;
+        const msgHash = row.msgHash?.toLowerCase();
+        if (row.status === MessageStatus.DONE && msgHash && wanted.has(msgHash) && claimTxHash) {
+          claimTxHashes.set(msgHash, claimTxHash as Hash);
+        }
+      }
+      if (claimTxHashes.size === wanted.size || response.last || rows.length === 0) break;
+    }
+    return claimTxHashes;
   }
 
   private static _transformTransaction(tx: APIResponseTransaction): BridgeTransaction {

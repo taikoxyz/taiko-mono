@@ -7,6 +7,9 @@
  * It also names the user's addresses as sender and recipient. A token transfer is a message
  * from vault to vault, so reading the envelope showed two bridge contracts instead - and
  * classified the recipient's own claim as a relayer's, since the recipient is not the vault.
+ *
+ * And it reads the claimer and the claim time off the claim transaction when the relayer
+ * reported neither, which is the case for every message the relayer claimed itself.
  */
 import { tick } from 'svelte';
 import { encodeAbiParameters, encodeFunctionData } from 'viem';
@@ -18,8 +21,11 @@ vi.mock('svelte-i18n', async () => {
 });
 vi.mock('@wagmi/core');
 vi.mock('$libs/bridge/isTransactionProcessable', () => ({ isTransactionProcessable: vi.fn().mockResolvedValue(true) }));
-vi.mock('$libs/util/getBlockFromTxHash', () => ({ getBlockFromTxHash: vi.fn().mockResolvedValue(1n) }));
-vi.mock('$libs/util/getBlockTimestamp', () => ({ geBlockTimestamp: vi.fn().mockResolvedValue(1_700_000_000n) }));
+const getClaimDetails = vi.hoisted(() => vi.fn());
+vi.mock('$libs/bridge/getClaimDetails', () => ({ getClaimDetails: (...args: unknown[]) => getClaimDetails(...args) }));
+// Deliberately not the claim time below: the initiated date renders in the same dialog, and the
+// claim-date assertion must not be satisfied by it
+vi.mock('$libs/util/getBlockTimestamp', () => ({ geBlockTimestamp: vi.fn().mockResolvedValue(1_600_000_000n) }));
 vi.mock('$libs/chain', async (importOriginal) => ({
   ...(await importOriginal<typeof import('$libs/chain')>()),
   getChainName: () => 'Chain',
@@ -46,6 +52,7 @@ vi.mock('$components/ExplorerLink/ExplorerLink.svelte', async () => ({
 import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
 import { erc20InvocationParameters, onMessageInvocationAbi } from '$libs/bridge/vaultInvocation';
 import { TokenType } from '$libs/token';
+import { formatTimestamp } from '$libs/util/formatTimestamp';
 import { ALICE, BOB, L1_ADDRESSES, L2_A_ADDRESSES } from '$mocks';
 import { account } from '$stores/account';
 
@@ -53,6 +60,8 @@ import DesktopDetailsDialog from './DesktopDetailsDialog.svelte';
 import MobileDetailsDialog from './MobileDetailsDialog.svelte';
 
 const ADDRESS = '0x1111111111111111111111111111111111111111';
+const RELAYER = '0x00006ca990540F6e30e3ef05F085a033Ae67F214';
+const CLAIMED_AT = 1_700_000_000n;
 
 /** 100 USDC: six decimals, so the raw amount is 100_000_000 */
 const usdcTransfer = {
@@ -129,6 +138,7 @@ let target: HTMLElement;
 let component: { $destroy: () => void } | null = null;
 
 beforeEach(() => {
+  getClaimDetails.mockReset().mockResolvedValue({ claimedBy: RELAYER, claimedAt: CLAIMED_AT });
   account.set({ address: ADDRESS, isConnected: true } as never);
   target = document.createElement('div');
   document.body.appendChild(target);
@@ -185,5 +195,83 @@ describe.each([
     expect(target.textContent).not.toContain('common.relayer');
     // The claimer is linked: once as the recipient, once as the claimer
     expect(linkedAddresses().filter((address) => address === BOB)).toHaveLength(2);
+  });
+
+  describe('a claim the relayer reported without a claimer', () => {
+    // The relayer API leaves claimedBy empty for every message the relayer itself claimed.
+    // The claim transaction is known, and it answers both who and when. An ETH transfer, so
+    // the recipient is on the envelope and all four addresses render
+    const claimedByUnknown = {
+      ...usdcTransfer,
+      tokenType: TokenType.ETH,
+      symbol: 'ETH',
+      decimals: 18,
+      claimedBy: undefined,
+    } as unknown as BridgeTransaction;
+
+    it('reads the claimer and the claim time off the claim transaction', async () => {
+      component = new Dialog({
+        target,
+        props: { detailsOpen: true, bridgeTx: claimedByUnknown, token: null, closeDetails: () => undefined },
+      });
+      await flush();
+
+      expect(getClaimDetails).toHaveBeenCalledWith(claimedByUnknown.destTxHash, claimedByUnknown.destChainId);
+      // Neither the recipient nor the destination owner: a relayer, and said so on evidence
+      expect(target.textContent).toContain('common.relayer');
+      expect(target.textContent).toContain(formatTimestamp(Number(CLAIMED_AT)));
+    });
+
+    it('links a self-claim to the claimer', async () => {
+      getClaimDetails.mockResolvedValue({ claimedBy: ADDRESS, claimedAt: CLAIMED_AT });
+      component = new Dialog({
+        target,
+        props: { detailsOpen: true, bridgeTx: claimedByUnknown, token: null, closeDetails: () => undefined },
+      });
+      await flush();
+
+      expect(target.textContent).not.toContain('common.relayer');
+      // Sender, recipient, destination owner and now the claimer
+      expect(linkedAddresses().filter((address) => address === ADDRESS)).toHaveLength(4);
+    });
+
+    it('shows the claimer of the transaction on screen, not of one it was showing before', async () => {
+      // A read still in flight for the previous transaction lands after the switch
+      let resolveFirst!: (value: unknown) => void;
+      let resolveSecond!: (value: unknown) => void;
+      getClaimDetails
+        .mockImplementationOnce(() => new Promise((resolve) => (resolveFirst = resolve)))
+        .mockImplementationOnce(() => new Promise((resolve) => (resolveSecond = resolve)));
+      component = new Dialog({
+        target,
+        props: { detailsOpen: true, bridgeTx: claimedByUnknown, token: null, closeDetails: () => undefined },
+      });
+      await flush();
+
+      const other = { ...claimedByUnknown, destTxHash: '0xdddd', msgHash: '0xeeee' } as unknown as BridgeTransaction;
+      (component as unknown as { $set: (props: object) => void }).$set({ bridgeTx: other });
+      await flush();
+
+      resolveSecond({ claimedBy: ADDRESS, claimedAt: CLAIMED_AT });
+      await flush();
+      resolveFirst({ claimedBy: RELAYER, claimedAt: CLAIMED_AT });
+      await flush();
+
+      expect(target.textContent).not.toContain('common.relayer');
+    });
+
+    it('does not read the claim transaction until the dialog is opened', async () => {
+      // Every row mounts both dialogs; a read here would be two RPC calls per claimed row
+      component = new Dialog({
+        target,
+        props: { detailsOpen: false, bridgeTx: claimedByUnknown, token: null, closeDetails: () => undefined },
+      });
+      await flush();
+      expect(getClaimDetails).not.toHaveBeenCalled();
+
+      (component as unknown as { $set: (props: object) => void }).$set({ detailsOpen: true });
+      await flush();
+      expect(getClaimDetails).toHaveBeenCalledTimes(1);
+    });
   });
 });

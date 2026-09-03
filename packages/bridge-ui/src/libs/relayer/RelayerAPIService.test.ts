@@ -535,6 +535,107 @@ describe('RelayerAPIService', () => {
     );
   });
 
+  describe('a claimed message the relayer reported without its claim transaction', () => {
+    // The relayer's own claim leaves a status row carrying only the transaction hash, and the
+    // API's per-message lookup takes that row and gives up on it: a message the relayer
+    // claimed arrives with neither claimer nor claim hash. The hash is still in the rows the
+    // API serves under event=MessageStatusChanged.
+    const CLAIM_TX_HASH = '0x27a4811c18012da320c7a1bf4d788aeca068ac2e34a5f2ff73df33fa5f0e4b44' as Hash;
+
+    const claimedWithoutHash = () =>
+      createRelayerItem({
+        id: 1584078,
+        messageId: '6268',
+        msgHash: GOOD_MSG_HASH,
+        blockNumber: '0x7baa21',
+        status: MessageStatus.DONE,
+        claimedBy: '',
+        processedTxHash: undefined,
+      });
+
+    /** The stub row the relayer's processor writes: only the hash, on the source chain */
+    const statusStub = () => ({
+      ...createRelayerItem({ id: 1584081, messageId: '6268', msgHash: GOOD_MSG_HASH, blockNumber: '0x0' }),
+      name: 'MessageStatusChanged',
+      event: 'MessageStatusChanged',
+      status: MessageStatus.DONE,
+      chainID: 1,
+      data: { Raw: { transactionHash: CLAIM_TX_HASH } },
+    });
+
+    const answerByEvent = (statusRows: unknown[]) =>
+      mockedAxios.get.mockImplementation(async (_url, options) =>
+        (options as { params?: { event?: string } })?.params?.event === 'MessageStatusChanged'
+          ? createApiResponse(statusRows as never)
+          : createApiResponse([claimedWithoutHash()]),
+      );
+
+    test('fills the claim transaction from the status rows', async () => {
+      const relayerAPIService = new RelayerAPIService('http://example.com');
+      answerByEvent([statusStub()]);
+      mockedGetTransactionReceipt.mockResolvedValue(createReceiptWithMessageSentLog());
+      mockedReadContract.mockResolvedValue(MessageStatus.DONE);
+
+      const result = await relayerAPIService.getAllBridgeTransactionByAddress(
+        USER_ADDRESS,
+        { page: 1, size: 10 },
+        167000,
+      );
+
+      expect(result.txs).toHaveLength(1);
+      expect(result.txs[0].destTxHash).toEqual(CLAIM_TX_HASH);
+      // The claimer is one transaction read on the destination chain, made on demand by the dialog
+      expect(result.txs[0].claimedBy).toBeUndefined();
+      expect(mockedAxios.get).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          params: expect.objectContaining({ address: USER_ADDRESS, event: 'MessageStatusChanged' }),
+        }),
+      );
+    });
+
+    test('keeps the list when the status rows cannot be read', async () => {
+      const relayerAPIService = new RelayerAPIService('http://example.com');
+      mockedAxios.get.mockImplementation(async (_url, options) => {
+        if ((options as { params?: { event?: string } })?.params?.event === 'MessageStatusChanged') {
+          throw new Error('relayer down');
+        }
+        return createApiResponse([claimedWithoutHash()]);
+      });
+      mockedGetTransactionReceipt.mockResolvedValue(createReceiptWithMessageSentLog());
+      mockedReadContract.mockResolvedValue(MessageStatus.DONE);
+
+      const result = await relayerAPIService.getAllBridgeTransactionByAddress(
+        USER_ADDRESS,
+        { page: 1, size: 10 },
+        167000,
+      );
+
+      expect(result.txs).toHaveLength(1);
+      expect(result.txs[0].destTxHash).toBeUndefined();
+    });
+
+    test('does not ask for status rows when every claimed message already has its hash', async () => {
+      const relayerAPIService = new RelayerAPIService('http://example.com');
+      const relayerItem = createRelayerItem({
+        id: 1584090,
+        messageId: '6268',
+        msgHash: GOOD_MSG_HASH,
+        blockNumber: '0x7baa21',
+        status: MessageStatus.DONE,
+        claimedBy: USER_ADDRESS,
+        processedTxHash: CLAIM_TX_HASH,
+      });
+      mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
+      mockedGetTransactionReceipt.mockResolvedValue(createReceiptWithMessageSentLog());
+      mockedReadContract.mockResolvedValue(MessageStatus.DONE);
+
+      await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, { page: 1, size: 10 }, 167000);
+
+      expect(mockedAxios.get).toHaveBeenCalledTimes(1);
+    });
+  });
+
   test('getAllBridgeTransactionByAddress refreshes ERC20 metadata from the receipt message', async () => {
     // Given
     const relayerAPIService = new RelayerAPIService('http://example.com');

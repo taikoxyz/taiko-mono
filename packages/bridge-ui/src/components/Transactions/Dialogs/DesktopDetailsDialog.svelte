@@ -1,12 +1,13 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
-  import { formatEther, hexToBigInt } from 'viem';
+  import { type Address, formatEther, type Hash, hexToBigInt } from 'viem';
 
   import { CloseButton } from '$components/Button';
   import ExplorerLink from '$components/ExplorerLink/ExplorerLink.svelte';
   import { Icon } from '$components/Icon';
   import Spinner from '$components/Spinner/Spinner.svelte';
   import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
+  import { getClaimDetails } from '$libs/bridge/getClaimDetails';
   import { isTransactionProcessable } from '$libs/bridge/isTransactionProcessable';
   import { getTransferParties } from '$libs/bridge/transferParties';
   import { getChainName } from '$libs/chain';
@@ -14,7 +15,6 @@
   import { type NFT, TokenType } from '$libs/token';
   import { formatTimestamp } from '$libs/util/formatTimestamp';
   import { formatTokenAmount } from '$libs/util/formatTokenAmount';
-  import { getBlockFromTxHash } from '$libs/util/getBlockFromTxHash';
   import { geBlockTimestamp } from '$libs/util/getBlockTimestamp';
   import { getLogger } from '$libs/util/logger';
   // import type { NFT } from '$libs/token';
@@ -58,18 +58,27 @@
     initiatedAt = formatTimestamp(Number(blockTimestamp));
   };
 
-  const getClaimedDate = async () => {
-    if (!bridgeTx.destTxHash || !bridgeTx.destChainId) return;
-    log('destTxHash', bridgeTx.destTxHash, 'destChainId', bridgeTx.destChainId);
+  // Both read off the claim transaction: the relayer API reports no claimer for the messages
+  // the relayer claimed itself, and the transaction answers who and when in one read. Only
+  // once the dialog is open, since every row mounts both dialogs, and only once per claim
+  let resolvedClaimer: Maybe<Address> = null;
+  let claimRead: Maybe<Hash> = null;
+
+  const readClaim = async () => {
+    const { destTxHash, destChainId } = bridgeTx;
+    if (!destTxHash || !destChainId || claimRead === destTxHash) return;
+    claimRead = destTxHash;
+    resolvedClaimer = null;
+    claimedAt = '';
     try {
-      const blockNumber = await getBlockFromTxHash(bridgeTx.destTxHash, bridgeTx.destChainId);
-      log('blockNumber', blockNumber);
-      const blockTimestamp = await geBlockTimestamp(bridgeTx.destChainId, blockNumber);
-      log('blockTimestamp', blockTimestamp);
-      claimedAt = formatTimestamp(Number(blockTimestamp));
-      log('claimedAt', claimedAt);
+      const { claimedBy: claimer, claimedAt: timestamp } = await getClaimDetails(destTxHash, destChainId);
+      // Superseded by another claim while this one was out
+      if (claimRead !== destTxHash) return;
+      resolvedClaimer = claimer;
+      claimedAt = formatTimestamp(Number(timestamp));
     } catch (error) {
-      log('error', error);
+      claimRead = null;
+      log('Could not read the claim transaction', error);
     }
   };
 
@@ -105,10 +114,10 @@
   $: destChainId = bridgeTx.destChainId || null;
   $: destOwner = bridgeTx.message?.destOwner || null;
 
-  $: bridgeTx && getClaimedDate();
+  $: if (detailsOpen && bridgeTx) readClaim();
   $: bridgeTx && getInitiatedDate();
 
-  $: claimedBy = bridgeTx.claimedBy || null;
+  $: claimedBy = bridgeTx.claimedBy || resolvedClaimer || null;
   $: isRelayer = claimedByRelayer({ claimedBy, to, destOwner, status: effectiveStatus });
 
   $: paidFee = formatEther(bridgeTx.fee ? bridgeTx.fee : BigInt(0));
