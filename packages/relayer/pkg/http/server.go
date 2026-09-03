@@ -20,6 +20,7 @@ type ethClient interface {
 	ChainID(ctx context.Context) (*big.Int, error)
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
+	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
 	TransactionByHash(ctx context.Context, hash common.Hash) (*types.Transaction, bool, error)
 	TransactionSender(ctx context.Context,
 		tx *types.Transaction,
