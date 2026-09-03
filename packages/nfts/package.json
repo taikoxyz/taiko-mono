@@ -77,7 +77,7 @@
     "merkletreejs": "^0.4.0",
     "murky": "github:dmfxyz/murky",
     "p256-verifier": "github:taikoxyz/p256-verifier#v0.1.0",
-    "sharp": "^0.33.3",
+    "sharp": "^0.35.0",
     "solady": "github:Vectorized/solady#v0.0.167",
     "solidity-stringutils": "github:Arachnid/solidity-stringutils"
   }
