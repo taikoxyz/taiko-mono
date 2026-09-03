@@ -16,6 +16,7 @@
   import { detectContractType, type GetTokenInfo, type Token, TokenType } from '$libs/token';
   import { getTokenAddresses } from '$libs/token/getTokenAddresses';
   import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
+  import { tokenIdentityKey } from '$libs/token/tokenIdentity';
   import { getLogger } from '$libs/util/logger';
   import { config } from '$libs/wagmi';
   import { account } from '$stores/account';
@@ -79,8 +80,9 @@
   };
 
   const resetForm = () => {
-    customToken = null;
-    customTokenWithDetails = null;
+    // A lookup still in flight belongs to the form being cleared; without this its result
+    // would repopulate the token and the loading flag after the reset
+    discardLookup();
     isValidEthereumAddress = false;
     state = AddressInputState.DEFAULT;
     if (addressInputComponent) addressInputComponent.clearAddress();
@@ -96,61 +98,169 @@
     if (isValidEthereumAddress) {
       await onAddressChange(tokenAddress as Address);
     } else {
-      tokenAddress = addr;
+      // Invalid or cleared input also invalidates any in-flight lookup so its stale
+      // token cannot publish into the form
+      discardLookup();
     }
   }
 
+  // Lookups for a previously typed address can resolve after a newer one;
+  // only the latest may publish its result
+  let lookupGeneration = 0;
+
+  /** The address a token lookup is currently in flight for, if any */
+  let pendingTokenLookup: Maybe<string> = null;
+
+  /** The address the currently offered token was resolved for, if any */
+  let resolvedTokenAddress: Maybe<string> = null;
+
+  /** The source chain the in-flight or resolved lookup belongs to */
+  let lookupChainId: Maybe<number> = null;
+
+  /**
+   * AddressInput dispatches nothing for a cleared field or text without a `0x` prefix, so
+   * an edit can leave no event behind. The two-way bound draft is then the only signal
+   * that a lookup still running describes an address no longer on screen.
+   */
+  function syncTokenAddressDraft(draft: Maybe<string>) {
+    // Whichever address the form is currently offering something for: a lookup still
+    // running, or one that already finished. A finished lookup leaves pendingTokenLookup
+    // null, so keying only off that let a cleared field keep showing the resolved token
+    const shownFor = pendingTokenLookup ?? resolvedTokenAddress;
+    if (!shownFor) return;
+    if (shownFor.toLowerCase() === (draft ?? '').toLowerCase()) return;
+
+    discardLookup();
+  }
+
+  /**
+   * @dev Drops whatever the form is offering and supersedes any lookup still in flight.
+   *
+   *      Deliberately leaves `state` alone. It is two-way bound to AddressInput, which
+   *      writes VALID/INVALID as the user types, and resetting it from a path that also
+   *      runs on an invalid address would erase the field's own verdict.
+   */
+  function discardLookup() {
+    lookupGeneration++;
+    pendingTokenLookup = null;
+    resolvedTokenAddress = null;
+    lookupChainId = null;
+    loadingTokenDetails = false;
+    customTokenWithDetails = null;
+    customToken = null;
+  }
+
   const onAddressChange = async (tokenAddress: Address) => {
-    if (!tokenAddress) return;
+    const generation = ++lookupGeneration;
+    // Drop the previous token up front: if this lookup fails or the address is not an
+    // ERC20, the form must not keep offering the token from the last address
+    customTokenWithDetails = null;
+    customToken = null;
+    resolvedTokenAddress = null;
+    if (!tokenAddress) {
+      pendingTokenLookup = null;
+      lookupChainId = null;
+      loadingTokenDetails = false;
+      return;
+    }
+    // The whole lookup is pinned to the chain it started on. The same address is a
+    // different contract on a different chain, so detecting the type against one chain
+    // and then reading the token info off another describes no contract that exists
+    const srcChainId = $connectedSourceChain?.id;
+    if (!srcChainId) {
+      // Guard, not a fix for a reachable path: a lookup can only be in flight if the chain
+      // was set when it started, and losing it since then runs onSourceChainChanged, which
+      // discards the lookup and clears this. Leaving a return that sets no state is still
+      // the wrong shape for a function whose other exits all clean up after themselves.
+      pendingTokenLookup = null;
+      lookupChainId = null;
+      loadingTokenDetails = false;
+      return;
+    }
+    pendingTokenLookup = tokenAddress;
+    lookupChainId = srcChainId;
     loadingTokenDetails = true;
     log('Fetching token details for address "%s"…', tokenAddress);
 
-    let type: TokenType;
+    const superseded = () => generation !== lookupGeneration || $connectedSourceChain?.id !== srcChainId;
+
     try {
-      type = await detectContractType(tokenAddress, $connectedSourceChain?.id as number);
-    } catch (error) {
-      log('Failed to detect contract type: ', error);
-      loadingTokenDetails = false;
-      state = AddressInputState.NOT_ERC20;
-      return;
-    }
+      let type: TokenType;
+      try {
+        type = await detectContractType(tokenAddress, srcChainId);
+      } catch (error) {
+        if (superseded()) return;
+        log('Failed to detect contract type: ', error);
+        state = AddressInputState.NOT_ERC20;
+        return;
+      }
+      if (superseded()) return;
 
-    if (type !== TokenType.ERC20) {
-      loadingTokenDetails = false;
-      state = AddressInputState.NOT_ERC20;
-      return;
-    }
+      if (type !== TokenType.ERC20) {
+        state = AddressInputState.NOT_ERC20;
+        return;
+      }
 
-    const srcChain = $connectedSourceChain;
-    if (!srcChain) return;
-    try {
-      const token = await getTokenWithInfoFromAddress({
-        contractAddress: tokenAddress as Address,
-        srcChainId: srcChain.id,
-      });
-      if (!token) return;
-      const balance = await readContract(config, {
-        address: tokenAddress as Address,
-        abi: erc20Abi,
-        functionName: 'balanceOf',
-        args: [$account?.address as Address],
-      });
-      customTokenWithDetails = { ...token, balance } as Token;
+      try {
+        const token = await getTokenWithInfoFromAddress({
+          contractAddress: tokenAddress as Address,
+          srcChainId,
+        });
+        if (superseded()) return;
+        if (!token) return;
+        const balance = await readContract(config, {
+          address: tokenAddress as Address,
+          abi: erc20Abi,
+          functionName: 'balanceOf',
+          args: [$account?.address as Address],
+        });
+        if (superseded()) return;
+        customTokenWithDetails = { ...token, balance } as Token;
 
-      customToken = customTokenWithDetails;
-    } catch (error) {
-      state = AddressInputState.INVALID;
-      log('Failed to fetch token: ', error);
+        customToken = customTokenWithDetails;
+        resolvedTokenAddress = tokenAddress;
+      } catch (error) {
+        if (superseded()) return;
+        state = AddressInputState.INVALID;
+        log('Failed to fetch token: ', error);
+      }
+    } finally {
+      // Every exit path clears the flag while this lookup is still the latest
+      if (generation === lookupGeneration) {
+        pendingTokenLookup = null;
+        loadingTokenDetails = false;
+      }
     }
-    loadingTokenDetails = false;
   };
+
+  $: syncTokenAddressDraft(tokenAddress);
+  $: onSourceChainChanged($connectedSourceChain?.id);
+
+  /**
+   * @dev A token resolved against the previous chain says nothing about the current one,
+   *      and a lookup still running against it must not publish either.
+   */
+  function onSourceChainChanged(chainId: Maybe<number>) {
+    if (lookupChainId === null || lookupChainId === chainId) return;
+    discardLookup();
+    // Safe to reset here, unlike in discardLookup: no validation is racing a chain switch,
+    // and an address accepted against the previous chain says nothing about this one
+    state = AddressInputState.DEFAULT;
+  }
 
   $: formattedBalance =
     customTokenWithDetails?.balance && customTokenWithDetails?.decimals
       ? formatUnits(customTokenWithDetails.balance, customTokenWithDetails.decimals)
       : 0;
 
-  $: disabled = state !== AddressInputState.VALID || tokenAddress === '' || tokenAddress.length !== 42;
+  // A resolved token is required: the address passing validation says nothing about the
+  // lookup having finished, so Add was clickable while details were still loading or absent
+  $: disabled =
+    state !== AddressInputState.VALID ||
+    tokenAddress === '' ||
+    tokenAddress.length !== 42 ||
+    loadingTokenDetails ||
+    !customToken;
 
   const closeModalIfClickedOutside = (e: MouseEvent) => {
     if (e.target === e.currentTarget) {
@@ -158,7 +268,10 @@
     }
   };
   const closeModalIfKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
+    // Gated on the dialog being open: the listener is on window, and closeModal resets the
+    // form, so an Escape pressed anywhere else on the page was discarding a lookup and
+    // clearing a token nobody was looking at
+    if (e.key === 'Escape' && modalOpen) {
       closeModal();
     }
   };
@@ -196,7 +309,7 @@
     {#if customTokens.length > 0}
       <div class="flex h-full w-full flex-col justify-between mt-6">
         <h3 class="title-body-bold mb-7">{$t('token_dropdown.imported_tokens')}</h3>
-        {#each customTokens as ct (ct.symbol)}
+        {#each customTokens as ct (tokenIdentityKey(ct))}
           <div class="flex items-center justify-between">
             <div class="flex items-center m-2 space-x-2">
               <Erc20 />

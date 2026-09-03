@@ -5,20 +5,14 @@
   import type { Address } from 'viem';
   import { zeroAddress } from 'viem';
 
-  import {
-    computingBalance,
-    destNetwork,
-    errorComputingBalance,
-    selectedToken,
-    tokenBalance,
-  } from '$components/Bridge/state';
+  import { computingBalance, destNetwork, selectedToken } from '$components/Bridge/state';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { Icon } from '$components/Icon';
   import Erc20 from '$components/Icon/ERC20.svelte';
   import { warningToast } from '$components/NotificationToast';
   import { OnAccount } from '$components/OnAccount';
   import { tokenService } from '$libs/storage/services';
-  import { ETHToken, fetchBalance as getTokenBalance, type NFT, type Token, TokenType } from '$libs/token';
+  import { ETHToken, type NFT, type Token } from '$libs/token';
   import { getTokenAddresses } from '$libs/token/getTokenAddresses';
   import { getLogger } from '$libs/util/logger';
   import { truncateString } from '$libs/util/truncateString';
@@ -103,8 +97,11 @@
       $computingBalance = false;
       console.error(error);
     }
+    // Selecting the token is what triggers the balance read: TokenInput binds `value` to
+    // $selectedToken and reads on every change through its own guarded path. The read this
+    // component made on top was unguarded, so a slow read for the previous token could land
+    // after the new token's and put the wrong balance under its name.
     value = token;
-    await updateBalance();
     $computingBalance = false;
   };
 
@@ -124,47 +121,6 @@
     tokenService.removeToken(token, address as Address);
     customTokens = tokenService.getTokens(address as Address);
   };
-
-  async function updateBalance() {
-    const userAddress = $account?.address;
-    const srcChainId = $connectedSourceChain?.id;
-    const destChainId = $destNetwork?.id;
-    const token = value;
-    if (!token || !srcChainId || !userAddress) return;
-    $computingBalance = true;
-    $errorComputingBalance = false;
-
-    try {
-      if (token.type === TokenType.ERC20) {
-        $tokenBalance = await getTokenBalance({
-          token,
-          srcChainId,
-          destChainId,
-          userAddress,
-        });
-      } else if (token.type === TokenType.ETH) {
-        $tokenBalance = await getTokenBalance({
-          token: ETHToken,
-          srcChainId,
-          destChainId,
-          userAddress,
-        });
-      } else {
-        $tokenBalance = await getTokenBalance({
-          token,
-          srcChainId,
-          destChainId,
-          userAddress,
-        });
-      }
-    } catch (err) {
-      log('Error updating balance: ', err);
-      //most likely we have a custom token that is not bridged yet
-      $errorComputingBalance = true;
-      // clearAmount();
-    }
-    $computingBalance = false;
-  }
 
   const onAccountChange = (newAccount: Account, prevAccount?: Account) => {
     if (newAccount?.chainId === prevAccount?.chainId || !newAccount || !prevAccount) reset();

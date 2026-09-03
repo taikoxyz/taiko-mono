@@ -7,6 +7,7 @@
   import { DesktopDetailsDialog } from '$components/Transactions/Dialogs';
   import type { BridgeTransaction, MessageStatus } from '$libs/bridge';
   import { getMessageStatusForMsgHash } from '$libs/bridge/getMessageStatusForMsgHash';
+  import { getTransferParties } from '$libs/bridge/transferParties';
   import { type NFT, TokenType } from '$libs/token';
   import { fetchNFTImageUrl } from '$libs/token/fetchNFTImageUrl';
   import { mapTransactionHashToNFT } from '$libs/token/mapTransactionHashToNFT';
@@ -27,6 +28,9 @@
   export let loading = false;
   export let handleTransactionRemoved: (event: CustomEvent) => void;
   export let bridgeTxStatus: Maybe<MessageStatus>;
+
+  // The user's addresses, not the envelope's: a token transfer runs from vault to vault
+  $: parties = getTransferParties(bridgeTx);
 
   const placeholderUrl = '/placeholder.svg';
   let insufficientModal = false;
@@ -155,11 +159,11 @@
     <div class={`${columnClasses} !items-start pl-[10px]`}>
       <div class="f-row md:hidden">
         <ChainSymbol class="min-w-[24px]" chainId={bridgeTx.srcChainId} />
-        {shortenAddress(bridgeTx.message?.from, 4, 3)}
+        {shortenAddress(parties.sender ?? undefined, 4, 3)}
       </div>
       <div class="f-row md:hidden">
         <ChainSymbol class="min-w-[24px]" chainId={bridgeTx.destChainId} />
-        {shortenAddress(bridgeTx.message?.to, 4, 3)}
+        {shortenAddress(parties.recipient ?? undefined, 4, 3)}
       </div>
     </div>
 
@@ -183,11 +187,11 @@
 
     <div class={`${columnClasses}`}>
       <ChainSymbol class="min-w-[24px]" chainId={bridgeTx.srcChainId} />
-      {shortenAddress(bridgeTx.message?.from)}
+      {shortenAddress(parties.sender ?? undefined)}
     </div>
     <div class={`${columnClasses} `}>
       <ChainSymbol class="min-w-[24px]" chainId={bridgeTx.destChainId} />
-      {shortenAddress(bridgeTx.message?.to)}
+      {shortenAddress(parties.recipient ?? undefined)}
     </div>
     <!-- Tablet -->
   {:else if $isTablet}
@@ -197,11 +201,11 @@
 
     <div class={`${columnClasses}`}>
       <ChainSymbol class="min-w-[24px]" chainId={bridgeTx.srcChainId} />
-      {shortenAddress(bridgeTx.message?.from, 5, 1)}
+      {shortenAddress(parties.sender ?? undefined, 5, 1)}
     </div>
     <div class={`${columnClasses} `}>
       <ChainSymbol class="min-w-[24px]" chainId={bridgeTx.destChainId} />
-      {shortenAddress(bridgeTx.message?.to, 5, 1)}
+      {shortenAddress(parties.recipient ?? undefined, 5, 1)}
     </div>
   {/if}
 

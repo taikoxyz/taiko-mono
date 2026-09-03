@@ -12,8 +12,8 @@
   import { Tooltip } from '$components/Tooltip';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { ProcessingFeeMethod } from '$libs/fee';
-  import { parseToWei } from '$libs/util/parseToWei';
 
+  import { isCustomFeeInputBlank, parseCustomFeeInput } from './customFee';
   import NoneOption from './NoneOption.svelte';
   import RecommendedFee from './RecommendedFee.svelte';
 
@@ -24,7 +24,12 @@
 
   let dialogId = `dialog-${crypto.randomUUID()}`;
 
-  let recommendedAmount = BigInt(0);
+  // Seeded from the committed fee rather than 0: the reactive below runs at init and, in
+  // RECOMMENDED mode, writes this into $processingFee - so every mount (one per wizard
+  // step) reset the fee the previous step had settled on to 0 until its own recommendation
+  // landed, and only the calculating flag stood between that placeholder and a send.
+  let recommendedAmount =
+    $processingFeeMethod === ProcessingFeeMethod.RECOMMENDED ? ($processingFee ?? BigInt(0)) : BigInt(0);
   let errorCalculatingRecommendedAmount = false;
 
   let calculatingEnoughEth = false;
@@ -35,12 +40,34 @@
 
   let tempProcessingFeeMethod = $processingFeeMethod;
 
+  /**
+   * The zero-gas-limit choice while the dialog is open. It stays local until Confirm for
+   * the same reason the method does: writing the committed store on the checkbox meant
+   * Cancel left the fee at NONE/0, and the user's next bridge went out with no relayer
+   * fee and silent manual claiming - a state they had explicitly cancelled.
+   */
+  let tempGasLimitZero = $gasLimitZero;
+
   let tempprocessingFee = $processingFee;
+
+  // Set when the custom fee box holds text that does not parse, so tempprocessingFee
+  // still describes whatever was typed before it
+  let invalidCustomFee = false;
+
+  // Whether the custom fee box currently holds a fee that can be submitted. An empty box
+  // is not an error to report, but it is not a fee either: tempprocessingFee still holds
+  // the last value that parsed, so without this, typing a fee and then clearing the box
+  // left Confirm enabled and submitted the fee the box no longer shows
+  let customFeeUsable = false;
 
   // Public API
   export function resetProcessingFee() {
     inputBox?.clear();
     $processingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
+    // Without this the zero-gas-limit choice outlives the bridge that made it, and the
+    // reactive below drags the freshly reset method straight back to NONE
+    $gasLimitZero = false;
+    tempGasLimitZero = false;
   }
 
   function confirmChanges() {
@@ -51,7 +78,7 @@
         $processingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
       } else {
         if ($processingFeeMethod === tempProcessingFeeMethod) {
-          updateProcessingFee($processingFeeMethod, recommendedAmount);
+          updateProcessingFee($processingFeeMethod, recommendedAmount, true);
         } else {
           $processingFeeMethod = tempProcessingFeeMethod;
         }
@@ -59,6 +86,13 @@
     } else {
       inputBox?.clear();
       $processingFeeMethod = tempProcessingFeeMethod;
+    }
+    // Committed together: Bridge.sol rejects a zero gas limit carrying a fee, so the two
+    // may only ever change as a pair
+    $gasLimitZero = tempGasLimitZero;
+    if (tempGasLimitZero) {
+      $processingFeeMethod = ProcessingFeeMethod.NONE;
+      $processingFee = BigInt(0);
     }
     closeModal();
   }
@@ -70,18 +104,36 @@
 
   function openModal() {
     tempProcessingFeeMethod = $processingFeeMethod;
+    tempGasLimitZero = $gasLimitZero;
     modalOpen = true;
-    $gasLimitZero = false;
     manuallyConfirmed = false;
+    invalidCustomFee = false;
+    // Reopening on an already-committed custom fee starts from that fee rather than an
+    // empty box: requiring the amount to be retyped to confirm anything else in the
+    // dialog is friction the "must hold a usable fee" rule never meant to add
+    // The method is what says a custom fee was committed, not its value: parseCustomFeeInput
+    // accepts zero, so gating on a positive amount left a committed zero fee reopening to
+    // an empty box with Confirm disabled until it was retyped
+    const reopeningOnCustomFee = $processingFeeMethod === ProcessingFeeMethod.CUSTOM;
+    customFeeUsable = reopeningOnCustomFee;
+    if (reopeningOnCustomFee) {
+      tempprocessingFee = $processingFee;
+      // The input mounts with the CUSTOM branch, so fill it once it exists
+      tick().then(() => inputBox?.setValue(formatEther($processingFee)));
+    }
   }
 
   function cancelModal() {
     inputBox?.clear();
-    $gasLimitZero = false;
+    invalidCustomFee = false;
+    customFeeUsable = false;
+    // Nothing committed, so nothing to restore - the draft simply goes
+    tempGasLimitZero = $gasLimitZero;
 
-    if (tempProcessingFeeMethod === ProcessingFeeMethod.CUSTOM) {
-      tempprocessingFee = $processingFee;
-    }
+    // Unconditionally, not only while the CUSTOM radio happens to be selected: the draft is
+    // discarded whatever method the dialog was left on, and leaving it behind meant the
+    // next open of a custom fee started from an abandoned amount
+    tempprocessingFee = $processingFee;
     closeModal();
   }
 
@@ -92,26 +144,43 @@
   function inputProcessFee(event: Event) {
     if (tempProcessingFeeMethod !== ProcessingFeeMethod.CUSTOM) return;
 
-    const { value: initialValue } = event.target as HTMLInputElement;
-    if (parseToWei(initialValue) <= recommendedAmount) {
-      // If the user tries to input 0 or less, we set it to the current recommended amount
-      inputBox?.setValue(formatEther(recommendedAmount));
-    }
-    const { value: finalValue } = event.target as HTMLInputElement;
-    tempprocessingFee = parseToWei(finalValue);
+    const { value } = event.target as HTMLInputElement;
+    // Incomplete or invalid input keeps the previous fee; a custom fee below the
+    // recommended amount is a deliberate choice the warning below covers
+    const parsed = parseCustomFeeInput(value);
+    // An empty box is not an error, it is simply not filled in yet - but it is still not
+    // something that can be confirmed. Anything else that fails to parse is both. The
+    // parser decides what counts as empty, because a lone `.` is not-yet-filled too
+    invalidCustomFee = parsed === null && !isCustomFeeInputBlank(value);
+    customFeeUsable = parsed !== null;
+    if (parsed === null) return;
+    tempprocessingFee = parsed;
   }
 
-  async function updateProcessingFee(method: ProcessingFeeMethod, recommendedAmount: bigint) {
+  /**
+   * @param committing Whether Confirm asked for this. The reactive below re-runs on every
+   *        recommended-fee refresh and must not commit the draft, but `confirmChanges`
+   *        calls this directly when the method is unchanged - the "edit an already-committed
+   *        custom fee" path - and closeModal runs after that call, so a guard on `modalOpen`
+   *        alone silently dropped the edit and kept the old fee.
+   */
+  async function updateProcessingFee(method: ProcessingFeeMethod, recommendedAmount: bigint, committing = false) {
     switch (method) {
       case ProcessingFeeMethod.RECOMMENDED:
         $processingFee = recommendedAmount;
 
         break;
       case ProcessingFeeMethod.CUSTOM:
+        // Confirm is the only thing that may commit the draft. This runs from a reactive
+        // that re-fires on every recommended-fee refresh, and tempprocessingFee is the live
+        // draft being typed, so a refresh landing mid-edit committed a fee nobody confirmed
+        // - and then Cancel resynced the draft from the store, making the leak permanent.
+        // Skipping it while the dialog is open also stops the refresh stealing focus.
+        if (modalOpen && !committing) break;
         $processingFee = tempprocessingFee;
         // We need to wait for Svelte to set the attribute `disabled` on the input
-        // to false to be able to focus it
-        tick().then(focusInputBox);
+        // to false to be able to focus it. Not on the committing path: the dialog is closing.
+        if (!committing) tick().then(focusInputBox);
         break;
       case ProcessingFeeMethod.NONE:
         $processingFee = BigInt(0);
@@ -121,15 +190,26 @@
   }
 
   const handleGasLimitZero = () => {
-    $gasLimitZero = !$gasLimitZero;
-    if ($gasLimitZero) {
+    tempGasLimitZero = !tempGasLimitZero;
+    if (tempGasLimitZero) {
       tempProcessingFeeMethod = ProcessingFeeMethod.NONE;
     } else {
       tempProcessingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
     }
   };
 
-  function unselectNoneIfNotEnoughETH(method: ProcessingFeeMethod, enoughEth: boolean) {
+  /**
+   * @dev zeroGasLimit is a parameter rather than a `get(gasLimitZero)` read because Svelte
+   *      tracks only what the reactive statement itself references, not what the function
+   *      it calls reads. Reading the store in here left the guard out of the dependency
+   *      list, so turning the zero-gas-limit option back off never re-ran this.
+   */
+  function unselectNoneIfNotEnoughETH(method: ProcessingFeeMethod, enoughEth: boolean, zeroGasLimit: boolean) {
+    // A zero gas limit fixes the fee at zero, so there is nothing to afford and nothing to
+    // switch away from. Overriding it here is what let a recommended fee ride along with a
+    // zero gas limit, which the bridge rejects outright with B_INVALID_FEE.
+    if (zeroGasLimit) return;
+
     if (method === ProcessingFeeMethod.NONE && enoughEth === false) {
       $processingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
 
@@ -145,13 +225,34 @@
   $: {
     updateProcessingFee($processingFeeMethod, recommendedAmount);
   }
-  $: unselectNoneIfNotEnoughETH($processingFeeMethod, hasEnoughEth);
+  $: unselectNoneIfNotEnoughETH($processingFeeMethod, hasEnoughEth, $gasLimitZero);
+
+  // Bridge.sol rejects a message whose gasLimit is 0 while its fee is not. The pairing is
+  // established when the choice is committed in confirmChanges; this only catches a
+  // committed state that has drifted since, which the method reset paths can produce.
+  $: if ($gasLimitZero && $processingFee !== BigInt(0)) {
+    $processingFeeMethod = ProcessingFeeMethod.NONE;
+    $processingFee = BigInt(0);
+  }
 
   $: manuallyConfirmed = false;
 
-  $: needsConfirmation = tempProcessingFeeMethod !== ProcessingFeeMethod.RECOMMENDED || $gasLimitZero;
+  $: needsConfirmation = tempProcessingFeeMethod !== ProcessingFeeMethod.RECOMMENDED || tempGasLimitZero;
 
-  $: confirmDisabled = needsConfirmation && !manuallyConfirmed;
+  // Leaving CUSTOM discards the draft along with its error. This has to follow the
+  // dialog's own method: updateProcessingFee runs on the committed $processingFeeMethod,
+  // which the radios do not change, so clearing there left the flag set and a
+  // CUSTOM -> RECOMMENDED -> CUSTOM round trip came back to an empty but blocked input.
+  $: if (tempProcessingFeeMethod !== ProcessingFeeMethod.CUSTOM) {
+    invalidCustomFee = false;
+    customFeeUsable = false;
+  }
+
+  // Covers both ways tempprocessingFee can describe something the box no longer shows:
+  // text that never parsed, and a box that has been emptied since it did
+  $: customFeeUnusable = tempProcessingFeeMethod === ProcessingFeeMethod.CUSTOM && !customFeeUsable;
+
+  $: confirmDisabled = (needsConfirmation && !manuallyConfirmed) || customFeeUnusable;
 </script>
 
 {#if small}
@@ -214,7 +315,7 @@
       id={dialogId}
       class="modal"
       class:modal-open={modalOpen}
-      use:closeOnEscapeOrOutsideClick={{ enabled: modalOpen, callback: () => (modalOpen = false), uuid: dialogId }}>
+      use:closeOnEscapeOrOutsideClick={{ enabled: modalOpen, callback: cancelModal, uuid: dialogId }}>
       <div class="modal-box relative px-6 py-[35px] md:rounded-[20px] bg-neutral-background">
         <CloseButton onClick={cancelModal} />
 
@@ -245,7 +346,7 @@
                 id="input-recommended"
                 class="radio w-6 h-6 checked:bg-primary-interactive-accent hover:border-primary-interactive-hover"
                 type="radio"
-                disabled={$gasLimitZero}
+                disabled={tempGasLimitZero}
                 value={ProcessingFeeMethod.RECOMMENDED}
                 name="processingFeeMethod"
                 bind:group={tempProcessingFeeMethod} />
@@ -293,7 +394,7 @@
                 id="input-custom"
                 class="radio w-6 h-6 checked:bg-primary-interactive-accent hover:border-primary-interactive-hover"
                 type="radio"
-                disabled={$gasLimitZero}
+                disabled={tempGasLimitZero}
                 value={ProcessingFeeMethod.CUSTOM}
                 name="processingFeeMethod"
                 bind:group={tempProcessingFeeMethod} />
@@ -313,6 +414,13 @@
               {/if}
             </div>
 
+            {#if invalidCustomFee}
+              <!-- Confirm is disabled either way; without this the reason was invisible -->
+              <div class="mb-[20px]">
+                <FlatAlert type="error" message={$t('processing_fee.invalid_custom_fee')} />
+              </div>
+            {/if}
+
             {#if tempProcessingFeeMethod === ProcessingFeeMethod.CUSTOM}
               <div class="my-5">
                 <Alert type="warning">
@@ -330,12 +438,12 @@
               </div>
               <input
                 type="checkbox"
-                checked={$gasLimitZero}
+                checked={tempGasLimitZero}
                 on:click={handleGasLimitZero}
                 class="checkbox checkbox-primary" />
             </div>
 
-            {#if $gasLimitZero}
+            {#if tempGasLimitZero}
               <div class="my-5">
                 <Alert type="warning">
                   <span class="body-small">

@@ -22,11 +22,11 @@
       },
       "bridge": {
         "success": {
-          "message": "Your funds are being prepared for claiming on Taiko.",
+          "message": "Your funds are being prepared for claiming on {chain}.",
           "title": "Transaction completed"
         },
         "timeout": {
-          "message": "It took longer than expected to process your transaction, check your wallet for the status.",
+          "message": "It took longer than expected to process your transaction. Track it <a href=\"{url}\" target=\"_blank\" rel=\"noopener noreferrer\"><b>here</b></a> or check your wallet for the status.",
           "title": "Timed out"
         },
         "tx": {
@@ -80,11 +80,19 @@
       "approve_rejected": {
         "title": "Request to approve rejected by user"
       },
+      "bridge_paused": {
+        "message": "Bridging is paused on this network right now. Please try again later.",
+        "title": "Bridge paused"
+      },
       "cannot_fetch_balance": "Error fetching balance. Wrong chain?",
       "claim": {
         "not_received": {
           "message": "The message is not proven and cannot be claimed right now.",
           "title": "Not received"
+        },
+        "not_synced": {
+          "message": "The destination chain has not synced this message yet, so it cannot be claimed right now. Your funds are safe; wait a few minutes and try again.",
+          "title": "Not synced yet"
         },
         "quota_reached": {
           "message": "This asset's withdrawal quota is currently used up. Your funds are safe; wait for the quota to replenish, then try claiming again.",
@@ -104,6 +112,11 @@
         "message": "Sorry, your wallet balance is too low to cover this token.",
         "title": "Insufficient wallet balance"
       },
+      "invalid_amount": "Enter a plain decimal amount within this token's precision",
+      "invalid_message": {
+        "message": "The bridge would reject this transfer. Check the recipient, destination owner, amount and gas limit, then try again.",
+        "title": "Invalid transfer"
+      },
       "invalid_proof_provided": "An invalid proof was provided for this action.",
       "no_allowance_required": {
         "message": "You already have sufficient allowance for this request.",
@@ -112,6 +125,16 @@
       "no_decimals_allowed": "Decimals are not supported for this token",
       "not_the_owner_of_all": "You must be the owner of all tokens",
       "process_message_error": "Unable to process message",
+      "release": {
+        "not_received": {
+          "message": "The failed message is not proven on the source chain yet, so the funds cannot be released right now. Wait a few minutes and try again.",
+          "title": "Not received yet"
+        },
+        "not_synced": {
+          "message": "The source chain has not synced the failed message yet. Your funds are safe; wait a few minutes and try again.",
+          "title": "Not synced yet"
+        }
+      },
       "release_error": {
         "message": "Unable to release the funds."
       },
@@ -172,10 +195,11 @@
         },
         "bridge": {
           "success": {
-            "message": "Your bridge transaction was confirmed. The transaction can take a few minutes to complete, track it <a class='link' href=\"{url}\" target=\"_blank\" rel=\"noopener noreferrer\"><b>here</b></a>."
+            "message": "Your bridge transaction was confirmed. The transaction can take a few minutes to complete, track it <a class='link' href=\"{url}\" target=\"_blank\" rel=\"noopener noreferrer\"><b>here</b></a>.",
+            "message_slow_l1": "Your bridge transaction was confirmed. Bridging to L1 can take a few hours to complete, track it <a class='link' href=\"{url}\" target=\"_blank\" rel=\"noopener noreferrer\"><b>here</b></a>."
           },
           "timeout": {
-            "message": "The network experiences heavy load and it took longer than expected for your transaction to process. You can track the status on the <a class=\"link\" href=\\\"{url}\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\"><b>explorer</b></a> and in your wallet."
+            "message": "The network experiences heavy load and it took longer than expected for your transaction to process. You can track the status on the <a class='link' href=\"{url}\" target=\"_blank\" rel=\"noopener noreferrer\"><b>explorer</b></a> and in your wallet."
           }
         },
         "button": {
@@ -314,10 +338,6 @@
       "not_mintable": "This token is not mintable on this network. Please switch to the correct network.",
       "token_minted": "You have already minted this token.",
       "unknown": "Something did not work"
-    },
-    "wrong_chain": {
-      "button": "Switch to {network}",
-      "message": "It appears you are on the wrong network. Switch to {network} to mint tokens."
     }
   },
   "inputs": {
@@ -420,6 +440,7 @@
         "message": "This will prevent any relayer from claiming for you, you will have to claim manually. Do not use this option if you are not 100% sure what you are doing. "
       }
     },
+    "invalid_custom_fee": "Enter a plain decimal amount in ETH",
     "link": "Customize fee",
     "none": {
       "alert": "Setting the processing fee to 'None' will require manual claiming.  No relayer will claim for you.",
@@ -562,7 +583,10 @@
     },
     "errors": {
       "insufficient_balance": "Insufficient balance to claim yourself. Please wait for the relayer to claim for you automatically. Refer to our guide for more information.",
-      "relayer_offline": "Relayer did not respond. Your transactions may only be loaded partially."
+      "relayer_offline": "Relayer did not respond. Your transactions may only be loaded partially.",
+      "partial_load": "{count} transaction(s) could not be loaded. Try refreshing.",
+      "relayer_offline_and_partial_load": "Relayer did not respond and {count} transaction(s) could not be loaded. Your transactions may only be loaded partially.",
+      "history_truncated": "Your transaction history is too long to show in full. The most recent transactions are listed."
     },
     "filter": {
       "all": "All",
