@@ -214,6 +214,22 @@ func (r *EventRepository) FirstByEventAndMsgHash(
 	return nil, nil
 }
 
+func (r *EventRepository) FindAllByEventAndMsgHash(
+	ctx context.Context,
+	event string,
+	msgHash string,
+) ([]*relayer.Event, error) {
+	events := []*relayer.Event{}
+
+	for _, e := range r.events {
+		if e.MsgHash == msgHash && e.Event == event {
+			events = append(events, e)
+		}
+	}
+
+	return events, nil
+}
+
 func (r *EventRepository) Delete(
 	ctx context.Context,
 	id int,

@@ -165,6 +165,28 @@ func (r *EventRepository) FirstByEventAndMsgHash(
 	return e, nil
 }
 
+// FindAllByEventAndMsgHash returns every stored row of the given event for a message, oldest
+// first. A message can have more than one: the processor records its own claim before the
+// indexer sees the log, and a reader that wants the fully indexed row has to be able to see
+// past the first one.
+func (r *EventRepository) FindAllByEventAndMsgHash(
+	ctx context.Context,
+	event string,
+	msgHash string,
+) ([]*relayer.Event, error) {
+	events := []*relayer.Event{}
+
+	if err := r.db.GormDB().WithContext(ctx).
+		Where("msg_hash = ?", msgHash).
+		Where("event = ?", event).
+		Order("id ASC").
+		Find(&events).Error; err != nil {
+		return nil, errors.Wrap(err, "r.db.Find")
+	}
+
+	return events, nil
+}
+
 func (r *EventRepository) FindAllByAddress(
 	ctx context.Context,
 	req *http.Request,

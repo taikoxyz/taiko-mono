@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"math"
 	"math/big"
@@ -633,33 +632,58 @@ func (p *Processor) saveMessageStatusChangedEvent(
 
 	m := make(map[string]interface{})
 
+	var statusLog *types.Log
+
 	for _, log := range receipt.Logs {
 		if log == nil || len(log.Topics) == 0 {
 			continue
 		}
 
-		topic := log.Topics[0]
-		if topic == bridgeAbi.Events["MessageStatusChanged"].ID {
-			err = bridgeAbi.UnpackIntoMap(m, "MessageStatusChanged", log.Data)
-			if err != nil {
-				return err
-			}
-
-			break
+		if log.Topics[0] != bridgeAbi.Events["MessageStatusChanged"].ID {
+			continue
 		}
+
+		// The event indexes its message hash; the row must describe this message's transition
+		if len(log.Topics) > 1 && log.Topics[1] != common.Hash(event.MsgHash) {
+			continue
+		}
+
+		err = bridgeAbi.UnpackIntoMap(m, "MessageStatusChanged", log.Data)
+		if err != nil {
+			return err
+		}
+
+		statusLog = log
+
+		break
 	}
 
-	if m["status"] != nil {
-		// keep same format as other raw events
-		data := fmt.Sprintf(`{"Raw":{"transactionHash": "%v"}}`, receipt.TxHash.Hex())
+	if statusLog != nil && m["status"] != nil {
+		status := m["status"].(uint8)
+
+		// The whole log, in the shape the indexer stores it, so the API can read the claim
+		// transaction's block and index off this row as well. This row lands before the
+		// indexer sees the log, and it used to carry nothing but the transaction hash: a
+		// reader taking the first row per message found this one, and no message the relayer
+		// claimed itself could name its claimer. The row is filed exactly as before: nothing
+		// here needs its keys changed, and the indexer's reorg handling groups rows by the
+		// chain columns.
+		data, err := json.Marshal(&bridge.BridgeMessageStatusChanged{
+			MsgHash: event.MsgHash,
+			Status:  status,
+			Raw:     *statusLog,
+		})
+		if err != nil {
+			return errors.Wrap(err, "json.Marshal")
+		}
 
 		_, err = p.eventRepo.Save(ctx, &relayer.SaveEventOpts{
 			Name:           relayer.EventNameMessageStatusChanged,
-			Data:           data,
+			Data:           string(data),
 			EmittedBlockID: event.Raw.BlockNumber,
 			ChainID:        new(big.Int).SetUint64(event.Message.SrcChainId),
 			DestChainID:    new(big.Int).SetUint64(event.Message.DestChainId),
-			Status:         relayer.EventStatus(m["status"].(uint8)),
+			Status:         relayer.EventStatus(status),
 			MsgHash:        common.Hash(event.MsgHash).Hex(),
 			MessageOwner:   event.Message.SrcOwner.Hex(),
 			Event:          relayer.EventNameMessageStatusChanged,
