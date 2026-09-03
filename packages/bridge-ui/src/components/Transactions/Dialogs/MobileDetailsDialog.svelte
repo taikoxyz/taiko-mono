@@ -9,6 +9,7 @@
   import { Spinner } from '$components/Spinner';
   import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
   import { isTransactionProcessable } from '$libs/bridge/isTransactionProcessable';
+  import { getTransferParties } from '$libs/bridge/transferParties';
   import { getChainName, isL2Chain } from '$libs/chain';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { type NFT, TokenType } from '$libs/token';
@@ -96,8 +97,10 @@
   $: if (detailsOpen && $account.isConnected) checkStatus();
   $: stillProcessing = true;
 
-  $: from = bridgeTx.message?.from || null;
-  $: to = bridgeTx.message?.to || null;
+  // The user's addresses, not the envelope's: a token transfer runs from vault to vault
+  $: parties = getTransferParties(bridgeTx);
+  $: from = parties.sender;
+  $: to = parties.recipient;
 
   $: srcTxHash = bridgeTx.srcTxHash || null;
   $: destTxHash = bridgeTx.destTxHash || null;

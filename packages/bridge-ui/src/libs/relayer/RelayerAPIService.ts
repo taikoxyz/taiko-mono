@@ -18,6 +18,12 @@ import { routingContractsMap } from '$bridgeConfig';
 import { apiService } from '$config';
 import type { BridgeTransaction, Message, MessageStatus } from '$libs/bridge';
 import { bridgeTxKey } from '$libs/bridge/bridgeTxIdentity';
+import {
+  erc20InvocationParameters,
+  erc721InvocationParameters,
+  erc1155InvocationParameters,
+  onMessageInvocationAbi,
+} from '$libs/bridge/vaultInvocation';
 import { isSupportedChain } from '$libs/chain';
 import { TokenType } from '$libs/token';
 import { getLogger } from '$libs/util/logger';
@@ -62,63 +68,6 @@ type BridgeTransactionAssetDetails = {
   symbol: string;
   decimals?: number;
 };
-
-const onMessageInvocationAbi = [
-  {
-    type: 'function',
-    name: 'onMessageInvocation',
-    inputs: [{ name: 'data', type: 'bytes' }],
-    outputs: [],
-    stateMutability: 'payable',
-  },
-] as const;
-
-const erc20InvocationParameters = [
-  {
-    type: 'tuple',
-    components: [
-      { name: 'chainId', type: 'uint64' },
-      { name: 'addr', type: 'address' },
-      { name: 'decimals', type: 'uint8' },
-      { name: 'symbol', type: 'string' },
-      { name: 'name', type: 'string' },
-    ],
-  },
-  { type: 'address' },
-  { type: 'address' },
-  { type: 'uint256' },
-] as const;
-
-const erc721InvocationParameters = [
-  {
-    type: 'tuple',
-    components: [
-      { name: 'chainId', type: 'uint64' },
-      { name: 'addr', type: 'address' },
-      { name: 'symbol', type: 'string' },
-      { name: 'name', type: 'string' },
-    ],
-  },
-  { type: 'address' },
-  { type: 'address' },
-  { type: 'uint256[]' },
-] as const;
-
-const erc1155InvocationParameters = [
-  {
-    type: 'tuple',
-    components: [
-      { name: 'chainId', type: 'uint64' },
-      { name: 'addr', type: 'address' },
-      { name: 'symbol', type: 'string' },
-      { name: 'name', type: 'string' },
-    ],
-  },
-  { type: 'address' },
-  { type: 'address' },
-  { type: 'uint256[]' },
-  { type: 'uint256[]' },
-] as const;
 
 /**
  * Expands a JSON number token to the integer it denotes, in digits, and returns null when it
