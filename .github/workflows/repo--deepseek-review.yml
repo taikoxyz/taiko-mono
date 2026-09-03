@@ -7,7 +7,14 @@ on:
     types: [created]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number }}
+  # Keyed by event, and for a comment by the comment itself. Every comment on a
+  # PR fires this workflow too, and keying both events on the PR number put the
+  # comment's run - skipped, because the comment says nothing about @deepseek -
+  # in the same group as the review of the push it commented on, which
+  # cancel-in-progress then killed. Five of the twenty-five runs before this
+  # change died that way, seconds in, leaving the previous review standing as if
+  # it were current. A push still cancels the review of the push before it.
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.comment.id || github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
