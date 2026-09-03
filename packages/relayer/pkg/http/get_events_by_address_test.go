@@ -240,6 +240,47 @@ func Test_GetEventsByAddress_claimedByTheRelayer(t *testing.T) {
 		assert.Contains(t, body, `"processedTxHash":""`)
 		assert.Contains(t, body, `"claimedBy":""`)
 	})
+
+	// A DONE that a later row superseded is not the current claim. The chain cannot go from
+	// DONE to anything else, so a newer non-DONE row means the DONE was orphaned by a reorg
+	// of the block it was mined in, and the message was then retried, or recalled. Reorg
+	// cleanup does not remove either writer's status rows (it keys on block_id, which they
+	// never set), so the orphaned row stays, and the newest row has to be the one that counts.
+	t.Run("reports nothing for a claim a later retry superseded", func(t *testing.T) {
+		srv := newServer()
+		saveIndexed(srv, relayer.EventStatusDone, claimTxHash, destChainID)
+		saveIndexed(srv, relayer.EventStatusRetriable, retryTxHash, destChainID)
+
+		body := get(srv)
+
+		assert.Contains(t, body, `"processedTxHash":""`)
+		assert.Contains(t, body, `"claimedBy":""`)
+	})
+
+	t.Run("reports nothing for a claim a later recall superseded", func(t *testing.T) {
+		srv := newServer()
+		saveIndexed(srv, relayer.EventStatusDone, claimTxHash, destChainID)
+		saveIndexed(srv, relayer.EventStatusRecalled, recallTxHash, srcChainID)
+
+		body := get(srv)
+
+		assert.Contains(t, body, `"processedTxHash":""`)
+		assert.Contains(t, body, `"claimedBy":""`)
+	})
+
+	t.Run("reports nothing when a legacy stub and its orphaned log are followed by a retry", func(t *testing.T) {
+		// The rows a message claimed by an older relayer carries after a reorg: the hash-only
+		// stub, the indexed DONE of the orphaned block, then the canonical RETRIABLE
+		srv := newServer()
+		saveStub(srv)
+		saveIndexed(srv, relayer.EventStatusDone, claimTxHash, destChainID)
+		saveIndexed(srv, relayer.EventStatusRetriable, retryTxHash, destChainID)
+
+		body := get(srv)
+
+		assert.Contains(t, body, `"processedTxHash":""`)
+		assert.Contains(t, body, `"claimedBy":""`)
+	})
 }
 
 // The processor stores its own claim as the binding's event marshalled whole, the way the

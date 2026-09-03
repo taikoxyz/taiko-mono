@@ -157,19 +157,24 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 	return c.JSON(http.StatusOK, page)
 }
 
-// claimLog returns the MessageStatusChanged log to read a message's claim from: newest
-// first, the first fully indexed DONE row, or failing that the first DONE row that at least
-// names the transaction.
+// claimLog returns the MessageStatusChanged log to read a message's claim from, or nil when
+// the message is not currently claimed.
 //
-// A message has more than one such row when the relayer claims it: the processor records
-// its own claim before the destination chain's indexer stores the log, and until now that
-// record carried nothing but the transaction hash. Taking the first row by id took that
-// stub, and a stub cannot name the claimer, so every message the relayer claimed came back
-// with neither claimer nor claim hash while every self-claim came back with both.
+// The newest row decides. A message has more than one such row when the relayer claims it:
+// the processor records its own claim before the destination chain's indexer stores the log,
+// and until now that record carried nothing but the transaction hash. Taking the first row
+// by id took that stub, and a stub cannot name the claimer, so every message the relayer
+// claimed came back with neither claimer nor claim hash while every self-claim came back
+// with both.
 //
-// Only DONE counts. A retried message also has a complete row for the attempt that left it
-// RETRIABLE, and a recalled one has a RECALLED row mined on the source chain; neither is a
-// claim, and reporting one would name the wrong transaction, chain and sender.
+// Only a newest row that is DONE is a claim. The chain cannot move a message on from DONE,
+// so a newer non-DONE row means the DONE was orphaned by a reorg of its block and the
+// message was then retried or recalled; reorg cleanup never removes status rows (it keys on
+// block_id, which they do not set), so the orphaned row stays and only the order can tell.
+// A retried message's RETRIABLE row and a recalled message's RECALLED row are not claims
+// either. The order is insertion order, which can briefly put an indexer row for an older
+// transition after the processor's row for a newer one; the answer is then "not claimed"
+// until the indexer catches up, which is what it was before the processor row could be read.
 func (srv *Server) claimLog(ctx context.Context, msgHash string) (*Raw, error) {
 	rows, err := srv.eventRepo.FindAllByEventAndMsgHash(ctx, relayer.EventNameMessageStatusChanged, msgHash)
 	if err != nil {
@@ -178,40 +183,31 @@ func (srv *Server) claimLog(ctx context.Context, msgHash string) (*Raw, error) {
 		return nil, err
 	}
 
-	var named *Raw
-
-	for i := len(rows) - 1; i >= 0; i-- {
-		row := rows[i]
-		if row.Status != relayer.EventStatusDone {
-			continue
-		}
-
-		r := &JSONData{}
-		if err := json.Unmarshal(row.Data, r); err != nil {
-			continue
-		}
-
-		if r.Raw.TransactionHash == "" {
-			continue
-		}
-
-		if r.Raw.TransactionIndex != "" && r.Raw.BlockHash != "" {
-			return &r.Raw, nil
-		}
-
-		if named == nil {
-			named = &r.Raw
-		}
+	if len(rows) == 0 {
+		return nil, nil
 	}
 
-	return named, nil
+	latest := rows[len(rows)-1]
+	if latest.Status != relayer.EventStatusDone {
+		return nil, nil
+	}
+
+	r := &JSONData{}
+	if err := json.Unmarshal(latest.Data, r); err != nil {
+		return nil, nil
+	}
+
+	if r.Raw.TransactionHash == "" {
+		return nil, nil
+	}
+
+	return &r.Raw, nil
 }
 
 // claimChainID is the chain a message's claim was mined on: the message's destination.
-// The status rows do not agree on where they are filed - the indexer files a log under the
-// chain it watches, the processor files its own claim under the message's source chain, and
-// the indexer's resume and reorg checks key on that column - so the message is asked, not
-// the row.
+// Status rows are filed under the chain they were emitted on, but a row can predate that
+// convention (the processor's own claim used to be filed under the message's source chain),
+// so the message is asked, not the row.
 func (srv *Server) claimChainID(ctx context.Context, v *relayer.Event) int64 {
 	if v.Event == relayer.EventNameMessageSent {
 		return v.DestChainID

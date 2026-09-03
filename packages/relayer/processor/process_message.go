@@ -659,13 +659,13 @@ func (p *Processor) saveMessageStatusChangedEvent(
 	if statusLog != nil && m["status"] != nil {
 		status := m["status"].(uint8)
 
-		// The whole log, in the shape the indexer stores it, so the API can read the claim
-		// transaction's block and index off this row as well. This row lands before the
-		// indexer sees the log, and it used to carry nothing but the transaction hash: a
-		// reader taking the first row per message found this one, and no message the relayer
-		// claimed itself could name its claimer. The row is filed exactly as before: nothing
-		// here needs its keys changed, and the indexer's reorg handling groups rows by the
-		// chain columns.
+		// The whole log, in the shape the indexer stores it and keyed the way the indexer
+		// keys it - the chain the status was emitted on, the other chain, the block it was
+		// emitted in - so the API can read the claim transaction's block and index off this
+		// row as well, and the two writers' rows for a message form one series. This row
+		// lands before the indexer sees the log, and it used to carry nothing but the
+		// transaction hash: a reader taking the first row per message found this one, and no
+		// message the relayer claimed itself could name its claimer.
 		data, err := json.Marshal(&bridge.BridgeMessageStatusChanged{
 			MsgHash: event.MsgHash,
 			Status:  status,
@@ -678,9 +678,9 @@ func (p *Processor) saveMessageStatusChangedEvent(
 		_, err = p.eventRepo.Save(ctx, &relayer.SaveEventOpts{
 			Name:           relayer.EventNameMessageStatusChanged,
 			Data:           string(data),
-			EmittedBlockID: event.Raw.BlockNumber,
-			ChainID:        new(big.Int).SetUint64(event.Message.SrcChainId),
-			DestChainID:    new(big.Int).SetUint64(event.Message.DestChainId),
+			EmittedBlockID: statusLog.BlockNumber,
+			ChainID:        new(big.Int).SetUint64(event.Message.DestChainId),
+			DestChainID:    new(big.Int).SetUint64(event.Message.SrcChainId),
 			Status:         relayer.EventStatus(status),
 			MsgHash:        common.Hash(event.MsgHash).Hex(),
 			MessageOwner:   event.Message.SrcOwner.Hex(),

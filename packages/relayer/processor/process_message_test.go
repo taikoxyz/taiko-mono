@@ -706,8 +706,8 @@ func Test_processSingleSkipsLogsThatAreNotMessageSent(t *testing.T) {
 // hash. The API reads the claimer off a MessageStatusChanged row through the block it was
 // mined in, and this row is the first one it finds for any message the relayer claimed, so
 // those messages came back with no claimer at all. The whole log is stored now, in the shape
-// the indexer stores it; the row's own keys stay as they were, and the indexer's reorg
-// handling groups rows by the chain columns.
+// the indexer stores it, and keyed the way the indexer keys it, so the two writers' rows for
+// one message are one series.
 func Test_saveMessageStatusChangedEventStoresTheWholeLog(t *testing.T) {
 	repo := mock.NewEventRepository()
 	p := newTestProcessor(false)
@@ -759,11 +759,12 @@ func Test_saveMessageStatusChangedEventStoresTheWholeLog(t *testing.T) {
 	assert.Equal(t, uint8(relayer.EventStatusDone), stored.Status)
 	assert.Equal(t, msgHash, common.Hash(stored.MsgHash))
 
-	// Filed exactly as before
+	// Keyed the way the indexer keys the same log: the chain the status was emitted on, the
+	// other chain, and the block it was emitted in
 	assert.Equal(t, relayer.EventStatusDone, saved[0].Status)
-	assert.Equal(t, int64(1), saved[0].ChainID)
-	assert.Equal(t, int64(2), saved[0].DestChainID)
-	assert.Equal(t, uint64(7), saved[0].EmittedBlockID)
+	assert.Equal(t, int64(2), saved[0].ChainID)
+	assert.Equal(t, int64(1), saved[0].DestChainID)
+	assert.Equal(t, uint64(16), saved[0].EmittedBlockID)
 	assert.Equal(t, msgHash.Hex(), saved[0].MsgHash)
 }
 
