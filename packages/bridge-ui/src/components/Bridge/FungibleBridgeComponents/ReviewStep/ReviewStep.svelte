@@ -33,9 +33,6 @@
 
   $: wrapped = $selectedToken !== null && isWrapped($selectedToken as Token);
 
-  // $: unsupportedStableCoin =
-  //   $selectedToken !== null && !isSupported($selectedToken as Token) && isStablecoin($selectedToken as Token);
-
   $: wrappedAssetWarning = $t('bridge.alerts.wrapped_eth');
 
   $: if (wrapped) {
