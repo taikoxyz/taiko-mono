@@ -82,11 +82,15 @@
     if (!known && effectiveStatus !== MessageStatus.DONE) return;
     const wanted = known ?? msgHash;
     if (!destChainId || !wanted) return;
-    const key = `${identity}/${wanted}`;
+    // The message this read is for, held here: `identity` follows the dialog, and a late
+    // result must be filed under the message it was read for, not under whatever the
+    // dialog shows by then
+    const requestIdentity = identity;
+    const key = `${requestIdentity}/${wanted}`;
     if (claimReadFor === key) return;
     const generation = ++claimGeneration;
     claimReadFor = key;
-    if (resolvedFor !== identity) {
+    if (resolvedFor !== requestIdentity) {
       resolvedFor = null;
       resolvedClaimTxHash = null;
       resolvedClaimer = null;
@@ -104,12 +108,12 @@
           claimReadFor = null;
           return;
         }
-        resolvedFor = identity;
+        resolvedFor = requestIdentity;
         resolvedClaimTxHash = claimTxHash;
       }
       const { claimedBy: claimer, claimedAt: timestamp } = await getClaimDetails(claimTxHash, destChainId);
       if (generation !== claimGeneration) return;
-      resolvedFor = identity;
+      resolvedFor = requestIdentity;
       resolvedClaimer = claimer;
       resolvedClaimedAt = formatTimestamp(Number(timestamp));
     } catch (error) {
@@ -151,7 +155,17 @@
   $: destChainId = bridgeTx.destChainId || null;
   $: destOwner = bridgeTx.message?.destOwner || null;
 
-  $: if (detailsOpen && bridgeTx) readClaim();
+  // A message change retires whatever was in flight for the previous one, whether or not the
+  // new one starts a read of its own - a pending message does not - and before it would
+  let identityShown: Maybe<string> = null;
+  $: {
+    if (identity !== identityShown) {
+      identityShown = identity;
+      claimGeneration++;
+      claimReadFor = null;
+    }
+    if (detailsOpen && bridgeTx) readClaim();
+  }
   $: bridgeTx && getInitiatedDate();
 
   $: claimedBy = bridgeTx.claimedBy || (resolvedFor === identity ? resolvedClaimer : null) || null;

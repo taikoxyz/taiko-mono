@@ -304,6 +304,63 @@ describe.each([
         expect(target.textContent).not.toContain('common.relayer');
       });
 
+      it('does not tag an old lookup with the message the dialog moved to meanwhile', async () => {
+        // The pending message it moved to starts no read of its own, so nothing retires the
+        // old one by itself; its late result must stay filed under the message it was for
+        let resolveLookup!: (hash: string) => void;
+        findClaimTxHash.mockImplementationOnce(() => new Promise((resolve) => (resolveLookup = resolve)));
+        component = new Dialog({
+          target,
+          props: { detailsOpen: true, bridgeTx: claimNotReported, token: null, closeDetails: () => undefined },
+        });
+        await flush();
+
+        const pending = {
+          ...claimNotReported,
+          msgHash: '0xeeee',
+          srcTxHash: '0xffff',
+          status: MessageStatus.NEW,
+          msgStatus: MessageStatus.NEW,
+        } as unknown as BridgeTransaction;
+        (component as unknown as { $set: (props: object) => void }).$set({ bridgeTx: pending });
+        await flush();
+
+        resolveLookup('0xbbbb');
+        await flush();
+
+        expect(target.textContent).not.toContain('common.relayer');
+        expect(linkedTxs()).not.toContain('0xbbbb');
+      });
+
+      it('does the same when the switch happens while the dialog is closed', async () => {
+        let resolveLookup!: (hash: string) => void;
+        findClaimTxHash.mockImplementationOnce(() => new Promise((resolve) => (resolveLookup = resolve)));
+        component = new Dialog({
+          target,
+          props: { detailsOpen: true, bridgeTx: claimNotReported, token: null, closeDetails: () => undefined },
+        });
+        await flush();
+
+        const pending = {
+          ...claimNotReported,
+          msgHash: '0xeeee',
+          srcTxHash: '0xffff',
+          status: MessageStatus.NEW,
+          msgStatus: MessageStatus.NEW,
+        } as unknown as BridgeTransaction;
+        (component as unknown as { $set: (props: object) => void }).$set({ detailsOpen: false });
+        await flush();
+        (component as unknown as { $set: (props: object) => void }).$set({ bridgeTx: pending });
+        await flush();
+        resolveLookup('0xbbbb');
+        await flush();
+        (component as unknown as { $set: (props: object) => void }).$set({ detailsOpen: true });
+        await flush();
+
+        expect(target.textContent).not.toContain('common.relayer');
+        expect(linkedTxs()).not.toContain('0xbbbb');
+      });
+
       it('does not look for a claim on a message that is not claimed yet', async () => {
         const pending = { ...claimNotReported, status: MessageStatus.NEW, msgStatus: MessageStatus.NEW } as never;
         component = new Dialog({
