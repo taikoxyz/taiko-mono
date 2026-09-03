@@ -316,6 +316,71 @@ describe.each([
       });
     });
 
+    it('shows nothing of a previous transaction once it is given another', async () => {
+      // The list keys these dialogs by message, so an instance never sees a second one
+      // there; the component does not get to rely on that
+      component = new Dialog({
+        target,
+        props: { detailsOpen: true, bridgeTx: claimedByUnknown, token: null, closeDetails: () => undefined },
+      });
+      await flush();
+      expect(target.textContent).toContain('common.relayer');
+
+      (component as unknown as { $set: (props: object) => void }).$set({ detailsOpen: false });
+      await flush();
+      const pending = {
+        ...claimedByUnknown,
+        destTxHash: undefined,
+        msgHash: '0xeeee',
+        srcTxHash: '0xffff',
+        status: MessageStatus.NEW,
+        msgStatus: MessageStatus.NEW,
+      } as unknown as BridgeTransaction;
+      (component as unknown as { $set: (props: object) => void }).$set({ bridgeTx: pending, detailsOpen: true });
+      await flush();
+
+      expect(target.textContent).not.toContain('common.relayer');
+      expect(target.textContent).not.toContain(formatTimestamp(Number(CLAIMED_AT)));
+      const claimLinks = [...target.querySelectorAll('[data-testid="explorer-link"][data-category="tx"]')].map((link) =>
+        link.getAttribute('data-param'),
+      );
+      expect(claimLinks).not.toContain('0xbbbb');
+    });
+
+    it('does not let an obsolete lookup that fails cancel the current one', async () => {
+      const first = {
+        ...claimedByUnknown,
+        destTxHash: undefined,
+        message: { ...claimedByUnknown.message, srcOwner: ALICE },
+      } as unknown as BridgeTransaction;
+      const second = { ...first, msgHash: '0xeeee', srcTxHash: '0xffff' } as unknown as BridgeTransaction;
+      let rejectFirst!: (error: Error) => void;
+      let resolveSecond!: (hash: string) => void;
+      findClaimTxHash
+        .mockImplementationOnce(() => new Promise((_, reject) => (rejectFirst = reject)))
+        .mockImplementationOnce(() => new Promise((resolve) => (resolveSecond = resolve)));
+      component = new Dialog({
+        target,
+        props: { detailsOpen: true, bridgeTx: first, token: null, closeDetails: () => undefined },
+      });
+      await flush();
+
+      (component as unknown as { $set: (props: object) => void }).$set({ bridgeTx: second });
+      await flush();
+
+      // The first lookup fails after it stopped mattering; the second one then lands
+      rejectFirst(new Error('relayer down'));
+      await flush();
+      resolveSecond('0xbbbb');
+      await flush();
+
+      expect(target.textContent).toContain('common.relayer');
+      const claimLinks = [...target.querySelectorAll('[data-testid="explorer-link"][data-category="tx"]')].map((link) =>
+        link.getAttribute('data-param'),
+      );
+      expect(claimLinks).toContain('0xbbbb');
+    });
+
     it('does not read the claim transaction until the dialog is opened', async () => {
       // Every row mounts both dialogs; a read here would be two RPC calls per claimed row
       component = new Dialog({

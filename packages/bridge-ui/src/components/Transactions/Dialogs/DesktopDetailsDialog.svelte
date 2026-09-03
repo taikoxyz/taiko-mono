@@ -7,6 +7,7 @@
   import { Icon } from '$components/Icon';
   import Spinner from '$components/Spinner/Spinner.svelte';
   import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
+  import { bridgeTxKey } from '$libs/bridge/bridgeTxIdentity';
   import { getClaimDetails } from '$libs/bridge/getClaimDetails';
   import { isTransactionProcessable } from '$libs/bridge/isTransactionProcessable';
   import { getTransferParties } from '$libs/bridge/transferParties';
@@ -51,7 +52,6 @@
   // };
 
   let initiatedAt = '';
-  let claimedAt = '';
 
   const getInitiatedDate = async () => {
     if (!bridgeTx.blockNumber) return;
@@ -62,10 +62,17 @@
   // The relayer API reports neither claimer nor claim transaction for the messages the relayer
   // claimed itself. Its status rows still carry the transaction, filed under the message's
   // sender, and the transaction answers who and when in one read. Only once the dialog is
-  // open, since every row mounts both dialogs, and only once per message
+  // open, since every row mounts both dialogs, and only once per message. What is resolved
+  // is tied to the message it was resolved for, and only the newest read may publish: an
+  // older one landing late, or failing late, changes nothing
+  let claimGeneration = 0;
+  let claimReadFor: Maybe<string> = null;
+  let resolvedFor: Maybe<string> = null;
   let resolvedClaimTxHash: Maybe<Hash> = null;
   let resolvedClaimer: Maybe<Address> = null;
-  let claimRead: Maybe<string> = null;
+  let resolvedClaimedAt = '';
+
+  $: identity = bridgeTxKey(bridgeTx);
 
   const readClaim = async () => {
     const { destChainId, msgHash, message } = bridgeTx;
@@ -73,33 +80,41 @@
     // up once the message is claimed
     const known = bridgeTx.destTxHash;
     if (!known && effectiveStatus !== MessageStatus.DONE) return;
-    const key = known ?? msgHash;
-    if (!destChainId || !key || claimRead === key) return;
-    claimRead = key;
-    resolvedClaimTxHash = null;
-    resolvedClaimer = null;
-    claimedAt = '';
+    const wanted = known ?? msgHash;
+    if (!destChainId || !wanted) return;
+    const key = `${identity}/${wanted}`;
+    if (claimReadFor === key) return;
+    const generation = ++claimGeneration;
+    claimReadFor = key;
+    if (resolvedFor !== identity) {
+      resolvedFor = null;
+      resolvedClaimTxHash = null;
+      resolvedClaimer = null;
+      resolvedClaimedAt = '';
+    }
     try {
       let claimTxHash = known;
       if (!claimTxHash) {
         const sender = message?.srcOwner ?? bridgeTx.from;
         if (!sender || !msgHash) return;
         claimTxHash = await findClaimTxHash(sender, msgHash);
-        // Superseded by another message while this one was out
-        if (claimRead !== key) return;
+        if (generation !== claimGeneration) return;
         if (!claimTxHash) {
           // Nothing to show yet; the next opening asks again
-          claimRead = null;
+          claimReadFor = null;
           return;
         }
+        resolvedFor = identity;
         resolvedClaimTxHash = claimTxHash;
       }
       const { claimedBy: claimer, claimedAt: timestamp } = await getClaimDetails(claimTxHash, destChainId);
-      if (claimRead !== key) return;
+      if (generation !== claimGeneration) return;
+      resolvedFor = identity;
       resolvedClaimer = claimer;
-      claimedAt = formatTimestamp(Number(timestamp));
+      resolvedClaimedAt = formatTimestamp(Number(timestamp));
     } catch (error) {
-      claimRead = null;
+      if (generation !== claimGeneration) return;
+      claimReadFor = null;
       log('Could not read the claim', error);
     }
   };
@@ -130,7 +145,7 @@
   $: to = parties.recipient;
 
   $: srcTxHash = bridgeTx.srcTxHash || null;
-  $: destTxHash = bridgeTx.destTxHash || resolvedClaimTxHash || null;
+  $: destTxHash = bridgeTx.destTxHash || (resolvedFor === identity ? resolvedClaimTxHash : null) || null;
 
   $: srcChainId = bridgeTx.srcChainId || null;
   $: destChainId = bridgeTx.destChainId || null;
@@ -139,7 +154,8 @@
   $: if (detailsOpen && bridgeTx) readClaim();
   $: bridgeTx && getInitiatedDate();
 
-  $: claimedBy = bridgeTx.claimedBy || resolvedClaimer || null;
+  $: claimedBy = bridgeTx.claimedBy || (resolvedFor === identity ? resolvedClaimer : null) || null;
+  $: claimedAt = resolvedFor === identity ? resolvedClaimedAt : '';
   $: isRelayer = claimedByRelayer({ claimedBy, to, destOwner, status: effectiveStatus });
 
   $: paidFee = formatEther(bridgeTx.fee ? bridgeTx.fee : BigInt(0));
