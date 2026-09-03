@@ -1,5 +1,4 @@
 import { getPublicClient, readContract, simulateContract, writeContract } from '@wagmi/core';
-import { get } from 'svelte/store';
 import {
   type Abi,
   type Address,
@@ -12,7 +11,6 @@ import {
 
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
-import { destOwnerAddress, gasLimitZero } from '$components/Bridge/state';
 import {
   BridgePausedError,
   MessageStatusError,
@@ -79,6 +77,9 @@ export abstract class Bridge {
     gasEstimate?: MessageGasEstimateExtras;
   }) {
     const { to, wallet, srcChainId, destChainId, fee: processingFee, tokenObject } = args;
+    // From the arguments, never from the form's stores: the caller captured these with
+    // everything else before its first await
+    const { destOwner: destOwnerArg, gasLimitZero: zeroGasLimit = false } = args;
 
     // Checked before the contract is built: getContract with an undefined client throws
     // its own opaque error, which is what this guard exists to replace
@@ -91,7 +92,7 @@ export abstract class Bridge {
     let gasLimit: number;
     /** Left undefined for a zero gas limit, where no estimate ran and the rule is moot */
     let minGasLimit: number | undefined;
-    if (get(gasLimitZero)) {
+    if (zeroGasLimit) {
       log('Gas limit is set to 0');
       gasLimit = 0;
     } else {
@@ -108,7 +109,7 @@ export abstract class Bridge {
 
     // A zero gas limit cannot carry a fee - the bridge reverts with B_INVALID_FEE
     const fee = feeForGasLimit(gasLimit, processingFee);
-    const destOwner = get(destOwnerAddress) || to;
+    const destOwner = destOwnerArg || to;
 
     return {
       contract,

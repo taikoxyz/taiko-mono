@@ -138,6 +138,10 @@ export abstract class NFTBridge extends Bridge {
         abi: this.vaultAbi,
         functionName: 'sendToken',
         args: [sendArgs],
+        // The wallet this was prepared for, on the chain it was prepared for: wagmi would
+        // otherwise sign with whatever account and chain the connector holds by now
+        account: wallet.account,
+        chainId: args.srcChainId,
         value: fee,
       });
       this.log('Simulate contract', request);

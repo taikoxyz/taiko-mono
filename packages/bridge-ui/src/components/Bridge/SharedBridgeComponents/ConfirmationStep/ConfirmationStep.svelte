@@ -10,7 +10,9 @@
     allApproved,
     bridgeService,
     destNetwork,
+    destOwnerAddress,
     enteredAmount,
+    gasLimitZero,
     processingFee,
     recipientAddress,
     selectedNFTs,
@@ -331,33 +333,27 @@
         fee: $processingFee,
       };
       const recipient = $recipientAddress;
+      const destOwner = $destOwnerAddress;
+      const zeroGasLimit = $gasLimitZero;
+      const nfts = $selectedNFTs ?? undefined;
       const service = $bridgeService;
 
       const walletClient = await getConnectedWallet(submitted.srcChainId);
       const sent: SentBridge = { ...submitted, from: walletClient.account.address };
+      const to = recipient || sent.from;
       const commonArgs = {
-        to: recipient || sent.from,
+        to,
         wallet: walletClient,
         srcChainId: sent.srcChainId,
         destChainId: sent.destChainId,
         fee: sent.fee,
         tokenObject: sent.token,
+        destOwner: destOwner || to,
+        gasLimitZero: zeroGasLimit,
       };
 
-      const type: TokenType = sent.token.type;
-      if (type === TokenType.ERC1155 || type === TokenType.ERC721) {
-        const tokenIds = $selectedNFTs && $selectedNFTs.map((nft) => nft.tokenId);
-        if (!tokenIds) throw new Error('tokenIds not found');
-        const bridgeArgs = await getBridgeArgs(sent.token, sent.amount, commonArgs, tokenIds);
-
-        const args = { ...bridgeArgs, tokenIds, tokenObject: sent.token };
-
-        bridgeTxHash = await service.bridge(args);
-      } else {
-        const bridgeArgs = await getBridgeArgs(sent.token, sent.amount, commonArgs);
-
-        bridgeTxHash = await service.bridge(bridgeArgs);
-      }
+      const bridgeArgs = await getBridgeArgs(sent.token, sent.amount, commonArgs, nfts);
+      bridgeTxHash = await service.bridge(bridgeArgs);
 
       if (bridgeTxHash) {
         await handleBridgeTxHash(bridgeTxHash, sent);

@@ -90,6 +90,20 @@ describe('getMaxAmountToBridge()', () => {
     });
   });
 
+  it('prices the message with the zero-gas option the form has set', async () => {
+    // A zero-gas message carries no fee; the send path reads that option from its arguments
+    // rather than from the form, so the estimate has to pass it along
+    vi.mocked(getWalletClient).mockReturnValue({} as WalletClient);
+    vi.mocked(estimateCostOfBridging).mockResolvedValue(MOCK_COST);
+
+    await getMaxAmountToBridge({ ...MOCK_ARGS, token: ETHToken, gasLimitZero: true });
+
+    expect(estimateCostOfBridging).toHaveBeenCalledWith(
+      isA(ETHBridge),
+      expect.objectContaining({ gasLimitZero: true }),
+    );
+  });
+
   describe('when the balance does not cover the cost of bridging', () => {
     it('returns zero rather than a negative amount', async () => {
       // MAX feeds this straight into the amount box, and formatUnits renders a negative

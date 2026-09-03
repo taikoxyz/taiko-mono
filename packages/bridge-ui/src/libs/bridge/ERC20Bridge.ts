@@ -190,6 +190,10 @@ export class ERC20Bridge extends Bridge {
         abi: erc20VaultAbi,
         functionName: 'sendToken',
         args: [sendERC20Args],
+        // The wallet this was prepared for, on the chain it was prepared for: wagmi would
+        // otherwise sign with whatever account and chain the connector holds by now
+        account: wallet.account,
+        chainId: args.srcChainId,
         value: fee,
       });
       log('Simulate contract', request);

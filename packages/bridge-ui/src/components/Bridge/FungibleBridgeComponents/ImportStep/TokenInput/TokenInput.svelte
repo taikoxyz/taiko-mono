@@ -11,6 +11,7 @@
     destNetwork,
     enteredAmount,
     errorComputingBalance,
+    gasLimitZero,
     insufficientAllowance,
     insufficientBalance,
     processingFee,
@@ -133,6 +134,7 @@
         srcChainId,
         destChainId,
         fee: $processingFee,
+        gasLimitZero: $gasLimitZero,
       });
 
       if (

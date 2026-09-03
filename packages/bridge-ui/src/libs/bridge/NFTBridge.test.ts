@@ -194,6 +194,21 @@ describe('deciding whether the vault needs approval', () => {
     await expect(new ERC721Bridge(prover).bridge(args(TOKEN))).resolves.toBe('0xtx');
     expect(readContract).not.toHaveBeenCalled();
   });
+
+  it('simulates and writes as the wallet it was given, on the source chain', async () => {
+    // Without these, wagmi signs with whatever account and chain the connector holds by
+    // the time the write runs - an account switched during preparation sends from the new
+    // one while the record names the old
+    getCanonicalInfoForAddress.mockResolvedValue({ address: OTHER });
+
+    await new ERC721Bridge(prover).bridge(args(TOKEN));
+
+    expect(simulateContract).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ functionName: 'sendToken', account: wallet.account, chainId: L1_CHAIN_ID }),
+    );
+    expect(writeContract).toHaveBeenCalledWith(expect.anything(), { simulated: true });
+  });
 });
 
 describe('the shared approve flow', () => {

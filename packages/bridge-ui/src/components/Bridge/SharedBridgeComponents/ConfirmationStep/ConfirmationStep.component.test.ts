@@ -52,7 +52,10 @@ vi.mock('$components/Bridge/SharedBridgeComponents/Actions.svelte', async () => 
 // The wallet round trip, scripted per test
 const sendBridge = vi.fn();
 vi.mock('$libs/bridge/bridges', () => ({
-  bridges: { ETH: { bridge: (...args: unknown[]) => sendBridge(...args) } },
+  bridges: {
+    ETH: { bridge: (...args: unknown[]) => sendBridge(...args) },
+    ERC721: { bridge: (...args: unknown[]) => sendBridge(...args) },
+  },
   hasBridge: () => true,
 }));
 vi.mock('$libs/bridge/getBridgeArgs', () => ({
@@ -86,7 +89,16 @@ vi.mock('$components/NotificationToast/NotificationToast.svelte', () => ({
   errorToast: vi.fn(),
 }));
 
-import { destNetwork, enteredAmount, processingFee, recipientAddress, selectedToken } from '$components/Bridge/state';
+import {
+  destNetwork,
+  destOwnerAddress,
+  enteredAmount,
+  gasLimitZero,
+  processingFee,
+  recipientAddress,
+  selectedNFTs,
+  selectedToken,
+} from '$components/Bridge/state';
 import { getBridgeArgs } from '$libs/bridge/getBridgeArgs';
 import { ETHToken, TokenType } from '$libs/token';
 import { ALICE, BOB } from '$mocks';
@@ -126,6 +138,9 @@ beforeEach(() => {
   enteredAmount.set(BigInt(5));
   processingFee.set(BigInt(1));
   recipientAddress.set(null);
+  destOwnerAddress.set(null);
+  gasLimitZero.set(false);
+  selectedNFTs.set(null);
 
   target = document.createElement('div');
   document.body.appendChild(target);
@@ -207,6 +222,42 @@ describe('the local record of a sent bridge', () => {
       srcChainId: BigInt(2),
       destChainId: BigInt(1),
     });
+  });
+
+  it('captures the NFTs, the destination owner and the gas option before the wallet lookup', async () => {
+    // Everything the arguments are built from is read at the same moment: the NFT selection,
+    // the destination owner and the zero-gas option used to be read again after the lookup,
+    // by this component and by the argument builder and the bridge itself
+    const nftA = {
+      type: TokenType.ERC721,
+      symbol: 'NFT',
+      name: 'A',
+      tokenId: 1,
+      addresses: { 2: '0x00000000000000000000000000000000000000a1' },
+    };
+    const nftB = { ...nftA, tokenId: 2 };
+    selectedToken.set(nftA as never);
+    selectedNFTs.set([nftA] as never);
+    destOwnerAddress.set(BOB);
+    gasLimitZero.set(true);
+    let resolveWallet!: (client: unknown) => void;
+    connectWallet.mockReturnValueOnce(new Promise((resolve) => (resolveWallet = resolve)));
+    sendBridge.mockResolvedValueOnce(TX_HASH);
+    await startBridge();
+
+    selectedNFTs.set([nftB] as never);
+    destOwnerAddress.set(null);
+    gasLimitZero.set(false);
+    await tick();
+    resolveWallet({ account: { address: ALICE } });
+    await flush();
+
+    expect(getBridgeArgs).toHaveBeenCalledWith(
+      nftA,
+      BigInt(5),
+      expect.objectContaining({ destOwner: BOB, gasLimitZero: true, srcChainId: 2, destChainId: 1 }),
+      [nftA],
+    );
   });
 
   it('names the account the wallet signs with, which is the record that can be found again', async () => {

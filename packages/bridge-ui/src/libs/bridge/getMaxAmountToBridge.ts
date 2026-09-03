@@ -9,7 +9,15 @@ import type { ETHBridgeArgs, GetMaxToBridgeArgs } from './types';
 
 const log = getLogger('bridge:getMaxAmountToBridge');
 
-export async function getMaxAmountToBridge({ to, token, balance, fee, srcChainId, destChainId }: GetMaxToBridgeArgs) {
+export async function getMaxAmountToBridge({
+  to,
+  token,
+  balance,
+  fee,
+  srcChainId,
+  destChainId,
+  gasLimitZero,
+}: GetMaxToBridgeArgs) {
   // For ERC20 tokens, we can bridge the whole balance
   let maxAmount = balance;
   log('Max amount to bridge', maxAmount, 'with balance', balance, 'for token', token);
@@ -34,6 +42,8 @@ export async function getMaxAmountToBridge({ to, token, balance, fee, srcChainId
       // Required by the message gas-limit estimation; without it the estimate throws
       // and the MAX button silently does nothing
       tokenObject: token,
+      // A zero-gas message carries no fee, and MAX has to price the message that is sent
+      gasLimitZero,
     } as ETHBridgeArgs;
 
     const estimatedCost = await estimateCostOfBridging(bridges.ETH, bridgeArgs);
