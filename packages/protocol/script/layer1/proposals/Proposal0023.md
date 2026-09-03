@@ -30,9 +30,8 @@ implementation built from `main`. [Why L2 Needs a New Resolver](#why-l2-needs-a-
 covers both.
 
 The proposal executes **4 top-level L1 actions** and **7 L2 actions**. All eight contracts it
-points at are deployed and verified — the bridge-side four on 2026-09-01 (a first set from
-2026-08-31 was superseded after #22082, see [Deployment](#deployment)), the two `ERC20Vault` and the
-two `BridgedERC20V2` implementations on 2026-09-02 — and `Proposal0023.action.md` carries the
+points at are deployed and verified — the bridge-side four on 2026-09-01, the two `ERC20Vault` and
+the two `BridgedERC20V2` implementations on 2026-09-02 — and `Proposal0023.action.md` carries the
 executable calldata.
 
 ## Scope
@@ -357,19 +356,9 @@ deploy-time calls plus an `acceptOwnership`.
 
 ## Deployment
 
-Bridge side, run on 2026-08-31 and re-run on 2026-09-01. `DeployBridgeUpgradeL1` logs
-`BRIDGE_NEW_IMPL_L1`; `DeployBridgeUpgradeL2` deploys the resolver implementation, the resolver
-proxy and the bridge implementation in one run and logs `LibL2Addrs.SHARED_RESOLVER`, its
-implementation and `BRIDGE_NEW_IMPL_L2`. The 2026-09-01 run is the one the proposal points at,
-resolver proxy `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984` included: #22082 landed comment-only
-changes to `Bridge.sol` after the first run, comments feed the solc metadata hash, so the first
-bridge implementations no longer matched `main` and both scripts were re-run from the post-#22082
-branch. The 2026-08-31 run's four contracts — L1 `Bridge` `0x8636d9707ED54443808bA89F1B1b74f4b134AAa6`
-(tx `0x1a124364…`, block 25,875,768), L2 `Bridge` `0x097BBBef669AaD66030aB223195D200eF9A47dc3` (tx
-`0xdf9503aa…`, block 10,789,354), the L2 `DefaultResolver` proxy
-`0x2dfef0339009Ce10786fc118C883BB97af3163eD` (tx `0x05e55788…`, block 10,789,353; an empty registry
-owned by the DelegateController) and its implementation `0x4F750D13005444407D44dAA30922128db0374ca1`
-(tx `0xc3a34dce…`, block 10,789,353) — are unused, and nothing references them.
+Bridge side, run on 2026-09-01. `DeployBridgeUpgradeL1` logs `BRIDGE_NEW_IMPL_L1`;
+`DeployBridgeUpgradeL2` logs `LibL2Addrs.SHARED_RESOLVER`, its implementation and
+`BRIDGE_NEW_IMPL_L2`.
 
 ```bash
 PRIVATE_KEY=<deployer> FOUNDRY_PROFILE=layer1 forge script \
@@ -467,8 +456,7 @@ Codediff of each proxy upgrade, the live implementation against the new one:
 | L2 ERC20Vault | https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000002&newimpl=0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3&chainid=167000 |
 
 Creation transactions, all from deployer `0x56706f118e42ae069f20c5636141b844d1324ae1` (the
-superseded plain `BridgedERC20` deployments were tx `0x758d9b70…` on L1 and `0xa40d7656…` on L2;
-the superseded 2026-08-31 bridge-side set is listed under [Deployment](#deployment)):
+superseded plain `BridgedERC20` deployments were tx `0x758d9b70…` on L1 and `0xa40d7656…` on L2):
 
 | Contract                            | Chain  | Block      | Transaction                                                          |
 | ----------------------------------- | ------ | ---------- | -------------------------------------------------------------------- |
@@ -488,9 +476,8 @@ seven implementations, and runtime code for all but the two bridge-side L2 runs,
 the creation match on a foundry chain-alias error (`found string "taiko", expected u64`); the
 creation-code match is the substantive result, and Verification reads the immutables back. The
 resolver proxy is an unmodified OpenZeppelin `ERC1967Proxy`, pinned by its implementation slot and
-its `owner()`. The bridge-side four are the 2026-09-01 re-run after #22082 changed comments in
-`Bridge.sol`, which feed the metadata hash; the 2026-08-31 set they replace is listed under
-[Deployment](#deployment).
+its `owner()`. The bridge implementations are a redeployment after #22082 changed comments in
+`Bridge.sol`, which feed the metadata hash.
 
 The L1 codediffs carry the proposal's argument: the bridge one should show only the cap plus the
 `MainnetBridge` → `Bridge` folding, the vault one only #22093 plus the `MainnetERC20Vault` →
