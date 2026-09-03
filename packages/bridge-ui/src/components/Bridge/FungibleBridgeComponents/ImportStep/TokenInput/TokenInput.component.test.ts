@@ -406,6 +406,28 @@ describe('the MAX button', () => {
     expect(inputValue()).toBe('');
   });
 
+  it('drops a maximum started by an earlier instance of this step', async () => {
+    // Continuing to the review step and coming back mounts a new input while the old one's
+    // estimate is still out, and both write the shared amount store
+    let resolveMax!: (value: bigint) => void;
+    getMaxAmountToBridge.mockReturnValueOnce(new Promise<bigint>((resolve) => (resolveMax = resolve)));
+    await clickMax();
+
+    component?.$destroy();
+    target.remove();
+    target = document.createElement('div');
+    document.body.appendChild(target);
+    component = new TokenInput({ target, props: {} });
+    await flush();
+    await type('3');
+
+    resolveMax(BigInt(5_000_000));
+    await flush();
+
+    expect(get(enteredAmount)).toBe(BigInt(3_000_000));
+    expect(inputValue()).toBe('3');
+  });
+
   it('lets an amount typed while the maximum was being computed stand', async () => {
     let resolveMax!: (value: bigint) => void;
     getMaxAmountToBridge.mockReturnValueOnce(new Promise<bigint>((resolve) => (resolveMax = resolve)));

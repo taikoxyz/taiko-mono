@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
   import { formatUnits, parseUnits } from 'viem/utils';
@@ -113,6 +113,13 @@
   // to ETH was formatted with 18 decimals as 0.0000000001, while the bigint that would be
   // bridged stayed the USDC maximum. A typed amount and a reset supersede it too.
   let maxAmountGeneration = 0;
+
+  // A MAX still out when this input is torn down must not land in the shared amount store
+  // under a newly mounted one: continuing to the review step and coming back does exactly
+  // that, and the new input's own counter knows nothing of the old request
+  onDestroy(() => {
+    maxAmountGeneration++;
+  });
 
   const useMaxAmount = async () => {
     log('useMaxAmount');
