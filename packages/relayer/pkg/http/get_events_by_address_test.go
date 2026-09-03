@@ -3,11 +3,11 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/cyberhorsey/webutils/testutils"
@@ -85,11 +85,26 @@ func Test_GetEventsByAddress(t *testing.T) {
 	}
 }
 
+// canonicalHeader is the header the test chain has at a height; canonicalHash is its hash, and
+// orphanedHash the hash of a block at the same height that a reorg replaced.
+func canonicalHeader(block uint64) *types.Header {
+	return &types.Header{Number: new(big.Int).SetUint64(block), Extra: []byte("canonical")}
+}
+
+func canonicalHash(block uint64) common.Hash {
+	return canonicalHeader(block).Hash()
+}
+
+func orphanedHash(block uint64) common.Hash {
+	return (&types.Header{Number: new(big.Int).SetUint64(block), Extra: []byte("orphaned")}).Hash()
+}
+
 // claimSenderClient answers every sender lookup with one address, so a test can tell which
-// chain's client the handler asked.
+// chain's client the handler asked, and serves the canonical header of every height.
 type claimSenderClient struct {
 	mock.EthClient
-	sender common.Address
+	sender     common.Address
+	headersErr error
 }
 
 func (c *claimSenderClient) TransactionSender(
@@ -99,6 +114,14 @@ func (c *claimSenderClient) TransactionSender(
 	_ uint,
 ) (common.Address, error) {
 	return c.sender, nil
+}
+
+func (c *claimSenderClient) HeaderByNumber(_ context.Context, number *big.Int) (*types.Header, error) {
+	if c.headersErr != nil {
+		return nil, c.headersErr
+	}
+
+	return canonicalHeader(number.Uint64()), nil
 }
 
 // The relayer reports who claimed a message by reading the claim transaction named in the
@@ -158,15 +181,19 @@ func Test_GetEventsByAddress_claimedByTheRelayer(t *testing.T) {
 	}
 
 	// A status transition as the indexer stores it: the whole log, at the block it sits in
-	saveIndexed := func(srv *Server, status relayer.EventStatus, txHash string, chainID int64, block uint64) {
+	saveAt := func(
+		srv *Server, status relayer.EventStatus, txHash string, chainID int64, block uint64, blockHash common.Hash,
+		logIndex uint64,
+	) {
 		_, err := srv.eventRepo.Save(context.Background(), &relayer.SaveEventOpts{
 			Name:  relayer.EventNameMessageStatusChanged,
 			Event: relayer.EventNameMessageStatusChanged,
 			Data: fmt.Sprintf(
-				`{"Raw":{"transactionHash": "%s", "transactionIndex": "0x1", "logIndex": "0x1", `+
-					`"blockHash": "0x%s", "blockNumber": "0x%x"}}`,
+				`{"Raw":{"transactionHash": "%s", "transactionIndex": "0x1", "logIndex": "0x%x", `+
+					`"blockHash": "%s", "blockNumber": "0x%x"}}`,
 				txHash,
-				strings.Repeat("ab", 32),
+				logIndex,
+				blockHash.Hex(),
 				block,
 			),
 			ChainID:     big.NewInt(chainID),
@@ -175,6 +202,9 @@ func Test_GetEventsByAddress_claimedByTheRelayer(t *testing.T) {
 			MsgHash:     msgHash,
 		})
 		assert.Nil(t, err)
+	}
+	saveIndexed := func(srv *Server, status relayer.EventStatus, txHash string, chainID int64, block uint64) {
+		saveAt(srv, status, txHash, chainID, block, canonicalHash(block), 1)
 	}
 
 	get := func(srv *Server) string {
@@ -313,6 +343,57 @@ func Test_GetEventsByAddress_claimedByTheRelayer(t *testing.T) {
 		assert.Contains(t, body, fmt.Sprintf(`"claimedBy":"%s"`, relayerAddr.Hex()))
 		assert.Contains(t, body, fmt.Sprintf(`"processedTxHash":"%s"`, claimTxHash))
 	})
+
+	// Coordinates do not say which fork a row is on. Reorg cleanup never removes status rows,
+	// so a DONE mined on a fork the chain abandoned stays next to what the canonical fork
+	// recorded instead - at a lower height, or at the same height under another block hash.
+	// Only the chain can say which block is canonical at a height.
+	t.Run("ignores a claim whose block a reorg replaced at a lower height", func(t *testing.T) {
+		srv := newServer()
+		saveAt(srv, relayer.EventStatusDone, claimTxHash, destChainID, 17, orphanedHash(17), 1)
+		saveAt(srv, relayer.EventStatusRetriable, retryTxHash, destChainID, 16, canonicalHash(16), 1)
+
+		body := get(srv)
+
+		assert.Contains(t, body, `"processedTxHash":""`)
+		assert.Contains(t, body, `"claimedBy":""`)
+	})
+
+	t.Run("ignores a claim whose block a reorg replaced at the same height", func(t *testing.T) {
+		srv := newServer()
+		saveAt(srv, relayer.EventStatusDone, claimTxHash, destChainID, 16, orphanedHash(16), 5)
+		saveAt(srv, relayer.EventStatusRetriable, retryTxHash, destChainID, 16, canonicalHash(16), 1)
+
+		body := get(srv)
+
+		assert.Contains(t, body, `"processedTxHash":""`)
+		assert.Contains(t, body, `"claimedBy":""`)
+	})
+
+	t.Run("reports the canonical claim past an orphaned one", func(t *testing.T) {
+		// The claim was re-mined on the canonical fork after its first block was replaced
+		srv := newServer()
+		saveAt(srv, relayer.EventStatusDone, retryTxHash, destChainID, 17, orphanedHash(17), 1)
+		saveAt(srv, relayer.EventStatusDone, claimTxHash, destChainID, 18, canonicalHash(18), 1)
+
+		body := get(srv)
+
+		assert.Contains(t, body, fmt.Sprintf(`"processedTxHash":"%s"`, claimTxHash))
+		assert.Contains(t, body, fmt.Sprintf(`"claimedBy":"%s"`, relayerAddr.Hex()))
+	})
+
+	t.Run("reports nothing it cannot check against the chain", func(t *testing.T) {
+		// A row is a claim only once the chain confirms its block; a header lookup that fails
+		// leaves the question open, and an open question is not a claim
+		srv := newServer()
+		srv.destEthClient = &claimSenderClient{sender: relayerAddr, headersErr: errors.New("rpc down")}
+		saveIndexed(srv, relayer.EventStatusDone, claimTxHash, destChainID, 16)
+
+		body := get(srv)
+
+		assert.Contains(t, body, `"processedTxHash":""`)
+		assert.Contains(t, body, `"claimedBy":""`)
+	})
 }
 
 // The processor stores its own claim as the binding's event marshalled whole, the way the
@@ -322,7 +403,7 @@ func Test_claimLog_readsTheRowTheProcessorWrites(t *testing.T) {
 	const msgHash = "0x789cd5dcc77d50bec34b6458af936a3bfa802f3aa8b8466c07b2c6b663c92575"
 
 	claimTxHash := common.HexToHash("0x27a4811c18012da320c7a1bf4d788aeca068ac2e34a5f2ff73df33fa5f0e4b44")
-	blockHash := common.HexToHash("0xabababababababababababababababababababababababababababababababab")
+	blockHash := canonicalHash(16)
 
 	data, err := json.Marshal(&bridge.BridgeMessageStatusChanged{
 		MsgHash: common.HexToHash(msgHash),
@@ -340,6 +421,10 @@ func Test_claimLog_readsTheRowTheProcessorWrites(t *testing.T) {
 	assert.Nil(t, err)
 
 	srv := newTestServer()
+	srv.srcChainID = big.NewInt(1)
+	srv.destChainID = big.NewInt(2)
+	srv.srcEthClient = &claimSenderClient{}
+	srv.destEthClient = &claimSenderClient{}
 	_, err = srv.eventRepo.Save(context.Background(), &relayer.SaveEventOpts{
 		Name:        relayer.EventNameMessageStatusChanged,
 		Event:       relayer.EventNameMessageStatusChanged,
@@ -351,7 +436,11 @@ func Test_claimLog_readsTheRowTheProcessorWrites(t *testing.T) {
 	})
 	assert.Nil(t, err)
 
-	claim, err := srv.claimLog(context.Background(), msgHash)
+	claim, err := srv.claimLog(
+		context.Background(),
+		&relayer.Event{Event: relayer.EventNameMessageSent, MsgHash: msgHash, DestChainID: 2},
+		headerHashes{},
+	)
 	assert.Nil(t, err)
 	assert.NotNil(t, claim)
 	assert.Equal(t, claimTxHash.Hex(), claim.TransactionHash)

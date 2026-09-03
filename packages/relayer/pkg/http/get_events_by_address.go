@@ -116,10 +116,12 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 	}
 
 	// get processed message tx and claimedBy
+	headers := headerHashes{}
+
 	for i := range *page.Items.(*[]relayer.Event) {
 		v := &(*page.Items.(*[]relayer.Event))[i]
 
-		claim, err := srv.claimLog(c.Request().Context(), v.MsgHash)
+		claim, err := srv.claimLog(c.Request().Context(), v, headers)
 		if err != nil || claim == nil {
 			continue
 		}
@@ -170,32 +172,63 @@ type statusRow struct {
 	id       int
 }
 
+// headerHashes caches, for one request, the hash of the canonical header at a height on a
+// chain, so a block that several rows or messages sit in is fetched once.
+type headerHashes map[string]common.Hash
+
+// canonicalHash is the hash of the block the chain has at a height.
+func (srv *Server) canonicalHash(
+	ctx context.Context,
+	client ethClient,
+	chainID int64,
+	block uint64,
+	cache headerHashes,
+) (common.Hash, error) {
+	key := strconv.FormatInt(chainID, 10) + ":" + strconv.FormatUint(block, 10)
+	if hash, ok := cache[key]; ok {
+		return hash, nil
+	}
+
+	header, err := client.HeaderByNumber(ctx, new(big.Int).SetUint64(block))
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	hash := header.Hash()
+	cache[key] = hash
+
+	return hash, nil
+}
+
 // claimLog returns the MessageStatusChanged log to read a message's claim from, or nil when
 // the message is not currently claimed.
 //
-// The latest transition decides, in the chain's own order: block number, then log index,
-// which both writers record verbatim from the log. Row ids do not order transitions - the
-// indexer stores the logs of one filter range from independent goroutines, so the DONE at
-// block N+1 can be committed before the RETRIABLE at block N.
+// The latest canonical transition decides. Rows are walked from the latest coordinates
+// down - block number, then log index, which both writers record verbatim from the log -
+// and each is checked against the chain: the block the chain has at that height must be
+// the block the row names. Coordinates alone cannot tell a fork from a retry, and reorg
+// cleanup never removes status rows (it keys on block_id, which they do not set), so a
+// DONE mined on a fork the chain abandoned stays next to what the canonical fork recorded
+// instead, at a lower height or at the same height under another block hash. Row ids do
+// not order transitions either: the indexer stores the logs of one filter range from
+// independent goroutines.
 //
 // A message has more than one such row when the relayer claims it: the processor records
 // its own claim before the destination chain's indexer stores the log, and until now that
 // record carried nothing but the transaction hash. Taking the first row by id took that
 // stub, and a stub cannot name the claimer, so every message the relayer claimed came back
 // with neither claimer nor claim hash while every self-claim came back with both. A stub
-// has no position on the chain, so it is consulted only while the message has no
-// positioned row at all, whichever of the two was committed first.
+// has no position on the chain and nothing to check it against, so it is consulted only
+// while the message has no positioned row at all, whichever of the two was committed first.
 //
-// Only a latest transition that is DONE is a claim. The chain cannot move a message on
-// from DONE, so a later non-DONE row means the DONE was orphaned by a reorg of its block;
-// reorg cleanup never removes status rows (it keys on block_id, which they do not set), so
-// the orphaned row stays and only the order can tell. A RECALLED row anywhere means the
-// message is not claimed: a recall on the source chain proves the destination recorded
-// FAILED, which is terminal there, so the two chains' rows need no common order.
-func (srv *Server) claimLog(ctx context.Context, msgHash string) (*Raw, error) {
-	rows, err := srv.eventRepo.FindAllByEventAndMsgHash(ctx, relayer.EventNameMessageStatusChanged, msgHash)
+// Only a canonical latest transition that is DONE is a claim. A row the chain cannot vouch
+// for, because the header lookup failed, is not reported either: an open question is not a
+// claim. A RECALLED row anywhere means the message is not claimed: a recall on the source
+// chain proves the destination recorded FAILED, which is terminal there.
+func (srv *Server) claimLog(ctx context.Context, v *relayer.Event, cache headerHashes) (*Raw, error) {
+	rows, err := srv.eventRepo.FindAllByEventAndMsgHash(ctx, relayer.EventNameMessageStatusChanged, v.MsgHash)
 	if err != nil {
-		slog.Warn("could not read the status rows of a message", "msgHash", msgHash, "error", err)
+		slog.Warn("could not read the status rows of a message", "msgHash", v.MsgHash, "error", err)
 
 		return nil, err
 	}
@@ -227,17 +260,23 @@ func (srv *Server) claimLog(ctx context.Context, msgHash string) (*Raw, error) {
 		positioned = append(positioned, s)
 	}
 
-	candidates := positioned
-	if len(candidates) == 0 {
-		candidates = unpositioned
+	if len(positioned) == 0 {
+		if len(unpositioned) == 0 {
+			return nil, nil
+		}
+
+		sort.SliceStable(unpositioned, func(a, b int) bool { return unpositioned[a].id < unpositioned[b].id })
+
+		latest := unpositioned[len(unpositioned)-1]
+		if latest.status != relayer.EventStatusDone {
+			return nil, nil
+		}
+
+		return &latest.raw, nil
 	}
 
-	if len(candidates) == 0 {
-		return nil, nil
-	}
-
-	sort.SliceStable(candidates, func(a, b int) bool {
-		x, y := candidates[a], candidates[b]
+	sort.SliceStable(positioned, func(a, b int) bool {
+		x, y := positioned[a], positioned[b]
 		if x.block != y.block {
 			return x.block < y.block
 		}
@@ -249,12 +288,32 @@ func (srv *Server) claimLog(ctx context.Context, msgHash string) (*Raw, error) {
 		return x.id < y.id
 	})
 
-	latest := candidates[len(candidates)-1]
-	if latest.status != relayer.EventStatusDone {
-		return nil, nil
+	chainID := srv.claimChainID(ctx, v)
+	client := srv.clientForChain(chainID)
+
+	for i := len(positioned) - 1; i >= 0; i-- {
+		row := positioned[i]
+
+		canonical, err := srv.canonicalHash(ctx, client, chainID, row.block, cache)
+		if err != nil {
+			slog.Debug("could not check a status row against the chain", "msgHash", v.MsgHash, "error", err)
+
+			return nil, nil
+		}
+
+		// The chain has another block at this height: this row is a fork's
+		if canonical != common.HexToHash(row.raw.BlockHash) {
+			continue
+		}
+
+		if row.status != relayer.EventStatusDone {
+			return nil, nil
+		}
+
+		return &row.raw, nil
 	}
 
-	return &latest.raw, nil
+	return nil, nil
 }
 
 // hexQuantity parses a 0x-prefixed hex quantity the way the logs carry block and log indices.
