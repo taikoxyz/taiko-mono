@@ -11,5 +11,4 @@ library LibL1HoodiAddrs {
     address public constant HOODI_CONTRACT_OWNER = 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190;
     address public constant HOODI_BRIDGE = 0x6a4cf607DaC2C4784B7D934Bcb3AD7F2ED18Ed80;
     address public constant HOODI_ERC20_VAULT = 0x0857cd029937E7a119e492434c71CB9a9Bb59aB0;
-    address public constant HOODI_BRIDGED_ERC20 = 0xC56b5528C7A26E39ea61c4D7A6BeE65ffc9459e1;
 }
