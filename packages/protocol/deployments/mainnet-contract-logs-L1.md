@@ -65,7 +65,6 @@
   - Upgrade impl to `0x2705B12a971dA766A3f9321a743d61ceAD67dA2F` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
   - Change owner to controller @tx`0x6348cbb8f4c907bd72ded06cb9ba587d4ca794a546dab7e7ab6f0281a9c48c2c`
   - upgraded to `0x1c94D798CFA08F396E5BA9F81697289c53273381` on Jun 29, 2026 @commit`b73608696` @tx`0xae7122add731c935d54d726ebe542e7d4f9f7321e3bdf4ec794309f813d981f7` (Proposal0017)
-  - `Bridge` implementation `0xA15dca0A72da684f20e0FC708DECFb230a715462` deployed on Sep 1, 2026 @commit`cd847999b` @tx`0x02f4a79ff01a8e4dbd8b55c2460ddeed33116f340133963dc357a3121385b154` (for Proposal0023)
 
 #### quota_manager
 
@@ -98,7 +97,6 @@
   - upgraded from `0x7ACFBb369a552C45d402448A4d64b9da54C3FF30` to `0xb20C8Ffc2dD49596508d262b6E8B6817e9790E63` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
   - change owner to controller.taiko.eth @tx`0xc67a1ab94e6c4ccc5a357269c54a15b99f64ac9ed0c089b853d634772dbe40e0`
   - upgraded to `0x024253C6FDC27d3161aFd43fb0241411A28dDc3c` on Jun 29, 2026 @commit`b73608696` @tx`0xae7122add731c935d54d726ebe542e7d4f9f7321e3bdf4ec794309f813d981f7` (Proposal0017)
-  - `ERC20Vault` implementation `0x32E47c04E8c329E8c10062731448e7658aDEEB8e` deployed on Sep 2, 2026 @commit`fda424de5` @tx`0x83c8f81f1241428453e25e04e32539136bb9db3e1c148f8892a2559b0e53057e` (for Proposal0023)
 
 #### erc721_vault
 
@@ -138,7 +136,6 @@
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - deployed on Jul 25, 2024 @commit`ba6bf94`
-  - `BridgedERC20V2` `0x9ccB9eBa4335096c5B64f050C3c734632D497c3b` deployed on Sep 2, 2026 @commit`fda424de5` @tx`0x37b6b435fdc5cd2961ad1de3ada2deb8dde7eff39e298210d20e50fdb10e3e77` (for Proposal0023, which registers it as `bridged_erc20` on shared_resolver)
 
 #### bridged_erc721
 
