@@ -31,6 +31,10 @@ jobs:
         && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
       )
     runs-on: ubuntu-latest
+    # Cap the whole job. Must exceed MAX_ATTEMPTS (3) full request timeouts
+    # (REQUEST_TIMEOUT_MS = 10 min each) plus the retry backoff and checkout
+    # overhead, so a slow attempt and its retries are never killed mid-run.
+    timeout-minutes: 35
     permissions:
       contents: read
       pull-requests: write
@@ -81,39 +85,113 @@ jobs:
               return Number.isFinite(n) && n > 0 ? n : fallback;
             };
 
-            // Fetch PR details
-            const pr = await github.rest.pulls.get({
-              owner, repo, pull_number: prNumber
-            });
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-            const title = pr.data.title;
-            const body = pr.data.body || '';
+            // Model + token budget are configurable via repo variables.
+            // NOTE: deepseek-v4-pro is a reasoning model — reasoning tokens
+            // count against max_tokens, so a small budget (e.g. 4096) can be
+            // fully consumed before any visible content is produced, yielding
+            // an empty review. Default high (65536) to leave room for output.
+            const model = process.env.DEEPSEEK_MODEL || 'deepseek-v4-pro';
+            const maxTokens = intFromEnv('DEEPSEEK_MAX_TOKENS', 8192 * 8);
 
-            // Get the diff as raw text
-            const diffResponse = await github.request({
-              method: 'GET',
-              url: `/repos/${owner}/${repo}/pulls/${prNumber}`,
-              headers: { Accept: 'application/vnd.github.v3.diff' }
-            });
+            // Sticky comment, matched on a hidden marker with the visible
+            // header as a fallback so comments posted before the marker
+            // existed are still updated in place instead of duplicated.
+            const MARKER = '<!-- deepseek-review -->';
+            const HEADER = '## 🐋 DeepSeek Code Review';
+            const triggerInfo = context.eventName === 'pull_request'
+              ? 'Automatically triggered on PR update'
+              : 'Triggered by `@deepseek` comment';
+            const footer = `*${triggerInfo} • model: \`${model}\`*`;
+            const compose = (text) => `${MARKER}\n${HEADER}\n\n${text}\n\n---\n${footer}`;
 
-            const diffText = typeof diffResponse.data === 'string'
-              ? diffResponse.data
-              : JSON.stringify(diffResponse.data);
+            // GitHub issue-comment bodies are capped at 65536 chars; stay under.
+            const MAX_COMMENT = 65000;
 
-            if (!diffText || diffText.length === 0) {
-              console.log('No diff found - skipping review');
-              return 'No diff to review.';
+            async function upsert(text) {
+              let body = compose(text);
+              if (body.length > MAX_COMMENT) {
+                const note = "\n\n... (truncated to fit GitHub's comment size limit)";
+                const room = MAX_COMMENT - compose('').length - note.length;
+                body = compose(text.substring(0, Math.max(0, room)) + note);
+              }
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner, repo, issue_number: prNumber, per_page: 100
+              });
+              const existing = comments.find(c =>
+                c.user && c.user.login === 'github-actions[bot]' && c.body &&
+                (c.body.includes(MARKER) || c.body.includes(HEADER))
+              );
+              if (existing) {
+                await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+                core.info(`Updated existing review comment #${existing.id}`);
+              } else {
+                await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+                core.info('Posted new review comment');
+              }
             }
 
-            // Truncate diff if too large. deepseek-v4-pro has a large context
-            // window, so default high and allow overriding via repo variable.
-            const MAX_DIFF = intFromEnv('DEEPSEEK_MAX_DIFF', 2000000);
-            const truncatedDiff = diffText.length > MAX_DIFF
-              ? diffText.substring(0, MAX_DIFF) + '\n\n... (diff truncated)'
-              : diffText;
+            if (!process.env.DEEPSEEK_API_KEY) {
+              core.setFailed('DEEPSEEK_API_KEY is not set.');
+              return;
+            }
 
-            // Build the prompt
-            const systemPrompt = `You are a senior software engineer performing a code review on the Taiko monorepo.
+            // The PR/diff fetch, the model call and the comment post can all
+            // hit the network; wrap them in one try so any failure is reported
+            // as a visible comment instead of crashing the job silently.
+            try {
+              const pr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+              const title = pr.data.title;
+              const body = pr.data.body || '';
+
+              // The diff media type refuses PRs over 20000 diff lines with a
+              // 406, so fall back to reassembling the diff from the files API,
+              // which returns the same per-file patches page by page.
+              async function fetchDiff() {
+                try {
+                  const diffResponse = await github.request({
+                    method: 'GET',
+                    url: `/repos/${owner}/${repo}/pulls/${prNumber}`,
+                    headers: { Accept: 'application/vnd.github.v3.diff' }
+                  });
+                  return typeof diffResponse.data === 'string'
+                    ? diffResponse.data
+                    : JSON.stringify(diffResponse.data);
+                } catch (err) {
+                  if (err.status !== 406) throw err;
+                  core.warning('Diff too large for the diff media type; rebuilding it from the files API.');
+                  const files = await github.paginate(github.rest.pulls.listFiles, {
+                    owner, repo, pull_number: prNumber, per_page: 100
+                  });
+                  return files.map((f) => {
+                    const from = f.previous_filename || f.filename;
+                    const header = `diff --git a/${from} b/${f.filename}\n`
+                      + `--- ${f.status === 'added' ? '/dev/null' : 'a/' + from}\n`
+                      + `+++ ${f.status === 'removed' ? '/dev/null' : 'b/' + f.filename}`;
+                    // Binary and very large files come back without a patch.
+                    return f.patch
+                      ? `${header}\n${f.patch}`
+                      : `${header}\n(patch omitted: ${f.status}, +${f.additions}/-${f.deletions})`;
+                  }).join('\n');
+                }
+              }
+
+              const diffText = await fetchDiff();
+              if (!diffText) {
+                core.info('No diff found - skipping review.');
+                return 'No diff to review.';
+              }
+
+              // Truncate diff if too large. deepseek-v4-pro has a large context
+              // window, so default high and allow overriding via repo variable.
+              const MAX_DIFF = intFromEnv('DEEPSEEK_MAX_DIFF', 2000000);
+              const truncatedDiff = diffText.length > MAX_DIFF
+                ? diffText.substring(0, MAX_DIFF) + '\n\n... (diff truncated)'
+                : diffText;
+
+              // Build the prompt
+              const systemPrompt = `You are a senior software engineer performing a code review on the Taiko monorepo.
 
             Taiko is a based rollup on Ethereum (type-1 ZK-EVM). The repo contains:
             - Smart contracts (Solidity/Foundry) in packages/protocol
@@ -142,7 +220,7 @@ jobs:
             - Be direct and constructive. Don't be overly polite.
             - If there are no issues in a category, skip it entirely.`;
 
-            const userPrompt = `## PR #${prNumber}: ${title}
+              const userPrompt = `## PR #${prNumber}: ${title}
 
             **Description:**
             ${body || 'No description provided.'}
@@ -154,95 +232,209 @@ jobs:
 
             Review this PR thoroughly. Be direct - flag only real issues.`;
 
-            // Model + token budget are configurable via repo variables.
-            // NOTE: deepseek-v4-pro is a reasoning model — reasoning tokens
-            // count against max_tokens, so a small budget (e.g. 4096) can be
-            // fully consumed before any visible content is produced, yielding
-            // an empty review. Default high (65536) to leave room for output.
-            const model = process.env.DEEPSEEK_MODEL || 'deepseek-v4-pro';
-            const maxTokens = intFromEnv('DEEPSEEK_MAX_TOKENS', 8192 * 8);
+              // A review of this repo's diffs takes the model minutes. Ask for a
+              // stream so bytes keep flowing the whole time: a non-streaming call
+              // leaves the socket idle until the answer is complete, and an idle
+              // socket gets reaped in transit ("TypeError: terminated" /
+              // "SocketError: other side closed").
+              const REQUEST_TIMEOUT_MS = 600000; // hard cap on one attempt
+              const STALL_TIMEOUT_MS = 120000;   // no bytes for this long = dead
+              const MAX_ATTEMPTS = 3;
+              const RETRY_DELAY_MS = [5000, 15000];
 
-            // Call DeepSeek API (OpenAI-compatible endpoint).
-            async function requestReview() {
-              const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
-                },
-                body: JSON.stringify({
-                  model,
-                  messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: userPrompt }
-                  ],
-                  max_tokens: maxTokens,
-                  temperature: 0.3
-                })
-              });
-              const data = await response.json();
-              if (!response.ok) {
-                throw new Error(`DeepSeek API error (${response.status}): ${JSON.stringify(data)}`);
+              // A rejected key, an unknown model id or a malformed request fails
+              // identically on every attempt, so those are not retried.
+              const FATAL_STATUS = new Set([400, 401, 402, 403, 404, 422]);
+
+              // `stream_options` is standard on OpenAI-compatible endpoints and
+              // is what reports token usage in a stream, but it is only used for
+              // the empty-review diagnostic: if this endpoint ever rejects it,
+              // drop it and carry on rather than failing every review.
+              let includeUsage = true;
+
+              async function requestReview() {
+                const controller = new AbortController();
+                let stallTimer = null;
+                let reader = null;
+                const armStall = () => {
+                  if (stallTimer) clearTimeout(stallTimer);
+                  stallTimer = setTimeout(
+                    () => controller.abort(new Error(`DeepSeek sent no data for ${STALL_TIMEOUT_MS / 1000}s`)),
+                    STALL_TIMEOUT_MS
+                  );
+                };
+                const overallTimer = setTimeout(
+                  () => controller.abort(new Error(`DeepSeek request exceeded ${REQUEST_TIMEOUT_MS / 1000}s`)),
+                  REQUEST_TIMEOUT_MS
+                );
+
+                try {
+                  armStall();
+                  const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Accept': 'text/event-stream',
+                      'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
+                    },
+                    body: JSON.stringify({
+                      model,
+                      messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userPrompt }
+                      ],
+                      max_tokens: maxTokens,
+                      temperature: 0.3,
+                      stream: true,
+                      ...(includeUsage ? { stream_options: { include_usage: true } } : {})
+                    }),
+                    signal: controller.signal
+                  });
+
+                  // An error response is JSON, not SSE. Read it as text first so
+                  // a non-JSON body (e.g. a 5xx HTML page) surfaces the real
+                  // status instead of a misleading parse error.
+                  if (!response.ok) {
+                    const raw = await response.text();
+                    let detail = raw.slice(0, 300);
+                    try {
+                      const parsed = JSON.parse(raw);
+                      detail = (parsed && parsed.error && parsed.error.message) || detail;
+                    } catch (_) { /* non-JSON body */ }
+                    const err = new Error(`DeepSeek API error (${response.status}): ${detail || 'no body'}`);
+                    err.status = response.status;
+                    throw err;
+                  }
+
+                  let content = '';
+                  let finishReason = 'unknown';
+                  let usage = 'unknown';
+                  let sawDone = false;
+
+                  // If the endpoint answers a stream request with a whole
+                  // completion, read it as one instead of finding no SSE frames
+                  // and retrying into a failure.
+                  const contentType = (response.headers.get('content-type') || '').toLowerCase();
+                  if (contentType && !contentType.includes('event-stream')) {
+                    const whole = JSON.parse(await response.text());
+                    const only = whole.choices && whole.choices[0];
+                    return {
+                      reviewText: ((only && only.message && only.message.content) || '').trim(),
+                      finishReason: (only && only.finish_reason) || 'unknown',
+                      usage: whole.usage ? JSON.stringify(whole.usage) : 'unknown'
+                    };
+                  }
+
+                  const consume = (line) => {
+                    const trimmed = line.trim();
+                    // Blank separators and `:` keep-alive comments carry no payload.
+                    if (!trimmed || !trimmed.startsWith('data:')) return;
+                    const payload = trimmed.slice(5).trim();
+                    if (payload === '[DONE]') { sawDone = true; return; }
+                    let event;
+                    try { event = JSON.parse(payload); } catch (_) { return; }
+                    if (event.error) {
+                      throw new Error(`DeepSeek stream error: ${event.error.message || JSON.stringify(event.error)}`);
+                    }
+                    const choice = event.choices && event.choices[0];
+                    if (choice) {
+                      // `delta.reasoning_content` is the model thinking out loud;
+                      // only `delta.content` is the review itself.
+                      if (choice.delta && typeof choice.delta.content === 'string') {
+                        content += choice.delta.content;
+                      }
+                      if (choice.finish_reason) finishReason = choice.finish_reason;
+                    }
+                    if (event.usage) usage = JSON.stringify(event.usage);
+                  };
+
+                  reader = response.body.getReader();
+                  const decoder = new TextDecoder();
+                  let buffer = '';
+                  for (;;) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    armStall();
+                    buffer += decoder.decode(value, { stream: true });
+                    let nl;
+                    while ((nl = buffer.indexOf('\n')) !== -1) {
+                      consume(buffer.slice(0, nl));
+                      buffer = buffer.slice(nl + 1);
+                    }
+                  }
+                  consume(buffer);
+
+                  // A stream that ends without [DONE] and without a finish reason
+                  // was cut short; treat the partial text as a failed attempt
+                  // rather than posting half a review as if it were complete.
+                  if (!sawDone && finishReason === 'unknown') {
+                    throw new Error('DeepSeek stream ended before completion');
+                  }
+
+                  return { reviewText: content.trim(), finishReason, usage };
+                } finally {
+                  if (stallTimer) clearTimeout(stallTimer);
+                  clearTimeout(overallTimer);
+                  // Release the socket when we bail out mid-stream, so a retry
+                  // doesn't open a second one while this response is still live.
+                  if (reader) {
+                    try { await reader.cancel(); } catch (_) { /* already closed */ }
+                  }
+                }
               }
-              const choice = data.choices && data.choices[0];
-              return {
-                reviewText: ((choice && choice.message && choice.message.content) || '').trim(),
-                finishReason: (choice && choice.finish_reason) || 'unknown',
-                usage: data.usage ? JSON.stringify(data.usage) : 'unknown'
-              };
+
+              // Retry both outright failures (a dropped connection, a 429, a 5xx)
+              // and empty content, which usually means the token budget was
+              // exhausted by reasoning or the model id is invalid/aliased.
+              let reviewText = '';
+              let finishReason = 'unknown';
+              let usage = 'unknown';
+              let lastError = null;
+
+              for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+                try {
+                  ({ reviewText, finishReason, usage } = await requestReview());
+                  lastError = null;
+                  if (reviewText) break;
+                  core.warning(
+                    `DeepSeek returned no content on attempt ${attempt}/${MAX_ATTEMPTS} `
+                    + `(model=${model}, finish_reason=${finishReason}, usage=${usage}).`
+                  );
+                } catch (err) {
+                  lastError = err;
+                  if (includeUsage && err.status === 400 && /stream_options/i.test(err.message)) {
+                    includeUsage = false;
+                    core.warning('DeepSeek rejected `stream_options`; retrying without usage reporting.');
+                  } else if (FATAL_STATUS.has(err.status)) {
+                    throw err;
+                  } else {
+                    core.warning(`DeepSeek request failed on attempt ${attempt}/${MAX_ATTEMPTS}: ${err.message}`);
+                  }
+                }
+                if (attempt < MAX_ATTEMPTS) {
+                  await sleep(RETRY_DELAY_MS[attempt - 1] || RETRY_DELAY_MS[RETRY_DELAY_MS.length - 1]);
+                }
+              }
+
+              // Every attempt threw: report the last failure rather than posting
+              // an empty-content diagnostic that misattributes the cause.
+              if (lastError) throw lastError;
+
+              await upsert(reviewText
+                ? reviewText
+                : `⚠️ The model returned no review content after ${MAX_ATTEMPTS} attempts `
+                  + `(model: \`${model}\`, finish_reason: \`${finishReason}\`, usage: \`${usage}\`). `
+                  + `This usually means the configured model id is invalid/aliased or the token budget was `
+                  + `exhausted before any visible output. Override via the \`DEEPSEEK_MODEL\` / `
+                  + `\`DEEPSEEK_MAX_TOKENS\` repo variables.`);
+
+              return { success: !!reviewText, reviewLength: reviewText.length, finishReason };
+            } catch (err) {
+              // Always surface failures on the PR; still fail the job.
+              try {
+                await upsert(`⚠️ Review failed: ${err.message}`);
+              } catch (e) {
+                core.warning(`Failed to post error comment: ${e.message}`);
+              }
+              core.setFailed(err.message);
             }
-
-            // Empty content usually means the token budget was exhausted by
-            // reasoning or the model id is invalid/aliased. Retry once before
-            // surfacing a diagnostic instead of posting a blank review.
-            let { reviewText, finishReason, usage } = await requestReview();
-            if (!reviewText) {
-              core.warning(
-                `DeepSeek returned no content (model=${model}, finish_reason=${finishReason}, usage=${usage}); retrying once.`
-              );
-              ({ reviewText, finishReason, usage } = await requestReview());
-            }
-
-            // Build comment body
-            const triggerInfo = context.eventName === 'pull_request'
-              ? 'Automatically triggered on PR update'
-              : 'Triggered by `@deepseek` comment';
-            const footer = `*${triggerInfo} • model: \`${model}\`*`;
-
-            const commentBody = reviewText
-              ? `## 🐋 DeepSeek Code Review\n\n${reviewText}\n\n---\n${footer}`
-              : `## 🐋 DeepSeek Code Review\n\n⚠️ The model returned no review content after a retry `
-                + `(model: \`${model}\`, finish_reason: \`${finishReason}\`, usage: \`${usage}\`). `
-                + `This usually means the configured model id is invalid/aliased or the token budget was `
-                + `exhausted before any visible output. Override via the \`DEEPSEEK_MODEL\` / `
-                + `\`DEEPSEEK_MAX_TOKENS\` repo variables.\n\n---\n${footer}`;
-
-            // Check for existing bot comment to update (sticky behavior)
-            const comments = await github.rest.issues.listComments({
-              owner, repo,
-              issue_number: prNumber,
-              per_page: 100
-            });
-
-            const existingComment = comments.data.find(c =>
-              c.body.includes('🐋 DeepSeek Code Review') &&
-              c.user.login === 'github-actions[bot]'
-            );
-
-            if (existingComment) {
-              await github.rest.issues.updateComment({
-                owner, repo,
-                comment_id: existingComment.id,
-                body: commentBody
-              });
-              console.log(`✅ Updated existing review comment #${existingComment.id}`);
-            } else {
-              await github.rest.issues.createComment({
-                owner, repo,
-                issue_number: prNumber,
-                body: commentBody
-              });
-              console.log('✅ Posted new review comment');
-            }
-
-            return { success: !!reviewText, reviewLength: reviewText.length, finishReason };
