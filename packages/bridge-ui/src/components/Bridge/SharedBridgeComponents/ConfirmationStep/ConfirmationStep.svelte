@@ -60,12 +60,15 @@
   $: statusDescription = '';
 
   /**
-   * What the wallet was asked to sign, captured before the prompt opens.
+   * What the wallet was asked to sign, captured before anything is awaited.
    *
    * The prompt can sit open for minutes, and a wallet that switches account or network
-   * meanwhile moves the stores with it. Everything the local record, the receipt wait and
-   * the confirmation copy need is read from here rather than from the stores, so the entry
-   * lands in the sender's history and describes the transaction that was signed.
+   * meanwhile moves the stores with it. Everything the transaction, the local record, the
+   * receipt wait and the confirmation copy need is read from here rather than from the
+   * stores, so the entry lands in the sender's history and describes the transaction that
+   * was signed. The sender is the account the wallet client signs with: the screen showed
+   * the store's account, but if the wallet moved on during its own lookup, the signer is
+   * the one the transaction, its record and its default recipient must name.
    */
   type SentBridge = {
     from: Address;
@@ -314,10 +317,12 @@
     if (!$bridgeService || !$selectedToken || !$connectedSourceChain || !$destNetwork?.id || !$account?.address) return;
     bridging = true;
     try {
-      const walletClient = await getConnectedWallet($connectedSourceChain.id);
-      // Read once, here, and used for both the transaction and its record: see SentBridge
-      const sent: SentBridge = {
-        from: $account.address,
+      // Read once, before the first await, and used for the transaction, the wallet lookup
+      // and the record alike: see SentBridge. The bridge service is derived from the token,
+      // so it is read in the same breath; building the arguments goes over the network, and
+      // a token switch during that wait would otherwise move the dispatch to another token's
+      // bridge while the arguments still described this one
+      const submitted = {
         srcChainId: $connectedSourceChain.id,
         destChainId: $destNetwork.id,
         destChainName: $destNetwork.name,
@@ -325,12 +330,13 @@
         amount: $enteredAmount,
         fee: $processingFee,
       };
-      // Derived from the token, so read in the same breath as it: building the arguments goes
-      // over the network, and a token switch during that wait would otherwise move the
-      // dispatch to another token's bridge while the arguments still described this one
+      const recipient = $recipientAddress;
       const service = $bridgeService;
+
+      const walletClient = await getConnectedWallet(submitted.srcChainId);
+      const sent: SentBridge = { ...submitted, from: walletClient.account.address };
       const commonArgs = {
-        to: $recipientAddress || sent.from,
+        to: recipient || sent.from,
         wallet: walletClient,
         srcChainId: sent.srcChainId,
         destChainId: sent.destChainId,

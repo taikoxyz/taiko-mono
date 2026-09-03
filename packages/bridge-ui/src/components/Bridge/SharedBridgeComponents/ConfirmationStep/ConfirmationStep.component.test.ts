@@ -69,7 +69,11 @@ vi.mock('$stores/pendingTransactions', () => ({
   pendingTransactions: { add: (...args: unknown[]) => waitForReceipt(...args) },
 }));
 vi.mock('$libs/bridge/handleBridgeErrors', () => ({ handleBridgeError: vi.fn() }));
-vi.mock('$libs/util/getConnectedWallet', () => ({ getConnectedWallet: vi.fn().mockResolvedValue({}) }));
+// The wallet lookup, scripted per test: it resolves to the client that signs
+const connectWallet = vi.fn();
+vi.mock('$libs/util/getConnectedWallet', () => ({
+  getConnectedWallet: (...args: unknown[]) => connectWallet(...args),
+}));
 vi.mock('$libs/util/checkForPausedContracts', () => ({ isBridgePaused: vi.fn().mockResolvedValue(false) }));
 vi.mock('$libs/util/balance', () => ({ refreshUserBalance: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('$libs/token/waitForApprovalStatus', () => ({ waitForApprovalStatus: vi.fn().mockResolvedValue(undefined) }));
@@ -111,6 +115,7 @@ const startBridge = async () => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  connectWallet.mockResolvedValue({ account: { address: ALICE } });
   waitForReceipt.mockImplementation(async (hash: string) => ({ transactionHash: hash, status: 'success' }));
 
   // An L2 -> L1 transfer of 5 wei with a 1 wei fee, signed by ALICE
@@ -170,6 +175,51 @@ describe('the local record of a sent bridge', () => {
       srcChainId: BigInt(2),
       destChainId: BigInt(1),
     });
+  });
+
+  it('is captured before the wallet is even looked up, so a switch during the lookup cannot split it', async () => {
+    // The wallet lookup is the first await on the path; the stores can move while it is out,
+    // and the wallet client it returns is bound to the chain it was asked for
+    let resolveWallet!: (client: unknown) => void;
+    connectWallet.mockReturnValueOnce(new Promise((resolve) => (resolveWallet = resolve)));
+    sendBridge.mockResolvedValueOnce(TX_HASH);
+    await startBridge();
+
+    account.set({ address: BOB, isConnected: true } as never);
+    connectedSourceChain.set({ id: 1, name: 'Ethereum' } as never);
+    destNetwork.set({ id: 2, name: 'Taiko' } as never);
+    selectedToken.set(usdc as never);
+    enteredAmount.set(BigInt(999));
+    processingFee.set(BigInt(7));
+    await tick();
+
+    resolveWallet({ account: { address: ALICE } });
+    await flush();
+
+    expect(connectWallet).toHaveBeenCalledWith(2);
+    expect(waitForReceipt).toHaveBeenCalledWith(TX_HASH, 2);
+    expect(recordBridgeTx.mock.calls[0][0]).toBe(ALICE);
+    expect(recordBridgeTx.mock.calls[0][1]).toMatchObject({
+      from: ALICE,
+      amount: BigInt(5),
+      processingFee: BigInt(1),
+      symbol: 'ETH',
+      srcChainId: BigInt(2),
+      destChainId: BigInt(1),
+    });
+  });
+
+  it('names the account the wallet signs with, which is the record that can be found again', async () => {
+    // The screen showed ALICE, but by the time the wallet answered it was BOB who would sign:
+    // the transaction goes out as BOB's, so the record and the default recipient follow it
+    connectWallet.mockResolvedValueOnce({ account: { address: BOB } });
+    sendBridge.mockResolvedValueOnce(TX_HASH);
+    await startBridge();
+    await flush();
+
+    expect(sendBridge).toHaveBeenCalledWith(expect.objectContaining({ to: BOB }));
+    expect(recordBridgeTx.mock.calls[0][0]).toBe(BOB);
+    expect(recordBridgeTx.mock.calls[0][1]).toMatchObject({ from: BOB });
   });
 
   it('dispatches through the bridge of the token that was signed for, not of one selected meanwhile', async () => {
