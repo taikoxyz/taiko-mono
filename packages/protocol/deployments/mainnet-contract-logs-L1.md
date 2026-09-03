@@ -157,6 +157,7 @@
 - proxy: `0x8Efa01564425692d0a0838DC10E300BD310Cb43e`
 - impl: `0xFca4F0Ab7B95EEf2e3A60EF2Bc0c42DdAA62E66D`
 - owner : `controller.taiko.eth`
+- note: `DefaultResolver`; read by `bridge` and `erc20_vault` only. `signal_service`, `taiko_token`, the inbox and the other rollup contracts carry no resolver; the NFT vaults and the legacy bridged tokens read the sam; `BridgedERC20V2` tokens authorise the vault through an immutable.
 - names:
   - taiko_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
   - bond_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
@@ -184,7 +185,7 @@
 - proxy: `0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa`
 - impl: `0xEC1a9aa1C648F047752fe4eeDb2C21ceab0c6449`
 - owner : `controller.taiko.eth`
-- note: legacy shared AddressManager (pre-`DefaultResolver`). Kept because `erc721_vault` + `erc1155_vault` still resolve through it via `addressManager()` (their `resolver()` reverts) — verified on-chain: `getAddress(1,"erc721_vault")` returns the vault, `getAddress(1,"bridge")` returns the bridge. `bridge` + `erc20_vault` were migrated to shared_resolver `0x8Efa01564425692d0a0838DC10E300BD310Cb43e`.
+- note: legacy `AddressManager`; read by `erc721_vault`, `erc1155_vault`, the bridged ERC721/ERC1155 tokens and the bridged ERC20s on the `0x65666141…` implementation (they authorise `erc20_vault` through it). Not read by `bridge`, `erc20_vault` (shared_resolver), `signal_service`, `taiko_token` or the rollup contracts.
 - names:
   - taiko_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
   - signal_service: `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C`

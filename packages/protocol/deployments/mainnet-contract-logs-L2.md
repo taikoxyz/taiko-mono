@@ -11,6 +11,7 @@
 - proxy: `0x1670000000000000000000000000000000000006`
 - impl: `0x0167000000000000000000000000000000000006`
 - owner: `0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C`
+- note: legacy 1.10.0 `AddressManager` (`getAddress(uint64,bytes32)` only); read by `erc721_vault`, `erc1155_vault`, the bridged TAIKO token, the bridged ERC721/ERC1155 tokens and the bridged ERC20s on the `0x0167…10096` / `0x98161D67…` implementations, e.g. bridged USDT `0x2DEF1957…` (they authorise `erc20_vault` through it). Not read by `bridge`, `erc20_vault` (shared_resolver), `signal_service`, the anchor or the delegate controller.
 - names:
   - taiko_token: `0xA9d23408b9bA935c230493c40C73824Df71A0975`
   - signal_service: `0x1670000000000000000000000000000000000005`
@@ -46,6 +47,7 @@
 - proxy: `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984`
 - impl: `0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a`
 - owner: `0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C`
+- note: `DefaultResolver`; read by `bridge` and `erc20_vault` only. The NFT vaults and the legacy bridged tokens read the sam; `BridgedERC20V2` tokens authorise the vault through an immutable. `erc20_vault` for chain 167000 is registered for symmetry with L1 and read by nothing.
 - names:
   - bridge: `0x1670000000000000000000000000000000000001`
   - bridge@1: `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`
