@@ -30,9 +30,10 @@ implementation built from `main`. [Why L2 Needs a New Resolver](#why-l2-needs-a-
 covers both.
 
 The proposal executes **4 top-level L1 actions** and **7 L2 actions**. All eight contracts it
-points at are deployed and verified — the bridge-side four on 2026-08-31 (redeployed 2026-09-01
-after #22082), the two `ERC20Vault` and the two `BridgedERC20V2` implementations on 2026-09-02 —
-and `Proposal0023.action.md` carries the executable calldata.
+points at are deployed and verified — the bridge-side four on 2026-09-01 (a first set from
+2026-08-31 was superseded after #22082, see [Deployment](#deployment)), the two `ERC20Vault` and the
+two `BridgedERC20V2` implementations on 2026-09-02 — and `Proposal0023.action.md` carries the
+executable calldata.
 
 ## Scope
 
@@ -96,8 +97,10 @@ legacy L2 registry, so L2 has no quota and only the owner can pause. The 1.10.0 
 zero, so direct Ether transfers to the L2 bridge keep reverting exactly as today. The new
 `BridgedERC20V2`'s `erc20Vault` immutable is the vault proxy `0x1670000000000000000000000000000000000002`.
 
-Preconditions to re-read at execution time: the L2 bridge must not be paused (`processMessage` is
-`whenNotPaused`), and `DelegateController.lastExecutionId()` is `1`. The L2 bridge balance, about
+Preconditions to re-read at execution time: neither bridge may be paused — the L1 `sendMessage`
+that `BuildProposal` appends as action 4 is `whenNotPaused`, so a paused L1 bridge reverts the whole
+L1 batch (atomically, but the proposal fails), and the L2 `processMessage` that delivers the batch is
+`whenNotPaused` too — and `DelegateController.lastExecutionId()` is `1`. The L2 bridge balance, about
 999,998,918 ETH of premint float, is what the L2 leg puts at risk.
 
 ## Why L2 Needs a New Resolver
@@ -108,7 +111,11 @@ answers `getAddress(uint64,bytes32)`; `IResolver.resolve(uint256,bytes32,bool)`,
 every `sendMessage`, `processMessage`, `sendToken` and delivery on L2. The fix mirrors L1: a separate
 `DefaultResolver` for the contracts that receive new implementations (L1's was deployed and populated
 in May 2025, and the L1 bridge and vault started reading it at Proposal0017 on 2026-06-29), the NFT
-vaults left on the legacy registry, and only the names the migrated contracts read registered.
+vaults left on the legacy registry, and only the names the migrated contracts read registered — plus
+one entry nothing reads today, the L2 vault's own `erc20_vault` (action 4). It is kept deliberately:
+the L1 resolver carries its own chain's `bridge` and `erc20_vault` the same way, the entry is
+harmless, and dropping it would change the committed calldata and the message-size and
+relayer-budget pins for no gain.
 
 | Registration                  | Read by                                                                                                                                                                                                |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -328,7 +335,8 @@ on the new resolver `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984`, with names enc
 1. `registerAddress(1, "bridge", 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC)`
 2. `registerAddress(167000, "bridge", 0x1670000000000000000000000000000000000001)`
 3. `registerAddress(1, "erc20_vault", 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab)`
-4. `registerAddress(167000, "erc20_vault", 0x1670000000000000000000000000000000000002)`
+4. `registerAddress(167000, "erc20_vault", 0x1670000000000000000000000000000000000002)` — read by
+   nothing today; kept deliberately, see [Why L2 Needs a New Resolver](#why-l2-needs-a-new-resolver).
 5. `registerAddress(167000, "bridged_erc20", 0xD6601cdea5857338EbdEE4CF38298aff43f01431)`
 6. `upgradeTo(0x1670000000000000000000000000000000000002, 0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3)` — the vault.
 7. `upgradeTo(0x1670000000000000000000000000000000000001, 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb)` — the bridge's
@@ -349,9 +357,19 @@ deploy-time calls plus an `acceptOwnership`.
 
 ## Deployment
 
-Bridge side, run on 2026-08-31. `DeployBridgeUpgradeL1` logs `BRIDGE_NEW_IMPL_L1`;
-`DeployBridgeUpgradeL2` logs `LibL2Addrs.SHARED_RESOLVER`, its implementation and
-`BRIDGE_NEW_IMPL_L2`.
+Bridge side, run on 2026-08-31 and re-run on 2026-09-01. `DeployBridgeUpgradeL1` logs
+`BRIDGE_NEW_IMPL_L1`; `DeployBridgeUpgradeL2` deploys the resolver implementation, the resolver
+proxy and the bridge implementation in one run and logs `LibL2Addrs.SHARED_RESOLVER`, its
+implementation and `BRIDGE_NEW_IMPL_L2`. The 2026-09-01 run is the one the proposal points at,
+resolver proxy `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984` included: #22082 landed comment-only
+changes to `Bridge.sol` after the first run, comments feed the solc metadata hash, so the first
+bridge implementations no longer matched `main` and both scripts were re-run from the post-#22082
+branch. The 2026-08-31 run's four contracts — L1 `Bridge` `0x8636d9707ED54443808bA89F1B1b74f4b134AAa6`
+(tx `0x1a124364…`, block 25,875,768), L2 `Bridge` `0x097BBBef669AaD66030aB223195D200eF9A47dc3` (tx
+`0xdf9503aa…`, block 10,789,354), the L2 `DefaultResolver` proxy
+`0x2dfef0339009Ce10786fc118C883BB97af3163eD` (tx `0x05e55788…`, block 10,789,353; an empty registry
+owned by the DelegateController) and its implementation `0x4F750D13005444407D44dAA30922128db0374ca1`
+(tx `0xc3a34dce…`, block 10,789,353) — are unused, and nothing references them.
 
 ```bash
 PRIVATE_KEY=<deployer> FOUNDRY_PROFILE=layer1 forge script \
@@ -448,16 +466,20 @@ Codediff of each proxy upgrade, the live implementation against the new one:
 | L2 Bridge     | https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000001&newimpl=0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb&chainid=167000 |
 | L2 ERC20Vault | https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000002&newimpl=0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3&chainid=167000 |
 
-Vault-side and bridged-token creation transactions, all from deployer `0x56706f118e42ae069f20c5636141b844d1324ae1`
-(the superseded plain `BridgedERC20` deployments were tx `0x758d9b70…` on L1 and `0xa40d7656…` on
-L2):
+Creation transactions, all from deployer `0x56706f118e42ae069f20c5636141b844d1324ae1` (the
+superseded plain `BridgedERC20` deployments were tx `0x758d9b70…` on L1 and `0xa40d7656…` on L2;
+the superseded 2026-08-31 bridge-side set is listed under [Deployment](#deployment)):
 
-| Contract                           | Chain  | Block      | Transaction                                                          |
-| ---------------------------------- | ------ | ---------- | -------------------------------------------------------------------- |
-| L1 `ERC20Vault` implementation     | 1      | 25,888,605 | `0x83c8f81f1241428453e25e04e32539136bb9db3e1c148f8892a2559b0e53057e` |
-| L1 `BridgedERC20V2` implementation | 1      | 25,889,748 | `0x37b6b435fdc5cd2961ad1de3ada2deb8dde7eff39e298210d20e50fdb10e3e77` |
-| L2 `ERC20Vault` implementation     | 167000 | 10,865,570 | `0x00371d3b209576df1ce447011477f0c27b816e12c123a207588790644dbc10b3` |
-| L2 `BridgedERC20V2` implementation | 167000 | 10,872,359 | `0x68248af36eb1828a21e5f94f5508a9938e5ef27151f512da229ac6102fb6022b` |
+| Contract                            | Chain  | Block      | Transaction                                                          |
+| ----------------------------------- | ------ | ---------- | -------------------------------------------------------------------- |
+| L1 `Bridge` implementation          | 1      | 25,880,441 | `0x02f4a79ff01a8e4dbd8b55c2460ddeed33116f340133963dc357a3121385b154` |
+| L2 `DefaultResolver` implementation | 167000 | 10,817,147 | `0x59cb3c098f29ee9f4efe6b8a5fa05f181f1eb91edfe330388a316ed6e7c0881a` |
+| L2 `DefaultResolver` proxy          | 167000 | 10,817,147 | `0x80c14fa5cece0c4e97331057fa7d72f915e58633315c555df68bd82d29d06174` |
+| L2 `Bridge` implementation          | 167000 | 10,817,147 | `0x552d1e5ba3e3de2d7c4a0b38d3ed2d5766f69c0490d39c5ef940001300043d39` |
+| L1 `ERC20Vault` implementation      | 1      | 25,888,605 | `0x83c8f81f1241428453e25e04e32539136bb9db3e1c148f8892a2559b0e53057e` |
+| L1 `BridgedERC20V2` implementation  | 1      | 25,889,748 | `0x37b6b435fdc5cd2961ad1de3ada2deb8dde7eff39e298210d20e50fdb10e3e77` |
+| L2 `ERC20Vault` implementation      | 167000 | 10,865,570 | `0x00371d3b209576df1ce447011477f0c27b816e12c123a207588790644dbc10b3` |
+| L2 `BridgedERC20V2` implementation  | 167000 | 10,872,359 | `0x68248af36eb1828a21e5f94f5508a9938e5ef27151f512da229ac6102fb6022b` |
 
 All eight are verified on their explorers under `solc v0.8.30`, optimizer at 200 runs,
 `evm_version` `osaka`; the L1 entries read `Bridge` and `ERC20Vault`, not `Mainnet*`.
@@ -466,8 +488,9 @@ seven implementations, and runtime code for all but the two bridge-side L2 runs,
 the creation match on a foundry chain-alias error (`found string "taiko", expected u64`); the
 creation-code match is the substantive result, and Verification reads the immutables back. The
 resolver proxy is an unmodified OpenZeppelin `ERC1967Proxy`, pinned by its implementation slot and
-its `owner()`. The bridge implementations are a redeployment after #22082 changed comments in
-`Bridge.sol`, which feed the metadata hash.
+its `owner()`. The bridge-side four are the 2026-09-01 re-run after #22082 changed comments in
+`Bridge.sol`, which feed the metadata hash; the 2026-08-31 set they replace is listed under
+[Deployment](#deployment).
 
 The L1 codediffs carry the proposal's argument: the bridge one should show only the cap plus the
 `MainnetBridge` → `Bridge` folding, the vault one only #22093 plus the `MainnetERC20Vault` →
