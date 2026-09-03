@@ -116,6 +116,12 @@ jobs:
             // GitHub issue-comment bodies are capped at 65536 chars; stay under.
             const MAX_COMMENT = 65000;
 
+            // One review per PR, and always the newest one. A review describes
+            // one specific diff, so the run posts its own and then deletes every
+            // DeepSeek comment that came before it: a review of an older commit
+            // is stale, not history worth keeping beside the current one.
+            // Posting before deleting means a delete that fails leaves a
+            // duplicate rather than leaving the PR with no review at all.
             async function upsert(text) {
               let body = compose(text);
               if (body.length > MAX_COMMENT) {
@@ -126,16 +132,26 @@ jobs:
               const comments = await github.paginate(github.rest.issues.listComments, {
                 owner, repo, issue_number: prNumber, per_page: 100
               });
-              const existing = comments.find(c =>
+              // Match the hidden marker, falling back to the visible header so
+              // comments posted before the marker existed are cleaned up too.
+              // Every match goes, not just the newest, so duplicates left by the
+              // unpaginated lookup this replaces are swept up on the next run.
+              const previous = comments.filter(c =>
                 c.user && c.user.login === 'github-actions[bot]' && c.body &&
                 (c.body.includes(MARKER) || c.body.includes(HEADER))
               );
-              if (existing) {
-                await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
-                core.info(`Updated existing review comment #${existing.id}`);
-              } else {
-                await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
-                core.info('Posted new review comment');
+              await github.rest.issues.createComment({ owner, repo, issue_number: prNumber, body });
+              core.info(`Posted review comment; removing ${previous.length} earlier one(s).`);
+              for (const stale of previous) {
+                try {
+                  await github.rest.issues.deleteComment({ owner, repo, comment_id: stale.id });
+                  core.info(`Deleted previous review comment #${stale.id}`);
+                } catch (err) {
+                  // The current review is already up; a delete that cannot go
+                  // through (permissions, or the comment is already gone) is
+                  // worth a warning, not a failed run.
+                  core.warning(`Could not delete previous review comment #${stale.id}: ${err.message}`);
+                }
               }
             }
 
