@@ -105,8 +105,9 @@ Preconditions to re-read at execution time: the L2 bridge must not be paused (`p
 The L2 registry `0x1670000000000000000000000000000000000006` is the 1.10.0 `AddressManager`. It only
 answers `getAddress(uint64,bytes32)`; `IResolver.resolve(uint256,bytes32,bool)`, which `Bridge` and
 `ERC20Vault` on `main` call, reverts on it. Pointing either new implementation at it would revert
-every `sendMessage`, `processMessage`, `sendToken` and delivery on L2. The fix mirrors what L1 did in
-May 2025: a separate `DefaultResolver` for the contracts that receive new implementations, the NFT
+every `sendMessage`, `processMessage`, `sendToken` and delivery on L2. The fix mirrors L1: a separate
+`DefaultResolver` for the contracts that receive new implementations (L1's was deployed and populated
+in May 2025, and the L1 bridge and vault started reading it at Proposal0017 on 2026-06-29), the NFT
 vaults left on the legacy registry, and only the names the migrated contracts read registered.
 
 | Registration                  | Read by                                                                                                                                                                                                |
@@ -140,8 +141,19 @@ why L1 action 3 registers a `BridgedERC20V2` there as well.
 
 ### Storage layout
 
-Slot boundaries are identical between the 1.10.0 lineage and `main` for both contracts
-(`forge inspect … storage-layout` at `9345f14` against the `*_Layout.sol` files on `main`):
+Regenerated on 2026-09-03 with `forge inspect … storage-layout` at the commits the live
+implementations were built from, against the same command on `main` (OpenZeppelin is 4.9.6 at all
+three commits, so one installed dependency tree serves the old checkouts; commands under
+[Verification](#verification)):
+
+| Proxy     | Live implementation                | Against the new implementation                                                        |
+| --------- | ---------------------------------- | ------------------------------------------------------------------------------------- |
+| L1 bridge | `MainnetBridge` at `b73608696`     | identical, 18 entries                                                                 |
+| L1 vault  | `MainnetERC20Vault` at `b73608696` | identical, 17 entries                                                                 |
+| L2 bridge | `Bridge` at `9345f14` (1.10.0)     | the two differences below, everything else identical                                  |
+| L2 vault  | `ERC20Vault` at `9345f14` (1.10.0) | the same two differences; `bridgedToCanonical` through `lastMigrationStart` identical |
+
+The two L2 differences, slot by slot:
 
 | slot          | 1.10.0                                                                                                   | `main`                               |
 | ------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------ |
@@ -156,6 +168,53 @@ Slot boundaries are identical between the 1.10.0 lineage and `main` for both con
 `lastUnpausedAt` was dropped, leaving stale bytes nothing reads; `addressManager` is absorbed by the
 gap that exists for exactly this reason. The L1 bridge and vault already made this exact jump in
 Proposal0017, and the vault has custodied mainnet deposits on that layout since.
+
+The live proxies' slots were read on 2026-09-03 (`cast storage`), and each value is what the new
+code expects:
+
+| Proxy     | slot 0 `_initialized` | slot 51 owner      | slot 151, becomes gap    | slot 201: `__reentry`, `__paused`, stale `lastUnpausedAt` |
+| --------- | --------------------- | ------------------ | ------------------------ | --------------------------------------------------------- |
+| L1 bridge | 3                     | DAO controller     | legacy SAM `0xEf9EaA1d…` | `0x00`, `0x01`, `0x66546ecf`                              |
+| L1 vault  | 1                     | DAO controller     | legacy SAM `0xEf9EaA1d…` | `0x00`, `0x01`, `0`                                       |
+| L2 bridge | 1                     | DelegateController | `0x1670…0006`            | `0x01`, `0x01`, `0`                                       |
+| L2 vault  | 1                     | DelegateController | `0x1670…0006`            | `0x01`, `0x01`, `0x665478a7`                              |
+
+`_FALSE = 1` and `_TRUE = 2` in the 1.10.0, Proposal0017 and `main` `EssentialContract`, so a
+`__paused` byte of `1` reads as unpaused before and after the swap; the `__reentry` byte is read by
+nothing on `main`, which keeps the lock in transient storage. No initializer runs in this proposal
+and none is needed: `Bridge.init2` only zeroes reserved slots, `Bridge.init3` is the hack-recovery
+marker Proposal0017 used on L1, and `ERC20Vault` has only `init`. `nextMessageId` (slot 251) reads
+40,500 on L1 and 10,119 on L2, and the fork rehearsal shows both counters continuing across the
+upgrade.
+
+### Transient slots and the token interface
+
+`_CTX_SLOT` (`0xe4ece821…`) in `Bridge` and `_REENTRY_SLOT` (`0xa5054f72…`) in `EssentialContract`
+on `main` are byte-identical to the constants the live L1 implementations carry in `MainnetBridge`
+and `LibFasterReentryLock`, which #22058 folded into the base contracts. On L2 both are new: the
+1.10.0 code kept the context and the lock in storage, and the old frame's last writes land on
+slots the new layout keeps (see the self-upgrade analysis below).
+
+`IBridgedERC20` is unchanged between 1.10.0 and `main` (`mint(address,uint256)`, `burn(uint256)`,
+`canonical()`, `changeMigrationStatus(address,bool)`), so the upgraded vaults keep minting and
+burning the bridged tokens that already exist; the fork rehearsal does both through bridged USDT on
+L2.
+
+### The `bridged_erc20` registrations upgrade nothing
+
+`ERC20Vault._deployBridgedToken` creates each bridged token as an `ERC1967Proxy` over whatever
+`bridged_erc20` resolves to at that moment, so the two registrations only change the implementation
+of tokens deployed after execution. Every existing bridged token keeps the implementation in its own
+proxy, and the codediff between the July 2024 `0x65666141…` and the new `0x9ccB9eBa…` compares
+templates, not an upgrade. Both are `BridgedERC20V2` (the July 2024 one built at commit
+`ba6bf942213468310c6233051a90356268dea70f`) with an identical external function set; what changed
+is the authorisation (`onlyFromNamed("erc20_vault")` through the address manager → the `erc20Vault`
+immutable, set to the vault proxy), the initializer (seven arguments → six) and the
+`EssentialContract` base. Should a later proposal upgrade existing tokens in place, the layouts
+allow it: the base slots are identical and `addressManager` becomes gap; the L1 tokens deployed from
+`0x65666141…` already carry V2's EIP-712 and nonce slots at 351 onwards, and for the L2 tokens on
+the V1 implementation those slots lie past the trailing gap and were never written.
+`BridgedERC20V2.init2` exists for that migration.
 
 ### ABI
 
@@ -227,8 +286,19 @@ see [Verification](#verification).
 
 ### EVM version
 
-`foundry.toml` pins `evm_version = "osaka"` for `profile.layer2` and `profile.shared`, so
-`TSTORE`/`TLOAD` are available on L2.
+`foundry.toml` pins `evm_version = "osaka"` for `profile.layer2` and `profile.shared`, and the new
+L2 code uses `TSTORE`/`TLOAD`, which the 1.10.0 L2 code did not. A fork test runs in foundry's EVM
+and so cannot prove the live client executes them; two checks on 2026-09-03 do:
+
+- An `eth_call` of `sendMessage` on the new L2 bridge implementation itself, through
+  `https://rpc.mainnet.taiko.xyz`, reverts with `B_INVALID_CHAINID()` (`0xe363bba8`). That revert
+  sits after the `nonReentrant` modifier's `tstore`, so the live Taiko client ran the opcode. The
+  live headers also carry the Prague `requestsHash` field.
+- `Bridge`, `ERC20Vault`, `BridgedERC20V2` and `DefaultResolver` were rebuilt with
+  `FOUNDRY_EVM_VERSION=prague` and with `osaka`; with the trailing CBOR metadata removed, the
+  runtime bytecode is identical for all four (the vault's only differing bytes are the metadata
+  hash of the `ERC1967Proxy` creation code it embeds), so the deployed code contains no Osaka-only
+  opcode.
 
 ## Action Order
 
@@ -492,6 +562,33 @@ FOUNDRY_PROFILE=layer2 forge verify-bytecode 0x2ea05A9CD06984Cf533a1829d8b0BE628
 # go back through sendTokenWithPermit, proving the V2 permit).
 L1_FORK_URL=$L1_RPC L2_FORK_URL=$L2_RPC FOUNDRY_PROFILE=layer1 \
   forge test --match-contract Proposal0023ForkTest -vv
+```
+
+The upgrade-safety checks under [Upgrade Safety](#upgrade-safety) reproduce as follows.
+
+```bash
+cd packages/protocol
+# Storage layouts at the commits the live implementations were built from, then on main.
+git worktree add /tmp/wt-9345f14 9345f14 && ln -s "$PWD/node_modules" /tmp/wt-9345f14/packages/protocol/node_modules
+(cd /tmp/wt-9345f14/packages/protocol && forge inspect Bridge storage-layout && forge inspect ERC20Vault storage-layout)
+git worktree add /tmp/wt-b73608696 b73608696 && ln -s "$PWD/node_modules" /tmp/wt-b73608696/packages/protocol/node_modules
+(cd /tmp/wt-b73608696/packages/protocol && FOUNDRY_PROFILE=layer1 forge inspect MainnetBridge storage-layout \
+  && FOUNDRY_PROFILE=layer1 forge inspect MainnetERC20Vault storage-layout)
+FOUNDRY_PROFILE=shared forge inspect Bridge storage-layout && FOUNDRY_PROFILE=shared forge inspect ERC20Vault storage-layout
+
+# Live slots: _initialized (0), owner (51), the retired addressManager (151), reentry/paused (201), nextMessageId (251).
+for a in 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab; do for s in 0 51 151 201 251; do cast storage $a $s --rpc-url $L1_RPC; done; done
+for a in 0x1670000000000000000000000000000000000001 0x1670000000000000000000000000000000000002; do for s in 0 51 151 201 251; do cast storage $a $s --rpc-url $L2_RPC; done; done
+
+# Transient storage on the live L2 client: must revert 0xe363bba8 (B_INVALID_CHAINID), which comes after the nonReentrant tstore.
+A=0x00000000000000000000000000000000000000A1
+cast call 0xa200c2268d77737a8Fd2CA1698dA6eeab2a85CEb \
+  $(cast calldata "sendMessage((uint64,uint64,uint32,address,uint64,address,uint64,address,address,uint256,bytes))" \
+    "(0,0,0,0x0000000000000000000000000000000000000000,0,$A,1,$A,$A,0,0x)") --rpc-url $L2_RPC
+
+# Osaka vs Prague codegen: compare deployedBytecode.object of Bridge, ERC20Vault, BridgedERC20V2 and
+# DefaultResolver with the trailing CBOR metadata (length in the last two bytes) removed.
+for v in osaka prague; do FOUNDRY_PROFILE=shared FOUNDRY_EVM_VERSION=$v forge build --out out-$v --force; done
 ```
 
 Notes: use `--encoded-constructor-args`, not `--constructor-args`, which rejects a pre-encoded blob
