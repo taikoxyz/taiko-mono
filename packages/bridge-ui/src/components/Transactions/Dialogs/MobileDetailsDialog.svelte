@@ -13,6 +13,7 @@
   import { getTransferParties } from '$libs/bridge/transferParties';
   import { getChainName, isL2Chain } from '$libs/chain';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
+  import { findClaimTxHash } from '$libs/relayer/findClaimTxHash';
   import { type NFT, TokenType } from '$libs/token';
   import { formatTimestamp } from '$libs/util/formatTimestamp';
   import { formatTokenAmount } from '$libs/util/formatTokenAmount';
@@ -56,27 +57,48 @@
     initiatedAt = formatTimestamp(Number(blockTimestamp));
   };
 
-  // Both read off the claim transaction: the relayer API reports no claimer for the messages
-  // the relayer claimed itself, and the transaction answers who and when in one read. Only
-  // once the dialog is open, since every row mounts both dialogs, and only once per claim
+  // The relayer API reports neither claimer nor claim transaction for the messages the relayer
+  // claimed itself. Its status rows still carry the transaction, filed under the message's
+  // sender, and the transaction answers who and when in one read. Only once the dialog is
+  // open, since every row mounts both dialogs, and only once per message
+  let resolvedClaimTxHash: Maybe<Hash> = null;
   let resolvedClaimer: Maybe<Address> = null;
-  let claimRead: Maybe<Hash> = null;
+  let claimRead: Maybe<string> = null;
 
   const readClaim = async () => {
-    const { destTxHash, destChainId } = bridgeTx;
-    if (!destTxHash || !destChainId || claimRead === destTxHash) return;
-    claimRead = destTxHash;
+    const { destChainId, msgHash, message } = bridgeTx;
+    // A row that arrived with its claim transaction is read as it is; one without is looked
+    // up once the message is claimed
+    const known = bridgeTx.destTxHash;
+    if (!known && effectiveStatus !== MessageStatus.DONE) return;
+    const key = known ?? msgHash;
+    if (!destChainId || !key || claimRead === key) return;
+    claimRead = key;
+    resolvedClaimTxHash = null;
     resolvedClaimer = null;
     claimedAt = '';
     try {
-      const { claimedBy: claimer, claimedAt: timestamp } = await getClaimDetails(destTxHash, destChainId);
-      // Superseded by another claim while this one was out
-      if (claimRead !== destTxHash) return;
+      let claimTxHash = known;
+      if (!claimTxHash) {
+        const sender = message?.srcOwner ?? bridgeTx.from;
+        if (!sender || !msgHash) return;
+        claimTxHash = await findClaimTxHash(sender, msgHash);
+        // Superseded by another message while this one was out
+        if (claimRead !== key) return;
+        if (!claimTxHash) {
+          // Nothing to show yet; the next opening asks again
+          claimRead = null;
+          return;
+        }
+        resolvedClaimTxHash = claimTxHash;
+      }
+      const { claimedBy: claimer, claimedAt: timestamp } = await getClaimDetails(claimTxHash, destChainId);
+      if (claimRead !== key) return;
       resolvedClaimer = claimer;
       claimedAt = formatTimestamp(Number(timestamp));
     } catch (error) {
       claimRead = null;
-      log('Could not read the claim transaction', error);
+      log('Could not read the claim', error);
     }
   };
 
@@ -112,7 +134,7 @@
   $: to = parties.recipient;
 
   $: srcTxHash = bridgeTx.srcTxHash || null;
-  $: destTxHash = bridgeTx.destTxHash || null;
+  $: destTxHash = bridgeTx.destTxHash || resolvedClaimTxHash || null;
 
   $: srcChainId = bridgeTx.srcChainId || null;
   $: destChainId = bridgeTx.destChainId || null;

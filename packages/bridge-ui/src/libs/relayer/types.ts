@@ -90,6 +90,7 @@ export type APIRequestParams = {
   address: Address;
   chainID?: number;
   event?: string;
+  msgHash?: string;
   page?: number;
   size?: number;
 };

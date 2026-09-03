@@ -535,104 +535,68 @@ describe('RelayerAPIService', () => {
     );
   });
 
-  describe('a claimed message the relayer reported without its claim transaction', () => {
+  describe('getClaimTxHash', () => {
     // The relayer's own claim leaves a status row carrying only the transaction hash, and the
     // API's per-message lookup takes that row and gives up on it: a message the relayer
     // claimed arrives with neither claimer nor claim hash. The hash is still in the rows the
-    // API serves under event=MessageStatusChanged.
+    // API serves under event=MessageStatusChanged, filed under the message's sender.
     const CLAIM_TX_HASH = '0x27a4811c18012da320c7a1bf4d788aeca068ac2e34a5f2ff73df33fa5f0e4b44' as Hash;
+    const OTHER_CLAIM_TX_HASH = '0x1111111111111111111111111111111111111111111111111111111111111111' as Hash;
 
-    const claimedWithoutHash = () =>
-      createRelayerItem({
-        id: 1584078,
-        messageId: '6268',
-        msgHash: GOOD_MSG_HASH,
-        blockNumber: '0x7baa21',
-        status: MessageStatus.DONE,
-        claimedBy: '',
-        processedTxHash: undefined,
-      });
-
-    /** The stub row the relayer's processor writes: only the hash, on the source chain */
-    const statusStub = () => ({
+    const statusRow = (overrides: object) => ({
       ...createRelayerItem({ id: 1584081, messageId: '6268', msgHash: GOOD_MSG_HASH, blockNumber: '0x0' }),
       name: 'MessageStatusChanged',
       event: 'MessageStatusChanged',
       status: MessageStatus.DONE,
       chainID: 1,
       data: { Raw: { transactionHash: CLAIM_TX_HASH } },
+      ...overrides,
     });
 
-    const answerByEvent = (statusRows: unknown[]) =>
-      mockedAxios.get.mockImplementation(async (_url, options) =>
-        (options as { params?: { event?: string } })?.params?.event === 'MessageStatusChanged'
-          ? createApiResponse(statusRows as never)
-          : createApiResponse([claimedWithoutHash()]),
-      );
-
-    test('fills the claim transaction from the status rows', async () => {
+    test("asks for the message's status rows under its sender and reads the hash off the stub", async () => {
       const relayerAPIService = new RelayerAPIService('http://example.com');
-      answerByEvent([statusStub()]);
-      mockedGetTransactionReceipt.mockResolvedValue(createReceiptWithMessageSentLog());
-      mockedReadContract.mockResolvedValue(MessageStatus.DONE);
+      mockedAxios.get.mockResolvedValue(createApiResponse([statusRow({})] as never));
 
-      const result = await relayerAPIService.getAllBridgeTransactionByAddress(
-        USER_ADDRESS,
-        { page: 1, size: 10 },
-        167000,
-      );
-
-      expect(result.txs).toHaveLength(1);
-      expect(result.txs[0].destTxHash).toEqual(CLAIM_TX_HASH);
-      // The claimer is one transaction read on the destination chain, made on demand by the dialog
-      expect(result.txs[0].claimedBy).toBeUndefined();
+      expect(await relayerAPIService.getClaimTxHash(USER_ADDRESS, GOOD_MSG_HASH)).toEqual(CLAIM_TX_HASH);
       expect(mockedAxios.get).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
-          params: expect.objectContaining({ address: USER_ADDRESS, event: 'MessageStatusChanged' }),
+          params: expect.objectContaining({
+            address: USER_ADDRESS,
+            event: 'MessageStatusChanged',
+            msgHash: GOOD_MSG_HASH,
+          }),
         }),
       );
     });
 
-    test('keeps the list when the status rows cannot be read', async () => {
+    test('prefers the indexed log to the stub when both are there', async () => {
       const relayerAPIService = new RelayerAPIService('http://example.com');
-      mockedAxios.get.mockImplementation(async (_url, options) => {
-        if ((options as { params?: { event?: string } })?.params?.event === 'MessageStatusChanged') {
-          throw new Error('relayer down');
-        }
-        return createApiResponse([claimedWithoutHash()]);
+      const indexed = statusRow({
+        id: 1584082,
+        chainID: 167000,
+        data: { Raw: { transactionHash: OTHER_CLAIM_TX_HASH, transactionIndex: '0x1', blockNumber: '0x10' } },
       });
-      mockedGetTransactionReceipt.mockResolvedValue(createReceiptWithMessageSentLog());
-      mockedReadContract.mockResolvedValue(MessageStatus.DONE);
+      mockedAxios.get.mockResolvedValue(createApiResponse([statusRow({}), indexed] as never));
 
-      const result = await relayerAPIService.getAllBridgeTransactionByAddress(
-        USER_ADDRESS,
-        { page: 1, size: 10 },
-        167000,
-      );
-
-      expect(result.txs).toHaveLength(1);
-      expect(result.txs[0].destTxHash).toBeUndefined();
+      expect(await relayerAPIService.getClaimTxHash(USER_ADDRESS, GOOD_MSG_HASH)).toEqual(OTHER_CLAIM_TX_HASH);
     });
 
-    test('does not ask for status rows when every claimed message already has its hash', async () => {
+    test('answers nothing for a message without a claimed status row', async () => {
       const relayerAPIService = new RelayerAPIService('http://example.com');
-      const relayerItem = createRelayerItem({
-        id: 1584090,
-        messageId: '6268',
-        msgHash: GOOD_MSG_HASH,
-        blockNumber: '0x7baa21',
-        status: MessageStatus.DONE,
-        claimedBy: USER_ADDRESS,
-        processedTxHash: CLAIM_TX_HASH,
-      });
-      mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
-      mockedGetTransactionReceipt.mockResolvedValue(createReceiptWithMessageSentLog());
-      mockedReadContract.mockResolvedValue(MessageStatus.DONE);
+      mockedAxios.get.mockResolvedValue(createApiResponse([statusRow({ status: MessageStatus.RETRIABLE })] as never));
 
-      await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, { page: 1, size: 10 }, 167000);
+      expect(await relayerAPIService.getClaimTxHash(USER_ADDRESS, GOOD_MSG_HASH)).toBeUndefined();
 
-      expect(mockedAxios.get).toHaveBeenCalledTimes(1);
+      mockedAxios.get.mockResolvedValue(createApiResponse([]));
+      expect(await relayerAPIService.getClaimTxHash(USER_ADDRESS, GOOD_MSG_HASH)).toBeUndefined();
+    });
+
+    test('lets a relayer failure reach the caller', async () => {
+      const relayerAPIService = new RelayerAPIService('http://example.com');
+      mockedAxios.get.mockRejectedValue(new Error('relayer down'));
+
+      await expect(relayerAPIService.getClaimTxHash(USER_ADDRESS, GOOD_MSG_HASH)).rejects.toThrow();
     });
   });
 

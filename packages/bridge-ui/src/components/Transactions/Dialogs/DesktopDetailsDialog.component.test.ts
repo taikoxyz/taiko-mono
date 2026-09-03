@@ -22,6 +22,8 @@ vi.mock('svelte-i18n', async () => {
 vi.mock('@wagmi/core');
 vi.mock('$libs/bridge/isTransactionProcessable', () => ({ isTransactionProcessable: vi.fn().mockResolvedValue(true) }));
 const getClaimDetails = vi.hoisted(() => vi.fn());
+const findClaimTxHash = vi.hoisted(() => vi.fn());
+vi.mock('$libs/relayer/findClaimTxHash', () => ({ findClaimTxHash: (...args: unknown[]) => findClaimTxHash(...args) }));
 vi.mock('$libs/bridge/getClaimDetails', () => ({ getClaimDetails: (...args: unknown[]) => getClaimDetails(...args) }));
 // Deliberately not the claim time below: the initiated date renders in the same dialog, and the
 // claim-date assertion must not be satisfied by it
@@ -139,6 +141,7 @@ let component: { $destroy: () => void } | null = null;
 
 beforeEach(() => {
   getClaimDetails.mockReset().mockResolvedValue({ claimedBy: RELAYER, claimedAt: CLAIMED_AT });
+  findClaimTxHash.mockReset().mockResolvedValue(undefined);
   account.set({ address: ADDRESS, isConnected: true } as never);
   target = document.createElement('div');
   document.body.appendChild(target);
@@ -258,6 +261,59 @@ describe.each([
       await flush();
 
       expect(target.textContent).not.toContain('common.relayer');
+    });
+
+    describe('and without the claim transaction either', () => {
+      // The same relayer defect drops the claim hash; the relayer's status rows still carry
+      // it, filed under the message's sender
+      const claimNotReported = {
+        ...claimedByUnknown,
+        destTxHash: undefined,
+        message: { ...claimedByUnknown.message, srcOwner: ALICE },
+      } as unknown as BridgeTransaction;
+      const linkedTxs = () =>
+        [...target.querySelectorAll('[data-testid="explorer-link"][data-category="tx"]')].map((link) =>
+          link.getAttribute('data-param'),
+        );
+
+      it('finds the claim transaction under the sender, then reads the claim off it', async () => {
+        findClaimTxHash.mockResolvedValue('0xbbbb');
+        component = new Dialog({
+          target,
+          props: { detailsOpen: true, bridgeTx: claimNotReported, token: null, closeDetails: () => undefined },
+        });
+        await flush();
+
+        // The sender, not the account whose history this is: the status rows are filed under it
+        expect(findClaimTxHash).toHaveBeenCalledWith(ALICE, claimNotReported.msgHash);
+        expect(getClaimDetails).toHaveBeenCalledWith('0xbbbb', claimNotReported.destChainId);
+        expect(linkedTxs()).toContain('0xbbbb');
+        expect(target.textContent).toContain('common.relayer');
+        expect(target.textContent).toContain(formatTimestamp(Number(CLAIMED_AT)));
+      });
+
+      it('leaves the claim fields empty when no relayer knows the transaction', async () => {
+        component = new Dialog({
+          target,
+          props: { detailsOpen: true, bridgeTx: claimNotReported, token: null, closeDetails: () => undefined },
+        });
+        await flush();
+
+        expect(getClaimDetails).not.toHaveBeenCalled();
+        expect(linkedTxs()).not.toContain('0xbbbb');
+        expect(target.textContent).not.toContain('common.relayer');
+      });
+
+      it('does not look for a claim on a message that is not claimed yet', async () => {
+        const pending = { ...claimNotReported, status: MessageStatus.NEW, msgStatus: MessageStatus.NEW } as never;
+        component = new Dialog({
+          target,
+          props: { detailsOpen: true, bridgeTx: pending, token: null, closeDetails: () => undefined },
+        });
+        await flush();
+
+        expect(findClaimTxHash).not.toHaveBeenCalled();
+      });
     });
 
     it('does not read the claim transaction until the dialog is opened', async () => {
