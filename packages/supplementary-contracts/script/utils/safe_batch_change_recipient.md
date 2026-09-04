@@ -72,3 +72,30 @@ call fails, and `MultiSendCallOnly` reverts if any sub-call fails — a successf
 The `safeTxHash` above is bound to Safe nonce 146. If another transaction
 executes first, the nonce moves and the hash changes; the batch itself stays
 valid, but re-simulate before signing.
+
+## Simulating it yourself: it only works as a DELEGATECALL
+
+`changeRecipient` is `onlyRecipientOrOwner`, so `msg.sender` has to be the owning
+Safe itself. A Safe batch achieves that by **delegatecalling** MultiSend
+(`operation = 1`), which keeps the Safe's own address as `msg.sender` for each
+sub-call. Run the same batch as a plain **call** and `msg.sender` becomes the
+MultiSend contract — neither recipient nor owner — so all seven calls revert
+`PERMISSION_DENIED`, MultiSend reverts, and the Safe reverts `GS013`.
+
+Verified against mainnet state with a real 4-of-6 quorum:
+
+| Execution path | Result |
+| --- | --- |
+| `operation = 1` DELEGATECALL → MultiSendCallOnly | success |
+| `operation = 1` DELEGATECALL → MultiSend `0x38869bf66a61cF6bDB996A6aE40D5853Fd43B526` | success |
+| `operation = 0` CALL → MultiSendCallOnly | `GS013` |
+| `operation = 0` CALL → MultiSend `0x3886…` | `GS013` |
+| Safe → MultiSend `0x3886…`, called directly | `MultiSend should only be called via delegatecall` |
+
+So a simulator reporting `GS013` or `PERMISSION_DENIED` on this batch is running
+it as a call, not a delegatecall — a false negative rather than a defect in the
+batch. `GS025`/`GS026` instead means the simulated sender is not recognised as an
+owner, and a failure whose `from` is not the owning Safe means the batch was
+loaded into the wrong Safe.
+
+The Safe has no transaction guard set, so nothing else can intercept the batch.
