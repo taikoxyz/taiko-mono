@@ -1,5 +1,63 @@
 # Changelog
 
+## [3.2.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v3.1.0...taiko-alethia-protocol-v3.2.0) (2026-09-04)
+
+
+### Features
+
+* **protocol:** add optional SGX quote-freshness gate (bound quote age) ([#21895](https://github.com/taikoxyz/taiko-mono/issues/21895)) ([bc3fcf1](https://github.com/taikoxyz/taiko-mono/commit/bc3fcf1cd0d058ef8a2bbb8354ab38ee3193df7c))
+* **protocol:** add Proposal0020 to revamp the security council ([#22010](https://github.com/taikoxyz/taiko-mono/issues/22010)) ([133f290](https://github.com/taikoxyz/taiko-mono/commit/133f290f20ca1efa8d22f86e0817f9d9b6387b51))
+* **protocol:** add raiko2 v0.8.0-rc1 verifier rotation proposal ([#22033](https://github.com/taikoxyz/taiko-mono/issues/22033)) ([5738ba1](https://github.com/taikoxyz/taiko-mono/commit/5738ba13f2eec153a4d9d62a462a17706487c80c))
+* **protocol:** enable Osaka in genesis test runtime ([#22061](https://github.com/taikoxyz/taiko-mono/issues/22061)) ([ba45e83](https://github.com/taikoxyz/taiko-mono/commit/ba45e837c83f5dcfe29a12601f405e1088c138b6))
+* **protocol:** enable Unzen hardfork — re-enable forced inclusions, mandate ZK proofs ([#21924](https://github.com/taikoxyz/taiko-mono/issues/21924)) ([eb11224](https://github.com/taikoxyz/taiko-mono/commit/eb11224c387bb4e55afdd78ae2e5bc4004871e15))
+* **protocol:** Proposal0019 — Unzen hardfork DAO bundle ([#21935](https://github.com/taikoxyz/taiko-mono/issues/21935)) ([ed7604b](https://github.com/taikoxyz/taiko-mono/commit/ed7604b6e4360a474f6298ab490dcd6d842f7973))
+* **protocol:** Proposal0023 upgrades the L1 and L2 bridges and ERC20 vaults ([#22083](https://github.com/taikoxyz/taiko-mono/issues/22083)) ([15810fd](https://github.com/taikoxyz/taiko-mono/commit/15810fd089ae276f389c8215688e67e9d7b8a18e))
+* **protocol:** support EIP-2612 permit and Permit2 in ERC20Vault ([#22093](https://github.com/taikoxyz/taiko-mono/issues/22093)) ([fda424d](https://github.com/taikoxyz/taiko-mono/commit/fda424de589ca96a721091a3639770f9a0cf457c))
+
+
+### Bug Fixes
+
+* **protocol:** budget the bridge's Ether sends for EIP-8037 state-creation repricing ([#22077](https://github.com/taikoxyz/taiko-mono/issues/22077)) ([028be67](https://github.com/taikoxyz/taiko-mono/commit/028be673baee961a906de903ae4da1058b8588a7))
+* **protocol:** deploy SP1 v6.1 verifier ([#21907](https://github.com/taikoxyz/taiko-mono/issues/21907)) ([8a330c7](https://github.com/taikoxyz/taiko-mono/commit/8a330c7fb97d63dc43961d70a6b7c0d60a090e34))
+* **protocol:** make SGX MRENCLAVE/MRSIGNER untrust permanent (no silent revival) ([#21894](https://github.com/taikoxyz/taiko-mono/issues/21894)) ([fa5fb6f](https://github.com/taikoxyz/taiko-mono/commit/fa5fb6f98f011fc98ba79b2195157f37f8faec7f))
+* **protocol:** reject SGX instance ids that overflow the uint32 proof field ([#21892](https://github.com/taikoxyz/taiko-mono/issues/21892)) ([ac7a154](https://github.com/taikoxyz/taiko-mono/commit/ac7a154e3ed74e04375949e2bf96f430d0ffa100))
+* **protocol:** restore ACTIVATE_INBOX in L1 deploy script for CI ([edf1a42](https://github.com/taikoxyz/taiko-mono/commit/edf1a428e7947288cd29ed3eac7699fdbfa52476))
+
+
+### Chores
+
+* **protocol:** backfill changelog and versions for v3.0.0/v3.1.0 releases ([#21886](https://github.com/taikoxyz/taiko-mono/issues/21886)) ([c947d9d](https://github.com/taikoxyz/taiko-mono/commit/c947d9d4f3c7f35aad31246140f060c45521c5cb))
+* **protocol:** fix comment typos flagged by CI ([32e9db6](https://github.com/taikoxyz/taiko-mono/commit/32e9db63f1415d3be074faae8d4cba7866830e29))
+* **protocol:** merge taiko-alethia-protocol-v3.0.0 (v3.1.0 + hardening) back to main ([f837160](https://github.com/taikoxyz/taiko-mono/commit/f83716070331945133adc283b765083501f21e4b))
+* **protocol:** merge taiko-alethia-protocol-v3.0.0 back to main (realign main with prod) ([#21922](https://github.com/taikoxyz/taiko-mono/issues/21922)) ([bcba1ff](https://github.com/taikoxyz/taiko-mono/commit/bcba1ff1b1f1f1739d91f8201f57c4854a04c02f))
+* **protocol:** record the v3.0.0 merge ancestry (take 2) ([9646f55](https://github.com/taikoxyz/taiko-mono/commit/9646f553cd89abe95fab9745c17a46273c4d4bd0))
+* **protocol:** record the v3.0.0 merge ancestry (take 2) ([bc35381](https://github.com/taikoxyz/taiko-mono/commit/bc35381393888f6c3dfe81d24eb6193255c0c49a))
+* **protocol:** record the v3.0.0 merge ancestry lost by squashing [#21922](https://github.com/taikoxyz/taiko-mono/issues/21922) ([#21930](https://github.com/taikoxyz/taiko-mono/issues/21930)) ([ca16fba](https://github.com/taikoxyz/taiko-mono/commit/ca16fba34ca276975b4c5179489c8eec3f25a0db))
+* **protocol:** set all foundry profiles to the osaka EVM ([#22022](https://github.com/taikoxyz/taiko-mono/issues/22022)) ([1617157](https://github.com/taikoxyz/taiko-mono/commit/16171576e404eccc1d834f5fc7a3cefc6500a2a9))
+
+
+### Documentation
+
+* **protocol:** correct and document the bridge's gas-schedule assumptions ([#22059](https://github.com/taikoxyz/taiko-mono/issues/22059)) ([1f19fdf](https://github.com/taikoxyz/taiko-mono/commit/1f19fdf81d72ebb451848144b0cbf1f27fbcc46c))
+* **protocol:** create kimi-k3-audit.md ([#21978](https://github.com/taikoxyz/taiko-mono/issues/21978)) ([6130ec1](https://github.com/taikoxyz/taiko-mono/commit/6130ec1a2d9bd5f110cf99ddc2c681e9b53719ee))
+* **protocol:** cross-repo Taiko Shasta data-verification audit report ([#21979](https://github.com/taikoxyz/taiko-mono/issues/21979)) ([c825611](https://github.com/taikoxyz/taiko-mono/commit/c825611923bee5685448b4c9ecffdc8e3cb9de60))
+* **protocol:** fix sequencer address NatSpec ([#22050](https://github.com/taikoxyz/taiko-mono/issues/22050)) ([a1b36f9](https://github.com/taikoxyz/taiko-mono/commit/a1b36f9e8d2fc028c6105ee8aa9c2719343af6fb))
+* **protocol:** reconcile mainnet + Hoodi contract logs to live on-chain state ([#21927](https://github.com/taikoxyz/taiko-mono/issues/21927)) ([aa5c1bf](https://github.com/taikoxyz/taiko-mono/commit/aa5c1bf427061c17b350cbaf4563c9e743bf5ccc))
+* **protocol:** record the Hoodi bridge and ERC20 vault upgrade of `Proposal0023` ([#22118](https://github.com/taikoxyz/taiko-mono/issues/22118)) ([62bd5ee](https://github.com/taikoxyz/taiko-mono/commit/62bd5eea3f88ae63a90c31bb707a5809c822f7de))
+* **protocol:** record Unzen (Proposal0019) changes in mainnet L1 contract logs ([#21991](https://github.com/taikoxyz/taiko-mono/issues/21991)) ([d2ee60f](https://github.com/taikoxyz/taiko-mono/commit/d2ee60f243f76b236de83d8729fd4b3bbaaa0419))
+* **protocol:** upgrade inbox to support secure sgx verifier ([#21939](https://github.com/taikoxyz/taiko-mono/issues/21939)) ([fc762c2](https://github.com/taikoxyz/taiko-mono/commit/fc762c202ecfa9dca6e301a55737609f9111c9b4))
+
+
+### Code Refactoring
+
+* **protocol:** move permissionless preconf to its own branch ([#21887](https://github.com/taikoxyz/taiko-mono/issues/21887)) ([67625be](https://github.com/taikoxyz/taiko-mono/commit/67625be60c3568244bcfbc31ce7a24f388c361f7))
+* **protocol:** unify L1 and L2 on the transient-storage reentrancy guard ([#22058](https://github.com/taikoxyz/taiko-mono/issues/22058)) ([f57ccd9](https://github.com/taikoxyz/taiko-mono/commit/f57ccd906d98822ddad2ef8ca1b4a5ac50fc6531))
+
+
+### Tests
+
+* **protocol:** tighten the EIP-8037 send-cap tests and correct its comments ([#22082](https://github.com/taikoxyz/taiko-mono/issues/22082)) ([cd84799](https://github.com/taikoxyz/taiko-mono/commit/cd847999b1be626f1094ed377d88d0ac23a64f3b))
+
 ## [3.1.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v3.0.0...taiko-alethia-protocol-v3.1.0) (2026-07-01)
 
 > Released from the `taiko-alethia-protocol-v3.0.0` branch (tag: [`taiko-alethia-protocol-v3.1.0`](https://github.com/taikoxyz/taiko-mono/releases/tag/taiko-alethia-protocol-v3.1.0)). This release consists of the security hardening and recovery changes made in response to the June 2026 mainnet incident.
