@@ -1,5 +1,26 @@
 # Changelog
 
+## [2.7.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.6.0...taiko-alethia-client-v2.7.0) (2026-09-04)
+
+
+### Features
+
+* **taiko-client:** add forced SGX proof mode ([#21988](https://github.com/taikoxyz/taiko-mono/issues/21988)) ([8156e25](https://github.com/taikoxyz/taiko-mono/commit/8156e25b4eb4a8bcaed1fb9878aac895426cf90e))
+* **taiko-client:** only publish preconf block requests when the request topic has a peer ([#22060](https://github.com/taikoxyz/taiko-mono/issues/22060)) ([74b84b2](https://github.com/taikoxyz/taiko-mono/commit/74b84b20e0f27570669ee704046fea9d7924a92b))
+* **taiko-client:** revert split dummy proof flags ([#21984](https://github.com/taikoxyz/taiko-mono/issues/21984)) ([27f052d](https://github.com/taikoxyz/taiko-mono/commit/27f052d5ae7053a773cdb8bce0634242d49105f2))
+
+
+### Bug Fixes
+
+* **taiko-client:** add Shasta fork-time floor to derivation timestamp lower bound (audit D2) ([#21980](https://github.com/taikoxyz/taiko-mono/issues/21980)) ([261ac20](https://github.com/taikoxyz/taiko-mono/commit/261ac2015f2c34993028faad88b928389f68c0f5))
+
+
+### Chores
+
+* **taiko-client,taiko-client-rs:** refuse shutdown ahead of imminent sequencing windows ([#22000](https://github.com/taikoxyz/taiko-mono/issues/22000)) ([7684747](https://github.com/taikoxyz/taiko-mono/commit/76847471d067509c3d137c29a2b6abe4dd7bbd2d))
+* **taiko-client,taiko-client-rs:** remove Masaya network support ([#22063](https://github.com/taikoxyz/taiko-mono/issues/22063)) ([f9a4949](https://github.com/taikoxyz/taiko-mono/commit/f9a4949759f90c536c8d30f26ce680fef62eae94))
+* **taiko-client:** remove nethermind (l2_nmc) integration test lane ([#22030](https://github.com/taikoxyz/taiko-mono/issues/22030)) ([44b3f57](https://github.com/taikoxyz/taiko-mono/commit/44b3f57fb9a2b05c85484d1b8553ab4f08f32bc6))
+
 ## [2.6.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.5.0...taiko-alethia-client-v2.6.0) (2026-07-15)
 
 
