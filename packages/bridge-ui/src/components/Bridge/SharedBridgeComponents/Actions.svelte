@@ -19,8 +19,8 @@
   } from '$components/Bridge/state';
   import ActionButton from '$components/Button/ActionButton.svelte';
   import { Icon } from '$components/Icon';
-  import { BridgePausedError } from '$libs/error';
   import { TokenType } from '$libs/token';
+  import { tokenNeedsAllowanceReset } from '$libs/token/approvalReset';
   import { getTokenApprovalStatus } from '$libs/token/getTokenApprovalStatus';
   import { account, connectedSourceChain } from '$stores';
 
@@ -34,11 +34,9 @@
 
   export let disabled = false;
 
-  let paused = false;
   export let checking = false;
 
   function onApproveClick() {
-    if (paused) throw new BridgePausedError('Bridge is paused');
     approving = true;
     approve().finally(() => {
       approving = false;
@@ -46,8 +44,8 @@
   }
 
   function onBridgeClick() {
-    if (paused) throw new BridgePausedError('Bridge is paused');
-    bridging = true;
+    // The bridge() implementation owns the `bridging` flag: setting it here would leave
+    // it stuck when bridge() returns early on a failed precondition
     bridge();
   }
 
@@ -62,8 +60,16 @@
       $allApproved = false;
       checking = true;
 
-      await getTokenApprovalStatus($selectedToken);
-      checking = false;
+      try {
+        await getTokenApprovalStatus($selectedToken);
+      } catch (error) {
+        // Left to throw, this kept `checking` raised for good: a permanent spinner with
+        // Approve and Bridge both disabled on the one step that sends. The read already
+        // lowered allApproved on its way out, which is the conservative answer.
+        console.error('Could not read the approval status', error);
+      } finally {
+        checking = false;
+      }
     }
   });
 
@@ -95,10 +101,8 @@
 
   $: validApprovalStatus = $allApproved;
 
-  // USDT specific, L1 address of USDT contract
-  $: resetRequired =
-    $selectedToken?.addresses[$connectedSourceChain.id] === '0xdAC17F958D2ee523a2206206994597C13D831ec7' &&
-    $needsApprovalReset;
+  // USDT-style tokens must reset a non-zero allowance before raising it
+  $: resetRequired = tokenNeedsAllowanceReset($selectedToken, $connectedSourceChain?.id) && $needsApprovalReset;
 
   $: commonConditions =
     validApprovalStatus &&
@@ -109,8 +113,7 @@
     $selectedToken &&
     !$validatingAmount &&
     !$insufficientBalance &&
-    $allApproved &&
-    !paused;
+    $allApproved;
 
   $: erc20ConditionsSatisfied =
     commonConditions && !canDoNothing && !$insufficientAllowance && $tokenBalance && $enteredAmount;

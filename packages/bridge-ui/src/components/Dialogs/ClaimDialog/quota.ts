@@ -56,5 +56,12 @@ export async function claimWithQuotaGuard({
     return;
   }
 
-  await claim();
+  try {
+    await claim();
+  } catch (error) {
+    // claim() normally reports through its own events; a throw escaping it would
+    // otherwise leave the dialog's claiming flag stuck on
+    setClaiming(false);
+    throw error;
+  }
 }

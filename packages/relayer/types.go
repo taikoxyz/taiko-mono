@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -125,211 +126,140 @@ func WaitConfirmations(ctx context.Context, confirmer confirmer, confirmations u
 	}
 }
 
-// splitByteArray splits a byte array into chunks of chunkSize.
-// It returns a slice of byte slices.
-func splitByteArray(data []byte, chunkSize int) [][]byte {
-	var chunks [][]byte
+// The vault payloads, exactly as the vaults build them:
+//
+//	ERC20Vault:   abi.encode(CanonicalERC20, address from, address to, uint256 amount)
+//	ERC721Vault:  abi.encode(CanonicalNFT,   address from, address to, uint256[] tokenIds)
+//	ERC1155Vault: abi.encode(CanonicalNFT,   address from, address to, uint256[] tokenIds, uint256[] amounts)
+//
+// plus the shape the solver-era ERC20Vault used between #18616 (Dec 2024) and #19959 (Aug 2025):
+//
+//	ERC20Vault:   abi.encode(CanonicalERC20, address from, address to, uint256 amount,
+//	                         uint256 solverFee, bytes32 solverCondition)
+//
+// Held as real ABI schemas so the payload is decoded rather than read at hand-computed offsets.
+var (
+	erc20PayloadArgs = mustArguments(
+		canonicalERC20Tuple(),
+		abi.ArgumentMarshaling{Name: "from", Type: "address"},
+		abi.ArgumentMarshaling{Name: "to", Type: "address"},
+		abi.ArgumentMarshaling{Name: "amount", Type: "uint256"},
+	)
 
-	for i := 0; i < len(data); i += chunkSize {
-		end := min(i+chunkSize, len(data))
-		chunks = append(chunks, data[i:end])
-	}
+	// No mainnet or Hoodi vault implementation was cut from the solver window, but Hekla's was, and
+	// those sends are still ERC20 transfers: `amount` is the recipient's, as the vault's TokenSent
+	// event reports it, and the fee rides separately. Six head words, so no other schema here can
+	// reproduce this payload and vice versa.
+	erc20SolverPayloadArgs = mustArguments(
+		canonicalERC20Tuple(),
+		abi.ArgumentMarshaling{Name: "from", Type: "address"},
+		abi.ArgumentMarshaling{Name: "to", Type: "address"},
+		abi.ArgumentMarshaling{Name: "amount", Type: "uint256"},
+		abi.ArgumentMarshaling{Name: "solverFee", Type: "uint256"},
+		abi.ArgumentMarshaling{Name: "solverCondition", Type: "bytes32"},
+	)
 
-	return chunks
+	erc721PayloadArgs = mustArguments(
+		canonicalNFTTuple(),
+		abi.ArgumentMarshaling{Name: "from", Type: "address"},
+		abi.ArgumentMarshaling{Name: "to", Type: "address"},
+		abi.ArgumentMarshaling{Name: "tokenIds", Type: "uint256[]"},
+	)
+
+	erc1155PayloadArgs = mustArguments(
+		canonicalNFTTuple(),
+		abi.ArgumentMarshaling{Name: "from", Type: "address"},
+		abi.ArgumentMarshaling{Name: "to", Type: "address"},
+		abi.ArgumentMarshaling{Name: "tokenIds", Type: "uint256[]"},
+		abi.ArgumentMarshaling{Name: "amounts", Type: "uint256[]"},
+	)
+
+	// onMessageInvocation takes a single `bytes`, so the payload is wrapped once more.
+	invocationArgs = mustArguments(abi.ArgumentMarshaling{Name: "data", Type: "bytes"})
+)
+
+func canonicalERC20Tuple() abi.ArgumentMarshaling {
+	return tupleType("ctoken",
+		abi.ArgumentMarshaling{Name: "chainId", Type: "uint64"},
+		abi.ArgumentMarshaling{Name: "addr", Type: "address"},
+		abi.ArgumentMarshaling{Name: "decimals", Type: "uint8"},
+		abi.ArgumentMarshaling{Name: "symbol", Type: "string"},
+		abi.ArgumentMarshaling{Name: "name", Type: "string"},
+	)
 }
 
-func decodeDataAsERC20(decodedData []byte) (CanonicalToken, *big.Int, error) {
-	var token CanonicalERC20
-
-	canonicalTokenDataStartingindex := int64(2)
-	chunks := splitByteArray(decodedData, 32)
-
-	if len(chunks) < 4 {
-		return token, big.NewInt(0), errors.New("data too short")
-	}
-
-	offset, ok := new(big.Int).SetString(common.Bytes2Hex((chunks[canonicalTokenDataStartingindex])), 16)
-
-	if !ok {
-		return token, big.NewInt(0), errors.New("data for BigInt is invalid")
-	}
-
-	// Calculate the starting index for canonicalTokenData
-	startIndex := offset.Int64() + canonicalTokenDataStartingindex*32
-
-	// Boundary check
-	if startIndex >= int64(len(decodedData)) || startIndex < 0 {
-		slog.Warn("startIndex greater than decodedData length",
-			"startIndex", startIndex,
-			"lenDecodedData", int64(len(decodedData)),
-		)
-
-		return token, big.NewInt(0), errors.New("calculated index is out of bounds")
-	}
-
-	canonicalTokenData := decodedData[startIndex:]
-
-	types := []string{"uint64", "address", "uint8", "string", "string"}
-	values, err := decodeABI(types, canonicalTokenData)
-
-	if err != nil && len(values) != 5 {
-		return token, big.NewInt(0), err
-	}
-
-	// Type assertions and validations
-	chainId, ok := values[0].(uint64)
-	if !ok {
-		return token, big.NewInt(0), errors.New("invalid chainId type")
-	}
-
-	addr, ok := values[1].(common.Address)
-	if !ok {
-		return token, big.NewInt(0), errors.New("invalid address type")
-	}
-
-	decimals, ok := values[2].(uint8)
-	if !ok {
-		return token, big.NewInt(0), errors.New("invalid decimals type")
-	}
-
-	symbol, ok := values[3].(string)
-	if !ok || !utf8.ValidString(symbol) {
-		return token, big.NewInt(0), errors.New("invalid symbol string")
-	}
-
-	name, ok := values[4].(string)
-	if !ok || !utf8.ValidString(name) {
-		return token, big.NewInt(0), errors.New("invalid name string")
-	}
-
-	token.ChainId = chainId
-	token.Addr = addr
-	token.Decimals = decimals
-	token.Symbol = symbol
-	token.Name = name
-
-	amount, ok := new(big.Int).SetString(common.Bytes2Hex((chunks[canonicalTokenDataStartingindex+3])), 16)
-	if !ok {
-		return token, big.NewInt(0), errors.New("data for BigInt is invalid")
-	}
-
-	return token, amount, nil
+func canonicalNFTTuple() abi.ArgumentMarshaling {
+	return tupleType("ctoken",
+		abi.ArgumentMarshaling{Name: "chainId", Type: "uint64"},
+		abi.ArgumentMarshaling{Name: "addr", Type: "address"},
+		abi.ArgumentMarshaling{Name: "symbol", Type: "string"},
+		abi.ArgumentMarshaling{Name: "name", Type: "string"},
+	)
 }
 
-func decodeDataAsNFT(decodedData []byte) (EventType, CanonicalToken, *big.Int, error) {
-	var token CanonicalNFT
-
-	canonicalTokenDataStartingindex := int64(2)
-	chunks := splitByteArray(decodedData, 32)
-
-	offset, ok := new(big.Int).SetString(common.Bytes2Hex((chunks[canonicalTokenDataStartingindex])), 16)
-
-	if !ok || offset.Int64()%32 != 0 {
-		return EventTypeSendETH, token, big.NewInt(0), errors.New("data for BigInt is invalid")
-	}
-
-	// Calculate the starting index for canonicalTokenData
-	startIndex := offset.Int64() + canonicalTokenDataStartingindex*32
-
-	// Boundary check
-	if startIndex >= int64(len(decodedData)) || startIndex < 0 {
-		slog.Warn("startIndex greater than decodedData length",
-			"startIndex", startIndex,
-			"lenDecodedData", int64(len(decodedData)),
-		)
-
-		return EventTypeSendETH, token, big.NewInt(0), errors.New("calculated index is out of bounds")
-	}
-
-	canonicalTokenData := decodedData[startIndex:]
-
-	types := []string{"uint64", "address", "string", "string"}
-	values, err := decodeABI(types, canonicalTokenData)
-
-	if err != nil && len(values) != 4 {
-		return EventTypeSendETH, token, big.NewInt(0), err
-	}
-
-	// Type assertions and validations
-	chainId, ok := values[0].(uint64)
-	if !ok {
-		return EventTypeSendETH, token, big.NewInt(0), errors.New("invalid chainId type")
-	}
-
-	addr, ok := values[1].(common.Address)
-	if !ok {
-		return EventTypeSendETH, token, big.NewInt(0), errors.New("invalid address type")
-	}
-
-	symbol, ok := values[2].(string)
-	if !ok || !utf8.ValidString(symbol) {
-		return EventTypeSendETH, token, big.NewInt(0), errors.New("invalid symbol string")
-	}
-
-	name, ok := values[3].(string)
-	if !ok || !utf8.ValidString(name) {
-		return EventTypeSendETH, token, big.NewInt(0), errors.New("invalid name string")
-	}
-
-	token.ChainId = chainId
-	token.Addr = addr
-	token.Symbol = symbol
-	token.Name = name
-
-	if offset.Int64() == 128 {
-		amount := big.NewInt(1)
-
-		return EventTypeSendERC721, token, amount, nil
-	} else if offset.Int64() == 160 {
-		offset, ok := new(big.Int).SetString(common.Bytes2Hex((chunks[canonicalTokenDataStartingindex+4])), 16)
-		if !ok || offset.Int64()%32 != 0 {
-			return EventTypeSendETH, token, big.NewInt(0), errors.New("data for BigInt is invalid")
-		}
-
-		indexOffset := canonicalTokenDataStartingindex + int64(offset.Int64()/32)
-
-		length, ok := new(big.Int).SetString(common.Bytes2Hex((chunks[indexOffset])), 16)
-		if !ok {
-			return EventTypeSendETH, token, big.NewInt(0), errors.New("data for BigInt is invalid")
-		}
-
-		amount := big.NewInt(0)
-
-		for i := int64(0); i < length.Int64(); i++ {
-			amountsData := decodedData[(indexOffset+i+1)*32 : (indexOffset+i+2)*32]
-			types := []string{"uint256"}
-			values, err = decodeABI(types, amountsData)
-
-			if err != nil && len(values) != 1 {
-				return EventTypeSendETH, token, big.NewInt(0), err
-			}
-
-			amount = amount.Add(amount, values[0].(*big.Int))
-		}
-
-		return EventTypeSendERC1155, token, amount, nil
-	}
-
-	return EventTypeSendETH, token, big.NewInt(0), nil
+func tupleType(name string, components ...abi.ArgumentMarshaling) abi.ArgumentMarshaling {
+	return abi.ArgumentMarshaling{Name: name, Type: "tuple", Components: components}
 }
 
-func decodeABI(types []string, data []byte) ([]interface{}, error) {
-	arguments := make(abi.Arguments, len(types))
-	for i, t := range types {
-		arguments[i].Type, _ = abi.NewType(t, "", nil)
+// mustArguments builds a fixed schema known at compile time, so a failure here is a programming
+// error rather than anything the chain can cause.
+func mustArguments(marshalings ...abi.ArgumentMarshaling) abi.Arguments {
+	arguments := make(abi.Arguments, len(marshalings))
+
+	for i, marshaling := range marshalings {
+		argType, err := abi.NewType(marshaling.Type, marshaling.InternalType, marshaling.Components)
+		if err != nil {
+			panic(fmt.Sprintf("relayer: bad ABI schema for %q: %v", marshaling.Name, err))
+		}
+
+		arguments[i] = abi.Argument{Name: marshaling.Name, Type: argType}
 	}
 
-	values, err := arguments.UnpackValues(data)
+	return arguments
+}
+
+// decodeExactly unpacks data against args and requires it to re-encode to exactly the same bytes.
+//
+// The round trip is what makes the answer definitive. Unpacking alone is not: solidity's
+// abi.encode output for one vault is frequently *readable* as another vault's shape, which is how
+// an ERC1155 send with an empty canonical symbol and name used to be indexed as an ERC20 - the
+// symbol's head offset was taken for `decimals` and the tokenIds array offset for the amount. The
+// encoding is canonical, so bytes that survive a decode/re-encode under one schema were produced
+// by that schema; anything reachable only by misreading the offsets fails to reproduce them. It
+// also rejects trailing bytes, which Unpack alone ignores.
+func decodeExactly(args abi.Arguments, data []byte) ([]interface{}, bool) {
+	values, err := args.Unpack(data)
 	if err != nil {
-		return nil, err
+		return nil, false
 	}
 
-	return values, nil
+	reencoded, err := args.Pack(values...)
+	if err != nil || !bytes.Equal(reencoded, data) {
+		return nil, false
+	}
+
+	return values, true
+}
+
+// sumAmounts adds an ERC1155 send's amounts. The values come from a decoded uint256[], so they are
+// non-negative and already bounded by the payload length.
+func sumAmounts(amounts []*big.Int) *big.Int {
+	total := big.NewInt(0)
+	for _, amount := range amounts {
+		total = total.Add(total, amount)
+	}
+
+	return total
 }
 
 // DecodeMessageData tries to tell if it's an ETH, ERC20, ERC721, or ERC1155 bridge,
 // which lets the processor look up whether the contract has already been deployed or not,
 // to help better estimate gas needed for processing the message.
+//
+// Anyone can call Bridge.sendMessage with arbitrary `data`, so every step here treats the payload
+// as hostile: it is decoded through the ABI package, which bounds-checks offsets and lengths and
+// reports a malformed payload as an error, and an unrecognised payload falls back to ETH rather
+// than failing the caller.
 func DecodeMessageData(eventData []byte, value *big.Int) (EventType, CanonicalToken, *big.Int, error) {
 	// Default eventType is ETH
 	eventType := EventTypeSendETH
@@ -341,20 +271,51 @@ func DecodeMessageData(eventData []byte, value *big.Int) (EventType, CanonicalTo
 	onMessageInvocationFunctionSig := "7f07c947"
 
 	// Check if eventData is valid
-	if len(eventData) > 3 &&
-		common.Bytes2Hex(eventData[:4]) == onMessageInvocationFunctionSig {
-		// Try to decode data as ERC20
-		canonicalToken, amount, err := decodeDataAsERC20(eventData[4:])
+	if len(eventData) <= 3 || common.Bytes2Hex(eventData[:4]) != onMessageInvocationFunctionSig {
+		return eventType, canonicalToken, amount, nil
+	}
 
-		if err == nil {
-			return EventTypeSendERC20, canonicalToken, amount, nil
+	invocation, ok := decodeExactly(invocationArgs, eventData[4:])
+	if !ok {
+		return eventType, canonicalToken, amount, nil
+	}
+
+	payload, ok := invocation[0].([]byte)
+	if !ok {
+		return eventType, canonicalToken, amount, nil
+	}
+
+	// Each schema is exact, so the order only settles a payload that is canonical under more than
+	// one of them - which the differing head-word counts make unreachable for the real vaults.
+	// Both ERC20 shapes carry the amount in the fourth word.
+	for _, args := range []abi.Arguments{erc20PayloadArgs, erc20SolverPayloadArgs} {
+		values, ok := decodeExactly(args, payload)
+		if !ok {
+			continue
 		}
 
-		// Try to decode data as NFT
-		eventType, canonicalToken, amount, err = decodeDataAsNFT(eventData[4:])
+		ctoken := *abi.ConvertType(values[0], new(CanonicalERC20)).(*CanonicalERC20)
+		sent, ok := values[3].(*big.Int)
 
-		if err == nil {
-			return eventType, canonicalToken, amount, nil
+		if ok && utf8.ValidString(ctoken.Symbol) && utf8.ValidString(ctoken.Name) {
+			return EventTypeSendERC20, ctoken, sent, nil
+		}
+	}
+
+	if values, ok := decodeExactly(erc721PayloadArgs, payload); ok {
+		ctoken := *abi.ConvertType(values[0], new(CanonicalNFT)).(*CanonicalNFT)
+
+		if utf8.ValidString(ctoken.Symbol) && utf8.ValidString(ctoken.Name) {
+			return EventTypeSendERC721, ctoken, big.NewInt(1), nil
+		}
+	}
+
+	if values, ok := decodeExactly(erc1155PayloadArgs, payload); ok {
+		ctoken := *abi.ConvertType(values[0], new(CanonicalNFT)).(*CanonicalNFT)
+		amounts, ok := values[4].([]*big.Int)
+
+		if ok && utf8.ValidString(ctoken.Symbol) && utf8.ValidString(ctoken.Name) {
+			return EventTypeSendERC1155, ctoken, sumAmounts(amounts), nil
 		}
 	}
 

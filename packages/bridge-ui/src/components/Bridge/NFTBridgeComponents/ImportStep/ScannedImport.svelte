@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
 
   import TokenAmountInput from '$components/Bridge/NFTBridgeComponents/ImportStep/TokenAmountInput.svelte';
@@ -10,12 +9,14 @@
   import RotatingIcon from '$components/Icon/RotatingIcon.svelte';
   import { NFTDisplay } from '$components/NFTs';
   import { NFTView } from '$components/NFTs/types';
+  import { errorToast } from '$components/NotificationToast';
   import type { NFT } from '$libs/token';
 
   import { selectedImportMethod } from './state';
 
   export let refresh: () => Promise<void>;
-  export let nextPage: () => Promise<void>;
+  /** Resolves to whether the page added anything; see ImportStep.nextPage */
+  export let nextPage: () => Promise<boolean>;
 
   export let foundNFTs: NFT[] = [];
 
@@ -27,16 +28,21 @@
 
   let tokenAmountInput: TokenAmountInput;
 
-  let previousNFTs: NFT[] = [];
-  const handleNextPage = () => {
-    previousNFTs = foundNFTs;
+  const handleNextPage = async () => {
     scanning = true;
-
-    nextPage().finally(() => {
+    let addedMore: boolean;
+    try {
+      addedMore = await nextPage();
+    } catch (error) {
+      // A failed page keeps the button usable for a retry
+      console.error('Error fetching next NFT page', error);
+      return;
+    } finally {
       scanning = false;
-    });
-
-    if (previousNFTs.length === foundNFTs.length) {
+    }
+    // The parent counted this, against the array it owns. Comparing our own bound copy
+    // here would depend on that prop update having been flushed first
+    if (!addedMore) {
       hasMoreNFTs = false;
     }
   };
@@ -44,9 +50,17 @@
   function onRefreshClick() {
     scanning = true;
     hasMoreNFTs = true;
-    refresh().finally(() => {
-      scanning = false;
-    });
+    refresh()
+      .catch((error) => {
+        console.error('Error refreshing NFTs', error);
+        errorToast({
+          title: $t('bridge.errors.unknown_error.title'),
+          message: $t('bridge.errors.unknown_error.message'),
+        });
+      })
+      .finally(() => {
+        scanning = false;
+      });
   }
 
   const changeNFTView = () => {
@@ -82,9 +96,10 @@
     canProceed = false;
   }
 
-  onMount(() => {
-    $selectedNFTs = [];
-  });
+  // No mount reset here: this view remounts on every return to the import step, and
+  // clearing the selection then discards one the user made before navigating away.
+  // ImportStep.scanForNFTs already clears it on a fresh scan and deliberately keeps it
+  // across pagination, which is the distinction that matters.
 </script>
 
 <div class="f-col w-full gap-4">

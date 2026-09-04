@@ -5,6 +5,7 @@
   import { Icon } from '$components/Icon';
   import InputBox from '$components/InputBox/InputBox.svelte';
 
+  import { parseTokenIds } from './parseTokenIds';
   import { IDInputState as State } from './state';
 
   export let validIdNumbers: number[] = [];
@@ -28,23 +29,25 @@
   function validateInput(idInput: EventTarget | number[] | null = null) {
     state = State.VALIDATING;
 
-    let ids: number[] = [];
+    let raw = '';
     if (idInput && idInput instanceof EventTarget) {
-      ids = (idInput as HTMLInputElement).value
-        .split(',')
-        .map((item) => parseInt(item))
-        .filter((num) => !isNaN(num));
+      raw = (idInput as HTMLInputElement).value;
     } else if (Array.isArray(idInput)) {
-      ids = idInput;
+      raw = idInput.join(',');
     }
 
-    if (ids.length > limit) {
-      ids = ids.slice(0, limit);
-    }
+    const { ids, validIds, empty } = parseTokenIds(raw, limit);
     enteredIds = ids;
-    const isValid = ids.every((num) => Number.isInteger(num));
-    validIdNumbers = isValid ? ids : [];
-    state = isValid ? State.VALID : State.INVALID;
+    validIdNumbers = validIds;
+
+    // An empty field is neither valid nor an error: nothing has been entered yet
+    if (empty) {
+      state = State.DEFAULT;
+      dispatch('inputValidation');
+      return;
+    }
+
+    state = validIds.length > 0 ? State.VALID : State.INVALID;
     dispatch('inputValidation');
   }
 
