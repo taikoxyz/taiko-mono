@@ -16,7 +16,14 @@ import {
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { apiService } from '$config';
-import type { BridgeTransaction, Message, MessageStatus } from '$libs/bridge';
+import { type BridgeTransaction, type Message, MessageStatus } from '$libs/bridge';
+import { bridgeTxKey } from '$libs/bridge/bridgeTxIdentity';
+import {
+  erc20InvocationParameters,
+  erc721InvocationParameters,
+  erc1155InvocationParameters,
+  onMessageInvocationAbi,
+} from '$libs/bridge/vaultInvocation';
 import { isSupportedChain } from '$libs/chain';
 import { TokenType } from '$libs/token';
 import { getLogger } from '$libs/util/logger';
@@ -26,6 +33,7 @@ import {
   type APIRequestParams,
   type APIResponse,
   type APIResponseTransaction,
+  type FailedBridgeTx,
   type Fee,
   type FeeType,
   type GetAllByAddressResponse,
@@ -38,8 +46,20 @@ import {
 
 const log = getLogger('RelayerAPIService');
 
-const relayerMessageIntegerFields = ['Fee', 'Value', 'Id', 'SrcChainId', 'DestChainId'];
-const relayerMessageIntegerPattern = new RegExp(`("(${relayerMessageIntegerFields.join('|')})"\\s*:\\s*)(\\d+)`, 'g');
+const relayerMessageIntegerFields = ['Fee', 'Value', 'Id', 'SrcChainId', 'DestChainId', 'amount', 'fee'];
+// The whole numeric token is matched, not just its leading digits. These fields come off Go
+// floats, so a value large enough to need this rewrite is exactly the one likely to arrive in
+// exponent form - 18.5 ETH is written `1.85e19` - and quoting only the digits before the point
+// produces `"1".85e19`, invalid JSON that takes the whole response down with it. Whether a token
+// denotes an integer is `asIntegerDigits`' decision; `amount` and `fee` are not guaranteed whole,
+// and a genuine fraction is left exactly as it was.
+const relayerMessageNumberPattern = new RegExp(
+  `("(${relayerMessageIntegerFields.join('|')})"\\s*:\\s*)(-?\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?)`,
+  'g',
+);
+// A uint256 tops out at 78 digits, so a longer expansion is not a bridge value. Bounds the
+// string an absurd exponent could ask this to allocate; the token is left alone instead.
+const MAX_RELAYER_INTEGER_DIGITS = 100;
 type DecodedBridgeMessage = Omit<Message, 'gasLimit'> & { gasLimit: bigint | number };
 type BridgeTransactionAssetDetails = {
   amount: bigint;
@@ -49,65 +69,46 @@ type BridgeTransactionAssetDetails = {
   decimals?: number;
 };
 
-const onMessageInvocationAbi = [
-  {
-    type: 'function',
-    name: 'onMessageInvocation',
-    inputs: [{ name: 'data', type: 'bytes' }],
-    outputs: [],
-    stateMutability: 'payable',
-  },
-] as const;
+/**
+ * Expands a JSON number token to the integer it denotes, in digits, and returns null when it
+ * denotes anything else - a fraction, or a magnitude no bridge value has.
+ *
+ * Textual throughout: routing the token through a JS number is the precision loss this whole
+ * rewrite exists to avoid.
+ */
+function asIntegerDigits(token: string): string | null {
+  const parts = /^(-?)(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/.exec(token);
+  if (!parts) return null;
 
-const erc20InvocationParameters = [
-  {
-    type: 'tuple',
-    components: [
-      { name: 'chainId', type: 'uint64' },
-      { name: 'addr', type: 'address' },
-      { name: 'decimals', type: 'uint8' },
-      { name: 'symbol', type: 'string' },
-      { name: 'name', type: 'string' },
-    ],
-  },
-  { type: 'address' },
-  { type: 'address' },
-  { type: 'uint256' },
-] as const;
+  const [, sign, integerPart, fractionPart = '', exponentPart] = parts;
+  const exponent = exponentPart ? Number(exponentPart) : 0;
+  if (!Number.isSafeInteger(exponent)) return null;
 
-const erc721InvocationParameters = [
-  {
-    type: 'tuple',
-    components: [
-      { name: 'chainId', type: 'uint64' },
-      { name: 'addr', type: 'address' },
-      { name: 'symbol', type: 'string' },
-      { name: 'name', type: 'string' },
-    ],
-  },
-  { type: 'address' },
-  { type: 'address' },
-  { type: 'uint256[]' },
-] as const;
+  const digits = integerPart + fractionPart;
+  // Where the decimal point lands once the exponent is applied, which is also the digit length
+  // of the result whenever the token has to be padded
+  const pointIndex = integerPart.length + exponent;
+  if (pointIndex <= 0) return null; // `5e-2` and friends are below one, so not an integer
+  if (pointIndex > MAX_RELAYER_INTEGER_DIGITS) return null;
 
-const erc1155InvocationParameters = [
-  {
-    type: 'tuple',
-    components: [
-      { name: 'chainId', type: 'uint64' },
-      { name: 'addr', type: 'address' },
-      { name: 'symbol', type: 'string' },
-      { name: 'name', type: 'string' },
-    ],
-  },
-  { type: 'address' },
-  { type: 'address' },
-  { type: 'uint256[]' },
-  { type: 'uint256[]' },
-] as const;
+  let whole: string;
+  if (pointIndex >= digits.length) {
+    whole = digits + '0'.repeat(pointIndex - digits.length);
+  } else {
+    if (/[1-9]/.test(digits.slice(pointIndex))) return null; // `1.5` stays a fraction
+    whole = digits.slice(0, pointIndex);
+  }
+
+  // BigInt would accept leading zeros, but the relayer states some of these amounts twice - once
+  // as a number and once as a string - and a normalized form keeps the two comparable
+  return sign + whole.replace(/^0+(?=\d)/, '');
+}
 
 export function preserveMessageIntegerPrecision(rawResponse: string): string {
-  return rawResponse.replace(relayerMessageIntegerPattern, '$1"$3"');
+  return rawResponse.replace(relayerMessageNumberPattern, (match, prefix: string, _field: string, token: string) => {
+    const digits = asIntegerDigits(token);
+    return digits === null ? match : `${prefix}"${digits}"`;
+  });
 }
 
 export function parseRelayerApiResponse(rawResponse: string): APIResponse {
@@ -141,13 +142,38 @@ export class RelayerAPIService {
     try {
       return await getTransactionReceipt(config, { chainId, hash });
     } catch (error) {
+      // "Not mined yet" and "the RPC call failed" used to collapse into the same null, which hid
+      // the second one completely: the row rendered with no receipt, isTransactionProcessable
+      // returned false so it could never be claimed, and nothing counted it. Batching made that
+      // worse, since one rate-limited request now carries the receipt reads of up to 50 rows.
+      //
+      // Compared by name rather than instanceof: this monorepo carries three viem copies, and an
+      // error thrown from a different one would silently fail an identity check - turning every
+      // unmined transaction into a counted failure.
+      if ((error as Error)?.name === 'TransactionReceiptNotFoundError') {
+        log(`Transaction ${hash} is not mined yet`);
+        return null;
+      }
+
+      // A real read failure belongs to the caller's counter, not to a silent null.
       log(`Error getting transaction receipt for ${hash}: ${error}`);
-      return null;
+      throw error;
     }
   }
 
+  /**
+   * @dev Drops rows the relayer repeated and rows for routes this UI does not serve.
+   *
+   *      Keyed by message, not by transaction. One transaction can emit several
+   *      MessageSent events - a batching wallet, a contract that bridges twice - and each
+   *      is a separately claimable row. Keying on the transaction hash dropped every one
+   *      after the first here, before the message-level dedupe downstream could see them.
+   *
+   * @param items The rows one relayer page returned
+   * @return filtered_ The rows worth transforming
+   */
   private static _filterDuplicateAndWrongBridge(items: APIResponseTransaction[]): APIResponseTransaction[] {
-    const uniqueHashes = new Set<string>();
+    const uniqueMessages = new Set<string>();
     const filteredItems: APIResponseTransaction[] = [];
     for (const item of items) {
       const { Message, Raw } = item.data || {};
@@ -162,11 +188,13 @@ export class RelayerAPIService {
       // single unknown pair cannot throw and take the whole transaction list down with it.
       const bridgeAddress = routingContractsMap[Number(srcChainId)]?.[Number(destChainId)]?.bridgeAddress;
       const { transactionHash, address } = Raw;
+      // The message hash when the relayer gave us one, the transaction hash otherwise
+      const identity = bridgeTxKey({ msgHash: item.msgHash, srcTxHash: transactionHash });
 
       // Check all conditions
       const isTransactionHashPresent = Boolean(transactionHash);
       const isAddressPresent = Boolean(address);
-      const isUniqueHash = !uniqueHashes.has(transactionHash);
+      const isUniqueHash = !uniqueMessages.has(identity);
       const isCorrectBridgeAddress = address?.toLowerCase() === bridgeAddress?.toLowerCase();
       const areChainsSupported = isSupportedChain(Number(destChainId)) && isSupportedChain(Number(srcChainId));
 
@@ -179,9 +207,9 @@ export class RelayerAPIService {
         areChainsSupported,
       ].every(Boolean);
 
-      // Invalid rows must not consume the hash and hide a later valid duplicate.
+      // Invalid rows must not consume the identity and hide a later valid duplicate.
       if (satisfiesAllConditions) {
-        uniqueHashes.add(transactionHash);
+        uniqueMessages.add(identity);
         filteredItems.push(item);
       }
     }
@@ -450,13 +478,109 @@ export class RelayerAPIService {
       max_page,
     };
 
-    if (apiTxs.items?.length === 0) {
-      return { txs: [], paginationInfo };
+    if (!apiTxs.items || apiTxs.items.length === 0) {
+      return { txs: [], paginationInfo, failedTxs: [] };
     }
+
+    // Only a thrown row is a load failure. _enhanceTransaction also returns undefined for four
+    // legitimate filters (not this user's transaction, ambiguous receipt, no msgHash, no
+    // configured route); those rows are deliberately not shown, so counting them would report a
+    // loss that never happened.
+    // Hashes, not a tally: the caller merges these across pages and relayers, where the same
+    // transaction can appear more than once and can even succeed elsewhere.
+    const failedTxs: FailedBridgeTx[] = [];
 
     const items = RelayerAPIService._filterDuplicateAndWrongBridge(apiTxs.items);
 
-    const txs: BridgeTransaction[] = items.map((tx: APIResponseTransaction) => {
+    const txs: BridgeTransaction[] = items
+      .map((tx: APIResponseTransaction) => {
+        try {
+          return RelayerAPIService._transformTransaction(tx);
+        } catch (error) {
+          // Counted, not just logged. Whether a row fell over on its own fields or on an
+          // on-chain read is the relayer's distinction, not the user's: either way this is a
+          // message they have and this list does not show, which is what the count is for.
+          // The identifiers are read off the raw row, so they survive the transform that did
+          // not. A row carrying neither is unreconcilable against the finished list, so it is
+          // left to the log rather than counted against a hash nothing can match.
+          const srcTxHash = tx.data?.Raw?.transactionHash;
+          if (tx.msgHash || srcTxHash) failedTxs.push({ msgHash: tx.msgHash, srcTxHash });
+          log('Skipping malformed relayer transaction', { error, tx });
+          return null;
+        }
+      })
+      .filter((tx): tx is BridgeTransaction => tx !== null);
+
+    const txsPromises = txs.map(async (bridgeTx) => {
+      if (!bridgeTx) return;
+      try {
+        return await RelayerAPIService._enhanceTransaction(bridgeTx, address);
+      } catch (error) {
+        // One failing RPC read must not reject the surrounding Promise.all and wipe the list
+        failedTxs.push({ msgHash: bridgeTx.msgHash, srcTxHash: bridgeTx.srcTxHash });
+        log('Skipping transaction that failed to enhance', { error, srcTxHash: bridgeTx.srcTxHash });
+        return;
+      }
+    });
+
+    const enhanced: BridgeTransaction[] = (await Promise.all(txsPromises)).filter((tx): tx is BridgeTransaction =>
+      Boolean(tx),
+    ); // Removes undefined values
+
+    // A second dedupe, now that each row carries the message hash its receipt log proves.
+    // Both are needed and neither subsumes the other: the filter above cannot tell a
+    // relayer row whose msgHash is corrupt from a genuine second message, because the
+    // corrupt hash is a hash like any other; enhancement resolves it to the log the
+    // transaction actually emitted, and only then are the two rows visibly the same one.
+    const seenMessages = new Set<string>();
+    const bridgeTxs = enhanced.filter((bridgeTx) => {
+      const identity = bridgeTxKey(bridgeTx);
+      if (seenMessages.has(identity)) {
+        log('Dropping a relayer row the receipt resolved onto an already-seen message', identity);
+        return false;
+      }
+      seenMessages.add(identity);
+      return true;
+    });
+
+    // Spreading to preserve original txs in case of array mutation
+    log('Enhanced transactions', [...bridgeTxs]);
+
+    return { txs: bridgeTxs, paginationInfo, failedTxs };
+  }
+
+  /**
+   * @dev The claim transaction of a claimed message, from the relayer's status rows.
+   *
+   *      The relayer's own claim writes a status row carrying only the transaction hash, and
+   *      the API's per-message lookup takes that row and gives up on it, so every message the
+   *      relayer claimed arrives with neither claimer nor claim hash. The rows themselves are
+   *      still served under event=MessageStatusChanged, filed under the message's sender and
+   *      not under its recipient - which is why the caller names the sender, not the account
+   *      whose history is on screen.
+   *
+   * @param srcOwner The message's sender, whose name the status rows are filed under
+   * @param msgHash The message
+   * @return claimTxHash_ The claim transaction, or undefined when no claimed status row exists
+   */
+  async getClaimTxHash(srcOwner: Address, msgHash: Hash): Promise<Hash | undefined> {
+    const response = await this.getTransactionsFromAPI({
+      address: srcOwner,
+      event: 'MessageStatusChanged',
+      msgHash: msgHash.toLowerCase(),
+      page: 0,
+      size: 20,
+    });
+    const claimed = (response.items ?? []).filter(
+      (row) => row.status === MessageStatus.DONE && row.data?.Raw?.transactionHash,
+    );
+    // The indexed log over the relayer's stub, though both carry the hash
+    const row = claimed.find((candidate) => candidate.data.Raw.transactionIndex) ?? claimed[0];
+    return row ? (row.data.Raw.transactionHash as Hash) : undefined;
+  }
+
+  private static _transformTransaction(tx: APIResponseTransaction): BridgeTransaction {
+    {
       let data: string | Hex = tx.data.Message.Data;
       if (data === '') {
         data = '0x' as Hex;
@@ -467,6 +591,7 @@ export class RelayerAPIService {
 
       const tokenType: TokenType = _eventToTokenType(tx.eventType);
 
+      const relayerFee = tx.fee ? parseApiBigInt(tx.fee) : undefined;
       const messageFee = parseApiBigInt(tx.data.Message.Fee);
       const messageValue = parseApiBigInt(tx.data.Message.Value);
       const messageId = parseApiBigInt(tx.data.Message.Id);
@@ -477,7 +602,11 @@ export class RelayerAPIService {
         status: tx.status,
         amount: BigInt(tx.amount),
         symbol: tx.canonicalTokenSymbol || 'ETH',
-        decimals: tx.canonicalTokenDecimals,
+        // The relayer nils canonicalToken for ETH rows and the Go field is a plain uint8,
+        // so every ETH transaction arrives as decimals 0. The correct 18 is otherwise only
+        // applied later from the source-chain receipt, and that fetch is allowed to fail -
+        // a row that keeps 0 renders one ETH as 1000000000000000000
+        decimals: tokenType === TokenType.ETH ? 18 : tx.canonicalTokenDecimals,
         srcTxHash: tx.data.Raw.transactionHash,
         destTxHash: tx.processedTxHash,
         from: getAddress(tx.messageOwner),
@@ -489,7 +618,11 @@ export class RelayerAPIService {
         canonicalTokenAddress: tx.canonicalTokenAddress,
         processingFee: messageFee,
         claimedBy: tx.claimedBy ? getAddress(tx.claimedBy) : undefined,
-        fee: tx.fee ? BigInt(tx.fee) : undefined,
+        // A relayer that has not claimed the message reports zero here, so zero means "no
+        // relayer has been paid yet" rather than "the fee was zero" - undefined says that
+        // without inviting a reader to treat it as a settled amount. Both consumers render
+        // it as `formatEther(fee ?? 0n)`, so nothing downstream tells the two apart.
+        fee: relayerFee && relayerFee !== BigInt(0) ? relayerFee : undefined,
         message: {
           id: messageId,
           to: getAddress(tx.data.Message.To),
@@ -506,11 +639,14 @@ export class RelayerAPIService {
       } satisfies BridgeTransaction;
 
       return transformedTx;
-    });
+    }
+  }
 
-    const txsPromises = txs.map(async (bridgeTx) => {
-      if (!bridgeTx) return;
-
+  private static async _enhanceTransaction(
+    bridgeTx: BridgeTransaction,
+    address: Address,
+  ): Promise<BridgeTransaction | undefined> {
+    {
       const senderMatch = getAddress(bridgeTx.from) === getAddress(address);
       const receiverMatch = bridgeTx.message && getAddress(bridgeTx.message.destOwner) === getAddress(address);
 
@@ -592,16 +728,7 @@ export class RelayerAPIService {
       bridgeTx.status = msgStatus;
 
       return bridgeTx;
-    });
-
-    const bridgeTxs: BridgeTransaction[] = (await Promise.all(txsPromises)).filter((tx): tx is BridgeTransaction =>
-      Boolean(tx),
-    ); // Removes undefined values
-
-    // Spreading to preserve original txs in case of array mutation
-    log('Enhanced transactions', [...bridgeTxs]);
-
-    return { txs: bridgeTxs, paginationInfo };
+    }
   }
 
   async getBlockInfo(): Promise<Record<number, RelayerBlockInfo>> {

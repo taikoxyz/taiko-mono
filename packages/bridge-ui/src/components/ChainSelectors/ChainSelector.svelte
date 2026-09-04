@@ -29,8 +29,9 @@
       $switchingNetwork = true;
       try {
         await switchChain(config, { chainId: selectedChain.id });
-        if (currentChain && selectedChain.id === currentChain.id) {
-          // swap the chains
+        if (selectedChain.id === $destNetwork?.id) {
+          // The new source was the destination: swap the chains instead of
+          // leaving source and destination identical
           destNetwork.set(currentChain);
         } else {
           setAlternateNetwork();

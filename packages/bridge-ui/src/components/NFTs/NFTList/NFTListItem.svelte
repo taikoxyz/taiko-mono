@@ -6,6 +6,7 @@
   import { Icon } from '$components/Icon';
   import NftInfoDialog from '$components/NFTs/NFTInfoDialog.svelte';
   import { type NFT, TokenType } from '$libs/token';
+  import { isSameNFT } from '$libs/token/tokenIdentity';
   import { noop } from '$libs/util/noop';
 
   export let nft: NFT;
@@ -37,9 +38,7 @@
   $: imageUrl = nft.metadata?.image || placeholderUrl;
 
   $: {
-    selected = $selectedNFTs
-      ? $selectedNFTs.some((selected) => selected.tokenId === nft.tokenId && selected.addresses === nft.addresses)
-      : false;
+    selected = $selectedNFTs ? $selectedNFTs.some((selected) => isSameNFT(selected, nft)) : false;
   }
 </script>
 

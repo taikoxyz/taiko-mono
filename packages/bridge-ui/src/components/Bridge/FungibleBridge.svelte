@@ -2,8 +2,10 @@
   import { t } from 'svelte-i18n';
 
   import { Card } from '$components/Card';
+  import { OnAccount } from '$components/OnAccount';
+  import { OnNetwork } from '$components/OnNetwork';
   import { Step, Stepper } from '$components/Stepper';
-  import { connectedSmartContractWallet } from '$stores/account';
+  import { type Account, connectedSmartContractWallet } from '$stores/account';
 
   import { ImportStep, ReviewStep, StepNavigation } from './FungibleBridgeComponents';
   import { ConfirmationStep, RecipientStep } from './SharedBridgeComponents';
@@ -24,6 +26,20 @@
   let needsManualReviewConfirmation: boolean;
 
   $: needsManualRecipientConfirmation = $connectedSmartContractWallet;
+
+  // A wallet network or account change invalidates what Review/Confirm show,
+  // so the wizard returns to the import step for revalidation
+  function onNetworkChange() {
+    if (activeStep !== BridgeSteps.IMPORT) {
+      activeStep = BridgeSteps.IMPORT;
+    }
+  }
+
+  function onAccountChange(newAccount: Account, oldAccount?: Account) {
+    if (oldAccount && newAccount?.address !== oldAccount?.address && activeStep !== BridgeSteps.IMPORT) {
+      activeStep = BridgeSteps.IMPORT;
+    }
+  }
 
   $: {
     const stepKey = BridgeSteps[activeStep].toLowerCase();
@@ -77,3 +93,6 @@
     </div>
   </Card>
 </div>
+
+<OnNetwork change={onNetworkChange} />
+<OnAccount change={onAccountChange} />

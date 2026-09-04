@@ -184,6 +184,49 @@ describe('RelayerAPIService', () => {
     );
   });
 
+  test('keeps both messages when one transaction emitted two of them', async () => {
+    // One source transaction, two MessageSent logs: two separately claimable rows. The
+    // duplicate filter used to key on the transaction hash and drop the second outright,
+    // before anything downstream could tell it apart from a repeated row
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const first = createRelayerItem({ id: 1, messageId: '6268', msgHash: GOOD_MSG_HASH, blockNumber: '0x7baa21' });
+    const second = createRelayerItem({ id: 2, messageId: '6269', msgHash: BAD_MSG_HASH, blockNumber: '0x7baa21' });
+
+    mockedAxios.get.mockResolvedValue({
+      data: {
+        page: 1,
+        size: 10,
+        total: 2,
+        total_pages: 1,
+        max_page: 1,
+        first: true,
+        last: true,
+        visible: 2,
+        items: [first, second],
+      },
+      status: 200,
+    });
+    // The receipt proves both: each row matches a log of its own
+    mockedGetTransactionReceipt.mockResolvedValue(
+      createReceiptWithMessageSentLogs([
+        { msgHash: GOOD_MSG_HASH, id: 6268n, logIndex: 1 },
+        { msgHash: BAD_MSG_HASH, id: 6269n, logIndex: 2 },
+      ]),
+    );
+    mockedReadContract.mockResolvedValue(0);
+
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(
+      USER_ADDRESS,
+      { page: 1, size: 10 },
+      167000,
+    );
+
+    expect(result.txs).toHaveLength(2);
+    expect(result.txs.map((tx) => tx.msgHash).sort()).toEqual([GOOD_MSG_HASH, BAD_MSG_HASH].sort());
+    // ...and they still describe one transaction
+    expect(new Set(result.txs.map((tx) => tx.srcTxHash)).size).toBe(1);
+  });
+
   test('getAllBridgeTransactionByAddress syncs canonical status to the relayer status field', async () => {
     // Given
     const baseUrl = 'http://example.com';
@@ -492,6 +535,71 @@ describe('RelayerAPIService', () => {
     );
   });
 
+  describe('getClaimTxHash', () => {
+    // The relayer's own claim leaves a status row carrying only the transaction hash, and the
+    // API's per-message lookup takes that row and gives up on it: a message the relayer
+    // claimed arrives with neither claimer nor claim hash. The hash is still in the rows the
+    // API serves under event=MessageStatusChanged, filed under the message's sender.
+    const CLAIM_TX_HASH = '0x27a4811c18012da320c7a1bf4d788aeca068ac2e34a5f2ff73df33fa5f0e4b44' as Hash;
+    const OTHER_CLAIM_TX_HASH = '0x1111111111111111111111111111111111111111111111111111111111111111' as Hash;
+
+    const statusRow = (overrides: object) => ({
+      ...createRelayerItem({ id: 1584081, messageId: '6268', msgHash: GOOD_MSG_HASH, blockNumber: '0x0' }),
+      name: 'MessageStatusChanged',
+      event: 'MessageStatusChanged',
+      status: MessageStatus.DONE,
+      chainID: 1,
+      data: { Raw: { transactionHash: CLAIM_TX_HASH } },
+      ...overrides,
+    });
+
+    test("asks for the message's status rows under its sender and reads the hash off the stub", async () => {
+      const relayerAPIService = new RelayerAPIService('http://example.com');
+      mockedAxios.get.mockResolvedValue(createApiResponse([statusRow({})] as never));
+
+      expect(await relayerAPIService.getClaimTxHash(USER_ADDRESS, GOOD_MSG_HASH)).toEqual(CLAIM_TX_HASH);
+      expect(mockedAxios.get).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          params: expect.objectContaining({
+            address: USER_ADDRESS,
+            event: 'MessageStatusChanged',
+            msgHash: GOOD_MSG_HASH,
+          }),
+        }),
+      );
+    });
+
+    test('prefers the indexed log to the stub when both are there', async () => {
+      const relayerAPIService = new RelayerAPIService('http://example.com');
+      const indexed = statusRow({
+        id: 1584082,
+        chainID: 167000,
+        data: { Raw: { transactionHash: OTHER_CLAIM_TX_HASH, transactionIndex: '0x1', blockNumber: '0x10' } },
+      });
+      mockedAxios.get.mockResolvedValue(createApiResponse([statusRow({}), indexed] as never));
+
+      expect(await relayerAPIService.getClaimTxHash(USER_ADDRESS, GOOD_MSG_HASH)).toEqual(OTHER_CLAIM_TX_HASH);
+    });
+
+    test('answers nothing for a message without a claimed status row', async () => {
+      const relayerAPIService = new RelayerAPIService('http://example.com');
+      mockedAxios.get.mockResolvedValue(createApiResponse([statusRow({ status: MessageStatus.RETRIABLE })] as never));
+
+      expect(await relayerAPIService.getClaimTxHash(USER_ADDRESS, GOOD_MSG_HASH)).toBeUndefined();
+
+      mockedAxios.get.mockResolvedValue(createApiResponse([]));
+      expect(await relayerAPIService.getClaimTxHash(USER_ADDRESS, GOOD_MSG_HASH)).toBeUndefined();
+    });
+
+    test('lets a relayer failure reach the caller', async () => {
+      const relayerAPIService = new RelayerAPIService('http://example.com');
+      mockedAxios.get.mockRejectedValue(new Error('relayer down'));
+
+      await expect(relayerAPIService.getClaimTxHash(USER_ADDRESS, GOOD_MSG_HASH)).rejects.toThrow();
+    });
+  });
+
   test('getAllBridgeTransactionByAddress refreshes ERC20 metadata from the receipt message', async () => {
     // Given
     const relayerAPIService = new RelayerAPIService('http://example.com');
@@ -535,6 +643,41 @@ describe('RelayerAPIService', () => {
         decimals: 6,
         symbol: 'USDC',
         tokenType: TokenType.ERC20,
+      }),
+    );
+  });
+
+  test('getAllBridgeTransactionByAddress gives ETH 18 decimals even when the receipt is unavailable', async () => {
+    // Given: the relayer nils canonicalToken for ETH, so the Go uint8 serializes as 0
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const paginationParams = { page: 1, size: 10 };
+    const relayerItem = createRelayerItem({
+      id: 1553883,
+      messageId: '6272',
+      msgHash: BAD_MSG_HASH,
+      blockNumber: '0x7ba91b',
+      eventType: 0,
+      amount: '1000000000000000000',
+      canonicalTokenSymbol: '',
+      canonicalTokenDecimals: 0,
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
+    // And: the source-chain receipt fetch fails, so nothing later corrects the decimals
+    mockedGetTransactionReceipt.mockResolvedValue(null as never);
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
+
+    // Then: keeping 0 here renders one ETH as 1000000000000000000 in the details dialogs
+    expect(result.txs).toHaveLength(1);
+    expect(result.txs[0]).toEqual(
+      expect.objectContaining({
+        amount: BigInt('1000000000000000000'),
+        decimals: 18,
+        symbol: 'ETH',
+        tokenType: TokenType.ETH,
       }),
     );
   });
@@ -734,6 +877,8 @@ describe('RelayerAPIService', () => {
     // Then
     expect(result.txs).toHaveLength(0);
     expect(mockedReadContract).not.toHaveBeenCalled();
+    // An ambiguous receipt is a deliberate filter, not a failed load - it must not be counted.
+    expect(result.failedTxs).toEqual([]);
   });
 
   test('getTransactionsFromAPI preserves raw message fee digits before JSON parsing', async () => {
@@ -773,6 +918,20 @@ describe('RelayerAPIService', () => {
     expect(parseApiBigInt(parseRelayerApiResponse(rawResponse).items[0].data.Message.DestChainId)).toEqual(167000n);
   });
 
+  test('parseRelayerApiResponse also preserves the top-level amount and fee digits', () => {
+    // Given: amounts above 2^53 wei (anything over ~0.009 ETH) lose digits as JSON doubles
+    const exactAmount = 1_234_567_890_123_456_789n;
+    const exactTopLevelFee = 9_007_199_254_740_993n;
+    const rawResponse = `{"items":[{"amount":${exactAmount},"fee":${exactTopLevelFee},"data":{"Message":{"Fee":1}}}]}`;
+
+    // When
+    const parsed = parseRelayerApiResponse(rawResponse);
+
+    // Then
+    expect(BigInt(parsed.items[0].amount)).toEqual(exactAmount);
+    expect(BigInt(parsed.items[0].fee!)).toEqual(exactTopLevelFee);
+  });
+
   test('parseRelayerApiResponse ignores escaped Fee-like text inside string values', () => {
     // Given
     const exactFee = 9_007_199_254_740_993n;
@@ -793,6 +952,228 @@ describe('RelayerAPIService', () => {
   test('parseApiBigInt preserves exact string input that Number.toString would shorten', () => {
     expect(Number(33_011_093_383_701_312n).toString()).toEqual('33011093383701310');
     expect(parseApiBigInt('33011093383701312')).toEqual(33_011_093_383_701_312n);
+  });
+
+  test('getAllBridgeTransactionByAddress keeps a row whose value arrived in exponent form', async () => {
+    // Given: the relayer serializes Message.Value from a Go float, so 18.5 ETH goes over the wire
+    // as `1.85e19`. The rewrite that keeps large integers out of JSON doubles has to read that
+    // form too: left as a number it was rejected as unsafe, the row never transformed, and the
+    // transactions page told the user a message could not be loaded on every refresh.
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const paginationParams = { page: 1, size: 10 };
+    const relayerItem = createRelayerItem({
+      id: 1553895,
+      messageId: '6285',
+      msgHash: GOOD_MSG_HASH,
+      blockNumber: '0x7baa35',
+      amount: '18500000000000000000',
+    });
+    // Serialized, then rewritten to the literal the relayer actually emits - the mocked object
+    // responses the other tests use never reach the string the precision rewrite operates on
+    const rawResponse = JSON.stringify(createApiResponse([relayerItem]).data).replace(
+      '"Value":"185000000000000000"',
+      '"Value":1.85e19',
+    );
+    expect(rawResponse).toContain('"Value":1.85e19');
+
+    mockedAxios.get.mockResolvedValue({ data: rawResponse, status: 200 });
+    mockedGetTransactionReceipt.mockResolvedValue(createReceiptWithMessageSentLog());
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
+
+    // Then
+    expect(result.failedTxs).toEqual([]);
+    expect(result.txs).toHaveLength(1);
+  });
+
+  test('getAllBridgeTransactionByAddress counts a transaction whose RPC read threw', async () => {
+    // Given
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const paginationParams = { page: 1, size: 10 };
+    const relayerItem = createRelayerItem({
+      id: 1553890,
+      messageId: '6280',
+      msgHash: GOOD_MSG_HASH,
+      blockNumber: '0x7baa30',
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
+    mockedGetTransactionReceipt.mockResolvedValue(createReceiptWithMessageSentLog());
+    // The rate-limited gateway returns an HTML 429 body, which viem surfaces as a thrown error.
+    mockedReadContract.mockRejectedValue(new Error('HTTP request failed.'));
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
+
+    // Then: the transaction is dropped, but the caller is told how many were lost
+    expect(result.txs).toHaveLength(0);
+    expect(result.failedTxs).toHaveLength(1);
+  });
+
+  test('getAllBridgeTransactionByAddress counts a row too malformed to transform', async () => {
+    // Given: the relayer reports a fractional amount, which BigInt() refuses. The row never
+    // reaches the on-chain reads, so the enhancement counter never sees it - and it used to be
+    // dropped with nothing but a log line, leaving the list one message short and silent about it.
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const paginationParams = { page: 1, size: 10 };
+    const malformedRelayerItem = createRelayerItem({
+      id: 1553893,
+      messageId: '6283',
+      msgHash: BAD_MSG_HASH,
+      blockNumber: '0x7baa33',
+      amount: '1.5',
+    });
+    const validRelayerItem = createRelayerItem({
+      id: 1553894,
+      messageId: '6284',
+      msgHash: GOOD_MSG_HASH,
+      blockNumber: '0x7baa34',
+      srcTxHash: SECOND_SRC_TX_HASH,
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([malformedRelayerItem, validRelayerItem]));
+    mockedGetTransactionReceipt.mockResolvedValue(createReceiptWithMessageSentLog());
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
+
+    // Then: the good row loads and the malformed one is reported, identified off the raw row
+    expect(result.txs).toHaveLength(1);
+    expect(result.failedTxs).toEqual([{ msgHash: BAD_MSG_HASH, srcTxHash: SRC_TX_HASH }]);
+  });
+
+  test('getAllBridgeTransactionByAddress does not count legitimately filtered rows as failures', async () => {
+    // Given: a row for a route this UI is not configured for. _enhanceTransaction returns undefined
+    // for it via `if (msgStatus === undefined) return;` - a filter, not a load failure.
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const paginationParams = { page: 1, size: 10 };
+    const unconfiguredRelayerItem = createRelayerItem({
+      id: 1553891,
+      messageId: '6281',
+      msgHash: BAD_MSG_HASH,
+      blockNumber: '0x7baa31',
+      destChainId: '424242',
+    });
+    const validRelayerItem = createRelayerItem({
+      id: 1553892,
+      messageId: '6282',
+      msgHash: GOOD_MSG_HASH,
+      blockNumber: '0x7baa32',
+      srcTxHash: SECOND_SRC_TX_HASH,
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([unconfiguredRelayerItem, validRelayerItem]));
+    mockedGetTransactionReceipt.mockResolvedValue(createReceiptWithMessageSentLog());
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, paginationParams, 167000);
+
+    // Then: one row filtered out, zero reported as failed - warning the user here would be a lie
+    expect(result.txs).toHaveLength(1);
+    expect(result.failedTxs).toEqual([]);
+  });
+
+  test("getAllBridgeTransactionByAddress does not count another wallet's row as a failure", async () => {
+    // Given: a row owned by USER_ADDRESS, queried on behalf of a different wallet. _enhanceTransaction
+    // drops it via `if (!senderMatch && !receiverMatch) return;` - a filter, not a load failure.
+    // (createRelayerItem hardcodes every owner field to USER_ADDRESS, so vary the query address instead.)
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const OTHER_WALLET = '0x1111111111111111111111111111111111111111' as Address;
+    const relayerItem = createRelayerItem({
+      id: 1553893,
+      messageId: '6283',
+      msgHash: GOOD_MSG_HASH,
+      blockNumber: '0x7baa33',
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
+    mockedGetTransactionReceipt.mockResolvedValue(createReceiptWithMessageSentLog());
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(
+      OTHER_WALLET,
+      { page: 1, size: 10 },
+      167000,
+    );
+
+    // Then
+    expect(result.txs).toHaveLength(0);
+    expect(result.failedTxs).toEqual([]);
+  });
+
+  test('getAllBridgeTransactionByAddress reports zero failures for an empty relayer page', async () => {
+    // Given
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    mockedAxios.get.mockResolvedValue({ data: { page: 1, size: 10, total: 0, items: [] }, status: 200 });
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(USER_ADDRESS, { page: 1, size: 10 });
+
+    // Then
+    expect(result.failedTxs).toEqual([]);
+  });
+
+  test('getAllBridgeTransactionByAddress counts a transaction whose receipt read failed', async () => {
+    // Given: the receipt read fails the way a rate-limited gateway makes it fail. This used to be
+    // swallowed into `receipt = null`, which left the row visible but unclaimable and uncounted.
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const relayerItem = createRelayerItem({
+      id: 1553894,
+      messageId: '6284',
+      msgHash: GOOD_MSG_HASH,
+      blockNumber: '0x7baa34',
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
+    mockedGetTransactionReceipt.mockRejectedValue(new Error('HTTP request failed.'));
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(
+      USER_ADDRESS,
+      { page: 1, size: 10 },
+      167000,
+    );
+
+    // Then
+    expect(result.txs).toHaveLength(0);
+    expect(result.failedTxs).toHaveLength(1);
+  });
+
+  test('getAllBridgeTransactionByAddress keeps a transaction that is simply not mined yet', async () => {
+    // Given: viem throws TransactionReceiptNotFoundError for a transaction with no receipt yet.
+    // That is an expected state for a fresh bridge, not a load failure - the row must survive and
+    // must not be counted, or every pending bridge would warn the user it had failed to load.
+    const relayerAPIService = new RelayerAPIService('http://example.com');
+    const notMined = new Error('Transaction receipt with hash "0x..." could not be found.');
+    notMined.name = 'TransactionReceiptNotFoundError';
+    const relayerItem = createRelayerItem({
+      id: 1553895,
+      messageId: '6285',
+      msgHash: GOOD_MSG_HASH,
+      blockNumber: '0x7baa35',
+    });
+
+    mockedAxios.get.mockResolvedValue(createApiResponse([relayerItem]));
+    mockedGetTransactionReceipt.mockRejectedValue(notMined);
+    mockedReadContract.mockResolvedValue(MessageStatus.NEW);
+
+    // When
+    const result = await relayerAPIService.getAllBridgeTransactionByAddress(
+      USER_ADDRESS,
+      { page: 1, size: 10 },
+      167000,
+    );
+
+    // Then
+    expect(result.txs).toHaveLength(1);
+    expect(result.txs[0].receipt).toBeNull();
+    expect(result.failedTxs).toEqual([]);
   });
 });
 

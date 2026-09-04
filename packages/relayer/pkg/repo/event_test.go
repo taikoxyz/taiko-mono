@@ -506,3 +506,54 @@ func TestIntegration_Event_FirstByMsgHash(t *testing.T) {
 		})
 	}
 }
+
+func TestIntegration_Event_FindAllByEventAndMsgHash(t *testing.T) {
+	db, close, err := testMysql(t)
+	assert.Equal(t, nil, err)
+
+	defer close()
+
+	eventRepo, err := NewEventRepository(db)
+	assert.Equal(t, nil, err)
+
+	save := func(event string, msgHash string, data string) {
+		_, err := eventRepo.Save(context.Background(), &relayer.SaveEventOpts{
+			Name:           event,
+			Event:          event,
+			Data:           data,
+			ChainID:        big.NewInt(1),
+			DestChainID:    big.NewInt(2),
+			Status:         relayer.EventStatusDone,
+			MsgHash:        msgHash,
+			MessageOwner:   addr.Hex(),
+			EmittedBlockID: 1,
+		})
+		assert.Equal(t, nil, err)
+	}
+
+	// The message, the processor's record of its own claim, the log the indexer stored later,
+	// and another message's row
+	save(relayer.EventNameMessageSent, testMsgHash, `{"Message": {"Owner": "0x1"}}`)
+	save(relayer.EventNameMessageStatusChanged, testMsgHash, `{"Raw": {"transactionHash": "0xa"}}`)
+	save(
+		relayer.EventNameMessageStatusChanged,
+		testMsgHash,
+		`{"Raw": {"transactionHash": "0xa", "transactionIndex": "0x1"}}`,
+	)
+	save(relayer.EventNameMessageStatusChanged, testSecondMsgHash, `{"Raw": {"transactionHash": "0xb"}}`)
+
+	events, err := eventRepo.FindAllByEventAndMsgHash(
+		context.Background(),
+		relayer.EventNameMessageStatusChanged,
+		testMsgHash,
+	)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, 2, len(events))
+	// Oldest first: the processor's record, then the indexed log
+	assert.Equal(t, 2, events[0].ID)
+	assert.Equal(t, 3, events[1].ID)
+
+	none, err := eventRepo.FindAllByEventAndMsgHash(context.Background(), relayer.EventNameMessageStatusChanged, "0x3")
+	assert.Equal(t, nil, err)
+	assert.Equal(t, 0, len(none))
+}
