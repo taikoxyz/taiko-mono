@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "protocolVersion": "2.27",
-  "normativeCommit": "cd9df2ed2ad5000427f74efcefb1bfc31a689e0c",
-  "rootArtifactCount": 18,
+  "normativeCommit": "12591797dcf15fab5cfa81277546b3cecca7732d",
+  "rootArtifactCount": 21,
   "entries": [
     {
       "aliases": [],
       "normativeRefs": [
-        "main.tex:sec:implementation/root-artifact-set",
-        "implementation-design.md:3.2"
+        "main.tex:sec:builder-registry-freeze",
+        "builder-registry-lifecycle-facets-design.md"
       ],
       "provenance": "pr-owned",
       "artifactOwnerProfile": "layer1",
@@ -27,7 +27,7 @@
       "failureBranches": [
         "authority/code/configuration/replay/fault branches; expand before review"
       ],
-      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "limits": ["rootArtifactCount=21", "single layer1 compiler invocation"],
       "status": "red",
       "reviewedSourceHashes": {},
       "reviewedTestHashes": {},
@@ -58,7 +58,7 @@
       "failureBranches": [
         "authority/code/configuration/replay/fault branches; expand before review"
       ],
-      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "limits": ["rootArtifactCount=21", "single layer1 compiler invocation"],
       "status": "red",
       "reviewedSourceHashes": {},
       "reviewedTestHashes": {},
@@ -100,7 +100,7 @@
         "initCodeLength=1..49152 bytes",
         "one CREATE at proxy nonce one; no target, upgrade, withdrawal, or selfdestruct surface",
         "campaign-role CREATE2 salt; first and ninth role ordering is independent",
-        "rootArtifactCount=18 and one layer1 compiler invocation remain final root-release gates"
+        "rootArtifactCount=21 and one layer1 compiler invocation remain final root-release gates"
       ],
       "status": "reviewed",
       "reviewedSourceHashes": {
@@ -111,6 +111,119 @@
       },
       "id": "root.protocol-root-create3-proxy-v1",
       "name": "ProtocolRootCreate3ProxyV1",
+      "kind": "root-artifact"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:builder-registry-freeze",
+        "builder-registry-proof-verifier-design.md"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "root-set",
+      "addressReusePolicy": "protocol-lifetime",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": [
+        "BPV1 selector=0x0d1c9932; exact 512-byte configuration return",
+        "verifyBuilderEquivocationIdentityV1(bytes) and verifyBuilderRegistryProofV1(bytes) use canonical ABI and exact bounded outputs"
+      ],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/BuilderRegistryProofVerifierV1.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/registry/BuilderRegistryProofVerifier.t.sol"
+      ],
+      "failureBranches": [
+        "wrong opcode, request width, padding, proof, configuration, output mask, or gas fails closed"
+      ],
+      "limits": [
+        "runtime<=24576 bytes and complete init code<=49152 bytes",
+        "rootArtifactCount=21 and one layer1 compiler invocation"
+      ],
+      "status": "passing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "root.builder-registry-proof-verifier-v1",
+      "name": "BuilderRegistryProofVerifierV1",
+      "kind": "root-artifact"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:builder-registry-freeze",
+        "builder-registry-lifecycle-facets-design.md"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "root-set",
+      "addressReusePolicy": "protocol-lifetime",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": [
+        "BRF1 selector=0x5c19dfed; exact 192-byte kind-1 configuration return",
+        "fixed selectors 0x5fc42c69,0xc8f20b55,0x0e1ffc68; common layout 5b676bdd...02bd"
+      ],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/BuilderRegistrySeatLifecycleFacetV1.sol"
+      ],
+      "testPaths": ["test/layer1/slotchain/registry/BuilderRegistry.t.sol"],
+      "failureBranches": [
+        "direct call, wrong context, inactive root, code/config/layout mismatch, unsupported selector, global reentry, or oversized returndata rejects"
+      ],
+      "limits": [
+        "runtime<=24576 bytes and complete init code<=49152 bytes",
+        "rootArtifactCount=21 and one layer1 compiler invocation"
+      ],
+      "status": "passing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "root.builder-registry-seat-lifecycle-facet-v1",
+      "name": "BuilderRegistrySeatLifecycleFacetV1",
+      "kind": "root-artifact"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:builder-registry-freeze",
+        "builder-registry-lifecycle-facets-design.md"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "root-set",
+      "addressReusePolicy": "protocol-lifetime",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": [
+        "BRF1 selector=0x5c19dfed; exact 192-byte kind-2 configuration return",
+        "fixed selectors 0x46a53315,0x5e7c8afe,0xf8668bb9,0xe7bae370; common layout 5b676bdd...02bd"
+      ],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/BuilderRegistryLeaseLifecycleFacetV1.sol"
+      ],
+      "testPaths": ["test/layer1/slotchain/registry/BuilderRegistry.t.sol"],
+      "failureBranches": [
+        "direct call, wrong context, inactive root, code/config/layout mismatch, unsupported selector, global reentry, or oversized returndata rejects"
+      ],
+      "limits": [
+        "runtime<=24576 bytes and complete init code<=49152 bytes",
+        "rootArtifactCount=21 and one layer1 compiler invocation"
+      ],
+      "status": "passing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "root.builder-registry-lease-lifecycle-facet-v1",
+      "name": "BuilderRegistryLeaseLifecycleFacetV1",
       "kind": "root-artifact"
     },
     {
@@ -128,14 +241,26 @@
       "addressReusePolicy": "protocol-lifetime",
       "retentionPolicy": "permanent",
       "reactivationPolicy": "never",
-      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
-      "sourcePaths": ["contracts/layer1/slotchain/impl/BuilderRegistry.sol"],
-      "testPaths": ["test/layer1/slotchain/registry/BuilderRegistry.t.sol"],
-      "failureBranches": [
-        "authority/code/configuration/replay/fault branches; expand before review"
+      "abiOrEncoding": [
+        "exact 48-word constructor suffix; BRC1 return is exactly 800 bytes",
+        "Registry owns all state and token custody and dispatches the frozen Seat and Lease selector sets with unchanged calldata"
       ],
-      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
-      "status": "missing",
+      "sourcePaths": ["contracts/layer1/slotchain/impl/BuilderRegistry.sol"],
+      "testPaths": [
+        "test/layer1/slotchain/registry/BuilderRegistry.t.sol",
+        "test/layer1/slotchain/registry/BuilderEvidence.t.sol",
+        "test/layer1/slotchain/registry/BuilderRegistryInvariant.t.sol"
+      ],
+      "failureBranches": [
+        "inactive root, non-canonical calldata, stale expectation, invalid proof/witness, invalid timing, ring collision, callback reentry, token delta, evidence replay, and insolvent custody reject",
+        "facet direct call, substitution, code/config/layout drift, unsupported selector, oversized return, and revert bubbling reject"
+      ],
+      "limits": [
+        "runtime<=24576 bytes and complete init code<=49152 bytes",
+        "four movements per window, 64 exit rows inspected per call, and liability residence strictly below 268 windows",
+        "rootArtifactCount=21 and one layer1 compiler invocation"
+      ],
+      "status": "passing",
       "reviewedSourceHashes": {},
       "reviewedTestHashes": {},
       "id": "root.builder-registry",
@@ -163,7 +288,7 @@
       "failureBranches": [
         "authority/code/configuration/replay/fault branches; expand before review"
       ],
-      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "limits": ["rootArtifactCount=21", "single layer1 compiler invocation"],
       "status": "missing",
       "reviewedSourceHashes": {},
       "reviewedTestHashes": {},
@@ -194,7 +319,7 @@
       "failureBranches": [
         "authority/code/configuration/replay/fault branches; expand before review"
       ],
-      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "limits": ["rootArtifactCount=21", "single layer1 compiler invocation"],
       "status": "missing",
       "reviewedSourceHashes": {},
       "reviewedTestHashes": {},
@@ -227,7 +352,7 @@
       "failureBranches": [
         "authority/code/configuration/replay/fault branches; expand before review"
       ],
-      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "limits": ["rootArtifactCount=21", "single layer1 compiler invocation"],
       "status": "missing",
       "reviewedSourceHashes": {},
       "reviewedTestHashes": {},
@@ -258,7 +383,7 @@
       "failureBranches": [
         "authority/code/configuration/replay/fault branches; expand before review"
       ],
-      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "limits": ["rootArtifactCount=21", "single layer1 compiler invocation"],
       "status": "missing",
       "reviewedSourceHashes": {},
       "reviewedTestHashes": {},
@@ -287,7 +412,7 @@
       "failureBranches": [
         "authority/code/configuration/replay/fault branches; expand before review"
       ],
-      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "limits": ["rootArtifactCount=21", "single layer1 compiler invocation"],
       "status": "missing",
       "reviewedSourceHashes": {},
       "reviewedTestHashes": {},
@@ -318,7 +443,7 @@
       "failureBranches": [
         "authority/code/configuration/replay/fault branches; expand before review"
       ],
-      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "limits": ["rootArtifactCount=21", "single layer1 compiler invocation"],
       "status": "missing",
       "reviewedSourceHashes": {},
       "reviewedTestHashes": {},
@@ -351,7 +476,7 @@
       "failureBranches": [
         "authority/code/configuration/replay/fault branches; expand before review"
       ],
-      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "limits": ["rootArtifactCount=21", "single layer1 compiler invocation"],
       "status": "missing",
       "reviewedSourceHashes": {},
       "reviewedTestHashes": {},
@@ -382,7 +507,7 @@
       "failureBranches": [
         "authority/code/configuration/replay/fault branches; expand before review"
       ],
-      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "limits": ["rootArtifactCount=21", "single layer1 compiler invocation"],
       "status": "missing",
       "reviewedSourceHashes": {},
       "reviewedTestHashes": {},
@@ -414,7 +539,7 @@
         "authority/code/configuration/replay/fault branches; expand before review"
       ],
       "limits": [
-        "rootArtifactCount=18",
+        "rootArtifactCount=21",
         "design-blocker: exact manifest name remains to be frozen"
       ],
       "status": "missing",
@@ -447,7 +572,7 @@
       "failureBranches": [
         "authority/code/configuration/replay/fault branches; expand before review"
       ],
-      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "limits": ["rootArtifactCount=21", "single layer1 compiler invocation"],
       "status": "missing",
       "reviewedSourceHashes": {},
       "reviewedTestHashes": {},
@@ -476,7 +601,7 @@
       "failureBranches": [
         "authority/code/configuration/replay/fault branches; expand before review"
       ],
-      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "limits": ["rootArtifactCount=21", "single layer1 compiler invocation"],
       "status": "missing",
       "reviewedSourceHashes": {},
       "reviewedTestHashes": {},
@@ -509,7 +634,7 @@
       "failureBranches": [
         "authority/code/configuration/replay/fault branches; expand before review"
       ],
-      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "limits": ["rootArtifactCount=21", "single layer1 compiler invocation"],
       "status": "missing",
       "reviewedSourceHashes": {},
       "reviewedTestHashes": {},
@@ -538,7 +663,7 @@
       "failureBranches": [
         "authority/code/configuration/replay/fault branches; expand before review"
       ],
-      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "limits": ["rootArtifactCount=21", "single layer1 compiler invocation"],
       "status": "missing",
       "reviewedSourceHashes": {},
       "reviewedTestHashes": {},
@@ -571,7 +696,7 @@
       "failureBranches": [
         "authority/code/configuration/replay/fault branches; expand before review"
       ],
-      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "limits": ["rootArtifactCount=21", "single layer1 compiler invocation"],
       "status": "missing",
       "reviewedSourceHashes": {},
       "reviewedTestHashes": {},
@@ -3333,6 +3458,176 @@
       "id": "dependency.protocol-coinbase-sink",
       "name": "protocol-coinbase-sink",
       "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:builder-registry-freeze",
+        "builder-registry-lifecycle-facets-design.md"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "interface",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "exact BRC1, ADS1, BRS1, BRG1, BRV1, BRE1, BRM1, BRN1, BTR1, BGR1, BCL1, BEV1, and RCV1 Registry ABI"
+      ],
+      "sourcePaths": ["contracts/layer1/slotchain/iface/IBuilderRegistry.sol"],
+      "testPaths": ["test/layer1/slotchain/registry/BuilderRegistry.t.sol"],
+      "failureBranches": [
+        "non-canonical calldata, stale expectation, invalid witness, timing, custody, evidence, and reentry branches"
+      ],
+      "limits": ["all dynamic inputs and outputs are exactly bounded"],
+      "status": "passing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.i-builder-registry",
+      "name": "IBuilderRegistry",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:builder-registry-freeze",
+        "builder-registry-lifecycle-facets-design.md"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "interface",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "exact BRF1 facet configuration plus the frozen Registry selector union"
+      ],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/iface/IBuilderRegistryLifecycleFacetV1.sol"
+      ],
+      "testPaths": ["test/layer1/slotchain/registry/BuilderRegistry.t.sol"],
+      "failureBranches": [
+        "wrong facet kind, selector set, layout, configuration, direct call, or unsupported selector rejects"
+      ],
+      "limits": ["BRF1 return is exactly 192 bytes"],
+      "status": "passing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.i-builder-registry-lifecycle-facet-v1",
+      "name": "IBuilderRegistryLifecycleFacetV1",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:builder-registry-freeze",
+        "builder-registry-lifecycle-facets-design.md"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "interface",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "exact BPV1, BPO1, and EIV1 verifier ABI with bounded byte requests"
+      ],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/iface/IBuilderRegistryProofVerifierV1.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/registry/BuilderRegistryProofVerifier.t.sol"
+      ],
+      "failureBranches": [
+        "wrong request width, opcode, proof, padding, identity, output mask, or configuration rejects"
+      ],
+      "limits": ["all verifier requests and outputs are exactly bounded"],
+      "status": "passing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.i-builder-registry-proof-verifier-v1",
+      "name": "IBuilderRegistryProofVerifierV1",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:builder-registry-freeze",
+        "builder-registry-lifecycle-facets-design.md"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "abstract-base",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "frozen 53-entry Registry storage prefix shared byte-for-byte by Registry and both lifecycle facets"
+      ],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/BuilderRegistryStorageV1.sol"
+      ],
+      "testPaths": ["test/layer1/slotchain/registry/BuilderRegistry.t.sol"],
+      "failureBranches": [
+        "any storage order, type, offset, or reachable-type drift fails"
+      ],
+      "limits": [
+        "canonical normalized layout is exactly 9549 bytes and hashes to 5b676bdd...02bd"
+      ],
+      "status": "passing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.builder-registry-storage-v1",
+      "name": "BuilderRegistryStorageV1",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:builder-registry-freeze",
+        "builder-registry-lifecycle-facets-design.md"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "Registry generation/location accounting, exact packed reads, hashes, and fixed lifecycle bounds"
+      ],
+      "sourcePaths": ["contracts/layer1/slotchain/libs/LibBuilderRegistry.sol"],
+      "testPaths": [
+        "test/layer1/slotchain/registry/BuilderRegistry.t.sol",
+        "test/layer1/slotchain/registry/BuilderRegistryInvariant.t.sol"
+      ],
+      "failureBranches": [
+        "packed read bounds, popcount, location, liability residence, accounting, and hash drift"
+      ],
+      "limits": [
+        "17-window reservation horizon, four movements per window, and 268-window liability ring capacity"
+      ],
+      "status": "passing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.lib-builder-registry",
+      "name": "LibBuilderRegistry",
+      "kind": "source-inline"
     },
     {
       "aliases": [],

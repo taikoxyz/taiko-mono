@@ -110,7 +110,7 @@ export interface ArtifactUsage {
 export interface RootCohort {
     status: "planned" | "complete";
     ownerProfile: "layer1";
-    expectedArtifactCount: 18;
+    expectedArtifactCount: 21;
     artifacts: string[];
 }
 
@@ -289,6 +289,9 @@ export const FROZEN_ROOT_COHORT_V1 = [
     "contracts/layer1/slotchain/root/RootMigrationExecutorV1.sol:RootMigrationExecutorV1",
     "contracts/layer1/slotchain/root/ProtocolRootFactoryV1.sol:ProtocolRootFactoryV1",
     "contracts/layer1/slotchain/root/ProtocolRootCreate3ProxyV1.sol:ProtocolRootCreate3ProxyV1",
+    "contracts/layer1/slotchain/impl/BuilderRegistryProofVerifierV1.sol:BuilderRegistryProofVerifierV1",
+    "contracts/layer1/slotchain/impl/BuilderRegistrySeatLifecycleFacetV1.sol:BuilderRegistrySeatLifecycleFacetV1",
+    "contracts/layer1/slotchain/impl/BuilderRegistryLeaseLifecycleFacetV1.sol:BuilderRegistryLeaseLifecycleFacetV1",
     "contracts/layer1/slotchain/impl/BuilderRegistry.sol:BuilderRegistry",
     "contracts/layer1/slotchain/impl/ScheduleOracle.sol:ScheduleOracle",
     "contracts/layer1/slotchain/impl/ProtocolChangeTimelockV1.sol:ProtocolChangeTimelockV1",
@@ -919,7 +922,7 @@ function validateManifest(
     if (
         !["planned", "complete"].includes(manifest.rootCohort.status) ||
         manifest.rootCohort.ownerProfile !== "layer1" ||
-        manifest.rootCohort.expectedArtifactCount !== 18 ||
+        manifest.rootCohort.expectedArtifactCount !== 21 ||
         !Array.isArray(manifest.rootCohort.artifacts) ||
         manifest.rootCohort.artifacts.some(
             (artifact) => typeof artifact !== "string",

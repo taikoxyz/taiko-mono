@@ -196,7 +196,7 @@ function validFixture(): Fixture {
         rootCohort: {
             status: "planned",
             ownerProfile: "layer1",
-            expectedArtifactCount: 18,
+            expectedArtifactCount: 21,
             artifacts: [...FROZEN_ROOT_COHORT_V1],
         },
         profiles: {

@@ -47,8 +47,8 @@ function ledger(
     return {
         schemaVersion: 1,
         protocolVersion: "2.27",
-        normativeCommit: "cd9df2ed2ad5000427f74efcefb1bfc31a689e0c",
-        rootArtifactCount: 18,
+        normativeCommit: "12591797dcf15fab5cfa81277546b3cecca7732d",
+        rootArtifactCount: 21,
         entries,
     };
 }
@@ -175,7 +175,7 @@ expectCode(
     "INVALID_REVIEW_HASH",
 );
 
-const roots = Array.from({ length: 18 }, (_, index) =>
+const roots = Array.from({ length: 21 }, (_, index) =>
     entry({
         id: `root.artifact-${index + 1}`,
         name: `RootArtifact${index + 1}`,
@@ -198,12 +198,12 @@ const roots = Array.from({ length: 18 }, (_, index) =>
     }),
 );
 assert.doesNotThrow(() => validateConformanceLedger(ledger(roots)));
-expectCode(ledger(roots.slice(0, 17)), "ROOT_ARTIFACT_SET_MISMATCH");
+expectCode(ledger(roots.slice(0, 20)), "ROOT_ARTIFACT_SET_MISMATCH");
 expectCode(
     ledger([
         ...roots,
         entry({
-            id: "root.artifact-19",
+            id: "root.artifact-22",
             kind: "root-artifact",
             artifactOwnerProfile: "layer1",
             canonicalSourceRoot: "layer1",
