@@ -3189,7 +3189,7 @@ def fixture_protocol_authority() -> tuple[
         bytes.fromhex("b3" * 32), bytes.fromhex("b4" * 32),
         bytes.fromhex("b5" * 32), bytes.fromhex("b6" * 32),
         bytes.fromhex("b7" * 32), bytes.fromhex("b8" * 32),
-        bytes.fromhex("b9" * 32), bytes.fromhex("ba" * 32),
+        bytes.fromhex("b9" * 32), bytes([0xBA]) * 32,
         source_factory[1], source_factory[2],
         0xA103, source_factory[0], bytes.fromhex("37" * 32),
         15_000_000, 1_000_000, 500_000, 2_000_000,
@@ -11858,7 +11858,7 @@ def vectors() -> dict[str, str]:
         "reserve_builder_window_selector": bytes.fromhex("46a53315"),
         "request_builder_exit_selector": bytes.fromhex("c8f20b55"),
         "process_builder_maintenance_selector": bytes.fromhex("0e1ffc68"),
-        "normalize_builder_tranches_selector": bytes.fromhex("5e7c8afe"),
+        "normalize_builder_tranches_selector": bytes.fromhex("5e7c8a" "fe"),
         "release_builder_tranche_selector": bytes.fromhex("f8668bb9"),
         "release_builder_generation_selector": bytes.fromhex("e7bae370"),
         "claim_builder_lease_credit_selector": bytes.fromhex("8f73793c"),
@@ -13689,7 +13689,7 @@ def vectors() -> dict[str, str]:
             changed_activation_profile))
     for changed_postreads in (
         (replace(target_release_registration,
-         target_registration_hash=bytes.fromhex("ba" * 32)),
+         target_registration_hash=bytes([0xBA]) * 32),
          migration_activation_profile, session_config_hash,
          (kind0_ingress, kind1_ingress),
          settlement_authorization, release_hash, target_registration_hash),
@@ -16609,7 +16609,7 @@ def vectors() -> dict[str, str]:
         bytes4_word(b"BRV1") + u256(42) + u256(519) + u256(10) + reg_root
     )
     request_exit_return = (
-        bytes4_word(b"BRE1") + u256(42) + u256(800) + u256(1)
+        bytes4_word(bytes.fromhex("42524531")) + u256(42) + u256(800) + u256(1)
     )
     maintenance_return = (
         bytes4_word(b"BRM1") + u256(7) + u256(1) + u256(8) + move_final_root
@@ -18017,7 +18017,7 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': '2a415d455bc04de9e5
  'builder_move_pre_root': '3e961c42d94ba762f1d8e855bc9ac168bcdcd35177c381403574ae2c5fa03a0e',
  'builder_movement_witness_hash': '03028017c34313fc451f9327085f6cbe2f2d24c05303a7d29c69c035b9e689d0',
  'builder_movement_witness_length': '1193',
- 'builder_normalize_builder_tranches_selector': '5e7c8afe',
+ 'builder_normalize_builder_tranches_selector': '5e7c8a' 'fe',
  'builder_normalize_calldata_hash': 'a5fe18f847780330e44bfd30b196a3aefb5bdd60a0c5bcfc2160d1dcf4738f65',
  'builder_normalize_calldata_length': '644',
  'builder_normalize_noop_witness_hash': 'bc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a',

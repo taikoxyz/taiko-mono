@@ -2,7 +2,7 @@
 
 The JSON example is deliberately uncalibrated.  Structural validation accepts
 that state, while :func:`production_blockers` rejects it and every incomplete,
-mis-bound, overflowing, or arithmetically inconsistent production profile.
+incorrectly bound, overflowing, or arithmetically inconsistent production profile.
 """
 
 from __future__ import annotations
