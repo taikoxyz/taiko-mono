@@ -4535,15 +4535,17 @@ PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_POSTCHECK_GAS = 300_000
 PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_CALL_OVERHEAD_GAS = 75_000
 
 
-def _root_source_ensure_minimum_gas_v1(stipend: int) -> int:
+def _root_source_ensure_certified_call_gas_v1(stipend: int) -> int:
+    """Return the release-certified cold CALL budget, not a callee predicate."""
+
     return PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_CALL_OVERHEAD_GAS + max(
         stipend + PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_POSTCHECK_GAS,
         (stipend * 64 + 62) // 63,
     )
 
 
-PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS = (
-    _root_source_ensure_minimum_gas_v1(
+PROTOCOL_ROOT_SOURCE_TERMINAL_CERTIFIED_CALL_GAS = (
+    _root_source_ensure_certified_call_gas_v1(
         PROTOCOL_ROOT_SOURCE_TERMINAL_DEPLOYMENT_GAS
     )
 )
@@ -6286,7 +6288,14 @@ class ProtocolRootFactoryModelV1:
     def ensure_source_infrastructure_v1(
         self, calldata: bytes, now: int, *, gas_limit: int, value: int,
     ) -> bytes:
-        """Permissionlessly deploy or exact-reuse one root Source artifact."""
+        """Permissionlessly deploy or exact-reuse one root Source artifact.
+
+        The abstract transition assumes adequate outer execution gas.  The
+        argument records the caller budget for traces only because a Solidity
+        callee cannot recover the CALL operand after dispatch.  The compiled
+        release certifies the cold path and enforces the nested stipend and
+        post-copy reserve.
+        """
 
         if (type(calldata) is not bytes or len(calldata) < 132
                 or calldata[:4]
@@ -6305,11 +6314,9 @@ class ProtocolRootFactoryModelV1:
                 or calldata[132 + init_length:] != bytes(padded - init_length)):
             raise ValueError("root Source infrastructure bytes are noncanonical")
         supplied_init_code = calldata[132:132 + init_length]
-        minimum_gas = (PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS
-                       if kind == PROTOCOL_ROOT_SOURCE_TERMINAL_KIND else -1)
+        _ = gas_limit
         campaign = self.live
-        if (gas_limit < minimum_gas or campaign is None
-                or campaign.key != key or campaign.state != 1
+        if (campaign is None or campaign.key != key or campaign.state != 1
                 or now > campaign.expires_at
                 or campaign.source_infrastructure_in_progress != 0
                 or campaign.deployed_bitmap
@@ -22870,6 +22877,7 @@ EXECUTION_PROFILE_MAX_BYTES = (
     + ((EXECUTION_PROFILE_CODE_ARTIFACT_MAX_BYTES + 31) // 32) * 32
 )
 SETTLEMENT_VALIDITY_VERIFIER_CALL_ENVELOPE_GAS = 10_000
+SETTLEMENT_VALIDITY_VERIFIER_RETURN_COPY_GAS = 6
 SETTLEMENT_VALIDITY_VERIFIER_SELECTOR = keccak256(
     b"verify(bytes,uint256[2])"
 )[:4]
@@ -24409,9 +24417,8 @@ def _decode_model_activation_profile_v2(
         for word in words[146:158]
     )
     if (any(row == bytes(32) for row in hashes)
-            or selector != keccak256(
-                b"verifyMigrationTransition(bytes,uint256[2])"
-            )[:4]
+            or hashes[4] != MIGRATION_TRANSITION_STATEMENT_TYPEHASH
+            or selector != MIGRATION_TRANSITION_VERIFIER_SELECTOR
             or maximum_proof_bytes == 0
             or any(value == 0 for value in gas_values)):
         raise ValueError("execution profile activation fields are unsupported")
@@ -30760,6 +30767,36 @@ MIGRATION_VERIFIER_DESCRIPTOR_TYPE = (
 MIGRATION_VERIFIER_DESCRIPTOR_TYPEHASH = keccak256(
     MIGRATION_VERIFIER_DESCRIPTOR_TYPE.encode()
 )
+MIGRATION_TRANSITION_STATEMENT_TYPE = (
+    b"MigrationTransitionStatementV2(uint256 settlementChainId,"
+    b"address activeSettlementRouter,bytes32 routerRuntimeHash,"
+    b"bytes32 routerConfigurationHash,uint8 transitionKind,"
+    b"uint64 migrationGeneration,uint64 sourceProtocolVersion,"
+    b"uint64 targetProtocolVersion,uint64 sourceCanonicalSequence,"
+    b"bytes32 executionProfileHash,bytes32 targetManifestHash,"
+    b"bytes32 targetRegistrationHash,"
+    b"bytes32 candidateDigest,bytes32 baseCanonicalHash,"
+    b"bytes32 outputCanonicalHash,address forcedQueue,bytes32 queueRuntimeHash,"
+    b"bytes32 queueConfigurationHash,bytes32 queueRoot,uint64 queueCount,"
+    b"uint64 startCursor,uint64 endCursor,bytes32 forcedDescriptorCommitment,"
+    b"address proofBeneficiary,uint256 anchorNumber,bytes32 anchorHash,"
+    b"bytes32 forceRoot,uint64 forceCutoff,bytes32 sourceDomainId,"
+    b"uint64 sourceRegistrationEpoch,bytes32 sourceBridgeExecutionHash,"
+    b"bytes32 releaseSystemCalldataHash,bytes32 inboxSystemCalldataHash,"
+    b"bytes32 releaseSystemTxHash,bytes32 inboxSystemTxHash,"
+    b"uint8 releaseSystemTxPosition,uint8 inboxSystemTxPosition,"
+    b"bytes32 importedHeaderHash,bytes32 importedStateRoot,"
+    b"bytes32 legacySignalCheckpointHash,bytes32 legacyDeploymentHash,"
+    b"bytes32 legacyArmId,bytes32 legacyLaunchId,"
+    b"bytes32 deploymentCommitment,"
+    b"uint64 preInboxLastAppliedPlusOne,uint64 postInboxLastAppliedPlusOne)"
+)
+MIGRATION_TRANSITION_STATEMENT_TYPEHASH = keccak256(
+    MIGRATION_TRANSITION_STATEMENT_TYPE
+)
+MIGRATION_TRANSITION_VERIFIER_SELECTOR = keccak256(
+    b"verifyMigrationTransition(bytes,uint256[2])"
+)[:4]
 MIGRATION_VERIFIER_CONFIG_GETTER_GAS = 50_000
 MIGRATION_VERIFIER_CONFIG_GETTER_BYTES = 32
 
@@ -30817,9 +30854,11 @@ def settlement_validity_verifier_required_gas_v2(
             or not 0 < post_verification_reserve_gas
                 <= SETTLEMENT_VALIDITY_MAXIMUM_GAS):
         raise ValueError("Settlement validity verifier gas bounds are invalid")
-    return ((verification_gas_limit * 64 + 62) // 63
-            + post_verification_reserve_gas
-            + SETTLEMENT_VALIDITY_VERIFIER_CALL_ENVELOPE_GAS)
+    eip150_headroom = (verification_gas_limit + 62) // 63
+    return (verification_gas_limit
+            + max(eip150_headroom, post_verification_reserve_gas)
+            + SETTLEMENT_VALIDITY_VERIFIER_CALL_ENVELOPE_GAS
+            + SETTLEMENT_VALIDITY_VERIFIER_RETURN_COPY_GAS)
 
 
 def decode_settlement_validity_verifier_return_v2(
@@ -30996,16 +31035,18 @@ class TestSettlementValidityVerifierV2(ISettlementValidityVerifierV2):
 def migration_transition_verifier_configuration_hash(
     verifying_key_hash: str,
     proof_system_id: str = "groth16-bn254",
-    public_input_schema_hash: str = "schema:migration-transition:v1",
+    public_input_schema_hash: bytes | str = (
+        MIGRATION_TRANSITION_STATEMENT_TYPEHASH
+    ),
     maximum_proof_bytes: int = 65_536,
     verification_gas_limit: int = 2_000_000,
-    selector: bytes = keccak256(
-        b"verifyMigrationTransition(bytes,uint256[2])"
-    )[:4],
+    selector: bytes = MIGRATION_TRANSITION_VERIFIER_SELECTOR,
 ) -> str:
     if (not verifying_key_hash or not proof_system_id
             or not public_input_schema_hash
-            or type(selector) is not bytes or len(selector) != 4
+            or _model_fixed_bytes32(public_input_schema_hash)
+                != MIGRATION_TRANSITION_STATEMENT_TYPEHASH
+            or selector != MIGRATION_TRANSITION_VERIFIER_SELECTOR
             or not 0 < maximum_proof_bytes <= UINT32_MAX
             or not 0 < verification_gas_limit <= UINT64_MAX):
         raise ValueError("migration verifier configuration is invalid")
@@ -31113,7 +31154,7 @@ class MigrationTransitionVerifierDescriptor:
     configuration_hash: str
     verifying_key_hash: str
     proof_system_id: str
-    public_input_schema_hash: str
+    public_input_schema_hash: bytes | str
     maximum_proof_bytes: int
     verification_gas_limit: int
     selector: bytes
@@ -31141,10 +31182,11 @@ class MigrationTransitionVerifierDescriptor:
             and bool(self.runtime_hash)
             and bool(self.verifying_key_hash)
             and bool(self.proof_system_id)
-            and bool(self.public_input_schema_hash)
+            and _model_fixed_bytes32(self.public_input_schema_hash)
+                == MIGRATION_TRANSITION_STATEMENT_TYPEHASH
             and 0 < self.maximum_proof_bytes <= MAX_MIGRATION_PROOF_BYTES
             and 0 < self.verification_gas_limit <= 30_000_000
-            and type(self.selector) is bytes and len(self.selector) == 4
+            and self.selector == MIGRATION_TRANSITION_VERIFIER_SELECTOR
             and self.nonproxy
             and self.configuration_hash
                 == migration_transition_verifier_configuration_hash(
@@ -31800,6 +31842,14 @@ def _validate_execution_profile_value_words_v2(
     if _decode_uint_word_v1(words[0], 64, "schemaVersion") \
             != EXECUTION_PROFILE_SCHEMA_VERSION:
         raise ValueError("ExecutionProfileV2 schema version is unsupported")
+    migration_selector = _decode_bytes4_word_v1(
+        words[144], "migrationTransitionVerifierSelector"
+    )
+    if (words[143] != MIGRATION_TRANSITION_STATEMENT_TYPEHASH
+            or migration_selector != MIGRATION_TRANSITION_VERIFIER_SELECTOR):
+        raise ValueError(
+            "migration transition statement schema or selector is unsupported"
+        )
     protocol_version = _decode_uint_word_v1(
         words[1], 64, "protocolVersion"
     )
@@ -32478,10 +32528,8 @@ def canonical_execution_profile_cross_model_fixture_v2() -> bytes:
         + _model_uint(len(compile_bytes), 2, "compile-time rule bytes")
         + compile_bytes
     )
-    words[144] = (
-        keccak256(b"verifyMigrationTransition(bytes,uint256[2])")[:4]
-        + bytes(28)
-    )
+    words[143] = MIGRATION_TRANSITION_STATEMENT_TYPEHASH
+    words[144] = MIGRATION_TRANSITION_VERIFIER_SELECTOR + bytes(28)
     words[147] = _model_uint(
         30_000_000, 32, "supported L1 block gas limit"
     )
@@ -33026,7 +33074,7 @@ def execution_profile_for_test(
     address = f"migration-transition-verifier:{revision}"
     runtime_hash = f"code:migration-transition-verifier:{revision}"
     verifying_key_hash = f"vk:migration-transition:{revision}"
-    schema_hash = f"schema:migration-transition:{revision}"
+    schema_hash = MIGRATION_TRANSITION_STATEMENT_TYPEHASH
     descriptor = MigrationTransitionVerifierDescriptor(
         address,
         runtime_hash,
@@ -33039,7 +33087,7 @@ def execution_profile_for_test(
         schema_hash,
         65_536,
         2_000_000,
-        keccak256(b"verifyMigrationTransition(bytes,uint256[2])")[:4],
+        MIGRATION_TRANSITION_VERIFIER_SELECTOR,
     )
     verifier = TestMigrationTransitionVerifier(descriptor)
     validity_verifying_key_hash = f"vk:settlement-validity:{revision}"

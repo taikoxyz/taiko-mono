@@ -1098,7 +1098,7 @@ After all nine bits are set but before finalization, anyone must ensure the
 single root-lifetime Source terminal artifact through the same Factory:
 \begin{verbatim}
 ensureSourceInfrastructureV1(bytes32 campaignKey,uint8 kind,bytes initCode)
-  selector 0xf95ec7e4; kind=1 only; value=0; minimum gas=2375000
+  selector 0xf95ec7e4; kind=1 only; value=0; certified cold CALL budget=2375000
 protocolRootSourceInfrastructureV1(bytes32 campaignKey,uint8 kind)
   selector 0x43b610d6; calldata 68; gas=100000; return 320 bytes / PSV1
 \end{verbatim}
@@ -1120,9 +1120,23 @@ bytes and CREATE2 must succeed.  A balance-only prefund is retained; a nonzero
 nonce/code collision fails under EIP-684.  If exact code already exists,
 \code{initCode} must instead be empty.  Reuse with nonempty bytes and every
 inexact code, configuration, selector-only STF1 return or ERC-2470 returned
-address fail.  The deployment call uses 2,000,000 gas and reserves 300,000 gas
-for postchecks within a fixed 75,000-gas outer envelope; any failure rolls back
-the account, in-progress word, bitmap and receipt together.
+address fail.  On the absent-code branch, 2,000,000 is the exact ERC-2470 CALL
+gas operand.  Before that CALL the Factory must prove that EIP-150 cannot
+reduce the operand; after status checking and exact 32-byte return validation
+and copying, at least 300,000 gas must remain for postchecks.  Insufficient gas
+or any later failure rolls back the account, in-progress word, bitmap and
+receipt together.
+
+The 75,000-gas call-overhead field is a release-certificate allowance for the
+compiled maximum-size cold path, not an on-chain \code{gasleft()} admission
+threshold.  It derives a 2,375,000-gas CALL operand for a conforming caller of
+\code{ensureSourceInfrastructureV1}; release conformance must measure that the
+canonical maximum-size cold invocation succeeds within this budget.  A direct
+transaction gas limit is a different quantity because it also covers intrinsic
+and calldata gas.  Exact-code reuse makes no ERC-2470 call and need not receive
+the cold-path budget.  Solidity dispatch cannot observe the caller's original
+CALL operand, so the Factory must not emulate this certificate with a
+compiler-dependent entry \code{gasleft()} threshold.
 
 Success returns exactly 256 bytes
 \begin{verbatim}
@@ -2994,8 +3008,9 @@ than the descriptor bound.  Settlement builds the complete calldata before
 measuring gas and warms the verifier through EXTCODEHASH.  It then requires
 \begin{verbatim}
 gasleft() >= verificationGasLimit
-          + ceil(verificationGasLimit / 63)
-          + postVerificationReserveGas + 10000
+          + max(ceil(verificationGasLimit / 63),
+                postVerificationReserveGas)
+          + 10000 + 3 + 3 * ceil(32 / 32)
 \end{verbatim}
 with checked arithmetic, performs one gas-bounded STATICCALL with zero output
 area, checks RETURNDATASIZE before copying exactly 32 bytes, and after that copy
@@ -3003,10 +3018,13 @@ requires at least \code{postVerificationReserveGas} remains.  Revert, OOG,
 short/trailing/oversized returndata, a Boolean-shaped value, or a returned word
 different from the reconstructed statement hash rejects before any canonical
 state write.  Revert data and unexpected returndata are never copied.  The
-10,000-gas envelope and post-verification reserve are release-calibrated against
-the complete remaining success and rejection suffix; threshold and
+10,000-gas fixed envelope, explicit RETURNDATACOPY base/word charge and
+post-verification reserve are release-calibrated against the complete remaining
+success and rejection suffix.  EIP-150 headroom and the post-copy reserve are
+concurrent lower bounds on retained caller gas, so their maximum rather than
+their sum is required; threshold and
 threshold-minus-one measurements are release gates.  Profile validation also
-requires the complete checked preflight sum above to be no greater than the
+requires the complete checked preflight bound above to be no greater than the
 same profile's nonzero \code{supportedL1BlockGasLimit}; independent release
 measurement must leave the general 30\% transaction headroom required below.
 
