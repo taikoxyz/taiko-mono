@@ -1400,9 +1400,23 @@ def registration_mpt_verifier_configuration_hash(
         raise AssertionError("registration verifier config ABI width drifted")
     return keccak256(encoded).hex()
 
-MAX_LIABILITY_RESIDENCE_WINDOWS = (
-    MAX_TRANCHE_AHEAD_WINDOWS + 1
-    + (EVIDENCE_DELAY_SECONDS + REORG_MARGIN_SECONDS + 383) // 384 + 2
+def maximum_liability_residence_windows_v1(
+    evidence_delay_seconds: int, reorg_margin_seconds: int,
+) -> int:
+    """Return the exact launch-bound residence for one displaced generation."""
+
+    if any(type(value) is not int or not 0 <= value <= UINT64_MAX for value in (
+            evidence_delay_seconds, reorg_margin_seconds)):
+        raise ValueError("liability residence inputs are outside uint64")
+    return (
+        MAX_TRANCHE_AHEAD_WINDOWS + 1
+        + (evidence_delay_seconds + reorg_margin_seconds + 383) // 384
+        + 2
+    )
+
+
+MAX_LIABILITY_RESIDENCE_WINDOWS = maximum_liability_residence_windows_v1(
+    EVIDENCE_DELAY_SECONDS, REORG_MARGIN_SECONDS
 )
 RESERVATION_EVIDENCE_RETENTION_WINDOWS = (
     1 + (EVIDENCE_DELAY_SECONDS + REORG_MARGIN_SECONDS + 383) // 384 + 2
@@ -4566,8 +4580,9 @@ BUILDER_REGISTRY_FACET_SCHEMA = 1
 BUILDER_REGISTRY_FACET_MAXIMUM_RUNTIME_BYTES = 24_576
 BUILDER_REGISTRY_FACET_CONFIG_MAGIC = b"BRF1"
 BUILDER_REGISTRY_STORAGE_LAYOUT_ENTRY_COUNT = 53
+BUILDER_REGISTRY_STORAGE_LAYOUT_NORMALIZED_BYTES = 9_549
 BUILDER_REGISTRY_STORAGE_LAYOUT_HASH_V1 = bytes.fromhex(
-    "e9530d93d58f89bfc204b96dd4063445b3c2823458ae18e8580c8436f3853930"
+    "5b676bdd8dd5b37f6353a4b46a59d7d24f6b0cc66b28cf1222b3deafe36402bd"
 )
 BUILDER_REGISTRY_FACET_SALT_DOMAIN = \
     b"slot-chain-builder-registry-lifecycle-facet-salt-v1"
@@ -9894,6 +9909,9 @@ class RegistryLifecycle:
                 or type(self.first_managed_window) is not int
                 or not 0 <= self.first_managed_window
                 <= self.last_managed_window
+                or maximum_liability_residence_windows_v1(
+                    self.evidence_delay_seconds, self.reorg_margin_seconds
+                ) >= MAX_LIVE_WINDOWS
                 or len(self.active) > 64
                 or len(self.liability_ring) != MAX_LIABILITY_GENERATIONS
                 or type(self.lease_per_window_atomic) is not int
