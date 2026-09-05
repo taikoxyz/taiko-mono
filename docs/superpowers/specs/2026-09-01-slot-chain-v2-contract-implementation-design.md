@@ -112,7 +112,7 @@ The conformance ledger is seeded from the following explicit inventory. A later 
 row into libraries and interfaces, but it may not omit, merge, or replace a deployable or
 creation-only boundary with a catch-all label.
 
-The root build contains exactly eighteen artifacts from one release-pinned compiler invocation and
+The root build contains exactly nineteen artifacts from one release-pinned compiler invocation and
 one `layer1` artifact-owner profile:
 
 | Root artifact | Root role / lifecycle |
@@ -120,6 +120,7 @@ one `layer1` artifact-owner profile:
 | `RootMigrationExecutorV1` | Permanent bootstrap authority; independently deployed and one-shot consumed. |
 | `ProtocolRootFactoryV1` | Permanent immutable root factory. |
 | `ProtocolRootCreate3ProxyV1` | Fixed CREATE3 proxy creation and runtime artifact embedded by the factory. |
+| `BuilderRegistryProofVerifierV1` | Independently ERC-2470-deployed, root-lifetime, stateless proof verifier pinned by Factory and BuilderRegistry; not a component role. |
 | `BuilderRegistry` | Root role 1; protocol-lifetime. |
 | `ScheduleOracle` | Root role 2; protocol-lifetime. |
 | `ProtocolChangeTimelockV1` | Root role 3; protocol-lifetime. |
@@ -136,7 +137,7 @@ one `layer1` artifact-owner profile:
 | Source native `QuotaManager` | Additional role-9-reachable artifact; release-scoped instances. |
 | `SourceTerminalVerifier` / `TerminalSignalVerifier` | Two normative names for the same immutable, read-only, unpausable root-lifetime artifact. |
 
-`SourceBundleFactory` occurs once in the eighteen-artifact count even though both the role manifest
+`SourceBundleFactory` occurs once in the nineteen-artifact count even though both the role manifest
 and source-artifact root commit it. The two commitments must resolve to byte-identical creation and
 runtime code. The terminal verifier is deployed once as root source infrastructure, and its
 address, runtime and configuration repeat across every release; it is never a fresh bundle child.
@@ -200,8 +201,8 @@ The artifact and address ownership classes are:
 | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | Types, interfaces, constants, and internal-only encodings, trees, proof/call libraries                                                                  | Both                | `source-inline`; canonical shared source hash; compile only in allowlisted consuming profiles                              | No independent deployed address or runtime; consumers contain the inlined code and must have zero link references to the module.         |
 | Chain-neutral deployables                                                                                                                               | Both                | `artifact-owned` by `shared`, `out/shared`, oldest supported fork; cross-profile use loads bytecode or a source-inline ABI | Exactly one creation/runtime artifact owner. A deployed object's manifest scope determines address reuse.                                |
-| Complete eighteen-artifact root set listed above                                                                                                      | L1                  | One release-pinned compiler invocation; `artifact-owned` only by `layer1`, `out/layer1`; no shared or mixed-profile exception | Root-lifetime objects repeat address/runtime/configuration; release-scoped members use fresh instances as specified.                      |
-| Settlement, kind-0 ingress and source bundle release-scoped instances                                                                                  | L1                  | `artifact-owned` by `layer1`; an artifact in the eighteen-root set can never be sourced from `shared` or another profile   | Fresh release-scoped accounts. Historical accounts serve only retained liabilities/proofs and never become current again.                |
+| Complete nineteen-artifact root set listed above                                                                                                      | L1                  | One release-pinned compiler invocation; `artifact-owned` only by `layer1`, `out/layer1`; no shared or mixed-profile exception | Root-lifetime objects repeat address/runtime/configuration; release-scoped members use fresh instances as specified.                      |
+| Settlement, kind-0 ingress and source bundle release-scoped instances                                                                                  | L1                  | `artifact-owned` by `layer1`; an artifact in the nineteen-root set can never be sourced from `shared` or another profile   | Fresh release-scoped accounts. Historical accounts serve only retained liabilities/proofs and never become current again.                |
 | InboxApplyRouterV2, ProtocolReleaseAuthorityV2, TerminalDomainRegistrarV2, TerminalAccumulatorV2 and NativeLiquidityPoolV2                              | L2                  | `artifact-owned` by `layer2`, `out/layer2`                                                                                 | Protocol-lifetime objects; successors repeat address/runtime/configuration and preserve cursor/routes/releases/writers/tickets/frontier. |
 | InboxCreditStoreV2, DestinationBridgeV2 and native QuotaManager                                                                                         | L2                  | `artifact-owned` by `layer2`, `out/layer2`; no shared-output fallback                                                       | Fresh release-scoped accounts and endpoint domain. Reuse is forbidden even when code is identical.                                       |
 | Frozen legacy facades and AnchorV4                                                                                                                      | Owning legacy chain | `artifact-owned` by the manifest-named profile; compiled artifact hash recorded before installation tests                  | Installation is exercised only in isolated migration tests. This PR does not select it on the production path.                           |
@@ -233,6 +234,16 @@ conventions, custom errors, and the required security contact.
 The L1 data plane contains the immutable economic profile, builder registry and liability
 generations, schedule/lookahead oracle, bounded data sessions, permanent forced queue, and the
 continuous reverse-ask `AggregatorSeatMarket`.
+
+`BuilderRegistry` is the sole state, token-custody, root, locator, replay, counter, credit, and
+commit authority. Its exact static 39-word `BuilderRegistryConstructorV1` tuple follows the three
+root-activation arguments. One independently ERC-2470-deployed
+`BuilderRegistryProofVerifierV1` contains only deterministic signed-header and fixed-tree proof
+computation. Registry reaches it solely by configuration-authenticated exact `STATICCALL`; the
+verifier has no state, callback, arbitrary target, delegatecall, value, or mutation path. Factory
+pins its init-code/runtime/configuration and derived address separately. The exact ABI, opcodes,
+commitments, gas gates, code-size margins, and rejected alternatives are frozen in
+`2026-09-06-builder-registry-proof-verifier-design.md` and the normative LaTeX.
 
 The seat is an availability service obligation, never consensus or proof authority. The market
 owns offers, tranches, premium reserves, pull credits, staged handovers, release requests, and
@@ -301,7 +312,7 @@ configuration hashes, storage layouts, creation artifacts, component DAGs, and r
 transcripts.
 
 The kind-0 adapter is a fresh release-scoped ERC-2470 deployment, not a
-`SourceBundleFactory` child and not part of the frozen eighteen-artifact root cohort. The execution
+`SourceBundleFactory` child and not part of the frozen nineteen-artifact root cohort. The execution
 profile sole dynamic bytes field is the exact two-artifact bundle containing Settlement and
 kind-0 creation/runtime bytes. Profile-fixed creation, salt, complete-initcode, runtime and
 configuration hashes let ProtocolVersionManager recompute the constructor tail and CREATE2 address
@@ -424,7 +435,7 @@ The detailed plan replaces the stale September 1 round list with these gated cap
 0. synchronize the stacked base, remove provisional/dead code, repair CI and establish the v2.27
    conformance ledger;
 1. revalidate shared encodings, trees, signatures, exact-call, RLP/MPT, economics and custody
-   primitives against all 812 model vectors;
+   primitives against all 843 model vectors;
 2. revalidate root CREATE2/CREATE3 bootstrap, the nine-role manifest, component factories and
    activation receipts, including every first/last deployment and collision boundary;
 3. implement BuilderRegistry, liability generations, ScheduleOracle, data sessions and ForcedQueue;
