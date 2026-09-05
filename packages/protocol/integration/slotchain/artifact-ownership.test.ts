@@ -9,6 +9,7 @@ import {
     ArtifactUsage,
     bytecodeHash,
     canonicalHash,
+    FROZEN_ROOT_COHORT_V1,
     loadOwnedArtifact,
     OwnershipError,
     OwnershipManifest,
@@ -190,8 +191,14 @@ function validFixture(): Fixture {
         requiredConsumerProfiles: [],
     };
     const manifest: OwnershipManifest = {
-        schemaVersion: 1,
+        schemaVersion: 2,
         slotChainPathSegment: "/slotchain/",
+        rootCohort: {
+            status: "planned",
+            ownerProfile: "layer1",
+            expectedArtifactCount: 18,
+            artifacts: [...FROZEN_ROOT_COHORT_V1],
+        },
         profiles: {
             default: profile("out", false, { ast: false, buildInfo: false }),
             genesis: profile("out/genesis", false, {
@@ -565,6 +572,137 @@ function addUsage(fixture: Fixture): void {
     fixture.manifest.usages.push(usage);
 }
 
+function makeAbstractBase(fixture: Fixture): SourceInlineModule {
+    const owned = fixture.manifest.modules[0] as ArtifactOwnedModule;
+    const contents = "abstract contract Owned {}\n";
+    fs.writeFileSync(path.join(fixture.root, fixture.sourcePath), contents);
+    const inline: SourceInlineModule = {
+        ownership: "source-inline",
+        sourcePath: owned.sourcePath,
+        contractName: owned.contractName,
+        kind: "abstract-base",
+        sourceHash: sourceHash(contents),
+        abiHash: owned.abiHash,
+        allowedProfiles: ["shared"],
+        requiredProfiles: ["shared"],
+    };
+    fixture.manifest.modules[0] = inline;
+    mutateArtifact(fixture, (artifact) => {
+        artifact.bytecode.object = "0x";
+        artifact.deployedBytecode.object = "0x";
+        artifact.ast.nodes[0].contractKind = "contract";
+        artifact.ast.nodes[0].abstract = true;
+        artifact.metadata.sources[fixture.sourcePath].keccak256 =
+            inline.sourceHash;
+    });
+    mutateBuildInfo(fixture, "shared", (value) => {
+        const artifact = readArtifact(fixture);
+        value.input.sources[fixture.sourcePath].content = contents;
+        value.output.sources[fixture.sourcePath].ast = artifact.ast;
+        value.output.contracts[fixture.sourcePath].Owned =
+            compilerContract(artifact);
+    });
+    return inline;
+}
+
+function completeRootCohortFixture(splitAt?: number): Fixture {
+    const fixture = validFixture();
+    fixture.manifest.rootCohort.status = "complete";
+    const layer1Sources: Record<
+        string,
+        { content: string; ast: Record<string, any> }
+    > = {};
+    const layer1Contracts: Record<
+        string,
+        Record<string, Record<string, any>>
+    > = {};
+
+    for (const id of FROZEN_ROOT_COHORT_V1) {
+        const separator = id.lastIndexOf(":");
+        const sourcePath = id.slice(0, separator);
+        const contractName = id.slice(separator + 1);
+        const contents = `contract ${contractName} {}\n`;
+        const artifactPath = `out/layer1/${path.posix.basename(
+            sourcePath,
+        )}/${contractName}.json`;
+        const artifact = clone(readArtifact(fixture));
+        artifact.metadata.settings.compilationTarget = {
+            [sourcePath]: contractName,
+        };
+        artifact.metadata.sources = {
+            [sourcePath]: { keccak256: sourceHash(contents) },
+        };
+        artifact.ast.nodes[0].name = contractName;
+        fs.mkdirSync(path.join(fixture.root, path.dirname(sourcePath)), {
+            recursive: true,
+        });
+        fs.writeFileSync(path.join(fixture.root, sourcePath), contents);
+        writeJson(path.join(fixture.root, artifactPath), artifact);
+        fixture.manifest.modules.push({
+            ownership: "artifact-owned",
+            sourcePath,
+            contractName,
+            ownerProfile: "layer1",
+            artifactPath,
+            sourceHash: sourceHash(contents),
+            abiHash: canonicalHash(artifact.abi),
+            creationCodeHash: bytecodeHash(artifact.bytecode.object),
+            runtimeCodeHash: bytecodeHash(artifact.deployedBytecode.object),
+            creationLinkReferencesHash: canonicalHash(
+                artifact.bytecode.linkReferences,
+            ),
+            runtimeLinkReferencesHash: canonicalHash(
+                artifact.deployedBytecode.linkReferences,
+            ),
+            immutableReferencesHash: canonicalHash(
+                artifact.deployedBytecode.immutableReferences,
+            ),
+            consumptionModes: [],
+            factoryClass: "erc-2470-singleton",
+            artifactScope: "root-cohort",
+            addressReusePolicy: "protocol-lifetime",
+            retentionPolicy: "permanent",
+            requiredConsumerProfiles: [],
+        });
+        layer1Sources[sourcePath] = { content: contents, ast: artifact.ast };
+        layer1Contracts[sourcePath] = {
+            [contractName]: compilerContract(artifact),
+        };
+    }
+
+    const sourceEntries = Object.entries(layer1Sources);
+    const contractEntries = Object.entries(layer1Contracts);
+    const writeCohortBuild = (
+        fileName: string,
+        sourceSlice: typeof sourceEntries,
+        contractSlice: typeof contractEntries,
+    ): void => {
+        writeJson(
+            path.join(fixture.root, `out/layer1/build-info/${fileName}`),
+            buildInfo(
+                fixture.manifest.profiles.layer1,
+                Object.fromEntries(sourceSlice),
+                Object.fromEntries(contractSlice),
+            ),
+        );
+    };
+    if (splitAt === undefined) {
+        writeCohortBuild("layer1.json", sourceEntries, contractEntries);
+    } else {
+        writeCohortBuild(
+            "layer1.json",
+            sourceEntries.slice(0, splitAt),
+            contractEntries.slice(0, splitAt),
+        );
+        writeCohortBuild(
+            "split.json",
+            sourceEntries.slice(splitAt),
+            contractEntries.slice(splitAt),
+        );
+    }
+    return fixture;
+}
+
 run("ownership checker rebuilds after all executable tests", () => {
     const packageJson = JSON.parse(
         fs.readFileSync(path.resolve(__dirname, "../../package.json"), "utf8"),
@@ -574,7 +712,7 @@ run("ownership checker rebuilds after all executable tests", () => {
         /^pnpm compile:shared && pnpm compile:l1 && pnpm compile:l2 && /,
     );
     assert.equal(
-        packageJson.scripts["slotchain:ownership:ci"].endsWith(
+        packageJson.scripts["slotchain:ownership:ci"].includes(
             "pnpm slotchain:artifact-owner:check",
         ),
         true,
@@ -590,6 +728,106 @@ run("valid manifest is deterministic", () => {
     );
     assert.equal(first.digest, second.digest);
     assert.equal(first.modules.length, 1);
+});
+
+run("root cohort membership rejects a missing frozen artifact", () => {
+    const fixture = validFixture();
+    fixture.manifest.rootCohort.artifacts.pop();
+    expectCode("ROOT_COHORT_MEMBERSHIP_MISMATCH", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+});
+
+run("root cohort membership rejects an extra artifact", () => {
+    const fixture = validFixture();
+    fixture.manifest.rootCohort.artifacts.push(
+        "contracts/layer1/slotchain/impl/Unexpected.sol:Unexpected",
+    );
+    expectCode("ROOT_COHORT_MEMBERSHIP_MISMATCH", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+});
+
+run("root cohort membership rejects a duplicate artifact", () => {
+    const fixture = validFixture();
+    fixture.manifest.rootCohort.artifacts[17] =
+        fixture.manifest.rootCohort.artifacts[0];
+    expectCode("DUPLICATE_VALUE", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+});
+
+run("complete root cohort rejects missing module declarations", () => {
+    const fixture = validFixture();
+    fixture.manifest.rootCohort.status = "complete";
+    expectCode("ROOT_COHORT_MEMBER_MISSING", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+});
+
+run("root cohort rejects an unlisted scoped module", () => {
+    const fixture = validFixture();
+    const module = fixture.manifest.modules[0] as ArtifactOwnedModule;
+    module.factoryClass = "erc-2470-singleton";
+    module.lifecycleScope = undefined;
+    module.artifactScope = "root-cohort";
+    module.addressReusePolicy = "protocol-lifetime";
+    module.retentionPolicy = "permanent";
+    expectCode("ROOT_COHORT_UNLISTED_MEMBER", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+});
+
+run("root cohort rejects a non-layer1 present member", () => {
+    const fixture = validFixture();
+    const template = clone(fixture.manifest.modules[0]) as ArtifactOwnedModule;
+    const id = FROZEN_ROOT_COHORT_V1[0];
+    const separator = id.lastIndexOf(":");
+    template.sourcePath = id.slice(0, separator);
+    template.contractName = id.slice(separator + 1);
+    template.factoryClass = "erc-2470-singleton";
+    template.lifecycleScope = undefined;
+    template.artifactScope = "root-cohort";
+    template.addressReusePolicy = "protocol-lifetime";
+    template.retentionPolicy = "permanent";
+    fixture.manifest.modules.push(template);
+    expectCode("ROOT_COHORT_MEMBER_NOT_DEPLOYABLE", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+});
+
+run("complete root cohort accepts one layer1 build-info invocation", () => {
+    const fixture = completeRootCohortFixture();
+    validateArtifactOwnership(fixture.root, fixture.manifest);
+});
+
+run("root cohort rejects a source-inline member", () => {
+    const fixture = completeRootCohortFixture();
+    const id = FROZEN_ROOT_COHORT_V1[0];
+    const index = fixture.manifest.modules.findIndex(
+        (module) => `${module.sourcePath}:${module.contractName ?? ""}` === id,
+    );
+    const owned = fixture.manifest.modules[index] as ArtifactOwnedModule;
+    fixture.manifest.modules[index] = {
+        ownership: "source-inline",
+        sourcePath: owned.sourcePath,
+        contractName: owned.contractName,
+        kind: "abstract-base",
+        sourceHash: owned.sourceHash,
+        abiHash: owned.abiHash,
+        allowedProfiles: ["layer1"],
+        requiredProfiles: ["layer1"],
+    };
+    expectCode("ROOT_COHORT_MEMBER_NOT_DEPLOYABLE", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+});
+
+run("complete root cohort rejects split build-info provenance", () => {
+    const fixture = completeRootCohortFixture(9);
+    expectCode("ROOT_COHORT_SPLIT_BUILD", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
 });
 
 run("build-info format drift fails", () => {
@@ -1062,6 +1300,32 @@ run("bytecode drift fails", () => {
     );
 });
 
+run("artifact-owned module rejects empty creation bytecode", () => {
+    const fixture = validFixture();
+    const module = fixture.manifest.modules[0] as ArtifactOwnedModule;
+    mutateArtifact(fixture, (artifact) => {
+        artifact.bytecode.object = "0x";
+    });
+    syncSharedCompilerOutput(fixture);
+    module.creationCodeHash = bytecodeHash("0x");
+    expectCode("EMPTY_ARTIFACT_CREATION_BYTECODE", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+});
+
+run("artifact-owned module rejects empty runtime bytecode", () => {
+    const fixture = validFixture();
+    const module = fixture.manifest.modules[0] as ArtifactOwnedModule;
+    mutateArtifact(fixture, (artifact) => {
+        artifact.deployedBytecode.object = "0x";
+    });
+    syncSharedCompilerOutput(fixture);
+    module.runtimeCodeHash = bytecodeHash("0x");
+    expectCode("EMPTY_ARTIFACT_RUNTIME_BYTECODE", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+});
+
 run("hash drift aggregates all modules and fields deterministically", () => {
     const fixture = validFixture();
     const first = fixture.manifest.modules[0] as ArtifactOwnedModule;
@@ -1164,11 +1428,11 @@ run("factory mismatch fails", () => {
     );
 });
 
-run("lifecycle mismatch fails", () => {
+run("deployment semantics mismatch fails", () => {
     const fixture = validFixture();
     addUsage(fixture);
-    fixture.manifest.usages[0].lifecycleScope = "release-scoped";
-    expectCode("LIFECYCLE_SCOPE_MISMATCH", () =>
+    fixture.manifest.usages[0].lifecycleScope = undefined;
+    expectCode("DEPLOYMENT_SEMANTICS_MISMATCH", () =>
         validateArtifactOwnership(fixture.root, fixture.manifest),
     );
 });
@@ -1213,6 +1477,53 @@ run("missing required usage fails", () => {
     module.consumptionModes = ["abi-interface"];
     module.requiredConsumerProfiles = ["layer1"];
     expectCode("MISSING_REQUIRED_USAGE", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+});
+
+run("source-inline abstract base accepts abstract empty bytecode", () => {
+    const fixture = validFixture();
+    makeAbstractBase(fixture);
+    const inventory = validateArtifactOwnership(fixture.root, fixture.manifest);
+    assert.equal(inventory.modules[0].ownership, "source-inline");
+});
+
+run("source-inline abstract base rejects a concrete contract", () => {
+    const fixture = validFixture();
+    makeAbstractBase(fixture);
+    mutateArtifact(fixture, (artifact) => {
+        artifact.ast.nodes[0].abstract = false;
+    });
+    syncSharedCompilerOutput(fixture);
+    expectCode("SOURCE_INLINE_KIND_MISMATCH", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+});
+
+run("source-inline abstract base rejects deployable bytecode", () => {
+    const fixture = validFixture();
+    makeAbstractBase(fixture);
+    mutateArtifact(fixture, (artifact) => {
+        artifact.bytecode.object = "0x6000";
+    });
+    syncSharedCompilerOutput(fixture);
+    expectCode("ADDRESSABLE_SOURCE_INLINE", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+});
+
+run("source-inline abstract base cannot appear in a usage", () => {
+    const fixture = validFixture();
+    const inline = makeAbstractBase(fixture);
+    fixture.manifest.usages.push({
+        module: `${inline.sourcePath}:${inline.contractName}`,
+        consumerModule: `${inline.sourcePath}:${inline.contractName}`,
+        consumerProfile: "shared",
+        modes: ["abi-interface"],
+        factoryClass: "direct-create-test",
+        lifecycleScope: "test-only",
+    });
+    expectCode("SOURCE_INLINE_USAGE", () =>
         validateArtifactOwnership(fixture.root, fixture.manifest),
     );
 });

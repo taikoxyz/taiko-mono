@@ -37,6 +37,8 @@ contract FactoryRoleMock {
     bytes private _rootView;
     uint8 private _activationState;
     bool private _failActivation;
+    bool private _attemptFinalizationReentry;
+    bytes4 private _expectedReentryError;
 
     constructor(
         address _factoryAddress,
@@ -68,11 +70,24 @@ contract FactoryRoleMock {
         return (_PRA1, _factory, _campaignKey, _activationState);
     }
 
+    function configureFinalizationReentry(bytes4 _expectedError) external {
+        _attemptFinalizationReentry = true;
+        _expectedReentryError = _expectedError;
+    }
+
     function activateProtocolRootV1(bytes32 _key) external returns (bytes4 magic_) {
         if (msg.sender != _factory || _key != _campaignKey || _activationState != 0) {
             revert InvalidActivation();
         }
         _activationState = 1;
+        if (_attemptFinalizationReentry) {
+            (bool success, bytes memory returndata) = _factory.call{
+                gas: 8000
+            }(abi.encodeCall(IProtocolRootFactoryV1.finalizeProtocolRootV1, (_campaignKey)));
+            if (success || returndata.length < 4 || bytes4(returndata) != _expectedReentryError) {
+                revert UnexpectedFinalizationReentryResult();
+            }
+        }
         if (_failActivation) return bytes4(0);
         return _RAA1;
     }
@@ -88,6 +103,7 @@ contract FactoryRoleMock {
     error DeploymentClosed();
     error InvalidActivation();
     error InvalidRootView();
+    error UnexpectedFinalizationReentryResult();
 }
 
 contract ProtocolRootFactoryV1Test is Test {
@@ -104,6 +120,9 @@ contract ProtocolRootFactoryV1Test is Test {
     bytes4 private constant _PCT1_SELECTOR = 0xb80095ca;
     bytes4 private constant _PVM1_SELECTOR = 0x4deb7821;
     bytes4 private constant _EXECUTOR_CONFIRM_SELECTOR = 0xb1372f22;
+    bytes4 private constant _ACTIVATE_SELECTOR = 0x74e3aa45;
+    bytes4 private constant _FINALIZATION_REENTRY_ERROR =
+        bytes4(keccak256("ProtocolRootFinalizationReentry()"));
     uint8 private constant _MUTATE_PCT_DAO = 1;
     uint8 private constant _MUTATE_PCT_DOMAIN = 2;
     uint8 private constant _MUTATE_PVM_TIMELOCK = 3;
@@ -333,6 +352,41 @@ contract ProtocolRootFactoryV1Test is Test {
         _assertAllActivationStates(1);
     }
 
+    function test_finalizeProtocolRootV1_FirstRoleCallbackObservesDedicatedReentryRejection()
+        external
+    {
+        _assertFinalizationReentryRejected(0);
+    }
+
+    function test_finalizeProtocolRootV1_LastRoleCallbackObservesDedicatedReentryRejection()
+        external
+    {
+        _assertFinalizationReentryRejected(8);
+    }
+
+    function test_finalizeProtocolRootV1_ReentrantCallbackFailureRollsBackAndCanRetry() external {
+        _stage();
+        _deployAll();
+        FactoryRoleMock(_component[8]).configureFinalizationReentry(bytes4(0xdeadbeef));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LibRootBootstrapV1.BootstrapExternalCallFailed.selector,
+                _component[8],
+                _ACTIVATE_SELECTOR
+            )
+        );
+        _factory.finalizeProtocolRootV1(_campaignKey);
+        _assertAllActivationStates(0);
+        (,,,, uint8 state,,,,) = _factory.protocolRootCampaignV1(_campaignKey);
+        assertEq(state, 1);
+
+        FactoryRoleMock(_component[8]).configureFinalizationReentry(_FINALIZATION_REENTRY_ERROR);
+        bytes32 receipt = _factory.finalizeProtocolRootV1(_campaignKey);
+        assertTrue(receipt != bytes32(0));
+        _assertAllActivationStates(1);
+    }
+
     function test_finalizeProtocolRootV1_RevertWhen_FirstManagedIsMaxOrBelowRunway() external {
         _configureFixture(type(uint64).max, 0, 0);
         _stage();
@@ -495,6 +549,18 @@ contract ProtocolRootFactoryV1Test is Test {
             (,,, uint8 state) = FactoryRoleMock(_component[i]).protocolRootActivationV1();
             assertEq(state, _expected);
         }
+    }
+
+    function _assertFinalizationReentryRejected(uint256 _componentIndex) private {
+        _stage();
+        _deployAll();
+        FactoryRoleMock(_component[_componentIndex])
+            .configureFinalizationReentry(_FINALIZATION_REENTRY_ERROR);
+
+        bytes32 receipt = _factory.finalizeProtocolRootV1(_campaignKey);
+
+        assertTrue(receipt != bytes32(0));
+        _assertAllActivationStates(1);
     }
 
     function _configureFixture(

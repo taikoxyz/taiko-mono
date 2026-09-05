@@ -93,6 +93,7 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
     uint64 private _nextGeneration;
     bytes32 private _liveCampaignKey;
     bytes32 private _activeRootReceipt;
+    uint8 private _finalizationLock;
     mapping(bytes32 campaignKey => Campaign campaign) private _campaigns;
     mapping(bytes32 campaignKey => mapping(uint8 role => ComponentDescriptor descriptor)) private
         _components;
@@ -271,6 +272,7 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
         )
     {
         _requireCanonicalStageCalldata(_manifest);
+        _requireNoFinalizationReentry();
         if (msg.sender != _delayedExecutor || _operationId == bytes32(0)) {
             revert UnauthorizedRootMigrationExecutor();
         }
@@ -299,6 +301,7 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
         returns (address component_)
     {
         _requireCanonicalDeployCalldata(_role, _initCode);
+        _requireNoFinalizationReentry();
         Campaign storage campaign = _campaigns[_campaignKeyValue];
         if (
             campaign.state != _CAMPAIGN_STAGED || _liveCampaignKey != _campaignKeyValue
@@ -349,6 +352,8 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
         returns (bytes32 rootReceipt_)
     {
         if (msg.data.length != 36) revert NonCanonicalFactoryCalldata();
+        _requireNoFinalizationReentry();
+        _finalizationLock = 1;
         Campaign storage campaign = _campaigns[_campaignKeyValue];
         if (
             campaign.state != _CAMPAIGN_STAGED || _liveCampaignKey != _campaignKeyValue
@@ -433,12 +438,14 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
 
         _nextGeneration = campaign.generation + 1;
         delete _liveCampaignKey;
+        _finalizationLock = 0;
         emit ProtocolRootActivated(_campaignKeyValue, rootReceipt_, campaign.generation);
     }
 
     /// @inheritdoc IProtocolRootFactoryV1
     function abortProtocolRootCampaignV1(bytes32 _campaignKeyValue) external {
         if (msg.data.length != 36) revert NonCanonicalFactoryCalldata();
+        _requireNoFinalizationReentry();
         Campaign storage campaign = _campaigns[_campaignKeyValue];
         if (
             campaign.state != _CAMPAIGN_STAGED || _liveCampaignKey != _campaignKeyValue
@@ -450,6 +457,11 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
         _nextGeneration = campaign.generation + 1;
         delete _liveCampaignKey;
         emit ProtocolRootCampaignAborted(_campaignKeyValue, campaign.generation);
+    }
+
+    /// @dev Rejects every mutating Factory entry while finalization has external control.
+    function _requireNoFinalizationReentry() private view {
+        if (_finalizationLock != 0) revert ProtocolRootFinalizationReentry();
     }
 
     /// @dev Validates and derives one stage context without retaining scalar stack state.
@@ -1079,6 +1091,7 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
     error ProtocolRootCampaignTimestampOverflow();
     error ProtocolRootComponentAddressMismatch();
     error ProtocolRootComponentNotDeployable();
+    error ProtocolRootFinalizationReentry();
     error ProtocolRootGenerationExhausted();
     error ProtocolRootInitCodeMismatch();
     error ProtocolRootNotFinalizable();

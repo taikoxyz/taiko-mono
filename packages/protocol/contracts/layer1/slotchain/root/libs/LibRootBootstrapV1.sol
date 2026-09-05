@@ -46,6 +46,7 @@ library LibRootBootstrapV1 {
         internal
         returns (bytes memory output_)
     {
+        output_ = _allocateAndTouch(_returnLength);
         _requireCallGas(_gasLimit, _postCallReserve);
         bool success;
         uint256 actualLength;
@@ -57,16 +58,16 @@ library LibRootBootstrapV1 {
         if (actualLength != _returnLength) {
             revert BootstrapReturnLengthMismatch(_target, actualLength, _returnLength);
         }
-        if (gasleft() < _postCallReserve) revert BootstrapPostCallGasTooLow();
-        output_ = new bytes(_returnLength);
         assembly ("memory-safe") {
             returndatacopy(add(output_, 32), 0, _returnLength)
         }
+        if (gasleft() < _postCallReserve) revert BootstrapPostCallGasTooLow();
     }
 
     /// @dev Calls a warmed CREATE3 proxy with all gas above the frozen 510,000-gas gap.
-    ///      Calldata memory must be fully prepared before entry. Returndata is copied only after
-    ///      call success, exact size, and the 500,000-gas post-call boundary all pass.
+    ///      Calldata and the exact output region are prepared and touched before gas measurement.
+    ///      After call success and exact-size validation, the bounded returndata is copied and the
+    ///      500,000-gas post-copy reserve is enforced. Unexpected-size returndata is never copied.
     function callCreate3ProxyExact(
         address _proxy,
         bytes memory _input,
@@ -75,6 +76,7 @@ library LibRootBootstrapV1 {
         internal
         returns (bytes memory output_)
     {
+        output_ = _allocateAndTouch(_returnLength);
         uint256 gasGap = COMPONENT_DEPLOYMENT_GAS_GAP;
         bool enoughGas;
         bool success;
@@ -92,12 +94,11 @@ library LibRootBootstrapV1 {
         if (actualLength != _returnLength) {
             revert BootstrapReturnLengthMismatch(_proxy, actualLength, _returnLength);
         }
-        if (gasleft() < COMPONENT_DEPLOYMENT_POSTCALL_RESERVE) {
-            revert BootstrapPostCallGasTooLow();
-        }
-        output_ = new bytes(_returnLength);
         assembly ("memory-safe") {
             returndatacopy(add(output_, 32), 0, _returnLength)
+        }
+        if (gasleft() < COMPONENT_DEPLOYMENT_POSTCALL_RESERVE) {
+            revert BootstrapPostCallGasTooLow();
         }
     }
 
@@ -189,9 +190,29 @@ library LibRootBootstrapV1 {
 
     /// @dev Ensures EIP-150 can forward the stipend and retain the named post-call reserve.
     function _requireCallGas(uint256 _gasLimit, uint256 _postCallReserve) private view {
-        uint256 eip150Margin = _gasLimit / 63 + 10_000;
-        if (gasleft() < _gasLimit + eip150Margin + _postCallReserve) {
+        uint256 eip150Margin = _gasLimit / 63 + (_gasLimit % 63 == 0 ? 0 : 1);
+        if (
+            eip150Margin > type(uint256).max - 10_000
+                || _gasLimit > type(uint256).max - eip150Margin - 10_000
+        ) {
             revert BootstrapInsufficientCallGas();
+        }
+        uint256 forwardableGas = _gasLimit + eip150Margin + 10_000;
+        if (
+            _postCallReserve > type(uint256).max - forwardableGas
+                || gasleft() < forwardableGas + _postCallReserve
+        ) {
+            revert BootstrapInsufficientCallGas();
+        }
+    }
+
+    /// @dev Allocates and expands memory through the last padded output word before gas measurement.
+    function _allocateAndTouch(uint256 _returnLength) private pure returns (bytes memory output_) {
+        output_ = new bytes(_returnLength);
+        if (_returnLength == 0) return output_;
+        uint256 paddedLength = (_returnLength + 31) & ~uint256(31);
+        assembly ("memory-safe") {
+            mstore(add(output_, paddedLength), 0)
         }
     }
 

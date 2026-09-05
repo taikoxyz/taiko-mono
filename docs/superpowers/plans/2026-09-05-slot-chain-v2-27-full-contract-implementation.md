@@ -1,17 +1,17 @@
-# Slot Chain V2.26 Full Contract Implementation Plan
+# Slot Chain V2.27 Full Contract Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use
 > checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement, differentially verify, and security-audit every Slot Chain V2.26 on-chain
+**Goal:** Implement, differentially verify, and security-audit every Slot Chain V2.27 on-chain
 boundary on PR #22096 without selecting it on a production path.
 
 **Architecture:** Use a conformance-led incremental rebuild. Each dependency-ordered round starts
 with a meaningful failing test, implements one bounded state-machine slice, maps the normative
 surface into a machine-checked ledger, and ends only after focused tests, profile tests, invariant
 tests, artifact checks, and independent Critical/High review pass. Existing code is retained only
-after it proves exact conformance with the frozen `9df3ad82f` design baseline.
+after it proves exact conformance with the frozen `200893750` design baseline.
 
 **Tech Stack:** Solidity 0.8.30, Foundry/forge-std/CommonTest, Python 3.12 reference models,
 TypeScript with ethers v5, pnpm 9.15.9, two local Anvil chains, GitHub Actions.
@@ -23,7 +23,7 @@ TypeScript with ethers v5, pnpm 9.15.9, two local Anvil chains, GitHub Actions.
 - PR #22064 (`claude/chain-liveness-builder-roles-cda13y`) owns LaTeX, PDF, protocol models, and
   normative design corrections. PR #22096 (`codex/slot-chain-v2-contracts`) owns Solidity, tests,
   generated contract fixtures, conformance/deployment tooling, and this implementation plan.
-- The normative protocol commit is `9df3ad82f0282550cd790a72b0330690a15458bd`. Before every
+- The normative protocol commit is `2008937506ece50821440744ff0ee6f73a5485ce`. Before every
   implementation round, read the relevant `main.tex` subsection and executable-model transition.
 - If code requires a rule absent from or contradictory to the normative sources, stop that slice.
   Add a failing model regression and repair the design on PR #22064 first; then merge that design
@@ -105,8 +105,8 @@ FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/slotchain/**/*.t.sol
   /Users/d/.pyenv/versions/3.12.8/bin/python3 test-settlement-window.py
   ```
 
-  Expected: 812 golden vectors / 1,593 assertion sites; 38 lookahead assertions; 186 settlement
-  assertions; 114 seat-market tests; 38 economic tests; 293 settlement tests.
+  Expected: 812 golden vectors / 1,610 assertion sites; 38 lookahead assertions; 186 settlement
+  assertions; 114 seat-market tests; 38 economic tests; 296 settlement tests.
 
 - [ ] Record current shared/L1/L2 builds, tests, gas, runtime sizes, artifact hashes, and known CI
       failures before touching code.
@@ -124,7 +124,7 @@ FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/slotchain/**/*.t.sol
 
 **Create:**
 
-- `packages/protocol/utils/slotchain/conformance-ledger.v2.26.json`
+- `packages/protocol/utils/slotchain/conformance-ledger.v2.27.json`
 - `packages/protocol/utils/slotchain/conformance-ledger.schema.json`
 - `packages/protocol/utils/slotchain/checkConformanceLedger.ts`
 - `packages/protocol/integration/slotchain/conformance-ledger.test.ts`
@@ -158,7 +158,7 @@ FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/slotchain/**/*.t.sol
       external call. Add malicious callback, huge-returndata, OOG, and unchanged-state tests.
 - [ ] Force-build all three profiles, run ownership/vector/ledger tests, and inspect `gh pr checks
 22096` after push.
-- [ ] Commit: `build(protocol): establish slot chain v2.26 conformance baseline`.
+- [ ] Commit: `build(protocol): establish slot chain v2.27 conformance baseline`.
 
 ## 5. Round 1 — shared byte-exact and accounting primitives
 
@@ -185,7 +185,7 @@ FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/slotchain/**/*.t.sol
       deployables are loaded from their single owner artifact.
 - [ ] Run the full shared profile, vector generator/checker, fuzz/invariants, artifact checker, and
       ledger checker.
-- [ ] Commit: `feat(protocol): complete slot chain v2.26 shared primitives`.
+- [ ] Commit: `feat(protocol): complete slot chain v2.27 shared primitives`.
 
 ## 6. Round 2 — deterministic protocol-root bootstrap primitives
 
@@ -588,7 +588,7 @@ FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/slotchain/**/*.t.sol
       rejection.
 - [ ] Assert no current production deployment script or Resolver selects V2.
 - [ ] Run all deployment/profile/conformance/ownership/ledger tests and review.
-- [ ] Commit: `build(protocol): add deterministic slot chain v2.26 deployment`.
+- [ ] Commit: `build(protocol): add deterministic slot chain v2.27 deployment`.
 
 ## 19. Round 13 — two-chain end-to-end integration
 
@@ -613,7 +613,7 @@ FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/slotchain/**/*.t.sol
       reads, and continue through another release without private fixtures.
 - [ ] Run the full integration suite twice with different fuzz seeds plus all profile tests,
       ownership/transcript/ledger checks, and model differentials.
-- [ ] Commit: `test(protocol): add slot chain v2.26 two chain integration`.
+- [ ] Commit: `test(protocol): add slot chain v2.27 two chain integration`.
 
 ## 20. Rounds 14–18 — five independent adversarial audits
 
@@ -654,7 +654,7 @@ repeated after any material fix.
       serialization, and deploy/rebuild reproducibility.
 - [ ] Compare both PR diffs and ensure design fixes exist only on #22064 while code/tests/tooling
       exist only on #22096. Regenerate and verify the PDF if any normative correction occurred.
-- [ ] Commit fixes/tests: `fix(protocol): close slot chain v2.26 implementation audit`.
+- [ ] Commit fixes/tests: `fix(protocol): close slot chain v2.27 implementation audit`.
 
 ## 21. Final acceptance matrix
 

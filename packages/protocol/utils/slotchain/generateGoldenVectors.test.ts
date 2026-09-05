@@ -18,9 +18,9 @@ const vectors = validateTypedVectorJson(
     JSON.stringify(JSON.parse(canonicalJson) as TypedVector[]),
 );
 
-assert.equal(vectors.length, 764);
-assert.equal(vectors.filter((vector) => vector.kind === "hex").length, 624);
-assert.equal(vectors.filter((vector) => vector.kind === "uint").length, 140);
+assert.equal(vectors.length, 812);
+assert.equal(vectors.filter((vector) => vector.kind === "hex").length, 659);
+assert.equal(vectors.filter((vector) => vector.kind === "uint").length, 153);
 
 const round4BuilderVectorAllowlist = [
     "builder_active_equivocation_witness_hash",
@@ -77,6 +77,7 @@ const round4BuilderVectorAllowlist = [
     "builder_register_return_hash",
     "builder_register_return_length",
     "builder_registry_configuration_hash",
+    "builder_registry_exhausted_header_word",
     "builder_registry_header_slot",
     "builder_registry_header_trie_key",
     "builder_registry_header_word",
@@ -187,7 +188,7 @@ for (const [name, value] of Object.entries(requiredRound4Selectors)) {
 }
 
 const solidity = renderSolidity(vectors);
-assert.match(solidity, /uint256 internal constant GOLDEN_VECTOR_COUNT = 764;/);
+assert.match(solidity, /uint256 internal constant GOLDEN_VECTOR_COUNT = 812;/);
 assert.match(solidity, /bytes32 internal constant CANDIDATE_COMMITMENT =/);
 assert.match(solidity, /bytes internal constant V11_BRIDGE_DESCRIPTOR =/);
 assert.match(
@@ -223,7 +224,7 @@ function encoded(copy: TypedVector[]): string {
 
 assert.throws(
     () => validateTypedVectorJson(JSON.stringify(vectors.slice(1))),
-    /expected 764/,
+    /expected 812/,
 );
 
 const duplicate = structuredClone(vectors);

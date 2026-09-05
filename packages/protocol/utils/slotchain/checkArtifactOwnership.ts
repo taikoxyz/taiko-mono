@@ -15,17 +15,28 @@ export type OwnerProfileName = "shared" | "layer1" | "layer2";
 export type SourceInlineKind =
     | "interface"
     | "internal-library"
+    | "abstract-base"
     | "free-definitions";
 export type ConsumptionMode = "abi-interface" | "raw-creation-bytecode";
 export type FactoryClass =
     | "direct-create-test"
     | "erc-2470-singleton"
     | "protocol-root-source-factory"
+    | "root-create3-helper"
     | "root-one-shot-create";
-export type LifecycleScope =
+export type LifecycleScope = "test-only";
+export type ArtifactScope = "test-only" | "root-cohort" | "standalone";
+export type AddressReusePolicy =
     | "test-only"
     | "protocol-lifetime"
-    | "release-scoped";
+    | "campaign-role-helper"
+    | "fresh-per-release"
+    | "interval-scoped";
+export type RetentionPolicy =
+    | "test-only"
+    | "permanent"
+    | "ephemeral-inert"
+    | "historical";
 
 export interface OwnershipProfile {
     out: string;
@@ -74,7 +85,10 @@ export interface ArtifactOwnedModule {
     immutableReferencesHash: string;
     consumptionModes: ConsumptionMode[];
     factoryClass: FactoryClass;
-    lifecycleScope: LifecycleScope;
+    lifecycleScope?: LifecycleScope;
+    artifactScope?: ArtifactScope;
+    addressReusePolicy?: AddressReusePolicy;
+    retentionPolicy?: RetentionPolicy;
     requiredConsumerProfiles: OwnerProfileName[];
 }
 
@@ -87,12 +101,23 @@ export interface ArtifactUsage {
     modes: ConsumptionMode[];
     interfaceModule?: string;
     factoryClass: FactoryClass;
-    lifecycleScope: LifecycleScope;
+    lifecycleScope?: LifecycleScope;
+    artifactScope?: ArtifactScope;
+    addressReusePolicy?: AddressReusePolicy;
+    retentionPolicy?: RetentionPolicy;
+}
+
+export interface RootCohort {
+    status: "planned" | "complete";
+    ownerProfile: "layer1";
+    expectedArtifactCount: 18;
+    artifacts: string[];
 }
 
 export interface OwnershipManifest {
-    schemaVersion: 1;
+    schemaVersion: 2;
     slotChainPathSegment: "/slotchain/";
+    rootCohort: RootCohort;
     profiles: Record<ProfileName, OwnershipProfile>;
     modules: OwnershipModule[];
     usages: ArtifactUsage[];
@@ -112,6 +137,7 @@ interface AstNode {
     nodeType?: string;
     name?: string;
     contractKind?: string;
+    abstract?: boolean;
     visibility?: string;
     stateVariable?: boolean;
     nodes?: AstNode[];
@@ -192,6 +218,7 @@ interface ArtifactRecord {
 
 interface CompilerOutputRecord {
     profile: ProfileName;
+    buildInfoPath: string;
     sourcePath: string;
     contractName: string;
     sourceContent: string;
@@ -224,6 +251,7 @@ const OWNER_PROFILE_NAMES: OwnerProfileName[] = ["layer1", "layer2", "shared"];
 const SOURCE_INLINE_KINDS = new Set<SourceInlineKind>([
     "interface",
     "internal-library",
+    "abstract-base",
     "free-definitions",
 ]);
 const CONSUMPTION_MODES = new Set<ConsumptionMode>([
@@ -234,14 +262,49 @@ const FACTORY_CLASSES = new Set<FactoryClass>([
     "direct-create-test",
     "erc-2470-singleton",
     "protocol-root-source-factory",
+    "root-create3-helper",
     "root-one-shot-create",
 ]);
-const LIFECYCLE_SCOPES = new Set<LifecycleScope>([
+const ARTIFACT_SCOPES = new Set<ArtifactScope>([
+    "test-only",
+    "root-cohort",
+    "standalone",
+]);
+const ADDRESS_REUSE_POLICIES = new Set<AddressReusePolicy>([
     "test-only",
     "protocol-lifetime",
-    "release-scoped",
+    "campaign-role-helper",
+    "fresh-per-release",
+    "interval-scoped",
+]);
+const RETENTION_POLICIES = new Set<RetentionPolicy>([
+    "test-only",
+    "permanent",
+    "ephemeral-inert",
+    "historical",
 ]);
 const HASH_PATTERN = /^0x[0-9a-f]{64}$/;
+
+export const FROZEN_ROOT_COHORT_V1 = [
+    "contracts/layer1/slotchain/root/RootMigrationExecutorV1.sol:RootMigrationExecutorV1",
+    "contracts/layer1/slotchain/root/ProtocolRootFactoryV1.sol:ProtocolRootFactoryV1",
+    "contracts/layer1/slotchain/root/ProtocolRootCreate3ProxyV1.sol:ProtocolRootCreate3ProxyV1",
+    "contracts/layer1/slotchain/impl/BuilderRegistry.sol:BuilderRegistry",
+    "contracts/layer1/slotchain/impl/ScheduleOracle.sol:ScheduleOracle",
+    "contracts/layer1/slotchain/impl/ProtocolChangeTimelockV1.sol:ProtocolChangeTimelockV1",
+    "contracts/layer1/slotchain/impl/ProtocolVersionManagerV2.sol:ProtocolVersionManagerV2",
+    "contracts/layer1/slotchain/impl/ActiveSettlementRouter.sol:ActiveSettlementRouter",
+    "contracts/layer1/slotchain/impl/ForcedQueue.sol:ForcedQueue",
+    "contracts/layer1/slotchain/impl/AggregatorSeatMarket.sol:AggregatorSeatMarket",
+    "contracts/layer1/slotchain/impl/BridgeDomainRegistry.sol:BridgeDomainRegistry",
+    "contracts/layer1/slotchain/impl/SourceBundleFactory.sol:SourceBundleFactory",
+    "contracts/layer1/slotchain/impl/SourceBundleDeployerV1.sol:SourceBundleDeployerV1",
+    "contracts/layer1/slotchain/impl/BridgeInboxAdapter.sol:BridgeInboxAdapter",
+    "contracts/layer1/slotchain/impl/SourceBridgeV2.sol:SourceBridgeV2",
+    "contracts/layer1/slotchain/impl/BridgeCreditRegistryV2.sol:BridgeCreditRegistryV2",
+    "contracts/layer1/slotchain/impl/SourceQuotaManager.sol:SourceQuotaManager",
+    "contracts/layer1/slotchain/impl/SourceTerminalVerifier.sol:SourceTerminalVerifier",
+] as const;
 
 export class OwnershipError extends Error {
     public constructor(
@@ -688,6 +751,10 @@ function loadArtifacts(
                     compilerOutputIds.add(outputId);
                     compilerOutputs.push({
                         profile: profileName,
+                        buildInfoPath: path
+                            .relative(root, buildInfoPath)
+                            .split(path.sep)
+                            .join("/"),
                         sourcePath,
                         contractName,
                         sourceContent: content,
@@ -822,18 +889,49 @@ function validateManifest(
         [
             "schemaVersion",
             "slotChainPathSegment",
+            "rootCohort",
             "profiles",
             "modules",
             "usages",
         ],
         "manifest",
     );
-    if (manifest.schemaVersion !== 1)
-        fail("UNSUPPORTED_SCHEMA", "schemaVersion must be 1");
+    if (manifest.schemaVersion !== 2)
+        fail("UNSUPPORTED_SCHEMA", "schemaVersion must be 2");
     if (manifest.slotChainPathSegment !== "/slotchain/") {
         fail(
             "INVALID_SCOPE",
             "slotChainPathSegment must be exactly /slotchain/",
+        );
+    }
+    if (!isRecord(manifest.rootCohort)) {
+        fail("MALFORMED_ROOT_COHORT", "rootCohort must be an object");
+    }
+    assertKeys(
+        manifest.rootCohort,
+        ["status", "ownerProfile", "expectedArtifactCount", "artifacts"],
+        "rootCohort",
+    );
+    if (
+        !["planned", "complete"].includes(manifest.rootCohort.status) ||
+        manifest.rootCohort.ownerProfile !== "layer1" ||
+        manifest.rootCohort.expectedArtifactCount !== 18 ||
+        !Array.isArray(manifest.rootCohort.artifacts) ||
+        manifest.rootCohort.artifacts.some(
+            (artifact) => typeof artifact !== "string",
+        )
+    ) {
+        fail("MALFORMED_ROOT_COHORT", "invalid frozen cohort metadata");
+    }
+    assertUnique(manifest.rootCohort.artifacts, "rootCohort.artifacts");
+    const expectedRootCohort = [...FROZEN_ROOT_COHORT_V1].sort(compareUtf8);
+    const observedRootCohort = [...manifest.rootCohort.artifacts].sort(
+        compareUtf8,
+    );
+    if (canonicalize(expectedRootCohort) !== canonicalize(observedRootCohort)) {
+        fail(
+            "ROOT_COHORT_MEMBERSHIP_MISMATCH",
+            `expected ${expectedRootCohort.length} frozen artifacts, observed ${observedRootCohort.length}`,
         );
     }
     if (!isRecord(manifest.profiles))
@@ -950,6 +1048,9 @@ function validateManifest(
                     "consumptionModes",
                     "factoryClass",
                     "lifecycleScope",
+                    "artifactScope",
+                    "addressReusePolicy",
+                    "retentionPolicy",
                     "requiredConsumerProfiles",
                 ],
                 "module",
@@ -1061,15 +1162,35 @@ function validateManifest(
             }
             if (!FACTORY_CLASSES.has(module.factoryClass))
                 fail("INVALID_FACTORY_CLASS", id);
-            if (!LIFECYCLE_SCOPES.has(module.lifecycleScope))
-                fail("INVALID_LIFECYCLE_SCOPE", id);
-            assertFactoryLifecycle(
-                module.factoryClass,
-                module.lifecycleScope,
-                id,
-            );
+            assertDeploymentSemantics(module, id);
         } else {
             fail("INVALID_OWNERSHIP", id);
+        }
+    }
+    for (const cohortMember of manifest.rootCohort.artifacts) {
+        const module = modules.get(cohortMember);
+        if (!module) {
+            if (manifest.rootCohort.status === "complete") {
+                fail("ROOT_COHORT_MEMBER_MISSING", cohortMember);
+            }
+            continue;
+        }
+        if (
+            module.ownership !== "artifact-owned" ||
+            module.ownerProfile !== "layer1" ||
+            module.artifactScope !== "root-cohort"
+        ) {
+            fail("ROOT_COHORT_MEMBER_NOT_DEPLOYABLE", cohortMember);
+        }
+    }
+    const rootCohortMembers = new Set(manifest.rootCohort.artifacts);
+    for (const [id, module] of modules) {
+        if (
+            module.ownership === "artifact-owned" &&
+            module.artifactScope === "root-cohort" &&
+            !rootCohortMembers.has(id)
+        ) {
+            fail("ROOT_COHORT_UNLISTED_MEMBER", id);
         }
     }
     return modules;
@@ -1340,6 +1461,27 @@ function verifySourceInline(
             if ((record.artifact.deployedBytecode?.object ?? "0x") !== "0x") {
                 fail("ADDRESSABLE_SOURCE_INLINE", `${id} has runtime bytecode`);
             }
+        } else if (module.kind === "abstract-base") {
+            if (
+                definition?.contractKind !== "contract" ||
+                definition.abstract !== true
+            ) {
+                fail("SOURCE_INLINE_KIND_MISMATCH", id);
+            }
+            if (
+                (record.artifact.bytecode?.object ?? "0x") !== "0x" ||
+                (record.artifact.deployedBytecode?.object ?? "0x") !== "0x"
+            ) {
+                fail("ADDRESSABLE_SOURCE_INLINE", `${id} has bytecode`);
+            }
+            for (const references of [
+                record.artifact.bytecode?.linkReferences ?? {},
+                record.artifact.deployedBytecode?.linkReferences ?? {},
+            ]) {
+                if (!isRecord(references) || Object.keys(references).length) {
+                    fail("SOURCE_INLINE_LINK_REFERENCE", id);
+                }
+            }
         } else if (module.kind === "internal-library") {
             if (definition?.contractKind !== "library")
                 fail("SOURCE_INLINE_KIND_MISMATCH", id);
@@ -1393,6 +1535,12 @@ function verifyArtifactOwned(
     }
 
     const record = records[0];
+    if ((record.artifact.bytecode?.object ?? "0x") === "0x") {
+        fail("EMPTY_ARTIFACT_CREATION_BYTECODE", id);
+    }
+    if ((record.artifact.deployedBytecode?.object ?? "0x") === "0x") {
+        fail("EMPTY_ARTIFACT_RUNTIME_BYTECODE", id);
+    }
     if (record.relativePath !== module.artifactPath) {
         fail("ARTIFACT_PATH_MISMATCH", `${id}:${record.relativePath}`);
     }
@@ -1520,6 +1668,9 @@ function validateUsages(
                 "interfaceModule",
                 "factoryClass",
                 "lifecycleScope",
+                "artifactScope",
+                "addressReusePolicy",
+                "retentionPolicy",
             ],
             "usage",
         );
@@ -1544,13 +1695,20 @@ function validateUsages(
         }
         if (usage.factoryClass !== module.factoryClass)
             fail("FACTORY_CLASS_MISMATCH", usage.module);
-        if (usage.lifecycleScope !== module.lifecycleScope)
-            fail("LIFECYCLE_SCOPE_MISMATCH", usage.module);
-        assertFactoryLifecycle(
-            usage.factoryClass,
-            usage.lifecycleScope,
-            usage.module,
-        );
+        for (const field of [
+            "lifecycleScope",
+            "artifactScope",
+            "addressReusePolicy",
+            "retentionPolicy",
+        ] as const) {
+            if (usage[field] !== module[field]) {
+                fail(
+                    "DEPLOYMENT_SEMANTICS_MISMATCH",
+                    `${usage.module}:${field}`,
+                );
+            }
+        }
+        assertDeploymentSemantics(usage, usage.module);
 
         const consumer = modules.get(usage.consumerModule);
         if (!consumer) fail("UNKNOWN_CONSUMER_MODULE", usage.consumerModule);
@@ -1657,21 +1815,111 @@ function validateUsages(
     }
 }
 
-function assertFactoryLifecycle(
-    factoryClass: FactoryClass,
-    lifecycleScope: LifecycleScope,
+function assertDeploymentSemantics(
+    value: Pick<
+        ArtifactOwnedModule | ArtifactUsage,
+        | "factoryClass"
+        | "lifecycleScope"
+        | "artifactScope"
+        | "addressReusePolicy"
+        | "retentionPolicy"
+    >,
     id: string,
 ): void {
-    const expected: Record<FactoryClass, LifecycleScope> = {
-        "direct-create-test": "test-only",
-        "erc-2470-singleton": "release-scoped",
-        "protocol-root-source-factory": "release-scoped",
-        "root-one-shot-create": "protocol-lifetime",
-    };
-    if (expected[factoryClass] !== lifecycleScope) {
+    if (value.factoryClass === "direct-create-test") {
+        if (
+            value.lifecycleScope !== "test-only" ||
+            value.artifactScope !== undefined ||
+            value.addressReusePolicy !== undefined ||
+            value.retentionPolicy !== undefined
+        ) {
+            fail("DEPLOYMENT_SEMANTICS_MISMATCH", `${id}:test-only`);
+        }
+        return;
+    }
+    if (value.lifecycleScope !== undefined) {
+        fail("LEGACY_LIFECYCLE_SCOPE", id);
+    }
+    if (
+        !ARTIFACT_SCOPES.has(value.artifactScope as ArtifactScope) ||
+        !ADDRESS_REUSE_POLICIES.has(
+            value.addressReusePolicy as AddressReusePolicy,
+        ) ||
+        !RETENTION_POLICIES.has(value.retentionPolicy as RetentionPolicy) ||
+        value.artifactScope === "test-only" ||
+        value.addressReusePolicy === "test-only" ||
+        value.retentionPolicy === "test-only"
+    ) {
         fail(
-            "FACTORY_LIFECYCLE_MISMATCH",
-            `${id}:${factoryClass}:${lifecycleScope}`,
+            "INVALID_DEPLOYMENT_SEMANTICS",
+            `${id}:${value.artifactScope}:${value.addressReusePolicy}:${value.retentionPolicy}`,
+        );
+    }
+    if (
+        value.addressReusePolicy === "protocol-lifetime" &&
+        value.retentionPolicy !== "permanent"
+    ) {
+        fail("INVALID_DEPLOYMENT_SEMANTICS", `${id}:protocol-lifetime`);
+    }
+    if (
+        value.addressReusePolicy === "campaign-role-helper" &&
+        (value.factoryClass !== "root-create3-helper" ||
+            value.artifactScope !== "root-cohort" ||
+            value.retentionPolicy !== "ephemeral-inert")
+    ) {
+        fail("INVALID_DEPLOYMENT_SEMANTICS", `${id}:campaign-role-helper`);
+    }
+    if (
+        value.factoryClass === "root-create3-helper" &&
+        value.addressReusePolicy !== "campaign-role-helper"
+    ) {
+        fail("INVALID_DEPLOYMENT_SEMANTICS", `${id}:root-create3-helper`);
+    }
+    if (
+        value.addressReusePolicy === "interval-scoped" &&
+        (value.artifactScope !== "standalone" ||
+            value.retentionPolicy !== "historical")
+    ) {
+        fail("INVALID_DEPLOYMENT_SEMANTICS", `${id}:interval-scoped`);
+    }
+}
+
+function validateCompleteRootCohort(
+    manifest: OwnershipManifest,
+    modules: Map<string, OwnershipModule>,
+    compilerOutputs: CompilerOutputRecord[],
+): void {
+    if (manifest.rootCohort.status !== "complete") return;
+    const buildInfoPaths = new Set<string>();
+    for (const id of manifest.rootCohort.artifacts) {
+        const module = modules.get(id);
+        if (!module || module.ownership !== "artifact-owned") {
+            fail("ROOT_COHORT_MEMBER_MISSING", id);
+        }
+        const outputs = compilerOutputs.filter(
+            (record) =>
+                record.profile === "layer1" &&
+                fqn(record.sourcePath, record.contractName) === id,
+        );
+        if (outputs.length !== 1) {
+            fail(
+                "ROOT_COHORT_COMPILER_OUTPUT_MISSING",
+                `${id}:${outputs.length}`,
+            );
+        }
+        const output = outputs[0];
+        if (
+            !output.contract.evm?.bytecode?.object ||
+            !output.contract.evm?.deployedBytecode?.object
+        ) {
+            fail("ROOT_COHORT_EMPTY_ARTIFACT", id);
+        }
+        buildInfoPaths.add(output.buildInfoPath);
+    }
+    if (buildInfoPaths.size !== 1) {
+        fail(
+            "ROOT_COHORT_SPLIT_BUILD",
+            [...buildInfoPaths].sort(compareUtf8).join(","),
         );
     }
 }
@@ -1761,13 +2009,18 @@ export function validateArtifactOwnership(
         fail("ARTIFACT_HASH_MISMATCH", artifactHashMismatches.join("\n"));
     }
 
+    validateCompleteRootCohort(manifest, modules, compilerOutputs);
     validateUsages(manifest, modules, buildInputs, buildSources);
 
     const usages = [...manifest.usages].sort((left, right) =>
         compareUtf8(canonicalize(left), canonicalize(right)),
     );
     return {
-        digest: canonicalHash({ modules: inventory, usages }),
+        digest: canonicalHash({
+            rootCohort: manifest.rootCohort,
+            modules: inventory,
+            usages,
+        }),
         modules: inventory,
     };
 }

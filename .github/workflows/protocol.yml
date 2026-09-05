@@ -8,6 +8,7 @@ on:
       - "!packages/protocol/contract_layout_*"
       - "!packages/protocol/audit/**"
       - "!packages/protocol/docs/**"
+      - "packages/protocol/docs/preconfirmation-v2/**"
       - "!packages/protocol/simulation/**"
       - "!packages/protocol/deployments/**"
       - "!packages/protocol/script/layer2/hekla/**"
@@ -17,6 +18,7 @@ on:
       - "!packages/protocol/script/layer1/preconf/**"
       - "!packages/protocol/script/layer1/provers/**"
       - "!packages/protocol/script/layer1/team/**"
+      - ".github/workflows/protocol.yml"
     branches-ignore:
       - release-please--branches--**
 
