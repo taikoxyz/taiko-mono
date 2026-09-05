@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
-  import { formatEther, hexToBigInt } from 'viem';
+  import { type Address, formatEther, type Hash, hexToBigInt } from 'viem';
 
   import { CloseButton } from '$components/Button';
   import ActionButton from '$components/Button/ActionButton.svelte';
@@ -8,12 +8,16 @@
   import { Icon } from '$components/Icon';
   import { Spinner } from '$components/Spinner';
   import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
+  import { bridgeTxKey } from '$libs/bridge/bridgeTxIdentity';
+  import { getClaimDetails } from '$libs/bridge/getClaimDetails';
   import { isTransactionProcessable } from '$libs/bridge/isTransactionProcessable';
+  import { getTransferParties } from '$libs/bridge/transferParties';
   import { getChainName, isL2Chain } from '$libs/chain';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
+  import { findClaimTxHash } from '$libs/relayer/findClaimTxHash';
   import { type NFT, TokenType } from '$libs/token';
   import { formatTimestamp } from '$libs/util/formatTimestamp';
-  import { getBlockFromTxHash } from '$libs/util/getBlockFromTxHash';
+  import { formatTokenAmount } from '$libs/util/formatTokenAmount';
   import { geBlockTimestamp } from '$libs/util/getBlockTimestamp';
   import { getLogger } from '$libs/util/logger';
   import { noop } from '$libs/util/noop';
@@ -22,6 +26,7 @@
   import ChainSymbolName from '../ChainSymbolName.svelte';
   import { StatusInfoDialog } from '../Status';
   import Status from '../Status/Status.svelte';
+  import { claimedByRelayer } from './claimedByRelayer';
 
   const log = getLogger('DesktopDetailsDialog');
   const dialogId = `dialog-${crypto.randomUUID()}`;
@@ -45,7 +50,6 @@
   };
 
   let initiatedAt = '';
-  let claimedAt = '';
 
   const getInitiatedDate = async () => {
     if (!bridgeTx.blockNumber) return;
@@ -53,62 +57,124 @@
     initiatedAt = formatTimestamp(Number(blockTimestamp));
   };
 
-  const getClaimedDate = async () => {
-    if (!bridgeTx.destTxHash || !bridgeTx.destChainId) return;
-    log('destTxHash', bridgeTx.destTxHash, 'destChainId', bridgeTx.destChainId);
+  // The relayer API reports neither claimer nor claim transaction for the messages the relayer
+  // claimed itself. Its status rows still carry the transaction, filed under the message's
+  // sender, and the transaction answers who and when in one read. Only once the dialog is
+  // open, since every row mounts both dialogs, and only once per message. What is resolved
+  // is tied to the message it was resolved for, and only the newest read may publish: an
+  // older one landing late, or failing late, changes nothing
+  let claimGeneration = 0;
+  let claimReadFor: Maybe<string> = null;
+  let resolvedFor: Maybe<string> = null;
+  let resolvedClaimTxHash: Maybe<Hash> = null;
+  let resolvedClaimer: Maybe<Address> = null;
+  let resolvedClaimedAt = '';
+
+  $: identity = bridgeTxKey(bridgeTx);
+
+  const readClaim = async () => {
+    const { destChainId, msgHash, message } = bridgeTx;
+    // A row that arrived with its claim transaction is read as it is; one without is looked
+    // up once the message is claimed
+    const known = bridgeTx.destTxHash;
+    if (!known && effectiveStatus !== MessageStatus.DONE) return;
+    const wanted = known ?? msgHash;
+    if (!destChainId || !wanted) return;
+    // The message this read is for, held here: `identity` follows the dialog, and a late
+    // result must be filed under the message it was read for, not under whatever the
+    // dialog shows by then
+    const requestIdentity = identity;
+    const key = `${requestIdentity}/${wanted}`;
+    if (claimReadFor === key) return;
+    const generation = ++claimGeneration;
+    claimReadFor = key;
+    if (resolvedFor !== requestIdentity) {
+      resolvedFor = null;
+      resolvedClaimTxHash = null;
+      resolvedClaimer = null;
+      resolvedClaimedAt = '';
+    }
     try {
-      const blockNumber = await getBlockFromTxHash(bridgeTx.destTxHash, bridgeTx.destChainId);
-      log('blockNumber', blockNumber);
-      const blockTimestamp = await geBlockTimestamp(bridgeTx.destChainId, blockNumber);
-      log('blockTimestamp', blockTimestamp);
-      claimedAt = formatTimestamp(Number(blockTimestamp));
-      log('claimedAt', claimedAt);
+      let claimTxHash = known;
+      if (!claimTxHash) {
+        const sender = message?.srcOwner ?? bridgeTx.from;
+        if (!sender || !msgHash) return;
+        claimTxHash = await findClaimTxHash(sender, msgHash);
+        if (generation !== claimGeneration) return;
+        if (!claimTxHash) {
+          // Nothing to show yet; the next opening asks again
+          claimReadFor = null;
+          return;
+        }
+        resolvedFor = requestIdentity;
+        resolvedClaimTxHash = claimTxHash;
+      }
+      const { claimedBy: claimer, claimedAt: timestamp } = await getClaimDetails(claimTxHash, destChainId);
+      if (generation !== claimGeneration) return;
+      resolvedFor = requestIdentity;
+      resolvedClaimer = claimer;
+      resolvedClaimedAt = formatTimestamp(Number(timestamp));
     } catch (error) {
-      log('error', error);
+      if (generation !== claimGeneration) return;
+      claimReadFor = null;
+      log('Could not read the claim', error);
     }
   };
 
+  // Locally stored transactions only set msgStatus; relayer-derived ones set both
+  $: effectiveStatus = bridgeTx.msgStatus ?? bridgeTx.status;
+
   const checkStatus = async () => {
     const isProcessable = await isTransactionProcessable(bridgeTx);
-    if (bridgeTx.status === MessageStatus.NEW || bridgeTx.status === MessageStatus.RETRIABLE) {
+    if (effectiveStatus === MessageStatus.NEW || effectiveStatus === MessageStatus.RETRIABLE) {
       if (!isProcessable) {
         stillProcessing = true;
       } else {
         stillProcessing = false;
       }
     } else if (
-      bridgeTx.status === MessageStatus.DONE ||
-      bridgeTx.status === MessageStatus.FAILED ||
-      bridgeTx.status === MessageStatus.RECALLED
+      effectiveStatus === MessageStatus.DONE ||
+      effectiveStatus === MessageStatus.FAILED ||
+      effectiveStatus === MessageStatus.RECALLED
     ) {
       stillProcessing = false;
     }
   };
 
-  $: $account.isConnected && checkStatus();
+  // Only while the dialog is actually open: every row mounts both this dialog and its
+  // mobile/desktop twin, so an unconditional read here cost three processability lookups
+  // per row on the page whose RPC load the batching change set out to cut
+  $: if (detailsOpen && $account.isConnected) checkStatus();
   $: stillProcessing = true;
 
-  $: from = bridgeTx.message?.from || null;
-  $: to = bridgeTx.message?.to || null;
+  // The user's addresses, not the envelope's: a token transfer runs from vault to vault
+  $: parties = getTransferParties(bridgeTx);
+  $: from = parties.sender;
+  $: to = parties.recipient;
 
   $: srcTxHash = bridgeTx.srcTxHash || null;
-  $: destTxHash = bridgeTx.destTxHash || null;
+  $: destTxHash = bridgeTx.destTxHash || (resolvedFor === identity ? resolvedClaimTxHash : null) || null;
 
   $: srcChainId = bridgeTx.srcChainId || null;
   $: destChainId = bridgeTx.destChainId || null;
   $: destOwner = bridgeTx.message?.destOwner || null;
 
-  $: bridgeTx && getClaimedDate();
+  // A message change retires whatever was in flight for the previous one, whether or not the
+  // new one starts a read of its own - a pending message does not - and before it would
+  let identityShown: Maybe<string> = null;
+  $: {
+    if (identity !== identityShown) {
+      identityShown = identity;
+      claimGeneration++;
+      claimReadFor = null;
+    }
+    if (detailsOpen && bridgeTx) readClaim();
+  }
   $: bridgeTx && getInitiatedDate();
 
-  $: claimedBy = bridgeTx.claimedBy || null;
-  $: isRelayer = false;
-
-  $: if (claimedBy !== to && claimedBy !== destOwner && bridgeTx.status === MessageStatus.DONE) {
-    isRelayer = true;
-  } else {
-    isRelayer = false;
-  }
+  $: claimedBy = bridgeTx.claimedBy || (resolvedFor === identity ? resolvedClaimer : null) || null;
+  $: claimedAt = resolvedFor === identity ? resolvedClaimedAt : '';
+  $: isRelayer = claimedByRelayer({ claimedBy, to, destOwner, status: effectiveStatus });
 
   $: paidFee = formatEther(bridgeTx.fee ? bridgeTx.fee : BigInt(0));
 
@@ -246,7 +312,7 @@
                   </div>
                 </h4>
                 <div class="f-items-center space-x-1">
-                  <Status bridgeTxStatus={bridgeTx.status} {bridgeTx} textOnly />
+                  <Status bridgeTxStatus={effectiveStatus} {bridgeTx} textOnly />
                 </div>
               </li>
 
@@ -289,7 +355,7 @@
                   {#if bridgeTx.tokenType === TokenType.ERC1155}
                     <span>{bridgeTx.amount} </span>
                   {:else}
-                    <span>{formatEther(bridgeTx.amount ? bridgeTx.amount : BigInt(0))} {bridgeTx.symbol}</span>
+                    <span>{formatTokenAmount(bridgeTx.amount, bridgeTx.decimals)} {bridgeTx.symbol}</span>
                   {/if}
                 </li>
               {/if}

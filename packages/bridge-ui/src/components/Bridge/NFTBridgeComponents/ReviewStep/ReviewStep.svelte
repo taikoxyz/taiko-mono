@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from 'svelte';
+  import { createEventDispatcher, onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
 
   import { chainConfig } from '$chainConfig';
@@ -9,8 +9,7 @@
   import { ChainSelector, ChainSelectorDirection, ChainSelectorType } from '$components/ChainSelectors';
   import { IconFlipper } from '$components/Icon';
   import { NFTDisplay } from '$components/NFTs';
-  import { PUBLIC_SLOW_L1_BRIDGING_WARNING } from '$env/static/public';
-  import { LayerType } from '$libs/chain';
+  import { isSlowL1Bridging } from '$libs/chain';
   import { fetchNFTImageUrl } from '$libs/token/fetchNFTImageUrl';
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { connectedSourceChain } from '$stores/network';
@@ -19,9 +18,8 @@
 
   let recipientComponent: Recipient;
   let processingFeeComponent: ProcessingFee;
-  let slowL1Warning = PUBLIC_SLOW_L1_BRIDGING_WARNING || false;
 
-  $: displayL1Warning = slowL1Warning && $destChain?.id && chainConfig[$destChain.id].type === LayerType.L1;
+  $: displayL1Warning = isSlowL1Bridging($destChain?.id);
 
   const dispatch = createEventDispatcher();
 
@@ -40,21 +38,28 @@
     }
   };
 
+  let destroyed = false;
+  onDestroy(() => (destroyed = true));
+
   const fetchImage = async () => {
     if (!$selectedNFTs || $selectedNFTs?.length === 0) return;
     const srcChainId = $connectedSourceChain?.id;
     const destChainId = $destChain?.id;
     if (!srcChainId || !destChainId) return;
 
-    await Promise.all(
-      $selectedNFTs.map(async (nft) => {
-        fetchNFTImageUrl(nft).then((nftWithUrl) => {
-          $selectedToken = nftWithUrl;
-          $selectedNFTs = [nftWithUrl];
-        });
-      }),
-    );
-    nftsToDisplay = $selectedNFTs;
+    // Await every lookup and publish the full selection once: assigning inside each
+    // callback collapsed a multi-NFT selection to whichever image resolved last
+    const selection = $selectedNFTs;
+    const nftsWithUrl = await Promise.all(selection.map((nft) => fetchNFTImageUrl(nft)));
+
+    // The lookup fills each NFT in place; these writes only exist to re-render. Image hosts
+    // are slow, and a user who pressed Back and picked another NFT meanwhile - or a form
+    // reset on a wallet change - must not have that selection replaced by this one.
+    if (destroyed || $selectedNFTs !== selection) return;
+
+    $selectedNFTs = nftsWithUrl;
+    $selectedToken = nftsWithUrl[0];
+    nftsToDisplay = nftsWithUrl;
   };
 
   const editTransactionDetails = () => {

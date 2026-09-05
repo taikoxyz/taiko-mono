@@ -67,7 +67,7 @@ func testMysql(t *testing.T) (db.DB, func(), error) {
 
 	// nolint: lll
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify&parseTime=true&multiStatements=true&timeout=30s&readTimeout=30s&writeTimeout=30s",
-		dbUsername, dbPassword, host, port.Int(), dbName)
+		dbUsername, dbPassword, host, port.Num(), dbName)
 
 	deadline := time.Now().Add(2 * time.Minute)
 

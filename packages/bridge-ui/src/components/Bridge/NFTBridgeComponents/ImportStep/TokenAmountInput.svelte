@@ -10,6 +10,7 @@
   import { ETHToken, fetchBalance, fetchBalance as getTokenBalance, TokenType } from '$libs/token';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
+  import { parseDecimalAmount } from '$libs/util/parseDecimalAmount';
   import { account } from '$stores/account';
   import { ethBalance } from '$stores/balance';
   import { connectedSourceChain } from '$stores/network';
@@ -32,7 +33,15 @@
   let inputId = `input-${crypto.randomUUID()}`;
   let inputBox: InputBox;
   let computingMaxAmount = false;
+  /**
+   * Only the most recent balance read may publish. Two reads race whenever the selection
+   * changes while one is in flight - the fungible input already guards this - and a slower
+   * read for token A landing after B is selected showed A's balance under B's name, with
+   * Continue enabled for a quantity B does not have.
+   */
+  let balanceReadGeneration = 0;
   let invalidInput = false;
+  let invalidInputMessage = 'bridge.errors.no_decimals_allowed';
   let value = '';
 
   // Public API
@@ -79,61 +88,81 @@
     destChainId = $destNetwork?.id,
   ) {
     if (!token || !srcChainId || !userAddress) return;
+    const generation = ++balanceReadGeneration;
     $computingBalance = true;
 
     try {
-      if (token.type === TokenType.ETH) {
-        $tokenBalance = await getTokenBalance({
-          token: ETHToken,
-          srcChainId,
-          destChainId,
-          userAddress,
-        });
-      } else {
-        $tokenBalance = await getTokenBalance({
-          token,
-          srcChainId,
-          destChainId,
-          userAddress,
-        });
-      }
+      const balance = await getTokenBalance({
+        token: token.type === TokenType.ETH ? ETHToken : token,
+        srcChainId,
+        destChainId,
+        userAddress,
+      });
+      if (generation !== balanceReadGeneration) return;
+      $errorComputingBalance = false;
+      $tokenBalance = balance;
     } catch (err) {
+      if (generation !== balanceReadGeneration) return;
       log('Error updating balance: ', err);
+      $errorComputingBalance = true;
       clearAmount();
     } finally {
-      $computingBalance = false;
+      // The newer read owns the spinner now
+      if (generation === balanceReadGeneration) $computingBalance = false;
     }
   }
 
   // We want to debounce this function for input events.
   // Could happen as the user enters an amount
   const debouncedValidateAmount = debounce(validateAmount, 300);
-  let sanitizedValue = '';
+
+  /**
+   * Invalid input means no amount was entered. Leaving the previous value in place would
+   * let the import proceed with an amount the user has already replaced on screen: the
+   * parents gate on `$enteredAmount > 0`, so clearing it is what blocks them.
+   */
+  function rejectAmount(messageKey: string) {
+    invalidInput = true;
+    invalidInputMessage = messageKey;
+    $enteredAmount = BigInt(0);
+  }
 
   function inputAmount(event: Event) {
     invalidInput = false;
     $validatingAmount = true; // During validation, we disable all the actions
-    if (!$selectedToken) return;
-    const target = event.target as HTMLInputElement;
-    let value = target.value;
+    try {
+      if (!$selectedToken) return;
+      const target = event.target as HTMLInputElement;
+      const value = target.value;
 
-    if ($selectedToken.type === TokenType.ERC1155) {
-      // For ERC1155, no decimals are allowed
-      if (/[.,]/.test(value)) {
-        invalidInput = true;
+      if ($selectedToken.type !== TokenType.ERC1155) {
+        throw new UnknownTokenTypeError($selectedToken.type);
+      }
+
+      // ERC1155 quantities are whole numbers, so zero decimals: that refuses any fraction
+      // along with hex, exponent form, negatives and anything above a uint256
+      const parsed = parseDecimalAmount(value, 0);
+      if (!parsed.ok) {
+        // An empty box is a box nobody has filled in yet, not a mistake to complain about
+        if (parsed.reason === 'EMPTY') {
+          $enteredAmount = BigInt(0);
+          return;
+        }
+        // A fraction is the common case and has its own wording; a negative quantity or
+        // one past a uint256 is not "decimals are not supported"
+        rejectAmount(
+          parsed.reason === 'TOO_MANY_DECIMALS' ? 'bridge.errors.no_decimals_allowed' : 'bridge.errors.invalid_amount',
+        );
         return;
       }
-    } else {
+
+      $enteredAmount = parsed.value;
+
+      debouncedValidateAmount();
+    } finally {
+      // The flag disables every action button and must never survive an early exit
       $validatingAmount = false;
-      throw new UnknownTokenTypeError($selectedToken.type);
     }
-
-    sanitizedValue = value;
-
-    $enteredAmount = BigInt(sanitizedValue);
-    $validatingAmount = false;
-
-    debouncedValidateAmount();
   }
 
   // "MAX" button handler
@@ -161,17 +190,35 @@
 
   export async function determineBalance() {
     if (!$account?.address || !$selectedToken) return;
-    $tokenBalance = await fetchBalance({
-      userAddress: $account?.address,
-      token: $selectedToken,
-      srcChainId: $connectedSourceChain?.id,
-      destChainId: $destNetwork?.id,
-    });
+    const generation = ++balanceReadGeneration;
+    let balance: Awaited<ReturnType<typeof fetchBalance>>;
+    try {
+      balance = await fetchBalance({
+        userAddress: $account?.address,
+        token: $selectedToken,
+        srcChainId: $connectedSourceChain?.id,
+        destChainId: $destNetwork?.id,
+      });
+    } catch (error) {
+      // Called unawaited from onMount, so a rejection here escaped as an unhandled one and
+      // left whatever balance was on screen standing under this token's name. A read that
+      // failed is reported the way the fungible input reports it: the field is disabled
+      // until a later read succeeds.
+      if (generation !== balanceReadGeneration) return;
+      log('Error fetching balance', error);
+      $errorComputingBalance = true;
+      return;
+    }
+    if (generation !== balanceReadGeneration) return;
+    $errorComputingBalance = false;
+    $tokenBalance = balance;
   }
 
-  $: if (inputBox && sanitizedValue !== value) {
-    inputBox.setValue(sanitizedValue); // Update InputBox value if sanitizedValue changes
-  }
+  // No rewriting of the box from here. This used to push the last accepted text back into
+  // the input whenever the newest keystroke was refused, which erased what the user had
+  // just typed - they could never get as far as a decimal point to be told decimals are
+  // not allowed. A refused amount is reported by the alert below and blocked by
+  // enteredAmount being zeroed; the text stays exactly as the user left it.
 
   $: hasBalance = $tokenBalance && $tokenBalance?.value > 0n;
 
@@ -179,7 +226,7 @@
   // or there is an issue computing it
   $: showInsufficientBalanceAlert = $insufficientBalance && !$errorComputingBalance && !$computingBalance;
 
-  $: noDecimalsAllowedAlert = invalidInput;
+  $: invalidInputAlert = invalidInput;
 
   $: inputDisabled =
     computingMaxAmount ||
@@ -238,8 +285,8 @@
     <div class="flex mt-[8px] min-h-[24px]">
       {#if showInsufficientBalanceAlert}
         <FlatAlert type="error" message={$t('bridge.errors.insufficient_balance.title')} class="relative " />
-      {:else if noDecimalsAllowedAlert}
-        <FlatAlert type="error" message={$t('bridge.errors.no_decimals_allowed')} class="relative" />
+      {:else if invalidInputAlert}
+        <FlatAlert type="error" message={$t(invalidInputMessage)} class="relative" />
       {/if}
     </div>
   </div>

@@ -9,7 +9,15 @@ import type { ETHBridgeArgs, GetMaxToBridgeArgs } from './types';
 
 const log = getLogger('bridge:getMaxAmountToBridge');
 
-export async function getMaxAmountToBridge({ to, token, balance, fee, srcChainId, destChainId }: GetMaxToBridgeArgs) {
+export async function getMaxAmountToBridge({
+  to,
+  token,
+  balance,
+  fee,
+  srcChainId,
+  destChainId,
+  gasLimitZero,
+}: GetMaxToBridgeArgs) {
   // For ERC20 tokens, we can bridge the whole balance
   let maxAmount = balance;
   log('Max amount to bridge', maxAmount, 'with balance', balance, 'for token', token);
@@ -31,14 +39,24 @@ export async function getMaxAmountToBridge({ to, token, balance, fee, srcChainId
       destChainId,
       bridgeAddress,
       fee,
+      // Required by the message gas-limit estimation; without it the estimate throws
+      // and the MAX button silently does nothing
+      tokenObject: token,
+      // A zero-gas message carries no fee, and MAX has to price the message that is sent
+      gasLimitZero,
     } as ETHBridgeArgs;
 
     const estimatedCost = await estimateCostOfBridging(bridges.ETH, bridgeArgs);
 
     log('Estimated cost of bridging', estimatedCost, 'with argument', bridgeArgs);
 
-    // We also need to take into account the processing fee if any
-    maxAmount = balance - estimatedCost - (fee ?? BigInt(0));
+    // We also need to take into account the processing fee if any. The subtraction goes
+    // negative whenever the balance does not cover gas plus the fee, and MAX feeds its
+    // result straight into the amount box: formatUnits happily renders a negative bigint,
+    // so the field showed a negative amount and enteredAmount carried one. There is no
+    // such thing as a negative maximum - the answer in that case is zero
+    const remaining = balance - estimatedCost - (fee ?? BigInt(0));
+    maxAmount = remaining > BigInt(0) ? remaining : BigInt(0);
   }
   return maxAmount;
 }

@@ -29,12 +29,19 @@ export async function getAddress({ token, srcChainId, destChainId }: GetAddressA
     if (!destChainId) return;
 
     const tokenInfo = await getTokenAddresses({ token, srcChainId, destChainId });
-    if (!tokenInfo || !tokenInfo.bridged) {
+    if (!tokenInfo) {
       log('No token info found for', token, srcChainId, destChainId);
       throw new NoTokenInfoFoundError(`Could not find any token info`);
     }
-    const { address: bridgedAddress } = tokenInfo.bridged;
-    address = bridgedAddress;
+
+    // Pick whichever deployment actually lives on the source chain; the bridged deployment
+    // can just as well be on the destination chain, and returning that address here would
+    // point every later call at the wrong chain
+    if (tokenInfo.canonical?.chainId === srcChainId) {
+      address = tokenInfo.canonical.address;
+    } else if (tokenInfo.bridged?.chainId === srcChainId) {
+      address = tokenInfo.bridged.address;
+    }
 
     if (!address || address === zeroAddress) {
       throw new NoTokenAddressError(`no address found for ${token.symbol} on chain ${srcChainId}`);

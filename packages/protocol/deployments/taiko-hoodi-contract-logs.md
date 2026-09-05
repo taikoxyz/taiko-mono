@@ -35,18 +35,20 @@
 ### bridge
 
 - proxy: `0x6a4cf607DaC2C4784B7D934Bcb3AD7F2ED18Ed80`
-- impl: `0x91Cf5766Fbc35bb1a2226DE5052C308a5EDd1d47`
+- impl: `0x865acC241162575f887a0f926436a75a34ef5291`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
+  - upgraded on Sep 3, 2026 at commit `dd6aad6`
 
 ### erc20_vault
 
 - proxy: `0x0857cd029937E7a119e492434c71CB9a9Bb59aB0`
-- impl: `0x0C74010473C066Cdd20BA32044D1f6E28527A725`
+- impl: `0x4E385c0D2D285a790Af70786ED138E6e667719ea`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
+  - upgraded on Sep 3, 2026 at commit `dd6aad6`
 
 ### erc721_vault
 
@@ -66,9 +68,10 @@
 
 ### bridged_erc20
 
-- impl: `0xcF954A2f0346e3aD0d0119989CEdB253D8c3428B`
+- impl: `0xC56b5528C7A26E39ea61c4D7A6BeE65ffc9459e1`
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
+  - deployed BridgedERC20V2 `0xC56b5528C7A26E39ea61c4D7A6BeE65ffc9459e1` on Sep 3, 2026 at commit `dd6aad6` and registered it as `bridged_erc20`
 
 ### bridged_erc721
 
@@ -122,20 +125,22 @@
 ### bridge
 
 - proxy: `0x1670130000000000000000000000000000000001`
-- impl: `0x237506C97895771Ae3177dF31FC40D27c99fD382`
+- impl: `0x0B5B11A78aB89F1465c72D959e630138fD416047`
 - owner: `0xF7176c3aC622be8bab1B839b113230396E6877ab`
 - logs:
   - transferred ownership to `0xF7176c3aC622be8bab1B839b113230396E6877ab` on Nov 26, 2025
   - upgraded on Feb 27, 2026 at commit `a8a3a06`
+  - upgraded on Sep 3, 2026 at commit `dd6aad6`
 
 ### erc20_vault
 
 - proxy: `0x1670130000000000000000000000000000000002`
-- impl: `0x87b43DB6B631F51EE80D098F2c07b7CE5667e0D1`
+- impl: `0x9F147D8E70685E19119c33Bda7c9FBF59eCb75F3`
 - owner: `0xF7176c3aC622be8bab1B839b113230396E6877ab`
 - logs:
   - transferred ownership to `0xF7176c3aC622be8bab1B839b113230396E6877ab` on Nov 26, 2025
   - updated on Feb 13, 2026 at commit `22ef025`
+  - upgraded on Sep 3, 2026 at commit `dd6aad6`
 
 ### erc721_vault
 
@@ -184,8 +189,9 @@
 
 ### bridged_erc20
 
-- impl: `0x0167013000000000000000000000000000010096`
+- impl: `0xD7B40cff2Cd1f746246c50091653F1179e6Cd500`
 - logs:
+  - deployed BridgedERC20V2 `0xD7B40cff2Cd1f746246c50091653F1179e6Cd500` on Sep 3, 2026 at commit `dd6aad6` and registered it as `bridged_erc20`
 
 ### bridged_erc721
 

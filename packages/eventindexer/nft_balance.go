@@ -32,6 +32,7 @@ type UpdateNFTBalanceOpts struct {
 type NFTBalanceRepository interface {
 	IncreaseAndDecreaseBalancesInTx(
 		ctx context.Context,
+		ref TransferLogRef,
 		increaseOpts UpdateNFTBalanceOpts,
 		decreaseOpts UpdateNFTBalanceOpts,
 	) (increasedBalance *NFTBalance, decreasedBalance *NFTBalance, err error)

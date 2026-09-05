@@ -19,6 +19,8 @@ TESTNET_CONFIG="$DIR/testnet/docker-compose.yml"
 
 touch "$GENESIS_JSON"
 
+# The node only serves the generated genesis state over RPC; it does not produce blocks. Configure
+# it as post-Merge and activate Osaka at genesis so its EVM matches the contracts' target.
 echo '
 {
   "config": {
@@ -34,14 +36,36 @@ echo '
     "istanbulBlock": 0,
     "muirGlacierBlock": 0,
     "berlinBlock": 0,
-    "clique": {
-      "period": 0,
-      "epoch": 30000
+    "londonBlock": 0,
+    "arrowGlacierBlock": 0,
+    "grayGlacierBlock": 0,
+    "mergeNetsplitBlock": 0,
+    "terminalTotalDifficulty": 0,
+    "terminalTotalDifficultyPassed": true,
+    "shanghaiTime": 0,
+    "cancunTime": 0,
+    "pragueTime": 0,
+    "osakaTime": 0,
+    "blobSchedule": {
+      "cancun": {
+        "target": 3,
+        "max": 6,
+        "baseFeeUpdateFraction": 3338477
+      },
+      "prague": {
+        "target": 6,
+        "max": 9,
+        "baseFeeUpdateFraction": 5007716
+      },
+      "osaka": {
+        "target": 6,
+        "max": 9,
+        "baseFeeUpdateFraction": 5007716
+      }
     }
   },
   "gasLimit": "30000000",
-  "difficulty": "1",
-  "extraData": "0x0000000000000000000000000000000000000000000000000000000000000000df08f82de32b8d460adbe8d72043e3a7e25a3b390000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+  "difficulty": "0",
   "alloc":
 ' > "$GENESIS_JSON"
 
@@ -86,12 +110,38 @@ function waitTestNode {
   done
 }
 
-waitTestNode http://localhost:18545
+function checkOsakaSupport {
+  local rpcUrl="$1"
+  local initCode="0x600160005d60005c1e60005260206000f3"
+  local expected="0x00000000000000000000000000000000000000000000000000000000000000ff"
+  local actual
+
+  echo "Checking Osaka support on test node: $rpcUrl"
+
+  # The init code stores 1 in transient slot 0, loads it, applies Osaka's CLZ opcode, and returns 255.
+  if ! actual=$(cast rpc --rpc-url "$rpcUrl" eth_call "{\"data\":\"$initCode\"}" latest); then
+      echo "ERROR: test node does not support the Osaka EVM"
+      return 1
+  fi
+
+  actual="${actual#\"}"
+  actual="${actual%\"}"
+
+  if [ "$actual" != "$expected" ]; then
+      echo "ERROR: unexpected Osaka probe result: $actual"
+      return 1
+  fi
+}
+
+RPC_URL=http://localhost:18545
+
+waitTestNode "$RPC_URL"
+checkOsakaSupport "$RPC_URL"
 
 FOUNDRY_PROFILE=genesis forge test \
   -vvv \
   --gas-report \
-  --fork-url http://localhost:18545 \
+  --fork-url "$RPC_URL" \
   --fork-retry-backoff 120 \
   --no-storage-caching \
   --match-path test/genesis/GenerateGenesis.g.sol \

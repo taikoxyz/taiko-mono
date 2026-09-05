@@ -9,22 +9,22 @@ import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
 import { DevnetInbox } from "src/layer1/devnet/DevnetInbox.sol";
 import "src/layer1/devnet/DevnetVerifier.sol";
 import "src/layer1/devnet/OpVerifier.sol";
-import "src/layer1/mainnet/MainnetBridge.sol";
-import "src/layer1/mainnet/MainnetERC1155Vault.sol";
-import "src/layer1/mainnet/MainnetERC20Vault.sol";
-import "src/layer1/mainnet/MainnetERC721Vault.sol";
 import "src/layer1/mainnet/TaikoToken.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import { InsecureSgxVerifier } from "src/layer1/verifiers/InsecureSgxVerifier.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
 import { SecureSgxVerifier } from "src/layer1/verifiers/SecureSgxVerifier.sol";
+import "src/shared/bridge/Bridge.sol";
 import "src/shared/common/DefaultResolver.sol";
 import "src/shared/libs/LibNames.sol";
 import "src/shared/signal/SignalService.sol";
 import "src/shared/vault/BridgedERC1155.sol";
 import "src/shared/vault/BridgedERC20.sol";
 import "src/shared/vault/BridgedERC721.sol";
+import "src/shared/vault/ERC1155Vault.sol";
+import "src/shared/vault/ERC20Vault.sol";
+import "src/shared/vault/ERC721Vault.sol";
 import { MockProofVerifier } from "test/layer1/core/inbox/mocks/MockContracts.sol";
 import "test/shared/DeployCapability.sol";
 import "test/shared/helpers/FreeMintERC20Token.sol";
@@ -364,7 +364,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address bridge = deployProxy({
             name: "bridge",
             impl: address(
-                new MainnetBridge(
+                new Bridge(
                     address(sharedResolver), signalService, quotaManager, config.bridgePauser
                 )
             ),
@@ -387,7 +387,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Deploy ERC20 Vault
         address erc20Vault = deployProxy({
             name: "erc20_vault",
-            impl: address(new MainnetERC20Vault(address(sharedResolver), quotaManager)),
+            impl: address(new ERC20Vault(address(sharedResolver), quotaManager)),
             data: abi.encodeCall(ERC20Vault.init, (owner)),
             registerTo: sharedResolver
         });
@@ -395,7 +395,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Deploy ERC721 Vault
         address erc721Vault = deployProxy({
             name: "erc721_vault",
-            impl: address(new MainnetERC721Vault(address(sharedResolver))),
+            impl: address(new ERC721Vault(address(sharedResolver))),
             data: abi.encodeCall(ERC721Vault.init, (owner)),
             registerTo: sharedResolver
         });
@@ -403,7 +403,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Deploy ERC1155 Vault
         address erc1155Vault = deployProxy({
             name: "erc1155_vault",
-            impl: address(new MainnetERC1155Vault(address(sharedResolver))),
+            impl: address(new ERC1155Vault(address(sharedResolver))),
             data: abi.encodeCall(ERC1155Vault.init, (owner)),
             registerTo: sharedResolver
         });

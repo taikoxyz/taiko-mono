@@ -1,0 +1,820 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import { Proposal0023Harness } from "./Proposal0023Harness.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Test } from "forge-std/src/Test.sol";
+import { Proposal0023 } from "script/layer1/proposals/Proposal0023.s.sol";
+import { LibL1Addrs as L1 } from "src/layer1/mainnet/LibL1Addrs.sol";
+import { LibL2Addrs as L2 } from "src/layer2/mainnet/LibL2Addrs.sol";
+import { Bridge } from "src/shared/bridge/Bridge.sol";
+import { IBridge, IMessageInvocable } from "src/shared/bridge/IBridge.sol";
+import { DefaultResolver } from "src/shared/common/DefaultResolver.sol";
+import { Controller } from "src/shared/governance/Controller.sol";
+import { LibNames } from "src/shared/libs/LibNames.sol";
+import { ISignalService } from "src/shared/signal/ISignalService.sol";
+import { BridgedERC20 } from "src/shared/vault/BridgedERC20.sol";
+import { BridgedERC20V2 } from "src/shared/vault/BridgedERC20V2.sol";
+import { ERC20Vault } from "src/shared/vault/ERC20Vault.sol";
+
+/// @notice Rehearses the Proposal0023 upgrades against live mainnet state.
+/// @dev Skipped unless `L1_FORK_URL` / `L2_FORK_URL` are set, because CI configures no RPC
+/// endpoints. Run with:
+///
+///   L1_FORK_URL=<l1 rpc> L2_FORK_URL=https://rpc.mainnet.taiko.xyz \
+///     FOUNDRY_PROFILE=layer1 forge test --match-contract Proposal0023ForkTest -vv
+///
+/// `Proposal0023.t.sol` proves the proposal encodes the right calldata. It cannot prove the
+/// upgrades work, and the L2 leg is where that distinction matters: the live L2 bridge and ERC20
+/// vault both run protocol 1.10.0 implementations from October 2024, the bridge must upgrade
+/// *itself* from inside its own `processMessage` frame, and every resolver lookup the vault makes
+/// moves to a registry that is empty until the same batch populates it.
+///
+/// The rehearsal executes exactly what the DAO will: the calldata `Proposal0023` builds from its
+/// constants, against the implementations those constants name, which already exist on both
+/// chains. Nothing is deployed by the test. After each leg it bridges tokens through the upgraded
+/// contracts.
+///
+/// The signal proofs are mocked on both forks: a valid proof cannot be synthesised against a fork,
+/// so the upgraded bridges' `proveSignalReceived` path against the live signal services is not
+/// exercised here, only the resolver lookup that feeds it. The Hoodi rehearsal of this upgrade
+/// (#22118) covered it live, with the relayer claiming through the upgraded bridges in both
+/// directions, and the Hoodi L2 `SignalService` implementation is the same build as mainnet's
+/// `0x18b27428…` (identical runtime bytecode apart from the immutables). The L2 leg also delivers
+/// a second governance message after the batch, so the DelegateController's `context()` read is
+/// exercised against the new transient-storage implementation and not only against the 1.10.0 code
+/// that invoked the batch.
+/// @custom:security-contact security@taiko.xyz
+contract Proposal0023ForkTest is Test {
+    /// @dev Live values read before the L2 batch executes, compared against afterwards.
+    struct L2Before {
+        uint64 messageId;
+        address bridgeOwner;
+        address vaultOwner;
+        // A bridged token the 1.10.0 vault deployed; it resolves the vault through the legacy
+        // registry and must keep working after the upgrade.
+        address bridgedUsdt;
+    }
+
+    /// @dev EIP-1967 implementation slot.
+    bytes32 private constant _IMPL_SLOT =
+        0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
+
+    /// @dev The canonical Permit2 deployment, present on both chains.
+    address private constant _PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
+
+    /// @dev The amount every token movement below uses, in the token's smallest unit.
+    uint256 private constant _AMOUNT = 50e6;
+
+    /// @dev EIP-2612's permit struct hash, as `BridgedERC20V2` uses it.
+    bytes32 private constant _PERMIT_TYPEHASH = keccak256(
+        "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+    );
+
+    /// @dev The implementations each proxy must still be running when the rehearsal starts. Both
+    /// forks are taken at head, so once Proposal0023 executes these tests would otherwise rehearse
+    /// current -> current and stay green while no longer covering the transition they exist for —
+    /// the L2 ones silently stop exercising the 1.10.0 jump. Asserting the starting implementation
+    /// fails loudly instead. It is preferred over a pinned fork block because pinning needs an
+    /// archive node; the blocks the rehearsal was captured at are named in the failure messages for
+    /// anyone who has one.
+    address private constant _LIVE_BRIDGE_IMPL_L1 = 0x1c94D798CFA08F396E5BA9F81697289c53273381;
+    address private constant _LIVE_BRIDGED_ERC20_L1 = 0x65666141a541423606365123Ed280AB16a09A2e1;
+    address private constant _LIVE_ERC20_VAULT_IMPL_L1 = 0x024253C6FDC27d3161aFd43fb0241411A28dDc3c;
+    address private constant _LIVE_BRIDGE_IMPL_L2 = 0x95ae2918dcbc6aFF8B4c1F1BCC1bf819b6e08B83;
+    address private constant _LIVE_ERC20_VAULT_IMPL_L2 = 0xb96AbB41b01E3ad519D00E80355a1c3801910F62;
+
+    function test_l1_upgradesAgainstLiveState() external {
+        if (!_forkOrSkip("L1_FORK_URL")) return;
+
+        string memory notPreUpgrade =
+            "L1 fork is not pre-upgrade; pin --fork-block-number 25888605 against an archive node";
+        assertEq(_implementationOf(L1.BRIDGE), _LIVE_BRIDGE_IMPL_L1, notPreUpgrade);
+        assertEq(_implementationOf(L1.ERC20_VAULT), _LIVE_ERC20_VAULT_IMPL_L1, notPreUpgrade);
+        assertEq(
+            DefaultResolver(L1.SHARED_RESOLVER).resolve(1, LibNames.B_BRIDGED_ERC20, false),
+            _LIVE_BRIDGED_ERC20_L1,
+            notPreUpgrade
+        );
+
+        uint64 messageIdBefore = Bridge(payable(L1.BRIDGE)).nextMessageId();
+        address vaultOwnerBefore = ERC20Vault(L1.ERC20_VAULT).owner();
+
+        // The implementations DeployBridgeUpgradeL1, DeployERC20VaultUpgradeL1 and
+        // DeployBridgedERC20V2L1 deployed, as the proposal and LibL1Addrs name them.
+        Proposal0023Harness harness = new Proposal0023Harness();
+        Proposal0023.L1Deployment memory l1 = Proposal0023.L1Deployment({
+            bridgeImpl: harness.BRIDGE_NEW_IMPL_L1(),
+            erc20VaultImpl: harness.ERC20_VAULT_NEW_IMPL_L1(),
+            bridgedErc20Impl: L1.BRIDGED_ERC20
+        });
+        assertGt(l1.bridgeImpl.code.length, 0, "L1 bridge implementation is not deployed");
+        assertGt(l1.erc20VaultImpl.code.length, 0, "L1 vault implementation is not deployed");
+        assertGt(l1.bridgedErc20Impl.code.length, 0, "L1 BridgedERC20 is not deployed");
+
+        // Pin the defect the third L1 action fixes: today a first delivery of a token canonical
+        // on L2 cannot deploy its bridged token and parks as RETRIABLE.
+        IBridge.Message memory stuck = _deliverNeverSeenTokenToL1();
+
+        // Execute the whole L1 batch the way the DAO controller will: both upgrades and the
+        // registration, then the sendMessage that BuildProposal appends, through the
+        // just-upgraded bridge. This is the calldata `Proposal0023.action.md` carries.
+        Controller.Action[] memory actions = harness.exposedBuildAllActions();
+        assertEq(actions.length, 4);
+        _executeAs(L1.DAO_CONTROLLER, actions);
+
+        _assertL1BridgeAfterUpgrade(l1.bridgeImpl, messageIdBefore);
+        _assertL1VaultAfterUpgrade(l1.erc20VaultImpl, vaultOwnerBefore, messageIdBefore);
+        _assertL1BridgedErc20AfterRegistration(l1.bridgedErc20Impl, vaultOwnerBefore, stuck);
+    }
+
+    function test_l2_selfUpgradeThroughProcessMessage() external {
+        if (!_forkOrSkip("L2_FORK_URL")) return;
+        _rehearseL2Upgrade(L2.PERMISSIONLESS_EXECUTOR);
+    }
+
+    /// @dev The same rehearsal driven by a relayer rather than the destination owner. When the
+    /// caller is the destOwner the legacy bridge forwards `gasleft()`, so the executor case never
+    /// exercises the proposal's 5,000,000 gas limit at all; any caller may process a message, and
+    /// a relayer instead receives `_invocationGasLimit`, which is what this case covers.
+    function test_l2_selfUpgradeThroughProcessMessage_byRelayer() external {
+        if (!_forkOrSkip("L2_FORK_URL")) return;
+        _rehearseL2Upgrade(makeAddr("relayer"));
+    }
+
+    /// @dev Checks the L1 bridge after the batch: immutables, resolver wiring, and that the
+    /// governance message left through the new implementation.
+    /// @param _newImpl The implementation the proxy must now run.
+    /// @param _messageIdBefore The bridge's `nextMessageId` before the batch.
+    function _assertL1BridgeAfterUpgrade(
+        address _newImpl,
+        uint64 _messageIdBefore
+    )
+        private
+        view
+    {
+        Bridge bridge = Bridge(payable(L1.BRIDGE));
+        assertEq(_implementationOf(L1.BRIDGE), _newImpl);
+        assertEq(bridge.resolver(), L1.SHARED_RESOLVER);
+        assertEq(address(bridge.signalService()), L1.SIGNAL_SERVICE);
+        assertEq(address(bridge.quotaManager()), L1.QUOTA_MANAGER);
+        assertEq(bridge.pauser(), L1.MULTISIG_ADMIN_TAIKO_ETH);
+
+        (bool enabled, address destBridge) = bridge.isDestChainEnabled(167_000);
+        assertTrue(enabled);
+        assertEq(destBridge, L2.BRIDGE);
+
+        assertEq(bridge.nextMessageId(), _messageIdBefore + 1);
+    }
+
+    /// @dev Checks the L1 vault after the batch: storage and immutables kept, Permit2 gained, and
+    /// a canonical token still leaves through the upgraded bridge on the resolver entries the L1
+    /// shared resolver already carries.
+    /// @param _newImpl The implementation the proxy must now run.
+    /// @param _ownerBefore The vault's owner before the batch.
+    /// @param _messageIdBefore The bridge's `nextMessageId` before the batch.
+    function _assertL1VaultAfterUpgrade(
+        address _newImpl,
+        address _ownerBefore,
+        uint64 _messageIdBefore
+    )
+        private
+    {
+        ERC20Vault vault = ERC20Vault(L1.ERC20_VAULT);
+        assertEq(_implementationOf(L1.ERC20_VAULT), _newImpl);
+        assertEq(vault.owner(), _ownerBefore);
+        assertEq(vault.resolver(), L1.SHARED_RESOLVER);
+        assertEq(address(vault.quotaManager()), L1.QUOTA_MANAGER);
+        assertEq(vault.PERMIT2(), _PERMIT2);
+        assertGt(_PERMIT2.code.length, 0, "Permit2 is not deployed on this fork");
+
+        IBridge.Message memory message = _sendToken(vault, L1.WETH_TOKEN, 167_000);
+        assertEq(message.to, L2.ERC20_VAULT);
+        assertEq(Bridge(payable(L1.BRIDGE)).nextMessageId(), _messageIdBefore + 2);
+    }
+
+    /// @dev Delivers a token canonical on L2 that L1 has never seen, the way a relayer delivers a
+    /// `sendToken` from L2. Today the vault's `_deployBridgedToken` initialises the July 2024
+    /// `BridgedERC20` the L1 resolver names through the six-argument init that implementation
+    /// does not have, so the invocation reverts and the bridge parks the message as RETRIABLE.
+    /// @return message_ The message, so the post-batch check can retry exactly it.
+    function _deliverNeverSeenTokenToL1() private returns (IBridge.Message memory message_) {
+        // A valid signal proof cannot be synthesised on a fork.
+        vm.mockCall(
+            L1.SIGNAL_SERVICE,
+            abi.encodeWithSelector(ISignalService.proveSignalReceived.selector),
+            abi.encode(uint256(0))
+        );
+
+        address recipient = makeAddr("recipient on L1");
+        message_.id = 424_243;
+        message_.from = L2.ERC20_VAULT;
+        message_.srcChainId = 167_000;
+        message_.srcOwner = recipient;
+        message_.destChainId = 1;
+        message_.destOwner = recipient;
+        message_.to = L1.ERC20_VAULT;
+        message_.gasLimit = 3_000_000;
+        message_.data = abi.encodeCall(
+            IMessageInvocable.onMessageInvocation,
+            (abi.encode(
+                    ERC20Vault.CanonicalERC20({
+                        chainId: 167_000,
+                        addr: makeAddr("canonical L2 token with no L1 representation"),
+                        decimals: 18,
+                        symbol: "NEW",
+                        name: "New Token"
+                    }),
+                    recipient,
+                    recipient,
+                    _AMOUNT
+                ))
+        );
+
+        vm.prank(recipient);
+        (IBridge.Status status, IBridge.StatusReason reason) =
+            Bridge(payable(L1.BRIDGE)).processMessage(message_, "");
+        assertEq(uint8(status), uint8(IBridge.Status.RETRIABLE), "delivery did not park");
+        assertEq(uint8(reason), uint8(IBridge.StatusReason.INVOCATION_FAILED));
+    }
+
+    /// @dev The registration fixes that defect, and fixes it for messages already parked: the
+    /// resolver now names the new implementation, and retrying the message that failed before
+    /// the batch deploys a bridged token from it and mints.
+    /// @param _newImpl The `BridgedERC20` the resolver must now name.
+    /// @param _vaultOwner The vault's owner, which every bridged token it deploys is owned by.
+    /// @param _stuck The message `_deliverNeverSeenTokenToL1` parked.
+    function _assertL1BridgedErc20AfterRegistration(
+        address _newImpl,
+        address _vaultOwner,
+        IBridge.Message memory _stuck
+    )
+        private
+    {
+        assertEq(
+            DefaultResolver(L1.SHARED_RESOLVER).resolve(1, LibNames.B_BRIDGED_ERC20, false),
+            _newImpl
+        );
+        assertEq(BridgedERC20(_newImpl).erc20Vault(), L1.ERC20_VAULT);
+
+        // Anyone may retry a message with a non-zero gasLimit while it is not the last attempt.
+        Bridge bridge = Bridge(payable(L1.BRIDGE));
+        vm.prank(makeAddr("relayer"));
+        bridge.retryMessage(_stuck, false);
+        assertEq(
+            uint8(bridge.messageStatus(bridge.hashMessage(_stuck))), uint8(IBridge.Status.DONE)
+        );
+
+        // The same labels `_deliverNeverSeenTokenToL1` used; makeAddr is deterministic.
+        address ctoken = makeAddr("canonical L2 token with no L1 representation");
+        address recipient = makeAddr("recipient on L1");
+        address btoken = ERC20Vault(L1.ERC20_VAULT).canonicalToBridged(167_000, ctoken);
+        assertTrue(btoken != address(0), "retry deployed no bridged token");
+        assertEq(_implementationOf(btoken), _newImpl);
+        assertEq(BridgedERC20(btoken).erc20Vault(), L1.ERC20_VAULT);
+        assertEq(BridgedERC20(btoken).owner(), _vaultOwner);
+        assertEq(IERC20(btoken).balanceOf(recipient), _AMOUNT);
+
+        // It is a V2, so it carries EIP-2612 permit: the recipient sends it back through
+        // sendTokenWithPermit, the entrypoint #22093 added, with no approve transaction.
+        assertTrue(BridgedERC20V2(btoken).DOMAIN_SEPARATOR() != bytes32(0));
+        _sendBackWithPermit(ERC20Vault(L1.ERC20_VAULT), btoken, "recipient on L1", 167_000);
+    }
+
+    /// @dev Runs the L2 rehearsal with `_caller` processing the governance message.
+    /// @param _caller The address that calls `processMessage`.
+    function _rehearseL2Upgrade(address _caller) private {
+        Bridge bridge = Bridge(payable(L2.BRIDGE));
+        ERC20Vault vault = ERC20Vault(L2.ERC20_VAULT);
+
+        string memory notPreUpgrade =
+            "L2 fork is not pre-upgrade; pin --fork-block-number 10865570 against an archive node";
+        assertEq(_implementationOf(L2.BRIDGE), _LIVE_BRIDGE_IMPL_L2, notPreUpgrade);
+        assertEq(_implementationOf(L2.ERC20_VAULT), _LIVE_ERC20_VAULT_IMPL_L2, notPreUpgrade);
+
+        L2Before memory before = L2Before({
+            messageId: bridge.nextMessageId(),
+            bridgeOwner: bridge.owner(),
+            vaultOwner: vault.owner(),
+            bridgedUsdt: vault.canonicalToBridged(1, L1.USDT_TOKEN)
+        });
+        assertTrue(before.bridgedUsdt != address(0), "no bridged USDT on this fork");
+
+        // The contracts DeployBridgeUpgradeL2, DeployERC20VaultUpgradeL2 and DeployBridgedERC20V2L2
+        // deployed, as the proposal and LibL2Addrs name them.
+        Proposal0023Harness harness = new Proposal0023Harness();
+        Proposal0023.L2Deployment memory l2 = Proposal0023.L2Deployment({
+            sharedResolver: L2.SHARED_RESOLVER,
+            bridgeImpl: harness.BRIDGE_NEW_IMPL_L2(),
+            erc20VaultImpl: harness.ERC20_VAULT_NEW_IMPL_L2(),
+            bridgedErc20Impl: L2.BRIDGED_ERC20
+        });
+        _assertL2ContractsDeployed(l2);
+
+        // Deliver the seven L2 actions the way governance will: as a processMessage call on the
+        // bridge itself, not by pranking the DelegateController. That is what exercises the
+        // mid-call self-upgrade. The message is the one BuildProposal wraps the L2 batch into.
+        IBridge.Message memory message = _governanceMessage(harness);
+
+        // A valid signal proof cannot be synthesised on a fork, and the signal service is not what
+        // this test exercises.
+        vm.mockCall(
+            L2.SIGNAL_SERVICE,
+            abi.encodeWithSelector(ISignalService.proveSignalReceived.selector),
+            abi.encode(uint256(0))
+        );
+
+        // Pin the legacy side of the in-flight calldata transition before the batch runs.
+        _deliverToEoaWithCalldata(false);
+
+        // On the relayer branch the invocation receives message.gasLimit minus the message's own
+        // minimum, not gasleft(). Pin that budget so the 5,000,000 in the proposal is shown to be
+        // sufficient rather than assumed: 5,000,000 - (39,936 calldata cost + 800,000 GAS_RESERVE)
+        // for this message's 2,052 bytes of data, more than ten times what the seven actions need.
+        // `Proposal0023.t.sol` pins the 2,052.
+        if (_caller != message.destOwner) {
+            assertEq(
+                message.gasLimit - bridge.getMessageMinGasLimit(message.data.length),
+                4_160_064,
+                "relayer invocation budget moved; re-derive it before trusting this rehearsal"
+            );
+        }
+
+        vm.prank(_caller);
+        (IBridge.Status status, IBridge.StatusReason reason) = bridge.processMessage(message, "");
+
+        // A passing transaction is NOT evidence the upgrade worked. The 1.10.0 _invokeMessageCall
+        // uses a raw call, so a reverting invocation becomes RETRIABLE without reverting
+        // processMessage. Assert the status as well as the slots; a silent failure fails here.
+        assertEq(uint8(status), uint8(IBridge.Status.DONE));
+        assertEq(uint8(reason), uint8(IBridge.StatusReason.INVOCATION_OK));
+        assertEq(_implementationOf(L2.BRIDGE), l2.bridgeImpl);
+        assertEq(_implementationOf(L2.ERC20_VAULT), l2.erc20VaultImpl);
+
+        _assertL2Registrations(l2);
+        _assertL2BridgeAfterUpgrade(l2.sharedResolver, before);
+        _assertL2VaultAfterUpgrade(l2.sharedResolver, before);
+        _bridgeTokensThroughUpgradedL2(l2, before);
+        _deliverToEoaWithCalldata(true);
+        _deliverGovernanceMessageThroughUpgradedBridge(_caller, l2.sharedResolver);
+    }
+
+    /// @dev The one behavioural change of the bridge's 1.10.0 -> main jump that touches messages
+    /// already in flight. The legacy `_unableToInvokeMessageCall` refuses calldata that is not
+    /// `onMessageInvocation` only when `to` has code, so such a message to an EOA is delivered to
+    /// `to` together with its value; `main` refuses it regardless of `to` and refunds the value to
+    /// `destOwner` as INVOCATION_PROHIBITED. Pins both sides of the transition so the runbook's
+    /// description of it stays true.
+    /// @param _afterUpgrade Whether the batch has executed.
+    function _deliverToEoaWithCalldata(bool _afterUpgrade) private {
+        string memory phase = _afterUpgrade ? "after" : "before";
+        address to = makeAddr(string.concat("EOA recipient ", phase));
+        address destOwner = makeAddr(string.concat("destination owner ", phase));
+
+        IBridge.Message memory message;
+        message.id = 424_242;
+        message.from = makeAddr("L1 sender");
+        message.srcChainId = 1;
+        message.srcOwner = message.from;
+        message.destChainId = 167_000;
+        message.destOwner = destOwner;
+        message.to = to;
+        message.value = 1 ether;
+        message.gasLimit = 200_000;
+        // Four bytes that are not onMessageInvocation's selector, plus an argument.
+        message.data = abi.encodeWithSelector(bytes4(0xdeadbeef), uint256(1));
+
+        vm.prank(destOwner);
+        (IBridge.Status status, IBridge.StatusReason reason) =
+            Bridge(payable(L2.BRIDGE)).processMessage(message, "");
+        assertEq(uint8(status), uint8(IBridge.Status.DONE));
+
+        if (_afterUpgrade) {
+            assertEq(uint8(reason), uint8(IBridge.StatusReason.INVOCATION_PROHIBITED));
+            assertEq(to.balance, 0, "main delivered to the EOA");
+            assertEq(destOwner.balance, 1 ether, "main did not refund destOwner");
+        } else {
+            assertEq(uint8(reason), uint8(IBridge.StatusReason.INVOCATION_OK));
+            assertEq(to.balance, 1 ether, "1.10.0 did not deliver to the EOA");
+            assertEq(destOwner.balance, 0, "1.10.0 refunded destOwner");
+        }
+    }
+
+    /// @dev Delivers a second governance message through the upgraded bridge. The batch itself is
+    /// invoked by the 1.10.0 code, so the DelegateController authenticates it against the old
+    /// storage context; every later governance message is authenticated against the new
+    /// implementation's transient `context()`, which is what this delivery exercises. The action is
+    /// a no-op re-registration of the entry the proposal keeps for symmetry.
+    /// @param _caller The address that calls `processMessage`.
+    /// @param _resolver The new resolver.
+    function _deliverGovernanceMessageThroughUpgradedBridge(
+        address _caller,
+        address _resolver
+    )
+        private
+    {
+        Controller.Action[] memory actions = new Controller.Action[](1);
+        actions[0] = Controller.Action({
+            target: _resolver,
+            value: 0,
+            data: abi.encodeCall(
+                DefaultResolver.registerAddress,
+                (uint256(167_000), LibNames.B_ERC20_VAULT, L2.ERC20_VAULT)
+            )
+        });
+
+        IBridge.Message memory message;
+        message.id = 999_998;
+        message.from = L1.DAO_CONTROLLER;
+        message.srcChainId = 1;
+        message.srcOwner = L1.DAO_CONTROLLER;
+        message.destChainId = 167_000;
+        message.destOwner = L2.PERMISSIONLESS_EXECUTOR;
+        message.to = L2.DELEGATE_CONTROLLER;
+        message.gasLimit = 1_000_000;
+        message.data = abi.encodeCall(
+            IMessageInvocable.onMessageInvocation,
+            (abi.encodePacked(uint64(0), abi.encode(actions)))
+        );
+
+        // The DelegateController only executes after `IBridge(msg.sender).context()` named the DAO
+        // controller on chain 1, so this event proves the new implementation served the context.
+        vm.expectEmit(true, false, false, true, L2.DELEGATE_CONTROLLER);
+        emit Controller.ActionExecuted(actions[0].target, actions[0].value, actions[0].data);
+        vm.prank(_caller);
+        (IBridge.Status status, IBridge.StatusReason reason) =
+            Bridge(payable(L2.BRIDGE)).processMessage(message, "");
+        assertEq(uint8(status), uint8(IBridge.Status.DONE), "governance message was not invoked");
+        assertEq(
+            uint8(reason), uint8(IBridge.StatusReason.INVOCATION_OK), "governance action failed"
+        );
+        assertEq(
+            DefaultResolver(_resolver).resolve(167_000, LibNames.B_ERC20_VAULT, false),
+            L2.ERC20_VAULT
+        );
+    }
+
+    /// @dev The four L2 addresses the proposal names exist on the fork, and the resolver is still
+    /// the empty, DelegateController-owned proxy the deploy script left.
+    /// @param _l2 The L2 addresses the batch points at.
+    function _assertL2ContractsDeployed(Proposal0023.L2Deployment memory _l2) private view {
+        assertGt(_l2.sharedResolver.code.length, 0, "L2 resolver is not deployed");
+        assertGt(_l2.bridgeImpl.code.length, 0, "L2 bridge implementation is not deployed");
+        assertGt(_l2.erc20VaultImpl.code.length, 0, "L2 vault implementation is not deployed");
+        assertGt(_l2.bridgedErc20Impl.code.length, 0, "L2 BridgedERC20 is not deployed");
+        assertEq(DefaultResolver(_l2.sharedResolver).owner(), L2.DELEGATE_CONTROLLER);
+        assertEq(
+            DefaultResolver(_l2.sharedResolver).resolve(1, LibNames.B_BRIDGE, true),
+            address(0),
+            "L2 resolver is already populated"
+        );
+    }
+
+    /// @dev The message BuildProposal wraps the L2 batch into, as the L2 bridge receives it: the
+    /// L1 bridge assigns `id`, `from` and `srcChainId` at send time.
+    /// @param _harness The proposal.
+    /// @return message_ The message to hand to processMessage.
+    function _governanceMessage(Proposal0023Harness _harness)
+        private
+        view
+        returns (IBridge.Message memory message_)
+    {
+        message_ = _harness.exposedBuildL2Message();
+        message_.id = 999_999;
+        message_.from = L1.DAO_CONTROLLER;
+        message_.srcChainId = 1;
+    }
+
+    /// @dev Every registration landed on the new resolver.
+    /// @param _l2 The L2 addresses the batch points at.
+    function _assertL2Registrations(Proposal0023.L2Deployment memory _l2) private view {
+        DefaultResolver resolver = DefaultResolver(_l2.sharedResolver);
+        assertEq(resolver.resolve(1, LibNames.B_BRIDGE, false), L1.BRIDGE);
+        assertEq(resolver.resolve(167_000, LibNames.B_BRIDGE, false), L2.BRIDGE);
+        assertEq(resolver.resolve(1, LibNames.B_ERC20_VAULT, false), L1.ERC20_VAULT);
+        assertEq(resolver.resolve(167_000, LibNames.B_ERC20_VAULT, false), L2.ERC20_VAULT);
+        assertEq(resolver.resolve(167_000, LibNames.B_BRIDGED_ERC20, false), _l2.bridgedErc20Impl);
+    }
+
+    /// @dev Storage survived the bridge's 1.10.0 to main jump, the new immutables read as
+    /// deployed, the resolver path the legacy registry could not serve now works, and the bridge
+    /// can still send.
+    /// @param _resolverProxy The new resolver.
+    /// @param _before The live values read before the batch.
+    function _assertL2BridgeAfterUpgrade(
+        address _resolverProxy,
+        L2Before memory _before
+    )
+        private
+    {
+        Bridge bridge = Bridge(payable(L2.BRIDGE));
+
+        // This is the call that reverts if the wiring is wrong.
+        (bool enabled, address destBridge) = bridge.isDestChainEnabled(1);
+        assertTrue(enabled);
+        assertEq(destBridge, L1.BRIDGE);
+
+        assertEq(bridge.nextMessageId(), _before.messageId);
+        assertEq(bridge.owner(), _before.bridgeOwner);
+        assertEq(bridge.resolver(), _resolverProxy);
+        assertEq(address(bridge.quotaManager()), address(0));
+        assertEq(bridge.pauser(), address(0));
+
+        // gasLimit must clear getMessageMinGasLimit(0) = _messageCalldataCost(0) 6,656 +
+        // GAS_RESERVE 800,000 = 806,656; below it _invocationGasLimit returns 0 and sendMessage
+        // reverts B_INVALID_GAS_LIMIT. Deliberately not 0, which would short-circuit that
+        // validation.
+        IBridge.Message memory outbound;
+        outbound.srcChainId = 167_000;
+        outbound.destChainId = 1;
+        outbound.srcOwner = address(this);
+        outbound.destOwner = address(this);
+        outbound.to = address(this);
+        outbound.gasLimit = 1_000_000;
+        bridge.sendMessage(outbound);
+
+        assertEq(bridge.nextMessageId(), _before.messageId + 1);
+    }
+
+    /// @dev Storage survived the vault's 1.10.0 to main jump and the new immutables read as
+    /// deployed.
+    /// @param _resolverProxy The new resolver.
+    /// @param _before The live values read before the batch.
+    function _assertL2VaultAfterUpgrade(
+        address _resolverProxy,
+        L2Before memory _before
+    )
+        private
+        view
+    {
+        ERC20Vault vault = ERC20Vault(L2.ERC20_VAULT);
+        assertEq(vault.owner(), _before.vaultOwner);
+        assertEq(vault.resolver(), _resolverProxy);
+        assertEq(address(vault.quotaManager()), address(0));
+        assertEq(vault.PERMIT2(), _PERMIT2);
+        assertGt(_PERMIT2.code.length, 0, "Permit2 is not deployed on this fork");
+
+        assertEq(vault.canonicalToBridged(1, L1.USDT_TOKEN), _before.bridgedUsdt);
+        (uint64 ctokenChainId, address ctokenAddr,,,) =
+            vault.bridgedToCanonical(_before.bridgedUsdt);
+        assertEq(ctokenChainId, 1);
+        assertEq(ctokenAddr, L1.USDT_TOKEN);
+    }
+
+    /// @dev Moves tokens through the upgraded L2 contracts in every direction the vault supports.
+    /// @param _l2 The L2 addresses the batch pointed at.
+    /// @param _before The live values read before the batch.
+    function _bridgeTokensThroughUpgradedL2(
+        Proposal0023.L2Deployment memory _l2,
+        L2Before memory _before
+    )
+        private
+    {
+        Bridge bridge = Bridge(payable(L2.BRIDGE));
+        ERC20Vault vault = ERC20Vault(L2.ERC20_VAULT);
+
+        // A delivery of a token that already has a bridged representation. Every lookup the
+        // upgraded vault makes on this path — its onlyFromNamed(B_BRIDGE) guard and the check that
+        // the message came from the L1 vault — now goes through the new registry, while the mint
+        // goes through a 1.10.0 bridged token that still resolves the vault through the legacy one.
+        _deliverFromL1(L1.USDT_TOKEN, 6, "USDT", "Tether USD", _before.bridgedUsdt);
+
+        // The first delivery of a token with no bridged representation yet deploys one from the
+        // implementation registered as `bridged_erc20`, through the six-argument init the 1.10.0
+        // implementation does not have. This is the path that made a new BridgedERC20 mandatory.
+        address ctoken = makeAddr("canonical L1 token with no L2 representation");
+        address btoken = _deliverFromL1(ctoken, 18, "NEW", "New Token", address(0));
+        assertEq(_implementationOf(btoken), _l2.bridgedErc20Impl);
+        assertEq(BridgedERC20(btoken).erc20Vault(), L2.ERC20_VAULT);
+        assertEq(BridgedERC20(btoken).owner(), _before.vaultOwner);
+        assertEq(BridgedERC20(btoken).srcToken(), ctoken);
+        assertEq(BridgedERC20(btoken).srcChainId(), 1);
+        assertEq(BridgedERC20(btoken).decimals(), 18);
+
+        // It is a V2, so it carries EIP-2612 permit: the recipient sends it back through
+        // sendTokenWithPermit, the entrypoint #22093 added, with no approve transaction.
+        assertTrue(BridgedERC20V2(btoken).DOMAIN_SEPARATOR() != bytes32(0));
+        _sendBackWithPermit(vault, btoken, "recipient of NEW", 1);
+
+        // Sending a bridged token back burns it and routes the message to the L1 vault, both
+        // resolved through the new registry, out through the upgraded bridge.
+        uint64 messageIdBefore = bridge.nextMessageId();
+        uint256 supplyBefore = IERC20(_before.bridgedUsdt).totalSupply();
+        IBridge.Message memory sent = _sendToken(vault, _before.bridgedUsdt, 1);
+        assertEq(sent.to, L1.ERC20_VAULT);
+        assertEq(IERC20(_before.bridgedUsdt).totalSupply(), supplyBefore - _AMOUNT);
+        assertEq(bridge.nextMessageId(), messageIdBefore + 1);
+    }
+
+    /// @dev Delivers `_AMOUNT` of an L1 canonical token to a fresh recipient through
+    /// `processMessage`, the way a relayer delivers a `sendToken` from L1, and asserts the
+    /// recipient received the bridged representation.
+    /// @param _ctoken The canonical token address on L1.
+    /// @param _decimals The canonical token's decimals.
+    /// @param _symbol The canonical token's symbol.
+    /// @param _name The canonical token's name.
+    /// @param _expectedBtoken The bridged token the vault must mint, or zero when the delivery is
+    /// expected to deploy one.
+    /// @return btoken_ The bridged token the recipient received.
+    function _deliverFromL1(
+        address _ctoken,
+        uint8 _decimals,
+        string memory _symbol,
+        string memory _name,
+        address _expectedBtoken
+    )
+        private
+        returns (address btoken_)
+    {
+        address recipient = makeAddr(string.concat("recipient of ", _symbol));
+
+        IBridge.Message memory message;
+        message.id = uint64(uint160(_ctoken));
+        message.from = L1.ERC20_VAULT;
+        message.srcChainId = 1;
+        message.srcOwner = recipient;
+        message.destChainId = 167_000;
+        message.destOwner = recipient;
+        message.to = L2.ERC20_VAULT;
+        message.gasLimit = 3_000_000;
+        message.data = abi.encodeCall(
+            IMessageInvocable.onMessageInvocation,
+            (abi.encode(
+                    ERC20Vault.CanonicalERC20({
+                        chainId: 1, addr: _ctoken, decimals: _decimals, symbol: _symbol, name: _name
+                    }),
+                    recipient,
+                    recipient,
+                    _AMOUNT
+                ))
+        );
+
+        vm.prank(recipient);
+        (IBridge.Status status, IBridge.StatusReason reason) =
+            Bridge(payable(L2.BRIDGE)).processMessage(message, "");
+        assertEq(uint8(status), uint8(IBridge.Status.DONE), "delivery was not invoked");
+        assertEq(uint8(reason), uint8(IBridge.StatusReason.INVOCATION_OK), "delivery failed");
+
+        btoken_ = ERC20Vault(L2.ERC20_VAULT).canonicalToBridged(1, _ctoken);
+        if (_expectedBtoken != address(0)) {
+            assertEq(btoken_, _expectedBtoken, "delivery deployed a new bridged token");
+        } else {
+            assertTrue(btoken_ != address(0), "delivery deployed no bridged token");
+        }
+        assertEq(IERC20(btoken_).balanceOf(recipient), _AMOUNT);
+    }
+
+    /// @dev Sends `_AMOUNT` of a V2 bridged token back to `_destChainId` through
+    /// `sendTokenWithPermit`: the holder signs an EIP-2612 permit for the vault instead of sending
+    /// an approve transaction. `_label` is the holder's makeAddr label, which also yields its key.
+    /// @param _vault The vault to send through.
+    /// @param _btoken The V2 bridged token the holder received.
+    /// @param _label The makeAddr label the holder was created with.
+    /// @param _destChainId The destination chain.
+    function _sendBackWithPermit(
+        ERC20Vault _vault,
+        address _btoken,
+        string memory _label,
+        uint64 _destChainId
+    )
+        private
+    {
+        (address holder, uint256 key) = makeAddrAndKey(_label);
+        uint256 deadline = block.timestamp + 1 hours;
+        (uint8 v, bytes32 r, bytes32 s) =
+            vm.sign(key, _permitDigest(_btoken, holder, address(_vault), deadline));
+
+        assertEq(IERC20(_btoken).allowance(holder, address(_vault)), 0);
+        vm.prank(holder);
+        _vault.sendTokenWithPermit(_transferOp(_btoken, holder, _destChainId), deadline, v, r, s);
+
+        assertEq(IERC20(_btoken).balanceOf(holder), 0);
+        assertEq(BridgedERC20V2(_btoken).nonces(holder), 1);
+    }
+
+    /// @dev The EIP-712 digest `BridgedERC20V2.permit` verifies for `_AMOUNT`.
+    /// @param _btoken The token.
+    /// @param _owner The token holder signing the permit.
+    /// @param _spender The vault.
+    /// @param _deadline The permit's expiry.
+    /// @return The digest to sign.
+    function _permitDigest(
+        address _btoken,
+        address _owner,
+        address _spender,
+        uint256 _deadline
+    )
+        private
+        view
+        returns (bytes32)
+    {
+        bytes32 structHash = keccak256(
+            abi.encode(
+                _PERMIT_TYPEHASH,
+                _owner,
+                _spender,
+                _AMOUNT,
+                BridgedERC20V2(_btoken).nonces(_owner),
+                _deadline
+            )
+        );
+        return keccak256(
+            abi.encodePacked("\x19\x01", BridgedERC20V2(_btoken).DOMAIN_SEPARATOR(), structHash)
+        );
+    }
+
+    /// @dev A `BridgeTransferOp` sending `_AMOUNT` of `_token` from `_holder` to itself on
+    /// `_destChainId`, with no fee.
+    /// @param _token The token.
+    /// @param _holder The sender, who is also the recipient and destination owner.
+    /// @param _destChainId The destination chain.
+    /// @return The op.
+    function _transferOp(
+        address _token,
+        address _holder,
+        uint64 _destChainId
+    )
+        private
+        pure
+        returns (ERC20Vault.BridgeTransferOp memory)
+    {
+        return ERC20Vault.BridgeTransferOp({
+            destChainId: _destChainId,
+            destOwner: _holder,
+            to: _holder,
+            fee: 0,
+            token: _token,
+            gasLimit: 1_000_000,
+            amount: _AMOUNT
+        });
+    }
+
+    /// @dev Sends `_AMOUNT` of `_token` from a fresh holder through `sendToken`, the plain
+    /// allowance path, and asserts the vault took them.
+    /// @param _vault The vault to send through.
+    /// @param _token The token to send; canonical on this chain, or bridged.
+    /// @param _destChainId The destination chain.
+    /// @return message_ The bridge message `sendToken` returned.
+    function _sendToken(
+        ERC20Vault _vault,
+        address _token,
+        uint64 _destChainId
+    )
+        private
+        returns (IBridge.Message memory message_)
+    {
+        address holder = makeAddr("token holder");
+        deal(_token, holder, _AMOUNT);
+
+        vm.startPrank(holder);
+        IERC20(_token).approve(address(_vault), _AMOUNT);
+        message_ = _vault.sendToken(
+            ERC20Vault.BridgeTransferOp({
+                destChainId: _destChainId,
+                destOwner: holder,
+                to: holder,
+                fee: 0,
+                token: _token,
+                gasLimit: 1_000_000,
+                amount: _AMOUNT
+            })
+        );
+        vm.stopPrank();
+
+        assertEq(IERC20(_token).balanceOf(holder), 0);
+        assertEq(message_.destChainId, _destChainId);
+        assertEq(message_.srcOwner, holder);
+    }
+
+    /// @dev Executes `_actions` one by one from `_controller`, the way `Controller._executeActions`
+    /// does, aborting on the first failure.
+    /// @param _controller The controller that executes the batch.
+    /// @param _actions The actions.
+    function _executeAs(address _controller, Controller.Action[] memory _actions) private {
+        for (uint256 i; i < _actions.length; ++i) {
+            vm.prank(_controller);
+            (bool success,) = _actions[i].target.call{ value: _actions[i].value }(_actions[i].data);
+            assertTrue(success, string.concat("action ", vm.toString(i), " reverted"));
+        }
+    }
+
+    /// @dev Selects a fork from `_envVar`, or marks the test skipped when it is unset.
+    /// @param _envVar Name of the environment variable holding the RPC URL.
+    /// @return forked_ True when a fork was selected and the test should continue.
+    function _forkOrSkip(string memory _envVar) private returns (bool forked_) {
+        string memory url = vm.envOr(_envVar, string(""));
+        if (bytes(url).length == 0) {
+            vm.skip(true, string.concat(_envVar, " is not set"));
+            return false;
+        }
+        vm.createSelectFork(url);
+        return true;
+    }
+
+    /// @dev Reads a proxy's EIP-1967 implementation slot.
+    /// @param _proxy The proxy to read.
+    /// @return impl_ The implementation address it delegates to.
+    function _implementationOf(address _proxy) private view returns (address impl_) {
+        impl_ = address(uint160(uint256(vm.load(_proxy, _IMPL_SLOT))));
+    }
+}

@@ -2,6 +2,7 @@ package rabbitmq
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -18,6 +19,7 @@ type RabbitMQ struct {
 	ch                *amqp.Channel
 	queue             amqp.Queue
 	unprofitableQueue amqp.Queue
+	transientQueue    amqp.Queue
 	opts              queue.NewQueueOpts
 
 	connErrCh chan *amqp.Error
@@ -108,6 +110,8 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 
 	routingKeyUnprofitable := fmt.Sprintf("%v-unprofitable", queueName)
 
+	routingKeyTransient := fmt.Sprintf("%v-transient", queueName)
+
 	slog.Info("declaring rabbitmq dlx exchange", "exchange", dlxExchange)
 
 	// declare the dead letter exchange for when a message is negatively acknowledged
@@ -163,18 +167,7 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 
 	slog.Info("declaring rabbitmq queue", "queue", queueName)
 
-	args := amqp.Table{}
-
-	args["x-dead-letter-exchange"] = dlxExchange
-
-	q, err := r.ch.QueueDeclare(
-		queueName,
-		true,
-		false,
-		false,
-		false,
-		args,
-	)
+	q, err := r.declareProcessingQueue(queueName, dlxExchange, routingKey)
 	if err != nil {
 		return err
 	}
@@ -217,11 +210,148 @@ func (r *RabbitMQ) Start(ctx context.Context, queueName string) error {
 		return err
 	}
 
+	// A message whose processing failed for a transient reason waits here rather than going
+	// straight back to the head of the main queue. The consumer prefetches one message at a time
+	// and acknowledges only after processing, so an immediate requeue hands the replica the same
+	// message forever: one that can never resolve — a MessageSent whose source transaction was
+	// reorged out, say — stops the replica relaying anything at all. Parking it here for the
+	// expiration instead frees the slot, and the dead-letter route below returns it afterwards, so
+	// a claim is delayed rather than dropped.
+	transientArgs := amqp.Table{}
+
+	transientArgs["x-dead-letter-exchange"] = exchange
+	transientArgs["x-dead-letter-routing-key"] = routingKey
+
+	transientQueueName := fmt.Sprintf("%v-transient", queueName)
+
+	transientQueue, err := r.ch.QueueDeclare(
+		transientQueueName,
+		true,
+		false,
+		false,
+		false,
+		transientArgs,
+	)
+	if err != nil {
+		return err
+	}
+
+	slog.Info("binding queue and exchange", "queue", transientQueueName, "exchange", exchange)
+
+	if err := r.ch.QueueBind(transientQueueName, routingKeyTransient, exchange, false, nil); err != nil {
+		return err
+	}
+
 	r.queue = q
 
 	r.unprofitableQueue = unprofitableQueue
 
+	r.transientQueue = transientQueue
+
 	return nil
+}
+
+// declareProcessingQueue declares the main queue with the dead-letter routing key this release
+// wants, and settles for the arguments an existing queue already carries when it cannot.
+//
+// Without x-dead-letter-routing-key a dead-lettered message keeps the routing key it was published
+// with — the queue's own name, since the indexer publishes through the default exchange — while
+// dlx-<queue> is bound with the -process key. A direct exchange discards what it cannot route, so a
+// message rejected with no requeue was destroyed rather than parked, and the permanently empty
+// dead-letter queue looked like evidence that none had been.
+//
+// A durable queue's arguments are fixed once it exists: declaring it with a different set is
+// answered with 406 PRECONDITION_FAILED and the channel is closed. Every deployment that predates
+// this release has such a queue, and both the processor and the indexer declare it, so insisting
+// would stop the whole relayer on rollout — trading a silent loss for a certain outage, and one
+// whose only in-band repair (deleting the queue) destroys the claims still sitting in it.
+//
+// So the argument is offered, not required. A queue that accepts it is correct from that moment; a
+// queue that refuses keeps the behaviour it has always had, and the operator is told plainly what is
+// still wrong and how to fix it. Fixing it is a deliberate act with a live queue in hand, which is
+// the only safe way round.
+func (r *RabbitMQ) declareProcessingQueue(queueName, dlxExchange, routingKey string) (amqp.Queue, error) {
+	q, err := r.ch.QueueDeclare(queueName, true, false, false, false, amqp.Table{
+		"x-dead-letter-exchange":    dlxExchange,
+		"x-dead-letter-routing-key": routingKey,
+	})
+	if err == nil {
+		return q, nil
+	}
+
+	var amqpErr *amqp.Error
+	if !errors.As(err, &amqpErr) || amqpErr.Code != amqp.PreconditionFailed {
+		return amqp.Queue{}, err
+	}
+
+	// The broker closed the channel under us when it refused; everything after this needs a live
+	// one. The connection itself survives a channel-level exception.
+	if err := r.reopenChannel(); err != nil {
+		return amqp.Queue{}, fmt.Errorf("reopening channel after %q was refused: %w", queueName, err)
+	}
+
+	q, declareErr := r.ch.QueueDeclare(queueName, true, false, false, false, amqp.Table{
+		"x-dead-letter-exchange": dlxExchange,
+	})
+	if declareErr != nil {
+		return amqp.Queue{}, describeRedeclareFailure(queueName, declareErr)
+	}
+
+	slog.Error("queue predates the dead-letter routing key and keeps its own arguments",
+		"queue", queueName,
+		"refusedWith", err.Error(),
+		"consequence", "a message rejected for good is discarded by the broker instead of being "+
+			"kept on dlx-"+queueName,
+		"remedy", "set dead-letter-routing-key to "+routingKey+" with a broker policy on this "+
+			"queue, which needs no redeclare and can be applied while it is running; or drain it "+
+			"and delete it so the next start declares it afresh",
+	)
+
+	return q, nil
+}
+
+// reopenChannel replaces the channel after the broker closed it, keeping the connection.
+func (r *RabbitMQ) reopenChannel() error {
+	ch, err := r.conn.Channel()
+	if err != nil {
+		return err
+	}
+
+	if err := ch.Qos(int(r.opts.PrefetchCount), 0, false); err != nil {
+		return err
+	}
+
+	r.ch = ch
+	r.chErrCh = r.ch.NotifyClose(make(chan *amqp.Error))
+
+	return nil
+}
+
+// describeRedeclareFailure turns the broker's refusal to redeclare a queue into something an
+// operator can act on.
+//
+// A durable queue's arguments are fixed once it exists: redeclaring it with a different set is
+// answered with 406 PRECONDITION_FAILED and the channel is closed. Adding x-dead-letter-routing-key
+// to the main queue therefore stops a relayer whose queue predates it from starting, and the raw
+// error says only that the arguments are not equivalent — not which queue, or what to do.
+//
+// There is no in-place fix: an existing queue has to be drained and deleted so the next start
+// declares it afresh, or the argument applied through a broker policy instead. Both are operator
+// decisions, so this explains rather than guesses.
+func describeRedeclareFailure(queueName string, err error) error {
+	var amqpErr *amqp.Error
+	if !errors.As(err, &amqpErr) || amqpErr.Code != amqp.PreconditionFailed {
+		return err
+	}
+
+	return fmt.Errorf(
+		"queue %q already exists with different arguments (%w). This release adds "+
+			"x-dead-letter-routing-key to it, without which a message rejected for good is "+
+			"discarded by the broker rather than kept on dlx-%s. A durable queue's arguments "+
+			"cannot be changed in place: drain and delete %q so it is declared afresh, or set the "+
+			"argument through a broker policy",
+		queueName, err, queueName, queueName,
+	)
 }
 
 func (r *RabbitMQ) Close(ctx context.Context) {
@@ -342,11 +472,7 @@ func (r *RabbitMQ) Notify(ctx context.Context, wg *sync.WaitGroup) error {
 
 			return nil
 		case err := <-r.connErrCh:
-			if err != nil {
-				slog.Error("rabbitmq notify close connection", "err", err.Error())
-			} else {
-				slog.Error("rabbitmq notify close connection")
-			}
+			logNotifyClose("rabbitmq notify close connection", err)
 
 			relayer.QueueConnectionNotifyClosed.Inc()
 
@@ -359,11 +485,7 @@ func (r *RabbitMQ) Notify(ctx context.Context, wg *sync.WaitGroup) error {
 
 			return queue.ErrClosed
 		case err := <-r.chErrCh:
-			if err != nil {
-				slog.Error("rabbitmq notify close channel", "err", err.Error())
-			} else {
-				slog.Error("rabbitmq notify close channel")
-			}
+			logNotifyClose("rabbitmq notify close channel", err)
 
 			relayer.QueueChannelNotifyClosed.Inc()
 
@@ -384,6 +506,17 @@ func (r *RabbitMQ) Notify(ctx context.Context, wg *sync.WaitGroup) error {
 			}
 		}
 	}
+}
+
+// logNotifyClose records a close notification, which carries no error when the close was graceful.
+func logNotifyClose(message string, err *amqp.Error) {
+	if err != nil {
+		slog.Error(message, "err", err.Error())
+
+		return
+	}
+
+	slog.Error(message)
 }
 
 // Subscribe should be called by consumers.
@@ -447,11 +580,14 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 
 			return nil
 		case err := <-r.connErrCh:
-			slog.Error("rabbitmq notify close connection", "err", err.Error())
+			// A graceful close closes the notify channel without sending, so a receive yields a
+			// nil *amqp.Error — and Error() has a value receiver, so calling it through that nil
+			// pointer panics the consume loop. Notify already guards both arms; this one did not.
+			logNotifyClose("rabbitmq notify close connection", err)
 
 			return queue.ErrClosed
 		case err := <-r.chErrCh:
-			slog.Error("rabbitmq notify close channel", "err", err.Error())
+			logNotifyClose("rabbitmq notify close channel", err)
 
 			return queue.ErrClosed
 		case d, ok := <-msgs:

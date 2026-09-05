@@ -59,8 +59,10 @@ var (
 		EnvVars:  []string{"RESUBMISSION_TIMEOUT"},
 	}
 	TxSendTimeout = &cli.DurationFlag{
-		Name:     "tx.sendTimeout",
-		Usage:    "Timeout for sending transactions. If 0 it is disabled.",
+		Name: "tx.sendTimeout",
+		Usage: "Timeout for sending transactions. If 0 it is disabled, except when " +
+			"destPrivateRpcUrls is set, where it defaults to 5m because a relay can accept a " +
+			"transaction and never include it",
 		Value:    0,
 		Category: txmgrCategory,
 		EnvVars:  []string{"TX_SEND_TIMEOUT"},

@@ -138,38 +138,47 @@ describe('mergeUniqueTransactions', () => {
     expect(result.outdatedLocalTransactions).toEqual([outdatedTx]);
   });
 
-  it('should merge transactions and capture outdated ones, complex', () => {
-    // Given
+  it('keeps a local message the relayer has not returned, even from a known transaction', () => {
+    // Same source transaction as a relayer entry, different message: one transaction can
+    // emit several, and retiring this one loses a message the user still has to claim
+    const secondMessageOfKnownTx = {
+      ...localTxs[1],
+      srcTxHash: 'hash3' as Hex,
+      destTxHash: 'destHash3' as Hex,
+      msgHash: 'msg2' as Hex,
+    } satisfies BridgeTransaction;
 
-    const localWithOutdated = [
-      ...localTxs,
-      {
-        srcTxHash: 'hash3' as Hex,
-        destTxHash: 'destHash3' as Hex,
-        from: 'address2' as Address,
-        amount: BigInt(2000),
-        symbol: 'symbol2',
-        processingFee: 1111n,
-        decimals: 2,
-        srcChainId: BigInt(1),
-        destChainId: BigInt(2),
-        msgStatus: MessageStatus.DONE,
-        msgHash: 'msg2' as Hex,
-        receipt: undefined,
-        blockNumber: '0x123',
-        tokenType: 'ERC20' as TokenType,
-      } satisfies BridgeTransaction,
-    ];
+    const result = mergeAndCaptureOutdatedTransactions([...localTxs, secondMessageOfKnownTx], relayerTx);
 
-    const expectedMergedHashes = extractHashes([...localTxs, ...relayerTx]);
-    const expectedOutdatedHashes = ['hash3' as Hex];
+    expect(extractHashes(result.mergedTransactions)).toEqual(
+      extractHashes([...localTxs, secondMessageOfKnownTx, ...relayerTx]),
+    );
+    expect(result.outdatedLocalTransactions).toEqual([]);
+  });
 
-    // When
-    const result = mergeAndCaptureOutdatedTransactions(localWithOutdated, relayerTx);
+  it('retires a local message the relayer returned under a different transaction hash', () => {
+    const sameMessage = {
+      ...localTxs[0],
+      srcTxHash: 'other' as Hex,
+      msgHash: 'msg3' as Hex,
+    } satisfies BridgeTransaction;
 
-    // Then
-    expect(extractHashes(result.mergedTransactions)).toEqual(expectedMergedHashes);
-    expect(extractHashes(result.outdatedLocalTransactions)).toEqual(expectedOutdatedHashes);
+    const result = mergeAndCaptureOutdatedTransactions([sameMessage], relayerTx);
+
+    expect(result.outdatedLocalTransactions).toEqual([sameMessage]);
+  });
+
+  it('falls back to the transaction hash for a local entry with no message hash yet', () => {
+    // Nothing has read the receipt for this one, so its transaction hash is all it has
+    const unenhanced = {
+      ...localTxs[0],
+      srcTxHash: 'hash3' as Hex,
+      msgHash: undefined,
+    } as unknown as BridgeTransaction;
+
+    const result = mergeAndCaptureOutdatedTransactions([unenhanced], relayerTx);
+
+    expect(result.outdatedLocalTransactions).toEqual([unenhanced]);
   });
 });
 

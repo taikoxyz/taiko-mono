@@ -27,7 +27,6 @@ func TestShastaForkTimeByChainID(t *testing.T) {
 	// The accessor mirrors the taiko-geth fork schedule for every supported chain.
 	require.Equal(t, gethcore.MainnetShastaTime, ShastaForkTimeByChainID(params.TaikoMainnetNetworkID))
 	require.Equal(t, gethcore.HoodiShastaTime, ShastaForkTimeByChainID(params.TaikoHoodiNetworkID))
-	require.Equal(t, gethcore.MasayaShastaTime, ShastaForkTimeByChainID(params.MasayaDevnetNetworkID))
 	require.Equal(t, gethcore.InternalShastaTime, ShastaForkTimeByChainID(params.TaikoInternalNetworkID))
 
 	// nil and unknown chains impose no fork-time floor.
@@ -37,7 +36,6 @@ func TestShastaForkTimeByChainID(t *testing.T) {
 	// Devnets activate Shasta from genesis (floor == 0); public networks activate at a
 	// non-genesis timestamp (floor > 0). This is the invariant the fork-time floor relies on.
 	require.Zero(t, ShastaForkTimeByChainID(params.TaikoInternalNetworkID))
-	require.Zero(t, ShastaForkTimeByChainID(params.MasayaDevnetNetworkID))
 	require.NotZero(t, ShastaForkTimeByChainID(params.TaikoHoodiNetworkID))
 	require.NotZero(t, ShastaForkTimeByChainID(params.TaikoMainnetNetworkID))
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Golden vectors for Slot-Chain v2.25 consensus commitments.
+"""Golden vectors for Slot-Chain v2.26 consensus commitments.
 
 This fixture covers the commitments that cross Solidity, clients and circuits:
 EIP-712 domain/struct/digest, canonical/base identity, ABI statement hashing,
@@ -132,9 +132,22 @@ D_LIQUIDITY_ACCEPTANCE = b"slot-chain-native-liquidity-acceptance-v3"
 D_SOURCE_DOMAIN = b"slot-chain-source-domain-v4"
 D_DESTINATION_DOMAIN = b"slot-chain-destination-domain-v7"
 D_BRIDGE_EXECUTION = b"slot-chain-source-bridge-execution-v4"
-D_DESTINATION_BRIDGE_EXECUTION = b"slot-chain-destination-bridge-execution-v3"
+D_DESTINATION_BRIDGE_EXECUTION = b"slot-chain-destination-bridge-execution-v4"
 D_BRIDGE_KERNEL = b"slot-chain-bridge-kernel-profile-v2"
 D_COMPONENT_CONFIG = b"slot-chain-component-config-v1"
+FORCE_SEND_INITCODE_PREFIX = bytes.fromhex("73")
+FORCE_SEND_INITCODE_SUFFIX = bytes.fromhex("ff")
+FORCE_SEND_INITCODE_LENGTH = 22
+FORCE_SEND_CREATE2_SALT_DOMAIN = b"slot-chain-force-send-create2-salt-v1"
+FORCE_SEND_CREATE2_FIXED_GAS = 33_000
+FORCE_SEND_CREATE2_WORST_CASE_GAS = 75_000
+FORCE_SEND_POSTCHECK_GAS_RESERVE = 20_000
+FORCE_SEND_COMPILER_BUILD_HASH = keccak256(
+    b"slot-chain-force-send-handwritten-osaka-evm-v1"
+)
+FORCE_SEND_EVM_RULES_HASH = keccak256(
+    b"slot-chain-force-send-eip-6780-osaka-v1"
+)
 DATA_SESSION_FUNCTION_SIGNATURES = {
     "session_open_selector": b"openSession(uint16,uint64)",
     "session_post_selector": (
@@ -229,7 +242,7 @@ D_SCHEDULE_CARRIER_STATEMENT = b"slot-chain-schedule-carrier-statement-v1"
 D_MIGRATION_ACTIVATION_PROFILE = b"slot-chain-migration-activation-profile-v2"
 SCHEDULE_FORK_OUTPUT_SCHEMA_LITERAL = (
     b"ScheduleCarrierOutputV1(bytes32 statementHash,uint64 parentSlot,"
-    b"uint64 executionBlockNumber,uint64 payloadTimestamp,bytes32 blockHash,"
+    b"uint64 parentExecutionBlockNumber,uint64 payloadTimestamp,bytes32 blockHash,"
     b"bytes32 stateRoot,bytes32 prevRandao)"
 )
 PROTOCOL_CHANGE_DELAY_SECONDS = 604_800
@@ -320,13 +333,14 @@ RELEASE_MANIFEST_TYPE = (
     b"bytes32 configurationHash,bytes32 storageLayoutHash,"
     b"bytes32 bridgeKernelProfileHash,address inboxCreditStore,"
     b"address terminalAccumulator,address terminalDomainRegistrar,"
-    b"address quotaManager,address nativeLiquidityPool)"
+    b"address quotaManager,address nativeLiquidityPool,address bridgeSurplusSink)"
 )
 RELEASE_MANIFEST_TYPEHASH = keccak256(RELEASE_MANIFEST_TYPE)
 ACTIVATE_RELEASE_V2_SIGNATURE = (
     b"activateRelease((uint64,uint256,uint256,bytes32,bytes32,bytes32,bytes32,"
     b"address,bytes32,bytes32,address,bytes32,"
-    b"(address,bytes32,bytes32,bytes32,bytes32,address,address,address,address,address),"
+    b"(address,bytes32,bytes32,bytes32,bytes32,address,address,address,address,address,"
+    b"address),"
     b"bytes32,bytes32,bytes32,address,bytes32,bytes32,"
     b"(address,bytes32,bytes32)[10]),uint64)"
 )
@@ -336,7 +350,7 @@ ACTIVATE_VERSION_WITH_MIGRATION_SIGNATURE = (
     b"uint64),address,uint256,bytes32,uint64,uint64),"
     b"(uint64,uint256,uint256,bytes32,bytes32,bytes32,bytes32,address,bytes32,"
     b"bytes32,address,bytes32,(address,bytes32,bytes32,bytes32,bytes32,address,"
-    b"address,address,address,address),bytes32,bytes32,bytes32,address,bytes32,"
+    b"address,address,address,address,address),bytes32,bytes32,bytes32,address,bytes32,"
     b"bytes32,(address,bytes32,bytes32)[10]),"
     b"(uint64,uint8,uint32,bytes32,bytes)[],bytes,bytes)"
 )
@@ -490,12 +504,22 @@ MIGRATION_ACTIVATION_PROFILE_SELECTOR = bytes.fromhex("c65ff64e")
 REGISTER_TARGET_RELEASE_GAS = 3_000_000
 INSTALL_SETTLEMENT_AUTHORIZATION_GAS = 500_000
 PROTOCOL_REGISTRATION_POSTREAD_GAS = 100_000
-INSTALL_FORK_VERIFIER_SELECTOR = bytes.fromhex("f171816c")
+INSTALL_FORK_VERIFIER_SELECTOR = bytes.fromhex("9bb6fe73")
+REPLACE_PENDING_FORK_VERIFIER_SELECTOR = bytes.fromhex("b48bbef1")
+SPLIT_LATEST_FORK_VERIFIER_SELECTOR = bytes.fromhex("455b4ff5")
 FORK_VERIFIER_REGISTRATION_SELECTOR = bytes.fromhex("c614591c")
 SCHEDULE_FORK_VERIFIER_CONFIG_SELECTOR = bytes.fromhex("44efa773")
+SCHEDULE_FORK_ROUTE_STATE_SELECTOR = bytes.fromhex("7e9f3c0d")
+PROTOCOL_ROOT_SOC1_SELECTOR = bytes.fromhex("e3d91a33")
 VERIFY_SCHEDULE_CARRIER_SELECTOR = bytes.fromhex("7e981e0b")
-INSTALL_FORK_VERIFIER_GAS = 500_000
+EXPIRE_FORK_CHANGE_SELECTOR = keccak256(
+    b"expireForkChangeV1(bytes32)")[:4]
+INSTALL_FORK_VERIFIER_GAS = 4_000_000
 FORK_VERIFIER_GETTER_GAS = 100_000
+FORK_ROUTE_STATE_GETTER_GAS = 50_000
+FORK_CHANGE_EXECUTION_WINDOW_SECONDS = 86_400
+FORK_CHANGE_QUEUE_INCLUSION_ALLOWANCE_SECONDS = 900
+FORK_CHANGE_RENEWAL_RUNWAY_WINDOWS = 1_811
 MINIMUM_FORK_VERIFIER_GAS = 100_000
 MAXIMUM_FORK_VERIFIER_GAS = 5_000_000
 MAXIMUM_SCHEDULE_WITNESS_BYTES = 131_072
@@ -529,6 +553,7 @@ PROTOCOL_VERSION_MANAGER_CONFIG_MAGIC = bytes.fromhex("50564d31")  # PVM1
 MIGRATION_ARM_FRESH_AFTER_MAGIC = bytes.fromhex("4d414631")  # MAF1
 PROTOCOL_CHANGE_OPERATION_MAGIC = bytes.fromhex("50434f31")  # PCO1
 PROTOCOL_APPLY_MAGIC = bytes.fromhex("50415031")  # PAP1
+EXPIRE_FORK_CHANGE_MAGIC = bytes.fromhex("50465831")  # PFX1
 VERSION_MIGRATION_LEASE_MAGIC = bytes.fromhex("564d4c31")  # VML1
 SETTLEMENT_AUTHORIZATION_INSTALL_MAGIC = bytes.fromhex("53414931")  # SAI1
 SETTLEMENT_AUTHORIZATION_GETTER_MAGIC = bytes.fromhex("53415431")  # SAT1
@@ -539,6 +564,7 @@ PROFILE_INGRESS_AUTHORIZATION_MAGIC = bytes.fromhex("50494132")  # PIA2
 MIGRATION_ACTIVATION_PROFILE_MAGIC = bytes.fromhex("4d505232")  # MPR2
 FORK_VERIFIER_INSTALL_MAGIC = bytes.fromhex("46564931")  # FVI1
 FORK_VERIFIER_REGISTRATION_MAGIC = bytes.fromhex("46565231")  # FVR1
+SCHEDULE_FORK_ROUTE_STATE_MAGIC = bytes.fromhex("46525331")  # FRS1
 SCHEDULE_FORK_VERIFIER_CONFIG_MAGIC = bytes.fromhex("53465631")  # SFV1
 SCHEDULE_FORK_CARRIER_MAGIC = bytes.fromhex("53464331")  # SFC1
 LEGACY_GENESIS_PUBLISH_MAGIC = bytes.fromhex("4c475031")  # LGP1
@@ -1694,9 +1720,40 @@ def builder_registry_header(active_count: int, registry_mutation_version: int,
     """Encode the exact BRH1 raw storage word."""
 
     assert 0 <= active_count <= 64
-    return (b"BRH1" + u8(1) + u8(active_count) + bytes(2)
+    assert 0 <= next_registration_index <= UINT64_MAX + 1
+    registration_exhausted = int(next_registration_index > UINT64_MAX)
+    next_registration_index_low64 = (
+        0 if registration_exhausted else next_registration_index
+    )
+    return (b"BRH1" + u8(1) + u8(active_count)
+            + u8(registration_exhausted) + u8(0)
             + u64(registry_mutation_version) + u64(admission_version)
-            + u64(next_registration_index))
+            + u64(next_registration_index_low64))
+
+
+def decode_builder_registry_header(
+    raw_word: bytes,
+) -> tuple[int, int, int, int]:
+    """Decode a canonical BRH1 word and reconstruct its uint256 counter."""
+
+    if (type(raw_word) is not bytes or len(raw_word) != 32
+            or raw_word[:5] != b"BRH1\x01" or raw_word[5] > 64
+            or raw_word[6] not in (0, 1) or raw_word[7] != 0):
+        raise ValueError("noncanonical BRH1 header")
+    registration_exhausted = raw_word[6]
+    next_registration_index_low64 = int.from_bytes(raw_word[24:32], "big")
+    if registration_exhausted and next_registration_index_low64 != 0:
+        raise ValueError("noncanonical BRH1 exhausted sentinel")
+    next_registration_index = (
+        UINT64_MAX + 1
+        if registration_exhausted else next_registration_index_low64
+    )
+    return (
+        raw_word[5],
+        int.from_bytes(raw_word[8:16], "big"),
+        int.from_bytes(raw_word[16:24], "big"),
+        next_registration_index,
+    )
 
 
 def verify_registry_proof(leaf: bytes, index: int,
@@ -2371,6 +2428,33 @@ class DestinationBridgeDescriptor:
     terminal_domain_registrar: int
     quota_manager: int
     native_liquidity_pool: int
+    bridge_surplus_sink: int
+
+
+def force_send_initcode_v1(sink: int) -> bytes:
+    assert sink != 0
+    initcode = FORCE_SEND_INITCODE_PREFIX + address20(sink) \
+        + FORCE_SEND_INITCODE_SUFFIX
+    assert len(initcode) == FORCE_SEND_INITCODE_LENGTH
+    return initcode
+
+
+def force_send_initcode_hash_v1(sink: int) -> bytes:
+    return keccak256(force_send_initcode_v1(sink))
+
+
+def force_send_create2_salt_v1(bridge: int) -> bytes:
+    assert bridge != 0
+    return keccak256(FORCE_SEND_CREATE2_SALT_DOMAIN + address20(bridge))
+
+
+def force_send_create2_address_v1(bridge: int, sink: int) -> int:
+    assert bridge != 0 and sink != 0
+    digest = keccak256(
+        b"\xff" + address20(bridge) + force_send_create2_salt_v1(bridge)
+        + force_send_initcode_hash_v1(sink)
+    )
+    return int.from_bytes(digest[-20:], "big")
 
 
 def canonical_destination_bridge_descriptor(
@@ -2384,7 +2468,10 @@ def canonical_destination_bridge_descriptor(
             and descriptor.terminal_accumulator != 0
             and descriptor.terminal_domain_registrar != 0
             and descriptor.quota_manager != 0
-            and descriptor.native_liquidity_pool != 0)
+            and descriptor.native_liquidity_pool != 0
+            and descriptor.bridge_surplus_sink != 0)
+    helper = force_send_create2_address_v1(
+        descriptor.bridge, descriptor.bridge_surplus_sink)
     encoded = (address20(descriptor.bridge)
                + b32(descriptor.runtime_hash)
                + b32(descriptor.configuration_hash)
@@ -2394,8 +2481,16 @@ def canonical_destination_bridge_descriptor(
                + address20(descriptor.terminal_accumulator)
                + address20(descriptor.terminal_domain_registrar)
                + address20(descriptor.quota_manager)
-               + address20(descriptor.native_liquidity_pool))
-    assert len(encoded) == 248
+               + address20(descriptor.native_liquidity_pool)
+               + address20(descriptor.bridge_surplus_sink)
+               + address20(helper)
+               + force_send_initcode_hash_v1(descriptor.bridge_surplus_sink)
+               + FORCE_SEND_COMPILER_BUILD_HASH
+               + FORCE_SEND_EVM_RULES_HASH
+               + u64(FORCE_SEND_CREATE2_FIXED_GAS)
+               + u64(FORCE_SEND_CREATE2_WORST_CASE_GAS)
+               + u64(FORCE_SEND_POSTCHECK_GAS_RESERVE))
+    assert len(encoded) == 408
     return encoded
 
 
@@ -2415,7 +2510,7 @@ class ComponentDescriptor:
 
 def component_config_hash(kind: int, config: bytes) -> bytes:
     assert 1 <= kind <= 10 and 0 < len(config) < 1 << 16
-    assert len(config) == (100, 344, 21, 73, 60, 52, 80, 21, 76, 164)[kind - 1]
+    assert len(config) == (100, 344, 21, 73, 60, 52, 80, 21, 76, 324)[kind - 1]
     return keccak256(D_COMPONENT_CONFIG + u8(kind) + u16(len(config)) + config)
 
 
@@ -2527,19 +2622,30 @@ def destination_bridge_component_config(
         storage_layout_hash: bytes, bridge_kernel_profile_hash: bytes,
         inbox_credit_store: int, terminal_accumulator: int,
         terminal_domain_registrar: int, quota_manager: int,
-        native_liquidity_pool: int) -> bytes:
+        native_liquidity_pool: int, bridge: int,
+        bridge_surplus_sink: int) -> bytes:
     assert (storage_layout_hash != bytes(32)
             and bridge_kernel_profile_hash != bytes(32)
             and inbox_credit_store != 0 and terminal_accumulator != 0
             and terminal_domain_registrar != 0 and quota_manager != 0
-            and native_liquidity_pool != 0)
+            and native_liquidity_pool != 0 and bridge != 0
+            and bridge_surplus_sink != 0)
+    helper = force_send_create2_address_v1(bridge, bridge_surplus_sink)
     encoded = (b32(storage_layout_hash) + b32(bridge_kernel_profile_hash)
                + address20(inbox_credit_store)
                + address20(terminal_accumulator)
                + address20(terminal_domain_registrar)
                + address20(quota_manager)
-               + address20(native_liquidity_pool))
-    assert len(encoded) == 164
+               + address20(native_liquidity_pool)
+               + address20(bridge_surplus_sink)
+               + address20(helper)
+               + force_send_initcode_hash_v1(bridge_surplus_sink)
+               + FORCE_SEND_COMPILER_BUILD_HASH
+               + FORCE_SEND_EVM_RULES_HASH
+               + u64(FORCE_SEND_CREATE2_FIXED_GAS)
+               + u64(FORCE_SEND_CREATE2_WORST_CASE_GAS)
+               + u64(FORCE_SEND_POSTCHECK_GAS_RESERVE))
+    assert len(encoded) == 324
     return encoded
 
 
@@ -2852,15 +2958,18 @@ class ProtocolVersionManagerConfigurationV1:
     schedule_oracle_configuration_hash: bytes
     bridge_domain_registry_runtime_hash: bytes
     bridge_domain_registry_configuration_hash: bytes
-    bridge_credit_registry_runtime_hash: bytes
-    bridge_credit_registry_configuration_hash: bytes
+    source_bundle_factory_runtime_hash: bytes
+    source_bundle_factory_configuration_hash: bytes
     bridge_domain_registry: int
-    bridge_credit_registry: int
+    source_bundle_factory: int
     manifest_namespace: bytes
     release_router_registration_gas: int
     release_market_installation_gas: int
     release_postread_gas: int
     release_post_callback_reserve_gas: int
+    source_terminal_verifier: int
+    source_terminal_verifier_runtime_hash: bytes
+    source_terminal_verifier_configuration_hash: bytes
 
 
 @dataclass(frozen=True)
@@ -2879,6 +2988,27 @@ class ProtocolChangeOperationRowV1:
     payload_hash: bytes
     queued_at: int
     execute_after: int
+
+
+@dataclass(frozen=True)
+class ProtocolRootScheduleOracleConfigV1:
+    settlement_chain_id: int
+    protocol_version_manager: int
+    active_settlement_router: int
+    builder_registry: int
+    first_managed_window: int
+    last_managed_window: int
+    genesis_timestamp: int
+    evidence_delay_seconds: int
+    reorg_margin_seconds: int
+    beacon_genesis_time: int
+    lookahead_seconds: int
+    lease_per_window_atomic: int
+    initial_fork_digest: bytes
+    initial_fork_first_parent_slot: int
+    initial_fork_last_parent_slot_exclusive: int
+    builder_registry_topology_hash: bytes
+    configuration_hash: bytes
 
 
 @dataclass(frozen=True)
@@ -2918,7 +3048,7 @@ def protocol_change_operation_id(
             and operation.protocol_change_timelock
                 != operation.protocol_version_manager
             and 0 < operation.operation_nonce <= UINT64_MAX
-            and 1 <= operation.operation_kind <= 4
+            and 1 <= operation.operation_kind <= 6
             and 0 < len(operation.payload)
                 <= PROTOCOL_CHANGE_MAX_PAYLOAD_BYTES)
     validate_protocol_change_payload(operation.operation_kind,
@@ -2957,7 +3087,8 @@ def protocol_version_manager_configuration_hash(
         config.protocol_change_timelock, config.active_settlement_router,
         config.forced_queue, config.builder_registry, config.schedule_oracle,
         config.aggregator_seat_market, config.bridge_domain_registry,
-        config.bridge_credit_registry)
+        config.source_bundle_factory)
+    addresses = addresses + (config.source_terminal_verifier,)
     assert (0 < config.settlement_chain_id < 1 << 256
             and all(address != 0 for address in addresses)
             and len(set(addresses)) == len(addresses)
@@ -2975,8 +3106,10 @@ def protocol_version_manager_configuration_hash(
                 config.schedule_oracle_configuration_hash,
                 config.bridge_domain_registry_runtime_hash,
                 config.bridge_domain_registry_configuration_hash,
-                config.bridge_credit_registry_runtime_hash,
-                config.bridge_credit_registry_configuration_hash,
+                config.source_bundle_factory_runtime_hash,
+                config.source_bundle_factory_configuration_hash,
+                config.source_terminal_verifier_runtime_hash,
+                config.source_terminal_verifier_configuration_hash,
             ))
             and config.manifest_namespace != bytes(32)
             and all(0 < value <= UINT64_MAX for value in (
@@ -3006,9 +3139,12 @@ def protocol_version_manager_configuration_hash(
         + address20(config.bridge_domain_registry)
         + b32(config.bridge_domain_registry_runtime_hash)
         + b32(config.bridge_domain_registry_configuration_hash)
-        + address20(config.bridge_credit_registry)
-        + b32(config.bridge_credit_registry_runtime_hash)
-        + b32(config.bridge_credit_registry_configuration_hash)
+        + address20(config.source_bundle_factory)
+        + b32(config.source_bundle_factory_runtime_hash)
+        + b32(config.source_bundle_factory_configuration_hash)
+        + address20(config.source_terminal_verifier)
+        + b32(config.source_terminal_verifier_runtime_hash)
+        + b32(config.source_terminal_verifier_configuration_hash)
         + b32(config.manifest_namespace)
         + u64(PROTOCOL_CHANGE_DELAY_SECONDS)
         + u64(MAXIMUM_LIVE_VERSION_MIGRATION_SECONDS)
@@ -3043,6 +3179,8 @@ def fixture_protocol_authority() -> tuple[
         timelock_descriptor)
     market_configuration = pvm_derived_market_authority_configuration_hash_v1(
         1, 0xA102, 1, 0xD200, 0xAD01)
+    source_factory = source_bundle_factory_fixture_triple_v1(
+        1, 0xD200, 0x5106)
     manager_config = ProtocolVersionManagerConfigurationV1(
         1, 0xD201, timelock_descriptor_hash, 0xAD01, 0xF000, 0xA100,
         0xA101, 0xA102, bytes.fromhex("a4" * 32), market_configuration,
@@ -3051,9 +3189,11 @@ def fixture_protocol_authority() -> tuple[
         bytes.fromhex("b5" * 32), bytes.fromhex("b6" * 32),
         bytes.fromhex("b7" * 32), bytes.fromhex("b8" * 32),
         bytes.fromhex("b9" * 32), bytes.fromhex("ba" * 32),
-        bytes.fromhex("bb" * 32), bytes.fromhex("bc" * 32),
-        0xA103, 0x5106, bytes.fromhex("37" * 32),
-        15_000_000, 1_000_000, 500_000, 2_000_000)
+        source_factory[1], source_factory[2],
+        0xA103, source_factory[0], bytes.fromhex("37" * 32),
+        15_000_000, 1_000_000, 500_000, 2_000_000,
+        0xA104, bytes.fromhex("bd" * 32),
+        bytes.fromhex("be" * 32))
     manager_config_hash = protocol_version_manager_configuration_hash(
         manager_config)
     manager_descriptor = ProtocolVersionManagerDescriptorV1(
@@ -3106,7 +3246,7 @@ def encode_protocol_version_manager_config_return(
         + b32(config.aggregator_seat_market_runtime_hash)
         + b32(config.aggregator_seat_market_configuration_hash)
         + address_word(config.bridge_domain_registry)
-        + address_word(config.bridge_credit_registry)
+        + address_word(config.source_bundle_factory)
         + b32(config.governance_delay_authority_descriptor_hash)
         + b32(config.manifest_namespace)
         + u256(PROTOCOL_CHANGE_DELAY_SECONDS)
@@ -3127,15 +3267,18 @@ def encode_protocol_version_manager_config_return(
         + b32(config.schedule_oracle_configuration_hash)
         + b32(config.bridge_domain_registry_runtime_hash)
         + b32(config.bridge_domain_registry_configuration_hash)
-        + b32(config.bridge_credit_registry_runtime_hash)
-        + b32(config.bridge_credit_registry_configuration_hash))
-    assert len(encoded) == 1_088
+        + b32(config.source_bundle_factory_runtime_hash)
+        + b32(config.source_bundle_factory_configuration_hash)
+        + address_word(config.source_terminal_verifier)
+        + b32(config.source_terminal_verifier_runtime_hash)
+        + b32(config.source_terminal_verifier_configuration_hash))
+    assert len(encoded) == 1_184
     return encoded
 
 
 def decode_protocol_version_manager_config_return(
         returndata: bytes) -> ProtocolVersionManagerConfigurationV1:
-    assert (len(returndata) == 1_088
+    assert (len(returndata) == 1_184
             and bytes4_word_value(returndata[:32])
                 == PROTOCOL_VERSION_MANAGER_CONFIG_MAGIC
             and uint_word_value(returndata[448:480], 64)
@@ -3162,7 +3305,9 @@ def decode_protocol_version_manager_config_return(
         address_word_value(returndata[320:352]),
         address_word_value(returndata[352:384]), b32(returndata[416:448]),
         *(uint_word_value(returndata[offset:offset + 32], 64)
-          for offset in range(576, 704, 32)))
+          for offset in range(576, 704, 32)),
+        address_word_value(returndata[1088:1120]),
+        b32(returndata[1120:1152]), b32(returndata[1152:1184]))
     assert returndata == encode_protocol_version_manager_config_return(config)
     return config
 
@@ -3183,14 +3328,75 @@ def decode_migration_arm_fresh_after_return(returndata: bytes) -> int:
     return fresh_after
 
 
+def encode_protocol_root_schedule_oracle_config_return(
+        config: ProtocolRootScheduleOracleConfigV1) -> bytes:
+    addresses = (
+        config.protocol_version_manager,
+        config.active_settlement_router,
+        config.builder_registry,
+    )
+    narrow = (
+        config.first_managed_window, config.last_managed_window,
+        config.genesis_timestamp, config.evidence_delay_seconds,
+        config.reorg_margin_seconds, config.beacon_genesis_time,
+        config.lookahead_seconds, config.initial_fork_first_parent_slot,
+        config.initial_fork_last_parent_slot_exclusive,
+    )
+    assert (0 < config.settlement_chain_id < 1 << 256
+            and all(0 < value < 1 << 160 for value in addresses)
+            and all(0 <= value <= UINT64_MAX for value in narrow)
+            and config.first_managed_window <= config.last_managed_window
+            and config.initial_fork_first_parent_slot
+                < config.initial_fork_last_parent_slot_exclusive
+            and 0 < config.lease_per_window_atomic < 1 << 256
+            and len(config.initial_fork_digest) == 4
+            and config.initial_fork_digest != bytes(4)
+            and config.builder_registry_topology_hash != bytes(32)
+            and config.configuration_hash != bytes(32))
+    encoded = b"".join((
+        bytes4_word(b"SOC1"), u256(config.settlement_chain_id),
+        *(address_word(value) for value in addresses),
+        *(u256(value) for value in narrow[:7]),
+        u256(config.lease_per_window_atomic),
+        bytes4_word(config.initial_fork_digest),
+        *(u256(value) for value in narrow[7:]),
+        b32(config.builder_registry_topology_hash),
+        b32(config.configuration_hash),
+    ))
+    assert len(encoded) == 576
+    return encoded
+
+
+def decode_protocol_root_schedule_oracle_config_return(
+        returndata: bytes) -> ProtocolRootScheduleOracleConfigV1:
+    assert (len(returndata) == 576
+            and bytes4_word_value(returndata[:32]) == b"SOC1")
+    words = tuple(
+        returndata[offset:offset + 32] for offset in range(0, 576, 32)
+    )
+    config = ProtocolRootScheduleOracleConfigV1(
+        uint_word_value(words[1]),
+        address_word_value(words[2]), address_word_value(words[3]),
+        address_word_value(words[4]),
+        *(uint_word_value(words[index], 64) for index in range(5, 12)),
+        uint_word_value(words[12]), bytes4_word_value(words[13]),
+        uint_word_value(words[14], 64), uint_word_value(words[15], 64),
+        b32(words[16]), b32(words[17]),
+    )
+    assert returndata == encode_protocol_root_schedule_oracle_config_return(
+        config
+    )
+    return config
+
+
 def encode_protocol_change_operation_return(
         row: ProtocolChangeOperationRowV1) -> bytes:
     if row.state == 0:
         assert row == ProtocolChangeOperationRowV1(
             0, 0, 0, 0, bytes(32), 0, 0)
     else:
-        assert (1 <= row.state <= 4 and 0 < row.nonce <= UINT64_MAX
-                and 1 <= row.operation_kind <= 4
+        assert (1 <= row.state <= 5 and 0 < row.nonce <= UINT64_MAX
+                and 1 <= row.operation_kind <= 6
                 and 0 < row.payload_bytes <= PROTOCOL_CHANGE_MAX_PAYLOAD_BYTES
                 and row.payload_hash != bytes(32)
                 and 0 < row.queued_at <= UINT64_MAX
@@ -3226,7 +3432,17 @@ def decode_protocol_change_operation_return(
 def protocol_change_execute_allowed(
         row: ProtocolChangeOperationRowV1, block_timestamp: int) -> bool:
     assert 0 <= block_timestamp <= UINT64_MAX
-    return row.state == 1 and block_timestamp >= row.execute_after
+    if row.state != 1 or block_timestamp < row.execute_after:
+        return False
+    if row.operation_kind in (2, 5, 6):
+        return block_timestamp <= (
+            row.execute_after + FORK_CHANGE_EXECUTION_WINDOW_SECONDS
+        )
+    if row.operation_kind == 4:
+        return block_timestamp <= (
+            row.execute_after + MIGRATION_ARM_EXECUTION_WINDOW_SECONDS
+        )
+    return True
 
 
 def protocol_change_cancel_allowed(
@@ -6932,7 +7148,14 @@ def canonical_release_manifest(descriptor: ReleaseManifestDescriptor) -> bytes:
                 descriptor.destination_infrastructure_hash,
                 descriptor.destination_namespace))
     addresses = tuple(component.address for component in descriptor.components)
-    assert len(set(addresses)) == 10
+    bridge_surplus_sink = (
+        descriptor.destination_bridge_descriptor.bridge_surplus_sink)
+    force_send_helper = force_send_create2_address_v1(
+        descriptor.destination_bridge, bridge_surplus_sink)
+    assert (force_send_helper != 0
+            and len(set(addresses)) == 10
+            and len(set(addresses + (
+                bridge_surplus_sink, force_send_helper))) == 12)
     encoded = (
         u256(descriptor.protocol_version)
         + u256(descriptor.settlement_chain_id)
@@ -6956,6 +7179,7 @@ def canonical_release_manifest(descriptor: ReleaseManifestDescriptor) -> bytes:
         + address_word(descriptor.destination_bridge_descriptor.terminal_domain_registrar)
         + address_word(descriptor.destination_bridge_descriptor.quota_manager)
         + address_word(descriptor.destination_bridge_descriptor.native_liquidity_pool)
+        + address_word(descriptor.destination_bridge_descriptor.bridge_surplus_sink)
         + b32(descriptor.destination_infrastructure_hash)
         + b32(descriptor.migration_verifier_descriptor_hash)
         + b32(descriptor.ingress_authorization_root)
@@ -6966,7 +7190,7 @@ def canonical_release_manifest(descriptor: ReleaseManifestDescriptor) -> bytes:
                     + b32(component.runtime_hash)
                     + b32(component.config_hash)
                     for component in descriptor.components))
-    assert len(encoded) == 1_856
+    assert len(encoded) == 1_888
     return encoded
 
 
@@ -6977,27 +7201,28 @@ def release_manifest_hash(descriptor: ReleaseManifestDescriptor) -> bytes:
 
 def decode_canonical_release_manifest(
         encoded: bytes) -> ReleaseManifestDescriptor:
-    assert len(encoded) == 58 * 32
+    assert len(encoded) == 59 * 32
     words = tuple(encoded[index * 32:(index + 1) * 32]
-                  for index in range(58))
+                  for index in range(59))
     bridge_descriptor = DestinationBridgeDescriptor(
         address_word_value(words[12]), b32(words[13]), b32(words[14]),
         b32(words[15]), b32(words[16]), address_word_value(words[17]),
         address_word_value(words[18]), address_word_value(words[19]),
-        address_word_value(words[20]), address_word_value(words[21]))
+        address_word_value(words[20]), address_word_value(words[21]),
+        address_word_value(words[22]))
     components = tuple(
         ComponentDescriptor(
-            address_word_value(words[28 + index * 3]),
-            b32(words[29 + index * 3]), b32(words[30 + index * 3]))
+            address_word_value(words[29 + index * 3]),
+            b32(words[30 + index * 3]), b32(words[31 + index * 3]))
         for index in range(10))
     descriptor = ReleaseManifestDescriptor(
         uint_word_value(words[0], 64), uint_word_value(words[1]),
         uint_word_value(words[2], 64), b32(words[3]), b32(words[4]),
         b32(words[5]), b32(words[6]), address_word_value(words[7]),
         b32(words[8]), b32(words[9]), address_word_value(words[10]),
-        b32(words[11]), bridge_descriptor, b32(words[22]), b32(words[23]),
-        b32(words[24]), address_word_value(words[25]), b32(words[26]),
-        b32(words[27]), components)
+        b32(words[11]), bridge_descriptor, b32(words[23]), b32(words[24]),
+        b32(words[25]), address_word_value(words[26]), b32(words[27]),
+        b32(words[28]), components)
     assert encoded == canonical_release_manifest(descriptor)
     return descriptor
 
@@ -7013,7 +7238,8 @@ class RegisterReleasePayloadV1:
 @dataclass(frozen=True)
 class RegisterForkVerifierPayloadV1:
     fork_digest: bytes
-    first_window: int
+    first_parent_slot: int
+    last_parent_slot_exclusive: int
     verifier: int
     runtime_hash: bytes
     beacon_slot_gindex: int
@@ -7026,6 +7252,34 @@ class RegisterForkVerifierPayloadV1:
     configuration_hash: bytes
     selector: bytes
     gas_limit: int
+
+
+@dataclass(frozen=True)
+class ForkReviewEnvelopeV1:
+    reviewed_through_parent_slot_exclusive: int
+    review_evidence_hash: bytes
+    review_certificate_hash: bytes
+
+
+@dataclass(frozen=True)
+class RegisterForkVerifierChangePayloadV1:
+    registration: RegisterForkVerifierPayloadV1
+    review: ForkReviewEnvelopeV1
+
+
+@dataclass(frozen=True)
+class ReplacePendingForkVerifierPayloadV1:
+    expected_predecessor: RegisterForkVerifierPayloadV1
+    expected_old: RegisterForkVerifierPayloadV1
+    replacement: RegisterForkVerifierPayloadV1
+    review: ForkReviewEnvelopeV1
+
+
+@dataclass(frozen=True)
+class SplitLatestForkVerifierPayloadV1:
+    expected_old: RegisterForkVerifierPayloadV1
+    successor: RegisterForkVerifierPayloadV1
+    review: ForkReviewEnvelopeV1
 
 
 @dataclass(frozen=True)
@@ -7368,25 +7622,85 @@ EXECUTION_PROFILE_KIND_CODES = (
 )
 
 SOURCE_BUNDLE_SALT_DOMAIN = b"slot-chain-source-bundle-salt-v1"
+SOURCE_BUNDLE_FACTORY_CONFIG_DOMAIN = \
+    b"slot-chain-source-bundle-factory-config-v1"
+SOURCE_BUNDLE_FACTORY_CONFIG_SELECTOR = keccak256(
+    b"sourceBundleFactoryConfigV1()")[:4]
+SOURCE_BUNDLE_FACTORY_BUNDLE_DEPLOYMENT_GAS = 15_000_000
+SOURCE_BUNDLE_FACTORY_ADAPTER_DEPLOYMENT_GAS = 2_000_000
+SOURCE_BUNDLE_FACTORY_COMPONENT_CONFIG_READ_GAS = 50_000
+SOURCE_BUNDLE_FACTORY_POSTCHECK_RESERVE_GAS = 500_000
+SOURCE_BUNDLE_FACTORY_DEPLOY_BUNDLE_SELECTOR = keccak256(
+    b"deploySourceBundleV1(bytes32,bytes,bytes)")[:4]
+SOURCE_BUNDLE_FACTORY_DEPLOY_ADAPTER_SELECTOR = keccak256(
+    b"deployBridgeAdapterV1(uint64,bytes32,bytes32,address,address,address,"
+    b"address,address)")[:4]
+SOURCE_BUNDLE_FACTORY_CREATION_CODE_V1 = (
+    b"slot-chain-model-source-bundle-factory-creation-code-v1")
+SOURCE_BUNDLE_FACTORY_RUNTIME_CODE_V1 = (
+    b"slot-chain-model-source-bundle-factory-runtime-code-v1")
+SOURCE_BUNDLE_DEPLOYER_CREATION_CODE_V1 = (
+    b"slot-chain-model-source-bundle-deployer-creation-code-v1")
+SOURCE_BUNDLE_DEPLOYER_RUNTIME_CODE_V1 = (
+    b"slot-chain-model-source-bundle-deployer-runtime-code-v1")
 BRIDGE_ADAPTER_CREATION_CODE_V1 = (
     b"slot-chain-model-bridge-adapter-creation-code-v1")
+BRIDGE_ADAPTER_RUNTIME_CODE_V1 = (
+    b"slot-chain-model-bridge-adapter-runtime-code-v1")
+SOURCE_BRIDGE_CREATION_CODE_V1 = (
+    b"slot-chain-model-source-bridge-creation-code-v1")
+SOURCE_BRIDGE_RUNTIME_CODE_V1 = (
+    b"slot-chain-model-source-bridge-runtime-code-v1")
+BRIDGE_CREDIT_REGISTRY_CREATION_CODE_V1 = (
+    b"slot-chain-model-bridge-credit-registry-creation-code-v1")
+BRIDGE_CREDIT_REGISTRY_RUNTIME_CODE_V1 = (
+    b"slot-chain-model-bridge-credit-registry-runtime-code-v1")
+SOURCE_NATIVE_QUOTA_MANAGER_CREATION_CODE_V1 = (
+    b"slot-chain-model-source-native-quota-manager-creation-code-v1")
+SOURCE_NATIVE_QUOTA_MANAGER_RUNTIME_CODE_V1 = (
+    b"slot-chain-model-source-native-quota-manager-runtime-code-v1")
 BRIDGE_ADAPTER_CREATION_CODE_HASH_V1 = keccak256(
     BRIDGE_ADAPTER_CREATION_CODE_V1)
 SOURCE_BUNDLE_CREATION_CODE_HASH_V1 = keccak256(
-    b"slot-chain-model-source-bundle-creation-code-v1")
-BRIDGE_INGRESS_RUNTIME_HASH_V2 = hashlib.sha256(
-    b"TAIKO_MODEL_FIXED_BYTES32_V1\x00"
-    + repr("code:bridge-inbox-adapter:v2").encode()).digest()
-SOURCE_V2_CREATE2_FACTORY_ADDRESS = int.from_bytes(hashlib.sha256(
-    b"TAIKO_MODEL_ADDRESS20_V1\x00"
-    + repr("v2-bridge-create2-factory").encode()).digest()[-20:], "big")
-SOURCE_V2_CREATE2_FACTORY_RUNTIME_HASH = hashlib.sha256(
-    b"TAIKO_MODEL_FIXED_BYTES32_V1\x00"
-    + repr("code:v2-bridge-factory:v1").encode()).digest()
-SOURCE_V2_CREATE2_FACTORY_CONFIGURATION_HASH = keccak256(
-    b"slot-chain-v2-bridge-factory-config-v2"
-    + SOURCE_BUNDLE_CREATION_CODE_HASH_V1
-    + BRIDGE_ADAPTER_CREATION_CODE_HASH_V1)
+    SOURCE_BUNDLE_DEPLOYER_CREATION_CODE_V1)
+BRIDGE_ADAPTER_RUNTIME_CODE_HASH_V1 = keccak256(
+    BRIDGE_ADAPTER_RUNTIME_CODE_V1)
+def source_bundle_factory_fixture_triple_v1(
+        settlement_chain_id: int, protocol_version_manager: int,
+        role9_address: int) -> tuple[int, bytes, bytes]:
+    """Build an unbound test triple; production derives role 9 via CREATE3."""
+
+    assert (0 < settlement_chain_id < 1 << 256
+            and 0 < protocol_version_manager < 1 << 160
+            and 0 < role9_address < 1 << 160)
+    pvm = address20(protocol_version_manager)
+    runtime_hash = keccak256(SOURCE_BUNDLE_FACTORY_RUNTIME_CODE_V1)
+    configuration_hash = keccak256(
+        SOURCE_BUNDLE_FACTORY_CONFIG_DOMAIN + u256(settlement_chain_id) + pvm
+        + keccak256(SOURCE_BUNDLE_DEPLOYER_CREATION_CODE_V1)
+        + keccak256(SOURCE_BUNDLE_DEPLOYER_RUNTIME_CODE_V1)
+        + keccak256(BRIDGE_ADAPTER_CREATION_CODE_V1)
+        + keccak256(BRIDGE_ADAPTER_RUNTIME_CODE_V1)
+        + keccak256(SOURCE_BRIDGE_CREATION_CODE_V1)
+        + keccak256(SOURCE_BRIDGE_RUNTIME_CODE_V1)
+        + keccak256(BRIDGE_CREDIT_REGISTRY_CREATION_CODE_V1)
+        + keccak256(BRIDGE_CREDIT_REGISTRY_RUNTIME_CODE_V1)
+        + keccak256(SOURCE_NATIVE_QUOTA_MANAGER_CREATION_CODE_V1)
+        + keccak256(SOURCE_NATIVE_QUOTA_MANAGER_RUNTIME_CODE_V1)
+        + SOURCE_BUNDLE_FACTORY_DEPLOY_BUNDLE_SELECTOR
+        + SOURCE_BUNDLE_FACTORY_DEPLOY_ADAPTER_SELECTOR
+        + u64(SOURCE_BUNDLE_FACTORY_BUNDLE_DEPLOYMENT_GAS)
+        + u64(SOURCE_BUNDLE_FACTORY_ADAPTER_DEPLOYMENT_GAS)
+        + u64(SOURCE_BUNDLE_FACTORY_COMPONENT_CONFIG_READ_GAS)
+        + u64(SOURCE_BUNDLE_FACTORY_POSTCHECK_RESERVE_GAS))
+    return role9_address, runtime_hash, configuration_hash
+
+
+(_SOURCE_FACTORY_DEFAULT_ADDRESS_V1,
+ SOURCE_V2_CREATE2_FACTORY_RUNTIME_HASH,
+ SOURCE_V2_CREATE2_FACTORY_CONFIGURATION_HASH) = \
+    source_bundle_factory_fixture_triple_v1(1, 0xD200, 0x5106)
+SOURCE_V2_CREATE2_FACTORY_ADDRESS = _SOURCE_FACTORY_DEFAULT_ADDRESS_V1
 # Deterministic fixture address for the migration-root V1 Source Bridge.
 LEGACY_V1_SOURCE_BRIDGE_ADDRESS = int(
     "a4c95b06d1a20e302ae866f595902bf36a9bcee9", 16
@@ -7449,7 +7763,7 @@ def bridge_adapter_projection_from_profile_v1(
         address_word_value(words[23]), address_word_value(words[26]),
         address_word_value(words[20]))
     return configuration_hash, create2_address(
-        SOURCE_V2_CREATE2_FACTORY_ADDRESS, salt, initcode_hash)
+        address_word_value(words[202]), salt, initcode_hash)
 
 
 def governance_delay_authority_descriptor_from_profile_v1(
@@ -7470,7 +7784,8 @@ def protocol_version_manager_configuration_from_profile_v1(
         words[24], words[25], words[27], words[28], words[30], words[31],
         words[33], words[34], words[39], words[40], words[42], words[43],
         address_word_value(words[38]), address_word_value(words[41]), words[9],
-        15_000_000, 1_000_000, 500_000, 2_000_000)
+        15_000_000, 1_000_000, 500_000, 2_000_000,
+        address_word_value(words[166]), words[167], words[168])
     return protocol_version_manager_configuration_hash(config)
 
 
@@ -7624,17 +7939,19 @@ def decode_execution_profile_v2(
             and words[45] == SETTLEMENT_FACTORY_RUNTIME_HASH_V2
             and words[46] == settlement_factory_configuration_hash_v2())
     if validate_authority_graph:
+        source_factory = source_bundle_factory_fixture_triple_v1(
+            uint_word_value(words[2]), address_word_value(words[20]),
+            address_word_value(words[41]))
         assert (words[37]
                     == aggregator_seat_market_configuration_hash_v2(words)
                 and words[18]
                     == governance_delay_authority_descriptor_from_profile_v1(
                         words)
-                and words[202]
-                    == address_word(SOURCE_V2_CREATE2_FACTORY_ADDRESS)
-                and words[203] == SOURCE_V2_CREATE2_FACTORY_RUNTIME_HASH
-                and words[204]
-                    == SOURCE_V2_CREATE2_FACTORY_CONFIGURATION_HASH
-                and words[161] == BRIDGE_INGRESS_RUNTIME_HASH_V2)
+                and words[41:44] == words[202:205]
+                and words[202] == address_word(source_factory[0])
+                and words[203] == source_factory[1]
+                and words[204] == source_factory[2]
+                and words[161] == BRIDGE_ADAPTER_RUNTIME_CODE_HASH_V1)
         expected_adapter_config, expected_adapter = (
             bridge_adapter_projection_from_profile_v1(words))
         assert (words[162] == expected_adapter_config
@@ -7698,18 +8015,24 @@ def canonicalize_execution_profile_authority_graph_v2(encoded: bytes) -> bytes:
     words[37] = aggregator_seat_market_configuration_hash_v2(tuple(words))
     words[18] = governance_delay_authority_descriptor_from_profile_v1(
         tuple(words))
-    words[22] = protocol_version_manager_configuration_from_profile_v1(
-        tuple(words))
     selector = bytes4_word_value(words[144])
     words[140] = keccak256(
         MIGRATION_VERIFIER_CONFIG_TYPEHASH + words[141] + words[142]
         + words[143] + bytes4_word(selector)
         + u256(uint_word_value(words[145], 32))
         + u256(uint_word_value(words[146], 64)))
-    words[161] = BRIDGE_INGRESS_RUNTIME_HASH_V2
-    words[202] = address_word(SOURCE_V2_CREATE2_FACTORY_ADDRESS)
-    words[203] = SOURCE_V2_CREATE2_FACTORY_RUNTIME_HASH
-    words[204] = SOURCE_V2_CREATE2_FACTORY_CONFIGURATION_HASH
+    words[161] = BRIDGE_ADAPTER_RUNTIME_CODE_HASH_V1
+    source_factory = source_bundle_factory_fixture_triple_v1(
+        uint_word_value(words[2]), address_word_value(words[20]),
+        address_word_value(words[41]))
+    words[41] = address_word(source_factory[0])
+    words[42] = source_factory[1]
+    words[43] = source_factory[2]
+    words[202] = words[41]
+    words[203] = source_factory[1]
+    words[204] = source_factory[2]
+    words[22] = protocol_version_manager_configuration_from_profile_v1(
+        tuple(words))
     factory = address_word_value(words[202])
     deployer = create2_address(factory, words[205], words[206])
     words[207] = address_word(deployer)
@@ -7741,13 +8064,32 @@ def canonicalize_execution_profile_authority_graph_v2(encoded: bytes) -> bytes:
         address_word_value(words[26]), address_word_value(words[20]))
     words[160] = address_word(create2_address(
         factory, adapter_salt, adapter_initcode_hash))
+    bridge = address_word_value(words[187])
+    bridge_surplus_sink = address_word_value(words[70])
     bridge_config = (
         words[190] + words[191] + words[172][12:] + words[181][12:]
         + words[178][12:] + words[195][12:] + words[184][12:]
+        + address20(bridge_surplus_sink)
+        + address20(force_send_create2_address_v1(
+            bridge, bridge_surplus_sink))
+        + force_send_initcode_hash_v1(bridge_surplus_sink)
+        + FORCE_SEND_COMPILER_BUILD_HASH + FORCE_SEND_EVM_RULES_HASH
+        + u64(FORCE_SEND_CREATE2_FIXED_GAS)
+        + u64(FORCE_SEND_CREATE2_WORST_CASE_GAS)
+        + u64(FORCE_SEND_POSTCHECK_GAS_RESERVE)
     )
     words[189] = component_config_hash(10, bridge_config)
     words[230:235] = (u256(1), u256(1), u256(1), u256(1),
                       u256(20_000_000))
+    # Aggregate roots must be derived only after every source, destination,
+    # terminal and economic leaf has reached its canonical value.  Computing
+    # the Market or PVM hash earlier leaves a valid-looking but internally
+    # stale authority graph after any later leaf rewrite.
+    words[37] = aggregator_seat_market_configuration_hash_v2(tuple(words))
+    words[18] = governance_delay_authority_descriptor_from_profile_v1(
+        tuple(words))
+    words[22] = protocol_version_manager_configuration_from_profile_v1(
+        tuple(words))
     rewritten = (encoded[:32] + b"".join(words)
                  + encoded[32 + EXECUTION_PROFILE_STATIC_BYTES:])
     decode_execution_profile_v2(rewritten)
@@ -7767,23 +8109,23 @@ def encode_register_release_payload(
         + canonical_release_manifest(payload.release_manifest)
         + encode_settlement_deployment_descriptor_abi(
             payload.settlement_deployment_descriptor)
-        + u256(68 * 32))
-    assert len(head) == 68 * 32
+        + u256(69 * 32))
+    assert len(head) == 69 * 32
     encoded = head + abi_bytes_tail(payload.profile_bytes)
-    assert len(encoded) == 2_208 + ceil32(len(payload.profile_bytes))
+    assert len(encoded) == 2_240 + ceil32(len(payload.profile_bytes))
     return encoded
 
 
 def decode_register_release_payload(encoded: bytes) -> RegisterReleasePayloadV1:
-    assert len(encoded) >= 2_240
-    assert uint_word_value(encoded[67 * 32:68 * 32]) == 68 * 32
-    profile_length = uint_word_value(encoded[68 * 32:69 * 32])
-    profile_start = 69 * 32
+    assert len(encoded) >= 2_272
+    assert uint_word_value(encoded[68 * 32:69 * 32]) == 69 * 32
+    profile_length = uint_word_value(encoded[69 * 32:70 * 32])
+    profile_start = 70 * 32
     profile_bytes = encoded[profile_start:profile_start + profile_length]
     payload = RegisterReleasePayloadV1(
         uint_word_value(encoded[:32], 64),
-        decode_canonical_release_manifest(encoded[32:59 * 32]),
-        decode_settlement_deployment_descriptor_abi(encoded[59 * 32:67 * 32]),
+        decode_canonical_release_manifest(encoded[32:60 * 32]),
+        decode_settlement_deployment_descriptor_abi(encoded[60 * 32:68 * 32]),
         profile_bytes)
     assert encoded == encode_register_release_payload(payload)
     return payload
@@ -7951,6 +8293,8 @@ def _bridge_route_primitives_from_profile_v1(
         "delegate-controller", "erc20-vault-v1", "erc721-vault-v1",
         "erc1155-vault-v1",
     )
+    destination_bridge = address_word_value(words[187])
+    bridge_surplus_sink = address_word_value(words[70])
     denied_bytes = {
         bytes(20),
         *(address20(address_word_value(words[160 + index * 3]))
@@ -7958,6 +8302,9 @@ def _bridge_route_primitives_from_profile_v1(
         address20(address_word_value(words[223])),
         address20(address_word_value(words[195])),
         address20(address_word_value(words[184])),
+        address20(bridge_surplus_sink),
+        address20(force_send_create2_address_v1(
+            destination_bridge, bridge_surplus_sink)),
         *(_model_symbolic_address20(value) for value in privileged),
     }
     denied = tuple(sorted(int.from_bytes(value, "big")
@@ -7972,6 +8319,21 @@ def _bridge_route_primitives_from_profile_v1(
         *((bytes(32),) * (64 - len(denied))),
     ))
     assert len(policy) == 68 * 32
+    source_bundle_constructor_words = (
+        u256(uint_word_value(words[2])),
+        u256(uint_word_value(words[2])),
+        words[227], words[226], words[211], words[213], words[191],
+        words[166],
+        *(address_word(int.from_bytes(_model_symbolic_address20(label), "big"))
+          for label in (
+              "erc20-vault-v1", "erc721-vault-v1", "erc1155-vault-v1"
+          )),
+        u256(1), words[218], u256(86_400), u256(UINT64_MAX),
+        words[220], u256(uint_word_value(words[225], 64)),
+        words[220], words[221], words[222], words[167], words[168],
+        words[209],
+    )
+    assert len(source_bundle_constructor_words) == 23
     expansion = b"".join((
         bytes4_word(b"BRX1"), u256(version),
         ingress_authorization_id(bridge_rows[0]), u256(uint_word_value(words[2])),
@@ -7979,8 +8341,9 @@ def _bridge_route_primitives_from_profile_v1(
         b32(destination_registration_commitment_), policy_hash,
         u256(len(denied)),
         *descriptor_words,
+        *source_bundle_constructor_words,
     ))
-    assert len(expansion) == 38 * 32
+    assert len(expansion) == 61 * 32
     return expansion, policy, keccak256(expansion)
 
 
@@ -8080,12 +8443,14 @@ def derive_register_release_authority_v2(
         components[9].address, components[9].runtime_hash,
         components[9].config_hash, words[190], words[191],
         components[4].address, components[7].address, components[6].address,
-        address_word_value(words[195]), components[8].address)
+        address_word_value(words[195]), components[8].address,
+        address_word_value(words[70]))
     expected_bridge_config = component_config_hash(
         10, destination_bridge_component_config(
             words[190], words[191], components[4].address,
             components[7].address, components[6].address,
-            address_word_value(words[195]), components[8].address))
+            address_word_value(words[195]), components[8].address,
+            components[9].address, address_word_value(words[70])))
     assert components[9].config_hash == expected_bridge_config
     destination_execution_hash = destination_bridge_execution_hash(
         destination_bridge)
@@ -8253,7 +8618,7 @@ def encode_register_target_release_calldata(
         payload: RegisterReleasePayloadV1) -> bytes:
     encoded = REGISTER_TARGET_RELEASE_SELECTOR + encode_register_release_payload(
         payload)
-    assert len(encoded) == 4 + 2_208 + ceil32(len(payload.profile_bytes))
+    assert len(encoded) == 4 + 2_240 + ceil32(len(payload.profile_bytes))
     return encoded
 
 
@@ -8355,8 +8720,10 @@ def encode_register_fork_verifier_payload(
         payload: RegisterForkVerifierPayloadV1) -> bytes:
     assert (len(payload.fork_digest) == 4
             and payload.fork_digest != bytes(4)
-            and 0 < payload.first_window <= UINT64_MAX
+            and 0 <= payload.first_parent_slot < payload.last_parent_slot_exclusive
+                <= UINT64_MAX
             and payload.verifier != 0 and payload.runtime_hash != bytes(32)
+            and payload.beacon_slot_gindex == 8
             and all(0 < value <= UINT64_MAX for value in (
                 payload.beacon_slot_gindex,
                 payload.execution_payload_gindex,
@@ -8370,7 +8737,8 @@ def encode_register_fork_verifier_payload(
     assert payload.configuration_hash == schedule_fork_verifier_configuration_hash(
         payload)
     encoded = (
-        bytes4_word(payload.fork_digest) + u256(payload.first_window)
+        bytes4_word(payload.fork_digest) + u256(payload.first_parent_slot)
+        + u256(payload.last_parent_slot_exclusive)
         + address_word(payload.verifier) + b32(payload.runtime_hash)
         + u256(payload.beacon_slot_gindex)
         + u256(payload.execution_payload_gindex)
@@ -8379,31 +8747,241 @@ def encode_register_fork_verifier_payload(
         + b32(payload.witness_schema_hash) + b32(payload.configuration_hash)
         + bytes4_word(payload.selector)
         + u256(payload.gas_limit))
-    assert len(encoded) == 14 * 32
+    assert len(encoded) == 15 * 32
     return encoded
 
 
 def decode_register_fork_verifier_payload(
         encoded: bytes) -> RegisterForkVerifierPayloadV1:
-    assert len(encoded) == 14 * 32
+    assert len(encoded) == 15 * 32
     words = tuple(encoded[index * 32:(index + 1) * 32]
-                  for index in range(14))
+                  for index in range(15))
     payload = RegisterForkVerifierPayloadV1(
         bytes4_word_value(words[0]), uint_word_value(words[1], 64),
-        address_word_value(words[2]), b32(words[3]),
-        *(uint_word_value(words[index], 64) for index in range(4, 10)),
-        b32(words[10]), b32(words[11]), bytes4_word_value(words[12]),
-        uint_word_value(words[13], 64))
+        uint_word_value(words[2], 64), address_word_value(words[3]),
+        b32(words[4]),
+        *(uint_word_value(words[index], 64) for index in range(5, 11)),
+        b32(words[11]), b32(words[12]), bytes4_word_value(words[13]),
+        uint_word_value(words[14], 64))
     assert encoded == encode_register_fork_verifier_payload(payload)
+    return payload
+
+
+def schedule_fork_registration_hash(
+        payload: RegisterForkVerifierPayloadV1) -> bytes:
+    encoded = encode_register_fork_verifier_payload(payload)
+    return keccak256(
+        b"slot-chain-schedule-fork-registration-v1"
+        + len(encoded).to_bytes(2, "big") + encoded)
+
+
+def schedule_fork_review_certificate_hash(
+        settlement_chain_id: int, schedule_oracle: int,
+        operation_kind: int, change_rows: bytes,
+        reviewed_through_parent_slot_exclusive: int,
+        review_evidence_hash: bytes) -> bytes:
+    assert (settlement_chain_id > 0 and schedule_oracle > 0
+            and operation_kind in {2, 5, 6} and change_rows
+            and 0 < reviewed_through_parent_slot_exclusive <= UINT64_MAX
+            and review_evidence_hash != bytes(32))
+    return keccak256(
+        b"slot-chain-schedule-fork-review-certificate-v1"
+        + u256(settlement_chain_id) + schedule_oracle.to_bytes(20, "big")
+        + operation_kind.to_bytes(1, "big")
+        + len(change_rows).to_bytes(2, "big") + keccak256(change_rows)
+        + u64(reviewed_through_parent_slot_exclusive)
+        + review_evidence_hash)
+
+
+def encode_fork_review_envelope(review: ForkReviewEnvelopeV1) -> bytes:
+    assert (0 < review.reviewed_through_parent_slot_exclusive <= UINT64_MAX
+            and review.review_evidence_hash != bytes(32)
+            and review.review_certificate_hash != bytes(32))
+    encoded = (
+        u256(review.reviewed_through_parent_slot_exclusive)
+        + b32(review.review_evidence_hash)
+        + b32(review.review_certificate_hash))
+    assert len(encoded) == 96
+    return encoded
+
+
+def decode_fork_review_envelope(encoded: bytes) -> ForkReviewEnvelopeV1:
+    assert len(encoded) == 96
+    review = ForkReviewEnvelopeV1(
+        uint_word_value(encoded[:32], 64),
+        b32(encoded[32:64]), b32(encoded[64:96]))
+    assert encoded == encode_fork_review_envelope(review)
+    return review
+
+
+def encode_register_fork_verifier_change_payload(
+        payload: RegisterForkVerifierChangePayloadV1) -> bytes:
+    encoded = (encode_register_fork_verifier_payload(payload.registration)
+               + encode_fork_review_envelope(payload.review))
+    assert len(encoded) == 576
+    return encoded
+
+
+def decode_register_fork_verifier_change_payload(
+        encoded: bytes) -> RegisterForkVerifierChangePayloadV1:
+    assert len(encoded) == 576
+    payload = RegisterForkVerifierChangePayloadV1(
+        decode_register_fork_verifier_payload(encoded[:480]),
+        decode_fork_review_envelope(encoded[480:]))
+    assert encoded == encode_register_fork_verifier_change_payload(payload)
+    return payload
+
+
+def schedule_fork_sparse_root(
+        leaf_domain: bytes, leaves: dict[bytes, bytes]) -> bytes:
+    assert (leaf_domain and all(
+        len(key) == 4 and key != bytes(4)
+        and len(value) == 32 and value != bytes(32)
+        for key, value in leaves.items()
+    ))
+    defaults = [keccak256(leaf_domain + b"\x00")]
+    for _ in range(32):
+        defaults.append(keccak256(
+            leaf_domain + b"\x01" + defaults[-1] + defaults[-1]
+        ))
+    nodes = {
+        int.from_bytes(key, "big"):
+            keccak256(leaf_domain + b"\x02" + key + value)
+        for key, value in leaves.items()
+    }
+    for level in range(32):
+        parents: dict[int, bytes] = {}
+        for parent in {index >> 1 for index in nodes}:
+            left = nodes.get(parent << 1, defaults[level])
+            right = nodes.get((parent << 1) | 1, defaults[level])
+            parents[parent] = keccak256(
+                leaf_domain + b"\x01" + left + right
+            )
+        nodes = parents
+    return nodes.get(0, defaults[32])
+
+
+def schedule_fork_order_hash(order: tuple[bytes, ...]) -> bytes:
+    assert (order and len(order) == len(set(order))
+            and all(len(digest) == 4 and digest != bytes(4)
+                    for digest in order))
+    result = keccak256(b"slot-chain-schedule-fork-order-empty-v1")
+    for index, digest in enumerate(order):
+        result = keccak256(
+            b"slot-chain-schedule-fork-order-step-v1"
+            + result + u64(index) + digest
+        )
+    return result
+
+
+def schedule_fork_route_state_hash(
+        registrations: dict[bytes, RegisterForkVerifierPayloadV1],
+        order: tuple[bytes, ...], used_fork_digests: frozenset[bytes]) -> bytes:
+    assert (order and len(order) == len(set(order))
+            and all(digest in registrations for digest in order)
+            and all(len(digest) == 4 and digest != bytes(4)
+                    for digest in registrations)
+            and all(len(digest) == 4 and digest != bytes(4)
+                    for digest in used_fork_digests))
+    registration_root = schedule_fork_sparse_root(
+        b"slot-chain-schedule-fork-registration-smt-v1",
+        {
+            digest: schedule_fork_registration_hash(payload)
+            for digest, payload in registrations.items()
+        },
+    )
+    used_root = schedule_fork_sparse_root(
+        b"slot-chain-schedule-fork-used-smt-v1",
+        {digest: keccak256(
+            b"slot-chain-schedule-fork-used-leaf-v1" + digest
+        ) for digest in used_fork_digests},
+    )
+    return keccak256(
+        b"slot-chain-schedule-fork-route-state-v1"
+        + schedule_fork_order_hash(order)
+        + registration_root + used_root
+        + u64(len(order)) + u64(len(registrations))
+        + u64(len(used_fork_digests)))
+
+
+def encode_schedule_fork_route_state_return(
+        registrations: dict[bytes, RegisterForkVerifierPayloadV1],
+        order: tuple[bytes, ...], used_fork_digests: frozenset[bytes]) -> bytes:
+    encoded = (
+        bytes4_word(SCHEDULE_FORK_ROUTE_STATE_MAGIC)
+        + schedule_fork_route_state_hash(
+            registrations, order, used_fork_digests)
+        + u256(len(order)) + u256(len(registrations))
+        + u256(len(used_fork_digests)))
+    assert len(encoded) == 160
+    return encoded
+
+
+def decode_schedule_fork_route_state_return(
+        returndata: bytes) -> tuple[bytes, int, int, int]:
+    assert (len(returndata) == 160
+            and bytes4_word_value(returndata[:32])
+                == SCHEDULE_FORK_ROUTE_STATE_MAGIC)
+    result = (
+        b32(returndata[32:64]),
+        uint_word_value(returndata[64:96], 64),
+        uint_word_value(returndata[96:128], 64),
+        uint_word_value(returndata[128:160], 64),
+    )
+    assert result[0] != bytes(32)
+    return result
+
+
+def encode_replace_pending_fork_verifier_payload(
+        payload: ReplacePendingForkVerifierPayloadV1) -> bytes:
+    encoded = (
+        encode_register_fork_verifier_payload(payload.expected_predecessor)
+        + encode_register_fork_verifier_payload(payload.expected_old)
+        + encode_register_fork_verifier_payload(payload.replacement)
+        + encode_fork_review_envelope(payload.review))
+    assert len(encoded) == 1536
+    return encoded
+
+
+def decode_replace_pending_fork_verifier_payload(
+        encoded: bytes) -> ReplacePendingForkVerifierPayloadV1:
+    assert len(encoded) == 1536
+    payload = ReplacePendingForkVerifierPayloadV1(
+        decode_register_fork_verifier_payload(encoded[:480]),
+        decode_register_fork_verifier_payload(encoded[480:960]),
+        decode_register_fork_verifier_payload(encoded[960:1440]),
+        decode_fork_review_envelope(encoded[1440:]))
+    assert encoded == encode_replace_pending_fork_verifier_payload(payload)
+    return payload
+
+
+def encode_split_latest_fork_verifier_payload(
+        payload: SplitLatestForkVerifierPayloadV1) -> bytes:
+    encoded = (
+        encode_register_fork_verifier_payload(payload.expected_old)
+        + encode_register_fork_verifier_payload(payload.successor)
+        + encode_fork_review_envelope(payload.review))
+    assert len(encoded) == 1056
+    return encoded
+
+
+def decode_split_latest_fork_verifier_payload(
+        encoded: bytes) -> SplitLatestForkVerifierPayloadV1:
+    assert len(encoded) == 1056
+    payload = SplitLatestForkVerifierPayloadV1(
+        decode_register_fork_verifier_payload(encoded[:480]),
+        decode_register_fork_verifier_payload(encoded[480:960]),
+        decode_fork_review_envelope(encoded[960:]))
+    assert encoded == encode_split_latest_fork_verifier_payload(payload)
     return payload
 
 
 @dataclass(frozen=True)
 class ForkVerifierRegistrationV1:
     fork_digest: bytes
-    first_window: int
+    first_parent_slot: int
     successor_fork_digest: bytes
-    successor_first_window: int
+    last_parent_slot_exclusive: int
     verifier: int
     runtime_hash: bytes
     configuration_hash: bytes
@@ -8415,7 +8993,7 @@ class ForkVerifierRegistrationV1:
 class ScheduleCarrierOutputV1:
     statement_hash: bytes
     parent_slot: int
-    execution_block_number: int
+    parent_execution_block_number: int
     payload_timestamp: int
     block_hash: bytes
     state_root: bytes
@@ -8443,6 +9021,7 @@ def schedule_fork_verifier_configuration_hash(
     assert (len(payload.fork_digest) == 4
             and payload.fork_digest != bytes(4)
             and payload.witness_schema_hash != bytes(32)
+            and payload.beacon_slot_gindex == 8
             and payload.selector == VERIFY_SCHEDULE_CARRIER_SELECTOR
             and MINIMUM_FORK_VERIFIER_GAS <= payload.gas_limit
                 <= MAXIMUM_FORK_VERIFIER_GAS)
@@ -8461,7 +9040,7 @@ def encode_install_fork_verifier_calldata(
         payload: RegisterForkVerifierPayloadV1) -> bytes:
     encoded = INSTALL_FORK_VERIFIER_SELECTOR \
         + encode_register_fork_verifier_payload(payload)
-    assert len(encoded) == 452
+    assert len(encoded) == 484
     return encoded
 
 
@@ -8474,11 +9053,11 @@ def decode_install_fork_verifier_calldata(
 
 
 def encode_install_fork_verifier_return(
-        fork_digest: bytes, first_window: int) -> bytes:
+        fork_digest: bytes, first_parent_slot: int) -> bytes:
     assert (len(fork_digest) == 4 and fork_digest != bytes(4)
-            and 0 <= first_window <= UINT64_MAX)
+            and 0 <= first_parent_slot <= UINT64_MAX)
     encoded = (bytes4_word(FORK_VERIFIER_INSTALL_MAGIC)
-               + bytes4_word(fork_digest) + u256(first_window))
+               + bytes4_word(fork_digest) + u256(first_parent_slot))
     assert len(encoded) == 96
     return encoded
 
@@ -8490,6 +9069,117 @@ def decode_install_fork_verifier_return(returndata: bytes) -> tuple[bytes, int]:
     result = (bytes4_word_value(returndata[32:64]),
               uint_word_value(returndata[64:96], 64))
     assert returndata == encode_install_fork_verifier_return(*result)
+    return result
+
+
+def encode_replace_pending_fork_verifier_calldata(
+        expected_predecessor_registration_hash: bytes,
+        expected_old_registration_hash: bytes,
+        replacement: RegisterForkVerifierPayloadV1) -> bytes:
+    assert (expected_predecessor_registration_hash != bytes(32)
+            and expected_old_registration_hash != bytes(32))
+    encoded = (REPLACE_PENDING_FORK_VERIFIER_SELECTOR
+               + b32(expected_predecessor_registration_hash)
+               + b32(expected_old_registration_hash)
+               + encode_register_fork_verifier_payload(replacement))
+    assert len(encoded) == 548
+    return encoded
+
+
+def decode_replace_pending_fork_verifier_calldata(
+        calldata: bytes
+        ) -> tuple[bytes, bytes, RegisterForkVerifierPayloadV1]:
+    assert (len(calldata) == 548
+            and calldata[:4] == REPLACE_PENDING_FORK_VERIFIER_SELECTOR)
+    result = (
+        b32(calldata[4:36]), b32(calldata[36:68]),
+        decode_register_fork_verifier_payload(calldata[68:]),
+    )
+    assert calldata == encode_replace_pending_fork_verifier_calldata(*result)
+    return result
+
+
+def encode_split_latest_fork_verifier_calldata(
+        expected_old_registration_hash: bytes,
+        successor: RegisterForkVerifierPayloadV1) -> bytes:
+    assert expected_old_registration_hash != bytes(32)
+    encoded = (SPLIT_LATEST_FORK_VERIFIER_SELECTOR
+               + b32(expected_old_registration_hash)
+               + encode_register_fork_verifier_payload(successor))
+    assert len(encoded) == 516
+    return encoded
+
+
+def decode_split_latest_fork_verifier_calldata(
+        calldata: bytes) -> tuple[bytes, RegisterForkVerifierPayloadV1]:
+    assert (len(calldata) == 516
+            and calldata[:4] == SPLIT_LATEST_FORK_VERIFIER_SELECTOR)
+    result = (b32(calldata[4:36]),
+              decode_register_fork_verifier_payload(calldata[36:]))
+    assert calldata == encode_split_latest_fork_verifier_calldata(*result)
+    return result
+
+
+def encode_replace_pending_fork_verifier_return(
+        old_digest: bytes, new_digest: bytes,
+        new_first_parent_slot: int,
+        new_last_parent_slot_exclusive: int) -> bytes:
+    assert (len(old_digest) == len(new_digest) == 4
+            and old_digest != bytes(4) and new_digest != bytes(4)
+            and 0 <= new_first_parent_slot < new_last_parent_slot_exclusive
+                <= UINT64_MAX)
+    encoded = (bytes4_word(bytes.fromhex("46565031"))
+               + bytes4_word(old_digest) + bytes4_word(new_digest)
+               + u256(new_first_parent_slot)
+               + u256(new_last_parent_slot_exclusive))
+    assert len(encoded) == 160
+    return encoded
+
+
+def decode_replace_pending_fork_verifier_return(
+        returndata: bytes) -> tuple[bytes, bytes, int, int]:
+    assert (len(returndata) == 160
+            and bytes4_word_value(returndata[:32])
+                == bytes.fromhex("46565031"))
+    result = (
+        bytes4_word_value(returndata[32:64]),
+        bytes4_word_value(returndata[64:96]),
+        uint_word_value(returndata[96:128], 64),
+        uint_word_value(returndata[128:160], 64),
+    )
+    assert returndata == encode_replace_pending_fork_verifier_return(*result)
+    return result
+
+
+def encode_split_latest_fork_verifier_return(
+        old_digest: bytes, successor_digest: bytes,
+        boundary_parent_slot: int,
+        successor_last_parent_slot_exclusive: int) -> bytes:
+    assert (len(old_digest) == len(successor_digest) == 4
+            and old_digest != bytes(4) and successor_digest != bytes(4)
+            and old_digest != successor_digest
+            and 0 <= boundary_parent_slot
+                < successor_last_parent_slot_exclusive <= UINT64_MAX)
+    encoded = (bytes4_word(bytes.fromhex("46565331"))
+               + bytes4_word(old_digest) + bytes4_word(successor_digest)
+               + u256(boundary_parent_slot)
+               + u256(successor_last_parent_slot_exclusive))
+    assert len(encoded) == 160
+    return encoded
+
+
+def decode_split_latest_fork_verifier_return(
+        returndata: bytes) -> tuple[bytes, bytes, int, int]:
+    assert (len(returndata) == 160
+            and bytes4_word_value(returndata[:32])
+                == bytes.fromhex("46565331"))
+    result = (
+        bytes4_word_value(returndata[32:64]),
+        bytes4_word_value(returndata[64:96]),
+        uint_word_value(returndata[96:128], 64),
+        uint_word_value(returndata[128:160], 64),
+    )
+    assert returndata == encode_split_latest_fork_verifier_return(*result)
     return result
 
 
@@ -8509,24 +9199,21 @@ def decode_fork_verifier_registration_calldata(calldata: bytes) -> bytes:
 def encode_fork_verifier_registration_return(
         row: ForkVerifierRegistrationV1) -> bytes:
     assert (len(row.fork_digest) == 4 and row.fork_digest != bytes(4)
-            and 0 <= row.first_window <= UINT64_MAX
+            and 0 <= row.first_parent_slot < row.last_parent_slot_exclusive
+                <= UINT64_MAX
             and row.verifier != 0 and row.runtime_hash != bytes(32)
             and row.configuration_hash != bytes(32)
             and row.selector == VERIFY_SCHEDULE_CARRIER_SELECTOR
             and MINIMUM_FORK_VERIFIER_GAS <= row.gas_limit
                 <= MAXIMUM_FORK_VERIFIER_GAS)
-    if row.successor_fork_digest == bytes(4):
-        assert row.successor_first_window == 0
-    else:
+    if row.successor_fork_digest != bytes(4):
         assert (len(row.successor_fork_digest) == 4
-                and row.successor_fork_digest != row.fork_digest
-                and row.successor_first_window > row.first_window
-                and row.successor_first_window <= UINT64_MAX)
+                and row.successor_fork_digest != row.fork_digest)
     encoded = (
         bytes4_word(FORK_VERIFIER_REGISTRATION_MAGIC)
-        + bytes4_word(row.fork_digest) + u256(row.first_window)
+        + bytes4_word(row.fork_digest) + u256(row.first_parent_slot)
         + bytes4_word(row.successor_fork_digest)
-        + u256(row.successor_first_window) + address_word(row.verifier)
+        + u256(row.last_parent_slot_exclusive) + address_word(row.verifier)
         + b32(row.runtime_hash) + b32(row.configuration_hash)
         + bytes4_word(row.selector) + u256(row.gas_limit))
     assert len(encoded) == 320
@@ -8550,13 +9237,12 @@ def decode_fork_verifier_registration_return(
     return row
 
 
-def fork_verifier_registration_covers_window(
-        row: ForkVerifierRegistrationV1, window: int) -> bool:
-    assert 0 <= window <= UINT64_MAX
+def fork_verifier_registration_covers_parent_slot(
+        row: ForkVerifierRegistrationV1, parent_slot: int) -> bool:
+    assert 0 <= parent_slot <= UINT64_MAX
     encode_fork_verifier_registration_return(row)
-    return (row.first_window <= window
-            and (row.successor_fork_digest == bytes(4)
-                 or window < row.successor_first_window))
+    return (row.first_parent_slot <= parent_slot
+            < row.last_parent_slot_exclusive)
 
 
 def encode_schedule_fork_verifier_config_return(
@@ -8577,14 +9263,14 @@ def encode_schedule_fork_verifier_config_return(
 
 def decode_schedule_fork_verifier_config_return(
         returndata: bytes, verifier: int, runtime_hash: bytes,
-        first_window: int, selector: bytes,
+        first_parent_slot: int, last_parent_slot_exclusive: int, selector: bytes,
         gas_limit: int) -> RegisterForkVerifierPayloadV1:
     assert (len(returndata) == 320
             and bytes4_word_value(returndata[:32])
                 == SCHEDULE_FORK_VERIFIER_CONFIG_MAGIC)
     payload = RegisterForkVerifierPayloadV1(
-        bytes4_word_value(returndata[32:64]), first_window, verifier,
-        b32(runtime_hash),
+        bytes4_word_value(returndata[32:64]), first_parent_slot,
+        last_parent_slot_exclusive, verifier, b32(runtime_hash),
         *(uint_word_value(returndata[index * 32:(index + 1) * 32], 64)
           for index in range(2, 8)),
         b32(returndata[256:288]), b32(returndata[288:320]), selector,
@@ -8620,9 +9306,11 @@ def decode_verify_schedule_carrier_calldata(
 def schedule_carrier_statement_hash(
         settlement_chain_id: int, schedule_oracle: int, fork_digest: bytes,
         window: int, beacon_block_root: bytes, parent_slot: int,
-        execution_block_number: int, payload_timestamp: int,
+        parent_execution_block_number: int, payload_timestamp: int,
         block_hash: bytes, state_root: bytes, prev_randao: bytes) -> bytes:
-    narrow = (window, parent_slot, execution_block_number, payload_timestamp)
+    narrow = (
+        window, parent_slot, parent_execution_block_number, payload_timestamp
+    )
     assert (settlement_chain_id > 0 and schedule_oracle != 0
             and len(fork_digest) == 4 and fork_digest != bytes(4)
             and all(0 <= value <= UINT64_MAX for value in narrow)
@@ -8632,20 +9320,31 @@ def schedule_carrier_statement_hash(
         D_SCHEDULE_CARRIER_STATEMENT + u256(settlement_chain_id)
         + address20(schedule_oracle) + fork_digest + u64(window)
         + b32(beacon_block_root) + u64(parent_slot)
-        + u64(execution_block_number) + u64(payload_timestamp)
+        + u64(parent_execution_block_number) + u64(payload_timestamp)
         + b32(block_hash) + b32(state_root) + b32(prev_randao))
+
+
+def schedule_execution_payload_is_parent(
+        parent_execution_block_number: int,
+        carrier_header_block_number: int) -> bool:
+    assert (0 <= parent_execution_block_number <= UINT64_MAX
+            and 0 <= carrier_header_block_number <= UINT64_MAX)
+    return (parent_execution_block_number < UINT64_MAX
+            and parent_execution_block_number + 1
+                == carrier_header_block_number)
 
 
 def encode_schedule_carrier_return(output: ScheduleCarrierOutputV1) -> bytes:
     assert (output.statement_hash != bytes(32)
             and all(0 <= value <= UINT64_MAX for value in (
-                output.parent_slot, output.execution_block_number,
+                output.parent_slot, output.parent_execution_block_number,
                 output.payload_timestamp))
             and all(value != bytes(32) for value in (
                 output.block_hash, output.state_root, output.prev_randao)))
     encoded = (
         bytes4_word(SCHEDULE_FORK_CARRIER_MAGIC) + b32(output.statement_hash)
-        + u256(output.parent_slot) + u256(output.execution_block_number)
+        + u256(output.parent_slot)
+        + u256(output.parent_execution_block_number)
         + u256(output.payload_timestamp) + b32(output.block_hash)
         + b32(output.state_root) + b32(output.prev_randao))
     assert len(encoded) == 256
@@ -8882,9 +9581,11 @@ def protocol_control_plane_entry_allowed(
 def validate_protocol_change_payload(operation_kind: int, payload: bytes):
     decoders = {
         1: decode_register_release_payload,
-        2: decode_register_fork_verifier_payload,
+        2: decode_register_fork_verifier_change_payload,
         3: decode_publish_genesis_campaign_payload,
         4: decode_publish_migration_arm_payload,
+        5: decode_replace_pending_fork_verifier_payload,
+        6: decode_split_latest_fork_verifier_payload,
     }
     assert operation_kind in decoders
     return decoders[operation_kind](payload)
@@ -8983,6 +9684,36 @@ def decode_apply_protocol_change_calldata(
         calldata, APPLY_PROTOCOL_CHANGE_SELECTOR, True)
     assert nonce is not None
     return nonce, operation_kind, payload
+
+
+def encode_expire_fork_change_calldata(operation_id: bytes) -> bytes:
+    encoded = EXPIRE_FORK_CHANGE_SELECTOR + b32(operation_id)
+    assert len(encoded) == 36
+    return encoded
+
+
+def decode_expire_fork_change_calldata(calldata: bytes) -> bytes:
+    assert (len(calldata) == 36
+            and calldata[:4] == EXPIRE_FORK_CHANGE_SELECTOR)
+    operation_id = b32(calldata[4:36])
+    assert operation_id != bytes(32)
+    assert calldata == encode_expire_fork_change_calldata(operation_id)
+    return operation_id
+
+
+def encode_expire_fork_change_return(operation_id: bytes) -> bytes:
+    encoded = bytes4_word(EXPIRE_FORK_CHANGE_MAGIC) + b32(operation_id)
+    assert operation_id != bytes(32) and len(encoded) == 64
+    return encoded
+
+
+def decode_expire_fork_change_return(returndata: bytes) -> bytes:
+    assert (len(returndata) == 64
+            and bytes4_word_value(returndata[:32])
+                == EXPIRE_FORK_CHANGE_MAGIC)
+    operation_id = b32(returndata[32:64])
+    assert returndata == encode_expire_fork_change_return(operation_id)
+    return operation_id
 
 
 @dataclass(frozen=True)
@@ -9536,7 +10267,7 @@ def encode_activate_version_with_migration_calldata(
     else:
         assert imported_header_rlp == b""
     rows_tail = canonical_inbox_rows_tail(rows)
-    rows_offset = 83 * 32
+    rows_offset = 84 * 32
     header_offset = rows_offset + len(rows_tail)
     header_tail = abi_bytes_tail(imported_header_rlp)
     proof_offset = header_offset + len(header_tail)
@@ -9556,19 +10287,19 @@ def decode_activate_version_with_migration_calldata(
         expected_manifest: ReleaseManifestDescriptor,
         descriptor_maximum_proof_bytes: int
 ) -> tuple[tuple[InboxRowV2, ...], bytes, bytes]:
-    assert (len(calldata) >= 4 + 83 * 32 + 3 * 32
+    assert (len(calldata) >= 4 + 84 * 32 + 3 * 32
             and calldata[:4] == ACTIVATE_VERSION_WITH_MIGRATION_SELECTOR)
     arguments = calldata[4:]
     fixed_end = 22 * 32
-    manifest_end = fixed_end + 58 * 32
+    manifest_end = fixed_end + 59 * 32
     assert (arguments[:fixed_end]
             == canonical_migration_activation_fixed(expected_fixed))
     assert (arguments[fixed_end:manifest_end]
             == canonical_release_manifest(expected_manifest))
-    rows_offset = uint_word_value(arguments[80 * 32:81 * 32])
-    header_offset = uint_word_value(arguments[81 * 32:82 * 32])
-    proof_offset = uint_word_value(arguments[82 * 32:83 * 32])
-    assert rows_offset == 83 * 32
+    rows_offset = uint_word_value(arguments[81 * 32:82 * 32])
+    header_offset = uint_word_value(arguments[82 * 32:83 * 32])
+    proof_offset = uint_word_value(arguments[83 * 32:84 * 32])
+    assert rows_offset == 84 * 32
     assert rows_offset < header_offset < proof_offset < len(arguments)
     rows = decode_canonical_inbox_rows_tail(
         arguments[rows_offset:header_offset])
@@ -9751,7 +10482,7 @@ def fixture_destination_components() -> tuple[ComponentDescriptor, ...]:
         + u64(POOL_VALUE_CALLBACK_GAS),
         destination_bridge_component_config(
             bytes.fromhex("42" * 32), bridge_kernel,
-            0x5101, 0x5102, 0x5103, 0x5107, 0x5104),
+            0x5101, 0x5102, 0x5103, 0x5107, 0x5104, 0xB200, 0x5108),
     )
     addresses = (0xAD00, 0xAD01, 0xD101, 0x5100, 0x5101,
                  0x5106, 0x5103, 0x5102, 0x5104, 0xB200)
@@ -10824,6 +11555,29 @@ def vectors() -> dict[str, str]:
                                         0x1112131415161718,
                                         0x2122232425262728)
     assert len(br_header) == 32 and br_header[:8] == b"BRH1\x01?\x00\x00"
+    assert decode_builder_registry_header(br_header) == (
+        63, 0x0102030405060708, 0x1112131415161718,
+        0x2122232425262728,
+    )
+    br_exhausted_header = builder_registry_header(
+        64, UINT64_MAX, UINT64_MAX, UINT64_MAX + 1
+    )
+    assert br_exhausted_header[:8] == b"BRH1\x01@\x01\x00"
+    assert br_exhausted_header[24:] == bytes(8)
+    assert decode_builder_registry_header(br_exhausted_header) == (
+        64, UINT64_MAX, UINT64_MAX, UINT64_MAX + 1,
+    )
+    for noncanonical_br_header in (
+        br_exhausted_header[:6] + b"\x02" + br_exhausted_header[7:],
+        br_exhausted_header[:7] + b"\x01" + br_exhausted_header[8:],
+        br_exhausted_header[:24] + u64(1),
+    ):
+        try:
+            decode_builder_registry_header(noncanonical_br_header)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("noncanonical BRH1 word was accepted")
     br_header_trie_key = keccak256(BUILDER_REGISTRY_HEADER_SLOT)
     br_root_trie_key = keccak256(BUILDER_REGISTRY_ROOT_SLOT)
     assert br_header_trie_key.hex() == (
@@ -11685,7 +12439,7 @@ def vectors() -> dict[str, str]:
     destination_bridge_descriptor = DestinationBridgeDescriptor(
         0xB200, infrastructure_components[9].runtime_hash,
         infrastructure_components[9].config_hash, bytes.fromhex("42" * 32),
-        bridge_kernel, 0x5101, 0x5102, 0x5103, 0x5107, 0x5104)
+        bridge_kernel, 0x5101, 0x5102, 0x5103, 0x5107, 0x5104, 0x5108)
     destination_bridge_execution = destination_bridge_execution_hash(
         destination_bridge_descriptor)
     destination_domain = destination_domain_id(
@@ -12098,7 +12852,7 @@ def vectors() -> dict[str, str]:
     register_release_payload_abi = encode_register_release_payload(
         register_release_payload)
     register_fork_payload = RegisterForkVerifierPayloadV1(
-        bytes.fromhex("46554c55"), 2_048, 0x6800,
+        bytes.fromhex("46554c55"), 2_048, 4_096, 0x6800,
         bytes.fromhex("68" * 32), 8, 201, 6_434, 6_437, 6_441, 6_444,
         bytes.fromhex("67" * 32), bytes(32),
         bytes.fromhex("7e981e0b"), 4_000_000)
@@ -12106,8 +12860,103 @@ def vectors() -> dict[str, str]:
         register_fork_payload,
         configuration_hash=schedule_fork_verifier_configuration_hash(
             register_fork_payload))
-    register_fork_payload_abi = encode_register_fork_verifier_payload(
+    register_fork_row_abi = encode_register_fork_verifier_payload(
         register_fork_payload)
+    predecessor_fork_payload = replace(
+        register_fork_payload,
+        fork_digest=bytes.fromhex("44454e42"),
+        first_parent_slot=1_024,
+        last_parent_slot_exclusive=2_048,
+        configuration_hash=bytes(32),
+    )
+    predecessor_fork_payload = replace(
+        predecessor_fork_payload,
+        configuration_hash=schedule_fork_verifier_configuration_hash(
+            predecessor_fork_payload
+        ),
+    )
+    predecessor_fork_row_abi = encode_register_fork_verifier_payload(
+        predecessor_fork_payload
+    )
+    replacement_fork_payload = replace(
+        register_fork_payload, fork_digest=bytes.fromhex("474c4f41"),
+        first_parent_slot=3_072, last_parent_slot_exclusive=8_192,
+        configuration_hash=bytes(32))
+    replacement_fork_payload = replace(
+        replacement_fork_payload,
+        configuration_hash=schedule_fork_verifier_configuration_hash(
+            replacement_fork_payload))
+    register_review_evidence_hash = keccak256(
+        b"slot-chain-fork-review-evidence-fixture-register-v1"
+    )
+    register_review = ForkReviewEnvelopeV1(
+        register_fork_payload.last_parent_slot_exclusive,
+        register_review_evidence_hash,
+        schedule_fork_review_certificate_hash(
+            settlement_chain_id,
+            manager_config.schedule_oracle,
+            2,
+            register_fork_row_abi,
+            register_fork_payload.last_parent_slot_exclusive,
+            register_review_evidence_hash,
+        ),
+    )
+    register_fork_change_payload = RegisterForkVerifierChangePayloadV1(
+        register_fork_payload, register_review
+    )
+    register_fork_payload_abi = encode_register_fork_verifier_change_payload(
+        register_fork_change_payload
+    )
+    replacement_rows_abi = (
+        predecessor_fork_row_abi
+        + register_fork_row_abi
+        + encode_register_fork_verifier_payload(replacement_fork_payload)
+    )
+    replacement_review_evidence_hash = keccak256(
+        b"slot-chain-fork-review-evidence-fixture-replacement-v1"
+    )
+    replacement_review = ForkReviewEnvelopeV1(
+        replacement_fork_payload.last_parent_slot_exclusive,
+        replacement_review_evidence_hash,
+        schedule_fork_review_certificate_hash(
+            settlement_chain_id,
+            manager_config.schedule_oracle,
+            5,
+            replacement_rows_abi,
+            replacement_fork_payload.last_parent_slot_exclusive,
+            replacement_review_evidence_hash,
+        ),
+    )
+    replace_fork_payload = ReplacePendingForkVerifierPayloadV1(
+        predecessor_fork_payload, register_fork_payload,
+        replacement_fork_payload, replacement_review)
+    replace_fork_payload_abi = encode_replace_pending_fork_verifier_payload(
+        replace_fork_payload)
+    split_rows_abi = (
+        register_fork_row_abi
+        + encode_register_fork_verifier_payload(replacement_fork_payload)
+    )
+    split_review_evidence_hash = keccak256(
+        b"slot-chain-fork-review-evidence-fixture-split-v1"
+    )
+    split_review = ForkReviewEnvelopeV1(
+        replacement_fork_payload.last_parent_slot_exclusive,
+        split_review_evidence_hash,
+        schedule_fork_review_certificate_hash(
+            settlement_chain_id,
+            manager_config.schedule_oracle,
+            6,
+            split_rows_abi,
+            replacement_fork_payload.last_parent_slot_exclusive,
+            split_review_evidence_hash,
+        ),
+    )
+    split_fork_payload = SplitLatestForkVerifierPayloadV1(
+        register_fork_payload, replacement_fork_payload, split_review
+    )
+    split_fork_payload_abi = encode_split_latest_fork_verifier_payload(
+        split_fork_payload
+    )
     publish_genesis_payload = PublishGenesisCampaignPayloadV1(
         legacy_campaign.force_cutoff_block,
         legacy_campaign.proposal_cutoff_block,
@@ -12124,7 +12973,8 @@ def vectors() -> dict[str, str]:
         publish_migration_payload)
     protocol_change_payloads = (
         register_release_payload_abi, register_fork_payload_abi,
-        publish_genesis_payload_abi, publish_migration_payload_abi)
+        publish_genesis_payload_abi, publish_migration_payload_abi,
+        replace_fork_payload_abi, split_fork_payload_abi)
     protocol_change_operations = tuple(
         ProtocolChangeOperationIdentityV1(
             settlement_chain_id, timelock_descriptor.protocol_change_timelock,
@@ -12139,18 +12989,55 @@ def vectors() -> dict[str, str]:
             manager_descriptor.protocol_version_manager))
     protocol_version_manager_config_return = (
         encode_protocol_version_manager_config_return(manager_config))
+    protocol_root_soc1 = ProtocolRootScheduleOracleConfigV1(
+        settlement_chain_id,
+        manager_descriptor.protocol_version_manager,
+        manager_config.active_settlement_router,
+        manager_config.builder_registry,
+        0,
+        12_345,
+        1_000_000,
+        3_600,
+        900,
+        0,
+        4_608,
+        10**18,
+        bytes.fromhex("46554c55"),
+        0,
+        400_000,
+        bytes.fromhex("d1" * 32),
+        manager_config.schedule_oracle_configuration_hash,
+    )
+    protocol_root_soc1_return = (
+        encode_protocol_root_schedule_oracle_config_return(protocol_root_soc1)
+    )
     migration_arm_fresh_after_return = (
         encode_migration_arm_fresh_after_return(123_456)
     )
     assert decode_migration_arm_fresh_after_return(
         migration_arm_fresh_after_return
     ) == 123_456
+    assert decode_protocol_root_schedule_oracle_config_return(
+        protocol_root_soc1_return
+    ) == protocol_root_soc1
     queued_migration_operation = ProtocolChangeOperationRowV1(
         1, 4, 4, len(publish_migration_payload_abi),
         keccak256(publish_migration_payload_abi), 10_000,
         10_000 + PROTOCOL_CHANGE_DELAY_SECONDS)
     queued_migration_operation_return = encode_protocol_change_operation_return(
         queued_migration_operation)
+    queued_split_operation = ProtocolChangeOperationRowV1(
+        1, 6, 6, len(split_fork_payload_abi),
+        keccak256(split_fork_payload_abi), 10_000,
+        10_000 + PROTOCOL_CHANGE_DELAY_SECONDS,
+    )
+    queued_split_operation_return = encode_protocol_change_operation_return(
+        queued_split_operation
+    )
+    expired_split_operation = replace(queued_split_operation, state=5)
+    expired_split_operation_return = encode_protocol_change_operation_return(
+        expired_split_operation
+    )
     empty_protocol_change_operation_return = (
         encode_protocol_change_operation_return(
             ProtocolChangeOperationRowV1(
@@ -12166,6 +13053,12 @@ def vectors() -> dict[str, str]:
         3, 3, publish_genesis_payload_abi)
     apply_protocol_change_calldata = encode_apply_protocol_change_calldata(
         4, 4, publish_migration_payload_abi)
+    expire_fork_change_calldata = encode_expire_fork_change_calldata(
+        protocol_change_operation_ids[1]
+    )
+    expire_fork_change_return = encode_expire_fork_change_return(
+        protocol_change_operation_ids[1]
+    )
     version_migration_lease = create_version_migration_lease(
         settlement_chain_id, manager_descriptor.protocol_version_manager,
         2, 2, 3, successor_release_hash, successor_registration_hash,
@@ -12210,10 +13103,13 @@ def vectors() -> dict[str, str]:
     install_fork_verifier_calldata = encode_install_fork_verifier_calldata(
         register_fork_payload)
     install_fork_verifier_return = encode_install_fork_verifier_return(
-        register_fork_payload.fork_digest, register_fork_payload.first_window)
+        register_fork_payload.fork_digest,
+        register_fork_payload.first_parent_slot)
     fork_verifier_registration = ForkVerifierRegistrationV1(
-        register_fork_payload.fork_digest, register_fork_payload.first_window,
-        bytes(4), 0, register_fork_payload.verifier,
+        register_fork_payload.fork_digest,
+        register_fork_payload.first_parent_slot, bytes(4),
+        register_fork_payload.last_parent_slot_exclusive,
+        register_fork_payload.verifier,
         register_fork_payload.runtime_hash,
         register_fork_payload.configuration_hash,
         register_fork_payload.selector, register_fork_payload.gas_limit)
@@ -12225,6 +13121,62 @@ def vectors() -> dict[str, str]:
             fork_verifier_registration))
     schedule_fork_verifier_config_return = (
         encode_schedule_fork_verifier_config_return(register_fork_payload))
+    initial_fork_payload = replace(
+        register_fork_payload,
+        fork_digest=bytes.fromhex("44454e42"),
+        first_parent_slot=0,
+        last_parent_slot_exclusive=register_fork_payload.first_parent_slot,
+        verifier=0x6801,
+        runtime_hash=bytes.fromhex("6a" * 32),
+        configuration_hash=bytes(32),
+    )
+    initial_fork_payload = replace(
+        initial_fork_payload,
+        configuration_hash=schedule_fork_verifier_configuration_hash(
+            initial_fork_payload
+        ),
+    )
+    initial_fork_registration = ForkVerifierRegistrationV1(
+        initial_fork_payload.fork_digest,
+        initial_fork_payload.first_parent_slot, bytes(4),
+        initial_fork_payload.last_parent_slot_exclusive,
+        initial_fork_payload.verifier, initial_fork_payload.runtime_hash,
+        initial_fork_payload.configuration_hash,
+        initial_fork_payload.selector, initial_fork_payload.gas_limit,
+    )
+    initial_fork_registration_return = (
+        encode_fork_verifier_registration_return(initial_fork_registration)
+    )
+    initial_fork_verifier_config_return = (
+        encode_schedule_fork_verifier_config_return(initial_fork_payload)
+    )
+    initial_fork_route_state_return = encode_schedule_fork_route_state_return(
+        {initial_fork_payload.fork_digest: initial_fork_payload},
+        (initial_fork_payload.fork_digest,),
+        frozenset((initial_fork_payload.fork_digest,)),
+    )
+    fork_route_registrations = {
+        initial_fork_payload.fork_digest: initial_fork_payload,
+        register_fork_payload.fork_digest: register_fork_payload,
+        replacement_fork_payload.fork_digest: replacement_fork_payload,
+    }
+    fork_route_order = (
+        initial_fork_payload.fork_digest,
+        register_fork_payload.fork_digest,
+    )
+    fork_route_used_digests = frozenset((
+        initial_fork_payload.fork_digest,
+        register_fork_payload.fork_digest,
+        replacement_fork_payload.fork_digest,
+        bytes.fromhex("544f4d42"),
+    ))
+    schedule_fork_route_state_return = (
+        encode_schedule_fork_route_state_return(
+            fork_route_registrations,
+            fork_route_order,
+            fork_route_used_digests,
+        )
+    )
     schedule_carrier_witness = bytes.fromhex("a1617701")
     schedule_beacon_block_root = bytes.fromhex("d0" * 32)
     verify_schedule_carrier_calldata = encode_verify_schedule_carrier_calldata(
@@ -12267,6 +13219,8 @@ def vectors() -> dict[str, str]:
         b"cancelProtocolChangeV1(uint64,uint8,bytes)")[:4]
     assert APPLY_PROTOCOL_CHANGE_SELECTOR == keccak256(
         b"applyProtocolChangeV1(uint64,uint8,bytes)")[:4]
+    assert EXPIRE_FORK_CHANGE_SELECTOR == keccak256(
+        b"expireForkChangeV1(bytes32)")[:4]
     assert PROTOCOL_CHANGE_TIMELOCK_CONFIG_SELECTOR.hex() == "b80095ca"
     assert PROTOCOL_VERSION_MANAGER_CONFIG_SELECTOR.hex() == "4deb7821"
     assert PROTOCOL_CHANGE_OPERATION_SELECTOR.hex() == "4b80fe68"
@@ -12277,9 +13231,10 @@ def vectors() -> dict[str, str]:
     assert (SEAT_TARGET_STATE_SELECTOR.hex() == "cf52185b"
             and SEAT_MARKET_TERM_SELECTOR.hex() == "76d5ecd4"
             and SEAT_MARKET_DUTY_SELECTOR.hex() == "9a649489")
-    assert (INSTALL_FORK_VERIFIER_SELECTOR.hex() == "f171816c"
+    assert (INSTALL_FORK_VERIFIER_SELECTOR.hex() == "9bb6fe73"
             and FORK_VERIFIER_REGISTRATION_SELECTOR.hex() == "c614591c"
             and SCHEDULE_FORK_VERIFIER_CONFIG_SELECTOR.hex() == "44efa773"
+            and SCHEDULE_FORK_ROUTE_STATE_SELECTOR.hex() == "7e9f3c0d"
             and VERIFY_SCHEDULE_CARRIER_SELECTOR.hex() == "7e981e0b")
     assert MIGRATION_ACTIVATION_PROFILE_SELECTOR.hex() == "c65ff64e"
     assert (PUBLISH_LEGACY_GENESIS_CAMPAIGN_SELECTOR.hex() == "5f0ed7f5"
@@ -12292,12 +13247,14 @@ def vectors() -> dict[str, str]:
     assert MIGRATION_ARM_FRESH_AFTER_SELECTOR.hex() == "bc4707fb"
     assert PROTOCOL_CHANGE_OPERATION_MAGIC == b"PCO1"
     assert PROTOCOL_APPLY_MAGIC == b"PAP1"
+    assert EXPIRE_FORK_CHANGE_MAGIC == b"PFX1"
     assert VERSION_MIGRATION_LEASE_MAGIC == b"VML1"
     assert SETTLEMENT_AUTHORIZATION_INSTALL_MAGIC == b"SAI1"
     assert SETTLEMENT_AUTHORIZATION_GETTER_MAGIC == b"SAT1"
     assert FORK_VERIFIER_INSTALL_MAGIC == b"FVI1"
     assert FORK_VERIFIER_REGISTRATION_MAGIC == b"FVR1"
     assert SCHEDULE_FORK_VERIFIER_CONFIG_MAGIC == b"SFV1"
+    assert SCHEDULE_FORK_ROUTE_STATE_MAGIC == b"FRS1"
     assert SCHEDULE_FORK_CARRIER_MAGIC == b"SFC1"
     assert MIGRATION_ACTIVATION_PROFILE_MAGIC == b"MPR2"
     assert LEGACY_GENESIS_PUBLISH_MAGIC == b"LGP1"
@@ -12361,15 +13318,16 @@ def vectors() -> dict[str, str]:
             target_deployment_descriptor)) == target_deployment_descriptor
     assert decode_register_release_payload(
         register_release_payload_abi) == register_release_payload
-    assert decode_register_fork_verifier_payload(
-        register_fork_payload_abi) == register_fork_payload
+    assert decode_register_fork_verifier_change_payload(
+        register_fork_payload_abi) == register_fork_change_payload
     assert decode_publish_genesis_campaign_payload(
         publish_genesis_payload_abi) == publish_genesis_payload
     assert decode_publish_migration_arm_payload(
         publish_migration_payload_abi) == publish_migration_payload
     assert len(register_release_payload_abi) \
-        == 2_208 + ceil32(len(profile_bytes))
-    assert len(register_fork_payload_abi) == 448
+        == 2_240 + ceil32(len(profile_bytes))
+    assert len(register_fork_row_abi) == 480
+    assert len(register_fork_payload_abi) == 576
     assert len(publish_genesis_payload_abi) == 320
     assert len(publish_migration_payload_abi) == 128
     assert_all_fields_bound(register_release_payload,
@@ -12404,6 +13362,12 @@ def vectors() -> dict[str, str]:
     assert decode_apply_protocol_change_calldata(
         apply_protocol_change_calldata) == (4, 4,
                                             publish_migration_payload_abi)
+    assert decode_expire_fork_change_calldata(
+        expire_fork_change_calldata
+    ) == protocol_change_operation_ids[1]
+    assert decode_expire_fork_change_return(
+        expire_fork_change_return
+    ) == protocol_change_operation_ids[1]
     assert decode_protocol_apply_return(encode_protocol_apply_return()) is None
     assert decode_live_version_migration_lease_return(
         version_migration_lease_return) == version_migration_lease
@@ -12517,7 +13481,58 @@ def vectors() -> dict[str, str]:
     assert decode_install_fork_verifier_return(
         install_fork_verifier_return) == (
             register_fork_payload.fork_digest,
-            register_fork_payload.first_window)
+            register_fork_payload.first_parent_slot)
+    assert len(register_fork_payload_abi) == 576
+    assert decode_replace_pending_fork_verifier_payload(
+        replace_fork_payload_abi) == replace_fork_payload
+    assert decode_split_latest_fork_verifier_payload(
+        split_fork_payload_abi) == split_fork_payload
+    expected_predecessor_registration_hash = schedule_fork_registration_hash(
+        predecessor_fork_payload
+    )
+    expected_old_registration_hash = schedule_fork_registration_hash(
+        register_fork_payload)
+    replace_fork_calldata = encode_replace_pending_fork_verifier_calldata(
+        expected_predecessor_registration_hash,
+        expected_old_registration_hash,
+        replacement_fork_payload)
+    assert decode_replace_pending_fork_verifier_calldata(
+        replace_fork_calldata) == (
+            expected_predecessor_registration_hash,
+            expected_old_registration_hash, replacement_fork_payload)
+    replace_fork_return = encode_replace_pending_fork_verifier_return(
+        register_fork_payload.fork_digest,
+        replacement_fork_payload.fork_digest,
+        replacement_fork_payload.first_parent_slot,
+        replacement_fork_payload.last_parent_slot_exclusive)
+    assert decode_replace_pending_fork_verifier_return(
+        replace_fork_return
+    ) == (
+        register_fork_payload.fork_digest,
+        replacement_fork_payload.fork_digest,
+        replacement_fork_payload.first_parent_slot,
+        replacement_fork_payload.last_parent_slot_exclusive,
+    )
+    split_fork_calldata = encode_split_latest_fork_verifier_calldata(
+        expected_old_registration_hash, replacement_fork_payload
+    )
+    assert decode_split_latest_fork_verifier_calldata(
+        split_fork_calldata
+    ) == (expected_old_registration_hash, replacement_fork_payload)
+    split_fork_return = encode_split_latest_fork_verifier_return(
+        register_fork_payload.fork_digest,
+        replacement_fork_payload.fork_digest,
+        replacement_fork_payload.first_parent_slot,
+        replacement_fork_payload.last_parent_slot_exclusive,
+    )
+    assert decode_split_latest_fork_verifier_return(
+        split_fork_return
+    ) == (
+        register_fork_payload.fork_digest,
+        replacement_fork_payload.fork_digest,
+        replacement_fork_payload.first_parent_slot,
+        replacement_fork_payload.last_parent_slot_exclusive,
+    )
     assert decode_fork_verifier_registration_calldata(
         fork_verifier_registration_calldata) \
         == register_fork_payload.fork_digest
@@ -12526,14 +13541,70 @@ def vectors() -> dict[str, str]:
     assert decode_schedule_fork_verifier_config_return(
         schedule_fork_verifier_config_return,
         register_fork_payload.verifier, register_fork_payload.runtime_hash,
-        register_fork_payload.first_window, register_fork_payload.selector,
+        register_fork_payload.first_parent_slot,
+        register_fork_payload.last_parent_slot_exclusive,
+        register_fork_payload.selector,
         register_fork_payload.gas_limit) == register_fork_payload
+    assert decode_schedule_fork_route_state_return(
+        schedule_fork_route_state_return
+    ) == (
+        schedule_fork_route_state_hash(
+            fork_route_registrations,
+            fork_route_order,
+            fork_route_used_digests,
+        ),
+        len(fork_route_order),
+        len(fork_route_registrations),
+        len(fork_route_used_digests),
+    )
+    assert schedule_fork_route_state_hash(
+        fork_route_registrations,
+        tuple(reversed(fork_route_order)),
+        fork_route_used_digests,
+    ) != schedule_fork_route_state_hash(
+        fork_route_registrations,
+        fork_route_order,
+        fork_route_used_digests,
+    )
+    assert decode_fork_verifier_registration_return(
+        initial_fork_registration_return
+    ) == initial_fork_registration
+    assert decode_schedule_fork_verifier_config_return(
+        initial_fork_verifier_config_return,
+        initial_fork_payload.verifier, initial_fork_payload.runtime_hash,
+        initial_fork_payload.first_parent_slot,
+        initial_fork_payload.last_parent_slot_exclusive,
+        initial_fork_payload.selector, initial_fork_payload.gas_limit,
+    ) == initial_fork_payload
+    assert decode_schedule_fork_route_state_return(
+        initial_fork_route_state_return
+    ) == (
+        schedule_fork_route_state_hash(
+            {initial_fork_payload.fork_digest: initial_fork_payload},
+            (initial_fork_payload.fork_digest,),
+            frozenset((initial_fork_payload.fork_digest,)),
+        ),
+        1, 1, 1,
+    )
+    assert schedule_fork_route_state_hash(
+        fork_route_registrations,
+        fork_route_order,
+        fork_route_used_digests - {bytes.fromhex("544f4d42")},
+    ) != schedule_fork_route_state_hash(
+        fork_route_registrations,
+        fork_route_order,
+        fork_route_used_digests,
+    )
     assert decode_verify_schedule_carrier_calldata(
         verify_schedule_carrier_calldata) == (
             schedule_carrier_witness, schedule_beacon_block_root)
     assert decode_schedule_carrier_return(
         schedule_carrier_return,
         schedule_statement_hash) == schedule_carrier_output
+    assert schedule_execution_payload_is_parent(7, 8)
+    assert not schedule_execution_payload_is_parent(7, 7)
+    assert not schedule_execution_payload_is_parent(7, 9)
+    assert not schedule_execution_payload_is_parent(UINT64_MAX, 0)
     assert decode_publish_legacy_genesis_campaign_calldata(
         publish_legacy_genesis_campaign_calldata) == (
             protocol_change_operation_ids[2], 30_000,
@@ -12569,20 +13640,28 @@ def vectors() -> dict[str, str]:
     assert not protocol_control_plane_entry_allowed(2, 3)
     assert_all_fields_bound(
         schedule_carrier_output, encode_schedule_carrier_return)
-    assert not fork_verifier_registration_covers_window(
+    assert not fork_verifier_registration_covers_parent_slot(
         fork_verifier_registration,
-        register_fork_payload.first_window - 1)
-    assert fork_verifier_registration_covers_window(
-        fork_verifier_registration, register_fork_payload.first_window)
+        register_fork_payload.first_parent_slot - 1)
+    assert fork_verifier_registration_covers_parent_slot(
+        fork_verifier_registration, register_fork_payload.first_parent_slot)
+    assert fork_verifier_registration_covers_parent_slot(
+        fork_verifier_registration,
+        register_fork_payload.last_parent_slot_exclusive - 1)
+    assert not fork_verifier_registration_covers_parent_slot(
+        fork_verifier_registration,
+        register_fork_payload.last_parent_slot_exclusive)
     prior_fork_registration = ForkVerifierRegistrationV1(
         bytes.fromhex("44454e42"), 0, register_fork_payload.fork_digest,
-        register_fork_payload.first_window, 0x6801, bytes.fromhex("6a" * 32),
+        register_fork_payload.first_parent_slot, 0x6801,
+        bytes.fromhex("6a" * 32),
         bytes.fromhex("6b" * 32), VERIFY_SCHEDULE_CARRIER_SELECTOR,
         4_000_000)
-    assert fork_verifier_registration_covers_window(
-        prior_fork_registration, register_fork_payload.first_window - 1)
-    assert not fork_verifier_registration_covers_window(
-        prior_fork_registration, register_fork_payload.first_window)
+    assert fork_verifier_registration_covers_parent_slot(
+        prior_fork_registration,
+        register_fork_payload.first_parent_slot - 1)
+    assert not fork_verifier_registration_covers_parent_slot(
+        prior_fork_registration, register_fork_payload.first_parent_slot)
     assert not schedule_unsealed_window_is_vacant(False, 999, 1_000)
     assert schedule_unsealed_window_is_vacant(False, 1_000, 1_000)
     assert not schedule_unsealed_window_is_vacant(True, 1_000, 1_000)
@@ -12598,9 +13677,12 @@ def vectors() -> dict[str, str]:
          lambda value: decode_schedule_fork_verifier_config_return(
              value, register_fork_payload.verifier,
              register_fork_payload.runtime_hash,
-             register_fork_payload.first_window,
+             register_fork_payload.first_parent_slot,
+             register_fork_payload.last_parent_slot_exclusive,
              register_fork_payload.selector,
              register_fork_payload.gas_limit)),
+        (schedule_fork_route_state_return[:-1],
+         decode_schedule_fork_route_state_return),
         (verify_schedule_carrier_calldata[:4] + u256(96)
          + verify_schedule_carrier_calldata[36:],
          decode_verify_schedule_carrier_calldata),
@@ -12697,6 +13779,16 @@ def vectors() -> dict[str, str]:
         protocol_change_operation_ids[3])
     assert_all_fields_bound(queued_migration_operation,
                             encode_protocol_change_operation_return)
+    assert_all_fields_bound(
+        protocol_root_soc1,
+        encode_protocol_root_schedule_oracle_config_return,
+    )
+    assert decode_protocol_change_operation_return(
+        queued_split_operation_return
+    ) == queued_split_operation
+    assert decode_protocol_change_operation_return(
+        expired_split_operation_return
+    ) == expired_split_operation
     assert_all_fields_bound(version_migration_lease,
                             encode_live_version_migration_lease_return)
     assert not protocol_change_execute_allowed(
@@ -12704,6 +13796,26 @@ def vectors() -> dict[str, str]:
         queued_migration_operation.execute_after - 1)
     assert protocol_change_execute_allowed(
         queued_migration_operation, queued_migration_operation.execute_after)
+    assert protocol_change_execute_allowed(
+        queued_migration_operation,
+        queued_migration_operation.execute_after
+            + MIGRATION_ARM_EXECUTION_WINDOW_SECONDS,
+    )
+    assert not protocol_change_execute_allowed(
+        queued_migration_operation,
+        queued_migration_operation.execute_after
+            + MIGRATION_ARM_EXECUTION_WINDOW_SECONDS + 1,
+    )
+    assert protocol_change_execute_allowed(
+        queued_split_operation,
+        queued_split_operation.execute_after
+            + FORK_CHANGE_EXECUTION_WINDOW_SECONDS,
+    )
+    assert not protocol_change_execute_allowed(
+        queued_split_operation,
+        queued_split_operation.execute_after
+            + FORK_CHANGE_EXECUTION_WINDOW_SECONDS + 1,
+    )
     assert protocol_change_cancel_allowed(
         queued_migration_operation, timelock_descriptor.dao_proposer,
         timelock_descriptor.dao_proposer)
@@ -12729,11 +13841,26 @@ def vectors() -> dict[str, str]:
             abort_after_timestamp=(
                 version_migration_lease.abort_after_timestamp + 1))),
         "extendable migration lease accepted")
+    for malformed_soc1 in (
+        protocol_root_soc1_return[:-1],
+        b"BAD!" + protocol_root_soc1_return[4:],
+        protocol_root_soc1_return[:64] + b"\x01" + bytes(11)
+            + protocol_root_soc1_return[76:],
+        protocol_root_soc1_return[:5 * 32] + u256(1 << 64)
+            + protocol_root_soc1_return[6 * 32:],
+        protocol_root_soc1_return[:13 * 32 + 4] + b"\x01"
+            + protocol_root_soc1_return[13 * 32 + 5:],
+    ):
+        assert_rejects(
+            lambda value=malformed_soc1:
+                decode_protocol_root_schedule_oracle_config_return(value),
+            "malformed protocol-root SOC1 return accepted",
+        )
     for malformed_protocol_change_payload in (
         register_release_payload_abi + bytes(32),
         u256(1 << 64) + register_release_payload_abi[32:],
-        register_release_payload_abi[:67 * 32] + u256(2_208)
-        + register_release_payload_abi[68 * 32:],
+        register_release_payload_abi[:68 * 32] + u256(2_240)
+        + register_release_payload_abi[69 * 32:],
         register_fork_payload_abi[:4] + b"\x01"
         + register_fork_payload_abi[5:],
         publish_genesis_payload_abi[:-1],
@@ -12742,7 +13869,7 @@ def vectors() -> dict[str, str]:
         assert_rejects(
             lambda value=malformed_protocol_change_payload:
                 validate_protocol_change_payload(
-                    1 if len(value) >= 2_208 else
+                    1 if len(value) >= 2_240 else
                     (2 if len(value) == 448 else
                      (3 if len(value) == 319 else 4)), value),
             "malformed protocol-change payload accepted")
@@ -12786,7 +13913,7 @@ def vectors() -> dict[str, str]:
             "malformed protocol authority return accepted")
     assert_rejects(
         lambda: protocol_change_operation_id(replace(
-            protocol_change_operations[3], operation_kind=5)),
+            protocol_change_operations[4], operation_kind=7)),
         "unsupported protocol-change operation kind accepted")
     assert LEGACY_INBOX_CONFIG_SELECTOR.hex() == "c3f909d4"
     assert LEGACY_DESCRIPTOR_IMPL_SELECTOR.hex() == "8abf6077"
@@ -14734,24 +15861,24 @@ def vectors() -> dict[str, str]:
         lambda: migration_target_sequence(2, UINT64_MAX),
         "overflow migration target sequence accepted")
     genesis_arguments = genesis_activation_calldata[4:]
-    rows_offset = int.from_bytes(genesis_arguments[80 * 32:81 * 32], "big")
-    header_offset = int.from_bytes(genesis_arguments[81 * 32:82 * 32], "big")
-    proof_offset = int.from_bytes(genesis_arguments[82 * 32:83 * 32], "big")
-    assert rows_offset == 0x0A60
+    rows_offset = int.from_bytes(genesis_arguments[81 * 32:82 * 32], "big")
+    header_offset = int.from_bytes(genesis_arguments[82 * 32:83 * 32], "big")
+    proof_offset = int.from_bytes(genesis_arguments[83 * 32:84 * 32], "big")
+    assert rows_offset == 0x0A80
     assert (header_offset
             == rows_offset + len(canonical_inbox_rows_tail(empty_inbox_rows))
             and proof_offset == header_offset
                 + len(abi_bytes_tail(imported_header_rlp)))
     malformed_activation_calls = (
         genesis_activation_calldata + bytes(32),
-        genesis_activation_calldata[:4 + 80 * 32] + u256(rows_offset + 32)
-        + genesis_activation_calldata[4 + 81 * 32:],
-        genesis_activation_calldata[:4 + 81 * 32] + u256(rows_offset)
+        genesis_activation_calldata[:4 + 81 * 32] + u256(rows_offset + 32)
         + genesis_activation_calldata[4 + 82 * 32:],
-        genesis_activation_calldata[:4 + 81 * 32] + u256(header_offset + 32)
-        + genesis_activation_calldata[4 + 82 * 32:],
-        genesis_activation_calldata[:4 + 82 * 32] + u256(proof_offset + 32)
+        genesis_activation_calldata[:4 + 82 * 32] + u256(rows_offset)
         + genesis_activation_calldata[4 + 83 * 32:],
+        genesis_activation_calldata[:4 + 82 * 32] + u256(header_offset + 32)
+        + genesis_activation_calldata[4 + 83 * 32:],
+        genesis_activation_calldata[:4 + 83 * 32] + u256(proof_offset + 32)
+        + genesis_activation_calldata[4 + 84 * 32:],
         genesis_activation_calldata[:4 + rows_offset + 32] + u256(96)
         + genesis_activation_calldata[4 + rows_offset + 64:],
         genesis_activation_calldata[:4 + proof_offset - 1] + b"\x01"
@@ -15318,6 +16445,8 @@ def vectors() -> dict[str, str]:
         "builder_registry_header_trie_key": br_header_trie_key.hex(),
         "builder_registry_root_trie_key": br_root_trie_key.hex(),
         "builder_registry_header_word": br_header.hex(),
+        "builder_registry_exhausted_header_word":
+            br_exhausted_header.hex(),
         "builder_move_pre_root": move_pre_root.hex(),
         "builder_move_intermediate_root": move_intermediate_root.hex(),
         "builder_move_final_root": move_final_root.hex(),
@@ -15809,6 +16938,7 @@ def vectors() -> dict[str, str]:
         "cancel_protocol_change_selector":
             CANCEL_PROTOCOL_CHANGE_SELECTOR.hex(),
         "apply_protocol_change_selector": APPLY_PROTOCOL_CHANGE_SELECTOR.hex(),
+        "expire_fork_change_selector": EXPIRE_FORK_CHANGE_SELECTOR.hex(),
         "protocol_change_timelock_config_selector":
             PROTOCOL_CHANGE_TIMELOCK_CONFIG_SELECTOR.hex(),
         "protocol_version_manager_config_selector":
@@ -15822,6 +16952,29 @@ def vectors() -> dict[str, str]:
         "protocol_change_operation_magic":
             PROTOCOL_CHANGE_OPERATION_MAGIC.hex(),
         "protocol_apply_magic": PROTOCOL_APPLY_MAGIC.hex(),
+        "expire_fork_change_magic": EXPIRE_FORK_CHANGE_MAGIC.hex(),
+        "fork_change_execution_window_seconds":
+            str(FORK_CHANGE_EXECUTION_WINDOW_SECONDS),
+        "fork_change_queue_inclusion_allowance_seconds":
+            str(FORK_CHANGE_QUEUE_INCLUSION_ALLOWANCE_SECONDS),
+        "fork_change_renewal_runway_windows":
+            str(FORK_CHANGE_RENEWAL_RUNWAY_WINDOWS),
+        "register_fork_review_evidence_hash":
+            register_review_evidence_hash.hex(),
+        "register_fork_review_certificate_hash":
+            register_review.review_certificate_hash.hex(),
+        "replacement_fork_review_evidence_hash":
+            replacement_review_evidence_hash.hex(),
+        "replacement_fork_review_certificate_hash":
+            replacement_review.review_certificate_hash.hex(),
+        "split_fork_review_evidence_hash":
+            split_review_evidence_hash.hex(),
+        "split_fork_review_certificate_hash":
+            split_review.review_certificate_hash.hex(),
+        "expected_predecessor_fork_registration_hash":
+            expected_predecessor_registration_hash.hex(),
+        "expected_old_fork_registration_hash":
+            expected_old_registration_hash.hex(),
         "register_release_payload_hash":
             keccak256(register_release_payload_abi).hex(),
         "register_release_payload_length":
@@ -15838,6 +16991,14 @@ def vectors() -> dict[str, str]:
             keccak256(publish_migration_payload_abi).hex(),
         "publish_migration_arm_payload_length":
             str(len(publish_migration_payload_abi)),
+        "replace_pending_fork_verifier_payload_hash":
+            keccak256(replace_fork_payload_abi).hex(),
+        "replace_pending_fork_verifier_payload_length":
+            str(len(replace_fork_payload_abi)),
+        "split_latest_fork_verifier_payload_hash":
+            keccak256(split_fork_payload_abi).hex(),
+        "split_latest_fork_verifier_payload_length":
+            str(len(split_fork_payload_abi)),
         "register_release_operation_id": protocol_change_operation_ids[0].hex(),
         "register_fork_verifier_operation_id":
             protocol_change_operation_ids[1].hex(),
@@ -15845,6 +17006,30 @@ def vectors() -> dict[str, str]:
             protocol_change_operation_ids[2].hex(),
         "publish_migration_arm_operation_id":
             protocol_change_operation_ids[3].hex(),
+        "replace_pending_fork_verifier_operation_id":
+            protocol_change_operation_ids[4].hex(),
+        "split_latest_fork_verifier_operation_id":
+            protocol_change_operation_ids[5].hex(),
+        "replace_pending_fork_verifier_selector":
+            REPLACE_PENDING_FORK_VERIFIER_SELECTOR.hex(),
+        "replace_pending_fork_verifier_calldata_hash":
+            keccak256(replace_fork_calldata).hex(),
+        "replace_pending_fork_verifier_calldata_length":
+            str(len(replace_fork_calldata)),
+        "replace_pending_fork_verifier_return_hash":
+            keccak256(replace_fork_return).hex(),
+        "replace_pending_fork_verifier_return_length":
+            str(len(replace_fork_return)),
+        "split_latest_fork_verifier_selector":
+            SPLIT_LATEST_FORK_VERIFIER_SELECTOR.hex(),
+        "split_latest_fork_verifier_calldata_hash":
+            keccak256(split_fork_calldata).hex(),
+        "split_latest_fork_verifier_calldata_length":
+            str(len(split_fork_calldata)),
+        "split_latest_fork_verifier_return_hash":
+            keccak256(split_fork_return).hex(),
+        "split_latest_fork_verifier_return_length":
+            str(len(split_fork_return)),
         "queue_protocol_change_calldata_hash":
             keccak256(queue_protocol_change_calldata).hex(),
         "queue_protocol_change_calldata_length":
@@ -15861,6 +17046,14 @@ def vectors() -> dict[str, str]:
             keccak256(apply_protocol_change_calldata).hex(),
         "apply_protocol_change_calldata_length":
             str(len(apply_protocol_change_calldata)),
+        "expire_fork_change_calldata_hash": keccak256(
+            expire_fork_change_calldata).hex(),
+        "expire_fork_change_calldata_length":
+            str(len(expire_fork_change_calldata)),
+        "expire_fork_change_return_hash": keccak256(
+            expire_fork_change_return).hex(),
+        "expire_fork_change_return_length":
+            str(len(expire_fork_change_return)),
         "protocol_change_timelock_config_return_hash": keccak256(
             protocol_change_timelock_config_return).hex(),
         "protocol_version_manager_config_return_hash": keccak256(
@@ -15871,6 +17064,19 @@ def vectors() -> dict[str, str]:
             queued_migration_operation_return).hex(),
         "protocol_apply_return_hash": keccak256(
             encode_protocol_apply_return()).hex(),
+        "protocol_root_soc1_selector": PROTOCOL_ROOT_SOC1_SELECTOR.hex(),
+        "protocol_root_soc1_magic": b"SOC1".hex(),
+        "protocol_root_soc1_return_hash": keccak256(
+            protocol_root_soc1_return
+        ).hex(),
+        "protocol_root_soc1_return_length":
+            str(len(protocol_root_soc1_return)),
+        "split_fork_change_queued_operation_return_hash": keccak256(
+            queued_split_operation_return
+        ).hex(),
+        "split_fork_change_expired_operation_return_hash": keccak256(
+            expired_split_operation_return
+        ).hex(),
         "live_version_migration_lease_selector":
             LIVE_VERSION_MIGRATION_LEASE_SELECTOR.hex(),
         "permissionless_abort_expired_migration_selector":
@@ -15948,6 +17154,8 @@ def vectors() -> dict[str, str]:
             FORK_VERIFIER_REGISTRATION_SELECTOR.hex(),
         "schedule_fork_verifier_config_selector":
             SCHEDULE_FORK_VERIFIER_CONFIG_SELECTOR.hex(),
+        "schedule_fork_route_state_selector":
+            SCHEDULE_FORK_ROUTE_STATE_SELECTOR.hex(),
         "verify_schedule_carrier_selector":
             VERIFY_SCHEDULE_CARRIER_SELECTOR.hex(),
         "fork_verifier_install_magic": FORK_VERIFIER_INSTALL_MAGIC.hex(),
@@ -15955,13 +17163,30 @@ def vectors() -> dict[str, str]:
             FORK_VERIFIER_REGISTRATION_MAGIC.hex(),
         "schedule_fork_verifier_config_magic":
             SCHEDULE_FORK_VERIFIER_CONFIG_MAGIC.hex(),
+        "schedule_fork_route_state_magic":
+            SCHEDULE_FORK_ROUTE_STATE_MAGIC.hex(),
         "schedule_fork_carrier_magic": SCHEDULE_FORK_CARRIER_MAGIC.hex(),
         "install_fork_verifier_calldata_hash": keccak256(
             install_fork_verifier_calldata).hex(),
+        "initial_fork_registration_return_hash": keccak256(
+            initial_fork_registration_return).hex(),
+        "initial_fork_route_state_return_hash": keccak256(
+            initial_fork_route_state_return).hex(),
+        "initial_fork_verifier_config_return_hash": keccak256(
+            initial_fork_verifier_config_return).hex(),
         "fork_verifier_registration_return_hash": keccak256(
             fork_verifier_registration_return).hex(),
         "schedule_fork_verifier_config_return_hash": keccak256(
             schedule_fork_verifier_config_return).hex(),
+        "schedule_fork_route_state_hash": schedule_fork_route_state_hash(
+            fork_route_registrations,
+            fork_route_order,
+            fork_route_used_digests,
+        ).hex(),
+        "schedule_fork_route_state_return_hash": keccak256(
+            schedule_fork_route_state_return).hex(),
+        "schedule_fork_route_state_return_length":
+            str(len(schedule_fork_route_state_return)),
         "verify_schedule_carrier_calldata_hash": keccak256(
             verify_schedule_carrier_calldata).hex(),
         "verify_schedule_carrier_calldata_length":
@@ -16517,6 +17742,7 @@ EXPECTED = {
  'builder_registry_header_slot': 'e7ce7a505bf18b9ed57a0785851385323c9487991c55b422861381f92e5c245a',
  'builder_registry_header_trie_key': '3dc336ad17079f9525d2b0708a8773321ab29957d522a6f2d10fc522b7362aec',
  'builder_registry_header_word': '42524831013f0000010203040506070811121314151617182122232425262728',
+ 'builder_registry_exhausted_header_word': '4252483101400100ffffffffffffffffffffffffffffffff0000000000000000',
  'builder_registry_root_slot': '4dc6f1bf199f7518c646d40ed35ca04703f646273e6de1d7eace0746cc7100a6',
  'builder_registry_root_trie_key': '04bafd6333ae949248e59a002ce1fbccb8a4bc8da3a0c3228ae523d727170880',
  'builder_release_builder_generation_selector': 'e7bae370',
@@ -16530,12 +17756,12 @@ EXPECTED = {
  'builder_settlement_schedule_release_return_hash': 'dad610bad2145e2431a6a6298f62dc7e08fc01f5a80d6f933a91b557a4ee9a84',
  'builder_settlement_schedule_release_selector': 'a4574c77',
  'builder_submit_builder_equivocation_selector': '979c1f72',
- 'abort_expired_version_migration_calldata_hash': 'c0d778314c7fdd2e840b63f87298a8d2c51f071800a1303feb738afb9db79f0c',
- 'abort_expired_version_migration_return_hash': '69db8526e861cfa2e8d712634f0c4f53217fca17210a9e481b26288c78441591',
+ 'abort_expired_version_migration_calldata_hash': 'bbacaa742d95f872d3545b49e859fdcd4c705a2a958dd439160fdd0f9bb7ace3',
+ 'abort_expired_version_migration_return_hash': '76b344fef5193370169868e36209bea0dbfa5e350a4fd58320c935ada1b55de1',
  'abort_expired_version_migration_selector': 'c4eee12d',
- 'activate_release_selector': '28f73572',
- 'activate_version_with_migration_selector': '22c4944d',
- 'activation_receipt_id': '5b433429d1e301cec0a4d0cf7a544cbff3e70fec65b85d3bede98a178cddf9a4',
+ 'activate_release_selector': '33f5ca80',
+ 'activate_version_with_migration_selector': '17a548ed',
+ 'activation_receipt_id': '18942f6d0cbf38a3bf60eae168dddcaaed0933a584744130417e21f76afccabe',
  'activation_receipt_magic': '41525631',
  'activation_receipt_selector': '0a4434d0',
  'activation_successor_receipt_magic': '41535631',
@@ -16544,35 +17770,35 @@ EXPECTED = {
  'admission_proof_digest': '65a5501dc5440301031bc0d21ac6506ce1f98b226139c93ab54251883d5bd12d',
  'admission_reuse_root': 'a1e22890dd835872055e53dcad82d9e12759a2920853fe6e9f735d7f2c87ceca',
  'admission_root': '3bf2dcaf78292c832108e29205bf99cc2d22137a0545e4528d8da7309d4b482b',
- 'adopt_migration_canonical_calldata_hash': '4548b55aa6c4ac42891fb05ee7fac6d92f36e139fc82f21a88751d3661b396c7',
+ 'adopt_migration_canonical_calldata_hash': '889154f4d3526892ed2b61310e86f2c0e864a5c0a50a5ebfd2ae7ee450c320cb',
  'adopt_migration_canonical_calldata_length': '580',
- 'adopt_migration_canonical_return_hash': 'a3437a2c5f846aab2ccc5e86ce22856f0ce759b307585d9a56ada938c32881ab',
+ 'adopt_migration_canonical_return_hash': 'a0094e7035435655e908fa4d9de909f14d0badce2c7c867ab083ab094d3faf14',
  'adopt_migration_canonical_selector': '3286443c',
  'append_from_adapter_selector': '1927261d',
  'append_kind0_calldata_hash': 'caabdaadee6df8cea48fb88dacad863e6e24e13f5b0c06f99408d5c71611788a',
  'append_kind0_calldata_length': '388',
- 'append_kind1_calldata_hash': '8466f1ce1e4fe4c1cab6d6e11fdbea0c981061b78e0191c334a00e9d51798a0c',
+ 'append_kind1_calldata_hash': 'df92daaee8cffdd28f003e0b1c748cb294297c86cd1e79de08f03ddf15c1617a',
  'append_kind1_calldata_length': '708',
- 'append_terminal_calldata_hash': '99d29266502b52397963e102443e9bef3908e29e3b48051215490b111162faaa',
+ 'append_terminal_calldata_hash': '78b9b5433b2295976f9c7a1fd73d1720848c608e091ff52b548794e0a8ecd093',
  'append_terminal_selector': 'abc194f5',
- 'apply_protocol_change_calldata_hash': '44a59642f941afbaa4efbb16ef7bd3f8e16397a7da6e0ae6885eaa0ff241cacc',
+ 'apply_protocol_change_calldata_hash': '0c3331a3a4f4647205d1cc864ed344ef809a48f12990b4ce96f3cfe5547265c5',
  'apply_protocol_change_calldata_length': '260',
  'apply_protocol_change_selector': 'af3927f6',
- 'arm_version_migration_calldata_hash': '612a94fc586c81d6f89619adec58afd862d6cf35a2fcf458984b767455d19781',
- 'arm_version_migration_return_hash': '41c5c0a68182ca363e5ff0359be2e780e0be718b4abd8e6cf69dc9f925e4a741',
+ 'arm_version_migration_calldata_hash': 'af7034364bfb38e10c77ce8c9da7c06b9ac94fe65ff806232325cd4b0e595c5f',
+ 'arm_version_migration_return_hash': '52b53595d51405b91c1cbb5540f30cd10d2265bca5e5c8b235891825688caf54',
  'arm_version_migration_selector': 'e3bcfcb4',
  'asymmetric_data_leaf': '204849a6179174bd92e677b252370e3e2904cf4eb2a94fe1ba154e1310b9cd64',
  'asymmetric_manifest_leaf': '92ed7b0f26f1048042ad681be312e3d79d6942ea6da03445c1cc8fd6b1eb1d6b',
  'base_canonical': '67b52faab1709aff021dcb9c16acf86b5b4853de7eb5e36bf1b48566f448621e',
  'block_struct_hash': '6bc4d67c1c53b6793ace07f9e20b6466207dc7e8285232fbd063900c1bb7614e',
  'body_root': '0f4e161a46c8b18c2a86f23a0a4e7169a838a12af8b389f65e97b547a99707e9',
- 'bridge_credit_id': '39b1bef40d007422eb9caf626a42a98fb4a40c9898db29d6beb7c3a6250b40f8',
- 'bridge_escrow_id': '14aaab6b096419fe36f3b3d6645c8173765a2f4a903ea336790040b82eec5af1',
- 'bridge_execution_hash': 'fc36592a3ce1c728fadafc407194dc1435df539cb0954d73f07ce51a7b58f20f',
+ 'bridge_credit_id': 'c5106651fbf5aef64142a4abdbf29dd670e2464fa1fcaee8253a23b45695835b',
+ 'bridge_escrow_id': '0b5dda48fd1355bc82eebd46369a48e66034fe92e15e5e49393787281782aebc',
+ 'bridge_execution_hash': '9cbef2cdc597906c40300da43a0b3296fb529a82094f4be32f7e8b7ed70d53af',
  'bridge_kernel_profile_hash': 'a23f9994e8d1c475500768b67cf2b2d1f7a0f367df6f44bac5ccf1fa12bc1338',
- 'bridge_leaf': '7e61650f735cffeff910eabbf28b60118584363072a1b18be4a50b0e49d0fccc',
- 'bridge_result': 'bafcdb87053dabcbe8d8f1aa6b192027eb7c6ef91ead585fde838669c56afa3b',
- 'cancel_protocol_change_calldata_hash': 'bb032840fdfbd2474e007a8c6575f5f69426f8aff250a7df9ea510425f5f21b2',
+ 'bridge_leaf': 'db1a0c935f1173a569006488882a2abeb620ee397b0d4b57ba14f479e93d4ad2',
+ 'bridge_result': 'e45204346d0dea5083fef855ff0260f7b3eb64fb02548813d09e87824f4da74f',
+ 'cancel_protocol_change_calldata_hash': 'bfbc938b990f3fe959cd311722cd5f985189c00aa539cff62da242d7480082c4',
  'cancel_protocol_change_calldata_length': '452',
  'cancel_protocol_change_selector': '5701c308',
  'candidate_commitment': '43e4ceb88ddf11a80441caccea6041c734aca203b5f9e377ecc21476898dd91c',
@@ -16582,13 +17808,13 @@ EXPECTED = {
  'component_config_getter_gas_limit': '50000',
  'component_config_getter_selector': 'f6c0f7d2',
  'candidate_committed_v2_topic': '51629f6515f461b4c6f912a8eecad46d8ff89ab5e8235d95c30004be2c9ac738',
- 'candidate_committed_v2_data_hash': '91426c0531837b0b5c449aa8f2fa5cf429b2a4fc39951181bd9efff64d2b5549',
+ 'candidate_committed_v2_data_hash': '3a866b4aa907462beb3970d907921c7fe0b71aac7a875c4deac03007fd67791e',
  'candidate_committed_v2_data_length': '192',
- 'candidate_committed_v2_topic1_candidate_id': '595572878b741314aaba69c75e2d93afdaae2f502727f80e758c6d9b9a04bb49',
+ 'candidate_committed_v2_topic1_candidate_id': 'b29c270bf7f140c4818c7b15dd82c567abc4fc617527c350f8be0e048199b24a',
  'candidate_committed_v2_topic2_beneficiary': '000000000000000000000000000000000000000000000000000000000000cafe',
  'candidate_committed_v2_topic_count': '3',
- 'candidate_committed_v2_topics_hash': '322f07b53e70a0f06ed49e66c5747400d058f74ac3893965393451defadb57d6',
- 'claim_reward_v1_calldata_hash': '240965806050d9b6be5d79e8377ddb0c67caff227beaaa8ea5d802b1036df3d0',
+ 'candidate_committed_v2_topics_hash': '10d8f0974e0d538c9dce867d788281eac98985817368b13b34b5b923dad7eeb0',
+ 'claim_reward_v1_calldata_hash': '87733d9e2a2c7e55cd9e4b2d2a1c4dfb536238b502a0e98263d8c655b2206268',
  'claim_reward_v1_calldata_length': '36',
  'claim_reward_v1_paid_wei': '1000000',
  'claim_reward_v1_return_hash': 'c1af4b94166cd32fc49b7b926cbb91ee421de2d04450e8ae57857b9b56ac7e53',
@@ -16599,10 +17825,10 @@ EXPECTED = {
  'reward_claimed_v1_topic': '9f41046da255bf29062408ae9f20e06ea2453df29227caf32b709ccfed59d506',
  'reward_claimed_v1_data_hash': 'db2be80ad7fe2991fbabee31c9917dca99f927a94e09c6a4e810cec6d4a8cbae',
  'reward_claimed_v1_data_length': '64',
- 'reward_claimed_v1_topic1_candidate_id': '595572878b741314aaba69c75e2d93afdaae2f502727f80e758c6d9b9a04bb49',
+ 'reward_claimed_v1_topic1_candidate_id': 'b29c270bf7f140c4818c7b15dd82c567abc4fc617527c350f8be0e048199b24a',
  'reward_claimed_v1_topic2_beneficiary': '000000000000000000000000000000000000000000000000000000000000cafe',
  'reward_claimed_v1_topic_count': '3',
- 'reward_claimed_v1_topics_hash': 'd24ad07e74a5644fef99a21b3b48f8aa60bb75eb841420a273c0c7a681db685c',
+ 'reward_claimed_v1_topics_hash': 'd95e38f337eac04460efdf57735fe43d21d52f73d94172b4d98823584f3a2ff4',
  'reward_class_funded_v1_topic': 'd979ecc5f5821fb9e6643744111b04290fc1da57eebaba07def52e526c6eb49e',
  'reward_class_funded_v1_data_hash': 'e1aede520e7a9dc85a896fcdc9cc395ef1f2fd03d93f7e4f6acbd5fda09bf690',
  'reward_class_funded_v1_data_length': '96',
@@ -16614,7 +17840,7 @@ EXPECTED = {
  'claim_reward_v1_selector': 'aa5498cb',
  'data_session_accounting_return_length': '512',
  'fund_reward_class_v1_selector': '15e08308',
- 'funded_data_session_accounting_return_hash': '83a2038c29ca1256677eab2f562e42376f7ba8366c67bfd57536987c2957066b',
+ 'funded_data_session_accounting_return_hash': 'd426423c8b542d61c019c048fa3aeb24e145e342fc4ef566e8f48680ec238c14',
  'reward_class_v1_call_gas': '50000',
  'reward_class_v1_calldata_hash': '3717990a97396f7a0a947025434cf954d9937932f5e00fdf793c129bfbfb3006',
  'reward_class_v1_calldata_length': '36',
@@ -16623,22 +17849,22 @@ EXPECTED = {
  'reward_class_v1_return_hash': '3d21e30cd424ac4eb52ed85673aac8960a703cce5dd930fceb901b0ce5e93490',
  'reward_class_v1_return_length': '224',
  'reward_class_v1_selector': '3d273ee7',
- 'reward_receipt_v1_calldata_hash': '485d1a0dc44ee366c3cfd1c384deaa990edd041ae61797c929fb53d11109ee93',
+ 'reward_receipt_v1_calldata_hash': 'cf2e1bd881fd7591882379b1070452c9f81a80848a3d1b9e6970f97a2e615055',
  'reward_receipt_v1_calldata_length': '36',
- 'reward_receipt_v1_collision_candidate_id': 'a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a449',
- 'reward_receipt_v1_commitment': '00b3741f3922737e7c3cd07d45c93301068436e8fcd750758f495218304b8630',
+ 'reward_receipt_v1_collision_candidate_id': 'a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a44a',
+ 'reward_receipt_v1_commitment': 'f43f661d59961d569e59f1f9cc4bfb32266fc15c12d5b178708a34d7a85ecd3e',
  'reward_receipt_v1_magic': '52525631',
  'reward_receipt_v1_missing_return_hash': '910614e273a7326ae3c583449cfdf24c64d9ef3d7d6f448b6d3042d3ba95ae80',
- 'reward_receipt_v1_present_return_hash': 'ec2ce3e7c263308b2332ba92e64ce2beaa347f7f528ae28ef631e43085792403',
+ 'reward_receipt_v1_present_return_hash': '366fb5d238b52decd3b3b2d18acd8ed04741f6d94bdde7fbd4736f9dad9abcd6',
  'reward_receipt_v1_return_length': '384',
  'reward_receipt_v1_selector': '3ed526c7',
  'statement_reward_execution_gas': '12345678',
  'statement_reward_published_bytes': '9',
- 'credit_authorization_v2_calldata_hash': '4699e3402908715d0fad91491939e2d7604fa9c5ad74b14edd88e67471f5de04',
- 'credit_authorization_v2_return_hash': '358c623d78196d273c9062722f986d74a3132cd387e0f82eb6406bc632e55211',
+ 'credit_authorization_v2_calldata_hash': '227848358a3cd4e9ef5f4ecceadfa5cfd86ddffff834294b2334fe25eaaf8ef3',
+ 'credit_authorization_v2_return_hash': '1f88d6d1ad655716e1177e21c058b0123d6e2a876b42797178043c9df7f4442d',
  'credit_authorization_v2_return_length': '704',
  'credit_authorization_v2_selector': '05ecb6c2',
- 'credit_liability_v2_calldata_hash': '0864c3cb992fbeaca40e5ad114c495e6b9ff9803efa6a23c3d48b255e9919559',
+ 'credit_liability_v2_calldata_hash': 'ec89858c0fa39cbe87c64f118848ab5f9c03a4591dda74a6ac5810075bf2827e',
  'credit_liability_v2_return_hash': 'ad3bba6e04fff6bfefacfdf034f4aaf7bba7149ef0f4dfa0625a5653290f9195',
  'credit_liability_v2_return_length': '288',
  'credit_liability_v2_selector': 'c978978a',
@@ -16652,22 +17878,22 @@ EXPECTED = {
  'data_mmr_proof_root': '7c7185dfbebadab3501e051b2960e8fb4b22dd11821fc4e474ef14b2edb27b22',
  'data_node_height_7': 'e60d61327adb017addbf3012131b62c0a5897d30e302fcfac9ffad46d0fe848a',
  'data_record_appended_topic': '30ee2de166c53a480d028e5b94d4f8759dbd84b5f7b6af1f23e0c5889ea17f8c',
- 'data_session_config_hash': '32a737efe0057f71292a45fb94c7625a42452e73b2c7bfd953b10b91d1607bb4',
+ 'data_session_config_hash': '07cd3347bb03a3749297908dfdb8093d3989a32e9ca6a9f544c87b8857a1727c',
  'data_sessions_maintained_topic': '920669b9670911aa86cd718dceebaa1372d224ca0fdac50a63dc1d45a53e1e89',
  'deployment_commitment_typehash': 'babd40345cd96b87434cc1bcc50b0c693556c37283b9b3399abf60339dc363a0',
- 'derived_source_bridge_address': 'fff25f997872e08385a4dc63163e60181c213f62',
- 'derived_source_bundle_deployer_address': '67d8c921451c4fa2df09ff7670b96126afd6e084',
- 'derived_source_quota_address': '4f1d30a824680ba9b37fea33104cdbbc5e694237',
- 'derived_source_registry_address': '248e8ea138dc3f011fa746acd1f7668b250a8b1c',
- 'destination_activation_receipt_id': '6ce60f3fa70ebb69ce5c2cdeea0221fe47a70f5b8f2bb8ea17ca16bf9825600d',
+ 'derived_source_bridge_address': '45e9bb77c41df4916367f5eb49906367fe5bf123',
+ 'derived_source_bundle_deployer_address': '995ec3a95b2d756946e920e4f88588e9d6259275',
+ 'derived_source_quota_address': 'bfcc162bd7474cec8c8bc99b118882dfc6bfeb06',
+ 'derived_source_registry_address': '8c1ab080584bf560720e8b6eb2cf2242556a2585',
+ 'destination_activation_receipt_id': '053206dec1b3b4695631f3de9a9e286580dcc2e2f807bc06ebd0f247a347c053',
  'destination_activation_receipt_magic': '44525632',
- 'destination_attempt_digest': 'a9ae92d5f2d8ff6dc77a25bb2ebb08570f37d4bce68b4c5e9b7893bf126784d6',
- 'destination_bridge_execution_hash': 'e356731fbadc537ccd8c8cf4db19e343016889c5233aa592cb5d2751ace3faf6',
- 'destination_context_hash': '36315df131571f95b47391a034fa011084715419695fd10bc3c59471ffc42b1a',
+ 'destination_attempt_digest': 'a414e4701d85eefa5b09cd75896a9609f4fde173e4855e61a9b675b530375b7e',
+ 'destination_bridge_execution_hash': 'b570703833da3df51773eb8d72d8d38074391da1f4f4ef2198b0d074f3c81600',
+ 'destination_context_hash': 'd4f1621e99c549ad48f2add3613c1d22ec5554f10ba8f07a1ada7812042d3ae4',
  'destination_context_typehash': 'b8170dbf684e1fc4dd4dae8fb78ad24984cc0aa0c03cbd1e29b1b2eb5728eefb',
- 'destination_domain_id': 'f5cd16d49c1f88557f70f9162d3bb6366667a956cfcd8cc5b43532d3c73a094e',
- 'destination_infrastructure_hash': '67a9b7fc4b8b3581b1fc5f8034790d0ecb19d2ee2151acce88406d4eef4d66eb',
- 'destination_registration_commitment': '6fa49fe009581f08ec79fd1b264a0fee7f94302ecf2c0a5e36f1dd895e1f171a',
+ 'destination_domain_id': '123173ae26db2c61b26412a377907f65420237d7c36efc79c59710e43e6be77e',
+ 'destination_infrastructure_hash': '766a9dc18c36febd06b3818232d6bd0004b16cc2b5bd1a3239585d66fb361566',
+ 'destination_registration_commitment': '5da8fa9049c932b99699638f3dcb071239c3b5ed90db7931697416b99633d2ba',
  'destination_successor_receipt_magic': '44535632',
  'dispositions': 'ab253c1204a53b6e095a887dfa6acfc8e8c0c6f89badcef5f73fee716fa94b93',
  'domain_separator': 'e68571dca46842abc561c1ea35b556152b15d93a1d29f5c441ae2fdcdd01725c',
@@ -16675,7 +17901,7 @@ EXPECTED = {
  'empty_admission_root': '71a511ce5247c6c3b0411e182c8e4b4dcbd0adc97163c585cac94ca3b031ac54',
  'empty_body_root': 'f0e00da8dbc00feb028a8bc92342c0771372b947acf5989b2d4a5f23bb2f459a',
  'empty_data_bag': 'b3caa2379816b63eebbf789e33e7d84ef29d6d350179803dd000102e8182f66a',
- 'empty_data_session_accounting_return_hash': '7720a5a8d9d219e06852dd2661541c06c0278e2044d27ec21400506cac036719',
+ 'empty_data_session_accounting_return_hash': 'ed6c1b1f53b93bafff716cac2098150284a639ce3f78c7971481de38fa521fd4',
  'empty_entry_root': '986d3e795bd9ddfabe213b93cea0211eea5a663e895bfc112d90c5bf2fff1564',
  'empty_forced_root': '4001bca0d3c5171a99a50118f1219024e1bef9302262ea3b075ecbed36be7592',
  'empty_manifest_root': '0bb15f38645cecc1748b17fe3bd966ba8016c169ebd1266fd38150766177b5f6',
@@ -16690,18 +17916,26 @@ EXPECTED = {
  'enqueue_forced_transaction_selector': '9f06b1b4',
  'entry_proof_digest': '89655918472451054bf7362e8e7b19bbded634877c532efdfb545e0ca36667f3',
  'entry_root': 'acee83a690b868a4a7960c55a9f7228f91cad26b704e24106d4db87e9c7a8f34',
- 'execute_attempt_calldata_hash': '29ff394c7d5acf9fa84748faf8a063b8f1ed41b258cc12c9419142d87ff2deff',
+ 'execute_attempt_calldata_hash': '1c8984627aaccd9a98332483b459281acf1bcb6b5170b2bdcf1a055f08fed968',
  'execute_attempt_calldata_length': '1124',
  'execute_attempt_selector': '4cbe2fe2',
- 'execute_protocol_change_calldata_hash': '53ee103fb2f21efd57ad1fa188745e77fda1cdde4988e659a37036770a11dabf',
- 'execute_protocol_change_calldata_length': '580',
+ 'execute_protocol_change_calldata_hash': 'a00db7a4bd41a8e2546adec7f99463a7c370a517d1b67e34f91778bf65ffcf94',
+ 'execute_protocol_change_calldata_length': '708',
+ 'expected_old_fork_registration_hash': 'eed5e788c296e7b8449f4aacb62cd9e5b15ec488dc667f4cf3e3aa48a244c6c5',
+ 'expected_predecessor_fork_registration_hash': '233d72ef0935f897e49377ce160962e2ea7ea14c37c309bb094b78e0b50bb118',
+ 'expire_fork_change_calldata_hash': '0674d1859f790b11abfb90dbf54a4f3ceb88574b484c62199a0f0febdb0e9ec7',
+ 'expire_fork_change_calldata_length': '36',
+ 'expire_fork_change_magic': '50465831',
+ 'expire_fork_change_return_hash': 'a338559b4b34fc40aaaf1c9d8b3837a34e59a5c4f826e855c9e27a5dc0d04b6d',
+ 'expire_fork_change_return_length': '64',
+ 'expire_fork_change_selector': '379c9ecc',
  'execute_protocol_change_selector': '31d81ea2',
  'execution_outputs': 'd3b52765911a60935fb5e7c1b7047ad1611e07586803cf654d6d5b677f966d56',
  'execution_profile_abi_length': '8672',
  'execution_profile_creation_offset': '8576',
- 'execution_profile_hash': '127949b9ddb4b6626387aaa331867ff8f11d18a52c0f42ed06c8a419e7283ba0',
+ 'execution_profile_hash': '4feed8e0bfec60e7f34d9cfbb017dff167da3b233e6e6287eb1ad670a5a8bb5c',
  'execution_profile_static_words': '268',
- 'finalize_failed_attempt_calldata_hash': 'df45ce5f7dd38e82ff157bbb6f1c0a6ca54a1d2eb16dbdcfcc41d0422f34a3c4',
+ 'finalize_failed_attempt_calldata_hash': '6fc23b1533a08c2de1c30cc9998e54896b7a038ba9ebae9fd74c3fe8c9f89584',
  'finalize_failed_attempt_selector': '745dcb69',
  'force_frontier_after_1_digest': '1ba50296675195de90944defd33d2e346c1a996aa6edbb5bfb1b187cc64b3c1d',
  'force_frontier_root_1': '5cb37cac8283fe7742e0f8e40bacececf85c1f8c15a05c8a9c9dc2018ac532e8',
@@ -16712,60 +17946,66 @@ EXPECTED = {
  'forced_root': 'a54e9f797ffe7f04dd5ca7df4c858edf02ce45a81808522633fc9cee8fe72e57',
  'fork_verifier_install_magic': '46564931',
  'fork_verifier_registration_magic': '46565231',
- 'fork_verifier_registration_return_hash': 'ed8f0a8c03c6743ffad9ccf6ae618ac65bfcfc1d5c6cf924a3b58ddc69166140',
+ 'fork_verifier_registration_return_hash': '252a8f9b5199a2b88f07e01d89d4fabb49903713d19500ca1cf34ad3fbf9c00f',
  'fork_verifier_registration_selector': 'c614591c',
- 'freeze_migration_source_calldata_hash': '81bf6ce712ffd27b401ef8de8fcdf0ebda7efb318d645d34dd40c48421bd54c0',
- 'freeze_migration_source_return_hash': '45af47da2be005d52d811fb6c8885603c2d8d1bd0a913e3ec239284fedd930de',
+ 'fork_change_execution_window_seconds': '86400',
+ 'fork_change_queue_inclusion_allowance_seconds': '900',
+ 'fork_change_renewal_runway_windows': '1811',
+ 'freeze_migration_source_calldata_hash': '5d412ab7aadce42f28373a4026b93af41105d079e9c6745e38df6fc58c812f23',
+ 'freeze_migration_source_return_hash': '300a0ec2556d608826ab6a426a20afa5f429bca0ea423230ba1373799b87deca',
  'freeze_migration_source_selector': '45a80913',
- 'genesis_activation_calldata_hash': '0ebd4dcf074fc87f4ad745c6c9a273cd7dfcbacb5ac52f9fab8c147dddde3678',
- 'genesis_activation_calldata_length': '2916',
- 'genesis_activation_context_hash': '139c8045ba7834cc6b8500d80890574732134d2d221787b3cd3f608cc19dd90c',
- 'genesis_activation_context_return_hash': 'c0efd7f04e7e54a987407dd12206ec98495047acf6420d4dda617d1db62fbf12',
+ 'genesis_activation_calldata_hash': 'caddccafac15f7b9081ce4e6fcba4fd74530cc22d515fae19b890c052fe5417a',
+ 'genesis_activation_calldata_length': '2948',
+ 'genesis_activation_context_hash': '9cbc8f98876e804018f19658ac5ebd7c1eade7cc46a74461318f902a48305ec0',
+ 'genesis_activation_context_return_hash': '99dcdc2b728756d1a46a7ef846eda04e0f4db94dc5d3c6714f9196d6a5010c9c',
  'genesis_activation_fixed_hash': '15236b38830f35f4df4c6bd78015c9a3b495a0f3fe08a028cdb1dd57aac970ca',
- 'genesis_activation_receipt_calldata_hash': '5a9d121890dc43e29c18a1022031d8e2f1220e097f7fb895c53560782a846ad7',
- 'genesis_activation_receipt_id': 'e8a9748cdc20af74994f922c226dc4a7f5ea379b8ce873a0cf20fef5381c0930',
- 'genesis_activation_receipt_return_hash': '6616b8e0cbda0719e4d561bf73655d19a29df83edf23902b080aed0f12ba3de2',
+ 'genesis_activation_receipt_calldata_hash': '5ab1f6ede43aa32a932d88d5da0a060028e8e689ff1d1c91875aa7eedbeb7c6f',
+ 'genesis_activation_receipt_id': '0eab6750ef2abff644f98c3c75123025108f168eb898b926ccf86ea3cd6d7915',
+ 'genesis_activation_receipt_return_hash': 'f4539c5921dd860d5a4d99d425732aa9eba103d8afe0fb45af7edaf997f0088a',
  'genesis_activation_receipt_return_length': '1024',
- 'genesis_adopt_migration_calldata_hash': 'b3c71d22f707395f4388f5aa8e2748c607d70ff30e08783a214b8ec9ff4470fc',
- 'genesis_adopt_migration_return_hash': '9ede9238d8ca6ca0cbf869bca67677b7fa9d087af6ff2e789f922b5ffe5293e7',
- 'genesis_adoption_commitment': '4c4ec59cab07fadfd3741363269c245145e8fec4187bdd0ed5315fe019d20ed7',
+ 'genesis_adopt_migration_calldata_hash': 'a43eaf15cd33cdc461e52e051b4867df2d9f16f1fb9b9fb68ba1bc1edac058d7',
+ 'genesis_adopt_migration_return_hash': '4bbf85aa175cdcadb0d695f2cb84e79d08da3cdfade7ccb451b17eaeb895d898',
+ 'genesis_adoption_commitment': '576c190b76bc6e0bbee3b079eddd69f349d4ed905b452c7d43b494a5a36d8d98',
  'genesis_base_canonical_hash': '5081c70042287a8b7156b2626675ea4ed9623c755d5f51b5c83be94e90da3ff3',
  'genesis_base_core_hash': '12243b817561a9362bb03dffb36bb73f9314d47e3165673793419692cd8a8566',
  'genesis_candidate_commitment': '90949c0865a5e0226c6c0d736c0533f9e5f1d793dc9c5d21407a210ee3896338',
- 'genesis_deployment_commitment': '613c9b02fe43532105e057507275ef5d0d5f746d2c0d672b11c0e08175187d64',
- 'genesis_migration_statement_hash': '5e1fd0b6d9c3cb9a6f2dfff13a4c4eedebef66879bb695b5111ae6cd48d33e32',
+ 'genesis_deployment_commitment': '614304ef2982b52388e60a571b529a33617b290d0d2ba490ebfe01b52a5ea175',
+ 'genesis_migration_statement_hash': 'cc163fb829e9da91058b35aa72cddf2f4cec3e042789fb590dafb91803af5127',
  'genesis_output_core_hash': '46ecec937013339205139353730b413c8e508bc579ec9c0ede247161132134a8',
- 'genesis_queue_migration_calldata_hash': '487070feeb09d7fa595cd95e28d9eb9fe180b5057c6b95d584312b0ba207d2a2',
- 'genesis_queue_migration_return_hash': '136cec1e6f536b9aaf5e1870a906c0779b89320782354bb85422abf5b2ef86e8',
- 'genesis_queue_post_state_commitment': '9b205a258be44e3c62212c295804a7ec3e5e9fe58fad118b47d2b1c610ac3b03',
- 'genesis_queue_post_state_return_hash': '528088a64d97d66aa14f03ac5bcf620cb69693c3ee1169c4b7376398ccffa110',
- 'genesis_source_post_state_return_hash': '2602183fac3f6fb768287742b8ebedb20713d56b0399c6b53b768afcbfb216e7',
- 'genesis_target_post_state_return_hash': '0fae53ae11933e6854ca96e41e090ec60814fa0283f76c7a791accbcf2889273',
+ 'genesis_queue_migration_calldata_hash': '7de587a694057f7973477bca1e9853a47be17d605f6b29c03e4d1419accf2bac',
+ 'genesis_queue_migration_return_hash': '048ecf5ba0a3a5ac30c86e15d49f7200c6fd857e62db13034b1b3b93126f7315',
+ 'genesis_queue_post_state_commitment': 'd0c9381d3ee143622553c8de77b6ea94bae69a772aa1b59b67103d050db87c13',
+ 'genesis_queue_post_state_return_hash': '1abdad610a7acfcff13425c542626c4fa7a2a2e898044cf406743fd15b5bea2a',
+ 'genesis_source_post_state_return_hash': '7ecdfc158e9a286b3480d7ecc8178d10065896f26bb89799e53f447ad3729fbc',
+ 'genesis_target_post_state_return_hash': 'a464c24f5315795c1cd9c26dfc7e1e7cc999dbc5fba221003194c4677d7ad33f',
  'governance_delay_authority_descriptor_hash': '442d9b608ecc43eea4009fb7f95c764c747636f42c885174c1442681cc0ab495',
  'inbox_apply_calldata_hash': '65332d0b3230b33c0ae8bddd8a1f3be8473739f865e73fc8e52f4f99cecc89d7',
  'inbox_apply_calldata_length': '14436',
- 'inbox_apply_maximum_calldata_hash': 'e2471d846ec84d5f4306c8cc64c17b9b96ce7f582cfa6d94a1320d36e671e499',
+ 'inbox_apply_maximum_calldata_hash': '482e577c83a59251b7f30b73d98223ac6ad88550d8355b6d444169f5b982a7ae',
  'inbox_apply_selector': '6b326168',
  'inbox_batch_magic': '49425632',
  'inbox_credit_packed_terms': '1932123279377088595567804303184537494733657',
- 'inbox_credit_slot': '3e7e0776ebd7cc805f9331d1b15dd1d5e78cdf00022ca9d208b3c104012f3f4a',
- 'inbox_route_config_hash': '4c94818f95ae8519842d7cd8813be02a8244327224f8b5bb18b47749a59450fa',
- 'ingress_authorization_root': 'a88025f59f4c1b1547b3bedb93e214417d38c2f0064f9a7800eb6d5ae32f62f2',
+ 'inbox_credit_slot': 'afae055286a47fcc5a76c3b75bef8aea556d024f5249c28372e59672f222caf4',
+ 'inbox_route_config_hash': '9cc87d80608fb3cc866707547127aa776556ecfb64db4e398ae337620e76aac4',
+ 'ingress_authorization_root': '2e42c527a8f2fd3f8b016b062546c85c7ec9079603e77ac4f515da6c76d0b6a7',
  'ingress_authorization_root_typehash': 'c7b11126d8d1984cc17cbc108be2a1be0ef9c4e8fd519fa9033c949962f1b042',
  'ingress_authorization_typehash': 'a2dccbd60c366ade3f5af12af640f3453bbb4106405ef8da5dd52484db8f2a82',
- 'install_fork_verifier_calldata_hash': 'f986d1bbd6f3801e5ea25305cd72946eae312d78b512a7649e669e7c251e05a9',
- 'install_fork_verifier_selector': 'f171816c',
- 'install_settlement_authorization_calldata_hash': '6bc7ce69bff63901890f2e0c7acaedd5cd593847338bbfd6c1c942300af631f4',
- 'install_settlement_authorization_return_hash': 'fdae729fd658bf853668a1fb8b3f3e85716c86058d3d0af7cf87421214897f24',
+ 'initial_fork_registration_return_hash': 'd2044ac981fb5358a1354c6ba4ad2bee5f994361fe188f99099e89ba6b62c6dc',
+ 'initial_fork_route_state_return_hash': 'ce1242ef9f6de662b939f857e86aa5c8a585bfd78fa3b285d3804b154ac16dbb',
+ 'initial_fork_verifier_config_return_hash': 'ed485e43081733b49a3da6e22a1d1e54126837f94cb816d888bd29f3d3e12b1c',
+ 'install_fork_verifier_calldata_hash': '67ab3af72e37b0366daf3887450a66395aa7d45fb4114d323d6d80a083ae6dbf',
+ 'install_fork_verifier_selector': '9bb6fe73',
+ 'install_settlement_authorization_calldata_hash': '65ebcfc692483534aca2b6b50cf9820eaa04ad810784aeead0e7bb2266f344de',
+ 'install_settlement_authorization_return_hash': 'ae86f7f0c51ef82e73d24a59c025aac154ff9d1a96fbed4741d64f26e2dc23b3',
  'install_settlement_authorization_selector': 'b1a3fef9',
- 'invocation_policy_calldata_hash': 'e3d61dccfb14d45d3580482551629c154b032c55c019286edb838b285e98a256',
+ 'invocation_policy_calldata_hash': '1afc4535bd77a4ea1d1d4888dcdca5e5e1cc1e7ab081bbfa84ee3236224d987d',
  'invocation_policy_getter_selector': 'b2d0e286',
  'invocation_policy_hash': '5eb7c00399d64d91e416d5a3dbe75187c39dfc2a4645b867864b5fd9e649f3e3',
  'invocation_policy_magic': '49505632',
  'invocation_policy_return_hash': '93bc154411cabc321c6b7c452a338e3e52789f0b97229cc2c68ba0bb4e3f3a19',
  'invocation_policy_typehash': 'd702a337b74fc40bfc746fb1aeeaa705e60a95947bfc3076c76222703205b4b1',
  'kind0_ingress_authorization_id': '27af2fda507104b24da0f7a6095e048cc86de215f38027c2671f4455878a4317',
- 'kind1_ingress_authorization_id': '244665c82921b820053689da3bb28f5bbaf7291d2e131eac1e593248d510f02e',
+ 'kind1_ingress_authorization_id': '33d1addd81180b0cef250ce0324e1a1eabd85693ff496a151c8a8736f9763422',
  'legacy_blob_slice_maximum_hash': 'd9791c1e9f76963f86cdfe6423b8d897dcc5c0ef5ad4cc16363b2b2ab452240d',
  'legacy_blob_slice_maximum_length': '832',
  'legacy_blob_slice_one_hash': 'f0c8974a111225866a147954a2f98c29c679c1aa4680c42b15ac2eb3a1cea148',
@@ -16784,40 +18024,40 @@ EXPECTED = {
  'legacy_forced_inclusion_encoding_length': '256',
  'legacy_full_scan_capacity_bytes': '4161536',
  'legacy_full_scan_capacity_headroom_bytes': '32768',
- 'legacy_genesis_abandonment_receipt_hash': '8905bf42714e03489974504a0569e5111307069e6c342d790b668257e886368a',
+ 'legacy_genesis_abandonment_receipt_hash': 'cb36eaa84b5a8e1d4cbdfe2c4c81bd8b2e06ad652391b29b7c8022a91763e18e',
  'legacy_genesis_abandonment_sealed_topic': 'a3b978444273f8f347857235c224846aa45e8ce5bb73df549b9916e96371c8c9',
- 'legacy_genesis_arm_calldata_hash': 'ae674d2927bdbf27cf457c0c412020634dedd462b75337e8493549de6e5b59f8',
+ 'legacy_genesis_arm_calldata_hash': '9d4639bb62ccaf078d0293df0f8b96aa177cf6cbf28a723a4b1bc0f4fee90c2d',
  'legacy_genesis_arm_calldata_length': '68',
- 'legacy_genesis_arm_id': '3ce5cab5ad45ad31f25f6726a5ed1ae4d8599a811e68ae1509806ad8d1450e3e',
- 'legacy_genesis_arm_return_hash': '99846e561f7901daf75a5475a8bd4de6a280dd9ba753dd077402facdbc064e09',
+ 'legacy_genesis_arm_id': 'd3329fcb3a8b7259122da7e8edcbbb45f9cc98cdd35e979ebc87a5406519138f',
+ 'legacy_genesis_arm_return_hash': 'a8fd15b569ae80c33eb008494bfae200674843f8a1fcd621d0de37d61511400b',
  'legacy_genesis_arm_return_length': '128',
  'legacy_genesis_arm_selector': '8781a058',
- 'legacy_genesis_begin_scan_calldata_hash': 'bd1b7d92c921e3d9ad9d6220faf9286ab1005d653c186c4a0634e43e53a3896b',
+ 'legacy_genesis_begin_scan_calldata_hash': 'cee8b34707fa4569bd05d14609c64005f959a66d5852a9ee325f569ba8e081e6',
  'legacy_genesis_begin_scan_return_hash': 'add644dde24164cfb29ab6a4598cb55acb73c55dd295b0c2a227dc3264c6f65c',
  'legacy_genesis_begin_scan_selector': 'e9d1a07f',
  'legacy_genesis_blob_data_expiry': '1573864',
  'legacy_genesis_boundary_hash': '0215b43e3b2143b3fcac2c97bc2f8cc32ab47ac695a6fd173d919abdcc170263',
  'legacy_genesis_campaign_fence_descriptor_hash': 'cf5cd470448a26b70eddedf8c30fa39533e66e874e2fc1aa2e310ab633c0d737',
- 'legacy_genesis_campaign_id': 'cb335b340cf2da203f557355425fb5418c2c0fdc70286ab14744ecb570ccda6c',
+ 'legacy_genesis_campaign_id': 'e94721d14a56774c2079995e1e5cdeb915edbf39d951e54078522dd1f9a19f69',
  'legacy_genesis_campaign_magic': '4c474331',
- 'legacy_genesis_campaign_return_hash': '66dc4139cceaee7d609a55666a8b306b3a01da0fe3cc1de5a723f683448f426b',
+ 'legacy_genesis_campaign_return_hash': '486d5706d3fd2588f616861889690b8f7f56e0df3b454969bb860f5778c004a9',
  'legacy_genesis_campaign_return_length': '512',
  'legacy_genesis_campaign_selector': '718b2ac7',
  'legacy_genesis_checkpoint_record_hash': '1461a32136f8c498043934fce575dddec6830744145afbccde57eea1ea61c9b0',
  'legacy_genesis_checkpoint_storage_layout_hash': 'f9e5f221ec2368348e185feb34fee0cdb27a812a2533c56fa7dfe8ccf762ffe1',
  'legacy_genesis_deployment_hash': '98cc45a7619c75ff658f46edbe2e3c11c19e1ec424797cf04c760b9f07fd567c',
- 'legacy_genesis_expire_calldata_hash': '2a87f15f8e2a080dd88a465475b63e4a34e36e593e3a3b357fc70a167fd0f45b',
+ 'legacy_genesis_expire_calldata_hash': '2713a1f6bb1ba9418c8cf19a7ae875444b242a070aa95a21c839eb0ec79aede7',
  'legacy_genesis_expire_return_hash': '9536645b48dce02dd376837692e40f53cd5ac18e6af5d0c31bade33be31d2e19',
  'legacy_genesis_expire_selector': 'a4a37936',
- 'legacy_genesis_finalize_calldata_hash': '055902cbc00cca93bcda5fdc70cc8e1918f0f2174608aac138c49607f3b630c3',
+ 'legacy_genesis_finalize_calldata_hash': '53fba84f0a56881350d5286d516ff9a56d1b88cdc745ae9ed29dd45cb798b01e',
  'legacy_genesis_finalize_calldata_length': '196',
- 'legacy_genesis_finalize_return_hash': '6cee7a606cd161178c297b441eca682e93e2abd5dd3fd8c74855e71a49e479ac',
+ 'legacy_genesis_finalize_return_hash': '5b0a0f887bac288b05f9ff27c2cd5aa7f89012a0da0e70abea6f1be94039a287',
  'legacy_genesis_finalize_selector': 'c2de6417',
  'legacy_genesis_forced_record_hash': 'dbda8510c73bc3eb57de26ae5c5bcc82a45bf6fedab68abf100d9baea6f4a380',
  'legacy_genesis_forced_rows_empty_root': '5631fad8f285ac1643b4e817c5454ee4f1e35174786dd255842a987b21c3fd92',
  'legacy_genesis_forced_rows_root': 'ab7f340cae89170a3a619086538cace009399987a1bffbee40c17da60c10fcc8',
- 'legacy_genesis_launch_id': 'b6745b708c8e1978e783bbf2e57e3698e29ee4f2a64ccdf5179002f767158c85',
- 'legacy_genesis_post_state_commitment': 'c981ee27ec2a96b412f73b6907293a925ee0204693df32c6b4a91dce63df530f',
+ 'legacy_genesis_launch_id': '170f6103eb4cf9416e804727a405f8edd6d996079a565266f6d8478f11da93c0',
+ 'legacy_genesis_post_state_commitment': '4fd9b00d174aff5254ab0a87b65bbd85eb28048d2d5f93a824dcf9623c3736a0',
  'legacy_genesis_preparation_return_hash': '8c869f3dfe7df0f01a65e96d7691b5b0d095590acd9f034770c33a6c75472a98',
  'legacy_genesis_preparation_return_length': '288',
  'legacy_genesis_preparation_selector': '6880cd05',
@@ -16827,37 +18067,37 @@ EXPECTED = {
  'legacy_genesis_proposer_checker_descriptor_hash': '1bd9411f4082f5d010edfad3ba2a52ed5164a7a7ec345c1d56f11a2b3448515a',
  'legacy_genesis_prover_whitelist_descriptor_hash': 'afda6179076d7f2625ac4e691fd28ff557ef3419a708f22598bc8419b6a27c05',
  'legacy_genesis_publish_magic': '4c475031',
- 'legacy_genesis_quiescence_calldata_hash': '4be325de56fa079907d18af22bcf717c8e9293ee5bb016e4c0b26733e8a6d845',
- 'legacy_genesis_quiescence_return_hash': 'a1cf470618c6835f3bb56facb9cc7cf13f4198aeee8c3aea0293b8990365c752',
+ 'legacy_genesis_quiescence_calldata_hash': '076ba5b44592119003dece8d0928cb0154203c5d1ddcfe468b3a17549e36a5dc',
+ 'legacy_genesis_quiescence_return_hash': '4d2b622592701b4b1ada1b703589f3448ffca64f4ff16606145e9f3aae6350cd',
  'legacy_genesis_quiescence_selector': '4c0ae8da',
- 'legacy_genesis_quiescent_state_return_hash': 'eabc4a3115d1a5a7473d01cefe7f06d0e130e4817d898e9078275c86727db646',
- 'legacy_genesis_ready_state_return_hash': '43772406d67195d5179ba1ef3ca537b9e244c02a7c681b9af57de73967b54339',
- 'legacy_genesis_resume_calldata_hash': '0583e83c89e3251d7aef7bff05ba736b2f902156dcacc01f43d95bfde2ca4dff',
+ 'legacy_genesis_quiescent_state_return_hash': 'e9cc0dff346c0974368fb68ea944c614d5dd7836a4970f8c89e56800c6bdbccd',
+ 'legacy_genesis_ready_state_return_hash': '492c6b27c16754ad9f1a0cd8f95f9b3f77d0cc2c044bc55dc982525d0d2e0d81',
+ 'legacy_genesis_resume_calldata_hash': '0e02ea7f338a18fa91c50b3e774ca5a01557915c4bc0d701f17460e8d5a07fea',
  'legacy_genesis_resume_profile_hash': '6a993ebf703937ddefdd8a5ae08911f15a19286ae47b40d0b91a08824cbb2812',
- 'legacy_genesis_resume_return_hash': '206dec3a4de80c7b2cde7e0941a420bbfd76769ed64538022a723f0967871faf',
+ 'legacy_genesis_resume_return_hash': '775e455aeca3d6c245f275799fb94c7463b9557f2b4defca70bc1ba279e8a9c9',
  'legacy_genesis_resume_selector': '2bf6b656',
  'legacy_genesis_resume_time_policy_hash': 'ae8419c16fd9493a76f4192c6bef1396d6237a2f2d981dc2bb55acfb3086e5d6',
  'legacy_genesis_resume_verifier_route_hash': '527763e6ea020b909c9a74a7aa5b7c2fdb372c5d8f283644d4d454bc63c16275',
- 'legacy_genesis_review_commitment': '571aca43c1cd24e4ac89b15dee49383fe2ea68351cd840ac927094be54b62f7e',
+ 'legacy_genesis_review_commitment': '48e93b7890be4474289411c19f570faa00c181a230d7cb7fbc00195070d4d57c',
  'legacy_genesis_risc0_resume_key_policy_hash': '60651c05d2012e7254373988020eaf9dec6c635e84d535112e7ade81aac5584a',
  'legacy_genesis_risc0_reth_verifier_descriptor_hash': '4805e24aa165db57d51ab99349241fd843ca03e468afb8d33781d4a08ccca55b',
- 'legacy_genesis_scan_commitment': '035027b36d020688da2131a9dba38462f12e387ece4e6d3fb5f4489040888b0d',
- 'legacy_genesis_scan_forced_calldata_hash': 'ba8eeb2939cdb44adbcdcadf7a6ead433abad631cdc88fe9db21f5f5ac788503',
+ 'legacy_genesis_scan_commitment': '05e0e3ee9860067a44f759d645aaa746e3c15432947c39b3710cfaa518f7e06d',
+ 'legacy_genesis_scan_forced_calldata_hash': '22cd46a4dace81d7802d2b06c51377ba8fd03a626ef024fb9d1229ca72272690',
  'legacy_genesis_scan_forced_return_hash': '10dcb42db706d4c4a5afe207c6327f8cecbcbc4b298c0255fe2434662e6599d6',
  'legacy_genesis_scan_forced_selector': '032ae99e',
- 'legacy_genesis_scan_proposals_one_calldata_hash': '85f56921439afd993cd8149bef5b61d0451113d30e0438c44e0eeaa114f7917b',
+ 'legacy_genesis_scan_proposals_one_calldata_hash': 'd281c883ee5a65da6f3e972e23e47d82d7f3040084aedc7a5f5f765e2432f086',
  'legacy_genesis_scan_proposals_one_calldata_length': '4004',
  'legacy_genesis_scan_proposals_return_hash': '10e8d4b72d5c271bc6f13dd2b9c476d4efd217cd1eddc07d04f0753b645ada6a',
  'legacy_genesis_scan_proposals_selector': '7da66460',
- 'legacy_genesis_scan_proposals_sixteen_calldata_hash': '4596d0b4fb67201340e7fc320e38063e6b1325a7fb64a3b4fe9028cbdadf62e0',
+ 'legacy_genesis_scan_proposals_sixteen_calldata_hash': '4b07db9f14a036c29d1049121db7c85ef8df8de6728542f759f3dfeb95ae84d3',
  'legacy_genesis_scan_proposals_sixteen_calldata_length': '62084',
- 'legacy_genesis_scan_state_return_hash': 'c5c57f4be528314e3c90e5edb08a070687220ef2ce6b6a262e2a91ab11fe7481',
+ 'legacy_genesis_scan_state_return_hash': '242ec0bd268240a60d590c0bf51ca2b718fa9d56e24ef59dd1e4857fe64d5919',
  'legacy_genesis_scan_state_return_length': '608',
  'legacy_genesis_scan_state_selector': 'ef3cdce0',
  'legacy_genesis_signal_service_checkpoint_descriptor_hash': '5e10f1f156d0913967b53921f75484530facf090ceb544306381abb78894143c',
  'legacy_genesis_sp1_resume_key_policy_hash': 'b449ce6092b398fd4178d946077f8f19c4f2451cc88d614bb682233134162f12',
  'legacy_genesis_sp1_reth_verifier_descriptor_hash': '523d245ce9369abd6a116dd7cc4b4a989fcfb8a9d1f8eb796e1cb35945f18bf6',
- 'legacy_genesis_state_return_hash': '1435ce9f7de09da36398dedd4e8046a45696358d8160d4e30288cdb6015f63ea',
+ 'legacy_genesis_state_return_hash': '7f020a71399b1776f1926c55c684a6d793e3f024d4d68e9f5a9be29f1e1a184b',
  'legacy_genesis_state_return_length': '512',
  'legacy_genesis_state_selector': '9b698000',
  'legacy_inbox_config_return_hash': '4d6b260943518f7ce988e85ddb9321b2a3111a42e9ba431f45342ff6f4f3cea7',
@@ -16899,55 +18139,55 @@ EXPECTED = {
  'legacy_signal_service_version_selector': 'ffa1ad74',
  'liquidity_consumed_topic': '7f0ddd8af8190f3a3857af29a65ebb7546d6eecfa85fb39d4a697916bc75fca5',
  'liquidity_deposited_topic': '5eb65038b938ffac21aec1d6ecbbe2195bc6697ae085a31dfbca8fca3aaf9931',
- 'liquidity_fee_substitution_bridge_leaf': '9aeeda0ae2094ed7cc70c334caa02ac2351f0e5bcb14b5d3c0a654fb29c4275b',
- 'liquidity_fee_substitution_credit_id': '7ac2695e781466773a029e5a6dad12401011cf6bfb601607c3ef664e2c10de0c',
- 'liquidity_funding_state_calldata_hash': '590b8e668690bb739df1f8fd57223ae7726183b36cae7c9fff9923e4350855ac',
- 'liquidity_funding_state_return_hash': '010cb5767e3a2885564bef4950e2d6a85ba8397fbec7f696c15be22170552570',
+ 'liquidity_fee_substitution_bridge_leaf': 'ca3a5c71fcfd67060d91fa2dbd4f8d839d678f6fd5242cce1b7ad4fbddf6fd51',
+ 'liquidity_fee_substitution_credit_id': '5729c4dbda07a37c0e80fe34f7c080e6f26742c2df888766e46ce8df0599d432',
+ 'liquidity_funding_state_calldata_hash': '7558ff4ed2a72d3c70bc3edf5f8e47e897213da21a46add9b09edfe9efc7aa12',
+ 'liquidity_funding_state_return_hash': '8d5b206e594a2290f1b8d3cfe6c34f04290c7262bb7c6a111bec7368c48f140f',
  'liquidity_funding_state_selector': '6a9a6c32',
- 'liquidity_quote_calldata_hash': 'dd253ecc0bc6eab7b2ad5371d827f579bce6e07c10caabafab3edd14b1ea2074',
- 'liquidity_quote_return_hash': '033cee4d08de5e1ca391eeda14e10df82c41a5eeba9d34a5fc4f7924c2d6febb',
+ 'liquidity_quote_calldata_hash': 'ed7b42e813bb4a691c580d2c61de0536d560b297ec4be9a8777c20f14ce70bed',
+ 'liquidity_quote_return_hash': '8346291111d6c4822b47182d1bf48e2b1e52eb6637a7ce999268f89d4e16c9b2',
  'liquidity_quote_selector': '43dc48e0',
  'liquidity_settlement_hash': '625ff42ed879b94a7499fecb7abc07988b348300d1c4e9cc1f7596968eaf2f19',
  'liquidity_ticket_id': '5dc074de7029f6762c8c386b15cbd61cc7ad94b9432c25a35a5ae48e72c3bf2b',
  'liquidity_withdrawn_topic': '1c7f587c4a1403966578e0bc3326f08fab3ad01d6c34b92e43af37a84ad98e38',
- 'live_registration_validation_commitment': '910c936d963141feec8701cd1207f3cae5e4391e2e9ca91d1b55346bc35568fa',
+ 'live_registration_validation_commitment': 'e2be3b335a9e85e51dd8d2e5a68f88f2cf06cc554a1ed0a827a3ffeb95ce6625',
  'live_version_migration_lease_selector': 'aaac4c97',
- 'manifest_components_hash': 'b186c3e23fa4afa228977e22eebba7df0191b70f95b182469d0378947f5a67f1',
+ 'manifest_components_hash': '39c81654d0554b17c41192b3e5f9069488373902e9aa7236cfc76cf8a5db5408',
  'manifest_node_height_5': '9f4c64a89c253d4d65f93cba1f55e7a17a3e4027be7351650060632ed1bc70f0',
  'manifest_root': '417be737a57e38eb410f2d6e65c77ee19d5c314cdaf432067861c6a36c6a990f',
  'manifest_root_block_1': 'c58ab29bdccb3e06cc5431fbbcea1abc6d6f1a38120c5d896e18b7f1ca1cf43e',
- 'mark_inbox_batch_calldata_hash': 'e153ec48024a67781bf2e908adcd9667cf30ead69bfa3e33e858decfa1db4bfc',
+ 'mark_inbox_batch_calldata_hash': 'be9129ebd6027b0d846db7ace60a2a8e8c3526a407556ed7b99de4cb04092b0d',
  'mark_inbox_batch_selector': 'a92f72cd',
  'mark_migration_ready_magic': '4d524459',
  'mark_migration_ready_selector': 'e0c25827',
  'market_authority_configuration_hash': 'e348b5cddcb8eb6da9bedb54c23e10cf9fe0c20b9f50f769258b47dfdb870c07',
- 'maximum_genesis_activation_calldata_hash': '79782d9c67ffae928e93f8132f4a3297da0ca1555e4081e329bf38a6ef413b90',
- 'maximum_genesis_activation_calldata_length': '135876',
+ 'maximum_genesis_activation_calldata_hash': 'f0ad14b26ff5aba4691d3beedca37f5bd77a587182d824c1cff68d52e2e783b4',
+ 'maximum_genesis_activation_calldata_length': '135908',
  'maximum_live_version_migration_seconds': '604800',
  'maximum_migration_proof_bytes': '131072',
- 'maximum_version_activation_calldata_hash': '3b19de90ed7f5d5aeb141dd11d1549d7e601aa19b848e94280487cfd1296ee25',
- 'maximum_version_activation_calldata_length': '149252',
+ 'maximum_version_activation_calldata_hash': 'e5f8adf5c2a1b4a9f501d2e74af0cfe05c8c02a5ec619b49b1cba7a35b414fb4',
+ 'maximum_version_activation_calldata_length': '149284',
  'message_invocation_hook_selector': '7f07c947',
  'message_v1_data_hash': 'f08683775f4a25dfef721c487073fb77026d45ac57e423424290e47af9fd2835',
  'message_v1_tuple_hash': '0e85a708462e96cbaca7158a1534011a25137c3b7aada7f381e4fc5b3afbe40d',
- 'migration_activation_context_hash': 'cddab3d4efceb1a717ffd65151919c1fa6d553e5ea8f999a1a844c9580602dc8',
- 'migration_activation_context_return_hash': 'c1cdf9b03af5584da8fee1f5f4421150ca856106be599a893f34d55bbb41163f',
+ 'migration_activation_context_hash': '5a6231bb9e84d8e4d5be2684008af077ae3d850562607d02ed31b32042371a4c',
+ 'migration_activation_context_return_hash': 'd255ae7c68d6185d0c3275b27e1fa387f662babaa1867aad5bb130679f509647',
  'migration_activation_context_return_length': '320',
  'migration_activation_context_selector': '7cf70319',
  'migration_activation_profile_calldata_hash': '3dd403c33c2e7c4e6b324efac7461b5b0cc6f3696a2a8d8c94c9cb9bafcf9c85',
  'migration_activation_profile_magic': '4d505232',
- 'migration_activation_profile_record_hash': '8fd67477c4b0a2c5d18139ac33426805f2fbb5411802d82826da281861e4bad8',
- 'migration_activation_profile_return_hash': '734b8486e41e338c94b5a65df6b74a88990bddda8f0e6150ad19798dd90c1384',
+ 'migration_activation_profile_record_hash': '59693edc8c22abefe9f2b8a91a9301ad184c22c11f60f0772edb86a229e66fe9',
+ 'migration_activation_profile_return_hash': 'd81dec13a11398e83355d77e2cbd8a29b3a8907879d085526c713ba16accfee1',
  'migration_activation_profile_return_length': '768',
  'migration_activation_profile_selector': 'c65ff64e',
- 'migration_adoption_commitment': '587b2c9dee1366ec8befe95b4624f685886f3bb2bdd7e50e218b130561b7e4e1',
+ 'migration_adoption_commitment': 'a45e527fe7ce5c040c0c4b89901f63c9af16a0807316d4b77fedc830a2f080f6',
  'migration_arm_execution_window_seconds': '604800',
  'migration_arm_fresh_after_magic': '4d414631',
  'migration_arm_fresh_after_return_hash': 'b7483e72711cfc12792d104e0b0bc11c51e9e51ba92ff0978675a1e336756dd1',
  'migration_arm_fresh_after_selector': 'bc4707fb',
  'migration_arming_lifecycle_return_hash': '298524396c6b44dd68c8c21326e4ddb544cc51cfe8d5b89ed34bda45fa998753',
  'migration_data': '2c36740d76ae6192335d4c603f42edace094b33e8f54e959b40241a94c1f6deb',
- 'migration_post_state_calldata_hash': '4f4c9806d5f257b9b9a33f27efefa311b6ed83feaa8e7b7475f8868d9ecfc76d',
+ 'migration_post_state_calldata_hash': '40c1717eb2086dd150f3b3311fc9221bbcefb9688d6f604949dc860820d75cb9',
  'migration_post_state_selector': '66e664cb',
  'migration_readiness_magic': '4d525331',
  'migration_readiness_selector': 'b36c83ce',
@@ -16968,34 +18208,34 @@ EXPECTED = {
  'pool_accounting_magic': '504c4132',
  'pool_accounting_return_hash': 'fe5f0b1458dd3e41701c675116f35fa1a527569daa205b7be7a86457ed8014cf',
  'pool_accounting_selector': 'f2b3441e',
- 'pool_attempt_authorization': '6c5ac75c0d7eb88ad081189d9cf0992408d683aa5eb03bbd355e0e163cc01155',
+ 'pool_attempt_authorization': '1a45c093d8000078214b515202ee234da50fc7b515804a72442f2b4f64e81c04',
  'pool_auth_cleanup_gas': '50000',
- 'pool_bridge_attempt_calldata_hash': 'e1840fc07b1109fb2839ebd6594b14c7e7f8db04beae564d2f126330b70644e8',
+ 'pool_bridge_attempt_calldata_hash': 'dfb81d2954184931a3a13a59996b12c0c047a7aa4f7b931d50bb5a1363e1173c',
  'pool_bridge_attempt_calldata_length': '1124',
  'pool_bridge_attempt_selector': 'a535a986',
  'pool_bridge_result_magic': '4c415632',
- 'pool_bridge_result_return_hash': 'eaa9abfc64ce0f1cd0bfc561ff8c3e910bab9435fac978622b1558c29f44456c',
+ 'pool_bridge_result_return_hash': '18f2e8ecd0919932c00d7514fe428245043f0631f8f2c4aab2358005a30ea6f3',
  'pool_component_configuration_hash': '680054a7895708487ddd24a202ddf1069f2ef81238e909e826c368d1da396881',
- 'pool_consume_calldata_hash': 'eb61689f322ea8536bb7e0281b4c2417fce58ba3270d21f1ece67a0e32051e1f',
+ 'pool_consume_calldata_hash': '05f677ec373ba88a053c127c19316f7d567a7e4c7e798bb91eaed19f124cca82',
  'pool_consume_return_hash': '45e57d13eb0e9644c2d8c552e4f7c7d66bb0a4acd9e4862195bcabc68d5d9af6',
  'pool_consume_selector': '37093d2a',
  'pool_deposit_calldata_hash': '35c6d5e52bfa1f1d559b5061bb71be2155e607456b1e4242e400d398aaa3e180',
  'pool_deposit_return_hash': '7ba7804bc6c4c0cde5e2b1c55e724cc9e14b664c02eeb19db225db96f859c64e',
  'pool_deposit_selector': 'eda2a3f6',
  'pool_external_read_gas': '50000',
- 'pool_process_calldata_hash': '86e18c6f5c191445ef4c86bfd893ad4a939e70e54340f54621fb93605c222f8a',
+ 'pool_process_calldata_hash': 'a97acef51615440f7106d929949a2061f25828a2e7640139bb27c68fbd7f0121',
  'pool_process_calldata_length': '1028',
  'pool_process_selector': '5fbbe107',
- 'pool_retry_calldata_hash': '094442aa6148d6ca913d68d6bfb9a6279d8617f5d9992827edc05badc18c6314',
+ 'pool_retry_calldata_hash': '1a3526e230bc8f465c606d4ebe79b1b390b2e826e7b6260332676693c4357595',
  'pool_retry_calldata_length': '1060',
  'pool_retry_selector': '031f93e7',
- 'pool_row_substitution_infrastructure_hash': '339e55720f6256961164e6e5d234dd26da3d9e5cd649e3c9107ef08d328a3052',
+ 'pool_row_substitution_infrastructure_hash': '47565d6e5708e5a516daa376505c4e8db91c6dfa83127214b55a88e14fb84086',
  'pool_ticket_calldata_hash': '7f489c048d7a27a5fe4624ac37cacdef2ae1ba1ba08d68471ad5e00dd7c47dfe',
  'pool_ticket_return_hash': '4cb85eb7ea2f272ca7a4d558694de56d4e9d2455a7cd3074c442c849213a9c31',
  'pool_ticket_selector': '5defa7e1',
- 'native_quota_key': 'b8ff0da5b6d7fc9dc4b45040e13dee561bbd0a8aed718dda16d4bd274be8df39',
- 'pool_value_acceptance_commitment': '6bd6f239686de71cd47f1c246c19cb267fec19f2f86a744dfdb5299f7beeef9a',
- 'pool_value_callback_calldata_hash': '97fc94d5fd621f07d8c2d24b383de36d1454d4eb01fd4d4c3e1c9a0d2f16fd51',
+ 'native_quota_key': '7364d461f03b17da03a689abfdb4e723065464c3419e3a222bd8ee29cb876ee5',
+ 'pool_value_acceptance_commitment': '657f4eeb9c6806bf3fc5db5706bee4a2610b4cf4b4036030668e132a0fa409d3',
+ 'pool_value_callback_calldata_hash': 'ea4a9bde98a0e33377e39155183907be2c0e068326b799bb26b6dcaf4944a5a0',
  'pool_value_callback_gas': '100000',
  'pool_value_callback_return_hash': '632cf02c0c8f06fd37a4ea096b77ae3cb51bbcd26f7920bb0bd053c5b0df10e2',
  'pool_value_callback_selector': 'a34908bb',
@@ -17004,61 +18244,77 @@ EXPECTED = {
  'pool_withdraw_return_hash': '405787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace',
  'pool_withdraw_selector': 'fe4f5ccf',
  'profile_ingress_authorization_magic': '50494132',
- 'profile_ingress_authorization_one_return_hash': '97e2cdc09c3fc12d02cfedf70d536357e9700cf7207897a19b69bedf217fab8e',
+ 'profile_ingress_authorization_one_return_hash': 'd5e94e2123144f067169c89d0bfbf8c901b728bfe897661ad157ca926846bd92',
  'profile_ingress_authorization_selector': '2181b974',
  'profile_ingress_authorization_zero_return_hash': '70b9c601b2d1f2852d14603d001ba507657f2eb32b0be8a38a986b4670c1873f',
  'profile_ingress_root_magic': '50495232',
- 'profile_ingress_root_return_hash': '81405b7dcc1375de2dcdf8bdc03b30b1144c8c00cf9aeae01485fc16a546d391',
+ 'profile_ingress_root_return_hash': '851d79e8b52d142eb3a663ec83904543e42e09153acd9c9fb8305079afb02735',
  'profile_ingress_root_selector': '2d2bbe23',
  'protocol_apply_magic': '50415031',
  'protocol_apply_return_hash': 'f9361bdc99345939494c4794891942dafae95fa74ace38bcf4430ae53ac12c4a',
  'protocol_authority_read_gas': '100000',
  'protocol_change_delay_seconds': '604800',
- 'protocol_change_operation_calldata_hash': '7483e57eb5f7eb230c0303f6c9e13e5dae90fac648d33f2a42ac098fefea527a',
+ 'protocol_change_operation_calldata_hash': '3185084f458f6912ed06cdd5ab700c7b8b26e6492f37119d296224927c8005ff',
  'protocol_change_operation_domain_hash': 'edc1be882290e6241a79546c41db66a1d975095ae60cf3b2b16f1ed876f6038b',
  'protocol_change_operation_magic': '50434f31',
- 'protocol_change_operation_return_hash': '4049c997721e3c2658965b5da379f69bfa592d5cd562145fc56094c6ad902f0a',
+ 'protocol_change_operation_return_hash': '68294d6a83ea402d454554c7fb94446e1c0bb785881f94ab3be0b198209514b9',
  'protocol_change_operation_selector': '4b80fe68',
  'protocol_change_timelock_config_magic': '50435431',
  'protocol_change_timelock_config_return_hash': '1813d922f5db2c6e82ca7be236e9cab4b8ca3c8b5f32231d60bd51b75e54b29c',
  'protocol_change_timelock_config_selector': 'b80095ca',
  'protocol_version_manager_config_magic': '50564d31',
- 'protocol_version_manager_config_return_hash': 'ab29790c84fb6930fd699b3d2cacfa48c0e24c3a25eedb604d98868a6aaeb9c9',
+ 'protocol_version_manager_config_return_hash': '3305018df3355e109413b0c25e69814e56a645ab71e4fda4024bb31e84feadd6',
  'protocol_version_manager_config_selector': '4deb7821',
- 'protocol_version_manager_configuration_hash': '05f6b4d6a6672e3e092b412802be80a47e2b26362c2a60850f0706989830d842',
- 'protocol_version_manager_descriptor_hash': '9d16c23486a03692eabf7c9a63579703fa0638e45aaf5d810dcfea4325cdd5c0',
- 'publish_genesis_campaign_operation_id': '0769d825b8c87aadd7f47164b69e8afe880e30d69bbec3e46ab894dd1a628bf8',
- 'publish_genesis_campaign_payload_hash': '99cb81a733886126a87ad8b8e38ce1eae1bef1d24e84144bf15bfa6255edca0d',
+ 'protocol_version_manager_configuration_hash': 'c363eb350b2bf5021b6e4bc882d42d480f454c2889b6b3846d277ad985b16e76',
+ 'protocol_version_manager_descriptor_hash': 'b4e57361ef06ff7db13eb812b123a3cdf89ce8a562cc138f72282a0a061e4021',
+ 'protocol_root_soc1_magic': '534f4331',
+ 'protocol_root_soc1_return_hash': '8df57002258b7d91f346af8230d0ac6145972ab5d17570a9537e143f8ca7c802',
+ 'protocol_root_soc1_return_length': '576',
+ 'protocol_root_soc1_selector': 'e3d91a33',
+ 'publish_genesis_campaign_operation_id': 'da83c6cfb7e22dab70616dce47fdb738e0b44c6180008d8682c9acdc02671191',
+ 'publish_genesis_campaign_payload_hash': '70f6a3274917710e05e61843cc5c5d6a9051cfae3477f3c6b2865cdff44b9738',
  'publish_genesis_campaign_payload_length': '320',
- 'publish_legacy_genesis_campaign_calldata_hash': '550fdb774f0c9759de9b9db757cfb20b69b526e6e20d3f97d1c652f33820cfa9',
- 'publish_legacy_genesis_campaign_return_hash': '43e3ec052b118f4f0b2a5ec0fd54a835d97f590f09bded4bca92e5d995cab824',
+ 'publish_legacy_genesis_campaign_calldata_hash': 'dbc91b44b0956e278bbe2b2aba1db4fc979aa2e85899ed9d24ebc35c55bbf199',
+ 'publish_legacy_genesis_campaign_return_hash': 'a075c65c23f43bd891be3ed8add3f32fa01cb44f456d0f6067a1fda258c83bea',
  'publish_legacy_genesis_campaign_selector': '5f0ed7f5',
- 'publish_migration_arm_operation_id': '3058313739287970fa5288c3b0339db04c5b39643b3c39f8e476dfdf54fe34b2',
- 'publish_migration_arm_payload_hash': 'aa25de9b6ad7fb563e0f1b42ff565a62625af8404580e5e5d7178f178ccb0a34',
+ 'publish_migration_arm_operation_id': '40f65071ff45a202b32e78d840f729fc43624963d30262b072d29aec22bc11de',
+ 'publish_migration_arm_payload_hash': 'fa310042c124ab04cccb48be1e98e6e9a20413125475d72b85ce297251cc7787',
  'publish_migration_arm_payload_length': '128',
  'pvm_router_mutation_gas': '8000000',
- 'queue_migration_calldata_hash': '6ef00735e34bf91a6d23b9de8dac7e12337bb4a8d027c5ed187caec176b9754e',
+ 'queue_migration_calldata_hash': 'c111b2ae18c6b9051d1768d10268cecd394ebc903ea8c995ad05b2a0cec09990',
  'queue_migration_calldata_length': '260',
  'queue_migration_credited_wei': '64000000000000000',
- 'queue_migration_post_state_commitment': '0b6f380c441beea5069c8444380a2af8963712e228b9ec09a0b606ef5cad7ff4',
- 'queue_migration_return_hash': '290d7eaebe51ebdd6f612a50d8e63022a629b1da5359486fe0264dfeca50ad2a',
+ 'queue_migration_post_state_commitment': '1a13eca5226874d8e12b92e578be3dca978adae7b1cc0dfa7b5ffe3c2b6d1cef',
+ 'queue_migration_return_hash': 'bfa61315c71c3395a66302ae603d42deea490fec338397f4ea84e438ebb6f582',
  'queue_migration_selector': '9461f698',
- 'queue_post_state_return_hash': '40fa5386e351777ee1a1e3f5e512f346f0ce525aebf71dade37d39c00e8349df',
- 'queue_protocol_change_calldata_hash': 'ae88522438007d7f2130df2fd45534da264f45997fffadf977792761b2f199a6',
- 'queue_protocol_change_calldata_length': '10980',
+ 'queue_post_state_return_hash': 'aad0b4d0f08d00c52f6eee6c6ffc9065c246106947ad5fb375944b6758149ad9',
+ 'queue_protocol_change_calldata_hash': '1ef1557e5afa7b12320b66ef8f134f285f3b3085612240c389210c17a39c0651',
+ 'queue_protocol_change_calldata_length': '11012',
  'queue_protocol_change_selector': 'bd5c80a8',
  'queued_return_hash': '76f821bd39721ec0e26efc55d7b667d20aab74992e0feae7d7755e386ecd694d',
  'recovery_id': 'fd0552b28542fa3e236c86807695f3d5a4bc0436add285daa8506d9a79511b15',
- 'register_fork_verifier_operation_id': '6f3f09d83e85bf28f62fe18b37ac3abd378c8d03e1a5bffe67fc2e59540d4aeb',
- 'register_fork_verifier_payload_hash': '060a82d25adb79cdf6382c783964efced57515aa1a1a7e79cde651e9ab190c00',
- 'register_fork_verifier_payload_length': '448',
- 'register_release_operation_id': '962b2162bc30c7006b1c14b0fc3595e3accd1d489cd8d71760297f5c6105ad10',
- 'register_release_payload_hash': '55f0964249c9a7241537f50a544590b184b4db9cf72ee350c3caf64ec9c3d829',
- 'register_release_payload_length': '10880',
- 'register_release_profile_bytes_hash': '156b93e89b4df11f49fad1dbd1842de459aa5bdeb255f54f65751888a4515dd1',
- 'register_target_release_calldata_hash': 'e3a69e9acf8d2098541c6fc212c5bde3113fa91049734512157943b65a5b5248',
- 'register_target_release_calldata_length': '10884',
- 'register_target_release_return_hash': '9ed40df717cee20d2ba7e2c6435dfab8df7a1383b9e2f9f034d211c68ca48c39',
+ 'register_fork_verifier_operation_id': '59169620023947479c6848e10e72e21f6bad34f51f9b38d30c504b6c522bbf3d',
+ 'register_fork_verifier_payload_hash': 'c07ba77bf323b341a5c54ef97d01da41c78e962f9c51ab2b9644e7cd6c003012',
+ 'register_fork_verifier_payload_length': '576',
+ 'register_fork_review_certificate_hash': '15a242cf0fd70257617f69c7ccd4075d46c7e76ae22377f878a0884f3cd9eafb',
+ 'register_fork_review_evidence_hash': '14795f387018d6c52030f07fd28f32b34abc62439c2dd8aa28785bf5156bfc68',
+ 'replace_pending_fork_verifier_calldata_hash': '7f5672e814198405380028deb977bebdad7c69273d1b9b2c72edf8ca26982aca',
+ 'replace_pending_fork_verifier_calldata_length': '548',
+ 'replace_pending_fork_verifier_operation_id': 'fe46b8930ee06263cc46f6fae27477f35528a751133875cc228e0126d8561322',
+ 'replace_pending_fork_verifier_payload_hash': 'f9d94647d71f55db575b40a58082faf63ec67e4897b097f83d7af5195807f132',
+ 'replace_pending_fork_verifier_payload_length': '1536',
+ 'replace_pending_fork_verifier_return_hash': '9b9e757b4ebf73b65db810d4bd2da658f26d189916c4b97595c5470ad7972534',
+ 'replace_pending_fork_verifier_return_length': '160',
+ 'replace_pending_fork_verifier_selector': 'b48bbef1',
+ 'replacement_fork_review_certificate_hash': '8d6189732cb1cf1bb44c997a3d0e64b70b595c1bc02dcc1297fb7c438f30ea76',
+ 'replacement_fork_review_evidence_hash': '3ec105c1c8c3673411009311dfe6a66d3136ada378f65469528381b3ae0d25cd',
+ 'register_release_operation_id': '1567cd0d772389453ddf952211a7b5645992553e095aa83c45566c399d10e994',
+ 'register_release_payload_hash': 'ba3ec3a5ee4af64def71a602b9f5efdffc406fc546730857ced768d0bdca8761',
+ 'register_release_payload_length': '10912',
+ 'register_release_profile_bytes_hash': '608f775844f056c6bcaddf149eb414f16b351ae9cf72e2f021d7d0da33c43cf5',
+ 'register_target_release_calldata_hash': '05b49909ae2f1825ecda2b8060a66610e3a1c71f355650d03f834a95e88f7e0a',
+ 'register_target_release_calldata_length': '10916',
+ 'register_target_release_return_hash': 'd285d95104b9c9637076a6fd76b8f7a527c05b49dacf7a9f585c7c98ec6d53a7',
  'register_target_release_selector': '9aa71eff',
  'registration_commitment_base_slot': '20b3dfc457e3cecf32b0c047177351f0814e426c1548e87b79f58830655810c3',
  'registration_commitment_slot': 'dfa6283b763bbadeb604401a78e2fefeddb72000addcdb94ed2e3de5cc69846b',
@@ -17070,31 +18326,36 @@ EXPECTED = {
  'registration_mpt_verifier_configuration_hash': '015ea002adbfab085cf51db1714c889961bb1a416cd69b7d22f1f816a5787e4c',
  'registration_mpt_verifier_descriptor_hash': 'e3c4dd9d13404822af1360b3bc97f3d82dc1dd7124a137e900c6351270505310',
  'registration_mpt_verifier_descriptor_typehash': '9533e2f6ac9bcf6830306a9ef5d14e21a06008f9ceb59208d09a8d7ab1e6100f',
- 'registration_route_key': 'db81cf13785d1f87ec9287c3d1473207c36a08db3e07990de18b4c5edf25e8ad',
+ 'registration_route_key': '8a92802ac27ef7bc1fe751df95c3543df477ec7e7220793bad45d7c7d3e0c05d',
  'registration_route_key_typehash': '4368ad9403b46ef3830e21af8cddcaedbd444c8c57bc3414ebc6fdd250e1e6da',
- 'registration_storage_statement_hash': 'c99a6d83d5667046e4cb17857acec32562fe197b4324217cd61c9c3e082cc85d',
+ 'registration_storage_statement_hash': 'def43d27efe0cf7f5a1434df51721cfb35744ae1f60be5b65101228d8feb1b49',
  'registration_storage_statement_typehash': 'c049f967468e58f1a5c9b9e1a147dfc233695ae69c5d4a95ec4ffb49b5687da0',
- 'registration_verifier_return': 'c99a6d83d5667046e4cb17857acec32562fe197b4324217cd61c9c3e082cc85d',
+ 'registration_verifier_return': 'def43d27efe0cf7f5a1434df51721cfb35744ae1f60be5b65101228d8feb1b49',
  'registry_proof_digest': '188d53708f68cd601ace09953d87031b89c92f5b9d7bffd847e324ab7adc8261',
  'registry_root': '0bf297d7b9b6a5529a319a06cb08484923a89bab15d51f8baeaf5c30bebdf3fd',
  'release_manifest_base_slot': 'a0b7a29a75032f37561036cd3741e7b375213309367f37b5ffec4ad55cf6154f',
- 'release_manifest_hash': '2eed453340352d5acf0990db614bcf43b562de22e4bc56a7bd71ce265c744292',
+ 'release_manifest_hash': '343f5333e047f51d87ec2d1aeb8bf2ef35e3dda3c0246878a92874e70d94a80a',
  'release_manifest_slot': '719bb73ba856aeab1b203e322bfefc6d84a4c41a3222bcf1634b1b44e5b9aba8',
  'release_manifest_trie_key': 'dac8109059d03da2ad16ac3acc50d2e58897b8c3a7f6889ae77bfb20737e87a2',
- 'release_manifest_typehash': '603555ff1d82bc9012b0e0c8a36df28e154b16cbd89be4eed9d01228c502965b',
- 'reorg_genesis_activation_context_hash': '4cbc1dce76c55826f567fe021ec13073e54c90fe09bcc101611f11365fac5943',
- 'reorg_genesis_activation_receipt_id': 'c206320bd026e14c63fd7143efec397da2e65b128d4aaa1a4f5e47c70023ef00',
- 'reorg_genesis_post_state_commitment': 'fdce3cb4fb183aa1eeb0eb5648eee63e1aba6bb2c711ed275cd77e059631409c',
+ 'release_manifest_typehash': 'e7dc28b9b7147fbe9f9b0e0bf910800983be65e9ca19020f296fb0e780a0804b',
+ 'reorg_genesis_activation_context_hash': '337d11adfe0f2431838b7f6930ac70bd72255443e899486007947b90f733cd8c',
+ 'reorg_genesis_activation_receipt_id': '8c2c5541917706a54c49c210df34c353de1b5cde5f21c7eaf916b92bb6b3641c',
+ 'reorg_genesis_post_state_commitment': 'c4fde5fa0b83ac5617706613c00e3506117514512a3ba0088a42f6889d1b2326',
  'route_config_getter_selector': '4b64fa11',
  'schedule_carrier_return_hash': '3e7028adb7b81c521979a0024999718518559b1ddec5cde8e3a9379d6cef3125',
  'schedule_carrier_statement_hash': 'e5e7ef6967d544c41242fd48103d1a53c28f1d6da31a1649d34f4bd11025e123',
  'schedule_fork_carrier_magic': '53464331',
  'schedule_fork_constants_hash': 'c17afdd5367849af551b3a2f322a2c351321e916ad913a78b646586fe34f59fc',
- 'schedule_fork_output_schema_hash': '3a480130319b3cebce02d217988e89c83c6bd6e71ff93c25bc4fc38e51fbe2c0',
+ 'schedule_fork_output_schema_hash': '623a145841922b79691d33358ec5233f02cf68a4176d9e7c2cfafaeb357fa63a',
+ 'schedule_fork_route_state_hash': '4ada318df9f5ffeb65fa6a0ce68aa2b019746320323628be080fc142dbe255e9',
+ 'schedule_fork_route_state_magic': '46525331',
+ 'schedule_fork_route_state_return_hash': 'f4433ec078e97ab1615b273d74599b14f3458581e83e7d4dbb1f77dfc65d891e',
+ 'schedule_fork_route_state_return_length': '160',
+ 'schedule_fork_route_state_selector': '7e9f3c0d',
  'schedule_fork_verifier_config_magic': '53465631',
- 'schedule_fork_verifier_config_return_hash': '876e1109f517610df01f9c613f669d68ca2390fbee92c41b63e7a9a65a1924da',
+ 'schedule_fork_verifier_config_return_hash': 'd71c98eddf7e49dfebf8278d29f45aa24a115e507fb309965fcaf8f523409dba',
  'schedule_fork_verifier_config_selector': '44efa773',
- 'schedule_fork_verifier_configuration_hash': '95d9108bef4bb1eb4d6b63a79b04aecffcb7f8405b82cb22883c28dda04bb802',
+ 'schedule_fork_verifier_configuration_hash': '9256c85ac8b81181ff7538f757939218a42c945cb7228ed5755d10f5e4ef643d',
  'schedule_list': '7ab789362dd8b411e1bc42af1270bcb14d2a7571fc28ab614c6afcc33b7de8e7',
  'seat_authority_read_gas': '100000',
  'seat_market_duty_selector': '9a649489',
@@ -17121,89 +18382,101 @@ EXPECTED = {
  'session_surplus_swept_topic': '3a5f2fa0ab342d3b79fc2aa40be5e1296009e8fb31f86c3577c51839dd159a86',
  'session_sweep_selector': '9d083a2b',
  'settlement_authorization_getter_magic': '53415431',
- 'settlement_authorization_id': 'ec0386139a3249f6b13924e118ec56d2444c1dc8fdde17732beacf1e2e7328ac',
+ 'settlement_authorization_id': '732c72e356ee45cf3d903974c8fc4d8dc07412f7cb7b1a78c87f973ba264d0bd',
  'settlement_authorization_install_magic': '53414931',
- 'settlement_authorization_return_hash': '96f0d2b69624721728f62e5965592aed95dabea03c12634f0f36dbe0b031da08',
+ 'settlement_authorization_return_hash': '0b5c485e72e3dd639ad128e1487719ebdcdc06359ed4c42af878c734eb93f975',
  'settlement_authorization_selector': '1693ae01',
- 'settlement_deployment_descriptor_abi_hash': '98e8a4ded9f1ee5cdf8307f8a510c902b7c952bf320d036b355babee4a43d0e8',
+ 'settlement_deployment_descriptor_abi_hash': '715be5161a63319101a7ec77d196a5b6c904a1da6de431da58a1fa18393f5a99',
  'settlement_deployment_descriptor_abi_length': '256',
- 'settlement_deployment_descriptor_hash': '2f36e31051a28b3cd095ee72790df906525f0351fb17fe4dc4f948b2b28d52b2',
+ 'settlement_deployment_descriptor_hash': '91bdb3029cf56d37cb9167e4498ad69b856b5909cda153b43f085ec693cf51ec',
  'settlement_factory_configuration_hash': '4bf4831c096e251d0ef171bc0fd0582319fdc7ad7a2bea91a6b9b64601aa2837',
  'settlement_factory_deploy_selector': '4af63f02',
- 'settlement_tuple_substitution_terminal_leaf': 'c26c0dd865cf2a2442eae4c0065a8cedf585c4bddd74333dd51207339ebcdfbf',
+ 'settlement_tuple_substitution_terminal_leaf': '96baecdcde62bd5dd9d86625842471da07d3008a205ef8c79481254779e68649',
+ 'split_fork_review_certificate_hash': 'b148161fb4f81c944885fe38cdf2588d21ebe9ad5dcecb5d5df2804a31cfe1de',
+ 'split_fork_review_evidence_hash': 'c05a310757688c48297f6007e5c8cd2b684f2ef2f2786a85421a64c37ea30e1c',
+ 'split_fork_change_expired_operation_return_hash': '36100d0d72d0f520507901b3d3a5f50bc01d53c956252df1606bdef7debe030a',
+ 'split_fork_change_queued_operation_return_hash': 'd9abc75048f1e1f7ecbed1986331ed37af38716dfbba28a4015c38ecd580c25b',
+ 'split_latest_fork_verifier_calldata_hash': '793eb33ab7e71b38a63b6b04704dbdc816de18915df79b09af7d75c4e812b41b',
+ 'split_latest_fork_verifier_calldata_length': '516',
+ 'split_latest_fork_verifier_operation_id': 'abce70ea742b56d07e890e5425a1eb355ac2304ace53d73ed105e746ddeceede',
+ 'split_latest_fork_verifier_payload_hash': '92ac8d8cd580e118ad74b14b48a8e7739594ad8e3434834619bd626e183a16ff',
+ 'split_latest_fork_verifier_payload_length': '1056',
+ 'split_latest_fork_verifier_return_hash': 'a3e070e8b9e742f15f072cb46690cf08b62bf018a99b83666455adec80e54833',
+ 'split_latest_fork_verifier_return_length': '160',
+ 'split_latest_fork_verifier_selector': '455b4ff5',
  'source_bridge_config_getter_return': '7f8e990ebe1154e101998d40cbff22336f4a7f1d70f13d0c2af5235ea47ffa0e',
  'source_bridge_descriptor_length': '752',
- 'source_context_hash': '7860cbf2dd45ec991c4cb39bf8d31ba4b289b95b180f5e74cbc8aab6583d2ea3',
+ 'source_context_hash': '003912c395f0a29be213bb41bfb1f171cf5da31f549f6b8bda07bfbeb67c00a4',
  'source_context_typehash': '6069dff5f628f94ceff984d5ce3ef62019eaeb4efd7e0627c45a14677bd13c70',
  'source_credit_read_gas_limit': '200000',
- 'source_domain_id': '90d17b25434418f73547f0a925f8829b1329c3921e357c133ca45d4c3bcfe7c5',
- 'source_factory_config_getter_return': '3799b59e038f849360bd69cd5edc79d268efbe05e154bc76dc5b9727770448c6',
- 'source_freeze_post_state_commitment': '83ca1e9a7398423e02ee3f739b77d038f094a1b408eec755c2adcc68f0994ec7',
- 'source_post_state_return_hash': '446d95d691fca25305812d2c160129e06cd41fd4483c05240bf665c340174221',
+ 'source_domain_id': 'a955e9cbaafee3fb51bca7d966012607d8ae8354574180ecbeb6ce71ed159f26',
+ 'source_factory_config_getter_return': '73512f5b6f9f640f1459a80b7372737a7ada2586dfd15d0efa129e76f3d01ec4',
+ 'source_freeze_post_state_commitment': '23eac6c66af12ea48c3bdc77a429d983dbad8fe9b92692a8839d358223984e79',
+ 'source_post_state_return_hash': '4328893f4fa40869099a0a2074998dc420210cfb4b9f3a6077afcaee046ee829',
  'source_quota_config_getter_return': '09d21b4d09dadaabdb05c5b8c88db22757c4de82b7a3ebc1a6910606fe36ff0c',
  'source_registry_config_getter_return': '81d538ec2bf4cf246008838e0908d61eff83a01740a58abec23d7aa573087ee1',
  'source_support_registry_config_getter_return': 'c8beb33d334a9cf76d329ab18cb3b197276e878c5b5a54397c6f0e5c41904b0d',
  'source_terminal_verifier_config_getter_return': 'c7297de84fb29fa53cf5f96d02a6254e970e20ac10991766cb58b4981485290f',
- 'statement_hash': '595572878b741314aaba69c75e2d93afdaae2f502727f80e758c6d9b9a04bb49',
+ 'statement_hash': 'b29c270bf7f140c4818c7b15dd82c567abc4fc617527c350f8be0e048199b24a',
  'status_return_hash': 'b39221ace053465ec3453ce2b36430bd138b997ecea25c1043da0c366812b828',
- 'successor_migration_activation_profile_record_hash': '446c3edee46876e796417e1900b29a849969e52abe02504580a26bf68253589a',
- 'successor_release_manifest_hash': 'f3a18c9d5df79d935af24e127d435c2c75a1c9548ed0d91719ed8d1ed6ac5b37',
+ 'successor_migration_activation_profile_record_hash': 'fc8080551b2c3016f61eb18d9f37424722b112458758bae1625561bea42f2bcd',
+ 'successor_release_manifest_hash': '3270ab58d2de9c50a8fd6f1c6a00a080f4b414cfdc82769e7e0eba65bc5bbcca',
  'successor_settlement_deployment_descriptor_hash': '377aa582c38874cf50ef87030c628b15c5e0302e6830e51b09d8542659bedc18',
- 'successor_target_registration_hash': '72dd0e20247bbf291852f71567dd6d60639150b2823563b89bef46705cf9307f',
+ 'successor_target_registration_hash': 'b72953817f70362ad9b3a8ea8333f46b072caefc234bfdf8606f5b92fea3bfc8',
  'sync_ingress_selector': '6c880b72',
  'sync_ingress_stamp_return_hash': '1fd01b194948c635358fbb51b4a5f32f8ceab4dc4153e0230215f8afc94ee434',
  'sync_ingress_synced_return_hash': 'ef662a629ce07c9ed715124d8141a6e430d0a3065f8ce8074a7ea95e8751f184',
- 'target_call_failed_error_hash': 'fb182e91f98d716413c51b87747dde9564a7f56abf4a3e2c18d10de4fd86ae35',
+ 'target_call_failed_error_hash': '1ab0ae98eedd4e4e99d2537682757f416ad55f53ccf2ddc7b4faaa48d2bcdad2',
  'target_call_failed_selector': 'f9cc2b44',
- 'target_constructor_state_return_hash': '0a006f1021ef64351a3bbb74d6faf540947ae8de11ff18a354f0017096e43e6a',
+ 'target_constructor_state_return_hash': 'ba8c0d80fc5547eeb59a25c8546b443a727d0d64a38158281b5873d7d391239a',
  'target_constructor_state_selector': '654f7fce',
- 'target_post_state_return_hash': '4298b19ff661be33a8b3d2abcf53e00a0c4fd7a2970ba0f58490cd72e447797b',
- 'target_registration_hash': '983323a88139b20ed283c7d9e061764b61924aeaa909fd101d73bf56055ec9a1',
+ 'target_post_state_return_hash': 'd2a8e3257e0f95d4fea4f1d7a0874c85a37245dfd2a379b8418b9e7f2d97dfba',
+ 'target_registration_hash': '9960e6e736719251db055c3f6a73d150c1e55441e5b8acb9206c6f32f31c5fb9',
  'target_release_registration_calldata_hash': '5c5db1ed7485ad89b4d9125c80db863078603f32ddd3032552a6345bd0dba5ee',
  'target_release_registration_magic': '52545232',
- 'target_release_registration_return_hash': 'a4d97888b7be36916939cbe31ace4ba2271d1b64002c7c27da4ddf772ed7b888',
+ 'target_release_registration_return_hash': 'b92ca81ed109e2757ef5b77935c272374a0116031330cbfc6415a317e96902c3',
  'target_release_registration_return_length': '416',
  'target_release_registration_selector': 'f588fec3',
  'terminal_append_return': '0000000000000000000000000000000000000000000000000000000000000002',
- 'terminal_commitment_calldata_hash': 'f07e26559da70b118df63df8ee01870749646578452f2da370a1b3a7a1c85ebe',
- 'terminal_commitment_return_hash': '216cd70d7bf147670b16f4998790d1d41b9df9f8cafc701b6412d6a903940c16',
+ 'terminal_commitment_calldata_hash': '505a325523808cbd0221207bdff17e3a8d34e2d8d454340b9ffabd480a756652',
+ 'terminal_commitment_return_hash': 'a58064643d9fcb9115c70ddfd323577c3e9d3b7150bad48e533d3dadac649b4f',
  'terminal_commitment_selector': '2c984c97',
- 'terminal_done_leaf': '13e0e5ab57a472bfa8f883301b79b4cbe6dd0f7b787a6877f90f6c80ff13abb7',
- 'terminal_failed_leaf': '9edd78b2e1393d20c1c7ae1390633c65ce14ebd08af366a10d2b025af1c7d00e',
- 'terminal_frontier_after_2_digest': '2c6f371f051bd1c5527cbeaed9f8783236b0b250b0c5f2bed60fa2e8f3dee82c',
- 'terminal_frontier_root_2': 'c4438d841e19055e73f0045bc7cd86349dd671a4d6401d338a4e1bea03023f87',
- 'terminal_root_2': 'c4438d841e19055e73f0045bc7cd86349dd671a4d6401d338a4e1bea03023f87',
+ 'terminal_done_leaf': 'd5f92fbe75e51e2bcddee051eb01e222a101f16a9e6f9cd3a6e486e114fd5778',
+ 'terminal_failed_leaf': '2cdb7e63b317779f0745088a4148bc6cdda12d8331718a6874904beb4ab15362',
+ 'terminal_frontier_after_2_digest': '582eeebaacbe2b12774eef4b3286045287fc7b5ff92dedf77b5443cfddf6723f',
+ 'terminal_frontier_root_2': '8b47e5d6f541fa86cf14b6568107c0631a3df79afd50d24baeb936fdb39e687b',
+ 'terminal_root_2': '8b47e5d6f541fa86cf14b6568107c0631a3df79afd50d24baeb936fdb39e687b',
  'terminal_state_return_hash': '3e3b1f39f0b0fc42adb4a6c15987dc52d6c0bac9497db88ab1b07b9fb96bfbcd',
  'terminal_state_selector': '998c57ed',
  'tranche_leaf': '80fce6c2421807d961f9207d30b439bd423c05e206a18021b93217513ecc5551',
  'tranche_proof_digest': '8d56574545d36cb4cbb7f1452055275a3dbd8e5b2aa9062e717095f387a0a2d8',
  'tranche_root': '12ce6da6104ea0fb21edbc0e932f7500fabf18173911a48bc5e1d4d2af1cc336',
  'typehash': 'ee6a8c8e31e8245cd527869508f6e464d6084893991203876f734d1855aed87c',
- 'v11_bridge_descriptor': '2121212121212121212121212121212121212121212121212121212121212121000000000000000000000000000000000000000000000000000000000000000190d17b25434418f73547f0a925f8829b1329c3921e357c133ca45d4c3bcfe7c50000000000000007fff25f997872e08385a4dc63163e60181c213f62fc36592a3ce1c728fadafc407194dc1435df539cb0954d73f07ce51a7b58f20f000000000000300cf5cd16d49c1f88557f70f9162d3bb6366667a956cfcd8cc5b43532d3c73a094e000000000000000000000000000000000000000000000000000000000000419400000000000c35000000000000000000000000000000000000003333000000000000000000000000000000000000111100000000000000000000000000000000000022220000000000000000000000000000000000000000000000000de0b6b3a764000000000000000004d2000000000000162e2222222222222222222222222222222222222222222222222222222222222222010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000014aaab6b096419fe36f3b3d6645c8173765a2f4a903ea336790040b82eec5af100000060000000000001d4c0000000000000000000000000000000000000beef00000000000002bc0000000000000898000000000000000000000000000000000000000000000000002386f26fc10000',
- 'verify_inbox_credit_calldata_hash': 'bda76e8392d84ca874b1c3dc045d489e3b4582d9037381c733a2a0d4d3637f09',
+ 'v11_bridge_descriptor': '21212121212121212121212121212121212121212121212121212121212121210000000000000000000000000000000000000000000000000000000000000001a955e9cbaafee3fb51bca7d966012607d8ae8354574180ecbeb6ce71ed159f26000000000000000745e9bb77c41df4916367f5eb49906367fe5bf1239cbef2cdc597906c40300da43a0b3296fb529a82094f4be32f7e8b7ed70d53af000000000000300c123173ae26db2c61b26412a377907f65420237d7c36efc79c59710e43e6be77e000000000000000000000000000000000000000000000000000000000000419400000000000c35000000000000000000000000000000000000003333000000000000000000000000000000000000111100000000000000000000000000000000000022220000000000000000000000000000000000000000000000000de0b6b3a764000000000000000004d2000000000000162e222222222222222222222222222222222222222222222222222222222222222201000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000b5dda48fd1355bc82eebd46369a48e66034fe92e15e5e49393787281782aebc00000060000000000001d4c0000000000000000000000000000000000000beef00000000000002bc0000000000000898000000000000000000000000000000000000000000000000002386f26fc10000',
+ 'verify_inbox_credit_calldata_hash': '5b788adc101bbf80b73678356ace6b4aca61da85302d4747a155f2fa33adddf4',
  'verify_inbox_credit_magic': '49435632',
- 'verify_inbox_credit_return_hash': 'ea4b4aee5e985f6e69fb050de18b11ab01681ed5cb407e16d734dcdf74875397',
+ 'verify_inbox_credit_return_hash': '0e5a24d737136abf8a7a010846356b518761e7813af6495e341c961c51f5756c',
  'verify_inbox_credit_return_length': '256',
  'verify_inbox_credit_selector': '720f747b',
- 'verify_registration_calldata_hash': '710c7863ec96da255fde57220772b0f173d7931ed21bc878586820012f33bb50',
+ 'verify_registration_calldata_hash': '8ebbc9339382215ee44e7d72ea3bfd12740c204662157f43e11416afbd8ef97c',
  'verify_registration_calldata_length': '516',
  'verify_registration_selector': '33639818',
  'verify_schedule_carrier_calldata_hash': 'a6f4b2260cd81afd71756624c295b886d29e85c0c9e9b1cdc89f0148bbd0fb79',
  'verify_schedule_carrier_calldata_length': '132',
  'verify_schedule_carrier_selector': '7e981e0b',
- 'version_activation_calldata_hash': '7e8752905eed18b1538c7bb67fe0e59ac0478006c5fd15982a557c0bd843cfc2',
- 'version_activation_calldata_length': '17188',
+ 'version_activation_calldata_hash': '069e8ed627691c90dc5d6488b9fd1a42198d1c9afbc454b430c66e6aadd8aa55',
+ 'version_activation_calldata_length': '17220',
  'version_activation_fixed_hash': '24f54f2ca1c6731f04741371c1e2705fcd912e1b5cf2bd5d727729cc5de89a41',
- 'version_activation_receipt_return_hash': 'ed7cf2485014f0fa2634a733b6ecde0ee96623aec74c71751e24dce3caffcf69',
- 'version_deployment_commitment': '362705765b4ec0c3a06d50cb764a225031ecc5161bb30b5bbdaf931418c701cf',
+ 'version_activation_receipt_return_hash': 'f98d13fe637fe5e611c17b19d81d5d9f401c44719f9f1b384e608b3cce877b95',
+ 'version_deployment_commitment': 'cd83045ad83423f86e5a80089f490f26fc120c91d081182519e03d0991bf408c',
  'version_migration_abort_after_timestamp': '624800',
  'version_migration_abort_magic': '564d4231',
- 'version_migration_arm_id': 'a11907068adf511c646a4473426660eaa3dd052b524dcb2407662cc17a9c6ded',
+ 'version_migration_arm_id': '6cd972f38b1ce9ec3090c77c4e5c45d327faca5af8dd8456ce92fd269407c18b',
  'version_migration_arm_magic': '564d4131',
  'version_migration_lease_magic': '564d4c31',
- 'version_migration_lease_return_hash': '32f52b08f3e01ae1ed65c85b503acd94a492ccf44974138456222b6799e7051b',
+ 'version_migration_lease_return_hash': '51b3c0452b37934015ff1246e94628f28c92bb1596669a56c829e145b1f53ed6',
  'version_migration_lease_return_length': '320',
- 'version_migration_statement_hash': 'fecf17e6d81ea60b3712f796cddc4780e295bd5c0e20c233cfb7fb477113c4de',
+ 'version_migration_statement_hash': 'd622b4e5bf4e67c480191c366a2a0cb9d61d0297bed99024a3abafc2e1e32cd2',
  'winning_data': '4ae34aa9efb842528d353b175f94191d01cfd168b5ad828f64a0e7972a2ca9e3'}
 
 
@@ -17255,6 +18528,9 @@ UINT_VECTOR_NAMES = frozenset({
     "claim_reward_v1_return_length",
     "fund_reward_class_v1_calldata_length",
     "fund_reward_class_v1_return_length",
+    "fork_change_execution_window_seconds",
+    "fork_change_queue_inclusion_allowance_seconds",
+    "fork_change_renewal_runway_windows",
     "reward_claimed_v1_data_length",
     "reward_claimed_v1_topic_count",
     "reward_class_funded_v1_data_length",
@@ -17275,6 +18551,8 @@ UINT_VECTOR_NAMES = frozenset({
     "enqueue_forced_transaction_calldata_length",
     "execute_attempt_calldata_length",
     "execute_protocol_change_calldata_length",
+    "expire_fork_change_calldata_length",
+    "expire_fork_change_return_length",
     "execution_profile_abi_length",
     "execution_profile_creation_offset",
     "execution_profile_static_words",
@@ -17330,6 +18608,7 @@ UINT_VECTOR_NAMES = frozenset({
     "pool_value_callback_gas",
     "protocol_authority_read_gas",
     "protocol_change_delay_seconds",
+    "protocol_root_soc1_return_length",
     "publish_genesis_campaign_payload_length",
     "publish_migration_arm_payload_length",
     "pvm_router_mutation_gas",
@@ -17339,11 +18618,18 @@ UINT_VECTOR_NAMES = frozenset({
     "register_fork_verifier_payload_length",
     "register_release_payload_length",
     "register_target_release_calldata_length",
+    "replace_pending_fork_verifier_calldata_length",
+    "replace_pending_fork_verifier_payload_length",
+    "replace_pending_fork_verifier_return_length",
     "seat_authority_read_gas",
     "send_message_v2_calldata_length",
+    "schedule_fork_route_state_return_length",
     "settlement_deployment_descriptor_abi_length",
     "source_bridge_descriptor_length",
     "source_credit_read_gas_limit",
+    "split_latest_fork_verifier_calldata_length",
+    "split_latest_fork_verifier_payload_length",
+    "split_latest_fork_verifier_return_length",
     "target_release_registration_return_length",
     "verify_inbox_credit_return_length",
     "verify_registration_calldata_length",
@@ -17353,7 +18639,7 @@ UINT_VECTOR_NAMES = frozenset({
     "version_migration_lease_return_length",
 })
 VECTOR_NAME_SCHEMA_SHA256 = (
-    "66dd621021be6549d5dfa95c0e83cf92b82174c5b8d146a4dbdb67750b0acf7c"
+    "9e825447ec1a2a360526d7b0371c4f947532696fc169b44ba159051579d647b9"
 )
 
 
@@ -17365,7 +18651,7 @@ def typed_vectors() -> tuple[dict[str, str], ...]:
     actual = vectors()
     assert actual == EXPECTED
     names = tuple(sorted(actual))
-    assert (len(names) == 764 and len(set(names)) == len(names)
+    assert (len(names) == 812 and len(set(names)) == len(names)
             and UINT_VECTOR_NAMES <= set(names)
             and hashlib.sha256(
                 b"\0".join(name.encode("ascii") for name in names)
@@ -17413,7 +18699,7 @@ if __name__ == "__main__":
             if EXPECTED.get(key) != actual.get(key)
         }
         raise AssertionError(f"golden drift: {drift}")
-    assert keccak256(ACTIVATE_RELEASE_V2_SIGNATURE)[:4].hex() == "28f73572"
+    assert keccak256(ACTIVATE_RELEASE_V2_SIGNATURE)[:4].hex() == "33f5ca80"
     payload = b"alpha" * 100
     blob = encode_blob_payload(payload)
     assert decode_blob_payload(blob) == payload
@@ -17894,7 +19180,7 @@ if __name__ == "__main__":
     destination_descriptor = DestinationBridgeDescriptor(
         0xB200, components[9].runtime_hash, components[9].config_hash,
         bytes.fromhex("42" * 32), bridge_kernel,
-        0x5101, 0x5102, 0x5103, 0x5107, 0x5104)
+        0x5101, 0x5102, 0x5103, 0x5107, 0x5104, 0x5108)
     for changed_destination_descriptor in (
         replace(destination_descriptor, bridge=0xB201),
         replace(destination_descriptor,
@@ -17906,6 +19192,7 @@ if __name__ == "__main__":
         replace(destination_descriptor, terminal_domain_registrar=0x5113),
         replace(destination_descriptor, quota_manager=0x5114),
         replace(destination_descriptor, native_liquidity_pool=0x5115),
+        replace(destination_descriptor, bridge_surplus_sink=0x5116),
     ):
         assert (destination_bridge_execution_hash(changed_destination_descriptor)
                 != destination_bridge_execution_hash(destination_descriptor))
@@ -17914,7 +19201,7 @@ if __name__ == "__main__":
     try:
         destination_bridge_component_config(
             bytes.fromhex("42" * 32), bridge_kernel,
-            0x5101, 0x5102, 0x5103, 0x5107, 0)
+            0x5101, 0x5102, 0x5103, 0x5107, 0, 0xB200, 0x5108)
         raise AssertionError("zero Bridge Pool binding accepted")
     except AssertionError as error:
         assert str(error) != "zero Bridge Pool binding accepted"
@@ -17969,8 +19256,8 @@ if __name__ == "__main__":
     assert not execution_profile_dependency_keys_valid((
         "manifestSchemaVersion", "manifestSchemaVersion"))
     release_hash = release_manifest_hash(release_manifest)
-    assert len(canonical_release_manifest(release_manifest)) == 1_856
-    assert 4 + len(canonical_release_manifest(release_manifest)) + 32 == 1_892
+    assert len(canonical_release_manifest(release_manifest)) == 1_888
+    assert 4 + len(canonical_release_manifest(release_manifest)) + 32 == 1_924
     for changed_manifest in (
         replace(release_manifest, protocol_version=3),
         replace(release_manifest, settlement_chain_id=2),
@@ -18241,6 +19528,10 @@ if __name__ == "__main__":
         "timelockDesc": "governance_delay_authority_descriptor_hash",
         "pvmCfgHash": "protocol_version_manager_configuration_hash",
         "pvmDesc": "protocol_version_manager_descriptor_hash",
+        "soc1Sel": "protocol_root_soc1_selector",
+        "soc1Magic": "protocol_root_soc1_magic",
+        "soc1Ret": "protocol_root_soc1_return_hash",
+        "soc1RetLen": "protocol_root_soc1_return_length",
         "protoDelay": "protocol_change_delay_seconds",
         "maxMigLive": "maximum_live_version_migration_seconds",
         "protoReadGas": "protocol_authority_read_gas",
@@ -18248,6 +19539,7 @@ if __name__ == "__main__":
         "execOpSel": "execute_protocol_change_selector",
         "cancelOpSel": "cancel_protocol_change_selector",
         "applyOpSel": "apply_protocol_change_selector",
+        "expireForkSel": "expire_fork_change_selector",
         "timelockCfgSel": "protocol_change_timelock_config_selector",
         "pvmCfgSel": "protocol_version_manager_config_selector",
         "armFreshSel": "migration_arm_fresh_after_selector",
@@ -18257,16 +19549,60 @@ if __name__ == "__main__":
         "armFreshMagic": "migration_arm_fresh_after_magic",
         "opMagic": "protocol_change_operation_magic",
         "applyMagic": "protocol_apply_magic",
+        "expireForkMagic": "expire_fork_change_magic",
+        "forkChangeWindow": "fork_change_execution_window_seconds",
+        "forkQueueInclusion":
+            "fork_change_queue_inclusion_allowance_seconds",
+        "forkRenewalRunway": "fork_change_renewal_runway_windows",
+        "regForkReviewEvidence": "register_fork_review_evidence_hash",
+        "regForkReviewCert": "register_fork_review_certificate_hash",
+        "replaceForkReviewEvidence":
+            "replacement_fork_review_evidence_hash",
+        "replaceForkReviewCert":
+            "replacement_fork_review_certificate_hash",
+        "splitForkReviewEvidence":
+            "split_fork_review_evidence_hash",
+        "splitForkReviewCert":
+            "split_fork_review_certificate_hash",
+        "splitForkQueuedRet":
+            "split_fork_change_queued_operation_return_hash",
+        "splitForkExpiredRet":
+            "split_fork_change_expired_operation_return_hash",
+        "expectedPredForkReg":
+            "expected_predecessor_fork_registration_hash",
+        "expectedOldForkReg": "expected_old_fork_registration_hash",
         "regRelPayload": "register_release_payload_hash",
         "regRelPayloadLen": "register_release_payload_length",
         "regForkPayload": "register_fork_verifier_payload_hash",
         "regForkPayloadLen": "register_fork_verifier_payload_length",
+        "replaceForkPayload": "replace_pending_fork_verifier_payload_hash",
+        "replaceForkPayloadLen":
+            "replace_pending_fork_verifier_payload_length",
+        "splitForkPayload": "split_latest_fork_verifier_payload_hash",
+        "splitForkPayloadLen":
+            "split_latest_fork_verifier_payload_length",
         "pubGenPayload": "publish_genesis_campaign_payload_hash",
         "pubGenPayloadLen": "publish_genesis_campaign_payload_length",
         "pubMigPayload": "publish_migration_arm_payload_hash",
         "pubMigPayloadLen": "publish_migration_arm_payload_length",
         "regRelOp": "register_release_operation_id",
         "regForkOp": "register_fork_verifier_operation_id",
+        "replaceForkOp": "replace_pending_fork_verifier_operation_id",
+        "splitForkOp": "split_latest_fork_verifier_operation_id",
+        "replaceForkSel": "replace_pending_fork_verifier_selector",
+        "replaceForkCall": "replace_pending_fork_verifier_calldata_hash",
+        "replaceForkCallLen":
+            "replace_pending_fork_verifier_calldata_length",
+        "replaceForkRet": "replace_pending_fork_verifier_return_hash",
+        "replaceForkRetLen":
+            "replace_pending_fork_verifier_return_length",
+        "splitForkSel": "split_latest_fork_verifier_selector",
+        "splitForkCall": "split_latest_fork_verifier_calldata_hash",
+        "splitForkCallLen":
+            "split_latest_fork_verifier_calldata_length",
+        "splitForkRet": "split_latest_fork_verifier_return_hash",
+        "splitForkRetLen":
+            "split_latest_fork_verifier_return_length",
         "pubGenOp": "publish_genesis_campaign_operation_id",
         "pubMigOp": "publish_migration_arm_operation_id",
         "queueOpCall": "queue_protocol_change_calldata_hash",
@@ -18277,6 +19613,10 @@ if __name__ == "__main__":
         "cancelOpLen": "cancel_protocol_change_calldata_length",
         "applyOpCall": "apply_protocol_change_calldata_hash",
         "applyOpLen": "apply_protocol_change_calldata_length",
+        "expireForkCall": "expire_fork_change_calldata_hash",
+        "expireForkCallLen": "expire_fork_change_calldata_length",
+        "expireForkRet": "expire_fork_change_return_hash",
+        "expireForkRetLen": "expire_fork_change_return_length",
         "timelockCfgRet": "protocol_change_timelock_config_return_hash",
         "pvmCfgRet": "protocol_version_manager_config_return_hash",
         "armFreshRet": "migration_arm_fresh_after_return_hash",
@@ -18325,14 +19665,19 @@ if __name__ == "__main__":
         "forkInstallSel": "install_fork_verifier_selector",
         "forkRowSel": "fork_verifier_registration_selector",
         "forkCfgSel": "schedule_fork_verifier_config_selector",
+        "forkRouteSel": "schedule_fork_route_state_selector",
         "forkVerifySel": "verify_schedule_carrier_selector",
         "forkInstallMagic": "fork_verifier_install_magic",
         "forkRowMagic": "fork_verifier_registration_magic",
         "forkCfgMagic": "schedule_fork_verifier_config_magic",
+        "forkRouteMagic": "schedule_fork_route_state_magic",
         "forkCarrierMagic": "schedule_fork_carrier_magic",
         "forkInstallCall": "install_fork_verifier_calldata_hash",
         "forkRowRet": "fork_verifier_registration_return_hash",
         "forkCfgRet": "schedule_fork_verifier_config_return_hash",
+        "forkRouteState": "schedule_fork_route_state_hash",
+        "forkRouteRet": "schedule_fork_route_state_return_hash",
+        "forkRouteLen": "schedule_fork_route_state_return_length",
         "carrierCall": "verify_schedule_carrier_calldata_hash",
         "carrierCallLen": "verify_schedule_carrier_calldata_length",
         "carrierStmt": "schedule_carrier_statement_hash",

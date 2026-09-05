@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
+  import type { Address } from 'viem';
   import { formatUnits, parseUnits } from 'viem/utils';
 
   import { FlatAlert } from '$components/Alert';
@@ -10,6 +11,7 @@
     destNetwork,
     enteredAmount,
     errorComputingBalance,
+    gasLimitZero,
     insufficientAllowance,
     insufficientBalance,
     processingFee,
@@ -26,10 +28,12 @@
   import { getMaxAmountToBridge } from '$libs/bridge';
   import { fetchBalance, tokens } from '$libs/token';
   import { isToken } from '$libs/token/isToken';
+  import type { NFT, Token } from '$libs/token/types';
   import { refreshUserBalance, renderBalance } from '$libs/util/balance';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
-  import { truncateDecimal } from '$libs/util/truncateDecimal';
+  import { parseDecimalAmount } from '$libs/util/parseDecimalAmount';
+  import { truncateDecimalString } from '$libs/util/truncateDecimal';
   import { type Account, account } from '$stores/account';
   import { ethBalance } from '$stores/balance';
   import { connectedSourceChain } from '$stores/network';
@@ -43,6 +47,7 @@
   let inputBox: InputBox;
 
   let value = '';
+  let amountRejected = false;
 
   async function validateAmount(token = $selectedToken) {
     // During validation, we disable all the actions
@@ -51,12 +56,13 @@
     $validatingAmount = true;
     $insufficientBalance = false;
     $insufficientAllowance = false;
-    $computingBalance = true;
+    // No balance is read here, so the computing flag is not touched: raising and lowering
+    // it synchronously showed no spinner and, during a token switch, let the previous
+    // token's balance stand in for the new one
 
     if (skipValidate) {
       log('skipped validation');
       $validatingAmount = false;
-      $computingBalance = false;
       return;
     }
 
@@ -64,12 +70,14 @@
 
     if (!to || !token) {
       $validatingAmount = false;
-      $computingBalance = false;
       return;
     }
 
+    // The one check this used to delegate to a helper nothing called: an amount above the
+    // balance is refused here, and Actions gates Bridge on the same flag, so the Confirm
+    // step cannot send more than the wallet holds. The NFT input does exactly this.
+    $insufficientBalance = !!$tokenBalance && $tokenBalance.value < $enteredAmount;
     $validatingAmount = false;
-    $computingBalance = false;
   }
 
   const debouncedValidateAmount = debounce(validateAmount, 300);
@@ -78,10 +86,40 @@
     if (!isToken($selectedToken)) return;
     $validatingAmount = true;
     $errorComputingBalance = false;
+    // A typed amount supersedes a MAX still being computed: the later action is the one meant
+    maxAmountGeneration++;
 
-    $enteredAmount = parseUnits(value, $selectedToken.decimals);
+    // parseUnits alone accepts hex ('0x10' becomes 268435456), negatives and a leading
+    // plus, and rounds excess precision - every one of those bridges an amount other than
+    // the one on screen
+    const parsed = parseDecimalAmount(value, $selectedToken.decimals);
+    if (!parsed.ok) {
+      // An empty box is not an error, it is a box nobody has filled in yet. Anything else
+      // needs saying out loud: the amount is now zero and Continue is disabled, and
+      // without a message there is nothing on screen explaining why
+      amountRejected = parsed.reason !== 'EMPTY';
+      $enteredAmount = 0n;
+      $validatingAmount = false;
+      return;
+    }
+    amountRejected = false;
+    $enteredAmount = parsed.value;
     debouncedValidateAmount();
   };
+
+  // A MAX estimate goes over the network, and the selection can change while it is out. Every
+  // other async path in this component drops a superseded result; this one did not, and it
+  // re-read the token after the await as well: 100 USDC (100000000n) landing after a switch
+  // to ETH was formatted with 18 decimals as 0.0000000001, while the bigint that would be
+  // bridged stayed the USDC maximum. A typed amount and a reset supersede it too.
+  let maxAmountGeneration = 0;
+
+  // A MAX still out when this input is torn down must not land in the shared amount store
+  // under a newly mounted one: continuing to the review step and coming back does exactly
+  // that, and the new input's own counter knows nothing of the old request
+  onDestroy(() => {
+    maxAmountGeneration++;
+  });
 
   const useMaxAmount = async () => {
     log('useMaxAmount');
@@ -89,45 +127,113 @@
     if (!isToken($selectedToken) || !$connectedSourceChain || !$destNetwork || !$tokenBalance || !$account?.address)
       return;
 
-    try {
-      let maxAmount;
-      if ($tokenBalance) {
-        maxAmount = await getMaxAmountToBridge({
-          to: $account.address,
-          token: $selectedToken,
-          balance: $tokenBalance.value,
-          srcChainId: $connectedSourceChain.id,
-          destChainId: $destNetwork.id,
-          fee: $processingFee,
-        });
+    const generation = ++maxAmountGeneration;
+    // Captured before the await: what the estimate is for, and what its result is formatted with
+    const token = $selectedToken;
+    const srcChainId = $connectedSourceChain.id;
+    const destChainId = $destNetwork.id;
 
-        // Update state
-        $enteredAmount = maxAmount;
-        value = formatUnits(maxAmount, $selectedToken.decimals);
-        value = truncateDecimal(parseFloat(value), 12).toString();
-        validateAmount();
+    try {
+      const maxAmount = await getMaxAmountToBridge({
+        to: $account.address,
+        token,
+        balance: $tokenBalance.value,
+        srcChainId,
+        destChainId,
+        fee: $processingFee,
+        gasLimitZero: $gasLimitZero,
+      });
+
+      if (
+        generation !== maxAmountGeneration ||
+        token !== $selectedToken ||
+        srcChainId !== $connectedSourceChain?.id ||
+        destChainId !== $destNetwork?.id
+      ) {
+        log('Discarding a max amount computed for a superseded selection');
+        return;
       }
+
+      // The displayed value is truncated for readability, so the entered amount is
+      // re-derived from it: what the user sees is exactly what gets bridged. The
+      // truncation stays on the string, since a float round-trip yields scientific
+      // notation for tiny balances, which parseUnits rejects
+      const exact = formatUnits(maxAmount, token.decimals);
+      const truncated = truncateDecimalString(exact, 12);
+      // Below 1e-12 the truncation rounds the whole balance away, and MAX would show
+      // and bridge zero. Showing every digit is better than offering nothing
+      value = parseUnits(truncated, token.decimals) > BigInt(0) ? truncated : exact;
+      $enteredAmount = parseUnits(value, token.decimals);
+      amountRejected = false;
+      validateAmount();
     } catch (err) {
       log('Error getting max amount: ', err);
     }
   };
 
+  // Balance reads resolve out of order: a bridged ERC20 goes through getAddress and its
+  // own RPCs while ETH answers immediately, so an earlier selection's balance could land
+  // against a later token - and validInput would then accept an amount the wallet does
+  // not hold. Every writer of $tokenBalance goes through this.
+  let balanceGeneration = 0;
+
+  /**
+   * @dev Reads the balance and publishes it only if no newer read has started meanwhile.
+   * @param token The token the read belongs to
+   * @param userAddress The account to read for
+   * @param srcChainId The chain to read on
+   * @return published_ Whether this read was still the latest when it resolved
+   */
+  const publishLatestBalance = async (token: Token | NFT, userAddress: Address, srcChainId?: number) => {
+    const generation = ++balanceGeneration;
+    let fetched: Awaited<ReturnType<typeof fetchBalance>>;
+    try {
+      fetched = await fetchBalance({ userAddress, token, srcChainId });
+    } catch (error) {
+      // A rejection here would otherwise escape as an unhandled rejection and leave the
+      // computing flag raised for good. Reporting the read as settled hands the caller
+      // back the job of lowering it; the balance itself is simply left as it was.
+      log('Error fetching balance', error);
+      // Superseded reads report nothing: a slow read failing for a token the user has
+      // already replaced would otherwise raise the error flag over a balance that loaded
+      // fine, which is the same staleness the generation counter exists to stop
+      if (generation !== balanceGeneration) return false;
+      $errorComputingBalance = true;
+      return true;
+    }
+    if (generation !== balanceGeneration) return false;
+    $errorComputingBalance = false;
+    $tokenBalance = fetched;
+    return true;
+  };
+
   const reset = async () => {
     log('reset');
+    const tokenForThisReset = $selectedToken;
+    // A MAX still in flight was computed for the previous selection or account
+    maxAmountGeneration++;
+    // Recorded here rather than after the balance read: this is selection bookkeeping, not
+    // fetch-success bookkeeping. A reset superseded by a concurrent balance refresh returned
+    // below without recording its token, so switching back to the previous one found
+    // `$selectedToken === previousSelectedToken` and skipped the reset entirely - keeping
+    // the other token's typed amount, its raw units and its balance, and validating the
+    // transfer against them.
+    previousSelectedToken = tokenForThisReset;
     $computingBalance = true;
     value = '';
+    amountRejected = false;
     $enteredAmount = 0n;
-    if ($account && $account.address && $account?.isConnected && $selectedToken) {
-      validateAmount($selectedToken);
+    if ($account && $account.address && $account?.isConnected && tokenForThisReset) {
+      validateAmount(tokenForThisReset);
       refreshUserBalance();
       log('fetching on chain', $connectedSourceChain?.name);
-      $tokenBalance = await fetchBalance({
-        userAddress: $account.address,
-        token: $selectedToken,
-        srcChainId: $connectedSourceChain?.id,
-      });
+      const published = await publishLatestBalance(tokenForThisReset, $account.address, $connectedSourceChain?.id);
+      // A superseded read leaves the flag to whichever read is current now - clearing it
+      // here would stop the spinner while that one is still in flight. Every caller of
+      // publishLatestBalance raises the flag and clears it on the winning path, so the
+      // last read standing always turns it off.
+      if (!published) return;
       log('tokenBalance', $tokenBalance);
-      previousSelectedToken = $selectedToken;
     } else {
       balance = '0.00';
     }
@@ -198,11 +304,12 @@
       reset();
     } else if (newAccount?.address && newAccount?.isConnected && $selectedToken) {
       log('refreshing user balance', $connectedSourceChain?.name);
-      $tokenBalance = await fetchBalance({
-        userAddress: newAccount.address,
-        token: $selectedToken,
-        srcChainId: newAccount.chainId,
-      });
+      // The other writer of $tokenBalance, and it races the same way. It has to carry the
+      // computing flag too: superseding a reset without owning the flag left the spinner
+      // on forever, because the reset it superseded had already declined to clear it.
+      $computingBalance = true;
+      const published = await publishLatestBalance($selectedToken, newAccount.address, newAccount.chainId);
+      if (published) $computingBalance = false;
     } else {
       console.error('No account connected or token selected');
     }
@@ -255,7 +362,9 @@
   </div>
 
   <div class="flex mt-[8px] min-h-[24px]">
-    {#if displayFeeMsg}
+    {#if amountRejected}
+      <FlatAlert type="error" message={$t('bridge.errors.invalid_amount')} class="relative" />
+    {:else if displayFeeMsg}
       <div class="f-row items-center gap-1">
         <Icon type="info-circle" size={15} fillClass="fill-tertiary-content" /><span
           class="text-sm text-tertiary-content"

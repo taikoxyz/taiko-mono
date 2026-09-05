@@ -129,7 +129,6 @@ interface BaseBridgeTransferOp {
 
 export interface ERC20BridgeTransferOp extends BaseBridgeTransferOp {
   amount: bigint;
-  solverFee: bigint;
 }
 
 export interface NFTBridgeTransferOp {
@@ -165,6 +164,13 @@ export type BridgeArgs = {
   destChainId: number;
   fee: bigint;
   tokenObject: Token | NFT;
+  // Captured by the caller before its first await, like everything else here. The send path
+  // reads no store, so an option changed while a wallet prompt is open cannot reach the
+  // transaction without also reaching its record
+  /** Who may claim the message on the destination; the recipient when absent */
+  destOwner?: Address;
+  /** Send with a zero gas limit and no fee, for a message its owner will claim themselves */
+  gasLimitZero?: boolean;
 };
 
 export type ETHBridgeArgs = BridgeArgs & {
@@ -184,7 +190,9 @@ export type ERC721BridgeArgs = BridgeArgs & {
   tokenVaultAddress: Address;
   isTokenAlreadyDeployed?: boolean;
   tokenIds: number[];
-  amounts: number[];
+  // bigint, unlike tokenIds: an ERC1155 quantity is a uint256 the user types in, and
+  // carrying it as a number silently truncated anything past 2^53 on the way to the vault
+  amounts: bigint[];
 };
 
 export type ERC1155BridgeArgs = ERC721BridgeArgs;
@@ -274,4 +282,6 @@ export type GetMaxToBridgeArgs = {
   fee: bigint;
   srcChainId: number;
   destChainId: number;
+  /** The form's zero-gas option, so the estimate prices the message that will be sent */
+  gasLimitZero?: boolean;
 };

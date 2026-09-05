@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
@@ -20,6 +20,7 @@
   import StatusDot from '$components/StatusDot/StatusDot.svelte';
   import { transactionConfig } from '$config';
   import { type BridgeTransaction, fetchTransactions, MessageStatus } from '$libs/bridge';
+  import { bridgeTxKey } from '$libs/bridge/bridgeTxIdentity';
   import { chainIdToChain } from '$libs/chain';
   import { getAlternateNetwork } from '$libs/network';
   import { bridgeTxService } from '$libs/storage';
@@ -29,6 +30,7 @@
   import type { Account } from '$stores/account';
 
   import { StatusFilterDialog, StatusFilterDropdown } from './Filter';
+  import { getLoadWarning } from './loadWarning';
   import { FungibleTransactionRow, NftTransactionRow } from './Rows/';
   import { StatusInfoDialog } from './Status';
 
@@ -54,10 +56,19 @@
     menuOpen = !menuOpen;
   };
 
-  const handlePageChange = (detail: number) => {
+  let blurTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /**
+   * The page itself has already moved: Paginator writes it back through the binding, which
+   * is also what keeps the clamp below authoritative. Re-assigning it here after the
+   * transition raced that clamp - a page number the filters had just pulled back into
+   * range was pushed straight out of it again - so this only runs the fade.
+   */
+  const handlePageChange = () => {
     isBlurred = true;
-    setTimeout(() => {
-      currentPage = detail;
+    // A second page change during the fade must not have the first one's timer un-blur it
+    clearTimeout(blurTimer);
+    blurTimer = setTimeout(() => {
       isBlurred = false;
     }, transitionTime);
   };
@@ -86,19 +97,53 @@
     refresh();
   };
 
-  const updateTransactions = async (address: Address) => {
-    if (loadingTxs) return;
-    loadingTxs = true;
-    const { mergedTransactions, outdatedLocalTransactions, error } = await fetchTransactions(address);
-    transactions = mergedTransactions;
+  // Newer fetches (account switch, manual refresh) supersede older in-flight ones,
+  // whose late results must not overwrite the newer data
+  let fetchGeneration = 0;
+  let inFlightAddress: Address | null = null;
 
-    if (outdatedLocalTransactions.length > 0) {
-      await bridgeTxService.removeTransactions(address, outdatedLocalTransactions);
+  const updateTransactions = async (address: Address) => {
+    // A same-address fetch is already running; a different address must go through
+    if (loadingTxs && inFlightAddress === address) return;
+    const generation = ++fetchGeneration;
+    inFlightAddress = address;
+    loadingTxs = true;
+    try {
+      const { mergedTransactions, outdatedLocalTransactions, error, failedCount } = await fetchTransactions(address);
+      if (generation !== fetchGeneration) return;
+      transactions = mergedTransactions;
+
+      if (outdatedLocalTransactions.length > 0) {
+        // The list is on screen and complete by now. A refused localStorage write here only
+        // means the prune runs again on the next load, so it must not fall through to the
+        // catch below and be reported as the relayer not responding.
+        try {
+          await bridgeTxService.removeTransactions(address, outdatedLocalTransactions);
+        } catch (pruneError) {
+          console.error('Could not prune the local transaction history', pruneError);
+        }
+      }
+      const warning = getLoadWarning({ error, failedCount });
+      if (warning) {
+        warningToast({ title: $t(warning.key, { values: warning.values }) });
+      }
+    } catch (error) {
+      // fetchTransactions reports relayer trouble by returning it, so what reaches here is
+      // the fetch itself throwing. Without this it was an unhandled rejection that skipped
+      // the warning above and left the previous list on screen looking current.
+      if (generation !== fetchGeneration) return;
+      console.error('Could not load the transactions', error);
+      warningToast({
+        title: $t(
+          getLoadWarning({ error: error as Error, failedCount: 0 })?.key ?? 'transactions.errors.relayer_offline',
+        ),
+      });
+    } finally {
+      if (generation === fetchGeneration) {
+        loadingTxs = false;
+        inFlightAddress = null;
+      }
     }
-    if (error) {
-      warningToast({ title: $t('transactions.errors.relayer_offline') });
-    }
-    loadingTxs = false;
   };
 
   let previousAccount: Account | null = null;
@@ -130,7 +175,21 @@
 
   $: pageSize = isDesktopOrLarger ? transactionConfig.pageSizeDesktop : transactionConfig.pageSizeMobile;
 
-  $: totalItems = filteredTransactions.length;
+  // The paginator must count exactly what is shown: token AND status filtered
+  $: totalItems = tokenAndStatusFilteredTransactions.length;
+
+  $: totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+
+  let previousStatusFilter: MessageStatus | null = null;
+  $: if (selectedStatus !== previousStatusFilter) {
+    previousStatusFilter = selectedStatus;
+    currentPage = 1;
+  }
+
+  // Keep the current page in range when filters, data, or page size change
+  $: if (currentPage > totalPages) {
+    currentPage = totalPages;
+  }
 
   // Some shortcuts to make the code more readable
   $: isConnected = $account?.isConnected;
@@ -147,6 +206,10 @@
       // if only two chains are available, set the destination chain to the other one
       $destNetwork = chainIdToChain(alternateChainID);
     }
+  });
+
+  onDestroy(() => {
+    clearTimeout(blurTimer);
   });
 </script>
 
@@ -275,7 +338,7 @@
           <div
             class="flex flex-col items-center"
             style={isBlurred ? `filter: blur(5px); transition: filter ${transitionTime / 1000}s ease-in-out` : ''}>
-            {#each transactionsToShow as bridgeTx (bridgeTx.srcTxHash)}
+            {#each transactionsToShow as bridgeTx (bridgeTxKey(bridgeTx))}
               {@const status = bridgeTx.msgStatus}
               {@const isFungible = bridgeTx.tokenType === TokenType.ERC20 || bridgeTx.tokenType === TokenType.ETH}
               {#if isFungible}
@@ -298,7 +361,7 @@
   </Card>
 
   <div class="flex justify-center lg:justify-end pb-5">
-    <Paginator {pageSize} {totalItems} on:pageChange={({ detail }) => handlePageChange(detail)} />
+    <Paginator bind:currentPage {pageSize} {totalItems} on:pageChange={handlePageChange} />
   </div>
 
   <StatusFilterDialog bind:selectedStatus bind:menuOpen />

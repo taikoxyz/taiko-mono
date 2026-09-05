@@ -4,11 +4,10 @@ use std::{cmp::min, sync::OnceLock};
 
 use crate::shasta::error::{ForkConfigError, ForkConfigResult};
 use alethia_reth_chainspec::hardfork::{
-    TAIKO_DEVNET_HARDFORKS, TAIKO_HOODI_HARDFORKS, TAIKO_MAINNET_HARDFORKS, TAIKO_MASAYA_HARDFORKS,
-    TaikoHardfork,
+    TAIKO_DEVNET_HARDFORKS, TAIKO_HOODI_HARDFORKS, TAIKO_MAINNET_HARDFORKS, TaikoHardfork,
 };
 pub use alethia_reth_chainspec::{
-    TAIKO_DEVNET_CHAIN_ID, TAIKO_HOODI_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID, TAIKO_MASAYA_CHAIN_ID,
+    TAIKO_DEVNET_CHAIN_ID, TAIKO_HOODI_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID,
 };
 use alethia_reth_consensus::eip4396::{
     BASE_FEE_MAX_CHANGE_DENOMINATOR, BLOCK_TIME_TARGET, ELASTICITY_MULTIPLIER,
@@ -184,7 +183,6 @@ fn fork_condition_for_chain(
 ) -> ForkConfigResult<ForkCondition> {
     match chain_id {
         TAIKO_DEVNET_CHAIN_ID => Ok(TAIKO_DEVNET_HARDFORKS.fork(hardfork)),
-        TAIKO_MASAYA_CHAIN_ID => Ok(TAIKO_MASAYA_HARDFORKS.fork(hardfork)),
         TAIKO_HOODI_CHAIN_ID => Ok(TAIKO_HOODI_HARDFORKS.fork(hardfork)),
         TAIKO_MAINNET_CHAIN_ID => Ok(TAIKO_MAINNET_HARDFORKS.fork(hardfork)),
         _ => Err(ForkConfigError::UnsupportedChainId(chain_id)),
@@ -276,14 +274,18 @@ mod tests {
 
     #[test]
     fn unsupported_chain_ids_error_on_fork_condition_lookup() {
-        assert!(matches!(
-            shasta_fork_condition_for_chain(u64::MAX),
-            Err(ForkConfigError::UnsupportedChainId(chain_id)) if chain_id == u64::MAX
-        ));
-        assert!(matches!(
-            unzen_fork_condition_for_chain(u64::MAX),
-            Err(ForkConfigError::UnsupportedChainId(chain_id)) if chain_id == u64::MAX
-        ));
+        for chain_id in [u64::MAX, 167_011] {
+            assert!(matches!(
+                shasta_fork_condition_for_chain(chain_id),
+                Err(ForkConfigError::UnsupportedChainId(error_chain_id))
+                    if error_chain_id == chain_id
+            ));
+            assert!(matches!(
+                unzen_fork_condition_for_chain(chain_id),
+                Err(ForkConfigError::UnsupportedChainId(error_chain_id))
+                    if error_chain_id == chain_id
+            ));
+        }
     }
 
     #[test]

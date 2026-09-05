@@ -15,11 +15,11 @@
   export let bridgingStatus: BridgingStatus;
   let nextStepButtonText: string;
 
-  const getStepText = () => {
-    if (activeStep === BridgeSteps.REVIEW) {
+  const getStepText = (step: BridgeSteps) => {
+    if (step === BridgeSteps.REVIEW) {
       return $t('common.confirm');
     }
-    if (activeStep === BridgeSteps.CONFIRM) {
+    if (step === BridgeSteps.CONFIRM) {
       return $t('common.ok');
     } else {
       return $t('common.continue');
@@ -48,9 +48,10 @@
 
   $: showStepNavigation = $selectedImportMethod !== ImportMethod.NONE;
 
-  $: {
-    nextStepButtonText = getStepText();
-  }
+  // The step is passed in rather than read inside: Svelte tracks what the statement itself
+  // references, not what the function it calls does, so this never re-ran and the button
+  // read "Continue" on every step, Review included. The fungible twin already does this.
+  $: nextStepButtonText = getStepText(activeStep);
 </script>
 
 {#if showStepNavigation}

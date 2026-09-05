@@ -52,6 +52,7 @@ func TestIntegration_ERC20Balance_Increase_And_Decrease(t *testing.T) {
 	pk, _ := ERC20BalanceRepo.CreateMetadata(context.Background(), 1, "0x123", "SYMBOL", 18)
 
 	bal1, _, err := ERC20BalanceRepo.IncreaseAndDecreaseBalancesInTx(context.Background(),
+		testRef(eventindexer.TransferKindERC20, 1),
 		eventindexer.UpdateERC20BalanceOpts{
 			ERC20MetadataID: int64(pk),
 			ChainID:         1,
@@ -63,6 +64,7 @@ func TestIntegration_ERC20Balance_Increase_And_Decrease(t *testing.T) {
 	assert.NotNil(t, bal1)
 
 	bal2, _, err := ERC20BalanceRepo.IncreaseAndDecreaseBalancesInTx(context.Background(),
+		testRef(eventindexer.TransferKindERC20, 2),
 		eventindexer.UpdateERC20BalanceOpts{
 			ERC20MetadataID: int64(pk),
 			ChainID:         1,
@@ -117,9 +119,10 @@ func TestIntegration_ERC20Balance_Increase_And_Decrease(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, err := ERC20BalanceRepo.IncreaseAndDecreaseBalancesInTx(context.Background(), tt.increaseOpts, tt.decreaseOpts)
+			_, _, err := ERC20BalanceRepo.IncreaseAndDecreaseBalancesInTx(context.Background(),
+				testRef(eventindexer.TransferKindERC20, uint(10+i)), tt.increaseOpts, tt.decreaseOpts)
 			assert.Equal(t, tt.wantErr, err)
 		})
 	}
@@ -161,4 +164,67 @@ func TestIntegration_ERC20Balance_FindByAddress(t *testing.T) {
 			assert.Equal(t, tt.wantErr, err)
 		})
 	}
+}
+
+func TestIntegration_ERC20Balance_RestartReplayDoesNotDoubleCount(t *testing.T) {
+	database, close, err := testMysql(t)
+	assert.Equal(t, nil, err)
+
+	defer close()
+
+	erc20BalanceRepo, err := NewERC20BalanceRepository(database)
+	assert.Equal(t, nil, err)
+
+	pk, err := erc20BalanceRepo.CreateMetadata(context.Background(), 1, "0xerc20", "SYMBOL", 18)
+	assert.Equal(t, nil, err)
+
+	opts := func(address string) eventindexer.UpdateERC20BalanceOpts {
+		return eventindexer.UpdateERC20BalanceOpts{
+			ERC20MetadataID: int64(pk),
+			ChainID:         1,
+			Address:         address,
+			ContractAddress: "0xerc20",
+			Amount:          "100",
+		}
+	}
+
+	amountOf := func(address string) (string, bool) {
+		var b eventindexer.ERC20Balance
+
+		if err := database.GormDB().
+			Where("address = ?", address).
+			Where("contract_address = ?", "0xerc20").
+			First(&b).Error; err != nil {
+			return "", false
+		}
+
+		return b.Amount, true
+	}
+
+	// mint to alice
+	_, _, err = erc20BalanceRepo.IncreaseAndDecreaseBalancesInTx(context.Background(),
+		testRef(eventindexer.TransferKindERC20, 1), opts("0xalice"), eventindexer.UpdateERC20BalanceOpts{})
+	assert.Equal(t, nil, err)
+
+	// alice -> bob
+	transferRef := testRef(eventindexer.TransferKindERC20, 2)
+
+	_, _, err = erc20BalanceRepo.IncreaseAndDecreaseBalancesInTx(context.Background(),
+		transferRef, opts("0xbob"), opts("0xalice"))
+	assert.Equal(t, nil, err)
+
+	amount, ok := amountOf("0xbob")
+	assert.True(t, ok)
+	assert.Equal(t, "100", amount)
+
+	// restart replay of the same log must not credit bob twice
+	increased, decreased, err := erc20BalanceRepo.IncreaseAndDecreaseBalancesInTx(context.Background(),
+		transferRef, opts("0xbob"), opts("0xalice"))
+	assert.Equal(t, nil, err)
+	assert.Nil(t, increased)
+	assert.Nil(t, decreased)
+
+	amount, ok = amountOf("0xbob")
+	assert.True(t, ok)
+	assert.Equal(t, "100", amount)
 }
