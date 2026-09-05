@@ -1230,7 +1230,7 @@ class EconomicProfileTests(unittest.TestCase):
         projection = self.model.execution_profile_economic_projection_v2(
             profile
         )
-        words = [bytes(32) for _ in range(267)]
+        words = [bytes(32) for _ in range(281)]
         for index, value in projection.items():
             words[index] = value
         self.assertEqual(
@@ -1285,7 +1285,7 @@ class EconomicProfileTests(unittest.TestCase):
         )
         self.assertEqual(
             self.model.execution_profile_economic_binding_blockers(
-                mismatched, tuple(bytes(32) for _ in range(267))
+                mismatched, tuple(bytes(32) for _ in range(281))
             ),
             ("economic profile projection is unavailable",),
         )

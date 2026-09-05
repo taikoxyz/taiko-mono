@@ -1,8 +1,8 @@
-# Slot Chain V2.26 Full Contract Implementation Design
+# Slot Chain V2.27 Full Contract Implementation Design
 
-**Status:** Approved and independently reviewed implementation architecture
+**Status:** Approved and independently reviewed implementation architecture, amended for the v2.27 freeze
 
-**Normative protocol baseline:** `9df3ad82f0282550cd790a72b0330690a15458bd`
+**Normative protocol baseline:** `de437d8270460b38775c30d77e26f2da328a477f`
 
 **Stacked repository baseline:** `538742575d732507c26f9c895a3ccbe3d11207e6`
 
@@ -12,7 +12,7 @@
 
 ## 1. Objective
 
-Implement and test every on-chain Slot Chain V2.26 component described by the frozen LaTeX, PDF,
+Implement and test every on-chain Slot Chain V2.27 component described by the frozen LaTeX, PDF,
 executable models, and commitment vectors at the normative protocol baseline. Remove provisional,
 superseded, unreachable, duplicated, and specification-incompatible Slot Chain code before it can
 be mistaken for a production component. The result is an additive, deployable V2 suite under
@@ -33,13 +33,13 @@ suite as deployment authorization. Production cutover remains a separately revie
 
 The implementation consumes, in descending precedence:
 
-1. `packages/protocol/docs/preconfirmation-v2/tex/main.tex` at normative commit `9df3ad82f`;
+1. `packages/protocol/docs/preconfirmation-v2/tex/main.tex` at normative commit `de437d827`;
 2. the executable Python models and commitment vectors in the same directory;
 3. this implementation architecture; and
 4. repository Solidity conventions in `packages/protocol/CLAUDE.md`.
 
 The older August 29 contract-suite specification, the September 1 implementation plan, and their
-earlier baselines are historical inputs. They may be reused only where they agree with v2.26. In
+earlier baselines are historical inputs. They may be reused only where they agree with v2.27. In
 particular, no older
 Bridge-facade, shared-cap, migration-callback, route-authority, retirement, or reclamation rule may
 override the final VMC1, RAV2, DRV2, DSV2, ICV2, BRX1, or related fixed-width protocols.
@@ -53,7 +53,7 @@ commit, and implementation resumes only after that correction is reviewed.
 The selected implementation method is a conformance-led incremental rebuild. Existing code is not
 grandfathered merely because it compiles or has tests. A source is retained only after its ABI,
 hash domains, widths, state transitions, gas envelope, failure semantics, and ownership class match
-v2.26 and its focused differential tests pass. Everything else is deleted or rewritten; no
+v2.27 and its focused differential tests pass. Everything else is deleted or rewritten; no
 compatibility shim may preserve a superseded V2 draft API.
 
 A tracked conformance ledger maps every normative component, selector, fixed-width return, state
@@ -74,7 +74,7 @@ The first implementation slice removes the untracked provisional ScheduleOracle 
 Those files explicitly describe an incomplete release-only slice and do not implement the frozen
 constructor, seal, snapshot, expiry, liability, and activation rules. Their behavior must not be
 salvaged behind the same names. The same rule applies to committed partial components: retain them
-only when the conformance ledger and tests prove exact v2.26 behavior. Dead-code discovery covers
+only when the conformance ledger and tests prove exact v2.27 behavior. Dead-code discovery covers
 unreferenced source, unreachable selectors, obsolete domains/magic values, duplicate authorities,
 test-only production paths, stale generated artifacts, and ownership-manifest rows without a live
 consumer. Deletion is verified by compilation, reference search, artifact-ownership checks, and
@@ -203,7 +203,7 @@ The artifact and address ownership classes are:
 | Complete eighteen-artifact root set listed above                                                                                                      | L1                  | One release-pinned compiler invocation; `artifact-owned` only by `layer1`, `out/layer1`; no shared or mixed-profile exception | Root-lifetime objects repeat address/runtime/configuration; release-scoped members use fresh instances as specified.                      |
 | Settlement, kind-0 ingress and source bundle release-scoped instances                                                                                  | L1                  | `artifact-owned` by `layer1`; an artifact in the eighteen-root set can never be sourced from `shared` or another profile   | Fresh release-scoped accounts. Historical accounts serve only retained liabilities/proofs and never become current again.                |
 | InboxApplyRouterV2, ProtocolReleaseAuthorityV2, TerminalDomainRegistrarV2, TerminalAccumulatorV2 and NativeLiquidityPoolV2                              | L2                  | `artifact-owned` by `layer2`, `out/layer2`                                                                                 | Protocol-lifetime objects; successors repeat address/runtime/configuration and preserve cursor/routes/releases/writers/tickets/frontier. |
-| InboxCreditStoreV2, DestinationBridgeV2 and native QuotaManager                                                                                         | L2                  | `artifact-owned` by `layer2`; chain-neutral custody bytecode may be loaded from `out/shared`                               | Fresh release-scoped accounts and endpoint domain. Reuse is forbidden even when code is identical.                                       |
+| InboxCreditStoreV2, DestinationBridgeV2 and native QuotaManager                                                                                         | L2                  | `artifact-owned` by `layer2`, `out/layer2`; no shared-output fallback                                                       | Fresh release-scoped accounts and endpoint domain. Reuse is forbidden even when code is identical.                                       |
 | Frozen legacy facades and AnchorV4                                                                                                                      | Owning legacy chain | `artifact-owned` by the manifest-named profile; compiled artifact hash recorded before installation tests                  | Installation is exercised only in isolated migration tests. This PR does not select it on the production path.                           |
 
 The release manifest's exhaustive component table remains authoritative for individual kinds. The
@@ -256,6 +256,21 @@ No component may select a historical Settlement, route, Bridge, generation, or s
 caller-supplied witness. Authority is derived through the Router/registry fixed-width reads and
 manifest-pinned code/configuration.
 
+Ordinary tier-1/2/3 proofs use one immutable
+`SettlementValidityVerifierDescriptorV2` committed by the execution profile and target
+constructor. It is distinct from the migration-transition verifier. The descriptor binds exact
+address, runtime, acyclic configuration, verifying key, proof system, public-input schema,
+selector, proof-size limit, call gas, and post-verification reserve. Settlement authenticates
+code/configuration on every proof and accepts only an exact 32-byte return equal to its independently
+reconstructed statement hash. One descriptor is permitted only because its key proves the
+authenticated tier and all three branches; no tier fallback, mutable registry, inherited
+predecessor verifier, or caller-selected verifier exists.
+The verifier runtime is state-independent: its key/configuration are embedded, it has no storage,
+proxy, delegatecall or mutable external dependency, and any STATICCALL target is a fixed precompile
+authorized by the `proofSystemId` policy. Registration checks the full transient descriptor and
+stores its hash in RTR2; activation recovers the full descriptor from the target's exact 352-byte
+SVD2 view, hashes it against RTR2, and repeats live code/configuration checks before switching.
+
 ### 4.4 Source and destination bridge planes
 
 The source side uses fresh V2 custody: immutable SourceBridge, BridgeCreditRegistry, quota/domain
@@ -285,10 +300,29 @@ sequence, never by general setters. The implementation produces reproducible run
 configuration hashes, storage layouts, creation artifacts, component DAGs, and root deployment
 transcripts.
 
+The kind-0 adapter is a fresh release-scoped ERC-2470 deployment, not a
+`SourceBundleFactory` child and not part of the frozen eighteen-artifact root cohort. The execution
+profile sole dynamic bytes field is the exact two-artifact bundle containing Settlement and
+kind-0 creation/runtime bytes. Profile-fixed creation, salt, complete-initcode, runtime and
+configuration hashes let ProtocolVersionManager recompute the constructor tail and CREATE2 address
+on chain. Constructor conformance proves the exact initial storage and absence of pre-activation
+mutation. Exact-code front-runs are reusable; collisions or any code/config/state mismatch reject.
+During activation both old and new adapters are append-inert, the final ACTIVE write moves the sole
+typed append authority atomically, and historical adapters retain only record/refund servicing.
+The exact raw artifact bundle maximum is 137,744 bytes and the complete ABI profile maximum is
+146,848 bytes; REGISTER_RELEASE is therefore capped at exactly 149,088 bytes end-to-end. PIA2
+stores the derived kind-0 constructor-poststate commitment, while RTR2 stores the component-read
+gas, ordinary-verifier descriptor hash and kind-0 authorization ID. Those compact authenticated
+records let activation reproduce all checks after restart without retaining or accepting the raw
+profile. Kind-0 immutable/link-reference tables must be empty and its runtime cannot delegate.
+
 The production profile generator rejects test verifiers, null or uncalibrated economic fields,
 unknown ownership classes, artifact-owned recompile/output drift, source-inline
 source/profile/ABI/link drift, legacy endpoint reuse, mutable trust-map wrappers, and incomplete
-authority burning.
+authority burning. The conformance ledger has separate rows for the ordinary Settlement verifier
+dependency/interface/call helper and the kind-0 complete-initcode deployment artifact; neither may
+be marked reviewed until the exact v2.27 profile, constructor, gas-threshold and lifecycle tests
+pass.
 
 ## 5. Core State and Boundary Invariants
 
@@ -387,7 +421,7 @@ recorded, artifact ownership is reproducible, and critical/high review findings 
 
 The detailed plan replaces the stale September 1 round list with these gated capabilities:
 
-0. synchronize the stacked base, remove provisional/dead code, repair CI and establish the v2.26
+0. synchronize the stacked base, remove provisional/dead code, repair CI and establish the v2.27
    conformance ledger;
 1. revalidate shared encodings, trees, signatures, exact-call, RLP/MPT, economics and custody
    primitives against all 812 model vectors;
@@ -442,7 +476,7 @@ and rollback domain must have semantic assertions.
 
 ## 9. Completion Criteria
 
-The implementation PR is complete only when every row in the v2.26 conformance ledger is reviewed,
+The implementation PR is complete only when every row in the v2.27 conformance ledger is reviewed,
 every normative on-chain component and interface exists, no unclassified/dead Slot Chain source or
 artifact remains, the final models and Solidity agree on commitments and transitions, all test
 classes above pass, runtime/config/layout artifacts are reproducible, the full deployment can be

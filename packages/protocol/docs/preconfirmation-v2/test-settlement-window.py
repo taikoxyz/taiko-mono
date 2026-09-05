@@ -10760,8 +10760,21 @@ class ForcedIngressRouterTests(unittest.TestCase):
         kind0_descriptor = settlement.message(
             final_clock.l2_slot, "v1-kind0-at-v3"
         )
-        self.assertEqual(
+        with self.assertRaises(ValueError):
             kind0.enqueue(
+                final_clock,
+                kind0_descriptor,
+                caller=kind0_descriptor.sender,
+                deposit=kind0_descriptor.prepaid,
+            )
+        current_kind0 = settlement.activate_ingress_adapter_for_test(
+            manager.router,
+            kind=settlement.ForceKind.USER_TX,
+            clock=final_clock,
+        )
+        self.assertNotEqual(current_kind0.address, kind0.address)
+        self.assertEqual(
+            current_kind0.enqueue(
                 final_clock,
                 kind0_descriptor,
                 caller=kind0_descriptor.sender,
@@ -10811,7 +10824,8 @@ class ForcedIngressRouterTests(unittest.TestCase):
             final_protocol.messages[-1].payload_hash,
             "v1-kind0-at-v3",
         )
-        self.assertIsNotNone(manager.router._ingress_binding(kind0))
+        self.assertIsNone(manager.router._ingress_binding(kind0))
+        self.assertIsNotNone(manager.router._ingress_binding(current_kind0))
         self.assertIsNotNone(manager.router._ingress_binding(bridge))
 
     def test_payable_stale_capacity_and_queue_faults_revert_completely(self):
@@ -16321,7 +16335,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
 
     def test_execution_profile_v2_strict_abi_rejection_corpus(self):
         profile = settlement.canonical_execution_profile_cross_model_fixture_v2()
-        self.assertEqual(len(profile), 8_672)
+        self.assertEqual(len(profile), 9_152)
         self.assertEqual(profile[:32], (32).to_bytes(32, "big"))
         self.assertEqual(
             profile[(1 + settlement.EXECUTION_PROFILE_VALUE_WORDS) * 32:
@@ -16384,6 +16398,42 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             settlement.L2_EIP2935_HISTORY_STORAGE_ACTIVATION_BLOCK,
         )
         self.assertEqual(words[247], settlement.FORCE_SEND_EVM_RULES_HASH)
+        self.assertEqual(
+            words[268],
+            settlement.kind0_ingress_salt_from_words_v1(words),
+        )
+        target_creation, target_runtime, kind0_creation, kind0_runtime = \
+            settlement.execution_profile_code_artifacts_v2(profile)
+        self.assertEqual(words[49], settlement.keccak256(target_creation))
+        self.assertEqual(words[48], settlement.keccak256(target_runtime))
+        self.assertEqual(words[267], settlement.keccak256(kind0_creation))
+        self.assertEqual(words[229], settlement.keccak256(kind0_runtime))
+        self.assertEqual(
+            words[269],
+            settlement.kind0_ingress_init_code_hash_v1(kind0_creation, words),
+        )
+        self.assertEqual(
+            words[228][12:],
+            settlement.kind0_ingress_address_from_words_v2(words),
+        )
+        self.assertEqual(
+            words[270],
+            settlement._kind0_ingress_configuration_hash_from_words_v2(words),
+        )
+        self.assertEqual(
+            words[277][:4],
+            settlement.SETTLEMENT_VALIDITY_VERIFIER_SELECTOR,
+        )
+        self.assertEqual(
+            words[276],
+            settlement.SETTLEMENT_VALIDITY_PUBLIC_INPUT_SCHEMA_HASH,
+        )
+        self.assertNotEqual(
+            settlement._profile_settlement_validity_verifier_descriptor_hash_v2(
+                words
+            ),
+            bytes(32),
+        )
         for legacy in (
             bytes.fromhex("a1617601"),
             bytes.fromhex("a4000101400241000380"),
@@ -16419,7 +16469,16 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         changed((1 + 111) * 32 + 31, 1)  # fixed component getter gas
         changed((1 + 114) * 32 + 31, 1)  # duplicated gas authority
         changed((1 + 118) * 32 + 31, 1)  # fixed geometry/hash
+        for kind0_word in (228, 229, 267, 268, 269, 270):
+            changed((1 + kind0_word) * 32 + 31, 1)
+        for verifier_word in (273, 274, 275, 276, 277, 278, 279, 280):
+            changed((1 + verifier_word) * 32 + 31, 1)
         changed(len(profile) - 1, 1)  # dynamic tail padding
+        head_end = 32 + settlement.EXECUTION_PROFILE_STATIC_BYTES
+        changed(head_end, 1)  # dirty high byte in artifact length
+        artifact_start = head_end + 32
+        for length_offset in (0, 9, 18, 27):
+            changed(artifact_start + length_offset + 3, 1)
         for candidate in mutations:
             with self.subTest(offset=next(
                     i for i, (left, right) in enumerate(zip(profile, candidate))
@@ -16507,6 +16566,215 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         self.assertEqual(
             history.execution_profile.l1_history_first_supported_block, 2
         )
+
+    def test_execution_profile_two_artifact_bundle_exact_maximum(self):
+        self.assertEqual(settlement.TARGET_CREATION_CODE_MAX_BYTES, 40_032)
+        self.assertEqual(
+            settlement.KIND0_INGRESS_CREATION_CODE_MAX_BYTES, 48_544
+        )
+        self.assertEqual(
+            settlement.EXECUTION_PROFILE_CODE_ARTIFACT_MAX_BYTES, 137_744
+        )
+        self.assertEqual(settlement.EXECUTION_PROFILE_MAX_BYTES, 146_848)
+        maximal = replace(
+            settlement.execution_profile_for_test(
+                20, "profile:maximal-two-artifact-bundle"
+            ),
+            target_creation_code=b"\x01" * 40_032,
+            target_runtime_code=b"\x02" * 24_576,
+            kind0_ingress_creation_code=b"\x03" * 48_544,
+            kind0_ingress_runtime_code=b"\x04" * 24_576,
+        ).canonical_profile_bytes
+        self.assertEqual(len(maximal), settlement.EXECUTION_PROFILE_MAX_BYTES)
+        self.assertEqual(
+            tuple(map(len, settlement.execution_profile_code_artifacts_v2(
+                maximal
+            ))),
+            (40_032, 24_576, 48_544, 24_576),
+        )
+        derived = settlement.derive_register_release_authority_v2(maximal, 0)
+        maximal_payload = b"".join((
+            settlement._model_uint(0, 32, "maximal predecessor"),
+            derived.manifest_abi, derived.deployment_abi,
+            settlement._model_uint(0x8A0, 32, "maximal profile offset"),
+            settlement._model_uint(
+                len(maximal), 32, "maximal profile length"
+            ),
+            maximal,
+        ))
+        self.assertEqual(
+            (len(maximal_payload),
+             settlement.PROTOCOL_CHANGE_MAX_PAYLOAD_BYTES),
+            (149_088, 149_088),
+        )
+        self.assertEqual(
+            settlement.decode_register_release_payload_v1(maximal_payload)
+                .profile_bytes,
+            maximal,
+        )
+        self.assertEqual(
+            len(settlement.protocol_change_operation_id_v1(
+                1, "timelock:maximal", "manager:maximal", 1,
+                settlement.REGISTER_RELEASE, maximal_payload,
+            )),
+            32,
+        )
+        with self.assertRaises(ValueError):
+            settlement.protocol_change_operation_id_v1(
+                1, "timelock:maximal", "manager:maximal", 1,
+                settlement.REGISTER_RELEASE, maximal_payload + b"\x00",
+            )
+        base = settlement.execution_profile_for_test(
+            21, "profile:oversize-two-artifact-bundle"
+        )
+        for field_name, size in (
+            ("target_creation_code", 40_033),
+            ("target_runtime_code", 24_577),
+            ("kind0_ingress_creation_code", 48_545),
+            ("kind0_ingress_runtime_code", 24_577),
+        ):
+            with self.subTest(field=field_name):
+                with self.assertRaises(ValueError):
+                    replace(base, **{field_name: b"\x01" * size}) \
+                        .canonical_profile_bytes
+
+    def test_kind0_release_salt_config_and_constructor_are_exact(self):
+        profile = settlement.execution_profile_for_test(
+            22, "profile:kind0-exact-provenance"
+        ).canonical_profile_bytes
+        words = settlement._execution_profile_abi_words_v2(profile)
+        expected_salt = settlement.keccak256(b"".join((
+            b"slot-chain-kind0-ingress-salt-v1",
+            words[2], words[3], words[9], words[1][-8:],
+            words[23][12:], words[26][12:],
+        )))
+        self.assertEqual(words[268], expected_salt)
+        self.assertEqual(
+            len(settlement.kind0_ingress_constructor_tail_from_words_v1(
+                words
+            )),
+            608,
+        )
+        for index in (1, 2, 3, 9, 23, 26):
+            changed = list(words)
+            changed[index] = (
+                settlement._model_uint(
+                    int.from_bytes(changed[index], "big") + 1, 32,
+                    "kind-0 salt substitution",
+                ) if index in (1, 2, 3) else
+                changed[index][:-1] + bytes([changed[index][-1] ^ 1])
+            )
+            self.assertNotEqual(
+                settlement.kind0_ingress_salt_from_words_v1(changed),
+                words[268],
+            )
+        for index in (1, 2, 3, 20, 23, 24, 25, 26, 27, 28, 83,
+                      230, 231, 232, 233, 234):
+            changed = list(words)
+            changed[index] = changed[index][:-1] + bytes([
+                changed[index][-1] ^ 1
+            ])
+            self.assertNotEqual(
+                settlement._kind0_ingress_configuration_hash_from_words_v2(
+                    changed
+                ),
+                words[270],
+            )
+
+    def test_settlement_validity_descriptor_is_exact_and_tier_unified(self):
+        profile = settlement.execution_profile_for_test(
+            19, "profile:ordinary-validity-verifier"
+        )
+        descriptor = profile.settlement_validity_verifier_descriptor
+        verifier = profile.settlement_validity_verifier
+        self.assertIs(verifier.descriptor, descriptor)
+        self.assertEqual(
+            descriptor.selector,
+            settlement.keccak256(b"verify(bytes,uint256[2])")[:4],
+        )
+        self.assertEqual(
+            settlement._model_fixed_bytes32(
+                descriptor.public_input_schema_hash
+            ),
+            bytes.fromhex(
+                "b9313bdbe8b2203bcda0a1d140fb1c0446a7424de6440cde"
+                "31317eafb654cac4"
+            ),
+        )
+        self.assertEqual(
+            settlement.settlement_validity_verifier_required_gas_v2(
+                2_000_000, 500_000
+            ),
+            (2_000_000 * 64 + 62) // 63 + 500_000 + 10_000,
+        )
+        self.assertLessEqual(
+            settlement.settlement_validity_verifier_required_gas_v2(
+                descriptor.verification_gas_limit,
+                descriptor.post_verification_reserve_gas,
+            ),
+            profile.supported_l1_block_gas_limit,
+        )
+        for tier in settlement.Tier:
+            statement = settlement.keccak256(
+                b"tier-unified-validity:" + bytes((tier.value,))
+            )
+            limbs = (
+                int.from_bytes(statement[:16], "big"),
+                int.from_bytes(statement[16:], "big"),
+            )
+            returned = verifier.verify(
+                b"slot-chain-test-validity-proof-v2:" + statement,
+                limbs,
+                gas=descriptor.verification_gas_limit,
+            )
+            self.assertEqual(
+                settlement.decode_settlement_validity_verifier_return_v2(
+                    returned, statement
+                ),
+                statement,
+            )
+
+        for malformed in (
+            True,
+            statement[:-1],
+            statement + b"\x00",
+            bytes(32),
+        ):
+            with self.assertRaises(ValueError):
+                settlement.decode_settlement_validity_verifier_return_v2(
+                    malformed, statement
+                )
+
+        changed_key = "vk:settlement-validity:substituted"
+        substituted = replace(
+            descriptor,
+            verifying_key_hash=changed_key,
+            configuration_hash=(
+                settlement.settlement_validity_verifier_configuration_hash_v2(
+                    changed_key,
+                    descriptor.proof_system_id,
+                    descriptor.public_input_schema_hash,
+                    descriptor.maximum_proof_bytes,
+                    descriptor.verification_gas_limit,
+                    descriptor.post_verification_reserve_gas,
+                    descriptor.selector,
+                )
+            ),
+        )
+        self.assertTrue(substituted.structurally_valid())
+        # A recomputed but substituted descriptor cannot be paired with the
+        # already-bound verifier object, for any tier.
+        self.assertFalse(replace(
+            profile,
+            settlement_validity_verifier_descriptor=substituted,
+        ).structurally_valid())
+        for changes in (
+            {"public_input_schema_hash": bytes.fromhex("ab" * 32)},
+            {"maximum_proof_bytes": 65_537},
+            {"verification_gas_limit": 30_000_001},
+            {"post_verification_reserve_gas": 30_000_001},
+        ):
+            self.assertFalse(replace(descriptor, **changes).structurally_valid())
 
     def _prepare_release_package(self, fixture, clock):
         (_rows, router, _witness, payload, _manager, _timelock,
@@ -16778,7 +17046,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             caller=addr("permissionless"), clock=mature,
         ))
         version = witness.settlement.protocol_version
-        self.assertEqual(len(router.target_release_registration_v2(version)), 416)
+        self.assertEqual(len(router.target_release_registration_v2(version)), 512)
         self.assertEqual(len(router.migration_activation_profile_v2(version)), 768)
         self.assertEqual(len(manager.profile_ingress_root_v2(version)), 128)
         root, ids = manager.profile_ingress_roots[version]
@@ -16786,7 +17054,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         self.assertEqual(len(ids), 2)
         self.assertEqual(tuple(ids), tuple(sorted(ids)))
         self.assertTrue(all(
-            len(manager.profile_ingress_authorization_v2(item)) == 800
+            len(manager.profile_ingress_authorization_v2(item)) == 832
             for item in ids
         ))
         seat_market = rows[3]
@@ -16923,7 +17191,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             rtr_call, caller=registry.address, value=0,
             gas=settlement.TARGET_RELEASE_REGISTRATION_READ_GAS,
         )
-        self.assertEqual((len(rtr), rtr[:32]), (416, b"RTR2" + bytes(28)))
+        self.assertEqual((len(rtr), rtr[:32]), (512, b"RTR2" + bytes(28)))
         self.assertEqual(
             settlement.decode_target_release_registration_return_v2(rtr),
             router.target_release_registrations_v2[version],
@@ -17590,6 +17858,30 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             commitment.live_registration_validation_commitment_v2(
                 commitment_derived, commitment_accounting,
                 commitment_constructor,
+                commitment.encode_kind0_constructor_state_return_v1(
+                    commitment.kind0_constructor_poststate_commitment_v1(
+                        commitment.kind0_ingress_constructor_tail_v1(
+                            commitment.decode_execution_profile_v2(
+                                decoded_positive.profile_bytes
+                            )
+                        ),
+                        commitment.decode_execution_profile_v2(
+                            decoded_positive.profile_bytes
+                        )[270],
+                        commitment.decode_execution_profile_v2(
+                            decoded_positive.profile_bytes
+                        )[229],
+                    ),
+                    commitment.decode_execution_profile_v2(
+                        decoded_positive.profile_bytes
+                    )[270],
+                ),
+                commitment
+                    .encode_settlement_validity_verifier_descriptor_return_v2(
+                        commitment.decode_execution_profile_v2(
+                            decoded_positive.profile_bytes
+                        )
+                    ),
             ),
         )
         self.assertTrue(self._execute_release(positive)[2])
@@ -17628,7 +17920,13 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         )
         deployment_trace = (
             "factory:account", "factory:extcodehash",
+            "kind0-ingress:account", "kind0-ingress:extcodehash",
+            "kind0-ingress:config", "kind0-ingress:constructor-state",
             "target:account", "target:extcodehash", "target:config",
+            "settlement-validity:target:SVD2",
+            "settlement-validity:verifier:account",
+            "settlement-validity:verifier:extcodehash",
+            "settlement-validity:verifier:config",
             "target:data-session-accounting", "target:constructor-state",
         )
         package_trace = (
@@ -17712,16 +18010,23 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         )
         self.assertEqual(
             callers,
-            (manager.address,) * 29 + (router.address,) * 29
-            + (manager.address,) * 5 + (router.address,) * 3
+            (manager.address,) * 37 + (router.address,) * 37
+            + (manager.address,) * 13 + (router.address,) * 3
             + package_callers,
         )
         self.assertEqual(
             tuple(row[1] for row in trace),
             control_trace + deployment_trace + control_trace
             + deployment_trace + (
+                "kind0-postread:account", "kind0-postread:extcodehash",
+                "kind0-postread:config",
+                "kind0-postread:constructor-state",
                 "target-postread:account", "target-postread:extcodehash",
                 "target-postread:config",
+                "settlement-validity-postread:target:SVD2",
+                "settlement-validity-postread:verifier:account",
+                "settlement-validity-postread:verifier:extcodehash",
+                "settlement-validity-postread:verifier:config",
                 "target-postread:data-session-accounting",
                 "target-postread:constructor-state",
                 "RTR2:targetSettlement:account",
@@ -17764,6 +18069,34 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             lambda current, derived: setattr(
                 account(current, derived, derived.profile_words[44][12:]),
                 "runtime_hash", b"x" * 32,
+            ),
+            lambda current, derived: current[4].deployment_world.accounts.pop(
+                derived.profile_words[228][12:]
+            ),
+            lambda current, derived: setattr(
+                account(current, derived, derived.profile_words[228][12:]),
+                "runtime_hash", b"k" * 32,
+            ),
+            lambda current, derived: setattr(
+                account(current, derived, derived.profile_words[228][12:]),
+                "configuration_hash", b"c" * 32,
+            ),
+            lambda current, derived: setattr(
+                account(current, derived, derived.profile_words[228][12:]),
+                "kind0_constructor_tail",
+                b"\x01" + account(
+                    current, derived, derived.profile_words[228][12:]
+                ).kind0_constructor_tail[1:],
+            ),
+            lambda current, derived: account(
+                current, derived, derived.profile_words[228][12:]
+            ).overrides.__setitem__(
+                (current[4].address, "kind0_constructor_state"), b"x" * 95
+            ),
+            lambda current, derived: account(
+                current, derived, derived.profile_words[228][12:]
+            ).overrides.__setitem__(
+                (current[1].address, "kind0_constructor_state"), b"x" * 97
             ),
             lambda current, derived: setattr(
                 account(current, derived, derived.target_address),
@@ -17986,6 +18319,39 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         self.assertNotIn(
             (toctou[4].address, "component_config"),
             toctou[4].deployment_world.accounts[target].overrides,
+        )
+
+        kind0_toctou = protocol_authority_fixture()
+        kind0_registrations_before = copy.deepcopy(
+            kind0_toctou[1].target_release_registrations_v2
+        )
+        kind0_decoded = settlement.decode_register_release_payload_v1(
+            kind0_toctou[3]
+        )
+        kind0_derived = settlement.derive_register_release_authority_v2(
+            kind0_decoded.profile_bytes,
+            kind0_decoded.expected_predecessor_protocol_version,
+        )
+        kind0_address = kind0_derived.profile_words[228][12:]
+
+        def mutate_kind0_after_router(world, manager_, _router):
+            world.accounts[kind0_address].overrides[
+                (manager_.address, "kind0_constructor_state")
+            ] = b"z" * 96
+
+        kind0_toctou[4].deployment_world.between_router_and_pvm_hook = \
+            mutate_kind0_after_router
+        operation_id, _mature, success = self._execute_release(kind0_toctou)
+        self.assertFalse(success)
+        self.assertEqual(
+            kind0_toctou[1].target_release_registrations_v2,
+            kind0_registrations_before,
+        )
+        self.assertFalse(kind0_toctou[6].authorizations)
+        self.assertEqual(kind0_toctou[5].operations[operation_id].state, 1)
+        self.assertNotIn(
+            (kind0_toctou[4].address, "kind0_constructor_state"),
+            kind0_toctou[4].deployment_world.accounts[kind0_address].overrides,
         )
 
         for point in ("router_direct_read", "pvm_postread"):

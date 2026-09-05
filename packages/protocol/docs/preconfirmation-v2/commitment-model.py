@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Golden vectors for Slot-Chain v2.26 consensus commitments.
+"""Golden vectors for Slot-Chain v2.27 consensus commitments.
 
 This fixture covers the commitments that cross Solidity, clients and circuits:
 EIP-712 domain/struct/digest, canonical/base identity, ABI statement hashing,
@@ -248,7 +248,7 @@ SCHEDULE_FORK_OUTPUT_SCHEMA_LITERAL = (
 PROTOCOL_CHANGE_DELAY_SECONDS = 604_800
 MAXIMUM_LIVE_VERSION_MIGRATION_SECONDS = 604_800
 MIGRATION_ARM_EXECUTION_WINDOW_SECONDS = 604_800
-PROTOCOL_CHANGE_MAX_PAYLOAD_BYTES = 131_072
+PROTOCOL_CHANGE_MAX_PAYLOAD_BYTES = 149_088
 PROTOCOL_VERSION_REVIEW_FINALITY_BLOCKS = 64
 D_LEGACY_GENESIS_DEPLOYMENT = b"slot-chain-legacy-genesis-deployment-v1"
 D_LEGACY_GENESIS_INBOX_CONFIG = b"slot-chain-legacy-genesis-inbox-config-v1"
@@ -748,6 +748,7 @@ DESTINATION_CONTEXT_TYPEHASH = keccak256(DESTINATION_CONTEXT_TYPE)
 INGRESS_AUTHORIZATION_TYPE = (
     b"ProfileIngressAuthorizationV2(uint8 kind,address adapter,"
     b"bytes32 adapterRuntimeHash,bytes32 adapterConfigurationHash,"
+    b"bytes32 adapterConstructorPoststateCommitment,"
     b"address activeSettlementRouter,bytes32 routerRuntimeHash,"
     b"bytes32 routerConfigurationHash,address forcedQueue,"
     b"bytes32 queueRuntimeHash,bytes32 queueConfigurationHash,"
@@ -6501,6 +6502,7 @@ class ProfileIngressAuthorizationV2:
     adapter: int
     adapter_runtime_hash: bytes
     adapter_configuration_hash: bytes
+    adapter_constructor_poststate_commitment: bytes
     active_settlement_router: int
     router_runtime_hash: bytes
     router_configuration_hash: bytes
@@ -6552,17 +6554,20 @@ def canonical_profile_ingress_authorization_abi(
             and all(fee > 0 for fee in fees))
     if row.kind == 0:
         assert (source_fields == (bytes(32), bytes(32))
+                and row.adapter_constructor_poststate_commitment != bytes(32)
                 and row.source_registration_epoch == 0
                 and destination_fields == (bytes(32), bytes(32), bytes(32))
                 and row.destination_bridge == 0)
     else:
         assert (all(value != bytes(32) for value in source_fields)
+                and row.adapter_constructor_poststate_commitment == bytes(32)
                 and row.source_registration_epoch > 0
                 and all(value != bytes(32) for value in destination_fields)
                 and row.destination_bridge != 0)
     encoded = (
         u256(row.kind) + address_word(row.adapter)
         + b32(row.adapter_runtime_hash) + b32(row.adapter_configuration_hash)
+        + b32(row.adapter_constructor_poststate_commitment)
         + address_word(row.active_settlement_router)
         + b32(row.router_runtime_hash) + b32(row.router_configuration_hash)
         + address_word(row.forced_queue) + b32(row.queue_runtime_hash)
@@ -6579,7 +6584,7 @@ def canonical_profile_ingress_authorization_abi(
         + u256(row.permanent_wei_per_byte)
         + u256(row.maximum_accepted_fee_wei)
     )
-    assert len(encoded) == 23 * 32
+    assert len(encoded) == 24 * 32
     return encoded
 
 
@@ -6591,18 +6596,18 @@ def ingress_authorization_id(row: ProfileIngressAuthorizationV2) -> bytes:
 
 def decode_canonical_profile_ingress_authorization_abi(
         encoded: bytes) -> ProfileIngressAuthorizationV2:
-    assert len(encoded) == 23 * 32
+    assert len(encoded) == 24 * 32
     words = tuple(encoded[index * 32:(index + 1) * 32]
-                  for index in range(23))
+                  for index in range(24))
     row = ProfileIngressAuthorizationV2(
         uint_word_value(words[0], 8), address_word_value(words[1]),
-        b32(words[2]), b32(words[3]), address_word_value(words[4]),
-        b32(words[5]), b32(words[6]), address_word_value(words[7]),
-        b32(words[8]), b32(words[9]), b32(words[10]),
-        uint_word_value(words[11], 64), b32(words[12]),
-        uint_word_value(words[13]), b32(words[14]),
-        address_word_value(words[15]), b32(words[16]), b32(words[17]),
-        *(uint_word_value(words[index]) for index in range(18, 23)))
+        b32(words[2]), b32(words[3]), b32(words[4]),
+        address_word_value(words[5]), b32(words[6]), b32(words[7]),
+        address_word_value(words[8]), b32(words[9]), b32(words[10]),
+        b32(words[11]), uint_word_value(words[12], 64), b32(words[13]),
+        uint_word_value(words[14]), b32(words[15]),
+        address_word_value(words[16]), b32(words[17]), b32(words[18]),
+        *(uint_word_value(words[index]) for index in range(19, 24)))
     assert encoded == canonical_profile_ingress_authorization_abi(row)
     return row
 
@@ -6662,13 +6667,13 @@ def encode_profile_ingress_authorization_return(
     encoded = (bytes4_word(PROFILE_INGRESS_AUTHORIZATION_MAGIC)
                + b32(authorization_id)
                + canonical_profile_ingress_authorization_abi(row))
-    assert len(encoded) == 800
+    assert len(encoded) == 832
     return encoded
 
 
 def decode_profile_ingress_authorization_return(
         returndata: bytes) -> tuple[bytes, ProfileIngressAuthorizationV2]:
-    assert (len(returndata) == 800
+    assert (len(returndata) == 832
             and bytes4_word_value(returndata[:32])
                 == PROFILE_INGRESS_AUTHORIZATION_MAGIC)
     authorization_id = b32(returndata[32:64])
@@ -6696,6 +6701,12 @@ def validate_release_registration_postreads(
     target_registration_hash = target_registration_v3_hash(
         payload.expected_predecessor_protocol_version, manifest, deployment,
         activation_profile_hash, bridge_route_expansion_hash)
+    profile_words = decode_execution_profile_v2(payload.profile_bytes)
+    component_configuration_read_gas = uint_word_value(
+        profile_words[111], 64
+    )
+    validity_descriptor_hash = \
+        settlement_validity_verifier_descriptor_hash_v2(profile_words)
     verifier_descriptor = MigrationVerifierDescriptor(
         activation_profile.verifier, activation_profile.verifier_runtime_hash,
         activation_profile.verifier_configuration_hash,
@@ -6718,9 +6729,12 @@ def validate_release_registration_postreads(
                 deployment.target_settlement, deployment.target_runtime_hash,
                 deployment.target_configuration_hash,
                 settlement_deployment_descriptor_hash(deployment),
-                manifest.execution_profile_hash, activation_profile_hash,
+                manifest.execution_profile_hash,
+                component_configuration_read_gas, activation_profile_hash,
                 expected_data_session_configuration_hash,
                 manifest_hash, bridge_route_expansion_hash,
+                validity_descriptor_hash,
+                ingress_authorization_id(ingress_rows[0]),
                 target_registration_hash)
             and ingress_authorization_root(ingress_rows)
                 == manifest.ingress_authorization_root
@@ -6768,6 +6782,7 @@ class IngressProfileGraphV2:
     kind0_adapter: int
     kind0_adapter_runtime_hash: bytes
     kind0_adapter_configuration_hash: bytes
+    kind0_adapter_constructor_poststate_commitment: bytes
     kind1_adapter: int
     kind1_adapter_runtime_hash: bytes
     kind1_adapter_configuration_hash: bytes
@@ -6806,9 +6821,11 @@ def validate_ingress_authorization_set(
         == (bytes(32), 0, bytes(32), bytes(32), 0, bytes(32), bytes(32)))
     assert (
         (kind0.adapter, kind0.adapter_runtime_hash,
-         kind0.adapter_configuration_hash)
+         kind0.adapter_configuration_hash,
+         kind0.adapter_constructor_poststate_commitment)
         == (graph.kind0_adapter, graph.kind0_adapter_runtime_hash,
-            graph.kind0_adapter_configuration_hash))
+            graph.kind0_adapter_configuration_hash,
+            graph.kind0_adapter_constructor_poststate_commitment))
     assert (
         (kind1.source_domain_id, kind1.source_registration_epoch,
          kind1.source_bridge_execution_hash, kind1.destination_domain_id,
@@ -7333,13 +7350,13 @@ def target_registration_v3_hash(
 
 
 def execution_profile_hash(profile_bytes: bytes) -> bytes:
-    assert 1 <= len(profile_bytes) <= 65_536
+    assert 1 <= len(profile_bytes) <= EXECUTION_PROFILE_MAX_BYTES
     return keccak256(
         D_EXECUTION_PROFILE + u32(len(profile_bytes)) + profile_bytes)
 
 
-EXECUTION_PROFILE_VALUE_WORDS = 267
-EXECUTION_PROFILE_STATIC_WORDS = 268
+EXECUTION_PROFILE_VALUE_WORDS = 281
+EXECUTION_PROFILE_STATIC_WORDS = 282
 EXECUTION_PROFILE_STATIC_BYTES = EXECUTION_PROFILE_STATIC_WORDS * 32
 EIP3860_MAX_INITCODE_BYTES = 49_152
 EIP170_MAX_RUNTIME_BYTES = 24_576
@@ -7347,6 +7364,46 @@ TARGET_PARAMETERS_V2_WORDS = EXECUTION_PROFILE_VALUE_WORDS
 TARGET_CONSTRUCTOR_TRAILER_BYTES = (TARGET_PARAMETERS_V2_WORDS + 4) * 32
 TARGET_CREATION_CODE_MAX_BYTES = (
     EIP3860_MAX_INITCODE_BYTES - TARGET_CONSTRUCTOR_TRAILER_BYTES)
+KIND0_INGRESS_CONSTRUCTOR_WORDS = 19
+KIND0_INGRESS_CONSTRUCTOR_BYTES = KIND0_INGRESS_CONSTRUCTOR_WORDS * 32
+KIND0_INGRESS_CREATION_CODE_MAX_BYTES = (
+    EIP3860_MAX_INITCODE_BYTES - KIND0_INGRESS_CONSTRUCTOR_BYTES)
+EXECUTION_PROFILE_CODE_ARTIFACT_MAX_BYTES = (
+    16 + TARGET_CREATION_CODE_MAX_BYTES + EIP170_MAX_RUNTIME_BYTES
+    + KIND0_INGRESS_CREATION_CODE_MAX_BYTES + EIP170_MAX_RUNTIME_BYTES)
+EXECUTION_PROFILE_MAX_BYTES = (
+    32 + EXECUTION_PROFILE_STATIC_BYTES + 32
+    + ceil32(EXECUTION_PROFILE_CODE_ARTIFACT_MAX_BYTES))
+KIND0_INGRESS_SALT_DOMAIN = b"slot-chain-kind0-ingress-salt-v1"
+KIND0_INGRESS_CALL_GAS_LIMIT = 5_000_000
+KIND0_INGRESS_MAXIMUM_CALLDATA_BYTES = 131_072
+KIND0_INGRESS_MINIMUM_ACCOUNTED_GAS = 21_000
+SETTLEMENT_VALIDITY_VERIFIER_SELECTOR = keccak256(
+    b"verify(bytes,uint256[2])")[:4]
+SETTLEMENT_VALIDITY_PUBLIC_INPUT_SCHEMA_HASH = keccak256(
+    b"slot-chain-settlement-validity-public-input-schema-v2")
+SETTLEMENT_VALIDITY_MAXIMUM_PROOF_BYTES = 65_536
+SETTLEMENT_VALIDITY_MAXIMUM_GAS = 30_000_000
+SETTLEMENT_VALIDITY_VERIFIER_CALL_ENVELOPE_GAS = 10_000
+SETTLEMENT_VALIDITY_VERIFIER_CONFIG_TYPE = (
+    b"SettlementValidityVerifierConfigV2(bytes32 verifyingKeyHash,"
+    b"bytes32 proofSystemId,bytes32 publicInputSchemaHash,bytes4 selector,"
+    b"uint32 maximumProofBytes,uint64 verificationGasLimit,"
+    b"uint64 postVerificationReserveGas)")
+SETTLEMENT_VALIDITY_VERIFIER_CONFIG_TYPEHASH = keccak256(
+    SETTLEMENT_VALIDITY_VERIFIER_CONFIG_TYPE)
+SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_TYPE = (
+    b"SettlementValidityVerifierDescriptorV2(address verifier,"
+    b"bytes32 runtimeHash,bytes32 configurationHash,bytes32 verifyingKeyHash,"
+    b"bytes32 proofSystemId,bytes32 publicInputSchemaHash,bytes4 selector,"
+    b"uint32 maximumProofBytes,uint64 verificationGasLimit,"
+    b"uint64 postVerificationReserveGas)")
+SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_TYPEHASH = keccak256(
+    SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_TYPE)
+SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_GETTER_SELECTOR = keccak256(
+    b"settlementValidityVerifierDescriptorV2()")[:4]
+SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_MAGIC = b"SVD2"
+SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_RETURN_LENGTH = 352
 L1_EIP2935_HISTORY_STORAGE_ADDRESS = int(
     "0000F90827F1C53a10cb7A02335B175320002935", 16)
 L1_EIP2935_HISTORY_STORAGE_RUNTIME_HASH = bytes.fromhex(
@@ -7379,6 +7436,12 @@ TARGET_CONSTRUCTOR_STATE_SELECTOR = keccak256(
     b"targetConstructorStateV2()")[:4]
 TARGET_CONSTRUCTOR_STATE_MAGIC = b"TCS2"
 TARGET_CONSTRUCTOR_STATE_LENGTH = 96
+KIND0_CONSTRUCTOR_POSTSTATE_DOMAIN = \
+    b"slot-chain-kind0-constructor-poststate-v1"
+KIND0_CONSTRUCTOR_STATE_SELECTOR = keccak256(
+    b"kind0ConstructorStateV1()")[:4]
+KIND0_CONSTRUCTOR_STATE_MAGIC = b"KCS1"
+KIND0_CONSTRUCTOR_STATE_LENGTH = 96
 DATA_SESSION_ACCOUNTING_SELECTOR = keccak256(
     b"dataSessionAccountingV1()")[:4]
 DATA_SESSION_ACCOUNTING_MAGIC = b"DSV1"
@@ -7461,13 +7524,13 @@ def target_constructor_inventory_v2(
         derived.target_parameters_hash, derived.data_session_configuration_hash,
         derived.settlement_deployment_descriptor.target_configuration_hash,
     )
-    assert len(inventory) == 274
+    assert len(inventory) == 288
     return inventory
 
 
 def target_constructor_poststate_commitment_v2(
         inventory: tuple[bytes, ...]) -> bytes:
-    assert (len(inventory) == 274
+    assert (len(inventory) == 288
             and all(type(word) is bytes and len(word) == 32
                     for word in inventory))
     return keccak256(
@@ -7484,6 +7547,30 @@ def encode_target_constructor_state_return_v2(
                + b32(constructor_poststate_commitment)
                + b32(target_configuration_hash))
     assert len(encoded) == TARGET_CONSTRUCTOR_STATE_LENGTH
+    return encoded
+
+
+def kind0_constructor_poststate_commitment_v1(
+        constructor_tail: bytes, configuration_hash: bytes,
+        runtime_hash: bytes) -> bytes:
+    assert (len(constructor_tail) == KIND0_INGRESS_CONSTRUCTOR_BYTES
+            and configuration_hash != bytes(32)
+            and runtime_hash != bytes(32))
+    return keccak256(
+        KIND0_CONSTRUCTOR_POSTSTATE_DOMAIN
+        + u16(KIND0_INGRESS_CONSTRUCTOR_WORDS) + constructor_tail
+        + b32(configuration_hash) + b32(runtime_hash))
+
+
+def encode_kind0_constructor_state_return_v1(
+        constructor_poststate_commitment: bytes,
+        configuration_hash: bytes) -> bytes:
+    assert (constructor_poststate_commitment != bytes(32)
+            and configuration_hash != bytes(32))
+    encoded = (bytes4_word(KIND0_CONSTRUCTOR_STATE_MAGIC)
+               + b32(constructor_poststate_commitment)
+               + b32(configuration_hash))
+    assert len(encoded) == KIND0_CONSTRUCTOR_STATE_LENGTH
     return encoded
 
 
@@ -7575,18 +7662,28 @@ def decode_data_session_accounting_v1(
 def live_registration_validation_commitment_v2(
         derived: "DerivedRegisterReleaseAuthorityV2",
         accounting_return: bytes,
-        constructor_return: bytes) -> bytes:
+        constructor_return: bytes,
+        kind0_constructor_return: bytes,
+        settlement_validity_descriptor_return: bytes) -> bytes:
     assert (len(accounting_return) == DATA_SESSION_ACCOUNTING_LENGTH
-            and len(constructor_return) == TARGET_CONSTRUCTOR_STATE_LENGTH)
+            and len(constructor_return) == TARGET_CONSTRUCTOR_STATE_LENGTH
+            and len(kind0_constructor_return)
+                == KIND0_CONSTRUCTOR_STATE_LENGTH
+            and len(settlement_validity_descriptor_return)
+                == SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_RETURN_LENGTH)
     decode_data_session_accounting_v1(
         accounting_return, derived.data_session_configuration_hash,
         require_empty=True)
+    assert (settlement_validity_descriptor_return
+            == encode_settlement_validity_verifier_descriptor_return_v2(
+                derived.profile_words))
     return keccak256(
         b"slot-chain-live-deployment-validation-v2"
         + settlement_deployment_descriptor_hash(
             derived.settlement_deployment_descriptor)
         + derived.target_registration_hash + keccak256(accounting_return)
-        + keccak256(constructor_return))
+        + keccak256(constructor_return) + keccak256(kind0_constructor_return)
+        + keccak256(settlement_validity_descriptor_return))
 EXECUTION_PROFILE_KIND_CODES = (
     # core
     ("u64", "u64", "u256", "u256", "h", "h", "f", "u64", "u64",
@@ -7619,6 +7716,9 @@ EXECUTION_PROFILE_KIND_CODES = (
     + ("u64",) * 5 + ("h",) * 4 + ("u64", "h", "u64") + ("h",) * 5
     # quote maturity and Settlement--Market mutation-wire gas limits
     + ("u64",) * 11 + ("u64", "u256", "u16", "h")
+    # kind-0 deployment provenance and one tier-agnostic validity verifier
+    + ("h", "h", "h", "h")
+    + ("a", "h", "h", "h", "h", "h", "f", "u32", "u64", "u64")
 )
 
 SOURCE_BUNDLE_SALT_DOMAIN = b"slot-chain-source-bundle-salt-v1"
@@ -7766,6 +7866,110 @@ def bridge_adapter_projection_from_profile_v1(
         address_word_value(words[202]), salt, initcode_hash)
 
 
+def decode_execution_profile_code_artifact_v2(
+        artifact: bytes) -> tuple[bytes, bytes, bytes, bytes]:
+    """Strictly decode the two published creation/runtime artifact pairs."""
+
+    assert type(artifact) is bytes
+    limits = (
+        TARGET_CREATION_CODE_MAX_BYTES, EIP170_MAX_RUNTIME_BYTES,
+        KIND0_INGRESS_CREATION_CODE_MAX_BYTES, EIP170_MAX_RUNTIME_BYTES)
+    rows: list[bytes] = []
+    cursor = 0
+    for limit in limits:
+        assert cursor + 4 <= len(artifact)
+        length = int.from_bytes(artifact[cursor:cursor + 4], "big")
+        cursor += 4
+        assert 0 < length <= limit and cursor + length <= len(artifact)
+        rows.append(artifact[cursor:cursor + length])
+        cursor += length
+    assert cursor == len(artifact)
+    return rows[0], rows[1], rows[2], rows[3]
+
+
+def kind0_ingress_salt_v1(words: tuple[bytes, ...] | list[bytes]) -> bytes:
+    assert len(words) in {
+        EXECUTION_PROFILE_VALUE_WORDS, EXECUTION_PROFILE_STATIC_WORDS}
+    return keccak256(
+        KIND0_INGRESS_SALT_DOMAIN + words[2] + words[3] + words[9]
+        + u64(uint_word_value(words[1], 64))
+        + address20(address_word_value(words[23]))
+        + address20(address_word_value(words[26])))
+
+
+def kind0_ingress_configuration_hash_v1(
+        words: tuple[bytes, ...] | list[bytes]) -> bytes:
+    preimage = (
+        words[2] + u64(uint_word_value(words[1], 64))
+        + words[23][12:] + words[24] + words[25]
+        + words[26][12:] + words[27] + words[28]
+        + words[20][12:] + words[3]
+        + u64(uint_word_value(words[83], 64))
+        + u64(KIND0_INGRESS_CALL_GAS_LIMIT)
+        + u32(KIND0_INGRESS_MAXIMUM_CALLDATA_BYTES)
+        + u64(KIND0_INGRESS_MINIMUM_ACCOUNTED_GAS)
+        + b"".join(words[230:235]))
+    assert len(preimage) == 448
+    return keccak256(
+        b"slot-chain-kind0-ingress-config-v1" + u32(len(preimage))
+        + preimage)
+
+
+def kind0_ingress_constructor_tail_v1(
+        words: tuple[bytes, ...] | list[bytes]) -> bytes:
+    tail = b"".join((
+        words[2], words[1], words[23], words[24], words[25],
+        words[26], words[27], words[28], words[20], words[3], words[83],
+        u256(KIND0_INGRESS_CALL_GAS_LIMIT),
+        u256(KIND0_INGRESS_MAXIMUM_CALLDATA_BYTES),
+        u256(KIND0_INGRESS_MINIMUM_ACCOUNTED_GAS),
+        *words[230:235]))
+    assert len(tail) == KIND0_INGRESS_CONSTRUCTOR_BYTES
+    return tail
+
+
+def kind0_ingress_init_code_hash_v1(
+        creation_code: bytes,
+        words: tuple[bytes, ...] | list[bytes]) -> bytes:
+    assert 0 < len(creation_code) <= KIND0_INGRESS_CREATION_CODE_MAX_BYTES
+    init_code = creation_code + kind0_ingress_constructor_tail_v1(words)
+    assert len(init_code) <= EIP3860_MAX_INITCODE_BYTES
+    return keccak256(init_code)
+
+
+def settlement_validity_verifier_descriptor_hash_v2(
+        words: tuple[bytes, ...] | list[bytes]) -> bytes:
+    selector = bytes4_word_value(words[277])
+    maximum_proof_bytes = uint_word_value(words[278], 32)
+    verification_gas = uint_word_value(words[279], 64)
+    reserve_gas = uint_word_value(words[280], 64)
+    assert (selector == SETTLEMENT_VALIDITY_VERIFIER_SELECTOR
+            and words[276] == SETTLEMENT_VALIDITY_PUBLIC_INPUT_SCHEMA_HASH
+            and maximum_proof_bytes <= SETTLEMENT_VALIDITY_MAXIMUM_PROOF_BYTES
+            and verification_gas <= SETTLEMENT_VALIDITY_MAXIMUM_GAS
+            and reserve_gas <= SETTLEMENT_VALIDITY_MAXIMUM_GAS)
+    expected_config = keccak256(
+        SETTLEMENT_VALIDITY_VERIFIER_CONFIG_TYPEHASH
+        + words[274] + words[275] + words[276] + bytes4_word(selector)
+        + u256(maximum_proof_bytes) + u256(verification_gas)
+        + u256(reserve_gas))
+    assert words[273] == expected_config
+    return keccak256(
+        SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_TYPEHASH
+        + words[271] + words[272] + words[273] + words[274] + words[275]
+        + words[276] + bytes4_word(selector) + u256(maximum_proof_bytes)
+        + u256(verification_gas) + u256(reserve_gas))
+
+
+def encode_settlement_validity_verifier_descriptor_return_v2(
+        words: tuple[bytes, ...] | list[bytes]) -> bytes:
+    settlement_validity_verifier_descriptor_hash_v2(words)
+    encoded = (bytes4_word(SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_MAGIC)
+               + b"".join(words[271:281]))
+    assert len(encoded) == SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_RETURN_LENGTH
+    return encoded
+
+
 def governance_delay_authority_descriptor_from_profile_v1(
         words: tuple[bytes, ...]) -> bytes:
     descriptor = GovernanceDelayAuthorityDescriptorV1(
@@ -7805,12 +8009,16 @@ def canonical_execution_profile_cross_model_fixture_v2() -> bytes:
             words.append(seed)
     creation_code = b"\x60\x00\x60\x00\xf3"
     runtime_code = b"\x60\x00\x60\x00\xf3"
+    kind0_creation_code = b"\x60\x01\x60\x00\xf3"
+    kind0_runtime_code = b"\x60\x02\x60\x00\xf3"
     words[0] = u256(2)
     words[1] = u256(2)
     words[2] = u256(1)
     words[3] = u256(16_788)
     words[48] = keccak256(runtime_code)
     words[49] = keccak256(creation_code)
+    words[267] = keccak256(kind0_creation_code)
+    words[229] = keccak256(kind0_runtime_code)
     words[44] = address_word(SETTLEMENT_FACTORY_ADDRESS_V2)
     words[45] = SETTLEMENT_FACTORY_RUNTIME_HASH_V2
     words[46] = settlement_factory_configuration_hash_v2()
@@ -7837,6 +8045,7 @@ def canonical_execution_profile_cross_model_fixture_v2() -> bytes:
         + u16(len(compile_bytes)) + compile_bytes)
     words[144] = keccak256(
         b"verifyMigrationTransition(bytes,uint256[2])")[:4] + bytes(28)
+    words[147] = u256(30_000_000)
     words[114] = words[152]
     words[115] = words[153]
     words[116] = words[150]
@@ -7851,6 +8060,11 @@ def canonical_execution_profile_cross_model_fixture_v2() -> bytes:
     words[59] = eip2935_read_configuration_hash_v1(
         L1_EIP2935_FIRST_SUPPORTED_BLOCK)
     words[246] = u256(L2_EIP2935_HISTORY_STORAGE_ACTIVATION_BLOCK)
+    words[276] = SETTLEMENT_VALIDITY_PUBLIC_INPUT_SCHEMA_HASH
+    words[277] = bytes4_word(SETTLEMENT_VALIDITY_VERIFIER_SELECTOR)
+    words[278] = u256(65_536)
+    words[279] = u256(2_000_000)
+    words[280] = u256(500_000)
     words[252] = u256(30)         # quoteMaturitySeconds
     words[253] = u256(2)          # quoteMaturityBlocks
     words[254] = u256(8_000_000)  # seatMarketMutationCallGas
@@ -7877,7 +8091,9 @@ def canonical_execution_profile_cross_model_fixture_v2() -> bytes:
         words[index] = u256(value)
     words[37] = aggregator_seat_market_configuration_hash_v2(tuple(words))
     artifact = (u32(len(creation_code)) + creation_code
-                + u32(len(runtime_code)) + runtime_code)
+                + u32(len(runtime_code)) + runtime_code
+                + u32(len(kind0_creation_code)) + kind0_creation_code
+                + u32(len(kind0_runtime_code)) + kind0_runtime_code)
     encoded = (u256(32) + b"".join(words)
                + u256(EXECUTION_PROFILE_STATIC_BYTES)
                + abi_bytes_tail(artifact))
@@ -7889,7 +8105,8 @@ def canonical_execution_profile_cross_model_fixture_v2() -> bytes:
 def decode_execution_profile_v2(
         encoded: bytes, *, validate_authority_graph: bool = True
         ) -> tuple[bytes, ...]:
-    assert (32 + EXECUTION_PROFILE_STATIC_BYTES + 64 <= len(encoded) <= 65_536
+    assert (32 + EXECUTION_PROFILE_STATIC_BYTES + 64
+            <= len(encoded) <= EXECUTION_PROFILE_MAX_BYTES
             and len(encoded) % 32 == 0 and encoded[:32] == u256(32))
     base = 32
     words = tuple(
@@ -7918,19 +8135,15 @@ def decode_execution_profile_v2(
     assert words[209] == address_word(LEGACY_V1_SOURCE_BRIDGE_ADDRESS)
     artifact_head = base + EXECUTION_PROFILE_STATIC_BYTES
     artifact_length = uint_word_value(encoded[artifact_head:artifact_head + 32])
+    assert 20 <= artifact_length <= EXECUTION_PROFILE_CODE_ARTIFACT_MAX_BYTES
     artifact = encoded[artifact_head + 32:artifact_head + 32 + artifact_length]
     assert encoded == (encoded[:artifact_head] + abi_bytes_tail(artifact))
-    creation_length = int.from_bytes(artifact[:4], "big")
-    creation = artifact[4:4 + creation_length]
-    runtime_offset = 4 + creation_length
-    runtime_length = int.from_bytes(artifact[runtime_offset:runtime_offset + 4],
-                                    "big")
-    runtime = artifact[runtime_offset + 4:]
-    assert (0 < creation_length <= TARGET_CREATION_CODE_MAX_BYTES
-            and 0 < runtime_length <= EIP170_MAX_RUNTIME_BYTES
-            and len(runtime) == runtime_length
-            and words[49] == keccak256(creation)
-            and words[48] == keccak256(runtime))
+    creation, runtime, kind0_creation, kind0_runtime = \
+        decode_execution_profile_code_artifact_v2(artifact)
+    assert (words[49] == keccak256(creation)
+            and words[48] == keccak256(runtime)
+            and words[267] == keccak256(kind0_creation)
+            and words[229] == keccak256(kind0_runtime))
     assert words[55] == keccak256(
         b"slot-chain-solc-immutable-references-v1" + bytes(4))
     assert words[56] == keccak256(
@@ -7956,6 +8169,18 @@ def decode_execution_profile_v2(
             bridge_adapter_projection_from_profile_v1(words))
         assert (words[162] == expected_adapter_config
                 and words[160] == address_word(expected_adapter))
+        assert (words[268] == kind0_ingress_salt_v1(words)
+                and words[269]
+                    == kind0_ingress_init_code_hash_v1(kind0_creation, words)
+                and words[270] == kind0_ingress_configuration_hash_v1(words)
+                and words[228] == address_word(create2_address(
+                    SETTLEMENT_FACTORY_ADDRESS_V2, words[268], words[269])))
+        settlement_validity_verifier_descriptor_hash_v2(words)
+        required_gas = (
+            (uint_word_value(words[279], 64) * 64 + 62) // 63
+            + uint_word_value(words[280], 64)
+            + SETTLEMENT_VALIDITY_VERIFIER_CALL_ENVELOPE_GAS)
+        assert required_gas <= uint_word_value(words[147], 64)
     compile_bytes = b"".join(words[118:138])
     assert words[54] == keccak256(
         b"slot-chain-target-compile-time-rules-v2"
@@ -8081,6 +8306,26 @@ def canonicalize_execution_profile_authority_graph_v2(encoded: bytes) -> bytes:
     words[189] = component_config_hash(10, bridge_config)
     words[230:235] = (u256(1), u256(1), u256(1), u256(1),
                       u256(20_000_000))
+    artifact_head = 32 + EXECUTION_PROFILE_STATIC_BYTES
+    artifact_length = uint_word_value(encoded[artifact_head:artifact_head + 32])
+    artifact = encoded[
+        artifact_head + 32:artifact_head + 32 + artifact_length]
+    _target_creation, _target_runtime, kind0_creation, kind0_runtime = \
+        decode_execution_profile_code_artifact_v2(artifact)
+    words[267] = keccak256(kind0_creation)
+    words[229] = keccak256(kind0_runtime)
+    words[268] = kind0_ingress_salt_v1(words)
+    words[270] = kind0_ingress_configuration_hash_v1(words)
+    words[269] = kind0_ingress_init_code_hash_v1(kind0_creation, words)
+    words[228] = address_word(create2_address(
+        SETTLEMENT_FACTORY_ADDRESS_V2, words[268], words[269]))
+    words[277] = bytes4_word(SETTLEMENT_VALIDITY_VERIFIER_SELECTOR)
+    words[273] = keccak256(
+        SETTLEMENT_VALIDITY_VERIFIER_CONFIG_TYPEHASH
+        + words[274] + words[275] + words[276] + words[277]
+        + u256(uint_word_value(words[278], 32))
+        + u256(uint_word_value(words[279], 64))
+        + u256(uint_word_value(words[280], 64)))
     # Aggregate roots must be derived only after every source, destination,
     # terminal and economic leaf has reached its canonical value.  Computing
     # the Market or PVM hash earlier leaves a valid-looking but internally
@@ -8216,6 +8461,7 @@ class DerivedRegisterReleaseAuthorityV2:
     bridge_invocation_policy: bytes
     bridge_route_expansion_hash: bytes
     target_registration_hash: bytes
+    profile_words: tuple[bytes, ...]
 
 
 def _execution_profile_artifact_v2(profile_bytes: bytes) -> tuple[bytes, bytes]:
@@ -8223,13 +8469,8 @@ def _execution_profile_artifact_v2(profile_bytes: bytes) -> tuple[bytes, bytes]:
     head = 32 + EXECUTION_PROFILE_STATIC_BYTES
     artifact_length = uint_word_value(profile_bytes[head:head + 32])
     artifact = profile_bytes[head + 32:head + 32 + artifact_length]
-    creation_length = int.from_bytes(artifact[:4], "big")
-    creation = artifact[4:4 + creation_length]
-    runtime_offset = 4 + creation_length
-    runtime_length = int.from_bytes(artifact[runtime_offset:runtime_offset + 4],
-                                    "big")
-    runtime = artifact[runtime_offset + 4:runtime_offset + 4 + runtime_length]
-    assert runtime_offset + 4 + runtime_length == len(artifact)
+    creation, runtime, _kind0_creation, _kind0_runtime = \
+        decode_execution_profile_code_artifact_v2(artifact)
     return creation, runtime
 
 
@@ -8365,7 +8606,7 @@ def derive_register_release_authority_v2(
         _migration_activation_profile_from_words_v2(words, profile_hash))
     creation, runtime = _execution_profile_artifact_v2(profile_bytes)
     target_parameters = b"".join(words[:EXECUTION_PROFILE_VALUE_WORDS])
-    assert len(target_parameters) == 8_544
+    assert len(target_parameters) == 8_992
     target_parameters_hash = keccak256(
         b"slot-chain-target-parameters-v2" + u16(len(target_parameters))
         + target_parameters)
@@ -8462,13 +8703,10 @@ def derive_register_release_authority_v2(
         components[7].address, components[8].address, components[9].address,
         destination_execution_hash, infrastructure_hash, words[10])
     fees = tuple(uint_word_value(words[index]) for index in range(230, 235))
-    kind0_config_preimage = (
-        words[2] + words[1][-8:] + words[23][12:] + words[24] + words[25]
-        + words[26][12:] + words[27] + words[28] + words[20][12:] + words[3])
-    assert len(kind0_config_preimage) == 260
-    kind0_config = keccak256(
-        b"slot-chain-kind0-ingress-config-v1"
-        + u32(len(kind0_config_preimage)) + kind0_config_preimage)
+    kind0_config = kind0_ingress_configuration_hash_v1(words)
+    kind0_constructor_poststate = kind0_constructor_poststate_commitment_v1(
+        kind0_ingress_constructor_tail_v1(words), kind0_config, words[229]
+    )
     common = dict(
         active_settlement_router=address_word_value(words[23]),
         router_runtime_hash=words[24], router_configuration_hash=words[25],
@@ -8481,6 +8719,7 @@ def derive_register_release_authority_v2(
     ingress_rows = (
         ProfileIngressAuthorizationV2(
             0, address_word_value(words[228]), words[229], kind0_config,
+            kind0_constructor_poststate,
             source_domain_id=bytes(32), source_registration_epoch=0,
             source_bridge_execution_hash=bytes(32),
             destination_domain_id=bytes(32), destination_bridge=0,
@@ -8488,7 +8727,8 @@ def derive_register_release_authority_v2(
             destination_infrastructure_hash=bytes(32), **common),
         ProfileIngressAuthorizationV2(
             1, components[0].address, components[0].runtime_hash,
-            components[0].config_hash, source_domain_id=source_domain,
+            components[0].config_hash, bytes(32),
+            source_domain_id=source_domain,
             source_registration_epoch=source.src_epoch,
             source_bridge_execution_hash=source_execution_hash,
             destination_domain_id=destination_domain,
@@ -8506,7 +8746,8 @@ def derive_register_release_authority_v2(
             destination_chain_id_, destination_domain,
             destination_bridge.bridge, destination_execution_hash,
             infrastructure_hash, address_word_value(words[228]), words[229],
-            kind0_config, components[0].address, components[0].runtime_hash,
+            kind0_config, kind0_constructor_poststate,
+            components[0].address, components[0].runtime_hash,
             components[0].config_hash))
     manifest = ReleaseManifestDescriptor(
         protocol_version, settlement_chain_id, destination_chain_id_, words[5],
@@ -8533,7 +8774,7 @@ def derive_register_release_authority_v2(
         destination_bridge, destination_domain, destination_execution_hash,
         infrastructure_hash, ingress_rows, ingress_root, manifest,
         manifest_hash, bridge_expansion, bridge_policy,
-        bridge_expansion_hash, registration_hash)
+        bridge_expansion_hash, registration_hash, tuple(words))
 
 
 def encode_migration_activation_profile_calldata(
@@ -8607,10 +8848,13 @@ class TargetReleaseRegistrationV2:
     target_configuration_hash: bytes
     settlement_deployment_descriptor_hash: bytes
     execution_profile_hash: bytes
+    component_configuration_read_gas: int
     migration_activation_profile_record_hash: bytes
     data_session_configuration_hash: bytes
     release_manifest_hash: bytes
     bridge_route_expansion_hash: bytes
+    settlement_validity_verifier_descriptor_hash: bytes
+    kind0_ingress_authorization_id: bytes
     target_registration_hash: bytes
 
 
@@ -8679,7 +8923,10 @@ def encode_target_release_registration_return(
                 registration.data_session_configuration_hash,
                 registration.release_manifest_hash,
                 registration.bridge_route_expansion_hash,
+                registration.settlement_validity_verifier_descriptor_hash,
+                registration.kind0_ingress_authorization_id,
                 registration.target_registration_hash)))
+    assert 0 < registration.component_configuration_read_gas <= UINT64_MAX
     encoded = (
         bytes4_word(TARGET_RELEASE_REGISTRATION_MAGIC)
         + u256(registration.protocol_version)
@@ -8689,18 +8936,21 @@ def encode_target_release_registration_return(
         + b32(registration.target_configuration_hash)
         + b32(registration.settlement_deployment_descriptor_hash)
         + b32(registration.execution_profile_hash)
+        + u256(registration.component_configuration_read_gas)
         + b32(registration.migration_activation_profile_record_hash)
         + b32(registration.data_session_configuration_hash)
         + b32(registration.release_manifest_hash)
         + b32(registration.bridge_route_expansion_hash)
+        + b32(registration.settlement_validity_verifier_descriptor_hash)
+        + b32(registration.kind0_ingress_authorization_id)
         + b32(registration.target_registration_hash))
-    assert len(encoded) == 416
+    assert len(encoded) == 512
     return encoded
 
 
 def decode_target_release_registration_return(
         returndata: bytes) -> TargetReleaseRegistrationV2:
-    assert (len(returndata) == 416
+    assert (len(returndata) == 512
             and bytes4_word_value(returndata[:32])
                 == TARGET_RELEASE_REGISTRATION_MAGIC)
     registration = TargetReleaseRegistrationV2(
@@ -8708,9 +8958,12 @@ def decode_target_release_registration_return(
         uint_word_value(returndata[64:96], 64),
         address_word_value(returndata[96:128]), b32(returndata[128:160]),
         b32(returndata[160:192]), b32(returndata[192:224]),
-        b32(returndata[224:256]), b32(returndata[256:288]),
+        b32(returndata[224:256]),
+        uint_word_value(returndata[256:288], 64),
         b32(returndata[288:320]), b32(returndata[320:352]),
-        b32(returndata[352:384]), b32(returndata[384:416]))
+        b32(returndata[352:384]), b32(returndata[384:416]),
+        b32(returndata[416:448]), b32(returndata[448:480]),
+        b32(returndata[480:512]))
     assert returndata == encode_target_release_registration_return(
         registration)
     return registration
@@ -11271,7 +11524,7 @@ def fs_challenge(chain_id: int, version: int, session: bytes,
 def vectors() -> dict[str, str]:
     settlement_chain_id, l2_chain_id, contract = 1, 16_788, 0xABCD
     profile_bytes = canonical_execution_profile_cross_model_fixture_v2()
-    assert decode_execution_profile_v2(profile_bytes)
+    profile_words = decode_execution_profile_v2(profile_bytes)
     for legacy_profile in (
         bytes.fromhex("a1617601"),
         bytes.fromhex("a4000101400241000380"),
@@ -11326,6 +11579,12 @@ def vectors() -> dict[str, str]:
                 target_constructor_inventory),
             derived_release_authority.settlement_deployment_descriptor
                 .target_configuration_hash)
+    kind0_constructor_state_return = \
+        encode_kind0_constructor_state_return_v1(
+            kind0_constructor_poststate_commitment_v1(
+                kind0_ingress_constructor_tail_v1(profile_words),
+                profile_words[270], profile_words[229]),
+            profile_words[270])
     empty_data_session_accounting_return = \
         encode_empty_data_session_accounting_v1(
             derived_release_authority.data_session_configuration_hash)
@@ -11366,13 +11625,19 @@ def vectors() -> dict[str, str]:
         lambda: live_registration_validation_commitment_v2(
             derived_release_authority,
             funded_data_session_accounting_return,
-            target_constructor_state_return),
+            target_constructor_state_return,
+            kind0_constructor_state_return,
+            encode_settlement_validity_verifier_descriptor_return_v2(
+                profile_words)),
         "funded PREACTIVE reward custody accepted as empty")
     live_registration_validation_commitment = \
         live_registration_validation_commitment_v2(
             derived_release_authority,
             empty_data_session_accounting_return,
-            target_constructor_state_return)
+            target_constructor_state_return,
+            kind0_constructor_state_return,
+            encode_settlement_validity_verifier_descriptor_return_v2(
+                profile_words))
     assert (SETTLEMENT_FACTORY_DEPLOY_SELECTOR.hex() == "4af63f02"
             and SETTLEMENT_FACTORY_ADDRESS_V2
                 == int("ce0042b868300000d44a59004da54a005ffdcf9f", 16)
@@ -11415,7 +11680,7 @@ def vectors() -> dict[str, str]:
         target_constructor_inventory[:-1],
         (bytes.fromhex("ff" * 32),) + target_constructor_inventory[1:],
     ):
-        if len(bad_inventory) != 274:
+        if len(bad_inventory) != 288:
             assert_rejects(
                 lambda value=bad_inventory:
                     target_constructor_poststate_commitment_v2(value),
@@ -12525,6 +12790,7 @@ def vectors() -> dict[str, str]:
     kind0_ingress = ProfileIngressAuthorizationV2(
         kind=0, adapter=0xAD10, adapter_runtime_hash=bytes.fromhex("91" * 32),
         adapter_configuration_hash=bytes.fromhex("92" * 32),
+        adapter_constructor_poststate_commitment=bytes.fromhex("95" * 32),
         source_domain_id=bytes(32), source_registration_epoch=0,
         source_bridge_execution_hash=bytes(32),
         destination_domain_id=bytes(32), destination_bridge=0,
@@ -12533,6 +12799,7 @@ def vectors() -> dict[str, str]:
     kind1_ingress = ProfileIngressAuthorizationV2(
         kind=1, adapter=0xAD11, adapter_runtime_hash=bytes.fromhex("93" * 32),
         adapter_configuration_hash=bytes.fromhex("94" * 32),
+        adapter_constructor_poststate_commitment=bytes(32),
         source_domain_id=source_domain, source_registration_epoch=7,
         source_bridge_execution_hash=bridge_execution,
         destination_domain_id=destination_domain, destination_bridge=0xB200,
@@ -12545,7 +12812,8 @@ def vectors() -> dict[str, str]:
         source_domain, 7, bridge_execution, (1 << 255) + l2_chain_id,
         destination_domain, 0xB200, destination_bridge_execution,
         infrastructure, 0xAD10, bytes.fromhex("91" * 32),
-        bytes.fromhex("92" * 32), 0xAD11, bytes.fromhex("93" * 32),
+        bytes.fromhex("92" * 32), bytes.fromhex("95" * 32),
+        0xAD11, bytes.fromhex("93" * 32),
         bytes.fromhex("94" * 32))
     # The strict REGISTER_RELEASE authority is reconstructed solely from the
     # profile.  The synthetic graph above remains an independent codec corpus;
@@ -12570,6 +12838,7 @@ def vectors() -> dict[str, str]:
         kind0_ingress.adapter,
         kind0_ingress.adapter_runtime_hash,
         kind0_ingress.adapter_configuration_hash,
+        kind0_ingress.adapter_constructor_poststate_commitment,
         kind1_ingress.adapter,
         kind1_ingress.adapter_runtime_hash,
         kind1_ingress.adapter_configuration_hash)
@@ -13073,9 +13342,12 @@ def vectors() -> dict[str, str]:
         target_deployment_descriptor.target_runtime_hash,
         target_deployment_descriptor.target_configuration_hash,
         target_deployment_descriptor_hash, profile_hash,
+        uint_word_value(profile_words[111], 64),
         migration_activation_profile.activation_profile_record_hash,
         derived_release_authority.data_session_configuration_hash,
         release_hash, bridge_route_expansion_hash,
+        settlement_validity_verifier_descriptor_hash_v2(profile_words),
+        ingress_authorization_id(kind0_ingress),
         target_registration_hash)
     register_target_release_calldata = encode_register_target_release_calldata(
         register_release_payload)
@@ -13457,10 +13729,10 @@ def vectors() -> dict[str, str]:
     assert len(register_target_release_calldata) \
         == 4 + len(register_release_payload_abi)
     assert len(register_target_release_return) == 96
-    assert len(target_release_registration_return) == 416
+    assert len(target_release_registration_return) == 512
     assert len(migration_activation_profile_return) == 768
     assert len(profile_ingress_root_return) == 128
-    assert all(len(value) == 800
+    assert all(len(value) == 832
                for value in profile_ingress_authorization_returns)
     assert (REGISTER_TARGET_RELEASE_GAS == 3_000_000
             and INSTALL_SETTLEMENT_AUTHORIZATION_GAS == 500_000
@@ -17665,103 +17937,12 @@ def vectors() -> dict[str, str]:
     }
 
 
-EXPECTED = {
- 'builder_active_equivocation_witness_hash': 'fd6f6de0248d52b478637f787e84c60695d5637891cbb3a5071045550d29be75',
- 'builder_active_equivocation_witness_length': '2366',
- 'builder_active_tranche_release_witness_hash': '2246b6c4067d8dbfffd57072507c4fa03fa9f59b18747907fdde87cf4fbc2c8d',
- 'builder_active_tranche_release_witness_length': '480',
- 'builder_claim_credit_calldata_hash': '870c91e9f2ed3494f25ca60447440e8af94c7fe849aeaca24c7020cbe2dad7c2',
- 'builder_claim_credit_calldata_length': '36',
- 'builder_claim_credit_return_hash': '84a21bcf213c894bd35733058dfa3a592bbe8a1ae5f74e36ff3be371c0c3be9b',
- 'builder_claim_credit_return_length': '96',
- 'builder_equivocation_calldata_hash': 'b5054f2630ff0185f4d93bd09547fe7265dcdaa2bb4f4efc916a4dacf0ce53b7',
- 'builder_equivocation_calldata_length': '2436',
- 'builder_equivocation_return_hash': 'eb9cab44a43adcc764cf488ade4f8e8fab85dab8cab6a5762cd6e3cbd9939eb6',
- 'builder_equivocation_return_length': '256',
- 'builder_expire_schedule_calldata_hash': '4f1b5f49458cc8f4f22f9745a61accc177cd37d4412bfadd74c9c5006b9083f5',
- 'builder_expire_schedule_calldata_length': '36',
- 'builder_expire_schedule_return_hash': '347b76314feb452be5b5f8dfa655b368cf0ae1656b7e14e0488b4bc170d0ac6f',
- 'builder_expire_schedule_return_length': '96',
- 'builder_generation_release_witness_hash': '65a5501dc5440301031bc0d21ac6506ce1f98b226139c93ab54251883d5bd12d',
- 'builder_generation_release_witness_length': '352',
- 'builder_liability_equivocation_witness_hash': '716284bc32c79d50444b03d91aaf4eb02c4f5f6412db0efdd944778b4a2ea2d9',
- 'builder_liability_equivocation_witness_length': '2366',
- 'builder_liability_tranche_release_witness_hash': '8d56574545d36cb4cbb7f1452055275a3dbd8e5b2aa9062e717095f387a0a2d8',
- 'builder_liability_tranche_release_witness_length': '288',
- 'builder_maintenance_calldata_hash': '43c78baee19458e9328ff2b4da6b599d2837762bc2c59fd3bd2c99c9a4ef90ae',
- 'builder_maintenance_calldata_length': '1316',
- 'builder_maintenance_return_hash': '71d89327348795bdfb10797b1a4d8fbed80736e9e283d99f004dd4a3eeb3ca55',
- 'builder_maintenance_return_length': '160',
- 'builder_maintenance_witness_hash': 'd39a171735fce188e821a1f30d45690e429d1980c8a9ca784d197fc9146fd67b',
- 'builder_maintenance_witness_length': '1197',
- 'builder_movement_witness_hash': '03028017c34313fc451f9327085f6cbe2f2d24c05303a7d29c69c035b9e689d0',
- 'builder_movement_witness_length': '1193',
- 'builder_normalize_calldata_hash': 'a5fe18f847780330e44bfd30b196a3aefb5bdd60a0c5bcfc2160d1dcf4738f65',
- 'builder_normalize_calldata_length': '644',
- 'builder_normalize_noop_witness_hash': 'bc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a',
- 'builder_normalize_noop_witness_length': '1',
- 'builder_normalize_return_hash': 'a1074a8b86686267c3a23a084c9a9ae67808925eb857e4c87f66904cb354e098',
- 'builder_normalize_return_length': '160',
- 'builder_normalize_witness_hash': '41aa2500f6787f0ff38398f6a481ab02641b948e56609939ae1ac4311a05eaa7',
- 'builder_normalize_witness_length': '489',
- 'builder_register_calldata_hash': '9f18fd55e769f2cb66a0886f78c2c27e975a5cc1bd6a91cc505587350ecf12d3',
- 'builder_register_calldata_length': '708',
- 'builder_register_return_hash': '4297459afb1ea5b55dfde89615c2fc6fcf9a3c5169992544cf455ac40b34d3fd',
- 'builder_register_return_length': '192',
- 'builder_release_generation_calldata_hash': '3a737cfe76c2cd421f226d122366b8eb4b2c0d15ff8ce9ee9662fb1ebdbd0ef5',
- 'builder_release_generation_calldata_length': '484',
- 'builder_release_generation_return_hash': 'e10ddf1201ccd056229850f387844bb41a5dc22095e1d6eaff44aaee1dda7705',
- 'builder_release_generation_return_length': '192',
- 'builder_release_tranche_calldata_hash': '3abab4635081cb16695ba53983b7f77f512196f554b9d02a4f523dc265e87fea',
- 'builder_release_tranche_calldata_length': '644',
- 'builder_release_tranche_return_hash': '0775b71ba1f5c778f429c183127db5b39699a4c28a34acd8c9c7e43e59472d3f',
- 'builder_release_tranche_return_length': '224',
- 'builder_request_exit_calldata_hash': '83df22506dc47e476d2f4ffac8545afbda7c63d90e099ff0f531d81928a48297',
- 'builder_request_exit_calldata_length': '36',
- 'builder_request_exit_return_hash': '2b6bf8ef73a6acb0795c0cd086f3c906b83d2883f555b6b163a468bf41645fb9',
- 'builder_request_exit_return_length': '128',
- 'builder_reserve_calldata_hash': '7042284258b75a7e1154eb3d9ed48780c1099ef78ac5cb4d1f71222064dfd3f7',
- 'builder_reserve_calldata_length': '932',
- 'builder_reserve_return_hash': '84d4b9be382a7c941e0af0304e4feec46929c40ca71770121c21b08afef7aced',
- 'builder_reserve_return_length': '160',
- 'builder_reserve_witness_hash': 'e41b49dd7050df0b699dfe13a197c0ca366bfed9f06d8f823771f678a565d409',
- 'builder_reserve_witness_length': '777',
- 'builder_vacancy_registration_witness_hash': '5338baeca36696fec8f42f2f4f9d183c182f5ebc479478e0e4c9e59c9355771b',
- 'builder_vacancy_registration_witness_length': '544',
- 'builder_admission_state_return_hash': '4adb66ffb320e14ef37f1630bacdd71f03bcdfbb006d0c1a15a0312c3b80a91d',
- 'builder_admission_state_selector': '4a9dfa3f',
- 'builder_cell_63_admission_root': 'a7331d780dab70d17c02c0cedf929a63f970b0baef2c456688c21537efcd1845',
- 'builder_claim_builder_lease_credit_selector': '8f73793c',
- 'builder_expire_schedule_windows_selector': 'b1357479',
- 'builder_move_final_root': '6ffdad931d0bc04bd668e66d5deb74ce13feb987ad05525f2e1634e1dc4ccc95',
- 'builder_move_intermediate_root': 'e65acea99c98a79044078e8835688758b97b5fb9931f449ab785b3aa3ab3809c',
- 'builder_move_pre_root': '3e961c42d94ba762f1d8e855bc9ac168bcdcd35177c381403574ae2c5fa03a0e',
- 'builder_normalize_builder_tranches_selector': '5e7c8afe',
- 'builder_process_builder_maintenance_selector': '0e1ffc68',
- 'builder_register_builder_selector': '5fc42c69',
- 'builder_registry_header_slot': 'e7ce7a505bf18b9ed57a0785851385323c9487991c55b422861381f92e5c245a',
- 'builder_registry_header_trie_key': '3dc336ad17079f9525d2b0708a8773321ab29957d522a6f2d10fc522b7362aec',
- 'builder_registry_header_word': '42524831013f0000010203040506070811121314151617182122232425262728',
- 'builder_registry_exhausted_header_word': '4252483101400100ffffffffffffffffffffffffffffffff0000000000000000',
- 'builder_registry_root_slot': '4dc6f1bf199f7518c646d40ed35ca04703f646273e6de1d7eace0746cc7100a6',
- 'builder_registry_root_trie_key': '04bafd6333ae949248e59a002ce1fbccb8a4bc8da3a0c3228ae523d727170880',
- 'builder_release_builder_generation_selector': 'e7bae370',
- 'builder_release_builder_tranche_selector': 'f8668bb9',
- 'builder_request_builder_exit_selector': 'c8f20b55',
- 'builder_reserve_builder_window_selector': '46a53315',
- 'builder_schedule_registry_state_return_hash': '4abc972ad2bcb73d21e82e60a4fba80df1c6646fa376fe873da7eecae3baa492',
- 'builder_schedule_registry_state_selector': 'ad95cea1',
- 'builder_schedule_window_release_return_hash': 'f0160669e33a104e916a3d5bdf5c3051fbe0f06ab42a445ccd7708631e64b77e',
- 'builder_schedule_window_release_selector': 'f4cd9a5e',
- 'builder_settlement_schedule_release_return_hash': 'dad610bad2145e2431a6a6298f62dc7e08fc01f5a80d6f933a91b557a4ee9a84',
- 'builder_settlement_schedule_release_selector': 'a4574c77',
- 'builder_submit_builder_equivocation_selector': '979c1f72',
- 'abort_expired_version_migration_calldata_hash': 'bbacaa742d95f872d3545b49e859fdcd4c705a2a958dd439160fdd0f9bb7ace3',
- 'abort_expired_version_migration_return_hash': '76b344fef5193370169868e36209bea0dbfa5e350a4fd58320c935ada1b55de1',
+EXPECTED = {'abort_expired_version_migration_calldata_hash': '2a415d455bc04de9e5dddcd3369d0076ecb00cd4bbabadf29e71bea1458979c5',
+ 'abort_expired_version_migration_return_hash': '649fff0dfd2aa5a43272f3c63dbb17086d8ac7084c256915ffa088834039c469',
  'abort_expired_version_migration_selector': 'c4eee12d',
  'activate_release_selector': '33f5ca80',
  'activate_version_with_migration_selector': '17a548ed',
- 'activation_receipt_id': '18942f6d0cbf38a3bf60eae168dddcaaed0933a584744130417e21f76afccabe',
+ 'activation_receipt_id': '63b846ea90c10457129a0b4259f4a022a10b99fbbff9ec421ccf4d9c04c52004',
  'activation_receipt_magic': '41525631',
  'activation_receipt_selector': '0a4434d0',
  'activation_successor_receipt_magic': '41535631',
@@ -17770,9 +17951,9 @@ EXPECTED = {
  'admission_proof_digest': '65a5501dc5440301031bc0d21ac6506ce1f98b226139c93ab54251883d5bd12d',
  'admission_reuse_root': 'a1e22890dd835872055e53dcad82d9e12759a2920853fe6e9f735d7f2c87ceca',
  'admission_root': '3bf2dcaf78292c832108e29205bf99cc2d22137a0545e4528d8da7309d4b482b',
- 'adopt_migration_canonical_calldata_hash': '889154f4d3526892ed2b61310e86f2c0e864a5c0a50a5ebfd2ae7ee450c320cb',
+ 'adopt_migration_canonical_calldata_hash': '3a568138e816eba1fa1903262e1d633c119b8349770e41514f07c398668b1969',
  'adopt_migration_canonical_calldata_length': '580',
- 'adopt_migration_canonical_return_hash': 'a0094e7035435655e908fa4d9de909f14d0badce2c7c867ab083ab094d3faf14',
+ 'adopt_migration_canonical_return_hash': '29bbe49eb933dff169a474328388efc21a587b53b29b294fc1547134144ae2ab',
  'adopt_migration_canonical_selector': '3286443c',
  'append_from_adapter_selector': '1927261d',
  'append_kind0_calldata_hash': 'caabdaadee6df8cea48fb88dacad863e6e24e13f5b0c06f99408d5c71611788a',
@@ -17781,11 +17962,11 @@ EXPECTED = {
  'append_kind1_calldata_length': '708',
  'append_terminal_calldata_hash': '78b9b5433b2295976f9c7a1fd73d1720848c608e091ff52b548794e0a8ecd093',
  'append_terminal_selector': 'abc194f5',
- 'apply_protocol_change_calldata_hash': '0c3331a3a4f4647205d1cc864ed344ef809a48f12990b4ce96f3cfe5547265c5',
+ 'apply_protocol_change_calldata_hash': 'c9f9a0de0fb0a078fb5ba9abb977e24253ecd22008ecad075228242605cb2852',
  'apply_protocol_change_calldata_length': '260',
  'apply_protocol_change_selector': 'af3927f6',
- 'arm_version_migration_calldata_hash': 'af7034364bfb38e10c77ce8c9da7c06b9ac94fe65ff806232325cd4b0e595c5f',
- 'arm_version_migration_return_hash': '52b53595d51405b91c1cbb5540f30cd10d2265bca5e5c8b235891825688caf54',
+ 'arm_version_migration_calldata_hash': '9cbcb2ece843d71518462fef44761169a72edb47610e8518c2ed667c136c2fc8',
+ 'arm_version_migration_return_hash': 'b3389d9ee6e7d3f9ffe6c66859f58543113b78b621c9abdc5f21e03cdbb7d3e9',
  'arm_version_migration_selector': 'e3bcfcb4',
  'asymmetric_data_leaf': '204849a6179174bd92e677b252370e3e2904cf4eb2a94fe1ba154e1310b9cd64',
  'asymmetric_manifest_leaf': '92ed7b0f26f1048042ad681be312e3d79d6942ea6da03445c1cc8fd6b1eb1d6b',
@@ -17798,70 +17979,121 @@ EXPECTED = {
  'bridge_kernel_profile_hash': 'a23f9994e8d1c475500768b67cf2b2d1f7a0f367df6f44bac5ccf1fa12bc1338',
  'bridge_leaf': 'db1a0c935f1173a569006488882a2abeb620ee397b0d4b57ba14f479e93d4ad2',
  'bridge_result': 'e45204346d0dea5083fef855ff0260f7b3eb64fb02548813d09e87824f4da74f',
- 'cancel_protocol_change_calldata_hash': 'bfbc938b990f3fe959cd311722cd5f985189c00aa539cff62da242d7480082c4',
+ 'builder_active_equivocation_witness_hash': 'fd6f6de0248d52b478637f787e84c60695d5637891cbb3a5071045550d29be75',
+ 'builder_active_equivocation_witness_length': '2366',
+ 'builder_active_tranche_release_witness_hash': '2246b6c4067d8dbfffd57072507c4fa03fa9f59b18747907fdde87cf4fbc2c8d',
+ 'builder_active_tranche_release_witness_length': '480',
+ 'builder_admission_state_return_hash': '4adb66ffb320e14ef37f1630bacdd71f03bcdfbb006d0c1a15a0312c3b80a91d',
+ 'builder_admission_state_selector': '4a9dfa3f',
+ 'builder_cell_63_admission_root': 'a7331d780dab70d17c02c0cedf929a63f970b0baef2c456688c21537efcd1845',
+ 'builder_claim_builder_lease_credit_selector': '8f73793c',
+ 'builder_claim_credit_calldata_hash': '870c91e9f2ed3494f25ca60447440e8af94c7fe849aeaca24c7020cbe2dad7c2',
+ 'builder_claim_credit_calldata_length': '36',
+ 'builder_claim_credit_return_hash': '84a21bcf213c894bd35733058dfa3a592bbe8a1ae5f74e36ff3be371c0c3be9b',
+ 'builder_claim_credit_return_length': '96',
+ 'builder_equivocation_calldata_hash': 'b5054f2630ff0185f4d93bd09547fe7265dcdaa2bb4f4efc916a4dacf0ce53b7',
+ 'builder_equivocation_calldata_length': '2436',
+ 'builder_equivocation_return_hash': 'eb9cab44a43adcc764cf488ade4f8e8fab85dab8cab6a5762cd6e3cbd9939eb6',
+ 'builder_equivocation_return_length': '256',
+ 'builder_expire_schedule_calldata_hash': '4f1b5f49458cc8f4f22f9745a61accc177cd37d4412bfadd74c9c5006b9083f5',
+ 'builder_expire_schedule_calldata_length': '36',
+ 'builder_expire_schedule_return_hash': '347b76314feb452be5b5f8dfa655b368cf0ae1656b7e14e0488b4bc170d0ac6f',
+ 'builder_expire_schedule_return_length': '96',
+ 'builder_expire_schedule_windows_selector': 'b1357479',
+ 'builder_generation_release_witness_hash': '65a5501dc5440301031bc0d21ac6506ce1f98b226139c93ab54251883d5bd12d',
+ 'builder_generation_release_witness_length': '352',
+ 'builder_liability_equivocation_witness_hash': '716284bc32c79d50444b03d91aaf4eb02c4f5f6412db0efdd944778b4a2ea2d9',
+ 'builder_liability_equivocation_witness_length': '2366',
+ 'builder_liability_tranche_release_witness_hash': '8d56574545d36cb4cbb7f1452055275a3dbd8e5b2aa9062e717095f387a0a2d8',
+ 'builder_liability_tranche_release_witness_length': '288',
+ 'builder_maintenance_calldata_hash': '43c78baee19458e9328ff2b4da6b599d2837762bc2c59fd3bd2c99c9a4ef90ae',
+ 'builder_maintenance_calldata_length': '1316',
+ 'builder_maintenance_return_hash': '71d89327348795bdfb10797b1a4d8fbed80736e9e283d99f004dd4a3eeb3ca55',
+ 'builder_maintenance_return_length': '160',
+ 'builder_maintenance_witness_hash': 'd39a171735fce188e821a1f30d45690e429d1980c8a9ca784d197fc9146fd67b',
+ 'builder_maintenance_witness_length': '1197',
+ 'builder_move_final_root': '6ffdad931d0bc04bd668e66d5deb74ce13feb987ad05525f2e1634e1dc4ccc95',
+ 'builder_move_intermediate_root': 'e65acea99c98a79044078e8835688758b97b5fb9931f449ab785b3aa3ab3809c',
+ 'builder_move_pre_root': '3e961c42d94ba762f1d8e855bc9ac168bcdcd35177c381403574ae2c5fa03a0e',
+ 'builder_movement_witness_hash': '03028017c34313fc451f9327085f6cbe2f2d24c05303a7d29c69c035b9e689d0',
+ 'builder_movement_witness_length': '1193',
+ 'builder_normalize_builder_tranches_selector': '5e7c8afe',
+ 'builder_normalize_calldata_hash': 'a5fe18f847780330e44bfd30b196a3aefb5bdd60a0c5bcfc2160d1dcf4738f65',
+ 'builder_normalize_calldata_length': '644',
+ 'builder_normalize_noop_witness_hash': 'bc36789e7a1e281436464229828f817d6612f7b477d66591ff96a9e064bcc98a',
+ 'builder_normalize_noop_witness_length': '1',
+ 'builder_normalize_return_hash': 'a1074a8b86686267c3a23a084c9a9ae67808925eb857e4c87f66904cb354e098',
+ 'builder_normalize_return_length': '160',
+ 'builder_normalize_witness_hash': '41aa2500f6787f0ff38398f6a481ab02641b948e56609939ae1ac4311a05eaa7',
+ 'builder_normalize_witness_length': '489',
+ 'builder_process_builder_maintenance_selector': '0e1ffc68',
+ 'builder_register_builder_selector': '5fc42c69',
+ 'builder_register_calldata_hash': '9f18fd55e769f2cb66a0886f78c2c27e975a5cc1bd6a91cc505587350ecf12d3',
+ 'builder_register_calldata_length': '708',
+ 'builder_register_return_hash': '4297459afb1ea5b55dfde89615c2fc6fcf9a3c5169992544cf455ac40b34d3fd',
+ 'builder_register_return_length': '192',
+ 'builder_registry_configuration_hash': '5c2fe6d16935d1557c545b24c0b5982391f7a8ac702d7db3a6c55e467427ed79',
+ 'builder_registry_exhausted_header_word': '4252483101400100ffffffffffffffffffffffffffffffff0000000000000000',
+ 'builder_registry_header_slot': 'e7ce7a505bf18b9ed57a0785851385323c9487991c55b422861381f92e5c245a',
+ 'builder_registry_header_trie_key': '3dc336ad17079f9525d2b0708a8773321ab29957d522a6f2d10fc522b7362aec',
+ 'builder_registry_header_word': '42524831013f0000010203040506070811121314151617182122232425262728',
+ 'builder_registry_root_slot': '4dc6f1bf199f7518c646d40ed35ca04703f646273e6de1d7eace0746cc7100a6',
+ 'builder_registry_root_trie_key': '04bafd6333ae949248e59a002ce1fbccb8a4bc8da3a0c3228ae523d727170880',
+ 'builder_release_builder_generation_selector': 'e7bae370',
+ 'builder_release_builder_tranche_selector': 'f8668bb9',
+ 'builder_release_generation_calldata_hash': '3a737cfe76c2cd421f226d122366b8eb4b2c0d15ff8ce9ee9662fb1ebdbd0ef5',
+ 'builder_release_generation_calldata_length': '484',
+ 'builder_release_generation_return_hash': 'e10ddf1201ccd056229850f387844bb41a5dc22095e1d6eaff44aaee1dda7705',
+ 'builder_release_generation_return_length': '192',
+ 'builder_release_tranche_calldata_hash': '3abab4635081cb16695ba53983b7f77f512196f554b9d02a4f523dc265e87fea',
+ 'builder_release_tranche_calldata_length': '644',
+ 'builder_release_tranche_return_hash': '0775b71ba1f5c778f429c183127db5b39699a4c28a34acd8c9c7e43e59472d3f',
+ 'builder_release_tranche_return_length': '224',
+ 'builder_request_builder_exit_selector': 'c8f20b55',
+ 'builder_request_exit_calldata_hash': '83df22506dc47e476d2f4ffac8545afbda7c63d90e099ff0f531d81928a48297',
+ 'builder_request_exit_calldata_length': '36',
+ 'builder_request_exit_return_hash': '2b6bf8ef73a6acb0795c0cd086f3c906b83d2883f555b6b163a468bf41645fb9',
+ 'builder_request_exit_return_length': '128',
+ 'builder_reserve_builder_window_selector': '46a53315',
+ 'builder_reserve_calldata_hash': '7042284258b75a7e1154eb3d9ed48780c1099ef78ac5cb4d1f71222064dfd3f7',
+ 'builder_reserve_calldata_length': '932',
+ 'builder_reserve_return_hash': '84d4b9be382a7c941e0af0304e4feec46929c40ca71770121c21b08afef7aced',
+ 'builder_reserve_return_length': '160',
+ 'builder_reserve_witness_hash': 'e41b49dd7050df0b699dfe13a197c0ca366bfed9f06d8f823771f678a565d409',
+ 'builder_reserve_witness_length': '777',
+ 'builder_schedule_registry_state_return_hash': '4abc972ad2bcb73d21e82e60a4fba80df1c6646fa376fe873da7eecae3baa492',
+ 'builder_schedule_registry_state_selector': 'ad95cea1',
+ 'builder_schedule_window_release_return_hash': 'f0160669e33a104e916a3d5bdf5c3051fbe0f06ab42a445ccd7708631e64b77e',
+ 'builder_schedule_window_release_selector': 'f4cd9a5e',
+ 'builder_settlement_schedule_release_return_hash': 'dad610bad2145e2431a6a6298f62dc7e08fc01f5a80d6f933a91b557a4ee9a84',
+ 'builder_settlement_schedule_release_selector': 'a4574c77',
+ 'builder_submit_builder_equivocation_selector': '979c1f72',
+ 'builder_vacancy_registration_witness_hash': '5338baeca36696fec8f42f2f4f9d183c182f5ebc479478e0e4c9e59c9355771b',
+ 'builder_vacancy_registration_witness_length': '544',
+ 'cancel_protocol_change_calldata_hash': 'af81e8eb6e2b69325d6343e98230dcd0f2e5da91daafd61832713cb525d5e946',
  'cancel_protocol_change_calldata_length': '452',
  'cancel_protocol_change_selector': '5701c308',
  'candidate_commitment': '43e4ceb88ddf11a80441caccea6041c734aca203b5f9e377ecc21476898dd91c',
  'candidate_commitment_2': '9c86096381bc8c73a25b947de251960c9a0dc8ca32175b888b13fe0836dd2835',
- 'canonical_core': 'f59591f1e2e274e4aace20509a2d855e42b88ecac33a5550fd1af781c83047eb',
- 'chunk_root_0': 'e652cb05b1f44f3c09c650870b7b9ade4132548bd0c769bdda35b5bfcac5139e',
- 'component_config_getter_gas_limit': '50000',
- 'component_config_getter_selector': 'f6c0f7d2',
- 'candidate_committed_v2_topic': '51629f6515f461b4c6f912a8eecad46d8ff89ab5e8235d95c30004be2c9ac738',
- 'candidate_committed_v2_data_hash': '3a866b4aa907462beb3970d907921c7fe0b71aac7a875c4deac03007fd67791e',
+ 'candidate_committed_v2_data_hash': '0c7970d382a72a99a7d156cc870cbf7d3728cc91da9f86422767a1420be16538',
  'candidate_committed_v2_data_length': '192',
- 'candidate_committed_v2_topic1_candidate_id': 'b29c270bf7f140c4818c7b15dd82c567abc4fc617527c350f8be0e048199b24a',
+ 'candidate_committed_v2_topic': '51629f6515f461b4c6f912a8eecad46d8ff89ab5e8235d95c30004be2c9ac738',
+ 'candidate_committed_v2_topic1_candidate_id': '14a0fba13c924b2be26b39908af2ba3cb556ab4f050398d28a9db0416fb72992',
  'candidate_committed_v2_topic2_beneficiary': '000000000000000000000000000000000000000000000000000000000000cafe',
  'candidate_committed_v2_topic_count': '3',
- 'candidate_committed_v2_topics_hash': '10d8f0974e0d538c9dce867d788281eac98985817368b13b34b5b923dad7eeb0',
- 'claim_reward_v1_calldata_hash': '87733d9e2a2c7e55cd9e4b2d2a1c4dfb536238b502a0e98263d8c655b2206268',
+ 'candidate_committed_v2_topics_hash': '3bddf4ef7c357f1130e5d4dad8eb0571e0d202560c7c46574f4c88c470f00472',
+ 'canonical_core': 'f59591f1e2e274e4aace20509a2d855e42b88ecac33a5550fd1af781c83047eb',
+ 'chunk_root_0': 'e652cb05b1f44f3c09c650870b7b9ade4132548bd0c769bdda35b5bfcac5139e',
+ 'claim_reward_v1_calldata_hash': '7574e5084380d2c9bb8b89291b5ea65d6fbd7da4802d99118c33af93c4926bf9',
  'claim_reward_v1_calldata_length': '36',
  'claim_reward_v1_paid_wei': '1000000',
  'claim_reward_v1_return_hash': 'c1af4b94166cd32fc49b7b926cbb91ee421de2d04450e8ae57857b9b56ac7e53',
  'claim_reward_v1_return_length': '32',
- 'fund_reward_class_v1_calldata_hash': '1086e7c6ffda5d1b4d31999795549a413160e18f638c43801cf6bd8293b430f1',
- 'fund_reward_class_v1_calldata_length': '36',
- 'fund_reward_class_v1_return_length': '0',
- 'reward_claimed_v1_topic': '9f41046da255bf29062408ae9f20e06ea2453df29227caf32b709ccfed59d506',
- 'reward_claimed_v1_data_hash': 'db2be80ad7fe2991fbabee31c9917dca99f927a94e09c6a4e810cec6d4a8cbae',
- 'reward_claimed_v1_data_length': '64',
- 'reward_claimed_v1_topic1_candidate_id': 'b29c270bf7f140c4818c7b15dd82c567abc4fc617527c350f8be0e048199b24a',
- 'reward_claimed_v1_topic2_beneficiary': '000000000000000000000000000000000000000000000000000000000000cafe',
- 'reward_claimed_v1_topic_count': '3',
- 'reward_claimed_v1_topics_hash': 'd95e38f337eac04460efdf57735fe43d21d52f73d94172b4d98823584f3a2ff4',
- 'reward_class_funded_v1_topic': 'd979ecc5f5821fb9e6643744111b04290fc1da57eebaba07def52e526c6eb49e',
- 'reward_class_funded_v1_data_hash': 'e1aede520e7a9dc85a896fcdc9cc395ef1f2fd03d93f7e4f6acbd5fda09bf690',
- 'reward_class_funded_v1_data_length': '96',
- 'reward_class_funded_v1_topic1_reward_class': '0000000000000000000000000000000000000000000000000000000000000001',
- 'reward_class_funded_v1_topic2_funder': '000000000000000000000000000000000000000000000000000000000000f00d',
- 'reward_class_funded_v1_topic_count': '3',
- 'reward_class_funded_v1_topics_hash': 'dec401d3769ac3d7c894189f394a778a66106bd32460f51135caea4824360efe',
- 'builder_registry_configuration_hash': '5c2fe6d16935d1557c545b24c0b5982391f7a8ac702d7db3a6c55e467427ed79',
  'claim_reward_v1_selector': 'aa5498cb',
- 'data_session_accounting_return_length': '512',
- 'fund_reward_class_v1_selector': '15e08308',
- 'funded_data_session_accounting_return_hash': 'd426423c8b542d61c019c048fa3aeb24e145e342fc4ef566e8f48680ec238c14',
- 'reward_class_v1_call_gas': '50000',
- 'reward_class_v1_calldata_hash': '3717990a97396f7a0a947025434cf954d9937932f5e00fdf793c129bfbfb3006',
- 'reward_class_v1_calldata_length': '36',
- 'reward_class_v1_class_id': '1',
- 'reward_class_v1_magic': '52435631',
- 'reward_class_v1_return_hash': '3d21e30cd424ac4eb52ed85673aac8960a703cce5dd930fceb901b0ce5e93490',
- 'reward_class_v1_return_length': '224',
- 'reward_class_v1_selector': '3d273ee7',
- 'reward_receipt_v1_calldata_hash': 'cf2e1bd881fd7591882379b1070452c9f81a80848a3d1b9e6970f97a2e615055',
- 'reward_receipt_v1_calldata_length': '36',
- 'reward_receipt_v1_collision_candidate_id': 'a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a44a',
- 'reward_receipt_v1_commitment': 'f43f661d59961d569e59f1f9cc4bfb32266fc15c12d5b178708a34d7a85ecd3e',
- 'reward_receipt_v1_magic': '52525631',
- 'reward_receipt_v1_missing_return_hash': '910614e273a7326ae3c583449cfdf24c64d9ef3d7d6f448b6d3042d3ba95ae80',
- 'reward_receipt_v1_present_return_hash': '366fb5d238b52decd3b3b2d18acd8ed04741f6d94bdde7fbd4736f9dad9abcd6',
- 'reward_receipt_v1_return_length': '384',
- 'reward_receipt_v1_selector': '3ed526c7',
- 'statement_reward_execution_gas': '12345678',
- 'statement_reward_published_bytes': '9',
+ 'component_config_getter_gas_limit': '50000',
+ 'component_config_getter_selector': 'f6c0f7d2',
  'credit_authorization_v2_calldata_hash': '227848358a3cd4e9ef5f4ecceadfa5cfd86ddffff834294b2334fe25eaaf8ef3',
- 'credit_authorization_v2_return_hash': '1f88d6d1ad655716e1177e21c058b0123d6e2a876b42797178043c9df7f4442d',
+ 'credit_authorization_v2_return_hash': '974ca361f46b363a5e1442bf07b7e14782009b835afc6033e91158470af37c12',
  'credit_authorization_v2_return_length': '704',
  'credit_authorization_v2_selector': '05ecb6c2',
  'credit_liability_v2_calldata_hash': 'ec89858c0fa39cbe87c64f118848ab5f9c03a4591dda74a6ac5810075bf2827e',
@@ -17878,22 +18110,23 @@ EXPECTED = {
  'data_mmr_proof_root': '7c7185dfbebadab3501e051b2960e8fb4b22dd11821fc4e474ef14b2edb27b22',
  'data_node_height_7': 'e60d61327adb017addbf3012131b62c0a5897d30e302fcfac9ffad46d0fe848a',
  'data_record_appended_topic': '30ee2de166c53a480d028e5b94d4f8759dbd84b5f7b6af1f23e0c5889ea17f8c',
- 'data_session_config_hash': '07cd3347bb03a3749297908dfdb8093d3989a32e9ca6a9f544c87b8857a1727c',
+ 'data_session_accounting_return_length': '512',
+ 'data_session_config_hash': '14182a405d2b49b4b45bb7447ce360efecf5c9c96c3197a84ee3e88cb51cd84f',
  'data_sessions_maintained_topic': '920669b9670911aa86cd718dceebaa1372d224ca0fdac50a63dc1d45a53e1e89',
  'deployment_commitment_typehash': 'babd40345cd96b87434cc1bcc50b0c693556c37283b9b3399abf60339dc363a0',
  'derived_source_bridge_address': '45e9bb77c41df4916367f5eb49906367fe5bf123',
  'derived_source_bundle_deployer_address': '995ec3a95b2d756946e920e4f88588e9d6259275',
  'derived_source_quota_address': 'bfcc162bd7474cec8c8bc99b118882dfc6bfeb06',
  'derived_source_registry_address': '8c1ab080584bf560720e8b6eb2cf2242556a2585',
- 'destination_activation_receipt_id': '053206dec1b3b4695631f3de9a9e286580dcc2e2f807bc06ebd0f247a347c053',
+ 'destination_activation_receipt_id': '9822bea9fecc7a319d988cd1885fd8ea0c02a4e7b13ff42d6971142fa9224757',
  'destination_activation_receipt_magic': '44525632',
- 'destination_attempt_digest': 'a414e4701d85eefa5b09cd75896a9609f4fde173e4855e61a9b675b530375b7e',
+ 'destination_attempt_digest': 'c4f86e156a64040bee74ca23cecdb4c8e7bcae139ba95eb49003ad008a2f53ce',
  'destination_bridge_execution_hash': 'b570703833da3df51773eb8d72d8d38074391da1f4f4ef2198b0d074f3c81600',
- 'destination_context_hash': 'd4f1621e99c549ad48f2add3613c1d22ec5554f10ba8f07a1ada7812042d3ae4',
+ 'destination_context_hash': 'db2d32748d67c58393965146124540af9055cc8adc7179f934bf47d4ac1f06e3',
  'destination_context_typehash': 'b8170dbf684e1fc4dd4dae8fb78ad24984cc0aa0c03cbd1e29b1b2eb5728eefb',
  'destination_domain_id': '123173ae26db2c61b26412a377907f65420237d7c36efc79c59710e43e6be77e',
  'destination_infrastructure_hash': '766a9dc18c36febd06b3818232d6bd0004b16cc2b5bd1a3239585d66fb361566',
- 'destination_registration_commitment': '5da8fa9049c932b99699638f3dcb071239c3b5ed90db7931697416b99633d2ba',
+ 'destination_registration_commitment': 'c66eb449fc3da2146daa9e9308137bec087f4159de08ac0d220d23d4a951d560',
  'destination_successor_receipt_magic': '44535632',
  'dispositions': 'ab253c1204a53b6e095a887dfa6acfc8e8c0c6f89badcef5f73fee716fa94b93',
  'domain_separator': 'e68571dca46842abc561c1ea35b556152b15d93a1d29f5c441ae2fdcdd01725c',
@@ -17901,7 +18134,7 @@ EXPECTED = {
  'empty_admission_root': '71a511ce5247c6c3b0411e182c8e4b4dcbd0adc97163c585cac94ca3b031ac54',
  'empty_body_root': 'f0e00da8dbc00feb028a8bc92342c0771372b947acf5989b2d4a5f23bb2f459a',
  'empty_data_bag': 'b3caa2379816b63eebbf789e33e7d84ef29d6d350179803dd000102e8182f66a',
- 'empty_data_session_accounting_return_hash': 'ed6c1b1f53b93bafff716cac2098150284a639ce3f78c7971481de38fa521fd4',
+ 'empty_data_session_accounting_return_hash': '5a62fbdc4883c16fe3209e7b093da31d1656fb286f5714002e6833fbdec50c35',
  'empty_entry_root': '986d3e795bd9ddfabe213b93cea0211eea5a663e895bfc112d90c5bf2fff1564',
  'empty_forced_root': '4001bca0d3c5171a99a50118f1219024e1bef9302262ea3b075ecbed36be7592',
  'empty_manifest_root': '0bb15f38645cecc1748b17fe3bd966ba8016c169ebd1266fd38150766177b5f6',
@@ -17916,11 +18149,17 @@ EXPECTED = {
  'enqueue_forced_transaction_selector': '9f06b1b4',
  'entry_proof_digest': '89655918472451054bf7362e8e7b19bbded634877c532efdfb545e0ca36667f3',
  'entry_root': 'acee83a690b868a4a7960c55a9f7228f91cad26b704e24106d4db87e9c7a8f34',
- 'execute_attempt_calldata_hash': '1c8984627aaccd9a98332483b459281acf1bcb6b5170b2bdcf1a055f08fed968',
+ 'execute_attempt_calldata_hash': '0a5967f00fb99235d29f71624346a9de42c1de0e8e1eb436a7a375e453ed276f',
  'execute_attempt_calldata_length': '1124',
  'execute_attempt_selector': '4cbe2fe2',
  'execute_protocol_change_calldata_hash': 'a00db7a4bd41a8e2546adec7f99463a7c370a517d1b67e34f91778bf65ffcf94',
  'execute_protocol_change_calldata_length': '708',
+ 'execute_protocol_change_selector': '31d81ea2',
+ 'execution_outputs': 'd3b52765911a60935fb5e7c1b7047ad1611e07586803cf654d6d5b677f966d56',
+ 'execution_profile_abi_length': '9152',
+ 'execution_profile_creation_offset': '9024',
+ 'execution_profile_hash': '2d73aacf177350dd88961abf28b86dbfb9c79c0907ae916bb83f1b6d0d9a274b',
+ 'execution_profile_static_words': '282',
  'expected_old_fork_registration_hash': 'eed5e788c296e7b8449f4aacb62cd9e5b15ec488dc667f4cf3e3aa48a244c6c5',
  'expected_predecessor_fork_registration_hash': '233d72ef0935f897e49377ce160962e2ea7ea14c37c309bb094b78e0b50bb118',
  'expire_fork_change_calldata_hash': '0674d1859f790b11abfb90dbf54a4f3ceb88574b484c62199a0f0febdb0e9ec7',
@@ -17929,12 +18168,6 @@ EXPECTED = {
  'expire_fork_change_return_hash': 'a338559b4b34fc40aaaf1c9d8b3837a34e59a5c4f826e855c9e27a5dc0d04b6d',
  'expire_fork_change_return_length': '64',
  'expire_fork_change_selector': '379c9ecc',
- 'execute_protocol_change_selector': '31d81ea2',
- 'execution_outputs': 'd3b52765911a60935fb5e7c1b7047ad1611e07586803cf654d6d5b677f966d56',
- 'execution_profile_abi_length': '8672',
- 'execution_profile_creation_offset': '8576',
- 'execution_profile_hash': '4feed8e0bfec60e7f34d9cfbb017dff167da3b233e6e6287eb1ad670a5a8bb5c',
- 'execution_profile_static_words': '268',
  'finalize_failed_attempt_calldata_hash': '6fc23b1533a08c2de1c30cc9998e54896b7a038ba9ebae9fd74c3fe8c9f89584',
  'finalize_failed_attempt_selector': '745dcb69',
  'force_frontier_after_1_digest': '1ba50296675195de90944defd33d2e346c1a996aa6edbb5bfb1b187cc64b3c1d',
@@ -17944,40 +18177,45 @@ EXPECTED = {
  'forced_leaf': 'c75c50d8b8573f217a20c9018a3d23d7fa5cda240f2a2e9eb4260c4af4c367e4',
  'forced_queue_config_hash': '72e27c19ebfab08e1fb27feeff50609c7c4bb69f0570a7bdb72eda7736c50f4e',
  'forced_root': 'a54e9f797ffe7f04dd5ca7df4c858edf02ce45a81808522633fc9cee8fe72e57',
+ 'fork_change_execution_window_seconds': '86400',
+ 'fork_change_queue_inclusion_allowance_seconds': '900',
+ 'fork_change_renewal_runway_windows': '1811',
  'fork_verifier_install_magic': '46564931',
  'fork_verifier_registration_magic': '46565231',
  'fork_verifier_registration_return_hash': '252a8f9b5199a2b88f07e01d89d4fabb49903713d19500ca1cf34ad3fbf9c00f',
  'fork_verifier_registration_selector': 'c614591c',
- 'fork_change_execution_window_seconds': '86400',
- 'fork_change_queue_inclusion_allowance_seconds': '900',
- 'fork_change_renewal_runway_windows': '1811',
- 'freeze_migration_source_calldata_hash': '5d412ab7aadce42f28373a4026b93af41105d079e9c6745e38df6fc58c812f23',
- 'freeze_migration_source_return_hash': '300a0ec2556d608826ab6a426a20afa5f429bca0ea423230ba1373799b87deca',
+ 'freeze_migration_source_calldata_hash': '30f0e9a8404fe31cc78997826426362b360c66df97ef2d2653133a236e866bd2',
+ 'freeze_migration_source_return_hash': '718fadb554309568b5346c194319e86b87e59b28f513bf231907b4f4666212b2',
  'freeze_migration_source_selector': '45a80913',
- 'genesis_activation_calldata_hash': 'caddccafac15f7b9081ce4e6fcba4fd74530cc22d515fae19b890c052fe5417a',
+ 'fund_reward_class_v1_calldata_hash': '1086e7c6ffda5d1b4d31999795549a413160e18f638c43801cf6bd8293b430f1',
+ 'fund_reward_class_v1_calldata_length': '36',
+ 'fund_reward_class_v1_return_length': '0',
+ 'fund_reward_class_v1_selector': '15e08308',
+ 'funded_data_session_accounting_return_hash': '3f32ebc55d31c72b1f50c6fc26b743ad13127bc7d7324ff0a3dc165175684760',
+ 'genesis_activation_calldata_hash': 'ee1babaad0f4d7c02d4c556aede841b85a13d35e2fb2d4554a47c1c50070e35d',
  'genesis_activation_calldata_length': '2948',
- 'genesis_activation_context_hash': '9cbc8f98876e804018f19658ac5ebd7c1eade7cc46a74461318f902a48305ec0',
- 'genesis_activation_context_return_hash': '99dcdc2b728756d1a46a7ef846eda04e0f4db94dc5d3c6714f9196d6a5010c9c',
+ 'genesis_activation_context_hash': '8ad93ea1b308ba0c1e99acaa917befe37b2f372cedfee38c31d1dc1788a79aae',
+ 'genesis_activation_context_return_hash': '8fd31818e07215c67007d9b257d2749ad8c47189a5a79fe20c3bbc66bc633254',
  'genesis_activation_fixed_hash': '15236b38830f35f4df4c6bd78015c9a3b495a0f3fe08a028cdb1dd57aac970ca',
- 'genesis_activation_receipt_calldata_hash': '5ab1f6ede43aa32a932d88d5da0a060028e8e689ff1d1c91875aa7eedbeb7c6f',
- 'genesis_activation_receipt_id': '0eab6750ef2abff644f98c3c75123025108f168eb898b926ccf86ea3cd6d7915',
- 'genesis_activation_receipt_return_hash': 'f4539c5921dd860d5a4d99d425732aa9eba103d8afe0fb45af7edaf997f0088a',
+ 'genesis_activation_receipt_calldata_hash': '6b14ae2240bf97c609c7c4b52caae608ac4cb70e2c243ff083727f28da88c0a4',
+ 'genesis_activation_receipt_id': '10685d2bf06df00986e509986d96276f316dc7e4a8fbaa6fb85eb088724559e7',
+ 'genesis_activation_receipt_return_hash': '061f8c9a0478d36f24ad36f016fc57d98e2f354c4120db4f9f5ea089e4f05d0c',
  'genesis_activation_receipt_return_length': '1024',
- 'genesis_adopt_migration_calldata_hash': 'a43eaf15cd33cdc461e52e051b4867df2d9f16f1fb9b9fb68ba1bc1edac058d7',
- 'genesis_adopt_migration_return_hash': '4bbf85aa175cdcadb0d695f2cb84e79d08da3cdfade7ccb451b17eaeb895d898',
- 'genesis_adoption_commitment': '576c190b76bc6e0bbee3b079eddd69f349d4ed905b452c7d43b494a5a36d8d98',
+ 'genesis_adopt_migration_calldata_hash': '2fb507c85fc16f5b51d9804ecd625a9fe92e22c2c1484f9e2b55c12cdd922791',
+ 'genesis_adopt_migration_return_hash': '10d4a9e197dd97ab9e5f01f40c733f869e815ab7eedf771b6a253e33bc2e53fc',
+ 'genesis_adoption_commitment': 'f5abfc13598584e4fae8d5bc42fa1cf7e1cc80d491717b2bfeb4de8ef7d8ef9a',
  'genesis_base_canonical_hash': '5081c70042287a8b7156b2626675ea4ed9623c755d5f51b5c83be94e90da3ff3',
  'genesis_base_core_hash': '12243b817561a9362bb03dffb36bb73f9314d47e3165673793419692cd8a8566',
  'genesis_candidate_commitment': '90949c0865a5e0226c6c0d736c0533f9e5f1d793dc9c5d21407a210ee3896338',
- 'genesis_deployment_commitment': '614304ef2982b52388e60a571b529a33617b290d0d2ba490ebfe01b52a5ea175',
- 'genesis_migration_statement_hash': 'cc163fb829e9da91058b35aa72cddf2f4cec3e042789fb590dafb91803af5127',
+ 'genesis_deployment_commitment': '900ae1ae455245accc5522cfde52d3df63278baa4e6a1d30cd7abf34b8f40309',
+ 'genesis_migration_statement_hash': 'f98dce382f3a3733bd3a89cfe43ff07c706f116e6fe68cc4a4bd090108c9ec88',
  'genesis_output_core_hash': '46ecec937013339205139353730b413c8e508bc579ec9c0ede247161132134a8',
- 'genesis_queue_migration_calldata_hash': '7de587a694057f7973477bca1e9853a47be17d605f6b29c03e4d1419accf2bac',
- 'genesis_queue_migration_return_hash': '048ecf5ba0a3a5ac30c86e15d49f7200c6fd857e62db13034b1b3b93126f7315',
- 'genesis_queue_post_state_commitment': 'd0c9381d3ee143622553c8de77b6ea94bae69a772aa1b59b67103d050db87c13',
- 'genesis_queue_post_state_return_hash': '1abdad610a7acfcff13425c542626c4fa7a2a2e898044cf406743fd15b5bea2a',
- 'genesis_source_post_state_return_hash': '7ecdfc158e9a286b3480d7ecc8178d10065896f26bb89799e53f447ad3729fbc',
- 'genesis_target_post_state_return_hash': 'a464c24f5315795c1cd9c26dfc7e1e7cc999dbc5fba221003194c4677d7ad33f',
+ 'genesis_queue_migration_calldata_hash': '143f65b5c9803b66a8ad2081f8112ee334bb881825fbdaba030bc0baed6c32e3',
+ 'genesis_queue_migration_return_hash': 'd007b7d57cf2ea079a08806c183efce01b65bdda4e23b3fa31dd7d00767c954d',
+ 'genesis_queue_post_state_commitment': 'e928a4279bc6cbaf66f92127b59ebcbc9dfe239e5a21280132a4bf8d94f9f27d',
+ 'genesis_queue_post_state_return_hash': '243df6ac6cb7e64ccc98cf53ef80347ae54b39094538b3792f8fa68449c60ccc',
+ 'genesis_source_post_state_return_hash': 'cf7a54ae68ffa4e58038ec1127015fba51d5a97ed2c7ac8ae86f41c229b0067c',
+ 'genesis_target_post_state_return_hash': 'c003db2923c3db9ac53f55e6aa28b74d01c1e74e2ebb99179f1d8c30c7c3a738',
  'governance_delay_authority_descriptor_hash': '442d9b608ecc43eea4009fb7f95c764c747636f42c885174c1442681cc0ab495',
  'inbox_apply_calldata_hash': '65332d0b3230b33c0ae8bddd8a1f3be8473739f865e73fc8e52f4f99cecc89d7',
  'inbox_apply_calldata_length': '14436',
@@ -17987,16 +18225,16 @@ EXPECTED = {
  'inbox_credit_packed_terms': '1932123279377088595567804303184537494733657',
  'inbox_credit_slot': 'afae055286a47fcc5a76c3b75bef8aea556d024f5249c28372e59672f222caf4',
  'inbox_route_config_hash': '9cc87d80608fb3cc866707547127aa776556ecfb64db4e398ae337620e76aac4',
- 'ingress_authorization_root': '2e42c527a8f2fd3f8b016b062546c85c7ec9079603e77ac4f515da6c76d0b6a7',
+ 'ingress_authorization_root': '31612dec382343351a15ff38ea1bb5d8aab57060c9ca1abc7f614aeac3944612',
  'ingress_authorization_root_typehash': 'c7b11126d8d1984cc17cbc108be2a1be0ef9c4e8fd519fa9033c949962f1b042',
- 'ingress_authorization_typehash': 'a2dccbd60c366ade3f5af12af640f3453bbb4106405ef8da5dd52484db8f2a82',
+ 'ingress_authorization_typehash': '7d996545314cabc22ca6b931d7f0e88f910b93ff80840cf27b339490d35845b2',
  'initial_fork_registration_return_hash': 'd2044ac981fb5358a1354c6ba4ad2bee5f994361fe188f99099e89ba6b62c6dc',
  'initial_fork_route_state_return_hash': 'ce1242ef9f6de662b939f857e86aa5c8a585bfd78fa3b285d3804b154ac16dbb',
  'initial_fork_verifier_config_return_hash': 'ed485e43081733b49a3da6e22a1d1e54126837f94cb816d888bd29f3d3e12b1c',
  'install_fork_verifier_calldata_hash': '67ab3af72e37b0366daf3887450a66395aa7d45fb4114d323d6d80a083ae6dbf',
  'install_fork_verifier_selector': '9bb6fe73',
- 'install_settlement_authorization_calldata_hash': '65ebcfc692483534aca2b6b50cf9820eaa04ad810784aeead0e7bb2266f344de',
- 'install_settlement_authorization_return_hash': 'ae86f7f0c51ef82e73d24a59c025aac154ff9d1a96fbed4741d64f26e2dc23b3',
+ 'install_settlement_authorization_calldata_hash': '078bc64984dcff624d011d636a85cccc66e0fa342504feb3250f11286363ef3d',
+ 'install_settlement_authorization_return_hash': 'e5ccb7b5d25ca7a2f734daae6a115354b91a0c6e47e0b1d319ea0757520afcbf',
  'install_settlement_authorization_selector': 'b1a3fef9',
  'invocation_policy_calldata_hash': '1afc4535bd77a4ea1d1d4888dcdca5e5e1cc1e7ab081bbfa84ee3236224d987d',
  'invocation_policy_getter_selector': 'b2d0e286',
@@ -18004,8 +18242,8 @@ EXPECTED = {
  'invocation_policy_magic': '49505632',
  'invocation_policy_return_hash': '93bc154411cabc321c6b7c452a338e3e52789f0b97229cc2c68ba0bb4e3f3a19',
  'invocation_policy_typehash': 'd702a337b74fc40bfc746fb1aeeaa705e60a95947bfc3076c76222703205b4b1',
- 'kind0_ingress_authorization_id': '27af2fda507104b24da0f7a6095e048cc86de215f38027c2671f4455878a4317',
- 'kind1_ingress_authorization_id': '33d1addd81180b0cef250ce0324e1a1eabd85693ff496a151c8a8736f9763422',
+ 'kind0_ingress_authorization_id': 'c825101ced1a3a9749e8923e95680e717166327dbe26572999c134a18829caad',
+ 'kind1_ingress_authorization_id': '3728bb4741d1ecd493da584356b9421882aedb92bc7dafc7ebd4961a7ec89c1e',
  'legacy_blob_slice_maximum_hash': 'd9791c1e9f76963f86cdfe6423b8d897dcc5c0ef5ad4cc16363b2b2ab452240d',
  'legacy_blob_slice_maximum_length': '832',
  'legacy_blob_slice_one_hash': 'f0c8974a111225866a147954a2f98c29c679c1aa4680c42b15ac2eb3a1cea148',
@@ -18024,40 +18262,40 @@ EXPECTED = {
  'legacy_forced_inclusion_encoding_length': '256',
  'legacy_full_scan_capacity_bytes': '4161536',
  'legacy_full_scan_capacity_headroom_bytes': '32768',
- 'legacy_genesis_abandonment_receipt_hash': 'cb36eaa84b5a8e1d4cbdfe2c4c81bd8b2e06ad652391b29b7c8022a91763e18e',
+ 'legacy_genesis_abandonment_receipt_hash': '64ee4f382cf6779d96bb3cc7498c933f3f77c3d56bd5c6145402a419f5d3e1da',
  'legacy_genesis_abandonment_sealed_topic': 'a3b978444273f8f347857235c224846aa45e8ce5bb73df549b9916e96371c8c9',
- 'legacy_genesis_arm_calldata_hash': '9d4639bb62ccaf078d0293df0f8b96aa177cf6cbf28a723a4b1bc0f4fee90c2d',
+ 'legacy_genesis_arm_calldata_hash': '371925b8292fe1d24cef06105eec2ba338d887ecc8de9737c6ca340891bd895e',
  'legacy_genesis_arm_calldata_length': '68',
- 'legacy_genesis_arm_id': 'd3329fcb3a8b7259122da7e8edcbbb45f9cc98cdd35e979ebc87a5406519138f',
- 'legacy_genesis_arm_return_hash': 'a8fd15b569ae80c33eb008494bfae200674843f8a1fcd621d0de37d61511400b',
+ 'legacy_genesis_arm_id': 'c986fcbbee5c1db5bb6ee5e1da22cb0d47911d1f9d86046b8334c85ee29d21aa',
+ 'legacy_genesis_arm_return_hash': 'af4a11b19b5eb3e3979b326841ca1310d4f1ef11932a09b8cefc3109d911857c',
  'legacy_genesis_arm_return_length': '128',
  'legacy_genesis_arm_selector': '8781a058',
- 'legacy_genesis_begin_scan_calldata_hash': 'cee8b34707fa4569bd05d14609c64005f959a66d5852a9ee325f569ba8e081e6',
+ 'legacy_genesis_begin_scan_calldata_hash': 'a7e6e3e0092a5046d16b7890f0fec8cc2ab767902c7ea589310bd6f89555b06b',
  'legacy_genesis_begin_scan_return_hash': 'add644dde24164cfb29ab6a4598cb55acb73c55dd295b0c2a227dc3264c6f65c',
  'legacy_genesis_begin_scan_selector': 'e9d1a07f',
  'legacy_genesis_blob_data_expiry': '1573864',
  'legacy_genesis_boundary_hash': '0215b43e3b2143b3fcac2c97bc2f8cc32ab47ac695a6fd173d919abdcc170263',
  'legacy_genesis_campaign_fence_descriptor_hash': 'cf5cd470448a26b70eddedf8c30fa39533e66e874e2fc1aa2e310ab633c0d737',
- 'legacy_genesis_campaign_id': 'e94721d14a56774c2079995e1e5cdeb915edbf39d951e54078522dd1f9a19f69',
+ 'legacy_genesis_campaign_id': '63f656e3634d5b498acb02d9c620360b99093bf4cb67a749a4072e2987e14d21',
  'legacy_genesis_campaign_magic': '4c474331',
- 'legacy_genesis_campaign_return_hash': '486d5706d3fd2588f616861889690b8f7f56e0df3b454969bb860f5778c004a9',
+ 'legacy_genesis_campaign_return_hash': '113d1e08ee789cc650d80d5e7b60670104c20ca97d5dda155b9885defd20873f',
  'legacy_genesis_campaign_return_length': '512',
  'legacy_genesis_campaign_selector': '718b2ac7',
  'legacy_genesis_checkpoint_record_hash': '1461a32136f8c498043934fce575dddec6830744145afbccde57eea1ea61c9b0',
  'legacy_genesis_checkpoint_storage_layout_hash': 'f9e5f221ec2368348e185feb34fee0cdb27a812a2533c56fa7dfe8ccf762ffe1',
  'legacy_genesis_deployment_hash': '98cc45a7619c75ff658f46edbe2e3c11c19e1ec424797cf04c760b9f07fd567c',
- 'legacy_genesis_expire_calldata_hash': '2713a1f6bb1ba9418c8cf19a7ae875444b242a070aa95a21c839eb0ec79aede7',
+ 'legacy_genesis_expire_calldata_hash': 'c1e882da1084fc29beeb72fa4f4eec39deeb30327c4b9aa573aaaac86fc76ec8',
  'legacy_genesis_expire_return_hash': '9536645b48dce02dd376837692e40f53cd5ac18e6af5d0c31bade33be31d2e19',
  'legacy_genesis_expire_selector': 'a4a37936',
- 'legacy_genesis_finalize_calldata_hash': '53fba84f0a56881350d5286d516ff9a56d1b88cdc745ae9ed29dd45cb798b01e',
+ 'legacy_genesis_finalize_calldata_hash': 'ddcee71fb07e96e5363d5c01efc76350afc5591e04d6edd73f9cfaa18114b387',
  'legacy_genesis_finalize_calldata_length': '196',
- 'legacy_genesis_finalize_return_hash': '5b0a0f887bac288b05f9ff27c2cd5aa7f89012a0da0e70abea6f1be94039a287',
+ 'legacy_genesis_finalize_return_hash': '2c38cd1bfa2809742c239971d9a0623c19affa4341dd68221579c24d81f346f5',
  'legacy_genesis_finalize_selector': 'c2de6417',
  'legacy_genesis_forced_record_hash': 'dbda8510c73bc3eb57de26ae5c5bcc82a45bf6fedab68abf100d9baea6f4a380',
  'legacy_genesis_forced_rows_empty_root': '5631fad8f285ac1643b4e817c5454ee4f1e35174786dd255842a987b21c3fd92',
  'legacy_genesis_forced_rows_root': 'ab7f340cae89170a3a619086538cace009399987a1bffbee40c17da60c10fcc8',
- 'legacy_genesis_launch_id': '170f6103eb4cf9416e804727a405f8edd6d996079a565266f6d8478f11da93c0',
- 'legacy_genesis_post_state_commitment': '4fd9b00d174aff5254ab0a87b65bbd85eb28048d2d5f93a824dcf9623c3736a0',
+ 'legacy_genesis_launch_id': 'cdfa857c3e0e633c7267fb55e75fc623f1ab00663352c319c9f9498da26bdf8e',
+ 'legacy_genesis_post_state_commitment': 'bc95f4331d702a071b3128e76f9df510c3803d5aefa5adeb613eddc6221cde1a',
  'legacy_genesis_preparation_return_hash': '8c869f3dfe7df0f01a65e96d7691b5b0d095590acd9f034770c33a6c75472a98',
  'legacy_genesis_preparation_return_length': '288',
  'legacy_genesis_preparation_selector': '6880cd05',
@@ -18067,37 +18305,37 @@ EXPECTED = {
  'legacy_genesis_proposer_checker_descriptor_hash': '1bd9411f4082f5d010edfad3ba2a52ed5164a7a7ec345c1d56f11a2b3448515a',
  'legacy_genesis_prover_whitelist_descriptor_hash': 'afda6179076d7f2625ac4e691fd28ff557ef3419a708f22598bc8419b6a27c05',
  'legacy_genesis_publish_magic': '4c475031',
- 'legacy_genesis_quiescence_calldata_hash': '076ba5b44592119003dece8d0928cb0154203c5d1ddcfe468b3a17549e36a5dc',
- 'legacy_genesis_quiescence_return_hash': '4d2b622592701b4b1ada1b703589f3448ffca64f4ff16606145e9f3aae6350cd',
+ 'legacy_genesis_quiescence_calldata_hash': '5c10ee87160f0b6a861d14c6dae4e912d85f027f6e2be684eb3ce19aa1339f69',
+ 'legacy_genesis_quiescence_return_hash': 'a43378e14b51d45554357cd4f88cba6b63d0c80a3bc713f02f581c99ab6fce91',
  'legacy_genesis_quiescence_selector': '4c0ae8da',
- 'legacy_genesis_quiescent_state_return_hash': 'e9cc0dff346c0974368fb68ea944c614d5dd7836a4970f8c89e56800c6bdbccd',
- 'legacy_genesis_ready_state_return_hash': '492c6b27c16754ad9f1a0cd8f95f9b3f77d0cc2c044bc55dc982525d0d2e0d81',
- 'legacy_genesis_resume_calldata_hash': '0e02ea7f338a18fa91c50b3e774ca5a01557915c4bc0d701f17460e8d5a07fea',
+ 'legacy_genesis_quiescent_state_return_hash': '531b46cfeba52c1d7b414610616f7444327c3875996fd434765111b182f38b50',
+ 'legacy_genesis_ready_state_return_hash': '29e6a459688cb593a2ea84bee1fa517f36a20bd8b2ae136d4b8334def3585354',
+ 'legacy_genesis_resume_calldata_hash': '077167cc09de7a1815a9fb16809ca62973783e807f8ba726ec9848303f2c3ffc',
  'legacy_genesis_resume_profile_hash': '6a993ebf703937ddefdd8a5ae08911f15a19286ae47b40d0b91a08824cbb2812',
- 'legacy_genesis_resume_return_hash': '775e455aeca3d6c245f275799fb94c7463b9557f2b4defca70bc1ba279e8a9c9',
+ 'legacy_genesis_resume_return_hash': '7b78fc9f66ee28dbe333c289dd665d5445a272167de24c7580b9405980614357',
  'legacy_genesis_resume_selector': '2bf6b656',
  'legacy_genesis_resume_time_policy_hash': 'ae8419c16fd9493a76f4192c6bef1396d6237a2f2d981dc2bb55acfb3086e5d6',
  'legacy_genesis_resume_verifier_route_hash': '527763e6ea020b909c9a74a7aa5b7c2fdb372c5d8f283644d4d454bc63c16275',
- 'legacy_genesis_review_commitment': '48e93b7890be4474289411c19f570faa00c181a230d7cb7fbc00195070d4d57c',
+ 'legacy_genesis_review_commitment': 'a67a67dbe8f5b3504cf4fc02b1d3478a305d14a087fdc3e1990ee37e338ea8f6',
  'legacy_genesis_risc0_resume_key_policy_hash': '60651c05d2012e7254373988020eaf9dec6c635e84d535112e7ade81aac5584a',
  'legacy_genesis_risc0_reth_verifier_descriptor_hash': '4805e24aa165db57d51ab99349241fd843ca03e468afb8d33781d4a08ccca55b',
- 'legacy_genesis_scan_commitment': '05e0e3ee9860067a44f759d645aaa746e3c15432947c39b3710cfaa518f7e06d',
- 'legacy_genesis_scan_forced_calldata_hash': '22cd46a4dace81d7802d2b06c51377ba8fd03a626ef024fb9d1229ca72272690',
+ 'legacy_genesis_scan_commitment': '2953e2ef617a444b0161c2de908735e45dec98ca23b6394d07e2f7304fe3812b',
+ 'legacy_genesis_scan_forced_calldata_hash': '6af6748c2803053bd1f63dabe1e1e15dbf7a6b24a38c99918f6e0ba9aec4b09e',
  'legacy_genesis_scan_forced_return_hash': '10dcb42db706d4c4a5afe207c6327f8cecbcbc4b298c0255fe2434662e6599d6',
  'legacy_genesis_scan_forced_selector': '032ae99e',
- 'legacy_genesis_scan_proposals_one_calldata_hash': 'd281c883ee5a65da6f3e972e23e47d82d7f3040084aedc7a5f5f765e2432f086',
+ 'legacy_genesis_scan_proposals_one_calldata_hash': '02f6239a60f3e81b66d055f987febb52123f3d2aff404aec86ec21d0dd510212',
  'legacy_genesis_scan_proposals_one_calldata_length': '4004',
  'legacy_genesis_scan_proposals_return_hash': '10e8d4b72d5c271bc6f13dd2b9c476d4efd217cd1eddc07d04f0753b645ada6a',
  'legacy_genesis_scan_proposals_selector': '7da66460',
- 'legacy_genesis_scan_proposals_sixteen_calldata_hash': '4b07db9f14a036c29d1049121db7c85ef8df8de6728542f759f3dfeb95ae84d3',
+ 'legacy_genesis_scan_proposals_sixteen_calldata_hash': 'c32f6d21687b66573e15131ed07315a1e8da72d17f74874ab61e9c86ff6ca1b7',
  'legacy_genesis_scan_proposals_sixteen_calldata_length': '62084',
- 'legacy_genesis_scan_state_return_hash': '242ec0bd268240a60d590c0bf51ca2b718fa9d56e24ef59dd1e4857fe64d5919',
+ 'legacy_genesis_scan_state_return_hash': '204083d12fb27e46060855378b2282a022d7d99e15fe79c4f3ad0fb1ad02196d',
  'legacy_genesis_scan_state_return_length': '608',
  'legacy_genesis_scan_state_selector': 'ef3cdce0',
  'legacy_genesis_signal_service_checkpoint_descriptor_hash': '5e10f1f156d0913967b53921f75484530facf090ceb544306381abb78894143c',
  'legacy_genesis_sp1_resume_key_policy_hash': 'b449ce6092b398fd4178d946077f8f19c4f2451cc88d614bb682233134162f12',
  'legacy_genesis_sp1_reth_verifier_descriptor_hash': '523d245ce9369abd6a116dd7cc4b4a989fcfb8a9d1f8eb796e1cb35945f18bf6',
- 'legacy_genesis_state_return_hash': '7f020a71399b1776f1926c55c684a6d793e3f024d4d68e9f5a9be29f1e1a184b',
+ 'legacy_genesis_state_return_hash': '88f3d2c544effdf5d667e1c4eba8fc21c120ce5e70394aed80250aa49fe0239a',
  'legacy_genesis_state_return_length': '512',
  'legacy_genesis_state_selector': '9b698000',
  'legacy_inbox_config_return_hash': '4d6b260943518f7ce988e85ddb9321b2a3111a42e9ba431f45342ff6f4f3cea7',
@@ -18150,7 +18388,7 @@ EXPECTED = {
  'liquidity_settlement_hash': '625ff42ed879b94a7499fecb7abc07988b348300d1c4e9cc1f7596968eaf2f19',
  'liquidity_ticket_id': '5dc074de7029f6762c8c386b15cbd61cc7ad94b9432c25a35a5ae48e72c3bf2b',
  'liquidity_withdrawn_topic': '1c7f587c4a1403966578e0bc3326f08fab3ad01d6c34b92e43af37a84ad98e38',
- 'live_registration_validation_commitment': 'e2be3b335a9e85e51dd8d2e5a68f88f2cf06cc554a1ed0a827a3ffeb95ce6625',
+ 'live_registration_validation_commitment': '5824950daca165af175d4589d6db97a8e7cc0b45b25b558b6612f3a8ea20405e',
  'live_version_migration_lease_selector': 'aaac4c97',
  'manifest_components_hash': '39c81654d0554b17c41192b3e5f9069488373902e9aa7236cfc76cf8a5db5408',
  'manifest_node_height_5': '9f4c64a89c253d4d65f93cba1f55e7a17a3e4027be7351650060632ed1bc70f0',
@@ -18161,33 +18399,33 @@ EXPECTED = {
  'mark_migration_ready_magic': '4d524459',
  'mark_migration_ready_selector': 'e0c25827',
  'market_authority_configuration_hash': 'e348b5cddcb8eb6da9bedb54c23e10cf9fe0c20b9f50f769258b47dfdb870c07',
- 'maximum_genesis_activation_calldata_hash': 'f0ad14b26ff5aba4691d3beedca37f5bd77a587182d824c1cff68d52e2e783b4',
+ 'maximum_genesis_activation_calldata_hash': 'e3d564883db160c03282e1c6dfe11002da217040fd5ed13cf72ca23d535f046d',
  'maximum_genesis_activation_calldata_length': '135908',
  'maximum_live_version_migration_seconds': '604800',
  'maximum_migration_proof_bytes': '131072',
- 'maximum_version_activation_calldata_hash': 'e5f8adf5c2a1b4a9f501d2e74af0cfe05c8c02a5ec619b49b1cba7a35b414fb4',
+ 'maximum_version_activation_calldata_hash': 'e9863f61a7a20480db8fbb3663623417cdae6da5850c81df3b0909319092f931',
  'maximum_version_activation_calldata_length': '149284',
  'message_invocation_hook_selector': '7f07c947',
  'message_v1_data_hash': 'f08683775f4a25dfef721c487073fb77026d45ac57e423424290e47af9fd2835',
  'message_v1_tuple_hash': '0e85a708462e96cbaca7158a1534011a25137c3b7aada7f381e4fc5b3afbe40d',
- 'migration_activation_context_hash': '5a6231bb9e84d8e4d5be2684008af077ae3d850562607d02ed31b32042371a4c',
- 'migration_activation_context_return_hash': 'd255ae7c68d6185d0c3275b27e1fa387f662babaa1867aad5bb130679f509647',
+ 'migration_activation_context_hash': 'c14f0ba9f943005a718798dad25e4f6734432ca4b60247c78ab0928cede3b2e7',
+ 'migration_activation_context_return_hash': '7f939ca13a82ddcb79cd2d2daa740d672e8e212c7412855ae1e56ffb693ceebb',
  'migration_activation_context_return_length': '320',
  'migration_activation_context_selector': '7cf70319',
  'migration_activation_profile_calldata_hash': '3dd403c33c2e7c4e6b324efac7461b5b0cc6f3696a2a8d8c94c9cb9bafcf9c85',
  'migration_activation_profile_magic': '4d505232',
- 'migration_activation_profile_record_hash': '59693edc8c22abefe9f2b8a91a9301ad184c22c11f60f0772edb86a229e66fe9',
- 'migration_activation_profile_return_hash': 'd81dec13a11398e83355d77e2cbd8a29b3a8907879d085526c713ba16accfee1',
+ 'migration_activation_profile_record_hash': '2d8b21e094b1ca3c4085ce8ef6dffda4e9f07a14b5e194476eab152ee9c69304',
+ 'migration_activation_profile_return_hash': 'e4aef6e7c28950782fe03b7d2ba982ce2db4144ae584319cc5b24e7bd33b5456',
  'migration_activation_profile_return_length': '768',
  'migration_activation_profile_selector': 'c65ff64e',
- 'migration_adoption_commitment': 'a45e527fe7ce5c040c0c4b89901f63c9af16a0807316d4b77fedc830a2f080f6',
+ 'migration_adoption_commitment': '50e73ce0a0e4032731e98de594bf9bda1791186698546fa7e6e11cc743b2f62f',
  'migration_arm_execution_window_seconds': '604800',
  'migration_arm_fresh_after_magic': '4d414631',
  'migration_arm_fresh_after_return_hash': 'b7483e72711cfc12792d104e0b0bc11c51e9e51ba92ff0978675a1e336756dd1',
  'migration_arm_fresh_after_selector': 'bc4707fb',
  'migration_arming_lifecycle_return_hash': '298524396c6b44dd68c8c21326e4ddb544cc51cfe8d5b89ed34bda45fa998753',
  'migration_data': '2c36740d76ae6192335d4c603f42edace094b33e8f54e959b40241a94c1f6deb',
- 'migration_post_state_calldata_hash': '40c1717eb2086dd150f3b3311fc9221bbcefb9688d6f604949dc860820d75cb9',
+ 'migration_post_state_calldata_hash': 'fcc55bc889a9b845336b77d4153fa9c2e41ef3f9ce4402e818924b6cc2668c9a',
  'migration_post_state_selector': '66e664cb',
  'migration_readiness_magic': '4d525331',
  'migration_readiness_selector': 'b36c83ce',
@@ -18199,6 +18437,7 @@ EXPECTED = {
  'migration_verifier_descriptor_typehash': '6f1be44c261607b4c2345985bfb5a081aabd621b9168982df9b7820c7dedebd6',
  'mmr_root_2': 'd20459aeb2fe916a18dd584d39b2ae25075c6b6c14104d9d64a8b1d7882eb4df',
  'mmr_root_3': 'dea2c7de9f14ce6f9c59fda963520ced2cb6e6ebef7c6abe6cb773afab888e89',
+ 'native_quota_key': '7364d461f03b17da03a689abfdb4e723065464c3419e3a222bd8ee29cb876ee5',
  'normal_context': '5b93691b397d8ab377682acee7cf6cc77ff2726cd83a8a7b725084f5d6f468bd',
  'normalized_message_hash': 'f3010702b7b7bf10b6dbfe396a4c7ab07e7c560c28ffdbf6ff8d01d9a96ea4c7',
  'normalized_message_hash_preimage_length': '576',
@@ -18208,9 +18447,9 @@ EXPECTED = {
  'pool_accounting_magic': '504c4132',
  'pool_accounting_return_hash': 'fe5f0b1458dd3e41701c675116f35fa1a527569daa205b7be7a86457ed8014cf',
  'pool_accounting_selector': 'f2b3441e',
- 'pool_attempt_authorization': '1a45c093d8000078214b515202ee234da50fc7b515804a72442f2b4f64e81c04',
+ 'pool_attempt_authorization': '703adb389bc4f60c23e557d7a80817bb66127f29517749c3b918aa16000614fc',
  'pool_auth_cleanup_gas': '50000',
- 'pool_bridge_attempt_calldata_hash': 'dfb81d2954184931a3a13a59996b12c0c047a7aa4f7b931d50bb5a1363e1173c',
+ 'pool_bridge_attempt_calldata_hash': 'c72c0755e2b5341c9c5ab67a62f9bef26ad674828a837e74a9478cc6c9022c48',
  'pool_bridge_attempt_calldata_length': '1124',
  'pool_bridge_attempt_selector': 'a535a986',
  'pool_bridge_result_magic': '4c415632',
@@ -18223,18 +18462,17 @@ EXPECTED = {
  'pool_deposit_return_hash': '7ba7804bc6c4c0cde5e2b1c55e724cc9e14b664c02eeb19db225db96f859c64e',
  'pool_deposit_selector': 'eda2a3f6',
  'pool_external_read_gas': '50000',
- 'pool_process_calldata_hash': 'a97acef51615440f7106d929949a2061f25828a2e7640139bb27c68fbd7f0121',
+ 'pool_process_calldata_hash': '47dc72deef658ef7706f048546e451720725d289fc3999c627641951e30ab9d3',
  'pool_process_calldata_length': '1028',
  'pool_process_selector': '5fbbe107',
- 'pool_retry_calldata_hash': '1a3526e230bc8f465c606d4ebe79b1b390b2e826e7b6260332676693c4357595',
+ 'pool_retry_calldata_hash': '5684e0a109e39ad3ef09ca453f04da4cfcce30f8a0d32a6e77830e4692fa5a7d',
  'pool_retry_calldata_length': '1060',
  'pool_retry_selector': '031f93e7',
  'pool_row_substitution_infrastructure_hash': '47565d6e5708e5a516daa376505c4e8db91c6dfa83127214b55a88e14fb84086',
  'pool_ticket_calldata_hash': '7f489c048d7a27a5fe4624ac37cacdef2ae1ba1ba08d68471ad5e00dd7c47dfe',
  'pool_ticket_return_hash': '4cb85eb7ea2f272ca7a4d558694de56d4e9d2455a7cd3074c442c849213a9c31',
  'pool_ticket_selector': '5defa7e1',
- 'native_quota_key': '7364d461f03b17da03a689abfdb4e723065464c3419e3a222bd8ee29cb876ee5',
- 'pool_value_acceptance_commitment': '657f4eeb9c6806bf3fc5db5706bee4a2610b4cf4b4036030668e132a0fa409d3',
+ 'pool_value_acceptance_commitment': '38b65eec03d37ae72cb7395f9d19537d9bd5356c794c5805a8136ddc4da21dcb',
  'pool_value_callback_calldata_hash': 'ea4a9bde98a0e33377e39155183907be2c0e068326b799bb26b6dcaf4944a5a0',
  'pool_value_callback_gas': '100000',
  'pool_value_callback_return_hash': '632cf02c0c8f06fd37a4ea096b77ae3cb51bbcd26f7920bb0bd053c5b0df10e2',
@@ -18244,77 +18482,67 @@ EXPECTED = {
  'pool_withdraw_return_hash': '405787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace',
  'pool_withdraw_selector': 'fe4f5ccf',
  'profile_ingress_authorization_magic': '50494132',
- 'profile_ingress_authorization_one_return_hash': 'd5e94e2123144f067169c89d0bfbf8c901b728bfe897661ad157ca926846bd92',
+ 'profile_ingress_authorization_one_return_hash': '746910578abf39247a18029200b0690cf4d448bdccf873df424c316638835cf7',
  'profile_ingress_authorization_selector': '2181b974',
- 'profile_ingress_authorization_zero_return_hash': '70b9c601b2d1f2852d14603d001ba507657f2eb32b0be8a38a986b4670c1873f',
+ 'profile_ingress_authorization_zero_return_hash': '160cb5e1f74e0e42df2a95218e0c124e7a728107de3d6530fa60513f8392205b',
  'profile_ingress_root_magic': '50495232',
- 'profile_ingress_root_return_hash': '851d79e8b52d142eb3a663ec83904543e42e09153acd9c9fb8305079afb02735',
+ 'profile_ingress_root_return_hash': '0c9045484a4e36879db2aac9c499b07ced0892c62cecf12b644c6397f236bae9',
  'profile_ingress_root_selector': '2d2bbe23',
  'protocol_apply_magic': '50415031',
  'protocol_apply_return_hash': 'f9361bdc99345939494c4794891942dafae95fa74ace38bcf4430ae53ac12c4a',
  'protocol_authority_read_gas': '100000',
  'protocol_change_delay_seconds': '604800',
- 'protocol_change_operation_calldata_hash': '3185084f458f6912ed06cdd5ab700c7b8b26e6492f37119d296224927c8005ff',
+ 'protocol_change_operation_calldata_hash': '33db780ef52173d3664c9a6e9ad9e843d7c3b3835dfecae60a55ae0d7f4ae53a',
  'protocol_change_operation_domain_hash': 'edc1be882290e6241a79546c41db66a1d975095ae60cf3b2b16f1ed876f6038b',
  'protocol_change_operation_magic': '50434f31',
- 'protocol_change_operation_return_hash': '68294d6a83ea402d454554c7fb94446e1c0bb785881f94ab3be0b198209514b9',
+ 'protocol_change_operation_return_hash': '9048743c1e6ca5f512e6d0da01be9a5155158454a6ffebce66c8c640e7ac3ced',
  'protocol_change_operation_selector': '4b80fe68',
  'protocol_change_timelock_config_magic': '50435431',
  'protocol_change_timelock_config_return_hash': '1813d922f5db2c6e82ca7be236e9cab4b8ca3c8b5f32231d60bd51b75e54b29c',
  'protocol_change_timelock_config_selector': 'b80095ca',
+ 'protocol_root_soc1_magic': '534f4331',
+ 'protocol_root_soc1_return_hash': '8df57002258b7d91f346af8230d0ac6145972ab5d17570a9537e143f8ca7c802',
+ 'protocol_root_soc1_return_length': '576',
+ 'protocol_root_soc1_selector': 'e3d91a33',
  'protocol_version_manager_config_magic': '50564d31',
  'protocol_version_manager_config_return_hash': '3305018df3355e109413b0c25e69814e56a645ab71e4fda4024bb31e84feadd6',
  'protocol_version_manager_config_selector': '4deb7821',
  'protocol_version_manager_configuration_hash': 'c363eb350b2bf5021b6e4bc882d42d480f454c2889b6b3846d277ad985b16e76',
  'protocol_version_manager_descriptor_hash': 'b4e57361ef06ff7db13eb812b123a3cdf89ce8a562cc138f72282a0a061e4021',
- 'protocol_root_soc1_magic': '534f4331',
- 'protocol_root_soc1_return_hash': '8df57002258b7d91f346af8230d0ac6145972ab5d17570a9537e143f8ca7c802',
- 'protocol_root_soc1_return_length': '576',
- 'protocol_root_soc1_selector': 'e3d91a33',
- 'publish_genesis_campaign_operation_id': 'da83c6cfb7e22dab70616dce47fdb738e0b44c6180008d8682c9acdc02671191',
- 'publish_genesis_campaign_payload_hash': '70f6a3274917710e05e61843cc5c5d6a9051cfae3477f3c6b2865cdff44b9738',
+ 'publish_genesis_campaign_operation_id': '4d4157b55f20723f505ebb603a447a3180509fe96c56f45b39644a0a2faf21e0',
+ 'publish_genesis_campaign_payload_hash': 'f21eb3f7bb3ccaf8b200333c469f2932d7621bc121aea52fa9cd4c01b244b798',
  'publish_genesis_campaign_payload_length': '320',
- 'publish_legacy_genesis_campaign_calldata_hash': 'dbc91b44b0956e278bbe2b2aba1db4fc979aa2e85899ed9d24ebc35c55bbf199',
- 'publish_legacy_genesis_campaign_return_hash': 'a075c65c23f43bd891be3ed8add3f32fa01cb44f456d0f6067a1fda258c83bea',
+ 'publish_legacy_genesis_campaign_calldata_hash': '6b6f65db1654be9c8faa63dbd6fe3c51a654ba5f03848df39962294bd0694ddd',
+ 'publish_legacy_genesis_campaign_return_hash': 'a546984d8fba2c96070e50dc34c550dd3689649673ccb2a6f3b3cc497bf8c314',
  'publish_legacy_genesis_campaign_selector': '5f0ed7f5',
- 'publish_migration_arm_operation_id': '40f65071ff45a202b32e78d840f729fc43624963d30262b072d29aec22bc11de',
- 'publish_migration_arm_payload_hash': 'fa310042c124ab04cccb48be1e98e6e9a20413125475d72b85ce297251cc7787',
+ 'publish_migration_arm_operation_id': '91e95eef0ba0ca3edce846a4eb0a3dcc987662a760b3df6f0d566ec70db7e0a6',
+ 'publish_migration_arm_payload_hash': '286c3a7f9f6b8531df3a2bb2ba7f4bca4b94d06c331b18a207dc520bb287813e',
  'publish_migration_arm_payload_length': '128',
  'pvm_router_mutation_gas': '8000000',
- 'queue_migration_calldata_hash': 'c111b2ae18c6b9051d1768d10268cecd394ebc903ea8c995ad05b2a0cec09990',
+ 'queue_migration_calldata_hash': '04e3ca8a4c3b3bfe608add6435faedce8e1a312b9399f02b2bdd92dfbd491663',
  'queue_migration_calldata_length': '260',
  'queue_migration_credited_wei': '64000000000000000',
- 'queue_migration_post_state_commitment': '1a13eca5226874d8e12b92e578be3dca978adae7b1cc0dfa7b5ffe3c2b6d1cef',
- 'queue_migration_return_hash': 'bfa61315c71c3395a66302ae603d42deea490fec338397f4ea84e438ebb6f582',
+ 'queue_migration_post_state_commitment': '0df01cc54f068cfb543e177be4ff2a56c54ec9a6d8f24c6045971bf717103f6d',
+ 'queue_migration_return_hash': 'c2e7792f30055cec1dfc1280a888ebdc75a26036a8f8a4ceb66922271df8977b',
  'queue_migration_selector': '9461f698',
- 'queue_post_state_return_hash': 'aad0b4d0f08d00c52f6eee6c6ffc9065c246106947ad5fb375944b6758149ad9',
- 'queue_protocol_change_calldata_hash': '1ef1557e5afa7b12320b66ef8f134f285f3b3085612240c389210c17a39c0651',
- 'queue_protocol_change_calldata_length': '11012',
+ 'queue_post_state_return_hash': 'b1129ad0e21577e428d9de12fe5ca9fb68e0aa5f6803b0180099261ee33ed2ff',
+ 'queue_protocol_change_calldata_hash': 'c73900f892f4842af503c2dd847fbeb1a866ba86473fdc24c6ebe9c464a088f0',
+ 'queue_protocol_change_calldata_length': '11492',
  'queue_protocol_change_selector': 'bd5c80a8',
  'queued_return_hash': '76f821bd39721ec0e26efc55d7b667d20aab74992e0feae7d7755e386ecd694d',
  'recovery_id': 'fd0552b28542fa3e236c86807695f3d5a4bc0436add285daa8506d9a79511b15',
+ 'register_fork_review_certificate_hash': '15a242cf0fd70257617f69c7ccd4075d46c7e76ae22377f878a0884f3cd9eafb',
+ 'register_fork_review_evidence_hash': '14795f387018d6c52030f07fd28f32b34abc62439c2dd8aa28785bf5156bfc68',
  'register_fork_verifier_operation_id': '59169620023947479c6848e10e72e21f6bad34f51f9b38d30c504b6c522bbf3d',
  'register_fork_verifier_payload_hash': 'c07ba77bf323b341a5c54ef97d01da41c78e962f9c51ab2b9644e7cd6c003012',
  'register_fork_verifier_payload_length': '576',
- 'register_fork_review_certificate_hash': '15a242cf0fd70257617f69c7ccd4075d46c7e76ae22377f878a0884f3cd9eafb',
- 'register_fork_review_evidence_hash': '14795f387018d6c52030f07fd28f32b34abc62439c2dd8aa28785bf5156bfc68',
- 'replace_pending_fork_verifier_calldata_hash': '7f5672e814198405380028deb977bebdad7c69273d1b9b2c72edf8ca26982aca',
- 'replace_pending_fork_verifier_calldata_length': '548',
- 'replace_pending_fork_verifier_operation_id': 'fe46b8930ee06263cc46f6fae27477f35528a751133875cc228e0126d8561322',
- 'replace_pending_fork_verifier_payload_hash': 'f9d94647d71f55db575b40a58082faf63ec67e4897b097f83d7af5195807f132',
- 'replace_pending_fork_verifier_payload_length': '1536',
- 'replace_pending_fork_verifier_return_hash': '9b9e757b4ebf73b65db810d4bd2da658f26d189916c4b97595c5470ad7972534',
- 'replace_pending_fork_verifier_return_length': '160',
- 'replace_pending_fork_verifier_selector': 'b48bbef1',
- 'replacement_fork_review_certificate_hash': '8d6189732cb1cf1bb44c997a3d0e64b70b595c1bc02dcc1297fb7c438f30ea76',
- 'replacement_fork_review_evidence_hash': '3ec105c1c8c3673411009311dfe6a66d3136ada378f65469528381b3ae0d25cd',
- 'register_release_operation_id': '1567cd0d772389453ddf952211a7b5645992553e095aa83c45566c399d10e994',
- 'register_release_payload_hash': 'ba3ec3a5ee4af64def71a602b9f5efdffc406fc546730857ced768d0bdca8761',
- 'register_release_payload_length': '10912',
- 'register_release_profile_bytes_hash': '608f775844f056c6bcaddf149eb414f16b351ae9cf72e2f021d7d0da33c43cf5',
- 'register_target_release_calldata_hash': '05b49909ae2f1825ecda2b8060a66610e3a1c71f355650d03f834a95e88f7e0a',
- 'register_target_release_calldata_length': '10916',
- 'register_target_release_return_hash': 'd285d95104b9c9637076a6fd76b8f7a527c05b49dacf7a9f585c7c98ec6d53a7',
+ 'register_release_operation_id': '7979b57e53962a0bb028a846da3b71efcfea05448fb1af6f8d1033e201de871c',
+ 'register_release_payload_hash': '750cae8318e59ead577835d3b4025aa5c00ba19844706d5e0b52fd6b8486b1e9',
+ 'register_release_payload_length': '11392',
+ 'register_release_profile_bytes_hash': '044d7b225c5dd4c551d562618e9183009ed08df3dfda91e80ee55b43f1bd78f3',
+ 'register_target_release_calldata_hash': '4ab406d631295bfab335f771d8815cc6f2c6e4b13081a53cc76335a89e2123b2',
+ 'register_target_release_calldata_length': '11396',
+ 'register_target_release_return_hash': '79246a4401d3c56245712aee0da97f0ea06f6a76422c21908647dcf1d4ed72c9',
  'register_target_release_selector': '9aa71eff',
  'registration_commitment_base_slot': '20b3dfc457e3cecf32b0c047177351f0814e426c1548e87b79f58830655810c3',
  'registration_commitment_slot': 'dfa6283b763bbadeb604401a78e2fefeddb72000addcdb94ed2e3de5cc69846b',
@@ -18328,19 +18556,60 @@ EXPECTED = {
  'registration_mpt_verifier_descriptor_typehash': '9533e2f6ac9bcf6830306a9ef5d14e21a06008f9ceb59208d09a8d7ab1e6100f',
  'registration_route_key': '8a92802ac27ef7bc1fe751df95c3543df477ec7e7220793bad45d7c7d3e0c05d',
  'registration_route_key_typehash': '4368ad9403b46ef3830e21af8cddcaedbd444c8c57bc3414ebc6fdd250e1e6da',
- 'registration_storage_statement_hash': 'def43d27efe0cf7f5a1434df51721cfb35744ae1f60be5b65101228d8feb1b49',
+ 'registration_storage_statement_hash': 'ba6aca55dd8732be6d74273ff0eeeda4d9d4838e79d6fde760bb3928197267b5',
  'registration_storage_statement_typehash': 'c049f967468e58f1a5c9b9e1a147dfc233695ae69c5d4a95ec4ffb49b5687da0',
- 'registration_verifier_return': 'def43d27efe0cf7f5a1434df51721cfb35744ae1f60be5b65101228d8feb1b49',
+ 'registration_verifier_return': 'ba6aca55dd8732be6d74273ff0eeeda4d9d4838e79d6fde760bb3928197267b5',
  'registry_proof_digest': '188d53708f68cd601ace09953d87031b89c92f5b9d7bffd847e324ab7adc8261',
  'registry_root': '0bf297d7b9b6a5529a319a06cb08484923a89bab15d51f8baeaf5c30bebdf3fd',
  'release_manifest_base_slot': 'a0b7a29a75032f37561036cd3741e7b375213309367f37b5ffec4ad55cf6154f',
- 'release_manifest_hash': '343f5333e047f51d87ec2d1aeb8bf2ef35e3dda3c0246878a92874e70d94a80a',
+ 'release_manifest_hash': 'b6594be9afa1d7472e9d9b8b1b7027435dee9fe8b318cc5e9ce20ebe717f43ba',
  'release_manifest_slot': '719bb73ba856aeab1b203e322bfefc6d84a4c41a3222bcf1634b1b44e5b9aba8',
  'release_manifest_trie_key': 'dac8109059d03da2ad16ac3acc50d2e58897b8c3a7f6889ae77bfb20737e87a2',
  'release_manifest_typehash': 'e7dc28b9b7147fbe9f9b0e0bf910800983be65e9ca19020f296fb0e780a0804b',
- 'reorg_genesis_activation_context_hash': '337d11adfe0f2431838b7f6930ac70bd72255443e899486007947b90f733cd8c',
- 'reorg_genesis_activation_receipt_id': '8c2c5541917706a54c49c210df34c353de1b5cde5f21c7eaf916b92bb6b3641c',
- 'reorg_genesis_post_state_commitment': 'c4fde5fa0b83ac5617706613c00e3506117514512a3ba0088a42f6889d1b2326',
+ 'reorg_genesis_activation_context_hash': 'b41594bb91556bd09f96ec0211f3544dabf7b44786a397331de05f8537c63759',
+ 'reorg_genesis_activation_receipt_id': '6471280dc583b43061f89097c33957adc982346b03ebccc8633553b1134f8559',
+ 'reorg_genesis_post_state_commitment': 'f9b06b8bbbe599ee8f929155b6008bf2362b42257010f4faa159a6da5ba8b744',
+ 'replace_pending_fork_verifier_calldata_hash': '7f5672e814198405380028deb977bebdad7c69273d1b9b2c72edf8ca26982aca',
+ 'replace_pending_fork_verifier_calldata_length': '548',
+ 'replace_pending_fork_verifier_operation_id': 'fe46b8930ee06263cc46f6fae27477f35528a751133875cc228e0126d8561322',
+ 'replace_pending_fork_verifier_payload_hash': 'f9d94647d71f55db575b40a58082faf63ec67e4897b097f83d7af5195807f132',
+ 'replace_pending_fork_verifier_payload_length': '1536',
+ 'replace_pending_fork_verifier_return_hash': '9b9e757b4ebf73b65db810d4bd2da658f26d189916c4b97595c5470ad7972534',
+ 'replace_pending_fork_verifier_return_length': '160',
+ 'replace_pending_fork_verifier_selector': 'b48bbef1',
+ 'replacement_fork_review_certificate_hash': '8d6189732cb1cf1bb44c997a3d0e64b70b595c1bc02dcc1297fb7c438f30ea76',
+ 'replacement_fork_review_evidence_hash': '3ec105c1c8c3673411009311dfe6a66d3136ada378f65469528381b3ae0d25cd',
+ 'reward_claimed_v1_data_hash': 'db2be80ad7fe2991fbabee31c9917dca99f927a94e09c6a4e810cec6d4a8cbae',
+ 'reward_claimed_v1_data_length': '64',
+ 'reward_claimed_v1_topic': '9f41046da255bf29062408ae9f20e06ea2453df29227caf32b709ccfed59d506',
+ 'reward_claimed_v1_topic1_candidate_id': '14a0fba13c924b2be26b39908af2ba3cb556ab4f050398d28a9db0416fb72992',
+ 'reward_claimed_v1_topic2_beneficiary': '000000000000000000000000000000000000000000000000000000000000cafe',
+ 'reward_claimed_v1_topic_count': '3',
+ 'reward_claimed_v1_topics_hash': 'aacc32b671d1f77255783a46a8b1fcbd718c719cd826380b2e001b81ef95480e',
+ 'reward_class_funded_v1_data_hash': 'e1aede520e7a9dc85a896fcdc9cc395ef1f2fd03d93f7e4f6acbd5fda09bf690',
+ 'reward_class_funded_v1_data_length': '96',
+ 'reward_class_funded_v1_topic': 'd979ecc5f5821fb9e6643744111b04290fc1da57eebaba07def52e526c6eb49e',
+ 'reward_class_funded_v1_topic1_reward_class': '0000000000000000000000000000000000000000000000000000000000000001',
+ 'reward_class_funded_v1_topic2_funder': '000000000000000000000000000000000000000000000000000000000000f00d',
+ 'reward_class_funded_v1_topic_count': '3',
+ 'reward_class_funded_v1_topics_hash': 'dec401d3769ac3d7c894189f394a778a66106bd32460f51135caea4824360efe',
+ 'reward_class_v1_call_gas': '50000',
+ 'reward_class_v1_calldata_hash': '3717990a97396f7a0a947025434cf954d9937932f5e00fdf793c129bfbfb3006',
+ 'reward_class_v1_calldata_length': '36',
+ 'reward_class_v1_class_id': '1',
+ 'reward_class_v1_magic': '52435631',
+ 'reward_class_v1_return_hash': '3d21e30cd424ac4eb52ed85673aac8960a703cce5dd930fceb901b0ce5e93490',
+ 'reward_class_v1_return_length': '224',
+ 'reward_class_v1_selector': '3d273ee7',
+ 'reward_receipt_v1_calldata_hash': '6d5b9359bca2ec8f27213e903919cca58faad5a2207d8c7277b1af41a6d4fdb0',
+ 'reward_receipt_v1_calldata_length': '36',
+ 'reward_receipt_v1_collision_candidate_id': 'a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a492',
+ 'reward_receipt_v1_commitment': 'c579a9feb5bfb979f075526c1290aa049adcb95e099c6e02726797e5ca2e201a',
+ 'reward_receipt_v1_magic': '52525631',
+ 'reward_receipt_v1_missing_return_hash': '910614e273a7326ae3c583449cfdf24c64d9ef3d7d6f448b6d3042d3ba95ae80',
+ 'reward_receipt_v1_present_return_hash': '5df9160fcccb9142a3a383d083014765cc6cad63bb724c6807bc3dc50cd60058',
+ 'reward_receipt_v1_return_length': '384',
+ 'reward_receipt_v1_selector': '3ed526c7',
  'route_config_getter_selector': '4b64fa11',
  'schedule_carrier_return_hash': '3e7028adb7b81c521979a0024999718518559b1ddec5cde8e3a9379d6cef3125',
  'schedule_carrier_statement_hash': 'e5e7ef6967d544c41242fd48103d1a53c28f1d6da31a1649d34f4bd11025e123',
@@ -18382,20 +18651,33 @@ EXPECTED = {
  'session_surplus_swept_topic': '3a5f2fa0ab342d3b79fc2aa40be5e1296009e8fb31f86c3577c51839dd159a86',
  'session_sweep_selector': '9d083a2b',
  'settlement_authorization_getter_magic': '53415431',
- 'settlement_authorization_id': '732c72e356ee45cf3d903974c8fc4d8dc07412f7cb7b1a78c87f973ba264d0bd',
+ 'settlement_authorization_id': '10ebe04656d3d5a4a1c4cab773e149c180473ba5a31cd193a85d313ddabce908',
  'settlement_authorization_install_magic': '53414931',
- 'settlement_authorization_return_hash': '0b5c485e72e3dd639ad128e1487719ebdcdc06359ed4c42af878c734eb93f975',
+ 'settlement_authorization_return_hash': '73c9fa7c8c9db37a089b81ceb6144295848d8a9021fd7b84b7ffd1b6e2283b6d',
  'settlement_authorization_selector': '1693ae01',
- 'settlement_deployment_descriptor_abi_hash': '715be5161a63319101a7ec77d196a5b6c904a1da6de431da58a1fa18393f5a99',
+ 'settlement_deployment_descriptor_abi_hash': '5218d672f53f8093fd5be0522f7863fd82c2627da461b0410a13b857d2857422',
  'settlement_deployment_descriptor_abi_length': '256',
- 'settlement_deployment_descriptor_hash': '91bdb3029cf56d37cb9167e4498ad69b856b5909cda153b43f085ec693cf51ec',
+ 'settlement_deployment_descriptor_hash': '14f68ac2868e0af536dfdd9351e4981ac4857b52cf96ea028eb1258d4a296a81',
  'settlement_factory_configuration_hash': '4bf4831c096e251d0ef171bc0fd0582319fdc7ad7a2bea91a6b9b64601aa2837',
  'settlement_factory_deploy_selector': '4af63f02',
  'settlement_tuple_substitution_terminal_leaf': '96baecdcde62bd5dd9d86625842471da07d3008a205ef8c79481254779e68649',
- 'split_fork_review_certificate_hash': 'b148161fb4f81c944885fe38cdf2588d21ebe9ad5dcecb5d5df2804a31cfe1de',
- 'split_fork_review_evidence_hash': 'c05a310757688c48297f6007e5c8cd2b684f2ef2f2786a85421a64c37ea30e1c',
+ 'source_bridge_config_getter_return': '7f8e990ebe1154e101998d40cbff22336f4a7f1d70f13d0c2af5235ea47ffa0e',
+ 'source_bridge_descriptor_length': '752',
+ 'source_context_hash': '003912c395f0a29be213bb41bfb1f171cf5da31f549f6b8bda07bfbeb67c00a4',
+ 'source_context_typehash': '6069dff5f628f94ceff984d5ce3ef62019eaeb4efd7e0627c45a14677bd13c70',
+ 'source_credit_read_gas_limit': '200000',
+ 'source_domain_id': 'a955e9cbaafee3fb51bca7d966012607d8ae8354574180ecbeb6ce71ed159f26',
+ 'source_factory_config_getter_return': '73512f5b6f9f640f1459a80b7372737a7ada2586dfd15d0efa129e76f3d01ec4',
+ 'source_freeze_post_state_commitment': '6ff1bcb7b84ffd272868cc3f1bcaa8580d63b5846f26debb77bcb2370d4dd9de',
+ 'source_post_state_return_hash': 'b1468ca66bd19deb4caf9a7ec2479420d57f0719d4ea52c65262cc67ebf77315',
+ 'source_quota_config_getter_return': '09d21b4d09dadaabdb05c5b8c88db22757c4de82b7a3ebc1a6910606fe36ff0c',
+ 'source_registry_config_getter_return': '81d538ec2bf4cf246008838e0908d61eff83a01740a58abec23d7aa573087ee1',
+ 'source_support_registry_config_getter_return': 'c8beb33d334a9cf76d329ab18cb3b197276e878c5b5a54397c6f0e5c41904b0d',
+ 'source_terminal_verifier_config_getter_return': 'c7297de84fb29fa53cf5f96d02a6254e970e20ac10991766cb58b4981485290f',
  'split_fork_change_expired_operation_return_hash': '36100d0d72d0f520507901b3d3a5f50bc01d53c956252df1606bdef7debe030a',
  'split_fork_change_queued_operation_return_hash': 'd9abc75048f1e1f7ecbed1986331ed37af38716dfbba28a4015c38ecd580c25b',
+ 'split_fork_review_certificate_hash': 'b148161fb4f81c944885fe38cdf2588d21ebe9ad5dcecb5d5df2804a31cfe1de',
+ 'split_fork_review_evidence_hash': 'c05a310757688c48297f6007e5c8cd2b684f2ef2f2786a85421a64c37ea30e1c',
  'split_latest_fork_verifier_calldata_hash': '793eb33ab7e71b38a63b6b04704dbdc816de18915df79b09af7d75c4e812b41b',
  'split_latest_fork_verifier_calldata_length': '516',
  'split_latest_fork_verifier_operation_id': 'abce70ea742b56d07e890e5425a1eb355ac2304ace53d73ed105e746ddeceede',
@@ -18404,38 +18686,27 @@ EXPECTED = {
  'split_latest_fork_verifier_return_hash': 'a3e070e8b9e742f15f072cb46690cf08b62bf018a99b83666455adec80e54833',
  'split_latest_fork_verifier_return_length': '160',
  'split_latest_fork_verifier_selector': '455b4ff5',
- 'source_bridge_config_getter_return': '7f8e990ebe1154e101998d40cbff22336f4a7f1d70f13d0c2af5235ea47ffa0e',
- 'source_bridge_descriptor_length': '752',
- 'source_context_hash': '003912c395f0a29be213bb41bfb1f171cf5da31f549f6b8bda07bfbeb67c00a4',
- 'source_context_typehash': '6069dff5f628f94ceff984d5ce3ef62019eaeb4efd7e0627c45a14677bd13c70',
- 'source_credit_read_gas_limit': '200000',
- 'source_domain_id': 'a955e9cbaafee3fb51bca7d966012607d8ae8354574180ecbeb6ce71ed159f26',
- 'source_factory_config_getter_return': '73512f5b6f9f640f1459a80b7372737a7ada2586dfd15d0efa129e76f3d01ec4',
- 'source_freeze_post_state_commitment': '23eac6c66af12ea48c3bdc77a429d983dbad8fe9b92692a8839d358223984e79',
- 'source_post_state_return_hash': '4328893f4fa40869099a0a2074998dc420210cfb4b9f3a6077afcaee046ee829',
- 'source_quota_config_getter_return': '09d21b4d09dadaabdb05c5b8c88db22757c4de82b7a3ebc1a6910606fe36ff0c',
- 'source_registry_config_getter_return': '81d538ec2bf4cf246008838e0908d61eff83a01740a58abec23d7aa573087ee1',
- 'source_support_registry_config_getter_return': 'c8beb33d334a9cf76d329ab18cb3b197276e878c5b5a54397c6f0e5c41904b0d',
- 'source_terminal_verifier_config_getter_return': 'c7297de84fb29fa53cf5f96d02a6254e970e20ac10991766cb58b4981485290f',
- 'statement_hash': 'b29c270bf7f140c4818c7b15dd82c567abc4fc617527c350f8be0e048199b24a',
+ 'statement_hash': '14a0fba13c924b2be26b39908af2ba3cb556ab4f050398d28a9db0416fb72992',
+ 'statement_reward_execution_gas': '12345678',
+ 'statement_reward_published_bytes': '9',
  'status_return_hash': 'b39221ace053465ec3453ce2b36430bd138b997ecea25c1043da0c366812b828',
- 'successor_migration_activation_profile_record_hash': 'fc8080551b2c3016f61eb18d9f37424722b112458758bae1625561bea42f2bcd',
- 'successor_release_manifest_hash': '3270ab58d2de9c50a8fd6f1c6a00a080f4b414cfdc82769e7e0eba65bc5bbcca',
+ 'successor_migration_activation_profile_record_hash': '7e1aec64542e3fd1dc19efa0002db7550c23115553ccd98383bbee0378ab8209',
+ 'successor_release_manifest_hash': '9cc41591925c1bc6845e391029d9f148e0c7d45ce0afe84ce6fac11dcc94b65f',
  'successor_settlement_deployment_descriptor_hash': '377aa582c38874cf50ef87030c628b15c5e0302e6830e51b09d8542659bedc18',
- 'successor_target_registration_hash': 'b72953817f70362ad9b3a8ea8333f46b072caefc234bfdf8606f5b92fea3bfc8',
+ 'successor_target_registration_hash': '4c025c81e10a40d73a642b2135a7cec30d62ed5b078de89c7caeaa413a1942f9',
  'sync_ingress_selector': '6c880b72',
  'sync_ingress_stamp_return_hash': '1fd01b194948c635358fbb51b4a5f32f8ceab4dc4153e0230215f8afc94ee434',
  'sync_ingress_synced_return_hash': 'ef662a629ce07c9ed715124d8141a6e430d0a3065f8ce8074a7ea95e8751f184',
- 'target_call_failed_error_hash': '1ab0ae98eedd4e4e99d2537682757f416ad55f53ccf2ddc7b4faaa48d2bcdad2',
+ 'target_call_failed_error_hash': '945a4e77fd3fc7472407777c6f3975d98ccd745d89a8799c13e9c16b8b092b31',
  'target_call_failed_selector': 'f9cc2b44',
- 'target_constructor_state_return_hash': 'ba8c0d80fc5547eeb59a25c8546b443a727d0d64a38158281b5873d7d391239a',
+ 'target_constructor_state_return_hash': '18d7395ce06e6412db6c9736e79a8da65275d1eeefa19dae2e2758134f2549a0',
  'target_constructor_state_selector': '654f7fce',
- 'target_post_state_return_hash': 'd2a8e3257e0f95d4fea4f1d7a0874c85a37245dfd2a379b8418b9e7f2d97dfba',
- 'target_registration_hash': '9960e6e736719251db055c3f6a73d150c1e55441e5b8acb9206c6f32f31c5fb9',
+ 'target_post_state_return_hash': '3a389f1049b4b00aec37a0068e4be9209485fbb69bf7f44049d8ce341f6ca411',
+ 'target_registration_hash': '0ce538d6056ad9a98b71822ce8e14ee74c792795ee37a5feb2d24ce534deeac2',
  'target_release_registration_calldata_hash': '5c5db1ed7485ad89b4d9125c80db863078603f32ddd3032552a6345bd0dba5ee',
  'target_release_registration_magic': '52545232',
- 'target_release_registration_return_hash': 'b92ca81ed109e2757ef5b77935c272374a0116031330cbfc6415a317e96902c3',
- 'target_release_registration_return_length': '416',
+ 'target_release_registration_return_hash': '7ba50fcac2193351bed4267f07eb2a974827747adfe1bff6d9987c37a1a28025',
+ 'target_release_registration_return_length': '512',
  'target_release_registration_selector': 'f588fec3',
  'terminal_append_return': '0000000000000000000000000000000000000000000000000000000000000002',
  'terminal_commitment_calldata_hash': '505a325523808cbd0221207bdff17e3a8d34e2d8d454340b9ffabd480a756652',
@@ -18458,27 +18729,26 @@ EXPECTED = {
  'verify_inbox_credit_return_hash': '0e5a24d737136abf8a7a010846356b518761e7813af6495e341c961c51f5756c',
  'verify_inbox_credit_return_length': '256',
  'verify_inbox_credit_selector': '720f747b',
- 'verify_registration_calldata_hash': '8ebbc9339382215ee44e7d72ea3bfd12740c204662157f43e11416afbd8ef97c',
+ 'verify_registration_calldata_hash': '735ba835ff03812b1cd376c5ea133ea5d3016833ad3f812ddab58fc0640ac224',
  'verify_registration_calldata_length': '516',
  'verify_registration_selector': '33639818',
  'verify_schedule_carrier_calldata_hash': 'a6f4b2260cd81afd71756624c295b886d29e85c0c9e9b1cdc89f0148bbd0fb79',
  'verify_schedule_carrier_calldata_length': '132',
  'verify_schedule_carrier_selector': '7e981e0b',
- 'version_activation_calldata_hash': '069e8ed627691c90dc5d6488b9fd1a42198d1c9afbc454b430c66e6aadd8aa55',
+ 'version_activation_calldata_hash': 'a60b0937d5a514a1bce25be2894848f0df589df5f5d3fc20d698105c4d29a9fb',
  'version_activation_calldata_length': '17220',
  'version_activation_fixed_hash': '24f54f2ca1c6731f04741371c1e2705fcd912e1b5cf2bd5d727729cc5de89a41',
- 'version_activation_receipt_return_hash': 'f98d13fe637fe5e611c17b19d81d5d9f401c44719f9f1b384e608b3cce877b95',
- 'version_deployment_commitment': 'cd83045ad83423f86e5a80089f490f26fc120c91d081182519e03d0991bf408c',
+ 'version_activation_receipt_return_hash': '06594634175e72e75e3c3d0d434e67b1b332f2dc1e2e00411e10e6e56628165a',
+ 'version_deployment_commitment': '328cd08a675b046c0ba73044bf1c8cd3f16e07a78dc34fc0f17d52cbfc3c1d97',
  'version_migration_abort_after_timestamp': '624800',
  'version_migration_abort_magic': '564d4231',
- 'version_migration_arm_id': '6cd972f38b1ce9ec3090c77c4e5c45d327faca5af8dd8456ce92fd269407c18b',
+ 'version_migration_arm_id': '8a9dd52cad8bb4b7c6e4ed6dfdf1f56c21bfff2589c87fbf873a6982dd02232c',
  'version_migration_arm_magic': '564d4131',
  'version_migration_lease_magic': '564d4c31',
- 'version_migration_lease_return_hash': '51b3c0452b37934015ff1246e94628f28c92bb1596669a56c829e145b1f53ed6',
+ 'version_migration_lease_return_hash': '8aace3b0bf7d453d337c25aa93b3b4cf48c93691e16dbf48011b802e768d25d8',
  'version_migration_lease_return_length': '320',
- 'version_migration_statement_hash': 'd622b4e5bf4e67c480191c366a2a0cb9d61d0297bed99024a3abafc2e1e32cd2',
+ 'version_migration_statement_hash': '769dc1d028023e5920cb898c3540c3ca3202c2af6cd774ae3ce811248ffc92d1',
  'winning_data': '4ae34aa9efb842528d353b175f94191d01cfd168b5ad828f64a0e7972a2ca9e3'}
-
 
 # The export schema is deliberately keyed by semantic meaning, never inferred
 # from the spelling of a value.  Every name not in this explicit uint set is a

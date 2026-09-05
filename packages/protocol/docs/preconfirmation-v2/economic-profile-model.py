@@ -2211,7 +2211,7 @@ def execution_profile_economic_binding_blockers(
         return ("economic profile projection is unavailable",)
     if (
         not isinstance(execution_profile_words, (tuple, list))
-        or len(execution_profile_words) not in (267, 268)
+        or len(execution_profile_words) not in (281, 282)
         or any(type(item) is not bytes or len(item) != 32
                for item in execution_profile_words)
     ):
