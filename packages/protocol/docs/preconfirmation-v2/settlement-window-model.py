@@ -496,7 +496,7 @@ PROFILE_INGRESS_ROOT_RETURN_LENGTH = 128
 PROFILE_INGRESS_ROOT_READ_GAS = 100_000
 PROFILE_INGRESS_AUTHORIZATION_SELECTOR = bytes.fromhex("2181b974")
 PROFILE_INGRESS_AUTHORIZATION_CALLDATA_LENGTH = 36
-PROFILE_INGRESS_AUTHORIZATION_RETURN_LENGTH = 800
+PROFILE_INGRESS_AUTHORIZATION_RETURN_LENGTH = 832
 PROFILE_INGRESS_AUTHORIZATION_READ_GAS = 250_000
 STAGE_BRIDGE_ROUTE_PACKAGE_SELECTOR = bytes.fromhex("9dad437b")
 STAGE_BRIDGE_ROUTE_PACKAGE_GAS = 12_000_000
@@ -894,6 +894,7 @@ ENQUEUE_BRIDGE_CREDIT_V2_SELECTOR = keccak256(
 INGRESS_AUTHORIZATION_TYPE = (
     "ProfileIngressAuthorizationV2(uint8 kind,address adapter,"
     "bytes32 adapterRuntimeHash,bytes32 adapterConfigurationHash,"
+    "bytes32 adapterConstructorPoststateCommitment,"
     "address activeSettlementRouter,bytes32 routerRuntimeHash,"
     "bytes32 routerConfigurationHash,address forcedQueue,"
     "bytes32 queueRuntimeHash,bytes32 queueConfigurationHash,"
@@ -3834,7 +3835,7 @@ MIGRATION_ACTIVATION_CONTEXT_LENGTH = 320
 MIGRATION_ACTIVATION_CONTEXT_GAS = 100_000
 TARGET_RELEASE_REGISTRATION_SELECTOR = bytes.fromhex("f588fec3")
 TARGET_RELEASE_REGISTRATION_CALLDATA_LENGTH = 36
-TARGET_RELEASE_REGISTRATION_RETURN_LENGTH = 416
+TARGET_RELEASE_REGISTRATION_RETURN_LENGTH = 512
 TARGET_RELEASE_REGISTRATION_READ_GAS = 100_000
 MIGRATION_READINESS_MAGIC = b"MRS1"
 MIGRATION_READINESS_LENGTH = 256
@@ -16675,14 +16676,14 @@ class BridgeDomainRegistry:
                 and entry.source_chain_id == brx.source_chain_id
                 and entry.source_registration_epoch == _decode_uint_word_v1(
                     descriptor[27], 64, "route source epoch")
-                and entry.source_domain_id == brx.source_domain_id == pia[10]
+                and entry.source_domain_id == brx.source_domain_id == pia[11]
                 and entry.bridge_execution_hash
-                    == brx.source_bridge_execution_hash == pia[12]
+                    == brx.source_bridge_execution_hash == pia[13]
                 and entry.destination_chain_id
-                    == _decode_uint_word_v1(pia[13], 256,
+                    == _decode_uint_word_v1(pia[14], 256,
                                             "route destination chain")
-                and entry.destination_domain_id == pia[14]
-                and entry.destination_bridge == pia[15][12:]
+                and entry.destination_domain_id == pia[15]
+                and entry.destination_bridge == pia[16][12:]
                 and entry.registration_commitment
                     == brx.destination_registration_commitment
                 and entry.invocation_policy_hash
@@ -16781,7 +16782,7 @@ class BridgeDomainRegistry:
                     ProtocolVersionManager, ProtocolVersionManagerV1
                 }
                 or type(brx) is not BridgeRouteExpansionV1
-                or type(pia) is not tuple or len(pia) != 23):
+                or type(pia) is not tuple or len(pia) != 24):
             return False
         world = self.manager.deployment_world
         descriptor = brx.source_descriptor_words
@@ -16792,8 +16793,8 @@ class BridgeDomainRegistry:
             configuration_hash=pia[3],
             source_bridge="0x" + descriptor[8][12:].hex(),
             credit_registry="0x" + descriptor[12][12:].hex(),
-            router="0x" + pia[4][12:].hex(),
-            queue="0x" + pia[7][12:].hex(),
+            router="0x" + pia[5][12:].hex(),
+            queue="0x" + pia[8][12:].hex(),
             seal_authority=self.manager_address,
         )
         if (_model_address20(expected_adapter) != pia[1][12:]
@@ -17173,9 +17174,9 @@ class BridgeDomainRegistry:
             _model_uint(version, 8, "registration version"),
             rtr.release_manifest_hash,
             _model_uint(
-                _decode_uint_word_v1(pia[13], 256, "PIA2 destination"),
+                _decode_uint_word_v1(pia[14], 256, "PIA2 destination"),
                 32, "registration destination chain"),
-            brx.destination_namespace, pia[14], pia[15][12:], pia[17],
+            brx.destination_namespace, pia[15], pia[16][12:], pia[18],
             rtr.execution_profile_hash,
         )))
         if (mact.lifecycle is not RouterMigrationLifecycle.BRIDGE_PREPARING
@@ -17189,24 +17190,24 @@ class BridgeDomainRegistry:
                 or pia_id != brx.bridge_authorization_id
                 or _decode_uint_word_v1(pia[0], 8, "PIA2 bridge kind")
                     != ForceKind.BRIDGE_CREDIT.value
-                or pia[4][12:] != _model_address20(self.router_address)
-                or pia[5] != _model_fixed_bytes32(self.router_runtime_hash)
-                or pia[6]
+                or pia[5][12:] != _model_address20(self.router_address)
+                or pia[6] != _model_fixed_bytes32(self.router_runtime_hash)
+                or pia[7]
                     != _model_fixed_bytes32(self.router_configuration_hash)
-                or pia[7][12:]
+                or pia[8][12:]
                     != _model_address20(self.queue_address)
-                or pia[8]
-                    != _model_fixed_bytes32(self.queue_runtime_hash)
                 or pia[9]
+                    != _model_fixed_bytes32(self.queue_runtime_hash)
+                or pia[10]
                     != _model_fixed_bytes32(self.queue_configuration_hash)
-                or pia[10] != brx.source_domain_id
-                or _decode_uint_word_v1(pia[11], 64, "PIA2 source epoch")
+                or pia[11] != brx.source_domain_id
+                or _decode_uint_word_v1(pia[12], 64, "PIA2 source epoch")
                     != _decode_uint_word_v1(
                         descriptor[27], 64, "BRX1 source epoch")
-                or pia[12] != brx.source_bridge_execution_hash
-                or _decode_uint_word_v1(pia[13], 256, "PIA2 destination")
+                or pia[13] != brx.source_bridge_execution_hash
+                or _decode_uint_word_v1(pia[14], 256, "PIA2 destination")
                     != self.release_authority_descriptor.destination_chain_id
-                or pia[14] == bytes(32) or pia[15][12:] == bytes(20)
+                or pia[15] == bytes(32) or pia[16][12:] == bytes(20)
                 or brx.invocation_policy_hash != bip.invocation_policy_hash
                 or brx.invocation_policy_count != len(bip.denied)
                 or brx.destination_registration_commitment
@@ -17222,7 +17223,7 @@ class BridgeDomainRegistry:
         package_root = self._primitive_package_root_v2(
             rtr_raw, brx_raw, pir_raw, pim_raw, pia_raw, bip_raw)
         key = (brx.source_domain_id.hex(),
-               brx.source_bridge_execution_hash.hex(), pia[14].hex())
+               brx.source_bridge_execution_hash.hex(), pia[15].hex())
         version_key = (
             self.release_authority_descriptor.destination_chain_id, version)
         candidate = BridgeSupportEntry(
@@ -17240,7 +17241,7 @@ class BridgeDomainRegistry:
             destination_chain_id=version_key[0],
             source_domain_id=brx.source_domain_id,
             bridge_execution_hash=brx.source_bridge_execution_hash,
-            destination_domain_id=pia[14], destination_bridge=pia[15][12:],
+            destination_domain_id=pia[15], destination_bridge=pia[16][12:],
             target_settlement=rtr.target_settlement,
             release_manifest_hash=rtr.release_manifest_hash,
             execution_profile_hash=rtr.execution_profile_hash,
@@ -17491,9 +17492,9 @@ class BridgeDomainRegistry:
             _model_uint(version, 8, "BRC1 registration version"),
             row.release_manifest_hash,
             _model_uint(
-                _decode_uint_word_v1(pia[13], 256, "BRC1 destination"),
+                _decode_uint_word_v1(pia[14], 256, "BRC1 destination"),
                 32, "BRC1 registration destination"),
-            brx.destination_namespace, pia[14], pia[15][12:], pia[17],
+            brx.destination_namespace, pia[15], pia[16][12:], pia[18],
             row.execution_profile_hash,
         )))
         key = self._key_by_destination_chain_version.get((
@@ -17540,22 +17541,22 @@ class BridgeDomainRegistry:
                     != expected_registration_commitment
                 or _decode_uint_word_v1(pia[0], 8, "BRC1 bridge kind")
                     != ForceKind.BRIDGE_CREDIT.value
-                or pia[4][12:] != _model_address20(self.router_address)
-                or pia[5] != _model_fixed_bytes32(self.router_runtime_hash)
-                or pia[6]
+                or pia[5][12:] != _model_address20(self.router_address)
+                or pia[6] != _model_fixed_bytes32(self.router_runtime_hash)
+                or pia[7]
                     != _model_fixed_bytes32(self.router_configuration_hash)
-                or pia[7][12:]
+                or pia[8][12:]
                     != _model_address20(self.queue_address)
-                or pia[8]
-                    != _model_fixed_bytes32(self.queue_runtime_hash)
                 or pia[9]
+                    != _model_fixed_bytes32(self.queue_runtime_hash)
+                or pia[10]
                     != _model_fixed_bytes32(self.queue_configuration_hash)
-                or pia[10] != brx.source_domain_id
-                or pia[12] != brx.source_bridge_execution_hash
-                or _decode_uint_word_v1(pia[13], 256,
+                or pia[11] != brx.source_domain_id
+                or pia[13] != brx.source_bridge_execution_hash
+                or _decode_uint_word_v1(pia[14], 256,
                                         "BRC1 destination chain")
                     != self.release_authority_descriptor.destination_chain_id
-                or pia[14] != (bytes(32) if key is None
+                or pia[15] != (bytes(32) if key is None
                                else _model_fixed_bytes32(key[2]))
                 or descriptor[18][12:] != _model_address20(self.address)
                 or descriptor[19] != _model_fixed_bytes32(self.runtime_hash)
@@ -17590,9 +17591,9 @@ class BridgeDomainRegistry:
                     != brx.source_bridge_execution_hash
                 or entry.destination_chain_id
                     != _decode_uint_word_v1(
-                        pia[13], 256, "BRC1 cached destination")
-                or entry.destination_domain_id != pia[14]
-                or entry.destination_bridge != pia[15][12:]
+                        pia[14], 256, "BRC1 cached destination")
+                or entry.destination_domain_id != pia[15]
+                or entry.destination_bridge != pia[16][12:]
                 or entry.invocation_policy_hash
                     != bip.invocation_policy_hash
                 or entry.bridge_authorization_id
@@ -22809,7 +22810,7 @@ MAXIMUM_LIVE_VERSION_MIGRATION_SECONDS = 604_800
 # after it matures.  This bounds dormant execution authority without weakening
 # the full seven-day notice period that precedes maturity.
 MIGRATION_ARM_EXECUTION_WINDOW_SECONDS = 604_800
-PROTOCOL_CHANGE_MAX_PAYLOAD_BYTES = 131_072
+PROTOCOL_CHANGE_MAX_PAYLOAD_BYTES = 149_088
 PVM_RELEASE_ROUTER_REGISTRATION_GAS = 15_000_000
 PVM_RELEASE_MARKET_INSTALLATION_GAS = 1_000_000
 PVM_RELEASE_POSTREAD_GAS = 500_000
@@ -22825,18 +22826,16 @@ EXECUTION_PROFILE_DOMAIN = b"slot-chain-execution-profile-v2"
 SETTLEMENT_DEPLOYMENT_DOMAIN = b"slot-chain-settlement-deployment-v1"
 SOURCE_BUNDLE_SALT_DOMAIN = b"slot-chain-source-bundle-salt-v1"
 EXECUTION_PROFILE_SCHEMA_VERSION = 2
-# ExecutionProfileV2 has 267 fixed value words followed by the sole dynamic
-# targetCodeArtifact offset word.  Its complete field order is mirrored by
+# ExecutionProfileV2 has 281 fixed value words followed by the sole dynamic
+# deploymentCodeArtifacts offset word.  Its complete field order is mirrored by
 # _execution_profile_static_words_v2 and the normative specification.
-EXECUTION_PROFILE_VALUE_WORDS = 267
+EXECUTION_PROFILE_VALUE_WORDS = 281
 EXECUTION_PROFILE_STATIC_WORDS = EXECUTION_PROFILE_VALUE_WORDS + 1
 EXECUTION_PROFILE_STATIC_BYTES = EXECUTION_PROFILE_STATIC_WORDS * 32
 # Root, fixed head, dynamic length word and at least one padded artifact word.
-EXECUTION_PROFILE_MIN_BYTES = 32 + EXECUTION_PROFILE_STATIC_BYTES + 64
-EXECUTION_PROFILE_MAX_BYTES = 65_536
 EIP3860_MAX_INITCODE_BYTES = 49_152
 EIP170_MAX_RUNTIME_BYTES = 24_576
-# TargetParametersV2 is the complete 267-word fixed-value profile projection;
+# TargetParametersV2 is the complete 281-word fixed-value profile projection;
 # it excludes only the dynamic-offset word and authenticated code-artifact
 # tail.  The constructor appends E, MPR2, the declared runtime hash and the
 # artifact hash.  This deliberately transports every consumer primitive and
@@ -22848,6 +22847,66 @@ TARGET_CONSTRUCTOR_INVENTORY_WORDS = TARGET_PARAMETERS_V2_WORDS + 7
 TARGET_CREATION_CODE_MAX_BYTES = (
     EIP3860_MAX_INITCODE_BYTES - TARGET_CONSTRUCTOR_TRAILER_BYTES
 )
+KIND0_INGRESS_SALT_DOMAIN = b"slot-chain-kind0-ingress-salt-v1"
+KIND0_INGRESS_CALL_GAS_LIMIT = 5_000_000
+KIND0_INGRESS_MAXIMUM_CALLDATA_BYTES = 131_072
+KIND0_INGRESS_MINIMUM_ACCOUNTED_GAS = 21_000
+KIND0_INGRESS_CONSTRUCTOR_WORDS = 19
+KIND0_INGRESS_CONSTRUCTOR_BYTES = KIND0_INGRESS_CONSTRUCTOR_WORDS * 32
+KIND0_INGRESS_CREATION_CODE_MAX_BYTES = (
+    EIP3860_MAX_INITCODE_BYTES - KIND0_INGRESS_CONSTRUCTOR_BYTES
+)
+# The sole dynamic value is exactly four u32 lengths followed by the target
+# and kind-0 creation/runtime artifacts.  Bound both its unpadded payload and
+# the complete ABI encoding so the individual EIP-3860/EIP-170 limits cannot
+# accidentally exceed an unrelated legacy 64-KiB profile cap.
+EXECUTION_PROFILE_CODE_ARTIFACT_MAX_BYTES = (
+    16 + TARGET_CREATION_CODE_MAX_BYTES + EIP170_MAX_RUNTIME_BYTES
+    + KIND0_INGRESS_CREATION_CODE_MAX_BYTES + EIP170_MAX_RUNTIME_BYTES
+)
+EXECUTION_PROFILE_MIN_BYTES = 32 + EXECUTION_PROFILE_STATIC_BYTES + 64
+EXECUTION_PROFILE_MAX_BYTES = (
+    32 + EXECUTION_PROFILE_STATIC_BYTES + 32
+    + ((EXECUTION_PROFILE_CODE_ARTIFACT_MAX_BYTES + 31) // 32) * 32
+)
+SETTLEMENT_VALIDITY_VERIFIER_CALL_ENVELOPE_GAS = 10_000
+SETTLEMENT_VALIDITY_VERIFIER_SELECTOR = keccak256(
+    b"verify(bytes,uint256[2])"
+)[:4]
+SETTLEMENT_VALIDITY_PUBLIC_INPUT_SCHEMA_HASH = keccak256(
+    b"slot-chain-settlement-validity-public-input-schema-v2"
+)
+SETTLEMENT_VALIDITY_MAXIMUM_PROOF_BYTES = 65_536
+SETTLEMENT_VALIDITY_MAXIMUM_GAS = 30_000_000
+SETTLEMENT_VALIDITY_VERIFIER_CONFIG_TYPE = (
+    "SettlementValidityVerifierConfigV2(bytes32 verifyingKeyHash,"
+    "bytes32 proofSystemId,bytes32 publicInputSchemaHash,bytes4 selector,"
+    "uint32 maximumProofBytes,uint64 verificationGasLimit,"
+    "uint64 postVerificationReserveGas)"
+)
+SETTLEMENT_VALIDITY_VERIFIER_CONFIG_TYPEHASH = keccak256(
+    SETTLEMENT_VALIDITY_VERIFIER_CONFIG_TYPE.encode()
+)
+SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_TYPE = (
+    "SettlementValidityVerifierDescriptorV2(address verifier,"
+    "bytes32 runtimeHash,bytes32 configurationHash,bytes32 verifyingKeyHash,"
+    "bytes32 proofSystemId,bytes32 publicInputSchemaHash,bytes4 selector,"
+    "uint32 maximumProofBytes,uint64 verificationGasLimit,"
+    "uint64 postVerificationReserveGas)"
+)
+SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_TYPEHASH = keccak256(
+    SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_TYPE.encode()
+)
+SETTLEMENT_VALIDITY_VERIFIER_CONFIG_GETTER_SELECTOR = keccak256(
+    b"settlementValidityVerifierConfigHashV2()"
+)[:4]
+SETTLEMENT_VALIDITY_VERIFIER_CONFIG_GETTER_GAS = 50_000
+SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_GETTER_SELECTOR = keccak256(
+    b"settlementValidityVerifierDescriptorV2()"
+)[:4]
+SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_MAGIC = b"SVD2"
+SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_GETTER_GAS = 50_000
+SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_RETURN_LENGTH = 352
 LEGACY_OPAQUE_CBOR_PROFILE = bytes.fromhex("a1617601")
 PCT1_MAGIC = b"PCT1"
 PVM1_MAGIC = b"PVM1"
@@ -23134,9 +23193,20 @@ class DerivedRegisterReleaseAuthorityV2:
             self.target_configuration_hash,
             self.settlement_deployment_descriptor_hash,
             self.execution_profile_hash,
+            _decode_uint_word_v1(
+                self.profile_words[111], 64,
+                "profile component configuration read gas",
+            ),
             self.migration_activation_profile.activation_profile_record_hash,
             self.data_session_configuration_hash,
             self.release_manifest_hash, self.bridge_route_expansion_hash,
+            _profile_settlement_validity_verifier_descriptor_hash_v2(
+                self.profile_words
+            ),
+            next(
+                row.authorization_id for row in self.ingress_rows
+                if row.kind is ForceKind.USER_TX
+            ),
             self.target_registration_hash,
         )
 
@@ -23154,6 +23224,8 @@ class LiveDeploymentAccountV2:
     configuration_hash: bytes
     accounting: DataSessionAccountingV1 | None = None
     constructor_inventory: tuple[bytes, ...] = ()
+    kind0_constructor_tail: bytes = b""
+    settlement_validity_verifier_descriptor_return: bytes = b""
     overrides: dict[tuple[str, str], bytes] = field(default_factory=dict)
     faults: set[tuple[str, str]] = field(default_factory=set)
     nonce: int = 1
@@ -23256,6 +23328,51 @@ class LiveDeploymentAccountV2:
             self.configuration_hash,
         )
         return self._surface(caller, "target_constructor_state", canonical)
+
+    def kind0_constructor_state_v1(
+        self, caller: str, calldata: bytes, gas: int, value: int,
+    ) -> bytes:
+        if (calldata != KIND0_CONSTRUCTOR_STATE_SELECTOR or value != 0
+                or gas <= 0
+                or len(self.kind0_constructor_tail)
+                    != KIND0_INGRESS_CONSTRUCTOR_BYTES):
+            raise ValueError("kind0ConstructorStateV1 call frame is inexact")
+        canonical = encode_kind0_constructor_state_return_v1(
+            kind0_constructor_poststate_commitment_v1(
+                self.kind0_constructor_tail,
+                self.configuration_hash,
+                self.runtime_hash,
+            ),
+            self.configuration_hash,
+        )
+        return self._surface(caller, "kind0_constructor_state", canonical)
+
+    def settlement_validity_verifier_config_hash_v2(
+        self, caller: str, calldata: bytes, gas: int, value: int,
+    ) -> bytes:
+        if (calldata != SETTLEMENT_VALIDITY_VERIFIER_CONFIG_GETTER_SELECTOR
+                or gas != SETTLEMENT_VALIDITY_VERIFIER_CONFIG_GETTER_GAS
+                or value != 0):
+            raise ValueError("validity-verifier config call frame is inexact")
+        return self._surface(
+            caller, "settlement_validity_verifier_config",
+            self.configuration_hash,
+        )
+
+    def settlement_validity_verifier_descriptor_v2(
+        self, caller: str, calldata: bytes, gas: int, value: int,
+    ) -> bytes:
+        if (calldata
+                != SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_GETTER_SELECTOR
+                or gas != SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_GETTER_GAS
+                or value != 0
+                or len(self.settlement_validity_verifier_descriptor_return)
+                    != SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_RETURN_LENGTH):
+            raise ValueError("SVD2 call frame is inexact")
+        return self._surface(
+            caller, "settlement_validity_verifier_descriptor",
+            self.settlement_validity_verifier_descriptor_return,
+        )
 
 
 @dataclass
@@ -23444,6 +23561,17 @@ def live_deployment_world_for_release_v2(
         accounts[address] = LiveDeploymentAccountV2(
             address, words[address_index + 1], words[address_index + 2]
         )
+    kind0_address = words[228][12:]
+    accounts[kind0_address] = LiveDeploymentAccountV2(
+        kind0_address, words[229], words[270],
+        kind0_constructor_tail=kind0_ingress_constructor_tail_from_words_v1(
+            words
+        ),
+    )
+    verifier_address = words[271][12:]
+    accounts[verifier_address] = LiveDeploymentAccountV2(
+        verifier_address, words[272], words[273]
+    )
     source_artifacts = ProtocolRootSourceFactoryCompilerArtifactsV1(
         SOURCE_BUNDLE_FACTORY_CREATION_CODE_V1,
         SOURCE_BUNDLE_FACTORY_RUNTIME_CODE_V1,
@@ -23473,6 +23601,9 @@ def live_deployment_world_for_release_v2(
             derived.data_session_configuration_hash,
         ),
         inventory,
+        settlement_validity_verifier_descriptor_return=(
+            _profile_settlement_validity_verifier_descriptor_return_v2(words)
+        ),
     )
     return LiveDeploymentWorldV2(accounts)
 
@@ -23537,6 +23668,7 @@ def _validate_live_factory_v2(
 def _validate_live_target_code_and_config_v2(
     world: LiveDeploymentWorldV2, *, caller: str, address: bytes,
     runtime_hash: bytes, configuration_hash: bytes, label: str,
+    configuration_read_gas: int = 50_000,
 ) -> LiveDeploymentAccountV2:
     account = world.account(address, caller, f"{label}:account")
     world.trace.append((caller, f"{label}:extcodehash", address))
@@ -23544,11 +23676,84 @@ def _validate_live_target_code_and_config_v2(
         raise ValueError(f"{label} EXTCODEHASH differs from profile")
     world.trace.append((caller, f"{label}:config", address))
     raw = account.component_config_hash_v2(
-        caller, COMPONENT_CONFIG_GETTER_SELECTOR, 50_000, 0
+        caller, COMPONENT_CONFIG_GETTER_SELECTOR, configuration_read_gas, 0
     )
     if type(raw) is not bytes or len(raw) != 32 or raw != configuration_hash:
         raise ValueError(f"{label} componentConfigHashV2 differs")
     return account
+
+
+def _validate_live_kind0_constructor_v1(
+    world: LiveDeploymentWorldV2, *, caller: str,
+    words: tuple[bytes, ...], gas: int, label: str,
+) -> bytes:
+    """Authenticate kind-0 code/config and its immutable constructor state."""
+
+    account = _validate_live_target_code_and_config_v2(
+        world, caller=caller, address=words[228][12:],
+        runtime_hash=words[229], configuration_hash=words[270], label=label,
+        configuration_read_gas=gas,
+    )
+    expected = encode_kind0_constructor_state_return_v1(
+        kind0_constructor_poststate_commitment_v1(
+            kind0_ingress_constructor_tail_from_words_v1(words),
+            words[270], words[229],
+        ),
+        words[270],
+    )
+    world.trace.append((caller, f"{label}:constructor-state", account.address))
+    observed = account.kind0_constructor_state_v1(
+        caller, KIND0_CONSTRUCTOR_STATE_SELECTOR, gas, 0
+    )
+    if observed != expected:
+        raise ValueError(f"{label} KCS1 constructor state differs")
+    return expected
+
+
+def _validate_live_settlement_validity_verifier_v2(
+    world: LiveDeploymentWorldV2, *, caller: str,
+    target: LiveDeploymentAccountV2, expected_descriptor_hash: bytes,
+    label: str, expected_descriptor_return: bytes | None = None,
+    read_gas: int = SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_GETTER_GAS,
+) -> bytes:
+    """Authenticate the full target SVD2 view and its live verifier account."""
+
+    if (type(expected_descriptor_hash) is not bytes
+            or len(expected_descriptor_hash) != 32
+            or expected_descriptor_hash == bytes(32)):
+        raise ValueError(f"{label} descriptor hash differs")
+    world.trace.append((caller, f"{label}:target:SVD2", target.address))
+    descriptor = target.settlement_validity_verifier_descriptor_v2(
+        caller, SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_GETTER_SELECTOR,
+        read_gas, 0,
+    )
+    descriptor_words, observed_descriptor_hash = \
+        _decode_settlement_validity_verifier_descriptor_return_v2(descriptor)
+    if (observed_descriptor_hash != expected_descriptor_hash
+            or (expected_descriptor_return is not None
+                and descriptor != expected_descriptor_return)):
+        raise ValueError(f"{label} target SVD2 differs")
+    verifier_address = _decode_address_word_v1(
+        descriptor_words[0], f"{label} verifier"
+    )
+    verifier = world.account(
+        verifier_address, caller, f"{label}:verifier:account"
+    )
+    world.trace.append((caller, f"{label}:verifier:extcodehash",
+                        verifier_address))
+    if verifier.extcodehash(caller) != descriptor_words[1]:
+        raise ValueError(f"{label} verifier EXTCODEHASH differs")
+    world.trace.append((caller, f"{label}:verifier:config",
+                        verifier_address))
+    configuration = verifier.settlement_validity_verifier_config_hash_v2(
+        caller, SETTLEMENT_VALIDITY_VERIFIER_CONFIG_GETTER_SELECTOR,
+        read_gas, 0,
+    )
+    if (type(configuration) is not bytes
+            or len(configuration) != 32
+            or configuration != descriptor_words[2]):
+        raise ValueError(f"{label} verifier configuration differs")
+    return descriptor
 
 
 def validate_live_register_release_deployment_v2(
@@ -23565,16 +23770,38 @@ def validate_live_register_release_deployment_v2(
                 != derived.profile_words):
         raise ValueError("live deployment validation inputs are inexact")
     words = derived.profile_words
+    component_read_gas = _decode_uint_word_v1(
+        words[111], 64, "profile component configuration read gas"
+    )
     _validate_live_factory_v2(
         world, caller=caller, address=words[44][12:],
         runtime_hash=words[45],
+    )
+    poststate_gas = component_read_gas
+    expected_kind0_constructor = _validate_live_kind0_constructor_v1(
+        world, caller=caller, words=words, gas=poststate_gas,
+        label="kind0-ingress",
     )
     target = _validate_live_target_code_and_config_v2(
         world, caller=caller, address=derived.target_address,
         runtime_hash=derived.target_runtime_hash,
         configuration_hash=derived.target_configuration_hash, label="target",
+        configuration_read_gas=component_read_gas,
     )
-    poststate_gas = derived.migration_activation_profile.gas_values[7]
+    descriptor_hash = \
+        _profile_settlement_validity_verifier_descriptor_hash_v2(words)
+    expected_validity_descriptor = \
+        _validate_live_settlement_validity_verifier_v2(
+            world, caller=caller, target=target,
+            expected_descriptor_hash=descriptor_hash,
+            label="settlement-validity",
+            expected_descriptor_return=(
+                _profile_settlement_validity_verifier_descriptor_return_v2(
+                    words
+                )
+            ),
+            read_gas=component_read_gas,
+        )
     expected_accounting = encode_data_session_accounting_v1(
         DataSessionAccountingV1(
             0, 0, 0, 0, 0, 0, 0, 0, 0, False,
@@ -23608,6 +23835,8 @@ def validate_live_register_release_deployment_v2(
         + derived.settlement_deployment_descriptor_hash
         + derived.target_registration_hash + keccak256(expected_accounting)
         + keccak256(expected_constructor)
+        + keccak256(expected_kind0_constructor)
+        + keccak256(expected_validity_descriptor)
     )
 
 
@@ -23619,13 +23848,30 @@ def validate_live_target_postread_v2(
 ) -> bytes:
     """Re-read target code/config/state after Router returns to the PVM."""
 
+    words = derived.profile_words
+    poststate_gas = _decode_uint_word_v1(
+        words[111], 64, "profile component configuration read gas"
+    )
+    kind0_constructor = _validate_live_kind0_constructor_v1(
+        world, caller=caller, words=words, gas=poststate_gas,
+        label="kind0-postread",
+    )
     target = _validate_live_target_code_and_config_v2(
         world, caller=caller, address=derived.target_address,
         runtime_hash=derived.target_runtime_hash,
         configuration_hash=derived.target_configuration_hash,
         label="target-postread",
+        configuration_read_gas=poststate_gas,
     )
-    poststate_gas = derived.migration_activation_profile.gas_values[7]
+    validity_descriptor = _validate_live_settlement_validity_verifier_v2(
+        world, caller=caller, target=target,
+        expected_descriptor_hash=(
+            derived.target_registration_row
+                .settlement_validity_verifier_descriptor_hash
+        ),
+        label="settlement-validity-postread",
+        read_gas=poststate_gas,
+    )
     world.trace.append((
         caller, "target-postread:data-session-accounting", target.address
     ))
@@ -23656,7 +23902,9 @@ def validate_live_target_postread_v2(
     )
     if accounting != expected_accounting or constructor != expected_constructor:
         raise ValueError("target deployment postread differs")
-    return keccak256(accounting + constructor)
+    return keccak256(
+        accounting + constructor + kind0_constructor + validity_descriptor
+    )
 
 
 @dataclass(frozen=True)
@@ -23668,10 +23916,13 @@ class TargetReleaseRegistrationRowV2:
     target_configuration_hash: bytes
     settlement_deployment_descriptor_hash: bytes
     execution_profile_hash: bytes
+    component_configuration_read_gas: int
     migration_activation_profile_record_hash: bytes
     data_session_configuration_hash: bytes
     release_manifest_hash: bytes
     bridge_route_expansion_hash: bytes
+    settlement_validity_verifier_descriptor_hash: bytes
+    kind0_ingress_authorization_id: bytes
     target_registration_hash: bytes
 
 
@@ -23682,6 +23933,7 @@ def encode_target_release_registration_return_v2(
             or not 0 <= row.expected_predecessor_protocol_version
                 < row.protocol_version <= UINT64_MAX
             or len(row.target_settlement) != 20
+            or not 0 < row.component_configuration_read_gas <= UINT64_MAX
             or any(value == bytes(32) for value in (
                 row.target_runtime_hash, row.target_configuration_hash,
                 row.settlement_deployment_descriptor_hash,
@@ -23689,6 +23941,8 @@ def encode_target_release_registration_return_v2(
                 row.migration_activation_profile_record_hash,
                 row.data_session_configuration_hash,
                 row.release_manifest_hash, row.bridge_route_expansion_hash,
+                row.settlement_validity_verifier_descriptor_hash,
+                row.kind0_ingress_authorization_id,
                 row.target_registration_hash,
             ))):
         raise ValueError("RTR2 registration row is malformed")
@@ -23701,24 +23955,34 @@ def encode_target_release_registration_return_v2(
         row.target_configuration_hash,
         row.settlement_deployment_descriptor_hash,
         row.execution_profile_hash,
+        _model_uint(
+            row.component_configuration_read_gas, 32,
+            "RTR2 component configuration read gas",
+        ),
         row.migration_activation_profile_record_hash,
         row.data_session_configuration_hash,
         row.release_manifest_hash, row.bridge_route_expansion_hash,
+        row.settlement_validity_verifier_descriptor_hash,
+        row.kind0_ingress_authorization_id,
         row.target_registration_hash,
     ))
-    if len(encoded) != 416:
-        raise AssertionError("RTR2 must be exactly 416 bytes")
+    if len(encoded) != TARGET_RELEASE_REGISTRATION_RETURN_LENGTH:
+        raise AssertionError("RTR2 must be exactly 512 bytes")
     return encoded
 
 
 def decode_target_release_registration_return_v2(
     encoded: bytes,
 ) -> TargetReleaseRegistrationRowV2:
-    """Strictly decode the exact 416-byte Router RTR2 view."""
+    """Strictly decode the exact 512-byte Router RTR2 view."""
 
-    if type(encoded) is not bytes or len(encoded) != 416:
+    if (type(encoded) is not bytes
+            or len(encoded) != TARGET_RELEASE_REGISTRATION_RETURN_LENGTH):
         raise ValueError("RTR2 registration return length is invalid")
-    words = tuple(encoded[index:index + 32] for index in range(0, 416, 32))
+    words = tuple(
+        encoded[index:index + 32]
+        for index in range(0, TARGET_RELEASE_REGISTRATION_RETURN_LENGTH, 32)
+    )
     if words[0] != b"RTR2" + bytes(28):
         raise ValueError("RTR2 registration magic is invalid")
     protocol_version = _decode_uint_word_v1(
@@ -23726,14 +23990,51 @@ def decode_target_release_registration_return_v2(
     )
     predecessor = _decode_uint_word_v1(words[2], 64, "RTR2 predecessor")
     target = _decode_address_word_v1(words[3], "RTR2 target")
-    if any(word == bytes(32) for word in words[4:]):
+    if any(word == bytes(32) for word in (*words[4:8], *words[9:])):
         raise ValueError("RTR2 registration contains a zero hash")
     row = TargetReleaseRegistrationRowV2(
-        protocol_version, predecessor, target, *words[4:]
+        protocol_version, predecessor, target, *words[4:8],
+        _decode_uint_word_v1(
+            words[8], 64, "RTR2 component configuration read gas"
+        ),
+        *words[9:],
     )
     if encode_target_release_registration_return_v2(row) != encoded:
         raise ValueError("RTR2 registration return is noncanonical")
     return row
+
+
+def _execution_profile_code_artifacts_from_tail_v2(
+    artifact: bytes,
+) -> tuple[bytes, bytes, bytes, bytes]:
+    """Decode the exact four-length target/kind-0 bytecode bundle."""
+
+    if type(artifact) is not bytes:
+        raise ValueError("execution profile code artifact is malformed")
+    rows: list[bytes] = []
+    cursor = 0
+    limits = (
+        TARGET_CREATION_CODE_MAX_BYTES,
+        EIP170_MAX_RUNTIME_BYTES,
+        KIND0_INGRESS_CREATION_CODE_MAX_BYTES,
+        EIP170_MAX_RUNTIME_BYTES,
+    )
+    labels = (
+        "target creation code", "target runtime code",
+        "kind-0 creation code", "kind-0 runtime code",
+    )
+    for label, limit in zip(labels, limits):
+        if cursor + 4 > len(artifact):
+            raise ValueError(f"execution profile {label} length is truncated")
+        length = int.from_bytes(artifact[cursor:cursor + 4], "big")
+        cursor += 4
+        if not 0 < length <= limit or cursor + length > len(artifact):
+            raise ValueError(f"execution profile {label} length is unsupported")
+        rows.append(artifact[cursor:cursor + length])
+        cursor += length
+    if cursor != len(artifact):
+        raise ValueError("execution profile code artifact has trailing bytes")
+    return rows[0], rows[1], rows[2], rows[3]
 
 
 def _execution_profile_abi_words_v2(
@@ -23765,22 +24066,21 @@ def _execution_profile_abi_words_v2(
     artifact_start = head_end + 32
     artifact_end = artifact_start + artifact_length
     artifact = profile[artifact_start:artifact_end]
-    if (artifact_length < 10
+    if (not 20 <= artifact_length
+                <= EXECUTION_PROFILE_CODE_ARTIFACT_MAX_BYTES
             or profile[artifact_end:] != bytes(padded - artifact_length)):
         raise ValueError("execution profile code-artifact tail is noncanonical")
-    creation_length = int.from_bytes(artifact[:4], "big")
-    creation_start = 4
-    creation_end = creation_start + creation_length
-    if creation_end + 4 > len(artifact):
-        raise ValueError("execution profile creation code is truncated")
-    runtime_length = int.from_bytes(artifact[creation_end:creation_end + 4], "big")
-    runtime_start = creation_end + 4
-    if (not 0 < creation_length <= TARGET_CREATION_CODE_MAX_BYTES
-            or not 0 < runtime_length <= EIP170_MAX_RUNTIME_BYTES
-            or runtime_start + runtime_length != len(artifact)
-            or words[49] != keccak256(artifact[creation_start:creation_end])
-            or words[48] != keccak256(artifact[runtime_start:])):
+    target_creation, target_runtime, kind0_creation, kind0_runtime = \
+        _execution_profile_code_artifacts_from_tail_v2(artifact)
+    if (words[49] != keccak256(target_creation)
+            or words[48] != keccak256(target_runtime)
+            or words[267] != keccak256(kind0_creation)
+            or words[229] != keccak256(kind0_runtime)):
         raise ValueError("execution profile code artifact is inconsistent")
+    if (validate_authority_graph
+            and words[269]
+                != kind0_ingress_init_code_hash_v1(kind0_creation, words)):
+        raise ValueError("kind-0 init code hash is inconsistent")
     _validate_execution_profile_value_words_v2(
         words, validate_authority_graph=validate_authority_graph
     )
@@ -24025,6 +24325,43 @@ def canonicalize_execution_profile_authority_graph_v2(profile: bytes) -> bytes:
             INGRESS_MAXIMUM_ACCEPTED_FEE_WEI,
         )
     )
+    # Kind-0 is a fresh release-scoped ERC-2470 deployment.  Its published
+    # creation/runtime artifacts are the second pair in the sole dynamic
+    # bundle; the complete init code is creation code plus 19 ABI words.
+    head_end = 32 + EXECUTION_PROFILE_STATIC_BYTES
+    artifact_length = int.from_bytes(profile[head_end:head_end + 32], "big")
+    artifact = profile[head_end + 32:head_end + 32 + artifact_length]
+    _target_creation, _target_runtime, kind0_creation, kind0_runtime = \
+        _execution_profile_code_artifacts_from_tail_v2(artifact)
+    decoded[267] = keccak256(kind0_creation)
+    decoded[229] = keccak256(kind0_runtime)
+    decoded[268] = kind0_ingress_salt_from_words_v1(decoded)
+    decoded[270] = _kind0_ingress_configuration_hash_from_words_v2(decoded)
+    decoded[269] = kind0_ingress_init_code_hash_v1(kind0_creation, decoded)
+    decoded[228] = bytes(12) + kind0_ingress_address_from_words_v2(decoded)
+
+    # Every ordinary tier uses this one verifier descriptor.  Its config is
+    # acyclic: address/runtime/profile/target/manifest are deliberately absent.
+    decoded[277] = SETTLEMENT_VALIDITY_VERIFIER_SELECTOR + bytes(28)
+    decoded[273] = keccak256(b"".join((
+        SETTLEMENT_VALIDITY_VERIFIER_CONFIG_TYPEHASH,
+        decoded[274], decoded[275], decoded[276], decoded[277],
+        _model_uint(
+            _decode_uint_word_v1(
+                decoded[278], 32, "validity maximum proof bytes"
+            ), 32, "validity maximum proof bytes ABI",
+        ),
+        _model_uint(
+            _decode_uint_word_v1(
+                decoded[279], 64, "validity verification gas"
+            ), 32, "validity verification gas ABI",
+        ),
+        _model_uint(
+            _decode_uint_word_v1(
+                decoded[280], 64, "validity reserve gas"
+            ), 32, "validity reserve gas ABI",
+        ),
+    )))
     # Aggregate roots are deliberately last.  PVM commits both the Market
     # configuration and the final support/credit-registry leaf configs.
     decoded[37] = aggregator_seat_market_configuration_hash_v2(tuple(decoded))
@@ -24125,21 +24462,32 @@ def target_parameters_hash_v2(profile: bytes) -> bytes:
     )
 
 
-def target_code_artifact_v2(profile: bytes) -> tuple[bytes, bytes]:
-    """Return the creation/runtime code authenticated by the strict ABI tail."""
+def execution_profile_code_artifacts_v2(
+    profile: bytes,
+) -> tuple[bytes, bytes, bytes, bytes]:
+    """Return both creation/runtime pairs authenticated by the ABI tail."""
 
     _execution_profile_abi_words_v2(profile)
     head_end = 32 + EXECUTION_PROFILE_STATIC_BYTES
     artifact_length = int.from_bytes(profile[head_end:head_end + 32], "big")
     artifact = profile[head_end + 32:head_end + 32 + artifact_length]
-    creation_length = int.from_bytes(artifact[:4], "big")
-    creation = artifact[4:4 + creation_length]
-    runtime_offset = 4 + creation_length
-    runtime_length = int.from_bytes(
-        artifact[runtime_offset:runtime_offset + 4], "big"
-    )
-    runtime = artifact[runtime_offset + 4:runtime_offset + 4 + runtime_length]
-    return creation, runtime
+    return _execution_profile_code_artifacts_from_tail_v2(artifact)
+
+
+def target_code_artifact_v2(profile: bytes) -> tuple[bytes, bytes]:
+    """Return target creation/runtime code authenticated by the strict tail."""
+
+    target_creation, target_runtime, _kind0_creation, _kind0_runtime = \
+        execution_profile_code_artifacts_v2(profile)
+    return target_creation, target_runtime
+
+
+def kind0_ingress_code_artifact_v1(profile: bytes) -> tuple[bytes, bytes]:
+    """Return kind-0 creation/runtime code authenticated by the strict tail."""
+
+    _target_creation, _target_runtime, kind0_creation, kind0_runtime = \
+        execution_profile_code_artifacts_v2(profile)
+    return kind0_creation, kind0_runtime
 
 
 def target_constructor_tail_v2(
@@ -24199,6 +24547,13 @@ TARGET_CONSTRUCTOR_STATE_SELECTOR = keccak256(
 )[:4]
 TARGET_CONSTRUCTOR_STATE_MAGIC = b"TCS2"
 TARGET_CONSTRUCTOR_STATE_LENGTH = 96
+KIND0_CONSTRUCTOR_POSTSTATE_DOMAIN = \
+    b"slot-chain-kind0-constructor-poststate-v1"
+KIND0_CONSTRUCTOR_STATE_SELECTOR = keccak256(
+    b"kind0ConstructorStateV1()"
+)[:4]
+KIND0_CONSTRUCTOR_STATE_MAGIC = b"KCS1"
+KIND0_CONSTRUCTOR_STATE_LENGTH = 96
 DATA_SESSION_ACCOUNTING_SELECTOR = keccak256(
     b"dataSessionAccountingV1()"
 )[:4]
@@ -24260,6 +24615,51 @@ def encode_target_constructor_state_return_v2(
     ))
     if len(encoded) != TARGET_CONSTRUCTOR_STATE_LENGTH:
         raise AssertionError("target constructor-state width drifted")
+    return encoded
+
+
+def kind0_constructor_poststate_commitment_v1(
+    constructor_tail: bytes, configuration_hash: bytes, runtime_hash: bytes,
+) -> bytes:
+    """Commit the exact immutable constructor values exposed by KCS1."""
+
+    if (type(constructor_tail) is not bytes
+            or len(constructor_tail) != KIND0_INGRESS_CONSTRUCTOR_BYTES
+            or type(configuration_hash) is not bytes
+            or len(configuration_hash) != 32
+            or configuration_hash == bytes(32)
+            or type(runtime_hash) is not bytes or len(runtime_hash) != 32
+            or runtime_hash == bytes(32)):
+        raise ValueError("kind-0 constructor tail is malformed")
+    return keccak256(
+        KIND0_CONSTRUCTOR_POSTSTATE_DOMAIN
+        + _model_uint(
+            KIND0_INGRESS_CONSTRUCTOR_WORDS, 2,
+            "kind-0 constructor word count",
+        )
+        + constructor_tail + configuration_hash + runtime_hash
+    )
+
+
+def encode_kind0_constructor_state_return_v1(
+    constructor_poststate_commitment: bytes,
+    configuration_hash: bytes,
+) -> bytes:
+    """Encode exact KCS1 magic, constructor commitment and config hash."""
+
+    if (type(constructor_poststate_commitment) is not bytes
+            or len(constructor_poststate_commitment) != 32
+            or constructor_poststate_commitment == bytes(32)
+            or type(configuration_hash) is not bytes
+            or len(configuration_hash) != 32
+            or configuration_hash == bytes(32)):
+        raise ValueError("kind-0 constructor-state return is malformed")
+    encoded = (
+        KIND0_CONSTRUCTOR_STATE_MAGIC + bytes(28)
+        + constructor_poststate_commitment + configuration_hash
+    )
+    if len(encoded) != KIND0_CONSTRUCTOR_STATE_LENGTH:
+        raise AssertionError("KCS1 return width drifted")
     return encoded
 
 
@@ -24327,10 +24727,61 @@ def _settlement_deployment_words_from_profile_v2(
     )
 
 
-def kind0_ingress_configuration_hash_v1(profile: bytes) -> bytes:
-    """Derive the exact kind-0 adapter configuration from profile primitives."""
+def kind0_ingress_salt_v1(
+    settlement_chain_id: int, l2_chain_id: int,
+    manifest_namespace: bytes | str, protocol_version: int,
+    router: bytes | str, forced_queue: bytes | str,
+) -> bytes:
+    """Derive a release-unique kind-0 adapter CREATE2 salt."""
 
-    words = _execution_profile_abi_words_v2(profile)
+    if (type(settlement_chain_id) is not int
+            or not 0 < settlement_chain_id <= SEAT_UINT256_MAX
+            or type(l2_chain_id) is not int
+            or not 0 < l2_chain_id <= SEAT_UINT256_MAX
+            or type(protocol_version) is not int
+            or not 0 < protocol_version <= UINT64_MAX):
+        raise ValueError("kind-0 salt identity is invalid")
+    router_address = router if type(router) is bytes else _model_address20(router)
+    queue_address = (
+        forced_queue
+        if type(forced_queue) is bytes else _model_address20(forced_queue)
+    )
+    if (len(router_address) != 20 or router_address == bytes(20)
+            or len(queue_address) != 20 or queue_address == bytes(20)):
+        raise ValueError("kind-0 salt address is invalid")
+    return keccak256(b"".join((
+        KIND0_INGRESS_SALT_DOMAIN,
+        _model_uint(settlement_chain_id, 32, "kind-0 settlement chain ID"),
+        _model_uint(l2_chain_id, 32, "kind-0 L2 chain ID"),
+        _model_fixed_bytes32(manifest_namespace),
+        _model_uint(protocol_version, 8, "kind-0 protocol version"),
+        router_address, queue_address,
+    )))
+
+
+def kind0_ingress_salt_from_words_v1(
+    words: tuple[bytes, ...] | list[bytes],
+) -> bytes:
+    """Project the exact salt inputs from ExecutionProfileV2 words."""
+
+    if len(words) not in {
+            EXECUTION_PROFILE_VALUE_WORDS, EXECUTION_PROFILE_STATIC_WORDS}:
+        raise ValueError("kind-0 profile word count is invalid")
+    return kind0_ingress_salt_v1(
+        _decode_uint_word_v1(words[2], 256, "settlementChainId"),
+        _decode_uint_word_v1(words[3], 256, "l2ChainId"),
+        words[9],
+        _decode_uint_word_v1(words[1], 64, "protocolVersion"),
+        _decode_address_word_v1(words[23], "Router"),
+        _decode_address_word_v1(words[26], "Queue"),
+    )
+
+
+def _kind0_ingress_configuration_hash_from_words_v2(
+    words: tuple[bytes, ...] | list[bytes],
+) -> bytes:
+    """Derive the acyclic kind-0 config without decoding its own fields."""
+
     packed = b"".join((
         words[2], _model_uint(
             _decode_uint_word_v1(words[1], 64, "profile protocol version"),
@@ -24339,13 +24790,94 @@ def kind0_ingress_configuration_hash_v1(profile: bytes) -> bytes:
         words[23][12:], words[24], words[25],
         words[26][12:], words[27], words[28],
         words[20][12:], words[3],
+        _model_uint(
+            _decode_uint_word_v1(
+                words[83], 64, "maximum force validity seconds"
+            ), 8, "kind-0 maximum force validity seconds",
+        ),
+        _model_uint(KIND0_INGRESS_CALL_GAS_LIMIT, 8, "kind-0 call gas"),
+        _model_uint(
+            KIND0_INGRESS_MAXIMUM_CALLDATA_BYTES, 4,
+            "kind-0 maximum calldata bytes",
+        ),
+        _model_uint(
+            KIND0_INGRESS_MINIMUM_ACCOUNTED_GAS, 8,
+            "kind-0 minimum accounted gas",
+        ),
+        *words[230:235],
     ))
-    if len(packed) != 260:
+    if len(packed) != 448:
         raise AssertionError("kind-0 adapter configuration width drifted")
     return keccak256(
         b"slot-chain-kind0-ingress-config-v1"
         + _model_uint(len(packed), 4, "kind-0 configuration bytes") + packed
     )
+
+
+def kind0_ingress_constructor_tail_from_words_v1(
+    words: tuple[bytes, ...] | list[bytes],
+) -> bytes:
+    """Encode the exact 19-word kind-0 constructor argument tail."""
+
+    if len(words) not in {
+            EXECUTION_PROFILE_VALUE_WORDS, EXECUTION_PROFILE_STATIC_WORDS}:
+        raise ValueError("kind-0 profile word count is invalid")
+    tail = b"".join((
+        words[2], words[1], words[23], words[24], words[25],
+        words[26], words[27], words[28], words[20], words[3], words[83],
+        _model_uint(KIND0_INGRESS_CALL_GAS_LIMIT, 32, "kind-0 call gas ABI"),
+        _model_uint(
+            KIND0_INGRESS_MAXIMUM_CALLDATA_BYTES, 32,
+            "kind-0 maximum calldata bytes ABI",
+        ),
+        _model_uint(
+            KIND0_INGRESS_MINIMUM_ACCOUNTED_GAS, 32,
+            "kind-0 minimum accounted gas ABI",
+        ),
+        *words[230:235],
+    ))
+    if len(tail) != KIND0_INGRESS_CONSTRUCTOR_BYTES:
+        raise AssertionError("kind-0 constructor ABI width drifted")
+    return tail
+
+
+def kind0_ingress_init_code_hash_v1(
+    creation_code: bytes, words: tuple[bytes, ...] | list[bytes],
+) -> bytes:
+    """Hash published creation code plus the exact constructor tail."""
+
+    if (type(creation_code) is not bytes
+            or not 0 < len(creation_code)
+                <= KIND0_INGRESS_CREATION_CODE_MAX_BYTES):
+        raise ValueError("kind-0 creation code length is unsupported")
+    init_code = creation_code + kind0_ingress_constructor_tail_from_words_v1(
+        words
+    )
+    if len(init_code) > EIP3860_MAX_INITCODE_BYTES:
+        raise ValueError("kind-0 init code exceeds EIP-3860")
+    return keccak256(init_code)
+
+
+def kind0_ingress_configuration_hash_v1(profile: bytes) -> bytes:
+    """Derive the exact kind-0 adapter configuration from profile primitives."""
+
+    return _kind0_ingress_configuration_hash_from_words_v2(
+        _execution_profile_abi_words_v2(profile)
+    )
+
+
+def kind0_ingress_address_from_words_v2(
+    words: tuple[bytes, ...] | list[bytes],
+) -> bytes:
+    """Derive the release adapter from the pinned ERC-2470 CREATE2 tuple."""
+
+    if len(words) not in {
+            EXECUTION_PROFILE_VALUE_WORDS, EXECUTION_PROFILE_STATIC_WORDS}:
+        raise ValueError("kind-0 profile word count is invalid")
+    return keccak256(b"".join((
+        b"\xff", bytes.fromhex(SETTLEMENT_FACTORY_ADDRESS_V2[2:]),
+        words[268], words[269],
+    )))[12:]
 
 
 def _settlement_deployment_descriptor_hash_from_abi_v1(
@@ -24417,6 +24949,89 @@ def _profile_migration_verifier_descriptor_hash_v2(
             32, "verification gas ABI",
         ),
     )))
+
+
+def _profile_settlement_validity_verifier_descriptor_hash_v2(
+    words: tuple[bytes, ...] | list[bytes],
+) -> bytes:
+    """Validate and commit the appended tier-agnostic verifier descriptor."""
+
+    selector = _decode_bytes4_word_v1(
+        words[277], "Settlement validity verifier selector"
+    )
+    if selector != SETTLEMENT_VALIDITY_VERIFIER_SELECTOR:
+        raise ValueError("Settlement validity verifier selector is unsupported")
+    maximum_proof_bytes = _decode_uint_word_v1(
+        words[278], 32, "Settlement validity maximum proof bytes"
+    )
+    verification_gas = _decode_uint_word_v1(
+        words[279], 64, "Settlement validity verification gas"
+    )
+    reserve_gas = _decode_uint_word_v1(
+        words[280], 64, "Settlement validity reserve gas"
+    )
+    if (words[276] != SETTLEMENT_VALIDITY_PUBLIC_INPUT_SCHEMA_HASH
+            or maximum_proof_bytes
+                > SETTLEMENT_VALIDITY_MAXIMUM_PROOF_BYTES
+            or verification_gas > SETTLEMENT_VALIDITY_MAXIMUM_GAS
+            or reserve_gas > SETTLEMENT_VALIDITY_MAXIMUM_GAS):
+        raise ValueError("Settlement validity verifier bounds are unsupported")
+    expected_configuration_hash = keccak256(b"".join((
+        SETTLEMENT_VALIDITY_VERIFIER_CONFIG_TYPEHASH,
+        words[274], words[275], words[276], selector + bytes(28),
+        _model_uint(maximum_proof_bytes, 32, "validity proof bytes ABI"),
+        _model_uint(verification_gas, 32, "validity gas ABI"),
+        _model_uint(reserve_gas, 32, "validity reserve ABI"),
+    )))
+    if words[273] != expected_configuration_hash:
+        raise ValueError(
+            "Settlement validity verifier configuration is not derived"
+        )
+    return keccak256(b"".join((
+        SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_TYPEHASH,
+        words[271], words[272], words[273], words[274], words[275],
+        words[276], selector + bytes(28),
+        _model_uint(maximum_proof_bytes, 32, "validity proof bytes ABI"),
+        _model_uint(verification_gas, 32, "validity gas ABI"),
+        _model_uint(reserve_gas, 32, "validity reserve ABI"),
+    )))
+
+
+def _profile_settlement_validity_verifier_descriptor_return_v2(
+    words: tuple[bytes, ...] | list[bytes],
+) -> bytes:
+    """Encode the exact SVD2 magic plus all ten canonical descriptor words."""
+
+    _profile_settlement_validity_verifier_descriptor_hash_v2(words)
+    encoded = (
+        SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_MAGIC + bytes(28)
+        + b"".join(words[271:281])
+    )
+    if len(encoded) != SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_RETURN_LENGTH:
+        raise AssertionError("SVD2 return width drifted")
+    return encoded
+
+
+def _decode_settlement_validity_verifier_descriptor_return_v2(
+    encoded: bytes,
+) -> tuple[tuple[bytes, ...], bytes]:
+    """Strictly decode SVD2 and derive its compact descriptor hash."""
+
+    if (type(encoded) is not bytes
+            or len(encoded)
+                != SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_RETURN_LENGTH):
+        raise ValueError("SVD2 return length is invalid")
+    rows = tuple(
+        encoded[offset:offset + 32]
+        for offset in range(0, len(encoded), 32)
+    )
+    if rows[0] != SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_MAGIC + bytes(28):
+        raise ValueError("SVD2 magic or padding is invalid")
+    profile_words = [bytes(32)] * EXECUTION_PROFILE_VALUE_WORDS
+    profile_words[271:281] = rows[1:]
+    descriptor_hash = \
+        _profile_settlement_validity_verifier_descriptor_hash_v2(profile_words)
+    return rows[1:], descriptor_hash
 
 
 def _profile_source_descriptor_v2(
@@ -24647,16 +25262,12 @@ def _profile_ingress_rows_v2(
         proof_wei_per_accounted_gas=fees[2], permanent_wei_per_byte=fees[3],
         maximum_accepted_fee_wei=fees[4],
     )
-    kind0_packed = b"".join((
-        words[2], words[1][-8:], words[23][12:], words[24], words[25],
-        words[26][12:], words[27], words[28], words[20][12:], words[3],
-    ))
-    if len(kind0_packed) != 260:
-        raise AssertionError("kind-0 adapter configuration width drifted")
-    kind0_configuration = keccak256(
-        b"slot-chain-kind0-ingress-config-v1"
-        + _model_uint(len(kind0_packed), 4, "kind-0 config bytes")
-        + kind0_packed
+    kind0_configuration = _kind0_ingress_configuration_hash_from_words_v2(
+        words
+    )
+    kind0_constructor_poststate = kind0_constructor_poststate_commitment_v1(
+        kind0_ingress_constructor_tail_from_words_v1(words),
+        kind0_configuration, words[229],
     )
     empty_source = dict(
         source_registry_address="", source_registry_runtime_hash="",
@@ -24686,6 +25297,7 @@ def _profile_ingress_rows_v2(
         adapter_address="0x" + words[228][12:].hex(),
         runtime_hash="0x" + words[229].hex(),
         configuration_hash="0x" + kind0_configuration.hex(),
+        adapter_constructor_poststate_commitment=kind0_constructor_poststate,
         **empty_source, **common,
     )
     kind1 = ProfileIngressAuthorization(
@@ -24693,6 +25305,7 @@ def _profile_ingress_rows_v2(
         adapter_address="0x" + components[0][0].hex(),
         runtime_hash="0x" + components[0][1].hex(),
         configuration_hash="0x" + components[0][2].hex(),
+        adapter_constructor_poststate_commitment=bytes(32),
         source_registry_address="0x" + words[214][12:].hex(),
         source_registry_runtime_hash="0x" + words[215].hex(),
         source_registry_configuration_hash="0x" + words[216].hex(),
@@ -24942,7 +25555,7 @@ def decode_register_release_payload_v1(
     profile_length = _decode_uint_word_v1(
         payload[69 * 32:70 * 32], 32, "profile length"
     )
-    if not 1 <= profile_length <= 65_536:
+    if not 1 <= profile_length <= EXECUTION_PROFILE_MAX_BYTES:
         raise ValueError("REGISTER_RELEASE profile length is unsupported")
     padded = (profile_length + 31) // 32 * 32
     if len(payload) != 70 * 32 + padded:
@@ -27856,8 +28469,8 @@ class ProtocolVersionManagerV1:
             b"PIA2" + bytes(28) + authorization_id
             + profile_ingress_authorization_abi_v2(row)
         )
-        if len(encoded) != 800:
-            raise AssertionError("PIA2 must be exactly 800 bytes")
+        if len(encoded) != PROFILE_INGRESS_AUTHORIZATION_RETURN_LENGTH:
+            raise AssertionError("PIA2 must be exactly 832 bytes")
         return encoded
 
     def staticcall_profile_ingress_authorization_v2(
@@ -29214,6 +29827,7 @@ class ProfileIngressAuthorization:
     adapter_address: str
     runtime_hash: str
     configuration_hash: str
+    adapter_constructor_poststate_commitment: bytes
     router_address: str
     router_runtime_hash: str
     router_configuration_hash: str
@@ -29299,7 +29913,7 @@ def _ingress_commitment_word(value: object) -> bytes:
 def profile_ingress_authorization_id(
     authorization: ProfileIngressAuthorization,
 ) -> bytes:
-    """Exact 23-word ProfileIngressAuthorizationV2 ABI/Keccak id."""
+    """Exact 24-word ProfileIngressAuthorizationV2 ABI/Keccak id."""
 
     if type(authorization) is not ProfileIngressAuthorization:
         raise ValueError("profile ingress authorization has wrong type")
@@ -29333,11 +29947,16 @@ def profile_ingress_authorization_id(
         authorization.maximum_accepted_fee_wei,
     )
     validate_ingress_fee_schedule(fees)
+    constructor_poststate = _model_fixed_bytes32(
+        authorization.adapter_constructor_poststate_commitment
+    )
     if (authorization.kind not in {ForceKind.USER_TX, ForceKind.BRIDGE_CREDIT}
             or not authorization.adapter_address
             or not authorization.router_address
             or not authorization.queue_address
             or (source_zero and (
+                constructor_poststate == bytes(32)
+                or
                 authorization.source_registration_epoch != 0
                 or any(value != bytes(32) for value in (
                     source_domain, source_execution, destination_domain,
@@ -29345,6 +29964,8 @@ def profile_ingress_authorization_id(
                 ))
                 or destination_bridge != bytes(20)))
             or (not source_zero and (
+                constructor_poststate != bytes(32)
+                or
                 not 0 < authorization.source_registration_epoch <= UINT64_MAX
                 or any(value == bytes(32) for value in (
                     source_domain, source_execution, destination_domain,
@@ -29357,6 +29978,7 @@ def profile_ingress_authorization_id(
         bytes(12) + _model_address20(authorization.adapter_address),
         _model_fixed_bytes32(authorization.runtime_hash),
         _model_fixed_bytes32(authorization.configuration_hash),
+        constructor_poststate,
         bytes(12) + _model_address20(authorization.router_address),
         _model_fixed_bytes32(authorization.router_runtime_hash),
         _model_fixed_bytes32(authorization.router_configuration_hash),
@@ -29376,7 +29998,7 @@ def profile_ingress_authorization_id(
         *(_model_uint(value, 32, "ingress fee") for value in fees),
     ))
     encoded = INGRESS_AUTHORIZATION_TYPEHASH + row_abi
-    if len(encoded) != 24 * 32:
+    if len(encoded) != 25 * 32:
         raise AssertionError("ingress authorization ABI width drifted")
     return keccak256(encoded)
 
@@ -29384,7 +30006,7 @@ def profile_ingress_authorization_id(
 def profile_ingress_authorization_abi_v2(
     authorization: ProfileIngressAuthorization,
 ) -> bytes:
-    """Return the exact 23 static struct words used by PIA2."""
+    """Return the exact 24 static struct words used by PIA2."""
 
     # Reuse the validating identity path, then materialize the same words by
     # replacing only the EIP-712-style typehash prefix.
@@ -29402,6 +30024,9 @@ def profile_ingress_authorization_abi_v2(
         _abi_address_word(authorization.adapter_address),
         _model_fixed_bytes32(authorization.runtime_hash),
         _model_fixed_bytes32(authorization.configuration_hash),
+        _model_fixed_bytes32(
+            authorization.adapter_constructor_poststate_commitment
+        ),
         _abi_address_word(authorization.router_address),
         _model_fixed_bytes32(authorization.router_runtime_hash),
         _model_fixed_bytes32(authorization.router_configuration_hash),
@@ -29496,14 +30121,20 @@ def decode_profile_ingress_authorization_v2(
     if words[0] != b"PIA2" + bytes(28) or words[1] == bytes(32):
         raise ValueError("PIA2 magic/id is invalid")
     abi_words = words[2:]
-    if (len(abi_words) != 23
+    if (len(abi_words) != 24
             or keccak256(INGRESS_AUTHORIZATION_TYPEHASH + b"".join(abi_words))
                 != words[1]
             or any(abi_words[index][:12] != bytes(12)
-                   for index in (1, 4, 7, 15))):
+                   for index in (1, 5, 8, 16))):
         raise ValueError("PIA2 authorization ABI is noncanonical")
-    _decode_uint_word_v1(abi_words[0], 8, "PIA2 kind")
-    _decode_uint_word_v1(abi_words[11], 64, "PIA2 source epoch")
+    kind = _decode_uint_word_v1(abi_words[0], 8, "PIA2 kind")
+    if (kind == ForceKind.USER_TX.value and abi_words[4] == bytes(32)) \
+            or (kind == ForceKind.BRIDGE_CREDIT.value
+                and abi_words[4] != bytes(32)) \
+            or kind not in {ForceKind.USER_TX.value,
+                            ForceKind.BRIDGE_CREDIT.value}:
+        raise ValueError("PIA2 constructor poststate commitment is invalid")
+    _decode_uint_word_v1(abi_words[12], 64, "PIA2 source epoch")
     return words[1], abi_words
 
 
@@ -29812,11 +30443,22 @@ def profile_ingress_authorization_for(
         )
     else:
         raise ValueError("unsupported profile ingress kind")
+    adapter_constructor_poststate = bytes(32)
+    if kind is ForceKind.USER_TX:
+        profile_words = _execution_profile_abi_words_v2(
+            settlement.execution_profile.canonical_profile_bytes
+        )
+        adapter_constructor_poststate = \
+            kind0_constructor_poststate_commitment_v1(
+                kind0_ingress_constructor_tail_from_words_v1(profile_words),
+                profile_words[270], profile_words[229],
+            )
     return ProfileIngressAuthorization(
         kind,
         adapter_address,
         runtime_hash,
         configuration_hash,
+        adapter_constructor_poststate,
         router.address,
         router.runtime_hash,
         router.configuration_hash,
@@ -30120,6 +30762,235 @@ MIGRATION_VERIFIER_DESCRIPTOR_TYPEHASH = keccak256(
 )
 MIGRATION_VERIFIER_CONFIG_GETTER_GAS = 50_000
 MIGRATION_VERIFIER_CONFIG_GETTER_BYTES = 32
+
+
+def settlement_validity_verifier_configuration_hash_v2(
+    verifying_key_hash: str,
+    proof_system_id: str = "groth16-bn254",
+    public_input_schema_hash: bytes | str = (
+        SETTLEMENT_VALIDITY_PUBLIC_INPUT_SCHEMA_HASH
+    ),
+    maximum_proof_bytes: int = 65_536,
+    verification_gas_limit: int = 2_000_000,
+    post_verification_reserve_gas: int = 500_000,
+    selector: bytes = SETTLEMENT_VALIDITY_VERIFIER_SELECTOR,
+) -> str:
+    """Commit the verifier's acyclic, self-independent configuration."""
+
+    if (not verifying_key_hash or not proof_system_id
+            or not public_input_schema_hash
+            or type(selector) is not bytes
+            or selector != SETTLEMENT_VALIDITY_VERIFIER_SELECTOR
+            or _model_fixed_bytes32(public_input_schema_hash)
+                != SETTLEMENT_VALIDITY_PUBLIC_INPUT_SCHEMA_HASH
+            or not 0 < maximum_proof_bytes
+                <= SETTLEMENT_VALIDITY_MAXIMUM_PROOF_BYTES
+            or not 0 < verification_gas_limit
+                <= SETTLEMENT_VALIDITY_MAXIMUM_GAS
+            or not 0 < post_verification_reserve_gas
+                <= SETTLEMENT_VALIDITY_MAXIMUM_GAS):
+        raise ValueError("Settlement validity verifier configuration is invalid")
+    return keccak256(b"".join((
+        SETTLEMENT_VALIDITY_VERIFIER_CONFIG_TYPEHASH,
+        _model_fixed_bytes32(verifying_key_hash),
+        _model_fixed_bytes32(proof_system_id),
+        _model_fixed_bytes32(public_input_schema_hash),
+        selector + bytes(28),
+        _model_uint(maximum_proof_bytes, 32, "validity maximum proof bytes"),
+        _model_uint(verification_gas_limit, 32, "validity verification gas"),
+        _model_uint(
+            post_verification_reserve_gas, 32,
+            "validity post-verification reserve gas",
+        ),
+    ))).hex()
+
+
+def settlement_validity_verifier_required_gas_v2(
+    verification_gas_limit: int, post_verification_reserve_gas: int,
+) -> int:
+    """Return the EIP-150-safe caller gas required before verifier STATICCALL."""
+
+    if (type(verification_gas_limit) is not int
+            or type(post_verification_reserve_gas) is not int
+            or not 0 < verification_gas_limit
+                <= SETTLEMENT_VALIDITY_MAXIMUM_GAS
+            or not 0 < post_verification_reserve_gas
+                <= SETTLEMENT_VALIDITY_MAXIMUM_GAS):
+        raise ValueError("Settlement validity verifier gas bounds are invalid")
+    return ((verification_gas_limit * 64 + 62) // 63
+            + post_verification_reserve_gas
+            + SETTLEMENT_VALIDITY_VERIFIER_CALL_ENVELOPE_GAS)
+
+
+def decode_settlement_validity_verifier_return_v2(
+    returndata: bytes, expected_statement_hash: bytes,
+) -> bytes:
+    """Accept exactly one returned statementHash word and no ABI aliases."""
+
+    if (type(returndata) is not bytes or len(returndata) != 32
+            or type(expected_statement_hash) is not bytes
+            or len(expected_statement_hash) != 32
+            or expected_statement_hash == bytes(32)
+            or returndata != expected_statement_hash):
+        raise ValueError(
+            "Settlement validity verifier return is not exact bytes32"
+        )
+    return returndata
+
+
+@dataclass(frozen=True)
+class SettlementValidityVerifierDescriptorV2:
+    """One tier-agnostic ordinary Settlement validity-verifier descriptor."""
+
+    address: str
+    runtime_hash: str
+    configuration_hash: str
+    verifying_key_hash: str
+    proof_system_id: str
+    public_input_schema_hash: str
+    selector: bytes
+    maximum_proof_bytes: int
+    verification_gas_limit: int
+    post_verification_reserve_gas: int
+    nonproxy: bool = True
+
+    @property
+    def commitment(self) -> str:
+        if not self.structurally_valid():
+            raise ValueError("Settlement validity verifier descriptor is invalid")
+        return keccak256(b"".join((
+            SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_TYPEHASH,
+            _abi_address_word(self.address),
+            _model_fixed_bytes32(self.runtime_hash),
+            bytes.fromhex(self.configuration_hash),
+            _model_fixed_bytes32(self.verifying_key_hash),
+            _model_fixed_bytes32(self.proof_system_id),
+            _model_fixed_bytes32(self.public_input_schema_hash),
+            self.selector + bytes(28),
+            _model_uint(
+                self.maximum_proof_bytes, 32,
+                "validity maximum proof bytes",
+            ),
+            _model_uint(
+                self.verification_gas_limit, 32,
+                "validity verification gas",
+            ),
+            _model_uint(
+                self.post_verification_reserve_gas, 32,
+                "validity post-verification reserve gas",
+            ),
+        ))).hex()
+
+    def structurally_valid(self) -> bool:
+        try:
+            return (
+                bool(self.address)
+                and _model_address20(self.address) != bytes(20)
+                and _model_fixed_bytes32(self.runtime_hash) != bytes(32)
+                and _model_fixed_bytes32(self.verifying_key_hash) != bytes(32)
+                and _model_fixed_bytes32(self.proof_system_id) != bytes(32)
+                and _model_fixed_bytes32(self.public_input_schema_hash)
+                    == SETTLEMENT_VALIDITY_PUBLIC_INPUT_SCHEMA_HASH
+                and self.selector == SETTLEMENT_VALIDITY_VERIFIER_SELECTOR
+                and 0 < self.maximum_proof_bytes
+                    <= SETTLEMENT_VALIDITY_MAXIMUM_PROOF_BYTES
+                and 0 < self.verification_gas_limit
+                    <= SETTLEMENT_VALIDITY_MAXIMUM_GAS
+                and 0 < self.post_verification_reserve_gas
+                    <= SETTLEMENT_VALIDITY_MAXIMUM_GAS
+                and self.nonproxy
+                and self.configuration_hash
+                    == settlement_validity_verifier_configuration_hash_v2(
+                        self.verifying_key_hash,
+                        self.proof_system_id,
+                        self.public_input_schema_hash,
+                        self.maximum_proof_bytes,
+                        self.verification_gas_limit,
+                        self.post_verification_reserve_gas,
+                        self.selector,
+                    )
+            )
+        except (TypeError, ValueError):
+            return False
+
+
+class ISettlementValidityVerifierV2:
+    """Exact ordinary verifier ABI: verify(bytes,uint256[2]) -> bytes32."""
+
+    @property
+    def descriptor(self) -> SettlementValidityVerifierDescriptorV2:
+        raise NotImplementedError
+
+    def verify(
+        self, proof: bytes, digest_limbs: tuple[int, int], *, gas: int,
+    ) -> bytes:
+        raise NotImplementedError
+
+    def extcodehash(self, *, caller: str) -> bytes:
+        raise NotImplementedError
+
+    def configuration_hash_v2(
+        self, *, caller: str, calldata: bytes, gas: int, value: int,
+    ) -> bytes:
+        raise NotImplementedError
+
+
+class TestSettlementValidityVerifierV2(ISettlementValidityVerifierV2):
+    """Test-only verifier preserving exact selector/return semantics."""
+
+    def __init__(self, descriptor: SettlementValidityVerifierDescriptorV2):
+        if (type(descriptor) is not SettlementValidityVerifierDescriptorV2
+                or not descriptor.structurally_valid()):
+            raise ValueError("test Settlement validity descriptor is invalid")
+        self._descriptor = descriptor
+        self.returndata_override: bytes | None = None
+        self.raise_on_verify = False
+
+    @property
+    def descriptor(self) -> SettlementValidityVerifierDescriptorV2:
+        return self._descriptor
+
+    def verify(
+        self, proof: bytes, digest_limbs: tuple[int, int], *, gas: int,
+    ) -> bytes:
+        descriptor = self.descriptor
+        if self.raise_on_verify:
+            raise RuntimeError("simulated Settlement validity verifier failure")
+        if (type(proof) is not bytes
+                or not 0 < len(proof) <= descriptor.maximum_proof_bytes
+                or type(digest_limbs) is not tuple
+                or len(digest_limbs) != 2
+                or any(type(limb) is not int or not 0 <= limb < 1 << 128
+                       for limb in digest_limbs)
+                or gas != descriptor.verification_gas_limit):
+            raise ValueError("Settlement validity verifier calldata is invalid")
+        statement_hash = (
+            digest_limbs[0].to_bytes(16, "big")
+            + digest_limbs[1].to_bytes(16, "big")
+        )
+        if proof != b"slot-chain-test-validity-proof-v2:" + statement_hash:
+            raise ValueError("Settlement validity proof did not verify")
+        return (
+            statement_hash
+            if self.returndata_override is None
+            else self.returndata_override
+        )
+
+    def extcodehash(self, *, caller: str) -> bytes:
+        if not caller:
+            raise ValueError("Settlement validity EXTCODEHASH caller is empty")
+        return _model_fixed_bytes32(self.descriptor.runtime_hash)
+
+    def configuration_hash_v2(
+        self, *, caller: str, calldata: bytes, gas: int, value: int,
+    ) -> bytes:
+        if (not caller
+                or calldata
+                    != SETTLEMENT_VALIDITY_VERIFIER_CONFIG_GETTER_SELECTOR
+                or gas != SETTLEMENT_VALIDITY_VERIFIER_CONFIG_GETTER_GAS
+                or value != 0):
+            raise ValueError("Settlement validity config getter frame is invalid")
+        return bytes.fromhex(self.descriptor.configuration_hash)
 
 
 def migration_transition_verifier_configuration_hash(
@@ -30877,10 +31748,29 @@ def _execution_profile_field_specs_v2() -> tuple[tuple[str, str], ...]:
         ("minimumAskImprovementBps", "u16"),
         ("economicProfileHash", "b32"),
     )
+    kind0_deployment = (
+        ("kind0IngressAdapterCreationCodeHash", "b32"),
+        ("kind0IngressAdapterSalt", "b32"),
+        ("kind0IngressAdapterInitCodeHash", "b32"),
+        ("kind0IngressAdapterConfigurationHash", "b32"),
+    )
+    settlement_validity_verifier = (
+        ("settlementValidityVerifier", "address"),
+        ("settlementValidityVerifierRuntimeHash", "b32"),
+        ("settlementValidityVerifierConfigurationHash", "b32"),
+        ("settlementValidityVerifyingKeyHash", "b32"),
+        ("settlementValidityProofSystemId", "b32"),
+        ("settlementValidityPublicInputSchemaHash", "b32"),
+        ("settlementValidityVerifierSelector", "b4"),
+        ("settlementValidityMaximumProofBytes", "u32"),
+        ("settlementValidityVerificationGasLimit", "u64"),
+        ("settlementValidityPostVerificationReserveGas", "u64"),
+    )
     specs = (core + control + artifact + target_infrastructure + sinks
              + recovery + seat + data_session + target_gas + compile_rules
              + activation + destination + source + ingress + execution
-             + seat_wire)
+             + seat_wire + kind0_deployment
+             + settlement_validity_verifier)
     if len(specs) != EXECUTION_PROFILE_VALUE_WORDS:
         raise AssertionError("ExecutionProfileV2 field schema drifted")
     return specs
@@ -30934,6 +31824,30 @@ def _validate_execution_profile_value_words_v2(
     expected_market_authority_configuration = \
         aggregator_seat_market_configuration_hash_v2(words)
     if validate_authority_graph:
+        expected_kind0_salt = kind0_ingress_salt_from_words_v1(words)
+        expected_kind0_config = \
+            _kind0_ingress_configuration_hash_from_words_v2(words)
+        expected_kind0_address = kind0_ingress_address_from_words_v2(words)
+        if (words[268] != expected_kind0_salt
+                or words[270] != expected_kind0_config
+                or words[228] != bytes(12) + expected_kind0_address):
+            raise ValueError(
+                "kind-0 CREATE2 deployment provenance is unsupported"
+            )
+        _profile_settlement_validity_verifier_descriptor_hash_v2(words)
+        if settlement_validity_verifier_required_gas_v2(
+                _decode_uint_word_v1(
+                    words[279], 64, "Settlement validity verification gas"
+                ),
+                _decode_uint_word_v1(
+                    words[280], 64, "Settlement validity reserve gas"
+                ),
+                ) > _decode_uint_word_v1(
+                    words[147], 64, "supported L1 block gas limit"
+                ):
+            raise ValueError(
+                "Settlement validity verifier gas cannot preserve its reserve"
+            )
         source_artifacts = ProtocolRootSourceFactoryCompilerArtifactsV1(
             SOURCE_BUNDLE_FACTORY_CREATION_CODE_V1,
             SOURCE_BUNDLE_FACTORY_RUNTIME_CODE_V1,
@@ -31128,6 +32042,7 @@ def _execution_profile_value_words_v2(profile: "ExecutionProfile") \
     """Encode all fixed ExecutionProfileV2 value words in normative order."""
 
     verifier = profile.migration_transition_verifier_descriptor
+    validity_verifier = profile.settlement_validity_verifier_descriptor
     word = lambda value, name: _model_uint(value, 32, name)
     hash_ = _profile_fixture_hash_v2
     address = _profile_fixture_address_word_v2
@@ -31416,8 +32331,8 @@ def _execution_profile_value_words_v2(profile: "ExecutionProfile") \
         hash_("source-namespace"), hash_("source-genesis"),
     )
     ingress = (
-        address(f"kind0-ingress-adapter:v{profile.protocol_version}"),
-        hash_("kind0-ingress-runtime"),
+        address("kind0-ingress-derived-placeholder"),
+        keccak256(profile.kind0_ingress_runtime_code),
         *(word(value, "ingress fee") for value in (
             INGRESS_FIXED_WEI, INGRESS_EXECUTION_WEI_PER_GAS,
             INGRESS_PROOF_WEI_PER_GAS, INGRESS_PERMANENT_WEI_PER_BYTE,
@@ -31445,19 +32360,56 @@ def _execution_profile_value_words_v2(profile: "ExecutionProfile") \
         profile.minimum_ask_improvement_wei_per_second,
         profile.minimum_ask_improvement_bps,
     )) + (profile.economic_profile_hash,)
+    kind0_deployment = (
+        keccak256(profile.kind0_ingress_creation_code),
+        hash_("kind0-ingress-salt-derived-placeholder"),
+        hash_("kind0-ingress-init-code-derived-placeholder"),
+        hash_("kind0-ingress-config-derived-placeholder"),
+    )
+    settlement_validity = (
+        _abi_address_word(validity_verifier.address),
+        _model_fixed_bytes32(validity_verifier.runtime_hash),
+        bytes.fromhex(validity_verifier.configuration_hash),
+        _model_fixed_bytes32(validity_verifier.verifying_key_hash),
+        _model_fixed_bytes32(validity_verifier.proof_system_id),
+        _model_fixed_bytes32(validity_verifier.public_input_schema_hash),
+        bytes4_word(validity_verifier.selector),
+        word(
+            validity_verifier.maximum_proof_bytes,
+            "validity maximum proof bytes",
+        ),
+        word(
+            validity_verifier.verification_gas_limit,
+            "validity verification gas",
+        ),
+        word(
+            validity_verifier.post_verification_reserve_gas,
+            "validity post-verification reserve gas",
+        ),
+    )
     groups = (
         core, control, artifact, target_infrastructure, sinks, recovery, seat,
         data_session, target_gas, compile_rules, activation, destination,
-        source, ingress, execution, seat_wire,
+        source, ingress, execution, seat_wire, kind0_deployment,
+        settlement_validity,
     )
     expected_group_lengths = (
         16, 28, 13, 6, 9, 14, 15, 6, 11, 20, 20, 44, 26, 7, 17, 15,
+        4, 10,
     )
     if tuple(map(len, groups)) != expected_group_lengths:
         raise AssertionError("ExecutionProfileV2 group width drifted")
     values = list(value for group in groups for value in group)
     if len(values) != EXECUTION_PROFILE_VALUE_WORDS:
         raise AssertionError("ExecutionProfileV2 fixed field count drifted")
+    values[267] = keccak256(profile.kind0_ingress_creation_code)
+    values[229] = keccak256(profile.kind0_ingress_runtime_code)
+    values[268] = kind0_ingress_salt_from_words_v1(values)
+    values[270] = _kind0_ingress_configuration_hash_from_words_v2(values)
+    values[269] = kind0_ingress_init_code_hash_v1(
+        profile.kind0_ingress_creation_code, values
+    )
+    values[228] = bytes(12) + kind0_ingress_address_from_words_v2(values)
     values[37] = aggregator_seat_market_configuration_hash_v2(tuple(values))
     return tuple(values)
 
@@ -31488,12 +32440,16 @@ def canonical_execution_profile_cross_model_fixture_v2() -> bytes:
             words.append(seed)
     creation_code = b"\x60\x00\x60\x00\xf3"
     runtime_code = b"\x60\x00\x60\x00\xf3"
+    kind0_creation_code = b"\x60\x01\x60\x00\xf3"
+    kind0_runtime_code = b"\x60\x02\x60\x00\xf3"
     words[0] = _model_uint(EXECUTION_PROFILE_SCHEMA_VERSION, 32, "schema")
     words[1] = _model_uint(2, 32, "protocol version")
     words[2] = _model_uint(1, 32, "settlement chain")
     words[3] = _model_uint(167_000, 32, "L2 chain")
     words[48] = keccak256(runtime_code)
     words[49] = keccak256(creation_code)
+    words[267] = keccak256(kind0_creation_code)
+    words[229] = keccak256(kind0_runtime_code)
     words[44] = _abi_address_word(SETTLEMENT_FACTORY_ADDRESS_V2)
     words[45] = SETTLEMENT_FACTORY_RUNTIME_HASH_V2
     words[46] = settlement_factory_configuration_hash_v2()
@@ -31526,6 +32482,9 @@ def canonical_execution_profile_cross_model_fixture_v2() -> bytes:
         keccak256(b"verifyMigrationTransition(bytes,uint256[2])")[:4]
         + bytes(28)
     )
+    words[147] = _model_uint(
+        30_000_000, 32, "supported L1 block gas limit"
+    )
     words[114] = words[152]
     words[115] = words[153]
     words[116] = words[150]
@@ -31548,6 +32507,17 @@ def canonical_execution_profile_cross_model_fixture_v2() -> bytes:
         "L2 EIP-2935 activation block",
     )
     words[247] = FORCE_SEND_EVM_RULES_HASH
+    words[276] = SETTLEMENT_VALIDITY_PUBLIC_INPUT_SCHEMA_HASH
+    words[277] = SETTLEMENT_VALIDITY_VERIFIER_SELECTOR + bytes(28)
+    words[278] = _model_uint(
+        65_536, 32, "Settlement validity maximum proof bytes"
+    )
+    words[279] = _model_uint(
+        2_000_000, 32, "Settlement validity verification gas"
+    )
+    words[280] = _model_uint(
+        500_000, 32, "Settlement validity reserve gas"
+    )
     for index, value in enumerate((
         30, 2, 8_000_000, 250_000, 250_000, 300_000, 500_000,
         500_000, 1_250_000, 250_000, 500_000,
@@ -31570,6 +32540,14 @@ def canonical_execution_profile_cross_model_fixture_v2() -> bytes:
         + creation_code
         + _model_uint(len(runtime_code), 4, "fixture runtime length")
         + runtime_code
+        + _model_uint(
+            len(kind0_creation_code), 4, "fixture kind-0 creation length"
+        )
+        + kind0_creation_code
+        + _model_uint(
+            len(kind0_runtime_code), 4, "fixture kind-0 runtime length"
+        )
+        + kind0_runtime_code
     )
     padded = (len(artifact) + 31) // 32 * 32
     encoded = b"".join((
@@ -31654,6 +32632,12 @@ class ExecutionProfile:
     migration_transition_verifier_descriptor: (
         MigrationTransitionVerifierDescriptor
     )
+    settlement_validity_verifier_descriptor: (
+        SettlementValidityVerifierDescriptorV2
+    )
+    settlement_validity_verifier: ISettlementValidityVerifierV2 = field(
+        compare=False, repr=False
+    )
     migration_transition_verifier: IMigrationTransitionVerifier = field(
         compare=False, repr=False
     )
@@ -31665,6 +32649,12 @@ class ExecutionProfile:
         default=b"\x60\x00\x60\x00\xf3", compare=False, repr=False
     )
     target_runtime_code: bytes = field(
+        default=b"\x60\x00\x60\x00\xf3", compare=False, repr=False
+    )
+    kind0_ingress_creation_code: bytes = field(
+        default=b"\x60\x00\x60\x00\xf3", compare=False, repr=False
+    )
+    kind0_ingress_runtime_code: bytes = field(
         default=b"\x60\x00\x60\x00\xf3", compare=False, repr=False
     )
     supported_l1_block_gas_limit: int = 30_000_000
@@ -31699,16 +32689,34 @@ class ExecutionProfile:
     def canonical_profile_bytes(self) -> bytes:
         creation_code = self.target_creation_code
         runtime_code = self.target_runtime_code
+        kind0_creation_code = self.kind0_ingress_creation_code
+        kind0_runtime_code = self.kind0_ingress_runtime_code
         if (type(creation_code) is not bytes
                 or not 0 < len(creation_code) <= TARGET_CREATION_CODE_MAX_BYTES
                 or type(runtime_code) is not bytes
-                or not 0 < len(runtime_code) <= EIP170_MAX_RUNTIME_BYTES):
-            raise ValueError("target code artifact length is unsupported")
+                or not 0 < len(runtime_code) <= EIP170_MAX_RUNTIME_BYTES
+                or type(kind0_creation_code) is not bytes
+                or not 0 < len(kind0_creation_code)
+                    <= KIND0_INGRESS_CREATION_CODE_MAX_BYTES
+                or type(kind0_runtime_code) is not bytes
+                or not 0 < len(kind0_runtime_code)
+                    <= EIP170_MAX_RUNTIME_BYTES):
+            raise ValueError("profile code artifact length is unsupported")
         artifact = (
             _model_uint(len(creation_code), 4, "creation-code length")
             + creation_code
             + _model_uint(len(runtime_code), 4, "runtime-code length")
             + runtime_code
+            + _model_uint(
+                len(kind0_creation_code), 4,
+                "kind-0 creation-code length",
+            )
+            + kind0_creation_code
+            + _model_uint(
+                len(kind0_runtime_code), 4,
+                "kind-0 runtime-code length",
+            )
+            + kind0_runtime_code
         )
         padded = (len(artifact) + 31) // 32 * 32
         encoded = b"".join((
@@ -31745,6 +32753,22 @@ class ExecutionProfile:
                 is MigrationTransitionVerifierDescriptor
             and self.migration_transition_verifier_descriptor
                 .structurally_valid()
+            and type(self.settlement_validity_verifier_descriptor)
+                is SettlementValidityVerifierDescriptorV2
+            and self.settlement_validity_verifier_descriptor
+                .structurally_valid()
+            and isinstance(
+                self.settlement_validity_verifier,
+                ISettlementValidityVerifierV2,
+            )
+            and self.settlement_validity_verifier.descriptor
+                == self.settlement_validity_verifier_descriptor
+            and settlement_validity_verifier_required_gas_v2(
+                self.settlement_validity_verifier_descriptor
+                    .verification_gas_limit,
+                self.settlement_validity_verifier_descriptor
+                    .post_verification_reserve_gas,
+            ) <= self.supported_l1_block_gas_limit
             and isinstance(verifier, IMigrationTransitionVerifier)
             and verifier.descriptor
                 == self.migration_transition_verifier_descriptor
@@ -32018,10 +33042,40 @@ def execution_profile_for_test(
         keccak256(b"verifyMigrationTransition(bytes,uint256[2])")[:4],
     )
     verifier = TestMigrationTransitionVerifier(descriptor)
+    validity_verifying_key_hash = f"vk:settlement-validity:{revision}"
+    validity_proof_system_id = "groth16-bn254"
+    validity_schema_hash = SETTLEMENT_VALIDITY_PUBLIC_INPUT_SCHEMA_HASH
+    validity_maximum_proof_bytes = 65_536
+    validity_verification_gas_limit = 2_000_000
+    validity_post_verification_reserve_gas = 500_000
+    validity_descriptor = SettlementValidityVerifierDescriptorV2(
+        f"settlement-validity-verifier:{revision}",
+        f"code:settlement-validity-verifier:{revision}",
+        settlement_validity_verifier_configuration_hash_v2(
+            validity_verifying_key_hash,
+            validity_proof_system_id,
+            validity_schema_hash,
+            validity_maximum_proof_bytes,
+            validity_verification_gas_limit,
+            validity_post_verification_reserve_gas,
+        ),
+        validity_verifying_key_hash,
+        validity_proof_system_id,
+        validity_schema_hash,
+        SETTLEMENT_VALIDITY_VERIFIER_SELECTOR,
+        validity_maximum_proof_bytes,
+        validity_verification_gas_limit,
+        validity_post_verification_reserve_gas,
+    )
+    validity_verifier = TestSettlementValidityVerifierV2(
+        validity_descriptor
+    )
     profile = ExecutionProfile(
         protocol_version,
         profile_namespace,
         descriptor,
+        validity_descriptor,
+        validity_verifier,
         verifier,
         NativeEthSinkV2(f"bridge-surplus:{profile_namespace}"),
         _profile_fixture_hash_v2("economic-profile-v2"),
@@ -33882,6 +34936,47 @@ class ActiveSettlementRouter:
         by_address_before = self._authorized_ingress_by_address
         ids_before = self._authorized_ingress_adapter_ids
         target_version = registration.settlement.protocol_version
+        registered_target = self.target_release_registrations_v2.get(
+            target_version
+        )
+        if (registered_target is None
+                and ((manager is None and registration.predecessor_version == 0)
+                     or type(manager) is ProtocolVersionManager)):
+            registered_target = derive_register_release_authority_v2(
+                registration.execution_profile.canonical_profile_bytes,
+                registration.predecessor_version,
+            ).target_registration_row
+        if type(registered_target) is not TargetReleaseRegistrationRowV2:
+            return False
+        if (deployment_world is not None
+                and type(manager) is ProtocolVersionManagerV1):
+            try:
+                target_account = _validate_live_target_code_and_config_v2(
+                    deployment_world, caller=self.address,
+                    address=registered_target.target_settlement,
+                    runtime_hash=registered_target.target_runtime_hash,
+                    configuration_hash=(
+                        registered_target.target_configuration_hash
+                    ),
+                    label="activation-target",
+                    configuration_read_gas=(
+                        registered_target.component_configuration_read_gas
+                    ),
+                )
+                _validate_live_settlement_validity_verifier_v2(
+                    deployment_world, caller=self.address,
+                    target=target_account,
+                    expected_descriptor_hash=(
+                        registered_target
+                            .settlement_validity_verifier_descriptor_hash
+                    ),
+                    label="activation-settlement-validity",
+                    read_gas=(
+                        registered_target.component_configuration_read_gas
+                    ),
+                )
+            except (TypeError, ValueError):
+                return False
         deployment_row_before = (
             target_version in self._profile_deployments_by_version,
             self._profile_deployments_by_version.get(target_version),
@@ -33903,6 +34998,7 @@ class ActiveSettlementRouter:
         source_adapter_states_before: dict[int, tuple[object, str]] = {}
         source_bundle_states_before: dict[int, tuple[object, ...]] = {}
         deployment_world_rows_before: tuple[object, ...] | None = None
+        kind0_world_row_before: tuple[object, ...] | None = None
         source_registry_state = (
             support_registry_before._transaction_snapshot()
             if type(support_registry_before) is BridgeDomainRegistry else None
@@ -33924,6 +35020,51 @@ class ActiveSettlementRouter:
             if len(kind0_authorizations) != 1 or len(bridge_authorizations) != 1:
                 raise ValueError("release ingress roles are not exact")
             kind0_authorization = kind0_authorizations[0]
+            if (kind0_authorization.authorization_id
+                    != registered_target.kind0_ingress_authorization_id):
+                raise ValueError("RTR2 kind-0 authorization differs")
+            if type(manager) is ProtocolVersionManagerV1:
+                pir = decode_profile_ingress_root_v2(
+                    manager.staticcall_profile_ingress_root_v2(
+                        PROFILE_INGRESS_ROOT_SELECTOR
+                        + _model_uint(target_version, 32,
+                                      "activation PIR2 version"),
+                        caller=self.address, value=0,
+                        gas=PROFILE_INGRESS_ROOT_READ_GAS,
+                    )
+                )
+                pim = decode_profile_ingress_membership_v2(
+                    manager.staticcall_profile_ingress_membership_v2(
+                        PROFILE_INGRESS_MEMBERSHIP_SELECTOR
+                        + _model_uint(target_version, 32,
+                                      "activation PIM2 version")
+                        + registered_target.kind0_ingress_authorization_id,
+                        caller=self.address, value=0,
+                        gas=PROFILE_INGRESS_MEMBERSHIP_READ_GAS,
+                    )
+                )
+                pia_id, pia = decode_profile_ingress_authorization_v2(
+                    manager.staticcall_profile_ingress_authorization_v2(
+                        PROFILE_INGRESS_AUTHORIZATION_SELECTOR
+                        + registered_target.kind0_ingress_authorization_id,
+                        caller=self.address, value=0,
+                        gas=PROFILE_INGRESS_AUTHORIZATION_READ_GAS,
+                    )
+                )
+                if (pir != (target_version, 2,
+                            registration.ingress_authorization_root)
+                        or pim != (
+                            target_version,
+                            registered_target.kind0_ingress_authorization_id,
+                            2, registration.ingress_authorization_root,
+                        )
+                        or pia_id
+                            != registered_target.kind0_ingress_authorization_id
+                        or b"".join(pia)
+                            != profile_ingress_authorization_abi_v2(
+                                kind0_authorization
+                            )):
+                    raise ValueError("kind-0 PIR2/PIM2/PIA2 join differs")
             existing_kind0 = self._authorized_ingress_by_address.get(
                 kind0_authorization.adapter_address
             )
@@ -33939,6 +35080,56 @@ class ActiveSettlementRouter:
                     ),
                 )
             )
+            if (deployment_world is not None
+                    and type(manager) is ProtocolVersionManagerV1):
+                kind0_world_row_before = deployment_world.touched_rows((
+                    _model_address20(kind0_authorization.adapter_address),
+                ))
+                kind0_account = _validate_live_target_code_and_config_v2(
+                    deployment_world,
+                    caller=self.address,
+                    address=_model_address20(
+                        kind0_authorization.adapter_address
+                    ),
+                    runtime_hash=_model_fixed_bytes32(
+                        kind0_authorization.runtime_hash
+                    ),
+                    configuration_hash=_model_fixed_bytes32(
+                        kind0_authorization.configuration_hash
+                    ),
+                    label="kind0-ingress",
+                    configuration_read_gas=(
+                        registered_target.component_configuration_read_gas
+                    ),
+                )
+                expected_kind0_constructor = \
+                    encode_kind0_constructor_state_return_v1(
+                        kind0_authorization
+                            .adapter_constructor_poststate_commitment,
+                        _model_fixed_bytes32(
+                            kind0_authorization.configuration_hash
+                        ),
+                    )
+                deployment_world.trace.append((
+                    self.address, "kind0-ingress:constructor-state",
+                    kind0_account.address,
+                ))
+                observed_kind0_constructor = \
+                    kind0_account.kind0_constructor_state_v1(
+                        self.address, KIND0_CONSTRUCTOR_STATE_SELECTOR,
+                        registered_target.component_configuration_read_gas,
+                        0,
+                    )
+                if observed_kind0_constructor != expected_kind0_constructor:
+                    raise ValueError(
+                        "kind-0 deployment constructor state differs"
+                    )
+                retained_kind0 = deployment_world.behavior_handles.get(
+                    kind0_account.address
+                )
+                if retained_kind0 is not None and retained_kind0 is not kind0:
+                    raise ValueError("kind-0 deployment aliases another behavior")
+                deployment_world.behavior_handles[kind0_account.address] = kind0
             if (not prepare_only
                     and not self._append_ingress_binding(
                         kind0, kind0_authorization
@@ -34501,6 +35692,11 @@ class ActiveSettlementRouter:
                     and deployment_world_rows_before is not None):
                 deployment_world.restore_touched_rows(
                     deployment_world_rows_before
+                )
+            if (deployment_world is not None
+                    and kind0_world_row_before is not None):
+                deployment_world.restore_touched_rows(
+                    kind0_world_row_before
                 )
             return False
 
@@ -35292,7 +36488,7 @@ class ActiveSettlementRouter:
                 for offset in range(0, len(stage_result), 32)
             )
             destination_chain_id = _decode_uint_word_v1(
-                pia[13], 256, "BRS1 destination chain"
+                pia[14], 256, "BRS1 destination chain"
             )
             package_raw = registry.bridge_route_package_v1(
                 BRIDGE_ROUTE_PACKAGE_SELECTOR
@@ -35477,7 +36673,7 @@ class ActiveSettlementRouter:
             )
             pia_id, pia = decode_profile_ingress_authorization_v2(pia_raw)
             destination_chain_id = _decode_uint_word_v1(
-                pia[13], 256, "BRP1 destination chain"
+                pia[14], 256, "BRP1 destination chain"
             )
             calldata = b"".join((
                 BRIDGE_ROUTE_PACKAGE_SELECTOR,
@@ -35769,6 +36965,17 @@ class ActiveSettlementRouter:
         address = getattr(adapter, "address", None)
         self.ingress_lookup_probes = 1 if type(address) is str else 0
         binding = self._authorized_ingress_by_address.get(address)
+        if type(adapter) is Kind0IngressAdapter:
+            active = self.registrations.get(self.active_version)
+            current_kind0 = tuple(
+                row for row in (
+                    active.ingress_authorizations if active is not None else ()
+                )
+                if row.kind is ForceKind.USER_TX
+            )
+            if (len(current_kind0) != 1
+                    or current_kind0[0].adapter_address != address):
+                return None
         if (binding is not None and binding.adapter is adapter
                 and getattr(adapter, "router", None) is self
                 and address == binding.address
@@ -38520,6 +39727,15 @@ class ProtocolVersionManager:
                             )
                         ),
                     )
+                kind0_address = profile_words[228][12:]
+                accounts[kind0_address] = LiveDeploymentAccountV2(
+                    kind0_address, profile_words[229], profile_words[270],
+                    kind0_constructor_tail=(
+                        kind0_ingress_constructor_tail_from_words_v1(
+                            profile_words
+                        )
+                    ),
+                )
                 rows = tuple(
                     row for row in registration.ingress_authorizations
                     if row.kind is ForceKind.BRIDGE_CREDIT
@@ -44723,6 +45939,8 @@ def candidate_inbox_execution_digest(candidate: Candidate) -> str:
 @dataclass(frozen=True, eq=False)
 class VerifiedCandidateProof:
     verifier: "InboxValidityExecutionAuthority"
+    validity_verifier_descriptor: SettlementValidityVerifierDescriptorV2
+    statement_hash: bytes
     candidate_digest: str
     base_canonical_hash: str
     protocol_version: int
@@ -44736,6 +45954,12 @@ class VerifiedCandidateProof:
     def __post_init__(self) -> None:
         if (self._capability is not _VERIFIED_CANDIDATE_PROOF_CAPABILITY
                 or type(self.verifier) is not InboxValidityExecutionAuthority
+                or type(self.validity_verifier_descriptor)
+                    is not SettlementValidityVerifierDescriptorV2
+                or not self.validity_verifier_descriptor.structurally_valid()
+                or type(self.statement_hash) is not bytes
+                or len(self.statement_hash) != 32
+                or self.statement_hash == bytes(32)
                 or not self.candidate_digest or not self.base_canonical_hash
                 or self.protocol_version <= 0
                 or not self.execution_profile_hash
@@ -44750,6 +45974,8 @@ class VerifiedCandidateProof:
 
 def verified_candidate_proof_digest(output: VerifiedCandidateProof) -> str:
     return hashlib.sha256(repr((
+        output.validity_verifier_descriptor.commitment,
+        output.statement_hash,
         output.candidate_digest,
         output.base_canonical_hash,
         output.protocol_version,
@@ -44758,6 +45984,29 @@ def verified_candidate_proof_digest(output: VerifiedCandidateProof) -> str:
         output.clock_timestamp,
         output.purpose,
     )).encode()).hexdigest()
+
+
+def settlement_validity_statement_hash_v2(
+    candidate: Candidate, protocol: Protocol, clock: Clock,
+) -> bytes:
+    """Commit the exact ordinary proof statement shared by all three tiers."""
+
+    history = protocol.versioned_history
+    if (type(candidate) is not Candidate or type(protocol) is not Protocol
+            or type(clock) is not Clock
+            or type(history) is not VersionedSettlementHistory
+            or type(candidate.tier) is not Tier):
+        raise ValueError("Settlement validity statement inputs are malformed")
+    return keccak256(b"".join((
+        b"slot-chain-settlement-validity-statement-v2",
+        _model_fixed_bytes32(candidate_inbox_execution_digest(candidate)),
+        _model_fixed_bytes32(protocol.canonical.base_hash),
+        _model_uint(history.protocol_version, 8, "validity protocol version"),
+        _model_fixed_bytes32(history.execution_profile_hash),
+        _model_uint(clock.block_number, 8, "validity L1 block"),
+        _model_uint(clock.timestamp, 8, "validity L1 timestamp"),
+        _model_uint(candidate.tier.value, 1, "validity candidate tier"),
+    )))
 
 
 @dataclass(frozen=True, eq=False)
@@ -44889,6 +46138,18 @@ class InboxValidityExecutionAuthority:
         self,
     ) -> MigrationTransitionVerifierDescriptor:
         return self.execution_profile.migration_transition_verifier_descriptor
+
+    @property
+    def settlement_validity_verifier(
+        self,
+    ) -> ISettlementValidityVerifierV2:
+        return self.execution_profile.settlement_validity_verifier
+
+    @property
+    def settlement_validity_verifier_descriptor(
+        self,
+    ) -> SettlementValidityVerifierDescriptorV2:
+        return self.execution_profile.settlement_validity_verifier_descriptor
 
     def _opaque_seal(self, namespace: bytes, digest: str) -> str:
         return hashlib.sha256(
@@ -45514,6 +46775,12 @@ class InboxValidityExecutionAuthority:
                 or type(candidate) is not Candidate
                 or type(verified_proof) is not VerifiedCandidateProof
                 or verified_proof.verifier is not self
+                or verified_proof.validity_verifier_descriptor
+                    != self.settlement_validity_verifier_descriptor
+                or verified_proof.statement_hash
+                    != settlement_validity_statement_hash_v2(
+                        candidate, protocol, clock
+                    )
                 or verified_proof.seal != self._opaque_seal(
                     b"TAIKO_VERIFIED_CANDIDATE_SEAL_V1\x00",
                     verified_candidate_proof_digest(verified_proof),
@@ -45686,8 +46953,60 @@ class InboxValidityExecutionAuthority:
             self._verifying_candidate_id = None
         if not verified:
             raise ValueError("candidate proof public inputs do not verify")
+        verifier = self.settlement_validity_verifier
+        descriptor = self.settlement_validity_verifier_descriptor
+        if (not isinstance(verifier, ISettlementValidityVerifierV2)
+                or verifier.descriptor != descriptor
+                or not descriptor.structurally_valid()
+                or settlement_validity_verifier_required_gas_v2(
+                    descriptor.verification_gas_limit,
+                    descriptor.post_verification_reserve_gas,
+                ) > self.execution_profile.supported_l1_block_gas_limit):
+            raise ValueError("Settlement validity verifier is not exact")
+        try:
+            observed_runtime_hash = verifier.extcodehash(
+                caller=protocol.settlement_address
+            )
+            observed_configuration_hash = verifier.configuration_hash_v2(
+                caller=protocol.settlement_address,
+                calldata=(
+                    SETTLEMENT_VALIDITY_VERIFIER_CONFIG_GETTER_SELECTOR
+                ),
+                gas=SETTLEMENT_VALIDITY_VERIFIER_CONFIG_GETTER_GAS,
+                value=0,
+            )
+        except BaseException as exc:
+            raise ValueError(
+                "Settlement validity verifier descriptor read failed"
+            ) from exc
+        if (observed_runtime_hash
+                != _model_fixed_bytes32(descriptor.runtime_hash)
+                or observed_configuration_hash
+                    != bytes.fromhex(descriptor.configuration_hash)):
+            raise ValueError("Settlement validity verifier live descriptor differs")
+        statement_hash = settlement_validity_statement_hash_v2(
+            candidate, protocol, clock
+        )
+        proof = b"slot-chain-test-validity-proof-v2:" + statement_hash
+        limbs = (
+            int.from_bytes(statement_hash[:16], "big"),
+            int.from_bytes(statement_hash[16:], "big"),
+        )
+        try:
+            returned_statement_hash = verifier.verify(
+                proof, limbs, gas=descriptor.verification_gas_limit
+            )
+        except BaseException as exc:
+            raise ValueError(
+                "Settlement validity verifier call failed"
+            ) from exc
+        decode_settlement_validity_verifier_return_v2(
+            returned_statement_hash, statement_hash
+        )
         output = VerifiedCandidateProof(
             self,
+            descriptor,
+            statement_hash,
             candidate_inbox_execution_digest(candidate),
             protocol.canonical.base_hash,
             history.protocol_version,
@@ -58327,14 +59646,42 @@ def test_data_gc_reorg_and_geometry() -> None:
         activation_clock.block_number + 1, GENESIS_TIMESTAMP + 53
     )
     post_status, post_stamp = active_router.sync_ingress(
-        clock=post_activation_clock, caller_adapter=active_kind0_adapter
+        clock=post_activation_clock,
+        caller_adapter=next(
+            binding.adapter for binding in active_router._authorized_ingress
+            if binding.kind is ForceKind.USER_TX
+            and binding.address == next(
+                row.adapter_address
+                for row in active_router.registrations[2]
+                    .ingress_authorizations
+                if row.kind is ForceKind.USER_TX
+            )
+        ),
     )
+    active_v2_kind0_adapter = next(
+        binding.adapter for binding in active_router._authorized_ingress
+        if binding.kind is ForceKind.USER_TX
+        and binding.address == next(
+            row.adapter_address
+            for row in active_router.registrations[2].ingress_authorizations
+            if row.kind is ForceKind.USER_TX
+        )
+    )
+    try:
+        active_router.required_ingress_deposit(
+            message(post_activation_clock.l2_slot, "retired-kind0"),
+            active_kind0_adapter,
+        )
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("retired kind-0 adapter retained authority")
     post_activation_row = message(
         post_activation_clock.l2_slot,
         "same-old-adapter-after-v2",
     )
     post_activation_deposit = active_router.required_ingress_deposit(
-        post_activation_row, active_kind0_adapter)
+        post_activation_row, active_v2_kind0_adapter)
     post_activation_row = replace(
         post_activation_row, prepaid=post_activation_deposit)
     # The anchored header freezes cutoff 17.  The Bridge row at index 17 and
@@ -58347,7 +59694,7 @@ def test_data_gc_reorg_and_geometry() -> None:
         clock=post_activation_clock,
         stamp=post_stamp,
         deposit=post_activation_deposit,
-        caller_adapter=active_kind0_adapter,
+        caller_adapter=active_v2_kind0_adapter,
     ) if post_stamp is not None else post_status
     check("P50bc proof-first migration atomically adopts target activation",
           settlement_1.mode == "FROZEN"

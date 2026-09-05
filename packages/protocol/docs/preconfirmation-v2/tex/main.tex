@@ -67,7 +67,7 @@
 \begin{document}
 
 \title{\vspace{-1.2cm}\bfseries Slot-Chain: A Preconfirmation Protocol\\[0.2em]
-\large\mdseries Implementation-Freeze Candidate --- v2.26}
+\large\mdseries Implementation-Freeze Candidate --- v2.27}
 \author{}
 \date{September 2026}
 \maketitle
@@ -751,15 +751,20 @@ nonpayable, canonical offset \code{0x20}, total calldata length
 Success returns exactly one canonically padded nonzero address word equal to
 the nonce-1 child; short/trailing/dirty return rejects.  Factory first builds
 the complete proxy calldata in memory and warms the already-deployed proxy.
-Let \code{g0=gasleft()} immediately before CALL.  It requires
-\code{g0>510000}, requests exactly \code{g0-510000} gas, supplies zero output
-space, checks success and exact returndata size before copying, and then requires
-\code{gasleft()>=500000} before any runtime/configuration/activation postcheck;
-otherwise the whole deployment reverts.  The per-role deployment certificate
-must succeed at its published transaction gas limit, while the boundary vector
-with 499,999 gas remaining after the proxy call rejects before a returndata
-copy, postcheck or state write.  The 10,000-gas gap is the fixed warm-CALL and
-return-envelope reserve; release measurement must prove it covers that path.
+Factory expands and touches the exact 32-byte output region before measuring
+\code{g0=gasleft()} immediately before CALL.  It requires \code{g0>510000},
+requests exactly \code{g0-510000} gas, supplies zero output space, checks
+success and exact returndata size, copies exactly the bounded 32-byte return,
+and then requires \code{gasleft()>=500000} before any
+runtime/configuration/activation postcheck; otherwise the whole deployment
+reverts.  Unexpected-size returndata is never copied.  The per-role deployment
+certificate must succeed at its published transaction gas limit, while the
+boundary vector whose exact copy leaves 499,999 gas rejects immediately after
+that copy and before any postcheck or state write.  A transaction one gas below
+the synthetic minimum may fail either at the preflight or atomically inside the
+callee, depending on EIP-150 forwarding.  The 10,000-gas gap is the fixed
+warm-CALL and return-envelope reserve; release measurement must prove it covers
+that path.
 
 Staging does not waive EIP-170 or EIP-3860.  Before the DAO may queue the root
 operation, the reproducible compiled-artifact gate covers all eighteen
@@ -2882,9 +2887,132 @@ are independent of the per-block caps.
 
 \subsection{Verifier statement ABI}
 
-The L1 verifier accepts \code{verify(proof,uint256[2] digestLimbs)}.  Settlement
-constructs the following \code{SettlementStatementV2} Solidity struct in exactly this order and computes
-\code{statementHash} as legacy Keccak of the ASCII domain
+Each immutable Settlement accepts proofs through exactly one
+\code{SettlementValidityVerifierDescriptorV2}; no caller, tier, Router row or
+mutable registry selects a verifier.  One descriptor serves tiers 1--3.  Its
+verifying key MUST authenticate the statement's tier and implement all three
+tier rules above; a verifier or key supporting fewer tiers requires a different
+profile schema and is not silently defaulted or indexed.  Rotation therefore
+requires a new immutable protocol version, while historical Settlements retain
+their original descriptor.
+
+The descriptor and its acyclic configuration commitment are exact:
+\begin{verbatim}
+struct SettlementValidityVerifierDescriptorV2 {
+  address verifier; bytes32 runtimeHash; bytes32 configurationHash;
+  bytes32 verifyingKeyHash; bytes32 proofSystemId;
+  bytes32 publicInputSchemaHash; bytes4 selector;
+  uint32 maximumProofBytes; uint64 verificationGasLimit;
+  uint64 postVerificationReserveGas;
+}
+SETTLEMENT_VALIDITY_VERIFIER_CONFIG_TYPEHASH = keccak256(
+ "SettlementValidityVerifierConfigV2(bytes32 verifyingKeyHash,"
+ "bytes32 proofSystemId,bytes32 publicInputSchemaHash,bytes4 selector,"
+ "uint32 maximumProofBytes,uint64 verificationGasLimit,"
+ "uint64 postVerificationReserveGas)")
+settlementValidityVerifierConfigurationHash = keccak256(abi.encode(
+ SETTLEMENT_VALIDITY_VERIFIER_CONFIG_TYPEHASH, verifyingKeyHash,
+ proofSystemId, publicInputSchemaHash, selector, maximumProofBytes,
+ verificationGasLimit, postVerificationReserveGas))
+SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_TYPEHASH = keccak256(
+ "SettlementValidityVerifierDescriptorV2(address verifier,"
+ "bytes32 runtimeHash,bytes32 configurationHash,bytes32 verifyingKeyHash,"
+ "bytes32 proofSystemId,bytes32 publicInputSchemaHash,bytes4 selector,"
+ "uint32 maximumProofBytes,uint64 verificationGasLimit,"
+ "uint64 postVerificationReserveGas)")
+settlementValidityVerifierDescriptorHash = keccak256(abi.encode(
+ SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_TYPEHASH, verifier, runtimeHash,
+ configurationHash, verifyingKeyHash, proofSystemId, publicInputSchemaHash,
+ selector, maximumProofBytes, verificationGasLimit,
+ postVerificationReserveGas))
+\end{verbatim}
+Adjacent quoted fragments in the two typehash definitions concatenate with no
+separator; the type strings contain no whitespace or newline.
+All ten fields are nonzero; \code{maximumProofBytes<=65536}, both gas values
+are at most 30,000,000, and \code{selector=0x8c6cb224}, the first four bytes of
+Keccak of \code{"verify(bytes,uint256[2])"}.  The
+\code{publicInputSchemaHash} is the fixed value
+\code{keccak256("slot-chain-settlement-validity-public-input-schema-v2")} =
+\code{0xb9313bdbe8b2203bcda0a1d140fb1c0446a7424de6440cde31317eafb654cac4};
+it denotes exactly the displayed \code{SettlementStatementV2}, its
+\code{"slot-chain-statement-v2"} domain and the unreduced high/low 128-bit
+limb transport below.  The configuration hash excludes
+the verifier address, runtime hash, descriptor hash, Settlement address,
+execution-profile hash and every target/manifest/registration-derived value.
+The verifier exposes
+\begin{verbatim}
+settlementValidityVerifierConfigHashV2() // selector 0xa8e357ec
+  external view returns (bytes32 configurationHash)
+\end{verbatim}
+as an exact four-byte, zero-value, 50,000-gas STATICCALL with exactly 32 return
+bytes.  Before every proof call Settlement checks the nonzero account's exact
+EXTCODEHASH and this configuration getter; a proxy, empty account, mismatch,
+revert, OOG, short or trailing return rejects.
+
+Settlement exposes its complete constructor-bound descriptor as
+\begin{verbatim}
+settlementValidityVerifierDescriptorV2() // selector 0x26bad12b
+  external view returns
+  (bytes4 magic,address verifier,bytes32 runtimeHash,
+   bytes32 configurationHash,bytes32 verifyingKeyHash,
+   bytes32 proofSystemId,bytes32 publicInputSchemaHash,bytes4 selector,
+   uint32 maximumProofBytes,uint64 verificationGasLimit,
+   uint64 postVerificationReserveGas)
+\end{verbatim}
+with magic \code{0x53564432} (SVD2) and exactly 352 canonical return bytes.
+Registration derives and stores the descriptor hash in RTR2; registration
+exact-compares every SVD2 field with the transient profile.  Activation
+strictly decodes the complete SVD2 row, recomputes its descriptor hash against
+the stored RTR2 value, and uses the returned address/runtime/configuration for
+its independent live verifier checks.  SVD2 is caller-independent, uses
+canonical narrow-field padding and makes no external call.
+
+The ordinary verifier is a nonproxy, state-independent release artifact.  The
+release bundle publishes the exact runtime preimage whose Keccak equals the
+descriptor.  The mandatory conformance verifier rejects a runtime containing
+SLOAD, SSTORE, TLOAD, TSTORE, CREATE, CREATE2, DELEGATECALL, CALL, CALLCODE or
+SELFDESTRUCT, or whose result/configuration depends on caller, account balance
+or block/transaction environment.  Its verifying key and configuration are
+embedded in code.  STATICCALL is permitted only to the fixed Ethereum
+precompiles in the reviewed execution policy committed by
+\code{proofSystemId}; alternate external accounts or dynamically selected
+targets reject.  The release certificate proves every reachable path obeys
+that policy and that the configuration getter is the displayed constant.
+Consequently identical runtime hash means identical proof behavior even if an
+attacker prefunds the account or its deployment storage is nonzero.
+
+Settlement calls exactly
+\begin{verbatim}
+verify(bytes proof,uint256[2] digestLimbs)
+  external view returns (bytes32 statementHash)
+\end{verbatim}
+with zero value.  The ABI head is
+\code{[0x60,high128(statementHash),low128(statementHash)]}, followed by the
+canonical proof length/data/zero-padding tail; total calldata is
+\code{132+ceil32(proof.length)} bytes.  The proof is nonempty and no longer
+than the descriptor bound.  Settlement builds the complete calldata before
+measuring gas and warms the verifier through EXTCODEHASH.  It then requires
+\begin{verbatim}
+gasleft() >= verificationGasLimit
+          + ceil(verificationGasLimit / 63)
+          + postVerificationReserveGas + 10000
+\end{verbatim}
+with checked arithmetic, performs one gas-bounded STATICCALL with zero output
+area, checks RETURNDATASIZE before copying exactly 32 bytes, and after that copy
+requires at least \code{postVerificationReserveGas} remains.  Revert, OOG,
+short/trailing/oversized returndata, a Boolean-shaped value, or a returned word
+different from the reconstructed statement hash rejects before any canonical
+state write.  Revert data and unexpected returndata are never copied.  The
+10,000-gas envelope and post-verification reserve are release-calibrated against
+the complete remaining success and rejection suffix; threshold and
+threshold-minus-one measurements are release gates.  Profile validation also
+requires the complete checked preflight sum above to be no greater than the
+same profile's nonzero \code{supportedL1BlockGasLimit}; independent release
+measurement must leave the general 30\% transaction headroom required below.
+
+Settlement constructs the following \code{SettlementStatementV2} Solidity
+struct in exactly this order.  It computes \code{statementHash} as legacy
+Keccak of the ASCII domain
 \code{"slot-chain-statement-v2"} followed by \code{abi.encode(S)}:
 \begin{verbatim}
 S = (uint256 settlementChainId, uint256 l2ChainId, uint256 protocolVersion,
@@ -4187,7 +4315,7 @@ migrationActivationContextV1() selector = 0x7cf70319
 activeSettlementStateV1() selector = 0x4a95c306
   gas = 50000; return = 256-byte ASR1
 targetReleaseRegistrationV2(uint64) selector = 0xf588fec3
-  gas = 100000; calldata = 36 bytes; return = 416-byte RTR2
+  gas = 100000; calldata = 36 bytes; return = 512-byte RTR2
 \end{verbatim}
 MACT must name ACTIVATING and the source/target tuple.  ASR1 must name gate
 \code{READY}; its generation, active Settlement/version and complete target
@@ -5613,6 +5741,12 @@ releaseManifestHash = H(abi.encode(RELEASE_MANIFEST_TYPEHASH,
 Zero values, duplicate component addresses, a Bridge different from component
 10, a component count/order mismatch, or any named/hash field inconsistent with
 the Appendix grammars rejects.
+The ordinary tier-1/2/3 Settlement validity-verifier descriptor is committed
+transitively and unambiguously by \code{executionProfileHash}; the separately
+named \code{migrationVerifierDescriptorHash} is only the proof-first
+genesis/version-transition verifier.  Neither field may substitute for the
+other, and registration recomputes both descriptor commitments from their
+distinct profile ranges before accepting the manifest.
 
 The first AnchorV4 custom system transaction calls exactly
 \code{activateRelease(manifest,retirementQueueCount)}.  Its canonical uint64 word
@@ -6073,7 +6207,10 @@ protocolChangeOperationId = H(
  address20(protocolVersionManager) || u64(operationNonce) ||
  u8(operationKind) || u32(payloadBytes) || H(payload))
 \end{verbatim}
-where \code{payloadBytes} is nonzero and at most 131,072.  The sole proposer
+where \code{payloadBytes} is nonzero and at most 149,088.  This exact maximum
+is the 2,240-byte REGISTER\_RELEASE envelope plus the maximum 146,848-byte
+canonical execution profile; no other operation kind may exploit trailing
+capacity because its decoder requires its own exact static length.  The sole proposer
 calls \code{queueProtocolChangeV1(uint8,bytes)}; the timelock assigns the next
 checked nonzero \code{uint64} nonce, records the exact hash/length and
 \code{executeAfter=checked(uint64(block.timestamp)+604800)}, and emits the
@@ -6144,7 +6281,7 @@ then the eight descriptor words
 bytes32 factoryConfigurationHash,bytes32 salt,bytes32 initCodeHash,
 address targetSettlement,bytes32 targetRuntimeHash,
 bytes32 targetConfigurationHash)} followed by the sole dynamic offset, exactly
-\code{0x08a0}.  Its tail is one length word, 1--65,536 canonical profile bytes
+\code{0x08a0}.  Its tail is one length word, 1--146,848 canonical profile bytes
 and zero right-padding, making total payload length
 \code{2240+ceil32(profileBytes.length)}.  Alias, gap, nonminimal offset,
 nonzero padding or trailing bytes reject.  The manager strictly decodes and
@@ -6254,10 +6391,13 @@ ActiveSettlementRouter.targetReleaseRegistrationV2(uint64 protocolVersion)
           bytes32 targetRuntimeHash,bytes32 targetConfigurationHash,
           bytes32 settlementDeploymentDescriptorHash,
           bytes32 executionProfileHash,
+          uint64 componentConfigurationReadGas,
           bytes32 migrationActivationProfileRecordHash,
           bytes32 dataSessionConfigurationHash,
           bytes32 releaseManifestHash,
           bytes32 bridgeRouteExpansionHash,
+          bytes32 settlementValidityVerifierDescriptorHash,
+          bytes32 kind0IngressAuthorizationId,
           bytes32 targetRegistrationHash)
 ActiveSettlementRouter.migrationActivationProfileV2(uint64 protocolVersion)
  returns (bytes4 magic,uint64 returnedProtocolVersion,
@@ -6284,13 +6424,23 @@ The selectors are respectively \code{0x9aa71eff}, \code{0xf588fec3},
 four-byte selector followed by the exact REGISTER\_RELEASE payload; its selector
 is the Keccak selector of the fully expanded 59-word manifest tuple printed in
 the activation ABI and the eight-word deployment tuple above.  Returns are
-96 bytes for registration, 416/RTR2, 768/MPR2, 128/PIR2 and 800/PIA2 bytes;
+96 bytes for registration, 512/RTR2, 768/MPR2, 128/PIR2 and 832/PIA2 bytes;
 magics are
 \code{0x52545232}, \code{0x4d505232}, \code{0x50495232} and
 \code{0x50494132}.
-The row return is magic, returned ID and the 23 static struct words in the
+The ingress row return is magic, returned ID and the 24 static struct words in the
 published field order.  Unknown version/ID, short/trailing data or noncanonical
 padding rejects rather than returning a zero row.
+RTR2's added gas, descriptor-hash and kind-0 authorization-ID words are derived
+from profile word 111, words 271--280 and the exact kind-0 PIA2 row during
+registration and are immutable.  Because
+\code{targetRegistrationHash} already
+commits \code{executionProfileHash} and \code{releaseManifestHash}, this compact
+copy is a recoverable activation witness for the same read budget, descriptor
+and authorization, not a second authority.  Any mismatch with the transient
+profile rejects before the row is written.  Activation requires that stored ID
+to pass PIM2 membership under the exact PIR2 root before reading PIA2; it then
+joins kind, adapter, runtime, configuration and constructor commitment.
 
 The fixed MPR2 words are decoded from canonical profile bytes and committed as
 \begin{verbatim}
@@ -6338,10 +6488,15 @@ SourceTerminalVerifier at words 166--168, and checks Market EXTCODEHASH and its 
 \code{componentConfigHashV2()} against the PVM1 root and independently
 recomputes the Market configuration from the actual five constructor values.
 It next checks the protocol-root ERC-2470 address and EXTCODEHASH; ERC-2470 has
-no protocol-specific configuration getter.  Finally it checks target
-EXTCODEHASH, \code{componentConfigHashV2()} (selector \code{0xf6c0f7d2}),
-DSV1 and TCS2 in that order.  PVM's postread repeats the five target
-observations.  Short/trailing, bad padding, revert/OOG or caller-dependent
+no protocol-specific configuration getter.  It directly checks the ordinary
+Settlement verifier's EXTCODEHASH and exact configuration getter from profile
+words 271--280.  It then derives the kind-0 init
+code and address from the profile artifact and checks that adapter's
+EXTCODEHASH, \code{componentConfigHashV2()} and KCS1 in that order.  Finally it
+checks target EXTCODEHASH, \code{componentConfigHashV2()} (selector
+\code{0xf6c0f7d2}), DSV1, TCS2 and SVD2 in that order.  PVM's postread repeats
+the verifier, three adapter and six target observations.  Short/trailing, bad padding,
+revert/OOG or caller-dependent
 PCT1/PVM1/control getter behavior rejects in the common outer revert domain.
 This exact order is part of the cold-state gas certificate and MUST NOT be
 reordered.
@@ -6358,7 +6513,7 @@ bound by the PVM configuration hash and the release gas certificate; the
 3,000,000/500,000/100,000 figures in model fixtures are lower-bound examples
 only.  Before each nested call PVM checks EIP-150-forwardable gas plus all
 remaining stipends, bounded copy cost and the post-callback reserve.  The
-maximum 65,536-byte cold-state registration benchmark must succeed at the
+maximum 146,848-byte cold-state registration benchmark must succeed at the
 published values and fail at one less.  Router requires the manager caller in
 PVM APPLYING while Router is IDLE, independently re-derives expected values
 from the same raw profile and repeats the PVM1, control, Market, factory and
@@ -6492,7 +6647,7 @@ review-finality blocks,
 \code{releaseMarketInstallationGas}, \code{releasePostreadGas} and
 \code{releasePostCallbackReserveGas}.  The last four are protocol-root
 immutable MAX\_PROFILE caps measured before the PVM is deployed against the
-65,536-byte/267-field cold worst case, not per-release mutable values or guessed
+146,848-byte/281-field cold worst case, not per-release mutable values or guessed
 constants.  Every later release certificate must measure at or below these
 caps; exceeding one requires the independent new-root migration described
 above.  The executable
@@ -6682,7 +6837,16 @@ Boolean.  A later switch checks on L1 that the old
 read the live L2 Inbox cursor.  The preflight reads the old canonical core,
 sequence and last-commit block; Queue root/count/frontier/cursor/liabilities,
 balance and last due time; the exact fresh target predicate; and all code,
-configuration and object identities.  The target proof executes the release
+configuration and object identities.  In particular, before any activation
+write it loads RTR2's kind-0 authorization ID, exact-reads PIR2/PIM2/PIA2,
+joins that member to the registered version/root and repeats its adapter's
+exact EXTCODEHASH, configuration and KCS1 constructor-state checks from
+registration.  It also
+loads the compact ordinary-verifier descriptor hash from RTR2, strictly decodes
+the target's complete SVD2 getter under RTR2's stored configuration-read gas,
+recomputes that hash and repeats the returned
+verifier's exact EXTCODEHASH/configuration checks.  The target
+proof executes the release
 Anchor and validates L2 component rows 4--10.  A missing component, collision,
 bad verifier or proving outage therefore leaves the source and Queue unchanged.
 
@@ -7166,7 +7330,7 @@ REGISTER\_RELEASE frame.  It recomputes the V1 authorization ID below from the
 Market's immutable chain/address plus the supplied manifest-derived fields,
 then makes exactly one 100,000-gas STATICCALL to Router's
 \code{targetReleaseRegistrationV2(protocolVersion)}.  It requires the exact
-416-byte RTR2 return and compares its version, target, runtime hash,
+512-byte RTR2 return and compares its version, target, runtime hash,
 configuration hash and target-registration hash with the supplied fields
 before writing an unused ID once.  Market does not call the target during
 installation: PVM and Router already performed independent target live reads,
@@ -8746,7 +8910,7 @@ profileBytes = abi.encode(ExecutionProfileV2)
 executionProfileHash = H("slot-chain-execution-profile-v2" ||
                          u32(byteLength) || profileBytes)
 \end{verbatim}
-where \code{1 <= byteLength <= 65536}.  V2 is protocol-lifetime frozen: the
+where \code{1 <= byteLength <= 146848}.  V2 is protocol-lifetime frozen: the
 immutable V2 manager accepts only this schema.  An incompatible extension is
 outside every authority path specified here and requires an independently
 reviewed new L1 protocol root/genesis migration; this manager cannot install or
@@ -8754,11 +8918,11 @@ reinterpret it.  Stored V2 hashes are never reinterpreted.  There is no CBOR or
 legacy fallback.
 
 \paragraph{Exact ABI grammar.}
-\code{ExecutionProfileV2} is one tuple of 267 fixed value fields followed by
-the sole dynamic \code{bytes targetCodeArtifact}.  Its outer root word is
+\code{ExecutionProfileV2} is one tuple of 281 fixed value fields followed by
+the sole dynamic \code{bytes deploymentCodeArtifacts}.  Its outer root word is
 exactly \code{u256(0x20)}.  Value field \(i\) below is the ABI word at tuple
-offset \(32i\); word 267 is the sole offset and equals
-\code{u256(8576)=u256(0x2180)}.  The total fixed head is therefore 268 words.
+offset \(32i\); word 281 is the sole offset and equals
+\code{u256(9024)=u256(0x2340)}.  The total fixed head is therefore 282 words.
 The tail is the ordinary ABI bytes encoding
 \code{u256(artifactLength)||artifact||zeroPadding}, with no gap, alias,
 trailing word or nonzero padding.  The complete field order is:
@@ -8901,7 +9065,23 @@ trailing word or nonzero padding.  The complete field order is:
     uint64 maximumStandbyLeaseSeconds,
     uint256 minimumAskImprovementWeiPerSecond,
     uint16 minimumAskImprovementBps, bytes32 economicProfileHash
-267 bytes targetCodeArtifact offset (=8576)
+267..270 kind-0 deployment provenance:
+    bytes32 kind0IngressAdapterCreationCodeHash,
+    bytes32 kind0IngressAdapterSalt,
+    bytes32 kind0IngressAdapterInitCodeHash,
+    bytes32 kind0IngressAdapterConfigurationHash
+271..280 Settlement validity verifier:
+    address settlementValidityVerifier,
+    bytes32 settlementValidityVerifierRuntimeHash,
+    bytes32 settlementValidityVerifierConfigurationHash,
+    bytes32 settlementValidityVerifyingKeyHash,
+    bytes32 settlementValidityProofSystemId,
+    bytes32 settlementValidityPublicInputSchemaHash,
+    bytes4 settlementValidityVerifierSelector,
+    uint32 settlementValidityMaximumProofBytes,
+    uint64 settlementValidityVerificationGas,
+    uint64 settlementValidityPostVerificationReserveGas
+281 bytes deploymentCodeArtifacts offset (=9024)
 \end{verbatim}
 Words 202--204 are the release Source-bundle projection and MUST equal control
 words 41--43 byte-for-byte.  They are named separately only to keep the
@@ -8930,9 +9110,100 @@ targetCompileTimeRulesHash = H(
 \end{verbatim}
 The concatenation is exactly the 20 canonical ABI words in the displayed
 order.  A bounded word-table/assembly decoder is permitted and preferred;
-compiler-generated decoding of a 267-field tuple is not an implementation
+compiler-generated decoding of a 281-field tuple is not an implementation
 assumption.  Fixed tuple arity means unknown, missing, duplicated or reordered
 fields cannot be represented canonically.
+
+The sole dynamic artifact is a canonical two-artifact bundle, not a generic
+list:
+\begin{verbatim}
+u32(settlementCreationLength) || settlementCreationCode ||
+u32(settlementRuntimeLength)  || settlementRuntimeCode  ||
+u32(kind0CreationLength)      || kind0CreationCode      ||
+u32(kind0RuntimeLength)       || kind0RuntimeCode
+\end{verbatim}
+All four lengths are nonzero; each runtime is at most 24,576 bytes, the
+Settlement creation code is at most 40,032 bytes, and the kind-0 creation code
+is at most 48,544 bytes.  The raw bundle is at most 137,744 bytes.  With the
+32-byte outer root, 9,024-byte tuple head, 32-byte dynamic length and canonical
+padding, the complete profile is at most exactly 146,848 bytes.
+There is no artifact count, offset, inner padding, alias, suffix or omitted
+entry.  Words 49/48 and 267/229 equal the respective creation/runtime Keccak
+hashes.  The build-conformance report derives both artifact pairs from their
+named single compiler outputs and rejects mixed invocations or metadata.
+
+\paragraph{Kind-0 deterministic deployment.}
+The kind-0 adapter is a fresh, non-proxy, release-scoped ERC-2470 deployment,
+not a SourceBundleFactory child and not a nineteenth root artifact.  Let
+\code{F=0xce0042B868300000d44A59004Da54A005ffdcf9f}.  Its exact derived values are
+\begin{verbatim}
+kind0Salt = H("slot-chain-kind0-ingress-salt-v1" ||
+  u256(settlementChainId) || u256(l2ChainId) || manifestNamespace ||
+  u64(protocolVersion) || address20(activeSettlementRouter) ||
+  address20(forcedQueue))
+kind0ConfigBytes =
+  u256(settlementChainId) || u64(protocolVersion) ||
+  address20(activeSettlementRouter) || routerRuntimeHash || routerConfigHash ||
+  address20(forcedQueue) || queueRuntimeHash || queueConfigHash ||
+  address20(protocolVersionManager) || u256(l2ChainId) ||
+  u64(maximumForceValiditySeconds) || u64(5000000) || u32(131072) ||
+  u64(21000) || u256(fixedIngressWei) ||
+  u256(executionWeiPerAccountedGas) || u256(proofWeiPerAccountedGas) ||
+  u256(permanentWeiPerByte) || u256(maximumAcceptedFeeWei)
+kind0ConfigurationHash =
+  H("slot-chain-kind0-ingress-config-v1" ||
+    u32(448) || kind0ConfigBytes)
+kind0ConstructorTail = abi.encode(
+  settlementChainId, protocolVersion,
+  activeSettlementRouter, routerRuntimeHash, routerConfigHash,
+  forcedQueue, queueRuntimeHash, queueConfigHash,
+  protocolVersionManager, l2ChainId,
+  maximumForceValiditySeconds, uint64(5000000), uint32(131072),
+  uint64(21000), fixedIngressWei, executionWeiPerAccountedGas,
+  proofWeiPerAccountedGas, permanentWeiPerByte, maximumAcceptedFeeWei)
+kind0InitCodeHash = H(kind0CreationCode || kind0ConstructorTail)
+kind0Adapter = last20(H(0xff || address20(F) || kind0Salt ||
+                        kind0InitCodeHash))
+\end{verbatim}
+The nineteen constructor words are exactly 608 bytes and canonically padded.
+Profile words 267--270 and 228--229 MUST equal these derived
+creation/salt/init/config and address/runtime values, respectively.  The
+configuration and constructor exclude the adapter address, Settlement,
+execution-profile hash, target hashes, release manifest, registration,
+authorization ID and ingress root; the dependency direction is therefore
+root primitives/artifact, then kind-0 deployment, then profile, target,
+manifest and registration, with no fixed point.
+
+Deployment is the canonical zero-value ERC-2470
+\code{deploy(bytes,bytes32)} call (selector \code{0x4af63f02}) with head
+\code{[0x40,kind0Salt]} and one contiguous length/data/zero-padded init-code
+tail.  The factory account/runtime/raw deployment transaction are the same
+protocol-root constants specified for Settlement.  An exact-code front-run is
+accepted after all postreads; a nonce/code collision, empty or different
+runtime, wrong configuration, alternate salt/init code or partial deployment
+rejects registration.  Balance-only prefunding is preserved and is not a
+freshness veto.
+
+The pinned constructor/build proof is the same strength as Settlement's: both
+artifacts come from named outputs of one layer-1 compiler invocation; reachable
+kind-0 init code accepts only the nineteen-word suffix, observes only zero
+\code{CALLVALUE}, the fixed \code{CALLER=F}, and the required
+\code{CHAINID=settlementChainId}, performs the exact finite configuration-slot
+writes, performs no external call/create/transient write, and returns the
+published runtime.  Every claim, record, aggregate-liability and reentrancy
+slot is canonical zero.  The runtime has no mutation path before Router
+authorization: an unregistered or merely staged adapter's first Router call
+reverts the entire outer frame, and it cannot create a record or refund credit.
+Registration and activation independently recheck EXTCODEHASH,
+\code{componentConfigHashV2()} and the authenticated constructor commitment.
+
+During ACTIVATING, both old and new adapters are append-inert.  The atomic
+ACTIVE write installs exactly the new typed append authorization; rollback
+restores the old sole authority and the new empty state.  A historical adapter
+may forever expose records and withdraw already-created CEI pull refunds, and
+may remain allowlisted for the nonpayable sync preflight, but can never append,
+regain append authority or redirect a refund.  Global Queue rows are not
+adapter-owned and survive the switch.
 
 Word 57 is fixed to the L1 EIP-2935 system address
 \code{0x0000F90827F1C53a10cb7A02335B175320002935}; word 58 and the independent
@@ -8964,12 +9235,9 @@ migration installs a Router with the same value.  Both Router and target reject
 a zero history cell or any request below that bound or outside the 8191-block
 window.
 
-\paragraph{Authenticated code artifact and constructor.}
-The inner dynamic bytes have exactly
-\begin{verbatim}
-u32(creationLength) || creationCode || u32(runtimeLength) || runtimeCode
-\end{verbatim}
-with no suffix.  Both lengths are positive,
+\paragraph{Authenticated code artifacts and Settlement constructor.}
+The first creation/runtime pair in the canonical two-artifact dynamic bundle is
+the Settlement pair.  Both lengths are positive,
 \code{H(creationCode)=targetCreationCodeHash},
 \code{H(runtimeCode)=targetRuntimeHash}, \code{runtimeLength<=24576}, and the
 final init code below is at most 49152 bytes.  The two metadata commitments are
@@ -8987,21 +9255,21 @@ metadata alone is insufficient: the release verifier proves for all accepted
 constructor arguments that the only constructor RETURN path emits those exact
 runtime bytes; handwritten assembly/Yul runtime patching is forbidden.
 
-\code{TargetParametersV2} is exactly the 267 fixed value words above, in the
-same order and canonical padding, excluding only word 267 and the dynamic tail.
+\code{TargetParametersV2} is exactly the 281 fixed value words above, in the
+same order and canonical padding, excluding only word 281 and the dynamic tail.
 The constructor tail is exactly
 \begin{verbatim}
 abi.encode(TargetParametersV2) || executionProfileHash ||
 migrationActivationProfileRecordHash || targetRuntimeHash || targetArtifactHash
 \end{verbatim}
-or 271 words/8672 bytes.  Consequently \code{creationLength<=40480} and
+or 285 words/9120 bytes.  Consequently \code{creationLength<=40032} and
 \code{initCode=creationCode||constructorTail}.  The constructor reads this
 fixed suffix, requires zero value,
 \code{msg.sender==settlementFactory}, and
 \code{block.chainid==settlementChainId}; it recomputes every hash and stores
 the exact initial inventory below.  Let
 \code{P=keccak256("slot-chain.target.parameters.storage.v2")}; it writes
-profile fixed word \(i\) to slot \code{P+i} for every \(0<=i<267\).  It then
+profile fixed word \(i\) to slot \code{P+i} for every \(0<=i<281\).  It then
 writes \code{executionProfileHash}, \code{migrationActivationProfileRecordHash},
 \code{targetRuntimeHash}, \code{targetArtifactHash},
 \code{targetParametersHash}, \code{dataSessionConfigurationHash} and
@@ -9011,13 +9279,13 @@ Keccak of those exact lower-camel names prefixed with
 all mappings, guards, counters, queues, sessions and migration fields therefore
 remain canonical zero.  The constructor-poststate commitment is
 \begin{verbatim}
-H("slot-chain-target-constructor-poststate-v2" || u16(267) ||
+H("slot-chain-target-constructor-poststate-v2" || u16(281) ||
   abi.encode(TargetParametersV2) || executionProfileHash || MPR2Hash ||
   targetRuntimeHash || targetArtifactHash || targetParametersHash ||
   dataSessionConfigurationHash || targetConfigurationHash)
 \end{verbatim}
 and the build/storage proof checks exactly that inventory and non-collision of
-all 274 slots against the published storage layout.
+all 288 slots against the published storage layout.
 
 The constructor environment-opcode allowlist is exact: CALLER is used only for
 the factory equality, CALLVALUE only for zero, CHAINID only for chain equality,
@@ -9041,11 +9309,11 @@ targetConstructorStateV2() returns
 with selector \code{0x654f7fce}, exactly four calldata bytes, zero value, the
 MPR2 \code{migrationPostStateReadGas} stipend, exactly 96 return bytes and magic
 \code{0x54435332} (TCS2) in canonically padded word zero.  It recomputes the
-274-word constructor inventory commitment from its own stored fixed inventory;
+288-word constructor inventory commitment from its own stored fixed inventory;
 it accepts no profile, witness or slot list and returns no cached
 caller-supplied commitment.  PVM and Router independently derive the expected
 inventory and configuration from the strict raw profile.  The authenticated
-constructor trace proves exactly those 274 SSTORE operations, no other
+constructor trace proves exactly those 288 SSTORE operations, no other
 SSTORE/TSTORE, and the authenticated runtime has no PREACTIVE mutation surface;
 hidden-map emptiness therefore follows from creation provenance rather than an
 impossible mapping enumeration.
@@ -9070,7 +9338,7 @@ hashes, and
 \begin{verbatim}
 targetArtifactHash = H("slot-chain-settlement-artifact-v2" || u16(288) ||
                        those nine words)
-targetParametersHash = H("slot-chain-target-parameters-v2" || u16(8544) ||
+targetParametersHash = H("slot-chain-target-parameters-v2" || u16(8992) ||
                          abi.encode(TargetParametersV2))
 \end{verbatim}
 The four target build-metadata hashes are not opaque labels.  The release
@@ -9088,19 +9356,20 @@ targetCompilerBuildHash = H("slot-chain-target-compiler-build-v2" ||
 complete solc ABI JSON array; \code{layoutBytes} is the same encoding of the
 complete solc \code{storageLayout} object.  \code{schemaBytes} is UTF-8, with
 no BOM/newline, of the exact ASCII literal
-\code{TargetConstructorV2(bytes32[267],bytes32,bytes32,bytes32,bytes32)}.
+\code{TargetConstructorV2(bytes32[281],bytes32,bytes32,bytes32,bytes32)}.
 \code{buildBytes} is RFC~8785 JCS of exactly the object keys
 \code{solcVersion}, \code{solcLongVersion}, \code{evmVersion},
 \code{optimizerEnabled}, \code{optimizerRuns}, \code{viaIR},
 \code{metadataBytecodeHash}, \code{metadataAppendCBOR},
 \code{solcBinaryHash}, \code{sourceTreeHash} and
-\code{standardJsonInputHash}, \code{targetContractSourcePath} and
-\code{targetContractName}; unknown or missing
+\code{standardJsonInputHash}, \code{targetContractSourcePath},
+\code{targetContractName}, \code{kind0ContractSourcePath} and
+\code{kind0ContractName}; unknown or missing
 keys reject.  JSON strings/numbers/booleans have RFC~8785 semantics and each
-file is at most 1,048,576 bytes.  The pinned build verifier regenerates the four
-target byte strings from the standard-json input and compares every hash before
-registration.  The version/EVM/metadata values, all named hashes, the target
-source path and target contract name are JSON strings;
+file is at most 1,048,576 bytes.  The pinned build verifier regenerates all
+target and kind-0 metadata byte strings from the standard-json input and compares every hash before
+registration.  The version/EVM/metadata values, all named hashes, both source
+paths and both contract names are JSON strings;
 \code{optimizerEnabled}, \code{viaIR} and \code{metadataAppendCBOR} are JSON
 booleans; \code{optimizerRuns} is an integer in \([0,2^{32}-1]\).  The three
 inner hashes are lowercase \code{0x}-prefixed 32-byte hex and are exactly
@@ -9123,31 +9392,97 @@ Every standard-json \code{sources[path]} object contains exactly one
 \code{content} string and no \code{urls}; every import resolves to another
 entry in that same source map.  The verifier invokes the pinned solc binary in
 an empty directory with only \code{--standard-json}, no base/include/allow
-paths, no import callback, no filesystem fallback and no network.  The target
-source path obeys the same path grammar and exists in \code{sources}; the
-target contract name is a nonempty ASCII Solidity identifier.  Creation code,
-runtime code, ABI, storage layout, immutable/link-reference tables and their
-hashes must all come from the single output object
-\code{contracts[targetContractSourcePath][targetContractName]}.  Mixing fields
-from different source or contract entries, selecting by a suffix or using a
-different compiler invocation rejects.  ERC-2470 is a protocol-root dependency,
+paths, no import callback, no filesystem fallback and no network.  Both named
+source paths obey the same path grammar and exist in \code{sources}; both
+contract names are nonempty ASCII Solidity identifiers.  Each creation code,
+runtime code, ABI, storage layout and immutable/link-reference table must come
+from its exact named output object:
+\code{contracts[targetContractSourcePath][targetContractName]} or
+\code{contracts[kind0ContractSourcePath][kind0ContractName]}.  Mixing fields
+between them or any other source/contract entry, selecting by a suffix or using
+a different compiler invocation rejects.  ERC-2470 is a protocol-root dependency,
 not a publisher-built artifact and therefore does not appear in this target
 compiler manifest.
+The kind-0 build metadata uses the same RFC~8785 rules.  It publishes
+\code{kind0AbiHash}, \code{kind0StorageLayoutHash} and
+\code{kind0ConstructorSchemaHash}; the last is the length-prefixed hash, under
+\code{"slot-chain-kind0-constructor-schema-v1"}, of this no-newline ASCII
+literal (adjacent fragments concatenate without separators):
+\begin{verbatim}
+kind0AbiHash = H("slot-chain-kind0-abi-v1" ||
+  u32(kind0AbiBytes.length) || kind0AbiBytes)
+kind0StorageLayoutHash = H("slot-chain-kind0-storage-layout-v1" ||
+  u32(kind0LayoutBytes.length) || kind0LayoutBytes)
+"Kind0IngressAdapterConstructorV1(uint256,uint64,address,bytes32,"
+"bytes32,address,bytes32,bytes32,address,uint256,uint64,uint64,"
+"uint32,uint64,uint256,uint256,uint256,uint256,uint256)"
+kind0ConstructorSchemaHash = H(
+ "slot-chain-kind0-constructor-schema-v1" ||
+ u32(kind0SchemaBytes.length) || kind0SchemaBytes)
+kind0ImmutableReferencesHash =
+ H("slot-chain-solc-immutable-references-v1" || u32(0))
+kind0LinkReferencesHash =
+ H("slot-chain-solc-link-references-v1" || u32(0))
+\end{verbatim}
+Both named compiler tables MUST be empty; any immutable patch range, link
+reference, placeholder, DELEGATECALL, CALLCODE or SELFDESTRUCT in reachable
+adapter runtime rejects conformance.  Ordinary external calls remain limited
+to the exact Router/Queue protocol ABIs and the guarded CEI pull-refund path;
+no library or generic target is reachable.
+Its semantic constructor
+poststate commitment is
+\begin{verbatim}
+kind0ConstructorPoststateCommitment = H(
+ "slot-chain-kind0-constructor-poststate-v1" || u16(19) ||
+ kind0ConstructorTail || kind0ConfigurationHash || kind0RuntimeHash)
+\end{verbatim}
+The trace/storage proof binds that semantic commitment to the exact published
+storage layout and proves every other production slot remains zero.
+The adapter exposes
+\begin{verbatim}
+kind0ConstructorStateV1() returns
+ (bytes4 magic,bytes32 constructorPoststateCommitment,
+  bytes32 configurationHash)
+\end{verbatim}
+with selector \code{0xf33625b3}, magic \code{0x4b435331} (KCS1), no arguments
+and exactly 96 canonical return bytes.  Registration and activation each call
+both this getter and \code{componentConfigHashV2()} with RTR2's registered
+\code{componentConfigurationReadGas}, zero value and zero output area, and
+reject unexpected returndata before copying.  Registration derives the KCS1
+commitment from the transient profile and stores it in the kind-0 PIA2 row;
+activation exact-reads that PIR2/PIM2-authenticated PIA2 row and compares KCS1
+to its stored commitment while also joining adapter address, runtime and
+configuration.  Activation never recovers or accepts profile bytes.  The two
+getters are caller-independent and make no external call.
+
 The mandatory off-chain conformance tool emits a canonical binary report in
 addition to its human-readable diagnostics:
 \begin{verbatim}
 buildConformanceReportHash = H(
- "slot-chain-build-conformance-report-v1" || u16(481) || u8(1) ||
+ "slot-chain-build-conformance-report-v2" || u16(853) || u8(2) ||
  verifierExecutableHash || standardJsonInputHash || sourceTreeHash ||
  executionProfileHash || migrationActivationProfileRecordHash ||
  targetCreationCodeHash || targetRuntimeHash || targetArtifactHash ||
  targetParametersHash || targetConfigurationHash ||
  constructorPoststateCommitment || targetAbiHash ||
  targetStorageLayoutHash || targetConstructorSchemaHash ||
- targetCompilerBuildHash)
+ targetCompilerBuildHash || address20(kind0IngressAdapter) ||
+ kind0IngressAdapterCreationCodeHash || kind0IngressAdapterRuntimeHash ||
+ kind0IngressAdapterSalt || kind0IngressAdapterInitCodeHash ||
+ kind0IngressAdapterConfigurationHash ||
+ kind0ConstructorPoststateCommitment || kind0AbiHash ||
+ kind0StorageLayoutHash || kind0ConstructorSchemaHash ||
+ kind0ImmutableReferencesHash || kind0LinkReferencesHash)
 \end{verbatim}
-All 15 hashes are nonzero.  The release repository publishes the verifier
+All 26 hashes and the adapter address are nonzero.  The release repository publishes the verifier
 executable bytes, complete input bundle, binary report and diagnostics; the
+input bundle also contains the exact ordinary-validity-verifier runtime and
+the \code{proofSystemId}-named precompile policy.  Before emitting the report,
+the verifier matches that runtime to profile word 272 and proves the
+state-independent/runtime restrictions in the verifier-statement subsection;
+failure produces no conformant report.  Thus the existing
+\code{executionProfileHash} report field binds the checked runtime, descriptor
+and policy without introducing another on-chain label.  The
 DAO proposal metadata names this report hash before queueing.  Two independently
 built verifier binaries must reproduce the same report and all profile outputs.
 The report is an auditable governance-release artifact, not an on-chain proof:
@@ -9264,11 +9599,11 @@ factory makes a release unavailable, never accepted.
 Release conformance rejects the former \code{a1617601} and A4
 \code{a4000101400241000380} CBOR fixtures even if a caller rehashes them.  It
 also gates deployed PVM, Router and target runtime at no more than
-24576 bytes, target creation at no more than 40960 bytes, final initcode at no more
+24576 bytes, target creation at no more than 40032 bytes, final initcode at no more
 than 49152 bytes, and publishes cold-state
 maximum-profile deployment and nested Timelock--PVM--Router registration gas
 measurements.  Every fixed call budget includes EIP-150 forwardability and a
-named post-call reserve; no unmeasured 65536-byte profile is implementation
+named post-call reserve; no unmeasured 146848-byte profile is implementation
 ready.
 
 Every profile contains exactly one immutable
@@ -11624,6 +11959,7 @@ Each release profile also publishes the complete bounded
 struct ProfileIngressAuthorizationV2 {
   uint8 kind; address adapter;
   bytes32 adapterRuntimeHash; bytes32 adapterConfigurationHash;
+  bytes32 adapterConstructorPoststateCommitment;
   address activeSettlementRouter;
   bytes32 routerRuntimeHash; bytes32 routerConfigurationHash;
   address forcedQueue;
@@ -11641,7 +11977,12 @@ struct ProfileIngressAuthorizationV2 {
 \code{INGRESS_AUTHORIZATION_TYPEHASH} is the Keccak hash of the exact canonical
 Solidity signature above with the field names and order shown.
 \code{authorizationId=keccak256(abi.encode(TYPEHASH,row fields...))}.
-Kind 0 requires its three source fields and all four destination-topology fields
+Kind 0 requires a nonzero
+\code{adapterConstructorPoststateCommitment} equal to KCS1 recomputed from the
+profile's exact constructor tail, configuration and runtime.  Kind 1 requires
+that field to be zero because its separate SourceBundle deployment, BRC1 and
+one-shot seal are its constructor/lifecycle authority.  Kind 0 requires its
+three source fields and all four destination-topology fields
 (domain, Bridge, Bridge execution hash and infrastructure hash) to
 be zero but binds the nonzero destination chain, Router, Queue and exact kind-0
 adapter.  Kind 1 requires all source and destination fields nonzero and equal to
@@ -11667,7 +12008,8 @@ where the root typehash is Keccak of
 \code{"IngressAuthorizationRootV2(uint16 count,bytes32 idsHash)"}.
 Concatenation contains only the fixed 32-byte IDs and has no length prefix; the
 typed root supplies the count.  ProtocolVersionManager recomputes this value
-from canonical profile bytes before registration and stores an append-only
+from canonical profile bytes before registration, including the derived kind-0
+constructor commitment, and stores an append-only
 \code{authorizationId -> row} and \code{adapter -> authorizationId} index.
 No caller-supplied root, row-validity Boolean or post-cutover governance bind is
 accepted.
@@ -11930,17 +12272,17 @@ mvDescHash ba4e50bfb5fabf8cd253f48ed38e4cc1a4f3fc04174ae94e4dd971b1d6e36eed
 mvConfigSel 476b9aef
  relTypehash e7dc28b9b7147fbe9f9b0e0bf910800983be65e9ca19020f296fb0e780a0804b
  activateSel 33f5ca80
- relManifest 343f5333e047f51d87ec2d1aeb8bf2ef35e3dda3c0246878a92874e70d94a80a
- succManifest 3270ab58d2de9c50a8fd6f1c6a00a080f4b414cfdc82769e7e0eba65bc5bbcca
- destReg 5da8fa9049c932b99699638f3dcb071239c3b5ed90db7931697416b99633d2ba
+ relManifest b6594be9afa1d7472e9d9b8b1b7027435dee9fe8b318cc5e9ce20ebe717f43ba
+ succManifest 9cc41591925c1bc6845e391029d9f148e0c7d45ce0afe84ce6fac11dcc94b65f
+ destReg c66eb449fc3da2146daa9e9308137bec087f4159de08ac0d220d23d4a951d560
 migStmtType 832785a7f9ce32f97dfa06fb39b9c583c13e65a5967c88f7c8c3fbda94fcef2b
 deployType babd40345cd96b87434cc1bcc50b0c693556c37283b9b3399abf60339dc363a0
  components 39c81654d0554b17c41192b3e5f9069488373902e9aa7236cfc76cf8a5db5408
- genesisDeploy 614304ef2982b52388e60a571b529a33617b290d0d2ba490ebfe01b52a5ea175
- versionDeploy cd83045ad83423f86e5a80089f490f26fc120c91d081182519e03d0991bf408c
+ genesisDeploy 900ae1ae455245accc5522cfde52d3df63278baa4e6a1d30cd7abf34b8f40309
+ versionDeploy 328cd08a675b046c0ba73044bf1c8cd3f16e07a78dc34fc0f17d52cbfc3c1d97
 legacyCkpt 6ab84b0c77035309ac300830aa1c31d95f68c44b697d97a6836f7f3f54bf0708
- genesisStmt cc163fb829e9da91058b35aa72cddf2f4cec3e042789fb590dafb91803af5127
- versionStmt d622b4e5bf4e67c480191c366a2a0cb9d61d0297bed99024a3abafc2e1e32cd2
+ genesisStmt f98dce382f3a3733bd3a89cfe43ff07c706f116e6fe68cc4a4bd090108c9ec88
+ versionStmt 769dc1d028023e5920cb898c3540c3ca3202c2af6cd774ae3ce811248ffc92d1
 genBaseCore 12243b817561a9362bb03dffb36bb73f9314d47e3165673793419692cd8a8566
 genBase 5081c70042287a8b7156b2626675ea4ed9623c755d5f51b5c83be94e90da3ff3
 genCandidate 90949c0865a5e0226c6c0d736c0533f9e5f1d793dc9c5d21407a210ee3896338
@@ -11949,24 +12291,24 @@ regStmtType c049f967468e58f1a5c9b9e1a147dfc233695ae69c5d4a95ec4ffb49b5687da0
 regRouteType 4368ad9403b46ef3830e21af8cddcaedbd444c8c57bc3414ebc6fdd250e1e6da
  regRoute 8a92802ac27ef7bc1fe751df95c3543df477ec7e7220793bad45d7c7d3e0c05d
 verifyRegSel 33639818
- regStmtHash def43d27efe0cf7f5a1434df51721cfb35744ae1f60be5b65101228d8feb1b49
+ regStmtHash ba6aca55dd8732be6d74273ff0eeeda4d9d4838e79d6fde760bb3928197267b5
 regProof 0027acbf8d87ef5b7c901c3dc27af4b56f1e4fb64953cf87f6fcd6ee878c963c
 regCfgType 38f7fbc63e45f650bd5cbaffba0d81d5ca69f21ebdddfa74280d7e6eb5c319d6
 regCfgHash 015ea002adbfab085cf51db1714c889961bb1a416cd69b7d22f1f816a5787e4c
 regDescType 9533e2f6ac9bcf6830306a9ef5d14e21a06008f9ceb59208d09a8d7ab1e6100f
 regDescHash e3c4dd9d13404822af1360b3bc97f3d82dc1dd7124a137e900c6351270505310
 regCfgSel 59bfe418
- verifyRegCall 8ebbc9339382215ee44e7d72ea3bfd12740c204662157f43e11416afbd8ef97c
+ verifyRegCall 735ba835ff03812b1cd376c5ea133ea5d3016833ad3f812ddab58fc0640ac224
 verifyRegLen 516
 srcCtxType 6069dff5f628f94ceff984d5ce3ef62019eaeb4efd7e0627c45a14677bd13c70
  srcCtxHash 003912c395f0a29be213bb41bfb1f171cf5da31f549f6b8bda07bfbeb67c00a4
 dstCtxType b8170dbf684e1fc4dd4dae8fb78ad24984cc0aa0c03cbd1e29b1b2eb5728eefb
- dstCtxHash d4f1621e99c549ad48f2add3613c1d22ec5554f10ba8f07a1ada7812042d3ae4
-ingAuthType a2dccbd60c366ade3f5af12af640f3453bbb4106405ef8da5dd52484db8f2a82
-kind0Auth 27af2fda507104b24da0f7a6095e048cc86de215f38027c2671f4455878a4317
- kind1Auth 33d1addd81180b0cef250ce0324e1a1eabd85693ff496a151c8a8736f9763422
+ dstCtxHash db2d32748d67c58393965146124540af9055cc8adc7179f934bf47d4ac1f06e3
+ingAuthType 7d996545314cabc22ca6b931d7f0e88f910b93ff80840cf27b339490d35845b2
+kind0Auth c825101ced1a3a9749e8923e95680e717166327dbe26572999c134a18829caad
+ kind1Auth 3728bb4741d1ecd493da584356b9421882aedb92bc7dafc7ebd4961a7ec89c1e
 ingRootType c7b11126d8d1984cc17cbc108be2a1be0ef9c4e8fd519fa9033c949962f1b042
- ingRoot 2e42c527a8f2fd3f8b016b062546c85c7ec9079603e77ac4f515da6c76d0b6a7
+ ingRoot 31612dec382343351a15ff38ea1bb5d8aab57060c9ca1abc7f614aeac3944612
 sendMsgSel 9211d7e9
 enqCreditSel 81805d6b
 msgTuple 0e85a708462e96cbaca7158a1534011a25137c3b7aada7f381e4fc5b3afbe40d
@@ -12003,11 +12345,11 @@ verifyPinRetLen 256
 liqQuoteSel 43dc48e0
 fundStateSel 6a9a6c32
 attemptSel 4cbe2fe2
- attemptCall 1c8984627aaccd9a98332483b459281acf1bcb6b5170b2bdcf1a055f08fed968
+ attemptCall 0a5967f00fb99235d29f71624346a9de42c1de0e8e1eb436a7a375e453ed276f
 attemptLen 1124
 finalFailSel 745dcb69
 targetErrSel f9cc2b44
- attemptDigest a414e4701d85eefa5b09cd75896a9609f4fde173e4855e61a9b675b530375b7e
+ attemptDigest c4f86e156a64040bee74ca23cecdb4c8e7bcae139ba95eb49003ad008a2f53ce
  nativeQuota 7364d461f03b17da03a689abfdb4e723065464c3419e3a222bd8ee29cb876ee5
 appendTermSel abc194f5
 termCommitSel 2c984c97
@@ -12021,12 +12363,12 @@ poolDepSel eda2a3f6
 poolWdrSel fe4f5ccf
 poolProcSel 5fbbe107
 poolRetrySel 031f93e7
- poolProcCall a97acef51615440f7106d929949a2061f25828a2e7640139bb27c68fbd7f0121
+ poolProcCall 47dc72deef658ef7706f048546e451720725d289fc3999c627641951e30ab9d3
 poolProcLen 1028
- poolRetryCall 1a3526e230bc8f465c606d4ebe79b1b390b2e826e7b6260332676693c4357595
+ poolRetryCall 5684e0a109e39ad3ef09ca453f04da4cfcce30f8a0d32a6e77830e4692fa5a7d
 poolRetryLen 1060
 poolBridgeSel a535a986
- poolBridgeCall dfb81d2954184931a3a13a59996b12c0c047a7aa4f7b931d50bb5a1363e1173c
+ poolBridgeCall c72c0755e2b5341c9c5ab67a62f9bef26ad674828a837e74a9478cc6c9022c48
 poolBridgeLen 1124
 poolTickSel 5defa7e1
 poolAcctSel f2b3441e
@@ -12035,31 +12377,31 @@ poolCbSel a34908bb
 poolAccMagic 504c4132
 poolValMagic 4e4c5632
 poolResultMagic 4c415632
- poolAuth 1a45c093d8000078214b515202ee234da50fc7b515804a72442f2b4f64e81c04
- poolAccept 657f4eeb9c6806bf3fc5db5706bee4a2610b4cf4b4036030668e132a0fa409d3
+ poolAuth 703adb389bc4f60c23e557d7a80817bb66127f29517749c3b918aa16000614fc
+ poolAccept 38b65eec03d37ae72cb7395f9d19537d9bd5356c794c5805a8136ddc4da21dcb
 policyType d702a337b74fc40bfc746fb1aeeaa705e60a95947bfc3076c76222703205b4b1
 policyHash 5eb7c00399d64d91e416d5a3dbe75187c39dfc2a4645b867864b5fd9e649f3e3
 policySel b2d0e286
 hookSel 7f07c947
 policyMagic 49505632
- l2ReceiptId 053206dec1b3b4695631f3de9a9e286580dcc2e2f807bc06ebd0f247a347c053
- l1ReceiptId 18942f6d0cbf38a3bf60eae168dddcaaed0933a584744130417e21f76afccabe
- execProfile 4feed8e0bfec60e7f34d9cfbb017dff167da3b233e6e6287eb1ad670a5a8bb5c
+ l2ReceiptId 9822bea9fecc7a319d988cd1885fd8ea0c02a4e7b13ff42d6971142fa9224757
+ l1ReceiptId 63b846ea90c10457129a0b4259f4a022a10b99fbbff9ec421ccf4d9c04c52004
+ execProfile 2d73aacf177350dd88961abf28b86dbfb9c79c0907ae916bb83f1b6d0d9a274b
 factoryDeploySel 4af63f02
 factoryCfg 4bf4831c096e251d0ef171bc0fd0582319fdc7ad7a2bea91a6b9b64601aa2837
 marketAuthCfg e348b5cddcb8eb6da9bedb54c23e10cf9fe0c20b9f50f769258b47dfdb870c07
- deployDesc 91bdb3029cf56d37cb9167e4498ad69b856b5909cda153b43f085ec693cf51ec
- deployDescAbi 715be5161a63319101a7ec77d196a5b6c904a1da6de431da58a1fa18393f5a99
+ deployDesc 14f68ac2868e0af536dfdd9351e4981ac4857b52cf96ea028eb1258d4a296a81
+ deployDescAbi 5218d672f53f8093fd5be0522f7863fd82c2627da461b0410a13b857d2857422
 deployDescLen 256
 succDeployDesc 377aa582c38874cf50ef87030c628b15c5e0302e6830e51b09d8542659bedc18
- targetReg 9960e6e736719251db055c3f6a73d150c1e55441e5b8acb9206c6f32f31c5fb9
- succTargetReg b72953817f70362ad9b3a8ea8333f46b072caefc234bfdf8606f5b92fea3bfc8
- mprHash 59693edc8c22abefe9f2b8a91a9301ad184c22c11f60f0772edb86a229e66fe9
- succMprHash fc8080551b2c3016f61eb18d9f37424722b112458758bae1625561bea42f2bcd
+ targetReg 0ce538d6056ad9a98b71822ce8e14ee74c792795ee37a5feb2d24ce534deeac2
+ succTargetReg 4c025c81e10a40d73a642b2135a7cec30d62ed5b078de89c7caeaa413a1942f9
+ mprHash 2d8b21e094b1ca3c4085ce8ef6dffda4e9f07a14b5e194476eab152ee9c69304
+ succMprHash 7e1aec64542e3fd1dc19efa0002db7550c23115553ccd98383bbee0378ab8209
 mprSel c65ff64e
 mprMagic 4d505232
 mprCall 3dd403c33c2e7c4e6b324efac7461b5b0cc6f3696a2a8d8c94c9cb9bafcf9c85
- mprRet d81dec13a11398e83355d77e2cbd8a29b3a8907879d085526c713ba16accfee1
+ mprRet e4aef6e7c28950782fe03b7d2ba982ce2db4144ae584319cc5b24e7bd33b5456
 mprLen 768
 opDomain edc1be882290e6241a79546c41db66a1d975095ae60cf3b2b16f1ed876f6038b
 timelockDesc 442d9b608ecc43eea4009fb7f95c764c747636f42c885174c1442681cc0ab495
@@ -12091,8 +12433,8 @@ expireForkMagic 50465831
 forkChangeWindow 86400
 forkQueueInclusion 900
 forkRenewalRunway 1811
- regRelPayload ba3ec3a5ee4af64def71a602b9f5efdffc406fc546730857ced768d0bdca8761
- regRelPayloadLen 10912
+ regRelPayload 750cae8318e59ead577835d3b4025aa5c00ba19844706d5e0b52fd6b8486b1e9
+ regRelPayloadLen 11392
 regForkPayload c07ba77bf323b341a5c54ef97d01da41c78e962f9c51ab2b9644e7cd6c003012
 regForkPayloadLen 576
 regForkReviewEvidence 14795f387018d6c52030f07fd28f32b34abc62439c2dd8aa28785bf5156bfc68
@@ -12109,11 +12451,11 @@ expectedPredForkReg 233d72ef0935f897e49377ce160962e2ea7ea14c37c309bb094b78e0b50b
 expectedOldForkReg eed5e788c296e7b8449f4aacb62cd9e5b15ec488dc667f4cf3e3aa48a244c6c5
 splitForkPayload 92ac8d8cd580e118ad74b14b48a8e7739594ad8e3434834619bd626e183a16ff
 splitForkPayloadLen 1056
- pubGenPayload 70f6a3274917710e05e61843cc5c5d6a9051cfae3477f3c6b2865cdff44b9738
+ pubGenPayload f21eb3f7bb3ccaf8b200333c469f2932d7621bc121aea52fa9cd4c01b244b798
 pubGenPayloadLen 320
- pubMigPayload fa310042c124ab04cccb48be1e98e6e9a20413125475d72b85ce297251cc7787
+ pubMigPayload 286c3a7f9f6b8531df3a2bb2ba7f4bca4b94d06c331b18a207dc520bb287813e
 pubMigPayloadLen 128
- regRelOp 1567cd0d772389453ddf952211a7b5645992553e095aa83c45566c399d10e994
+ regRelOp 7979b57e53962a0bb028a846da3b71efcfea05448fb1af6f8d1033e201de871c
 regForkOp 59169620023947479c6848e10e72e21f6bad34f51f9b38d30c504b6c522bbf3d
 replaceForkOp fe46b8930ee06263cc46f6fae27477f35528a751133875cc228e0126d8561322
 splitForkOp abce70ea742b56d07e890e5425a1eb355ac2304ace53d73ed105e746ddeceede
@@ -12127,15 +12469,15 @@ splitForkCall 793eb33ab7e71b38a63b6b04704dbdc816de18915df79b09af7d75c4e812b41b
 splitForkCallLen 516
 splitForkRet a3e070e8b9e742f15f072cb46690cf08b62bf018a99b83666455adec80e54833
 splitForkRetLen 160
- pubGenOp da83c6cfb7e22dab70616dce47fdb738e0b44c6180008d8682c9acdc02671191
- pubMigOp 40f65071ff45a202b32e78d840f729fc43624963d30262b072d29aec22bc11de
- queueOpCall 1ef1557e5afa7b12320b66ef8f134f285f3b3085612240c389210c17a39c0651
- queueOpLen 11012
+ pubGenOp 4d4157b55f20723f505ebb603a447a3180509fe96c56f45b39644a0a2faf21e0
+ pubMigOp 91e95eef0ba0ca3edce846a4eb0a3dcc987662a760b3df6f0d566ec70db7e0a6
+ queueOpCall c73900f892f4842af503c2dd847fbeb1a866ba86473fdc24c6ebe9c464a088f0
+ queueOpLen 11492
 execOpCall a00db7a4bd41a8e2546adec7f99463a7c370a517d1b67e34f91778bf65ffcf94
 execOpLen 708
- cancelOpCall bfbc938b990f3fe959cd311722cd5f985189c00aa539cff62da242d7480082c4
+ cancelOpCall af81e8eb6e2b69325d6343e98230dcd0f2e5da91daafd61832713cb525d5e946
 cancelOpLen 452
- applyOpCall 0c3331a3a4f4647205d1cc864ed344ef809a48f12990b4ce96f3cfe5547265c5
+ applyOpCall c9f9a0de0fb0a078fb5ba9abb977e24253ecd22008ecad075228242605cb2852
 applyOpLen 260
 expireForkCall 0674d1859f790b11abfb90dbf54a4f3ceb88574b484c62199a0f0febdb0e9ec7
 expireForkCallLen 36
@@ -12144,40 +12486,40 @@ expireForkRetLen 64
 timelockCfgRet 1813d922f5db2c6e82ca7be236e9cab4b8ca3c8b5f32231d60bd51b75e54b29c
  pvmCfgRet 3305018df3355e109413b0c25e69814e56a645ab71e4fda4024bb31e84feadd6
 armFreshRet b7483e72711cfc12792d104e0b0bc11c51e9e51ba92ff0978675a1e336756dd1
- opGetCall 3185084f458f6912ed06cdd5ab700c7b8b26e6492f37119d296224927c8005ff
- opGetRet 68294d6a83ea402d454554c7fb94446e1c0bb785881f94ab3be0b198209514b9
+ opGetCall 33db780ef52173d3664c9a6e9ad9e843d7c3b3835dfecae60a55ae0d7f4ae53a
+ opGetRet 9048743c1e6ca5f512e6d0da01be9a5155158454a6ffebce66c8c640e7ac3ced
 applyRet f9361bdc99345939494c4794891942dafae95fa74ace38bcf4430ae53ac12c4a
 leaseSel aaac4c97
 leaseAbortSel ea3e96c2
 leaseMagic 564d4c31
- leaseArmId 6cd972f38b1ce9ec3090c77c4e5c45d327faca5af8dd8456ce92fd269407c18b
+ leaseArmId 8a9dd52cad8bb4b7c6e4ed6dfdf1f56c21bfff2589c87fbf873a6982dd02232c
 leaseAbortAt 624800
- leaseRet 51b3c0452b37934015ff1246e94628f28c92bb1596669a56c829e145b1f53ed6
+ leaseRet 8aace3b0bf7d453d337c25aa93b3b4cf48c93691e16dbf48011b802e768d25d8
 leaseLen 320
 regTargetSel 9aa71eff
 targetRowSel f588fec3
 targetRowMagic 52545232
- regTargetCall 05b49909ae2f1825ecda2b8060a66610e3a1c71f355650d03f834a95e88f7e0a
- regTargetLen 10916
- regTargetRet d285d95104b9c9637076a6fd76b8f7a527c05b49dacf7a9f585c7c98ec6d53a7
+ regTargetCall 4ab406d631295bfab335f771d8815cc6f2c6e4b13081a53cc76335a89e2123b2
+ regTargetLen 11396
+ regTargetRet 79246a4401d3c56245712aee0da97f0ea06f6a76422c21908647dcf1d4ed72c9
 targetRowCall 5c5db1ed7485ad89b4d9125c80db863078603f32ddd3032552a6345bd0dba5ee
- targetRowRet b92ca81ed109e2757ef5b77935c272374a0116031330cbfc6415a317e96902c3
-targetRowLen 416
+ targetRowRet 7ba50fcac2193351bed4267f07eb2a974827747adfe1bff6d9987c37a1a28025
+targetRowLen 512
 pirSel 2d2bbe23
 piaSel 2181b974
 pirMagic 50495232
 piaMagic 50494132
- pirRet 851d79e8b52d142eb3a663ec83904543e42e09153acd9c9fb8305079afb02735
-pia0Ret 70b9c601b2d1f2852d14603d001ba507657f2eb32b0be8a38a986b4670c1873f
- pia1Ret d5e94e2123144f067169c89d0bfbf8c901b728bfe897661ad157ca926846bd92
+ pirRet 0c9045484a4e36879db2aac9c499b07ced0892c62cecf12b644c6397f236bae9
+pia0Ret 160cb5e1f74e0e42df2a95218e0c124e7a728107de3d6530fa60513f8392205b
+ pia1Ret 746910578abf39247a18029200b0690cf4d448bdccf873df424c316638835cf7
 authInstallSel b1a3fef9
 authGetSel 1693ae01
 authInstallMagic 53414931
 authGetMagic 53415431
- authId 732c72e356ee45cf3d903974c8fc4d8dc07412f7cb7b1a78c87f973ba264d0bd
- authInstallCall 65ebcfc692483534aca2b6b50cf9820eaa04ad810784aeead0e7bb2266f344de
- authInstallRet ae86f7f0c51ef82e73d24a59c025aac154ff9d1a96fbed4741d64f26e2dc23b3
- authGetRet 0b5c485e72e3dd639ad128e1487719ebdcdc06359ed4c42af878c734eb93f975
+ authId 10ebe04656d3d5a4a1c4cab773e149c180473ba5a31cd193a85d313ddabce908
+ authInstallCall 078bc64984dcff624d011d636a85cccc66e0fa342504feb3250f11286363ef3d
+ authInstallRet e5ccb7b5d25ca7a2f734daae6a115354b91a0c6e47e0b1d319ea0757520afcbf
+ authGetRet 73c9fa7c8c9db37a089b81ceb6144295848d8a9021fd7b84b7ffd1b6e2283b6d
 seatStateSel cf52185b
 seatTermSel 76d5ecd4
 seatDutySel 9a649489
@@ -12211,12 +12553,12 @@ abortVersionSel c4eee12d
 publishLegacyMagic 4c475031
 armVersionMagic 564d4131
 abortVersionMagic 564d4231
- publishLegacyCall dbc91b44b0956e278bbe2b2aba1db4fc979aa2e85899ed9d24ebc35c55bbf199
- publishLegacyRet a075c65c23f43bd891be3ed8add3f32fa01cb44f456d0f6067a1fda258c83bea
- armVersionCall af7034364bfb38e10c77ce8c9da7c06b9ac94fe65ff806232325cd4b0e595c5f
- armVersionRet 52b53595d51405b91c1cbb5540f30cd10d2265bca5e5c8b235891825688caf54
- abortVersionCall bbacaa742d95f872d3545b49e859fdcd4c705a2a958dd439160fdd0f9bb7ace3
- abortVersionRet 76b344fef5193370169868e36209bea0dbfa5e350a4fd58320c935ada1b55de1
+ publishLegacyCall 6b6f65db1654be9c8faa63dbd6fe3c51a654ba5f03848df39962294bd0694ddd
+ publishLegacyRet a546984d8fba2c96070e50dc34c550dd3689649673ccb2a6f3b3cc497bf8c314
+ armVersionCall 9cbcb2ece843d71518462fef44761169a72edb47610e8518c2ed667c136c2fc8
+ armVersionRet b3389d9ee6e7d3f9ffe6c66859f58543113b78b621c9abdc5f21e03cdbb7d3e9
+ abortVersionCall 2a415d455bc04de9e5dddcd3369d0076ecb00cd4bbabadf29e71bea1458979c5
+ abortVersionRet 649fff0dfd2aa5a43272f3c63dbb17086d8ac7084c256915ffa088834039c469
 pvmRouterGas 8000000
 legacyInboxCfgSel c3f909d4
 legacyInboxCfg 22bc70c195669ace965e7565ae253f760d785e048965f94efa51845573b36808
@@ -12287,11 +12629,11 @@ legacyMax16Raw 60928
 legacyMax16CallLen 62084
 legacyFullScanBytes 4161536
 legacyFullScanHeadroom 32768
- legacyReview 48e93b7890be4474289411c19f570faa00c181a230d7cb7fbc00195070d4d57c
+ legacyReview a67a67dbe8f5b3504cf4fc02b1d3478a305d14a087fdc3e1990ee37e338ea8f6
 legacyBlobExpiry 1573864
 legacyCampaignSel 718b2ac7
- legacyCampaignId e94721d14a56774c2079995e1e5cdeb915edbf39d951e54078522dd1f9a19f69
- legacyCampaignRet 486d5706d3fd2588f616861889690b8f7f56e0df3b454969bb860f5778c004a9
+ legacyCampaignId 63f656e3634d5b498acb02d9c620360b99093bf4cb67a749a4072e2987e14d21
+ legacyCampaignRet 113d1e08ee789cc650d80d5e7b60670104c20ca97d5dda155b9885defd20873f
 legacyPrepSel 6880cd05
 legacyPrepRet 8c869f3dfe7df0f01a65e96d7691b5b0d095590acd9f034770c33a6c75472a98
 propRowsEmpty 0736a35926f1618d1fcca0fdf57530d52f3d1694eb227f31c28b158b370793d5
@@ -12299,98 +12641,98 @@ propRowsRoot aeacf67ac14d90928d567c659ff80316a0d780fc490ac6b4b69e9620836d2b46
 forcedRowsEmpty 5631fad8f285ac1643b4e817c5454ee4f1e35174786dd255842a987b21c3fd92
 forcedRecord dbda8510c73bc3eb57de26ae5c5bcc82a45bf6fedab68abf100d9baea6f4a380
 forcedRowsRoot ab7f340cae89170a3a619086538cace009399987a1bffbee40c17da60c10fcc8
- legacyScanCommit 05e0e3ee9860067a44f759d645aaa746e3c15432947c39b3710cfaa518f7e06d
- legacyAbandon cb36eaa84b5a8e1d4cbdfe2c4c81bd8b2e06ad652391b29b7c8022a91763e18e
+ legacyScanCommit 2953e2ef617a444b0161c2de908735e45dec98ca23b6394d07e2f7304fe3812b
+ legacyAbandon 64ee4f382cf6779d96bb3cc7498c933f3f77c3d56bd5c6145402a419f5d3e1da
 legacyAbandonTopic a3b978444273f8f347857235c224846aa45e8ce5bb73df549b9916e96371c8c9
 legacyBeginSel e9d1a07f
- legacyBeginCall cee8b34707fa4569bd05d14609c64005f959a66d5852a9ee325f569ba8e081e6
+ legacyBeginCall a7e6e3e0092a5046d16b7890f0fec8cc2ab767902c7ea589310bd6f89555b06b
 legacyBeginRet add644dde24164cfb29ab6a4598cb55acb73c55dd295b0c2a227dc3264c6f65c
 legacyScanPropSel 7da66460
- legacyScanProp1 d281c883ee5a65da6f3e972e23e47d82d7f3040084aedc7a5f5f765e2432f086
- legacyScanProp16 4b07db9f14a036c29d1049121db7c85ef8df8de6728542f759f3dfeb95ae84d3
+ legacyScanProp1 02f6239a60f3e81b66d055f987febb52123f3d2aff404aec86ec21d0dd510212
+ legacyScanProp16 c32f6d21687b66573e15131ed07315a1e8da72d17f74874ab61e9c86ff6ca1b7
 legacyScanForcedSel 032ae99e
- legacyScanForcedCall 22cd46a4dace81d7802d2b06c51377ba8fd03a626ef024fb9d1229ca72272690
+ legacyScanForcedCall 6af6748c2803053bd1f63dabe1e1e15dbf7a6b24a38c99918f6e0ba9aec4b09e
 legacyScanForcedRet 10dcb42db706d4c4a5afe207c6327f8cecbcbc4b298c0255fe2434662e6599d6
 legacyScanStateSel ef3cdce0
- legacyScanStateRet 242ec0bd268240a60d590c0bf51ca2b718fa9d56e24ef59dd1e4857fe64d5919
+ legacyScanStateRet 204083d12fb27e46060855378b2282a022d7d99e15fe79c4f3ad0fb1ad02196d
 legacyQuiesceSel 4c0ae8da
- legacyQuiesceCall 076ba5b44592119003dece8d0928cb0154203c5d1ddcfe468b3a17549e36a5dc
- legacyQuiesceRet 4d2b622592701b4b1ada1b703589f3448ffca64f4ff16606145e9f3aae6350cd
+ legacyQuiesceCall 5c10ee87160f0b6a861d14c6dae4e912d85f027f6e2be684eb3ce19aa1339f69
+ legacyQuiesceRet a43378e14b51d45554357cd4f88cba6b63d0c80a3bc713f02f581c99ab6fce91
 legacyResumeSel 2bf6b656
- legacyResumeCall 0e02ea7f338a18fa91c50b3e774ca5a01557915c4bc0d701f17460e8d5a07fea
- legacyResumeRet 775e455aeca3d6c245f275799fb94c7463b9557f2b4defca70bc1ba279e8a9c9
- legacyArmId d3329fcb3a8b7259122da7e8edcbbb45f9cc98cdd35e979ebc87a5406519138f
+ legacyResumeCall 077167cc09de7a1815a9fb16809ca62973783e807f8ba726ec9848303f2c3ffc
+ legacyResumeRet 7b78fc9f66ee28dbe333c289dd665d5445a272167de24c7580b9405980614357
+ legacyArmId c986fcbbee5c1db5bb6ee5e1da22cb0d47911d1f9d86046b8334c85ee29d21aa
 legacyBoundary 0215b43e3b2143b3fcac2c97bc2f8cc32ab47ac695a6fd173d919abdcc170263
- legacyLaunch 170f6103eb4cf9416e804727a405f8edd6d996079a565266f6d8478f11da93c0
- legacyPost 4fd9b00d174aff5254ab0a87b65bbd85eb28048d2d5f93a824dcf9623c3736a0
+ legacyLaunch cdfa857c3e0e633c7267fb55e75fc623f1ab00663352c319c9f9498da26bdf8e
+ legacyPost bc95f4331d702a071b3128e76f9df510c3803d5aefa5adeb613eddc6221cde1a
 legacyStateSel 9b698000
 legacyArmSel 8781a058
 legacyFinalSel c2de6417
- legacyStateRet 7f020a71399b1776f1926c55c684a6d793e3f024d4d68e9f5a9be29f1e1a184b
- legacyQuiescentRet e9cc0dff346c0974368fb68ea944c614d5dd7836a4970f8c89e56800c6bdbccd
- legacyReadyRet 492c6b27c16754ad9f1a0cd8f95f9b3f77d0cc2c044bc55dc982525d0d2e0d81
+ legacyStateRet 88f3d2c544effdf5d667e1c4eba8fc21c120ce5e70394aed80250aa49fe0239a
+ legacyQuiescentRet 531b46cfeba52c1d7b414610616f7444327c3875996fd434765111b182f38b50
+ legacyReadyRet 29e6a459688cb593a2ea84bee1fa517f36a20bd8b2ae136d4b8334def3585354
 legacyStateLen 512
- legacyArmCall 9d4639bb62ccaf078d0293df0f8b96aa177cf6cbf28a723a4b1bc0f4fee90c2d
+ legacyArmCall 371925b8292fe1d24cef06105eec2ba338d887ecc8de9737c6ca340891bd895e
 legacyArmCallLen 68
- legacyFinalCall 53fba84f0a56881350d5286d516ff9a56d1b88cdc745ae9ed29dd45cb798b01e
+ legacyFinalCall ddcee71fb07e96e5363d5c01efc76350afc5591e04d6edd73f9cfaa18114b387
 legacyFinalLen 196
- legacyArmRet a8fd15b569ae80c33eb008494bfae200674843f8a1fcd621d0de37d61511400b
+ legacyArmRet af4a11b19b5eb3e3979b326841ca1310d4f1ef11932a09b8cefc3109d911857c
 legacyArmRetLen 128
- legacyFinalRet 5b0a0f887bac288b05f9ff27c2cd5aa7f89012a0da0e70abea6f1be94039a287
+ legacyFinalRet 2c38cd1bfa2809742c239971d9a0623c19affa4341dd68221579c24d81f346f5
 arv1Sel 0a4434d0
- genReceiptCall 5ab1f6ede43aa32a932d88d5da0a060028e8e689ff1d1c91875aa7eedbeb7c6f
- genReceiptRet f4539c5921dd860d5a4d99d425732aa9eba103d8afe0fb45af7edaf997f0088a
- versionReceiptRet f98d13fe637fe5e611c17b19d81d5d9f401c44719f9f1b384e608b3cce877b95
- genCtx 9cbc8f98876e804018f19658ac5ebd7c1eade7cc46a74461318f902a48305ec0
- genCtxRet 99dcdc2b728756d1a46a7ef846eda04e0f4db94dc5d3c6714f9196d6a5010c9c
- genAdopt 576c190b76bc6e0bbee3b079eddd69f349d4ed905b452c7d43b494a5a36d8d98
- genAdoptCall a43eaf15cd33cdc461e52e051b4867df2d9f16f1fb9b9fb68ba1bc1edac058d7
- genAdoptRet 4bbf85aa175cdcadb0d695f2cb84e79d08da3cdfade7ccb451b17eaeb895d898
- genQueuePost d0c9381d3ee143622553c8de77b6ea94bae69a772aa1b59b67103d050db87c13
- genQueueCall 7de587a694057f7973477bca1e9853a47be17d605f6b29c03e4d1419accf2bac
- genQueueRet 048ecf5ba0a3a5ac30c86e15d49f7200c6fd857e62db13034b1b3b93126f7315
- genSrcPostRet 7ecdfc158e9a286b3480d7ecc8178d10065896f26bb89799e53f447ad3729fbc
- genTgtPostRet a464c24f5315795c1cd9c26dfc7e1e7cc999dbc5fba221003194c4677d7ad33f
- genQPostRet 1abdad610a7acfcff13425c542626c4fa7a2a2e898044cf406743fd15b5bea2a
- genReceipt 0eab6750ef2abff644f98c3c75123025108f168eb898b926ccf86ea3cd6d7915
- reorgLegacyPost c4fde5fa0b83ac5617706613c00e3506117514512a3ba0088a42f6889d1b2326
- reorgGenCtx 337d11adfe0f2431838b7f6930ac70bd72255443e899486007947b90f733cd8c
- reorgGenReceipt 8c2c5541917706a54c49c210df34c353de1b5cde5f21c7eaf916b92bb6b3641c
- actContext 5a6231bb9e84d8e4d5be2684008af077ae3d850562607d02ed31b32042371a4c
+ genReceiptCall 6b14ae2240bf97c609c7c4b52caae608ac4cb70e2c243ff083727f28da88c0a4
+ genReceiptRet 061f8c9a0478d36f24ad36f016fc57d98e2f354c4120db4f9f5ea089e4f05d0c
+ versionReceiptRet 06594634175e72e75e3c3d0d434e67b1b332f2dc1e2e00411e10e6e56628165a
+ genCtx 8ad93ea1b308ba0c1e99acaa917befe37b2f372cedfee38c31d1dc1788a79aae
+ genCtxRet 8fd31818e07215c67007d9b257d2749ad8c47189a5a79fe20c3bbc66bc633254
+ genAdopt f5abfc13598584e4fae8d5bc42fa1cf7e1cc80d491717b2bfeb4de8ef7d8ef9a
+ genAdoptCall 2fb507c85fc16f5b51d9804ecd625a9fe92e22c2c1484f9e2b55c12cdd922791
+ genAdoptRet 10d4a9e197dd97ab9e5f01f40c733f869e815ab7eedf771b6a253e33bc2e53fc
+ genQueuePost e928a4279bc6cbaf66f92127b59ebcbc9dfe239e5a21280132a4bf8d94f9f27d
+ genQueueCall 143f65b5c9803b66a8ad2081f8112ee334bb881825fbdaba030bc0baed6c32e3
+ genQueueRet d007b7d57cf2ea079a08806c183efce01b65bdda4e23b3fa31dd7d00767c954d
+ genSrcPostRet cf7a54ae68ffa4e58038ec1127015fba51d5a97ed2c7ac8ae86f41c229b0067c
+ genTgtPostRet c003db2923c3db9ac53f55e6aa28b74d01c1e74e2ebb99179f1d8c30c7c3a738
+ genQPostRet 243df6ac6cb7e64ccc98cf53ef80347ae54b39094538b3792f8fa68449c60ccc
+ genReceipt 10685d2bf06df00986e509986d96276f316dc7e4a8fbaa6fb85eb088724559e7
+ reorgLegacyPost f9b06b8bbbe599ee8f929155b6008bf2362b42257010f4faa159a6da5ba8b744
+ reorgGenCtx b41594bb91556bd09f96ec0211f3544dabf7b44786a397331de05f8537c63759
+ reorgGenReceipt 6471280dc583b43061f89097c33957adc982346b03ebccc8633553b1134f8559
+ actContext c14f0ba9f943005a718798dad25e4f6734432ca4b60247c78ab0928cede3b2e7
 mactSel 7cf70319
- mactRet d255ae7c68d6185d0c3275b27e1fa387f662babaa1867aad5bb130679f509647
+ mactRet 7f939ca13a82ddcb79cd2d2daa740d672e8e212c7412855ae1e56ffb693ceebb
 mactLen 320
 armLifeRet 298524396c6b44dd68c8c21326e4ddb544cc51cfe8d5b89ed34bda45fa998753
 mcanSel 3286443c
- mcanCall 889154f4d3526892ed2b61310e86f2c0e864a5c0a50a5ebfd2ae7ee450c320cb
+ mcanCall 3a568138e816eba1fa1903262e1d633c119b8349770e41514f07c398668b1969
 mcanLen 580
- mcanRet a0094e7035435655e908fa4d9de909f14d0badce2c7c867ab083ab094d3faf14
- sourceFreezePost 23eac6c66af12ea48c3bdc77a429d983dbad8fe9b92692a8839d358223984e79
+ mcanRet 29bbe49eb933dff169a474328388efc21a587b53b29b294fc1547134144ae2ab
+ sourceFreezePost 6ff1bcb7b84ffd272868cc3f1bcaa8580d63b5846f26debb77bcb2370d4dd9de
 mfrzSel 45a80913
- mfrzCall 5d412ab7aadce42f28373a4026b93af41105d079e9c6745e38df6fc58c812f23
- mfrzRet 300a0ec2556d608826ab6a426a20afa5f429bca0ea423230ba1373799b87deca
- queuePost 1a13eca5226874d8e12b92e578be3dca978adae7b1cc0dfa7b5ffe3c2b6d1cef
+ mfrzCall 30f0e9a8404fe31cc78997826426362b360c66df97ef2d2653133a236e866bd2
+ mfrzRet 718fadb554309568b5346c194319e86b87e59b28f513bf231907b4f4666212b2
+ queuePost 0df01cc54f068cfb543e177be4ff2a56c54ec9a6d8f24c6045971bf717103f6d
 queueCredit 64000000000000000
 qmigSel 9461f698
- qmigCall c111b2ae18c6b9051d1768d10268cecd394ebc903ea8c995ad05b2a0cec09990
+ qmigCall 04e3ca8a4c3b3bfe608add6435faedce8e1a312b9399f02b2bdd92dfbd491663
 qmigLen 260
- qmigRet bfa61315c71c3395a66302ae603d42deea490fec338397f4ea84e438ebb6f582
- adoptPost a45e527fe7ce5c040c0c4b89901f63c9af16a0807316d4b77fedc830a2f080f6
+ qmigRet c2e7792f30055cec1dfc1280a888ebdc75a26036a8f8a4ceb66922271df8977b
+ adoptPost 50e73ce0a0e4032731e98de594bf9bda1791186698546fa7e6e11cc743b2f62f
 mapsSel 66e664cb
- mapsCall 40c1717eb2086dd150f3b3311fc9221bbcefb9688d6f604949dc860820d75cb9
- sourceMapsRet 4328893f4fa40869099a0a2074998dc420210cfb4b9f3a6077afcaee046ee829
- targetMapsRet d2a8e3257e0f95d4fea4f1d7a0874c85a37245dfd2a379b8418b9e7f2d97dfba
- queueMapsRet aad0b4d0f08d00c52f6eee6c6ffc9065c246106947ad5fb375944b6758149ad9
+ mapsCall fcc55bc889a9b845336b77d4153fa9c2e41ef3f9ce4402e818924b6cc2668c9a
+ sourceMapsRet b1468ca66bd19deb4caf9a7ec2479420d57f0719d4ea52c65262cc67ebf77315
+ targetMapsRet 3a389f1049b4b00aec37a0068e4be9209485fbb69bf7f44049d8ce341f6ca411
+ queueMapsRet b1129ad0e21577e428d9de12fe5ca9fb68e0aa5f6803b0180099261ee33ed2ff
 activateVSel 17a548ed
 genesisFixed 15236b38830f35f4df4c6bd78015c9a3b495a0f3fe08a028cdb1dd57aac970ca
 versionFixed 24f54f2ca1c6731f04741371c1e2705fcd912e1b5cf2bd5d727729cc5de89a41
- genesisCall caddccafac15f7b9081ce4e6fcba4fd74530cc22d515fae19b890c052fe5417a
+ genesisCall ee1babaad0f4d7c02d4c556aede841b85a13d35e2fb2d4554a47c1c50070e35d
  genesisLen 2948
- versionCall 069e8ed627691c90dc5d6488b9fd1a42198d1c9afbc454b430c66e6aadd8aa55
+ versionCall a60b0937d5a514a1bce25be2894848f0df589df5f5d3fc20d698105c4d29a9fb
  versionLen 17220
- maxGenesis f0ad14b26ff5aba4691d3beedca37f5bd77a587182d824c1cff68d52e2e783b4
+ maxGenesis e3d564883db160c03282e1c6dfe11002da217040fd5ed13cf72ca23d535f046d
  maxGenesisLen 135908
- maxVersion e5f8adf5c2a1b4a9f501d2e74af0cfe05c8c02a5ec619b49b1cba7a35b414fb4
+ maxVersion e9863f61a7a20480db8fbb3663623417cdae6da5850c81df3b0909319092f931
  maxVersionLen 149284
 regBase 20b3dfc457e3cecf32b0c047177351f0814e426c1548e87b79f58830655810c3
 regSlot dfa6283b763bbadeb604401a78e2fefeddb72000addcdb94ed2e3de5cc69846b
@@ -12400,7 +12742,7 @@ relSlot 719bb73ba856aeab1b203e322bfefc6d84a4c41a3222bcf1634b1b44e5b9aba8
 relTrie dac8109059d03da2ad16ac3acc50d2e58897b8c3a7f6889ae77bfb20737e87a2
  routeConfig 9cc87d80608fb3cc866707547127aa776556ecfb64db4e398ae337620e76aac4
 queueConfig 72e27c19ebfab08e1fb27feeff50609c7c4bb69f0570a7bdb72eda7736c50f4e
- dataSessCfg 07cd3347bb03a3749297908dfdb8093d3989a32e9ca6a9f544c87b8857a1727c
+ dataSessCfg 14182a405d2b49b4b45bb7447ce360efecf5c9c96c3197a84ee3e88cb51cd84f
 dsOpenSel 7bda4d11
 dsPostSel a1cc526a
 dsSealSel 340e11fb
@@ -12458,18 +12800,18 @@ manifestNodeH5 9f4c64a89c253d4d65f93cba1f55e7a17a3e4027be7351650060632ed1bc70f0
 normalContext 5b93691b397d8ab377682acee7cf6cc77ff2726cd83a8a7b725084f5d6f468bd
 migrationData 2c36740d76ae6192335d4c603f42edace094b33e8f54e959b40241a94c1f6deb
 winningData 4ae34aa9efb842528d353b175f94191d01cfd168b5ad828f64a0e7972a2ca9e3
- statementHash b29c270bf7f140c4818c7b15dd82c567abc4fc617527c350f8be0e048199b24a
+ statementHash 14a0fba13c924b2be26b39908af2ba3cb556ab4f050398d28a9db0416fb72992
 stmtRewardGas 12345678
 stmtRewardBytes 9
- rewardReceipt f43f661d59961d569e59f1f9cc4bfb32266fc15c12d5b178708a34d7a85ecd3e
+ rewardReceipt c579a9feb5bfb979f075526c1290aa049adcb95e099c6e02726797e5ca2e201a
 candidateCommitTopic 51629f6515f461b4c6f912a8eecad46d8ff89ab5e8235d95c30004be2c9ac738
 rewardFundTopic d979ecc5f5821fb9e6643744111b04290fc1da57eebaba07def52e526c6eb49e
 rewardClaimTopic 9f41046da255bf29062408ae9f20e06ea2453df29227caf32b709ccfed59d506
- candidateLogTopics 10d8f0974e0d538c9dce867d788281eac98985817368b13b34b5b923dad7eeb0
+ candidateLogTopics 3bddf4ef7c357f1130e5d4dad8eb0571e0d202560c7c46574f4c88c470f00472
 candidateLogTopicCount 3
- candidateLogId b29c270bf7f140c4818c7b15dd82c567abc4fc617527c350f8be0e048199b24a
+ candidateLogId 14a0fba13c924b2be26b39908af2ba3cb556ab4f050398d28a9db0416fb72992
 candidateLogBeneficiary 000000000000000000000000000000000000000000000000000000000000cafe
- candidateLogData 3a866b4aa907462beb3970d907921c7fe0b71aac7a875c4deac03007fd67791e
+ candidateLogData 0c7970d382a72a99a7d156cc870cbf7d3728cc91da9f86422767a1420be16538
 candidateLogDataLen 192
 rewardFundLogTopics dec401d3769ac3d7c894189f394a778a66106bd32460f51135caea4824360efe
 rewardFundLogTopicCount 3
@@ -12477,9 +12819,9 @@ rewardFundLogClass 0000000000000000000000000000000000000000000000000000000000000
 rewardFundLogFunder 000000000000000000000000000000000000000000000000000000000000f00d
 rewardFundLogData e1aede520e7a9dc85a896fcdc9cc395ef1f2fd03d93f7e4f6acbd5fda09bf690
 rewardFundLogDataLen 96
- rewardClaimLogTopics d95e38f337eac04460efdf57735fe43d21d52f73d94172b4d98823584f3a2ff4
+ rewardClaimLogTopics aacc32b671d1f77255783a46a8b1fcbd718c719cd826380b2e001b81ef95480e
 rewardClaimLogTopicCount 3
- rewardClaimLogId b29c270bf7f140c4818c7b15dd82c567abc4fc617527c350f8be0e048199b24a
+ rewardClaimLogId 14a0fba13c924b2be26b39908af2ba3cb556ab4f050398d28a9db0416fb72992
 rewardClaimLogBeneficiary 000000000000000000000000000000000000000000000000000000000000cafe
 rewardClaimLogData db2be80ad7fe2991fbabee31c9917dca99f927a94e09c6a4e810cec6d4a8cbae
 rewardClaimLogDataLen 64
@@ -12488,19 +12830,19 @@ fundRewardCall 1086e7c6ffda5d1b4d31999795549a413160e18f638c43801cf6bd8293b430f1
 fundRewardCallLen 36
 fundRewardRetLen 0
 claimRewardSel aa5498cb
- claimRewardCall 87733d9e2a2c7e55cd9e4b2d2a1c4dfb536238b502a0e98263d8c655b2206268
+ claimRewardCall 7574e5084380d2c9bb8b89291b5ea65d6fbd7da4802d99118c33af93c4926bf9
 claimRewardCallLen 36
 claimRewardPaid 1000000
 claimRewardRet c1af4b94166cd32fc49b7b926cbb91ee421de2d04450e8ae57857b9b56ac7e53
 claimRewardRetLen 32
 rewardViewSel 3ed526c7
- rewardViewCall cf2e1bd881fd7591882379b1070452c9f81a80848a3d1b9e6970f97a2e615055
+ rewardViewCall 6d5b9359bca2ec8f27213e903919cca58faad5a2207d8c7277b1af41a6d4fdb0
 rewardViewCallLen 36
 rewardViewMagic 52525631
- rewardViewHit 366fb5d238b52decd3b3b2d18acd8ed04741f6d94bdde7fbd4736f9dad9abcd6
+ rewardViewHit 5df9160fcccb9142a3a383d083014765cc6cad63bb724c6807bc3dc50cd60058
 rewardViewMiss 910614e273a7326ae3c583449cfdf24c64d9ef3d7d6f448b6d3042d3ba95ae80
 rewardViewLen 384
- rewardCollision a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a44a
+ rewardCollision a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a492
 builderCfg 5c2fe6d16935d1557c545b24c0b5982391f7a8ac702d7db3a6c55e467427ed79
 rewardClassSel 3d273ee7
 rewardClassCall 3717990a97396f7a0a947025434cf954d9937932f5e00fdf793c129bfbfb3006
@@ -12510,8 +12852,8 @@ rewardClassRet 3d21e30cd424ac4eb52ed85673aac8960a703cce5dd930fceb901b0ce5e93490
 rewardClassRetLen 224
 rewardClassId 1
 rewardClassGas 50000
- dsAcctEmpty ed6c1b1f53b93bafff716cac2098150284a639ce3f78c7971481de38fa521fd4
- dsAcctFunded d426423c8b542d61c019c048fa3aeb24e145e342fc4ef566e8f48680ec238c14
+ dsAcctEmpty 5a62fbdc4883c16fe3209e7b093da31d1656fb286f5714002e6833fbdec50c35
+ dsAcctFunded 3f32ebc55d31c72b1f50c6fc26b743ad13127bc7d7324ff0a3dc165175684760
 dsAcctLen 512
 recoveryId fd0552b28542fa3e236c86807695f3d5a4bc0436add285daa8506d9a79511b15
 bodyRoot 0f4e161a46c8b18c2a86f23a0a4e7169a838a12af8b389f65e97b547a99707e9
@@ -12820,7 +13162,7 @@ local destination binding, frontier/event terminal proofs, pause-independent
 escape, L2 release sealing, replay and timing
 geometry.  Cryptographic booleans in that model are not cryptographic
 evidence.
-The companion \code{test-settlement-window.py} suite runs 293 adversarial
+The companion \code{test-settlement-window.py} suite runs 296 adversarial
 regressions, including authorization substitution, callback/OOG, competing LP,
 owner-mode, target/quota/pull/terminal rollback, withdrawal/recreation and
 cross-version preservation cases for the atomic Pool path.  The same suite
@@ -12829,7 +13171,7 @@ role-by-role activation, confirmation and abort rollback, plus SOC1--FRS1--FVR1-
 SFV1 pretransition joins and dirty successful post-FVR1/FRS1 rollback across
 Schedule append, replacement and split.
 
-\code{commitment-model.py} reports 812 golden vectors and 1593 executable
+\code{commitment-model.py} reports 812 golden vectors and 1610 executable
 assertion sites for
 exact EIP-712
 domain/struct/digest, canonical and statement hashes, registry/admission/entry/

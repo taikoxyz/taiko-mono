@@ -1,6 +1,6 @@
 # Slot Chain V2 Additive Contract Implementation Design
 
-**Status:** Approved implementation architecture
+**Status:** Approved implementation architecture, amended for the v2.27 freeze
 
 **Design baseline:** `365737104c69559d73c78b170dcf7a1512fa66b5`
 
@@ -99,9 +99,9 @@ The artifact and address ownership classes are:
 | Types, interfaces, constants, and internal-only encodings, trees, proof/call libraries                                                                  | Both                | `source-inline`; canonical shared source hash; compile only in allowlisted consuming profiles                              | No independent deployed address or runtime; consumers contain the inlined code and must have zero link references to the module.         |
 | Chain-neutral deployables                                                                                                                               | Both                | `artifact-owned` by `shared`, `out/shared`, oldest supported fork; cross-profile use loads bytecode or a source-inline ABI | Exactly one creation/runtime artifact owner. A deployed object's manifest scope determines address reuse.                                |
 | BuilderRegistry, ScheduleOracle, ForcedQueue, ActiveSettlementRouter with its owned gate word, PVM, AggregatorSeatMarket and other L1 permanent objects | L1                  | `artifact-owned` by `layer1`, `out/layer1`                                                                                 | Protocol-lifetime address and state repeat byte-exactly unless the normative descriptor explicitly marks the object release-scoped.      |
-| Settlement, release ingress adapters, TerminalSignalVerifier and SourceBridge/Registry/Quota bundle                                                     | L1                  | `artifact-owned` by `layer1`; chain-neutral custody bytecode may instead be owned by `shared` and loaded as creation code  | Fresh release-scoped accounts. Historical accounts serve only retained liabilities/proofs and never become current again.                |
+| Settlement, release ingress adapters, TerminalSignalVerifier and SourceBridge/Registry/Quota bundle                                                     | L1                  | `artifact-owned` by `layer1`, built in the release single authenticated L1 compiler invocation                             | Fresh release-scoped accounts. Historical accounts serve only retained liabilities/proofs and never become current again.                |
 | InboxApplyRouterV2, ProtocolReleaseAuthorityV2, TerminalDomainRegistrarV2, TerminalAccumulatorV2 and NativeLiquidityPoolV2                              | L2                  | `artifact-owned` by `layer2`, `out/layer2`                                                                                 | Protocol-lifetime objects; successors repeat address/runtime/configuration and preserve cursor/routes/releases/writers/tickets/frontier. |
-| InboxCreditStoreV2, DestinationBridgeV2 and native QuotaManager                                                                                         | L2                  | `artifact-owned` by `layer2`; chain-neutral custody bytecode may be loaded from `out/shared`                               | Fresh release-scoped accounts and endpoint domain. Reuse is forbidden even when code is identical.                                       |
+| InboxCreditStoreV2, DestinationBridgeV2 and native QuotaManager                                                                                         | L2                  | `artifact-owned` by `layer2`, `out/layer2`; no shared-output fallback                                                       | Fresh release-scoped accounts and endpoint domain. Reuse is forbidden even when code is identical.                                       |
 | Frozen legacy facades and AnchorV4                                                                                                                      | Owning legacy chain | `artifact-owned` by the manifest-named profile; compiled artifact hash recorded before installation tests                  | Installation is exercised only in isolated migration tests. This PR does not select it on the production path.                           |
 
 The release manifest's exhaustive component table remains authoritative for individual kinds. The
@@ -154,6 +154,21 @@ No component may select a historical Settlement, route, Bridge, generation, or s
 caller-supplied witness. Authority is derived through the Router/registry fixed-width reads and
 manifest-pinned code/configuration.
 
+Ordinary tier-1/2/3 proofs use one immutable
+`SettlementValidityVerifierDescriptorV2` committed by the execution profile and target
+constructor. It is distinct from the migration-transition verifier. The descriptor binds exact
+address, runtime, acyclic configuration, verifying key, proof system, public-input schema,
+selector, proof-size limit, call gas, and post-verification reserve. Settlement authenticates
+code/configuration on every proof and accepts only an exact 32-byte return equal to its independently
+reconstructed statement hash. One descriptor is permitted only because its key proves the
+authenticated tier and all three branches; no tier fallback, mutable registry, inherited
+predecessor verifier, or caller-selected verifier exists.
+The verifier runtime is state-independent: its key/configuration are embedded, it has no storage,
+proxy, delegatecall or mutable external dependency, and any STATICCALL target is a fixed precompile
+authorized by the `proofSystemId` policy. Registration checks the full transient descriptor and
+stores its hash in RTR2; activation recovers the full descriptor from the target's exact 352-byte
+SVD2 view, hashes it against RTR2, and repeats live code/configuration checks before switching.
+
 ### 4.4 Source and destination bridge planes
 
 The source side uses fresh V2 custody: immutable SourceBridge, BridgeCreditRegistry, quota/domain
@@ -181,10 +196,29 @@ sequence, never by general setters. The implementation produces reproducible run
 configuration hashes, storage layouts, creation artifacts, component DAGs, and root deployment
 transcripts.
 
+The kind-0 adapter is a fresh release-scoped ERC-2470 deployment, not a
+`SourceBundleFactory` child and not part of the frozen eighteen-artifact root cohort. The execution
+profile sole dynamic bytes field is the exact two-artifact bundle containing Settlement and
+kind-0 creation/runtime bytes. Profile-fixed creation, salt, complete-initcode, runtime and
+configuration hashes let ProtocolVersionManager recompute the constructor tail and CREATE2 address
+on chain. Constructor conformance proves the exact initial storage and absence of pre-activation
+mutation. Exact-code front-runs are reusable; collisions or any code/config/state mismatch reject.
+During activation both old and new adapters are append-inert, the final ACTIVE write moves the sole
+typed append authority atomically, and historical adapters retain only record/refund servicing.
+The exact raw artifact bundle maximum is 137,744 bytes and the complete ABI profile maximum is
+146,848 bytes; REGISTER_RELEASE is therefore capped at exactly 149,088 bytes end-to-end. PIA2
+stores the derived kind-0 constructor-poststate commitment, while RTR2 stores the component-read
+gas, ordinary-verifier descriptor hash and kind-0 authorization ID. Those compact authenticated
+records let activation reproduce all checks after restart without retaining or accepting the raw
+profile. Kind-0 immutable/link-reference tables must be empty and its runtime cannot delegate.
+
 The production profile generator rejects test verifiers, null or uncalibrated economic fields,
 unknown ownership classes, artifact-owned recompile/output drift, source-inline
 source/profile/ABI/link drift, legacy endpoint reuse, mutable trust-map wrappers, and incomplete
-authority burning.
+authority burning. The conformance ledger has separate rows for the ordinary Settlement verifier
+dependency/interface/call helper and the kind-0 complete-initcode deployment artifact; neither may
+be marked reviewed until the exact v2.27 profile, constructor, gas-threshold and lifecycle tests
+pass.
 
 ## 5. Core State and Boundary Invariants
 
