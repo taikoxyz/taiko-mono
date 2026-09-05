@@ -18860,9 +18860,12 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             settlement.BUILDER_REGISTRY_STORAGE_LAYOUT_ENTRY_COUNT, 53
         )
         self.assertEqual(
+            settlement.BUILDER_REGISTRY_STORAGE_LAYOUT_NORMALIZED_BYTES, 9_549
+        )
+        self.assertEqual(
             settlement.builder_registry_storage_layout_hash_v1(),
             bytes.fromhex(
-                "e9530d93d58f89bfc204b96dd4063445b3c2823458ae18e8580c8436f3853930"
+                "5b676bdd8dd5b37f6353a4b46a59d7d24f6b0cc66b28cf1222b3deafe36402bd"
             ),
         )
 
@@ -18903,6 +18906,15 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                 )))
                 self.assertEqual(
                     config.configuration_hash_v1(), expected_config_hash
+                )
+                self.assertEqual(
+                    config.configuration_hash_v1(),
+                    bytes.fromhex(
+                        "5844c0d5e26f8e8006907c41fcf7c121537202827fa671a15099730c1dd38d6b"
+                        if kind == settlement.BUILDER_REGISTRY_SEAT_FACET_KIND
+                        else
+                        "768f741248a8cd1b1fc84f9134261736305ad3d373ac5a5b346057a7c1b9680a"
+                    ),
                 )
                 encoded = config.encode_brf1()
                 self.assertEqual(len(encoded), 192)
@@ -19534,7 +19546,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         )
         self.assertEqual(
             factory_configuration_hash.hex(),
-            "f1281830fc36ad3b0424dcb65ebb5c2e3a8209a07f25df2f980f67ac65089c68",
+            "5719afbcfefbda8e7efd7a7a6878a2200af9d441e025565b0ce06869f339dfbe",
         )
         executor = settlement.RootMigrationExecutorModelV1(
             executor_address, 167, dao, executor_runtime_hash
@@ -19628,7 +19640,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         )
         self.assertEqual(
             operation_id.hex(),
-            "770d5da04d9f01c290a47d4235f5c6c312f105660fc96bcdb97eebbbe786f821",
+            "1eae680136112480501d910929799d80e40246e2657b55556b286c66974a19f7",
         )
         duplicate_id = executor.queue_v1(
             factory_address, manifest.manifest_hash(), factory_runtime_hash,
@@ -25901,6 +25913,26 @@ class RegistryLifecycleRound4Tests(unittest.TestCase):
             registry.active[1], dict(registry.exit_requests),
             dict(registry.exit_by_registration), registry.next_exit_sequence,
         ), before)
+
+    def test_constructor_enforces_liability_ring_residence_capacity(self):
+        largest_safe_delay = 248 * settlement.SCHEDULE_WINDOW_SLOTS
+        safe = settlement.RegistryLifecycle(
+            [], evidence_delay_seconds=largest_safe_delay,
+            reorg_margin_seconds=0,
+        )
+        self.assertEqual(
+            settlement.maximum_liability_residence_windows_v1(
+                safe.evidence_delay_seconds, safe.reorg_margin_seconds
+            ),
+            settlement.MAX_LIVE_WINDOWS - 1,
+        )
+        with self.assertRaisesRegex(
+            ValueError, "malformed BuilderRegistry geometry"
+        ):
+            settlement.RegistryLifecycle(
+                [], evidence_delay_seconds=largest_safe_delay + 1,
+                reorg_margin_seconds=0,
+            )
 
     def test_self_consent_and_lowest_vacancy_cover_cell_zero_and_sixty_three(self):
         registry = settlement.RegistryLifecycle([])

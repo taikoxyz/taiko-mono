@@ -66,14 +66,20 @@ therefore reject before proof, state, or token access. Testing `msg.sender == Re
 `DELEGATECALL` preserves the original caller.
 
 The release build emits Solidity storage-layout JSON for Registry, both facets, the common storage
-base, and common abstract logic. Normalize each by recursively sorting object keys, retaining every
-entry's `label`, `slot`, `offset`, referenced canonical type, and full reachable `types` graph, then
-encoding without insignificant whitespace. All five byte strings must be identical; their
-`keccak256` is `builderRegistryStorageLayoutHash`, pinned by the release manifest. The 53-entry
-non-via-IR prototype digest after adding the global lock is
-`0xe9530d93d58f89bfc204b96dd4063445b3c2823458ae18e8580c8436f3853930`; final code must regenerate
-it, and any change requires an explicit manifest update. The lock packs at slot 5 offset 20 after
-`_registrySelf`; `_settlementChainId` remains slot 6 and `_tokenLock` remains slot 6869 offset 0.
+base, and common abstract logic. Normalize each by deleting every `astId` and `contract` property;
+deleting the decimal AST discriminator immediately after `)` in every user-defined type-identifier
+key or string reference (for example, `t_struct(Generation)11050_storage` becomes
+`t_struct(Generation)_storage`); recursively sorting object keys while preserving array order; and
+encoding compact UTF-8 JSON with the original scalar types. A normalized type-key collision rejects
+the certificate. Retain every entry's `label`, `slot`, `offset`, referenced normalized type and the
+full reachable `types` graph. This normalization is
+independent of the surrounding compiler source set, unlike raw solc type identifiers. All five
+9,549-byte strings must be identical; their `keccak256` is
+`builderRegistryStorageLayoutHash`, pinned by the release manifest. The final 53-entry canonical
+non-via-IR certificate is
+`0x5b676bdd8dd5b37f6353a4b46a59d7d24f6b0cc66b28cf1222b3deafe36402bd`; any change requires an
+explicit manifest update. The lock packs at slot 5 offset 20 after `_registrySelf`;
+`_settlementChainId` remains slot 6 and `_tokenLock` remains slot 6869 offset 0.
 
 ## Facet configuration and deployment
 
@@ -100,9 +106,9 @@ configurationHash = H(
 
 The resulting `(selectorSetHash, configurationHash)` pairs are Seat
 `(0x92e9dd5f246684dbc6137c40eb276993130005222bc31be614359dbc1164bbf5,
-0x8dceb04e2485c4e9b73ca0ed5b7c820f0a3454c5157696b255945e8fa8ef65c4)` and Lease
+0x5844c0d5e26f8e8006907c41fcf7c121537202827fa671a15099730c1dd38d6b)` and Lease
 `(0x895e8723291f0a1f397a981815290e003eab16a87807eadc3b3bc0d805b8fb78,
-0x033d38df4112f42f6766257b4fe7ee0af66367cfd9c6e0b9f57cea236f584f11)`.
+0x768f741248a8cd1b1fc84f9134261736305ad3d373ac5a5b346057a7c1b9680a)`.
 
 Exact `componentConfigHashV2()` equals `configurationHash`. Both facets have no-argument creation
 code and are predeployed through canonical ERC-2470. For each kind:
@@ -136,6 +142,10 @@ observer-visible descriptor source.
 Registry construction requires nonzero, pairwise-distinct Registry/verifier/facet addresses,
 authenticates both runtimes and both exact BRF1/component rows, and derives topology rather than
 accepting it. Thus topology transitively commits all code holding Registry storage authority.
+It also derives the normative maximum liability-residence bound from the supplied evidence and
+reorg delays in 256-bit arithmetic and rejects a value greater than or equal to 268; the finite
+1,072-cell ring is therefore a constructor-enforced liveness invariant, not merely a deployment
+assumption.
 
 ## Global operation lock
 

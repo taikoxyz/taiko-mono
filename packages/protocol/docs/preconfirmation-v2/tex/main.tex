@@ -536,7 +536,11 @@ MAX_LIABILITY_RESIDENCE_WINDOWS =
 \end{verbatim}
 must be strictly less than \code{MAX_LIVE_WINDOWS=268}.  The two extra windows
 cover boundary ordering and bounded maintenance.  At four moves per window,
-the ring position reused 268 windows later is consequently releasable.  Each
+the ring position reused 268 windows later is consequently releasable.  The
+Registry constructor derives this value from its supplied uint64 evidence and
+reorg delays with checked 256-bit arithmetic and rejects equality or any larger
+value; Factory revalidation is defense in depth, not the launch invariant's
+sole enforcement point.  Each
 generation maintains an exact unreleased-tranche counter, so release and reuse
 do not scan 512 leaves.  \code{unreleasedTrancheCount} is incremented exactly
 once on first reservation and decremented exactly once on release or slash;
@@ -824,11 +828,22 @@ writerless \code{registrySelf=address(this)} sentinel plus active-root state
 makes direct facet calls reject before a read, proof or token call.  The
 canonical release build emits and normalizes the complete Solidity storage
 layout for Registry, both facets, the shared base and common logic.  All five
-must be identical.  Their common hash is manifest-pinned and repeated in both
-facet configurations; any compiler/source change regenerates it explicitly.
-The current 53-entry non-IR certificate is
+must be identical.  Normalization deletes all \code{astId} and
+\code{contract} properties; removes the decimal AST discriminator immediately
+after the closing parenthesis in every user-defined type-identifier key or
+string reference (for example,
+\code{t\_struct(Generation)11050\_storage} becomes
+\code{t\_struct(Generation)\_storage}); recursively sorts object keys while
+preserving array order; and emits compact UTF-8 JSON with original scalar
+types.  A normalized type-key collision rejects the certificate.  Every
+storage entry and the full reachable type graph remain.  This
+prevents the surrounding compiler source set from changing the certificate
+through otherwise volatile AST numbers.  Their 9,549-byte common hash is
+manifest-pinned and repeated in both facet configurations; any compiler or
+storage-source change regenerates it explicitly.  The final 53-entry non-IR
+certificate is
 \begin{verbatim}
-e9530d93d58f89bfc204b96dd4063445b3c2823458ae18e8580c8436f3853930
+5b676bdd8dd5b37f6353a4b46a59d7d24f6b0cc66b28cf1222b3deafe36402bd
 \end{verbatim}
 The operation lock is slot 5 offset 20, the following scalar begins at slot 6,
 and the terminal token lock remains at slot 6,869.
@@ -856,9 +871,9 @@ The resulting Seat selector/configuration hashes followed by the Lease hashes
 are, respectively,
 \begin{verbatim}
 92e9dd5f246684dbc6137c40eb276993130005222bc31be614359dbc1164bbf5
-8dceb04e2485c4e9b73ca0ed5b7c820f0a3454c5157696b255945e8fa8ef65c4
+5844c0d5e26f8e8006907c41fcf7c121537202827fa671a15099730c1dd38d6b
 895e8723291f0a1f397a981815290e003eab16a87807eadc3b3bc0d805b8fb78
-033d38df4112f42f6766257b4fe7ee0af66367cfd9c6e0b9f57cea236f584f11
+768f741248a8cd1b1fc84f9134261736305ad3d373ac5a5b346057a7c1b9680a
 \end{verbatim}
 
 Both no-argument facets are permissionlessly ERC-2470-predeployed.  Their salt
