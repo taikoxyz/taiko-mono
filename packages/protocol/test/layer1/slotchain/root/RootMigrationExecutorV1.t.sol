@@ -449,6 +449,44 @@ contract RootMigrationExecutorV1Test is Test {
         assertEq(activeReceipt, receipt);
     }
 
+    function test_confirmRootMigrationV1_ConsumesAuthorityAndBlocksQueuedCompetitors() external {
+        bytes32 winningOperation = _queue();
+        bytes32 queuedCompetitor = _queue();
+        vm.warp(block.timestamp + _DELAY);
+        _executor.executeRootMigrationV1(winningOperation, address(_factory), _manifest);
+        bytes32 receipt = keccak256("consuming-root-receipt");
+        assertEq(_factory.activateAndConfirm(receipt), _RAC1);
+
+        vm.expectRevert(RootMigrationExecutorV1.InvalidRootActivationConfirmation.selector);
+        _factory.confirmCurrent(receipt);
+
+        vm.expectRevert(RootMigrationExecutorV1.RootMigrationNotExecutable.selector);
+        _executor.executeRootMigrationV1(queuedCompetitor, address(_factory), _manifest);
+        (, uint8 competitorState,,,,,,,,) = _executor.rootMigrationOperationV1(queuedCompetitor);
+        assertEq(competitorState, 1);
+
+        vm.prank(_PROPOSER);
+        vm.expectRevert(RootMigrationExecutorV1.RootAuthorityNotIdle.selector);
+        _executor.queueRootMigrationV1(
+            address(_factory), _manifestHash, address(_factory).codehash, _factoryConfig
+        );
+        (
+            ,
+            uint8 authorityState,
+            address candidateFactory,,,
+            address activeFactory,
+            bytes32 activeOperationId,
+            bytes32 activeCampaignKey,
+            bytes32 activeReceipt
+        ) = _executor.rootMigrationAuthorityV1();
+        assertEq(authorityState, 2);
+        assertEq(candidateFactory, address(0));
+        assertEq(activeFactory, address(_factory));
+        assertEq(activeOperationId, winningOperation);
+        assertEq(activeCampaignKey, _factory.campaignKey());
+        assertEq(activeReceipt, receipt);
+    }
+
     function test_confirmRootMigrationV1_RevertWhen_PrcTimingBitmapOrReceiptChanges() external {
         _queueAndStage();
         (uint64 generation, uint64 expiresAt) = _factory.campaignTiming();

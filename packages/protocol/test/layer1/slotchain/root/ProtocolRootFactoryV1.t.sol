@@ -20,9 +20,14 @@ import { Test } from "forge-std/src/Test.sol";
 
 contract RootDeployGate {
     bool public allowDeploy = true;
+    bool public attemptConstructorReentry;
 
     function setAllowed(bool _allowed) external {
         allowDeploy = _allowed;
+    }
+
+    function setConstructorReentry(bool _enabled) external {
+        attemptConstructorReentry = _enabled;
     }
 }
 
@@ -106,6 +111,40 @@ contract FactoryRoleMock {
     error UnexpectedFinalizationReentryResult();
 }
 
+contract FactoryConstructorReentryRoleMock is FactoryRoleMock {
+    constructor(
+        address _factoryAddress,
+        bytes32 _key,
+        bytes32 _configHash,
+        RootDeployGate _gate,
+        uint8 _reentryKind
+    )
+        FactoryRoleMock(_factoryAddress, _key, _configHash, bytes4(0), bytes(""), _gate, false)
+    {
+        if (!_gate.attemptConstructorReentry()) return;
+        bytes memory callData;
+        if (_reentryKind == 1) {
+            callData = abi.encodeCall(
+                IProtocolRootFactoryV1.deployProtocolRootComponentV1,
+                (_key, uint8(2), bytes(hex"00"))
+            );
+        } else if (_reentryKind == 2) {
+            callData = abi.encodeCall(IProtocolRootFactoryV1.abortProtocolRootCampaignV1, (_key));
+        } else {
+            callData = abi.encodeCall(IProtocolRootFactoryV1.finalizeProtocolRootV1, (_key));
+        }
+        (bool success, bytes memory returndata) = _factoryAddress.call(callData);
+        if (
+            !success && returndata.length >= 4
+                && bytes4(returndata) == bytes4(keccak256("ProtocolRootFinalizationReentry()"))
+        ) {
+            revert ExpectedConstructorReentryRejection();
+        }
+    }
+
+    error ExpectedConstructorReentryRejection();
+}
+
 contract ProtocolRootFactoryV1Test is Test {
     address private constant _PROPOSER = address(0xA11CE);
     address private constant _DAO = _PROPOSER;
@@ -121,6 +160,10 @@ contract ProtocolRootFactoryV1Test is Test {
     bytes4 private constant _PVM1_SELECTOR = 0x4deb7821;
     bytes4 private constant _EXECUTOR_CONFIRM_SELECTOR = 0xb1372f22;
     bytes4 private constant _ACTIVATE_SELECTOR = 0x74e3aa45;
+    address private constant _SOURCE_TERMINAL = address(0x5EED);
+    bytes32 private constant _SOURCE_TERMINAL_RUNTIME_HASH = keccak256("source-terminal-runtime");
+    bytes32 private constant _SOURCE_TERMINAL_CONFIGURATION_HASH =
+        keccak256("source-terminal-configuration");
     bytes4 private constant _FINALIZATION_REENTRY_ERROR =
         bytes4(keccak256("ProtocolRootFinalizationReentry()"));
     uint8 private constant _MUTATE_PCT_DAO = 1;
@@ -134,6 +177,20 @@ contract ProtocolRootFactoryV1Test is Test {
     uint8 private constant _MUTATE_SOC_LOOKAHEAD = 9;
     uint8 private constant _MUTATE_SOC_SUPPORT = 10;
     uint8 private constant _MUTATE_PVM_PAIR = 11;
+    uint8 private constant _MUTATE_TERMINAL_FIRST_ROLE = 12;
+    uint8 private constant _MUTATE_TERMINAL_LAST_ROLE = 13;
+    uint8 private constant _MUTATE_TERMINAL_FACTORY = 14;
+    uint8 private constant _MUTATE_TERMINAL_EXECUTOR = 15;
+    uint8 private constant _MUTATE_TERMINAL_DAO = 16;
+    uint8 private constant _MUTATE_TERMINAL_ZERO_RUNTIME = 17;
+    uint8 private constant _MUTATE_TERMINAL_ZERO_CONFIG = 18;
+    uint8 private constant _MUTATE_BRC_LAST_MINUS_ONE = 19;
+    uint8 private constant _MUTATE_BRC_LAST_PLUS_ONE = 20;
+    uint8 private constant _MUTATE_BRC_DEADLINE_SUM_OVERFLOW = 21;
+    uint8 private constant _MUTATE_BRC_DEADLINE_QUOTIENT_ZERO = 22;
+    uint8 private constant _MUTATE_SOC_LAST = 23;
+    uint8 private constant _MUTATE_SOC_EVIDENCE = 24;
+    uint8 private constant _MUTATE_SOC_REORG = 25;
 
     RootMigrationExecutorV1 private _executor;
     ProtocolRootFactoryV1 private _factory;
@@ -301,6 +358,123 @@ contract ProtocolRootFactoryV1Test is Test {
         assertGt(_component[0].code.length, 0);
     }
 
+    function test_deployProtocolRootComponentV1_FirstAndLastRolesAreOrderIndependent() external {
+        _stage();
+        assertEq(
+            _factory.deployProtocolRootComponentV1(_campaignKey, 1, _initCode[0]), _component[0]
+        );
+        (,,,,,,, uint16 bitmap,) = _factory.protocolRootCampaignV1(_campaignKey);
+        assertEq(bitmap, 0x0001);
+        for (uint8 role = 2; role < 9; ++role) {
+            _factory.deployProtocolRootComponentV1(_campaignKey, role, _initCode[role - 1]);
+        }
+        assertEq(
+            _factory.deployProtocolRootComponentV1(_campaignKey, 9, _initCode[8]), _component[8]
+        );
+        (,,,,,,, bitmap,) = _factory.protocolRootCampaignV1(_campaignKey);
+        assertEq(bitmap, 0x01ff);
+
+        setUp();
+        _stage();
+        assertEq(
+            _factory.deployProtocolRootComponentV1(_campaignKey, 9, _initCode[8]), _component[8]
+        );
+        (,,,,,,, bitmap,) = _factory.protocolRootCampaignV1(_campaignKey);
+        assertEq(bitmap, 0x0100);
+        for (uint8 role = 8; role > 1; --role) {
+            _factory.deployProtocolRootComponentV1(_campaignKey, role, _initCode[role - 1]);
+        }
+        assertEq(
+            _factory.deployProtocolRootComponentV1(_campaignKey, 1, _initCode[0]), _component[0]
+        );
+        (,,,,,,, bitmap,) = _factory.protocolRootCampaignV1(_campaignKey);
+        assertEq(bitmap, 0x01ff);
+    }
+
+    function test_deployProtocolRootComponentV1_ConstructorReentryRollsBackAndRetries() external {
+        for (uint8 kind = 1; kind <= 3; ++kind) {
+            if (kind != 1) setUp();
+            _configureConstructorReentryFixture(kind);
+            _stage();
+            _gate.setConstructorReentry(true);
+            address proxy = _proxyAddress(_campaignKey, 1);
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    LibRootBootstrapV1.BootstrapExternalCallFailed.selector,
+                    proxy,
+                    ProtocolRootCreate3ProxyV1.deployV1.selector
+                )
+            );
+            _factory.deployProtocolRootComponentV1(_campaignKey, 1, _initCode[0]);
+
+            assertEq(proxy.code.length, 0);
+            assertEq(_component[0].code.length, 0);
+            (,,,,,,, uint16 bitmap,) = _factory.protocolRootCampaignV1(_campaignKey);
+            assertEq(bitmap, 0);
+
+            _gate.setConstructorReentry(false);
+            assertEq(
+                _factory.deployProtocolRootComponentV1(_campaignKey, 1, _initCode[0]), _component[0]
+            );
+            (,,,,,,, bitmap,) = _factory.protocolRootCampaignV1(_campaignKey);
+            assertEq(bitmap, 1);
+        }
+    }
+
+    function test_abortPartialDeployment_PreservesInactiveBoundaryRolesAndUsesNewSalts() external {
+        bytes32 firstOperationId = _stage();
+        address firstRole = _component[0];
+        address lastRole = _component[8];
+        _factory.deployProtocolRootComponentV1(_campaignKey, 1, _initCode[0]);
+        _factory.deployProtocolRootComponentV1(_campaignKey, 9, _initCode[8]);
+        bytes32 firstCampaignKey = _campaignKey;
+        (,,,,,, uint64 expiresAt,,) = _factory.protocolRootCampaignV1(firstCampaignKey);
+
+        vm.warp(expiresAt + 1);
+        _factory.abortProtocolRootCampaignV1(firstCampaignKey);
+        (,,,, uint8 state,,, uint16 bitmap,) = _factory.protocolRootCampaignV1(firstCampaignKey);
+        assertEq(state, 3);
+        assertEq(bitmap, 0x0101);
+        (,,, uint8 firstState) = FactoryRoleMock(firstRole).protocolRootActivationV1();
+        (,,, uint8 lastState) = FactoryRoleMock(lastRole).protocolRootActivationV1();
+        assertEq(firstState, 0);
+        assertEq(lastState, 0);
+        _executor.clearAbortedRootMigrationV1(firstOperationId, firstCampaignKey);
+
+        _configureFixture(_DELAY / 384 + 18, 0, 1);
+        _stage();
+        assertTrue(_component[0] != firstRole);
+        assertTrue(_component[8] != lastRole);
+        _factory.deployProtocolRootComponentV1(_campaignKey, 9, _initCode[8]);
+        _factory.deployProtocolRootComponentV1(_campaignKey, 1, _initCode[0]);
+        (,,,,,,, bitmap,) = _factory.protocolRootCampaignV1(_campaignKey);
+        assertEq(bitmap, 0x0101);
+    }
+
+    function test_v227RootJoinRows_UseExactBrcSocPvmLengthsAndBoundaryWords() external view {
+        bytes32 runtimeHash = keccak256(type(FactoryRoleMock).runtimeCode);
+        uint64 firstManagedWindow = _DELAY / 384 + 18;
+        bytes memory brc = _buildBrcRow(runtimeHash, firstManagedWindow);
+        bytes memory soc = _buildSocRow(runtimeHash, firstManagedWindow, brc);
+        bytes memory pvm = _buildPvmRow(runtimeHash);
+
+        assertEq(brc.length, 704);
+        assertEq(soc.length, 576);
+        assertEq(pvm.length, 1184);
+        assertEq(_rowWord(brc, 0), bytes32(bytes4(0x42524331)));
+        assertEq(_rowWord(soc, 0), bytes32(bytes4(0x534f4331)));
+        assertEq(_rowWord(pvm, 0), bytes32(bytes4(0x50564d31)));
+        assertEq(uint64(uint256(_rowWord(brc, 11))), firstManagedWindow);
+        assertEq(uint64(uint256(_rowWord(brc, 12))), _lastManagedWindow());
+        assertEq(_rowWord(brc, 21), _builderTopologyHash(brc));
+        assertEq(uint64(uint256(_rowWord(soc, 5))), firstManagedWindow);
+        assertEq(uint64(uint256(_rowWord(soc, 6))), _lastManagedWindow());
+        assertEq(_rowWord(soc, 16), _rowWord(brc, 21));
+        assertEq(address(uint160(uint256(_rowWord(pvm, 34)))), _SOURCE_TERMINAL);
+        assertEq(_rowWord(pvm, 35), _SOURCE_TERMINAL_RUNTIME_HASH);
+        assertEq(_rowWord(pvm, 36), _SOURCE_TERMINAL_CONFIGURATION_HASH);
+    }
+
     function test_campaignDeadline_IsInclusiveForDeployAndStrictForAbort() external {
         bytes32 operationId = _stage();
         (,,,,,, uint64 expiresAt,,) = _factory.protocolRootCampaignV1(_campaignKey);
@@ -387,11 +561,11 @@ contract ProtocolRootFactoryV1Test is Test {
         _assertAllActivationStates(1);
     }
 
-    function test_finalizeProtocolRootV1_RevertWhen_FirstManagedIsMaxOrBelowRunway() external {
+    function test_finalizeProtocolRootV1_RevertWhen_FirstManagedExceedsTerminalOrRunway() external {
         _configureFixture(type(uint64).max, 0, 0);
         _stage();
         _deployAll();
-        vm.expectRevert(ProtocolRootFactoryV1.InsufficientFirstManagedWindowRunway.selector);
+        vm.expectRevert(ProtocolRootFactoryV1.InvalidBuilderRegistryRootJoin.selector);
         _factory.finalizeProtocolRootV1(_campaignKey);
         _assertAllActivationStates(0);
 
@@ -403,6 +577,45 @@ contract ProtocolRootFactoryV1Test is Test {
         vm.expectRevert(ProtocolRootFactoryV1.InsufficientFirstManagedWindowRunway.selector);
         _factory.finalizeProtocolRootV1(_campaignKey);
         _assertAllActivationStates(0);
+    }
+
+    function test_finalizeProtocolRootV1_AcceptsFirstManagedAtDerivedTerminal() external {
+        _configureFixture(_lastManagedWindow(), 0, 0);
+        _stage();
+        _deployAll();
+        assertTrue(_factory.finalizeProtocolRootV1(_campaignKey) != bytes32(0));
+        _assertAllActivationStates(1);
+    }
+
+    function test_finalizeProtocolRootV1_RevertWhen_LastManagedIsNotExactOrDeadlineCannotFit()
+        external
+    {
+        uint8[4] memory mutations = [
+            _MUTATE_BRC_LAST_MINUS_ONE,
+            _MUTATE_BRC_LAST_PLUS_ONE,
+            _MUTATE_BRC_DEADLINE_SUM_OVERFLOW,
+            _MUTATE_BRC_DEADLINE_QUOTIENT_ZERO
+        ];
+        for (uint256 i; i < mutations.length; ++i) {
+            if (i != 0) setUp();
+            _assertGraphMutation(
+                mutations[i],
+                abi.encodeWithSelector(
+                    ProtocolRootFactoryV1.InvalidBuilderRegistryRootJoin.selector
+                )
+            );
+        }
+    }
+
+    function test_finalizeProtocolRootV1_RevertWhen_SocTerminalTimingMirrorMutates() external {
+        uint8[3] memory mutations = [_MUTATE_SOC_LAST, _MUTATE_SOC_EVIDENCE, _MUTATE_SOC_REORG];
+        for (uint256 i; i < mutations.length; ++i) {
+            if (i != 0) setUp();
+            _assertGraphMutation(
+                mutations[i],
+                abi.encodeWithSelector(ProtocolRootFactoryV1.InvalidScheduleOracleRootJoin.selector)
+            );
+        }
     }
 
     function test_finalizeProtocolRootV1_RollsBackEveryActivationOnComponentOrExecutorFailure()
@@ -478,6 +691,43 @@ contract ProtocolRootFactoryV1Test is Test {
         setUp();
         _assertGraphMutation(
             _MUTATE_PVM_PAIR,
+            abi.encodeWithSelector(
+                ProtocolRootFactoryV1.InvalidProtocolVersionManagerRootJoin.selector
+            )
+        );
+    }
+
+    function test_finalizeProtocolRootV1_RevertWhen_TerminalAliasesRootAuthoritiesOrBoundaryRoles()
+        external
+    {
+        uint8[5] memory mutations = [
+            _MUTATE_TERMINAL_FIRST_ROLE,
+            _MUTATE_TERMINAL_LAST_ROLE,
+            _MUTATE_TERMINAL_FACTORY,
+            _MUTATE_TERMINAL_EXECUTOR,
+            _MUTATE_TERMINAL_DAO
+        ];
+        for (uint256 i; i < mutations.length; ++i) {
+            if (i != 0) setUp();
+            _assertGraphMutation(
+                mutations[i],
+                abi.encodeWithSelector(
+                    ProtocolRootFactoryV1.InvalidProtocolVersionManagerRootJoin.selector
+                )
+            );
+        }
+    }
+
+    function test_finalizeProtocolRootV1_RevertWhen_TerminalCommitmentIsZero() external {
+        _assertGraphMutation(
+            _MUTATE_TERMINAL_ZERO_RUNTIME,
+            abi.encodeWithSelector(
+                ProtocolRootFactoryV1.InvalidProtocolVersionManagerRootJoin.selector
+            )
+        );
+        setUp();
+        _assertGraphMutation(
+            _MUTATE_TERMINAL_ZERO_CONFIG,
             abi.encodeWithSelector(
                 ProtocolRootFactoryV1.InvalidProtocolVersionManagerRootJoin.selector
             )
@@ -605,6 +855,20 @@ contract ProtocolRootFactoryV1Test is Test {
             _setRowWord(pvm, 18, bytes32(0));
         } else if (_mutation == _MUTATE_PVM_PAIR) {
             _setRowWord(pvm, 23, keccak256("wrong-role-five-config"));
+        } else if (_mutation == _MUTATE_TERMINAL_FIRST_ROLE) {
+            _setRowWord(pvm, 34, bytes32(uint256(uint160(_component[0]))));
+        } else if (_mutation == _MUTATE_TERMINAL_LAST_ROLE) {
+            _setRowWord(pvm, 34, bytes32(uint256(uint160(_component[8]))));
+        } else if (_mutation == _MUTATE_TERMINAL_FACTORY) {
+            _setRowWord(pvm, 34, bytes32(uint256(uint160(address(_factory)))));
+        } else if (_mutation == _MUTATE_TERMINAL_EXECUTOR) {
+            _setRowWord(pvm, 34, bytes32(uint256(uint160(address(_executor)))));
+        } else if (_mutation == _MUTATE_TERMINAL_DAO) {
+            _setRowWord(pvm, 34, bytes32(uint256(uint160(_DAO))));
+        } else if (_mutation == _MUTATE_TERMINAL_ZERO_RUNTIME) {
+            _setRowWord(pvm, 35, bytes32(0));
+        } else if (_mutation == _MUTATE_TERMINAL_ZERO_CONFIG) {
+            _setRowWord(pvm, 36, bytes32(0));
         }
         _configurationHash[3] = _pvmConfigurationHash(pvm);
         bytes memory brc = _buildBrcRow(runtimeHash, _firstManagedWindow);
@@ -613,15 +877,34 @@ contract ProtocolRootFactoryV1Test is Test {
         } else if (_mutation == _MUTATE_BRC_ECONOMICS) {
             _setRowWord(brc, 5, bytes32(uint256(2001)));
         } else if (_mutation == _MUTATE_BRC_RUNTIME) {
-            _setRowWord(brc, 15, keccak256("wrong-router-runtime"));
-            _setRowWord(brc, 20, _builderTopologyHash(brc));
+            _setRowWord(brc, 16, keccak256("wrong-router-runtime"));
+            _setRowWord(brc, 21, _builderTopologyHash(brc));
+        } else if (_mutation == _MUTATE_BRC_LAST_MINUS_ONE) {
+            _setRowWord(brc, 12, bytes32(uint256(_lastManagedWindow() - 1)));
+            _setRowWord(brc, 21, _builderTopologyHash(brc));
+        } else if (_mutation == _MUTATE_BRC_LAST_PLUS_ONE) {
+            _setRowWord(brc, 12, bytes32(uint256(_lastManagedWindow() + 1)));
+            _setRowWord(brc, 21, _builderTopologyHash(brc));
+        } else if (_mutation == _MUTATE_BRC_DEADLINE_SUM_OVERFLOW) {
+            _setRowWord(brc, 8, bytes32(uint256(type(uint64).max)));
+            _setRowWord(brc, 9, bytes32(uint256(1)));
+            _setRowWord(brc, 21, _builderTopologyHash(brc));
+        } else if (_mutation == _MUTATE_BRC_DEADLINE_QUOTIENT_ZERO) {
+            _setRowWord(brc, 8, bytes32(uint256(type(uint64).max - 256)));
+            _setRowWord(brc, 21, _builderTopologyHash(brc));
         }
         bytes memory soc = _buildSocRow(runtimeHash, _firstManagedWindow, brc);
         if (_mutation == _MUTATE_SOC_LOOKAHEAD) {
-            _setRowWord(soc, 8, bytes32(uint256(767)));
+            _setRowWord(soc, 11, bytes32(uint256(767)));
         } else if (_mutation == _MUTATE_SOC_SUPPORT) {
             uint256 firstManagedStart = uint256(_GENESIS) + uint256(_firstManagedWindow) * 384;
-            _setRowWord(soc, 7, bytes32(firstManagedStart - 3071));
+            _setRowWord(soc, 10, bytes32(firstManagedStart - 3071));
+        } else if (_mutation == _MUTATE_SOC_LAST) {
+            _setRowWord(soc, 6, bytes32(uint256(_lastManagedWindow() - 1)));
+        } else if (_mutation == _MUTATE_SOC_EVIDENCE) {
+            _setRowWord(soc, 8, bytes32(uint256(63)));
+        } else if (_mutation == _MUTATE_SOC_REORG) {
+            _setRowWord(soc, 9, bytes32(uint256(63)));
         }
 
         for (uint8 role = 1; role <= 9; ++role) {
@@ -658,6 +941,19 @@ contract ProtocolRootFactoryV1Test is Test {
         _manifest = manifest;
     }
 
+    function _configureConstructorReentryFixture(uint8 _kind) private {
+        bytes32 runtimeHash = keccak256(type(FactoryConstructorReentryRoleMock).runtimeCode);
+        _initCode[0] = abi.encodePacked(
+            type(FactoryConstructorReentryRoleMock).creationCode,
+            abi.encode(address(_factory), _campaignKey, _configurationHash[0], _gate, _kind)
+        );
+        bytes memory manifest = _manifest;
+        _writeWord(manifest, 105, keccak256(_initCode[0]));
+        _writeWord(manifest, 137, runtimeHash);
+        _writeWord(manifest, 169, _configurationHash[0]);
+        _manifest = manifest;
+    }
+
     function _roleInitCode(
         uint8 _role,
         bytes4 _selector,
@@ -690,7 +986,7 @@ contract ProtocolRootFactoryV1Test is Test {
         view
         returns (bytes memory row_)
     {
-        row_ = new bytes(672);
+        row_ = new bytes(704);
         _setRowWord(row_, 0, bytes32(bytes4(0x42524331)));
         _setRowWord(row_, 1, bytes32(block.chainid));
         _setRowWord(row_, 2, bytes32(uint256(uint160(address(0x1111)))));
@@ -703,15 +999,16 @@ contract ProtocolRootFactoryV1Test is Test {
         _setRowWord(row_, 9, bytes32(uint256(64)));
         _setRowWord(row_, 10, bytes32(uint256(64)));
         _setRowWord(row_, 11, bytes32(uint256(_firstManagedWindow)));
-        _setRowWord(row_, 12, bytes32(uint256(uint160(address(0x2222)))));
-        _setRowWord(row_, 13, bytes32(uint256(64)));
-        _setRowWord(row_, 14, bytes32(uint256(uint160(_component[4]))));
-        _setRowWord(row_, 15, _runtimeHash);
-        _setRowWord(row_, 16, _configurationHash[4]);
-        _setRowWord(row_, 17, bytes32(uint256(uint160(_component[1]))));
-        _setRowWord(row_, 18, _runtimeHash);
-        _setRowWord(row_, 19, _configurationHash[0]);
-        _setRowWord(row_, 20, _builderTopologyHash(row_));
+        _setRowWord(row_, 12, bytes32(uint256(_lastManagedWindow())));
+        _setRowWord(row_, 13, bytes32(uint256(uint160(address(0x2222)))));
+        _setRowWord(row_, 14, bytes32(uint256(64)));
+        _setRowWord(row_, 15, bytes32(uint256(uint160(_component[4]))));
+        _setRowWord(row_, 16, _runtimeHash);
+        _setRowWord(row_, 17, _configurationHash[4]);
+        _setRowWord(row_, 18, bytes32(uint256(uint160(_component[1]))));
+        _setRowWord(row_, 19, _runtimeHash);
+        _setRowWord(row_, 20, _configurationHash[0]);
+        _setRowWord(row_, 21, _builderTopologyHash(row_));
     }
 
     function _buildSocRow(
@@ -723,20 +1020,25 @@ contract ProtocolRootFactoryV1Test is Test {
         view
         returns (bytes memory row_)
     {
-        row_ = new bytes(416);
+        row_ = new bytes(576);
         _setRowWord(row_, 0, bytes32(bytes4(0x534f4331)));
         _setRowWord(row_, 1, bytes32(block.chainid));
         _setRowWord(row_, 2, bytes32(uint256(uint160(_component[3]))));
         _setRowWord(row_, 3, bytes32(uint256(uint160(_component[4]))));
         _setRowWord(row_, 4, bytes32(uint256(uint160(_component[0]))));
         _setRowWord(row_, 5, bytes32(uint256(_firstManagedWindow)));
-        _setRowWord(row_, 6, bytes32(uint256(_GENESIS)));
-        _setRowWord(row_, 7, bytes32(uint256(_GENESIS - 10_000)));
-        _setRowWord(row_, 8, bytes32(uint256(768)));
-        _setRowWord(row_, 9, bytes32(uint256(1000)));
-        _setRowWord(row_, 10, bytes32(bytes4(0x01020304)));
-        _setRowWord(row_, 11, _rowWord(_brc, 20));
-        _setRowWord(row_, 12, _configurationHash[1]);
+        _setRowWord(row_, 6, bytes32(uint256(_lastManagedWindow())));
+        _setRowWord(row_, 7, bytes32(uint256(_GENESIS)));
+        _setRowWord(row_, 8, _rowWord(_brc, 9));
+        _setRowWord(row_, 9, _rowWord(_brc, 10));
+        _setRowWord(row_, 10, bytes32(uint256(_GENESIS - 10_000)));
+        _setRowWord(row_, 11, bytes32(uint256(768)));
+        _setRowWord(row_, 12, bytes32(uint256(1000)));
+        _setRowWord(row_, 13, bytes32(bytes4(0x01020304)));
+        _setRowWord(row_, 14, bytes32(0));
+        _setRowWord(row_, 15, bytes32(uint256(1)));
+        _setRowWord(row_, 16, _rowWord(_brc, 21));
+        _setRowWord(row_, 17, _configurationHash[1]);
     }
 
     function _buildPctRow(bytes32 _runtimeHash) private view returns (bytes memory row_) {
@@ -750,7 +1052,7 @@ contract ProtocolRootFactoryV1Test is Test {
     }
 
     function _buildPvmRow(bytes32 _runtimeHash) private view returns (bytes memory row_) {
-        row_ = new bytes(1088);
+        row_ = new bytes(1184);
         _setRowWord(row_, 0, bytes32(bytes4(0x50564d31)));
         _setRowWord(row_, 1, bytes32(block.chainid));
         uint8[8] memory words = [uint8(2), 3, 4, 5, 6, 7, 10, 11];
@@ -776,6 +1078,9 @@ contract ProtocolRootFactoryV1Test is Test {
             _setRowWord(row_, pairWords[i], _runtimeHash);
             _setRowWord(row_, pairWords[i] + 1, _configurationHash[role - 1]);
         }
+        _setRowWord(row_, 34, bytes32(uint256(uint160(_SOURCE_TERMINAL))));
+        _setRowWord(row_, 35, _SOURCE_TERMINAL_RUNTIME_HASH);
+        _setRowWord(row_, 36, _SOURCE_TERMINAL_CONFIGURATION_HASH);
     }
 
     function _builderTopologyHash(bytes memory _brc) private pure returns (bytes32 hash_) {
@@ -787,20 +1092,21 @@ contract ProtocolRootFactoryV1Test is Test {
             uint64(uint256(_rowWord(_brc, 8))),
             uint64(uint256(_rowWord(_brc, 9))),
             uint64(uint256(_rowWord(_brc, 10))),
-            uint64(uint256(_rowWord(_brc, 11)))
+            uint64(uint256(_rowWord(_brc, 11))),
+            uint64(uint256(_rowWord(_brc, 12)))
         );
         bytes memory tail = abi.encodePacked(
-            address(uint160(uint256(_rowWord(_brc, 12)))),
-            uint64(uint256(_rowWord(_brc, 13))),
-            address(uint160(uint256(_rowWord(_brc, 14)))),
-            _rowWord(_brc, 15),
+            address(uint160(uint256(_rowWord(_brc, 13)))),
+            uint64(uint256(_rowWord(_brc, 14))),
+            address(uint160(uint256(_rowWord(_brc, 15)))),
             _rowWord(_brc, 16),
-            address(uint160(uint256(_rowWord(_brc, 17)))),
-            _rowWord(_brc, 18),
-            _rowWord(_brc, 19)
+            _rowWord(_brc, 17),
+            address(uint160(uint256(_rowWord(_brc, 18)))),
+            _rowWord(_brc, 19),
+            _rowWord(_brc, 20)
         );
         return keccak256(
-            bytes.concat("slot-chain-builder-registry-topology-v1", bytes2(uint16(313)), head, tail)
+            bytes.concat("slot-chain-builder-registry-topology-v1", bytes2(uint16(321)), head, tail)
         );
     }
 
@@ -834,7 +1140,12 @@ contract ProtocolRootFactoryV1Test is Test {
             _rowWord(_pvm, 31)
         );
         bytes memory controlsC = abi.encodePacked(
-            address(uint160(uint256(_rowWord(_pvm, 11)))), _rowWord(_pvm, 32), _rowWord(_pvm, 33)
+            address(uint160(uint256(_rowWord(_pvm, 11)))),
+            _rowWord(_pvm, 32),
+            _rowWord(_pvm, 33),
+            address(uint160(uint256(_rowWord(_pvm, 34)))),
+            _rowWord(_pvm, 35),
+            _rowWord(_pvm, 36)
         );
         bytes memory policy = abi.encodePacked(
             _rowWord(_pvm, 13),
@@ -863,6 +1174,12 @@ contract ProtocolRootFactoryV1Test is Test {
                 _OPERATION_DOMAIN
             )
         );
+    }
+
+    function _lastManagedWindow() private pure returns (uint64 lastManagedWindow_) {
+        uint256 lastFullSlotWindow = (uint256(type(uint64).max) - 383) / 384;
+        uint256 timestampBound = (uint256(type(uint64).max) - 1 - _GENESIS - 64 - 64) / 384 - 1;
+        return uint64(lastFullSlotWindow < timestampBound ? lastFullSlotWindow : timestampBound);
     }
 
     function _deriveCampaignKey(uint64 _generation) private view returns (bytes32 key_) {

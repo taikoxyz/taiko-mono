@@ -212,15 +212,20 @@ FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/slotchain/**/*.t.sol
       `ProtocolRootCreate3ProxyV1`, `ProtocolRootComponentV1`, and `LibRootBootstrapV1`; implement
       the reusable immutable root-component boundary. Harnesses may supply exact fixed test
       artifacts but cannot cause concrete BRC1/SOC1/PCT1/PVM1/SBF1/STF1 rows to become `reviewed`.
+- [ ] Do not hardcode, constructor-supply, manifest-supply, or derive from placeholder contracts
+      the Factory's `sourceArtifactRoot`. It must be compiled from the final seven Source artifact
+      creation/runtime pairs, so PRF1, PSI1/PSV1, Factory finalization, and the Factory row remain
+      explicitly incomplete until the concrete Round 10A assembly.
 - [ ] Prove bootstrap authority is exactly unused or irreversibly consumed, role/config/runtime
       hashes cannot be replaced, and no generic setter/Resolver/delegate target exists.
 - [ ] Measure root initcode/runtime against EIP-3860/EIP-170 and gas at the complete maximum root,
       including the final artifact and final role receipt.
-- [ ] Mark only bootstrap/proxy/factory/encoding rows `reviewed`; leave concrete root-assembly and
-      cross-graph rows `missing` or `passing` until Round 10A.
+- [ ] Mark only independently complete Executor/proxy/component/bootstrap-encoding rows
+      `reviewed`; leave Factory/interface, Source infrastructure, concrete root-assembly and
+      cross-graph rows `red`, `missing`, or `passing` until Round 10A.
 - [ ] Run L1 root tests, artifact/ledger checks, deployment transcript precursor, and independent
       bootstrap/security review.
-- [ ] Commit: `feat(protocol): complete deterministic slot chain root bootstrap`.
+- [ ] Commit: `feat(protocol): harden deterministic slot chain root bootstrap primitives`.
 
 ## 7. Round 3 — BuilderRegistry and liability generations
 

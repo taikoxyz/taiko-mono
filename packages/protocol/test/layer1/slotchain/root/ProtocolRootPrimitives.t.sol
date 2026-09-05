@@ -207,6 +207,97 @@ contract ProtocolRootPrimitivesTest is Test {
         assertEq(uint256(vm.load(address(proxy), bytes32(uint256(1)))), 1);
     }
 
+    function test_create3_FirstAndLastRoleAddressesAreOrderIndependent() external {
+        bytes32 forwardCampaign = keccak256("forward-root-campaign");
+        ProtocolRootCreate3ProxyV1 firstProxy = _factory.createProxy(forwardCampaign, 1);
+        ProtocolRootCreate3ProxyV1 lastProxy = _factory.createProxy(forwardCampaign, 9);
+        assertEq(address(firstProxy), _expectedProxy(address(_factory), forwardCampaign, 1));
+        assertEq(address(lastProxy), _expectedProxy(address(_factory), forwardCampaign, 9));
+        assertEq(
+            address(_factory.deployComponent(firstProxy, forwardCampaign, 1)),
+            _nonceOneChild(address(firstProxy))
+        );
+        assertEq(
+            address(_factory.deployComponent(lastProxy, forwardCampaign, 9)),
+            _nonceOneChild(address(lastProxy))
+        );
+
+        bytes32 reverseCampaign = keccak256("reverse-root-campaign");
+        lastProxy = _factory.createProxy(reverseCampaign, 9);
+        firstProxy = _factory.createProxy(reverseCampaign, 1);
+        assertEq(address(lastProxy), _expectedProxy(address(_factory), reverseCampaign, 9));
+        assertEq(address(firstProxy), _expectedProxy(address(_factory), reverseCampaign, 1));
+        assertEq(
+            address(_factory.deployComponent(lastProxy, reverseCampaign, 9)),
+            _nonceOneChild(address(lastProxy))
+        );
+        assertEq(
+            address(_factory.deployComponent(firstProxy, reverseCampaign, 1)),
+            _nonceOneChild(address(firstProxy))
+        );
+    }
+
+    function test_create3_PrefundAtProxyAndChildSurvivesDeployment() external {
+        address proxyAddress = _expectedProxy(address(_factory), _CAMPAIGN_KEY, _ROLE);
+        address componentAddress = _nonceOneChild(proxyAddress);
+        vm.deal(proxyAddress, 3 ether);
+        vm.deal(componentAddress, 5 ether);
+
+        ProtocolRootCreate3ProxyV1 proxy = _factory.createProxy(_CAMPAIGN_KEY, _ROLE);
+        ProtocolRootComponentHarness component =
+            _factory.deployComponent(proxy, _CAMPAIGN_KEY, _ROLE);
+
+        assertEq(address(proxy), proxyAddress);
+        assertEq(address(component), componentAddress);
+        assertEq(proxyAddress.balance, 3 ether);
+        assertEq(componentAddress.balance, 5 ether);
+        assertEq(vm.getNonce(proxyAddress), 2);
+        assertEq(vm.getNonce(componentAddress), 1);
+    }
+
+    function test_create3_RevertWhen_ProxyHasCodeOrDirtyNonce() external {
+        address occupiedProxy = _expectedProxy(address(_factory), _CAMPAIGN_KEY, 1);
+        vm.etch(occupiedProxy, hex"00");
+        vm.expectRevert();
+        _factory.createProxy(_CAMPAIGN_KEY, 1);
+        assertEq(occupiedProxy.code, hex"00");
+        assertEq(_nonceOneChild(occupiedProxy).code.length, 0);
+
+        address dirtyProxy = _expectedProxy(address(_factory), _CAMPAIGN_KEY, 9);
+        vm.setNonce(dirtyProxy, 1);
+        vm.expectRevert();
+        _factory.createProxy(_CAMPAIGN_KEY, 9);
+        assertEq(dirtyProxy.code.length, 0);
+        assertEq(vm.getNonce(dirtyProxy), 1);
+        assertEq(_nonceOneChild(dirtyProxy).code.length, 0);
+    }
+
+    function test_deployV1_RevertWhen_ChildHasCode() external {
+        _assertOccupiedChildRollsBack(1, hex"00", 0);
+    }
+
+    function test_deployV1_RevertWhen_ChildHasDirtyNonce() external {
+        _assertOccupiedChildRollsBack(4, bytes(""), 1);
+    }
+
+    function test_deployV1_RevertWhen_ChildWasFrontRunWithExactRuntime() external {
+        bytes32 templateCampaign = keccak256("front-run-runtime-template");
+        ProtocolRootCreate3ProxyV1 templateProxy = _factory.createProxy(templateCampaign, 8);
+        ProtocolRootComponentHarness template =
+            _factory.deployComponent(templateProxy, templateCampaign, 8);
+        _assertOccupiedChildRollsBack(9, address(template).code, 0);
+    }
+
+    function test_create3_RevertWhen_ProxySaltIsReused() external {
+        ProtocolRootCreate3ProxyV1 proxy = _factory.createProxy(_CAMPAIGN_KEY, _ROLE);
+        vm.expectRevert();
+        _factory.createProxy(_CAMPAIGN_KEY, _ROLE);
+
+        assertEq(address(proxy), _expectedProxy(address(_factory), _CAMPAIGN_KEY, _ROLE));
+        assertEq(uint256(vm.load(address(proxy), bytes32(uint256(1)))), 0);
+        assertEq(_nonceOneChild(address(proxy)).code.length, 0);
+    }
+
     function test_deployV1_RevertWhen_CallerIsNotFactoryOrProxyWasUsed() external {
         ProtocolRootCreate3ProxyV1 proxy = _factory.createProxy(_CAMPAIGN_KEY, _ROLE);
         bytes memory initCode = _factory.componentInitCode(_CAMPAIGN_KEY, _ROLE);
@@ -283,6 +374,19 @@ contract ProtocolRootPrimitivesTest is Test {
         assertEq(uint256(vm.load(address(proxy), bytes32(uint256(1)))), 0);
     }
 
+    function test_constructor_RevertWhen_EmptyFactoryMatchesEmptyCodeHash() external {
+        address prefundedFactory = address(0xFACADE01);
+        address nonceDirtyFactory = address(0xFACADE02);
+        vm.deal(prefundedFactory, 1 ether);
+        vm.setNonce(nonceDirtyFactory, 1);
+        bytes32 emptyCodeHash = keccak256(bytes(""));
+
+        vm.expectRevert(ProtocolRootComponentV1.ProtocolRootFactoryCodeChanged.selector);
+        new ProtocolRootComponentHarness(prefundedFactory, emptyCodeHash, _CAMPAIGN_KEY, _ROLE);
+        vm.expectRevert(ProtocolRootComponentV1.ProtocolRootFactoryCodeChanged.selector);
+        new ProtocolRootComponentHarness(nonceDirtyFactory, emptyCodeHash, _CAMPAIGN_KEY, _ROLE);
+    }
+
     function _assertRawRevert(
         ProtocolRootCreate3ProxyV1 _proxy,
         bytes memory _calldata,
@@ -294,6 +398,30 @@ contract ProtocolRootPrimitivesTest is Test {
         assertFalse(success);
         assertGe(returndata.length, 4);
         assertEq(bytes4(returndata), _selector);
+    }
+
+    function _assertOccupiedChildRollsBack(
+        uint8 _role,
+        bytes memory _code,
+        uint64 _nonce
+    )
+        private
+    {
+        ProtocolRootCreate3ProxyV1 proxy = _factory.createProxy(_CAMPAIGN_KEY, _role);
+        address component = _nonceOneChild(address(proxy));
+        if (_code.length != 0) vm.etch(component, _code);
+        if (_nonce != 0) vm.setNonce(component, _nonce);
+
+        bytes memory callData = abi.encodeCall(
+            ProtocolRootCreate3ProxyV1.deployV1, (_factory.componentInitCode(_CAMPAIGN_KEY, _role))
+        );
+        _assertRawRevert(
+            proxy, callData, ProtocolRootCreate3ProxyV1.ComponentDeploymentFailed.selector
+        );
+
+        assertEq(uint256(vm.load(address(proxy), bytes32(uint256(1)))), 0);
+        assertEq(component.code, _code);
+        assertEq(vm.getNonce(component), _nonce);
     }
 
     function _gappedDeployCalldata(bytes memory _initCode)

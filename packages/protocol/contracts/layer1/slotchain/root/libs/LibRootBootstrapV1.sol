@@ -18,7 +18,8 @@ library LibRootBootstrapV1 {
         view
         returns (bytes memory output_)
     {
-        _requireCallGas(_gasLimit, 0);
+        output_ = _allocateAndTouch(_returnLength);
+        _requireCallGas(_gasLimit, _returnLength, 0);
         bool success;
         uint256 actualLength;
         assembly ("memory-safe") {
@@ -29,7 +30,6 @@ library LibRootBootstrapV1 {
         if (actualLength != _returnLength) {
             revert BootstrapReturnLengthMismatch(_target, actualLength, _returnLength);
         }
-        output_ = new bytes(_returnLength);
         assembly ("memory-safe") {
             returndatacopy(add(output_, 32), 0, _returnLength)
         }
@@ -47,7 +47,7 @@ library LibRootBootstrapV1 {
         returns (bytes memory output_)
     {
         output_ = _allocateAndTouch(_returnLength);
-        _requireCallGas(_gasLimit, _postCallReserve);
+        _requireCallGas(_gasLimit, _returnLength, _postCallReserve);
         bool success;
         uint256 actualLength;
         assembly ("memory-safe") {
@@ -119,16 +119,23 @@ library LibRootBootstrapV1 {
     /// @dev Rejects zero/empty accounts and requires one exact runtime hash.
     function requireRuntime(address _target, bytes32 _expected) internal view {
         bytes32 actual;
+        uint256 codeSize;
         assembly ("memory-safe") {
             actual := extcodehash(_target)
+            codeSize := extcodesize(_target)
         }
-        if (_target == address(0) || _expected == bytes32(0) || actual != _expected) {
+        if (
+            _target == address(0) || codeSize == 0 || _expected == bytes32(0) || actual != _expected
+        ) {
             revert BootstrapRuntimeMismatch(_target);
         }
     }
 
     /// @dev Loads one word from exact returndata already sized by this library.
     function word(bytes memory _raw, uint256 _index) internal pure returns (bytes32 value_) {
+        if (_raw.length % 32 != 0 || _index >= _raw.length / 32) {
+            revert BootstrapMalformedWord(_index);
+        }
         assembly ("memory-safe") {
             value_ := mload(add(add(_raw, 32), mul(_index, 32)))
         }
@@ -188,20 +195,28 @@ library LibRootBootstrapV1 {
         if (word(_raw, 0) != bytes32(_expected)) revert BootstrapMagicMismatch(_expected);
     }
 
-    /// @dev Ensures EIP-150 can forward the stipend and retain the named post-call reserve.
-    function _requireCallGas(uint256 _gasLimit, uint256 _postCallReserve) private view {
+    /// @dev Ensures EIP-150 can forward the stipend and retain the named post-copy reserve.
+    ///      The EIP-150 headroom and post-copy reserve are concurrent lower bounds on retained
+    ///      caller gas, so their maximum rather than their sum is required.
+    function _requireCallGas(
+        uint256 _gasLimit,
+        uint256 _returnLength,
+        uint256 _postCallReserve
+    )
+        private
+        view
+    {
         uint256 eip150Margin = _gasLimit / 63 + (_gasLimit % 63 == 0 ? 0 : 1);
+        uint256 returnWords = _returnLength / 32 + (_returnLength % 32 == 0 ? 0 : 1);
+        uint256 envelope = 10_000 + 3 + 3 * returnWords;
+        uint256 retainedGas = eip150Margin > _postCallReserve ? eip150Margin : _postCallReserve;
         if (
-            eip150Margin > type(uint256).max - 10_000
-                || _gasLimit > type(uint256).max - eip150Margin - 10_000
+            _gasLimit > type(uint256).max - retainedGas
+                || _gasLimit + retainedGas > type(uint256).max - envelope
         ) {
             revert BootstrapInsufficientCallGas();
         }
-        uint256 forwardableGas = _gasLimit + eip150Margin + 10_000;
-        if (
-            _postCallReserve > type(uint256).max - forwardableGas
-                || gasleft() < forwardableGas + _postCallReserve
-        ) {
+        if (gasleft() < _gasLimit + retainedGas + envelope) {
             revert BootstrapInsufficientCallGas();
         }
     }

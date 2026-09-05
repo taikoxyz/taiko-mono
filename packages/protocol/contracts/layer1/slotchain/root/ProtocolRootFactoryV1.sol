@@ -2,9 +2,6 @@
 pragma solidity 0.8.30;
 
 import { IComponentConfigV2 } from "../../../shared/slotchain/iface/IComponentConfigV2.sol";
-import {
-    IProtocolRootActivationV1
-} from "../../../shared/slotchain/iface/IProtocolRootActivationV1.sol";
 import { ProtocolRootCreate3ProxyV1 } from "./ProtocolRootCreate3ProxyV1.sol";
 import { IProtocolRootFactoryV1 } from "./iface/IProtocolRootFactoryV1.sol";
 import { LibRootBootstrapV1 } from "./libs/LibRootBootstrapV1.sol";
@@ -93,7 +90,7 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
     uint64 private _nextGeneration;
     bytes32 private _liveCampaignKey;
     bytes32 private _activeRootReceipt;
-    uint8 private _finalizationLock;
+    uint8 private _bootstrapEntryLock;
     mapping(bytes32 campaignKey => Campaign campaign) private _campaigns;
     mapping(bytes32 campaignKey => mapping(uint8 role => ComponentDescriptor descriptor)) private
         _components;
@@ -272,15 +269,17 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
         )
     {
         _requireCanonicalStageCalldata(_manifest);
-        _requireNoFinalizationReentry();
+        _requireNoBootstrapReentry();
         if (msg.sender != _delayedExecutor || _operationId == bytes32(0)) {
             revert UnauthorizedRootMigrationExecutor();
         }
         if (_liveCampaignKey != bytes32(0) || _activeRootReceipt != bytes32(0)) {
             revert FactoryAlreadyHasRootOrCampaign();
         }
+        _bootstrapEntryLock = 1;
         StageContext memory context = _prepareStage(_operationId, _manifest);
         _storeStagedCampaign(_operationId, _manifest, context);
+        _bootstrapEntryLock = 0;
         return (
             _STG1_MAGIC,
             _operationId,
@@ -301,7 +300,7 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
         returns (address component_)
     {
         _requireCanonicalDeployCalldata(_role, _initCode);
-        _requireNoFinalizationReentry();
+        _requireNoBootstrapReentry();
         Campaign storage campaign = _campaigns[_campaignKeyValue];
         if (
             campaign.state != _CAMPAIGN_STAGED || _liveCampaignKey != _campaignKeyValue
@@ -317,6 +316,7 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
         ) {
             revert ProtocolRootInitCodeMismatch();
         }
+        _bootstrapEntryLock = 1;
 
         bytes32 salt = _componentSalt(_campaignKeyValue, _role);
         address expectedProxy = _proxyAddress(salt);
@@ -341,6 +341,7 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
 
         descriptor.component = component_;
         campaign.deployedBitmap |= uint16(1) << (_role - 1);
+        _bootstrapEntryLock = 0;
         emit ProtocolRootComponentDeployed(
             _campaignKeyValue, campaign.generation, _role, component_
         );
@@ -352,8 +353,8 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
         returns (bytes32 rootReceipt_)
     {
         if (msg.data.length != 36) revert NonCanonicalFactoryCalldata();
-        _requireNoFinalizationReentry();
-        _finalizationLock = 1;
+        _requireNoBootstrapReentry();
+        _bootstrapEntryLock = 1;
         Campaign storage campaign = _campaigns[_campaignKeyValue];
         if (
             campaign.state != _CAMPAIGN_STAGED || _liveCampaignKey != _campaignKeyValue
@@ -438,14 +439,15 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
 
         _nextGeneration = campaign.generation + 1;
         delete _liveCampaignKey;
-        _finalizationLock = 0;
+        _bootstrapEntryLock = 0;
         emit ProtocolRootActivated(_campaignKeyValue, rootReceipt_, campaign.generation);
     }
 
     /// @inheritdoc IProtocolRootFactoryV1
     function abortProtocolRootCampaignV1(bytes32 _campaignKeyValue) external {
         if (msg.data.length != 36) revert NonCanonicalFactoryCalldata();
-        _requireNoFinalizationReentry();
+        _requireNoBootstrapReentry();
+        _bootstrapEntryLock = 1;
         Campaign storage campaign = _campaigns[_campaignKeyValue];
         if (
             campaign.state != _CAMPAIGN_STAGED || _liveCampaignKey != _campaignKeyValue
@@ -456,12 +458,13 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
         campaign.state = _CAMPAIGN_ABORTED;
         _nextGeneration = campaign.generation + 1;
         delete _liveCampaignKey;
+        _bootstrapEntryLock = 0;
         emit ProtocolRootCampaignAborted(_campaignKeyValue, campaign.generation);
     }
 
-    /// @dev Rejects every mutating Factory entry while finalization has external control.
-    function _requireNoFinalizationReentry() private view {
-        if (_finalizationLock != 0) revert ProtocolRootFinalizationReentry();
+    /// @dev Rejects every mutating Factory entry while another bootstrap entry has control.
+    function _requireNoBootstrapReentry() private view {
+        if (_bootstrapEntryLock != 0) revert ProtocolRootFinalizationReentry();
     }
 
     /// @dev Validates and derives one stage context without retaining scalar stack state.
@@ -483,7 +486,7 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
         ) {
             revert InvalidProtocolRootManifest();
         }
-        context_.campaignKey = _campaignKey(context_.generation, predecessor);
+        context_.campaignKey = _deriveCampaignKey(context_.generation, predecessor);
         context_.manifestHash = _manifestHash(_manifest);
         _requireExecutorCandidate(_operationId, context_.campaignKey);
         if (block.timestamp > type(uint64).max - _CAMPAIGN_LIFETIME) {
@@ -560,7 +563,7 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
     {
         {
             bytes memory pvm = LibRootBootstrapV1.staticcallExact(
-                _component[3], abi.encodeWithSelector(_PVM1_SELECTOR), _EXTERNAL_READ_GAS, 1088
+                _component[3], abi.encodeWithSelector(_PVM1_SELECTOR), _EXTERNAL_READ_GAS, 1184
             );
             LibRootBootstrapV1.requireMagic(pvm, _PVM1_MAGIC);
             _validateProtocolVersionManagerPolicy(pvm);
@@ -574,10 +577,10 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
             _validatePvmRootJoin(_campaignKeyValue, _component, pvm);
         }
         bytes memory brc = LibRootBootstrapV1.staticcallExact(
-            _component[0], abi.encodeWithSelector(_BRC1_SELECTOR), _EXTERNAL_READ_GAS, 672
+            _component[0], abi.encodeWithSelector(_BRC1_SELECTOR), _EXTERNAL_READ_GAS, 704
         );
         bytes memory soc = LibRootBootstrapV1.staticcallExact(
-            _component[1], abi.encodeWithSelector(_SOC1_SELECTOR), _EXTERNAL_READ_GAS, 416
+            _component[1], abi.encodeWithSelector(_SOC1_SELECTOR), _EXTERNAL_READ_GAS, 576
         );
         LibRootBootstrapV1.requireMagic(brc, _BRC1_MAGIC);
         LibRootBootstrapV1.requireMagic(soc, _SOC1_MAGIC);
@@ -589,22 +592,33 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
         ComponentDescriptor storage router = _components[_campaignKeyValue][5];
         if (
             uint256(LibRootBootstrapV1.word(brc, 1)) != _settlementChainId
-                || LibRootBootstrapV1.word(brc, 19) != registry.configurationHash
-                || LibRootBootstrapV1.addressWord(brc, 14) != _component[4]
-                || LibRootBootstrapV1.word(brc, 15) != router.runtimeHash
-                || LibRootBootstrapV1.word(brc, 16) != router.configurationHash
-                || LibRootBootstrapV1.addressWord(brc, 17) != _component[1]
-                || LibRootBootstrapV1.word(brc, 18) != schedule.runtimeHash
+                || LibRootBootstrapV1.word(brc, 20) != registry.configurationHash
+                || LibRootBootstrapV1.addressWord(brc, 15) != _component[4]
+                || LibRootBootstrapV1.word(brc, 16) != router.runtimeHash
+                || LibRootBootstrapV1.word(brc, 17) != router.configurationHash
+                || LibRootBootstrapV1.addressWord(brc, 18) != _component[1]
+                || LibRootBootstrapV1.word(brc, 19) != schedule.runtimeHash
         ) {
             revert InvalidBuilderRegistryRootJoin();
         }
         bytes32 topologyHash = _builderTopologyHash(brc);
-        if (LibRootBootstrapV1.word(brc, 20) != topologyHash) {
+        if (LibRootBootstrapV1.word(brc, 21) != topologyHash) {
             revert InvalidBuilderRegistryRootJoin();
         }
 
         genesisTimestamp_ = LibRootBootstrapV1.u64Word(brc, 8);
         firstManagedWindow_ = LibRootBootstrapV1.u64Word(brc, 11);
+        uint64 lastManagedWindow = LibRootBootstrapV1.u64Word(brc, 12);
+        uint64 evidenceDelaySeconds = LibRootBootstrapV1.u64Word(brc, 9);
+        uint64 reorgMarginSeconds = LibRootBootstrapV1.u64Word(brc, 10);
+        if (
+            lastManagedWindow
+                    != _deriveLastManagedWindow(
+                        genesisTimestamp_, evidenceDelaySeconds, reorgMarginSeconds
+                    ) || firstManagedWindow_ > lastManagedWindow
+        ) {
+            revert InvalidBuilderRegistryRootJoin();
+        }
         uint256 firstManagedWindowStart =
             uint256(genesisTimestamp_) + uint256(firstManagedWindow_) * 384;
         if (
@@ -619,14 +633,17 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
                 || LibRootBootstrapV1.addressWord(soc, 3) != _component[4]
                 || LibRootBootstrapV1.addressWord(soc, 4) != _component[0]
                 || LibRootBootstrapV1.u64Word(soc, 5) != firstManagedWindow_
-                || LibRootBootstrapV1.u64Word(soc, 6) != genesisTimestamp_
-                || uint256(LibRootBootstrapV1.word(soc, 9)) != lease
-                || LibRootBootstrapV1.word(soc, 11) != topologyHash
-                || LibRootBootstrapV1.word(soc, 12) != schedule.configurationHash
+                || LibRootBootstrapV1.u64Word(soc, 6) != lastManagedWindow
+                || LibRootBootstrapV1.u64Word(soc, 7) != genesisTimestamp_
+                || LibRootBootstrapV1.u64Word(soc, 8) != evidenceDelaySeconds
+                || LibRootBootstrapV1.u64Word(soc, 9) != reorgMarginSeconds
+                || uint256(LibRootBootstrapV1.word(soc, 12)) != lease
+                || LibRootBootstrapV1.word(soc, 16) != topologyHash
+                || LibRootBootstrapV1.word(soc, 17) != schedule.configurationHash
         ) {
             revert InvalidScheduleOracleRootJoin();
         }
-        bytes32 forkWord = LibRootBootstrapV1.word(soc, 10);
+        bytes32 forkWord = LibRootBootstrapV1.word(soc, 13);
         if (forkWord == bytes32(0) || forkWord != bytes32(bytes4(forkWord))) {
             revert InvalidScheduleOracleRootJoin();
         }
@@ -721,6 +738,7 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
         ) {
             revert InvalidProtocolVersionManagerRootJoin();
         }
+        _validatePvmTerminalShape(_component, _pvm);
     }
 
     /// @dev Canonically decodes and validates the BRC1 scalar policy row used by the root join.
@@ -746,8 +764,13 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
         pure
         returns (uint64 beaconGenesisTime_)
     {
-        beaconGenesisTime_ = LibRootBootstrapV1.u64Word(_soc, 7);
-        if (LibRootBootstrapV1.u64Word(_soc, 8) != 768) revert InvalidScheduleOracleRootJoin();
+        beaconGenesisTime_ = LibRootBootstrapV1.u64Word(_soc, 10);
+        if (
+            LibRootBootstrapV1.u64Word(_soc, 11) != 768 || LibRootBootstrapV1.u64Word(_soc, 14) != 0
+                || LibRootBootstrapV1.u64Word(_soc, 15) == 0
+        ) {
+            revert InvalidScheduleOracleRootJoin();
+        }
     }
 
     /// @dev Enforces the frozen PVM1 governance clocks and nonzero release gas certificate.
@@ -766,7 +789,7 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
         }
     }
 
-    /// @dev Recomputes the exact 313-byte BuilderRegistry topology preimage.
+    /// @dev Recomputes the exact 321-byte BuilderRegistry topology preimage.
     function _builderTopologyHash(bytes memory _brc) private pure returns (bytes32 hash_) {
         bytes memory head = abi.encodePacked(
             uint256(LibRootBootstrapV1.word(_brc, 1)),
@@ -776,21 +799,22 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
             LibRootBootstrapV1.u64Word(_brc, 8),
             LibRootBootstrapV1.u64Word(_brc, 9),
             LibRootBootstrapV1.u64Word(_brc, 10),
-            LibRootBootstrapV1.u64Word(_brc, 11)
+            LibRootBootstrapV1.u64Word(_brc, 11),
+            LibRootBootstrapV1.u64Word(_brc, 12)
         );
         bytes memory tail = abi.encodePacked(
-            LibRootBootstrapV1.addressWord(_brc, 12),
-            LibRootBootstrapV1.u64Word(_brc, 13),
-            LibRootBootstrapV1.addressWord(_brc, 14),
-            LibRootBootstrapV1.word(_brc, 15),
+            LibRootBootstrapV1.addressWord(_brc, 13),
+            LibRootBootstrapV1.u64Word(_brc, 14),
+            LibRootBootstrapV1.addressWord(_brc, 15),
             LibRootBootstrapV1.word(_brc, 16),
-            LibRootBootstrapV1.addressWord(_brc, 17),
-            LibRootBootstrapV1.word(_brc, 18),
-            LibRootBootstrapV1.word(_brc, 19)
+            LibRootBootstrapV1.word(_brc, 17),
+            LibRootBootstrapV1.addressWord(_brc, 18),
+            LibRootBootstrapV1.word(_brc, 19),
+            LibRootBootstrapV1.word(_brc, 20)
         );
-        if (head.length != 117 || tail.length != 196) revert InvalidBuilderRegistryRootJoin();
+        if (head.length != 125 || tail.length != 196) revert InvalidBuilderRegistryRootJoin();
         return keccak256(
-            bytes.concat("slot-chain-builder-registry-topology-v1", bytes2(uint16(313)), head, tail)
+            bytes.concat("slot-chain-builder-registry-topology-v1", bytes2(uint16(321)), head, tail)
         );
     }
 
@@ -827,7 +851,10 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
         bytes memory controlsC = abi.encodePacked(
             LibRootBootstrapV1.addressWord(_pvm, 11),
             LibRootBootstrapV1.word(_pvm, 32),
-            LibRootBootstrapV1.word(_pvm, 33)
+            LibRootBootstrapV1.word(_pvm, 33),
+            LibRootBootstrapV1.addressWord(_pvm, 34),
+            LibRootBootstrapV1.word(_pvm, 35),
+            LibRootBootstrapV1.word(_pvm, 36)
         );
         bytes memory policy = abi.encodePacked(
             LibRootBootstrapV1.word(_pvm, 13),
@@ -841,6 +868,49 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
             LibRootBootstrapV1.u64Word(_pvm, 21)
         );
         return keccak256(bytes.concat(identities, controlsA, controlsB, controlsC, policy));
+    }
+
+    /// @dev Rejects an aliased or empty retained Source terminal identity in PVM1. Full live
+    ///      terminal authentication is deferred until the final seven Source artifacts exist.
+    function _validatePvmTerminalShape(
+        address[9] memory _component,
+        bytes memory _pvm
+    )
+        private
+        view
+    {
+        address terminal = LibRootBootstrapV1.addressWord(_pvm, 34);
+        if (
+            LibRootBootstrapV1.word(_pvm, 35) == bytes32(0)
+                || LibRootBootstrapV1.word(_pvm, 36) == bytes32(0) || terminal == address(this)
+                || terminal == _delayedExecutor || terminal == _daoProposer
+        ) {
+            revert InvalidProtocolVersionManagerRootJoin();
+        }
+        for (uint256 i; i < 9; ++i) {
+            if (terminal == _component[i]) revert InvalidProtocolVersionManagerRootJoin();
+        }
+    }
+
+    /// @dev Derives the terminal managed window from the exact uint64 timestamp bounds.
+    function _deriveLastManagedWindow(
+        uint64 _genesisTimestamp,
+        uint64 _evidenceDelaySeconds,
+        uint64 _reorgMarginSeconds
+    )
+        private
+        pure
+        returns (uint64 lastManagedWindow_)
+    {
+        uint256 fixedLimit = (uint256(type(uint64).max) - 383) / 384;
+        uint256 consumed = uint256(_genesisTimestamp) + uint256(_evidenceDelaySeconds)
+            + uint256(_reorgMarginSeconds);
+        if (consumed >= type(uint64).max) revert InvalidBuilderRegistryRootJoin();
+        uint256 quotient = (uint256(type(uint64).max) - 1 - consumed) / 384;
+        if (quotient == 0) revert InvalidBuilderRegistryRootJoin();
+        uint256 deadlineLimit = quotient - 1;
+        uint256 result = fixedLimit < deadlineLimit ? fixedLimit : deadlineLimit;
+        return uint64(result);
     }
 
     /// @dev Requires exact Executor runtime/configuration and the frozen RME1 row.
@@ -975,14 +1045,14 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
             dynamicOffset := calldataload(68)
             dynamicLength := calldataload(100)
         }
-        uint256 padded = (dynamicLength + 31) & ~uint256(31);
         if (
             roleWord != _role || roleWord > type(uint8).max || dynamicOffset != 96
                 || dynamicLength != _initCode.length || dynamicLength == 0 || dynamicLength > 49_152
-                || msg.data.length != 132 + padded
         ) {
             revert NonCanonicalFactoryCalldata();
         }
+        uint256 padded = (dynamicLength + 31) & ~uint256(31);
+        if (msg.data.length != 132 + padded) revert NonCanonicalFactoryCalldata();
         uint256 remainder = dynamicLength & 31;
         if (remainder != 0) {
             uint256 finalWord;
@@ -1012,7 +1082,7 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
     }
 
     /// @dev Derives the code-independent campaign key.
-    function _campaignKey(
+    function _deriveCampaignKey(
         uint64 _generation,
         bytes32 _predecessor
     )

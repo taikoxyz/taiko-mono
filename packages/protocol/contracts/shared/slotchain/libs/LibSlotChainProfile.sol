@@ -30,6 +30,9 @@ library LibSlotChainProfile {
         keccak256("slot-chain-force-send-handwritten-osaka-evm-v1");
     bytes32 internal constant FORCE_SEND_EVM_RULES_HASH =
         keccak256("slot-chain-force-send-eip-6780-osaka-v1");
+
+    // Canonical type strings are consensus inputs and cannot be wrapped without changing their hashes.
+    // solhint-disable max-line-length
     bytes32 internal constant REGISTRATION_MPT_PROOF_SCHEMA_HASH = keccak256(
         "MptProofV1=be16(accountNodeCount)||be16(storageNodeCount)||(be16(nodeLength)||canonicalRlpNode)*accountNodeCount||(be16(nodeLength)||canonicalRlpNode)*storageNodeCount;rootToLeaf;EthereumKeccak;canonicalHexPrefix;canonicalRlp;selectedNodesValidated;unselectedInlineOpaque;emptyBranchValue;absenceRejected;valueRequired"
     );
@@ -66,6 +69,8 @@ library LibSlotChainProfile {
     bytes32 internal constant RELEASE_MANIFEST_TYPEHASH = keccak256(
         "ReleaseManifestV2(uint64 protocolVersion,uint256 settlementChainId,uint256 destinationChainId,bytes32 destinationGenesisHash,bytes32 executionProfileHash,bytes32 manifestNamespace,bytes32 destinationNamespace,address anchorV4,bytes32 anchorRuntimeHash,bytes32 destinationDomainId,address destinationBridge,bytes32 destinationBridgeExecutionHash,DestinationBridgeDescriptorV2 destinationBridgeDescriptor,bytes32 destinationInfrastructureHash,bytes32 migrationVerifierDescriptorHash,bytes32 ingressAuthorizationRoot,address nativeLiquidityPool,bytes32 poolRuntimeHash,bytes32 poolConfigurationHash,ComponentDescriptorV2[10] components)ComponentDescriptorV2(address component,bytes32 runtimeHash,bytes32 configHash)DestinationBridgeDescriptorV2(address bridge,bytes32 runtimeHash,bytes32 configurationHash,bytes32 storageLayoutHash,bytes32 bridgeKernelProfileHash,address inboxCreditStore,address terminalAccumulator,address terminalDomainRegistrar,address quotaManager,address nativeLiquidityPool,address bridgeSurplusSink)"
     );
+
+    // solhint-enable max-line-length
 
     /// @dev ABI-encodes without applying the PVM/Router's full 281-word graph validation.
     /// @param _profile The exact V2.27 execution profile.

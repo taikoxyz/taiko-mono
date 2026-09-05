@@ -29,6 +29,14 @@ contract StatefulOogTarget {
 }
 
 contract LibRootBootstrapV1Harness {
+    function requireRuntime(address _target, bytes32 _runtimeHash) external view {
+        LibRootBootstrapV1.requireRuntime(_target, _runtimeHash);
+    }
+
+    function word(bytes calldata _raw, uint256 _index) external pure returns (bytes32 word_) {
+        return LibRootBootstrapV1.word(_raw, _index);
+    }
+
     function callExactNoReturn(
         address _target,
         bytes calldata _input,
@@ -97,23 +105,24 @@ contract LibRootBootstrapV1Test is Test {
         _harness = new LibRootBootstrapV1Harness();
     }
 
-    function test_callExact_RevertWhen_ExactReturndataCopyWouldConsumeReserve() external {
+    function test_callExact_LargeReturnPreflightThresholdAndThresholdMinusOne() external {
         uint256 reserve = 250_000;
-        bytes memory input = _returnInput(_LARGE_EXACT_RETURN, 95_000);
+        bytes memory input = _returnInput(_LARGE_EXACT_RETURN, type(uint256).max);
         bytes memory callData = abi.encodeCall(
             LibRootBootstrapV1Harness.callExactGasAfter,
             (address(_target), input, 500_000, _LARGE_EXACT_RETURN, reserve)
         );
+        uint256 threshold = _minimumSuccessfulGas(callData, 750_000, 1_200_000);
 
-        (bool success, bytes memory returndata) = address(_harness).call{ gas: 881_000 }(callData);
+        (bool success, bytes memory returndata) = address(_harness).call{ gas: threshold }(callData);
+        assertTrue(success);
+        (uint256 gasAfter,) = abi.decode(returndata, (uint256, bytes32));
+        assertGe(gasAfter, reserve);
 
-        if (success) {
-            (uint256 gasAfter,) = abi.decode(returndata, (uint256, bytes32));
-            assertLt(gasAfter, reserve);
-        }
+        (success, returndata) = address(_harness).call{ gas: threshold - 1 }(callData);
         assertFalse(success);
         assertGe(returndata.length, 4);
-        assertEq(bytes4(returndata), LibRootBootstrapV1.BootstrapPostCallGasTooLow.selector);
+        assertEq(bytes4(returndata), LibRootBootstrapV1.BootstrapInsufficientCallGas.selector);
     }
 
     function test_callExact_PreservesReserveAfterLargeExactReturndataCopy() external {
@@ -145,6 +154,27 @@ contract LibRootBootstrapV1Test is Test {
         _harness.callExactNoReturn(
             address(_target), _returnInput(unexpectedLength, type(uint256).max), 3_000_000, 32, 0
         );
+    }
+
+    function test_word_RevertWhen_RowIsMisalignedOrIndexIsOutOfBounds() external {
+        vm.expectRevert(
+            abi.encodeWithSelector(LibRootBootstrapV1.BootstrapMalformedWord.selector, 0)
+        );
+        _harness.word(hex"00", 0);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(LibRootBootstrapV1.BootstrapMalformedWord.selector, 1)
+        );
+        _harness.word(bytes.concat(bytes32(uint256(1))), 1);
+    }
+
+    function test_requireRuntime_RevertWhen_EmptyAccountMatchesEmptyCodeHash() external {
+        address empty = address(0xBEEF);
+        assertEq(empty.code.length, 0);
+        vm.expectRevert(
+            abi.encodeWithSelector(LibRootBootstrapV1.BootstrapRuntimeMismatch.selector, empty)
+        );
+        _harness.requireRuntime(empty, keccak256(bytes("")));
     }
 
     function test_callExact_CalleeOogRollsBackTargetState() external {

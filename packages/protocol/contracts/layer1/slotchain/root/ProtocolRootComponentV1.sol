@@ -116,9 +116,12 @@ abstract contract ProtocolRootComponentV1 is IProtocolRootActivationV1 {
 
     /// @dev Returns EXTCODEHASH without allowing an empty account to masquerade as a component.
     function _runtimeHash(address _target) private view returns (bytes32 hash_) {
+        uint256 codeSize;
         assembly ("memory-safe") {
             hash_ := extcodehash(_target)
+            codeSize := extcodesize(_target)
         }
+        if (codeSize == 0) return bytes32(0);
     }
 
     error InvalidProtocolRootActivationConfig();

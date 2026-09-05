@@ -81,18 +81,34 @@
       "addressReusePolicy": "campaign-role-helper",
       "retentionPolicy": "ephemeral-inert",
       "reactivationPolicy": "never",
-      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "abiOrEncoding": [
+        "constructor(): stores msg.sender as the sole factory and initializes used=false",
+        "deployV1(bytes) selector=0x5d5fb6bc; canonical offset=0x20; calldata=68+ceil32(initCodeLength); zero tail padding",
+        "success returndata=one canonical nonzero address word equal to the proxy nonce-one CREATE child"
+      ],
       "sourcePaths": [
         "contracts/layer1/slotchain/root/ProtocolRootCreate3ProxyV1.sol"
       ],
       "testPaths": ["test/layer1/slotchain/root/ProtocolRootPrimitives.t.sol"],
       "failureBranches": [
-        "authority/code/configuration/replay/fault branches; expand before review"
+        "caller is not the constructor-pinned factory",
+        "proxy already consumed",
+        "empty, oversized, aliased, gapped, trailing, or dirty-padding init-code calldata",
+        "nonce-one child CREATE fails because code or nonce already occupies the address; used write rolls back"
       ],
-      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
-      "status": "red",
-      "reviewedSourceHashes": {},
-      "reviewedTestHashes": {},
+      "limits": [
+        "initCodeLength=1..49152 bytes",
+        "one CREATE at proxy nonce one; no target, upgrade, withdrawal, or selfdestruct surface",
+        "campaign-role CREATE2 salt; first and ninth role ordering is independent",
+        "rootArtifactCount=18 and one layer1 compiler invocation remain final root-release gates"
+      ],
+      "status": "reviewed",
+      "reviewedSourceHashes": {
+        "contracts/layer1/slotchain/root/ProtocolRootCreate3ProxyV1.sol": "0x3de26db09772970d647867571f80c467cb05c75a6090038a8892b541686f8b80"
+      },
+      "reviewedTestHashes": {
+        "test/layer1/slotchain/root/ProtocolRootPrimitives.t.sol": "0xe67f97160490a0a324a5f3e8ed588d7238de9900a25be343733a4f64189fe953"
+      },
       "id": "root.protocol-root-create3-proxy-v1",
       "name": "ProtocolRootCreate3ProxyV1",
       "kind": "root-artifact"
@@ -3669,7 +3685,7 @@
       ],
       "status": "reviewed",
       "reviewedSourceHashes": {
-        "contracts/shared/slotchain/libs/LibSlotChainProfile.sol": "0x19ef41aa6ab84671b027a4b9331c548bc3be5c0e85e3c38547c77744f64375b3"
+        "contracts/shared/slotchain/libs/LibSlotChainProfile.sol": "0x774cc9c7d75f7ce02512ba32e446c629a81ec30be802a2ab99a2e77acdbf912f"
       },
       "reviewedTestHashes": {
         "test/shared/slotchain/libs/LibSlotChainProfile.t.sol": "0x5543c71461321e387a4199ee7dac36d9b0ee1dd8ff2ff046aa50c4898f074bba"
@@ -4077,18 +4093,39 @@
       "addressReusePolicy": "not-applicable",
       "retentionPolicy": "source-inline",
       "reactivationPolicy": "not-applicable",
-      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "abiOrEncoding": [
+        "staticcallExact/callExact: exact caller-built input, named gas operand, exact bounded returndata and no revert-data copy",
+        "callCreate3ProxyExact: prebuilt calldata, warmed proxy, gasleft()-510000 operand, exact bounded return and >=500000 post-copy reserve",
+        "componentConfigHashV2 selector=0xf6c0f7d2; exact 32-byte nonzero configuration return",
+        "canonical bytes4/address/uint8/uint16/uint64/uint192 word decoders reject dirty padding and out-of-range values"
+      ],
       "sourcePaths": [
         "contracts/layer1/slotchain/root/libs/LibRootBootstrapV1.sol"
       ],
-      "testPaths": ["test/layer1/slotchain/root/ProtocolRootFactoryV1.t.sol"],
-      "failureBranches": [
-        "authority/code/configuration/replay/fault branches; expand before review"
+      "testPaths": [
+        "test/layer1/slotchain/root/LibRootBootstrapV1.t.sol",
+        "test/layer1/slotchain/root/ProtocolRootFactoryV1.t.sol"
       ],
-      "limits": ["normative width/gas/capacity bounds; expand before review"],
-      "status": "red",
-      "reviewedSourceHashes": {},
-      "reviewedTestHashes": {},
+      "failureBranches": [
+        "zero, empty-code, wrong-runtime, zero-configuration, or wrong-configuration target",
+        "insufficient checked EIP-150/post-copy gas, call revert/OOG, wrong return length, or post-copy reserve failure",
+        "return-data bomb is rejected by RETURNDATASIZE before copying",
+        "misaligned row, out-of-bounds word, dirty address/magic, or overflowing narrow integer"
+      ],
+      "limits": [
+        "minimum caller gas=limit+max(ceil(limit/63),reserve)+10000+3+3*ceil(returnLength/32)",
+        "output allocation and final padded word are touched before preflight measurement",
+        "CREATE3 gas gap=510000 and post-copy reserve=500000",
+        "all arithmetic is checked; exact return length is an internal release-pinned bound"
+      ],
+      "status": "reviewed",
+      "reviewedSourceHashes": {
+        "contracts/layer1/slotchain/root/libs/LibRootBootstrapV1.sol": "0x04b9207e3fa6600609452ec97c66bb023114c01d3b4c502411836eba64286fbb"
+      },
+      "reviewedTestHashes": {
+        "test/layer1/slotchain/root/LibRootBootstrapV1.t.sol": "0xa2f507f0bf95711878b951e91b69e66770b6eb2344c2b1b93d18a8336bfad43f",
+        "test/layer1/slotchain/root/ProtocolRootFactoryV1.t.sol": "0x9441a27a4986b331a696228d9f8503738763846d7a171e3f11af608d557ec69e"
+      },
       "id": "primitive.lib-root-bootstrap-v1",
       "name": "LibRootBootstrapV1",
       "kind": "source-inline"
@@ -4108,18 +4145,33 @@
       "addressReusePolicy": "not-applicable",
       "retentionPolicy": "source-inline",
       "reactivationPolicy": "not-applicable",
-      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "abiOrEncoding": [
+        "constructor(factory,factoryRuntimeHash,campaignKey,role): authenticates nonempty factory code and exact CREATE3 campaign-role topology",
+        "protocolRootActivationV1() selector=0x74f08160; exact 128-byte PRA1/factory/campaign/state row",
+        "activateProtocolRootV1(bytes32) selector=0x74e3aa45; exact campaign and factory; returns one RAA1 word"
+      ],
       "sourcePaths": [
         "contracts/layer1/slotchain/root/ProtocolRootComponentV1.sol"
       ],
       "testPaths": ["test/layer1/slotchain/root/ProtocolRootPrimitives.t.sol"],
       "failureBranches": [
-        "authority/code/configuration/replay/fault branches; expand before review"
+        "zero factory/hash/key, empty or changed factory code, or role outside 1..9",
+        "constructor caller/address is not the exact CREATE2-proxy/nonce-one child topology",
+        "activation caller, runtime, or campaign mismatch and duplicate activation",
+        "derived functional surface called before one-shot activation"
       ],
-      "limits": ["normative width/gas/capacity bounds; expand before review"],
-      "status": "red",
-      "reviewedSourceHashes": {},
-      "reviewedTestHashes": {},
+      "limits": [
+        "nine role values exactly 1..9",
+        "activation states INACTIVE=0 and ACTIVE=1; no deactivation or reactivation",
+        "factory runtime hash and campaign key are writerless after construction"
+      ],
+      "status": "reviewed",
+      "reviewedSourceHashes": {
+        "contracts/layer1/slotchain/root/ProtocolRootComponentV1.sol": "0x489f8aa30d2fe5cfbed3821f266e55f5fe4aaf7632f8c21b3ef297b6bdbbad92"
+      },
+      "reviewedTestHashes": {
+        "test/layer1/slotchain/root/ProtocolRootPrimitives.t.sol": "0xe67f97160490a0a324a5f3e8ed588d7238de9900a25be343733a4f64189fe953"
+      },
       "id": "primitive.protocol-root-component-v1",
       "name": "ProtocolRootComponentV1",
       "kind": "source-inline"
