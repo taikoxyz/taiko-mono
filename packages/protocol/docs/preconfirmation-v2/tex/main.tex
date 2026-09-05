@@ -612,10 +612,11 @@ runtime and reachable code dependencies are manifest-pinned; pinning only a
 proxy shell's \code{EXTCODEHASH} is invalid.  Every token-moving path is
 non-reentrant and writes pull credit before an external transfer.
 
-The actual Solidity constructor argument list begins with the three root-
-activation fields and continues with every BuilderRegistry-local field below.
-Their canonical ABI encoding and init code are frozen in the protocol-root
-deployment paragraphs; the local field suffix is
+The actual Solidity constructor has the three root-activation fields followed
+by one fully static typed tuple.  This shape is normative: the equivalent flat
+argument list does not compile under the release non-IR profile even with an
+empty constructor body, while an opaque packed byte string would create an
+unnecessary parser boundary.  The tuple is
 \begin{verbatim}
 BuilderRegistryConstructorV1(
  uint256 settlementChainId,
@@ -628,12 +629,23 @@ BuilderRegistryConstructorV1(
  address activeSettlementRouter,bytes32 routerRuntimeHash,
  bytes32 routerConfigurationHash,address scheduleOracle,
  bytes32 scheduleOracleRuntimeHash,
+ address builderProofVerifier,bytes32 builderProofVerifierRuntimeHash,
+ bytes32 builderProofVerifierConfigurationHash,
  BuilderRewardClassConfigV1[3] rewardClasses)
 
 BuilderRewardClassConfigV1 =
  (uint8 classId,bytes32 nameHash,uint256 fixedWei,
-  uint256 perExecutionGasWei,uint256 perPublishedByteWei,uint256 capWei)
+ uint256 perExecutionGasWei,uint256 perPublishedByteWei,uint256 capWei)
 \end{verbatim}
+The Solidity signature is exactly
+\begin{verbatim}
+constructor(address protocolRootFactory,bytes32 factoryRuntimeHash,
+ bytes32 campaignKey,BuilderRegistryConstructorV1 memory config)
+\end{verbatim}
+The local tuple is 39 static words and the complete constructor encoding is
+42 words (1,344 bytes), with no dynamic offset, alias or optional suffix.  The
+implementation accesses it through staged validation helpers and does not
+destructure it into a stack-sized flat list.
 It requires \code{settlementChainId=block.chainid}, every address/runtime/config
 word nonzero, \code{builderPenaltySink != address(this)}, and all of
 \begin{verbatim}
@@ -668,14 +680,16 @@ u64(lastManagedWindow) ||
 address20(builderPenaltySink) || u64(rewardClaimWindowSeconds) ||
 address20(activeSettlementRouter) || routerRuntimeHash ||
 routerConfigurationHash || address20(scheduleOracle) ||
-scheduleOracleRuntimeHash || builderRegistryConfigurationHash
+scheduleOracleRuntimeHash || address20(builderProofVerifier) ||
+builderProofVerifierRuntimeHash ||
+builderProofVerifierConfigurationHash || builderRegistryConfigurationHash
 \end{verbatim}
 and
 \begin{verbatim}
 builderRegistryTopologyHash = H(
  "slot-chain-builder-registry-topology-v1" || u16(byteLength(B)) || B).
 \end{verbatim}
-Here \code{byteLength(B)=321}; any other width or field order is a different
+Here \code{byteLength(B)=405}; any other width or field order is a different
 topology.
 Both hashes are derived, stored writerlessly and exposed by the exact deployment
 read
@@ -691,8 +705,10 @@ builderRegistryConfigV1() returns
   uint64 rewardClaimWindowSeconds,address activeSettlementRouter,
   bytes32 routerRuntimeHash,bytes32 routerConfigurationHash,
   address scheduleOracle,bytes32 scheduleOracleRuntimeHash,
+  address builderProofVerifier,bytes32 builderProofVerifierRuntimeHash,
+  bytes32 builderProofVerifierConfigurationHash,
   bytes32 economicConfigurationHash,bytes32 topologyHash)
-// selector 0x66f0bd82; exact 704 bytes; magic BRC1=0x42524331
+// selector 0x66f0bd82; exact 800 bytes; magic BRC1=0x42524331
 
 builderRegistryTopologyHashV1() returns (bytes32 topologyHash)
 // selector 0xa571e34b; exact 32 bytes
@@ -704,6 +720,73 @@ the three reward-class rows and therefore is not an alternate economic-hash
 preimage.  The one-word
 topology getter exists for bounded operational authentication; it is not a
 caller-supplied substitute for the full deployment check.
+
+The proof verifier is the single code-size boundary authorized for Registry.
+This verifier is an immutable, stateless, ownerless,
+non-proxy and unpausable root-lifetime artifact.  It has no storage-writing
+opcode, fallback, receive function, selfdestruct, delegatecall, arbitrary
+target, callback or value-moving path.  Registry remains the sole authority
+for roots, locators, counters, replay state, tombstones, escrow, credits and
+token transfers.  The verifier computes only fixed-tree and signed-header
+proof results under exact bounded STATICCALLs and never calls Registry.
+It is permissionlessly predeployed through the canonical ERC-2470 singleton
+from its release-pinned no-argument creation code.  Let
+\begin{verbatim}
+builderProofVerifierInitCodeHash = H(
+ type(BuilderRegistryProofVerifierV1).creationCode)
+builderProofVerifierSalt = H(
+ "slot-chain-builder-registry-proof-verifier-salt-v1" ||
+ u256(settlementChainId) || manifestNamespace ||
+ builderProofVerifierConfigurationHash)
+builderProofVerifier = low20(H(
+ 0xff || address20(0xce0042B868300000d44A59004Da54A005ffdcf9f) ||
+ builderProofVerifierSalt || builderProofVerifierInitCodeHash))
+\end{verbatim}
+Factory constructor-pins the init-code, runtime and configuration hashes,
+derives the salt/address, and repeats all five values in PRF1.  The resulting
+address, runtime hash and configuration hash are repeated in Registry's
+constructor and BRC1.
+Predeployment is required; Registry must not embed or CREATE the verifier's
+init code.
+The canonical zero-value ERC-2470 \code{deploy(bytes,bytes32)} call uses
+selector \code{0x4af63f02}, head \code{(0x40,builderProofVerifierSalt)}, the
+exact contiguous init-code length/data and zero padding, and returns the exact
+derived address.  Prior exact code at that address is accepted.  Different
+init code has a different CREATE2 address; missing/wrong code, wrong config,
+dirty collision or malformed return blocks before Factory/root activation.
+Deployment order is verifier, Factory, then the nine-role campaign.  An
+aborted campaign reuses the verifier and there is no mutable fallback.
+
+The exact verifier configuration read is
+\begin{verbatim}
+builderRegistryProofVerifierConfigV1() returns
+ (bytes4 magic,uint8 schema,uint16 registryLeaves,
+  uint16 admissionUsedLeaves,uint16 admissionTreeLeaves,
+  uint16 trancheLeaves,uint8 registryDepth,uint8 admissionDepth,
+  uint8 trancheDepth,uint8 maximumTrancheBatch,uint32 identityCallGas,
+  uint32 registryCallGas,uint32 admissionCallGas,
+  uint32 trancheBatchCallGas,uint32 evidenceCallGas,
+  bytes32 configurationHash)
+// selector 0x0d1c9932; exact 512 bytes; magic BPV1
+\end{verbatim}
+The fixed values after the magic are
+\code{(1,64,1136,2048,512,6,11,9,18,350000,120000,160000,700000,450000)}.
+Let C be, in that order, the packed narrow values, then selectors
+\code{0x7c09d62d} and \code{0xa9ca9190}, magics
+\code{BPV1,EIV1,BPR1,BPO1}, and widths
+\code{u16(512),u16(320),u16(192),u16(432),u16(531),u16(6770),u16(2727)}.
+It is exactly 71 bytes and
+\begin{verbatim}
+builderProofVerifierConfigurationHash = H(
+ "slot-chain-builder-proof-verifier-config-v1" || u16(71) || C).
+\end{verbatim}
+The verifier's exact 32-byte \code{componentConfigHashV2()} equals this hash.
+BPV1 uses exactly 100,000 gas and the component getter exactly 50,000 gas.
+Registry authenticates EXTCODEHASH, BPV1 and that component hash once before
+the first verifier call in each external operation.  Failure, OOG,
+short/trailing/dirty data or disagreement reverts before any authoritative
+write.  The published stipends are release gates: the compiled artifact must
+pass each exact stipend and fail closed at its measured one-gas-below boundary.
 
 Before every Router functional read, Registry rechecks the pinned
 \code{EXTCODEHASH}, exact 50,000-gas \code{componentConfigHashV2()} result and
@@ -767,9 +850,9 @@ warm-CALL and return-envelope reserve; release measurement must prove it covers
 that path.
 
 Staging does not waive EIP-170 or EIP-3860.  Before the DAO may queue the root
-operation, the reproducible compiled-artifact gate covers all eighteen
+operation, the reproducible compiled-artifact gate covers all nineteen
 deployment artifacts: RootMigrationExecutor, ProtocolRootFactory, the fixed
-CREATE3 proxy, all nine component roles, and the six additional artifacts
+CREATE3 proxy, BuilderRegistryProofVerifierV1, all nine component roles, and the six additional artifacts
 reachable from role 9 (bundle deployer, BridgeInboxAdapter, SourceBridgeV2,
 BridgeCreditRegistryV2, source native QuotaManager and
 SourceTerminalVerifier).  The SourceBundleFactory artifact occurs once in this
@@ -777,16 +860,18 @@ count and must be byte-identical in the root-role and Source-artifact gates.
 Every runtime byte array must be
 at most 24,576 bytes and every complete init code must be at most 49,152 bytes,
 with the committed hashes equal to those exact bytes.
-All eighteen artifacts are compiled by one release-pinned compiler build and
+All nineteen artifacts are compiled by one release-pinned compiler build and
 artifact-owner profile; Factory, proxy and role artifacts from mixed IR/non-IR
 or optimizer profiles are not a root.  In particular the Factory-embedded
 proxy creation/runtime hashes and every role's independently derived proxy
 hash must come from those same canonical bytes.
-BuilderRegistry and ScheduleOracle are specifically blocking until their real
-optimized artifacts pass both bounds.  ProtocolRootFactory is also specifically
+BuilderRegistry, BuilderRegistryProofVerifierV1 and ScheduleOracle are specifically blocking until their real
+optimized artifacts pass both bounds; Registry additionally has a 23,500-byte
+release-engineering ceiling.  ProtocolRootFactory is also specifically
 blocking because it owns strict manifest parsing, CREATE3 and the complete
-BRC1/SOC1/PCT1/PVM1 postvalidation graph; V1 currently authorizes no Factory helper.
-If any artifact exceeds EIP-170, the design
+BRC1/SOC1/PCT1/PVM1 postvalidation graph plus the independent verifier pin.
+The verifier is not a Factory parser or mutable extension.
+If any other artifact exceeds EIP-170, the design
 must first specify an exact immutable helper topology: helper addresses,
 runtimes, configurations, transitive reachable-code closure, STATICCALL ABI and
 gas must enter that artifact's configuration and the root DAG.  A linked library using
@@ -853,7 +938,7 @@ has no gap, alias or suffix.
 It recomputes the manifest hash and operation ID from the complete stored row,
 requires exact queued runtime/configuration, IDLE authority and QUEUED state,
 then tentatively writes CANDIDATE/EXECUTING before any external call.  It
-exact-reads the 736-byte PRF1 and 32-byte configuration result with the fixed
+exact-reads the 896-byte PRF1 and 32-byte configuration result with the fixed
 stipends, requires the configured delayed executor to be itself, then calls
 the Factory stage entry with exactly 1,500,000 gas while preserving 300,000 gas
 for receipt/poststate checks.  It accepts only the exact STG1 return and exact
@@ -929,10 +1014,15 @@ The factory constructor is exactly
 ProtocolRootFactoryConstructorV1(
  uint256 settlementChainId,bytes32 manifestNamespace,
  address delayedRootMigrationExecutor,bytes32 executorRuntimeHash,
- bytes32 executorConfigurationHash)
+ bytes32 executorConfigurationHash,
+ bytes32 builderProofVerifierInitCodeHash,
+ bytes32 builderProofVerifierRuntimeHash,
+ bytes32 builderProofVerifierConfigurationHash)
 \end{verbatim}
 It requires the live chain, all nonzero identities and exact executor
-runtime/\code{componentConfigHashV2()}.  Because the proxy has neither
+runtime/\code{componentConfigHashV2()}.  It derives the verifier salt and
+address by the ERC-2470 formula above and authenticates its exact runtime,
+BPV1 and \code{componentConfigHashV2()} before construction succeeds.  Because the proxy has neither
 constructor arguments nor immutables, Factory derives
 \code{create3ProxyCreationCodeHash=H(type(ProtocolRootCreate3ProxyV1).creationCode)}
 and \code{create3ProxyRuntimeHash=H(type(ProtocolRootCreate3ProxyV1).runtimeCode)};
@@ -946,8 +1036,11 @@ protocolRootFactoryConfigurationHash = H(
  "slot-chain-protocol-root-factory-config-v1" ||
  u256(settlementChainId) || manifestNamespace ||
  address20(delayedRootMigrationExecutor) || executorRuntimeHash ||
- executorConfigurationHash || create3ProxyCreationCodeHash ||
- create3ProxyRuntimeHash || sourceArtifactRoot ||
+executorConfigurationHash || create3ProxyCreationCodeHash ||
+create3ProxyRuntimeHash || sourceArtifactRoot ||
+ builderProofVerifierInitCodeHash || builderProofVerifierRuntimeHash ||
+ builderProofVerifierConfigurationHash || builderProofVerifierSalt ||
+ address20(builderProofVerifier) ||
  bytes4(0xf95ec7e4) || bytes4(0x43b610d6) ||
  u64(2000000) || u64(300000) || u64(75000) ||
  u64(2592000) || u64(500000) || u8(18) ||
@@ -960,16 +1053,20 @@ BridgeInboxAdapter, SourceBridgeV2, BridgeCreditRegistryV2, source native
 QuotaManager and SourceTerminalVerifier creation/runtime hash pairs.  Every
 pair comes from the same release-pinned compiler artifacts; none is a caller
 or manifest input.  Factory exposes its configuration through
-\code{componentConfigHashV2()} and the exact 736-byte
+\code{componentConfigHashV2()} and the exact 896-byte
 \code{protocolRootFactoryConfigV1()} view (selector \code{0xd7b40838}, magic
 PRF1).  To remain compilable under the release's non-IR Solidity profile, the
 interface returns one static \code{ProtocolRootFactoryConfigV1} struct whose
-23 fields, in exact wire order, are
+28 fields, in exact wire order, are
 \begin{verbatim}
 (bytes4 magic,uint256 settlementChainId,bytes32 manifestNamespace,
  address delayedRootMigrationExecutor,bytes32 executorRuntimeHash,
  bytes32 executorConfigurationHash,bytes32 proxyCreationCodeHash,
  bytes32 proxyRuntimeHash,bytes32 sourceArtifactRoot,
+ bytes32 builderProofVerifierInitCodeHash,
+ bytes32 builderProofVerifierRuntimeHash,
+ bytes32 builderProofVerifierConfigurationHash,
+ bytes32 builderProofVerifierSalt,address builderProofVerifier,
  bytes4 ensureSourceInfrastructureSelector,
  bytes4 sourceInfrastructureViewSelector,uint64 campaignLifetime,
  uint64 deploymentPostcheckReserve,
@@ -981,11 +1078,12 @@ interface returns one static \code{ProtocolRootFactoryConfigV1} struct whose
  uint64 sourceInfrastructureCallOverheadGas,
  bytes32 configurationHash)
 \end{verbatim}
-A single static tuple has the same 736-byte ABI returndata and selector as the
+A single static tuple has the same 896-byte ABI returndata and selector as the
 flat list; outputs never enter the selector.  The named struct is normative so
-the generated ABI remains usable without a 23-output non-IR wrapper.  Its fields
+the generated ABI remains usable without a 28-output non-IR wrapper.  Its fields
 are those constructor fields, derived proxy hashes, Source artifact root, the
-exact selectors \code{(0xf95ec7e4,0x43b610d6)}, lifetime,
+verifier hashes/salt/address, the exact selectors
+\code{(0xf95ec7e4,0x43b610d6)}, lifetime,
 deployment postcheck reserve, \code{minimumFirstManagedRunwayWindows=18}, then
 Executor-config read, component-config read, activation-call, external-read and
 Executor-confirm-call gas constants
@@ -999,7 +1097,7 @@ minimum successful nested-call budget plus safety margin remains below that
 stipend; an OOG at any smaller test budget rejects atomically.
 The factory is permissionlessly deployed through ERC-2470 with
 release-pinned creation/runtime/configuration and salt after the independently
-addressed executor; its address/runtime/configuration do not depend on any
+addressed executor and proof verifier; its address/runtime/configuration do not depend on any
 root component, manifest or generation.
 
 One campaign has the exact 969-byte packed \code{ProtocolRootManifestV1}:
@@ -1032,7 +1130,9 @@ constructorArgs = abi.encode(
 initCode = type(RoleV1).creationCode || constructorArgs
 initCodeHash = H(initCode)
 \end{verbatim}
-The activation fields are the first three constructor arguments, not an
+For role 1 the angle-bracketed suffix is the single static
+\code{BuilderRegistryConstructorV1} tuple above; its static words occupy the
+same contiguous ABI positions and introduce no offset.  The activation fields are the first three constructor arguments, not an
 independent byte prefix or nested ABI tuple.  Solidity's canonical ABI defines
 every static word and any role-local dynamic offset/tail; a release manifest
 pins the resulting complete init-code bytes, and no initializer or suffix may
@@ -1054,7 +1154,9 @@ the nonzero operation ID and canonical ABI wrapping exactly those 969 bytes:
 dynamic offset \code{0x40}, total calldata length 1,092, zero tail padding and
 no gap, alias or suffix.  Factory rechecks executor EXTCODEHASH, its exact
 320-byte configuration, 32-byte configuration hash and RMA1 CANDIDATE fields
-against this Factory, operation and derived campaign key before storing the
+against this Factory, operation and derived campaign key.  It also rechecks
+the derived proof verifier address, EXTCODEHASH, exact BPV1 row and 32-byte
+component configuration before storing the
 operation/key/hash, a checked
 \code{expiresAt=block.timestamp+2592000}, zero deployment bitmap and STAGED
 state.  Generation begins at zero.  It accepts no second live campaign or same
@@ -1236,7 +1338,8 @@ Once all nine bits are set, anyone may call
 at the deadline.  Factory requires that no root was previously installed and
 rechecks the zero predecessor, all nine addresses,
 runtimes, exact configuration/activation views, kind-1 Source infrastructure
-READY state, and the complete BRC1/SOC1/PCT1/PVM1/SBF1/STF1 cross-graph.  This
+READY state, the independently pinned proof verifier, and the complete
+BRC1/SOC1/PCT1/PVM1/SBF1/STF1 cross-graph.  This
 is a strict word-by-word decode, not merely a comparison of
 the three outer configuration hashes: BRC1 requires a nonzero token runtime,
 canonical words 5--7 and
@@ -1261,7 +1364,10 @@ role-3 component configuration and PVM1 word 12.  PVM1 words 14--16 are exactly
 narrow integer and bytes4 word in the three rows has canonical padding.
 Component configuration calls use 50,000 gas and every larger
 activation/cross-view uses 100,000 gas; every call has exact selector-only
-calldata and exact return length/padding.  It requires BRC1 and SOC1 to agree on
+calldata and exact return length/padding.  Factory requires BRC1's proof
+verifier address/runtime/configuration to equal its own derived/pinned values,
+rechecks that verifier's BPV1 and component configuration, and requires BRC1
+and SOC1 to agree on
 \code{genesisTimestamp}, \code{evidenceDelaySeconds},
 \code{reorgMarginSeconds}, \code{firstManagedWindow} and
 \code{lastManagedWindow}; independently recomputes \code{lastManagedWindow}
@@ -1769,6 +1875,99 @@ no eligible item is reached; a caller cannot omit an eligible derived record.
 Each record anchors the roots produced by the prior record, every length prefix
 must equal that record's canonical length, and no suffix is accepted.
 
+All primitive Registry, admission and tranche proof calculations use the
+authenticated stateless verifier.  Its proof entry is
+\begin{verbatim}
+verifyBuilderRegistryProofV1(bytes request)
+// selector 0xa9ca9190; canonical offset 0x20
+\end{verbatim}
+Registry supplies the exact BPV1 stipend selected by the opcode: 120,000,
+160,000, 700,000 and 450,000 gas for opcodes 1 through 4 respectively.
+The identity call below receives exactly 350,000 gas.  Immediately before
+each STATICCALL it requires at least
+\code{L+ceil(L/63)+10006} gas so EIP-150 cannot reduce the requested
+operand; insufficient gas rejects before the call.  Later insufficient gas
+can only revert the complete Registry transaction and never publish a partial
+transition.
+Total calldata length is \code{68+ceil32(requestLength)} with zero tail
+padding and no gap, alias, value or suffix.  Every request begins
+\code{BPR1||u8(opcode)} and uses packed big-endian narrow fields.  The exact
+192-byte return is
+\begin{verbatim}
+(bytes4 magic,bytes32 verifierConfigurationHash,
+ bytes32 requestCommitment,bytes32 newRegistryRoot,
+ bytes32 newAdmissionRoot,bytes32 newTrancheRoot)
+// magic BPO1
+requestCommitment = H("slot-chain-builder-proof-request-v1" ||
+ u32(requestLength) || request)
+\end{verbatim}
+The output mask is exact.  Opcode 1 returns \code{(R,0,0)}, opcode 2
+\code{(0,A,0)} and opcode 3 \code{(0,0,T)} in
+\code{(newRegistryRoot,newAdmissionRoot,newTrancheRoot)} order.  Opcode 4
+always returns T, returns R iff \code{currentLocation=ACTIVE}, and returns A
+iff the current generation's prestate tombstone is \code{UINT64_MAX} and is
+therefore first set by this evidence.  Every masked-off root word is exact
+zero; Registry preserves the corresponding pre-root rather than treating zero
+as a root.  Registry independently computes the commitment and
+accepts only the exact authenticated configuration and requested roots.
+The canonical packed preimages used by this boundary are
+\begin{verbatim}
+registryCell[100] = address20(builder) || u192(baseBond) ||
+ u64(registrationIndex) || u64(effectiveL2Slot) ||
+ bytes32(trancheRoot) || u64(tombstone)
+admissionCell[68] = address20(builder) || u192(baseBond) ||
+ u64(registrationIndex) || u64(effectiveL2Slot) || u64(tombstone)
+trancheLeaf[43] = u16(index) || u64(window) || u8(state) ||
+ u192(amount) || u64(deadline)
+\end{verbatim}
+and the four opcodes are exactly:
+\begin{enumerate}
+\item \code{REGISTRY_REPLACE=1}, 432 bytes:
+\code{BPR1||01||root32||index8||oldOccupied8||oldCell100||}
+\code{newOccupied8||newCell100||siblings[6]}.  The offsets are root 5,
+index 37, old flag 38, old cell 39, new flag 139, new cell 140 and siblings
+240.
+\item \code{ADMISSION_REPLACE=2}, 531 bytes:
+\code{BPR1||02||root32||position16||oldOccupied8||oldLocation8||}
+\code{oldCell68||newOccupied8||newLocation8||newCell68||siblings[11]}.
+The offsets are root 5, position 37, old flag/location 39/40, old cell 41,
+new flag/location 109/110, new cell 111 and siblings 179.  Position is below
+1,136; an empty row has zero location/cell and an occupied location is exactly
+ACTIVE(1) or LIABILITY(2).
+\item \code{TRANCHE_BATCH=3}, exactly \code{38+374*n} bytes for
+\code{1<=n<=18}:
+\code{BPR1||03||initialRoot32||u8(n)||}
+\code{repeat(oldLeaf43||newLeaf43||siblings[9])}.  Each transition anchors
+the root produced by its predecessor; maximum request length is 6,770.
+\item \code{EQUIVOCATION=4}, exactly 2,727 bytes.  Its exact packed offsets
+are:
+\begin{verbatim}
+BPR1 0; opcode 4; evidence[5,2371);
+u256(expectedSettlementChainId) 2371; evidenceHash 2403;
+identityCommitment 2435; address20(builder) 2467;
+u64(registrationIndex) 2487; u8(currentLocation) 2495;
+u16(currentAdmissionPosition) 2496; u64(currentL2Slot) 2498;
+registryRoot 2506; admissionRoot 2538;
+currentGenerationCell100 2570; u64(reservationBaseWindow) 2670;
+u32(reservationBitmap) 2678; u16(unreleasedTrancheCount) 2682;
+currentTrancheLeaf43 2684.
+\end{verbatim}
+The evidence itself carries the historical/current admission, tranche and
+active-registry sibling paths defined below.  The verifier recomputes the
+identity, proves the historical admission, current admission, exact current
+tranche transition to SLASHED and active registry replacement.  For LIABILITY
+it instead requires all six registry siblings to be zero.  All changed roots
+are returned together; partial proof success is not representable.
+\end{enumerate}
+The verifier rejects every invalid flag, location, index, empty preimage,
+tree depth, path order, leaf semantic or transition class.  Registry constructs
+requests only from authenticated storage and the caller's already
+length-bounded sibling bytes, rechecks the storage prestate before committing,
+and makes no mutating external call between request construction and commit.
+Old and new cells/leaves are explicit independent snapshots: a Solidity memory
+struct assignment that can alias the old value and mutate it before old-root
+verification is forbidden and has a dedicated valid-evidence regression test.
+
 The equivocation tail is exactly 2,366 bytes:
 \begin{verbatim}
 canonicalPackedSlotChainBlockA[521] || canonicalLowS65SignatureA ||
@@ -1806,6 +2005,36 @@ the same such namespace and slot, whether or not either claim was eventually
 submitted or scheduled.
 Window is derived again from slot.
 
+After the exact RTR2 precheck below, Registry invokes
+\begin{verbatim}
+verifyBuilderEquivocationIdentityV1(
+ uint256 expectedSettlementChainId,bytes evidence)
+// selector 0x7c09d62d; evidence length 2,366; exact calldata 2,468
+\end{verbatim}
+with dynamic offset \code{0x40}, exactly two zero padding bytes, zero value and
+no suffix.  Its exact 320-byte EIV1 return is
+\begin{verbatim}
+(bytes4 magic,bytes32 verifierConfigurationHash,bytes32 evidenceHash,
+ bytes32 identityCommitment,address builder,uint64 window,
+ uint64 protocolVersion,address verifyingContract,
+ uint64 signedAdmissionVersion,bytes32 signedAdmissionRoot)
+\end{verbatim}
+where \code{evidenceHash=H(evidence)} over exactly the 2,366 evidence bytes and
+\begin{verbatim}
+identityCommitment = H(
+ "slot-chain-builder-equivocation-identity-v1" || u16(192) ||
+ verifierConfigurationHash || evidenceHash ||
+ u256(expectedSettlementChainId) || u64(protocolVersion) ||
+ address20(verifyingContract) || u64(window) ||
+ u64(signedAdmissionVersion) || signedAdmissionRoot ||
+ address20(builder)).
+\end{verbatim}
+The verifier performs every complete signed-header, tier, pair-equality,
+domain, struct-hash ordering, low-s, signature-recovery and window check above.
+Both chain IDs must equal the expected chain and protocol version must fit
+uint64.  Registry requires every returned field and the recomputed commitment
+to equal its prechecked/requested values before constructing opcode 4.
+
 Before signature recovery the Registry exact-reads, with 100,000 gas, Router's
 512-byte \code{targetReleaseRegistrationV2(protocolVersion)} (RTR2), requires
 canonical padding and a nonzero registration hash, and requires its returned
@@ -1820,6 +2049,12 @@ for any claimed L2 chain is the documented off-ticket culpable act.  Revert,
 OOG, unknown version, short/trailing data or any
 substitution rejects.  Thus arbitrary EIP-712 contracts are not slash domains;
 every accepted signature domain is an immutable Router-registered release.
+To preserve that ordering while keeping signature recovery in the verifier,
+Registry first exact-length-checks the evidence, directly decodes and
+pair-checks the two signed settlement-chain IDs, protocol versions and
+verifying-contract addresses, requires the local chain and uint64 version, and
+performs RTR2.  The subsequent identity call repeats these checks.  No verifier
+entry capable of signature recovery is called before successful RTR2.
 
 The historical admission position is witness data only and must be below
 1,136.  It reconstructs, rather than supplies, the exact historical leaf as
@@ -12295,7 +12530,7 @@ data-MMR-count-3 and Terminal-count-2 frontier digests/roots pin initialization,
 append and fold independently of full-history root construction.
 
 \code{commitment-model.py} is the normative executable fixture.  It exports all
-812 records through one deterministic typed oracle, including records owned by
+843 records through one deterministic typed oracle, including records owned by
 later rounds.  The Round-2 Solidity conformance test executes only an explicit
 reviewed allowlist for checked fixed-preimage encoders; Round 3 consumes the
 tree, frontier and proof records above.  Still-later rounds consume their
@@ -13222,16 +13457,19 @@ local destination binding, frontier/event terminal proofs, pause-independent
 escape, L2 release sealing, replay and timing
 geometry.  Cryptographic booleans in that model are not cryptographic
 evidence.
-The companion \code{test-settlement-window.py} suite runs 296 adversarial
+The companion \code{test-settlement-window.py} suite runs 298 adversarial
 regressions, including authorization substitution, callback/OOG, competing LP,
 owner-mode, target/quota/pull/terminal rollback, withdrawal/recreation and
 cross-version preservation cases for the atomic Pool path.  The same suite
 exercises exact RootMigrationExecutor/Factory construction, staging,
 role-by-role activation, confirmation and abort rollback, plus SOC1--FRS1--FVR1--
 SFV1 pretransition joins and dirty successful post-FVR1/FRS1 rollback across
-Schedule append, replacement and split.
+Schedule append, replacement and split.  It also covers exact BPV1/BRC1/PRF1
+round trips, every configuration-word substitution, the derived ERC-2470
+verifier address, and wrong verifier runtime/configuration at construction,
+staging and finalization.
 
-\code{commitment-model.py} reports 812 golden vectors and 1611 executable
+\code{commitment-model.py} reports 843 golden vectors and 1644 executable
 assertion sites for
 exact EIP-712
 domain/struct/digest, canonical and statement hashes, registry/admission/entry/

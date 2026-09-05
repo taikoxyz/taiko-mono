@@ -69,6 +69,13 @@ BUILDER_REGISTRY_SELECTORS = {
     name: keccak256(signature)[:4]
     for name, signature in BUILDER_REGISTRY_FUNCTION_SIGNATURES.items()
 }
+BUILDER_PROOF_CONFIG_SELECTOR = bytes.fromhex("0d1c9932")
+BUILDER_PROOF_IDENTITY_SELECTOR = bytes.fromhex("7c09d62d")
+BUILDER_PROOF_REQUEST_SELECTOR = bytes.fromhex("a9ca9190")
+BUILDER_PROOF_FIXED_ROW = (
+    1, 64, 1_136, 2_048, 512, 6, 11, 9, 18,
+    350_000, 120_000, 160_000, 700_000, 450_000,
+)
 BUILDER_REGISTRY_HEADER_SLOT = bytes.fromhex(
     "e7ce7a505bf18b9ed57a0785851385323c9487991c55b422861381f92e5c245a"
 )
@@ -890,6 +897,229 @@ def builder_dynamic_bytes_calldata(
         + abi_bytes_tail(payload)
     )
     assert len(encoded) == 4 + offset + 32 + ceil32(len(payload))
+    return encoded
+
+
+def builder_proof_verifier_configuration_hash_v1() -> bytes:
+    """Derive BPV1 from the exact 71-byte noncircular packed preimage."""
+
+    values = BUILDER_PROOF_FIXED_ROW
+    packed = b"".join((
+        u8(values[0]), *(u16(value) for value in values[1:5]),
+        *(u8(value) for value in values[5:9]),
+        *(u32(value) for value in values[9:14]),
+        BUILDER_PROOF_IDENTITY_SELECTOR, BUILDER_PROOF_REQUEST_SELECTOR,
+        b"BPV1", b"EIV1", b"BPR1", b"BPO1",
+        *(u16(value) for value in (512, 320, 192, 432, 531, 6_770, 2_727)),
+    ))
+    assert len(packed) == 71
+    return keccak256(
+        b"slot-chain-builder-proof-verifier-config-v1" + u16(len(packed))
+        + packed
+    )
+
+
+def builder_proof_verifier_config_return_v1() -> bytes:
+    values = BUILDER_PROOF_FIXED_ROW
+    encoded = b"".join((
+        bytes4_word(b"BPV1"), *(u256(value) for value in values),
+        builder_proof_verifier_configuration_hash_v1(),
+    ))
+    assert len(encoded) == 512
+    return encoded
+
+
+def builder_proof_identity_calldata_v1(
+    expected_settlement_chain_id: int, evidence: bytes,
+) -> bytes:
+    assert len(evidence) == 2_366 and expected_settlement_chain_id > 0
+    encoded = (
+        BUILDER_PROOF_IDENTITY_SELECTOR + u256(expected_settlement_chain_id)
+        + u256(64) + abi_bytes_tail(evidence)
+    )
+    assert len(encoded) == 2_468 and encoded[-2:] == bytes(2)
+    return encoded
+
+
+def builder_proof_identity_commitment_v1(
+    evidence_hash: bytes, expected_settlement_chain_id: int,
+    protocol_version: int, verifying_contract: int, window: int,
+    signed_admission_version: int, signed_admission_root: bytes, builder: int,
+) -> bytes:
+    config_hash = builder_proof_verifier_configuration_hash_v1()
+    preimage = b"".join((
+        config_hash, b32(evidence_hash), u256(expected_settlement_chain_id),
+        u64(protocol_version), address20(verifying_contract), u64(window),
+        u64(signed_admission_version), b32(signed_admission_root),
+        address20(builder),
+    ))
+    assert len(preimage) == 192
+    return keccak256(
+        b"slot-chain-builder-equivocation-identity-v1" + u16(len(preimage))
+        + preimage
+    )
+
+
+def builder_proof_identity_return_v1(
+    evidence_hash: bytes, identity_commitment: bytes, builder: int, window: int,
+    protocol_version: int, verifying_contract: int,
+    signed_admission_version: int, signed_admission_root: bytes,
+) -> bytes:
+    encoded = b"".join((
+        bytes4_word(b"EIV1"), builder_proof_verifier_configuration_hash_v1(),
+        b32(evidence_hash), b32(identity_commitment), address_word(builder),
+        u256(window), u256(protocol_version), address_word(verifying_contract),
+        u256(signed_admission_version), b32(signed_admission_root),
+    ))
+    assert len(encoded) == 320
+    return encoded
+
+
+def builder_proof_request_commitment_v1(request: bytes) -> bytes:
+    assert request[:4] == b"BPR1" and 5 <= len(request) <= 6_770
+    return keccak256(
+        b"slot-chain-builder-proof-request-v1" + u32(len(request)) + request
+    )
+
+
+def builder_proof_request_calldata_v1(request: bytes) -> bytes:
+    builder_proof_request_commitment_v1(request)
+    encoded = BUILDER_PROOF_REQUEST_SELECTOR + u256(32) + abi_bytes_tail(request)
+    assert len(encoded) == 68 + ceil32(len(request))
+    return encoded
+
+
+def builder_proof_return_v1(
+    request: bytes, new_registry_root: bytes = bytes(32),
+    new_admission_root: bytes = bytes(32),
+    new_tranche_root: bytes = bytes(32),
+) -> bytes:
+    zero = bytes(32)
+    opcode = request[4] if len(request) >= 5 else 0
+    if opcode == 1:
+        assert new_registry_root != zero and new_admission_root == new_tranche_root == zero
+    elif opcode == 2:
+        assert new_admission_root != zero and new_registry_root == new_tranche_root == zero
+    elif opcode == 3:
+        assert new_tranche_root != zero and new_registry_root == new_admission_root == zero
+    elif opcode == 4:
+        assert len(request) == 2_727 and new_tranche_root != zero
+        current_location = request[2_495]
+        tombstone = int.from_bytes(request[2_662:2_670], "big")
+        assert current_location in (1, 2)
+        assert (new_registry_root != zero) == (current_location == 1)
+        assert (new_admission_root != zero) == (tombstone == UINT64_MAX)
+    else:
+        raise AssertionError("unknown Builder proof opcode")
+    encoded = b"".join((
+        bytes4_word(b"BPO1"), builder_proof_verifier_configuration_hash_v1(),
+        builder_proof_request_commitment_v1(request), b32(new_registry_root),
+        b32(new_admission_root), b32(new_tranche_root),
+    ))
+    assert len(encoded) == 192
+    return encoded
+
+
+def builder_registry_cell_v1(cell) -> bytes:
+    encoded = b"".join((
+        address20(cell.address), u192(cell.bond), u64(cell.registration_index),
+        u64(cell.effective_l2_slot), b32(cell.tranche_root),
+        u64(cell.tombstoned_at_l2_slot),
+    ))
+    assert len(encoded) == 100
+    return encoded
+
+
+def builder_admission_cell_v1(cell) -> bytes:
+    encoded = b"".join((
+        address20(cell.address), u192(cell.bond), u64(cell.registration_index),
+        u64(cell.effective_l2_slot), u64(cell.tombstoned_at_l2_slot),
+    ))
+    assert len(encoded) == 68
+    return encoded
+
+
+def builder_tranche_cell_v1(
+    index: int, window: int, state: int, amount: int, deadline: int,
+) -> bytes:
+    encoded = u16(index) + u64(window) + u8(state) + u192(amount) + u64(deadline)
+    assert len(encoded) == 43
+    return encoded
+
+
+def builder_proof_registry_replace_request_v1(
+    root: bytes, index: int, old_cell: bytes | None, new_cell: bytes | None,
+    siblings: tuple[bytes, ...],
+) -> bytes:
+    assert 0 <= index < 64 and len(siblings) == 6
+    encoded = b"".join((
+        b"BPR1\x01", b32(root), u8(index), u8(old_cell is not None),
+        bytes(100) if old_cell is None else old_cell,
+        u8(new_cell is not None), bytes(100) if new_cell is None else new_cell,
+        *(b32(sibling) for sibling in siblings),
+    ))
+    assert len(encoded) == 432
+    return encoded
+
+
+def builder_proof_admission_replace_request_v1(
+    root: bytes, position: int, old_location: int, old_cell: bytes | None,
+    new_location: int, new_cell: bytes | None, siblings: tuple[bytes, ...],
+) -> bytes:
+    assert 0 <= position < 1_136 and len(siblings) == 11
+    assert (old_cell is None and old_location == 0) or old_location in (1, 2)
+    assert (new_cell is None and new_location == 0) or new_location in (1, 2)
+    encoded = b"".join((
+        b"BPR1\x02", b32(root), u16(position), u8(old_cell is not None),
+        u8(old_location), bytes(68) if old_cell is None else old_cell,
+        u8(new_cell is not None), u8(new_location),
+        bytes(68) if new_cell is None else new_cell,
+        *(b32(sibling) for sibling in siblings),
+    ))
+    assert len(encoded) == 531
+    return encoded
+
+
+def builder_proof_tranche_batch_request_v1(
+    root: bytes,
+    transitions: tuple[tuple[bytes, bytes, tuple[bytes, ...]], ...],
+) -> bytes:
+    assert 1 <= len(transitions) <= 18
+    encoded = bytearray(b"BPR1\x03" + b32(root) + u8(len(transitions)))
+    for old_leaf, new_leaf, siblings in transitions:
+        assert len(old_leaf) == len(new_leaf) == 43 and len(siblings) == 9
+        encoded.extend(old_leaf + new_leaf)
+        encoded.extend(b"".join(b32(sibling) for sibling in siblings))
+    result = bytes(encoded)
+    assert len(result) == 38 + 374 * len(transitions) <= 6_770
+    return result
+
+
+def builder_proof_equivocation_request_v1(
+    evidence: bytes, expected_settlement_chain_id: int,
+    identity_commitment: bytes, builder: int, registration_index: int,
+    current_location: int, current_admission_position: int,
+    current_l2_slot: int, registry_root_: bytes, admission_root_: bytes,
+    current_generation_cell: bytes, reservation_base_window: int,
+    reservation_bitmap: int, unreleased_tranche_count: int,
+    current_tranche_leaf: bytes,
+) -> bytes:
+    assert (len(evidence) == 2_366 and current_location in (1, 2)
+            and 0 <= current_admission_position < 1_136
+            and len(current_generation_cell) == 100
+            and 0 <= reservation_bitmap < 1 << 32
+            and 0 <= unreleased_tranche_count < 1 << 16
+            and len(current_tranche_leaf) == 43)
+    encoded = b"".join((
+        b"BPR1\x04", evidence, u256(expected_settlement_chain_id),
+        keccak256(evidence), b32(identity_commitment), address20(builder),
+        u64(registration_index), u8(current_location),
+        u16(current_admission_position), u64(current_l2_slot),
+        b32(registry_root_), b32(admission_root_), current_generation_cell,
+        u64(reservation_base_window), u32(reservation_bitmap),
+        u16(unreleased_tranche_count), current_tranche_leaf,
+    ))
+    assert len(encoded) == 2_727
     return encoded
 
 
@@ -16609,6 +16839,134 @@ def vectors() -> dict[str, str]:
         admission_proof, (bytes(32),) * REGISTRY_DEPTH, active=False,
     )
 
+    proof_verifier_config_hash = builder_proof_verifier_configuration_hash_v1()
+    proof_verifier_config_return = builder_proof_verifier_config_return_v1()
+    evidence_hash = keccak256(active_equivocation_witness)
+    evidence_identity_commitment = builder_proof_identity_commitment_v1(
+        evidence_hash, settlement_chain_id, 2, contract, 20, 12, adm_root,
+        cell.address,
+    )
+    evidence_identity_calldata = builder_proof_identity_calldata_v1(
+        settlement_chain_id, active_equivocation_witness
+    )
+    evidence_identity_return = builder_proof_identity_return_v1(
+        evidence_hash, evidence_identity_commitment, cell.address, 20, 2,
+        contract, 12, adm_root,
+    )
+    registry_replace_request = builder_proof_registry_replace_request_v1(
+        reg_root, 3, builder_registry_cell_v1(cell),
+        builder_registry_cell_v1(tranche_mutation), registry_proof,
+    )
+    registry_replace_calldata = builder_proof_request_calldata_v1(
+        registry_replace_request
+    )
+    registry_replace_return = builder_proof_return_v1(
+        registry_replace_request,
+        new_registry_root=registry_root(tuple(mutated_cells)),
+    )
+    admission_replace_request = builder_proof_admission_replace_request_v1(
+        adm_root, 64, 2, builder_admission_cell_v1(cell), 2,
+        builder_admission_cell_v1(replacement_cell), admission_proof,
+    )
+    admission_replace_calldata = builder_proof_request_calldata_v1(
+        admission_replace_request
+    )
+    admission_replace_return = builder_proof_return_v1(
+        admission_replace_request, new_admission_root=adm_reuse_root,
+    )
+    old_tranche_cell = builder_tranche_cell_v1(7, 519, 2, 10**17, 999_999)
+    new_tranche_cell = builder_tranche_cell_v1(7, 519, 3, 0, 999_999)
+    tranche_batch_request = builder_proof_tranche_batch_request_v1(
+        tranche_root_hash, ((old_tranche_cell, new_tranche_cell,
+                             tranche_proof),),
+    )
+    new_tranche_leaves = list(tranche_leaves)
+    new_tranche_leaves[7] = tranche_leaf(7, 519, 3, 0, 999_999)
+    tranche_batch_return = builder_proof_return_v1(
+        tranche_batch_request,
+        new_tranche_root=fixed_root(new_tranche_leaves, D_TRANCHE_NODE),
+    )
+    tranche_batch_calldata = builder_proof_request_calldata_v1(
+        tranche_batch_request
+    )
+    evidence_request = builder_proof_equivocation_request_v1(
+        active_equivocation_witness, settlement_chain_id,
+        evidence_identity_commitment, cell.address, cell.registration_index,
+        1, 3, 8_002, reg_root, adm_root, builder_registry_cell_v1(cell),
+        512, 1 << 7, 1, old_tranche_cell,
+    )
+    evidence_request_calldata = builder_proof_request_calldata_v1(
+        evidence_request
+    )
+    evidence_request_return = builder_proof_return_v1(
+        evidence_request, new_registry_root=registry_root(tuple(mutated_cells)),
+        new_admission_root=adm_root,
+        new_tranche_root=fixed_root(new_tranche_leaves, D_TRANCHE_NODE),
+    )
+    tombstoned_cell = replace(cell, tombstoned_at_l2_slot=8_001)
+    active_tombstoned_evidence_request = builder_proof_equivocation_request_v1(
+        active_equivocation_witness, settlement_chain_id,
+        evidence_identity_commitment, cell.address, cell.registration_index,
+        1, 3, 8_002, reg_root, adm_root,
+        builder_registry_cell_v1(tombstoned_cell), 512, 1 << 7, 1,
+        old_tranche_cell,
+    )
+    active_tombstoned_evidence_return = builder_proof_return_v1(
+        active_tombstoned_evidence_request,
+        new_registry_root=registry_root(tuple(mutated_cells)),
+        new_tranche_root=fixed_root(new_tranche_leaves, D_TRANCHE_NODE),
+    )
+    liability_evidence_hash = keccak256(liability_equivocation_witness)
+    liability_identity_commitment = builder_proof_identity_commitment_v1(
+        liability_evidence_hash, settlement_chain_id, 2, contract, 20, 12,
+        adm_root, cell.address,
+    )
+    liability_evidence_request = builder_proof_equivocation_request_v1(
+        liability_equivocation_witness, settlement_chain_id,
+        liability_identity_commitment, cell.address, cell.registration_index,
+        2, 64, 8_002, reg_root, adm_root, builder_registry_cell_v1(cell),
+        512, 1 << 7, 1, old_tranche_cell,
+    )
+    liability_evidence_return = builder_proof_return_v1(
+        liability_evidence_request, new_admission_root=adm_root,
+        new_tranche_root=fixed_root(new_tranche_leaves, D_TRANCHE_NODE),
+    )
+    liability_tombstoned_evidence_request = \
+        builder_proof_equivocation_request_v1(
+            liability_equivocation_witness, settlement_chain_id,
+            liability_identity_commitment, cell.address,
+            cell.registration_index, 2, 64, 8_002, reg_root, adm_root,
+            builder_registry_cell_v1(tombstoned_cell), 512, 1 << 7, 1,
+            old_tranche_cell,
+        )
+    liability_tombstoned_evidence_return = builder_proof_return_v1(
+        liability_tombstoned_evidence_request,
+        new_tranche_root=fixed_root(new_tranche_leaves, D_TRANCHE_NODE),
+    )
+    assert (proof_verifier_config_hash
+            == proof_verifier_config_return[-32:]
+            and len(evidence_identity_calldata) == 2_468
+            and len(evidence_identity_return) == 320
+            and len(registry_replace_request) == 432
+            and len(admission_replace_request) == 531
+            and len(tranche_batch_request) == 412
+            and len(evidence_request) == 2_727)
+    assert tuple(
+        (value[3 * 32:4 * 32] != bytes(32),
+         value[4 * 32:5 * 32] != bytes(32),
+         value[5 * 32:6 * 32] != bytes(32))
+        for value in (
+            evidence_request_return, active_tombstoned_evidence_return,
+            liability_evidence_return, liability_tombstoned_evidence_return,
+        )
+    ) == ((True, True, True), (True, False, True),
+          (False, True, True), (False, False, True))
+    assert builder_proof_request_commitment_v1(
+        registry_replace_request
+    ) != builder_proof_request_commitment_v1(
+        registry_replace_request[:37] + b"\x02" + registry_replace_request[38:]
+    )
+
     register_builder_calldata = builder_dynamic_bytes_calldata(
         BUILDER_REGISTRY_SELECTORS["register_builder_selector"],
         (u256(1_000), u256(42), u256(1)), vacancy_registration_witness,
@@ -16818,6 +17176,65 @@ def vectors() -> dict[str, str]:
             keccak256(liability_equivocation_witness).hex(),
         "builder_liability_equivocation_witness_length":
             str(len(liability_equivocation_witness)),
+        "builder_proof_verifier_config_selector":
+            BUILDER_PROOF_CONFIG_SELECTOR.hex(),
+        "builder_proof_verifier_config_hash": proof_verifier_config_hash.hex(),
+        "builder_proof_verifier_config_return_hash":
+            keccak256(proof_verifier_config_return).hex(),
+        "builder_proof_identity_selector":
+            BUILDER_PROOF_IDENTITY_SELECTOR.hex(),
+        "builder_proof_identity_calldata_hash":
+            keccak256(evidence_identity_calldata).hex(),
+        "builder_proof_identity_calldata_length":
+            str(len(evidence_identity_calldata)),
+        "builder_proof_identity_return_hash":
+            keccak256(evidence_identity_return).hex(),
+        "builder_proof_identity_return_length":
+            str(len(evidence_identity_return)),
+        "builder_proof_request_selector": BUILDER_PROOF_REQUEST_SELECTOR.hex(),
+        "builder_proof_registry_request_hash":
+            keccak256(registry_replace_request).hex(),
+        "builder_proof_registry_request_length":
+            str(len(registry_replace_request)),
+        "builder_proof_registry_calldata_hash":
+            keccak256(registry_replace_calldata).hex(),
+        "builder_proof_registry_return_hash":
+            keccak256(registry_replace_return).hex(),
+        "builder_proof_admission_request_hash":
+            keccak256(admission_replace_request).hex(),
+        "builder_proof_admission_request_length":
+            str(len(admission_replace_request)),
+        "builder_proof_admission_calldata_hash":
+            keccak256(admission_replace_calldata).hex(),
+        "builder_proof_admission_return_hash":
+            keccak256(admission_replace_return).hex(),
+        "builder_proof_tranche_request_hash":
+            keccak256(tranche_batch_request).hex(),
+        "builder_proof_tranche_request_length":
+            str(len(tranche_batch_request)),
+        "builder_proof_tranche_calldata_hash":
+            keccak256(tranche_batch_calldata).hex(),
+        "builder_proof_tranche_return_hash":
+            keccak256(tranche_batch_return).hex(),
+        "builder_proof_evidence_request_hash":
+            keccak256(evidence_request).hex(),
+        "builder_proof_evidence_request_length": str(len(evidence_request)),
+        "builder_proof_evidence_calldata_hash":
+            keccak256(evidence_request_calldata).hex(),
+        "builder_proof_evidence_return_hash":
+            keccak256(evidence_request_return).hex(),
+        "builder_proof_evidence_active_tombstoned_request_hash":
+            keccak256(active_tombstoned_evidence_request).hex(),
+        "builder_proof_evidence_active_tombstoned_return_hash":
+            keccak256(active_tombstoned_evidence_return).hex(),
+        "builder_proof_evidence_liability_first_request_hash":
+            keccak256(liability_evidence_request).hex(),
+        "builder_proof_evidence_liability_first_return_hash":
+            keccak256(liability_evidence_return).hex(),
+        "builder_proof_evidence_liability_tombstoned_request_hash":
+            keccak256(liability_tombstoned_evidence_request).hex(),
+        "builder_proof_evidence_liability_tombstoned_return_hash":
+            keccak256(liability_tombstoned_evidence_return).hex(),
         "builder_register_calldata_hash":
             keccak256(register_builder_calldata).hex(),
         "builder_register_calldata_length": str(len(register_builder_calldata)),
@@ -18077,6 +18494,37 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'fd25f40f2ca853acf7
  'builder_normalize_witness_hash': '41aa2500f6787f0ff38398f6a481ab02641b948e56609939ae1ac4311a05eaa7',
  'builder_normalize_witness_length': '489',
  'builder_process_builder_maintenance_selector': '0e1ffc68',
+ 'builder_proof_admission_calldata_hash': '419032e2b6eb7dc900b2ad948d4fa3c0ad0eae90a8f4bf3a87d3883ee3fd3ea8',
+ 'builder_proof_admission_request_hash': '99c130943aa4780be4a2888146d65d62bad146f46ab501c39b38f19a267e667d',
+ 'builder_proof_admission_request_length': '531',
+ 'builder_proof_admission_return_hash': '3079820b97ad6bad7583cc6cb30ee43305609059f8e84065e1525dc9e24c31a1',
+ 'builder_proof_evidence_calldata_hash': 'a3a6c6ca62fe7d24316d0cee7ee0de5f06e40c6adaace242285ca64afff92e1a',
+ 'builder_proof_evidence_active_tombstoned_request_hash': 'f50d877ccc3c8b34e53aeaf8f24b5a736dcbb2218dbf696d183fa2c86811d1fd',
+ 'builder_proof_evidence_active_tombstoned_return_hash': '61d66c91433ed1527a1c6a723d1fcf205ee9447cf84e3527b04dfa051495ef69',
+ 'builder_proof_evidence_liability_first_request_hash': '888a7d65c3f3a1983406860ed2b0d2fd1b69bfd0d31a711cac684c6708c37c28',
+ 'builder_proof_evidence_liability_first_return_hash': '9ef06832967c75befe97ae5fd8acf0e406fa65f6d85e576ca898299aff524d3f',
+ 'builder_proof_evidence_liability_tombstoned_request_hash': '7bc6a7b294fa5367712858126ef58dfa2eda8f31c5e3c3603c471be3206bb7fe',
+ 'builder_proof_evidence_liability_tombstoned_return_hash': 'b45686d4bcd3a50119eef2af2bb6c680a780650bca1732832f9b3ea6072c90d3',
+ 'builder_proof_evidence_request_hash': '4884126f37b98d40fc17cfe5650c6010759681583f77ec0ea1a98e4ce4146df6',
+ 'builder_proof_evidence_request_length': '2727',
+ 'builder_proof_evidence_return_hash': 'e819ea5ae5e51165d90cfe78dd7dcf5d735a63e27e37303d676b7c77c3cac94f',
+ 'builder_proof_identity_calldata_hash': 'f0d8b62d48dd72c084429376812ef30107e1558b684765a37524786dd12ed2ec',
+ 'builder_proof_identity_calldata_length': '2468',
+ 'builder_proof_identity_return_hash': 'aa499309f356e043c34991f9ae6d5602e6ece692eb6a8f8281cce0a94f9a61e9',
+ 'builder_proof_identity_return_length': '320',
+ 'builder_proof_identity_selector': '7c09d62d',
+ 'builder_proof_registry_calldata_hash': '3bc203afce7c1aeb21360ea97544bc6991a216025b5ce2c37e065a4bc1588246',
+ 'builder_proof_registry_request_hash': '63fa85a7efd66ff4db6c06fdd6dbfa44541d8274c1ca8739daa9796f382ff10a',
+ 'builder_proof_registry_request_length': '432',
+ 'builder_proof_registry_return_hash': '254f7c15aa1a9533874d6e6409c2ea709f696d80474c8f485c22d355f2ffd3ca',
+ 'builder_proof_request_selector': 'a9ca9190',
+ 'builder_proof_tranche_calldata_hash': '5b5ed9cdd24cab6214555f3c72269b69c17bb2d2f344dbf4c213b9b840ca023c',
+ 'builder_proof_tranche_request_hash': 'f565dd15d53c115c993356953af777950dc0408106a85a53501da7b54fdb762d',
+ 'builder_proof_tranche_request_length': '412',
+ 'builder_proof_tranche_return_hash': 'c5980443c2976303be7176297d57a75020e23dbf0fd9717f384e3a6012264594',
+ 'builder_proof_verifier_config_hash': 'f1a01e067ec17b34e4f190810b2ebedfddd92a125705d2fd60134ce361ffac1a',
+ 'builder_proof_verifier_config_return_hash': 'eb1e75edfa0e3c8e1809071f51985fbdc2848eb8f65d7378d979a62b6d1ac862',
+ 'builder_proof_verifier_config_selector': '0d1c9932',
  'builder_register_builder_selector': '5fc42c69',
  'builder_register_calldata_hash': '9f18fd55e769f2cb66a0886f78c2c27e975a5cc1bd6a91cc505587350ecf12d3',
  'builder_register_calldata_length': '708',
@@ -18804,6 +19252,12 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'fd25f40f2ca853acf7
 # from the spelling of a value.  Every name not in this explicit uint set is a
 # hex record only after the complete canonical name-set fingerprint matches.
 UINT_VECTOR_NAMES = frozenset({
+    "builder_proof_admission_request_length",
+    "builder_proof_evidence_request_length",
+    "builder_proof_identity_calldata_length",
+    "builder_proof_identity_return_length",
+    "builder_proof_registry_request_length",
+    "builder_proof_tranche_request_length",
     "builder_active_equivocation_witness_length",
     "builder_active_tranche_release_witness_length",
     "builder_claim_credit_calldata_length",
@@ -18959,7 +19413,7 @@ UINT_VECTOR_NAMES = frozenset({
     "version_migration_lease_return_length",
 })
 VECTOR_NAME_SCHEMA_SHA256 = (
-    "9e825447ec1a2a360526d7b0371c4f947532696fc169b44ba159051579d647b9"
+    "42b19b05519c665c3553d3d3cc4bb2a7d7cc5787a34401bc5f471f61a6aba012"
 )
 
 
@@ -18971,7 +19425,7 @@ def typed_vectors() -> tuple[dict[str, str], ...]:
     actual = vectors()
     assert actual == EXPECTED
     names = tuple(sorted(actual))
-    assert (len(names) == 812 and len(set(names)) == len(names)
+    assert (len(names) == 843 and len(set(names)) == len(names)
             and UINT_VECTOR_NAMES <= set(names)
             and hashlib.sha256(
                 b"\0".join(name.encode("ascii") for name in names)

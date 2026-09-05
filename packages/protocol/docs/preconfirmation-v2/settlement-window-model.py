@@ -4490,6 +4490,7 @@ SCHEDULE_REGISTRY_CELL_BYTES = 101
 SCHEDULE_TRANCHE_RECORD_BYTES = 329
 PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS = 2_592_000
 PROTOCOL_ROOT_ROLE_COUNT = 9
+PROTOCOL_ROOT_ARTIFACT_COUNT = 19
 PROTOCOL_ROOT_MANIFEST_BYTES = 969
 PROTOCOL_ROOT_FIRST_MANAGED_RUNWAY_WINDOWS = 18
 PROTOCOL_ROOT_WINDOW_SECONDS = 384
@@ -4521,6 +4522,9 @@ PROTOCOL_ROOT_EXECUTOR_AUTHORITY_SELECTOR = bytes.fromhex("ccf788d5")
 PROTOCOL_ROOT_STAGE_SELECTOR = bytes.fromhex("53c99a5f")
 PROTOCOL_ROOT_CAMPAIGN_SELECTOR = bytes.fromhex("e6139cad")
 PROTOCOL_ROOT_FACTORY_CONFIG_SELECTOR = bytes.fromhex("d7b40838")
+BUILDER_PROOF_VERIFIER_CONFIG_SELECTOR = bytes.fromhex("0d1c9932")
+BUILDER_EQUIVOCATION_IDENTITY_SELECTOR = bytes.fromhex("7c09d62d")
+BUILDER_REGISTRY_PROOF_SELECTOR = bytes.fromhex("a9ca9190")
 PROTOCOL_ROOT_ENSURE_SOURCE_INFRASTRUCTURE_SELECTOR = keccak256(
     b"ensureSourceInfrastructureV1(bytes32,uint8,bytes)"
 )[:4]
@@ -4553,6 +4557,8 @@ PROTOCOL_ROOT_SOURCE_FACTORY_SALT_DOMAIN = \
     b"slot-chain-root-source-factory-salt-v1"
 PROTOCOL_ROOT_SOURCE_TERMINAL_SALT_DOMAIN = \
     b"slot-chain-root-source-terminal-salt-v1"
+BUILDER_PROOF_VERIFIER_SALT_DOMAIN = \
+    b"slot-chain-builder-registry-proof-verifier-salt-v1"
 PROTOCOL_ROOT_EXECUTOR_CLEAR_ABORTED_SELECTOR = bytes.fromhex("95b71205")
 SCHEDULE_CONFIG_READ_GAS = 50_000
 SCHEDULE_FORK_REGISTRATION_READ_GAS = 100_000
@@ -4652,16 +4658,199 @@ def encode_root_migration_executor_config_return_v1(
     return encoded
 
 
+@dataclass(frozen=True)
+class BuilderRegistryProofVerifierConfigV1:
+    """Canonical fixed-tree and evidence limits committed by BPV1."""
+
+    schema: int = 1
+    registry_leaves: int = 64
+    admission_used_leaves: int = 1_136
+    admission_tree_leaves: int = 2_048
+    tranche_leaves: int = 512
+    registry_depth: int = 6
+    admission_depth: int = 11
+    tranche_depth: int = 9
+    maximum_tranche_batch: int = 18
+    identity_call_gas: int = 350_000
+    registry_call_gas: int = 120_000
+    admission_call_gas: int = 160_000
+    tranche_batch_call_gas: int = 700_000
+    evidence_call_gas: int = 450_000
+
+    def packed_configuration_v1(self) -> bytes:
+        packed = b"".join((
+            _model_uint(self.schema, 1, "BPV1 schema"),
+            *(_model_uint(value, 2, "BPV1 leaves") for value in (
+                self.registry_leaves, self.admission_used_leaves,
+                self.admission_tree_leaves, self.tranche_leaves,
+            )),
+            *(_model_uint(value, 1, "BPV1 depth/batch") for value in (
+                self.registry_depth, self.admission_depth,
+                self.tranche_depth, self.maximum_tranche_batch,
+            )),
+            *(_model_uint(value, 4, "BPV1 gas") for value in (
+                self.identity_call_gas, self.registry_call_gas,
+                self.admission_call_gas, self.tranche_batch_call_gas,
+                self.evidence_call_gas,
+            )),
+            BUILDER_EQUIVOCATION_IDENTITY_SELECTOR,
+            BUILDER_REGISTRY_PROOF_SELECTOR,
+            b"BPV1", b"EIV1", b"BPR1", b"BPO1",
+            *(_model_uint(value, 2, "BPV1 width") for value in (
+                512, 320, 192, 432, 531, 6_770, 2_727,
+            )),
+        ))
+        if len(packed) != 71:
+            raise AssertionError("BPV1 packed configuration must be 71 bytes")
+        return packed
+
+    def configuration_hash_v1(self) -> bytes:
+        packed = self.packed_configuration_v1()
+        return keccak256(b"".join((
+            b"slot-chain-builder-proof-verifier-config-v1",
+            _model_uint(len(packed), 2, "BPV1 packed bytes"), packed,
+        )))
+
+    def encode_bpv1(self) -> bytes:
+        encoded = b"".join((
+            b"BPV1" + bytes(28),
+            *(_model_uint(value, 32, "BPV1 field") for value in (
+                self.schema, self.registry_leaves,
+                self.admission_used_leaves, self.admission_tree_leaves,
+                self.tranche_leaves, self.registry_depth,
+                self.admission_depth, self.tranche_depth,
+                self.maximum_tranche_batch, self.identity_call_gas,
+                self.registry_call_gas, self.admission_call_gas,
+                self.tranche_batch_call_gas, self.evidence_call_gas,
+            )),
+            self.configuration_hash_v1(),
+        ))
+        if len(encoded) != 512:
+            raise AssertionError("BPV1 must be exactly 512 bytes")
+        return encoded
+
+
+def decode_builder_registry_proof_verifier_bpv1_v1(
+    encoded: bytes,
+) -> BuilderRegistryProofVerifierConfigV1:
+    if type(encoded) is not bytes or len(encoded) != 512:
+        raise ValueError("BPV1 return length is invalid")
+    words = tuple(encoded[index:index + 32] for index in range(0, 512, 32))
+    if words[0] != b"BPV1" + bytes(28):
+        raise ValueError("BPV1 magic is invalid")
+    widths = (8, 16, 16, 16, 16, 8, 8, 8, 8, 32, 32, 32, 32, 32)
+    values = tuple(
+        _decode_uint_word_v1(words[index], width, "BPV1 field")
+        for index, width in enumerate(widths, start=1)
+    )
+    result = BuilderRegistryProofVerifierConfigV1(*values)
+    if words[15] != result.configuration_hash_v1() \
+            or result.encode_bpv1() != encoded:
+        raise ValueError("BPV1 return is noncanonical")
+    return result
+
+
+def builder_registry_proof_verifier_salt_v1(
+    settlement_chain_id: int, manifest_namespace: bytes,
+    configuration_hash: bytes,
+) -> bytes:
+    if (not 0 < settlement_chain_id < 1 << 256
+            or type(manifest_namespace) is not bytes
+            or len(manifest_namespace) != 32
+            or manifest_namespace == bytes(32)
+            or type(configuration_hash) is not bytes
+            or len(configuration_hash) != 32
+            or configuration_hash == bytes(32)):
+        raise ValueError("proof-verifier salt input is invalid")
+    return keccak256(b"".join((
+        BUILDER_PROOF_VERIFIER_SALT_DOMAIN,
+        _model_uint(settlement_chain_id, 32, "proof-verifier chain"),
+        manifest_namespace, configuration_hash,
+    )))
+
+
+def builder_registry_proof_verifier_address_v1(
+    settlement_chain_id: int, manifest_namespace: bytes,
+    configuration_hash: bytes, init_code_hash: bytes,
+) -> bytes:
+    salt = builder_registry_proof_verifier_salt_v1(
+        settlement_chain_id, manifest_namespace, configuration_hash
+    )
+    if (type(init_code_hash) is not bytes or len(init_code_hash) != 32
+            or init_code_hash == bytes(32)):
+        raise ValueError("proof-verifier init-code hash is invalid")
+    return keccak256(b"".join((
+        b"\xff", bytes.fromhex(SETTLEMENT_FACTORY_ADDRESS_V2[2:]),
+        salt, init_code_hash,
+    )))[12:]
+
+
+@dataclass
+class ProtocolRootBuilderProofVerifierArtifactV1:
+    """Live immutable verifier artifact observed by Factory construction."""
+
+    address: bytes
+    init_code_hash: bytes
+    runtime_hash: bytes
+    config_return: bytes
+    runtime_override: bytes | None = None
+    config_return_override: bytes | None = None
+    component_config_override: bytes | None = None
+
+    def extcodehash(self) -> bytes:
+        return (self.runtime_hash if self.runtime_override is None
+                else self.runtime_override)
+
+    def builder_registry_proof_verifier_config_v1(
+        self, calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        if (calldata != BUILDER_PROOF_VERIFIER_CONFIG_SELECTOR
+                or gas_limit != PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS
+                or value != 0):
+            raise ValueError("protocol-root BPV1 frame is inexact")
+        return (self.config_return if self.config_return_override is None
+                else self.config_return_override)
+
+    def component_config_hash_v2(
+        self, calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        if (calldata != COMPONENT_CONFIG_GETTER_SELECTOR
+                or gas_limit != PROTOCOL_ROOT_FACTORY_COMPONENT_CONFIG_READ_GAS
+                or value != 0):
+            raise ValueError("proof-verifier component-config frame is inexact")
+        expected = decode_builder_registry_proof_verifier_bpv1_v1(
+            self.config_return
+        ).configuration_hash_v1()
+        return (expected if self.component_config_override is None
+                else self.component_config_override)
+
+
 def protocol_root_factory_configuration_hash_v1(
     settlement_chain_id: int, manifest_namespace: bytes,
     delayed_executor: bytes, executor_runtime_hash: bytes,
     executor_configuration_hash: bytes, proxy_creation_code_hash: bytes,
     proxy_runtime_hash: bytes, source_artifact_root: bytes,
+    builder_proof_verifier_init_code_hash: bytes,
+    builder_proof_verifier_runtime_hash: bytes,
+    builder_proof_verifier_configuration_hash: bytes,
 ) -> bytes:
+    builder_proof_verifier_salt = builder_registry_proof_verifier_salt_v1(
+        settlement_chain_id, manifest_namespace,
+        builder_proof_verifier_configuration_hash,
+    )
+    builder_proof_verifier = builder_registry_proof_verifier_address_v1(
+        settlement_chain_id, manifest_namespace,
+        builder_proof_verifier_configuration_hash,
+        builder_proof_verifier_init_code_hash,
+    )
     words = (
         manifest_namespace, executor_runtime_hash,
         executor_configuration_hash, proxy_creation_code_hash,
         proxy_runtime_hash, source_artifact_root,
+        builder_proof_verifier_init_code_hash,
+        builder_proof_verifier_runtime_hash,
+        builder_proof_verifier_configuration_hash,
+        builder_proof_verifier_salt,
     )
     if (not 0 < settlement_chain_id < 1 << 256
             or type(delayed_executor) is not bytes
@@ -4675,6 +4864,10 @@ def protocol_root_factory_configuration_hash_v1(
         manifest_namespace, delayed_executor, executor_runtime_hash,
         executor_configuration_hash, proxy_creation_code_hash,
         proxy_runtime_hash, source_artifact_root,
+        builder_proof_verifier_init_code_hash,
+        builder_proof_verifier_runtime_hash,
+        builder_proof_verifier_configuration_hash,
+        builder_proof_verifier_salt, builder_proof_verifier,
         PROTOCOL_ROOT_ENSURE_SOURCE_INFRASTRUCTURE_SELECTOR,
         PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_VIEW_SELECTOR,
         _model_uint(
@@ -5052,6 +5245,9 @@ class ProtocolRootBuilderRegistryConfigV1:
     router_configuration_hash: bytes
     schedule_oracle: bytes
     schedule_oracle_runtime_hash: bytes
+    builder_proof_verifier: bytes
+    builder_proof_verifier_runtime_hash: bytes
+    builder_proof_verifier_configuration_hash: bytes
     economic_configuration_hash: bytes
     topology_hash: bytes
 
@@ -5072,10 +5268,13 @@ class ProtocolRootBuilderRegistryConfigV1:
             self.active_settlement_router, self.router_runtime_hash,
             self.router_configuration_hash, self.schedule_oracle,
             self.schedule_oracle_runtime_hash,
+            self.builder_proof_verifier,
+            self.builder_proof_verifier_runtime_hash,
+            self.builder_proof_verifier_configuration_hash,
             self.economic_configuration_hash,
         ))
-        if len(payload) != 321:
-            raise AssertionError("BRC1 topology preimage must be 321 bytes")
+        if len(payload) != 405:
+            raise AssertionError("BRC1 topology preimage must be 405 bytes")
         return keccak256(
             b"slot-chain-builder-registry-topology-v1"
             + _model_uint(len(payload), 2, "BRC1 topology bytes") + payload
@@ -5085,10 +5284,13 @@ class ProtocolRootBuilderRegistryConfigV1:
         addresses = (
             self.builder_lease_token, self.builder_penalty_sink,
             self.active_settlement_router, self.schedule_oracle,
+            self.builder_proof_verifier,
         )
         hashes = (
             self.builder_lease_token_runtime_hash, self.router_runtime_hash,
             self.router_configuration_hash, self.schedule_oracle_runtime_hash,
+            self.builder_proof_verifier_runtime_hash,
+            self.builder_proof_verifier_configuration_hash,
             self.economic_configuration_hash, self.topology_hash,
         )
         narrow = (
@@ -5129,19 +5331,22 @@ class ProtocolRootBuilderRegistryConfigV1:
             self.router_runtime_hash, self.router_configuration_hash,
             bytes(12) + self.schedule_oracle,
             self.schedule_oracle_runtime_hash,
+            bytes(12) + self.builder_proof_verifier,
+            self.builder_proof_verifier_runtime_hash,
+            self.builder_proof_verifier_configuration_hash,
             self.economic_configuration_hash, self.topology_hash,
         ))
-        if len(encoded) != 704:
-            raise AssertionError("BRC1 must be exactly 704 bytes")
+        if len(encoded) != 800:
+            raise AssertionError("BRC1 must be exactly 800 bytes")
         return encoded
 
 
 def decode_protocol_root_brc1_v1(
     encoded: bytes,
 ) -> ProtocolRootBuilderRegistryConfigV1:
-    if type(encoded) is not bytes or len(encoded) != 704:
+    if type(encoded) is not bytes or len(encoded) != 800:
         raise ValueError("protocol-root BRC1 return length is invalid")
-    words = tuple(encoded[index:index + 32] for index in range(0, 704, 32))
+    words = tuple(encoded[index:index + 32] for index in range(0, 800, 32))
     if words[0] != b"BRC1" + bytes(28):
         raise ValueError("protocol-root BRC1 magic is invalid")
     result = ProtocolRootBuilderRegistryConfigV1(
@@ -5157,7 +5362,9 @@ def decode_protocol_root_brc1_v1(
         _decode_uint_word_v1(words[14], 64, "BRC1 reward window"),
         _decode_address_word_v1(words[15], "BRC1 Router"), words[16],
         words[17], _decode_address_word_v1(words[18], "BRC1 Schedule"),
-        words[19], words[20], words[21],
+        words[19],
+        _decode_address_word_v1(words[20], "BRC1 proof verifier"),
+        words[21], words[22], words[23], words[24],
     )
     if result.encode_brc1() != encoded:
         raise ValueError("protocol-root BRC1 return is noncanonical")
@@ -6088,14 +6295,25 @@ class ProtocolRootFactoryModelV1:
     executor_runtime_hash: bytes
     executor_configuration_hash: bytes
     runtime_hash: bytes
+    builder_proof_verifier_init_code_hash: bytes
+    builder_proof_verifier_runtime_hash: bytes
+    builder_proof_verifier_configuration_hash: bytes
     executor_artifact: InitVar[object]
     proxy_artifact: InitVar[ProtocolRootCreate3ProxyArtifactV1]
     source_factory_compiler_artifacts: (
         ProtocolRootSourceFactoryCompilerArtifactsV1
     )
+    builder_proof_verifier_artifact: InitVar[
+        ProtocolRootBuilderProofVerifierArtifactV1
+    ]
     proxy_creation_code_hash: bytes = field(init=False)
     proxy_runtime_hash: bytes = field(init=False)
     proxy_runtime_code_size: int = field(init=False)
+    builder_proof_verifier_salt: bytes = field(init=False)
+    builder_proof_verifier: bytes = field(init=False)
+    _builder_proof_verifier_artifact: (
+        ProtocolRootBuilderProofVerifierArtifactV1
+    ) = field(init=False, repr=False)
     configuration_hash: bytes = field(init=False)
     generation: int = 0
     active_root_receipt: bytes = bytes(32)
@@ -6120,6 +6338,9 @@ class ProtocolRootFactoryModelV1:
     def __post_init__(
         self, executor_artifact: object,
         proxy_artifact: ProtocolRootCreate3ProxyArtifactV1,
+        builder_proof_verifier_artifact: (
+            ProtocolRootBuilderProofVerifierArtifactV1
+        ),
     ) -> None:
         executor = executor_artifact
         if type(proxy_artifact) is not ProtocolRootCreate3ProxyArtifactV1:
@@ -6130,12 +6351,27 @@ class ProtocolRootFactoryModelV1:
         self.proxy_creation_code_hash = proxy_artifact.creation_code_hash
         self.proxy_runtime_hash = proxy_artifact.runtime_hash
         self.proxy_runtime_code_size = len(proxy_artifact.runtime_code)
+        self.builder_proof_verifier_salt = (
+            builder_registry_proof_verifier_salt_v1(
+                self.settlement_chain_id, self.manifest_namespace,
+                self.builder_proof_verifier_configuration_hash,
+            )
+        )
+        self.builder_proof_verifier = builder_registry_proof_verifier_address_v1(
+            self.settlement_chain_id, self.manifest_namespace,
+            self.builder_proof_verifier_configuration_hash,
+            self.builder_proof_verifier_init_code_hash,
+        )
+        self._builder_proof_verifier_artifact = builder_proof_verifier_artifact
         self.configuration_hash = protocol_root_factory_configuration_hash_v1(
             self.settlement_chain_id, self.manifest_namespace,
             self.delayed_executor, self.executor_runtime_hash,
             self.executor_configuration_hash,
             self.proxy_creation_code_hash, self.proxy_runtime_hash,
             self.source_factory_compiler_artifacts.artifact_root,
+            self.builder_proof_verifier_init_code_hash,
+            self.builder_proof_verifier_runtime_hash,
+            self.builder_proof_verifier_configuration_hash,
         )
         expected_configuration_hash = (
             protocol_root_factory_configuration_hash_v1(
@@ -6144,8 +6380,12 @@ class ProtocolRootFactoryModelV1:
                 self.executor_configuration_hash,
                 self.proxy_creation_code_hash, self.proxy_runtime_hash,
                 self.source_factory_compiler_artifacts.artifact_root,
+                self.builder_proof_verifier_init_code_hash,
+                self.builder_proof_verifier_runtime_hash,
+                self.builder_proof_verifier_configuration_hash,
             )
         )
+        canonical_bpv1 = BuilderRegistryProofVerifierConfigV1().encode_bpv1()
         if (type(executor) is not RootMigrationExecutorModelV1
                 or type(self.address) is not bytes or len(self.address) != 20
                 or self.address == bytes(20)
@@ -6160,12 +6400,38 @@ class ProtocolRootFactoryModelV1:
                     gas_limit=PROTOCOL_ROOT_FACTORY_COMPONENT_CONFIG_READ_GAS,
                     value=0,
                 ) != self.executor_configuration_hash
+                or type(builder_proof_verifier_artifact)
+                    is not ProtocolRootBuilderProofVerifierArtifactV1
+                or builder_proof_verifier_artifact.address
+                    != self.builder_proof_verifier
+                or builder_proof_verifier_artifact.init_code_hash
+                    != self.builder_proof_verifier_init_code_hash
+                or builder_proof_verifier_artifact.extcodehash()
+                    != self.builder_proof_verifier_runtime_hash
+                or builder_proof_verifier_artifact
+                    .builder_registry_proof_verifier_config_v1(
+                        BUILDER_PROOF_VERIFIER_CONFIG_SELECTOR,
+                        gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+                        value=0,
+                    ) != canonical_bpv1
+                or builder_proof_verifier_artifact.component_config_hash_v2(
+                    COMPONENT_CONFIG_GETTER_SELECTOR,
+                    gas_limit=PROTOCOL_ROOT_FACTORY_COMPONENT_CONFIG_READ_GAS,
+                    value=0,
+                ) != self.builder_proof_verifier_configuration_hash
+                or self.builder_proof_verifier_configuration_hash
+                    != BuilderRegistryProofVerifierConfigV1()
+                        .configuration_hash_v1()
                 or self.configuration_hash != expected_configuration_hash
                 or any(type(value) is not bytes or len(value) != 32
                        or value == bytes(32) for value in (
                            self.proxy_creation_code_hash,
                            self.proxy_runtime_hash,
                            self.source_factory_compiler_artifacts.artifact_root,
+                           self.builder_proof_verifier_init_code_hash,
+                           self.builder_proof_verifier_runtime_hash,
+                           self.builder_proof_verifier_configuration_hash,
+                           self.builder_proof_verifier_salt,
                            self.runtime_hash,
                            self.configuration_hash,
                        ))):
@@ -6180,6 +6446,26 @@ class ProtocolRootFactoryModelV1:
         self.root_address_world = ProtocolRootAddressWorldV1(
             self.source_infrastructure_accounts
         )
+
+    def _authenticate_builder_proof_verifier_v1(self) -> None:
+        artifact = self._builder_proof_verifier_artifact
+        canonical_bpv1 = BuilderRegistryProofVerifierConfigV1().encode_bpv1()
+        if (artifact.address != self.builder_proof_verifier
+                or artifact.init_code_hash
+                    != self.builder_proof_verifier_init_code_hash
+                or artifact.extcodehash()
+                    != self.builder_proof_verifier_runtime_hash
+                or artifact.builder_registry_proof_verifier_config_v1(
+                    BUILDER_PROOF_VERIFIER_CONFIG_SELECTOR,
+                    gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+                    value=0,
+                ) != canonical_bpv1
+                or artifact.component_config_hash_v2(
+                    COMPONENT_CONFIG_GETTER_SELECTOR,
+                    gas_limit=PROTOCOL_ROOT_FACTORY_COMPONENT_CONFIG_READ_GAS,
+                    value=0,
+                ) != self.builder_proof_verifier_configuration_hash):
+            raise ValueError("protocol-root proof verifier is inconsistent")
 
     def extcodehash(self) -> bytes:
         if (type(self.runtime_hash) is not bytes
@@ -6200,13 +6486,9 @@ class ProtocolRootFactoryModelV1:
                 if self.configuration_hash_override is None
                 else self.configuration_hash_override)
 
-    def protocol_root_factory_config_v1(
-        self, calldata: bytes, *, gas_limit: int, value: int,
-    ) -> bytes:
-        if (calldata != PROTOCOL_ROOT_FACTORY_CONFIG_SELECTOR
-                or gas_limit != ROOT_MIGRATION_FACTORY_CONFIG_READ_GAS
-                or value != 0):
-            raise ValueError("protocol-root PRF1 call frame is inexact")
+    def canonical_protocol_root_factory_config_v1(self) -> bytes:
+        """Return the independently derived exact 28-word PRF1 row."""
+
         encoded = b"".join((
             b"PRF1" + bytes(28),
             _model_uint(self.settlement_chain_id, 32, "PRF1 chain"),
@@ -6214,6 +6496,11 @@ class ProtocolRootFactoryModelV1:
             self.executor_runtime_hash, self.executor_configuration_hash,
             self.proxy_creation_code_hash, self.proxy_runtime_hash,
             self.source_factory_compiler_artifacts.artifact_root,
+            self.builder_proof_verifier_init_code_hash,
+            self.builder_proof_verifier_runtime_hash,
+            self.builder_proof_verifier_configuration_hash,
+            self.builder_proof_verifier_salt,
+            bytes(12) + self.builder_proof_verifier,
             PROTOCOL_ROOT_ENSURE_SOURCE_INFRASTRUCTURE_SELECTOR + bytes(28),
             PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_VIEW_SELECTOR + bytes(28),
             *(_model_uint(value, 32, "PRF1 constant") for value in (
@@ -6231,8 +6518,18 @@ class ProtocolRootFactoryModelV1:
             )),
             self.configuration_hash,
         ))
-        if len(encoded) != 736:
-            raise AssertionError("PRF1 must be exactly 736 bytes")
+        if len(encoded) != 896:
+            raise AssertionError("PRF1 must be exactly 896 bytes")
+        return encoded
+
+    def protocol_root_factory_config_v1(
+        self, calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        if (calldata != PROTOCOL_ROOT_FACTORY_CONFIG_SELECTOR
+                or gas_limit != ROOT_MIGRATION_FACTORY_CONFIG_READ_GAS
+                or value != 0):
+            raise ValueError("protocol-root PRF1 call frame is inexact")
+        encoded = self.canonical_protocol_root_factory_config_v1()
         return encoded if self.factory_config_return_override is None \
             else self.factory_config_return_override
 
@@ -6471,6 +6768,7 @@ class ProtocolRootFactoryModelV1:
                 or gas_limit != ROOT_MIGRATION_FACTORY_STAGE_CALL_GAS
                 or value != 0):
             raise ValueError("protocol-root stage call frame is inexact")
+        self._authenticate_builder_proof_verifier_v1()
         operation_id = calldata[4:36]
         manifest = ProtocolRootManifestV1.decode(calldata[100:1_069])
         key = manifest.campaign_key(self.address)
@@ -6830,6 +7128,7 @@ class ProtocolRootFactoryModelV1:
                 or campaign.source_infrastructure_in_progress != 0
                 or set(campaign.source_infrastructure_receipts) != {1}):
             raise ValueError("protocol-root campaign cannot finalize")
+        self._authenticate_builder_proof_verifier_v1()
         if (executor.address != self.delayed_executor
                 or executor.extcodehash() != self.executor_runtime_hash
                 or root_migration_executor_configuration_hash_v1(
@@ -6841,6 +7140,9 @@ class ProtocolRootFactoryModelV1:
                     self.executor_configuration_hash,
                     self.proxy_creation_code_hash, self.proxy_runtime_hash,
                     self.source_factory_compiler_artifacts.artifact_root,
+                    self.builder_proof_verifier_init_code_hash,
+                    self.builder_proof_verifier_runtime_hash,
+                    self.builder_proof_verifier_configuration_hash,
                 ) != self.configuration_hash):
             raise ValueError("protocol-root bootstrap authority is inconsistent")
 
@@ -6987,6 +7289,12 @@ class ProtocolRootFactoryModelV1:
                 or builder.schedule_oracle != role(2)
                 or builder.schedule_oracle_runtime_hash
                     != campaign.manifest.components[1][1]
+                or builder.builder_proof_verifier
+                    != self.builder_proof_verifier
+                or builder.builder_proof_verifier_runtime_hash
+                    != self.builder_proof_verifier_runtime_hash
+                or builder.builder_proof_verifier_configuration_hash
+                    != self.builder_proof_verifier_configuration_hash
                 or builder.genesis_timestamp != schedule.genesis_timestamp
                 or builder.evidence_delay_seconds
                     != schedule.evidence_delay_seconds
@@ -7242,6 +7550,7 @@ class ProtocolRootFactoryModelV1:
                 or campaign.source_infrastructure_in_progress != 0
                 or set(campaign.source_infrastructure_receipts) != {1}):
             raise ValueError("protocol-root campaign cannot finalize")
+        self._authenticate_builder_proof_verifier_v1()
         if (executor.address != self.delayed_executor
                 or executor.extcodehash() != self.executor_runtime_hash
                 or root_migration_executor_configuration_hash_v1(
@@ -7253,6 +7562,9 @@ class ProtocolRootFactoryModelV1:
                     self.executor_configuration_hash,
                     self.proxy_creation_code_hash, self.proxy_runtime_hash,
                     self.source_factory_compiler_artifacts.artifact_root,
+                    self.builder_proof_verifier_init_code_hash,
+                    self.builder_proof_verifier_runtime_hash,
+                    self.builder_proof_verifier_configuration_hash,
                 ) != self.configuration_hash):
             raise ValueError("protocol-root bootstrap authority is inconsistent")
         for role in range(1, PROTOCOL_ROOT_ROLE_COUNT + 1):
@@ -7423,6 +7735,12 @@ class ProtocolRootFactoryModelV1:
                 or builder.schedule_oracle != campaign.components[2]
                 or builder.schedule_oracle_runtime_hash
                     != campaign.manifest.components[1][1]
+                or builder.builder_proof_verifier
+                    != self.builder_proof_verifier
+                or builder.builder_proof_verifier_runtime_hash
+                    != self.builder_proof_verifier_runtime_hash
+                or builder.builder_proof_verifier_configuration_hash
+                    != self.builder_proof_verifier_configuration_hash
                 or builder.genesis_timestamp != schedule.genesis_timestamp
                 or builder.evidence_delay_seconds
                     != schedule.evidence_delay_seconds
@@ -7855,31 +8173,13 @@ class RootMigrationExecutorModelV1:
             factory.executor_configuration_hash,
             factory.proxy_creation_code_hash, factory.proxy_runtime_hash,
             factory.source_factory_compiler_artifacts.artifact_root,
+            factory.builder_proof_verifier_init_code_hash,
+            factory.builder_proof_verifier_runtime_hash,
+            factory.builder_proof_verifier_configuration_hash,
         )
-        expected_factory_config = b"".join((
-            b"PRF1" + bytes(28),
-            _model_uint(factory.settlement_chain_id, 32, "PRF1 chain"),
-            factory.manifest_namespace, bytes(12) + factory.delayed_executor,
-            factory.executor_runtime_hash, factory.executor_configuration_hash,
-            factory.proxy_creation_code_hash, factory.proxy_runtime_hash,
-            factory.source_factory_compiler_artifacts.artifact_root,
-            PROTOCOL_ROOT_ENSURE_SOURCE_INFRASTRUCTURE_SELECTOR + bytes(28),
-            PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_VIEW_SELECTOR + bytes(28),
-            *(_model_uint(value, 32, "PRF1 constant") for value in (
-                PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS,
-                PROTOCOL_ROOT_FACTORY_DEPLOYMENT_POSTCHECK_RESERVE_GAS,
-                PROTOCOL_ROOT_FIRST_MANAGED_RUNWAY_WINDOWS,
-                PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIG_READ_GAS,
-                PROTOCOL_ROOT_FACTORY_COMPONENT_CONFIG_READ_GAS,
-                PROTOCOL_ROOT_FACTORY_ACTIVATION_CALL_GAS,
-                PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
-                PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIRM_CALL_GAS,
-                PROTOCOL_ROOT_SOURCE_TERMINAL_DEPLOYMENT_GAS,
-                PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_POSTCHECK_GAS,
-                PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_CALL_OVERHEAD_GAS,
-            )),
-            expected_factory_hash,
-        ))
+        expected_factory_config = (
+            factory.canonical_protocol_root_factory_config_v1()
+        )
         if (factory.extcodehash() != operation.factory_runtime_hash
                 or expected_factory_hash
                     != operation.factory_configuration_hash
@@ -7979,32 +8279,13 @@ class RootMigrationExecutorModelV1:
             factory.executor_configuration_hash,
             factory.proxy_creation_code_hash, factory.proxy_runtime_hash,
             factory.source_factory_compiler_artifacts.artifact_root,
+            factory.builder_proof_verifier_init_code_hash,
+            factory.builder_proof_verifier_runtime_hash,
+            factory.builder_proof_verifier_configuration_hash,
         )
-        expected_factory_config = b"".join((
-            b"PRF1" + bytes(28),
-            _model_uint(factory.settlement_chain_id, 32, "PRF1 chain"),
-            factory.manifest_namespace, bytes(12) + factory.delayed_executor,
-            factory.executor_runtime_hash, factory.executor_configuration_hash,
-            factory.proxy_creation_code_hash, factory.proxy_runtime_hash,
-            factory.source_factory_compiler_artifacts.artifact_root,
-            PROTOCOL_ROOT_ENSURE_SOURCE_INFRASTRUCTURE_SELECTOR + bytes(28),
-            PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_VIEW_SELECTOR + bytes(28),
-            *(_model_uint(field_value, 32, "PRF1 constant")
-              for field_value in (
-                  PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS,
-                  PROTOCOL_ROOT_FACTORY_DEPLOYMENT_POSTCHECK_RESERVE_GAS,
-                  PROTOCOL_ROOT_FIRST_MANAGED_RUNWAY_WINDOWS,
-                  PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIG_READ_GAS,
-                  PROTOCOL_ROOT_FACTORY_COMPONENT_CONFIG_READ_GAS,
-                  PROTOCOL_ROOT_FACTORY_ACTIVATION_CALL_GAS,
-                  PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
-                  PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIRM_CALL_GAS,
-                  PROTOCOL_ROOT_SOURCE_TERMINAL_DEPLOYMENT_GAS,
-                  PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_POSTCHECK_GAS,
-                  PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_CALL_OVERHEAD_GAS,
-              )),
-            expected_factory_hash,
-        ))
+        expected_factory_config = (
+            factory.canonical_protocol_root_factory_config_v1()
+        )
         observed_factory_config = factory.protocol_root_factory_config_v1(
             PROTOCOL_ROOT_FACTORY_CONFIG_SELECTOR,
             gas_limit=ROOT_MIGRATION_FACTORY_CONFIG_READ_GAS, value=0,
@@ -8093,32 +8374,13 @@ class RootMigrationExecutorModelV1:
             factory.executor_configuration_hash,
             factory.proxy_creation_code_hash, factory.proxy_runtime_hash,
             factory.source_factory_compiler_artifacts.artifact_root,
+            factory.builder_proof_verifier_init_code_hash,
+            factory.builder_proof_verifier_runtime_hash,
+            factory.builder_proof_verifier_configuration_hash,
         )
-        expected_factory_config = b"".join((
-            b"PRF1" + bytes(28),
-            _model_uint(factory.settlement_chain_id, 32, "PRF1 chain"),
-            factory.manifest_namespace, bytes(12) + factory.delayed_executor,
-            factory.executor_runtime_hash, factory.executor_configuration_hash,
-            factory.proxy_creation_code_hash, factory.proxy_runtime_hash,
-            factory.source_factory_compiler_artifacts.artifact_root,
-            PROTOCOL_ROOT_ENSURE_SOURCE_INFRASTRUCTURE_SELECTOR + bytes(28),
-            PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_VIEW_SELECTOR + bytes(28),
-            *(_model_uint(field_value, 32, "PRF1 constant")
-              for field_value in (
-                  PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS,
-                  PROTOCOL_ROOT_FACTORY_DEPLOYMENT_POSTCHECK_RESERVE_GAS,
-                  PROTOCOL_ROOT_FIRST_MANAGED_RUNWAY_WINDOWS,
-                  PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIG_READ_GAS,
-                  PROTOCOL_ROOT_FACTORY_COMPONENT_CONFIG_READ_GAS,
-                  PROTOCOL_ROOT_FACTORY_ACTIVATION_CALL_GAS,
-                  PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
-                  PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIRM_CALL_GAS,
-                  PROTOCOL_ROOT_SOURCE_TERMINAL_DEPLOYMENT_GAS,
-                  PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_POSTCHECK_GAS,
-                  PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_CALL_OVERHEAD_GAS,
-              )),
-            expected_factory_hash,
-        ))
+        expected_factory_config = (
+            factory.canonical_protocol_root_factory_config_v1()
+        )
         expected_campaign = b"".join((
             b"PRC1" + bytes(28), operation_id, campaign_key,
             campaign.manifest_hash,
