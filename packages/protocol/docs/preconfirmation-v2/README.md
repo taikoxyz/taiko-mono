@@ -75,7 +75,9 @@ root deployment, migration and historical reclamation. Its executable-model, PDF
 independent design-review gates now pass, so this specification is ready to freeze as an
 implementation input. Compiled Factory/executor/proxy and
 component artifacts, EIP-170/EIP-3860 and measured gas certificates, real circuit/verifier
-artifacts, multi-language conformance and external audits remain mandatory production gates. ICV2
+artifacts, multi-language conformance and external audits remain mandatory production gates. The
+root Source-terminal value of 2,375,000 gas is a compiled cold-CALL certificate, not a callee-side
+`gasleft()` admission threshold; exact-code reuse may safely execute with less. ICV2
 now supplies the exact O(1) credit-ID and fee lookup; RAV2 binds the Authority retirement watermark;
 and DRV2/DSV2 preserve direct-successor, multi-hop reclamation independently of the latest tip. The exact
 Settlement--Market roster wire, direct historical economics and Router-authenticated rotation are

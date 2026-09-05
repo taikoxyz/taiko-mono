@@ -399,6 +399,8 @@ MIGRATION_TRANSITION_STATEMENT_TYPE = (
 )
 MIGRATION_TRANSITION_STATEMENT_TYPEHASH = keccak256(
     MIGRATION_TRANSITION_STATEMENT_TYPE)
+MIGRATION_TRANSITION_VERIFIER_SELECTOR = keccak256(
+    b"verifyMigrationTransition(bytes,uint256[2])")[:4]
 DEPLOYMENT_COMMITMENT_TYPE = (
     b"DeploymentCommitmentV2(uint8 transitionKind,uint64 targetProtocolVersion,"
     b"bytes32 targetManifestHash,bytes32 targetRegistrationHash,"
@@ -7388,6 +7390,7 @@ SETTLEMENT_VALIDITY_PUBLIC_INPUT_SCHEMA_HASH = keccak256(
 SETTLEMENT_VALIDITY_MAXIMUM_PROOF_BYTES = 65_536
 SETTLEMENT_VALIDITY_MAXIMUM_GAS = 30_000_000
 SETTLEMENT_VALIDITY_VERIFIER_CALL_ENVELOPE_GAS = 10_000
+SETTLEMENT_VALIDITY_VERIFIER_RETURN_COPY_GAS = 6
 SETTLEMENT_VALIDITY_VERIFIER_CONFIG_TYPE = (
     b"SettlementValidityVerifierConfigV2(bytes32 verifyingKeyHash,"
     b"bytes32 proofSystemId,bytes32 publicInputSchemaHash,bytes4 selector,"
@@ -8047,8 +8050,7 @@ def canonical_execution_profile_cross_model_fixture_v2() -> bytes:
         b"slot-chain-target-compile-time-rules-v2"
         + u16(len(compile_bytes)) + compile_bytes)
     words[143] = MIGRATION_TRANSITION_STATEMENT_TYPEHASH
-    words[144] = keccak256(
-        b"verifyMigrationTransition(bytes,uint256[2])")[:4] + bytes(28)
+    words[144] = MIGRATION_TRANSITION_VERIFIER_SELECTOR + bytes(28)
     words[147] = u256(30_000_000)
     words[114] = words[152]
     words[115] = words[153]
@@ -8180,10 +8182,15 @@ def decode_execution_profile_v2(
                 and words[228] == address_word(create2_address(
                     SETTLEMENT_FACTORY_ADDRESS_V2, words[268], words[269])))
         settlement_validity_verifier_descriptor_hash_v2(words)
+        verification_gas = uint_word_value(words[279], 64)
         required_gas = (
-            (uint_word_value(words[279], 64) * 64 + 62) // 63
-            + uint_word_value(words[280], 64)
-            + SETTLEMENT_VALIDITY_VERIFIER_CALL_ENVELOPE_GAS)
+            verification_gas
+            + max(
+                (verification_gas + 62) // 63,
+                uint_word_value(words[280], 64),
+            )
+            + SETTLEMENT_VALIDITY_VERIFIER_CALL_ENVELOPE_GAS
+            + SETTLEMENT_VALIDITY_VERIFIER_RETURN_COPY_GAS)
         assert required_gas <= uint_word_value(words[147], 64)
     compile_bytes = b"".join(words[118:138])
     assert words[54] == keccak256(
@@ -8200,9 +8207,8 @@ def decode_execution_profile_v2(
             and uint_word_value(words[136]) == 126_972
             and uint_word_value(words[137]) == 9)
     assert (words[143] == MIGRATION_TRANSITION_STATEMENT_TYPEHASH
-            and words[144] == keccak256(
-                b"verifyMigrationTransition(bytes,uint256[2])")[:4]
-                + bytes(28))
+            and words[144]
+                == MIGRATION_TRANSITION_VERIFIER_SELECTOR + bytes(28))
     component_addresses = tuple(
         address_word_value(words[160 + index * 3]) for index in range(10))
     bridge_surplus_sink = address_word_value(words[70])

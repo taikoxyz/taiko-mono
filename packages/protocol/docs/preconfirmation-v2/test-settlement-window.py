@@ -11720,6 +11720,24 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             replace(descriptor, nonproxy=False),
         ):
             self.assertFalse(invalid_descriptor.structurally_valid())
+        with self.assertRaises(ValueError):
+            settlement.migration_transition_verifier_configuration_hash(
+                descriptor.verifying_key_hash,
+                descriptor.proof_system_id,
+                "wrong-schema",
+                descriptor.maximum_proof_bytes,
+                descriptor.verification_gas_limit,
+                descriptor.selector,
+            )
+        with self.assertRaises(ValueError):
+            settlement.migration_transition_verifier_configuration_hash(
+                descriptor.verifying_key_hash,
+                descriptor.proof_system_id,
+                descriptor.public_input_schema_hash,
+                descriptor.maximum_proof_bytes,
+                descriptor.verification_gas_limit,
+                bytes.fromhex("12345678"),
+            )
 
         same_descriptor_clone = settlement.TestMigrationTransitionVerifier(
             descriptor
@@ -16486,6 +16504,39 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     settlement._execution_profile_abi_words_v2(candidate)
 
+        # Recomputing the verifier configuration hash must not turn a
+        # publisher-selected migration statement schema into a valid profile.
+        substituted_schema_words = list(words)
+        substituted_schema_words[143] = bytes.fromhex("aa" * 32)
+        migration_selector = settlement._decode_bytes4_word_v1(
+            substituted_schema_words[144], "migration verifier selector"
+        )
+        substituted_schema_words[140] = settlement.keccak256(b"".join((
+            settlement.MIGRATION_VERIFIER_CONFIG_TYPEHASH,
+            substituted_schema_words[141], substituted_schema_words[142],
+            substituted_schema_words[143], migration_selector + bytes(28),
+            settlement._model_uint(
+                int.from_bytes(substituted_schema_words[145], "big"), 32,
+                "maximum proof bytes ABI",
+            ),
+            settlement._model_uint(
+                int.from_bytes(substituted_schema_words[146], "big"), 32,
+                "verification gas ABI",
+            ),
+        )))
+        substituted_schema_profile = (
+            profile[:32] + b"".join(substituted_schema_words)
+            + profile[32 + settlement.EXECUTION_PROFILE_STATIC_BYTES:]
+        )
+        with self.assertRaisesRegex(ValueError, "statement schema"):
+            settlement._execution_profile_abi_words_v2(
+                substituted_schema_profile
+            )
+        with self.assertRaisesRegex(ValueError, "statement schema"):
+            settlement.derive_register_release_authority_v2(
+                substituted_schema_profile, 0
+            )
+
         # L1 first-supported and L2 activation are independent uint64 fields.
         first_supported_two = bytearray(profile)
         first_supported_two[(1 + 244) * 32:(2 + 244) * 32] = \
@@ -16705,7 +16756,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             settlement.settlement_validity_verifier_required_gas_v2(
                 2_000_000, 500_000
             ),
-            (2_000_000 * 64 + 62) // 63 + 500_000 + 10_000,
+            2_000_000 + max((2_000_000 + 62) // 63, 500_000) + 10_000 + 6,
         )
         self.assertLessEqual(
             settlement.settlement_validity_verifier_required_gas_v2(
@@ -18876,15 +18927,17 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         terminal_call = settlement.encode_ensure_source_infrastructure_calldata_v1(
             key, settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_KIND, terminal_init
         )
+        self.assertEqual(
+            settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_CERTIFIED_CALL_GAS,
+            2_375_000,
+        )
         for bad_call, bad_gas, bad_value in (
             (terminal_call[:-1],
-             settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS, 0),
+             settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_CERTIFIED_CALL_GAS, 0),
             (terminal_call[:-1] + b"\x01",
-             settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS, 0),
+             settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_CERTIFIED_CALL_GAS, 0),
             (terminal_call,
-             settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS - 1, 0),
-            (terminal_call,
-             settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS, 1),
+             settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_CERTIFIED_CALL_GAS, 1),
         ):
             with self.assertRaises(ValueError):
                 factory.ensure_source_infrastructure_v1(
@@ -18899,7 +18952,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         with self.assertRaises(ValueError):
             factory.ensure_source_infrastructure_v1(
                 terminal_call, 1,
-                gas_limit=settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS,
+                gas_limit=settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_CERTIFIED_CALL_GAS,
                 value=0,
             )
         factory.source_infrastructure_erc2470_return_override = None
@@ -18907,13 +18960,13 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             factory.ensure_source_infrastructure_v1(
                 terminal_call, 1,
-                gas_limit=settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS,
+                gas_limit=settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_CERTIFIED_CALL_GAS,
                 value=0,
             )
         factory.source_infrastructure_fault_point = None
         created = factory.ensure_source_infrastructure_v1(
             terminal_call, 1,
-            gas_limit=settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS,
+            gas_limit=settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_CERTIFIED_CALL_GAS,
             value=0,
         )
         self.assertEqual(created[128:160], (1).to_bytes(32, "big"))
@@ -18926,7 +18979,10 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         )
         reused = factory.ensure_source_infrastructure_v1(
             reuse_call, 2,
-            gas_limit=settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS,
+            # Exact-code reuse issues no ERC-2470 CALL.  The model therefore
+            # does not pretend that the cold certificate is an observable
+            # callee-side admission threshold.
+            gas_limit=1,
             value=0,
         )
         self.assertEqual(reused[128:160], bytes(32))
@@ -18957,7 +19013,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         with self.assertRaises(ValueError):
             factory.ensure_source_infrastructure_v1(
                 terminal_call, 3,
-                gas_limit=settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS,
+                gas_limit=settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_CERTIFIED_CALL_GAS,
                 value=0,
             )
         self.assertEqual(
@@ -18968,7 +19024,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         )
         terminal_created = factory.ensure_source_infrastructure_v1(
             terminal_call, 3,
-            gas_limit=settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS,
+            gas_limit=settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_CERTIFIED_CALL_GAS,
             value=0,
         )
         self.assertEqual(terminal_created[128:160], (1).to_bytes(32, "big"))
@@ -19003,7 +19059,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         )
         result = restart.ensure_source_infrastructure_v1(
             call, 4,
-            gas_limit=settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS,
+            gas_limit=settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_CERTIFIED_CALL_GAS,
             value=0,
         )
         self.assertEqual(result[128:160], bytes(32))
@@ -20014,7 +20070,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             factory.ensure_source_infrastructure_v1(
                 source_terminal_ensure, retry_execute_at + 1,
                 gas_limit=(
-                    settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS
+                    settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_CERTIFIED_CALL_GAS
                 ), value=0,
             )[128:160],
             (1).to_bytes(32, "big"),
