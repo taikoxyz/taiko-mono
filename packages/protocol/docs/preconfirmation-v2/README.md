@@ -11,7 +11,7 @@ with the executable models that verify its consensus-critical arithmetic.
 | [`tex/main.tex`](tex/main.tex)                             | **The source.** Hand-maintained LaTeX; edit this to change the document.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | [`settlement-window-model.py`](settlement-window-model.py) | Unified protocol/state model for finite staged genesis campaigns and proof-first later migration, continuous seat scheduling, forced-queue recovery, same-L1 DIRECT ETH ingress, fresh immutable V2 endpoints, permanent inbox pins, permissionless LP-owned atomic-funding tickets, source user/LP pull conservation, terminal frontier proofs, historical destination retirement, and atomic rollback/reorg behavior.                                                                                                                                                                                                                                                                                                                                                                                                 |
 | [`lookahead-model.py`](lookahead-model.py)                 | Exact lookahead path: absolute clock conversion, EIP-4788 carrier/parent semantics, execution-block finality, partial/empty registries, frozen-context tombstones, version-independent protocol-lifetime seed, capped quotas, ring capacity and placement. 38 assertions.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| [`commitment-model.py`](commitment-model.py)               | Byte-exact fixtures for EIP-712 candidates; MessageV1, ingress, ContextV2, Store, Bridge, Pool, accumulator and policy interfaces; fixed-tree and Data MMR inclusion proofs; canonical empty roots and frontier transitions; all BuilderRegistry witness branches plus mutation calldata/returns; forced Queue V11 credits; source/destination domains; Bridge and ten-component infrastructure descriptors; acyclic migration/registration verifier configurations; the five-argument L1 migration activation; MACT/MFRZ/MCAN/QMIG/MAPS and atomic legacy genesis cutover journals; strict deployed legacy proposal/forced codecs; fixed-key resume-verifier and direct checkpoint-service profiles; release manifests and receipts; LP settlement-bound terminal leaves; bounded session configuration, ABI/events, Router readiness and blobs. 764 golden vectors / 1503 assertion sites. |
+| [`commitment-model.py`](commitment-model.py)               | Byte-exact fixtures for EIP-712 candidates; MessageV1, ingress, ContextV2, Store, Bridge, Pool, accumulator and policy interfaces; fixed-tree and Data MMR inclusion proofs; canonical empty roots and frontier transitions; all BuilderRegistry witness branches plus mutation calldata/returns; forced Queue V11 credits; source/destination domains; Bridge and ten-component infrastructure descriptors; acyclic migration/registration verifier configurations; the five-argument L1 migration activation; MACT/MFRZ/MCAN/QMIG/MAPS and atomic legacy genesis cutover journals; strict deployed legacy proposal/forced codecs; fixed-key resume-verifier and direct checkpoint-service profiles; release manifests and receipts; LP settlement-bound terminal leaves; bounded session configuration, ABI/events, Router readiness and blobs. 812 golden vectors / 1593 assertion sites. |
 | [`seat-market-model.py`](seat-market-model.py)             | Executable custody, fixed-width wire-codec and state model for the four-cell perpetual reverse auction, staging, premium reserves, pull credits, bond terminalization and release rotation. Its companion suite currently runs 114 adversarial tests.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | [`economic-profile-model.py`](economic-profile-model.py)   | Strict schema and checked-arithmetic validator for the versioned economic profile and every published parameter relation. Its companion suite currently runs 38 tests.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
@@ -35,11 +35,11 @@ a successful LaTeX exit status alone is not layout verification.
 ## Running the models
 
 ```sh
-python3 settlement-window-model.py   # 184 assertions
-python3 test-settlement-window.py    # 277 adversarial regression tests
+python3 settlement-window-model.py   # 186 assertions
+python3 test-settlement-window.py    # 293 adversarial regression tests
 python3 lookahead-model.py           # 38 assertions
-python3 commitment-model.py          # 764 golden vectors / 1503 assertion sites
-python3 commitment-model.py --export-json # 764 sorted typed oracle rows
+python3 commitment-model.py          # 812 golden vectors / 1593 assertion sites
+python3 commitment-model.py --export-json # 812 sorted typed oracle rows
 python3 -m unittest test-seat-market.py      # 114 adversarial tests
 python3 -m unittest test-economic-profile.py # 38 schema/economic tests
 ```
@@ -56,20 +56,22 @@ finite `MIGRATION_ARM_EXECUTION_WINDOW_SECONDS=604800` after maturity. Both the 
 enforce the inclusive execution interval. A successful expiry abort advances the PVM's monotone
 `armFreshAfter` watermark, invalidating every arm queued at or before the abort timestamp; a retry
 must be queued later and wait a new seven days. `protocolVersionManagerConfigV1()` is therefore
-1,088 bytes and commits the execution-window constant, while `migrationArmFreshAfterV1()` returns
+1,184 bytes and commits the execution-window constant, root-lifetime terminal verifier identity,
+and SourceBundleFactory identity, while `migrationArmFreshAfterV1()` returns
 the exact 64-byte `MAF1` watermark view. The generic 256-byte `PCO1` operation row is unchanged.
 
 ## Status
 
-The architecture is an **audited design candidate**, not implementation-ready or a production-ready
-release. The BRS1/BRD1/BRC1/ABR2 route path now derives its authority from fixed-width
+The architecture is a **multi-pass-reviewed implementation-freeze candidate**, not a
+production-ready release. The BRS1/BRD1/BRC1/ABR2 route path derives its authority from fixed-width
 RTR2/BRX1/PIR2/PIM2/PIA2/BIP1/BID1 raw reads rather than an in-process
-`SettlementRegistration` witness. Production is still blocked by the lack of an address-indexed EVM
-component world for Registry code/config/immutable reads, a root receipt deploying the fixed Source
-factory and real compiled adapter artifact, and O(1) indexes for the remaining append-only-history
-hot paths. Restart and serialization coverage, compiled Factory/executor/proxy artifacts, measured
-root activation/deployment EIP-150 gas certificates, and historical release/reclamation restart
-fixtures also remain open. ICV2
+`SettlementRegistration` witness. The design model now includes an address-indexed EVM account
+world, exact code/configuration/immutable reads, a root receipt covering the fixed Source factory
+and root-lifetime terminal verifier, bounded indexes, and cold-cache restart coverage through
+root deployment, migration and historical reclamation. No known Critical or High document-level
+defect remains, so the specification is ready to implement. Compiled Factory/executor/proxy and
+component artifacts, EIP-170/EIP-3860 and measured gas certificates, real circuit/verifier
+artifacts, multi-language conformance and external audits remain mandatory production gates. ICV2
 now supplies the exact O(1) credit-ID and fee lookup; RAV2 binds the Authority retirement watermark;
 and DRV2/DSV2 preserve direct-successor, multi-hop reclamation independently of the latest tip. The exact
 Settlement--Market roster wire, direct historical economics and Router-authenticated rotation are

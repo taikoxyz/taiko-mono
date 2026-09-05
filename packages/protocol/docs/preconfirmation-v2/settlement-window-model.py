@@ -10,7 +10,9 @@ not a scan hidden inside trusted Python state.
 from __future__ import annotations
 
 import copy
-from dataclasses import dataclass, field, fields as dataclass_fields, is_dataclass, replace
+from dataclasses import (
+    InitVar, dataclass, field, fields as dataclass_fields, is_dataclass, replace,
+)
 from enum import Enum, IntFlag, auto
 import hashlib
 import sys
@@ -173,6 +175,8 @@ POINT_EVALUATION_OK = (
 )
 UINT64_MAX = (1 << 64) - 1
 SCHEDULE_WINDOW_SLOTS = 384
+SCHEDULE_LOOKAHEAD_SECONDS = 768
+MAX_SCHEDULE_CARRIER_SCAN_SLOTS = 64
 # A uint64 slot domain contains one final partial 256-slot interval.
 LAST_FULL_SLOT_WINDOW = (
     UINT64_MAX - (SCHEDULE_WINDOW_SLOTS - 1)
@@ -445,6 +449,7 @@ def seat_checked_sub(left: int, right: int, name: str) -> int:
     return left - right
 MAX_ARM_AGE_BLOCKS = 255
 EIP2935_HISTORY_ENTRIES = 8_191
+SCHEDULE_SEAL_FINALITY_BLOCKS = 64
 L1_SLOT_SECONDS = 12
 SUPPORT_FINALITY_BLOCKS = F_L1 + (
     REORG_MARGIN_SECONDS + L1_SLOT_SECONDS - 1
@@ -468,7 +473,7 @@ ACTIVE_BRIDGE_ROUTE_READ_GAS = 1_200_000
 BRIDGE_ROUTE_EXPANSION_SELECTOR = bytes.fromhex("118464c5")
 BRIDGE_ROUTE_EXPANSION_MAGIC = b"BRX1"
 BRIDGE_ROUTE_EXPANSION_CALLDATA_LENGTH = 36
-BRIDGE_ROUTE_EXPANSION_RETURN_LENGTH = 38 * 32
+BRIDGE_ROUTE_EXPANSION_RETURN_LENGTH = 61 * 32
 BRIDGE_ROUTE_EXPANSION_READ_GAS = 200_000
 BRIDGE_INVOCATION_POLICY_SELECTOR = bytes.fromhex("c1b06888")
 BRIDGE_INVOCATION_POLICY_MAGIC = b"BIP1"
@@ -496,8 +501,11 @@ PROFILE_INGRESS_AUTHORIZATION_READ_GAS = 250_000
 STAGE_BRIDGE_ROUTE_PACKAGE_SELECTOR = bytes.fromhex("9dad437b")
 STAGE_BRIDGE_ROUTE_PACKAGE_GAS = 12_000_000
 STAGE_BRIDGE_ROUTE_PACKAGE_RETURN_LENGTH = 128
-PREPARE_BRIDGE_ROUTE_PACKAGE_SELECTOR = bytes.fromhex("1ccbc24a")
+PREPARE_BRIDGE_ROUTE_PACKAGE_SELECTOR = keccak256(
+    b"prepareBridgeRoutePackageV1(uint64)"
+)[:4]
 PREPARE_BRIDGE_ROUTE_PACKAGE_GAS = 25_000_000
+PREPARE_BRIDGE_ROUTE_PACKAGE_CALLDATA_LENGTH = 36
 PREPARE_BRIDGE_ROUTE_PACKAGE_RETURN_LENGTH = 128
 CONSUME_BRIDGE_ROUTE_ARM_READY_SELECTOR = bytes.fromhex("68034634")
 CONSUME_BRIDGE_ROUTE_ARM_READY_GAS = 2_500_000
@@ -618,26 +626,147 @@ _DESTINATION_BRIDGE_ROLLBACK_CAPABILITY = object()
 _BRIDGE_ROUTE_ACTIVATION_CAPABILITY = object()
 EMPTY_V2_BRIDGE_STATE_COMMITMENT = "v2-state:empty:slot257:v1"
 LEGACY_V1_SOURCE_BRIDGE = "bridge-v1:source:A"
-SOURCE_V2_CREATE2_FACTORY = "v2-bridge-create2-factory"
-SOURCE_V2_CREATE2_FACTORY_RUNTIME_HASH = "code:v2-bridge-factory:v1"
+SOURCE_BUNDLE_FACTORY_CONFIG_DOMAIN = \
+    b"slot-chain-source-bundle-factory-config-v1"
+SOURCE_BUNDLE_FACTORY_CONFIG_SELECTOR = keccak256(
+    b"sourceBundleFactoryConfigV1()"
+)[:4]
+SOURCE_TERMINAL_VERIFIER_CONFIG_SELECTOR = keccak256(
+    b"sourceTerminalVerifierConfigV1()"
+)[:4]
+SOURCE_BUNDLE_FACTORY_BUNDLE_DEPLOYMENT_GAS = 15_000_000
+SOURCE_BUNDLE_FACTORY_ADAPTER_DEPLOYMENT_GAS = 2_000_000
+SOURCE_BUNDLE_FACTORY_COMPONENT_CONFIG_READ_GAS = 50_000
+SOURCE_BUNDLE_FACTORY_POSTCHECK_RESERVE_GAS = 500_000
+SOURCE_BUNDLE_FACTORY_DEPLOY_BUNDLE_SELECTOR = keccak256(
+    b"deploySourceBundleV1(bytes32,bytes,bytes)"
+)[:4]
+SOURCE_BUNDLE_FACTORY_DEPLOY_ADAPTER_SELECTOR = keccak256(
+    b"deployBridgeAdapterV1(uint64,bytes32,bytes32,address,address,address,"
+    b"address,address)"
+)[:4]
+SOURCE_BUNDLE_FACTORY_CREATION_CODE_V1 = (
+    b"slot-chain-model-source-bundle-factory-creation-code-v1"
+)
+SOURCE_BUNDLE_FACTORY_RUNTIME_CODE_V1 = (
+    b"slot-chain-model-source-bundle-factory-runtime-code-v1"
+)
+SOURCE_BUNDLE_DEPLOYER_CREATION_CODE_V1 = (
+    b"slot-chain-model-source-bundle-deployer-creation-code-v1"
+)
+SOURCE_BUNDLE_DEPLOYER_RUNTIME_CODE_V1 = (
+    b"slot-chain-model-source-bundle-deployer-runtime-code-v1"
+)
 BRIDGE_ADAPTER_CREATION_CODE_V1 = (
     b"slot-chain-model-bridge-adapter-creation-code-v1"
+)
+BRIDGE_ADAPTER_RUNTIME_CODE_V1 = (
+    b"slot-chain-model-bridge-adapter-runtime-code-v1"
+)
+SOURCE_BRIDGE_CREATION_CODE_V1 = (
+    b"slot-chain-model-source-bridge-creation-code-v1"
+)
+SOURCE_BRIDGE_RUNTIME_CODE_V1 = (
+    b"slot-chain-model-source-bridge-runtime-code-v1"
+)
+BRIDGE_CREDIT_REGISTRY_CREATION_CODE_V1 = (
+    b"slot-chain-model-bridge-credit-registry-creation-code-v1"
+)
+BRIDGE_CREDIT_REGISTRY_RUNTIME_CODE_V1 = (
+    b"slot-chain-model-bridge-credit-registry-runtime-code-v1"
+)
+SOURCE_NATIVE_QUOTA_MANAGER_CREATION_CODE_V1 = (
+    b"slot-chain-model-source-native-quota-manager-creation-code-v1"
+)
+SOURCE_NATIVE_QUOTA_MANAGER_RUNTIME_CODE_V1 = (
+    b"slot-chain-model-source-native-quota-manager-runtime-code-v1"
+)
+SOURCE_TERMINAL_VERIFIER_CREATION_CODE_V1 = (
+    b"slot-chain-model-source-terminal-verifier-creation-code-v1"
+)
+SOURCE_TERMINAL_VERIFIER_RUNTIME_CODE_V1 = (
+    b"slot-chain-model-source-terminal-verifier-runtime-code-v1"
 )
 BRIDGE_ADAPTER_CREATION_CODE_HASH_V1 = keccak256(
     BRIDGE_ADAPTER_CREATION_CODE_V1
 )
-SOURCE_BUNDLE_CREATION_CODE_HASH_V1 = keccak256(
-    b"slot-chain-model-source-bundle-creation-code-v1"
+BRIDGE_ADAPTER_RUNTIME_CODE_HASH_V1 = keccak256(
+    BRIDGE_ADAPTER_RUNTIME_CODE_V1
 )
-SOURCE_V2_CREATE2_FACTORY_CONFIGURATION_HASH = keccak256(
-    b"slot-chain-v2-bridge-factory-config-v2"
-    + SOURCE_BUNDLE_CREATION_CODE_HASH_V1
-    + BRIDGE_ADAPTER_CREATION_CODE_HASH_V1
-).hex()
+BRIDGE_ADAPTER_RUNTIME_HASH_V1 = "0x" + \
+    BRIDGE_ADAPTER_RUNTIME_CODE_HASH_V1.hex()
+SOURCE_BRIDGE_RUNTIME_HASH_V1 = "0x" + \
+    keccak256(SOURCE_BRIDGE_RUNTIME_CODE_V1).hex()
+SOURCE_BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH_V1 = "0x" + \
+    keccak256(BRIDGE_CREDIT_REGISTRY_RUNTIME_CODE_V1).hex()
+SOURCE_NATIVE_QUOTA_MANAGER_RUNTIME_HASH_V1 = "0x" + \
+    keccak256(SOURCE_NATIVE_QUOTA_MANAGER_RUNTIME_CODE_V1).hex()
+SOURCE_TERMINAL_VERIFIER_RUNTIME_HASH_V1 = "0x" + \
+    keccak256(SOURCE_TERMINAL_VERIFIER_RUNTIME_CODE_V1).hex()
+# The model's deployed code hashes are the compiler outputs above, rather
+# than symbolic labels.  Both source and destination profiles consume the
+# same immutable registry/quota implementations.
+BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH = \
+    SOURCE_BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH_V1
+NATIVE_QUOTA_MANAGER_RUNTIME_HASH = \
+    SOURCE_NATIVE_QUOTA_MANAGER_RUNTIME_HASH_V1
+SOURCE_BUNDLE_CREATION_CODE_HASH_V1 = keccak256(
+    SOURCE_BUNDLE_DEPLOYER_CREATION_CODE_V1
+)
+
+
+def _source_bundle_factory_fixture_triple_v1(
+    settlement_chain_id: int, protocol_version_manager: bytes,
+    role9_address: bytes,
+) -> tuple[bytes, bytes, bytes]:
+    """Build an unbound test triple; production derives role 9 via CREATE3."""
+
+    if (type(settlement_chain_id) is not int
+            or not 0 < settlement_chain_id < 1 << 256
+            or type(protocol_version_manager) is not bytes
+            or len(protocol_version_manager) != 20
+            or protocol_version_manager == bytes(20)
+            or type(role9_address) is not bytes or len(role9_address) != 20
+            or role9_address == bytes(20)):
+        raise ValueError("Source factory projection input is invalid")
+    runtime_hash = keccak256(SOURCE_BUNDLE_FACTORY_RUNTIME_CODE_V1)
+    configuration_hash = keccak256(b"".join((
+        SOURCE_BUNDLE_FACTORY_CONFIG_DOMAIN,
+        settlement_chain_id.to_bytes(32, "big"), protocol_version_manager,
+        keccak256(SOURCE_BUNDLE_DEPLOYER_CREATION_CODE_V1),
+        keccak256(SOURCE_BUNDLE_DEPLOYER_RUNTIME_CODE_V1),
+        keccak256(BRIDGE_ADAPTER_CREATION_CODE_V1),
+        keccak256(BRIDGE_ADAPTER_RUNTIME_CODE_V1),
+        keccak256(SOURCE_BRIDGE_CREATION_CODE_V1),
+        keccak256(SOURCE_BRIDGE_RUNTIME_CODE_V1),
+        keccak256(BRIDGE_CREDIT_REGISTRY_CREATION_CODE_V1),
+        keccak256(BRIDGE_CREDIT_REGISTRY_RUNTIME_CODE_V1),
+        keccak256(SOURCE_NATIVE_QUOTA_MANAGER_CREATION_CODE_V1),
+        keccak256(SOURCE_NATIVE_QUOTA_MANAGER_RUNTIME_CODE_V1),
+        SOURCE_BUNDLE_FACTORY_DEPLOY_BUNDLE_SELECTOR,
+        SOURCE_BUNDLE_FACTORY_DEPLOY_ADAPTER_SELECTOR,
+        SOURCE_BUNDLE_FACTORY_BUNDLE_DEPLOYMENT_GAS.to_bytes(8, "big"),
+        SOURCE_BUNDLE_FACTORY_ADAPTER_DEPLOYMENT_GAS.to_bytes(8, "big"),
+        SOURCE_BUNDLE_FACTORY_COMPONENT_CONFIG_READ_GAS.to_bytes(8, "big"),
+        SOURCE_BUNDLE_FACTORY_POSTCHECK_RESERVE_GAS.to_bytes(8, "big"),
+    )))
+    return role9_address, runtime_hash, configuration_hash
+
+
+_SOURCE_FACTORY_DEFAULT_TRIPLE_V1 = _source_bundle_factory_fixture_triple_v1(
+    1, keccak256(b"slot-chain-model-default-protocol-version-manager-v1")[12:],
+    keccak256(b"slot-chain-model-default-root-role9-v1")[12:],
+)
+SOURCE_V2_CREATE2_FACTORY = "0x" + _SOURCE_FACTORY_DEFAULT_TRIPLE_V1[0].hex()
+SOURCE_V2_CREATE2_FACTORY_RUNTIME_HASH = \
+    _SOURCE_FACTORY_DEFAULT_TRIPLE_V1[1].hex()
+SOURCE_V2_CREATE2_FACTORY_CONFIGURATION_HASH = \
+    _SOURCE_FACTORY_DEFAULT_TRIPLE_V1[2].hex()
 SOURCE_V2_CREATE2_SALT = "salt:v2-source-bridge:v1"
 SOURCE_V2_GENERIC_INITCODE_HASH = "initcode:generic-inactive-source-bridge:v2"
-SOURCE_V2_BUNDLE_DEPLOYER_RUNTIME_HASH = "code:source-bundle-deployer:v2"
-SOURCE_TERMINAL_VERIFIER_RUNTIME_HASH = "code:source-terminal-verifier:v2"
+SOURCE_V2_BUNDLE_DEPLOYER_RUNTIME_HASH = \
+    keccak256(SOURCE_BUNDLE_DEPLOYER_RUNTIME_CODE_V1).hex()
+SOURCE_TERMINAL_VERIFIER_RUNTIME_HASH = SOURCE_TERMINAL_VERIFIER_RUNTIME_HASH_V1
 ON_MESSAGE_INVOCATION_SELECTOR = bytes.fromhex("7f07c947")
 V1_OFFICIAL_VAULT_ADDRESSES = (
     "erc20-vault-v1",
@@ -799,10 +928,17 @@ SOURCE_READ_GAS = 200_000
 CREDIT_AUTHORIZATION_SELECTOR = bytes.fromhex("05ecb6c2")
 CREDIT_LIABILITY_SELECTOR = bytes.fromhex("c978978a")
 BRIDGE_QUEUE_DESCRIPTOR_V11_BYTES = 541
-RELEASE_MANIFEST_V2_ABI_WORDS = 58
+RELEASE_MANIFEST_V2_ABI_WORDS = 59
 RELEASE_MANIFEST_V2_BYTES = RELEASE_MANIFEST_V2_ABI_WORDS * 32
 ACTIVATE_RELEASE_V2_CALLDATA_BYTES = 4 + RELEASE_MANIFEST_V2_BYTES + 32
-ACTIVATE_RELEASE_V2_SELECTOR = bytes.fromhex("28f73572")
+ACTIVATE_RELEASE_V2_SIGNATURE = (
+    b"activateRelease((uint64,uint256,uint256,bytes32,bytes32,bytes32,bytes32,"
+    b"address,bytes32,bytes32,address,bytes32,"
+    b"(address,bytes32,bytes32,bytes32,bytes32,address,address,address,address,"
+    b"address,address),bytes32,bytes32,bytes32,address,bytes32,bytes32,"
+    b"(address,bytes32,bytes32)[10]),uint64)"
+)
+ACTIVATE_RELEASE_V2_SELECTOR = keccak256(ACTIVATE_RELEASE_V2_SIGNATURE)[:4]
 RELEASE_ACTIVATION_V2_SELECTOR = keccak256(
     b"releaseActivationV2(uint64)"
 )[:4]
@@ -826,13 +962,14 @@ RELEASE_MANIFEST_V2_TYPE = (
     "bytes32 configurationHash,bytes32 storageLayoutHash,"
     "bytes32 bridgeKernelProfileHash,address inboxCreditStore,"
     "address terminalAccumulator,address terminalDomainRegistrar,"
-    "address quotaManager,address nativeLiquidityPool)"
+    "address quotaManager,address nativeLiquidityPool,"
+    "address bridgeSurplusSink)"
 )
 RELEASE_MANIFEST_V2_TYPEHASH = keccak256(RELEASE_MANIFEST_V2_TYPE.encode())
 D_DESTINATION_REGISTRATION = b"slot-chain-destination-registration-v1"
 D_COMPONENT_CONFIG = b"slot-chain-component-config-v1"
 D_DESTINATION_BRIDGE_EXECUTION = (
-    b"slot-chain-destination-bridge-execution-v3"
+    b"slot-chain-destination-bridge-execution-v4"
 )
 D_DESTINATION_INFRASTRUCTURE = b"slot-chain-destination-infrastructure-v3"
 D_DESTINATION_DOMAIN = b"slot-chain-destination-domain-v7"
@@ -862,6 +999,26 @@ VERIFY_INBOX_CREDIT_V2_RETURN_LENGTH = 8 * 32
 VERIFY_INBOX_CREDIT_V2_MAGIC = b"ICV2"
 TERMINAL_COMMITMENT_ABI_BYTES = 5 * 32
 TERMINAL_TREE_DEPTH = 64
+FORCE_SEND_INITCODE_PREFIX = bytes.fromhex("73")
+FORCE_SEND_INITCODE_SUFFIX = bytes.fromhex("ff")
+FORCE_SEND_INITCODE_LENGTH = 22
+FORCE_SEND_CREATE2_SALT_DOMAIN = b"slot-chain-force-send-create2-salt-v1"
+FORCE_SEND_CREATE2_FIXED_GAS = 33_000
+FORCE_SEND_CREATE2_WORST_CASE_GAS = 75_000
+FORCE_SEND_POSTCHECK_GAS_RESERVE = 20_000
+FORCE_SEND_PRECREATE_GAS = (
+    FORCE_SEND_CREATE2_FIXED_GAS
+    + max(
+        FORCE_SEND_CREATE2_WORST_CASE_GAS + FORCE_SEND_POSTCHECK_GAS_RESERVE,
+        (FORCE_SEND_CREATE2_WORST_CASE_GAS * 64 + 62) // 63,
+    )
+)
+FORCE_SEND_COMPILER_BUILD_HASH = keccak256(
+    b"slot-chain-force-send-handwritten-osaka-evm-v1"
+)
+FORCE_SEND_EVM_RULES_HASH = keccak256(
+    b"slot-chain-force-send-eip-6780-osaka-v1"
+)
 
 
 def destination_native_quota_manager_address(bridge: str) -> str:
@@ -1790,6 +1947,42 @@ def _model_address20(value: object, *, zero_if_empty: bool = False) -> bytes:
     return hashlib.sha256(
         b"TAIKO_MODEL_ADDRESS20_V1\x00" + repr(value).encode()
     ).digest()[-20:]
+
+
+def force_send_initcode_v1(sink: str | bytes) -> bytes:
+    """Exact 22-byte PUSH20/SELFDESTRUCT initcode; it returns no runtime."""
+
+    address = sink if type(sink) is bytes else _model_address20(sink)
+    if type(address) is not bytes or len(address) != 20 or address == bytes(20):
+        raise ValueError("ForceSend sink is invalid")
+    initcode = FORCE_SEND_INITCODE_PREFIX + address + FORCE_SEND_INITCODE_SUFFIX
+    if len(initcode) != FORCE_SEND_INITCODE_LENGTH:
+        raise AssertionError("ForceSend initcode length drifted")
+    return initcode
+
+
+def force_send_initcode_hash_v1(sink: str | bytes) -> bytes:
+    return keccak256(force_send_initcode_v1(sink))
+
+
+def force_send_create2_salt_v1(bridge: str | bytes) -> bytes:
+    address = bridge if type(bridge) is bytes else _model_address20(bridge)
+    if (type(address) is not bytes or len(address) != 20
+            or address == bytes(20)):
+        raise ValueError("ForceSend CREATE2 source is unsupported")
+    return keccak256(FORCE_SEND_CREATE2_SALT_DOMAIN + address)
+
+
+def force_send_create2_address_v1(
+    bridge: str | bytes, sink: str | bytes,
+) -> bytes:
+    """Derive the exact CREATE2 child for one immutable Bridge and sink."""
+
+    address = bridge if type(bridge) is bytes else _model_address20(bridge)
+    if type(address) is not bytes or len(address) != 20:
+        raise ValueError("ForceSend CREATE2 source is unsupported")
+    return keccak256(b"\xff" + address + force_send_create2_salt_v1(address)
+                     + force_send_initcode_hash_v1(sink))[-20:]
 
 
 def _model_uint(value: int, width: int, name: str) -> bytes:
@@ -4311,6 +4504,57 @@ PROTOCOL_ROOT_FACTORY_ACTIVATION_CALL_GAS = 50_000
 PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS = 100_000
 PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIRM_CALL_GAS = 500_000
 PROTOCOL_ROOT_FACTORY_DEPLOYMENT_POSTCHECK_RESERVE_GAS = 500_000
+PROTOCOL_ROOT_SOC1_SELECTOR = bytes.fromhex("e3d91a33")
+PROTOCOL_ROOT_FORK_REGISTRATION_SELECTOR = bytes.fromhex("c614591c")
+PROTOCOL_ROOT_FORK_CONFIG_SELECTOR = bytes.fromhex("44efa773")
+PROTOCOL_ROOT_FORK_ROUTE_STATE_SELECTOR = bytes.fromhex("7e9f3c0d")
+PROTOCOL_ROOT_FORK_ROUTE_READ_GAS = 50_000
+PROTOCOL_ROOT_ACTIVATE_SELECTOR = bytes.fromhex("74e3aa45")
+PROTOCOL_ROOT_ACTIVATION_VIEW_SELECTOR = bytes.fromhex("da930d69")
+PROTOCOL_ROOT_BUILDER_CONFIG_SELECTOR = bytes.fromhex("66f0bd82")
+PROTOCOL_ROOT_TIMELOCK_CONFIG_SELECTOR = bytes.fromhex("b80095ca")
+PROTOCOL_ROOT_PVM_CONFIG_SELECTOR = bytes.fromhex("4deb7821")
+PROTOCOL_ROOT_EXECUTOR_CONFIRM_SELECTOR = bytes.fromhex("b1372f22")
+PROTOCOL_ROOT_EXECUTOR_CONFIG_SELECTOR = bytes.fromhex("e9d1d099")
+PROTOCOL_ROOT_EXECUTOR_AUTHORITY_SELECTOR = bytes.fromhex("ccf788d5")
+PROTOCOL_ROOT_STAGE_SELECTOR = bytes.fromhex("53c99a5f")
+PROTOCOL_ROOT_CAMPAIGN_SELECTOR = bytes.fromhex("e6139cad")
+PROTOCOL_ROOT_FACTORY_CONFIG_SELECTOR = bytes.fromhex("d7b40838")
+PROTOCOL_ROOT_ENSURE_SOURCE_INFRASTRUCTURE_SELECTOR = keccak256(
+    b"ensureSourceInfrastructureV1(bytes32,uint8,bytes)"
+)[:4]
+PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_VIEW_SELECTOR = keccak256(
+    b"protocolRootSourceInfrastructureV1(bytes32,uint8)"
+)[:4]
+# SourceBundleFactory is root role 9.  The sole extra ERC-2470 infrastructure
+# kind is the SourceTerminalVerifier.
+PROTOCOL_ROOT_SOURCE_TERMINAL_KIND = 1
+PROTOCOL_ROOT_SOURCE_TERMINAL_DEPLOYMENT_GAS = 2_000_000
+PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_POSTCHECK_GAS = 300_000
+PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_CALL_OVERHEAD_GAS = 75_000
+
+
+def _root_source_ensure_minimum_gas_v1(stipend: int) -> int:
+    return PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_CALL_OVERHEAD_GAS + max(
+        stipend + PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_POSTCHECK_GAS,
+        (stipend * 64 + 62) // 63,
+    )
+
+
+PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS = (
+    _root_source_ensure_minimum_gas_v1(
+        PROTOCOL_ROOT_SOURCE_TERMINAL_DEPLOYMENT_GAS
+    )
+)
+PROTOCOL_ROOT_SOURCE_FACTORY_SALT_DOMAIN = \
+    b"slot-chain-root-source-factory-salt-v1"
+PROTOCOL_ROOT_SOURCE_TERMINAL_SALT_DOMAIN = \
+    b"slot-chain-root-source-terminal-salt-v1"
+PROTOCOL_ROOT_EXECUTOR_CLEAR_ABORTED_SELECTOR = bytes.fromhex("95b71205")
+SCHEDULE_CONFIG_READ_GAS = 50_000
+SCHEDULE_FORK_REGISTRATION_READ_GAS = 100_000
+SCHEDULE_FORK_VERIFIER_CONFIG_READ_GAS = 100_000
+SCHEDULE_FORK_MUTATION_GAS = 4_000_000
 PROTOCOL_ROOT_SELECTORS_V1 = {
     "queueRootMigrationV1(address,bytes32,bytes32,bytes32)": "3499bb4a",
     "executeRootMigrationV1(bytes32,address,bytes)": "9987f8ae",
@@ -4330,6 +4574,12 @@ PROTOCOL_ROOT_SELECTORS_V1 = {
     "confirmRootMigrationV1(bytes32,bytes32,bytes32)": "b1372f22",
     "clearAbortedRootMigrationV1(bytes32,bytes32)": "95b71205",
     "protocolRootFactoryConfigV1()": "d7b40838",
+    "ensureSourceInfrastructureV1(bytes32,uint8,bytes)": (
+        PROTOCOL_ROOT_ENSURE_SOURCE_INFRASTRUCTURE_SELECTOR.hex()
+    ),
+    "protocolRootSourceInfrastructureV1(bytes32,uint8)": (
+        PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_VIEW_SELECTOR.hex()
+    ),
 }
 for _root_signature, _root_selector in PROTOCOL_ROOT_SELECTORS_V1.items():
     if keccak256(_root_signature.encode())[:4].hex() != _root_selector:
@@ -4374,16 +4624,41 @@ def root_migration_executor_configuration_hash_v1(
     )))
 
 
+def encode_root_migration_executor_config_return_v1(
+    settlement_chain_id: int, dao_proposer: bytes,
+) -> bytes:
+    configuration_hash = root_migration_executor_configuration_hash_v1(
+        settlement_chain_id, dao_proposer
+    )
+    encoded = b"".join((
+        b"RME1" + bytes(28),
+        _model_uint(settlement_chain_id, 32, "RME1 chain"),
+        bytes(12) + dao_proposer,
+        *(_model_uint(value, 32, "RME1 constant") for value in (
+            ROOT_MIGRATION_MINIMUM_DELAY_SECONDS,
+            ROOT_MIGRATION_EXECUTION_WINDOW_SECONDS,
+            ROOT_MIGRATION_FACTORY_CONFIG_READ_GAS,
+            ROOT_MIGRATION_COMPONENT_CONFIG_READ_GAS,
+            ROOT_MIGRATION_FACTORY_STAGE_CALL_GAS,
+            ROOT_MIGRATION_POST_STAGE_RESERVE_GAS,
+        )),
+        configuration_hash,
+    ))
+    if len(encoded) != 320:
+        raise AssertionError("RME1 must be exactly 320 bytes")
+    return encoded
+
+
 def protocol_root_factory_configuration_hash_v1(
     settlement_chain_id: int, manifest_namespace: bytes,
     delayed_executor: bytes, executor_runtime_hash: bytes,
     executor_configuration_hash: bytes, proxy_creation_code_hash: bytes,
-    proxy_runtime_hash: bytes,
+    proxy_runtime_hash: bytes, source_artifact_root: bytes,
 ) -> bytes:
     words = (
         manifest_namespace, executor_runtime_hash,
         executor_configuration_hash, proxy_creation_code_hash,
-        proxy_runtime_hash,
+        proxy_runtime_hash, source_artifact_root,
     )
     if (not 0 < settlement_chain_id < 1 << 256
             or type(delayed_executor) is not bytes
@@ -4396,7 +4671,21 @@ def protocol_root_factory_configuration_hash_v1(
         _model_uint(settlement_chain_id, 32, "protocol-root chain"),
         manifest_namespace, delayed_executor, executor_runtime_hash,
         executor_configuration_hash, proxy_creation_code_hash,
-        proxy_runtime_hash,
+        proxy_runtime_hash, source_artifact_root,
+        PROTOCOL_ROOT_ENSURE_SOURCE_INFRASTRUCTURE_SELECTOR,
+        PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_VIEW_SELECTOR,
+        _model_uint(
+            PROTOCOL_ROOT_SOURCE_TERMINAL_DEPLOYMENT_GAS, 8,
+            "root Source terminal deployment gas",
+        ),
+        _model_uint(
+            PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_POSTCHECK_GAS, 8,
+            "root Source infrastructure postcheck gas",
+        ),
+        _model_uint(
+            PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_CALL_OVERHEAD_GAS, 8,
+            "root Source infrastructure call overhead gas",
+        ),
         _model_uint(
             PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS, 8,
             "protocol-root campaign lifetime",
@@ -4465,6 +4754,28 @@ class ProtocolRootManifestV1:
             raise AssertionError("protocol-root manifest width drift")
         return encoded
 
+    @classmethod
+    def decode(cls, encoded: bytes) -> "ProtocolRootManifestV1":
+        if (type(encoded) is not bytes
+                or len(encoded) != PROTOCOL_ROOT_MANIFEST_BYTES
+                or encoded[0] != 1):
+            raise ValueError("protocol-root manifest encoding is invalid")
+        settlement_chain_id = int.from_bytes(encoded[1:33], "big")
+        generation = int.from_bytes(encoded[33:41], "big")
+        namespace = encoded[41:73]
+        predecessor = encoded[73:105]
+        rows = tuple(
+            tuple(encoded[offset + column * 32:offset + (column + 1) * 32]
+                  for column in range(3))
+            for offset in range(105, PROTOCOL_ROOT_MANIFEST_BYTES, 96)
+        )
+        result = cls(
+            settlement_chain_id, generation, namespace, predecessor, rows
+        )
+        if result.encode() != encoded:
+            raise ValueError("protocol-root manifest encoding is noncanonical")
+        return result
+
     def campaign_key(self, factory: bytes) -> bytes:
         if type(factory) is not bytes or len(factory) != 20 \
                 or factory == bytes(20):
@@ -4484,7 +4795,7 @@ class ProtocolRootManifestV1:
         )
 
 
-def protocol_root_component_address_v1(
+def protocol_root_component_proxy_address_v1(
     factory: bytes, campaign_key: bytes, role: int,
     proxy_creation_code_hash: bytes,
 ) -> bytes:
@@ -4495,14 +4806,23 @@ def protocol_root_component_address_v1(
             or type(proxy_creation_code_hash) is not bytes
             or len(proxy_creation_code_hash) != 32
             or proxy_creation_code_hash == bytes(32)):
-        raise ValueError("protocol-root component address inputs are invalid")
+        raise ValueError("protocol-root component proxy inputs are invalid")
     salt = keccak256(
         b"slot-chain-protocol-root-component-v1"
         + campaign_key + bytes((role,))
     )
-    proxy = keccak256(
+    return keccak256(
         b"\xff" + factory + salt + proxy_creation_code_hash
     )[12:]
+
+
+def protocol_root_component_address_v1(
+    factory: bytes, campaign_key: bytes, role: int,
+    proxy_creation_code_hash: bytes,
+) -> bytes:
+    proxy = protocol_root_component_proxy_address_v1(
+        factory, campaign_key, role, proxy_creation_code_hash
+    )
     return keccak256(b"\xd6\x94" + proxy + b"\x01")[12:]
 
 
@@ -4518,6 +4838,1242 @@ class ProtocolRootCampaignModelV1:
     components: dict[int, bytes] = field(default_factory=dict)
     active_roles: set[int] = field(default_factory=set)
     root_receipt: bytes = bytes(32)
+    schedule_oracle_artifact: "ProtocolRootScheduleOracleArtifactV1 | None" = None
+    protocol_version_manager_artifact: (
+        "ProtocolRootProtocolVersionManagerArtifactV1 | None"
+    ) = None
+    activation_artifacts: dict[int, "ProtocolRootActivationArtifactV1"] = field(
+        default_factory=dict
+    )
+    activation_trace: list[int] = field(default_factory=list)
+    source_infrastructure_bitmap: int = 0
+    source_infrastructure_in_progress: int = 0
+    source_infrastructure_receipts: dict[int, bytes] = field(
+        default_factory=dict
+    )
+
+
+@dataclass(frozen=True)
+class ProtocolRootScheduleOracleConfigV1:
+    settlement_chain_id: int
+    protocol_version_manager: bytes
+    active_settlement_router: bytes
+    builder_registry: bytes
+    first_managed_window: int
+    last_managed_window: int
+    genesis_timestamp: int
+    evidence_delay_seconds: int
+    reorg_margin_seconds: int
+    beacon_genesis_time: int
+    lookahead_seconds: int
+    lease_per_window_atomic: int
+    initial_fork_digest: bytes
+    initial_fork_first_parent_slot: int
+    initial_fork_last_parent_slot_exclusive: int
+    builder_registry_topology_hash: bytes
+    configuration_hash: bytes
+
+    def encode_soc1(self) -> bytes:
+        addresses = (
+            self.protocol_version_manager,
+            self.active_settlement_router,
+            self.builder_registry,
+        )
+        hashes = (
+            self.builder_registry_topology_hash,
+            self.configuration_hash,
+        )
+        if (not 0 < self.settlement_chain_id < 1 << 256
+                or any(type(value) is not bytes or len(value) != 20
+                       or value == bytes(20) for value in addresses)
+                or any(type(value) is not bytes or len(value) != 32
+                       or value == bytes(32) for value in hashes)
+                or type(self.initial_fork_digest) is not bytes
+                or len(self.initial_fork_digest) != 4
+                or self.initial_fork_digest == bytes(4)):
+            raise ValueError("protocol-root SOC1 fixed field is invalid")
+        narrow = (
+            self.first_managed_window, self.last_managed_window,
+            self.genesis_timestamp, self.evidence_delay_seconds,
+            self.reorg_margin_seconds, self.beacon_genesis_time,
+            self.lookahead_seconds, self.initial_fork_first_parent_slot,
+            self.initial_fork_last_parent_slot_exclusive,
+        )
+        if any(type(value) is not int or not 0 <= value <= UINT64_MAX
+               for value in narrow):
+            raise ValueError("protocol-root SOC1 narrow field is invalid")
+        if (type(self.lease_per_window_atomic) is not int
+                or not 0 < self.lease_per_window_atomic < 1 << 256):
+            raise ValueError("protocol-root SOC1 lease is invalid")
+        return b"".join((
+            b"SOC1" + bytes(28),
+            _model_uint(self.settlement_chain_id, 32, "SOC1 chain"),
+            *(bytes(12) + value for value in addresses),
+            *(_model_uint(value, 32, "SOC1 uint64") for value in narrow[:7]),
+            _model_uint(self.lease_per_window_atomic, 32, "SOC1 lease"),
+            self.initial_fork_digest + bytes(28),
+            *(_model_uint(value, 32, "SOC1 fork bound")
+              for value in narrow[7:]),
+            *hashes,
+        ))
+
+
+def decode_protocol_root_soc1_v1(
+    encoded: bytes,
+) -> ProtocolRootScheduleOracleConfigV1:
+    if type(encoded) is not bytes or len(encoded) != 18 * 32:
+        raise ValueError("protocol-root SOC1 return length is invalid")
+    words = tuple(encoded[index:index + 32]
+                  for index in range(0, len(encoded), 32))
+    if words[0] != b"SOC1" + bytes(28):
+        raise ValueError("protocol-root SOC1 magic is invalid")
+
+    def address_word(index: int) -> bytes:
+        if words[index][:12] != bytes(12) or words[index][12:] == bytes(20):
+            raise ValueError("protocol-root SOC1 address is noncanonical")
+        return words[index][12:]
+
+    def uint64_word(index: int) -> int:
+        value = int.from_bytes(words[index], "big")
+        if value > UINT64_MAX:
+            raise ValueError("protocol-root SOC1 uint64 is noncanonical")
+        return value
+
+    if (words[13][4:] != bytes(28) or words[13][:4] == bytes(4)
+            or words[16] == bytes(32) or words[17] == bytes(32)):
+        raise ValueError("protocol-root SOC1 digest/hash is invalid")
+    return ProtocolRootScheduleOracleConfigV1(
+        int.from_bytes(words[1], "big"), address_word(2), address_word(3),
+        address_word(4), uint64_word(5), uint64_word(6), uint64_word(7),
+        uint64_word(8), uint64_word(9), uint64_word(10), uint64_word(11),
+        int.from_bytes(words[12], "big"), words[13][:4], uint64_word(14),
+        uint64_word(15), words[16], words[17],
+    )
+
+
+def encode_protocol_root_initial_fvr1_v1(
+    row: "RegisterForkVerifierPayloadV1",
+) -> bytes:
+    """Encode the singleton initial route returned by Oracle and PVM."""
+
+    encode_register_fork_verifier_payload_v1(row)
+    encoded = b"".join((
+        b"FVR1" + bytes(28), row.fork_digest + bytes(28),
+        _model_uint(row.first_parent_slot, 32, "initial fork first slot"),
+        bytes(32),
+        _model_uint(
+            row.last_parent_slot_exclusive, 32, "initial fork last slot"
+        ),
+        bytes(12) + row.verifier, row.runtime_hash,
+        row.configuration_hash, row.selector + bytes(28),
+        _model_uint(row.gas_limit, 32, "initial fork verifier gas"),
+    ))
+    if len(encoded) != 320:
+        raise AssertionError("initial FVR1 must be exactly 320 bytes")
+    return encoded
+
+
+def decode_protocol_root_initial_route_v1(
+    registration_return: bytes, verifier_config_return: bytes,
+) -> "RegisterForkVerifierPayloadV1":
+    """Strictly reconstruct the full initial 480-byte row from FVR1/SFV1."""
+
+    if (type(registration_return) is not bytes
+            or len(registration_return) != 320
+            or type(verifier_config_return) is not bytes
+            or len(verifier_config_return) != 320):
+        raise ValueError("protocol-root initial fork return length is invalid")
+    fvr = tuple(
+        registration_return[index:index + 32]
+        for index in range(0, 320, 32)
+    )
+    sfv = tuple(
+        verifier_config_return[index:index + 32]
+        for index in range(0, 320, 32)
+    )
+    if (fvr[0] != b"FVR1" + bytes(28)
+            or sfv[0] != b"SFV1" + bytes(28)
+            or fvr[3] != bytes(32)):
+        raise ValueError("protocol-root initial fork magic/successor is invalid")
+    digest = _decode_bytes4_word_v1(fvr[1], "initial fork digest")
+    if _decode_bytes4_word_v1(sfv[1], "initial verifier digest") != digest:
+        raise ValueError("protocol-root initial fork digests disagree")
+    first_parent_slot = _decode_uint_word_v1(
+        fvr[2], 64, "initial fork first parent slot"
+    )
+    last_parent_slot_exclusive = _decode_uint_word_v1(
+        fvr[4], 64, "initial fork last parent slot"
+    )
+    verifier = _decode_address_word_v1(fvr[5], "initial fork verifier")
+    selector = _decode_bytes4_word_v1(fvr[8], "initial fork selector")
+    gas_limit = _decode_uint_word_v1(fvr[9], 64, "initial fork gas")
+    gindices = tuple(
+        _decode_uint_word_v1(sfv[index], 64, "initial fork gindex")
+        for index in range(2, 8)
+    )
+    if (digest == bytes(4) or verifier == bytes(20)
+            or fvr[6] == bytes(32) or fvr[7] == bytes(32)
+            or sfv[8] == bytes(32) or sfv[9] == bytes(32)
+            or fvr[7] != sfv[9]
+            or not first_parent_slot < last_parent_slot_exclusive):
+        raise ValueError("protocol-root initial fork row is invalid")
+    row = RegisterForkVerifierPayloadV1(
+        digest, first_parent_slot, last_parent_slot_exclusive, verifier,
+        fvr[6], *gindices, sfv[8], sfv[9], selector, gas_limit,
+    )
+    if (encode_protocol_root_initial_fvr1_v1(row) != registration_return
+            or encode_schedule_fork_verifier_config_return_v1(row)
+                != verifier_config_return):
+        raise ValueError("protocol-root initial fork row is noncanonical")
+    return row
+
+
+@dataclass(frozen=True)
+class ProtocolRootBuilderRegistryConfigV1:
+    settlement_chain_id: int
+    builder_lease_token: bytes
+    builder_lease_token_runtime_hash: bytes
+    builder_lease_token_decimals: int
+    lease_per_window_atomic: int
+    maximum_bond_atomic: int
+    reporter_reward_cap_atomic: int
+    genesis_timestamp: int
+    evidence_delay_seconds: int
+    reorg_margin_seconds: int
+    first_managed_window: int
+    last_managed_window: int
+    builder_penalty_sink: bytes
+    reward_claim_window_seconds: int
+    active_settlement_router: bytes
+    router_runtime_hash: bytes
+    router_configuration_hash: bytes
+    schedule_oracle: bytes
+    schedule_oracle_runtime_hash: bytes
+    economic_configuration_hash: bytes
+    topology_hash: bytes
+
+    def topology_hash_v1(self) -> bytes:
+        payload = b"".join((
+            _model_uint(self.settlement_chain_id, 32, "BRC1 chain"),
+            self.builder_lease_token, self.builder_lease_token_runtime_hash,
+            _model_uint(self.builder_lease_token_decimals, 1, "BRC1 decimals"),
+            *(_model_uint(value, 8, "BRC1 uint64") for value in (
+                self.genesis_timestamp, self.evidence_delay_seconds,
+                self.reorg_margin_seconds, self.first_managed_window,
+                self.last_managed_window,
+            )),
+            self.builder_penalty_sink,
+            _model_uint(
+                self.reward_claim_window_seconds, 8, "BRC1 reward window"
+            ),
+            self.active_settlement_router, self.router_runtime_hash,
+            self.router_configuration_hash, self.schedule_oracle,
+            self.schedule_oracle_runtime_hash,
+            self.economic_configuration_hash,
+        ))
+        if len(payload) != 321:
+            raise AssertionError("BRC1 topology preimage must be 321 bytes")
+        return keccak256(
+            b"slot-chain-builder-registry-topology-v1"
+            + _model_uint(len(payload), 2, "BRC1 topology bytes") + payload
+        )
+
+    def encode_brc1(self) -> bytes:
+        addresses = (
+            self.builder_lease_token, self.builder_penalty_sink,
+            self.active_settlement_router, self.schedule_oracle,
+        )
+        hashes = (
+            self.builder_lease_token_runtime_hash, self.router_runtime_hash,
+            self.router_configuration_hash, self.schedule_oracle_runtime_hash,
+            self.economic_configuration_hash, self.topology_hash,
+        )
+        narrow = (
+            self.builder_lease_token_decimals, self.genesis_timestamp,
+            self.evidence_delay_seconds, self.reorg_margin_seconds,
+            self.first_managed_window, self.last_managed_window,
+            self.reward_claim_window_seconds,
+        )
+        if (not 0 < self.settlement_chain_id < 1 << 256
+                or any(type(value) is not bytes or len(value) != 20
+                       or value == bytes(20) for value in addresses)
+                or any(type(value) is not bytes or len(value) != 32
+                       or value == bytes(32) for value in hashes)
+                or not 0 <= self.builder_lease_token_decimals < 1 << 8
+                or any(not 0 <= value <= UINT64_MAX for value in narrow[1:])
+                or not 0 < self.lease_per_window_atomic
+                    <= self.maximum_bond_atomic < 1 << 192
+                or not 0 <= self.reporter_reward_cap_atomic < 1 << 192
+                or 5 * self.reporter_reward_cap_atomic
+                    > self.lease_per_window_atomic
+                or self.topology_hash != self.topology_hash_v1()):
+            raise ValueError("protocol-root BRC1 configuration is invalid")
+        encoded = b"".join((
+            b"BRC1" + bytes(28),
+            _model_uint(self.settlement_chain_id, 32, "BRC1 chain"),
+            bytes(12) + self.builder_lease_token,
+            self.builder_lease_token_runtime_hash,
+            _model_uint(self.builder_lease_token_decimals, 32, "BRC1 decimals"),
+            _model_uint(self.lease_per_window_atomic, 32, "BRC1 lease"),
+            _model_uint(self.maximum_bond_atomic, 32, "BRC1 bond"),
+            _model_uint(self.reporter_reward_cap_atomic, 32, "BRC1 reward"),
+            *(_model_uint(value, 32, "BRC1 timing") for value in narrow[1:6]),
+            bytes(12) + self.builder_penalty_sink,
+            _model_uint(
+                self.reward_claim_window_seconds, 32, "BRC1 reward window"
+            ),
+            bytes(12) + self.active_settlement_router,
+            self.router_runtime_hash, self.router_configuration_hash,
+            bytes(12) + self.schedule_oracle,
+            self.schedule_oracle_runtime_hash,
+            self.economic_configuration_hash, self.topology_hash,
+        ))
+        if len(encoded) != 704:
+            raise AssertionError("BRC1 must be exactly 704 bytes")
+        return encoded
+
+
+def decode_protocol_root_brc1_v1(
+    encoded: bytes,
+) -> ProtocolRootBuilderRegistryConfigV1:
+    if type(encoded) is not bytes or len(encoded) != 704:
+        raise ValueError("protocol-root BRC1 return length is invalid")
+    words = tuple(encoded[index:index + 32] for index in range(0, 704, 32))
+    if words[0] != b"BRC1" + bytes(28):
+        raise ValueError("protocol-root BRC1 magic is invalid")
+    result = ProtocolRootBuilderRegistryConfigV1(
+        _decode_uint_word_v1(words[1], 256, "BRC1 chain"),
+        _decode_address_word_v1(words[2], "BRC1 token"), words[3],
+        _decode_uint_word_v1(words[4], 8, "BRC1 decimals"),
+        _decode_uint_word_v1(words[5], 192, "BRC1 lease"),
+        _decode_uint_word_v1(words[6], 192, "BRC1 bond"),
+        _decode_uint_word_v1(words[7], 192, "BRC1 reward"),
+        *(_decode_uint_word_v1(words[index], 64, "BRC1 timing")
+          for index in range(8, 13)),
+        _decode_address_word_v1(words[13], "BRC1 penalty sink"),
+        _decode_uint_word_v1(words[14], 64, "BRC1 reward window"),
+        _decode_address_word_v1(words[15], "BRC1 Router"), words[16],
+        words[17], _decode_address_word_v1(words[18], "BRC1 Schedule"),
+        words[19], words[20], words[21],
+    )
+    if result.encode_brc1() != encoded:
+        raise ValueError("protocol-root BRC1 return is noncanonical")
+    return result
+
+
+@dataclass
+class ProtocolRootForkVerifierArtifactV1:
+    address: bytes
+    runtime_hash: bytes
+    config_return: bytes
+    runtime_override: bytes | None = None
+    return_override: bytes | None = None
+
+    def extcodehash(self) -> bytes:
+        return (self.runtime_hash if self.runtime_override is None
+                else self.runtime_override)
+
+    def schedule_fork_verifier_config_v1(
+        self, calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        if (calldata != PROTOCOL_ROOT_FORK_CONFIG_SELECTOR
+                or gas_limit != PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS
+                or value != 0):
+            raise ValueError("protocol-root SFV1 call is inexact")
+        return (self.config_return if self.return_override is None
+                else self.return_override)
+
+
+@dataclass(frozen=True)
+class ProtocolRootSourceFactoryCompilerArtifactsV1:
+    """One compiler output set used to derive the root Source factory."""
+
+    factory_creation_code: bytes
+    factory_runtime_code: bytes
+    bundle_deployer_creation_code: bytes
+    bundle_deployer_runtime_code: bytes
+    bridge_adapter_creation_code: bytes
+    bridge_adapter_runtime_code: bytes
+    source_bridge_creation_code: bytes = SOURCE_BRIDGE_CREATION_CODE_V1
+    source_bridge_runtime_code: bytes = SOURCE_BRIDGE_RUNTIME_CODE_V1
+    bridge_credit_registry_creation_code: bytes = (
+        BRIDGE_CREDIT_REGISTRY_CREATION_CODE_V1
+    )
+    bridge_credit_registry_runtime_code: bytes = (
+        BRIDGE_CREDIT_REGISTRY_RUNTIME_CODE_V1
+    )
+    native_quota_manager_creation_code: bytes = (
+        SOURCE_NATIVE_QUOTA_MANAGER_CREATION_CODE_V1
+    )
+    native_quota_manager_runtime_code: bytes = (
+        SOURCE_NATIVE_QUOTA_MANAGER_RUNTIME_CODE_V1
+    )
+    terminal_verifier_creation_code: bytes = (
+        SOURCE_TERMINAL_VERIFIER_CREATION_CODE_V1
+    )
+    terminal_verifier_runtime_code: bytes = (
+        SOURCE_TERMINAL_VERIFIER_RUNTIME_CODE_V1
+    )
+
+    def __post_init__(self) -> None:
+        creation = (
+            self.factory_creation_code,
+            self.bundle_deployer_creation_code,
+            self.bridge_adapter_creation_code,
+            self.source_bridge_creation_code,
+            self.bridge_credit_registry_creation_code,
+            self.native_quota_manager_creation_code,
+            self.terminal_verifier_creation_code,
+        )
+        runtime = (
+            self.factory_runtime_code,
+            self.bundle_deployer_runtime_code,
+            self.bridge_adapter_runtime_code,
+            self.source_bridge_runtime_code,
+            self.bridge_credit_registry_runtime_code,
+            self.native_quota_manager_runtime_code,
+            self.terminal_verifier_runtime_code,
+        )
+        if (any(type(code) is not bytes or not 0 < len(code) <= 49_152
+                for code in creation)
+                or any(type(code) is not bytes
+                       or not 0 < len(code) <= 24_576
+                       for code in runtime)):
+            raise ValueError("root Source factory compiler artifact is invalid")
+
+    @property
+    def bundle_creation_code_hash(self) -> bytes:
+        return keccak256(self.bundle_deployer_creation_code)
+
+    @property
+    def bundle_runtime_hash(self) -> bytes:
+        return keccak256(self.bundle_deployer_runtime_code)
+
+    @property
+    def adapter_creation_code_hash(self) -> bytes:
+        return keccak256(self.bridge_adapter_creation_code)
+
+    @property
+    def adapter_runtime_hash(self) -> bytes:
+        return keccak256(self.bridge_adapter_runtime_code)
+
+    @property
+    def source_bridge_creation_code_hash(self) -> bytes:
+        return keccak256(self.source_bridge_creation_code)
+
+    @property
+    def source_bridge_runtime_hash(self) -> bytes:
+        return keccak256(self.source_bridge_runtime_code)
+
+    @property
+    def credit_registry_creation_code_hash(self) -> bytes:
+        return keccak256(self.bridge_credit_registry_creation_code)
+
+    @property
+    def credit_registry_runtime_hash(self) -> bytes:
+        return keccak256(self.bridge_credit_registry_runtime_code)
+
+    @property
+    def quota_manager_creation_code_hash(self) -> bytes:
+        return keccak256(self.native_quota_manager_creation_code)
+
+    @property
+    def quota_manager_runtime_hash(self) -> bytes:
+        return keccak256(self.native_quota_manager_runtime_code)
+
+    @property
+    def terminal_verifier_creation_code_hash(self) -> bytes:
+        return keccak256(self.terminal_verifier_creation_code)
+
+    @property
+    def terminal_verifier_runtime_hash(self) -> bytes:
+        return keccak256(self.terminal_verifier_runtime_code)
+
+    @property
+    def factory_runtime_hash(self) -> bytes:
+        return keccak256(self.factory_runtime_code)
+
+    @property
+    def artifact_root(self) -> bytes:
+        """Commit all seven exact creation/runtime compiler artifacts."""
+
+        return keccak256(b"".join((
+            b"slot-chain-root-source-artifact-root-v1",
+            keccak256(self.factory_creation_code), self.factory_runtime_hash,
+            self.bundle_creation_code_hash, self.bundle_runtime_hash,
+            self.adapter_creation_code_hash, self.adapter_runtime_hash,
+            self.source_bridge_creation_code_hash,
+            self.source_bridge_runtime_hash,
+            self.credit_registry_creation_code_hash,
+            self.credit_registry_runtime_hash,
+            self.quota_manager_creation_code_hash,
+            self.quota_manager_runtime_hash,
+            self.terminal_verifier_creation_code_hash,
+            self.terminal_verifier_runtime_hash,
+        )))
+
+
+def protocol_root_source_bundle_factory_init_code_v1(
+    protocol_root_factory: bytes, factory_runtime_hash: bytes,
+    campaign_key: bytes, settlement_chain_id: int,
+    protocol_version_manager: bytes,
+    artifacts: ProtocolRootSourceFactoryCompilerArtifactsV1,
+) -> bytes:
+    """Return role 9's complete compiler prefix and canonical constructor ABI."""
+
+    if (type(protocol_root_factory) is not bytes
+            or len(protocol_root_factory) != 20
+            or protocol_root_factory == bytes(20)
+            or type(factory_runtime_hash) is not bytes
+            or len(factory_runtime_hash) != 32
+            or factory_runtime_hash == bytes(32)
+            or type(campaign_key) is not bytes or len(campaign_key) != 32
+            or campaign_key == bytes(32)
+            or type(artifacts)
+                is not ProtocolRootSourceFactoryCompilerArtifactsV1
+            or not 0 < settlement_chain_id < 1 << 256
+            or type(protocol_version_manager) is not bytes
+            or len(protocol_version_manager) != 20
+            or protocol_version_manager == bytes(20)):
+        raise ValueError("root role9 Source factory init-code input is invalid")
+    init_code = b"".join((
+        artifacts.factory_creation_code,
+        bytes(12) + protocol_root_factory,
+        factory_runtime_hash,
+        campaign_key,
+        _model_uint(settlement_chain_id, 32, "role9 Source factory chain"),
+        bytes(12) + protocol_version_manager,
+    ))
+    if len(init_code) > 49_152:
+        raise ValueError("root role9 Source factory init code exceeds EIP-3860")
+    return init_code
+
+
+def source_bundle_factory_configuration_hash_v1(
+    settlement_chain_id: int, protocol_version_manager: bytes,
+    artifacts: ProtocolRootSourceFactoryCompilerArtifactsV1,
+) -> bytes:
+    if (type(artifacts)
+            is not ProtocolRootSourceFactoryCompilerArtifactsV1
+            or not 0 < settlement_chain_id < 1 << 256
+            or type(protocol_version_manager) is not bytes
+            or len(protocol_version_manager) != 20
+            or protocol_version_manager == bytes(20)):
+        raise ValueError("root Source factory configuration input is invalid")
+    return keccak256(b"".join((
+        SOURCE_BUNDLE_FACTORY_CONFIG_DOMAIN,
+        _model_uint(settlement_chain_id, 32, "Source factory chain"),
+        protocol_version_manager,
+        artifacts.bundle_creation_code_hash, artifacts.bundle_runtime_hash,
+        artifacts.adapter_creation_code_hash, artifacts.adapter_runtime_hash,
+        artifacts.source_bridge_creation_code_hash,
+        artifacts.source_bridge_runtime_hash,
+        artifacts.credit_registry_creation_code_hash,
+        artifacts.credit_registry_runtime_hash,
+        artifacts.quota_manager_creation_code_hash,
+        artifacts.quota_manager_runtime_hash,
+        SOURCE_BUNDLE_FACTORY_DEPLOY_BUNDLE_SELECTOR,
+        SOURCE_BUNDLE_FACTORY_DEPLOY_ADAPTER_SELECTOR,
+        _model_uint(
+            SOURCE_BUNDLE_FACTORY_BUNDLE_DEPLOYMENT_GAS, 8,
+            "Source bundle deployment gas",
+        ),
+        _model_uint(
+            SOURCE_BUNDLE_FACTORY_ADAPTER_DEPLOYMENT_GAS, 8,
+            "Source adapter deployment gas",
+        ),
+        _model_uint(
+            SOURCE_BUNDLE_FACTORY_COMPONENT_CONFIG_READ_GAS, 8,
+            "Source factory config read gas",
+        ),
+        _model_uint(
+            SOURCE_BUNDLE_FACTORY_POSTCHECK_RESERVE_GAS, 8,
+            "Source factory postcheck reserve",
+        ),
+    )))
+
+
+def source_terminal_verifier_salt_v1(
+    settlement_chain_id: int, manifest_namespace: bytes, router: bytes,
+) -> bytes:
+    if (not 0 < settlement_chain_id < 1 << 256
+            or type(manifest_namespace) is not bytes
+            or len(manifest_namespace) != 32
+            or manifest_namespace == bytes(32)
+            or type(router) is not bytes or len(router) != 20
+            or router == bytes(20)):
+        raise ValueError("root Source terminal salt input is invalid")
+    return keccak256(b"".join((
+        PROTOCOL_ROOT_SOURCE_TERMINAL_SALT_DOMAIN,
+        _model_uint(settlement_chain_id, 32, "Source terminal chain"),
+        manifest_namespace, router,
+    )))
+
+
+def source_terminal_verifier_init_code_v1(
+    settlement_chain_id: int, router: bytes,
+    artifacts: ProtocolRootSourceFactoryCompilerArtifactsV1,
+) -> bytes:
+    if (type(artifacts) is not ProtocolRootSourceFactoryCompilerArtifactsV1
+            or not 0 < settlement_chain_id < 1 << 256
+            or type(router) is not bytes or len(router) != 20
+            or router == bytes(20)):
+        raise ValueError("root Source terminal init-code input is invalid")
+    init_code = b"".join((
+        artifacts.terminal_verifier_creation_code,
+        _model_uint(settlement_chain_id, 32, "Source terminal chain"),
+        bytes(12) + router,
+    ))
+    if len(init_code) > 49_152:
+        raise ValueError("root Source terminal init code exceeds EIP-3860")
+    return init_code
+
+
+def source_terminal_verifier_address_v1(
+    settlement_chain_id: int, manifest_namespace: bytes, router: bytes,
+    artifacts: ProtocolRootSourceFactoryCompilerArtifactsV1,
+) -> bytes:
+    salt = source_terminal_verifier_salt_v1(
+        settlement_chain_id, manifest_namespace, router
+    )
+    init_code = source_terminal_verifier_init_code_v1(
+        settlement_chain_id, router, artifacts
+    )
+    return keccak256(b"".join((
+        b"\xff", bytes.fromhex(SETTLEMENT_FACTORY_ADDRESS_V2[2:]), salt,
+        keccak256(init_code),
+    )))[12:]
+
+
+def source_terminal_verifier_configuration_hash_bytes_v1(
+    router: bytes,
+) -> bytes:
+    return bytes.fromhex(source_terminal_verifier_configuration_hash(
+        router_address="0x" + router.hex()
+    ))
+
+
+def source_bundle_factory_config_return_v1(
+    settlement_chain_id: int, protocol_version_manager: bytes,
+    artifacts: ProtocolRootSourceFactoryCompilerArtifactsV1,
+) -> bytes:
+    configuration_hash = source_bundle_factory_configuration_hash_v1(
+        settlement_chain_id, protocol_version_manager, artifacts
+    )
+    encoded = b"".join((
+        b"SBF1" + bytes(28),
+        _model_uint(settlement_chain_id, 32, "SBF1 chain"),
+        bytes(12) + protocol_version_manager,
+        artifacts.bundle_creation_code_hash, artifacts.bundle_runtime_hash,
+        artifacts.adapter_creation_code_hash, artifacts.adapter_runtime_hash,
+        artifacts.source_bridge_creation_code_hash,
+        artifacts.source_bridge_runtime_hash,
+        artifacts.credit_registry_creation_code_hash,
+        artifacts.credit_registry_runtime_hash,
+        artifacts.quota_manager_creation_code_hash,
+        artifacts.quota_manager_runtime_hash,
+        SOURCE_BUNDLE_FACTORY_DEPLOY_BUNDLE_SELECTOR + bytes(28),
+        SOURCE_BUNDLE_FACTORY_DEPLOY_ADAPTER_SELECTOR + bytes(28),
+        *(_model_uint(value, 32, "SBF1 gas") for value in (
+            SOURCE_BUNDLE_FACTORY_BUNDLE_DEPLOYMENT_GAS,
+            SOURCE_BUNDLE_FACTORY_ADAPTER_DEPLOYMENT_GAS,
+            SOURCE_BUNDLE_FACTORY_COMPONENT_CONFIG_READ_GAS,
+            SOURCE_BUNDLE_FACTORY_POSTCHECK_RESERVE_GAS,
+        )),
+        configuration_hash,
+    ))
+    if len(encoded) != 640:
+        raise AssertionError("SBF1 must be exactly 640 bytes")
+    return encoded
+
+
+def source_terminal_verifier_config_return_v1(
+    settlement_chain_id: int, router: bytes,
+    artifacts: ProtocolRootSourceFactoryCompilerArtifactsV1,
+) -> bytes:
+    configuration_hash = source_terminal_verifier_configuration_hash_bytes_v1(
+        router
+    )
+    encoded = b"".join((
+        b"STF1" + bytes(28),
+        _model_uint(settlement_chain_id, 32, "STF1 chain"),
+        bytes(12) + router,
+        artifacts.terminal_verifier_creation_code_hash,
+        artifacts.terminal_verifier_runtime_hash,
+        configuration_hash,
+    ))
+    if len(encoded) != 192:
+        raise AssertionError("STF1 must be exactly 192 bytes")
+    return encoded
+
+
+@dataclass
+class ProtocolRootScheduleOracleArtifactV1:
+    address: bytes
+    runtime_hash: bytes
+    config_return: bytes
+    initial_fork: "RegisterForkVerifierPayloadV1 | None" = None
+    fork_verifier_artifact: ProtocolRootForkVerifierArtifactV1 | None = None
+    return_override: bytes | None = None
+    route_state_override: bytes | None = None
+    registration_override: bytes | None = None
+    activation_artifact: "ProtocolRootActivationArtifactV1 | None" = None
+
+    def __post_init__(self) -> None:
+        if (type(self.initial_fork) is not RegisterForkVerifierPayloadV1
+                or self.initial_fork.first_parent_slot != 0
+                or type(self.fork_verifier_artifact)
+                    is not ProtocolRootForkVerifierArtifactV1
+                or self.fork_verifier_artifact.address
+                    != self.initial_fork.verifier
+                or self.fork_verifier_artifact.extcodehash()
+                    != self.initial_fork.runtime_hash
+                or type(self.activation_artifact)
+                    is not ProtocolRootActivationArtifactV1
+                or self.activation_artifact.role != 2
+                or self.activation_artifact.address != self.address
+                or self.activation_artifact.runtime_hash != self.runtime_hash):
+            raise ValueError("protocol-root Schedule initial route is invalid")
+        encode_register_fork_verifier_payload_v1(self.initial_fork)
+
+    def extcodehash(self) -> bytes:
+        if type(self.activation_artifact) is not ProtocolRootActivationArtifactV1:
+            raise ValueError("protocol-root Schedule activation is unavailable")
+        return self.activation_artifact.extcodehash()
+
+    def schedule_oracle_config_v1(
+        self, calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        if (calldata != PROTOCOL_ROOT_SOC1_SELECTOR
+                or gas_limit != PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS
+                or value != 0):
+            raise ValueError("protocol-root SOC1 call is inexact")
+        return (self.config_return if self.return_override is None
+                else self.return_override)
+
+    def schedule_fork_route_state_v1(
+        self, calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        if (calldata != PROTOCOL_ROOT_FORK_ROUTE_STATE_SELECTOR
+                or gas_limit != PROTOCOL_ROOT_FORK_ROUTE_READ_GAS or value != 0
+                or type(self.initial_fork) is not RegisterForkVerifierPayloadV1):
+            raise ValueError("protocol-root Schedule FRS1 call is inexact")
+        encoded = encode_schedule_fork_route_state_return_v1(
+            {self.initial_fork.fork_digest: self.initial_fork},
+            [self.initial_fork.fork_digest], {self.initial_fork.fork_digest},
+        )
+        return (encoded if self.route_state_override is None
+                else self.route_state_override)
+
+    def fork_verifier_registration_v1(
+        self, calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        if (type(self.initial_fork) is not RegisterForkVerifierPayloadV1
+                or calldata != PROTOCOL_ROOT_FORK_REGISTRATION_SELECTOR
+                    + self.initial_fork.fork_digest + bytes(28)
+                or gas_limit != PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS
+                or value != 0):
+            raise ValueError("protocol-root Schedule FVR1 call is inexact")
+        encoded = encode_protocol_root_initial_fvr1_v1(self.initial_fork)
+        return (encoded if self.registration_override is None
+                else self.registration_override)
+
+
+@dataclass
+class ProtocolRootProtocolVersionManagerArtifactV1:
+    address: bytes
+    runtime_hash: bytes
+    initial_fork: "RegisterForkVerifierPayloadV1 | None" = None
+    route_state_override: bytes | None = None
+    registration_override: bytes | None = None
+    activation_artifact: "ProtocolRootActivationArtifactV1 | None" = None
+
+    def __post_init__(self) -> None:
+        if (type(self.initial_fork) is not RegisterForkVerifierPayloadV1
+                or self.initial_fork.first_parent_slot != 0
+                or type(self.activation_artifact)
+                    is not ProtocolRootActivationArtifactV1
+                or self.activation_artifact.role != 4
+                or self.activation_artifact.address != self.address
+                or self.activation_artifact.runtime_hash != self.runtime_hash):
+            raise ValueError("protocol-root PVM initial route is invalid")
+        encode_register_fork_verifier_payload_v1(self.initial_fork)
+
+    def extcodehash(self) -> bytes:
+        if type(self.activation_artifact) is not ProtocolRootActivationArtifactV1:
+            raise ValueError("protocol-root PVM activation is unavailable")
+        return self.activation_artifact.extcodehash()
+
+    def schedule_fork_route_state_v1(
+        self, calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        if (calldata != PROTOCOL_ROOT_FORK_ROUTE_STATE_SELECTOR
+                or gas_limit != PROTOCOL_ROOT_FORK_ROUTE_READ_GAS or value != 0
+                or type(self.initial_fork) is not RegisterForkVerifierPayloadV1):
+            raise ValueError("protocol-root PVM FRS1 call is inexact")
+        encoded = encode_schedule_fork_route_state_return_v1(
+            {self.initial_fork.fork_digest: self.initial_fork},
+            [self.initial_fork.fork_digest], {self.initial_fork.fork_digest},
+        )
+        return (encoded if self.route_state_override is None
+                else self.route_state_override)
+
+    def fork_verifier_registration_v1(
+        self, calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        if (type(self.initial_fork) is not RegisterForkVerifierPayloadV1
+                or calldata != PROTOCOL_ROOT_FORK_REGISTRATION_SELECTOR
+                    + self.initial_fork.fork_digest + bytes(28)
+                or gas_limit != PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS
+                or value != 0):
+            raise ValueError("protocol-root PVM FVR1 call is inexact")
+        encoded = encode_protocol_root_initial_fvr1_v1(self.initial_fork)
+        return (encoded if self.registration_override is None
+                else self.registration_override)
+
+
+@dataclass
+class ProtocolRootActivationArtifactV1:
+    role: int
+    address: bytes
+    runtime_hash: bytes
+    configuration_hash: bytes
+    factory: bytes
+    factory_runtime_hash: bytes
+    campaign_key: bytes
+    state: int = 0
+    role_config_selector: bytes | None = None
+    role_config_return: bytes | None = None
+    fault_point: str | None = None
+    return_override: bytes | None = None
+    view_override: bytes | None = None
+    post_activation_view_override: bytes | None = None
+    runtime_override: bytes | None = None
+    configuration_override: bytes | None = None
+
+    def __post_init__(self) -> None:
+        if (self.role not in range(1, PROTOCOL_ROOT_ROLE_COUNT + 1)
+                or any(type(value) is not bytes or len(value) != width
+                       for value, width in (
+                           (self.address, 20), (self.runtime_hash, 32),
+                           (self.configuration_hash, 32),
+                           (self.factory, 20), (self.factory_runtime_hash, 32),
+                           (self.campaign_key, 32),
+                       ))
+                or self.address == bytes(20)
+                or self.runtime_hash == bytes(32)
+                or self.configuration_hash == bytes(32)
+                or self.factory == bytes(20)
+                or self.factory_runtime_hash == bytes(32)
+                or self.campaign_key == bytes(32)
+                or self.state != 0
+                or ((self.role_config_selector is None)
+                    != (self.role_config_return is None))
+                or (self.role_config_selector is not None
+                    and (type(self.role_config_selector) is not bytes
+                         or len(self.role_config_selector) != 4
+                         or type(self.role_config_return) is not bytes))):
+            raise ValueError("protocol-root activation artifact is invalid")
+
+    def extcodehash(self) -> bytes:
+        return (self.runtime_hash if self.runtime_override is None
+                else self.runtime_override)
+
+    def component_config_hash_v2(
+        self, calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        if (calldata != COMPONENT_CONFIG_GETTER_SELECTOR
+                or gas_limit != PROTOCOL_ROOT_FACTORY_COMPONENT_CONFIG_READ_GAS
+                or value != 0):
+            raise ValueError("protocol-root component config call is inexact")
+        return (self.configuration_hash
+                if self.configuration_override is None
+                else self.configuration_override)
+
+    def role_config_v1(
+        self, calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        if (self.role_config_selector is None
+                or calldata != self.role_config_selector
+                or gas_limit != PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS
+                or value != 0):
+            raise ValueError("protocol-root role config call is inexact")
+        if type(self.role_config_return) is not bytes:
+            raise AssertionError("protocol-root role config disappeared")
+        return self.role_config_return
+
+    def protocol_root_activation_v1(
+        self, calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        if (calldata != PROTOCOL_ROOT_ACTIVATION_VIEW_SELECTOR
+                or gas_limit != PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS
+                or value != 0):
+            raise ValueError("protocol-root PRA1 call is inexact")
+        encoded = b"".join((
+            b"PRA1" + bytes(28), bytes(12) + self.factory,
+            self.campaign_key, _model_uint(self.state, 32, "root state"),
+        ))
+        if self.state == 1 and self.post_activation_view_override is not None:
+            return self.post_activation_view_override
+        return encoded if self.view_override is None else self.view_override
+
+    def activate_protocol_root_v1(
+        self, calldata: bytes, *, caller: "ProtocolRootFactoryModelV1",
+        gas_limit: int, value: int,
+    ) -> bytes:
+        if (calldata != PROTOCOL_ROOT_ACTIVATE_SELECTOR + self.campaign_key
+                or type(caller) is not ProtocolRootFactoryModelV1
+                or caller.address != self.factory
+                or caller.extcodehash() != self.factory_runtime_hash
+                or gas_limit != PROTOCOL_ROOT_FACTORY_ACTIVATION_CALL_GAS
+                or value != 0 or self.state != 0):
+            raise ValueError("protocol-root activation call is inexact")
+        if self.fault_point == "before_write":
+            raise RuntimeError("injected pre-write root activation fault")
+        self.state = 1
+        if self.fault_point == "after_write":
+            raise RuntimeError("injected post-write root activation fault")
+        encoded = b"RAA1" + bytes(28)
+        return encoded if self.return_override is None else self.return_override
+
+
+@dataclass
+class ProtocolRootCreate3ProxyArtifactV1:
+    """Release compiler output embedded by Factory, never constructor input."""
+
+    creation_code: bytes
+    runtime_code: bytes
+
+    def __post_init__(self) -> None:
+        if (type(self.creation_code) is not bytes
+                or not 0 < len(self.creation_code) <= 49_152
+                or type(self.runtime_code) is not bytes
+                or not 0 < len(self.runtime_code) <= 24_576):
+            raise ValueError("protocol-root CREATE3 proxy artifact is invalid")
+
+    @property
+    def creation_code_hash(self) -> bytes:
+        return keccak256(self.creation_code)
+
+    @property
+    def runtime_hash(self) -> bytes:
+        return keccak256(self.runtime_code)
+
+
+@dataclass(frozen=True)
+class ProtocolRootSourceInfrastructureAccountV1:
+    """Raw address-indexed account state; no Python object is authority."""
+
+    runtime_hash: bytes
+    configuration_hash: bytes
+    code_size: int
+    nonce: int = 0
+    balance: int = 0
+    exact_config_return: bytes = b""
+    root_role: int = 0
+    root_factory: bytes = bytes(20)
+    root_factory_runtime_hash: bytes = bytes(32)
+    campaign_key: bytes = bytes(32)
+    activation_state: int = 0
+    static_surfaces: dict[bytes, tuple[int, bytes]] = field(
+        default_factory=dict, compare=False, repr=False
+    )
+    overrides: dict[tuple[bytes, str], bytes] = field(
+        default_factory=dict, compare=False, repr=False
+    )
+    faults: set[tuple[bytes, str]] = field(
+        default_factory=set, compare=False, repr=False
+    )
+
+    def __post_init__(self) -> None:
+        if (type(self.runtime_hash) is not bytes or len(self.runtime_hash) != 32
+                or type(self.configuration_hash) is not bytes
+                or len(self.configuration_hash) != 32
+                or not 0 <= self.code_size <= 24_576
+                or not 0 <= self.nonce <= UINT64_MAX
+                or not 0 <= self.balance < 1 << 256
+                or type(self.exact_config_return) is not bytes
+                or self.root_role not in range(PROTOCOL_ROOT_ROLE_COUNT + 1)
+                or type(self.root_factory) is not bytes
+                or len(self.root_factory) != 20
+                or type(self.root_factory_runtime_hash) is not bytes
+                or len(self.root_factory_runtime_hash) != 32
+                or type(self.campaign_key) is not bytes
+                or len(self.campaign_key) != 32
+                or self.activation_state not in (0, 1)
+                or type(self.static_surfaces) is not dict
+                or type(self.overrides) is not dict
+                or type(self.faults) is not set):
+            raise ValueError("root Source infrastructure account is invalid")
+        if self.code_size > 0 and self.runtime_hash == bytes(32):
+            raise ValueError("root Source infrastructure code hash is absent")
+        if self.root_role == 0:
+            if (self.root_factory != bytes(20)
+                    or self.root_factory_runtime_hash != bytes(32)
+                    or self.campaign_key != bytes(32)
+                    or self.activation_state != 0):
+                raise ValueError("non-root account has root activation state")
+        elif (self.root_factory == bytes(20)
+                or self.root_factory_runtime_hash == bytes(32)
+                or self.campaign_key == bytes(32)):
+            raise ValueError("root component activation identity is absent")
+        for calldata, surface in self.static_surfaces.items():
+            if (type(calldata) is not bytes or len(calldata) == 0
+                    or type(surface) is not tuple or len(surface) != 2
+                    or type(surface[0]) is not int
+                    or not 0 < surface[0] <= UINT64_MAX
+                    or type(surface[1]) is not bytes):
+                raise ValueError("root account static surface is invalid")
+
+    def _surface(self, caller: bytes, name: str, canonical: bytes) -> bytes:
+        if (type(caller) is not bytes or len(caller) != 20
+                or (caller, name) in self.faults):
+            raise ValueError(f"root Source {name} observation failed")
+        return self.overrides.get((caller, name), canonical)
+
+    def extcodehash(self, caller: bytes) -> bytes:
+        return self._surface(caller, "extcodehash", self.runtime_hash)
+
+    def component_config_hash_v2(
+        self, caller: bytes, calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        if (calldata != COMPONENT_CONFIG_GETTER_SELECTOR
+                or gas_limit != PROTOCOL_ROOT_FACTORY_COMPONENT_CONFIG_READ_GAS
+                or value != 0):
+            raise ValueError("root Source component-config frame is inexact")
+        return self._surface(
+            caller, "component_config", self.configuration_hash
+        )
+
+    def source_infrastructure_config_v1(
+        self, caller: bytes, kind: int, calldata: bytes, *,
+        gas_limit: int, value: int,
+    ) -> bytes:
+        selector = (SOURCE_TERMINAL_VERIFIER_CONFIG_SELECTOR
+                    if kind == PROTOCOL_ROOT_SOURCE_TERMINAL_KIND else None)
+        name = "source_terminal_verifier_config"
+        if (selector is None or calldata != selector
+                or gas_limit != PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS
+                or value != 0 or type(self.exact_config_return) is not bytes):
+            raise ValueError("root Source exact-config frame is inexact")
+        return self._surface(caller, name, self.exact_config_return)
+
+
+@dataclass
+class ProtocolRootAddressWorldV1:
+    """Primitive address-keyed EVM observations used by root finalization."""
+
+    accounts: dict[bytes, ProtocolRootSourceInfrastructureAccountV1] = field(
+        default_factory=dict
+    )
+    trace: list[tuple[str, bytes, bytes]] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if type(self.accounts) is not dict:
+            raise ValueError("protocol-root address world is invalid")
+        for address, account in self.accounts.items():
+            if (type(address) is not bytes or len(address) != 20
+                    or address == bytes(20)
+                    or type(account)
+                        is not ProtocolRootSourceInfrastructureAccountV1):
+                raise ValueError("protocol-root address-world row is invalid")
+
+    def account_v1(
+        self, address: bytes, label: str,
+    ) -> ProtocolRootSourceInfrastructureAccountV1:
+        if (type(address) is not bytes or len(address) != 20
+                or address == bytes(20)):
+            raise ValueError(f"{label} address is invalid")
+        account = self.accounts.get(address)
+        if account is None:
+            raise ValueError(f"{label} account is absent")
+        return account
+
+    def extcodehash_v1(self, address: bytes, caller: bytes, label: str) -> bytes:
+        account = self.account_v1(address, label)
+        if account.code_size == 0:
+            raise ValueError(f"{label} code is absent")
+        self.trace.append(("EXTCODEHASH", address, b""))
+        return account.extcodehash(caller)
+
+    def staticcall_v1(
+        self, address: bytes, caller: bytes, calldata: bytes, *,
+        gas_limit: int, value: int,
+    ) -> bytes:
+        account = self.account_v1(address, "protocol-root staticcall")
+        if account.code_size == 0 or value != 0:
+            raise ValueError("protocol-root STATICCALL target is invalid")
+        self.trace.append(("STATICCALL", address, calldata))
+        if calldata == COMPONENT_CONFIG_GETTER_SELECTOR:
+            return account.component_config_hash_v2(
+                caller, calldata, gas_limit=gas_limit, value=value
+            )
+        if calldata == PROTOCOL_ROOT_ACTIVATION_VIEW_SELECTOR:
+            if (gas_limit != PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS
+                    or account.root_role == 0):
+                raise ValueError("protocol-root PRA1 frame is inexact")
+            encoded = b"".join((
+                b"PRA1" + bytes(28), bytes(12) + account.root_factory,
+                account.campaign_key,
+                _model_uint(account.activation_state, 32, "root state"),
+            ))
+            name = ("activation_view_active" if account.activation_state
+                    else "activation_view_inactive")
+            return account._surface(caller, name, encoded)
+        if calldata == SOURCE_TERMINAL_VERIFIER_CONFIG_SELECTOR:
+            return account.source_infrastructure_config_v1(
+                caller, PROTOCOL_ROOT_SOURCE_TERMINAL_KIND, calldata,
+                gas_limit=gas_limit, value=value,
+            )
+        surface = account.static_surfaces.get(calldata)
+        if surface is None or gas_limit != surface[0]:
+            raise ValueError("protocol-root staticcall frame is inexact")
+        return account._surface(
+            caller, "static:" + calldata.hex(), surface[1]
+        )
+
+    def validate_code_config_v1(
+        self, address: bytes, caller: bytes, expected_runtime_hash: bytes,
+        expected_configuration_hash: bytes, label: str,
+    ) -> None:
+        if (self.extcodehash_v1(address, caller, label)
+                != expected_runtime_hash
+                or self.staticcall_v1(
+                    address, caller, COMPONENT_CONFIG_GETTER_SELECTOR,
+                    gas_limit=PROTOCOL_ROOT_FACTORY_COMPONENT_CONFIG_READ_GAS,
+                    value=0,
+                ) != expected_configuration_hash):
+            raise ValueError(f"{label} code/configuration is inconsistent")
+
+    def activate_v1(
+        self, address: bytes, caller: bytes, caller_runtime_hash: bytes,
+        calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        account = self.account_v1(address, "protocol-root activation")
+        if (account.code_size == 0 or account.root_role == 0
+                or caller != account.root_factory
+                or caller_runtime_hash != account.root_factory_runtime_hash
+                or calldata != PROTOCOL_ROOT_ACTIVATE_SELECTOR
+                    + account.campaign_key
+                or gas_limit != PROTOCOL_ROOT_FACTORY_ACTIVATION_CALL_GAS
+                or value != 0 or account.activation_state != 0):
+            raise ValueError("protocol-root activation call is inexact")
+        if (caller, "activate_before") in account.faults:
+            raise RuntimeError("injected pre-write root activation fault")
+        self.accounts[address] = replace(account, activation_state=1)
+        self.trace.append(("CALL", address, calldata))
+        if (caller, "activate_after") in account.faults:
+            raise RuntimeError("injected post-write root activation fault")
+        return account.overrides.get(
+            (caller, "activate_return"), b"RAA1" + bytes(28)
+        )
+
+    def install_create_v1(
+        self, address: bytes, account: ProtocolRootSourceInfrastructureAccountV1,
+        *, allow_exact_reuse: bool = False,
+    ) -> None:
+        if (type(address) is not bytes or len(address) != 20
+                or address == bytes(20)
+                or type(account)
+                    is not ProtocolRootSourceInfrastructureAccountV1
+                or account.code_size == 0 or account.nonce == 0):
+            raise ValueError("protocol-root CREATE row is invalid")
+        old = self.accounts.get(address)
+        if old is not None and (old.nonce != 0 or old.code_size != 0):
+            if not allow_exact_reuse:
+                raise ValueError("protocol-root CREATE collision")
+            expected = replace(account, balance=old.balance)
+            if old != expected:
+                raise ValueError("protocol-root existing code is inconsistent")
+            return
+        balance = 0 if old is None else old.balance
+        self.accounts[address] = replace(account, balance=balance)
+
+    def snapshot_rows_v1(
+        self, addresses: tuple[bytes, ...],
+    ) -> dict[bytes, ProtocolRootSourceInfrastructureAccountV1 | None]:
+        if len(addresses) != len(set(addresses)):
+            raise ValueError("protocol-root rollback set aliases")
+        return {address: self.accounts.get(address) for address in addresses}
+
+    def restore_rows_v1(
+        self,
+        snapshot: dict[bytes, ProtocolRootSourceInfrastructureAccountV1 | None],
+    ) -> None:
+        for address, account in snapshot.items():
+            if account is None:
+                self.accounts.pop(address, None)
+            else:
+                self.accounts[address] = account
+
+    def serialize_v1(self) -> tuple[tuple[object, ...], ...]:
+        rows: list[tuple[object, ...]] = []
+        for address in sorted(self.accounts):
+            account = self.accounts[address]
+            if account.overrides or account.faults:
+                raise ValueError("test-only address-world behavior is not serializable")
+            rows.append((
+                address, account.runtime_hash, account.configuration_hash,
+                account.code_size, account.nonce, account.balance,
+                account.exact_config_return, account.root_role,
+                account.root_factory, account.root_factory_runtime_hash,
+                account.campaign_key, account.activation_state,
+                tuple(sorted(
+                    (calldata, gas, returndata)
+                    for calldata, (gas, returndata)
+                    in account.static_surfaces.items()
+                )),
+            ))
+        return tuple(rows)
+
+    @classmethod
+    def rehydrate_v1(
+        cls, rows: tuple[tuple[object, ...], ...],
+    ) -> "ProtocolRootAddressWorldV1":
+        if type(rows) is not tuple:
+            raise ValueError("protocol-root address-world encoding is invalid")
+        accounts: dict[bytes, ProtocolRootSourceInfrastructureAccountV1] = {}
+        for row in rows:
+            if type(row) is not tuple or len(row) != 13:
+                raise ValueError("protocol-root address-world row is malformed")
+            address = row[0]
+            surfaces_raw = row[12]
+            if type(surfaces_raw) is not tuple:
+                raise ValueError("protocol-root address-world surfaces malformed")
+            surfaces: dict[bytes, tuple[int, bytes]] = {}
+            for surface in surfaces_raw:
+                if type(surface) is not tuple or len(surface) != 3:
+                    raise ValueError("protocol-root address-world surface malformed")
+                calldata, gas, returndata = surface
+                if calldata in surfaces:
+                    raise ValueError("duplicate protocol-root static surface")
+                surfaces[calldata] = (gas, returndata)
+            account = ProtocolRootSourceInfrastructureAccountV1(
+                *row[1:7], root_role=row[7], root_factory=row[8],
+                root_factory_runtime_hash=row[9], campaign_key=row[10],
+                activation_state=row[11], static_surfaces=surfaces,
+            )
+            if address in accounts:
+                raise ValueError("duplicate protocol-root address-world row")
+            accounts[address] = account
+        return cls(accounts)
+
+
+def encode_ensure_source_infrastructure_calldata_v1(
+    key: bytes, kind: int, init_code: bytes,
+) -> bytes:
+    if (type(key) is not bytes or len(key) != 32 or key == bytes(32)
+            or kind != PROTOCOL_ROOT_SOURCE_TERMINAL_KIND
+            or type(init_code) is not bytes or len(init_code) > 49_152):
+        raise ValueError("root Source infrastructure calldata input is invalid")
+    padding = bytes((-len(init_code)) % 32)
+    return b"".join((
+        PROTOCOL_ROOT_ENSURE_SOURCE_INFRASTRUCTURE_SELECTOR, key,
+        _model_uint(kind, 32, "Source infrastructure kind"),
+        _model_uint(96, 32, "Source infrastructure init-code offset"),
+        _model_uint(len(init_code), 32, "Source infrastructure init-code bytes"),
+        init_code, padding,
+    ))
 
 
 @dataclass
@@ -4525,19 +6081,416 @@ class ProtocolRootFactoryModelV1:
     address: bytes
     settlement_chain_id: int
     manifest_namespace: bytes
-    proxy_creation_code_hash: bytes
+    delayed_executor: bytes
+    executor_runtime_hash: bytes
+    executor_configuration_hash: bytes
     runtime_hash: bytes
-    configuration_hash: bytes
+    executor_artifact: InitVar[object]
+    proxy_artifact: InitVar[ProtocolRootCreate3ProxyArtifactV1]
+    source_factory_compiler_artifacts: (
+        ProtocolRootSourceFactoryCompilerArtifactsV1
+    )
+    proxy_creation_code_hash: bytes = field(init=False)
+    proxy_runtime_hash: bytes = field(init=False)
+    proxy_runtime_code_size: int = field(init=False)
+    configuration_hash: bytes = field(init=False)
     generation: int = 0
     active_root_receipt: bytes = bytes(32)
     live: ProtocolRootCampaignModelV1 | None = None
     history: dict[bytes, ProtocolRootCampaignModelV1] = field(default_factory=dict)
+    stage_fault_point: str | None = None
+    stage_return_override: bytes | None = None
+    campaign_view_override: bytes | None = None
+    factory_config_return_override: bytes | None = None
+    configuration_hash_override: bytes | None = None
+    runtime_override: bytes | None = None
+    source_infrastructure_accounts: dict[
+        bytes, ProtocolRootSourceInfrastructureAccountV1
+    ] = field(default_factory=dict, repr=False)
+    root_address_world: ProtocolRootAddressWorldV1 = field(
+        init=False, repr=False
+    )
+    source_infrastructure_return_override: bytes | None = None
+    source_infrastructure_erc2470_return_override: bytes | None = None
+    source_infrastructure_fault_point: str | None = None
+
+    def __post_init__(
+        self, executor_artifact: object,
+        proxy_artifact: ProtocolRootCreate3ProxyArtifactV1,
+    ) -> None:
+        executor = executor_artifact
+        if type(proxy_artifact) is not ProtocolRootCreate3ProxyArtifactV1:
+            raise ValueError("protocol-root Factory proxy artifact is absent")
+        if (type(self.source_factory_compiler_artifacts)
+                is not ProtocolRootSourceFactoryCompilerArtifactsV1):
+            raise ValueError("protocol-root Source factory artifacts are absent")
+        self.proxy_creation_code_hash = proxy_artifact.creation_code_hash
+        self.proxy_runtime_hash = proxy_artifact.runtime_hash
+        self.proxy_runtime_code_size = len(proxy_artifact.runtime_code)
+        self.configuration_hash = protocol_root_factory_configuration_hash_v1(
+            self.settlement_chain_id, self.manifest_namespace,
+            self.delayed_executor, self.executor_runtime_hash,
+            self.executor_configuration_hash,
+            self.proxy_creation_code_hash, self.proxy_runtime_hash,
+            self.source_factory_compiler_artifacts.artifact_root,
+        )
+        expected_configuration_hash = (
+            protocol_root_factory_configuration_hash_v1(
+                self.settlement_chain_id, self.manifest_namespace,
+                self.delayed_executor, self.executor_runtime_hash,
+                self.executor_configuration_hash,
+                self.proxy_creation_code_hash, self.proxy_runtime_hash,
+                self.source_factory_compiler_artifacts.artifact_root,
+            )
+        )
+        if (type(executor) is not RootMigrationExecutorModelV1
+                or type(self.address) is not bytes or len(self.address) != 20
+                or self.address == bytes(20)
+                or not 0 < self.settlement_chain_id < 1 << 256
+                or type(self.manifest_namespace) is not bytes
+                or len(self.manifest_namespace) != 32
+                or self.manifest_namespace == bytes(32)
+                or executor.address != self.delayed_executor
+                or executor.extcodehash() != self.executor_runtime_hash
+                or executor.component_config_hash_v2(
+                    COMPONENT_CONFIG_GETTER_SELECTOR,
+                    gas_limit=PROTOCOL_ROOT_FACTORY_COMPONENT_CONFIG_READ_GAS,
+                    value=0,
+                ) != self.executor_configuration_hash
+                or self.configuration_hash != expected_configuration_hash
+                or any(type(value) is not bytes or len(value) != 32
+                       or value == bytes(32) for value in (
+                           self.proxy_creation_code_hash,
+                           self.proxy_runtime_hash,
+                           self.source_factory_compiler_artifacts.artifact_root,
+                           self.runtime_hash,
+                           self.configuration_hash,
+                       ))):
+            raise ValueError("protocol-root Factory constructor is invalid")
+        singleton = bytes.fromhex(SETTLEMENT_FACTORY_ADDRESS_V2[2:])
+        self.source_infrastructure_accounts.setdefault(
+            singleton,
+            ProtocolRootSourceInfrastructureAccountV1(
+                SETTLEMENT_FACTORY_RUNTIME_HASH_V2, bytes(32), 1,
+            ),
+        )
+        self.root_address_world = ProtocolRootAddressWorldV1(
+            self.source_infrastructure_accounts
+        )
+
+    def extcodehash(self) -> bytes:
+        if (type(self.runtime_hash) is not bytes
+                or len(self.runtime_hash) != 32
+                or self.runtime_hash == bytes(32)):
+            raise ValueError("protocol-root Factory runtime is malformed")
+        return (self.runtime_hash if self.runtime_override is None
+                else self.runtime_override)
+
+    def component_config_hash_v2(
+        self, calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        if (calldata != COMPONENT_CONFIG_GETTER_SELECTOR
+                or gas_limit != ROOT_MIGRATION_COMPONENT_CONFIG_READ_GAS
+                or value != 0):
+            raise ValueError("protocol-root Factory config-hash frame is inexact")
+        return (self.configuration_hash
+                if self.configuration_hash_override is None
+                else self.configuration_hash_override)
+
+    def protocol_root_factory_config_v1(
+        self, calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        if (calldata != PROTOCOL_ROOT_FACTORY_CONFIG_SELECTOR
+                or gas_limit != ROOT_MIGRATION_FACTORY_CONFIG_READ_GAS
+                or value != 0):
+            raise ValueError("protocol-root PRF1 call frame is inexact")
+        encoded = b"".join((
+            b"PRF1" + bytes(28),
+            _model_uint(self.settlement_chain_id, 32, "PRF1 chain"),
+            self.manifest_namespace, bytes(12) + self.delayed_executor,
+            self.executor_runtime_hash, self.executor_configuration_hash,
+            self.proxy_creation_code_hash, self.proxy_runtime_hash,
+            self.source_factory_compiler_artifacts.artifact_root,
+            PROTOCOL_ROOT_ENSURE_SOURCE_INFRASTRUCTURE_SELECTOR + bytes(28),
+            PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_VIEW_SELECTOR + bytes(28),
+            *(_model_uint(value, 32, "PRF1 constant") for value in (
+                PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS,
+                PROTOCOL_ROOT_FACTORY_DEPLOYMENT_POSTCHECK_RESERVE_GAS,
+                PROTOCOL_ROOT_FIRST_MANAGED_RUNWAY_WINDOWS,
+                PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIG_READ_GAS,
+                PROTOCOL_ROOT_FACTORY_COMPONENT_CONFIG_READ_GAS,
+                PROTOCOL_ROOT_FACTORY_ACTIVATION_CALL_GAS,
+                PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+                PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIRM_CALL_GAS,
+                PROTOCOL_ROOT_SOURCE_TERMINAL_DEPLOYMENT_GAS,
+                PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_POSTCHECK_GAS,
+                PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_CALL_OVERHEAD_GAS,
+            )),
+            self.configuration_hash,
+        ))
+        if len(encoded) != 736:
+            raise AssertionError("PRF1 must be exactly 736 bytes")
+        return encoded if self.factory_config_return_override is None \
+            else self.factory_config_return_override
+
+    def _source_infrastructure_projection_v1(
+        self, campaign: ProtocolRootCampaignModelV1, kind: int,
+    ) -> tuple[bytes, bytes, bytes, bytes, bytes]:
+        """Return salt, init code, address, runtime and exact config bytes."""
+
+        artifacts = self.source_factory_compiler_artifacts
+        pvm = campaign.components.get(4)
+        router = campaign.components.get(5)
+        if type(pvm) is not bytes or type(router) is not bytes:
+            raise ValueError("root Source infrastructure dependencies are absent")
+        if kind == PROTOCOL_ROOT_SOURCE_TERMINAL_KIND:
+            salt = source_terminal_verifier_salt_v1(
+                self.settlement_chain_id, self.manifest_namespace, router
+            )
+            init_code = source_terminal_verifier_init_code_v1(
+                self.settlement_chain_id, router, artifacts
+            )
+            runtime_hash = artifacts.terminal_verifier_runtime_hash
+            exact_config = source_terminal_verifier_config_return_v1(
+                self.settlement_chain_id, router, artifacts
+            )
+        else:
+            raise ValueError("root Source infrastructure kind is invalid")
+        address = keccak256(b"".join((
+            b"\xff", bytes.fromhex(SETTLEMENT_FACTORY_ADDRESS_V2[2:]),
+            salt, keccak256(init_code),
+        )))[12:]
+        return salt, init_code, address, runtime_hash, exact_config
+
+    def _validate_source_infrastructure_account_v1(
+        self, address: bytes,
+        *, kind: int, runtime_hash: bytes, exact_config: bytes,
+    ) -> None:
+        """Perform the three exact EVM observations used by ensure/finalize."""
+
+        configuration_hash = exact_config[-32:]
+        selector = (SOURCE_TERMINAL_VERIFIER_CONFIG_SELECTOR
+                    if kind == PROTOCOL_ROOT_SOURCE_TERMINAL_KIND else bytes(4))
+        self.root_address_world.validate_code_config_v1(
+            address, self.address, runtime_hash, configuration_hash,
+            "root Source infrastructure",
+        )
+        if self.root_address_world.staticcall_v1(
+                address, self.address, selector,
+                gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+                value=0,
+        ) != exact_config:
+            raise ValueError("root Source infrastructure postcheck failed")
+
+    def ensure_source_infrastructure_v1(
+        self, calldata: bytes, now: int, *, gas_limit: int, value: int,
+    ) -> bytes:
+        """Permissionlessly deploy or exact-reuse one root Source artifact."""
+
+        if (type(calldata) is not bytes or len(calldata) < 132
+                or calldata[:4]
+                    != PROTOCOL_ROOT_ENSURE_SOURCE_INFRASTRUCTURE_SELECTOR
+                or calldata[68:100] != _model_uint(
+                    96, 32, "Source infrastructure init-code offset")
+                or value != 0):
+            raise ValueError("root Source infrastructure frame is inexact")
+        key = calldata[4:36]
+        kind = _decode_uint_word_v1(
+            calldata[36:68], 8, "Source infrastructure kind"
+        )
+        init_length = int.from_bytes(calldata[100:132], "big")
+        padded = (init_length + 31) // 32 * 32
+        if (len(calldata) != 132 + padded
+                or calldata[132 + init_length:] != bytes(padded - init_length)):
+            raise ValueError("root Source infrastructure bytes are noncanonical")
+        supplied_init_code = calldata[132:132 + init_length]
+        minimum_gas = (PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS
+                       if kind == PROTOCOL_ROOT_SOURCE_TERMINAL_KIND else -1)
+        campaign = self.live
+        if (gas_limit < minimum_gas or campaign is None
+                or campaign.key != key or campaign.state != 1
+                or now > campaign.expires_at
+                or campaign.source_infrastructure_in_progress != 0
+                or campaign.deployed_bitmap
+                    != (1 << PROTOCOL_ROOT_ROLE_COUNT) - 1):
+            raise ValueError("root Source infrastructure cannot be ensured")
+        _salt, expected_init_code, address, runtime_hash, exact_config = (
+            self._source_infrastructure_projection_v1(campaign, kind)
+        )
+        configuration_hash = exact_config[-32:]
+        old_account = self.source_infrastructure_accounts.get(address)
+        old_bitmap = campaign.source_infrastructure_bitmap
+        old_receipts = dict(campaign.source_infrastructure_receipts)
+        campaign.source_infrastructure_in_progress = kind
+        created = False
+        try:
+            singleton = self.source_infrastructure_accounts.get(
+                bytes.fromhex(SETTLEMENT_FACTORY_ADDRESS_V2[2:])
+            )
+            if (singleton is None or singleton.code_size == 0
+                    or singleton.extcodehash(self.address)
+                    != SETTLEMENT_FACTORY_RUNTIME_HASH_V2):
+                raise ValueError("canonical ERC-2470 singleton is unavailable")
+            account = old_account
+            if account is not None and account.code_size > 0:
+                if supplied_init_code != b"":
+                    raise ValueError(
+                        "exact Source infrastructure reuse requires empty bytes"
+                    )
+            else:
+                if supplied_init_code != expected_init_code:
+                    raise ValueError(
+                        "root Source infrastructure init code is inexact"
+                    )
+                # EXTCODESIZE cannot distinguish nonexistent, balance-only and
+                # nonce-only accounts.  The nonce is consulted only here as the
+                # simulated CREATE2 outcome required by EIP-684.
+                if account is not None and account.nonce != 0:
+                    raise ValueError("ERC-2470 CREATE2 collision")
+                created = True
+                erc2470_return = bytes(12) + address
+                observed_return = (
+                    erc2470_return
+                    if self.source_infrastructure_erc2470_return_override is None
+                    else self.source_infrastructure_erc2470_return_override
+                )
+                if observed_return != erc2470_return:
+                    raise ValueError("ERC-2470 returned a wrong address")
+                balance = 0 if account is None else account.balance
+                account = ProtocolRootSourceInfrastructureAccountV1(
+                    runtime_hash, configuration_hash,
+                    len(self.source_factory_compiler_artifacts
+                        .terminal_verifier_runtime_code),
+                    nonce=1, balance=balance,
+                    exact_config_return=exact_config,
+                )
+                self.source_infrastructure_accounts[address] = account
+            if self.source_infrastructure_fault_point == "after_create":
+                raise RuntimeError("injected Source infrastructure late fault")
+            live = self.source_infrastructure_accounts.get(address)
+            self._validate_source_infrastructure_account_v1(
+                address, kind=kind, runtime_hash=runtime_hash,
+                exact_config=exact_config,
+            )
+            bit = 1 << (kind - 1)
+            campaign.source_infrastructure_bitmap |= bit
+            receipt = keccak256(b"".join((
+                b"slot-chain-root-source-infrastructure-receipt-v1",
+                key, bytes((kind,)), address, runtime_hash,
+                configuration_hash, keccak256(expected_init_code),
+                self.source_factory_compiler_artifacts.artifact_root,
+            )))
+            campaign.source_infrastructure_receipts[kind] = receipt
+            if self.source_infrastructure_fault_point == "after_ready":
+                raise RuntimeError("injected Source infrastructure ready fault")
+            campaign.source_infrastructure_in_progress = 0
+            encoded = b"".join((
+                b"PSI1" + bytes(28), key,
+                _model_uint(kind, 32, "PSI1 kind"), bytes(12) + address,
+                _model_uint(1 if created else 0, 32, "PSI1 created"),
+                runtime_hash, configuration_hash, receipt,
+            ))
+            if len(encoded) != 256:
+                raise AssertionError("PSI1 must be exactly 256 bytes")
+            return (encoded
+                    if self.source_infrastructure_return_override is None
+                    else self.source_infrastructure_return_override)
+        except BaseException:
+            campaign.source_infrastructure_in_progress = 0
+            campaign.source_infrastructure_bitmap = old_bitmap
+            campaign.source_infrastructure_receipts = old_receipts
+            if old_account is None:
+                self.source_infrastructure_accounts.pop(address, None)
+            else:
+                self.source_infrastructure_accounts[address] = old_account
+            raise
+
+    def protocol_root_source_infrastructure_v1(
+        self, calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        """Exact public campaign receipt and projected lifetime identity."""
+
+        if (type(calldata) is not bytes or len(calldata) != 68
+                or calldata[:4]
+                    != PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_VIEW_SELECTOR
+                or gas_limit != PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS
+                or value != 0):
+            raise ValueError("root Source infrastructure view is inexact")
+        key = calldata[4:36]
+        kind = _decode_uint_word_v1(
+            calldata[36:68], 8, "Source infrastructure view kind"
+        )
+        if kind != PROTOCOL_ROOT_SOURCE_TERMINAL_KIND:
+            raise ValueError("root Source infrastructure view kind is invalid")
+        campaign = self.history.get(key)
+        if campaign is None:
+            return b"PSV1" + bytes(28) + key + _model_uint(
+                kind, 32, "PSV1 absent kind"
+            ) + bytes(7 * 32)
+        (_salt, init_code, address, runtime_hash, exact_config) = (
+            self._source_infrastructure_projection_v1(campaign, kind)
+        )
+        bit = 1 << (kind - 1)
+        state = (
+            1 if campaign.source_infrastructure_in_progress == kind
+            else 2 if campaign.source_infrastructure_bitmap & bit else 0
+        )
+        receipt = campaign.source_infrastructure_receipts.get(kind, bytes(32))
+        encoded = b"".join((
+            b"PSV1" + bytes(28), key,
+            _model_uint(kind, 32, "PSV1 kind"),
+            _model_uint(state, 32, "PSV1 state"), bytes(12) + address,
+            runtime_hash, exact_config[-32:], keccak256(init_code),
+            self.source_factory_compiler_artifacts.artifact_root, receipt,
+        ))
+        if len(encoded) != 320:
+            raise AssertionError("PSV1 must be exactly 320 bytes")
+        return encoded
 
     def stage_v1(
-        self, operation_id: bytes, manifest: ProtocolRootManifestV1, now: int,
-        *, authorized: bool,
-    ) -> tuple[bytes, bytes, bytes, int, int]:
-        if (not authorized or self.live is not None
+        self, calldata: bytes, now: int, *,
+        caller: "RootMigrationExecutorModelV1", gas_limit: int, value: int,
+    ) -> bytes:
+        if (type(calldata) is not bytes or len(calldata) != 1_092
+                or calldata[:4] != PROTOCOL_ROOT_STAGE_SELECTOR
+                or calldata[36:68] != _model_uint(64, 32, "stage offset")
+                or calldata[68:100]
+                    != _model_uint(
+                        PROTOCOL_ROOT_MANIFEST_BYTES, 32, "stage manifest bytes"
+                    )
+                or calldata[1_069:] != bytes(23)
+                or type(caller) is not RootMigrationExecutorModelV1
+                or gas_limit != ROOT_MIGRATION_FACTORY_STAGE_CALL_GAS
+                or value != 0):
+            raise ValueError("protocol-root stage call frame is inexact")
+        operation_id = calldata[4:36]
+        manifest = ProtocolRootManifestV1.decode(calldata[100:1_069])
+        key = manifest.campaign_key(self.address)
+        expected_authority = b"".join((
+            b"RMA1" + bytes(28), _model_uint(1, 32, "RMA candidate"),
+            bytes(12) + self.address, operation_id, key,
+            bytes(32), bytes(32), bytes(32), bytes(32),
+        ))
+        if (caller.address != self.delayed_executor
+                or caller.extcodehash() != self.executor_runtime_hash
+                or caller.root_migration_executor_config_v1(
+                    PROTOCOL_ROOT_EXECUTOR_CONFIG_SELECTOR,
+                    gas_limit=PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIG_READ_GAS,
+                    value=0,
+                ) != encode_root_migration_executor_config_return_v1(
+                    self.settlement_chain_id, caller.dao_proposer
+                )
+                or caller.component_config_hash_v2(
+                    COMPONENT_CONFIG_GETTER_SELECTOR,
+                    gas_limit=PROTOCOL_ROOT_FACTORY_COMPONENT_CONFIG_READ_GAS,
+                    value=0,
+                ) != self.executor_configuration_hash
+                or caller.root_migration_authority_v1(
+                    PROTOCOL_ROOT_EXECUTOR_AUTHORITY_SELECTOR,
+                    gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+                    value=0,
+                ) != expected_authority
+                or self.live is not None
                 or self.active_root_receipt != bytes(32)
                 or type(operation_id) is not bytes or len(operation_id) != 32
                 or operation_id == bytes(32)
@@ -4549,29 +6502,74 @@ class ProtocolRootFactoryModelV1:
                 or not 0 <= now <= UINT64_MAX -
                 PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS):
             raise ValueError("protocol-root campaign cannot be staged")
-        key = manifest.campaign_key(self.address)
+        if self.stage_fault_point == "before_write":
+            raise RuntimeError("injected pre-write root stage fault")
         self.live = ProtocolRootCampaignModelV1(
             manifest, operation_id, key, manifest.manifest_hash(),
             now + PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS,
         )
         self.history[key] = self.live
-        return (
-            operation_id, key, self.live.manifest_hash, manifest.generation,
-            self.live.expires_at,
-        )
+        if self.stage_fault_point == "after_write":
+            raise RuntimeError("injected post-write root stage fault")
+        encoded = b"".join((
+            b"STG1" + bytes(28), operation_id, key,
+            self.live.manifest_hash,
+            _model_uint(manifest.generation, 32, "staged generation"),
+            _model_uint(self.live.expires_at, 32, "staged expiry"),
+        ))
+        return encoded if self.stage_return_override is None \
+            else self.stage_return_override
+
+    def protocol_root_campaign_v1(
+        self, calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        if (type(calldata) is not bytes or len(calldata) != 36
+                or calldata[:4] != PROTOCOL_ROOT_CAMPAIGN_SELECTOR
+                or gas_limit != ROOT_MIGRATION_FACTORY_CONFIG_READ_GAS
+                or value != 0):
+            raise ValueError("protocol-root PRC1 call frame is inexact")
+        key = calldata[4:36]
+        campaign = self.history.get(key)
+        if campaign is None:
+            encoded = b"PRC1" + bytes(28) + bytes(8 * 32)
+        else:
+            encoded = b"".join((
+                b"PRC1" + bytes(28), campaign.operation_id, campaign.key,
+                campaign.manifest_hash,
+                _model_uint(campaign.state, 32, "campaign state"),
+                _model_uint(
+                    campaign.manifest.generation, 32, "campaign generation"
+                ),
+                _model_uint(campaign.expires_at, 32, "campaign expiry"),
+                _model_uint(
+                    campaign.deployed_bitmap, 32, "campaign deployment bitmap"
+                ),
+                campaign.root_receipt,
+            ))
+        if len(encoded) != 288:
+            raise AssertionError("PRC1 must be exactly 288 bytes")
+        return encoded if self.campaign_view_override is None \
+            else self.campaign_view_override
 
     def deploy_component_v1(
         self, key: bytes, role: int, init_code: bytes,
         observed_runtime_hash: bytes, observed_configuration_hash: bytes,
-        now: int, *, inactive: bool = True,
+        now: int, *,
+        activation_artifact: ProtocolRootActivationArtifactV1 | None = None,
+        schedule_oracle_artifact: ProtocolRootScheduleOracleArtifactV1 | None = None,
+        protocol_version_manager_artifact: (
+            ProtocolRootProtocolVersionManagerArtifactV1 | None
+        ) = None,
     ) -> bytes:
+        """Deploy one role; artifacts are fixture-only deployment witnesses."""
+
         campaign = self.live
         if (campaign is None or campaign.key != key or campaign.state != 1
                 or now > campaign.expires_at
                 or role not in range(1, PROTOCOL_ROOT_ROLE_COUNT + 1)
                 or campaign.deployed_bitmap & (1 << (role - 1))
                 or type(init_code) is not bytes
-                or not 0 < len(init_code) <= 49_152 or not inactive):
+                or not 0 < len(init_code) <= 49_152):
             raise ValueError("protocol-root component deployment is invalid")
         expected = campaign.manifest.components[role - 1]
         if (keccak256(init_code) != expected[0]
@@ -4581,60 +6579,1068 @@ class ProtocolRootFactoryModelV1:
         component = protocol_root_component_address_v1(
             self.address, key, role, self.proxy_creation_code_hash
         )
+        proxy = protocol_root_component_proxy_address_v1(
+            self.address, key, role, self.proxy_creation_code_hash
+        )
+        if proxy == component:
+            raise ValueError("protocol-root CREATE3 addresses alias")
+        if (type(activation_artifact) is not ProtocolRootActivationArtifactV1
+                or activation_artifact.role != role
+                or activation_artifact.address != component
+                or activation_artifact.extcodehash()
+                    != observed_runtime_hash
+                or activation_artifact.factory != self.address
+                or activation_artifact.factory_runtime_hash != self.runtime_hash
+                or activation_artifact.campaign_key != key
+                or activation_artifact.component_config_hash_v2(
+                    COMPONENT_CONFIG_GETTER_SELECTOR,
+                    gas_limit=PROTOCOL_ROOT_FACTORY_COMPONENT_CONFIG_READ_GAS,
+                    value=0,
+                ) != observed_configuration_hash
+                or activation_artifact.protocol_root_activation_v1(
+                    PROTOCOL_ROOT_ACTIVATION_VIEW_SELECTOR,
+                    gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+                    value=0,
+                ) != b"".join((
+                    b"PRA1" + bytes(28), bytes(12) + self.address, key,
+                    bytes(32),
+                ))):
+            raise ValueError("protocol-root activation artifact is invalid")
+        if ((schedule_oracle_artifact is not None and role != 2)
+                or (protocol_version_manager_artifact is not None
+                    and role != 4)):
+            raise ValueError("protocol-root route artifact has wrong role")
+        surfaces: dict[bytes, tuple[int, bytes]] = {}
+        if activation_artifact.role_config_selector is not None:
+            selector = activation_artifact.role_config_selector
+            surfaces[selector] = (
+                PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+                activation_artifact.role_config_v1(
+                    selector,
+                    gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+                    value=0,
+                ),
+            )
+        verifier_row: tuple[
+            bytes, ProtocolRootSourceInfrastructureAccountV1
+        ] | None = None
+        if role == 2:
+            if (type(schedule_oracle_artifact)
+                    is not ProtocolRootScheduleOracleArtifactV1
+                    or schedule_oracle_artifact.address != component
+                    or schedule_oracle_artifact.extcodehash()
+                    != observed_runtime_hash
+                    or schedule_oracle_artifact.activation_artifact
+                        is not activation_artifact):
+                raise ValueError("protocol-root Schedule artifact is invalid")
+            schedule_view = decode_protocol_root_soc1_v1(
+                schedule_oracle_artifact.schedule_oracle_config_v1(
+                    PROTOCOL_ROOT_SOC1_SELECTOR,
+                    gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+                    value=0,
+                )
+            )
+            if schedule_view.configuration_hash != observed_configuration_hash:
+                raise ValueError("protocol-root SOC1 configuration is inconsistent")
+            schedule_config_return = schedule_oracle_artifact \
+                .schedule_oracle_config_v1(
+                    PROTOCOL_ROOT_SOC1_SELECTOR,
+                    gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+                    value=0,
+                )
+            if (PROTOCOL_ROOT_SOC1_SELECTOR in surfaces
+                    and surfaces[PROTOCOL_ROOT_SOC1_SELECTOR][1]
+                        != schedule_config_return):
+                raise ValueError("protocol-root SOC1 witnesses disagree")
+            surfaces[PROTOCOL_ROOT_SOC1_SELECTOR] = (
+                PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+                schedule_config_return,
+            )
+            route_state = schedule_oracle_artifact \
+                .schedule_fork_route_state_v1(
+                    PROTOCOL_ROOT_FORK_ROUTE_STATE_SELECTOR,
+                    gas_limit=PROTOCOL_ROOT_FORK_ROUTE_READ_GAS, value=0,
+                )
+            fork_calldata = (
+                PROTOCOL_ROOT_FORK_REGISTRATION_SELECTOR
+                + schedule_oracle_artifact.initial_fork.fork_digest + bytes(28)
+            )
+            registration = schedule_oracle_artifact \
+                .fork_verifier_registration_v1(
+                    fork_calldata,
+                    gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+                    value=0,
+                )
+            surfaces[PROTOCOL_ROOT_FORK_ROUTE_STATE_SELECTOR] = (
+                PROTOCOL_ROOT_FORK_ROUTE_READ_GAS, route_state,
+            )
+            surfaces[fork_calldata] = (
+                PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, registration,
+            )
+            verifier = schedule_oracle_artifact.fork_verifier_artifact
+            if type(verifier) is not ProtocolRootForkVerifierArtifactV1:
+                raise ValueError("protocol-root fork verifier witness is absent")
+            verifier_config = verifier.schedule_fork_verifier_config_v1(
+                PROTOCOL_ROOT_FORK_CONFIG_SELECTOR,
+                gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, value=0,
+            )
+            verifier_row = (
+                verifier.address,
+                ProtocolRootSourceInfrastructureAccountV1(
+                    verifier.extcodehash(),
+                    schedule_oracle_artifact.initial_fork.configuration_hash,
+                    1, nonce=1,
+                    static_surfaces={
+                        PROTOCOL_ROOT_FORK_CONFIG_SELECTOR: (
+                            PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+                            verifier_config,
+                        )
+                    },
+                ),
+            )
+        elif role == 4:
+            if (type(protocol_version_manager_artifact)
+                    is not ProtocolRootProtocolVersionManagerArtifactV1
+                    or protocol_version_manager_artifact.address != component
+                    or protocol_version_manager_artifact.extcodehash()
+                    != observed_runtime_hash
+                    or protocol_version_manager_artifact.activation_artifact
+                        is not activation_artifact):
+                raise ValueError("protocol-root PVM route artifact is invalid")
+            surfaces[PROTOCOL_ROOT_FORK_ROUTE_STATE_SELECTOR] = (
+                PROTOCOL_ROOT_FORK_ROUTE_READ_GAS,
+                protocol_version_manager_artifact.schedule_fork_route_state_v1(
+                    PROTOCOL_ROOT_FORK_ROUTE_STATE_SELECTOR,
+                    gas_limit=PROTOCOL_ROOT_FORK_ROUTE_READ_GAS, value=0,
+                ),
+            )
+            fork_calldata = (
+                PROTOCOL_ROOT_FORK_REGISTRATION_SELECTOR
+                + protocol_version_manager_artifact.initial_fork.fork_digest
+                + bytes(28)
+            )
+            surfaces[fork_calldata] = (
+                PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+                protocol_version_manager_artifact.fork_verifier_registration_v1(
+                    fork_calldata,
+                    gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+                    value=0,
+                ),
+            )
+        elif role == 9:
+            # CREATE3 component addresses depend only on the campaign key, so
+            # role 9 can bind the PVM address without requiring role 4 to have
+            # been deployed first.
+            pvm_address = protocol_root_component_address_v1(
+                self.address, key, 4, self.proxy_creation_code_hash
+            )
+            expected_sbf1 = source_bundle_factory_config_return_v1(
+                self.settlement_chain_id, pvm_address,
+                self.source_factory_compiler_artifacts,
+            )
+            expected_init_code = protocol_root_source_bundle_factory_init_code_v1(
+                self.address, self.runtime_hash, key, self.settlement_chain_id,
+                pvm_address, self.source_factory_compiler_artifacts,
+            )
+            if (init_code != expected_init_code
+                    or observed_runtime_hash
+                        != self.source_factory_compiler_artifacts.factory_runtime_hash
+                    or activation_artifact.role_config_v1(
+                    SOURCE_BUNDLE_FACTORY_CONFIG_SELECTOR,
+                    gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+                    value=0,
+                ) != expected_sbf1
+                    or expected_sbf1[-32:] != observed_configuration_hash):
+                raise ValueError("protocol-root role9 SBF1 is inconsistent")
+        account = ProtocolRootSourceInfrastructureAccountV1(
+            observed_runtime_hash, observed_configuration_hash, 1, nonce=1,
+            root_role=role, root_factory=self.address,
+            root_factory_runtime_hash=self.runtime_hash, campaign_key=key,
+            static_surfaces=surfaces,
+        )
+        touched = ((proxy, component) if verifier_row is None
+                   else (proxy, component, verifier_row[0]))
+        snapshot = self.root_address_world.snapshot_rows_v1(touched)
+        try:
+            # CREATE2 first materializes the fixed one-shot proxy.  A
+            # balance-only proxy address is legal and preserves its balance;
+            # any nonce or code is an EIP-684 collision.  A newly created
+            # contract begins at nonce one, and the successful child CREATE
+            # advances the persistent proxy nonce to two.
+            self.root_address_world.install_create_v1(
+                proxy,
+                ProtocolRootSourceInfrastructureAccountV1(
+                    self.proxy_runtime_hash, bytes(32),
+                    self.proxy_runtime_code_size, nonce=1,
+                ),
+            )
+            self.root_address_world.install_create_v1(component, account)
+            proxy_account = self.root_address_world.account_v1(
+                proxy, "protocol-root CREATE3 proxy"
+            )
+            if (proxy_account.runtime_hash != self.proxy_runtime_hash
+                    or proxy_account.code_size != self.proxy_runtime_code_size
+                    or proxy_account.nonce != 1):
+                raise ValueError("protocol-root CREATE3 proxy is inconsistent")
+            self.root_address_world.accounts[proxy] = replace(
+                proxy_account, nonce=2
+            )
+            if verifier_row is not None:
+                self.root_address_world.install_create_v1(
+                    verifier_row[0], verifier_row[1], allow_exact_reuse=True
+                )
+        except BaseException:
+            self.root_address_world.restore_rows_v1(snapshot)
+            raise
+        # These handles remain solely so older fixture builders can stage the
+        # next deployment.  Finalization and activation never dereference them.
+        if role == 2:
+            campaign.schedule_oracle_artifact = schedule_oracle_artifact
+        elif role == 4:
+            campaign.protocol_version_manager_artifact = (
+                protocol_version_manager_artifact
+            )
+        campaign.activation_artifacts[role] = activation_artifact
         campaign.components[role] = component
         campaign.deployed_bitmap |= 1 << (role - 1)
         return component
 
     def finalize_v1(
-        self, key: bytes, now: int, *, postvalidated: bool,
-        genesis_timestamp: int, first_managed_window: int,
+        self, key: bytes, now: int, *,
         executor: RootMigrationExecutorModelV1,
     ) -> bytes:
+        """Finalize only from exact address-indexed EVM observations."""
+
         campaign = self.live
+        roles = set(range(1, PROTOCOL_ROOT_ROLE_COUNT + 1))
+        if (campaign is None or campaign.key != key or campaign.state != 1
+                or now > campaign.expires_at
+                or campaign.deployed_bitmap
+                    != (1 << PROTOCOL_ROOT_ROLE_COUNT) - 1
+                or set(campaign.components) != roles
+                or campaign.source_infrastructure_bitmap != 1
+                or campaign.source_infrastructure_in_progress != 0
+                or set(campaign.source_infrastructure_receipts) != {1}):
+            raise ValueError("protocol-root campaign cannot finalize")
+        if (executor.address != self.delayed_executor
+                or executor.extcodehash() != self.executor_runtime_hash
+                or root_migration_executor_configuration_hash_v1(
+                    executor.settlement_chain_id, executor.dao_proposer
+                ) != self.executor_configuration_hash
+                or protocol_root_factory_configuration_hash_v1(
+                    self.settlement_chain_id, self.manifest_namespace,
+                    self.delayed_executor, self.executor_runtime_hash,
+                    self.executor_configuration_hash,
+                    self.proxy_creation_code_hash, self.proxy_runtime_hash,
+                    self.source_factory_compiler_artifacts.artifact_root,
+                ) != self.configuration_hash):
+            raise ValueError("protocol-root bootstrap authority is inconsistent")
+
+        world = self.root_address_world
+        component_addresses = tuple(
+            protocol_root_component_address_v1(
+                self.address, key, role, self.proxy_creation_code_hash
+            )
+            for role in range(1, PROTOCOL_ROOT_ROLE_COUNT + 1)
+        )
+        if component_addresses != tuple(
+                campaign.components[role]
+                for role in range(1, PROTOCOL_ROOT_ROLE_COUNT + 1)):
+            raise ValueError("protocol-root component address row is inconsistent")
+        inactive_view = b"".join((
+            b"PRA1" + bytes(28), bytes(12) + self.address, key, bytes(32),
+        ))
+        for role, component in enumerate(component_addresses, 1):
+            runtime_hash = campaign.manifest.components[role - 1][1]
+            configuration_hash = campaign.manifest.components[role - 1][2]
+            world.validate_code_config_v1(
+                component, self.address, runtime_hash, configuration_hash,
+                f"protocol-root role {role}",
+            )
+            if world.staticcall_v1(
+                    component, self.address,
+                    PROTOCOL_ROOT_ACTIVATION_VIEW_SELECTOR,
+                    gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+                    value=0,
+            ) != inactive_view:
+                raise ValueError("protocol-root component prestate is inconsistent")
+
+        role = lambda value: component_addresses[value - 1]
+        schedule = decode_protocol_root_soc1_v1(world.staticcall_v1(
+            role(2), self.address, PROTOCOL_ROOT_SOC1_SELECTOR,
+            gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, value=0,
+        ))
+        builder = decode_protocol_root_brc1_v1(world.staticcall_v1(
+            role(1), self.address, PROTOCOL_ROOT_BUILDER_CONFIG_SELECTOR,
+            gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, value=0,
+        ))
+        timelock = decode_protocol_change_timelock_config_return_v1(
+            world.staticcall_v1(
+                role(3), self.address, PROTOCOL_ROOT_TIMELOCK_CONFIG_SELECTOR,
+                gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, value=0,
+            )
+        )
+        manager = decode_protocol_version_manager_config_return_v1(
+            world.staticcall_v1(
+                role(4), self.address, PROTOCOL_ROOT_PVM_CONFIG_SELECTOR,
+                gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, value=0,
+            )
+        )
+
+        descriptor = keccak256(b"".join((
+            PROTOCOL_CHANGE_TIMELOCK_DOMAIN,
+            _model_uint(self.settlement_chain_id, 32, "root Timelock chain"),
+            role(3), campaign.manifest.components[2][1],
+            timelock.dao_proposer, role(4),
+            _model_uint(
+                PROTOCOL_CHANGE_DELAY_SECONDS, 8, "root Timelock delay"
+            ),
+            keccak256(PROTOCOL_CHANGE_OPERATION_DOMAIN),
+        )))
+        pvm_address_rows = (
+            manager.protocol_change_timelock,
+            manager.active_settlement_router,
+            manager.forced_queue,
+            manager.builder_registry,
+            manager.schedule_oracle,
+            manager.aggregator_seat_market,
+            manager.bridge_domain_registry,
+            manager.source_bundle_factory,
+        )
+        expected_pvm_addresses = tuple(
+            role(index) for index in (3, 5, 6, 1, 2, 7, 8, 9)
+        )
+        pvm_component_rows = (
+            (manager.active_settlement_router_runtime_hash,
+             manager.active_settlement_router_configuration_hash, 5),
+            (manager.forced_queue_runtime_hash,
+             manager.forced_queue_configuration_hash, 6),
+            (manager.builder_registry_runtime_hash,
+             manager.builder_registry_configuration_hash, 1),
+            (manager.schedule_oracle_runtime_hash,
+             manager.schedule_oracle_configuration_hash, 2),
+            (manager.bridge_domain_registry_runtime_hash,
+             manager.bridge_domain_registry_configuration_hash, 8),
+            (manager.source_bundle_factory_runtime_hash,
+             manager.source_bundle_factory_configuration_hash, 9),
+        )
+        expected_source_factory_init_code = (
+            protocol_root_source_bundle_factory_init_code_v1(
+                self.address, self.runtime_hash, key, self.settlement_chain_id,
+                role(4), self.source_factory_compiler_artifacts,
+            )
+        )
+        expected_source_factory_config = source_bundle_factory_config_return_v1(
+            self.settlement_chain_id, role(4),
+            self.source_factory_compiler_artifacts,
+        )
+        observed_source_factory_config = world.staticcall_v1(
+            role(9), self.address, SOURCE_BUNDLE_FACTORY_CONFIG_SELECTOR,
+            gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, value=0,
+        )
+        (_terminal_salt, terminal_init_code, terminal_address,
+         terminal_runtime_hash, expected_terminal_config) = (
+            self._source_infrastructure_projection_v1(
+                campaign, PROTOCOL_ROOT_SOURCE_TERMINAL_KIND
+            )
+        )
+        source_runtime_hash = campaign.manifest.components[8][1]
+        source_configuration_hash = expected_source_factory_config[-32:]
+        terminal_configuration_hash = expected_terminal_config[-32:]
+        singleton = bytes.fromhex(SETTLEMENT_FACTORY_ADDRESS_V2[2:])
+        if world.extcodehash_v1(
+                singleton, self.address, "canonical ERC-2470 singleton"
+        ) != SETTLEMENT_FACTORY_RUNTIME_HASH_V2:
+            raise ValueError("canonical ERC-2470 singleton is unavailable")
+        self._validate_source_infrastructure_account_v1(
+            terminal_address, kind=PROTOCOL_ROOT_SOURCE_TERMINAL_KIND,
+            runtime_hash=terminal_runtime_hash,
+            exact_config=expected_terminal_config,
+        )
+        if (schedule.settlement_chain_id != self.settlement_chain_id
+                or schedule.configuration_hash
+                    != campaign.manifest.components[1][2]
+                or schedule.protocol_version_manager != role(4)
+                or schedule.active_settlement_router != role(5)
+                or schedule.builder_registry != role(1)
+                or schedule.evidence_delay_seconds != EVIDENCE_DELAY_SECONDS
+                or schedule.reorg_margin_seconds != REORG_MARGIN_SECONDS
+                or schedule.lookahead_seconds != 768
+                or builder.settlement_chain_id != self.settlement_chain_id
+                or builder.economic_configuration_hash
+                    != campaign.manifest.components[0][2]
+                or builder.topology_hash
+                    != schedule.builder_registry_topology_hash
+                or builder.active_settlement_router != role(5)
+                or builder.router_runtime_hash
+                    != campaign.manifest.components[4][1]
+                or builder.router_configuration_hash
+                    != campaign.manifest.components[4][2]
+                or builder.schedule_oracle != role(2)
+                or builder.schedule_oracle_runtime_hash
+                    != campaign.manifest.components[1][1]
+                or builder.genesis_timestamp != schedule.genesis_timestamp
+                or builder.evidence_delay_seconds
+                    != schedule.evidence_delay_seconds
+                or builder.reorg_margin_seconds != schedule.reorg_margin_seconds
+                or builder.first_managed_window != schedule.first_managed_window
+                or builder.last_managed_window != schedule.last_managed_window
+                or builder.lease_per_window_atomic
+                    != schedule.lease_per_window_atomic
+                or timelock.dao_proposer != executor.dao_proposer
+                or timelock.protocol_version_manager != role(4)
+                or timelock.minimum_delay_seconds
+                    != PROTOCOL_CHANGE_DELAY_SECONDS
+                or timelock.operation_domain
+                    != keccak256(PROTOCOL_CHANGE_OPERATION_DOMAIN)
+                or timelock.dao_proposer in (
+                    self.address, executor.address, *component_addresses
+                )
+                or descriptor != campaign.manifest.components[2][2]
+                or manager.settlement_chain_id != self.settlement_chain_id
+                or pvm_address_rows != expected_pvm_addresses
+                or manager.aggregator_seat_market_runtime_hash
+                    != campaign.manifest.components[6][1]
+                or manager.aggregator_seat_market_configuration_hash
+                    != campaign.manifest.components[6][2]
+                or manager.timelock_descriptor_hash != descriptor
+                or manager.manifest_namespace != self.manifest_namespace
+                or manager.minimum_delay_seconds
+                    != PROTOCOL_CHANGE_DELAY_SECONDS
+                or manager.maximum_live_migration_seconds
+                    != MAXIMUM_LIVE_VERSION_MIGRATION_SECONDS
+                or manager.migration_arm_execution_window_seconds
+                    != MIGRATION_ARM_EXECUTION_WINDOW_SECONDS
+                or manager.review_finality_blocks != GENESIS_REVIEW_FINALITY_BLOCKS
+                or len(terminal_init_code) > 49_152
+                or terminal_address in (
+                    self.address, executor.address, timelock.dao_proposer,
+                    role(9), *component_addresses,
+                )
+                or manager.source_bundle_factory != role(9)
+                or observed_source_factory_config
+                    != expected_source_factory_config
+                or campaign.manifest.components[8][0]
+                    != keccak256(expected_source_factory_init_code)
+                or source_runtime_hash
+                    != self.source_factory_compiler_artifacts.factory_runtime_hash
+                or manager.source_bundle_factory_runtime_hash
+                    != source_runtime_hash
+                or manager.source_bundle_factory_configuration_hash
+                    != source_configuration_hash
+                or manager.source_terminal_verifier != terminal_address
+                or manager.source_terminal_verifier_runtime_hash
+                    != terminal_runtime_hash
+                or manager.source_terminal_verifier_configuration_hash
+                    != terminal_configuration_hash
+                or any(
+                    (runtime_hash, configuration_hash)
+                    != (campaign.manifest.components[index - 1][1],
+                        campaign.manifest.components[index - 1][2])
+                    for runtime_hash, configuration_hash, index
+                    in pvm_component_rows
+                )
+                or protocol_version_manager_configuration_hash_v1(manager)
+                    != campaign.manifest.components[3][2]):
+            raise ValueError("protocol-root configuration graph is inconsistent")
+
+        route_calldata = PROTOCOL_ROOT_FORK_ROUTE_STATE_SELECTOR
+        schedule_route_state = world.staticcall_v1(
+            role(2), self.address, route_calldata,
+            gas_limit=PROTOCOL_ROOT_FORK_ROUTE_READ_GAS, value=0,
+        )
+        pvm_route_state = world.staticcall_v1(
+            role(4), self.address, route_calldata,
+            gas_limit=PROTOCOL_ROOT_FORK_ROUTE_READ_GAS, value=0,
+        )
+        fork_calldata = (
+            PROTOCOL_ROOT_FORK_REGISTRATION_SELECTOR
+            + schedule.initial_fork_digest + bytes(28)
+        )
+        schedule_registration = world.staticcall_v1(
+            role(2), self.address, fork_calldata,
+            gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, value=0,
+        )
+        pvm_registration = world.staticcall_v1(
+            role(4), self.address, fork_calldata,
+            gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, value=0,
+        )
+        if (schedule_registration != pvm_registration
+                or len(schedule_registration) != 320):
+            raise ValueError("protocol-root initial fork authorities disagree")
+        registration_words = tuple(
+            schedule_registration[offset:offset + 32]
+            for offset in range(0, 320, 32)
+        )
+        verifier_address = _decode_address_word_v1(
+            registration_words[5], "initial fork verifier"
+        )
+        verifier_runtime_hash = world.extcodehash_v1(
+            verifier_address, self.address, "initial fork verifier"
+        )
+        verifier_config = world.staticcall_v1(
+            verifier_address, self.address, PROTOCOL_ROOT_FORK_CONFIG_SELECTOR,
+            gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, value=0,
+        )
+        initial_fork = decode_protocol_root_initial_route_v1(
+            schedule_registration, verifier_config
+        )
+        expected_route_state = encode_schedule_fork_route_state_return_v1(
+            {initial_fork.fork_digest: initial_fork},
+            [initial_fork.fork_digest], {initial_fork.fork_digest},
+        )
+        if (schedule_route_state != pvm_route_state
+                or schedule_route_state != expected_route_state
+                or initial_fork.fork_digest != schedule.initial_fork_digest
+                or initial_fork.first_parent_slot
+                    != schedule.initial_fork_first_parent_slot
+                or initial_fork.last_parent_slot_exclusive
+                    != schedule.initial_fork_last_parent_slot_exclusive
+                or initial_fork.verifier != verifier_address
+                or initial_fork.runtime_hash != verifier_runtime_hash):
+            raise ValueError("protocol-root initial fork authorities disagree")
+
         try:
             last_managed_window = derive_last_managed_schedule_window(
-                genesis_timestamp, EVIDENCE_DELAY_SECONDS,
-                REORG_MARGIN_SECONDS,
+                schedule.genesis_timestamp, schedule.evidence_delay_seconds,
+                schedule.reorg_margin_seconds,
             )
         except ValueError as exc:
             raise ValueError(
                 "protocol-root managed-window inputs are invalid"
             ) from exc
-        if (not 0 <= genesis_timestamp <= UINT64_MAX
-                or not 0 <= first_managed_window <= last_managed_window):
+        if (schedule.last_managed_window != last_managed_window
+                or not 0 <= schedule.first_managed_window
+                    <= last_managed_window):
             raise ValueError("protocol-root managed-window inputs are invalid")
-        current_window = (
-            0 if now < genesis_timestamp
-            else (now - genesis_timestamp) // PROTOCOL_ROOT_WINDOW_SECONDS
+        if (schedule.first_managed_window
+                > (UINT64_MAX - schedule.genesis_timestamp)
+                    // PROTOCOL_ROOT_WINDOW_SECONDS
+                or schedule.beacon_genesis_time > UINT64_MAX - 3_072):
+            raise ValueError("protocol-root first managed window overflows")
+        first_window_start = (
+            schedule.genesis_timestamp
+            + PROTOCOL_ROOT_WINDOW_SECONDS * schedule.first_managed_window
         )
-        if (campaign is None or campaign.key != key or campaign.state != 1
-                or now > campaign.expires_at or not postvalidated
+        if (first_window_start < 768
+                or first_window_start < schedule.beacon_genesis_time + 3_072):
+            raise ValueError("protocol-root first managed window is too early")
+        current_window = (
+            0 if now < schedule.genesis_timestamp
+            else (now - schedule.genesis_timestamp)
+                // PROTOCOL_ROOT_WINDOW_SECONDS
+        )
+        renewal_window = current_window + FORK_CHANGE_RENEWAL_RUNWAY_WINDOWS
+        target_timestamp = (
+            schedule.genesis_timestamp
+            + SCHEDULE_WINDOW_SLOTS * renewal_window
+            - 256 * L1_SLOT_SECONDS
+        )
+        if target_timestamp < schedule.beacon_genesis_time:
+            raise ValueError("protocol-root fork target precedes Beacon genesis")
+        renewal_target_slot = (
+            target_timestamp - schedule.beacon_genesis_time
+        ) // L1_SLOT_SECONDS
+        if (schedule.initial_fork_first_parent_slot != 0
+                or not 0 < schedule.initial_fork_last_parent_slot_exclusive
+                    <= UINT64_MAX
+                or renewal_target_slot + MAX_SCHEDULE_CARRIER_SCAN_SLOTS
+                    >= schedule.initial_fork_last_parent_slot_exclusive
                 or current_window > UINT64_MAX
-                - PROTOCOL_ROOT_FIRST_MANAGED_RUNWAY_WINDOWS
-                or first_managed_window < current_window
-                + PROTOCOL_ROOT_FIRST_MANAGED_RUNWAY_WINDOWS
-                or campaign.deployed_bitmap
-                != (1 << PROTOCOL_ROOT_ROLE_COUNT) - 1):
+                    - PROTOCOL_ROOT_FIRST_MANAGED_RUNWAY_WINDOWS
+                or schedule.first_managed_window < current_window
+                    + PROTOCOL_ROOT_FIRST_MANAGED_RUNWAY_WINDOWS):
             raise ValueError("protocol-root campaign cannot finalize")
-        addresses = b"".join(campaign.components[role]
-                             for role in range(1, 10))
+
+        addresses = b"".join((*component_addresses, terminal_address))
         receipt = keccak256(
             b"slot-chain-protocol-root-receipt-v1" + key
             + campaign.manifest_hash + addresses
+            + campaign.source_infrastructure_receipts[1]
         )
-        campaign.active_roles = set(range(1, 10))
-        campaign.root_receipt = receipt
-        campaign.state = 2
-        self.active_root_receipt = receipt
+        activation_snapshot = world.snapshot_rows_v1(component_addresses)
+        trace_length = len(world.trace)
+        executor_state = copy.deepcopy(executor.__dict__)
+        prior_campaign_state = (
+            campaign.state, set(campaign.active_roles),
+            list(campaign.activation_trace), campaign.root_receipt,
+            self.active_root_receipt, self.generation, self.live,
+        )
         try:
-            executor.confirm_v1(
-                campaign.operation_id, self, key, receipt
+            active_view = b"".join((
+                b"PRA1" + bytes(28), bytes(12) + self.address, key,
+                _model_uint(1, 32, "active protocol root"),
+            ))
+            for role_index, component in enumerate(component_addresses, 1):
+                if world.activate_v1(
+                        component, self.address, self.extcodehash(),
+                        PROTOCOL_ROOT_ACTIVATE_SELECTOR + key,
+                        gas_limit=PROTOCOL_ROOT_FACTORY_ACTIVATION_CALL_GAS,
+                        value=0,
+                ) != b"RAA1" + bytes(28):
+                    raise ValueError("protocol-root activation receipt is invalid")
+                if world.staticcall_v1(
+                        component, self.address,
+                        PROTOCOL_ROOT_ACTIVATION_VIEW_SELECTOR,
+                        gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+                        value=0,
+                ) != active_view:
+                    raise ValueError("protocol-root activation poststate is invalid")
+                campaign.active_roles.add(role_index)
+                campaign.activation_trace.append(role_index)
+            campaign.root_receipt = receipt
+            campaign.state = 2
+            self.active_root_receipt = receipt
+            confirmation = executor.confirm_v1(
+                PROTOCOL_ROOT_EXECUTOR_CONFIRM_SELECTOR
+                + campaign.operation_id + key + receipt,
+                caller=self,
+                gas_limit=PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIRM_CALL_GAS,
+                value=0,
             )
+            if confirmation != b"RAC1" + bytes(28):
+                raise ValueError("root-migration confirmation receipt is invalid")
+        except BaseException:
+            world.restore_rows_v1(activation_snapshot)
+            del world.trace[trace_length:]
+            (campaign.state, campaign.active_roles,
+             campaign.activation_trace, campaign.root_receipt,
+             self.active_root_receipt, self.generation, self.live) = (
+                prior_campaign_state
+            )
+            executor.__dict__.clear()
+            executor.__dict__.update(copy.deepcopy(executor_state))
+            raise
+        self.generation += 1
+        self.live = None
+        return receipt
+
+    def _artifact_handle_finalize_oracle_for_test_v1(
+        self, key: bytes, now: int, *,
+        executor: RootMigrationExecutorModelV1,
+    ) -> bytes:
+        campaign = self.live
+        if (campaign is None or campaign.key != key or campaign.state != 1
+                or now > campaign.expires_at
+                or campaign.deployed_bitmap
+                != (1 << PROTOCOL_ROOT_ROLE_COUNT) - 1
+                or set(campaign.activation_artifacts)
+                    != set(range(1, PROTOCOL_ROOT_ROLE_COUNT + 1))
+                or type(campaign.schedule_oracle_artifact)
+                    is not ProtocolRootScheduleOracleArtifactV1
+                or type(campaign.protocol_version_manager_artifact)
+                    is not ProtocolRootProtocolVersionManagerArtifactV1
+                or campaign.source_infrastructure_bitmap != 1
+                or campaign.source_infrastructure_in_progress != 0
+                or set(campaign.source_infrastructure_receipts) != {1}):
+            raise ValueError("protocol-root campaign cannot finalize")
+        if (executor.address != self.delayed_executor
+                or executor.extcodehash() != self.executor_runtime_hash
+                or root_migration_executor_configuration_hash_v1(
+                    executor.settlement_chain_id, executor.dao_proposer
+                ) != self.executor_configuration_hash
+                or protocol_root_factory_configuration_hash_v1(
+                    self.settlement_chain_id, self.manifest_namespace,
+                    self.delayed_executor, self.executor_runtime_hash,
+                    self.executor_configuration_hash,
+                    self.proxy_creation_code_hash, self.proxy_runtime_hash,
+                    self.source_factory_compiler_artifacts.artifact_root,
+                ) != self.configuration_hash):
+            raise ValueError("protocol-root bootstrap authority is inconsistent")
+        for role in range(1, PROTOCOL_ROOT_ROLE_COUNT + 1):
+            artifact = campaign.activation_artifacts[role]
+            expected_address = campaign.components[role]
+            expected_runtime = campaign.manifest.components[role - 1][1]
+            expected_config = campaign.manifest.components[role - 1][2]
+            if (artifact.role != role or artifact.address != expected_address
+                    or artifact.extcodehash() != expected_runtime
+                    or artifact.factory != self.address
+                    or artifact.factory_runtime_hash != self.runtime_hash
+                    or artifact.campaign_key != key
+                    or artifact.component_config_hash_v2(
+                        COMPONENT_CONFIG_GETTER_SELECTOR,
+                        gas_limit=(
+                            PROTOCOL_ROOT_FACTORY_COMPONENT_CONFIG_READ_GAS
+                        ), value=0,
+                    ) != expected_config
+                    or artifact.protocol_root_activation_v1(
+                        PROTOCOL_ROOT_ACTIVATION_VIEW_SELECTOR,
+                        gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+                        value=0,
+                    ) != b"".join((
+                        b"PRA1" + bytes(28), bytes(12) + self.address,
+                        key, bytes(32),
+                    ))):
+                raise ValueError("protocol-root component prestate is inconsistent")
+        schedule_artifact = campaign.schedule_oracle_artifact
+        pvm_artifact = campaign.protocol_version_manager_artifact
+        if (schedule_artifact.address != campaign.components[2]
+                or schedule_artifact.activation_artifact
+                    is not campaign.activation_artifacts[2]
+                or schedule_artifact.extcodehash()
+                != campaign.manifest.components[1][1]
+                or pvm_artifact.address != campaign.components[4]
+                or pvm_artifact.activation_artifact
+                    is not campaign.activation_artifacts[4]
+                or pvm_artifact.extcodehash()
+                != campaign.manifest.components[3][1]):
+            raise ValueError("protocol-root live fork authority is inconsistent")
+        schedule = decode_protocol_root_soc1_v1(
+            schedule_artifact.schedule_oracle_config_v1(
+                PROTOCOL_ROOT_SOC1_SELECTOR,
+                gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+                value=0,
+            )
+        )
+        builder = decode_protocol_root_brc1_v1(
+            campaign.activation_artifacts[1].role_config_v1(
+                PROTOCOL_ROOT_BUILDER_CONFIG_SELECTOR,
+                gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, value=0,
+            )
+        )
+        timelock = decode_protocol_change_timelock_config_return_v1(
+            campaign.activation_artifacts[3].role_config_v1(
+                PROTOCOL_ROOT_TIMELOCK_CONFIG_SELECTOR,
+                gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, value=0,
+            )
+        )
+        manager = decode_protocol_version_manager_config_return_v1(
+            campaign.activation_artifacts[4].role_config_v1(
+                PROTOCOL_ROOT_PVM_CONFIG_SELECTOR,
+                gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, value=0,
+            )
+        )
+        component_addresses = tuple(
+            campaign.components[role]
+            for role in range(1, PROTOCOL_ROOT_ROLE_COUNT + 1)
+        )
+        descriptor = keccak256(b"".join((
+            PROTOCOL_CHANGE_TIMELOCK_DOMAIN,
+            _model_uint(self.settlement_chain_id, 32, "root Timelock chain"),
+            campaign.components[3], campaign.manifest.components[2][1],
+            timelock.dao_proposer, campaign.components[4],
+            _model_uint(
+                PROTOCOL_CHANGE_DELAY_SECONDS, 8, "root Timelock delay"
+            ),
+            keccak256(PROTOCOL_CHANGE_OPERATION_DOMAIN),
+        )))
+        pvm_address_rows = (
+            manager.protocol_change_timelock,
+            manager.active_settlement_router,
+            manager.forced_queue,
+            manager.builder_registry,
+            manager.schedule_oracle,
+            manager.aggregator_seat_market,
+            manager.bridge_domain_registry,
+            manager.source_bundle_factory,
+        )
+        expected_pvm_addresses = tuple(
+            campaign.components[role] for role in (3, 5, 6, 1, 2, 7, 8, 9)
+        )
+        pvm_component_rows = (
+            (manager.active_settlement_router_runtime_hash,
+             manager.active_settlement_router_configuration_hash, 5),
+            (manager.forced_queue_runtime_hash,
+             manager.forced_queue_configuration_hash, 6),
+            (manager.builder_registry_runtime_hash,
+             manager.builder_registry_configuration_hash, 1),
+            (manager.schedule_oracle_runtime_hash,
+             manager.schedule_oracle_configuration_hash, 2),
+            (manager.bridge_domain_registry_runtime_hash,
+             manager.bridge_domain_registry_configuration_hash, 8),
+            (manager.source_bundle_factory_runtime_hash,
+             manager.source_bundle_factory_configuration_hash, 9),
+        )
+        source_address = campaign.components[9]
+        source_runtime_hash = campaign.manifest.components[8][1]
+        expected_source_factory_init_code = (
+            protocol_root_source_bundle_factory_init_code_v1(
+                self.address, self.runtime_hash, key, self.settlement_chain_id,
+                campaign.components[4], self.source_factory_compiler_artifacts,
+            )
+        )
+        expected_source_factory_config = source_bundle_factory_config_return_v1(
+            self.settlement_chain_id, campaign.components[4],
+            self.source_factory_compiler_artifacts,
+        )
+        observed_source_factory_config = campaign.activation_artifacts[
+            9
+        ].role_config_v1(
+            SOURCE_BUNDLE_FACTORY_CONFIG_SELECTOR,
+            gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, value=0,
+        )
+        (_terminal_salt, terminal_init_code, terminal_address,
+         terminal_runtime_hash, expected_terminal_config) = (
+            self._source_infrastructure_projection_v1(
+                campaign, PROTOCOL_ROOT_SOURCE_TERMINAL_KIND
+            )
+        )
+        terminal_account = self.source_infrastructure_accounts.get(
+            terminal_address
+        )
+        source_configuration_hash = expected_source_factory_config[-32:]
+        terminal_configuration_hash = expected_terminal_config[-32:]
+        singleton = self.source_infrastructure_accounts.get(
+            bytes.fromhex(SETTLEMENT_FACTORY_ADDRESS_V2[2:])
+        )
+        if (singleton is None or singleton.code_size == 0
+                or singleton.extcodehash(self.address)
+                    != SETTLEMENT_FACTORY_RUNTIME_HASH_V2):
+            raise ValueError("canonical ERC-2470 singleton is unavailable")
+        self._validate_source_infrastructure_account_v1(
+            terminal_address, kind=PROTOCOL_ROOT_SOURCE_TERMINAL_KIND,
+            runtime_hash=terminal_runtime_hash,
+            exact_config=expected_terminal_config,
+        )
+        if (schedule.settlement_chain_id != self.settlement_chain_id
+                or schedule.configuration_hash
+                    != campaign.manifest.components[1][2]
+                or schedule.protocol_version_manager
+                    != campaign.components[4]
+                or schedule.active_settlement_router
+                    != campaign.components[5]
+                or schedule.builder_registry != campaign.components[1]
+                or schedule.evidence_delay_seconds != EVIDENCE_DELAY_SECONDS
+                or schedule.reorg_margin_seconds != REORG_MARGIN_SECONDS
+                or schedule.lookahead_seconds != 768
+                or builder.settlement_chain_id != self.settlement_chain_id
+                or builder.economic_configuration_hash
+                    != campaign.manifest.components[0][2]
+                or builder.topology_hash != schedule.builder_registry_topology_hash
+                or builder.active_settlement_router != campaign.components[5]
+                or builder.router_runtime_hash
+                    != campaign.manifest.components[4][1]
+                or builder.router_configuration_hash
+                    != campaign.manifest.components[4][2]
+                or builder.schedule_oracle != campaign.components[2]
+                or builder.schedule_oracle_runtime_hash
+                    != campaign.manifest.components[1][1]
+                or builder.genesis_timestamp != schedule.genesis_timestamp
+                or builder.evidence_delay_seconds
+                    != schedule.evidence_delay_seconds
+                or builder.reorg_margin_seconds != schedule.reorg_margin_seconds
+                or builder.first_managed_window
+                    != schedule.first_managed_window
+                or builder.last_managed_window != schedule.last_managed_window
+                or builder.lease_per_window_atomic
+                    != schedule.lease_per_window_atomic
+                or timelock.dao_proposer != executor.dao_proposer
+                or timelock.protocol_version_manager != campaign.components[4]
+                or timelock.minimum_delay_seconds
+                    != PROTOCOL_CHANGE_DELAY_SECONDS
+                or timelock.operation_domain
+                    != keccak256(PROTOCOL_CHANGE_OPERATION_DOMAIN)
+                or timelock.dao_proposer in (
+                    self.address, executor.address, *component_addresses
+                )
+                or descriptor != campaign.manifest.components[2][2]
+                or manager.settlement_chain_id != self.settlement_chain_id
+                or pvm_address_rows != expected_pvm_addresses
+                or manager.aggregator_seat_market_runtime_hash
+                    != campaign.manifest.components[6][1]
+                or manager.aggregator_seat_market_configuration_hash
+                    != campaign.manifest.components[6][2]
+                or manager.timelock_descriptor_hash != descriptor
+                or manager.manifest_namespace != self.manifest_namespace
+                or manager.minimum_delay_seconds
+                    != PROTOCOL_CHANGE_DELAY_SECONDS
+                or manager.maximum_live_migration_seconds
+                    != MAXIMUM_LIVE_VERSION_MIGRATION_SECONDS
+                or manager.migration_arm_execution_window_seconds
+                    != MIGRATION_ARM_EXECUTION_WINDOW_SECONDS
+                or manager.review_finality_blocks != GENESIS_REVIEW_FINALITY_BLOCKS
+                or len(terminal_init_code) > 49_152
+                or terminal_address in (
+                    self.address, executor.address, timelock.dao_proposer,
+                    source_address, *component_addresses,
+                )
+                or manager.source_bundle_factory
+                    != source_address
+                or observed_source_factory_config
+                    != expected_source_factory_config
+                or campaign.manifest.components[8][0]
+                    != keccak256(expected_source_factory_init_code)
+                or source_runtime_hash
+                    != self.source_factory_compiler_artifacts.factory_runtime_hash
+                or manager.source_bundle_factory_runtime_hash
+                    != source_runtime_hash
+                or manager.source_bundle_factory_configuration_hash
+                    != source_configuration_hash
+                or manager.source_terminal_verifier != terminal_address
+                or manager.source_terminal_verifier_runtime_hash
+                    != terminal_runtime_hash
+                or manager.source_terminal_verifier_configuration_hash
+                    != terminal_configuration_hash
+                or any(
+                    (runtime_hash, configuration_hash)
+                    != (campaign.manifest.components[role - 1][1],
+                        campaign.manifest.components[role - 1][2])
+                    for runtime_hash, configuration_hash, role
+                    in pvm_component_rows
+                )
+                or protocol_version_manager_configuration_hash_v1(manager)
+                    != campaign.manifest.components[3][2]):
+            raise ValueError("protocol-root configuration graph is inconsistent")
+        route_calldata = PROTOCOL_ROOT_FORK_ROUTE_STATE_SELECTOR
+        schedule_route_state = schedule_artifact.schedule_fork_route_state_v1(
+            route_calldata,
+            gas_limit=PROTOCOL_ROOT_FORK_ROUTE_READ_GAS, value=0,
+        )
+        pvm_route_state = pvm_artifact.schedule_fork_route_state_v1(
+            route_calldata,
+            gas_limit=PROTOCOL_ROOT_FORK_ROUTE_READ_GAS, value=0,
+        )
+        fork_calldata = (
+            PROTOCOL_ROOT_FORK_REGISTRATION_SELECTOR
+            + schedule.initial_fork_digest + bytes(28)
+        )
+        schedule_registration = schedule_artifact.fork_verifier_registration_v1(
+            fork_calldata,
+            gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, value=0,
+        )
+        pvm_registration = pvm_artifact.fork_verifier_registration_v1(
+            fork_calldata,
+            gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, value=0,
+        )
+        verifier_artifact = schedule_artifact.fork_verifier_artifact
+        if type(verifier_artifact) is not ProtocolRootForkVerifierArtifactV1:
+            raise ValueError("protocol-root initial fork verifier is unavailable")
+        verifier_config = verifier_artifact.schedule_fork_verifier_config_v1(
+            PROTOCOL_ROOT_FORK_CONFIG_SELECTOR,
+            gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, value=0,
+        )
+        initial_fork = decode_protocol_root_initial_route_v1(
+            schedule_registration, verifier_config
+        )
+        expected_route_state = encode_schedule_fork_route_state_return_v1(
+            {initial_fork.fork_digest: initial_fork},
+            [initial_fork.fork_digest], {initial_fork.fork_digest},
+        )
+        if (schedule_route_state != pvm_route_state
+                or schedule_route_state != expected_route_state
+                or schedule_registration != pvm_registration
+                or initial_fork.fork_digest != schedule.initial_fork_digest
+                or initial_fork.first_parent_slot
+                    != schedule.initial_fork_first_parent_slot
+                or initial_fork.last_parent_slot_exclusive
+                    != schedule.initial_fork_last_parent_slot_exclusive
+                or verifier_artifact.address != initial_fork.verifier
+                or verifier_artifact.extcodehash() != initial_fork.runtime_hash):
+            raise ValueError("protocol-root initial fork authorities disagree")
+        try:
+            last_managed_window = derive_last_managed_schedule_window(
+                schedule.genesis_timestamp, schedule.evidence_delay_seconds,
+                schedule.reorg_margin_seconds,
+            )
+        except ValueError as exc:
+            raise ValueError(
+                "protocol-root managed-window inputs are invalid"
+            ) from exc
+        if (schedule.last_managed_window != last_managed_window
+                or not 0 <= schedule.first_managed_window
+                    <= last_managed_window):
+            raise ValueError("protocol-root managed-window inputs are invalid")
+        if (schedule.first_managed_window
+                > (UINT64_MAX - schedule.genesis_timestamp)
+                    // PROTOCOL_ROOT_WINDOW_SECONDS
+                or schedule.beacon_genesis_time > UINT64_MAX - 3_072):
+            raise ValueError("protocol-root first managed window overflows")
+        first_window_start = (
+            schedule.genesis_timestamp
+            + PROTOCOL_ROOT_WINDOW_SECONDS * schedule.first_managed_window
+        )
+        if (first_window_start < 768
+                or first_window_start < schedule.beacon_genesis_time + 3_072):
+            raise ValueError("protocol-root first managed window is too early")
+        current_window = (
+            0 if now < schedule.genesis_timestamp
+            else (now - schedule.genesis_timestamp)
+                // PROTOCOL_ROOT_WINDOW_SECONDS
+        )
+        renewal_window = (
+            current_window + FORK_CHANGE_RENEWAL_RUNWAY_WINDOWS
+        )
+        target_timestamp = (
+            schedule.genesis_timestamp
+            + SCHEDULE_WINDOW_SLOTS * renewal_window
+            - 256 * L1_SLOT_SECONDS
+        )
+        if target_timestamp < schedule.beacon_genesis_time:
+            raise ValueError("protocol-root fork target precedes Beacon genesis")
+        renewal_target_slot = (
+            target_timestamp - schedule.beacon_genesis_time
+        ) // L1_SLOT_SECONDS
+        if (schedule.initial_fork_first_parent_slot != 0
+                or not 0 < schedule.initial_fork_last_parent_slot_exclusive
+                    <= UINT64_MAX
+                or renewal_target_slot + MAX_SCHEDULE_CARRIER_SCAN_SLOTS
+                    >= schedule.initial_fork_last_parent_slot_exclusive
+                or current_window > UINT64_MAX
+                - PROTOCOL_ROOT_FIRST_MANAGED_RUNWAY_WINDOWS
+                or schedule.first_managed_window < current_window
+                    + PROTOCOL_ROOT_FIRST_MANAGED_RUNWAY_WINDOWS):
+            raise ValueError("protocol-root campaign cannot finalize")
+        addresses = b"".join((
+            *component_addresses, terminal_address,
+        ))
+        receipt = keccak256(
+            b"slot-chain-protocol-root-receipt-v1" + key
+            + campaign.manifest_hash + addresses
+            + campaign.source_infrastructure_receipts[1]
+        )
+        activation_states = {
+            role: campaign.activation_artifacts[role].state
+            for role in range(1, PROTOCOL_ROOT_ROLE_COUNT + 1)
+        }
+        executor_state = copy.deepcopy(executor.__dict__)
+        prior_campaign_state = (
+            campaign.state, set(campaign.active_roles),
+            list(campaign.activation_trace), campaign.root_receipt,
+            self.active_root_receipt, self.generation, self.live,
+        )
+        try:
+            for role in range(1, PROTOCOL_ROOT_ROLE_COUNT + 1):
+                artifact = campaign.activation_artifacts[role]
+                if artifact.activate_protocol_root_v1(
+                    PROTOCOL_ROOT_ACTIVATE_SELECTOR + key,
+                    caller=self,
+                    gas_limit=PROTOCOL_ROOT_FACTORY_ACTIVATION_CALL_GAS,
+                    value=0,
+                ) != b"RAA1" + bytes(28):
+                    raise ValueError("protocol-root activation receipt is invalid")
+                if artifact.protocol_root_activation_v1(
+                    PROTOCOL_ROOT_ACTIVATION_VIEW_SELECTOR,
+                    gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+                    value=0,
+                ) != b"".join((
+                    b"PRA1" + bytes(28), bytes(12) + self.address,
+                    key, _model_uint(1, 32, "active protocol root"),
+                )):
+                    raise ValueError("protocol-root activation poststate is invalid")
+                campaign.active_roles.add(role)
+                campaign.activation_trace.append(role)
+            campaign.root_receipt = receipt
+            campaign.state = 2
+            self.active_root_receipt = receipt
+            confirmation = executor.confirm_v1(
+                PROTOCOL_ROOT_EXECUTOR_CONFIRM_SELECTOR
+                + campaign.operation_id + key + receipt,
+                caller=self,
+                gas_limit=PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIRM_CALL_GAS,
+                value=0,
+            )
+            if confirmation != b"RAC1" + bytes(28):
+                raise ValueError("root-migration confirmation receipt is invalid")
         except Exception:
-            campaign.active_roles = set()
-            campaign.root_receipt = bytes(32)
-            campaign.state = 1
-            self.active_root_receipt = bytes(32)
+            for role, state in activation_states.items():
+                campaign.activation_artifacts[role].state = state
+            (campaign.state, campaign.active_roles,
+             campaign.activation_trace, campaign.root_receipt,
+             self.active_root_receipt, self.generation, self.live) = (
+                prior_campaign_state
+            )
+            executor.__dict__.clear()
+            executor.__dict__.update(copy.deepcopy(executor_state))
             raise
         self.generation += 1
         self.live = None
@@ -4671,6 +7677,7 @@ class RootMigrationExecutorModelV1:
     address: bytes
     settlement_chain_id: int
     dao_proposer: bytes
+    runtime_hash: bytes
     next_operation_nonce: int = 1
     authority_state: int = 0
     candidate_factory: bytes = bytes(20)
@@ -4683,6 +7690,79 @@ class RootMigrationExecutorModelV1:
     operations: dict[bytes, RootMigrationOperationModelV1] = field(
         default_factory=dict
     )
+    confirm_fault_point: str | None = None
+    confirm_return_override: bytes | None = None
+    config_return_override: bytes | None = None
+    component_config_override: bytes | None = None
+    authority_return_override: bytes | None = None
+    confirm_factory_runtime_override: bytes | None = None
+    runtime_override: bytes | None = None
+
+    def extcodehash(self) -> bytes:
+        if (type(self.runtime_hash) is not bytes
+                or len(self.runtime_hash) != 32
+                or self.runtime_hash == bytes(32)):
+            raise ValueError("root-migration Executor runtime is malformed")
+        return (self.runtime_hash if self.runtime_override is None
+                else self.runtime_override)
+
+    def root_migration_executor_config_v1(
+        self, calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        if (calldata != PROTOCOL_ROOT_EXECUTOR_CONFIG_SELECTOR
+                or gas_limit != PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIG_READ_GAS
+                or value != 0):
+            raise ValueError("root-migration RME1 call frame is inexact")
+        encoded = encode_root_migration_executor_config_return_v1(
+            self.settlement_chain_id, self.dao_proposer
+        )
+        return encoded if self.config_return_override is None \
+            else self.config_return_override
+
+    def component_config_hash_v2(
+        self, calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        if (calldata != COMPONENT_CONFIG_GETTER_SELECTOR
+                or gas_limit != PROTOCOL_ROOT_FACTORY_COMPONENT_CONFIG_READ_GAS
+                or value != 0):
+            raise ValueError("root-migration config-hash frame is inexact")
+        encoded = root_migration_executor_configuration_hash_v1(
+            self.settlement_chain_id, self.dao_proposer
+        )
+        return (encoded if self.component_config_override is None
+                else self.component_config_override)
+
+    def root_migration_authority_v1(
+        self, calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        if (calldata != PROTOCOL_ROOT_EXECUTOR_AUTHORITY_SELECTOR
+                or gas_limit != PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS
+                or value != 0 or self.authority_state not in {0, 1, 2}):
+            raise ValueError("root-migration RMA1 call frame is inexact")
+        if self.authority_state == 0:
+            fields = (bytes(32),) * 7
+        elif self.authority_state == 1:
+            fields = (
+                bytes(12) + self.candidate_factory,
+                self.candidate_operation_id, self.candidate_campaign_key,
+                bytes(32), bytes(32), bytes(32), bytes(32),
+            )
+        else:
+            fields = (
+                bytes(32), bytes(32), bytes(32),
+                bytes(12) + self.active_factory,
+                self.active_operation_id, self.active_campaign_key,
+                self.active_root_receipt,
+            )
+        encoded = b"".join((
+            b"RMA1" + bytes(28),
+            _model_uint(self.authority_state, 32, "root authority state"),
+            *fields,
+        ))
+        if len(encoded) != 288:
+            raise AssertionError("RMA1 must be exactly 288 bytes")
+        return encoded if self.authority_return_override is None \
+            else self.authority_return_override
 
     def operation_id_v1(
         self, nonce: int, factory: bytes, manifest_hash: bytes,
@@ -4761,55 +7841,204 @@ class RootMigrationExecutorModelV1:
                 ) != operation_id
                 or not operation.execute_after <= now <= operation.execute_before):
             raise ValueError("root-migration operation cannot execute")
+        expected_factory_hash = protocol_root_factory_configuration_hash_v1(
+            factory.settlement_chain_id, factory.manifest_namespace,
+            factory.delayed_executor, factory.executor_runtime_hash,
+            factory.executor_configuration_hash,
+            factory.proxy_creation_code_hash, factory.proxy_runtime_hash,
+            factory.source_factory_compiler_artifacts.artifact_root,
+        )
+        expected_factory_config = b"".join((
+            b"PRF1" + bytes(28),
+            _model_uint(factory.settlement_chain_id, 32, "PRF1 chain"),
+            factory.manifest_namespace, bytes(12) + factory.delayed_executor,
+            factory.executor_runtime_hash, factory.executor_configuration_hash,
+            factory.proxy_creation_code_hash, factory.proxy_runtime_hash,
+            factory.source_factory_compiler_artifacts.artifact_root,
+            PROTOCOL_ROOT_ENSURE_SOURCE_INFRASTRUCTURE_SELECTOR + bytes(28),
+            PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_VIEW_SELECTOR + bytes(28),
+            *(_model_uint(value, 32, "PRF1 constant") for value in (
+                PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS,
+                PROTOCOL_ROOT_FACTORY_DEPLOYMENT_POSTCHECK_RESERVE_GAS,
+                PROTOCOL_ROOT_FIRST_MANAGED_RUNWAY_WINDOWS,
+                PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIG_READ_GAS,
+                PROTOCOL_ROOT_FACTORY_COMPONENT_CONFIG_READ_GAS,
+                PROTOCOL_ROOT_FACTORY_ACTIVATION_CALL_GAS,
+                PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+                PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIRM_CALL_GAS,
+                PROTOCOL_ROOT_SOURCE_TERMINAL_DEPLOYMENT_GAS,
+                PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_POSTCHECK_GAS,
+                PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_CALL_OVERHEAD_GAS,
+            )),
+            expected_factory_hash,
+        ))
+        if (factory.extcodehash() != operation.factory_runtime_hash
+                or expected_factory_hash
+                    != operation.factory_configuration_hash
+                or factory.protocol_root_factory_config_v1(
+                    PROTOCOL_ROOT_FACTORY_CONFIG_SELECTOR,
+                    gas_limit=ROOT_MIGRATION_FACTORY_CONFIG_READ_GAS,
+                    value=0,
+                ) != expected_factory_config
+                or factory.component_config_hash_v2(
+                    COMPONENT_CONFIG_GETTER_SELECTOR,
+                    gas_limit=ROOT_MIGRATION_COMPONENT_CONFIG_READ_GAS,
+                    value=0,
+                ) != operation.factory_configuration_hash):
+            raise ValueError("root-migration Factory observation is invalid")
+        executor_snapshot = copy.deepcopy(self.__dict__)
+        factory_snapshot = copy.deepcopy(factory.__dict__)
         self.authority_state = 1
         self.candidate_factory = factory.address
         self.candidate_operation_id = operation_id
         self.candidate_campaign_key = manifest.campaign_key(factory.address)
         operation.state = 2
         try:
+            encoded_manifest = manifest.encode()
+            stage_calldata = b"".join((
+                PROTOCOL_ROOT_STAGE_SELECTOR, operation_id,
+                _model_uint(64, 32, "stage manifest offset"),
+                _model_uint(
+                    len(encoded_manifest), 32, "stage manifest length"
+                ),
+                encoded_manifest, bytes(23),
+            ))
             receipt = factory.stage_v1(
-                operation_id, manifest, now, authorized=True
+                stage_calldata, now, caller=self,
+                gas_limit=ROOT_MIGRATION_FACTORY_STAGE_CALL_GAS, value=0,
             )
-            expected = (
-                operation_id, self.candidate_campaign_key,
-                operation.manifest_hash, manifest.generation,
-                now + PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS,
-            )
+            expires_at = now + PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS
+            expected = b"".join((
+                b"STG1" + bytes(28), operation_id,
+                self.candidate_campaign_key, operation.manifest_hash,
+                _model_uint(manifest.generation, 32, "staged generation"),
+                _model_uint(expires_at, 32, "staged expiry"),
+            ))
+            expected_campaign = b"".join((
+                b"PRC1" + bytes(28), operation_id,
+                self.candidate_campaign_key, operation.manifest_hash,
+                _model_uint(1, 32, "staged campaign state"),
+                _model_uint(manifest.generation, 32, "staged generation"),
+                _model_uint(expires_at, 32, "staged expiry"),
+                bytes(32), bytes(32),
+            ))
             campaign = factory.live
-            if (receipt != expected or campaign is None
+            observed_campaign = factory.protocol_root_campaign_v1(
+                PROTOCOL_ROOT_CAMPAIGN_SELECTOR
+                + self.candidate_campaign_key,
+                gas_limit=ROOT_MIGRATION_FACTORY_CONFIG_READ_GAS, value=0,
+            )
+            if (receipt != expected or observed_campaign != expected_campaign
+                    or campaign is None
                     or campaign.operation_id != operation_id
-                    or campaign.key != expected[1]
+                    or campaign.key != self.candidate_campaign_key
                     or campaign.manifest_hash != operation.manifest_hash
                     or campaign.state != 1
-                    or campaign.expires_at != expected[4]):
+                    or campaign.expires_at != expires_at):
                 raise ValueError("root-migration stage receipt is invalid")
         except Exception:
-            operation.state = 1
-            self.authority_state = 0
-            self.candidate_factory = bytes(20)
-            self.candidate_operation_id = bytes(32)
-            self.candidate_campaign_key = bytes(32)
+            self.__dict__.clear()
+            self.__dict__.update(copy.deepcopy(executor_snapshot))
+            factory.__dict__.clear()
+            factory.__dict__.update(copy.deepcopy(factory_snapshot))
             raise
         operation.staged_generation = manifest.generation
-        operation.staged_expires_at = expected[4]
+        operation.staged_expires_at = expires_at
         operation.state = 3
-        return expected[1]
+        return self.candidate_campaign_key
 
     def confirm_v1(
-        self, operation_id: bytes, factory: ProtocolRootFactoryModelV1,
-        campaign_key: bytes, root_receipt: bytes,
-    ) -> None:
+        self, calldata: bytes, *, caller: ProtocolRootFactoryModelV1,
+        gas_limit: int, value: int,
+    ) -> bytes:
+        if (type(calldata) is not bytes or len(calldata) != 100
+                or calldata[:4] != PROTOCOL_ROOT_EXECUTOR_CONFIRM_SELECTOR
+                or type(caller) is not ProtocolRootFactoryModelV1
+                or gas_limit != PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIRM_CALL_GAS
+                or value != 0):
+            raise ValueError("root-migration confirmation frame is inexact")
+        operation_id = calldata[4:36]
+        campaign_key = calldata[36:68]
+        root_receipt = calldata[68:100]
+        factory = caller
         operation = self.operations.get(operation_id)
         campaign = factory.history.get(campaign_key)
+        if campaign is None:
+            raise ValueError("root-migration campaign is unavailable")
+        expected_factory_hash = protocol_root_factory_configuration_hash_v1(
+            factory.settlement_chain_id, factory.manifest_namespace,
+            factory.delayed_executor, factory.executor_runtime_hash,
+            factory.executor_configuration_hash,
+            factory.proxy_creation_code_hash, factory.proxy_runtime_hash,
+            factory.source_factory_compiler_artifacts.artifact_root,
+        )
+        expected_factory_config = b"".join((
+            b"PRF1" + bytes(28),
+            _model_uint(factory.settlement_chain_id, 32, "PRF1 chain"),
+            factory.manifest_namespace, bytes(12) + factory.delayed_executor,
+            factory.executor_runtime_hash, factory.executor_configuration_hash,
+            factory.proxy_creation_code_hash, factory.proxy_runtime_hash,
+            factory.source_factory_compiler_artifacts.artifact_root,
+            PROTOCOL_ROOT_ENSURE_SOURCE_INFRASTRUCTURE_SELECTOR + bytes(28),
+            PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_VIEW_SELECTOR + bytes(28),
+            *(_model_uint(field_value, 32, "PRF1 constant")
+              for field_value in (
+                  PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS,
+                  PROTOCOL_ROOT_FACTORY_DEPLOYMENT_POSTCHECK_RESERVE_GAS,
+                  PROTOCOL_ROOT_FIRST_MANAGED_RUNWAY_WINDOWS,
+                  PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIG_READ_GAS,
+                  PROTOCOL_ROOT_FACTORY_COMPONENT_CONFIG_READ_GAS,
+                  PROTOCOL_ROOT_FACTORY_ACTIVATION_CALL_GAS,
+                  PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+                  PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIRM_CALL_GAS,
+                  PROTOCOL_ROOT_SOURCE_TERMINAL_DEPLOYMENT_GAS,
+                  PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_POSTCHECK_GAS,
+                  PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_CALL_OVERHEAD_GAS,
+              )),
+            expected_factory_hash,
+        ))
+        observed_factory_config = factory.protocol_root_factory_config_v1(
+            PROTOCOL_ROOT_FACTORY_CONFIG_SELECTOR,
+            gas_limit=ROOT_MIGRATION_FACTORY_CONFIG_READ_GAS, value=0,
+        )
+        expected_campaign = b"".join((
+            b"PRC1" + bytes(28), operation_id, campaign_key,
+            campaign.manifest_hash,
+            _model_uint(2, 32, "active campaign state"),
+            _model_uint(
+                campaign.manifest.generation, 32, "active generation"
+            ),
+            _model_uint(campaign.expires_at, 32, "active expiry"),
+            _model_uint(
+                (1 << PROTOCOL_ROOT_ROLE_COUNT) - 1, 32,
+                "active deployment bitmap",
+            ),
+            root_receipt,
+        ))
+        observed_campaign = factory.protocol_root_campaign_v1(
+            PROTOCOL_ROOT_CAMPAIGN_SELECTOR + campaign_key,
+            gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, value=0,
+        )
         if (self.authority_state != 1 or operation is None
                 or operation.state != 3
                 or self.candidate_factory != factory.address
                 or self.candidate_operation_id != operation_id
                 or self.candidate_campaign_key != campaign_key
-                or operation.factory_runtime_hash != factory.runtime_hash
-                or operation.factory_configuration_hash
-                != factory.configuration_hash
-                or campaign is None or campaign.operation_id != operation_id
+                or factory.address != operation.factory
+                or (factory.extcodehash()
+                    if self.confirm_factory_runtime_override is None
+                    else self.confirm_factory_runtime_override)
+                    != operation.factory_runtime_hash
+                or expected_factory_hash
+                    != operation.factory_configuration_hash
+                or observed_factory_config != expected_factory_config
+                or factory.component_config_hash_v2(
+                    COMPONENT_CONFIG_GETTER_SELECTOR,
+                    gas_limit=ROOT_MIGRATION_COMPONENT_CONFIG_READ_GAS,
+                    value=0,
+                ) != operation.factory_configuration_hash
+                or observed_campaign != expected_campaign
+                or campaign.operation_id != operation_id
                 or campaign.state != 2 or campaign.root_receipt != root_receipt
                 or operation.staged_generation != campaign.manifest.generation
                 or operation.staged_expires_at != campaign.expires_at
@@ -4817,6 +8046,8 @@ class RootMigrationExecutorModelV1:
                 != (1 << PROTOCOL_ROOT_ROLE_COUNT) - 1
                 or root_receipt == bytes(32)):
             raise ValueError("root-migration activation cannot confirm")
+        if self.confirm_fault_point == "before_write":
+            raise RuntimeError("injected pre-write root confirmation fault")
         operation.state = 4
         self.authority_state = 2
         self.active_factory = factory.address
@@ -4826,22 +8057,101 @@ class RootMigrationExecutorModelV1:
         self.candidate_factory = bytes(20)
         self.candidate_operation_id = bytes(32)
         self.candidate_campaign_key = bytes(32)
+        if self.confirm_fault_point == "after_write":
+            raise RuntimeError("injected post-write root confirmation fault")
+        encoded = b"RAC1" + bytes(28)
+        return (encoded if self.confirm_return_override is None
+                else self.confirm_return_override)
 
     def clear_aborted_v1(
-        self, operation_id: bytes, factory: ProtocolRootFactoryModelV1,
-        campaign_key: bytes,
+        self, calldata: bytes, factory: ProtocolRootFactoryModelV1, *,
+        value: int,
     ) -> None:
+        if (type(calldata) is not bytes or len(calldata) != 68
+                or calldata[:4]
+                    != PROTOCOL_ROOT_EXECUTOR_CLEAR_ABORTED_SELECTOR
+                or type(factory) is not ProtocolRootFactoryModelV1
+                or value != 0):
+            raise ValueError("root-migration clear-aborted frame is inexact")
+        operation_id = calldata[4:36]
+        campaign_key = calldata[36:68]
         operation = self.operations.get(operation_id)
         campaign = factory.history.get(campaign_key)
+        if campaign is None:
+            raise ValueError("root-migration aborted campaign is unavailable")
+        expected_factory_hash = protocol_root_factory_configuration_hash_v1(
+            factory.settlement_chain_id, factory.manifest_namespace,
+            factory.delayed_executor, factory.executor_runtime_hash,
+            factory.executor_configuration_hash,
+            factory.proxy_creation_code_hash, factory.proxy_runtime_hash,
+            factory.source_factory_compiler_artifacts.artifact_root,
+        )
+        expected_factory_config = b"".join((
+            b"PRF1" + bytes(28),
+            _model_uint(factory.settlement_chain_id, 32, "PRF1 chain"),
+            factory.manifest_namespace, bytes(12) + factory.delayed_executor,
+            factory.executor_runtime_hash, factory.executor_configuration_hash,
+            factory.proxy_creation_code_hash, factory.proxy_runtime_hash,
+            factory.source_factory_compiler_artifacts.artifact_root,
+            PROTOCOL_ROOT_ENSURE_SOURCE_INFRASTRUCTURE_SELECTOR + bytes(28),
+            PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_VIEW_SELECTOR + bytes(28),
+            *(_model_uint(field_value, 32, "PRF1 constant")
+              for field_value in (
+                  PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS,
+                  PROTOCOL_ROOT_FACTORY_DEPLOYMENT_POSTCHECK_RESERVE_GAS,
+                  PROTOCOL_ROOT_FIRST_MANAGED_RUNWAY_WINDOWS,
+                  PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIG_READ_GAS,
+                  PROTOCOL_ROOT_FACTORY_COMPONENT_CONFIG_READ_GAS,
+                  PROTOCOL_ROOT_FACTORY_ACTIVATION_CALL_GAS,
+                  PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+                  PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIRM_CALL_GAS,
+                  PROTOCOL_ROOT_SOURCE_TERMINAL_DEPLOYMENT_GAS,
+                  PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_POSTCHECK_GAS,
+                  PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_CALL_OVERHEAD_GAS,
+              )),
+            expected_factory_hash,
+        ))
+        expected_campaign = b"".join((
+            b"PRC1" + bytes(28), operation_id, campaign_key,
+            campaign.manifest_hash,
+            _model_uint(3, 32, "aborted campaign state"),
+            _model_uint(
+                campaign.manifest.generation, 32, "aborted generation"
+            ),
+            _model_uint(campaign.expires_at, 32, "aborted expiry"),
+            _model_uint(
+                campaign.deployed_bitmap, 32, "aborted deployment bitmap"
+            ),
+            bytes(32),
+        ))
+        observed_factory_config = factory.protocol_root_factory_config_v1(
+            PROTOCOL_ROOT_FACTORY_CONFIG_SELECTOR,
+            gas_limit=ROOT_MIGRATION_FACTORY_CONFIG_READ_GAS, value=0,
+        )
+        observed_campaign = factory.protocol_root_campaign_v1(
+            PROTOCOL_ROOT_CAMPAIGN_SELECTOR + campaign_key,
+            gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, value=0,
+        )
         if (self.authority_state != 1 or operation is None
                 or operation.state != 3
+                or factory.address != operation.factory
+                or factory.extcodehash() != operation.factory_runtime_hash
+                or expected_factory_hash
+                    != operation.factory_configuration_hash
+                or observed_factory_config != expected_factory_config
+                or factory.component_config_hash_v2(
+                    COMPONENT_CONFIG_GETTER_SELECTOR,
+                    gas_limit=ROOT_MIGRATION_COMPONENT_CONFIG_READ_GAS,
+                    value=0,
+                ) != operation.factory_configuration_hash
+                or observed_campaign != expected_campaign
                 or self.candidate_factory != factory.address
                 or self.candidate_operation_id != operation_id
                 or self.candidate_campaign_key != campaign_key
                 or operation.factory_runtime_hash != factory.runtime_hash
                 or operation.factory_configuration_hash
                 != factory.configuration_hash
-                or campaign is None or campaign.operation_id != operation_id
+                or campaign.operation_id != operation_id
                 or campaign.state != 3
                 or operation.staged_generation != campaign.manifest.generation
                 or operation.staged_expires_at != campaign.expires_at
@@ -5816,6 +9126,7 @@ class RegistryLifecycle:
     tranche_ring_windows: dict[tuple[int, int], int] = field(
         default_factory=dict)
     credits: dict[str, int] = field(default_factory=dict)
+    total_credit_liability: int = field(default=0, init=False)
     base_bond_escrow: int = 0
     tranche_escrow: int = 0
     token_balance: int = 0
@@ -5824,6 +9135,12 @@ class RegistryLifecycle:
     next_exit_sequence: int = 0
     exit_head_sequence: int = 0
     next_registration_index: int | None = None
+    generation_locations: dict[int, tuple[str, int]] = field(
+        default_factory=dict, init=False)
+    live_registration_index_plus_one: dict[str, int] = field(
+        default_factory=dict, init=False)
+    lifecycle_fault_point: str | None = field(
+        default=None, compare=False, repr=False)
 
     def __post_init__(self) -> None:
         derived_last_managed_window = derive_last_managed_schedule_window(
@@ -5849,27 +9166,45 @@ class RegistryLifecycle:
             raise ValueError("malformed BuilderRegistry geometry")
         seen_addresses: set[str] = set()
         seen_registrations: set[int] = set()
-        for generation in self.active:
+        generation_locations: dict[int, tuple[str, int]] = {}
+        live_registration_index_plus_one: dict[str, int] = {}
+        for index, generation in enumerate(self.active):
             if generation is None:
                 continue
             if (generation.address in seen_addresses
                     or generation.registration_index in seen_registrations
+                    or not 0 <= generation.registration_index <= UINT64_MAX
                     or not self.lease_per_window_atomic
                     <= generation.bond <= self.maximum_bond_atomic):
                 raise ValueError("duplicate or malformed active generation")
             seen_addresses.add(generation.address)
             seen_registrations.add(generation.registration_index)
-        for occupant in self.liability_ring:
+            generation_locations[generation.registration_index] = (
+                "ACTIVE", index
+            )
+            live_registration_index_plus_one[generation.address] = (
+                generation.registration_index + 1
+            )
+        for index, occupant in enumerate(self.liability_ring):
             if occupant is None:
                 continue
             generation = occupant[0]
             if (generation.address in seen_addresses
                     or generation.registration_index in seen_registrations
+                    or not 0 <= generation.registration_index <= UINT64_MAX
                     or not self.lease_per_window_atomic
                     <= generation.bond <= self.maximum_bond_atomic):
                 raise ValueError("duplicate or malformed liability generation")
             seen_addresses.add(generation.address)
             seen_registrations.add(generation.registration_index)
+            generation_locations[generation.registration_index] = (
+                "LIABILITY", index
+            )
+            # This is a uint256-style plus-one sentinel.  In particular,
+            # uint64.max is live as uint64.max+1 rather than wrapping to zero.
+            live_registration_index_plus_one[generation.address] = (
+                generation.registration_index + 1
+            )
         self.active.extend([None] * (64 - len(self.active)))
         derived_next_registration_index = (
             0 if not seen_registrations else max(seen_registrations) + 1
@@ -5877,9 +9212,13 @@ class RegistryLifecycle:
         if self.next_registration_index is None:
             self.next_registration_index = derived_next_registration_index
         elif (type(self.next_registration_index) is not int
-              or self.next_registration_index != derived_next_registration_index
-              or not 0 <= self.next_registration_index <= UINT64_MAX):
+              or self.next_registration_index < derived_next_registration_index
+              or not 0 <= self.next_registration_index <= UINT64_MAX + 1):
             raise ValueError("malformed next registration index")
+        self.generation_locations = generation_locations
+        self.live_registration_index_plus_one = (
+            live_registration_index_plus_one
+        )
         initial_base = sum(
             generation.bond for generation in self.active
             if generation is not None
@@ -5893,6 +9232,7 @@ class RegistryLifecycle:
         self.base_bond_escrow = initial_base
         self.token_balance = initial_base
         self.assert_custody_conservation()
+        self.audit_lifecycle_invariants()
 
     @property
     def active_count(self) -> int:
@@ -5903,20 +9243,98 @@ class RegistryLifecycle:
         return [item[0] for item in self.liability_ring if item is not None]
 
     @property
-    def total_credit_liability(self) -> int:
-        return sum(self.credits.values())
-
-    @property
     def accounted_builder_token(self) -> int:
         return (self.base_bond_escrow + self.tranche_escrow
                 + self.total_credit_liability)
 
     def assert_custody_conservation(self) -> None:
         if (min(self.base_bond_escrow, self.tranche_escrow,
-                self.token_balance) < 0
-                or any(amount < 0 for amount in self.credits.values())
+                self.token_balance, self.total_credit_liability) < 0
                 or self.accounted_builder_token > self.token_balance):
             raise AssertionError("builder-token custody is not conserved")
+
+    def audit_lifecycle_invariants(self) -> None:
+        """Expensive model-only recount; no production transition calls it."""
+
+        expected_locations: dict[int, tuple[str, int]] = {}
+        expected_live: dict[str, int] = {}
+        generations: dict[int, Generation] = {}
+        for index, generation in enumerate(self.active):
+            if generation is None:
+                continue
+            if (generation.registration_index in expected_locations
+                    or generation.address in expected_live):
+                raise AssertionError("active generation index is duplicated")
+            expected_locations[generation.registration_index] = (
+                "ACTIVE", index
+            )
+            expected_live[generation.address] = (
+                generation.registration_index + 1
+            )
+            generations[generation.registration_index] = generation
+        for index, occupant in enumerate(self.liability_ring):
+            if occupant is None:
+                continue
+            generation = occupant[0]
+            if (generation.registration_index in expected_locations
+                    or generation.address in expected_live):
+                raise AssertionError("liability generation index is duplicated")
+            expected_locations[generation.registration_index] = (
+                "LIABILITY", index
+            )
+            expected_live[generation.address] = (
+                generation.registration_index + 1
+            )
+            generations[generation.registration_index] = generation
+        if (self.generation_locations != expected_locations
+                or self.live_registration_index_plus_one != expected_live):
+            raise AssertionError("generation reverse index is inconsistent")
+        live_tranche_counts = {registration_index: 0
+                               for registration_index in generations}
+        expected_open: set[tuple[int, int]] = set()
+        expected_liable: set[tuple[int, int]] = set()
+        for key, tranche in self.tranches.items():
+            registration_index, window = key
+            if tranche.state is TrancheState.RESERVED:
+                expected_open.add(key)
+                live_tranche_counts[registration_index] = (
+                    live_tranche_counts.get(registration_index, 0) + 1
+                )
+            elif tranche.state is TrancheState.LIABLE:
+                expected_liable.add(key)
+                live_tranche_counts[registration_index] = (
+                    live_tranche_counts.get(registration_index, 0) + 1
+                )
+            if tranche.window != window:
+                raise AssertionError("tranche key/window is inconsistent")
+        if (self.open_reservations != expected_open
+                or self.liable_reservations != expected_liable):
+            raise AssertionError("reservation state index is inconsistent")
+        for registration_index, generation in generations.items():
+            if (generation.unreleased_tranche_count
+                    != live_tranche_counts.get(registration_index, 0)):
+                raise AssertionError("unreleased tranche counter is inconsistent")
+            if generation.reservation_bitmap >> (
+                    MAX_TRANCHE_AHEAD_WINDOWS + 1):
+                raise AssertionError("reservation bitmap exceeds 17 bits")
+            expected_bitmap = 0
+            if expected_locations[registration_index][0] == "ACTIVE":
+                for key in expected_open:
+                    if key[0] != registration_index:
+                        continue
+                    offset = key[1] - generation.reservation_base_window
+                    if not 0 <= offset <= MAX_TRANCHE_AHEAD_WINDOWS:
+                        raise AssertionError(
+                            "open reservation escaped generation bitmap"
+                        )
+                    expected_bitmap |= 1 << offset
+            if generation.reservation_bitmap != expected_bitmap:
+                raise AssertionError("reservation bitmap is inconsistent")
+        if (any(type(amount) is not int or amount < 0
+                for amount in self.credits.values())
+                or sum(self.credits.values()) != self.total_credit_liability):
+            raise AssertionError("builder pull-credit total is inconsistent")
+        self.assert_custody_conservation()
 
     def moves_used(self, current_window: int) -> int:
         return self.replacements.get(current_window, 0)
@@ -5964,30 +9382,86 @@ class RegistryLifecycle:
 
     def _active_index(self, *, address: str | None = None,
                       registration_index: int | None = None) -> int | None:
-        for index, generation in enumerate(self.active):
-            if generation is None:
-                continue
-            if ((address is None or generation.address == address)
-                    and (registration_index is None
-                         or generation.registration_index
-                         == registration_index)):
-                return index
-        return None
+        if address is None and registration_index is None:
+            raise ValueError("active generation lookup has no key")
+        if address is not None:
+            plus_one = self.live_registration_index_plus_one.get(address, 0)
+            if plus_one == 0:
+                return None
+            indexed_registration = plus_one - 1
+            if (not 0 <= indexed_registration <= UINT64_MAX
+                    or (registration_index is not None
+                        and registration_index != indexed_registration)):
+                raise AssertionError("live builder reverse index is malformed")
+            registration_index = indexed_registration
+        assert registration_index is not None
+        location = self._generation_location(registration_index)
+        if location is None or location[0] != "ACTIVE":
+            return None
+        if address is not None and location[2].address != address:
+            raise AssertionError("live builder reverse index selects another builder")
+        return location[1]
 
     def _generation_location(
         self, registration_index: int,
     ) -> tuple[str, int, Generation] | None:
-        active_index = self._active_index(
-            registration_index=registration_index)
-        if active_index is not None:
-            generation = self.active[active_index]
-            assert generation is not None
-            return "ACTIVE", active_index, generation
-        for index, occupant in enumerate(self.liability_ring):
-            if (occupant is not None
-                    and occupant[0].registration_index == registration_index):
-                return "LIABILITY", index, occupant[0]
-        return None
+        locator = self.generation_locations.get(registration_index)
+        if locator is None:
+            return None
+        if type(locator) is not tuple or len(locator) != 2:
+            raise AssertionError("generation locator is malformed")
+        location, index = locator
+        if location == "ACTIVE" and 0 <= index < MAX_BUILDERS:
+            generation = self.active[index]
+        elif (location == "LIABILITY"
+              and 0 <= index < MAX_LIABILITY_GENERATIONS):
+            occupant = self.liability_ring[index]
+            generation = None if occupant is None else occupant[0]
+        else:
+            raise AssertionError("generation locator position is malformed")
+        if (generation is None
+                or generation.registration_index != registration_index
+                or self.live_registration_index_plus_one.get(
+                    generation.address, 0
+                ) != registration_index + 1):
+            raise AssertionError("generation locator does not match occupancy")
+        return location, index, generation
+
+    def _index_new_generation(
+        self, generation: Generation, location: str, index: int,
+    ) -> None:
+        if (generation.registration_index in self.generation_locations
+                or generation.address in self.live_registration_index_plus_one):
+            raise AssertionError("generation is already live")
+        self.generation_locations[generation.registration_index] = (
+            location, index
+        )
+        self.live_registration_index_plus_one[generation.address] = (
+            generation.registration_index + 1
+        )
+
+    def _move_generation_index(
+        self, generation: Generation, *, old: tuple[str, int],
+        new: tuple[str, int],
+    ) -> None:
+        if (self.generation_locations.get(generation.registration_index) != old
+                or self.live_registration_index_plus_one.get(
+                    generation.address, 0
+                ) != generation.registration_index + 1):
+            raise AssertionError("generation move index prestate is inconsistent")
+        self.generation_locations[generation.registration_index] = new
+
+    def _clear_generation_index(
+        self, generation: Generation, *, expected: tuple[str, int],
+    ) -> None:
+        if (self.generation_locations.get(generation.registration_index)
+                != expected
+                or self.live_registration_index_plus_one.get(
+                    generation.address, 0
+                ) != generation.registration_index + 1):
+            raise AssertionError("generation clear index prestate is inconsistent")
+        del self.generation_locations[generation.registration_index]
+        del self.live_registration_index_plus_one[generation.address]
 
     def _write_generation(self, location: str, index: int,
                           generation: Generation) -> None:
@@ -6003,6 +9477,7 @@ class RegistryLifecycle:
             raise ValueError("malformed builder-token credit")
         if amount:
             self.credits[beneficiary] = self.credits.get(beneficiary, 0) + amount
+            self.total_credit_liability += amount
 
     def claim_credit(self, owner: str, recipient: str, *, caller: str) -> int:
         if caller != owner or not recipient:
@@ -6010,7 +9485,8 @@ class RegistryLifecycle:
         amount = self.credits.get(owner, 0)
         if amount == 0:
             raise ValueError("builder-token credit is empty")
-        self.credits[owner] = 0
+        del self.credits[owner]
+        self.total_credit_liability -= amount
         self.token_balance -= amount
         self.assert_custody_conservation()
         return amount
@@ -6021,22 +9497,35 @@ class RegistryLifecycle:
         self.token_balance += amount
         self.assert_custody_conservation()
 
-    def _recompute_reservation_bitmap(self, active_index: int,
-                                      current_window: int) -> None:
-        generation = self.active[active_index]
-        assert generation is not None
-        bitmap = 0
-        for registration_index, window in self.open_reservations:
-            if registration_index != generation.registration_index:
-                continue
-            if not current_window <= window <= current_window + 16:
-                raise AssertionError("open reservation escaped 17-window horizon")
-            bitmap |= 1 << (window - current_window)
-        self.active[active_index] = replace(
-            generation,
-            reservation_base_window=current_window,
-            reservation_bitmap=bitmap,
+    @staticmethod
+    def _bitmap_offsets(bitmap: int) -> tuple[int, ...]:
+        if (type(bitmap) is not int or bitmap < 0
+                or bitmap >> (MAX_TRANCHE_AHEAD_WINDOWS + 1)):
+            raise AssertionError("reservation bitmap exceeds 17 bits")
+        offsets: list[int] = []
+        while bitmap:
+            lowest = bitmap & -bitmap
+            offsets.append(lowest.bit_length() - 1)
+            bitmap ^= lowest
+        return tuple(offsets)
+
+    def _reservation_keys_for_mask(
+        self, generation: Generation, mask: int,
+    ) -> tuple[tuple[int, int], ...]:
+        keys = tuple(
+            (generation.registration_index,
+             generation.reservation_base_window + offset)
+            for offset in self._bitmap_offsets(mask)
         )
+        for key in keys:
+            tranche = self.tranches.get(key)
+            if (key not in self.open_reservations
+                    or tranche is None
+                    or tranche.state is not TrancheState.RESERVED):
+                raise AssertionError(
+                    "reservation bitmap does not select a RESERVED tranche"
+                )
+        return keys
 
     def normalize_reservations(
         self,
@@ -6068,28 +9557,37 @@ class RegistryLifecycle:
                 return 0
             generation = location[2]
             closed = self._move_reservations_to_liability(
-                generation.registration_index
+                generation
             )
             self.active[location[1]] = replace(
                 generation,
                 reservation_bitmap=0,
             )
             return closed
-        expired = {
-            row for row in self.open_reservations
-            if row[0] == registration_index and row[1] < current_window
-        }
-        if len(expired) > MAX_TRANCHE_AHEAD_WINDOWS + 1:
-            raise AssertionError("normalization exceeded 17 tranche leaves")
-        self.open_reservations.difference_update(expired)
-        self.liable_reservations.update(expired)
-        for registration_index, window in expired:
-            key = (registration_index, window)
+        generation = location[2]
+        if current_window < generation.reservation_base_window:
+            raise AssertionError("reservation bitmap base moved backward")
+        shift = current_window - generation.reservation_base_window
+        expired_mask = (
+            generation.reservation_bitmap
+            if shift > MAX_TRANCHE_AHEAD_WINDOWS
+            else generation.reservation_bitmap & ((1 << shift) - 1)
+        )
+        expired = self._reservation_keys_for_mask(generation, expired_mask)
+        for key in expired:
+            self.open_reservations.remove(key)
+            self.liable_reservations.add(key)
             tranche = self.tranches.get(key)
-            if tranche is not None and tranche.state is TrancheState.RESERVED:
-                self.tranches[key] = replace(
-                    tranche, state=TrancheState.LIABLE)
-        self._recompute_reservation_bitmap(location[1], current_window)
+            assert tranche is not None
+            self.tranches[key] = replace(
+                tranche, state=TrancheState.LIABLE)
+        bitmap = (0 if shift > MAX_TRANCHE_AHEAD_WINDOWS
+                  else generation.reservation_bitmap >> shift)
+        self.active[location[1]] = replace(
+            generation,
+            reservation_base_window=current_window,
+            reservation_bitmap=bitmap,
+        )
         return len(expired)
 
     def reserve(self, address: str, window: int, current_window: int,
@@ -6121,6 +9619,11 @@ class RegistryLifecycle:
         key = (generation.registration_index, window)
         existing = self.tranches.get(key)
         if existing is not None and existing.state is TrancheState.RESERVED:
+            offset = window - generation.reservation_base_window
+            if (not 0 <= offset <= MAX_TRANCHE_AHEAD_WINDOWS
+                    or not generation.reservation_bitmap & (1 << offset)
+                    or key not in self.open_reservations):
+                raise AssertionError("idempotent reservation is not indexed")
             return True
         old_window = self.tranche_ring_windows.get(
             (generation.registration_index, window % 512))
@@ -6144,12 +9647,15 @@ class RegistryLifecycle:
         generation = replace(
             generation,
             max_reserved_window=max(generation.max_reserved_window, window),
+            reservation_bitmap=(
+                generation.reservation_bitmap
+                | (1 << (window - generation.reservation_base_window))
+            ),
             unreleased_tranche_count=generation.unreleased_tranche_count + 1,
             maximum_liable_until=max(
                 generation.maximum_liable_until, liable_until),
         )
         self.active[index] = generation
-        self._recompute_reservation_bitmap(index, current_window)
         assert len(self.open_reservations) <= MAX_LIVE_RESERVATIONS
         self.assert_custody_conservation()
         return True
@@ -6159,18 +9665,121 @@ class RegistryLifecycle:
         # reservations_closed bit remains reserved for exit/replacement.
         assert self.migration_gate.mode == "ARMED"
 
-    def _move_reservations_to_liability(self, registration_index: int) -> int:
-        moved = {row for row in self.open_reservations
-                 if row[0] == registration_index}
-        self.open_reservations.difference_update(moved)
-        self.liable_reservations.update(moved)
+    def _move_reservations_to_liability(self, generation: Generation) -> int:
+        moved = self._reservation_keys_for_mask(
+            generation, generation.reservation_bitmap
+        )
         for key in moved:
+            self.open_reservations.remove(key)
+            self.liable_reservations.add(key)
             tranche = self.tranches[key]
-            if tranche.state is not TrancheState.RESERVED:
-                raise AssertionError("open reservation is not RESERVED")
             self.tranches[key] = replace(
                 tranche, state=TrancheState.LIABLE)
         return len(moved)
+
+    @staticmethod
+    def _key_snapshot(mapping: dict, keys: tuple[object, ...]) -> dict:
+        return {
+            key: (key in mapping, copy.deepcopy(mapping.get(key)))
+            for key in keys
+        }
+
+    @staticmethod
+    def _restore_key_snapshot(mapping: dict, snapshot: dict) -> None:
+        for key, (present, value) in snapshot.items():
+            if present:
+                mapping[key] = value
+            else:
+                mapping.pop(key, None)
+
+    def _bounded_lifecycle_snapshot(
+        self, *, generations: tuple[Generation, ...] = (),
+        active_indices: tuple[int, ...] = (),
+        liability_indices: tuple[int, ...] = (),
+        reservation_keys: tuple[tuple[int, int], ...] = (),
+        credit_owners: tuple[str, ...] = (),
+        replacement_windows: tuple[int, ...] = (),
+    ) -> dict[str, object]:
+        """Capture only cells and reverse-index keys one transition can touch."""
+
+        registrations = tuple(dict.fromkeys(
+            generation.registration_index for generation in generations
+        ))
+        builders = tuple(dict.fromkeys(
+            generation.address for generation in generations
+        ))
+        exit_sequences = tuple(dict.fromkeys(
+            sequence
+            for registration_index in registrations
+            for sequence in (self.exit_by_registration.get(registration_index),)
+            if sequence is not None
+        ))
+        return {
+            "active": {index: self.active[index] for index in active_indices},
+            "liability": {
+                index: self.liability_ring[index] for index in liability_indices
+            },
+            "locations": self._key_snapshot(
+                self.generation_locations, registrations
+            ),
+            "live": self._key_snapshot(
+                self.live_registration_index_plus_one, builders
+            ),
+            "tranches": self._key_snapshot(self.tranches, reservation_keys),
+            "open": {key: key in self.open_reservations
+                     for key in reservation_keys},
+            "liable": {key: key in self.liable_reservations
+                       for key in reservation_keys},
+            "credits": self._key_snapshot(
+                self.credits, tuple(dict.fromkeys(credit_owners))
+            ),
+            "exit_requests": self._key_snapshot(
+                self.exit_requests, exit_sequences
+            ),
+            "replacements": self._key_snapshot(
+                self.replacements, replacement_windows
+            ),
+            "scalars": (
+                self.movement_sequence, self.base_bond_escrow,
+                self.tranche_escrow, self.token_balance,
+                self.total_credit_liability,
+            ),
+        }
+
+    def _restore_bounded_lifecycle_snapshot(
+        self, snapshot: dict[str, object],
+    ) -> None:
+        for index, generation in snapshot["active"].items():
+            self.active[index] = generation
+        for index, occupant in snapshot["liability"].items():
+            self.liability_ring[index] = occupant
+        self._restore_key_snapshot(
+            self.generation_locations, snapshot["locations"]
+        )
+        self._restore_key_snapshot(
+            self.live_registration_index_plus_one, snapshot["live"]
+        )
+        self._restore_key_snapshot(self.tranches, snapshot["tranches"])
+        for key, present in snapshot["open"].items():
+            if present:
+                self.open_reservations.add(key)
+            else:
+                self.open_reservations.discard(key)
+        for key, present in snapshot["liable"].items():
+            if present:
+                self.liable_reservations.add(key)
+            else:
+                self.liable_reservations.discard(key)
+        self._restore_key_snapshot(self.credits, snapshot["credits"])
+        self._restore_key_snapshot(
+            self.exit_requests, snapshot["exit_requests"]
+        )
+        self._restore_key_snapshot(
+            self.replacements, snapshot["replacements"]
+        )
+        (self.movement_sequence, self.base_bond_escrow,
+         self.tranche_escrow, self.token_balance,
+         self.total_credit_liability) = snapshot["scalars"]
 
     def release_liability(
         self,
@@ -6196,21 +9805,28 @@ class RegistryLifecycle:
         if occupant[1] > current_window and not terminal_release:
             return False
         registration_index = occupant[0].registration_index
-        if (occupant[0].unreleased_tranche_count != 0
-                or any(key[0] == registration_index
-                       and tranche.state in {
-                           TrancheState.RESERVED, TrancheState.LIABLE,
-                       }
-                       for key, tranche in self.tranches.items())):
+        if occupant[0].unreleased_tranche_count != 0:
             return False
-        self.base_bond_escrow -= occupant[0].bond
-        self._credit(occupant[0].address, occupant[0].bond)
-        self.liability_ring[ring_index] = None
-        self.liable_reservations = {
-            row for row in self.liable_reservations
-            if row[0] != registration_index}
-        self.assert_custody_conservation()
-        return True
+        generation = occupant[0]
+        snapshot = self._bounded_lifecycle_snapshot(
+            generations=(generation,), liability_indices=(ring_index,),
+            credit_owners=(generation.address,),
+        )
+        try:
+            self.base_bond_escrow -= generation.bond
+            self._credit(generation.address, generation.bond)
+            self.liability_ring[ring_index] = None
+            self._clear_generation_index(
+                generation, expected=("LIABILITY", ring_index)
+            )
+            if self.lifecycle_fault_point == "after_generation_clear_index":
+                raise RuntimeError("injected generation clear-index fault")
+            self._mark_exit_resolved(registration_index)
+            self.assert_custody_conservation()
+            return True
+        except BaseException:
+            self._restore_bounded_lifecycle_snapshot(snapshot)
+            raise
 
     def _mark_exit_resolved(self, registration_index: int) -> None:
         sequence = self.exit_by_registration.get(registration_index)
@@ -6230,29 +9846,70 @@ class RegistryLifecycle:
         if victim is None:
             return False
         ring_index = self.movement_sequence % MAX_LIABILITY_GENERATIONS
-        if (self.liability_ring[ring_index] is not None
-                and not self.release_liability(ring_index, current_window)):
-            return False
-        self._move_reservations_to_liability(victim.registration_index)
-        retained = replace(
-            victim,
-            reservations_closed=True,
-            reservation_base_window=current_window,
-            reservation_bitmap=0,
+        prior_occupant = self.liability_ring[ring_index]
+        prior_generation = (
+            None if prior_occupant is None else prior_occupant[0]
         )
-        release_window = (
-            victim.max_reserved_window + 1
-            + (
-                self.evidence_delay_seconds + self.reorg_margin_seconds
-                + SCHEDULE_WINDOW_SLOTS - 1
-            ) // SCHEDULE_WINDOW_SLOTS + 2
+        generations = tuple(
+            generation for generation in (
+                victim, replacement, prior_generation
+            ) if generation is not None
         )
-        self.liability_ring[ring_index] = (retained, release_window)
-        self.active[active_index] = replacement
-        self.movement_sequence += 1
-        self.replacements[current_window] = self.moves_used(current_window) + 1
-        self._mark_exit_resolved(victim.registration_index)
-        return True
+        reservation_keys = self._reservation_keys_for_mask(
+            victim, victim.reservation_bitmap
+        )
+        snapshot = self._bounded_lifecycle_snapshot(
+            generations=generations,
+            active_indices=(active_index,),
+            liability_indices=(ring_index,),
+            reservation_keys=reservation_keys,
+            credit_owners=(
+                () if prior_generation is None
+                else (prior_generation.address,)
+            ),
+            replacement_windows=(current_window,),
+        )
+        try:
+            if (prior_occupant is not None
+                    and not self.release_liability(
+                        ring_index, current_window
+                    )):
+                return False
+            self._move_reservations_to_liability(victim)
+            retained = replace(
+                victim,
+                reservations_closed=True,
+                reservation_base_window=current_window,
+                reservation_bitmap=0,
+            )
+            release_window = (
+                victim.max_reserved_window + 1
+                + (
+                    self.evidence_delay_seconds + self.reorg_margin_seconds
+                    + SCHEDULE_WINDOW_SLOTS - 1
+                ) // SCHEDULE_WINDOW_SLOTS + 2
+            )
+            self.liability_ring[ring_index] = (retained, release_window)
+            self.active[active_index] = replacement
+            self._move_generation_index(
+                victim, old=("ACTIVE", active_index),
+                new=("LIABILITY", ring_index),
+            )
+            if replacement is not None:
+                self._index_new_generation(
+                    replacement, "ACTIVE", active_index
+                )
+            if self.lifecycle_fault_point == "after_generation_move_index":
+                raise RuntimeError("injected generation move-index fault")
+            self.movement_sequence += 1
+            self.replacements[current_window] = (
+                self.moves_used(current_window) + 1
+            )
+            self._mark_exit_resolved(victim.registration_index)
+            return True
+        except BaseException:
+            self._restore_bounded_lifecycle_snapshot(snapshot)
+            raise
 
     def _mature_live_exit_pending(
         self, current_window: int, max_inspections: int = 64,
@@ -6287,12 +9944,10 @@ class RegistryLifecycle:
         if (caller != entry.address or entry.address == ""
                 or not self.lease_per_window_atomic <= entry.bond
                 <= self.maximum_bond_atomic
-                or self.next_registration_index >= UINT64_MAX
+                or self.next_registration_index > UINT64_MAX
                 or entry.registration_index != self.next_registration_index
                 or not 0 <= current_l2_slot <= UINT64_MAX
-                or any(g is not None and g.address == entry.address
-                       for g in self.active)
-                or any(g.address == entry.address for g in self.liabilities)):
+                or entry.address in self.live_registration_index_plus_one):
             return False
         effective_l2_slot = current_l2_slot + ENTRY_DELAY_WINDOWS * 384
         if (effective_l2_slot > UINT64_MAX
@@ -6317,6 +9972,7 @@ class RegistryLifecycle:
              if generation is None), None)
         if vacant_index is not None:
             self.active[vacant_index] = entry
+            self._index_new_generation(entry, "ACTIVE", vacant_index)
             self.base_bond_escrow += entry.bond
             self.token_balance += entry.bond
             self.next_registration_index += 1
@@ -6455,29 +10111,27 @@ class RegistryLifecycle:
         generation = self.active[active_index]
         if (generation is None
                 or generation.unreleased_tranche_count != 0
-                or now <= generation.maximum_liable_until
-                or any(
-                    key[0] == generation.registration_index
-                    and tranche.state in {
-                        TrancheState.RESERVED, TrancheState.LIABLE,
-                    }
-                    for key, tranche in self.tranches.items()
-                )):
+                or now <= generation.maximum_liable_until):
             return False
-        self.base_bond_escrow -= generation.bond
-        self._credit(generation.address, generation.bond)
-        self.active[active_index] = None
-        self.open_reservations = {
-            row for row in self.open_reservations
-            if row[0] != generation.registration_index
-        }
-        self.liable_reservations = {
-            row for row in self.liable_reservations
-            if row[0] != generation.registration_index
-        }
-        self._mark_exit_resolved(generation.registration_index)
-        self.assert_custody_conservation()
-        return True
+        snapshot = self._bounded_lifecycle_snapshot(
+            generations=(generation,), active_indices=(active_index,),
+            credit_owners=(generation.address,),
+        )
+        try:
+            self.base_bond_escrow -= generation.bond
+            self._credit(generation.address, generation.bond)
+            self.active[active_index] = None
+            self._clear_generation_index(
+                generation, expected=("ACTIVE", active_index)
+            )
+            if self.lifecycle_fault_point == "after_generation_clear_index":
+                raise RuntimeError("injected generation clear-index fault")
+            self._mark_exit_resolved(generation.registration_index)
+            self.assert_custody_conservation()
+            return True
+        except BaseException:
+            self._restore_bounded_lifecycle_snapshot(snapshot)
+            raise
 
     def slash_tranche(
         self,
@@ -6498,6 +10152,18 @@ class RegistryLifecycle:
                 or now > tranche.liable_until
                 or reporter_cap_atomic < 0):
             return False
+        if location[2].unreleased_tranche_count <= 0:
+            raise AssertionError("slash would underflow unreleased tranche count")
+        reservation_bitmap = location[2].reservation_bitmap
+        offset = window - location[2].reservation_base_window
+        if location[0] == "ACTIVE" and tranche.state is TrancheState.RESERVED:
+            if (not 0 <= offset <= MAX_TRANCHE_AHEAD_WINDOWS
+                    or not reservation_bitmap & (1 << offset)
+                    or (registration_index, window)
+                        not in self.open_reservations):
+                raise AssertionError("slash reservation bitmap is inconsistent")
+        elif (location[0] == "LIABILITY" and reservation_bitmap != 0):
+            raise AssertionError("liability generation retains reservation bits")
         reward = min(reporter_cap_atomic, tranche.amount)
         penalty = tranche.amount - reward
         self.tranche_escrow -= tranche.amount
@@ -6507,8 +10173,6 @@ class RegistryLifecycle:
             tranche, state=TrancheState.SLASHED, amount=0)
         self.open_reservations.discard((registration_index, window))
         self.liable_reservations.discard((registration_index, window))
-        reservation_bitmap = location[2].reservation_bitmap
-        offset = window - location[2].reservation_base_window
         if location[0] == "ACTIVE" and 0 <= offset <= 16:
             reservation_bitmap &= ~(1 << offset)
         generation = replace(
@@ -6541,6 +10205,8 @@ class RegistryLifecycle:
                 or not self._schedule_cursor_matches(schedule_cursor)
                 or not schedule_cursor.is_expired(window)):
             return False
+        if location[2].unreleased_tranche_count <= 0:
+            raise AssertionError("release would underflow unreleased tranche count")
         self.tranche_escrow -= tranche.amount
         self._credit(location[2].address, tranche.amount)
         self.tranches[(registration_index, window)] = replace(
@@ -12766,6 +16432,13 @@ class BridgeDomainRegistry:
     address: str = "bridge-domain-registry"
     runtime_hash: str = BRIDGE_DOMAIN_REGISTRY_RUNTIME_HASH
     configuration_hash: str = ""
+    router_address: str = field(default="", init=False)
+    router_runtime_hash: str = field(default="", init=False)
+    router_configuration_hash: str = field(default="", init=False)
+    queue_address: str = field(default="", init=False)
+    queue_runtime_hash: str = field(default="", init=False)
+    queue_configuration_hash: str = field(default="", init=False)
+    manager_address: str = field(default="", init=False)
     active_bridge_route_return_override: bytes | None = field(
         default=None, compare=False, repr=False
     )
@@ -12834,12 +16507,28 @@ class BridgeDomainRegistry:
                     not in {"", expected}):
             raise ValueError("Bridge support registry authority graph is invalid")
         object.__setattr__(self, "configuration_hash", expected)
+        object.__setattr__(self, "router_address", self.router.address)
+        object.__setattr__(self, "router_runtime_hash", self.router.runtime_hash)
+        object.__setattr__(
+            self, "router_configuration_hash", self.router.configuration_hash
+        )
+        object.__setattr__(self, "queue_address", self.router.forced_queue.address)
+        object.__setattr__(
+            self, "queue_runtime_hash", self.router.forced_queue.runtime_hash
+        )
+        object.__setattr__(
+            self, "queue_configuration_hash", self.router.forced_queue.config_hash
+        )
+        object.__setattr__(self, "manager_address", self.manager.address)
 
     def __setattr__(self, name: str, value: object) -> None:
         if name in {
             "router", "manager", "release_authority_descriptor",
             "registration_mpt_verifier", "address", "runtime_hash",
-            "configuration_hash",
+            "configuration_hash", "router_address", "router_runtime_hash",
+            "router_configuration_hash", "queue_address",
+            "queue_runtime_hash", "queue_configuration_hash",
+            "manager_address",
         } and name in self.__dict__:
             raise AttributeError(f"Bridge support registry {name} is immutable")
         object.__setattr__(self, name, value)
@@ -13045,6 +16734,9 @@ class BridgeDomainRegistry:
                 gas=BRIDGE_ROUTE_EXPANSION_READ_GAS,
             )
             brx = decode_bridge_route_expansion_v1(brx_raw)
+            if type(manager) not in {
+                    ProtocolVersionManager, ProtocolVersionManagerV1}:
+                return False
             pir_raw = manager.staticcall_profile_ingress_root_v2(
                 PROFILE_INGRESS_ROOT_SELECTOR
                 + _model_uint(version, 32, "route PIR2 version"),
@@ -13076,89 +16768,81 @@ class BridgeDomainRegistry:
                     entry, rtr, brx, pir_raw, pim_raw, pia_raw, bip, bip_raw,
                     rtr_raw, brx_raw):
                 return False
-            descriptor = brx.source_descriptor_words
-            factory = router._source_bridge_factories_by_address.get(
-                "0x" + descriptor[0][12:].hex())
-            deployment = router._profile_deployments_by_version.get(
-                version, {}).get(brx.bridge_authorization_id)
-            bundle = router._source_bundles_by_descriptor_id.get(
-                brx.source_bridge_execution_hash)
-            expected_adapter = bridge_adapter_create2_address_v1(
-                factory="0x" + descriptor[0][12:].hex(),
-                protocol_version=version,
-                source_descriptor_id=brx.source_bridge_execution_hash,
-                configuration_hash=pia[3],
-                source_bridge="0x" + descriptor[8][12:].hex(),
-                credit_registry="0x" + descriptor[12][12:].hex(),
-                router=router.address, queue=router.forced_queue.address,
-                seal_authority=router.version_manager,
-            )
-            return (
-                type(factory) is ImmutableV2BridgeFactory
-                and _model_fixed_bytes32(factory.runtime_hash)
-                    == descriptor[1]
-                and _model_fixed_bytes32(factory.configuration_hash)
-                    == descriptor[2]
-                and type(deployment) is BridgeAdapter
-                and bundle is not None and len(bundle) == 3
-                and deployment is factory._adapters.get(expected_adapter)
-                and deployment.source_bridge is bundle[0]
-                and deployment.credit_registry is bundle[1]
-                and bundle[0].quota_manager is bundle[2]
-                and _model_address20(deployment.address) == pia[1][12:]
-                and _model_fixed_bytes32(deployment.runtime_hash) == pia[2]
-                and _model_fixed_bytes32(deployment.configuration_hash)
-                    == pia[3]
-                and _model_address20(deployment.queue_address) == pia[7][12:]
-            )
+            return self._primitive_live_accounts_exact_v2(brx, pia)
         except (AttributeError, TypeError, ValueError, RuntimeError):
             return False
 
-    def _package_exact(self, entry: BridgeSupportEntry) -> bool:
-        registration = self.router.registrations.get(entry.protocol_version)
-        # A registered target is not yet in Router.registrations.  Its exact
-        # package is nevertheless retained in the version-indexed deployment
-        # journal and is rejoined to the registration supplied by the caller.
-        if registration is None:
-            registration = self._staged_registrations_by_version.get(
-                entry.protocol_version
-            )
-        authorization = (
-            None if type(registration) is not SettlementRegistration
-            else registration.ingress_authorizations_by_address.get(
-                entry.adapter_address
-            )
-        )
-        deployment = (
-            None if type(authorization) is not ProfileIngressAuthorization
-            else self.router._profile_deployments_by_version.get(
-                entry.protocol_version, {}
-            ).get(authorization.authorization_id)
-        )
-        descriptor_id = self.router._source_descriptor_id_by_version.get(
-            entry.protocol_version
-        )
-        bundle = self.router._source_bundles_by_descriptor_id.get(descriptor_id)
-        return (
-            type(registration) is SettlementRegistration
-            and type(authorization) is ProfileIngressAuthorization
-            and authorization.kind is ForceKind.BRIDGE_CREDIT
-            and type(deployment) is BridgeAdapter
-            and bundle is not None and len(bundle) == 3
-            and deployment.source_bridge is bundle[0]
-            and deployment.credit_registry is bundle[1]
-            and bundle[0].quota_manager is bundle[2]
-            and authorization.source_descriptor_id == descriptor_id
-            and entry.target_registration_hash
-                == target_registration_hash_v2(registration)
-            and entry.source_descriptor_id == descriptor_id
-            and entry.adapter_address == authorization.adapter_address
-            and entry.package_count == 1
-            and entry.package_root
-                == self._package_root(registration, authorization)
-        )
+    def _primitive_live_accounts_exact_v2(
+        self, brx: BridgeRouteExpansionV1, pia: tuple[bytes, ...],
+    ) -> bool:
+        """Authenticate the prepared graph only through address-indexed EVM reads."""
 
-    def stage(self, source_domain_id: str, execution_hash: str,
+        if (type(self.manager) not in {
+                    ProtocolVersionManager, ProtocolVersionManagerV1
+                }
+                or type(brx) is not BridgeRouteExpansionV1
+                or type(pia) is not tuple or len(pia) != 23):
+            return False
+        world = self.manager.deployment_world
+        descriptor = brx.source_descriptor_words
+        expected_adapter = bridge_adapter_create2_address_v1(
+            factory="0x" + descriptor[0][12:].hex(),
+            protocol_version=brx.protocol_version,
+            source_descriptor_id=brx.source_bridge_execution_hash,
+            configuration_hash=pia[3],
+            source_bridge="0x" + descriptor[8][12:].hex(),
+            credit_registry="0x" + descriptor[12][12:].hex(),
+            router="0x" + pia[4][12:].hex(),
+            queue="0x" + pia[7][12:].hex(),
+            seal_authority=self.manager_address,
+        )
+        if (_model_address20(expected_adapter) != pia[1][12:]
+                or descriptor[18][12:] != _model_address20(self.address)):
+            return False
+        checks = (
+            ("SourceBundleFactory", 0, 1, 2),
+            ("SourceBridge", 8, 9, 10),
+            ("BridgeCreditRegistry", 12, 13, 14),
+            ("NativeQuotaManager", 15, 16, 17),
+            ("BridgeDomainRegistry", 18, 19, 20),
+            ("SourceTerminalVerifier", 21, 22, 23),
+        )
+        try:
+            for label, address_index, runtime_index, config_index in checks:
+                _validate_live_target_code_and_config_v2(
+                    world, caller=self.address,
+                    address=descriptor[address_index][12:],
+                    runtime_hash=descriptor[runtime_index],
+                    configuration_hash=descriptor[config_index], label=label,
+                )
+            deployer = world.account(
+                descriptor[5][12:], self.address,
+                "SourceBundleDeployer:account",
+            )
+            world.trace.append((
+                self.address, "SourceBundleDeployer:extcodehash",
+                descriptor[5][12:],
+            ))
+            if deployer.extcodehash(self.address) != descriptor[6]:
+                return False
+            _validate_live_target_code_and_config_v2(
+                world, caller=self.address, address=pia[1][12:],
+                runtime_hash=pia[2], configuration_hash=pia[3],
+                label="BridgeAdapter",
+            )
+        except (AttributeError, TypeError, ValueError, RuntimeError):
+            return False
+        return True
+
+    def _package_exact(self, entry: BridgeSupportEntry) -> bool:
+        # Removed: the former compatibility branch treated Router-owned Python
+        # objects and Factory maps as a cross-contract witness.  No production
+        # path may authenticate a package that is not a six-row PRIMITIVE seal.
+        _ = entry
+        return False
+
+    def stage_bootstrap_primitives_for_test_v1(
+              self, source_domain_id: str, execution_hash: str,
               manifest: "ReleaseManifestV2", *,
               manager: object, clock: Clock,
               registration: "SettlementRegistration | None" = None) -> bool:
@@ -13285,6 +16969,35 @@ class BridgeDomainRegistry:
             manifest.protocol_version, brx_raw)
         self.router.bridge_invocation_policies_v1.setdefault(
             manifest.protocol_version, bip_raw)
+        try:
+            manager.install_bootstrap_ingress_primitives_for_test_v1(
+                manifest.protocol_version, pir_raw, pim_raw,
+                authorization.authorization_id, pia_raw,
+            )
+        except ValueError:
+            try:
+                if (manager.staticcall_profile_ingress_root_v2(
+                        PROFILE_INGRESS_ROOT_SELECTOR + _model_uint(
+                            manifest.protocol_version, 32,
+                            "bootstrap PIR2 version"),
+                        caller=self.address, value=0,
+                        gas=PROFILE_INGRESS_ROOT_READ_GAS) != pir_raw
+                        or manager.staticcall_profile_ingress_membership_v2(
+                            PROFILE_INGRESS_MEMBERSHIP_SELECTOR + _model_uint(
+                                manifest.protocol_version, 32,
+                                "bootstrap PIM2 version")
+                            + authorization.authorization_id,
+                            caller=self.address, value=0,
+                            gas=PROFILE_INGRESS_MEMBERSHIP_READ_GAS) != pim_raw
+                        or manager.staticcall_profile_ingress_authorization_v2(
+                            PROFILE_INGRESS_AUTHORIZATION_SELECTOR
+                            + authorization.authorization_id,
+                            caller=self.address, value=0,
+                            gas=PROFILE_INGRESS_AUTHORIZATION_READ_GAS)
+                        != pia_raw):
+                    return False
+            except (AttributeError, TypeError, ValueError):
+                return False
         entry = BridgeSupportEntry(
             protocol_version=manifest.protocol_version, manifest=None,
             registration_commitment=manifest.registration_commitment,
@@ -13294,11 +17007,9 @@ class BridgeDomainRegistry:
             target_registration_hash=genesis_rtr.target_registration_hash,
             source_descriptor_id=authorization.source_descriptor_id,
             adapter_address=authorization.adapter_address,
-            # Compatibility rows retain the original one-route commitment.
-            # The six-raw-row root is reserved for BRS1 PRIMITIVE rows; using
-            # it here would make the LEGACY arm-ready verifier permanently
-            # reject this entry.
-            package_root=self._package_root(registration, authorization),
+            package_root=self._primitive_package_root_v2(
+                rtr_raw, brx_raw, pir_raw, pim_raw, pia_raw, bip_raw
+            ),
             package_count=1,
             destination_chain_id=manifest.destination_chain_id,
             source_domain_id=_model_fixed_bytes32(
@@ -13328,7 +17039,6 @@ class BridgeDomainRegistry:
             rtr_hash=keccak256(rtr_raw), brx_hash=keccak256(brx_raw),
             pir_hash=keccak256(pir_raw), pim_hash=keccak256(pim_raw),
             pia_hash=keccak256(pia_raw), bip_hash=keccak256(bip_raw),
-            route_kind="LEGACY",
         )
         if key in self.entries:
             existing = self.entries[key]
@@ -13351,8 +17061,8 @@ class BridgeDomainRegistry:
                 and existing.package_count == entry.package_count
                 and self._key_by_destination_chain_version.get(version_key)
                     == key
-                and existing.route_kind == "LEGACY"
-                and self._package_exact(existing)
+                and existing.route_kind == "PRIMITIVE"
+                and self._primitive_entry_live_exact_v2(existing)
             )
             return exact
         existing_manifest = self._destinations_by_domain.get(
@@ -13371,9 +17081,6 @@ class BridgeDomainRegistry:
         if version_key in self._key_by_destination_chain_version:
             return False
         self.entries[key] = entry
-        self._staged_registrations_by_version[
-            manifest.protocol_version
-        ] = registration
         self._destinations_by_domain.setdefault(
             manifest.destination_domain_id, manifest
         )
@@ -13461,33 +17168,6 @@ class BridgeDomainRegistry:
 
         descriptor = brx.source_descriptor_words
         adapter_address = pia[1][12:]
-        factory = self.router._source_bridge_factories_by_address.get(
-            "0x" + descriptor[0][12:].hex())
-        expected_adapter_address = bridge_adapter_create2_address_v1(
-            factory="0x" + descriptor[0][12:].hex(),
-            protocol_version=version,
-            source_descriptor_id=brx.source_bridge_execution_hash,
-            configuration_hash=pia[3],
-            source_bridge="0x" + descriptor[8][12:].hex(),
-            credit_registry="0x" + descriptor[12][12:].hex(),
-            router=self.router.address, queue=self.router.forced_queue.address,
-            seal_authority=self.router.version_manager,
-        )
-        deployment = self.router._profile_deployments_by_version.get(
-            version, {}).get(brx.bridge_authorization_id)
-        live_adapter_exact = (
-            type(factory) is ImmutableV2BridgeFactory
-            and _model_fixed_bytes32(factory.runtime_hash) == descriptor[1]
-            and _model_fixed_bytes32(factory.configuration_hash)
-                == descriptor[2]
-            and type(deployment) is BridgeAdapter
-            and _model_address20(deployment.address) == adapter_address
-            and _model_address20(expected_adapter_address) == adapter_address
-            and factory._adapters.get(expected_adapter_address) is deployment
-            and _model_fixed_bytes32(deployment.runtime_hash) == pia[2]
-            and _model_fixed_bytes32(deployment.configuration_hash) == pia[3]
-            and _model_address20(deployment.queue_address) == pia[7][12:]
-        )
         expected_registration_commitment = keccak256(b"".join((
             D_DESTINATION_REGISTRATION,
             _model_uint(version, 8, "registration version"),
@@ -13509,16 +17189,16 @@ class BridgeDomainRegistry:
                 or pia_id != brx.bridge_authorization_id
                 or _decode_uint_word_v1(pia[0], 8, "PIA2 bridge kind")
                     != ForceKind.BRIDGE_CREDIT.value
-                or pia[4][12:] != _model_address20(self.router.address)
-                or pia[5] != _model_fixed_bytes32(self.router.runtime_hash)
+                or pia[4][12:] != _model_address20(self.router_address)
+                or pia[5] != _model_fixed_bytes32(self.router_runtime_hash)
                 or pia[6]
-                    != _model_fixed_bytes32(self.router.configuration_hash)
+                    != _model_fixed_bytes32(self.router_configuration_hash)
                 or pia[7][12:]
-                    != _model_address20(self.router.forced_queue.address)
+                    != _model_address20(self.queue_address)
                 or pia[8]
-                    != _model_fixed_bytes32(self.router.forced_queue.runtime_hash)
+                    != _model_fixed_bytes32(self.queue_runtime_hash)
                 or pia[9]
-                    != _model_fixed_bytes32(self.router.forced_queue.config_hash)
+                    != _model_fixed_bytes32(self.queue_configuration_hash)
                 or pia[10] != brx.source_domain_id
                 or _decode_uint_word_v1(pia[11], 64, "PIA2 source epoch")
                     != _decode_uint_word_v1(
@@ -13537,7 +17217,7 @@ class BridgeDomainRegistry:
                 or descriptor[19] != _model_fixed_bytes32(self.runtime_hash)
                 or descriptor[20]
                     != _model_fixed_bytes32(self.configuration_hash)
-                or not live_adapter_exact):
+                or not self._primitive_live_accounts_exact_v2(brx, pia)):
             raise ValueError("BRS1 primitive authority join is inexact")
         package_root = self._primitive_package_root_v2(
             rtr_raw, brx_raw, pir_raw, pim_raw, pia_raw, bip_raw)
@@ -13628,12 +17308,8 @@ class BridgeDomainRegistry:
         entry = self.entries.get(key) if key is not None else None
         package_exact = (
             False if entry is None
-            else (
-                self._primitive_entry_live_exact_v2(entry)
-                if entry.route_kind == "PRIMITIVE"
-                else self._package_exact(entry)
-                    if entry.route_kind == "LEGACY" else False
-            )
+            else entry.route_kind == "PRIMITIVE"
+                and self._primitive_entry_live_exact_v2(entry)
         )
         if (type(registration) is not SettlementRegistration
                 or type(clock) is not Clock or entry is None
@@ -13664,11 +17340,8 @@ class BridgeDomainRegistry:
         entry = self.entries.get(key) if key is not None else None
         package_exact = (
             False if entry is None
-            else self._primitive_package_exact(entry)
-                if entry.route_kind == "PRIMITIVE"
-            else self._package_exact(entry)
-                if entry.route_kind == "LEGACY"
-            else False
+            else entry.route_kind == "PRIMITIVE"
+                and self._primitive_package_exact(entry)
         )
         if (type(clock) is not Clock or entry is None or not package_exact):
             raise ValueError("unknown or polluted Bridge route package")
@@ -13813,20 +17486,6 @@ class BridgeDomainRegistry:
         bip = decode_bridge_invocation_policy_v1(bip_raw)
         descriptor = brx.source_descriptor_words
         adapter_address = pia[1][12:]
-        factory = self.router._source_bridge_factories_by_address.get(
-            "0x" + descriptor[0][12:].hex())
-        expected_adapter_address = bridge_adapter_create2_address_v1(
-            factory="0x" + descriptor[0][12:].hex(),
-            protocol_version=version,
-            source_descriptor_id=brx.source_bridge_execution_hash,
-            configuration_hash=pia[3],
-            source_bridge="0x" + descriptor[8][12:].hex(),
-            credit_registry="0x" + descriptor[12][12:].hex(),
-            router=self.router.address, queue=self.router.forced_queue.address,
-            seal_authority=self.router.version_manager,
-        )
-        deployment = self.router._profile_deployments_by_version.get(
-            version, {}).get(brx.bridge_authorization_id)
         expected_registration_commitment = keccak256(b"".join((
             D_DESTINATION_REGISTRATION,
             _model_uint(version, 8, "BRC1 registration version"),
@@ -13881,16 +17540,16 @@ class BridgeDomainRegistry:
                     != expected_registration_commitment
                 or _decode_uint_word_v1(pia[0], 8, "BRC1 bridge kind")
                     != ForceKind.BRIDGE_CREDIT.value
-                or pia[4][12:] != _model_address20(self.router.address)
-                or pia[5] != _model_fixed_bytes32(self.router.runtime_hash)
+                or pia[4][12:] != _model_address20(self.router_address)
+                or pia[5] != _model_fixed_bytes32(self.router_runtime_hash)
                 or pia[6]
-                    != _model_fixed_bytes32(self.router.configuration_hash)
+                    != _model_fixed_bytes32(self.router_configuration_hash)
                 or pia[7][12:]
-                    != _model_address20(self.router.forced_queue.address)
+                    != _model_address20(self.queue_address)
                 or pia[8]
-                    != _model_fixed_bytes32(self.router.forced_queue.runtime_hash)
+                    != _model_fixed_bytes32(self.queue_runtime_hash)
                 or pia[9]
-                    != _model_fixed_bytes32(self.router.forced_queue.config_hash)
+                    != _model_fixed_bytes32(self.queue_configuration_hash)
                 or pia[10] != brx.source_domain_id
                 or pia[12] != brx.source_bridge_execution_hash
                 or _decode_uint_word_v1(pia[13], 256,
@@ -13902,18 +17561,7 @@ class BridgeDomainRegistry:
                 or descriptor[19] != _model_fixed_bytes32(self.runtime_hash)
                 or descriptor[20]
                     != _model_fixed_bytes32(self.configuration_hash)
-                or type(deployment) is not BridgeAdapter
-                or _model_address20(deployment.address) != adapter_address
-                or _model_address20(expected_adapter_address) != adapter_address
-                or type(factory) is not ImmutableV2BridgeFactory
-                or _model_fixed_bytes32(factory.runtime_hash) != descriptor[1]
-                or _model_fixed_bytes32(factory.configuration_hash)
-                    != descriptor[2]
-                or factory._adapters.get(expected_adapter_address)
-                    is not deployment
-                or _model_fixed_bytes32(deployment.runtime_hash) != pia[2]
-                or _model_fixed_bytes32(deployment.configuration_hash) != pia[3]
-                or _model_address20(deployment.queue_address) != pia[7][12:]
+                or not self._primitive_live_accounts_exact_v2(brx, pia)
                 or entry is None
                 or entry.protocol_version != version
                 or entry.target_settlement != row.target_settlement
@@ -13979,7 +17627,7 @@ class BridgeDomainRegistry:
             else self.consume_bridge_route_return_override
         )
 
-    def consume_arm_ready(
+    def consume_bootstrap_arm_ready_for_test_v1(
         self,
         registration: "SettlementRegistration",
         clock: Clock,
@@ -14004,16 +17652,7 @@ class BridgeDomainRegistry:
                     != getattr(registration, "release_manifest_hash", b"")
                 or frame.target_registration_hash
                     != target_registration_hash_v2(registration)
-                or (
-                    router.registrations.get(frame.target_protocol_version)
-                        is not registration
-                    and not (
-                        frame.target_protocol_version
-                            not in router.registrations
-                        and frame.target_protocol_version
-                            == registration.settlement.protocol_version
-                    )
-                )):
+                ):
             return False
         entry = self.arm_ready_entry(
             registration,
@@ -14367,24 +18006,16 @@ class BridgeDomainRegistry:
                     != brx.source_descriptor_words[12][12:]
                 or entry.source_quota_manager_address
                     != brx.source_descriptor_words[15][12:]
-                or not (
-                    self._primitive_package_exact(entry)
-                    if entry.route_kind == "PRIMITIVE"
-                    else self._package_exact(entry)
-                        if entry.route_kind == "LEGACY" else False
-                )):
+                or entry.route_kind != "PRIMITIVE"
+                or not self._primitive_package_exact(entry)):
             return None
-        # Genesis/predecessor compatibility alone may use the older
-        # destination-registration finality path.  Primitive successor rows
-        # are unusable until BRC consumes ARM_READY in the activation journal.
-        if entry.route_kind == "PRIMITIVE":
-            return entry if entry.arm_ready_consumed else None
-        if entry.route_kind == "LEGACY":
-            return (
-                entry if entry.arm_ready_consumed
-                else self.final_entry(*key, clock)
-            )
-        return None
+        # Root bootstrap and successor rows share the same primitive seal.
+        # A bootstrap row may use destination-registration finality until its
+        # first atomic consume; successors are consumed by BRC1 at activation.
+        return (
+            entry if entry.arm_ready_consumed
+            else self.final_entry(*key, clock)
+        )
 
     def finalized_destination_manifest(
         self, destination_domain_id: str, clock: Clock
@@ -18305,40 +21936,71 @@ class FrozenNativeQuotaManagerV2:
         return False
 
 
-def source_bundle_initcode_hash(descriptor: "SourceBridgeDescriptor") -> str:
-    """Commit every acyclic initializer primitive into the CREATE2 address."""
+def source_bundle_constructor_args_v1(
+    descriptor: "SourceBridgeDescriptor",
+) -> bytes:
+    """Encode the fixed constructor ABI consumed by the pinned helper code."""
 
     if type(descriptor) is not SourceBridgeDescriptor:
-        raise ValueError("source bundle initcode descriptor has wrong type")
-    fields = (
-        SOURCE_V2_GENERIC_INITCODE_HASH,
-        descriptor.settlement_chain_id,
-        descriptor.source_chain_id,
-        descriptor.source_genesis_hash,
-        descriptor.registry_namespace,
-        descriptor.bridge_facade_runtime_hash,
-        descriptor.bridge_storage_layout_hash,
-        descriptor.bridge_kernel_hash,
-        descriptor.source_terminal_verifier,
-        descriptor.v1_official_vaults,
-        descriptor.role,
-        descriptor.native_quota_manager_runtime_hash,
-        descriptor.native_quota_period,
-        descriptor.native_eth_quota,
-        descriptor.source_domain_registrar,
-        descriptor.source_registration_epoch,
-        descriptor.support_registry_address,
-        descriptor.support_registry_runtime_hash,
-        descriptor.support_registry_configuration_hash,
-        descriptor.source_terminal_verifier_runtime_hash,
-        descriptor.source_terminal_verifier_configuration_hash,
-        descriptor.bundle_deployer_runtime_hash,
-        descriptor.legacy_v1_bridge,
-    )
-    return keccak256(
-        b"TAIKO_SOURCE_BUNDLE_INITCODE_V2\x00"
-        + b"".join(_ingress_commitment_word(value) for value in fields)
-    ).hex()
+        raise ValueError("source bundle constructor descriptor has wrong type")
+    if (descriptor.v1_official_vaults != V1_OFFICIAL_VAULT_ADDRESSES
+            or descriptor.role != BRIDGE_ROLE_SOURCE_ONLY):
+        raise ValueError("source bundle constructor policy is noncanonical")
+    encoded = b"".join((
+        _model_uint(
+            descriptor.settlement_chain_id, 32,
+            "source bundle settlement chain",
+        ),
+        _model_uint(
+            descriptor.source_chain_id, 32, "source bundle source chain"
+        ),
+        _model_fixed_bytes32(descriptor.source_genesis_hash),
+        _model_fixed_bytes32(descriptor.registry_namespace),
+        _model_fixed_bytes32(descriptor.bridge_facade_runtime_hash),
+        _model_fixed_bytes32(descriptor.bridge_storage_layout_hash),
+        _model_fixed_bytes32(descriptor.bridge_kernel_hash),
+        _abi_address_word(descriptor.source_terminal_verifier),
+        *(_abi_address_word(address)
+          for address in descriptor.v1_official_vaults),
+        _model_uint(1, 32, "source-only role"),
+        _model_fixed_bytes32(descriptor.native_quota_manager_runtime_hash),
+        _model_uint(
+            descriptor.native_quota_period, 32, "source native quota period"
+        ),
+        _model_uint(
+            descriptor.native_eth_quota, 32, "source native ETH quota"
+        ),
+        _abi_address_word(descriptor.source_domain_registrar),
+        _model_uint(
+            descriptor.source_registration_epoch, 32,
+            "source registration epoch",
+        ),
+        _abi_address_word(descriptor.support_registry_address),
+        _model_fixed_bytes32(descriptor.support_registry_runtime_hash),
+        _model_fixed_bytes32(
+            descriptor.support_registry_configuration_hash
+        ),
+        _model_fixed_bytes32(
+            descriptor.source_terminal_verifier_runtime_hash
+        ),
+        _model_fixed_bytes32(
+            descriptor.source_terminal_verifier_configuration_hash
+        ),
+        _abi_address_word(descriptor.legacy_v1_bridge),
+    ))
+    if len(encoded) != 23 * 32:
+        raise AssertionError("source bundle constructor ABI width drifted")
+    return encoded
+
+
+def source_bundle_initcode_hash(descriptor: "SourceBridgeDescriptor") -> str:
+    """Hash pinned helper creation code plus the complete constructor ABI."""
+
+    init_code = (SOURCE_BUNDLE_DEPLOYER_CREATION_CODE_V1
+                 + source_bundle_constructor_args_v1(descriptor))
+    if len(init_code) > 49_152:
+        raise ValueError("source bundle helper init code exceeds EIP-3860")
+    return keccak256(init_code).hex()
 
 
 def source_bridge_account_configuration_hash(
@@ -18675,6 +22337,7 @@ class BridgeRouteExpansionV1:
     invocation_policy_hash: bytes
     invocation_policy_count: int
     source_descriptor_words: tuple[bytes, ...]
+    source_bundle_constructor_words: tuple[bytes, ...]
 
     @property
     def source_descriptor_bytes(self) -> bytes:
@@ -18710,6 +22373,14 @@ class BridgeRouteExpansionV1:
         )
 
     @property
+    def source_bundle_constructor_args(self) -> bytes:
+        if (len(self.source_bundle_constructor_words) != 23
+                or any(type(word) is not bytes or len(word) != 32
+                       for word in self.source_bundle_constructor_words)):
+            raise ValueError("BRX1 Source bundle constructor is malformed")
+        return b"".join(self.source_bundle_constructor_words)
+
+    @property
     def source_domain_id(self) -> bytes:
         descriptor = self.source_descriptor_words
         return keccak256(b"".join((
@@ -18740,6 +22411,7 @@ def encode_bridge_route_expansion_v1(
             or not 1 <= row.invocation_policy_count <= 64):
         raise ValueError("BRX1 route expansion is malformed")
     _ = row.source_descriptor_bytes
+    _ = row.source_bundle_constructor_args
     encoded = b"".join((
         BRIDGE_ROUTE_EXPANSION_MAGIC + bytes(28),
         _model_uint(row.protocol_version, 32, "BRX1 version"),
@@ -18750,6 +22422,7 @@ def encode_bridge_route_expansion_v1(
         row.invocation_policy_hash,
         _model_uint(row.invocation_policy_count, 32, "BRX1 policy count"),
         *row.source_descriptor_words,
+        *row.source_bundle_constructor_words,
     ))
     if len(encoded) != BRIDGE_ROUTE_EXPANSION_RETURN_LENGTH:
         raise AssertionError("BRX1 return width drifted")
@@ -18769,7 +22442,7 @@ def decode_bridge_route_expansion_v1(raw: bytes) -> BridgeRouteExpansionV1:
         _decode_uint_word_v1(words[3], 64, "BRX1 source chain"),
         words[4], words[5], words[6], words[7], words[8],
         _decode_uint_word_v1(words[9], 16, "BRX1 policy count"),
-        words[10:38],
+        words[10:38], words[38:61],
     )
     if encode_bridge_route_expansion_v1(row) != raw:
         raise ValueError("BRX1 return is noncanonical")
@@ -18889,7 +22562,7 @@ def canonical_source_bridge_descriptor(
         "source-domain-namespace:v2",
         "",
         "",
-        "code:source-bridge:v2",
+        SOURCE_BRIDGE_RUNTIME_HASH_V1,
         "storage:source-bridge:v2",
         "kernel:source-bridge:v2",
         "source-terminal-verifier",
@@ -19120,6 +22793,17 @@ def target_registration_hash_v2(registration: SettlementRegistration) -> bytes:
 # operations may mutate release, verifier, genesis-campaign or migration-arm
 # authority in the production model.
 PROTOCOL_CHANGE_DELAY_SECONDS = 604_800
+FORK_CHANGE_EXECUTION_WINDOW_SECONDS = 86_400
+# A successful fork transition must leave enough reviewed horizon to broadcast
+# a follow-up immediately, include its queue transaction within the pinned
+# availability allowance, and execute at the end of its finite validity window.
+FORK_CHANGE_QUEUE_INCLUSION_ALLOWANCE_SECONDS = T_DEPTH_MAX
+FORK_CHANGE_RENEWAL_RUNWAY_WINDOWS = (
+    (FORK_CHANGE_QUEUE_INCLUSION_ALLOWANCE_SECONDS
+     + PROTOCOL_CHANGE_DELAY_SECONDS + FORK_CHANGE_EXECUTION_WINDOW_SECONDS
+     + SCHEDULE_WINDOW_SLOTS - 1) // SCHEDULE_WINDOW_SLOTS
+    + 8
+)
 MAXIMUM_LIVE_VERSION_MIGRATION_SECONDS = 604_800
 # A migration arm is executable for one additional governance-delay interval
 # after it matures.  This bounds dormant execution authority without weakening
@@ -19223,6 +22907,18 @@ REGISTER_RELEASE = 1
 REGISTER_FORK_VERIFIER = 2
 PUBLISH_GENESIS_CAMPAIGN = 3
 PUBLISH_MIGRATION_ARM = 4
+REPLACE_PENDING_FORK_VERIFIER = 5
+REPLACE_PENDING_FORK_VERIFIER_SELECTOR = bytes.fromhex("b48bbef1")
+SPLIT_LATEST_FORK_VERIFIER = 6
+SPLIT_LATEST_FORK_VERIFIER_SELECTOR = keccak256(
+    b"splitLatestForkVerifierV1(bytes32,bytes4,uint64,uint64,address,bytes32,"
+    b"uint64,uint64,uint64,uint64,uint64,uint64,bytes32,bytes32,bytes4,uint64)"
+)[:4]
+SCHEDULE_FORK_ROUTE_STATE_SELECTOR = bytes.fromhex("7e9f3c0d")
+EXPIRE_FORK_CHANGE_SELECTOR = keccak256(
+    b"expireForkChangeV1(bytes32)"
+)[:4]
+EXPIRE_FORK_CHANGE_MAGIC = b"PFX1"
 
 
 def _abi_address_word(value: object, *, zero_if_empty: bool = False) -> bytes:
@@ -19460,6 +23156,22 @@ class LiveDeploymentAccountV2:
     constructor_inventory: tuple[bytes, ...] = ()
     overrides: dict[tuple[str, str], bytes] = field(default_factory=dict)
     faults: set[tuple[str, str]] = field(default_factory=set)
+    nonce: int = 1
+    balance: int = 0
+    code_size: int = 1
+    pvm_config_view: "ProtocolVersionManagerConfigViewV1 | None" = None
+    source_factory_config_return: bytes | None = None
+    protocol_root_activation_return: bytes | None = None
+
+    def __post_init__(self) -> None:
+        if (type(self.nonce) is not int or self.nonce < 0
+                or type(self.balance) is not int or self.balance < 0
+                or type(self.code_size) is not int or self.code_size < 0
+                or (self.code_size == 0
+                    and self.runtime_hash not in {
+                        bytes(32), keccak256(b"")
+                    })):
+            raise ValueError("live deployment account scalar is invalid")
 
     def _surface(self, caller: str, name: str, canonical: bytes) -> bytes:
         if not caller or (caller, name) in self.faults:
@@ -19476,6 +23188,48 @@ class LiveDeploymentAccountV2:
                 or gas != 50_000 or value != 0):
             raise ValueError("componentConfigHashV2 call frame is inexact")
         return self._surface(caller, "component_config", self.configuration_hash)
+
+    def protocol_version_manager_config_v1(
+        self, caller: str, calldata: bytes, gas: int, value: int,
+    ) -> bytes:
+        if (calldata != PROTOCOL_ROOT_PVM_CONFIG_SELECTOR
+                or gas != PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS
+                or value != 0
+                or type(self.pvm_config_view)
+                    is not ProtocolVersionManagerConfigViewV1):
+            raise ValueError("PVM1 live call frame is inexact")
+        return self._surface(
+            caller, "protocol_version_manager_config",
+            encode_protocol_version_manager_config_return_v1(
+                self.pvm_config_view
+            ),
+        )
+
+    def source_bundle_factory_config_v1(
+        self, caller: str, calldata: bytes, gas: int, value: int,
+    ) -> bytes:
+        if (calldata != SOURCE_BUNDLE_FACTORY_CONFIG_SELECTOR
+                or gas != PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS
+                or value != 0
+                or type(self.source_factory_config_return) is not bytes):
+            raise ValueError("SBF1 live call frame is inexact")
+        return self._surface(
+            caller, "source_bundle_factory_config",
+            self.source_factory_config_return,
+        )
+
+    def protocol_root_activation_v1(
+        self, caller: str, calldata: bytes, gas: int, value: int,
+    ) -> bytes:
+        if (calldata != PROTOCOL_ROOT_ACTIVATION_VIEW_SELECTOR
+                or gas != PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS
+                or value != 0
+                or type(self.protocol_root_activation_return) is not bytes):
+            raise ValueError("PRA1 live call frame is inexact")
+        return self._surface(
+            caller, "protocol_root_activation",
+            self.protocol_root_activation_return,
+        )
 
     def data_session_accounting_v1(
         self, caller: str, calldata: bytes, gas: int, value: int,
@@ -19509,17 +23263,29 @@ class LiveDeploymentWorldV2:
     """The typed deployed-account world read independently by PVM and Router."""
 
     accounts: dict[bytes, LiveDeploymentAccountV2]
+    # Model-only execution handles are deliberately separate from the EVM
+    # account surface.  Security decisions first authenticate the address,
+    # EXTCODEHASH and exact configuration getter through ``accounts``; a
+    # handle may then provide behaviour for the simulator.  Keeping handles
+    # out of LiveDeploymentAccountV2 also keeps transaction snapshots acyclic.
+    behavior_handles: dict[bytes, object] = field(
+        default_factory=dict, compare=False, repr=False
+    )
     trace: list[tuple[str, str, bytes]] = field(default_factory=list)
     between_router_and_pvm_hook: object | None = field(
         default=None, compare=False, repr=False
     )
 
     def snapshot(self) -> tuple[object, ...]:
-        return (copy.deepcopy(self.accounts), list(self.trace))
+        return (
+            copy.deepcopy(self.accounts), dict(self.behavior_handles),
+            list(self.trace),
+        )
 
     def restore(self, snapshot: tuple[object, ...]) -> None:
-        accounts, trace = snapshot
+        accounts, behavior_handles, trace = snapshot
         self.accounts = accounts
+        self.behavior_handles = behavior_handles
         self.trace = trace
 
     def account(self, address: bytes, caller: str, surface: str) \
@@ -19531,6 +23297,111 @@ class LiveDeploymentWorldV2:
             raise ValueError("live deployment account is absent")
         self.trace.append((caller, surface, address))
         return account
+
+    def authenticated_behavior(
+        self, address: bytes, *, caller: str, runtime_hash: bytes,
+        configuration_hash: bytes, label: str,
+    ) -> object:
+        """Resolve a simulator handle only after the exact live EVM reads."""
+
+        _validate_live_target_code_and_config_v2(
+            self, caller=caller, address=address,
+            runtime_hash=runtime_hash,
+            configuration_hash=configuration_hash, label=label,
+        )
+        behavior = self.behavior_handles.get(address)
+        if behavior is None:
+            raise ValueError(f"{label} authenticated behavior is absent")
+        return behavior
+
+    def create_target_state(
+        self, address: bytes, *, caller: str, label: str,
+    ) -> str:
+        """Classify CREATE targets by live code/nonce, ignoring prefund balance."""
+
+        account = self.accounts.get(address)
+        if account is None:
+            return "FREE"
+        if type(account) is not LiveDeploymentAccountV2:
+            raise ValueError(f"{label} account row is malformed")
+        self.trace.append((caller, f"{label}:extcodehash", address))
+        # EXTCODESIZE, not EXTCODEHASH or account existence, determines
+        # whether there is reusable code.  A balance-only account reports
+        # KECCAK256("") yet remains a legal CREATE2 target.
+        if account.code_size != 0:
+            account.extcodehash(caller)
+            return "CODE"
+        return "FREE"
+
+    def assert_create_succeeds(
+        self, address: bytes, *, label: str,
+    ) -> None:
+        """Apply the EIP-684 nonce/code collision rule inside CREATE."""
+
+        account = self.accounts.get(address)
+        if (type(account) is LiveDeploymentAccountV2
+                and (account.code_size != 0 or account.nonce != 0)):
+            raise ValueError(f"{label} CREATE collision")
+
+    def touched_rows(
+        self, addresses: tuple[bytes, ...],
+    ) -> tuple[tuple[bytes, bool, object | None, bool, object | None], ...]:
+        """Snapshot a fixed address set without copying behavioural graphs."""
+
+        if len(set(addresses)) != len(addresses):
+            raise ValueError("deployment-world journal addresses repeat")
+        return tuple((
+            address, address in self.accounts, self.accounts.get(address),
+            address in self.behavior_handles,
+            self.behavior_handles.get(address),
+        ) for address in addresses)
+
+    def restore_touched_rows(
+        self,
+        rows: tuple[
+            tuple[bytes, bool, object | None, bool, object | None], ...
+        ],
+    ) -> None:
+        for address, had_account, account, had_behavior, behavior in rows:
+            if had_account:
+                self.accounts[address] = account
+            else:
+                self.accounts.pop(address, None)
+            if had_behavior:
+                self.behavior_handles[address] = behavior
+            else:
+                self.behavior_handles.pop(address, None)
+
+    def install_exact_account(
+        self, *, address: bytes, runtime_hash: bytes,
+        configuration_hash: bytes, behavior: object,
+    ) -> None:
+        """Project a deployment without permitting address/code aliasing."""
+
+        if (type(address) is not bytes or len(address) != 20
+                or type(runtime_hash) is not bytes or len(runtime_hash) != 32
+                or type(configuration_hash) is not bytes
+                or len(configuration_hash) != 32 or behavior is None):
+            raise ValueError("deployment-world account projection is malformed")
+        existing = self.accounts.get(address)
+        if existing is None:
+            self.accounts[address] = LiveDeploymentAccountV2(
+                address, runtime_hash, configuration_hash
+            )
+        elif (type(existing) is LiveDeploymentAccountV2
+              and existing.code_size == 0 and existing.nonce == 0):
+            self.accounts[address] = LiveDeploymentAccountV2(
+                address, runtime_hash, configuration_hash,
+                balance=existing.balance,
+            )
+        elif (type(existing) is not LiveDeploymentAccountV2
+                or existing.runtime_hash != runtime_hash
+                or existing.configuration_hash != configuration_hash):
+            raise ValueError("deployment-world existing code/config differs")
+        retained = self.behavior_handles.get(address)
+        if retained is not None and retained is not behavior:
+            raise ValueError("deployment-world address aliases another behavior")
+        self.behavior_handles[address] = behavior
 
 
 def live_deployment_world_for_release_v2(
@@ -19561,11 +23432,35 @@ def live_deployment_world_for_release_v2(
         derived.target_configuration_hash,
     )
     accounts: dict[bytes, LiveDeploymentAccountV2] = {}
-    for address_index in (23, 26, 29, 32, 38, 41):
+    pvm_address = words[20][12:]
+    accounts[pvm_address] = LiveDeploymentAccountV2(
+        pvm_address, words[21], words[22],
+        pvm_config_view=protocol_version_manager_configuration_from_profile_v1(
+            words
+        ),
+    )
+    for address_index in (23, 26, 29, 32, 38, 41, 166, 202):
         address = words[address_index][12:]
         accounts[address] = LiveDeploymentAccountV2(
             address, words[address_index + 1], words[address_index + 2]
         )
+    source_artifacts = ProtocolRootSourceFactoryCompilerArtifactsV1(
+        SOURCE_BUNDLE_FACTORY_CREATION_CODE_V1,
+        SOURCE_BUNDLE_FACTORY_RUNTIME_CODE_V1,
+        SOURCE_BUNDLE_DEPLOYER_CREATION_CODE_V1,
+        SOURCE_BUNDLE_DEPLOYER_RUNTIME_CODE_V1,
+        BRIDGE_ADAPTER_CREATION_CODE_V1,
+        BRIDGE_ADAPTER_RUNTIME_CODE_V1,
+    )
+    source_factory_address = words[202][12:]
+    accounts[source_factory_address].source_factory_config_return = (
+        source_bundle_factory_config_return_v1(
+            int.from_bytes(words[2], "big"), pvm_address, source_artifacts
+        )
+    )
+    accounts[source_factory_address].protocol_root_activation_return = (
+        model_active_protocol_root_view_v1(source_factory_address)
+    )
     factory = words[44][12:]
     accounts[factory] = LiveDeploymentAccountV2(
         factory, words[45], words[46]
@@ -19580,6 +23475,52 @@ def live_deployment_world_for_release_v2(
         inventory,
     )
     return LiveDeploymentWorldV2(accounts)
+
+
+def model_active_protocol_root_view_v1(component: bytes) -> bytes:
+    """Build an active PRA1 row for a release-world fixture.
+
+    Production obtains these factory/key words from the component's immutable
+    root-activation base.  A release profile intentionally does not duplicate
+    them, so this standalone fixture derives stable nonzero placeholders while
+    preserving the exact on-chain wire and ACTIVE predicate.
+    """
+
+    if type(component) is not bytes or len(component) != 20 \
+            or component == bytes(20):
+        raise ValueError("model protocol-root component is invalid")
+    root_factory = keccak256(
+        b"slot-chain-model-root-factory-v1" + component
+    )[12:]
+    campaign_key = keccak256(
+        b"slot-chain-model-root-campaign-v1" + root_factory + component
+    )
+    return b"".join((
+        b"PRA1" + bytes(28), bytes(12) + root_factory, campaign_key,
+        _model_uint(1, 32, "model active protocol root"),
+    ))
+
+
+def validate_live_protocol_root_active_v1(
+    world: LiveDeploymentWorldV2, *, address: bytes, caller: str, label: str,
+) -> tuple[bytes, bytes]:
+    """Require an exact nonzero ACTIVE PRA1 observation from live code."""
+
+    account = world.account(address, caller, f"{label}:PRA1:account")
+    world.trace.append((caller, f"{label}:PRA1", address))
+    encoded = account.protocol_root_activation_v1(
+        caller, PROTOCOL_ROOT_ACTIVATION_VIEW_SELECTOR,
+        PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, 0,
+    )
+    if type(encoded) is not bytes or len(encoded) != 128:
+        raise ValueError(f"{label} PRA1 length is invalid")
+    words = tuple(encoded[offset:offset + 32] for offset in range(0, 128, 32))
+    if (words[0] != b"PRA1" + bytes(28)
+            or words[1][:12] != bytes(12) or words[1][12:] == bytes(20)
+            or words[2] == bytes(32)
+            or words[3] != _model_uint(1, 32, "active protocol root")):
+        raise ValueError(f"{label} is not an active protocol-root role")
+    return words[1][12:], words[2]
 
 
 def _validate_live_factory_v2(
@@ -19866,7 +23807,7 @@ def canonicalize_execution_profile_authority_graph_v2(profile: bytes) -> bytes:
     )))
     # Component 1 is release-scoped.  Preserve the profile's root-deployment
     # address instead of collapsing every successor onto the launch adapter.
-    decoded[161] = _model_fixed_bytes32(BRIDGE_INGRESS_RUNTIME_HASH)
+    decoded[161] = BRIDGE_ADAPTER_RUNTIME_CODE_HASH_V1
     decoded[167] = _model_fixed_bytes32(SOURCE_TERMINAL_VERIFIER_RUNTIME_HASH)
     decoded[168] = _model_fixed_bytes32(
         source_terminal_verifier_configuration_hash(
@@ -19908,11 +23849,23 @@ def canonicalize_execution_profile_authority_graph_v2(profile: bytes) -> bytes:
     # The source descriptor has one acyclic primitive set.  CREATE2/CREATE
     # addresses and every constructor configuration are outputs, never
     # independently supplied profile labels.
-    decoded[202] = _abi_address_word(SOURCE_V2_CREATE2_FACTORY)
-    decoded[203] = _model_fixed_bytes32(
-        SOURCE_V2_CREATE2_FACTORY_RUNTIME_HASH)
-    decoded[204] = _model_fixed_bytes32(
-        SOURCE_V2_CREATE2_FACTORY_CONFIGURATION_HASH)
+    source_artifacts = ProtocolRootSourceFactoryCompilerArtifactsV1(
+        SOURCE_BUNDLE_FACTORY_CREATION_CODE_V1,
+        SOURCE_BUNDLE_FACTORY_RUNTIME_CODE_V1,
+        SOURCE_BUNDLE_DEPLOYER_CREATION_CODE_V1,
+        SOURCE_BUNDLE_DEPLOYER_RUNTIME_CODE_V1,
+        BRIDGE_ADAPTER_CREATION_CODE_V1,
+        BRIDGE_ADAPTER_RUNTIME_CODE_V1,
+    )
+    decoded[42] = source_artifacts.factory_runtime_hash
+    decoded[43] = source_bundle_factory_configuration_hash_v1(
+        int.from_bytes(decoded[2], "big"), decoded[20][12:], source_artifacts
+    )
+    decoded[202:205] = decoded[41:44]
+    decoded[208] = keccak256(SOURCE_BUNDLE_DEPLOYER_RUNTIME_CODE_V1)
+    decoded[211] = keccak256(SOURCE_BRIDGE_RUNTIME_CODE_V1)
+    decoded[215] = keccak256(BRIDGE_CREDIT_REGISTRY_RUNTIME_CODE_V1)
+    decoded[218] = keccak256(SOURCE_NATIVE_QUOTA_MANAGER_RUNTIME_CODE_V1)
     source_descriptor = SourceBridgeDescriptor(
         int.from_bytes(decoded[2], "big"),
         int.from_bytes(decoded[2], "big"),
@@ -19986,9 +23939,9 @@ def canonicalize_execution_profile_authority_graph_v2(profile: bytes) -> bytes:
     )
     decoded[223] = _abi_address_word("bridge-pauser")
     decoded[224] = _abi_address_word("signal-service")
-    # The control-plane aliases must name the exact source registry deployment
-    # before the aggregate PVM configuration is derived.
-    decoded[41:44] = decoded[214:217]
+    # PVM/root role 9 is the lifetime SourceBundleFactory (words 41--43 and
+    # 202--204).  The release-owned BridgeCreditRegistry at words 214--216 is
+    # CREATE child 2 of that factory's immutable three-child bundle helper.
     kind1_config = b"".join((
         decoded[214][12:], decoded[210][12:], decoded[23][12:],
         decoded[26][12:], decoded[20][12:],
@@ -20024,9 +23977,14 @@ def canonicalize_execution_profile_authority_graph_v2(profile: bytes) -> bytes:
         "0x" + decoded[160 + index * 3][12:].hex()
         for index in range(10)
     )
+    bridge_surplus_sink = "0x" + decoded[70][12:].hex()
+    force_send_helper = "0x" + force_send_create2_address_v1(
+        bridge_address, bridge_surplus_sink
+    ).hex()
     privileged = tuple(sorted({
         "0x" + "00" * 20, *component_addresses, "bridge-pauser",
-        quota_manager, NATIVE_LIQUIDITY_POOL,
+        quota_manager, NATIVE_LIQUIDITY_POOL, bridge_surplus_sink,
+        force_send_helper,
         *V2_PRIVILEGED_DESTINATION_ADDRESSES,
     }, key=_model_address20))
     destination_descriptor = DestinationBridgeDescriptorV2(
@@ -20035,6 +23993,7 @@ def canonicalize_execution_profile_authority_graph_v2(profile: bytes) -> bytes:
         "0x" + decoded[172][12:].hex(),
         "0x" + decoded[181][12:].hex(),
         "0x" + decoded[178][12:].hex(),
+        bridge_surplus_sink,
         destination_chain_id=int.from_bytes(decoded[3], "big"),
         native_quota_manager=quota_manager,
         privileged_target_denyset=privileged,
@@ -20414,7 +24373,7 @@ def _settlement_deployment_descriptor_hash_from_abi_v1(
 
 
 def _profile_component_config_hash_v2(kind: int, config: bytes) -> bytes:
-    expected_lengths = (100, 344, 21, 73, 60, 52, 80, 21, 76, 164)
+    expected_lengths = (100, 344, 21, 73, 60, 52, 80, 21, 76, 324)
     if (type(kind) is not int or not 1 <= kind <= 10
             or type(config) is not bytes
             or len(config) != expected_lengths[kind - 1]):
@@ -20596,16 +24555,38 @@ def _profile_destination_graph_v2(
     ))
     if components[0][2] != _profile_component_config_hash_v2(1, kind1_config):
         raise ValueError("kind-1 adapter configuration is not derived")
+    bridge = components[9][0]
+    sink = words[70][12:]
+    force_send_helper = force_send_create2_address_v1(bridge, sink)
+    force_send_initcode_hash = force_send_initcode_hash_v1(sink)
+    force_send_tail = b"".join((
+        sink, force_send_helper, force_send_initcode_hash,
+        FORCE_SEND_COMPILER_BUILD_HASH, FORCE_SEND_EVM_RULES_HASH,
+        _model_uint(
+            FORCE_SEND_CREATE2_FIXED_GAS, 8,
+            "ForceSend CREATE2 fixed gas",
+        ),
+        _model_uint(
+            FORCE_SEND_CREATE2_WORST_CASE_GAS, 8,
+            "ForceSend CREATE2 worst-case gas",
+        ),
+        _model_uint(
+            FORCE_SEND_POSTCHECK_GAS_RESERVE, 8,
+            "ForceSend postcheck gas reserve",
+        ),
+    ))
     bridge_descriptor = b"".join((
         components[9][0], components[9][1], components[9][2],
         words[190], words[191], components[4][0], components[7][0],
         components[6][0], words[195][12:], components[8][0],
+        force_send_tail,
     ))
-    if len(bridge_descriptor) != 248:
+    if len(bridge_descriptor) != 408:
         raise AssertionError("destination Bridge descriptor width drifted")
     bridge_config = b"".join((
         words[190], words[191], components[4][0], components[7][0],
         components[6][0], words[195][12:], components[8][0],
+        force_send_tail,
     ))
     if components[9][2] != _profile_component_config_hash_v2(10, bridge_config):
         raise ValueError("destination Bridge configuration is not derived")
@@ -20788,6 +24769,11 @@ def _bridge_route_primitives_from_profile_v1(
         "0x" + words[223][12:].hex(),
         "0x" + words[195][12:].hex(),
         "0x" + words[184][12:].hex(),
+        "0x" + words[70][12:].hex(),
+        "0x" + force_send_create2_address_v1(
+            "0x" + words[187][12:].hex(),
+            "0x" + words[70][12:].hex(),
+        ).hex(),
         *V2_PRIVILEGED_DESTINATION_ADDRESSES,
     }, key=_model_address20))
     version = _decode_uint_word_v1(words[1], 64, "BIP1 profile version")
@@ -20820,6 +24806,12 @@ def _bridge_route_primitives_from_profile_v1(
         destination_registration_commitment,
         policy.invocation_policy_hash, len(policy.denied),
         descriptor_words,
+        tuple(
+            source_bundle_constructor_args_v1(bridge_row.source_descriptor)[
+                offset:offset + 32
+            ]
+            for offset in range(0, 23 * 32, 32)
+        ),
     )
     expansion_raw = encode_bridge_route_expansion_v1(expansion)
     policy_raw = encode_bridge_invocation_policy_v1(policy)
@@ -20873,14 +24865,15 @@ def derive_register_release_authority_v2(
         bytes(12) + components[9][0], components[9][1], components[9][2],
         words[190], words[191], bytes(12) + components[4][0],
         bytes(12) + components[7][0], bytes(12) + components[6][0],
-        words[195], bytes(12) + components[8][0], infrastructure_hash,
+        words[195], bytes(12) + components[8][0], words[70],
+        infrastructure_hash,
         migration_descriptor_hash, ingress_root,
         bytes(12) + components[8][0], components[8][1], components[8][2],
         *(value for component in components for value in (
             bytes(12) + component[0], component[1], component[2]
         )),
     )
-    if len(manifest_words) != 58:
+    if len(manifest_words) != 59:
         raise AssertionError("derived release manifest width drifted")
     manifest_abi = b"".join(manifest_words)
     release_hash = keccak256(RELEASE_MANIFEST_V2_TYPEHASH + manifest_abi)
@@ -20913,7 +24906,7 @@ def derive_register_release_authority_v2(
 def encode_register_release_payload_for_registration_v1(
     registration: SettlementRegistration,
 ) -> bytes:
-    """Fixture encoder for the exact 68-word REGISTER_RELEASE head."""
+    """Fixture encoder for the exact 69-word REGISTER_RELEASE head."""
 
     if type(registration) is not SettlementRegistration:
         raise ValueError("release registration fixture is malformed")
@@ -20926,11 +24919,11 @@ def encode_register_release_payload_for_registration_v1(
         _model_uint(registration.predecessor_version, 32,
                     "REGISTER_RELEASE predecessor"),
         derived.manifest_abi, derived.deployment_abi,
-        _model_uint(0x880, 32, "REGISTER_RELEASE profile offset"),
+        _model_uint(0x8A0, 32, "REGISTER_RELEASE profile offset"),
         _model_uint(len(profile), 32, "REGISTER_RELEASE profile length"),
         profile, bytes(padded - len(profile)),
     ))
-    if len(encoded) != 2_208 + padded:
+    if len(encoded) != 2_240 + padded:
         raise AssertionError("REGISTER_RELEASE encoded geometry drifted")
     return encoded
 
@@ -20941,24 +24934,24 @@ def decode_register_release_payload_v1(
     if (type(payload) is not bytes or len(payload) < 2_240
             or len(payload) % 32 != 0):
         raise ValueError("REGISTER_RELEASE payload geometry is invalid")
-    head = payload[:68 * 32]
-    words = _protocol_change_words(head, 68)
+    head = payload[:69 * 32]
+    words = _protocol_change_words(head, 69)
     predecessor = _decode_uint_word_v1(words[0], 64, "predecessor version")
-    if int.from_bytes(words[67], "big") != 0x880:
+    if int.from_bytes(words[68], "big") != 0x8A0:
         raise ValueError("REGISTER_RELEASE profile offset is noncanonical")
     profile_length = _decode_uint_word_v1(
-        payload[68 * 32:69 * 32], 32, "profile length"
+        payload[69 * 32:70 * 32], 32, "profile length"
     )
     if not 1 <= profile_length <= 65_536:
         raise ValueError("REGISTER_RELEASE profile length is unsupported")
     padded = (profile_length + 31) // 32 * 32
-    if len(payload) != 69 * 32 + padded:
+    if len(payload) != 70 * 32 + padded:
         raise ValueError("REGISTER_RELEASE trailing bytes are invalid")
-    profile = payload[69 * 32:69 * 32 + profile_length]
-    if payload[69 * 32 + profile_length:] != bytes(padded - profile_length):
+    profile = payload[70 * 32:70 * 32 + profile_length]
+    if payload[70 * 32 + profile_length:] != bytes(padded - profile_length):
         raise ValueError("REGISTER_RELEASE profile padding is nonzero")
-    manifest = payload[32:59 * 32]
-    deployment = payload[59 * 32:67 * 32]
+    manifest = payload[32:60 * 32]
+    deployment = payload[60 * 32:68 * 32]
     derived = derive_register_release_authority_v2(profile, predecessor)
     if manifest != derived.manifest_abi:
         raise ValueError("REGISTER_RELEASE manifest is not profile-derived")
@@ -20986,7 +24979,8 @@ def decode_register_release_payload_v1(
 @dataclass(frozen=True)
 class RegisterForkVerifierPayloadV1:
     fork_digest: bytes
-    first_window: int
+    first_parent_slot: int
+    last_parent_slot_exclusive: int
     verifier: bytes
     runtime_hash: bytes
     beacon_slot_gindex: int
@@ -21001,6 +24995,158 @@ class RegisterForkVerifierPayloadV1:
     gas_limit: int
 
 
+@dataclass(frozen=True)
+class ForkReviewEnvelopeV1:
+    reviewed_through_parent_slot_exclusive: int
+    review_evidence_hash: bytes
+    review_certificate_hash: bytes
+
+
+@dataclass(frozen=True)
+class RegisterForkVerifierChangePayloadV1:
+    registration: RegisterForkVerifierPayloadV1
+    review: ForkReviewEnvelopeV1
+
+
+@dataclass(frozen=True)
+class ReplacePendingForkVerifierPayloadV1:
+    expected_predecessor: RegisterForkVerifierPayloadV1
+    expected_old: RegisterForkVerifierPayloadV1
+    replacement: RegisterForkVerifierPayloadV1
+    review: ForkReviewEnvelopeV1
+
+
+@dataclass(frozen=True)
+class SplitLatestForkVerifierPayloadV1:
+    expected_old: RegisterForkVerifierPayloadV1
+    successor: RegisterForkVerifierPayloadV1
+    review: ForkReviewEnvelopeV1
+
+
+def schedule_fork_registration_hash_v1(
+    row: RegisterForkVerifierPayloadV1,
+) -> bytes:
+    encoded = encode_register_fork_verifier_payload_v1(row)
+    return keccak256(
+        b"slot-chain-schedule-fork-registration-v1"
+        + _model_uint(len(encoded), 2, "fork registration bytes") + encoded
+    )
+
+
+def schedule_fork_review_certificate_hash_v1(
+    settlement_chain_id: int,
+    schedule_oracle: object,
+    operation_kind: int,
+    change_rows: bytes,
+    reviewed_through_parent_slot_exclusive: int,
+    review_evidence_hash: bytes,
+) -> bytes:
+    if (operation_kind not in {
+            REGISTER_FORK_VERIFIER, REPLACE_PENDING_FORK_VERIFIER,
+            SPLIT_LATEST_FORK_VERIFIER,
+        }
+            or type(change_rows) is not bytes or not change_rows
+            or reviewed_through_parent_slot_exclusive <= 0
+            or review_evidence_hash == bytes(32)):
+        raise ValueError("fork review certificate inputs are malformed")
+    return keccak256(b"".join((
+        b"slot-chain-schedule-fork-review-certificate-v1",
+        _model_uint(settlement_chain_id, 32, "fork review chain ID"),
+        _model_address20(schedule_oracle),
+        _model_uint(operation_kind, 1, "fork review operation kind"),
+        _model_uint(len(change_rows), 2, "fork review row bytes"),
+        keccak256(change_rows),
+        _model_uint(
+            reviewed_through_parent_slot_exclusive,
+            8,
+            "fork reviewed-through parent slot",
+        ),
+        _model_fixed_bytes32(review_evidence_hash),
+    )))
+
+
+def encode_fork_review_envelope_v1(review: ForkReviewEnvelopeV1) -> bytes:
+    if (type(review) is not ForkReviewEnvelopeV1
+            or not 0 < review.reviewed_through_parent_slot_exclusive
+                <= UINT64_MAX
+            or review.review_evidence_hash == bytes(32)
+            or review.review_certificate_hash == bytes(32)):
+        raise ValueError("fork review envelope is malformed")
+    return b"".join((
+        _model_uint(
+            review.reviewed_through_parent_slot_exclusive,
+            32,
+            "fork reviewed-through parent slot",
+        ),
+        review.review_evidence_hash,
+        review.review_certificate_hash,
+    ))
+
+
+def decode_fork_review_envelope_v1(encoded: bytes) -> ForkReviewEnvelopeV1:
+    words = _protocol_change_words(encoded, 3)
+    review = ForkReviewEnvelopeV1(
+        _decode_uint_word_v1(words[0], 64, "fork reviewed-through slot"),
+        words[1],
+        words[2],
+    )
+    if encode_fork_review_envelope_v1(review) != encoded:
+        raise ValueError("fork review envelope is noncanonical")
+    return review
+
+
+def encode_register_fork_verifier_change_payload_v1(
+    payload: RegisterForkVerifierChangePayloadV1,
+) -> bytes:
+    if type(payload) is not RegisterForkVerifierChangePayloadV1:
+        raise ValueError("REGISTER fork change payload is malformed")
+    return (
+        encode_register_fork_verifier_payload_v1(payload.registration)
+        + encode_fork_review_envelope_v1(payload.review)
+    )
+
+
+def decode_register_fork_verifier_change_payload_v1(
+    payload: bytes,
+) -> RegisterForkVerifierChangePayloadV1:
+    if type(payload) is not bytes or len(payload) != 576:
+        raise ValueError("REGISTER fork change must be exactly 576 bytes")
+    decoded = RegisterForkVerifierChangePayloadV1(
+        decode_register_fork_verifier_payload_v1(payload[:480]),
+        decode_fork_review_envelope_v1(payload[480:]),
+    )
+    if encode_register_fork_verifier_change_payload_v1(decoded) != payload:
+        raise ValueError("REGISTER fork change is noncanonical")
+    return decoded
+
+
+def encode_replace_pending_fork_verifier_payload_v1(
+    payload: ReplacePendingForkVerifierPayloadV1,
+) -> bytes:
+    if type(payload) is not ReplacePendingForkVerifierPayloadV1:
+        raise ValueError("pending fork replacement payload is malformed")
+    return b"".join((
+        encode_register_fork_verifier_payload_v1(
+            payload.expected_predecessor
+        ),
+        encode_register_fork_verifier_payload_v1(payload.expected_old),
+        encode_register_fork_verifier_payload_v1(payload.replacement),
+        encode_fork_review_envelope_v1(payload.review),
+    ))
+
+
+def encode_split_latest_fork_verifier_payload_v1(
+    payload: SplitLatestForkVerifierPayloadV1,
+) -> bytes:
+    if type(payload) is not SplitLatestForkVerifierPayloadV1:
+        raise ValueError("latest fork split payload is malformed")
+    return b"".join((
+        encode_register_fork_verifier_payload_v1(payload.expected_old),
+        encode_register_fork_verifier_payload_v1(payload.successor),
+        encode_fork_review_envelope_v1(payload.review),
+    ))
+
+
 def encode_register_fork_verifier_payload_v1(
     row: RegisterForkVerifierPayloadV1,
 ) -> bytes:
@@ -21008,7 +25154,9 @@ def encode_register_fork_verifier_payload_v1(
         raise ValueError("fork verifier payload row is malformed")
     encoded = b"".join((
         row.fork_digest + bytes(28),
-        _model_uint(row.first_window, 32, "fork first window"),
+        _model_uint(row.first_parent_slot, 32, "fork first parent slot"),
+        _model_uint(row.last_parent_slot_exclusive, 32,
+                    "fork last parent slot"),
         bytes(12) + row.verifier, row.runtime_hash,
         *(_model_uint(value, 32, "fork generalized index") for value in (
             row.beacon_slot_gindex, row.execution_payload_gindex,
@@ -21029,7 +25177,7 @@ SCHEDULE_FORK_CONFIG_DOMAIN = \
     b"slot-chain-schedule-fork-verifier-config-v1"
 SCHEDULE_FORK_OUTPUT_SCHEMA_LITERAL = (
     b"ScheduleCarrierOutputV1(bytes32 statementHash,uint64 parentSlot,"
-    b"uint64 executionBlockNumber,uint64 payloadTimestamp,bytes32 blockHash,"
+    b"uint64 parentExecutionBlockNumber,uint64 payloadTimestamp,bytes32 blockHash,"
     b"bytes32 stateRoot,bytes32 prevRandao)"
 )
 CURRENT_SCHEDULE_FORK_GINDICES = (8, 201, 6_434, 6_437, 6_441, 6_444)
@@ -21071,7 +25219,6 @@ def validate_current_schedule_ssz_multiproof_witness_v1(
 ) -> None:
     if (type(witness) is not bytes or len(witness) != 672
             or int.from_bytes(witness[0:8], "big") != window
-            or int.from_bytes(witness[8:16], "big") == 0
             or int.from_bytes(witness[16:24], "big") == 0
             or int.from_bytes(witness[24:32], "big") == 0
             or witness[32:64] == bytes(32)
@@ -21145,6 +25292,113 @@ def verify_current_schedule_ssz_multiproof_witness_v1(
         raise ValueError("current Schedule SSZ root mismatch")
 
 
+def validate_schedule_execution_payload_adjacency_v1(
+    parent_execution_block_number: int, carrier_header_block_number: int,
+) -> None:
+    if (type(parent_execution_block_number) is not int
+            or type(carrier_header_block_number) is not int
+            or not 0 <= parent_execution_block_number < UINT64_MAX
+            or not 0 <= carrier_header_block_number <= UINT64_MAX
+            or parent_execution_block_number + 1
+                != carrier_header_block_number):
+        raise ValueError("carrier execution block is not the payload successor")
+
+
+def _canonical_rlp_header_fields_v1(encoded: bytes) -> tuple[bytes, ...]:
+    """Decode the already-canonical flat execution-header string fields."""
+
+    _canonical_rlp_list_field_count(encoded)
+    prefix = encoded[0]
+    if prefix <= 0xF7:
+        cursor = 1
+        payload_end = 1 + prefix - 0xC0
+    else:
+        size_bytes = prefix - 0xF7
+        size_end = 1 + size_bytes
+        cursor = size_end
+        payload_end = size_end + int.from_bytes(encoded[1:size_end], "big")
+    fields: list[bytes] = []
+    while cursor < payload_end:
+        prefix = encoded[cursor]
+        if prefix <= 0x7F:
+            fields.append(encoded[cursor:cursor + 1])
+            cursor += 1
+        elif prefix <= 0xB7:
+            size = prefix - 0x80
+            start = cursor + 1
+            cursor = start + size
+            fields.append(encoded[start:cursor])
+        else:
+            size_bytes = prefix - 0xB7
+            size_end = cursor + 1 + size_bytes
+            size = int.from_bytes(encoded[cursor + 1:size_end], "big")
+            cursor = size_end + size
+            fields.append(encoded[size_end:cursor])
+    if cursor != payload_end:
+        raise ValueError("execution header RLP is truncated")
+    return tuple(fields)
+
+
+def _decode_header_uint64_v1(encoded: bytes, name: str) -> int:
+    if len(encoded) > 8 or (encoded and encoded[0] == 0):
+        raise ValueError(f"{name} is not a minimal uint64")
+    return int.from_bytes(encoded, "big")
+
+
+@dataclass(frozen=True)
+class ScheduleCarrierSystemContextV1:
+    """Exact mocked results of the contract-selected system reads."""
+
+    beacon_query_results: tuple[bytes | None, ...]
+    history_block_hash: bytes
+
+    def first_success(self) -> tuple[int, bytes]:
+        if (not 1 <= len(self.beacon_query_results) <= 64
+                or any(row is not None
+                       for row in self.beacon_query_results[:-1])):
+            raise ValueError("EIP-4788 scan does not stop at first success")
+        root = self.beacon_query_results[-1]
+        if type(root) is not bytes or len(root) != 32 or root == bytes(32):
+            raise ValueError("EIP-4788 first success is malformed")
+        if (type(self.history_block_hash) is not bytes
+                or len(self.history_block_hash) != 32
+                or self.history_block_hash == bytes(32)):
+            raise ValueError("EIP-2935 return is malformed")
+        return len(self.beacon_query_results), root
+
+
+def schedule_carrier_statement_hash_v1(
+    settlement_chain_id: int,
+    schedule_oracle: str,
+    fork_digest: bytes,
+    window: int,
+    beacon_block_root: bytes,
+    parent_slot: int,
+    parent_execution_block_number: int,
+    payload_timestamp: int,
+    block_hash: bytes,
+    state_root: bytes,
+    prev_randao: bytes,
+) -> bytes:
+    return keccak256(b"".join((
+        b"slot-chain-schedule-carrier-statement-v1",
+        _model_uint(settlement_chain_id, 32, "settlement chain ID"),
+        _model_address20(schedule_oracle),
+        fork_digest,
+        _model_uint(window, 8, "Schedule window"),
+        _model_fixed_bytes32(beacon_block_root),
+        _model_uint(parent_slot, 8, "parent Beacon slot"),
+        _model_uint(
+            parent_execution_block_number, 8,
+            "parent execution block number",
+        ),
+        _model_uint(payload_timestamp, 8, "parent payload timestamp"),
+        _model_fixed_bytes32(block_hash),
+        _model_fixed_bytes32(state_root),
+        _model_fixed_bytes32(prev_randao),
+    )))
+
+
 def schedule_fork_verifier_configuration_hash_v1(
     fork_digest: bytes, gindices: tuple[int, int, int, int, int, int],
     witness_schema_hash: bytes, selector: bytes, gas_limit: int,
@@ -21152,6 +25406,7 @@ def schedule_fork_verifier_configuration_hash_v1(
     if (len(fork_digest) != 4 or fork_digest == bytes(4)
             or len(gindices) != 6 or any(not 0 < row <= UINT64_MAX
                                         for row in gindices)
+            or gindices[0] != 8
             or witness_schema_hash == bytes(32)
             or selector != bytes.fromhex("7e981e0b")
             or not 100_000 <= gas_limit <= 5_000_000):
@@ -21165,47 +25420,427 @@ def schedule_fork_verifier_configuration_hash_v1(
     )
 
 
+def encode_schedule_fork_verifier_config_return_v1(
+    row: RegisterForkVerifierPayloadV1,
+) -> bytes:
+    encoded = b"".join((
+        b"SFV1" + bytes(28),
+        row.fork_digest + bytes(28),
+        *(
+            _model_uint(value, 32, "fork generalized index")
+            for value in (
+                row.beacon_slot_gindex,
+                row.execution_payload_gindex,
+                row.state_root_gindex,
+                row.prev_randao_gindex,
+                row.timestamp_gindex,
+                row.block_hash_gindex,
+            )
+        ),
+        row.witness_schema_hash,
+        row.configuration_hash,
+    ))
+    if len(encoded) != 320:
+        raise AssertionError("SFV1 must be exactly 320 bytes")
+    return encoded
+
+
+@dataclass
+class ScheduleForkVerifierArtifactV1:
+    address: bytes
+    runtime_hash: bytes
+    configuration_return: bytes
+    runtime_override: bytes | None = None
+    configuration_override: bytes | None = None
+    fault: bool = False
+
+    def extcodehash(self) -> bytes:
+        if self.fault:
+            raise ValueError("fork verifier EXTCODEHASH observation failed")
+        return (
+            self.runtime_hash
+            if self.runtime_override is None else self.runtime_override
+        )
+
+    def schedule_fork_verifier_config_v1(self) -> bytes:
+        if self.fault:
+            raise ValueError("fork verifier SFV1 call failed")
+        return (
+            self.configuration_return
+            if self.configuration_override is None
+            else self.configuration_override
+        )
+
+    def staticcall_schedule_fork_verifier_config_v1(
+        self, calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        if (calldata != PROTOCOL_ROOT_FORK_CONFIG_SELECTOR
+                or gas_limit != SCHEDULE_FORK_VERIFIER_CONFIG_READ_GAS
+                or value != 0):
+            raise ValueError("fork verifier SFV1 call frame is inexact")
+        return self.schedule_fork_verifier_config_v1()
+
+
+@dataclass
+class ScheduleForkVerifierWorldV1:
+    artifacts: dict[bytes, ScheduleForkVerifierArtifactV1] = field(
+        default_factory=dict
+    )
+
+    def publish(self, row: RegisterForkVerifierPayloadV1) -> None:
+        encode_register_fork_verifier_payload_v1(row)
+        artifact = ScheduleForkVerifierArtifactV1(
+            row.verifier,
+            row.runtime_hash,
+            encode_schedule_fork_verifier_config_return_v1(row),
+        )
+        existing = self.artifacts.get(row.verifier)
+        if existing is not None and (
+                existing.runtime_hash != artifact.runtime_hash
+                or existing.configuration_return
+                    != artifact.configuration_return):
+            raise ValueError("fork verifier address cannot change artifact")
+        if existing is None:
+            self.artifacts[row.verifier] = artifact
+
+    def artifact(self, verifier: bytes) -> ScheduleForkVerifierArtifactV1:
+        artifact = self.artifacts.get(verifier)
+        if artifact is None:
+            raise ValueError("fork verifier artifact is not deployed")
+        return artifact
+
+
 def decode_register_fork_verifier_payload_v1(
     payload: bytes,
 ) -> RegisterForkVerifierPayloadV1:
-    words = _protocol_change_words(payload, 14)
+    words = _protocol_change_words(payload, 15)
     fork_digest = _decode_bytes4_word_v1(words[0], "fork digest")
-    first_window = _decode_uint_word_v1(words[1], 64, "first window")
-    verifier = _decode_address_word_v1(words[2], "fork verifier")
-    if words[3] == bytes(32) or words[10] == bytes(32) \
-            or words[11] == bytes(32):
+    first_parent_slot = _decode_uint_word_v1(
+        words[1], 64, "first parent slot"
+    )
+    last_parent_slot_exclusive = _decode_uint_word_v1(
+        words[2], 64, "last parent slot"
+    )
+    verifier = _decode_address_word_v1(words[3], "fork verifier")
+    if verifier == bytes(20) or words[4] == bytes(32) or words[11] == bytes(32) \
+            or words[12] == bytes(32):
         raise ValueError("fork verifier descriptor contains a zero hash")
     gindices = tuple(
         _decode_uint_word_v1(words[index], 64, "fork generalized index")
-        for index in range(4, 10)
+        for index in range(5, 11)
     )
-    for index, name in zip(range(4, 10), (
+    for index, name in zip(range(5, 11), (
             "beacon slot gindex", "execution payload gindex",
             "state root gindex", "prevRandao gindex", "timestamp gindex",
             "block hash gindex")):
         if _decode_uint_word_v1(words[index], 64, name) == 0:
             raise ValueError(f"{name} is zero")
-    selector = _decode_bytes4_word_v1(words[12], "fork verifier selector")
-    gas_limit = _decode_uint_word_v1(words[13], 64, "fork verifier gas")
-    if (not first_window or selector != bytes.fromhex("7e981e0b")
+    selector = _decode_bytes4_word_v1(words[13], "fork verifier selector")
+    gas_limit = _decode_uint_word_v1(words[14], 64, "fork verifier gas")
+    if (not first_parent_slot < last_parent_slot_exclusive
+            or gindices[0] != 8
+            or selector != bytes.fromhex("7e981e0b")
             or not gas_limit):
         raise ValueError("fork verifier route is unsupported")
     expected_config = schedule_fork_verifier_configuration_hash_v1(
-        fork_digest, gindices, words[10], selector, gas_limit
+        fork_digest, gindices, words[11], selector, gas_limit
     )
-    if words[11] != expected_config:
+    if words[12] != expected_config:
         raise ValueError("fork verifier configuration hash is inconsistent")
     return RegisterForkVerifierPayloadV1(
-        fork_digest, first_window, verifier, words[3], *gindices, words[10],
-        words[11], selector, gas_limit,
+        fork_digest, first_parent_slot, last_parent_slot_exclusive, verifier,
+        words[4], *gindices, words[11], words[12], selector, gas_limit,
     )
+
+
+def decode_replace_pending_fork_verifier_payload_v1(
+    payload: bytes,
+) -> ReplacePendingForkVerifierPayloadV1:
+    if type(payload) is not bytes or len(payload) != 1_536:
+        raise ValueError("pending fork replacement must be exactly 1536 bytes")
+    decoded = ReplacePendingForkVerifierPayloadV1(
+        decode_register_fork_verifier_payload_v1(payload[:480]),
+        decode_register_fork_verifier_payload_v1(payload[480:960]),
+        decode_register_fork_verifier_payload_v1(payload[960:1440]),
+        decode_fork_review_envelope_v1(payload[1440:]),
+    )
+    if encode_replace_pending_fork_verifier_payload_v1(decoded) != payload:
+        raise ValueError("pending fork replacement is noncanonical")
+    return decoded
+
+
+def decode_split_latest_fork_verifier_payload_v1(
+    payload: bytes,
+) -> SplitLatestForkVerifierPayloadV1:
+    if type(payload) is not bytes or len(payload) != 1_056:
+        raise ValueError("latest fork split must be exactly 1056 bytes")
+    decoded = SplitLatestForkVerifierPayloadV1(
+        decode_register_fork_verifier_payload_v1(payload[:480]),
+        decode_register_fork_verifier_payload_v1(payload[480:960]),
+        decode_fork_review_envelope_v1(payload[960:]),
+    )
+    if encode_split_latest_fork_verifier_payload_v1(decoded) != payload:
+        raise ValueError("latest fork split is noncanonical")
+    return decoded
+
+
+def schedule_fork_route_state_hash_v1(
+    registrations: dict[bytes, RegisterForkVerifierPayloadV1],
+    order: list[bytes],
+    used_fork_digests: set[bytes],
+) -> bytes:
+    if (not order or len(order) != len(set(order))
+            or any(digest not in registrations for digest in order)
+            or any(len(digest) != 4 or digest == bytes(4)
+                   for digest in registrations)
+            or any(len(digest) != 4 or digest == bytes(4)
+                   for digest in used_fork_digests)):
+        raise ValueError("Schedule fork route state is malformed")
+    def sparse_root(leaf_domain: bytes, leaves: dict[bytes, bytes]) -> bytes:
+        defaults = [keccak256(leaf_domain + b"\x00")]
+        for _ in range(32):
+            defaults.append(keccak256(
+                leaf_domain + b"\x01" + defaults[-1] + defaults[-1]
+            ))
+        nodes = {
+            int.from_bytes(key, "big"):
+                keccak256(leaf_domain + b"\x02" + key + value)
+            for key, value in leaves.items()
+        }
+        for level in range(32):
+            parents: dict[int, bytes] = {}
+            for parent in {index >> 1 for index in nodes}:
+                left = nodes.get(parent << 1, defaults[level])
+                right = nodes.get((parent << 1) | 1, defaults[level])
+                parents[parent] = keccak256(
+                    leaf_domain + b"\x01" + left + right
+                )
+            nodes = parents
+        return nodes.get(0, defaults[32])
+
+    order_hash = keccak256(b"slot-chain-schedule-fork-order-empty-v1")
+    for index, digest in enumerate(order):
+        order_hash = keccak256(b"".join((
+            b"slot-chain-schedule-fork-order-step-v1",
+            order_hash,
+            _model_uint(index, 8, "Schedule route index"),
+            digest,
+        )))
+    registration_root = sparse_root(
+        b"slot-chain-schedule-fork-registration-smt-v1",
+        {
+            digest: schedule_fork_registration_hash_v1(row)
+            for digest, row in registrations.items()
+        },
+    )
+    used_root = sparse_root(
+        b"slot-chain-schedule-fork-used-smt-v1",
+        {
+            digest: keccak256(
+                b"slot-chain-schedule-fork-used-leaf-v1" + digest
+            )
+            for digest in used_fork_digests
+        },
+    )
+    return keccak256(b"".join((
+        b"slot-chain-schedule-fork-route-state-v1",
+        order_hash,
+        registration_root,
+        used_root,
+        _model_uint(len(order), 8, "Schedule route count"),
+        _model_uint(len(registrations), 8, "Schedule mapping count"),
+        _model_uint(len(used_fork_digests), 8, "Schedule used count"),
+    )))
+
+
+@dataclass
+class ScheduleForkRouteAccumulatorV1:
+    """Incremental production-shaped FRS1 commitment state.
+
+    Full mapping enumeration remains only in
+    ``schedule_fork_route_state_hash_v1`` as an independent differential
+    oracle. Mutations here touch a fixed 32-level path per changed leaf.
+    """
+
+    order_prefixes: list[bytes] = field(default_factory=lambda: [
+        keccak256(b"slot-chain-schedule-fork-order-empty-v1")
+    ])
+    registration_nodes: dict[tuple[int, int], bytes] = field(
+        default_factory=dict
+    )
+    used_nodes: dict[tuple[int, int], bytes] = field(default_factory=dict)
+
+    @staticmethod
+    def _defaults(domain: bytes) -> tuple[bytes, ...]:
+        values = [keccak256(domain + b"\x00")]
+        for _ in range(32):
+            values.append(keccak256(
+                domain + b"\x01" + values[-1] + values[-1]
+            ))
+        return tuple(values)
+
+    @staticmethod
+    def _update_path(
+        domain: bytes,
+        nodes: dict[tuple[int, int], bytes],
+        digest: bytes,
+        value: bytes | None,
+    ) -> None:
+        if type(digest) is not bytes or len(digest) != 4 \
+                or digest == bytes(4):
+            raise ValueError("Schedule route SMT digest is invalid")
+        if value is not None and (type(value) is not bytes or len(value) != 32):
+            raise ValueError("Schedule route SMT value is invalid")
+        defaults = ScheduleForkRouteAccumulatorV1._defaults(domain)
+        index = int.from_bytes(digest, "big")
+        leaf = (defaults[0] if value is None else
+                keccak256(domain + b"\x02" + digest + value))
+        if leaf == defaults[0]:
+            nodes.pop((0, index), None)
+        else:
+            nodes[(0, index)] = leaf
+        for level in range(32):
+            sibling = nodes.get((level, index ^ 1), defaults[level])
+            if index & 1:
+                left, right = sibling, leaf
+            else:
+                left, right = leaf, sibling
+            parent = keccak256(domain + b"\x01" + left + right)
+            index >>= 1
+            if parent == defaults[level + 1]:
+                nodes.pop((level + 1, index), None)
+            else:
+                nodes[(level + 1, index)] = parent
+            leaf = parent
+
+    @classmethod
+    def from_state(
+        cls,
+        registrations: dict[bytes, RegisterForkVerifierPayloadV1],
+        order: list[bytes],
+        used_fork_digests: set[bytes],
+    ) -> "ScheduleForkRouteAccumulatorV1":
+        accumulator = cls()
+        for digest in order:
+            accumulator.append_order(digest)
+        for digest, row in registrations.items():
+            accumulator.set_registration(
+                digest, schedule_fork_registration_hash_v1(row)
+            )
+        for digest in used_fork_digests:
+            accumulator.set_used(digest)
+        return accumulator
+
+    def clone(self) -> "ScheduleForkRouteAccumulatorV1":
+        return ScheduleForkRouteAccumulatorV1(
+            list(self.order_prefixes), dict(self.registration_nodes),
+            dict(self.used_nodes),
+        )
+
+    def append_order(self, digest: bytes) -> None:
+        index = len(self.order_prefixes) - 1
+        self.order_prefixes.append(keccak256(b"".join((
+            b"slot-chain-schedule-fork-order-step-v1",
+            self.order_prefixes[-1],
+            _model_uint(index, 8, "Schedule route index"), digest,
+        ))))
+
+    def replace_last_order(self, digest: bytes) -> None:
+        if len(self.order_prefixes) < 2:
+            raise ValueError("Schedule route order has no replaceable row")
+        index = len(self.order_prefixes) - 2
+        self.order_prefixes[-1] = keccak256(b"".join((
+            b"slot-chain-schedule-fork-order-step-v1",
+            self.order_prefixes[-2],
+            _model_uint(index, 8, "Schedule route index"), digest,
+        )))
+
+    def set_registration(self, digest: bytes, registration_hash: bytes) -> None:
+        self._update_path(
+            b"slot-chain-schedule-fork-registration-smt-v1",
+            self.registration_nodes, digest, registration_hash,
+        )
+
+    def delete_registration(self, digest: bytes) -> None:
+        self._update_path(
+            b"slot-chain-schedule-fork-registration-smt-v1",
+            self.registration_nodes, digest, None,
+        )
+
+    def set_used(self, digest: bytes) -> None:
+        self._update_path(
+            b"slot-chain-schedule-fork-used-smt-v1",
+            self.used_nodes, digest,
+            keccak256(b"slot-chain-schedule-fork-used-leaf-v1" + digest),
+        )
+
+    def route_state_hash(
+        self, ordered_count: int, mapped_count: int, used_count: int,
+    ) -> bytes:
+        if (ordered_count + 1 != len(self.order_prefixes)
+                or not 0 < ordered_count <= mapped_count <= used_count):
+            raise ValueError("Schedule route accumulator counts are invalid")
+        registration_defaults = self._defaults(
+            b"slot-chain-schedule-fork-registration-smt-v1"
+        )
+        used_defaults = self._defaults(
+            b"slot-chain-schedule-fork-used-smt-v1"
+        )
+        registration_root = self.registration_nodes.get(
+            (32, 0), registration_defaults[32]
+        )
+        used_root = self.used_nodes.get((32, 0), used_defaults[32])
+        return keccak256(b"".join((
+            b"slot-chain-schedule-fork-route-state-v1",
+            self.order_prefixes[-1], registration_root, used_root,
+            _model_uint(ordered_count, 8, "Schedule route count"),
+            _model_uint(mapped_count, 8, "Schedule mapping count"),
+            _model_uint(used_count, 8, "Schedule used count"),
+        )))
+
+
+def encode_schedule_fork_route_accumulator_return_v1(
+    accumulator: ScheduleForkRouteAccumulatorV1,
+    ordered_count: int,
+    mapped_count: int,
+    used_count: int,
+) -> bytes:
+    encoded = b"".join((
+        b"FRS1" + bytes(28),
+        accumulator.route_state_hash(ordered_count, mapped_count, used_count),
+        _model_uint(ordered_count, 32, "Schedule route count"),
+        _model_uint(mapped_count, 32, "Schedule mapping count"),
+        _model_uint(used_count, 32, "Schedule used count"),
+    ))
+    if len(encoded) != 160:
+        raise AssertionError("FRS1 must be exactly 160 bytes")
+    return encoded
+
+
+def encode_schedule_fork_route_state_return_v1(
+    registrations: dict[bytes, RegisterForkVerifierPayloadV1],
+    order: list[bytes],
+    used_fork_digests: set[bytes],
+) -> bytes:
+    encoded = b"".join((
+        b"FRS1" + bytes(28),
+        schedule_fork_route_state_hash_v1(
+            registrations, order, used_fork_digests
+        ),
+        _model_uint(len(order), 32, "Schedule route count"),
+        _model_uint(len(registrations), 32, "Schedule mapping count"),
+        _model_uint(len(used_fork_digests), 32, "Schedule used count"),
+    ))
+    if len(encoded) != 160:
+        raise AssertionError("FRS1 must be exactly 160 bytes")
+    return encoded
 
 
 @dataclass
 class ScheduleOracleV1:
     """Protocol-lifetime fork registry and no-write VACANT consumption model.
 
-    This file models the registered 14-word fork route and authenticated
+    This file models the registered 15-word fork route and authenticated
     256-byte carrier as one verifier boundary.  Exact EIP-4788/SSZ generalized
     index leaf recomputation is composed from ``lookahead-model.py`` rather
     than duplicated here; release conformance runs both executable models.
@@ -21213,19 +25848,40 @@ class ScheduleOracleV1:
 
     address: str
     protocol_version_manager: str
+    initial_fork: RegisterForkVerifierPayloadV1
+    settlement_chain_id: int = 1
+    history_first_supported_block: int = 1
+    deployed_at_timestamp: int = GENESIS_TIMESTAMP
+    fork_verifier_world: ScheduleForkVerifierWorldV1 = field(
+        default_factory=ScheduleForkVerifierWorldV1
+    )
     first_managed_window: int = 0
     genesis_timestamp: int = GENESIS_TIMESTAMP
     evidence_delay_seconds: int = EVIDENCE_DELAY_SECONDS
     reorg_margin_seconds: int = REORG_MARGIN_SECONDS
+    beacon_genesis_time: int = 0
     last_managed_window: int | None = None
-    current_window: int = 0
     registrations: dict[bytes, RegisterForkVerifierPayloadV1] = field(
         default_factory=dict
     )
     order: list[bytes] = field(default_factory=list)
+    fork_index_by_digest: dict[bytes, int] = field(default_factory=dict)
+    used_fork_digests: set[bytes] = field(default_factory=set)
     sealed_windows: dict[int, bytes] = field(default_factory=dict)
+    fork_route_accumulator: ScheduleForkRouteAccumulatorV1 | None = field(
+        default=None, compare=False
+    )
     fault_point: str | None = field(default=None, compare=False)
     getter_override: bytes | None = field(default=None, compare=False)
+    getter_response_script: list[bytes] = field(
+        default_factory=list, compare=False, repr=False
+    )
+    route_state_override: bytes | None = field(default=None, compare=False)
+    soc1_config: ProtocolRootScheduleOracleConfigV1 | None = field(
+        default=None, compare=False
+    )
+    soc1_return_override: bytes | None = field(default=None, compare=False)
+    read_faults: set[str] = field(default_factory=set, compare=False)
 
     def __post_init__(self) -> None:
         derived = derive_last_managed_schedule_window(
@@ -21240,134 +25896,595 @@ class ScheduleOracleV1:
                 or not 0 <= self.first_managed_window
                 <= self.last_managed_window):
             raise ValueError("Schedule managed interval is inconsistent")
+        if (type(self.settlement_chain_id) is not int
+                or not 0 < self.settlement_chain_id < 1 << 256
+                or type(self.history_first_supported_block) is not int
+                or not 0 < self.history_first_supported_block <= UINT64_MAX):
+            raise ValueError("Schedule settlement/history domain is invalid")
+        if (type(self.deployed_at_timestamp) is not int
+                or not 0 <= self.deployed_at_timestamp <= UINT64_MAX):
+            raise ValueError("Schedule deployment timestamp is invalid")
+        if (type(self.beacon_genesis_time) is not int
+                or not 0 <= self.beacon_genesis_time <= UINT64_MAX):
+            raise ValueError("Schedule beacon schema horizon is inconsistent")
+        if (self.first_managed_window
+                > (UINT64_MAX - self.genesis_timestamp)
+                    // SCHEDULE_WINDOW_SLOTS
+                or self.beacon_genesis_time > UINT64_MAX - 3_072):
+            raise ValueError("Schedule first managed window overflows")
+        first_window_start = (
+            self.genesis_timestamp
+            + SCHEDULE_WINDOW_SLOTS * self.first_managed_window
+        )
+        if (first_window_start < 768
+                or first_window_start < self.beacon_genesis_time + 3_072):
+            raise ValueError("Schedule first managed window is too early")
+        if self.soc1_config is not None and (
+                self.soc1_config.settlement_chain_id != self.settlement_chain_id
+                or self.soc1_config.protocol_version_manager
+                    != _model_address20(self.protocol_version_manager)
+                or self.soc1_config.first_managed_window
+                    != self.first_managed_window
+                or self.soc1_config.last_managed_window
+                    != self.last_managed_window
+                or self.soc1_config.genesis_timestamp != self.genesis_timestamp
+                or self.soc1_config.evidence_delay_seconds
+                    != self.evidence_delay_seconds
+                or self.soc1_config.reorg_margin_seconds
+                    != self.reorg_margin_seconds
+                or self.soc1_config.beacon_genesis_time
+                    != self.beacon_genesis_time
+                or self.soc1_config.initial_fork_digest
+                    != self.initial_fork.fork_digest
+                or self.soc1_config.initial_fork_first_parent_slot
+                    != self.initial_fork.first_parent_slot
+                or self.soc1_config.initial_fork_last_parent_slot_exclusive
+                    != self.initial_fork.last_parent_slot_exclusive):
+            raise ValueError("Schedule SOC1 configuration is inconsistent")
+        if (self.registrations or self.order or self.fork_index_by_digest
+                or self.used_fork_digests
+                or self.fork_route_accumulator is not None):
+            raise ValueError("Schedule constructor fork state is prepopulated")
+        if self.initial_fork.first_parent_slot != 0:
+            raise ValueError("initial Schedule fork must start at slot zero")
+        encode_register_fork_verifier_payload_v1(self.initial_fork)
+        if self.initial_fork.last_parent_slot_exclusive > UINT64_MAX:
+            raise ValueError("initial Schedule fork horizon exceeds uint64")
+        self._validate_live_fork_verifier(self.initial_fork)
+        self.registrations[self.initial_fork.fork_digest] = self.initial_fork
+        self.order.append(self.initial_fork.fork_digest)
+        self.fork_index_by_digest[self.initial_fork.fork_digest] = 0
+        self.used_fork_digests.add(self.initial_fork.fork_digest)
+        self.fork_route_accumulator = ScheduleForkRouteAccumulatorV1.from_state(
+            self.registrations, self.order, self.used_fork_digests
+        )
+        initial_protected_target = self.target_slot(
+            self.current_window_at(self.deployed_at_timestamp)
+            + FORK_CHANGE_RENEWAL_RUNWAY_WINDOWS
+        )
+        if (initial_protected_target
+                + MAX_SCHEDULE_CARRIER_SCAN_SLOTS
+                >= self.initial_fork.last_parent_slot_exclusive):
+            raise ValueError("initial Schedule fork horizon is already unsafe")
+
+    def current_window_at(self, timestamp: int) -> int:
+        if type(timestamp) is not int or not 0 <= timestamp <= UINT64_MAX:
+            raise ValueError("Schedule timestamp is outside uint64")
+        if timestamp <= self.genesis_timestamp:
+            return 0
+        return (timestamp - self.genesis_timestamp) // SCHEDULE_WINDOW_SLOTS
+
+    def target_slot(self, window: int) -> int:
+        if type(window) is not int or not 0 <= window <= UINT64_MAX:
+            raise ValueError("Schedule target window is outside uint64")
+        window_start = self.genesis_timestamp + SCHEDULE_WINDOW_SLOTS * window
+        snapshot_lag_seconds = 256 * L1_SLOT_SECONDS
+        if window_start < self.beacon_genesis_time + snapshot_lag_seconds:
+            raise ValueError("Schedule target precedes the Beacon slot domain")
+        return ((window_start - snapshot_lag_seconds
+                 - self.beacon_genesis_time) // L1_SLOT_SECONDS)
+
+    @property
+    def latest_last_parent_slot_exclusive(self) -> int:
+        if not self.order:
+            return 0
+        return self.registrations[
+            self.order[-1]
+        ].last_parent_slot_exclusive
 
     def _snapshot(self) -> tuple[object, ...]:
         return (
             dict(self.registrations), list(self.order),
+            dict(self.fork_index_by_digest), set(self.used_fork_digests),
             dict(self.sealed_windows),
+            self.fork_route_accumulator.clone(),
         )
 
     def _restore(self, snapshot: tuple[object, ...]) -> None:
-        registrations, order, seals = snapshot
+        (registrations, order, index_by_digest, used_digests, seals,
+         accumulator) = snapshot
         self.registrations = registrations
         self.order = order
+        self.fork_index_by_digest = index_by_digest
+        self.used_fork_digests = used_digests
         self.sealed_windows = seals
+        self.fork_route_accumulator = accumulator
+
+    def _validate_live_fork_verifier(
+        self, row: RegisterForkVerifierPayloadV1,
+    ) -> None:
+        artifact = self.fork_verifier_world.artifact(row.verifier)
+        if (artifact.extcodehash() != row.runtime_hash
+                or artifact.staticcall_schedule_fork_verifier_config_v1(
+                    PROTOCOL_ROOT_FORK_CONFIG_SELECTOR,
+                    gas_limit=SCHEDULE_FORK_VERIFIER_CONFIG_READ_GAS,
+                    value=0,
+                )
+                    != encode_schedule_fork_verifier_config_return_v1(row)):
+            raise ValueError("live Schedule fork verifier is inconsistent")
 
     def install_fork_verifier_v1(
         self, row: RegisterForkVerifierPayloadV1, *, manager: object,
+        clock: Clock, gas_limit: int, value: int,
     ) -> bytes:
         if (type(manager) is not ProtocolVersionManagerV1
                 or manager.address != self.protocol_version_manager
-                or manager.schedule_oracle is not self
-                or manager.lifecycle != "APPLYING"
-                or manager._active_operation_kind != REGISTER_FORK_VERIFIER
-                or not manager._active_operation_consumed
-                or row.fork_digest in self.registrations
-                or row.first_window > self.last_managed_window
-                or row.first_window < self.current_window + 9
-                or (self.order and row.first_window
-                    <= self.registrations[self.order[-1]].first_window)):
+                or gas_limit != SCHEDULE_FORK_MUTATION_GAS or value != 0):
             raise ValueError("Schedule fork installation is stale or unauthorized")
-        schedule_fork_verifier_configuration_hash_v1(
-            row.fork_digest,
-            (row.beacon_slot_gindex, row.execution_payload_gindex,
-             row.state_root_gindex, row.prev_randao_gindex,
-             row.timestamp_gindex, row.block_hash_gindex),
-            row.witness_schema_hash, row.selector, row.gas_limit,
-        )
+        installation_kind = self._fork_installation_kind(row, clock=clock)
         snapshot = self._snapshot()
         try:
             self.registrations[row.fork_digest] = row
-            self.order.append(row.fork_digest)
+            if installation_kind == "append":
+                self.order.append(row.fork_digest)
+                self.fork_index_by_digest[row.fork_digest] = len(self.order) - 1
+                self.used_fork_digests.add(row.fork_digest)
+                self.fork_route_accumulator.append_order(row.fork_digest)
+                self.fork_route_accumulator.set_used(row.fork_digest)
+            self.fork_route_accumulator.set_registration(
+                row.fork_digest, schedule_fork_registration_hash_v1(row)
+            )
             if self.fault_point == "after_install":
                 raise RuntimeError("injected Schedule install fault")
             return (
                 b"FVI1" + bytes(28) + row.fork_digest + bytes(28)
-                + _model_uint(row.first_window, 32, "fork first window")
+                + _model_uint(row.first_parent_slot, 32,
+                              "fork first parent slot")
             )
         except BaseException:
             self._restore(snapshot)
             raise
 
+    def _fork_installation_kind(
+        self, row: RegisterForkVerifierPayloadV1, *, clock: Clock,
+    ) -> str:
+        encode_register_fork_verifier_payload_v1(row)
+        self._validate_live_fork_verifier(row)
+        if (row.beacon_slot_gindex != 8
+                or not 0 <= row.first_parent_slot
+                    < row.last_parent_slot_exclusive <= UINT64_MAX):
+            raise ValueError("Schedule fork interval is unsupported")
+        latest_digest = self.order[-1]
+        latest = self.registrations[latest_digest]
+        protected_target = self.target_slot(
+            self.current_window_at(clock.timestamp) + 8
+        )
+        renewal_target = self.target_slot(
+            self.current_window_at(clock.timestamp)
+            + FORK_CHANGE_RENEWAL_RUNWAY_WINDOWS
+        )
+        if row.fork_digest == latest_digest:
+            same_descriptor = (
+                row.first_parent_slot == latest.first_parent_slot
+                and row.verifier == latest.verifier
+                and row.runtime_hash == latest.runtime_hash
+                and row.beacon_slot_gindex == latest.beacon_slot_gindex
+                and row.execution_payload_gindex
+                    == latest.execution_payload_gindex
+                and row.state_root_gindex == latest.state_root_gindex
+                and row.prev_randao_gindex == latest.prev_randao_gindex
+                and row.timestamp_gindex == latest.timestamp_gindex
+                and row.block_hash_gindex == latest.block_hash_gindex
+                and row.witness_schema_hash == latest.witness_schema_hash
+                and row.configuration_hash == latest.configuration_hash
+                and row.selector == latest.selector
+                and row.gas_limit == latest.gas_limit
+            )
+            if (not same_descriptor
+                    or row.last_parent_slot_exclusive
+                        <= latest.last_parent_slot_exclusive
+                    or protected_target + MAX_SCHEDULE_CARRIER_SCAN_SLOTS
+                        >= latest.last_parent_slot_exclusive
+                    or renewal_target + MAX_SCHEDULE_CARRIER_SCAN_SLOTS
+                        >= row.last_parent_slot_exclusive):
+                raise ValueError("Schedule horizon extension is unsafe")
+            return "extend"
+        if (row.fork_digest in self.used_fork_digests
+                or row.first_parent_slot
+                    != latest.last_parent_slot_exclusive
+                or protected_target + MAX_SCHEDULE_CARRIER_SCAN_SLOTS
+                    >= row.first_parent_slot
+                or renewal_target + MAX_SCHEDULE_CARRIER_SCAN_SLOTS
+                    >= row.first_parent_slot
+                or renewal_target + MAX_SCHEDULE_CARRIER_SCAN_SLOTS
+                    >= row.last_parent_slot_exclusive):
+            raise ValueError("Schedule fork append is stale or noncontiguous")
+        return "append"
+
+    def replace_pending_fork_verifier_v1(
+        self, expected_predecessor_registration_hash: bytes,
+        expected_old_registration_hash: bytes,
+        replacement_row: RegisterForkVerifierPayloadV1, *, manager: object,
+        clock: Clock, gas_limit: int, value: int,
+    ) -> bytes:
+        if (type(manager) is not ProtocolVersionManagerV1
+                or manager.address != self.protocol_version_manager
+                or gas_limit != SCHEDULE_FORK_MUTATION_GAS or value != 0
+                or len(expected_predecessor_registration_hash) != 32
+                or len(expected_old_registration_hash) != 32
+                or len(self.order) < 2):
+            raise ValueError("pending Schedule replacement is unauthorized")
+        old_digest = self.order[-1]
+        old = self.registrations[old_digest]
+        if schedule_fork_registration_hash_v1(old) \
+                != expected_old_registration_hash:
+            raise ValueError("pending Schedule replacement old row is stale")
+        encode_register_fork_verifier_payload_v1(replacement_row)
+        self._validate_live_fork_verifier(replacement_row)
+        protected_target = self.target_slot(
+            self.current_window_at(clock.timestamp) + 8
+        )
+        renewal_target = self.target_slot(
+            self.current_window_at(clock.timestamp)
+            + FORK_CHANGE_RENEWAL_RUNWAY_WINDOWS
+        )
+        predecessor_digest = self.order[-2]
+        predecessor = self.registrations[predecessor_digest]
+        if schedule_fork_registration_hash_v1(predecessor) \
+                != expected_predecessor_registration_hash:
+            raise ValueError("pending Schedule replacement predecessor is stale")
+        if (replacement_row.beacon_slot_gindex != 8
+                or protected_target + MAX_SCHEDULE_CARRIER_SCAN_SLOTS >= min(
+                    old.first_parent_slot,
+                    replacement_row.first_parent_slot,
+                )
+                or renewal_target + MAX_SCHEDULE_CARRIER_SCAN_SLOTS
+                    >= replacement_row.last_parent_slot_exclusive
+                or not predecessor.first_parent_slot
+                    < replacement_row.first_parent_slot
+                    < replacement_row.last_parent_slot_exclusive <= UINT64_MAX
+                or (replacement_row.fork_digest != old_digest
+                    and replacement_row.fork_digest
+                        in self.used_fork_digests)):
+            raise ValueError("pending Schedule replacement is unsafe")
+        snapshot = self._snapshot()
+        try:
+            rewritten_predecessor = replace(
+                predecessor,
+                last_parent_slot_exclusive=replacement_row.first_parent_slot,
+            )
+            self.registrations[predecessor_digest] = rewritten_predecessor
+            self.fork_route_accumulator.set_registration(
+                predecessor_digest,
+                schedule_fork_registration_hash_v1(rewritten_predecessor),
+            )
+            if replacement_row.fork_digest != old_digest:
+                del self.registrations[old_digest]
+                del self.fork_index_by_digest[old_digest]
+                self.fork_route_accumulator.delete_registration(old_digest)
+            self.registrations[replacement_row.fork_digest] = replacement_row
+            self.order[-1] = replacement_row.fork_digest
+            self.fork_index_by_digest[replacement_row.fork_digest] = (
+                len(self.order) - 1
+            )
+            self.used_fork_digests.add(replacement_row.fork_digest)
+            self.fork_route_accumulator.set_registration(
+                replacement_row.fork_digest,
+                schedule_fork_registration_hash_v1(replacement_row),
+            )
+            self.fork_route_accumulator.replace_last_order(
+                replacement_row.fork_digest
+            )
+            self.fork_route_accumulator.set_used(replacement_row.fork_digest)
+            if self.fault_point == "after_replace":
+                raise RuntimeError("injected Schedule replacement fault")
+            return b"".join((
+                b"FVP1" + bytes(28), old_digest + bytes(28),
+                replacement_row.fork_digest + bytes(28),
+                _model_uint(replacement_row.first_parent_slot, 32,
+                            "replacement first parent slot"),
+                _model_uint(replacement_row.last_parent_slot_exclusive, 32,
+                            "replacement last parent slot"),
+            ))
+        except BaseException:
+            self._restore(snapshot)
+            raise
+
+    def split_latest_fork_verifier_v1(
+        self, expected_old_registration_hash: bytes,
+        successor_row: RegisterForkVerifierPayloadV1, *, manager: object,
+        clock: Clock, gas_limit: int, value: int,
+    ) -> bytes:
+        if (type(manager) is not ProtocolVersionManagerV1
+                or manager.address != self.protocol_version_manager
+                or gas_limit != SCHEDULE_FORK_MUTATION_GAS or value != 0
+                or len(expected_old_registration_hash) != 32):
+            raise ValueError("latest Schedule fork split is unauthorized")
+        old_digest = self.order[-1]
+        old = self.registrations[old_digest]
+        if schedule_fork_registration_hash_v1(old) \
+                != expected_old_registration_hash:
+            raise ValueError("latest Schedule fork split old row is stale")
+        encode_register_fork_verifier_payload_v1(successor_row)
+        self._validate_live_fork_verifier(successor_row)
+        protected_target = self.target_slot(
+            self.current_window_at(clock.timestamp) + 8
+        )
+        renewal_target = self.target_slot(
+            self.current_window_at(clock.timestamp)
+            + FORK_CHANGE_RENEWAL_RUNWAY_WINDOWS
+        )
+        if (successor_row.beacon_slot_gindex != 8
+                or successor_row.fork_digest == old_digest
+                or successor_row.fork_digest in self.used_fork_digests
+                or protected_target + MAX_SCHEDULE_CARRIER_SCAN_SLOTS
+                    >= successor_row.first_parent_slot
+                or renewal_target + MAX_SCHEDULE_CARRIER_SCAN_SLOTS
+                    >= successor_row.last_parent_slot_exclusive
+                or not old.first_parent_slot
+                    < successor_row.first_parent_slot
+                    < old.last_parent_slot_exclusive
+                or not successor_row.first_parent_slot
+                    < successor_row.last_parent_slot_exclusive <= UINT64_MAX):
+            raise ValueError("latest Schedule fork split is unsafe")
+        snapshot = self._snapshot()
+        try:
+            shortened = replace(
+                old,
+                last_parent_slot_exclusive=successor_row.first_parent_slot,
+            )
+            self.registrations[old_digest] = shortened
+            self.registrations[successor_row.fork_digest] = successor_row
+            self.order.append(successor_row.fork_digest)
+            self.fork_index_by_digest[successor_row.fork_digest] = (
+                len(self.order) - 1
+            )
+            self.used_fork_digests.add(successor_row.fork_digest)
+            self.fork_route_accumulator.set_registration(
+                old_digest, schedule_fork_registration_hash_v1(shortened)
+            )
+            self.fork_route_accumulator.set_registration(
+                successor_row.fork_digest,
+                schedule_fork_registration_hash_v1(successor_row),
+            )
+            self.fork_route_accumulator.append_order(
+                successor_row.fork_digest
+            )
+            self.fork_route_accumulator.set_used(successor_row.fork_digest)
+            if self.fault_point == "after_split":
+                raise RuntimeError("injected Schedule split fault")
+            return b"".join((
+                b"FVS1" + bytes(28), old_digest + bytes(28),
+                successor_row.fork_digest + bytes(28),
+                _model_uint(successor_row.first_parent_slot, 32,
+                            "split first parent slot"),
+                _model_uint(successor_row.last_parent_slot_exclusive, 32,
+                            "split last parent slot"),
+            ))
+        except BaseException:
+            self._restore(snapshot)
+            raise
+
+    def staticcall_schedule_oracle_config_v1(
+        self, calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        if ("SOC1" in self.read_faults
+                or calldata != PROTOCOL_ROOT_SOC1_SELECTOR
+                or gas_limit != SCHEDULE_CONFIG_READ_GAS or value != 0
+                or type(self.soc1_config)
+                    is not ProtocolRootScheduleOracleConfigV1):
+            raise ValueError("Schedule SOC1 call frame is inexact")
+        encoded = self.soc1_config.encode_soc1()
+        return (encoded if self.soc1_return_override is None
+                else self.soc1_return_override)
+
     def fork_verifier_registration_v1(self, fork_digest: bytes) -> bytes:
         row = self.registrations.get(fork_digest)
         if row is None:
             raise ValueError("unknown Schedule fork verifier")
-        index = self.order.index(fork_digest)
+        index = self.fork_index_by_digest.get(fork_digest)
+        if (index is None or index >= len(self.order)
+                or self.order[index] != fork_digest):
+            raise ValueError("Schedule fork reverse index is inconsistent")
         successor = (
             self.registrations[self.order[index + 1]]
             if index + 1 < len(self.order) else None
         )
         encoded = b"".join((
             b"FVR1" + bytes(28), fork_digest + bytes(28),
-            _model_uint(row.first_window, 32, "fork first window"),
+            _model_uint(row.first_parent_slot, 32, "fork first parent slot"),
             (bytes(32) if successor is None
              else successor.fork_digest + bytes(28)),
-            _model_uint(0 if successor is None else successor.first_window,
-                        32, "fork successor window"),
+            _model_uint(row.last_parent_slot_exclusive, 32,
+                        "fork last parent slot"),
             bytes(12) + row.verifier, row.runtime_hash,
             row.configuration_hash, row.selector + bytes(28),
             _model_uint(row.gas_limit, 32, "fork verifier gas"),
         ))
         if len(encoded) != 320:
             raise AssertionError("FVR1 must be exactly 320 bytes")
+        if self.getter_response_script:
+            return self.getter_response_script.pop(0)
         return self.getter_override if self.getter_override is not None else encoded
+
+    def staticcall_fork_verifier_registration_v1(
+        self, calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        if ("FVR1" in self.read_faults
+                or type(calldata) is not bytes or len(calldata) != 36
+                or calldata[:4] != PROTOCOL_ROOT_FORK_REGISTRATION_SELECTOR
+                or calldata[8:] != bytes(28)
+                or gas_limit != SCHEDULE_FORK_REGISTRATION_READ_GAS
+                or value != 0):
+            raise ValueError("Schedule FVR1 call frame is inexact")
+        return self.fork_verifier_registration_v1(calldata[4:8])
 
     def schedule_fork_verifier_config_v1(self, fork_digest: bytes) -> bytes:
         row = self.registrations.get(fork_digest)
         if row is None:
             raise ValueError("unknown Schedule fork configuration")
-        encoded = b"".join((
-            b"SFV1" + bytes(28), fork_digest + bytes(28),
-            *(_model_uint(value, 32, "fork generalized index") for value in (
-                row.beacon_slot_gindex, row.execution_payload_gindex,
-                row.state_root_gindex, row.prev_randao_gindex,
-                row.timestamp_gindex, row.block_hash_gindex,
-            )),
-            row.witness_schema_hash, row.configuration_hash,
-        ))
-        if len(encoded) != 320:
-            raise AssertionError("SFV1 must be exactly 320 bytes")
-        return encoded
+        return self.fork_verifier_world.artifact(
+            row.verifier
+        ).schedule_fork_verifier_config_v1()
+
+    def schedule_fork_route_state_v1(self) -> bytes:
+        encoded = encode_schedule_fork_route_accumulator_return_v1(
+            self.fork_route_accumulator, len(self.order),
+            len(self.registrations), len(self.used_fork_digests),
+        )
+        return (
+            encoded if self.route_state_override is None
+            else self.route_state_override
+        )
+
+    def staticcall_schedule_fork_route_state_v1(
+        self, calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        if ("FRS1" in self.read_faults
+                or calldata != PROTOCOL_ROOT_FORK_ROUTE_STATE_SELECTOR
+                or gas_limit != PROTOCOL_ROOT_FORK_ROUTE_READ_GAS
+                or value != 0):
+            raise ValueError("Schedule FRS1 call frame is inexact")
+        return self.schedule_fork_route_state_v1()
 
     def _eligible_row(
-        self, window: int, fork_digest: bytes,
+        self, target_slot: int, fork_digest: bytes,
     ) -> RegisterForkVerifierPayloadV1 | None:
         row = self.registrations.get(fork_digest)
-        if row is None or window < row.first_window:
-            return None
-        index = self.order.index(fork_digest)
-        if (index + 1 < len(self.order)
-                and window >= self.registrations[
-                    self.order[index + 1]
-                ].first_window):
+        # The upper bound cannot be applied to targetSlot: a missed slot at a
+        # fork boundary may authenticate the predecessor interval's parent.
+        if row is None or target_slot < row.first_parent_slot:
             return None
         return row
 
     def seal_window_v1(
         self, window: int, fork_digest: bytes, witness: bytes,
-        verifier_return: bytes, *, seal_deadline: int, clock: Clock,
+        verifier_return: bytes, *, system: ScheduleCarrierSystemContextV1,
+        clock: Clock,
     ) -> bytes:
+        seal_deadline = (
+            self.genesis_timestamp + SCHEDULE_WINDOW_SLOTS * window
+            - SCHEDULE_LOOKAHEAD_SECONDS
+        )
         if (window in self.sealed_windows
                 or not self.first_managed_window
                 <= window <= self.last_managed_window
-                or window < self.current_window
-                or window - self.current_window > 8
+                or window < self.current_window_at(clock.timestamp)
+                or window - self.current_window_at(clock.timestamp) > 8
                 or clock.timestamp >= seal_deadline):
             raise ValueError("Schedule seal attempt is not live")
-        decoded_witness = decode_schedule_seal_witness_v1(witness)
-        row = self._eligible_row(window, fork_digest)
+        target_slot = self.target_slot(window)
+        if (target_slot + MAX_SCHEDULE_CARRIER_SCAN_SLOTS
+                >= self.latest_last_parent_slot_exclusive):
+            raise ValueError("Schedule target exceeds the reviewed fork horizon")
+        query_index, beacon_block_root = system.first_success()
+        target_timestamp = (
+            self.beacon_genesis_time + target_slot * L1_SLOT_SECONDS
+        )
+        query_timestamp = target_timestamp + query_index * L1_SLOT_SECONDS
+        row = self._eligible_row(target_slot, fork_digest)
         if (row is None or len(verifier_return) != 256
                 or verifier_return[:32] != b"SFC1" + bytes(28)):
             raise ValueError("Schedule carrier verifier rejected without write")
+        self._validate_live_fork_verifier(row)
+        parent_slot = _decode_uint_word_v1(
+            verifier_return[64:96], 64, "authenticated parent slot"
+        )
+        if (not row.first_parent_slot <= parent_slot
+                < row.last_parent_slot_exclusive
+                or parent_slot > target_slot):
+            raise ValueError("authenticated parent slot is outside fork route")
+        parent_execution_block_number = _decode_uint_word_v1(
+            verifier_return[96:128], 64,
+            "authenticated parent execution block number",
+        )
+        decoded_witness = decode_schedule_seal_witness_v1(witness)
+        header_fields = _canonical_rlp_header_fields_v1(
+            decoded_witness.carrier_header_rlp
+        )
+        if len(header_fields) <= 19:
+            raise ValueError("Schedule carrier header omits required fields")
+        parent_hash = header_fields[0]
+        carrier_header_block_number = _decode_header_uint64_v1(
+            header_fields[8], "carrier header block number"
+        )
+        carrier_header_timestamp = _decode_header_uint64_v1(
+            header_fields[11], "carrier header timestamp"
+        )
+        parent_beacon_block_root = header_fields[19]
+        oldest_history_block = max(
+            self.history_first_supported_block,
+            max(0, clock.block_number - EIP2935_HISTORY_ENTRIES),
+        )
+        if (len(parent_hash) != 32
+                or len(parent_beacon_block_root) != 32
+                or carrier_header_timestamp != query_timestamp
+                or parent_beacon_block_root != beacon_block_root
+                or not oldest_history_block <= carrier_header_block_number
+                    < clock.block_number
+                or clock.block_number - carrier_header_block_number
+                    < SCHEDULE_SEAL_FINALITY_BLOCKS
+                or keccak256(decoded_witness.carrier_header_rlp)
+                    != system.history_block_hash):
+            raise ValueError("Schedule carrier system/header join is invalid")
         if row.witness_schema_hash \
                 == current_schedule_ssz_multiproof_schema_hash_v1():
-            validate_current_schedule_ssz_multiproof_witness_v1(
-                decoded_witness.fork_witness, window
+            verify_current_schedule_ssz_multiproof_witness_v1(
+                decoded_witness.fork_witness, window, beacon_block_root
             )
+            if int.from_bytes(
+                    decoded_witness.fork_witness[8:16], "big") != parent_slot:
+                raise ValueError("fork witness parent slot is inconsistent")
+            if int.from_bytes(
+                    decoded_witness.fork_witness[16:24], "big") \
+                    != parent_execution_block_number:
+                raise ValueError("fork witness execution number is inconsistent")
+        validate_schedule_execution_payload_adjacency_v1(
+            parent_execution_block_number, carrier_header_block_number
+        )
+        payload_timestamp = _decode_uint_word_v1(
+            verifier_return[128:160], 64,
+            "authenticated parent payload timestamp",
+        )
+        block_hash = verifier_return[160:192]
+        state_root = verifier_return[192:224]
+        prev_randao = verifier_return[224:256]
+        expected_payload_timestamp = (
+            self.beacon_genesis_time + parent_slot * L1_SLOT_SECONDS
+        )
+        if (expected_payload_timestamp > UINT64_MAX
+                or payload_timestamp != expected_payload_timestamp
+                or block_hash == bytes(32)
+                or state_root == bytes(32)
+                or prev_randao == bytes(32)
+                or block_hash != parent_hash):
+            raise ValueError("Schedule parent payload/header join is invalid")
         statement = verifier_return[32:64]
-        if statement == bytes(32):
-            raise ValueError("Schedule carrier statement is empty")
+        expected_statement = schedule_carrier_statement_hash_v1(
+            self.settlement_chain_id,
+            self.address,
+            fork_digest,
+            window,
+            beacon_block_root,
+            parent_slot,
+            parent_execution_block_number,
+            payload_timestamp,
+            block_hash,
+            state_root,
+            prev_randao,
+        )
+        if statement != expected_statement:
+            raise ValueError("Schedule carrier statement is inconsistent")
         seal = keccak256(
             b"slot-chain-schedule-seal-model-v1"
             + _model_uint(window, 8, "schedule window")
@@ -21377,7 +26494,7 @@ class ScheduleOracleV1:
         return seal
 
     def consume_window_v1(
-        self, window: int, *, seal_deadline: int, clock: Clock,
+        self, window: int, *, clock: Clock,
     ) -> bytes:
         if (type(window) is not int
                 or not self.first_managed_window
@@ -21386,6 +26503,10 @@ class ScheduleOracleV1:
         seal = self.sealed_windows.get(window)
         if seal is not None:
             return seal
+        seal_deadline = (
+            self.genesis_timestamp + SCHEDULE_WINDOW_SLOTS * window
+            - SCHEDULE_LOOKAHEAD_SECONDS
+        )
         if clock.timestamp < seal_deadline:
             raise ValueError("unsealed Schedule window is not yet consumable")
         # VACANT is synthesized by the consumer and never stored by an
@@ -21399,7 +26520,11 @@ def validate_protocol_change_payload_v1(
     if operation_kind == REGISTER_RELEASE:
         return decode_register_release_payload_v1(payload)
     if operation_kind == REGISTER_FORK_VERIFIER:
-        return decode_register_fork_verifier_payload_v1(payload)
+        return decode_register_fork_verifier_change_payload_v1(payload)
+    if operation_kind == REPLACE_PENDING_FORK_VERIFIER:
+        return decode_replace_pending_fork_verifier_payload_v1(payload)
+    if operation_kind == SPLIT_LATEST_FORK_VERIFIER:
+        return decode_split_latest_fork_verifier_payload_v1(payload)
     if operation_kind == PUBLISH_GENESIS_CAMPAIGN:
         words = _protocol_change_words(payload, 10)
         values = tuple(_decode_uint_word_v1(words[index], 64,
@@ -21486,9 +26611,9 @@ def encode_protocol_change_operation_return_v1(
         if row != ProtocolChangeOperationRowV1(
                 0, 0, 0, 0, bytes(32), 0, 0):
             raise ValueError("NONE PCO1 row is not all zero")
-    elif (row.state not in {1, 2, 3, 4}
+    elif (row.state not in {1, 2, 3, 4, 5}
           or not 0 < row.nonce <= UINT64_MAX
-          or row.operation_kind not in {1, 2, 3, 4}
+          or row.operation_kind not in {1, 2, 3, 4, 5, 6}
           or not 0 < row.payload_bytes <= PROTOCOL_CHANGE_MAX_PAYLOAD_BYTES
           or row.payload_hash == bytes(32)
           or not 0 < row.queued_at <= UINT64_MAX
@@ -21503,6 +26628,26 @@ def encode_protocol_change_operation_return_v1(
         row.payload_hash, _model_uint(row.queued_at, 32, "PCO queued at"),
         _model_uint(row.execute_after, 32, "PCO execute after"),
     ))
+
+
+def decode_protocol_change_operation_return_v1(
+    encoded: bytes,
+) -> ProtocolChangeOperationRowV1:
+    words = _protocol_change_words(encoded, 8)
+    if words[0] != PCO1_MAGIC + bytes(28):
+        raise ValueError("PCO1 magic is invalid")
+    row = ProtocolChangeOperationRowV1(
+        _decode_uint_word_v1(words[1], 8, "PCO state"),
+        _decode_uint_word_v1(words[2], 64, "PCO nonce"),
+        _decode_uint_word_v1(words[3], 8, "PCO kind"),
+        _decode_uint_word_v1(words[4], 32, "PCO payload bytes"),
+        words[5],
+        _decode_uint_word_v1(words[6], 64, "PCO queued at"),
+        _decode_uint_word_v1(words[7], 64, "PCO execute after"),
+    )
+    if encode_protocol_change_operation_return_v1(row) != encoded:
+        raise ValueError("PCO1 return is noncanonical")
+    return row
 
 
 @dataclass(frozen=True)
@@ -21602,14 +26747,14 @@ def governance_delay_authority_descriptor_hash_from_profile_v1(
     )))
 
 
-def protocol_version_manager_configuration_hash_from_profile_v1(
+def protocol_version_manager_configuration_from_profile_v1(
     words: tuple[bytes, ...],
-) -> bytes:
-    """Derive the complete PVM1 configuration from strict profile words."""
+) -> "ProtocolVersionManagerConfigViewV1":
+    """Materialize the complete PVM1 configuration from profile words."""
 
     if len(words) != EXECUTION_PROFILE_STATIC_WORDS:
         raise ValueError("PVM configuration profile width is invalid")
-    view = ProtocolVersionManagerConfigViewV1(
+    return ProtocolVersionManagerConfigViewV1(
         int.from_bytes(words[2], "big"),
         _decode_address_word_v1(words[16], "PVM Timelock"),
         _decode_address_word_v1(words[23], "PVM Router"),
@@ -21619,7 +26764,7 @@ def protocol_version_manager_configuration_hash_from_profile_v1(
         _decode_address_word_v1(words[35], "PVM Market"),
         words[36], words[37],
         _decode_address_word_v1(words[38], "PVM domain registry"),
-        _decode_address_word_v1(words[41], "PVM credit registry"),
+        _decode_address_word_v1(words[41], "PVM Source factory"),
         words[18], words[9], PROTOCOL_CHANGE_DELAY_SECONDS,
         MAXIMUM_LIVE_VERSION_MIGRATION_SECONDS,
         MIGRATION_ARM_EXECUTION_WINDOW_SECONDS,
@@ -21631,8 +26776,19 @@ def protocol_version_manager_configuration_hash_from_profile_v1(
         words[24], words[25], words[27], words[28],
         words[30], words[31], words[33], words[34],
         words[39], words[40], words[42], words[43],
+        _decode_address_word_v1(words[166], "PVM terminal verifier"),
+        words[167], words[168],
     )
-    return protocol_version_manager_configuration_hash_v1(view)
+
+
+def protocol_version_manager_configuration_hash_from_profile_v1(
+    words: tuple[bytes, ...],
+) -> bytes:
+    """Derive the complete PVM1 configuration hash from strict profile."""
+
+    return protocol_version_manager_configuration_hash_v1(
+        protocol_version_manager_configuration_from_profile_v1(words)
+    )
 
 
 @dataclass
@@ -21813,6 +26969,29 @@ class ProtocolChangeTimelockConfigViewV1:
     operation_domain: bytes
 
 
+def encode_protocol_change_timelock_config_return_v1(
+    view: ProtocolChangeTimelockConfigViewV1,
+) -> bytes:
+    if (type(view) is not ProtocolChangeTimelockConfigViewV1
+            or type(view.dao_proposer) is not bytes
+            or len(view.dao_proposer) != 20
+            or view.dao_proposer == bytes(20)
+            or type(view.protocol_version_manager) is not bytes
+            or len(view.protocol_version_manager) != 20
+            or view.protocol_version_manager == bytes(20)
+            or view.dao_proposer == view.protocol_version_manager
+            or view.minimum_delay_seconds != PROTOCOL_CHANGE_DELAY_SECONDS
+            or view.operation_domain
+                != keccak256(PROTOCOL_CHANGE_OPERATION_DOMAIN)):
+        raise ValueError("PCT1 configuration view is malformed")
+    return b"".join((
+        PCT1_MAGIC + bytes(28), bytes(12) + view.dao_proposer,
+        bytes(12) + view.protocol_version_manager,
+        _model_uint(view.minimum_delay_seconds, 32, "PCT1 delay"),
+        view.operation_domain,
+    ))
+
+
 def decode_protocol_change_timelock_config_return_v1(
     returndata: bytes,
 ) -> ProtocolChangeTimelockConfigViewV1:
@@ -21832,6 +27011,8 @@ def decode_protocol_change_timelock_config_return_v1(
     if (view.dao_proposer == view.protocol_version_manager
             or view.minimum_delay_seconds != PROTOCOL_CHANGE_DELAY_SECONDS):
         raise ValueError("PCT1 return values are unsupported")
+    if encode_protocol_change_timelock_config_return_v1(view) != returndata:
+        raise ValueError("PCT1 return is noncanonical")
     return view
 
 
@@ -21875,7 +27056,7 @@ class ProtocolVersionManagerConfigViewV1:
     aggregator_seat_market_runtime_hash: bytes
     aggregator_seat_market_configuration_hash: bytes
     bridge_domain_registry: bytes
-    bridge_credit_registry: bytes
+    source_bundle_factory: bytes
     timelock_descriptor_hash: bytes
     manifest_namespace: bytes
     minimum_delay_seconds: int
@@ -21896,23 +27077,106 @@ class ProtocolVersionManagerConfigViewV1:
     schedule_oracle_configuration_hash: bytes
     bridge_domain_registry_runtime_hash: bytes
     bridge_domain_registry_configuration_hash: bytes
-    bridge_credit_registry_runtime_hash: bytes
-    bridge_credit_registry_configuration_hash: bytes
+    source_bundle_factory_runtime_hash: bytes
+    source_bundle_factory_configuration_hash: bytes
+    source_terminal_verifier: bytes
+    source_terminal_verifier_runtime_hash: bytes
+    source_terminal_verifier_configuration_hash: bytes
+
+
+def encode_protocol_version_manager_config_return_v1(
+    view: ProtocolVersionManagerConfigViewV1,
+) -> bytes:
+    if type(view) is not ProtocolVersionManagerConfigViewV1:
+        raise ValueError("PVM1 configuration view has wrong type")
+    addresses = (
+        view.protocol_change_timelock, view.active_settlement_router,
+        view.forced_queue, view.builder_registry, view.schedule_oracle,
+        view.aggregator_seat_market, view.bridge_domain_registry,
+        view.source_bundle_factory, view.source_terminal_verifier,
+    )
+    hashes = (
+        view.aggregator_seat_market_runtime_hash,
+        view.aggregator_seat_market_configuration_hash,
+        view.timelock_descriptor_hash, view.manifest_namespace,
+        view.active_settlement_router_runtime_hash,
+        view.active_settlement_router_configuration_hash,
+        view.forced_queue_runtime_hash,
+        view.forced_queue_configuration_hash,
+        view.builder_registry_runtime_hash,
+        view.builder_registry_configuration_hash,
+        view.schedule_oracle_runtime_hash,
+        view.schedule_oracle_configuration_hash,
+        view.bridge_domain_registry_runtime_hash,
+        view.bridge_domain_registry_configuration_hash,
+        view.source_bundle_factory_runtime_hash,
+        view.source_bundle_factory_configuration_hash,
+        view.source_terminal_verifier_runtime_hash,
+        view.source_terminal_verifier_configuration_hash,
+    )
+    numerics = (
+        (view.minimum_delay_seconds, 64),
+        (view.maximum_live_migration_seconds, 64),
+        (view.migration_arm_execution_window_seconds, 64),
+        (view.review_finality_blocks, 16),
+        (view.release_router_registration_gas, 64),
+        (view.release_market_installation_gas, 64),
+        (view.release_postread_gas, 64),
+        (view.release_post_callback_reserve_gas, 64),
+    )
+    if (not 0 < view.settlement_chain_id < 1 << 256
+            or any(type(value) is not bytes or len(value) != 20
+                   or value == bytes(20) for value in addresses)
+            or len(set(addresses)) != len(addresses)
+            or any(type(value) is not bytes or len(value) != 32
+                   or value == bytes(32) for value in hashes)
+            or any(type(value) is not int or not 0 <= value < 1 << bits
+                   for value, bits in numerics)):
+        raise ValueError("PVM1 configuration view is malformed")
+    encoded = b"".join((
+        PVM1_MAGIC + bytes(28),
+        _model_uint(view.settlement_chain_id, 32, "PVM1 chain"),
+        *(bytes(12) + value for value in addresses[:6]),
+        view.aggregator_seat_market_runtime_hash,
+        view.aggregator_seat_market_configuration_hash,
+        *(bytes(12) + value for value in addresses[6:8]),
+        view.timelock_descriptor_hash, view.manifest_namespace,
+        *(_model_uint(value, 32, "PVM1 numeric")
+          for value, _bits in numerics),
+        view.active_settlement_router_runtime_hash,
+        view.active_settlement_router_configuration_hash,
+        view.forced_queue_runtime_hash,
+        view.forced_queue_configuration_hash,
+        view.builder_registry_runtime_hash,
+        view.builder_registry_configuration_hash,
+        view.schedule_oracle_runtime_hash,
+        view.schedule_oracle_configuration_hash,
+        view.bridge_domain_registry_runtime_hash,
+        view.bridge_domain_registry_configuration_hash,
+        view.source_bundle_factory_runtime_hash,
+        view.source_bundle_factory_configuration_hash,
+        bytes(12) + view.source_terminal_verifier,
+        view.source_terminal_verifier_runtime_hash,
+        view.source_terminal_verifier_configuration_hash,
+    ))
+    if len(encoded) != 1_184:
+        raise AssertionError("PVM1 must be exactly 1184 bytes")
+    return encoded
 
 
 def decode_protocol_version_manager_config_return_v1(
     returndata: bytes,
 ) -> ProtocolVersionManagerConfigViewV1:
-    if type(returndata) is not bytes or len(returndata) != 1_088:
-        raise ValueError("PVM1 return must be exactly 1088 bytes")
+    if type(returndata) is not bytes or len(returndata) != 1_184:
+        raise ValueError("PVM1 return must be exactly 1184 bytes")
     words = tuple(
-        returndata[offset:offset + 32] for offset in range(0, 1_088, 32)
+        returndata[offset:offset + 32] for offset in range(0, 1_184, 32)
     )
     if words[0] != PVM1_MAGIC + bytes(28):
         raise ValueError("PVM1 magic/padding is malformed")
     addresses = tuple(
         _decode_address_word_v1(words[index], "PVM1 address")
-        for index in (2, 3, 4, 5, 6, 7, 10, 11)
+        for index in (2, 3, 4, 5, 6, 7, 10, 11, 34)
     )
     narrow = tuple(
         _decode_uint_word_v1(words[index], bits, "PVM1 numeric")
@@ -21923,8 +27187,9 @@ def decode_protocol_version_manager_config_return_v1(
     )
     view = ProtocolVersionManagerConfigViewV1(
         _decode_uint_word_v1(words[1], 256, "PVM1 settlement chain"),
-        *addresses[:6], words[8], words[9], *addresses[6:],
+        *addresses[:6], words[8], words[9], *addresses[6:8],
         words[12], words[13], *narrow, *words[22:34],
+        addresses[8], words[35], words[36],
     )
     if (view.settlement_chain_id == 0
             or len(set(addresses)) != len(addresses)
@@ -21942,8 +27207,10 @@ def decode_protocol_version_manager_config_return_v1(
                 view.schedule_oracle_configuration_hash,
                 view.bridge_domain_registry_runtime_hash,
                 view.bridge_domain_registry_configuration_hash,
-                view.bridge_credit_registry_runtime_hash,
-                view.bridge_credit_registry_configuration_hash,
+                view.source_bundle_factory_runtime_hash,
+                view.source_bundle_factory_configuration_hash,
+                view.source_terminal_verifier_runtime_hash,
+                view.source_terminal_verifier_configuration_hash,
             ))
             or view.minimum_delay_seconds != PROTOCOL_CHANGE_DELAY_SECONDS
             or view.maximum_live_migration_seconds
@@ -21958,6 +27225,8 @@ def decode_protocol_version_manager_config_return_v1(
                 view.release_post_callback_reserve_gas,
             ))):
         raise ValueError("PVM1 return values are unsupported")
+    if encode_protocol_version_manager_config_return_v1(view) != returndata:
+        raise ValueError("PVM1 return is noncanonical")
     return view
 
 
@@ -21985,9 +27254,12 @@ def protocol_version_manager_configuration_hash_v1(
         view.bridge_domain_registry,
         view.bridge_domain_registry_runtime_hash,
         view.bridge_domain_registry_configuration_hash,
-        view.bridge_credit_registry,
-        view.bridge_credit_registry_runtime_hash,
-        view.bridge_credit_registry_configuration_hash,
+        view.source_bundle_factory,
+        view.source_bundle_factory_runtime_hash,
+        view.source_bundle_factory_configuration_hash,
+        view.source_terminal_verifier,
+        view.source_terminal_verifier_runtime_hash,
+        view.source_terminal_verifier_configuration_hash,
         view.manifest_namespace,
         _model_uint(view.minimum_delay_seconds, 8, "PVM delay"),
         _model_uint(view.maximum_live_migration_seconds, 8, "PVM live maximum"),
@@ -22038,9 +27310,9 @@ def validate_profile_market_root_join_v1(
         ("BridgeDomainRegistry", 38,
          manager_view.bridge_domain_registry_runtime_hash,
          manager_view.bridge_domain_registry_configuration_hash),
-        ("BridgeCreditRegistry", 41,
-         manager_view.bridge_credit_registry_runtime_hash,
-         manager_view.bridge_credit_registry_configuration_hash),
+        ("SourceBundleFactory", 41,
+         manager_view.source_bundle_factory_runtime_hash,
+         manager_view.source_bundle_factory_configuration_hash),
     )
     expected_configuration = aggregator_seat_market_configuration_hash_v2(words)
     if (chain_id != manager.settlement_chain_id
@@ -22063,8 +27335,8 @@ def validate_profile_market_root_join_v1(
                 != _model_address20(market.address)
             or manager_view.bridge_domain_registry
                 != _model_address20(manager.bridge_domain_registry_address)
-            or manager_view.bridge_credit_registry
-                != _model_address20(manager.bridge_credit_registry_address)
+            or manager_view.source_bundle_factory
+                != _model_address20(manager.source_bundle_factory_address)
             or market.market_chain_id != chain_id
             or market.settlement_chain_id != chain_id
             or words[20] != _abi_address_word(manager.address)
@@ -22086,7 +27358,20 @@ def validate_profile_market_root_join_v1(
             or words[38]
                 != _abi_address_word(manager_view.bridge_domain_registry)
             or words[41]
-                != _abi_address_word(manager_view.bridge_credit_registry)
+                != _abi_address_word(manager_view.source_bundle_factory)
+            or words[41:44] != words[202:205]
+            or words[202]
+                != _abi_address_word(manager_view.source_bundle_factory)
+            or words[203]
+                != manager_view.source_bundle_factory_runtime_hash
+            or words[204]
+                != manager_view.source_bundle_factory_configuration_hash
+            or words[166]
+                != _abi_address_word(manager_view.source_terminal_verifier)
+            or words[167]
+                != manager_view.source_terminal_verifier_runtime_hash
+            or words[168]
+                != manager_view.source_terminal_verifier_configuration_hash
             or any(words[index + 1] != runtime_hash
                    or words[index + 2] != configuration_hash
                    for _label, index, runtime_hash, configuration_hash
@@ -22103,6 +27388,34 @@ def validate_profile_market_root_join_v1(
             configuration_hash=configuration_hash,
             label=f"control:{label}",
         )
+    source_artifacts = ProtocolRootSourceFactoryCompilerArtifactsV1(
+        SOURCE_BUNDLE_FACTORY_CREATION_CODE_V1,
+        SOURCE_BUNDLE_FACTORY_RUNTIME_CODE_V1,
+        SOURCE_BUNDLE_DEPLOYER_CREATION_CODE_V1,
+        SOURCE_BUNDLE_DEPLOYER_RUNTIME_CODE_V1,
+        BRIDGE_ADAPTER_CREATION_CODE_V1,
+        BRIDGE_ADAPTER_RUNTIME_CODE_V1,
+    )
+    source_account = manager.deployment_world.account(
+        words[41][12:], caller, "control:SourceBundleFactory:SBF1"
+    )
+    if source_account.source_bundle_factory_config_v1(
+            caller, SOURCE_BUNDLE_FACTORY_CONFIG_SELECTOR,
+            PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, 0) != (
+                source_bundle_factory_config_return_v1(
+                    chain_id, _model_address20(manager.address), source_artifacts
+                )
+            ):
+        raise ValueError("SourceBundleFactory exact SBF1 differs from root")
+    _validate_live_target_code_and_config_v2(
+        manager.deployment_world, caller=caller,
+        address=words[166][12:],
+        runtime_hash=manager_view.source_terminal_verifier_runtime_hash,
+        configuration_hash=(
+            manager_view.source_terminal_verifier_configuration_hash
+        ),
+        label="control:SourceTerminalVerifier",
+    )
     observed_configuration = market.component_config_hash_v2(
         caller=caller, calldata=COMPONENT_CONFIG_GETTER_SELECTOR,
         gas=50_000, value=0,
@@ -22167,13 +27480,20 @@ class ProtocolVersionManagerV1:
     market: PvmDerivedMarketAuthorizationV1
     deployment_world: LiveDeploymentWorldV2
     bridge_domain_registry_address: str
-    bridge_credit_registry_address: str
     timelock_descriptor_hash: bytes
     manifest_namespace: bytes
     market_runtime_hash: bytes
     market_configuration_hash: bytes
     runtime_hash: bytes
     control_component_hashes: tuple[bytes, ...]
+    source_bundle_factory_address: str
+    source_bundle_factory_runtime_hash: bytes
+    source_bundle_factory_configuration_hash: bytes
+    source_terminal_verifier_address: str
+    source_terminal_verifier_runtime_hash: bytes
+    source_terminal_verifier_configuration_hash: bytes
+    initial_fork: RegisterForkVerifierPayloadV1
+    fork_verifier_world: ScheduleForkVerifierWorldV1
     release_router_registration_gas: int = PVM_RELEASE_ROUTER_REGISTRATION_GAS
     release_market_installation_gas: int = PVM_RELEASE_MARKET_INSTALLATION_GAS
     release_postread_gas: int = PVM_RELEASE_POSTREAD_GAS
@@ -22189,7 +27509,11 @@ class ProtocolVersionManagerV1:
         default_factory=dict
     )
     fork_order: list[bytes] = field(default_factory=list)
-    current_window: int = 0
+    fork_index_by_digest: dict[bytes, int] = field(default_factory=dict)
+    fork_used_digests: set[bytes] = field(default_factory=set)
+    fork_route_accumulator: ScheduleForkRouteAccumulatorV1 | None = field(
+        default=None, compare=False
+    )
     published_genesis_campaign: tuple[object, ...] | None = None
     generation: int = 0
     arm_fresh_after: int = 0
@@ -22225,9 +27549,6 @@ class ProtocolVersionManagerV1:
     )
     router: "ActiveSettlementRouter | None" = field(
         default=None, compare=False, repr=False
-    )
-    release_witnesses: dict[int, SettlementRegistration] = field(
-        default_factory=dict, compare=False, repr=False
     )
     profile_ingress_roots: dict[int, tuple[bytes, tuple[bytes, ...]]] = field(
         default_factory=dict, compare=False
@@ -22268,6 +27589,18 @@ class ProtocolVersionManagerV1:
 
     def __post_init__(self) -> None:
         router = self.router
+        oracle = self.schedule_oracle
+        if (type(oracle) is not ScheduleOracleV1
+                or oracle.address != self.schedule_oracle_address
+                or type(self.fork_verifier_world)
+                    is not ScheduleForkVerifierWorldV1
+                or self.fork_verifiers or self.fork_order
+                or self.fork_index_by_digest or self.fork_used_digests
+                or self.fork_route_accumulator is not None
+                or self.initial_fork.first_parent_slot != 0):
+            raise ValueError("PVM1 initial Schedule fork state is malformed")
+        encode_register_fork_verifier_payload_v1(self.initial_fork)
+        self._validate_live_fork_verifier_v1(self.initial_fork)
         if (type(router) is not ActiveSettlementRouter
                 or router.address != self.router_address
                 or router.version_manager != self.address
@@ -22279,6 +27612,14 @@ class ProtocolVersionManagerV1:
                 or (router._version_manager_authority is None
                     and not router._bind_version_manager_once(self))):
             raise ValueError("PVM1 is not the Router's unique manager")
+        digest = self.initial_fork.fork_digest
+        self.fork_verifiers[digest] = self.initial_fork
+        self.fork_order.append(digest)
+        self.fork_index_by_digest[digest] = 0
+        self.fork_used_digests.add(digest)
+        self.fork_route_accumulator = ScheduleForkRouteAccumulatorV1.from_state(
+            self.fork_verifiers, self.fork_order, self.fork_used_digests
+        )
         self.config_return_v1()
 
     @property
@@ -22308,7 +27649,8 @@ class ProtocolVersionManagerV1:
             self.forced_queue_address, self.builder_registry_address,
             self.schedule_oracle_address, self.market.address,
             self.bridge_domain_registry_address,
-            self.bridge_credit_registry_address,
+            self.source_bundle_factory_address,
+            self.source_terminal_verifier_address,
         )
         if (not all(addresses) or len(set(addresses)) != len(addresses)
                 or self.timelock_descriptor_hash == bytes(32)
@@ -22320,7 +27662,14 @@ class ProtocolVersionManagerV1:
                 or self.market_runtime_hash != self.market.runtime_hash
                 or self.market_configuration_hash
                     != self.market.authority_configuration_hash
-                or len(self.control_component_hashes) != 12
+                or any(type(value) is not bytes or len(value) != 32
+                       or value == bytes(32) for value in (
+                           self.source_bundle_factory_runtime_hash,
+                           self.source_bundle_factory_configuration_hash,
+                           self.source_terminal_verifier_runtime_hash,
+                           self.source_terminal_verifier_configuration_hash,
+                       ))
+                or len(self.control_component_hashes) != 10
                 or any(type(value) is not bytes or len(value) != 32
                        or value == bytes(32)
                        for value in self.control_component_hashes)):
@@ -22349,9 +27698,14 @@ class ProtocolVersionManagerV1:
             _model_uint(self.release_post_callback_reserve_gas, 32,
                         "PVM release post-callback reserve"),
             *self.control_component_hashes,
+            self.source_bundle_factory_runtime_hash,
+            self.source_bundle_factory_configuration_hash,
+            _abi_address_word(self.source_terminal_verifier_address),
+            self.source_terminal_verifier_runtime_hash,
+            self.source_terminal_verifier_configuration_hash,
         ))
-        if len(encoded) != 1_088:
-            raise AssertionError("PVM1 must be 34 ABI words")
+        if len(encoded) != 1_184:
+            raise AssertionError("PVM1 must be 37 ABI words")
         if caller in self.config_return_faults:
             raise RuntimeError("injected caller-dependent PVM1 fault")
         if caller in self.config_return_overrides:
@@ -22402,7 +27756,9 @@ class ProtocolVersionManagerV1:
         return (
             self.lifecycle, set(self.consumed_operation_ids),
             dict(self.release_registrations), dict(self.fork_verifiers),
-            list(self.fork_order),
+            list(self.fork_order), dict(self.fork_index_by_digest),
+            set(self.fork_used_digests),
+            self.fork_route_accumulator.clone(),
             self.published_genesis_campaign, self.generation,
             self.arm_fresh_after,
             self.migration_lease, dict(self.migration_arms),
@@ -22413,8 +27769,7 @@ class ProtocolVersionManagerV1:
             self.deployment_world.snapshot(),
             (None if self.router is None else
              self.router._protocol_release_registry_snapshot_v2()),
-            (None if self.router is None else
-             self.router._bridge_package_snapshot_v1()),
+            None,
             self._migration_source_snapshot_v1(),
             (None if self.schedule_oracle is None else
              self.schedule_oracle._snapshot()),
@@ -22425,6 +27780,7 @@ class ProtocolVersionManagerV1:
 
     def _restore(self, state: tuple[object, ...]) -> None:
         (self.lifecycle, consumed, releases, forks, fork_order,
+         fork_index_by_digest, fork_used_digests, fork_route_accumulator,
          self.published_genesis_campaign, self.generation,
          self.arm_fresh_after,
          self.migration_lease, migration_arms,
@@ -22440,6 +27796,9 @@ class ProtocolVersionManagerV1:
         self.release_registrations = releases
         self.fork_verifiers = forks
         self.fork_order = fork_order
+        self.fork_index_by_digest = fork_index_by_digest
+        self.fork_used_digests = fork_used_digests
+        self.fork_route_accumulator = fork_route_accumulator
         self.market.restore_authorization_snapshot_v1(market_snapshot)
         self.migration_arms = migration_arms
         self.migration_arm_id_by_generation = migration_arm_id_by_generation
@@ -22594,6 +27953,15 @@ class ProtocolVersionManagerV1:
                     or clock.timestamp < row.execute_after
                     or clock.timestamp > arm_execute_by):
                 raise ValueError("migration arm authority is stale or expired")
+        if (row.operation_kind in {
+                REGISTER_FORK_VERIFIER,
+                REPLACE_PENDING_FORK_VERIFIER,
+                SPLIT_LATEST_FORK_VERIFIER,
+            }
+                and (clock.timestamp < row.execute_after
+                     or clock.timestamp > row.execute_after
+                        + FORK_CHANGE_EXECUTION_WINDOW_SECONDS)):
+            raise ValueError("fork change authority expired")
         release_derived: DerivedRegisterReleaseAuthorityV2 | None = None
         if row.operation_kind == REGISTER_RELEASE:
             assert type(decoded) is RegisterReleasePayloadV1
@@ -22762,37 +28130,281 @@ class ProtocolVersionManagerV1:
                     or pia_reads != expected_pias):
                 raise ValueError("Market SAT1 post-read is malformed")
         elif row.operation_kind == REGISTER_FORK_VERIFIER:
-            assert type(decoded) is RegisterForkVerifierPayloadV1
+            assert type(decoded) is RegisterForkVerifierChangePayloadV1
+            registration = decoded.registration
             oracle = self.schedule_oracle
             if (type(oracle) is not ScheduleOracleV1
                     or oracle.address != self.schedule_oracle_address
-                    or decoded.fork_digest in self.fork_verifiers
-                    or decoded.first_window > oracle.last_managed_window
-                    or decoded.first_window < self.current_window + 9
-                    or (self.fork_order and decoded.first_window
-                        <= self.fork_verifiers[self.fork_order[-1]]
-                            .first_window)):
+                    or not self.fork_order):
                 raise ValueError("fork verifier is stale or reused")
-            result = oracle.install_fork_verifier_v1(decoded, manager=self)
+            schedule_view = self._schedule_config_view_v1()
+            self._validate_schedule_route_prestate_v1((self.fork_order[-1],))
+            installation_kind = self._fork_installation_kind_v1(
+                registration, clock=clock, schedule_view=schedule_view,
+            )
+            previous_latest_digest = self.fork_order[-1]
+            self._validate_fork_review_v1(
+                decoded.review,
+                REGISTER_FORK_VERIFIER,
+                encode_register_fork_verifier_payload_v1(registration),
+                registration.last_parent_slot_exclusive,
+            )
+            result = oracle.install_fork_verifier_v1(
+                registration, manager=self, clock=clock,
+                gas_limit=SCHEDULE_FORK_MUTATION_GAS, value=0,
+            )
             expected = (
-                b"FVI1" + bytes(28) + decoded.fork_digest + bytes(28)
-                + _model_uint(decoded.first_window, 32,
-                              "fork first window")
+                b"FVI1" + bytes(28) + registration.fork_digest + bytes(28)
+                + _model_uint(registration.first_parent_slot, 32,
+                              "fork first parent slot")
             )
             if result != expected:
                 raise ValueError("Schedule FVI1 install return is malformed")
-            self.fork_verifiers[decoded.fork_digest] = decoded
-            self.fork_order.append(decoded.fork_digest)
-            if (oracle.fork_verifier_registration_v1(decoded.fork_digest)
-                    != self.fork_verifier_registration_v1(
-                        decoded.fork_digest
-                    )
-                    or oracle.schedule_fork_verifier_config_v1(
-                        decoded.fork_digest
-                    ) != self.schedule_fork_verifier_config_v1(
-                        decoded.fork_digest
-                    )):
+            self.fork_verifiers[registration.fork_digest] = registration
+            if installation_kind == "append":
+                self.fork_order.append(registration.fork_digest)
+                self.fork_index_by_digest[registration.fork_digest] = (
+                    len(self.fork_order) - 1
+                )
+                self.fork_used_digests.add(registration.fork_digest)
+                self.fork_route_accumulator.append_order(
+                    registration.fork_digest
+                )
+                self.fork_route_accumulator.set_used(
+                    registration.fork_digest
+                )
+            self.fork_route_accumulator.set_registration(
+                registration.fork_digest,
+                schedule_fork_registration_hash_v1(registration),
+            )
+            postread_digests = (
+                (previous_latest_digest, registration.fork_digest)
+                if installation_kind == "append"
+                else (registration.fork_digest,)
+            )
+            for digest in postread_digests:
+                if oracle.staticcall_fork_verifier_registration_v1(
+                        PROTOCOL_ROOT_FORK_REGISTRATION_SELECTOR
+                        + digest + bytes(28),
+                        gas_limit=SCHEDULE_FORK_REGISTRATION_READ_GAS,
+                        value=0,
+                ) != self.fork_verifier_registration_v1(digest):
+                    raise ValueError("Schedule fork post-read is malformed")
+            if oracle.staticcall_schedule_fork_route_state_v1(
+                    PROTOCOL_ROOT_FORK_ROUTE_STATE_SELECTOR,
+                    gas_limit=PROTOCOL_ROOT_FORK_ROUTE_READ_GAS, value=0,
+            ) != self.schedule_fork_route_state_v1():
                 raise ValueError("Schedule fork post-read is malformed")
+        elif row.operation_kind == REPLACE_PENDING_FORK_VERIFIER:
+            assert type(decoded) is ReplacePendingForkVerifierPayloadV1
+            oracle = self.schedule_oracle
+            if (type(oracle) is not ScheduleOracleV1
+                    or oracle.address != self.schedule_oracle_address
+                    or len(self.fork_order) < 2
+                    or decoded.expected_predecessor
+                        != self.fork_verifiers[self.fork_order[-2]]
+                    or decoded.expected_old
+                        != self.fork_verifiers[self.fork_order[-1]]):
+                raise ValueError("pending fork replacement old row is stale")
+            schedule_view = self._schedule_config_view_v1()
+            self._validate_schedule_route_prestate_v1((
+                self.fork_order[-2], self.fork_order[-1],
+            ))
+            old_digest = decoded.expected_old.fork_digest
+            expected_hash = schedule_fork_registration_hash_v1(
+                decoded.expected_old
+            )
+            replacement_rows = b"".join((
+                encode_register_fork_verifier_payload_v1(
+                    decoded.expected_predecessor
+                ),
+                encode_register_fork_verifier_payload_v1(
+                    decoded.expected_old
+                ),
+                encode_register_fork_verifier_payload_v1(
+                    decoded.replacement
+                ),
+            ))
+            self._validate_fork_review_v1(
+                decoded.review,
+                REPLACE_PENDING_FORK_VERIFIER,
+                replacement_rows,
+                decoded.replacement.last_parent_slot_exclusive,
+            )
+            self._validate_pending_fork_replacement_v1(
+                decoded.expected_predecessor,
+                decoded.expected_old,
+                decoded.replacement,
+                clock=clock,
+                schedule_view=schedule_view,
+            )
+            result = oracle.replace_pending_fork_verifier_v1(
+                schedule_fork_registration_hash_v1(
+                    decoded.expected_predecessor
+                ),
+                expected_hash,
+                decoded.replacement,
+                manager=self,
+                clock=clock,
+                gas_limit=SCHEDULE_FORK_MUTATION_GAS, value=0,
+            )
+            expected = b"".join((
+                b"FVP1" + bytes(28), old_digest + bytes(28),
+                decoded.replacement.fork_digest + bytes(28),
+                _model_uint(decoded.replacement.first_parent_slot, 32,
+                            "replacement first parent slot"),
+                _model_uint(
+                    decoded.replacement.last_parent_slot_exclusive, 32,
+                    "replacement last parent slot",
+                ),
+            ))
+            if result != expected:
+                raise ValueError("Schedule FVP1 replacement return is malformed")
+            predecessor_digest = self.fork_order[-2]
+            predecessor = self.fork_verifiers[predecessor_digest]
+            rewritten_predecessor = replace(
+                predecessor,
+                last_parent_slot_exclusive=(
+                    decoded.replacement.first_parent_slot
+                ),
+            )
+            self.fork_verifiers[predecessor_digest] = rewritten_predecessor
+            self.fork_route_accumulator.set_registration(
+                predecessor_digest,
+                schedule_fork_registration_hash_v1(rewritten_predecessor),
+            )
+            if decoded.replacement.fork_digest != old_digest:
+                del self.fork_verifiers[old_digest]
+                del self.fork_index_by_digest[old_digest]
+                self.fork_route_accumulator.delete_registration(old_digest)
+            self.fork_verifiers[decoded.replacement.fork_digest] = (
+                decoded.replacement
+            )
+            self.fork_order[-1] = decoded.replacement.fork_digest
+            self.fork_index_by_digest[decoded.replacement.fork_digest] = (
+                len(self.fork_order) - 1
+            )
+            self.fork_used_digests.add(decoded.replacement.fork_digest)
+            self.fork_route_accumulator.set_registration(
+                decoded.replacement.fork_digest,
+                schedule_fork_registration_hash_v1(decoded.replacement),
+            )
+            self.fork_route_accumulator.replace_last_order(
+                decoded.replacement.fork_digest
+            )
+            self.fork_route_accumulator.set_used(
+                decoded.replacement.fork_digest
+            )
+            predecessor_digest = self.fork_order[-2]
+            new_digest = self.fork_order[-1]
+            if (oracle.staticcall_fork_verifier_registration_v1(
+                    PROTOCOL_ROOT_FORK_REGISTRATION_SELECTOR
+                    + predecessor_digest + bytes(28),
+                    gas_limit=SCHEDULE_FORK_REGISTRATION_READ_GAS, value=0)
+                    != self.fork_verifier_registration_v1(predecessor_digest)
+                    or oracle.staticcall_fork_verifier_registration_v1(
+                        PROTOCOL_ROOT_FORK_REGISTRATION_SELECTOR
+                        + new_digest + bytes(28),
+                        gas_limit=SCHEDULE_FORK_REGISTRATION_READ_GAS, value=0)
+                    != self.fork_verifier_registration_v1(new_digest)
+                    or oracle.staticcall_schedule_fork_route_state_v1(
+                        PROTOCOL_ROOT_FORK_ROUTE_STATE_SELECTOR,
+                        gas_limit=PROTOCOL_ROOT_FORK_ROUTE_READ_GAS, value=0)
+                        != self.schedule_fork_route_state_v1()):
+                raise ValueError("Schedule replacement post-read is malformed")
+        elif row.operation_kind == SPLIT_LATEST_FORK_VERIFIER:
+            assert type(decoded) is SplitLatestForkVerifierPayloadV1
+            oracle = self.schedule_oracle
+            if (type(oracle) is not ScheduleOracleV1
+                    or oracle.address != self.schedule_oracle_address
+                    or not self.fork_order
+                    or decoded.expected_old
+                        != self.fork_verifiers[self.fork_order[-1]]):
+                raise ValueError("latest fork split old row is stale")
+            schedule_view = self._schedule_config_view_v1()
+            self._validate_schedule_route_prestate_v1((self.fork_order[-1],))
+            old_digest = decoded.expected_old.fork_digest
+            split_rows = b"".join((
+                encode_register_fork_verifier_payload_v1(
+                    decoded.expected_old
+                ),
+                encode_register_fork_verifier_payload_v1(decoded.successor),
+            ))
+            self._validate_fork_review_v1(
+                decoded.review,
+                SPLIT_LATEST_FORK_VERIFIER,
+                split_rows,
+                decoded.successor.last_parent_slot_exclusive,
+            )
+            self._validate_latest_fork_split_v1(
+                decoded.expected_old, decoded.successor, clock=clock,
+                schedule_view=schedule_view,
+            )
+            result = oracle.split_latest_fork_verifier_v1(
+                schedule_fork_registration_hash_v1(decoded.expected_old),
+                decoded.successor,
+                manager=self,
+                clock=clock,
+                gas_limit=SCHEDULE_FORK_MUTATION_GAS, value=0,
+            )
+            expected = b"".join((
+                b"FVS1" + bytes(28), old_digest + bytes(28),
+                decoded.successor.fork_digest + bytes(28),
+                _model_uint(decoded.successor.first_parent_slot, 32,
+                            "split first parent slot"),
+                _model_uint(
+                    decoded.successor.last_parent_slot_exclusive, 32,
+                    "split last parent slot",
+                ),
+            ))
+            if result != expected:
+                raise ValueError("Schedule FVS1 split return is malformed")
+            shortened = replace(
+                decoded.expected_old,
+                last_parent_slot_exclusive=(
+                    decoded.successor.first_parent_slot
+                ),
+            )
+            self.fork_verifiers[old_digest] = shortened
+            self.fork_verifiers[decoded.successor.fork_digest] = (
+                decoded.successor
+            )
+            self.fork_order.append(decoded.successor.fork_digest)
+            self.fork_index_by_digest[decoded.successor.fork_digest] = (
+                len(self.fork_order) - 1
+            )
+            self.fork_used_digests.add(decoded.successor.fork_digest)
+            self.fork_route_accumulator.set_registration(
+                old_digest, schedule_fork_registration_hash_v1(shortened)
+            )
+            self.fork_route_accumulator.set_registration(
+                decoded.successor.fork_digest,
+                schedule_fork_registration_hash_v1(decoded.successor),
+            )
+            self.fork_route_accumulator.append_order(
+                decoded.successor.fork_digest
+            )
+            self.fork_route_accumulator.set_used(
+                decoded.successor.fork_digest
+            )
+            if (oracle.staticcall_fork_verifier_registration_v1(
+                    PROTOCOL_ROOT_FORK_REGISTRATION_SELECTOR
+                    + old_digest + bytes(28),
+                    gas_limit=SCHEDULE_FORK_REGISTRATION_READ_GAS, value=0)
+                    != self.fork_verifier_registration_v1(old_digest)
+                    or oracle.staticcall_fork_verifier_registration_v1(
+                        PROTOCOL_ROOT_FORK_REGISTRATION_SELECTOR
+                        + decoded.successor.fork_digest + bytes(28),
+                        gas_limit=SCHEDULE_FORK_REGISTRATION_READ_GAS,
+                        value=0,
+                    ) != self.fork_verifier_registration_v1(
+                        decoded.successor.fork_digest
+                    )
+                    or oracle.staticcall_schedule_fork_route_state_v1(
+                        PROTOCOL_ROOT_FORK_ROUTE_STATE_SELECTOR,
+                        gas_limit=PROTOCOL_ROOT_FORK_ROUTE_READ_GAS, value=0)
+                        != self.schedule_fork_route_state_v1()):
+                raise ValueError("Schedule split post-read is malformed")
         elif row.operation_kind == PUBLISH_GENESIS_CAMPAIGN:
             if self.published_genesis_campaign is not None:
                 raise ValueError("a genesis campaign is already live")
@@ -22922,16 +28534,9 @@ class ProtocolVersionManagerV1:
                     or source_protocol.seat_migration_arm.router_word
                         != router.migration_gate.router_word):
                 raise ValueError("Router VMA1 arm post-read is malformed")
-        if row.operation_kind == REGISTER_RELEASE:
-            witness = self.release_witnesses.get(decoded.protocol_version)
-            if (type(witness) is not SettlementRegistration
-                    or type(self.router) is not ActiveSettlementRouter
-                    or not self.router.prepare_profile_deployments_v1(
-                        witness, manager=self, clock=clock
-                    )):
-                raise ValueError(
-                    "registered release source package preparation failed"
-                )
+        # REGISTER_RELEASE is deliberately store-only.  The potentially
+        # 25M-gas Source deployment/review transaction is the separate,
+        # permissionless BRD1 call; arming later requires its mature receipt.
         if self.fault_point == "before_idle":
             raise RuntimeError("injected PVM late fault")
         self._active_operation_kind = 0
@@ -22942,22 +28547,270 @@ class ProtocolVersionManagerV1:
         self.lifecycle = "IDLE"
         return PAP1_MAGIC + bytes(28)
 
+    def _schedule_config_view_v1(
+        self,
+    ) -> ProtocolRootScheduleOracleConfigV1:
+        oracle = self.schedule_oracle
+        if (type(oracle) is not ScheduleOracleV1
+                or oracle.address != self.schedule_oracle_address):
+            raise ValueError("PVM Schedule configuration is unavailable")
+        encoded = oracle.staticcall_schedule_oracle_config_v1(
+            PROTOCOL_ROOT_SOC1_SELECTOR,
+            gas_limit=SCHEDULE_CONFIG_READ_GAS, value=0,
+        )
+        view = decode_protocol_root_soc1_v1(encoded)
+        if (view.settlement_chain_id != self.settlement_chain_id
+                or view.protocol_version_manager
+                    != _model_address20(self.address)
+                or len(self.control_component_hashes) != 10
+                or view.configuration_hash != self.control_component_hashes[7]
+                or view.initial_fork_digest
+                    != self.initial_fork.fork_digest
+                or view.initial_fork_first_parent_slot != 0
+                or view.initial_fork_last_parent_slot_exclusive
+                    != self.initial_fork.last_parent_slot_exclusive):
+            raise ValueError("PVM Schedule SOC1 authority is inconsistent")
+        return view
+
+    def _validate_schedule_route_prestate_v1(
+        self, digests: tuple[bytes, ...],
+    ) -> None:
+        oracle = self.schedule_oracle
+        if (type(oracle) is not ScheduleOracleV1
+                or oracle.address != self.schedule_oracle_address):
+            raise ValueError("PVM Schedule route authority is unavailable")
+        observed_route = oracle.staticcall_schedule_fork_route_state_v1(
+            PROTOCOL_ROOT_FORK_ROUTE_STATE_SELECTOR,
+            gas_limit=PROTOCOL_ROOT_FORK_ROUTE_READ_GAS, value=0,
+        )
+        if observed_route != self.schedule_fork_route_state_v1():
+            raise ValueError("PVM and Schedule route prestates disagree")
+        for digest in digests:
+            calldata = (
+                PROTOCOL_ROOT_FORK_REGISTRATION_SELECTOR + digest + bytes(28)
+            )
+            observed = oracle.staticcall_fork_verifier_registration_v1(
+                calldata, gas_limit=SCHEDULE_FORK_REGISTRATION_READ_GAS,
+                value=0,
+            )
+            if observed != self.fork_verifier_registration_v1(digest):
+                raise ValueError("PVM and Schedule fork rows disagree")
+        for digest in digests:
+            self._validate_live_fork_verifier_v1(
+                self.fork_verifiers[digest]
+            )
+
+    def _schedule_target_slot_v1(
+        self, window: int,
+        view: ProtocolRootScheduleOracleConfigV1 | None = None,
+    ) -> int:
+        if view is None:
+            view = self._schedule_config_view_v1()
+        window_start = (
+            view.genesis_timestamp + SCHEDULE_WINDOW_SLOTS * window
+        )
+        snapshot_lag_seconds = 256 * L1_SLOT_SECONDS
+        if window_start < view.beacon_genesis_time + snapshot_lag_seconds:
+            raise ValueError("PVM Schedule target precedes Beacon genesis")
+        return (
+            window_start - snapshot_lag_seconds - view.beacon_genesis_time
+        ) // L1_SLOT_SECONDS
+
+    def _validate_live_fork_verifier_v1(
+        self, row: RegisterForkVerifierPayloadV1,
+    ) -> None:
+        artifact = self.fork_verifier_world.artifact(row.verifier)
+        if (artifact.extcodehash() != row.runtime_hash
+                or artifact.staticcall_schedule_fork_verifier_config_v1(
+                    PROTOCOL_ROOT_FORK_CONFIG_SELECTOR,
+                    gas_limit=SCHEDULE_FORK_VERIFIER_CONFIG_READ_GAS,
+                    value=0,
+                )
+                    != encode_schedule_fork_verifier_config_return_v1(row)):
+            raise ValueError("PVM live fork verifier is inconsistent")
+
+    def _validate_fork_review_v1(
+        self,
+        review: ForkReviewEnvelopeV1,
+        operation_kind: int,
+        change_rows: bytes,
+        required_horizon: int,
+    ) -> None:
+        expected = schedule_fork_review_certificate_hash_v1(
+            self.settlement_chain_id,
+            self.schedule_oracle_address,
+            operation_kind,
+            change_rows,
+            review.reviewed_through_parent_slot_exclusive,
+            review.review_evidence_hash,
+        )
+        if (review.review_certificate_hash != expected
+                or required_horizon
+                    > review.reviewed_through_parent_slot_exclusive):
+            raise ValueError("fork review certificate is inconsistent")
+
+    def _fork_installation_kind_v1(
+        self, row: RegisterForkVerifierPayloadV1, *, clock: Clock,
+        schedule_view: ProtocolRootScheduleOracleConfigV1,
+    ) -> str:
+        encode_register_fork_verifier_payload_v1(row)
+        self._validate_live_fork_verifier_v1(row)
+        latest_digest = self.fork_order[-1]
+        latest = self.fork_verifiers[latest_digest]
+        current_window = (
+            0 if clock.timestamp <= schedule_view.genesis_timestamp
+            else (
+                clock.timestamp - schedule_view.genesis_timestamp
+            ) // SCHEDULE_WINDOW_SLOTS
+        )
+        protected_target = self._schedule_target_slot_v1(
+            current_window + 8, schedule_view
+        )
+        renewal_target = self._schedule_target_slot_v1(
+            current_window + FORK_CHANGE_RENEWAL_RUNWAY_WINDOWS,
+            schedule_view,
+        )
+        if row.fork_digest == latest_digest:
+            same_descriptor = (
+                row.first_parent_slot == latest.first_parent_slot
+                and row.verifier == latest.verifier
+                and row.runtime_hash == latest.runtime_hash
+                and row.beacon_slot_gindex == latest.beacon_slot_gindex
+                and row.execution_payload_gindex
+                    == latest.execution_payload_gindex
+                and row.state_root_gindex == latest.state_root_gindex
+                and row.prev_randao_gindex == latest.prev_randao_gindex
+                and row.timestamp_gindex == latest.timestamp_gindex
+                and row.block_hash_gindex == latest.block_hash_gindex
+                and row.witness_schema_hash == latest.witness_schema_hash
+                and row.configuration_hash == latest.configuration_hash
+                and row.selector == latest.selector
+                and row.gas_limit == latest.gas_limit
+            )
+            if (not same_descriptor
+                    or row.last_parent_slot_exclusive
+                        <= latest.last_parent_slot_exclusive
+                    or protected_target + MAX_SCHEDULE_CARRIER_SCAN_SLOTS
+                        >= latest.last_parent_slot_exclusive
+                    or renewal_target + MAX_SCHEDULE_CARRIER_SCAN_SLOTS
+                        >= row.last_parent_slot_exclusive):
+                raise ValueError("PVM Schedule horizon extension is unsafe")
+            return "extend"
+        if (row.fork_digest in self.fork_used_digests
+                or row.first_parent_slot
+                    != latest.last_parent_slot_exclusive
+                or protected_target + MAX_SCHEDULE_CARRIER_SCAN_SLOTS
+                    >= row.first_parent_slot
+                or renewal_target + MAX_SCHEDULE_CARRIER_SCAN_SLOTS
+                    >= row.first_parent_slot
+                or renewal_target + MAX_SCHEDULE_CARRIER_SCAN_SLOTS
+                    >= row.last_parent_slot_exclusive):
+            raise ValueError("PVM Schedule fork append is unsafe")
+        return "append"
+
+    def _validate_pending_fork_replacement_v1(
+        self,
+        expected_predecessor: RegisterForkVerifierPayloadV1,
+        expected_old: RegisterForkVerifierPayloadV1,
+        replacement: RegisterForkVerifierPayloadV1,
+        *,
+        clock: Clock,
+        schedule_view: ProtocolRootScheduleOracleConfigV1,
+    ) -> None:
+        encode_register_fork_verifier_payload_v1(replacement)
+        self._validate_live_fork_verifier_v1(replacement)
+        if (len(self.fork_order) < 2
+                or expected_predecessor
+                    != self.fork_verifiers[self.fork_order[-2]]
+                or expected_old
+                    != self.fork_verifiers[self.fork_order[-1]]):
+            raise ValueError("PVM pending fork old row is stale")
+        current_window = (
+            0 if clock.timestamp <= schedule_view.genesis_timestamp
+            else (
+                clock.timestamp - schedule_view.genesis_timestamp
+            ) // SCHEDULE_WINDOW_SLOTS
+        )
+        protected_target = self._schedule_target_slot_v1(
+            current_window + 8, schedule_view
+        )
+        renewal_target = self._schedule_target_slot_v1(
+            current_window + FORK_CHANGE_RENEWAL_RUNWAY_WINDOWS,
+            schedule_view,
+        )
+        predecessor = self.fork_verifiers[self.fork_order[-2]]
+        if (protected_target + MAX_SCHEDULE_CARRIER_SCAN_SLOTS >= min(
+                expected_old.first_parent_slot,
+                replacement.first_parent_slot,
+            )
+                or renewal_target + MAX_SCHEDULE_CARRIER_SCAN_SLOTS
+                    >= replacement.last_parent_slot_exclusive
+                or not predecessor.first_parent_slot
+                    < replacement.first_parent_slot
+                    < replacement.last_parent_slot_exclusive <= UINT64_MAX
+                or (replacement.fork_digest != expected_old.fork_digest
+                    and replacement.fork_digest in self.fork_used_digests)):
+            raise ValueError("PVM pending fork replacement is unsafe")
+
+    def _validate_latest_fork_split_v1(
+        self,
+        expected_old: RegisterForkVerifierPayloadV1,
+        successor: RegisterForkVerifierPayloadV1,
+        *,
+        clock: Clock,
+        schedule_view: ProtocolRootScheduleOracleConfigV1,
+    ) -> None:
+        encode_register_fork_verifier_payload_v1(successor)
+        self._validate_live_fork_verifier_v1(successor)
+        if (not self.fork_order
+                or expected_old
+                    != self.fork_verifiers[self.fork_order[-1]]):
+            raise ValueError("PVM latest fork split old row is stale")
+        current_window = (
+            0 if clock.timestamp <= schedule_view.genesis_timestamp
+            else (clock.timestamp - schedule_view.genesis_timestamp)
+                // SCHEDULE_WINDOW_SLOTS
+        )
+        protected_target = self._schedule_target_slot_v1(
+            current_window + 8, schedule_view
+        )
+        renewal_target = self._schedule_target_slot_v1(
+            current_window + FORK_CHANGE_RENEWAL_RUNWAY_WINDOWS,
+            schedule_view,
+        )
+        if (successor.beacon_slot_gindex != 8
+                or successor.fork_digest == expected_old.fork_digest
+                or successor.fork_digest in self.fork_used_digests
+                or protected_target + MAX_SCHEDULE_CARRIER_SCAN_SLOTS
+                    >= successor.first_parent_slot
+                or renewal_target + MAX_SCHEDULE_CARRIER_SCAN_SLOTS
+                    >= successor.last_parent_slot_exclusive
+                or not expected_old.first_parent_slot
+                    < successor.first_parent_slot
+                    < expected_old.last_parent_slot_exclusive
+                or not successor.first_parent_slot
+                    < successor.last_parent_slot_exclusive <= UINT64_MAX):
+            raise ValueError("PVM latest fork split is unsafe")
+
     def fork_verifier_registration_v1(self, fork_digest: bytes) -> bytes:
         row = self.fork_verifiers.get(fork_digest)
         if row is None:
             raise ValueError("unknown fork verifier registration")
-        index = self.fork_order.index(fork_digest)
+        index = self.fork_index_by_digest.get(fork_digest)
+        if (index is None or index >= len(self.fork_order)
+                or self.fork_order[index] != fork_digest):
+            raise ValueError("PVM fork reverse index is inconsistent")
         successor = (
             self.fork_verifiers[self.fork_order[index + 1]]
             if index + 1 < len(self.fork_order) else None
         )
         encoded = b"".join((
             b"FVR1" + bytes(28), fork_digest + bytes(28),
-            _model_uint(row.first_window, 32, "fork first window"),
+            _model_uint(row.first_parent_slot, 32, "fork first parent slot"),
             (bytes(32) if successor is None
              else successor.fork_digest + bytes(28)),
-            _model_uint(0 if successor is None else successor.first_window,
-                        32, "fork successor window"),
+            _model_uint(row.last_parent_slot_exclusive, 32,
+                        "fork last parent slot"),
             bytes(12) + row.verifier, row.runtime_hash,
             row.configuration_hash, row.selector + bytes(28),
             _model_uint(row.gas_limit, 32, "fork verifier gas"),
@@ -22970,18 +28823,13 @@ class ProtocolVersionManagerV1:
         row = self.fork_verifiers.get(fork_digest)
         if row is None:
             raise ValueError("unknown fork verifier configuration")
-        encoded = b"".join((
-            b"SFV1" + bytes(28), fork_digest + bytes(28),
-            *(_model_uint(value, 32, "fork generalized index") for value in (
-                row.beacon_slot_gindex, row.execution_payload_gindex,
-                row.state_root_gindex, row.prev_randao_gindex,
-                row.timestamp_gindex, row.block_hash_gindex,
-            )),
-            row.witness_schema_hash, row.configuration_hash,
-        ))
-        if len(encoded) != 320:
-            raise AssertionError("SFV1 must be 320 bytes")
-        return encoded
+        return encode_schedule_fork_verifier_config_return_v1(row)
+
+    def schedule_fork_route_state_v1(self) -> bytes:
+        return encode_schedule_fork_route_accumulator_return_v1(
+            self.fork_route_accumulator, len(self.fork_order),
+            len(self.fork_verifiers), len(self.fork_used_digests),
+        )
 
     def permissionless_abort_expired_migration_v1(
         self, *, caller: str, clock: Clock,
@@ -23232,6 +29080,16 @@ class ProtocolChangeTimelockV1:
                 clock.timestamp, PROTOCOL_CHANGE_DELAY_SECONDS,
                 "operation execute after",
             )
+            if operation_kind in {
+                    REGISTER_FORK_VERIFIER,
+                    REPLACE_PENDING_FORK_VERIFIER,
+                    SPLIT_LATEST_FORK_VERIFIER,
+                }:
+                checked_u64_add(
+                    execute_after,
+                    FORK_CHANGE_EXECUTION_WINDOW_SECONDS,
+                    "fork change execute before",
+                )
             operation_id = protocol_change_operation_id_v1(
                 self.settlement_chain_id, self.address, self.manager.address,
                 nonce, operation_kind, payload,
@@ -23267,6 +29125,26 @@ class ProtocolChangeTimelockV1:
         self.operations[operation_id] = replace(row, state=3)
         return True
 
+    def expire_fork_change_v1(
+        self, operation_id: bytes, *, caller: str, clock: Clock,
+    ) -> bytes | None:
+        if (not caller or self._executing_operation_id
+                or type(operation_id) is not bytes
+                or len(operation_id) != 32):
+            return None
+        row = self.operations.get(operation_id)
+        if (row is None or row.state != 1
+                or row.operation_kind not in {
+                    REGISTER_FORK_VERIFIER,
+                    REPLACE_PENDING_FORK_VERIFIER,
+                    SPLIT_LATEST_FORK_VERIFIER,
+                }
+                or clock.timestamp <= row.execute_after
+                    + FORK_CHANGE_EXECUTION_WINDOW_SECONDS):
+            return None
+        self.operations[operation_id] = replace(row, state=5)
+        return EXPIRE_FORK_CHANGE_MAGIC + bytes(28) + operation_id
+
     def execute_protocol_change_v1(
         self, nonce: int, operation_kind: int, payload: bytes, *, caller: str,
         clock: Clock,
@@ -23297,6 +29175,14 @@ class ProtocolChangeTimelockV1:
                 return False
             if clock.timestamp > execute_by:
                 return False
+        if (operation_kind in {
+                REGISTER_FORK_VERIFIER,
+                REPLACE_PENDING_FORK_VERIFIER,
+                SPLIT_LATEST_FORK_VERIFIER,
+            }
+                and clock.timestamp > row.execute_after
+                    + FORK_CHANGE_EXECUTION_WINDOW_SECONDS):
+            return False
         manager_snapshot = self.manager._snapshot()
         prior_row = row
         self.operations[operation_id] = replace(row, state=2)
@@ -23624,6 +29510,7 @@ def decode_profile_ingress_authorization_v2(
 def canonical_destination_release_topology(
     router: "ActiveSettlementRouter", *, adapter_address: str,
     adapter_configuration_hash: str, destination_bridge: str,
+    bridge_surplus_sink: str,
 ) -> tuple[
     tuple["ReleaseComponentV2", ...],
     "DestinationBridgeDescriptorV2",
@@ -23634,7 +29521,7 @@ def canonical_destination_release_topology(
 
     if (type(router) is not ActiveSettlementRouter
             or not adapter_address or not adapter_configuration_hash
-            or not destination_bridge):
+            or not destination_bridge or not bridge_surplus_sink):
         raise ValueError("destination descriptor authority is incomplete")
     store_address = f"inbox-store:{adapter_address}"
     store_runtime = f"codehash:store:{adapter_address}"
@@ -23651,6 +29538,9 @@ def canonical_destination_release_topology(
     quota_manager_address = destination_native_quota_manager_address(
         destination_bridge
     )
+    force_send_helper = "0x" + force_send_create2_address_v1(
+        destination_bridge, bridge_surplus_sink
+    ).hex()
     privileged_target_denyset = tuple(sorted({
         "0x" + "00" * 20,
         adapter_address,
@@ -23662,6 +29552,8 @@ def canonical_destination_release_topology(
         inbox_descriptor.registrar_address,
         "terminal-accumulator",
         destination_bridge,
+        bridge_surplus_sink,
+        force_send_helper,
         "bridge-pauser",
         quota_manager_address,
         NATIVE_LIQUIDITY_POOL,
@@ -23675,6 +29567,7 @@ def canonical_destination_release_topology(
         store_address,
         "terminal-accumulator",
         inbox_descriptor.registrar_address,
+        bridge_surplus_sink,
         native_quota_manager=quota_manager_address,
         privileged_target_denyset=privileged_target_denyset,
     )
@@ -23686,7 +29579,7 @@ def canonical_destination_release_topology(
     components = (
         ReleaseComponentV2(
             adapter_address,
-            BRIDGE_INGRESS_RUNTIME_HASH,
+            BRIDGE_ADAPTER_RUNTIME_HASH_V1,
             adapter_configuration_hash,
         ),
         ReleaseComponentV2(
@@ -23748,6 +29641,7 @@ def canonical_destination_release_topology(
 def profile_ingress_authorization_for(
     router: "ActiveSettlementRouter", *, kind: ForceKind,
     adapter_address: str, destination_bridge: str = "",
+    bridge_surplus_sink: str = "",
     protocol_version: int,
     settlement_chain_id: int = 1,
     source_descriptor_override: SourceBridgeDescriptor | None = None,
@@ -23767,6 +29661,7 @@ def profile_ingress_authorization_for(
         raise ValueError("ingress authorization changed settlement chain context")
     if kind is ForceKind.USER_TX:
         if (adapter_address != "kind0-adapter" or destination_bridge
+                or bridge_surplus_sink
                 or source_descriptor_override is not None):
             raise ValueError("kind-0 profile authorization is noncanonical")
         exact_source_descriptor = None
@@ -23833,7 +29728,7 @@ def profile_ingress_authorization_for(
                 source_configuration,
             )
         )
-        runtime_hash = BRIDGE_INGRESS_RUNTIME_HASH
+        runtime_hash = BRIDGE_ADAPTER_RUNTIME_HASH_V1
         configuration_hash = bridge_ingress_component_configuration_hash(
             router_address=router.address,
             router_runtime_hash=router.runtime_hash,
@@ -23872,6 +29767,7 @@ def profile_ingress_authorization_for(
             adapter_address=adapter_address,
             adapter_configuration_hash=configuration_hash,
             destination_bridge=destination_bridge,
+            bridge_surplus_sink=bridge_surplus_sink,
         )
         bridge_fields = (
             source_address,
@@ -23952,6 +29848,10 @@ def release_profile_ingress_authorizations(
             kind=kind,
             adapter_address=address,
             destination_bridge=destination_bridge,
+            bridge_surplus_sink=(
+                settlement.execution_profile.bridge_surplus_sink.address
+                if kind is ForceKind.BRIDGE_CREDIT else ""
+            ),
             settlement_chain_id=settlement.market_settlement_chain_id,
             protocol_version=settlement.protocol_version,
             source_descriptor_override=(
@@ -24010,6 +29910,10 @@ def release_manifest_from_profile_v2(
     privileged = tuple(sorted({
         "0x" + "00" * 20, *(row.address for row in components),
         "bridge-pauser", quota_manager, NATIVE_LIQUIDITY_POOL,
+        "0x" + words[70][12:].hex(),
+        "0x" + force_send_create2_address_v1(
+            bridge, words[70][12:]
+        ).hex(),
         *V2_PRIVILEGED_DESTINATION_ADDRESSES,
     }, key=_model_address20))
     descriptor = DestinationBridgeDescriptorV2(
@@ -24017,6 +29921,7 @@ def release_manifest_from_profile_v2(
         words[190].hex(), words[191].hex(),
         components[4].address, components[7].address,
         components[6].address,
+        "0x" + words[70][12:].hex(),
         destination_chain_id=int.from_bytes(words[3], "big"),
         native_quota_manager=quota_manager,
         privileged_target_denyset=privileged,
@@ -24782,9 +30687,9 @@ def _execution_profile_field_specs_v2() -> tuple[tuple[str, str], ...]:
         ("bridgeDomainRegistry", "address"),
         ("bridgeDomainRegistryRuntimeHash", "b32"),
         ("bridgeDomainRegistryConfigurationHash", "b32"),
-        ("bridgeCreditRegistry", "address"),
-        ("bridgeCreditRegistryRuntimeHash", "b32"),
-        ("bridgeCreditRegistryConfigurationHash", "b32"),
+        ("sourceBundleFactory", "address"),
+        ("sourceBundleFactoryRuntimeHash", "b32"),
+        ("sourceBundleFactoryConfigurationHash", "b32"),
     )
     artifact = (
         ("settlementFactory", "address"),
@@ -24913,9 +30818,9 @@ def _execution_profile_field_specs_v2() -> tuple[tuple[str, str], ...]:
         ("poolValueCallbackGas", "u64"),
     )
     source = (
-        ("sourceBundleFactory", "address"),
-        ("sourceBundleFactoryRuntimeHash", "b32"),
-        ("sourceBundleFactoryConfigurationHash", "b32"),
+        ("releaseSourceBundleFactory", "address"),
+        ("releaseSourceBundleFactoryRuntimeHash", "b32"),
+        ("releaseSourceBundleFactoryConfigurationHash", "b32"),
         ("sourceBundleSalt", "b32"), ("sourceBundleInitCodeHash", "b32"),
         ("sourceBundleDeployer", "address"),
         ("sourceBundleDeployerRuntimeHash", "b32"),
@@ -25029,13 +30934,22 @@ def _validate_execution_profile_value_words_v2(
     expected_market_authority_configuration = \
         aggregator_seat_market_configuration_hash_v2(words)
     if validate_authority_graph:
-        if (words[202] != _abi_address_word(SOURCE_V2_CREATE2_FACTORY)
-                or words[203] != _model_fixed_bytes32(
-                    SOURCE_V2_CREATE2_FACTORY_RUNTIME_HASH)
-                or words[204] != _model_fixed_bytes32(
-                    SOURCE_V2_CREATE2_FACTORY_CONFIGURATION_HASH)
-                or words[161] != _model_fixed_bytes32(
-                    BRIDGE_INGRESS_RUNTIME_HASH)):
+        source_artifacts = ProtocolRootSourceFactoryCompilerArtifactsV1(
+            SOURCE_BUNDLE_FACTORY_CREATION_CODE_V1,
+            SOURCE_BUNDLE_FACTORY_RUNTIME_CODE_V1,
+            SOURCE_BUNDLE_DEPLOYER_CREATION_CODE_V1,
+            SOURCE_BUNDLE_DEPLOYER_RUNTIME_CODE_V1,
+            BRIDGE_ADAPTER_CREATION_CODE_V1,
+            BRIDGE_ADAPTER_RUNTIME_CODE_V1,
+        )
+        expected_source_config = source_bundle_factory_configuration_hash_v1(
+            _decode_uint_word_v1(words[2], 256, "settlementChainId"),
+            _decode_address_word_v1(words[20], "PVM"), source_artifacts,
+        )
+        if (words[41:44] != words[202:205]
+                or words[203] != source_artifacts.factory_runtime_hash
+                or words[204] != expected_source_config
+                or words[161] != BRIDGE_ADAPTER_RUNTIME_CODE_HASH_V1):
             raise ValueError(
                 "source factory or Bridge adapter runtime is unsupported"
             )
@@ -25101,7 +31015,6 @@ def _validate_execution_profile_value_words_v2(
                 )
                 or words[40] != expected_support_configuration
                 or words[220:223] != words[38:41]
-                or words[41:44] != words[214:217]
                 or words[22]
                     != protocol_version_manager_configuration_hash_from_profile_v1(
                         words
@@ -25204,9 +31117,10 @@ def _validate_execution_profile_value_words_v2(
     if (words[57] != history_address
             or words[58] != L1_EIP2935_HISTORY_STORAGE_RUNTIME_HASH
             or words[245] != L2_EIP2935_HISTORY_STORAGE_RUNTIME_HASH
+            or words[247] != FORCE_SEND_EVM_RULES_HASH
             or words[59] != history_config
             or int.from_bytes(words[7], "big") < l2_activation):
-        raise ValueError("EIP-2935 authority projection is unsupported")
+        raise ValueError("EIP-2935/EIP-6780 authority projection is unsupported")
 
 
 def _execution_profile_value_words_v2(profile: "ExecutionProfile") \
@@ -25291,6 +31205,34 @@ def _execution_profile_value_words_v2(profile: "ExecutionProfile") \
         if router_binding is None
         else _abi_address_word(router_binding.schedule_oracle)
     )
+    bridge_domain_registry_row = (
+        (address("bridge-domain-registry"),
+         hash_("bridge-domain-registry-runtime"),
+         hash_("bridge-domain-registry-config"))
+        if router_binding is None else (
+            _abi_address_word(router_binding.bridge_domain_registry),
+            _model_fixed_bytes32(
+                router_binding.bridge_domain_registry_runtime_hash
+            ),
+            _model_fixed_bytes32(
+                router_binding.bridge_domain_registry_configuration_hash
+            ),
+        )
+    )
+    source_bundle_factory_row = (
+        (address("source-bundle-factory"),
+         hash_("source-bundle-factory-runtime"),
+         hash_("source-bundle-factory-config"))
+        if router_binding is None else (
+            _abi_address_word(router_binding.source_bundle_factory),
+            _model_fixed_bytes32(
+                router_binding.source_bundle_factory_runtime_hash
+            ),
+            _model_fixed_bytes32(
+                router_binding.source_bundle_factory_configuration_hash
+            ),
+        )
+    )
     market_word = address("aggregator-seat-market")
     market_authority_configuration = \
         pvm_derived_market_authority_configuration_hash_v1(
@@ -25311,12 +31253,8 @@ def _execution_profile_value_words_v2(profile: "ExecutionProfile") \
         hash_("builder-registry-config"), schedule_oracle_word,
         hash_("schedule-oracle-runtime"), hash_("schedule-oracle-config"),
         market_word, hash_("seat-market-runtime"),
-        market_authority_configuration, address("bridge-domain-registry"),
-        hash_("bridge-domain-registry-runtime"),
-        hash_("bridge-domain-registry-config"),
-        address("bridge-credit-registry"),
-        hash_("bridge-credit-registry-runtime"),
-        hash_("bridge-credit-registry-config"),
+        market_authority_configuration, *bridge_domain_registry_row,
+        *source_bundle_factory_row,
     )
     compile_rules = tuple(word(value, "compile-time rule") for value in (
         1, 384, 4, 4, 64, 12, 1_024, 2, 2_100, 8, 6, 256, 10, 2,
@@ -25408,7 +31346,7 @@ def _execution_profile_value_words_v2(profile: "ExecutionProfile") \
             profile.post_callback_reserve_gas,
         )),
     )
-    release_scoped_destination_components = {1, 3, 5, 10}
+    release_scoped_destination_components = {1, 5, 10}
     component_rows = [
         [address(
             f"destination-component-{index}:v{profile.protocol_version}"
@@ -25435,6 +31373,15 @@ def _execution_profile_value_words_v2(profile: "ExecutionProfile") \
         component_rows[6][0] = _abi_address_word(
             router_binding.terminal_domain_registrar
         )
+        component_rows[2] = [
+            _abi_address_word(router_binding.source_terminal_verifier),
+            _model_fixed_bytes32(
+                router_binding.source_terminal_verifier_runtime_hash
+            ),
+            _model_fixed_bytes32(
+                router_binding.source_terminal_verifier_configuration_hash
+            ),
+        ]
     components = tuple(value for row in component_rows for value in row)
     destination = (
         address("inbox-system-sender"), address("anchor-system-sender"),
@@ -25451,8 +31398,7 @@ def _execution_profile_value_words_v2(profile: "ExecutionProfile") \
         word(100_000, "pool value callback gas"),
     )
     source = (
-        address("source-factory"), hash_("source-factory-runtime"),
-        hash_("source-factory-config"),
+        *source_bundle_factory_row,
         source_bundle_salt_v1(core[9], profile.protocol_version),
         hash_("source-bundle-init-code"), address("source-bundle-deployer"),
         hash_("source-bundle-deployer-runtime"),
@@ -25488,7 +31434,7 @@ def _execution_profile_value_words_v2(profile: "ExecutionProfile") \
         L2_EIP2935_HISTORY_STORAGE_RUNTIME_HASH,
         word(L2_EIP2935_HISTORY_STORAGE_ACTIVATION_BLOCK,
              "l2 EIP-2935 activation block"),
-        hash_("header-rules"), hash_("system-transaction-rules"),
+        FORCE_SEND_EVM_RULES_HASH, hash_("system-transaction-rules"),
         hash_("forced-input-rules"), hash_("state-transition-abi"),
         hash_("legacy-execution-rules"),
     )
@@ -25601,6 +31547,7 @@ def canonical_execution_profile_cross_model_fixture_v2() -> bytes:
         L2_EIP2935_HISTORY_STORAGE_ACTIVATION_BLOCK, 32,
         "L2 EIP-2935 activation block",
     )
+    words[247] = FORCE_SEND_EVM_RULES_HASH
     for index, value in enumerate((
         30, 2, 8_000_000, 250_000, 250_000, 300_000, 500_000,
         500_000, 1_250_000, 250_000, 500_000,
@@ -25650,18 +31597,29 @@ class ActiveRouterProfileBindingV2:
     forced_queue_configuration_hash: bytes
     builder_registry: str
     schedule_oracle: str
+    bridge_domain_registry: str
+    bridge_domain_registry_runtime_hash: bytes
+    bridge_domain_registry_configuration_hash: bytes
+    source_bundle_factory: str
+    source_bundle_factory_runtime_hash: bytes
+    source_bundle_factory_configuration_hash: bytes
     inbox_apply_router: str
     inbox_apply_runtime_hash: bytes
     inbox_apply_configuration_hash: bytes
     terminal_domain_registrar: str
     router_namespace: bytes
+    source_terminal_verifier: str
+    source_terminal_verifier_runtime_hash: bytes
+    source_terminal_verifier_configuration_hash: bytes
 
     def structurally_valid(self) -> bool:
         try:
             for value in (
                 self.version_manager, self.router, self.forced_queue,
                 self.builder_registry, self.schedule_oracle,
+                self.bridge_domain_registry, self.source_bundle_factory,
                 self.inbox_apply_router, self.terminal_domain_registrar,
+                self.source_terminal_verifier,
             ):
                 _model_address20(value)
             for value in (
@@ -25670,9 +31628,15 @@ class ActiveRouterProfileBindingV2:
                 self.router_configuration_hash,
                 self.forced_queue_runtime_hash,
                 self.forced_queue_configuration_hash,
+                self.bridge_domain_registry_runtime_hash,
+                self.bridge_domain_registry_configuration_hash,
+                self.source_bundle_factory_runtime_hash,
+                self.source_bundle_factory_configuration_hash,
                 self.inbox_apply_runtime_hash,
                 self.inbox_apply_configuration_hash,
                 self.router_namespace,
+                self.source_terminal_verifier_runtime_hash,
+                self.source_terminal_verifier_configuration_hash,
             ):
                 if _model_fixed_bytes32(value) == bytes(32):
                     return False
@@ -26364,6 +32328,53 @@ def bind_execution_profile_to_router_graph_v2(
     if (type(profile) is not ExecutionProfile
             or type(router) is not ActiveSettlementRouter):
         raise ValueError("Router profile binding requires exact graph objects")
+    manager = router._version_manager_authority
+    if type(manager) is ProtocolVersionManagerV1:
+        manager_view = decode_protocol_version_manager_config_return_v1(
+            manager.config_return_v1(caller=router.address)
+        )
+        if (manager.address != router.version_manager
+                or manager.extcodehash(caller=router.address)
+                    != _model_fixed_bytes32(router.version_manager_runtime_hash)
+                or manager_view.active_settlement_router
+                    != _model_address20(router.address)):
+            raise ValueError("Router profile binding PVM1 is not live-exact")
+        bridge_domain_registry = manager_view.bridge_domain_registry
+        bridge_domain_registry_runtime = (
+            manager_view.bridge_domain_registry_runtime_hash
+        )
+        bridge_domain_registry_config = (
+            manager_view.bridge_domain_registry_configuration_hash
+        )
+        source_factory = manager_view.source_bundle_factory
+        source_factory_runtime = manager_view.source_bundle_factory_runtime_hash
+        source_factory_config = (
+            manager_view.source_bundle_factory_configuration_hash
+        )
+        terminal_address = manager_view.source_terminal_verifier
+        terminal_runtime = manager_view.source_terminal_verifier_runtime_hash
+        terminal_config = (
+            manager_view.source_terminal_verifier_configuration_hash
+        )
+    else:
+        # Genesis fixture construction precedes the strict PVM object.  Its
+        # already registered profile is the immutable bootstrap root row; no
+        # successor production path may synthesize these identities.
+        active = router.registrations.get(router.active_version)
+        basis = profile if type(active) is not SettlementRegistration \
+            else active.execution_profile
+        basis_words = _execution_profile_abi_words_v2(
+            basis.canonical_profile_bytes
+        )
+        bridge_domain_registry = basis_words[38][12:]
+        bridge_domain_registry_runtime = basis_words[39]
+        bridge_domain_registry_config = basis_words[40]
+        source_factory = basis_words[41][12:]
+        source_factory_runtime = basis_words[42]
+        source_factory_config = basis_words[43]
+        terminal_address = basis_words[166][12:]
+        terminal_runtime = basis_words[167]
+        terminal_config = basis_words[168]
     binding = ActiveRouterProfileBindingV2(
         router.version_manager,
         _model_fixed_bytes32(router.version_manager_runtime_hash),
@@ -26375,6 +32386,12 @@ def bind_execution_profile_to_router_graph_v2(
         _model_fixed_bytes32(router.forced_queue.config_hash),
         router.builder_registry_id,
         router.schedule_oracle_id,
+        "0x" + bridge_domain_registry.hex(),
+        bridge_domain_registry_runtime,
+        bridge_domain_registry_config,
+        "0x" + source_factory.hex(),
+        source_factory_runtime,
+        source_factory_config,
         router.inbox_apply_descriptor.address,
         _model_fixed_bytes32(router.inbox_apply_descriptor.runtime_hash),
         _model_fixed_bytes32(
@@ -26382,6 +32399,9 @@ def bind_execution_profile_to_router_graph_v2(
         ),
         router.inbox_apply_descriptor.registrar_address,
         _model_fixed_bytes32(router.router_namespace),
+        "0x" + terminal_address.hex(),
+        terminal_runtime,
+        terminal_config,
     )
     if not binding.structurally_valid():
         raise ValueError("Router profile binding is malformed")
@@ -26389,6 +32409,36 @@ def bind_execution_profile_to_router_graph_v2(
     if not bound.structurally_valid():
         raise ValueError("Router-bound execution profile is malformed")
     return bound
+
+
+def release_compatibility_projection_v2(
+    manifest_abi: bytes,
+) -> tuple[tuple[tuple[bytes, bytes, bytes], ...], bytes, bytes]:
+    """Extract fixed lifetime rows and one-shot destination keys in O(1)."""
+
+    words = _protocol_change_words(manifest_abi, RELEASE_MANIFEST_V2_ABI_WORDS)
+    domain_id = words[9]
+    bridge = _decode_address_word_v1(
+        words[10], "release destination Bridge"
+    )
+    lifetime_rows = tuple(
+        (
+            _decode_address_word_v1(
+                words[29 + component_index * 3],
+                "release lifetime component",
+            ),
+            words[30 + component_index * 3],
+            words[31 + component_index * 3],
+        )
+        for component_index in (3, 5, 6, 7)
+    )
+    if (domain_id == bytes(32) or bridge == bytes(20)
+            or any(address == bytes(20) or runtime_hash == bytes(32)
+                   or configuration_hash == bytes(32)
+                   for address, runtime_hash, configuration_hash
+                   in lifetime_rows)):
+        raise ValueError("release compatibility projection is empty")
+    return lifetime_rows, domain_id, bridge
 
 
 @dataclass
@@ -26499,6 +32549,18 @@ class ActiveSettlementRouter:
     activation_receipt_rows_v1: dict[bytes, bytes] = field(default_factory=dict)
     seat_successor_rows_v1: dict[bytes, bytes] = field(default_factory=dict)
     used_target_addresses: set[str] = field(default_factory=set)
+    release_lifetime_graph_v2: tuple[
+        tuple[bytes, bytes, bytes], ...
+    ] = field(default_factory=tuple, compare=False)
+    release_compatibility_by_version_v2: dict[
+        int, tuple[tuple[tuple[bytes, bytes, bytes], ...], bytes, bytes]
+    ] = field(default_factory=dict, compare=False)
+    release_version_by_destination_domain_v2: dict[bytes, int] = field(
+        default_factory=dict, compare=False
+    )
+    release_version_by_destination_bridge_v2: dict[bytes, int] = field(
+        default_factory=dict, compare=False
+    )
     _authorized_ingress: tuple[IngressBinding, ...] = field(
         default_factory=tuple, repr=False
     )
@@ -26892,6 +32954,80 @@ class ActiveSettlementRouter:
         object.__setattr__(self, "_migration_callback_frame", None)
         self.migration_lifecycle = RouterMigrationLifecycle.IDLE
 
+    def _record_release_compatibility_v2(
+        self, manifest_abi: bytes, protocol_version: int,
+    ) -> None:
+        """Append fixed-size compatibility/reuse indexes for one release."""
+
+        words = _protocol_change_words(
+            manifest_abi, RELEASE_MANIFEST_V2_ABI_WORDS
+        )
+        if (_decode_uint_word_v1(
+                words[0], 64, "release compatibility version"
+            ) != protocol_version
+                or not 0 < protocol_version <= UINT64_MAX):
+            raise ValueError("release compatibility version is malformed")
+        projection = release_compatibility_projection_v2(manifest_abi)
+        lifetime_graph, domain_id, bridge = projection
+        existing = self.release_compatibility_by_version_v2.get(
+            protocol_version
+        )
+        if existing is not None:
+            if (existing != projection
+                    or self.release_lifetime_graph_v2 != lifetime_graph
+                    or self.release_version_by_destination_domain_v2.get(
+                        domain_id
+                    ) != protocol_version
+                    or self.release_version_by_destination_bridge_v2.get(
+                        bridge
+                    ) != protocol_version):
+                raise AssertionError("release compatibility index is corrupted")
+            return
+        if ((not self.release_lifetime_graph_v2)
+                != (not self.release_compatibility_by_version_v2)
+                or (not self.release_compatibility_by_version_v2
+                    and (self.release_version_by_destination_domain_v2
+                         or self.release_version_by_destination_bridge_v2))):
+            raise AssertionError("release compatibility baseline is corrupted")
+        if (self.release_lifetime_graph_v2
+                and self.release_lifetime_graph_v2 != lifetime_graph):
+            raise ValueError("release lifetime authority graph changed")
+        if domain_id in self.release_version_by_destination_domain_v2:
+            raise ValueError("release destination domain was already reserved")
+        if bridge in self.release_version_by_destination_bridge_v2:
+            raise ValueError("release destination Bridge was already reserved")
+        if not self.release_lifetime_graph_v2:
+            self.release_lifetime_graph_v2 = lifetime_graph
+        self.release_compatibility_by_version_v2[
+            protocol_version
+        ] = projection
+        self.release_version_by_destination_domain_v2[
+            domain_id
+        ] = protocol_version
+        self.release_version_by_destination_bridge_v2[
+            bridge
+        ] = protocol_version
+
+    def _require_release_compatibility_v2(
+        self, manifest: "ReleaseManifestV2",
+    ) -> None:
+        if (type(manifest) is not ReleaseManifestV2
+                or not manifest.structurally_valid()):
+            raise ValueError("release compatibility manifest is malformed")
+        protocol_version = manifest.protocol_version
+        projection = release_compatibility_projection_v2(
+            manifest.canonical_abi
+        )
+        lifetime_graph, domain_id, bridge = projection
+        if (self.release_compatibility_by_version_v2.get(protocol_version)
+                != projection
+                or self.release_lifetime_graph_v2 != lifetime_graph
+                or self.release_version_by_destination_domain_v2.get(domain_id)
+                != protocol_version
+                or self.release_version_by_destination_bridge_v2.get(bridge)
+                != protocol_version):
+            raise AssertionError("release compatibility indexes do not match")
+
     def _protocol_release_registry_snapshot_v2(self) -> tuple[object, ...]:
         return (
             self.migration_lifecycle,
@@ -26906,6 +33042,10 @@ class ActiveSettlementRouter:
             set(self.terminal_genesis_campaign_ids),
             self.terminal_genesis_campaign,
             copy.deepcopy(self.legacy_launch_hook.__dict__),
+            self.release_lifetime_graph_v2,
+            dict(self.release_compatibility_by_version_v2),
+            dict(self.release_version_by_destination_domain_v2),
+            dict(self.release_version_by_destination_bridge_v2),
         )
 
     def _restore_protocol_release_registry_v2(
@@ -26913,7 +33053,9 @@ class ActiveSettlementRouter:
     ) -> None:
         (lifecycle, registrations, profiles, expansions, policies, gate_state,
          campaign_nonce, scheduled_campaign, campaign, terminal_ids,
-         terminal_campaign, legacy_state) = snapshot
+         terminal_campaign, legacy_state, lifetime_graph,
+         compatibility_by_version, version_by_domain,
+         version_by_bridge) = snapshot
         self.migration_lifecycle = lifecycle
         self.target_release_registrations_v2 = registrations
         self.migration_activation_profiles_v2 = profiles
@@ -26928,6 +33070,10 @@ class ActiveSettlementRouter:
         self.terminal_genesis_campaign = terminal_campaign
         self.legacy_launch_hook.__dict__.clear()
         self.legacy_launch_hook.__dict__.update(legacy_state)
+        self.release_lifetime_graph_v2 = lifetime_graph
+        self.release_compatibility_by_version_v2 = compatibility_by_version
+        self.release_version_by_destination_domain_v2 = version_by_domain
+        self.release_version_by_destination_bridge_v2 = version_by_bridge
 
     def register_target_release_v2(
         self, decoded: RegisterReleasePayloadV1, *, manager: object,
@@ -26975,6 +33121,9 @@ class ActiveSettlementRouter:
         try:
             self.migration_lifecycle = RouterMigrationLifecycle.REGISTERING
             row = derived.target_registration_row
+            self._record_release_compatibility_v2(
+                derived.manifest_abi, row.protocol_version
+            )
             self.target_release_registrations_v2[row.protocol_version] = row
             self.migration_activation_profiles_v2[
                 row.protocol_version
@@ -27032,6 +33181,33 @@ class ActiveSettlementRouter:
         return (self.release_registration_getter_override
                 if self.release_registration_getter_override is not None
                 else result)
+
+    def _authenticated_registered_target_v1(
+        self, protocol_version: int,
+    ) -> "VersionedSettlementHistory":
+        """Resolve executable behavior only after exact RTR2 account reads."""
+
+        manager = self._version_manager_authority
+        row = self.target_release_registrations_v2.get(protocol_version)
+        if (type(manager) is not ProtocolVersionManagerV1
+                or type(row) is not TargetReleaseRegistrationRowV2):
+            raise ValueError("registered target row is absent")
+        world = manager.deployment_world
+        behavior = world.authenticated_behavior(
+            row.target_settlement, caller=self.address,
+            runtime_hash=row.target_runtime_hash,
+            configuration_hash=row.target_configuration_hash,
+            label="RTR2:targetSettlement",
+        )
+        if (type(behavior) is not VersionedSettlementHistory
+                or behavior.protocol_version != protocol_version
+                or _model_address20(behavior.address) != row.target_settlement
+                or _model_fixed_bytes32(behavior.runtime_hash)
+                    != row.target_runtime_hash
+                or _model_fixed_bytes32(behavior.market_configuration_hash)
+                    != row.target_configuration_hash):
+            raise ValueError("registered target behavior differs from RTR2")
+        return behavior
 
     def staticcall_target_release_registration_v2(
         self, calldata: bytes, *, caller: str, value: int, gas: int,
@@ -27224,28 +33400,28 @@ class ActiveSettlementRouter:
             profile_row = self.migration_activation_profiles_v2.get(
                 target_protocol_version
             )
-            witness = manager.release_witnesses.get(target_protocol_version)
+            target_history = self._authenticated_registered_target_v1(
+                target_protocol_version
+            )
             hook = self.legacy_launch_hook
             target_address = "0x" + target_settlement.hex()
             gate_word = self.migration_gate.router_word
             if (type(release_row) is not TargetReleaseRegistrationRowV2
                     or type(profile_row)
                         is not MigrationActivationProfileRecordV2
-                    or type(witness) is not SettlementRegistration
                     or release_row.expected_predecessor_protocol_version != 0
                     or release_row.target_settlement != target_settlement
                     or release_row.release_manifest_hash
                         != target_manifest_hash
                     or release_row.target_registration_hash
                         != target_registration_hash
-                    or witness.settlement.protocol_version
-                        != target_protocol_version
-                    or _model_address20(witness.settlement.address)
+                    or target_history.protocol_version != target_protocol_version
+                    or _model_address20(target_history.address)
                         != target_settlement
-                    or _model_fixed_bytes32(witness.settlement.runtime_hash)
+                    or _model_fixed_bytes32(target_history.runtime_hash)
                         != release_row.target_runtime_hash
                     or _model_fixed_bytes32(
-                        witness.settlement.market_configuration_hash
+                        target_history.market_configuration_hash
                     ) != release_row.target_configuration_hash
                     or manager.release_registrations.get(
                         target_protocol_version
@@ -27335,7 +33511,7 @@ class ActiveSettlementRouter:
             if campaign_id in self.terminal_genesis_campaign_ids:
                 raise ValueError("genesis campaign ID is terminal")
             campaign = GenesisCampaignV1(
-                nonce, campaign_id, generation, witness.settlement,
+                nonce, campaign_id, generation, target_history,
                 target_address, target_protocol_version,
                 target_manifest_hash, target_registration_hash,
                 review_commitment, review_finalized_by_block,
@@ -27381,9 +33557,6 @@ class ActiveSettlementRouter:
             else source_registration.settlement
         )
         source_protocol = getattr(source_history, "live_protocol", None)
-        target_witness = getattr(manager, "release_witnesses", {}).get(
-            lease.target_protocol_version
-        )
         if (type(manager) is not ProtocolVersionManagerV1
                 or manager.router is not self
                 or manager.address != self.version_manager
@@ -27410,13 +33583,10 @@ class ActiveSettlementRouter:
                     lease.target_protocol_version
                 ].target_registration_hash
                     != lease.target_registration_hash
-                or type(target_witness) is not SettlementRegistration
-                or target_witness.release_manifest_hash
-                    != lease.target_manifest_hash
-                or target_registration_hash_v2(target_witness)
-                    != lease.target_registration_hash
                 or not self.bridge_package_arm_ready_v1(
-                    target_witness, clock=clock
+                    lease.target_protocol_version,
+                    lease.target_registration_hash,
+                    clock=clock,
                 )):
             raise ValueError("Router migration arm frame is not exact")
         lifecycle = self.migration_lifecycle
@@ -27684,17 +33854,14 @@ class ActiveSettlementRouter:
                 or (prepare_only and manager is None)):
             return False
 
-        # A release may not add a new Bridge-trusting endpoint to a historical
-        # Bridge/domain whose already-queued messages were admitted under a
-        # smaller denyset.  New authority requires a fresh Bridge and domain;
-        # exact endpoint reuse keeps the immutable policy byte-for-byte.
-        if not all(
-            historical_v2_privileged_policy_compatible(
-                prior.release_manifest, registration.release_manifest
+        # REGISTER_RELEASE reserves the fresh domain/Bridge and exact lifetime
+        # graph in fixed reverse indexes.  Installation only exact-reads that
+        # version projection; it never walks historical registrations.
+        try:
+            self._require_release_compatibility_v2(
+                registration.release_manifest
             )
-            for prior in self.registrations.values()
-            if prior is not registration
-        ):
+        except (AssertionError, ValueError):
             return False
         trace_version_migration = (
             not prepare_only
@@ -27705,53 +33872,37 @@ class ActiveSettlementRouter:
             and self._migration_callback_frame.transition_kind
                 == "VERSION_MIGRATION"
         )
+        candidate_world = getattr(manager, "deployment_world", None)
+        deployment_world = (
+            candidate_world
+            if type(candidate_world) is LiveDeploymentWorldV2 else None
+        )
 
         bindings_before = self._authorized_ingress
         by_address_before = self._authorized_ingress_by_address
         ids_before = self._authorized_ingress_adapter_ids
-        deployments_before = dict(self._profile_deployments_by_version)
+        target_version = registration.settlement.protocol_version
+        deployment_row_before = (
+            target_version in self._profile_deployments_by_version,
+            self._profile_deployments_by_version.get(target_version),
+        )
         source_registry_before = self._bridge_credit_registry_authority
         source_bridge_before = self._source_bridge_authority
         support_registry_before = self._bridge_domain_registry_authority
-        source_factories_before = dict(
-            self._source_bridge_factories_by_address
+        source_version_row_before = (
+            target_version in self._source_descriptor_id_by_version,
+            self._source_descriptor_id_by_version.get(target_version),
         )
-        source_bundles_before = dict(self._source_bundles_by_descriptor_id)
-        source_versions_before = dict(self._source_descriptor_id_by_version)
-        used_source_addresses_before = set(
-            self._used_source_component_addresses
-        )
-        source_factory_states = {
-            address: (
-                factory,
-                dict(factory._deployments),
-                dict(factory._bundles),
-                dict(factory._adapter_deployments),
-                dict(factory._adapters),
-            )
-            for address, factory
-            in self._source_bridge_factories_by_address.items()
-            if type(factory) is ImmutableV2BridgeFactory
-        }
-        # At most one profile Bridge adapter is touched by this call.  Capture
-        # it when resolved below rather than scanning historical adapters.
+        source_bundle_row_before: tuple[bool, object | None] | None = None
+        source_bundle_key: bytes | None = None
+        source_factory_rows_before: list[
+            tuple[ImmutableV2BridgeFactory, str, str, bool, object | None]
+        ] = []
+        used_source_addresses_added: set[str] = set()
+        # Exactly one bundle and one adapter can be touched by this call.
         source_adapter_states_before: dict[int, tuple[object, str]] = {}
         source_bundle_states_before: dict[int, tuple[object, ...]] = {}
-        for factory, _, bundles, _, _ in source_factory_states.values():
-            for bundle in bundles.values():
-                if (len(bundle) == 5
-                        and type(bundle[0]) is SourceBridgeV2
-                        and type(bundle[1]) is BridgeCreditRegistryV2):
-                    bridge, registry = bundle[:2]
-                    source_bundle_states_before.setdefault(
-                        id(bridge),
-                        (
-                            bridge,
-                            bridge._transaction_snapshot(),
-                            registry,
-                            registry._authorization_snapshot(),
-                        ),
-                    )
+        deployment_world_rows_before: tuple[object, ...] | None = None
         source_registry_state = (
             support_registry_before._transaction_snapshot()
             if type(support_registry_before) is BridgeDomainRegistry else None
@@ -27810,6 +33961,24 @@ class ActiveSettlementRouter:
                 descriptor_id = source_descriptor.descriptor_id
                 if descriptor_id != bridge_authorization.source_descriptor_id:
                     raise ValueError("source descriptor commitment changed")
+                source_bundle_key = descriptor_id
+                if deployment_world is not None:
+                    deployment_world_rows_before = deployment_world.touched_rows(
+                        tuple(_model_address20(address) for address in (
+                            source_descriptor.deployment_factory,
+                            source_descriptor.support_registry_address,
+                            source_descriptor.bundle_deployer,
+                            source_descriptor.source_bridge,
+                            source_descriptor.bridge_credit_registry,
+                            source_descriptor.native_quota_manager,
+                            source_descriptor.source_terminal_verifier,
+                            bridge_authorization.adapter_address,
+                        ))
+                    )
+                source_bundle_row_before = (
+                    descriptor_id in self._source_bundles_by_descriptor_id,
+                    self._source_bundles_by_descriptor_id.get(descriptor_id),
+                )
 
                 l1_authority_descriptor = (
                     release_authority_descriptor_from_manifest(manifest)
@@ -27845,6 +34014,74 @@ class ActiveSettlementRouter:
                     raise ValueError(
                         "source support registry lifetime authority changed"
                     )
+                if deployment_world is not None:
+                    _validate_live_target_code_and_config_v2(
+                        deployment_world, caller=self.address,
+                        address=_model_address20(self.address),
+                        runtime_hash=_model_fixed_bytes32(self.runtime_hash),
+                        configuration_hash=_model_fixed_bytes32(
+                            self.configuration_hash
+                        ), label="ActiveSettlementRouter",
+                    )
+                    deployment_world.install_exact_account(
+                        address=_model_address20(self.address),
+                        runtime_hash=_model_fixed_bytes32(self.runtime_hash),
+                        configuration_hash=_model_fixed_bytes32(
+                            self.configuration_hash
+                        ), behavior=self,
+                    )
+                    _validate_live_target_code_and_config_v2(
+                        deployment_world, caller=self.address,
+                        address=_model_address20(support_registry.address),
+                        runtime_hash=_model_fixed_bytes32(
+                            support_registry.runtime_hash
+                        ),
+                        configuration_hash=_model_fixed_bytes32(
+                            support_registry.configuration_hash
+                        ), label="BridgeDomainRegistry",
+                    )
+                    deployment_world.install_exact_account(
+                        address=_model_address20(support_registry.address),
+                        runtime_hash=_model_fixed_bytes32(
+                            support_registry.runtime_hash
+                        ),
+                        configuration_hash=_model_fixed_bytes32(
+                            support_registry.configuration_hash
+                        ), behavior=support_registry,
+                    )
+                    terminal_address = _model_address20(
+                        source_descriptor.source_terminal_verifier
+                    )
+                    _validate_live_target_code_and_config_v2(
+                        deployment_world, caller=self.address,
+                        address=terminal_address,
+                        runtime_hash=_model_fixed_bytes32(
+                            source_descriptor
+                                .source_terminal_verifier_runtime_hash
+                        ),
+                        configuration_hash=_model_fixed_bytes32(
+                            source_descriptor
+                                .source_terminal_verifier_configuration_hash
+                        ), label="SourceTerminalVerifier",
+                    )
+                    terminal_behavior = deployment_world.behavior_handles.get(
+                        terminal_address
+                    )
+                    if terminal_behavior is None:
+                        terminal_behavior = TerminalSignalVerifier(
+                            self, support_registry,
+                            source_descriptor.source_terminal_verifier,
+                            source_descriptor
+                                .source_terminal_verifier_runtime_hash,
+                            source_descriptor
+                                .source_terminal_verifier_configuration_hash,
+                        )
+                        deployment_world.behavior_handles[
+                            terminal_address] = terminal_behavior
+                    elif type(terminal_behavior) is not TerminalSignalVerifier:
+                        raise ValueError(
+                            "source terminal verifier behavior aliases another graph"
+                        )
 
                 source_bridge_factory = (
                     self._source_bridge_factories_by_address.get(
@@ -27862,6 +34099,26 @@ class ActiveSettlementRouter:
                             != source_descriptor
                                 .deployment_factory_configuration_hash):
                     raise ValueError("source Bridge factory identity changed")
+                if deployment_world is not None:
+                    _validate_live_target_code_and_config_v2(
+                        deployment_world, caller=self.address,
+                        address=_model_address20(source_bridge_factory.address),
+                        runtime_hash=_model_fixed_bytes32(
+                            source_bridge_factory.runtime_hash
+                        ),
+                        configuration_hash=_model_fixed_bytes32(
+                            source_bridge_factory.configuration_hash
+                        ), label="SourceBundleFactory",
+                    )
+                    deployment_world.install_exact_account(
+                        address=_model_address20(source_bridge_factory.address),
+                        runtime_hash=_model_fixed_bytes32(
+                            source_bridge_factory.runtime_hash
+                        ),
+                        configuration_hash=_model_fixed_bytes32(
+                            source_bridge_factory.configuration_hash
+                        ), behavior=source_bridge_factory,
+                    )
 
                 bundle = self._source_bundles_by_descriptor_id.get(
                     descriptor_id
@@ -27880,27 +34137,53 @@ class ActiveSettlementRouter:
                         raise ValueError(
                             "source Bridge successor accounts are not fresh"
                         )
-                    (
-                        source_bridge,
-                        credit_registry,
-                        source_deployment_receipt,
-                    ) = source_bridge_factory.deploy_source_bundle(
-                        source_descriptor,
-                        support_registry,
+                for attribute in ("_deployments", "_bundles"):
+                    mapping = getattr(source_bridge_factory, attribute)
+                    source_factory_rows_before.append((
+                        source_bridge_factory, attribute,
+                        source_descriptor.source_bridge,
+                        source_descriptor.source_bridge in mapping,
+                        mapping.get(source_descriptor.source_bridge),
+                    ))
+                source_bundle_result = \
+                    source_bridge_factory.deploy_source_bundle_exact_v1(
+                        encode_source_bundle_factory_deploy_bundle_calldata_v1(
+                            source_descriptor
+                        ),
                         caller="permissionless-deployer",
+                        gas_limit=(
+                            SOURCE_BUNDLE_FACTORY_BUNDLE_DEPLOYMENT_GAS
+                        ),
+                        value=0,
+                        deployment_world=deployment_world,
                     )
-                    _ = source_deployment_receipt
-                    bundle = (
-                        source_bridge,
-                        credit_registry,
-                        source_bridge.quota_manager,
+                (source_bridge, credit_registry, quota_manager,
+                 _terminal_verifier) = \
+                    resolve_source_bundle_deployment_for_test_v1(
+                        source_bridge_factory, source_bundle_result,
+                        source_descriptor, support_registry,
+                        deployment_world=deployment_world,
+                        caller=self.address,
                     )
+                live_projection = (
+                    source_bridge, credit_registry, quota_manager
+                )
+                source_bundle_states_before[id(source_bridge)] = (
+                    source_bridge, source_bridge._transaction_snapshot(),
+                    credit_registry,
+                    credit_registry._authorization_snapshot(),
+                )
+                if bundle is not None and bundle != live_projection:
+                    raise ValueError("Source bundle retained row changed")
+                bundle = live_projection
+                if descriptor_id not in self._source_bundles_by_descriptor_id:
                     self._source_bundles_by_descriptor_id[
                         descriptor_id
                     ] = bundle
                     self._used_source_component_addresses.update(
                         component_addresses
                     )
+                    used_source_addresses_added.update(component_addresses)
                 source_bridge, credit_registry, quota_manager = bundle
                 if (type(source_bridge) is not SourceBridgeV2
                         or type(credit_registry) is not BridgeCreditRegistryV2
@@ -27987,16 +34270,46 @@ class ActiveSettlementRouter:
                     raise ValueError(
                         "Bridge adapter address cannot cross destination domains"
                     )
-                bridge = source_bridge_factory.deploy_bridge_adapter_v1(
+                adapter_calldata = \
+                    encode_source_bundle_factory_deploy_adapter_calldata_v1(
+                        registration.settlement.protocol_version,
+                        descriptor_id, bridge_authorization.configuration_hash,
+                        source_bridge.address, credit_registry.address,
+                        self.address, self.forced_queue.address,
+                        self.version_manager,
+                    )
+                for attribute in ("_adapter_deployments", "_adapters"):
+                    mapping = getattr(source_bridge_factory, attribute)
+                    source_factory_rows_before.append((
+                        source_bridge_factory, attribute,
+                        bridge_authorization.adapter_address,
+                        bridge_authorization.adapter_address in mapping,
+                        mapping.get(bridge_authorization.adapter_address),
+                    ))
+                adapter_result = \
+                    source_bridge_factory.deploy_bridge_adapter_exact_v1(
+                        adapter_calldata,
+                        caller="permissionless-deployer",
+                        gas_limit=(
+                            SOURCE_BUNDLE_FACTORY_ADAPTER_DEPLOYMENT_GAS
+                        ),
+                        value=0,
+                        deployment_world=deployment_world,
+                    )
+                bridge = resolve_source_adapter_deployment_for_test_v1(
+                    source_bridge_factory, adapter_result,
                     protocol_version=(
-                        registration.settlement.protocol_version),
-                    source_descriptor_id=descriptor_id,
-                    router=self, credit_registry=credit_registry,
+                        registration.settlement.protocol_version
+                    ),
+                    source_descriptor_id=descriptor_id, router=self,
                     source_bridge=source_bridge,
+                    credit_registry=credit_registry,
                     expected_runtime_hash=bridge_authorization.runtime_hash,
                     expected_configuration_hash=(
-                        bridge_authorization.configuration_hash),
-                    caller="permissionless-deployer",
+                        bridge_authorization.configuration_hash
+                    ),
+                    deployment_world=deployment_world,
+                    caller=self.address,
                 )
                 if type(bridge) is BridgeAdapter:
                     source_adapter_states_before.setdefault(
@@ -28028,7 +34341,7 @@ class ActiveSettlementRouter:
                     registration.settlement.protocol_version
                 ] = MappingProxyType(dict(deployments))
                 if (type(manager) is not ProtocolVersionManagerV1
-                        and not registry.stage(
+                        and not registry.stage_bootstrap_primitives_for_test_v1(
                         source_bridge.source_domain_id,
                         source_bridge.frozen_bridge_execution_hash,
                         manifest,
@@ -28054,24 +34367,25 @@ class ActiveSettlementRouter:
                                 gas=CONSUME_BRIDGE_ROUTE_ARM_READY_GAS,
                                 clock=clock,
                             )
-                        key = registry._key_by_destination_chain_version.get((
-                            registration.release_manifest.destination_chain_id,
-                            registration.settlement.protocol_version,
-                        ))
-                        entry = registry.entries.get(key) if key is not None else None
-                        expected_consume = b"".join((
-                            b"BRC1" + bytes(28),
-                            _model_uint(
-                                registration.settlement.protocol_version,
-                                32, "BRC1 version",
-                            ),
-                            target_registration_hash_v2(registration),
-                            bytes(32) if entry is None else entry.package_root,
-                        ))
-                        if consume_result != expected_consume:
+                        if (type(consume_result) is not bytes
+                                or len(consume_result)
+                                    != CONSUME_BRIDGE_ROUTE_ARM_READY_RETURN_LENGTH):
+                            raise ValueError("release BRC1 length is inexact")
+                        consume_words = tuple(
+                            consume_result[offset:offset + 32]
+                            for offset in range(0, len(consume_result), 32)
+                        )
+                        if (consume_words[0] != b"BRC1" + bytes(28)
+                                or _decode_uint_word_v1(
+                                    consume_words[1], 64, "BRC1 version"
+                                ) != registration.settlement.protocol_version
+                                or consume_words[2]
+                                    != target_registration_hash_v2(registration)
+                                or consume_words[3] == bytes(32)):
                             raise ValueError("release BRC1 post-read is inexact")
                     elif (is_successor
-                            and not registry.consume_arm_ready(
+                            and not registry
+                                .consume_bootstrap_arm_ready_for_test_v1(
                                 registration, clock,
                                 router=self,
                                 capability=_BRIDGE_ROUTE_ACTIVATION_CAPABILITY,
@@ -28116,7 +34430,11 @@ class ActiveSettlementRouter:
             object.__setattr__(
                 self, "_authorized_ingress_adapter_ids", ids_before
             )
-            self._profile_deployments_by_version = deployments_before
+            if deployment_row_before[0]:
+                self._profile_deployments_by_version[target_version] = \
+                    deployment_row_before[1]
+            else:
+                self._profile_deployments_by_version.pop(target_version, None)
             object.__setattr__(
                 self,
                 "_bridge_credit_registry_authority",
@@ -28130,17 +34448,32 @@ class ActiveSettlementRouter:
                 "_bridge_domain_registry_authority",
                 support_registry_before,
             )
-            self._source_bridge_factories_by_address = source_factories_before
-            self._source_bundles_by_descriptor_id = source_bundles_before
-            self._source_descriptor_id_by_version = source_versions_before
-            self._used_source_component_addresses = used_source_addresses_before
-            for factory, deployments_state, bundles_state, adapter_states, adapters in (
-                source_factory_states.values()
-            ):
-                factory._deployments = deployments_state
-                factory._bundles = bundles_state
-                factory._adapter_deployments = adapter_states
-                factory._adapters = adapters
+            if source_bundle_key is not None \
+                    and source_bundle_row_before is not None:
+                if source_bundle_row_before[0]:
+                    self._source_bundles_by_descriptor_id[source_bundle_key] = \
+                        source_bundle_row_before[1]
+                else:
+                    self._source_bundles_by_descriptor_id.pop(
+                        source_bundle_key, None
+                    )
+            if source_version_row_before[0]:
+                self._source_descriptor_id_by_version[target_version] = \
+                    source_version_row_before[1]
+            else:
+                self._source_descriptor_id_by_version.pop(
+                    target_version, None
+                )
+            self._used_source_component_addresses.difference_update(
+                used_source_addresses_added
+            )
+            for (factory, attribute, row_key, was_present,
+                 prior_value) in reversed(source_factory_rows_before):
+                mapping = getattr(factory, attribute)
+                if was_present:
+                    mapping[row_key] = prior_value
+                else:
+                    mapping.pop(row_key, None)
             for adapter, destination_domain_id in (
                 source_adapter_states_before.values()
             ):
@@ -28164,63 +34497,450 @@ class ActiveSettlementRouter:
                 support_registry_before._restore_transaction_snapshot(
                     source_registry_state
                 )
+            if (deployment_world is not None
+                    and deployment_world_rows_before is not None):
+                deployment_world.restore_touched_rows(
+                    deployment_world_rows_before
+                )
             return False
 
-    def _bridge_package_snapshot_v1(self) -> tuple[object, ...]:
-        """Capture every write reachable from permissionless preparation."""
+    def _authenticated_source_factory_v1(
+        self, descriptor: tuple[bytes, ...],
+    ) -> "ImmutableV2BridgeFactory":
+        """Authenticate SBF1/PVM1, then resolve or rebuild a cache handle."""
 
-        factories = {
-            address: (
-                factory, dict(factory._deployments), dict(factory._bundles),
-                dict(factory._adapter_deployments), dict(factory._adapters)
+        if len(descriptor) != 28:
+            raise ValueError("Source factory descriptor is malformed")
+        manager = self._version_manager_authority
+        if type(manager) is not ProtocolVersionManagerV1:
+            raise ValueError("Source factory requires strict PVM1")
+        world = manager.deployment_world
+        factory_address = descriptor[0][12:]
+        _validate_live_target_code_and_config_v2(
+            world, caller=self.address, address=factory_address,
+            runtime_hash=descriptor[1], configuration_hash=descriptor[2],
+            label="BRD1:SourceBundleFactory",
+        )
+        validate_live_protocol_root_active_v1(
+            world, address=factory_address, caller=self.address,
+            label="BRD1:SourceBundleFactory",
+        )
+        pvm_account = world.account(
+            _model_address20(manager.address), self.address,
+            "BRD1:PVM:account",
+        )
+        pvm_view = decode_protocol_version_manager_config_return_v1(
+            pvm_account.protocol_version_manager_config_v1(
+                self.address, PROTOCOL_ROOT_PVM_CONFIG_SELECTOR,
+                PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, 0,
             )
-            for address, factory
-            in self._source_bridge_factories_by_address.items()
-            if type(factory) is ImmutableV2BridgeFactory
-        }
-        bundles: dict[int, tuple[object, ...]] = {}
-        for factory, _, factory_bundles, _, _ in factories.values():
-            for bundle in factory_bundles.values():
-                if (len(bundle) == 5
-                        and type(bundle[0]) is SourceBridgeV2
-                        and type(bundle[1]) is BridgeCreditRegistryV2):
-                    bridge, registry = bundle[:2]
-                    bundles.setdefault(id(bridge), (
-                        bridge, bridge._transaction_snapshot(), registry,
-                        registry._authorization_snapshot(),
-                    ))
+        )
+        if (pvm_view.source_bundle_factory != factory_address
+                or pvm_view.source_bundle_factory_runtime_hash != descriptor[1]
+                or pvm_view.source_bundle_factory_configuration_hash
+                    != descriptor[2]):
+            raise ValueError("BRD1 Source factory differs from PVM1")
+        artifacts = ProtocolRootSourceFactoryCompilerArtifactsV1(
+            SOURCE_BUNDLE_FACTORY_CREATION_CODE_V1,
+            SOURCE_BUNDLE_FACTORY_RUNTIME_CODE_V1,
+            SOURCE_BUNDLE_DEPLOYER_CREATION_CODE_V1,
+            SOURCE_BUNDLE_DEPLOYER_RUNTIME_CODE_V1,
+            BRIDGE_ADAPTER_CREATION_CODE_V1,
+            BRIDGE_ADAPTER_RUNTIME_CODE_V1,
+        )
+        expected_sbf1 = source_bundle_factory_config_return_v1(
+            pvm_view.settlement_chain_id,
+            _model_address20(manager.address), artifacts,
+        )
+        account = world.account(
+            factory_address, self.address, "BRD1:SBF1:account"
+        )
+        if account.source_bundle_factory_config_v1(
+                self.address, SOURCE_BUNDLE_FACTORY_CONFIG_SELECTOR,
+                PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, 0) != expected_sbf1:
+            raise ValueError("BRD1 Source factory SBF1 differs")
+        factory = world.behavior_handles.get(factory_address)
+        if factory is None:
+            factory = ImmutableV2BridgeFactory(
+                "0x" + factory_address.hex(), "0x" + descriptor[1].hex(),
+                "0x" + descriptor[2].hex(),
+                settlement_chain_id=pvm_view.settlement_chain_id,
+                manifest_namespace=pvm_view.manifest_namespace,
+                protocol_version_manager=manager.address,
+            )
+            factory._validate_pinned_compiler_configuration_v1()
+            world.behavior_handles[factory_address] = factory
+        if type(factory) is not ImmutableV2BridgeFactory:
+            raise ValueError("BRD1 Source factory behavior type differs")
+        self._source_bridge_factories_by_address[
+            "0x" + factory_address.hex()
+        ] = factory
+        return factory
+
+    def _bridge_package_snapshot_v1(
+        self, version: int, brx: BridgeRouteExpansionV1,
+        pia: tuple[bytes, ...], factory: "ImmutableV2BridgeFactory",
+    ) -> tuple[object, ...]:
+        """Journal only the one bundle/adapter touched by BRD1."""
+
+        descriptor = brx.source_descriptor_words
+        source_address = "0x" + descriptor[8][12:].hex()
+        adapter_address = "0x" + pia[1][12:].hex()
+        if type(factory) is not ImmutableV2BridgeFactory:
+            raise ValueError("BRD1 snapshot factory is unauthenticated")
+        factory_rows = []
+        for attribute, row_key in (
+            ("_deployments", source_address), ("_bundles", source_address),
+            ("_adapter_deployments", adapter_address),
+            ("_adapters", adapter_address),
+        ):
+            mapping = getattr(factory, attribute)
+            factory_rows.append((
+                attribute, row_key, row_key in mapping, mapping.get(row_key)
+            ))
+        world = getattr(self._version_manager_authority, "deployment_world", None)
+        bridge = (
+            world.behavior_handles.get(_model_address20(source_address))
+            if type(world) is LiveDeploymentWorldV2 else None
+        )
+        bundle_state = None
+        if type(bridge) is SourceBridgeV2 \
+                and type(bridge.credit_registry) is BridgeCreditRegistryV2:
+            bundle_state = (
+                bridge, bridge._transaction_snapshot(), bridge.credit_registry,
+                bridge.credit_registry._authorization_snapshot(),
+            )
+        adapter = (
+            world.behavior_handles.get(_model_address20(adapter_address))
+            if type(world) is LiveDeploymentWorldV2 else None
+        )
+        adapter_state = (
+            (adapter, adapter.destination_domain_id)
+            if type(adapter) is BridgeAdapter else None
+        )
         support = self._bridge_domain_registry_authority
+        component_addresses = tuple(
+            "0x" + descriptor[index][12:].hex() for index in (8, 12, 15)
+        )
+        world_rows = (
+            world.touched_rows(tuple(
+                descriptor[index][12:]
+                for index in (0, 5, 8, 12, 15, 18, 21)
+            ) + (pia[1][12:],))
+            if type(world) is LiveDeploymentWorldV2 else None
+        )
+        factory_cache_key = factory.address
+        factory_cache_row = (
+            factory_cache_key in self._source_bridge_factories_by_address,
+            self._source_bridge_factories_by_address.get(factory_cache_key),
+        )
         return (
-            dict(self._profile_deployments_by_version),
+            version, brx.source_bridge_execution_hash,
+            (version in self._profile_deployments_by_version,
+             self._profile_deployments_by_version.get(version)),
+            (brx.source_bridge_execution_hash
+                in self._source_bundles_by_descriptor_id,
+             self._source_bundles_by_descriptor_id.get(
+                 brx.source_bridge_execution_hash
+             )),
+            (version in self._source_descriptor_id_by_version,
+             self._source_descriptor_id_by_version.get(version)),
+            tuple(
+                (address, address in self._used_source_component_addresses)
+                for address in component_addresses
+            ),
+            factory, tuple(factory_rows), bundle_state, adapter_state,
             support,
-            dict(self._source_bridge_factories_by_address),
-            dict(self._source_bundles_by_descriptor_id),
-            dict(self._source_descriptor_id_by_version),
-            set(self._used_source_component_addresses),
-            factories,
-            bundles,
             (support._transaction_snapshot()
              if type(support) is BridgeDomainRegistry else None),
+            world, world_rows, factory_cache_key, factory_cache_row,
         )
+
+    def _bridge_package_state_for_test_v1(self) -> tuple[object, ...]:
+        """Return a full behavioral snapshot; never used by a hot path."""
+
+        def behavior_reference(value: object) -> object:
+            if type(value) is tuple:
+                return tuple(behavior_reference(item) for item in value)
+            address = getattr(value, "address", None)
+            if type(address) is str:
+                return (type(value).__name__, address)
+            return value
+
+        factories = tuple(sorted(
+            (
+                factory_address, factory.runtime_hash,
+                factory.configuration_hash, factory.settlement_chain_id,
+                factory.manifest_namespace, factory.protocol_version_manager,
+                tuple(sorted(
+                    (key, behavior_reference(value))
+                    for key, value in factory._deployments.items()
+                )),
+                tuple(sorted(
+                    (key, behavior_reference(value))
+                    for key, value in factory._bundles.items()
+                )),
+                tuple(sorted(
+                    (key, behavior_reference(value))
+                    for key, value in factory._adapter_deployments.items()
+                )),
+                tuple(sorted(
+                    (key, behavior_reference(value))
+                    for key, value in factory._adapters.items()
+                )),
+            )
+            for factory_address, factory
+            in self._source_bridge_factories_by_address.items()
+            if type(factory) is ImmutableV2BridgeFactory
+        ))
+        manager = self._version_manager_authority
+        world = getattr(manager, "deployment_world", None)
+        behavior_states: list[tuple[bytes, str, object]] = []
+        if type(world) is LiveDeploymentWorldV2:
+            for behavior_address, behavior in sorted(
+                    world.behavior_handles.items()):
+                if type(behavior) is SourceBridgeV2:
+                    state = behavior._transaction_snapshot()
+                elif type(behavior) is BridgeCreditRegistryV2:
+                    state = behavior._authorization_snapshot()
+                elif type(behavior) is BridgeAdapter:
+                    state = behavior.destination_domain_id
+                else:
+                    continue
+                behavior_states.append((
+                    behavior_address, type(behavior).__name__, state
+                ))
+        support = self._bridge_domain_registry_authority
+        return (
+            tuple(sorted(self._profile_deployments_by_version.items())),
+            tuple(sorted(self._source_bridge_factories_by_address)),
+            tuple(sorted(self._source_bundles_by_descriptor_id.items())),
+            tuple(sorted(self._source_descriptor_id_by_version.items())),
+            tuple(sorted(self._used_source_component_addresses)),
+            factories,
+            (support._transaction_snapshot()
+             if type(support) is BridgeDomainRegistry else None),
+            (tuple(sorted(world.accounts.items()))
+             if type(world) is LiveDeploymentWorldV2 else None),
+            tuple(behavior_states),
+        )
+
+    def _source_install_snapshot_for_registration_v1(
+        self, registration: SettlementRegistration,
+    ) -> tuple[object, ...]:
+        """Journal only the source rows reachable from one registration."""
+
+        rows = tuple(
+            row for row in registration.ingress_authorizations
+            if row.kind is ForceKind.BRIDGE_CREDIT
+        )
+        if len(rows) != 1 \
+                or type(rows[0].source_descriptor) is not SourceBridgeDescriptor:
+            raise ValueError("source install snapshot descriptor is absent")
+        authorization = rows[0]
+        descriptor = authorization.source_descriptor
+        version = registration.settlement.protocol_version
+        descriptor_id = descriptor.descriptor_id
+        manager = self._version_manager_authority
+        world = getattr(manager, "deployment_world", None)
+        if type(manager) is ProtocolVersionManagerV1:
+            brx_raw = self.staticcall_bridge_route_expansion_v1(
+                BRIDGE_ROUTE_EXPANSION_SELECTOR
+                + _model_uint(version, 32, "source snapshot BRX1 version"),
+                caller=self.address, value=0,
+                gas=BRIDGE_ROUTE_EXPANSION_READ_GAS,
+            )
+            brx = decode_bridge_route_expansion_v1(brx_raw)
+            pia_raw = manager.staticcall_profile_ingress_authorization_v2(
+                PROFILE_INGRESS_AUTHORIZATION_SELECTOR
+                + authorization.authorization_id,
+                caller=self.address, value=0,
+                gas=PROFILE_INGRESS_AUTHORIZATION_READ_GAS,
+            )
+            pia_id, pia = decode_profile_ingress_authorization_v2(pia_raw)
+            if (brx.protocol_version != version
+                    or brx.bridge_authorization_id != authorization.authorization_id
+                    or pia_id != authorization.authorization_id
+                    or brx.source_descriptor_bytes != descriptor.canonical_bytes
+                    or brx.source_bridge_execution_hash != descriptor_id):
+                raise ValueError("source install snapshot public rows differ")
+            # Replaying exact SBD1/SAD1 after the raw BRX1/PIA2/PVM1/SBF1
+            # checks reconstructs simulator handles after a process restart.
+            # It cannot widen authority: the two exact factory calls rederive
+            # every address/code/config row and return created=0 for a prepared
+            # package (or safely create the same deterministic package).
+            self._prepare_bridge_primitives_v1(
+                version, brx, pia, source_bundle_constructor_args_v1(descriptor)
+            )
+            factory = self._authenticated_source_factory_v1(
+                brx.source_descriptor_words
+            )
+        else:
+            # Legacy-only fixture support.  Strict PVMv1 activation above never
+            # obtains authority from this Python cache.
+            factory = self._source_bridge_factories_by_address.get(
+                descriptor.deployment_factory
+            )
+        if type(factory) is not ImmutableV2BridgeFactory:
+            raise ValueError("source install snapshot factory is absent")
+        factory_rows = []
+        for attribute, row_key in (
+            ("_deployments", descriptor.source_bridge),
+            ("_bundles", descriptor.source_bridge),
+            ("_adapter_deployments", authorization.adapter_address),
+            ("_adapters", authorization.adapter_address),
+        ):
+            mapping = getattr(factory, attribute)
+            factory_rows.append((
+                attribute, row_key, row_key in mapping, mapping.get(row_key)
+            ))
+        bridge = (
+            world.behavior_handles.get(_model_address20(descriptor.source_bridge))
+            if type(world) is LiveDeploymentWorldV2
+            else factory.test_evm_account_at_v1(descriptor.source_bridge)
+        )
+        bundle_state = None
+        if type(bridge) is SourceBridgeV2 \
+                and type(bridge.credit_registry) is BridgeCreditRegistryV2:
+            bundle_state = (
+                bridge, bridge._transaction_snapshot(), bridge.credit_registry,
+                bridge.credit_registry._authorization_snapshot(),
+            )
+        adapter = (
+            world.behavior_handles.get(_model_address20(
+                authorization.adapter_address
+            )) if type(world) is LiveDeploymentWorldV2
+            else factory.test_evm_account_at_v1(authorization.adapter_address)
+        )
+        adapter_state = (
+            (adapter, adapter.destination_domain_id)
+            if type(adapter) is BridgeAdapter else None
+        )
+        support = self._bridge_domain_registry_authority
+        component_addresses = (
+            descriptor.source_bridge, descriptor.bridge_credit_registry,
+            descriptor.native_quota_manager,
+        )
+        world_rows = (
+            world.touched_rows(tuple(_model_address20(address) for address in (
+                descriptor.bundle_deployer, descriptor.source_bridge,
+                descriptor.bridge_credit_registry,
+                descriptor.native_quota_manager,
+                descriptor.source_terminal_verifier,
+                authorization.adapter_address,
+            ))) if type(world) is LiveDeploymentWorldV2 else None
+        )
+        factory_cache_key = factory.address
+        factory_cache_row = (
+            factory_cache_key in self._source_bridge_factories_by_address,
+            self._source_bridge_factories_by_address.get(factory_cache_key),
+        )
+        return (
+            version, descriptor_id,
+            (version in self._profile_deployments_by_version,
+             self._profile_deployments_by_version.get(version)),
+            (descriptor_id in self._source_bundles_by_descriptor_id,
+             self._source_bundles_by_descriptor_id.get(descriptor_id)),
+            (version in self._source_descriptor_id_by_version,
+             self._source_descriptor_id_by_version.get(version)),
+            tuple(
+                (address, address in self._used_source_component_addresses)
+                for address in component_addresses
+            ),
+            factory, tuple(factory_rows), bundle_state, adapter_state,
+            support,
+            (support._transaction_snapshot()
+             if type(support) is BridgeDomainRegistry else None),
+            world, world_rows, factory_cache_key, factory_cache_row,
+        )
+
+    def _registered_bridge_package_snapshot_v1(
+        self, registration: SettlementRegistration,
+    ) -> tuple[object, ...]:
+        """Journal one registered release before its first BRD1 preparation.
+
+        This is transaction-model bookkeeping, not an authority read.  It
+        therefore uses only rows that REGISTER_RELEASE has already validated
+        and stored, and must not add observable STATICCALLs to the protocol
+        trace merely to emulate EVM rollback.
+        """
+
+        rows = tuple(
+            row for row in registration.ingress_authorizations
+            if row.kind is ForceKind.BRIDGE_CREDIT
+        )
+        manager = self._version_manager_authority
+        if (len(rows) != 1
+                or type(rows[0].source_descriptor) is not SourceBridgeDescriptor
+                or type(manager) is not ProtocolVersionManagerV1):
+            raise ValueError("registered source package descriptor is absent")
+        authorization = rows[0]
+        version = registration.settlement.protocol_version
+        brx_raw = self.bridge_route_expansions_v1.get(version)
+        pia_row = manager.profile_ingress_rows.get(
+            authorization.authorization_id
+        )
+        if type(brx_raw) is not bytes \
+                or type(pia_row) is not ProfileIngressAuthorization:
+            raise ValueError("registered source package rows are absent")
+        brx = decode_bridge_route_expansion_v1(brx_raw)
+        pia_bytes = profile_ingress_authorization_abi_v2(pia_row)
+        pia = tuple(
+            pia_bytes[offset:offset + 32]
+            for offset in range(0, len(pia_bytes), 32)
+        )
+        if (brx.protocol_version != version
+                or brx.bridge_authorization_id
+                    != authorization.authorization_id
+                or brx.source_descriptor_bytes
+                    != authorization.source_descriptor.canonical_bytes
+                or profile_ingress_authorization_id(pia_row)
+                    != authorization.authorization_id):
+            raise ValueError("registered source package rows disagree")
+        factory_address = "0x" + brx.source_descriptor_words[0][12:].hex()
+        factory = manager.deployment_world.behavior_handles.get(
+            brx.source_descriptor_words[0][12:]
+        )
+        if factory is None:
+            factory = self._source_bridge_factories_by_address.get(
+                factory_address
+            )
+        if type(factory) is not ImmutableV2BridgeFactory:
+            raise ValueError("registered source package factory is absent")
+        return self._bridge_package_snapshot_v1(version, brx, pia, factory)
 
     def _restore_bridge_package_snapshot_v1(
         self, snapshot: tuple[object, ...]
     ) -> None:
-        (deployments, support, factory_map, bundle_map, version_map,
-         used_addresses, factories, bundles, support_state) = snapshot
-        self._profile_deployments_by_version = deployments
+        (version, descriptor_id, deployment_row, bundle_row, version_row,
+         used_rows, factory, factory_rows, bundle_state, adapter_state,
+         support, support_state, world, world_rows, factory_cache_key,
+         factory_cache_row) = snapshot
+        for mapping, key, row in (
+            (self._profile_deployments_by_version, version, deployment_row),
+            (self._source_bundles_by_descriptor_id, descriptor_id, bundle_row),
+            (self._source_descriptor_id_by_version, version, version_row),
+        ):
+            if row[0]:
+                mapping[key] = row[1]
+            else:
+                mapping.pop(key, None)
         object.__setattr__(self, "_bridge_domain_registry_authority", support)
-        self._source_bridge_factories_by_address = factory_map
-        self._source_bundles_by_descriptor_id = bundle_map
-        self._source_descriptor_id_by_version = version_map
-        self._used_source_component_addresses = used_addresses
-        for (factory, factory_deployments, factory_bundles,
-             adapter_deployments, adapters) in factories.values():
-            factory._deployments = factory_deployments
-            factory._bundles = factory_bundles
-            factory._adapter_deployments = adapter_deployments
-            factory._adapters = adapters
-        for bridge, bridge_state, registry, registry_state in bundles.values():
+        for address, was_present in used_rows:
+            if was_present:
+                self._used_source_component_addresses.add(address)
+            else:
+                self._used_source_component_addresses.discard(address)
+        for attribute, row_key, was_present, prior_value in reversed(
+            factory_rows
+        ):
+            mapping = getattr(factory, attribute)
+            if was_present:
+                mapping[row_key] = prior_value
+            else:
+                mapping.pop(row_key, None)
+        if bundle_state is not None:
+            bridge, bridge_state, registry, registry_state = bundle_state
             bridge._restore_transaction_snapshot(
                 bridge_state, capability=_SOURCE_BRIDGE_ROLLBACK_CAPABILITY
             )
@@ -28229,8 +34949,23 @@ class ActiveSettlementRouter:
                 source_bridge=bridge,
                 capability=_SOURCE_BRIDGE_ROLLBACK_CAPABILITY,
             )
+        if adapter_state is not None:
+            adapter, destination_domain_id = adapter_state
+            object.__setattr__(
+                adapter, "_destination_domain_id", destination_domain_id
+            )
         if support_state is not None and type(support) is BridgeDomainRegistry:
             support._restore_transaction_snapshot(support_state)
+        if type(world) is LiveDeploymentWorldV2 and world_rows is not None:
+            world.restore_touched_rows(world_rows)
+        if factory_cache_row[0]:
+            self._source_bridge_factories_by_address[factory_cache_key] = (
+                factory_cache_row[1]
+            )
+        else:
+            self._source_bridge_factories_by_address.pop(
+                factory_cache_key, None
+            )
 
     def prepare_profile_deployments_v1(
         self,
@@ -28248,49 +34983,33 @@ class ActiveSettlementRouter:
         if type(manager) is ProtocolVersionManagerV1:
             try:
                 raw = self.prepare_bridge_route_package_v1(
-                    PREPARE_BRIDGE_ROUTE_PACKAGE_SELECTOR
-                    + _model_uint(version, 32, "BRD1 protocol version"),
+                    encode_prepare_bridge_route_package_calldata_v1(version),
                     caller="permissionless-preparer", value=0,
                     gas=PREPARE_BRIDGE_ROUTE_PACKAGE_GAS, clock=clock,
                 )
                 words = tuple(raw[index:index + 32]
                               for index in range(0, len(raw), 32))
-                registry = self._bridge_domain_registry_authority
-                key = (
-                    None if type(registry) is not BridgeDomainRegistry
-                    else registry._key_by_destination_chain_version.get((
-                        registration.release_manifest.destination_chain_id,
-                        version,
-                    ))
-                )
-                entry = (
-                    None if key is None else registry.entries.get(key)
-                )
                 return (
                     len(raw) == PREPARE_BRIDGE_ROUTE_PACKAGE_RETURN_LENGTH
                     and words[0] == b"BRD1" + bytes(28)
                     and _decode_uint_word_v1(
                         words[1], 64, "BRD1 version"
                     ) == version
-                    and entry is not None
-                    and words[2] == entry.package_root
+                    and words[2] != bytes(32)
                     and _decode_uint_word_v1(
                         words[3], 64, "BRD1 ready block"
-                    ) == entry.staged_at_block
-                        + BRIDGE_ROUTE_ARM_REVIEW_BLOCKS
+                    ) == clock.block_number + BRIDGE_ROUTE_ARM_REVIEW_BLOCKS
                 )
             except (AttributeError, TypeError, ValueError, RuntimeError):
                 return False
-        legacy_runtime = getattr(
-            getattr(manager, "release_manager", None), "target_runtimes", {}
-        )
-        legacy_match = any(
-            getattr(runtime, "authority", None) is registration.settlement
-            for runtime in legacy_runtime.values()
-        )
+        try:
+            self._require_release_compatibility_v2(
+                registration.release_manifest
+            )
+        except (AssertionError, ValueError):
+            return False
         if (type(clock) is not Clock
                 or manager is not self._version_manager_authority
-                or (registered_target is None and not legacy_match)
                 or (registered_target is not None
                     and (registered_target.release_manifest_hash
                             != registration.release_manifest_hash
@@ -28306,79 +35025,106 @@ class ActiveSettlementRouter:
 
     def _prepare_bridge_primitives_v1(
         self, version: int, brx: BridgeRouteExpansionV1,
-        pia: tuple[bytes, ...],
+        pia: tuple[bytes, ...], constructor_args: bytes,
     ) -> None:
-        """Deploy the source bundle and adapter from BRX1/PIA2 only."""
+        """Deploy only from the exact BRX1/PIA2 registration stores."""
 
         descriptor = brx.source_descriptor_words
         address = lambda index: "0x" + descriptor[index][12:].hex()
-        hash_hex = lambda index: "0x" + descriptor[index].hex()
-        source_descriptor = SourceBridgeDescriptor(
-            self.settlement_chain_context_id, brx.source_chain_id,
-            "0x" + brx.source_genesis_hash.hex(),
-            "0x" + brx.source_namespace.hex(),
-            address(8), address(12), hash_hex(9), hash_hex(11), hash_hex(26),
-            address(21),
-            native_quota_manager=address(15),
-            native_quota_manager_runtime_hash=NATIVE_QUOTA_MANAGER_RUNTIME_HASH,
-            native_quota_period=NATIVE_QUOTA_PERIOD_SECONDS,
-            native_eth_quota=UINT64_MAX,
-            source_domain_registrar=address(18),
-            source_registration_epoch=_decode_uint_word_v1(
-                descriptor[27], 64, "BRD1 source epoch"),
-            support_registry_address=address(18),
-            support_registry_runtime_hash=hash_hex(19),
-            support_registry_configuration_hash=hash_hex(20),
-            source_terminal_verifier_runtime_hash=hash_hex(22),
-            source_terminal_verifier_configuration_hash=hash_hex(23),
-            deployment_factory=address(0),
-            deployment_factory_runtime_hash=hash_hex(1),
-            deployment_factory_configuration_hash=hash_hex(2),
-            deployment_salt=hash_hex(3),
-            deployment_initcode_hash=descriptor[4].hex(),
-            bundle_deployer=address(5),
-            bundle_deployer_runtime_hash=hash_hex(6),
-            legacy_v1_bridge=address(7),
+        world = self._version_manager_authority.deployment_world
+        factory = self._authenticated_source_factory_v1(descriptor)
+        if type(factory) is not ImmutableV2BridgeFactory:
+            raise ValueError("BRD1 Source factory behavior is absent")
+        sbd_calldata = encode_source_bundle_factory_deploy_bundle_raw_calldata_v1(
+            descriptor[3], brx.source_descriptor_bytes, constructor_args
+        )
+        source_descriptor = source_bridge_descriptor_from_sbd1_v1(
+            decode_source_bundle_factory_deploy_bundle_calldata_v1(
+                sbd_calldata
+            ),
+            factory_address=factory.address,
+            factory_runtime_hash=factory.runtime_hash,
+            factory_configuration_hash=factory.configuration_hash,
         )
         if (source_descriptor.canonical_bytes != brx.source_descriptor_bytes
                 or source_descriptor.descriptor_id
                     != brx.source_bridge_execution_hash
                 or source_descriptor.source_domain_id != brx.source_domain_id.hex()):
             raise ValueError("BRD1 reconstructed source descriptor drifted")
-        support = self._bridge_domain_registry_authority
-        if (type(support) is not BridgeDomainRegistry
-                or _model_address20(support.address) != descriptor[18][12:]
-                or _model_fixed_bytes32(support.runtime_hash) != descriptor[19]
-                or _model_fixed_bytes32(support.configuration_hash)
-                    != descriptor[20]):
+        _validate_live_target_code_and_config_v2(
+            world, caller=self.address, address=descriptor[18][12:],
+            runtime_hash=descriptor[19], configuration_hash=descriptor[20],
+            label="BRD1:BridgeDomainRegistry",
+        )
+        support = world.behavior_handles.get(descriptor[18][12:])
+        if support is None:
+            candidate = self._bridge_domain_registry_authority
+            if (type(candidate) is BridgeDomainRegistry
+                    and _model_address20(candidate.address)
+                        == descriptor[18][12:]):
+                support = candidate
+                world.behavior_handles[descriptor[18][12:]] = support
+        if type(support) is not BridgeDomainRegistry:
             raise ValueError("BRD1 support Registry is not the root instance")
-        factory = self._source_bridge_factories_by_address.get(
-            source_descriptor.deployment_factory)
-        if factory is None:
-            raise ValueError("BRD1 root-predeployed source factory is absent")
-        if (type(factory) is not ImmutableV2BridgeFactory
-                or _model_fixed_bytes32(factory.runtime_hash)
-                    != descriptor[1]
-                or _model_fixed_bytes32(factory.configuration_hash)
-                    != descriptor[2]):
-            raise ValueError("BRD1 predeployed factory is polluted")
-        bundle = self._source_bundles_by_descriptor_id.get(
-            source_descriptor.descriptor_id)
-        source, credit, _receipt = factory.deploy_source_bundle(
-            source_descriptor, support, caller="permissionless-preparer")
-        exact_bundle = (source, credit, source.quota_manager)
-        if bundle is None:
-            bundle = exact_bundle
-            self._source_bundles_by_descriptor_id[
-                source_descriptor.descriptor_id] = bundle
-            self._used_source_component_addresses.update({
-                source_descriptor.source_bridge,
-                source_descriptor.bridge_credit_registry,
-                source_descriptor.native_quota_manager,
-            })
-        elif bundle != exact_bundle:
-            raise ValueError("BRD1 retained source bundle is polluted")
-        source, credit, quota = bundle
+        _validate_live_target_code_and_config_v2(
+            world, caller=self.address, address=_model_address20(self.address),
+            runtime_hash=_model_fixed_bytes32(self.runtime_hash),
+            configuration_hash=_model_fixed_bytes32(self.configuration_hash),
+            label="ActiveSettlementRouter",
+        )
+        world.install_exact_account(
+            address=_model_address20(self.address),
+            runtime_hash=_model_fixed_bytes32(self.runtime_hash),
+            configuration_hash=_model_fixed_bytes32(self.configuration_hash),
+            behavior=self,
+        )
+        _validate_live_target_code_and_config_v2(
+            world, caller=self.address, address=descriptor[18][12:],
+            runtime_hash=descriptor[19], configuration_hash=descriptor[20],
+            label="BridgeDomainRegistry",
+        )
+        world.install_exact_account(
+            address=descriptor[18][12:], runtime_hash=descriptor[19],
+            configuration_hash=descriptor[20], behavior=support,
+        )
+        terminal_address = descriptor[21][12:]
+        _validate_live_target_code_and_config_v2(
+            world, caller=self.address, address=terminal_address,
+            runtime_hash=descriptor[22], configuration_hash=descriptor[23],
+            label="SourceTerminalVerifier",
+        )
+        terminal_behavior = world.behavior_handles.get(terminal_address)
+        if terminal_behavior is None:
+            terminal_behavior = TerminalSignalVerifier(
+                self, support, "0x" + terminal_address.hex(),
+                "0x" + descriptor[22].hex(),
+                "0x" + descriptor[23].hex(),
+            )
+            world.behavior_handles[terminal_address] = terminal_behavior
+        elif type(terminal_behavior) is not TerminalSignalVerifier:
+            raise ValueError("BRD1 terminal verifier behavior is aliased")
+        bundle_result = factory.deploy_source_bundle_exact_v1(
+            sbd_calldata,
+            caller="permissionless-preparer",
+            gas_limit=SOURCE_BUNDLE_FACTORY_BUNDLE_DEPLOYMENT_GAS, value=0,
+            deployment_world=self._version_manager_authority.deployment_world,
+        )
+        source, credit, quota, _terminal = \
+            resolve_source_bundle_deployment_for_test_v1(
+                factory, bundle_result, source_descriptor, support,
+                deployment_world=(
+                    self._version_manager_authority.deployment_world
+                ), caller=self.address
+            )
+        exact_bundle = (source, credit, quota)
+        self._source_bundles_by_descriptor_id[
+            source_descriptor.descriptor_id] = exact_bundle
+        self._used_source_component_addresses.update({
+            source_descriptor.source_bridge,
+            source_descriptor.bridge_credit_registry,
+            source_descriptor.native_quota_manager,
+        })
+        source, credit, quota = exact_bundle
         if (type(source) is not SourceBridgeV2
                 or type(credit) is not BridgeCreditRegistryV2
                 or type(quota) is not FrozenNativeQuotaManagerV2):
@@ -28396,17 +35142,25 @@ class ActiveSettlementRouter:
         if (_model_address20(adapter_address)
                 != _model_address20(expected_adapter_address)):
             raise ValueError("BRD1 PIA2 adapter is not the CREATE2 result")
-        adapter = factory.deploy_bridge_adapter_v1(
-            protocol_version=version,
+        adapter_result = factory.deploy_bridge_adapter_exact_v1(
+            encode_source_bundle_factory_deploy_adapter_calldata_v1(
+                version, source_descriptor.descriptor_id, pia[3],
+                source.address, credit.address, self.address,
+                self.forced_queue.address, self.version_manager,
+            ),
+            caller="permissionless-preparer",
+            gas_limit=SOURCE_BUNDLE_FACTORY_ADAPTER_DEPLOYMENT_GAS, value=0,
+            deployment_world=self._version_manager_authority.deployment_world,
+        )
+        adapter = resolve_source_adapter_deployment_for_test_v1(
+            factory, adapter_result, protocol_version=version,
             source_descriptor_id=source_descriptor.descriptor_id,
-            router=self, credit_registry=credit, source_bridge=source,
+            router=self, source_bridge=source, credit_registry=credit,
             expected_runtime_hash=pia[2],
             expected_configuration_hash=pia[3],
-            caller="permissionless-preparer",
+            deployment_world=self._version_manager_authority.deployment_world,
+            caller=self.address,
         )
-        retained_adapter = deployments.get(brx.bridge_authorization_id)
-        if retained_adapter is not None and retained_adapter is not adapter:
-            raise ValueError("BRD1 retained adapter is not factory deployment")
         if (type(adapter) is not BridgeAdapter
                 or _model_address20(adapter.address)
                     != _model_address20(adapter_address)
@@ -28429,7 +35183,8 @@ class ActiveSettlementRouter:
     ) -> bytes:
         """Executable permissionless BRD1 preparation transaction."""
 
-        if (type(calldata) is not bytes or len(calldata) != 36
+        if (type(calldata) is not bytes
+                or len(calldata) != PREPARE_BRIDGE_ROUTE_PACKAGE_CALLDATA_LENGTH
                 or calldata[:4] != PREPARE_BRIDGE_ROUTE_PACKAGE_SELECTOR
                 or calldata[4:28] != bytes(24)
                 or not caller or value != 0
@@ -28440,7 +35195,9 @@ class ActiveSettlementRouter:
                 or type(self._version_manager_authority)
                     is not ProtocolVersionManagerV1):
             raise ValueError("BRD1 call envelope is noncanonical")
-        version = int.from_bytes(calldata[28:36], "big")
+        version = _decode_uint_word_v1(
+            calldata[4:36], 64, "BRD1 protocol version"
+        )
         manager = self._version_manager_authority
         row = decode_target_release_registration_return_v2(
             self.staticcall_target_release_registration_v2(
@@ -28461,7 +35218,7 @@ class ActiveSettlementRouter:
                 or row.bridge_route_expansion_hash
                     != keccak256(brx_raw)):
             raise ValueError("BRD1 RTR2/BRX1 join is inexact")
-        snapshot = self._bridge_package_snapshot_v1()
+        snapshot: tuple[object, ...] | None = None
         lifecycle_before = self.migration_lifecycle
         try:
             self.migration_lifecycle = RouterMigrationLifecycle.BRIDGE_PREPARING
@@ -28505,7 +35262,15 @@ class ActiveSettlementRouter:
                         != bip.invocation_policy_hash
                     or brx.invocation_policy_count != len(bip.denied)):
                 raise ValueError("BRD1 primitive predeployment join is inexact")
-            self._prepare_bridge_primitives_v1(version, brx, pia)
+            factory = self._authenticated_source_factory_v1(
+                brx.source_descriptor_words
+            )
+            snapshot = self._bridge_package_snapshot_v1(
+                version, brx, pia, factory
+            )
+            self._prepare_bridge_primitives_v1(
+                version, brx, pia, brx.source_bundle_constructor_args
+            )
             if self.prepare_bridge_route_fault_point in {
                     "after_stage", "revert", "oog"}:
                 raise RuntimeError("injected BRD1 preparation fault")
@@ -28518,32 +35283,77 @@ class ActiveSettlementRouter:
                 caller=self.address, value=0,
                 gas=STAGE_BRIDGE_ROUTE_PACKAGE_GAS, clock=clock,
             )
-            package_key = registry._key_by_destination_chain_version.get((
-                self.settlement_chain_context_id, version
-            ))
-            if package_key is None:
-                package_key = registry._key_by_destination_chain_version.get((
-                    registry.release_authority_descriptor.destination_chain_id,
-                    version,
-                ))
-            package_entry = (
-                registry.entries.get(package_key)
-                if package_key is not None else None
+            if (type(stage_result) is not bytes
+                    or len(stage_result)
+                        != STAGE_BRIDGE_ROUTE_PACKAGE_RETURN_LENGTH):
+                raise ValueError("BRS1 returndata length is inexact")
+            stage_words = tuple(
+                stage_result[offset:offset + 32]
+                for offset in range(0, len(stage_result), 32)
             )
-            if package_entry is None:
-                raise ValueError("BRD1 staged package row is absent")
+            destination_chain_id = _decode_uint_word_v1(
+                pia[13], 256, "BRS1 destination chain"
+            )
+            package_raw = registry.bridge_route_package_v1(
+                BRIDGE_ROUTE_PACKAGE_SELECTOR
+                + _model_uint(
+                    destination_chain_id, 32, "BRD1 BRP1 destination chain"
+                )
+                + _model_uint(version, 32, "BRD1 BRP1 protocol version"),
+                caller=self.address, value=0,
+                gas=BRIDGE_ROUTE_PACKAGE_READ_GAS, clock=clock,
+            )
+            if len(package_raw) != BRIDGE_ROUTE_PACKAGE_RETURN_LENGTH:
+                raise ValueError("BRP1 post-stage length is inexact")
+            package_words = tuple(
+                package_raw[offset:offset + 32]
+                for offset in range(0, len(package_raw), 32)
+            )
+            staged_block = _decode_uint_word_v1(
+                package_words[4], 64, "BRP1 staged block"
+            )
+            ready_block = _decode_uint_word_v1(
+                package_words[5], 64, "BRP1 ready block"
+            )
+            package_state = _decode_uint_word_v1(
+                package_words[1], 8, "BRP1 state"
+            )
+            if (stage_words[0] != b"BRS1" + bytes(28)
+                    or _decode_uint_word_v1(
+                        stage_words[1], 64, "BRS1 version"
+                    ) != version
+                    or stage_words[2] == bytes(32)
+                    or package_words[0]
+                        != BRIDGE_ROUTE_PACKAGE_MAGIC + bytes(28)
+                    or package_state != (2 if clock.block_number >= ready_block
+                                         else 1)
+                    or int.from_bytes(package_words[2], "big")
+                        != destination_chain_id
+                    or _decode_uint_word_v1(
+                        package_words[3], 64, "BRP1 version"
+                    ) != version
+                    or staged_block > clock.block_number
+                    or ready_block != staged_block
+                        + BRIDGE_ROUTE_ARM_REVIEW_BLOCKS
+                    or stage_words[3] != package_words[5]
+                    or stage_words[2] != package_words[9]
+                    or package_words[6] != row.target_registration_hash
+                    or package_words[7] != brx.source_bridge_execution_hash
+                    or package_words[8] != brx.bridge_authorization_id
+                    or _decode_uint_word_v1(
+                        package_words[10], 64, "BRP1 package count"
+                    ) != 1
+                    or package_words[11] != brx.source_descriptor_words[8]
+                    or package_words[12] != brx.source_descriptor_words[12]
+                    or package_words[13] != brx.source_descriptor_words[15]
+                    or package_words[14] != pia[1]):
+                raise ValueError("BRS1 returndata is noncanonical")
             result = b"".join((
                 b"BRD1" + bytes(28),
                 _model_uint(version, 32, "BRD1 version"),
-                package_entry.package_root,
-                _model_uint(
-                    package_entry.staged_at_block
-                        + BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
-                    32, "BRD1 ready block",
-                ),
+                stage_words[2], stage_words[3],
             ))
             if (len(result) != PREPARE_BRIDGE_ROUTE_PACKAGE_RETURN_LENGTH
-                    or stage_result[64:96] != package_entry.package_root
                     or (self.prepare_bridge_route_return_override is not None
                         and self.prepare_bridge_route_return_override
                             != result)):
@@ -28552,26 +35362,132 @@ class ActiveSettlementRouter:
             return result
         except BaseException:
             self.migration_lifecycle = lifecycle_before
-            self._restore_bridge_package_snapshot_v1(snapshot)
+            if snapshot is not None:
+                self._restore_bridge_package_snapshot_v1(snapshot)
             raise
 
     def bridge_package_arm_ready_v1(
         self,
-        registration: SettlementRegistration,
+        protocol_version: int,
+        target_registration_hash: bytes,
         *,
         clock: Clock,
     ) -> bool:
+        """Read ARM_READY solely from stored RTR2/BRX1/PIA2 state."""
+
         registry = self._bridge_domain_registry_authority
-        if type(registry) is not BridgeDomainRegistry:
+        manager = self._version_manager_authority
+        if (type(registry) is BridgeDomainRegistry
+                and type(manager) is not ProtocolVersionManagerV1):
+            # Compatibility path for the focused legacy migration harness.
+            # It is still storage-derived: the caller supplies only the
+            # version/hash key and the Router resolves its staged Registry row.
+            destination_chain_id = (
+                registry.release_authority_descriptor.destination_chain_id
+            )
+            try:
+                raw = registry.bridge_route_package_v1(
+                    BRIDGE_ROUTE_PACKAGE_SELECTOR
+                    + _model_uint(
+                        destination_chain_id, 32,
+                        "legacy BRP1 destination chain",
+                    )
+                    + _model_uint(
+                        protocol_version, 32,
+                        "legacy BRP1 protocol version",
+                    ),
+                    caller=self.address, value=0,
+                    gas=BRIDGE_ROUTE_PACKAGE_READ_GAS, clock=clock,
+                )
+                if len(raw) != BRIDGE_ROUTE_PACKAGE_RETURN_LENGTH:
+                    return False
+                words = tuple(
+                    raw[index:index + 32]
+                    for index in range(0, len(raw), 32)
+                )
+                key = registry._key_by_destination_chain_version.get(
+                    (destination_chain_id, protocol_version)
+                )
+                entry = registry.entries.get(key) if key is not None else None
+                descriptor_id = self._source_descriptor_id_by_version.get(
+                    protocol_version
+                )
+                bundle = self._source_bundles_by_descriptor_id.get(
+                    descriptor_id
+                )
+                return (
+                    entry is not None
+                    and entry.protocol_version == protocol_version
+                    and entry.target_registration_hash
+                        == target_registration_hash
+                    and not entry.arm_ready_consumed
+                    and clock.block_number >= entry.staged_at_block
+                        + BRIDGE_ROUTE_ARM_REVIEW_BLOCKS
+                    and words[0]
+                        == BRIDGE_ROUTE_PACKAGE_MAGIC + bytes(28)
+                    and _decode_uint_word_v1(
+                        words[1], 8, "legacy BRP1 state"
+                    ) == 2
+                    and int.from_bytes(words[2], "big")
+                        == destination_chain_id
+                    and _decode_uint_word_v1(
+                        words[3], 64, "legacy BRP1 version"
+                    ) == protocol_version
+                    and _decode_uint_word_v1(
+                        words[4], 64, "legacy BRP1 staged block"
+                    ) == entry.staged_at_block
+                    and _decode_uint_word_v1(
+                        words[5], 64, "legacy BRP1 ready block"
+                    ) == entry.staged_at_block
+                        + BRIDGE_ROUTE_ARM_REVIEW_BLOCKS
+                    and words[6] == target_registration_hash
+                    and words[7] == descriptor_id
+                    and words[8] == entry.bridge_authorization_id
+                    and words[9] == entry.package_root
+                    and _decode_uint_word_v1(
+                        words[10], 64, "legacy BRP1 count"
+                    ) == 1
+                    and bundle is not None and len(bundle) == 3
+                    and words[11]
+                        == bytes(12) + _model_address20(bundle[0].address)
+                    and words[12]
+                        == bytes(12) + _model_address20(bundle[1].address)
+                    and words[13]
+                        == bytes(12) + _model_address20(bundle[2].address)
+                    and words[14]
+                        == bytes(12) + _model_address20(entry.adapter_address)
+                )
+            except (AttributeError, TypeError, ValueError, RuntimeError):
+                return False
+        row = self.target_release_registrations_v2.get(protocol_version)
+        brx_raw = self.bridge_route_expansions_v1.get(protocol_version)
+        if (type(registry) is not BridgeDomainRegistry
+                or type(manager) is not ProtocolVersionManagerV1
+                or type(row) is not TargetReleaseRegistrationRowV2
+                or row.target_registration_hash != target_registration_hash
+                or type(brx_raw) is not bytes):
             return False
-        destination_chain_id = registration.release_manifest.destination_chain_id
-        version = registration.settlement.protocol_version
-        calldata = b"".join((
-            BRIDGE_ROUTE_PACKAGE_SELECTOR,
-            _model_uint(destination_chain_id, 32, "BRP1 destination chain"),
-            _model_uint(version, 32, "BRP1 protocol version"),
-        ))
         try:
+            brx = decode_bridge_route_expansion_v1(brx_raw)
+            pia_raw = manager.staticcall_profile_ingress_authorization_v2(
+                PROFILE_INGRESS_AUTHORIZATION_SELECTOR
+                + brx.bridge_authorization_id,
+                caller=self.address, value=0,
+                gas=PROFILE_INGRESS_AUTHORIZATION_READ_GAS,
+            )
+            pia_id, pia = decode_profile_ingress_authorization_v2(pia_raw)
+            destination_chain_id = _decode_uint_word_v1(
+                pia[13], 256, "BRP1 destination chain"
+            )
+            calldata = b"".join((
+                BRIDGE_ROUTE_PACKAGE_SELECTOR,
+                _model_uint(
+                    destination_chain_id, 32, "BRP1 destination chain"
+                ),
+                _model_uint(
+                    protocol_version, 32, "BRP1 protocol version"
+                ),
+            ))
             raw = registry.bridge_route_package_v1(
                 calldata, caller=self.address, value=0,
                 gas=BRIDGE_ROUTE_PACKAGE_READ_GAS, clock=clock,
@@ -28580,35 +35496,28 @@ class ActiveSettlementRouter:
                 return False
             words = tuple(raw[index:index + 32]
                           for index in range(0, len(raw), 32))
-            entry = registry.arm_ready_entry(
-                registration, destination_chain_id, clock
-            )
-            descriptor_id = self._source_descriptor_id_by_version.get(version)
-            bundle = self._source_bundles_by_descriptor_id.get(descriptor_id)
-            authorization = registration.ingress_authorizations_by_address.get(
-                "" if entry is None else entry.adapter_address
-            )
             return (
                 words[0] == BRIDGE_ROUTE_PACKAGE_MAGIC + bytes(28)
                 and _decode_uint_word_v1(words[1], 8, "BRP1 state") == 2
                 and int.from_bytes(words[2], "big") == destination_chain_id
                 and _decode_uint_word_v1(words[3], 64, "BRP1 version")
-                    == version
+                    == protocol_version
                 and _decode_uint_word_v1(words[4], 64, "BRP1 staged block")
-                    == entry.staged_at_block
+                    <= clock.block_number
                 and _decode_uint_word_v1(words[5], 64, "BRP1 ready block")
-                    == entry.staged_at_block + BRIDGE_ROUTE_ARM_REVIEW_BLOCKS
-                and words[6] == target_registration_hash_v2(registration)
-                and words[7] == descriptor_id
-                and type(authorization) is ProfileIngressAuthorization
-                and words[8] == authorization.authorization_id
-                and words[9] == entry.package_root
+                    == _decode_uint_word_v1(
+                        words[4], 64, "BRP1 staged block"
+                    ) + BRIDGE_ROUTE_ARM_REVIEW_BLOCKS
+                and words[6] == row.target_registration_hash
+                and words[7] == brx.source_bridge_execution_hash
+                and pia_id == brx.bridge_authorization_id
+                and words[8] == brx.bridge_authorization_id
+                and words[9] != bytes(32)
                 and _decode_uint_word_v1(words[10], 64, "BRP1 count") == 1
-                and bundle is not None and len(bundle) == 3
-                and words[11] == bytes(12) + _model_address20(bundle[0].address)
-                and words[12] == bytes(12) + _model_address20(bundle[1].address)
-                and words[13] == bytes(12) + _model_address20(bundle[2].address)
-                and words[14] == bytes(12) + _model_address20(entry.adapter_address)
+                and words[11] == brx.source_descriptor_words[8]
+                and words[12] == brx.source_descriptor_words[12]
+                and words[13] == brx.source_descriptor_words[15]
+                and words[14] == pia[1]
             )
         except (AttributeError, TypeError, ValueError, RuntimeError):
             return False
@@ -30713,14 +37622,16 @@ class ActiveSettlementRouter:
         old_registration = self.registrations.get(self.active_version)
         old = None if old_registration is None else old_registration.settlement
         old_protocol = getattr(old, "live_protocol", None)
-        witness = (
-            None
-            if type(manager) is not ProtocolVersionManagerV1
-            else manager.release_witnesses.get(
-                0 if lease is None else lease.target_protocol_version
-            )
-        )
-        settlement = getattr(witness, "settlement", None)
+        settlement = None
+        if (type(manager) is ProtocolVersionManagerV1
+                and type(lease) is VersionMigrationLeaseV1
+                and lease.target_protocol_version != 0):
+            try:
+                settlement = self._authenticated_registered_target_v1(
+                    lease.target_protocol_version
+                )
+            except (TypeError, ValueError, RuntimeError):
+                settlement = None
         if (type(manager) is not ProtocolVersionManagerV1
                 or not caller or type(clock) is not Clock
                 or manager.lifecycle != "IDLE"
@@ -30735,9 +37646,10 @@ class ActiveSettlementRouter:
                 or type(old) is not VersionedSettlementHistory
                 or type(old_protocol) is not Protocol
                 or type(settlement) is not VersionedSettlementHistory
-                or witness.settlement.protocol_version
-                    != lease.target_protocol_version
-                or witness.release_manifest_hash != lease.target_manifest_hash
+                or settlement.protocol_version != lease.target_protocol_version
+                or self.target_release_registrations_v2[
+                    lease.target_protocol_version
+                ].release_manifest_hash != lease.target_manifest_hash
                 or manager.live_version_migration_lease_v1()
                     != encode_live_version_migration_lease_return_v1(lease)):
             raise ValueError("PVMv1 migration activation frame is not exact")
@@ -30860,6 +37772,10 @@ class ActiveSettlementRouter:
             }
         })
         target_seat_generation = settlement.live_protocol.seat_generation
+        source_install_snapshot = \
+            self._source_install_snapshot_for_registration_v1(
+                target_registration
+            )
         router_snapshot = (
             self.active_version,
             dict(self.registrations),
@@ -30870,14 +37786,11 @@ class ActiveSettlementRouter:
             self._authorized_ingress,
             self._authorized_ingress_by_address,
             self._authorized_ingress_adapter_ids,
-            dict(self._profile_deployments_by_version),
+            None,
             self._bridge_credit_registry_authority,
             self._source_bridge_authority,
             self._bridge_domain_registry_authority,
-            dict(self._source_bridge_factories_by_address),
-            dict(self._source_bundles_by_descriptor_id),
-            dict(self._source_descriptor_id_by_version),
-            set(self._used_source_component_addresses),
+            None, None, None, None,
             self.migration_lifecycle,
             self._migration_callback_frame,
             self.activation_successor_index_v1,
@@ -30889,40 +37802,6 @@ class ActiveSettlementRouter:
             manager.lifecycle, manager.migration_lease
         )
         queue_snapshot = queue._transaction_snapshot()
-        source_factory_states = {
-            address: (
-                factory, dict(factory._deployments), dict(factory._bundles),
-                dict(factory._adapter_deployments), dict(factory._adapters)
-            )
-            for address, factory
-            in self._source_bridge_factories_by_address.items()
-            if type(factory) is ImmutableV2BridgeFactory
-        }
-        # The target profile has a consensus-bounded authorization count.  Only
-        # its prepared adapter can be sealed by this activation.
-        source_adapter_states = {
-            id(adapter): (adapter, adapter.destination_domain_id)
-            for adapter in self._profile_deployments_by_version.get(
-                lease.target_protocol_version, {}
-            ).values()
-            if type(adapter) is BridgeAdapter
-        }
-        source_bundle_states: dict[int, tuple[object, ...]] = {}
-        for factory, _, bundles, _, _ in source_factory_states.values():
-            for bundle in bundles.values():
-                if (len(bundle) == 5
-                        and type(bundle[0]) is SourceBridgeV2
-                        and type(bundle[1]) is BridgeCreditRegistryV2):
-                    bridge, registry = bundle[:2]
-                    source_bundle_states.setdefault(id(bridge), (
-                        bridge, bridge._transaction_snapshot(), registry,
-                        registry._authorization_snapshot(),
-                    ))
-        source_registry_state = (
-            self._bridge_domain_registry_authority._transaction_snapshot()
-            if type(self._bridge_domain_registry_authority)
-                is BridgeDomainRegistry else None
-        )
 
         try:
             self.version_migration_activation_trace = ["VERIFIED"]
@@ -30968,7 +37847,6 @@ class ActiveSettlementRouter:
             object.__setattr__(
                 self, "_authorized_ingress_adapter_ids", router_snapshot[8]
             )
-            self._profile_deployments_by_version = router_snapshot[9]
             object.__setattr__(
                 self, "_bridge_credit_registry_authority", router_snapshot[10]
             )
@@ -30978,10 +37856,6 @@ class ActiveSettlementRouter:
             object.__setattr__(
                 self, "_bridge_domain_registry_authority", router_snapshot[12]
             )
-            self._source_bridge_factories_by_address = router_snapshot[13]
-            self._source_bundles_by_descriptor_id = router_snapshot[14]
-            self._source_descriptor_id_by_version = router_snapshot[15]
-            self._used_source_component_addresses = router_snapshot[16]
             self.migration_lifecycle = router_snapshot[17]
             object.__setattr__(
                 self, "_migration_callback_frame", router_snapshot[18]
@@ -30994,33 +37868,9 @@ class ActiveSettlementRouter:
                 manager.lifecycle, manager.migration_lease
             ) = manager_activation_snapshot
             queue._restore_transaction_snapshot(queue_snapshot)
-            for (factory, deployments, bundles,
-                 adapter_deployments, adapters) in source_factory_states.values():
-                factory._deployments = deployments
-                factory._bundles = bundles
-                factory._adapter_deployments = adapter_deployments
-                factory._adapters = adapters
-            for adapter, destination_domain_id in source_adapter_states.values():
-                object.__setattr__(
-                    adapter, "_destination_domain_id", destination_domain_id
-                )
-            for bridge, bridge_state, registry, registry_state in (
-                source_bundle_states.values()
-            ):
-                bridge._restore_transaction_snapshot(
-                    bridge_state, capability=_SOURCE_BRIDGE_ROLLBACK_CAPABILITY
-                )
-                registry._restore_authorization_snapshot(
-                    registry_state,
-                    source_bridge=bridge,
-                    capability=_SOURCE_BRIDGE_ROLLBACK_CAPABILITY,
-                )
-            source_registry = self._bridge_domain_registry_authority
-            if (source_registry_state is not None
-                    and type(source_registry) is BridgeDomainRegistry):
-                source_registry._restore_transaction_snapshot(
-                    source_registry_state
-                )
+            self._restore_bridge_package_snapshot_v1(
+                source_install_snapshot
+            )
             raise
 
     def _activate_version_with_proof(
@@ -31618,6 +38468,15 @@ class ProtocolVersionManager:
     arm_responses: dict[int, bytes] = field(default_factory=dict)
     abort_responses: dict[int, bytes] = field(default_factory=dict)
     fault_point: str | None = None
+    deployment_world: LiveDeploymentWorldV2 | None = field(
+        default=None, compare=False, repr=False
+    )
+    bootstrap_ingress_primitives_v2: dict[
+        int, tuple[bytes, bytes]
+    ] = field(default_factory=dict, compare=False, repr=False)
+    bootstrap_pia_by_id_v2: dict[bytes, bytes] = field(
+        default_factory=dict, compare=False, repr=False
+    )
 
     def __post_init__(self) -> None:
         bound = self.release_manager is not None
@@ -31643,6 +38502,81 @@ class ProtocolVersionManager:
                 and not self.router._bind_version_manager_once(self)):
             raise ValueError("active router rejected its version manager")
         registration = self.router.registrations.get(self.router.active_version)
+        if self.deployment_world is None:
+            accounts: dict[bytes, LiveDeploymentAccountV2] = {}
+            behaviors: dict[bytes, object] = {}
+            if type(registration) is SettlementRegistration:
+                profile_words = _execution_profile_abi_words_v2(
+                    registration.settlement.execution_profile
+                        .canonical_profile_bytes
+                )
+                accounts[_model_address20(self.address)] = \
+                    LiveDeploymentAccountV2(
+                        _model_address20(self.address), profile_words[21],
+                        profile_words[22],
+                        pvm_config_view=(
+                            protocol_version_manager_configuration_from_profile_v1(
+                                profile_words
+                            )
+                        ),
+                    )
+                rows = tuple(
+                    row for row in registration.ingress_authorizations
+                    if row.kind is ForceKind.BRIDGE_CREDIT
+                )
+                descriptor = (
+                    rows[0].source_descriptor if len(rows) == 1 else None
+                )
+                if type(descriptor) is SourceBridgeDescriptor:
+                    for address, runtime_hash, configuration_hash in (
+                        (
+                            self.router.address, self.router.runtime_hash,
+                            self.router.configuration_hash,
+                        ),
+                        (
+                            self.router.forced_queue.address,
+                            self.router.forced_queue.runtime_hash,
+                            self.router.forced_queue.config_hash,
+                        ),
+                        (
+                            descriptor.deployment_factory,
+                            descriptor.deployment_factory_runtime_hash,
+                            descriptor.deployment_factory_configuration_hash,
+                        ),
+                        (
+                            descriptor.support_registry_address,
+                            descriptor.support_registry_runtime_hash,
+                            descriptor.support_registry_configuration_hash,
+                        ),
+                        (
+                            descriptor.source_terminal_verifier,
+                            descriptor.source_terminal_verifier_runtime_hash,
+                            descriptor.source_terminal_verifier_configuration_hash,
+                        ),
+                    ):
+                        accounts[_model_address20(address)] = \
+                            LiveDeploymentAccountV2(
+                                _model_address20(address),
+                                _model_fixed_bytes32(runtime_hash),
+                                _model_fixed_bytes32(configuration_hash),
+                            )
+                    factory_address = _model_address20(
+                        descriptor.deployment_factory
+                    )
+                    accounts[factory_address].protocol_root_activation_return = (
+                        model_active_protocol_root_view_v1(factory_address)
+                    )
+                    factory = self.router \
+                        ._source_bridge_factories_by_address.get(
+                            descriptor.deployment_factory
+                        )
+                    if type(factory) is ImmutableV2BridgeFactory:
+                        behaviors[_model_address20(factory.address)] = factory
+                    behaviors[_model_address20(self.router.address)] = self.router
+            object.__setattr__(
+                self, "deployment_world",
+                LiveDeploymentWorldV2(accounts, behaviors),
+            )
         if (registration is not None
                 and not self.router._install_profile_deployments(
                     registration, manager=self
@@ -31657,6 +38591,64 @@ class ProtocolVersionManager:
         } and name in self.__dict__:
             raise AttributeError(f"{name} is immutable after deployment")
         object.__setattr__(self, name, value)
+
+    def install_bootstrap_ingress_primitives_for_test_v1(
+        self, version: int, pir_raw: bytes, pim_raw: bytes,
+        authorization_id: bytes, pia_raw: bytes,
+    ) -> None:
+        if (version in self.bootstrap_ingress_primitives_v2
+                or authorization_id in self.bootstrap_pia_by_id_v2
+                or decode_profile_ingress_root_v2(pir_raw)[0] != version
+                or decode_profile_ingress_membership_v2(pim_raw)[:2]
+                    != (version, authorization_id)
+                or decode_profile_ingress_authorization_v2(pia_raw)[0]
+                    != authorization_id):
+            raise ValueError("bootstrap PVM primitive row duplicates/differs")
+        self.bootstrap_ingress_primitives_v2[version] = (pir_raw, pim_raw)
+        self.bootstrap_pia_by_id_v2[authorization_id] = pia_raw
+
+    def staticcall_profile_ingress_root_v2(
+        self, calldata: bytes, *, caller: str, value: int, gas: int,
+    ) -> bytes:
+        if (type(calldata) is not bytes or len(calldata) != 36
+                or calldata[:4] != PROFILE_INGRESS_ROOT_SELECTOR
+                or calldata[4:28] != bytes(24) or not caller or value != 0
+                or gas != PROFILE_INGRESS_ROOT_READ_GAS):
+            raise ValueError("bootstrap PVM PIR2 call is noncanonical")
+        row = self.bootstrap_ingress_primitives_v2.get(
+            int.from_bytes(calldata[28:36], "big")
+        )
+        if row is None:
+            raise ValueError("bootstrap PVM PIR2 row is absent")
+        return row[0]
+
+    def staticcall_profile_ingress_membership_v2(
+        self, calldata: bytes, *, caller: str, value: int, gas: int,
+    ) -> bytes:
+        if (type(calldata) is not bytes or len(calldata) != 68
+                or calldata[:4] != PROFILE_INGRESS_MEMBERSHIP_SELECTOR
+                or calldata[4:28] != bytes(24) or not caller or value != 0
+                or gas != PROFILE_INGRESS_MEMBERSHIP_READ_GAS):
+            raise ValueError("bootstrap PVM PIM2 call is noncanonical")
+        row = self.bootstrap_ingress_primitives_v2.get(
+            int.from_bytes(calldata[28:36], "big")
+        )
+        if row is None or row[1][64:96] != calldata[36:68]:
+            raise ValueError("bootstrap PVM PIM2 row is absent")
+        return row[1]
+
+    def staticcall_profile_ingress_authorization_v2(
+        self, calldata: bytes, *, caller: str, value: int, gas: int,
+    ) -> bytes:
+        if (type(calldata) is not bytes or len(calldata) != 36
+                or calldata[:4] != PROFILE_INGRESS_AUTHORIZATION_SELECTOR
+                or not caller or value != 0
+                or gas != PROFILE_INGRESS_AUTHORIZATION_READ_GAS):
+            raise ValueError("bootstrap PVM PIA2 call is noncanonical")
+        row = self.bootstrap_pia_by_id_v2.get(calldata[4:36])
+        if row is None:
+            raise ValueError("bootstrap PVM PIA2 row is absent")
+        return row
 
     def activate_seat_migration(
         self,
@@ -31795,6 +38787,10 @@ class ProtocolVersionManager:
             if settlement.live_protocol is None
             else settlement.live_protocol.seat_generation
         )
+        source_install_snapshot = \
+            self.router._source_install_snapshot_for_registration_v1(
+                target_preview
+            )
         router_snapshot = (
             self.router.active_version,
             dict(self.router.registrations),
@@ -31805,53 +38801,16 @@ class ProtocolVersionManager:
             self.router._authorized_ingress,
             self.router._authorized_ingress_by_address,
             self.router._authorized_ingress_adapter_ids,
-            dict(self.router._profile_deployments_by_version),
+            None,
             self.router._bridge_credit_registry_authority,
             self.router._source_bridge_authority,
             self.router._bridge_domain_registry_authority,
-            dict(self.router._source_bridge_factories_by_address),
-            dict(self.router._source_bundles_by_descriptor_id),
-            dict(self.router._source_descriptor_id_by_version),
-            set(self.router._used_source_component_addresses),
+            None, None, None, None,
             self.router.migration_lifecycle,
             self.router._migration_callback_frame,
             self.router.activation_successor_index_v1,
             dict(self.router.activation_receipt_rows_v1),
             dict(self.router.seat_successor_rows_v1),
-        )
-        source_factory_states = {
-            address: (
-                factory,
-                dict(factory._deployments),
-                dict(factory._bundles),
-                dict(factory._adapter_deployments),
-                dict(factory._adapters),
-            )
-            for address, factory
-            in self.router._source_bridge_factories_by_address.items()
-            if type(factory) is ImmutableV2BridgeFactory
-        }
-        source_bundle_states: dict[int, tuple[object, ...]] = {}
-        for factory, _, bundles, _, _ in source_factory_states.values():
-            for bundle in bundles.values():
-                if (len(bundle) == 5
-                        and type(bundle[0]) is SourceBridgeV2
-                        and type(bundle[1]) is BridgeCreditRegistryV2):
-                    bridge, registry = bundle[:2]
-                    source_bundle_states.setdefault(
-                        id(bridge),
-                        (
-                            bridge,
-                            bridge._transaction_snapshot(),
-                            registry,
-                            registry._authorization_snapshot(),
-                        ),
-                    )
-        source_registry_state = (
-            self.router._bridge_domain_registry_authority
-                ._transaction_snapshot()
-            if type(self.router._bridge_domain_registry_authority)
-                is BridgeDomainRegistry else None
         )
         try:
             arm = old_protocol.seat_migration_arm
@@ -31980,7 +38939,6 @@ class ProtocolVersionManager:
                 "_authorized_ingress_adapter_ids",
                 router_snapshot[8],
             )
-            self.router._profile_deployments_by_version = router_snapshot[9]
             object.__setattr__(
                 self.router,
                 "_bridge_credit_registry_authority",
@@ -31994,12 +38952,6 @@ class ProtocolVersionManager:
                 "_bridge_domain_registry_authority",
                 router_snapshot[12],
             )
-            self.router._source_bridge_factories_by_address = (
-                router_snapshot[13]
-            )
-            self.router._source_bundles_by_descriptor_id = router_snapshot[14]
-            self.router._source_descriptor_id_by_version = router_snapshot[15]
-            self.router._used_source_component_addresses = router_snapshot[16]
             self.router.migration_lifecycle = router_snapshot[17]
             object.__setattr__(
                 self.router, "_migration_callback_frame", router_snapshot[18]
@@ -32007,31 +38959,9 @@ class ProtocolVersionManager:
             self.router.activation_successor_index_v1 = router_snapshot[19]
             self.router.activation_receipt_rows_v1 = router_snapshot[20]
             self.router.seat_successor_rows_v1 = router_snapshot[21]
-            for (factory, deployments_state, bundles_state,
-                 adapter_states, adapters) in (
-                source_factory_states.values()
-            ):
-                factory._deployments = deployments_state
-                factory._bundles = bundles_state
-                factory._adapter_deployments = adapter_states
-                factory._adapters = adapters
-            for bridge, bridge_state, registry, registry_state in (
-                source_bundle_states.values()
-            ):
-                bridge._restore_transaction_snapshot(
-                    bridge_state, capability=_SOURCE_BRIDGE_ROLLBACK_CAPABILITY
-                )
-                registry._restore_authorization_snapshot(
-                    registry_state,
-                    source_bridge=bridge,
-                    capability=_SOURCE_BRIDGE_ROLLBACK_CAPABILITY,
-                )
-            source_registry = self.router._bridge_domain_registry_authority
-            if (source_registry_state is not None
-                    and type(source_registry) is BridgeDomainRegistry):
-                source_registry._restore_transaction_snapshot(
-                    source_registry_state
-                )
+            self.router._restore_bridge_package_snapshot_v1(
+                source_install_snapshot
+            )
             raise
 
     def schedule_seat_migration(
@@ -32214,7 +39144,9 @@ class ProtocolVersionManager:
             or (self.release_manager is not None
                 and (type(target_registration) is not SettlementRegistration
                      or not self.router.bridge_package_arm_ready_v1(
-                        target_registration, clock=clock
+                        manifest.target_protocol_version,
+                        manifest.target_registration_hash,
+                        clock=clock,
                      )))
             or history.mode != "ACTIVE"
         ):
@@ -32689,13 +39621,12 @@ class TerminalSignalVerifier:
         if support is None:
             support = self.router._bridge_domain_registry_authority
             object.__setattr__(self, "support_registry", support)
-        if type(support) is not BridgeDomainRegistry:
-            raise ValueError("terminal verifier support Registry is missing")
         expected = source_terminal_verifier_configuration_hash(
             router_address=self.router.address,
         )
         if (type(self.router) is not ActiveSettlementRouter
-                or support.router is not self.router
+                or (support is not None
+                    and type(support) is not BridgeDomainRegistry)
                 or _model_fixed_bytes32(self.runtime_hash)
                     != _model_fixed_bytes32(
                         SOURCE_TERMINAL_VERIFIER_RUNTIME_HASH
@@ -32750,11 +39681,7 @@ class TerminalSignalVerifier:
             )
         except ValueError:
             return False
-        return (type(self.support_registry) is BridgeDomainRegistry
-                and self.support_registry.router is self.router
-                and self.router._bridge_domain_registry_authority
-                    is self.support_registry
-                and _model_fixed_bytes32(self.configuration_hash)
+        return (_model_fixed_bytes32(self.configuration_hash)
                     == _model_fixed_bytes32(
                         source_terminal_verifier_configuration_hash(
                             router_address=self.router.address,
@@ -33703,6 +40630,368 @@ class V2BridgeFactoryDeploymentReceipt:
         ).hexdigest()
 
 
+def encode_source_bundle_factory_deploy_bundle_calldata_v1(
+    descriptor: SourceBridgeDescriptor,
+) -> bytes:
+    if type(descriptor) is not SourceBridgeDescriptor:
+        raise ValueError("Source bundle deployment descriptor is invalid")
+    return encode_source_bundle_factory_deploy_bundle_raw_calldata_v1(
+        _model_fixed_bytes32(descriptor.deployment_salt),
+        descriptor.canonical_bytes,
+        source_bundle_constructor_args_v1(descriptor),
+    )
+
+
+def encode_source_bundle_factory_deploy_bundle_raw_calldata_v1(
+    salt: bytes, body: bytes, constructor_args: bytes,
+) -> bytes:
+    """Encode SBD1 from registration-available primitive byte strings."""
+
+    if (type(salt) is not bytes or len(salt) != 32
+            or type(body) is not bytes or len(body) != 752
+            or type(constructor_args) is not bytes
+            or len(constructor_args) != 736):
+        raise ValueError("Source bundle raw deployment inputs are malformed")
+    body_padding = bytes((-len(body)) % 32)
+    constructor_padding = bytes((-len(constructor_args)) % 32)
+    constructor_offset = 96 + 32 + len(body) + len(body_padding)
+    encoded = b"".join((
+        SOURCE_BUNDLE_FACTORY_DEPLOY_BUNDLE_SELECTOR,
+        salt,
+        _model_uint(96, 32, "Source bundle descriptor offset"),
+        _model_uint(
+            constructor_offset, 32, "Source bundle constructor offset"
+        ),
+        _model_uint(len(body), 32, "Source bundle descriptor bytes"),
+        body, body_padding,
+        _model_uint(
+            len(constructor_args), 32, "Source bundle constructor bytes"
+        ),
+        constructor_args, constructor_padding,
+    ))
+    if len(encoded) != 1_668:
+        raise AssertionError("Source bundle deployment calldata width drifted")
+    return encoded
+
+
+@dataclass(frozen=True)
+class DecodedSourceBundleCalldataV1:
+    salt: bytes
+    descriptor_bytes: bytes
+    descriptor_words: tuple[bytes, ...]
+    constructor_args: bytes
+    constructor_words: tuple[bytes, ...]
+
+    @property
+    def source_descriptor_id(self) -> bytes:
+        return keccak256(
+            D_SOURCE_BRIDGE_EXECUTION
+            + _model_uint(len(self.descriptor_bytes), 4,
+                          "SBD1 descriptor bytes")
+            + self.descriptor_bytes
+        )
+
+
+def decode_source_bundle_factory_deploy_bundle_calldata_v1(
+    calldata: bytes,
+) -> DecodedSourceBundleCalldataV1:
+    """Strictly decode the canonical dynamic ABI without an object witness."""
+
+    if (type(calldata) is not bytes or len(calldata) != 1_668
+            or calldata[:4] != SOURCE_BUNDLE_FACTORY_DEPLOY_BUNDLE_SELECTOR
+            or int.from_bytes(calldata[36:68], "big") != 96
+            or int.from_bytes(calldata[68:100], "big") != 896
+            or int.from_bytes(calldata[100:132], "big") != 752
+            or calldata[884:900] != bytes(16)
+            or int.from_bytes(calldata[900:932], "big") != 736):
+        raise ValueError("SBD1 calldata geometry is noncanonical")
+    salt = calldata[4:36]
+    body = calldata[132:884]
+    constructor_args = calldata[932:1_668]
+    words: list[bytes] = []
+    offset = 0
+    for index in range(28):
+        width = 20 if index in _SOURCE_DESCRIPTOR_ADDRESS_WORDS else (
+            8 if index == 27 else 32
+        )
+        raw = body[offset:offset + width]
+        if len(raw) != width:
+            raise ValueError("SBD1 descriptor is truncated")
+        offset += width
+        word = bytes(32 - width) + raw
+        if word == bytes(32):
+            raise ValueError("SBD1 descriptor contains a zero primitive")
+        words.append(word)
+    descriptor_words = tuple(words)
+    if (offset != len(body) or salt != descriptor_words[3]
+            or descriptor_words[5][12:] != _model_address20(
+                source_bridge_create2_address(
+                    "0x" + descriptor_words[0][12:].hex(),
+                    descriptor_words[3].hex(), descriptor_words[4].hex(),
+                )
+            )
+            or descriptor_words[8][12:] != _model_address20(
+                source_bundle_child_address(
+                    "0x" + descriptor_words[5][12:].hex(), 1
+                )
+            )
+            or descriptor_words[12][12:] != _model_address20(
+                source_bundle_child_address(
+                    "0x" + descriptor_words[5][12:].hex(), 2
+                )
+            )
+            or descriptor_words[15][12:] != _model_address20(
+                source_bundle_child_address(
+                    "0x" + descriptor_words[5][12:].hex(), 3
+                )
+            )
+            or len({descriptor_words[index][12:] for index in (
+                0, 5, 7, 8, 12, 15, 18, 21
+            )}) != 8):
+        raise ValueError("SBD1 descriptor derivation is inexact")
+    _decode_uint_word_v1(descriptor_words[27], 64, "SBD1 source epoch")
+    constructor_words = tuple(
+        constructor_args[index:index + 32]
+        for index in range(0, len(constructor_args), 32)
+    )
+    address_indexes = (7, 8, 9, 10, 15, 17, 22)
+    if (len(constructor_words) != 23
+            or any(constructor_words[index][:12] != bytes(12)
+                   for index in address_indexes)
+            or any(constructor_words[index][12:] == bytes(20)
+                   for index in address_indexes)
+            or constructor_words[8:11] != tuple(
+                _abi_address_word(address)
+                for address in V1_OFFICIAL_VAULT_ADDRESSES
+            )
+            or _decode_uint_word_v1(
+                constructor_words[0], 64, "SBD1 settlement chain"
+            ) == 0
+            or _decode_uint_word_v1(
+                constructor_words[1], 64, "SBD1 source chain"
+            ) == 0
+            or _decode_uint_word_v1(
+                constructor_words[11], 8, "SBD1 source role"
+            ) != 1
+            or _decode_uint_word_v1(
+                constructor_words[13], 64, "SBD1 quota period"
+            ) == 0
+            or int.from_bytes(constructor_words[14], "big") == 0
+            or _decode_uint_word_v1(
+                constructor_words[16], 64, "SBD1 source epoch"
+            ) == 0
+            or any(constructor_words[index] == bytes(32) for index in (
+                2, 3, 4, 5, 6, 12, 18, 19, 20, 21
+            ))
+            or constructor_words[4]
+                != keccak256(SOURCE_BRIDGE_RUNTIME_CODE_V1)
+            or constructor_words[12]
+                != keccak256(SOURCE_NATIVE_QUOTA_MANAGER_RUNTIME_CODE_V1)):
+        raise ValueError("SBD1 constructor ABI is noncanonical")
+    return DecodedSourceBundleCalldataV1(
+        salt, body, descriptor_words, constructor_args, constructor_words
+    )
+
+
+def source_bridge_descriptor_from_sbd1_v1(
+    decoded: DecodedSourceBundleCalldataV1, *, factory_address: str,
+    factory_runtime_hash: str, factory_configuration_hash: str,
+) -> SourceBridgeDescriptor:
+    """Reconstruct every Source descriptor field from the exact call bytes."""
+
+    if type(decoded) is not DecodedSourceBundleCalldataV1:
+        raise ValueError("SBD1 decoded constructor is invalid")
+    words = decoded.constructor_words
+    settlement_chain_id = int.from_bytes(words[0], "big")
+    source_chain_id = int.from_bytes(words[1], "big")
+    if settlement_chain_id != source_chain_id:
+        raise ValueError("SBD1 source chain differs from settlement chain")
+    descriptor = SourceBridgeDescriptor(
+        settlement_chain_id=settlement_chain_id,
+        source_chain_id=source_chain_id,
+        source_genesis_hash="0x" + words[2].hex(),
+        registry_namespace="0x" + words[3].hex(),
+        source_bridge="",
+        bridge_credit_registry="",
+        bridge_facade_runtime_hash="0x" + words[4].hex(),
+        bridge_storage_layout_hash="0x" + words[5].hex(),
+        bridge_kernel_hash="0x" + words[6].hex(),
+        source_terminal_verifier="0x" + words[7][12:].hex(),
+        native_quota_manager="",
+        native_quota_manager_runtime_hash="0x" + words[12].hex(),
+        native_quota_period=int.from_bytes(words[13], "big"),
+        native_eth_quota=int.from_bytes(words[14], "big"),
+        source_domain_registrar="0x" + words[15][12:].hex(),
+        source_registration_epoch=int.from_bytes(words[16], "big"),
+        support_registry_address="0x" + words[17][12:].hex(),
+        support_registry_runtime_hash="0x" + words[18].hex(),
+        support_registry_configuration_hash="0x" + words[19].hex(),
+        source_terminal_verifier_runtime_hash="0x" + words[20].hex(),
+        source_terminal_verifier_configuration_hash="0x" + words[21].hex(),
+        deployment_factory=factory_address,
+        deployment_factory_runtime_hash=factory_runtime_hash,
+        deployment_factory_configuration_hash=factory_configuration_hash,
+        deployment_salt="0x" + decoded.salt.hex(),
+        deployment_initcode_hash="",
+        bundle_deployer="",
+        bundle_deployer_runtime_hash="0x" + keccak256(
+            SOURCE_BUNDLE_DEPLOYER_RUNTIME_CODE_V1
+        ).hex(),
+        legacy_v1_bridge="0x" + words[22][12:].hex(),
+    )
+    if (source_bundle_constructor_args_v1(descriptor)
+            != decoded.constructor_args
+            or descriptor.canonical_bytes != decoded.descriptor_bytes
+            or descriptor.descriptor_id != decoded.source_descriptor_id):
+        raise ValueError("SBD1 descriptor is not derived from constructor ABI")
+    return descriptor
+
+
+def encode_prepare_bridge_route_package_calldata_v1(
+    protocol_version: int,
+) -> bytes:
+    """Encode the fixed BRD1 call; every deployment input is stored in BRX1."""
+
+    if not 0 < protocol_version <= UINT64_MAX:
+        raise ValueError("BRD1 protocol version is malformed")
+    encoded = PREPARE_BRIDGE_ROUTE_PACKAGE_SELECTOR + _model_uint(
+        protocol_version, 32, "BRD1 protocol version"
+    )
+    if len(encoded) != PREPARE_BRIDGE_ROUTE_PACKAGE_CALLDATA_LENGTH:
+        raise AssertionError("BRD1 call width drifted")
+    return encoded
+
+
+def encode_source_bundle_factory_deploy_adapter_calldata_v1(
+    protocol_version: int, source_descriptor_id: str | bytes,
+    configuration_hash: str | bytes, source_bridge: str,
+    credit_registry: str, router: str, queue: str, seal_authority: str,
+) -> bytes:
+    if not 0 < protocol_version <= UINT64_MAX:
+        raise ValueError("Source adapter protocol version is invalid")
+    encoded = b"".join((
+        SOURCE_BUNDLE_FACTORY_DEPLOY_ADAPTER_SELECTOR,
+        _model_uint(protocol_version, 32, "Source adapter version"),
+        _model_fixed_bytes32(source_descriptor_id),
+        _model_fixed_bytes32(configuration_hash),
+        *(_abi_address_word(address) for address in (
+            source_bridge, credit_registry, router, queue, seal_authority,
+        )),
+    ))
+    if len(encoded) != 260:
+        raise AssertionError("Source adapter deployment calldata width drifted")
+    return encoded
+
+
+@dataclass(frozen=True)
+class DecodedSourceAdapterCalldataV1:
+    protocol_version: int
+    source_descriptor_id: bytes
+    configuration_hash: bytes
+    source_bridge: bytes
+    credit_registry: bytes
+    router: bytes
+    queue: bytes
+    seal_authority: bytes
+
+
+def decode_source_bundle_factory_deploy_adapter_calldata_v1(
+    calldata: bytes,
+) -> DecodedSourceAdapterCalldataV1:
+    if (type(calldata) is not bytes or len(calldata) != 260
+            or calldata[:4] != SOURCE_BUNDLE_FACTORY_DEPLOY_ADAPTER_SELECTOR):
+        raise ValueError("SAD1 calldata geometry is noncanonical")
+    words = tuple(calldata[4 + 32 * index:4 + 32 * (index + 1)]
+                  for index in range(8))
+    version = _decode_uint_word_v1(words[0], 64, "SAD1 protocol version")
+    addresses = tuple(
+        _decode_address_word_v1(words[index], "SAD1 address")
+        for index in range(3, 8)
+    )
+    if (version == 0 or words[1] == bytes(32) or words[2] == bytes(32)
+            or any(address == bytes(20) for address in addresses)
+            or len(set(addresses)) != len(addresses)):
+        raise ValueError("SAD1 calldata values are invalid")
+    return DecodedSourceAdapterCalldataV1(
+        version, words[1], words[2], *addresses
+    )
+
+
+@dataclass(frozen=True)
+class SourceBundleDeploymentReturnV1:
+    bundle_deployer: str
+    source_bridge: str
+    credit_registry: str
+    quota_manager: str
+    terminal_verifier: str
+    created_now: int
+    init_code_hash: bytes
+    source_descriptor_id: bytes
+
+
+def decode_source_bundle_factory_deployment_return_v1(
+    returndata: bytes,
+) -> SourceBundleDeploymentReturnV1:
+    if type(returndata) is not bytes or len(returndata) != 288:
+        raise ValueError("SBD1 return must be exactly 288 bytes")
+    words = tuple(
+        returndata[offset:offset + 32] for offset in range(0, 288, 32)
+    )
+    if words[0] != b"SBD1" + bytes(28):
+        raise ValueError("SBD1 magic/padding is malformed")
+    addresses = tuple(
+        "0x" + _decode_address_word_v1(words[index], "SBD1 address").hex()
+        for index in range(1, 6)
+    )
+    created = _decode_uint_word_v1(words[6], 8, "SBD1 created flag")
+    if (created not in {0, 1}
+            or len(set(addresses)) != len(addresses)
+            or words[7] == bytes(32) or words[8] == bytes(32)):
+        raise ValueError("SBD1 values are invalid")
+    return SourceBundleDeploymentReturnV1(
+        *addresses, created, words[7], words[8]
+    )
+
+
+@dataclass(frozen=True)
+class SourceAdapterDeploymentReturnV1:
+    adapter: str
+    salt: bytes
+    init_code_hash: bytes
+    runtime_hash: bytes
+    configuration_hash: bytes
+    created_now: int
+
+
+def decode_source_adapter_factory_deployment_return_v1(
+    returndata: bytes,
+) -> SourceAdapterDeploymentReturnV1:
+    if type(returndata) is not bytes or len(returndata) != 224:
+        raise ValueError("SAD1 return must be exactly 224 bytes")
+    words = tuple(
+        returndata[offset:offset + 32] for offset in range(0, 224, 32)
+    )
+    if words[0] != b"SAD1" + bytes(28):
+        raise ValueError("SAD1 magic/padding is malformed")
+    address = "0x" + _decode_address_word_v1(
+        words[1], "SAD1 adapter"
+    ).hex()
+    created = _decode_uint_word_v1(words[6], 8, "SAD1 created flag")
+    if created not in {0, 1} or any(word == bytes(32) for word in words[2:6]):
+        raise ValueError("SAD1 values are invalid")
+    return SourceAdapterDeploymentReturnV1(
+        address, *words[2:6], created
+    )
+
+
+@dataclass(frozen=True)
+class SourceBundleDeployerRuntimeAccountV1:
+    """Test-only EVM code-account projection for address resolution."""
+
+    address: str
+    runtime_hash: str
+
+
 @dataclass(eq=False)
 class ImmutableV2BridgeFactory:
     """Permissionless deterministic deployment with exact-code idempotence."""
@@ -33712,6 +41001,23 @@ class ImmutableV2BridgeFactory:
     configuration_hash: str
     immutable_nonproxy: bool = True
     selfdestruct_disabled: bool = True
+    settlement_chain_id: int = 1
+    manifest_namespace: bytes = keccak256(
+        b"slot-chain-model-default-manifest-namespace-v1"
+    )
+    protocol_version_manager: str = "0x" + keccak256(
+        b"slot-chain-model-default-protocol-version-manager-v1"
+    )[12:].hex()
+    bundle_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    adapter_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    fault_point: str | None = field(default=None, compare=False, repr=False)
+    test_evm_resolution_overrides: dict[str, object | None] = field(
+        default_factory=dict, compare=False, repr=False
+    )
     _deployments: dict[str, tuple[str, ...]] = field(
         default_factory=dict, init=False, repr=False
     )
@@ -33730,16 +41036,73 @@ class ImmutableV2BridgeFactory:
         if name in {
             "address", "runtime_hash", "configuration_hash",
             "immutable_nonproxy", "selfdestruct_disabled",
+            "settlement_chain_id", "manifest_namespace",
+            "protocol_version_manager",
         } \
                 and name in self.__dict__:
             raise AttributeError(f"V2 Bridge factory {name} is immutable")
         object.__setattr__(self, name, value)
+
+    def _validate_pinned_compiler_configuration_v1(self) -> None:
+        artifacts = ProtocolRootSourceFactoryCompilerArtifactsV1(
+            SOURCE_BUNDLE_FACTORY_CREATION_CODE_V1,
+            SOURCE_BUNDLE_FACTORY_RUNTIME_CODE_V1,
+            SOURCE_BUNDLE_DEPLOYER_CREATION_CODE_V1,
+            SOURCE_BUNDLE_DEPLOYER_RUNTIME_CODE_V1,
+            BRIDGE_ADAPTER_CREATION_CODE_V1,
+            BRIDGE_ADAPTER_RUNTIME_CODE_V1,
+        )
+        expected_config = source_bundle_factory_configuration_hash_v1(
+            self.settlement_chain_id,
+            _model_address20(self.protocol_version_manager), artifacts,
+        )
+        if (_model_fixed_bytes32(self.runtime_hash)
+                    != artifacts.factory_runtime_hash
+                or _model_fixed_bytes32(self.configuration_hash)
+                    != expected_config):
+            raise ValueError("Source factory compiler/immutable graph differs")
 
     def _seal(self, digest: str) -> str:
         return hashlib.sha256(
             b"TAIKO_V2_BRIDGE_FACTORY_SEAL_V1\x00"
             + id(self._secret).to_bytes(32, "big") + digest.encode()
         ).hexdigest()
+
+    def resolve_test_evm_account_v1(self, address: str) -> object:
+        """Resolve chain state for tests; callers must authenticate all data."""
+
+        if not address:
+            raise ValueError("test EVM account address is empty")
+        if address in self.test_evm_resolution_overrides:
+            account = self.test_evm_resolution_overrides[address]
+            if account is None:
+                raise ValueError("test EVM account is absent")
+            return account
+        if address == self.address:
+            return self
+        for bundle in self._bundles.values():
+            if type(bundle) is not tuple or len(bundle) != 5:
+                continue
+            bridge, registry, quota, terminal, _support = bundle
+            descriptor = getattr(bridge, "source_descriptor", None)
+            if (type(descriptor) is SourceBridgeDescriptor
+                    and address == descriptor.bundle_deployer):
+                return SourceBundleDeployerRuntimeAccountV1(
+                    address, descriptor.bundle_deployer_runtime_hash
+                )
+            for account in (bridge, registry, quota, terminal):
+                if getattr(account, "address", None) == address:
+                    return account
+        for adapter in self._adapters.values():
+            if getattr(adapter, "address", None) == address:
+                return adapter
+        raise ValueError("test EVM account is absent")
+
+    def test_evm_account_at_v1(self, address: str) -> object | None:
+        try:
+            return self.resolve_test_evm_account_v1(address)
+        except ValueError:
+            return None
 
     def _receipt(
         self, descriptor: SourceBridgeDescriptor,
@@ -33770,9 +41133,557 @@ class ImmutableV2BridgeFactory:
         )
         return replace(pending, seal=self._seal(pending.digest))
 
+    def deploy_source_bundle_exact_v1(
+        self, calldata: bytes, *,
+        caller: str, gas_limit: int, value: int,
+        deployment_world: LiveDeploymentWorldV2,
+    ) -> bytes:
+        """Exact public ABI, idempotent path and direct source postchecks."""
+
+        decoded = decode_source_bundle_factory_deploy_bundle_calldata_v1(
+            calldata
+        )
+        if (gas_limit != SOURCE_BUNDLE_FACTORY_BUNDLE_DEPLOYMENT_GAS
+                or value != 0
+                or type(deployment_world) is not LiveDeploymentWorldV2):
+            raise ValueError("Source bundle deployment frame is inexact")
+        self._validate_pinned_compiler_configuration_v1()
+        validate_live_protocol_root_active_v1(
+            deployment_world, address=_model_address20(self.address),
+            caller=self.address, label="SBD1:SourceBundleFactory",
+        )
+        descriptor = source_bridge_descriptor_from_sbd1_v1(
+            decoded, factory_address=self.address,
+            factory_runtime_hash=self.runtime_hash,
+            factory_configuration_hash=self.configuration_hash,
+        )
+        if descriptor.settlement_chain_id != self.settlement_chain_id:
+            raise ValueError("SBD1 chain differs from factory immutable chain")
+        support_address = _model_address20(
+            descriptor.support_registry_address
+        )
+        terminal_address = _model_address20(
+            descriptor.source_terminal_verifier
+        )
+        _validate_live_target_code_and_config_v2(
+            deployment_world, caller=self.address, address=support_address,
+            runtime_hash=_model_fixed_bytes32(
+                descriptor.support_registry_runtime_hash
+            ), configuration_hash=_model_fixed_bytes32(
+                descriptor.support_registry_configuration_hash
+            ), label="SBD1:BridgeDomainRegistry",
+        )
+        _validate_live_target_code_and_config_v2(
+            deployment_world, caller=self.address, address=terminal_address,
+            runtime_hash=_model_fixed_bytes32(
+                descriptor.source_terminal_verifier_runtime_hash
+            ), configuration_hash=_model_fixed_bytes32(
+                descriptor.source_terminal_verifier_configuration_hash
+            ), label="SBD1:SourceTerminalVerifier",
+        )
+        # Behaviour handles are a simulator facility consulted only after the
+        # two external accounts have passed exact live-code/config reads.
+        support_registry = deployment_world.behavior_handles.get(
+            support_address
+        )
+        if type(support_registry) is not BridgeDomainRegistry:
+            raise ValueError("Source bundle support Registry is not executable")
+        terminal_verifier = deployment_world.behavior_handles.get(
+            terminal_address
+        )
+        if type(terminal_verifier) is not TerminalSignalVerifier:
+            raise ValueError("Source terminal verifier is not the live instance")
+        child_rows = (
+            (
+                _model_address20(descriptor.bundle_deployer),
+                _model_fixed_bytes32(descriptor.bundle_deployer_runtime_hash),
+                bytes(32),
+            ),
+            (
+                _model_address20(descriptor.source_bridge),
+                _model_fixed_bytes32(descriptor.bridge_facade_runtime_hash),
+                _model_fixed_bytes32(
+                    source_bridge_account_configuration_hash(descriptor)
+                ),
+            ),
+            (
+                _model_address20(descriptor.bridge_credit_registry),
+                _model_fixed_bytes32(BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH),
+                _model_fixed_bytes32(bridge_credit_registry_configuration_hash(
+                    address=descriptor.bridge_credit_registry,
+                    runtime_hash=BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH,
+                    domain_registrar=descriptor.source_domain_registrar,
+                    frozen_bridge=descriptor.source_bridge,
+                    support_registry_address=descriptor.support_registry_address,
+                    support_registry_runtime_hash=(
+                        descriptor.support_registry_runtime_hash
+                    ),
+                    support_registry_configuration_hash=(
+                        descriptor.support_registry_configuration_hash
+                    ), source_chain_id=descriptor.source_chain_id,
+                    source_domain_id=descriptor.source_domain_id,
+                    source_registration_epoch=(
+                        descriptor.source_registration_epoch
+                    ), frozen_bridge_execution_hash=(
+                        descriptor.bridge_execution_hash
+                    ), source_descriptor_id=descriptor.descriptor_id,
+                )),
+            ),
+            (
+                _model_address20(descriptor.native_quota_manager),
+                _model_fixed_bytes32(
+                    descriptor.native_quota_manager_runtime_hash
+                ),
+                _model_fixed_bytes32(native_quota_manager_configuration_hash(
+                    address=descriptor.native_quota_manager,
+                    bridge=descriptor.source_bridge,
+                    quota_period=descriptor.native_quota_period,
+                    eth_quota=descriptor.native_eth_quota,
+                )),
+            ),
+        )
+        target_states = tuple(
+            deployment_world.create_target_state(
+                address, caller=self.address, label=f"SBD1-target:{index}"
+            )
+            for index, (address, _runtime, _config) in enumerate(child_rows)
+        )
+        target_balances = {
+            address: (
+                deployment_world.accounts[address].balance
+                if address in deployment_world.accounts else 0
+            )
+            for address, _runtime, _config in child_rows
+        }
+        code_present = tuple(state == "CODE" for state in target_states)
+        if any(code_present) and not all(code_present):
+            raise ValueError("Source bundle existing-code set is partial")
+        created = not all(code_present)
+        if created:
+            for index, (address, _runtime, _config) in enumerate(child_rows):
+                deployment_world.assert_create_succeeds(
+                    address, label=f"SBD1-target:{index}"
+                )
+        if not created:
+            for index, (address, runtime_hash, configuration_hash) in enumerate(
+                    child_rows):
+                account = deployment_world.account(
+                    address, self.address, f"SBD1-existing:{index}:account"
+                )
+                deployment_world.trace.append((
+                    self.address, f"SBD1-existing:{index}:extcodehash", address
+                ))
+                if account.extcodehash(self.address) != runtime_hash:
+                    raise ValueError("Source bundle existing code differs")
+                if index:
+                    _validate_live_target_code_and_config_v2(
+                        deployment_world, caller=self.address, address=address,
+                        runtime_hash=runtime_hash,
+                        configuration_hash=configuration_hash,
+                        label=f"SBD1-existing:{index}",
+                    )
+        bridge_key = descriptor.source_bridge
+        cache_rows = (
+            bridge_key in self._deployments,
+            self._deployments.get(bridge_key),
+            bridge_key in self._bundles,
+            self._bundles.get(bridge_key),
+        )
+        world_rows = deployment_world.touched_rows(
+                tuple(_model_address20(address) for address in (
+                    descriptor.bundle_deployer, descriptor.source_bridge,
+                    descriptor.bridge_credit_registry,
+                    descriptor.native_quota_manager,
+                ))
+        )
+        try:
+            child_handles = tuple(
+                deployment_world.behavior_handles.get(address)
+                for address, _runtime, _config in child_rows[1:]
+            )
+            if (not created and all(handle is not None
+                                    for handle in child_handles)):
+                bridge, registry, quota_manager = child_handles
+                if (type(bridge) is not SourceBridgeV2
+                        or type(registry) is not BridgeCreditRegistryV2
+                        or type(quota_manager)
+                            is not FrozenNativeQuotaManagerV2):
+                    raise ValueError(
+                        "Source bundle existing behavior type differs"
+                    )
+                expected = (
+                    descriptor.bundle_deployer,
+                    descriptor.bundle_deployer_runtime_hash,
+                    descriptor.deployment_salt,
+                    descriptor.deployment_initcode_hash,
+                    descriptor.bridge_facade_runtime_hash,
+                    source_bridge_configuration_hash(descriptor, registry),
+                    registry.address, registry.runtime_hash,
+                    registry.configuration_hash, quota_manager.address,
+                    quota_manager.runtime_hash,
+                    quota_manager.configuration_hash,
+                    terminal_verifier.address, terminal_verifier.runtime_hash,
+                    terminal_verifier.configuration_hash,
+                )
+                self._deployments[bridge_key] = expected
+                self._bundles[bridge_key] = (
+                    bridge, registry, quota_manager, terminal_verifier,
+                    support_registry,
+                )
+                receipt = self._receipt(
+                    descriptor, registry, quota_manager, terminal_verifier,
+                    created_now=False,
+                )
+            else:
+                # The maps are a model cache, never CREATE authority.  A
+                # serialized/restarted simulator reconstructs handles only
+                # after all existing code/config rows authenticated above.
+                for address, _runtime, _config in child_rows:
+                    deployment_world.behavior_handles.pop(address, None)
+                self._deployments.pop(bridge_key, None)
+                self._bundles.pop(bridge_key, None)
+                bridge, registry, _ = self.deploy_source_bundle(
+                    descriptor, support_registry, terminal_verifier,
+                    caller=caller
+                )
+                bundle = self._bundles.get(bridge_key)
+                if type(bundle) is not tuple or len(bundle) != 5:
+                    raise ValueError(
+                        "Source bundle reconstructed row is absent"
+                    )
+                quota_manager = bundle[2]
+                receipt = self._receipt(
+                    descriptor, registry, quota_manager, terminal_verifier,
+                    created_now=created,
+                )
+            bridge.balance = target_balances[
+                _model_address20(descriptor.source_bridge)
+            ]
+            bundle = self._bundles.get(descriptor.source_bridge)
+            if type(bundle) is not tuple or len(bundle) != 5:
+                raise ValueError("Source bundle postdeployment row is absent")
+            _, retained_registry, quota_manager, terminal_verifier, _ = bundle
+            if (retained_registry is not registry
+                    or not self.valid_source_receipt(
+                        receipt, descriptor, registry, quota_manager,
+                        terminal_verifier, require_live_bundle=True,
+                    )
+                    or not self.source_bundle_exact(
+                        descriptor, registry, quota_manager,
+                        terminal_verifier, bridge, require_live_bundle=True,
+                    )):
+                raise ValueError("Source bundle deployment postcheck failed")
+            deployer_behavior = deployment_world.behavior_handles.get(
+                child_rows[0][0]
+            )
+            if deployer_behavior is None:
+                deployer_behavior = SourceBundleDeployerRuntimeAccountV1(
+                    descriptor.bundle_deployer,
+                    descriptor.bundle_deployer_runtime_hash,
+                )
+            projections = (
+                    (
+                        descriptor.bundle_deployer,
+                        descriptor.bundle_deployer_runtime_hash, bytes(32),
+                        deployer_behavior,
+                    ),
+                    (
+                        bridge.address, descriptor.bridge_facade_runtime_hash,
+                        source_bridge_account_configuration_hash(descriptor),
+                        bridge,
+                    ),
+                    (
+                        registry.address, registry.runtime_hash,
+                        registry.configuration_hash, registry,
+                    ),
+                    (
+                        quota_manager.address, quota_manager.runtime_hash,
+                        quota_manager.configuration_hash, quota_manager,
+                    ),
+            )
+            for address, runtime_hash, configuration_hash, behavior \
+                    in projections:
+                deployment_world.install_exact_account(
+                    address=_model_address20(address),
+                    runtime_hash=_model_fixed_bytes32(runtime_hash),
+                    configuration_hash=_model_fixed_bytes32(configuration_hash),
+                    behavior=behavior,
+                )
+            if bridge.balance != deployment_world.accounts[
+                    _model_address20(bridge.address)].balance:
+                raise ValueError("Source Bridge prefund balance was not retained")
+            if self.fault_point == "after_bundle_deployment":
+                raise RuntimeError("injected Source bundle deployment fault")
+            encoded = b"".join((
+                b"SBD1" + bytes(28),
+                _abi_address_word(descriptor.bundle_deployer),
+                _abi_address_word(bridge.address),
+                _abi_address_word(registry.address),
+                _abi_address_word(quota_manager.address),
+                _abi_address_word(terminal_verifier.address),
+                _model_uint(int(created), 32, "Source bundle created flag"),
+                _model_fixed_bytes32(descriptor.deployment_initcode_hash),
+                _model_fixed_bytes32(descriptor.descriptor_id),
+            ))
+            if len(encoded) != 288:
+                raise AssertionError("SBD1 must be exactly 288 bytes")
+            return (encoded if self.bundle_return_override is None
+                    else self.bundle_return_override)
+        except BaseException:
+            had_deployment, deployment, had_bundle, bundle = cache_rows
+            if had_deployment:
+                self._deployments[bridge_key] = deployment
+            else:
+                self._deployments.pop(bridge_key, None)
+            if had_bundle:
+                self._bundles[bridge_key] = bundle
+            else:
+                self._bundles.pop(bridge_key, None)
+            deployment_world.restore_touched_rows(world_rows)
+            raise
+
+    def deploy_bridge_adapter_exact_v1(
+        self, calldata: bytes, *, caller: str, gas_limit: int, value: int,
+        deployment_world: LiveDeploymentWorldV2,
+    ) -> bytes:
+        """Exact fixed adapter ABI with idempotent live postvalidation."""
+
+        decoded = decode_source_bundle_factory_deploy_adapter_calldata_v1(
+            calldata
+        )
+        if (gas_limit != SOURCE_BUNDLE_FACTORY_ADAPTER_DEPLOYMENT_GAS
+                or value != 0
+                or type(deployment_world) is not LiveDeploymentWorldV2):
+            raise ValueError("Source adapter deployment frame is inexact")
+        self._validate_pinned_compiler_configuration_v1()
+        validate_live_protocol_root_active_v1(
+            deployment_world, address=_model_address20(self.address),
+            caller=self.address, label="SAD1:SourceBundleFactory",
+        )
+        protocol_version = decoded.protocol_version
+        source_descriptor_id = decoded.source_descriptor_id
+        expected_configuration_hash = decoded.configuration_hash
+        if decoded.seal_authority != _model_address20(
+                self.protocol_version_manager):
+            raise ValueError("SAD1 seal authority differs from factory PVM")
+        pvm_account = deployment_world.account(
+            decoded.seal_authority, self.address, "SAD1:PVM:account"
+        )
+        if pvm_account.code_size == 0:
+            raise ValueError("SAD1 PVM has no code")
+        pvm_runtime = pvm_account.extcodehash(self.address)
+        if pvm_runtime == bytes(32):
+            raise ValueError("SAD1 PVM code hash is zero")
+        pvm_raw = pvm_account.protocol_version_manager_config_v1(
+            self.address, PROTOCOL_ROOT_PVM_CONFIG_SELECTOR,
+            PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, 0,
+        )
+        pvm_view = decode_protocol_version_manager_config_return_v1(pvm_raw)
+        pvm_configuration = pvm_account.component_config_hash_v2(
+            self.address, COMPONENT_CONFIG_GETTER_SELECTOR,
+            SOURCE_BUNDLE_FACTORY_COMPONENT_CONFIG_READ_GAS, 0,
+        )
+        if (protocol_version_manager_configuration_hash_v1(pvm_view)
+                != pvm_configuration
+                or pvm_view.settlement_chain_id != self.settlement_chain_id
+                or pvm_view.source_bundle_factory
+                    != _model_address20(self.address)
+                or pvm_view.source_bundle_factory_runtime_hash
+                    != _model_fixed_bytes32(self.runtime_hash)
+                or pvm_view.source_bundle_factory_configuration_hash
+                    != _model_fixed_bytes32(self.configuration_hash)
+                or pvm_view.active_settlement_router != decoded.router
+                or pvm_view.forced_queue != decoded.queue):
+            raise ValueError("SAD1 PVM1 graph differs from factory/call")
+
+        def raw_component(
+            address: bytes, runtime_hash: bytes, label: str,
+        ) -> LiveDeploymentAccountV2:
+            account = deployment_world.account(
+                address, self.address, f"{label}:account"
+            )
+            if account.code_size == 0:
+                raise ValueError(f"{label} has no code")
+            deployment_world.trace.append((
+                self.address, f"{label}:extcodehash", address
+            ))
+            if account.extcodehash(self.address) != runtime_hash:
+                raise ValueError(f"{label} code hash differs")
+            configuration = account.component_config_hash_v2(
+                self.address, COMPONENT_CONFIG_GETTER_SELECTOR,
+                SOURCE_BUNDLE_FACTORY_COMPONENT_CONFIG_READ_GAS, 0,
+            )
+            if configuration == bytes(32):
+                raise ValueError(f"{label} configuration hash is zero")
+            return account
+
+        source_account = raw_component(
+            decoded.source_bridge, keccak256(SOURCE_BRIDGE_RUNTIME_CODE_V1),
+            "SAD1:SourceBridge",
+        )
+        credit_account = raw_component(
+            decoded.credit_registry,
+            keccak256(BRIDGE_CREDIT_REGISTRY_RUNTIME_CODE_V1),
+            "SAD1:BridgeCreditRegistry",
+        )
+        router_account = _validate_live_target_code_and_config_v2(
+            deployment_world, caller=self.address, address=decoded.router,
+            runtime_hash=pvm_view.active_settlement_router_runtime_hash,
+            configuration_hash=(
+                pvm_view.active_settlement_router_configuration_hash
+            ),
+            label="SAD1:ActiveSettlementRouter",
+        )
+        queue_account = _validate_live_target_code_and_config_v2(
+            deployment_world, caller=self.address, address=decoded.queue,
+            runtime_hash=pvm_view.forced_queue_runtime_hash,
+            configuration_hash=pvm_view.forced_queue_configuration_hash,
+            label="SAD1:ForcedQueue",
+        )
+        expected_config = bridge_ingress_component_configuration_hash(
+            router_address="0x" + decoded.router.hex(),
+            router_runtime_hash="0x" + router_account.runtime_hash.hex(),
+            router_configuration_hash=(
+                "0x" + router_account.configuration_hash.hex()
+            ),
+            queue_address="0x" + decoded.queue.hex(),
+            queue_runtime_hash="0x" + queue_account.runtime_hash.hex(),
+            queue_configuration_hash=(
+                "0x" + queue_account.configuration_hash.hex()
+            ),
+            source_registry_address="0x" + decoded.credit_registry.hex(),
+            source_registry_runtime_hash=(
+                "0x" + credit_account.runtime_hash.hex()
+            ),
+            source_registry_configuration_hash=(
+                "0x" + credit_account.configuration_hash.hex()
+            ),
+            source_bridge_address="0x" + decoded.source_bridge.hex(),
+            source_bridge_runtime_hash="0x" + source_account.runtime_hash.hex(),
+            source_bridge_configuration_hash_=(
+                "0x" + source_account.configuration_hash.hex()
+            ),
+            seal_authority="0x" + decoded.seal_authority.hex(),
+        )
+        if _model_fixed_bytes32(expected_config) != decoded.configuration_hash:
+            raise ValueError("SAD1 decoded configuration is not derivable")
+        # Simulator handles are resolved only after all five decoded accounts
+        # passed the raw PVM1/code/config authentication above.
+        source_bridge = deployment_world.behavior_handles.get(
+            decoded.source_bridge
+        )
+        credit_registry = deployment_world.behavior_handles.get(
+            decoded.credit_registry
+        )
+        router = deployment_world.behavior_handles.get(decoded.router)
+        if (type(source_bridge) is not SourceBridgeV2
+                or type(credit_registry) is not BridgeCreditRegistryV2
+                or type(router) is not ActiveSettlementRouter):
+            raise ValueError("SAD1 authenticated simulator handles are absent")
+        expected_runtime_hash = BRIDGE_ADAPTER_RUNTIME_CODE_HASH_V1
+        salt = bridge_adapter_create2_salt_v1(
+            protocol_version, source_descriptor_id
+        )
+        init_code_hash = bridge_adapter_initcode_hash_v1(
+            configuration_hash=decoded.configuration_hash,
+            source_bridge="0x" + decoded.source_bridge.hex(),
+            credit_registry="0x" + decoded.credit_registry.hex(),
+            router="0x" + decoded.router.hex(),
+            queue="0x" + decoded.queue.hex(),
+            seal_authority="0x" + decoded.seal_authority.hex(),
+        )
+        address = source_bridge_create2_address(
+            self.address, salt.hex(), init_code_hash.hex()
+        )
+        address_word = _model_address20(address)
+        target_state = deployment_world.create_target_state(
+            address_word, caller=self.address, label="SAD1-target"
+        )
+        created = target_state == "FREE"
+        target_balance = (
+            deployment_world.accounts[address_word].balance
+            if address_word in deployment_world.accounts else 0
+        )
+        if created:
+            deployment_world.assert_create_succeeds(
+                address_word, label="SAD1-target"
+            )
+        else:
+            _validate_live_target_code_and_config_v2(
+                deployment_world, caller=self.address, address=address_word,
+                runtime_hash=expected_runtime_hash,
+                configuration_hash=decoded.configuration_hash,
+                label="SAD1:existing-adapter",
+            )
+        cache_rows = (
+            address in self._adapter_deployments,
+            self._adapter_deployments.get(address),
+            address in self._adapters, self._adapters.get(address),
+        )
+        world_rows = deployment_world.touched_rows((address_word,))
+        try:
+            adapter = deployment_world.behavior_handles.get(address_word)
+            if type(adapter) is not BridgeAdapter:
+                # Private maps and serialized handles are caches only.  Once
+                # the existing/raw target has authenticated, reconstruct the
+                # simulator object from the decoded constructor tuple.
+                self._adapter_deployments.pop(address, None)
+                self._adapters.pop(address, None)
+                adapter = self.deploy_bridge_adapter_v1(
+                    protocol_version=protocol_version,
+                    source_descriptor_id=source_descriptor_id, router=router,
+                    credit_registry=credit_registry, source_bridge=source_bridge,
+                    expected_runtime_hash=expected_runtime_hash,
+                    expected_configuration_hash=expected_configuration_hash,
+                    caller=caller,
+                )
+                deployment_world.behavior_handles.pop(address_word, None)
+            adapter.balance = target_balance
+            deployment_world.install_exact_account(
+                address=address_word, runtime_hash=expected_runtime_hash,
+                configuration_hash=decoded.configuration_hash,
+                behavior=adapter,
+            )
+            if (adapter.address != address
+                    or adapter.balance
+                        != deployment_world.accounts[address_word].balance
+                    or not exact_component_config_staticcall(
+                        adapter, expected_runtime_hash=expected_runtime_hash,
+                        expected_configuration_hash=(
+                            expected_configuration_hash
+                        ),
+                    )):
+                raise ValueError("Source adapter deployment postcheck failed")
+            if self.fault_point == "after_adapter_deployment":
+                raise RuntimeError("injected Source adapter deployment fault")
+            encoded = b"".join((
+                b"SAD1" + bytes(28), _abi_address_word(address), salt,
+                init_code_hash, _model_fixed_bytes32(expected_runtime_hash),
+                _model_fixed_bytes32(expected_configuration_hash),
+                _model_uint(int(created), 32, "Source adapter created flag"),
+            ))
+            if len(encoded) != 224:
+                raise AssertionError("SAD1 must be exactly 224 bytes")
+            return (encoded if self.adapter_return_override is None
+                    else self.adapter_return_override)
+        except BaseException:
+            had_deployment, deployment, had_adapter, retained_adapter = \
+                cache_rows
+            if had_deployment:
+                self._adapter_deployments[address] = deployment
+            else:
+                self._adapter_deployments.pop(address, None)
+            if had_adapter:
+                self._adapters[address] = retained_adapter
+            else:
+                self._adapters.pop(address, None)
+            deployment_world.restore_touched_rows(world_rows)
+            raise
+
     def deploy_source_bundle(
         self, descriptor: SourceBridgeDescriptor,
-        support_registry: BridgeDomainRegistry, *,
+        support_registry: BridgeDomainRegistry,
+        terminal_verifier: TerminalSignalVerifier | None = None, *,
         caller: str,
     ) -> tuple[
         "SourceBridgeV2", BridgeCreditRegistryV2,
@@ -33854,13 +41765,23 @@ class ImmutableV2BridgeFactory:
             descriptor.native_quota_period,
             descriptor.native_eth_quota,
         )
-        terminal_verifier = TerminalSignalVerifier(
-            support_registry.router,
-            support_registry,
-            descriptor.source_terminal_verifier,
-            descriptor.source_terminal_verifier_runtime_hash,
-            descriptor.source_terminal_verifier_configuration_hash,
-        )
+        if terminal_verifier is None:
+            # Typed helper compatibility only.  The exact public factory ABI
+            # always resolves a pre-existing terminal verifier from chain state.
+            terminal_verifier = TerminalSignalVerifier(
+                support_registry.router,
+                support_registry,
+                descriptor.source_terminal_verifier,
+                descriptor.source_terminal_verifier_runtime_hash,
+                descriptor.source_terminal_verifier_configuration_hash,
+            )
+        elif (terminal_verifier.address
+                    != descriptor.source_terminal_verifier
+                or terminal_verifier.runtime_hash
+                    != descriptor.source_terminal_verifier_runtime_hash
+                or terminal_verifier.configuration_hash
+                    != descriptor.source_terminal_verifier_configuration_hash):
+            raise ValueError("predeployed terminal verifier differs")
         expected = (
             descriptor.bundle_deployer,
             descriptor.bundle_deployer_runtime_hash,
@@ -34042,7 +41963,13 @@ class ImmutableV2BridgeFactory:
                 or not 0 < protocol_version <= UINT64_MAX
                 or _model_fixed_bytes32(self.configuration_hash)
                     != _model_fixed_bytes32(
-                        SOURCE_V2_CREATE2_FACTORY_CONFIGURATION_HASH)
+                        source_bridge.source_descriptor
+                            .deployment_factory_configuration_hash)
+                or self.address
+                    != source_bridge.source_descriptor.deployment_factory
+                or self.runtime_hash
+                    != source_bridge.source_descriptor
+                        .deployment_factory_runtime_hash
                 or not self.immutable_nonproxy
                 or not self.selfdestruct_disabled):
             raise ValueError("Bridge adapter factory authority is invalid")
@@ -34064,8 +41991,7 @@ class ImmutableV2BridgeFactory:
         runtime_word = _model_fixed_bytes32(expected_runtime_hash)
         config_word = _model_fixed_bytes32(config)
         if (config_word != _model_fixed_bytes32(expected_configuration_hash)
-                or runtime_word
-                    != _model_fixed_bytes32(BRIDGE_INGRESS_RUNTIME_HASH)):
+                or runtime_word != BRIDGE_ADAPTER_RUNTIME_CODE_HASH_V1):
             raise ValueError("Bridge adapter constructor tuple drifted")
         salt = bridge_adapter_create2_salt_v1(
             protocol_version, source_descriptor_id)
@@ -34184,8 +42110,6 @@ class ImmutableV2BridgeFactory:
             and receipt.quota_manager_configuration_hash
                 == quota_manager.configuration_hash
             and type(terminal_verifier) is TerminalSignalVerifier
-            and terminal_verifier.router is registry.domain_registry.router
-            and terminal_verifier.support_registry is registry.domain_registry
             and terminal_verifier.address
                 == descriptor.source_terminal_verifier
             and terminal_verifier.runtime_hash
@@ -34220,6 +42144,247 @@ class ImmutableV2BridgeFactory:
             "wrong-quota", "wrong-quota-code", "wrong-quota-config",
             "wrong-verifier", "wrong-verifier-code", "wrong-verifier-config",
         )
+
+
+def resolve_source_bundle_deployment_for_test_v1(
+    factory: ImmutableV2BridgeFactory, returndata: bytes,
+    descriptor: SourceBridgeDescriptor, support: BridgeDomainRegistry, *,
+    deployment_world: LiveDeploymentWorldV2 | None = None,
+    caller: str = "source-bundle-postcheck",
+) -> tuple[
+    "SourceBridgeV2", BridgeCreditRegistryV2, FrozenNativeQuotaManagerV2,
+    TerminalSignalVerifier,
+]:
+    """Resolve SBD1 addresses as EVM accounts, then authenticate each one."""
+
+    result = decode_source_bundle_factory_deployment_return_v1(returndata)
+    expected_addresses = (
+        descriptor.bundle_deployer, descriptor.source_bridge,
+        descriptor.bridge_credit_registry, descriptor.native_quota_manager,
+        descriptor.source_terminal_verifier,
+    )
+    if ((result.bundle_deployer, result.source_bridge,
+         result.credit_registry, result.quota_manager,
+         result.terminal_verifier) != expected_addresses
+            or result.init_code_hash
+                != _model_fixed_bytes32(descriptor.deployment_initcode_hash)
+            or result.source_descriptor_id
+                != _model_fixed_bytes32(descriptor.descriptor_id)):
+        raise ValueError("SBD1 deterministic result differs from descriptor")
+    registry_config = bridge_credit_registry_configuration_hash(
+        address=descriptor.bridge_credit_registry,
+        runtime_hash=BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH,
+        domain_registrar=descriptor.source_domain_registrar,
+        frozen_bridge=descriptor.source_bridge,
+        support_registry_address=descriptor.support_registry_address,
+        support_registry_runtime_hash=descriptor.support_registry_runtime_hash,
+        support_registry_configuration_hash=(
+            descriptor.support_registry_configuration_hash
+        ),
+        source_chain_id=descriptor.source_chain_id,
+        source_domain_id=descriptor.source_domain_id,
+        source_registration_epoch=descriptor.source_registration_epoch,
+        frozen_bridge_execution_hash=descriptor.bridge_execution_hash,
+        source_descriptor_id=descriptor.descriptor_id,
+    )
+    quota_config = native_quota_manager_configuration_hash(
+        address=descriptor.native_quota_manager,
+        bridge=descriptor.source_bridge,
+        quota_period=descriptor.native_quota_period,
+        eth_quota=descriptor.native_eth_quota,
+    )
+    bridge_config = source_bridge_account_configuration_hash(descriptor)
+    terminal_config = source_terminal_verifier_configuration_hash(
+        router_address=support.router.address
+    )
+    if deployment_world is None:
+        deployer, bridge, registry, quota, terminal = tuple(
+            factory.resolve_test_evm_account_v1(address)
+            for address in expected_addresses
+        )
+    else:
+        _validate_live_target_code_and_config_v2(
+            deployment_world, caller=caller,
+            address=_model_address20(factory.address),
+            runtime_hash=_model_fixed_bytes32(factory.runtime_hash),
+            configuration_hash=_model_fixed_bytes32(factory.configuration_hash),
+            label="SourceBundleFactory",
+        )
+        deployer_account = deployment_world.account(
+            _model_address20(descriptor.bundle_deployer), caller,
+            "SourceBundleDeployer:account",
+        )
+        deployment_world.trace.append((
+            caller, "SourceBundleDeployer:extcodehash",
+            _model_address20(descriptor.bundle_deployer),
+        ))
+        if deployer_account.extcodehash(caller) != _model_fixed_bytes32(
+                descriptor.bundle_deployer_runtime_hash):
+            raise ValueError("SBD1 bundle deployer code differs")
+        deployer = deployment_world.behavior_handles.get(
+            _model_address20(descriptor.bundle_deployer)
+        )
+        bridge = deployment_world.authenticated_behavior(
+            _model_address20(descriptor.source_bridge), caller=caller,
+            runtime_hash=_model_fixed_bytes32(
+                descriptor.bridge_facade_runtime_hash
+            ), configuration_hash=_model_fixed_bytes32(bridge_config),
+            label="SourceBridge",
+        )
+        registry = deployment_world.authenticated_behavior(
+            _model_address20(descriptor.bridge_credit_registry), caller=caller,
+            runtime_hash=_model_fixed_bytes32(BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH),
+            configuration_hash=_model_fixed_bytes32(registry_config),
+            label="BridgeCreditRegistry",
+        )
+        quota = deployment_world.authenticated_behavior(
+            _model_address20(descriptor.native_quota_manager), caller=caller,
+            runtime_hash=_model_fixed_bytes32(
+                descriptor.native_quota_manager_runtime_hash
+            ), configuration_hash=_model_fixed_bytes32(quota_config),
+            label="NativeQuotaManager",
+        )
+        terminal = deployment_world.authenticated_behavior(
+            _model_address20(descriptor.source_terminal_verifier), caller=caller,
+            runtime_hash=_model_fixed_bytes32(
+                descriptor.source_terminal_verifier_runtime_hash
+            ), configuration_hash=_model_fixed_bytes32(terminal_config),
+            label="SourceTerminalVerifier",
+        )
+    if (type(deployer) is not SourceBundleDeployerRuntimeAccountV1
+            or deployer.address != descriptor.bundle_deployer
+            or _model_fixed_bytes32(deployer.runtime_hash)
+                != _model_fixed_bytes32(
+                    descriptor.bundle_deployer_runtime_hash
+                )
+            or type(bridge) is not SourceBridgeV2
+            or bridge.address != descriptor.source_bridge
+            or bridge.source_descriptor != descriptor
+            or bridge.deployment_factory is not factory
+            or bridge.credit_registry is not registry
+            or bridge.quota_manager is not quota
+            or bridge.terminal_verifier is not terminal
+            or not exact_component_config_staticcall(
+                bridge,
+                expected_runtime_hash=descriptor.bridge_facade_runtime_hash,
+                expected_configuration_hash=bridge_config,
+            )
+            or type(registry) is not BridgeCreditRegistryV2
+            or registry.address != descriptor.bridge_credit_registry
+            or registry.source_descriptor != descriptor
+            or registry.domain_registry is not support
+            or not exact_component_config_staticcall(
+                registry,
+                expected_runtime_hash=BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH,
+                expected_configuration_hash=registry_config,
+            )
+            or type(quota) is not FrozenNativeQuotaManagerV2
+            or quota.address != descriptor.native_quota_manager
+            or quota.bridge_address != descriptor.source_bridge
+            or quota.quota_period != descriptor.native_quota_period
+            or quota.eth_quota_cap != descriptor.native_eth_quota
+            or not exact_component_config_staticcall(
+                quota,
+                expected_runtime_hash=(
+                    descriptor.native_quota_manager_runtime_hash
+                ),
+                expected_configuration_hash=quota_config,
+            )
+            or type(terminal) is not TerminalSignalVerifier
+            or terminal.address != descriptor.source_terminal_verifier
+            or _model_fixed_bytes32(
+                descriptor.source_terminal_verifier_configuration_hash
+            ) != _model_fixed_bytes32(terminal_config)
+            or not exact_component_config_staticcall(
+                terminal,
+                expected_runtime_hash=(
+                    descriptor.source_terminal_verifier_runtime_hash
+                ),
+                expected_configuration_hash=terminal_config,
+            )
+            or not exact_component_config_staticcall(
+                support,
+                expected_runtime_hash=descriptor.support_registry_runtime_hash,
+                expected_configuration_hash=(
+                    descriptor.support_registry_configuration_hash
+                ),
+            )
+            or not exact_component_config_staticcall(
+                factory,
+                expected_runtime_hash=(
+                    descriptor.deployment_factory_runtime_hash
+                ),
+                expected_configuration_hash=(
+                    descriptor.deployment_factory_configuration_hash
+                ),
+            )):
+        raise ValueError("SBD1 resolved account graph is inexact")
+    return bridge, registry, quota, terminal
+
+
+def resolve_source_adapter_deployment_for_test_v1(
+    factory: ImmutableV2BridgeFactory, returndata: bytes, *,
+    protocol_version: int, source_descriptor_id: str | bytes,
+    router: ActiveSettlementRouter, source_bridge: "SourceBridgeV2",
+    credit_registry: BridgeCreditRegistryV2,
+    expected_runtime_hash: str | bytes,
+    expected_configuration_hash: str | bytes,
+    deployment_world: LiveDeploymentWorldV2 | None = None,
+    caller: str = "source-adapter-postcheck",
+) -> "BridgeAdapter":
+    """Resolve SAD1's address, then exact-read code/config and immutables."""
+
+    result = decode_source_adapter_factory_deployment_return_v1(returndata)
+    expected_salt = bridge_adapter_create2_salt_v1(
+        protocol_version, source_descriptor_id
+    )
+    expected_init_code_hash = bridge_adapter_initcode_hash_v1(
+        configuration_hash=expected_configuration_hash,
+        source_bridge=source_bridge.address,
+        credit_registry=credit_registry.address, router=router.address,
+        queue=router.forced_queue.address,
+        seal_authority=router.version_manager,
+    )
+    expected_address = source_bridge_create2_address(
+        factory.address, expected_salt.hex(), expected_init_code_hash.hex()
+    )
+    if (result.adapter != expected_address
+            or result.salt != expected_salt
+            or result.init_code_hash != expected_init_code_hash
+            or result.runtime_hash
+                != _model_fixed_bytes32(expected_runtime_hash)
+            or result.configuration_hash
+                != _model_fixed_bytes32(expected_configuration_hash)):
+        raise ValueError("SAD1 deterministic result is inexact")
+    if deployment_world is None:
+        adapter = factory.resolve_test_evm_account_v1(result.adapter)
+    else:
+        _validate_live_target_code_and_config_v2(
+            deployment_world, caller=caller,
+            address=_model_address20(factory.address),
+            runtime_hash=_model_fixed_bytes32(factory.runtime_hash),
+            configuration_hash=_model_fixed_bytes32(factory.configuration_hash),
+            label="SourceBundleFactory",
+        )
+        adapter = deployment_world.authenticated_behavior(
+            _model_address20(result.adapter), caller=caller,
+            runtime_hash=_model_fixed_bytes32(expected_runtime_hash),
+            configuration_hash=_model_fixed_bytes32(
+                expected_configuration_hash
+            ), label="BridgeAdapter",
+        )
+    if (type(adapter) is not BridgeAdapter
+            or adapter.address != expected_address
+            or adapter.router is not router
+            or adapter.source_bridge is not source_bridge
+            or adapter.credit_registry is not credit_registry
+            or adapter.queue_address != router.forced_queue.address
+            or not exact_component_config_staticcall(
+                adapter, expected_runtime_hash=expected_runtime_hash,
+                expected_configuration_hash=expected_configuration_hash,
+            )):
+        raise ValueError("SAD1 resolved adapter account is inexact")
+    return adapter
 
 
 @dataclass
@@ -34334,10 +42499,6 @@ class SourceBridgeV2:
                 or self.source_descriptor.bridge_credit_registry
                     != self.credit_registry.address
                 or type(self.terminal_verifier) is not TerminalSignalVerifier
-                or self.terminal_verifier.router
-                    is not self.credit_registry.domain_registry.router
-                or self.terminal_verifier.support_registry
-                    is not self.credit_registry.domain_registry
                 or self.terminal_verifier.address
                     != self.source_descriptor.source_terminal_verifier
                 or self.terminal_verifier.runtime_hash
@@ -35255,7 +43416,7 @@ class BridgeAdapter:
     source_bridge: SourceBridgeV2
     address: str = "bridge-inbox-adapter"
     queue_address: str = ""
-    runtime_hash: str = BRIDGE_INGRESS_RUNTIME_HASH
+    runtime_hash: str = BRIDGE_ADAPTER_RUNTIME_HASH_V1
     records: dict[str, BridgeRecord] = field(default_factory=dict)
     refunds: dict[str, int] = field(default_factory=dict)
     balance: int = 0
@@ -35995,6 +44156,30 @@ class InboxCreditStoreV2:
             calldata[4:].hex(), caller=caller
         )
 
+    def staticcall_pin_state_v2(
+        self, calldata: bytes, *, caller: str, value: int, gas: int,
+    ) -> bytes:
+        """Return the one Bridge's fixed-width historical pin state."""
+
+        _ = caller
+        if (type(calldata) is not bytes
+                or len(calldata) != 36
+                or calldata[:4] != RECLAMATION_PIN_STATE_SELECTOR
+                or calldata[4:16] != bytes(12)
+                or value != 0
+                or gas != RECLAMATION_PIN_STATE_GAS):
+            raise ValueError("PNS2 staticcall envelope is noncanonical")
+        bridge = calldata[16:]
+        if bridge != _model_address20(self.destination_bridge):
+            raise ValueError("PNS2 Bridge is absent")
+        return encode_reclamation_pin_state_v2(ReclamationPinStateV2(
+            bridge,
+            _model_fixed_bytes32(self.destination_domain_id),
+            _model_address20(self.authorized_inbox_apply),
+            _model_address20(self.terminal_registrar),
+            self.pinned_count,
+        ))
+
     def liquidity_quote_v2(self, credit_id: str) -> bytes | None:
         pin = self.pins.get(credit_id)
         if pin is None or not pin.result_hash:
@@ -36059,6 +44244,8 @@ class InboxRoute:
     release_manifest_hash: bytes = bytes(32)
     execution_profile_hash: str = ""
     destination_chain_id: int = 0
+    store_component_config_hash: str = ""
+    store_address: str = ""
 
 
 def inbox_kind1_result(index: int, descriptor: BridgeQueueDescriptorV11) -> str:
@@ -36938,9 +45125,15 @@ class InboxValidityExecutionAuthority:
             "route_domain_by_bridge": dict(
                 registrar.inbox_router.route_domain_by_bridge
             ),
+            "route_domain_by_bridge_word": dict(
+                registrar.inbox_router.route_domain_by_bridge_word
+            ),
             "domains": dict(registrar.accumulator.domains),
             "domain_by_bridge": dict(
                 registrar.accumulator.domain_by_bridge
+            ),
+            "domain_by_bridge_word": dict(
+                registrar.accumulator.domain_by_bridge_word
             ),
             "terminalized_pinned_count": dict(
                 registrar.accumulator.terminalized_pinned_count
@@ -37006,9 +45199,15 @@ class InboxValidityExecutionAuthority:
         registrar.inbox_router.route_domain_by_bridge = snapshot[
             "route_domain_by_bridge"
         ]
+        registrar.inbox_router.route_domain_by_bridge_word = snapshot[
+            "route_domain_by_bridge_word"
+        ]
         registrar.accumulator.domains = snapshot["domains"]
         registrar.accumulator.domain_by_bridge = snapshot[
             "domain_by_bridge"
+        ]
+        registrar.accumulator.domain_by_bridge_word = snapshot[
+            "domain_by_bridge_word"
         ]
         registrar.accumulator.terminalized_pinned_count = snapshot[
             "terminalized_pinned_count"
@@ -38252,6 +46451,8 @@ def l2_execution_state_commitment_for_test(protocol: Protocol) -> str:
             route.destination_bridge,
             route.store_codehash,
             route.store_config_hash,
+            route.store_component_config_hash,
+            route.store_address,
             route.store.address,
             route.store.runtime_codehash,
             route.store.route_config_hash,
@@ -38276,6 +46477,7 @@ def l2_execution_state_commitment_for_test(protocol: Protocol) -> str:
         routes,
         tuple(sorted(inbox.route_domain_by_store.items())),
         tuple(sorted(inbox.route_domain_by_bridge.items())),
+        tuple(sorted(inbox.route_domain_by_bridge_word.items())),
         tuple(sorted(registrar.authority.releases.items())),
         tuple(sorted(
             registrar.authority.release_retirement_queue_counts.items()
@@ -38294,6 +46496,9 @@ def l2_execution_state_commitment_for_test(protocol: Protocol) -> str:
         registrar.liquidity_pool._snapshot(),
         tuple(sorted(registrar.accumulator.domains.items())),
         tuple(sorted(registrar.accumulator.domain_by_bridge.items())),
+        tuple(sorted(
+            registrar.accumulator.domain_by_bridge_word.items()
+        )),
         tuple(sorted(
             registrar.accumulator.terminalized_pinned_count.items()
         )),
@@ -38985,6 +47190,9 @@ class InboxApplyRouterV2:
     routes: dict[str, InboxRoute] = field(default_factory=dict)
     route_domain_by_store: dict[str, str] = field(default_factory=dict)
     route_domain_by_bridge: dict[str, str] = field(default_factory=dict)
+    route_domain_by_bridge_word: dict[bytes, str] = field(
+        default_factory=dict
+    )
     _terminal_registrar_authority: object | None = field(
         default=None, init=False, compare=False, repr=False
     )
@@ -38996,6 +47204,15 @@ class InboxApplyRouterV2:
                 or self.configuration_hash not in {"", expected}):
             raise ValueError("InboxApply lifetime deployment is invalid")
         object.__setattr__(self, "configuration_hash", expected)
+        derived = {
+            _model_address20(bridge): domain_id
+            for bridge, domain_id in self.route_domain_by_bridge.items()
+        }
+        if (len(derived) != len(self.route_domain_by_bridge)
+                or (self.route_domain_by_bridge_word
+                    and self.route_domain_by_bridge_word != derived)):
+            raise ValueError("InboxApply raw Bridge index is invalid")
+        self.route_domain_by_bridge_word = derived
 
     def __setattr__(self, name: str, value: object) -> None:
         if name in {
@@ -39052,6 +47269,8 @@ class InboxApplyRouterV2:
             manifest.commitment,
             manifest.execution_profile_hash,
             manifest.destination_chain_id,
+            store.component_config_hash,
+            store.address,
         )
         existing = self.routes.get(domain_id)
         if existing is not None:
@@ -39060,16 +47279,56 @@ class InboxApplyRouterV2:
                 and self.route_domain_by_store.get(store.address) == domain_id
                 and self.route_domain_by_bridge.get(destination_bridge)
                     == domain_id
+                and self.route_domain_by_bridge_word.get(
+                    _model_address20(destination_bridge)
+                ) == domain_id
             )
+        bridge_word = _model_address20(destination_bridge)
         if (store.address in self.route_domain_by_store
-                or destination_bridge in self.route_domain_by_bridge):
+                or destination_bridge in self.route_domain_by_bridge
+                or bridge_word in self.route_domain_by_bridge_word):
             return False
         if not store._bind_inbox_apply(self):
             return False
         self.routes[domain_id] = route
         self.route_domain_by_store[store.address] = domain_id
         self.route_domain_by_bridge[destination_bridge] = domain_id
+        self.route_domain_by_bridge_word[bridge_word] = domain_id
         return True
+
+    def staticcall_route_state_v2(
+        self, calldata: bytes, *, caller: str, value: int, gas: int,
+    ) -> bytes:
+        """Return one exact address-indexed route; never scan old routes."""
+
+        _ = caller
+        if (type(calldata) is not bytes
+                or len(calldata) != 36
+                or calldata[:4] != RECLAMATION_ROUTE_STATE_SELECTOR
+                or calldata[4:16] != bytes(12)
+                or value != 0
+                or gas != RECLAMATION_ROUTE_STATE_GAS):
+            raise ValueError("RTS2 staticcall envelope is noncanonical")
+        bridge = calldata[16:]
+        domain_id = self.route_domain_by_bridge_word.get(bridge)
+        route = self.routes.get(domain_id) if domain_id is not None else None
+        if (route is None
+                or bridge != _model_address20(route.destination_bridge)
+                or not route.store_component_config_hash
+                or not route.store_address):
+            raise ValueError("RTS2 Bridge route is absent")
+        return encode_reclamation_route_state_v2(ReclamationRouteStateV2(
+            bridge,
+            _model_fixed_bytes32(domain_id),
+            _model_address20(route.store_address),
+            _model_fixed_bytes32(route.store_codehash),
+            _model_fixed_bytes32(route.store_component_config_hash),
+            route.protocol_version,
+            _model_fixed_bytes32(route.release_manifest_hash),
+            _model_fixed_bytes32(route.execution_profile_hash),
+            route.destination_chain_id,
+            self.next_queue_index,
+        ))
 
     def apply(
         self,
@@ -39217,6 +47476,7 @@ class TerminalAccumulatorV2:
 
     domains: dict[str, str]
     domain_by_bridge: dict[str, str] = field(default_factory=dict)
+    domain_by_bridge_word: dict[bytes, str] = field(default_factory=dict)
     registrar: str = "terminal-domain-registrar"
     address: str = "terminal-accumulator"
     runtime_hash: str = "code:accumulator"
@@ -39272,12 +47532,20 @@ class TerminalAccumulatorV2:
             self.terminalized_pinned_count.setdefault(domain_id, 0)
         if self.domains:
             derived = {bridge: domain for domain, bridge in self.domains.items()}
+            derived_words = {
+                _model_address20(bridge): domain
+                for bridge, domain in derived.items()
+            }
             if (len(derived) != len(self.domains)
                     or (self.domain_by_bridge
-                        and self.domain_by_bridge != derived)):
+                        and self.domain_by_bridge != derived)
+                    or len(derived_words) != len(derived)
+                    or (self.domain_by_bridge_word
+                        and self.domain_by_bridge_word != derived_words)):
                 raise ValueError("terminal accumulator bridge index is invalid")
             self.domain_by_bridge = derived
-        elif self.domain_by_bridge:
+            self.domain_by_bridge_word = derived_words
+        elif self.domain_by_bridge or self.domain_by_bridge_word:
             raise ValueError("terminal accumulator bridge index is orphaned")
 
     def __setattr__(self, name: str, value: object) -> None:
@@ -39318,6 +47586,7 @@ class TerminalAccumulatorV2:
                 self.terminalized_pinned_count
             ),
             "domain_by_bridge": dict(self.domain_by_bridge),
+            "domain_by_bridge_word": dict(self.domain_by_bridge_word),
         }
 
     def _restore_transaction_snapshot(
@@ -39345,6 +47614,10 @@ class TerminalAccumulatorV2:
         )
         self.domain_by_bridge.clear()
         self.domain_by_bridge.update(snapshot["domain_by_bridge"])
+        self.domain_by_bridge_word.clear()
+        self.domain_by_bridge_word.update(
+            snapshot["domain_by_bridge_word"]
+        )
 
     def _bind_terminal_registrar(
         self, registrar: "TerminalDomainRegistrarV2"
@@ -39381,13 +47654,47 @@ class TerminalAccumulatorV2:
         if existing is not None:
             return (existing == bridge
                     and self.domain_by_bridge.get(bridge) == domain_id
+                    and self.domain_by_bridge_word.get(
+                        _model_address20(bridge)
+                    ) == domain_id
                     and domain_id in self.terminalized_pinned_count)
-        if not domain_id or not bridge or bridge in self.domain_by_bridge:
+        bridge_word = _model_address20(bridge)
+        if (not domain_id or not bridge or bridge in self.domain_by_bridge
+                or bridge_word in self.domain_by_bridge_word):
             return False
         self.domains[domain_id] = bridge
         self.domain_by_bridge[bridge] = domain_id
+        self.domain_by_bridge_word[bridge_word] = domain_id
         self.terminalized_pinned_count[domain_id] = 0
         return True
+
+    def staticcall_domain_state_v2(
+        self, calldata: bytes, *, caller: str, value: int, gas: int,
+    ) -> bytes:
+        """Return one exact address-indexed terminal-domain counter."""
+
+        _ = caller
+        if (type(calldata) is not bytes
+                or len(calldata) != 36
+                or calldata[:4] != RECLAMATION_DOMAIN_STATE_SELECTOR
+                or calldata[4:16] != bytes(12)
+                or value != 0
+                or gas != RECLAMATION_DOMAIN_STATE_GAS):
+            raise ValueError("DMS2 staticcall envelope is noncanonical")
+        bridge = calldata[16:]
+        domain_id = self.domain_by_bridge_word.get(bridge)
+        if (domain_id is None
+                or self.domains.get(domain_id) is None
+                or _model_address20(self.domains[domain_id]) != bridge):
+            raise ValueError("DMS2 Bridge domain is absent")
+        count = self.terminalized_pinned_count.get(domain_id)
+        if type(count) is not int:
+            raise ValueError("DMS2 terminalized counter is absent")
+        return encode_reclamation_domain_state_v2(
+            ReclamationDomainStateV2(
+                bridge, _model_fixed_bytes32(domain_id), count,
+            )
+        )
 
     def _bind_destination_bridge_once(
         self, domain_id: str, bridge: object
@@ -39483,6 +47790,7 @@ class DestinationBridgeDescriptorV2:
     inbox_credit_store: str
     terminal_accumulator: str
     terminal_domain_registrar: str
+    bridge_surplus_sink: str
     destination_chain_id: int = 167_000
     native_quota_manager: str = DESTINATION_NATIVE_QUOTA_MANAGER
     native_liquidity_pool_policy: str = NATIVE_LIQUIDITY_POOL_POLICY
@@ -39509,6 +47817,9 @@ class DestinationBridgeDescriptorV2:
     deployment_descriptor: ImmutableBridgeDeploymentDescriptorV2 | None = None
 
     def __post_init__(self) -> None:
+        if (not self.bridge_surplus_sink
+                or _model_address20(self.bridge_surplus_sink) == bytes(20)):
+            raise ValueError("destination Bridge surplus sink is invalid")
         if self.deployment_descriptor is None:
             bridge_config = destination_bridge_component_config_hash(
                 self,
@@ -39562,8 +47873,27 @@ class DestinationBridgeDescriptorV2:
             _model_address20(self.terminal_domain_registrar),
             _model_address20(self.native_quota_manager),
             _model_address20(self.native_liquidity_pool),
+            _model_address20(self.bridge_surplus_sink),
+            force_send_create2_address_v1(
+                self.bridge, self.bridge_surplus_sink
+            ),
+            force_send_initcode_hash_v1(self.bridge_surplus_sink),
+            FORCE_SEND_COMPILER_BUILD_HASH,
+            FORCE_SEND_EVM_RULES_HASH,
+            _model_uint(
+                FORCE_SEND_CREATE2_FIXED_GAS, 8,
+                "ForceSend CREATE2 fixed gas",
+            ),
+            _model_uint(
+                FORCE_SEND_CREATE2_WORST_CASE_GAS, 8,
+                "ForceSend CREATE2 worst-case gas",
+            ),
+            _model_uint(
+                FORCE_SEND_POSTCHECK_GAS_RESERVE, 8,
+                "ForceSend postcheck gas reserve",
+            ),
         ))
-        if len(encoded) != 248:
+        if len(encoded) != 408:
             raise AssertionError(
                 "DestinationBridgeDescriptorV2 width drifted"
             )
@@ -39597,8 +47927,27 @@ def destination_bridge_component_config_hash(
         _model_address20(descriptor.terminal_domain_registrar),
         _model_address20(descriptor.native_quota_manager),
         _model_address20(descriptor.native_liquidity_pool),
+        _model_address20(descriptor.bridge_surplus_sink),
+        force_send_create2_address_v1(
+            descriptor.bridge, descriptor.bridge_surplus_sink
+        ),
+        force_send_initcode_hash_v1(descriptor.bridge_surplus_sink),
+        FORCE_SEND_COMPILER_BUILD_HASH,
+        FORCE_SEND_EVM_RULES_HASH,
+        _model_uint(
+            FORCE_SEND_CREATE2_FIXED_GAS, 8,
+            "ForceSend CREATE2 fixed gas",
+        ),
+        _model_uint(
+            FORCE_SEND_CREATE2_WORST_CASE_GAS, 8,
+            "ForceSend CREATE2 worst-case gas",
+        ),
+        _model_uint(
+            FORCE_SEND_POSTCHECK_GAS_RESERVE, 8,
+            "ForceSend postcheck gas reserve",
+        ),
     ))
-    if len(config) != 164:
+    if len(config) != 324:
         raise AssertionError("destination Bridge component config drifted")
     return keccak256(b"".join((
         D_COMPONENT_CONFIG,
@@ -39659,7 +48008,7 @@ class ReleaseManifestV2:
 
     @property
     def canonical_abi(self) -> bytes:
-        """Exact static 58-word ReleaseManifestV2 ABI tuple."""
+        """Exact static 59-word ReleaseManifestV2 ABI tuple."""
 
         descriptor = self.destination_bridge_descriptor
         words = (
@@ -39685,6 +48034,7 @@ class ReleaseManifestV2:
             bytes(12) + _model_address20(descriptor.terminal_domain_registrar),
             bytes(12) + _model_address20(descriptor.native_quota_manager),
             bytes(12) + _model_address20(descriptor.native_liquidity_pool),
+            bytes(12) + _model_address20(descriptor.bridge_surplus_sink),
             _model_fixed_bytes32(self.destination_infrastructure_hash),
             _model_fixed_bytes32(
                 self.migration_transition_verifier.commitment
@@ -39755,10 +48105,15 @@ class ReleaseManifestV2:
         addresses = tuple(row.address for row in self.components)
         descriptor = self.destination_bridge_descriptor
         deployment = descriptor.deployment_descriptor
+        force_send_address = force_send_create2_address_v1(
+            descriptor.bridge, descriptor.bridge_surplus_sink
+        )
         independent_accounts = addresses + (
             descriptor.native_quota_manager,
             descriptor.pauser,
             descriptor.signal_service,
+            descriptor.bridge_surplus_sink,
+            force_send_address,
         )
         try:
             expected_infrastructure_hash = destination_infrastructure_hash(
@@ -39770,6 +48125,13 @@ class ReleaseManifestV2:
             expected_domain_id = (
                 self.canonical_destination_descriptor.destination_domain_id
             )
+            profile_sink = _execution_profile_abi_words_v2(
+                self.execution_profile.canonical_profile_bytes
+            )[70][12:]
+            privileged_destination_accounts = {
+                _model_address20(account)
+                for account in V2_PRIVILEGED_DESTINATION_ADDRESSES
+            }
         except ValueError:
             return False
         return (self.protocol_version > 0
@@ -39799,7 +48161,8 @@ class ReleaseManifestV2:
                 and all(row.address and row.runtime_hash and row.config_hash
                         for row in self.components)
                 and len(set(addresses)) == 10
-                and len(set(independent_accounts))
+                and len({_model_address20(account)
+                         for account in independent_accounts})
                     == len(independent_accounts)
                 and self.destination_infrastructure_hash
                     == expected_infrastructure_hash
@@ -39838,6 +48201,12 @@ class ReleaseManifestV2:
                     == NATIVE_LIQUIDITY_POOL_POLICY
                 and descriptor.native_liquidity_pool
                     == NATIVE_LIQUIDITY_POOL
+                and _model_address20(descriptor.bridge_surplus_sink)
+                    == profile_sink
+                and force_send_address != bytes(20)
+                and _model_address20(descriptor.bridge_surplus_sink)
+                    not in privileged_destination_accounts
+                and force_send_address not in privileged_destination_accounts
                 and descriptor.native_liquidity_pool_runtime_hash
                     == NATIVE_LIQUIDITY_POOL_RUNTIME_HASH
                 and descriptor
@@ -39852,6 +48221,8 @@ class ReleaseManifestV2:
                         descriptor.pauser,
                         descriptor.native_quota_manager,
                         descriptor.native_liquidity_pool,
+                        descriptor.bridge_surplus_sink,
+                        "0x" + force_send_address.hex(),
                         *V2_PRIVILEGED_DESTINATION_ADDRESSES,
                     }, key=_model_address20))
                 and bool(descriptor.invocation_policy_hash)
@@ -40048,6 +48419,7 @@ class BridgeDeploymentStateV2:
     signal_service: str
     quota_manager_state: ObservedNativeQuotaManagerStateV2
     v2_endpoints: tuple[str, ...]
+    bridge_surplus_sink: str
     balance: int
     next_message_id: int
     status_entries: tuple[tuple[str, str], ...]
@@ -40076,6 +48448,7 @@ class BridgeDeploymentStateV2:
             self.account_configuration_hash, self.storage_layout_hash,
             self.pauser, self.signal_service,
             self.quota_manager_state.static_identity, *self.v2_endpoints,
+            self.bridge_surplus_sink,
             manifest.components[9].config_hash,
         )
 
@@ -40107,6 +48480,7 @@ class BridgeDeploymentStateV2:
             self.account_configuration_hash, self.storage_layout_hash,
             self.pauser, self.signal_service,
             self.quota_manager_state.static_identity, self.v2_endpoints,
+            self.bridge_surplus_sink,
         )
 
     def authenticates(
@@ -40133,6 +48507,7 @@ class BridgeDeploymentStateV2:
             and self.pauser == deployment.pauser
             and self.signal_service == deployment.signal_service
             and self.v2_endpoints == deployment.v2_endpoints
+            and self.bridge_surplus_sink == descriptor.bridge_surplus_sink
             and type(self.quota_manager_state)
                 is ObservedNativeQuotaManagerStateV2
             and self.quota_manager_state.exact_for(deployment)
@@ -40345,6 +48720,7 @@ def fresh_bridge_deployment_projection(
         deployment.signal_service,
         quota,
         deployment.v2_endpoints,
+        descriptor.bridge_surplus_sink,
         observed_balance,
         0,
         (),
@@ -40612,10 +48988,173 @@ class ReclaimResult(Enum):
 
 DESTINATION_ACTIVATION_RECEIPT_SELECTOR = bytes.fromhex("18421618")
 DESTINATION_SUCCESSOR_RECEIPT_SELECTOR = bytes.fromhex("928d58de")
+REGISTRATION_COMMITMENT_SELECTOR = keccak256(
+    b"registrationCommitmentV2(uint64)"
+)[:4]
+RECLAMATION_ROUTE_STATE_SELECTOR = bytes.fromhex("610ee813")
+RECLAMATION_PIN_STATE_SELECTOR = bytes.fromhex("92aea0d5")
+RECLAMATION_DOMAIN_STATE_SELECTOR = bytes.fromhex("a16ec5a1")
 DESTINATION_ACTIVATION_RECEIPT_GAS = 150_000
 DESTINATION_SUCCESSOR_RECEIPT_GAS = 75_000
+REGISTRATION_COMMITMENT_GAS = 75_000
+RECLAMATION_ROUTE_STATE_GAS = 100_000
+RECLAMATION_PIN_STATE_GAS = 75_000
+RECLAMATION_DOMAIN_STATE_GAS = 75_000
+RECLAMATION_EXTCODEHASH_COUNT = 6
+RECLAMATION_STATICCALL_COUNT = 13
 DESTINATION_ACTIVATION_RECEIPT_LENGTH = 448
 DESTINATION_SUCCESSOR_RECEIPT_LENGTH = 96
+RECLAMATION_ROUTE_STATE_LENGTH = 352
+RECLAMATION_PIN_STATE_LENGTH = 192
+RECLAMATION_DOMAIN_STATE_LENGTH = 128
+
+
+@dataclass(frozen=True)
+class ReclamationRouteStateV2:
+    destination_bridge: bytes
+    destination_domain_id: bytes
+    inbox_credit_store: bytes
+    store_runtime_hash: bytes
+    store_configuration_hash: bytes
+    protocol_version: int
+    release_manifest_hash: bytes
+    execution_profile_hash: bytes
+    destination_chain_id: int
+    next_queue_index: int
+
+
+def encode_reclamation_route_state_v2(row: ReclamationRouteStateV2) -> bytes:
+    raw = b"".join((
+        b"RTS2" + bytes(28),
+        bytes(12) + row.destination_bridge,
+        row.destination_domain_id,
+        bytes(12) + row.inbox_credit_store,
+        row.store_runtime_hash,
+        row.store_configuration_hash,
+        _model_uint(row.protocol_version, 32, "RTS2 protocol version"),
+        row.release_manifest_hash,
+        row.execution_profile_hash,
+        _model_uint(row.destination_chain_id, 32, "RTS2 destination chain"),
+        _model_uint(row.next_queue_index, 32, "RTS2 Queue cursor"),
+    ))
+    if len(raw) != RECLAMATION_ROUTE_STATE_LENGTH:
+        raise AssertionError("RTS2 return length changed")
+    return raw
+
+
+def decode_reclamation_route_state_v2(
+    raw: bytes,
+) -> ReclamationRouteStateV2:
+    if type(raw) is not bytes or len(raw) != RECLAMATION_ROUTE_STATE_LENGTH:
+        raise ValueError("RTS2 return length is invalid")
+    words = tuple(raw[offset:offset + 32] for offset in range(0, len(raw), 32))
+    if (words[0] != b"RTS2" + bytes(28)
+            or words[1][:12] != bytes(12)
+            or words[3][:12] != bytes(12)):
+        raise ValueError("RTS2 magic/address padding is invalid")
+    row = ReclamationRouteStateV2(
+        words[1][12:], words[2], words[3][12:], words[4], words[5],
+        _decode_uint_word_v1(words[6], 64, "RTS2 protocol version"),
+        words[7], words[8],
+        _decode_uint_word_v1(words[9], 256, "RTS2 destination chain"),
+        _decode_uint_word_v1(words[10], 64, "RTS2 Queue cursor"),
+    )
+    if (row.destination_bridge == bytes(20)
+            or row.destination_domain_id == bytes(32)
+            or row.inbox_credit_store == bytes(20)
+            or row.store_runtime_hash == bytes(32)
+            or row.store_configuration_hash == bytes(32)
+            or row.protocol_version == 0
+            or row.release_manifest_hash == bytes(32)
+            or row.execution_profile_hash == bytes(32)
+            or row.destination_chain_id == 0
+            or encode_reclamation_route_state_v2(row) != raw):
+        raise ValueError("RTS2 row is noncanonical or incomplete")
+    return row
+
+
+@dataclass(frozen=True)
+class ReclamationPinStateV2:
+    destination_bridge: bytes
+    destination_domain_id: bytes
+    authorized_inbox_apply: bytes
+    terminal_domain_registrar: bytes
+    pinned_count: int
+
+
+def encode_reclamation_pin_state_v2(row: ReclamationPinStateV2) -> bytes:
+    raw = b"".join((
+        b"PNS2" + bytes(28),
+        bytes(12) + row.destination_bridge,
+        row.destination_domain_id,
+        bytes(12) + row.authorized_inbox_apply,
+        bytes(12) + row.terminal_domain_registrar,
+        _model_uint(row.pinned_count, 32, "PNS2 pinned count"),
+    ))
+    if len(raw) != RECLAMATION_PIN_STATE_LENGTH:
+        raise AssertionError("PNS2 return length changed")
+    return raw
+
+
+def decode_reclamation_pin_state_v2(raw: bytes) -> ReclamationPinStateV2:
+    if type(raw) is not bytes or len(raw) != RECLAMATION_PIN_STATE_LENGTH:
+        raise ValueError("PNS2 return length is invalid")
+    words = tuple(raw[offset:offset + 32] for offset in range(0, len(raw), 32))
+    if (words[0] != b"PNS2" + bytes(28)
+            or any(words[index][:12] != bytes(12) for index in (1, 3, 4))):
+        raise ValueError("PNS2 magic/address padding is invalid")
+    row = ReclamationPinStateV2(
+        words[1][12:], words[2], words[3][12:], words[4][12:],
+        _decode_uint_word_v1(words[5], 64, "PNS2 pinned count"),
+    )
+    if (row.destination_bridge == bytes(20)
+            or row.destination_domain_id == bytes(32)
+            or row.authorized_inbox_apply == bytes(20)
+            or row.terminal_domain_registrar == bytes(20)
+            or encode_reclamation_pin_state_v2(row) != raw):
+        raise ValueError("PNS2 row is noncanonical or incomplete")
+    return row
+
+
+@dataclass(frozen=True)
+class ReclamationDomainStateV2:
+    destination_bridge: bytes
+    destination_domain_id: bytes
+    terminalized_pinned_count: int
+
+
+def encode_reclamation_domain_state_v2(row: ReclamationDomainStateV2) -> bytes:
+    raw = b"".join((
+        b"DMS2" + bytes(28),
+        bytes(12) + row.destination_bridge,
+        row.destination_domain_id,
+        _model_uint(
+            row.terminalized_pinned_count, 32,
+            "DMS2 terminalized pinned count",
+        ),
+    ))
+    if len(raw) != RECLAMATION_DOMAIN_STATE_LENGTH:
+        raise AssertionError("DMS2 return length changed")
+    return raw
+
+
+def decode_reclamation_domain_state_v2(
+    raw: bytes,
+) -> ReclamationDomainStateV2:
+    if type(raw) is not bytes or len(raw) != RECLAMATION_DOMAIN_STATE_LENGTH:
+        raise ValueError("DMS2 return length is invalid")
+    words = tuple(raw[offset:offset + 32] for offset in range(0, len(raw), 32))
+    if words[0] != b"DMS2" + bytes(28) or words[1][:12] != bytes(12):
+        raise ValueError("DMS2 magic/address padding is invalid")
+    row = ReclamationDomainStateV2(
+        words[1][12:], words[2],
+        _decode_uint_word_v1(words[3], 64, "DMS2 terminalized count"),
+    )
+    if (row.destination_bridge == bytes(20)
+            or row.destination_domain_id == bytes(32)
+            or encode_reclamation_domain_state_v2(row) != raw):
+        raise ValueError("DMS2 row is noncanonical or incomplete")
+    return row
 
 
 @dataclass(frozen=True)
@@ -41582,6 +50121,26 @@ class TerminalDomainRegistrarV2:
             calldata[4:36], calldata[48:68]
         )
 
+    def staticcall_registration_commitment_v2(
+        self, calldata: bytes, *, caller: str, value: int, gas: int,
+    ) -> bytes:
+        _ = caller
+        if (type(calldata) is not bytes
+                or len(calldata) != 36
+                or calldata[:4] != REGISTRATION_COMMITMENT_SELECTOR
+                or value != 0
+                or gas != REGISTRATION_COMMITMENT_GAS):
+            raise ValueError(
+                "registrationCommitmentV2 staticcall is noncanonical"
+            )
+        protocol_version = _decode_uint_word_v1(
+            calldata[4:], 64, "registration commitment protocol version"
+        )
+        commitment = self.registrations.get(protocol_version)
+        if type(commitment) is not bytes or len(commitment) != 32:
+            raise ValueError("registration commitment is absent")
+        return commitment
+
     def _activate_domain_from_release(self, manifest: ReleaseManifestV2,
                         store: InboxCreditStoreV2, *,
                         observed_l2_components:
@@ -41753,8 +50312,14 @@ class TerminalDomainRegistrarV2:
         prior_route_domain_by_bridge = dict(
             self.inbox_router.route_domain_by_bridge
         )
+        prior_route_domain_by_bridge_word = dict(
+            self.inbox_router.route_domain_by_bridge_word
+        )
         prior_domains = dict(self.accumulator.domains)
         prior_domain_by_bridge = dict(self.accumulator.domain_by_bridge)
+        prior_domain_by_bridge_word = dict(
+            self.accumulator.domain_by_bridge_word
+        )
         prior_terminalized_pinned_count = dict(
             self.accumulator.terminalized_pinned_count
         )
@@ -41787,8 +50352,14 @@ class TerminalDomainRegistrarV2:
             self.inbox_router.route_domain_by_bridge = (
                 prior_route_domain_by_bridge
             )
+            self.inbox_router.route_domain_by_bridge_word = (
+                prior_route_domain_by_bridge_word
+            )
             self.accumulator.domains = prior_domains
             self.accumulator.domain_by_bridge = prior_domain_by_bridge
+            self.accumulator.domain_by_bridge_word = (
+                prior_domain_by_bridge_word
+            )
             self.accumulator.terminalized_pinned_count = (
                 prior_terminalized_pinned_count
             )
@@ -41862,6 +50433,7 @@ def deploy_manifest_release_execution_graph_v2(
     expected_inbox = manifest.components[3]
     if (inbox.routes or inbox.route_domain_by_store
             or inbox.route_domain_by_bridge
+            or inbox.route_domain_by_bridge_word
             or existing.authority.releases
             or existing.authority.release_retirement_queue_counts
             or existing.registrations or existing.bridge_identities
@@ -41878,6 +50450,7 @@ def deploy_manifest_release_execution_graph_v2(
             or existing.accumulator.count != 0
             or existing.accumulator.domains
             or existing.accumulator.domain_by_bridge
+            or existing.accumulator.domain_by_bridge_word
             or existing.liquidity_pool.active
             or existing.liquidity_pool.tickets
             or existing.liquidity_pool.total_available != 0
@@ -42037,8 +50610,14 @@ def activate_release_transaction(
     route_domain_by_bridge = dict(
         registrar.inbox_router.route_domain_by_bridge
     )
+    route_domain_by_bridge_word = dict(
+        registrar.inbox_router.route_domain_by_bridge_word
+    )
     domains = dict(registrar.accumulator.domains)
     domain_by_bridge = dict(registrar.accumulator.domain_by_bridge)
+    domain_by_bridge_word = dict(
+        registrar.accumulator.domain_by_bridge_word
+    )
     terminalized_pinned_count = dict(
         registrar.accumulator.terminalized_pinned_count
     )
@@ -42139,8 +50718,12 @@ def activate_release_transaction(
         registrar.inbox_router.route_domain_by_bridge = (
             route_domain_by_bridge
         )
+        registrar.inbox_router.route_domain_by_bridge_word = (
+            route_domain_by_bridge_word
+        )
         registrar.accumulator.domains = domains
         registrar.accumulator.domain_by_bridge = domain_by_bridge
+        registrar.accumulator.domain_by_bridge_word = domain_by_bridge_word
         registrar.accumulator.terminalized_pinned_count = (
             terminalized_pinned_count
         )
@@ -42573,6 +51156,627 @@ def install_destination_pin_for_test(
     return True
 
 
+@dataclass(frozen=True)
+class HistoricalStaticcallRecordV2:
+    caller: bytes
+    calldata: bytes
+    value: int
+    gas: int
+    returndata: bytes
+
+    def __post_init__(self) -> None:
+        if (type(self.caller) is not bytes or len(self.caller) != 20
+                or type(self.calldata) is not bytes
+                or type(self.value) is not int or self.value < 0
+                or type(self.gas) is not int or self.gas <= 0
+                or type(self.returndata) is not bytes):
+            raise ValueError("historical staticcall record is malformed")
+
+
+@dataclass(frozen=True)
+class ReclamationComponentV2:
+    """Primitive manifest-pinned account row retained by an old Bridge."""
+
+    address: bytes
+    runtime_hash: bytes
+    configuration_hash: bytes
+
+    def __post_init__(self) -> None:
+        if (type(self.address) is not bytes or len(self.address) != 20
+                or self.address == bytes(20)
+                or type(self.runtime_hash) is not bytes
+                or len(self.runtime_hash) != 32
+                or self.runtime_hash == bytes(32)
+                or type(self.configuration_hash) is not bytes
+                or len(self.configuration_hash) != 32
+                or self.configuration_hash == bytes(32)):
+            raise ValueError("reclamation component is malformed")
+
+
+@dataclass(frozen=True)
+class ReclamationConfigV2:
+    """Complete primitive trust root needed after historical restart."""
+
+    protocol_version: int
+    destination_chain_id: int
+    release_manifest_hash: bytes
+    registration_commitment: bytes
+    execution_profile_hash: bytes
+    destination_domain_id: bytes
+    destination_bridge: bytes
+    bridge_surplus_sink: bytes
+    components: tuple[ReclamationComponentV2, ...]
+    force_send_helper: bytes
+    force_send_create2_salt: bytes
+    force_send_initcode_hash: bytes
+    force_send_compiler_build_hash: bytes
+    force_send_evm_rules_hash: bytes
+    force_send_create2_fixed_gas: int
+    force_send_creation_gas: int
+    force_send_postcheck_reserve: int
+    force_send_precreate_gas: int
+
+    def __post_init__(self) -> None:
+        addresses = tuple(row.address for row in self.components)
+        privileged_destination_accounts = {
+            _model_address20(account)
+            for account in V2_PRIVILEGED_DESTINATION_ADDRESSES
+        }
+        disjoint = addresses + (
+            self.destination_bridge,
+            self.bridge_surplus_sink,
+            self.force_send_helper,
+        )
+        if (type(self.protocol_version) is not int
+                or not 0 < self.protocol_version <= UINT64_MAX
+                or type(self.destination_chain_id) is not int
+                or not 0 < self.destination_chain_id <= UINT64_MAX
+                or any(type(value) is not bytes or len(value) != 32
+                       or value == bytes(32) for value in (
+                           self.release_manifest_hash,
+                           self.registration_commitment,
+                           self.execution_profile_hash,
+                           self.destination_domain_id,
+                           self.force_send_create2_salt,
+                           self.force_send_initcode_hash,
+                           self.force_send_compiler_build_hash,
+                           self.force_send_evm_rules_hash,
+                       ))
+                or any(type(value) is not bytes or len(value) != 20
+                       or value == bytes(20) for value in (
+                           self.destination_bridge,
+                           self.bridge_surplus_sink,
+                           self.force_send_helper,
+                       ))
+                or type(self.components) is not tuple
+                or len(self.components) != 6
+                or any(type(row) is not ReclamationComponentV2
+                       for row in self.components)
+                or len(set(disjoint)) != len(disjoint)
+                or self.bridge_surplus_sink
+                    in privileged_destination_accounts
+                or self.force_send_helper in privileged_destination_accounts
+                or self.force_send_create2_salt
+                    != force_send_create2_salt_v1(self.destination_bridge)
+                or self.force_send_initcode_hash
+                    != force_send_initcode_hash_v1(self.bridge_surplus_sink)
+                or self.force_send_helper != force_send_create2_address_v1(
+                    self.destination_bridge, self.bridge_surplus_sink
+                )
+                or self.force_send_compiler_build_hash
+                    != FORCE_SEND_COMPILER_BUILD_HASH
+                or self.force_send_evm_rules_hash != FORCE_SEND_EVM_RULES_HASH
+                or self.force_send_create2_fixed_gas
+                    != FORCE_SEND_CREATE2_FIXED_GAS
+                or self.force_send_creation_gas
+                    != FORCE_SEND_CREATE2_WORST_CASE_GAS
+                or self.force_send_postcheck_reserve
+                    != FORCE_SEND_POSTCHECK_GAS_RESERVE
+                or self.force_send_precreate_gas
+                    != FORCE_SEND_PRECREATE_GAS
+                or any(type(value) is not int
+                       or not 0 < value <= UINT64_MAX for value in (
+                           self.force_send_create2_fixed_gas,
+                           self.force_send_creation_gas,
+                           self.force_send_postcheck_reserve,
+                           self.force_send_precreate_gas,
+                       ))):
+            raise ValueError("reclamation config is malformed")
+
+    @classmethod
+    def from_manifest(cls, manifest: ReleaseManifestV2) -> "ReclamationConfigV2":
+        if (type(manifest) is not ReleaseManifestV2
+                or not manifest.structurally_valid()):
+            raise ValueError("reclamation manifest is invalid")
+        descriptor = manifest.destination_bridge_descriptor
+        bridge = _model_address20(manifest.destination_bridge)
+        sink = _model_address20(descriptor.bridge_surplus_sink)
+        components = tuple(ReclamationComponentV2(
+            _model_address20(manifest.components[index].address),
+            _model_fixed_bytes32(manifest.components[index].runtime_hash),
+            _model_fixed_bytes32(manifest.components[index].config_hash),
+        ) for index in (3, 4, 5, 6, 7, 8))
+        return cls(
+            manifest.protocol_version,
+            manifest.destination_chain_id,
+            manifest.commitment,
+            manifest.registration_commitment,
+            _model_fixed_bytes32(manifest.execution_profile_hash),
+            _model_fixed_bytes32(manifest.destination_domain_id),
+            bridge,
+            sink,
+            components,
+            force_send_create2_address_v1(bridge, sink),
+            force_send_create2_salt_v1(bridge),
+            force_send_initcode_hash_v1(sink),
+            FORCE_SEND_COMPILER_BUILD_HASH,
+            FORCE_SEND_EVM_RULES_HASH,
+            FORCE_SEND_CREATE2_FIXED_GAS,
+            FORCE_SEND_CREATE2_WORST_CASE_GAS,
+            FORCE_SEND_POSTCHECK_GAS_RESERVE,
+            FORCE_SEND_PRECREATE_GAS,
+        )
+
+
+@dataclass(frozen=True)
+class HistoricalNativeBalanceSnapshotV2:
+    balances: tuple[tuple[bytes, int], ...]
+    occupied_create2_accounts: tuple[bytes, ...] = ()
+
+    def __post_init__(self) -> None:
+        addresses = tuple(address for address, _balance in self.balances)
+        if (type(self.balances) is not tuple
+                or len(set(addresses)) != len(addresses)
+                or any(type(address) is not bytes or len(address) != 20
+                       or address == bytes(20) or type(balance) is not int
+                       or not 0 <= balance <= SEAT_UINT256_MAX
+                       for address, balance in self.balances)
+                or type(self.occupied_create2_accounts) is not tuple
+                or len(set(self.occupied_create2_accounts))
+                    != len(self.occupied_create2_accounts)
+                or any(type(address) is not bytes or len(address) != 20
+                       or address == bytes(20)
+                       for address in self.occupied_create2_accounts)):
+            raise ValueError("historical native-balance snapshot is malformed")
+
+
+@dataclass
+class HistoricalNativeBalanceWorldV2:
+    """Primitive EVM-balance and CREATE2 collision model for ForceSend."""
+
+    balances: dict[bytes, int] = field(default_factory=dict)
+    occupied_create2_accounts: set[bytes] = field(default_factory=set)
+    fault_point: str | None = field(default=None, compare=False, repr=False)
+
+    def __post_init__(self) -> None:
+        HistoricalNativeBalanceSnapshotV2(
+            tuple(sorted(self.balances.items())),
+            tuple(sorted(self.occupied_create2_accounts)),
+        )
+
+    def balance_of(self, address: bytes) -> int:
+        if type(address) is not bytes or len(address) != 20:
+            raise ValueError("native balance address is noncanonical")
+        return self.balances.get(address, 0)
+
+    def snapshot(self) -> HistoricalNativeBalanceSnapshotV2:
+        return HistoricalNativeBalanceSnapshotV2(
+            tuple(sorted(self.balances.items())),
+            tuple(sorted(self.occupied_create2_accounts)),
+        )
+
+    @classmethod
+    def rehydrate(
+        cls, snapshot: HistoricalNativeBalanceSnapshotV2,
+    ) -> "HistoricalNativeBalanceWorldV2":
+        if type(snapshot) is not HistoricalNativeBalanceSnapshotV2:
+            raise ValueError("native balance snapshot type is invalid")
+        return cls(dict(snapshot.balances), set(snapshot.occupied_create2_accounts))
+
+    def restore(self, snapshot: HistoricalNativeBalanceSnapshotV2) -> None:
+        restored = self.rehydrate(snapshot)
+        self.balances = restored.balances
+        self.occupied_create2_accounts = restored.occupied_create2_accounts
+
+    def force_send_create2(
+        self, config: ReclamationConfigV2, *, value: int, gasleft: int,
+    ) -> bytes:
+        """Model CREATE2 value transfer and same-transaction SELFDESTRUCT."""
+
+        if (type(config) is not ReclamationConfigV2
+                or type(value) is not int or value < 0
+                or type(gasleft) is not int or gasleft < 0
+                or gasleft < config.force_send_precreate_gas
+                or config.force_send_helper in self.occupied_create2_accounts
+                or self.balance_of(config.destination_bridge) != value
+                or self.fault_point in {"precreate", "create2_zero"}):
+            return bytes(20)
+        before = self.snapshot()
+        try:
+            helper_prebalance = self.balance_of(config.force_send_helper)
+            self.balances[config.destination_bridge] = 0
+            self.balances[config.force_send_helper] = 0
+            if self.fault_point == "after_debit":
+                raise RuntimeError("injected ForceSend debit fault")
+            transfer_value = seat_checked_add(
+                value, helper_prebalance, "ForceSend constructor balance",
+            )
+            self.balances[config.bridge_surplus_sink] = seat_checked_add(
+                self.balance_of(config.bridge_surplus_sink), transfer_value,
+                "ForceSend sink balance",
+            )
+            if self.fault_point == "after_selfdestruct":
+                raise RuntimeError("injected ForceSend constructor fault")
+            # The initcode self-destructs in its creation transaction, so no
+            # helper code/account survives into the post-state.
+            return (
+                bytes.fromhex("11" * 20)
+                if self.fault_point == "wrong_create2_address"
+                else config.force_send_helper
+            )
+        except (OverflowError, RuntimeError, ValueError):
+            self.restore(before)
+            return bytes(20)
+
+
+@dataclass(frozen=True)
+class ReclamationBridgeSnapshotV2:
+    """Primitive retained storage of one inactive historical Bridge."""
+
+    config: ReclamationConfigV2
+    balance: int
+    total_pull_liability: int
+    v2_active: bool
+    retired: bool
+
+    def __post_init__(self) -> None:
+        if (type(self.config) is not ReclamationConfigV2
+                or type(self.balance) is not int
+                or not 0 <= self.balance <= SEAT_UINT256_MAX
+                or type(self.total_pull_liability) is not int
+                or not 0 <= self.total_pull_liability <= self.balance
+                or type(self.v2_active) is not bool
+                or type(self.retired) is not bool):
+            raise ValueError("reclamation Bridge snapshot is malformed")
+
+
+@dataclass(frozen=True)
+class HistoricalReclamationAccountSnapshotV2:
+    address: bytes
+    runtime_hash: bytes
+    configuration_hash: bytes
+    records: tuple[HistoricalStaticcallRecordV2, ...]
+
+    def __post_init__(self) -> None:
+        if (type(self.address) is not bytes or len(self.address) != 20
+                or self.address == bytes(20)
+                or type(self.runtime_hash) is not bytes
+                or len(self.runtime_hash) != 32
+                or self.runtime_hash == bytes(32)
+                or type(self.configuration_hash) is not bytes
+                or len(self.configuration_hash) != 32
+                or self.configuration_hash == bytes(32)
+                or type(self.records) is not tuple
+                or any(type(row) is not HistoricalStaticcallRecordV2
+                       for row in self.records)):
+            raise ValueError("historical reclamation account is malformed")
+
+
+@dataclass(frozen=True)
+class HistoricalReclamationSnapshotV2:
+    accounts: tuple[HistoricalReclamationAccountSnapshotV2, ...]
+
+    def __post_init__(self) -> None:
+        addresses = tuple(row.address for row in self.accounts)
+        if (type(self.accounts) is not tuple or len(self.accounts) != 6
+                or len(set(addresses)) != len(addresses)):
+            raise ValueError("historical reclamation snapshot is malformed")
+
+
+@dataclass
+class HistoricalReclamationAccountV2:
+    address: bytes
+    runtime_hash: bytes
+    configuration_hash: bytes
+    target: object | None = field(default=None, compare=False, repr=False)
+    records: dict[tuple[bytes, bytes, int, int], bytes] = field(
+        default_factory=dict, compare=False, repr=False
+    )
+
+    def __post_init__(self) -> None:
+        if (type(self.address) is not bytes or len(self.address) != 20
+                or self.address == bytes(20)
+                or type(self.runtime_hash) is not bytes
+                or len(self.runtime_hash) != 32
+                or self.runtime_hash == bytes(32)
+                or type(self.configuration_hash) is not bytes
+                or len(self.configuration_hash) != 32
+                or self.configuration_hash == bytes(32)):
+            raise ValueError("historical reclamation account is malformed")
+        target_address = getattr(self.target, "address", None)
+        if (self.target is not None
+                and (not target_address
+                     or _model_address20(target_address) != self.address)):
+            raise ValueError("live historical account is bound at an alias")
+
+
+@dataclass
+class HistoricalReclamationWorldV2:
+    """Address-keyed EXTCODEHASH and exact STATICCALL model for reclamation."""
+
+    accounts: dict[bytes, HistoricalReclamationAccountV2] = field(
+        default_factory=dict
+    )
+    returndata_overrides: dict[
+        tuple[bytes, bytes, bytes, int, int], bytes
+    ] = field(default_factory=dict, compare=False, repr=False)
+    staticcall_faults: set[tuple[bytes, bytes]] = field(
+        default_factory=set, compare=False, repr=False
+    )
+    extcodehash_overrides: dict[bytes, bytes] = field(
+        default_factory=dict, compare=False, repr=False
+    )
+
+    def __post_init__(self) -> None:
+        for address, account in self.accounts.items():
+            if (type(account) is not HistoricalReclamationAccountV2
+                    or address != account.address):
+                raise ValueError("historical world address index is malformed")
+
+    @classmethod
+    def live_for_release(
+        cls,
+        manifest: ReleaseManifestV2,
+        *,
+        registrar: TerminalDomainRegistrarV2,
+        store: InboxCreditStoreV2,
+    ) -> "HistoricalReclamationWorldV2":
+        if (type(manifest) is not ReleaseManifestV2
+                or not manifest.structurally_valid()):
+            raise ValueError("historical world manifest is invalid")
+        targets = (
+            registrar.inbox_router,
+            store,
+            registrar.authority,
+            registrar,
+            registrar.accumulator,
+            registrar.liquidity_pool,
+        )
+        rows = tuple(manifest.components[index] for index in (3, 4, 5, 6, 7, 8))
+        accounts: dict[bytes, HistoricalReclamationAccountV2] = {}
+        for row, target in zip(rows, targets):
+            address = _model_address20(row.address)
+            runtime_hash = _model_fixed_bytes32(row.runtime_hash)
+            configuration_hash = _model_fixed_bytes32(row.config_hash)
+            target_runtime = (
+                target.runtime_codehash
+                if type(target) is InboxCreditStoreV2
+                else target.runtime_hash
+            )
+            target_configuration = (
+                target.component_config_hash
+                if type(target) is InboxCreditStoreV2
+                else target.configuration_hash
+            )
+            if (address in accounts
+                    or _model_address20(target.address) != address
+                    or _model_fixed_bytes32(target_runtime) != runtime_hash
+                    or _model_fixed_bytes32(target_configuration)
+                        != configuration_hash):
+                raise ValueError("historical world target is not manifest-pinned")
+            accounts[address] = HistoricalReclamationAccountV2(
+                address, runtime_hash, configuration_hash, target=target,
+            )
+        return cls(accounts)
+
+    @classmethod
+    def rehydrate(
+        cls, snapshot: HistoricalReclamationSnapshotV2,
+    ) -> "HistoricalReclamationWorldV2":
+        if type(snapshot) is not HistoricalReclamationSnapshotV2:
+            raise ValueError("historical snapshot type is invalid")
+        accounts: dict[bytes, HistoricalReclamationAccountV2] = {}
+        for row in snapshot.accounts:
+            records = {
+                (record.caller, record.calldata, record.value, record.gas):
+                    record.returndata
+                for record in row.records
+            }
+            if len(records) != len(row.records):
+                raise ValueError("historical snapshot has duplicate calls")
+            accounts[row.address] = HistoricalReclamationAccountV2(
+                row.address, row.runtime_hash, row.configuration_hash,
+                records=records,
+            )
+        return cls(accounts)
+
+    def extcodehash(self, address: bytes) -> bytes:
+        if type(address) is not bytes or len(address) != 20:
+            raise ValueError("EXTCODEHASH address is noncanonical")
+        account = self.accounts.get(address)
+        if account is None:
+            return bytes(32)
+        return self.extcodehash_overrides.get(address, account.runtime_hash)
+
+    def staticcall(
+        self,
+        address: bytes,
+        calldata: bytes,
+        *,
+        caller: bytes,
+        value: int,
+        gas: int,
+    ) -> bytes:
+        if (type(address) is not bytes or len(address) != 20
+                or type(caller) is not bytes or len(caller) != 20
+                or type(calldata) is not bytes
+                or type(value) is not int or value < 0
+                or type(gas) is not int or gas <= 0):
+            raise ValueError("historical STATICCALL envelope is malformed")
+        account = self.accounts.get(address)
+        if account is None:
+            raise ValueError("historical STATICCALL target is absent")
+        if (address, calldata[:4]) in self.staticcall_faults:
+            raise RuntimeError("injected historical STATICCALL fault")
+        override_key = (address, caller, calldata, value, gas)
+        if override_key in self.returndata_overrides:
+            return self.returndata_overrides[override_key]
+        if account.target is None:
+            key = (caller, calldata, value, gas)
+            if key not in account.records:
+                raise ValueError("historical frozen call is absent")
+            return account.records[key]
+        caller_name = "0x" + caller.hex()
+        target = account.target
+        if (calldata == COMPONENT_CONFIG_GETTER_SELECTOR
+                and value == 0 and gas == COMPONENT_CONFIG_GETTER_GAS):
+            return account.configuration_hash
+        if (type(target) is TerminalDomainRegistrarV2
+                and calldata[:4] == DESTINATION_SUCCESSOR_RECEIPT_SELECTOR):
+            return target.staticcall_destination_successor_receipt_v2(
+                calldata, caller=caller_name, value=value, gas=gas,
+            )
+        if (type(target) is TerminalDomainRegistrarV2
+                and calldata[:4] == DESTINATION_ACTIVATION_RECEIPT_SELECTOR):
+            return target.staticcall_destination_activation_receipt_v2(
+                calldata, caller=caller_name, value=value, gas=gas,
+            )
+        if (type(target) is TerminalDomainRegistrarV2
+                and calldata[:4] == REGISTRATION_COMMITMENT_SELECTOR):
+            return target.staticcall_registration_commitment_v2(
+                calldata, caller=caller_name, value=value, gas=gas,
+            )
+        if (type(target) is ProtocolReleaseAuthorityV2
+                and calldata[:4] == RELEASE_ACTIVATION_V2_SELECTOR):
+            return target.staticcall_release_activation_v2(
+                calldata, caller=caller_name, value=value, gas=gas,
+            )
+        if (type(target) is InboxApplyRouterV2
+                and calldata[:4] == RECLAMATION_ROUTE_STATE_SELECTOR):
+            return target.staticcall_route_state_v2(
+                calldata, caller=caller_name, value=value, gas=gas,
+            )
+        if (type(target) is InboxCreditStoreV2
+                and calldata[:4] == RECLAMATION_PIN_STATE_SELECTOR):
+            return target.staticcall_pin_state_v2(
+                calldata, caller=caller_name, value=value, gas=gas,
+            )
+        if (type(target) is TerminalAccumulatorV2
+                and calldata[:4] == RECLAMATION_DOMAIN_STATE_SELECTOR):
+            return target.staticcall_domain_state_v2(
+                calldata, caller=caller_name, value=value, gas=gas,
+            )
+        raise ValueError("historical STATICCALL selector is unsupported")
+
+    def component_is_pinned(
+        self, row: ReleaseComponentV2 | ReclamationComponentV2, *, caller: bytes,
+    ) -> bool:
+        if type(row) not in {ReleaseComponentV2, ReclamationComponentV2}:
+            return False
+        # Frozen reclamation rows already carry the exact packed address.
+        # Re-hashing that bytes20 through the abstract-fixture mapper would
+        # dispatch the post-restart STATICCALL to a different account.
+        address = (
+            _model_address20(row.address)
+            if type(row) is ReleaseComponentV2 else row.address
+        )
+        configuration_hash = (
+            row.config_hash if type(row) is ReleaseComponentV2
+            else row.configuration_hash
+        )
+        try:
+            return (
+                self.extcodehash(address)
+                    == _model_fixed_bytes32(row.runtime_hash)
+                and self.staticcall(
+                    address, COMPONENT_CONFIG_GETTER_SELECTOR,
+                    caller=caller, value=0, gas=COMPONENT_CONFIG_GETTER_GAS,
+                ) == _model_fixed_bytes32(configuration_hash)
+            )
+        except (ValueError, RuntimeError, TypeError):
+            return False
+
+    def freeze_for_release(
+        self, manifest: ReleaseManifestV2,
+    ) -> HistoricalReclamationSnapshotV2:
+        """Serialize only the fixed calls one old Bridge can ever make."""
+
+        if (type(manifest) is not ReleaseManifestV2
+                or not manifest.structurally_valid()):
+            raise ValueError("historical freeze manifest is invalid")
+        caller = _model_address20(manifest.destination_bridge)
+        bridge_arg = bytes(12) + caller
+        rows = tuple(manifest.components[index] for index in (3, 4, 5, 6, 7, 8))
+        registrar = _model_address20(manifest.components[6].address)
+        authority = _model_address20(manifest.components[5].address)
+        dsv_call = (
+            DESTINATION_SUCCESSOR_RECEIPT_SELECTOR
+            + _model_fixed_bytes32(manifest.destination_domain_id)
+            + bridge_arg
+        )
+        dsv_raw = self.staticcall(
+            registrar, dsv_call, caller=caller, value=0,
+            gas=DESTINATION_SUCCESSOR_RECEIPT_GAS,
+        )
+        if type(dsv_raw) is not bytes or len(dsv_raw) != 96:
+            raise ValueError("historical freeze DSV2 is malformed")
+        calls_by_address: dict[bytes, list[tuple[bytes, int, int]]] = {
+            _model_address20(row.address): [(
+                COMPONENT_CONFIG_GETTER_SELECTOR, 0,
+                COMPONENT_CONFIG_GETTER_GAS,
+            )] for row in rows
+        }
+        calls_by_address[registrar].extend((
+            (dsv_call, 0, DESTINATION_SUCCESSOR_RECEIPT_GAS),
+            (
+                DESTINATION_ACTIVATION_RECEIPT_SELECTOR + dsv_raw[:32],
+                0, DESTINATION_ACTIVATION_RECEIPT_GAS,
+            ),
+            (
+                REGISTRATION_COMMITMENT_SELECTOR
+                + _model_uint(
+                    manifest.protocol_version, 32,
+                    "registration commitment version",
+                ),
+                0, REGISTRATION_COMMITMENT_GAS,
+            ),
+        ))
+        calls_by_address[authority].append((
+            RELEASE_ACTIVATION_V2_SELECTOR
+            + _model_uint(manifest.protocol_version, 32, "RAV2 version"),
+            0, RELEASE_ACTIVATION_V2_GAS,
+        ))
+        calls_by_address[_model_address20(manifest.components[3].address)].append((
+            RECLAMATION_ROUTE_STATE_SELECTOR + bridge_arg,
+            0, RECLAMATION_ROUTE_STATE_GAS,
+        ))
+        calls_by_address[_model_address20(manifest.components[4].address)].append((
+            RECLAMATION_PIN_STATE_SELECTOR + bridge_arg,
+            0, RECLAMATION_PIN_STATE_GAS,
+        ))
+        calls_by_address[_model_address20(manifest.components[7].address)].append((
+            RECLAMATION_DOMAIN_STATE_SELECTOR + bridge_arg,
+            0, RECLAMATION_DOMAIN_STATE_GAS,
+        ))
+        snapshots: list[HistoricalReclamationAccountSnapshotV2] = []
+        for row in rows:
+            address = _model_address20(row.address)
+            account = self.accounts.get(address)
+            if account is None:
+                raise ValueError("historical freeze account is absent")
+            records = tuple(HistoricalStaticcallRecordV2(
+                caller, calldata, value, gas,
+                self.staticcall(
+                    address, calldata, caller=caller, value=value, gas=gas,
+                ),
+            ) for calldata, value, gas in calls_by_address[address])
+            snapshots.append(HistoricalReclamationAccountSnapshotV2(
+                address, self.extcodehash(address),
+                account.configuration_hash, records,
+            ))
+        return HistoricalReclamationSnapshotV2(tuple(snapshots))
+
+
 def deposit_destination_liquidity_for_test(
     destination: "DestinationBridgeLedger",
     message_: IBridgeMessageV1,
@@ -42618,10 +51822,32 @@ def destination_bridge_for_test(
     # Isolated Bridge tests still use the production-shaped lifetime graph:
     # exact Registrar -> InboxApply route -> Store and Registrar -> Accumulator.
     if accumulator._terminal_registrar_authority is None:
-        fixture_authority = ProtocolReleaseAuthorityV2()
+        authority_row = manifest.components[5]
+        registrar_row = manifest.components[6]
+        accumulator_row = manifest.components[7]
+        fixture_authority = ProtocolReleaseAuthorityV2(
+            address=authority_row.address,
+            runtime_hash=authority_row.runtime_hash,
+            configuration_hash=authority_row.config_hash,
+        )
         fixture_inbox = InboxApplyRouterV2()
+        object.__setattr__(
+            accumulator, "registrar", registrar_row.address
+        )
+        object.__setattr__(
+            accumulator, "address", accumulator_row.address
+        )
+        object.__setattr__(
+            accumulator, "runtime_hash", accumulator_row.runtime_hash
+        )
+        object.__setattr__(
+            accumulator, "configuration_hash", accumulator_row.config_hash
+        )
         fixture_registrar = TerminalDomainRegistrarV2(
-            fixture_authority, accumulator, fixture_inbox
+            fixture_authority, accumulator, fixture_inbox,
+            address=registrar_row.address,
+            runtime_hash=registrar_row.runtime_hash,
+            configuration_hash=registrar_row.config_hash,
         )
         fixture_authority.releases[manifest.protocol_version] = (
             manifest.commitment
@@ -42638,12 +51864,17 @@ def destination_bridge_for_test(
             manifest.commitment,
             manifest.execution_profile_hash,
             manifest.destination_chain_id,
+            store.component_config_hash,
+            store.address,
         )
         fixture_inbox.route_domain_by_store[store.address] = (
             manifest.destination_domain_id
         )
         fixture_inbox.route_domain_by_bridge[
             manifest.destination_bridge
+        ] = manifest.destination_domain_id
+        fixture_inbox.route_domain_by_bridge_word[
+            _model_address20(manifest.destination_bridge)
         ] = manifest.destination_domain_id
         # Do not consume the Store's one-shot writer binding in this fixture:
         # some integration tests subsequently bind the same deployment to the
@@ -42706,6 +51937,14 @@ def destination_bridge_for_test(
     activation_deployment.activation_surplus = surplus
     registrar = accumulator._terminal_registrar_authority
     assert type(registrar) is TerminalDomainRegistrarV2
+    reclamation_world = HistoricalReclamationWorldV2.live_for_release(
+        manifest, registrar=registrar, store=store,
+    )
+    reclamation_config = ReclamationConfigV2.from_manifest(manifest)
+    native_balance_world = HistoricalNativeBalanceWorldV2({
+        reclamation_config.destination_bridge: balance,
+        reclamation_config.bridge_surplus_sink: 0,
+    })
     registrar.liquidity_pool.active = True
     pending_activation_receipt = DestinationBridgeActivationReceiptV2(
         manifest.commitment,
@@ -42734,12 +51973,15 @@ def destination_bridge_for_test(
         terminal_accumulator=accumulator,
         terminal_registrar=registrar,
         liquidity_pool=registrar.liquidity_pool,
-        bridge_surplus_sink=manifest.execution_profile.bridge_surplus_sink,
+        bridge_surplus_sink=descriptor.bridge_surplus_sink,
         release_manifest=manifest,
         execution_environment=environment,
         quota_manager=quota_manager,
         activation_deployment=activation_deployment,
         activation_receipt=activation_receipt,
+        reclamation_world=reclamation_world,
+        reclamation_config=reclamation_config,
+        native_balance_world=native_balance_world,
         v2_active=True,
         balance=balance,
     )
@@ -43297,6 +52539,15 @@ class DestinationBridgeLedger:
     activation_receipt: DestinationBridgeActivationReceiptV2 | None = field(
         default=None, compare=False, repr=False
     )
+    reclamation_world: HistoricalReclamationWorldV2 | None = field(
+        default=None, compare=False, repr=False
+    )
+    reclamation_config: ReclamationConfigV2 | None = field(
+        default=None, compare=False, repr=False
+    )
+    native_balance_world: HistoricalNativeBalanceWorldV2 | None = field(
+        default=None, compare=False, repr=False
+    )
     execution_environment: L2ExecutionEnvironmentV2 | None = field(
         default=None, compare=False, repr=False
     )
@@ -43306,7 +52557,7 @@ class DestinationBridgeLedger:
     liquidity_pool: NativeLiquidityPoolV2 | None = field(
         default=None, compare=False, repr=False
     )
-    bridge_surplus_sink: NativeEthSinkV2 | None = field(
+    bridge_surplus_sink: str | None = field(
         default=None, compare=False, repr=False
     )
     _pull_credits: dict[str, int] = field(
@@ -43360,6 +52611,13 @@ class DestinationBridgeLedger:
                     is not BridgeDeploymentStateV2
                 or type(self.activation_receipt)
                     is not DestinationBridgeActivationReceiptV2
+                or type(self.reclamation_world)
+                    is not HistoricalReclamationWorldV2
+                or type(self.reclamation_config) is not ReclamationConfigV2
+                or self.reclamation_config
+                    != ReclamationConfigV2.from_manifest(manifest)
+                or type(self.native_balance_world)
+                    is not HistoricalNativeBalanceWorldV2
                 or not self.activation_receipt.valid_for(
                     manifest, self.activation_deployment
                 )
@@ -43402,9 +52660,12 @@ class DestinationBridgeLedger:
                 or self.liquidity_pool.address
                     != descriptor.native_liquidity_pool
                 or self.bridge_surplus_sink
-                    is not manifest.execution_profile.bridge_surplus_sink
-                or type(self.bridge_surplus_sink) is not NativeEthSinkV2
-                or not self.bridge_surplus_sink.structurally_valid()
+                    != descriptor.bridge_surplus_sink
+                or _model_address20(self.bridge_surplus_sink)
+                    != self.reclamation_config.bridge_surplus_sink
+                or self.native_balance_world.balance_of(
+                    self.reclamation_config.destination_bridge
+                ) != self.balance
                 or descriptor.native_liquidity_pool_policy
                     != NATIVE_LIQUIDITY_POOL_POLICY
                 or descriptor.v1_official_vaults
@@ -43434,6 +52695,8 @@ class DestinationBridgeLedger:
         if name in {
             "address", "local_domain_id", "inbox_store",
             "terminal_accumulator", "terminal_registrar", "release_manifest",
+            "reclamation_world", "reclamation_config",
+            "native_balance_world",
             "execution_environment", "quota_manager",
             "liquidity_pool", "bridge_surplus_sink",
             "activation_deployment", "activation_receipt",
@@ -43441,6 +52704,64 @@ class DestinationBridgeLedger:
         } and name in self.__dict__:
             raise AttributeError(f"destination Bridge {name} is immutable")
         object.__setattr__(self, name, value)
+
+    def freeze_reclamation_bridge(self) -> ReclamationBridgeSnapshotV2:
+        """Serialize only primitive storage needed by historical reclaim."""
+
+        if (type(self.reclamation_config) is not ReclamationConfigV2
+                or not self.v2_active or self.entered):
+            raise ValueError("destination Bridge cannot freeze reclamation")
+        return ReclamationBridgeSnapshotV2(
+            self.reclamation_config,
+            self.balance,
+            self.total_pull_liability,
+            self.v2_active,
+            self.retired,
+        )
+
+    @classmethod
+    def rehydrate_reclamation_bridge(
+        cls,
+        snapshot: ReclamationBridgeSnapshotV2,
+        *,
+        reclamation_world: HistoricalReclamationWorldV2,
+        native_balance_world: HistoricalNativeBalanceWorldV2,
+    ) -> "DestinationBridgeLedger":
+        """Create a new target-free Bridge instance from retained primitives."""
+
+        if (type(snapshot) is not ReclamationBridgeSnapshotV2
+                or type(reclamation_world) is not HistoricalReclamationWorldV2
+                or type(native_balance_world)
+                    is not HistoricalNativeBalanceWorldV2
+                or native_balance_world.balance_of(
+                    snapshot.config.destination_bridge
+                ) != snapshot.balance):
+            raise ValueError("historical Bridge rehydration is malformed")
+        bridge = object.__new__(cls)
+        object.__setattr__(
+            bridge, "address", "0x" + snapshot.config.destination_bridge.hex()
+        )
+        object.__setattr__(
+            bridge, "local_domain_id",
+            "0x" + snapshot.config.destination_domain_id.hex(),
+        )
+        object.__setattr__(bridge, "bridge_surplus_sink",
+                           "0x" + snapshot.config.bridge_surplus_sink.hex())
+        object.__setattr__(bridge, "release_manifest", None)
+        object.__setattr__(bridge, "reclamation_config", snapshot.config)
+        object.__setattr__(bridge, "reclamation_world", reclamation_world)
+        object.__setattr__(bridge, "native_balance_world", native_balance_world)
+        object.__setattr__(bridge, "balance", snapshot.balance)
+        object.__setattr__(bridge, "_total_pull_liability",
+                           snapshot.total_pull_liability)
+        object.__setattr__(bridge, "_pull_credits", {})
+        object.__setattr__(bridge, "_status", {})
+        object.__setattr__(bridge, "_terminal_index", {})
+        object.__setattr__(bridge, "_terminal_settlements", {})
+        object.__setattr__(bridge, "v2_active", snapshot.v2_active)
+        object.__setattr__(bridge, "retired", snapshot.retired)
+        object.__setattr__(bridge, "entered", False)
+        return bridge
 
     @property
     def pull_credits(self) -> MappingProxyType:
@@ -43495,20 +52816,44 @@ class DestinationBridgeLedger:
         object.__setattr__(self, "paused", paused)
         return True
 
-    def reclaim_surplus(self, *, caller: str) -> tuple[ReclaimResult, int]:
-        """Permissionlessly send raw retired-Bridge surplus to the typed sink."""
+    def reclaim_surplus(
+        self, *, caller: str,
+        gasleft: int = FORCE_SEND_PRECREATE_GAS,
+    ) -> tuple[ReclaimResult, int]:
+        """Permissionlessly ForceSend raw retired-Bridge surplus."""
 
-        manifest = self.release_manifest
-        registrar = self.terminal_registrar
-        if type(registrar) is not TerminalDomainRegistrarV2:
+        config = self.reclamation_config
+        world = self.reclamation_world
+        native_world = self.native_balance_world
+        if (not caller or type(config) is not ReclamationConfigV2
+                or type(world) is not HistoricalReclamationWorldV2
+                or type(native_world) is not HistoricalNativeBalanceWorldV2
+                or type(gasleft) is not int or gasleft < 0
+                or self.retired or not self.v2_active or self.entered):
             return ReclaimResult.REJECTED, 0
-        old_domain_id = _model_fixed_bytes32(self.local_domain_id)
-        old_bridge = _model_address20(self.address)
+        old_domain_id = config.destination_domain_id
+        old_bridge = config.destination_bridge
+        if (_model_fixed_bytes32(self.local_domain_id) != old_domain_id
+                or _model_address20(self.address) != old_bridge):
+            return ReclaimResult.REJECTED, 0
+        bridge_arg = bytes(12) + old_bridge
+        (router_row, store_row, authority_row, registrar_row,
+         accumulator_row, pool_row) = config.components
+        registrar_address = registrar_row.address
+        authority_address = authority_row.address
         try:
-            successor_raw = registrar.staticcall_destination_successor_receipt_v2(
+            # Authenticate the manifest-pinned receipt roots before trusting
+            # their append-only rows. No state getter can self-authenticate.
+            if (not world.component_is_pinned(
+                    registrar_row, caller=old_bridge)
+                    or not world.component_is_pinned(
+                        authority_row, caller=old_bridge)):
+                raise ValueError("historical receipt root is not pinned")
+            successor_raw = world.staticcall(
+                registrar_address,
                 DESTINATION_SUCCESSOR_RECEIPT_SELECTOR
-                + old_domain_id + bytes(12) + old_bridge,
-                caller=self.address,
+                + old_domain_id + bridge_arg,
+                caller=old_bridge,
                 value=0,
                 gas=DESTINATION_SUCCESSOR_RECEIPT_GAS,
             )
@@ -43523,126 +52868,146 @@ class DestinationBridgeLedger:
                 successor_raw[32:64], 64, "DSV2 successor index"
             )
             receipt = decode_destination_activation_receipt_v2(
-                registrar.staticcall_destination_activation_receipt_v2(
+                world.staticcall(
+                    registrar_address,
                     DESTINATION_ACTIVATION_RECEIPT_SELECTOR
                     + destination_receipt_id,
-                    caller=self.address,
+                    caller=old_bridge,
                     value=0,
                     gas=DESTINATION_ACTIVATION_RECEIPT_GAS,
                 )
             )
+            activation_raw = world.staticcall(
+                authority_address,
+                RELEASE_ACTIVATION_V2_SELECTOR
+                + _model_uint(
+                    config.protocol_version, 32, "RAV2 protocol version"
+                ),
+                caller=old_bridge,
+                value=0,
+                gas=RELEASE_ACTIVATION_V2_GAS,
+            )
+            if (type(activation_raw) is not bytes
+                    or len(activation_raw) != RELEASE_ACTIVATION_V2_RETURN_LENGTH
+                    or activation_raw[:32] != b"RAV2" + bytes(28)):
+                raise ValueError("RAV2 return is malformed")
+            authority_manifest_hash = activation_raw[32:64]
+            authority_watermark = _decode_uint_word_v1(
+                activation_raw[64:96], 64, "RAV2 Queue count"
+            )
+            registration_commitment = world.staticcall(
+                registrar_address,
+                REGISTRATION_COMMITMENT_SELECTOR
+                + _model_uint(
+                    config.protocol_version, 32,
+                    "registration commitment protocol version",
+                ),
+                caller=old_bridge,
+                value=0,
+                gas=REGISTRATION_COMMITMENT_GAS,
+            )
+            if (type(registration_commitment) is not bytes
+                    or len(registration_commitment) != 32):
+                raise ValueError("registration commitment is malformed")
+            if (receipt.receipt_id != destination_receipt_id
+                    or receipt.successor_index != successor_index
+                    or receipt.successor_index == 0
+                    or receipt.old_protocol_version
+                        != config.protocol_version
+                    or receipt.new_protocol_version
+                        <= receipt.old_protocol_version
+                    or receipt.old_manifest_hash
+                        != config.release_manifest_hash
+                    or receipt.new_manifest_hash == bytes(32)
+                    or receipt.new_manifest_hash == receipt.old_manifest_hash
+                    or receipt.old_domain_id != old_domain_id
+                    or receipt.new_domain_id == bytes(32)
+                    or receipt.new_domain_id == old_domain_id
+                    or receipt.old_bridge != old_bridge
+                    or receipt.new_bridge in {bytes(20), old_bridge}
+                    or receipt.activated_at_block <= 0
+                    or receipt.sealed != 1
+                    or authority_manifest_hash
+                        != config.release_manifest_hash
+                    or authority_watermark != receipt.retirement_queue_count
+                    or registration_commitment
+                        != config.registration_commitment):
+                raise ValueError("historical receipt or authority row mismatches")
+
+            # Only after DRV2/RAV2 bind the old manifest do we authenticate
+            # Router/Store/Accumulator/Pool code and config from that manifest.
+            # RTS2 therefore cannot use its returned Store triple to bless an
+            # otherwise unauthenticated Router.
+            if not all(world.component_is_pinned(row, caller=old_bridge) for row in (
+                router_row, store_row, accumulator_row, pool_row,
+            )):
+                raise ValueError("historical state target is not pinned")
+            route = decode_reclamation_route_state_v2(world.staticcall(
+                router_row.address,
+                RECLAMATION_ROUTE_STATE_SELECTOR + bridge_arg,
+                caller=old_bridge, value=0, gas=RECLAMATION_ROUTE_STATE_GAS,
+            ))
+            pin = decode_reclamation_pin_state_v2(world.staticcall(
+                store_row.address,
+                RECLAMATION_PIN_STATE_SELECTOR + bridge_arg,
+                caller=old_bridge, value=0, gas=RECLAMATION_PIN_STATE_GAS,
+            ))
+            domain = decode_reclamation_domain_state_v2(world.staticcall(
+                accumulator_row.address,
+                RECLAMATION_DOMAIN_STATE_SELECTOR + bridge_arg,
+                caller=old_bridge, value=0,
+                gas=RECLAMATION_DOMAIN_STATE_GAS,
+            ))
         except (ValueError, RuntimeError, TypeError):
             return ReclaimResult.REJECTED, 0
-        watermark = registrar.retirement_queue_watermarks.get(self.address)
-        route = (
-            registrar.inbox_router.routes.get(self.local_domain_id)
-            if type(registrar) is TerminalDomainRegistrarV2 else None
-        )
-        lifetime_rows_exact = (
-            type(manifest) is ReleaseManifestV2
-            and len(manifest.components) == 10
-            and all(
-                _model_address20(expected.address)
-                    == _model_address20(actual.address)
-                and _model_fixed_bytes32(expected.runtime_hash)
-                    == _model_fixed_bytes32(actual.runtime_hash)
-                and _model_fixed_bytes32(expected.config_hash)
-                    == _model_fixed_bytes32(actual.config_hash)
-                for expected, actual in zip(
-                    (manifest.components[index]
-                     for index in (3, 5, 6, 7, 8)),
-                    (
-                        ReleaseComponentV2(
-                            registrar.inbox_router.address,
-                            registrar.inbox_router.runtime_hash,
-                            registrar.inbox_router.configuration_hash,
-                        ),
-                        ReleaseComponentV2(
-                            registrar.authority.address,
-                            registrar.authority.runtime_hash,
-                            registrar.authority.configuration_hash,
-                        ),
-                        ReleaseComponentV2(
-                            registrar.address,
-                            registrar.runtime_hash,
-                            registrar.configuration_hash,
-                        ),
-                        ReleaseComponentV2(
-                            registrar.accumulator.address,
-                            registrar.accumulator.runtime_hash,
-                            registrar.accumulator.configuration_hash,
-                        ),
-                        ReleaseComponentV2(
-                            registrar.liquidity_pool.address,
-                            registrar.liquidity_pool.runtime_hash,
-                            registrar.liquidity_pool.configuration_hash,
-                        ),
-                    ),
-                )
-            )
-        ) if type(registrar) is TerminalDomainRegistrarV2 else False
-        if (not caller or type(manifest) is not ReleaseManifestV2
-                or not manifest.structurally_valid() or not lifetime_rows_exact
-                or self.retired or not self.v2_active or self.entered
-                or type(watermark) is not int
-                or receipt.receipt_id != destination_receipt_id
-                or receipt.successor_index != successor_index
-                or receipt.old_protocol_version != manifest.protocol_version
-                or receipt.new_protocol_version
-                    <= receipt.old_protocol_version
-                or receipt.old_manifest_hash != manifest.commitment
-                or receipt.old_domain_id != old_domain_id
-                or receipt.old_bridge != old_bridge
-                or receipt.new_bridge == bytes(20)
-                or receipt.new_bridge == old_bridge
-                or receipt.retirement_queue_count != watermark
-                or receipt.activated_at_block <= 0
-                or receipt.sealed != 1
-                or registrar.inbox_router.next_queue_index < watermark
-                or registrar.authority.releases.get(manifest.protocol_version)
-                    != manifest.commitment
-                or registrar.registrations.get(manifest.protocol_version)
-                    != manifest.registration_commitment
-                or route is None or route.store is not self.inbox_store
-                or route.destination_bridge != self.address
-                or registrar.accumulator is not self.terminal_accumulator
-                or registrar.accumulator.domains.get(self.local_domain_id)
-                    != self.address
-                or self.total_pull_liability != 0
-                or registrar.accumulator.terminalized_pinned_count.get(
-                    self.local_domain_id
-                ) != self.inbox_store.pinned_count):
+        if (route.destination_bridge != old_bridge
+                or route.destination_domain_id != old_domain_id
+                or route.inbox_credit_store
+                    != store_row.address
+                or route.store_runtime_hash
+                    != store_row.runtime_hash
+                or route.store_configuration_hash
+                    != store_row.configuration_hash
+                or route.protocol_version != config.protocol_version
+                or route.release_manifest_hash
+                    != config.release_manifest_hash
+                or route.execution_profile_hash
+                    != config.execution_profile_hash
+                or route.destination_chain_id != config.destination_chain_id
+                or route.next_queue_index < receipt.retirement_queue_count
+                or pin.destination_bridge != old_bridge
+                or pin.destination_domain_id != old_domain_id
+                or pin.authorized_inbox_apply
+                    != router_row.address
+                or pin.terminal_domain_registrar != registrar_address
+                or domain.destination_bridge != old_bridge
+                or domain.destination_domain_id != old_domain_id
+                or domain.terminalized_pinned_count != pin.pinned_count
+                or self.total_pull_liability != 0):
             return ReclaimResult.REJECTED, 0
-        sink = self.bridge_surplus_sink
-        profile = manifest.execution_profile
-        if (type(profile) is not ExecutionProfile
-                or profile.execution_profile_hash
-                    != manifest.execution_profile_hash
-                or sink is not profile.bridge_surplus_sink
-                or type(sink) is not NativeEthSinkV2
-                or sink.asset_id != "NATIVE_ETH"
-                or not sink.address):
+        if (_model_address20(self.bridge_surplus_sink)
+                != config.bridge_surplus_sink):
             return ReclaimResult.REJECTED, 0
         amount = self.balance
-        sink_balance = sink.balance
-        self.entered = True
-        self.balance = 0
-        try:
-            try:
-                accepted = sink._receive_from_bridge(self, amount)
-            except BaseException:
-                accepted = False
-            if (not accepted or self.balance != 0
-                    or sink.balance != sink_balance + amount):
-                self.balance = amount
-                sink.balance = sink_balance
-                return ReclaimResult.REJECTED, 0
+        if native_world.balance_of(old_bridge) != amount:
+            return ReclaimResult.REJECTED, 0
+        if amount == 0:
             object.__setattr__(self, "retired", True)
-            result = (
-                ReclaimResult.RECLAIMED_ZERO if amount == 0
-                else ReclaimResult.RECLAIMED_VALUE
+            return ReclaimResult.RECLAIMED_ZERO, 0
+        native_snapshot = native_world.snapshot()
+        self.entered = True
+        try:
+            created = native_world.force_send_create2(
+                config, value=amount, gasleft=gasleft,
             )
-            return result, amount
+            if (created == bytes(20)
+                    or created != config.force_send_helper
+                    or native_world.balance_of(old_bridge) != 0):
+                native_world.restore(native_snapshot)
+                return ReclaimResult.REJECTED, 0
+            self.balance = 0
+            object.__setattr__(self, "retired", True)
+            return ReclaimResult.RECLAIMED_VALUE, amount
         finally:
             self.entered = False
 
@@ -45424,6 +54789,10 @@ def deploy_active_settlement_router(
         predecessor_version=0,
         release_manifest_hash=None,
     )
+    router._record_release_compatibility_v2(
+        preview.release_manifest.canonical_abi,
+        preview.release_manifest.protocol_version,
+    )
     bridge_rows = tuple(
         row for row in preview.ingress_authorizations
         if row.kind is ForceKind.BRIDGE_CREDIT)
@@ -45437,6 +54806,11 @@ def deploy_active_settlement_router(
             launch_source.deployment_factory,
             launch_source.deployment_factory_runtime_hash,
             launch_source.deployment_factory_configuration_hash,
+            settlement_chain_id=launch_source.settlement_chain_id,
+            manifest_namespace=_execution_profile_abi_words_v2(
+                bound_profile.canonical_profile_bytes
+            )[9],
+            protocol_version_manager=router.version_manager,
         )
     if settlement.live_protocol is None:
         raise ValueError("launch release has no executable Settlement target")
@@ -45507,7 +54881,7 @@ def source_bridge_for_test(
         )
         if type(execution_authority) is not InboxValidityExecutionAuthority:
             raise AssertionError("release has no exact L2 execution authority")
-        if (not registry.stage(
+        if (not registry.stage_bootstrap_primitives_for_test_v1(
                     source.source_domain_id,
                     source.frozen_bridge_execution_hash,
                     manifest,
@@ -46496,6 +55870,11 @@ def test_registry_liability_and_release_units() -> None:
     newcomer = Generation("new", 101, 64, ENTRY_DELAY_WINDOWS)
     check("P35 full-table replacement is delayed and strict", registry.admit(newcomer, 0))
     check("P36 deterministic tie victim moves to liability", registry.liabilities[0].registration_index == 1)
+    check("P36a reverse indexes retain displaced slashable generation",
+          registry.generation_locations[1] == ("LIABILITY", 0)
+          and registry.live_registration_index_plus_one["builder-1"] == 2
+          and registry.generation_locations[64] == ("ACTIVE", 1)
+          and registry.live_registration_index_plus_one["new"] == 65)
     check("P37 displaced generation remains retained", len(registry.active) == 64 and len(registry.liabilities) == 1)
     check("P37a liability generation cannot extend reservations",
           not registry.reserve("builder-1", 1, 0))
@@ -46506,7 +55885,24 @@ def test_registry_liability_and_release_units() -> None:
     check("P37b retained address cannot be reused", not registry.admit(reuse, retained[1]))
     assert registry.release_liability(0, retained[1])
     check("P37c address reuse after safe release gets a new generation",
-          registry.admit(reuse, retained[1]))
+          registry.admit(reuse, retained[1])
+          and registry.total_credit_liability == retained[0].bond
+          and registry.live_registration_index_plus_one["builder-1"] == 66
+          and 1 not in registry.generation_locations)
+    exhausted = RegistryLifecycle([])
+    exhausted.next_registration_index = UINT64_MAX
+    maximum_generation = Generation(
+        "maximum-generation", 1, UINT64_MAX, 0
+    )
+    check("P37d uint64-max generation uses a width-safe exhausted sentinel",
+          exhausted.admit(maximum_generation, 0)
+          and exhausted.next_registration_index == UINT64_MAX + 1
+          and exhausted.live_registration_index_plus_one[
+              maximum_generation.address
+          ] == UINT64_MAX + 1
+          and not exhausted.admit(
+              Generation("post-exhaustion", 2, 0, 0), 0
+          ))
     low = Generation("low", 1, 66, ENTRY_DELAY_WINDOWS)
     check("P38 lower bond cannot displace", not registry.admit(low, 0))
     for j in range(3):
@@ -46957,34 +56353,31 @@ def test_data_gc_reorg_and_geometry() -> None:
         caller=support_anchor,
         tx_origin=support_authority.system_sender,
     )
-    support = BridgeDomainRegistry(
-        support_router,
-        support_manager,
-        release_authority_descriptor_from_manifest(support_manifest),
-        TestRegistrationMptVerifier(
-            canonical_registration_mpt_verifier_descriptor()
-        ),
-    )
+    support = support_router._bridge_domain_registry_authority
+    assert (type(support) is BridgeDomainRegistry
+            and support.manager is support_manager
+            and type(support.registration_mpt_verifier)
+                is TestRegistrationMptVerifier)
     support_domain = support_manifest.destination_domain_id
     support_stage_clock = Clock(400, GENESIS_TIMESTAMP + support_core.tip_slot)
     support_confirm_clock = Clock(
         400 + F_L1, GENESIS_TIMESTAMP + support_core.tip_slot
     )
-    assert not support.stage(
+    assert not support.stage_bootstrap_primitives_for_test_v1(
         support_authorization.source_domain_id,
         support_authorization.frozen_bridge_execution_hash,
         support_manifest,
         manager=object(),
         clock=support_stage_clock,
     )
-    assert not support.stage(
+    assert not support.stage_bootstrap_primitives_for_test_v1(
         "domain:substituted",
         support_authorization.frozen_bridge_execution_hash,
         support_manifest,
         manager=support_manager,
         clock=support_stage_clock,
     )
-    assert support.stage(
+    assert support.stage_bootstrap_primitives_for_test_v1(
         support_authorization.source_domain_id,
         support_authorization.frozen_bridge_execution_hash,
         support_manifest,
@@ -47124,7 +56517,7 @@ def test_data_gc_reorg_and_geometry() -> None:
               support_domain,
               support_final_clock))
     check("P50an source execution and destination substitutions fail closed",
-          not support.stage(
+          not support.stage_bootstrap_primitives_for_test_v1(
               support_authorization.source_domain_id,
               "execution:substituted",
               support_manifest,
@@ -47145,7 +56538,7 @@ def test_data_gc_reorg_and_geometry() -> None:
               support_authorization.frozen_bridge_execution_hash,
               support_domain,
               support_final_clock)
-          and support.stage(
+          and support.stage_bootstrap_primitives_for_test_v1(
               support_authorization.source_domain_id,
               support_authorization.frozen_bridge_execution_hash,
               support_manifest,
@@ -48694,6 +58087,10 @@ def test_data_gc_reorg_and_geometry() -> None:
         predecessor_version=1,
         release_manifest_hash=legacy_manifest_2,
     )
+    active_router._record_release_compatibility_v2(
+        target_2_registration.release_manifest.canonical_abi,
+        target_2_registration.settlement.protocol_version,
+    )
     preparation_manager = active_router._version_manager_authority
     assert type(preparation_manager) is ProtocolVersionManager
     assert active_router._install_profile_deployments(
@@ -49151,6 +58548,10 @@ def test_data_gc_reorg_and_geometry() -> None:
         activation_block=second_activation_clock.block_number,
         predecessor_version=2,
         release_manifest_hash=legacy_manifest_3,
+    )
+    active_router._record_release_compatibility_v2(
+        target_3_registration.release_manifest.canonical_abi,
+        target_3_registration.settlement.protocol_version,
     )
     assert active_router._install_profile_deployments(
         target_3_registration,

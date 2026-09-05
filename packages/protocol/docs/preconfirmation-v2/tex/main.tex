@@ -47,7 +47,7 @@
 \pagestyle{fancy}\fancyhf{}
 \renewcommand{\headrulewidth}{0.4pt}
 \fancyhead[L]{\footnotesize\itshape Slot-Chain v2}
-\fancyhead[R]{\footnotesize Audited Design Candidate}
+\fancyhead[R]{\footnotesize Implementation-Freeze Candidate}
 \fancyfoot[C]{\footnotesize\thepage}
 
 \newenvironment{designnote}
@@ -67,9 +67,9 @@
 \begin{document}
 
 \title{\vspace{-1.2cm}\bfseries Slot-Chain: A Preconfirmation Protocol\\[0.2em]
-\large\mdseries Audited Design Candidate --- v2.25}
+\large\mdseries Implementation-Freeze Candidate --- v2.26}
 \author{}
-\date{August 2026}
+\date{September 2026}
 \maketitle
 \thispagestyle{fancy}
 
@@ -84,21 +84,23 @@ as with every validity rollup, producing the next proof still requires a
 reconstructible canonical prestate.  This revision separates proved outputs from L1 close metadata,
 replaces the unauthenticatable queue hash chain with a range-provable Merkle
 vector, makes forced-message execution Ethereum-valid, and specifies bounded
-admission, data, reward and migration state.  It is an audited
+admission, data, reward and migration state.  It is a multi-pass-reviewed
 implementation-freeze candidate, but not production authorization: the missing
 initial executable profile/build bundle and the proving, gas, economics and
 adversarial gates in
 \S\ref{sec:gates} remain mandatory before production release.  The control-
 plane, migration journals, canonical execution-profile codec and exact
-Settlement--Market mutation wire in this revision remain design candidates.
+Settlement--Market mutation wire in this revision are normative implementation
+inputs.
 The bridge-route preparation path now uses only fixed Router/PVM primitive
 records and exact raw ABI reads; it no longer treats an in-process
 \code{SettlementRegistration} object as production authority.  The executable
-address-indexed component world, root factory deployment certificate and
-remaining bounded historical indexes listed in \S\ref{sec:gates} are still
-High blockers.  The exact ICV2 Inbox-credit verification boundary is now
-closed in this specification but still requires compiled-contract and gas
-conformance evidence.
+address-indexed component world, root Source-factory/terminal deployment
+certificate, storage-derived restart path and bounded historical indexes close
+the design-level blockers found in the final freeze audit.  No known Critical
+or High document-level defect remains.  The exact ICV2 Inbox-credit verification
+boundary is also closed in this specification, but every path still requires
+compiled-contract, circuit and gas conformance evidence.
 \end{abstract}
 
 {\small\tableofcontents}
@@ -389,6 +391,16 @@ with no exit request and no tombstone may execute \code{FREE -> RESERVED}; a
 replacement or exit atomically closes reservations before moving the old
 generation into liability.  Liability records may only be slashed or released,
 never extended with a new reservation.
+Two authoritative reverse indexes make these lifecycle checks independent of
+history.  \code{generationLocation[registrationIndex]} stores the exact ACTIVE
+or LIABILITY position, and
+\code{liveRegistrationIndexPlusOne[builder]} is a \code{uint256}.  The latter
+is nonzero for either location and equals \code{uint256(registrationIndex)+1},
+so even \code{registrationIndex=UINT64_MAX} is represented without wrapping.
+An ACTIVE-to-LIABILITY move changes only the first locator; the address row is
+cleared only by final generation release.  Every lookup exact-checks the
+indexed cell's builder and registration index and fails closed on disagreement;
+no fallback scan of active or liability history is permitted.
 
 The active table has exactly 64 indexed cells.  On accepted registration,
 \code{effectiveL2Slot=currentL2Slot+384*ENTRY_DELAY_WINDOWS}; the stored value,
@@ -526,7 +538,10 @@ must be strictly less than \code{MAX_LIVE_WINDOWS=268}.  The two extra windows
 cover boundary ordering and bounded maintenance.  At four moves per window,
 the ring position reused 268 windows later is consequently releasable.  Each
 generation maintains an exact unreleased-tranche counter, so release and reuse
-do not scan 512 leaves.
+do not scan 512 leaves.  \code{unreleasedTrancheCount} is incremented exactly
+once on first reservation and decremented exactly once on release or slash;
+zero is the sole tranche-terminality predicate for generation release.  The
+contract never supplements it with a scan of retained tranche records.
 
 \paragraph{Protocol-lifetime terminal drain.}
 No generation may be admitted if its exact \code{effectiveL2Slot} falls after
@@ -551,8 +566,8 @@ make every new reservation impossible, and a zero-leaf normalization remains
 the canonical no-root-change \code{0x00} case.
 The generation remains in its canonical active admission position, so evidence
 is still admissible through each inclusive replay deadline.  After its exact
-unreleased-tranche count is zero, no stored tranche is RESERVED or LIABILITY,
-and \code{block.timestamp>maximumLiableUntil}, anyone may release that active
+unreleased-tranche count is zero and
+\code{block.timestamp>maximumLiableUntil}, anyone may release that active
 generation directly.  The call exact-reads
 \code{SWR1(lastManagedWindow)}, requires EXPIRED and
 \code{nextReleaseWindow=UINT64_MAX}, clears the six-level registry leaf and
@@ -747,12 +762,17 @@ copy, postcheck or state write.  The 10,000-gas gap is the fixed warm-CALL and
 return-envelope reserve; release measurement must prove it covers that path.
 
 Staging does not waive EIP-170 or EIP-3860.  Before the DAO may queue the root
-operation, the reproducible compiled-artifact gate covers all twelve immutable
-bootstrap artifacts: RootMigrationExecutor, ProtocolRootFactory, the fixed
-CREATE3 proxy and all nine component roles.  Every runtime byte array must be
+operation, the reproducible compiled-artifact gate covers all eighteen
+deployment artifacts: RootMigrationExecutor, ProtocolRootFactory, the fixed
+CREATE3 proxy, all nine component roles, and the six additional artifacts
+reachable from role 9 (bundle deployer, BridgeInboxAdapter, SourceBridgeV2,
+BridgeCreditRegistryV2, source native QuotaManager and
+SourceTerminalVerifier).  The SourceBundleFactory artifact occurs once in this
+count and must be byte-identical in the root-role and Source-artifact gates.
+Every runtime byte array must be
 at most 24,576 bytes and every complete init code must be at most 49,152 bytes,
 with the committed hashes equal to those exact bytes.
-All twelve artifacts are compiled by one release-pinned compiler build and
+All eighteen artifacts are compiled by one release-pinned compiler build and
 artifact-owner profile; Factory, proxy and role artifacts from mixed IR/non-IR
 or optimizer profiles are not a root.  In particular the Factory-embedded
 proxy creation/runtime hashes and every role's independently derived proxy
@@ -828,7 +848,7 @@ has no gap, alias or suffix.
 It recomputes the manifest hash and operation ID from the complete stored row,
 requires exact queued runtime/configuration, IDLE authority and QUEUED state,
 then tentatively writes CANDIDATE/EXECUTING before any external call.  It
-exact-reads the 544-byte PRF1 and 32-byte configuration result with the fixed
+exact-reads the 736-byte PRF1 and 32-byte configuration result with the fixed
 stipends, requires the configured delayed executor to be itself, then calls
 the Factory stage entry with exactly 1,500,000 gas while preserving 300,000 gas
 for receipt/poststate checks.  It accepts only the exact STG1 return and exact
@@ -911,40 +931,62 @@ runtime/\code{componentConfigHashV2()}.  Because the proxy has neither
 constructor arguments nor immutables, Factory derives
 \code{create3ProxyCreationCodeHash=H(type(ProtocolRootCreate3ProxyV1).creationCode)}
 and \code{create3ProxyRuntimeHash=H(type(ProtocolRootCreate3ProxyV1).runtimeCode)};
-neither hash is a constructor input.  Factory derives, rather than accepts,
+neither hash is a constructor input.  The executable
+model likewise accepts the compiler-produced proxy code bytes only as an
+external deployment artifact, enforces the EIP-3860/EIP-170 byte limits and
+hashes those bytes internally; it does not model either hash as a Factory
+constructor field.  Factory also derives, rather than accepts,
 \begin{verbatim}
 protocolRootFactoryConfigurationHash = H(
  "slot-chain-protocol-root-factory-config-v1" ||
  u256(settlementChainId) || manifestNamespace ||
  address20(delayedRootMigrationExecutor) || executorRuntimeHash ||
  executorConfigurationHash || create3ProxyCreationCodeHash ||
- create3ProxyRuntimeHash || u64(2592000) || u64(500000) || u8(18) ||
+ create3ProxyRuntimeHash || sourceArtifactRoot ||
+ bytes4(0xf95ec7e4) || bytes4(0x43b610d6) ||
+ u64(2000000) || u64(300000) || u64(75000) ||
+ u64(2592000) || u64(500000) || u8(18) ||
  u64(100000) || u64(50000) || u64(50000) || u64(100000) || u64(500000))
 \end{verbatim}
-and exposes it through \code{componentConfigHashV2()} and the exact 544-byte
+Here \code{sourceArtifactRoot} is
+\code{H("slot-chain-root-source-artifact-root-v1" || creationHash ||
+runtimeHash)} over, in order, the SourceBundleFactory, bundle deployer,
+BridgeInboxAdapter, SourceBridgeV2, BridgeCreditRegistryV2, source native
+QuotaManager and SourceTerminalVerifier creation/runtime hash pairs.  Every
+pair comes from the same release-pinned compiler artifacts; none is a caller
+or manifest input.  Factory exposes its configuration through
+\code{componentConfigHashV2()} and the exact 736-byte
 \code{protocolRootFactoryConfigV1()} view (selector \code{0xd7b40838}, magic
 PRF1).  To remain compilable under the release's non-IR Solidity profile, the
 interface returns one static \code{ProtocolRootFactoryConfigV1} struct whose
-17 fields, in exact wire order, are
+23 fields, in exact wire order, are
 \begin{verbatim}
 (bytes4 magic,uint256 settlementChainId,bytes32 manifestNamespace,
  address delayedRootMigrationExecutor,bytes32 executorRuntimeHash,
  bytes32 executorConfigurationHash,bytes32 proxyCreationCodeHash,
- bytes32 proxyRuntimeHash,uint64 campaignLifetime,
+ bytes32 proxyRuntimeHash,bytes32 sourceArtifactRoot,
+ bytes4 ensureSourceInfrastructureSelector,
+ bytes4 sourceInfrastructureViewSelector,uint64 campaignLifetime,
  uint64 deploymentPostcheckReserve,
  uint8 minimumFirstManagedRunwayWindows,uint64 executorConfigReadGas,
  uint64 componentConfigReadGas,uint64 activationCallGas,
  uint64 externalReadGas,uint64 executorConfirmCallGas,
+ uint64 sourceTerminalDeploymentGas,
+ uint64 sourceInfrastructurePostcheckGas,
+ uint64 sourceInfrastructureCallOverheadGas,
  bytes32 configurationHash)
 \end{verbatim}
-A single static tuple has the same 544-byte ABI returndata and selector as the
+A single static tuple has the same 736-byte ABI returndata and selector as the
 flat list; outputs never enter the selector.  The named struct is normative so
-the generated ABI remains usable without a 17-output non-IR wrapper.  Its fields
-are those constructor fields, derived proxy hashes, lifetime,
+the generated ABI remains usable without a 23-output non-IR wrapper.  Its fields
+are those constructor fields, derived proxy hashes, Source artifact root, the
+exact selectors \code{(0xf95ec7e4,0x43b610d6)}, lifetime,
 deployment postcheck reserve, \code{minimumFirstManagedRunwayWindows=18}, then
 Executor-config read, component-config read, activation-call, external-read and
 Executor-confirm-call gas constants
-\code{(100000,50000,50000,100000,500000)}, and the derived hash.  The last is
+\code{(100000,50000,50000,100000,500000)}, then Source-terminal deployment,
+Source-infrastructure postcheck and call-overhead gas constants
+\code{(2000000,300000,75000)}, and the derived hash.  The Executor-confirm value is
 a separate outer-call stipend: it leaves enough EIP-150 headroom for Executor's
 nested 50,000-gas configuration read, 100,000-gas PRC1 read, state writes and
 return.  Release boundary tests must show 500,000 succeeds and the measured
@@ -965,7 +1007,7 @@ for role=1..9 in exact order:
 roles = 1 BuilderRegistry, 2 ScheduleOracle, 3 ProtocolChangeTimelock,
         4 ProtocolVersionManager, 5 ActiveSettlementRouter, 6 ForcedQueue,
         7 AggregatorSeatMarket, 8 BridgeDomainRegistry,
-        9 BridgeCreditRegistry
+        9 SourceBundleFactory
 campaignKey = H("slot-chain-protocol-root-campaign-v1" ||
   u256(settlementChainId) || address20(factory) || u64(generation) ||
   manifestNamespace || predecessorRootReceipt)
@@ -1035,6 +1077,83 @@ before setting exactly
 Constructor failure,
 wrong code/config/view or late failure reverts the proxy, child and bit
 together; no adversary can consume the proxy nonce with another init code.
+At both deterministic addresses, a balance-only prefund with zero nonce and no
+code is nonblocking and its balance survives successful deployment.  Nonzero
+nonce or existing code at the proxy rejects before its role bit; nonzero nonce
+or existing code at the child rejects and reverts the transient proxy.  After
+success the proxy has the exact pinned runtime and nonce 2 (contract creation
+plus its single child CREATE), while the child has nonce 1 and the committed
+runtime/configuration.  A fault as late as verifier or activation postcheck
+restores both addresses to their pretransaction nonce/code/storage while
+retaining pre-existing balances.  Boundary conformance deploys role 1 first
+and role 9 last, then repeats with role 9 first and role 1 last, and injects
+proxy/child code, nonce and balance-only states in each position.
+
+After all nine bits are set but before finalization, anyone must ensure the
+single root-lifetime Source terminal artifact through the same Factory:
+\begin{verbatim}
+ensureSourceInfrastructureV1(bytes32 campaignKey,uint8 kind,bytes initCode)
+  selector 0xf95ec7e4; kind=1 only; value=0; minimum gas=2375000
+protocolRootSourceInfrastructureV1(bytes32 campaignKey,uint8 kind)
+  selector 0x43b610d6; calldata 68; gas=100000; return 320 bytes / PSV1
+\end{verbatim}
+The ensure ABI has head words \code{(campaignKey,kind,0x60)}, one canonical
+bytes length, contiguous data and zero tail padding.  It requires the current
+STAGED campaign, its live inclusive deadline, \code{deployedBitmap=0x01ff}
+and no infrastructure call in progress.  Kind 1 is the immutable
+SourceTerminalVerifier whose constructor is
+\code{abi.encode(settlementChainId,activeSettlementRouter)} and whose salt is
+\begin{verbatim}
+H("slot-chain-root-source-terminal-salt-v1" ||
+  u256(settlementChainId) || manifestNamespace || address20(router)).
+\end{verbatim}
+Factory calls only the canonical ERC-2470 singleton at
+\code{0xce0042B868300000d44A59004Da54A005ffdcf9f}; its runtime hash, CREATE2
+address, complete init-code hash and compiled runtime/configuration are exact.
+If the address has no code, \code{initCode} must equal the complete derived
+bytes and CREATE2 must succeed.  A balance-only prefund is retained; a nonzero
+nonce/code collision fails under EIP-684.  If exact code already exists,
+\code{initCode} must instead be empty.  Reuse with nonempty bytes and every
+inexact code, configuration, selector-only STF1 return or ERC-2470 returned
+address fail.  The deployment call uses 2,000,000 gas and reserves 300,000 gas
+for postchecks within a fixed 75,000-gas outer envelope; any failure rolls back
+the account, in-progress word, bitmap and receipt together.
+
+Success returns exactly 256 bytes
+\begin{verbatim}
+PSI1 = (bytes4 magic,bytes32 campaignKey,uint8 kind,address artifact,
+        uint8 created,bytes32 runtimeHash,bytes32 configurationHash,
+        bytes32 infrastructureReceipt)
+infrastructureReceipt = H(
+ "slot-chain-root-source-infrastructure-receipt-v1" || campaignKey ||
+ u8(kind) || address20(artifact) || runtimeHash || configurationHash ||
+ H(expectedInitCode) || sourceArtifactRoot)
+\end{verbatim}
+where \code{created} is 1 only for this call's CREATE2 and otherwise 0.
+PSV1 is exactly
+\code{(magic,key,kind,state,address,runtimeHash,configurationHash,
+initCodeHash,sourceArtifactRoot,receipt)} with ABSENT=0, IN\_PROGRESS=1 and
+READY=2.  An unknown campaign returns its queried canonical kind and zeros the
+remaining seven words; another kind rejects.  Finalization requires exactly
+kind 1 READY, no call in progress and its nonzero stored receipt, then repeats
+the singleton, address, code, configuration and 192-byte STF1 checks.
+The terminal's exact selector-only configuration surface is
+\begin{verbatim}
+sourceTerminalVerifierConfigV1()
+  selector 0x1f683f3b; value=0; gas=100000; return 192 bytes / STF1
+ returns (bytes4 magic,uint256 settlementChainId,
+          address activeSettlementRouter,bytes32 creationCodeHash,
+          bytes32 runtimeHash,bytes32 configurationHash)
+sourceTerminalVerifierConfigurationHash = H(
+ "slot-chain-component-config-v1" || u8(3) || u16(21) ||
+ address20(activeSettlementRouter) || u8(64))
+\end{verbatim}
+The magic is \code{0x53544631}; the address and every fixed-width value use
+canonical ABI padding.  The Factory requires the returned chain and Router to
+equal this campaign, both code hashes to equal its pinned compiler artifacts,
+and the returned configuration hash to equal both the displayed preimage and
+the 32-byte \code{componentConfigHashV2()} result.  Revert/OOG, caller-dependent,
+short/trailing or dirty STF1 data fails before activation.
 
 Every component-local constructor displayed for one of the nine roles is the
 local suffix of the actual Solidity constructor argument list whose first
@@ -1071,8 +1190,19 @@ pre-activation read allowlist is: every role's
 \code{builderRegistryConfigV1()} for role 1,
 \code{scheduleOracleConfigV1()} for role 2 and
 \code{protocolChangeTimelockConfigV1()} (PCT1) for role 3, and
-\code{protocolVersionManagerConfigV1()} for role 4.  No other role-specific
-view is callable before activation; in particular SWR1, SWV1, operational
+\code{protocolVersionManagerConfigV1()} for role 4, and the exact
+640-byte \code{sourceBundleFactoryConfigV1()} (SBF1, selector
+\code{0x74bab161}) for role 9.  Role 9's SBD1 and SAD1 deployment entries are
+not allowlisted and remain \code{RootInactive} until atomic root activation.
+Roles 2 and 4 also permit
+the exact \code{scheduleForkRouteStateV1()} (FRS1) view and
+\code{forkVerifierRegistrationV1(bytes4)} (FVR1) view before activation solely
+so Factory can authenticate their independently constructed initial fork-route
+mirrors.  At that point the only accepted digest is the constructor-installed
+initial digest and every other FVR1 query reverts.  The initial verifier's
+selector-only SFV1 view is an ordinary immutable verifier configuration read,
+not a root-component activation surface.  No other role-specific view is
+callable before activation; in particular SWR1, SWV1, all other operational
 topology getters and all mutation surfaces revert.  The exact zero-argument view
 \code{protocolRootActivationV1()} (selector \code{0xda930d69}) returns exactly
 128 bytes \code{(PRA1,protocolRootFactory,campaignKey,state)}, with INACTIVE=0
@@ -1086,15 +1216,20 @@ Once all nine bits are set, anyone may call
 \code{finalizeProtocolRootV1(bytes32)} (selector \code{0x95f759ad}) before or
 at the deadline.  Factory requires that no root was previously installed and
 rechecks the zero predecessor, all nine addresses,
-runtimes, exact configuration/activation views and the complete BRC1/SOC1/PCT1/PVM1
-cross-graph.  This is a strict word-by-word decode, not merely a comparison of
+runtimes, exact configuration/activation views, kind-1 Source infrastructure
+READY state, and the complete BRC1/SOC1/PCT1/PVM1/SBF1/STF1 cross-graph.  This
+is a strict word-by-word decode, not merely a comparison of
 the three outer configuration hashes: BRC1 requires a nonzero token runtime,
 canonical words 5--7 and
 \code{0 < leasePerWindowAtomic <= maximumBondAtomic} with
 \code{5 * reporterRewardCapAtomic <= leasePerWindowAtomic}; SOC1 requires
 canonical beacon-genesis/lookahead words, \code{lookaheadSeconds=768}, and the
 first managed-window start numerically at least 768 and at least 3,072 seconds
-after beacon genesis.  Factory exact-reads role 3's 160-byte PCT1, requires its
+after beacon genesis.  Factory exact-reads role 3's 160-byte PCT1, role 9's
+640-byte SBF1 and the root-lifetime terminal's 192-byte STF1.  SBF1 must commit
+the exact Source artifact hashes, deployment selectors/gas and PVM address;
+STF1 must commit the settlement chain, role-5 Router and terminal
+creation/runtime hashes.  Factory requires PCT1's
 PVM to be role 4, delay 604,800 and operation domain
 \code{H("slot-chain-protocol-change-operation-v1")}, and recomputes the
 governance descriptor from the actual chain, role-3 address/runtime, returned
@@ -1118,6 +1253,22 @@ arithmetic, and requires both
 firstManagedWindow <= lastManagedWindow <= LAST_FULL_SLOT_WINDOW
 firstManagedWindow >= currentWindow + 18.
 \end{verbatim}
+Before activating any role, Factory additionally makes 50,000-gas FRS1 reads
+from the actual role-2 and role-4 addresses and requires byte-identical
+160-byte returns with counts exactly \code{(1,1,1)}.  It then makes
+100,000-gas FVR1 reads from both at the SOC1 initial digest and requires
+byte-identical 320-byte rows with zero successor.  From that row it obtains the
+actual verifier address and runtime hash, checks \code{EXTCODEHASH}, and makes
+the selector-only 100,000-gas SFV1 read directly from that verifier.  Factory
+strictly combines FVR1 and SFV1 into the complete canonical 480-byte initial
+row, recomputes its verifier configuration hash, checks its digest and
+first/last bounds against SOC1, and independently recomputes the singleton
+order prefix, registration sparse root, used-digest sparse root and exact FRS1
+return.  Thus neither a blank/divergent PVM mirror nor two colluding view values
+that omit the actual singleton row can cross root activation.  Revert/OOG,
+wrong caller-independent runtime, short/trailing/dirty return, noncanonical
+padding, a second mapping/order/tombstone, or any Oracle--PVM--verifier mismatch
+reverts before the first activation call.
 This finalization-time check, rather than a stale constructor-time promise,
 allows one complete boundary window after activation before registration,
 eight entry-delay windows, the eight-window historical snapshot offset and one
@@ -1130,7 +1281,8 @@ activation entries in role order, exact-
 reads all nine ACTIVE views, and only then stores
 \begin{verbatim}
 rootReceipt = H("slot-chain-protocol-root-receipt-v1" || campaignKey ||
-  manifestHash || address20(component(1)) || ... || address20(component(9)))
+  manifestHash || address20(component(1)) || ... || address20(component(9)) ||
+  address20(sourceTerminalVerifier) || sourceInfrastructureReceipt)
 \end{verbatim}
 as its sole root receipt and marks the campaign ACTIVE.  It then calls the
 pinned Executor's \code{confirmRootMigrationV1} with exactly 500,000 gas and
@@ -1215,20 +1367,21 @@ Compiler \code{immutableReferences} MUST exclude the campaign key, the
 component's own configuration hash, every peer runtime/configuration hash and
 every value derived from those hashes.  All such words are constructor-written
 storage with no post-activation writer.  Configuration derivation has the
-following exact levels.  Level 0 contains all code-independent component
-addresses and runtime hashes.  Level 1 derives the true leaves: Builder
-economic identity E and the local Timelock and Router configurations from
-profile scalars plus Level-0 identities only.  In particular Router
+following exact levels.  Level 0 contains all code-independent component and
+root-terminal addresses, runtime hashes and the release-pinned Source artifact
+hashes.  Level 1 derives the true leaves: Builder economic identity E and the
+local Timelock, Router, SourceBundleFactory and SourceTerminalVerifier
+configurations from profile scalars plus Level-0 identities only.  In particular Router
 configuration cannot depend on any peer configuration, E, T or C.  Level 2
 derives Registry topology T from E, Router configuration and the explicit
-Level-0 identities in B.  It also derives the ForcedQueue, Market and two
-Bridge-registry configurations from their already displayed exact formulas;
+Level-0 identities in B.  It also derives the ForcedQueue, Market and
+protocol-lifetime BridgeDomainRegistry configurations from their already displayed exact formulas;
 those formulas may consume Router configuration (Market does through profile
 word 25) but must not consume T, C, PVM configuration or another Level-2
 configuration.  Level 3 derives Schedule configuration C from E, T, Router
 configuration and its displayed local fields.  Level 4 derives PVM
-configuration as the sole final root over the other eight committed
-configurations.  No edge within a level or from a lower-numbered level to a
+configuration as the sole final root over the other eight committed role
+configurations plus the SourceTerminalVerifier identity/configuration.  No edge within a level or from a lower-numbered level to a
 higher-numbered consumer may point backward.  The reproducible-build/root-artifact gate inspects compiler metadata,
 full constructor preimages and this graph and refuses to queue a manifest with
 a forbidden edge; these are not facts an on-chain getter can prove.  On-chain
@@ -1242,8 +1395,10 @@ index, effective and tombstone L2 slots, tranche root, a reservation base
 window, a 17-bit reservation bitmap, unreleased-tranche count, maximum liable
 deadline, one-shot exit record and its active/liability locator.  The live
 tombstone sentinel is \code{UINT64_MAX}.  Storage consists of exactly 64 active
-cells, 1,072 liability cells, address and registration reverse locators, a
-monotonic \code{nextRegistrationIndex}, a monotonic
+cells, 1,072 liability cells, the authoritative
+\code{mapping(uint64 => GenerationLocation) generationLocation} and
+\code{mapping(address => uint256) liveRegistrationIndexPlusOne}, a
+monotonic \code{uint256 nextRegistrationIndex}, a monotonic
 \code{movementSequence}, a per-window move counter and a global append-only exit
 FIFO.  Default all-zero Solidity storage is never decoded as a tranche:
 canonical \code{EMPTY} is
@@ -1258,8 +1413,14 @@ index, tranche index, current slot/window, tombstone slot and every deadline.
 The supplied \code{baseBondAtomic} must satisfy
 \code{leasePerWindowAtomic<=baseBondAtomic<=maximumBondAtomic}; both inclusive
 boundaries are checked before proof mutation, token movement or state writes.
-\code{nextRegistrationIndex} is checked before increment and exhaustion is
-permanent.  The entry delay is
+\code{nextRegistrationIndex} is accepted while it is at most
+\code{UINT64_MAX}; admitting that last external \code{uint64} registration ID
+increments the internal counter to the sole exhausted value
+\code{UINT64_MAX+1}.  Every later registration rejects before a cast, transfer
+or write.  This stored monotonic counter is never recomputed from the active or
+liability sets: registrations already released from both sets leave permanent
+historical holes, including across restart, and no such identifier is reused.
+The entry delay is
 \code{effectiveL2Slot=currentL2Slot+8*384}, not rounded to a window.  The
 addition is checked and registration rejects unless
 \code{floor(effectiveL2Slot/384)<=lastManagedWindow}; this applies equally to
@@ -1280,6 +1441,11 @@ accountedBuilderToken = baseBondEscrow + trancheEscrow
                       + totalBuilderTokenPullCredits
 builderToken.balanceOf(BuilderRegistry) >= accountedBuilderToken.
 \end{verbatim}
+\code{totalBuilderTokenPullCredits} is an authoritative stored \code{uint256}:
+each credit creation increments it and each successful claim decrements it in
+the same rollback domain as the owner row.  Solvency checks read this scalar and
+never sum the lifetime-growing pull-credit mapping.  An exhaustive recount is
+an off-chain/model invariant only.
 Unsolicited token transfers are surplus and are permanently unclaimable in V1;
 they cannot create a credit or block ordinary claims.
 
@@ -1307,7 +1473,10 @@ set only offsets 0 through 16.  Before reserving, the transaction closes every
 set bit below the new current window in ascending W order using exact
 nine-sibling proofs, then shifts the base.  Active-to-liability movement closes
 all remaining RESERVED bits in the same order.  Consequently one operation
-touches at most 17 tranche leaves; no release or exit scans all 512.  A witness
+touches at most 17 tranche leaves.  The implementation enumerates only set bits
+of that generation's stored bitmap and exact-checks the derived tranche rows;
+it never enumerates the lifetime tranche mapping, reservation sets or all 512
+leaf positions.  A witness
 must contain the complete bitmap popcount for movement or the exact stale-mask
 popcount for reservation/normalization, consume all bytes and contain no
 caller-selected height, orientation or leaf index.
@@ -1377,7 +1546,7 @@ admissionStateV1() returns
 scheduleRegistryStateV1() returns
  (bytes4 magic,uint8 schema,uint8 activeCount,
   uint64 registryMutationVersion,uint64 admissionVersion,
-  uint64 nextRegistrationIndex,bytes32 registryRoot)
+  uint256 nextRegistrationIndex,bytes32 registryRoot)
 // selector 0xad95cea1; exact 224 bytes; magic BRS1; schema=1
 \end{verbatim}
 The mutation signatures, parameter meanings and computed selectors are
@@ -1521,9 +1690,10 @@ guard below.  Terminal ACTIVE release is exactly
 \code{RegistryPath||AdmissionPath} (544 bytes).  Either terminal variant
 additionally exact-authenticates EXPIRED plus the \code{UINT64_MAX} cursor
 from \code{SWR1(lastManagedWindow)}.  All variants require the unreleased-tranche
-count to be zero, no stored RESERVED or LIABILITY tranche for the generation,
-and \code{block.timestamp>maximumLiableUntil}.  All tranche leaves are already
-terminal through authenticated tranche release or slash.  Liability release
+count to be zero and \code{block.timestamp>maximumLiableUntil}; zero is the
+sole tranche-terminality predicate and is never supplemented by a retained-leaf
+scan.  All tranche leaves are already terminal through authenticated tranche
+release or slash.  Liability release
 clears its admission leaf; terminal active release clears both its registry and
 active admission leaves and resolves any exit row.  Neither scans the tranche
 ring, and no caller supplies a location or position.
@@ -1658,7 +1828,8 @@ ScheduleOracleConstructorV1(
  ScheduleForkConstructorV1 initialFork)
 
 ScheduleForkConstructorV1 =
- (bytes4 forkDigest,address verifier,bytes32 runtimeHash,
+ (bytes4 forkDigest,uint64 lastParentSlotExclusive,
+  address verifier,bytes32 runtimeHash,
   uint64 beaconSlotGindex,uint64 executionPayloadGindex,
   uint64 stateRootGindex,uint64 prevRandaoGindex,
   uint64 timestampGindex,uint64 blockHashGindex,
@@ -1678,8 +1849,18 @@ and the checked window bound is
 firstManagedWindow <= lastManagedWindow <= LAST_FULL_SLOT_WINDOW.
 \end{verbatim}
 The
-initial fork row has \code{firstWindow=0}, and its constants/configuration obey
-the fork formula below.  The Registry genesis/first-managed values must equal
+initial fork row has \code{firstParentSlot=0} and an explicit nonzero
+\code{lastParentSlotExclusive}; its constants/configuration obey
+the fork formula below.  At both construction and root finalization, checked
+\code{targetSlot(currentWindow+FORK\_CHANGE\_RENEWAL\_RUNWAY\_WINDOWS)+64<
+lastParentSlotExclusive} must hold.  The runway is 1,811 windows: the ceiling
+of the 900-second queue-inclusion allowance, seven-day protocol-change delay
+and one-day fork-change execution window divided by 384 seconds, plus the
+eight-window early-seal bound.
+Equality rejects.  Thus a follow-up change queued immediately remains
+executable through its last valid second even when its queue transaction lands
+at the inclusion bound and crosses a window boundary, without a sealing outage.  The Registry
+genesis/first-managed values must equal
 the Schedule values; its evidence/reorg values and independently derived
 \code{lastManagedWindow} must also agree; \code{lookaheadSeconds=768}; and the first managed window
 start must be numerically at least \code{lookaheadSeconds} and at least 256
@@ -1700,18 +1881,22 @@ fixed-width fields in displayed order, and insert the two fixed system
 addresses immediately before their runtime/boundary pairs.  Append
 \begin{verbatim}
 u16(384)||u16(268)||u8(8)||u8(64)||u8(8)||u16(76)||
+u32(604800)||u32(86400)||u16(900)||u16(1811)||
 u8(12)||u8(32)||u16(256)||u8(64)||u16(8191)||
 u16(2048)||u8(32)||u8(65)||u16(600)||u32(117393)||
 u32(131072)||u32(280000)||
 u64(50000)||u64(50000)||u64(100000)||u64(50000)||u64(50000)||
-u64(50000)||u64(50000)||u64(100000)||u64(100000)
+u64(50000)||u64(50000)||u64(100000)||u64(100000)||
+u64(4000000)||u64(50000)
 \end{verbatim}
 where the added constants are, in order, window/ring/expiry/scan/early-seal
-geometry, assignment cap, beacon seconds/epoch slots, eight-epoch snapshot
+geometry, assignment cap, protocol-change delay, fork-change execution window,
+fork-change queue-inclusion allowance, renewal-runway windows, beacon seconds/epoch slots, eight-epoch snapshot
 lag, carrier finality, history serve window, header-byte and header-field
 bounds, MPT path/node/aggregate bounds, fork-witness bound and whole
-seal-witness bound.  The final nine values are configuration, ASR1, RTR2,
-SWR1, SWV1, history, beacon-roots, fork-config and the shared SSR1/STS1 gas.
+seal-witness bound.  The final eleven values are configuration, ASR1, RTR2,
+SWR1, SWV1, history, beacon-roots, fork-config, the shared SSR1/STS1 gas,
+fork mutation gas and FRS1 read gas.
 Then
 \begin{verbatim}
 scheduleOracleConfigurationHash = H(
@@ -1732,17 +1917,22 @@ scheduleOracleConfigV1() returns
   uint64 genesisTimestamp,uint64 evidenceDelaySeconds,
   uint64 reorgMarginSeconds,uint64 beaconGenesisTime,
   uint64 lookaheadSeconds,uint256 leasePerWindowAtomic,
-  bytes4 initialForkDigest,bytes32 builderRegistryTopologyHash,
+  bytes4 initialForkDigest,uint64 initialForkFirstParentSlot,
+  uint64 initialForkLastParentSlotExclusive,
+  bytes32 builderRegistryTopologyHash,
   bytes32 configurationHash)
-// selector 0xe3d91a33; exact 512 bytes; magic SOC1=0x534f4331
+// selector 0xe3d91a33; exact 576 bytes; magic SOC1=0x534f4331
 \end{verbatim}
 Release registration exact-reads this SOC1 view, BRC1 and both components'
 \code{componentConfigHashV2()} values.  It recomputes \code{T} from the complete
 BRC1 topology preimage; compares \code{E} and \code{C} to the manifest-pinned
 calibrated profile and component results; checks both pinned runtime hashes;
-and rejects any cross-pin, timing-bound, first/last-window or lease disagreement before publishing
-the two protocol-lifetime objects.  SOC1 is a bounded deployment join, not a
-second complete Schedule-configuration preimage.
+and rejects any cross-pin, timing-bound, first/last-window, initial-fork
+boundary, renewal-runway or lease disagreement before publishing
+the two protocol-lifetime objects.  Root finalization separately authenticates
+the full initial row and both live route mirrors through FRS1/FVR1/SFV1 as
+specified above; SOC1 is a bounded deployment join, not a second complete
+Schedule-configuration preimage.
 
 It further exposes
 \begin{verbatim}
@@ -1865,8 +2055,12 @@ ScheduleWindowsExpired(uint64 indexed firstWindow,uint8 expired,
 ScheduleExpiryFinalized(uint64 indexed firstExpiredWindow,
  uint64 indexed lastManagedWindow)
 ScheduleForkVerifierInstalled(bytes4 indexed forkDigest,
- uint64 indexed firstWindow,address verifier,bytes32 runtimeHash,
+ uint64 indexed firstParentSlot,uint64 lastParentSlotExclusive,
+ address verifier,bytes32 runtimeHash,
  bytes32 configurationHash,bytes4 selector,uint64 gasLimit)
+SchedulePendingForkVerifierReplaced(bytes4 indexed oldForkDigest,
+ bytes4 indexed newForkDigest,uint64 newFirstParentSlot,
+ uint64 newLastParentSlotExclusive)
 \end{verbatim}
 A successful nonempty expiry batch emits one event for the whole committed
 prefix; a zero-length safe stop emits none.  Seal and fork-install events are
@@ -1988,9 +2182,16 @@ keccak256(ROOT_SLOT) =
   0x04bafd6333ae949248e59a002ce1fbccb8a4bc8da3a0c3228ae523d727170880
 \end{verbatim}
 The header is the exact big-endian 32 bytes
-\code{"BRH1"||u8(1)||u8(activeCount)||u16(0)||
+\code{"BRH1"||u8(1)||u8(activeCount)||u8(registrationExhausted)||u8(0)||
 u64(registryMutationVersion)||u64(admissionVersion)||
-u64(nextRegistrationIndex)}; ROOT\_SLOT is the raw registry root.  A schedule
+u64(nextRegistrationIndexLow64)}.  An ordinary row is canonical only as
+\code{registrationExhausted=0} with the complete next index in the final
+\code{u64}; an exhausted row is canonical only as
+\code{registrationExhausted=1,nextRegistrationIndexLow64=0} and reconstructs
+the internal \code{uint256} value \code{UINT64_MAX+1}.  A flag outside
+\code{\{0,1\}}, a nonzero reserved byte or any other exhausted flag/tail
+combination rejects.  Thus every pre-exhaustion BRH1 encoding is byte-for-byte
+unchanged.  ROOT\_SLOT is the raw registry root.  A schedule
 witness authenticates the pinned registry account and code hash from the
 fork-verifier-returned parent payload state root, proves both keys against the
 same account storage root,
@@ -2011,14 +2212,23 @@ execution block has \code{F_FINAL} L1-block depth and
 \code{block.timestamp < sealDeadline(W)}.  Beacon slots are not used as a
 surrogate for execution-block depth.  At or after the deadline an unsealed
 window is permanently all-\code{VACANT}; a late transaction cannot change it.
-Before touching the witness the entry point uses checked arithmetic to derive
+Before touching the witness, either system contract, or a fork verifier, the
+entry point uses checked arithmetic to derive
 \code{currentWindow=max(0,block.timestamp-GENESIS_TIMESTAMP)/384} and rejects
 unless
 \code{W>=firstManagedWindow}, \code{W>=nextReleaseWindow},
 \code{W<=lastManagedWindow},
 \code{currentWindow<=W<=currentWindow+8}, and the strict
-deadline holds.  A
-stored seal for W rejects.  A different still-unexpired generation in cell
+deadline holds.  It also derives \code{targetSlot(W)} and requires checked
+\code{targetSlot(W)+64<latestLastParentSlotExclusive}, where the latter is the
+latest row's authoritative reviewed-schema horizon and 64 is the maximum
+carrier-query offset; equality rejects before any system call.  This margin
+protects the fixed EIP-4788/EIP-2935/header grammar even when the authenticated
+parent remains in an older route at a missed fork boundary.
+\code{currentWindow} is recomputed from \code{block.timestamp} inside every
+seal, append, extension and replacement call; it is not cached in storage or
+supplied by the caller.  A stored seal for W rejects.  A different
+still-unexpired generation in cell
 \code{W mod 268} rejects rather than being overwritten; a generation below
 \code{nextReleaseWindow} is already authenticated EXPIRED and may be replaced.
 At call start Oracle rechecks the pinned BuilderRegistry, EIP-4788 and EIP-2935
@@ -2034,6 +2244,9 @@ The contract performs this procedure:
 \item The contract itself, not caller data, queries EIP-4788 for
 $j=1,\ldots,64$ at
 \code{q=targetTimestamp+12j}; missing timestamps revert and are skipped.  The
+base is the aligned
+\code{targetTimestamp=BEACON_GENESIS_TIME+12*targetSlot(W)}, not the raw
+possibly unaligned L2-window expression.  The
 first successful query identifies the \emph{carrier} execution block.  EIP-4788
 returns its parent beacon-block root, not the carrier root.
 \item For the first successful query the caller supplies the carrier execution
@@ -2077,22 +2290,31 @@ stored seal is consumed as \code{VACANT}; a failing pre-deadline seal attempt
 never stores that result and cannot give an address an unauthorized ticket.  The snapshot
 age plus 64-slot carrier scan, finality and seal margin fits the eight-epoch
 geometry and remains far below EIP-4788's 8,191-slot history window.  Consensus
-constants include the Deneb SSZ generalized indices; an L1 fork that changes
-them requires an explicitly registered verifier, never runtime guessing.
+constants include the Deneb SSZ generalized indices.  Every route in this V1
+Schedule epoch authenticates \code{BeaconBlock.slot} at generalized index
+exactly 8.  An L1 fork that moves that field requires a new schedule epoch,
+not another verifier row and never runtime guessing.
 
 For Deneb, Electra and Fulu, the generalized index from \code{BeaconBlock} root
 to \code{slot} is 8 and to \code{body.execution_payload} is 201.  Within the
 composed tree, payload \code{state_root}, \code{prev_randao}, \code{timestamp}
 and \code{block_hash} are 6,434, 6,437, 6,441 and 6,444 respectively.  The seal
-input names the L1 fork digest; only these configured digests are accepted.
-The protocol-lifetime ScheduleOracle holds a one-shot append-only
-\code{forkDigest -> (verifier,codeHash,configHash,gasLimit)} registry controlled
-only by a delayed ProtocolVersionManager manifest.  Seal dispatch uses a
+input names a protocol-local route identifier in the historically named
+\code{forkDigest} field; only configured identifiers are accepted.  It is not
+the Ethereum consensus fork digest and is never inferred from one.  The
+immutable review bundle names the actual consensus fork version/digest and
+the exact parent/carrier schemas to which the route applies.  A fresh route ID
+may therefore repair a verifier inside the same consensus fork without lying
+about consensus identity.
+The protocol-lifetime ScheduleOracle holds a parent-slot-routed
+\code{forkDigest -> (firstParentSlot,lastParentSlotExclusive,verifier,
+codeHash,configHash,gasLimit)} registry controlled only by a delayed
+ProtocolVersionManager manifest.  Seal dispatch uses a
 bounded \code{STATICCALL}, exact return length and rechecked \code{EXTCODEHASH};
 failure reverts and leaves the window unsealed; it cannot mutate an old seal.
-Gloas or any fork that
-changes the container requires a reviewed verifier, constants, fixtures and
-delayed registration before its activation.  That registration may change
+Gloas or any fork that preserves the V1 slot leaf but changes the remainder of
+the container requires a reviewed verifier, constants, fixtures and delayed
+registration before its activation.  That registration may change
 witness parsing only: it cannot change the protocol-lifetime seed,
 eligibility, allocation or placement rules.
 
@@ -2115,20 +2337,31 @@ depth, not permission for mutable reachable code.  An artifact that cannot
 satisfy this closure is not registrable in a production release.
 
 The fork registry and verifier wire format are exact.  The deployment
-constructor installs one reviewed current-fork row at \code{firstWindow=0}.
-Every later row is appended in strictly increasing \code{firstWindow} order by
-the one typed PVM operation:
+constructors of Schedule Oracle and PVM each receive and independently decode,
+validate and store the same canonical 480-byte reviewed current-fork row; one
+contract never initializes its mirror by reading or copying the other's
+storage.  Each constructor installs that interval
+\code{[0,lastParentSlotExclusive)}, inserts its digest into the permanent
+used-digest tombstone set, and rejects empty or prepopulated route state.
+There is therefore no deployed state in which the route registry is empty.
+Factory's pre-activation FRS1/FVR1/SFV1 join described in the root section is
+the on-chain proof that those independent constructor results agree before the
+root becomes usable.
+Every later interval is contiguous with
+its predecessor.  The typed install operation is:
 \begin{verbatim}
 installForkVerifierV1(
- bytes4 forkDigest,uint64 firstWindow,address verifier,bytes32 runtimeHash,
+ bytes4 forkDigest,uint64 firstParentSlot,uint64 lastParentSlotExclusive,
+ address verifier,bytes32 runtimeHash,
  uint64 beaconSlotGindex,uint64 executionPayloadGindex,
  uint64 stateRootGindex,uint64 prevRandaoGindex,uint64 timestampGindex,
  uint64 blockHashGindex,bytes32 witnessSchemaHash,
  bytes32 configurationHash,bytes4 selector,uint64 gasLimit)
- returns (bytes4 magic,bytes4 returnedForkDigest,uint64 returnedFirstWindow)
+ returns (bytes4 magic,bytes4 returnedForkDigest,
+          uint64 returnedFirstParentSlot)
 forkVerifierRegistrationV1(bytes4 forkDigest) returns
- (bytes4 magic,bytes4 returnedForkDigest,uint64 firstWindow,
-  bytes4 successorForkDigest,uint64 successorFirstWindow,address verifier,
+ (bytes4 magic,bytes4 returnedForkDigest,uint64 firstParentSlot,
+  bytes4 successorForkDigest,uint64 lastParentSlotExclusive,address verifier,
   bytes32 runtimeHash,bytes32 configurationHash,bytes4 selector,
   uint64 gasLimit)
 scheduleForkVerifierConfigV1() returns
@@ -2136,26 +2369,200 @@ scheduleForkVerifierConfigV1() returns
   uint64 executionPayloadGindex,uint64 stateRootGindex,
   uint64 prevRandaoGindex,uint64 timestampGindex,uint64 blockHashGindex,
   bytes32 witnessSchemaHash,bytes32 configurationHash)
+scheduleForkRouteStateV1() returns
+ (bytes4 magic,bytes32 routeStateHash,uint64 orderedRouteCount,
+  uint64 mappedRouteCount,uint64 usedDigestCount)
 \end{verbatim}
-The selectors are \code{0xf171816c}, \code{0xc614591c} and
-\code{0x44efa773}; return lengths/magics are 96/FVI1
-\code{0x46564931}, 320/FVR1 \code{0x46565231} and 320/SFV1
-\code{0x53465631}.  Install is PVM-only and receives exactly 500,000 gas.
-The verifier getter is a 100,000-gas STATICCALL returning the complete row.
-PVM checks runtime, getter, configuration formula, unused digest, the checked
-bounds
+The 15-word row is Oracle's exact install input and persistent registration.
+The delayed \code{REGISTER\_FORK\_VERIFIER} operation payload is instead the
+exact 576-byte concatenation \code{row||review}, where
 \begin{verbatim}
-currentWindow + MAX_EARLY_SEAL_WINDOWS + 1 <= firstWindow
-firstWindow <= lastManagedWindow
+ForkReviewEnvelopeV1 =
+ (uint64 reviewedThroughParentSlotExclusive,
+  bytes32 reviewEvidenceHash,bytes32 reviewCertificateHash)
+reviewCertificateHash = H(
+ "slot-chain-schedule-fork-review-certificate-v1" ||
+ u256(settlementChainId) || address20(scheduleOracle) || u8(operationKind) ||
+ u16(changeRowsBytes) || H(changeRows) ||
+ u64(reviewedThroughParentSlotExclusive) || reviewEvidenceHash)
 \end{verbatim}
-and requires
-\code{100000<=gasLimit<=5000000}.  It sets the
-previous latest row's formerly zero successor pair once and appends the new
-row; neither boundary can later change.  The getter for the latest row has a
-zero successor pair.  Thus a digest is valid for window $W$ iff
-\code{firstWindow<=W} and either successor is zero or
-\code{W<successorFirstWindow}; \code{sealScheduleWindowV1} rejects every caller-selected
-row outside that unique interval.
+\code{reviewEvidenceHash} is the nonzero content hash of the immutable review
+bundle.  PVM recomputes the certificate, requires the reviewed-through value
+to cover the new latest horizon, and the operation ID commits all 576 bytes.
+The selectors are \code{0x9bb6fe73}, \code{0xc614591c} and
+\code{0x44efa773}; the route-state selector is \code{0x7e9f3c0d}.
+Return lengths/magics are 96/FVI1
+\code{0x46564931}, 320/FVR1 \code{0x46565231} and 320/SFV1
+\code{0x53465631}, plus 160/FRS1 \code{0x46525331}.  Install, replacement and split
+are nonpayable PVM-only calls made with exactly 4,000,000 gas.  Oracle
+authorization is exactly \code{msg.sender} equal to the constructor-stored PVM
+address.  Oracle neither calls back to PVM nor reads PVM lifecycle, operation or
+route storage.  The root-pinned PVM exposes no generic call surface, so its
+immutable caller identity cannot be used to invoke an unapproved Oracle
+transition.  FRS1 and SOC1 are exact 50,000-gas STATICCALLs.  FVR1 is an exact
+100,000-gas STATICCALL whose calldata is the 4-byte selector, the queried
+\code{bytes4} digest and 28 zero bytes.  SFV1 is an exact selector-only
+100,000-gas STATICCALL.  Every call has zero value and requires its exact return
+length, magic and canonical ABI padding.
+
+Before any fork mutation, PVM performs one ordered pretransition join: it reads
+SOC1, then FRS1, then each affected prestate FVR1 in oldest-to-newest route
+order, then the corresponding live verifier EXTCODEHASH/SFV1 pairs in that same
+order.  It compares SOC1 to its immutable chain, Oracle, initial-fork and
+root-pinned configuration commitments; it compares FRS1 and every FVR1 byte for
+byte to its independently maintained route.  Only after that join does it
+validate the candidate verifier and execute the Oracle mutation.  A failed,
+short, dirty, reverted or out-of-gas observation reverts before the Oracle call.
+PVM and Oracle independently check runtime, getter, configuration formula,
+\code{beaconSlotGindex=8}, and the checked lead
+\begin{verbatim}
+targetSlot(currentWindow + MAX_EARLY_SEAL_WINDOWS)
+ + MAX_SCHEDULE_CARRIER_SCAN_SLOTS < new.firstParentSlot
+\end{verbatim}
+with equality rejecting, and requires \code{100000<=gasLimit<=5000000}.
+An append uses a globally unused digest and requires
+\code{new.firstParentSlot=latest.lastParentSlotExclusive}; it sets the old
+latest successor digest and appends the nonempty new interval.  A same-row
+horizon extension uses this same 15-word function and selector: its digest,
+first slot, verifier, runtime, all gindices, schema/configuration, selector and
+gas are byte-identical to the latest row, its last slot strictly increases,
+and the stronger execution-time checks require both
+\code{targetSlot(currentWindow+8)+64<old.lastParentSlotExclusive} and
+\code{targetSlot(currentWindow+1811)+64<new.lastParentSlotExclusive}.  An
+append additionally requires the latter protected target to remain below its
+new first slot, preserving a full correction runway.  No other
+REGISTER operation replaces, shortens or cancels a row.
+
+PVM and Oracle execute separate implementations of the descriptor, timing,
+interval and tombstone checks.  Each independently reads the verifier address's
+live \code{EXTCODEHASH} and exact 320-byte SFV1 return; neither derives that
+observation from an Oracle-stored registration row.  Their post-transition
+join exact-reads every changed FVR1 followed by FRS1.  PVM reconstructs this
+poststate locally before comparison; it never introspects Oracle storage.
+Define
+\begin{verbatim}
+orderPrefix[0] = H("slot-chain-schedule-fork-order-empty-v1")
+orderPrefix[i+1] = H("slot-chain-schedule-fork-order-step-v1" ||
+                     orderPrefix[i] || u64(i) || forkDigest[i])
+registrationLeaf[d] = H("slot-chain-schedule-fork-registration-smt-v1" ||
+                        0x02 || d || registrationHash[d])
+usedLeaf[d] = H("slot-chain-schedule-fork-used-smt-v1" || 0x02 || d ||
+                H("slot-chain-schedule-fork-used-leaf-v1" || d))
+routeStateHash = H(
+ "slot-chain-schedule-fork-route-state-v1" ||
+ orderPrefix[orderedRouteCount] || registrationRoot || usedRoot ||
+ u64(orderedRouteCount) || u64(mappedRouteCount) || u64(usedDigestCount))
+\end{verbatim}
+The two roots are independent fixed-depth 32-level sparse Merkle trees keyed
+by the big-endian \code{bytes4} digest.  At level zero the absent hash is
+\code{H(domain||0x00)}; the absent hash at every next level is
+\code{H(domain||0x01||child||child)}.  A branch node is
+\code{H(domain||0x01||left||right)}.  Each contract stores nondefault nodes by
+\code{(level,prefix)} and updates exactly 32 sibling levels per changed leaf;
+it never enumerates or sorts a mapping.  The ordered prefix hash is stored per
+route index.  A bounded \code{indexByDigest} reverse map makes every FVR1
+successor read constant-time; no getter scans the order.  Append and split
+write the new index, while replacement deletes the old latest index when its
+ID changes and writes the replacement at that same index.  Append advances one
+prefix step, replacement recomputes only the last step from its stored
+predecessor prefix, and split advances one step.  Therefore FRS1 and FVR1 are
+constant five-/ten-word reads and append, extension, replacement or split performs a fixed maximum
+number of hashes and storage writes independent of protocol age.  The mapping
+root includes rows not reachable through the order, so a retained replaced
+mapping changes it.  The used root is append-only and includes every
+constructor, append, replacement and split digest.  PVM reconstructs its own
+poststate and requires exact FRS1 equality after every transition; replacement
+therefore proves the rewritten predecessor, old-map absence and permanent
+old-digest tombstoning.  It exact-reads every FVR1 whose row or successor
+changed, so a wrong reverse index or successor cache cannot survive a
+transition.  Any mismatch reverts both authorities to their
+pre-operation state.
+
+The 320-byte FVR1 words are exactly magic, digest, first parent slot,
+successor digest, last parent slot exclusive, verifier, runtime hash,
+configuration hash, selector and gas.  A latest row has zero successor digest
+but retains its finite nonzero last slot, which is the authoritative global
+\code{latestLastParentSlotExclusive}.  A nonlatest row's last slot equals its
+successor's first.  Each initial, appended, extended or replacement last slot
+is no later
+than the earliest not-yet-reviewed consensus-schema boundary attested by the
+release/change certificate.  A certificate may conservatively choose an
+earlier finite horizon.  If governance does not extend it in time, targets
+whose checked 64-slot carrier margin reaches it fail closed and the ordinary
+post-deadline unsigned/VACANT escape
+remains available; no unreviewed verifier is guessed.
+
+A queued but still unreachable latest noninitial row has one narrow correction
+path.  Protocol operation \code{REPLACE_PENDING_FORK_VERIFIER=5} carries
+exactly 1,536 bytes: the canonical current predecessor, current-old latest and
+replacement 15-word rows, followed by the same 96-byte review envelope.  For
+this operation \code{changeRows} is the exact 1,440-byte
+predecessor/old/replacement concatenation.  Define
+\begin{verbatim}
+registrationHash = H("slot-chain-schedule-fork-registration-v1" ||
+                     u16(480) || exact480ByteRow)
+replacePendingForkVerifierV1(bytes32 expectedPredecessorRegistrationHash,
+ bytes32 expectedOldRegistrationHash,
+ <the 15 new-row fields>)
+ returns (bytes4 magic,bytes4 oldDigest,bytes4 newDigest,
+          uint64 newFirstParentSlot,uint64 newLastParentSlotExclusive)
+// selector 0xb48bbef1; exact 160 bytes; magic FVP1
+\end{verbatim}
+PVM exact-decodes all three rows, proves the predecessor and old row
+reconstruct the current last two routes through FVR1, proves the old verifier
+through SFV1, and passes both registration hashes.  Oracle independently
+reconstructs and hashes the same predecessor and full latest row.  The latest
+must be noninitial and have no
+successor, and
+\code{targetSlot(currentWindow+8)+64<min(old.firstParentSlot,
+new.firstParentSlot)}; equality rejects, so no carrier reachable by an already
+early-sealable window is mutable.  The first-slot test deliberately does not
+repeat the original append runway: by execution, the queued change has already
+consumed that delay.  The strict comparison using
+\code{currentWindow+1811} applies only to
+\code{new.lastParentSlotExclusive}, so a replacement made at the last valid
+execution second still leaves one full future correction/renewal runway.  The
+new interval is nonempty, its first slot is strictly after the
+predecessor's first, and the transaction atomically changes the predecessor's
+last/successor, latest row and digest mapping, and the authoritative horizon.
+The recomputed delayed change certificate commits the exact replacement
+boundary, new reviewed-through horizon, predecessor/old/new rows and code/config
+identities; its evidence must prove both the rewritten predecessor interval
+and the new interval remain within reviewed parent and carrier/header schemas.
+The new digest is either the old digest or globally unused.  Every digest ever
+installed is permanently tombstoned: when a changed old digest becomes unknown
+it can never be reused.  Exact-old mismatch or any failed post-read rolls the
+whole operation back.  There is no general replacement and no cancellation.
+
+An overlong reviewed horizon on the current latest row, including the initial
+row, has a separate forward-only repair.  Protocol operation
+\code{SPLIT_LATEST_FORK_VERIFIER=6} carries exactly 1,056 bytes
+\code{exactOldLatestRow||exactSuccessorRow||review}.  Its
+\code{changeRows} is the exact 960-byte two-row prefix.  Define
+\begin{verbatim}
+splitLatestForkVerifierV1(bytes32 expectedOldRegistrationHash,
+ <the 15 successor-row fields>)
+ returns (bytes4 magic,bytes4 oldDigest,bytes4 successorDigest,
+          uint64 boundaryParentSlot,uint64 successorLastParentSlotExclusive)
+// selector 0x455b4ff5; exact 160 bytes; magic FVS1
+\end{verbatim}
+Both authorities require the supplied old row to equal the current latest,
+the fresh successor route ID to be globally unused and different, and
+\code{old.firstParentSlot < successor.firstParentSlot <
+old.lastParentSlotExclusive}.  Both strict-check
+\code{targetSlot(currentWindow+8)+64} below the successor first slot, and
+\code{targetSlot(currentWindow+1811)+64} below the successor last slot.
+Thus the boundary stays outside every already early-sealable carrier range
+without charging the original governance delay twice, while the new latest
+retains a full future correction/renewal runway.  The operation atomically
+shortens the old latest to the successor's
+first slot, appends the successor, updates both registration paths, the used
+path, reverse index and order prefix, and exact-postreads both FVR1 rows plus
+FRS1 after the candidate's pre-mutation SFV1 validation.  It cannot rewrite any parent reachable by the full correction
+runway, cannot lengthen the old route, cannot reuse an identifier, and cannot
+change any earlier interval.  This is the only way to shorten the current
+latest horizon; it prevents a mistaken early horizon extension from becoming
+irreversible while preserving monotone history.
 
 The exact configuration layers are
 \begin{verbatim}
@@ -2165,7 +2572,7 @@ forkConstantsHash = H(
  u64(prevRandaoGindex) || u64(timestampGindex) || u64(blockHashGindex))
 scheduleForkOutputSchemaHash = H(
  "ScheduleCarrierOutputV1(bytes32 statementHash,uint64 parentSlot,"
- "uint64 executionBlockNumber,uint64 payloadTimestamp,bytes32 blockHash,"
+ "uint64 parentExecutionBlockNumber,uint64 payloadTimestamp,bytes32 blockHash,"
  "bytes32 stateRoot,bytes32 prevRandao)")
 configurationHash = H(
  "slot-chain-schedule-fork-verifier-config-v1" || forkDigest ||
@@ -2180,7 +2587,7 @@ configuration hash is not accepted.
 The initial row's fork witness is not opaque.  Its exact current-fork schema is
 \begin{verbatim}
 ScheduleSszMultiproofV1 =
- u64(window) || u64(parentSlot) || u64(carrierExecutionBlockNumber) ||
+ u64(window) || u64(parentSlot) || u64(parentExecutionBlockNumber) ||
  u64(payloadTimestamp) || bytes32(blockHash) || bytes32(stateRoot) ||
  bytes32(prevRandao) || bytes32 helperNode[17]
 \end{verbatim}
@@ -2220,48 +2627,69 @@ reversed child order, a separately supplied helper index and an unconsumed
 node are invalid.
 The constructor rejects any different initial value.  A future delayed row
 may install a different reviewed schema hash and verifier only at its protected
-window boundary; it cannot reinterpret a current-fork row.
+parent-slot boundary; it cannot reinterpret a current-fork row.  Every V1
+schema must still prove \code{BeaconBlock.slot} at gindex 8.
 
 ScheduleOracle obtains the beacon root through the exact contract-selected
 EIP-4788 path; the root itself is never a witness field.  Each query is exactly
 the 32-byte timestamp, 50,000 gas and zero value.  Revert means absent and is
 the only result that advances the scan; a successful call must return exactly
 one nonzero word.  Oracle chooses the first success, so no caller supplies a
-query index or timestamp.  It then rechecks the interval-selected verifier's
+query index or timestamp.  For target $T$ satisfying the checked
+$T+64<H$ reviewed-horizon margin, the
+contract-selected first successful carrier authenticates the canonical parent
+beacon root.  The reviewed verifier's mandatory slot-at-gindex-8 proof yields
+its authenticated parent slot $P$, rather than a merely asserted slot, and the
+timestamp join below proves $P\le T$.  Therefore $P<H$ after the selected
+route's reviewed proof and independently of the caller-selected digest.  Before
+the call a caller-selected row may be rejected when
+\code{row.firstParentSlot>targetSlot}; Oracle must not compare the row's upper
+bound with targetSlot, because a missed boundary slot may legitimately leave
+the canonical parent in the predecessor interval.  It then rechecks the
+selected verifier's
 code and exact SFV1 configuration before STATICCALLing it using only
 \begin{verbatim}
 verifyScheduleCarrierV1(bytes witness,bytes32 beaconBlockRoot)
  returns (bytes4 magic,bytes32 statementHash,uint64 parentSlot,
-          uint64 executionBlockNumber,uint64 payloadTimestamp,
+          uint64 parentExecutionBlockNumber,uint64 payloadTimestamp,
           bytes32 blockHash,bytes32 stateRoot,bytes32 prevRandao)
 \end{verbatim}
 Selector is \code{0x7e981e0b}, return is exactly 256 bytes and magic is SFC1
 \code{0x53464331}.  Calldata has selector, a two-word head with bytes offset
 \code{0x40}, one minimal contiguous witness tail, zero padding and no suffix;
 witness length is nonzero and bounded by the row's reviewed schema and
-\code{gasLimit}, with an absolute 131,072-byte protocol cap.  Oracle recomputes
+\code{gasLimit}, with an absolute 131,072-byte protocol cap.  Immediately
+after authenticating exact length and SFC1, before accepting any
+other returned field or performing a write, Oracle requires
+\code{row.firstParentSlot<=parentSlot<row.lastParentSlotExclusive} and
+\code{parentSlot<=targetSlot}.  Both endpoints are exact; a boundary parent
+uses its successor row, while a missed-slot predecessor remains provable with
+the predecessor row.  Oracle then recomputes
 \begin{verbatim}
 statementHash = H(
  "slot-chain-schedule-carrier-statement-v1" || u256(settlementChainId) ||
  address20(scheduleOracle) || forkDigest || u64(W) || beaconBlockRoot ||
- u64(parentSlot) || u64(executionBlockNumber) || u64(payloadTimestamp) ||
+ u64(parentSlot) || u64(parentExecutionBlockNumber) || u64(payloadTimestamp) ||
  blockHash || stateRoot || prevRandao)
 \end{verbatim}
 from the six returned payload fields and requires exact equality before using
 any leaf.  Every reviewed fork-witness schema binds the outer \code{u64(W)};
 the verifier uses that bound value, \code{block.chainid}, \code{msg.sender}
-and its configured fork digest when constructing the statement.  Oracle's
+and its configured protocol-local route ID when constructing the statement.  Oracle's
 independent recomputation with the public W makes a substituted inner value
-fail.  The returned \code{executionBlockNumber} means the carrier-header block
-number; it is not claimed to be one of the six SSZ leaves.  Oracle requires it
-to be nonzero and equal the canonical header field 8.  Field 0 is the exact
+fail.  The returned \code{parentExecutionBlockNumber} means the parent
+execution-payload block number; it is not claimed to be one of the six SSZ
+leaves.  Header field 8 is the carrier execution-block number.  Oracle requires
+both minimally encoded values to fit \code{uint64} and requires checked
+\code{parentExecutionBlockNumber+1=header.blockNumber}; a parent value of
+\code{UINT64_MAX}, equality or any other off-by-one rejects.  Field 0 is the exact
 32-byte parent hash, field 11 is the minimally encoded uint64 query timestamp,
 and field 19 is the exact 32-byte parent-beacon root; wrong widths reject.
 The number must lie in
 \code{[max(historyFirstSupportedBlock,block.number-8191),block.number-1]}.
 Oracle authenticates
 \code{keccak256(carrierHeaderRlp)} with the exact EIP-2935 read, and checks
-\code{block.number-executionBlockNumber>=64}.  The returned payload block hash
+\code{block.number-header.blockNumber>=64}.  The returned payload block hash
 must equal the header parent hash; the returned parent payload timestamp must
 equal \code{BEACON_GENESIS_TIME+12*parentSlot}, with
 \code{parentSlot<=targetSlot}.  The header timestamp is the contract-selected
@@ -3552,8 +3980,12 @@ The account proof fixes the
 registrar address and code hash; the storage proof fixes
 one nonzero \code{registrationCommitment[protocolVersion]} word.  No Solidity
 struct or adjacent slot is inferred from that one path.  The registrar exposes
-\code{registrationCommitmentV2(uint64) view returns(bytes32)} with exact
-32-byte returndata, and stores only:
+\code{registrationCommitmentV2(uint64) view returns(bytes32)}.  Its selector is
+\code{0xd972f446}; callers use a zero-value \code{STATICCALL} with exactly
+75,000 gas and exactly 36 calldata bytes (selector plus one canonically padded
+\code{uint64} word), and accept exactly 32 return bytes.  Dirty high bytes,
+missing, short, trailing, reverting or caller-dependent records reject.  The
+registrar stores only:
 \begin{verbatim}
 registrationCommitment =
   H("slot-chain-destination-registration-v1" ||
@@ -3685,7 +4117,7 @@ another version.
 The versioned primitive getters used by REGISTER, stage, consume and ABR2 are:
 \begin{verbatim}
 bridgeRouteExpansionV1(uint64 version) selector 0x118464c5
-  calldata 36; gas 200000; return 1216 bytes / 38 words / BRX1
+  calldata 36; gas 200000; return 1952 bytes / 61 words / BRX1
 bridgeInvocationPolicyV1(uint64 version) selector 0xc1b06888
   calldata 36; gas 250000; return 2176 bytes / 68 words / BIP1
 bridgeInvocationDecisionV1(uint64 version,address target) selector 0x6bfa2ef0
@@ -3697,7 +4129,24 @@ profileIngressMembershipV2(uint64 version,bytes32 authorizationId)
 BRX1 is magic, version, Bridge authorization ID, source chain ID, source
 genesis hash, source namespace, destination namespace,
 \code{destinationRegistrationCommitment}, versioned invocation-policy hash and
-count, then the 28 canonical source-descriptor words.  BIP1 is magic, version,
+count, then the 28 canonical source-descriptor words and the following 23
+canonical Source-bundle constructor words:
+\begin{verbatim}
+settlementChainId, sourceChainId, sourceGenesisHash, registryNamespace,
+sourceBridgeRuntimeHash, sourceBridgeStorageLayoutHash, bridgeKernelHash,
+sourceTerminalVerifier, officialVault[0], officialVault[1], officialVault[2],
+sourceOnlyRole=1, nativeQuotaManagerRuntimeHash, nativeQuotaPeriod,
+nativeEthQuota, sourceDomainRegistrar, sourceRegistrationEpoch,
+supportRegistry, supportRegistryRuntimeHash, supportRegistryConfigurationHash,
+sourceTerminalVerifierRuntimeHash,
+sourceTerminalVerifierConfigurationHash, legacyV1Bridge
+\end{verbatim}
+The 23-word suffix is registration storage, not BRD1 calldata: REGISTER derives
+it from the strict profile, commits it through \code{H(BRX1)} in RTR2 and stores
+the exact bytes.  BRD1 can therefore reconstruct SBD1 after process restart
+without a caller witness or an in-memory \code{SettlementRegistration} object.
+It rejects unless re-encoding the descriptor and constructor tuple reproduces
+the stored 61 words and all derived Source identities.  BIP1 is magic, version,
 the versioned policy hash, count, then 64 sorted unique left-padded address
 slots; the active prefix includes address zero and the suffix is all zero.
 The decoder recomputes the policy hash from that list and version.  BID1 uses a
@@ -3755,8 +4204,11 @@ unconsumed \code{ARM_READY} row and all live package code/configuration before
 setting CONSUMED.  Direct calls,
 wrong Router frame/version/hash, premature block, already-consumed row, bad
 return or downstream fault revert the whole Router/PVM/factory/bundle/Registry
-journal, including \code{stagedAtBlock}; a failed REGISTER retry starts a new
-214-block review.
+journal.  REGISTER\_RELEASE is store-only and never sets
+\code{stagedAtBlock}.  A failed first BRD1 attempt leaves no package; the later
+successful BRD1 starts review at its own block.  Once staging succeeds,
+idempotent exact BRD1 reuse preserves the original \code{stagedAtBlock} and
+\code{readyBlock}; no replay can reset or accelerate the 214-block review.
 The primitive package root is exactly
 \code{H("slot-chain-source-route-package-v2" || H(RTR2) || H(BRX1) ||
 H(PIR2) || H(PIM2) || H(PIA2) || H(BIP1))}.  RTR2 uses target-registration
@@ -3796,8 +4248,82 @@ The profile does not select an arbitrary factory.  It fixes one protocol-root
 Source factory address, runtime hash and configuration hash; that configuration
 commits the compiled Source-bundle and Bridge-adapter creation artifacts.
 Missing or mismatched live factory code/configuration makes REGISTER/BRD fail
-closed.  The per-release adapter is independently deployed by that same
-factory at
+closed.  The exact factory hash and view are
+\begin{verbatim}
+sourceBundleFactoryConfigurationHash = H(
+ "slot-chain-source-bundle-factory-config-v1" ||
+ u256(settlementChainId) || address20(protocolVersionManager) ||
+ bundleCreationHash || bundleRuntimeHash ||
+ adapterCreationHash || adapterRuntimeHash ||
+ sourceBridgeCreationHash || sourceBridgeRuntimeHash ||
+ creditRegistryCreationHash || creditRegistryRuntimeHash ||
+ quotaManagerCreationHash || quotaManagerRuntimeHash ||
+ bytes4(0xf3514e73) || bytes4(0x8fafca22) ||
+ u64(15000000) || u64(2000000) || u64(50000) || u64(500000))
+sourceBundleFactoryConfigV1() // selector 0x74bab161; 640 bytes / SBF1
+ returns (bytes4 magic,uint256 settlementChainId,address protocolVersionManager,
+  bytes32 bundleCreationHash,bytes32 bundleRuntimeHash,
+  bytes32 adapterCreationHash,bytes32 adapterRuntimeHash,
+  bytes32 sourceBridgeCreationHash,bytes32 sourceBridgeRuntimeHash,
+  bytes32 creditRegistryCreationHash,bytes32 creditRegistryRuntimeHash,
+  bytes32 quotaManagerCreationHash,bytes32 quotaManagerRuntimeHash,
+  bytes4 bundleDeploySelector,bytes4 adapterDeploySelector,
+  uint64 bundleDeploymentGas,uint64 adapterDeploymentGas,
+  uint64 componentConfigReadGas,uint64 postcheckReserveGas,
+  bytes32 configurationHash)
+\end{verbatim}
+Every bytes4 is left-aligned with 28 trailing zero bytes; every address and
+narrow integer is canonically padded.  SBF1 is callable while root-inactive for
+Factory validation, but both deployment entries first exact-read their own
+128-byte PRA1 and require ACTIVE.  This check is repeated on every call,
+including after process restart; a cache or prior success is not authority.
+
+The bundle deployment entry is exactly
+\begin{verbatim}
+deploySourceBundleV1(bytes32 salt,bytes descriptor,bytes constructorArgs)
+  selector 0xf3514e73; value=0; gas=15000000; calldata=1668 bytes
+\end{verbatim}
+The head is \code{(salt,0x60,0x380)}; the first tail is length 752 followed by
+the exact packed 28-field Source descriptor and 16 zero padding bytes; the
+second tail is length 736 followed by the 23 static constructor words listed
+for BRX1.  There is no gap, alias or suffix.  Factory decodes both tails,
+re-derives the descriptor ID, bundle init code and CREATE2 deployer, derives
+SourceBridge, Registry and QuotaManager from CREATE nonces 1--3, and exact-reads
+the root BridgeDomainRegistry and root-lifetime SourceTerminalVerifier before
+creation.  The four-code set (deployer plus three children) must be wholly
+absent/free or wholly present; a partial set rejects.  Balance-only prefunds are
+preserved.  Any nonce/code collision on a CREATE target rejects; exact reuse
+requires every code/configuration and constructor-derived identity to match.
+The return is exactly 288 bytes:
+\begin{verbatim}
+SBD1 = (bytes4 magic,address bundleDeployer,address sourceBridge,
+        address creditRegistry,address quotaManager,address terminalVerifier,
+        uint8 created,bytes32 bundleInitCodeHash,bytes32 sourceDescriptorId)
+\end{verbatim}
+
+The per-release adapter is independently deployed by that same factory through
+\begin{verbatim}
+deployBridgeAdapterV1(uint64 version,bytes32 sourceDescriptorId,
+ bytes32 configurationHash,address sourceBridge,address creditRegistry,
+ address router,address queue,address sealAuthority)
+  selector 0x8fafca22; value=0; gas=2000000; calldata=260 bytes
+\end{verbatim}
+All eight arguments are static canonical words.  Factory exact-reads PVM1 from
+\code{sealAuthority}, requires it to name this ACTIVE SourceBundleFactory,
+Router and Queue, then exact-reads the SourceBridge, credit Registry, Router and
+Queue code/configuration and independently recomputes the adapter configuration.
+The return is exactly 224 bytes:
+\begin{verbatim}
+SAD1 = (bytes4 magic,address adapter,bytes32 salt,bytes32 initCodeHash,
+        bytes32 runtimeHash,bytes32 configurationHash,uint8 created)
+\end{verbatim}
+Both entries reserve 500,000 gas for complete postchecks.  Short/trailing/dirty
+return, wrong deterministic address, partial code, wrong live dependency,
+constructor mismatch or any late fault reverts every CREATE, cache-independent
+publication and retained row in the call.  Exact existing deployments are
+idempotent and return \code{created=0}; first creation returns 1.
+
+The adapter address is
 \begin{verbatim}
 saltA = H("slot-chain-bridge-adapter-salt-v1" || u64(version) ||
           sourceDescriptorId)
@@ -3813,8 +4339,8 @@ address20(router) || address20(queue) || address20(sealAuthority)
 \end{verbatim}
 and binds every constructor-fixed authority address.  The real compiled creation bytecode hash must replace the
 model artifact and be sealed into the root deployment receipt before this
-design can be implemented; a test fixture inserting a behavioral factory
-object is not deployment authority.
+design can be implemented; a process-local behavioral object is never
+deployment authority.
 
 Router retains one protocol-lifetime BridgeDomainRegistry, immutable factories,
 source bundles by descriptor ID and an append-only version-to-descriptor map.
@@ -4788,9 +5314,9 @@ Pool--target--quota--pull--terminal journal.  The failure finalizer rechecks
 RETRIABLE, the same pin and absent terminal and owns only FAILED plus terminal;
 it never calls the Pool.  No other entry may invoke one of those steps.
 
-The direct, non-Pool code{process}/code{retry} entries never invoke
-code{executeAttemptV2}: without an authenticated Pool authorization they
-return code{UNFUNDED} before constructing a child-failure digest or touching
+The direct, non-Pool \code{process}/\code{retry} entries never invoke
+\code{executeAttemptV2}: without an authenticated Pool authorization they
+return \code{UNFUNDED} before constructing a child-failure digest or touching
 the target.  Thus the typed failure boundary cannot convert an unfunded direct
 attempt into a generic rejection.
 
@@ -5005,6 +5531,7 @@ struct DestinationBridgeDescriptorV2 {
   bytes32 bridgeKernelProfileHash; address inboxCreditStore;
   address terminalAccumulator; address terminalDomainRegistrar;
   address quotaManager; address nativeLiquidityPool;
+  address bridgeSurplusSink;
 }
 struct ReleaseManifestV2 {
   uint64 protocolVersion;
@@ -5031,12 +5558,12 @@ TerminalDomainRegistrarV2.activateDomain(
 \end{verbatim}
 The release manifest is a fully static Solidity tuple: no string, bytes or
 dynamic array occurs in it.  Every address/integer has canonical ABI padding and
-the ten components have fixed order.  Its ABI tuple contains exactly 58 words
-(1,856 bytes).  In the hash preimage, word 0 is
+the ten components have fixed order.  Its ABI tuple contains exactly 59 words
+(1,888 bytes).  In the hash preimage, word 0 is
 \code{RELEASE_MANIFEST_TYPEHASH}, words 1--12 are the outer fields through
-\code{destinationBridgeExecutionHash}, words 13--22 are the ten destination
-descriptor fields, words 23--28 are the remaining outer fields through
-\code{poolConfigurationHash}, and words 29--58 are the ten three-word
+\code{destinationBridgeExecutionHash}, words 13--23 are the eleven destination
+descriptor fields, words 24--29 are the remaining outer fields through
+\code{poolConfigurationHash}, and words 30--59 are the ten three-word
 components.  The typehash is Keccak of this exact single ASCII string (shown
 wrapped only for typesetting):
 \begin{verbatim}
@@ -5056,7 +5583,7 @@ DestinationBridgeDescriptorV2(address bridge,bytes32 runtimeHash,
 bytes32 configurationHash,bytes32 storageLayoutHash,
 bytes32 bridgeKernelProfileHash,address inboxCreditStore,
 address terminalAccumulator,address terminalDomainRegistrar,
-address quotaManager,address nativeLiquidityPool)
+address quotaManager,address nativeLiquidityPool,address bridgeSurplusSink)
 \end{verbatim}
 The byte string contains no whitespace or newline between the three displayed
 type declarations.  Dependencies are in ascending type-name order.  Its
@@ -5066,13 +5593,13 @@ signature
 \begin{verbatim}
 activateRelease((uint64,uint256,uint256,bytes32,bytes32,bytes32,bytes32,
 address,bytes32,bytes32,address,bytes32,
-(address,bytes32,bytes32,bytes32,bytes32,address,address,address,address,address),
+(address,bytes32,bytes32,bytes32,bytes32,address,address,address,address,address,address),
 bytes32,bytes32,bytes32,address,bytes32,bytes32,
 (address,bytes32,bytes32)[10]),uint64)
 \end{verbatim}
 again with the displayed newlines removed.  Tx0 calldata is that four-byte
-selector followed by the 58 manifest words and one canonical padded
-\code{uint64 retirementQueueCount} word: exactly 1,892 bytes.  Appendix golden
+selector, \code{0x33f5ca80}, followed by the 59 manifest words and one canonical padded
+\code{uint64 retirementQueueCount} word: exactly 1,924 bytes.  Appendix golden
 vectors pin every boundary word and the final selector/hash.  The dependency
 order is profile and primitive
 descriptors, Bridge bundle init/config, addresses, release manifest, then
@@ -5219,6 +5746,35 @@ and the \code{(domainId,creditId)} terminal guard was previously absent.  A
 duplicate, unpinned credit, foreign Store/Bridge or failed append changes no
 counter, leaf, guard or status.
 
+Historical reclamation has three additional fixed-width, address-keyed views:
+\begin{verbatim}
+routeStateV2(address destinationBridge) view returns
+  (bytes4 magic, address returnedDestinationBridge,
+   bytes32 destinationDomainId, address inboxCreditStore,
+   bytes32 storeRuntimeHash, bytes32 storeConfigurationHash,
+   uint64 protocolVersion, bytes32 releaseManifestHash,
+   bytes32 executionProfileHash, uint256 destinationChainId,
+   uint64 nextQueueIndex)
+pinStateV2(address destinationBridge) view returns
+  (bytes4 magic, address returnedDestinationBridge,
+   bytes32 destinationDomainId, address authorizedInboxApply,
+   address terminalDomainRegistrar, uint64 pinnedCount)
+domainStateV2(address destinationBridge) view returns
+  (bytes4 magic, address returnedDestinationBridge,
+   bytes32 destinationDomainId, uint64 terminalizedPinnedCount)
+\end{verbatim}
+Their selectors are respectively \code{0x610ee813}, \code{0x92aea0d5} and
+\code{0xa16ec5a1}.  Every input is exactly 36 bytes: selector plus one
+canonically left-zero-padded address word.  Every call is a zero-value
+\code{STATICCALL} with exactly 100,000, 75,000 and 75,000 gas respectively.
+The returns are exactly 352, 192 and 128 bytes, with first-word magic
+\code{RTS2}, \code{PNS2} and \code{DMS2}; all address and narrow-integer
+padding is canonical.  Missing address reverse-index entries, zero identity
+fields, short/trailing data, dirty padding, revert or OOG reject.  Router and
+Accumulator maintain permanent one-to-one \code{address20(Bridge)} reverse
+indexes written and rolled back atomically with route/domain registration.
+Store answers only for its immutable destination Bridge.
+
 Anyone may call the old Bridge's bounded \code{reclaimSurplus()} only after a
 distinct successor has the Registrar-local sealed destination activation
 receipt above, InboxApply has reached the
@@ -5228,22 +5784,128 @@ Bridge's aggregate pull liability is zero.  The call reauthenticates the old
 Bridge's aggregate execution-fee pull liability is zero.  Atomic funding leaves
 no Pool state attached to a domain across transactions; unrelated ticket funds
 remain withdrawable by their LP.
-The call bounded-static-reads both Registrar views, checks exact code/config/
-length/magic and old/new version/manifest/domain/Bridge/watermark/seal, then
-reauthenticates the old manifest and complete lifetime
-Router/authority/registrar/accumulator/Pool graph, requires the old route and
-domain writer unchanged, and transfers the entire
-remaining raw Bridge surplus to the profile's typed NATIVE\_ETH
-\code{bridgeSurplus} sink; it never enumerates a mapping or consumes a Pool
-ticket.  Its result is
+Activation derives and seals a fixed-width, primitive
+\code{ReclamationConfigV2} from the already authenticated manifest.  It stores
+the old version/chain/domain/Bridge, manifest/profile/registration commitments,
+the six Router/Store/Authority/Registrar/Accumulator/Pool address/runtime/config
+triples, and the ForceSend constants below.  The sink address must equal exact
+ExecutionProfileV2 word 70 and is also committed by the destination Bridge
+descriptor, component configuration, execution hash and activation-state
+commitment.  From this retained config alone reclaim selects the exact Registrar
+and Authority addresses, checks
+\begin{verbatim}
+struct ReclamationComponentV2 {
+  address account; bytes32 runtimeHash; bytes32 configurationHash;
+}
+struct ReclamationConfigV2 {
+  uint64 protocolVersion; uint64 destinationChainId;
+  bytes32 releaseManifestHash; bytes32 registrationCommitment;
+  bytes32 executionProfileHash; bytes32 destinationDomainId;
+  address destinationBridge; address bridgeSurplusSink;
+  ReclamationComponentV2[6] components; // rows 4,5,6,7,8,9
+  address forceSendHelper; bytes32 forceSendCreate2Salt;
+  bytes32 forceSendInitcodeHash; bytes32 forceSendCompilerBuildHash;
+  bytes32 forceSendEvmRulesHash;
+  uint64 forceSendCreate2FixedGas; uint64 forceSendChildGas;
+  uint64 forceSendPostcheckReserve; uint64 forceSendPrecreateGas;
+}
+\end{verbatim}
+All narrow fields are re-width-checked on decode.  The six entries are exact
+manifest component positions 3--8 in zero-based order (human rows 4--9); no
+caller supplies or reorders them.  Its canonical static projection is exactly
+35 ABI words (1,120 bytes).  \code{forceSendPrecreateGas} is rederived
+from the other gas fields and equality-checked, rather than trusted as a second
+authority.  The reclaim path then checks
+\code{EXTCODEHASH} and the exact four-byte/50,000-gas
+\code{componentConfigHashV2()} read (selector \code{0xf6c0f7d2}, zero value,
+exactly 32 return bytes) for each, then reads DSV2, DRV2,
+\code{registrationCommitmentV2} and RAV2.  It strictly joins the direct receipt
+to the old version/manifest/domain/Bridge, successor index, nonzero distinct
+successor, sealed bit and watermark; RAV2 must repeat the old manifest and
+watermark, while the registration view must equal the locally recomputed
+\code{registrationCommitment}.  No latest-tip lookup or private Registrar map
+read is permitted.
+
+Only after those roots authenticate the old manifest commitment may the Bridge
+select and code/config-authenticate the retained Router, Store, Accumulator and
+Pool.
+It then makes RTS2 to that already authenticated Router, PNS2 to the
+manifest-pinned Store and DMS2 to the manifest-pinned Accumulator.  RTS2 must
+repeat the Bridge/domain/version/manifest/profile/chain, the exact
+manifest-pinned Store address/runtime/config triple and a cursor at least the
+receipt watermark.  PNS2 must repeat the Bridge/domain, manifest-pinned Router
+and Registrar and the Store count.  DMS2 must repeat the Bridge/domain and the
+same count.  In particular, an RTS2-returned Store triple cannot authenticate
+the Router that returned it: Router code/config was already rooted in the
+manifest.  The Pool has no reclamation state view; only its manifest-pinned
+code/config is checked.  Target dispatch is by the exact 20-byte account
+address, so an equal-looking object installed at an alias cannot answer.
+
+These are the complete fixed reclamation reads: exactly six
+\code{EXTCODEHASH} operations and thirteen \code{STATICCALL}s (six config
+reads plus DSV2, DRV2, registrationCommitmentV2, RAV2, RTS2, PNS2 and DMS2).
+Reclaim never follows an in-memory object reference, enumerates a map or reads
+another component's private state.  A restart rehydrates only the primitive
+\code{ReclamationConfigV2}, the six address-keyed call records, address-keyed
+native balances and a new Bridge instance.  The executable model exercises
+A$\rightarrow$B$\rightarrow$C reclamation and an old SourceBridge claim through
+that target-free state.
+
+If the remaining Bridge balance is zero, the Bridge sets \code{retired=true}
+and returns \code{RECLAIMED\_ZERO} without CREATE2; low gas or an occupied helper
+cannot block empty cleanup.  For a positive surplus it executes exact 22-byte
+initcode
+\begin{verbatim}
+0x73 || bridgeSurplusSink[20] || 0xff  // PUSH20 sink; SELFDESTRUCT
+salt = keccak256("slot-chain-force-send-create2-salt-v1" || oldBridge[20])
+helper = last20(keccak256(0xff || oldBridge || salt || keccak256(initcode)))
+\end{verbatim}
+with \code{CREATE2(value=surplus)}.  No CALL reaches the sink and recipient code
+cannot reject, reenter or consume gas.  Sink, helper and the six component
+accounts, Bridge, quota manager, pauser, signal service and Pool must be pairwise
+address-disjoint.  Sink and helper must additionally be disjoint from every
+fixed privileged destination target in the release denyset, including both
+Bridge-context endpoints, the delegate controller and every official V1 vault.
+The exact initcode hash, helper derivation, handwritten Osaka
+build hash, EIP-6780 execution-rules hash and gas certificate are component
+configuration inputs.  A balance-only counterfactual helper is legal under
+EIP-684: its prefunded balance is included with the Bridge value and the
+constructor self-destructs the total to the sink.  A helper with nonzero nonce
+or nonempty code makes CREATE2 fail and leaves all state unchanged.
+The handwritten-build commitment is
+\code{0xa81af0253ed5abd3752b67c07e0c84760813a7294979ff57beefe43b0b61c551};
+the EIP-6780/Osaka rules commitment is
+\code{0x81a66caeeb505a605f1fb2619833286272e08d37f7589155125455efad4c17f2}.
+
+Let \code{C\_create2} be the release-certificate bound fixed caller/opcode/hash/
+memory cost, \code{G\_child} the measured worst-case constructor consumption
+including a cold new beneficiary, and \code{R\_post} the fixed post-check
+reserve.  Immediately before CREATE2 the exact sufficient guard is
+\begin{verbatim}
+gasleft >= C_create2 + max(G_child + R_post, ceil(64*G_child/63))
+\end{verbatim}
+with checked arithmetic; the release benchmark succeeds at that threshold and
+fails at one less.  This model fixes the certificate values at 33,000, 75,000
+and 20,000 gas respectively, hence a 128,000-gas guard.  CREATE2 must return the
+exact nonzero derived helper and the Bridge postbalance must be zero, otherwise
+the whole call rolls back.  The helper has no surviving runtime.  Reclaim never
+asserts an exact sink balance delta because unrelated forced ETH is legal.
+
+The mechanism relies on same-creation-transaction SELFDESTRUCT value transfer
+under the profile-pinned Osaka/EIP-6780 semantics.  A future fork that removes
+that transfer must reject incompatible activation profiles; if semantics change
+after deployment, only already-unowned raw surplus cleanup can become stranded.
+Reclaim is reachable only after all pull liabilities are zero, so this
+dependency can never block a user claim, protocol processing or chain liveness.
+No Pool ticket is enumerated or consumed.  Its result is
 \begin{verbatim}
 enum ReclaimResult { REJECTED, RECLAIMED_ZERO, RECLAIMED_VALUE }
 returns (ReclaimResult result, uint256 amount)
 \end{verbatim}
-so sink rejection cannot masquerade as a valid zero-balance reclaim.  Only
-after an accepted full transfer does it set the one-shot \code{retired} bit;
-partial transfer, callback/reentrancy, later processing, double reclaim and any
-state mismatch revert or return REJECTED without mutation.
+so a failed CREATE2 cannot masquerade as a valid zero-balance reclaim.  Only
+after the exact zero-postbalance check does it set the one-shot \code{retired}
+bit; partial transfer, later processing, double reclaim and any state mismatch
+revert or return REJECTED without mutation.
 The old Bridge authenticates its immutable \emph{direct} successor receipt; it
 never requires that successor to remain the Registrar's latest active tip.
 Therefore A may first reclaim from its sealed A$\rightarrow$B receipt after
@@ -5336,16 +5998,16 @@ activateVersionWithMigration((uint8,uint64,uint64,uint64,uint64,uint64,bytes32,
 address,uint256,bytes32,uint64,uint64),
 (uint64,uint256,uint256,bytes32,bytes32,bytes32,bytes32,address,bytes32,
 bytes32,address,bytes32,
-(address,bytes32,bytes32,bytes32,bytes32,address,address,address,address,address),
+(address,bytes32,bytes32,bytes32,bytes32,address,address,address,address,address,address),
 bytes32,bytes32,bytes32,address,bytes32,bytes32,
 (address,bytes32,bytes32)[10]),
 (uint64,uint8,uint32,bytes32,bytes)[],bytes,bytes)
 \end{verbatim}
-The selector is \code{0x22c4944d}.  The first two tuples are static and occupy
-22 and 58 words.  Therefore the top-level ABI head is exactly 83 words: words
-0--21 are \code{fixedInput}, 22--79 are \code{manifest}, and words 80--82 are
+The selector is \code{0x17a548ed}.  The first two tuples are static and occupy
+22 and 59 words.  Therefore the top-level ABI head is exactly 84 words: words
+0--21 are \code{fixedInput}, 22--80 are \code{manifest}, and words 81--83 are
 the rows, imported-header and proof offsets.  The rows offset is exactly
-\code{0x0a60}.  The other offsets are
+\code{0x0a80}.  The other offsets are
 the immediately following canonical tails: rows encode as one length word,
 $n$ element offsets and $n$ contiguous five-word element heads plus their bytes
 tails; then the header and proof each encode one length word, bytes and zero
@@ -5400,7 +6062,8 @@ around that delay.
 The timelock accepts only operation kinds
 \begin{verbatim}
 REGISTER_RELEASE=1 | REGISTER_FORK_VERIFIER=2 |
-PUBLISH_GENESIS_CAMPAIGN=3 | PUBLISH_MIGRATION_ARM=4
+PUBLISH_GENESIS_CAMPAIGN=3 | PUBLISH_MIGRATION_ARM=4 |
+REPLACE_PENDING_FORK_VERIFIER=5 | SPLIT_LATEST_FORK_VERIFIER=6
 \end{verbatim}
 and rejects every other value.  Its exact identity is
 \begin{verbatim}
@@ -5423,8 +6086,9 @@ external call, invokes only the immutable manager's
 the whole operation to QUEUED.  Only the DAO proposer may call
 \code{cancelProtocolChangeV1(uint64,uint8,bytes)}, and only while QUEUED; it
 authenticates the complete preimage and writes CANCELED without an external
-call.  NONE=0, QUEUED=1, EXECUTING=2, CANCELED=3 and EXECUTED=4 are the only
-states.  CANCELED and EXECUTED retain the tuple forever, nonces are never
+call.  NONE=0, QUEUED=1, EXECUTING=2, CANCELED=3, EXECUTED=4 and EXPIRED=5 are
+the only states.  EXPIRED is reachable only for the three fork-change kinds by
+the permissionless function below.  CANCELED, EXECUTED and EXPIRED retain the tuple forever, nonces are never
 reused, and the EXECUTING guard makes same-block execute/reenter/cancel order
 atomic.
 
@@ -5435,9 +6099,17 @@ independently require
 Both endpoints are inclusive.  The preceding seven-day delay is unchanged;
 the second seven-day interval only bounds how long a mature arm can remain
 dormant.  Other operation kinds retain their separately specified timing
-rules.  The generic PCO1 row and operation identity are unchanged.
+rules except the three fork-change kinds.  REGISTER\_FORK\_VERIFIER,
+REPLACE\_PENDING\_FORK\_VERIFIER and SPLIT\_LATEST\_FORK\_VERIFIER have the fixed
+\code{FORK\_CHANGE\_EXECUTION\_WINDOW\_SECONDS=86400}.  Both Timelock and PVM
+independently require
+\code{executeAfter<=block.timestamp<=checked(executeAfter+86400)}.  After the
+upper endpoint any caller may terminalize the still-QUEUED row as EXPIRED;
+execution can never race successfully after that timestamp.  This prevents a
+reviewed route payload from remaining dormant and executable after its review
+evidence has become stale.  The generic PCO1 row and operation identity are unchanged.
 
-The four mutating ABIs are exact:
+The five mutating ABIs are exact:
 \begin{verbatim}
 queueProtocolChangeV1(uint8 kind,bytes payload)
  returns (bytes4 magic,bytes32 operationId,uint64 nonce,uint64 executeAfter)
@@ -5447,30 +6119,34 @@ executeProtocolChangeV1(uint64 nonce,uint8 kind,bytes payload)
  returns (bytes4 magic,bytes32 operationId)
 applyProtocolChangeV1(uint64 nonce,uint8 kind,bytes payload)
  returns (bytes4 magic)
+expireForkChangeV1(bytes32 operationId)
+ returns (bytes4 magic,bytes32 operationId)
 \end{verbatim}
 Their selectors are \code{0xbd5c80a8}, \code{0x5701c308},
-\code{0x31d81ea2} and \code{0xaf3927f6}; return lengths/magics are respectively
+\code{0x31d81ea2}, \code{0xaf3927f6} and \code{0x379c9ecc}; return lengths/magics are respectively
 128/PCQ1 \code{0x50435131}, 32/PCC1 \code{0x50434331}, 64/PCE1
-\code{0x50434531} and 32/PAP1 \code{0x50415031}.  Queue calldata has a two-word
-head and exact bytes offset \code{0x40}; the other three have a three-word head
-and exact offset \code{0x60}.  Each has one length word, contiguous bytes, zero
+\code{0x50434531}, 32/PAP1 \code{0x50415031} and 64/PFX1
+\code{0x50465831}.  Queue calldata has a two-word
+head and exact bytes offset \code{0x40}; the other three dynamic calls have a three-word head
+and exact offset \code{0x60}.  Expiry calldata is the selector plus one exact
+operation-ID word.  Each dynamic call has one length word, contiguous bytes, zero
 right-padding and no suffix.  Narrow arguments use canonical padding.  Apply is
-Timelock-only; the other three have the caller rules above.
+Timelock-only; the other four have the caller rules above.
 
 The payload is canonical ABI for exactly one fixed schema:
 \begin{enumerate}
 \item REGISTER\_RELEASE is exactly
 \code{abi.encode(uint64 expectedPredecessorProtocolVersion,
 ReleaseManifestV2,SettlementDeploymentDescriptorV1,bytes profileBytes)}.
-Its head is the canonically padded expected-predecessor word, 58 manifest words,
+Its head is the canonically padded expected-predecessor word, 59 manifest words,
 then the eight descriptor words
 \code{(address factory,bytes32 factoryRuntimeHash,
 bytes32 factoryConfigurationHash,bytes32 salt,bytes32 initCodeHash,
 address targetSettlement,bytes32 targetRuntimeHash,
 bytes32 targetConfigurationHash)} followed by the sole dynamic offset, exactly
-\code{0x0880}.  Its tail is one length word, 1--65,536 canonical profile bytes
+\code{0x08a0}.  Its tail is one length word, 1--65,536 canonical profile bytes
 and zero right-padding, making total payload length
-\code{2208+ceil32(profileBytes.length)}.  Alias, gap, nonminimal offset,
+\code{2240+ceil32(profileBytes.length)}.  Alias, gap, nonminimal offset,
 nonzero padding or trailing bytes reject.  The manager strictly decodes and
 byte-for-byte re-encodes the strict canonical ABI profile grammar below, requires
 \code{executionProfileHash =
@@ -5495,26 +6171,41 @@ targetRegistrationHash = H(
 \end{verbatim}
 from the same manifest/profile and current Router predecessor, where
 \code{bridgeRouteExpansionHash} is the nonzero Keccak hash of the exact
-canonical 1,216-byte BRX1 return.  The \code{targetReleaseRegistrationV2}/RTR2
+canonical 1,952-byte BRX1 return.  The \code{targetReleaseRegistrationV2}/RTR2
 wire ABI retains its V2 name; the target-registration \emph{hash grammar} is
 V3 and no V2 hash is accepted.  It may only
 append that exact version/deployment/registration, its profile-derived ingress
 rows and its Market authorization to the named immutable registries.  A
 different predecessor, target, manifest or registration requires a new delayed
 operation and cannot reuse this record.
-\item REGISTER\_FORK\_VERIFIER is
-\code{abi.encode(bytes4 forkDigest,uint64 firstWindow,address verifier,
-bytes32 runtimeHash,uint64 beaconSlotGindex,uint64 executionPayloadGindex,
+\item REGISTER\_FORK\_VERIFIER is the exact 576-byte concatenation of the
+canonical 480-byte row
+\code{abi.encode(bytes4 forkDigest,uint64 firstParentSlot,
+uint64 lastParentSlotExclusive,address verifier,bytes32 runtimeHash,
+uint64 beaconSlotGindex,uint64 executionPayloadGindex,
 uint64 stateRootGindex,uint64 prevRandaoGindex,uint64 timestampGindex,
 uint64 blockHashGindex,bytes32 witnessSchemaHash,bytes32 configurationHash,
-bytes4 selector,uint64 gasLimit)}.
-These are exactly 14 static words.  Every field is nonzero, the selector is
-exactly \code{0x7e981e0b}, the window is strictly future, and
+bytes4 selector,uint64 gasLimit)} and the 96-byte review envelope defined in
+the ScheduleOracle subsection.  The row is exactly 15 static words.  Every descriptor field is nonzero,
+\code{firstParentSlot} may be zero only for the constructor-installed initial
+row, the interval is nonempty, the selector is exactly \code{0x7e981e0b}, and
 \code{configurationHash} is recomputed from the displayed constants under the
 ScheduleOracle grammar below.  The runtime/configuration getter is checked, and
 \code{forkDigest} occupies the high four word bytes with
-28 zero trailing bytes; it is the
-one-shot ScheduleOracle registry key used by \code{sealScheduleWindowV1}.
+28 zero trailing bytes; it is the permanently tombstoned ScheduleOracle
+registry key used by \code{sealScheduleWindowV1}.
+\item REPLACE\_PENDING\_FORK\_VERIFIER is the exact 1,536-byte concatenation of
+the canonical predecessor, old-latest and replacement 15-word rows and the
+96-byte review envelope.  The three row parts use the preceding field order
+and canonical ABI word padding; no offset, length word or suffix is present.
+The review envelope is the exact grammar in the ScheduleOracle subsection.  The expected predecessor/old registration hashes,
+unreachable-boundary checks, used-digest tombstone and atomic state transition
+are exactly the rules in the ScheduleOracle subsection.
+\item SPLIT\_LATEST\_FORK\_VERIFIER is the exact 1,056-byte concatenation of
+the canonical current-latest row, canonical successor row and review envelope.
+It is the forward-only latest-row split specified in the ScheduleOracle
+subsection; both rows and their boundary are committed before the delayed
+operation is queued.
 \item PUBLISH\_GENESIS\_CAMPAIGN is
 \code{abi.encode(uint64 forceCutoffBlock,uint64 proposalCutoffBlock,
 uint64 quiesceNotBeforeBlock,uint64 resumeByBlock,
@@ -5591,7 +6282,7 @@ ProtocolVersionManagerV2.profileIngressAuthorizationV2(bytes32 authorizationId)
 The selectors are respectively \code{0x9aa71eff}, \code{0xf588fec3},
 \code{0xc65ff64e}, \code{0x2d2bbe23} and \code{0x2181b974}.  Router registration calldata is the
 four-byte selector followed by the exact REGISTER\_RELEASE payload; its selector
-is the Keccak selector of the fully expanded 58-word manifest tuple printed in
+is the Keccak selector of the fully expanded 59-word manifest tuple printed in
 the activation ABI and the eight-word deployment tuple above.  Returns are
 96 bytes for registration, 416/RTR2, 768/MPR2, 128/PIR2 and 800/PIA2 bytes;
 magics are
@@ -5636,13 +6327,14 @@ queued payload.
 
 PVM then derives all expected values from the raw strict profile and joins the
 complete control tuple to the actual root deployment.  It checks its own
-EXTCODEHASH against word 21 and exact-reads its own 1,088-byte PVM1 view;
+EXTCODEHASH against word 21 and exact-reads its own 1,184-byte PVM1 view;
 Router independently checks \code{msg.sender} EXTCODEHASH and makes the same
 100,000-gas, four-byte PVM1 STATICCALL before its first write.  Each caller
 strictly decodes PVM1, recomputes the complete PVM configuration hash against
 word 22, checks the six non-Market control accounts in this order: Router,
 ForcedQueue, BuilderRegistry, ScheduleOracle, BridgeDomainRegistry and
-BridgeCreditRegistry; it then checks Market EXTCODEHASH and its fixed
+SourceBundleFactory; it then exact-reads SBF1, checks the root-lifetime
+SourceTerminalVerifier at words 166--168, and checks Market EXTCODEHASH and its fixed
 \code{componentConfigHashV2()} against the PVM1 root and independently
 recomputes the Market configuration from the actual five constructor values.
 It next checks the protocol-root ERC-2470 address and EXTCODEHASH; ERC-2470 has
@@ -5672,6 +6364,20 @@ PVM APPLYING while Router is IDLE, independently re-derives expected values
 from the same raw profile and repeats the PVM1, control, Market, factory and
 target live reads as its own caller before writing REGISTERING.  It then
 appends the version row and restores Router IDLE last.
+Before publishing that row, Router derives one fixed compatibility projection
+from the 59 manifest words: the four protocol-lifetime component descriptors at
+zero-based component positions 3, 5, 6 and 7, plus the release's fresh
+\code{destinationDomainId} and destination Bridge.  The bootstrap release seeds
+the immutable lifetime projection.  Router stores an exact
+\code{protocolVersion -> projection} row and one-shot reverse maps
+\code{destinationDomainId -> protocolVersion} and
+\code{destinationBridge -> protocolVersion}.  Every later registration
+requires exact equality with the lifetime projection and absence from both
+fresh-key maps before inserting all three rows.  Profile-deployment installation
+then exact-reads only its version row, the lifetime projection and the two
+reverse keys; it never scans prior release registrations.  Missing, colliding
+or disagreeing indexes fail closed, and the common REGISTER\_RELEASE journal
+rolls every compatibility/index write back on any later fault.
 Caller-dependent getter behavior, short/trailing returns, revert/OOG or any
 late mismatch reverts the common outer journal.  Because these are STATICCALLs,
 the target is nonproxy/selfdestruct-free and Ethereum code cannot change during
@@ -5731,8 +6437,10 @@ protocolVersionManagerConfigurationHash = H(
  aggregatorSeatMarketConfigurationHash ||
  address20(bridgeDomainRegistry) || bridgeDomainRegistryRuntimeHash ||
  bridgeDomainRegistryConfigurationHash ||
- address20(bridgeCreditRegistry) || bridgeCreditRegistryRuntimeHash ||
- bridgeCreditRegistryConfigurationHash || manifestNamespace ||
+ address20(sourceBundleFactory) || sourceBundleFactoryRuntimeHash ||
+ sourceBundleFactoryConfigurationHash ||
+ address20(sourceTerminalVerifier) || sourceTerminalVerifierRuntimeHash ||
+ sourceTerminalVerifierConfigurationHash || manifestNamespace ||
  u64(604800) || u64(604800) || u64(604800) || u16(64) ||
  u64(releaseRouterRegistrationGas) ||
  u64(releaseMarketInstallationGas) || u64(releasePostreadGas) ||
@@ -5764,7 +6472,8 @@ PVM1 binds the runtime/configuration pairs in words 24--25, 27--28, 30--31,
 33--34, 36--37, 39--40 and 42--43.  Each caller independently checks
 EXTCODEHASH and the fixed-gas live configuration getter for Router,
 ForcedQueue, BuilderRegistry, ScheduleOracle, Market, BridgeDomainRegistry and
-BridgeCreditRegistry.  The Market configuration is also independently
+SourceBundleFactory, exact-reads SBF1, and checks the terminal identity at
+profile words 166--168.  The Market configuration is also independently
 recomputed from the actual constructor inventory.  Thus a publisher cannot
 make a self-consistent alternate control graph.  Substituting any lookalike
 control component makes registration fail before a Router, PVM or Market
@@ -5799,13 +6508,13 @@ Configuration reads use exactly 100,000 gas and these canonical ABIs:
 protocolChangeTimelockConfigV1() // selector 0xb80095ca; 160 bytes
  returns (bytes4 magic,address daoProposer,address protocolVersionManager,
           uint64 minimumDelaySeconds,bytes32 operationDomain) // PCT1
-protocolVersionManagerConfigV1() // selector 0x4deb7821; 1088 bytes
+protocolVersionManagerConfigV1() // selector 0x4deb7821; 1184 bytes
  returns (bytes4 magic,uint256 settlementChainId,address timelock,
           address activeSettlementRouter,address forcedQueue,
           address builderRegistry,address scheduleOracle,
           address aggregatorSeatMarket,bytes32 aggregatorSeatMarketRuntimeHash,
           bytes32 aggregatorSeatMarketConfigurationHash,address bridgeDomainRegistry,
-          address bridgeCreditRegistry,bytes32 timelockDescriptorHash,
+          address sourceBundleFactory,bytes32 timelockDescriptorHash,
           bytes32 manifestNamespace,uint64 minimumDelaySeconds,
           uint64 maximumLiveMigrationSeconds,
           uint64 migrationArmExecutionWindowSeconds,
@@ -5822,8 +6531,11 @@ protocolVersionManagerConfigV1() // selector 0x4deb7821; 1088 bytes
           bytes32 scheduleOracleConfigurationHash,
           bytes32 bridgeDomainRegistryRuntimeHash,
           bytes32 bridgeDomainRegistryConfigurationHash,
-          bytes32 bridgeCreditRegistryRuntimeHash,
-          bytes32 bridgeCreditRegistryConfigurationHash) // PVM1
+          bytes32 sourceBundleFactoryRuntimeHash,
+          bytes32 sourceBundleFactoryConfigurationHash,
+          address sourceTerminalVerifier,
+          bytes32 sourceTerminalVerifierRuntimeHash,
+          bytes32 sourceTerminalVerifierConfigurationHash) // PVM1
 protocolChangeOperationV1(bytes32) // selector 0x4b80fe68; 256 bytes
  returns (bytes4 magic,uint8 state,uint64 nonce,uint8 operationKind,
           uint32 payloadBytes,bytes32 payloadHash,
@@ -7559,6 +8271,9 @@ There is one top-level immutable sink table.  Each entry is the typed pair
 \code{(assetId,address)}.  \code{builderPenalty} must use BUILDER\_LEASE;
 \code{dataRent}, \code{seatPenalty}, \code{forcedExpiry} and
 \code{bridgeSurplus} must use NATIVE\_ETH.
+For \code{bridgeSurplus}, that typing authorizes only the primitive beneficiary
+address used by the fixed ForceSend initcode; no receiver interface, callback,
+runtime hash or mutable sink code is trusted by reclamation.
 All sink addresses are nonzero and a nested or component-local sink is invalid;
 in particular DataSession cannot substitute a rent sink.  Reporter reward goes
 only to the evidence submitter and the remainder only to the typed builder
@@ -7879,8 +8594,11 @@ meaningful entry barrier.  The product must distinguish these two claims.
 
 \begin{itemize}
 \item \code{BuilderRegistry}: protocol-lifetime non-proxy, with 64 active cells, 1,072 liability generations,
-512-leaf tranche roots, tombstones, replacement counters and the versioned
-\code{admissionRoot}.  Every transition is fixed-depth or constant-size.
+512-leaf tranche roots, authoritative generation/address reverse locators,
+17-bit per-generation traversal bitmaps, exact unreleased-tranche counters,
+stored aggregate pull-credit liability, tombstones, replacement counters and
+the versioned \code{admissionRoot}.  Every production transition is fixed-depth
+or constant-size; exhaustive recounts exist only as model/off-chain audits.
 \item \code{ScheduleOracle}: protocol-lifetime non-proxy sealed window root/seed
 under the version-independent \code{slot-chain-seed-v2} and frozen allocation/
 placement rules, plus the one-shot delayed fork-verifier registry, in a ring covering
@@ -8064,7 +8782,7 @@ trailing word or nonzero padding.  The complete field order is:
     (address scheduleOracle, bytes32 runtimeHash, bytes32 configHash),
     (address aggregatorSeatMarket, bytes32 runtimeHash, bytes32 configHash),
     (address bridgeDomainRegistry, bytes32 runtimeHash, bytes32 configHash),
-    (address bridgeCreditRegistry, bytes32 runtimeHash, bytes32 configHash)
+    (address sourceBundleFactory, bytes32 runtimeHash, bytes32 configHash)
  44.. 56 target artifact:
     address settlementFactory, bytes32 settlementFactoryRuntimeHash,
     bytes32 settlementFactoryConfigurationHash, bytes32 settlementSalt,
@@ -8141,8 +8859,10 @@ trailing word or nonzero padding.  The complete field order is:
     uint256 destinationInitialNativeQuota, uint64 poolReadGas,
     uint64 poolAuthorizationCleanupGas, uint64 poolValueCallbackGas
 202..227 source:
-    address sourceBundleFactory, bytes32 sourceBundleFactoryRuntimeHash,
-    bytes32 sourceBundleFactoryConfigurationHash, bytes32 sourceBundleSalt,
+    address releaseSourceBundleFactory,
+    bytes32 releaseSourceBundleFactoryRuntimeHash,
+    bytes32 releaseSourceBundleFactoryConfigurationHash,
+    bytes32 sourceBundleSalt,
     bytes32 sourceBundleInitCodeHash, address sourceBundleDeployer,
     bytes32 sourceBundleDeployerRuntimeHash, address legacyV1SourceBridge,
     address sourceBridge, bytes32 sourceBridgeRuntimeHash,
@@ -8183,6 +8903,16 @@ trailing word or nonzero padding.  The complete field order is:
     uint16 minimumAskImprovementBps, bytes32 economicProfileHash
 267 bytes targetCodeArtifact offset (=8576)
 \end{verbatim}
+Words 202--204 are the release Source-bundle projection and MUST equal control
+words 41--43 byte-for-byte.  They are named separately only to keep the
+source-descriptor range contiguous; they do not create a second factory or
+authority.  The canonical decoder, PVM and Router all reject a mismatch before
+their first registration write.
+Execution word 247 \code{headerRulesHash} is fixed to
+\code{keccak256("slot-chain-force-send-eip-6780-osaka-v1")}.  The profile
+validator and destination Bridge configuration both require that commitment;
+an execution environment without same-creation-transaction SELFDESTRUCT value
+transfer cannot activate this Bridge/reclamation design.
 Every unused high byte of \code{uint8/16/32/64}, every unused high byte of an
 address, and every unused low byte of \code{bytes4} is zero.  Every field is
 nonzero except the three explicitly zero-permitted economic words 102--104.
@@ -8792,7 +9522,8 @@ shown above, so either side can independently reconstruct the graph without a
 fixed point.
 
 \begin{itemize}
-\item settlement/L2 chain IDs, both genesis hashes, fork digest, EIP-2935
+\item settlement/L2 chain IDs, both genesis hashes, the protocol-local
+  Schedule route ID carried in the historical \code{forkDigest} field, EIP-2935
   address and protocol-lifetime \code{firstV2BlockNumber}; BuilderRegistry,
   ScheduleOracle, its protocol-lifetime schedule-rules hash and every
   fork-verifier address/code/config/gas tuple, domain-registry and
@@ -9697,8 +10428,9 @@ not require an address/init-code fixed point.  It also
 installs any profile-required AnchorV4 runtime.  Legacy SignalService and the
 entire V1 Bridge/Vault graph remain untouched.  The L1 side permissionlessly
 deploys the manifest-pinned fresh SourceBridgeV2/BridgeCreditRegistryV2/
-QuotaManager bundle through the exact CREATE2 factory, plus
-TerminalSignalVerifier and BridgeInboxAdapter.  ProtocolVersionManager directly checks
+QuotaManager bundle and BridgeInboxAdapter through the exact CREATE2 factory;
+the release descriptor references and exact-checks the already deployed
+root-lifetime TerminalSignalVerifier.  ProtocolVersionManager directly checks
 the deployed L1 components 1--3 and their constructor configuration, records
 those exact descriptor rows in the finalized manifest, computes the acyclic
 combined infrastructure/domain descriptor, seals the L1 adapter's domain once
@@ -10210,30 +10942,28 @@ unit.  Governance cannot set a value that violates a relation.
 \section{Production gates and verdict}\label{sec:gates}
 
 The consensus, migration/control-plane and Settlement--Market transition
-protocols remain design candidates.  BRS1/BRD1/BRC1/ABR2 now reconstruct their
+protocols are frozen implementation inputs.  BRS1/BRD1/BRC1/ABR2 reconstruct their
 authority from exact RTR2/BRX1/PIR2/PIM2/PIA2/BIP1/BID1 raw records and do not
-use a cross-contract \code{SettlementRegistration} witness.  This closes that
-specific authority gap, but the following High implementation blockers remain:
-the Registry model still resolves live code/configuration through Python object
-maps rather than an address-indexed EVM world with EXTCODEHASH and exact
-immutable/config getters; the fixed Source factory and real compiled adapter
-creation artifact are not yet deployed and sealed by the root receipt; and
-historical deployment compatibility plus a few registration-uniqueness checks
-still need address-keyed reverse indexes.  ICV2 now gives DestinationBridge an
+use a cross-contract \code{SettlementRegistration} witness.  The final freeze
+model resolves every live component through an address-indexed account world,
+checks EXTCODEHASH plus exact configuration/immutable returns, and seals the
+root SourceBundleFactory, root-lifetime terminal verifier and their deployment
+receipt before root activation.
+Builder lifecycle and release-compatibility uniqueness are now expressed by
+bounded counters and address/version-keyed reverse indexes.  ICV2 now gives DestinationBridge an
 exact O(1) credit-ID lookup, VML1 uses a generation reverse index, RAV2 binds
 the Authority watermark, and DRV2/DSV2 keep multi-hop reclaim independent of
 the latest active tip.  The executable model's broad Python rollback snapshots
 are semantic test journals, not contract-gas evidence; production relies on
 native EVM revert and must be measured against compiled bytecode.
-These remaining paths require address-indexed execution, bounded reverse
-indexes and executable raw ABI fault corpora before production.
-Restart/serialization behavior for every retained primitive row, the complete
-root-deployment transcript, and release/reclamation watermarks for all
-historical source, adapter, Queue and destination pins are likewise not yet
-closed.
+The model includes executable raw-ABI fault corpora and cold-cache restart
+coverage across root deployment, REGISTER--BRD1--ARM--READY--ACTIVATE and
+historical release/reclamation watermarks.  Those tests establish specification
+consistency; they do not replace compiled EVM execution evidence.
 The initial executable profile, compiled contracts, gas certificate and circuit
-release bundle are also absent.  This document is therefore neither
-implementation-ready nor production authorization.  Before deployment, one
+release bundle are still absent.  This document is therefore implementation-ready
+as a contract/client/circuit specification, but is not production authorization.
+Before deployment, one
 reviewed release must contain all of the following concrete artifacts and two
 independent implementations must reproduce every hash and execution result:
 
@@ -10428,20 +11158,21 @@ the local destination, and makes V2 terminal proof/refund paths transitively
 pause- and quota-independent.  Router foreign-storage assumptions are removed:
 source, target, Queue and legacy proxy now authenticate one context and commit
 their own poststate inside one rollback journal, with a complete sealed receipt.
-The broader design remains plausibly feasible, but it is not frozen for
-production deployment until the address-indexed EVM component world, remaining
-O(1) reverse indexes, compiled root artifacts and restart/serialization are
-closed and the resulting ABI graph is re-audited.  ICV2, RAV2 and the direct-
+The broader design is frozen for implementation: the address-indexed component
+world, root Source topology, exact ABI graph and restart/serialization authority
+paths are now closed at the specification/model boundary.  No known Critical or
+High design defect remains after the final adversarial review.  ICV2, RAV2 and the direct-
 successor reclamation lifecycle are now exact at the design/model boundary.
-These open defects do not yet prove the
-protocol impossible.  Safe in-place genesis migration is conditional on the
+Safe in-place genesis migration is conditional on the
 deployed legacy Inbox accepting the exact final compatibility implementation;
 without that capability, in-place cutover for that deployment is impossible and
 must be replaced by an independently initialized state migration.  The absent
 compiled executable profile, measured gas values, verifier/circuit artifacts,
 multi-language conformance and external audits remain production release gates,
-not unresolved document-level consensus choices.  Python fixture hashes and
-object references are not substitutes for executable cross-contract ABIs.
+not unresolved document-level consensus choices.  A failed compiled-size, gas,
+proof-performance or legacy-layout gate reopens the affected design decision;
+until those gates pass, ``implementation-ready'' must not be represented as
+``secure for production.''
 \end{designnote}
 
 \clearpage
@@ -10711,14 +11442,18 @@ there is no block-indexed executor.  Direct admission checks the immutable runti
 and record on the same L1.  No source state root, beacon walk or caller-chosen
 topology proof exists in that path.
 
-\code{canonicalDestinationBridgeDescriptor} has this exact 248-byte packed
+\code{canonicalDestinationBridgeDescriptor} has this exact 408-byte packed
 grammar:
 \begin{verbatim}
 address20(bridge) || bytes32(runtimeHash) || bytes32(configurationHash) ||
 bytes32(storageLayoutHash) || bytes32(bridgeKernelProfileHash) ||
 address20(inboxCreditStoreV2) || address20(terminalAccumulatorV2) ||
 address20(terminalDomainRegistrarV2) || address20(quotaManager) ||
-address20(nativeLiquidityPoolV2)
+address20(nativeLiquidityPoolV2) || address20(bridgeSurplusSink) ||
+address20(forceSendHelper) || bytes32(forceSendInitcodeHash) ||
+bytes32(forceSendCompilerBuildHash) || bytes32(forceSendEvmRulesHash) ||
+u64(forceSendCreate2FixedGas) || u64(forceSendChildGas) ||
+u64(forceSendPostcheckReserve)
 \end{verbatim}
 Every field is nonzero and \code{bridge=destinationBridge}.  The account itself
 must be fresh immutable non-proxy code with the exact runtime/config/layout; no
@@ -10727,7 +11462,7 @@ It commits destination custody, terminal handshake, quota and Pool binding
 separately from the source descriptor.  The hash is:
 \begin{verbatim}
 destinationBridgeExecutionHash =
-  H("slot-chain-destination-bridge-execution-v3" || u32(248) ||
+  H("slot-chain-destination-bridge-execution-v4" || u32(408) ||
     canonicalDestinationBridgeDescriptor)
 \end{verbatim}
 
@@ -10760,7 +11495,7 @@ for the fixed call and hash comparison.  The circuit also authenticates the
 fresh row-10 account/runtime/config/layout and empty private state directly under
 the imported state root; the getter is not a substitute for those observations.
 The ten \code{configBytes} lengths are exactly
-100, 344, 21, 73, 60, 52, 80, 21, 76 and 164 bytes, respectively, and their contents are:
+100, 344, 21, 73, 60, 52, 80, 21, 76 and 324 bytes, respectively, and their contents are:
 \begin{enumerate}
 \item\begin{verbatim}
 address20(bridgeCreditRegistry) || address20(sourceBridge) ||
@@ -10807,7 +11542,11 @@ u64(POOL_VALUE_CALLBACK_GAS)
 bytes32(storageLayoutHash) || bytes32(bridgeKernelProfileHash) ||
 address20(inboxCreditStoreV2) || address20(terminalAccumulatorV2) ||
 address20(terminalDomainRegistrarV2) || address20(quotaManager) ||
-address20(nativeLiquidityPoolV2)
+address20(nativeLiquidityPoolV2) || address20(bridgeSurplusSink) ||
+address20(forceSendHelper) || bytes32(forceSendInitcodeHash) ||
+bytes32(forceSendCompilerBuildHash) || bytes32(forceSendEvmRulesHash) ||
+u64(forceSendCreate2FixedGas) || u64(forceSendChildGas) ||
+u64(forceSendPostcheckReserve)
 \end{verbatim}
 \end{enumerate}
 For kind 2 the two nested hashes are independently derived as follows:
@@ -10833,12 +11572,13 @@ separate bounded transaction and remains INACTIVE.  The final factory call
 checks every predicted address, EXTCODEHASH, exact configuration getter and the
 acyclic cross-graph, then activates and publishes all nine in one revert domain.
 
-The component scope is exhaustive.  Kinds 1 (BridgeInboxAdapter), 3
-(TerminalSignalVerifier), 5 (InboxCreditStoreV2) and 10
+The component scope is exhaustive.  Kinds 1 (BridgeInboxAdapter), 5
+(InboxCreditStoreV2) and 10
 (DestinationBridgeV2) are release-scoped and use fresh accounts in every
 protocol version.  The destination native QuotaManager derived from kind 10
 and the source Bridge/Registry/Quota bundle are release-scoped as well.  Kinds
-2 (ActiveSettlementRouter), 4 (InboxApplyRouterV2), 6
+2 (ActiveSettlementRouter), 3 (TerminalSignalVerifier),
+4 (InboxApplyRouterV2), 6
 (ProtocolReleaseAuthorityV2), 7 (TerminalDomainRegistrarV2), 8
 (TerminalAccumulatorV2) and 9 (NativeLiquidityPoolV2) are protocol-lifetime;
 every successor repeats their address/runtime/configuration byte-exactly.
@@ -10846,8 +11586,10 @@ There is no third scope and current-pointer aliases do not change ownership.
 
 The runtime semantics for kind 1 fix its stated initializer authority and bind
 the protocol-lifetime Queue code/configuration into every release.  Kind 3 is
-an immutable verifier dedicated to that release's fresh source bundle; the old
-verifier remains permanently usable for old terminal proofs.  Kind 4
+the immutable root-lifetime verifier derived and deployed once by
+ProtocolRootFactory; every release descriptor must repeat its exact
+address/runtime/configuration while fresh source bundles reference that shared
+verifier.  Kind 4
 is protocol-lifetime and preserves its cursor and existing routes while
 requiring the new route absent.  Kind 5 requires a fresh endpoint domain and
 empty pin state.  Kinds 6--9 are protocol-lifetime and preserve all old
@@ -11151,7 +11893,7 @@ data-MMR-count-3 and Terminal-count-2 frontier digests/roots pin initialization,
 append and fold independently of full-history root construction.
 
 \code{commitment-model.py} is the normative executable fixture.  It exports all
-764 records through one deterministic typed oracle, including records owned by
+812 records through one deterministic typed oracle, including records owned by
 later rounds.  The Round-2 Solidity conformance test executes only an explicit
 reviewed allowlist for checked fixed-preimage encoders; Round 3 consumes the
 tree, frontier and proof records above.  Still-later rounds consume their
@@ -11174,57 +11916,57 @@ trancheRoot 12ce6da6104ea0fb21edbc0e932f7500fabf18173911a48bc5e1d4d2af1cc336
 trancheProof 8d56574545d36cb4cbb7f1452055275a3dbd8e5b2aa9062e717095f387a0a2d8
 forceFrontier1 1ba50296675195de90944defd33d2e346c1a996aa6edbb5bfb1b187cc64b3c1d
 forceFrontierRoot1 5cb37cac8283fe7742e0f8e40bacececf85c1f8c15a05c8a9c9dc2018ac532e8
-sourceDomain 90d17b25434418f73547f0a925f8829b1329c3921e357c133ca45d4c3bcfe7c5
-destDomain f5cd16d49c1f88557f70f9162d3bb6366667a956cfcd8cc5b43532d3c73a094e
+ sourceDomain a955e9cbaafee3fb51bca7d966012607d8ae8354574180ecbeb6ce71ed159f26
+ destDomain 123173ae26db2c61b26412a377907f65420237d7c36efc79c59710e43e6be77e
 bridgeKernel a23f9994e8d1c475500768b67cf2b2d1f7a0f367df6f44bac5ccf1fa12bc1338
-bridgeExec fc36592a3ce1c728fadafc407194dc1435df539cb0954d73f07ce51a7b58f20f
-destBrExec e356731fbadc537ccd8c8cf4db19e343016889c5233aa592cb5d2751ace3faf6
-destInfra 67a9b7fc4b8b3581b1fc5f8034790d0ecb19d2ee2151acce88406d4eef4d66eb
-poolRowAlt 339e55720f6256961164e6e5d234dd26da3d9e5cd649e3c9107ef08d328a3052
+ bridgeExec 9cbef2cdc597906c40300da43a0b3296fb529a82094f4be32f7e8b7ed70d53af
+ destBrExec b570703833da3df51773eb8d72d8d38074391da1f4f4ef2198b0d074f3c81600
+ destInfra 766a9dc18c36febd06b3818232d6bd0004b16cc2b5bd1a3239585d66fb361566
+ poolRowAlt 47565d6e5708e5a516daa376505c4e8db91c6dfa83127214b55a88e14fb84086
 mvConfigType 0acb8f9e39dd43a4208edc38c8925bbd3433e72eb46f9e5fac584bd14a970b98
 mvConfigHash 950691bac22ceef2dd834142420a79e589bc489165cb10815e889475c39d2613
 mvDescType 6f1be44c261607b4c2345985bfb5a081aabd621b9168982df9b7820c7dedebd6
 mvDescHash ba4e50bfb5fabf8cd253f48ed38e4cc1a4f3fc04174ae94e4dd971b1d6e36eed
 mvConfigSel 476b9aef
-relTypehash 603555ff1d82bc9012b0e0c8a36df28e154b16cbd89be4eed9d01228c502965b
-activateSel 28f73572
-relManifest 2eed453340352d5acf0990db614bcf43b562de22e4bc56a7bd71ce265c744292
-succManifest f3a18c9d5df79d935af24e127d435c2c75a1c9548ed0d91719ed8d1ed6ac5b37
-destReg 6fa49fe009581f08ec79fd1b264a0fee7f94302ecf2c0a5e36f1dd895e1f171a
+ relTypehash e7dc28b9b7147fbe9f9b0e0bf910800983be65e9ca19020f296fb0e780a0804b
+ activateSel 33f5ca80
+ relManifest 343f5333e047f51d87ec2d1aeb8bf2ef35e3dda3c0246878a92874e70d94a80a
+ succManifest 3270ab58d2de9c50a8fd6f1c6a00a080f4b414cfdc82769e7e0eba65bc5bbcca
+ destReg 5da8fa9049c932b99699638f3dcb071239c3b5ed90db7931697416b99633d2ba
 migStmtType 832785a7f9ce32f97dfa06fb39b9c583c13e65a5967c88f7c8c3fbda94fcef2b
 deployType babd40345cd96b87434cc1bcc50b0c693556c37283b9b3399abf60339dc363a0
-components b186c3e23fa4afa228977e22eebba7df0191b70f95b182469d0378947f5a67f1
-genesisDeploy 613c9b02fe43532105e057507275ef5d0d5f746d2c0d672b11c0e08175187d64
-versionDeploy 362705765b4ec0c3a06d50cb764a225031ecc5161bb30b5bbdaf931418c701cf
+ components 39c81654d0554b17c41192b3e5f9069488373902e9aa7236cfc76cf8a5db5408
+ genesisDeploy 614304ef2982b52388e60a571b529a33617b290d0d2ba490ebfe01b52a5ea175
+ versionDeploy cd83045ad83423f86e5a80089f490f26fc120c91d081182519e03d0991bf408c
 legacyCkpt 6ab84b0c77035309ac300830aa1c31d95f68c44b697d97a6836f7f3f54bf0708
-genesisStmt 5e1fd0b6d9c3cb9a6f2dfff13a4c4eedebef66879bb695b5111ae6cd48d33e32
-versionStmt fecf17e6d81ea60b3712f796cddc4780e295bd5c0e20c233cfb7fb477113c4de
+ genesisStmt cc163fb829e9da91058b35aa72cddf2f4cec3e042789fb590dafb91803af5127
+ versionStmt d622b4e5bf4e67c480191c366a2a0cb9d61d0297bed99024a3abafc2e1e32cd2
 genBaseCore 12243b817561a9362bb03dffb36bb73f9314d47e3165673793419692cd8a8566
 genBase 5081c70042287a8b7156b2626675ea4ed9623c755d5f51b5c83be94e90da3ff3
 genCandidate 90949c0865a5e0226c6c0d736c0533f9e5f1d793dc9c5d21407a210ee3896338
 genOutput 46ecec937013339205139353730b413c8e508bc579ec9c0ede247161132134a8
 regStmtType c049f967468e58f1a5c9b9e1a147dfc233695ae69c5d4a95ec4ffb49b5687da0
 regRouteType 4368ad9403b46ef3830e21af8cddcaedbd444c8c57bc3414ebc6fdd250e1e6da
-regRoute db81cf13785d1f87ec9287c3d1473207c36a08db3e07990de18b4c5edf25e8ad
+ regRoute 8a92802ac27ef7bc1fe751df95c3543df477ec7e7220793bad45d7c7d3e0c05d
 verifyRegSel 33639818
-regStmtHash c99a6d83d5667046e4cb17857acec32562fe197b4324217cd61c9c3e082cc85d
+ regStmtHash def43d27efe0cf7f5a1434df51721cfb35744ae1f60be5b65101228d8feb1b49
 regProof 0027acbf8d87ef5b7c901c3dc27af4b56f1e4fb64953cf87f6fcd6ee878c963c
 regCfgType 38f7fbc63e45f650bd5cbaffba0d81d5ca69f21ebdddfa74280d7e6eb5c319d6
 regCfgHash 015ea002adbfab085cf51db1714c889961bb1a416cd69b7d22f1f816a5787e4c
 regDescType 9533e2f6ac9bcf6830306a9ef5d14e21a06008f9ceb59208d09a8d7ab1e6100f
 regDescHash e3c4dd9d13404822af1360b3bc97f3d82dc1dd7124a137e900c6351270505310
 regCfgSel 59bfe418
-verifyRegCall 710c7863ec96da255fde57220772b0f173d7931ed21bc878586820012f33bb50
+ verifyRegCall 8ebbc9339382215ee44e7d72ea3bfd12740c204662157f43e11416afbd8ef97c
 verifyRegLen 516
 srcCtxType 6069dff5f628f94ceff984d5ce3ef62019eaeb4efd7e0627c45a14677bd13c70
-srcCtxHash 7860cbf2dd45ec991c4cb39bf8d31ba4b289b95b180f5e74cbc8aab6583d2ea3
+ srcCtxHash 003912c395f0a29be213bb41bfb1f171cf5da31f549f6b8bda07bfbeb67c00a4
 dstCtxType b8170dbf684e1fc4dd4dae8fb78ad24984cc0aa0c03cbd1e29b1b2eb5728eefb
-dstCtxHash 36315df131571f95b47391a034fa011084715419695fd10bc3c59471ffc42b1a
+ dstCtxHash d4f1621e99c549ad48f2add3613c1d22ec5554f10ba8f07a1ada7812042d3ae4
 ingAuthType a2dccbd60c366ade3f5af12af640f3453bbb4106405ef8da5dd52484db8f2a82
 kind0Auth 27af2fda507104b24da0f7a6095e048cc86de215f38027c2671f4455878a4317
-kind1Auth 244665c82921b820053689da3bb28f5bbaf7291d2e131eac1e593248d510f02e
+ kind1Auth 33d1addd81180b0cef250ce0324e1a1eabd85693ff496a151c8a8736f9763422
 ingRootType c7b11126d8d1984cc17cbc108be2a1be0ef9c4e8fd519fa9033c949962f1b042
-ingRoot a88025f59f4c1b1547b3bedb93e214417d38c2f0064f9a7800eb6d5ae32f62f2
+ ingRoot 2e42c527a8f2fd3f8b016b062546c85c7ec9079603e77ac4f515da6c76d0b6a7
 sendMsgSel 9211d7e9
 enqCreditSel 81805d6b
 msgTuple 0e85a708462e96cbaca7158a1534011a25137c3b7aada7f381e4fc5b3afbe40d
@@ -11243,30 +11985,30 @@ syncChanged ef662a629ce07c9ed715124d8141a6e430d0a3065f8ce8074a7ea95e8751f184
 appendSel 1927261d
 appendK0 caabdaadee6df8cea48fb88dacad863e6e24e13f5b0c06f99408d5c71611788a
 appendK0Len 388
-appendK1 8466f1ce1e4fe4c1cab6d6e11fdbea0c981061b78e0191c334a00e9d51798a0c
+ appendK1 df92daaee8cffdd28f003e0b1c748cb294297c86cd1e79de08f03ddf15c1617a
 appendK1Len 708
 queuedReturn 76f821bd39721ec0e26efc55d7b667d20aab74992e0feae7d7755e386ecd694d
 inboxApplySel 6b326168
 inboxApply 65332d0b3230b33c0ae8bddd8a1f3be8473739f865e73fc8e52f4f99cecc89d7
 inboxApplyLen 14436
 markBatchSel a92f72cd
-markBatch e153ec48024a67781bf2e908adcd9667cf30ead69bfa3e33e858decfa1db4bfc
+ markBatch be9129ebd6027b0d846db7ace60a2a8e8c3526a407556ed7b99de4cb04092b0d
 inboxMagic 49425632
 routeCfgSel 4b64fa11
 verifyPinSel 720f747b
-verifyPinCall bda76e8392d84ca874b1c3dc045d489e3b4582d9037381c733a2a0d4d3637f09
+ verifyPinCall 5b788adc101bbf80b73678356ace6b4aca61da85302d4747a155f2fa33adddf4
 verifyPinMagic 49435632
-verifyPinRet ea4b4aee5e985f6e69fb050de18b11ab01681ed5cb407e16d734dcdf74875397
+ verifyPinRet 0e5a24d737136abf8a7a010846356b518761e7813af6495e341c961c51f5756c
 verifyPinRetLen 256
 liqQuoteSel 43dc48e0
 fundStateSel 6a9a6c32
 attemptSel 4cbe2fe2
-attemptCall 29ff394c7d5acf9fa84748faf8a063b8f1ed41b258cc12c9419142d87ff2deff
+ attemptCall 1c8984627aaccd9a98332483b459281acf1bcb6b5170b2bdcf1a055f08fed968
 attemptLen 1124
 finalFailSel 745dcb69
 targetErrSel f9cc2b44
-attemptDigest a9ae92d5f2d8ff6dc77a25bb2ebb08570f37d4bce68b4c5e9b7893bf126784d6
-nativeQuota b8ff0da5b6d7fc9dc4b45040e13dee561bbd0a8aed718dda16d4bd274be8df39
+ attemptDigest a414e4701d85eefa5b09cd75896a9609f4fde173e4855e61a9b675b530375b7e
+ nativeQuota 7364d461f03b17da03a689abfdb4e723065464c3419e3a222bd8ee29cb876ee5
 appendTermSel abc194f5
 termCommitSel 2c984c97
 termStateSel 998c57ed
@@ -11279,12 +12021,12 @@ poolDepSel eda2a3f6
 poolWdrSel fe4f5ccf
 poolProcSel 5fbbe107
 poolRetrySel 031f93e7
-poolProcCall 86e18c6f5c191445ef4c86bfd893ad4a939e70e54340f54621fb93605c222f8a
+ poolProcCall a97acef51615440f7106d929949a2061f25828a2e7640139bb27c68fbd7f0121
 poolProcLen 1028
-poolRetryCall 094442aa6148d6ca913d68d6bfb9a6279d8617f5d9992827edc05badc18c6314
+ poolRetryCall 1a3526e230bc8f465c606d4ebe79b1b390b2e826e7b6260332676693c4357595
 poolRetryLen 1060
 poolBridgeSel a535a986
-poolBridgeCall e1840fc07b1109fb2839ebd6594b14c7e7f8db04beae564d2f126330b70644e8
+ poolBridgeCall dfb81d2954184931a3a13a59996b12c0c047a7aa4f7b931d50bb5a1363e1173c
 poolBridgeLen 1124
 poolTickSel 5defa7e1
 poolAcctSel f2b3441e
@@ -11293,36 +12035,40 @@ poolCbSel a34908bb
 poolAccMagic 504c4132
 poolValMagic 4e4c5632
 poolResultMagic 4c415632
-poolAuth 6c5ac75c0d7eb88ad081189d9cf0992408d683aa5eb03bbd355e0e163cc01155
-poolAccept 6bd6f239686de71cd47f1c246c19cb267fec19f2f86a744dfdb5299f7beeef9a
+ poolAuth 1a45c093d8000078214b515202ee234da50fc7b515804a72442f2b4f64e81c04
+ poolAccept 657f4eeb9c6806bf3fc5db5706bee4a2610b4cf4b4036030668e132a0fa409d3
 policyType d702a337b74fc40bfc746fb1aeeaa705e60a95947bfc3076c76222703205b4b1
 policyHash 5eb7c00399d64d91e416d5a3dbe75187c39dfc2a4645b867864b5fd9e649f3e3
 policySel b2d0e286
 hookSel 7f07c947
 policyMagic 49505632
-l2ReceiptId 6ce60f3fa70ebb69ce5c2cdeea0221fe47a70f5b8f2bb8ea17ca16bf9825600d
-l1ReceiptId 5b433429d1e301cec0a4d0cf7a544cbff3e70fec65b85d3bede98a178cddf9a4
-execProfile 127949b9ddb4b6626387aaa331867ff8f11d18a52c0f42ed06c8a419e7283ba0
+ l2ReceiptId 053206dec1b3b4695631f3de9a9e286580dcc2e2f807bc06ebd0f247a347c053
+ l1ReceiptId 18942f6d0cbf38a3bf60eae168dddcaaed0933a584744130417e21f76afccabe
+ execProfile 4feed8e0bfec60e7f34d9cfbb017dff167da3b233e6e6287eb1ad670a5a8bb5c
 factoryDeploySel 4af63f02
 factoryCfg 4bf4831c096e251d0ef171bc0fd0582319fdc7ad7a2bea91a6b9b64601aa2837
 marketAuthCfg e348b5cddcb8eb6da9bedb54c23e10cf9fe0c20b9f50f769258b47dfdb870c07
-deployDesc 2f36e31051a28b3cd095ee72790df906525f0351fb17fe4dc4f948b2b28d52b2
-deployDescAbi 98e8a4ded9f1ee5cdf8307f8a510c902b7c952bf320d036b355babee4a43d0e8
+ deployDesc 91bdb3029cf56d37cb9167e4498ad69b856b5909cda153b43f085ec693cf51ec
+ deployDescAbi 715be5161a63319101a7ec77d196a5b6c904a1da6de431da58a1fa18393f5a99
 deployDescLen 256
 succDeployDesc 377aa582c38874cf50ef87030c628b15c5e0302e6830e51b09d8542659bedc18
-targetReg 983323a88139b20ed283c7d9e061764b61924aeaa909fd101d73bf56055ec9a1
-succTargetReg 72dd0e20247bbf291852f71567dd6d60639150b2823563b89bef46705cf9307f
-mprHash 8fd67477c4b0a2c5d18139ac33426805f2fbb5411802d82826da281861e4bad8
-succMprHash 446c3edee46876e796417e1900b29a849969e52abe02504580a26bf68253589a
+ targetReg 9960e6e736719251db055c3f6a73d150c1e55441e5b8acb9206c6f32f31c5fb9
+ succTargetReg b72953817f70362ad9b3a8ea8333f46b072caefc234bfdf8606f5b92fea3bfc8
+ mprHash 59693edc8c22abefe9f2b8a91a9301ad184c22c11f60f0772edb86a229e66fe9
+ succMprHash fc8080551b2c3016f61eb18d9f37424722b112458758bae1625561bea42f2bcd
 mprSel c65ff64e
 mprMagic 4d505232
 mprCall 3dd403c33c2e7c4e6b324efac7461b5b0cc6f3696a2a8d8c94c9cb9bafcf9c85
-mprRet 734b8486e41e338c94b5a65df6b74a88990bddda8f0e6150ad19798dd90c1384
+ mprRet d81dec13a11398e83355d77e2cbd8a29b3a8907879d085526c713ba16accfee1
 mprLen 768
 opDomain edc1be882290e6241a79546c41db66a1d975095ae60cf3b2b16f1ed876f6038b
 timelockDesc 442d9b608ecc43eea4009fb7f95c764c747636f42c885174c1442681cc0ab495
-pvmCfgHash 05f6b4d6a6672e3e092b412802be80a47e2b26362c2a60850f0706989830d842
-pvmDesc 9d16c23486a03692eabf7c9a63579703fa0638e45aaf5d810dcfea4325cdd5c0
+ pvmCfgHash c363eb350b2bf5021b6e4bc882d42d480f454c2889b6b3846d277ad985b16e76
+ pvmDesc b4e57361ef06ff7db13eb812b123a3cdf89ce8a562cc138f72282a0a061e4021
+soc1Sel e3d91a33
+soc1Magic 534f4331
+soc1Ret 8df57002258b7d91f346af8230d0ac6145972ab5d17570a9537e143f8ca7c802
+soc1RetLen 576
 protoDelay 604800
 maxMigLive 604800
 armExecWindow 604800
@@ -11331,6 +12077,7 @@ queueOpSel bd5c80a8
 execOpSel 31d81ea2
 cancelOpSel 5701c308
 applyOpSel af3927f6
+expireForkSel 379c9ecc
 timelockCfgSel b80095ca
 pvmCfgSel 4deb7821
 armFreshSel bc4707fb
@@ -11340,81 +12087,120 @@ pvmMagic 50564d31
 armFreshMagic 4d414631
 opMagic 50434f31
 applyMagic 50415031
-regRelPayload 55f0964249c9a7241537f50a544590b184b4db9cf72ee350c3caf64ec9c3d829
-regRelPayloadLen 10880
-regForkPayload 060a82d25adb79cdf6382c783964efced57515aa1a1a7e79cde651e9ab190c00
-regForkPayloadLen 448
-pubGenPayload 99cb81a733886126a87ad8b8e38ce1eae1bef1d24e84144bf15bfa6255edca0d
+expireForkMagic 50465831
+forkChangeWindow 86400
+forkQueueInclusion 900
+forkRenewalRunway 1811
+ regRelPayload ba3ec3a5ee4af64def71a602b9f5efdffc406fc546730857ced768d0bdca8761
+ regRelPayloadLen 10912
+regForkPayload c07ba77bf323b341a5c54ef97d01da41c78e962f9c51ab2b9644e7cd6c003012
+regForkPayloadLen 576
+regForkReviewEvidence 14795f387018d6c52030f07fd28f32b34abc62439c2dd8aa28785bf5156bfc68
+regForkReviewCert 15a242cf0fd70257617f69c7ccd4075d46c7e76ae22377f878a0884f3cd9eafb
+replaceForkPayload f9d94647d71f55db575b40a58082faf63ec67e4897b097f83d7af5195807f132
+replaceForkPayloadLen 1536
+replaceForkReviewEvidence 3ec105c1c8c3673411009311dfe6a66d3136ada378f65469528381b3ae0d25cd
+replaceForkReviewCert 8d6189732cb1cf1bb44c997a3d0e64b70b595c1bc02dcc1297fb7c438f30ea76
+splitForkReviewEvidence c05a310757688c48297f6007e5c8cd2b684f2ef2f2786a85421a64c37ea30e1c
+splitForkReviewCert b148161fb4f81c944885fe38cdf2588d21ebe9ad5dcecb5d5df2804a31cfe1de
+splitForkQueuedRet d9abc75048f1e1f7ecbed1986331ed37af38716dfbba28a4015c38ecd580c25b
+splitForkExpiredRet 36100d0d72d0f520507901b3d3a5f50bc01d53c956252df1606bdef7debe030a
+expectedPredForkReg 233d72ef0935f897e49377ce160962e2ea7ea14c37c309bb094b78e0b50bb118
+expectedOldForkReg eed5e788c296e7b8449f4aacb62cd9e5b15ec488dc667f4cf3e3aa48a244c6c5
+splitForkPayload 92ac8d8cd580e118ad74b14b48a8e7739594ad8e3434834619bd626e183a16ff
+splitForkPayloadLen 1056
+ pubGenPayload 70f6a3274917710e05e61843cc5c5d6a9051cfae3477f3c6b2865cdff44b9738
 pubGenPayloadLen 320
-pubMigPayload aa25de9b6ad7fb563e0f1b42ff565a62625af8404580e5e5d7178f178ccb0a34
+ pubMigPayload fa310042c124ab04cccb48be1e98e6e9a20413125475d72b85ce297251cc7787
 pubMigPayloadLen 128
-regRelOp 962b2162bc30c7006b1c14b0fc3595e3accd1d489cd8d71760297f5c6105ad10
-regForkOp 6f3f09d83e85bf28f62fe18b37ac3abd378c8d03e1a5bffe67fc2e59540d4aeb
-pubGenOp 0769d825b8c87aadd7f47164b69e8afe880e30d69bbec3e46ab894dd1a628bf8
-pubMigOp 3058313739287970fa5288c3b0339db04c5b39643b3c39f8e476dfdf54fe34b2
-queueOpCall ae88522438007d7f2130df2fd45534da264f45997fffadf977792761b2f199a6
-queueOpLen 10980
-execOpCall 53ee103fb2f21efd57ad1fa188745e77fda1cdde4988e659a37036770a11dabf
-execOpLen 580
-cancelOpCall bb032840fdfbd2474e007a8c6575f5f69426f8aff250a7df9ea510425f5f21b2
+ regRelOp 1567cd0d772389453ddf952211a7b5645992553e095aa83c45566c399d10e994
+regForkOp 59169620023947479c6848e10e72e21f6bad34f51f9b38d30c504b6c522bbf3d
+replaceForkOp fe46b8930ee06263cc46f6fae27477f35528a751133875cc228e0126d8561322
+splitForkOp abce70ea742b56d07e890e5425a1eb355ac2304ace53d73ed105e746ddeceede
+replaceForkSel b48bbef1
+replaceForkCall 7f5672e814198405380028deb977bebdad7c69273d1b9b2c72edf8ca26982aca
+replaceForkCallLen 548
+replaceForkRet 9b9e757b4ebf73b65db810d4bd2da658f26d189916c4b97595c5470ad7972534
+replaceForkRetLen 160
+splitForkSel 455b4ff5
+splitForkCall 793eb33ab7e71b38a63b6b04704dbdc816de18915df79b09af7d75c4e812b41b
+splitForkCallLen 516
+splitForkRet a3e070e8b9e742f15f072cb46690cf08b62bf018a99b83666455adec80e54833
+splitForkRetLen 160
+ pubGenOp da83c6cfb7e22dab70616dce47fdb738e0b44c6180008d8682c9acdc02671191
+ pubMigOp 40f65071ff45a202b32e78d840f729fc43624963d30262b072d29aec22bc11de
+ queueOpCall 1ef1557e5afa7b12320b66ef8f134f285f3b3085612240c389210c17a39c0651
+ queueOpLen 11012
+execOpCall a00db7a4bd41a8e2546adec7f99463a7c370a517d1b67e34f91778bf65ffcf94
+execOpLen 708
+ cancelOpCall bfbc938b990f3fe959cd311722cd5f985189c00aa539cff62da242d7480082c4
 cancelOpLen 452
-applyOpCall 44a59642f941afbaa4efbb16ef7bd3f8e16397a7da6e0ae6885eaa0ff241cacc
+ applyOpCall 0c3331a3a4f4647205d1cc864ed344ef809a48f12990b4ce96f3cfe5547265c5
 applyOpLen 260
+expireForkCall 0674d1859f790b11abfb90dbf54a4f3ceb88574b484c62199a0f0febdb0e9ec7
+expireForkCallLen 36
+expireForkRet a338559b4b34fc40aaaf1c9d8b3837a34e59a5c4f826e855c9e27a5dc0d04b6d
+expireForkRetLen 64
 timelockCfgRet 1813d922f5db2c6e82ca7be236e9cab4b8ca3c8b5f32231d60bd51b75e54b29c
-pvmCfgRet ab29790c84fb6930fd699b3d2cacfa48c0e24c3a25eedb604d98868a6aaeb9c9
+ pvmCfgRet 3305018df3355e109413b0c25e69814e56a645ab71e4fda4024bb31e84feadd6
 armFreshRet b7483e72711cfc12792d104e0b0bc11c51e9e51ba92ff0978675a1e336756dd1
-opGetCall 7483e57eb5f7eb230c0303f6c9e13e5dae90fac648d33f2a42ac098fefea527a
-opGetRet 4049c997721e3c2658965b5da379f69bfa592d5cd562145fc56094c6ad902f0a
+ opGetCall 3185084f458f6912ed06cdd5ab700c7b8b26e6492f37119d296224927c8005ff
+ opGetRet 68294d6a83ea402d454554c7fb94446e1c0bb785881f94ab3be0b198209514b9
 applyRet f9361bdc99345939494c4794891942dafae95fa74ace38bcf4430ae53ac12c4a
 leaseSel aaac4c97
 leaseAbortSel ea3e96c2
 leaseMagic 564d4c31
-leaseArmId a11907068adf511c646a4473426660eaa3dd052b524dcb2407662cc17a9c6ded
+ leaseArmId 6cd972f38b1ce9ec3090c77c4e5c45d327faca5af8dd8456ce92fd269407c18b
 leaseAbortAt 624800
-leaseRet 32f52b08f3e01ae1ed65c85b503acd94a492ccf44974138456222b6799e7051b
+ leaseRet 51b3c0452b37934015ff1246e94628f28c92bb1596669a56c829e145b1f53ed6
 leaseLen 320
 regTargetSel 9aa71eff
 targetRowSel f588fec3
 targetRowMagic 52545232
-regTargetCall e3a69e9acf8d2098541c6fc212c5bde3113fa91049734512157943b65a5b5248
-regTargetLen 10884
-regTargetRet 9ed40df717cee20d2ba7e2c6435dfab8df7a1383b9e2f9f034d211c68ca48c39
+ regTargetCall 05b49909ae2f1825ecda2b8060a66610e3a1c71f355650d03f834a95e88f7e0a
+ regTargetLen 10916
+ regTargetRet d285d95104b9c9637076a6fd76b8f7a527c05b49dacf7a9f585c7c98ec6d53a7
 targetRowCall 5c5db1ed7485ad89b4d9125c80db863078603f32ddd3032552a6345bd0dba5ee
-targetRowRet a4d97888b7be36916939cbe31ace4ba2271d1b64002c7c27da4ddf772ed7b888
+ targetRowRet b92ca81ed109e2757ef5b77935c272374a0116031330cbfc6415a317e96902c3
 targetRowLen 416
 pirSel 2d2bbe23
 piaSel 2181b974
 pirMagic 50495232
 piaMagic 50494132
-pirRet 81405b7dcc1375de2dcdf8bdc03b30b1144c8c00cf9aeae01485fc16a546d391
+ pirRet 851d79e8b52d142eb3a663ec83904543e42e09153acd9c9fb8305079afb02735
 pia0Ret 70b9c601b2d1f2852d14603d001ba507657f2eb32b0be8a38a986b4670c1873f
-pia1Ret 97e2cdc09c3fc12d02cfedf70d536357e9700cf7207897a19b69bedf217fab8e
+ pia1Ret d5e94e2123144f067169c89d0bfbf8c901b728bfe897661ad157ca926846bd92
 authInstallSel b1a3fef9
 authGetSel 1693ae01
 authInstallMagic 53414931
 authGetMagic 53415431
-authId ec0386139a3249f6b13924e118ec56d2444c1dc8fdde17732beacf1e2e7328ac
-authInstallCall 6bc7ce69bff63901890f2e0c7acaedd5cd593847338bbfd6c1c942300af631f4
-authInstallRet fdae729fd658bf853668a1fb8b3f3e85716c86058d3d0af7cf87421214897f24
-authGetRet 96f0d2b69624721728f62e5965592aed95dabea03c12634f0f36dbe0b031da08
+ authId 732c72e356ee45cf3d903974c8fc4d8dc07412f7cb7b1a78c87f973ba264d0bd
+ authInstallCall 65ebcfc692483534aca2b6b50cf9820eaa04ad810784aeead0e7bb2266f344de
+ authInstallRet ae86f7f0c51ef82e73d24a59c025aac154ff9d1a96fbed4741d64f26e2dc23b3
+ authGetRet 0b5c485e72e3dd639ad128e1487719ebdcdc06359ed4c42af878c734eb93f975
 seatStateSel cf52185b
 seatTermSel 76d5ecd4
 seatDutySel 9a649489
 seatAuthGas 100000
 forkConst c17afdd5367849af551b3a2f322a2c351321e916ad913a78b646586fe34f59fc
-forkSchema 3a480130319b3cebce02d217988e89c83c6bd6e71ff93c25bc4fc38e51fbe2c0
-forkCfg 95d9108bef4bb1eb4d6b63a79b04aecffcb7f8405b82cb22883c28dda04bb802
-forkInstallSel f171816c
+forkSchema 623a145841922b79691d33358ec5233f02cf68a4176d9e7c2cfafaeb357fa63a
+forkCfg 9256c85ac8b81181ff7538f757939218a42c945cb7228ed5755d10f5e4ef643d
+forkInstallSel 9bb6fe73
 forkRowSel c614591c
 forkCfgSel 44efa773
+forkRouteSel 7e9f3c0d
 forkVerifySel 7e981e0b
 forkInstallMagic 46564931
 forkRowMagic 46565231
 forkCfgMagic 53465631
+forkRouteMagic 46525331
 forkCarrierMagic 53464331
-forkInstallCall f986d1bbd6f3801e5ea25305cd72946eae312d78b512a7649e669e7c251e05a9
-forkRowRet ed8f0a8c03c6743ffad9ccf6ae618ac65bfcfc1d5c6cf924a3b58ddc69166140
-forkCfgRet 876e1109f517610df01f9c613f669d68ca2390fbee92c41b63e7a9a65a1924da
+forkInstallCall 67ab3af72e37b0366daf3887450a66395aa7d45fb4114d323d6d80a083ae6dbf
+forkRowRet 252a8f9b5199a2b88f07e01d89d4fabb49903713d19500ca1cf34ad3fbf9c00f
+forkCfgRet d71c98eddf7e49dfebf8278d29f45aa24a115e507fb309965fcaf8f523409dba
+forkRouteState 4ada318df9f5ffeb65fa6a0ce68aa2b019746320323628be080fc142dbe255e9
+forkRouteRet f4433ec078e97ab1615b273d74599b14f3458581e83e7d4dbb1f77dfc65d891e
+forkRouteLen 160
 carrierCall a6f4b2260cd81afd71756624c295b886d29e85c0c9e9b1cdc89f0148bbd0fb79
 carrierCallLen 132
 carrierStmt e5e7ef6967d544c41242fd48103d1a53c28f1d6da31a1649d34f4bd11025e123
@@ -11425,12 +12211,12 @@ abortVersionSel c4eee12d
 publishLegacyMagic 4c475031
 armVersionMagic 564d4131
 abortVersionMagic 564d4231
-publishLegacyCall 550fdb774f0c9759de9b9db757cfb20b69b526e6e20d3f97d1c652f33820cfa9
-publishLegacyRet 43e3ec052b118f4f0b2a5ec0fd54a835d97f590f09bded4bca92e5d995cab824
-armVersionCall 612a94fc586c81d6f89619adec58afd862d6cf35a2fcf458984b767455d19781
-armVersionRet 41c5c0a68182ca363e5ff0359be2e780e0be718b4abd8e6cf69dc9f925e4a741
-abortVersionCall c0d778314c7fdd2e840b63f87298a8d2c51f071800a1303feb738afb9db79f0c
-abortVersionRet 69db8526e861cfa2e8d712634f0c4f53217fca17210a9e481b26288c78441591
+ publishLegacyCall dbc91b44b0956e278bbe2b2aba1db4fc979aa2e85899ed9d24ebc35c55bbf199
+ publishLegacyRet a075c65c23f43bd891be3ed8add3f32fa01cb44f456d0f6067a1fda258c83bea
+ armVersionCall af7034364bfb38e10c77ce8c9da7c06b9ac94fe65ff806232325cd4b0e595c5f
+ armVersionRet 52b53595d51405b91c1cbb5540f30cd10d2265bca5e5c8b235891825688caf54
+ abortVersionCall bbacaa742d95f872d3545b49e859fdcd4c705a2a958dd439160fdd0f9bb7ace3
+ abortVersionRet 76b344fef5193370169868e36209bea0dbfa5e350a4fd58320c935ada1b55de1
 pvmRouterGas 8000000
 legacyInboxCfgSel c3f909d4
 legacyInboxCfg 22bc70c195669ace965e7565ae253f760d785e048965f94efa51845573b36808
@@ -11501,11 +12287,11 @@ legacyMax16Raw 60928
 legacyMax16CallLen 62084
 legacyFullScanBytes 4161536
 legacyFullScanHeadroom 32768
-legacyReview 571aca43c1cd24e4ac89b15dee49383fe2ea68351cd840ac927094be54b62f7e
+ legacyReview 48e93b7890be4474289411c19f570faa00c181a230d7cb7fbc00195070d4d57c
 legacyBlobExpiry 1573864
 legacyCampaignSel 718b2ac7
-legacyCampaignId cb335b340cf2da203f557355425fb5418c2c0fdc70286ab14744ecb570ccda6c
-legacyCampaignRet 66dc4139cceaee7d609a55666a8b306b3a01da0fe3cc1de5a723f683448f426b
+ legacyCampaignId e94721d14a56774c2079995e1e5cdeb915edbf39d951e54078522dd1f9a19f69
+ legacyCampaignRet 486d5706d3fd2588f616861889690b8f7f56e0df3b454969bb860f5778c004a9
 legacyPrepSel 6880cd05
 legacyPrepRet 8c869f3dfe7df0f01a65e96d7691b5b0d095590acd9f034770c33a6c75472a98
 propRowsEmpty 0736a35926f1618d1fcca0fdf57530d52f3d1694eb227f31c28b158b370793d5
@@ -11513,108 +12299,108 @@ propRowsRoot aeacf67ac14d90928d567c659ff80316a0d780fc490ac6b4b69e9620836d2b46
 forcedRowsEmpty 5631fad8f285ac1643b4e817c5454ee4f1e35174786dd255842a987b21c3fd92
 forcedRecord dbda8510c73bc3eb57de26ae5c5bcc82a45bf6fedab68abf100d9baea6f4a380
 forcedRowsRoot ab7f340cae89170a3a619086538cace009399987a1bffbee40c17da60c10fcc8
-legacyScanCommit 035027b36d020688da2131a9dba38462f12e387ece4e6d3fb5f4489040888b0d
-legacyAbandon 8905bf42714e03489974504a0569e5111307069e6c342d790b668257e886368a
+ legacyScanCommit 05e0e3ee9860067a44f759d645aaa746e3c15432947c39b3710cfaa518f7e06d
+ legacyAbandon cb36eaa84b5a8e1d4cbdfe2c4c81bd8b2e06ad652391b29b7c8022a91763e18e
 legacyAbandonTopic a3b978444273f8f347857235c224846aa45e8ce5bb73df549b9916e96371c8c9
 legacyBeginSel e9d1a07f
-legacyBeginCall bd1b7d92c921e3d9ad9d6220faf9286ab1005d653c186c4a0634e43e53a3896b
+ legacyBeginCall cee8b34707fa4569bd05d14609c64005f959a66d5852a9ee325f569ba8e081e6
 legacyBeginRet add644dde24164cfb29ab6a4598cb55acb73c55dd295b0c2a227dc3264c6f65c
 legacyScanPropSel 7da66460
-legacyScanProp1 85f56921439afd993cd8149bef5b61d0451113d30e0438c44e0eeaa114f7917b
-legacyScanProp16 4596d0b4fb67201340e7fc320e38063e6b1325a7fb64a3b4fe9028cbdadf62e0
+ legacyScanProp1 d281c883ee5a65da6f3e972e23e47d82d7f3040084aedc7a5f5f765e2432f086
+ legacyScanProp16 4b07db9f14a036c29d1049121db7c85ef8df8de6728542f759f3dfeb95ae84d3
 legacyScanForcedSel 032ae99e
-legacyScanForcedCall ba8eeb2939cdb44adbcdcadf7a6ead433abad631cdc88fe9db21f5f5ac788503
+ legacyScanForcedCall 22cd46a4dace81d7802d2b06c51377ba8fd03a626ef024fb9d1229ca72272690
 legacyScanForcedRet 10dcb42db706d4c4a5afe207c6327f8cecbcbc4b298c0255fe2434662e6599d6
 legacyScanStateSel ef3cdce0
-legacyScanStateRet c5c57f4be528314e3c90e5edb08a070687220ef2ce6b6a262e2a91ab11fe7481
+ legacyScanStateRet 242ec0bd268240a60d590c0bf51ca2b718fa9d56e24ef59dd1e4857fe64d5919
 legacyQuiesceSel 4c0ae8da
-legacyQuiesceCall 4be325de56fa079907d18af22bcf717c8e9293ee5bb016e4c0b26733e8a6d845
-legacyQuiesceRet a1cf470618c6835f3bb56facb9cc7cf13f4198aeee8c3aea0293b8990365c752
+ legacyQuiesceCall 076ba5b44592119003dece8d0928cb0154203c5d1ddcfe468b3a17549e36a5dc
+ legacyQuiesceRet 4d2b622592701b4b1ada1b703589f3448ffca64f4ff16606145e9f3aae6350cd
 legacyResumeSel 2bf6b656
-legacyResumeCall 0583e83c89e3251d7aef7bff05ba736b2f902156dcacc01f43d95bfde2ca4dff
-legacyResumeRet 206dec3a4de80c7b2cde7e0941a420bbfd76769ed64538022a723f0967871faf
-legacyArmId 3ce5cab5ad45ad31f25f6726a5ed1ae4d8599a811e68ae1509806ad8d1450e3e
+ legacyResumeCall 0e02ea7f338a18fa91c50b3e774ca5a01557915c4bc0d701f17460e8d5a07fea
+ legacyResumeRet 775e455aeca3d6c245f275799fb94c7463b9557f2b4defca70bc1ba279e8a9c9
+ legacyArmId d3329fcb3a8b7259122da7e8edcbbb45f9cc98cdd35e979ebc87a5406519138f
 legacyBoundary 0215b43e3b2143b3fcac2c97bc2f8cc32ab47ac695a6fd173d919abdcc170263
-legacyLaunch b6745b708c8e1978e783bbf2e57e3698e29ee4f2a64ccdf5179002f767158c85
-legacyPost c981ee27ec2a96b412f73b6907293a925ee0204693df32c6b4a91dce63df530f
+ legacyLaunch 170f6103eb4cf9416e804727a405f8edd6d996079a565266f6d8478f11da93c0
+ legacyPost 4fd9b00d174aff5254ab0a87b65bbd85eb28048d2d5f93a824dcf9623c3736a0
 legacyStateSel 9b698000
 legacyArmSel 8781a058
 legacyFinalSel c2de6417
-legacyStateRet 1435ce9f7de09da36398dedd4e8046a45696358d8160d4e30288cdb6015f63ea
-legacyQuiescentRet eabc4a3115d1a5a7473d01cefe7f06d0e130e4817d898e9078275c86727db646
-legacyReadyRet 43772406d67195d5179ba1ef3ca537b9e244c02a7c681b9af57de73967b54339
+ legacyStateRet 7f020a71399b1776f1926c55c684a6d793e3f024d4d68e9f5a9be29f1e1a184b
+ legacyQuiescentRet e9cc0dff346c0974368fb68ea944c614d5dd7836a4970f8c89e56800c6bdbccd
+ legacyReadyRet 492c6b27c16754ad9f1a0cd8f95f9b3f77d0cc2c044bc55dc982525d0d2e0d81
 legacyStateLen 512
-legacyArmCall ae674d2927bdbf27cf457c0c412020634dedd462b75337e8493549de6e5b59f8
+ legacyArmCall 9d4639bb62ccaf078d0293df0f8b96aa177cf6cbf28a723a4b1bc0f4fee90c2d
 legacyArmCallLen 68
-legacyFinalCall 055902cbc00cca93bcda5fdc70cc8e1918f0f2174608aac138c49607f3b630c3
+ legacyFinalCall 53fba84f0a56881350d5286d516ff9a56d1b88cdc745ae9ed29dd45cb798b01e
 legacyFinalLen 196
-legacyArmRet 99846e561f7901daf75a5475a8bd4de6a280dd9ba753dd077402facdbc064e09
+ legacyArmRet a8fd15b569ae80c33eb008494bfae200674843f8a1fcd621d0de37d61511400b
 legacyArmRetLen 128
-legacyFinalRet 6cee7a606cd161178c297b441eca682e93e2abd5dd3fd8c74855e71a49e479ac
+ legacyFinalRet 5b0a0f887bac288b05f9ff27c2cd5aa7f89012a0da0e70abea6f1be94039a287
 arv1Sel 0a4434d0
-genReceiptCall 5a9d121890dc43e29c18a1022031d8e2f1220e097f7fb895c53560782a846ad7
-genReceiptRet 6616b8e0cbda0719e4d561bf73655d19a29df83edf23902b080aed0f12ba3de2
-versionReceiptRet ed7cf2485014f0fa2634a733b6ecde0ee96623aec74c71751e24dce3caffcf69
-genCtx 139c8045ba7834cc6b8500d80890574732134d2d221787b3cd3f608cc19dd90c
-genCtxRet c0efd7f04e7e54a987407dd12206ec98495047acf6420d4dda617d1db62fbf12
-genAdopt 4c4ec59cab07fadfd3741363269c245145e8fec4187bdd0ed5315fe019d20ed7
-genAdoptCall b3c71d22f707395f4388f5aa8e2748c607d70ff30e08783a214b8ec9ff4470fc
-genAdoptRet 9ede9238d8ca6ca0cbf869bca67677b7fa9d087af6ff2e789f922b5ffe5293e7
-genQueuePost 9b205a258be44e3c62212c295804a7ec3e5e9fe58fad118b47d2b1c610ac3b03
-genQueueCall 487070feeb09d7fa595cd95e28d9eb9fe180b5057c6b95d584312b0ba207d2a2
-genQueueRet 136cec1e6f536b9aaf5e1870a906c0779b89320782354bb85422abf5b2ef86e8
-genSrcPostRet 2602183fac3f6fb768287742b8ebedb20713d56b0399c6b53b768afcbfb216e7
-genTgtPostRet 0fae53ae11933e6854ca96e41e090ec60814fa0283f76c7a791accbcf2889273
-genQPostRet 528088a64d97d66aa14f03ac5bcf620cb69693c3ee1169c4b7376398ccffa110
-genReceipt e8a9748cdc20af74994f922c226dc4a7f5ea379b8ce873a0cf20fef5381c0930
-reorgLegacyPost fdce3cb4fb183aa1eeb0eb5648eee63e1aba6bb2c711ed275cd77e059631409c
-reorgGenCtx 4cbc1dce76c55826f567fe021ec13073e54c90fe09bcc101611f11365fac5943
-reorgGenReceipt c206320bd026e14c63fd7143efec397da2e65b128d4aaa1a4f5e47c70023ef00
-actContext cddab3d4efceb1a717ffd65151919c1fa6d553e5ea8f999a1a844c9580602dc8
+ genReceiptCall 5ab1f6ede43aa32a932d88d5da0a060028e8e689ff1d1c91875aa7eedbeb7c6f
+ genReceiptRet f4539c5921dd860d5a4d99d425732aa9eba103d8afe0fb45af7edaf997f0088a
+ versionReceiptRet f98d13fe637fe5e611c17b19d81d5d9f401c44719f9f1b384e608b3cce877b95
+ genCtx 9cbc8f98876e804018f19658ac5ebd7c1eade7cc46a74461318f902a48305ec0
+ genCtxRet 99dcdc2b728756d1a46a7ef846eda04e0f4db94dc5d3c6714f9196d6a5010c9c
+ genAdopt 576c190b76bc6e0bbee3b079eddd69f349d4ed905b452c7d43b494a5a36d8d98
+ genAdoptCall a43eaf15cd33cdc461e52e051b4867df2d9f16f1fb9b9fb68ba1bc1edac058d7
+ genAdoptRet 4bbf85aa175cdcadb0d695f2cb84e79d08da3cdfade7ccb451b17eaeb895d898
+ genQueuePost d0c9381d3ee143622553c8de77b6ea94bae69a772aa1b59b67103d050db87c13
+ genQueueCall 7de587a694057f7973477bca1e9853a47be17d605f6b29c03e4d1419accf2bac
+ genQueueRet 048ecf5ba0a3a5ac30c86e15d49f7200c6fd857e62db13034b1b3b93126f7315
+ genSrcPostRet 7ecdfc158e9a286b3480d7ecc8178d10065896f26bb89799e53f447ad3729fbc
+ genTgtPostRet a464c24f5315795c1cd9c26dfc7e1e7cc999dbc5fba221003194c4677d7ad33f
+ genQPostRet 1abdad610a7acfcff13425c542626c4fa7a2a2e898044cf406743fd15b5bea2a
+ genReceipt 0eab6750ef2abff644f98c3c75123025108f168eb898b926ccf86ea3cd6d7915
+ reorgLegacyPost c4fde5fa0b83ac5617706613c00e3506117514512a3ba0088a42f6889d1b2326
+ reorgGenCtx 337d11adfe0f2431838b7f6930ac70bd72255443e899486007947b90f733cd8c
+ reorgGenReceipt 8c2c5541917706a54c49c210df34c353de1b5cde5f21c7eaf916b92bb6b3641c
+ actContext 5a6231bb9e84d8e4d5be2684008af077ae3d850562607d02ed31b32042371a4c
 mactSel 7cf70319
-mactRet c1cdf9b03af5584da8fee1f5f4421150ca856106be599a893f34d55bbb41163f
+ mactRet d255ae7c68d6185d0c3275b27e1fa387f662babaa1867aad5bb130679f509647
 mactLen 320
 armLifeRet 298524396c6b44dd68c8c21326e4ddb544cc51cfe8d5b89ed34bda45fa998753
 mcanSel 3286443c
-mcanCall 4548b55aa6c4ac42891fb05ee7fac6d92f36e139fc82f21a88751d3661b396c7
+ mcanCall 889154f4d3526892ed2b61310e86f2c0e864a5c0a50a5ebfd2ae7ee450c320cb
 mcanLen 580
-mcanRet a3437a2c5f846aab2ccc5e86ce22856f0ce759b307585d9a56ada938c32881ab
-sourceFreezePost 83ca1e9a7398423e02ee3f739b77d038f094a1b408eec755c2adcc68f0994ec7
+ mcanRet a0094e7035435655e908fa4d9de909f14d0badce2c7c867ab083ab094d3faf14
+ sourceFreezePost 23eac6c66af12ea48c3bdc77a429d983dbad8fe9b92692a8839d358223984e79
 mfrzSel 45a80913
-mfrzCall 81bf6ce712ffd27b401ef8de8fcdf0ebda7efb318d645d34dd40c48421bd54c0
-mfrzRet 45af47da2be005d52d811fb6c8885603c2d8d1bd0a913e3ec239284fedd930de
-queuePost 0b6f380c441beea5069c8444380a2af8963712e228b9ec09a0b606ef5cad7ff4
+ mfrzCall 5d412ab7aadce42f28373a4026b93af41105d079e9c6745e38df6fc58c812f23
+ mfrzRet 300a0ec2556d608826ab6a426a20afa5f429bca0ea423230ba1373799b87deca
+ queuePost 1a13eca5226874d8e12b92e578be3dca978adae7b1cc0dfa7b5ffe3c2b6d1cef
 queueCredit 64000000000000000
 qmigSel 9461f698
-qmigCall 6ef00735e34bf91a6d23b9de8dac7e12337bb4a8d027c5ed187caec176b9754e
+ qmigCall c111b2ae18c6b9051d1768d10268cecd394ebc903ea8c995ad05b2a0cec09990
 qmigLen 260
-qmigRet 290d7eaebe51ebdd6f612a50d8e63022a629b1da5359486fe0264dfeca50ad2a
-adoptPost 587b2c9dee1366ec8befe95b4624f685886f3bb2bdd7e50e218b130561b7e4e1
+ qmigRet bfa61315c71c3395a66302ae603d42deea490fec338397f4ea84e438ebb6f582
+ adoptPost a45e527fe7ce5c040c0c4b89901f63c9af16a0807316d4b77fedc830a2f080f6
 mapsSel 66e664cb
-mapsCall 4f4c9806d5f257b9b9a33f27efefa311b6ed83feaa8e7b7475f8868d9ecfc76d
-sourceMapsRet 446d95d691fca25305812d2c160129e06cd41fd4483c05240bf665c340174221
-targetMapsRet 4298b19ff661be33a8b3d2abcf53e00a0c4fd7a2970ba0f58490cd72e447797b
-queueMapsRet 40fa5386e351777ee1a1e3f5e512f346f0ce525aebf71dade37d39c00e8349df
-activateVSel 22c4944d
+ mapsCall 40c1717eb2086dd150f3b3311fc9221bbcefb9688d6f604949dc860820d75cb9
+ sourceMapsRet 4328893f4fa40869099a0a2074998dc420210cfb4b9f3a6077afcaee046ee829
+ targetMapsRet d2a8e3257e0f95d4fea4f1d7a0874c85a37245dfd2a379b8418b9e7f2d97dfba
+ queueMapsRet aad0b4d0f08d00c52f6eee6c6ffc9065c246106947ad5fb375944b6758149ad9
+activateVSel 17a548ed
 genesisFixed 15236b38830f35f4df4c6bd78015c9a3b495a0f3fe08a028cdb1dd57aac970ca
 versionFixed 24f54f2ca1c6731f04741371c1e2705fcd912e1b5cf2bd5d727729cc5de89a41
-genesisCall 0ebd4dcf074fc87f4ad745c6c9a273cd7dfcbacb5ac52f9fab8c147dddde3678
-genesisLen 2916
-versionCall 7e8752905eed18b1538c7bb67fe0e59ac0478006c5fd15982a557c0bd843cfc2
-versionLen 17188
-maxGenesis 79782d9c67ffae928e93f8132f4a3297da0ca1555e4081e329bf38a6ef413b90
-maxGenesisLen 135876
-maxVersion 3b19de90ed7f5d5aeb141dd11d1549d7e601aa19b848e94280487cfd1296ee25
-maxVersionLen 149252
+ genesisCall caddccafac15f7b9081ce4e6fcba4fd74530cc22d515fae19b890c052fe5417a
+ genesisLen 2948
+ versionCall 069e8ed627691c90dc5d6488b9fd1a42198d1c9afbc454b430c66e6aadd8aa55
+ versionLen 17220
+ maxGenesis f0ad14b26ff5aba4691d3beedca37f5bd77a587182d824c1cff68d52e2e783b4
+ maxGenesisLen 135908
+ maxVersion e5f8adf5c2a1b4a9f501d2e74af0cfe05c8c02a5ec619b49b1cba7a35b414fb4
+ maxVersionLen 149284
 regBase 20b3dfc457e3cecf32b0c047177351f0814e426c1548e87b79f58830655810c3
 regSlot dfa6283b763bbadeb604401a78e2fefeddb72000addcdb94ed2e3de5cc69846b
 regTrie 200031adff46d90b1cd5c67ff8e31098235d1dddb08ec98b0d20f5f8660c0ac8
 relBase a0b7a29a75032f37561036cd3741e7b375213309367f37b5ffec4ad55cf6154f
 relSlot 719bb73ba856aeab1b203e322bfefc6d84a4c41a3222bcf1634b1b44e5b9aba8
 relTrie dac8109059d03da2ad16ac3acc50d2e58897b8c3a7f6889ae77bfb20737e87a2
-routeConfig 4c94818f95ae8519842d7cd8813be02a8244327224f8b5bb18b47749a59450fa
+ routeConfig 9cc87d80608fb3cc866707547127aa776556ecfb64db4e398ae337620e76aac4
 queueConfig 72e27c19ebfab08e1fb27feeff50609c7c4bb69f0570a7bdb72eda7736c50f4e
-dataSessCfg 32a737efe0057f71292a45fb94c7625a42452e73b2c7bfd953b10b91d1607bb4
+ dataSessCfg 07cd3347bb03a3749297908dfdb8093d3989a32e9ca6a9f544c87b8857a1727c
 dsOpenSel 7bda4d11
 dsPostSel a1cc526a
 dsSealSel 340e11fb
@@ -11638,22 +12424,22 @@ dsClaimTopic 69fe7d8d95811e3a02a4ad4b0d1a3e1360b683a31f7cb30b4c69546b258232fb
 dsForfeitTopic f93f771339298d1fb502bd2c556fc18130b95d44599f35109de39d8d5731f957
 dsSweepTopic 3a5f2fa0ab342d3b79fc2aa40be5e1296009e8fb31f86c3577c51839dd159a86
 dsMaintTopic 920669b9670911aa86cd718dceebaa1372d224ca0fdac50a63dc1d45a53e1e89
-bridgeLeaf 7e61650f735cffeff910eabbf28b60118584363072a1b18be4a50b0e49d0fccc
-feeLeafAlt 9aeeda0ae2094ed7cc70c334caa02ac2351f0e5bcb14b5d3c0a654fb29c4275b
-creditId 39b1bef40d007422eb9caf626a42a98fb4a40c9898db29d6beb7c3a6250b40f8
-feeCreditAlt 7ac2695e781466773a029e5a6dad12401011cf6bfb601607c3ef664e2c10de0c
-escrowId 14aaab6b096419fe36f3b3d6645c8173765a2f4a903ea336790040b82eec5af1
-inboxSlot 3e7e0776ebd7cc805f9331d1b15dd1d5e78cdf00022ca9d208b3c104012f3f4a
+ bridgeLeaf db1a0c935f1173a569006488882a2abeb620ee397b0d4b57ba14f479e93d4ad2
+ feeLeafAlt ca3a5c71fcfd67060d91fa2dbd4f8d839d678f6fd5242cce1b7ad4fbddf6fd51
+ creditId c5106651fbf5aef64142a4abdbf29dd670e2464fa1fcaee8253a23b45695835b
+ feeCreditAlt 5729c4dbda07a37c0e80fe34f7c080e6f26742c2df888766e46ce8df0599d432
+ escrowId 0b5dda48fd1355bc82eebd46369a48e66034fe92e15e5e49393787281782aebc
+ inboxSlot afae055286a47fcc5a76c3b75bef8aea556d024f5249c28372e59672f222caf4
 inboxTerms 1932123279377088595567804303184537494733657
-terminalDone 13e0e5ab57a472bfa8f883301b79b4cbe6dd0f7b787a6877f90f6c80ff13abb7
+ terminalDone d5f92fbe75e51e2bcddee051eb01e222a101f16a9e6f9cd3a6e486e114fd5778
 liquiditySet 625ff42ed879b94a7499fecb7abc07988b348300d1c4e9cc1f7596968eaf2f19
-settleLeafAlt c26c0dd865cf2a2442eae4c0065a8cedf585c4bddd74333dd51207339ebcdfbf
-terminalFail 9edd78b2e1393d20c1c7ae1390633c65ce14ebd08af366a10d2b025af1c7d00e
-terminalRoot2 c4438d841e19055e73f0045bc7cd86349dd671a4d6401d338a4e1bea03023f87
+ settleLeafAlt 96baecdcde62bd5dd9d86625842471da07d3008a205ef8c79481254779e68649
+ terminalFail 2cdb7e63b317779f0745088a4148bc6cdda12d8331718a6874904beb4ab15362
+ terminalRoot2 8b47e5d6f541fa86cf14b6568107c0631a3df79afd50d24baeb936fdb39e687b
 emptyTermRoot c5da197edc2f03c7023cc6afe137ccb77d01fc56514d322b6ba66a149315bcb0
-terminalFrontier2 2c6f371f051bd1c5527cbeaed9f8783236b0b250b0c5f2bed60fa2e8f3dee82c
-terminalFrontierRoot2 c4438d841e19055e73f0045bc7cd86349dd671a4d6401d338a4e1bea03023f87
-bridgeResult bafcdb87053dabcbe8d8f1aa6b192027eb7c6ef91ead585fde838669c56afa3b
+ terminalFrontier2 582eeebaacbe2b12774eef4b3286045287fc7b5ff92dedf77b5443cfddf6723f
+ terminalFrontierRoot2 8b47e5d6f541fa86cf14b6568107c0631a3df79afd50d24baeb936fdb39e687b
+ bridgeResult e45204346d0dea5083fef855ff0260f7b3eb64fb02548813d09e87824f4da74f
 manifestRoot 417be737a57e38eb410f2d6e65c77ee19d5c314cdaf432067861c6a36c6a990f
 emptyDataBag b3caa2379816b63eebbf789e33e7d84ef29d6d350179803dd000102e8182f66a
 mmrRoot3 dea2c7de9f14ce6f9c59fda963520ced2cb6e6ebef7c6abe6cb773afab888e89
@@ -11672,18 +12458,18 @@ manifestNodeH5 9f4c64a89c253d4d65f93cba1f55e7a17a3e4027be7351650060632ed1bc70f0
 normalContext 5b93691b397d8ab377682acee7cf6cc77ff2726cd83a8a7b725084f5d6f468bd
 migrationData 2c36740d76ae6192335d4c603f42edace094b33e8f54e959b40241a94c1f6deb
 winningData 4ae34aa9efb842528d353b175f94191d01cfd168b5ad828f64a0e7972a2ca9e3
-statementHash 595572878b741314aaba69c75e2d93afdaae2f502727f80e758c6d9b9a04bb49
+ statementHash b29c270bf7f140c4818c7b15dd82c567abc4fc617527c350f8be0e048199b24a
 stmtRewardGas 12345678
 stmtRewardBytes 9
-rewardReceipt 00b3741f3922737e7c3cd07d45c93301068436e8fcd750758f495218304b8630
+ rewardReceipt f43f661d59961d569e59f1f9cc4bfb32266fc15c12d5b178708a34d7a85ecd3e
 candidateCommitTopic 51629f6515f461b4c6f912a8eecad46d8ff89ab5e8235d95c30004be2c9ac738
 rewardFundTopic d979ecc5f5821fb9e6643744111b04290fc1da57eebaba07def52e526c6eb49e
 rewardClaimTopic 9f41046da255bf29062408ae9f20e06ea2453df29227caf32b709ccfed59d506
-candidateLogTopics 322f07b53e70a0f06ed49e66c5747400d058f74ac3893965393451defadb57d6
+ candidateLogTopics 10d8f0974e0d538c9dce867d788281eac98985817368b13b34b5b923dad7eeb0
 candidateLogTopicCount 3
-candidateLogId 595572878b741314aaba69c75e2d93afdaae2f502727f80e758c6d9b9a04bb49
+ candidateLogId b29c270bf7f140c4818c7b15dd82c567abc4fc617527c350f8be0e048199b24a
 candidateLogBeneficiary 000000000000000000000000000000000000000000000000000000000000cafe
-candidateLogData 91426c0531837b0b5c449aa8f2fa5cf429b2a4fc39951181bd9efff64d2b5549
+ candidateLogData 3a866b4aa907462beb3970d907921c7fe0b71aac7a875c4deac03007fd67791e
 candidateLogDataLen 192
 rewardFundLogTopics dec401d3769ac3d7c894189f394a778a66106bd32460f51135caea4824360efe
 rewardFundLogTopicCount 3
@@ -11691,9 +12477,9 @@ rewardFundLogClass 0000000000000000000000000000000000000000000000000000000000000
 rewardFundLogFunder 000000000000000000000000000000000000000000000000000000000000f00d
 rewardFundLogData e1aede520e7a9dc85a896fcdc9cc395ef1f2fd03d93f7e4f6acbd5fda09bf690
 rewardFundLogDataLen 96
-rewardClaimLogTopics d24ad07e74a5644fef99a21b3b48f8aa60bb75eb841420a273c0c7a681db685c
+ rewardClaimLogTopics d95e38f337eac04460efdf57735fe43d21d52f73d94172b4d98823584f3a2ff4
 rewardClaimLogTopicCount 3
-rewardClaimLogId 595572878b741314aaba69c75e2d93afdaae2f502727f80e758c6d9b9a04bb49
+ rewardClaimLogId b29c270bf7f140c4818c7b15dd82c567abc4fc617527c350f8be0e048199b24a
 rewardClaimLogBeneficiary 000000000000000000000000000000000000000000000000000000000000cafe
 rewardClaimLogData db2be80ad7fe2991fbabee31c9917dca99f927a94e09c6a4e810cec6d4a8cbae
 rewardClaimLogDataLen 64
@@ -11702,19 +12488,19 @@ fundRewardCall 1086e7c6ffda5d1b4d31999795549a413160e18f638c43801cf6bd8293b430f1
 fundRewardCallLen 36
 fundRewardRetLen 0
 claimRewardSel aa5498cb
-claimRewardCall 240965806050d9b6be5d79e8377ddb0c67caff227beaaa8ea5d802b1036df3d0
+ claimRewardCall 87733d9e2a2c7e55cd9e4b2d2a1c4dfb536238b502a0e98263d8c655b2206268
 claimRewardCallLen 36
 claimRewardPaid 1000000
 claimRewardRet c1af4b94166cd32fc49b7b926cbb91ee421de2d04450e8ae57857b9b56ac7e53
 claimRewardRetLen 32
 rewardViewSel 3ed526c7
-rewardViewCall 485d1a0dc44ee366c3cfd1c384deaa990edd041ae61797c929fb53d11109ee93
+ rewardViewCall cf2e1bd881fd7591882379b1070452c9f81a80848a3d1b9e6970f97a2e615055
 rewardViewCallLen 36
 rewardViewMagic 52525631
-rewardViewHit ec2ce3e7c263308b2332ba92e64ce2beaa347f7f528ae28ef631e43085792403
+ rewardViewHit 366fb5d238b52decd3b3b2d18acd8ed04741f6d94bdde7fbd4736f9dad9abcd6
 rewardViewMiss 910614e273a7326ae3c583449cfdf24c64d9ef3d7d6f448b6d3042d3ba95ae80
 rewardViewLen 384
-rewardCollision a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a449
+ rewardCollision a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a44a
 builderCfg 5c2fe6d16935d1557c545b24c0b5982391f7a8ac702d7db3a6c55e467427ed79
 rewardClassSel 3d273ee7
 rewardClassCall 3717990a97396f7a0a947025434cf954d9937932f5e00fdf793c129bfbfb3006
@@ -11724,8 +12510,8 @@ rewardClassRet 3d21e30cd424ac4eb52ed85673aac8960a703cce5dd930fceb901b0ce5e93490
 rewardClassRetLen 224
 rewardClassId 1
 rewardClassGas 50000
-dsAcctEmpty 7720a5a8d9d219e06852dd2661541c06c0278e2044d27ec21400506cac036719
-dsAcctFunded 83a2038c29ca1256677eab2f562e42376f7ba8366c67bfd57536987c2957066b
+ dsAcctEmpty ed6c1b1f53b93bafff716cac2098150284a639ce3f78c7971481de38fa521fd4
+ dsAcctFunded d426423c8b542d61c019c048fa3aeb24e145e342fc4ef566e8f48680ec238c14
 dsAcctLen 512
 recoveryId fd0552b28542fa3e236c86807695f3d5a4bc0436add285daa8506d9a79511b15
 bodyRoot 0f4e161a46c8b18c2a86f23a0a4e7169a838a12af8b389f65e97b547a99707e9
@@ -12015,7 +12801,7 @@ absolute clock conversion, execution-block finality depth, version-independent
 protocol-lifetime seed and
 complete-schedule vectors.
 
-\code{settlement-window-model.py} reports 184 assertions over PREACTIVE/migration,
+\code{settlement-window-model.py} reports 186 assertions over PREACTIVE/migration,
 finite staged legacy genesis campaigns, capped permissionless scan,
 resume-safe QUIESCENT expiry and proof-before-LGAR atomic launch/cutover, delayed
 exact-target abort for later migrations, early-return semantics,
@@ -12034,12 +12820,16 @@ local destination binding, frontier/event terminal proofs, pause-independent
 escape, L2 release sealing, replay and timing
 geometry.  Cryptographic booleans in that model are not cryptographic
 evidence.
-The companion \code{test-settlement-window.py} suite runs 277 adversarial
+The companion \code{test-settlement-window.py} suite runs 293 adversarial
 regressions, including authorization substitution, callback/OOG, competing LP,
 owner-mode, target/quota/pull/terminal rollback, withdrawal/recreation and
-cross-version preservation cases for the atomic Pool path.
+cross-version preservation cases for the atomic Pool path.  The same suite
+exercises exact RootMigrationExecutor/Factory construction, staging,
+role-by-role activation, confirmation and abort rollback, plus SOC1--FRS1--FVR1--
+SFV1 pretransition joins and dirty successful post-FVR1/FRS1 rollback across
+Schedule append, replacement and split.
 
-\code{commitment-model.py} reports 764 golden vectors and 1503 executable
+\code{commitment-model.py} reports 812 golden vectors and 1593 executable
 assertion sites for
 exact EIP-712
 domain/struct/digest, canonical and statement hashes, registry/admission/entry/

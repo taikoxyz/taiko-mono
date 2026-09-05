@@ -5696,13 +5696,14 @@ class SeatMarket:
         authorization_id = bytes(getattr(row, "authorization_id"))
 
         def transition() -> bytes:
-            witnesses = getattr(manager, "release_witnesses", None)
-            witness = (
-                None
-                if type(witnesses) is not dict
-                else witnesses.get(authorization.protocol_version)
+            resolver = getattr(
+                router, "_authenticated_registered_target_v1", None
             )
-            authority = getattr(witness, "settlement", None)
+            authority = (
+                None
+                if not callable(resolver)
+                else resolver(authorization.protocol_version)
+            )
             runtime = TargetRuntime(authorization, authority)
             if (
                 authorization_identity(

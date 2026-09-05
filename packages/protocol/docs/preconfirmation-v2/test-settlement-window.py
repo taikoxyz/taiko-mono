@@ -43,6 +43,173 @@ def addr(label: str) -> str:
     return "0x" + raw.ljust(20, b"\x00").hex()
 
 
+def schedule_fork_row(
+    digest: bytes,
+    first_parent_slot: int,
+    last_parent_slot_exclusive: int,
+    *,
+    gas: int = 500_000,
+    runtime_domain: bytes = b"schedule-fork-runtime:",
+) -> settlement.RegisterForkVerifierPayloadV1:
+    gindices = settlement.CURRENT_SCHEDULE_FORK_GINDICES
+    schema = settlement.current_schedule_ssz_multiproof_schema_hash_v1()
+    selector = bytes.fromhex("7e981e0b")
+    config = settlement.schedule_fork_verifier_configuration_hash_v1(
+        digest, gindices, schema, selector, gas
+    )
+    return settlement.RegisterForkVerifierPayloadV1(
+        digest,
+        first_parent_slot,
+        last_parent_slot_exclusive,
+        settlement.keccak256(b"schedule-fork-verifier:" + digest)[12:],
+        settlement.keccak256(runtime_domain + digest),
+        *gindices,
+        schema,
+        config,
+        selector,
+        gas,
+    )
+
+
+def schedule_fork_world(
+    *rows: settlement.RegisterForkVerifierPayloadV1,
+) -> settlement.ScheduleForkVerifierWorldV1:
+    world = settlement.ScheduleForkVerifierWorldV1()
+    for row in rows:
+        world.publish(row)
+    return world
+
+
+def fork_review_envelope(
+    oracle: settlement.ScheduleOracleV1,
+    operation_kind: int,
+    rows: tuple[settlement.RegisterForkVerifierPayloadV1, ...],
+    *,
+    reviewed_through: int | None = None,
+) -> settlement.ForkReviewEnvelopeV1:
+    change_rows = b"".join(
+        settlement.encode_register_fork_verifier_payload_v1(row)
+        for row in rows
+    )
+    horizon = (
+        max(row.last_parent_slot_exclusive for row in rows)
+        if reviewed_through is None else reviewed_through
+    )
+    evidence = settlement.keccak256(
+        b"fork-review-evidence:" + bytes([operation_kind]) + change_rows
+    )
+    certificate = settlement.schedule_fork_review_certificate_hash_v1(
+        oracle.settlement_chain_id,
+        oracle.address,
+        operation_kind,
+        change_rows,
+        horizon,
+        evidence,
+    )
+    return settlement.ForkReviewEnvelopeV1(
+        horizon, evidence, certificate
+    )
+
+
+def encode_register_fork_change(
+    oracle: settlement.ScheduleOracleV1,
+    row: settlement.RegisterForkVerifierPayloadV1,
+) -> bytes:
+    return settlement.encode_register_fork_verifier_change_payload_v1(
+        settlement.RegisterForkVerifierChangePayloadV1(
+            row,
+            fork_review_envelope(
+                oracle, settlement.REGISTER_FORK_VERIFIER, (row,)
+            ),
+        )
+    )
+
+
+def rlp_string(value: bytes) -> bytes:
+    if len(value) == 1 and value[0] <= 0x7F:
+        return value
+    if len(value) <= 55:
+        return bytes((0x80 + len(value),)) + value
+    size = len(value).to_bytes((len(value).bit_length() + 7) // 8, "big")
+    return bytes((0xB7 + len(size),)) + size + value
+
+
+def rlp_uint(value: int) -> bytes:
+    raw = b"" if value == 0 else value.to_bytes(
+        (value.bit_length() + 7) // 8, "big"
+    )
+    return rlp_string(raw)
+
+
+def rlp_list(fields: tuple[bytes, ...]) -> bytes:
+    payload = b"".join(fields)
+    if len(payload) <= 55:
+        return bytes((0xC0 + len(payload),)) + payload
+    size = len(payload).to_bytes((len(payload).bit_length() + 7) // 8, "big")
+    return bytes((0xF7 + len(size),)) + size + payload
+
+
+def schedule_carrier_join(
+    oracle: settlement.ScheduleOracleV1,
+    window: int,
+    fork_digest: bytes,
+    fork_witness: bytes,
+    clock: settlement.Clock,
+) -> tuple[bytes, settlement.ScheduleCarrierSystemContextV1, bytes]:
+    parent_slot = int.from_bytes(fork_witness[8:16], "big")
+    parent_execution_block_number = int.from_bytes(
+        fork_witness[16:24], "big"
+    )
+    payload_timestamp = int.from_bytes(fork_witness[24:32], "big")
+    block_hash = fork_witness[32:64]
+    state_root = fork_witness[64:96]
+    prev_randao = fork_witness[96:128]
+    beacon_root = settlement.current_schedule_ssz_multiproof_root_v1(
+        fork_witness, window
+    )
+    query_timestamp = (
+        oracle.beacon_genesis_time
+        + oracle.target_slot(window) * settlement.L1_SLOT_SECONDS
+        + settlement.L1_SLOT_SECONDS
+    )
+    header_fields = [rlp_string(b"") for _ in range(20)]
+    header_fields[0] = rlp_string(block_hash)
+    header_fields[8] = rlp_uint(parent_execution_block_number + 1)
+    header_fields[11] = rlp_uint(query_timestamp)
+    header_fields[19] = rlp_string(beacon_root)
+    header = rlp_list(tuple(header_fields))
+    system = settlement.ScheduleCarrierSystemContextV1(
+        (beacon_root,), settlement.keccak256(header)
+    )
+    statement = settlement.schedule_carrier_statement_hash_v1(
+        oracle.settlement_chain_id,
+        oracle.address,
+        fork_digest,
+        window,
+        beacon_root,
+        parent_slot,
+        parent_execution_block_number,
+        payload_timestamp,
+        block_hash,
+        state_root,
+        prev_randao,
+    )
+    verifier_return = b"".join((
+        b"SFC1" + bytes(28),
+        statement,
+        parent_slot.to_bytes(32, "big"),
+        parent_execution_block_number.to_bytes(32, "big"),
+        payload_timestamp.to_bytes(32, "big"),
+        block_hash,
+        state_root,
+        prev_randao,
+    ))
+    if (parent_execution_block_number + 1
+            > clock.block_number - settlement.SCHEDULE_SEAL_FINALITY_BLOCKS):
+        raise ValueError("test carrier is not final")
+    return header, system, verifier_return
+
+
 def authorization():
     deployment = settlement.settlement_deployment_descriptor_for_test(
         "seat-market-authorized-settlement", b"r" * 32, b"c" * 32
@@ -4378,6 +4545,13 @@ def production_migration_fixture(
             manager.address, 1, profile_market, new_auth, new_runtime
         )
         assert self_registered_id == new_id
+        # This legacy migration fixture models a release that predates the
+        # delayed PVM registration harness below.  Seed the exact O(1)
+        # compatibility row at the same point as its release registration.
+        router._record_release_compatibility_v2(
+            new_registration.release_manifest.canonical_abi,
+            new_registration.settlement.protocol_version,
+        )
     if preinstall_successor:
         if not register_successor_in_release_manager:
             raise ValueError("legacy preinstall requires ReleaseManager registration")
@@ -4394,7 +4568,9 @@ def production_migration_fixture(
     )
 
 
-def protocol_authority_fixture():
+def protocol_authority_fixture(
+    *, pvm_initial_fork_digest: bytes | None = None,
+):
     """Exact delayed PVM/Router/Market/Schedule journal fixture."""
 
     rows = production_migration_fixture(
@@ -4453,6 +4629,9 @@ def protocol_authority_fixture():
     assert settlement.encode_register_release_payload_for_registration_v1(
         witness
     ) == payload
+    deployment_world.behavior_handles[decoded.target_address] = (
+        witness.settlement
+    )
     pvm_address = router.version_manager
     profile_words = settlement._execution_profile_abi_words_v2(
         decoded.profile_bytes
@@ -4463,6 +4642,9 @@ def protocol_authority_fixture():
             root_factory_address,
             "0x" + profile_words[203].hex(),
             "0x" + profile_words[204].hex(),
+            settlement_chain_id=int.from_bytes(profile_words[2], "big"),
+            manifest_namespace=profile_words[9],
+            protocol_version_manager=pvm_address,
         )
     )
     pvm_authorization = market.TargetAuthorization(
@@ -4503,9 +4685,49 @@ def protocol_authority_fixture():
         profile_words[36], profile_words[37],
         storage_backend=rows[3],
     )
+    initial_schedule_fork = schedule_fork_row(
+        bytes.fromhex("a1a2a3a4"), 0, 400_000,
+        runtime_domain=b"constructor-schedule-fork:",
+    )
+    pvm_initial_fork = initial_schedule_fork
+    if pvm_initial_fork_digest is not None:
+        pvm_initial_fork = schedule_fork_row(
+            pvm_initial_fork_digest, 0, 400_000,
+            runtime_domain=b"constructor-pvm-fork:",
+        )
+    fork_world = schedule_fork_world(
+        *({initial_schedule_fork, pvm_initial_fork})
+    )
+    schedule_soc1 = settlement.ProtocolRootScheduleOracleConfigV1(
+        settlement_chain_id=int.from_bytes(profile_words[2], "big"),
+        protocol_version_manager=bytes.fromhex(pvm_address[2:]),
+        active_settlement_router=profile_words[23][12:],
+        builder_registry=profile_words[29][12:],
+        first_managed_window=0,
+        last_managed_window=settlement.derive_last_managed_schedule_window(
+            settlement.GENESIS_TIMESTAMP, settlement.EVIDENCE_DELAY_SECONDS,
+            settlement.REORG_MARGIN_SECONDS,
+        ),
+        genesis_timestamp=settlement.GENESIS_TIMESTAMP,
+        evidence_delay_seconds=settlement.EVIDENCE_DELAY_SECONDS,
+        reorg_margin_seconds=settlement.REORG_MARGIN_SECONDS,
+        beacon_genesis_time=0,
+        lookahead_seconds=768,
+        lease_per_window_atomic=1,
+        initial_fork_digest=initial_schedule_fork.fork_digest,
+        initial_fork_first_parent_slot=0,
+        initial_fork_last_parent_slot_exclusive=(
+            initial_schedule_fork.last_parent_slot_exclusive
+        ),
+        builder_registry_topology_hash=settlement.keccak256(
+            b"fixture-builder-registry-topology"
+        ),
+        configuration_hash=profile_words[34],
+    )
     schedule_oracle = settlement.ScheduleOracleV1(
         "0x" + profile_words[32][12:].hex(), pvm_address,
-        current_window=100,
+        initial_schedule_fork,
+        fork_verifier_world=fork_world, soc1_config=schedule_soc1,
     )
     # The production authority graph has exactly one PVM.  The nested fixture
     # used an older manager only to construct the already-active predecessor;
@@ -4521,18 +4743,21 @@ def protocol_authority_fixture():
         schedule_oracle.address,
         market_authority, deployment_world,
         "0x" + profile_words[38][12:].hex(),
-        "0x" + profile_words[41][12:].hex(),
         profile_words[18],
         profile_words[9],
         profile_words[36],
         profile_words[37],
         profile_words[21],
         tuple(profile_words[index] for index in (
-            24, 25, 27, 28, 30, 31, 33, 34, 39, 40, 42, 43,
+            24, 25, 27, 28, 30, 31, 33, 34, 39, 40,
         )),
+        "0x" + profile_words[202][12:].hex(),
+        profile_words[203], profile_words[204],
+        "0x" + profile_words[166][12:].hex(),
+        profile_words[167], profile_words[168],
+        pvm_initial_fork, fork_world,
         active_protocol_version=router.active_version,
         router=router,
-        release_witnesses={witness.settlement.protocol_version: witness},
         schedule_oracle=schedule_oracle,
     )
     support_registry = router._bridge_domain_registry_authority
@@ -4599,6 +4824,9 @@ def genesis_protocol_authority_fixture():
     assert settlement.encode_register_release_payload_for_registration_v1(
         witness
     ) == payload
+    deployment_world.behavior_handles[decoded.target_address] = (
+        witness.settlement
+    )
     pvm_address = router.version_manager
     profile_words = settlement._execution_profile_abi_words_v2(
         decoded.profile_bytes
@@ -4609,6 +4837,9 @@ def genesis_protocol_authority_fixture():
             root_factory_address,
             "0x" + profile_words[203].hex(),
             "0x" + profile_words[204].hex(),
+            settlement_chain_id=int.from_bytes(profile_words[2], "big"),
+            manifest_namespace=profile_words[9],
+            protocol_version_manager=pvm_address,
         )
     )
     market_authority = settlement.PvmDerivedMarketAuthorizationV1(
@@ -4617,9 +4848,30 @@ def genesis_protocol_authority_fixture():
         int.from_bytes(profile_words[2], "big"), router.address,
         profile_words[36], profile_words[37],
     )
+    initial_schedule_fork = schedule_fork_row(
+        bytes.fromhex("a1a2a3a4"), 0, 400_000,
+        runtime_domain=b"constructor-schedule-fork:",
+    )
+    schedule_soc1 = settlement.ProtocolRootScheduleOracleConfigV1(
+        int.from_bytes(profile_words[2], "big"),
+        bytes.fromhex(pvm_address[2:]), profile_words[23][12:],
+        profile_words[29][12:], 0,
+        settlement.derive_last_managed_schedule_window(
+            settlement.GENESIS_TIMESTAMP, settlement.EVIDENCE_DELAY_SECONDS,
+            settlement.REORG_MARGIN_SECONDS,
+        ),
+        settlement.GENESIS_TIMESTAMP, settlement.EVIDENCE_DELAY_SECONDS,
+        settlement.REORG_MARGIN_SECONDS, 0, 768, 1,
+        initial_schedule_fork.fork_digest, 0,
+        initial_schedule_fork.last_parent_slot_exclusive,
+        settlement.keccak256(b"fixture-builder-registry-topology"),
+        profile_words[34],
+    )
     schedule_oracle = settlement.ScheduleOracleV1(
         "0x" + profile_words[32][12:].hex(), pvm_address,
-        current_window=100,
+        initial_schedule_fork,
+        fork_verifier_world=schedule_fork_world(initial_schedule_fork),
+        soc1_config=schedule_soc1,
     )
     object.__setattr__(router, "_version_manager_authority", None)
     manager = settlement.ProtocolVersionManagerV1(
@@ -4629,15 +4881,19 @@ def genesis_protocol_authority_fixture():
         "0x" + profile_words[29][12:].hex(),
         schedule_oracle.address, market_authority, deployment_world,
         "0x" + profile_words[38][12:].hex(),
-        "0x" + profile_words[41][12:].hex(),
         profile_words[18], profile_words[9],
         profile_words[36], profile_words[37],
         profile_words[21],
         tuple(profile_words[index] for index in (
-            24, 25, 27, 28, 30, 31, 33, 34, 39, 40, 42, 43,
+            24, 25, 27, 28, 30, 31, 33, 34, 39, 40,
         )),
+        "0x" + profile_words[202][12:].hex(),
+        profile_words[203], profile_words[204],
+        "0x" + profile_words[166][12:].hex(),
+        profile_words[167], profile_words[168],
+        initial_schedule_fork,
+        schedule_oracle.fork_verifier_world,
         active_protocol_version=0, router=router,
-        release_witnesses={history.protocol_version: witness},
         schedule_oracle=schedule_oracle,
     )
     bridge_authorizations = tuple(
@@ -4910,6 +5166,10 @@ def register_production_successor(rows, *, label: str, protocol_version: int):
         manager.market_address,
         new_auth,
         runtime,
+    )
+    manager.router._record_release_compatibility_v2(
+        preview.release_manifest.canonical_abi,
+        preview.settlement.protocol_version,
     )
     rows[3]._pvm_preinstall_authorization(release_manager, authorization_id)
     new_protocol.seat_authorization_id = authorization_id
@@ -6495,7 +6755,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
                     registry_before,
                 )
 
-    def test_legacy_active_route_accepts_final_or_consumed_row(self):
+    def test_bootstrap_primitive_route_accepts_final_or_consumed_row(self):
         bridge = self.source_bridge
         clock = bridge.support_final_clock(self.clock.timestamp)
         entry = bridge.domain_registry.latest_final_entry(
@@ -6508,7 +6768,7 @@ class ForcedIngressRouterTests(unittest.TestCase):
             target="ordinary-target",
         )
         self.assertIsNotNone(entry)
-        self.assertEqual(entry.route_kind, "LEGACY")
+        self.assertEqual(entry.route_kind, "PRIMITIVE")
         self.assertFalse(entry.arm_ready_consumed)
         message = settlement.bridge_message(
             clock.timestamp, "legacy-route-two-states", to="ordinary-target",
@@ -6516,8 +6776,8 @@ class ForcedIngressRouterTests(unittest.TestCase):
         )
         self.assertTrue(bridge.credit_id_for(message, clock))
 
-        # Once a legacy row was atomically consumed it no longer needs the
-        # older confirmation-finality fallback, but remains the same route.
+        # Once the bootstrap primitive was atomically consumed it no longer
+        # needs the destination-registration finality fallback.
         entry.arm_ready_consumed = True
         entry.confirmed_at_block = None
         self.assertTrue(bridge.credit_id_for(message, clock))
@@ -7326,6 +7586,179 @@ class ForcedIngressRouterTests(unittest.TestCase):
         first = bridge.deployment_receipt
         self.assertTrue(first.created_now)
         self.assertEqual(len(descriptor.canonical_bytes), 752)
+        exact_factory = settlement.ImmutableV2BridgeFactory(
+            descriptor.deployment_factory,
+            descriptor.deployment_factory_runtime_hash,
+            descriptor.deployment_factory_configuration_hash,
+            settlement_chain_id=descriptor.settlement_chain_id,
+            manifest_namespace=(
+                settlement._execution_profile_abi_words_v2(
+                    self.router.registrations[self.router.active_version]
+                    .execution_profile.canonical_profile_bytes
+                )[9]
+            ),
+            protocol_version_manager=self.router.version_manager,
+        )
+        deployment_world = (
+            self.router._version_manager_authority.deployment_world
+        )
+        for target in (
+            descriptor.bundle_deployer, descriptor.source_bridge,
+            descriptor.bridge_credit_registry, descriptor.native_quota_manager,
+        ):
+            target_address = settlement._model_address20(target)
+            deployment_world.accounts.pop(target_address, None)
+            deployment_world.behavior_handles.pop(target_address, None)
+        bundle_calldata = (
+            settlement.encode_source_bundle_factory_deploy_bundle_calldata_v1(
+                descriptor
+            )
+        )
+        self.assertEqual(len(bundle_calldata), 1_668)
+        factory_address = settlement._model_address20(
+            descriptor.deployment_factory
+        )
+        active_factory_account = deployment_world.accounts[factory_address]
+        self.assertEqual(
+            int.from_bytes(
+                active_factory_account.protocol_root_activation_return[96:128],
+                "big",
+            ),
+            1,
+        )
+        deployment_world.accounts[factory_address] = replace(
+            active_factory_account,
+            protocol_root_activation_return=(
+                active_factory_account.protocol_root_activation_return[:96]
+                + bytes(32)
+            ),
+        )
+        with self.assertRaisesRegex(ValueError, "not an active"):
+            exact_factory.deploy_source_bundle_exact_v1(
+                bundle_calldata,
+                caller=addr("preact-source"),
+                gas_limit=settlement.SOURCE_BUNDLE_FACTORY_BUNDLE_DEPLOYMENT_GAS,
+                value=0, deployment_world=deployment_world,
+            )
+        self.assertEqual(exact_factory._deployments, {})
+        self.assertEqual(exact_factory._bundles, {})
+        deployment_world.accounts[factory_address] = active_factory_account
+        for corrupted, gas_limit, value in (
+            (bytes.fromhex("ff" * 4) + bundle_calldata[4:],
+             settlement.SOURCE_BUNDLE_FACTORY_BUNDLE_DEPLOYMENT_GAS, 0),
+            (bundle_calldata[:36] + (128).to_bytes(32, "big")
+             + bundle_calldata[68:],
+             settlement.SOURCE_BUNDLE_FACTORY_BUNDLE_DEPLOYMENT_GAS, 0),
+            (bundle_calldata[:-1] + b"\x01",
+             settlement.SOURCE_BUNDLE_FACTORY_BUNDLE_DEPLOYMENT_GAS, 0),
+            (bundle_calldata,
+             settlement.SOURCE_BUNDLE_FACTORY_BUNDLE_DEPLOYMENT_GAS - 1, 0),
+            (bundle_calldata,
+             settlement.SOURCE_BUNDLE_FACTORY_BUNDLE_DEPLOYMENT_GAS, 1),
+        ):
+            with self.assertRaises(ValueError):
+                exact_factory.deploy_source_bundle_exact_v1(
+                    corrupted,
+                    caller=addr("source-deployer"),
+                    gas_limit=gas_limit, value=value,
+                    deployment_world=deployment_world,
+                )
+            self.assertEqual(exact_factory._deployments, {})
+            self.assertEqual(exact_factory._bundles, {})
+        created_return = exact_factory.deploy_source_bundle_exact_v1(
+            bundle_calldata,
+            caller=addr("source-deployer"),
+            gas_limit=settlement.SOURCE_BUNDLE_FACTORY_BUNDLE_DEPLOYMENT_GAS,
+            value=0, deployment_world=deployment_world,
+        )
+        self.assertEqual(len(created_return), 288)
+        self.assertEqual(created_return[:32], b"SBD1" + bytes(28))
+        self.assertEqual(int.from_bytes(created_return[192:224], "big"), 1)
+        reused_return = exact_factory.deploy_source_bundle_exact_v1(
+            bundle_calldata,
+            caller=addr("front-runner"),
+            gas_limit=settlement.SOURCE_BUNDLE_FACTORY_BUNDLE_DEPLOYMENT_GAS,
+            value=0, deployment_world=deployment_world,
+        )
+        self.assertEqual(int.from_bytes(reused_return[192:224], "big"), 0)
+        exact_bridge = deployment_world.behavior_handles[
+            settlement._model_address20(descriptor.source_bridge)
+        ]
+        exact_registry = deployment_world.behavior_handles[
+            settlement._model_address20(descriptor.bridge_credit_registry)
+        ]
+        adapter_config = settlement.bridge_ingress_component_configuration_hash(
+            router_address=self.router.address,
+            router_runtime_hash=self.router.runtime_hash,
+            router_configuration_hash=self.router.configuration_hash,
+            queue_address=self.router.forced_queue.address,
+            queue_runtime_hash=self.router.forced_queue.runtime_hash,
+            queue_configuration_hash=self.router.forced_queue.config_hash,
+            source_registry_address=exact_registry.address,
+            source_registry_runtime_hash=exact_registry.runtime_hash,
+            source_registry_configuration_hash=exact_registry.configuration_hash,
+            source_bridge_address=exact_bridge.address,
+            source_bridge_runtime_hash=exact_bridge.runtime_hash,
+            source_bridge_configuration_hash_=exact_bridge.configuration_hash,
+            seal_authority=self.router.version_manager,
+        )
+        adapter_calldata = (
+            settlement.encode_source_bundle_factory_deploy_adapter_calldata_v1(
+                91, descriptor.descriptor_id, adapter_config,
+                exact_bridge.address, exact_registry.address,
+                self.router.address, self.router.forced_queue.address,
+                self.router.version_manager,
+            )
+        )
+        self.assertEqual(len(adapter_calldata), 260)
+        deployment_world.accounts[factory_address] = replace(
+            active_factory_account,
+            protocol_root_activation_return=(
+                active_factory_account.protocol_root_activation_return[:96]
+                + bytes(32)
+            ),
+        )
+        with self.assertRaisesRegex(ValueError, "not an active"):
+            exact_factory.deploy_bridge_adapter_exact_v1(
+                adapter_calldata,
+                caller=addr("preact-adapter"),
+                gas_limit=settlement.SOURCE_BUNDLE_FACTORY_ADAPTER_DEPLOYMENT_GAS,
+                value=0, deployment_world=deployment_world,
+            )
+        self.assertEqual(exact_factory._adapter_deployments, {})
+        deployment_world.accounts[factory_address] = active_factory_account
+        for corrupted, gas_limit, value in (
+            (adapter_calldata[:-1] + b"\x01",
+             settlement.SOURCE_BUNDLE_FACTORY_ADAPTER_DEPLOYMENT_GAS, 0),
+            (adapter_calldata,
+             settlement.SOURCE_BUNDLE_FACTORY_ADAPTER_DEPLOYMENT_GAS - 1, 0),
+            (adapter_calldata,
+             settlement.SOURCE_BUNDLE_FACTORY_ADAPTER_DEPLOYMENT_GAS, 1),
+        ):
+            with self.assertRaises(ValueError):
+                exact_factory.deploy_bridge_adapter_exact_v1(
+                    corrupted,
+                    caller=addr("adapter-deployer"),
+                    gas_limit=gas_limit, value=value,
+                    deployment_world=deployment_world,
+                )
+            self.assertEqual(exact_factory._adapter_deployments, {})
+        adapter_return = exact_factory.deploy_bridge_adapter_exact_v1(
+            adapter_calldata,
+            caller=addr("adapter-deployer"),
+            gas_limit=settlement.SOURCE_BUNDLE_FACTORY_ADAPTER_DEPLOYMENT_GAS,
+            value=0, deployment_world=deployment_world,
+        )
+        self.assertEqual(len(adapter_return), 224)
+        self.assertEqual(adapter_return[:32], b"SAD1" + bytes(28))
+        self.assertEqual(int.from_bytes(adapter_return[192:224], "big"), 1)
+        adapter_reuse = exact_factory.deploy_bridge_adapter_exact_v1(
+            adapter_calldata,
+            caller=addr("adapter-frontrunner"),
+            gas_limit=settlement.SOURCE_BUNDLE_FACTORY_ADAPTER_DEPLOYMENT_GAS,
+            value=0, deployment_world=deployment_world,
+        )
+        self.assertEqual(int.from_bytes(adapter_reuse[192:224], "big"), 0)
         self.assertEqual(
             descriptor.bridge_execution_hash,
             settlement.keccak256(
@@ -7604,7 +8037,9 @@ class ForcedIngressRouterTests(unittest.TestCase):
         self.assertNotEqual(
             release.destination_domain_id, successor.destination_domain_id
         )
-        self.assertNotEqual(release.components[2], successor.components[2])
+        # The terminal verifier is root-scoped infrastructure shared by every
+        # release; only release-scoped destination components rotate.
+        self.assertEqual(release.components[2], successor.components[2])
         self.assertNotEqual(
             release.execution_profile.canonical_profile_bytes,
             successor.execution_profile.canonical_profile_bytes,
@@ -7928,6 +8363,28 @@ class ForcedIngressRouterTests(unittest.TestCase):
         authority = protocol._inbox_execution_authority
         protocol.forced_queue.count = 9
         registrar.inbox_router.next_queue_index = 3
+        historical_source = self.source_bridge
+        historical_clock = historical_source.support_final_clock(
+            settlement.GENESIS_TIMESTAMP + 2_000
+        )
+        historical_message = settlement.bridge_message(
+            historical_clock.timestamp,
+            "destination-rotation-retains-source-claim",
+            value=5,
+            fee=2,
+            liquidity_fee=1,
+        )
+        historical_enqueue_by = (
+            historical_clock.timestamp
+            + settlement.MAX_BRIDGE_ENQUEUE_DELAY
+        )
+        historical_source_receipt = historical_source.send_message(
+            historical_message,
+            caller=historical_message.sender,
+            msg_value=8,
+            clock=historical_clock,
+            enqueue_by=historical_enqueue_by,
+        )
 
         def activate(version, label, block_number, *, expected=True):
             store = settlement.InboxCreditStoreV2(
@@ -8153,9 +8610,9 @@ class ForcedIngressRouterTests(unittest.TestCase):
             registrar.registrations.get(old_manifest.protocol_version),
             old_manifest.registration_commitment,
         )
-        self.assertIs(
+        self.assertEqual(
             old_bridge.bridge_surplus_sink,
-            old_manifest.execution_profile.bridge_surplus_sink,
+            old_manifest.destination_bridge_descriptor.bridge_surplus_sink,
         )
         self.assertIsInstance(
             old_manifest.execution_profile, settlement.ExecutionProfile
@@ -8164,15 +8621,434 @@ class ForcedIngressRouterTests(unittest.TestCase):
             old_manifest.execution_profile.execution_profile_hash,
             old_manifest.execution_profile_hash,
         )
-        self.assertEqual(old_bridge.bridge_surplus_sink.asset_id, "NATIVE_ETH")
-        self.assertTrue(old_bridge.bridge_surplus_sink.address)
         self.assertEqual(
-            old_bridge.reclaim_surplus(caller=addr("reclaimer")),
+            settlement._model_address20(old_bridge.bridge_surplus_sink),
+            settlement._execution_profile_abi_words_v2(
+                old_manifest.execution_profile.canonical_profile_bytes
+            )[70][12:],
+        )
+        self.assertEqual(
+            old_bridge.activation_deployment.bridge_surplus_sink,
+            old_bridge.bridge_surplus_sink,
+        )
+        self.assertEqual(
+            old_bridge.reclamation_config,
+            settlement.ReclamationConfigV2.from_manifest(old_manifest),
+        )
+
+        world = old_bridge.reclamation_world
+        old_bridge_word = settlement._model_address20(old_bridge.address)
+        bridge_arg = bytes(12) + old_bridge_word
+        router_row = old_manifest.components[3]
+        store_row = old_manifest.components[4]
+        registrar_row = old_manifest.components[6]
+        accumulator_row = old_manifest.components[7]
+        router_address = settlement._model_address20(router_row.address)
+        store_address = settlement._model_address20(store_row.address)
+        registrar_address = settlement._model_address20(
+            registrar_row.address
+        )
+        accumulator_address = settlement._model_address20(
+            accumulator_row.address
+        )
+
+        # The three reclamation getters have exact address ABI envelopes.
+        for target, method, selector, gas in (
+            (
+                registrar.inbox_router,
+                registrar.inbox_router.staticcall_route_state_v2,
+                settlement.RECLAMATION_ROUTE_STATE_SELECTOR,
+                settlement.RECLAMATION_ROUTE_STATE_GAS,
+            ),
+            (
+                old_bridge.inbox_store,
+                old_bridge.inbox_store.staticcall_pin_state_v2,
+                settlement.RECLAMATION_PIN_STATE_SELECTOR,
+                settlement.RECLAMATION_PIN_STATE_GAS,
+            ),
+            (
+                registrar.accumulator,
+                registrar.accumulator.staticcall_domain_state_v2,
+                settlement.RECLAMATION_DOMAIN_STATE_SELECTOR,
+                settlement.RECLAMATION_DOMAIN_STATE_GAS,
+            ),
+        ):
+            _ = target
+            with self.assertRaises(ValueError):
+                method(
+                    selector + b"\x01" + bytes(11) + old_bridge_word,
+                    caller=old_bridge.address, value=0, gas=gas,
+                )
+            with self.assertRaises(ValueError):
+                method(
+                    selector + bridge_arg,
+                    caller=old_bridge.address, value=1, gas=gas,
+                )
+            with self.assertRaises(ValueError):
+                method(
+                    selector + bridge_arg,
+                    caller=old_bridge.address, value=0, gas=gas - 1,
+                )
+        registration_envelope = (
+            settlement.REGISTRATION_COMMITMENT_SELECTOR
+            + settlement._model_uint(
+                old_bridge.release_manifest.protocol_version,
+                32,
+                "test registration protocol version",
+            )
+        )
+        with self.assertRaises(ValueError):
+            registrar.staticcall_registration_commitment_v2(
+                registration_envelope[:-1],
+                caller=old_bridge.address,
+                value=0,
+                gas=settlement.REGISTRATION_COMMITMENT_GAS,
+            )
+        with self.assertRaises(ValueError):
+            registrar.staticcall_registration_commitment_v2(
+                settlement.REGISTRATION_COMMITMENT_SELECTOR
+                + b"\x01" + bytes(31),
+                caller=old_bridge.address,
+                value=0,
+                gas=settlement.REGISTRATION_COMMITMENT_GAS,
+            )
+        with self.assertRaises(ValueError):
+            registrar.staticcall_registration_commitment_v2(
+                registration_envelope,
+                caller=old_bridge.address,
+                value=1,
+                gas=settlement.REGISTRATION_COMMITMENT_GAS,
+            )
+        with self.assertRaises(ValueError):
+            registrar.staticcall_registration_commitment_v2(
+                registration_envelope,
+                caller=old_bridge.address,
+                value=0,
+                gas=settlement.REGISTRATION_COMMITMENT_GAS - 1,
+            )
+
+        # Every malformed/dirty exact read rejects before Bridge or sink state
+        # changes, including the registrationCommitmentV2 join restored here.
+        bridge_before = (old_bridge.balance, old_bridge.retired)
+        native_before = old_bridge.native_balance_world.snapshot()
+
+        def assert_reclaim_rejects_without_mutation():
+            self.assertEqual(
+                old_bridge.reclaim_surplus(caller=addr("dirty-reclaimer")),
+                (settlement.ReclaimResult.REJECTED, 0),
+            )
+            self.assertEqual(
+                (old_bridge.balance, old_bridge.retired), bridge_before
+            )
+            self.assertEqual(
+                old_bridge.native_balance_world.snapshot(), native_before
+            )
+
+        route_call = settlement.RECLAMATION_ROUTE_STATE_SELECTOR + bridge_arg
+        pin_call = settlement.RECLAMATION_PIN_STATE_SELECTOR + bridge_arg
+        domain_call = settlement.RECLAMATION_DOMAIN_STATE_SELECTOR + bridge_arg
+        registration_call = (
+            settlement.REGISTRATION_COMMITMENT_SELECTOR
+            + settlement._model_uint(
+                old_manifest.protocol_version, 32,
+                "test registration version",
+            )
+        )
+        fault_cases = (
+            (router_address, settlement.RECLAMATION_ROUTE_STATE_SELECTOR),
+            (store_address, settlement.RECLAMATION_PIN_STATE_SELECTOR),
+            (
+                accumulator_address,
+                settlement.RECLAMATION_DOMAIN_STATE_SELECTOR,
+            ),
+            (registrar_address, settlement.REGISTRATION_COMMITMENT_SELECTOR),
+        )
+        for fault in fault_cases:
+            world.staticcall_faults.add(fault)
+            assert_reclaim_rejects_without_mutation()
+            world.staticcall_faults.remove(fault)
+
+        override_cases = (
+            (
+                router_address, route_call,
+                settlement.RECLAMATION_ROUTE_STATE_GAS, b"RTS2",
+            ),
+            (
+                store_address, pin_call,
+                settlement.RECLAMATION_PIN_STATE_GAS,
+                b"PNS2" + bytes(27) + b"\x01" + bytes(160),
+            ),
+            (
+                accumulator_address, domain_call,
+                settlement.RECLAMATION_DOMAIN_STATE_GAS,
+                settlement.encode_reclamation_domain_state_v2(
+                    settlement.ReclamationDomainStateV2(
+                        old_bridge_word,
+                        settlement._model_fixed_bytes32(
+                            old_bridge.local_domain_id
+                        ),
+                        old_bridge.inbox_store.pinned_count + 1,
+                    )
+                ),
+            ),
+            (
+                registrar_address, registration_call,
+                settlement.REGISTRATION_COMMITMENT_GAS, bytes(31),
+            ),
+        )
+        for target, calldata, gas, returndata in override_cases:
+            key = (target, old_bridge_word, calldata, 0, gas)
+            world.returndata_overrides[key] = returndata
+            assert_reclaim_rejects_without_mutation()
+            del world.returndata_overrides[key]
+
+        config_key = (
+            router_address, old_bridge_word,
+            settlement.COMPONENT_CONFIG_GETTER_SELECTOR, 0,
+            settlement.COMPONENT_CONFIG_GETTER_GAS,
+        )
+        world.returndata_overrides[config_key] = bytes(31)
+        assert_reclaim_rejects_without_mutation()
+        del world.returndata_overrides[config_key]
+        world.extcodehash_overrides[router_address] = bytes.fromhex(
+            "ff" * 32
+        )
+        assert_reclaim_rejects_without_mutation()
+        del world.extcodehash_overrides[router_address]
+
+        # A live object cannot be installed at a wrong address alias, and
+        # moving the only exact address-keyed account makes reclaim reject.
+        wrong_alias = settlement._model_address20(addr("wrong-router-alias"))
+        router_account = world.accounts[router_address]
+        with self.assertRaises(ValueError):
+            settlement.HistoricalReclamationAccountV2(
+                wrong_alias,
+                router_account.runtime_hash,
+                router_account.configuration_hash,
+                target=registrar.inbox_router,
+            )
+        del world.accounts[router_address]
+        world.accounts[wrong_alias] = settlement.HistoricalReclamationAccountV2(
+            wrong_alias,
+            router_account.runtime_hash,
+            router_account.configuration_hash,
+        )
+        assert_reclaim_rejects_without_mutation()
+        del world.accounts[wrong_alias]
+        world.accounts[router_address] = router_account
+
+        # Freeze A only after A->B->C, then rehydrate the read world, native
+        # balance world, primitive config and a genuinely new Bridge object.
+        frozen = world.freeze_for_release(old_manifest)
+        self.assertEqual(
+            sum(len(account.records) for account in frozen.accounts),
+            settlement.RECLAMATION_STATICCALL_COUNT,
+        )
+        self.assertEqual(
+            len(frozen.accounts), settlement.RECLAMATION_EXTCODEHASH_COUNT
+        )
+        self.assertTrue(all(
+            all(type(value) is bytes for value in (
+                account.address,
+                account.runtime_hash,
+                account.configuration_hash,
+            ))
+            for account in frozen.accounts
+        ))
+        self.assertTrue(all(
+            type(value) in {bytes, int}
+            for account in frozen.accounts
+            for record in account.records
+            for value in (
+                record.caller, record.calldata, record.value,
+                record.gas, record.returndata,
+            )
+        ))
+        rehydrated = settlement.HistoricalReclamationWorldV2.rehydrate(
+            frozen
+        )
+        self.assertTrue(all(
+            account.target is None
+            for account in rehydrated.accounts.values()
+        ))
+        config = old_bridge.reclamation_config
+        self.assertEqual(
+            settlement.force_send_initcode_v1(config.bridge_surplus_sink),
+            b"\x73" + config.bridge_surplus_sink + b"\xff",
+        )
+        self.assertEqual(
+            len(settlement.force_send_initcode_v1(
+                config.bridge_surplus_sink
+            )),
+            settlement.FORCE_SEND_INITCODE_LENGTH,
+        )
+        self.assertEqual(
+            config.force_send_helper,
+            settlement.force_send_create2_address_v1(
+                config.destination_bridge, config.bridge_surplus_sink
+            ),
+        )
+        self.assertEqual(
+            config.force_send_precreate_gas,
+            config.force_send_create2_fixed_gas + max(
+                config.force_send_creation_gas
+                    + config.force_send_postcheck_reserve,
+                (
+                    config.force_send_creation_gas * 64 + 62
+                ) // 63,
+            ),
+        )
+        self.assertNotIn(
+            config.force_send_helper,
+            tuple(row.address for row in config.components) + (
+                config.destination_bridge, config.bridge_surplus_sink,
+            ),
+        )
+        with self.assertRaises(ValueError):
+            replace(config, bridge_surplus_sink=config.destination_bridge)
+        with self.assertRaises(ValueError):
+            replace(config, force_send_helper=config.destination_bridge)
+        privileged_sink = settlement._model_address20("bridge-context-v1")
+        with self.assertRaises(ValueError):
+            replace(
+                config,
+                bridge_surplus_sink=privileged_sink,
+                force_send_helper=settlement.force_send_create2_address_v1(
+                    config.destination_bridge, privileged_sink
+                ),
+                force_send_initcode_hash=(
+                    settlement.force_send_initcode_hash_v1(privileged_sink)
+                ),
+            )
+        bridge_snapshot = old_bridge.freeze_reclamation_bridge()
+        # EIP-684 permits balance-only counterfactual prefunding. The
+        # constructor must forward that balance together with Bridge value.
+        old_bridge.native_balance_world.balances[
+            config.force_send_helper
+        ] = 5
+        native_frozen = old_bridge.native_balance_world.snapshot()
+        native_rehydrated = (
+            settlement.HistoricalNativeBalanceWorldV2.rehydrate(native_frozen)
+        )
+        restarted_bridge = (
+            settlement.DestinationBridgeLedger.rehydrate_reclamation_bridge(
+                bridge_snapshot,
+                reclamation_world=rehydrated,
+                native_balance_world=native_rehydrated,
+            )
+        )
+        self.assertIsNot(restarted_bridge, old_bridge)
+        self.assertIsNone(restarted_bridge.release_manifest)
+        self.assertIsInstance(
+            restarted_bridge.reclamation_config,
+            settlement.ReclamationConfigV2,
+        )
+        self.assertTrue(all(
+            type(value) in {bytes, int, tuple}
+            for value in restarted_bridge.reclamation_config.__dict__.values()
+        ))
+        self.assertTrue(all(
+            all(type(value) is bytes for value in row.__dict__.values())
+            for row in restarted_bridge.reclamation_config.components
+        ))
+        zero_native = settlement.HistoricalNativeBalanceWorldV2(
+            {config.destination_bridge: 0},
+            {config.force_send_helper},
+        )
+        zero_bridge = (
+            settlement.DestinationBridgeLedger.rehydrate_reclamation_bridge(
+                replace(bridge_snapshot, balance=0),
+                reclamation_world=rehydrated,
+                native_balance_world=zero_native,
+            )
+        )
+        self.assertEqual(
+            zero_bridge.reclaim_surplus(
+                caller=addr("zero-reclaimer"), gasleft=0
+            ),
+            (settlement.ReclaimResult.RECLAIMED_ZERO, 0),
+        )
+        self.assertTrue(zero_bridge.retired)
+
+        def assert_force_send_rejects_without_mutation(*, gasleft=None):
+            before_bridge = (
+                restarted_bridge.balance, restarted_bridge.retired,
+                restarted_bridge.entered,
+            )
+            before_native = native_rehydrated.snapshot()
+            kwargs = {} if gasleft is None else {"gasleft": gasleft}
+            self.assertEqual(
+                restarted_bridge.reclaim_surplus(
+                    caller=addr("force-send-fault"), **kwargs
+                ),
+                (settlement.ReclaimResult.REJECTED, 0),
+            )
+            self.assertEqual(
+                (restarted_bridge.balance, restarted_bridge.retired,
+                 restarted_bridge.entered),
+                before_bridge,
+            )
+            self.assertEqual(native_rehydrated.snapshot(), before_native)
+
+        assert_force_send_rejects_without_mutation(
+            gasleft=settlement.FORCE_SEND_PRECREATE_GAS - 1
+        )
+        native_rehydrated.occupied_create2_accounts.add(
+            config.force_send_helper
+        )
+        assert_force_send_rejects_without_mutation()
+        native_rehydrated.occupied_create2_accounts.remove(
+            config.force_send_helper
+        )
+        for fault in (
+            "create2_zero", "after_debit", "after_selfdestruct",
+            "wrong_create2_address",
+        ):
+            native_rehydrated.fault_point = fault
+            assert_force_send_rejects_without_mutation()
+        native_rehydrated.fault_point = None
+        # Recipient code/nonzero nonce and a rejecting/reentrant Python
+        # stand-in cannot affect SELFDESTRUCT beneficiary transfer.
+        native_rehydrated.occupied_create2_accounts.add(
+            config.bridge_surplus_sink
+        )
+        old_manifest.execution_profile.bridge_surplus_sink.rejects_native = True
+        old_manifest.execution_profile.bridge_surplus_sink.callback = (
+            lambda _bridge: (_ for _ in ()).throw(RuntimeError("must not run"))
+        )
+        sink_before = native_rehydrated.balance_of(
+            config.bridge_surplus_sink
+        )
+        self.assertEqual(
+            restarted_bridge.reclaim_surplus(caller=addr("reclaimer")),
             (settlement.ReclaimResult.RECLAIMED_VALUE, 17),
         )
-        self.assertTrue(old_bridge.retired)
+        self.assertTrue(restarted_bridge.retired)
         self.assertEqual(
-            old_bridge.reclaim_surplus(caller=addr("double")),
+            native_rehydrated.balance_of(config.destination_bridge), 0
+        )
+        self.assertEqual(
+            native_rehydrated.balance_of(config.force_send_helper), 0
+        )
+        self.assertEqual(
+            native_rehydrated.balance_of(config.bridge_surplus_sink),
+            sink_before + 17 + 5,
+        )
+        self.assertTrue(historical_source.cancel(
+            historical_source_receipt.credit_id,
+            now=historical_enqueue_by + 1,
+        ))
+        self.assertEqual(
+            historical_source.withdraw_refund(historical_message.sender), 8
+        )
+        self.assertEqual(
+            historical_source.credits[
+                historical_source_receipt.credit_id
+            ].status,
+            "CANCELLED",
+        )
+        self.assertEqual(
+            restarted_bridge.reclaim_surplus(caller=addr("double")),
             (settlement.ReclaimResult.REJECTED, 0),
         )
         self.assertEqual(
@@ -10235,6 +11111,20 @@ class L1L2ExecutionBoundaryTests(unittest.TestCase):
         deployment = observed.bridge_deployment
         descriptor = release.destination_bridge_descriptor
         immutable = descriptor.deployment_descriptor
+        manifest_words = tuple(
+            release.canonical_abi[index:index + 32]
+            for index in range(0, len(release.canonical_abi), 32)
+        )
+        self.assertEqual(
+            len(manifest_words), settlement.RELEASE_MANIFEST_V2_ABI_WORDS
+        )
+        self.assertEqual(
+            manifest_words[22][12:],
+            settlement._model_address20(descriptor.bridge_surplus_sink),
+        )
+        self.assertEqual(
+            settlement.ACTIVATE_RELEASE_V2_SELECTOR.hex(), "33f5ca80"
+        )
         self.assertEqual(immutable.topology, "IMMUTABLE_NONPROXY")
         self.assertTrue(deployment.authenticates(release))
         self.assertFalse(deployment.upgrade_to_and_call(
@@ -10251,6 +11141,7 @@ class L1L2ExecutionBoundaryTests(unittest.TestCase):
             replace(deployment, pauser="pauser:attacker"),
             replace(deployment, signal_service="signal:attacker"),
             replace(deployment, v2_endpoints=("endpoint:attacker",)),
+            replace(deployment, bridge_surplus_sink=addr("sink:attacker")),
             replace(deployment, quota_manager_state=replace(
                 deployment.quota_manager_state,
                 configuration_hash="config:attacker",
@@ -10285,14 +11176,81 @@ class L1L2ExecutionBoundaryTests(unittest.TestCase):
                 ),
             ),
         )
-        # The exact 248-byte public descriptor has no hidden Python-object
+        # The exact 408-byte public descriptor has no hidden Python-object
         # fields.  A substituted deployment witness is rejected by the live
         # account checks, even though it cannot create a second manifest hash.
         self.assertEqual(release.commitment, substituted_release.commitment)
         self.assertFalse(substituted_release.structurally_valid())
+        substituted_sink = replace(
+            release,
+            destination_bridge_descriptor=replace(
+                release.destination_bridge_descriptor,
+                bridge_surplus_sink=addr("sink:attacker"),
+                deployment_descriptor=None,
+            ),
+        )
+        self.assertNotEqual(release.commitment, substituted_sink.commitment)
+        self.assertFalse(substituted_sink.structurally_valid())
 
 
 class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
+    def test_source_factory_exact_returns_and_faults_roll_back_preparation(self):
+        for override_field, override in (
+            ("bundle_return_override", b"bad-SBD1"),
+            ("fault_point", "after_bundle_deployment"),
+            ("adapter_return_override", b"bad-SAD1"),
+            ("fault_point", "after_adapter_deployment"),
+        ):
+            with self.subTest(override_field=override_field, override=override):
+                rows = production_migration_fixture(
+                    preinstall_successor=False
+                )
+                new_history, manager = rows[2], rows[4]
+                router = manager.router
+                registration = settlement.settlement_registration(
+                    router, new_history, activation_block=0,
+                    predecessor_version=router.active_version,
+                    release_manifest_hash=None,
+                )
+                router._record_release_compatibility_v2(
+                    registration.release_manifest.canonical_abi,
+                    registration.settlement.protocol_version,
+                )
+                bridge_authorization = next(
+                    row for row in registration.ingress_authorizations
+                    if row.kind is settlement.ForceKind.BRIDGE_CREDIT
+                )
+                descriptor = bridge_authorization.source_descriptor
+                factory = router._source_bridge_factories_by_address[
+                    descriptor.deployment_factory
+                ]
+                before = (
+                    dict(factory._deployments), dict(factory._bundles),
+                    dict(factory._adapter_deployments),
+                    dict(factory._adapters),
+                    dict(router._source_bundles_by_descriptor_id),
+                    dict(router._source_descriptor_id_by_version),
+                    set(router._used_source_component_addresses),
+                    dict(router._profile_deployments_by_version),
+                )
+                setattr(factory, override_field, override)
+                self.assertFalse(router._install_profile_deployments(
+                    registration, manager=manager, prepare_only=True,
+                    clock=settlement.Clock(
+                        1_000, settlement.GENESIS_TIMESTAMP + 1_000
+                    ),
+                ))
+                after = (
+                    dict(factory._deployments), dict(factory._bundles),
+                    dict(factory._adapter_deployments),
+                    dict(factory._adapters),
+                    dict(router._source_bundles_by_descriptor_id),
+                    dict(router._source_descriptor_id_by_version),
+                    set(router._used_source_component_addresses),
+                    dict(router._profile_deployments_by_version),
+                )
+                self.assertEqual(after, before)
+
     def test_market_genesis_bootstraps_from_zero_key_router_receipt_atomically(self):
         rows = production_migration_fixture(evolve_after_genesis=False)
         old_protocol, _old_history, _new_history, live_market, manager = rows[:5]
@@ -13094,7 +14052,9 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
         )
         self.assertFalse(target_source.v2_active)
         self.assertTrue(router.bridge_package_arm_ready_v1(
-            target_registration, clock=arm_clock
+            target_registration.settlement.protocol_version,
+            settlement.target_registration_hash_v2(target_registration),
+            clock=arm_clock,
         ))
         package_view = router._bridge_domain_registry_authority \
             .bridge_route_package_v1(
@@ -13384,32 +14344,45 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
             target_registration.release_manifest.destination_chain_id,
             arm_clock,
         ))
-        self.assertFalse(registry.consume_arm_ready(
-            target_registration,
-            settlement.Clock(
-                arm_clock.block_number
-                    + settlement.BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
-                arm_clock.timestamp,
+        mature_clock = settlement.Clock(
+            arm_clock.block_number + settlement.BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
+            arm_clock.timestamp,
+        )
+        target_call = b"".join((
+            settlement.CONSUME_BRIDGE_ROUTE_ARM_READY_SELECTOR,
+            settlement._model_uint(
+                target_registration.settlement.protocol_version,
+                32, "test BRC1 target version",
             ),
-            router=router,
-            capability=object(),
+            settlement.target_registration_hash_v2(target_registration),
         ))
-        self.assertFalse(registry.consume_arm_ready(
-            target_registration,
-            arm_clock,
-            router=router,
-            capability=settlement._BRIDGE_ROUTE_ACTIVATION_CAPABILITY,
-        ))
-        self.assertFalse(registry.consume_arm_ready(
-            router.registrations[router.active_version],
-            settlement.Clock(
-                arm_clock.block_number
-                    + settlement.BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
-                arm_clock.timestamp,
+        with self.assertRaises(ValueError):
+            registry.consume_bridge_route_arm_ready_v1(
+                target_call, caller=addr("direct-consumer"), value=0,
+                gas=settlement.CONSUME_BRIDGE_ROUTE_ARM_READY_GAS,
+                clock=mature_clock,
+            )
+        with self.assertRaises(ValueError):
+            registry.consume_bridge_route_arm_ready_v1(
+                target_call, caller=router.address, value=0,
+                gas=settlement.CONSUME_BRIDGE_ROUTE_ARM_READY_GAS,
+                clock=arm_clock,
+            )
+        active_registration = router.registrations[router.active_version]
+        active_call = b"".join((
+            settlement.CONSUME_BRIDGE_ROUTE_ARM_READY_SELECTOR,
+            settlement._model_uint(
+                active_registration.settlement.protocol_version,
+                32, "test BRC1 active version",
             ),
-            router=router,
-            capability=settlement._BRIDGE_ROUTE_ACTIVATION_CAPABILITY,
+            settlement.target_registration_hash_v2(active_registration),
         ))
+        with self.assertRaises(ValueError):
+            registry.consume_bridge_route_arm_ready_v1(
+                active_call, caller=router.address, value=0,
+                gas=settlement.CONSUME_BRIDGE_ROUTE_ARM_READY_GAS,
+                clock=mature_clock,
+            )
         self.assertEqual(registry._transaction_snapshot(), snapshot)
         self.assertFalse(entry.arm_ready_consumed)
         with self.assertRaises(ValueError):
@@ -13768,6 +14741,9 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
         )
         self.assertFalse(receipt.created_now)
         self.assertFalse(predeployed.v2_active)
+        manager.deployment_world.accounts[
+            settlement._model_address20(predeployed.address)
+        ].balance = 1
         predeployed.balance = 1
 
         manager.fault_point = "after_target_import"
@@ -15133,6 +16109,96 @@ class GlobalSeatMigrationHandshakeTests(unittest.TestCase):
         )
 
 class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
+    @staticmethod
+    def _fork_authority_state(manager):
+        return (
+            manager.lifecycle,
+            set(manager.consumed_operation_ids),
+            dict(manager.fork_verifiers),
+            list(manager.fork_order),
+            dict(manager.fork_index_by_digest),
+            set(manager.fork_used_digests),
+            manager.schedule_fork_route_state_v1(),
+            manager._active_operation_kind,
+            manager._active_operation_consumed,
+            manager._active_operation_id,
+            manager._active_operation_row,
+            manager._active_operation_payload,
+        )
+
+    def _assert_fork_read_barriers_are_atomic_and_retryable(
+        self, *, timelock, manager, oracle, operation_id, nonce,
+        operation_kind, payload, clock, existing_artifact,
+    ):
+        """Exercise every exact pretransition Schedule read barrier."""
+
+        before_oracle = oracle._snapshot()
+        before_manager = self._fork_authority_state(manager)
+
+        def assert_rejected_without_state():
+            self.assertFalse(timelock.execute_protocol_change_v1(
+                nonce, operation_kind, payload,
+                caller=addr("fork-read-barrier"), clock=clock,
+            ))
+            self.assertEqual(oracle._snapshot(), before_oracle)
+            self.assertEqual(
+                self._fork_authority_state(manager), before_manager
+            )
+            self.assertEqual(timelock.operations[operation_id].state, 1)
+
+        for read_name in ("SOC1", "FRS1", "FVR1"):
+            oracle.read_faults = {read_name}
+            assert_rejected_without_state()
+            oracle.read_faults.clear()
+
+        oracle.soc1_return_override = bytes(len(oracle.soc1_config.encode_soc1()))
+        assert_rejected_without_state()
+        oracle.soc1_return_override = None
+
+        oracle.route_state_override = bytes(160)
+        assert_rejected_without_state()
+        oracle.route_state_override = None
+
+        oracle.getter_override = bytes(320)
+        assert_rejected_without_state()
+        oracle.getter_override = None
+
+        existing_artifact.configuration_override = bytes(320)
+        assert_rejected_without_state()
+        existing_artifact.configuration_override = None
+
+    def _assert_fork_postreads_are_atomic_and_retryable(
+        self, *, timelock, manager, oracle, operation_id, nonce,
+        operation_kind, payload, clock, fvr1_script,
+    ):
+        """Force dirty successful FRS1/FVR1 postreads after Schedule writes."""
+
+        before_oracle = oracle._snapshot()
+        before_manager = self._fork_authority_state(manager)
+        old_frs1 = oracle.schedule_fork_route_state_v1()
+
+        def assert_rejected_without_state():
+            self.assertFalse(timelock.execute_protocol_change_v1(
+                nonce, operation_kind, payload,
+                caller=addr("fork-postread"), clock=clock,
+            ))
+            self.assertEqual(oracle._snapshot(), before_oracle)
+            self.assertEqual(
+                self._fork_authority_state(manager), before_manager
+            )
+            self.assertEqual(timelock.operations[operation_id].state, 1)
+
+        # Exact old FRS1 passes the pre-read and becomes stale after mutation.
+        oracle.route_state_override = old_frs1
+        assert_rejected_without_state()
+        oracle.route_state_override = None
+
+        # Exact prestate FVR1 rows pass, then a stale row poisons the first
+        # post-write FVR1 comparison.
+        oracle.getter_response_script = list(fvr1_script)
+        assert_rejected_without_state()
+        oracle.getter_response_script.clear()
+
     def test_seat_wire_cross_model_fixture_is_byte_exact(self):
         rows = settlement.canonical_seat_wire_cross_model_fixture_v1()
         decoders = {
@@ -15157,6 +16223,101 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         }
         for name, raw in rows.items():
             self.assertEqual(encoders[name](decoders[name](raw)), raw)
+
+    def test_force_send_create2_primitive_balance_world(self):
+        bridge = bytes.fromhex("11" * 20)
+        sink = bytes.fromhex("22" * 20)
+        components = tuple(
+            settlement.ReclamationComponentV2(
+                bytes([0x30 + index]) * 20,
+                bytes([0x40 + index]) * 32,
+                bytes([0x50 + index]) * 32,
+            )
+            for index in range(6)
+        )
+        config = settlement.ReclamationConfigV2(
+            2,
+            167_000,
+            bytes.fromhex("61" * 32),
+            bytes.fromhex("62" * 32),
+            bytes.fromhex("63" * 32),
+            bytes.fromhex("64" * 32),
+            bridge,
+            sink,
+            components,
+            settlement.force_send_create2_address_v1(bridge, sink),
+            settlement.force_send_create2_salt_v1(bridge),
+            settlement.force_send_initcode_hash_v1(sink),
+            settlement.FORCE_SEND_COMPILER_BUILD_HASH,
+            settlement.FORCE_SEND_EVM_RULES_HASH,
+            settlement.FORCE_SEND_CREATE2_FIXED_GAS,
+            settlement.FORCE_SEND_CREATE2_WORST_CASE_GAS,
+            settlement.FORCE_SEND_POSTCHECK_GAS_RESERVE,
+            settlement.FORCE_SEND_PRECREATE_GAS,
+        )
+        privileged_sink = settlement._model_address20("bridge-context-v2")
+        with self.assertRaises(ValueError):
+            replace(
+                config,
+                bridge_surplus_sink=privileged_sink,
+                force_send_helper=settlement.force_send_create2_address_v1(
+                    bridge, privileged_sink
+                ),
+                force_send_initcode_hash=(
+                    settlement.force_send_initcode_hash_v1(privileged_sink)
+                ),
+            )
+        for field_name in (
+            "protocol_version", "destination_chain_id",
+            "force_send_create2_fixed_gas", "force_send_creation_gas",
+            "force_send_postcheck_reserve", "force_send_precreate_gas",
+        ):
+            with self.subTest(narrow_field=field_name):
+                with self.assertRaises(ValueError):
+                    replace(
+                        config,
+                        **{field_name: settlement.UINT64_MAX + 1},
+                    )
+        world = settlement.HistoricalNativeBalanceWorldV2({
+            bridge: 17,
+            sink: 3,
+            config.force_send_helper: 5,
+        })
+        before = world.snapshot()
+        self.assertEqual(world.force_send_create2(
+            config,
+            value=17,
+            gasleft=settlement.FORCE_SEND_PRECREATE_GAS - 1,
+        ), bytes(20))
+        self.assertEqual(world.snapshot(), before)
+        world.occupied_create2_accounts.add(config.force_send_helper)
+        occupied = world.snapshot()
+        self.assertEqual(world.force_send_create2(
+            config,
+            value=17,
+            gasleft=settlement.FORCE_SEND_PRECREATE_GAS,
+        ), bytes(20))
+        self.assertEqual(world.snapshot(), occupied)
+        world.occupied_create2_accounts.remove(config.force_send_helper)
+        for fault in ("after_debit", "after_selfdestruct"):
+            world.fault_point = fault
+            fault_before = world.snapshot()
+            self.assertEqual(world.force_send_create2(
+                config,
+                value=17,
+                gasleft=settlement.FORCE_SEND_PRECREATE_GAS,
+            ), bytes(20))
+            self.assertEqual(world.snapshot(), fault_before)
+        world.fault_point = None
+        world.occupied_create2_accounts.add(sink)
+        self.assertEqual(world.force_send_create2(
+            config,
+            value=17,
+            gasleft=settlement.FORCE_SEND_PRECREATE_GAS,
+        ), config.force_send_helper)
+        self.assertEqual(world.balance_of(bridge), 0)
+        self.assertEqual(world.balance_of(config.force_send_helper), 0)
+        self.assertEqual(world.balance_of(sink), 25)
 
     def test_execution_profile_v2_strict_abi_rejection_corpus(self):
         profile = settlement.canonical_execution_profile_cross_model_fixture_v2()
@@ -15222,6 +16383,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             int.from_bytes(words[246], "big"),
             settlement.L2_EIP2935_HISTORY_STORAGE_ACTIVATION_BLOCK,
         )
+        self.assertEqual(words[247], settlement.FORCE_SEND_EVM_RULES_HASH)
         for legacy in (
             bytes.fromhex("a1617601"),
             bytes.fromhex("a4000101400241000380"),
@@ -15249,7 +16411,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         changed((1 + 37) * 32 + 31, 1)  # immutable Market Router binding
         changed((1 + 205) * 32 + 31, 1)  # version-derived source bundle salt
         changed((1 + 209) * 32 + 31, 1)  # migration-root V1 Bridge
-        for eip2935_word in (57, 58, 59, 244, 245, 246):
+        for eip2935_word in (57, 58, 59, 244, 245, 246, 247):
             changed((1 + eip2935_word) * 32 + 31, 1)
         dirty_first_supported = bytearray(profile)
         dirty_first_supported[(1 + 244) * 32] = 1
@@ -15346,7 +16508,22 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             history.execution_profile.l1_history_first_supported_block, 2
         )
 
-    def _execute_release(self, fixture, *, fault=None):
+    def _prepare_release_package(self, fixture, clock):
+        (_rows, router, _witness, payload, _manager, _timelock,
+         _market, _oracle, _clock) = fixture
+        version = settlement.decode_register_release_payload_v1(
+            payload
+        ).protocol_version
+        return router.prepare_bridge_route_package_v1(
+            settlement.encode_prepare_bridge_route_package_calldata_v1(
+                version
+            ),
+            caller=addr("package-preparer"), value=0,
+            gas=settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_GAS,
+            clock=clock,
+        )
+
+    def _execute_release(self, fixture, *, fault=None, prepare_package=True):
         (_rows, _router, _witness, payload, manager, timelock,
          _market, _oracle, clock) = fixture
         manager.fault_point = fault
@@ -15359,10 +16536,13 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             clock.block_number + 1,
             clock.timestamp + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
         )
-        return operation_id, mature, timelock.execute_protocol_change_v1(
+        success = timelock.execute_protocol_change_v1(
             1, settlement.REGISTER_RELEASE, payload,
             caller=addr("permissionless"), clock=mature,
         )
+        if success and prepare_package:
+            self._prepare_release_package(fixture, mature)
+        return operation_id, mature, success
 
     def _queue_genesis_publication(self, fixture):
         release_operation, mature, released = self._execute_release(fixture)
@@ -15566,10 +16746,10 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             decoded.profile_bytes,
             decoded.expected_predecessor_protocol_version,
         )
-        self.assertEqual(payload[67 * 32:68 * 32], (0x880).to_bytes(32, "big"))
+        self.assertEqual(payload[68 * 32:69 * 32], (0x8A0).to_bytes(32, "big"))
         self.assertEqual(
             len(payload),
-            2_208 + ((len(decoded.profile_bytes) + 31) // 32) * 32,
+            2_240 + ((len(decoded.profile_bytes) + 31) // 32) * 32,
         )
         self.assertEqual(
             decoded.target_registration_hash,
@@ -15633,6 +16813,27 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         self.assertEqual(manager.lifecycle, "IDLE")
         self.assertIs(router.migration_lifecycle,
                       settlement.RouterMigrationLifecycle.IDLE)
+        compatibility = settlement.release_compatibility_projection_v2(
+            decoded.manifest_abi
+        )
+        lifetime_graph, destination_domain, destination_bridge = compatibility
+        self.assertEqual(router.release_lifetime_graph_v2, lifetime_graph)
+        self.assertEqual(
+            router.release_compatibility_by_version_v2[version],
+            compatibility,
+        )
+        self.assertEqual(
+            router.release_version_by_destination_domain_v2[
+                destination_domain
+            ],
+            version,
+        )
+        self.assertEqual(
+            router.release_version_by_destination_bridge_v2[
+                destination_bridge
+            ],
+            version,
+        )
 
         registry = router._bridge_domain_registry_authority
         self.assertIsInstance(registry, settlement.BridgeDomainRegistry)
@@ -15642,15 +16843,46 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         retry_clock = settlement.Clock(
             mature.block_number + 10, mature.timestamp + 10
         )
+        self.assertFalse(any(
+            row.protocol_version == version for row in registry.entries.values()
+        ))
+        brx_row = settlement.decode_bridge_route_expansion_v1(
+            router.bridge_route_expansion_v1(version)
+        )
+        terminal_address = brx_row.source_descriptor_words[21][12:]
+        manager.deployment_world.behavior_handles.clear()
+        router._source_bridge_factories_by_address.clear()
         package_before = registry._transaction_snapshot()
+        brd_call = settlement.encode_prepare_bridge_route_package_calldata_v1(
+            version,
+        )
         brd = router.prepare_bridge_route_package_v1(
-            settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_SELECTOR + version_word,
+            brd_call,
             caller=addr("package-preparer"), value=0,
             gas=settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_GAS,
             clock=retry_clock,
         )
         self.assertEqual((len(brd), brd[:32]), (128, b"BRD1" + bytes(28)))
-        self.assertEqual(registry._transaction_snapshot(), package_before)
+        rebuilt_terminal = manager.deployment_world.behavior_handles[
+            terminal_address
+        ]
+        self.assertIsInstance(
+            rebuilt_terminal, settlement.TerminalSignalVerifier
+        )
+        self.assertEqual(
+            settlement._model_address20(rebuilt_terminal.address),
+            terminal_address,
+        )
+        self.assertNotEqual(registry._transaction_snapshot(), package_before)
+        package_after = registry._transaction_snapshot()
+        retry = router.prepare_bridge_route_package_v1(
+            brd_call,
+            caller=addr("package-retry"), value=0,
+            gas=settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_GAS,
+            clock=retry_clock,
+        )
+        self.assertEqual(retry, brd)
+        self.assertEqual(registry._transaction_snapshot(), package_after)
         entry = next(
             row for row in registry.entries.values()
             if row.protocol_version == version
@@ -15737,8 +16969,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             router.release_registration_getter_override = malformed
             with self.assertRaises(ValueError):
                 router.prepare_bridge_route_package_v1(
-                    settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_SELECTOR
-                        + version_word,
+                    brd_call,
                     caller=addr("preparer"), value=0,
                     gas=settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_GAS,
                     clock=retry_clock,
@@ -15750,8 +16981,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             router.release_registration_getter_fault_point = fault
             with self.assertRaises(RuntimeError):
                 router.prepare_bridge_route_package_v1(
-                    settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_SELECTOR
-                        + version_word,
+                    brd_call,
                     caller=addr("preparer"), value=0,
                     gas=settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_GAS,
                     clock=retry_clock,
@@ -15899,18 +17129,18 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                     invoke()
                 self.assertEqual(registry._transaction_snapshot(), before)
 
-        router_package_before = router._bridge_package_snapshot_v1()
+        router_package_before = router._bridge_package_state_for_test_v1()
         router.prepare_bridge_route_fault_point = "after_stage"
         with self.assertRaises(RuntimeError):
             router.prepare_bridge_route_package_v1(
-                settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_SELECTOR + version_word,
+                brd_call,
                 caller=addr("preparer"), value=0,
                 gas=settlement.PREPARE_BRIDGE_ROUTE_PACKAGE_GAS,
                 clock=retry_clock,
             )
         router.prepare_bridge_route_fault_point = None
         self.assertEqual(
-            router._bridge_package_snapshot_v1(), router_package_before
+            router._bridge_package_state_for_test_v1(), router_package_before
         )
         for attribute, call in (
             ("stage_bridge_route_fault_point", lambda: (
@@ -15984,8 +17214,10 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         router.migration_activation_context_return_override = activation_view
         router.active_settlement_state_return_override = activation_state
         consume_clock = settlement.Clock(
-            mature.block_number + settlement.BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
-            mature.timestamp + settlement.BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
+            retry_clock.block_number
+                + settlement.BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
+            retry_clock.timestamp
+                + settlement.BRIDGE_ROUTE_ARM_REVIEW_BLOCKS,
         )
         try:
             for attribute in (
@@ -16086,13 +17318,13 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         for candidate in (payload[:-1], payload + bytes(32)):
             malformed.append(candidate)
         wrong_offset = bytearray(payload)
-        wrong_offset[67 * 32 + 31] ^= 1
+        wrong_offset[68 * 32 + 31] ^= 1
         malformed.append(bytes(wrong_offset))
         wrong_padding = bytearray(payload)
         wrong_padding[-1] ^= 1
         malformed.append(bytes(wrong_padding))
         wrong_create2 = bytearray(payload)
-        wrong_create2[64 * 32 + 31] ^= 1
+        wrong_create2[65 * 32 + 31] ^= 1
         malformed.append(bytes(wrong_create2))
         for candidate in malformed:
             with self.subTest(length=len(candidate)):
@@ -16107,7 +17339,15 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                 registrations_before = copy.deepcopy(
                     current[1].target_release_registrations_v2
                 )
-                package_before = current[1]._bridge_package_snapshot_v1()
+                compatibility_before = (
+                    current[1].release_lifetime_graph_v2,
+                    dict(current[1].release_compatibility_by_version_v2),
+                    dict(current[1]
+                         .release_version_by_destination_domain_v2),
+                    dict(current[1]
+                         .release_version_by_destination_bridge_v2),
+                )
+                package_before = current[1]._bridge_package_state_for_test_v1()
                 operation_id, mature, success = self._execute_release(
                     current, fault=fault
                 )
@@ -16119,6 +17359,12 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                     router.target_release_registrations_v2,
                     registrations_before,
                 )
+                self.assertEqual((
+                    router.release_lifetime_graph_v2,
+                    dict(router.release_compatibility_by_version_v2),
+                    dict(router.release_version_by_destination_domain_v2),
+                    dict(router.release_version_by_destination_bridge_v2),
+                ), compatibility_before)
                 self.assertFalse(router.migration_activation_profiles_v2)
                 self.assertFalse(manager.profile_ingress_roots)
                 self.assertFalse(manager.profile_ingress_rows)
@@ -16136,7 +17382,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                     for entry in support.entries.values()
                 ))
                 self.assertEqual(
-                    router._bridge_package_snapshot_v1(), package_before
+                    router._bridge_package_state_for_test_v1(), package_before
                 )
                 self.assertEqual(timelock.operations[operation_id].state, 1)
                 self.assertEqual(manager.lifecycle, "IDLE")
@@ -16152,6 +17398,11 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                         caller=addr("release-retry"),
                         clock=retry,
                     ))
+                    self.assertFalse(any(
+                        entry.protocol_version == target_version
+                        for entry in support.entries.values()
+                    ))
+                    self._prepare_release_package(current, retry)
                     target_entry = next(
                         entry for entry in support.entries.values()
                         if entry.protocol_version == target_version
@@ -16167,6 +17418,14 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                 registrations_before = copy.deepcopy(
                     current[1].target_release_registrations_v2
                 )
+                compatibility_before = (
+                    current[1].release_lifetime_graph_v2,
+                    dict(current[1].release_compatibility_by_version_v2),
+                    dict(current[1]
+                         .release_version_by_destination_domain_v2),
+                    dict(current[1]
+                         .release_version_by_destination_bridge_v2),
+                )
                 if component == "router":
                     current[1].release_registration_fault_point = fault
                 else:
@@ -16177,8 +17436,77 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                     current[1].target_release_registrations_v2,
                     registrations_before,
                 )
+                self.assertEqual((
+                    current[1].release_lifetime_graph_v2,
+                    dict(current[1].release_compatibility_by_version_v2),
+                    dict(current[1]
+                         .release_version_by_destination_domain_v2),
+                    dict(current[1]
+                         .release_version_by_destination_bridge_v2),
+                ), compatibility_before)
                 self.assertFalse(current[6].authorizations)
         self._assert_register_release_live_deployment_world_is_exact_and_atomic()
+
+    def test_release_compatibility_indexes_are_constant_time_and_fail_closed(self):
+        class NoIterationDict(dict):
+            def __iter__(self):
+                raise AssertionError("compatibility path iterated history")
+
+            def items(self):
+                raise AssertionError("compatibility path iterated history")
+
+            def values(self):
+                raise AssertionError("compatibility path iterated history")
+
+        fixture = protocol_authority_fixture()
+        router = fixture[1]
+        decoded = settlement.decode_register_release_payload_v1(fixture[3])
+        baseline_graph = router.release_lifetime_graph_v2
+        baseline_projection = next(iter(
+            dict(router.release_compatibility_by_version_v2).values()
+        ))
+        baseline_domain = baseline_projection[1]
+
+        router.release_compatibility_by_version_v2 = NoIterationDict(
+            router.release_compatibility_by_version_v2
+        )
+        router.release_version_by_destination_domain_v2 = NoIterationDict(
+            router.release_version_by_destination_domain_v2
+        )
+        router.release_version_by_destination_bridge_v2 = NoIterationDict(
+            router.release_version_by_destination_bridge_v2
+        )
+        router._record_release_compatibility_v2(
+            decoded.manifest_abi, decoded.protocol_version
+        )
+        router._record_release_compatibility_v2(
+            decoded.manifest_abi, decoded.protocol_version
+        )
+        self.assertEqual(router.release_lifetime_graph_v2, baseline_graph)
+
+        next_version = decoded.protocol_version + 1
+        collision = bytearray(decoded.manifest_abi)
+        collision[0:32] = next_version.to_bytes(32, "big")
+        collision[9 * 32:10 * 32] = baseline_domain
+        with self.assertRaisesRegex(ValueError, "domain"):
+            router._record_release_compatibility_v2(
+                bytes(collision), next_version
+            )
+
+        split = bytearray(decoded.manifest_abi)
+        split[0:32] = next_version.to_bytes(32, "big")
+        split[(29 + 3 * 3) * 32] ^= 1
+        with self.assertRaisesRegex(ValueError, "lifetime"):
+            router._record_release_compatibility_v2(bytes(split), next_version)
+
+        projection = settlement.release_compatibility_projection_v2(
+            decoded.manifest_abi
+        )
+        del router.release_version_by_destination_domain_v2[projection[1]]
+        with self.assertRaisesRegex(AssertionError, "indexes"):
+            router._require_release_compatibility_v2(
+                fixture[2].release_manifest
+            )
 
     def _assert_register_release_live_deployment_world_is_exact_and_atomic(self):
         positive = protocol_authority_fixture()
@@ -16282,22 +17610,111 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         self.assertEqual(positive[6].active_settlement_router, router.address)
         trace = manager.deployment_world.trace
         callers = tuple(row[0] for row in trace)
-        self.assertEqual(callers[:25], (manager.address,) * 25)
-        self.assertEqual(callers[25:50], (router.address,) * 25)
-        self.assertEqual(callers[50:], (manager.address,) * 5)
         control_trace = tuple(
             f"control:{label}:{surface}"
             for label in (
                 "Router", "ForcedQueue", "BuilderRegistry",
                 "ScheduleOracle", "BridgeDomainRegistry",
-                "BridgeCreditRegistry",
             )
             for surface in ("account", "extcodehash", "config")
+        ) + (
+            "control:SourceBundleFactory:account",
+            "control:SourceBundleFactory:extcodehash",
+            "control:SourceBundleFactory:config",
+            "control:SourceBundleFactory:SBF1",
+            "control:SourceTerminalVerifier:account",
+            "control:SourceTerminalVerifier:extcodehash",
+            "control:SourceTerminalVerifier:config",
         )
         deployment_trace = (
             "factory:account", "factory:extcodehash",
             "target:account", "target:extcodehash", "target:config",
             "target:data-session-accounting", "target:constructor-state",
+        )
+        package_trace = (
+            "BRD1:SourceBundleFactory:account",
+            "BRD1:SourceBundleFactory:extcodehash",
+            "BRD1:SourceBundleFactory:config",
+            "BRD1:SourceBundleFactory:PRA1:account",
+            "BRD1:SourceBundleFactory:PRA1", "BRD1:PVM:account",
+            "BRD1:SBF1:account", "BRD1:SourceBundleFactory:account",
+            "BRD1:SourceBundleFactory:extcodehash",
+            "BRD1:SourceBundleFactory:config",
+            "BRD1:SourceBundleFactory:PRA1:account",
+            "BRD1:SourceBundleFactory:PRA1", "BRD1:PVM:account",
+            "BRD1:SBF1:account", "BRD1:BridgeDomainRegistry:account",
+            "BRD1:BridgeDomainRegistry:extcodehash",
+            "BRD1:BridgeDomainRegistry:config",
+            "ActiveSettlementRouter:account",
+            "ActiveSettlementRouter:extcodehash",
+            "ActiveSettlementRouter:config", "BridgeDomainRegistry:account",
+            "BridgeDomainRegistry:extcodehash",
+            "BridgeDomainRegistry:config", "SourceTerminalVerifier:account",
+            "SourceTerminalVerifier:extcodehash",
+            "SourceTerminalVerifier:config",
+            "SBD1:SourceBundleFactory:PRA1:account",
+            "SBD1:SourceBundleFactory:PRA1",
+            "SBD1:BridgeDomainRegistry:account",
+            "SBD1:BridgeDomainRegistry:extcodehash",
+            "SBD1:BridgeDomainRegistry:config",
+            "SBD1:SourceTerminalVerifier:account",
+            "SBD1:SourceTerminalVerifier:extcodehash",
+            "SBD1:SourceTerminalVerifier:config",
+            "SourceBundleFactory:account",
+            "SourceBundleFactory:extcodehash",
+            "SourceBundleFactory:config", "SourceBundleDeployer:account",
+            "SourceBundleDeployer:extcodehash", "SourceBridge:account",
+            "SourceBridge:extcodehash", "SourceBridge:config",
+            "BridgeCreditRegistry:account",
+            "BridgeCreditRegistry:extcodehash",
+            "BridgeCreditRegistry:config", "NativeQuotaManager:account",
+            "NativeQuotaManager:extcodehash", "NativeQuotaManager:config",
+            "SourceTerminalVerifier:account",
+            "SourceTerminalVerifier:extcodehash",
+            "SourceTerminalVerifier:config",
+            "SAD1:SourceBundleFactory:PRA1:account",
+            "SAD1:SourceBundleFactory:PRA1", "SAD1:PVM:account",
+            "SAD1:SourceBridge:account", "SAD1:SourceBridge:extcodehash",
+            "SAD1:BridgeCreditRegistry:account",
+            "SAD1:BridgeCreditRegistry:extcodehash",
+            "SAD1:ActiveSettlementRouter:account",
+            "SAD1:ActiveSettlementRouter:extcodehash",
+            "SAD1:ActiveSettlementRouter:config",
+            "SAD1:ForcedQueue:account", "SAD1:ForcedQueue:extcodehash",
+            "SAD1:ForcedQueue:config", "SourceBundleFactory:account",
+            "SourceBundleFactory:extcodehash", "SourceBundleFactory:config",
+            "BridgeAdapter:account", "BridgeAdapter:extcodehash",
+            "BridgeAdapter:config", "SourceBundleFactory:account",
+            "SourceBundleFactory:extcodehash", "SourceBundleFactory:config",
+            "SourceBridge:account", "SourceBridge:extcodehash",
+            "SourceBridge:config", "BridgeCreditRegistry:account",
+            "BridgeCreditRegistry:extcodehash",
+            "BridgeCreditRegistry:config", "NativeQuotaManager:account",
+            "NativeQuotaManager:extcodehash", "NativeQuotaManager:config",
+            "BridgeDomainRegistry:account",
+            "BridgeDomainRegistry:extcodehash",
+            "BridgeDomainRegistry:config", "SourceTerminalVerifier:account",
+            "SourceTerminalVerifier:extcodehash",
+            "SourceTerminalVerifier:config", "SourceBundleDeployer:account",
+            "SourceBundleDeployer:extcodehash", "BridgeAdapter:account",
+            "BridgeAdapter:extcodehash", "BridgeAdapter:config",
+        )
+        source_factory = (
+            "0x" + settlement_derived.profile_words[41][12:].hex()
+        )
+        domain_registry = (
+            "0x" + settlement_derived.profile_words[38][12:].hex()
+        )
+        package_callers = (
+            (router.address,) * 26 + (source_factory,) * 8
+            + (router.address,) * 17 + (source_factory,) * 13
+            + (router.address,) * 6 + (domain_registry,) * 23
+        )
+        self.assertEqual(
+            callers,
+            (manager.address,) * 29 + (router.address,) * 29
+            + (manager.address,) * 5 + (router.address,) * 3
+            + package_callers,
         )
         self.assertEqual(
             tuple(row[1] for row in trace),
@@ -16307,7 +17724,10 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                 "target-postread:config",
                 "target-postread:data-session-accounting",
                 "target-postread:constructor-state",
-            ),
+                "RTR2:targetSettlement:account",
+                "RTR2:targetSettlement:extcodehash",
+                "RTR2:targetSettlement:config",
+            ) + package_trace,
         )
 
         def assert_rejected(mutate):
@@ -16522,7 +17942,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         profile_substitution[3] = b"".join((
             original.expected_predecessor_protocol_version.to_bytes(32, "big"),
             alternate.manifest_abi, alternate.deployment_abi,
-            (0x880).to_bytes(32, "big"),
+            (0x8A0).to_bytes(32, "big"),
             len(alternate_profile).to_bytes(32, "big"), alternate_profile,
             bytes(padded - len(alternate_profile)),
         ))
@@ -16590,7 +18010,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
 
         # Every one of the eight deployment words is either rejected by the
         # CREATE2 decoder or reaches the witness join and reverts atomically.
-        for deployment_word in range(59, 67):
+        for deployment_word in range(60, 68):
             with self.subTest(deployment_word=deployment_word):
                 current = protocol_authority_fixture()
                 registrations_before = copy.deepcopy(
@@ -16666,7 +18086,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             original.expected_predecessor_protocol_version.to_bytes(32, "big"),
             alternate.manifest_abi,
             alternate.deployment_abi,
-            (0x880).to_bytes(32, "big"),
+            (0x8A0).to_bytes(32, "big"),
             len(alternate_profile).to_bytes(32, "big"),
             alternate_profile,
             bytes(padded - len(alternate_profile)),
@@ -16691,7 +18111,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         )
         self.assertEqual(len(timelock.config_return_v1()), 160)
         manager_config = manager.config_return_v1()
-        self.assertEqual(len(manager_config), 1_088)
+        self.assertEqual(len(manager_config), 1_184)
         self.assertEqual(manager_config[8 * 32:9 * 32], manager.market_runtime_hash)
         self.assertEqual(
             manager_config[9 * 32:10 * 32],
@@ -16699,8 +18119,14 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         )
         self.assertEqual(
             tuple(manager_config[index * 32:(index + 1) * 32]
-                  for index in range(22, 34)),
+                  for index in range(22, 32)),
             manager.control_component_hashes,
+        )
+        self.assertEqual(
+            tuple(manager_config[index * 32:(index + 1) * 32]
+                  for index in range(32, 34)),
+            (manager.source_bundle_factory_runtime_hash,
+             manager.source_bundle_factory_configuration_hash),
         )
         self.assertEqual(
             settlement.protocol_version_manager_configuration_hash_v1(
@@ -16716,24 +18142,88 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             )
         as_int = lambda value: int.from_bytes(value, "big")
         independent_config = commitment.ProtocolVersionManagerConfigurationV1(
-            manager_view.settlement_chain_id,
-            as_int(manager_view.protocol_change_timelock),
-            manager_view.timelock_descriptor_hash,
-            as_int(manager_view.active_settlement_router),
-            as_int(manager_view.forced_queue),
-            as_int(manager_view.builder_registry),
-            as_int(manager_view.schedule_oracle),
-            as_int(manager_view.aggregator_seat_market),
-            manager_view.aggregator_seat_market_runtime_hash,
-            manager_view.aggregator_seat_market_configuration_hash,
-            *manager.control_component_hashes,
-            as_int(manager_view.bridge_domain_registry),
-            as_int(manager_view.bridge_credit_registry),
-            manager_view.manifest_namespace,
-            manager_view.release_router_registration_gas,
-            manager_view.release_market_installation_gas,
-            manager_view.release_postread_gas,
-            manager_view.release_post_callback_reserve_gas,
+            settlement_chain_id=manager_view.settlement_chain_id,
+            protocol_change_timelock=as_int(
+                manager_view.protocol_change_timelock
+            ),
+            governance_delay_authority_descriptor_hash=(
+                manager_view.timelock_descriptor_hash
+            ),
+            active_settlement_router=as_int(
+                manager_view.active_settlement_router
+            ),
+            forced_queue=as_int(manager_view.forced_queue),
+            builder_registry=as_int(manager_view.builder_registry),
+            schedule_oracle=as_int(manager_view.schedule_oracle),
+            aggregator_seat_market=as_int(
+                manager_view.aggregator_seat_market
+            ),
+            aggregator_seat_market_runtime_hash=(
+                manager_view.aggregator_seat_market_runtime_hash
+            ),
+            aggregator_seat_market_configuration_hash=(
+                manager_view.aggregator_seat_market_configuration_hash
+            ),
+            active_settlement_router_runtime_hash=(
+                manager_view.active_settlement_router_runtime_hash
+            ),
+            active_settlement_router_configuration_hash=(
+                manager_view.active_settlement_router_configuration_hash
+            ),
+            forced_queue_runtime_hash=manager_view.forced_queue_runtime_hash,
+            forced_queue_configuration_hash=(
+                manager_view.forced_queue_configuration_hash
+            ),
+            builder_registry_runtime_hash=(
+                manager_view.builder_registry_runtime_hash
+            ),
+            builder_registry_configuration_hash=(
+                manager_view.builder_registry_configuration_hash
+            ),
+            schedule_oracle_runtime_hash=(
+                manager_view.schedule_oracle_runtime_hash
+            ),
+            schedule_oracle_configuration_hash=(
+                manager_view.schedule_oracle_configuration_hash
+            ),
+            bridge_domain_registry_runtime_hash=(
+                manager_view.bridge_domain_registry_runtime_hash
+            ),
+            bridge_domain_registry_configuration_hash=(
+                manager_view.bridge_domain_registry_configuration_hash
+            ),
+            source_bundle_factory_runtime_hash=(
+                manager_view.source_bundle_factory_runtime_hash
+            ),
+            source_bundle_factory_configuration_hash=(
+                manager_view.source_bundle_factory_configuration_hash
+            ),
+            bridge_domain_registry=as_int(
+                manager_view.bridge_domain_registry
+            ),
+            source_bundle_factory=as_int(
+                manager_view.source_bundle_factory
+            ),
+            manifest_namespace=manager_view.manifest_namespace,
+            release_router_registration_gas=(
+                manager_view.release_router_registration_gas
+            ),
+            release_market_installation_gas=(
+                manager_view.release_market_installation_gas
+            ),
+            release_postread_gas=manager_view.release_postread_gas,
+            release_post_callback_reserve_gas=(
+                manager_view.release_post_callback_reserve_gas
+            ),
+            source_terminal_verifier=as_int(
+                manager_view.source_terminal_verifier
+            ),
+            source_terminal_verifier_runtime_hash=(
+                manager_view.source_terminal_verifier_runtime_hash
+            ),
+            source_terminal_verifier_configuration_hash=(
+                manager_view.source_terminal_verifier_configuration_hash
+            ),
         )
         self.assertEqual(
             commitment.encode_protocol_version_manager_config_return(
@@ -16892,10 +18382,293 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             settlement.eip2935_read_configuration_hash_v1(101),
         )
 
+    def test_root_role9_source_factory_initcode_and_exact_config(self):
+        artifacts = settlement.ProtocolRootSourceFactoryCompilerArtifactsV1(
+            settlement.SOURCE_BUNDLE_FACTORY_CREATION_CODE_V1,
+            settlement.SOURCE_BUNDLE_FACTORY_RUNTIME_CODE_V1,
+            settlement.SOURCE_BUNDLE_DEPLOYER_CREATION_CODE_V1,
+            settlement.SOURCE_BUNDLE_DEPLOYER_RUNTIME_CODE_V1,
+            settlement.BRIDGE_ADAPTER_CREATION_CODE_V1,
+            settlement.BRIDGE_ADAPTER_RUNTIME_CODE_V1,
+        )
+        for codes in (
+            (b"", b"r", b"b", b"br", b"a", b"ar"),
+            (b"f", bytes(24_577), b"b", b"br", b"a", b"ar"),
+            (b"f", b"r", bytes(49_153), b"br", b"a", b"ar"),
+        ):
+            with self.assertRaises(ValueError):
+                settlement.ProtocolRootSourceFactoryCompilerArtifactsV1(*codes)
+        root_factory = bytes.fromhex("a5" * 20)
+        root_factory_runtime = settlement.keccak256(b"root-factory-runtime")
+        campaign_key = bytes.fromhex("c7" * 32)
+        pvm = bytes.fromhex("b6" * 20)
+        init_code = settlement.protocol_root_source_bundle_factory_init_code_v1(
+            root_factory, root_factory_runtime, campaign_key, 167, pvm,
+            artifacts,
+        )
+        self.assertEqual(
+            init_code,
+            artifacts.factory_creation_code
+            + bytes(12) + root_factory + root_factory_runtime + campaign_key
+            + (167).to_bytes(32, "big") + bytes(12) + pvm,
+        )
+        profile = settlement.execution_profile_for_test(
+            25, "root-source-factory-projection"
+        )
+        profile_words = settlement._execution_profile_abi_words_v2(
+            profile.canonical_profile_bytes
+        )
+        self.assertEqual(
+            profile_words[41:44], profile_words[202:205]
+        )
+        sbf1 = settlement.source_bundle_factory_config_return_v1(
+            167, pvm, artifacts
+        )
+        self.assertEqual(len(sbf1), 640)
+        self.assertEqual(sbf1[:32], b"SBF1" + bytes(28))
+        self.assertEqual(
+            sbf1[-32:],
+            settlement.source_bundle_factory_configuration_hash_v1(
+                167, pvm, artifacts
+            ),
+        )
+        for mutated in (
+            settlement.protocol_root_source_bundle_factory_init_code_v1(
+                bytes.fromhex("a6" * 20), root_factory_runtime, campaign_key,
+                167, pvm, artifacts,
+            ),
+            settlement.protocol_root_source_bundle_factory_init_code_v1(
+                root_factory, root_factory_runtime, bytes.fromhex("c8" * 32),
+                167, pvm, artifacts,
+            ),
+            settlement.protocol_root_source_bundle_factory_init_code_v1(
+                root_factory, root_factory_runtime, campaign_key, 167,
+                bytes.fromhex("b7" * 20), artifacts,
+            ),
+        ):
+            self.assertNotEqual(settlement.keccak256(mutated),
+                                settlement.keccak256(init_code))
+
+    def test_root_source_infrastructure_exact_cold_reuse_and_restart(self):
+        namespace = bytes.fromhex("a7" * 32)
+        executor_address = bytes.fromhex("22" * 20)
+        dao = bytes.fromhex("33" * 20)
+        executor_runtime = settlement.keccak256(b"root-executor-runtime")
+        executor_config = settlement.root_migration_executor_configuration_hash_v1(
+            167, dao
+        )
+        executor = settlement.RootMigrationExecutorModelV1(
+            executor_address, 167, dao, executor_runtime
+        )
+        proxy = settlement.ProtocolRootCreate3ProxyArtifactV1(
+            b"proxy-creation", b"proxy-runtime"
+        )
+        artifacts = settlement.ProtocolRootSourceFactoryCompilerArtifactsV1(
+            settlement.SOURCE_BUNDLE_FACTORY_CREATION_CODE_V1,
+            settlement.SOURCE_BUNDLE_FACTORY_RUNTIME_CODE_V1,
+            settlement.SOURCE_BUNDLE_DEPLOYER_CREATION_CODE_V1,
+            settlement.SOURCE_BUNDLE_DEPLOYER_RUNTIME_CODE_V1,
+            settlement.BRIDGE_ADAPTER_CREATION_CODE_V1,
+            settlement.BRIDGE_ADAPTER_RUNTIME_CODE_V1,
+        )
+        factory = settlement.ProtocolRootFactoryModelV1(
+            bytes.fromhex("11" * 20), 167, namespace, executor_address,
+            executor_runtime, executor_config,
+            settlement.keccak256(b"root-factory-runtime"), executor, proxy,
+            artifacts,
+        )
+        rows = tuple(
+            (settlement.keccak256(f"c{role}".encode()),
+             settlement.keccak256(f"r{role}".encode()),
+             settlement.keccak256(f"g{role}".encode()))
+            for role in range(1, 10)
+        )
+        manifest = settlement.ProtocolRootManifestV1(
+            167, 0, namespace, bytes(32), rows
+        )
+        key = manifest.campaign_key(factory.address)
+        pvm = bytes.fromhex("44" * 20)
+        router = bytes.fromhex("55" * 20)
+        campaign = settlement.ProtocolRootCampaignModelV1(
+            manifest, bytes.fromhex("66" * 32), key,
+            manifest.manifest_hash(), 10_000,
+            deployed_bitmap=(1 << settlement.PROTOCOL_ROOT_ROLE_COUNT) - 1,
+            components={4: pvm, 5: router},
+        )
+        factory.live = campaign
+        factory.history[key] = campaign
+        terminal_init = settlement.source_terminal_verifier_init_code_v1(
+            167, router, artifacts
+        )
+        terminal_address = settlement.source_terminal_verifier_address_v1(
+            167, namespace, router, artifacts
+        )
+        balance_only = settlement.ProtocolRootSourceInfrastructureAccountV1(
+            settlement.keccak256(b""), bytes(32), 0, balance=123
+        )
+        factory.source_infrastructure_accounts[terminal_address] = balance_only
+        terminal_call = settlement.encode_ensure_source_infrastructure_calldata_v1(
+            key, settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_KIND, terminal_init
+        )
+        for bad_call, bad_gas, bad_value in (
+            (terminal_call[:-1],
+             settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS, 0),
+            (terminal_call[:-1] + b"\x01",
+             settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS, 0),
+            (terminal_call,
+             settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS - 1, 0),
+            (terminal_call,
+             settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS, 1),
+        ):
+            with self.assertRaises(ValueError):
+                factory.ensure_source_infrastructure_v1(
+                    bad_call, 1, gas_limit=bad_gas, value=bad_value
+                )
+            self.assertEqual(
+                factory.source_infrastructure_accounts[terminal_address],
+                balance_only,
+            )
+            self.assertEqual(campaign.source_infrastructure_bitmap, 0)
+        factory.source_infrastructure_erc2470_return_override = bytes(32)
+        with self.assertRaises(ValueError):
+            factory.ensure_source_infrastructure_v1(
+                terminal_call, 1,
+                gas_limit=settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS,
+                value=0,
+            )
+        factory.source_infrastructure_erc2470_return_override = None
+        factory.source_infrastructure_fault_point = "after_create"
+        with self.assertRaises(RuntimeError):
+            factory.ensure_source_infrastructure_v1(
+                terminal_call, 1,
+                gas_limit=settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS,
+                value=0,
+            )
+        factory.source_infrastructure_fault_point = None
+        created = factory.ensure_source_infrastructure_v1(
+            terminal_call, 1,
+            gas_limit=settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS,
+            value=0,
+        )
+        self.assertEqual(created[128:160], (1).to_bytes(32, "big"))
+        self.assertEqual(
+            factory.source_infrastructure_accounts[terminal_address].balance, 123
+        )
+        stable_terminal_receipt = campaign.source_infrastructure_receipts[1]
+        reuse_call = settlement.encode_ensure_source_infrastructure_calldata_v1(
+            key, settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_KIND, b""
+        )
+        reused = factory.ensure_source_infrastructure_v1(
+            reuse_call, 2,
+            gas_limit=settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS,
+            value=0,
+        )
+        self.assertEqual(reused[128:160], bytes(32))
+        self.assertEqual(
+            campaign.source_infrastructure_receipts[1], stable_terminal_receipt
+        )
+        view = factory.protocol_root_source_infrastructure_v1(
+            settlement.PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_VIEW_SELECTOR
+            + key + (1).to_bytes(32, "big"),
+            gas_limit=settlement.PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+            value=0,
+        )
+        self.assertEqual(len(view), 320)
+        self.assertEqual(view[-32:], stable_terminal_receipt)
+
+        # EXTCODESIZE cannot reveal an account nonce.  The same exact call
+        # reaches CREATE2 and atomically fails on the EIP-684 outcome.
+        factory.source_infrastructure_accounts[terminal_address] = (
+            settlement.ProtocolRootSourceInfrastructureAccountV1(
+                settlement.keccak256(b""), bytes(32), 0, nonce=1, balance=77
+            )
+        )
+        campaign.source_infrastructure_bitmap = 0
+        campaign.source_infrastructure_receipts.clear()
+        nonce_only = settlement.ProtocolRootSourceInfrastructureAccountV1(
+            settlement.keccak256(b""), bytes(32), 0, nonce=1, balance=77
+        )
+        with self.assertRaises(ValueError):
+            factory.ensure_source_infrastructure_v1(
+                terminal_call, 3,
+                gas_limit=settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS,
+                value=0,
+            )
+        self.assertEqual(
+            factory.source_infrastructure_accounts[terminal_address], nonce_only
+        )
+        factory.source_infrastructure_accounts[terminal_address] = replace(
+            nonce_only, nonce=0
+        )
+        terminal_created = factory.ensure_source_infrastructure_v1(
+            terminal_call, 3,
+            gas_limit=settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS,
+            value=0,
+        )
+        self.assertEqual(terminal_created[128:160], (1).to_bytes(32, "big"))
+        self.assertEqual(
+            factory.source_infrastructure_accounts[terminal_address].balance, 77
+        )
+        self.assertEqual(
+            campaign.source_infrastructure_receipts[1], stable_terminal_receipt
+        )
+        self.assertEqual(campaign.source_infrastructure_bitmap, 1)
+
+        # A fresh model instance with only serialized account/campaign rows
+        # reaches the exact same receipts without artifact/object identity.
+        restart = settlement.ProtocolRootFactoryModelV1(
+            factory.address, 167, namespace, executor_address,
+            executor_runtime, executor_config, factory.runtime_hash,
+            executor, proxy, artifacts,
+            source_infrastructure_accounts=dict(
+                factory.source_infrastructure_accounts
+            ),
+        )
+        restart_campaign = settlement.ProtocolRootCampaignModelV1(
+            manifest, campaign.operation_id, key, campaign.manifest_hash,
+            campaign.expires_at,
+            deployed_bitmap=campaign.deployed_bitmap,
+            components=dict(campaign.components),
+        )
+        restart.live = restart_campaign
+        restart.history[key] = restart_campaign
+        call = settlement.encode_ensure_source_infrastructure_calldata_v1(
+            key, settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_KIND, b""
+        )
+        result = restart.ensure_source_infrastructure_v1(
+            call, 4,
+            gas_limit=settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS,
+            value=0,
+        )
+        self.assertEqual(result[128:160], bytes(32))
+        self.assertEqual(
+            restart_campaign.source_infrastructure_receipts[1],
+            stable_terminal_receipt,
+        )
+
     def test_protocol_root_staging_is_code_independent_atomic_and_retryable(self):
         factory_address = bytes.fromhex("11" * 20)
         namespace = bytes.fromhex("aa" * 32)
-        proxy_creation_hash = settlement.keccak256(b"proxy-creation")
+        proxy_artifact = settlement.ProtocolRootCreate3ProxyArtifactV1(
+            b"proxy-creation", b"proxy-runtime"
+        )
+        source_factory_compiler_artifacts = (
+            settlement.ProtocolRootSourceFactoryCompilerArtifactsV1(
+                b"source-factory-creation", b"source-factory-runtime",
+                b"source-bundle-creation", b"source-bundle-runtime",
+                b"source-adapter-creation", b"source-adapter-runtime",
+            )
+        )
+        for creation_code, runtime_code in (
+            (b"", b"runtime"), (b"creation", b""),
+            (bytes(49_153), b"runtime"),
+            (b"creation", bytes(24_577)),
+        ):
+            with self.assertRaises(ValueError):
+                settlement.ProtocolRootCreate3ProxyArtifactV1(
+                    creation_code, runtime_code
+                )
+        proxy_creation_hash = proxy_artifact.creation_code_hash
         codes = tuple(f"root-role-{role}".encode() for role in range(1, 10))
         rows = tuple(
             (
@@ -16983,28 +18756,52 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             executor_configuration_hash.hex(),
             "700e063c053c74241d8aa271fd40a9385469973df3e74453ef3ffaad00c147de",
         )
-        proxy_runtime_hash = settlement.keccak256(b"proxy-runtime")
+        proxy_runtime_hash = proxy_artifact.runtime_hash
         factory_runtime_hash = settlement.keccak256(b"root-factory-runtime")
         factory_configuration_hash = (
             settlement.protocol_root_factory_configuration_hash_v1(
                 167, namespace, executor_address, executor_runtime_hash,
                 executor_configuration_hash, proxy_creation_hash,
                 proxy_runtime_hash,
+                source_factory_compiler_artifacts.artifact_root,
             )
         )
         self.assertEqual(
             factory_configuration_hash.hex(),
-            "0bf49377f06f1e4b4ab25c4a2485261fcd7644b8149bc4f61dc02fd5fe5242e5",
-        )
-        factory = settlement.ProtocolRootFactoryModelV1(
-            factory_address, 167, namespace, proxy_creation_hash,
-            factory_runtime_hash, factory_configuration_hash,
+            "a4585137fcff672171c1c96fcfab62577d3244fb288742d946856e65747de42a",
         )
         executor = settlement.RootMigrationExecutorModelV1(
-            executor_address, 167, dao
+            executor_address, 167, dao, executor_runtime_hash
         )
+        factory = settlement.ProtocolRootFactoryModelV1(
+            factory_address, 167, namespace, executor_address,
+            executor_runtime_hash, executor_configuration_hash,
+            factory_runtime_hash, executor, proxy_artifact,
+            source_factory_compiler_artifacts,
+        )
+        self.assertEqual(factory.proxy_creation_code_hash, proxy_creation_hash)
+        self.assertEqual(factory.proxy_runtime_hash, proxy_runtime_hash)
+        self.assertEqual(factory.configuration_hash, factory_configuration_hash)
+        executor.component_config_override = bytes(32)
+        with self.assertRaises(ValueError):
+            settlement.ProtocolRootFactoryModelV1(
+                factory_address, 167, namespace, executor_address,
+                executor_runtime_hash, executor_configuration_hash,
+                factory_runtime_hash, executor, proxy_artifact,
+                source_factory_compiler_artifacts,
+            )
+        executor.component_config_override = None
+        executor.runtime_override = bytes.fromhex("91" * 32)
+        with self.assertRaises(ValueError):
+            settlement.ProtocolRootFactoryModelV1(
+                factory_address, 167, namespace, executor_address,
+                executor_runtime_hash, executor_configuration_hash,
+                factory_runtime_hash, executor, proxy_artifact,
+                source_factory_compiler_artifacts,
+            )
+        executor.runtime_override = None
         exhausted_executor = settlement.RootMigrationExecutorModelV1(
-            executor_address, 167, dao,
+            executor_address, 167, dao, executor_runtime_hash,
             next_operation_nonce=settlement.UINT64_MAX,
         )
         with self.assertRaises(ValueError):
@@ -17014,21 +18811,40 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                 caller=dao,
             )
         exhausted_factory = settlement.ProtocolRootFactoryModelV1(
-            factory_address, 167, namespace, proxy_creation_hash,
-            factory_runtime_hash, factory_configuration_hash,
+            factory_address, 167, namespace, executor_address,
+            executor_runtime_hash, executor_configuration_hash,
+            factory_runtime_hash, executor, proxy_artifact,
+            source_factory_compiler_artifacts,
             generation=settlement.UINT64_MAX,
         )
         terminal_manifest = settlement.ProtocolRootManifestV1(
             167, settlement.UINT64_MAX, namespace, bytes(32), rows
         )
+        terminal_executor = settlement.RootMigrationExecutorModelV1(
+            executor_address, 167, dao, executor_runtime_hash
+        )
+        terminal_operation_id = terminal_executor.queue_v1(
+            factory_address, terminal_manifest.manifest_hash(),
+            factory_runtime_hash, factory_configuration_hash, 100,
+            caller=dao,
+        )
         with self.assertRaises(ValueError):
-            exhausted_factory.stage_v1(
-                bytes.fromhex("77" * 32), terminal_manifest, 100,
-                authorized=True,
+            terminal_executor.execute_v1(
+                terminal_operation_id, exhausted_factory, terminal_manifest,
+                100 + settlement.ROOT_MIGRATION_MINIMUM_DELAY_SECONDS,
             )
+        forged_operation_id = bytes.fromhex("77" * 32)
+        encoded_manifest = manifest.encode()
+        forged_stage_calldata = b"".join((
+            settlement.PROTOCOL_ROOT_STAGE_SELECTOR, forged_operation_id,
+            (64).to_bytes(32, "big"), len(encoded_manifest).to_bytes(32, "big"),
+            encoded_manifest, bytes(23),
+        ))
         with self.assertRaises(ValueError):
             factory.stage_v1(
-                bytes.fromhex("77" * 32), manifest, 100, authorized=False
+                forged_stage_calldata, 100, caller=executor,
+                gas_limit=settlement.ROOT_MIGRATION_FACTORY_STAGE_CALL_GAS,
+                value=0,
             )
         with self.assertRaises(ValueError):
             executor.queue_v1(
@@ -17042,7 +18858,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         )
         self.assertEqual(
             operation_id.hex(),
-            "65e83b875d2b5aa67597efd52ab23ae03102a41a314bab138557c9eb6202d7c1",
+            "469c593028958130768ed18b9cc268adbde1d23c3d8b9dafe7a4bf5b45e9d8e2",
         )
         duplicate_id = executor.queue_v1(
             factory_address, manifest.manifest_hash(), factory_runtime_hash,
@@ -17065,15 +18881,110 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                 operation_id, factory, manifest, execute_at - 1
             )
         mutated_factory = settlement.ProtocolRootFactoryModelV1(
-            factory_address, 167, namespace, proxy_creation_hash,
+            factory_address, 167, namespace, executor_address,
+            executor_runtime_hash, executor_configuration_hash,
             settlement.keccak256(b"mutated-runtime"),
-            factory_configuration_hash,
+            executor, proxy_artifact, source_factory_compiler_artifacts,
         )
         with self.assertRaises(ValueError):
             executor.execute_v1(
                 operation_id, mutated_factory, manifest, execute_at
             )
         self.assertEqual(executor.authority_state, 0)
+        baseline_executor_state = copy.deepcopy(executor.__dict__)
+        baseline_factory_state = copy.deepcopy(factory.__dict__)
+
+        def assert_stage_rollback():
+            self.assertEqual(executor.__dict__, baseline_executor_state)
+            self.assertEqual(factory.__dict__, baseline_factory_state)
+            self.assertEqual(executor.authority_state, 0)
+            self.assertEqual(executor.operations[operation_id].state, 1)
+            self.assertEqual(executor.candidate_factory, bytes(20))
+            self.assertIsNone(factory.live)
+            self.assertNotIn(key, factory.history)
+
+        expected_factory_config_return = factory.protocol_root_factory_config_v1(
+            settlement.PROTOCOL_ROOT_FACTORY_CONFIG_SELECTOR,
+            gas_limit=settlement.ROOT_MIGRATION_FACTORY_CONFIG_READ_GAS,
+            value=0,
+        )
+        for word in range(23):
+            corrupted = bytearray(expected_factory_config_return)
+            corrupted[word * 32] ^= 1
+            factory.factory_config_return_override = bytes(corrupted)
+            with self.assertRaises(ValueError):
+                executor.execute_v1(
+                    operation_id, factory, manifest, execute_at
+                )
+            factory.factory_config_return_override = None
+            assert_stage_rollback()
+        dirty_selector = bytearray(expected_factory_config_return)
+        dirty_selector[9 * 32 + 31] = 1
+        for malformed in (
+            expected_factory_config_return[:-1],
+            expected_factory_config_return + bytes(32),
+            bytes(dirty_selector),
+        ):
+            factory.factory_config_return_override = malformed
+            with self.assertRaises(ValueError):
+                executor.execute_v1(
+                    operation_id, factory, manifest, execute_at
+                )
+            factory.factory_config_return_override = None
+            assert_stage_rollback()
+        factory.configuration_hash_override = bytes(32)
+        with self.assertRaises(ValueError):
+            executor.execute_v1(operation_id, factory, manifest, execute_at)
+        factory.configuration_hash_override = None
+        assert_stage_rollback()
+
+        for fault_point in ("before_write", "after_write"):
+            factory.stage_fault_point = fault_point
+            with self.assertRaises(RuntimeError):
+                executor.execute_v1(
+                    operation_id, factory, manifest, execute_at
+                )
+            factory.stage_fault_point = None
+            assert_stage_rollback()
+        factory.stage_return_override = bytes(192)
+        with self.assertRaises(ValueError):
+            executor.execute_v1(operation_id, factory, manifest, execute_at)
+        factory.stage_return_override = None
+        assert_stage_rollback()
+        staged_expiry_value = (
+            execute_at + settlement.PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS
+        )
+        expected_staged_campaign = b"".join((
+            b"PRC1" + bytes(28), operation_id, key,
+            manifest.manifest_hash(), (1).to_bytes(32, "big"),
+            manifest.generation.to_bytes(32, "big"),
+            staged_expiry_value.to_bytes(32, "big"), bytes(32), bytes(32),
+        ))
+        for word in range(9):
+            corrupted = bytearray(expected_staged_campaign)
+            corrupted[word * 32] ^= 1
+            factory.campaign_view_override = bytes(corrupted)
+            with self.assertRaises(ValueError):
+                executor.execute_v1(
+                    operation_id, factory, manifest, execute_at
+                )
+            factory.campaign_view_override = None
+            assert_stage_rollback()
+        executor.config_return_override = bytes(320)
+        with self.assertRaises(ValueError):
+            executor.execute_v1(operation_id, factory, manifest, execute_at)
+        executor.config_return_override = None
+        assert_stage_rollback()
+        executor.component_config_override = bytes(32)
+        with self.assertRaises(ValueError):
+            executor.execute_v1(operation_id, factory, manifest, execute_at)
+        executor.component_config_override = None
+        assert_stage_rollback()
+        executor.authority_return_override = bytes(288)
+        with self.assertRaises(ValueError):
+            executor.execute_v1(operation_id, factory, manifest, execute_at)
+        executor.authority_return_override = None
+        assert_stage_rollback()
         self.assertEqual(
             executor.execute_v1(operation_id, factory, manifest, execute_at),
             key,
@@ -17082,8 +18993,10 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         self.assertEqual(executor.authority_state, 1)
         self.assertEqual(executor.candidate_factory, factory_address)
         other_factory = settlement.ProtocolRootFactoryModelV1(
-            other_factory_address, 167, namespace, proxy_creation_hash,
-            factory_runtime_hash, factory_configuration_hash,
+            other_factory_address, 167, namespace, executor_address,
+            executor_runtime_hash, executor_configuration_hash,
+            factory_runtime_hash, executor, proxy_artifact,
+            source_factory_compiler_artifacts,
         )
         with self.assertRaises(ValueError):
             executor.execute_v1(
@@ -17102,18 +19015,71 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             )
         self.assertEqual(campaign.deployed_bitmap, 0)
         factory.deploy_component_v1(
-            key, 1, codes[0], rows[0][1], rows[0][2], execute_at + 1
+            key, 1, codes[0], rows[0][1], rows[0][2], execute_at + 1,
+            activation_artifact=settlement.ProtocolRootActivationArtifactV1(
+                1,
+                settlement.protocol_root_component_address_v1(
+                    factory_address, key, 1, proxy_creation_hash
+                ),
+                rows[0][1], rows[0][2], factory_address,
+                factory_runtime_hash, key,
+            ),
         )
         factory.abort_v1(
             key, execute_at
             + settlement.PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS + 1
         )
         staged_expiry = executor.operations[operation_id].staged_expires_at
+        clear_calldata = (
+            settlement.PROTOCOL_ROOT_EXECUTOR_CLEAR_ABORTED_SELECTOR
+            + operation_id + key
+        )
         campaign.expires_at += 1
         with self.assertRaises(ValueError):
-            executor.clear_aborted_v1(operation_id, factory, key)
+            executor.clear_aborted_v1(
+                clear_calldata, factory, value=0
+            )
         campaign.expires_at = staged_expiry
-        executor.clear_aborted_v1(operation_id, factory, key)
+        clear_executor_state = copy.deepcopy(executor.__dict__)
+        valid_aborted_campaign = factory.protocol_root_campaign_v1(
+            settlement.PROTOCOL_ROOT_CAMPAIGN_SELECTOR + key,
+            gas_limit=settlement.PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+            value=0,
+        )
+        for word in range(9):
+            corrupted = bytearray(valid_aborted_campaign)
+            corrupted[word * 32] ^= 1
+            factory.campaign_view_override = bytes(corrupted)
+            with self.assertRaises(ValueError):
+                executor.clear_aborted_v1(
+                    clear_calldata, factory, value=0
+                )
+            factory.campaign_view_override = None
+            self.assertEqual(executor.__dict__, clear_executor_state)
+        for bad_calldata, bad_value in (
+            (clear_calldata[:-1], 0),
+            (bytes.fromhex("00" * 4) + clear_calldata[4:], 0),
+            (clear_calldata, 1),
+        ):
+            with self.assertRaises(ValueError):
+                executor.clear_aborted_v1(
+                    bad_calldata, factory, value=bad_value
+                )
+            self.assertEqual(executor.__dict__, clear_executor_state)
+        factory.runtime_override = bytes.fromhex("95" * 32)
+        with self.assertRaises(ValueError):
+            executor.clear_aborted_v1(clear_calldata, factory, value=0)
+        factory.runtime_override = None
+        factory.configuration_hash_override = bytes(32)
+        with self.assertRaises(ValueError):
+            executor.clear_aborted_v1(clear_calldata, factory, value=0)
+        factory.configuration_hash_override = None
+        factory.factory_config_return_override = bytes(544)
+        with self.assertRaises(ValueError):
+            executor.clear_aborted_v1(clear_calldata, factory, value=0)
+        factory.factory_config_return_override = None
+        self.assertEqual(executor.__dict__, clear_executor_state)
+        executor.clear_aborted_v1(clear_calldata, factory, value=0)
         self.assertEqual(executor.operations[operation_id].state, 7)
         self.assertEqual(executor.authority_state, 0)
         expiring_before = executor.operations[expiring_id].execute_before
@@ -17131,72 +19097,891 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         retry_queued_at = (
             execute_at + settlement.PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS + 2
         )
-        retry_operation_id = executor.queue_v1(
-            factory_address, retry.manifest_hash(), factory_runtime_hash,
-            factory_configuration_hash, retry_queued_at, caller=dao
-        )
         retry_execute_at = (
             retry_queued_at + settlement.ROOT_MIGRATION_MINIMUM_DELAY_SECONDS
         )
-        retry_key = executor.execute_v1(
-            retry_operation_id, factory, retry, retry_execute_at
-        )
-        retry_campaign = factory.live
-        self.assertIsNotNone(retry_campaign)
-        for role, (code, row) in enumerate(zip(codes, rows), 1):
-            factory.deploy_component_v1(
-                retry_key, role, code, row[1], row[2], retry_execute_at + 1
-            )
         finalize_at = retry_execute_at + 2
         current_window = finalize_at // settlement.PROTOCOL_ROOT_WINDOW_SECONDS
         first_managed_window = (
             current_window
             + settlement.PROTOCOL_ROOT_FIRST_MANAGED_RUNWAY_WINDOWS
         )
-        with self.assertRaises(ValueError):
-            factory.finalize_v1(
-                retry_key, finalize_at, postvalidated=False,
-                genesis_timestamp=0,
-                first_managed_window=first_managed_window,
-                executor=executor,
+        last_managed_window = settlement.derive_last_managed_schedule_window(
+            0, settlement.EVIDENCE_DELAY_SECONDS,
+            settlement.REORG_MARGIN_SECONDS,
+        )
+        provisional_retry_key = retry.campaign_key(factory_address)
+        component_addresses = {
+            role: settlement.protocol_root_component_address_v1(
+                factory_address, provisional_retry_key, role,
+                proxy_creation_hash,
             )
-        self.assertEqual(retry_campaign.active_roles, set())
+            for role in range(1, 10)
+        }
+        root_source_factory_address = component_addresses[9]
+        root_source_factory_runtime = (
+            source_factory_compiler_artifacts.factory_runtime_hash
+        )
+        root_source_factory_config_return = (
+            settlement.source_bundle_factory_config_return_v1(
+                167, component_addresses[4], source_factory_compiler_artifacts
+            )
+        )
+        root_source_factory_config = root_source_factory_config_return[-32:]
+        role9_init_code = (
+            settlement.protocol_root_source_bundle_factory_init_code_v1(
+                factory_address, factory_runtime_hash, provisional_retry_key,
+                167, component_addresses[4],
+                source_factory_compiler_artifacts,
+            )
+        )
+        root_source_terminal = settlement.source_terminal_verifier_address_v1(
+            167, namespace, component_addresses[5],
+            source_factory_compiler_artifacts,
+        )
+        root_source_terminal_config = (
+            settlement.source_terminal_verifier_configuration_hash_bytes_v1(
+                component_addresses[5]
+            )
+        )
+        self.assertEqual(
+            component_addresses[4],
+            settlement.protocol_root_component_address_v1(
+                factory_address, provisional_retry_key, 4,
+                proxy_creation_hash,
+            ),
+        )
+        self.assertEqual(
+            root_source_factory_address,
+            settlement.protocol_root_component_address_v1(
+                factory_address, provisional_retry_key, 9,
+                proxy_creation_hash,
+            ),
+        )
+        self.assertNotEqual(
+            root_source_factory_config,
+            settlement.source_bundle_factory_configuration_hash_v1(
+                167, bytes.fromhex("97" * 20),
+                source_factory_compiler_artifacts,
+            ),
+        )
+        builder_config = settlement.ProtocolRootBuilderRegistryConfigV1(
+            167, bytes.fromhex("44" * 20),
+            settlement.keccak256(b"builder-lease-token-runtime"),
+            18, 1, 1, 0, 0, settlement.EVIDENCE_DELAY_SECONDS,
+            settlement.REORG_MARGIN_SECONDS, first_managed_window,
+            last_managed_window, bytes.fromhex("66" * 20), 604_800,
+            component_addresses[5], rows[4][1], rows[4][2],
+            component_addresses[2], rows[1][1], rows[0][2], bytes(32),
+        )
+        builder_config = replace(
+            builder_config,
+            topology_hash=builder_config.topology_hash_v1(),
+        )
+        timelock_view = settlement.ProtocolChangeTimelockConfigViewV1(
+            dao, component_addresses[4],
+            settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
+            settlement.keccak256(settlement.PROTOCOL_CHANGE_OPERATION_DOMAIN),
+        )
+        timelock_descriptor = settlement.keccak256(b"".join((
+            settlement.PROTOCOL_CHANGE_TIMELOCK_DOMAIN,
+            (167).to_bytes(32, "big"), component_addresses[3], rows[2][1],
+            dao, component_addresses[4],
+            settlement.PROTOCOL_CHANGE_DELAY_SECONDS.to_bytes(8, "big"),
+            settlement.keccak256(settlement.PROTOCOL_CHANGE_OPERATION_DOMAIN),
+        )))
+        manager_view = settlement.ProtocolVersionManagerConfigViewV1(
+            167, component_addresses[3], component_addresses[5],
+            component_addresses[6], component_addresses[1],
+            component_addresses[2], component_addresses[7], rows[6][1],
+            rows[6][2], component_addresses[8], component_addresses[9],
+            timelock_descriptor, namespace,
+            settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
+            settlement.MAXIMUM_LIVE_VERSION_MIGRATION_SECONDS,
+            settlement.MIGRATION_ARM_EXECUTION_WINDOW_SECONDS,
+            settlement.GENESIS_REVIEW_FINALITY_BLOCKS,
+            16_000_001, 1_100_002, 600_003, 2_100_004,
+            rows[4][1], rows[4][2], rows[5][1], rows[5][2],
+            rows[0][1], rows[0][2], rows[1][1], rows[1][2],
+            rows[7][1], rows[7][2], root_source_factory_runtime,
+            root_source_factory_config,
+            root_source_terminal,
+            source_factory_compiler_artifacts.terminal_verifier_runtime_hash,
+            root_source_terminal_config,
+        )
+        retry_rows_list = list(rows)
+        retry_rows_list[2] = (
+            rows[2][0], rows[2][1], timelock_descriptor
+        )
+        retry_rows_list[3] = (
+            rows[3][0], rows[3][1],
+            settlement.protocol_version_manager_configuration_hash_v1(
+                manager_view
+            ),
+        )
+        retry_rows_list[8] = (
+            settlement.keccak256(role9_init_code), root_source_factory_runtime,
+            root_source_factory_config,
+        )
+        retry_rows = tuple(retry_rows_list)
+        retry = settlement.ProtocolRootManifestV1(
+            167, 1, namespace, bytes(32), retry_rows
+        )
+        self.assertEqual(retry.campaign_key(factory_address), provisional_retry_key)
+        retry_operation_id = executor.queue_v1(
+            factory_address, retry.manifest_hash(), factory_runtime_hash,
+            factory_configuration_hash, retry_queued_at, caller=dao
+        )
+        retry_key = executor.execute_v1(
+            retry_operation_id, factory, retry, retry_execute_at
+        )
+        retry_campaign = factory.live
+        self.assertIsNotNone(retry_campaign)
+        self.assertEqual(retry_key, provisional_retry_key)
+        minimum_schedule_horizon = (
+            (settlement.SCHEDULE_WINDOW_SLOTS * (
+                current_window
+                + settlement.FORK_CHANGE_RENEWAL_RUNWAY_WINDOWS
+            ) - 256 * settlement.L1_SLOT_SECONDS)
+            // settlement.L1_SLOT_SECONDS
+            + settlement.MAX_SCHEDULE_CARRIER_SCAN_SLOTS
+        )
+        initial_fork = schedule_fork_row(
+            bytes.fromhex("01020304"), 0, minimum_schedule_horizon + 1,
+            runtime_domain=b"protocol-root-initial-fork:",
+        )
+        schedule_config = settlement.ProtocolRootScheduleOracleConfigV1(
+            settlement_chain_id=167,
+            protocol_version_manager=(
+                component_addresses[4]
+            ),
+            active_settlement_router=component_addresses[5],
+            builder_registry=component_addresses[1],
+            first_managed_window=first_managed_window,
+            last_managed_window=last_managed_window,
+            genesis_timestamp=0,
+            evidence_delay_seconds=settlement.EVIDENCE_DELAY_SECONDS,
+            reorg_margin_seconds=settlement.REORG_MARGIN_SECONDS,
+            beacon_genesis_time=0,
+            lookahead_seconds=768,
+            lease_per_window_atomic=1,
+            initial_fork_digest=initial_fork.fork_digest,
+            initial_fork_first_parent_slot=initial_fork.first_parent_slot,
+            initial_fork_last_parent_slot_exclusive=(
+                initial_fork.last_parent_slot_exclusive
+            ),
+            builder_registry_topology_hash=builder_config.topology_hash,
+            configuration_hash=retry_rows[1][2],
+        )
+        role_config_rows = {
+            1: (
+                settlement.PROTOCOL_ROOT_BUILDER_CONFIG_SELECTOR,
+                builder_config.encode_brc1(),
+            ),
+            3: (
+                settlement.PROTOCOL_ROOT_TIMELOCK_CONFIG_SELECTOR,
+                settlement.encode_protocol_change_timelock_config_return_v1(
+                    timelock_view
+                ),
+            ),
+            4: (
+                settlement.PROTOCOL_ROOT_PVM_CONFIG_SELECTOR,
+                settlement.encode_protocol_version_manager_config_return_v1(
+                    manager_view
+                ),
+            ),
+            9: (
+                settlement.SOURCE_BUNDLE_FACTORY_CONFIG_SELECTOR,
+                root_source_factory_config_return,
+            ),
+        }
+        activation_artifacts = {
+            role: settlement.ProtocolRootActivationArtifactV1(
+                role, component_addresses[role], retry_rows[role - 1][1],
+                retry_rows[role - 1][2], factory_address,
+                factory_runtime_hash, retry_key,
+                role_config_selector=(
+                    role_config_rows[role][0]
+                    if role in role_config_rows else None
+                ),
+                role_config_return=(
+                    role_config_rows[role][1]
+                    if role in role_config_rows else None
+                ),
+            )
+            for role in range(1, 10)
+        }
+        verifier_artifact = settlement.ProtocolRootForkVerifierArtifactV1(
+            initial_fork.verifier, initial_fork.runtime_hash,
+            settlement.encode_schedule_fork_verifier_config_return_v1(
+                initial_fork
+            ),
+        )
+        schedule_artifact = settlement.ProtocolRootScheduleOracleArtifactV1(
+            component_addresses[2], retry_rows[1][1],
+            schedule_config.encode_soc1(), initial_fork,
+            verifier_artifact, activation_artifact=activation_artifacts[2],
+        )
+        pvm_artifact = (
+            settlement.ProtocolRootProtocolVersionManagerArtifactV1(
+                component_addresses[4], retry_rows[3][1], initial_fork,
+                activation_artifact=activation_artifacts[4],
+            )
+        )
+        retry_codes = (*codes[:8], role9_init_code)
+        reverse_factory = settlement.ProtocolRootFactoryModelV1(
+            factory_address, 167, namespace, executor_address,
+            executor_runtime_hash, executor_configuration_hash,
+            factory_runtime_hash, executor, proxy_artifact,
+            source_factory_compiler_artifacts,
+        )
+        reverse_campaign = settlement.ProtocolRootCampaignModelV1(
+            retry, retry_operation_id, retry_key, retry.manifest_hash(),
+            retry_execute_at + settlement.PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS,
+        )
+        reverse_factory.live = reverse_campaign
+        reverse_factory.history[retry_key] = reverse_campaign
+        reverse_factory.deploy_component_v1(
+            retry_key, 1, retry_codes[0], retry_rows[0][1],
+            retry_rows[0][2], retry_execute_at + 1,
+            activation_artifact=activation_artifacts[1],
+        )
+        reverse_factory.deploy_component_v1(
+            retry_key, 9, retry_codes[8], retry_rows[8][1],
+            retry_rows[8][2], retry_execute_at + 1,
+            activation_artifact=activation_artifacts[9],
+        )
+        self.assertEqual(
+            reverse_campaign.deployed_bitmap & ((1 << 0) | (1 << 8)),
+            (1 << 0) | (1 << 8),
+        )
+        self.assertEqual(
+            reverse_factory.root_address_world.accounts[
+                settlement.protocol_root_component_proxy_address_v1(
+                    factory_address, retry_key, 1, proxy_creation_hash
+                )
+            ].nonce,
+            2,
+        )
+        self.assertEqual(
+            reverse_factory.root_address_world.accounts[
+                settlement.protocol_root_component_proxy_address_v1(
+                    factory_address, retry_key, 9, proxy_creation_hash
+                )
+            ].nonce,
+            2,
+        )
+        counterfeit_activation = settlement.ProtocolRootActivationArtifactV1(
+            2, bytes.fromhex("99" * 20), retry_rows[1][1],
+            retry_rows[1][2], factory_address, factory_runtime_hash,
+            retry_key,
+        )
+        counterfeit_schedule = settlement.ProtocolRootScheduleOracleArtifactV1(
+            counterfeit_activation.address, retry_rows[1][1],
+            schedule_config.encode_soc1(), initial_fork, verifier_artifact,
+            activation_artifact=counterfeit_activation,
+        )
         with self.assertRaises(ValueError):
-            factory.finalize_v1(
-                retry_key, finalize_at, postvalidated=True,
-                genesis_timestamp=0,
+            factory.deploy_component_v1(
+                retry_key, 2, codes[1], retry_rows[1][1], retry_rows[1][2],
+                retry_execute_at + 1,
+                activation_artifact=activation_artifacts[2],
+                schedule_oracle_artifact=counterfeit_schedule,
+            )
+        self.assertFalse(retry_campaign.deployed_bitmap & 2)
+        activation_artifacts[1].factory_runtime_hash = bytes.fromhex("94" * 32)
+        with self.assertRaises(ValueError):
+            factory.deploy_component_v1(
+                retry_key, 1, codes[0], retry_rows[0][1], retry_rows[0][2],
+                retry_execute_at + 1,
+                activation_artifact=activation_artifacts[1],
+            )
+        activation_artifacts[1].factory_runtime_hash = factory_runtime_hash
+        root_world = factory.root_address_world
+        proxy_addresses = {
+            role: settlement.protocol_root_component_proxy_address_v1(
+                factory_address, retry_key, role, proxy_creation_hash
+            )
+            for role in range(1, 10)
+        }
+        balance_only = lambda amount: (
+            settlement.ProtocolRootSourceInfrastructureAccountV1(
+                settlement.keccak256(b""), bytes(32), 0,
+                nonce=0, balance=amount,
+            )
+        )
+
+        def fresh_boundary_factory():
+            candidate = settlement.ProtocolRootFactoryModelV1(
+                factory_address, 167, namespace, executor_address,
+                executor_runtime_hash, executor_configuration_hash,
+                factory_runtime_hash, executor, proxy_artifact,
+                source_factory_compiler_artifacts,
+            )
+            campaign = settlement.ProtocolRootCampaignModelV1(
+                retry, retry_operation_id, retry_key, retry.manifest_hash(),
+                retry_execute_at
+                    + settlement.PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS,
+            )
+            candidate.live = campaign
+            candidate.history[retry_key] = campaign
+            return candidate, campaign
+
+        def deploy_boundary_role(candidate, role):
+            row = retry_rows[role - 1]
+            candidate.deploy_component_v1(
+                retry_key, role, retry_codes[role - 1], row[1], row[2],
+                retry_execute_at + 1,
+                activation_artifact=activation_artifacts[role],
+                schedule_oracle_artifact=(
+                    schedule_artifact if role == 2 else None
+                ),
+                protocol_version_manager_artifact=(
+                    pvm_artifact if role == 4 else None
+                ),
+            )
+
+        # Both topology boundaries must have the complete CREATE3 matrix,
+        # not merely one happy-path order.  For role 1 and role 9 as either
+        # the first or last deployment, balance-only prefunds survive and
+        # proxy/child nonce or code collisions reject before the role bit.
+        for boundary_role in (1, 9):
+            for boundary_first in (True, False):
+                others = tuple(
+                    role for role in range(1, 10)
+                    if role != boundary_role
+                )
+                order = (
+                    (boundary_role,) + others if boundary_first
+                    else others + (boundary_role,)
+                )
+                proxy = settlement.protocol_root_component_proxy_address_v1(
+                    factory_address, retry_key, boundary_role,
+                    proxy_creation_hash,
+                )
+                child = component_addresses[boundary_role]
+                for target_name, target_address in (
+                    ("proxy", proxy), ("child", child),
+                ):
+                    with self.subTest(
+                        boundary_role=boundary_role,
+                        boundary_first=boundary_first,
+                        target=target_name, case="prefund",
+                    ):
+                        candidate, campaign = fresh_boundary_factory()
+                        candidate.root_address_world.accounts[target_address] = \
+                            balance_only(100 + boundary_role)
+                        for role in order:
+                            deploy_boundary_role(candidate, role)
+                        self.assertEqual(
+                            campaign.deployed_bitmap, (1 << 9) - 1
+                        )
+                        self.assertEqual(
+                            candidate.root_address_world.accounts[
+                                target_address
+                            ].balance,
+                            100 + boundary_role,
+                        )
+
+                    for collision_kind, collision in (
+                        ("nonce",
+                         settlement.ProtocolRootSourceInfrastructureAccountV1(
+                             bytes(32), bytes(32), 0,
+                             nonce=1, balance=200 + boundary_role,
+                         )),
+                        ("code",
+                         settlement.ProtocolRootSourceInfrastructureAccountV1(
+                             settlement.keccak256(
+                                 b"occupied-boundary-"
+                                 + bytes((boundary_role,))
+                             ),
+                             bytes(32), 1, nonce=0,
+                             balance=300 + boundary_role,
+                         )),
+                    ):
+                        with self.subTest(
+                            boundary_role=boundary_role,
+                            boundary_first=boundary_first,
+                            target=target_name, case=collision_kind,
+                        ):
+                            candidate, campaign = fresh_boundary_factory()
+                            world_ = candidate.root_address_world
+                            world_.accounts[target_address] = collision
+                            failed = False
+                            for role in order:
+                                if role == boundary_role:
+                                    with self.assertRaisesRegex(
+                                        ValueError, "CREATE collision"
+                                    ):
+                                        deploy_boundary_role(candidate, role)
+                                    failed = True
+                                    self.assertFalse(
+                                        campaign.deployed_bitmap
+                                            & (1 << (boundary_role - 1))
+                                    )
+                                    self.assertEqual(
+                                        world_.accounts[target_address],
+                                        collision,
+                                    )
+                                    if target_name == "child":
+                                        self.assertNotIn(proxy, world_.accounts)
+                                    if target_name == "proxy":
+                                        self.assertNotIn(child, world_.accounts)
+                                    del world_.accounts[target_address]
+                                    deploy_boundary_role(
+                                        candidate, boundary_role
+                                    )
+                                else:
+                                    deploy_boundary_role(candidate, role)
+                            self.assertTrue(failed)
+                            self.assertEqual(
+                                campaign.deployed_bitmap, (1 << 9) - 1
+                            )
+
+        # CREATE3 is two CREATE boundaries.  Balance-only prefunds are legal
+        # at both addresses and must survive successful deployment.
+        root_world.accounts[proxy_addresses[9]] = balance_only(41)
+        root_world.accounts[component_addresses[9]] = balance_only(43)
+
+        # Any proxy nonce or code is an EIP-684 collision, and rejection must
+        # happen before the role bit changes.
+        for collision in (
+            settlement.ProtocolRootSourceInfrastructureAccountV1(
+                bytes(32), bytes(32), 0, nonce=1, balance=47,
+            ),
+            settlement.ProtocolRootSourceInfrastructureAccountV1(
+                settlement.keccak256(b"occupied-proxy"), bytes(32), 1,
+                nonce=0, balance=53,
+            ),
+        ):
+            root_world.accounts[proxy_addresses[6]] = collision
+            with self.assertRaisesRegex(ValueError, "CREATE collision"):
+                factory.deploy_component_v1(
+                    retry_key, 6, retry_codes[5], retry_rows[5][1],
+                    retry_rows[5][2], retry_execute_at + 1,
+                    activation_artifact=activation_artifacts[6],
+                )
+            self.assertEqual(root_world.accounts[proxy_addresses[6]], collision)
+            self.assertFalse(retry_campaign.deployed_bitmap & (1 << 5))
+        del root_world.accounts[proxy_addresses[6]]
+
+        # The child address has the same nonce/code collision rule.
+        for collision in (
+            settlement.ProtocolRootSourceInfrastructureAccountV1(
+                bytes(32), bytes(32), 0, nonce=1, balance=59,
+            ),
+            settlement.ProtocolRootSourceInfrastructureAccountV1(
+                settlement.keccak256(b"occupied-child"), bytes(32), 1,
+                nonce=0, balance=61,
+            ),
+        ):
+            root_world.accounts[component_addresses[7]] = collision
+            with self.assertRaisesRegex(ValueError, "CREATE collision"):
+                factory.deploy_component_v1(
+                    retry_key, 7, retry_codes[6], retry_rows[6][1],
+                    retry_rows[6][2], retry_execute_at + 1,
+                    activation_artifact=activation_artifacts[7],
+                )
+            self.assertNotIn(proxy_addresses[7], root_world.accounts)
+            self.assertEqual(root_world.accounts[component_addresses[7]], collision)
+            self.assertFalse(retry_campaign.deployed_bitmap & (1 << 6))
+        del root_world.accounts[component_addresses[7]]
+
+        # A failure after proxy and child creation restores both rows and
+        # preserves the unrelated pre-existing verifier collision verbatim.
+        verifier_collision = settlement.ProtocolRootSourceInfrastructureAccountV1(
+            settlement.keccak256(b"wrong-verifier"), bytes(32), 1,
+            nonce=1, balance=67,
+        )
+        root_world.accounts[initial_fork.verifier] = verifier_collision
+        with self.assertRaisesRegex(ValueError, "existing code"):
+            factory.deploy_component_v1(
+                retry_key, 2, retry_codes[1], retry_rows[1][1],
+                retry_rows[1][2], retry_execute_at + 1,
+                activation_artifact=activation_artifacts[2],
+                schedule_oracle_artifact=schedule_artifact,
+            )
+        self.assertNotIn(proxy_addresses[2], root_world.accounts)
+        self.assertNotIn(component_addresses[2], root_world.accounts)
+        self.assertEqual(
+            root_world.accounts[initial_fork.verifier], verifier_collision
+        )
+        self.assertFalse(retry_campaign.deployed_bitmap & (1 << 1))
+        del root_world.accounts[initial_fork.verifier]
+
+        # Role 9 is first and role 1 is last.  The reverse factory above
+        # exercises role 1 first and role 9 last, proving order independence
+        # at both topology boundaries.
+        for role in (9, 2, 3, 4, 5, 6, 7, 8, 1):
+            code = retry_codes[role - 1]
+            row = retry_rows[role - 1]
+            factory.deploy_component_v1(
+                retry_key, role, code, row[1], row[2], retry_execute_at + 1,
+                activation_artifact=activation_artifacts[role],
+                schedule_oracle_artifact=(
+                    schedule_artifact if role == 2 else None
+                ),
+                protocol_version_manager_artifact=(
+                    pvm_artifact if role == 4 else None
+                ),
+            )
+        self.assertEqual(root_world.accounts[proxy_addresses[9]].balance, 41)
+        self.assertEqual(root_world.accounts[component_addresses[9]].balance, 43)
+        self.assertTrue(all(
+            root_world.accounts[proxy_addresses[role]].runtime_hash
+                == proxy_runtime_hash
+            and root_world.accounts[proxy_addresses[role]].code_size
+                == len(proxy_artifact.runtime_code)
+            and root_world.accounts[proxy_addresses[role]].nonce == 2
+            for role in range(1, 10)
+        ))
+        terminal_init_code = settlement.source_terminal_verifier_init_code_v1(
+            167, component_addresses[5], source_factory_compiler_artifacts
+        )
+        source_terminal_ensure = (
+            settlement.encode_ensure_source_infrastructure_calldata_v1(
+                retry_key, settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_KIND,
+                terminal_init_code,
+            )
+        )
+        self.assertEqual(
+            factory.ensure_source_infrastructure_v1(
+                source_terminal_ensure, retry_execute_at + 1,
+                gas_limit=(
+                    settlement.PROTOCOL_ROOT_SOURCE_TERMINAL_ENSURE_MIN_GAS
+                ), value=0,
+            )[128:160],
+            (1).to_bytes(32, "big"),
+        )
+        confirm_calldata = (
+            settlement.PROTOCOL_ROOT_EXECUTOR_CONFIRM_SELECTOR
+            + retry_operation_id + retry_key + bytes.fromhex("93" * 32)
+        )
+        for bad_calldata, bad_gas, bad_value in (
+            (bytes.fromhex("00" * 4) + confirm_calldata[4:],
+             settlement.PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIRM_CALL_GAS, 0),
+            (confirm_calldata[:-1],
+             settlement.PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIRM_CALL_GAS, 0),
+            (confirm_calldata,
+             settlement.PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIRM_CALL_GAS - 1,
+             0),
+            (confirm_calldata,
+             settlement.PROTOCOL_ROOT_FACTORY_EXECUTOR_CONFIRM_CALL_GAS, 1),
+        ):
+            with self.assertRaises(ValueError):
+                executor.confirm_v1(
+                    bad_calldata, caller=factory, gas_limit=bad_gas,
+                    value=bad_value,
+                )
+        world = factory.root_address_world
+
+        def assert_raw_root_inactive():
+            self.assertEqual(retry_campaign.active_roles, set())
+            self.assertEqual(retry_campaign.activation_trace, [])
+            self.assertTrue(all(
+                world.accounts[component_addresses[role]].activation_state == 0
+                for role in range(1, 10)
+            ))
+
+        def reject_static_surface(
+            address_, calldata_, returndata_, gas_limit_,
+        ):
+            canonical = world.accounts[address_]
+            surfaces = dict(canonical.static_surfaces)
+            surfaces[calldata_] = (gas_limit_, returndata_)
+            world.accounts[address_] = replace(
+                canonical, static_surfaces=surfaces
+            )
+            try:
+                with self.assertRaises(ValueError):
+                    factory.finalize_v1(
+                        retry_key, finalize_at, executor=executor,
+                    )
+                assert_raw_root_inactive()
+            finally:
+                world.accounts[address_] = canonical
+
+        divergent_initial_fork = schedule_fork_row(
+            bytes.fromhex("090a0b0c"), 0,
+            initial_fork.last_parent_slot_exclusive,
+            runtime_domain=b"protocol-root-divergent-fork:",
+        )
+        reject_static_surface(
+            component_addresses[4],
+            settlement.PROTOCOL_ROOT_FORK_ROUTE_STATE_SELECTOR,
+            settlement.encode_schedule_fork_route_state_return_v1(
+                {divergent_initial_fork.fork_digest: divergent_initial_fork},
+                [divergent_initial_fork.fork_digest],
+                {divergent_initial_fork.fork_digest},
+            ),
+            settlement.PROTOCOL_ROOT_FORK_ROUTE_READ_GAS,
+        )
+        fork_calldata = (
+            settlement.PROTOCOL_ROOT_FORK_REGISTRATION_SELECTOR
+            + initial_fork.fork_digest + bytes(28)
+        )
+        reject_static_surface(
+            component_addresses[4], fork_calldata, bytes(320),
+            settlement.PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+        )
+        canonical_verifier = world.accounts[initial_fork.verifier]
+        world.accounts[initial_fork.verifier] = replace(
+            canonical_verifier, runtime_hash=bytes.fromhex("ab" * 32)
+        )
+        with self.assertRaises(ValueError):
+            factory.finalize_v1(retry_key, finalize_at, executor=executor)
+        world.accounts[initial_fork.verifier] = canonical_verifier
+        assert_raw_root_inactive()
+
+        for malformed_schedule in (
+            replace(
+                schedule_config,
                 first_managed_window=first_managed_window - 1,
-                executor=executor,
-            )
-        with self.assertRaises(ValueError):
-            factory.finalize_v1(
-                retry_key, finalize_at, postvalidated=True,
-                genesis_timestamp=0,
+            ).encode_soc1(),
+            replace(
+                schedule_config,
                 first_managed_window=settlement.UINT64_MAX,
-                executor=executor,
+            ).encode_soc1(),
+            replace(
+                schedule_config,
+                initial_fork_last_parent_slot_exclusive=(
+                    minimum_schedule_horizon
+                ),
+            ).encode_soc1(),
+            bytes(18 * 32),
+            replace(
+                schedule_config,
+                beacon_genesis_time=(
+                    schedule_config.genesis_timestamp
+                    + settlement.PROTOCOL_ROOT_WINDOW_SECONDS
+                    * schedule_config.first_managed_window - 3_071
+                ),
+            ).encode_soc1(),
+        ):
+            reject_static_surface(
+                component_addresses[2],
+                settlement.PROTOCOL_ROOT_SOC1_SELECTOR,
+                malformed_schedule,
+                settlement.PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
             )
+
+        for malformed_pvm in (
+            settlement.encode_protocol_version_manager_config_return_v1(
+                replace(
+                    manager_view,
+                    active_settlement_router=bytes.fromhex("91" * 20),
+                )
+            ),
+            settlement.encode_protocol_version_manager_config_return_v1(
+                replace(manager_view, release_postread_gas=0)
+            ),
+            role_config_rows[4][1][:1_088],
+            settlement.encode_protocol_version_manager_config_return_v1(
+                replace(
+                    manager_view,
+                    source_bundle_factory=bytes.fromhex("98" * 20),
+                )
+            ),
+        ):
+            reject_static_surface(
+                component_addresses[4],
+                settlement.PROTOCOL_ROOT_PVM_CONFIG_SELECTOR,
+                malformed_pvm,
+                settlement.PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+            )
+        self.assertEqual(len(role_config_rows[4][1]), 1_184)
+        with self.assertRaises(ValueError):
+            settlement.encode_protocol_version_manager_config_return_v1(
+                replace(manager_view, release_postread_gas=1 << 64)
+            )
+
+        canonical_terminal = world.accounts[root_source_terminal]
+        for mutation in (
+            replace(canonical_terminal, code_size=0),
+            replace(
+                canonical_terminal, runtime_hash=bytes.fromhex("9b" * 32)
+            ),
+            replace(
+                canonical_terminal,
+                configuration_hash=bytes.fromhex("9c" * 32),
+            ),
+            replace(canonical_terminal, exact_config_return=bytes(32)),
+            replace(canonical_terminal, overrides={
+                (factory.address, "component_config"): bytes(32)
+            }),
+            replace(canonical_terminal, overrides={
+                (factory.address, "source_terminal_verifier_config"):
+                    bytes(31)
+            }),
+            replace(canonical_terminal, faults={
+                (factory.address, "extcodehash")
+            }),
+            replace(canonical_terminal, faults={
+                (factory.address, "source_terminal_verifier_config")
+            }),
+        ):
+            world.accounts[root_source_terminal] = mutation
+            with self.assertRaises(ValueError):
+                factory.finalize_v1(
+                    retry_key, finalize_at, executor=executor,
+                )
+            world.accounts[root_source_terminal] = canonical_terminal
+            assert_raw_root_inactive()
+
+        canonical_role1 = world.accounts[component_addresses[1]]
+        world.accounts[component_addresses[1]] = replace(
+            canonical_role1, runtime_hash=bytes.fromhex("92" * 32)
+        )
+        with self.assertRaises(ValueError):
+            factory.finalize_v1(retry_key, finalize_at, executor=executor)
+        world.accounts[component_addresses[1]] = canonical_role1
+        assert_raw_root_inactive()
+
         expected_generation = (
             executor.operations[retry_operation_id].staged_generation
         )
         executor.operations[retry_operation_id].staged_generation = 99
         with self.assertRaises(ValueError):
-            factory.finalize_v1(
-                retry_key, finalize_at, postvalidated=True,
-                genesis_timestamp=0,
-                first_managed_window=first_managed_window,
-                executor=executor,
-            )
-        self.assertEqual(retry_campaign.active_roles, set())
+            factory.finalize_v1(retry_key, finalize_at, executor=executor)
         executor.operations[retry_operation_id].staged_generation = (
             expected_generation
         )
-        receipt = factory.finalize_v1(
-            retry_key, finalize_at, postvalidated=True,
-            genesis_timestamp=0,
-            first_managed_window=first_managed_window,
-            executor=executor,
+        assert_raw_root_inactive()
+
+        for fault_name in ("activate_before", "activate_after"):
+            for role_number in range(1, 10):
+                component = component_addresses[role_number]
+                canonical = world.accounts[component]
+                world.accounts[component] = replace(
+                    canonical,
+                    faults={(factory.address, fault_name)},
+                )
+                with self.assertRaises(RuntimeError):
+                    factory.finalize_v1(
+                        retry_key, finalize_at, executor=executor,
+                    )
+                world.accounts[component] = canonical
+                assert_raw_root_inactive()
+                self.assertEqual(executor.authority_state, 1)
+
+        canonical_role9 = world.accounts[component_addresses[9]]
+        world.accounts[component_addresses[9]] = replace(
+            canonical_role9,
+            overrides={(factory.address, "activate_return"): bytes(32)},
         )
+        with self.assertRaises(ValueError):
+            factory.finalize_v1(retry_key, finalize_at, executor=executor)
+        world.accounts[component_addresses[9]] = canonical_role9
+        assert_raw_root_inactive()
+
+        world.accounts[component_addresses[1]] = replace(
+            canonical_role1,
+            overrides={
+                (factory.address, "activation_view_active"): bytes(128)
+            },
+        )
+        with self.assertRaises(ValueError):
+            factory.finalize_v1(retry_key, finalize_at, executor=executor)
+        world.accounts[component_addresses[1]] = canonical_role1
+        assert_raw_root_inactive()
+
+        for fault_kind in ("runtime", "config", "prf"):
+            if fault_kind == "runtime":
+                executor.confirm_factory_runtime_override = bytes.fromhex(
+                    "96" * 32
+                )
+            elif fault_kind == "config":
+                factory.configuration_hash_override = bytes(32)
+            else:
+                factory.factory_config_return_override = bytes(544)
+            with self.assertRaises(ValueError):
+                factory.finalize_v1(
+                    retry_key, finalize_at, executor=executor,
+                )
+            executor.confirm_factory_runtime_override = None
+            factory.configuration_hash_override = None
+            factory.factory_config_return_override = None
+            assert_raw_root_inactive()
+            self.assertEqual(executor.authority_state, 1)
+
+        executor_before_confirm_fault = copy.deepcopy(executor.__dict__)
+        executor.confirm_fault_point = "after_write"
+        with self.assertRaises(RuntimeError):
+            factory.finalize_v1(retry_key, finalize_at, executor=executor)
+        executor.confirm_fault_point = None
+        self.assertEqual(executor.__dict__, executor_before_confirm_fault)
+        assert_raw_root_inactive()
+        executor.confirm_return_override = bytes(32)
+        with self.assertRaises(ValueError):
+            factory.finalize_v1(retry_key, finalize_at, executor=executor)
+        executor.confirm_return_override = None
+        assert_raw_root_inactive()
+
+        # Restart finalization is derived only from serialized address rows.
+        # Poisoning every fixture handle proves no object identity is authority.
+        serialized_world = world.serialize_v1()
+        rehydrated_world = settlement.ProtocolRootAddressWorldV1.rehydrate_v1(
+            serialized_world
+        )
+        restart_executor = copy.deepcopy(executor)
+        restart_factory = settlement.ProtocolRootFactoryModelV1(
+            factory_address, 167, namespace, executor_address,
+            executor_runtime_hash, executor_configuration_hash,
+            factory_runtime_hash, restart_executor, proxy_artifact,
+            source_factory_compiler_artifacts,
+            generation=factory.generation,
+            active_root_receipt=factory.active_root_receipt,
+            source_infrastructure_accounts=rehydrated_world.accounts,
+        )
+
+        class PoisonArtifact:
+            def __getattribute__(self, _name):
+                raise AssertionError("finalize read a fixture handle")
+
+        poison = PoisonArtifact()
+        restart_campaign = settlement.ProtocolRootCampaignModelV1(
+            retry_campaign.manifest, retry_campaign.operation_id,
+            retry_campaign.key, retry_campaign.manifest_hash,
+            retry_campaign.expires_at,
+            state=retry_campaign.state,
+            deployed_bitmap=retry_campaign.deployed_bitmap,
+            components=dict(retry_campaign.components),
+            schedule_oracle_artifact=poison,
+            protocol_version_manager_artifact=poison,
+            activation_artifacts={role: poison for role in range(1, 10)},
+            source_infrastructure_bitmap=(
+                retry_campaign.source_infrastructure_bitmap
+            ),
+            source_infrastructure_receipts=dict(
+                retry_campaign.source_infrastructure_receipts
+            ),
+        )
+        restart_factory.live = restart_campaign
+        restart_factory.history[retry_key] = restart_campaign
+        restart_receipt = restart_factory.finalize_v1(
+            retry_key, finalize_at, executor=restart_executor,
+        )
+        self.assertTrue(all(
+            restart_factory.root_address_world.accounts[
+                component_addresses[role]
+            ].activation_state == 1
+            for role in range(1, 10)
+        ))
+        receipt = factory.finalize_v1(
+            retry_key, finalize_at, executor=executor,
+        )
+        self.assertEqual(receipt, restart_receipt)
         self.assertEqual(retry_campaign.active_roles, set(range(1, 10)))
+        self.assertEqual(retry_campaign.activation_trace, list(range(1, 10)))
+        self.assertTrue(all(
+            factory.root_address_world.accounts[
+                component_addresses[role]
+            ].activation_state == 1
+            for role in range(1, 10)
+        ))
+        self.assertTrue(all(
+            artifact.state == 0 for artifact in activation_artifacts.values()
+        ))
         self.assertEqual(factory.active_root_receipt, receipt)
         self.assertEqual(factory.generation, 2)
         self.assertEqual(factory.history[retry_key].state, 2)
@@ -17206,13 +19991,20 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         self.assertEqual(executor.active_operation_id, retry_operation_id)
         self.assertEqual(executor.active_campaign_key, retry_key)
         self.assertEqual(executor.active_root_receipt, receipt)
+        closed_manifest = settlement.ProtocolRootManifestV1(
+            167, 2, namespace, bytes(32), rows
+        ).encode()
         with self.assertRaises(ValueError):
             factory.stage_v1(
-                bytes.fromhex("88" * 32),
-                settlement.ProtocolRootManifestV1(
-                    167, 2, namespace, bytes(32), rows
-                ),
-                retry_execute_at + 3, authorized=True,
+                b"".join((
+                    settlement.PROTOCOL_ROOT_STAGE_SELECTOR,
+                    bytes.fromhex("88" * 32), (64).to_bytes(32, "big"),
+                    len(closed_manifest).to_bytes(32, "big"),
+                    closed_manifest, bytes(23),
+                )),
+                retry_execute_at + 3, caller=executor,
+                gas_limit=settlement.ROOT_MIGRATION_FACTORY_STAGE_CALL_GAS,
+                value=0,
             )
         with self.assertRaises(ValueError):
             executor.queue_v1(
@@ -17221,106 +20013,546 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                 retry_execute_at + 4, caller=dao,
             )
 
+    def test_pvm_constructs_its_initial_route_without_oracle_introspection(self):
+        fixture = protocol_authority_fixture(
+            pvm_initial_fork_digest=bytes.fromhex("b1b2b3b4")
+        )
+        manager, oracle = fixture[4], fixture[7]
+        self.assertEqual(manager.fork_order, [bytes.fromhex("b1b2b3b4")])
+        self.assertEqual(oracle.order, [bytes.fromhex("a1a2a3a4")])
+        self.assertNotEqual(
+            manager.schedule_fork_route_state_v1(),
+            oracle.schedule_fork_route_state_v1(),
+        )
+
     def test_schedule_registry_successors_bounds_and_vacant_is_not_stored(self):
         fixture = protocol_authority_fixture()
         manager, timelock, oracle, clock = (
             fixture[4], fixture[5], fixture[7], fixture[8]
         )
 
-        def fork_row(digest, first_window, gas=500_000):
-            gindices = settlement.CURRENT_SCHEDULE_FORK_GINDICES
-            witness_schema = (
-                settlement.current_schedule_ssz_multiproof_schema_hash_v1()
-            )
-            selector = bytes.fromhex("7e981e0b")
-            config = settlement.schedule_fork_verifier_configuration_hash_v1(
-                digest, gindices, witness_schema, selector, gas
-            )
-            return settlement.RegisterForkVerifierPayloadV1(
-                digest, first_window, bytes.fromhex("11" * 20),
-                settlement.keccak256(b"fork-runtime:" + digest),
-                *gindices, witness_schema, config, selector, gas,
+        def fork_row(digest, first_parent_slot, last_parent_slot, gas=500_000):
+            return schedule_fork_row(
+                digest,
+                first_parent_slot,
+                last_parent_slot,
+                gas=gas,
+                runtime_domain=b"fork-runtime:",
             )
 
-        first = fork_row(bytes.fromhex("01020304"), 109)
-        too_late = fork_row(
-            bytes.fromhex("f1f2f3f4"),
-            oracle.last_managed_window + 1,
+        transition_window = 10
+        transition_timestamp = (
+            settlement.GENESIS_TIMESTAMP
+            + transition_window * settlement.SCHEDULE_WINDOW_SLOTS
+            + settlement.SCHEDULE_WINDOW_SLOTS - 1
         )
-        # The generic governance codec owns only canonical uint64 syntax.  The
-        # deployment-bound ScheduleOracle/PVM path owns the terminal bound.
-        self.assertEqual(
-            len(settlement.encode_register_fork_verifier_payload_v1(too_late)),
-            14 * 32,
+        constructor_floor = (
+            (
+                settlement.GENESIS_TIMESTAMP
+                + settlement.SCHEDULE_WINDOW_SLOTS * (
+                    transition_window
+                    + settlement.FORK_CHANGE_RENEWAL_RUNWAY_WINDOWS
+                )
+                - 256 * settlement.L1_SLOT_SECONDS
+            ) // settlement.L1_SLOT_SECONDS
+            + settlement.MAX_SCHEDULE_CARRIER_SCAN_SLOTS
+        )
+        equality_initial = fork_row(
+            bytes.fromhex("11111111"), 0, constructor_floor
+        )
+        with self.assertRaisesRegex(ValueError, "already unsafe"):
+            settlement.ScheduleOracleV1(
+                "equality-schedule", "equality-manager", equality_initial,
+                deployed_at_timestamp=transition_timestamp,
+                fork_verifier_world=schedule_fork_world(equality_initial),
+            )
+        pass_initial = replace(
+            equality_initial,
+            last_parent_slot_exclusive=constructor_floor + 1,
+        )
+        pass_world = schedule_fork_world(pass_initial)
+        with self.assertRaisesRegex(ValueError, "too early"):
+            settlement.ScheduleOracleV1(
+                "boundary-schedule", "boundary-manager", pass_initial,
+                deployed_at_timestamp=0,
+                fork_verifier_world=pass_world,
+                first_managed_window=10,
+                genesis_timestamp=0,
+                beacon_genesis_time=769,
+            )
+        pass_oracle = settlement.ScheduleOracleV1(
+            "pass-schedule", "pass-manager", pass_initial,
+            deployed_at_timestamp=transition_timestamp,
+            fork_verifier_world=pass_world,
         )
         self.assertEqual(
-            first.witness_schema_hash.hex(),
+            pass_oracle.latest_last_parent_slot_exclusive,
+            constructor_floor + 1,
+        )
+        worst_followup_timestamp = (
+            transition_timestamp
+            + settlement.FORK_CHANGE_QUEUE_INCLUSION_ALLOWANCE_SECONDS
+            + settlement.PROTOCOL_CHANGE_DELAY_SECONDS
+            + settlement.FORK_CHANGE_EXECUTION_WINDOW_SECONDS
+        )
+        worst_followup_clock = settlement.Clock(2, worst_followup_timestamp)
+        self.assertEqual(
+            pass_oracle.current_window_at(worst_followup_timestamp)
+                - transition_window,
+            1_803,
+        )
+        extension_floor = (
+            pass_oracle.target_slot(
+                pass_oracle.current_window_at(worst_followup_timestamp)
+                + settlement.FORK_CHANGE_RENEWAL_RUNWAY_WINDOWS
+            )
+            + settlement.MAX_SCHEDULE_CARRIER_SCAN_SLOTS
+        )
+        equality_extension = replace(
+            pass_initial,
+            last_parent_slot_exclusive=extension_floor,
+        )
+        with self.assertRaisesRegex(ValueError, "extension is unsafe"):
+            pass_oracle._fork_installation_kind(
+                equality_extension, clock=worst_followup_clock
+            )
+        pass_extension = replace(
+            equality_extension,
+            last_parent_slot_exclusive=extension_floor + 1,
+        )
+        self.assertEqual(
+            pass_oracle._fork_installation_kind(
+                pass_extension, clock=worst_followup_clock
+            ),
+            "extend",
+        )
+
+        first = oracle.registrations[oracle.order[0]]
+        fork_boundary = first.last_parent_slot_exclusive
+        horizon = fork_boundary + 200_000
+        noncontiguous = fork_row(
+            bytes.fromhex("f1f2f3f4"), fork_boundary + 1, horizon,
+        )
+        oracle.fork_verifier_world.publish(noncontiguous)
+        self.assertEqual(
+            len(settlement.encode_register_fork_verifier_payload_v1(
+                noncontiguous
+            )),
+            15 * 32,
+        )
+        self.assertEqual(
+            noncontiguous.witness_schema_hash.hex(),
             "4d3c1d3a7f2921c2f8e7526a2e8aa2c47dc6bdcd3dc9e2b14c58f2b9d39ed30f",
         )
-        first_payload = settlement.encode_register_fork_verifier_payload_v1(
-            first
+        second = fork_row(
+            bytes.fromhex("05060708"), fork_boundary, horizon, 5_000_000
         )
-        self.assertEqual(len(first_payload), 14 * 32)
-        operation = timelock.queue_protocol_change_v1(
-            settlement.REGISTER_FORK_VERIFIER, first_payload,
+        oracle.fork_verifier_world.publish(second)
+        first_artifact = oracle.fork_verifier_world.artifact(first.verifier)
+        expected_soc1 = oracle.soc1_config.encode_soc1()
+        expected_frs1 = oracle.schedule_fork_route_state_v1()
+        fvr1_calldata = (
+            settlement.PROTOCOL_ROOT_FORK_REGISTRATION_SELECTOR
+            + first.fork_digest + bytes(28)
+        )
+        self.assertEqual(oracle.staticcall_schedule_oracle_config_v1(
+            settlement.PROTOCOL_ROOT_SOC1_SELECTOR,
+            gas_limit=settlement.SCHEDULE_CONFIG_READ_GAS, value=0,
+        ), expected_soc1)
+        self.assertEqual(oracle.staticcall_schedule_fork_route_state_v1(
+            settlement.PROTOCOL_ROOT_FORK_ROUTE_STATE_SELECTOR,
+            gas_limit=settlement.PROTOCOL_ROOT_FORK_ROUTE_READ_GAS, value=0,
+        ), expected_frs1)
+        self.assertEqual(oracle.staticcall_fork_verifier_registration_v1(
+            fvr1_calldata,
+            gas_limit=settlement.SCHEDULE_FORK_REGISTRATION_READ_GAS, value=0,
+        ), oracle.fork_verifier_registration_v1(first.fork_digest))
+        self.assertEqual(
+            first_artifact.staticcall_schedule_fork_verifier_config_v1(
+                settlement.PROTOCOL_ROOT_FORK_CONFIG_SELECTOR,
+                gas_limit=(
+                    settlement.SCHEDULE_FORK_VERIFIER_CONFIG_READ_GAS
+                ),
+                value=0,
+            ),
+            settlement.encode_schedule_fork_verifier_config_return_v1(first),
+        )
+        exact_read_calls = (
+            lambda: oracle.staticcall_schedule_oracle_config_v1(
+                bytes.fromhex("ffffffff"),
+                gas_limit=settlement.SCHEDULE_CONFIG_READ_GAS, value=0,
+            ),
+            lambda: oracle.staticcall_schedule_oracle_config_v1(
+                settlement.PROTOCOL_ROOT_SOC1_SELECTOR,
+                gas_limit=settlement.SCHEDULE_CONFIG_READ_GAS - 1, value=0,
+            ),
+            lambda: oracle.staticcall_schedule_oracle_config_v1(
+                settlement.PROTOCOL_ROOT_SOC1_SELECTOR,
+                gas_limit=settlement.SCHEDULE_CONFIG_READ_GAS, value=1,
+            ),
+            lambda: oracle.staticcall_schedule_fork_route_state_v1(
+                bytes.fromhex("ffffffff"),
+                gas_limit=settlement.PROTOCOL_ROOT_FORK_ROUTE_READ_GAS,
+                value=0,
+            ),
+            lambda: oracle.staticcall_schedule_fork_route_state_v1(
+                settlement.PROTOCOL_ROOT_FORK_ROUTE_STATE_SELECTOR,
+                gas_limit=settlement.PROTOCOL_ROOT_FORK_ROUTE_READ_GAS - 1,
+                value=0,
+            ),
+            lambda: oracle.staticcall_schedule_fork_route_state_v1(
+                settlement.PROTOCOL_ROOT_FORK_ROUTE_STATE_SELECTOR,
+                gas_limit=settlement.PROTOCOL_ROOT_FORK_ROUTE_READ_GAS,
+                value=1,
+            ),
+            lambda: oracle.staticcall_fork_verifier_registration_v1(
+                fvr1_calldata[:-1],
+                gas_limit=settlement.SCHEDULE_FORK_REGISTRATION_READ_GAS,
+                value=0,
+            ),
+            lambda: oracle.staticcall_fork_verifier_registration_v1(
+                fvr1_calldata[:-1] + b"\x01",
+                gas_limit=settlement.SCHEDULE_FORK_REGISTRATION_READ_GAS,
+                value=0,
+            ),
+            lambda: oracle.staticcall_fork_verifier_registration_v1(
+                fvr1_calldata,
+                gas_limit=settlement.SCHEDULE_FORK_REGISTRATION_READ_GAS - 1,
+                value=0,
+            ),
+            lambda: oracle.staticcall_fork_verifier_registration_v1(
+                fvr1_calldata,
+                gas_limit=settlement.SCHEDULE_FORK_REGISTRATION_READ_GAS,
+                value=1,
+            ),
+            lambda: first_artifact.staticcall_schedule_fork_verifier_config_v1(
+                bytes.fromhex("ffffffff"),
+                gas_limit=(
+                    settlement.SCHEDULE_FORK_VERIFIER_CONFIG_READ_GAS
+                ),
+                value=0,
+            ),
+            lambda: first_artifact.staticcall_schedule_fork_verifier_config_v1(
+                settlement.PROTOCOL_ROOT_FORK_CONFIG_SELECTOR,
+                gas_limit=(
+                    settlement.SCHEDULE_FORK_VERIFIER_CONFIG_READ_GAS - 1
+                ),
+                value=0,
+            ),
+            lambda: first_artifact.staticcall_schedule_fork_verifier_config_v1(
+                settlement.PROTOCOL_ROOT_FORK_CONFIG_SELECTOR,
+                gas_limit=(
+                    settlement.SCHEDULE_FORK_VERIFIER_CONFIG_READ_GAS
+                ),
+                value=1,
+            ),
+        )
+        for read_call in exact_read_calls:
+            with self.assertRaises(ValueError):
+                read_call()
+
+        before_direct_mutation = oracle._snapshot()
+        for mutation_manager, mutation_gas, mutation_value in (
+            (object(), settlement.SCHEDULE_FORK_MUTATION_GAS, 0),
+            (manager, settlement.SCHEDULE_FORK_MUTATION_GAS - 1, 0),
+            (manager, settlement.SCHEDULE_FORK_MUTATION_GAS, 1),
+        ):
+            with self.assertRaises(ValueError):
+                oracle.install_fork_verifier_v1(
+                    second, manager=mutation_manager, clock=clock,
+                    gas_limit=mutation_gas, value=mutation_value,
+                )
+            self.assertEqual(oracle._snapshot(), before_direct_mutation)
+        second_payload = encode_register_fork_change(oracle, second)
+        self.assertEqual(len(second_payload), 576)
+        decoded_change = (
+            settlement.decode_register_fork_verifier_change_payload_v1(
+                second_payload
+            )
+        )
+        self.assertEqual(decoded_change.registration, second)
+        with self.assertRaises(ValueError):
+            manager._validate_fork_review_v1(
+                replace(
+                    decoded_change.review,
+                    review_certificate_hash=bytes.fromhex("ff" * 32),
+                ),
+                settlement.REGISTER_FORK_VERIFIER,
+                settlement.encode_register_fork_verifier_payload_v1(second),
+                second.last_parent_slot_exclusive,
+            )
+        short_review = fork_review_envelope(
+            oracle,
+            settlement.REGISTER_FORK_VERIFIER,
+            (second,),
+            reviewed_through=second.last_parent_slot_exclusive - 1,
+        )
+        with self.assertRaises(ValueError):
+            manager._validate_fork_review_v1(
+                short_review,
+                settlement.REGISTER_FORK_VERIFIER,
+                settlement.encode_register_fork_verifier_payload_v1(second),
+                second.last_parent_slot_exclusive,
+            )
+        queued = timelock.queue_protocol_change_v1(
+            settlement.REGISTER_FORK_VERIFIER, second_payload,
             caller=timelock.dao_proposer, clock=clock,
         )
-        mature = settlement.Clock(
+        second_mature = settlement.Clock(
             clock.block_number + 1,
             clock.timestamp + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
         )
-        self.assertTrue(timelock.execute_protocol_change_v1(
-            1, settlement.REGISTER_FORK_VERIFIER, first_payload,
-            caller=addr("fork-installer"), clock=mature,
+        second_artifact = oracle.fork_verifier_world.artifact(second.verifier)
+        self._assert_fork_read_barriers_are_atomic_and_retryable(
+            timelock=timelock, manager=manager, oracle=oracle,
+            operation_id=queued, nonce=1,
+            operation_kind=settlement.REGISTER_FORK_VERIFIER,
+            payload=second_payload, clock=second_mature,
+            existing_artifact=first_artifact,
+        )
+        first_fvr1 = oracle.fork_verifier_registration_v1(first.fork_digest)
+        self._assert_fork_postreads_are_atomic_and_retryable(
+            timelock=timelock, manager=manager, oracle=oracle,
+            operation_id=queued, nonce=1,
+            operation_kind=settlement.REGISTER_FORK_VERIFIER,
+            payload=second_payload, clock=second_mature,
+            fvr1_script=(first_fvr1, first_fvr1),
+        )
+        second_artifact.runtime_override = bytes.fromhex("ff" * 32)
+        self.assertFalse(timelock.execute_protocol_change_v1(
+            1, settlement.REGISTER_FORK_VERIFIER, second_payload,
+            caller=addr("fork-installer"), clock=second_mature,
         ))
-        self.assertEqual(timelock.operations[operation].state, 4)
-        second = fork_row(bytes.fromhex("05060708"), 120, 5_000_000)
-        second_payload = settlement.encode_register_fork_verifier_payload_v1(
-            second
-        )
-        queued = timelock.queue_protocol_change_v1(
-            settlement.REGISTER_FORK_VERIFIER, second_payload,
-            caller=timelock.dao_proposer, clock=mature,
-        )
-        second_mature = settlement.Clock(
-            mature.block_number + 1,
-            mature.timestamp + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
-        )
+        second_artifact.runtime_override = None
+        oracle.route_state_override = bytes(160)
+        self.assertFalse(timelock.execute_protocol_change_v1(
+            1, settlement.REGISTER_FORK_VERIFIER, second_payload,
+            caller=addr("fork-installer"), clock=second_mature,
+        ))
+        oracle.route_state_override = None
         self.assertTrue(timelock.execute_protocol_change_v1(
-            2, settlement.REGISTER_FORK_VERIFIER, second_payload,
+            1, settlement.REGISTER_FORK_VERIFIER, second_payload,
             caller=addr("fork-installer"), clock=second_mature,
         ))
         self.assertEqual(timelock.operations[queued].state, 4)
-        too_late_payload = \
-            settlement.encode_register_fork_verifier_payload_v1(too_late)
-        rejected = timelock.queue_protocol_change_v1(
-            settlement.REGISTER_FORK_VERIFIER, too_late_payload,
+        for authority, registrations, order, used in (
+            (oracle, oracle.registrations, oracle.order,
+             oracle.used_fork_digests),
+            (manager, manager.fork_verifiers, manager.fork_order,
+             manager.fork_used_digests),
+        ):
+            self.assertEqual(
+                authority.schedule_fork_route_state_v1(),
+                settlement.encode_schedule_fork_route_state_return_v1(
+                    registrations, order, used
+                ),
+            )
+        latest_followup_clock = settlement.Clock(
+            second_mature.block_number + 2,
+            second_mature.timestamp
+                + settlement.FORK_CHANGE_QUEUE_INCLUSION_ALLOWANCE_SECONDS
+                + settlement.PROTOCOL_CHANGE_DELAY_SECONDS
+                + settlement.FORK_CHANGE_EXECUTION_WINDOW_SECONDS,
+        )
+        self.assertEqual(
+            oracle.current_window_at(latest_followup_clock.timestamp)
+                - oracle.current_window_at(second_mature.timestamp),
+            1_802,
+        )
+        runway_probe = replace(
+            second,
+            last_parent_slot_exclusive=second.last_parent_slot_exclusive
+                + 200_000,
+        )
+        self.assertEqual(
+            oracle._fork_installation_kind(
+                runway_probe, clock=latest_followup_clock
+            ),
+            "extend",
+        )
+        extension = replace(
+            second,
+            last_parent_slot_exclusive=oracle.target_slot(30_000),
+        )
+        oracle.fork_verifier_world.publish(extension)
+        extension_payload = encode_register_fork_change(oracle, extension)
+        extended = timelock.queue_protocol_change_v1(
+            settlement.REGISTER_FORK_VERIFIER, extension_payload,
             caller=timelock.dao_proposer, clock=second_mature,
         )
-        rejected_mature = settlement.Clock(
+        extension_mature = settlement.Clock(
             second_mature.block_number + 1,
             second_mature.timestamp + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
+        )
+        second_artifact.configuration_override = bytes(320)
+        self.assertFalse(timelock.execute_protocol_change_v1(
+            2, settlement.REGISTER_FORK_VERIFIER, extension_payload,
+            caller=addr("fork-installer"), clock=extension_mature,
+        ))
+        second_artifact.configuration_override = None
+        self.assertTrue(timelock.execute_protocol_change_v1(
+            2, settlement.REGISTER_FORK_VERIFIER, extension_payload,
+            caller=addr("fork-installer"), clock=extension_mature,
+        ))
+        self.assertEqual(timelock.operations[extended].state, 4)
+        self.assertEqual(
+            oracle.latest_last_parent_slot_exclusive,
+            extension.last_parent_slot_exclusive,
+        )
+        for authority, registrations, order, used in (
+            (oracle, oracle.registrations, oracle.order,
+             oracle.used_fork_digests),
+            (manager, manager.fork_verifiers, manager.fork_order,
+             manager.fork_used_digests),
+        ):
+            self.assertEqual(
+                authority.schedule_fork_route_state_v1(),
+                settlement.encode_schedule_fork_route_state_return_v1(
+                    registrations, order, used
+                ),
+            )
+        stale_window = next(
+            window for window in range(oracle.last_managed_window + 1)
+            if oracle.target_slot(window + 8)
+                >= extension.last_parent_slot_exclusive
+        )
+        stale_clock = settlement.Clock(
+            extension_mature.block_number + 1,
+            oracle.genesis_timestamp
+                + stale_window * settlement.SCHEDULE_WINDOW_SLOTS,
+        )
+        with self.assertRaises(ValueError):
+            oracle._fork_installation_kind(replace(
+                extension,
+                last_parent_slot_exclusive=(
+                    extension.last_parent_slot_exclusive + 1
+                ),
+            ), clock=stale_clock)
+        equality_append = fork_row(
+            bytes.fromhex("090a0b0c"),
+            extension.last_parent_slot_exclusive,
+            extension.last_parent_slot_exclusive + 100,
+        )
+        oracle.fork_verifier_world.publish(equality_append)
+        with self.assertRaises(ValueError):
+            oracle._fork_installation_kind(
+                equality_append, clock=stale_clock
+            )
+
+        stale_initial = schedule_fork_row(
+            bytes.fromhex("11121314"), 0, oracle.target_slot(2_000)
+        )
+        stale_oracle = settlement.ScheduleOracleV1(
+            addr("stale-oracle"),
+            addr("stale-manager"),
+            stale_initial,
+            fork_verifier_world=schedule_fork_world(stale_initial),
+        )
+        stale_extension = replace(
+            stale_initial,
+            last_parent_slot_exclusive=oracle.target_slot(2_500),
+        )
+        self.assertEqual(
+            stale_oracle._fork_installation_kind(
+                stale_extension, clock=clock
+            ),
+            "extend",
+        )
+        late_execution_clock = settlement.Clock(
+            clock.block_number + 1,
+            clock.timestamp + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
+        )
+        with self.assertRaisesRegex(ValueError, "extension is unsafe"):
+            stale_oracle._fork_installation_kind(
+                stale_extension, clock=late_execution_clock
+            )
+
+        too_late_payload = encode_register_fork_change(
+            oracle, noncontiguous
+        )
+        rejected = timelock.queue_protocol_change_v1(
+            settlement.REGISTER_FORK_VERIFIER, too_late_payload,
+            caller=timelock.dao_proposer, clock=extension_mature,
+        )
+        rejected_mature = settlement.Clock(
+            extension_mature.block_number + 1,
+            extension_mature.timestamp + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
         )
         self.assertFalse(timelock.execute_protocol_change_v1(
             3, settlement.REGISTER_FORK_VERIFIER, too_late_payload,
             caller=addr("fork-installer"), clock=rejected_mature,
         ))
         self.assertEqual(timelock.operations[rejected].state, 1)
+        fork_expiry_boundary = settlement.Clock(
+            rejected_mature.block_number + 1,
+            rejected_mature.timestamp
+                + settlement.FORK_CHANGE_EXECUTION_WINDOW_SECONDS,
+        )
+        self.assertIsNone(timelock.expire_fork_change_v1(
+            rejected,
+            caller=addr("fork-expirer"),
+            clock=fork_expiry_boundary,
+        ))
+        after_fork_expiry = settlement.Clock(
+            fork_expiry_boundary.block_number + 1,
+            fork_expiry_boundary.timestamp + 1,
+        )
+        self.assertFalse(timelock.execute_protocol_change_v1(
+            3, settlement.REGISTER_FORK_VERIFIER, too_late_payload,
+            caller=addr("fork-installer"), clock=after_fork_expiry,
+        ))
+        self.assertEqual(timelock.expire_fork_change_v1(
+            rejected,
+            caller=addr("fork-expirer"),
+            clock=after_fork_expiry,
+        ), settlement.EXPIRE_FORK_CHANGE_MAGIC + bytes(28) + rejected)
+        self.assertEqual(timelock.operations[rejected].state, 5)
+        self.assertEqual(
+            settlement.decode_protocol_change_operation_return_v1(
+                timelock.operation_return_v1(rejected)
+            ).state,
+            5,
+        )
+        self.assertIsNone(timelock.expire_fork_change_v1(
+            rejected,
+            caller=addr("fork-expirer"),
+            clock=after_fork_expiry,
+        ))
         first_view = oracle.fork_verifier_registration_v1(first.fork_digest)
         self.assertEqual(first_view[3 * 32:3 * 32 + 4], second.fork_digest)
-        self.assertIsNotNone(oracle._eligible_row(119, first.fork_digest))
-        self.assertIsNone(oracle._eligible_row(120, first.fork_digest))
-        self.assertIsNotNone(oracle._eligible_row(120, second.fork_digest))
+        self.assertEqual(
+            int.from_bytes(first_view[4 * 32:5 * 32], "big"), fork_boundary
+        )
+        boundary_window = next(
+            window for window in range(oracle.last_managed_window + 1)
+            if oracle.target_slot(window) >= fork_boundary
+        )
+        target_at_boundary = oracle.target_slot(boundary_window)
+        # Target-slot prefilter deliberately permits the predecessor.  Only
+        # the authenticated parent selects the interval after SFC1.
+        self.assertIsNotNone(oracle._eligible_row(
+            target_at_boundary, first.fork_digest
+        ))
+        self.assertIsNotNone(oracle._eligible_row(
+            target_at_boundary, second.fork_digest
+        ))
 
         empty_cell = settlement.ScheduleRegistryCellWitnessV1(
             0, bytes(20), 0, 0, 0, bytes(32), 0
         )
         path = settlement.ScheduleMptPathV1((bytes.fromhex("c0"),))
-        current_fork_witness = b"".join((
-            (120).to_bytes(8, "big"), (1).to_bytes(8, "big"),
-            (2).to_bytes(8, "big"), (3).to_bytes(8, "big"),
-            b"b" * 32, b"r" * 32, b"p" * 32, bytes(17 * 32),
-        ))
+        def fork_witness(
+            window, parent_slot, parent_execution_block_number=2,
+            payload_timestamp=3,
+        ):
+            return b"".join((
+                window.to_bytes(8, "big"), parent_slot.to_bytes(8, "big"),
+                parent_execution_block_number.to_bytes(8, "big"),
+                payload_timestamp.to_bytes(8, "big"),
+                b"b" * 32, b"r" * 32, b"p" * 32, bytes(17 * 32),
+            ))
+
+        current_fork_witness = fork_witness(120, 1)
         self.assertEqual(len(current_fork_witness), 672)
         expected_beacon_root = bytes.fromhex(
             "96d2e95d97012aa78d3b1352ceafe50ffbf333ff71171e45ee0817cb11d365af"
@@ -17334,6 +20566,10 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         settlement.verify_current_schedule_ssz_multiproof_witness_v1(
             current_fork_witness, 120, expected_beacon_root
         )
+        # BeaconBlock.slot zero is a valid authenticated parent slot.
+        settlement.current_schedule_ssz_multiproof_root_v1(
+            fork_witness(120, 0), 120
+        )
         for bad_window, bad_root in (
             (119, expected_beacon_root),
             (120, bytes.fromhex("ff") + expected_beacon_root[1:]),
@@ -17342,50 +20578,906 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                 settlement.verify_current_schedule_ssz_multiproof_witness_v1(
                     current_fork_witness, bad_window, bad_root
                 )
-        seal_witness = settlement.ScheduleSealWitnessV1(
-            current_fork_witness,
-            bytes.fromhex("d4") + bytes.fromhex("80") * 20,
-            path, path, path, (empty_cell,) * 64, (),
-        ).encode()
-        oracle.current_window = 112
-        deadline = second_mature.timestamp + 100
+        def joined_witness(window, parent_slot, digest, call_clock):
+            parent_execution_block_number = (
+                call_clock.block_number
+                - settlement.SCHEDULE_SEAL_FINALITY_BLOCKS
+                - 1
+            )
+            fork = fork_witness(
+                window,
+                parent_slot,
+                parent_execution_block_number,
+                oracle.beacon_genesis_time
+                    + parent_slot * settlement.L1_SLOT_SECONDS,
+            )
+            header, system, carrier = schedule_carrier_join(
+                oracle, window, digest, fork, call_clock
+            )
+            outer = settlement.ScheduleSealWitnessV1(
+                fork, header, path, path, path, (empty_cell,) * 64, ()
+            ).encode()
+            return outer, system, carrier
+
+        seal_clock = settlement.Clock(
+            1_000_000,
+            oracle.genesis_timestamp
+                + boundary_window * settlement.SCHEDULE_WINDOW_SLOTS
+                - settlement.SCHEDULE_LOOKAHEAD_SECONDS - 1,
+        )
+        predecessor_witness, predecessor_system, predecessor_carrier = (
+            joined_witness(
+                boundary_window,
+                fork_boundary - 1,
+                first.fork_digest,
+                seal_clock,
+            )
+        )
+        deadline = (
+            oracle.genesis_timestamp
+            + boundary_window * settlement.SCHEDULE_WINDOW_SLOTS
+            - settlement.SCHEDULE_LOOKAHEAD_SECONDS
+        )
+        self.assertEqual(seal_clock.timestamp, deadline - 1)
         before = dict(oracle.sealed_windows)
         for bad_return in (b"", b"SFC1" + bytes(251), bytes(256)):
             with self.assertRaises(ValueError):
                 oracle.seal_window_v1(
-                    120, second.fork_digest, seal_witness, bad_return,
-                    seal_deadline=deadline, clock=second_mature,
+                    boundary_window,
+                    first.fork_digest,
+                    predecessor_witness,
+                    bad_return,
+                    system=predecessor_system,
+                    clock=seal_clock,
                 )
         self.assertEqual(oracle.sealed_windows, before)
-        carrier = b"SFC1" + bytes(28) + b"s" * 32 + bytes(192)
+        decoded_predecessor = settlement.decode_schedule_seal_witness_v1(
+            predecessor_witness
+        )
+        beacon_root = predecessor_system.beacon_query_results[-1]
+        assert type(beacon_root) is bytes
+        carrier_words = [
+            predecessor_carrier[offset:offset + 32]
+            for offset in range(0, len(predecessor_carrier), 32)
+        ]
+        for zero_word_index in (6, 7):
+            changed_words = list(carrier_words)
+            changed_words[zero_word_index] = bytes(32)
+            changed_words[1] = settlement.schedule_carrier_statement_hash_v1(
+                oracle.settlement_chain_id,
+                oracle.address,
+                first.fork_digest,
+                boundary_window,
+                beacon_root,
+                int.from_bytes(changed_words[2], "big"),
+                int.from_bytes(changed_words[3], "big"),
+                int.from_bytes(changed_words[4], "big"),
+                changed_words[5],
+                changed_words[6],
+                changed_words[7],
+            )
+            with self.assertRaises(ValueError):
+                oracle.seal_window_v1(
+                    boundary_window,
+                    first.fork_digest,
+                    predecessor_witness,
+                    b"".join(changed_words),
+                    system=predecessor_system,
+                    clock=seal_clock,
+                )
+        authenticated_header_fields = (
+            settlement._canonical_rlp_header_fields_v1(
+                decoded_predecessor.carrier_header_rlp
+            )
+        )
+        self.assertEqual(
+            int.from_bytes(authenticated_header_fields[11], "big")
+                % settlement.L1_SLOT_SECONDS,
+            oracle.beacon_genesis_time % settlement.L1_SLOT_SECONDS,
+        )
+        self.assertNotEqual(
+            oracle.genesis_timestamp % settlement.L1_SLOT_SECONDS,
+            oracle.beacon_genesis_time % settlement.L1_SLOT_SECONDS,
+        )
+        for bad_system in (
+            settlement.ScheduleCarrierSystemContextV1(
+                (beacon_root, beacon_root),
+                predecessor_system.history_block_hash,
+            ),
+            settlement.ScheduleCarrierSystemContextV1(
+                (beacon_root,), bytes.fromhex("ff" * 32)
+            ),
+        ):
+            with self.assertRaises(ValueError):
+                oracle.seal_window_v1(
+                    boundary_window,
+                    first.fork_digest,
+                    predecessor_witness,
+                    predecessor_carrier,
+                    system=bad_system,
+                    clock=seal_clock,
+                )
+        header_fields = list(settlement._canonical_rlp_header_fields_v1(
+            decoded_predecessor.carrier_header_rlp
+        ))
+        for field_index, replacement_value in (
+            (0, bytes.fromhex("ff" * 32)),
+            (
+                8,
+                (
+                    seal_clock.block_number
+                    - settlement.SCHEDULE_SEAL_FINALITY_BLOCKS
+                    - 1
+                ).to_bytes(8, "big").lstrip(b"\x00"),
+            ),
+            (11, (int.from_bytes(header_fields[11], "big") + 1).to_bytes(
+                8, "big"
+            ).lstrip(b"\x00")),
+            (19, bytes.fromhex("ee" * 32)),
+        ):
+            changed_fields = list(header_fields)
+            changed_fields[field_index] = replacement_value
+            changed_header = rlp_list(tuple(
+                rlp_string(field) for field in changed_fields
+            ))
+            changed_witness = settlement.ScheduleSealWitnessV1(
+                decoded_predecessor.fork_witness,
+                changed_header,
+                path,
+                path,
+                path,
+                (empty_cell,) * 64,
+                (),
+            ).encode()
+            changed_system = settlement.ScheduleCarrierSystemContextV1(
+                (beacon_root,), settlement.keccak256(changed_header)
+            )
+            with self.assertRaises(ValueError):
+                oracle.seal_window_v1(
+                    boundary_window,
+                    first.fork_digest,
+                    changed_witness,
+                    predecessor_carrier,
+                    system=changed_system,
+                    clock=seal_clock,
+                )
         wrong_inner_window = settlement.ScheduleSealWitnessV1(
-            (119).to_bytes(8, "big") + current_fork_witness[8:],
-            bytes.fromhex("d4") + bytes.fromhex("80") * 20,
-            path, path, path, (empty_cell,) * 64, (),
+            (boundary_window - 1).to_bytes(8, "big")
+                + decoded_predecessor.fork_witness[8:],
+            decoded_predecessor.carrier_header_rlp,
+            path,
+            path,
+            path,
+            (empty_cell,) * 64,
+            (),
         ).encode()
         with self.assertRaises(ValueError):
             oracle.seal_window_v1(
-                120, second.fork_digest, wrong_inner_window, carrier,
-                seal_deadline=deadline, clock=second_mature,
+                boundary_window,
+                first.fork_digest,
+                wrong_inner_window,
+                predecessor_carrier,
+                system=predecessor_system,
+                clock=seal_clock,
             )
+        # A missed boundary slot may use the predecessor route even though
+        # targetSlot is already in the successor interval.
         seal = oracle.seal_window_v1(
-            120, second.fork_digest, seal_witness, carrier,
-            seal_deadline=deadline, clock=second_mature,
+            boundary_window,
+            first.fork_digest,
+            predecessor_witness,
+            predecessor_carrier,
+            system=predecessor_system,
+            clock=seal_clock,
         )
         self.assertEqual(oracle.consume_window_v1(
-            120, seal_deadline=deadline, clock=second_mature
+            boundary_window, clock=seal_clock
         ), seal)
+        successor_clock = settlement.Clock(
+            seal_clock.block_number + 100,
+            seal_clock.timestamp + settlement.SCHEDULE_WINDOW_SLOTS,
+        )
+        successor_witness, successor_system, successor_carrier = (
+            joined_witness(
+                boundary_window + 1,
+                fork_boundary,
+                second.fork_digest,
+                successor_clock,
+            )
+        )
+        oracle.seal_window_v1(
+            boundary_window + 1,
+            second.fork_digest,
+            successor_witness,
+            successor_carrier,
+            system=successor_system,
+            clock=successor_clock,
+        )
+        invalid_clock = settlement.Clock(
+            successor_clock.block_number + 100,
+            successor_clock.timestamp + settlement.SCHEDULE_WINDOW_SLOTS,
+        )
+        for digest, parent in (
+            (first.fork_digest, fork_boundary),
+            (second.fork_digest, fork_boundary - 1),
+            (
+                second.fork_digest,
+                oracle.target_slot(boundary_window + 2) + 1,
+            ),
+        ):
+            invalid_witness, invalid_system, invalid_carrier = joined_witness(
+                boundary_window + 2,
+                parent,
+                digest,
+                invalid_clock,
+            )
+            with self.assertRaises(ValueError):
+                oracle.seal_window_v1(
+                    boundary_window + 2,
+                    digest,
+                    invalid_witness,
+                    invalid_carrier,
+                    system=invalid_system,
+                    clock=invalid_clock,
+                )
+        # The authoritative horizon rejects equality before witness decoding.
+        horizon_window = 29_998
+        self.assertEqual(
+            oracle.target_slot(horizon_window)
+                + settlement.MAX_SCHEDULE_CARRIER_SCAN_SLOTS,
+            oracle.latest_last_parent_slot_exclusive,
+        )
+        horizon_clock = settlement.Clock(
+            invalid_clock.block_number + 100,
+            oracle.genesis_timestamp
+                + horizon_window * settlement.SCHEDULE_WINDOW_SLOTS
+                - settlement.SCHEDULE_LOOKAHEAD_SECONDS - 1,
+        )
+        with self.assertRaisesRegex(ValueError, "reviewed fork horizon"):
+            oracle.seal_window_v1(
+                horizon_window,
+                second.fork_digest,
+                b"malformed",
+                b"",
+                system=settlement.ScheduleCarrierSystemContextV1((), b""),
+                clock=horizon_clock,
+            )
+        vacant_window = boundary_window + 3
+        vacant_clock = settlement.Clock(
+            invalid_clock.block_number + 100,
+            oracle.genesis_timestamp
+                + vacant_window * settlement.SCHEDULE_WINDOW_SLOTS
+                - settlement.SCHEDULE_LOOKAHEAD_SECONDS - 1,
+        )
+        vacant_deadline = (
+            oracle.genesis_timestamp
+            + vacant_window * settlement.SCHEDULE_WINDOW_SLOTS
+            - settlement.SCHEDULE_LOOKAHEAD_SECONDS
+        )
         with self.assertRaises(ValueError):
             oracle.consume_window_v1(
-                121, seal_deadline=deadline, clock=second_mature
+                vacant_window,
+                clock=vacant_clock,
             )
         after_deadline = settlement.Clock(
-            second_mature.block_number + 1, deadline
+            vacant_clock.block_number + 1, vacant_deadline
         )
         self.assertEqual(oracle.consume_window_v1(
-            121, seal_deadline=deadline, clock=after_deadline
+            vacant_window,
+            clock=after_deadline,
         ), bytes(32))
-        self.assertNotIn(121, oracle.sealed_windows)
+        self.assertNotIn(vacant_window, oracle.sealed_windows)
+
+    def test_pending_fork_replacement_is_exact_unreachable_and_atomic(self):
+        settlement.validate_schedule_execution_payload_adjacency_v1(7, 8)
+        for parent_number, header_number in (
+            (7, 7), (7, 9), (settlement.UINT64_MAX, 0),
+        ):
+            with self.assertRaises(ValueError):
+                settlement.validate_schedule_execution_payload_adjacency_v1(
+                    parent_number, header_number
+                )
+        fixture = protocol_authority_fixture()
+        manager, timelock, oracle, clock = (
+            fixture[4], fixture[5], fixture[7], fixture[8]
+        )
+
+        def fork_row(digest, first, last):
+            return schedule_fork_row(
+                digest,
+                first,
+                last,
+                runtime_domain=b"replace-runtime:",
+            )
+
+        def execute(nonce, kind, payload, queued_at):
+            operation = timelock.queue_protocol_change_v1(
+                kind, payload, caller=timelock.dao_proposer, clock=queued_at
+            )
+            mature = settlement.Clock(
+                queued_at.block_number + 1,
+                queued_at.timestamp + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
+            )
+            return operation, mature, timelock.execute_protocol_change_v1(
+                nonce, kind, payload, caller=addr("fork-replacer"),
+                clock=mature,
+            )
+
+        initial = oracle.registrations[oracle.order[0]]
+        old_first = initial.last_parent_slot_exclusive
+        latest = fork_row(bytes.fromhex("02020202"), old_first, old_first + 500)
+        oracle.fork_verifier_world.publish(latest)
+        _, mature1, ok = execute(
+            1, settlement.REGISTER_FORK_VERIFIER,
+            encode_register_fork_change(oracle, latest),
+            clock,
+        )
+        self.assertTrue(ok)
+
+        replacement = fork_row(
+            bytes.fromhex("03030303"), old_first + 32, old_first + 700
+        )
+        oracle.fork_verifier_world.publish(replacement)
+        replacement_payload = settlement.ReplacePendingForkVerifierPayloadV1(
+            initial,
+            latest,
+            replacement,
+            fork_review_envelope(
+                oracle,
+                settlement.REPLACE_PENDING_FORK_VERIFIER,
+                (initial, latest, replacement),
+            ),
+        )
+        encoded = settlement.encode_replace_pending_fork_verifier_payload_v1(
+            replacement_payload
+        )
+        self.assertEqual(len(encoded), 1_536)
+        self.assertEqual(
+            settlement.decode_replace_pending_fork_verifier_payload_v1(encoded),
+            replacement_payload,
+        )
+        self.assertEqual(
+            settlement.REPLACE_PENDING_FORK_VERIFIER_SELECTOR.hex(), "b48bbef1"
+        )
+        self.assertEqual(
+            settlement.schedule_fork_registration_hash_v1(latest),
+            settlement.keccak256(
+                b"slot-chain-schedule-fork-registration-v1"
+                + (480).to_bytes(2, "big")
+                + settlement.encode_register_fork_verifier_payload_v1(latest)
+            ),
+        )
+
+        operation = timelock.queue_protocol_change_v1(
+            settlement.REPLACE_PENDING_FORK_VERIFIER, encoded,
+            caller=timelock.dao_proposer, clock=mature1,
+        )
+        mature2 = settlement.Clock(
+            mature1.block_number + 1,
+            mature1.timestamp + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
+        )
+        before_oracle = oracle._snapshot()
+        before_manager = (
+            dict(manager.fork_verifiers),
+            list(manager.fork_order),
+            set(manager.fork_used_digests),
+        )
+        self._assert_fork_read_barriers_are_atomic_and_retryable(
+            timelock=timelock, manager=manager, oracle=oracle,
+            operation_id=operation, nonce=2,
+            operation_kind=settlement.REPLACE_PENDING_FORK_VERIFIER,
+            payload=encoded, clock=mature2,
+            existing_artifact=oracle.fork_verifier_world.artifact(
+                latest.verifier
+            ),
+        )
+        predecessor_fvr1 = oracle.fork_verifier_registration_v1(
+            oracle.order[-2]
+        )
+        latest_fvr1 = oracle.fork_verifier_registration_v1(oracle.order[-1])
+        self._assert_fork_postreads_are_atomic_and_retryable(
+            timelock=timelock, manager=manager, oracle=oracle,
+            operation_id=operation, nonce=2,
+            operation_kind=settlement.REPLACE_PENDING_FORK_VERIFIER,
+            payload=encoded, clock=mature2,
+            fvr1_script=(predecessor_fvr1, latest_fvr1, predecessor_fvr1),
+        )
+        oracle.fault_point = "after_replace"
+        self.assertFalse(timelock.execute_protocol_change_v1(
+            2, settlement.REPLACE_PENDING_FORK_VERIFIER, encoded,
+            caller=addr("fork-replacer"), clock=mature2,
+        ))
+        self.assertEqual(oracle._snapshot(), before_oracle)
+        self.assertEqual(
+            (
+                manager.fork_verifiers,
+                manager.fork_order,
+                manager.fork_used_digests,
+            ),
+            before_manager,
+        )
+        self.assertEqual(timelock.operations[operation].state, 1)
+        oracle.fault_point = None
+        predecessor = oracle.registrations[oracle.order[-2]]
+        rewritten_predecessor = replace(
+            predecessor,
+            last_parent_slot_exclusive=replacement.first_parent_slot,
+        )
+        correct_mapping = {
+            predecessor.fork_digest: rewritten_predecessor,
+            replacement.fork_digest: replacement,
+        }
+        correct_order = [predecessor.fork_digest, replacement.fork_digest]
+        correct_used = set(oracle.used_fork_digests) | {
+            replacement.fork_digest
+        }
+        corrupt_poststates = (
+            (
+                correct_mapping | {latest.fork_digest: latest},
+                correct_order,
+                correct_used,
+            ),
+            (
+                correct_mapping,
+                correct_order,
+                correct_used - {latest.fork_digest},
+            ),
+            (
+                {
+                    predecessor.fork_digest: predecessor,
+                    replacement.fork_digest: replacement,
+                },
+                correct_order,
+                correct_used,
+            ),
+        )
+        for registrations, order, used in corrupt_poststates:
+            oracle.route_state_override = (
+                settlement.encode_schedule_fork_route_state_return_v1(
+                    registrations, order, used
+                )
+            )
+            self.assertFalse(timelock.execute_protocol_change_v1(
+                2, settlement.REPLACE_PENDING_FORK_VERIFIER, encoded,
+                caller=addr("fork-replacer"), clock=mature2,
+            ))
+            self.assertEqual(oracle._snapshot(), before_oracle)
+            self.assertEqual(
+                (
+                    manager.fork_verifiers,
+                    manager.fork_order,
+                    manager.fork_used_digests,
+                ),
+                before_manager,
+            )
+        oracle.route_state_override = None
+        self.assertTrue(timelock.execute_protocol_change_v1(
+            2, settlement.REPLACE_PENDING_FORK_VERIFIER, encoded,
+            caller=addr("fork-replacer"), clock=mature2,
+        ))
+        self.assertNotIn(latest.fork_digest, oracle.registrations)
+        self.assertIn(latest.fork_digest, oracle.used_fork_digests)
+        self.assertIn(latest.fork_digest, manager.fork_used_digests)
+        self.assertEqual(oracle.order[-1], replacement.fork_digest)
+        self.assertEqual(
+            oracle.registrations[initial.fork_digest]
+                .last_parent_slot_exclusive,
+            replacement.first_parent_slot,
+        )
+        self.assertEqual(
+            oracle.latest_last_parent_slot_exclusive,
+            replacement.last_parent_slot_exclusive,
+        )
+        with self.assertRaises(ValueError):
+            oracle.fork_verifier_registration_v1(latest.fork_digest)
+        oracle_index = oracle.fork_index_by_digest[replacement.fork_digest]
+        oracle.fork_index_by_digest[replacement.fork_digest] = 0
+        with self.assertRaisesRegex(ValueError, "reverse index"):
+            oracle.fork_verifier_registration_v1(replacement.fork_digest)
+        oracle.fork_index_by_digest[replacement.fork_digest] = oracle_index
+        manager_index = manager.fork_index_by_digest[replacement.fork_digest]
+        manager.fork_index_by_digest[replacement.fork_digest] = 0
+        with self.assertRaisesRegex(ValueError, "reverse index"):
+            manager.fork_verifier_registration_v1(replacement.fork_digest)
+        manager.fork_index_by_digest[replacement.fork_digest] = manager_index
+
+        # Equality at the protected target is rejected, as is later reuse of
+        # the permanently tombstoned old digest.
+        equality_execution_timestamp = (
+            mature2.timestamp + settlement.PROTOCOL_CHANGE_DELAY_SECONDS
+        )
+        equality_current_window = oracle.current_window_at(
+            equality_execution_timestamp
+        )
+        protected = oracle.target_slot(equality_current_window + 8)
+        equal_boundary = fork_row(
+            replacement.fork_digest, protected,
+            replacement.last_parent_slot_exclusive + 1,
+        )
+        stale = settlement.encode_replace_pending_fork_verifier_payload_v1(
+            settlement.ReplacePendingForkVerifierPayloadV1(
+                oracle.registrations[oracle.order[-2]],
+                replacement,
+                equal_boundary,
+                fork_review_envelope(
+                    oracle,
+                    settlement.REPLACE_PENDING_FORK_VERIFIER,
+                    (
+                        oracle.registrations[oracle.order[-2]],
+                        replacement,
+                        equal_boundary,
+                    ),
+                ),
+            )
+        )
+        _, _, ok = execute(
+            3, settlement.REPLACE_PENDING_FORK_VERIFIER, stale, mature2
+        )
+        self.assertFalse(ok)
+        reused = fork_row(
+            latest.fork_digest, replacement.last_parent_slot_exclusive,
+            replacement.last_parent_slot_exclusive + 100,
+        )
+        with self.assertRaises(ValueError):
+            oracle._fork_installation_kind(reused, clock=mature2)
+
+    def test_latest_fork_split_corrects_initial_horizon_atomically(self):
+        fixture = protocol_authority_fixture()
+        manager, timelock, oracle, clock = (
+            fixture[4], fixture[5], fixture[7], fixture[8]
+        )
+        initial = oracle.registrations[oracle.order[-1]]
+        successor = schedule_fork_row(
+            bytes.fromhex("0a0b0c0d"), 250_000, 600_000,
+            runtime_domain=b"split-runtime:",
+        )
+        oracle.fork_verifier_world.publish(successor)
+        review = fork_review_envelope(
+            oracle,
+            settlement.SPLIT_LATEST_FORK_VERIFIER,
+            (initial, successor),
+        )
+        payload = settlement.SplitLatestForkVerifierPayloadV1(
+            initial, successor, review
+        )
+        encoded = settlement.encode_split_latest_fork_verifier_payload_v1(
+            payload
+        )
+        self.assertEqual(len(encoded), 1_056)
+        self.assertEqual(
+            settlement.decode_split_latest_fork_verifier_payload_v1(encoded),
+            payload,
+        )
+        self.assertEqual(
+            settlement.validate_protocol_change_payload_v1(
+                settlement.SPLIT_LATEST_FORK_VERIFIER, encoded
+            ),
+            payload,
+        )
+        operation = timelock.queue_protocol_change_v1(
+            settlement.SPLIT_LATEST_FORK_VERIFIER,
+            encoded,
+            caller=timelock.dao_proposer,
+            clock=clock,
+        )
+        self.assertIsNotNone(operation)
+        mature = settlement.Clock(
+            clock.block_number + 1,
+            clock.timestamp + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
+        )
+        before_oracle = oracle._snapshot()
+        before_manager_state = manager.schedule_fork_route_state_v1()
+        self._assert_fork_read_barriers_are_atomic_and_retryable(
+            timelock=timelock, manager=manager, oracle=oracle,
+            operation_id=operation, nonce=1,
+            operation_kind=settlement.SPLIT_LATEST_FORK_VERIFIER,
+            payload=encoded, clock=mature,
+            existing_artifact=oracle.fork_verifier_world.artifact(
+                initial.verifier
+            ),
+        )
+        initial_fvr1 = oracle.fork_verifier_registration_v1(
+            initial.fork_digest
+        )
+        self._assert_fork_postreads_are_atomic_and_retryable(
+            timelock=timelock, manager=manager, oracle=oracle,
+            operation_id=operation, nonce=1,
+            operation_kind=settlement.SPLIT_LATEST_FORK_VERIFIER,
+            payload=encoded, clock=mature,
+            fvr1_script=(initial_fvr1, initial_fvr1),
+        )
+        oracle.fault_point = "after_split"
+        self.assertFalse(timelock.execute_protocol_change_v1(
+            1,
+            settlement.SPLIT_LATEST_FORK_VERIFIER,
+            encoded,
+            caller=addr("fork-splitter"),
+            clock=mature,
+        ))
+        self.assertEqual(oracle._snapshot(), before_oracle)
+        self.assertEqual(
+            manager.schedule_fork_route_state_v1(), before_manager_state
+        )
+        self.assertEqual(timelock.operations[operation].state, 1)
+        oracle.fault_point = None
+        self.assertTrue(timelock.execute_protocol_change_v1(
+            1,
+            settlement.SPLIT_LATEST_FORK_VERIFIER,
+            encoded,
+            caller=addr("fork-splitter"),
+            clock=mature,
+        ))
+        self.assertEqual(
+            oracle.registrations[initial.fork_digest]
+                .last_parent_slot_exclusive,
+            successor.first_parent_slot,
+        )
+        self.assertEqual(oracle.order[-1], successor.fork_digest)
+        self.assertEqual(
+            oracle.fork_index_by_digest[successor.fork_digest], 1
+        )
+        self.assertEqual(
+            oracle.schedule_fork_route_state_v1(),
+            settlement.encode_schedule_fork_route_state_return_v1(
+                oracle.registrations,
+                oracle.order,
+                oracle.used_fork_digests,
+            ),
+        )
+        self.assertEqual(
+            manager.schedule_fork_route_state_v1(),
+            settlement.encode_schedule_fork_route_state_return_v1(
+                manager.fork_verifiers,
+                manager.fork_order,
+                manager.fork_used_digests,
+            ),
+        )
+        predecessor_view = oracle.fork_verifier_registration_v1(
+            initial.fork_digest
+        )
+        self.assertEqual(
+            predecessor_view[3 * 32:3 * 32 + 4], successor.fork_digest
+        )
+        self.assertEqual(
+            settlement.SPLIT_LATEST_FORK_VERIFIER_SELECTOR,
+            settlement.keccak256(
+                b"splitLatestForkVerifierV1(bytes32,bytes4,uint64,uint64,"
+                b"address,bytes32,uint64,uint64,uint64,uint64,uint64,uint64,"
+                b"bytes32,bytes32,bytes4,uint64)"
+            )[:4],
+        )
+
+    def test_minimum_append_lead_still_allows_last_second_correction(self):
+        """The correction path must not charge the governance delay twice."""
+
+        for correction_kind in (
+            settlement.REPLACE_PENDING_FORK_VERIFIER,
+            settlement.SPLIT_LATEST_FORK_VERIFIER,
+        ):
+            fixture = protocol_authority_fixture()
+            manager, timelock, oracle, queued_at = (
+                fixture[4], fixture[5], fixture[7], fixture[8]
+            )
+            append_mature = settlement.Clock(
+                queued_at.block_number + 1,
+                queued_at.timestamp + settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
+            )
+            append_window = oracle.current_window_at(append_mature.timestamp)
+            minimum_append_first = (
+                oracle.target_slot(
+                    append_window
+                    + settlement.FORK_CHANGE_RENEWAL_RUNWAY_WINDOWS
+                )
+                + settlement.MAX_SCHEDULE_CARRIER_SCAN_SLOTS + 1
+            )
+            correction_queued_at = settlement.Clock(
+                append_mature.block_number + 1,
+                append_mature.timestamp
+                    + settlement.FORK_CHANGE_QUEUE_INCLUSION_ALLOWANCE_SECONDS,
+            )
+            correction_execute_at = settlement.Clock(
+                correction_queued_at.block_number + 1,
+                correction_queued_at.timestamp
+                    + settlement.PROTOCOL_CHANGE_DELAY_SECONDS
+                    + settlement.FORK_CHANGE_EXECUTION_WINDOW_SECONDS,
+            )
+            correction_window = oracle.current_window_at(
+                correction_execute_at.timestamp
+            )
+            correction_last = (
+                oracle.target_slot(
+                    correction_window
+                    + settlement.FORK_CHANGE_RENEWAL_RUNWAY_WINDOWS
+                )
+                + settlement.MAX_SCHEDULE_CARRIER_SCAN_SLOTS + 1
+            )
+
+            initial_digest = oracle.order[0]
+            shortened_initial = replace(
+                oracle.registrations[initial_digest],
+                last_parent_slot_exclusive=minimum_append_first,
+            )
+            oracle.registrations[initial_digest] = shortened_initial
+            manager.fork_verifiers[initial_digest] = shortened_initial
+            for authority in (oracle, manager):
+                authority.fork_route_accumulator.set_registration(
+                    initial_digest,
+                    settlement.schedule_fork_registration_hash_v1(
+                        shortened_initial
+                    ),
+                )
+
+            latest = schedule_fork_row(
+                bytes.fromhex("11121314"),
+                minimum_append_first,
+                correction_last + 100,
+                runtime_domain=b"minimum-lead-old:",
+            )
+            oracle.fork_verifier_world.publish(latest)
+            append_payload = encode_register_fork_change(oracle, latest)
+            append_operation = timelock.queue_protocol_change_v1(
+                settlement.REGISTER_FORK_VERIFIER,
+                append_payload,
+                caller=timelock.dao_proposer,
+                clock=queued_at,
+            )
+            self.assertIsNotNone(append_operation)
+            self.assertTrue(timelock.execute_protocol_change_v1(
+                1,
+                settlement.REGISTER_FORK_VERIFIER,
+                append_payload,
+                caller=addr("min-lead-appender"),
+                clock=append_mature,
+            ))
+
+            if correction_kind == settlement.REPLACE_PENDING_FORK_VERIFIER:
+                corrected = schedule_fork_row(
+                    bytes.fromhex("21222324"),
+                    minimum_append_first,
+                    correction_last,
+                    runtime_domain=b"minimum-lead-replacement:",
+                )
+                correction_rows = (shortened_initial, latest, corrected)
+                correction = settlement.ReplacePendingForkVerifierPayloadV1(
+                    shortened_initial,
+                    latest,
+                    corrected,
+                    fork_review_envelope(
+                        oracle, correction_kind, correction_rows
+                    ),
+                )
+                correction_payload = (
+                    settlement.encode_replace_pending_fork_verifier_payload_v1(
+                        correction
+                    )
+                )
+            else:
+                corrected = schedule_fork_row(
+                    bytes.fromhex("31323334"),
+                    minimum_append_first + 1,
+                    correction_last,
+                    runtime_domain=b"minimum-lead-split:",
+                )
+                correction_rows = (latest, corrected)
+                correction = settlement.SplitLatestForkVerifierPayloadV1(
+                    latest,
+                    corrected,
+                    fork_review_envelope(
+                        oracle, correction_kind, correction_rows
+                    ),
+                )
+                correction_payload = (
+                    settlement.encode_split_latest_fork_verifier_payload_v1(
+                        correction
+                    )
+                )
+            oracle.fork_verifier_world.publish(corrected)
+            correction_operation = timelock.queue_protocol_change_v1(
+                correction_kind,
+                correction_payload,
+                caller=timelock.dao_proposer,
+                clock=correction_queued_at,
+            )
+            self.assertIsNotNone(correction_operation)
+            self.assertGreater(
+                corrected.first_parent_slot,
+                oracle.target_slot(correction_window + 8)
+                    + settlement.MAX_SCHEDULE_CARRIER_SCAN_SLOTS,
+            )
+            self.assertGreater(
+                corrected.last_parent_slot_exclusive,
+                oracle.target_slot(
+                    correction_window
+                    + settlement.FORK_CHANGE_RENEWAL_RUNWAY_WINDOWS
+                ) + settlement.MAX_SCHEDULE_CARRIER_SCAN_SLOTS,
+            )
+            self.assertTrue(timelock.execute_protocol_change_v1(
+                2,
+                correction_kind,
+                correction_payload,
+                caller=addr("min-lead-corrector"),
+                clock=correction_execute_at,
+            ))
+            self.assertEqual(
+                oracle.latest_last_parent_slot_exclusive,
+                correction_last,
+            )
+            self.assertEqual(
+                oracle.schedule_fork_route_state_v1(),
+                manager.schedule_fork_route_state_v1(),
+            )
+
+    def test_fork_route_accumulator_matches_full_oracle_on_shared_prefixes(self):
+        rows = [
+            schedule_fork_row(bytes.fromhex("01020304"), 0, 100),
+            schedule_fork_row(bytes.fromhex("01020305"), 100, 200),
+            schedule_fork_row(bytes.fromhex("01020307"), 110, 240),
+        ]
+        registrations = {
+            rows[0].fork_digest: rows[0],
+            rows[1].fork_digest: rows[1],
+        }
+        order = [rows[0].fork_digest, rows[1].fork_digest]
+        used = set(order)
+        accumulator = settlement.ScheduleForkRouteAccumulatorV1.from_state(
+            registrations, order, used
+        )
+
+        def assert_differential():
+            self.assertEqual(
+                settlement.encode_schedule_fork_route_accumulator_return_v1(
+                    accumulator, len(order), len(registrations), len(used)
+                ),
+                settlement.encode_schedule_fork_route_state_return_v1(
+                    registrations, order, used
+                ),
+            )
+
+        assert_differential()
+        rewritten = replace(rows[0], last_parent_slot_exclusive=110)
+        registrations[rows[0].fork_digest] = rewritten
+        accumulator.set_registration(
+            rows[0].fork_digest,
+            settlement.schedule_fork_registration_hash_v1(rewritten),
+        )
+        same_digest_replacement = replace(
+            rows[1], first_parent_slot=110, last_parent_slot_exclusive=220
+        )
+        registrations[rows[1].fork_digest] = same_digest_replacement
+        accumulator.set_registration(
+            rows[1].fork_digest,
+            settlement.schedule_fork_registration_hash_v1(
+                same_digest_replacement
+            ),
+        )
+        accumulator.replace_last_order(rows[1].fork_digest)
+        assert_differential()
+        del registrations[rows[1].fork_digest]
+        accumulator.delete_registration(rows[1].fork_digest)
+        registrations[rows[2].fork_digest] = rows[2]
+        accumulator.set_registration(
+            rows[2].fork_digest,
+            settlement.schedule_fork_registration_hash_v1(rows[2]),
+        )
+        order[-1] = rows[2].fork_digest
+        accumulator.replace_last_order(rows[2].fork_digest)
+        used.add(rows[2].fork_digest)
+        accumulator.set_used(rows[2].fork_digest)
+        assert_differential()
+        extended = replace(rows[2], last_parent_slot_exclusive=260)
+        registrations[rows[2].fork_digest] = extended
+        accumulator.set_registration(
+            rows[2].fork_digest,
+            settlement.schedule_fork_registration_hash_v1(extended),
+        )
+        assert_differential()
+        before = accumulator.clone()
+        accumulator.set_registration(
+            rows[2].fork_digest,
+            settlement.keccak256(b"rolled-back-route"),
+        )
+        accumulator = before
+        assert_differential()
 
     def test_schedule_seal_witness_and_outer_abi_are_canonical(self):
         empty = settlement.ScheduleRegistryCellWitnessV1(
@@ -20981,11 +25073,284 @@ class RegistryLifecycleRound4Tests(unittest.TestCase):
         self.assertEqual(registry.active[63].registration_index, 63)
         self.assertEqual(registry.active_count, 64)
 
+        removed = registry.active[17]
+        self.assertIsNotNone(removed)
         registry.active[17] = None
+        registry._clear_generation_index(
+            removed, expected=("ACTIVE", 17)
+        )
         hole = self.generation(64, bond=10_000)
         self.assertTrue(registry.admit(hole, 0, caller=hole.address))
         self.assertEqual(registry.active[17].address, hole.address)
         self.assertEqual(registry.active[17].registration_index, 64)
+
+    def test_reverse_indexes_cover_uint64_max_move_and_final_release(self):
+        maximum = self.generation(
+            settlement.UINT64_MAX, bond=100, effective_window=0
+        )
+        registry = settlement.RegistryLifecycle([])
+        registry.next_registration_index = settlement.UINT64_MAX
+        self.assertTrue(registry.admit(
+            maximum, 0, caller=maximum.address
+        ))
+        self.assertEqual(
+            registry.live_registration_index_plus_one[maximum.address],
+            settlement.UINT64_MAX + 1,
+        )
+        self.assertEqual(
+            registry.generation_locations[settlement.UINT64_MAX],
+            ("ACTIVE", 0),
+        )
+        self.assertEqual(
+            registry.next_registration_index, settlement.UINT64_MAX + 1
+        )
+        exhausted_snapshot = (
+            tuple(registry.active), tuple(registry.liability_ring),
+            dict(registry.generation_locations),
+            dict(registry.live_registration_index_plus_one),
+            registry.base_bond_escrow, registry.token_balance,
+        )
+        self.assertFalse(registry.admit(
+            settlement.Generation("exhausted", 101, 0, 0),
+            0,
+            caller="exhausted",
+        ))
+        self.assertEqual((
+            tuple(registry.active), tuple(registry.liability_ring),
+            dict(registry.generation_locations),
+            dict(registry.live_registration_index_plus_one),
+            registry.base_bond_escrow, registry.token_balance,
+        ), exhausted_snapshot)
+
+        cursor = settlement.ScheduleReleaseCursor(
+            next_release_window=settlement.UINT64_MAX
+        )
+        self.assertTrue(registry.release_terminal_active(0, 1, cursor))
+        self.assertNotIn(
+            settlement.UINT64_MAX, registry.generation_locations
+        )
+        self.assertNotIn(
+            maximum.address, registry.live_registration_index_plus_one
+        )
+        self.assertFalse(registry.admit(
+            settlement.Generation(
+                maximum.address, 101, settlement.UINT64_MAX, 0
+            ),
+            0,
+            caller=maximum.address,
+        ))
+        registry.audit_lifecycle_invariants()
+
+    def test_restart_preserves_released_registration_holes_and_exhaustion(self):
+        # Released generations are deliberately absent from the live reverse
+        # indexes.  A restarted model must retain the monotonic stored counter
+        # instead of deriving it back down from only the surviving rows.
+        restarted = settlement.RegistryLifecycle(
+            [], next_registration_index=123
+        )
+        generation = settlement.Generation(
+            "post-restart", 10_000, 123, 0
+        )
+        self.assertTrue(restarted.admit(
+            generation, 0, caller=generation.address
+        ))
+        self.assertEqual(restarted.next_registration_index, 124)
+
+        survivor = settlement.Generation("survivor", 50, 10, 0)
+        with_hole = settlement.RegistryLifecycle(
+            [survivor], next_registration_index=20
+        )
+        self.assertEqual(with_hole.next_registration_index, 20)
+        with self.assertRaisesRegex(ValueError, "next registration"):
+            settlement.RegistryLifecycle(
+                [survivor], next_registration_index=10
+            )
+
+        exhausted = settlement.RegistryLifecycle(
+            [], next_registration_index=settlement.UINT64_MAX + 1
+        )
+        self.assertFalse(exhausted.admit(
+            settlement.Generation("never-reused", 50, 0, 0),
+            0,
+            caller="never-reused",
+        ))
+        self.assertEqual(
+            exhausted.next_registration_index,
+            settlement.UINT64_MAX + 1,
+        )
+
+    def test_brh1_exhausted_sentinel_is_width_safe_and_canonical(self):
+        ordinary = commitment.builder_registry_header(
+            63,
+            0x0102030405060708,
+            0x1112131415161718,
+            0x2122232425262728,
+        )
+        self.assertEqual(
+            ordinary.hex(),
+            "42524831013f00000102030405060708"
+            "11121314151617182122232425262728",
+        )
+        self.assertEqual(
+            commitment.decode_builder_registry_header(ordinary),
+            (63, 0x0102030405060708, 0x1112131415161718,
+             0x2122232425262728),
+        )
+        last_ordinary = commitment.builder_registry_header(
+            64, settlement.UINT64_MAX, settlement.UINT64_MAX,
+            settlement.UINT64_MAX,
+        )
+        self.assertEqual(last_ordinary[6:8], b"\x00\x00")
+        self.assertEqual(last_ordinary[24:], b"\xff" * 8)
+        exhausted = commitment.builder_registry_header(
+            64, settlement.UINT64_MAX, settlement.UINT64_MAX,
+            settlement.UINT64_MAX + 1,
+        )
+        self.assertEqual(exhausted[6:8], b"\x01\x00")
+        self.assertEqual(exhausted[24:], bytes(8))
+        self.assertEqual(
+            commitment.decode_builder_registry_header(exhausted)[3],
+            settlement.UINT64_MAX + 1,
+        )
+        noncanonical = (
+            exhausted[:6] + b"\x02" + exhausted[7:],
+            exhausted[:7] + b"\x01" + exhausted[8:],
+            exhausted[:24] + (1).to_bytes(8, "big"),
+        )
+        for raw_word in noncanonical:
+            with self.subTest(raw_word=raw_word.hex()):
+                with self.assertRaises(ValueError):
+                    commitment.decode_builder_registry_header(raw_word)
+        with self.assertRaises(AssertionError):
+            commitment.builder_registry_header(
+                0, 0, 0, settlement.UINT64_MAX + 2
+            )
+
+    def test_bitmap_counter_and_credit_hot_paths_do_not_iterate_history(self):
+        class NoIterationDict(dict):
+            def __iter__(self):
+                raise AssertionError("hot path iterated a lifetime mapping")
+
+            def items(self):
+                raise AssertionError("hot path iterated a lifetime mapping")
+
+            def values(self):
+                raise AssertionError("hot path iterated a lifetime mapping")
+
+        class NoIterationSet(set):
+            def __iter__(self):
+                raise AssertionError("hot path iterated a lifetime set")
+
+        gate = settlement.MigrationGate(coordinator="version-manager")
+        self.assertTrue(gate._bootstrap_from_router(1))
+        builder = self.generation(0, bond=100, effective_window=0)
+        registry = settlement.RegistryLifecycle(
+            [builder], migration_gate=gate, lease_per_window_atomic=10
+        )
+        for window in (0, 1, 2):
+            self.assertTrue(registry.reserve(builder.address, window, 0))
+        registry.tranches = NoIterationDict(registry.tranches)
+        registry.open_reservations = NoIterationSet(
+            registry.open_reservations
+        )
+        registry.liable_reservations = NoIterationSet(
+            registry.liable_reservations
+        )
+        self.assertEqual(registry.normalize_reservations(0, 2), 2)
+        self.assertEqual(registry.active[0].reservation_bitmap, 1)
+
+        full = settlement.RegistryLifecycle([
+            self.generation(index, bond=100 + index, effective_window=0)
+            for index in range(64)
+        ])
+        newcomer = self.generation(64, bond=10_000, effective_window=0)
+        self.assertTrue(full.admit(newcomer, 0, caller=newcomer.address))
+        retained, release_window = full.liability_ring[0]
+        full.tranches = NoIterationDict(full.tranches)
+        full.credits = NoIterationDict(full.credits)
+        self.assertTrue(full.release_liability(0, release_window))
+        self.assertEqual(full.total_credit_liability, retained.bond)
+        self.assertEqual(
+            full.claim_credit(retained.address, "recipient",
+                              caller=retained.address),
+            retained.bond,
+        )
+        self.assertEqual(full.total_credit_liability, 0)
+
+    def test_lifecycle_index_corruption_is_detected_without_fallback_scan(self):
+        registry = settlement.RegistryLifecycle([
+            self.generation(0, bond=100, effective_window=0)
+        ])
+        registry.generation_locations[0] = ("LIABILITY", 0)
+        with self.assertRaisesRegex(AssertionError, "occupancy"):
+            registry._generation_location(0)
+        with self.assertRaisesRegex(AssertionError, "reverse index"):
+            registry.audit_lifecycle_invariants()
+
+        registry = settlement.RegistryLifecycle([
+            self.generation(0, bond=100, effective_window=0)
+        ])
+        registry.total_credit_liability = 1
+        with self.assertRaisesRegex(AssertionError, "pull-credit total"):
+            registry.audit_lifecycle_invariants()
+
+    def test_generation_move_and_clear_index_faults_roll_back(self):
+        registry = settlement.RegistryLifecycle([
+            self.generation(index, bond=100 + index, effective_window=0)
+            for index in range(64)
+        ])
+        newcomer = self.generation(64, bond=10_000, effective_window=0)
+        before_move = (
+            tuple(registry.active), tuple(registry.liability_ring),
+            dict(registry.generation_locations),
+            dict(registry.live_registration_index_plus_one),
+            registry.movement_sequence, dict(registry.replacements),
+            registry.base_bond_escrow, registry.token_balance,
+            dict(registry.credits), registry.total_credit_liability,
+        )
+        registry.lifecycle_fault_point = "after_generation_move_index"
+        with self.assertRaisesRegex(RuntimeError, "move-index"):
+            registry.admit(newcomer, 0, caller=newcomer.address)
+        self.assertEqual((
+            tuple(registry.active), tuple(registry.liability_ring),
+            dict(registry.generation_locations),
+            dict(registry.live_registration_index_plus_one),
+            registry.movement_sequence, dict(registry.replacements),
+            registry.base_bond_escrow, registry.token_balance,
+            dict(registry.credits), registry.total_credit_liability,
+        ), before_move)
+
+        registry.lifecycle_fault_point = None
+        self.assertTrue(registry.admit(
+            newcomer, 0, caller=newcomer.address
+        ))
+        retained, release_window = registry.liability_ring[0]
+        self.assertEqual(
+            registry.live_registration_index_plus_one[retained.address],
+            retained.registration_index + 1,
+        )
+        before_clear = (
+            registry.liability_ring[0],
+            dict(registry.generation_locations),
+            dict(registry.live_registration_index_plus_one),
+            registry.base_bond_escrow, registry.token_balance,
+            dict(registry.credits), registry.total_credit_liability,
+        )
+        registry.lifecycle_fault_point = "after_generation_clear_index"
+        with self.assertRaisesRegex(RuntimeError, "clear-index"):
+            registry.release_liability(0, release_window)
+        self.assertEqual((
+            registry.liability_ring[0],
+            dict(registry.generation_locations),
+            dict(registry.live_registration_index_plus_one),
+            registry.base_bond_escrow, registry.token_balance,
+            dict(registry.credits), registry.total_credit_liability,
+        ), before_clear)
+        registry.lifecycle_fault_point = None
+        self.assertTrue(registry.release_liability(0, release_window))
+        self.assertNotIn(retained.address,
+                         registry.live_registration_index_plus_one)
+        registry.audit_lifecycle_invariants()
 
     def test_full_fresh_table_has_no_eight_window_sybil_fence(self):
         registry = settlement.RegistryLifecycle([
@@ -21733,32 +26098,59 @@ class RegistryLifecycleRound4Tests(unittest.TestCase):
             settlement.RegistryLifecycle(
                 [], last_managed_window=derived - 1
             )
+        bounded_initial = schedule_fork_row(
+            bytes.fromhex("01020304"), 0, 500_000
+        )
         with self.assertRaises(ValueError):
             settlement.ScheduleOracleV1(
                 "schedule-oracle", "version-manager",
+                bounded_initial,
                 last_managed_window=derived - 1,
+                fork_verifier_world=schedule_fork_world(bounded_initial),
             )
         bounded_oracle = settlement.ScheduleOracleV1(
-            "schedule-oracle", "version-manager", first_managed_window=5
+            "schedule-oracle", "version-manager",
+            bounded_initial,
+            first_managed_window=5,
+            fork_verifier_world=schedule_fork_world(bounded_initial),
         )
+        late_initial = schedule_fork_row(
+            bytes.fromhex("05060708"),
+            0,
+            bounded_oracle.target_slot(1_000),
+        )
+        with self.assertRaisesRegex(ValueError, "already unsafe"):
+            settlement.ScheduleOracleV1(
+                "late-schedule-oracle",
+                "version-manager",
+                late_initial,
+                deployed_at_timestamp=(
+                    settlement.GENESIS_TIMESTAMP
+                    + 1_000 * settlement.SCHEDULE_WINDOW_SLOTS
+                ),
+                fork_verifier_world=schedule_fork_world(late_initial),
+            )
         boundary_clock = settlement.Clock(1, settlement.GENESIS_TIMESTAMP)
         with self.assertRaises(ValueError):
             bounded_oracle.seal_window_v1(
                 4, bytes.fromhex("01020304"), b"", b"",
-                seal_deadline=settlement.GENESIS_TIMESTAMP + 1,
+                system=settlement.ScheduleCarrierSystemContextV1((), b""),
                 clock=boundary_clock,
             )
         with self.assertRaises(ValueError):
             bounded_oracle.consume_window_v1(
                 4,
-                seal_deadline=settlement.GENESIS_TIMESTAMP,
                 clock=boundary_clock,
             )
+        first_managed_deadline = (
+            settlement.GENESIS_TIMESTAMP
+            + 5 * settlement.SCHEDULE_WINDOW_SLOTS
+            - settlement.SCHEDULE_LOOKAHEAD_SECONDS
+        )
         self.assertEqual(
             bounded_oracle.consume_window_v1(
                 5,
-                seal_deadline=settlement.GENESIS_TIMESTAMP,
-                clock=boundary_clock,
+                clock=settlement.Clock(1, first_managed_deadline),
             ),
             bytes(32),
         )
