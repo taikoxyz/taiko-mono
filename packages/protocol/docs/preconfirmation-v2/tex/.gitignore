@@ -1,0 +1,8 @@
+# Tracked: main.tex (the specification source) and figures.tex (hand-written TikZ).
+# Build with three xelatex passes; the resulting main.pdf is copied to
+# ../slot-chain-spec.pdf, which is the published artifact.
+*.aux
+*.log
+*.out
+*.toc
+*.pdf
