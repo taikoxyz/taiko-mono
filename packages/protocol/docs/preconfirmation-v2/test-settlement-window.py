@@ -56,6 +56,29 @@ def proof_verifier_fixture(
     return init_code_hash, runtime_hash, configuration_hash, artifact
 
 
+def lifecycle_facet_bootstrap_fixture(
+    settlement_chain_id: int, manifest_namespace: bytes,
+) -> settlement.ProtocolRootBuilderRegistryFacetBootstrapV1:
+    artifacts = []
+    for kind, label in (
+        (settlement.BUILDER_REGISTRY_SEAT_FACET_KIND, b"seat"),
+        (settlement.BUILDER_REGISTRY_LEASE_FACET_KIND, b"lease"),
+    ):
+        config = settlement.BuilderRegistryLifecycleFacetConfigV1(kind)
+        init_code_hash = settlement.keccak256(label + b"-facet-init")
+        runtime_hash = settlement.keccak256(label + b"-facet-runtime")
+        address = settlement.builder_registry_lifecycle_facet_address_v1(
+            settlement_chain_id, manifest_namespace, kind,
+            config.configuration_hash_v1(), init_code_hash,
+        )
+        artifacts.append(settlement.ProtocolRootBuilderRegistryFacetArtifactV1(
+            address, init_code_hash, runtime_hash, config.encode_brf1()
+        ))
+    return settlement.ProtocolRootBuilderRegistryFacetBootstrapV1(
+        settlement_chain_id, manifest_namespace, *artifacts
+    )
+
+
 def addr(label: str) -> str:
     raw = label.encode("ascii")
     if not raw or len(raw) > 20:
@@ -18819,11 +18842,141 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             settlement.eip2935_read_configuration_hash_v1(101),
         )
 
+    def test_builder_registry_lifecycle_facets_are_exact_and_authenticated(self):
+        chain_id = 167
+        namespace = bytes.fromhex("a8" * 32)
+        bootstrap = lifecycle_facet_bootstrap_fixture(chain_id, namespace)
+        self.assertEqual(
+            settlement.BUILDER_REGISTRY_FACET_CONFIG_SELECTOR,
+            bytes.fromhex("5c19dfed"),
+        )
+        self.assertEqual(
+            settlement.BUILDER_REGISTRY_FACET_CONFIG_SELECTOR,
+            settlement.keccak256(
+                b"builderRegistryLifecycleFacetConfigV1()"
+            )[:4],
+        )
+        self.assertEqual(
+            settlement.BUILDER_REGISTRY_STORAGE_LAYOUT_ENTRY_COUNT, 53
+        )
+        self.assertEqual(
+            settlement.builder_registry_storage_layout_hash_v1(),
+            bytes.fromhex(
+                "e9530d93d58f89bfc204b96dd4063445b3c2823458ae18e8580c8436f3853930"
+            ),
+        )
+
+        expected_selectors = {
+            settlement.BUILDER_REGISTRY_SEAT_FACET_KIND: (
+                "5fc42c69", "c8f20b55", "0e1ffc68",
+            ),
+            settlement.BUILDER_REGISTRY_LEASE_FACET_KIND: (
+                "46a53315", "5e7c8afe", "f8668bb9", "e7bae370",
+            ),
+        }
+        claim_selector = settlement.keccak256(
+            b"claimBuilderLeaseCreditV1(address)"
+        )[:4]
+        for kind, expected_hex in expected_selectors.items():
+            with self.subTest(kind=kind):
+                config = settlement.BuilderRegistryLifecycleFacetConfigV1(kind)
+                selectors = settlement.builder_registry_facet_selectors_v1(kind)
+                self.assertEqual(
+                    selectors, tuple(bytes.fromhex(value) for value in expected_hex)
+                )
+                self.assertNotIn(claim_selector, selectors)
+                selector_row = (
+                    kind.to_bytes(1, "big")
+                    + len(selectors).to_bytes(1, "big")
+                    + b"".join(selectors)
+                )
+                expected_selector_hash = settlement.keccak256(b"".join((
+                    b"slot-chain-builder-registry-facet-selectors-v1",
+                    len(selector_row).to_bytes(2, "big"), selector_row,
+                )))
+                self.assertEqual(config.selector_set_hash, expected_selector_hash)
+                expected_config_hash = settlement.keccak256(b"".join((
+                    b"slot-chain-builder-registry-lifecycle-facet-config-v1",
+                    kind.to_bytes(1, "big"),
+                    settlement.BUILDER_REGISTRY_STORAGE_LAYOUT_HASH_V1,
+                    expected_selector_hash,
+                )))
+                self.assertEqual(
+                    config.configuration_hash_v1(), expected_config_hash
+                )
+                encoded = config.encode_brf1()
+                self.assertEqual(len(encoded), 192)
+                self.assertEqual(
+                    settlement.decode_builder_registry_facet_brf1_v1(encoded),
+                    config,
+                )
+                for word in range(6):
+                    substituted = bytearray(encoded)
+                    substituted[word * 32] ^= 1
+                    with self.assertRaises(ValueError):
+                        settlement.decode_builder_registry_facet_brf1_v1(
+                            bytes(substituted)
+                        )
+
+                descriptor = (
+                    bootstrap.facets.seat
+                    if kind == settlement.BUILDER_REGISTRY_SEAT_FACET_KIND
+                    else bootstrap.facets.lease
+                )
+                expected_salt = settlement.keccak256(b"".join((
+                    settlement.BUILDER_REGISTRY_FACET_SALT_DOMAIN,
+                    chain_id.to_bytes(32, "big"), namespace,
+                    kind.to_bytes(1, "big"), expected_config_hash,
+                )))
+                self.assertEqual(descriptor.salt, expected_salt)
+                expected_address = settlement.keccak256(b"".join((
+                    b"\xff",
+                    bytes.fromhex(
+                        settlement.SETTLEMENT_FACTORY_ADDRESS_V2[2:]
+                    ),
+                    expected_salt, descriptor.init_code_hash,
+                )))[12:]
+                self.assertEqual(descriptor.address, expected_address)
+                self.assertEqual(
+                    settlement.builder_registry_lifecycle_facet_address_v1(
+                        chain_id, namespace, kind, expected_config_hash,
+                        descriptor.init_code_hash,
+                    ),
+                    expected_address,
+                )
+
+        self.assertEqual(len(bootstrap.facets.topology_packed_v1()), 168)
+        self.assertEqual(len(bootstrap.facets.factory_packed_v1()), 392)
+        self.assertEqual(len(bootstrap.facets.factory_abi_words_v1()), 13)
+        bootstrap.authenticate_v1()
+        for artifact in (bootstrap.seat_artifact, bootstrap.lease_artifact):
+            for override, bad_value in (
+                ("runtime_override", settlement.keccak256(b"wrong-runtime")),
+                ("config_return_override", bytes(192)),
+                ("component_config_override", settlement.keccak256(b"wrong-config")),
+            ):
+                setattr(artifact, override, bad_value)
+                with self.subTest(kind=artifact.address.hex(), override=override):
+                    with self.assertRaises(ValueError):
+                        bootstrap.authenticate_v1()
+                setattr(artifact, override, None)
+            canonical_init = artifact.init_code_hash
+            artifact.init_code_hash = settlement.keccak256(b"wrong-init")
+            with self.assertRaises(ValueError):
+                bootstrap.authenticate_v1()
+            artifact.init_code_hash = canonical_init
+            canonical_address = artifact.address
+            artifact.address = bytes.fromhex("99" * 20)
+            with self.assertRaises(ValueError):
+                bootstrap.authenticate_v1()
+            artifact.address = canonical_address
+        bootstrap.authenticate_v1()
+
     def test_builder_proof_verifier_exact_config_derivation_and_factory_pins(self):
         config = settlement.BuilderRegistryProofVerifierConfigV1()
         packed = config.packed_configuration_v1()
         encoded = config.encode_bpv1()
-        self.assertEqual(settlement.PROTOCOL_ROOT_ARTIFACT_COUNT, 19)
+        self.assertEqual(settlement.PROTOCOL_ROOT_ARTIFACT_COUNT, 21)
         self.assertEqual(len(packed), 71)
         self.assertEqual(len(encoded), 512)
         self.assertEqual(
@@ -18915,23 +19068,28 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         artifact = settlement.ProtocolRootBuilderProofVerifierArtifactV1(
             expected_address, init_hash, runtime_hash, encoded
         )
+        facet_bootstrap = lifecycle_facet_bootstrap_fixture(chain_id, namespace)
 
         def construct():
             return settlement.ProtocolRootFactoryModelV1(
                 bytes.fromhex("11" * 20), chain_id, namespace,
                 executor_address, executor_runtime, executor_config,
                 settlement.keccak256(b"root-factory-runtime"), init_hash,
-                runtime_hash, config_hash, executor, proxy, source_artifacts,
-                artifact,
+                runtime_hash, config_hash, facet_bootstrap, executor, proxy,
+                source_artifacts, artifact,
             )
 
         factory = construct()
         prf1 = factory.canonical_protocol_root_factory_config_v1()
-        self.assertEqual(len(prf1), 896)
+        self.assertEqual(len(prf1), 1_312)
         self.assertEqual(prf1[9 * 32:14 * 32], b"".join((
             init_hash, runtime_hash, config_hash, salt,
             bytes(12) + expected_address,
         )))
+        self.assertEqual(
+            prf1[14 * 32:27 * 32],
+            b"".join(facet_bootstrap.facets.factory_abi_words_v1()),
+        )
         for field_name, value in substitutions.items():
             artifact.config_return_override = replace(
                 config, **{field_name: value}
@@ -18959,6 +19117,21 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             construct()
         artifact.address = wrong_address
         factory._authenticate_builder_proof_verifier_v1()
+        for facet_artifact in (
+            facet_bootstrap.seat_artifact, facet_bootstrap.lease_artifact,
+        ):
+            for override, bad_value in (
+                ("runtime_override", settlement.keccak256(b"wrong-facet-runtime")),
+                ("config_return_override", bytes(192)),
+                ("component_config_override", settlement.keccak256(b"wrong-facet-config")),
+            ):
+                setattr(facet_artifact, override, bad_value)
+                with self.assertRaises(ValueError):
+                    factory._authenticate_builder_registry_facets_v1()
+                with self.assertRaises(ValueError):
+                    construct()
+                setattr(facet_artifact, override, None)
+        factory._authenticate_builder_registry_facets_v1()
 
     def test_root_role9_source_factory_initcode_and_exact_config(self):
         artifacts = settlement.ProtocolRootSourceFactoryCompilerArtifactsV1(
@@ -19051,12 +19224,13 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         )
         (proof_init_hash, proof_runtime_hash, proof_config_hash,
          proof_artifact) = proof_verifier_fixture(167, namespace)
+        facet_bootstrap = lifecycle_facet_bootstrap_fixture(167, namespace)
         factory = settlement.ProtocolRootFactoryModelV1(
             bytes.fromhex("11" * 20), 167, namespace, executor_address,
             executor_runtime, executor_config,
             settlement.keccak256(b"root-factory-runtime"), proof_init_hash,
-            proof_runtime_hash, proof_config_hash, executor, proxy, artifacts,
-            proof_artifact,
+            proof_runtime_hash, proof_config_hash, facet_bootstrap, executor,
+            proxy, artifacts, proof_artifact,
         )
         rows = tuple(
             (settlement.keccak256(f"c{role}".encode()),
@@ -19206,7 +19380,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             factory.address, 167, namespace, executor_address,
             executor_runtime, executor_config, factory.runtime_hash,
             proof_init_hash, proof_runtime_hash, proof_config_hash,
-            executor, proxy, artifacts, proof_artifact,
+            facet_bootstrap, executor, proxy, artifacts, proof_artifact,
             source_infrastructure_accounts=dict(
                 factory.source_infrastructure_accounts
             ),
@@ -19248,6 +19422,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         )
         (proof_init_hash, proof_runtime_hash, proof_config_hash,
          proof_artifact) = proof_verifier_fixture(167, namespace)
+        facet_bootstrap = lifecycle_facet_bootstrap_fixture(167, namespace)
         for creation_code, runtime_code in (
             (b"", b"runtime"), (b"creation", b""),
             (bytes(49_153), b"runtime"),
@@ -19354,11 +19529,12 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                 proxy_runtime_hash,
                 source_factory_compiler_artifacts.artifact_root,
                 proof_init_hash, proof_runtime_hash, proof_config_hash,
+                facet_bootstrap.facets,
             )
         )
         self.assertEqual(
             factory_configuration_hash.hex(),
-            "8df4703b732a8fd9a21db6cded82669c1dab02dbe68aae692f244a41c737de36",
+            "f1281830fc36ad3b0424dcb65ebb5c2e3a8209a07f25df2f980f67ac65089c68",
         )
         executor = settlement.RootMigrationExecutorModelV1(
             executor_address, 167, dao, executor_runtime_hash
@@ -19367,7 +19543,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             factory_address, 167, namespace, executor_address,
             executor_runtime_hash, executor_configuration_hash,
             factory_runtime_hash, proof_init_hash, proof_runtime_hash,
-            proof_config_hash, executor, proxy_artifact,
+            proof_config_hash, facet_bootstrap, executor, proxy_artifact,
             source_factory_compiler_artifacts, proof_artifact,
         )
         self.assertEqual(factory.proxy_creation_code_hash, proxy_creation_hash)
@@ -19379,7 +19555,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                 factory_address, 167, namespace, executor_address,
                 executor_runtime_hash, executor_configuration_hash,
                 factory_runtime_hash, proof_init_hash, proof_runtime_hash,
-                proof_config_hash, executor, proxy_artifact,
+                proof_config_hash, facet_bootstrap, executor, proxy_artifact,
                 source_factory_compiler_artifacts, proof_artifact,
             )
         executor.component_config_override = None
@@ -19389,7 +19565,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                 factory_address, 167, namespace, executor_address,
                 executor_runtime_hash, executor_configuration_hash,
                 factory_runtime_hash, proof_init_hash, proof_runtime_hash,
-                proof_config_hash, executor, proxy_artifact,
+                proof_config_hash, facet_bootstrap, executor, proxy_artifact,
                 source_factory_compiler_artifacts, proof_artifact,
             )
         executor.runtime_override = None
@@ -19407,7 +19583,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             factory_address, 167, namespace, executor_address,
             executor_runtime_hash, executor_configuration_hash,
             factory_runtime_hash, proof_init_hash, proof_runtime_hash,
-            proof_config_hash, executor, proxy_artifact,
+            proof_config_hash, facet_bootstrap, executor, proxy_artifact,
             source_factory_compiler_artifacts, proof_artifact,
             generation=settlement.UINT64_MAX,
         )
@@ -19452,7 +19628,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         )
         self.assertEqual(
             operation_id.hex(),
-            "89c46233a481620703ddb0e01b86d8e9c43a2304bf1ff1a8f7ba516129604032",
+            "770d5da04d9f01c290a47d4235f5c6c312f105660fc96bcdb97eebbbe786f821",
         )
         duplicate_id = executor.queue_v1(
             factory_address, manifest.manifest_hash(), factory_runtime_hash,
@@ -19479,7 +19655,8 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             executor_runtime_hash, executor_configuration_hash,
             settlement.keccak256(b"mutated-runtime"),
             proof_init_hash, proof_runtime_hash, proof_config_hash,
-            executor, proxy_artifact, source_factory_compiler_artifacts,
+            facet_bootstrap, executor, proxy_artifact,
+            source_factory_compiler_artifacts,
             proof_artifact,
         )
         with self.assertRaises(ValueError):
@@ -19504,9 +19681,9 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             gas_limit=settlement.ROOT_MIGRATION_FACTORY_CONFIG_READ_GAS,
             value=0,
         )
-        self.assertEqual(len(expected_factory_config_return), 896)
-        self.assertEqual(len(expected_factory_config_return) // 32, 28)
-        for word in range(28):
+        self.assertEqual(len(expected_factory_config_return), 1_312)
+        self.assertEqual(len(expected_factory_config_return) // 32, 41)
+        for word in range(41):
             corrupted = bytearray(expected_factory_config_return)
             corrupted[word * 32] ^= 1
             factory.factory_config_return_override = bytes(corrupted)
@@ -19517,7 +19694,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             factory.factory_config_return_override = None
             assert_stage_rollback()
         dirty_selector = bytearray(expected_factory_config_return)
-        dirty_selector[9 * 32 + 31] = 1
+        dirty_selector[27 * 32 + 31] = 1
         for malformed in (
             expected_factory_config_return[:-1],
             expected_factory_config_return + bytes(32),
@@ -19594,7 +19771,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             other_factory_address, 167, namespace, executor_address,
             executor_runtime_hash, executor_configuration_hash,
             factory_runtime_hash, proof_init_hash, proof_runtime_hash,
-            proof_config_hash, executor, proxy_artifact,
+            proof_config_hash, facet_bootstrap, executor, proxy_artifact,
             source_factory_compiler_artifacts, proof_artifact,
         )
         with self.assertRaises(ValueError):
@@ -19775,23 +19952,44 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             factory.builder_proof_verifier,
             factory.builder_proof_verifier_runtime_hash,
             factory.builder_proof_verifier_configuration_hash,
-            rows[0][2], bytes(32),
+            factory.builder_registry_facets, rows[0][2], bytes(32),
         )
         builder_config = replace(
             builder_config,
-            topology_hash=builder_config.topology_hash_v1(),
+            topology_hash=builder_config.topology_hash_v2(),
+        )
+        self.assertEqual(len(builder_config.topology_payload_v2()), 573)
+        self.assertEqual(
+            builder_config.topology_payload_v2()[373:541],
+            factory.builder_registry_facets.topology_packed_v1(),
         )
         encoded_builder_config = builder_config.encode_brc1()
         self.assertEqual(len(encoded_builder_config), 800)
         self.assertEqual(
-            settlement.decode_protocol_root_brc1_v1(encoded_builder_config),
+            settlement.decode_protocol_root_brc1_v1(
+                encoded_builder_config, factory.builder_registry_facets
+            ),
             builder_config,
         )
+        substituted_facets = settlement.BuilderRegistryLifecycleFacetSetV1(
+            167, namespace,
+            replace(
+                factory.builder_registry_facets.seat,
+                runtime_hash=settlement.keccak256(b"other-seat-runtime"),
+            ),
+            factory.builder_registry_facets.lease,
+        )
+        with self.assertRaises(ValueError):
+            settlement.decode_protocol_root_brc1_v1(
+                encoded_builder_config, substituted_facets
+            )
         for word in range(25):
             substituted = bytearray(encoded_builder_config)
             substituted[word * 32] ^= 1
             with self.assertRaises(ValueError):
-                settlement.decode_protocol_root_brc1_v1(bytes(substituted))
+                settlement.decode_protocol_root_brc1_v1(
+                    bytes(substituted), factory.builder_registry_facets
+                )
         timelock_view = settlement.ProtocolChangeTimelockConfigViewV1(
             dao, component_addresses[4],
             settlement.PROTOCOL_CHANGE_DELAY_SECONDS,
@@ -19947,7 +20145,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             factory_address, 167, namespace, executor_address,
             executor_runtime_hash, executor_configuration_hash,
             factory_runtime_hash, proof_init_hash, proof_runtime_hash,
-            proof_config_hash, executor, proxy_artifact,
+            proof_config_hash, facet_bootstrap, executor, proxy_artifact,
             source_factory_compiler_artifacts, proof_artifact,
         )
         reverse_campaign = settlement.ProtocolRootCampaignModelV1(
@@ -20031,7 +20229,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                 factory_address, 167, namespace, executor_address,
                 executor_runtime_hash, executor_configuration_hash,
                 factory_runtime_hash, proof_init_hash, proof_runtime_hash,
-                proof_config_hash, executor, proxy_artifact,
+                proof_config_hash, facet_bootstrap, executor, proxy_artifact,
                 source_factory_compiler_artifacts, proof_artifact,
             )
             campaign = settlement.ProtocolRootCampaignModelV1(
@@ -20544,7 +20742,8 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             factory_address, 167, namespace, executor_address,
             executor_runtime_hash, executor_configuration_hash,
             factory_runtime_hash, proof_init_hash, proof_runtime_hash,
-            proof_config_hash, restart_executor, proxy_artifact,
+            proof_config_hash, facet_bootstrap, restart_executor,
+            proxy_artifact,
             source_factory_compiler_artifacts, proof_artifact,
             generation=factory.generation,
             active_root_receipt=factory.active_root_receipt,

@@ -1,5 +1,12 @@
 # BuilderRegistry deployability repair
 
+> **Supersession note (v2.27):** the BPV1 verifier protocol below remains normative, but measurement
+> proved that it does not alone bring Registry under EIP-170. The later
+> `2026-09-06-builder-registry-lifecycle-facets-design.md` controls artifact count, Registry
+> constructor/topology widths, code-size boundaries, and the two frozen lifecycle facets. Claims
+> below that the verifier is the sole helper or that every delegatecall is forbidden describe the
+> superseded pre-measurement boundary.
+
 **Status:** accepted design repair for Slot-Chain v2.27  
 **Ownership:** normative LaTeX/model changes belong to PR #22064; Solidity and tests belong to
 PR #22096.
@@ -17,8 +24,9 @@ The repair must preserve these properties:
 
 - `BuilderRegistry` remains the sole state and custody authority. It alone owns roots, locators,
   counters, replay state, tombstones, credits, token transfers, and all state-changing entry points.
-- No proxy, delegatecall, mutable implementation, administrator, pause, arbitrary target, callback,
-  or helper-owned state is introduced.
+- No proxy, mutable implementation, administrator, pause, arbitrary target, callback, or
+  helper-owned state is introduced. The later lifecycle-facet repair permits only its seven
+  codehash-pinned, explicit fixed-target delegatecalls.
 - Proof computation is deterministic, bounded, configuration-authenticated, and fail-closed.
 - Every helper request and response is unambiguously bound to the exact prestate and witness.
 - Both deployable runtimes and their complete init code satisfy EIP-170 and EIP-3860 with margin.
@@ -92,10 +100,16 @@ bytes32 scheduleOracleRuntimeHash
 address builderProofVerifier
 bytes32 builderProofVerifierRuntimeHash
 bytes32 builderProofVerifierConfigurationHash
+address seatLifecycleFacet
+bytes32 seatLifecycleFacetRuntimeHash
+bytes32 seatLifecycleFacetConfigurationHash
+address leaseLifecycleFacet
+bytes32 leaseLifecycleFacetRuntimeHash
+bytes32 leaseLifecycleFacetConfigurationHash
 BuilderRewardClassConfigV1[3] rewardClasses
 ```
 
-The tuple is 39 static words; the complete constructor encoding is 42 words (1,344 bytes). It has
+The tuple is 45 static words; the complete constructor encoding is 48 words (1,536 bytes). It has
 no dynamic offset, decoder alias, optional suffix, or alternate packed form. Implementations access
 the tuple through staged validation helpers and do not destructure it into a stack-sized flat list.
 
@@ -243,30 +257,32 @@ state transition. There is no mutating external call between request constructio
 constructor. Its configuration hash and PRF1 row also commit those values plus the derived salt and
 address. Before root staging and again before finalization it authenticates the exact
 BPV1/component-config views. Role-1 BRC1 adds the derived address, runtime hash, and configuration
-hash after the Schedule runtime hash. The BRC1 return becomes 800 bytes; its topology preimage
-becomes 405 bytes. Factory requires exact equality between its own pins and BRC1 before activation.
+hash after the Schedule runtime hash. BRC1 remains 800 bytes; the v2 topology preimage becomes 573
+bytes after appending both facet triples. Factory combines BRC1 with its own facet pins before
+activation, as specified by the later lifecycle-facet repair.
 
 The canonical zero-value ERC-2470 call is `deploy(bytes,bytes32)`, selector `0x4af63f02`, head
 `[0x40,helperSalt]`, followed by the exact contiguous init-code length/data and zero padding. It must
 return the exact derived address. An earlier exact-code deployment at that address is accepted;
 different init code derives a different address. Missing/wrong code, wrong config, malformed return,
-or a dirty collision blocks before Factory/root activation. Deployment order is verifier, Factory,
-then the nine-role campaign. An aborted campaign reuses the verifier; there is no mutable fallback.
+or a dirty collision blocks before Factory/root activation. Deployment order is verifier, both
+lifecycle facets, Factory, then the nine-role campaign. An aborted campaign reuses the three
+generic artifacts; there is no mutable fallback.
 
-The root artifact gate covers nineteen artifacts in one release-pinned Layer-1 build. It rejects a
+The root artifact gate covers twenty-one artifacts in one release-pinned Layer-1 build. It rejects a
 verifier with storage writes or mutable/delegate/callback reachability, either runtime above 24,576
 bytes, either complete init code above 49,152 bytes, or Registry runtime above 23,500 bytes. The
-23,500-byte Registry ceiling is a release engineering margin, not an EVM consensus rule. If the
-selected split misses it, the same verifier may absorb additional whole proof-plan opcodes; adding a
-second helper or moving state/custody authority is not an authorized implementation shortcut.
+23,500-byte Registry ceiling is a release engineering margin, not an EVM consensus rule. The
+measured proof-only split missed EIP-170; the frozen lifecycle facets are the authorized follow-up.
 
 ## Rejected alternatives
 
 - **Evidence-only helper:** the measured Registry remains above EIP-170.
 - **Constructor-created helper:** embeds helper creation code in Registry init code, weakens the
   Factory's independent pin, and creates a second EIP-3860/code-deposit coupling.
-- **Linked external library/delegatecall/diamond:** gives proof code Registry storage authority and
-  expands upgrade or layout risk.
+- **Mutable or generic linked library/delegatecall/diamond:** gives uncommitted code Registry storage
+  authority. The later exact-selector, immutable, codehash/config/layout-pinned lifecycle facets
+  address this risk without an upgrade surface.
 - **Stateful sub-registry:** splits root, replay, custody, and locator authority and creates atomicity
   and cross-contract liveness failures.
 - **Opaque custom-packed constructor bytes:** avoids one compiler symptom but removes typed ABI
@@ -276,7 +292,7 @@ second helper or moving state/custody authority is not an authorized implementat
 
 The repair is complete only when tests prove:
 
-1. non-via-IR constructor compilation and exact 1,344-byte tuple encoding;
+1. non-via-IR constructor compilation and exact 1,536-byte tuple encoding;
 2. exact BPV1/BRC1/PRF1 returns and all one-field substitutions;
 3. selector, offset, length, padding, suffix, value, gas, return-size, and dirty-word rejection for
    both verifier calls;
@@ -289,7 +305,7 @@ The repair is complete only when tests prove:
 7. stateful root/custody/credit/counter invariants under verifier faults;
 8. compiled size gates for both runtimes and complete init code, including the 23,500-byte Registry
    engineering ceiling; and
-9. a clean two-build deterministic artifact transcript containing all nineteen artifacts.
+9. a clean two-build deterministic artifact transcript containing all twenty-one artifacts.
 
 The pre-existing 1,500,000-gas Executor-to-Factory stage operand is also a blocking measurement
 gate because stage now performs BPV1 plus component-config reads. The widened compiled cold path
