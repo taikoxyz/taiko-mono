@@ -3,33 +3,29 @@
   import { t } from 'svelte-i18n';
   import { ContractFunctionExecutionError, type Hash, UserRejectedRequestError } from 'viem';
 
-  import { chainConfig } from '$chainConfig';
   import { CloseButton } from '$components/Button';
   import DesktopOrLarger from '$components/DesktopOrLarger/DesktopOrLarger.svelte';
   import Claim from '$components/Dialogs/Claim.svelte';
-  import {
-    errorToast,
-    infoToast,
-    successToast,
-    warningToast,
-  } from '$components/NotificationToast/NotificationToast.svelte';
+  import { errorToast, warningToast } from '$components/NotificationToast/NotificationToast.svelte';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import type { BridgeTransaction } from '$libs/bridge/types';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import {
+    BlockNotSyncedError,
     InsufficientBalanceError,
     InvalidProofError,
     NotConnectedError,
     ProcessMessageError,
+    ProofGenerationError,
     RetryError,
   } from '$libs/error';
   import type { NFT } from '$libs/token';
   import { getLogger } from '$libs/util/logger';
-  import { connectedSourceChain } from '$stores/network';
-  import { pendingTransactions } from '$stores/pendingTransactions';
 
   import { ClaimConfirmStep, ReviewStep } from '../Shared';
   import ClaimPreCheck from '../Shared/ClaimPreCheck.svelte';
+  import { reportDialogTransaction } from '../Shared/dialogTransactionFlow';
+  import { createResetGate } from '../Shared/resetGate';
   import { ClaimAction } from '../Shared/types';
   import { DialogStep, DialogStepper } from '../Stepper';
   import ClaimStepNavigation from './ClaimStepNavigation.svelte';
@@ -62,12 +58,21 @@
       showQuotaReachedToast,
       onQuotaCheckError: logQuotaCheckError,
     });
+    // The attempt settled without a transaction - the quota refused it, or the error handler
+    // has already reported it - unless one is pending now, which the gate leaves alone
+    resetGate.settle();
   };
 
   let force = false;
   // let canForceTransaction = false;
   let canContinue = false;
   let claiming: boolean;
+  /**
+   * A claim transaction is on chain and its outcome is not known yet. With `claiming` this
+   * is what holds the reset gate below closed, so reopening the dialog cannot offer a second
+   * claim for a message whose first claim may still confirm.
+   */
+  let claimTxPending = false;
   let claimingDone = false;
   let ClaimComponent: Claim;
   let txHash: Hash;
@@ -89,46 +94,27 @@
     txHash = transactionHash;
     log('handle claim tx sent', txHash, action);
     claiming = true;
+    claimTxPending = true;
 
-    const explorer = chainConfig[Number(bridgeTx.destChainId)]?.blockExplorers?.default.url;
-
-    if (action === ClaimAction.CLAIM) {
-      infoToast({
-        title: $t('transactions.actions.claim.tx.title'),
-        message: $t('transactions.actions.claim.tx.message', {
-          values: {
-            token: bridgeTx.symbol,
-            url: `${explorer}/tx/${txHash}`,
-          },
-        }),
-      });
-      await pendingTransactions.add(txHash, Number(bridgeTx.destChainId));
-    } else {
-      // Retry
-      infoToast({
-        title: $t('transactions.actions.claim.tx.title'),
-        message: $t('transactions.actions.claim.tx.message', {
-          values: {
-            token: bridgeTx.symbol,
-            url: `${explorer}/tx/${txHash}`,
-          },
-        }),
-      });
-      await pendingTransactions.add(txHash, Number(bridgeTx.destChainId));
-    }
-
-    claimingDone = true;
-
-    dispatch('claimingDone');
-
-    successToast({
-      title: $t('transactions.actions.claim.success.title'),
-      message: $t('transactions.actions.claim.success.message', {
-        values: {
-          network: $connectedSourceChain.name,
-        },
-      }),
+    const outcome = await reportDialogTransaction({
+      txHash,
+      chainId: Number(bridgeTx.destChainId),
+      t: $t,
+      failureTitleKey: 'bridge.errors.process_message_error',
     });
+
+    // A wait that gave up leaves the transaction live and may yet claim the message. Lowering
+    // the flags would re-enable Claim for it, so the dialog stays exactly as it is
+    if (outcome === 'pending') return;
+
+    claiming = false;
+    claimTxPending = false;
+    if (outcome !== 'failed') {
+      claimingDone = true;
+      dispatch('claimingDone');
+    }
+    // A close refused while the transaction was pending is applied now
+    resetGate.settle();
   };
 
   const showQuotaReachedToast = () => {
@@ -172,6 +158,19 @@
       case err instanceof RetryError:
         errorToast({ title: $t('bridge.errors.retry_error') });
         break;
+      // BridgeProver refuses a claim before any transaction exists when the destination chain
+      // has not synced the source block yet, or cannot build a proof against the state it has.
+      // That is the same "not yet" a B_SIGNAL_NOT_RECEIVED revert reports below, reached
+      // client-side; it used to fall through to "Unknown error - please try again", which
+      // reads as a failure when the next checkpoint resolves it with no action at all
+      case err instanceof BlockNotSyncedError:
+      case err instanceof ProofGenerationError:
+        console.error(err);
+        warningToast({
+          title: $t('bridge.errors.claim.not_synced.title'),
+          message: $t('bridge.errors.claim.not_synced.message'),
+        });
+        break;
       case err instanceof ContractFunctionExecutionError:
         console.error(err);
         if (isMessageNotReceivedError(err)) {
@@ -196,12 +195,29 @@
         break;
     }
     claiming = false;
+    resetGate.settle();
   };
 
+  /**
+   * Closing the dialog or switching accounts cancels neither a claim awaiting the wallet's
+   * signature nor one already on chain. Rewinding the steps here - and clearing `claiming`,
+   * as this used to - handed the user a fresh Claim button for that same message as soon as
+   * the dialog was reopened from the row, while the first request was still in the wallet.
+   * The gate refuses the rewind while the claim is in flight and applies it once the attempt
+   * has settled; `claiming` itself is only ever lowered by the error and outcome handlers.
+   */
+  const resetGate = createResetGate({
+    inFlight: () => claiming || claimTxPending,
+    isOpen: () => dialogOpen,
+    rewind: () => {
+      activeStep = INITIAL_STEP;
+      claimingDone = false;
+      // canForceTransaction = false;
+    },
+  });
+
   const reset = () => {
-    activeStep = INITIAL_STEP;
-    claimingDone = false;
-    // canForceTransaction = false;
+    resetGate.request();
   };
 
   $: claimMode = directClaim ? 'try_claim' : 'claim';

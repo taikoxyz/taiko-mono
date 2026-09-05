@@ -34,9 +34,9 @@ require (
 	github.com/pressly/goose/v3 v3.27.3
 	github.com/prometheus/client_golang v1.24.1
 	github.com/prysmaticlabs/prysm/v5 v5.3.3
-	github.com/rabbitmq/amqp091-go v1.13.0
+	github.com/rabbitmq/amqp091-go v1.14.0
 	github.com/shopspring/decimal v1.4.0
-	github.com/stretchr/testify v1.11.1
+	github.com/stretchr/testify v1.12.1
 	github.com/swaggo/swag v1.16.6
 	github.com/testcontainers/testcontainers-go v0.44.0
 	github.com/urfave/cli/v2 v2.27.7
@@ -239,7 +239,6 @@ require (
 	github.com/pion/turn/v2 v2.1.6 // indirect
 	github.com/pion/webrtc/v3 v3.3.0 // indirect
 	github.com/pjbgf/sha1cd v0.6.0 // indirect
-	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.70.1 // indirect
@@ -285,6 +284,7 @@ require (
 	go.uber.org/mock v0.5.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/crypto v0.54.0 // indirect
 	golang.org/x/exp v0.0.0-20260718201538-764159d718ef // indirect
 	golang.org/x/mod v0.38.0 // indirect
@@ -295,9 +295,9 @@ require (
 	golang.org/x/text v0.40.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	golang.org/x/tools v0.48.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20260414002931-afd174a4e478 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260526163538-3dc84a4a5aaa // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260720211330-0afa2a65878a // indirect
-	google.golang.org/grpc v1.82.1 // indirect
+	google.golang.org/grpc v1.83.1 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
@@ -305,7 +305,7 @@ require (
 	lukechampine.com/blake3 v1.3.0 // indirect
 )
 
-replace github.com/ethereum/go-ethereum v1.15.5 => github.com/taikoxyz/taiko-geth v1.18.1-0.20260715122422-ca164c06e00c
+replace github.com/ethereum/go-ethereum v1.15.5 => github.com/taikoxyz/taiko-geth v1.18.1-0.20260828062607-fe4f45c83f7a
 
 replace github.com/ethereum-optimism/optimism v1.7.4 => github.com/taikoxyz/optimism v0.0.0-20260420065638-5490c5186828
 

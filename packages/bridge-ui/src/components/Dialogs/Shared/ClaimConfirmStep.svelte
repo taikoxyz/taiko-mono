@@ -20,6 +20,14 @@
 
   export let txHash: Hash;
 
+  /**
+   * The chain `txHash` was sent on. Claim and retry run on the destination chain, but a
+   * release recalls the message on the source chain - ReleaseDialog already waits for its
+   * receipt there, while this success link was hardcoded to the destination and sent the
+   * user to the wrong explorer.
+   */
+  export let txChainId: number = Number(bridgeTx.destChainId);
+
   // export let canForceTransaction = false;
 
   const dispatch = createEventDispatcher();
@@ -39,7 +47,7 @@
   const getSuccessDescription = () => {
     if (!txHash) return;
 
-    const explorer = chainConfig[Number(bridgeTx.destChainId)]?.blockExplorers?.default.url;
+    const explorer = chainConfig[txChainId]?.blockExplorers?.default.url;
     const url = `${explorer}/tx/${txHash}`;
 
     successDescription = $t('transactions.actions.claim.success.message', { values: { url } });

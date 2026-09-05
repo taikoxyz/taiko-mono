@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"math"
 	"math/big"
@@ -441,6 +440,7 @@ func (p *Processor) sendProcessMessageCall(
 	receipt, err := p.txmgr.Send(ctx, candidate)
 	if err != nil {
 		slog.Warn("Failed to send ProcessMessage transaction", "error", err.Error())
+
 		return nil, err
 	}
 
@@ -632,33 +632,56 @@ func (p *Processor) saveMessageStatusChangedEvent(
 
 	m := make(map[string]interface{})
 
+	var statusLog *types.Log
+
 	for _, log := range receipt.Logs {
-		if log == nil || len(log.Topics) == 0 {
+		// Only the destination bridge's own transition for this message. Anything the bridge
+		// calls while processing - the invoked contract, or destOwner when it is refunded -
+		// runs before the bridge emits its status and can emit a log with the same signature
+		// and hash; matched on the signature alone, a spoofed DONE ahead of the bridge's
+		// RETRIABLE was stored as the outcome, and would now be reported as a claim
+		if log == nil || log.Address != p.cfg.DestBridgeAddress || len(log.Topics) < 2 ||
+			log.Topics[0] != bridgeAbi.Events["MessageStatusChanged"].ID ||
+			log.Topics[1] != common.Hash(event.MsgHash) {
 			continue
 		}
 
-		topic := log.Topics[0]
-		if topic == bridgeAbi.Events["MessageStatusChanged"].ID {
-			err = bridgeAbi.UnpackIntoMap(m, "MessageStatusChanged", log.Data)
-			if err != nil {
-				return err
-			}
-
-			break
+		err = bridgeAbi.UnpackIntoMap(m, "MessageStatusChanged", log.Data)
+		if err != nil {
+			return err
 		}
+
+		statusLog = log
+
+		break
 	}
 
-	if m["status"] != nil {
-		// keep same format as other raw events
-		data := fmt.Sprintf(`{"Raw":{"transactionHash": "%v"}}`, receipt.TxHash.Hex())
+	if statusLog != nil && m["status"] != nil {
+		status := m["status"].(uint8)
+
+		// The whole log, in the shape the indexer stores it and keyed the way the indexer
+		// keys it - the chain the status was emitted on, the other chain, the block it was
+		// emitted in - so the API can read the claim transaction's block and index off this
+		// row as well, and the two writers' rows for a message form one series. This row
+		// lands before the indexer sees the log, and it used to carry nothing but the
+		// transaction hash: a reader taking the first row per message found this one, and no
+		// message the relayer claimed itself could name its claimer.
+		data, err := json.Marshal(&bridge.BridgeMessageStatusChanged{
+			MsgHash: event.MsgHash,
+			Status:  status,
+			Raw:     *statusLog,
+		})
+		if err != nil {
+			return errors.Wrap(err, "json.Marshal")
+		}
 
 		_, err = p.eventRepo.Save(ctx, &relayer.SaveEventOpts{
 			Name:           relayer.EventNameMessageStatusChanged,
-			Data:           data,
-			EmittedBlockID: event.Raw.BlockNumber,
-			ChainID:        new(big.Int).SetUint64(event.Message.SrcChainId),
-			DestChainID:    new(big.Int).SetUint64(event.Message.DestChainId),
-			Status:         relayer.EventStatus(m["status"].(uint8)),
+			Data:           string(data),
+			EmittedBlockID: statusLog.BlockNumber,
+			ChainID:        new(big.Int).SetUint64(event.Message.DestChainId),
+			DestChainID:    new(big.Int).SetUint64(event.Message.SrcChainId),
+			Status:         relayer.EventStatus(status),
 			MsgHash:        common.Hash(event.MsgHash).Hex(),
 			MessageOwner:   event.Message.SrcOwner.Hex(),
 			Event:          relayer.EventNameMessageStatusChanged,

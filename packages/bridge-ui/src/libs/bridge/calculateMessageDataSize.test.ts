@@ -99,7 +99,7 @@ describe('calculateMessageDataSize', () => {
       token,
       chainId,
       tokenIds: [1, 2, 3],
-      amounts: [5, 1, 42],
+      amounts: [5n, 1n, 42n],
     });
 
     // Then
@@ -115,7 +115,7 @@ describe('calculateMessageDataSize', () => {
       token,
       chainId,
       tokenIds: [1],
-      amounts: [1],
+      amounts: [1n],
     });
 
     expect(result).toEqual(explicitSingleNFTResult);

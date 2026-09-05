@@ -5,14 +5,14 @@
   import { Spinner } from '$components/Spinner';
   import { StatusDot } from '$components/StatusDot';
   import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
-  import { isTransactionProcessable } from '$libs/bridge/isTransactionProcessable';
+  import { isTransactionProcessable, type Processability } from '$libs/bridge/isTransactionProcessable';
   import { PollingEvent, startPolling } from '$libs/polling/messageStatusPoller';
   import { bridgeTxService } from '$libs/storage';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { account } from '$stores/account';
   import { connectedSourceChain } from '$stores/network';
 
-  import { assertBridgeNotPaused, shouldShowManualClaimEntry } from './status';
+  import { assertBridgeNotPaused, isEligibleForStorageRemoval, shouldShowManualClaimEntry } from './status';
 
   const dispatch = createEventDispatcher();
 
@@ -21,7 +21,9 @@
   export let textOnly: boolean = false;
 
   // UI state
-  let isProcessable = false; // bridge tx state to be processed: claimed/retried/released
+  // bridge tx state to be processed: claimed/retried/released. `null` means the read could not
+  // answer, which the manual claim entry treats differently from a settled "not yet"
+  let isProcessable: Processability = false;
   let polling: ReturnType<typeof startPolling>;
   let loading = false;
   let hasError = false;
@@ -32,7 +34,7 @@
     processingFee: bridgeTx.processingFee,
   });
 
-  function onProcessable(isTxProcessable: boolean) {
+  function onProcessable(isTxProcessable: Processability) {
     isProcessable = isTxProcessable;
   }
 
@@ -70,9 +72,15 @@
 
     dispatch('openModal', 'try_claim');
   }
-  $: if (hasError && $account.address) {
+  // Date.now() is deliberately not reactive. The threshold exists to stop a *fresh*
+  // transaction being deleted for a transient polling failure - removing a stale one
+  // promptly is not the point, and a row that crosses 24h while still mounted is simply
+  // re-evaluated the next time the page loads. A timer here would keep a component alive
+  // for a cleanup nobody is waiting on.
+  $: if (hasError && $account?.address && isEligibleForStorageRemoval(bridgeTx, Date.now())) {
     if (bridgeTxService.transactionIsStoredLocally($account.address, bridgeTx)) {
-      // If we can't start polling, it maybe an old/outdated transaction in the local storage, so we remove it
+      // Polling could not start and the transaction is old enough that this cannot be a transient
+      // enhancement failure, so drop the stale entry from local storage
       bridgeTxService.removeTransactions($account.address, [bridgeTx]);
       if (!bridgeTxService.transactionIsStoredLocally($account.address, bridgeTx)) {
         dispatch('transactionRemoved', bridgeTx);
@@ -80,14 +88,37 @@
     }
   }
 
+  // The row can be unmounted while the read below is still pending. onDestroy then finds
+  // no poller to clean up, so anything attached afterwards would never be detached from
+  // the shared per-hash emitter and would keep it polling forever.
+  let destroyed = false;
+
+  /** Detach this row's listeners; polling itself stops once no subscriber is left */
+  const detachPolling = () => {
+    if (!polling) return;
+    polling.destroy({
+      [PollingEvent.PROCESSABLE]: onProcessable,
+      [PollingEvent.STATUS]: onStatusChange,
+    });
+  };
+
   onMount(async () => {
     if (bridgeTx && $account?.address) {
       bridgeTxStatus = bridgeTx.msgStatus;
 
-      // Can we start claiming/retrying/releasing?
-      isProcessable = await isTransactionProcessable(bridgeTx);
-
       try {
+        // Can we start claiming/retrying/releasing? A single failed read here must not
+        // prevent polling from starting: the poller re-reads this on every tick, so an
+        // undetermined answer is recoverable while never starting the poller is not.
+        try {
+          isProcessable = await isTransactionProcessable(bridgeTx);
+        } catch (err) {
+          console.warn('Could not determine whether the transaction is processable', err);
+          isProcessable = null;
+        }
+
+        if (destroyed) return;
+
         polling = startPolling(bridgeTx);
 
         // If there is no emitter, means the bridgeTx is already DONE
@@ -105,9 +136,8 @@
   });
 
   onDestroy(() => {
-    if (polling) {
-      polling.destroy();
-    }
+    destroyed = true;
+    detachPolling();
   });
 </script>
 

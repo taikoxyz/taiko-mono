@@ -37,7 +37,7 @@ export const fetchNFTs = async ({
     return { nfts, error: null };
   } catch (error) {
     console.error('Fetch error:', error);
-    return { nfts: [], error: new Error('') };
+    return { nfts: [], error: error instanceof Error ? error : new Error(String(error)) };
   }
 };
 
@@ -59,16 +59,16 @@ const fetchL1NFTs = async ({
     body: JSON.stringify({ address: userAddress, chainId: srcChainId, refresh }),
   });
 
-  if (moralisResponse.ok) {
-    const responseData = await moralisResponse.json();
-    log('cursor', responseData);
-    const { nfts } = responseData;
-
-    return nfts;
-  } else {
-    console.error('HTTP error:', moralisResponse.statusText);
-    return { nfts: [], error: new Error(moralisResponse.statusText) };
+  if (!moralisResponse.ok) {
+    // Throw instead of returning a foreign shape: the caller maps over the result as NFT[]
+    throw new Error(`Failed to fetch L1 NFTs: ${moralisResponse.status} ${moralisResponse.statusText}`);
   }
+
+  const responseData = await moralisResponse.json();
+  log('cursor', responseData);
+  const { nfts } = responseData;
+
+  return nfts;
 };
 
 const fetchL2NFTs = async ({

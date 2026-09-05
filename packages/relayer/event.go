@@ -146,6 +146,11 @@ type EventRepository interface {
 		event string,
 		msgHash string,
 	) (*Event, error)
+	FindAllByEventAndMsgHash(
+		ctx context.Context,
+		event string,
+		msgHash string,
+	) ([]*Event, error)
 	Delete(ctx context.Context, id int) error
 	CheckpointSyncedEventByBlockNumberOrGreater(
 		ctx context.Context,

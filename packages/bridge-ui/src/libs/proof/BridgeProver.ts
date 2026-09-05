@@ -10,14 +10,13 @@ import {
   hexToBigInt,
   keccak256,
   numberToHex,
-  toHex,
 } from 'viem';
 
 import { signalServiceAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
 import { isL2Chain } from '$libs/chain';
-import { BlockNotSyncedError, ClientError, ProofGenerationError } from '$libs/error';
+import { BlockNotSyncedError, ClientError, ProofGenerationError, WrongBridgeConfigError } from '$libs/error';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
@@ -167,23 +166,21 @@ export class BridgeProver {
     } catch (error) {
       log('Checkpoint NOT found', { blockNumber, error });
 
-      // Diagnostic: check if Anchor's checkpointStore matches SignalService
+      // Diagnostic: an anchor that keeps its checkpoints in a contract other than the configured
+      // SignalService is a deployment mismatch no later checkpoint can cure. It gets its own class
+      // so the dialogs do not report it as the transient "cannot prove this yet" thrown below
       const anchorAddress = routingContractsMap[destChainId][srcChainId].anchorForkRouter;
       if (anchorAddress) {
-        try {
-          const checkpointStore = await readContract(config, {
-            address: anchorAddress,
-            abi: anchorGetBlockStateAbi,
-            functionName: 'checkpointStore',
-            chainId: destChainId,
-          });
-          if (checkpointStore.toLowerCase() !== destSignalService.toLowerCase()) {
-            throw new ProofGenerationError(
-              `Anchor's checkpointStore (${checkpointStore}) does NOT match SignalService (${destSignalService})`,
-            );
-          }
-        } catch (e) {
-          if (e instanceof ProofGenerationError) throw e;
+        const checkpointStore = await readContract(config, {
+          address: anchorAddress,
+          abi: anchorGetBlockStateAbi,
+          functionName: 'checkpointStore',
+          chainId: destChainId,
+        }).catch(() => undefined);
+        if (checkpointStore && checkpointStore.toLowerCase() !== destSignalService.toLowerCase()) {
+          throw new WrongBridgeConfigError(
+            `Anchor's checkpointStore (${checkpointStore}) does NOT match SignalService (${destSignalService})`,
+          );
         }
       }
 
@@ -194,16 +191,15 @@ export class BridgeProver {
   }
 
   async getEncodedSignalProofForRecall({ bridgeTx }: { bridgeTx: BridgeTransaction }) {
-    const { blockNumber, message, msgHash } = bridgeTx;
+    const { message, msgHash } = bridgeTx;
     if (!message) throw new ProofGenerationError('Message is not defined');
-    if (!blockNumber) throw new ProofGenerationError('Block number is not defined');
 
     const { srcChainId, destChainId } = message;
+    // bridgeTx.blockNumber is a source-chain height, while the FAILED signal proven here lives on
+    // the destination chain at an unknown block, so there is no block number to gate on: comparing
+    // the two chains' heights can permanently block a legitimate recall. getProof() below still
+    // rejects the proof while the signal is absent from the synced destination state.
     const latestSyncedBlock = await this.getLatestSyncedBlockNumber(destChainId, srcChainId);
-
-    if (latestSyncedBlock < hexToBigInt(blockNumber)) {
-      throw new BlockNotSyncedError('block is not synced yet');
-    }
 
     await this.verifyCheckpoint(Number(destChainId), Number(srcChainId), latestSyncedBlock);
 
@@ -291,7 +287,11 @@ export class BridgeProver {
       params: [signalServiceAddress, [key], numberToHex(blockNumber)],
     });
 
-    if (ethProof.storageProof[0].value === toHex(0)) {
+    // Compared as a number, not as the string `0x0`: a node that answers `0x00` or a
+    // zero-padded word for an empty slot was slipping past a text comparison, and an empty
+    // storageProof array threw a TypeError on the index instead of the error this is for
+    const [slot] = ethProof.storageProof ?? [];
+    if (!slot || hexToBigInt(slot.value) === 0n) {
       throw new ProofGenerationError('proof will not be valid, expected storageProof to not be 0');
     }
 

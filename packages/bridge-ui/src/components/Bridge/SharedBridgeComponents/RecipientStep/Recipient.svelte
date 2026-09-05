@@ -1,6 +1,7 @@
 <script lang="ts">
+  import { onDestroy, tick } from 'svelte';
   import { t } from 'svelte-i18n';
-  import type { Address } from 'viem';
+  import { type Address, isAddress } from 'viem';
 
   import { destNetwork, destOwnerAddress, recipientAddress } from '$components/Bridge/state';
   import { ActionButton, CloseButton } from '$components/Button';
@@ -10,12 +11,21 @@
   import { account } from '$stores/account';
 
   import AddressInput from '../AddressInput/AddressInput.svelte';
+  import { addressesEqual, canConfirmRecipient, type ValidatedRecipient } from './recipientValidation';
   // import Alert from '$components/Alert/Alert.svelte';
 
   // Public API
   export const clearRecipient = () => {
+    // Discard an in-flight classification outright. Clearing the input empties the bound
+    // draft, so syncRecipientDraft retires the lookup on the next flush anyway - but that
+    // makes this function's guarantee depend on what AddressInput does to the binding,
+    // and the cost of stating it here is one call
+    supersedePendingValidation();
     if (addressInput) addressInput.clearAddress(); // update UI
     $recipientAddress = null; // update state
+    validatedRecipient = null;
+    recipientIsSmartContract = false;
+    invalidRecipient = false;
   };
 
   export let small = false;
@@ -29,9 +39,31 @@
   let invalidRecipient = false;
   let invalidDestOwner = false;
   let prevRecipientAddress: Maybe<Address> = null;
+  let prevDestOwnerAddress: Maybe<Address> = null;
 
   let recipientIsSmartContract = false;
-  // let destOwnerIsSmartContract = false;
+  let destOwnerIsSmartContract = false;
+
+  // Classifying a recipient needs an RPC round trip. Until it resolves we do not know
+  // whether a destination owner is required, so confirming stays blocked; a superseded
+  // or failed lookup must never leave a stale classification behind.
+  let validatingRecipient = false;
+  let recipientValidationGeneration = 0;
+  let pendingRecipientLookup: Maybe<string> = null;
+
+  // What was actually validated, rather than a flag some earlier validation set.
+  // AddressInput stays silent for a cleared field and for text without a `0x` prefix, so
+  // these are compared against the live drafts before Confirm is enabled.
+  let validatedRecipient: Maybe<ValidatedRecipient> = null;
+  let validatedDestOwner: Maybe<ValidatedRecipient> = null;
+
+  // Snapshot of everything Cancel has to restore
+  let prevInvalidRecipient = false;
+  let prevInvalidDestOwner = false;
+  let prevRecipientIsSmartContract = false;
+  let prevDestOwnerIsSmartContract = false;
+  let prevValidatedRecipient: Maybe<ValidatedRecipient> = null;
+  let prevValidatedDestOwner: Maybe<ValidatedRecipient> = null;
 
   function closeModal() {
     modalOpen = false;
@@ -40,22 +72,102 @@
   function openModal() {
     modalOpen = true;
     addressInput.focus();
-    addEscKeyListener();
+  }
+
+  /**
+   * Discard any in-flight classification so its result cannot be committed later.
+   *
+   * Both counters, deliberately. This is called from every invalidation path there is -
+   * cancel, destroy, clearRecipient, either draft watcher, a destination-chain change - and
+   * when it bumped only the recipient's, every one of those paths left a pending
+   * destination-owner lookup free to resolve afterwards and write the store. Keeping the two
+   * together here is what makes a new invalidation path correct without having to remember
+   * there are two.
+   */
+  function supersedePendingValidation() {
+    recipientValidationGeneration++;
+    destOwnerValidationGeneration++;
+    pendingRecipientLookup = null;
+    validatingRecipient = false;
+  }
+
+  /** Whether the stored classification still describes the live recipient and chain */
+  function recipientClassificationIsCurrent(): boolean {
+    return (
+      !!validatedRecipient &&
+      addressesEqual(validatedRecipient.address, $recipientAddress) &&
+      validatedRecipient.chainId === $destNetwork?.id
+    );
   }
 
   function cancelModal() {
-    // Revert change of recipient address
+    supersedePendingValidation();
+
+    // Revert to the state the dialog was opened with, including a previously configured
+    // destOwner and the validation flags, so reopening does not show stale controls
     $recipientAddress = prevRecipientAddress;
-    $destOwnerAddress = recipientIsSmartContract ? $account?.address : null;
-    removeEscKeyListener();
+    $destOwnerAddress = prevDestOwnerAddress;
+    invalidRecipient = prevInvalidRecipient;
+    invalidDestOwner = prevInvalidDestOwner;
+    recipientIsSmartContract = prevRecipientIsSmartContract;
+    // A contract typed into the owner box raises this without touching the store, and
+    // nothing below re-classifies an owner the store still holds - so left alone, it kept
+    // Confirm refused on reopen beside an owner the box showed as valid
+    destOwnerIsSmartContract = prevDestOwnerIsSmartContract;
+    // The snapshot was taken before a destination-chain change could invalidate it;
+    // restoring a classification for a chain we no longer bridge to would make the
+    // dialog skip reclassification on reopen while the predicate rejects the mismatch
+    validatedRecipient =
+      prevValidatedRecipient && prevValidatedRecipient.chainId === $destNetwork?.id ? prevValidatedRecipient : null;
+    validatedDestOwner = prevValidatedDestOwner;
+
+    // Assigning a store the value it already holds emits no update, so the reactive
+    // bindings below would not re-run and the discarded draft would stay on screen.
+    // Restore the local drafts and the inputs themselves explicitly.
+    ethereumAddressBinding = prevRecipientAddress ?? undefined;
+    destOwnerAddressBinding = prevDestOwnerAddress ?? undefined;
+    addressInput?.setAddress(prevRecipientAddress ?? '');
+    destOwnerAddressInput?.setAddress(prevDestOwnerAddress ?? '');
+
     closeModal();
   }
 
   function modalOpenChange(open: boolean) {
     if (open) {
-      // Save it in case we want to cancel
+      // Save them in case we want to cancel
       prevRecipientAddress = $recipientAddress;
+      prevDestOwnerAddress = $destOwnerAddress;
+      prevInvalidRecipient = invalidRecipient;
+      prevInvalidDestOwner = invalidDestOwner;
+      prevRecipientIsSmartContract = recipientIsSmartContract;
+      prevDestOwnerIsSmartContract = destOwnerIsSmartContract;
+      prevValidatedRecipient = validatedRecipient;
+      prevValidatedDestOwner = validatedDestOwner;
+
+      // AddressInput only dispatches validation on user input, so a pre-filled recipient
+      // would otherwise stay unclassified and could be confirmed on a stale answer.
+      // A record that does not describe both the current draft and the current
+      // destination chain is no better than none: reclassify rather than sit on it.
+      if ($recipientAddress && !recipientClassificationIsCurrent()) {
+        validateRecipient($recipientAddress);
+      }
+      // The same for the owner. It is classified when the store changes and when the user
+      // types, and neither covers a committed owner whose record is missing at open time -
+      // the store-triggered lookup still pending, or failed on an RPC error. Cancel restored
+      // that missing record, so no reopen could enable Confirm while box and store both
+      // held the owner, and nothing said why.
+      if (destOwnerAddressBinding && isAddress(destOwnerAddressBinding) && !destOwnerClassificationIsCurrent()) {
+        validateDestOwner(destOwnerAddressBinding);
+      }
     }
+  }
+
+  function destOwnerClassificationIsCurrent() {
+    return (
+      !!validatedDestOwner &&
+      addressesEqual(validatedDestOwner.address, destOwnerAddressBinding) &&
+      validatedDestOwner.chainId === $destNetwork?.id
+    );
   }
 
   async function onRecipientValidation(event: CustomEvent<{ isValidEthereumAddress: boolean; addr: Address }>) {
@@ -64,17 +176,50 @@
     if (isValidEthereumAddress) {
       validateRecipient(addr);
     } else {
+      // Supersede any in-flight classification so its result cannot arrive later
+      supersedePendingValidation();
+      validatedRecipient = null;
+      recipientIsSmartContract = false;
       invalidRecipient = true;
     }
   }
 
   const validateRecipient = async (addr: Address) => {
-    $recipientAddress = addr;
-    invalidRecipient = false;
-    if ($destNetwork?.id && (await isSmartContract(addr, $destNetwork.id))) {
-      recipientIsSmartContract = true;
-    } else {
-      recipientIsSmartContract = false;
+    const generation = ++recipientValidationGeneration;
+    const destChainId = $destNetwork?.id;
+
+    pendingRecipientLookup = addr;
+    validatingRecipient = true;
+    validatedRecipient = null;
+
+    try {
+      if (!destChainId) {
+        // Without a destination chain the recipient cannot be classified, so it must not
+        // be treated as a plain wallet
+        return;
+      }
+
+      const isContract = await isSmartContract(addr, destChainId);
+      if (generation !== recipientValidationGeneration) return;
+      // The destination chain decides whether an address is a contract, so an answer for
+      // the chain we no longer bridge to says nothing about the one we do
+      if (destChainId !== $destNetwork?.id) return;
+
+      // Commit only once the classification for this exact address succeeded
+      $recipientAddress = addr;
+      recipientIsSmartContract = isContract;
+      validatedRecipient = { address: addr, chainId: destChainId };
+      invalidRecipient = false;
+    } catch (error) {
+      if (generation !== recipientValidationGeneration) return;
+      // A failed lookup cannot prove the recipient is claimable; leave it unclassified
+      // so Confirm stays blocked rather than silently reusing the previous answer
+      console.error('Could not determine whether the recipient is a smart contract', error);
+    } finally {
+      if (generation === recipientValidationGeneration) {
+        validatingRecipient = false;
+        pendingRecipientLookup = null;
+      }
     }
   };
 
@@ -83,42 +228,211 @@
     if (isValidEthereumAddress) {
       validateDestOwner(addr);
     } else {
+      validatedDestOwner = null;
       invalidDestOwner = true;
     }
   }
 
+  /**
+   * The destination owner is the fallback processor for a message the recipient cannot
+   * claim, so it has to be an account that can actually call processMessage. This check was
+   * commented out, which let a contract be committed here while the standalone DestOwner
+   * dialog refused one - two paths to the same store disagreeing, and on a gasLimit-0
+   * message the disagreement strands the funds.
+   */
+  let destOwnerValidationGeneration = 0;
+
   const validateDestOwner = async (addr: Address) => {
-    $destOwnerAddress = addr;
+    const generation = ++destOwnerValidationGeneration;
     invalidDestOwner = false;
-    // if ($destNetwork?.id && (await isSmartContract(addr, $destNetwork.id))) {
-    //   destOwnerIsSmartContract = true;
-    //   // invalidDestOwner = true;
-    // } else {
-    //   destOwnerIsSmartContract = false;
-    // }
+
+    const destChainId = $destNetwork?.id;
+    if (!destChainId) {
+      validatedDestOwner = null;
+      return;
+    }
+
+    let isContract: boolean;
+    try {
+      isContract = await isSmartContract(addr, destChainId);
+    } catch (error) {
+      // An unreadable chain is not a classification; it must not stand in for one
+      console.error('Could not classify the destination owner', error);
+      if (generation !== destOwnerValidationGeneration) return;
+      validatedDestOwner = null;
+      destOwnerIsSmartContract = false;
+      return;
+    }
+
+    if (generation !== destOwnerValidationGeneration) return;
+    destOwnerIsSmartContract = isContract;
+    if (isContract) {
+      validatedDestOwner = null;
+      return;
+    }
+
+    $destOwnerAddress = addr;
+    // Carries the chain it ran against, exactly as the recipient's does: the same address is
+    // a contract on one chain and an EOA on another, so an answer without its chain cannot
+    // be trusted after a switch - including across a remount, where it is restored from the
+    // store rather than re-read.
+    validatedDestOwner = { address: addr, chainId: destChainId };
   };
 
-  let escKeyListener: (event: KeyboardEvent) => void;
+  /**
+   * The recipient input changed without necessarily dispatching an event (a cleared field
+   * and text without a `0x` prefix stay silent), so the draft itself has to retire an
+   * answer that no longer describes it.
+   */
+  function syncRecipientDraft(draft: Maybe<string>) {
+    if (pendingRecipientLookup && !addressesEqual(pendingRecipientLookup, draft)) {
+      supersedePendingValidation();
+    }
+    if (validatedRecipient && !addressesEqual(validatedRecipient.address, draft)) {
+      validatedRecipient = null;
+      recipientIsSmartContract = false;
+    }
+  }
 
-  const addEscKeyListener = () => {
-    escKeyListener = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        closeModal();
+  /**
+   * Watching the committed store rather than the local draft is what keeps an unvalidated
+   * draft from promoting itself. But the store holds an address and nothing else - not the
+   * chain any classification ran on, and not whether one ever ran. Stamping the current
+   * chain onto whatever arrives manufactured the very agreement canConfirmRecipient exists
+   * to test, and two live paths write this store without classifying at all: NFTBridge
+   * seeds the connected wallet into it, and DestOwner's reset path does the same. A smart
+   * contract wallet arriving that way was accepted as the destination owner - the one thing
+   * this field refuses - and on a gasLimit-0 message that leaves nobody able to process it.
+   *
+   * So a committed owner is re-read against the destination chain in force now, exactly as
+   * the standalone dialog does when it opens, instead of being taken on trust. Confirm stays
+   * disabled for the moment that takes, which is the same moment any other classification
+   * costs.
+   */
+  let lastCommittedDestOwner: Maybe<Address> = undefined;
+  /** A committed owner that arrived before any destination chain did */
+  let destOwnerAwaitingChain = false;
+  function onCommittedDestOwnerChanged(committed: Maybe<Address>) {
+    if (lastCommittedDestOwner === committed) return;
+    lastCommittedDestOwner = committed;
+
+    // Any answer held now describes the previous committed address
+    destOwnerValidationGeneration++;
+    validatedDestOwner = null;
+    destOwnerIsSmartContract = false;
+
+    destOwnerAwaitingChain = false;
+    if (!committed) return;
+    invalidDestOwner = false;
+    if ($destNetwork?.id) {
+      validateDestOwner(committed);
+    } else {
+      // Nothing to classify against yet. The destination chain arriving is the first run of
+      // onDestChainChanged, which skips its own invalidation, so the owner is handed to it
+      // explicitly rather than left silently unclassified.
+      destOwnerAwaitingChain = true;
+    }
+  }
+
+  function syncDestOwnerDraft(draft: Maybe<string>) {
+    if (validatedDestOwner && !addressesEqual(validatedDestOwner.address, draft)) {
+      // $destOwnerAddress is deliberately left alone: rewriting it here would feed back
+      // into the binding and wipe what the user is typing. Confirm is gated on the
+      // validated value matching the draft, so the stale store value cannot be submitted.
+      validatedDestOwner = null;
+    }
+  }
+
+  /**
+   * The destination-owner field is rendered only while the recipient is a contract, and a
+   * keystroke in the recipient box makes that momentarily false: the field is destroyed and
+   * recreated. The draft survives (the input no longer clears it on destroy) and so does the
+   * validation record, but the new input instance starts in its neutral visual state, so it
+   * is asked to re-announce the address it was handed.
+   */
+  let destOwnerFieldShown = false;
+  function onDestOwnerFieldToggled(shown: boolean) {
+    if (shown === destOwnerFieldShown) return;
+    destOwnerFieldShown = shown;
+    if (!shown || !destOwnerAddressBinding) return;
+    tick().then(() => {
+      if (destOwnerFieldShown && destOwnerAddressBinding) destOwnerAddressInput?.validateAddress();
+    });
+  }
+
+  let lastDestChainId: Maybe<number> = undefined;
+  function onDestChainChanged(chainId: Maybe<number>) {
+    if (lastDestChainId === chainId) return;
+    // The first run is the mount, where there is nothing to discard - and the destination
+    // owner has just been seeded from the store, which is a value that already passed its
+    // own validation when it was committed
+    const firstRun = lastDestChainId === undefined;
+    lastDestChainId = chainId;
+    if (firstRun) {
+      // The mount already sent the committed owner for classification, unless there was no
+      // destination chain to classify it against at the time. There is one now.
+      if (chainId && destOwnerAwaitingChain && $destOwnerAddress) {
+        destOwnerAwaitingChain = false;
+        validateDestOwner($destOwnerAddress);
       }
-    };
-    window.addEventListener('keydown', escKeyListener);
-  };
+      return;
+    }
 
-  const removeEscKeyListener = () => {
-    window.removeEventListener('keydown', escKeyListener);
-  };
+    // Any classification or in-flight lookup belongs to the previous destination chain
+    supersedePendingValidation();
+    validatedRecipient = null;
+    recipientIsSmartContract = false;
+
+    // The destination owner is classified on the destination chain too, and that lookup is
+    // async as well - one started on the old chain could otherwise land after the switch and
+    // commit an owner that is a contract here, which is the one thing this field refuses.
+    // The address on screen is re-checked against the new chain rather than left stale.
+    destOwnerValidationGeneration++;
+    validatedDestOwner = null;
+    destOwnerIsSmartContract = false;
+    if (destOwnerAddressBinding && destOwnerAddressInput) destOwnerAddressInput.validateAddress();
+  }
+
+  // Declared via <svelte:window> so Svelte owns the lifecycle: exactly one listener per
+  // component, removed automatically on destroy even if the dialog is unmounted while open
+  function onWindowKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape' && modalOpen) {
+      // Escape means cancel: unconfirmed edits must not survive, or an invalid recipient /
+      // missing destOwner could slip past the Confirm button's validation
+      cancelModal();
+    }
+  }
+
+  onDestroy(() => {
+    // The stores outlive this component, so a lookup still in flight must not commit
+    supersedePendingValidation();
+  });
 
   $: modalOpenChange(modalOpen);
 
   $: ethereumAddressBinding = $recipientAddress || undefined;
   $: destOwnerAddressBinding = $destOwnerAddress || undefined;
 
+  $: syncRecipientDraft(ethereumAddressBinding);
+  $: onCommittedDestOwnerChanged($destOwnerAddress);
+  $: syncDestOwnerDraft(destOwnerAddressBinding);
+  $: onDestChainChanged($destNetwork?.id);
+  $: onDestOwnerFieldToggled(recipientIsSmartContract);
+
   $: displayedRecipient = $recipientAddress || $account?.address;
+
+  $: confirmDisabled = !canConfirmRecipient({
+    recipientDraft: ethereumAddressBinding ?? null,
+    destOwnerDraft: destOwnerAddressBinding ?? null,
+    validatedRecipient,
+    validatedDestOwner,
+    destChainId: $destNetwork?.id ?? null,
+    invalidRecipient,
+    invalidDestOwner,
+    destOwnerIsSmartContract,
+    recipientIsSmartContract,
+    validatingRecipient,
+  });
 </script>
 
 <div class="Recipient f-col">
@@ -200,14 +514,7 @@
             <ActionButton on:click={cancelModal} priority="secondary" onPopup>
               <span class="body-bold">{$t('common.cancel')}</span>
             </ActionButton>
-            <ActionButton
-              priority="primary"
-              disabled={invalidRecipient ||
-                invalidDestOwner ||
-                !ethereumAddressBinding ||
-                (recipientIsSmartContract && !destOwnerAddressBinding)}
-              on:click={closeModal}
-              onPopup>
+            <ActionButton priority="primary" disabled={confirmDisabled} on:click={closeModal} onPopup>
               <span class="body-bold">{$t('common.confirm')}</span>
             </ActionButton>
           </div>
@@ -216,3 +523,5 @@
     </dialog>
   {/if}
 </div>
+
+<svelte:window on:keydown={onWindowKeydown} />

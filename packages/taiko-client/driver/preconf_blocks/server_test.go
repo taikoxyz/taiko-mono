@@ -2,6 +2,8 @@ package preconfblocks
 
 import (
 	"context"
+	"fmt"
+	"math"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -17,12 +19,23 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 type PreconfBlockAPIServerTestSuite struct {
 	testutils.ClientTestSuite
 	s *PreconfBlockAPIServer
+}
+
+type stubTopicPeerLister struct {
+	peers     []peer.ID
+	lastTopic string
+}
+
+func (s *stubTopicPeerLister) ListPeers(topic string) []peer.ID {
+	s.lastTopic = topic
+	return s.peers
 }
 
 func (s *PreconfBlockAPIServerTestSuite) SetupTest() {
@@ -234,6 +247,51 @@ func (s *PreconfBlockAPIServerTestSuite) TestTryPutEnvelopeIntoCache() {
 
 	s.s.tryPutEnvelopeIntoCache(msg, *peerID)
 	s.Equal(totalCached+1, s.s.envelopesCache.totalCached)
+}
+
+func (s *PreconfBlockAPIServerTestSuite) TestImportMissingAncientsSkipsRequestWithoutTopicPeers() {
+	topicPeers := new(stubTopicPeerLister) // Nobody is subscribed to the request topic.
+	s.s.gossipSubTopicPeers = topicPeers
+
+	progress, err := s.RPCClient.L2ExecutionEngineSyncProgress(context.Background())
+	s.Nil(err)
+	s.False(progress.IsSyncing())
+
+	// Sit above the sync tip, so the very-old-block skip does not apply and the walk
+	// actually reaches the publish path.
+	tip := progress.HighestOriginBlockID.Uint64()
+	s.Less(tip, math.MaxUint64-requestSyncMargin-1)
+
+	parentHash := common.HexToHash("0x1234")
+	envelope := &preconf.Envelope{Payload: &eth.ExecutionPayload{
+		BlockNumber: eth.Uint64Quantity(tip + requestSyncMargin + 1),
+		ParentHash:  parentHash,
+	}}
+
+	s.NotNil(s.s.ImportMissingAncientsFromCache(context.Background(), envelope, nil))
+
+	// The publish was skipped, so the de-duplication slot must stay free: otherwise the
+	// `Contains` check would short-circuit every later payload asking for the same parent.
+	s.False(s.s.blockRequestsCache.Contains(parentHash))
+	s.Equal(s.requestTopic(), topicPeers.lastTopic)
+}
+
+func (s *PreconfBlockAPIServerTestSuite) TestHasPreconfBlockRequestPeers() {
+	s.s.gossipSubTopicPeers = nil
+	s.False(s.s.hasPreconfBlockRequestPeers())
+
+	s.s.gossipSubTopicPeers = new(stubTopicPeerLister)
+	s.False(s.s.hasPreconfBlockRequestPeers())
+
+	topicPeers := &stubTopicPeerLister{peers: []peer.ID{"peer"}}
+	s.s.gossipSubTopicPeers = topicPeers
+	s.True(s.s.hasPreconfBlockRequestPeers())
+	s.Equal(s.requestTopic(), topicPeers.lastTopic)
+}
+
+// requestTopic returns the preconfirmation block request topic for the test chain.
+func (s *PreconfBlockAPIServerTestSuite) requestTopic() string {
+	return fmt.Sprintf("/taiko/%s/0/requestPreconfBlocks", s.RPCClient.L2.ChainID.String())
 }
 
 func (s *PreconfBlockAPIServerTestSuite) TestShutdown() {

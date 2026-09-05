@@ -23,12 +23,12 @@ var (
 		Value:    10,
 		EnvVars:  []string{"ETH_CLIENT_TIMEOUT"},
 	}
-	L1TaikoAddress = &cli.StringFlag{
-		Name:     "l1TaikoAddress",
-		Usage:    "Address of the L1 Taiko contract",
-		Required: true,
+	ShastaInboxAddress = &cli.StringFlag{
+		Name:     "shastaInboxAddress",
+		Usage:    "Address of the Shasta Inbox contract",
+		Required: false,
 		Category: indexerCategory,
-		EnvVars:  []string{"L1_TAIKO_ADDRESS"},
+		EnvVars:  []string{"SHASTA_INBOX_ADDRESS"},
 	}
 	BridgeAddress = &cli.StringFlag{
 		Name:     "bridgeAddress",
@@ -67,6 +67,14 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"INDEX_NFTS"},
 	}
+	AllowUnclaimedBalanceReplay = &cli.BoolFlag{
+		Name: "allowUnclaimedBalanceReplay",
+		Usage: "Start even when balances predate the transfer log claim table, " +
+			"accepting a single double count on this restart",
+		Required: false,
+		Category: indexerCategory,
+		EnvVars:  []string{"ALLOW_UNCLAIMED_BALANCE_REPLAY"},
+	}
 	IndexERC20s = &cli.BoolFlag{
 		Name:     "indexERC20s",
 		Usage:    "Whether to index erc20 transfer events or not",
@@ -80,11 +88,12 @@ var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	IndexerRPCUrl,
 	// optional
 	ETHClientTimeout,
-	L1TaikoAddress,
+	ShastaInboxAddress,
 	BridgeAddress,
 	BlockBatchSize,
 	SubscriptionBackoff,
 	SyncMode,
 	IndexNFTs,
 	IndexERC20s,
+	AllowUnclaimedBalanceReplay,
 })

@@ -167,7 +167,8 @@ func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog
 		}
 	}
 
-	_, _, err := i.nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(ctx, increaseOpts, decreaseOpts)
+	_, _, err := i.nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(
+		ctx, nftTransferRef(chainID, vLog, 0), increaseOpts, decreaseOpts)
 	if err != nil {
 		return err
 	}
@@ -228,7 +229,8 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 			}
 		}
 
-		_, _, err = i.nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(ctx, increaseOpts, decreaseOpts)
+		_, _, err = i.nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(
+			ctx, nftTransferRef(chainID, vLog, 0), increaseOpts, decreaseOpts)
 		if err != nil {
 			return err
 		}
@@ -271,7 +273,8 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 				}
 			}
 
-			_, _, err = i.nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(ctx, increaseOpts, decreaseOpts)
+			_, _, err = i.nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(
+				ctx, nftTransferRef(chainID, vLog, uint(idx)), increaseOpts, decreaseOpts)
 			if err != nil {
 				return err
 			}
@@ -280,4 +283,18 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 	// increment To address's balance
 
 	return nil
+}
+
+// nftTransferRef identifies one balance-mutating unit of an NFT transfer log, so a
+// replayed block cannot apply the same unit twice. batchIndex is 0 for ERC721
+// Transfer and ERC1155 TransferSingle, and the position within the batch for
+// ERC1155 TransferBatch.
+func nftTransferRef(chainID *big.Int, vLog types.Log, batchIndex uint) eventindexer.TransferLogRef {
+	return eventindexer.TransferLogRef{
+		ChainID:    chainID.Int64(),
+		TxHash:     vLog.TxHash.Hex(),
+		LogIndex:   vLog.Index,
+		BatchIndex: batchIndex,
+		Kind:       eventindexer.TransferKindNFT,
+	}
 }

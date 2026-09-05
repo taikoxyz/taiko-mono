@@ -13,7 +13,7 @@ import {
 import { signalServiceAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import type { BridgeTransaction } from '$libs/bridge';
-import { BlockNotSyncedError, ClientError, ProofGenerationError } from '$libs/error';
+import { BlockNotSyncedError, ClientError, ProofGenerationError, WrongBridgeConfigError } from '$libs/error';
 import { BridgeProver } from '$libs/proof/BridgeProver';
 import {
   CacheOption,
@@ -289,6 +289,151 @@ describe('BridgeProver', () => {
     });
   });
 
+  describe('getEncodedSignalProofForRecall()', () => {
+    const validSignalSlot = '0x1eb55981d51be65667e21e49934d6cb2f5fcc239607297a8280d18c3f64a978b';
+    const validEncodedHopProofs = '0x1234' as Hex;
+
+    const recallBridgeTransaction: BridgeTransaction = {
+      amount: 5000000000000000000n,
+      // Source-chain height, deliberately far above the destination chain's synced height below:
+      // a recall must not be gated on a block number from the wrong chain.
+      blockNumber: numberToHex(99999999),
+      decimals: 0,
+      destChainId: BigInt(167001),
+      from: '0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199',
+      srcTxHash: '0xc0a3476ac80c3468a65702864ff4ef22ca5b54afac3d0911fb14165cdada7f1c',
+      destTxHash: '' as Hash,
+      msgHash: '0x36973cd4172846df09d48d0bf428802d674848d39229962bbaec2e2fea465f15',
+      srcChainId: 32382n,
+      processingFee: 0n,
+      message: {
+        data: '0x',
+        destChainId: 167001n,
+        destOwner: '0x8626f6940e2eb28930efb4cef49b2d1f2c9c1199',
+        fee: 0n,
+        from: '0x8626f6940e2eb28930efb4cef49b2d1f2c9c1199',
+        gasLimit: 0,
+        id: 4829n,
+        srcChainId: 32382n,
+        srcOwner: '0x8626f6940e2eb28930efb4cef49b2d1f2c9c1199',
+        to: '0x8626f6940e2eb28930efb4cef49b2d1f2c9c1199',
+        value: 5000000000000000000n,
+      },
+      status: 0,
+      symbol: 'ETH',
+      tokenType: TokenType.ETH,
+    };
+
+    const setupHappyPath = (bridgeProver: BridgeProver) => {
+      vi.spyOn(bridgeProver, 'getSignalSlot').mockResolvedValue(validSignalSlot);
+      // Destination chain synced height, far below the tx's source-chain blockNumber
+      vi.spyOn(bridgeProver, 'getLatestSyncedBlockNumber').mockResolvedValue(2487n);
+      vi.spyOn(bridgeProver, 'encodeHopProofs').mockReturnValue(validEncodedHopProofs);
+      vi.spyOn(bridgeProver, 'verifyProofPreFlight').mockResolvedValue(undefined);
+
+      // Checkpoint lookup in verifyCheckpoint
+      vi.mocked(readContract).mockResolvedValue({
+        blockNumber: 2487n,
+        blockHash: zeroHash,
+        stateRoot: zeroHash,
+      });
+
+      const mockClient = {
+        request: vi.fn().mockResolvedValue({
+          balance: '0x0',
+          accountProof: ['0x1234'],
+          codeHash: zeroHash,
+          nonce: '0x1',
+          storageHash: zeroHash,
+          storageProof: [{ key: validSignalSlot, value: '0x1', proof: ['0x1234'] }],
+        }),
+        getBlock: vi.fn().mockResolvedValue({ number: 2487n, stateRoot: zeroHash, hash: '0x1' }),
+      } as unknown as ClientWithEthGetProofRequest;
+
+      vi.mocked(getPublicClient).mockReturnValue(mockClient);
+    };
+
+    it('should throw if the bridgeTx does not contain a message', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+
+      // When / Then
+      await expect(
+        bridgeProver.getEncodedSignalProofForRecall({
+          bridgeTx: { ...recallBridgeTransaction, message: undefined },
+        }),
+      ).rejects.toThrow(ProofGenerationError);
+    });
+
+    it('should generate a recall proof even when the source-chain block number exceeds the destination synced height', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+      setupHappyPath(bridgeProver);
+
+      // When
+      const encodedSignalProof = await bridgeProver.getEncodedSignalProofForRecall({
+        bridgeTx: recallBridgeTransaction,
+      });
+
+      // Then
+      expect(encodedSignalProof).toEqual(validEncodedHopProofs);
+    });
+
+    it('reads the synced height and the proof from the destination chain, in that order of arguments', async () => {
+      // The Critical fix removed the wrong-chain comparison; these pin that what remains
+      // still asks the destination chain which source height it has synced, and proves
+      // against the destination client. Swapping the two arguments passed every test before.
+      const bridgeProver = new BridgeProver();
+      setupHappyPath(bridgeProver);
+
+      await bridgeProver.getEncodedSignalProofForRecall({ bridgeTx: recallBridgeTransaction });
+
+      expect(bridgeProver.getLatestSyncedBlockNumber).toHaveBeenCalledWith(
+        recallBridgeTransaction.message!.destChainId,
+        recallBridgeTransaction.message!.srcChainId,
+      );
+      expect(getPublicClient).toHaveBeenCalledWith(expect.anything(), {
+        chainId: Number(recallBridgeTransaction.message!.destChainId),
+      });
+    });
+
+    it('derives the FAILED signal as the message hash xor the FAILED status', async () => {
+      // Bridge.sol: signalForFailedMessage(msgHash) == msgHash ^ bytes32(uint256(Status.FAILED))
+      const bridgeProver = new BridgeProver();
+      const msgHash = recallBridgeTransaction.msgHash;
+
+      const signal = await bridgeProver.getSignalForFailedMessage(msgHash);
+
+      expect(signal).toBe(`0x${(BigInt(msgHash) ^ 3n).toString(16).padStart(64, '0')}`);
+      expect(signal).not.toBe(msgHash);
+    });
+
+    it('should throw ProofGenerationError while the FAILED signal is not yet part of the synced state', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+      setupHappyPath(bridgeProver);
+
+      const mockClient = {
+        request: vi.fn().mockResolvedValue({
+          balance: '0x0',
+          accountProof: ['0x1234'],
+          codeHash: zeroHash,
+          nonce: '0x1',
+          storageHash: zeroHash,
+          // Empty storage slot: the FAILED signal is absent at the synced block
+          storageProof: [{ key: validSignalSlot, value: '0x0', proof: ['0x1234'] }],
+        }),
+        getBlock: vi.fn().mockResolvedValue({ number: 2487n, stateRoot: zeroHash, hash: '0x1' }),
+      } as unknown as ClientWithEthGetProofRequest;
+      vi.mocked(getPublicClient).mockReturnValue(mockClient);
+
+      // When / Then
+      await expect(bridgeProver.getEncodedSignalProofForRecall({ bridgeTx: recallBridgeTransaction })).rejects.toThrow(
+        ProofGenerationError,
+      );
+    });
+  });
+
   describe('encodeHopProofs()', () => {
     it('should encode HopProofs correctly', async () => {
       vi.mock('$bridgeConfig');
@@ -408,6 +553,60 @@ describe('BridgeProver', () => {
       ).rejects.toBeInstanceOf(ProofGenerationError);
     });
 
+    it.each(['0x00', '0x0000000000000000000000000000000000000000000000000000000000000000'])(
+      'rejects an empty slot a node reports as %s',
+      async (value) => {
+        // The guard compared the value to the string `0x0`, so a node that pads the zero
+        // handed back a "proof" of a signal that is not there
+        const bridgeProver = new BridgeProver();
+        const mockClient = {
+          request: vi.fn().mockResolvedValue({
+            balance: '0x0',
+            storageProof: [{ key: '0x1234', value, proof: ['0x1234'] }],
+            codeHash: zeroHash,
+            nonce: 0,
+            storageHash: zeroHash,
+            accountProof: ['0x1234'],
+          }),
+        } as unknown as ClientWithEthGetProofRequest;
+        vi.mocked(getPublicClient).mockReturnValue(mockClient);
+
+        await expect(
+          bridgeProver.getProof({
+            chainId: BigInt(L1_CHAIN_ID),
+            blockNumber: BLOCK_NUMBER_1,
+            key: STORAGE_KEY_1,
+            signalServiceAddress: zeroAddress,
+          }),
+        ).rejects.toBeInstanceOf(ProofGenerationError);
+      },
+    );
+
+    it('rejects a response carrying no storage proof at all', async () => {
+      // Indexing [0] of an empty array threw a TypeError instead of the error this is for
+      const bridgeProver = new BridgeProver();
+      const mockClient = {
+        request: vi.fn().mockResolvedValue({
+          balance: '0x0',
+          storageProof: [],
+          codeHash: zeroHash,
+          nonce: 0,
+          storageHash: zeroHash,
+          accountProof: ['0x1234'],
+        }),
+      } as unknown as ClientWithEthGetProofRequest;
+      vi.mocked(getPublicClient).mockReturnValue(mockClient);
+
+      await expect(
+        bridgeProver.getProof({
+          chainId: BigInt(L1_CHAIN_ID),
+          blockNumber: BLOCK_NUMBER_1,
+          key: STORAGE_KEY_1,
+          signalServiceAddress: zeroAddress,
+        }),
+      ).rejects.toBeInstanceOf(ProofGenerationError);
+    });
+
     it('should fail when client cannot be found', async () => {
       // Given
       const bridgeProver = new BridgeProver();
@@ -499,6 +698,56 @@ describe('BridgeProver', () => {
       await expect(bridgeProver.getEncodedSignalProof({ bridgeTx: realBridgeTransaction })).rejects.toThrow(
         ProofGenerationError,
       );
+    });
+
+    /** The mocked L1->L2 route is the one with an anchor to ask about its checkpoint store */
+    const l1ToL2Transaction = (): BridgeTransaction => ({
+      ...realBridgeTransaction,
+      srcChainId: BigInt(L1_CHAIN_ID),
+      destChainId: BigInt(L2_CHAIN_ID),
+      message: {
+        ...realBridgeTransaction.message!,
+        srcChainId: BigInt(L1_CHAIN_ID),
+        destChainId: BigInt(L2_CHAIN_ID),
+      },
+    });
+
+    /** The checkpoint lookup fails; the diagnostic read of the anchor answers with `checkpointStore` */
+    const checkpointMissingWithAnchorStore = (checkpointStore: string) =>
+      vi.mocked(readContract).mockImplementation((async (
+        _config: unknown,
+        { functionName }: { functionName: string },
+      ) => {
+        if (functionName === 'checkpointStore') return checkpointStore;
+        throw new Error('SS_CHECKPOINT_NOT_FOUND');
+      }) as unknown as typeof readContract);
+
+    it('throws WrongBridgeConfigError when the anchor keeps its checkpoints outside the SignalService', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+      const bridgeTx = l1ToL2Transaction();
+
+      vi.spyOn(bridgeProver, 'getSignalSlot').mockResolvedValue(validSignalSlot);
+      vi.spyOn(bridgeProver, 'getLatestSyncedBlockNumber').mockResolvedValue(BigInt(bridgeTx.blockNumber!));
+      checkpointMissingWithAnchorStore('0x000000000000000000000000000000000000dEaD');
+
+      // When / Then: a deployment mismatch no later checkpoint can cure is not a "not synced yet"
+      await expect(bridgeProver.getEncodedSignalProof({ bridgeTx })).rejects.toThrow(WrongBridgeConfigError);
+    });
+
+    it('keeps a missing checkpoint a ProofGenerationError when the anchor does use the SignalService', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+      const bridgeTx = l1ToL2Transaction();
+
+      vi.spyOn(bridgeProver, 'getSignalSlot').mockResolvedValue(validSignalSlot);
+      vi.spyOn(bridgeProver, 'getLatestSyncedBlockNumber').mockResolvedValue(BigInt(bridgeTx.blockNumber!));
+      // The same store, reported in a different letter case as a node may
+      const signalService = routingContractsMap[L2_CHAIN_ID][L1_CHAIN_ID].signalServiceAddress;
+      checkpointMissingWithAnchorStore('0x' + signalService.slice(2).toUpperCase());
+
+      // When / Then
+      await expect(bridgeProver.getEncodedSignalProof({ bridgeTx })).rejects.toThrow(ProofGenerationError);
     });
   });
 

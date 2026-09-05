@@ -5,6 +5,7 @@
   import ExplorerLink from '$components/ExplorerLink/ExplorerLink.svelte';
   import ChainSymbolName from '$components/Transactions/ChainSymbolName.svelte';
   import type { BridgeTransaction } from '$libs/bridge';
+  import { getTransferParties } from '$libs/bridge/transferParties';
   import { type NFT, TokenType } from '$libs/token';
 
   export let tx: BridgeTransaction;
@@ -13,6 +14,8 @@
   const placeholderUrl = '/placeholder.svg';
 
   $: imageUrl = nft?.metadata?.image || placeholderUrl;
+  // The user's addresses, not the envelope's: a token transfer runs from vault to vault
+  $: parties = getTransferParties(tx);
   let imageLoaded = false;
 
   function handleImageLoad() {
@@ -49,12 +52,16 @@
       {#if tx.message}
         <div class="flex justify-between">
           <div class="text-secondary-content">{$t('common.sender')}</div>
-          <ExplorerLink category="address" chainId={Number(tx.srcChainId)} urlParam={tx.message.srcOwner} shorten />
+          {#if parties.sender}
+            <ExplorerLink category="address" chainId={Number(tx.srcChainId)} urlParam={parties.sender} shorten />
+          {/if}
         </div>
 
         <div class="flex justify-between">
           <div class="text-secondary-content">{$t('common.recipient')}</div>
-          <ExplorerLink category="address" chainId={Number(tx.destChainId)} urlParam={tx.message.to} shorten />
+          {#if parties.recipient}
+            <ExplorerLink category="address" chainId={Number(tx.destChainId)} urlParam={parties.recipient} shorten />
+          {/if}
         </div>
       {/if}
       {#if tx.amount !== 0n}

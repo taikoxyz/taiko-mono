@@ -4,8 +4,9 @@ import { type Address, type Hash, numberToHex, type TransactionReceipt } from 'v
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { pendingTransaction, storageService } from '$config';
-import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
+import { isSameBridgeTx } from '$libs/bridge/bridgeTxIdentity';
 import { getMessageStatusForMsgHash } from '$libs/bridge/getMessageStatusForMsgHash';
+import { type BridgeTransaction, type Message, MessageStatus } from '$libs/bridge/types';
 import { isSupportedChain } from '$libs/chain';
 import { FilterLogsError } from '$libs/error';
 import { jsonParseWithDefault } from '$libs/util/jsonParseWithDefault';
@@ -36,52 +37,49 @@ export class BridgeTxService {
     srcChainId,
     destChainId,
     blockNumber,
+    srcTxHash,
   }: {
     userAddress: Address;
     srcChainId: number;
     destChainId: number;
     blockNumber: number;
+    srcTxHash: Hash;
   }) {
-    // Gets the event MessageSent from the bridge contract
-    // in the block where the transaction was mined, and find
-    // our event MessageSent whose owner is the address passed in
+    // Gets the event MessageSent from the bridge contract in the block where the
+    // transaction was mined, and finds the one this transaction emitted
 
     const bridgeAddress = routingContractsMap[srcChainId][destChainId].bridgeAddress;
     const client = await getPublicClient(config, { chainId: srcChainId });
 
     if (!client) throw new Error('Could not get public client');
 
-    const filter = await client.createContractEventFilter({
-      abi: bridgeAbi,
-      address: bridgeAddress,
-      eventName: 'MessageSent',
-      fromBlock: BigInt(blockNumber),
-      toBlock: BigInt(blockNumber),
-    });
-
     try {
-      const messageSentEvents = await client.getFilterLogs({ filter });
-      // Filter out those events that are not from the current address
-      return messageSentEvents.find(({ args }) => args.message?.srcOwner.toLowerCase() === userAddress.toLowerCase());
-    } catch (error) {
-      log('Error getting logs via filter, retrying...', error);
+      // eth_getLogs, not eth_newFilter: creating a filter is a stateful RPC method, and a
+      // load-balanced gateway cannot serve it ("stateful method requires a single targeted
+      // upstream"). Retrying only recreated the same filter, so it failed identically.
+      // The range is a single block, so a direct log query is exactly equivalent.
+      const messageSentEvents = await client.getContractEvents({
+        abi: bridgeAbi,
+        address: bridgeAddress,
+        eventName: 'MessageSent',
+        fromBlock: BigInt(blockNumber),
+        toBlock: BigInt(blockNumber),
+      });
 
-      // we try again, often recreating the filter fixes the issue
-      try {
-        const filter = await client.createContractEventFilter({
-          abi: bridgeAbi,
-          address: bridgeAddress,
-          eventName: 'MessageSent',
-          fromBlock: BigInt(blockNumber),
-          toBlock: BigInt(blockNumber),
-        });
-        const messageSentEvents = await client.getFilterLogs({ filter });
-        // Filter out those events that are not from the current address
-        return messageSentEvents.find(({ args }) => args.message?.srcOwner.toLowerCase() === userAddress.toLowerCase());
-      } catch (error) {
-        console.error('Error filtering logs', error);
-        throw new FilterLogsError('Error getting logs via filter');
-      }
+      // Matched on the transaction that emitted it, not on the block and sender alone. Two
+      // bridge sends from one address in the same block share both, so every row enhanced
+      // from that block took the first event's msgHash - duplicate keys in the transaction
+      // list, which is the crash bridgeTxKey exists to prevent, and a merge that can retire
+      // the wrong record. The relayer-side sibling reads the receipt's own logs and is
+      // transaction-scoped for free; this one has to say so.
+      return messageSentEvents.find(
+        (event) =>
+          event.transactionHash?.toLowerCase() === srcTxHash.toLowerCase() &&
+          event.args.message?.srcOwner.toLowerCase() === userAddress.toLowerCase(),
+      );
+    } catch (error) {
+      console.error('Error getting MessageSent logs', error);
+      throw new FilterLogsError('Error getting logs via filter');
     }
   }
 
@@ -89,10 +87,85 @@ export class BridgeTxService {
     this.storage = storage;
   }
 
+  /**
+   * @dev Restores the bigint fields JSON cannot carry.
+   *
+   *      addTxByAddress stringifies every bigint on the way in, and JSON.parse has no
+   *      reviver on the way out, so a stored transaction comes back with strings where the
+   *      type promises bigints. That is not cosmetic: shouldShowManualClaimEntry compares
+   *      `processingFee === 0n`, which a string can never satisfy, so the manual claim
+   *      entry never appeared for exactly the zero-fee transactions it exists for. The
+   *      other three survive only because their consumers happen to be string-tolerant.
+   *
+   * @param tx A transaction as it came out of storage
+   * @return tx_ The same transaction with its numeric fields typed as declared
+   */
+  private static _restoreBigInts(tx: BridgeTransaction): BridgeTransaction {
+    // `processingFee` is a field this branch introduced; rows recorded before it carry the
+    // fee paid to the relayer under `fee` only. Defaulting an absent value to 0n turned every
+    // one of those rows into exactly what shouldShowManualClaimEntry looks for - a zero-fee
+    // message - and offered a "try claim" entry that ends in "Missing msgHash or message".
+    // The older field is the same value, so it is taken when the new one is absent; a row
+    // carrying neither keeps neither, which no consumer reads as "zero fee".
+    const storedProcessingFee = tx.processingFee ?? tx.fee;
+    return {
+      ...tx,
+      amount: BigInt(tx.amount ?? 0),
+      ...(storedProcessingFee === undefined || storedProcessingFee === null
+        ? {}
+        : { processingFee: BigInt(storedProcessingFee) }),
+      srcChainId: BigInt(tx.srcChainId ?? 0),
+      destChainId: BigInt(tx.destChainId ?? 0),
+      ...(tx.fee === undefined || tx.fee === null ? {} : { fee: BigInt(tx.fee) }),
+      ...(tx.message ? { message: BridgeTxService._restoreMessageBigInts(tx.message) } : {}),
+    };
+  }
+
+  /**
+   * @dev Restores the bigints inside a stored message.
+   *
+   *      Nothing writes a message to storage today - ConfirmationStep records a
+   *      transaction without one, and the message _enhanceTx reads off the receipt is
+   *      returned rather than written back - so this is a guard rather than a fix for a
+   *      reachable path. It is here because the failure it prevents is silent: a message
+   *      whose id, value and fee came back as strings is handed straight to proof
+   *      generation and to the recall path, which encode them as uint256.
+   *
+   * @param message A message as it came out of storage
+   * @return message_ The same message with its numeric fields typed as declared
+   */
+  private static _restoreMessageBigInts(message: Message): Message {
+    return {
+      ...message,
+      id: BigInt(message.id ?? 0),
+      srcChainId: BigInt(message.srcChainId ?? 0),
+      destChainId: BigInt(message.destChainId ?? 0),
+      value: BigInt(message.value ?? 0),
+      fee: BigInt(message.fee ?? 0),
+      gasLimit: Number(message.gasLimit ?? 0),
+    };
+  }
+
   private _getTxFromStorage(address: Address) {
     const key = `${storageService.bridgeTxPrefix}-${address}`;
-    const txs = jsonParseWithDefault(this.storage.getItem(key), []) as BridgeTransaction[];
-    return txs;
+    const parsed: unknown = jsonParseWithDefault(this.storage.getItem(key), []);
+    // Anything but an array is a corrupt entry, and iterating it threw "not iterable" for the
+    // whole history rather than for the one record that was wrong
+    const txs = Array.isArray(parsed) ? (parsed as BridgeTransaction[]) : [];
+
+    // One unreadable entry must not hide the rest of the history. BigInt() throws on
+    // anything that is not an integer string, so mapping the whole array let a single
+    // corrupt record - a null amount, an object where a number belonged - take down every
+    // transaction the user has, with no way back short of clearing storage.
+    const restored: BridgeTransaction[] = [];
+    for (const tx of txs) {
+      try {
+        restored.push(BridgeTxService._restoreBigInts(tx));
+      } catch (error) {
+        console.error('Skipping a stored transaction that could not be restored', { error, tx });
+      }
+    }
+    return restored;
   }
 
   private async _enhanceTx(tx: BridgeTransaction, address: Address, waitForTx: boolean) {
@@ -137,6 +210,7 @@ export class BridgeTxService {
         srcChainId: Number(srcChainId),
         destChainId: Number(destChainId),
         blockNumber: Number(receipt.blockNumber),
+        srcTxHash,
       });
     } catch (error) {
       //TODO: handle error
@@ -229,18 +303,20 @@ export class BridgeTxService {
     return enhancedTxs;
   }
 
-  async getTxByHash(hash: Hash, address: Address) {
-    const txs = this._getTxFromStorage(address);
-
-    const tx = txs.find((tx) => tx.srcTxHash === hash) as BridgeTransaction;
-
-    log('Transaction from storage', { ...tx });
-
-    const enhancedTx = await this._enhanceTx(tx, address, true);
-
-    log('Enhanced transaction', enhancedTx);
-
-    return enhancedTx;
+  /**
+   * @dev Writes the list, serializing bigints as strings.
+   *
+   *      Both write paths go through here. updateByAddress used to call JSON.stringify
+   *      bare, which throws on a bigint - it only worked because everything read back out
+   *      of storage was a string. Now that reads restore the declared types, a bare
+   *      stringify would fail on the removal path.
+   */
+  private _setTxsInStorage(address: Address, txs: BridgeTransaction[]) {
+    const key = `${storageService.bridgeTxPrefix}-${address}`;
+    this.storage.setItem(
+      key,
+      JSON.stringify(txs, (_, value) => (typeof value === 'bigint' ? value.toString() : value)),
+    );
   }
 
   addTxByAddress(address: Address, tx: BridgeTransaction) {
@@ -250,27 +326,19 @@ export class BridgeTxService {
 
     log('Adding transaction to storage', tx);
 
-    const key = `${storageService.bridgeTxPrefix}-${address}`;
-    this.storage.setItem(
-      key,
-      // We need to serialize the BigInts as strings
-      JSON.stringify(txs, (_, value) => (typeof value === 'bigint' ? value.toString() : value)),
-    );
+    this._setTxsInStorage(address, txs);
   }
 
   updateByAddress(address: Address, txs: BridgeTransaction[]) {
     log('Updating storage with transactions', txs);
-    const key = `${storageService.bridgeTxPrefix}-${address}`;
-    this.storage.setItem(key, JSON.stringify(txs));
+    this._setTxsInStorage(address, txs);
   }
 
   removeTransactions(address: Address, txs: BridgeTransaction[]) {
     log('Removing transactions from storage', txs);
     const txsFromStorage = this._getTxFromStorage(address);
 
-    const txsToRemove = txs.map((tx) => tx.srcTxHash);
-
-    const filteredTxs = txsFromStorage.filter((tx) => !txsToRemove.includes(tx.srcTxHash));
+    const filteredTxs = txsFromStorage.filter((tx) => !txs.some((toRemove) => isSameBridgeTx(tx, toRemove)));
 
     this.updateByAddress(address, filteredTxs);
   }
@@ -283,6 +351,6 @@ export class BridgeTxService {
 
   transactionIsStoredLocally(address: Address, tx: BridgeTransaction) {
     const txs = this._getTxFromStorage(address);
-    return txs.some((t) => t.srcTxHash === tx.srcTxHash);
+    return txs.some((t) => isSameBridgeTx(t, tx));
   }
 }

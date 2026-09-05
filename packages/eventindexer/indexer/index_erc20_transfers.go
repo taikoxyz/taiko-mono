@@ -221,7 +221,14 @@ func (i *Indexer) saveERC20Transfer(ctx context.Context, chainID *big.Int, vLog 
 		}
 	}
 
-	_, _, err = i.erc20BalanceRepo.IncreaseAndDecreaseBalancesInTx(ctx, increaseOpts, decreaseOpts)
+	ref := eventindexer.TransferLogRef{
+		ChainID:  chainID.Int64(),
+		TxHash:   vLog.TxHash.Hex(),
+		LogIndex: vLog.Index,
+		Kind:     eventindexer.TransferKindERC20,
+	}
+
+	_, _, err = i.erc20BalanceRepo.IncreaseAndDecreaseBalancesInTx(ctx, ref, increaseOpts, decreaseOpts)
 	if err != nil {
 		return errors.Wrap(err, "i.erc20BalanceRepo.IncreaseAndDecreaseBalancesInTx")
 	}

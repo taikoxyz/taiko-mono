@@ -153,6 +153,10 @@ export class InvalidParametersProvidedError extends Error {
   name = 'InvalidParametersProvidedError';
 }
 
+export class InvalidMessageError extends Error {
+  name = 'InvalidMessageError';
+}
+
 export class InternalError extends Error {
   name = 'InternalError';
 }
@@ -170,4 +174,25 @@ export class ClientError extends Error {
 }
 export class TransactionTimeoutError extends Error {
   name = 'TransactionTimeoutError';
+}
+
+/**
+ * The receipt could not be read - the wait itself failed, not the transaction.
+ *
+ * Distinct from FailedTransactionError, which means a receipt came back reverted. An RPC
+ * that drops the connection says nothing about a transaction that is still in the mempool,
+ * and callers that cannot tell the two apart re-offer an action already under way.
+ */
+export class ReceiptUnavailableError extends Error {
+  name = 'ReceiptUnavailableError';
+}
+
+/**
+ * The relayer answered every page it was asked for, but the history is longer than the page
+ * cap allows. Distinct from a relayer that failed, because the two need opposite messages:
+ * this one is routine and complete up to the cap, and reporting it as "the relayer did not
+ * respond" both misdescribes it and makes a real outage indistinguishable from it.
+ */
+export class RelayerHistoryTruncatedError extends Error {
+  name = 'RelayerHistoryTruncatedError';
 }

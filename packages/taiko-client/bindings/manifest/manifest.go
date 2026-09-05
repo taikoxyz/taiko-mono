@@ -81,9 +81,9 @@ func TimestampMaxOffsetByChainID(chainID *big.Int) uint64 {
 //
 // The values are sourced from the taiko-geth fork schedule (the same source consumed by
 // pkg/config.ChainConfig), so the driver stays in lockstep with the execution client. A return
-// value of 0 means Shasta is active from genesis (e.g. the internal and Masaya devnets), which
-// imposes no additional lower-bound constraint on derived block timestamps. Unknown or nil chain
-// IDs are treated as genesis-activated (0).
+// value of 0 means Shasta is active from genesis for the internal devnet, which imposes no
+// additional lower-bound constraint on derived block timestamps. Unknown or nil chain IDs are
+// treated as genesis-activated (0).
 func ShastaForkTimeByChainID(chainID *big.Int) uint64 {
 	if chainID == nil {
 		return 0
@@ -94,8 +94,6 @@ func ShastaForkTimeByChainID(chainID *big.Int) uint64 {
 		return gethcore.MainnetShastaTime
 	case params.TaikoHoodiNetworkID.Uint64():
 		return gethcore.HoodiShastaTime
-	case params.MasayaDevnetNetworkID.Uint64():
-		return gethcore.MasayaShastaTime
 	case params.TaikoInternalNetworkID.Uint64():
 		return gethcore.InternalShastaTime
 	default:

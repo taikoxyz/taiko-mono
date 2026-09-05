@@ -120,6 +120,56 @@ describe('CustomTokenService', () => {
     expect(actual).toStrictEqual([token2]);
   });
 
+  test('stores two different tokens that share a symbol', () => {
+    // Given: an unrelated token that happens to use the same symbol as token1
+    const sameSymbolToken: Token = {
+      name: 'Impostor Token',
+      addresses: { address1: '0xabc' },
+      symbol: 'TST',
+      decimals: 18,
+      type: TokenType.ERC20,
+      imported: true,
+    };
+    tokenService.storeToken(token1, address);
+
+    // When
+    const actual = tokenService.storeToken(sameSymbolToken, address);
+
+    // Then: both are kept, keyed by address rather than symbol
+    expect(actual).toStrictEqual([token1, sameSymbolToken]);
+  });
+
+  test('does not store the same token twice even when its symbol was edited', () => {
+    // Given
+    tokenService.storeToken(token1, address);
+    const renamedToken1: Token = { ...token1, symbol: 'TST2' };
+
+    // When
+    const actual = tokenService.storeToken(renamedToken1, address);
+
+    // Then
+    expect(actual).toStrictEqual([token1]);
+  });
+
+  test('removes only the token with matching addresses, not a same-symbol impostor', () => {
+    // Given
+    const sameSymbolToken: Token = {
+      name: 'Impostor Token',
+      addresses: { address1: '0xabc' },
+      symbol: 'TST',
+      decimals: 18,
+      type: TokenType.ERC20,
+      imported: true,
+    };
+    localStorage.setItem(storageKey, JSON.stringify([token1, sameSymbolToken]));
+
+    // When
+    const actual = tokenService.removeToken(token1, address);
+
+    // Then
+    expect(actual).toStrictEqual([sameSymbolToken]);
+  });
+
   test('updates token correctly when an address is zeroAddress', () => {
     // Given
     const token2Updated: Token = {
@@ -152,6 +202,56 @@ describe('CustomTokenService', () => {
 
     // Then
     expect(actual).toStrictEqual([token1Updated, token2]);
+  });
+
+  test('does not merge unrelated tokens sharing an address on different chains', () => {
+    // Given: the same hexadecimal address hosts a different contract on each chain
+    const SHARED = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
+    const onChain1: Token = {
+      name: 'Mainnet Token',
+      addresses: { '1': SHARED as Address },
+      symbol: 'ONE',
+      decimals: 18,
+      type: TokenType.ERC20,
+      imported: true,
+    };
+    const onChain167000: Token = {
+      name: 'L2 Token',
+      addresses: { '167000': SHARED as Address },
+      symbol: 'TWO',
+      decimals: 18,
+      type: TokenType.ERC20,
+      imported: true,
+    };
+    localStorage.setItem(storageKey, JSON.stringify([onChain1]));
+
+    // When
+    const actual = tokenService.updateToken(onChain167000, address);
+
+    // Then: the stored mainnet token is untouched, since no deployment is shared
+    expect(actual).toStrictEqual([onChain1]);
+  });
+
+  test('matches a stored token whose address differs only in casing', () => {
+    // Given
+    const CHECKSUMMED = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
+    const stored: Token = {
+      name: 'Casing Token',
+      addresses: { '1': CHECKSUMMED.toLowerCase() as Address },
+      symbol: 'CASE',
+      decimals: 18,
+      type: TokenType.ERC20,
+      imported: true,
+    };
+    const updated: Token = { ...stored, addresses: { '1': CHECKSUMMED as Address, '167000': '0xabc' as Address } };
+    localStorage.setItem(storageKey, JSON.stringify([stored]));
+
+    // When
+    const actual = tokenService.updateToken(updated, address);
+
+    // Then: the same deployment is recognised and merged rather than duplicated
+    expect(actual).toHaveLength(1);
+    expect(actual[0].addresses['167000']).toBe('0xabc');
   });
 
   test('does not update a non zeroAddress address to zeroAddress', () => {

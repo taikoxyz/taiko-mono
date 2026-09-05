@@ -26,18 +26,38 @@
 
   let selectedChainId: number | undefined;
 
-  const selectChain = (selectedChain: Chain) => (value = selectedChain);
-  const closeModal = () => (modalOpen = false);
+  // The picked chain stays local until Confirm: writing it to `value` immediately would
+  // show an unconfirmed chain in the pill, even when the dialog is dismissed or the
+  // wallet switch is rejected afterwards
+  let pendingChain: Maybe<Chain> = null;
+
+  const selectChain = (selectedChain: Chain) => (pendingChain = selectedChain);
+
+  const closeModal = () => {
+    modalOpen = false;
+    isOpen = false;
+  };
 
   const onConfirmClick = () => {
-    dispatch('change', { chain: value, switchWallet });
+    if (pendingChain) {
+      dispatch('change', { chain: pendingChain, switchWallet });
+    }
     closeModal();
   };
 
-  $: if (isOpen) {
-    modalOpen = true;
-  } else {
-    closeModal();
+  // The reset belongs to the moment the dialog opens, not to every change of `value`: a
+  // reactive block referencing both re-ran on a wallet-side chain change while the dialog
+  // was open, discarding the chain the user had just picked
+  let wasOpen = false;
+  $: if (isOpen !== wasOpen) {
+    wasOpen = isOpen;
+    if (isOpen) {
+      pendingChain = null;
+      selectedChainId = value?.id;
+      modalOpen = true;
+    } else {
+      closeModal();
+    }
   }
 </script>
 

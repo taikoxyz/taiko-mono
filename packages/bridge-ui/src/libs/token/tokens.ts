@@ -23,16 +23,22 @@ export const testNFT: Token[] = customToken.filter(
   (token) => token.type === TokenType.ERC721 || token.type === TokenType.ERC1155,
 );
 
-export const tokens = [ETHToken, ...testERC20Tokens];
-
-export const getTokensByType = (type: TokenType): Token[] => tokens.filter((token) => token.type === type);
-
 const hasAttribute = (token: Token, attribute: TokenAttributeKey): boolean => {
   if (!token.attributes) return false;
   return token.attributes.some((attr) => attr[attribute] === true);
 };
 
 export const isWrapped = (token: Token): boolean => hasAttribute(token, TokenAttributeKey.Wrapped);
-export const isSupported = (token: Token): boolean => hasAttribute(token, TokenAttributeKey.Supported);
 export const isStablecoin = (token: Token): boolean => hasAttribute(token, TokenAttributeKey.Stablecoin);
 export const isMintable = (token: Token): boolean => hasAttribute(token, TokenAttributeKey.Mintable);
+
+// Only an explicit `supported: false` opts a token out; a token that says nothing is supported.
+// This used to demand an explicit opt-in and was read by nothing, so a configured entry could
+// carry a guard that did not exist: mainnet WETH was marked unsupported, pointed at the wrong
+// Taiko contract, and was offered for bridging regardless - one way, since the balance on the
+// wrong contract read as zero
+export const isSupported = (token: Token): boolean =>
+  !token.attributes?.some((attr) => attr[TokenAttributeKey.Supported] === false);
+
+// The bridgeable list. The faucet keeps its own view of testERC20Tokens, filtered on `mintable`
+export const tokens = [ETHToken, ...testERC20Tokens.filter(isSupported)];

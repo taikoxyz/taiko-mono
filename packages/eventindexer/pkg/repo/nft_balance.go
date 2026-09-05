@@ -114,12 +114,29 @@ func (r *NFTBalanceRepository) decreaseBalanceInDB(
 
 func (r *NFTBalanceRepository) IncreaseAndDecreaseBalancesInTx(
 	ctx context.Context,
+	ref eventindexer.TransferLogRef,
 	increaseOpts eventindexer.UpdateNFTBalanceOpts,
 	decreaseOpts eventindexer.UpdateNFTBalanceOpts,
 ) (increasedBalance *eventindexer.NFTBalance, decreasedBalance *eventindexer.NFTBalance, err error) {
 	retries := 10
 	for retries > 0 {
+		var replayed bool
+
 		err = r.db.GormDB().Transaction(func(tx *gorm.DB) (err error) {
+			applied, markErr := markTransferLogApplied(ctx, tx, ref)
+			if markErr != nil {
+				return markErr
+			}
+
+			// an earlier pass over this block already applied the log; applying it
+			// again would increment the recipient a second time while the sender's
+			// row is already gone.
+			if !applied {
+				replayed = true
+
+				return nil
+			}
+
 			increasedBalance, err = r.increaseBalanceInDB(ctx, tx, increaseOpts)
 			if err != nil {
 				return err
@@ -133,6 +150,16 @@ func (r *NFTBalanceRepository) IncreaseAndDecreaseBalancesInTx(
 		})
 
 		if err == nil {
+			if replayed {
+				slog.Debug("skipping replayed nft transfer",
+					"txHash", ref.TxHash,
+					"logIndex", ref.LogIndex,
+					"batchIndex", ref.BatchIndex,
+				)
+
+				return nil, nil, nil
+			}
+
 			break
 		}
 

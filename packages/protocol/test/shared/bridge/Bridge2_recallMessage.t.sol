@@ -2,6 +2,9 @@
 pragma solidity ^0.8.24;
 
 import "./TestBridge2Base.sol";
+import {
+    MessageReceiver_CreatingFreshStorageSlots
+} from "test/shared/bridge/helpers/MessageReceiver_CreatingFreshStorageSlots.sol";
 
 contract TestRecallableSender is IRecallableSender, IERC165 {
     IBridge private bridge;
@@ -57,6 +60,37 @@ contract TestBridge2_recallMessage is TestBridge2Base {
         // recall the same message again
         vm.expectRevert(Bridge.B_INVALID_STATUS.selector);
         eBridge.recallMessage(m, FAKE_PROOF);
+    }
+
+    /// @dev A recalled message must be able to return its value to a smart-wallet srcOwner that
+    /// creates fresh storage slots when receiving Ether (5+1 slots, ~133k gas here, clearing the
+    /// 122,920 a one-slot wallet needs after Glamsterdam), far above the previous 35k send cap.
+    function test_bridge2_recallMessage_storage_creating_wallet_srcOwner()
+        public
+        transactBy(Carol)
+    {
+        MessageReceiver_CreatingFreshStorageSlots wallet =
+            new MessageReceiver_CreatingFreshStorageSlots(5);
+
+        uint256 totalBalance = getBalanceForAccounts() + address(wallet).balance;
+
+        IBridge.Message memory message;
+        message.srcOwner = address(wallet);
+        message.destOwner = Bob;
+        message.srcChainId = ethereumChainId;
+        message.destChainId = taikoChainId;
+        message.value = 1 ether;
+        message.to = Zachary;
+
+        (, IBridge.Message memory m) = eBridge.sendMessage{ value: 1 ether }(message);
+
+        eBridge.recallMessage(m, FAKE_PROOF);
+        bytes32 hash = eBridge.hashMessage(m);
+        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.RECALLED);
+
+        assertEq(address(wallet).balance, 1 ether);
+        assertEq(wallet.receiveCount(), 1);
+        assertEq(getBalanceForAccounts() + address(wallet).balance, totalBalance);
     }
 
     function test_bridge2_recallMessage_callable_sender() public dealEther(Carol) {
