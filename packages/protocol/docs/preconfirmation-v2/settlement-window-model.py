@@ -59479,7 +59479,7 @@ def test_data_gc_reorg_and_geometry() -> None:
         activation_proof,
         transition_statement_digest="ab" * 32,
     )
-    check("P50ba router rejects fake, unauthorized and discontinuous targets",
+    check("P50b-1 router rejects fake, unauthorized and discontinuous targets",
           queue_code_rejected and stale_live_state_ignored
           and not active_router._activate_version_with_proof(
               settlement=exact_settlement,
