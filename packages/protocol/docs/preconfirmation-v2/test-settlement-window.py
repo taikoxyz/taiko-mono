@@ -5672,6 +5672,140 @@ class ForcedIngressRouterTests(unittest.TestCase):
         self.assertEqual(stored.due_at, self.clock.timestamp + settlement.FORCE_DELAY)
         self.assertEqual(stored.prepaid, descriptor.prepaid)
 
+    def test_settlement_forced_ingress_floor_is_exact_and_live(self):
+        raw = self.protocol.settlement_forced_ingress_floor_v1()
+        self.assertEqual(len(raw), 64)
+        self.assertEqual(raw[:4], b"SIF1")
+        self.assertEqual(
+            settlement.decode_settlement_forced_ingress_floor_v1(raw), 0
+        )
+        for malformed in (
+            raw[:-1],
+            raw + b"\x00",
+            b"BAD!" + raw[4:],
+            raw[:32] + b"\x01" + raw[33:],
+        ):
+            with self.subTest(length=len(malformed), prefix=malformed[:4]):
+                with self.assertRaises(ValueError):
+                    settlement.decode_settlement_forced_ingress_floor_v1(
+                        malformed
+                    )
+
+        for selector, value, gas in (
+            (b"\x00\x00\x00\x00", 0,
+             settlement.SETTLEMENT_FORCED_INGRESS_FLOOR_GAS),
+            (settlement.SETTLEMENT_FORCED_INGRESS_FLOOR_SELECTOR, 1,
+             settlement.SETTLEMENT_FORCED_INGRESS_FLOOR_GAS),
+            (settlement.SETTLEMENT_FORCED_INGRESS_FLOOR_SELECTOR, 0,
+             settlement.SETTLEMENT_FORCED_INGRESS_FLOOR_GAS - 1),
+        ):
+            with self.assertRaises(ValueError):
+                self.protocol.staticcall_settlement_forced_ingress_floor_v1(
+                    selector, caller=self.router.address, value=value, gas=gas
+                )
+
+        status, stamp = self.router.sync_ingress(
+            clock=self.clock, caller_adapter=self.kind0_adapter
+        )
+        self.assertEqual(status, "ACTIVE")
+        descriptor = settlement.message(self.clock.l2_slot, "sif1-fault")
+        queue_before = copy.deepcopy(self.router.forced_queue)
+        for malformed in (raw[:-1], raw + b"\x00", b"BAD!" + raw[4:]):
+            self.protocol.forced_ingress_floor_return_override = malformed
+            with self.assertRaises(ValueError):
+                self.router.append_from_adapter(
+                    descriptor,
+                    clock=self.clock,
+                    stamp=stamp,
+                    deposit=descriptor.prepaid,
+                    caller_adapter=self.kind0_adapter,
+                )
+            self.assertEqual(self.router.forced_queue, queue_before)
+        self.protocol.forced_ingress_floor_return_override = None
+        for fault in ("revert", "oog"):
+            self.protocol.forced_ingress_floor_fault_point = fault
+            with self.assertRaises(ValueError):
+                self.router.append_from_adapter(
+                    descriptor,
+                    clock=self.clock,
+                    stamp=stamp,
+                    deposit=descriptor.prepaid,
+                    caller_adapter=self.kind0_adapter,
+                )
+            self.assertEqual(self.router.forced_queue, queue_before)
+        self.protocol.forced_ingress_floor_fault_point = None
+
+        self.protocol._activate(self.clock, settlement.Cause.FORCE_DUE)
+        recovery = self.protocol.recovery
+        self.assertIsNotNone(recovery)
+        live_raw = self.protocol.settlement_forced_ingress_floor_v1()
+        self.assertEqual(
+            settlement.decode_settlement_forced_ingress_floor_v1(live_raw),
+            recovery.expires_at + 1,
+        )
+        self.protocol.recovery = None
+        with self.assertRaises(ValueError):
+            self.protocol.settlement_forced_ingress_floor_v1()
+
+    def test_recovery_expiry_boundary_rolls_before_later_ingress(self):
+        protocol, manager = migration_manager_fixture(seat=False)
+        router = manager.router
+        adapter = settlement.activate_ingress_adapter_for_test(
+            router,
+            kind=settlement.ForceKind.USER_TX,
+            clock=self.clock,
+        )
+        protocol._activate(self.clock, settlement.Cause.FORCE_DUE)
+        expiry = protocol.recovery.expires_at
+        at_expiry = settlement.Clock(self.clock.block_number + 1, expiry)
+        status, stamp = router.sync_ingress(
+            clock=at_expiry, caller_adapter=adapter
+        )
+        self.assertEqual(status, "ACTIVE")
+        descriptor = settlement.message(at_expiry.l2_slot, "expiry-equality")
+        self.assertEqual(
+            router.append_from_adapter(
+                descriptor,
+                clock=at_expiry,
+                stamp=stamp,
+                deposit=descriptor.prepaid,
+                caller_adapter=adapter,
+            ),
+            "QUEUED:0",
+        )
+        self.assertGreaterEqual(
+            router.forced_queue.descriptors[0].due_at, expiry + 1
+        )
+
+        after_expiry = settlement.Clock(at_expiry.block_number + 1, expiry + 1)
+        status, stamp = router.sync_ingress(
+            clock=after_expiry, caller_adapter=adapter
+        )
+        self.assertEqual(status, "SYNCED")
+        self.assertIsNone(stamp)
+        self.assertEqual(router.forced_queue.count, 1)
+        renewed_expiry = protocol.recovery.expires_at
+        self.assertGreater(renewed_expiry, expiry)
+
+        status, stamp = router.sync_ingress(
+            clock=after_expiry, caller_adapter=adapter
+        )
+        self.assertEqual(status, "ACTIVE")
+        retry = settlement.message(after_expiry.l2_slot, "expiry-retry")
+        self.assertEqual(
+            router.append_from_adapter(
+                retry,
+                clock=after_expiry,
+                stamp=stamp,
+                deposit=retry.prepaid,
+                caller_adapter=adapter,
+            ),
+            "QUEUED:1",
+        )
+        self.assertGreaterEqual(
+            router.forced_queue.descriptors[1].due_at, renewed_expiry + 1
+        )
+
     def test_exact_adapter_identity_and_kind_role_are_not_forgeable(self):
         with self.assertRaises(ValueError):
             self.router.append_from_adapter(
@@ -5903,6 +6037,48 @@ class ForcedIngressRouterTests(unittest.TestCase):
                         caller_adapter=adapter,
                     )
                 self.assertEqual(router.forced_queue, queue_before)
+
+        terminal, _ = migration_manager_fixture(seat=False)
+        terminal_clock = settlement.Clock(
+            terminal.canonical.canonicalized_at_block + 1,
+            settlement.UINT64_MAX
+            - settlement.ESCAPE_OFFSET
+            - settlement.DELTA_TIP,
+        )
+        terminal_before = (
+            terminal.mode,
+            terminal.episode,
+            terminal.recovery,
+            tuple(terminal.events),
+            terminal.normal_deadline,
+            terminal.normal_best,
+        )
+        with self.assertRaises(ValueError):
+            terminal._activate(terminal_clock, settlement.Cause.FORCE_DUE)
+        self.assertEqual(
+            (
+                terminal.mode,
+                terminal.episode,
+                terminal.recovery,
+                tuple(terminal.events),
+                terminal.normal_deadline,
+                terminal.normal_best,
+            ),
+            terminal_before,
+        )
+
+        last_live, _ = migration_manager_fixture(seat=False)
+        last_live_clock = settlement.Clock(
+            last_live.canonical.canonicalized_at_block + 1,
+            terminal_clock.timestamp - 1,
+        )
+        last_live._activate(last_live_clock, settlement.Cause.FORCE_DUE)
+        self.assertEqual(
+            settlement.decode_settlement_forced_ingress_floor_v1(
+                last_live.settlement_forced_ingress_floor_v1()
+            ),
+            settlement.UINT64_MAX,
+        )
 
     def test_invalid_kind0_is_rejected_before_sync_and_valid_sync_is_refundable(self):
         far_clock = settlement.Clock(

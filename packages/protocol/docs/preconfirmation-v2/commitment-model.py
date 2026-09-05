@@ -105,6 +105,8 @@ D_TRANCHE_LEAF = b"slot-chain-tranche-leaf-v1"
 D_TRANCHE_NODE = b"slot-chain-tranche-node-v1"
 D_FORCE_USER = b"slot-chain-force-user-v2"
 D_FORCE_BRIDGE = b"slot-chain-force-bridge-v11"
+D_FORCE_USER_ADMISSION = b"slot-chain-force-user-admission-v2"
+D_FORCE_BRIDGE_ADMISSION = b"slot-chain-force-bridge-admission-v11"
 D_FORCE_DESCRIPTOR_LIST = b"slot-chain-force-descriptor-list-v2"
 D_FORCE_EMPTY = b"slot-chain-force-empty-v2"
 D_FORCE_NODE = b"slot-chain-force-node-v2"
@@ -435,6 +437,37 @@ MIGRATION_ACTIVATION_CONTEXT_SELECTOR = keccak256(
     b"migrationActivationContextV1()")[:4]
 MIGRATION_ACTIVATION_POST_STATE_SELECTOR = keccak256(
     b"migrationActivationPostStateV1(bytes32)")[:4]
+FORCED_QUEUE_CONFIG_SELECTOR = keccak256(b"forcedQueueConfigV1()")[:4]
+FORCED_QUEUE_STATE_SELECTOR = keccak256(b"forcedQueueStateV1()")[:4]
+FORCED_QUEUE_FRONTIER_SELECTOR = keccak256(b"forcedQueueFrontierV1()")[:4]
+FORCED_QUEUE_DESCRIPTOR_SELECTOR = keccak256(
+    b"forcedQueueDescriptorV1(uint64)")[:4]
+FORCED_QUEUE_DUE_AT_SELECTOR = keccak256(b"dueAt(uint64)")[:4]
+FORCED_QUEUE_APPEND_SELECTOR = keccak256(
+    b"appendFromRouterV1(uint8,bytes)")[:4]
+FORCED_QUEUE_ADVANCE_SELECTOR = keccak256(
+    b"advanceCursor(uint64,uint64,address)")[:4]
+FORCED_QUEUE_WITHDRAW_SELECTOR = keccak256(
+    b"withdrawForcedQueueClaimV1(address)")[:4]
+ROUTER_LEGACY_BOOTSTRAP_SELECTOR = keccak256(
+    b"routerLegacyBootstrapV1()")[:4]
+SETTLEMENT_FORCED_INGRESS_FLOOR_SELECTOR = keccak256(
+    b"settlementForcedIngressFloorV1()")[:4]
+SETTLEMENT_FORCED_INGRESS_FLOOR_GAS = 50_000
+FORCED_QUEUE_EVENT_TOPICS = {
+    "forced_queue_appended_topic": keccak256(
+        b"ForcedQueueAppended(uint64,uint8,bytes32,bytes32,uint64,uint64,uint256)"
+    ),
+    "forced_queue_cursor_advanced_topic": keccak256(
+        b"ForcedQueueCursorAdvanced(uint64,uint64,address,uint256)"
+    ),
+    "forced_queue_authority_migrated_topic": keccak256(
+        b"ForcedQueueAuthorityMigrated(bytes32,address,address,uint64,uint64,uint256,bytes32)"
+    ),
+    "forced_queue_claim_withdrawn_topic": keccak256(
+        b"ForcedQueueClaimWithdrawn(address,address,uint256)"
+    ),
+}
 LEGACY_GENESIS_STATE_SELECTOR = keccak256(b"legacyGenesisStateV1()")[:4]
 LEGACY_GENESIS_CAMPAIGN_SELECTOR = keccak256(
     b"legacyGenesisCampaignV1()")[:4]
@@ -1327,13 +1360,13 @@ def decode_sync_ingress_return(returndata: bytes) -> tuple[int, int, int]:
 
 def encode_append_from_adapter_calldata(
         active_protocol_version: int, router_generation: int, kind: int,
-        descriptor: bytes) -> bytes:
+        admission: bytes) -> bytes:
     assert (0 < active_protocol_version <= UINT64_MAX
             and 0 < router_generation <= UINT64_MAX and kind in (0, 1))
-    assert len(descriptor) == (220 if kind == 0 else 541)
+    assert len(admission) == (204 if kind == 0 else 525)
     encoded = (APPEND_FROM_ADAPTER_SELECTOR + u256(active_protocol_version)
                + u256(router_generation) + u256(kind) + u256(4 * 32)
-               + abi_bytes_tail(descriptor))
+               + abi_bytes_tail(admission))
     assert len(encoded) == (388 if kind == 0 else 708)
     return encoded
 
@@ -1347,9 +1380,9 @@ def decode_append_from_adapter_calldata(
     generation = uint_word_value(arguments[32:64], 64)
     kind = uint_word_value(arguments[64:96], 8)
     assert uint_word_value(arguments[96:128]) == 4 * 32
-    descriptor_length = uint_word_value(arguments[128:160])
-    descriptor = arguments[160:160 + descriptor_length]
-    result = (version, generation, kind, descriptor)
+    admission_length = uint_word_value(arguments[128:160])
+    admission = arguments[160:160 + admission_length]
+    result = (version, generation, kind, admission)
     assert calldata == encode_append_from_adapter_calldata(*result)
     return result
 
@@ -1364,6 +1397,118 @@ def decode_queued_return(returndata: bytes) -> int:
     queue_index = uint_word_value(returndata[32:], 64)
     assert queue_index < UINT64_MAX
     return queue_index
+
+
+def encode_router_legacy_bootstrap_return(
+        legacy_proxy: int, legacy_bootstrap_descriptor_hash: bytes,
+        configuration_hash: bytes) -> bytes:
+    assert (legacy_proxy != 0 and legacy_bootstrap_descriptor_hash != bytes(32)
+            and configuration_hash != bytes(32))
+    return (bytes4_word(b"RLB1") + address_word(legacy_proxy)
+            + b32(legacy_bootstrap_descriptor_hash) + b32(configuration_hash))
+
+
+def decode_router_legacy_bootstrap_return(
+        returndata: bytes) -> tuple[int, bytes, bytes]:
+    assert len(returndata) == 128 and returndata[:32] == bytes4_word(b"RLB1")
+    result = (address_word_value(returndata[32:64]), returndata[64:96],
+              returndata[96:128])
+    assert returndata == encode_router_legacy_bootstrap_return(*result)
+    return result
+
+
+def encode_settlement_forced_ingress_floor_return(
+        minimum_due_at: int) -> bytes:
+    assert 0 <= minimum_due_at <= UINT64_MAX
+    return bytes4_word(b"SIF1") + u256(minimum_due_at)
+
+
+def decode_settlement_forced_ingress_floor_return(returndata: bytes) -> int:
+    assert len(returndata) == 64 and returndata[:32] == bytes4_word(b"SIF1")
+    minimum_due_at = uint_word_value(returndata[32:], 64)
+    assert returndata == encode_settlement_forced_ingress_floor_return(
+        minimum_due_at)
+    return minimum_due_at
+
+
+def encode_forced_queue_config_return(
+        active_settlement_router: int,
+        initial_active_settlement: int) -> bytes:
+    configuration_hash = forced_queue_config_hash(
+        active_settlement_router, initial_active_settlement)
+    return (
+        bytes4_word(b"FQC1") + address_word(active_settlement_router)
+        + address_word(initial_active_settlement) + u256(FORCE_DEPTH)
+        + u256(UINT64_MAX) + keccak256(D_FORCE_EMPTY)
+        + keccak256(D_FORCED_DESCRIPTOR_SCHEMA) + configuration_hash
+    )
+
+
+def decode_forced_queue_config_return(
+        returndata: bytes) -> tuple[int, int, bytes]:
+    assert len(returndata) == 256 and returndata[:32] == bytes4_word(b"FQC1")
+    router = address_word_value(returndata[32:64])
+    initial = address_word_value(returndata[64:96])
+    assert (uint_word_value(returndata[96:128], 8) == FORCE_DEPTH
+            and uint_word_value(returndata[128:160], 64) == UINT64_MAX
+            and returndata[160:192] == keccak256(D_FORCE_EMPTY)
+            and returndata[192:224] == keccak256(D_FORCED_DESCRIPTOR_SCHEMA))
+    configuration_hash = returndata[224:256]
+    assert returndata == encode_forced_queue_config_return(router, initial)
+    return router, initial, configuration_hash
+
+
+def encode_forced_queue_state_return(
+        active_settlement: int, root: bytes, count: int, cursor: int,
+        last_due_at: int, unconsumed_escrow: int, total_claimable: int,
+        accounted_liability: int, configuration_hash: bytes) -> bytes:
+    assert (active_settlement != 0 and len(root) == 32
+            and 0 <= cursor <= count <= UINT64_MAX
+            and 0 <= last_due_at <= UINT64_MAX
+            and configuration_hash != bytes(32))
+    assert accounted_liability == unconsumed_escrow + total_claimable
+    return (
+        bytes4_word(b"FQS1") + address_word(active_settlement) + root
+        + u256(count) + u256(cursor) + u256(last_due_at)
+        + u256(unconsumed_escrow) + u256(total_claimable)
+        + u256(accounted_liability) + configuration_hash
+    )
+
+
+def decode_forced_queue_state_return(
+        returndata: bytes) -> tuple[int, bytes, int, int, int, int, int, int, bytes]:
+    assert len(returndata) == 320 and returndata[:32] == bytes4_word(b"FQS1")
+    result = (
+        address_word_value(returndata[32:64]), returndata[64:96],
+        uint_word_value(returndata[96:128], 64),
+        uint_word_value(returndata[128:160], 64),
+        uint_word_value(returndata[160:192], 64),
+        uint_word_value(returndata[192:224]),
+        uint_word_value(returndata[224:256]),
+        uint_word_value(returndata[256:288]), returndata[288:320],
+    )
+    assert returndata == encode_forced_queue_state_return(*result)
+    return result
+
+
+def validate_root_queue_bootstrap_join(
+        role5_router: int, role5_configuration_hash: bytes,
+        router_legacy_return: bytes, role6_configuration_hash: bytes,
+        queue_config_return: bytes, queue_state_return: bytes,
+        canonical_empty_root: bytes) -> None:
+    legacy_proxy, _, router_configuration_hash = (
+        decode_router_legacy_bootstrap_return(router_legacy_return))
+    queue_router, initial_settlement, queue_configuration_hash = (
+        decode_forced_queue_config_return(queue_config_return))
+    state = decode_forced_queue_state_return(queue_state_return)
+    assert (router_configuration_hash == role5_configuration_hash
+            and queue_router == role5_router
+            and initial_settlement == legacy_proxy
+            and queue_configuration_hash == role6_configuration_hash)
+    assert state == (
+        legacy_proxy, canonical_empty_root, 0, 0, 0, 0, 0, 0,
+        role6_configuration_hash,
+    )
 
 
 def _decode_canonical_rlp_item(encoded: bytes, start: int) -> tuple[int, bool]:
@@ -2343,6 +2488,19 @@ def forced_descriptor(envelope: ForcedEnvelope) -> bytes:
     )
 
 
+def forced_admission(envelope: ForcedEnvelope) -> bytes:
+    encoded = (
+        address20(envelope.sender) + u64(envelope.nonce)
+        + u256(envelope.chain_id) + b32(envelope.raw_tx_hash)
+        + u32(envelope.byte_length) + u64(envelope.gas_limit)
+        + u64(envelope.accounted_gas) + u256(envelope.max_fee)
+        + u64(envelope.valid_until) + address20(envelope.refund)
+        + u256(envelope.deposit)
+    )
+    assert len(encoded) == 204
+    return encoded
+
+
 def bridge_descriptor(envelope: BridgeEnvelope) -> bytes:
     assert (envelope.liquidity_fee > 0 and envelope.refund_mode == 1
             and envelope.refund_vault == 0
@@ -2367,6 +2525,33 @@ def bridge_descriptor(envelope: BridgeEnvelope) -> bytes:
         + u64(envelope.enqueued_at) + u64(envelope.due_at)
         + u256(envelope.deposit)
     )
+
+
+def bridge_admission(envelope: BridgeEnvelope) -> bytes:
+    assert (envelope.liquidity_fee > 0 and envelope.refund_mode == 1
+            and envelope.refund_vault == 0
+            and envelope.refund_capsule_hash == bytes(32)
+            and 0 < envelope.value + envelope.fee < 1 << 256)
+    encoded = (
+        b32(envelope.msg_hash)
+        + u256(envelope.src_chain_id) + b32(envelope.source_domain_id)
+        + u64(envelope.src_epoch)
+        + address20(envelope.src_bridge)
+        + b32(envelope.bridge_execution_hash) + u64(envelope.emitted_at_block)
+        + b32(envelope.destination_domain_id) + u256(envelope.dest_chain_id)
+        + u64(envelope.enqueue_by)
+        + address20(envelope.sender) + address20(envelope.src_owner)
+        + address20(envelope.dest_owner) + u256(envelope.value)
+        + u64(envelope.fee) + u64(envelope.liquidity_fee)
+        + b32(envelope.calldata_hash)
+        + u8(envelope.refund_mode) + address20(envelope.refund_vault)
+        + b32(envelope.refund_capsule_hash)
+        + b32(envelope.escrow_id) + u32(envelope.byte_length)
+        + u64(envelope.accounted_gas) + address20(envelope.refund)
+        + u256(envelope.deposit)
+    )
+    assert len(encoded) == 525
+    return encoded
 
 
 def forced_leaf(index: int, envelope: ForcedEnvelope) -> bytes:
@@ -2797,11 +2982,14 @@ def active_settlement_router_config_preimage_v2(
     return payload
 
 
-def forced_queue_config_hash(active_settlement_router: int) -> bytes:
-    encoded = (address20(active_settlement_router) + u8(FORCE_DEPTH)
+def forced_queue_config_hash(active_settlement_router: int,
+                             initial_active_settlement: int) -> bytes:
+    assert active_settlement_router != initial_active_settlement
+    encoded = (address20(active_settlement_router)
+               + address20(initial_active_settlement) + u8(FORCE_DEPTH)
                + u64(UINT64_MAX) + b32(keccak256(D_FORCE_EMPTY))
                + b32(keccak256(D_FORCED_DESCRIPTOR_SCHEMA)))
-    assert len(encoded) == 93
+    assert len(encoded) == 113
     return keccak256(D_FORCED_QUEUE_CONFIG + u16(len(encoded)) + encoded)
 
 
@@ -10953,7 +11141,7 @@ def inbox_route_config_hash(inbox_apply_router: int, destination_bridge: int,
 
 def fixture_destination_components() -> tuple[ComponentDescriptor, ...]:
     """Fully derived fixture for the ten canonical component grammars."""
-    queue_config = forced_queue_config_hash(0xAD01)
+    queue_config = forced_queue_config_hash(0xAD01, 0xB001)
     bundle_deployer = create2_address(
         0xF123, bytes.fromhex("30" * 32), bytes.fromhex("31" * 32))
     source_bridge = create_address_from_nonce(bundle_deployer, 1)
@@ -12805,6 +12993,47 @@ def vectors() -> dict[str, str]:
     (timelock_descriptor, timelock_descriptor_hash, manager_config,
      manager_descriptor, manager_descriptor_hash) = fixture_protocol_authority()
     infrastructure_components = derived_release_authority.destination_components
+    router_legacy_descriptor_hash = legacy_bootstrap_descriptor_hash_v1(
+        0xB001, bytes.fromhex("61" * 32),
+        0xB002, bytes.fromhex("62" * 32), bytes.fromhex("63" * 32))
+    router_legacy_bootstrap_return = encode_router_legacy_bootstrap_return(
+        0xB001, router_legacy_descriptor_hash,
+        infrastructure_components[1].config_hash)
+    assert decode_router_legacy_bootstrap_return(
+        router_legacy_bootstrap_return) == (
+            0xB001, router_legacy_descriptor_hash,
+            infrastructure_components[1].config_hash)
+    for malformed_router_bootstrap in (
+        router_legacy_bootstrap_return[:-1],
+        router_legacy_bootstrap_return + b"\x00",
+        b"BAD!" + router_legacy_bootstrap_return[4:],
+        router_legacy_bootstrap_return[:32] + b"\x01"
+        + router_legacy_bootstrap_return[33:],
+    ):
+        assert_rejects(
+            lambda value=malformed_router_bootstrap:
+                decode_router_legacy_bootstrap_return(value),
+            "malformed Router legacy-bootstrap view accepted")
+    normal_forced_ingress_floor_return = (
+        encode_settlement_forced_ingress_floor_return(0))
+    recovery_forced_ingress_floor_return = (
+        encode_settlement_forced_ingress_floor_return(UINT64_MAX))
+    assert (SETTLEMENT_FORCED_INGRESS_FLOOR_SELECTOR.hex() == "fe2a2914"
+            and decode_settlement_forced_ingress_floor_return(
+                normal_forced_ingress_floor_return) == 0
+            and decode_settlement_forced_ingress_floor_return(
+                recovery_forced_ingress_floor_return) == UINT64_MAX)
+    for malformed_forced_ingress_floor in (
+        normal_forced_ingress_floor_return[:-1],
+        normal_forced_ingress_floor_return + b"\x00",
+        b"BAD!" + normal_forced_ingress_floor_return[4:],
+        normal_forced_ingress_floor_return[:32] + b"\x01"
+        + normal_forced_ingress_floor_return[33:],
+    ):
+        assert_rejects(
+            lambda value=malformed_forced_ingress_floor:
+                decode_settlement_forced_ingress_floor_return(value),
+            "malformed Settlement forced-ingress floor accepted")
     _unused_fixture_deployment, successor_deployment_descriptor = (
         fixture_settlement_deployment_descriptors())
     target_deployment_descriptor = (
@@ -13055,7 +13284,7 @@ def vectors() -> dict[str, str]:
         router_runtime_hash=infrastructure_components[1].runtime_hash,
         router_configuration_hash=infrastructure_components[1].config_hash,
         forced_queue=0xF000, queue_runtime_hash=bytes.fromhex("5a" * 32),
-        queue_configuration_hash=forced_queue_config_hash(0xAD01),
+        queue_configuration_hash=forced_queue_config_hash(0xAD01, 0xB001),
         destination_chain_id=(1 << 255) + l2_chain_id,
         fixed_ingress_wei=ingress_fees[0],
         execution_wei_per_accounted_gas=ingress_fees[1],
@@ -13083,7 +13312,7 @@ def vectors() -> dict[str, str]:
     ingress_graph = IngressProfileGraphV2(
         0xAD01, infrastructure_components[1].runtime_hash,
         infrastructure_components[1].config_hash, 0xF000,
-        bytes.fromhex("5a" * 32), forced_queue_config_hash(0xAD01),
+        bytes.fromhex("5a" * 32), forced_queue_config_hash(0xAD01, 0xB001),
         source_domain, 7, bridge_execution, (1 << 255) + l2_chain_id,
         destination_domain, 0xB200, destination_bridge_execution,
         infrastructure, 0xAD10, bytes.fromhex("91" * 32),
@@ -13216,6 +13445,55 @@ def vectors() -> dict[str, str]:
     imported_state_root = bytes.fromhex("83" * 32)
     imported_header_number = 1_234
     empty_queue_root = ForceVector(()).root
+    queue_bootstrap_config_return = encode_forced_queue_config_return(
+        0xAD01, 0xB001)
+    queue_bootstrap_state_return = encode_forced_queue_state_return(
+        0xB001, empty_queue_root, 0, 0, 0, 0, 0, 0,
+        forced_queue_config_hash(0xAD01, 0xB001))
+    validate_root_queue_bootstrap_join(
+        0xAD01, infrastructure_components[1].config_hash,
+        router_legacy_bootstrap_return,
+        forced_queue_config_hash(0xAD01, 0xB001),
+        queue_bootstrap_config_return, queue_bootstrap_state_return,
+        empty_queue_root)
+    for invalid_bootstrap_join in (
+        (
+            router_legacy_bootstrap_return,
+            encode_forced_queue_config_return(0xAD01, 0xB002),
+            queue_bootstrap_state_return,
+        ),
+        (
+            router_legacy_bootstrap_return, queue_bootstrap_config_return,
+            encode_forced_queue_state_return(
+                0xB002, empty_queue_root, 0, 0, 0, 0, 0, 0,
+                forced_queue_config_hash(0xAD01, 0xB001)),
+        ),
+        (
+            router_legacy_bootstrap_return, queue_bootstrap_config_return,
+            encode_forced_queue_state_return(
+                0xB001, bytes.fromhex("ff" * 32), 0, 0, 0, 0, 0, 0,
+                forced_queue_config_hash(0xAD01, 0xB001)),
+        ),
+        (
+            encode_router_legacy_bootstrap_return(
+                0xB002, router_legacy_descriptor_hash,
+                infrastructure_components[1].config_hash),
+            queue_bootstrap_config_return, queue_bootstrap_state_return,
+        ),
+        (
+            router_legacy_bootstrap_return, queue_bootstrap_config_return,
+            encode_forced_queue_state_return(
+                0xB001, empty_queue_root, 0, 0, 0, 1, 2, 3,
+                forced_queue_config_hash(0xAD01, 0xB001)),
+        ),
+    ):
+        assert_rejects(
+            lambda values=invalid_bootstrap_join:
+                validate_root_queue_bootstrap_join(
+                    0xAD01, infrastructure_components[1].config_hash,
+                    values[0], forced_queue_config_hash(0xAD01, 0xB001),
+                    values[1], values[2], empty_queue_root),
+            "inconsistent Router/Queue bootstrap join accepted")
     empty_forced_descriptors = force_descriptor_list(0, (), None)
     empty_inbox_rows: tuple[InboxRowV2, ...] = ()
     version_inbox_rows = tuple(
@@ -14650,7 +14928,7 @@ def vectors() -> dict[str, str]:
         genesis_candidate_hash, genesis_base,
         canonical_core_v2_hash(genesis_output_core),
         0xF000, bytes.fromhex("5a" * 32),
-        forced_queue_config_hash(0xAD01), empty_queue_root, 0, 0, 0,
+        forced_queue_config_hash(0xAD01, 0xB001), empty_queue_root, 0, 0, 0,
         empty_forced_descriptors, 0xCAFE, 1_000, bytes.fromhex("99" * 32),
         empty_queue_root, 0, bytes(32), 0, bytes(32),
         keccak256(genesis_release_system_calldata),
@@ -14667,7 +14945,7 @@ def vectors() -> dict[str, str]:
         successor_release_hash, successor_registration_hash,
         candidate_hash, base, canonical_core_v2_hash(version_output_core),
         0xF000, bytes.fromhex("5a" * 32),
-        forced_queue_config_hash(0xAD01), force.root, len(envs), 2, 66,
+        forced_queue_config_hash(0xAD01, 0xB001), force.root, len(envs), 2, 66,
         forced_descriptors, 0xCAFE, 1_000, bytes.fromhex("99" * 32),
         force.root, 66, source_domain, 7, bridge_execution,
         keccak256(version_release_system_calldata),
@@ -14734,6 +15012,17 @@ def vectors() -> dict[str, str]:
         bridge_escrow_id(bridge_credit), 96, 120_000,
         0xBEEF, 700, 2_200, 10**16,
         0xB200, 2, release_hash, profile_hash,
+    )
+    kind0_admission = forced_admission(envs[0])
+    kind1_admission = bridge_admission(bridge)
+    assert len(kind0_admission) == 204 and len(kind1_admission) == 525
+    assert forced_descriptor(envs[0]) == (
+        kind0_admission[:-32] + u64(envs[0].enqueued_at)
+        + u64(envs[0].due_at) + kind0_admission[-32:]
+    )
+    assert bridge_descriptor(bridge) == (
+        kind1_admission[:-32] + u64(bridge.enqueued_at)
+        + u64(bridge.due_at) + kind1_admission[-32:]
     )
     source_authorization = credit_authorization_from_envelope(bridge)
     source_liability = SourceLiabilityV2(
@@ -15335,9 +15624,9 @@ def vectors() -> dict[str, str]:
     sync_stamp_return = encode_sync_ingress_return(1, 2, 7)
     sync_synced_return = encode_sync_ingress_return(2, 0, 0)
     append_kind0_calldata = encode_append_from_adapter_calldata(
-        2, 7, 0, forced_descriptor(envs[2]))
+        2, 7, 0, forced_admission(envs[2]))
     append_kind1_calldata = encode_append_from_adapter_calldata(
-        2, 7, 1, durable_bridge_descriptor)
+        2, 7, 1, bridge_admission(bridge))
     queued_return = encode_queued_return(70)
     bridge_hash = bridge_leaf(70, bridge)
     settlement_hash = liquidity_settlement_hash(
@@ -15502,9 +15791,17 @@ def vectors() -> dict[str, str]:
     assert decode_sync_ingress_return(sync_stamp_return) == (1, 2, 7)
     assert decode_sync_ingress_return(sync_synced_return) == (2, 0, 0)
     assert decode_append_from_adapter_calldata(append_kind0_calldata) \
-        == (2, 7, 0, forced_descriptor(envs[2]))
+        == (2, 7, 0, forced_admission(envs[2]))
     assert decode_append_from_adapter_calldata(append_kind1_calldata) \
-        == (2, 7, 1, durable_bridge_descriptor)
+        == (2, 7, 1, bridge_admission(bridge))
+    assert_rejects(
+        lambda: encode_append_from_adapter_calldata(
+            2, 7, 0, forced_descriptor(envs[2])),
+        "durable kind-0 descriptor accepted as an admission body")
+    assert_rejects(
+        lambda: encode_append_from_adapter_calldata(
+            2, 7, 1, durable_bridge_descriptor),
+        "durable kind-1 descriptor accepted as an admission body")
     assert decode_queued_return(queued_return) == 70
     for malformed_adapter_value, decoder in (
         (enqueue_forced_calldata + bytes(32),
@@ -15521,6 +15818,9 @@ def vectors() -> dict[str, str]:
          decode_append_from_adapter_calldata),
         (append_kind0_calldata[:100] + u256(160)
          + append_kind0_calldata[132:],
+         decode_append_from_adapter_calldata),
+        (append_kind0_calldata[:132] + u256(220)
+         + append_kind0_calldata[164:],
          decode_append_from_adapter_calldata),
         (append_kind0_calldata[:68] + u256(1 << 8)
          + append_kind0_calldata[100:],
@@ -18314,7 +18614,53 @@ def vectors() -> dict[str, str]:
         "release_manifest_trie_key": release_manifest_trie_key(2).hex(),
         "inbox_route_config_hash": inbox_route_config_hash(
             0x5100, 0xB200, 0x5103, destination_domain).hex(),
-        "forced_queue_config_hash": forced_queue_config_hash(0xAD01).hex(),
+        "forced_queue_config_hash": forced_queue_config_hash(0xAD01, 0xB001).hex(),
+        "kind0_forced_admission_schema_hash":
+            keccak256(D_FORCE_USER_ADMISSION).hex(),
+        "kind1_forced_admission_schema_hash":
+            keccak256(D_FORCE_BRIDGE_ADMISSION).hex(),
+        "kind0_forced_admission_hash": keccak256(kind0_admission).hex(),
+        "kind1_forced_admission_hash": keccak256(kind1_admission).hex(),
+        "kind0_forced_admission_length": str(len(kind0_admission)),
+        "kind1_forced_admission_length": str(len(kind1_admission)),
+        "forced_queue_config_selector": FORCED_QUEUE_CONFIG_SELECTOR.hex(),
+        "forced_queue_state_selector": FORCED_QUEUE_STATE_SELECTOR.hex(),
+        "forced_queue_frontier_selector": FORCED_QUEUE_FRONTIER_SELECTOR.hex(),
+        "forced_queue_descriptor_selector": FORCED_QUEUE_DESCRIPTOR_SELECTOR.hex(),
+        "forced_queue_due_at_selector": FORCED_QUEUE_DUE_AT_SELECTOR.hex(),
+        "forced_queue_append_selector": FORCED_QUEUE_APPEND_SELECTOR.hex(),
+        "forced_queue_advance_selector": FORCED_QUEUE_ADVANCE_SELECTOR.hex(),
+        "forced_queue_withdraw_selector": FORCED_QUEUE_WITHDRAW_SELECTOR.hex(),
+        "router_legacy_bootstrap_selector":
+            ROUTER_LEGACY_BOOTSTRAP_SELECTOR.hex(),
+        "router_legacy_bootstrap_magic": b"RLB1".hex(),
+        "router_legacy_bootstrap_return_hash":
+            keccak256(router_legacy_bootstrap_return).hex(),
+        "router_legacy_bootstrap_return_length":
+            str(len(router_legacy_bootstrap_return)),
+        "settlement_forced_ingress_floor_selector":
+            SETTLEMENT_FORCED_INGRESS_FLOOR_SELECTOR.hex(),
+        "settlement_forced_ingress_floor_magic": b"SIF1".hex(),
+        "settlement_forced_ingress_floor_call_gas":
+            str(SETTLEMENT_FORCED_INGRESS_FLOOR_GAS),
+        "settlement_forced_ingress_floor_normal_return_hash":
+            keccak256(normal_forced_ingress_floor_return).hex(),
+        "settlement_forced_ingress_floor_recovery_return_hash":
+            keccak256(recovery_forced_ingress_floor_return).hex(),
+        "settlement_forced_ingress_floor_return_length":
+            str(len(normal_forced_ingress_floor_return)),
+        "forced_queue_config_return_hash":
+            keccak256(queue_bootstrap_config_return).hex(),
+        "forced_queue_config_return_length":
+            str(len(queue_bootstrap_config_return)),
+        "forced_queue_empty_state_return_hash":
+            keccak256(queue_bootstrap_state_return).hex(),
+        "forced_queue_state_return_length":
+            str(len(queue_bootstrap_state_return)),
+        **{
+            key: value.hex()
+            for key, value in FORCED_QUEUE_EVENT_TOPICS.items()
+        },
         "data_session_config_hash": session_config_hash.hex(),
         **{
             key: value.hex()
@@ -18409,7 +18755,7 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'fd25f40f2ca853acf7
  'abort_expired_version_migration_selector': 'c4eee12d',
  'activate_release_selector': '33f5ca80',
  'activate_version_with_migration_selector': '17a548ed',
- 'activation_receipt_id': 'fe1a285719dc9108b3b215f7028bf3b2ccd0dfe5304b8c10aa28139c250ee60e',
+ 'activation_receipt_id': '698e012f308ab8ff4728d26e44b8a0b2e983a4fb8fffe4ca0dcba51f089fd87e',
  'activation_receipt_magic': '41525631',
  'activation_receipt_selector': '0a4434d0',
  'activation_successor_receipt_magic': '41535631',
@@ -18420,12 +18766,12 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'fd25f40f2ca853acf7
  'admission_root': '3bf2dcaf78292c832108e29205bf99cc2d22137a0545e4528d8da7309d4b482b',
  'adopt_migration_canonical_calldata_hash': '50a40e4cc08b6bd1d0e7f41925829da8f15f1e7061cb9f4eae289292ae76d732',
  'adopt_migration_canonical_calldata_length': '580',
- 'adopt_migration_canonical_return_hash': '42eb3470cadbfeec5004afcaaf6956a03da547d5fb33a5975482d3cdb32c99fc',
+ 'adopt_migration_canonical_return_hash': '25c666721849753a823f0b5d06bd3815c76cd7f79447af37694973804003579a',
  'adopt_migration_canonical_selector': '3286443c',
  'append_from_adapter_selector': '1927261d',
- 'append_kind0_calldata_hash': 'caabdaadee6df8cea48fb88dacad863e6e24e13f5b0c06f99408d5c71611788a',
+ 'append_kind0_calldata_hash': '76987f6362880e36897346f14917e9474a3b3419e110145a6ae10b303f317ef1',
  'append_kind0_calldata_length': '388',
- 'append_kind1_calldata_hash': 'df92daaee8cffdd28f003e0b1c748cb294297c86cd1e79de08f03ddf15c1617a',
+ 'append_kind1_calldata_hash': '15c4ef291e6f119abfaf74439111748381818f856d1cea77145bcdc2518947e2',
  'append_kind1_calldata_length': '708',
  'append_terminal_calldata_hash': '78b9b5433b2295976f9c7a1fd73d1720848c608e091ff52b548794e0a8ecd093',
  'append_terminal_selector': 'abc194f5',
@@ -18673,7 +19019,23 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'fd25f40f2ca853acf7
  'force_range_digest': '75c75611d9eaa6c05e56a1fb646cea4c9d796adfd205df5c5ff1b0b52cc93dd2',
  'forced_descriptors': 'ccc81a65638181195f6ebd5b5902bc3a62716d7c3e70b32cbabdd250b9ebf42f',
  'forced_leaf': 'c75c50d8b8573f217a20c9018a3d23d7fa5cda240f2a2e9eb4260c4af4c367e4',
- 'forced_queue_config_hash': '72e27c19ebfab08e1fb27feeff50609c7c4bb69f0570a7bdb72eda7736c50f4e',
+ 'forced_queue_advance_selector': 'd59ff200',
+ 'forced_queue_append_selector': 'a8e5d8d0',
+ 'forced_queue_appended_topic': '79250628d474df83f40598f02c49d25e713fb04a8ef4bd4457fa70055a86f489',
+ 'forced_queue_authority_migrated_topic': '5f72c8debc696f92d7ef7018d28b559f85d9cbad9262eb372ae1ed69cde296f1',
+ 'forced_queue_claim_withdrawn_topic': '93cc2e9cd74702c3df0d771c2b1901ca496935e81636c3e6f0e5d7e0d7f5dd74',
+ 'forced_queue_config_hash': '83b6bbb84a479fd81c3a12452aae319c66a72c95cf4138e8e2005e9bee58eeef',
+ 'forced_queue_config_return_hash': '65ea23a3e7f611c0a7876cebbd1714ff6bfc7be5173b882ba58ab6cffc8f0d24',
+ 'forced_queue_config_return_length': '256',
+ 'forced_queue_config_selector': '8136fe31',
+ 'forced_queue_cursor_advanced_topic': '972ed56e80520f8e90eb897f4f0e5b59f1167d96d3b28e0432f80c96c53aff17',
+ 'forced_queue_descriptor_selector': 'bd9534db',
+ 'forced_queue_due_at_selector': '530fd138',
+ 'forced_queue_empty_state_return_hash': '2db8517c2033250559075bc49d50b318266449889905fdb42c96002213a8a158',
+ 'forced_queue_frontier_selector': '7c339ff7',
+ 'forced_queue_state_return_length': '320',
+ 'forced_queue_state_selector': '03e0d70b',
+ 'forced_queue_withdraw_selector': 'c28aa0e8',
  'forced_root': 'a54e9f797ffe7f04dd5ca7df4c858edf02ce45a81808522633fc9cee8fe72e57',
  'fork_change_execution_window_seconds': '86400',
  'fork_change_queue_inclusion_allowance_seconds': '900',
@@ -18682,8 +19044,8 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'fd25f40f2ca853acf7
  'fork_verifier_registration_magic': '46565231',
  'fork_verifier_registration_return_hash': '252a8f9b5199a2b88f07e01d89d4fabb49903713d19500ca1cf34ad3fbf9c00f',
  'fork_verifier_registration_selector': 'c614591c',
- 'freeze_migration_source_calldata_hash': '4d7ba468b5624b7f1f3f4d82d683ff1ea560d84864f3c0f3bcc4c4cf769fb416',
- 'freeze_migration_source_return_hash': 'df98e88fd5c7156573cdeae28bd10772822738ad96f4dab795722dc34a86da74',
+ 'freeze_migration_source_calldata_hash': '1d931b74a92b247ad4facbd51d394bd45233d2f6a5aad50cf941b6bea4ccc16a',
+ 'freeze_migration_source_return_hash': '2f897b9c52b700a07f147ff335e3ec96c6a82006d60b8509f5cc94bfc32b1efc',
  'freeze_migration_source_selector': '45a80913',
  'fund_reward_class_v1_calldata_hash': '1086e7c6ffda5d1b4d31999795549a413160e18f638c43801cf6bd8293b430f1',
  'fund_reward_class_v1_calldata_length': '36',
@@ -18692,28 +19054,28 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'fd25f40f2ca853acf7
  'funded_data_session_accounting_return_hash': '503889bfc0f8c51e3c2f35bac05eeb8c5b2c64b2c682e70f2230000d4a4c973a',
  'genesis_activation_calldata_hash': '9cf4c811dab79add0e206b2a71db666bd021c75e596581b5e2383c9d0e940948',
  'genesis_activation_calldata_length': '2948',
- 'genesis_activation_context_hash': '5cb8d101e134be9a2abfc502842cacdf0cd4aa0879fbb15b0deebbc9f33229f6',
- 'genesis_activation_context_return_hash': '72360be4e15ecfaac3ad38477f9c8d4bd84b0605a15911489fa253182f147b9f',
+ 'genesis_activation_context_hash': '8b3949ae3b4a36790648af530093f6323852061e58aa3b4820475e02380b3963',
+ 'genesis_activation_context_return_hash': 'f02d115f318acc213046932f929153085caea23314179d1c0440172070950143',
  'genesis_activation_fixed_hash': '15236b38830f35f4df4c6bd78015c9a3b495a0f3fe08a028cdb1dd57aac970ca',
- 'genesis_activation_receipt_calldata_hash': '72c50dc4d29be24ead87fcc8a6d9e967d46239108acc8c800b4dc58b7b0d093b',
- 'genesis_activation_receipt_id': '5d25dea0a342b3083e04ee7c6b502787b7151d5d7511b87880b2e81c6dbe28f7',
- 'genesis_activation_receipt_return_hash': '021499de70122138d7619f4134f81310f2afef61aa1f8836f1f41a808e0351c1',
+ 'genesis_activation_receipt_calldata_hash': '4100b0e92f65790092bbe451368843601ae741a28719f445229b8cf0bc82b78d',
+ 'genesis_activation_receipt_id': '783af6ce79894fb87c8c278119016c82313e8995349ff24f09be226169f9bc37',
+ 'genesis_activation_receipt_return_hash': 'f921409c7a82327f93779c40bdcc14dabbe1f77a80493233c5d71cd4cfde1e91',
  'genesis_activation_receipt_return_length': '1024',
  'genesis_adopt_migration_calldata_hash': 'd02433b236c95fa4d5b910900248b2519b29c16713c9e9d800c8d654764a86a5',
- 'genesis_adopt_migration_return_hash': 'b64da100aea883427e30196e02b6da2a42c55b828aff1f65476ffd97b3baae50',
- 'genesis_adoption_commitment': '86b16e2bd22cca5b2725389cc77293f8898b63eaedcdaece281f1ee4a84aa373',
+ 'genesis_adopt_migration_return_hash': '773ce7a6e09cb85b37dc7a2a71aaf9bdb10ee2f299348022228c1c8ac5127e89',
+ 'genesis_adoption_commitment': 'bd1991e7dfa9a2f20f66e87d0a202695f6722ee89b9c56ca70e72952782f80b6',
  'genesis_base_canonical_hash': '5081c70042287a8b7156b2626675ea4ed9623c755d5f51b5c83be94e90da3ff3',
  'genesis_base_core_hash': '12243b817561a9362bb03dffb36bb73f9314d47e3165673793419692cd8a8566',
  'genesis_candidate_commitment': '90949c0865a5e0226c6c0d736c0533f9e5f1d793dc9c5d21407a210ee3896338',
  'genesis_deployment_commitment': '85949c3790c2ab6f779db6886a10f0955323fc131bfd221c41274f646c9ea68f',
- 'genesis_migration_statement_hash': 'a38c7aff541b909f98dfdf7add5a460ab05ee9c79242b40c9f161848d82ed41b',
+ 'genesis_migration_statement_hash': '68731f130fde9625349a512575b41956157bb32272c01ce0b08970859197a54f',
  'genesis_output_core_hash': '46ecec937013339205139353730b413c8e508bc579ec9c0ede247161132134a8',
- 'genesis_queue_migration_calldata_hash': '9711f98e5fc6360d6012ea6ad259d985d41e725ea5917b8d804785a72d70ef2a',
- 'genesis_queue_migration_return_hash': 'b5a8436b577f5fdf6e2c182a83891ea034f4967c30290d99a145de7a54902f94',
- 'genesis_queue_post_state_commitment': 'e888b04d0fcd928974d8b3aa85c5cba6e9808d1595008249158c6ccf6f0fffb2',
- 'genesis_queue_post_state_return_hash': '7adc2df52b49a2a54d4947085c1acdd93ff8dc133b8a4f140f39d6dee85a5b36',
- 'genesis_source_post_state_return_hash': '0772f2b34e181b273368885e5cbe04bbc2c2f9e15f5ac4094ebee3ea20d7bd88',
- 'genesis_target_post_state_return_hash': 'f607130c9bda5907ee38ae44a40d0e26d377f9ba7189d7e1eeba621ee597e680',
+ 'genesis_queue_migration_calldata_hash': '88f0a50e98ae2e6df3f9920b540d2247ee51310e0ffaf89a6c96399e970d3345',
+ 'genesis_queue_migration_return_hash': 'dfe54232362a40e549dbb2bdcd3c86b69407b40a939357a45e5034493db05f80',
+ 'genesis_queue_post_state_commitment': '16fa677c8fe3560bfdc01c2c85d3daa1b04a848f456f6d8b55c622adf82b6ab7',
+ 'genesis_queue_post_state_return_hash': '47784749b79cab4586cdcdaa01434a4e4be6b1d9e2eaa06cd6d225931236b110',
+ 'genesis_source_post_state_return_hash': 'a89ababefe4d0b71d0981d098741b62f1751e99cdbd7acd27e0a71c4251d3b82',
+ 'genesis_target_post_state_return_hash': '1a306b08aea5c4ff9a7d029a358b29857229e65a5af93ff6fac934eb552e42e7',
  'governance_delay_authority_descriptor_hash': '442d9b608ecc43eea4009fb7f95c764c747636f42c885174c1442681cc0ab495',
  'inbox_apply_calldata_hash': '65332d0b3230b33c0ae8bddd8a1f3be8473739f865e73fc8e52f4f99cecc89d7',
  'inbox_apply_calldata_length': '14436',
@@ -18740,7 +19102,13 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'fd25f40f2ca853acf7
  'invocation_policy_magic': '49505632',
  'invocation_policy_return_hash': '93bc154411cabc321c6b7c452a338e3e52789f0b97229cc2c68ba0bb4e3f3a19',
  'invocation_policy_typehash': 'd702a337b74fc40bfc746fb1aeeaa705e60a95947bfc3076c76222703205b4b1',
+ 'kind0_forced_admission_hash': '3733764f042a48dfc4376c14c2f9c253f3a0ae0fc8e72a1e9e5ffd00aa9a0f3d',
+ 'kind0_forced_admission_length': '204',
+ 'kind0_forced_admission_schema_hash': '6c5da3090966e605a84a39083d1e31c8a975527faff01d52a6728eea90c03700',
  'kind0_ingress_authorization_id': 'c825101ced1a3a9749e8923e95680e717166327dbe26572999c134a18829caad',
+ 'kind1_forced_admission_hash': '6eac1245ba9a9baa8da0ecf1f82c8c6c621dfd85b59afe7c6df3b0332513d466',
+ 'kind1_forced_admission_length': '525',
+ 'kind1_forced_admission_schema_hash': 'cfb1dda476f639a31808d971226ec0c5bb87b92958e25a8ec0113122e98ddbd4',
  'kind1_ingress_authorization_id': '3728bb4741d1ecd493da584356b9421882aedb92bc7dafc7ebd4961a7ec89c1e',
  'legacy_blob_slice_maximum_hash': 'd9791c1e9f76963f86cdfe6423b8d897dcc5c0ef5ad4cc16363b2b2ab452240d',
  'legacy_blob_slice_maximum_length': '832',
@@ -18906,8 +19274,8 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'fd25f40f2ca853acf7
  'message_invocation_hook_selector': '7f07c947',
  'message_v1_data_hash': 'f08683775f4a25dfef721c487073fb77026d45ac57e423424290e47af9fd2835',
  'message_v1_tuple_hash': '0e85a708462e96cbaca7158a1534011a25137c3b7aada7f381e4fc5b3afbe40d',
- 'migration_activation_context_hash': '2d922e926d4d1282d042d259a821507d5a33b08c0297039299539432695364fb',
- 'migration_activation_context_return_hash': 'cedf176fc73906c32ebd6fb9d161e263b04303369d087df258d6c61bfa5dce06',
+ 'migration_activation_context_hash': 'c9e746c4371e326eadcf106d3cdccc250b1bca4905d43061a0191c64de85a305',
+ 'migration_activation_context_return_hash': '65036bbbd78fef1cdbb6d0d17ebd7961f893326db0b26fd2aa769153e0ce856c',
  'migration_activation_context_return_length': '320',
  'migration_activation_context_selector': '7cf70319',
  'migration_activation_profile_calldata_hash': '3dd403c33c2e7c4e6b324efac7461b5b0cc6f3696a2a8d8c94c9cb9bafcf9c85',
@@ -18916,14 +19284,14 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'fd25f40f2ca853acf7
  'migration_activation_profile_return_hash': '0f6d0967eaac9d5ec845ab307cad6abfb90af3c9c5f2e7d10109f43e8b37bb23',
  'migration_activation_profile_return_length': '768',
  'migration_activation_profile_selector': 'c65ff64e',
- 'migration_adoption_commitment': 'd4f2bc87655f0a35d8bec04ef557724ca89a31d718de94c027111a9bc316d8df',
+ 'migration_adoption_commitment': 'da7d69017efc41399c2a802524b6fb89a6f9af820e1d702338e50e17cebb9db0',
  'migration_arm_execution_window_seconds': '604800',
  'migration_arm_fresh_after_magic': '4d414631',
  'migration_arm_fresh_after_return_hash': 'b7483e72711cfc12792d104e0b0bc11c51e9e51ba92ff0978675a1e336756dd1',
  'migration_arm_fresh_after_selector': 'bc4707fb',
  'migration_arming_lifecycle_return_hash': '298524396c6b44dd68c8c21326e4ddb544cc51cfe8d5b89ed34bda45fa998753',
  'migration_data': '2c36740d76ae6192335d4c603f42edace094b33e8f54e959b40241a94c1f6deb',
- 'migration_post_state_calldata_hash': 'b764c574006e6b0f13818d4089950662882975f8001e92133eb4088c9a338c54',
+ 'migration_post_state_calldata_hash': 'a6ef1eede91900a75b2feb4af945324fe628a3bd56e38f268a78f987a89d86ed',
  'migration_post_state_selector': '66e664cb',
  'migration_readiness_magic': '4d525331',
  'migration_readiness_selector': 'b36c83ce',
@@ -19017,13 +19385,13 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'fd25f40f2ca853acf7
  'publish_migration_arm_payload_hash': '4bb288032f8ba42de5f757fd7d1be6366e2e5534934878771aa9de9c9b99eab5',
  'publish_migration_arm_payload_length': '128',
  'pvm_router_mutation_gas': '8000000',
- 'queue_migration_calldata_hash': '785fb37b119ff2bc01ca813419c24062a54e65dc927004cbda387501383e088f',
+ 'queue_migration_calldata_hash': 'e6e9ec1da0d14298f223e4709c758a99276e99b926191b0707ab3ca62f6ffa6d',
  'queue_migration_calldata_length': '260',
  'queue_migration_credited_wei': '64000000000000000',
- 'queue_migration_post_state_commitment': '2a697bfbeac35705273fba6369d93a5bc3766b2529c09cba2b9ec528d9e53dad',
- 'queue_migration_return_hash': '6589dfc8eb8cae5fd20a7ba953d031df986ba6e4e48d27798b80e92c11aec0ca',
+ 'queue_migration_post_state_commitment': 'd2758d40ae97c1562205d6843a9c97817405d70e4c814fb6713c12ebec27891d',
+ 'queue_migration_return_hash': '8d1fc77cb7d90ce4a5f6882cde663ddc10dcf8bd0671998bfbf13fc174d6a682',
  'queue_migration_selector': '9461f698',
- 'queue_post_state_return_hash': 'a829a2e5f89c0d14fcdf0ffa2a5c8ea6c9a618314c0c5a913a98428a9077d182',
+ 'queue_post_state_return_hash': '174431df1f626d2e9a733affb1292981ee993725c4b241bdddbcbf1531d90e77',
  'queue_protocol_change_calldata_hash': '39d379b7c048ee59d30a73bd1ee9e48f9d4eaad8f81626054fc740a9ef0c847d',
  'queue_protocol_change_calldata_length': '11492',
  'queue_protocol_change_selector': 'bd5c80a8',
@@ -19064,8 +19432,8 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'fd25f40f2ca853acf7
  'release_manifest_slot': '719bb73ba856aeab1b203e322bfefc6d84a4c41a3222bcf1634b1b44e5b9aba8',
  'release_manifest_trie_key': 'dac8109059d03da2ad16ac3acc50d2e58897b8c3a7f6889ae77bfb20737e87a2',
  'release_manifest_typehash': 'e7dc28b9b7147fbe9f9b0e0bf910800983be65e9ca19020f296fb0e780a0804b',
- 'reorg_genesis_activation_context_hash': 'ae1f14834734512f75164976ff749da97e63580f09ae9abec9d434e5c1c18481',
- 'reorg_genesis_activation_receipt_id': '2fdf795a116dc296ce6c9ce76a2d7dc2bf577640fe8b28a224aac85c7fe7c3be',
+ 'reorg_genesis_activation_context_hash': 'c79ca385ca4ab8c4c3c2ecc3362d25285680b652fd6ef9ae636e9d1aa2d902f0',
+ 'reorg_genesis_activation_receipt_id': 'ab860bc3cd48ac6b16585c7b65c15d1a7158d33c7739c027dcd5b4a7a88d9c9c',
  'reorg_genesis_post_state_commitment': '104e43a24327181841b820047731304e9baf6206b7ee4584b7d8389a9252be56',
  'replace_pending_fork_verifier_calldata_hash': '7f5672e814198405380028deb977bebdad7c69273d1b9b2c72edf8ca26982aca',
  'replace_pending_fork_verifier_calldata_length': '548',
@@ -19109,6 +19477,16 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'fd25f40f2ca853acf7
  'reward_receipt_v1_return_length': '384',
  'reward_receipt_v1_selector': '3ed526c7',
  'route_config_getter_selector': '4b64fa11',
+ 'router_legacy_bootstrap_magic': '524c4231',
+ 'router_legacy_bootstrap_return_hash': '30f151045790eaf889f836923f45f60b3c45b715c70b14d515de5f59a5cebc85',
+ 'router_legacy_bootstrap_return_length': '128',
+ 'router_legacy_bootstrap_selector': 'ec688e40',
+ 'settlement_forced_ingress_floor_call_gas': '50000',
+ 'settlement_forced_ingress_floor_magic': '53494631',
+ 'settlement_forced_ingress_floor_normal_return_hash': '4bfd11163f0bfe60df7c73b3e4e72749e76d7419593668cac1443ea28b0b09b5',
+ 'settlement_forced_ingress_floor_recovery_return_hash': 'f4d8a492be93a1541f573cae536d3d4811b6251de4ee66c43887342d6597d05f',
+ 'settlement_forced_ingress_floor_return_length': '64',
+ 'settlement_forced_ingress_floor_selector': 'fe2a2914',
  'schedule_carrier_return_hash': '3e7028adb7b81c521979a0024999718518559b1ddec5cde8e3a9379d6cef3125',
  'schedule_carrier_statement_hash': 'e5e7ef6967d544c41242fd48103d1a53c28f1d6da31a1649d34f4bd11025e123',
  'schedule_fork_carrier_magic': '53464331',
@@ -19166,8 +19544,8 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'fd25f40f2ca853acf7
  'source_credit_read_gas_limit': '200000',
  'source_domain_id': 'a955e9cbaafee3fb51bca7d966012607d8ae8354574180ecbeb6ce71ed159f26',
  'source_factory_config_getter_return': '73512f5b6f9f640f1459a80b7372737a7ada2586dfd15d0efa129e76f3d01ec4',
- 'source_freeze_post_state_commitment': '850d2a462b4e91f03a0f8ac543fa630374c7c20fdaeaa4f141bddd9c6fd9fe29',
- 'source_post_state_return_hash': 'e9d8d083dc46f6aab0806dcd822c0e3f22b0d16dd82b171fa398fd1836e606b4',
+ 'source_freeze_post_state_commitment': '35c6651e73f2b2a2f91ab37df8c691f9bd87e3822d3a1e0a834efe752d3aadf9',
+ 'source_post_state_return_hash': 'a1eb646a8cf8c3d287d395e8ceb111a41dec49950e7a2c317ed737a92b670987',
  'source_quota_config_getter_return': '09d21b4d09dadaabdb05c5b8c88db22757c4de82b7a3ebc1a6910606fe36ff0c',
  'source_registry_config_getter_return': '81d538ec2bf4cf246008838e0908d61eff83a01740a58abec23d7aa573087ee1',
  'source_support_registry_config_getter_return': 'c8beb33d334a9cf76d329ab18cb3b197276e878c5b5a54397c6f0e5c41904b0d',
@@ -19199,7 +19577,7 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'fd25f40f2ca853acf7
  'target_call_failed_selector': 'f9cc2b44',
  'target_constructor_state_return_hash': 'cd68978845ac795dad371542580aaf29008d6dbcee6a8117e6ac115fa009f815',
  'target_constructor_state_selector': '654f7fce',
- 'target_post_state_return_hash': 'ad0263eb2c41406e02312b1f85f0600d2871b23e59d17dcd122eb175e4fb13e4',
+ 'target_post_state_return_hash': '7e6b000ffcebc1db7871297ac1a9209fa3c80d9a05ff5e0f1882b560f679782f',
  'target_registration_hash': '5177bb1ea8f487016aed3deb24791024eeadc76e0a18e195038180c436353c7e',
  'target_release_registration_calldata_hash': '5c5db1ed7485ad89b4d9125c80db863078603f32ddd3032552a6345bd0dba5ee',
  'target_release_registration_magic': '52545232',
@@ -19236,7 +19614,7 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'fd25f40f2ca853acf7
  'version_activation_calldata_hash': '6bc8c60340448eae54efdd98f206f6408de82eaf5c9dd68ceb68759cb5e40e2e',
  'version_activation_calldata_length': '17220',
  'version_activation_fixed_hash': '24f54f2ca1c6731f04741371c1e2705fcd912e1b5cf2bd5d727729cc5de89a41',
- 'version_activation_receipt_return_hash': 'f84129957643ce7464c2a3ad4937a6493082960aa09ec9f635ed4ff8d5dff4a4',
+ 'version_activation_receipt_return_hash': '8f44aa4e3e8208dbf57325f71478f1681c779b7150741ded20d040c520035de4',
  'version_deployment_commitment': '1272bb0878334a0f8cc343a790d0430da5574e68d698dfe587a689dc6cebde39',
  'version_migration_abort_after_timestamp': '624800',
  'version_migration_abort_magic': '564d4231',
@@ -19245,7 +19623,7 @@ EXPECTED = {'abort_expired_version_migration_calldata_hash': 'fd25f40f2ca853acf7
  'version_migration_lease_magic': '564d4c31',
  'version_migration_lease_return_hash': '649200ae551330102bc0c30b83443f34d7830b147957af93b0c70fb274580597',
  'version_migration_lease_return_length': '320',
- 'version_migration_statement_hash': 'b3c20f610fb816edc0f1f6d4c6d650951d025a5dc9529c81df519fc015a73385',
+ 'version_migration_statement_hash': '3d5eda433b4cdb53fa0a5ce005d16b2d318f6820460cde777930c38c19077cd6',
  'winning_data': '4ae34aa9efb842528d353b175f94191d01cfd168b5ad828f64a0e7972a2ca9e3'}
 
 # The export schema is deliberately keyed by semantic meaning, never inferred
@@ -19303,6 +19681,8 @@ UINT_VECTOR_NAMES = frozenset({
     "fund_reward_class_v1_calldata_length",
     "fund_reward_class_v1_return_length",
     "fork_change_execution_window_seconds",
+    "forced_queue_config_return_length",
+    "forced_queue_state_return_length",
     "fork_change_queue_inclusion_allowance_seconds",
     "fork_change_renewal_runway_windows",
     "reward_claimed_v1_data_length",
@@ -19333,6 +19713,8 @@ UINT_VECTOR_NAMES = frozenset({
     "genesis_activation_calldata_length",
     "genesis_activation_receipt_return_length",
     "inbox_apply_calldata_length",
+    "kind0_forced_admission_length",
+    "kind1_forced_admission_length",
     "inbox_credit_packed_terms",
     "legacy_blob_slice_maximum_length",
     "legacy_blob_slice_one_length",
@@ -19389,6 +19771,9 @@ UINT_VECTOR_NAMES = frozenset({
     "queue_migration_calldata_length",
     "queue_migration_credited_wei",
     "queue_protocol_change_calldata_length",
+    "router_legacy_bootstrap_return_length",
+    "settlement_forced_ingress_floor_call_gas",
+    "settlement_forced_ingress_floor_return_length",
     "register_fork_verifier_payload_length",
     "register_release_payload_length",
     "register_target_release_calldata_length",
@@ -19413,7 +19798,7 @@ UINT_VECTOR_NAMES = frozenset({
     "version_migration_lease_return_length",
 })
 VECTOR_NAME_SCHEMA_SHA256 = (
-    "42b19b05519c665c3553d3d3cc4bb2a7d7cc5787a34401bc5f471f61a6aba012"
+    "043dd2307b2afeab095fb1a52de72cb5e09c442e9acbf166113f4cc98b176e69"
 )
 
 
@@ -19425,7 +19810,7 @@ def typed_vectors() -> tuple[dict[str, str], ...]:
     actual = vectors()
     assert actual == EXPECTED
     names = tuple(sorted(actual))
-    assert (len(names) == 843 and len(set(names)) == len(names)
+    assert (len(names) == 875 and len(set(names)) == len(names)
             and UINT_VECTOR_NAMES <= set(names)
             and hashlib.sha256(
                 b"\0".join(name.encode("ascii") for name in names)
@@ -20134,9 +20519,18 @@ if __name__ == "__main__":
     assert inbox_route_config_hash(
         0x5100, 0xB201, 0x5103,
         bytes.fromhex(actual["destination_domain_id"])) != route_config
-    queue_config = forced_queue_config_hash(0xAD01)
+    queue_config = forced_queue_config_hash(0xAD01, 0xB001)
     assert queue_config.hex() == actual["forced_queue_config_hash"]
-    assert forced_queue_config_hash(0xAD02) != queue_config
+    assert forced_queue_config_hash(0xAD02, 0xB001) != queue_config
+    assert forced_queue_config_hash(0xAD01, 0xB002) != queue_config
+    assert FORCED_QUEUE_CONFIG_SELECTOR == bytes.fromhex("8136fe31")
+    assert FORCED_QUEUE_STATE_SELECTOR == bytes.fromhex("03e0d70b")
+    assert FORCED_QUEUE_FRONTIER_SELECTOR == bytes.fromhex("7c339ff7")
+    assert FORCED_QUEUE_DESCRIPTOR_SELECTOR == bytes.fromhex("bd9534db")
+    assert FORCED_QUEUE_DUE_AT_SELECTOR == bytes.fromhex("530fd138")
+    assert FORCED_QUEUE_APPEND_SELECTOR == bytes.fromhex("a8e5d8d0")
+    assert FORCED_QUEUE_ADVANCE_SELECTOR == bytes.fromhex("d59ff200")
+    assert FORCED_QUEUE_WITHDRAW_SELECTOR == bytes.fromhex("c28aa0e8")
     published = Path(__file__).with_name("tex").joinpath("main.tex").read_text()
     publication_keys = {
         "TYPEHASH": "typehash",
@@ -20221,6 +20615,13 @@ if __name__ == "__main__":
         "syncSel": "sync_ingress_selector",
         "syncStamp": "sync_ingress_stamp_return_hash",
         "syncChanged": "sync_ingress_synced_return_hash",
+        "sifSel": "settlement_forced_ingress_floor_selector",
+        "sifMagic": "settlement_forced_ingress_floor_magic",
+        "sifGas": "settlement_forced_ingress_floor_call_gas",
+        "sifNormal": "settlement_forced_ingress_floor_normal_return_hash",
+        "sifRecovery":
+            "settlement_forced_ingress_floor_recovery_return_hash",
+        "sifRetLen": "settlement_forced_ingress_floor_return_length",
         "appendSel": "append_from_adapter_selector",
         "appendK0": "append_kind0_calldata_hash",
         "appendK0Len": "append_kind0_calldata_length",
@@ -20805,7 +21206,9 @@ if __name__ == "__main__":
         publication_rows[label] = value
     assert set(publication_rows) == set(publication_keys)
     for label, key in publication_keys.items():
-        assert publication_rows[label] == actual[key]
+        assert publication_rows[label] == actual[key], (
+            label, publication_rows[label], actual[key]
+        )
 
     assertion_sites = sum(
         isinstance(node, ast.Assert)

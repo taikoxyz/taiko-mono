@@ -3843,6 +3843,10 @@ ACTIVE_SETTLEMENT_STATE_MAGIC = b"ASR1"
 ACTIVE_SETTLEMENT_STATE_SELECTOR = bytes.fromhex("4a95c306")
 ACTIVE_SETTLEMENT_STATE_LENGTH = 256
 ACTIVE_SETTLEMENT_STATE_GAS = 50_000
+SETTLEMENT_FORCED_INGRESS_FLOOR_MAGIC = b"SIF1"
+SETTLEMENT_FORCED_INGRESS_FLOOR_SELECTOR = bytes.fromhex("fe2a2914")
+SETTLEMENT_FORCED_INGRESS_FLOOR_LENGTH = 64
+SETTLEMENT_FORCED_INGRESS_FLOOR_GAS = 50_000
 MIGRATION_ACTIVATION_CONTEXT_SELECTOR = bytes.fromhex("7cf70319")
 MIGRATION_ACTIVATION_CONTEXT_MAGIC = b"MACT"
 MIGRATION_ACTIVATION_CONTEXT_LENGTH = 320
@@ -4127,6 +4131,32 @@ def verify_active_settlement_state_v1(
             and state.target_protocol_version == 0
             and state.target_manifest_hash == bytes(32)
             and state.target_registration_hash == bytes(32))
+
+
+def encode_settlement_forced_ingress_floor_v1(minimum_due_at: int) -> bytes:
+    """Encode the exact active-Settlement SIF1 forced-ingress floor."""
+
+    return (
+        SETTLEMENT_FORCED_INGRESS_FLOOR_MAGIC + bytes(28)
+        + bytes(24) + _model_uint(
+            minimum_due_at, 8, "Settlement forced-ingress minimum dueAt"
+        )
+    )
+
+
+def decode_settlement_forced_ingress_floor_v1(raw: bytes) -> int:
+    """Strictly decode the exact 64-byte SIF1 response."""
+
+    if (type(raw) is not bytes
+            or len(raw) != SETTLEMENT_FORCED_INGRESS_FLOOR_LENGTH
+            or raw[:32]
+                != SETTLEMENT_FORCED_INGRESS_FLOOR_MAGIC + bytes(28)
+            or raw[32:56] != bytes(24)):
+        raise ValueError("Settlement forced-ingress floor is noncanonical")
+    minimum_due_at = int.from_bytes(raw[56:64], "big")
+    if encode_settlement_forced_ingress_floor_v1(minimum_due_at) != raw:
+        raise ValueError("Settlement forced-ingress floor is invalid")
+    return minimum_due_at
 
 
 def encode_migration_readiness_v1(state: MigrationReadinessV1) -> bytes:
@@ -11153,6 +11183,12 @@ class Protocol:
     active_settlement_state_return_override: bytes | None = field(
         default=None, compare=False, repr=False
     )
+    forced_ingress_floor_return_override: bytes | None = field(
+        default=None, compare=False, repr=False
+    )
+    forced_ingress_floor_fault_point: str | None = field(
+        default=None, compare=False, repr=False
+    )
     data_record_events: list[DataRecord] = field(
         default_factory=list, compare=False
     )
@@ -14570,26 +14606,53 @@ class Protocol:
             self._restore_canonical_transaction(protocol_snapshot)
             raise
 
-    def _new_round(self, clock: Clock, causes: Cause, revision: int) -> RecoveryRound:
+    def _new_round(
+        self,
+        clock: Clock,
+        causes: Cause,
+        revision: int,
+        *,
+        episode: int | None = None,
+    ) -> RecoveryRound:
         anchor_number = clock.block_number - 1
         anchor = self.header_oracle.header(anchor_number)
         cutoff = self.forced_queue.count
         escape_slot = max(clock.l2_slot + ESCAPE_OFFSET, self.core.tip_slot + 1)
+        round_episode = self.episode if episode is None else episode
+        checked_u64_add(round_episode, 0, "recovery episode")
+        checked_u64_add(revision, 0, "recovery revision")
+        expires_at = checked_u64_add(
+            checked_u64_add(
+                GENESIS_TIMESTAMP,
+                escape_slot,
+                "recovery round absolute escape slot",
+            ),
+            DELTA_TIP,
+            "recovery round expiry",
+        )
+        if expires_at == UINT64_MAX:
+            raise ValueError("recovery expiry leaves no forced-ingress successor")
         return RecoveryRound(
-            self.episode, revision, self.canonical.base_hash, clock.l2_slot,
+            round_episode, revision, self.canonical.base_hash, clock.l2_slot,
             anchor_number, anchor.block_hash,
             self.force_root(cutoff), cutoff, self.admission_version,
             self.admission_root, escape_slot,
-            GENESIS_TIMESTAMP + escape_slot + DELTA_TIP, causes,
+            expires_at, causes,
         )
 
     def _activate(self, clock: Clock, causes: Cause) -> None:
+        next_episode = checked_u64_add(
+            self.episode, 1, "recovery episode"
+        )
+        next_round = self._new_round(
+            clock, causes, 1, episode=next_episode
+        )
         self._clear_normal()
         self._invalidate_local_stage("RECOVERY_OPEN")
         self.seat_sla_trigger_pending = False
         self.mode = Mode.RECOVERY
-        self.episode += 1
-        self.recovery = self._new_round(clock, causes, 1)
+        self.episode = next_episode
+        self.recovery = next_round
         self.events.append(f"RECOVERY_OPEN:{self.episode}:{int(causes)}")
 
     def _roll_recovery(self, clock: Clock) -> bool:
@@ -14597,7 +14660,12 @@ class Protocol:
         if clock.timestamp <= self.recovery.expires_at:
             return False
         old = self.recovery
-        self.recovery = self._new_round(clock, old.causes, old.revision + 1)
+        next_revision = checked_u64_add(
+            old.revision, 1, "recovery revision"
+        )
+        self.recovery = self._new_round(
+            clock, old.causes, next_revision
+        )
         if self.selected_successor_term_id is not None:
             self._promote_selected(clock.timestamp)
         self.events.append(f"RECOVERY_ROLLED:{self.recovery.revision}")
@@ -14783,6 +14851,47 @@ class Protocol:
             boundary,
             local_complete,
         ))
+
+    def settlement_forced_ingress_floor_v1(self) -> bytes:
+        """Return the exact due-time floor consumed by the active Router."""
+
+        if self.forced_ingress_floor_fault_point in {"revert", "oog"}:
+            raise RuntimeError("injected SIF1 staticcall fault")
+        if self.mode is Mode.PREACTIVE:
+            raise ValueError("preactive Settlement has no forced-ingress floor")
+        if self.mode is Mode.NORMAL:
+            if self.recovery is not None:
+                raise ValueError("normal Settlement retains a recovery round")
+            minimum_due_at = 0
+        elif self.mode is Mode.RECOVERY:
+            if self.recovery is None:
+                raise ValueError("recovery Settlement has no current round")
+            minimum_due_at = checked_u64_add(
+                self.recovery.expires_at,
+                1,
+                "Settlement forced-ingress recovery floor",
+            )
+        else:
+            raise ValueError("unknown Settlement mode")
+        result = encode_settlement_forced_ingress_floor_v1(minimum_due_at)
+        return (
+            result
+            if self.forced_ingress_floor_return_override is None
+            else self.forced_ingress_floor_return_override
+        )
+
+    def staticcall_settlement_forced_ingress_floor_v1(
+        self, calldata: bytes, *, caller: str, value: int, gas: int,
+    ) -> bytes:
+        """Execute the selector-only, zero-value, exact-gas SIF1 envelope."""
+
+        _ = caller
+        if (type(calldata) is not bytes
+                or calldata != SETTLEMENT_FORCED_INGRESS_FLOOR_SELECTOR
+                or value != 0
+                or gas != SETTLEMENT_FORCED_INGRESS_FLOOR_GAS):
+            raise ValueError("SIF1 staticcall envelope is noncanonical")
+        return self.settlement_forced_ingress_floor_v1()
 
     def data_session_accounting_v1(self) -> bytes:
         self._assert_data_session_state(require_solvency=False)
@@ -40412,34 +40521,43 @@ class ActiveSettlementRouter:
                     descriptor, clock=clock, deposit=deposit
                 )):
             raise ValueError("forced ingress descriptor is invalid")
-        enqueued_at = checked_u64_add(
-            clock.timestamp, 0, "forced ingress enqueuedAt"
-        )
-        base_due_at = checked_u64_add(
-            enqueued_at, FORCE_DELAY, "forced ingress base dueAt"
-        )
-        last_due_at = checked_u64_add(
-            self.forced_queue.last_due_at,
-            0,
-            "forced ingress previous dueAt",
-        )
-        deferred = 0
-        if (live_protocol.mode is Mode.RECOVERY
-                and live_protocol.recovery is not None):
-            deferred = checked_u64_add(
-                live_protocol.recovery.expires_at,
-                1,
-                "forced ingress recovery dueAt",
-            )
-        due_at = max(
-            base_due_at,
-            last_due_at,
-            deferred,
-        )
-        expected_index = self.forced_queue.count
         queue_before = self.forced_queue._transaction_snapshot()
         self.ingress_entered = True
         try:
+            enqueued_at = checked_u64_add(
+                clock.timestamp, 0, "forced ingress enqueuedAt"
+            )
+            base_due_at = checked_u64_add(
+                enqueued_at, FORCE_DELAY, "forced ingress base dueAt"
+            )
+            last_due_at = checked_u64_add(
+                self.forced_queue.last_due_at,
+                0,
+                "forced ingress previous dueAt",
+            )
+            try:
+                minimum_due_at = decode_settlement_forced_ingress_floor_v1(
+                    live_protocol.staticcall_settlement_forced_ingress_floor_v1(
+                        SETTLEMENT_FORCED_INGRESS_FLOOR_SELECTOR,
+                        caller=self.address,
+                        value=0,
+                        gas=SETTLEMENT_FORCED_INGRESS_FLOOR_GAS,
+                    )
+                )
+            except (ValueError, OverflowError, RuntimeError) as exc:
+                raise ValueError(
+                    "active Settlement forced-ingress floor is invalid"
+                ) from exc
+            if minimum_due_at != 0 and clock.timestamp >= minimum_due_at:
+                raise ValueError(
+                    "active recovery forced-ingress floor is expired"
+                )
+            due_at = max(
+                base_due_at,
+                last_due_at,
+                minimum_due_at,
+            )
+            expected_index = self.forced_queue.count
             index = self.forced_queue._append_from_router(
                 replace(descriptor, enqueued_at=enqueued_at),
                 deposit=deposit,
