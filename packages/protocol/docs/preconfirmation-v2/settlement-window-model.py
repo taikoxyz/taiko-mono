@@ -4490,7 +4490,7 @@ SCHEDULE_REGISTRY_CELL_BYTES = 101
 SCHEDULE_TRANCHE_RECORD_BYTES = 329
 PROTOCOL_ROOT_CAMPAIGN_LIFETIME_SECONDS = 2_592_000
 PROTOCOL_ROOT_ROLE_COUNT = 9
-PROTOCOL_ROOT_ARTIFACT_COUNT = 19
+PROTOCOL_ROOT_ARTIFACT_COUNT = 21
 PROTOCOL_ROOT_MANIFEST_BYTES = 969
 PROTOCOL_ROOT_FIRST_MANAGED_RUNWAY_WINDOWS = 18
 PROTOCOL_ROOT_WINDOW_SECONDS = 384
@@ -4525,6 +4525,7 @@ PROTOCOL_ROOT_FACTORY_CONFIG_SELECTOR = bytes.fromhex("d7b40838")
 BUILDER_PROOF_VERIFIER_CONFIG_SELECTOR = bytes.fromhex("0d1c9932")
 BUILDER_EQUIVOCATION_IDENTITY_SELECTOR = bytes.fromhex("7c09d62d")
 BUILDER_REGISTRY_PROOF_SELECTOR = bytes.fromhex("a9ca9190")
+BUILDER_REGISTRY_FACET_CONFIG_SELECTOR = bytes.fromhex("5c19dfed")
 PROTOCOL_ROOT_ENSURE_SOURCE_INFRASTRUCTURE_SELECTOR = keccak256(
     b"ensureSourceInfrastructureV1(bytes32,uint8,bytes)"
 )[:4]
@@ -4559,6 +4560,28 @@ PROTOCOL_ROOT_SOURCE_TERMINAL_SALT_DOMAIN = \
     b"slot-chain-root-source-terminal-salt-v1"
 BUILDER_PROOF_VERIFIER_SALT_DOMAIN = \
     b"slot-chain-builder-registry-proof-verifier-salt-v1"
+BUILDER_REGISTRY_SEAT_FACET_KIND = 1
+BUILDER_REGISTRY_LEASE_FACET_KIND = 2
+BUILDER_REGISTRY_FACET_SCHEMA = 1
+BUILDER_REGISTRY_FACET_MAXIMUM_RUNTIME_BYTES = 24_576
+BUILDER_REGISTRY_FACET_CONFIG_MAGIC = b"BRF1"
+BUILDER_REGISTRY_STORAGE_LAYOUT_ENTRY_COUNT = 53
+BUILDER_REGISTRY_STORAGE_LAYOUT_HASH_V1 = bytes.fromhex(
+    "e9530d93d58f89bfc204b96dd4063445b3c2823458ae18e8580c8436f3853930"
+)
+BUILDER_REGISTRY_FACET_SALT_DOMAIN = \
+    b"slot-chain-builder-registry-lifecycle-facet-salt-v1"
+BUILDER_REGISTRY_SEAT_FACET_SIGNATURES_V1 = (
+    b"registerBuilderV1(uint192,uint64,uint8,bytes)",
+    b"requestBuilderExitV1(uint64)",
+    b"processBuilderMaintenanceV1(uint8,bytes)",
+)
+BUILDER_REGISTRY_LEASE_FACET_SIGNATURES_V1 = (
+    b"reserveBuilderWindowV1(uint64,uint64,bytes)",
+    b"normalizeBuilderTranchesV1(address,uint64,bytes)",
+    b"releaseBuilderTrancheV1(address,uint64,uint64,bytes)",
+    b"releaseBuilderGenerationV1(address,uint64,bytes)",
+)
 PROTOCOL_ROOT_EXECUTOR_CLEAR_ABORTED_SELECTOR = bytes.fromhex("95b71205")
 SCHEDULE_CONFIG_READ_GAS = 50_000
 SCHEDULE_FORK_REGISTRATION_READ_GAS = 100_000
@@ -4825,6 +4848,369 @@ class ProtocolRootBuilderProofVerifierArtifactV1:
                 else self.component_config_override)
 
 
+def builder_registry_storage_layout_hash_v1() -> bytes:
+    """Return the release-pinned hash of the normalized 53-entry layout."""
+
+    return BUILDER_REGISTRY_STORAGE_LAYOUT_HASH_V1
+
+
+def builder_registry_facet_selectors_v1(kind: int) -> tuple[bytes, ...]:
+    if kind == BUILDER_REGISTRY_SEAT_FACET_KIND:
+        signatures = BUILDER_REGISTRY_SEAT_FACET_SIGNATURES_V1
+    elif kind == BUILDER_REGISTRY_LEASE_FACET_KIND:
+        signatures = BUILDER_REGISTRY_LEASE_FACET_SIGNATURES_V1
+    else:
+        raise ValueError("builder-registry facet kind is invalid")
+    selectors = tuple(keccak256(signature)[:4] for signature in signatures)
+    if (len(set(selectors)) != len(selectors)
+            or BUILDER_REGISTRY_FACET_CONFIG_SELECTOR in selectors
+            or COMPONENT_CONFIG_GETTER_SELECTOR in selectors):
+        raise AssertionError("builder-registry facet selector set collided")
+    return selectors
+
+
+def builder_registry_facet_selector_set_hash_v1(
+    kind: int, selectors: tuple[bytes, ...] | None = None,
+) -> bytes:
+    canonical = builder_registry_facet_selectors_v1(kind)
+    selected = canonical if selectors is None else selectors
+    if (type(selected) is not tuple or not selected
+            or len(selected) >= 1 << 8
+            or any(type(selector) is not bytes or len(selector) != 4
+                   for selector in selected)
+            or len(set(selected)) != len(selected)):
+        raise ValueError("builder-registry facet selectors are invalid")
+    selector_row = b"".join((
+        _model_uint(kind, 1, "builder-registry facet kind"),
+        _model_uint(len(selected), 1, "builder-registry facet selector count"),
+        b"".join(selected),
+    ))
+    return keccak256(b"".join((
+        b"slot-chain-builder-registry-facet-selectors-v1",
+        _model_uint(
+            len(selector_row), 2, "builder-registry facet selector bytes"
+        ),
+        selector_row,
+    )))
+
+
+@dataclass(frozen=True)
+class BuilderRegistryLifecycleFacetConfigV1:
+    """Closed selector ownership and shared Registry storage layout."""
+
+    kind: int
+
+    @property
+    def selectors(self) -> tuple[bytes, ...]:
+        return builder_registry_facet_selectors_v1(self.kind)
+
+    @property
+    def selector_set_hash(self) -> bytes:
+        return builder_registry_facet_selector_set_hash_v1(self.kind)
+
+    @property
+    def storage_layout_hash(self) -> bytes:
+        return builder_registry_storage_layout_hash_v1()
+
+    def configuration_hash_v1(self) -> bytes:
+        return keccak256(b"".join((
+            b"slot-chain-builder-registry-lifecycle-facet-config-v1",
+            _model_uint(self.kind, 1, "builder-registry facet kind"),
+            self.storage_layout_hash,
+            self.selector_set_hash,
+        )))
+
+    def encode_brf1(self) -> bytes:
+        encoded = b"".join((
+            BUILDER_REGISTRY_FACET_CONFIG_MAGIC + bytes(28),
+            _model_uint(BUILDER_REGISTRY_FACET_SCHEMA, 32, "BRF1 schema"),
+            _model_uint(self.kind, 32, "BRF1 kind"),
+            self.storage_layout_hash,
+            self.selector_set_hash,
+            self.configuration_hash_v1(),
+        ))
+        if len(encoded) != 192:
+            raise AssertionError("BRF1 must be exactly 192 bytes")
+        return encoded
+
+
+def decode_builder_registry_facet_brf1_v1(
+    encoded: bytes,
+) -> BuilderRegistryLifecycleFacetConfigV1:
+    if type(encoded) is not bytes or len(encoded) != 192:
+        raise ValueError("BRF1 return length is invalid")
+    words = tuple(encoded[index:index + 32] for index in range(0, 192, 32))
+    if words[0] != BUILDER_REGISTRY_FACET_CONFIG_MAGIC + bytes(28):
+        raise ValueError("BRF1 magic is invalid")
+    result = BuilderRegistryLifecycleFacetConfigV1(
+        _decode_uint_word_v1(words[2], 8, "BRF1 kind")
+    )
+    if (_decode_uint_word_v1(words[1], 8, "BRF1 schema")
+            != BUILDER_REGISTRY_FACET_SCHEMA
+            or words[3] != result.storage_layout_hash
+            or words[4] != result.selector_set_hash
+            or words[5] != result.configuration_hash_v1()
+            or result.encode_brf1() != encoded):
+        raise ValueError("BRF1 return is noncanonical")
+    return result
+
+
+def builder_registry_lifecycle_facet_salt_v1(
+    settlement_chain_id: int, manifest_namespace: bytes,
+    kind: int, configuration_hash: bytes,
+) -> bytes:
+    canonical_configuration_hash = BuilderRegistryLifecycleFacetConfigV1(
+        kind
+    ).configuration_hash_v1()
+    if (not 0 < settlement_chain_id < 1 << 256
+            or type(manifest_namespace) is not bytes
+            or len(manifest_namespace) != 32
+            or manifest_namespace == bytes(32)
+            or type(configuration_hash) is not bytes
+            or len(configuration_hash) != 32
+            or configuration_hash != canonical_configuration_hash):
+        raise ValueError("builder-registry lifecycle-facet salt input is invalid")
+    return keccak256(b"".join((
+        BUILDER_REGISTRY_FACET_SALT_DOMAIN,
+        _model_uint(settlement_chain_id, 32, "lifecycle-facet chain"),
+        manifest_namespace,
+        _model_uint(kind, 1, "lifecycle-facet kind"),
+        configuration_hash,
+    )))
+
+
+def builder_registry_lifecycle_facet_address_v1(
+    settlement_chain_id: int, manifest_namespace: bytes,
+    kind: int, configuration_hash: bytes, init_code_hash: bytes,
+) -> bytes:
+    salt = builder_registry_lifecycle_facet_salt_v1(
+        settlement_chain_id, manifest_namespace, kind, configuration_hash
+    )
+    if (type(init_code_hash) is not bytes or len(init_code_hash) != 32
+            or init_code_hash == bytes(32)):
+        raise ValueError("lifecycle-facet init-code hash is invalid")
+    return keccak256(b"".join((
+        b"\xff", bytes.fromhex(SETTLEMENT_FACTORY_ADDRESS_V2[2:]),
+        salt, init_code_hash,
+    )))[12:]
+
+
+@dataclass(frozen=True)
+class BuilderRegistryLifecycleFacetDescriptorV1:
+    kind: int
+    address: bytes
+    init_code_hash: bytes
+    runtime_hash: bytes
+    configuration_hash: bytes
+    selector_set_hash: bytes
+    salt: bytes
+
+    def __post_init__(self) -> None:
+        canonical = BuilderRegistryLifecycleFacetConfigV1(self.kind)
+        if (type(self.address) is not bytes or len(self.address) != 20
+                or self.address == bytes(20)
+                or any(type(value) is not bytes or len(value) != 32
+                       or value == bytes(32) for value in (
+                           self.init_code_hash, self.runtime_hash,
+                           self.configuration_hash, self.selector_set_hash,
+                           self.salt,
+                       ))
+                or self.configuration_hash
+                    != canonical.configuration_hash_v1()
+                or self.selector_set_hash != canonical.selector_set_hash):
+            raise ValueError("builder-registry facet descriptor is invalid")
+
+    def topology_packed_v1(self) -> bytes:
+        return self.address + self.runtime_hash + self.configuration_hash
+
+    def factory_abi_words_v1(self) -> tuple[bytes, ...]:
+        return (
+            self.init_code_hash,
+            self.runtime_hash,
+            self.configuration_hash,
+            self.selector_set_hash,
+            self.salt,
+            bytes(12) + self.address,
+        )
+
+    def factory_packed_v1(self) -> bytes:
+        return b"".join((
+            self.init_code_hash, self.runtime_hash,
+            self.configuration_hash, self.selector_set_hash,
+            self.salt, self.address,
+        ))
+
+
+@dataclass(frozen=True)
+class BuilderRegistryLifecycleFacetSetV1:
+    settlement_chain_id: int
+    manifest_namespace: bytes
+    seat: BuilderRegistryLifecycleFacetDescriptorV1
+    lease: BuilderRegistryLifecycleFacetDescriptorV1
+
+    def __post_init__(self) -> None:
+        if (not 0 < self.settlement_chain_id < 1 << 256
+                or type(self.manifest_namespace) is not bytes
+                or len(self.manifest_namespace) != 32
+                or self.manifest_namespace == bytes(32)
+                or type(self.seat)
+                    is not BuilderRegistryLifecycleFacetDescriptorV1
+                or type(self.lease)
+                    is not BuilderRegistryLifecycleFacetDescriptorV1
+                or self.seat.kind != BUILDER_REGISTRY_SEAT_FACET_KIND
+                or self.lease.kind != BUILDER_REGISTRY_LEASE_FACET_KIND
+                or self.seat.address == self.lease.address
+                or self.seat.runtime_hash == self.lease.runtime_hash
+                or any(
+                    descriptor.salt
+                    != builder_registry_lifecycle_facet_salt_v1(
+                        self.settlement_chain_id, self.manifest_namespace,
+                        descriptor.kind, descriptor.configuration_hash,
+                    )
+                    or descriptor.address
+                    != builder_registry_lifecycle_facet_address_v1(
+                        self.settlement_chain_id, self.manifest_namespace,
+                        descriptor.kind, descriptor.configuration_hash,
+                        descriptor.init_code_hash,
+                    )
+                    for descriptor in (self.seat, self.lease)
+                )):
+            raise ValueError("builder-registry facet set is invalid")
+
+    def topology_packed_v1(self) -> bytes:
+        encoded = (
+            self.seat.topology_packed_v1()
+            + self.lease.topology_packed_v1()
+        )
+        if len(encoded) != 168:
+            raise AssertionError("builder-registry facet set must be 168 bytes")
+        return encoded
+
+    def factory_packed_v1(self) -> bytes:
+        encoded = b"".join((
+            BUILDER_REGISTRY_STORAGE_LAYOUT_HASH_V1,
+            self.seat.factory_packed_v1(),
+            self.lease.factory_packed_v1(),
+        ))
+        if len(encoded) != 392:
+            raise AssertionError("factory lifecycle-facet row must be 392 bytes")
+        return encoded
+
+    def factory_abi_words_v1(self) -> tuple[bytes, ...]:
+        return (
+            BUILDER_REGISTRY_STORAGE_LAYOUT_HASH_V1,
+            *self.seat.factory_abi_words_v1(),
+            *self.lease.factory_abi_words_v1(),
+        )
+
+
+@dataclass
+class ProtocolRootBuilderRegistryFacetArtifactV1:
+    address: bytes
+    init_code_hash: bytes
+    runtime_hash: bytes
+    config_return: bytes
+    runtime_override: bytes | None = None
+    config_return_override: bytes | None = None
+    component_config_override: bytes | None = None
+
+    def extcodehash(self) -> bytes:
+        return (self.runtime_hash if self.runtime_override is None
+                else self.runtime_override)
+
+    def builder_registry_lifecycle_facet_config_v1(
+        self, calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        if (calldata != BUILDER_REGISTRY_FACET_CONFIG_SELECTOR
+                or gas_limit != PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS
+                or value != 0):
+            raise ValueError("protocol-root BRF1 frame is inexact")
+        return (self.config_return if self.config_return_override is None
+                else self.config_return_override)
+
+    def component_config_hash_v2(
+        self, calldata: bytes, *, gas_limit: int, value: int,
+    ) -> bytes:
+        if (calldata != COMPONENT_CONFIG_GETTER_SELECTOR
+                or gas_limit != PROTOCOL_ROOT_FACTORY_COMPONENT_CONFIG_READ_GAS
+                or value != 0):
+            raise ValueError("facet component-config frame is inexact")
+        expected = decode_builder_registry_facet_brf1_v1(
+            self.config_return
+        ).configuration_hash_v1()
+        return (expected if self.component_config_override is None
+                else self.component_config_override)
+
+
+@dataclass
+class ProtocolRootBuilderRegistryFacetBootstrapV1:
+    settlement_chain_id: int
+    manifest_namespace: bytes
+    seat_artifact: ProtocolRootBuilderRegistryFacetArtifactV1
+    lease_artifact: ProtocolRootBuilderRegistryFacetArtifactV1
+    facets: BuilderRegistryLifecycleFacetSetV1 = field(init=False)
+
+    def __post_init__(self) -> None:
+        if (type(self.seat_artifact)
+                is not ProtocolRootBuilderRegistryFacetArtifactV1
+                or type(self.lease_artifact)
+                    is not ProtocolRootBuilderRegistryFacetArtifactV1):
+            raise ValueError("protocol-root Registry facet artifact is absent")
+
+        def descriptor(
+            kind: int, artifact: ProtocolRootBuilderRegistryFacetArtifactV1,
+        ) -> BuilderRegistryLifecycleFacetDescriptorV1:
+            canonical = BuilderRegistryLifecycleFacetConfigV1(kind)
+            configuration_hash = canonical.configuration_hash_v1()
+            salt = builder_registry_lifecycle_facet_salt_v1(
+                self.settlement_chain_id, self.manifest_namespace,
+                kind, configuration_hash,
+            )
+            return BuilderRegistryLifecycleFacetDescriptorV1(
+                kind,
+                builder_registry_lifecycle_facet_address_v1(
+                    self.settlement_chain_id, self.manifest_namespace,
+                    kind, configuration_hash, artifact.init_code_hash,
+                ),
+                artifact.init_code_hash, artifact.runtime_hash,
+                configuration_hash, canonical.selector_set_hash, salt,
+            )
+
+        self.facets = BuilderRegistryLifecycleFacetSetV1(
+            self.settlement_chain_id, self.manifest_namespace,
+            descriptor(BUILDER_REGISTRY_SEAT_FACET_KIND, self.seat_artifact),
+            descriptor(BUILDER_REGISTRY_LEASE_FACET_KIND, self.lease_artifact),
+        )
+        self.authenticate_v1()
+
+    def authenticate_v1(self) -> None:
+        for artifact, descriptor, kind in (
+            (self.seat_artifact, self.facets.seat,
+             BUILDER_REGISTRY_SEAT_FACET_KIND),
+            (self.lease_artifact, self.facets.lease,
+             BUILDER_REGISTRY_LEASE_FACET_KIND),
+        ):
+            canonical = BuilderRegistryLifecycleFacetConfigV1(kind)
+            if (type(artifact)
+                    is not ProtocolRootBuilderRegistryFacetArtifactV1
+                    or artifact.address != descriptor.address
+                    or artifact.init_code_hash != descriptor.init_code_hash
+                    or artifact.extcodehash() != descriptor.runtime_hash
+                    or artifact.builder_registry_lifecycle_facet_config_v1(
+                        BUILDER_REGISTRY_FACET_CONFIG_SELECTOR,
+                        gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
+                        value=0,
+                    ) != canonical.encode_brf1()
+                    or artifact.component_config_hash_v2(
+                        COMPONENT_CONFIG_GETTER_SELECTOR,
+                        gas_limit=(
+                            PROTOCOL_ROOT_FACTORY_COMPONENT_CONFIG_READ_GAS
+                        ),
+                        value=0,
+                    ) != descriptor.configuration_hash):
+                raise ValueError("builder-registry facet is inconsistent")
+
+
 def protocol_root_factory_configuration_hash_v1(
     settlement_chain_id: int, manifest_namespace: bytes,
     delayed_executor: bytes, executor_runtime_hash: bytes,
@@ -4833,6 +5219,7 @@ def protocol_root_factory_configuration_hash_v1(
     builder_proof_verifier_init_code_hash: bytes,
     builder_proof_verifier_runtime_hash: bytes,
     builder_proof_verifier_configuration_hash: bytes,
+    builder_registry_facets: BuilderRegistryLifecycleFacetSetV1,
 ) -> bytes:
     builder_proof_verifier_salt = builder_registry_proof_verifier_salt_v1(
         settlement_chain_id, manifest_namespace,
@@ -4855,6 +5242,12 @@ def protocol_root_factory_configuration_hash_v1(
     if (not 0 < settlement_chain_id < 1 << 256
             or type(delayed_executor) is not bytes
             or len(delayed_executor) != 20 or delayed_executor == bytes(20)
+            or type(builder_registry_facets)
+                is not BuilderRegistryLifecycleFacetSetV1
+            or builder_registry_facets.settlement_chain_id
+                != settlement_chain_id
+            or builder_registry_facets.manifest_namespace
+                != manifest_namespace
             or any(type(word) is not bytes or len(word) != 32
                    or word == bytes(32) for word in words)):
         raise ValueError("protocol-root Factory configuration is invalid")
@@ -4868,6 +5261,7 @@ def protocol_root_factory_configuration_hash_v1(
         builder_proof_verifier_runtime_hash,
         builder_proof_verifier_configuration_hash,
         builder_proof_verifier_salt, builder_proof_verifier,
+        builder_registry_facets.factory_packed_v1(),
         PROTOCOL_ROOT_ENSURE_SOURCE_INFRASTRUCTURE_SELECTOR,
         PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_VIEW_SELECTOR,
         _model_uint(
@@ -5248,10 +5642,11 @@ class ProtocolRootBuilderRegistryConfigV1:
     builder_proof_verifier: bytes
     builder_proof_verifier_runtime_hash: bytes
     builder_proof_verifier_configuration_hash: bytes
+    builder_registry_facets: BuilderRegistryLifecycleFacetSetV1
     economic_configuration_hash: bytes
     topology_hash: bytes
 
-    def topology_hash_v1(self) -> bytes:
+    def topology_payload_v2(self) -> bytes:
         payload = b"".join((
             _model_uint(self.settlement_chain_id, 32, "BRC1 chain"),
             self.builder_lease_token, self.builder_lease_token_runtime_hash,
@@ -5271,12 +5666,17 @@ class ProtocolRootBuilderRegistryConfigV1:
             self.builder_proof_verifier,
             self.builder_proof_verifier_runtime_hash,
             self.builder_proof_verifier_configuration_hash,
+            self.builder_registry_facets.topology_packed_v1(),
             self.economic_configuration_hash,
         ))
-        if len(payload) != 405:
-            raise AssertionError("BRC1 topology preimage must be 405 bytes")
+        if len(payload) != 573:
+            raise AssertionError("BRC1 topology preimage must be 573 bytes")
+        return payload
+
+    def topology_hash_v2(self) -> bytes:
+        payload = self.topology_payload_v2()
         return keccak256(
-            b"slot-chain-builder-registry-topology-v1"
+            b"slot-chain-builder-registry-topology-v2"
             + _model_uint(len(payload), 2, "BRC1 topology bytes") + payload
         )
 
@@ -5311,7 +5711,15 @@ class ProtocolRootBuilderRegistryConfigV1:
                 or not 0 <= self.reporter_reward_cap_atomic < 1 << 192
                 or 5 * self.reporter_reward_cap_atomic
                     > self.lease_per_window_atomic
-                or self.topology_hash != self.topology_hash_v1()):
+                or type(self.builder_registry_facets)
+                    is not BuilderRegistryLifecycleFacetSetV1
+                or self.builder_registry_facets.settlement_chain_id
+                    != self.settlement_chain_id
+                or self.builder_proof_verifier in (
+                    self.builder_registry_facets.seat.address,
+                    self.builder_registry_facets.lease.address,
+                )
+                or self.topology_hash != self.topology_hash_v2()):
             raise ValueError("protocol-root BRC1 configuration is invalid")
         encoded = b"".join((
             b"BRC1" + bytes(28),
@@ -5343,8 +5751,11 @@ class ProtocolRootBuilderRegistryConfigV1:
 
 def decode_protocol_root_brc1_v1(
     encoded: bytes,
+    builder_registry_facets: BuilderRegistryLifecycleFacetSetV1,
 ) -> ProtocolRootBuilderRegistryConfigV1:
-    if type(encoded) is not bytes or len(encoded) != 800:
+    if (type(encoded) is not bytes or len(encoded) != 800
+            or type(builder_registry_facets)
+                is not BuilderRegistryLifecycleFacetSetV1):
         raise ValueError("protocol-root BRC1 return length is invalid")
     words = tuple(encoded[index:index + 32] for index in range(0, 800, 32))
     if words[0] != b"BRC1" + bytes(28):
@@ -5364,7 +5775,7 @@ def decode_protocol_root_brc1_v1(
         words[17], _decode_address_word_v1(words[18], "BRC1 Schedule"),
         words[19],
         _decode_address_word_v1(words[20], "BRC1 proof verifier"),
-        words[21], words[22], words[23], words[24],
+        words[21], words[22], builder_registry_facets, words[23], words[24],
     )
     if result.encode_brc1() != encoded:
         raise ValueError("protocol-root BRC1 return is noncanonical")
@@ -6298,6 +6709,9 @@ class ProtocolRootFactoryModelV1:
     builder_proof_verifier_init_code_hash: bytes
     builder_proof_verifier_runtime_hash: bytes
     builder_proof_verifier_configuration_hash: bytes
+    builder_registry_facet_bootstrap: (
+        ProtocolRootBuilderRegistryFacetBootstrapV1
+    )
     executor_artifact: InitVar[object]
     proxy_artifact: InitVar[ProtocolRootCreate3ProxyArtifactV1]
     source_factory_compiler_artifacts: (
@@ -6311,6 +6725,9 @@ class ProtocolRootFactoryModelV1:
     proxy_runtime_code_size: int = field(init=False)
     builder_proof_verifier_salt: bytes = field(init=False)
     builder_proof_verifier: bytes = field(init=False)
+    builder_registry_facets: BuilderRegistryLifecycleFacetSetV1 = field(
+        init=False
+    )
     _builder_proof_verifier_artifact: (
         ProtocolRootBuilderProofVerifierArtifactV1
     ) = field(init=False, repr=False)
@@ -6362,6 +6779,18 @@ class ProtocolRootFactoryModelV1:
             self.builder_proof_verifier_configuration_hash,
             self.builder_proof_verifier_init_code_hash,
         )
+        if (type(self.builder_registry_facet_bootstrap)
+                is not ProtocolRootBuilderRegistryFacetBootstrapV1):
+            raise ValueError("protocol-root Registry facet bootstrap is absent")
+        if (self.builder_registry_facet_bootstrap.settlement_chain_id
+                != self.settlement_chain_id
+                or self.builder_registry_facet_bootstrap.manifest_namespace
+                    != self.manifest_namespace):
+            raise ValueError("protocol-root Registry facet domain is inconsistent")
+        self.builder_registry_facets = (
+            self.builder_registry_facet_bootstrap.facets
+        )
+        self.builder_registry_facet_bootstrap.authenticate_v1()
         self._builder_proof_verifier_artifact = builder_proof_verifier_artifact
         self.configuration_hash = protocol_root_factory_configuration_hash_v1(
             self.settlement_chain_id, self.manifest_namespace,
@@ -6372,6 +6801,7 @@ class ProtocolRootFactoryModelV1:
             self.builder_proof_verifier_init_code_hash,
             self.builder_proof_verifier_runtime_hash,
             self.builder_proof_verifier_configuration_hash,
+            self.builder_registry_facets,
         )
         expected_configuration_hash = (
             protocol_root_factory_configuration_hash_v1(
@@ -6383,6 +6813,7 @@ class ProtocolRootFactoryModelV1:
                 self.builder_proof_verifier_init_code_hash,
                 self.builder_proof_verifier_runtime_hash,
                 self.builder_proof_verifier_configuration_hash,
+                self.builder_registry_facets,
             )
         )
         canonical_bpv1 = BuilderRegistryProofVerifierConfigV1().encode_bpv1()
@@ -6422,6 +6853,12 @@ class ProtocolRootFactoryModelV1:
                 or self.builder_proof_verifier_configuration_hash
                     != BuilderRegistryProofVerifierConfigV1()
                         .configuration_hash_v1()
+                or self.builder_registry_facets
+                    != self.builder_registry_facet_bootstrap.facets
+                or self.builder_proof_verifier in (
+                    self.builder_registry_facets.seat.address,
+                    self.builder_registry_facets.lease.address,
+                )
                 or self.configuration_hash != expected_configuration_hash
                 or any(type(value) is not bytes or len(value) != 32
                        or value == bytes(32) for value in (
@@ -6467,6 +6904,11 @@ class ProtocolRootFactoryModelV1:
                 ) != self.builder_proof_verifier_configuration_hash):
             raise ValueError("protocol-root proof verifier is inconsistent")
 
+    def _authenticate_builder_registry_facets_v1(self) -> None:
+        if self.builder_registry_facet_bootstrap.facets != self.builder_registry_facets:
+            raise ValueError("protocol-root Registry facet pins changed")
+        self.builder_registry_facet_bootstrap.authenticate_v1()
+
     def extcodehash(self) -> bytes:
         if (type(self.runtime_hash) is not bytes
                 or len(self.runtime_hash) != 32
@@ -6487,7 +6929,7 @@ class ProtocolRootFactoryModelV1:
                 else self.configuration_hash_override)
 
     def canonical_protocol_root_factory_config_v1(self) -> bytes:
-        """Return the independently derived exact 28-word PRF1 row."""
+        """Return the independently derived exact 41-word PRF1 row."""
 
         encoded = b"".join((
             b"PRF1" + bytes(28),
@@ -6501,6 +6943,7 @@ class ProtocolRootFactoryModelV1:
             self.builder_proof_verifier_configuration_hash,
             self.builder_proof_verifier_salt,
             bytes(12) + self.builder_proof_verifier,
+            *self.builder_registry_facets.factory_abi_words_v1(),
             PROTOCOL_ROOT_ENSURE_SOURCE_INFRASTRUCTURE_SELECTOR + bytes(28),
             PROTOCOL_ROOT_SOURCE_INFRASTRUCTURE_VIEW_SELECTOR + bytes(28),
             *(_model_uint(value, 32, "PRF1 constant") for value in (
@@ -6518,8 +6961,8 @@ class ProtocolRootFactoryModelV1:
             )),
             self.configuration_hash,
         ))
-        if len(encoded) != 896:
-            raise AssertionError("PRF1 must be exactly 896 bytes")
+        if len(encoded) != 1_312:
+            raise AssertionError("PRF1 must be exactly 1,312 bytes")
         return encoded
 
     def protocol_root_factory_config_v1(
@@ -6769,6 +7212,7 @@ class ProtocolRootFactoryModelV1:
                 or value != 0):
             raise ValueError("protocol-root stage call frame is inexact")
         self._authenticate_builder_proof_verifier_v1()
+        self._authenticate_builder_registry_facets_v1()
         operation_id = calldata[4:36]
         manifest = ProtocolRootManifestV1.decode(calldata[100:1_069])
         key = manifest.campaign_key(self.address)
@@ -7129,6 +7573,7 @@ class ProtocolRootFactoryModelV1:
                 or set(campaign.source_infrastructure_receipts) != {1}):
             raise ValueError("protocol-root campaign cannot finalize")
         self._authenticate_builder_proof_verifier_v1()
+        self._authenticate_builder_registry_facets_v1()
         if (executor.address != self.delayed_executor
                 or executor.extcodehash() != self.executor_runtime_hash
                 or root_migration_executor_configuration_hash_v1(
@@ -7143,6 +7588,7 @@ class ProtocolRootFactoryModelV1:
                     self.builder_proof_verifier_init_code_hash,
                     self.builder_proof_verifier_runtime_hash,
                     self.builder_proof_verifier_configuration_hash,
+                    self.builder_registry_facets,
                 ) != self.configuration_hash):
             raise ValueError("protocol-root bootstrap authority is inconsistent")
 
@@ -7183,7 +7629,7 @@ class ProtocolRootFactoryModelV1:
         builder = decode_protocol_root_brc1_v1(world.staticcall_v1(
             role(1), self.address, PROTOCOL_ROOT_BUILDER_CONFIG_SELECTOR,
             gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, value=0,
-        ))
+        ), self.builder_registry_facets)
         timelock = decode_protocol_change_timelock_config_return_v1(
             world.staticcall_v1(
                 role(3), self.address, PROTOCOL_ROOT_TIMELOCK_CONFIG_SELECTOR,
@@ -7295,6 +7741,11 @@ class ProtocolRootFactoryModelV1:
                     != self.builder_proof_verifier_runtime_hash
                 or builder.builder_proof_verifier_configuration_hash
                     != self.builder_proof_verifier_configuration_hash
+                or role(1) in (
+                    self.builder_proof_verifier,
+                    self.builder_registry_facets.seat.address,
+                    self.builder_registry_facets.lease.address,
+                )
                 or builder.genesis_timestamp != schedule.genesis_timestamp
                 or builder.evidence_delay_seconds
                     != schedule.evidence_delay_seconds
@@ -7551,6 +8002,7 @@ class ProtocolRootFactoryModelV1:
                 or set(campaign.source_infrastructure_receipts) != {1}):
             raise ValueError("protocol-root campaign cannot finalize")
         self._authenticate_builder_proof_verifier_v1()
+        self._authenticate_builder_registry_facets_v1()
         if (executor.address != self.delayed_executor
                 or executor.extcodehash() != self.executor_runtime_hash
                 or root_migration_executor_configuration_hash_v1(
@@ -7565,6 +8017,7 @@ class ProtocolRootFactoryModelV1:
                     self.builder_proof_verifier_init_code_hash,
                     self.builder_proof_verifier_runtime_hash,
                     self.builder_proof_verifier_configuration_hash,
+                    self.builder_registry_facets,
                 ) != self.configuration_hash):
             raise ValueError("protocol-root bootstrap authority is inconsistent")
         for role in range(1, PROTOCOL_ROOT_ROLE_COUNT + 1):
@@ -7616,7 +8069,7 @@ class ProtocolRootFactoryModelV1:
             campaign.activation_artifacts[1].role_config_v1(
                 PROTOCOL_ROOT_BUILDER_CONFIG_SELECTOR,
                 gas_limit=PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS, value=0,
-            )
+            ), self.builder_registry_facets,
         )
         timelock = decode_protocol_change_timelock_config_return_v1(
             campaign.activation_artifacts[3].role_config_v1(
@@ -7741,6 +8194,11 @@ class ProtocolRootFactoryModelV1:
                     != self.builder_proof_verifier_runtime_hash
                 or builder.builder_proof_verifier_configuration_hash
                     != self.builder_proof_verifier_configuration_hash
+                or campaign.components[1] in (
+                    self.builder_proof_verifier,
+                    self.builder_registry_facets.seat.address,
+                    self.builder_registry_facets.lease.address,
+                )
                 or builder.genesis_timestamp != schedule.genesis_timestamp
                 or builder.evidence_delay_seconds
                     != schedule.evidence_delay_seconds
@@ -8176,6 +8634,7 @@ class RootMigrationExecutorModelV1:
             factory.builder_proof_verifier_init_code_hash,
             factory.builder_proof_verifier_runtime_hash,
             factory.builder_proof_verifier_configuration_hash,
+            factory.builder_registry_facets,
         )
         expected_factory_config = (
             factory.canonical_protocol_root_factory_config_v1()
@@ -8282,6 +8741,7 @@ class RootMigrationExecutorModelV1:
             factory.builder_proof_verifier_init_code_hash,
             factory.builder_proof_verifier_runtime_hash,
             factory.builder_proof_verifier_configuration_hash,
+            factory.builder_registry_facets,
         )
         expected_factory_config = (
             factory.canonical_protocol_root_factory_config_v1()
@@ -8377,6 +8837,7 @@ class RootMigrationExecutorModelV1:
             factory.builder_proof_verifier_init_code_hash,
             factory.builder_proof_verifier_runtime_hash,
             factory.builder_proof_verifier_configuration_hash,
+            factory.builder_registry_facets,
         )
         expected_factory_config = (
             factory.canonical_protocol_root_factory_config_v1()
