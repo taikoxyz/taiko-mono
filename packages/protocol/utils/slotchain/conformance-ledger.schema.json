@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://taiko.xyz/schemas/slot-chain-conformance-ledger-v2.27.json",
+  "title": "Slot Chain V2.27 conformance ledger",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "protocolVersion",
+    "normativeCommit",
+    "rootArtifactCount",
+    "entries"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "protocolVersion": { "const": "2.27" },
+    "normativeCommit": {
+      "const": "cd9df2ed2ad5000427f74efcefb1bfc31a689e0c"
+    },
+    "rootArtifactCount": { "const": 18 },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/entry" }
+    }
+  },
+  "$defs": {
+    "hashMap": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^0x[0-9a-f]{64}$"
+      }
+    },
+    "nonEmptyStrings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "paths": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^(?!/)(?!.*\\\\).+$" }
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "aliases",
+        "kind",
+        "normativeRefs",
+        "provenance",
+        "artifactOwnerProfile",
+        "canonicalSourceRoot",
+        "allowedConsumerProfiles",
+        "sourceKind",
+        "artifactScope",
+        "addressReusePolicy",
+        "retentionPolicy",
+        "reactivationPolicy",
+        "abiOrEncoding",
+        "sourcePaths",
+        "testPaths",
+        "failureBranches",
+        "limits",
+        "status",
+        "reviewedSourceHashes",
+        "reviewedTestHashes"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+        },
+        "name": { "type": "string", "minLength": 1 },
+        "aliases": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "kind": {
+          "enum": [
+            "root-artifact",
+            "deployable",
+            "creation-only",
+            "external-dependency",
+            "source-inline"
+          ]
+        },
+        "normativeRefs": { "$ref": "#/$defs/nonEmptyStrings" },
+        "provenance": { "enum": ["pr-owned", "external"] },
+        "artifactOwnerProfile": {
+          "type": ["string", "null"],
+          "enum": ["shared", "layer1", "layer2", null]
+        },
+        "canonicalSourceRoot": {
+          "type": ["string", "null"],
+          "enum": ["shared", "layer1", "layer2", null]
+        },
+        "allowedConsumerProfiles": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "enum": ["shared", "layer1", "layer2"] }
+        },
+        "sourceKind": {
+          "enum": [
+            "interface",
+            "internal-library",
+            "free-definitions",
+            "abstract-base",
+            "not-applicable"
+          ]
+        },
+        "artifactScope": {
+          "enum": [
+            "root-set",
+            "standalone",
+            "creation-only",
+            "external",
+            "source-inline"
+          ]
+        },
+        "addressReusePolicy": {
+          "enum": [
+            "protocol-lifetime",
+            "fresh-per-release",
+            "campaign-role-helper",
+            "descriptor-selected",
+            "legacy-fixed",
+            "external",
+            "not-applicable"
+          ]
+        },
+        "retentionPolicy": {
+          "enum": [
+            "permanent",
+            "historical",
+            "ephemeral-inert",
+            "external",
+            "source-inline"
+          ]
+        },
+        "reactivationPolicy": { "enum": ["never", "not-applicable"] },
+        "abiOrEncoding": { "$ref": "#/$defs/nonEmptyStrings" },
+        "sourcePaths": { "$ref": "#/$defs/paths" },
+        "testPaths": { "$ref": "#/$defs/paths" },
+        "failureBranches": { "$ref": "#/$defs/nonEmptyStrings" },
+        "limits": { "$ref": "#/$defs/nonEmptyStrings" },
+        "status": { "enum": ["missing", "red", "passing", "reviewed"] },
+        "reviewedSourceHashes": { "$ref": "#/$defs/hashMap" },
+        "reviewedTestHashes": { "$ref": "#/$defs/hashMap" }
+      }
+    }
+  }
+}

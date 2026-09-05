@@ -1,0 +1,4454 @@
+{
+  "schemaVersion": 1,
+  "protocolVersion": "2.27",
+  "normativeCommit": "cd9df2ed2ad5000427f74efcefb1bfc31a689e0c",
+  "rootArtifactCount": 18,
+  "entries": [
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation/root-artifact-set",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "root-set",
+      "addressReusePolicy": "protocol-lifetime",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/root/RootMigrationExecutorV1.sol"
+      ],
+      "testPaths": ["test/layer1/slotchain/root/RootMigrationExecutorV1.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "root.root-migration-executor-v1",
+      "name": "RootMigrationExecutorV1",
+      "kind": "root-artifact"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation/root-artifact-set",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "root-set",
+      "addressReusePolicy": "protocol-lifetime",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/root/ProtocolRootFactoryV1.sol"
+      ],
+      "testPaths": ["test/layer1/slotchain/root/ProtocolRootFactoryV1.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "root.protocol-root-factory-v1",
+      "name": "ProtocolRootFactoryV1",
+      "kind": "root-artifact"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation/root-artifact-set",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "root-set",
+      "addressReusePolicy": "campaign-role-helper",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": [
+        "constructor(): stores msg.sender as the sole factory and initializes used=false",
+        "deployV1(bytes) selector=0x5d5fb6bc; canonical offset=0x20; calldata=68+ceil32(initCodeLength); zero tail padding",
+        "success returndata=one canonical nonzero address word equal to the proxy nonce-one CREATE child"
+      ],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/root/ProtocolRootCreate3ProxyV1.sol"
+      ],
+      "testPaths": ["test/layer1/slotchain/root/ProtocolRootPrimitives.t.sol"],
+      "failureBranches": [
+        "caller is not the constructor-pinned factory",
+        "proxy already consumed",
+        "empty, oversized, aliased, gapped, trailing, or dirty-padding init-code calldata",
+        "nonce-one child CREATE fails because code or nonce already occupies the address; used write rolls back"
+      ],
+      "limits": [
+        "initCodeLength=1..49152 bytes",
+        "one CREATE at proxy nonce one; no target, upgrade, withdrawal, or selfdestruct surface",
+        "campaign-role CREATE2 salt; first and ninth role ordering is independent",
+        "rootArtifactCount=18 and one layer1 compiler invocation remain final root-release gates"
+      ],
+      "status": "reviewed",
+      "reviewedSourceHashes": {
+        "contracts/layer1/slotchain/root/ProtocolRootCreate3ProxyV1.sol": "0x3de26db09772970d647867571f80c467cb05c75a6090038a8892b541686f8b80"
+      },
+      "reviewedTestHashes": {
+        "test/layer1/slotchain/root/ProtocolRootPrimitives.t.sol": "0xe67f97160490a0a324a5f3e8ed588d7238de9900a25be343733a4f64189fe953"
+      },
+      "id": "root.protocol-root-create3-proxy-v1",
+      "name": "ProtocolRootCreate3ProxyV1",
+      "kind": "root-artifact"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation/root-artifact-set",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "root-set",
+      "addressReusePolicy": "protocol-lifetime",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": ["contracts/layer1/slotchain/impl/BuilderRegistry.sol"],
+      "testPaths": ["test/layer1/slotchain/registry/BuilderRegistry.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "root.builder-registry",
+      "name": "BuilderRegistry",
+      "kind": "root-artifact"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation/root-artifact-set",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "root-set",
+      "addressReusePolicy": "protocol-lifetime",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": ["contracts/layer1/slotchain/impl/ScheduleOracle.sol"],
+      "testPaths": ["test/layer1/slotchain/schedule/ScheduleOracle.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "root.schedule-oracle",
+      "name": "ScheduleOracle",
+      "kind": "root-artifact"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation/root-artifact-set",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "root-set",
+      "addressReusePolicy": "protocol-lifetime",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/ProtocolChangeTimelockV1.sol"
+      ],
+      "testPaths": ["test/layer1/slotchain/migration/ProtocolTimelock.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "root.protocol-change-timelock-v1",
+      "name": "ProtocolChangeTimelockV1",
+      "kind": "root-artifact"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation/root-artifact-set",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "root-set",
+      "addressReusePolicy": "protocol-lifetime",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/ProtocolVersionManagerV2.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/migration/ReleaseRegistration.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "root.protocol-version-manager-v2",
+      "name": "ProtocolVersionManagerV2",
+      "kind": "root-artifact"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation/root-artifact-set",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "root-set",
+      "addressReusePolicy": "protocol-lifetime",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/ActiveSettlementRouter.sol"
+      ],
+      "testPaths": ["test/layer1/slotchain/migration/RouterAuthority.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "root.active-settlement-router",
+      "name": "ActiveSettlementRouter",
+      "kind": "root-artifact"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation/root-artifact-set",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "root-set",
+      "addressReusePolicy": "protocol-lifetime",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": ["contracts/layer1/slotchain/impl/ForcedQueue.sol"],
+      "testPaths": ["test/layer1/slotchain/queue/ForcedQueue.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "root.forced-queue",
+      "name": "ForcedQueue",
+      "kind": "root-artifact"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation/root-artifact-set",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "root-set",
+      "addressReusePolicy": "protocol-lifetime",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/AggregatorSeatMarket.sol"
+      ],
+      "testPaths": ["test/layer1/slotchain/market/AggregatorSeatMarket.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "root.aggregator-seat-market",
+      "name": "AggregatorSeatMarket",
+      "kind": "root-artifact"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation/root-artifact-set",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "root-set",
+      "addressReusePolicy": "protocol-lifetime",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/BridgeDomainRegistry.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/registry/BridgeDomainRegistry.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "root.bridge-domain-registry",
+      "name": "BridgeDomainRegistry",
+      "kind": "root-artifact"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation/root-artifact-set",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "root-set",
+      "addressReusePolicy": "protocol-lifetime",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/SourceBundleFactory.sol"
+      ],
+      "testPaths": ["test/layer1/slotchain/bridge/SourceBundleFactory.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "root.source-bundle-factory",
+      "name": "SourceBundleFactory",
+      "kind": "root-artifact"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation/root-artifact-set",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "root-set",
+      "addressReusePolicy": "fresh-per-release",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/SourceBundleDeployerV1.sol"
+      ],
+      "testPaths": ["test/layer1/slotchain/bridge/SourceBundleFactory.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": [
+        "rootArtifactCount=18",
+        "design-blocker: exact manifest name remains to be frozen"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "root.source-bundle-deployer-v1",
+      "name": "SourceBundleDeployerV1",
+      "kind": "root-artifact"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation/root-artifact-set",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "root-set",
+      "addressReusePolicy": "fresh-per-release",
+      "retentionPolicy": "historical",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": ["contracts/layer1/slotchain/impl/BridgeInboxAdapter.sol"],
+      "testPaths": [
+        "test/layer1/slotchain/bridge/BridgeInboxAdapterLifecycle.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "root.bridge-inbox-adapter",
+      "name": "BridgeInboxAdapter",
+      "kind": "root-artifact"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation/root-artifact-set",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "root-set",
+      "addressReusePolicy": "fresh-per-release",
+      "retentionPolicy": "historical",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": ["contracts/layer1/slotchain/impl/SourceBridgeV2.sol"],
+      "testPaths": ["test/layer1/slotchain/bridge/SourceBridgeLifecycle.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "root.source-bridge-v2",
+      "name": "SourceBridgeV2",
+      "kind": "root-artifact"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation/root-artifact-set",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "root-set",
+      "addressReusePolicy": "fresh-per-release",
+      "retentionPolicy": "historical",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/BridgeCreditRegistryV2.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/bridge/BridgeCreditRegistryV2.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "root.bridge-credit-registry-v2",
+      "name": "BridgeCreditRegistryV2",
+      "kind": "root-artifact"
+    },
+    {
+      "aliases": ["source native QuotaManager"],
+      "normativeRefs": [
+        "main.tex:sec:implementation/root-artifact-set",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "root-set",
+      "addressReusePolicy": "fresh-per-release",
+      "retentionPolicy": "historical",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": ["contracts/layer1/slotchain/impl/SourceQuotaManager.sol"],
+      "testPaths": ["test/layer1/slotchain/bridge/SourceQuotaManager.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "root.source-quota-manager",
+      "name": "SourceQuotaManager",
+      "kind": "root-artifact"
+    },
+    {
+      "aliases": ["TerminalSignalVerifier"],
+      "normativeRefs": [
+        "main.tex:sec:implementation/root-artifact-set",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "root-set",
+      "addressReusePolicy": "protocol-lifetime",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/SourceTerminalVerifier.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/bridge/SourceTerminalVerifier.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["rootArtifactCount=18", "single layer1 compiler invocation"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "root.source-terminal-verifier",
+      "name": "SourceTerminalVerifier",
+      "kind": "root-artifact"
+    },
+    {
+      "aliases": ["Settlement"],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "fresh-per-release",
+      "retentionPolicy": "historical",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": [
+        "SVD2 exact 352-byte getter and exact Settlement proof-call boundary"
+      ],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/SlotChainSettlement.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/settlement/SlotChainSettlement.t.sol"
+      ],
+      "failureBranches": [
+        "descriptor/hash/code/configuration/proof/returndata/gas/replay faults roll back"
+      ],
+      "limits": [
+        "Settlement creation<=40032 runtime<=24576; proof<=65536; descriptor gas profile-bound"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "deployable.l1.slot-chain-settlement",
+      "name": "SlotChainSettlement",
+      "kind": "deployable"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "fresh-per-release",
+      "retentionPolicy": "historical",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": [
+        "KCS1 exact 96-byte getter; 448-byte configuration; typed append/record/refund ABI"
+      ],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/Kind0IngressAdapter.sol"
+      ],
+      "testPaths": ["test/layer1/slotchain/ingress/Kind0IngressAdapter.t.sol"],
+      "failureBranches": [
+        "wrong append authority or lifecycle; runtime/configuration/KCS1 mismatch; replay/fault rollback"
+      ],
+      "limits": [
+        "fresh per release; creation<=48544 runtime<=24576; append inert while ACTIVATING"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "deployable.l1.kind0-ingress-adapter",
+      "name": "Kind0IngressAdapter",
+      "kind": "deployable"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "descriptor-selected",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/ScheduleSszMultiproofVerifierV1.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/verifier/ScheduleSszMultiproofVerifierV1.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "deployable.l1.schedule-ssz-multiproof-verifier-v1",
+      "name": "ScheduleSszMultiproofVerifierV1",
+      "kind": "deployable"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "descriptor-selected",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/RegistrationMptVerifierV2.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/verifier/RegistrationMptVerifierV2.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "deployable.l1.registration-mpt-verifier-v2",
+      "name": "RegistrationMptVerifierV2",
+      "kind": "deployable"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "legacy-fixed",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/LegacyGenesisCutoverInboxV1.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/genesis/LegacyLayoutCompatibility.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "deployable.l1.legacy-genesis-cutover-inbox-v1",
+      "name": "LegacyGenesisCutoverInboxV1",
+      "kind": "deployable"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "legacy-fixed",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/LegacyResumeZkPairVerifierV1.sol"
+      ],
+      "testPaths": ["test/layer1/slotchain/genesis/LegacyResumeVerifier.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "deployable.l1.legacy-resume-zk-pair-verifier-v1",
+      "name": "LegacyResumeZkPairVerifierV1",
+      "kind": "deployable"
+    },
+    {
+      "aliases": ["LegacyResumeRisc0FixedKeyAdapterV1"],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "legacy-fixed",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/LegacyResumeRisc0VerifierAdapterV1.sol"
+      ],
+      "testPaths": ["test/layer1/slotchain/genesis/LegacyResumeVerifier.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "deployable.l1.legacy-resume-risc0-fixed-key-adapter-v1",
+      "name": "LegacyResumeRisc0VerifierAdapterV1",
+      "kind": "deployable"
+    },
+    {
+      "aliases": ["LegacyResumeSp1FixedKeyAdapterV1"],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "legacy-fixed",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/LegacyResumeSp1VerifierAdapterV1.sol"
+      ],
+      "testPaths": ["test/layer1/slotchain/genesis/LegacyResumeVerifier.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "deployable.l1.legacy-resume-sp1-fixed-key-adapter-v1",
+      "name": "LegacyResumeSp1VerifierAdapterV1",
+      "kind": "deployable"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "legacy-fixed",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/LegacyCampaignFencedProposerCheckerV1.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/genesis/LegacyProposerCheckerFence.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "deployable.l1.legacy-campaign-fenced-proposer-checker",
+      "name": "LegacyCampaignFencedProposerCheckerV1",
+      "kind": "deployable"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "legacy-fixed",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/LegacyDirectSignalServiceV1.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/genesis/LegacySignalServiceFence.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "deployable.l1.legacy-direct-signal-service",
+      "name": "LegacyDirectSignalServiceV1",
+      "kind": "deployable"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer2",
+      "canonicalSourceRoot": "layer2",
+      "allowedConsumerProfiles": ["layer2"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "protocol-lifetime",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer2/slotchain/impl/ProtocolReleaseAuthorityV2.sol"
+      ],
+      "testPaths": [
+        "test/layer2/slotchain/release/ProtocolReleaseAuthorityV2.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "deployable.l2.protocol-release-authority-v2",
+      "name": "ProtocolReleaseAuthorityV2",
+      "kind": "deployable"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer2",
+      "canonicalSourceRoot": "layer2",
+      "allowedConsumerProfiles": ["layer2"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "protocol-lifetime",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": ["contracts/layer2/slotchain/impl/InboxApplyRouterV2.sol"],
+      "testPaths": ["test/layer2/slotchain/inbox/InboxApplyRouterV2.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "deployable.l2.inbox-apply-router-v2",
+      "name": "InboxApplyRouterV2",
+      "kind": "deployable"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer2",
+      "canonicalSourceRoot": "layer2",
+      "allowedConsumerProfiles": ["layer2"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "protocol-lifetime",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer2/slotchain/impl/TerminalDomainRegistrarV2.sol"
+      ],
+      "testPaths": [
+        "test/layer2/slotchain/terminal/TerminalDomainRegistrarV2.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "deployable.l2.terminal-domain-registrar-v2",
+      "name": "TerminalDomainRegistrarV2",
+      "kind": "deployable"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer2",
+      "canonicalSourceRoot": "layer2",
+      "allowedConsumerProfiles": ["layer2"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "protocol-lifetime",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer2/slotchain/impl/TerminalAccumulatorV2.sol"
+      ],
+      "testPaths": [
+        "test/layer2/slotchain/terminal/TerminalAccumulatorV2.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "deployable.l2.terminal-accumulator-v2",
+      "name": "TerminalAccumulatorV2",
+      "kind": "deployable"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer2",
+      "canonicalSourceRoot": "layer2",
+      "allowedConsumerProfiles": ["layer2"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "protocol-lifetime",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer2/slotchain/impl/NativeLiquidityPoolV2.sol"
+      ],
+      "testPaths": ["test/layer2/slotchain/bridge/NativeLiquidityPoolV2.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "deployable.l2.native-liquidity-pool-v2",
+      "name": "NativeLiquidityPoolV2",
+      "kind": "deployable"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer2",
+      "canonicalSourceRoot": "layer2",
+      "allowedConsumerProfiles": ["layer2"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "fresh-per-release",
+      "retentionPolicy": "historical",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": ["contracts/layer2/slotchain/impl/InboxCreditStoreV2.sol"],
+      "testPaths": ["test/layer2/slotchain/inbox/InboxCreditStoreV2.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "deployable.l2.inbox-credit-store-v2",
+      "name": "InboxCreditStoreV2",
+      "kind": "deployable"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer2",
+      "canonicalSourceRoot": "layer2",
+      "allowedConsumerProfiles": ["layer2"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "fresh-per-release",
+      "retentionPolicy": "historical",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer2/slotchain/impl/DestinationBridgeV2.sol"
+      ],
+      "testPaths": ["test/layer2/slotchain/bridge/DestinationBridgeV2.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "deployable.l2.destination-bridge-v2",
+      "name": "DestinationBridgeV2",
+      "kind": "deployable"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer2",
+      "canonicalSourceRoot": "layer2",
+      "allowedConsumerProfiles": ["layer2"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "fresh-per-release",
+      "retentionPolicy": "historical",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer2/slotchain/impl/DestinationQuotaManager.sol"
+      ],
+      "testPaths": [
+        "test/layer2/slotchain/bridge/DestinationQuotaManager.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "deployable.l2.destination-quota-manager",
+      "name": "DestinationQuotaManager",
+      "kind": "deployable"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer2",
+      "canonicalSourceRoot": "layer2",
+      "allowedConsumerProfiles": ["layer2"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "legacy-fixed",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": ["contracts/layer2/slotchain/impl/AnchorV4.sol"],
+      "testPaths": ["test/layer2/slotchain/release/AnchorV4Installation.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": [
+        "design-blocker: exact name/owner profile/install mechanism absent"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "deployable.legacy-l2.anchor-v4",
+      "name": "AnchorV4",
+      "kind": "deployable"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/root-migration-executor-v1-complete-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.root-migration-executor-v1-complete-initcode",
+      "name": "root-migration-executor-v1-complete-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/protocol-root-factory-v1-complete-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.protocol-root-factory-v1-complete-initcode",
+      "name": "protocol-root-factory-v1-complete-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/root-role-1-builder-registry-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.root-role-1-builder-registry-initcode",
+      "name": "root-role-1-builder-registry-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/root-role-2-schedule-oracle-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.root-role-2-schedule-oracle-initcode",
+      "name": "root-role-2-schedule-oracle-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/root-role-3-protocol-change-timelock-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.root-role-3-protocol-change-timelock-initcode",
+      "name": "root-role-3-protocol-change-timelock-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/root-role-4-protocol-version-manager-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.root-role-4-protocol-version-manager-initcode",
+      "name": "root-role-4-protocol-version-manager-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/root-role-5-active-settlement-router-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.root-role-5-active-settlement-router-initcode",
+      "name": "root-role-5-active-settlement-router-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/root-role-6-forced-queue-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.root-role-6-forced-queue-initcode",
+      "name": "root-role-6-forced-queue-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/root-role-7-aggregator-seat-market-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.root-role-7-aggregator-seat-market-initcode",
+      "name": "root-role-7-aggregator-seat-market-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/root-role-8-bridge-domain-registry-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.root-role-8-bridge-domain-registry-initcode",
+      "name": "root-role-8-bridge-domain-registry-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/root-role-9-source-bundle-factory-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.root-role-9-source-bundle-factory-initcode",
+      "name": "root-role-9-source-bundle-factory-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/source-terminal-verifier-complete-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.source-terminal-verifier-complete-initcode",
+      "name": "source-terminal-verifier-complete-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/settlement-target-code-artifact.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.settlement-target-code-artifact",
+      "name": "settlement-target-code-artifact",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/settlement-complete-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.settlement-complete-initcode",
+      "name": "settlement-complete-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/source-bundle-deployer-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.source-bundle-deployer-initcode",
+      "name": "source-bundle-deployer-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/source-bridge-v2-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.source-bridge-v2-initcode",
+      "name": "source-bridge-v2-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/bridge-credit-registry-v2-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.bridge-credit-registry-v2-initcode",
+      "name": "bridge-credit-registry-v2-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/source-quota-manager-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.source-quota-manager-initcode",
+      "name": "source-quota-manager-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/bridge-inbox-adapter-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.bridge-inbox-adapter-initcode",
+      "name": "bridge-inbox-adapter-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": [
+        "ERC-2470 deploy(bytes,bytes32); exact creation||19-word constructor tail and CREATE2 address"
+      ],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/kind0-ingress-adapter-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "factory/code/configuration/KCS1/address mismatch; occupied mismatching collision; atomic rollback"
+      ],
+      "limits": [
+        "factory=0xce0042B868300000d44A59004Da54A005ffdcf9f; tail=608; creation<=48544; runtime<=24576"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.kind0-ingress-adapter-initcode",
+      "name": "kind0-ingress-adapter-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/schedule-ssz-multiproof-verifier-v1-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.schedule-ssz-multiproof-verifier-v1-initcode",
+      "name": "schedule-ssz-multiproof-verifier-v1-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/registration-mpt-verifier-v2-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.registration-mpt-verifier-v2-initcode",
+      "name": "registration-mpt-verifier-v2-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/legacy-genesis-cutover-inbox-implementation-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.legacy-genesis-cutover-inbox-implementation-initcode",
+      "name": "legacy-genesis-cutover-inbox-implementation-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/legacy-resume-zk-pair-verifier-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.legacy-resume-zk-pair-verifier-initcode",
+      "name": "legacy-resume-zk-pair-verifier-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/legacy-resume-risc0-fixed-key-adapter-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.legacy-resume-risc0-fixed-key-adapter-initcode",
+      "name": "legacy-resume-risc0-fixed-key-adapter-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/legacy-resume-sp1-fixed-key-adapter-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.legacy-resume-sp1-fixed-key-adapter-initcode",
+      "name": "legacy-resume-sp1-fixed-key-adapter-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/legacy-campaign-fenced-proposer-checker-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.legacy-campaign-fenced-proposer-checker-initcode",
+      "name": "legacy-campaign-fenced-proposer-checker-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer1/slotchain/deployment/legacy-direct-signal-service-implementation-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.legacy-direct-signal-service-implementation-initcode",
+      "name": "legacy-direct-signal-service-implementation-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer2",
+      "canonicalSourceRoot": "layer2",
+      "allowedConsumerProfiles": ["layer2"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer2/slotchain/deployment/protocol-release-authority-v2-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.protocol-release-authority-v2-initcode",
+      "name": "protocol-release-authority-v2-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer2",
+      "canonicalSourceRoot": "layer2",
+      "allowedConsumerProfiles": ["layer2"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer2/slotchain/deployment/inbox-apply-router-v2-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.inbox-apply-router-v2-initcode",
+      "name": "inbox-apply-router-v2-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer2",
+      "canonicalSourceRoot": "layer2",
+      "allowedConsumerProfiles": ["layer2"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer2/slotchain/deployment/terminal-domain-registrar-v2-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.terminal-domain-registrar-v2-initcode",
+      "name": "terminal-domain-registrar-v2-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer2",
+      "canonicalSourceRoot": "layer2",
+      "allowedConsumerProfiles": ["layer2"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer2/slotchain/deployment/terminal-accumulator-v2-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.terminal-accumulator-v2-initcode",
+      "name": "terminal-accumulator-v2-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer2",
+      "canonicalSourceRoot": "layer2",
+      "allowedConsumerProfiles": ["layer2"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer2/slotchain/deployment/native-liquidity-pool-v2-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.native-liquidity-pool-v2-initcode",
+      "name": "native-liquidity-pool-v2-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer2",
+      "canonicalSourceRoot": "layer2",
+      "allowedConsumerProfiles": ["layer2"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer2/slotchain/deployment/inbox-credit-store-v2-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.inbox-credit-store-v2-initcode",
+      "name": "inbox-credit-store-v2-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer2",
+      "canonicalSourceRoot": "layer2",
+      "allowedConsumerProfiles": ["layer2"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer2/slotchain/deployment/destination-bridge-v2-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.destination-bridge-v2-initcode",
+      "name": "destination-bridge-v2-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer2",
+      "canonicalSourceRoot": "layer2",
+      "allowedConsumerProfiles": ["layer2"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer2/slotchain/deployment/destination-quota-manager-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.destination-quota-manager-initcode",
+      "name": "destination-quota-manager-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer2",
+      "canonicalSourceRoot": "layer2",
+      "allowedConsumerProfiles": ["layer2"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer2/slotchain/deployment/anchor-v4-installation-artifact.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["EIP-3860 and manifest-pinned length/hash"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.anchor-v4-installation-artifact",
+      "name": "anchor-v4-installation-artifact",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer2",
+      "canonicalSourceRoot": "layer2",
+      "allowedConsumerProfiles": ["layer2"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "creation-only",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "ephemeral-inert",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": ["exact bytes/hash/consumer/sole deployment path"],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/layer2/slotchain/deployment/force-send-initcode.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["exactBytes=22", "CREATE2 then SELFDESTRUCT; no sink CALL"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "creation.force-send-initcode",
+      "name": "force-send-initcode",
+      "kind": "creation-only"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/slotchain/dependencies/erc2470-singleton-factory.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.erc2470-singleton-factory",
+      "name": "erc2470-singleton-factory",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/slotchain/dependencies/eip4788-beacon-roots-carrier.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.eip4788-beacon-roots-carrier",
+      "name": "eip4788-beacon-roots-carrier",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/slotchain/dependencies/eip2935-l1-history-carrier.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.eip2935-l1-history-carrier",
+      "name": "eip2935-l1-history-carrier",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/slotchain/dependencies/eip2935-l2-history-carrier.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.eip2935-l2-history-carrier",
+      "name": "eip2935-l2-history-carrier",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/slotchain/dependencies/eip4844-point-evaluation-precompile.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.eip4844-point-evaluation-precompile",
+      "name": "eip4844-point-evaluation-precompile",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/builder-lease-erc20.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.builder-lease-erc20",
+      "name": "builder-lease-erc20",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "SVD2 exact 352-byte descriptor; verify(bytes,uint256[2]) selector 0x8c6cb224; exact 32-byte result"
+      ],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/slotchain/dependencies/settlement-validity-verifier-v2.t.sol"
+      ],
+      "failureBranches": [
+        "runtime/configuration/key/policy/schema/selector/proof-size/call-gas/post-reserve/returndata mismatch"
+      ],
+      "limits": [
+        "one immutable state-independent nonproxy verifier for tiers 1-3; proof<=65536; fixed-precompile STATICCALL only"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.settlement-validity-verifier-v2",
+      "name": "settlement-validity-verifier-v2",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/slotchain/dependencies/migration-transition-verifier-v2.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.migration-transition-verifier-v2",
+      "name": "migration-transition-verifier-v2",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/slotchain/dependencies/future-schedule-fork-verifier.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.future-schedule-fork-verifier",
+      "name": "future-schedule-fork-verifier",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/risc0-remote-verifier.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.risc0-remote-verifier",
+      "name": "risc0-remote-verifier",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/sp1-remote-verifier.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.sp1-remote-verifier",
+      "name": "sp1-remote-verifier",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/legacy-v1-inbox-proxy.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.legacy-v1-inbox-proxy",
+      "name": "legacy-v1-inbox-proxy",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/slotchain/dependencies/legacy-v1-inbox-precutover-implementation.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.legacy-v1-inbox-precutover-implementation",
+      "name": "legacy-v1-inbox-precutover-implementation",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/legacy-v1-bridge.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.legacy-v1-bridge",
+      "name": "legacy-v1-bridge",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/slotchain/dependencies/legacy-proposer-checker-proxy.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.legacy-proposer-checker-proxy",
+      "name": "legacy-proposer-checker-proxy",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/slotchain/dependencies/legacy-proposer-checker-precutover-implementation.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.legacy-proposer-checker-precutover-implementation",
+      "name": "legacy-proposer-checker-precutover-implementation",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/slotchain/dependencies/legacy-l1-signal-service-proxy.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.legacy-l1-signal-service-proxy",
+      "name": "legacy-l1-signal-service-proxy",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/slotchain/dependencies/legacy-l2-remote-signal-service.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.legacy-l2-remote-signal-service",
+      "name": "legacy-l2-remote-signal-service",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/legacy-bond-token.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.legacy-bond-token",
+      "name": "legacy-bond-token",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/slotchain/dependencies/legacy-official-vault-graph.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.legacy-official-vault-graph",
+      "name": "legacy-official-vault-graph",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/genesis-dao-proposer.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.genesis-dao-proposer",
+      "name": "genesis-dao-proposer",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/inbox-system-sender.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.inbox-system-sender",
+      "name": "inbox-system-sender",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/anchor-system-sender.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.anchor-system-sender",
+      "name": "anchor-system-sender",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/source-pauser.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.source-pauser",
+      "name": "source-pauser",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/builder-penalty-sink.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.builder-penalty-sink",
+      "name": "builder-penalty-sink",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/data-rent-sink.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.data-rent-sink",
+      "name": "data-rent-sink",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/seat-penalty-sink.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.seat-penalty-sink",
+      "name": "seat-penalty-sink",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/forced-expiry-sink.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.forced-expiry-sink",
+      "name": "forced-expiry-sink",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/bridge-surplus-sink.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.bridge-surplus-sink",
+      "name": "bridge-surplus-sink",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "manifest-pinned external identity/interface/provenance"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/protocol-coinbase-sink.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["must not be fabricated by PR #22096"],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "dependency.protocol-coinbase-sink",
+      "name": "protocol-coinbase-sink",
+      "kind": "external-dependency"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "free-definitions",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "exact V2.27 structs for the 282-field execution profile, 59-word release manifest, verifier descriptors, migration records, ingress rows, and reclamation lifecycle"
+      ],
+      "sourcePaths": ["contracts/shared/slotchain/SlotChainTypes.sol"],
+      "testPaths": [
+        "test/shared/slotchain/libs/LibSlotChainEncoding.t.sol",
+        "test/shared/slotchain/libs/LibSlotChainProfile.t.sol"
+      ],
+      "failureBranches": [
+        "struct-width, nested-memory-layout, dynamic-tail-offset, migration-kind, and descriptor-schema drift"
+      ],
+      "limits": [
+        "execution profile has 281 fixed words plus one bytes tail",
+        "profile ABI length is at most 146848 bytes; release, activation, migration statement, ingress, and reclamation encodings have exact fixed word counts"
+      ],
+      "status": "reviewed",
+      "reviewedSourceHashes": {
+        "contracts/shared/slotchain/SlotChainTypes.sol": "0xa9f5ed60287653156fa9443201a950870eaafd3291ee26a11c72c2bc8b854310"
+      },
+      "reviewedTestHashes": {
+        "test/shared/slotchain/libs/LibSlotChainEncoding.t.sol": "0x48774d28e08d0c439cf34753a89b20cd354569824cbdf713fab91d3a340dc9d4",
+        "test/shared/slotchain/libs/LibSlotChainProfile.t.sol": "0x5543c71461321e387a4199ee7dac36d9b0ee1dd8ff2ff046aa50c4898f074bba"
+      },
+      "id": "primitive.slot-chain-types",
+      "name": "SlotChainTypes",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "interface",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/shared/slotchain/iface/IComponentConfigV2.sol"
+      ],
+      "testPaths": ["test/layer1/slotchain/root/ProtocolRootFactoryV1.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.i-component-config-v2",
+      "name": "IComponentConfigV2",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "interface",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/shared/slotchain/iface/IProtocolRootActivationV1.sol"
+      ],
+      "testPaths": ["test/layer1/slotchain/root/ProtocolRootPrimitives.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.i-protocol-root-activation-v1",
+      "name": "IProtocolRootActivationV1",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": ["contracts/shared/slotchain/libs/LibCanonicalRLP.sol"],
+      "testPaths": ["test/shared/slotchain/libs/LibCanonicalRLP.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.lib-canonical-rlp",
+      "name": "LibCanonicalRLP",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": ["contracts/shared/slotchain/libs/LibMptProof.sol"],
+      "testPaths": ["test/shared/slotchain/libs/LibMptProof.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.lib-mpt-proof",
+      "name": "LibMptProof",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/shared/slotchain/libs/LibSlotChainConstants.sol"
+      ],
+      "testPaths": ["test/shared/slotchain/libs/LibSlotChainEncoding.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.lib-slot-chain-constants",
+      "name": "LibSlotChainConstants",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/shared/slotchain/libs/LibSlotChainDataMmr.sol"
+      ],
+      "testPaths": ["test/shared/slotchain/libs/LibSlotChainTrees.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.lib-slot-chain-data-mmr",
+      "name": "LibSlotChainDataMmr",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/shared/slotchain/libs/LibSlotChainDepth64.sol"
+      ],
+      "testPaths": ["test/shared/slotchain/libs/LibSlotChainTrees.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.lib-slot-chain-depth64",
+      "name": "LibSlotChainDepth64",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/shared/slotchain/libs/LibSlotChainEncoding.sol"
+      ],
+      "testPaths": ["test/shared/slotchain/libs/LibSlotChainEncoding.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.lib-slot-chain-encoding",
+      "name": "LibSlotChainEncoding",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/shared/slotchain/libs/LibSlotChainEvidence.sol"
+      ],
+      "testPaths": ["test/shared/slotchain/libs/LibSlotChainEvidence.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.lib-slot-chain-evidence",
+      "name": "LibSlotChainEvidence",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "canonical outer-offset execution profile with word-281 artifact tail",
+        "exact release, verifier, registration, migration, ingress, reclamation, and destination-activation commitment encodings",
+        "release validation recomputes destination infrastructure, Bridge execution, destination domain, graph joins, and the exact reclamation disjointness set"
+      ],
+      "sourcePaths": [
+        "contracts/shared/slotchain/libs/LibSlotChainProfile.sol"
+      ],
+      "testPaths": ["test/shared/slotchain/libs/LibSlotChainProfile.t.sol"],
+      "failureBranches": [
+        "empty or oversized profile bytes, invalid release identities/joins/aliases, verifier configuration/schema mismatch, cross-kind migration fields, and duplicate ingress kind/adapter",
+        "manual bounded encoders are differentially pinned against canonical Solidity ABI and executable-model fixtures under the non-viaIR shared compiler profile"
+      ],
+      "limits": [
+        "execution profile maximum 146848 bytes and artifact offset 9024",
+        "release 59 words, activation 22 words, migration statement 46 words, ingress row 24 words, and reclamation configuration 35 words"
+      ],
+      "status": "reviewed",
+      "reviewedSourceHashes": {
+        "contracts/shared/slotchain/libs/LibSlotChainProfile.sol": "0x774cc9c7d75f7ce02512ba32e446c629a81ec30be802a2ab99a2e77acdbf912f"
+      },
+      "reviewedTestHashes": {
+        "test/shared/slotchain/libs/LibSlotChainProfile.t.sol": "0x5543c71461321e387a4199ee7dac36d9b0ee1dd8ff2ff046aa50c4898f074bba"
+      },
+      "id": "primitive.lib-slot-chain-profile",
+      "name": "LibSlotChainProfile",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/shared/slotchain/libs/LibSlotChainFixedTrees.sol"
+      ],
+      "testPaths": ["test/shared/slotchain/libs/LibSlotChainTrees.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.lib-slot-chain-fixed-trees",
+      "name": "LibSlotChainFixedTrees",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/shared/slotchain/libs/LibSlotChainManifestTree.sol"
+      ],
+      "testPaths": ["test/shared/slotchain/libs/LibSlotChainTrees.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.lib-slot-chain-manifest-tree",
+      "name": "LibSlotChainManifestTree",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "interface",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/iface/IRegistrationMptVerifierV2.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/verifier/RegistrationMptVerifierV2.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.i-registration-mpt-verifier-v2",
+      "name": "IRegistrationMptVerifierV2",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "interface",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/iface/IScheduleForkVerifierV1.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/verifier/ScheduleSszMultiproofVerifierV1.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.i-schedule-fork-verifier-v1",
+      "name": "IScheduleForkVerifierV1",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": ["contracts/layer1/slotchain/libs/LibHistoryProof.sol"],
+      "testPaths": ["test/layer1/slotchain/history/LibHistoryProof.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.lib-history-proof",
+      "name": "LibHistoryProof",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/libs/LibRegistrationMptVerifierCall.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/verifier/RegistrationMptVerifierV2.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.lib-registration-mpt-verifier-call",
+      "name": "LibRegistrationMptVerifierCall",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/libs/LibRegistrationStatementV2.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/verifier/RegistrationMptVerifierV2.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.lib-registration-statement-v2",
+      "name": "LibRegistrationStatementV2",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/libs/LibScheduleForkVerifierCallV1.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/libs/LibScheduleForkVerifierCallV1.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.lib-schedule-fork-verifier-call-v1",
+      "name": "LibScheduleForkVerifierCallV1",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/libs/LibScheduleSealWitnessV1.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/libs/LibScheduleSealWitnessV1.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.lib-schedule-seal-witness-v1",
+      "name": "LibScheduleSealWitnessV1",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/libs/LibScheduleSnapshotEvaluatorV1.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/libs/LibScheduleSnapshotEvaluatorV1.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.lib-schedule-snapshot-evaluator-v1",
+      "name": "LibScheduleSnapshotEvaluatorV1",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "interface",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/root/iface/IProtocolRootFactoryV1.sol"
+      ],
+      "testPaths": ["test/layer1/slotchain/root/ProtocolRootFactoryV1.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.i-protocol-root-factory-v1",
+      "name": "IProtocolRootFactoryV1",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "interface",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/root/iface/IRootMigrationExecutorV1.sol"
+      ],
+      "testPaths": ["test/layer1/slotchain/root/RootMigrationExecutorV1.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.i-root-migration-executor-v1",
+      "name": "IRootMigrationExecutorV1",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "staticcallExact/callExact: exact caller-built input, named gas operand, exact bounded returndata and no revert-data copy",
+        "callCreate3ProxyExact: prebuilt calldata, warmed proxy, gasleft()-510000 operand, exact bounded return and >=500000 post-copy reserve",
+        "componentConfigHashV2 selector=0xf6c0f7d2; exact 32-byte nonzero configuration return",
+        "canonical bytes4/address/uint8/uint16/uint64/uint192 word decoders reject dirty padding and out-of-range values"
+      ],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/root/libs/LibRootBootstrapV1.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/root/LibRootBootstrapV1.t.sol",
+        "test/layer1/slotchain/root/ProtocolRootFactoryV1.t.sol"
+      ],
+      "failureBranches": [
+        "zero, empty-code, wrong-runtime, zero-configuration, or wrong-configuration target",
+        "insufficient checked EIP-150/post-copy gas, call revert/OOG, wrong return length, or post-copy reserve failure",
+        "return-data bomb is rejected by RETURNDATASIZE before copying",
+        "misaligned row, out-of-bounds word, dirty address/magic, or overflowing narrow integer"
+      ],
+      "limits": [
+        "minimum caller gas=limit+max(ceil(limit/63),reserve)+10000+3+3*ceil(returnLength/32)",
+        "output allocation and final padded word are touched before preflight measurement",
+        "CREATE3 gas gap=510000 and post-copy reserve=500000",
+        "all arithmetic is checked; exact return length is an internal release-pinned bound"
+      ],
+      "status": "reviewed",
+      "reviewedSourceHashes": {
+        "contracts/layer1/slotchain/root/libs/LibRootBootstrapV1.sol": "0x04b9207e3fa6600609452ec97c66bb023114c01d3b4c502411836eba64286fbb"
+      },
+      "reviewedTestHashes": {
+        "test/layer1/slotchain/root/LibRootBootstrapV1.t.sol": "0xa2f507f0bf95711878b951e91b69e66770b6eb2344c2b1b93d18a8336bfad43f",
+        "test/layer1/slotchain/root/ProtocolRootFactoryV1.t.sol": "0x9441a27a4986b331a696228d9f8503738763846d7a171e3f11af608d557ec69e"
+      },
+      "id": "primitive.lib-root-bootstrap-v1",
+      "name": "LibRootBootstrapV1",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "abstract-base",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "constructor(factory,factoryRuntimeHash,campaignKey,role): authenticates nonempty factory code and exact CREATE3 campaign-role topology",
+        "protocolRootActivationV1() selector=0x74f08160; exact 128-byte PRA1/factory/campaign/state row",
+        "activateProtocolRootV1(bytes32) selector=0x74e3aa45; exact campaign and factory; returns one RAA1 word"
+      ],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/root/ProtocolRootComponentV1.sol"
+      ],
+      "testPaths": ["test/layer1/slotchain/root/ProtocolRootPrimitives.t.sol"],
+      "failureBranches": [
+        "zero factory/hash/key, empty or changed factory code, or role outside 1..9",
+        "constructor caller/address is not the exact CREATE2-proxy/nonce-one child topology",
+        "activation caller, runtime, or campaign mismatch and duplicate activation",
+        "derived functional surface called before one-shot activation"
+      ],
+      "limits": [
+        "nine role values exactly 1..9",
+        "activation states INACTIVE=0 and ACTIVE=1; no deactivation or reactivation",
+        "factory runtime hash and campaign key are writerless after construction"
+      ],
+      "status": "reviewed",
+      "reviewedSourceHashes": {
+        "contracts/layer1/slotchain/root/ProtocolRootComponentV1.sol": "0x489f8aa30d2fe5cfbed3821f266e55f5fe4aaf7632f8c21b3ef297b6bdbbad92"
+      },
+      "reviewedTestHashes": {
+        "test/layer1/slotchain/root/ProtocolRootPrimitives.t.sol": "0xe67f97160490a0a324a5f3e8ed588d7238de9900a25be343733a4f64189fe953"
+      },
+      "id": "primitive.protocol-root-component-v1",
+      "name": "ProtocolRootComponentV1",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "exact CALL/STATICCALL preflight over target code hash and configuration hash",
+        "EIP-150 ceiling plus exact calldata/returndata memory-expansion and post-copy reserve",
+        "returndata size is checked before bounded copy; word decoders reject dirty ABI padding"
+      ],
+      "sourcePaths": ["contracts/shared/slotchain/libs/LibExactCall.sol"],
+      "testPaths": ["test/shared/slotchain/libs/LibExactCall.t.sol"],
+      "failureBranches": [
+        "zero/no-code target, runtime mismatch, configuration-call failure or malformed return",
+        "insufficient caller gas under the EIP-150 preflight",
+        "target revert, excessive return length, dirty word padding, and out-of-bounds word decode"
+      ],
+      "limits": [
+        "checked gas arithmetic with the exact 63/64 ceiling",
+        "exact expected return length is touched before the call and copied only after equality"
+      ],
+      "status": "reviewed",
+      "reviewedSourceHashes": {
+        "contracts/shared/slotchain/libs/LibExactCall.sol": "0x0c9f676591a05de0c7c79cca5f6c121bd46b1aea904b5ba766bf643704281b3b"
+      },
+      "reviewedTestHashes": {
+        "test/shared/slotchain/libs/LibExactCall.t.sol": "0xc56b4b23c00b2532ed58fcae6f027099e6c5c402732dd5fdc6204571d5a8ff2e"
+      },
+      "id": "primitive.lib-exact-call",
+      "name": "LibExactCall",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "exact 65-byte r||s||v signature and offset slice",
+        "canonical v in {27,28}, nonzero r/s, and low-s secp256k1 recovery"
+      ],
+      "sourcePaths": [
+        "contracts/shared/slotchain/libs/LibSlotChainSignatures.sol"
+      ],
+      "testPaths": ["test/shared/slotchain/libs/LibSlotChainSignatures.t.sol"],
+      "failureBranches": [
+        "short, trailing, EIP-2098, out-of-bounds, zero-scalar, high-s, noncanonical-v, zero-recovery, and signer-mismatch signatures"
+      ],
+      "limits": [
+        "signature length 65 bytes; secp256k1 half-order inclusive maximum"
+      ],
+      "status": "reviewed",
+      "reviewedSourceHashes": {
+        "contracts/shared/slotchain/libs/LibSlotChainSignatures.sol": "0xbe8d602bcaed3defe28abf288c0ed35719ffb6dd4a9492e3b59e1ffb1f2aad4d"
+      },
+      "reviewedTestHashes": {
+        "test/shared/slotchain/libs/LibSlotChainSignatures.t.sol": "0x0cb89f22a167fe1204bd5a6054dc4745dc9fb133683f77ab4fa3393d9d06464f"
+      },
+      "id": "primitive.lib-slot-chain-signatures",
+      "name": "LibSlotChainSignatures",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "full-width floor/ceiling multiplication and checked uint64 conversion",
+        "data-session rent, forced-envelope deposit, reward cap/split, reverse-ask improvement, and seat premium formulas"
+      ],
+      "sourcePaths": [
+        "contracts/shared/slotchain/libs/LibSlotChainEconomics.sol"
+      ],
+      "testPaths": [
+        "test/shared/slotchain/economics/LibSlotChainEconomics.t.sol"
+      ],
+      "failureBranches": [
+        "zero divisor, 512-bit quotient overflow, upward-round overflow, multiplication/addition overflow, invalid BPS, deposit above cap, and nonmonotonic seat times"
+      ],
+      "limits": [
+        "basis points at most 10000",
+        "all narrowing to uint64 is explicit and checked",
+        "fuzzed full-width multiplication agrees with an independent OpenZeppelin Math oracle"
+      ],
+      "status": "reviewed",
+      "reviewedSourceHashes": {
+        "contracts/shared/slotchain/libs/LibSlotChainEconomics.sol": "0x25b3a72f8edad4c0cf7e4b9b2b06c4f8f9165e050900d88acddf5bc4aa0646c1"
+      },
+      "reviewedTestHashes": {
+        "test/shared/slotchain/economics/LibSlotChainEconomics.t.sol": "0xb68a91bde9d285536e88152966943e6ccac6e2c24699204ecd41a6f9511662a6"
+      },
+      "id": "primitive.lib-slot-chain-economics",
+      "name": "LibSlotChainEconomics",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "sourcePaths": [
+        "contracts/shared/slotchain/libs/LibCustodyAccounting.sol"
+      ],
+      "testPaths": [
+        "test/shared/slotchain/economics/LibCustodyAccounting.t.sol",
+        "test/shared/slotchain/economics/LibCustodyAccountingInvariant.t.sol"
+      ],
+      "abiOrEncoding": [
+        "reserve plus aggregate pull-credit liabilities are conserved under every accounting transition",
+        "checks-effects-interactions claims and surplus sweeps use one shared reentrancy guard"
+      ],
+      "failureBranches": [
+        "underfunded liability, insufficient reserve, zero beneficiary/recipient/sink, recipient revert, caught and uncaught reentry, and insolvent balance"
+      ],
+      "limits": [
+        "uint256 liability and balance boundaries",
+        "three stateful invariants over 256 runs and 128000 calls per invariant"
+      ],
+      "status": "reviewed",
+      "reviewedSourceHashes": {
+        "contracts/shared/slotchain/libs/LibCustodyAccounting.sol": "0x5d9e3c2cbf5eaa851d716b586e88e7547bcb3921ebf6863cfc3d593a46b968d1"
+      },
+      "reviewedTestHashes": {
+        "test/shared/slotchain/economics/LibCustodyAccounting.t.sol": "0x465cfad92211d758bead357a512d5b9e142f11c8a1782e052585bf3600aff42f",
+        "test/shared/slotchain/economics/LibCustodyAccountingInvariant.t.sol": "0x9f4e038a968f760c4aba29afbfeb6ffa1b5d6964020ed3486820bf01bed2fa8f"
+      },
+      "id": "primitive.lib-custody-accounting",
+      "name": "LibCustodyAccounting",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "interface",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": ["receive-only native ETH sink marker interface"],
+      "sourcePaths": ["contracts/shared/slotchain/iface/INativeEthSinkV2.sol"],
+      "testPaths": ["test/shared/slotchain/libs/LibExactCall.t.sol"],
+      "failureBranches": [
+        "nonempty calldata is outside the receive-only sink ABI"
+      ],
+      "limits": ["empty-calldata native ETH transfer"],
+      "status": "reviewed",
+      "reviewedSourceHashes": {
+        "contracts/shared/slotchain/iface/INativeEthSinkV2.sol": "0x1c3d7c9cd5beaa20874a45a79a5226cbfcbe03298f79b07d6dd151c1e700a269"
+      },
+      "reviewedTestHashes": {
+        "test/shared/slotchain/libs/LibExactCall.t.sol": "0xc56b4b23c00b2532ed58fcae6f027099e6c5c402732dd5fdc6204571d5a8ff2e"
+      },
+      "id": "primitive.i-native-eth-sink-v2",
+      "name": "INativeEthSinkV2",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "interface",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/iface/ISettlementValidityVerifierV2.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/verifier/SettlementValidityVerifierCallV2.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": [
+        "design-blocker: ordinary tier verifier descriptor/call ABI absent"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.i-settlement-validity-verifier-v2",
+      "name": "ISettlementValidityVerifierV2",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/libs/LibSettlementValidityVerifierCallV2.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/verifier/SettlementValidityVerifierCallV2.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": [
+        "design-blocker: ordinary tier verifier descriptor/call ABI absent"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.lib-settlement-validity-verifier-call-v2",
+      "name": "LibSettlementValidityVerifierCallV2",
+      "kind": "source-inline"
+    }
+  ]
+}
