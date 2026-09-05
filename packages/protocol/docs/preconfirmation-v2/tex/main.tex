@@ -635,7 +635,7 @@ BuilderRewardClassConfigV1 =
   uint256 perExecutionGasWei,uint256 perPublishedByteWei,uint256 capWei)
 \end{verbatim}
 It requires \code{settlementChainId=block.chainid}, every address/runtime/config
-word nonzero, and all of
+word nonzero, \code{builderPenaltySink != address(this)}, and all of
 \begin{verbatim}
 0 < leasePerWindowAtomic <= maximumBondAtomic <= UINT192_MAX
 reporterRewardCapAtomic <= UINT192_MAX
@@ -1411,15 +1411,36 @@ with runtime- or configuration-hash fixed points.
 \paragraph{Generation and custody state.}
 Each generation stores the builder, \code{uint192 baseBondAtomic}, registration
 index, effective and tombstone L2 slots, tranche root, a reservation base
-window, a 17-bit reservation bitmap, unreleased-tranche count, maximum liable
-deadline, one-shot exit record and its active/liability locator.  The live
+window, a 17-bit reservation bitmap, \code{uint64 maxReservedWindow},
+unreleased-tranche count, maximum liable deadline, one-shot exit record and its
+active/liability locator.  \code{maxReservedWindow} starts at zero and is
+updated only on first reservation to \code{max(old,W)}; zero is deliberately
+both the no-reservation initial value and the correct maximum after reserving
+only window zero.  Each occupied liability cell additionally stores its
+\code{uint64 releaseWindow}.  When a generation moves, the contract derives it
+with checked arithmetic as
+\begin{verbatim}
+releaseWindow = maxReservedWindow + 1
+              + ceil((evidenceDelaySeconds + reorgMarginSeconds) / 384)
+              + 2.
+\end{verbatim}
+The stored value is immutable for that liability occupancy and is the ordinary
+current-window guard for generation release and safe ring reuse.  It does not
+replace the exact tranche-terminal counter or deadline predicates; the
+terminal-sentinel path instead uses the separately specified native-timestamp
+guard.  The live
 tombstone sentinel is \code{UINT64_MAX}.  Storage consists of exactly 64 active
 cells, 1,072 liability cells, the authoritative
 \code{mapping(uint64 => GenerationLocation) generationLocation} and
 \code{mapping(address => uint256) liveRegistrationIndexPlusOne}, a
 monotonic \code{uint256 nextRegistrationIndex}, a monotonic
 \code{movementSequence}, a per-window move counter and a global append-only exit
-FIFO.  Default all-zero Solidity storage is never decoded as a tranche:
+FIFO.  The FIFO's \code{nextExitSequence} and \code{exitHeadSequence} are
+\code{uint64}; \code{UINT64_MAX} is the exhausted next-sequence sentinel and is
+never assigned to an exit record.  A request is accepted only while
+\code{nextExitSequence < UINT64_MAX}, assigns that current value and increments
+it with checked arithmetic, so \code{UINT64_MAX-1} is the final representable
+exit sequence.  Default all-zero Solidity storage is never decoded as a tranche:
 canonical \code{EMPTY} is
 \code{(window=UINT64_MAX,state=EMPTY,amount=0,liableUntil=0)}.
 
@@ -1567,7 +1588,17 @@ scheduleRegistryStateV1() returns
   uint64 registryMutationVersion,uint64 admissionVersion,
   uint256 nextRegistrationIndex,bytes32 registryRoot)
 // selector 0xad95cea1; exact 224 bytes; magic BRS1; schema=1
+
+rewardClassV1(uint8 rewardClass) returns
+ (bytes4 magic,bytes32 builderRegistryConfigurationHash,
+  uint8 returnedClassId,uint256 fixedWei,
+  uint256 perExecutionGasWei,uint256 perPublishedByteWei,uint256 capWei)
+// selector 0x3d273ee7; exact 224 bytes; magic RCV1=0x52435631
 \end{verbatim}
+The reward-class getter accepts exactly IDs 1 through 3, echoes the selected
+ID with canonical padding and returns its constructor-written row; every other
+ID reverts.  Section~\ref{sec:economics} freezes the Settlement-side exact-call
+and configuration joins for the same getter.
 The mutation signatures, parameter meanings and computed selectors are
 \begin{verbatim}
 registerBuilderV1(uint192 baseBondAtomic,
@@ -1776,10 +1807,17 @@ submitted or scheduled.
 Window is derived again from slot.
 
 Before signature recovery the Registry exact-reads, with 100,000 gas, Router's
-416-byte \code{targetReleaseRegistrationV2(protocolVersion)} (RTR2), requires
+512-byte \code{targetReleaseRegistrationV2(protocolVersion)} (RTR2), requires
 canonical padding and a nonzero registration hash, and requires its returned
 version and target Settlement to equal the signed protocol version and
-verifying contract.  Revert, OOG, unknown version, short/trailing data or any
+verifying contract.  It also requires each header's already pair-equal
+\code{settlementChainId} to equal the Registry's immutable
+\code{settlementChainId} (and therefore \code{block.chainid}); pair equality
+alone cannot authorize evidence from the same CREATE-derived Settlement address
+on another chain.  The signed \code{l2ChainId} remains a pair-equality field:
+inside this exact registered Settlement domain, signing two distinct structs
+for any claimed L2 chain is the documented off-ticket culpable act.  Revert,
+OOG, unknown version, short/trailing data or any
 substitution rejects.  Thus arbitrary EIP-712 contracts are not slash domains;
 every accepted signature domain is an immutable Router-registered release.
 
