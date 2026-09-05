@@ -9113,6 +9113,8 @@ class MigrationGate:
 @dataclass
 class RegistryLifecycle:
     active: list[Generation | None]
+    registry_address: str = "builder-registry"
+    settlement_chain_id: int = 1
     schedule_oracle: str = "schedule-oracle"
     genesis_timestamp: int = GENESIS_TIMESTAMP
     evidence_delay_seconds: int = EVIDENCE_DELAY_SECONDS
@@ -9160,7 +9162,12 @@ class RegistryLifecycle:
             self.last_managed_window = derived_last_managed_window
         elif self.last_managed_window != derived_last_managed_window:
             raise ValueError("Builder last managed window is inconsistent")
-        if (not self.schedule_oracle
+        if (not self.registry_address
+                or type(self.settlement_chain_id) is not int
+                or self.settlement_chain_id <= 0
+                or not self.schedule_oracle
+                or not self.penalty_sink
+                or self.penalty_sink == self.registry_address
                 or type(self.first_managed_window) is not int
                 or not 0 <= self.first_managed_window
                 <= self.last_managed_window
@@ -9897,6 +9904,8 @@ class RegistryLifecycle:
                     + SCHEDULE_WINDOW_SLOTS - 1
                 ) // SCHEDULE_WINDOW_SLOTS + 2
             )
+            if release_window > UINT64_MAX:
+                raise OverflowError("liability release window overflows uint64")
             self.liability_ring[ring_index] = (retained, release_window)
             self.active[active_index] = replacement
             self._move_generation_index(
@@ -10150,10 +10159,14 @@ class RegistryLifecycle:
         reporter: str,
         reporter_cap_atomic: int,
         current_l2_slot: int,
+        signed_settlement_chain_id: int | None = None,
     ) -> bool:
+        if signed_settlement_chain_id is None:
+            signed_settlement_chain_id = self.settlement_chain_id
         location = self._generation_location(registration_index)
         tranche = self.tranches.get((registration_index, window))
         if (location is None or tranche is None
+                or signed_settlement_chain_id != self.settlement_chain_id
                 or tranche.state not in {
                     TrancheState.RESERVED, TrancheState.LIABLE,
                 }

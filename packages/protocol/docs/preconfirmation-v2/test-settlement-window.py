@@ -25479,6 +25479,35 @@ class RegistryLifecycleRound4Tests(unittest.TestCase):
             effective_window,
         )
 
+    def test_penalty_sink_cannot_be_the_registry_and_exit_sequence_exhausts_safely(self):
+        with self.assertRaisesRegex(ValueError, "malformed BuilderRegistry geometry"):
+            settlement.RegistryLifecycle(
+                [], registry_address="registry", penalty_sink="registry"
+            )
+
+        first = self.generation(0, bond=100, effective_window=0)
+        last = self.generation(1, bond=101, effective_window=0)
+        registry = settlement.RegistryLifecycle([first, last])
+        registry.next_exit_sequence = settlement.UINT64_MAX - 1
+        self.assertTrue(registry.request_exit(
+            first.address, 0, caller=first.address
+        ))
+        self.assertEqual(first.registration_index, registry.exit_requests[
+            settlement.UINT64_MAX - 1
+        ].registration_index)
+        self.assertEqual(registry.next_exit_sequence, settlement.UINT64_MAX)
+        before = (
+            registry.active[1], dict(registry.exit_requests),
+            dict(registry.exit_by_registration), registry.next_exit_sequence,
+        )
+        self.assertFalse(registry.request_exit(
+            last.address, 0, caller=last.address
+        ))
+        self.assertEqual((
+            registry.active[1], dict(registry.exit_requests),
+            dict(registry.exit_by_registration), registry.next_exit_sequence,
+        ), before)
+
     def test_self_consent_and_lowest_vacancy_cover_cell_zero_and_sixty_three(self):
         registry = settlement.RegistryLifecycle([])
         first = self.generation(0)
@@ -25810,6 +25839,14 @@ class RegistryLifecycleRound4Tests(unittest.TestCase):
             newcomer, 0, caller=newcomer.address, current_l2_slot=7
         ))
         retained = registry.liability_ring[0][0]
+        self.assertEqual(
+            registry.liability_ring[0][1],
+            8 + 1 + (
+                settlement.EVIDENCE_DELAY_SECONDS
+                + settlement.REORG_MARGIN_SECONDS
+                + settlement.SCHEDULE_WINDOW_SLOTS - 1
+            ) // settlement.SCHEDULE_WINDOW_SLOTS + 2,
+        )
         self.assertEqual(retained.registration_index, 0)
         self.assertEqual(
             retained.tombstoned_at_l2_slot, settlement.UINT64_MAX
@@ -25929,12 +25966,29 @@ class RegistryLifecycleRound4Tests(unittest.TestCase):
     def test_evidence_accepts_deadline_equality_and_release_is_strict(self):
         builder = self.generation(0, bond=100, effective_window=0)
         registry = settlement.RegistryLifecycle(
-            [builder], lease_per_window_atomic=20
+            [builder], settlement_chain_id=167, lease_per_window_atomic=20
         )
         self.assertTrue(registry.reserve(builder.address, 9, 9))
         self.assertEqual(registry.normalize_reservations(
             builder.registration_index, 10), 1)
         deadline = registry.tranche_deadline(9)
+        before = (
+            registry.active[0], registry.tranches.copy(),
+            registry.tranche_escrow, registry.credits.copy(),
+        )
+        self.assertFalse(registry.slash_tranche(
+            builder.registration_index,
+            9,
+            deadline,
+            reporter="reporter",
+            reporter_cap_atomic=7,
+            current_l2_slot=3_999,
+            signed_settlement_chain_id=168,
+        ))
+        self.assertEqual((
+            registry.active[0], registry.tranches.copy(),
+            registry.tranche_escrow, registry.credits.copy(),
+        ), before)
         self.assertTrue(registry.slash_tranche(
             builder.registration_index,
             9,
@@ -25942,6 +25996,7 @@ class RegistryLifecycleRound4Tests(unittest.TestCase):
             reporter="reporter",
             reporter_cap_atomic=7,
             current_l2_slot=3_999,
+            signed_settlement_chain_id=167,
         ))
         self.assertEqual(registry.active[0].tombstoned_at_l2_slot, 3_999)
         self.assertEqual(registry.credits["reporter"], 7)
