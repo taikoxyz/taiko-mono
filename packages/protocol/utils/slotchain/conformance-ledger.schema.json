@@ -15,7 +15,7 @@
     "schemaVersion": { "const": 1 },
     "protocolVersion": { "const": "2.27" },
     "normativeCommit": {
-      "const": "2008937506ece50821440744ff0ee6f73a5485ce"
+      "const": "cd9df2ed2ad5000427f74efcefb1bfc31a689e0c"
     },
     "rootArtifactCount": { "const": 18 },
     "entries": {

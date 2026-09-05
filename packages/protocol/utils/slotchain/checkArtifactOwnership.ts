@@ -454,6 +454,10 @@ function normalizeCompilerMetadata(value: unknown): unknown {
         if (isRecord(devdoc)) {
             delete devdoc.title;
             delete devdoc.details;
+            // Foundry omits state-variable NatSpec from artifact metadata even though solc
+            // retains it in build-info. It therefore cannot participate in the provenance
+            // comparison, just like the other contract-level documentation above.
+            delete devdoc.stateVariables;
             for (const key of Object.keys(devdoc)) {
                 if (key.startsWith("custom:")) delete devdoc[key];
             }

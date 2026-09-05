@@ -11,7 +11,7 @@ boundary on PR #22096 without selecting it on a production path.
 with a meaningful failing test, implements one bounded state-machine slice, maps the normative
 surface into a machine-checked ledger, and ends only after focused tests, profile tests, invariant
 tests, artifact checks, and independent Critical/High review pass. Existing code is retained only
-after it proves exact conformance with the frozen `200893750` design baseline.
+after it proves exact conformance with the frozen `cd9df2ed2` design baseline.
 
 **Tech Stack:** Solidity 0.8.30, Foundry/forge-std/CommonTest, Python 3.12 reference models,
 TypeScript with ethers v5, pnpm 9.15.9, two local Anvil chains, GitHub Actions.
@@ -23,7 +23,7 @@ TypeScript with ethers v5, pnpm 9.15.9, two local Anvil chains, GitHub Actions.
 - PR #22064 (`claude/chain-liveness-builder-roles-cda13y`) owns LaTeX, PDF, protocol models, and
   normative design corrections. PR #22096 (`codex/slot-chain-v2-contracts`) owns Solidity, tests,
   generated contract fixtures, conformance/deployment tooling, and this implementation plan.
-- The normative protocol commit is `2008937506ece50821440744ff0ee6f73a5485ce`. Before every
+- The normative protocol commit is `cd9df2ed2ad5000427f74efcefb1bfc31a689e0c`. Before every
   implementation round, read the relevant `main.tex` subsection and executable-model transition.
 - If code requires a rule absent from or contradictory to the normative sources, stop that slice.
   Add a failing model regression and repair the design on PR #22064 first; then merge that design
@@ -105,7 +105,7 @@ FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/slotchain/**/*.t.sol
   /Users/d/.pyenv/versions/3.12.8/bin/python3 test-settlement-window.py
   ```
 
-  Expected: 812 golden vectors / 1,610 assertion sites; 38 lookahead assertions; 186 settlement
+  Expected: 812 golden vectors / 1,611 assertion sites; 38 lookahead assertions; 186 settlement
   assertions; 114 seat-market tests; 38 economic tests; 296 settlement tests.
 
 - [ ] Record current shared/L1/L2 builds, tests, gas, runtime sizes, artifact hashes, and known CI

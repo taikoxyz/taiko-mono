@@ -4,16 +4,14 @@ pragma solidity 0.8.30;
 import { SlotChainTypes } from "../SlotChainTypes.sol";
 import { LibSlotChainConstants } from "./LibSlotChainConstants.sol";
 import { LibSlotChainEncoding } from "./LibSlotChainEncoding.sol";
+import { LibSlotChainSignatures } from "./LibSlotChainSignatures.sol";
 
 /// @title Slot Chain equivocation evidence codec
 /// @custom:security-contact security@taiko.xyz
 library LibSlotChainEvidence {
     uint256 internal constant PACKED_BLOCK_LENGTH = 521;
-    uint256 internal constant SIGNATURE_LENGTH = 65;
+    uint256 internal constant SIGNATURE_LENGTH = LibSlotChainSignatures.SIGNATURE_LENGTH;
     uint256 internal constant EQUIVOCATION_EVIDENCE_LENGTH = 2366;
-
-    uint256 private constant _SECP256K1N_HALF =
-        0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0;
 
     /// @dev Decodes the exact 521-byte signed-header tuple at `_offset`.
     /// @param _encoded The containing canonical evidence bytes.
@@ -73,26 +71,7 @@ library LibSlotChainEvidence {
         pure
         returns (address signer_)
     {
-        if (_offset > _encoded.length || _encoded.length - _offset < SIGNATURE_LENGTH) {
-            revert InvalidSignatureLength();
-        }
-
-        bytes32 r;
-        bytes32 s;
-        uint8 v;
-        assembly ("memory-safe") {
-            r := calldataload(add(_encoded.offset, _offset))
-            s := calldataload(add(add(_encoded.offset, _offset), 32))
-            v := byte(0, calldataload(add(add(_encoded.offset, _offset), 64)))
-        }
-        if (
-            r == bytes32(0) || s == bytes32(0) || uint256(s) > _SECP256K1N_HALF
-                || (v != 27 && v != 28)
-        ) {
-            revert InvalidSignature();
-        }
-        signer_ = ecrecover(_digest, v, r, s);
-        if (signer_ == address(0)) revert InvalidSignature();
+        return LibSlotChainSignatures.recoverSignerAt(_digest, _encoded, _offset);
     }
 
     /// @dev Validates the shared equivocation identity and recovers its builder.
@@ -296,8 +275,6 @@ library LibSlotChainEvidence {
     error InvalidEquivocationPair();
     error InvalidEvidenceTier();
     error InvalidPackedBlockLength();
-    error InvalidSignature();
-    error InvalidSignatureLength();
     error InvalidStructHashOrder();
     error InvalidTierFields();
     error SignerMismatch();

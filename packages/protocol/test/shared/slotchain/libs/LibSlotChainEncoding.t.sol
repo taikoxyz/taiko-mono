@@ -691,7 +691,7 @@ contract LibSlotChainEncodingTest is Test {
             msgHash: _repeatByte(0x21),
             sourceDomainId: SlotChainGoldenVectors.SOURCE_DOMAIN_ID,
             sourceRegistrationEpoch: 7,
-            sourceBridge: address(0xFfF25F997872E08385a4Dc63163E60181C213F62),
+            sourceBridge: address(SlotChainGoldenVectors.DERIVED_SOURCE_BRIDGE_ADDRESS),
             sourceBridgeExecutionHash: SlotChainGoldenVectors.BRIDGE_EXECUTION_HASH,
             emittedAtBlock: 12_300,
             queueIndex: 70
@@ -717,7 +717,7 @@ contract LibSlotChainEncodingTest is Test {
                 1,
                 SlotChainGoldenVectors.SOURCE_DOMAIN_ID,
                 7,
-                address(0xFfF25F997872E08385a4Dc63163E60181C213F62),
+                address(SlotChainGoldenVectors.DERIVED_SOURCE_BRIDGE_ADDRESS),
                 SlotChainGoldenVectors.DESTINATION_DOMAIN_ID,
                 _repeatByte(0x21),
                 5678
@@ -770,7 +770,7 @@ contract LibSlotChainEncodingTest is Test {
             genesisHash: _repeatByte(0x25),
             creditRegistry: address(SlotChainGoldenVectors.DERIVED_SOURCE_REGISTRY_ADDRESS),
             terminalVerifier: address(0x5c37F7073592dd30a6d18144fe6df255cfC414cE),
-            bridge: address(0xFfF25F997872E08385a4Dc63163E60181C213F62),
+            bridge: address(SlotChainGoldenVectors.DERIVED_SOURCE_BRIDGE_ADDRESS),
             bridgeExecutionHash: SlotChainGoldenVectors.BRIDGE_EXECUTION_HASH,
             registryNamespace: _repeatByte(0x26)
         });
@@ -781,7 +781,7 @@ contract LibSlotChainEncodingTest is Test {
         SlotChainTypes.DestinationDomainV7 memory destination = SlotChainTypes.DestinationDomainV7({
             destinationChainId: 16_788,
             genesisHash: 0xf441e201b2f657c6674ad74d31a54c7de57d28b3ae53e298ac942be7f93f92c4,
-            bridgeInboxAdapter: address(0x579872D0675171ADD2AcBd3E089Bc91cBD2DbA3e),
+            bridgeInboxAdapter: address(0x7C83Df752316a639cdeb19EaD1E076a27Ba3a22E),
             activeSettlementRouter: address(0xcDC2324dbF31135b8Dd3135eeE745B8C5c593bB4),
             terminalVerifier: address(0x5c37F7073592dd30a6d18144fe6df255cfC414cE),
             inboxApply: address(0x1b7F5b2BF09107259Eb9c5ae86c68a9c69A2eeCb),
@@ -1396,7 +1396,7 @@ contract LibSlotChainEncodingTest is Test {
         descriptor_.srcChainId = 1;
         descriptor_.sourceDomainId = SlotChainGoldenVectors.SOURCE_DOMAIN_ID;
         descriptor_.srcEpoch = 7;
-        descriptor_.srcBridge = address(0xFfF25F997872E08385a4Dc63163E60181C213F62);
+        descriptor_.srcBridge = address(SlotChainGoldenVectors.DERIVED_SOURCE_BRIDGE_ADDRESS);
         descriptor_.bridgeExecutionHash = SlotChainGoldenVectors.BRIDGE_EXECUTION_HASH;
         descriptor_.emittedAtBlock = 12_300;
         descriptor_.destinationDomainId = SlotChainGoldenVectors.DESTINATION_DOMAIN_ID;

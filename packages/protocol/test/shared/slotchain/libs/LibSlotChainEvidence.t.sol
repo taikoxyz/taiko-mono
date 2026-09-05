@@ -8,6 +8,9 @@ import {
 import {
     LibSlotChainEvidence
 } from "../../../../contracts/shared/slotchain/libs/LibSlotChainEvidence.sol";
+import {
+    LibSlotChainSignatures
+} from "../../../../contracts/shared/slotchain/libs/LibSlotChainSignatures.sol";
 import { Test } from "forge-std/src/Test.sol";
 
 contract SlotChainEvidenceHarness {
@@ -235,18 +238,18 @@ contract LibSlotChainEvidenceTest is Test {
         bytes32 digest = keccak256("digest");
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_BUILDER_KEY, digest);
         bytes memory highS = abi.encodePacked(r, bytes32(_SECP256K1N - uint256(s)), v);
-        vm.expectRevert(LibSlotChainEvidence.InvalidSignature.selector);
+        vm.expectRevert(LibSlotChainSignatures.InvalidSignature.selector);
         _harness.recoverSigner(digest, highS, 0);
 
         bytes memory zeroR = abi.encodePacked(bytes32(0), s, v);
-        vm.expectRevert(LibSlotChainEvidence.InvalidSignature.selector);
+        vm.expectRevert(LibSlotChainSignatures.InvalidSignature.selector);
         _harness.recoverSigner(digest, zeroR, 0);
 
         bytes memory badV = abi.encodePacked(r, s, uint8(1));
-        vm.expectRevert(LibSlotChainEvidence.InvalidSignature.selector);
+        vm.expectRevert(LibSlotChainSignatures.InvalidSignature.selector);
         _harness.recoverSigner(digest, badV, 0);
 
-        vm.expectRevert(LibSlotChainEvidence.InvalidSignatureLength.selector);
+        vm.expectRevert(LibSlotChainSignatures.InvalidSignatureLength.selector);
         _harness.recoverSigner(digest, abi.encodePacked(r, s), 0);
     }
 

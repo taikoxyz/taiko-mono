@@ -66,7 +66,7 @@ export interface ConformanceEntry {
 export interface ConformanceLedger {
     schemaVersion: 1;
     protocolVersion: "2.27";
-    normativeCommit: "2008937506ece50821440744ff0ee6f73a5485ce";
+    normativeCommit: "cd9df2ed2ad5000427f74efcefb1bfc31a689e0c";
     rootArtifactCount: 18;
     entries: ConformanceEntry[];
 }
@@ -485,7 +485,7 @@ export function validateConformanceLedger(value: unknown): ConformanceLedger {
     if (
         typeof value.normativeCommit !== "string" ||
         !COMMIT_PATTERN.test(value.normativeCommit) ||
-        value.normativeCommit !== "2008937506ece50821440744ff0ee6f73a5485ce"
+        value.normativeCommit !== "cd9df2ed2ad5000427f74efcefb1bfc31a689e0c"
     ) {
         fail("INVALID_NORMATIVE_COMMIT", `${value.normativeCommit}`);
     }
@@ -508,7 +508,7 @@ export function validateConformanceLedger(value: unknown): ConformanceLedger {
     return {
         schemaVersion: 1,
         protocolVersion: "2.27",
-        normativeCommit: "2008937506ece50821440744ff0ee6f73a5485ce",
+        normativeCommit: "cd9df2ed2ad5000427f74efcefb1bfc31a689e0c",
         rootArtifactCount: 18,
         entries,
     };

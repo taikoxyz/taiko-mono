@@ -11,14 +11,14 @@ library SlotChainGoldenVectors {
         hex"9e825447ec1a2a360526d7b0371c4f947532696fc169b44ba159051579d647b9";
 
     bytes32 internal constant ABORT_EXPIRED_VERSION_MIGRATION_CALLDATA_HASH =
-        hex"2a415d455bc04de9e5dddcd3369d0076ecb00cd4bbabadf29e71bea1458979c5";
+        hex"fd25f40f2ca853acf79614bea11d4cd099b637d9745f37b498e5fd4c7b74c71c";
     bytes32 internal constant ABORT_EXPIRED_VERSION_MIGRATION_RETURN_HASH =
-        hex"649fff0dfd2aa5a43272f3c63dbb17086d8ac7084c256915ffa088834039c469";
+        hex"189a9832d886b18a937a60c41ced32566055c9c5016cddd6eba1d0f82e987665";
     bytes4 internal constant ABORT_EXPIRED_VERSION_MIGRATION_SELECTOR = hex"c4eee12d";
     bytes4 internal constant ACTIVATE_RELEASE_SELECTOR = hex"33f5ca80";
     bytes4 internal constant ACTIVATE_VERSION_WITH_MIGRATION_SELECTOR = hex"17a548ed";
     bytes32 internal constant ACTIVATION_RECEIPT_ID =
-        hex"63b846ea90c10457129a0b4259f4a022a10b99fbbff9ec421ccf4d9c04c52004";
+        hex"fe1a285719dc9108b3b215f7028bf3b2ccd0dfe5304b8c10aa28139c250ee60e";
     bytes4 internal constant ACTIVATION_RECEIPT_MAGIC = hex"41525631";
     bytes4 internal constant ACTIVATION_RECEIPT_SELECTOR = hex"0a4434d0";
     bytes4 internal constant ACTIVATION_SUCCESSOR_RECEIPT_MAGIC = hex"41535631";
@@ -31,10 +31,10 @@ library SlotChainGoldenVectors {
     bytes32 internal constant ADMISSION_ROOT =
         hex"3bf2dcaf78292c832108e29205bf99cc2d22137a0545e4528d8da7309d4b482b";
     bytes32 internal constant ADOPT_MIGRATION_CANONICAL_CALLDATA_HASH =
-        hex"3a568138e816eba1fa1903262e1d633c119b8349770e41514f07c398668b1969";
+        hex"50a40e4cc08b6bd1d0e7f41925829da8f15f1e7061cb9f4eae289292ae76d732";
     uint256 internal constant ADOPT_MIGRATION_CANONICAL_CALLDATA_LENGTH = 580;
     bytes32 internal constant ADOPT_MIGRATION_CANONICAL_RETURN_HASH =
-        hex"29bbe49eb933dff169a474328388efc21a587b53b29b294fc1547134144ae2ab";
+        hex"42eb3470cadbfeec5004afcaaf6956a03da547d5fb33a5975482d3cdb32c99fc";
     bytes4 internal constant ADOPT_MIGRATION_CANONICAL_SELECTOR = hex"3286443c";
     bytes4 internal constant APPEND_FROM_ADAPTER_SELECTOR = hex"1927261d";
     bytes32 internal constant APPEND_KIND0_CALLDATA_HASH =
@@ -47,13 +47,13 @@ library SlotChainGoldenVectors {
         hex"78b9b5433b2295976f9c7a1fd73d1720848c608e091ff52b548794e0a8ecd093";
     bytes4 internal constant APPEND_TERMINAL_SELECTOR = hex"abc194f5";
     bytes32 internal constant APPLY_PROTOCOL_CHANGE_CALLDATA_HASH =
-        hex"c9f9a0de0fb0a078fb5ba9abb977e24253ecd22008ecad075228242605cb2852";
+        hex"e2455b0621b70484c3e08260a839921763fa094634a777e67e8933ea15cc7e9f";
     uint256 internal constant APPLY_PROTOCOL_CHANGE_CALLDATA_LENGTH = 260;
     bytes4 internal constant APPLY_PROTOCOL_CHANGE_SELECTOR = hex"af3927f6";
     bytes32 internal constant ARM_VERSION_MIGRATION_CALLDATA_HASH =
-        hex"9cbcb2ece843d71518462fef44761169a72edb47610e8518c2ed667c136c2fc8";
+        hex"c2bfa51b10f3ec55f3c6e26acf7e2ea223c6dc62071cd6174cb7900bee35bf4b";
     bytes32 internal constant ARM_VERSION_MIGRATION_RETURN_HASH =
-        hex"b3389d9ee6e7d3f9ffe6c66859f58543113b78b621c9abdc5f21e03cdbb7d3e9";
+        hex"0477be196229dc7388e176e304d7834c795b2ea6d01636020f5196eece4d3843";
     bytes4 internal constant ARM_VERSION_MIGRATION_SELECTOR = hex"e3bcfcb4";
     bytes32 internal constant ASYMMETRIC_DATA_LEAF =
         hex"204849a6179174bd92e677b252370e3e2904cf4eb2a94fe1ba154e1310b9cd64";
@@ -215,7 +215,7 @@ library SlotChainGoldenVectors {
         hex"5338baeca36696fec8f42f2f4f9d183c182f5ebc479478e0e4c9e59c9355771b";
     uint256 internal constant BUILDER_VACANCY_REGISTRATION_WITNESS_LENGTH = 544;
     bytes32 internal constant CANCEL_PROTOCOL_CHANGE_CALLDATA_HASH =
-        hex"af81e8eb6e2b69325d6343e98230dcd0f2e5da91daafd61832713cb525d5e946";
+        hex"1150396ec80ab15d6114dcb6d9af4ffc002e73aa6fd8a4b8abe5ec4f965c2de8";
     uint256 internal constant CANCEL_PROTOCOL_CHANGE_CALLDATA_LENGTH = 452;
     bytes4 internal constant CANCEL_PROTOCOL_CHANGE_SELECTOR = hex"5701c308";
     bytes32 internal constant CANDIDATE_COMMITMENT =
@@ -223,23 +223,23 @@ library SlotChainGoldenVectors {
     bytes32 internal constant CANDIDATE_COMMITMENT_2 =
         hex"9c86096381bc8c73a25b947de251960c9a0dc8ca32175b888b13fe0836dd2835";
     bytes32 internal constant CANDIDATE_COMMITTED_V2_DATA_HASH =
-        hex"0c7970d382a72a99a7d156cc870cbf7d3728cc91da9f86422767a1420be16538";
+        hex"b1a1c3b00047866df3f97906f333e10d1f99e5d280ef5e4e2b1d75426cedf66c";
     uint256 internal constant CANDIDATE_COMMITTED_V2_DATA_LENGTH = 192;
     bytes32 internal constant CANDIDATE_COMMITTED_V2_TOPIC =
         hex"51629f6515f461b4c6f912a8eecad46d8ff89ab5e8235d95c30004be2c9ac738";
     bytes32 internal constant CANDIDATE_COMMITTED_V2_TOPIC1_CANDIDATE_ID =
-        hex"14a0fba13c924b2be26b39908af2ba3cb556ab4f050398d28a9db0416fb72992";
+        hex"1cf4bd5b3cd62ac1536b8d5fb6f59ad36714ba167500d28d0550919cb8bcd4b5";
     bytes32 internal constant CANDIDATE_COMMITTED_V2_TOPIC2_BENEFICIARY =
         hex"000000000000000000000000000000000000000000000000000000000000cafe";
     uint256 internal constant CANDIDATE_COMMITTED_V2_TOPIC_COUNT = 3;
     bytes32 internal constant CANDIDATE_COMMITTED_V2_TOPICS_HASH =
-        hex"3bddf4ef7c357f1130e5d4dad8eb0571e0d202560c7c46574f4c88c470f00472";
+        hex"dab773a621fd51393573d360b1bf22b3c8a02ccf86f648e8a360afe58767a6b7";
     bytes32 internal constant CANONICAL_CORE =
         hex"f59591f1e2e274e4aace20509a2d855e42b88ecac33a5550fd1af781c83047eb";
     bytes32 internal constant CHUNK_ROOT_0 =
         hex"e652cb05b1f44f3c09c650870b7b9ade4132548bd0c769bdda35b5bfcac5139e";
     bytes32 internal constant CLAIM_REWARD_V1_CALLDATA_HASH =
-        hex"7574e5084380d2c9bb8b89291b5ea65d6fbd7da4802d99118c33af93c4926bf9";
+        hex"2846430d72642a27dea955062121dada761b63298e39e1808143f180bc4166b5";
     uint256 internal constant CLAIM_REWARD_V1_CALLDATA_LENGTH = 36;
     uint256 internal constant CLAIM_REWARD_V1_PAID_WEI = 1_000_000;
     bytes32 internal constant CLAIM_REWARD_V1_RETURN_HASH =
@@ -251,7 +251,7 @@ library SlotChainGoldenVectors {
     bytes32 internal constant CREDIT_AUTHORIZATION_V2_CALLDATA_HASH =
         hex"227848358a3cd4e9ef5f4ecceadfa5cfd86ddffff834294b2334fe25eaaf8ef3";
     bytes32 internal constant CREDIT_AUTHORIZATION_V2_RETURN_HASH =
-        hex"974ca361f46b363a5e1442bf07b7e14782009b835afc6033e91158470af37c12";
+        hex"9e8a37429dfc1a22ff4038b9b2ff482ba9a9e119c7ad927523c9a5ccc95be7ca";
     uint256 internal constant CREDIT_AUTHORIZATION_V2_RETURN_LENGTH = 704;
     bytes4 internal constant CREDIT_AUTHORIZATION_V2_SELECTOR = hex"05ecb6c2";
     bytes32 internal constant CREDIT_LIABILITY_V2_CALLDATA_HASH =
@@ -280,7 +280,7 @@ library SlotChainGoldenVectors {
         hex"30ee2de166c53a480d028e5b94d4f8759dbd84b5f7b6af1f23e0c5889ea17f8c";
     uint256 internal constant DATA_SESSION_ACCOUNTING_RETURN_LENGTH = 512;
     bytes32 internal constant DATA_SESSION_CONFIG_HASH =
-        hex"14182a405d2b49b4b45bb7447ce360efecf5c9c96c3197a84ee3e88cb51cd84f";
+        hex"1f5892da9707d55c822c1597b60ded412f68aa636dfa6e6f0b1053cd0d98d9e2";
     bytes32 internal constant DATA_SESSIONS_MAINTAINED_TOPIC =
         hex"920669b9670911aa86cd718dceebaa1372d224ca0fdac50a63dc1d45a53e1e89";
     bytes32 internal constant DEPLOYMENT_COMMITMENT_TYPEHASH =
@@ -294,14 +294,14 @@ library SlotChainGoldenVectors {
     bytes20 internal constant DERIVED_SOURCE_REGISTRY_ADDRESS =
         hex"8c1ab080584bf560720e8b6eb2cf2242556a2585";
     bytes32 internal constant DESTINATION_ACTIVATION_RECEIPT_ID =
-        hex"9822bea9fecc7a319d988cd1885fd8ea0c02a4e7b13ff42d6971142fa9224757";
+        hex"707a17c9be25fbf86e4ac02af3aea51be5db1321fa3d001eb53d44e225d070ed";
     bytes4 internal constant DESTINATION_ACTIVATION_RECEIPT_MAGIC = hex"44525632";
     bytes32 internal constant DESTINATION_ATTEMPT_DIGEST =
-        hex"c4f86e156a64040bee74ca23cecdb4c8e7bcae139ba95eb49003ad008a2f53ce";
+        hex"3d51eda3342c1f52a22fa63edce23987b1ca2684882f990afd582e37faa65597";
     bytes32 internal constant DESTINATION_BRIDGE_EXECUTION_HASH =
         hex"b570703833da3df51773eb8d72d8d38074391da1f4f4ef2198b0d074f3c81600";
     bytes32 internal constant DESTINATION_CONTEXT_HASH =
-        hex"db2d32748d67c58393965146124540af9055cc8adc7179f934bf47d4ac1f06e3";
+        hex"268eefa5b77b992593b016ab07f59756bc34b451190306c7662c9f80147ef839";
     bytes32 internal constant DESTINATION_CONTEXT_TYPEHASH =
         hex"b8170dbf684e1fc4dd4dae8fb78ad24984cc0aa0c03cbd1e29b1b2eb5728eefb";
     bytes32 internal constant DESTINATION_DOMAIN_ID =
@@ -309,7 +309,7 @@ library SlotChainGoldenVectors {
     bytes32 internal constant DESTINATION_INFRASTRUCTURE_HASH =
         hex"766a9dc18c36febd06b3818232d6bd0004b16cc2b5bd1a3239585d66fb361566";
     bytes32 internal constant DESTINATION_REGISTRATION_COMMITMENT =
-        hex"c66eb449fc3da2146daa9e9308137bec087f4159de08ac0d220d23d4a951d560";
+        hex"9f842eed2141aa1ae1d1f9b5b3368269b5b46dcbeb20ff4db2d0b46a98b0ad14";
     bytes4 internal constant DESTINATION_SUCCESSOR_RECEIPT_MAGIC = hex"44535632";
     bytes32 internal constant DISPOSITIONS =
         hex"ab253c1204a53b6e095a887dfa6acfc8e8c0c6f89badcef5f73fee716fa94b93";
@@ -324,7 +324,7 @@ library SlotChainGoldenVectors {
     bytes32 internal constant EMPTY_DATA_BAG =
         hex"b3caa2379816b63eebbf789e33e7d84ef29d6d350179803dd000102e8182f66a";
     bytes32 internal constant EMPTY_DATA_SESSION_ACCOUNTING_RETURN_HASH =
-        hex"5a62fbdc4883c16fe3209e7b093da31d1656fb286f5714002e6833fbdec50c35";
+        hex"31d3a773e551c0b29893d2d7c58dc48589a1c453e81a59eda031109aeb2d7db9";
     bytes32 internal constant EMPTY_ENTRY_ROOT =
         hex"986d3e795bd9ddfabe213b93cea0211eea5a663e895bfc112d90c5bf2fff1564";
     bytes32 internal constant EMPTY_FORCED_ROOT =
@@ -351,7 +351,7 @@ library SlotChainGoldenVectors {
     bytes32 internal constant ENTRY_ROOT =
         hex"acee83a690b868a4a7960c55a9f7228f91cad26b704e24106d4db87e9c7a8f34";
     bytes32 internal constant EXECUTE_ATTEMPT_CALLDATA_HASH =
-        hex"0a5967f00fb99235d29f71624346a9de42c1de0e8e1eb436a7a375e453ed276f";
+        hex"00a9fc29d7a0a4a14fb1790824d4c42b97d1eab02672b1551db3988148344ca9";
     uint256 internal constant EXECUTE_ATTEMPT_CALLDATA_LENGTH = 1124;
     bytes4 internal constant EXECUTE_ATTEMPT_SELECTOR = hex"4cbe2fe2";
     bytes32 internal constant EXECUTE_PROTOCOL_CHANGE_CALLDATA_HASH =
@@ -363,7 +363,7 @@ library SlotChainGoldenVectors {
     uint256 internal constant EXECUTION_PROFILE_ABI_LENGTH = 9152;
     uint256 internal constant EXECUTION_PROFILE_CREATION_OFFSET = 9024;
     bytes32 internal constant EXECUTION_PROFILE_HASH =
-        hex"2d73aacf177350dd88961abf28b86dbfb9c79c0907ae916bb83f1b6d0d9a274b";
+        hex"337af20da4384bcb1d1114617af1a3d8e44c5c7722bf11c1f31c850c9274f7e0";
     uint256 internal constant EXECUTION_PROFILE_STATIC_WORDS = 282;
     bytes32 internal constant EXPECTED_OLD_FORK_REGISTRATION_HASH =
         hex"eed5e788c296e7b8449f4aacb62cd9e5b15ec488dc667f4cf3e3aa48a244c6c5";
@@ -403,9 +403,9 @@ library SlotChainGoldenVectors {
         hex"252a8f9b5199a2b88f07e01d89d4fabb49903713d19500ca1cf34ad3fbf9c00f";
     bytes4 internal constant FORK_VERIFIER_REGISTRATION_SELECTOR = hex"c614591c";
     bytes32 internal constant FREEZE_MIGRATION_SOURCE_CALLDATA_HASH =
-        hex"30f0e9a8404fe31cc78997826426362b360c66df97ef2d2653133a236e866bd2";
+        hex"4d7ba468b5624b7f1f3f4d82d683ff1ea560d84864f3c0f3bcc4c4cf769fb416";
     bytes32 internal constant FREEZE_MIGRATION_SOURCE_RETURN_HASH =
-        hex"718fadb554309568b5346c194319e86b87e59b28f513bf231907b4f4666212b2";
+        hex"df98e88fd5c7156573cdeae28bd10772822738ad96f4dab795722dc34a86da74";
     bytes4 internal constant FREEZE_MIGRATION_SOURCE_SELECTOR = hex"45a80913";
     bytes32 internal constant FUND_REWARD_CLASS_V1_CALLDATA_HASH =
         hex"1086e7c6ffda5d1b4d31999795549a413160e18f638c43801cf6bd8293b430f1";
@@ -413,29 +413,29 @@ library SlotChainGoldenVectors {
     uint256 internal constant FUND_REWARD_CLASS_V1_RETURN_LENGTH = 0;
     bytes4 internal constant FUND_REWARD_CLASS_V1_SELECTOR = hex"15e08308";
     bytes32 internal constant FUNDED_DATA_SESSION_ACCOUNTING_RETURN_HASH =
-        hex"3f32ebc55d31c72b1f50c6fc26b743ad13127bc7d7324ff0a3dc165175684760";
+        hex"503889bfc0f8c51e3c2f35bac05eeb8c5b2c64b2c682e70f2230000d4a4c973a";
     bytes32 internal constant GENESIS_ACTIVATION_CALLDATA_HASH =
-        hex"ee1babaad0f4d7c02d4c556aede841b85a13d35e2fb2d4554a47c1c50070e35d";
+        hex"9cf4c811dab79add0e206b2a71db666bd021c75e596581b5e2383c9d0e940948";
     uint256 internal constant GENESIS_ACTIVATION_CALLDATA_LENGTH = 2948;
     bytes32 internal constant GENESIS_ACTIVATION_CONTEXT_HASH =
-        hex"8ad93ea1b308ba0c1e99acaa917befe37b2f372cedfee38c31d1dc1788a79aae";
+        hex"5cb8d101e134be9a2abfc502842cacdf0cd4aa0879fbb15b0deebbc9f33229f6";
     bytes32 internal constant GENESIS_ACTIVATION_CONTEXT_RETURN_HASH =
-        hex"8fd31818e07215c67007d9b257d2749ad8c47189a5a79fe20c3bbc66bc633254";
+        hex"72360be4e15ecfaac3ad38477f9c8d4bd84b0605a15911489fa253182f147b9f";
     bytes32 internal constant GENESIS_ACTIVATION_FIXED_HASH =
         hex"15236b38830f35f4df4c6bd78015c9a3b495a0f3fe08a028cdb1dd57aac970ca";
     bytes32 internal constant GENESIS_ACTIVATION_RECEIPT_CALLDATA_HASH =
-        hex"6b14ae2240bf97c609c7c4b52caae608ac4cb70e2c243ff083727f28da88c0a4";
+        hex"72c50dc4d29be24ead87fcc8a6d9e967d46239108acc8c800b4dc58b7b0d093b";
     bytes32 internal constant GENESIS_ACTIVATION_RECEIPT_ID =
-        hex"10685d2bf06df00986e509986d96276f316dc7e4a8fbaa6fb85eb088724559e7";
+        hex"5d25dea0a342b3083e04ee7c6b502787b7151d5d7511b87880b2e81c6dbe28f7";
     bytes32 internal constant GENESIS_ACTIVATION_RECEIPT_RETURN_HASH =
-        hex"061f8c9a0478d36f24ad36f016fc57d98e2f354c4120db4f9f5ea089e4f05d0c";
+        hex"021499de70122138d7619f4134f81310f2afef61aa1f8836f1f41a808e0351c1";
     uint256 internal constant GENESIS_ACTIVATION_RECEIPT_RETURN_LENGTH = 1024;
     bytes32 internal constant GENESIS_ADOPT_MIGRATION_CALLDATA_HASH =
-        hex"2fb507c85fc16f5b51d9804ecd625a9fe92e22c2c1484f9e2b55c12cdd922791";
+        hex"d02433b236c95fa4d5b910900248b2519b29c16713c9e9d800c8d654764a86a5";
     bytes32 internal constant GENESIS_ADOPT_MIGRATION_RETURN_HASH =
-        hex"10d4a9e197dd97ab9e5f01f40c733f869e815ab7eedf771b6a253e33bc2e53fc";
+        hex"b64da100aea883427e30196e02b6da2a42c55b828aff1f65476ffd97b3baae50";
     bytes32 internal constant GENESIS_ADOPTION_COMMITMENT =
-        hex"f5abfc13598584e4fae8d5bc42fa1cf7e1cc80d491717b2bfeb4de8ef7d8ef9a";
+        hex"86b16e2bd22cca5b2725389cc77293f8898b63eaedcdaece281f1ee4a84aa373";
     bytes32 internal constant GENESIS_BASE_CANONICAL_HASH =
         hex"5081c70042287a8b7156b2626675ea4ed9623c755d5f51b5c83be94e90da3ff3";
     bytes32 internal constant GENESIS_BASE_CORE_HASH =
@@ -443,23 +443,23 @@ library SlotChainGoldenVectors {
     bytes32 internal constant GENESIS_CANDIDATE_COMMITMENT =
         hex"90949c0865a5e0226c6c0d736c0533f9e5f1d793dc9c5d21407a210ee3896338";
     bytes32 internal constant GENESIS_DEPLOYMENT_COMMITMENT =
-        hex"900ae1ae455245accc5522cfde52d3df63278baa4e6a1d30cd7abf34b8f40309";
+        hex"85949c3790c2ab6f779db6886a10f0955323fc131bfd221c41274f646c9ea68f";
     bytes32 internal constant GENESIS_MIGRATION_STATEMENT_HASH =
-        hex"f98dce382f3a3733bd3a89cfe43ff07c706f116e6fe68cc4a4bd090108c9ec88";
+        hex"a38c7aff541b909f98dfdf7add5a460ab05ee9c79242b40c9f161848d82ed41b";
     bytes32 internal constant GENESIS_OUTPUT_CORE_HASH =
         hex"46ecec937013339205139353730b413c8e508bc579ec9c0ede247161132134a8";
     bytes32 internal constant GENESIS_QUEUE_MIGRATION_CALLDATA_HASH =
-        hex"143f65b5c9803b66a8ad2081f8112ee334bb881825fbdaba030bc0baed6c32e3";
+        hex"9711f98e5fc6360d6012ea6ad259d985d41e725ea5917b8d804785a72d70ef2a";
     bytes32 internal constant GENESIS_QUEUE_MIGRATION_RETURN_HASH =
-        hex"d007b7d57cf2ea079a08806c183efce01b65bdda4e23b3fa31dd7d00767c954d";
+        hex"b5a8436b577f5fdf6e2c182a83891ea034f4967c30290d99a145de7a54902f94";
     bytes32 internal constant GENESIS_QUEUE_POST_STATE_COMMITMENT =
-        hex"e928a4279bc6cbaf66f92127b59ebcbc9dfe239e5a21280132a4bf8d94f9f27d";
+        hex"e888b04d0fcd928974d8b3aa85c5cba6e9808d1595008249158c6ccf6f0fffb2";
     bytes32 internal constant GENESIS_QUEUE_POST_STATE_RETURN_HASH =
-        hex"243df6ac6cb7e64ccc98cf53ef80347ae54b39094538b3792f8fa68449c60ccc";
+        hex"7adc2df52b49a2a54d4947085c1acdd93ff8dc133b8a4f140f39d6dee85a5b36";
     bytes32 internal constant GENESIS_SOURCE_POST_STATE_RETURN_HASH =
-        hex"cf7a54ae68ffa4e58038ec1127015fba51d5a97ed2c7ac8ae86f41c229b0067c";
+        hex"0772f2b34e181b273368885e5cbe04bbc2c2f9e15f5ac4094ebee3ea20d7bd88";
     bytes32 internal constant GENESIS_TARGET_POST_STATE_RETURN_HASH =
-        hex"c003db2923c3db9ac53f55e6aa28b74d01c1e74e2ebb99179f1d8c30c7c3a738";
+        hex"f607130c9bda5907ee38ae44a40d0e26d377f9ba7189d7e1eeba621ee597e680";
     bytes32 internal constant GOVERNANCE_DELAY_AUTHORITY_DESCRIPTOR_HASH =
         hex"442d9b608ecc43eea4009fb7f95c764c747636f42c885174c1442681cc0ab495";
     bytes32 internal constant INBOX_APPLY_CALLDATA_HASH =
@@ -491,9 +491,9 @@ library SlotChainGoldenVectors {
         hex"67ab3af72e37b0366daf3887450a66395aa7d45fb4114d323d6d80a083ae6dbf";
     bytes4 internal constant INSTALL_FORK_VERIFIER_SELECTOR = hex"9bb6fe73";
     bytes32 internal constant INSTALL_SETTLEMENT_AUTHORIZATION_CALLDATA_HASH =
-        hex"078bc64984dcff624d011d636a85cccc66e0fa342504feb3250f11286363ef3d";
+        hex"c6932ff363250f9a6a652f1b5e164587c301877608e334b1184ea124ab971e96";
     bytes32 internal constant INSTALL_SETTLEMENT_AUTHORIZATION_RETURN_HASH =
-        hex"e5ccb7b5d25ca7a2f734daae6a115354b91a0c6e47e0b1d319ea0757520afcbf";
+        hex"565be7aaeb73004156cf9a9fdc3c86007499e6132d421ebd91fb8824e6b0c27f";
     bytes4 internal constant INSTALL_SETTLEMENT_AUTHORIZATION_SELECTOR = hex"b1a3fef9";
     bytes32 internal constant INVOCATION_POLICY_CALLDATA_HASH =
         hex"1afc4535bd77a4ea1d1d4888dcdca5e5e1cc1e7ab081bbfa84ee3236224d987d";
@@ -534,20 +534,20 @@ library SlotChainGoldenVectors {
     uint256 internal constant LEGACY_FULL_SCAN_CAPACITY_BYTES = 4_161_536;
     uint256 internal constant LEGACY_FULL_SCAN_CAPACITY_HEADROOM_BYTES = 32_768;
     bytes32 internal constant LEGACY_GENESIS_ABANDONMENT_RECEIPT_HASH =
-        hex"64ee4f382cf6779d96bb3cc7498c933f3f77c3d56bd5c6145402a419f5d3e1da";
+        hex"4bd3ba4d13a7e4804ef5763512b6507dbd2cdc9e61ade520ab0dc01b85d26fbb";
     bytes32 internal constant LEGACY_GENESIS_ABANDONMENT_SEALED_TOPIC =
         hex"a3b978444273f8f347857235c224846aa45e8ce5bb73df549b9916e96371c8c9";
     bytes32 internal constant LEGACY_GENESIS_ARM_CALLDATA_HASH =
-        hex"371925b8292fe1d24cef06105eec2ba338d887ecc8de9737c6ca340891bd895e";
+        hex"d851c1e0226abf7ff5f7d184d15aac20d7efd766a082762cd358e30b7e7f52e1";
     uint256 internal constant LEGACY_GENESIS_ARM_CALLDATA_LENGTH = 68;
     bytes32 internal constant LEGACY_GENESIS_ARM_ID =
-        hex"c986fcbbee5c1db5bb6ee5e1da22cb0d47911d1f9d86046b8334c85ee29d21aa";
+        hex"aa655ba061439f7d14b9d812788696cee4ca730999b4ac9ef4565ec4a0e9f6ba";
     bytes32 internal constant LEGACY_GENESIS_ARM_RETURN_HASH =
-        hex"af4a11b19b5eb3e3979b326841ca1310d4f1ef11932a09b8cefc3109d911857c";
+        hex"1de07ed4bd5c4a5e2ac1d10e461dce8f6ff5c95d352f56a46542c19b6afbd5ca";
     uint256 internal constant LEGACY_GENESIS_ARM_RETURN_LENGTH = 128;
     bytes4 internal constant LEGACY_GENESIS_ARM_SELECTOR = hex"8781a058";
     bytes32 internal constant LEGACY_GENESIS_BEGIN_SCAN_CALLDATA_HASH =
-        hex"a7e6e3e0092a5046d16b7890f0fec8cc2ab767902c7ea589310bd6f89555b06b";
+        hex"4712fde37daab0436ac6f5a897bab2bd41d01f5f3824c2d96930db0c8baf5255";
     bytes32 internal constant LEGACY_GENESIS_BEGIN_SCAN_RETURN_HASH =
         hex"add644dde24164cfb29ab6a4598cb55acb73c55dd295b0c2a227dc3264c6f65c";
     bytes4 internal constant LEGACY_GENESIS_BEGIN_SCAN_SELECTOR = hex"e9d1a07f";
@@ -557,10 +557,10 @@ library SlotChainGoldenVectors {
     bytes32 internal constant LEGACY_GENESIS_CAMPAIGN_FENCE_DESCRIPTOR_HASH =
         hex"cf5cd470448a26b70eddedf8c30fa39533e66e874e2fc1aa2e310ab633c0d737";
     bytes32 internal constant LEGACY_GENESIS_CAMPAIGN_ID =
-        hex"63f656e3634d5b498acb02d9c620360b99093bf4cb67a749a4072e2987e14d21";
+        hex"d5c6d5c68c3bb519bd61d195bba4ebdf222659b029e8c3463f41c85121e82598";
     bytes4 internal constant LEGACY_GENESIS_CAMPAIGN_MAGIC = hex"4c474331";
     bytes32 internal constant LEGACY_GENESIS_CAMPAIGN_RETURN_HASH =
-        hex"113d1e08ee789cc650d80d5e7b60670104c20ca97d5dda155b9885defd20873f";
+        hex"f75237e94a0425d2dca3550ac2a134d73ede1900e78dd43eaa24e7b15aed25a6";
     uint256 internal constant LEGACY_GENESIS_CAMPAIGN_RETURN_LENGTH = 512;
     bytes4 internal constant LEGACY_GENESIS_CAMPAIGN_SELECTOR = hex"718b2ac7";
     bytes32 internal constant LEGACY_GENESIS_CHECKPOINT_RECORD_HASH =
@@ -570,15 +570,15 @@ library SlotChainGoldenVectors {
     bytes32 internal constant LEGACY_GENESIS_DEPLOYMENT_HASH =
         hex"98cc45a7619c75ff658f46edbe2e3c11c19e1ec424797cf04c760b9f07fd567c";
     bytes32 internal constant LEGACY_GENESIS_EXPIRE_CALLDATA_HASH =
-        hex"c1e882da1084fc29beeb72fa4f4eec39deeb30327c4b9aa573aaaac86fc76ec8";
+        hex"7d3b3bde01008e9797c5ab9a72290f4b60ae99aa9732b1c501f9386a9cdb9034";
     bytes32 internal constant LEGACY_GENESIS_EXPIRE_RETURN_HASH =
         hex"9536645b48dce02dd376837692e40f53cd5ac18e6af5d0c31bade33be31d2e19";
     bytes4 internal constant LEGACY_GENESIS_EXPIRE_SELECTOR = hex"a4a37936";
     bytes32 internal constant LEGACY_GENESIS_FINALIZE_CALLDATA_HASH =
-        hex"ddcee71fb07e96e5363d5c01efc76350afc5591e04d6edd73f9cfaa18114b387";
+        hex"be8c60a58db3ab3cca3af444c2dd4abe250d72a21de30811644d12eb616cada3";
     uint256 internal constant LEGACY_GENESIS_FINALIZE_CALLDATA_LENGTH = 196;
     bytes32 internal constant LEGACY_GENESIS_FINALIZE_RETURN_HASH =
-        hex"2c38cd1bfa2809742c239971d9a0623c19affa4341dd68221579c24d81f346f5";
+        hex"cafce29f853f58b3c7ea62c49712cfc6adf82b6ac3a2bb6a86b999c8c08746ca";
     bytes4 internal constant LEGACY_GENESIS_FINALIZE_SELECTOR = hex"c2de6417";
     bytes32 internal constant LEGACY_GENESIS_FORCED_RECORD_HASH =
         hex"dbda8510c73bc3eb57de26ae5c5bcc82a45bf6fedab68abf100d9baea6f4a380";
@@ -587,9 +587,9 @@ library SlotChainGoldenVectors {
     bytes32 internal constant LEGACY_GENESIS_FORCED_ROWS_ROOT =
         hex"ab7f340cae89170a3a619086538cace009399987a1bffbee40c17da60c10fcc8";
     bytes32 internal constant LEGACY_GENESIS_LAUNCH_ID =
-        hex"cdfa857c3e0e633c7267fb55e75fc623f1ab00663352c319c9f9498da26bdf8e";
+        hex"ca69971b063c73c6ad888ff8b03bfc883d50f344d67ea97a98a5b6ff654b8d97";
     bytes32 internal constant LEGACY_GENESIS_POST_STATE_COMMITMENT =
-        hex"bc95f4331d702a071b3128e76f9df510c3803d5aefa5adeb613eddc6221cde1a";
+        hex"838993e556c84ccbc0c320774e7c659cca05e94c0c699a2256b9e69027bc164b";
     bytes32 internal constant LEGACY_GENESIS_PREPARATION_RETURN_HASH =
         hex"8c869f3dfe7df0f01a65e96d7691b5b0d095590acd9f034770c33a6c75472a98";
     uint256 internal constant LEGACY_GENESIS_PREPARATION_RETURN_LENGTH = 288;
@@ -606,49 +606,49 @@ library SlotChainGoldenVectors {
         hex"afda6179076d7f2625ac4e691fd28ff557ef3419a708f22598bc8419b6a27c05";
     bytes4 internal constant LEGACY_GENESIS_PUBLISH_MAGIC = hex"4c475031";
     bytes32 internal constant LEGACY_GENESIS_QUIESCENCE_CALLDATA_HASH =
-        hex"5c10ee87160f0b6a861d14c6dae4e912d85f027f6e2be684eb3ce19aa1339f69";
+        hex"e47218125d960cb257c6fa1596f88348578b9908083c842a5347d79b96780e8f";
     bytes32 internal constant LEGACY_GENESIS_QUIESCENCE_RETURN_HASH =
-        hex"a43378e14b51d45554357cd4f88cba6b63d0c80a3bc713f02f581c99ab6fce91";
+        hex"3dc5e88c76602c611a06f4b9fd3855408e355644345fd7b39b36f2b80a9e43b1";
     bytes4 internal constant LEGACY_GENESIS_QUIESCENCE_SELECTOR = hex"4c0ae8da";
     bytes32 internal constant LEGACY_GENESIS_QUIESCENT_STATE_RETURN_HASH =
-        hex"531b46cfeba52c1d7b414610616f7444327c3875996fd434765111b182f38b50";
+        hex"b340b1a1d8b98d88589ee21c21c73cc9d9ebfed82ce04dea6a12dcc45e57b571";
     bytes32 internal constant LEGACY_GENESIS_READY_STATE_RETURN_HASH =
-        hex"29e6a459688cb593a2ea84bee1fa517f36a20bd8b2ae136d4b8334def3585354";
+        hex"87f6691efa8153ee61b6c8e9e4120c833a0a4751404505d503b2dbdb87f8c1b0";
     bytes32 internal constant LEGACY_GENESIS_RESUME_CALLDATA_HASH =
-        hex"077167cc09de7a1815a9fb16809ca62973783e807f8ba726ec9848303f2c3ffc";
+        hex"bbb7f10d2f39a4a3055d149ec2e298afa97691f8c093463de6d8840a8b966b1e";
     bytes32 internal constant LEGACY_GENESIS_RESUME_PROFILE_HASH =
         hex"6a993ebf703937ddefdd8a5ae08911f15a19286ae47b40d0b91a08824cbb2812";
     bytes32 internal constant LEGACY_GENESIS_RESUME_RETURN_HASH =
-        hex"7b78fc9f66ee28dbe333c289dd665d5445a272167de24c7580b9405980614357";
+        hex"3cd6a7e9657fb900e514ae8ebce03563cb5935f7329cf9a3b66d6394ae19e132";
     bytes4 internal constant LEGACY_GENESIS_RESUME_SELECTOR = hex"2bf6b656";
     bytes32 internal constant LEGACY_GENESIS_RESUME_TIME_POLICY_HASH =
         hex"ae8419c16fd9493a76f4192c6bef1396d6237a2f2d981dc2bb55acfb3086e5d6";
     bytes32 internal constant LEGACY_GENESIS_RESUME_VERIFIER_ROUTE_HASH =
         hex"527763e6ea020b909c9a74a7aa5b7c2fdb372c5d8f283644d4d454bc63c16275";
     bytes32 internal constant LEGACY_GENESIS_REVIEW_COMMITMENT =
-        hex"a67a67dbe8f5b3504cf4fc02b1d3478a305d14a087fdc3e1990ee37e338ea8f6";
+        hex"b03de0adc63c57b33059873973415ab2209978d0ca4cca3f21e13205bd55b525";
     bytes32 internal constant LEGACY_GENESIS_RISC0_RESUME_KEY_POLICY_HASH =
         hex"60651c05d2012e7254373988020eaf9dec6c635e84d535112e7ade81aac5584a";
     bytes32 internal constant LEGACY_GENESIS_RISC0_RETH_VERIFIER_DESCRIPTOR_HASH =
         hex"4805e24aa165db57d51ab99349241fd843ca03e468afb8d33781d4a08ccca55b";
     bytes32 internal constant LEGACY_GENESIS_SCAN_COMMITMENT =
-        hex"2953e2ef617a444b0161c2de908735e45dec98ca23b6394d07e2f7304fe3812b";
+        hex"9b5adcc7f184f1fc51c9359e5786ac28e198ed1e782c3d0300edec6ba898b041";
     bytes32 internal constant LEGACY_GENESIS_SCAN_FORCED_CALLDATA_HASH =
-        hex"6af6748c2803053bd1f63dabe1e1e15dbf7a6b24a38c99918f6e0ba9aec4b09e";
+        hex"02f4c69ff081017207dc8198c4b2030654785a53fed752e1535f512c058e8bc4";
     bytes32 internal constant LEGACY_GENESIS_SCAN_FORCED_RETURN_HASH =
         hex"10dcb42db706d4c4a5afe207c6327f8cecbcbc4b298c0255fe2434662e6599d6";
     bytes4 internal constant LEGACY_GENESIS_SCAN_FORCED_SELECTOR = hex"032ae99e";
     bytes32 internal constant LEGACY_GENESIS_SCAN_PROPOSALS_ONE_CALLDATA_HASH =
-        hex"02f6239a60f3e81b66d055f987febb52123f3d2aff404aec86ec21d0dd510212";
+        hex"f55782007b1e90842b19b4ee2e1bcf5214c3d0418604027fde8b1b6077ae2355";
     uint256 internal constant LEGACY_GENESIS_SCAN_PROPOSALS_ONE_CALLDATA_LENGTH = 4004;
     bytes32 internal constant LEGACY_GENESIS_SCAN_PROPOSALS_RETURN_HASH =
         hex"10e8d4b72d5c271bc6f13dd2b9c476d4efd217cd1eddc07d04f0753b645ada6a";
     bytes4 internal constant LEGACY_GENESIS_SCAN_PROPOSALS_SELECTOR = hex"7da66460";
     bytes32 internal constant LEGACY_GENESIS_SCAN_PROPOSALS_SIXTEEN_CALLDATA_HASH =
-        hex"c32f6d21687b66573e15131ed07315a1e8da72d17f74874ab61e9c86ff6ca1b7";
+        hex"cc946b42ff93fd824cee363272241b4d88ce00b940cf0e5627cb7c9c7b4e8cef";
     uint256 internal constant LEGACY_GENESIS_SCAN_PROPOSALS_SIXTEEN_CALLDATA_LENGTH = 62_084;
     bytes32 internal constant LEGACY_GENESIS_SCAN_STATE_RETURN_HASH =
-        hex"204083d12fb27e46060855378b2282a022d7d99e15fe79c4f3ad0fb1ad02196d";
+        hex"8dc8b5fe3c9a0f764fa4a222801a4b799e554be38b895014078dc3346bf1da3a";
     uint256 internal constant LEGACY_GENESIS_SCAN_STATE_RETURN_LENGTH = 608;
     bytes4 internal constant LEGACY_GENESIS_SCAN_STATE_SELECTOR = hex"ef3cdce0";
     bytes32 internal constant LEGACY_GENESIS_SIGNAL_SERVICE_CHECKPOINT_DESCRIPTOR_HASH =
@@ -658,7 +658,7 @@ library SlotChainGoldenVectors {
     bytes32 internal constant LEGACY_GENESIS_SP1_RETH_VERIFIER_DESCRIPTOR_HASH =
         hex"523d245ce9369abd6a116dd7cc4b4a989fcfb8a9d1f8eb796e1cb35945f18bf6";
     bytes32 internal constant LEGACY_GENESIS_STATE_RETURN_HASH =
-        hex"88f3d2c544effdf5d667e1c4eba8fc21c120ce5e70394aed80250aa49fe0239a";
+        hex"8d98b0064a33700c4d803f10f6d688802890498fd4b323e9db455551d276529c";
     uint256 internal constant LEGACY_GENESIS_STATE_RETURN_LENGTH = 512;
     bytes4 internal constant LEGACY_GENESIS_STATE_SELECTOR = hex"9b698000";
     bytes32 internal constant LEGACY_INBOX_CONFIG_RETURN_HASH =
@@ -736,7 +736,7 @@ library SlotChainGoldenVectors {
     bytes32 internal constant LIQUIDITY_WITHDRAWN_TOPIC =
         hex"1c7f587c4a1403966578e0bc3326f08fab3ad01d6c34b92e43af37a84ad98e38";
     bytes32 internal constant LIVE_REGISTRATION_VALIDATION_COMMITMENT =
-        hex"5824950daca165af175d4589d6db97a8e7cc0b45b25b558b6612f3a8ea20405e";
+        hex"a926c0f3fff3951ec13d810ca34b367922b81c056e2c7a3ca1b0b357c632512f";
     bytes4 internal constant LIVE_VERSION_MIGRATION_LEASE_SELECTOR = hex"aaac4c97";
     bytes32 internal constant MANIFEST_COMPONENTS_HASH =
         hex"39c81654d0554b17c41192b3e5f9069488373902e9aa7236cfc76cf8a5db5408";
@@ -754,12 +754,12 @@ library SlotChainGoldenVectors {
     bytes32 internal constant MARKET_AUTHORITY_CONFIGURATION_HASH =
         hex"e348b5cddcb8eb6da9bedb54c23e10cf9fe0c20b9f50f769258b47dfdb870c07";
     bytes32 internal constant MAXIMUM_GENESIS_ACTIVATION_CALLDATA_HASH =
-        hex"e3d564883db160c03282e1c6dfe11002da217040fd5ed13cf72ca23d535f046d";
+        hex"89751476a8673b5d99fb4e5afee99affd4fef7a2d0c9b6aa70a4b2a637b0735e";
     uint256 internal constant MAXIMUM_GENESIS_ACTIVATION_CALLDATA_LENGTH = 135_908;
     uint256 internal constant MAXIMUM_LIVE_VERSION_MIGRATION_SECONDS = 604_800;
     uint256 internal constant MAXIMUM_MIGRATION_PROOF_BYTES = 131_072;
     bytes32 internal constant MAXIMUM_VERSION_ACTIVATION_CALLDATA_HASH =
-        hex"e9863f61a7a20480db8fbb3663623417cdae6da5850c81df3b0909319092f931";
+        hex"73ce821f2116ef5714e537734e52e5556010edbc747975c1872f9c9f2f987d3c";
     uint256 internal constant MAXIMUM_VERSION_ACTIVATION_CALLDATA_LENGTH = 149_284;
     bytes4 internal constant MESSAGE_INVOCATION_HOOK_SELECTOR = hex"7f07c947";
     bytes32 internal constant MESSAGE_V1_DATA_HASH =
@@ -767,22 +767,22 @@ library SlotChainGoldenVectors {
     bytes32 internal constant MESSAGE_V1_TUPLE_HASH =
         hex"0e85a708462e96cbaca7158a1534011a25137c3b7aada7f381e4fc5b3afbe40d";
     bytes32 internal constant MIGRATION_ACTIVATION_CONTEXT_HASH =
-        hex"c14f0ba9f943005a718798dad25e4f6734432ca4b60247c78ab0928cede3b2e7";
+        hex"2d922e926d4d1282d042d259a821507d5a33b08c0297039299539432695364fb";
     bytes32 internal constant MIGRATION_ACTIVATION_CONTEXT_RETURN_HASH =
-        hex"7f939ca13a82ddcb79cd2d2daa740d672e8e212c7412855ae1e56ffb693ceebb";
+        hex"cedf176fc73906c32ebd6fb9d161e263b04303369d087df258d6c61bfa5dce06";
     uint256 internal constant MIGRATION_ACTIVATION_CONTEXT_RETURN_LENGTH = 320;
     bytes4 internal constant MIGRATION_ACTIVATION_CONTEXT_SELECTOR = hex"7cf70319";
     bytes32 internal constant MIGRATION_ACTIVATION_PROFILE_CALLDATA_HASH =
         hex"3dd403c33c2e7c4e6b324efac7461b5b0cc6f3696a2a8d8c94c9cb9bafcf9c85";
     bytes4 internal constant MIGRATION_ACTIVATION_PROFILE_MAGIC = hex"4d505232";
     bytes32 internal constant MIGRATION_ACTIVATION_PROFILE_RECORD_HASH =
-        hex"2d8b21e094b1ca3c4085ce8ef6dffda4e9f07a14b5e194476eab152ee9c69304";
+        hex"7b779075c89aacab5d497c1acc60f3e6feb5c09a0813ccb7a1d0a21ea8ee0f0e";
     bytes32 internal constant MIGRATION_ACTIVATION_PROFILE_RETURN_HASH =
-        hex"e4aef6e7c28950782fe03b7d2ba982ce2db4144ae584319cc5b24e7bd33b5456";
+        hex"0f6d0967eaac9d5ec845ab307cad6abfb90af3c9c5f2e7d10109f43e8b37bb23";
     uint256 internal constant MIGRATION_ACTIVATION_PROFILE_RETURN_LENGTH = 768;
     bytes4 internal constant MIGRATION_ACTIVATION_PROFILE_SELECTOR = hex"c65ff64e";
     bytes32 internal constant MIGRATION_ADOPTION_COMMITMENT =
-        hex"50e73ce0a0e4032731e98de594bf9bda1791186698546fa7e6e11cc743b2f62f";
+        hex"d4f2bc87655f0a35d8bec04ef557724ca89a31d718de94c027111a9bc316d8df";
     uint256 internal constant MIGRATION_ARM_EXECUTION_WINDOW_SECONDS = 604_800;
     bytes4 internal constant MIGRATION_ARM_FRESH_AFTER_MAGIC = hex"4d414631";
     bytes32 internal constant MIGRATION_ARM_FRESH_AFTER_RETURN_HASH =
@@ -793,7 +793,7 @@ library SlotChainGoldenVectors {
     bytes32 internal constant MIGRATION_DATA =
         hex"2c36740d76ae6192335d4c603f42edace094b33e8f54e959b40241a94c1f6deb";
     bytes32 internal constant MIGRATION_POST_STATE_CALLDATA_HASH =
-        hex"fcc55bc889a9b845336b77d4153fa9c2e41ef3f9ce4402e818924b6cc2668c9a";
+        hex"b764c574006e6b0f13818d4089950662882975f8001e92133eb4088c9a338c54";
     bytes4 internal constant MIGRATION_POST_STATE_SELECTOR = hex"66e664cb";
     bytes4 internal constant MIGRATION_READINESS_MAGIC = hex"4d525331";
     bytes4 internal constant MIGRATION_READINESS_SELECTOR = hex"b36c83ce";
@@ -805,7 +805,7 @@ library SlotChainGoldenVectors {
     bytes32 internal constant MIGRATION_VERIFIER_CONFIGURATION_HASH =
         hex"950691bac22ceef2dd834142420a79e589bc489165cb10815e889475c39d2613";
     bytes32 internal constant MIGRATION_VERIFIER_DESCRIPTOR_HASH =
-        hex"ba4e50bfb5fabf8cd253f48ed38e4cc1a4f3fc04174ae94e4dd971b1d6e36eed";
+        hex"d4ba23d327a1cccd15649ae8706ff0dcf331075ba1a6d8d274cb87ab4096f0c1";
     bytes32 internal constant MIGRATION_VERIFIER_DESCRIPTOR_TYPEHASH =
         hex"6f1be44c261607b4c2345985bfb5a081aabd621b9168982df9b7820c7dedebd6";
     bytes32 internal constant MMR_ROOT_2 =
@@ -829,10 +829,10 @@ library SlotChainGoldenVectors {
         hex"fe5f0b1458dd3e41701c675116f35fa1a527569daa205b7be7a86457ed8014cf";
     bytes4 internal constant POOL_ACCOUNTING_SELECTOR = hex"f2b3441e";
     bytes32 internal constant POOL_ATTEMPT_AUTHORIZATION =
-        hex"703adb389bc4f60c23e557d7a80817bb66127f29517749c3b918aa16000614fc";
+        hex"047a5431eabdb9b3412d6301b1c08ff0b56b444f0804d8a85523a54cee0abab5";
     uint256 internal constant POOL_AUTH_CLEANUP_GAS = 50_000;
     bytes32 internal constant POOL_BRIDGE_ATTEMPT_CALLDATA_HASH =
-        hex"c72c0755e2b5341c9c5ab67a62f9bef26ad674828a837e74a9478cc6c9022c48";
+        hex"f28af4443a498dbd90c9d75e0c39626546bb127f9dcbe29057d74b2f244c59ae";
     uint256 internal constant POOL_BRIDGE_ATTEMPT_CALLDATA_LENGTH = 1124;
     bytes4 internal constant POOL_BRIDGE_ATTEMPT_SELECTOR = hex"a535a986";
     bytes4 internal constant POOL_BRIDGE_RESULT_MAGIC = hex"4c415632";
@@ -852,11 +852,11 @@ library SlotChainGoldenVectors {
     bytes4 internal constant POOL_DEPOSIT_SELECTOR = hex"eda2a3f6";
     uint256 internal constant POOL_EXTERNAL_READ_GAS = 50_000;
     bytes32 internal constant POOL_PROCESS_CALLDATA_HASH =
-        hex"47dc72deef658ef7706f048546e451720725d289fc3999c627641951e30ab9d3";
+        hex"92e05cd30f8ebde58875b3286df39501dc7db0b26e4a0799d8279bea81b52214";
     uint256 internal constant POOL_PROCESS_CALLDATA_LENGTH = 1028;
     bytes4 internal constant POOL_PROCESS_SELECTOR = hex"5fbbe107";
     bytes32 internal constant POOL_RETRY_CALLDATA_HASH =
-        hex"5684e0a109e39ad3ef09ca453f04da4cfcce30f8a0d32a6e77830e4692fa5a7d";
+        hex"cde01c1dae7e51b499a432e10f1a78fd52820ae50705059b8610f375c6afb597";
     uint256 internal constant POOL_RETRY_CALLDATA_LENGTH = 1060;
     bytes4 internal constant POOL_RETRY_SELECTOR = hex"031f93e7";
     bytes32 internal constant POOL_ROW_SUBSTITUTION_INFRASTRUCTURE_HASH =
@@ -867,7 +867,7 @@ library SlotChainGoldenVectors {
         hex"4cb85eb7ea2f272ca7a4d558694de56d4e9d2455a7cd3074c442c849213a9c31";
     bytes4 internal constant POOL_TICKET_SELECTOR = hex"5defa7e1";
     bytes32 internal constant POOL_VALUE_ACCEPTANCE_COMMITMENT =
-        hex"38b65eec03d37ae72cb7395f9d19537d9bd5356c794c5805a8136ddc4da21dcb";
+        hex"12d55d0d43012456b8e712bf727d05162cc7c5cd74c700c2359d2c4037c75236";
     bytes32 internal constant POOL_VALUE_CALLBACK_CALLDATA_HASH =
         hex"ea4a9bde98a0e33377e39155183907be2c0e068326b799bb26b6dcaf4944a5a0";
     uint256 internal constant POOL_VALUE_CALLBACK_GAS = 100_000;
@@ -896,12 +896,12 @@ library SlotChainGoldenVectors {
     uint256 internal constant PROTOCOL_AUTHORITY_READ_GAS = 100_000;
     uint256 internal constant PROTOCOL_CHANGE_DELAY_SECONDS = 604_800;
     bytes32 internal constant PROTOCOL_CHANGE_OPERATION_CALLDATA_HASH =
-        hex"33db780ef52173d3664c9a6e9ad9e843d7c3b3835dfecae60a55ae0d7f4ae53a";
+        hex"b7d4d49048a0e3edf0ce7220fdb44c6baf317c3fb979ad7b2fb0c37bbaf680be";
     bytes32 internal constant PROTOCOL_CHANGE_OPERATION_DOMAIN_HASH =
         hex"edc1be882290e6241a79546c41db66a1d975095ae60cf3b2b16f1ed876f6038b";
     bytes4 internal constant PROTOCOL_CHANGE_OPERATION_MAGIC = hex"50434f31";
     bytes32 internal constant PROTOCOL_CHANGE_OPERATION_RETURN_HASH =
-        hex"9048743c1e6ca5f512e6d0da01be9a5155158454a6ffebce66c8c640e7ac3ced";
+        hex"999dbe5ac4c893a9935da539b64ce873ed32c785bd949aba44d38dbc877b65fa";
     bytes4 internal constant PROTOCOL_CHANGE_OPERATION_SELECTOR = hex"4b80fe68";
     bytes4 internal constant PROTOCOL_CHANGE_TIMELOCK_CONFIG_MAGIC = hex"50435431";
     bytes32 internal constant PROTOCOL_CHANGE_TIMELOCK_CONFIG_RETURN_HASH =
@@ -921,34 +921,34 @@ library SlotChainGoldenVectors {
     bytes32 internal constant PROTOCOL_VERSION_MANAGER_DESCRIPTOR_HASH =
         hex"b4e57361ef06ff7db13eb812b123a3cdf89ce8a562cc138f72282a0a061e4021";
     bytes32 internal constant PUBLISH_GENESIS_CAMPAIGN_OPERATION_ID =
-        hex"4d4157b55f20723f505ebb603a447a3180509fe96c56f45b39644a0a2faf21e0";
+        hex"b2ded90d7dfaf09becf84217f7cb831c9baf0ca8a3ed6db817e1d044e1bd0714";
     bytes32 internal constant PUBLISH_GENESIS_CAMPAIGN_PAYLOAD_HASH =
-        hex"f21eb3f7bb3ccaf8b200333c469f2932d7621bc121aea52fa9cd4c01b244b798";
+        hex"448f149ccf33acacfdf8b0f72ee3b79c35bdab9e1d408a40f8ea6e519bcdac43";
     uint256 internal constant PUBLISH_GENESIS_CAMPAIGN_PAYLOAD_LENGTH = 320;
     bytes32 internal constant PUBLISH_LEGACY_GENESIS_CAMPAIGN_CALLDATA_HASH =
-        hex"6b6f65db1654be9c8faa63dbd6fe3c51a654ba5f03848df39962294bd0694ddd";
+        hex"3327c65400c570338c4f0f967067bf399b37d96f2b69c87f32112465f74b16a4";
     bytes32 internal constant PUBLISH_LEGACY_GENESIS_CAMPAIGN_RETURN_HASH =
-        hex"a546984d8fba2c96070e50dc34c550dd3689649673ccb2a6f3b3cc497bf8c314";
+        hex"342492cd008349249af4598664c0c5b17a5e57c872bbfedba0cc06f9bb230369";
     bytes4 internal constant PUBLISH_LEGACY_GENESIS_CAMPAIGN_SELECTOR = hex"5f0ed7f5";
     bytes32 internal constant PUBLISH_MIGRATION_ARM_OPERATION_ID =
-        hex"91e95eef0ba0ca3edce846a4eb0a3dcc987662a760b3df6f0d566ec70db7e0a6";
+        hex"a48177f3931f53b5e5d5c82a002bcc463f963cce733917c165263f383b778507";
     bytes32 internal constant PUBLISH_MIGRATION_ARM_PAYLOAD_HASH =
-        hex"286c3a7f9f6b8531df3a2bb2ba7f4bca4b94d06c331b18a207dc520bb287813e";
+        hex"4bb288032f8ba42de5f757fd7d1be6366e2e5534934878771aa9de9c9b99eab5";
     uint256 internal constant PUBLISH_MIGRATION_ARM_PAYLOAD_LENGTH = 128;
     uint256 internal constant PVM_ROUTER_MUTATION_GAS = 8_000_000;
     bytes32 internal constant QUEUE_MIGRATION_CALLDATA_HASH =
-        hex"04e3ca8a4c3b3bfe608add6435faedce8e1a312b9399f02b2bdd92dfbd491663";
+        hex"785fb37b119ff2bc01ca813419c24062a54e65dc927004cbda387501383e088f";
     uint256 internal constant QUEUE_MIGRATION_CALLDATA_LENGTH = 260;
     uint256 internal constant QUEUE_MIGRATION_CREDITED_WEI = 64_000_000_000_000_000;
     bytes32 internal constant QUEUE_MIGRATION_POST_STATE_COMMITMENT =
-        hex"0df01cc54f068cfb543e177be4ff2a56c54ec9a6d8f24c6045971bf717103f6d";
+        hex"2a697bfbeac35705273fba6369d93a5bc3766b2529c09cba2b9ec528d9e53dad";
     bytes32 internal constant QUEUE_MIGRATION_RETURN_HASH =
-        hex"c2e7792f30055cec1dfc1280a888ebdc75a26036a8f8a4ceb66922271df8977b";
+        hex"6589dfc8eb8cae5fd20a7ba953d031df986ba6e4e48d27798b80e92c11aec0ca";
     bytes4 internal constant QUEUE_MIGRATION_SELECTOR = hex"9461f698";
     bytes32 internal constant QUEUE_POST_STATE_RETURN_HASH =
-        hex"b1129ad0e21577e428d9de12fe5ca9fb68e0aa5f6803b0180099261ee33ed2ff";
+        hex"a829a2e5f89c0d14fcdf0ffa2a5c8ea6c9a618314c0c5a913a98428a9077d182";
     bytes32 internal constant QUEUE_PROTOCOL_CHANGE_CALLDATA_HASH =
-        hex"c73900f892f4842af503c2dd847fbeb1a866ba86473fdc24c6ebe9c464a088f0";
+        hex"39d379b7c048ee59d30a73bd1ee9e48f9d4eaad8f81626054fc740a9ef0c847d";
     uint256 internal constant QUEUE_PROTOCOL_CHANGE_CALLDATA_LENGTH = 11_492;
     bytes4 internal constant QUEUE_PROTOCOL_CHANGE_SELECTOR = hex"bd5c80a8";
     bytes32 internal constant QUEUED_RETURN_HASH =
@@ -965,17 +965,17 @@ library SlotChainGoldenVectors {
         hex"c07ba77bf323b341a5c54ef97d01da41c78e962f9c51ab2b9644e7cd6c003012";
     uint256 internal constant REGISTER_FORK_VERIFIER_PAYLOAD_LENGTH = 576;
     bytes32 internal constant REGISTER_RELEASE_OPERATION_ID =
-        hex"7979b57e53962a0bb028a846da3b71efcfea05448fb1af6f8d1033e201de871c";
+        hex"0ad6edf056c5b368e27c171ae9b94d0910e61d377ddbf91b03bfd8645e47e3a1";
     bytes32 internal constant REGISTER_RELEASE_PAYLOAD_HASH =
-        hex"750cae8318e59ead577835d3b4025aa5c00ba19844706d5e0b52fd6b8486b1e9";
+        hex"77022e4333d005c83eb8ac478be4bb36933d068fda2cee9efccb55303a94f01a";
     uint256 internal constant REGISTER_RELEASE_PAYLOAD_LENGTH = 11_392;
     bytes32 internal constant REGISTER_RELEASE_PROFILE_BYTES_HASH =
-        hex"044d7b225c5dd4c551d562618e9183009ed08df3dfda91e80ee55b43f1bd78f3";
+        hex"d4b838dda269bda7168ab75cc260376087e4402a77df1866066fe6f56acd89d8";
     bytes32 internal constant REGISTER_TARGET_RELEASE_CALLDATA_HASH =
-        hex"4ab406d631295bfab335f771d8815cc6f2c6e4b13081a53cc76335a89e2123b2";
+        hex"b4ea85e36034be484c3e611bb0d78a6705a41b2411fe300db91794613593aaa4";
     uint256 internal constant REGISTER_TARGET_RELEASE_CALLDATA_LENGTH = 11_396;
     bytes32 internal constant REGISTER_TARGET_RELEASE_RETURN_HASH =
-        hex"79246a4401d3c56245712aee0da97f0ea06f6a76422c21908647dcf1d4ed72c9";
+        hex"cdb60cdc8a1ba2255be46f145a530057faedc96d493895467cfd746874d890a2";
     bytes4 internal constant REGISTER_TARGET_RELEASE_SELECTOR = hex"9aa71eff";
     bytes32 internal constant REGISTRATION_COMMITMENT_BASE_SLOT =
         hex"20b3dfc457e3cecf32b0c047177351f0814e426c1548e87b79f58830655810c3";
@@ -1001,11 +1001,11 @@ library SlotChainGoldenVectors {
     bytes32 internal constant REGISTRATION_ROUTE_KEY_TYPEHASH =
         hex"4368ad9403b46ef3830e21af8cddcaedbd444c8c57bc3414ebc6fdd250e1e6da";
     bytes32 internal constant REGISTRATION_STORAGE_STATEMENT_HASH =
-        hex"ba6aca55dd8732be6d74273ff0eeeda4d9d4838e79d6fde760bb3928197267b5";
+        hex"ac92a4a112c0b216c2c9f5cc527fa83529e89ed065d054d75b67cb64b932a5a4";
     bytes32 internal constant REGISTRATION_STORAGE_STATEMENT_TYPEHASH =
         hex"c049f967468e58f1a5c9b9e1a147dfc233695ae69c5d4a95ec4ffb49b5687da0";
     bytes32 internal constant REGISTRATION_VERIFIER_RETURN =
-        hex"ba6aca55dd8732be6d74273ff0eeeda4d9d4838e79d6fde760bb3928197267b5";
+        hex"ac92a4a112c0b216c2c9f5cc527fa83529e89ed065d054d75b67cb64b932a5a4";
     bytes32 internal constant REGISTRY_PROOF_DIGEST =
         hex"188d53708f68cd601ace09953d87031b89c92f5b9d7bffd847e324ab7adc8261";
     bytes32 internal constant REGISTRY_ROOT =
@@ -1013,7 +1013,7 @@ library SlotChainGoldenVectors {
     bytes32 internal constant RELEASE_MANIFEST_BASE_SLOT =
         hex"a0b7a29a75032f37561036cd3741e7b375213309367f37b5ffec4ad55cf6154f";
     bytes32 internal constant RELEASE_MANIFEST_HASH =
-        hex"b6594be9afa1d7472e9d9b8b1b7027435dee9fe8b318cc5e9ce20ebe717f43ba";
+        hex"b309f81b45f1f5faa9ebdb57e9fd9e4d5c9db4f88395d192706f768512785e8f";
     bytes32 internal constant RELEASE_MANIFEST_SLOT =
         hex"719bb73ba856aeab1b203e322bfefc6d84a4c41a3222bcf1634b1b44e5b9aba8";
     bytes32 internal constant RELEASE_MANIFEST_TRIE_KEY =
@@ -1021,11 +1021,11 @@ library SlotChainGoldenVectors {
     bytes32 internal constant RELEASE_MANIFEST_TYPEHASH =
         hex"e7dc28b9b7147fbe9f9b0e0bf910800983be65e9ca19020f296fb0e780a0804b";
     bytes32 internal constant REORG_GENESIS_ACTIVATION_CONTEXT_HASH =
-        hex"b41594bb91556bd09f96ec0211f3544dabf7b44786a397331de05f8537c63759";
+        hex"ae1f14834734512f75164976ff749da97e63580f09ae9abec9d434e5c1c18481";
     bytes32 internal constant REORG_GENESIS_ACTIVATION_RECEIPT_ID =
-        hex"6471280dc583b43061f89097c33957adc982346b03ebccc8633553b1134f8559";
+        hex"2fdf795a116dc296ce6c9ce76a2d7dc2bf577640fe8b28a224aac85c7fe7c3be";
     bytes32 internal constant REORG_GENESIS_POST_STATE_COMMITMENT =
-        hex"f9b06b8bbbe599ee8f929155b6008bf2362b42257010f4faa159a6da5ba8b744";
+        hex"104e43a24327181841b820047731304e9baf6206b7ee4584b7d8389a9252be56";
     bytes32 internal constant REPLACE_PENDING_FORK_VERIFIER_CALLDATA_HASH =
         hex"7f5672e814198405380028deb977bebdad7c69273d1b9b2c72edf8ca26982aca";
     uint256 internal constant REPLACE_PENDING_FORK_VERIFIER_CALLDATA_LENGTH = 548;
@@ -1048,12 +1048,12 @@ library SlotChainGoldenVectors {
     bytes32 internal constant REWARD_CLAIMED_V1_TOPIC =
         hex"9f41046da255bf29062408ae9f20e06ea2453df29227caf32b709ccfed59d506";
     bytes32 internal constant REWARD_CLAIMED_V1_TOPIC1_CANDIDATE_ID =
-        hex"14a0fba13c924b2be26b39908af2ba3cb556ab4f050398d28a9db0416fb72992";
+        hex"1cf4bd5b3cd62ac1536b8d5fb6f59ad36714ba167500d28d0550919cb8bcd4b5";
     bytes32 internal constant REWARD_CLAIMED_V1_TOPIC2_BENEFICIARY =
         hex"000000000000000000000000000000000000000000000000000000000000cafe";
     uint256 internal constant REWARD_CLAIMED_V1_TOPIC_COUNT = 3;
     bytes32 internal constant REWARD_CLAIMED_V1_TOPICS_HASH =
-        hex"aacc32b671d1f77255783a46a8b1fcbd718c719cd826380b2e001b81ef95480e";
+        hex"6f3dd2f0ed5290b942dcf67932556331c3dfb67b3e3d0806102f12aa37561ee6";
     bytes32 internal constant REWARD_CLASS_FUNDED_V1_DATA_HASH =
         hex"e1aede520e7a9dc85a896fcdc9cc395ef1f2fd03d93f7e4f6acbd5fda09bf690";
     uint256 internal constant REWARD_CLASS_FUNDED_V1_DATA_LENGTH = 96;
@@ -1077,17 +1077,17 @@ library SlotChainGoldenVectors {
     uint256 internal constant REWARD_CLASS_V1_RETURN_LENGTH = 224;
     bytes4 internal constant REWARD_CLASS_V1_SELECTOR = hex"3d273ee7";
     bytes32 internal constant REWARD_RECEIPT_V1_CALLDATA_HASH =
-        hex"6d5b9359bca2ec8f27213e903919cca58faad5a2207d8c7277b1af41a6d4fdb0";
+        hex"2398a19586fc3fb8ded8d9cca0f31e76cc4d3f2d0c30204ca0c63c7ed9f0e388";
     uint256 internal constant REWARD_RECEIPT_V1_CALLDATA_LENGTH = 36;
     bytes32 internal constant REWARD_RECEIPT_V1_COLLISION_CANDIDATE_ID =
-        hex"a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a492";
+        hex"a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4b5";
     bytes32 internal constant REWARD_RECEIPT_V1_COMMITMENT =
-        hex"c579a9feb5bfb979f075526c1290aa049adcb95e099c6e02726797e5ca2e201a";
+        hex"c37276e50a8a9d56c5e200f04c9d2bcd9104ccf53f8b381a73d63204d590b732";
     bytes4 internal constant REWARD_RECEIPT_V1_MAGIC = hex"52525631";
     bytes32 internal constant REWARD_RECEIPT_V1_MISSING_RETURN_HASH =
         hex"910614e273a7326ae3c583449cfdf24c64d9ef3d7d6f448b6d3042d3ba95ae80";
     bytes32 internal constant REWARD_RECEIPT_V1_PRESENT_RETURN_HASH =
-        hex"5df9160fcccb9142a3a383d083014765cc6cad63bb724c6807bc3dc50cd60058";
+        hex"20b52a5e73af22fceb5a53dffed7765bd399a46f327af271203258111fd175fa";
     uint256 internal constant REWARD_RECEIPT_V1_RETURN_LENGTH = 384;
     bytes4 internal constant REWARD_RECEIPT_V1_SELECTOR = hex"3ed526c7";
     bytes4 internal constant ROUTE_CONFIG_GETTER_SELECTOR = hex"4b64fa11";
@@ -1150,16 +1150,16 @@ library SlotChainGoldenVectors {
     bytes4 internal constant SESSION_SWEEP_SELECTOR = hex"9d083a2b";
     bytes4 internal constant SETTLEMENT_AUTHORIZATION_GETTER_MAGIC = hex"53415431";
     bytes32 internal constant SETTLEMENT_AUTHORIZATION_ID =
-        hex"10ebe04656d3d5a4a1c4cab773e149c180473ba5a31cd193a85d313ddabce908";
+        hex"8b62fe386387efccc858400dc4d68ef9151fa75d694e7d4e0536c870dc3f03e3";
     bytes4 internal constant SETTLEMENT_AUTHORIZATION_INSTALL_MAGIC = hex"53414931";
     bytes32 internal constant SETTLEMENT_AUTHORIZATION_RETURN_HASH =
-        hex"73c9fa7c8c9db37a089b81ceb6144295848d8a9021fd7b84b7ffd1b6e2283b6d";
+        hex"58bf10bcf5fc3d4455449bd8a8ca54c17e49c556913fe4e70f07f4b9522c289c";
     bytes4 internal constant SETTLEMENT_AUTHORIZATION_SELECTOR = hex"1693ae01";
     bytes32 internal constant SETTLEMENT_DEPLOYMENT_DESCRIPTOR_ABI_HASH =
-        hex"5218d672f53f8093fd5be0522f7863fd82c2627da461b0410a13b857d2857422";
+        hex"fe38607f3fdb431f360ae386deacae7b547ee35a8ef7a18c193e68259ffd0bda";
     uint256 internal constant SETTLEMENT_DEPLOYMENT_DESCRIPTOR_ABI_LENGTH = 256;
     bytes32 internal constant SETTLEMENT_DEPLOYMENT_DESCRIPTOR_HASH =
-        hex"14f68ac2868e0af536dfdd9351e4981ac4857b52cf96ea028eb1258d4a296a81";
+        hex"b8e70d7bf7e20338338158ef27e2c86345878e15c609a42e8dfdb8c19d94890b";
     bytes32 internal constant SETTLEMENT_FACTORY_CONFIGURATION_HASH =
         hex"4bf4831c096e251d0ef171bc0fd0582319fdc7ad7a2bea91a6b9b64601aa2837";
     bytes4 internal constant SETTLEMENT_FACTORY_DEPLOY_SELECTOR = hex"4af63f02";
@@ -1178,9 +1178,9 @@ library SlotChainGoldenVectors {
     bytes32 internal constant SOURCE_FACTORY_CONFIG_GETTER_RETURN =
         hex"73512f5b6f9f640f1459a80b7372737a7ada2586dfd15d0efa129e76f3d01ec4";
     bytes32 internal constant SOURCE_FREEZE_POST_STATE_COMMITMENT =
-        hex"6ff1bcb7b84ffd272868cc3f1bcaa8580d63b5846f26debb77bcb2370d4dd9de";
+        hex"850d2a462b4e91f03a0f8ac543fa630374c7c20fdaeaa4f141bddd9c6fd9fe29";
     bytes32 internal constant SOURCE_POST_STATE_RETURN_HASH =
-        hex"b1468ca66bd19deb4caf9a7ec2479420d57f0719d4ea52c65262cc67ebf77315";
+        hex"e9d8d083dc46f6aab0806dcd822c0e3f22b0d16dd82b171fa398fd1836e606b4";
     bytes32 internal constant SOURCE_QUOTA_CONFIG_GETTER_RETURN =
         hex"09d21b4d09dadaabdb05c5b8c88db22757c4de82b7a3ebc1a6910606fe36ff0c";
     bytes32 internal constant SOURCE_REGISTRY_CONFIG_GETTER_RETURN =
@@ -1210,39 +1210,39 @@ library SlotChainGoldenVectors {
     uint256 internal constant SPLIT_LATEST_FORK_VERIFIER_RETURN_LENGTH = 160;
     bytes4 internal constant SPLIT_LATEST_FORK_VERIFIER_SELECTOR = hex"455b4ff5";
     bytes32 internal constant STATEMENT_HASH =
-        hex"14a0fba13c924b2be26b39908af2ba3cb556ab4f050398d28a9db0416fb72992";
+        hex"1cf4bd5b3cd62ac1536b8d5fb6f59ad36714ba167500d28d0550919cb8bcd4b5";
     uint256 internal constant STATEMENT_REWARD_EXECUTION_GAS = 12_345_678;
     uint256 internal constant STATEMENT_REWARD_PUBLISHED_BYTES = 9;
     bytes32 internal constant STATUS_RETURN_HASH =
         hex"b39221ace053465ec3453ce2b36430bd138b997ecea25c1043da0c366812b828";
     bytes32 internal constant SUCCESSOR_MIGRATION_ACTIVATION_PROFILE_RECORD_HASH =
-        hex"7e1aec64542e3fd1dc19efa0002db7550c23115553ccd98383bbee0378ab8209";
+        hex"ec554ba00adae44b0a597f0c537d45c977434759b81180a279c14433226507f2";
     bytes32 internal constant SUCCESSOR_RELEASE_MANIFEST_HASH =
-        hex"9cc41591925c1bc6845e391029d9f148e0c7d45ce0afe84ce6fac11dcc94b65f";
+        hex"856e97813e8322c883dfb6b7be15be7dd8434b27f79f084bb4b296578aba4601";
     bytes32 internal constant SUCCESSOR_SETTLEMENT_DEPLOYMENT_DESCRIPTOR_HASH =
         hex"377aa582c38874cf50ef87030c628b15c5e0302e6830e51b09d8542659bedc18";
     bytes32 internal constant SUCCESSOR_TARGET_REGISTRATION_HASH =
-        hex"4c025c81e10a40d73a642b2135a7cec30d62ed5b078de89c7caeaa413a1942f9";
+        hex"b321e2f204229b3078f3ebffbae64380c3a7c020a85cf232811746f37a9b4616";
     bytes4 internal constant SYNC_INGRESS_SELECTOR = hex"6c880b72";
     bytes32 internal constant SYNC_INGRESS_STAMP_RETURN_HASH =
         hex"1fd01b194948c635358fbb51b4a5f32f8ceab4dc4153e0230215f8afc94ee434";
     bytes32 internal constant SYNC_INGRESS_SYNCED_RETURN_HASH =
         hex"ef662a629ce07c9ed715124d8141a6e430d0a3065f8ce8074a7ea95e8751f184";
     bytes32 internal constant TARGET_CALL_FAILED_ERROR_HASH =
-        hex"945a4e77fd3fc7472407777c6f3975d98ccd745d89a8799c13e9c16b8b092b31";
+        hex"370da4aa5d23a278fc4588146d760468a73367efb00c3e60457d6a3926959c9c";
     bytes4 internal constant TARGET_CALL_FAILED_SELECTOR = hex"f9cc2b44";
     bytes32 internal constant TARGET_CONSTRUCTOR_STATE_RETURN_HASH =
-        hex"18d7395ce06e6412db6c9736e79a8da65275d1eeefa19dae2e2758134f2549a0";
+        hex"cd68978845ac795dad371542580aaf29008d6dbcee6a8117e6ac115fa009f815";
     bytes4 internal constant TARGET_CONSTRUCTOR_STATE_SELECTOR = hex"654f7fce";
     bytes32 internal constant TARGET_POST_STATE_RETURN_HASH =
-        hex"3a389f1049b4b00aec37a0068e4be9209485fbb69bf7f44049d8ce341f6ca411";
+        hex"ad0263eb2c41406e02312b1f85f0600d2871b23e59d17dcd122eb175e4fb13e4";
     bytes32 internal constant TARGET_REGISTRATION_HASH =
-        hex"0ce538d6056ad9a98b71822ce8e14ee74c792795ee37a5feb2d24ce534deeac2";
+        hex"5177bb1ea8f487016aed3deb24791024eeadc76e0a18e195038180c436353c7e";
     bytes32 internal constant TARGET_RELEASE_REGISTRATION_CALLDATA_HASH =
         hex"5c5db1ed7485ad89b4d9125c80db863078603f32ddd3032552a6345bd0dba5ee";
     bytes4 internal constant TARGET_RELEASE_REGISTRATION_MAGIC = hex"52545232";
     bytes32 internal constant TARGET_RELEASE_REGISTRATION_RETURN_HASH =
-        hex"7ba50fcac2193351bed4267f07eb2a974827747adfe1bff6d9987c37a1a28025";
+        hex"c5ddc461992497a2d2d53684a961392a5be206f0f97ddf579aaca533ee0e87ae";
     uint256 internal constant TARGET_RELEASE_REGISTRATION_RETURN_LENGTH = 512;
     bytes4 internal constant TARGET_RELEASE_REGISTRATION_SELECTOR = hex"f588fec3";
     bytes32 internal constant TERMINAL_APPEND_RETURN =
@@ -1299,7 +1299,7 @@ library SlotChainGoldenVectors {
     uint256 internal constant VERIFY_INBOX_CREDIT_RETURN_LENGTH = 256;
     bytes4 internal constant VERIFY_INBOX_CREDIT_SELECTOR = hex"720f747b";
     bytes32 internal constant VERIFY_REGISTRATION_CALLDATA_HASH =
-        hex"735ba835ff03812b1cd376c5ea133ea5d3016833ad3f812ddab58fc0640ac224";
+        hex"e3c7391bc0ede62d86333f9a6a82774e9b49b1fa6ab74ab70b12fa74d75ca1ce";
     uint256 internal constant VERIFY_REGISTRATION_CALLDATA_LENGTH = 516;
     bytes4 internal constant VERIFY_REGISTRATION_SELECTOR = hex"33639818";
     bytes32 internal constant VERIFY_SCHEDULE_CARRIER_CALLDATA_HASH =
@@ -1307,25 +1307,25 @@ library SlotChainGoldenVectors {
     uint256 internal constant VERIFY_SCHEDULE_CARRIER_CALLDATA_LENGTH = 132;
     bytes4 internal constant VERIFY_SCHEDULE_CARRIER_SELECTOR = hex"7e981e0b";
     bytes32 internal constant VERSION_ACTIVATION_CALLDATA_HASH =
-        hex"a60b0937d5a514a1bce25be2894848f0df589df5f5d3fc20d698105c4d29a9fb";
+        hex"6bc8c60340448eae54efdd98f206f6408de82eaf5c9dd68ceb68759cb5e40e2e";
     uint256 internal constant VERSION_ACTIVATION_CALLDATA_LENGTH = 17_220;
     bytes32 internal constant VERSION_ACTIVATION_FIXED_HASH =
         hex"24f54f2ca1c6731f04741371c1e2705fcd912e1b5cf2bd5d727729cc5de89a41";
     bytes32 internal constant VERSION_ACTIVATION_RECEIPT_RETURN_HASH =
-        hex"06594634175e72e75e3c3d0d434e67b1b332f2dc1e2e00411e10e6e56628165a";
+        hex"f84129957643ce7464c2a3ad4937a6493082960aa09ec9f635ed4ff8d5dff4a4";
     bytes32 internal constant VERSION_DEPLOYMENT_COMMITMENT =
-        hex"328cd08a675b046c0ba73044bf1c8cd3f16e07a78dc34fc0f17d52cbfc3c1d97";
+        hex"1272bb0878334a0f8cc343a790d0430da5574e68d698dfe587a689dc6cebde39";
     uint256 internal constant VERSION_MIGRATION_ABORT_AFTER_TIMESTAMP = 624_800;
     bytes4 internal constant VERSION_MIGRATION_ABORT_MAGIC = hex"564d4231";
     bytes32 internal constant VERSION_MIGRATION_ARM_ID =
-        hex"8a9dd52cad8bb4b7c6e4ed6dfdf1f56c21bfff2589c87fbf873a6982dd02232c";
+        hex"a3a8362e336535c8b7a561882ff3d08756e7d567d8b2f8c8595dfe1f9a0280fd";
     bytes4 internal constant VERSION_MIGRATION_ARM_MAGIC = hex"564d4131";
     bytes4 internal constant VERSION_MIGRATION_LEASE_MAGIC = hex"564d4c31";
     bytes32 internal constant VERSION_MIGRATION_LEASE_RETURN_HASH =
-        hex"8aace3b0bf7d453d337c25aa93b3b4cf48c93691e16dbf48011b802e768d25d8";
+        hex"649200ae551330102bc0c30b83443f34d7830b147957af93b0c70fb274580597";
     uint256 internal constant VERSION_MIGRATION_LEASE_RETURN_LENGTH = 320;
     bytes32 internal constant VERSION_MIGRATION_STATEMENT_HASH =
-        hex"769dc1d028023e5920cb898c3540c3ca3202c2af6cd774ae3ce811248ffc92d1";
+        hex"b3c20f610fb816edc0f1f6d4c6d650951d025a5dc9529c81df519fc015a73385";
     bytes32 internal constant WINNING_DATA =
         hex"4ae34aa9efb842528d353b175f94191d01cfd168b5ad828f64a0e7972a2ca9e3";
 }

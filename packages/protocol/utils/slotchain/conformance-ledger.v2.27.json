@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "protocolVersion": "2.27",
-  "normativeCommit": "2008937506ece50821440744ff0ee6f73a5485ce",
+  "normativeCommit": "cd9df2ed2ad5000427f74efcefb1bfc31a689e0c",
   "rootArtifactCount": 18,
   "entries": [
     {
@@ -3333,16 +3333,29 @@
       "addressReusePolicy": "not-applicable",
       "retentionPolicy": "source-inline",
       "reactivationPolicy": "not-applicable",
-      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
-      "sourcePaths": ["contracts/shared/slotchain/SlotChainTypes.sol"],
-      "testPaths": ["test/shared/slotchain/libs/LibSlotChainEncoding.t.sol"],
-      "failureBranches": [
-        "authority/code/configuration/replay/fault branches; expand before review"
+      "abiOrEncoding": [
+        "exact V2.27 structs for the 282-field execution profile, 59-word release manifest, verifier descriptors, migration records, ingress rows, and reclamation lifecycle"
       ],
-      "limits": ["normative width/gas/capacity bounds; expand before review"],
-      "status": "red",
-      "reviewedSourceHashes": {},
-      "reviewedTestHashes": {},
+      "sourcePaths": ["contracts/shared/slotchain/SlotChainTypes.sol"],
+      "testPaths": [
+        "test/shared/slotchain/libs/LibSlotChainEncoding.t.sol",
+        "test/shared/slotchain/libs/LibSlotChainProfile.t.sol"
+      ],
+      "failureBranches": [
+        "struct-width, nested-memory-layout, dynamic-tail-offset, migration-kind, and descriptor-schema drift"
+      ],
+      "limits": [
+        "execution profile has 281 fixed words plus one bytes tail",
+        "profile ABI length is at most 146848 bytes; release, activation, migration statement, ingress, and reclamation encodings have exact fixed word counts"
+      ],
+      "status": "reviewed",
+      "reviewedSourceHashes": {
+        "contracts/shared/slotchain/SlotChainTypes.sol": "0xa9f5ed60287653156fa9443201a950870eaafd3291ee26a11c72c2bc8b854310"
+      },
+      "reviewedTestHashes": {
+        "test/shared/slotchain/libs/LibSlotChainEncoding.t.sol": "0x48774d28e08d0c439cf34753a89b20cd354569824cbdf713fab91d3a340dc9d4",
+        "test/shared/slotchain/libs/LibSlotChainProfile.t.sol": "0x5543c71461321e387a4199ee7dac36d9b0ee1dd8ff2ff046aa50c4898f074bba"
+      },
       "id": "primitive.slot-chain-types",
       "name": "SlotChainTypes",
       "kind": "source-inline"
@@ -3620,6 +3633,49 @@
       "reviewedTestHashes": {},
       "id": "primitive.lib-slot-chain-evidence",
       "name": "LibSlotChainEvidence",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "canonical outer-offset execution profile with word-281 artifact tail",
+        "exact release, verifier, registration, migration, ingress, reclamation, and destination-activation commitment encodings",
+        "release validation recomputes destination infrastructure, Bridge execution, destination domain, graph joins, and the exact reclamation disjointness set"
+      ],
+      "sourcePaths": [
+        "contracts/shared/slotchain/libs/LibSlotChainProfile.sol"
+      ],
+      "testPaths": ["test/shared/slotchain/libs/LibSlotChainProfile.t.sol"],
+      "failureBranches": [
+        "empty or oversized profile bytes, invalid release identities/joins/aliases, verifier configuration/schema mismatch, cross-kind migration fields, and duplicate ingress kind/adapter",
+        "manual bounded encoders are differentially pinned against canonical Solidity ABI and executable-model fixtures under the non-viaIR shared compiler profile"
+      ],
+      "limits": [
+        "execution profile maximum 146848 bytes and artifact offset 9024",
+        "release 59 words, activation 22 words, migration statement 46 words, ingress row 24 words, and reclamation configuration 35 words"
+      ],
+      "status": "reviewed",
+      "reviewedSourceHashes": {
+        "contracts/shared/slotchain/libs/LibSlotChainProfile.sol": "0x19ef41aa6ab84671b027a4b9331c548bc3be5c0e85e3c38547c77744f64375b3"
+      },
+      "reviewedTestHashes": {
+        "test/shared/slotchain/libs/LibSlotChainProfile.t.sol": "0x5543c71461321e387a4199ee7dac36d9b0ee1dd8ff2ff046aa50c4898f074bba"
+      },
+      "id": "primitive.lib-slot-chain-profile",
+      "name": "LibSlotChainProfile",
       "kind": "source-inline"
     },
     {
@@ -4083,16 +4139,29 @@
       "addressReusePolicy": "not-applicable",
       "retentionPolicy": "source-inline",
       "reactivationPolicy": "not-applicable",
-      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "abiOrEncoding": [
+        "exact CALL/STATICCALL preflight over target code hash and configuration hash",
+        "EIP-150 ceiling plus exact calldata/returndata memory-expansion and post-copy reserve",
+        "returndata size is checked before bounded copy; word decoders reject dirty ABI padding"
+      ],
       "sourcePaths": ["contracts/shared/slotchain/libs/LibExactCall.sol"],
       "testPaths": ["test/shared/slotchain/libs/LibExactCall.t.sol"],
       "failureBranches": [
-        "authority/code/configuration/replay/fault branches; expand before review"
+        "zero/no-code target, runtime mismatch, configuration-call failure or malformed return",
+        "insufficient caller gas under the EIP-150 preflight",
+        "target revert, excessive return length, dirty word padding, and out-of-bounds word decode"
       ],
-      "limits": ["normative width/gas/capacity bounds; expand before review"],
-      "status": "missing",
-      "reviewedSourceHashes": {},
-      "reviewedTestHashes": {},
+      "limits": [
+        "checked gas arithmetic with the exact 63/64 ceiling",
+        "exact expected return length is touched before the call and copied only after equality"
+      ],
+      "status": "reviewed",
+      "reviewedSourceHashes": {
+        "contracts/shared/slotchain/libs/LibExactCall.sol": "0x0c9f676591a05de0c7c79cca5f6c121bd46b1aea904b5ba766bf643704281b3b"
+      },
+      "reviewedTestHashes": {
+        "test/shared/slotchain/libs/LibExactCall.t.sol": "0xc56b4b23c00b2532ed58fcae6f027099e6c5c402732dd5fdc6204571d5a8ff2e"
+      },
       "id": "primitive.lib-exact-call",
       "name": "LibExactCall",
       "kind": "source-inline"
@@ -4112,18 +4181,27 @@
       "addressReusePolicy": "not-applicable",
       "retentionPolicy": "source-inline",
       "reactivationPolicy": "not-applicable",
-      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "abiOrEncoding": [
+        "exact 65-byte r||s||v signature and offset slice",
+        "canonical v in {27,28}, nonzero r/s, and low-s secp256k1 recovery"
+      ],
       "sourcePaths": [
         "contracts/shared/slotchain/libs/LibSlotChainSignatures.sol"
       ],
       "testPaths": ["test/shared/slotchain/libs/LibSlotChainSignatures.t.sol"],
       "failureBranches": [
-        "authority/code/configuration/replay/fault branches; expand before review"
+        "short, trailing, EIP-2098, out-of-bounds, zero-scalar, high-s, noncanonical-v, zero-recovery, and signer-mismatch signatures"
       ],
-      "limits": ["normative width/gas/capacity bounds; expand before review"],
-      "status": "missing",
-      "reviewedSourceHashes": {},
-      "reviewedTestHashes": {},
+      "limits": [
+        "signature length 65 bytes; secp256k1 half-order inclusive maximum"
+      ],
+      "status": "reviewed",
+      "reviewedSourceHashes": {
+        "contracts/shared/slotchain/libs/LibSlotChainSignatures.sol": "0xbe8d602bcaed3defe28abf288c0ed35719ffb6dd4a9492e3b59e1ffb1f2aad4d"
+      },
+      "reviewedTestHashes": {
+        "test/shared/slotchain/libs/LibSlotChainSignatures.t.sol": "0x0cb89f22a167fe1204bd5a6054dc4745dc9fb133683f77ab4fa3393d9d06464f"
+      },
       "id": "primitive.lib-slot-chain-signatures",
       "name": "LibSlotChainSignatures",
       "kind": "source-inline"
@@ -4143,7 +4221,10 @@
       "addressReusePolicy": "not-applicable",
       "retentionPolicy": "source-inline",
       "reactivationPolicy": "not-applicable",
-      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "abiOrEncoding": [
+        "full-width floor/ceiling multiplication and checked uint64 conversion",
+        "data-session rent, forced-envelope deposit, reward cap/split, reverse-ask improvement, and seat premium formulas"
+      ],
       "sourcePaths": [
         "contracts/shared/slotchain/libs/LibSlotChainEconomics.sol"
       ],
@@ -4151,12 +4232,20 @@
         "test/shared/slotchain/economics/LibSlotChainEconomics.t.sol"
       ],
       "failureBranches": [
-        "authority/code/configuration/replay/fault branches; expand before review"
+        "zero divisor, 512-bit quotient overflow, upward-round overflow, multiplication/addition overflow, invalid BPS, deposit above cap, and nonmonotonic seat times"
       ],
-      "limits": ["normative width/gas/capacity bounds; expand before review"],
-      "status": "missing",
-      "reviewedSourceHashes": {},
-      "reviewedTestHashes": {},
+      "limits": [
+        "basis points at most 10000",
+        "all narrowing to uint64 is explicit and checked",
+        "fuzzed full-width multiplication agrees with an independent OpenZeppelin Math oracle"
+      ],
+      "status": "reviewed",
+      "reviewedSourceHashes": {
+        "contracts/shared/slotchain/libs/LibSlotChainEconomics.sol": "0x25b3a72f8edad4c0cf7e4b9b2b06c4f8f9165e050900d88acddf5bc4aa0646c1"
+      },
+      "reviewedTestHashes": {
+        "test/shared/slotchain/economics/LibSlotChainEconomics.t.sol": "0xb68a91bde9d285536e88152966943e6ccac6e2c24699204ecd41a6f9511662a6"
+      },
       "id": "primitive.lib-slot-chain-economics",
       "name": "LibSlotChainEconomics",
       "kind": "source-inline"
@@ -4176,20 +4265,32 @@
       "addressReusePolicy": "not-applicable",
       "retentionPolicy": "source-inline",
       "reactivationPolicy": "not-applicable",
-      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
       "sourcePaths": [
         "contracts/shared/slotchain/libs/LibCustodyAccounting.sol"
       ],
       "testPaths": [
-        "test/shared/slotchain/economics/LibCustodyAccounting.t.sol"
+        "test/shared/slotchain/economics/LibCustodyAccounting.t.sol",
+        "test/shared/slotchain/economics/LibCustodyAccountingInvariant.t.sol"
+      ],
+      "abiOrEncoding": [
+        "reserve plus aggregate pull-credit liabilities are conserved under every accounting transition",
+        "checks-effects-interactions claims and surplus sweeps use one shared reentrancy guard"
       ],
       "failureBranches": [
-        "authority/code/configuration/replay/fault branches; expand before review"
+        "underfunded liability, insufficient reserve, zero beneficiary/recipient/sink, recipient revert, caught and uncaught reentry, and insolvent balance"
       ],
-      "limits": ["normative width/gas/capacity bounds; expand before review"],
-      "status": "missing",
-      "reviewedSourceHashes": {},
-      "reviewedTestHashes": {},
+      "limits": [
+        "uint256 liability and balance boundaries",
+        "three stateful invariants over 256 runs and 128000 calls per invariant"
+      ],
+      "status": "reviewed",
+      "reviewedSourceHashes": {
+        "contracts/shared/slotchain/libs/LibCustodyAccounting.sol": "0x5d9e3c2cbf5eaa851d716b586e88e7547bcb3921ebf6863cfc3d593a46b968d1"
+      },
+      "reviewedTestHashes": {
+        "test/shared/slotchain/economics/LibCustodyAccounting.t.sol": "0x465cfad92211d758bead357a512d5b9e142f11c8a1782e052585bf3600aff42f",
+        "test/shared/slotchain/economics/LibCustodyAccountingInvariant.t.sol": "0x9f4e038a968f760c4aba29afbfeb6ffa1b5d6964020ed3486820bf01bed2fa8f"
+      },
       "id": "primitive.lib-custody-accounting",
       "name": "LibCustodyAccounting",
       "kind": "source-inline"
@@ -4209,18 +4310,20 @@
       "addressReusePolicy": "not-applicable",
       "retentionPolicy": "source-inline",
       "reactivationPolicy": "not-applicable",
-      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "abiOrEncoding": ["receive-only native ETH sink marker interface"],
       "sourcePaths": ["contracts/shared/slotchain/iface/INativeEthSinkV2.sol"],
-      "testPaths": [
-        "test/shared/slotchain/economics/LibCustodyAccounting.t.sol"
-      ],
+      "testPaths": ["test/shared/slotchain/libs/LibExactCall.t.sol"],
       "failureBranches": [
-        "authority/code/configuration/replay/fault branches; expand before review"
+        "nonempty calldata is outside the receive-only sink ABI"
       ],
-      "limits": ["normative width/gas/capacity bounds; expand before review"],
-      "status": "missing",
-      "reviewedSourceHashes": {},
-      "reviewedTestHashes": {},
+      "limits": ["empty-calldata native ETH transfer"],
+      "status": "reviewed",
+      "reviewedSourceHashes": {
+        "contracts/shared/slotchain/iface/INativeEthSinkV2.sol": "0x1c3d7c9cd5beaa20874a45a79a5226cbfcbe03298f79b07d6dd151c1e700a269"
+      },
+      "reviewedTestHashes": {
+        "test/shared/slotchain/libs/LibExactCall.t.sol": "0xc56b4b23c00b2532ed58fcae6f027099e6c5c402732dd5fdc6204571d5a8ff2e"
+      },
       "id": "primitive.i-native-eth-sink-v2",
       "name": "INativeEthSinkV2",
       "kind": "source-inline"

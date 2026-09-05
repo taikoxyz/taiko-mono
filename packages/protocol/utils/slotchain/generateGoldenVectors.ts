@@ -29,10 +29,30 @@ const solidityPath = path.join(
     protocolRoot,
     "test/shared/slotchain/vectors/SlotChainGoldenVectors.sol",
 );
+const profileFixturePaths = {
+    profile: path.join(
+        protocolRoot,
+        "test/shared/slotchain/vectors/execution-profile-v2.27.hex",
+    ),
+    release: path.join(
+        protocolRoot,
+        "test/shared/slotchain/vectors/release-v2.27.hex",
+    ),
+    ingress0: path.join(
+        protocolRoot,
+        "test/shared/slotchain/vectors/ingress0-v2.27.hex",
+    ),
+    ingress1: path.join(
+        protocolRoot,
+        "test/shared/slotchain/vectors/ingress1-v2.27.hex",
+    ),
+} as const;
 
 export type TypedVector =
     | { kind: "hex"; name: string; value: string }
     | { kind: "uint"; name: string; value: string };
+
+type ProfileFixtureName = keyof typeof profileFixturePaths;
 
 function fail(message: string): never {
     throw new Error(`golden-vector generation failed: ${message}`);
@@ -346,6 +366,55 @@ function assertFileMatches(targetPath: string, expected: string): void {
     }
 }
 
+function renderProfileFixtures(
+    interpreter: string,
+): Record<ProfileFixtureName, string> {
+    const script = [
+        "import importlib.util,json,sys",
+        "path=sys.argv[1]",
+        "spec=importlib.util.spec_from_file_location('slot_chain_commitment_model',path)",
+        "model=importlib.util.module_from_spec(spec)",
+        "sys.modules[spec.name]=model",
+        "spec.loader.exec_module(model)",
+        "profile=model.canonical_execution_profile_cross_model_fixture_v2()",
+        "authority=model.derive_register_release_authority_v2(profile,0)",
+        "rows=authority.ingress_rows",
+        "print(json.dumps({'profile':profile.hex(),'release':model.canonical_release_manifest(authority.release_manifest).hex(),'ingress0':model.canonical_profile_ingress_authorization_abi(rows[0]).hex(),'ingress1':model.canonical_profile_ingress_authorization_abi(rows[1]).hex()},sort_keys=True,separators=(',',':')))",
+    ].join(";");
+    const output = runPython(
+        interpreter,
+        ["-c", script, modelPath],
+        "canonical profile fixture export",
+        MODEL_TIMEOUT_MS,
+    );
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(output);
+    } catch (error) {
+        fail(`profile fixture export is not JSON: ${(error as Error).message}`);
+    }
+    if (!isPlainObject(parsed))
+        fail("profile fixture export must be an object");
+    const names = Object.keys(profileFixturePaths) as ProfileFixtureName[];
+    if (Object.keys(parsed).sort().join(",") !== [...names].sort().join(",")) {
+        fail("profile fixture export has unexpected keys");
+    }
+    const result = {} as Record<ProfileFixtureName, string>;
+    for (const name of names) {
+        const value = parsed[name];
+        if (
+            typeof value !== "string" ||
+            value === "" ||
+            value.length % 2 !== 0 ||
+            !/^[0-9a-f]+$/.test(value)
+        ) {
+            fail(`profile fixture ${name} is not canonical whole-byte hex`);
+        }
+        result[name] = `0x${value}\n`;
+    }
+    return result;
+}
+
 function writeFileAtomically(targetPath: string, contents: string): void {
     fs.mkdirSync(path.dirname(targetPath), { recursive: true });
     const suffix = crypto.randomBytes(8).toString("hex");
@@ -387,7 +456,7 @@ export function main(args: string[]): void {
     );
     if (
         !normalOutput.includes(
-            "RESULTS: commitment encoding model — ALL 812 GOLDEN VECTORS / 1610 ASSERTION SITES PASS",
+            "RESULTS: commitment encoding model — ALL 812 GOLDEN VECTORS / 1611 ASSERTION SITES PASS",
         )
     ) {
         fail(
@@ -404,10 +473,16 @@ export function main(args: string[]): void {
     const vectors = validateTypedVectorJson(exportOutput);
     const json = formatJson(JSON.stringify(vectors));
     const solidity = formatSolidity(renderSolidity(vectors));
+    const profileFixtures = renderProfileFixtures(interpreter);
 
     if (checkOnly) {
         assertFileMatches(jsonPath, json);
         assertFileMatches(solidityPath, solidity);
+        for (const name of Object.keys(
+            profileFixturePaths,
+        ) as ProfileFixtureName[]) {
+            assertFileMatches(profileFixturePaths[name], profileFixtures[name]);
+        }
         process.stdout.write(
             `verified ${vectors.length} slot-chain golden vectors\n`,
         );
@@ -416,6 +491,11 @@ export function main(args: string[]): void {
 
     writeFileAtomically(jsonPath, json);
     writeFileAtomically(solidityPath, solidity);
+    for (const name of Object.keys(
+        profileFixturePaths,
+    ) as ProfileFixtureName[]) {
+        writeFileAtomically(profileFixturePaths[name], profileFixtures[name]);
+    }
     process.stdout.write(
         `generated ${vectors.length} slot-chain golden vectors\n`,
     );

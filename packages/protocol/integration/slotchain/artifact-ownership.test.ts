@@ -957,6 +957,9 @@ run("foundry-stripped contract devdoc metadata is normalized", () => {
         metadata.output.devdoc.details = "Contract-level details";
         metadata.output.devdoc["custom:security-contact"] =
             "security@example.invalid";
+        metadata.output.devdoc.stateVariables = {
+            INTERNAL_CONSTANT: { details: "Internal constant details" },
+        };
         contract.metadata = JSON.stringify(metadata);
     });
     validateArtifactOwnership(fixture.root, fixture.manifest);
