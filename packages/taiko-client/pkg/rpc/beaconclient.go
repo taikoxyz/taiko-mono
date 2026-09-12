@@ -31,6 +31,10 @@ type ConfigSpec struct {
 	SlotsPerEpoch  string `json:"SLOTS_PER_EPOCH"`
 }
 
+type configSpecResponse struct {
+	Data ConfigSpec `json:"data"`
+}
+
 // GenesisResponse is the response from the beacon node for fetching the genesis time.
 type GenesisResponse struct {
 	Data struct {
@@ -101,12 +105,12 @@ func NewBeaconClient(endpoint string, timeout time.Duration) (*BeaconClient, err
 		return nil, err
 	}
 
-	secondsPerSlot, err := strconv.Atoi(spec.Data.(map[string]interface{})["SECONDS_PER_SLOT"].(string))
+	secondsPerSlot, err := parseBeaconSpecUint64("SECONDS_PER_SLOT", spec.Data.SecondsPerSlot)
 	if err != nil {
 		return nil, err
 	}
 
-	slotsPerEpoch, err := strconv.Atoi(spec.Data.(map[string]interface{})["SLOTS_PER_EPOCH"].(string))
+	slotsPerEpoch, err := parseBeaconSpecUint64("SLOTS_PER_EPOCH", spec.Data.SlotsPerEpoch)
 	if err != nil {
 		return nil, err
 	}
@@ -119,6 +123,17 @@ func NewBeaconClient(endpoint string, timeout time.Duration) (*BeaconClient, err
 	)
 
 	return &BeaconClient{cli, timeout, uint64(genesisTime), uint64(secondsPerSlot), uint64(slotsPerEpoch)}, nil
+}
+
+func parseBeaconSpecUint64(name, value string) (uint64, error) {
+	parsed, err := strconv.ParseUint(value, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid beacon spec %s %q: %w", name, value, err)
+	}
+	if parsed == 0 {
+		return 0, fmt.Errorf("invalid beacon spec %s: must be greater than zero", name)
+	}
+	return parsed, nil
 }
 
 // GetBlobs returns the sidecars for a given slot.
@@ -212,12 +227,12 @@ func (c *BeaconClient) executionBlockNumberBySlot(ctx context.Context, slot uint
 }
 
 // getConfigSpec retrieve the current configs of the network used by the beacon node.
-func getConfigSpec(ctx context.Context, c *beacon.Client) (*structs.GetSpecResponse, error) {
+func getConfigSpec(ctx context.Context, c *beacon.Client) (*configSpecResponse, error) {
 	body, err := c.Get(ctx, c.BaseURL().Path+getConfigSpecPath)
 	if err != nil {
 		return nil, errors.Wrap(err, "error requesting configSpecPath")
 	}
-	fsr := &structs.GetSpecResponse{}
+	fsr := &configSpecResponse{}
 	err = json.Unmarshal(body, fsr)
 	if err != nil {
 		return nil, err
