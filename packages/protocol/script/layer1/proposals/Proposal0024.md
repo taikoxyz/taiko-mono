@@ -16,16 +16,7 @@ leg.
 
 ## Rationale
 
-> **TODO(@dantaik):** write up why the basefee share moves from 75% to 100%: what the 25% treasury
-> share was for, why it is no longer needed or is better paid to the coinbase, the expected effect
-> on proposer and preconfer economics and on the L2 treasury's income, and any governance context
-> (forum post, prior discussion). This section is what TAIKO holders read during the 10-day veto
-> window.
->
-> Context for the write-up: 75 has been the mainnet value since the Ontake era. `MainnetTaikoL1`
-> carried `sharingPctg: 75` in protocol 1.11 (Pacaya), and the Shasta inbox parameters chosen in
-> [#21190](https://github.com/taikoxyz/taiko-mono/pull/21190) kept it; no commit in the repository
-> has ever set another value on mainnet.
+> **TODO(@dantaik):** write up why the basefee share moves from 75% to 100%.
 
 ## Scope
 
