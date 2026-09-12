@@ -158,7 +158,7 @@ var (
 		Help: "The total number of processed blocks",
 	})
 	BridgeMessageNotSent = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "bridge_message_not_sent_opt_total",
+		Name: "bridge_message_not_sent_ops_total",
 		Help: "The total number of times a bridge message has not been sent but has been processed",
 	})
 	RetriableEvents = promauto.NewCounter(prometheus.CounterOpts{
@@ -174,7 +174,7 @@ var (
 		Help: "The total number of processed events that failed due to an error",
 	})
 	MessagesNotReceivedOnDestChain = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "messages_not_received_on_dest_chain_opts_total",
+		Name: "messages_not_received_on_dest_chain_ops_total",
 		Help: "The total number of messages that were not received on the destination chain",
 	})
 	ProfitableMessageAfterTransacting = promauto.NewCounter(prometheus.CounterOpts{
