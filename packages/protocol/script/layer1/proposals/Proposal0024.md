@@ -30,19 +30,6 @@ the proxy's storage; ownership (no `transferOwnership`, `acceptOwnership` or ini
 dormant Pacaya inbox `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`; every L2 contract; Hoodi and
 every other network.
 
-## Current State
-
-Verified on-chain 2026-09-12 at L1 block 25,961,507.
-
-| proxy                                        | owner                                                                                | live impl                                                   | provenance                                                                                            | `_initialized`                       |
-| -------------------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| `0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f` | DAO controller `0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a` (`controller.taiko.eth`) | `0x5253D4C91e80b880DdB54B78E74082Abe066F6b9` (23,067 bytes) | Proposal0019 (Unzen), upgraded 2026-08-03, built at commit `9078278909a43a83fc5bb2664f30b81eb5c967f6` | 3 (`init3` consumed by Proposal0019) |
-
-Core state at that block: `nextProposalId` 34,874, `lastProposalBlockId` 25,961,499,
-`lastFinalizedProposalId` 34,871; `activationTimestamp` 1,775,135,903; forced inclusion queue
-`head = tail = 3` (empty). The live `getConfig()` is the "live" column of the table under
-[The new implementation](#the-new-implementation).
-
 ## What Changes
 
 ### How the percentage reaches L2 blocks
