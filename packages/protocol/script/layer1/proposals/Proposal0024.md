@@ -14,10 +14,6 @@ changing it means deploying a new implementation and upgrading the proxy: one `u
 by the DAO controller, which owns the proxy. The proposal executes **1 L1 action** and has no L2
 leg.
 
-> **Status: deployed, not executed.** The new implementation `0xA18431d42C8dF9778905fBEa912aCF1881b49D2e` was deployed
-> and verified on 2026-09-12 (L1 block 25,961,745); `Proposal0024.action.md` carries the executable
-> calldata. The DAO proposal has not been created yet.
-
 ## Rationale
 
 > **TODO(@dantaik):** write up why the basefee share moves from 75% to 100%: what the 25% treasury
