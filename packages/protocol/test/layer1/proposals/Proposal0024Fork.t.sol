@@ -51,6 +51,8 @@ contract Proposal0024ForkTest is Test {
     /// transition they exist for. Asserting the starting implementation fails loudly instead.
     address private constant _LIVE_INBOX_IMPL = 0x5253D4C91e80b880DdB54B78E74082Abe066F6b9;
 
+    error ActionReverted(uint256 index);
+
     function test_l1_upgradesAgainstLiveState() external {
         if (!_forkOrSkip("L1_FORK_URL")) return;
 
@@ -158,14 +160,17 @@ contract Proposal0024ForkTest is Test {
     }
 
     /// @dev Executes `_actions` one by one from `_controller`, the way `Controller._executeActions`
-    /// does, aborting on the first failure.
+    /// does, aborting on the first failure. The failure is a custom error rather than an assertion
+    /// with a concatenated message: this helper has a single caller, so the via-IR build of the
+    /// `layer1o` profile inlines it into the test, and the message's temporaries pushed the loop
+    /// one slot past the stack limit there.
     /// @param _controller The controller that executes the batch.
     /// @param _actions The actions.
     function _executeAs(address _controller, Controller.Action[] memory _actions) private {
         for (uint256 i; i < _actions.length; ++i) {
             vm.prank(_controller);
             (bool success,) = _actions[i].target.call{ value: _actions[i].value }(_actions[i].data);
-            assertTrue(success, string.concat("action ", vm.toString(i), " reverted"));
+            require(success, ActionReverted(i));
         }
     }
 
