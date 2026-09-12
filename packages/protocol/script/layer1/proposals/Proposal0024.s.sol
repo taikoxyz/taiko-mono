@@ -10,11 +10,10 @@ import { Controller } from "src/shared/governance/Controller.sol";
 /// @custom:security-contact security@taiko.xyz
 contract Proposal0024 is BuildProposal {
     /// @dev The `MainnetInbox` implementation the inbox proxy upgrades to: the live configuration
-    /// with `basefeeSharingPctg` raised from 75 to 100, deployed by `DeployInboxUpgradeL1`.
-    // TODO(deployment): replace the placeholder with the address `DeployInboxUpgradeL1` logs, once
-    // verified on-chain, together with `DEPLOYED_INBOX_IMPL` in `Proposal0024.t.sol`; then
-    // generate `Proposal0024.action.md` with `P=0024 pnpm proposal`.
-    address public constant MAINNET_INBOX_NEW_IMPL = address(0);
+    /// with `basefeeSharingPctg` raised from 75 to 100. Deployed by `DeployInboxUpgradeL1` on
+    /// Ethereum mainnet.
+    /// https://codediff.taiko.xyz/?addr=0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f&newimpl=0xA18431d42C8dF9778905fBEa912aCF1881b49D2e&chainid=1
+    address public constant MAINNET_INBOX_NEW_IMPL = 0xA18431d42C8dF9778905fBEa912aCF1881b49D2e;
 
     error ImplementationNotDeployed();
 

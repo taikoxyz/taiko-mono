@@ -14,9 +14,9 @@ changing it means deploying a new implementation and upgrading the proxy: one `u
 by the DAO controller, which owns the proxy. The proposal executes **1 L1 action** and has no L2
 leg.
 
-> **Status: draft.** The new implementation is not deployed yet. `Proposal0024.MAINNET_INBOX_NEW_IMPL`
-> is a placeholder, `P=0024 pnpm proposal` deliberately reverts `ImplementationNotDeployed()`, and
-> no `Proposal0024.action.md` exists. [Deployment](#deployment) lists what fills them in.
+> **Status: deployed, not executed.** The new implementation `0xA18431d42C8dF9778905fBEa912aCF1881b49D2e` was deployed
+> and verified on 2026-09-12 (L1 block 25,961,745); `Proposal0024.action.md` carries the executable
+> calldata. The DAO proposal has not been created yet.
 
 ## Rationale
 
@@ -33,9 +33,9 @@ leg.
 
 ## Scope
 
-| Chain | Contract                                                 | Change                                                                              |
-| ----- | -------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| L1    | Inbox proxy `0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f` | implementation → `MAINNET_INBOX_NEW_IMPL` (TBD, deployed by `DeployInboxUpgradeL1`) |
+| Chain | Contract                                                 | Change                                                                                                                                                                                                               |
+| ----- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| L1    | Inbox proxy `0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f` | implementation → `0xA18431d42C8dF9778905fBEa912aCF1881b49D2e` ([codediff](https://codediff.taiko.xyz/?addr=0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f&newimpl=0xA18431d42C8dF9778905fBEa912aCF1881b49D2e&chainid=1)) |
 
 Not touched: the proof verifier, proposer checker, prover whitelist, signal service and bond token
 (reproduced as immutables of the new implementation); every numeric parameter but the percentage;
@@ -84,7 +84,13 @@ that carries it, not with the value that was live when it was preconfirmed — s
 
 ### The new implementation
 
-`MainnetInbox` from `main`, built with the live address immutables. `DeployInboxUpgradeL1` reads
+`MainnetInbox` from this branch, built with the live address immutables:
+`0xA18431d42C8dF9778905fBEa912aCF1881b49D2e`, deployed by `DeployInboxUpgradeL1` on 2026-09-12 in L1 block
+25,961,745 (tx `0x16532ab9b11251324578fd2f1d42b0dac2986523a19771365cefd9f9af42b533`, deployer
+`0x56706f118e42ae069f20c5636141b844d1324ae1`, sources at commit
+`9deb5b590b4bf303ff161f0b8b14a49ab518a312`), verified on Etherscan, and its creation code is
+reproduced byte for byte from this branch's sources (see [Verification](#verification)). Its
+`getConfig()` was read back on-chain at block 25,961,770 and equals the "new" column below. `DeployInboxUpgradeL1` reads
 the live proxy's `getConfig()` before broadcasting and aborts unless its five addresses are the
 `LibL1Addrs` constants it compiles in and its percentage is still 75; after deploying it compares
 the new implementation's `getConfig()` with the live one and aborts unless the percentage is the
@@ -180,7 +186,7 @@ no `sendMessage` and the batch is the one action above.
 
 ## Deployment
 
-Not run yet. `DeployInboxUpgradeL1` logs `MAINNET_INBOX_NEW_IMPL`:
+Run on 2026-09-12 with `--verify`. `DeployInboxUpgradeL1` logs `MAINNET_INBOX_NEW_IMPL`:
 
 ```bash
 cd packages/protocol
@@ -190,38 +196,40 @@ PRIVATE_KEY=<deployer> ETHERSCAN_API_KEY=<key> FOUNDRY_PROFILE=layer1 forge scri
 ```
 
 The script deploys only: no proxy upgrade, no initializer call on a live contract. It must not be
-re-run after the address is written in, and it refuses to run once the live proxy already answers 100. `MainnetInbox` links `LibInboxSetup` (its `validateConfig` is `public`), so the broadcast is
-**two** creates, the library then the implementation. Forge reports "ONCHAIN EXECUTION COMPLETE &
-SUCCESSFUL" even when the RPC dropped a transaction (it happened during the Proposal0022 deployment),
-so check the receipts, not the summary:
+re-run, and it refuses to run once the live proxy already answers 100. `MainnetInbox` links
+`LibForcedInclusion` and `LibInboxSetup` (both have `public` functions), so the broadcast was
+**three** creates, all in block 25,961,745 with status 1: the two libraries through CREATE2, then the
+implementation. Forge reports "ONCHAIN EXECUTION COMPLETE & SUCCESSFUL" even when the RPC dropped a
+transaction (it happened during the Proposal0022 deployment), so the receipts were checked, not the
+summary:
 
 ```bash
 export L1_RPC=<l1 rpc>
-cast codesize <MAINNET_INBOX_NEW_IMPL> --rpc-url $L1_RPC   # non-zero, ~23,000 bytes
-cast codesize <LibInboxSetup, first create of the broadcast> --rpc-url $L1_RPC   # non-zero
+cast codesize 0xA18431d42C8dF9778905fBEa912aCF1881b49D2e --rpc-url $L1_RPC   # 23058
+cast codesize 0x526957d1a25E9D3F5ab5a4926d07eEE5d612ED42 --rpc-url $L1_RPC   # 2407, LibInboxSetup
+cast codesize 0x511e1E5D9b9E23958076ccF1dD0033237a8cE4f8 --rpc-url $L1_RPC   # 1936, LibForcedInclusion
 ```
 
-Then, in one change:
-
-1. Put the verified address into `Proposal0024.MAINNET_INBOX_NEW_IMPL` and into
-   `DEPLOYED_INBOX_IMPL` in `test/layer1/proposals/Proposal0024.t.sol`.
-2. `P=0024 pnpm proposal` and commit `Proposal0024.action.md`;
-   `test_actionFileMatchesTheBuiltCalldata` pins it from then on.
-3. `P=0024 pnpm proposal:dryrun:l1` — the pass signal is a revert with `DryrunSucceeded()`
-   (`Controller.dryrun` is permissionless and always reverts, so the `--broadcast` in the script
-   can never send anything).
-4. Run the fork rehearsal (below); with the constant filled it executes the committed calldata and
-   deploys nothing.
-5. Fill in [Deployed Addresses](#deployed-addresses), and record the deployment and, after
-   execution, the upgrade in `deployments/mainnet-contract-logs-L1.md`.
-6. Mark the PR ready for review.
+The address was then written into `Proposal0024.MAINNET_INBOX_NEW_IMPL` and `DEPLOYED_INBOX_IMPL`
+in `test/layer1/proposals/Proposal0024.t.sol`; `Proposal0024.action.md` was generated with
+`P=0024 pnpm proposal` and is pinned from then on by `test_actionFileMatchesTheBuiltCalldata`; the
+dry run `P=0024 pnpm proposal:dryrun:l1` reverted with `DryrunSucceeded()` as designed
+(`Controller.dryrun` is permissionless and always reverts, so the `--broadcast` in the script can
+never send anything); and the fork rehearsal executed the committed calldata against the deployed
+implementation. Still to do: record the deployment and, after execution, the upgrade in
+`deployments/mainnet-contract-logs-L1.md`.
 
 ## Deployed Addresses
 
-| Contract                      | Address | Notes                                          |
-| ----------------------------- | ------- | ---------------------------------------------- |
-| `MainnetInbox` implementation | TBD     | `MAINNET_INBOX_NEW_IMPL`; codediff link TBD    |
-| `LibInboxSetup` (linked)      | TBD     | first create of the `DeployInboxUpgradeL1` run |
+Deployed on 2026-09-12 by `0x56706f118e42ae069f20c5636141b844d1324ae1`, all in L1 block 25,961,745.
+
+| Contract                      | Address                                      | Tx                                                                   |
+| ----------------------------- | -------------------------------------------- | -------------------------------------------------------------------- |
+| `MainnetInbox` implementation | `0xA18431d42C8dF9778905fBEa912aCF1881b49D2e` | `0x16532ab9b11251324578fd2f1d42b0dac2986523a19771365cefd9f9af42b533` |
+| `LibInboxSetup` (linked)      | `0x526957d1a25E9D3F5ab5a4926d07eEE5d612ED42` | `0xbbf8ec0cee3151e09b6286e19d629d4e648de60d3b17824f939dc3ff6310ce40` |
+| `LibForcedInclusion` (linked) | `0x511e1E5D9b9E23958076ccF1dD0033237a8cE4f8` | `0xf9a89d6ae2feff8a6f9f6339473fb51731eb621a6ade6052da8238b6302f3d1c` |
+
+`MAINNET_INBOX_NEW_IMPL` is the implementation; [codediff](https://codediff.taiko.xyz/?addr=0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f&newimpl=0xA18431d42C8dF9778905fBEa912aCF1881b49D2e&chainid=1) against the live proxy.
 
 ## Verification
 
@@ -230,7 +238,7 @@ Every commented value is the expected result.
 ```bash
 export L1_RPC=<l1 rpc>
 export INBOX=0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f
-export NEW_IMPL=<MAINNET_INBOX_NEW_IMPL>
+export NEW_IMPL=0xA18431d42C8dF9778905fBEa912aCF1881b49D2e
 CONFIG='getConfig()((address,address,address,address,address,uint64,uint64,uint48,uint48,uint48,uint48,uint48,uint8,uint16,uint64,uint64,uint8))'
 
 # The new implementation: the live configuration with the thirteenth field (basefeeSharingPctg) 100.
@@ -244,17 +252,34 @@ cast call    $INBOX "owner()(address)" --rpc-url $L1_RPC   # 0x75Ba76403b13b26AD
 cast storage $INBOX 0 --rpc-url $L1_RPC                    # 0x…03
 cast storage $INBOX 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc --rpc-url $L1_RPC   # 0x…5253d4c91e80b880ddb54b78e74082abe066f6b9
 
-# Authenticate the code, not just the getters. Pass signal: "Creation code matched with status full".
-# The creation code embeds the linked LibInboxSetup address, so give it to the linker through the
-# `libraries` config (the first create of the broadcast); one Etherscan V2 key is required.
-export ETHERSCAN_API_KEY=<key>
-FOUNDRY_LIBRARIES="contracts/layer1/core/libs/LibInboxSetup.sol:LibInboxSetup:<LibInboxSetup>" \
-FOUNDRY_PROFILE=layer1 forge verify-bytecode $NEW_IMPL \
-  contracts/layer1/mainnet/MainnetInbox.sol:MainnetInbox --rpc-url $L1_RPC \
-  --encoded-constructor-args $(cast abi-encode "c(address,address,address,address,address)" \
-    0x7284aaC05555Ae6559bdAd8B4221eC9584254Eec 0xFD019460881e6EeC632258222393d5821029b2ac \
-    0xEa798547d97e345395dA071a0D7ED8144CD612Ae 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C \
-    0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800)
+# Authenticate the code, not just the getters. `forge verify-bytecode` refuses library-linked
+# contracts ("Unlinked bytecode is not supported"), and compiling with `--libraries` bakes the
+# addresses into solc's metadata hash while the deployment linked after compiling. So reproduce what
+# the deployment did: build, patch the two link references with the deployed library addresses,
+# append the constructor arguments, and compare with the deployment transaction's input.
+# Expected output: CREATION CODE MATCH (24,947 bytes; reproduced on 2026-09-12).
+cd packages/protocol && FOUNDRY_PROFILE=layer1 forge build
+TXIN=$(cast tx 0x16532ab9b11251324578fd2f1d42b0dac2986523a19771365cefd9f9af42b533 input --rpc-url $L1_RPC)
+python3 - "$TXIN" <<'PY'
+import json, sys
+art = json.load(open("out/layer1/MainnetInbox.sol/MainnetInbox.json"))
+code, refs = art["bytecode"]["object"][2:], art["bytecode"]["linkReferences"]
+libs = {"LibForcedInclusion": "511e1E5D9b9E23958076ccF1dD0033237a8cE4f8",
+        "LibInboxSetup": "526957d1a25E9D3F5ab5a4926d07eEE5d612ED42"}
+for names in refs.values():
+    for name, sites in names.items():
+        for site in sites:
+            a, l = site["start"] * 2, site["length"] * 2
+            code = code[:a] + libs[name] + code[a + l:]
+args = "".join(a.rjust(64, "0") for a in (
+    "7284aaC05555Ae6559bdAd8B4221eC9584254Eec", "FD019460881e6EeC632258222393d5821029b2ac",
+    "Ea798547d97e345395dA071a0D7ED8144CD612Ae", "9e0a24964e5397B566c1ed39258e21aB5E35C77C",
+    "10dea67478c5F8C5E2D90e5E9B26dBe60c54d800"))
+match = bytes.fromhex(code + args) == bytes.fromhex(sys.argv[1][2:])
+print("CREATION CODE MATCH" if match else "MISMATCH")
+PY
+# Etherscan holds the verified source (MainnetInbox, solc 0.8.30, osaka, optimizer 200 runs):
+# https://etherscan.io/address/0xA18431d42C8dF9778905fBEa912aCF1881b49D2e#code
 
 # The calldata: regenerate and diff, then the dry run, then the rehearsal against live state. The
 # rehearsal executes the batch from the DAO controller on a fork and asserts the proxy answers 100
@@ -270,7 +295,7 @@ L1_FORK_URL=$L1_RPC FOUNDRY_PROFILE=layer1 forge test --match-contract Proposal0
 After execution:
 
 ```bash
-cast storage $INBOX 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc --rpc-url $L1_RPC   # 0x…<NEW_IMPL>
+cast storage $INBOX 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc --rpc-url $L1_RPC   # 0x…a18431d42c8df9778905fbea912acf1881b49d2e
 cast call $INBOX "$CONFIG" --rpc-url $L1_RPC          # thirteenth field 100
 cast storage $INBOX 0 --rpc-url $L1_RPC               # still 0x…03
 # The next Proposed event carries basefeeSharingPctg = 100, and the L2 blocks derived from it have

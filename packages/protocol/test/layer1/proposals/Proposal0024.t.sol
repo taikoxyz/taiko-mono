@@ -15,11 +15,8 @@ contract Proposal0024Test is Test {
     address internal constant INBOX_NEW_IMPL = 0x1010101010101010101010101010101010101010;
 
     /// @dev The deployed implementation, written out as a literal rather than read back from
-    /// `Proposal0024`, so an edit to the constant there cannot be mirrored here. Zero while the
-    /// implementation is still a placeholder.
-    // TODO(deployment): set to the address `DeployInboxUpgradeL1` logs, once verified on-chain,
-    // in the same change that fills `Proposal0024.MAINNET_INBOX_NEW_IMPL`.
-    address internal constant DEPLOYED_INBOX_IMPL = address(0);
+    /// `Proposal0024`, so an edit to the constant there cannot be mirrored here.
+    address internal constant DEPLOYED_INBOX_IMPL = 0xA18431d42C8dF9778905fBEa912aCF1881b49D2e;
 
     Proposal0024Harness internal proposal;
 
@@ -50,22 +47,9 @@ contract Proposal0024Test is Test {
 
     /// @dev Pins what the no-argument builder forwards, and with it the batch `BuildProposal`
     /// wraps: the encoding test above calls the parameterised overload directly and so bypasses
-    /// the forwarding line entirely. While `DEPLOYED_INBOX_IMPL` is zero this pins the placeholder
-    /// phase instead — the proposal's constant must be the placeholder too, and the batch cannot
-    /// be built, so no calldata can be generated for an implementation that does not exist.
-    function test_buildL1Actions_UsesDeployedImplementation() external {
-        assertEq(
-            proposal.MAINNET_INBOX_NEW_IMPL(),
-            DEPLOYED_INBOX_IMPL,
-            "Proposal0024 and this test disagree on the deployed implementation"
-        );
-
-        if (DEPLOYED_INBOX_IMPL == address(0)) {
-            vm.expectRevert(Proposal0024.ImplementationNotDeployed.selector);
-            proposal.exposedBuildAllActions();
-            return;
-        }
-
+    /// the forwarding line entirely. The deployed address is the `DEPLOYED_INBOX_IMPL` literal
+    /// rather than a read of `Proposal0024`, so an edit to that constant cannot be mirrored here.
+    function test_buildL1Actions_UsesDeployedImplementation() external view {
         Controller.Action[] memory actions = proposal.exposedBuildAllActions();
         assertEq(actions.length, 1, "an L1-only proposal appends no bridge message");
         _assertUpgrades(actions[0], L1.INBOX, DEPLOYED_INBOX_IMPL);
@@ -75,22 +59,10 @@ contract Proposal0024Test is Test {
     /// out-of-band by `P=0024 pnpm proposal`. Nothing else in the repository checks that it was
     /// regenerated after the proposal changed, so a stale file would present one set of actions
     /// for review while the code describes another. This compares the committed calldata against
-    /// what the proposal builds right now. While the implementation is a placeholder no action
-    /// file can be generated (`P=0024 pnpm proposal` reverts `ImplementationNotDeployed`) and none
-    /// may be committed: calldata for an address that does not exist cannot be the batch that
-    /// executes.
+    /// what the proposal builds right now. The implementation is deployed, so a missing file is a
+    /// failure, not a placeholder phase to skip.
     function test_actionFileMatchesTheBuiltCalldata() external {
-        string memory path = "script/layer1/proposals/Proposal0024.action.md";
-
-        if (DEPLOYED_INBOX_IMPL == address(0)) {
-            assertFalse(
-                vm.exists(path),
-                "no action file may be committed while the implementation is a placeholder"
-            );
-            return;
-        }
-
-        string memory file = vm.readFile(path);
+        string memory file = vm.readFile("script/layer1/proposals/Proposal0024.action.md");
 
         // Split on the label rather than on backtick position: the file is prettier-formatted by
         // the pre-commit hook, so line breaks are not stable but the label is.

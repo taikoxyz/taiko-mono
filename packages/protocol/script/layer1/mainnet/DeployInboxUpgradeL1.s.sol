@@ -26,9 +26,9 @@ import { MainnetInbox } from "src/layer1/mainnet/MainnetInbox.sol";
 /// already used through `LibFasterReentryLock` into the base contract at the same slot constant.
 /// So the only behavioural change this implementation ships is the sharing percentage.
 ///
-/// `MainnetInbox` links `LibInboxSetup` (its `validateConfig` is `public`), so the broadcast is
-/// two creates: the library, then the implementation. Verify both landed before writing the
-/// logged address anywhere.
+/// `MainnetInbox` links `LibForcedInclusion` and `LibInboxSetup` (both have `public` functions),
+/// so the broadcast is three creates: the two libraries through CREATE2, then the implementation.
+/// Verify all three landed before writing the logged address anywhere.
 /// @custom:security-contact security@taiko.xyz
 contract DeployInboxUpgradeL1 is Script {
     /// @notice The basefee sharing percentage the new implementation must carry.

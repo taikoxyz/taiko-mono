@@ -7,7 +7,6 @@ import { IForcedInclusionStore } from "src/layer1/core/iface/IForcedInclusionSto
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibL1Addrs as L1 } from "src/layer1/mainnet/LibL1Addrs.sol";
-import { MainnetInbox } from "src/layer1/mainnet/MainnetInbox.sol";
 import { Controller } from "src/shared/governance/Controller.sol";
 
 /// @notice Rehearses the Proposal0024 upgrade against live mainnet state.
@@ -22,10 +21,9 @@ import { Controller } from "src/shared/governance/Controller.sol";
 /// proposal hashes, the forced-inclusion queue, owner, activation timestamp and initializer
 /// version — reads exactly as before.
 ///
-/// While `Proposal0024.MAINNET_INBOX_NEW_IMPL` is a placeholder the rehearsal deploys the
-/// implementation itself, from this tree with the address immutables read from the live proxy,
-/// the way `DeployInboxUpgradeL1` does. Once the constant is filled it executes the committed
-/// batch against the deployed implementation and deploys nothing.
+/// The rehearsal executes exactly what the DAO will: the calldata `Proposal0024` builds from its
+/// constant, against the implementation that constant names, which already exists on mainnet.
+/// Nothing is deployed by the test.
 /// @custom:security-contact security@taiko.xyz
 contract Proposal0024ForkTest is Test {
     /// @dev Live values read before the upgrade, compared against afterwards.
@@ -67,8 +65,7 @@ contract Proposal0024ForkTest is Test {
         assertEq(before.owner, L1.DAO_CONTROLLER, "inbox is not owned by the DAO controller");
         assertEq(uint8(uint256(before.slot0)), 3, "inbox initializer version is not 3");
 
-        (address newImpl, Controller.Action[] memory actions) =
-            _implementationAndBatch(before.config);
+        (address newImpl, Controller.Action[] memory actions) = _implementationAndBatch();
         assertGt(newImpl.code.length, 0, "inbox implementation is not deployed");
         assertEq(actions.length, 1);
 
@@ -87,8 +84,7 @@ contract Proposal0024ForkTest is Test {
 
         assertEq(_implementationOf(L1.INBOX), _LIVE_INBOX_IMPL, "L1 fork is not pre-upgrade");
 
-        (, Controller.Action[] memory actions) =
-            _implementationAndBatch(IInbox(L1.INBOX).getConfig());
+        (, Controller.Action[] memory actions) = _implementationAndBatch();
 
         vm.expectRevert(Controller.DryrunSucceeded.selector);
         Controller(payable(L1.DAO_CONTROLLER)).dryrun(abi.encode(actions));
@@ -96,35 +92,17 @@ contract Proposal0024ForkTest is Test {
         assertEq(_implementationOf(L1.INBOX), _LIVE_INBOX_IMPL, "dryrun left the proxy upgraded");
     }
 
-    /// @dev The implementation the batch upgrades to, and the batch. With the constant filled:
-    /// the committed batch against the deployed implementation. With the placeholder: an
-    /// implementation deployed here the way `DeployInboxUpgradeL1` deploys it — `MainnetInbox`
-    /// from this tree, with the address immutables read from the live proxy — and the one-action
-    /// batch built for it.
-    /// @param _live The live proxy's configuration.
+    /// @dev The implementation the batch upgrades to, as the proposal names it, and the committed
+    /// batch: what `Proposal0024.action.md` carries.
     /// @return impl_ The implementation.
     /// @return actions_ The batch.
-    function _implementationAndBatch(IInbox.Config memory _live)
+    function _implementationAndBatch()
         private
         returns (address impl_, Controller.Action[] memory actions_)
     {
         Proposal0024Harness harness = new Proposal0024Harness();
-
         impl_ = harness.MAINNET_INBOX_NEW_IMPL();
-        if (impl_ != address(0)) {
-            return (impl_, harness.exposedBuildAllActions());
-        }
-
-        impl_ = address(
-            new MainnetInbox(
-                _live.proofVerifier,
-                _live.proposerChecker,
-                _live.proverWhitelist,
-                _live.signalService,
-                _live.bondToken
-            )
-        );
-        actions_ = harness.exposedBuildL1Actions(impl_);
+        actions_ = harness.exposedBuildAllActions();
     }
 
     /// @dev Reads everything the upgrade must leave alone, plus the configuration.
