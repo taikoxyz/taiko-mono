@@ -130,13 +130,15 @@ So the only behavioural change the new implementation ships is the percentage. N
 
 - **Drivers** (taiko-client, taiko-client-rs) derive the byte from the `Proposed` event of each
   proposal and need no restart.
-- **The whitelisted preconfer needs a restart right after execution.** Catalyst reads
+- **The whitelisted preconfer needs a restart right after execution, unless it runs a build with
+  [taikoxyz/Catalyst#4](https://github.com/taikoxyz/Catalyst/pull/4).** Today Catalyst reads
   `getConfig().basefeeSharingPctg` once at startup (`shasta/src/l1/protocol_config.rs`, built in
   `shasta/src/l2/taiko.rs`) and stamps the cached value into every block it preconfirms. A node
   still on the cached 75 after execution keeps producing blocks the drivers will re-derive with 100
   once proposed: same transactions, different `extraData`, different state root, so each such
   block is replaced at proposal time (one preconfirmation reorg per block). Until the preconfer
-  restarts, preconfirmations are not final. The taiko-client-rs proposer in engine mode reads the
+  restarts, preconfirmations are not final. Catalyst#4 re-reads the value from the inbox every L1
+  slot, so a node running it picks the change up within a slot with no restart. The taiko-client-rs proposer in engine mode reads the
   config per block (`proposer.rs`, `build_payload_attributes`) and needs no restart; the Go preconf
   block API uses the event value.
 - **One unavoidable reorg at the switch.** Blocks preconfirmed under 75 but carried by the first
