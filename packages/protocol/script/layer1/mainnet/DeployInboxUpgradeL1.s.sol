@@ -84,7 +84,13 @@ contract DeployInboxUpgradeL1 is Script {
     /// cleanly) and any numeric constant in `MainnetInbox` that drifted from the live value.
     /// @param _new The freshly deployed implementation's configuration.
     /// @param _live The live proxy's configuration.
-    function _checkConfig(IInbox.Config memory _new, IInbox.Config memory _live) private pure {
+    function _checkConfig(
+        IInbox.Config memory _new,
+        IInbox.Config memory _live
+    )
+        private
+        pure
+    {
         require(_new.basefeeSharingPctg == NEW_BASEFEE_SHARING_PCTG, ConfigMismatch());
 
         // Normalise the one field that is meant to differ, then compare the rest in one go. `_new`
