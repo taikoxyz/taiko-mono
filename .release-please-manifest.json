@@ -6,6 +6,6 @@
   "packages/protocol": "3.1.0",
   "packages/relayer": "0.13.2",
   "packages/supplementary-contracts": "1.0.0",
-  "packages/taiko-client": "2.6.0",
+  "packages/taiko-client": "2.7.0",
   "packages/taiko-client-rs": "2.2.0"
 }
