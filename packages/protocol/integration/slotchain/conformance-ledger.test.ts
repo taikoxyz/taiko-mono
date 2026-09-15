@@ -46,8 +46,8 @@ function ledger(
 ): ConformanceLedger {
     return {
         schemaVersion: 1,
-        protocolVersion: "2.27",
-        normativeCommit: "12591797dcf15fab5cfa81277546b3cecca7732d",
+        protocolVersion: "2.28",
+        normativeCommit: "4cc7bc0e3cd96ea4cf0af72aa1a9e6e03bec8e52",
         rootArtifactCount: 21,
         entries,
     };

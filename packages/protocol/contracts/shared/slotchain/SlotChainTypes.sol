@@ -35,7 +35,8 @@ library SlotChainTypes {
         FUNDS_NO_TX,
         FEE_NO_TX,
         INCLUDED_TX,
-        BRIDGE_CREDIT
+        BRIDGE_CREDIT,
+        INVALID_NO_TX
     }
 
     /// @dev Forced-ingress results use their exact ABI values. Zero is invalid.
@@ -310,6 +311,52 @@ library SlotChainTypes {
         address refundAddress;
         uint64 enqueuedAt;
         uint64 dueAt;
+        uint256 deposit;
+    }
+
+    /// @dev Exact 204-byte kind-0 admission body emitted by an adapter: the durable descriptor
+    ///      without the Router-owned `enqueuedAt` and `dueAt` words.
+    struct Kind0ForcedAdmissionV2 {
+        address sender;
+        uint64 nonce;
+        uint256 l2ChainId;
+        bytes32 rawTxHash;
+        uint32 byteLength;
+        uint64 gasLimit;
+        uint64 accountedGas;
+        uint256 maxFee;
+        uint64 validUntil;
+        address refundAddress;
+        uint256 deposit;
+    }
+
+    /// @dev Exact 525-byte kind-1 admission body emitted by an adapter: the durable descriptor
+    ///      without the Router-owned `enqueuedAt` and `dueAt` words.
+    struct Kind1ForcedAdmissionV11 {
+        bytes32 msgHash;
+        uint256 srcChainId;
+        bytes32 sourceDomainId;
+        uint64 srcEpoch;
+        address srcBridge;
+        bytes32 bridgeExecutionHash;
+        uint64 emittedAtBlock;
+        bytes32 destinationDomainId;
+        uint256 destChainId;
+        uint64 enqueueBy;
+        address sender;
+        address srcOwner;
+        address destOwner;
+        uint256 value;
+        uint64 fee;
+        uint64 liquidityFee;
+        bytes32 calldataHash;
+        uint8 refundMode;
+        address refundVault;
+        bytes32 refundCapsuleHash;
+        bytes32 escrowId;
+        uint32 byteLength;
+        uint64 accountedGas;
+        address refundAddress;
         uint256 deposit;
     }
 

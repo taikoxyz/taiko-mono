@@ -2,12 +2,12 @@
   {
     "kind": "hex",
     "name": "abort_expired_version_migration_calldata_hash",
-    "value": "fd25f40f2ca853acf79614bea11d4cd099b637d9745f37b498e5fd4c7b74c71c"
+    "value": "56575edcaa5fa02d67f6a4263d096e891473eb640dfcdf2a27d786f3b6423ba3"
   },
   {
     "kind": "hex",
     "name": "abort_expired_version_migration_return_hash",
-    "value": "189a9832d886b18a937a60c41ced32566055c9c5016cddd6eba1d0f82e987665"
+    "value": "09a1f151ee87794efcaf39eee5c8b51ebee93fa2a58406076670b51175c3f964"
   },
   {
     "kind": "hex",
@@ -23,7 +23,7 @@
   {
     "kind": "hex",
     "name": "activation_receipt_id",
-    "value": "fe1a285719dc9108b3b215f7028bf3b2ccd0dfe5304b8c10aa28139c250ee60e"
+    "value": "41c540723f4be6016743a2022a2d5ff52ec1921f9bee92fb3a8d6d63365a5380"
   },
   { "kind": "hex", "name": "activation_receipt_magic", "value": "41525631" },
   { "kind": "hex", "name": "activation_receipt_selector", "value": "0a4434d0" },
@@ -60,7 +60,7 @@
   {
     "kind": "hex",
     "name": "adopt_migration_canonical_calldata_hash",
-    "value": "50a40e4cc08b6bd1d0e7f41925829da8f15f1e7061cb9f4eae289292ae76d732"
+    "value": "64ff14ea8993bbd960d516d604e91138c24ed90186f3e8b18d4e780317e712eb"
   },
   {
     "kind": "uint",
@@ -70,7 +70,7 @@
   {
     "kind": "hex",
     "name": "adopt_migration_canonical_return_hash",
-    "value": "42eb3470cadbfeec5004afcaaf6956a03da547d5fb33a5975482d3cdb32c99fc"
+    "value": "82be694e54ae9403d3821c8ed3024442f8ec88a111ba79f762a019708b1285d4"
   },
   {
     "kind": "hex",
@@ -85,25 +85,25 @@
   {
     "kind": "hex",
     "name": "append_kind0_calldata_hash",
-    "value": "caabdaadee6df8cea48fb88dacad863e6e24e13f5b0c06f99408d5c71611788a"
+    "value": "76987f6362880e36897346f14917e9474a3b3419e110145a6ae10b303f317ef1"
   },
   { "kind": "uint", "name": "append_kind0_calldata_length", "value": "388" },
   {
     "kind": "hex",
     "name": "append_kind1_calldata_hash",
-    "value": "df92daaee8cffdd28f003e0b1c748cb294297c86cd1e79de08f03ddf15c1617a"
+    "value": "eab7942f4f3a9163a81d09cc3119a13b3eb808d182579696840563ee2a055fda"
   },
   { "kind": "uint", "name": "append_kind1_calldata_length", "value": "708" },
   {
     "kind": "hex",
     "name": "append_terminal_calldata_hash",
-    "value": "78b9b5433b2295976f9c7a1fd73d1720848c608e091ff52b548794e0a8ecd093"
+    "value": "641ebc800b7fc114c4aff92c8521d56869673b8c32373c0fa8fb4d5317134de4"
   },
   { "kind": "hex", "name": "append_terminal_selector", "value": "abc194f5" },
   {
     "kind": "hex",
     "name": "apply_protocol_change_calldata_hash",
-    "value": "e2455b0621b70484c3e08260a839921763fa094634a777e67e8933ea15cc7e9f"
+    "value": "94fa23abc3a1764e26c518168790a7405586ea31d97192a66a8ebb87c0f01e8d"
   },
   {
     "kind": "uint",
@@ -118,12 +118,12 @@
   {
     "kind": "hex",
     "name": "arm_version_migration_calldata_hash",
-    "value": "c2bfa51b10f3ec55f3c6e26acf7e2ea223c6dc62071cd6174cb7900bee35bf4b"
+    "value": "fcc70781237723aa98ab8ea4cb492ef9f3839d4e8b11ba5f89dfb23076a4cad5"
   },
   {
     "kind": "hex",
     "name": "arm_version_migration_return_hash",
-    "value": "0477be196229dc7388e176e304d7834c795b2ea6d01636020f5196eece4d3843"
+    "value": "15a5c9b7a8bbb0c40465733dd1f28f946af6ee19394bbd80154316f3cb090070"
   },
   {
     "kind": "hex",
@@ -158,17 +158,17 @@
   {
     "kind": "hex",
     "name": "bridge_credit_id",
-    "value": "c5106651fbf5aef64142a4abdbf29dd670e2464fa1fcaee8253a23b45695835b"
+    "value": "0c6ee962013c5ed1693bba2ca7ce080ddb87506a150849211f310f74f701eb22"
   },
   {
     "kind": "hex",
     "name": "bridge_escrow_id",
-    "value": "0b5dda48fd1355bc82eebd46369a48e66034fe92e15e5e49393787281782aebc"
+    "value": "48cae7396b1eaa925d3af9b37b847c2cb2dcbdd10beb11c95721bfb33095939d"
   },
   {
     "kind": "hex",
     "name": "bridge_execution_hash",
-    "value": "9cbef2cdc597906c40300da43a0b3296fb529a82094f4be32f7e8b7ed70d53af"
+    "value": "0e6dbe34a57953736c8a49c3a4c732ac854078594af56ee6b1f015ed75044239"
   },
   {
     "kind": "hex",
@@ -178,12 +178,12 @@
   {
     "kind": "hex",
     "name": "bridge_leaf",
-    "value": "db1a0c935f1173a569006488882a2abeb620ee397b0d4b57ba14f479e93d4ad2"
+    "value": "f0a1b9b38d2955e4ec985c16fa38b1dee6510f0872bd4359d19b4703d8451f48"
   },
   {
     "kind": "hex",
     "name": "bridge_result",
-    "value": "e45204346d0dea5083fef855ff0260f7b3eb64fb02548813d09e87824f4da74f"
+    "value": "50b5b48c1c00df266d456b5641d2bd53a70dd75f0f07e773c287f0e692ba598d"
   },
   {
     "kind": "hex",
@@ -423,6 +423,161 @@
   },
   {
     "kind": "hex",
+    "name": "builder_proof_admission_calldata_hash",
+    "value": "419032e2b6eb7dc900b2ad948d4fa3c0ad0eae90a8f4bf3a87d3883ee3fd3ea8"
+  },
+  {
+    "kind": "hex",
+    "name": "builder_proof_admission_request_hash",
+    "value": "99c130943aa4780be4a2888146d65d62bad146f46ab501c39b38f19a267e667d"
+  },
+  {
+    "kind": "uint",
+    "name": "builder_proof_admission_request_length",
+    "value": "531"
+  },
+  {
+    "kind": "hex",
+    "name": "builder_proof_admission_return_hash",
+    "value": "3079820b97ad6bad7583cc6cb30ee43305609059f8e84065e1525dc9e24c31a1"
+  },
+  {
+    "kind": "hex",
+    "name": "builder_proof_evidence_active_tombstoned_request_hash",
+    "value": "f50d877ccc3c8b34e53aeaf8f24b5a736dcbb2218dbf696d183fa2c86811d1fd"
+  },
+  {
+    "kind": "hex",
+    "name": "builder_proof_evidence_active_tombstoned_return_hash",
+    "value": "61d66c91433ed1527a1c6a723d1fcf205ee9447cf84e3527b04dfa051495ef69"
+  },
+  {
+    "kind": "hex",
+    "name": "builder_proof_evidence_calldata_hash",
+    "value": "a3a6c6ca62fe7d24316d0cee7ee0de5f06e40c6adaace242285ca64afff92e1a"
+  },
+  {
+    "kind": "hex",
+    "name": "builder_proof_evidence_liability_first_request_hash",
+    "value": "888a7d65c3f3a1983406860ed2b0d2fd1b69bfd0d31a711cac684c6708c37c28"
+  },
+  {
+    "kind": "hex",
+    "name": "builder_proof_evidence_liability_first_return_hash",
+    "value": "9ef06832967c75befe97ae5fd8acf0e406fa65f6d85e576ca898299aff524d3f"
+  },
+  {
+    "kind": "hex",
+    "name": "builder_proof_evidence_liability_tombstoned_request_hash",
+    "value": "7bc6a7b294fa5367712858126ef58dfa2eda8f31c5e3c3603c471be3206bb7fe"
+  },
+  {
+    "kind": "hex",
+    "name": "builder_proof_evidence_liability_tombstoned_return_hash",
+    "value": "b45686d4bcd3a50119eef2af2bb6c680a780650bca1732832f9b3ea6072c90d3"
+  },
+  {
+    "kind": "hex",
+    "name": "builder_proof_evidence_request_hash",
+    "value": "4884126f37b98d40fc17cfe5650c6010759681583f77ec0ea1a98e4ce4146df6"
+  },
+  {
+    "kind": "uint",
+    "name": "builder_proof_evidence_request_length",
+    "value": "2727"
+  },
+  {
+    "kind": "hex",
+    "name": "builder_proof_evidence_return_hash",
+    "value": "e819ea5ae5e51165d90cfe78dd7dcf5d735a63e27e37303d676b7c77c3cac94f"
+  },
+  {
+    "kind": "hex",
+    "name": "builder_proof_identity_calldata_hash",
+    "value": "f0d8b62d48dd72c084429376812ef30107e1558b684765a37524786dd12ed2ec"
+  },
+  {
+    "kind": "uint",
+    "name": "builder_proof_identity_calldata_length",
+    "value": "2468"
+  },
+  {
+    "kind": "hex",
+    "name": "builder_proof_identity_return_hash",
+    "value": "aa499309f356e043c34991f9ae6d5602e6ece692eb6a8f8281cce0a94f9a61e9"
+  },
+  {
+    "kind": "uint",
+    "name": "builder_proof_identity_return_length",
+    "value": "320"
+  },
+  {
+    "kind": "hex",
+    "name": "builder_proof_identity_selector",
+    "value": "7c09d62d"
+  },
+  {
+    "kind": "hex",
+    "name": "builder_proof_registry_calldata_hash",
+    "value": "3bc203afce7c1aeb21360ea97544bc6991a216025b5ce2c37e065a4bc1588246"
+  },
+  {
+    "kind": "hex",
+    "name": "builder_proof_registry_request_hash",
+    "value": "63fa85a7efd66ff4db6c06fdd6dbfa44541d8274c1ca8739daa9796f382ff10a"
+  },
+  {
+    "kind": "uint",
+    "name": "builder_proof_registry_request_length",
+    "value": "432"
+  },
+  {
+    "kind": "hex",
+    "name": "builder_proof_registry_return_hash",
+    "value": "254f7c15aa1a9533874d6e6409c2ea709f696d80474c8f485c22d355f2ffd3ca"
+  },
+  {
+    "kind": "hex",
+    "name": "builder_proof_request_selector",
+    "value": "a9ca9190"
+  },
+  {
+    "kind": "hex",
+    "name": "builder_proof_tranche_calldata_hash",
+    "value": "5b5ed9cdd24cab6214555f3c72269b69c17bb2d2f344dbf4c213b9b840ca023c"
+  },
+  {
+    "kind": "hex",
+    "name": "builder_proof_tranche_request_hash",
+    "value": "f565dd15d53c115c993356953af777950dc0408106a85a53501da7b54fdb762d"
+  },
+  {
+    "kind": "uint",
+    "name": "builder_proof_tranche_request_length",
+    "value": "412"
+  },
+  {
+    "kind": "hex",
+    "name": "builder_proof_tranche_return_hash",
+    "value": "c5980443c2976303be7176297d57a75020e23dbf0fd9717f384e3a6012264594"
+  },
+  {
+    "kind": "hex",
+    "name": "builder_proof_verifier_config_hash",
+    "value": "f1a01e067ec17b34e4f190810b2ebedfddd92a125705d2fd60134ce361ffac1a"
+  },
+  {
+    "kind": "hex",
+    "name": "builder_proof_verifier_config_return_hash",
+    "value": "eb1e75edfa0e3c8e1809071f51985fbdc2848eb8f65d7378d979a62b6d1ac862"
+  },
+  {
+    "kind": "hex",
+    "name": "builder_proof_verifier_config_selector",
+    "value": "0d1c9932"
+  },
+  {
+    "kind": "hex",
     "name": "builder_register_builder_selector",
     "value": "5fc42c69"
   },
@@ -623,7 +778,7 @@
   {
     "kind": "hex",
     "name": "cancel_protocol_change_calldata_hash",
-    "value": "1150396ec80ab15d6114dcb6d9af4ffc002e73aa6fd8a4b8abe5ec4f965c2de8"
+    "value": "a1beb673d2446707e01b01114d5ced5b1e795bd6b4592d76b6b32bed1db9a5d7"
   },
   {
     "kind": "uint",
@@ -648,7 +803,7 @@
   {
     "kind": "hex",
     "name": "candidate_committed_v2_data_hash",
-    "value": "b1a1c3b00047866df3f97906f333e10d1f99e5d280ef5e4e2b1d75426cedf66c"
+    "value": "a26db3a697d30991f1d072bf0d4ba524aad16e8788cdd1debf7e4106ebeab363"
   },
   {
     "kind": "uint",
@@ -663,7 +818,7 @@
   {
     "kind": "hex",
     "name": "candidate_committed_v2_topic1_candidate_id",
-    "value": "1cf4bd5b3cd62ac1536b8d5fb6f59ad36714ba167500d28d0550919cb8bcd4b5"
+    "value": "b9412b5e5219b7988b3596e09640e7587287d7f8310249c74520b6434eda1f6a"
   },
   {
     "kind": "hex",
@@ -678,7 +833,7 @@
   {
     "kind": "hex",
     "name": "candidate_committed_v2_topics_hash",
-    "value": "dab773a621fd51393573d360b1bf22b3c8a02ccf86f648e8a360afe58767a6b7"
+    "value": "77106643eee1dcb4389e168c2a370881c835b22e4095b122c2411fdfb151a8fc"
   },
   {
     "kind": "hex",
@@ -693,7 +848,7 @@
   {
     "kind": "hex",
     "name": "claim_reward_v1_calldata_hash",
-    "value": "2846430d72642a27dea955062121dada761b63298e39e1808143f180bc4166b5"
+    "value": "666a9a9fe7ffd5b6ebc6f2cd8fddf7c59e02ce2c929052989dbd17f6a15e05fa"
   },
   { "kind": "uint", "name": "claim_reward_v1_calldata_length", "value": "36" },
   { "kind": "uint", "name": "claim_reward_v1_paid_wei", "value": "1000000" },
@@ -717,12 +872,12 @@
   {
     "kind": "hex",
     "name": "credit_authorization_v2_calldata_hash",
-    "value": "227848358a3cd4e9ef5f4ecceadfa5cfd86ddffff834294b2334fe25eaaf8ef3"
+    "value": "5b3dbd7b9fbf879be8eae220d9b1ca48acbe835a2e33e0847feb7b13012c2925"
   },
   {
     "kind": "hex",
     "name": "credit_authorization_v2_return_hash",
-    "value": "9e8a37429dfc1a22ff4038b9b2ff482ba9a9e119c7ad927523c9a5ccc95be7ca"
+    "value": "1d28cf5b4cdec8313583691f369434114410ea52dc065fbdce93f1cb6f0f2bc6"
   },
   {
     "kind": "uint",
@@ -737,7 +892,7 @@
   {
     "kind": "hex",
     "name": "credit_liability_v2_calldata_hash",
-    "value": "ec89858c0fa39cbe87c64f118848ab5f9c03a4591dda74a6ac5810075bf2827e"
+    "value": "1f0595cfa35e9b4bbefba6399eed058119365de342c04652033f12430eaf0b3c"
   },
   {
     "kind": "hex",
@@ -804,7 +959,7 @@
   {
     "kind": "hex",
     "name": "data_session_config_hash",
-    "value": "1f5892da9707d55c822c1597b60ded412f68aa636dfa6e6f0b1053cd0d98d9e2"
+    "value": "34595a6d8a662ccfd6df02d62878d8056d9a66e7b437ea8e4ae71547c245befe"
   },
   {
     "kind": "hex",
@@ -839,7 +994,7 @@
   {
     "kind": "hex",
     "name": "destination_activation_receipt_id",
-    "value": "707a17c9be25fbf86e4ac02af3aea51be5db1321fa3d001eb53d44e225d070ed"
+    "value": "3f53b62e367b561e3c383acefcba6cb734f6cf6c6cb9d30eb8d182c0704c215a"
   },
   {
     "kind": "hex",
@@ -849,7 +1004,7 @@
   {
     "kind": "hex",
     "name": "destination_attempt_digest",
-    "value": "3d51eda3342c1f52a22fa63edce23987b1ca2684882f990afd582e37faa65597"
+    "value": "16c2e0834db5d1bb99d9caf4faa5df55e7f96b1367bb0a953491b14ca48658be"
   },
   {
     "kind": "hex",
@@ -859,7 +1014,7 @@
   {
     "kind": "hex",
     "name": "destination_context_hash",
-    "value": "268eefa5b77b992593b016ab07f59756bc34b451190306c7662c9f80147ef839"
+    "value": "80f8dd44a490532ac936ee8dfa120e2a295de8d3cec6794e385fa22cdb786d81"
   },
   {
     "kind": "hex",
@@ -869,17 +1024,17 @@
   {
     "kind": "hex",
     "name": "destination_domain_id",
-    "value": "123173ae26db2c61b26412a377907f65420237d7c36efc79c59710e43e6be77e"
+    "value": "d6ddeebbc91b1598dbfcad8ab0294d259c1cef3bb90b561972dc3db93013c7da"
   },
   {
     "kind": "hex",
     "name": "destination_infrastructure_hash",
-    "value": "766a9dc18c36febd06b3818232d6bd0004b16cc2b5bd1a3239585d66fb361566"
+    "value": "45181a732547880cda31149841924970b3d5b724b472f79f3f57e8c05c853495"
   },
   {
     "kind": "hex",
     "name": "destination_registration_commitment",
-    "value": "9f842eed2141aa1ae1d1f9b5b3368269b5b46dcbeb20ff4db2d0b46a98b0ad14"
+    "value": "c303729b6c8a386a5769c52bb8d393a0869e78e4780457790071aa24960cb4b9"
   },
   {
     "kind": "hex",
@@ -919,7 +1074,7 @@
   {
     "kind": "hex",
     "name": "empty_data_session_accounting_return_hash",
-    "value": "31d3a773e551c0b29893d2d7c58dc48589a1c453e81a59eda031109aeb2d7db9"
+    "value": "7126f20b8b0eaa777b9fdb2a563101c7b1d52742f01c2e324f7447d232c705a8"
   },
   {
     "kind": "hex",
@@ -994,7 +1149,7 @@
   {
     "kind": "hex",
     "name": "execute_attempt_calldata_hash",
-    "value": "00a9fc29d7a0a4a14fb1790824d4c42b97d1eab02672b1551db3988148344ca9"
+    "value": "74361f3f639e92dff5264eeb51e0f986ef2aa1c6dd1bc2ffab3827c29b40dcd5"
   },
   {
     "kind": "uint",
@@ -1031,7 +1186,7 @@
   {
     "kind": "hex",
     "name": "execution_profile_hash",
-    "value": "337af20da4384bcb1d1114617af1a3d8e44c5c7722bf11c1f31c850c9274f7e0"
+    "value": "e2e555222a3cece2d92ae55d4014899671be8f760e9db24e8c4eefd45f7c919e"
   },
   { "kind": "uint", "name": "execution_profile_static_words", "value": "282" },
   {
@@ -1065,7 +1220,7 @@
   {
     "kind": "hex",
     "name": "finalize_failed_attempt_calldata_hash",
-    "value": "6fc23b1533a08c2de1c30cc9998e54896b7a038ba9ebae9fd74c3fe8c9f89584"
+    "value": "5317d1368983c54dcd155b5afa7d7c7a6cc04061cd14e6c4baa60e83460d713b"
   },
   {
     "kind": "hex",
@@ -1099,8 +1254,84 @@
   },
   {
     "kind": "hex",
+    "name": "forced_queue_advance_selector",
+    "value": "d59ff200"
+  },
+  {
+    "kind": "hex",
+    "name": "forced_queue_append_selector",
+    "value": "a8e5d8d0"
+  },
+  {
+    "kind": "hex",
+    "name": "forced_queue_appended_topic",
+    "value": "79250628d474df83f40598f02c49d25e713fb04a8ef4bd4457fa70055a86f489"
+  },
+  {
+    "kind": "hex",
+    "name": "forced_queue_authority_migrated_topic",
+    "value": "5f72c8debc696f92d7ef7018d28b559f85d9cbad9262eb372ae1ed69cde296f1"
+  },
+  {
+    "kind": "hex",
+    "name": "forced_queue_claim_withdrawn_topic",
+    "value": "93cc2e9cd74702c3df0d771c2b1901ca496935e81636c3e6f0e5d7e0d7f5dd74"
+  },
+  {
+    "kind": "hex",
     "name": "forced_queue_config_hash",
-    "value": "72e27c19ebfab08e1fb27feeff50609c7c4bb69f0570a7bdb72eda7736c50f4e"
+    "value": "83b6bbb84a479fd81c3a12452aae319c66a72c95cf4138e8e2005e9bee58eeef"
+  },
+  {
+    "kind": "hex",
+    "name": "forced_queue_config_return_hash",
+    "value": "65ea23a3e7f611c0a7876cebbd1714ff6bfc7be5173b882ba58ab6cffc8f0d24"
+  },
+  {
+    "kind": "uint",
+    "name": "forced_queue_config_return_length",
+    "value": "256"
+  },
+  {
+    "kind": "hex",
+    "name": "forced_queue_config_selector",
+    "value": "8136fe31"
+  },
+  {
+    "kind": "hex",
+    "name": "forced_queue_cursor_advanced_topic",
+    "value": "972ed56e80520f8e90eb897f4f0e5b59f1167d96d3b28e0432f80c96c53aff17"
+  },
+  {
+    "kind": "hex",
+    "name": "forced_queue_descriptor_selector",
+    "value": "bd9534db"
+  },
+  {
+    "kind": "hex",
+    "name": "forced_queue_due_at_selector",
+    "value": "530fd138"
+  },
+  {
+    "kind": "hex",
+    "name": "forced_queue_empty_state_return_hash",
+    "value": "2db8517c2033250559075bc49d50b318266449889905fdb42c96002213a8a158"
+  },
+  {
+    "kind": "hex",
+    "name": "forced_queue_frontier_selector",
+    "value": "7c339ff7"
+  },
+  {
+    "kind": "uint",
+    "name": "forced_queue_state_return_length",
+    "value": "320"
+  },
+  { "kind": "hex", "name": "forced_queue_state_selector", "value": "03e0d70b" },
+  {
+    "kind": "hex",
+    "name": "forced_queue_withdraw_selector",
+    "value": "c28aa0e8"
   },
   {
     "kind": "hex",
@@ -1141,12 +1372,12 @@
   {
     "kind": "hex",
     "name": "freeze_migration_source_calldata_hash",
-    "value": "4d7ba468b5624b7f1f3f4d82d683ff1ea560d84864f3c0f3bcc4c4cf769fb416"
+    "value": "e8634cf35fc1c88a35c5eb84c0baf24c4adfbc69f58c0a5da7ac9ab00b45e8b6"
   },
   {
     "kind": "hex",
     "name": "freeze_migration_source_return_hash",
-    "value": "df98e88fd5c7156573cdeae28bd10772822738ad96f4dab795722dc34a86da74"
+    "value": "76fb162627c863cf3017e791dcd7d4a3cc2b57d7a9245f7eaf0b633748ed3b65"
   },
   {
     "kind": "hex",
@@ -1176,12 +1407,12 @@
   {
     "kind": "hex",
     "name": "funded_data_session_accounting_return_hash",
-    "value": "503889bfc0f8c51e3c2f35bac05eeb8c5b2c64b2c682e70f2230000d4a4c973a"
+    "value": "b6811f3a0d73d68a880aeb8228ec6142bc3d0182b2107cfdc0a5c7a816322e20"
   },
   {
     "kind": "hex",
     "name": "genesis_activation_calldata_hash",
-    "value": "9cf4c811dab79add0e206b2a71db666bd021c75e596581b5e2383c9d0e940948"
+    "value": "22071d47555b282080e7afaf0b1e1d6479c6dbe8a2705d7e81e77f737d39e02f"
   },
   {
     "kind": "uint",
@@ -1191,12 +1422,12 @@
   {
     "kind": "hex",
     "name": "genesis_activation_context_hash",
-    "value": "5cb8d101e134be9a2abfc502842cacdf0cd4aa0879fbb15b0deebbc9f33229f6"
+    "value": "70ec0e1fd3e7ae0031c75b5ee4ae131975311e1645b41d1c4a6bb5d9d3629b01"
   },
   {
     "kind": "hex",
     "name": "genesis_activation_context_return_hash",
-    "value": "72360be4e15ecfaac3ad38477f9c8d4bd84b0605a15911489fa253182f147b9f"
+    "value": "562ddcb527dd6b3b15a97c2a3fb3ed7b5dcd9286f450ac840b4796356a933b37"
   },
   {
     "kind": "hex",
@@ -1206,17 +1437,17 @@
   {
     "kind": "hex",
     "name": "genesis_activation_receipt_calldata_hash",
-    "value": "72c50dc4d29be24ead87fcc8a6d9e967d46239108acc8c800b4dc58b7b0d093b"
+    "value": "bb673b5ed1502d6632c5138c92cbfdfe3662b4bff6db3b0ecb0c6c5942272886"
   },
   {
     "kind": "hex",
     "name": "genesis_activation_receipt_id",
-    "value": "5d25dea0a342b3083e04ee7c6b502787b7151d5d7511b87880b2e81c6dbe28f7"
+    "value": "41141c82810f1467f87a6781cbc4577d0e1dc384c9972af2385e1974d0ca7816"
   },
   {
     "kind": "hex",
     "name": "genesis_activation_receipt_return_hash",
-    "value": "021499de70122138d7619f4134f81310f2afef61aa1f8836f1f41a808e0351c1"
+    "value": "c197682e980d5ff3ecb51c87cb6a170a01bda86dcbb32246eb03ec36c47af523"
   },
   {
     "kind": "uint",
@@ -1226,17 +1457,17 @@
   {
     "kind": "hex",
     "name": "genesis_adopt_migration_calldata_hash",
-    "value": "d02433b236c95fa4d5b910900248b2519b29c16713c9e9d800c8d654764a86a5"
+    "value": "d7e8f50400780744d21b0adc4f737de372649c61e985ea847ee43e010c5a94b2"
   },
   {
     "kind": "hex",
     "name": "genesis_adopt_migration_return_hash",
-    "value": "b64da100aea883427e30196e02b6da2a42c55b828aff1f65476ffd97b3baae50"
+    "value": "e7cc1936e12a9f9b0f96a1916de4434c02a4b6de50bd8e26bbfe9a45b1da7c9d"
   },
   {
     "kind": "hex",
     "name": "genesis_adoption_commitment",
-    "value": "86b16e2bd22cca5b2725389cc77293f8898b63eaedcdaece281f1ee4a84aa373"
+    "value": "6cf66f33cb491764534d199ef509d18149559180a8bd4cbf14e99ed2a0d44598"
   },
   {
     "kind": "hex",
@@ -1256,12 +1487,12 @@
   {
     "kind": "hex",
     "name": "genesis_deployment_commitment",
-    "value": "85949c3790c2ab6f779db6886a10f0955323fc131bfd221c41274f646c9ea68f"
+    "value": "9e5b3a72d4a0df05dc5e349fcb9c8cbc2c6ca4b1e08f92b647cea9506bf7d4c3"
   },
   {
     "kind": "hex",
     "name": "genesis_migration_statement_hash",
-    "value": "a38c7aff541b909f98dfdf7add5a460ab05ee9c79242b40c9f161848d82ed41b"
+    "value": "90b68499e5d43c14ffa9f68b54db66eb0dabfb1c08ec7f2b47ade8e838d33c88"
   },
   {
     "kind": "hex",
@@ -1271,32 +1502,32 @@
   {
     "kind": "hex",
     "name": "genesis_queue_migration_calldata_hash",
-    "value": "9711f98e5fc6360d6012ea6ad259d985d41e725ea5917b8d804785a72d70ef2a"
+    "value": "5cfec441702838b28cc557611e3fdb10cee150086b364edb7cdded1abfc41823"
   },
   {
     "kind": "hex",
     "name": "genesis_queue_migration_return_hash",
-    "value": "b5a8436b577f5fdf6e2c182a83891ea034f4967c30290d99a145de7a54902f94"
+    "value": "2f3293fb88328007b51ce87b82bfcd698240349f9bb429d0780e3e311815cd1d"
   },
   {
     "kind": "hex",
     "name": "genesis_queue_post_state_commitment",
-    "value": "e888b04d0fcd928974d8b3aa85c5cba6e9808d1595008249158c6ccf6f0fffb2"
+    "value": "7850444c2e39a93724ec63ed43ef4a914fca31e1bcac90ee8726cf7184176b19"
   },
   {
     "kind": "hex",
     "name": "genesis_queue_post_state_return_hash",
-    "value": "7adc2df52b49a2a54d4947085c1acdd93ff8dc133b8a4f140f39d6dee85a5b36"
+    "value": "594e74149d736f96430f78d9b6f0f46728e2eadb9541376f64cd42cfe5a9bce8"
   },
   {
     "kind": "hex",
     "name": "genesis_source_post_state_return_hash",
-    "value": "0772f2b34e181b273368885e5cbe04bbc2c2f9e15f5ac4094ebee3ea20d7bd88"
+    "value": "c5f3c2fd577cf888bbcd15c467043bebe507ca2cc6ed91faeb420cc28920f192"
   },
   {
     "kind": "hex",
     "name": "genesis_target_post_state_return_hash",
-    "value": "f607130c9bda5907ee38ae44a40d0e26d377f9ba7189d7e1eeba621ee597e680"
+    "value": "4e3aa9fd0199e48120ecf0b9ce7cce2267f4e9ccb8c1ef7eb941a1ea5537ea3b"
   },
   {
     "kind": "hex",
@@ -1312,7 +1543,7 @@
   {
     "kind": "hex",
     "name": "inbox_apply_maximum_calldata_hash",
-    "value": "482e577c83a59251b7f30b73d98223ac6ad88550d8355b6d444169f5b982a7ae"
+    "value": "73002811cb115ed748ecf343eb62f41c195f31cf35b373dbad55b2f8a4793782"
   },
   { "kind": "hex", "name": "inbox_apply_selector", "value": "6b326168" },
   { "kind": "hex", "name": "inbox_batch_magic", "value": "49425632" },
@@ -1324,17 +1555,17 @@
   {
     "kind": "hex",
     "name": "inbox_credit_slot",
-    "value": "afae055286a47fcc5a76c3b75bef8aea556d024f5249c28372e59672f222caf4"
+    "value": "c4d0ee7539dfc00bb8e367f41c0bf8ae739fda600cfa6e6007d466815b251a72"
   },
   {
     "kind": "hex",
     "name": "inbox_route_config_hash",
-    "value": "9cc87d80608fb3cc866707547127aa776556ecfb64db4e398ae337620e76aac4"
+    "value": "5cd56504fe45ee5f3ccf9fed4cc05f600acbe66007743878e0e0e6c25135edaa"
   },
   {
     "kind": "hex",
     "name": "ingress_authorization_root",
-    "value": "31612dec382343351a15ff38ea1bb5d8aab57060c9ca1abc7f614aeac3944612"
+    "value": "3f791618786188f25b97e1ce30e7e34da18e817b699136f175eb49aac7dbf02b"
   },
   {
     "kind": "hex",
@@ -1374,12 +1605,12 @@
   {
     "kind": "hex",
     "name": "install_settlement_authorization_calldata_hash",
-    "value": "c6932ff363250f9a6a652f1b5e164587c301877608e334b1184ea124ab971e96"
+    "value": "5648bc439ad8da33052ed2aa53ba5f06b4aa3dc667133faf55aa60f677dc1bb6"
   },
   {
     "kind": "hex",
     "name": "install_settlement_authorization_return_hash",
-    "value": "565be7aaeb73004156cf9a9fdc3c86007499e6132d421ebd91fb8824e6b0c27f"
+    "value": "61833133fa1edddd4465eda12bd5067f8aec001eb68b99e880d57a81d3b77bee"
   },
   {
     "kind": "hex",
@@ -1388,8 +1619,13 @@
   },
   {
     "kind": "hex",
+    "name": "invalid_no_tx_disposition",
+    "value": "9fc2f5e3050526ce19060baf8c933d9c6335233f71eba46b1e1dacf370f863ad"
+  },
+  {
+    "kind": "hex",
     "name": "invocation_policy_calldata_hash",
-    "value": "1afc4535bd77a4ea1d1d4888dcdca5e5e1cc1e7ab081bbfa84ee3236224d987d"
+    "value": "b045e64d9c694ddac60d87bdaf025c33f557b65b0cd9036982dd5fcd160ee538"
   },
   {
     "kind": "hex",
@@ -1414,13 +1650,35 @@
   },
   {
     "kind": "hex",
+    "name": "kind0_forced_admission_hash",
+    "value": "3733764f042a48dfc4376c14c2f9c253f3a0ae0fc8e72a1e9e5ffd00aa9a0f3d"
+  },
+  { "kind": "uint", "name": "kind0_forced_admission_length", "value": "204" },
+  {
+    "kind": "hex",
+    "name": "kind0_forced_admission_schema_hash",
+    "value": "6c5da3090966e605a84a39083d1e31c8a975527faff01d52a6728eea90c03700"
+  },
+  {
+    "kind": "hex",
     "name": "kind0_ingress_authorization_id",
     "value": "c825101ced1a3a9749e8923e95680e717166327dbe26572999c134a18829caad"
   },
   {
     "kind": "hex",
+    "name": "kind1_forced_admission_hash",
+    "value": "36df47d1d2ac56345ae28cb5e94cf996cdceeff066e2e7205180c806320908a6"
+  },
+  { "kind": "uint", "name": "kind1_forced_admission_length", "value": "525" },
+  {
+    "kind": "hex",
+    "name": "kind1_forced_admission_schema_hash",
+    "value": "cfb1dda476f639a31808d971226ec0c5bb87b92958e25a8ec0113122e98ddbd4"
+  },
+  {
+    "kind": "hex",
     "name": "kind1_ingress_authorization_id",
-    "value": "3728bb4741d1ecd493da584356b9421882aedb92bc7dafc7ebd4961a7ec89c1e"
+    "value": "a2d8a68a0680411991452563433c890e58dc6c041bca7de26686a84fa7358368"
   },
   {
     "kind": "hex",
@@ -1507,7 +1765,7 @@
   {
     "kind": "hex",
     "name": "legacy_genesis_abandonment_receipt_hash",
-    "value": "4bd3ba4d13a7e4804ef5763512b6507dbd2cdc9e61ade520ab0dc01b85d26fbb"
+    "value": "505ed672213fd78e9aa332d0b90636f6962f07d0d73e4d2927089876d4491ce4"
   },
   {
     "kind": "hex",
@@ -1517,7 +1775,7 @@
   {
     "kind": "hex",
     "name": "legacy_genesis_arm_calldata_hash",
-    "value": "d851c1e0226abf7ff5f7d184d15aac20d7efd766a082762cd358e30b7e7f52e1"
+    "value": "1c7924805c2b9ce70ebe5ba35022c8e894abdbfbc1ca75d0b308f5d220272fd9"
   },
   {
     "kind": "uint",
@@ -1527,12 +1785,12 @@
   {
     "kind": "hex",
     "name": "legacy_genesis_arm_id",
-    "value": "aa655ba061439f7d14b9d812788696cee4ca730999b4ac9ef4565ec4a0e9f6ba"
+    "value": "6677efaf9754c16c5d860ed96dcad4a3c960313cfdec4a3dde9ece805f95d481"
   },
   {
     "kind": "hex",
     "name": "legacy_genesis_arm_return_hash",
-    "value": "1de07ed4bd5c4a5e2ac1d10e461dce8f6ff5c95d352f56a46542c19b6afbd5ca"
+    "value": "dd2ee4475e7069f2736abbeca7354c113a6dc8c042ed379f85d68cde3ac266c4"
   },
   {
     "kind": "uint",
@@ -1543,7 +1801,7 @@
   {
     "kind": "hex",
     "name": "legacy_genesis_begin_scan_calldata_hash",
-    "value": "4712fde37daab0436ac6f5a897bab2bd41d01f5f3824c2d96930db0c8baf5255"
+    "value": "af52dc0846742e4da9ba96500e6b751aec00fb8dab6997c5d858aecb3dd1c1d5"
   },
   {
     "kind": "hex",
@@ -1573,7 +1831,7 @@
   {
     "kind": "hex",
     "name": "legacy_genesis_campaign_id",
-    "value": "d5c6d5c68c3bb519bd61d195bba4ebdf222659b029e8c3463f41c85121e82598"
+    "value": "75a24ae4460eef3dc3a65bfa5c64230324a5847393534f14ff510eff778bbc00"
   },
   {
     "kind": "hex",
@@ -1583,7 +1841,7 @@
   {
     "kind": "hex",
     "name": "legacy_genesis_campaign_return_hash",
-    "value": "f75237e94a0425d2dca3550ac2a134d73ede1900e78dd43eaa24e7b15aed25a6"
+    "value": "78b64c7f6d7e6c9e723f5e1c5c478b959616d90ca919f70f060eab419b340ede"
   },
   {
     "kind": "uint",
@@ -1613,7 +1871,7 @@
   {
     "kind": "hex",
     "name": "legacy_genesis_expire_calldata_hash",
-    "value": "7d3b3bde01008e9797c5ab9a72290f4b60ae99aa9732b1c501f9386a9cdb9034"
+    "value": "aa20b2f1a9d896575963866a94debfa615b605a816164ef2e15b3b6b8969de8f"
   },
   {
     "kind": "hex",
@@ -1628,7 +1886,7 @@
   {
     "kind": "hex",
     "name": "legacy_genesis_finalize_calldata_hash",
-    "value": "be8c60a58db3ab3cca3af444c2dd4abe250d72a21de30811644d12eb616cada3"
+    "value": "f39def7401e28caae32acd1437ae720dd17613184d8f782df6effb493544d16a"
   },
   {
     "kind": "uint",
@@ -1638,7 +1896,7 @@
   {
     "kind": "hex",
     "name": "legacy_genesis_finalize_return_hash",
-    "value": "cafce29f853f58b3c7ea62c49712cfc6adf82b6ac3a2bb6a86b999c8c08746ca"
+    "value": "a0a97e0c688b27cb601291eb817a8cb2d6781a871306783f5fa6cc52490ea26b"
   },
   {
     "kind": "hex",
@@ -1663,12 +1921,12 @@
   {
     "kind": "hex",
     "name": "legacy_genesis_launch_id",
-    "value": "ca69971b063c73c6ad888ff8b03bfc883d50f344d67ea97a98a5b6ff654b8d97"
+    "value": "b0e237efe47d0f14abb65e1731079872080587791caeee5011a9f7f6af8f2207"
   },
   {
     "kind": "hex",
     "name": "legacy_genesis_post_state_commitment",
-    "value": "838993e556c84ccbc0c320774e7c659cca05e94c0c699a2256b9e69027bc164b"
+    "value": "fd9c135419af44d79907ccaf2f38d535b7755eaf721873c4401bb0ffe3f2bc9a"
   },
   {
     "kind": "hex",
@@ -1718,12 +1976,12 @@
   {
     "kind": "hex",
     "name": "legacy_genesis_quiescence_calldata_hash",
-    "value": "e47218125d960cb257c6fa1596f88348578b9908083c842a5347d79b96780e8f"
+    "value": "fbe64f67372a1679ab504abeacdc2b21f91294128a13b2aa31b58ab5f0fa928e"
   },
   {
     "kind": "hex",
     "name": "legacy_genesis_quiescence_return_hash",
-    "value": "3dc5e88c76602c611a06f4b9fd3855408e355644345fd7b39b36f2b80a9e43b1"
+    "value": "202e060e54a1d719cf9a38487639625bd9f8f46cd20a883bf89197684bb5b444"
   },
   {
     "kind": "hex",
@@ -1733,17 +1991,17 @@
   {
     "kind": "hex",
     "name": "legacy_genesis_quiescent_state_return_hash",
-    "value": "b340b1a1d8b98d88589ee21c21c73cc9d9ebfed82ce04dea6a12dcc45e57b571"
+    "value": "a58d8dc413b380c6193d93dc549e361d58ebc8f8ce3fbf35329b2e85edbcf5b3"
   },
   {
     "kind": "hex",
     "name": "legacy_genesis_ready_state_return_hash",
-    "value": "87f6691efa8153ee61b6c8e9e4120c833a0a4751404505d503b2dbdb87f8c1b0"
+    "value": "cf7f77647f5983fb6195397ebf21fde6cb12e920af8614841ade644ea7bb9c00"
   },
   {
     "kind": "hex",
     "name": "legacy_genesis_resume_calldata_hash",
-    "value": "bbb7f10d2f39a4a3055d149ec2e298afa97691f8c093463de6d8840a8b966b1e"
+    "value": "4ffaaa379aba04a1552745b701c283be1860ceecb3d2970457f14792434583bd"
   },
   {
     "kind": "hex",
@@ -1753,7 +2011,7 @@
   {
     "kind": "hex",
     "name": "legacy_genesis_resume_return_hash",
-    "value": "3cd6a7e9657fb900e514ae8ebce03563cb5935f7329cf9a3b66d6394ae19e132"
+    "value": "e2f91c31c3384496ea963e0ff9e6feddd6bffe8f9e7725209ec288fa7186524f"
   },
   {
     "kind": "hex",
@@ -1773,7 +2031,7 @@
   {
     "kind": "hex",
     "name": "legacy_genesis_review_commitment",
-    "value": "b03de0adc63c57b33059873973415ab2209978d0ca4cca3f21e13205bd55b525"
+    "value": "def332a418f7e336cf5d5a032d5bb78358c91e72766f716947b385b7d98e90a6"
   },
   {
     "kind": "hex",
@@ -1788,12 +2046,12 @@
   {
     "kind": "hex",
     "name": "legacy_genesis_scan_commitment",
-    "value": "9b5adcc7f184f1fc51c9359e5786ac28e198ed1e782c3d0300edec6ba898b041"
+    "value": "cc54752fab9741291d293c6980c0dcc6d5a746a753b1087e6e1e63fd46c4e97e"
   },
   {
     "kind": "hex",
     "name": "legacy_genesis_scan_forced_calldata_hash",
-    "value": "02f4c69ff081017207dc8198c4b2030654785a53fed752e1535f512c058e8bc4"
+    "value": "173d5d6c302515d32084b7e468fe715d9bd2e6cd6aa86ce43a2b22cf14e222e4"
   },
   {
     "kind": "hex",
@@ -1808,7 +2066,7 @@
   {
     "kind": "hex",
     "name": "legacy_genesis_scan_proposals_one_calldata_hash",
-    "value": "f55782007b1e90842b19b4ee2e1bcf5214c3d0418604027fde8b1b6077ae2355"
+    "value": "ac3ccf313cf449d5a70a5f59eeaf97f7c92142ecc3255e52d7eda27a24f6a741"
   },
   {
     "kind": "uint",
@@ -1828,7 +2086,7 @@
   {
     "kind": "hex",
     "name": "legacy_genesis_scan_proposals_sixteen_calldata_hash",
-    "value": "cc946b42ff93fd824cee363272241b4d88ce00b940cf0e5627cb7c9c7b4e8cef"
+    "value": "247ed256cb5b7b403e40c56e2814749d6f5ba4ca44969523c276217846aa761a"
   },
   {
     "kind": "uint",
@@ -1838,7 +2096,7 @@
   {
     "kind": "hex",
     "name": "legacy_genesis_scan_state_return_hash",
-    "value": "8dc8b5fe3c9a0f764fa4a222801a4b799e554be38b895014078dc3346bf1da3a"
+    "value": "0e34260feb0218ec39b755c99affec6f6f77ac3a1d2637b22535a156134392bf"
   },
   {
     "kind": "uint",
@@ -1868,7 +2126,7 @@
   {
     "kind": "hex",
     "name": "legacy_genesis_state_return_hash",
-    "value": "8d98b0064a33700c4d803f10f6d688802890498fd4b323e9db455551d276529c"
+    "value": "73e0826627c70ba244cd2e995b9a7bf2065c54556c76b6c8532d544adaf0f65c"
   },
   {
     "kind": "uint",
@@ -2074,22 +2332,22 @@
   {
     "kind": "hex",
     "name": "liquidity_fee_substitution_bridge_leaf",
-    "value": "ca3a5c71fcfd67060d91fa2dbd4f8d839d678f6fd5242cce1b7ad4fbddf6fd51"
+    "value": "5aa930fb98e37a82860cc9d68b4bfd03148af460e2d54d985697a98e1688ed05"
   },
   {
     "kind": "hex",
     "name": "liquidity_fee_substitution_credit_id",
-    "value": "5729c4dbda07a37c0e80fe34f7c080e6f26742c2df888766e46ce8df0599d432"
+    "value": "a05bbba229dbc900836f74740bef34e615d9cd2e71ef9c417d1ce1394904de8b"
   },
   {
     "kind": "hex",
     "name": "liquidity_funding_state_calldata_hash",
-    "value": "7558ff4ed2a72d3c70bc3edf5f8e47e897213da21a46add9b09edfe9efc7aa12"
+    "value": "557382fcd8b069f30481542beff33f0378ac639074bc3b9dd4b967ccd17eff72"
   },
   {
     "kind": "hex",
     "name": "liquidity_funding_state_return_hash",
-    "value": "8d5b206e594a2290f1b8d3cfe6c34f04290c7262bb7c6a111bec7368c48f140f"
+    "value": "a034881ef2549ae1ccd6c046d07e02fac16ea4bbb021cecc6ff0e925253994d4"
   },
   {
     "kind": "hex",
@@ -2099,12 +2357,12 @@
   {
     "kind": "hex",
     "name": "liquidity_quote_calldata_hash",
-    "value": "ed7b42e813bb4a691c580d2c61de0536d560b297ec4be9a8777c20f14ce70bed"
+    "value": "759ed660e54e88b9763c18dc491d861f2f2dd0d71697122bb8f9bfc8f83da1d8"
   },
   {
     "kind": "hex",
     "name": "liquidity_quote_return_hash",
-    "value": "8346291111d6c4822b47182d1bf48e2b1e52eb6637a7ce999268f89d4e16c9b2"
+    "value": "107a11a2ffc817aac46c36ae74abd55a97085d79bcb8a363a512e412a03fb03e"
   },
   { "kind": "hex", "name": "liquidity_quote_selector", "value": "43dc48e0" },
   {
@@ -2125,7 +2383,7 @@
   {
     "kind": "hex",
     "name": "live_registration_validation_commitment",
-    "value": "a926c0f3fff3951ec13d810ca34b367922b81c056e2c7a3ca1b0b357c632512f"
+    "value": "d5bd3c5a3ada013adee94bc295b50762caf331038d7fb0319ab3896011657b2f"
   },
   {
     "kind": "hex",
@@ -2135,7 +2393,7 @@
   {
     "kind": "hex",
     "name": "manifest_components_hash",
-    "value": "39c81654d0554b17c41192b3e5f9069488373902e9aa7236cfc76cf8a5db5408"
+    "value": "b171178cfd540740d33e80e1000e8aa4cdc0a4136ab803419c642ac9e42a97eb"
   },
   {
     "kind": "hex",
@@ -2155,7 +2413,7 @@
   {
     "kind": "hex",
     "name": "mark_inbox_batch_calldata_hash",
-    "value": "be9129ebd6027b0d846db7ace60a2a8e8c3526a407556ed7b99de4cb04092b0d"
+    "value": "dd169563f18fb2395484b19b68c452773d7a3d4e292cfce10f081161cb699bd0"
   },
   { "kind": "hex", "name": "mark_inbox_batch_selector", "value": "a92f72cd" },
   { "kind": "hex", "name": "mark_migration_ready_magic", "value": "4d524459" },
@@ -2172,7 +2430,7 @@
   {
     "kind": "hex",
     "name": "maximum_genesis_activation_calldata_hash",
-    "value": "89751476a8673b5d99fb4e5afee99affd4fef7a2d0c9b6aa70a4b2a637b0735e"
+    "value": "c0244b9405d34af59daefd6bb3a296e54b4d80fea07cf2fbc2d89eec0e433cf0"
   },
   {
     "kind": "uint",
@@ -2192,7 +2450,7 @@
   {
     "kind": "hex",
     "name": "maximum_version_activation_calldata_hash",
-    "value": "73ce821f2116ef5714e537734e52e5556010edbc747975c1872f9c9f2f987d3c"
+    "value": "1e28832c229e77c24167aeaf61b87622415b863bb31bef26f511766acd66fc0a"
   },
   {
     "kind": "uint",
@@ -2217,12 +2475,12 @@
   {
     "kind": "hex",
     "name": "migration_activation_context_hash",
-    "value": "2d922e926d4d1282d042d259a821507d5a33b08c0297039299539432695364fb"
+    "value": "ece0e4f437d4f65bf5c43ae95765c8244a5b8a6ec264eb41135e997331cf20a6"
   },
   {
     "kind": "hex",
     "name": "migration_activation_context_return_hash",
-    "value": "cedf176fc73906c32ebd6fb9d161e263b04303369d087df258d6c61bfa5dce06"
+    "value": "5d477aadbf26d7f74dfafded8eb4a30d3bc09cf8d144045e25b9d92447226d34"
   },
   {
     "kind": "uint",
@@ -2247,12 +2505,12 @@
   {
     "kind": "hex",
     "name": "migration_activation_profile_record_hash",
-    "value": "7b779075c89aacab5d497c1acc60f3e6feb5c09a0813ccb7a1d0a21ea8ee0f0e"
+    "value": "a58b3bb05afd89884202b6c915d79b037f1cc4c0b0ea50e203359be764e59538"
   },
   {
     "kind": "hex",
     "name": "migration_activation_profile_return_hash",
-    "value": "0f6d0967eaac9d5ec845ab307cad6abfb90af3c9c5f2e7d10109f43e8b37bb23"
+    "value": "6c66046e5a974aa05a17d7896f55b080bd762263331c542a1c7aa7b6c8f7d46c"
   },
   {
     "kind": "uint",
@@ -2267,7 +2525,7 @@
   {
     "kind": "hex",
     "name": "migration_adoption_commitment",
-    "value": "d4f2bc87655f0a35d8bec04ef557724ca89a31d718de94c027111a9bc316d8df"
+    "value": "a1eb05155bb58ee4bfa0158aaf35d53f2eecbd526497e708a8443694c928d4c8"
   },
   {
     "kind": "uint",
@@ -2302,7 +2560,7 @@
   {
     "kind": "hex",
     "name": "migration_post_state_calldata_hash",
-    "value": "b764c574006e6b0f13818d4089950662882975f8001e92133eb4088c9a338c54"
+    "value": "69b9221252be6cf9cde102a40ae1a79d7e0dec2db59e39662e5b375f5ff2c71b"
   },
   {
     "kind": "hex",
@@ -2338,7 +2596,7 @@
   {
     "kind": "hex",
     "name": "migration_verifier_descriptor_hash",
-    "value": "d4ba23d327a1cccd15649ae8706ff0dcf331075ba1a6d8d274cb87ab4096f0c1"
+    "value": "1a4da551407abec077062cbff11b74e7d51fbf7282fe56d06a1ef449df3c82d2"
   },
   {
     "kind": "hex",
@@ -2358,7 +2616,7 @@
   {
     "kind": "hex",
     "name": "native_quota_key",
-    "value": "7364d461f03b17da03a689abfdb4e723065464c3419e3a222bd8ee29cb876ee5"
+    "value": "cb4ad8fa3767c3db6d89ac903ff86e2a0f85ba4ddcc7fcabeef38714e0c7f3b5"
   },
   {
     "kind": "hex",
@@ -2400,13 +2658,13 @@
   {
     "kind": "hex",
     "name": "pool_attempt_authorization",
-    "value": "047a5431eabdb9b3412d6301b1c08ff0b56b444f0804d8a85523a54cee0abab5"
+    "value": "67d687b42ac0ba5089f409ac4c0a7b77c99521bc173a6431964ebb11e2258cb5"
   },
   { "kind": "uint", "name": "pool_auth_cleanup_gas", "value": "50000" },
   {
     "kind": "hex",
     "name": "pool_bridge_attempt_calldata_hash",
-    "value": "f28af4443a498dbd90c9d75e0c39626546bb127f9dcbe29057d74b2f244c59ae"
+    "value": "5d5711ddace00ee6a4c33a595ce3bc7cfb4ff531fa9c9a7710e0394a1e62426c"
   },
   {
     "kind": "uint",
@@ -2422,7 +2680,7 @@
   {
     "kind": "hex",
     "name": "pool_bridge_result_return_hash",
-    "value": "18f2e8ecd0919932c00d7514fe428245043f0631f8f2c4aab2358005a30ea6f3"
+    "value": "b42fc73f98d42dd9679ce04ae701c8f704bbed6f77303c34e995539ba9d06305"
   },
   {
     "kind": "hex",
@@ -2432,7 +2690,7 @@
   {
     "kind": "hex",
     "name": "pool_consume_calldata_hash",
-    "value": "05f677ec373ba88a053c127c19316f7d567a7e4c7e798bb91eaed19f124cca82"
+    "value": "dd7a8c8e3f45d044b545ce1135fe0a12e52068a489b4475f10443b8fa3c864e4"
   },
   {
     "kind": "hex",
@@ -2455,21 +2713,21 @@
   {
     "kind": "hex",
     "name": "pool_process_calldata_hash",
-    "value": "92e05cd30f8ebde58875b3286df39501dc7db0b26e4a0799d8279bea81b52214"
+    "value": "99c9911dc44b7f8da78b961098aa6368e2c75dd86bcff79deacd6f7a8a02813f"
   },
   { "kind": "uint", "name": "pool_process_calldata_length", "value": "1028" },
   { "kind": "hex", "name": "pool_process_selector", "value": "5fbbe107" },
   {
     "kind": "hex",
     "name": "pool_retry_calldata_hash",
-    "value": "cde01c1dae7e51b499a432e10f1a78fd52820ae50705059b8610f375c6afb597"
+    "value": "bde9f11115601198cd164361cde06b96ef67c4c0d0d16361d7cc5251784d848a"
   },
   { "kind": "uint", "name": "pool_retry_calldata_length", "value": "1060" },
   { "kind": "hex", "name": "pool_retry_selector", "value": "031f93e7" },
   {
     "kind": "hex",
     "name": "pool_row_substitution_infrastructure_hash",
-    "value": "47565d6e5708e5a516daa376505c4e8db91c6dfa83127214b55a88e14fb84086"
+    "value": "c718d2e79a259c6b4f3827d73172a3fded68b2b259cc2e3351c8f66a7c24976c"
   },
   {
     "kind": "hex",
@@ -2485,12 +2743,12 @@
   {
     "kind": "hex",
     "name": "pool_value_acceptance_commitment",
-    "value": "12d55d0d43012456b8e712bf727d05162cc7c5cd74c700c2359d2c4037c75236"
+    "value": "785b63dc7574c793f1dd0d5c178efb00571321acc391ba16baab46a861309653"
   },
   {
     "kind": "hex",
     "name": "pool_value_callback_calldata_hash",
-    "value": "ea4a9bde98a0e33377e39155183907be2c0e068326b799bb26b6dcaf4944a5a0"
+    "value": "bbd2f3056166495dd9e68ee519dac697b8db6aa01997a3784f9d0c672d5c8907"
   },
   { "kind": "uint", "name": "pool_value_callback_gas", "value": "100000" },
   {
@@ -2523,7 +2781,7 @@
   {
     "kind": "hex",
     "name": "profile_ingress_authorization_one_return_hash",
-    "value": "746910578abf39247a18029200b0690cf4d448bdccf873df424c316638835cf7"
+    "value": "72c9c660ab2d0101dc8ed39b21a8f7db023537e60a9f613e1ce62b5dfa03e41f"
   },
   {
     "kind": "hex",
@@ -2539,7 +2797,7 @@
   {
     "kind": "hex",
     "name": "profile_ingress_root_return_hash",
-    "value": "0c9045484a4e36879db2aac9c499b07ced0892c62cecf12b644c6397f236bae9"
+    "value": "96deb06d3056d569bb77926b48fa14b48f25fd2c24cc94722acec72b1c43317d"
   },
   {
     "kind": "hex",
@@ -2561,7 +2819,7 @@
   {
     "kind": "hex",
     "name": "protocol_change_operation_calldata_hash",
-    "value": "b7d4d49048a0e3edf0ce7220fdb44c6baf317c3fb979ad7b2fb0c37bbaf680be"
+    "value": "37b48cae0171d320338a8250040e41169e1b9d815884ba5ab475e5e8f0e89bcd"
   },
   {
     "kind": "hex",
@@ -2576,7 +2834,7 @@
   {
     "kind": "hex",
     "name": "protocol_change_operation_return_hash",
-    "value": "999dbe5ac4c893a9935da539b64ce873ed32c785bd949aba44d38dbc877b65fa"
+    "value": "eaeb03edc0826ec45b82ba03fd2df0f9f150609f51d6991fa5709c429258d3db"
   },
   {
     "kind": "hex",
@@ -2618,7 +2876,7 @@
   {
     "kind": "hex",
     "name": "protocol_version_manager_config_return_hash",
-    "value": "3305018df3355e109413b0c25e69814e56a645ab71e4fda4024bb31e84feadd6"
+    "value": "27923d62d23565fd61ce57c2e62421e5c295ae690b1a4b6be0217d7679be2364"
   },
   {
     "kind": "hex",
@@ -2628,22 +2886,22 @@
   {
     "kind": "hex",
     "name": "protocol_version_manager_configuration_hash",
-    "value": "c363eb350b2bf5021b6e4bc882d42d480f454c2889b6b3846d277ad985b16e76"
+    "value": "d4ce25d988e7329c77ff693384f72c9ac1f34ea29c35dc179b14bf5b671adae4"
   },
   {
     "kind": "hex",
     "name": "protocol_version_manager_descriptor_hash",
-    "value": "b4e57361ef06ff7db13eb812b123a3cdf89ce8a562cc138f72282a0a061e4021"
+    "value": "0a89ae4867fd3834cc0b3d269693e0dee051aa95358d3551c0d295241c21ddb8"
   },
   {
     "kind": "hex",
     "name": "publish_genesis_campaign_operation_id",
-    "value": "b2ded90d7dfaf09becf84217f7cb831c9baf0ca8a3ed6db817e1d044e1bd0714"
+    "value": "ca02a0a56653379e307577ef98f54291aa073ac7fc0c766a9c8ab3658a861bc5"
   },
   {
     "kind": "hex",
     "name": "publish_genesis_campaign_payload_hash",
-    "value": "448f149ccf33acacfdf8b0f72ee3b79c35bdab9e1d408a40f8ea6e519bcdac43"
+    "value": "b906a95c95ee8759e3a2e543779a7fefe4d5aeeb48a3b8952f053597cde80aa4"
   },
   {
     "kind": "uint",
@@ -2653,12 +2911,12 @@
   {
     "kind": "hex",
     "name": "publish_legacy_genesis_campaign_calldata_hash",
-    "value": "3327c65400c570338c4f0f967067bf399b37d96f2b69c87f32112465f74b16a4"
+    "value": "10b71805b5d2c2539ae92df3e114b70e3ad483ddb4f50549cc3315dbd798b37e"
   },
   {
     "kind": "hex",
     "name": "publish_legacy_genesis_campaign_return_hash",
-    "value": "342492cd008349249af4598664c0c5b17a5e57c872bbfedba0cc06f9bb230369"
+    "value": "3e6c71d54513abf0ad08f4bc9d9b121b90acc3b22a1a09ff1c4a5d1e2b8cd123"
   },
   {
     "kind": "hex",
@@ -2668,12 +2926,12 @@
   {
     "kind": "hex",
     "name": "publish_migration_arm_operation_id",
-    "value": "a48177f3931f53b5e5d5c82a002bcc463f963cce733917c165263f383b778507"
+    "value": "264b3c77ebb9f80d1e9798c75321a2bada798b1bbf614cf66392c5d9f3552e20"
   },
   {
     "kind": "hex",
     "name": "publish_migration_arm_payload_hash",
-    "value": "4bb288032f8ba42de5f757fd7d1be6366e2e5534934878771aa9de9c9b99eab5"
+    "value": "af04a917f3f5ef75fa83db3a5b241db601c9dffc3955e91e0d3a5ca4f787bd7b"
   },
   {
     "kind": "uint",
@@ -2684,7 +2942,7 @@
   {
     "kind": "hex",
     "name": "queue_migration_calldata_hash",
-    "value": "785fb37b119ff2bc01ca813419c24062a54e65dc927004cbda387501383e088f"
+    "value": "f795808727d84001195003878302c47af04b449a5cd9e7603c5d75cf9623b8f9"
   },
   { "kind": "uint", "name": "queue_migration_calldata_length", "value": "260" },
   {
@@ -2695,23 +2953,23 @@
   {
     "kind": "hex",
     "name": "queue_migration_post_state_commitment",
-    "value": "2a697bfbeac35705273fba6369d93a5bc3766b2529c09cba2b9ec528d9e53dad"
+    "value": "6c2969fa0b2dc25db13bcd41a6c106d282fcd9cecc5d1c3ac9b6eec583f1caf6"
   },
   {
     "kind": "hex",
     "name": "queue_migration_return_hash",
-    "value": "6589dfc8eb8cae5fd20a7ba953d031df986ba6e4e48d27798b80e92c11aec0ca"
+    "value": "7040d71a28c3643a4f56e73cf5a50843a6ac67f8675f9c586df1aed08dbd6b2e"
   },
   { "kind": "hex", "name": "queue_migration_selector", "value": "9461f698" },
   {
     "kind": "hex",
     "name": "queue_post_state_return_hash",
-    "value": "a829a2e5f89c0d14fcdf0ffa2a5c8ea6c9a618314c0c5a913a98428a9077d182"
+    "value": "f30ae93e1e90f702ece10c9282a821a8995e86f4d2280afc99101b1dbfcd3325"
   },
   {
     "kind": "hex",
     "name": "queue_protocol_change_calldata_hash",
-    "value": "39d379b7c048ee59d30a73bd1ee9e48f9d4eaad8f81626054fc740a9ef0c847d"
+    "value": "679f8c830603977698606813f52467196ea6ac6f4ffe91ef2612a259edcd13c6"
   },
   {
     "kind": "uint",
@@ -2761,12 +3019,12 @@
   {
     "kind": "hex",
     "name": "register_release_operation_id",
-    "value": "0ad6edf056c5b368e27c171ae9b94d0910e61d377ddbf91b03bfd8645e47e3a1"
+    "value": "12263643f90f25306c69734ff190333d3f5eecd12abf9fe913bb5774478b7b74"
   },
   {
     "kind": "hex",
     "name": "register_release_payload_hash",
-    "value": "77022e4333d005c83eb8ac478be4bb36933d068fda2cee9efccb55303a94f01a"
+    "value": "f556e1bb0f2a02bb9db0517fbe378b87707d3ea3ec518a31f832ef7754056fe5"
   },
   {
     "kind": "uint",
@@ -2776,12 +3034,12 @@
   {
     "kind": "hex",
     "name": "register_release_profile_bytes_hash",
-    "value": "d4b838dda269bda7168ab75cc260376087e4402a77df1866066fe6f56acd89d8"
+    "value": "123a849e88f305b9a33ea3001a8ad62473f01952e0f803c4b84b6a370bc15958"
   },
   {
     "kind": "hex",
     "name": "register_target_release_calldata_hash",
-    "value": "b4ea85e36034be484c3e611bb0d78a6705a41b2411fe300db91794613593aaa4"
+    "value": "0ca1a3d89c200eaa9cfd5e84a3fd4ec2849d47ef9ed5a3ae3c48795d86130d5b"
   },
   {
     "kind": "uint",
@@ -2791,7 +3049,7 @@
   {
     "kind": "hex",
     "name": "register_target_release_return_hash",
-    "value": "cdb60cdc8a1ba2255be46f145a530057faedc96d493895467cfd746874d890a2"
+    "value": "9ec67eba168db14b3d3e38d502620257b464e04dd598bc5fc9769332452dcab4"
   },
   {
     "kind": "hex",
@@ -2851,7 +3109,7 @@
   {
     "kind": "hex",
     "name": "registration_route_key",
-    "value": "8a92802ac27ef7bc1fe751df95c3543df477ec7e7220793bad45d7c7d3e0c05d"
+    "value": "e1063816f72a790c250fb4dd92cd4279978fea551eabceac111528010bdc8015"
   },
   {
     "kind": "hex",
@@ -2861,7 +3119,7 @@
   {
     "kind": "hex",
     "name": "registration_storage_statement_hash",
-    "value": "ac92a4a112c0b216c2c9f5cc527fa83529e89ed065d054d75b67cb64b932a5a4"
+    "value": "ade6c2b85b07d5121ef671c814e81250641dc08f9f29859e8220d052e210c5fe"
   },
   {
     "kind": "hex",
@@ -2871,7 +3129,7 @@
   {
     "kind": "hex",
     "name": "registration_verifier_return",
-    "value": "ac92a4a112c0b216c2c9f5cc527fa83529e89ed065d054d75b67cb64b932a5a4"
+    "value": "ade6c2b85b07d5121ef671c814e81250641dc08f9f29859e8220d052e210c5fe"
   },
   {
     "kind": "hex",
@@ -2891,7 +3149,7 @@
   {
     "kind": "hex",
     "name": "release_manifest_hash",
-    "value": "b309f81b45f1f5faa9ebdb57e9fd9e4d5c9db4f88395d192706f768512785e8f"
+    "value": "6e80aa2011635b73540f07a270c263b5675392d34021fec90e918b96f3ca9809"
   },
   {
     "kind": "hex",
@@ -2911,17 +3169,17 @@
   {
     "kind": "hex",
     "name": "reorg_genesis_activation_context_hash",
-    "value": "ae1f14834734512f75164976ff749da97e63580f09ae9abec9d434e5c1c18481"
+    "value": "5434fda7ce921d2babc4c973928634f7692f6f1b9ed3540ecf3754923f4fb5a4"
   },
   {
     "kind": "hex",
     "name": "reorg_genesis_activation_receipt_id",
-    "value": "2fdf795a116dc296ce6c9ce76a2d7dc2bf577640fe8b28a224aac85c7fe7c3be"
+    "value": "52962a10601bc5e889cbcee8e205a0d19398085869dbeb415c42bc0ddda2182d"
   },
   {
     "kind": "hex",
     "name": "reorg_genesis_post_state_commitment",
-    "value": "104e43a24327181841b820047731304e9baf6206b7ee4584b7d8389a9252be56"
+    "value": "1ca7035319a93800b1e2d2cdf841d906d17b58b647c1178235814f267b22bc30"
   },
   {
     "kind": "hex",
@@ -2987,7 +3245,7 @@
   {
     "kind": "hex",
     "name": "reward_claimed_v1_topic1_candidate_id",
-    "value": "1cf4bd5b3cd62ac1536b8d5fb6f59ad36714ba167500d28d0550919cb8bcd4b5"
+    "value": "b9412b5e5219b7988b3596e09640e7587287d7f8310249c74520b6434eda1f6a"
   },
   {
     "kind": "hex",
@@ -2998,7 +3256,7 @@
   {
     "kind": "hex",
     "name": "reward_claimed_v1_topics_hash",
-    "value": "6f3dd2f0ed5290b942dcf67932556331c3dfb67b3e3d0806102f12aa37561ee6"
+    "value": "33f0cbbf74d5672b190e1d3e75217086b77f22276fd9f3484b80be642f0f468b"
   },
   {
     "kind": "hex",
@@ -3054,7 +3312,7 @@
   {
     "kind": "hex",
     "name": "reward_receipt_v1_calldata_hash",
-    "value": "2398a19586fc3fb8ded8d9cca0f31e76cc4d3f2d0c30204ca0c63c7ed9f0e388"
+    "value": "db847387d8a70628c3756291e91dcf40d1a0130506316decc318639528c99308"
   },
   {
     "kind": "uint",
@@ -3064,12 +3322,12 @@
   {
     "kind": "hex",
     "name": "reward_receipt_v1_collision_candidate_id",
-    "value": "a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4b5"
+    "value": "a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a46a"
   },
   {
     "kind": "hex",
     "name": "reward_receipt_v1_commitment",
-    "value": "c37276e50a8a9d56c5e200f04c9d2bcd9104ccf53f8b381a73d63204d590b732"
+    "value": "46ad3caae1ef1eed4334a968b444838271e5a3ad2241f5592498bd7aac557512"
   },
   { "kind": "hex", "name": "reward_receipt_v1_magic", "value": "52525631" },
   {
@@ -3080,7 +3338,7 @@
   {
     "kind": "hex",
     "name": "reward_receipt_v1_present_return_hash",
-    "value": "20b52a5e73af22fceb5a53dffed7765bd399a46f327af271203258111fd175fa"
+    "value": "c358b5f714bcc031119da6e6510d5123ba361530ec6d627516155fcdf60c9ce5"
   },
   { "kind": "uint", "name": "reward_receipt_v1_return_length", "value": "384" },
   { "kind": "hex", "name": "reward_receipt_v1_selector", "value": "3ed526c7" },
@@ -3088,6 +3346,26 @@
     "kind": "hex",
     "name": "route_config_getter_selector",
     "value": "4b64fa11"
+  },
+  {
+    "kind": "hex",
+    "name": "router_legacy_bootstrap_magic",
+    "value": "524c4231"
+  },
+  {
+    "kind": "hex",
+    "name": "router_legacy_bootstrap_return_hash",
+    "value": "30f151045790eaf889f836923f45f60b3c45b715c70b14d515de5f59a5cebc85"
+  },
+  {
+    "kind": "uint",
+    "name": "router_legacy_bootstrap_return_length",
+    "value": "128"
+  },
+  {
+    "kind": "hex",
+    "name": "router_legacy_bootstrap_selector",
+    "value": "ec688e40"
   },
   {
     "kind": "hex",
@@ -3228,7 +3506,7 @@
   {
     "kind": "hex",
     "name": "settlement_authorization_id",
-    "value": "8b62fe386387efccc858400dc4d68ef9151fa75d694e7d4e0536c870dc3f03e3"
+    "value": "82b259780b5450ee3a49433af1684cde16b021eee3d7fb11750f24f6ab5e0bc8"
   },
   {
     "kind": "hex",
@@ -3238,7 +3516,7 @@
   {
     "kind": "hex",
     "name": "settlement_authorization_return_hash",
-    "value": "58bf10bcf5fc3d4455449bd8a8ca54c17e49c556913fe4e70f07f4b9522c289c"
+    "value": "b6a5501b9206ee452f68ae379c5c453732ab7a896a47c5a1a48cf640ee8ecd56"
   },
   {
     "kind": "hex",
@@ -3248,7 +3526,7 @@
   {
     "kind": "hex",
     "name": "settlement_deployment_descriptor_abi_hash",
-    "value": "fe38607f3fdb431f360ae386deacae7b547ee35a8ef7a18c193e68259ffd0bda"
+    "value": "76f5c789dcd532421c1bc391f7b8dade9cf7c89c940aafcf72cb9bf2603909dc"
   },
   {
     "kind": "uint",
@@ -3258,7 +3536,7 @@
   {
     "kind": "hex",
     "name": "settlement_deployment_descriptor_hash",
-    "value": "b8e70d7bf7e20338338158ef27e2c86345878e15c609a42e8dfdb8c19d94890b"
+    "value": "c2893beb61e422ed72700fab3f0b98ffb363dfdcff430699d4216160c875a659"
   },
   {
     "kind": "hex",
@@ -3271,9 +3549,39 @@
     "value": "4af63f02"
   },
   {
+    "kind": "uint",
+    "name": "settlement_forced_ingress_floor_call_gas",
+    "value": "50000"
+  },
+  {
+    "kind": "hex",
+    "name": "settlement_forced_ingress_floor_magic",
+    "value": "53494631"
+  },
+  {
+    "kind": "hex",
+    "name": "settlement_forced_ingress_floor_normal_return_hash",
+    "value": "4bfd11163f0bfe60df7c73b3e4e72749e76d7419593668cac1443ea28b0b09b5"
+  },
+  {
+    "kind": "hex",
+    "name": "settlement_forced_ingress_floor_recovery_return_hash",
+    "value": "f4d8a492be93a1541f573cae536d3d4811b6251de4ee66c43887342d6597d05f"
+  },
+  {
+    "kind": "uint",
+    "name": "settlement_forced_ingress_floor_return_length",
+    "value": "64"
+  },
+  {
+    "kind": "hex",
+    "name": "settlement_forced_ingress_floor_selector",
+    "value": "fe2a2914"
+  },
+  {
     "kind": "hex",
     "name": "settlement_tuple_substitution_terminal_leaf",
-    "value": "96baecdcde62bd5dd9d86625842471da07d3008a205ef8c79481254779e68649"
+    "value": "80a5ea7fcd7c476559c881f629fbb84dc74aeb7ade5918f4dbb0f93b8be2076d"
   },
   {
     "kind": "hex",
@@ -3284,7 +3592,7 @@
   {
     "kind": "hex",
     "name": "source_context_hash",
-    "value": "003912c395f0a29be213bb41bfb1f171cf5da31f549f6b8bda07bfbeb67c00a4"
+    "value": "500d1760ed1ddf3a384a20537439fab774b12dd399dc5f309c3736056817f515"
   },
   {
     "kind": "hex",
@@ -3295,22 +3603,22 @@
   {
     "kind": "hex",
     "name": "source_domain_id",
-    "value": "a955e9cbaafee3fb51bca7d966012607d8ae8354574180ecbeb6ce71ed159f26"
+    "value": "d54bb3e55e24803542e174b07db409ddebf98e3df16be05f82467648ee2f7b27"
   },
   {
     "kind": "hex",
     "name": "source_factory_config_getter_return",
-    "value": "73512f5b6f9f640f1459a80b7372737a7ada2586dfd15d0efa129e76f3d01ec4"
+    "value": "fa79d6e0d1a58e6c8ebc8f770a5d78c864190c31a3a8e8e7e9672f75e43401f1"
   },
   {
     "kind": "hex",
     "name": "source_freeze_post_state_commitment",
-    "value": "850d2a462b4e91f03a0f8ac543fa630374c7c20fdaeaa4f141bddd9c6fd9fe29"
+    "value": "4823f1a7e99fbb85aa9ae3439bf3be2089d611a1994def0d7a76c87b3ca314de"
   },
   {
     "kind": "hex",
     "name": "source_post_state_return_hash",
-    "value": "e9d8d083dc46f6aab0806dcd822c0e3f22b0d16dd82b171fa398fd1836e606b4"
+    "value": "831b0cafcb5f45c8c7ee7aea0aeb568df0aaf3c1a2a9803b4fd9c815bd01fbc5"
   },
   {
     "kind": "hex",
@@ -3395,7 +3703,7 @@
   {
     "kind": "hex",
     "name": "statement_hash",
-    "value": "1cf4bd5b3cd62ac1536b8d5fb6f59ad36714ba167500d28d0550919cb8bcd4b5"
+    "value": "b9412b5e5219b7988b3596e09640e7587287d7f8310249c74520b6434eda1f6a"
   },
   {
     "kind": "uint",
@@ -3411,12 +3719,12 @@
   {
     "kind": "hex",
     "name": "successor_migration_activation_profile_record_hash",
-    "value": "ec554ba00adae44b0a597f0c537d45c977434759b81180a279c14433226507f2"
+    "value": "0add22338a877bce76c773c579557b04c6fd77a6a7d48ff91cacaee486be2639"
   },
   {
     "kind": "hex",
     "name": "successor_release_manifest_hash",
-    "value": "856e97813e8322c883dfb6b7be15be7dd8434b27f79f084bb4b296578aba4601"
+    "value": "2e6cdd6447e00994cf01f0a83dacbefebac45998fef510944b05302563feae7a"
   },
   {
     "kind": "hex",
@@ -3426,7 +3734,7 @@
   {
     "kind": "hex",
     "name": "successor_target_registration_hash",
-    "value": "b321e2f204229b3078f3ebffbae64380c3a7c020a85cf232811746f37a9b4616"
+    "value": "8be6a9af27414ba6402f7c08a58593c423efd667cdd9db830f30720252192fbe"
   },
   { "kind": "hex", "name": "sync_ingress_selector", "value": "6c880b72" },
   {
@@ -3442,13 +3750,13 @@
   {
     "kind": "hex",
     "name": "target_call_failed_error_hash",
-    "value": "370da4aa5d23a278fc4588146d760468a73367efb00c3e60457d6a3926959c9c"
+    "value": "e2d8a609153161347503334835b6113682d6e491fd50e5f6fc0b1230a65a5304"
   },
   { "kind": "hex", "name": "target_call_failed_selector", "value": "f9cc2b44" },
   {
     "kind": "hex",
     "name": "target_constructor_state_return_hash",
-    "value": "cd68978845ac795dad371542580aaf29008d6dbcee6a8117e6ac115fa009f815"
+    "value": "4f19b6c5061a12079a9cbe5d91f4e44049fe2a0e727786bc0dad31bd5ed727aa"
   },
   {
     "kind": "hex",
@@ -3458,12 +3766,12 @@
   {
     "kind": "hex",
     "name": "target_post_state_return_hash",
-    "value": "ad0263eb2c41406e02312b1f85f0600d2871b23e59d17dcd122eb175e4fb13e4"
+    "value": "4e932dd8e094e3469da01bf16856477591456afcb894111a703a791a635091b4"
   },
   {
     "kind": "hex",
     "name": "target_registration_hash",
-    "value": "5177bb1ea8f487016aed3deb24791024eeadc76e0a18e195038180c436353c7e"
+    "value": "8a2ab821cb538871bfe3de284e16db23b17d67a0867475b85be24ad111d036f8"
   },
   {
     "kind": "hex",
@@ -3478,7 +3786,7 @@
   {
     "kind": "hex",
     "name": "target_release_registration_return_hash",
-    "value": "c5ddc461992497a2d2d53684a961392a5be206f0f97ddf579aaca533ee0e87ae"
+    "value": "0eeaafec02dad89af8f77b27b37b7e8d9c2115bc9f44dadddac35659c9fc9d5c"
   },
   {
     "kind": "uint",
@@ -3498,12 +3806,12 @@
   {
     "kind": "hex",
     "name": "terminal_commitment_calldata_hash",
-    "value": "505a325523808cbd0221207bdff17e3a8d34e2d8d454340b9ffabd480a756652"
+    "value": "f5c130328e76254a53ff0751b159c44b3c83d6020cbbcedc23a5fe5a7f3e5167"
   },
   {
     "kind": "hex",
     "name": "terminal_commitment_return_hash",
-    "value": "a58064643d9fcb9115c70ddfd323577c3e9d3b7150bad48e533d3dadac649b4f"
+    "value": "08bae87eff6d1fdb595dee852355a3d5064c6bd1281af19d227190ee9c99842e"
   },
   {
     "kind": "hex",
@@ -3513,27 +3821,27 @@
   {
     "kind": "hex",
     "name": "terminal_done_leaf",
-    "value": "d5f92fbe75e51e2bcddee051eb01e222a101f16a9e6f9cd3a6e486e114fd5778"
+    "value": "02bc68b0f633ebd6c63fe4d4e8e8cd0cc4e8981d48d68614d3949b2d187972ea"
   },
   {
     "kind": "hex",
     "name": "terminal_failed_leaf",
-    "value": "2cdb7e63b317779f0745088a4148bc6cdda12d8331718a6874904beb4ab15362"
+    "value": "0277c9a85ddc256e317b3a67b43e1d364a1c4b23a785024913b622c5c9b49be7"
   },
   {
     "kind": "hex",
     "name": "terminal_frontier_after_2_digest",
-    "value": "582eeebaacbe2b12774eef4b3286045287fc7b5ff92dedf77b5443cfddf6723f"
+    "value": "27aa4b7678e62c5e261e26702c1a184f6fbdb9b63131712546bc441f91f4d652"
   },
   {
     "kind": "hex",
     "name": "terminal_frontier_root_2",
-    "value": "8b47e5d6f541fa86cf14b6568107c0631a3df79afd50d24baeb936fdb39e687b"
+    "value": "33540df68cbb814b25b7f655808862cf3bb37a2f98cf78d0b8687b25399ae858"
   },
   {
     "kind": "hex",
     "name": "terminal_root_2",
-    "value": "8b47e5d6f541fa86cf14b6568107c0631a3df79afd50d24baeb936fdb39e687b"
+    "value": "33540df68cbb814b25b7f655808862cf3bb37a2f98cf78d0b8687b25399ae858"
   },
   {
     "kind": "hex",
@@ -3564,18 +3872,18 @@
   {
     "kind": "hex",
     "name": "v11_bridge_descriptor",
-    "value": "21212121212121212121212121212121212121212121212121212121212121210000000000000000000000000000000000000000000000000000000000000001a955e9cbaafee3fb51bca7d966012607d8ae8354574180ecbeb6ce71ed159f26000000000000000745e9bb77c41df4916367f5eb49906367fe5bf1239cbef2cdc597906c40300da43a0b3296fb529a82094f4be32f7e8b7ed70d53af000000000000300c123173ae26db2c61b26412a377907f65420237d7c36efc79c59710e43e6be77e000000000000000000000000000000000000000000000000000000000000419400000000000c35000000000000000000000000000000000000003333000000000000000000000000000000000000111100000000000000000000000000000000000022220000000000000000000000000000000000000000000000000de0b6b3a764000000000000000004d2000000000000162e222222222222222222222222222222222222222222222222222222222222222201000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000b5dda48fd1355bc82eebd46369a48e66034fe92e15e5e49393787281782aebc00000060000000000001d4c0000000000000000000000000000000000000beef00000000000002bc0000000000000898000000000000000000000000000000000000000000000000002386f26fc10000"
+    "value": "21212121212121212121212121212121212121212121212121212121212121210000000000000000000000000000000000000000000000000000000000000001d54bb3e55e24803542e174b07db409ddebf98e3df16be05f82467648ee2f7b27000000000000000745e9bb77c41df4916367f5eb49906367fe5bf1230e6dbe34a57953736c8a49c3a4c732ac854078594af56ee6b1f015ed75044239000000000000300cd6ddeebbc91b1598dbfcad8ab0294d259c1cef3bb90b561972dc3db93013c7da000000000000000000000000000000000000000000000000000000000000419400000000000c35000000000000000000000000000000000000003333000000000000000000000000000000000000111100000000000000000000000000000000000022220000000000000000000000000000000000000000000000000de0b6b3a764000000000000000004d2000000000000162e2222222222222222222222222222222222222222222222222222222222222222010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000048cae7396b1eaa925d3af9b37b847c2cb2dcbdd10beb11c95721bfb33095939d00000060000000000001d4c0000000000000000000000000000000000000beef00000000000002bc0000000000000898000000000000000000000000000000000000000000000000002386f26fc10000"
   },
   {
     "kind": "hex",
     "name": "verify_inbox_credit_calldata_hash",
-    "value": "5b788adc101bbf80b73678356ace6b4aca61da85302d4747a155f2fa33adddf4"
+    "value": "77e7668f115a8866d80394d281889bb4de2804fd1e6747c559a383e6cad6a8ab"
   },
   { "kind": "hex", "name": "verify_inbox_credit_magic", "value": "49435632" },
   {
     "kind": "hex",
     "name": "verify_inbox_credit_return_hash",
-    "value": "0e5a24d737136abf8a7a010846356b518761e7813af6495e341c961c51f5756c"
+    "value": "918203d59c88608c079231d86e1c6d94a6d408f879fff3da41de950b226e9056"
   },
   {
     "kind": "uint",
@@ -3590,7 +3898,7 @@
   {
     "kind": "hex",
     "name": "verify_registration_calldata_hash",
-    "value": "e3c7391bc0ede62d86333f9a6a82774e9b49b1fa6ab74ab70b12fa74d75ca1ce"
+    "value": "ce2a68d6667ec7c3e023f23421a297e1a4e7206f66aa38a88fdd8ab43f02be62"
   },
   {
     "kind": "uint",
@@ -3620,7 +3928,7 @@
   {
     "kind": "hex",
     "name": "version_activation_calldata_hash",
-    "value": "6bc8c60340448eae54efdd98f206f6408de82eaf5c9dd68ceb68759cb5e40e2e"
+    "value": "f09abc62501428af3e9bd115cf33a3ebe725b7d9aa7ece9c07b1cdc049b99a95"
   },
   {
     "kind": "uint",
@@ -3635,12 +3943,12 @@
   {
     "kind": "hex",
     "name": "version_activation_receipt_return_hash",
-    "value": "f84129957643ce7464c2a3ad4937a6493082960aa09ec9f635ed4ff8d5dff4a4"
+    "value": "181e4ddad3a39e57e5116a8afb4ab0f85202b6e44c2e2e769420892479f2c33b"
   },
   {
     "kind": "hex",
     "name": "version_deployment_commitment",
-    "value": "1272bb0878334a0f8cc343a790d0430da5574e68d698dfe587a689dc6cebde39"
+    "value": "121a6865f79e026a7a5a05a66891d9dd4df6e416400482d3858c7f3ddebccb69"
   },
   {
     "kind": "uint",
@@ -3655,7 +3963,7 @@
   {
     "kind": "hex",
     "name": "version_migration_arm_id",
-    "value": "a3a8362e336535c8b7a561882ff3d08756e7d567d8b2f8c8595dfe1f9a0280fd"
+    "value": "db9e8cc2324da6e85bba29d0b6b9e915bbf59aa418805c1b296c3d7808d05c11"
   },
   { "kind": "hex", "name": "version_migration_arm_magic", "value": "564d4131" },
   {
@@ -3666,7 +3974,7 @@
   {
     "kind": "hex",
     "name": "version_migration_lease_return_hash",
-    "value": "649200ae551330102bc0c30b83443f34d7830b147957af93b0c70fb274580597"
+    "value": "f71ca16aa888585075347bc2796af8bb8a4d05706108e79444caf57cc9d43cf3"
   },
   {
     "kind": "uint",
@@ -3676,7 +3984,7 @@
   {
     "kind": "hex",
     "name": "version_migration_statement_hash",
-    "value": "b3c20f610fb816edc0f1f6d4c6d650951d025a5dc9529c81df519fc015a73385"
+    "value": "733abdf5767c9c565dece5a9700c4a166f3c0839f74192b4ed010a96bf0ac870"
   },
   {
     "kind": "hex",

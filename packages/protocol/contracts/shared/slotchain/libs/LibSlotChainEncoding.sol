@@ -547,21 +547,174 @@ library LibSlotChainEncoding {
         pure
         returns (bytes memory encoded_)
     {
-        if (
-            _descriptor.liquidityFee == 0
-                || _descriptor.refundMode != LibSlotChainConstants.REFUND_MODE_DIRECT
-                || _descriptor.refundVault != address(0)
-                || _descriptor.refundCapsuleHash != bytes32(0)
-                || (_descriptor.value == 0 && _descriptor.fee == 0)
-                || _descriptor.value > type(uint256).max - _descriptor.fee
-        ) {
-            revert InvalidKind1Descriptor();
-        }
+        _requireValidKind1Terms(_descriptor);
         encoded_ = new bytes(LibSlotChainConstants.KIND1_FORCED_DESCRIPTOR_LENGTH);
         uint256 offset = _writeKind1Identity(encoded_, _descriptor);
         offset = _writeKind1ValueTerms(encoded_, offset, _descriptor);
         offset = _writeKind1QueueTerms(encoded_, offset, _descriptor);
         assert(offset == encoded_.length);
+    }
+
+    /// @dev Encodes the exact 204-byte kind-0 admission body: the durable descriptor without the
+    ///      Router-owned `enqueuedAt` and `dueAt` words.
+    function encodeKind0Admission(SlotChainTypes.Kind0ForcedAdmissionV2 memory _admission)
+        internal
+        pure
+        returns (bytes memory encoded_)
+    {
+        encoded_ = abi.encodePacked(
+            _admission.sender,
+            _admission.nonce,
+            _admission.l2ChainId,
+            _admission.rawTxHash,
+            _admission.byteLength,
+            _admission.gasLimit,
+            _admission.accountedGas,
+            _admission.maxFee,
+            _admission.validUntil,
+            _admission.refundAddress,
+            _admission.deposit
+        );
+        assert(encoded_.length == LibSlotChainConstants.KIND0_FORCED_ADMISSION_LENGTH);
+    }
+
+    /// @dev Encodes the exact 525-byte kind-1 admission body under the durable descriptor's
+    ///      refund and liquidity rules.
+    function encodeKind1Admission(SlotChainTypes.Kind1ForcedAdmissionV11 memory _admission)
+        internal
+        pure
+        returns (bytes memory encoded_)
+    {
+        SlotChainTypes.Kind1ForcedDescriptorV11 memory descriptor =
+            toKind1Descriptor(_admission, 0, 0);
+        _requireValidKind1Terms(descriptor);
+        encoded_ = new bytes(LibSlotChainConstants.KIND1_FORCED_ADMISSION_LENGTH);
+        uint256 offset = _writeKind1Identity(encoded_, descriptor);
+        offset = _writeKind1ValueTerms(encoded_, offset, descriptor);
+        offset = _writeU32(encoded_, offset, descriptor.byteLength);
+        offset = _writeU64(encoded_, offset, descriptor.accountedGas);
+        offset = _writeAddress(encoded_, offset, descriptor.refundAddress);
+        offset = _writeU256(encoded_, offset, descriptor.deposit);
+        assert(offset == encoded_.length);
+    }
+
+    /// @dev Inserts the Router's live `enqueuedAt` and `dueAt` words immediately before the final
+    ///      deposit word of a kind-0 admission body, yielding the durable Queue descriptor.
+    function toKind0Descriptor(
+        SlotChainTypes.Kind0ForcedAdmissionV2 memory _admission,
+        uint64 _enqueuedAt,
+        uint64 _dueAt
+    )
+        internal
+        pure
+        returns (SlotChainTypes.Kind0ForcedDescriptorV2 memory descriptor_)
+    {
+        descriptor_ = SlotChainTypes.Kind0ForcedDescriptorV2({
+            sender: _admission.sender,
+            nonce: _admission.nonce,
+            l2ChainId: _admission.l2ChainId,
+            rawTxHash: _admission.rawTxHash,
+            byteLength: _admission.byteLength,
+            gasLimit: _admission.gasLimit,
+            accountedGas: _admission.accountedGas,
+            maxFee: _admission.maxFee,
+            validUntil: _admission.validUntil,
+            refundAddress: _admission.refundAddress,
+            enqueuedAt: _enqueuedAt,
+            dueAt: _dueAt,
+            deposit: _admission.deposit
+        });
+    }
+
+    /// @dev Inserts the Router's live `enqueuedAt` and `dueAt` words immediately before the final
+    ///      deposit word of a kind-1 admission body, yielding the durable Queue descriptor.
+    function toKind1Descriptor(
+        SlotChainTypes.Kind1ForcedAdmissionV11 memory _admission,
+        uint64 _enqueuedAt,
+        uint64 _dueAt
+    )
+        internal
+        pure
+        returns (SlotChainTypes.Kind1ForcedDescriptorV11 memory descriptor_)
+    {
+        descriptor_ = SlotChainTypes.Kind1ForcedDescriptorV11({
+            msgHash: _admission.msgHash,
+            srcChainId: _admission.srcChainId,
+            sourceDomainId: _admission.sourceDomainId,
+            srcEpoch: _admission.srcEpoch,
+            srcBridge: _admission.srcBridge,
+            bridgeExecutionHash: _admission.bridgeExecutionHash,
+            emittedAtBlock: _admission.emittedAtBlock,
+            destinationDomainId: _admission.destinationDomainId,
+            destChainId: _admission.destChainId,
+            enqueueBy: _admission.enqueueBy,
+            sender: _admission.sender,
+            srcOwner: _admission.srcOwner,
+            destOwner: _admission.destOwner,
+            value: _admission.value,
+            fee: _admission.fee,
+            liquidityFee: _admission.liquidityFee,
+            calldataHash: _admission.calldataHash,
+            refundMode: _admission.refundMode,
+            refundVault: _admission.refundVault,
+            refundCapsuleHash: _admission.refundCapsuleHash,
+            escrowId: _admission.escrowId,
+            byteLength: _admission.byteLength,
+            accountedGas: _admission.accountedGas,
+            refundAddress: _admission.refundAddress,
+            enqueuedAt: _enqueuedAt,
+            dueAt: _dueAt,
+            deposit: _admission.deposit
+        });
+    }
+
+    /// @dev Hashes the kind-0 admission schema identity.
+    function hashKind0AdmissionSchema() internal pure returns (bytes32 hash_) {
+        return keccak256(bytes(LibSlotChainConstants.FORCE_USER_ADMISSION_DOMAIN));
+    }
+
+    /// @dev Hashes the kind-1 admission schema identity.
+    function hashKind1AdmissionSchema() internal pure returns (bytes32 hash_) {
+        return keccak256(bytes(LibSlotChainConstants.FORCE_BRIDGE_ADMISSION_DOMAIN));
+    }
+
+    /// @dev Hashes the forced descriptor schema identity.
+    function hashForcedDescriptorSchema() internal pure returns (bytes32 hash_) {
+        return keccak256(bytes(LibSlotChainConstants.FORCED_DESCRIPTOR_SCHEMA_DOMAIN));
+    }
+
+    /// @dev Hashes the exact 113-byte ForcedQueue constructor configuration preimage. Both local
+    ///      addresses are nonzero and distinct.
+    function hashForcedQueueConfig(
+        address _activeSettlementRouter,
+        address _initialActiveSettlement
+    )
+        internal
+        pure
+        returns (bytes32 hash_)
+    {
+        if (
+            _activeSettlementRouter == address(0) || _initialActiveSettlement == address(0)
+                || _activeSettlementRouter == _initialActiveSettlement
+        ) {
+            revert InvalidForcedQueueConfig();
+        }
+        bytes memory preimage = abi.encodePacked(
+            _activeSettlementRouter,
+            _initialActiveSettlement,
+            uint8(LibSlotChainConstants.FORCED_TREE_DEPTH),
+            LibSlotChainConstants.FORCED_QUEUE_CAPACITY,
+            hashForcedEmptyLeaf(),
+            hashForcedDescriptorSchema()
+        );
+        assert(preimage.length == LibSlotChainConstants.FORCED_QUEUE_CONFIG_PREIMAGE_LENGTH);
+        return keccak256(
+            bytes.concat(
+                bytes(LibSlotChainConstants.FORCED_QUEUE_CONFIG_DOMAIN),
+                bytes2(uint16(preimage.length)),
+                preimage
+            )
+        );
     }
 
     /// @dev Hashes a kind-0 forced-message leaf.
@@ -918,9 +1071,7 @@ library LibSlotChainEncoding {
             SlotChainTypes.DispositionV1 memory row = _rows[i];
             uint64 expectedIndex = uint64(uint256(_start) + i);
             if (row.queueIndex != expectedIndex) revert NonContiguousDisposition(i);
-            if (row.disposition > uint8(SlotChainTypes.Disposition.BRIDGE_CREDIT)) {
-                revert InvalidDisposition(i);
-            }
+            if (!_validDispositionFields(row)) revert InvalidDisposition(i);
             offset = _writeU64(preimage, offset, row.queueIndex);
             offset = _writeU8(preimage, offset, row.disposition);
             offset = _writeU32(preimage, offset, row.txIndex);
@@ -1295,6 +1446,42 @@ library LibSlotChainEncoding {
         return keccak256(abi.encodePacked(_domain, _height, _left, _right));
     }
 
+    /// @dev Requires the refund, liquidity, and value invariants shared by kind-1 bodies.
+    function _requireValidKind1Terms(SlotChainTypes.Kind1ForcedDescriptorV11 memory _descriptor)
+        private
+        pure
+    {
+        if (
+            _descriptor.liquidityFee == 0
+                || _descriptor.refundMode != LibSlotChainConstants.REFUND_MODE_DIRECT
+                || _descriptor.refundVault != address(0)
+                || _descriptor.refundCapsuleHash != bytes32(0)
+                || (_descriptor.value == 0 && _descriptor.fee == 0)
+                || _descriptor.value > type(uint256).max - _descriptor.fee
+        ) {
+            revert InvalidKind1Descriptor();
+        }
+    }
+
+    /// @dev Applies the normative disposition field rules: no-transaction codes 0-3 and 6 carry
+    ///      the sentinel index and a zero result, code 4 carries an exact transaction index, and
+    ///      the kind-1-only code 5 carries the sentinel index.
+    function _validDispositionFields(SlotChainTypes.DispositionV1 memory _row)
+        private
+        pure
+        returns (bool valid_)
+    {
+        uint8 code = _row.disposition;
+        if (code == uint8(SlotChainTypes.Disposition.INCLUDED_TX)) {
+            return _row.txIndex != type(uint32).max;
+        }
+        if (code == uint8(SlotChainTypes.Disposition.BRIDGE_CREDIT)) {
+            return _row.txIndex == type(uint32).max;
+        }
+        if (code > uint8(SlotChainTypes.Disposition.INVALID_NO_TX)) return false;
+        return _row.txIndex == type(uint32).max && _row.resultHash == bytes32(0);
+    }
+
     /// @dev Validates one forced-descriptor row and returns its encoded byte length.
     function _validatedForcedRowLength(
         SlotChainTypes.ForcedDescriptorRowV2 memory _row,
@@ -1491,6 +1678,7 @@ library LibSlotChainEncoding {
     error NonContiguousForcedDescriptor(uint256 index);
     error InvalidForcedDescriptorKind(uint256 index);
     error InvalidForcedDescriptorLength(uint256 index);
+    error InvalidForcedQueueConfig();
     error InvalidBodyLength();
     error InvalidDataBag();
     error InvalidManifestBlockOrdinal(uint256 position);

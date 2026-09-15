@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://taiko.xyz/schemas/slot-chain-conformance-ledger-v2.27.json",
-  "title": "Slot Chain V2.27 conformance ledger",
+  "$id": "https://taiko.xyz/schemas/slot-chain-conformance-ledger-v2.28.json",
+  "title": "Slot Chain V2.28 conformance ledger",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -13,9 +13,9 @@
   ],
   "properties": {
     "schemaVersion": { "const": 1 },
-    "protocolVersion": { "const": "2.27" },
+    "protocolVersion": { "const": "2.28" },
     "normativeCommit": {
-      "const": "12591797dcf15fab5cfa81277546b3cecca7732d"
+      "const": "4cc7bc0e3cd96ea4cf0af72aa1a9e6e03bec8e52"
     },
     "rootArtifactCount": { "const": 21 },
     "entries": {

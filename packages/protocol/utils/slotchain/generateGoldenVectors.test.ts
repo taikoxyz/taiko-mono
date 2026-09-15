@@ -18,9 +18,9 @@ const vectors = validateTypedVectorJson(
     JSON.stringify(JSON.parse(canonicalJson) as TypedVector[]),
 );
 
-assert.equal(vectors.length, 812);
-assert.equal(vectors.filter((vector) => vector.kind === "hex").length, 659);
-assert.equal(vectors.filter((vector) => vector.kind === "uint").length, 153);
+assert.equal(vectors.length, 876);
+assert.equal(vectors.filter((vector) => vector.kind === "hex").length, 710);
+assert.equal(vectors.filter((vector) => vector.kind === "uint").length, 166);
 
 const round4BuilderVectorAllowlist = [
     "builder_active_equivocation_witness_hash",
@@ -71,6 +71,37 @@ const round4BuilderVectorAllowlist = [
     "builder_normalize_witness_hash",
     "builder_normalize_witness_length",
     "builder_process_builder_maintenance_selector",
+    "builder_proof_admission_calldata_hash",
+    "builder_proof_admission_request_hash",
+    "builder_proof_admission_request_length",
+    "builder_proof_admission_return_hash",
+    "builder_proof_evidence_active_tombstoned_request_hash",
+    "builder_proof_evidence_active_tombstoned_return_hash",
+    "builder_proof_evidence_calldata_hash",
+    "builder_proof_evidence_liability_first_request_hash",
+    "builder_proof_evidence_liability_first_return_hash",
+    "builder_proof_evidence_liability_tombstoned_request_hash",
+    "builder_proof_evidence_liability_tombstoned_return_hash",
+    "builder_proof_evidence_request_hash",
+    "builder_proof_evidence_request_length",
+    "builder_proof_evidence_return_hash",
+    "builder_proof_identity_calldata_hash",
+    "builder_proof_identity_calldata_length",
+    "builder_proof_identity_return_hash",
+    "builder_proof_identity_return_length",
+    "builder_proof_identity_selector",
+    "builder_proof_registry_calldata_hash",
+    "builder_proof_registry_request_hash",
+    "builder_proof_registry_request_length",
+    "builder_proof_registry_return_hash",
+    "builder_proof_request_selector",
+    "builder_proof_tranche_calldata_hash",
+    "builder_proof_tranche_request_hash",
+    "builder_proof_tranche_request_length",
+    "builder_proof_tranche_return_hash",
+    "builder_proof_verifier_config_hash",
+    "builder_proof_verifier_config_return_hash",
+    "builder_proof_verifier_config_selector",
     "builder_register_builder_selector",
     "builder_register_calldata_hash",
     "builder_register_calldata_length",
@@ -188,7 +219,7 @@ for (const [name, value] of Object.entries(requiredRound4Selectors)) {
 }
 
 const solidity = renderSolidity(vectors);
-assert.match(solidity, /uint256 internal constant GOLDEN_VECTOR_COUNT = 812;/);
+assert.match(solidity, /uint256 internal constant GOLDEN_VECTOR_COUNT = 876;/);
 assert.match(solidity, /bytes32 internal constant CANDIDATE_COMMITMENT =/);
 assert.match(solidity, /bytes internal constant V11_BRIDGE_DESCRIPTOR =/);
 assert.match(
@@ -224,7 +255,7 @@ function encoded(copy: TypedVector[]): string {
 
 assert.throws(
     () => validateTypedVectorJson(JSON.stringify(vectors.slice(1))),
-    /expected 812/,
+    /expected 876/,
 );
 
 const duplicate = structuredClone(vectors);
@@ -324,6 +355,14 @@ const round2PrimitiveAllowlist = [
     "hashTrancheNode",
     "encodeKind0Descriptor",
     "encodeKind1Descriptor",
+    "encodeKind0Admission",
+    "encodeKind1Admission",
+    "toKind0Descriptor",
+    "toKind1Descriptor",
+    "hashKind0AdmissionSchema",
+    "hashKind1AdmissionSchema",
+    "hashForcedDescriptorSchema",
+    "hashForcedQueueConfig",
     "hashForcedUserLeaf",
     "hashForcedBridgeLeaf",
     "hashForcedDescriptorList",

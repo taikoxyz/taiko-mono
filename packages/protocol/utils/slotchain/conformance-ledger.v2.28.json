@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "protocolVersion": "2.27",
-  "normativeCommit": "12591797dcf15fab5cfa81277546b3cecca7732d",
+  "protocolVersion": "2.28",
+  "normativeCommit": "4cc7bc0e3cd96ea4cf0af72aa1a9e6e03bec8e52",
   "rootArtifactCount": 21,
   "entries": [
     {
@@ -39,7 +39,8 @@
       "aliases": [],
       "normativeRefs": [
         "main.tex:sec:implementation/root-artifact-set",
-        "implementation-design.md:3.2"
+        "implementation-design.md:3.2",
+        "main.tex:sec:l1-resources"
       ],
       "provenance": "pr-owned",
       "artifactOwnerProfile": "layer1",
@@ -56,7 +57,8 @@
       ],
       "testPaths": ["test/layer1/slotchain/root/ProtocolRootFactoryV1.t.sol"],
       "failureBranches": [
-        "authority/code/configuration/replay/fault branches; expand before review"
+        "authority/code/configuration/replay/fault branches; expand before review",
+        "RLB1/FQC1/FQS1 bootstrap join mismatch and PVM1 release budget above the L1 transaction cap"
       ],
       "limits": ["rootArtifactCount=21", "single layer1 compiler invocation"],
       "status": "red",
@@ -3645,7 +3647,7 @@
       "retentionPolicy": "source-inline",
       "reactivationPolicy": "not-applicable",
       "abiOrEncoding": [
-        "exact V2.27 structs for the 282-field execution profile, 59-word release manifest, verifier descriptors, migration records, ingress rows, and reclamation lifecycle"
+        "exact V2 structs for the 282-field execution profile, 59-word release manifest, verifier descriptors, migration records, ingress rows, reclamation lifecycle, the seven-code disposition enum, and the 204/525-byte kind-0/kind-1 admission bodies"
       ],
       "sourcePaths": ["contracts/shared/slotchain/SlotChainTypes.sol"],
       "testPaths": [
@@ -3659,14 +3661,9 @@
         "execution profile has 281 fixed words plus one bytes tail",
         "profile ABI length is at most 146848 bytes; release, activation, migration statement, ingress, and reclamation encodings have exact fixed word counts"
       ],
-      "status": "reviewed",
-      "reviewedSourceHashes": {
-        "contracts/shared/slotchain/SlotChainTypes.sol": "0xa9f5ed60287653156fa9443201a950870eaafd3291ee26a11c72c2bc8b854310"
-      },
-      "reviewedTestHashes": {
-        "test/shared/slotchain/libs/LibSlotChainEncoding.t.sol": "0x48774d28e08d0c439cf34753a89b20cd354569824cbdf713fab91d3a340dc9d4",
-        "test/shared/slotchain/libs/LibSlotChainProfile.t.sol": "0x5543c71461321e387a4199ee7dac36d9b0ee1dd8ff2ff046aa50c4898f074bba"
-      },
+      "status": "passing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
       "id": "primitive.slot-chain-types",
       "name": "SlotChainTypes",
       "kind": "source-inline"
@@ -3899,7 +3896,10 @@
       "addressReusePolicy": "not-applicable",
       "retentionPolicy": "source-inline",
       "reactivationPolicy": "not-applicable",
-      "abiOrEncoding": ["normative ABI/encoding; expand before review"],
+      "abiOrEncoding": [
+        "normative ABI/encoding; expand before review",
+        "disposition field rules for codes 0-6, kind-0/kind-1 admission bodies with Router timestamp insertion, and the 113-byte ForcedQueue configuration preimage"
+      ],
       "sourcePaths": [
         "contracts/shared/slotchain/libs/LibSlotChainEncoding.sol"
       ],
@@ -3950,7 +3950,8 @@
       "aliases": [],
       "normativeRefs": [
         "main.tex:sec:implementation",
-        "implementation-design.md:3.2"
+        "implementation-design.md:3.2",
+        "main.tex:sec:l1-resources"
       ],
       "provenance": "pr-owned",
       "artifactOwnerProfile": null,
@@ -3972,19 +3973,16 @@
       "testPaths": ["test/shared/slotchain/libs/LibSlotChainProfile.t.sol"],
       "failureBranches": [
         "empty or oversized profile bytes, invalid release identities/joins/aliases, verifier configuration/schema mismatch, cross-kind migration fields, and duplicate ingress kind/adapter",
-        "manual bounded encoders are differentially pinned against canonical Solidity ABI and executable-model fixtures under the non-viaIR shared compiler profile"
+        "manual bounded encoders are differentially pinned against canonical Solidity ABI and executable-model fixtures under the non-viaIR shared compiler profile",
+        "verifier gas above the fixed 16,777,216 L1 transaction cap, or a maximum-proof transaction whose required gas plus 30% margin cannot fit the cap"
       ],
       "limits": [
         "execution profile maximum 146848 bytes and artifact offset 9024",
         "release 59 words, activation 22 words, migration statement 46 words, ingress row 24 words, and reclamation configuration 35 words"
       ],
-      "status": "reviewed",
-      "reviewedSourceHashes": {
-        "contracts/shared/slotchain/libs/LibSlotChainProfile.sol": "0x774cc9c7d75f7ce02512ba32e446c629a81ec30be802a2ab99a2e77acdbf912f"
-      },
-      "reviewedTestHashes": {
-        "test/shared/slotchain/libs/LibSlotChainProfile.t.sol": "0x5543c71461321e387a4199ee7dac36d9b0ee1dd8ff2ff046aa50c4898f074bba"
-      },
+      "status": "passing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
       "id": "primitive.lib-slot-chain-profile",
       "name": "LibSlotChainProfile",
       "kind": "source-inline"
@@ -4419,7 +4417,7 @@
       },
       "reviewedTestHashes": {
         "test/layer1/slotchain/root/LibRootBootstrapV1.t.sol": "0xa2f507f0bf95711878b951e91b69e66770b6eb2344c2b1b93d18a8336bfad43f",
-        "test/layer1/slotchain/root/ProtocolRootFactoryV1.t.sol": "0x9441a27a4986b331a696228d9f8503738763846d7a171e3f11af608d557ec69e"
+        "test/layer1/slotchain/root/ProtocolRootFactoryV1.t.sol": "0x99625f42268b56f4ab1279d86f11218caa05c37a64897676dab727b96e46ac4d"
       },
       "id": "primitive.lib-root-bootstrap-v1",
       "name": "LibRootBootstrapV1",
@@ -4595,6 +4593,42 @@
       },
       "id": "primitive.lib-slot-chain-economics",
       "name": "LibSlotChainEconomics",
+      "kind": "source-inline"
+    },
+    {
+      "aliases": [],
+      "normativeRefs": [
+        "main.tex:sec:l1-resources",
+        "implementation-design.md:3.2"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "EIP-7623 calldata tokens and floor, 21,000 base gas, checked ceil(1.30x) margin, min(supportedL1BlockGasLimit, 16,777,216) transaction cap, and the full-stipend EIP-150 call-sequence lower bound"
+      ],
+      "sourcePaths": [
+        "contracts/shared/slotchain/libs/LibSlotChainL1Resources.sol"
+      ],
+      "testPaths": ["test/shared/slotchain/libs/LibSlotChainL1Resources.t.sol"],
+      "failureBranches": [
+        "uint64 overflow of any intermediate, zero call stipend, zero supported block gas limit, and a budget whose margin exceeds the transaction cap"
+      ],
+      "limits": [
+        "all quantities fit uint64",
+        "bounds are necessary lower bounds on a compiled certificate, never measurements"
+      ],
+      "status": "passing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {},
+      "id": "primitive.lib-slot-chain-l1-resources",
+      "name": "LibSlotChainL1Resources",
       "kind": "source-inline"
     },
     {

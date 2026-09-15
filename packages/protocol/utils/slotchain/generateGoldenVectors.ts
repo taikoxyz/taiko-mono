@@ -3,11 +3,11 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-const EXPECTED_VECTOR_COUNT = 812;
-const EXPECTED_HEX_VECTOR_COUNT = 659;
-const EXPECTED_UINT_VECTOR_COUNT = 153;
+const EXPECTED_VECTOR_COUNT = 876;
+const EXPECTED_HEX_VECTOR_COUNT = 710;
+const EXPECTED_UINT_VECTOR_COUNT = 166;
 const VECTOR_NAME_SCHEMA_SHA256 =
-    "9e825447ec1a2a360526d7b0371c4f947532696fc169b44ba159051579d647b9";
+    "fdc1d9d6bd51b297393d2d2cdb9b1f7e995d493971162d8509a53437c6dbabd2";
 const MAX_UINT256_DECIMAL =
     "115792089237316195423570985008687907853269984665640564039457584007913129639935";
 const MAX_BUFFER_BYTES = 16 * 1024 * 1024;
@@ -32,19 +32,19 @@ const solidityPath = path.join(
 const profileFixturePaths = {
     profile: path.join(
         protocolRoot,
-        "test/shared/slotchain/vectors/execution-profile-v2.27.hex",
+        "test/shared/slotchain/vectors/execution-profile-v2.28.hex",
     ),
     release: path.join(
         protocolRoot,
-        "test/shared/slotchain/vectors/release-v2.27.hex",
+        "test/shared/slotchain/vectors/release-v2.28.hex",
     ),
     ingress0: path.join(
         protocolRoot,
-        "test/shared/slotchain/vectors/ingress0-v2.27.hex",
+        "test/shared/slotchain/vectors/ingress0-v2.28.hex",
     ),
     ingress1: path.join(
         protocolRoot,
-        "test/shared/slotchain/vectors/ingress1-v2.27.hex",
+        "test/shared/slotchain/vectors/ingress1-v2.28.hex",
     ),
 } as const;
 
@@ -456,7 +456,7 @@ export function main(args: string[]): void {
     );
     if (
         !normalOutput.includes(
-            "RESULTS: commitment encoding model — ALL 812 GOLDEN VECTORS / 1611 ASSERTION SITES PASS",
+            "RESULTS: commitment encoding model — ALL 876 GOLDEN VECTORS / 1693 ASSERTION SITES PASS",
         )
     ) {
         fail(
