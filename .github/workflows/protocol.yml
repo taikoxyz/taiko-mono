@@ -8,6 +8,7 @@ on:
       - "!packages/protocol/contract_layout_*"
       - "!packages/protocol/audit/**"
       - "!packages/protocol/docs/**"
+      - "packages/protocol/docs/preconfirmation-v2/**"
       - "!packages/protocol/simulation/**"
       - "!packages/protocol/deployments/**"
       - "!packages/protocol/script/layer2/hekla/**"
@@ -17,6 +18,7 @@ on:
       - "!packages/protocol/script/layer1/preconf/**"
       - "!packages/protocol/script/layer1/provers/**"
       - "!packages/protocol/script/layer1/team/**"
+      - ".github/workflows/protocol.yml"
     branches-ignore:
       - release-please--branches--**
 
@@ -90,6 +92,10 @@ jobs:
       - name: Test L1 contracts
         working-directory: ./packages/protocol
         run: pnpm snapshot:l1 && pnpm layout:l1
+
+      - name: Verify Slot Chain artifact ownership
+        working-directory: ./packages/protocol
+        run: pnpm slotchain:ownership:ci
 
       # - name: Generate coverage report
       #   if: ${{ secrets.CODECOV_TOKEN != '' }}

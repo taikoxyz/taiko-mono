@@ -14,6 +14,10 @@ extend-ignore-identifiers-re = [
   "TTKOt",
   "J64QPL3oYpZ75230YMfbLfKcUEqlIyWW8",
   "consts",
+  # Slot Chain: `BRE1` is a bytes4 ASCII magic (0x42524531), not a word.
+  "BRE1",
+  # Slot Chain: golden-vector function selector, not a word.
+  "5e7c8afe",
 ]
 
 [files]
