@@ -9,11 +9,23 @@ with the executable models that verify its consensus-critical arithmetic.
 | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`slot-chain-spec.pdf`](slot-chain-spec.pdf)               | **The specification.** A4, single column. This is the artifact to read and circulate.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | [`tex/main.tex`](tex/main.tex)                             | **The source.** Hand-maintained LaTeX; edit this to change the document.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| [`settlement-window-model.py`](settlement-window-model.py) | Unified protocol/state model for finite staged genesis campaigns and proof-first later migration, continuous seat scheduling, forced-queue recovery, same-L1 DIRECT ETH ingress, fresh immutable V2 endpoints, permanent inbox pins, permissionless LP-owned atomic-funding tickets, source user/LP pull conservation, terminal frontier proofs, historical destination retirement, and atomic rollback/reorg behavior. Its companion suite currently runs 299 adversarial tests.                                                                                                                                                                                                                                                                                                                                 |
+| [`slides/slot-chain-learning-deck.html`](slides/slot-chain-learning-deck.html) | **The learning deck.** A browser-based introduction to the current design; see [opening and printing instructions](slides/README.md). |
+| [`settlement-window-model.py`](settlement-window-model.py) | Unified protocol/state model for finite staged genesis campaigns and proof-first later migration, continuous seat scheduling, forced-queue recovery, same-L1 DIRECT ETH ingress, fresh immutable V2 endpoints, permanent inbox pins, permissionless LP-owned atomic-funding tickets, source user/LP pull conservation, terminal frontier proofs, historical destination retirement, and atomic rollback/reorg behavior. Its companion suite currently runs 302 adversarial tests.                                                                                                                                                                                                                                                                                                                                 |
 | [`lookahead-model.py`](lookahead-model.py)                 | Exact lookahead path: absolute clock conversion, EIP-4788 carrier/parent semantics, execution-block finality, partial/empty registries, frozen-context tombstones, version-independent protocol-lifetime seed, capped quotas, ring capacity and placement. 38 assertions.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| [`commitment-model.py`](commitment-model.py)               | Byte-exact fixtures for EIP-712 candidates; MessageV1, ingress, ContextV2, Store, Bridge, Pool, accumulator and policy interfaces; fixed-tree and Data MMR inclusion proofs; canonical empty roots and frontier transitions; all BuilderRegistry witness branches plus mutation calldata/returns; exact BPV1 proof-verifier configuration, identity, four proof-request envelopes and all four equivocation output masks; forced Queue V11 credits; source/destination domains; Bridge and ten-component infrastructure descriptors; acyclic migration/registration verifier configurations; the five-argument L1 migration activation; MACT/MFRZ/MCAN/QMIG/MAPS and atomic legacy genesis cutover journals; strict deployed legacy proposal/forced codecs; fixed-key resume-verifier and direct checkpoint-service profiles; release manifests and receipts; LP settlement-bound terminal leaves; bounded session configuration, ABI/events, Router readiness and blobs. 843 golden vectors / 1644 assertion sites. |
+| [`commitment-model.py`](commitment-model.py)               | Byte-exact fixtures for EIP-712 candidates; MessageV1, ingress, ContextV2, Store, Bridge, Pool, accumulator and policy interfaces; fixed-tree and Data MMR inclusion proofs; canonical empty roots and frontier transitions; all BuilderRegistry witness branches plus mutation calldata/returns; exact BPV1 proof-verifier configuration, identity, four proof-request envelopes and all four equivocation output masks; forced Queue V11 admissions, bootstrap join, live Settlement ingress floor and credits; source/destination domains; Bridge and ten-component infrastructure descriptors; acyclic migration/registration verifier configurations; the five-argument L1 migration activation; MACT/MFRZ/MCAN/QMIG/MAPS and atomic legacy genesis cutover journals; strict deployed legacy proposal/forced codecs; fixed-key resume-verifier and direct checkpoint-service profiles; release manifests and receipts; LP settlement-bound terminal leaves; bounded session configuration, ABI/events, Router legacy-bootstrap binding, readiness and blobs. 876 golden vectors / 1693 assertion sites. |
 | [`seat-market-model.py`](seat-market-model.py)             | Executable custody, fixed-width wire-codec and state model for the four-cell perpetual reverse auction, staging, premium reserves, pull credits, bond terminalization and release rotation. Its companion suite currently runs 114 adversarial tests.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| [`economic-profile-model.py`](economic-profile-model.py)   | Strict schema and checked-arithmetic validator for the versioned economic profile and every published parameter relation. Its companion suite currently runs 38 tests.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| [`economic-profile-model.py`](economic-profile-model.py)   | Strict schema and checked-arithmetic validator for the versioned economic profile and every published parameter relation. Its companion suite currently runs 41 tests.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+
+## Learning the design
+
+Start with the [Slot Chain learning deck](slides/slot-chain-learning-deck.html) for an overview of
+builder authority, settlement and recovery, forced transactions, bridge ingress, release activation
+and the revised economic tradeoffs. Open the HTML locally in a browser; its print layout also
+supports saving a PDF. See the [deck README](slides/README.md) for instructions and provenance.
+
+The deck is a non-normative companion to the v2.28 specification. That label is the document
+revision, not an on-chain protocol version. Use the specification for exact validity rules,
+encodings and implementation requirements.
 
 ## Building the PDF
 
@@ -36,12 +48,17 @@ a successful LaTeX exit status alone is not layout verification.
 
 ```sh
 python3 settlement-window-model.py   # 186 assertions
-python3 test-settlement-window.py    # 299 adversarial regression tests
+python3 test-settlement-window.py    # 302 adversarial regression tests
 python3 lookahead-model.py           # 38 assertions
-python3 commitment-model.py          # 843 golden vectors / 1644 assertion sites
-python3 commitment-model.py --export-json # 843 sorted typed oracle rows
+python3 commitment-model.py          # 876 golden vectors / 1693 assertion sites
+python3 commitment-model.py --export-json # 876 sorted typed oracle rows
 python3 -m unittest test-seat-market.py      # 114 adversarial tests
-python3 -m unittest test-economic-profile.py # 38 schema/economic tests
+python3 -m unittest test-economic-profile.py # 41 schema/economic tests
+python3 -m unittest test-forced-transaction-validity.py
+python3 -m unittest test-l1-resource-bounds.py
+python3 -m unittest test-seat-promotion-economics.py
+python3 -m unittest test-route-preparation-resources.py
+python3 -m unittest test-migration-journal.py
 ```
 
 All run standalone; the property models print `ALL PROPERTIES PASS`, and the regression suite
@@ -50,6 +67,12 @@ model has a pure-Python Ethereum Keccak implementation and uses PyCryptodome onl
 speedup. Signatures, validity proofs, EVM gas and execution remain placeholders in the settlement
 model. **Every consensus change must update the relevant model in the same commit.** A passing
 model is regression evidence, not a proof of protocol soundness.
+
+The focused repair suites cover static forced-transaction rejection, fork/state-dependent
+disposition 6, raw-witness requirements, transaction cap/calldata-floor arithmetic, deployment-free
+route staging, the final migration lease post-read and late-proof promotion economics. The forced-transaction model uses explicit
+abstract decoded-transaction and execution-state witnesses. Real raw decoding, signature recovery,
+state authentication and EVM execution must be reproduced by the client/circuit conformance suite.
 
 Migration-arm governance keeps the full `PROTOCOL_CHANGE_DELAY_SECONDS=604800` notice and adds a
 finite `MIGRATION_ARM_EXECUTION_WINDOW_SECONDS=604800` after maturity. Both the Timelock and PVM
@@ -62,8 +85,19 @@ the exact 64-byte `MAF1` watermark view. The generic 256-byte `PCO1` operation r
 
 ## Status
 
-The v2.27 architecture is a **multi-pass-reviewed implementation-freeze candidate**, not a
-production-ready release. It replaces the underspecified ordinary-proof authority with one exact
+The v2.28 architecture is a **reviewed candidate for further implementation**. It adds exhaustive
+forced-transaction classification, including `INVALID_NO_TX = 6`; enforces the fixed 16,777,216
+L1 transaction gas cap and calldata floor; separates source-bundle and adapter deployment from
+route staging; and reconciles the full migration journal. It preserves late-proof recovery and
+explicitly accepts a bounded funded subsidy exposure when a higher-ask standby replaces a
+non-breaching primary. A larger refundable bond does not itself deter that promotion. The models
+bound gross reserve exposure and the incremental premium over a healthy-primary baseline.
+
+Implementation ledgers must pin the exact reviewed normative commit, regenerate profile/hash
+fixtures and recheck affected conformance rows. The revision label is not an on-chain protocol
+version, and existing passing rows from an older commit are insufficient.
+
+The architecture replaces the underspecified ordinary-proof authority with one exact
 profile-bound Settlement validity-verifier descriptor and gives the fresh kind-0 adapter complete
 ERC-2470 constructor provenance through the profile's canonical two-artifact bundle. The
 BuilderRegistry deployability repair adds one independently ERC-2470-deployed stateless proof
@@ -78,11 +112,11 @@ RTR2/BRX1/PIR2/PIM2/PIA2/BIP1/BID1 raw reads rather than an in-process
 `SettlementRegistration` witness. The design model now includes an address-indexed EVM account
 world, exact code/configuration/immutable reads, a root receipt covering the fixed Source factory
 and root-lifetime terminal verifier, bounded indexes, and cold-cache restart coverage through
-root deployment, migration and historical reclamation. Its executable-model, PDF-layout and
-independent design-review gates now pass, so this specification is ready to freeze as an
-implementation input. Compiled Factory/executor/proxy and
+root deployment, separate SBD1/SAD1 deployment, BRD1 staging, migration and historical reclamation.
+The model checks specification consistency; it does not establish completeness. Compiled Factory/executor/proxy and
 component artifacts, EIP-170/EIP-3860 and measured gas certificates, real circuit/verifier
-artifacts, multi-language conformance and external audits remain mandatory production gates. The
+artifacts, multi-language conformance, explicit economic acceptance and external audits remain
+mandatory production gates. Resource budgets are implementation targets, not measurements. The
 root Source-terminal value of 2,375,000 gas is a compiled cold-CALL certificate, not a callee-side
 `gasleft()` admission threshold; exact-code reuse may safely execute with less. ICV2
 now supplies the exact O(1) credit-ID and fee lookup; RAV2 binds the Authority retirement watermark;

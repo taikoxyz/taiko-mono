@@ -1021,7 +1021,7 @@ EXPECTED_RELATION_SPECS = (
         "sec:economics",
     ),
     relation_spec(
-        "sla-bond-collusion",
+        "sla-bond-collateral-stress",
         (
             "seat.slaBondWei",
             "seat.maximumAskWeiPerSecond",
@@ -2116,7 +2116,7 @@ class EconomicProfileTests(unittest.TestCase):
                 {"seat.handoverDelaySeconds": UINT256_MAX},
             ),
             ("sla-bond-claim-tail", {"seat.maximumAskWeiPerSecond": UINT256_MAX}),
-            ("sla-bond-collusion", {"seat.maximumAskWeiPerSecond": UINT256_MAX}),
+            ("sla-bond-collateral-stress", {"seat.maximumAskWeiPerSecond": UINT256_MAX}),
             ("steady-gas-envelope", {"gasProfile.steadyAnchorGas": UINT256_MAX}),
             (
                 "activation-gas-envelope",
@@ -2241,7 +2241,58 @@ class EconomicProfileTests(unittest.TestCase):
         blockers = self.model.production_blockers(profile)
         self.assertIn("relation seat-maximum-reserve-u256 overflow", blockers)
         self.assertIn("relation sla-bond-claim-tail overflow", blockers)
-        self.assertIn("relation sla-bond-collusion overflow", blockers)
+        self.assertIn("relation sla-bond-collateral-stress overflow", blockers)
+
+    def test_funded_promotion_exposure_uses_reserve_and_eligible_overlap(self):
+        exposure = self.model.funded_promotion_exposure(
+            successor_ask=100, predecessor_ask=0, funded_reserve=800_000,
+            funded_service_horizon=8_000, eligible_baseline_overlap=435,
+        )
+        self.assertEqual(exposure["maximumPremiumWei"], 800_000)
+        self.assertEqual(exposure["maximumIncrementalOverlapWei"], 43_500)
+        # The bond stress relation remains an arithmetic sizing requirement.
+        # Its satisfaction does not establish forfeiture in any execution trace.
+        profile = self.calibrated_profile()
+        relation = next(r for r in self.model.PROFILE_RELATIONS
+                        if r.name == "sla-bond-collateral-stress")
+        self.assertTrue(relation.evaluate(profile))
+
+    def test_funded_promotion_exposure_caps_partial_funding_and_horizon(self):
+        for reserve, horizon, overlap, predecessor, gross, incremental in (
+            (0, 8_000, 435, 0, 0, 0),
+            (10_000, 8_000, 435, 0, 10_000, 10_000),
+            (800_000, 100, 100, 20, 10_000, 8_000),
+            (800_000, 8_000, 0, 0, 800_000, 0),
+            (800_000, 8_000, 435, 100, 800_000, 0),
+            (800_000, 8_000, 435, 101, 800_000, 0),
+            (800_000, 0, 0, 0, 0, 0),
+        ):
+            with self.subTest(reserve=reserve, horizon=horizon,
+                              overlap=overlap, predecessor=predecessor):
+                result = self.model.funded_promotion_exposure(
+                    successor_ask=100, predecessor_ask=predecessor,
+                    funded_reserve=reserve, funded_service_horizon=horizon,
+                    eligible_baseline_overlap=overlap,
+                )
+                self.assertEqual(result["maximumPremiumWei"], gross)
+                self.assertEqual(result["maximumIncrementalOverlapWei"], incremental)
+
+    def test_funded_promotion_exposure_rejects_invalid_input_and_overflow(self):
+        valid = dict(successor_ask=100, predecessor_ask=0,
+                     funded_reserve=800_000, funded_service_horizon=8_000,
+                     eligible_baseline_overlap=435)
+        for key in valid:
+            for value in (-1, True, self.model.UINT256_MAX + 1):
+                with self.subTest(key=key, value=value):
+                    with self.assertRaises(ValueError):
+                        self.model.funded_promotion_exposure(**(valid | {key: value}))
+        for mutation in (
+            {"eligible_baseline_overlap": 8_001},
+            {"successor_ask": self.model.UINT256_MAX},
+            {"funded_service_horizon": self.model.UINT256_MAX},
+        ):
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                self.model.funded_promotion_exposure(**(valid | mutation))
 
     def test_reporter_reward_split_caps_reward_and_routes_only_remainder(self):
         profile = self.calibrated_profile()
