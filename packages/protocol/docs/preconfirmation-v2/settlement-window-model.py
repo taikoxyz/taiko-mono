@@ -13,7 +13,7 @@ import copy
 from dataclasses import (
     InitVar, dataclass, field, fields as dataclass_fields, is_dataclass, replace,
 )
-from enum import Enum, IntFlag, auto
+from enum import Enum, IntEnum, IntFlag, auto
 import hashlib
 import sys
 try:
@@ -174,6 +174,113 @@ POINT_EVALUATION_OK = (
     + BLS_MODULUS.to_bytes(32, "big")
 )
 UINT64_MAX = (1 << 64) - 1
+L1_RESOURCE_POLICY = "Ethereum Fusaka: EIP-7623 and EIP-7825"
+L1_TRANSACTION_GAS_LIMIT = 16_777_216
+
+
+def checked_l1_gas(value: int) -> int:
+    if type(value) is not int or not 0 <= value <= UINT64_MAX:
+        raise ValueError("L1 gas arithmetic exceeds uint64")
+    return value
+
+
+def l1_transaction_required_gas(zero_bytes: int, nonzero_bytes: int,
+                                execution_gas: int) -> int:
+    """Whole non-creation transaction budget, without a refund discount."""
+
+    tokens = checked_l1_gas(checked_l1_gas(zero_bytes)
+                            + 4 * checked_l1_gas(nonzero_bytes))
+    return max(checked_l1_gas(21_000 + 4 * tokens + checked_l1_gas(execution_gas)),
+               checked_l1_gas(21_000 + 10 * tokens))
+
+
+def l1_gas_with_headroom(required_gas: int) -> int:
+    return checked_l1_gas(130 * checked_l1_gas(required_gas) + 99) // 100
+
+
+def validate_l1_transaction_gas(required_gas: int,
+                                supported_block_gas_limit: int) -> None:
+    if (checked_l1_gas(supported_block_gas_limit) == 0
+            or l1_gas_with_headroom(required_gas) > min(
+                supported_block_gas_limit, L1_TRANSACTION_GAS_LIMIT)):
+        raise ValueError("L1 transaction cannot preserve 30 percent gas headroom")
+
+
+def l1_call_sequence_minimum_gas(stipends: tuple[int, ...],
+                                retained_reserve: int) -> int:
+    """Necessary forwarding bound; unmeasured compiler overhead is excluded."""
+
+    required = checked_l1_gas(retained_reserve)
+    for stipend in reversed(stipends):
+        if checked_l1_gas(stipend) == 0:
+            raise ValueError("L1 call stipend is zero")
+        required = checked_l1_gas(
+            stipend + max(checked_l1_gas(stipend + 62) // 63, required))
+    return required
+
+
+def validate_settlement_validity_resources_v2(
+        maximum_proof_bytes: int, verification_gas: int, reserve_gas: int,
+        supported_block_gas_limit: int) -> None:
+    if not 0 < maximum_proof_bytes <= SETTLEMENT_VALIDITY_MAXIMUM_PROOF_BYTES:
+        raise ValueError("ordinary proof length is unsupported")
+    required = settlement_validity_verifier_required_gas_v2(verification_gas, reserve_gas)
+    # Only maximum proof bytes are counted. Complete top-level calldata,
+    # prefix and suffix remain mandatory compiled-certificate inputs.
+    validate_l1_transaction_gas(l1_transaction_required_gas(
+        0, maximum_proof_bytes, required), supported_block_gas_limit)
+
+
+def maximum_migration_activation_calldata_bytes(maximum_proof_bytes: int) -> int:
+    if not 0 < maximum_proof_bytes <= 131_072:
+        raise ValueError("migration proof length is unsupported")
+    padded_proof = 32 * ((maximum_proof_bytes + 31) // 32)
+    genesis = 4 + 82 * 32 + 32 + 32 + 2_048 + 32 + padded_proof
+    version = (4 + 82 * 32 + 32 + 32 * 64 + 62 * (6 * 32)
+               + 2 * (6 * 32 + 544) + 32 + 32 + padded_proof)
+    return max(genesis, version)
+
+
+def validate_migration_activation_resources_v2(
+        maximum_proof_bytes: int, gas_values: tuple[int, ...]) -> None:
+    if len(gas_values) != 12 or any(checked_l1_gas(gas) == 0 for gas in gas_values):
+        raise ValueError("migration gas vector is invalid")
+    (verifier, block_limit, execution, freeze, adoption, queue, context_read,
+     post_read, legacy_read, legacy_arm, legacy_finalize, reserve) = gas_values
+    if reserve < l1_call_sequence_minimum_gas((post_read,) * 3, 0):
+        raise ValueError("migration reserve cannot cover final state reads")
+    version_minimum = l1_call_sequence_minimum_gas((
+        context_read, 50_000, verifier, freeze, adoption, queue), reserve)
+    genesis_minimum = l1_call_sequence_minimum_gas((
+        context_read, legacy_read, 50_000, verifier, legacy_finalize, adoption, queue), reserve)
+    if execution < max(version_minimum, genesis_minimum):
+        raise ValueError("migration execution certificate understates mandatory calls")
+    validate_l1_transaction_gas(l1_transaction_required_gas(
+        0, 0, l1_call_sequence_minimum_gas((legacy_arm,), 0)), block_limit)
+    validate_l1_transaction_gas(l1_transaction_required_gas(
+        0, maximum_migration_activation_calldata_bytes(maximum_proof_bytes), execution),
+        block_limit)
+
+
+def validate_protocol_release_resources_v1(
+        router_gas: int, market_gas: int, postread_gas: int,
+        reserve_gas: int, supported_block_gas_limit: int) -> None:
+    execution = l1_call_sequence_minimum_gas(
+        (router_gas, market_gas) + (postread_gas,) * 6, reserve_gas)
+    validate_l1_transaction_gas(l1_transaction_required_gas(
+        0, 132 + PROTOCOL_CHANGE_MAX_PAYLOAD_BYTES, execution), supported_block_gas_limit)
+
+
+def validate_source_bundle_factory_resources_v1(
+        bundle_gas: int, adapter_gas: int, postcheck_reserve: int,
+        supported_block_gas_limit: int) -> None:
+    if not 0 < checked_l1_gas(postcheck_reserve) < min(bundle_gas, adapter_gas):
+        raise ValueError("Source factory internal postcheck reserve is unsupported")
+    for stipend, calldata_bytes in ((bundle_gas, 1_668), (adapter_gas, 260)):
+        validate_l1_transaction_gas(l1_transaction_required_gas(
+            0, calldata_bytes, l1_call_sequence_minimum_gas((stipend,), 0)),
+            supported_block_gas_limit)
+
 SCHEDULE_WINDOW_SLOTS = 384
 SCHEDULE_LOOKAHEAD_SECONDS = 768
 MAX_SCHEDULE_CARRIER_SCAN_SLOTS = 64
@@ -499,12 +606,12 @@ PROFILE_INGRESS_AUTHORIZATION_CALLDATA_LENGTH = 36
 PROFILE_INGRESS_AUTHORIZATION_RETURN_LENGTH = 832
 PROFILE_INGRESS_AUTHORIZATION_READ_GAS = 250_000
 STAGE_BRIDGE_ROUTE_PACKAGE_SELECTOR = bytes.fromhex("9dad437b")
-STAGE_BRIDGE_ROUTE_PACKAGE_GAS = 12_000_000
+STAGE_BRIDGE_ROUTE_PACKAGE_GAS = 10_000_000
 STAGE_BRIDGE_ROUTE_PACKAGE_RETURN_LENGTH = 128
 PREPARE_BRIDGE_ROUTE_PACKAGE_SELECTOR = keccak256(
     b"prepareBridgeRoutePackageV1(uint64)"
 )[:4]
-PREPARE_BRIDGE_ROUTE_PACKAGE_GAS = 25_000_000
+PREPARE_BRIDGE_ROUTE_PACKAGE_GAS = 12_000_000
 PREPARE_BRIDGE_ROUTE_PACKAGE_CALLDATA_LENGTH = 36
 PREPARE_BRIDGE_ROUTE_PACKAGE_RETURN_LENGTH = 128
 CONSUME_BRIDGE_ROUTE_ARM_READY_SELECTOR = bytes.fromhex("68034634")
@@ -634,7 +741,7 @@ SOURCE_BUNDLE_FACTORY_CONFIG_SELECTOR = keccak256(
 SOURCE_TERMINAL_VERIFIER_CONFIG_SELECTOR = keccak256(
     b"sourceTerminalVerifierConfigV1()"
 )[:4]
-SOURCE_BUNDLE_FACTORY_BUNDLE_DEPLOYMENT_GAS = 15_000_000
+SOURCE_BUNDLE_FACTORY_BUNDLE_DEPLOYMENT_GAS = 10_000_000
 SOURCE_BUNDLE_FACTORY_ADAPTER_DEPLOYMENT_GAS = 2_000_000
 SOURCE_BUNDLE_FACTORY_COMPONENT_CONFIG_READ_GAS = 50_000
 SOURCE_BUNDLE_FACTORY_POSTCHECK_RESERVE_GAS = 500_000
@@ -1639,6 +1746,240 @@ class EIP2935SystemReadTestAdapter:
         )
 
 
+class ForcedTxFork(IntEnum):
+    """Fork rules exercised by the abstract forced-transaction decoder."""
+
+    BERLIN = 0
+    LONDON = 1
+    SHANGHAI = 2
+    PRAGUE = 3
+    FUSAKA = 4
+
+
+class ForcedDisposition(IntEnum):
+    EXPIRED_NO_TX = 0
+    NONCE_NO_TX = 1
+    FUNDS_NO_TX = 2
+    FEE_NO_TX = 3
+    INCLUDED_TX = 4
+    BRIDGE_CREDIT = 5
+    INVALID_NO_TX = 6
+
+
+FORCED_TX_TYPES = frozenset({0, 1, 2})
+FORCED_NO_TX_CODES = frozenset({0, 1, 2, 3, 6})
+
+
+@dataclass(frozen=True)
+class ForcedTransactionFacts:
+    """Abstract output of canonical raw decoding, not a raw-tx verifier.
+
+    Only chain-protected legacy, access-list and dynamic-fee transactions are
+    supported. Blob, authorization-list, system and unknown types reject.
+    These facts and Message's existing signature/chain witnesses are NOT added
+    to the durable 220-byte descriptor. Production derives them from the raw
+    bytes bound by payload_hash and verifies signature recovery independently.
+    """
+
+    tx_type: int = 2
+    canonical_encoding: bool = True
+    chain_protected: bool = True
+    destination: bytes | None = bytes.fromhex("11" * 20)
+    value: int = 0
+    max_priority_fee: int = 0
+    data: bytes = b""
+    access_list: tuple[tuple[bytes, tuple[bytes, ...]], ...] = ()
+
+    def structurally_valid(self) -> bool:
+        return (
+            type(self.tx_type) is int
+            and type(self.canonical_encoding) is bool
+            and type(self.chain_protected) is bool
+            and (self.destination is None or
+                 type(self.destination) is bytes and len(self.destination) == 20)
+            and type(self.value) is int and 0 <= self.value <= SEAT_UINT256_MAX
+            and type(self.max_priority_fee) is int
+            and 0 <= self.max_priority_fee <= SEAT_UINT256_MAX
+            and type(self.data) is bytes
+            and type(self.access_list) is tuple
+            and all(type(entry) is tuple and len(entry) == 2
+                    and type(entry[0]) is bytes and len(entry[0]) == 20
+                    and type(entry[1]) is tuple
+                    and all(type(key) is bytes and len(key) == 32
+                            for key in entry[1]) for entry in self.access_list)
+        )
+
+
+@dataclass(frozen=True)
+class ForcedSenderState:
+    nonce: int = 0
+    balance: int = SEAT_UINT256_MAX
+    code: bytes = b""
+
+    def structurally_valid(self) -> bool:
+        return (type(self.nonce) is int and 0 <= self.nonce <= UINT64_MAX
+                and type(self.balance) is int
+                and 0 <= self.balance <= SEAT_UINT256_MAX
+                and type(self.code) is bytes)
+
+
+class ForcedEvmOutcome(Enum):
+    SUCCESS = auto()
+    REVERT = auto()
+    EXCEPTIONAL_HALT = auto()
+
+
+@dataclass(frozen=True)
+class ForcedRawAuthentication:
+    """Abstract canonical-signature recovery and chain decoding from raw bytes.
+
+    The external proof authenticates these outputs against payload_hash;
+    Python does not verify ECDSA. None represents a proved signature failure,
+    not a missing proof. Message's admission-only flags are never consulted.
+    """
+
+    recovered_sender: str | None
+    chain_id: int
+
+    def structurally_valid(self) -> bool:
+        return (
+            (self.recovered_sender is None or
+             type(self.recovered_sender) is str and bool(self.recovered_sender))
+            and type(self.chain_id) is int
+            and 0 <= self.chain_id <= SEAT_UINT256_MAX
+        )
+
+
+@dataclass(frozen=True)
+class ForcedTxExecutionWitness:
+    """Sequential EVM prestate after tx0/tx1 and preceding included txs.
+
+    Authenticating this state and the decoded raw bytes, and executing the
+    resulting transaction, belong to the existing external validity proof.
+    This model checks classification, not MPT proofs, ECDSA or EVM execution.
+    EVM outcomes are deliberately not transaction-invalid error flags.
+    """
+
+    queue_index: int
+    payload_hash: str
+    transaction: ForcedTransactionFacts
+    sender: ForcedSenderState = field(default_factory=ForcedSenderState)
+    outcome: ForcedEvmOutcome = ForcedEvmOutcome.SUCCESS
+    authentication: ForcedRawAuthentication = field(kw_only=True)
+
+
+def forced_transaction_gas(
+    tx: ForcedTransactionFacts, fork: ForcedTxFork,
+) -> tuple[int, int]:
+    """Ordinary intrinsic and EIP-7623 floor, without counting either twice."""
+
+    if (type(tx) is not ForcedTransactionFacts or not tx.structurally_valid()
+            or type(fork) is not ForcedTxFork):
+        raise ValueError("forced transaction gas inputs are malformed")
+    tokens = sum(1 if value == 0 else 4 for value in tx.data)
+    intrinsic = (21_000 + 4 * tokens + 2400 * len(tx.access_list)
+                 + 1900 * sum(len(entry[1]) for entry in tx.access_list))
+    if tx.destination is None:
+        intrinsic += 32_000
+        if fork >= ForcedTxFork.SHANGHAI:
+            intrinsic += 2 * ((len(tx.data) + 31) // 32)
+    floor = 21_000 + 10 * tokens if fork >= ForcedTxFork.PRAGUE else 0
+    return intrinsic, floor
+
+
+def forced_transaction_static_errors(
+    row: "Message", tx: ForcedTransactionFacts, fork: ForcedTxFork,
+    chain_id: int, authentication: ForcedRawAuthentication | None = None,
+) -> tuple[str, ...]:
+    """Byte-detectable validity failures under the specified execution fork."""
+
+    if (type(tx) is not ForcedTransactionFacts or not tx.structurally_valid()
+            or type(fork) is not ForcedTxFork):
+        return ("MALFORMED_TRANSACTION",)
+    errors: list[str] = []
+    if not tx.canonical_encoding:
+        errors.append("NONCANONICAL_ENCODING")
+    if (tx.tx_type not in FORCED_TX_TYPES
+            or tx.tx_type == 2 and fork < ForcedTxFork.LONDON):
+        errors.append("UNSUPPORTED_TYPE")
+    if (not tx.chain_protected or row.l2_chain_id != chain_id
+            or authentication is not None
+                and authentication.chain_id != row.l2_chain_id):
+        errors.append("CHAIN_ID")
+    if (not row.sender or authentication is not None
+            and authentication.recovered_sender != row.sender):
+        errors.append("SIGNATURE")
+    if row.sender in {"system:anchor", "system:inbox"}:
+        errors.append("RESERVED_SENDER")
+    if type(row.nonce) is not int or not 0 <= row.nonce < UINT64_MAX:
+        errors.append("NONCE_LIMIT")
+    if (type(row.max_fee) is not int or not 0 <= row.max_fee <= SEAT_UINT256_MAX
+            or tx.max_priority_fee > row.max_fee
+            or tx.tx_type != 2 and tx.max_priority_fee != 0):
+        errors.append("FEE_FIELDS")
+    if tx.tx_type == 0 and tx.access_list:
+        errors.append("LEGACY_ACCESS_LIST")
+    if (tx.destination is None and fork >= ForcedTxFork.SHANGHAI
+            and len(tx.data) > 49_152):
+        errors.append("INITCODE_SIZE")
+    intrinsic, floor = forced_transaction_gas(tx, fork)
+    if (type(row.gas_limit) is not int
+            or not max(intrinsic, floor) <= row.gas_limit <= UINT64_MAX):
+        errors.append("INTRINSIC_OR_FLOOR_GAS")
+    if (fork >= ForcedTxFork.FUSAKA and type(row.gas_limit) is int
+            and row.gas_limit > 16_777_216):
+        errors.append("TRANSACTION_GAS_CAP")
+    if (type(row.gas_limit) is int and type(row.max_fee) is int
+            and row.gas_limit * row.max_fee + tx.value > SEAT_UINT256_MAX):
+        errors.append("UPFRONT_COST_OVERFLOW")
+    return tuple(errors)
+
+
+def classify_forced_transaction(
+    row: "Message", *, timestamp: int, fork: ForcedTxFork,
+    chain_id: int, base_fee: int, witness: ForcedTxExecutionWitness | None,
+    raw_available: bool,
+) -> ForcedDisposition:
+    """Total classification for admitted rows and authenticated reachable state.
+
+    Missing/malformed proof inputs reject the candidate; they are never a
+    discard reason. Expiry requires no raw bytes or state witness. No-tx reasons
+    have exact precedence 0,1,2,3,6; ordinary EVM failure still includes tx4.
+    """
+
+    if (type(row) is not Message or row.kind is not ForceKind.USER_TX
+            or type(timestamp) is not int or not 0 <= timestamp <= UINT64_MAX
+            or type(fork) is not ForcedTxFork or type(chain_id) is not int
+            or not 0 < chain_id <= UINT64_MAX or type(base_fee) is not int
+            or not 0 <= base_fee <= SEAT_UINT256_MAX):
+        raise ValueError("forced transaction context is malformed")
+    if row.valid_until < timestamp:
+        return ForcedDisposition.EXPIRED_NO_TX
+    if (not raw_available or type(witness) is not ForcedTxExecutionWitness
+            or witness.payload_hash != row.payload_hash
+            or type(witness.transaction) is not ForcedTransactionFacts
+            or not witness.transaction.structurally_valid()
+            or type(witness.authentication) is not ForcedRawAuthentication
+            or not witness.authentication.structurally_valid()
+            or type(witness.sender) is not ForcedSenderState
+            or not witness.sender.structurally_valid()
+            or type(witness.outcome) is not ForcedEvmOutcome):
+        raise ValueError("unexpired forced transaction needs raw and state witnesses")
+    tx, sender = witness.transaction, witness.sender
+    if row.nonce != sender.nonce:
+        return ForcedDisposition.NONCE_NO_TX
+    if sender.balance < row.gas_limit * row.max_fee + tx.value:
+        return ForcedDisposition.FUNDS_NO_TX
+    if row.max_fee < base_fee:
+        return ForcedDisposition.FEE_NO_TX
+    delegated = len(sender.code) == 23 and sender.code[:3] == b"\xef\x01\x00"
+    if (forced_transaction_static_errors(
+            row, tx, fork, chain_id, witness.authentication)
+            or sender.code and not (fork >= ForcedTxFork.PRAGUE and delegated)):
+        return ForcedDisposition.INVALID_NO_TX
+    return ForcedDisposition.INCLUDED_TX
+
+
 @dataclass(frozen=True)
 class Message:
     enqueued_at: int
@@ -1661,6 +2002,8 @@ class Message:
     gas_limit: int = 0
     max_fee: int = 0
     refund_address: str = ""
+    # Abstract admission decoder output; deliberately absent from durable hash.
+    transaction: ForcedTransactionFacts = field(default_factory=ForcedTransactionFacts)
 
 
 @dataclass(frozen=True)
@@ -3110,6 +3453,11 @@ class Block:
     anchor_system_tx_position: int = 0
     inbox_system_tx_position: int = 1
     gas_used: int = 0
+    # EVM header/prestate proof inputs; no change to queue or Inbox row ABI.
+    forced_tx_fork: ForcedTxFork = ForcedTxFork.FUSAKA
+    forced_tx_chain_id: int = 167_000
+    forced_tx_base_fee: int = 100
+    forced_tx_witnesses: tuple[ForcedTxExecutionWitness, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -6026,6 +6374,10 @@ def source_bundle_factory_configuration_hash_v1(
             or len(protocol_version_manager) != 20
             or protocol_version_manager == bytes(20)):
         raise ValueError("root Source factory configuration input is invalid")
+    validate_source_bundle_factory_resources_v1(
+        SOURCE_BUNDLE_FACTORY_BUNDLE_DEPLOYMENT_GAS,
+        SOURCE_BUNDLE_FACTORY_ADAPTER_DEPLOYMENT_GAS,
+        SOURCE_BUNDLE_FACTORY_POSTCHECK_RESERVE_GAS, L1_TRANSACTION_GAS_LIMIT)
     return keccak256(b"".join((
         SOURCE_BUNDLE_FACTORY_CONFIG_DOMAIN,
         _model_uint(settlement_chain_id, 32, "Source factory chain"),
@@ -11089,6 +11441,9 @@ class Protocol:
     pending_release_manifest_hash: str = ""
     first_v2_block_number: int = 0
     queue_capacity: int = MAX_FORCE_QUEUE_ITEMS  # model-only capacity override
+    # Abstract counterpart of the fork/chain policy pinned by the L2 profile.
+    forced_tx_fork: ForcedTxFork = ForcedTxFork.FUSAKA
+    forced_tx_chain_id: int = 167_000
     episode: int = 0
     recovery: RecoveryRound | None = None
     normal_best: Candidate | None = None
@@ -16346,6 +16701,10 @@ class Protocol:
                 ACTIVATION_FORCE_GAS_BUDGET if expected_activation
                 else FORCE_GAS_BUDGET)
             if (block.evm_timestamp != GENESIS_TIMESTAMP + block.slot
+                    or block.forced_tx_fork is not self.forced_tx_fork
+                    or block.forced_tx_chain_id != self.forced_tx_chain_id
+                    or block is first and block.forced_tx_base_fee
+                        != self.core.next_base_fee
                     or block.parent_hash != parent or block.slot <= prior_slot
                     or (candidate.tier is Tier.NORMAL_SIGNED
                         and block.slot - prior_slot > G_MAX)
@@ -16369,6 +16728,12 @@ class Protocol:
                 cursor, block.force_cutoff,
                 gas_budget=block.force_gas_budget)
             if block.message_end != expected:
+                return False
+            try:
+                forced_block_rows(
+                    self.messages, block, candidate.available_payload_hashes
+                )
+            except ValueError:
                 return False
             for msg in self.messages[cursor:block.message_end]:
                 if (msg.kind is ForceKind.USER_TX
@@ -23681,9 +24046,9 @@ MAXIMUM_LIVE_VERSION_MIGRATION_SECONDS = 604_800
 # the full seven-day notice period that precedes maturity.
 MIGRATION_ARM_EXECUTION_WINDOW_SECONDS = 604_800
 PROTOCOL_CHANGE_MAX_PAYLOAD_BYTES = 149_088
-PVM_RELEASE_ROUTER_REGISTRATION_GAS = 15_000_000
+PVM_RELEASE_ROUTER_REGISTRATION_GAS = 6_000_000
 PVM_RELEASE_MARKET_INSTALLATION_GAS = 1_000_000
-PVM_RELEASE_POSTREAD_GAS = 500_000
+PVM_RELEASE_POSTREAD_GAS = 100_000
 PVM_RELEASE_POST_CALLBACK_RESERVE_GAS = 2_000_000
 PROTOCOL_CHANGE_OPERATION_DOMAIN = b"slot-chain-protocol-change-operation-v1"
 PROTOCOL_CHANGE_TIMELOCK_DOMAIN = b"slot-chain-protocol-change-timelock-v1"
@@ -23748,7 +24113,7 @@ SETTLEMENT_VALIDITY_PUBLIC_INPUT_SCHEMA_HASH = keccak256(
     b"slot-chain-settlement-validity-public-input-schema-v2"
 )
 SETTLEMENT_VALIDITY_MAXIMUM_PROOF_BYTES = 65_536
-SETTLEMENT_VALIDITY_MAXIMUM_GAS = 30_000_000
+SETTLEMENT_VALIDITY_MAXIMUM_GAS = L1_TRANSACTION_GAS_LIMIT
 SETTLEMENT_VALIDITY_VERIFIER_CONFIG_TYPE = (
     "SettlementValidityVerifierConfigV2(bytes32 verifyingKeyHash,"
     "bytes32 proofSystemId,bytes32 publicInputSchemaHash,bytes4 selector,"
@@ -25846,6 +26211,9 @@ def _profile_settlement_validity_verifier_descriptor_hash_v2(
             or verification_gas > SETTLEMENT_VALIDITY_MAXIMUM_GAS
             or reserve_gas > SETTLEMENT_VALIDITY_MAXIMUM_GAS):
         raise ValueError("Settlement validity verifier bounds are unsupported")
+    validate_settlement_validity_resources_v2(
+        maximum_proof_bytes, verification_gas, reserve_gas,
+        _decode_uint_word_v1(words[147], 64, "supported L1 block gas limit"))
     expected_configuration_hash = keccak256(b"".join((
         SETTLEMENT_VALIDITY_VERIFIER_CONFIG_TYPEHASH,
         words[274], words[275], words[276], selector + bytes(28),
@@ -25898,6 +26266,9 @@ def _decode_settlement_validity_verifier_descriptor_return_v2(
     if rows[0] != SETTLEMENT_VALIDITY_VERIFIER_DESCRIPTOR_MAGIC + bytes(28):
         raise ValueError("SVD2 magic or padding is invalid")
     profile_words = [bytes(32)] * EXECUTION_PROFILE_VALUE_WORDS
+    # SVD2 itself has no block-limit word; enforce the fixed transaction cap
+    # here and repeat with the profile's possibly smaller block limit at join.
+    profile_words[147] = _model_uint(L1_TRANSACTION_GAS_LIMIT, 32, "L1 transaction cap")
     profile_words[271:281] = rows[1:]
     descriptor_hash = \
         _profile_settlement_validity_verifier_descriptor_hash_v2(profile_words)
@@ -28572,6 +28943,10 @@ def encode_protocol_version_manager_config_return_v1(
 ) -> bytes:
     if type(view) is not ProtocolVersionManagerConfigViewV1:
         raise ValueError("PVM1 configuration view has wrong type")
+    validate_protocol_release_resources_v1(
+        view.release_router_registration_gas, view.release_market_installation_gas,
+        view.release_postread_gas, view.release_post_callback_reserve_gas,
+        L1_TRANSACTION_GAS_LIMIT)
     addresses = (
         view.protocol_change_timelock, view.active_settlement_router,
         view.forced_queue, view.builder_registry, view.schedule_oracle,
@@ -28718,6 +29093,10 @@ def protocol_version_manager_configuration_hash_v1(
 ) -> bytes:
     if type(view) is not ProtocolVersionManagerConfigViewV1:
         raise ValueError("PVM1 configuration view has wrong type")
+    validate_protocol_release_resources_v1(
+        view.release_router_registration_gas, view.release_market_installation_gas,
+        view.release_postread_gas, view.release_post_callback_reserve_gas,
+        L1_TRANSACTION_GAS_LIMIT)
     return keccak256(b"".join((
         PROTOCOL_VERSION_MANAGER_CONFIG_DOMAIN,
         _model_uint(view.settlement_chain_id, 32, "PVM chain"),
@@ -31690,6 +32069,9 @@ def settlement_validity_verifier_configuration_hash_v2(
             or not 0 < post_verification_reserve_gas
                 <= SETTLEMENT_VALIDITY_MAXIMUM_GAS):
         raise ValueError("Settlement validity verifier configuration is invalid")
+    validate_settlement_validity_resources_v2(
+        maximum_proof_bytes, verification_gas_limit,
+        post_verification_reserve_gas, L1_TRANSACTION_GAS_LIMIT)
     return keccak256(b"".join((
         SETTLEMENT_VALIDITY_VERIFIER_CONFIG_TYPEHASH,
         _model_fixed_bytes32(verifying_key_hash),
@@ -31718,7 +32100,7 @@ def settlement_validity_verifier_required_gas_v2(
                 <= SETTLEMENT_VALIDITY_MAXIMUM_GAS):
         raise ValueError("Settlement validity verifier gas bounds are invalid")
     eip150_headroom = (verification_gas_limit + 62) // 63
-    return (verification_gas_limit
+    return checked_l1_gas(verification_gas_limit
             + max(eip150_headroom, post_verification_reserve_gas)
             + SETTLEMENT_VALIDITY_VERIFIER_CALL_ENVELOPE_GAS
             + SETTLEMENT_VALIDITY_VERIFIER_RETURN_COPY_GAS)
@@ -31910,9 +32292,15 @@ def migration_transition_verifier_configuration_hash(
             or _model_fixed_bytes32(public_input_schema_hash)
                 != MIGRATION_TRANSITION_STATEMENT_TYPEHASH
             or selector != MIGRATION_TRANSITION_VERIFIER_SELECTOR
-            or not 0 < maximum_proof_bytes <= UINT32_MAX
-            or not 0 < verification_gas_limit <= UINT64_MAX):
+            or not 0 < maximum_proof_bytes <= MAX_MIGRATION_PROOF_BYTES
+            or not 0 < verification_gas_limit <= L1_TRANSACTION_GAS_LIMIT):
         raise ValueError("migration verifier configuration is invalid")
+    # A standalone descriptor lacks the profile suffix budgets. This proof
+    # and verifier-only lower bound is necessary; the MPR2 join checks all calls.
+    validate_l1_transaction_gas(l1_transaction_required_gas(
+        0, maximum_proof_bytes,
+        l1_call_sequence_minimum_gas((verification_gas_limit,), 0)),
+        L1_TRANSACTION_GAS_LIMIT)
     return keccak256(b"".join((
         MIGRATION_VERIFIER_CONFIG_TYPEHASH,
         _model_fixed_bytes32(verifying_key_hash),
@@ -32025,6 +32413,8 @@ class MigrationTransitionVerifierDescriptor:
 
     @property
     def commitment(self) -> str:
+        if not self.structurally_valid():
+            raise ValueError("migration verifier descriptor is invalid")
         return keccak256(b"".join((
             MIGRATION_VERIFIER_DESCRIPTOR_TYPEHASH,
             bytes(12) + _model_address20(self.address),
@@ -32040,27 +32430,30 @@ class MigrationTransitionVerifierDescriptor:
         ))).hex()
 
     def structurally_valid(self) -> bool:
-        return (
-            bool(self.address)
-            and bool(self.runtime_hash)
-            and bool(self.verifying_key_hash)
-            and bool(self.proof_system_id)
-            and _model_fixed_bytes32(self.public_input_schema_hash)
-                == MIGRATION_TRANSITION_STATEMENT_TYPEHASH
-            and 0 < self.maximum_proof_bytes <= MAX_MIGRATION_PROOF_BYTES
-            and 0 < self.verification_gas_limit <= 30_000_000
-            and self.selector == MIGRATION_TRANSITION_VERIFIER_SELECTOR
-            and self.nonproxy
-            and self.configuration_hash
-                == migration_transition_verifier_configuration_hash(
-                    self.verifying_key_hash,
-                    self.proof_system_id,
-                    self.public_input_schema_hash,
-                    self.maximum_proof_bytes,
-                    self.verification_gas_limit,
-                    self.selector,
-                )
-        )
+        try:
+            return (
+                bool(self.address)
+                and bool(self.runtime_hash)
+                and bool(self.verifying_key_hash)
+                and bool(self.proof_system_id)
+                and _model_fixed_bytes32(self.public_input_schema_hash)
+                    == MIGRATION_TRANSITION_STATEMENT_TYPEHASH
+                and 0 < self.maximum_proof_bytes <= MAX_MIGRATION_PROOF_BYTES
+                and 0 < self.verification_gas_limit <= L1_TRANSACTION_GAS_LIMIT
+                and self.selector == MIGRATION_TRANSITION_VERIFIER_SELECTOR
+                and self.nonproxy
+                and self.configuration_hash
+                    == migration_transition_verifier_configuration_hash(
+                        self.verifying_key_hash,
+                        self.proof_system_id,
+                        self.public_input_schema_hash,
+                        self.maximum_proof_bytes,
+                        self.verification_gas_limit,
+                        self.selector,
+                    )
+            )
+        except (TypeError, ValueError):
+            return False
 
 
 def release_deployment_commitment(
@@ -32736,6 +33129,16 @@ def _validate_execution_profile_value_words_v2(
         raise ValueError("Settlement factory configuration is unsupported")
     expected_market_authority_configuration = \
         aggregator_seat_market_configuration_hash_v2(words)
+    # Graph canonicalization may skip authority joins, never resource validity.
+    validate_settlement_validity_resources_v2(
+        _decode_uint_word_v1(words[278], 32, "validity proof bytes"),
+        _decode_uint_word_v1(words[279], 64, "validity verification gas"),
+        _decode_uint_word_v1(words[280], 64, "validity reserve gas"),
+        _decode_uint_word_v1(words[147], 64, "supported L1 block gas limit"))
+    validate_migration_activation_resources_v2(
+        _decode_uint_word_v1(words[145], 32, "migration proof bytes"),
+        tuple(_decode_uint_word_v1(word, 64, "migration gas")
+              for word in words[146:158]))
     if validate_authority_graph:
         expected_kind0_salt = kind0_ingress_salt_from_words_v1(words)
         expected_kind0_config = \
@@ -32748,19 +33151,6 @@ def _validate_execution_profile_value_words_v2(
                 "kind-0 CREATE2 deployment provenance is unsupported"
             )
         _profile_settlement_validity_verifier_descriptor_hash_v2(words)
-        if settlement_validity_verifier_required_gas_v2(
-                _decode_uint_word_v1(
-                    words[279], 64, "Settlement validity verification gas"
-                ),
-                _decode_uint_word_v1(
-                    words[280], 64, "Settlement validity reserve gas"
-                ),
-                ) > _decode_uint_word_v1(
-                    words[147], 64, "supported L1 block gas limit"
-                ):
-            raise ValueError(
-                "Settlement validity verifier gas cannot preserve its reserve"
-            )
         source_artifacts = ProtocolRootSourceFactoryCompilerArtifactsV1(
             SOURCE_BUNDLE_FACTORY_CREATION_CODE_V1,
             SOURCE_BUNDLE_FACTORY_RUNTIME_CODE_V1,
@@ -33393,9 +33783,12 @@ def canonical_execution_profile_cross_model_fixture_v2() -> bytes:
     )
     words[143] = MIGRATION_TRANSITION_STATEMENT_TYPEHASH
     words[144] = MIGRATION_TRANSITION_VERIFIER_SELECTOR + bytes(28)
-    words[147] = _model_uint(
-        30_000_000, 32, "supported L1 block gas limit"
-    )
+    for index, value in enumerate((
+        131_072, 1_000_000, 30_000_000, 10_000_000, 500_000,
+        1_000_000, 500_000, 100_000, 100_000, 100_000,
+        500_000, 500_000, 500_000,
+    ), start=145):
+        words[index] = _model_uint(value, 32, "activation gas fixture")
     words[114] = words[152]
     words[115] = words[153]
     words[116] = words[150]
@@ -33569,16 +33962,16 @@ class ExecutionProfile:
         default=b"\x60\x00\x60\x00\xf3", compare=False, repr=False
     )
     supported_l1_block_gas_limit: int = 30_000_000
-    worst_case_activation_adoption_gas: int = 20_000_000
+    worst_case_activation_adoption_gas: int = 10_000_000
     source_freeze_gas_limit: int = 500_000
-    target_adoption_gas_limit: int = 2_000_000
+    target_adoption_gas_limit: int = 1_000_000
     queue_migration_gas_limit: int = 500_000
     activation_context_read_gas_limit: int = 100_000
     post_state_read_gas_limit: int = 100_000
     legacy_state_read_gas_limit: int = 100_000
     legacy_arm_gas_limit: int = 500_000
     legacy_finalize_gas_limit: int = 500_000
-    post_callback_reserve_gas: int = 5_000_000
+    post_callback_reserve_gas: int = 500_000
     l1_history_first_supported_block: int = (
         L1_EIP2935_FIRST_SUPPORTED_BLOCK
     )
@@ -33657,6 +34050,21 @@ class ExecutionProfile:
 
     def structurally_valid(self) -> bool:
         verifier = self.migration_transition_verifier
+        try:
+            ordinary = self.settlement_validity_verifier_descriptor
+            validate_settlement_validity_resources_v2(
+                ordinary.maximum_proof_bytes, ordinary.verification_gas_limit,
+                ordinary.post_verification_reserve_gas, self.supported_l1_block_gas_limit)
+            migration = self.migration_transition_verifier_descriptor
+            validate_migration_activation_resources_v2(migration.maximum_proof_bytes, (
+                migration.verification_gas_limit, self.supported_l1_block_gas_limit,
+                self.worst_case_activation_adoption_gas, self.source_freeze_gas_limit,
+                self.target_adoption_gas_limit, self.queue_migration_gas_limit,
+                self.activation_context_read_gas_limit, self.post_state_read_gas_limit,
+                self.legacy_state_read_gas_limit, self.legacy_arm_gas_limit,
+                self.legacy_finalize_gas_limit, self.post_callback_reserve_gas))
+        except (AttributeError, TypeError, ValueError):
+            return False
         return (
             self.protocol_version > 0
             and bool(self.namespace)
@@ -33674,12 +34082,6 @@ class ExecutionProfile:
             )
             and self.settlement_validity_verifier.descriptor
                 == self.settlement_validity_verifier_descriptor
-            and settlement_validity_verifier_required_gas_v2(
-                self.settlement_validity_verifier_descriptor
-                    .verification_gas_limit,
-                self.settlement_validity_verifier_descriptor
-                    .post_verification_reserve_gas,
-            ) <= self.supported_l1_block_gas_limit
             and isinstance(verifier, IMigrationTransitionVerifier)
             and verifier.descriptor
                 == self.migration_transition_verifier_descriptor
@@ -33761,10 +34163,12 @@ def migration_activation_profile_record_hash_v2(
                 record.public_input_schema_hash,
             ))
             or len(record.verifier_selector) != 4
-            or not 0 < record.maximum_proof_bytes <= UINT32_MAX
+            or not 0 < record.maximum_proof_bytes <= 131_072
             or len(record.gas_values) != 12
+            or record.verification_gas_limit != record.gas_values[0]
             or any(not 0 < row <= UINT64_MAX for row in record.gas_values)):
         raise ValueError("migration activation profile record is malformed")
+    validate_migration_activation_resources_v2(record.maximum_proof_bytes, record.gas_values)
     return keccak256(
         b"slot-chain-migration-activation-profile-v2"
         + _model_uint(record.protocol_version, 8, "MPR protocol version")
@@ -36125,13 +36529,8 @@ class ActiveSettlementRouter:
                             self.configuration_hash
                         ), label="ActiveSettlementRouter",
                     )
-                    deployment_world.install_exact_account(
-                        address=_model_address20(self.address),
-                        runtime_hash=_model_fixed_bytes32(self.runtime_hash),
-                        configuration_hash=_model_fixed_bytes32(
-                            self.configuration_hash
-                        ), behavior=self,
-                    )
+                    deployment_world.behavior_handles[
+                        _model_address20(self.address)] = self
                     _validate_live_target_code_and_config_v2(
                         deployment_world, caller=self.address,
                         address=_model_address20(support_registry.address),
@@ -36142,15 +36541,8 @@ class ActiveSettlementRouter:
                             support_registry.configuration_hash
                         ), label="BridgeDomainRegistry",
                     )
-                    deployment_world.install_exact_account(
-                        address=_model_address20(support_registry.address),
-                        runtime_hash=_model_fixed_bytes32(
-                            support_registry.runtime_hash
-                        ),
-                        configuration_hash=_model_fixed_bytes32(
-                            support_registry.configuration_hash
-                        ), behavior=support_registry,
-                    )
+                    deployment_world.behavior_handles[
+                        _model_address20(support_registry.address)] = support_registry
                     terminal_address = _model_address20(
                         source_descriptor.source_terminal_verifier
                     )
@@ -36212,15 +36604,8 @@ class ActiveSettlementRouter:
                             source_bridge_factory.configuration_hash
                         ), label="SourceBundleFactory",
                     )
-                    deployment_world.install_exact_account(
-                        address=_model_address20(source_bridge_factory.address),
-                        runtime_hash=_model_fixed_bytes32(
-                            source_bridge_factory.runtime_hash
-                        ),
-                        configuration_hash=_model_fixed_bytes32(
-                            source_bridge_factory.configuration_hash
-                        ), behavior=source_bridge_factory,
-                    )
+                    deployment_world.behavior_handles[
+                        _model_address20(source_bridge_factory.address)] = source_bridge_factory
 
                 bundle = self._source_bundles_by_descriptor_id.get(
                     descriptor_id
@@ -36247,18 +36632,22 @@ class ActiveSettlementRouter:
                         source_descriptor.source_bridge in mapping,
                         mapping.get(source_descriptor.source_bridge),
                     ))
-                source_bundle_result = \
-                    source_bridge_factory.deploy_source_bundle_exact_v1(
-                        encode_source_bundle_factory_deploy_bundle_calldata_v1(
-                            source_descriptor
-                        ),
-                        caller="permissionless-deployer",
-                        gas_limit=(
-                            SOURCE_BUNDLE_FACTORY_BUNDLE_DEPLOYMENT_GAS
-                        ),
-                        value=0,
-                        deployment_world=deployment_world,
-                    )
+                # Strict PVM1 activation only authenticates prior SBD1 code.
+                # The synthetic legacy manager retains fixture deployment.
+                source_bundle_result = None
+                if type(manager) is not ProtocolVersionManagerV1:
+                    source_bundle_result = \
+                        source_bridge_factory.deploy_source_bundle_exact_v1(
+                            encode_source_bundle_factory_deploy_bundle_calldata_v1(
+                                source_descriptor
+                            ),
+                            caller="permissionless-deployer",
+                            gas_limit=(
+                                SOURCE_BUNDLE_FACTORY_BUNDLE_DEPLOYMENT_GAS
+                            ),
+                            value=0,
+                            deployment_world=deployment_world,
+                        )
                 (source_bridge, credit_registry, quota_manager,
                  _terminal_verifier) = \
                     resolve_source_bundle_deployment_for_test_v1(
@@ -36388,16 +36777,18 @@ class ActiveSettlementRouter:
                         bridge_authorization.adapter_address in mapping,
                         mapping.get(bridge_authorization.adapter_address),
                     ))
-                adapter_result = \
-                    source_bridge_factory.deploy_bridge_adapter_exact_v1(
-                        adapter_calldata,
-                        caller="permissionless-deployer",
-                        gas_limit=(
-                            SOURCE_BUNDLE_FACTORY_ADAPTER_DEPLOYMENT_GAS
-                        ),
-                        value=0,
-                        deployment_world=deployment_world,
-                    )
+                adapter_result = None
+                if type(manager) is not ProtocolVersionManagerV1:
+                    adapter_result = \
+                        source_bridge_factory.deploy_bridge_adapter_exact_v1(
+                            adapter_calldata,
+                            caller="permissionless-deployer",
+                            gas_limit=(
+                                SOURCE_BUNDLE_FACTORY_ADAPTER_DEPLOYMENT_GAS
+                            ),
+                            value=0,
+                            deployment_world=deployment_world,
+                        )
                 bridge = resolve_source_adapter_deployment_for_test_v1(
                     source_bridge_factory, adapter_result,
                     protocol_version=(
@@ -36871,12 +37262,10 @@ class ActiveSettlementRouter:
                     or brx.source_descriptor_bytes != descriptor.canonical_bytes
                     or brx.source_bridge_execution_hash != descriptor_id):
                 raise ValueError("source install snapshot public rows differ")
-            # Replaying exact SBD1/SAD1 after the raw BRX1/PIA2/PVM1/SBF1
-            # checks reconstructs simulator handles after a process restart.
-            # It cannot widen authority: the two exact factory calls rederive
-            # every address/code/config row and return created=0 for a prepared
-            # package (or safely create the same deterministic package).
-            self._prepare_bridge_primitives_v1(
+            # Activation authenticates already deployed accounts. Rebuilding
+            # simulator handles after a restart never invokes SBD1/SAD1 or
+            # creates an absent account inside the activation transaction.
+            self._load_predeployed_bridge_primitives_v1(
                 version, brx, pia, source_bundle_constructor_args_v1(descriptor)
             )
             factory = self._authenticated_source_factory_v1(
@@ -37130,11 +37519,11 @@ class ActiveSettlementRouter:
             clock=clock,
         )
 
-    def _prepare_bridge_primitives_v1(
+    def _load_predeployed_bridge_primitives_v1(
         self, version: int, brx: BridgeRouteExpansionV1,
         pia: tuple[bytes, ...], constructor_args: bytes,
     ) -> None:
-        """Deploy only from the exact BRX1/PIA2 registration stores."""
+        """Authenticate existing BRX1/PIA2 accounts; reconstruct only model handles."""
 
         descriptor = brx.source_descriptor_words
         address = lambda index: "0x" + descriptor[index][12:].hex()
@@ -37179,21 +37568,13 @@ class ActiveSettlementRouter:
             configuration_hash=_model_fixed_bytes32(self.configuration_hash),
             label="ActiveSettlementRouter",
         )
-        world.install_exact_account(
-            address=_model_address20(self.address),
-            runtime_hash=_model_fixed_bytes32(self.runtime_hash),
-            configuration_hash=_model_fixed_bytes32(self.configuration_hash),
-            behavior=self,
-        )
+        world.behavior_handles[_model_address20(self.address)] = self
         _validate_live_target_code_and_config_v2(
             world, caller=self.address, address=descriptor[18][12:],
             runtime_hash=descriptor[19], configuration_hash=descriptor[20],
             label="BridgeDomainRegistry",
         )
-        world.install_exact_account(
-            address=descriptor[18][12:], runtime_hash=descriptor[19],
-            configuration_hash=descriptor[20], behavior=support,
-        )
+        world.behavior_handles[descriptor[18][12:]] = support
         terminal_address = descriptor[21][12:]
         _validate_live_target_code_and_config_v2(
             world, caller=self.address, address=terminal_address,
@@ -37210,18 +37591,12 @@ class ActiveSettlementRouter:
             world.behavior_handles[terminal_address] = terminal_behavior
         elif type(terminal_behavior) is not TerminalSignalVerifier:
             raise ValueError("BRD1 terminal verifier behavior is aliased")
-        bundle_result = factory.deploy_source_bundle_exact_v1(
-            sbd_calldata,
-            caller="permissionless-preparer",
-            gas_limit=SOURCE_BUNDLE_FACTORY_BUNDLE_DEPLOYMENT_GAS, value=0,
-            deployment_world=self._version_manager_authority.deployment_world,
-        )
+        # Both factory deployments completed in earlier independent txs.
+        # None selects the read-only resolver, not a fabricated factory return.
         source, credit, quota, _terminal = \
             resolve_source_bundle_deployment_for_test_v1(
-                factory, bundle_result, source_descriptor, support,
-                deployment_world=(
-                    self._version_manager_authority.deployment_world
-                ), caller=self.address
+                factory, None, source_descriptor, support,
+                deployment_world=world, caller=self.address,
             )
         exact_bundle = (source, credit, quota)
         self._source_bundles_by_descriptor_id[
@@ -37249,24 +37624,12 @@ class ActiveSettlementRouter:
         if (_model_address20(adapter_address)
                 != _model_address20(expected_adapter_address)):
             raise ValueError("BRD1 PIA2 adapter is not the CREATE2 result")
-        adapter_result = factory.deploy_bridge_adapter_exact_v1(
-            encode_source_bundle_factory_deploy_adapter_calldata_v1(
-                version, source_descriptor.descriptor_id, pia[3],
-                source.address, credit.address, self.address,
-                self.forced_queue.address, self.version_manager,
-            ),
-            caller="permissionless-preparer",
-            gas_limit=SOURCE_BUNDLE_FACTORY_ADAPTER_DEPLOYMENT_GAS, value=0,
-            deployment_world=self._version_manager_authority.deployment_world,
-        )
         adapter = resolve_source_adapter_deployment_for_test_v1(
-            factory, adapter_result, protocol_version=version,
+            factory, None, protocol_version=version,
             source_descriptor_id=source_descriptor.descriptor_id,
             router=self, source_bridge=source, credit_registry=credit,
-            expected_runtime_hash=pia[2],
-            expected_configuration_hash=pia[3],
-            deployment_world=self._version_manager_authority.deployment_world,
-            caller=self.address,
+            expected_runtime_hash=pia[2], expected_configuration_hash=pia[3],
+            deployment_world=world, caller=self.address,
         )
         if (type(adapter) is not BridgeAdapter
                 or _model_address20(adapter.address)
@@ -37375,11 +37738,10 @@ class ActiveSettlementRouter:
             snapshot = self._bridge_package_snapshot_v1(
                 version, brx, pia, factory
             )
-            self._prepare_bridge_primitives_v1(
+            self._load_predeployed_bridge_primitives_v1(
                 version, brx, pia, brx.source_bundle_constructor_args
             )
-            if self.prepare_bridge_route_fault_point in {
-                    "after_stage", "revert", "oog"}:
+            if self.prepare_bridge_route_fault_point in {"revert", "oog"}:
                 raise RuntimeError("injected BRD1 preparation fault")
             registry = self._bridge_domain_registry_authority
             if type(registry) is not BridgeDomainRegistry:
@@ -37390,6 +37752,8 @@ class ActiveSettlementRouter:
                 caller=self.address, value=0,
                 gas=STAGE_BRIDGE_ROUTE_PACKAGE_GAS, clock=clock,
             )
+            if self.prepare_bridge_route_fault_point == "after_stage":
+                raise RuntimeError("injected BRD1 post-stage fault")
             if (type(stage_result) is not bytes
                     or len(stage_result)
                         != STAGE_BRIDGE_ROUTE_PACKAGE_RETURN_LENGTH):
@@ -39890,6 +40254,18 @@ class ActiveSettlementRouter:
             }
         })
         target_seat_generation = settlement.live_protocol.seat_generation
+        kind0_authorizations = tuple(
+            row for row in target_registration.ingress_authorizations
+            if row.kind is ForceKind.USER_TX
+        )
+        if len(kind0_authorizations) != 1:
+            raise ValueError("activation kind-0 ingress role is not exact")
+        # The fixed source-package journal covers the bridge adapter. Include
+        # the other ingress handle too: a late VMC1/VML1 failure must not leave
+        # a cached kind-0 adapter after its Router binding has been rolled back.
+        kind0_world_snapshot = manager.deployment_world.touched_rows((
+            _model_address20(kind0_authorizations[0].adapter_address),
+        ))
         source_install_snapshot = \
             self._source_install_snapshot_for_registration_v1(
                 target_registration
@@ -39989,6 +40365,7 @@ class ActiveSettlementRouter:
             self._restore_bridge_package_snapshot_v1(
                 source_install_snapshot
             )
+            manager.deployment_world.restore_touched_rows(kind0_world_snapshot)
             raise
 
     def _activate_version_with_proof(
@@ -40271,6 +40648,18 @@ class ActiveSettlementRouter:
             ):
                 raise ValueError("migration lease consume return is malformed")
             self.version_migration_activation_trace.append("VMC1")
+            # The authenticated PVM's read-only VML1 getter is the final Router
+            # external call. Exact NONE bytes enforce width, magic, padding and
+            # every zero field; an in-memory lease check cannot replace it.
+            expected_none = encode_live_version_migration_lease_return_v1(
+                VersionMigrationLeaseV1()
+            )
+            lease_return = manager.live_version_migration_lease_v1()
+            if (type(lease_return) is not bytes or len(lease_return) != 320
+                    or lease_return != expected_none):
+                raise ValueError("migration final NONE lease post-read is malformed")
+            # Model trace instrumentation, not a post-IDLE contract write.
+            self.version_migration_activation_trace.append("VML1_POST")
         return True
 
     def _abort_migration_for_test(self, *, generation: int,
@@ -40394,7 +40783,8 @@ class ActiveSettlementRouter:
 
     @staticmethod
     def _valid_ingress_static(
-        descriptor: Message, *, clock: Clock, deposit: int
+        descriptor: Message, *, clock: Clock, deposit: int,
+        fork: ForcedTxFork = ForcedTxFork.FUSAKA,
     ) -> bool:
         if (type(descriptor) not in {Message, BridgeQueueDescriptorV11}
                 or type(clock) is not Clock
@@ -40412,9 +40802,25 @@ class ActiveSettlementRouter:
         if (type(descriptor) is not Message
                 or descriptor.kind is not ForceKind.USER_TX):
             return False
+        if (any(type(value) is not int for value in (
+                descriptor.nonce, descriptor.intrinsic_gas, descriptor.valid_until,
+                descriptor.byte_length, descriptor.raw_tx_length,
+                descriptor.l2_chain_id, descriptor.gas_limit,
+                descriptor.max_fee, descriptor.accounted_gas))
+                or any(type(value) is not bool for value in (
+                    descriptor.outer_authorized, descriptor.chain_id_ok,
+                    descriptor.signature_ok))
+                or type(descriptor.payload_hash) is not str
+                or type(descriptor.sender) is not str
+                or not 0 <= descriptor.valid_until <= UINT64_MAX):
+            return False
+        if forced_transaction_static_errors(
+                descriptor, descriptor.transaction, fork, descriptor.l2_chain_id):
+            return False
+        intrinsic, _ = forced_transaction_gas(descriptor.transaction, fork)
         return (
             descriptor.outer_authorized
-            and descriptor.intrinsic_gas > 0
+            and descriptor.intrinsic_gas == intrinsic
             and descriptor.chain_id_ok
             and descriptor.signature_ok
             and bool(descriptor.sender)
@@ -40424,7 +40830,7 @@ class ActiveSettlementRouter:
             and 0 < descriptor.byte_length <= MAX_FORCE_MESSAGE_BYTES
             and descriptor.raw_tx_length == descriptor.byte_length
             and 0 < descriptor.l2_chain_id <= UINT64_MAX
-            and 0 <= descriptor.gas_limit <= UINT64_MAX
+            and intrinsic <= descriptor.gas_limit <= UINT64_MAX
             and 0 < descriptor.max_fee <= SEAT_UINT256_MAX
             and descriptor.refund_address == descriptor.sender
             and descriptor.accounted_gas == max(
@@ -40518,7 +40924,8 @@ class ActiveSettlementRouter:
                     descriptor, caller_adapter
                 )
                 or not self._valid_ingress_static(
-                    descriptor, clock=clock, deposit=deposit
+                    descriptor, clock=clock, deposit=deposit,
+                    fork=live_protocol.forced_tx_fork,
                 )):
             raise ValueError("forced ingress descriptor is invalid")
         queue_before = self.forced_queue._transaction_snapshot()
@@ -43821,11 +44228,23 @@ class ImmutableV2BridgeFactory:
         support_registry: BridgeDomainRegistry,
         terminal_verifier: TerminalSignalVerifier | None = None, *,
         caller: str,
+    ) -> tuple["SourceBridgeV2", BridgeCreditRegistryV2,
+               V2BridgeFactoryDeploymentReceipt]:
+        """Typed deployment helper for fixtures; the public ABI is SBD1."""
+
+        return self._source_bundle_handles_for_test_v1(
+            descriptor, support_registry, terminal_verifier, caller=caller)
+
+    def _source_bundle_handles_for_test_v1(
+        self, descriptor: SourceBridgeDescriptor,
+        support_registry: BridgeDomainRegistry,
+        terminal_verifier: TerminalSignalVerifier | None = None, *,
+        caller: str,
     ) -> tuple[
         "SourceBridgeV2", BridgeCreditRegistryV2,
         V2BridgeFactoryDeploymentReceipt,
     ]:
-        """Deploy or exactly reuse the canonical inactive source bundle."""
+        """Materialize simulator handles only; never creates an EVM account."""
 
         if (type(descriptor) is not SourceBridgeDescriptor
                 or not caller
@@ -44090,7 +44509,21 @@ class ImmutableV2BridgeFactory:
         source_bridge: "SourceBridgeV2", expected_runtime_hash: str | bytes,
         expected_configuration_hash: str | bytes, caller: str,
     ) -> "BridgeAdapter":
-        """CREATE2-deploy or exactly reuse the canonical release adapter."""
+        """Typed deployment helper for fixtures; the public ABI is SAD1."""
+
+        return self._source_adapter_handles_for_test_v1(
+            protocol_version=protocol_version, source_descriptor_id=source_descriptor_id,
+            router=router, credit_registry=credit_registry, source_bridge=source_bridge,
+            expected_runtime_hash=expected_runtime_hash,
+            expected_configuration_hash=expected_configuration_hash, caller=caller)
+
+    def _source_adapter_handles_for_test_v1(
+        self, *, protocol_version: int, source_descriptor_id: str | bytes,
+        router: "ActiveSettlementRouter", credit_registry: BridgeCreditRegistryV2,
+        source_bridge: "SourceBridgeV2", expected_runtime_hash: str | bytes,
+        expected_configuration_hash: str | bytes, caller: str,
+    ) -> "BridgeAdapter":
+        """Materialize simulator handles only; never creates an EVM account."""
 
         if (not caller or type(router) is not ActiveSettlementRouter
                 or type(credit_registry) is not BridgeCreditRegistryV2
@@ -44283,7 +44716,7 @@ class ImmutableV2BridgeFactory:
 
 
 def resolve_source_bundle_deployment_for_test_v1(
-    factory: ImmutableV2BridgeFactory, returndata: bytes,
+    factory: ImmutableV2BridgeFactory, returndata: bytes | None,
     descriptor: SourceBridgeDescriptor, support: BridgeDomainRegistry, *,
     deployment_world: LiveDeploymentWorldV2 | None = None,
     caller: str = "source-bundle-postcheck",
@@ -44291,22 +44724,25 @@ def resolve_source_bundle_deployment_for_test_v1(
     "SourceBridgeV2", BridgeCreditRegistryV2, FrozenNativeQuotaManagerV2,
     TerminalSignalVerifier,
 ]:
-    """Resolve SBD1 addresses as EVM accounts, then authenticate each one."""
+    """Authenticate accounts; None rehydrates existing accounts without SBD1."""
 
-    result = decode_source_bundle_factory_deployment_return_v1(returndata)
     expected_addresses = (
         descriptor.bundle_deployer, descriptor.source_bridge,
         descriptor.bridge_credit_registry, descriptor.native_quota_manager,
         descriptor.source_terminal_verifier,
     )
-    if ((result.bundle_deployer, result.source_bridge,
-         result.credit_registry, result.quota_manager,
-         result.terminal_verifier) != expected_addresses
-            or result.init_code_hash
-                != _model_fixed_bytes32(descriptor.deployment_initcode_hash)
-            or result.source_descriptor_id
-                != _model_fixed_bytes32(descriptor.descriptor_id)):
-        raise ValueError("SBD1 deterministic result differs from descriptor")
+    if returndata is not None:
+        result = decode_source_bundle_factory_deployment_return_v1(returndata)
+        if ((result.bundle_deployer, result.source_bridge,
+             result.credit_registry, result.quota_manager,
+             result.terminal_verifier) != expected_addresses
+                or result.init_code_hash
+                    != _model_fixed_bytes32(descriptor.deployment_initcode_hash)
+                or result.source_descriptor_id
+                    != _model_fixed_bytes32(descriptor.descriptor_id)):
+            raise ValueError("SBD1 deterministic result differs from descriptor")
+    elif deployment_world is None:
+        raise ValueError("existing source resolution requires EVM account reads")
     registry_config = bridge_credit_registry_configuration_hash(
         address=descriptor.bridge_credit_registry,
         runtime_hash=BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH,
@@ -44357,6 +44793,52 @@ def resolve_source_bundle_deployment_for_test_v1(
         if deployer_account.extcodehash(caller) != _model_fixed_bytes32(
                 descriptor.bundle_deployer_runtime_hash):
             raise ValueError("SBD1 bundle deployer code differs")
+        # Authenticate the entire existing code/config set before rebuilding
+        # any simulator handle. In particular no cache can hide absent code.
+        for address, runtime, config, label in (
+            (descriptor.source_bridge, descriptor.bridge_facade_runtime_hash,
+             bridge_config, "SourceBridge"),
+            (descriptor.bridge_credit_registry, BRIDGE_CREDIT_REGISTRY_RUNTIME_HASH,
+             registry_config, "BridgeCreditRegistry"),
+            (descriptor.native_quota_manager, descriptor.native_quota_manager_runtime_hash,
+             quota_config, "NativeQuotaManager"),
+            (descriptor.source_terminal_verifier, descriptor.source_terminal_verifier_runtime_hash,
+             terminal_config, "SourceTerminalVerifier"),
+        ):
+            _validate_live_target_code_and_config_v2(
+                deployment_world, caller=caller, address=_model_address20(address),
+                runtime_hash=_model_fixed_bytes32(runtime),
+                configuration_hash=_model_fixed_bytes32(config), label=label)
+        if returndata is None:
+            child_addresses = tuple(_model_address20(address)
+                                    for address in expected_addresses[1:4])
+            handles = tuple(deployment_world.behavior_handles.get(address)
+                            for address in child_addresses)
+            if any(handle is None for handle in handles):
+                terminal_handle = deployment_world.behavior_handles.get(
+                    _model_address20(descriptor.source_terminal_verifier))
+                if type(terminal_handle) is not TerminalSignalVerifier:
+                    raise ValueError("authenticated terminal behavior is absent")
+                had_bundle_handle = descriptor.source_bridge in factory._bundles
+                source_handle, registry_handle, _ = (
+                    factory._source_bundle_handles_for_test_v1(
+                        descriptor, support, terminal_handle, caller=caller))
+                rebuilt = (source_handle, registry_handle, source_handle.quota_manager)
+                if not had_bundle_handle:
+                    object.__setattr__(source_handle, "deployment_receipt", factory._receipt(
+                        descriptor, registry_handle, source_handle.quota_manager,
+                        terminal_handle, created_now=False))
+                if any(old is not None and old is not new
+                       for old, new in zip(handles, rebuilt)):
+                    raise ValueError("existing source behavior handles are split")
+                source_handle.balance = deployment_world.accounts[
+                    child_addresses[0]].balance
+                deployment_world.behavior_handles.update(zip(child_addresses, rebuilt))
+            deployer_address = _model_address20(descriptor.bundle_deployer)
+            if deployer_address not in deployment_world.behavior_handles:
+                deployment_world.behavior_handles[deployer_address] = (
+                    SourceBundleDeployerRuntimeAccountV1(
+                        descriptor.bundle_deployer, descriptor.bundle_deployer_runtime_hash))
         deployer = deployment_world.behavior_handles.get(
             _model_address20(descriptor.bundle_deployer)
         )
@@ -44459,7 +44941,7 @@ def resolve_source_bundle_deployment_for_test_v1(
 
 
 def resolve_source_adapter_deployment_for_test_v1(
-    factory: ImmutableV2BridgeFactory, returndata: bytes, *,
+    factory: ImmutableV2BridgeFactory, returndata: bytes | None, *,
     protocol_version: int, source_descriptor_id: str | bytes,
     router: ActiveSettlementRouter, source_bridge: "SourceBridgeV2",
     credit_registry: BridgeCreditRegistryV2,
@@ -44468,9 +44950,8 @@ def resolve_source_adapter_deployment_for_test_v1(
     deployment_world: LiveDeploymentWorldV2 | None = None,
     caller: str = "source-adapter-postcheck",
 ) -> "BridgeAdapter":
-    """Resolve SAD1's address, then exact-read code/config and immutables."""
+    """Authenticate accounts; None rehydrates an existing adapter without SAD1."""
 
-    result = decode_source_adapter_factory_deployment_return_v1(returndata)
     expected_salt = bridge_adapter_create2_salt_v1(
         protocol_version, source_descriptor_id
     )
@@ -44484,16 +44965,20 @@ def resolve_source_adapter_deployment_for_test_v1(
     expected_address = source_bridge_create2_address(
         factory.address, expected_salt.hex(), expected_init_code_hash.hex()
     )
-    if (result.adapter != expected_address
-            or result.salt != expected_salt
-            or result.init_code_hash != expected_init_code_hash
-            or result.runtime_hash
-                != _model_fixed_bytes32(expected_runtime_hash)
-            or result.configuration_hash
-                != _model_fixed_bytes32(expected_configuration_hash)):
-        raise ValueError("SAD1 deterministic result is inexact")
+    if returndata is not None:
+        result = decode_source_adapter_factory_deployment_return_v1(returndata)
+        if (result.adapter != expected_address
+                or result.salt != expected_salt
+                or result.init_code_hash != expected_init_code_hash
+                or result.runtime_hash
+                    != _model_fixed_bytes32(expected_runtime_hash)
+                or result.configuration_hash
+                    != _model_fixed_bytes32(expected_configuration_hash)):
+            raise ValueError("SAD1 deterministic result is inexact")
+    elif deployment_world is None:
+        raise ValueError("existing adapter resolution requires EVM account reads")
     if deployment_world is None:
-        adapter = factory.resolve_test_evm_account_v1(result.adapter)
+        adapter = factory.resolve_test_evm_account_v1(expected_address)
     else:
         _validate_live_target_code_and_config_v2(
             deployment_world, caller=caller,
@@ -44502,8 +44987,22 @@ def resolve_source_adapter_deployment_for_test_v1(
             configuration_hash=_model_fixed_bytes32(factory.configuration_hash),
             label="SourceBundleFactory",
         )
+        adapter_address = _model_address20(expected_address)
+        _validate_live_target_code_and_config_v2(
+            deployment_world, address=adapter_address, caller=caller,
+            runtime_hash=_model_fixed_bytes32(expected_runtime_hash),
+            configuration_hash=_model_fixed_bytes32(expected_configuration_hash),
+            label="BridgeAdapter")
+        if returndata is None and adapter_address not in deployment_world.behavior_handles:
+            adapter = factory._source_adapter_handles_for_test_v1(
+                protocol_version=protocol_version, source_descriptor_id=source_descriptor_id,
+                router=router, source_bridge=source_bridge, credit_registry=credit_registry,
+                expected_runtime_hash=expected_runtime_hash,
+                expected_configuration_hash=expected_configuration_hash, caller=caller)
+            adapter.balance = deployment_world.accounts[adapter_address].balance
+            deployment_world.behavior_handles[adapter_address] = adapter
         adapter = deployment_world.authenticated_behavior(
-            _model_address20(result.adapter), caller=caller,
+            adapter_address, caller=caller,
             runtime_hash=_model_fixed_bytes32(expected_runtime_hash),
             configuration_hash=_model_fixed_bytes32(
                 expected_configuration_hash
@@ -45502,7 +46001,8 @@ class Kind0IngressAdapter:
                     envelope, self
                 )
                 or not self.router._valid_ingress_static(
-                    envelope, clock=clock, deposit=deposit
+                    envelope, clock=clock, deposit=deposit,
+                    fork=registration.settlement.live_protocol.forced_tx_fork,
                 )):
             raise ValueError("kind-0 payable ingress precheck reverted")
         if self.entered:
@@ -46439,6 +46939,85 @@ InboxCalldataDescriptor = Optional[BridgeQueueDescriptorV11]
 InboxRowV2 = tuple[int, int, int, str, InboxCalldataDescriptor]
 
 
+def forced_block_rows(
+    messages: list[Message | BridgeQueueDescriptorV11], block: Block,
+    available_payload_hashes: frozenset[str],
+) -> tuple[InboxRowV2, ...]:
+    """Derive every disposition and FIFO tx index from typed proof inputs."""
+
+    witnesses = block.forced_tx_witnesses
+    if (type(witnesses) is not tuple
+            or any(type(row) is not ForcedTxExecutionWitness
+                   or type(row.queue_index) is not int for row in witnesses)):
+        raise ValueError("forced witness range is malformed")
+    expected_indices = tuple(
+        index for index in range(block.message_start, block.message_end)
+        if type(messages[index]) is Message
+        and messages[index].valid_until >= block.evm_timestamp
+    )
+    if tuple(row.queue_index for row in witnesses) != expected_indices:
+        raise ValueError("forced witnesses are not the exact unexpired range")
+    by_index = {row.queue_index: row for row in witnesses}
+    rows: list[InboxRowV2] = []
+    tx_index = 2  # Anchor and Inbox precede included forced transactions.
+    for index in range(block.message_start, block.message_end):
+        queued = messages[index]
+        if type(queued) is BridgeQueueDescriptorV11:
+            rows.append((index, 5, UINT32_MAX,
+                         inbox_kind1_result(index, queued), queued))
+            continue
+        outcome = classify_forced_transaction(
+            queued, timestamp=block.evm_timestamp, fork=block.forced_tx_fork,
+            chain_id=block.forced_tx_chain_id, base_fee=block.forced_tx_base_fee,
+            witness=by_index.get(index),
+            raw_available=queued.payload_hash in available_payload_hashes,
+        )
+        included = outcome is ForcedDisposition.INCLUDED_TX
+        rows.append((index, int(outcome), tx_index if included else UINT32_MAX,
+                     queued.payload_hash if included else "", None))
+        tx_index += int(included)
+    return tuple(rows)
+
+
+def forced_execution_witnesses_for_test(
+    messages: list[Message | BridgeQueueDescriptorV11], start: int, end: int,
+    timestamp: int, fork: ForcedTxFork, chain_id: int, base_fee: int,
+) -> tuple[ForcedTxExecutionWitness, ...]:
+    """Synthetic inert-recipient fixtures; not a general EVM interpreter.
+
+    Nontrivial EVM state changes require explicit sequential witnesses. Default
+    fixtures execute empty-code recipients and update the sender nonce/balance;
+    they no longer claim every unexpired transaction was discarded as expired.
+    """
+
+    states: dict[str, ForcedSenderState] = {}
+    witnesses: list[ForcedTxExecutionWitness] = []
+    for index in range(start, end):
+        row = messages[index]
+        if type(row) is not Message or row.valid_until < timestamp:
+            continue
+        sender = states.get(row.sender, ForcedSenderState())
+        witness = ForcedTxExecutionWitness(
+            index, row.payload_hash, row.transaction, sender,
+            authentication=ForcedRawAuthentication(row.sender, row.l2_chain_id),
+        )
+        witnesses.append(witness)
+        disposition = classify_forced_transaction(
+            row, timestamp=timestamp, fork=fork, chain_id=chain_id,
+            base_fee=base_fee, witness=witness, raw_available=True,
+        )
+        if disposition is ForcedDisposition.INCLUDED_TX:
+            intrinsic, floor = forced_transaction_gas(row.transaction, fork)
+            gas_price = (min(row.max_fee, base_fee + row.transaction.max_priority_fee)
+                         if row.transaction.tx_type == 2 else row.max_fee)
+            states[row.sender] = replace(
+                sender, nonce=sender.nonce + 1,
+                balance=sender.balance - max(intrinsic, floor) * gas_price
+                    - row.transaction.value,
+            )
+    return tuple(witnesses)
+
+
 def inbox_descriptor_commitment(
     descriptors: tuple[Message | BridgeQueueDescriptorV11, ...],
 ) -> str:
@@ -46460,7 +47039,7 @@ def inbox_apply_calldata(
             raise ValueError("Inbox row is not the exact five-field ABI")
         index, disposition, tx_index, result_hash, descriptor = row
         if (type(index) is not int or not 0 <= index <= UINT64_MAX
-                or type(disposition) is not int or disposition not in range(6)
+                or type(disposition) is not int or disposition not in range(7)
                 or type(tx_index) is not int
                 or not 0 <= tx_index <= UINT32_MAX):
             raise ValueError("Inbox row fixed words are noncanonical")
@@ -47557,6 +48136,9 @@ class InboxValidityExecutionAuthority:
                     queue.descriptors[:block.force_cutoff]
                 )
                 or not self._rows_match_descriptors(rows, descriptors)
+                or rows != forced_block_rows(
+                    queue.descriptors, block, candidate.available_payload_hashes
+                )
                 or block.inbox_descriptor_commitment
                     != descriptor_commitment
                 or block.inbox_system_calldata_hash != calldata_hash
@@ -47877,12 +48459,12 @@ class InboxValidityExecutionAuthority:
         descriptor = self.settlement_validity_verifier_descriptor
         if (not isinstance(verifier, ISettlementValidityVerifierV2)
                 or verifier.descriptor != descriptor
-                or not descriptor.structurally_valid()
-                or settlement_validity_verifier_required_gas_v2(
-                    descriptor.verification_gas_limit,
-                    descriptor.post_verification_reserve_gas,
-                ) > self.execution_profile.supported_l1_block_gas_limit):
+                or not descriptor.structurally_valid()):
             raise ValueError("Settlement validity verifier is not exact")
+        validate_settlement_validity_resources_v2(
+            descriptor.maximum_proof_bytes, descriptor.verification_gas_limit,
+            descriptor.post_verification_reserve_gas,
+            self.execution_profile.supported_l1_block_gas_limit)
         try:
             observed_runtime_hash = verifier.extcodehash(
                 caller=protocol.settlement_address
@@ -48361,22 +48943,10 @@ class InboxValidityExecutionAuthority:
         end = output_core.message_cursor
         descriptors = tuple(router.forced_queue.descriptors[start:end])
         exact_rows = (
-            tuple(
-                (
-                    index, 0, UINT32_MAX, "", None,
-                )
-                if type(descriptor) is Message
-                and descriptor.kind is ForceKind.USER_TX
-                else (
-                    index,
-                    5,
-                    UINT32_MAX,
-                    inbox_kind1_result(index, descriptor),
-                    descriptor,
-                )
-                for index, descriptor in enumerate(descriptors, start)
-            )
-            if rows is None else rows
+            forced_block_rows(
+                router.forced_queue.descriptors, block,
+                candidate.available_payload_hashes,
+            ) if rows is None else rows
         )
         expected_statement = migration_transition_public_inputs_from_l1(
             router=router,
@@ -48411,7 +48981,13 @@ class InboxValidityExecutionAuthority:
                     != inbox_descriptor_commitment(descriptors)
                 or block.inbox_system_calldata_hash
                     != inbox_system_calldata_hash(exact_rows)
-                or not self._rows_match_descriptors(exact_rows, descriptors)):
+                or not self._rows_match_descriptors(exact_rows, descriptors)
+                or block.forced_tx_fork is not self.protocol.forced_tx_fork
+                or block.forced_tx_chain_id != self.protocol.forced_tx_chain_id
+                or exact_rows != forced_block_rows(
+                    router.forced_queue.descriptors, block,
+                    candidate.available_payload_hashes,
+                )):
             raise ValueError("migration execution calldata is not exact")
         return MigrationActivationCallV2(
             candidate,
@@ -49395,22 +49971,12 @@ def replay_candidate_queue_range_on_l2_for_test(
     messages = authority.protocol.messages
     rows_by_block: list[tuple[InboxRowV2, ...]] = []
     for block in candidate.blocks:
-        rows: list[InboxRowV2] = []
-        for index in range(block.message_start, block.message_end):
-            queued = messages[index]
-            if type(queued) is Message and queued.kind is ForceKind.USER_TX:
-                rows.append((index, 0, UINT32_MAX, "", None))
-            elif type(queued) is BridgeQueueDescriptorV11:
-                rows.append((
-                    index,
-                    5,
-                    UINT32_MAX,
-                    inbox_kind1_result(index, queued),
-                    queued,
-                ))
-            else:
-                return None
-        rows_by_block.append(tuple(rows))
+        try:
+            rows_by_block.append(forced_block_rows(
+                messages, block, candidate.available_payload_hashes
+            ))
+        except ValueError:
+            return None
     return replay_prepared_candidate_on_l2_for_test(
         authority, candidate, tuple(rows_by_block), clock
     )
@@ -49630,8 +50196,8 @@ class InboxApplyRouterV2:
         for index, disposition, tx_index, result_hash, descriptor in rows:
             if disposition != 5:
                 if (descriptor is not None
-                        or disposition not in range(5)
-                        or (disposition < 4 and
+                        or disposition not in {0, 1, 2, 3, 4, 6}
+                        or (disposition in FORCED_NO_TX_CODES and
                             (tx_index != UINT32_MAX or result_hash))
                         or (disposition == 4 and
                             (not 0 <= tx_index < UINT32_MAX
@@ -57311,6 +57877,7 @@ def block(p: Protocol, c: Clock, ident: str, *, slot: int | None = None,
           release_activation: bool | None = None,
           tier: Tier = Tier.NORMAL_SIGNED,
           gas_used: int = 0,
+          forced_tx_witnesses: tuple[ForcedTxExecutionWitness, ...] | None = None,
           data_records: tuple[tuple[str, int], ...] = ()) -> Block:
     if slot is None:
         slot = (c.l2_slot if p.mode is Mode.RECOVERY
@@ -57337,6 +57904,11 @@ def block(p: Protocol, c: Clock, ident: str, *, slot: int | None = None,
     context = (p.recovery.recovery_id if p.mode is Mode.RECOVERY and p.recovery
                else normal_context_id(p.canonical.base_hash, version, root,
                                       anchor_number, header.block_hash))
+    if forced_tx_witnesses is None:
+        forced_tx_witnesses = forced_execution_witnesses_for_test(
+            p.messages, start, end, GENESIS_TIMESTAMP + slot,
+            p.forced_tx_fork, p.forced_tx_chain_id, p.core.next_base_fee,
+        )
     return Block(slot, GENESIS_TIMESTAMP + slot,
                  f"{abs(hash(ident)) % (1 << 256):064x}", p.core.tip_hash,
                  slot // 384, signed, start, end, anchor_number, header.block_hash,
@@ -57355,6 +57927,10 @@ def block(p: Protocol, c: Clock, ident: str, *, slot: int | None = None,
                  dispositions_ok=dispositions_ok,
                  discretionary_body=discretionary,
                  data_records=data_records,
+                 forced_tx_fork=p.forced_tx_fork,
+                 forced_tx_chain_id=p.forced_tx_chain_id,
+                 forced_tx_base_fee=p.core.next_base_fee,
+                 forced_tx_witnesses=forced_tx_witnesses,
                  gas_used=gas_used)
 
 
@@ -57365,12 +57941,14 @@ def candidate(p: Protocol, c: Clock, ident="candidate", *, tier=Tier.NORMAL_SIGN
               release_activation: bool | None = None,
               beneficiary: str = "prover",
               gas_used: int = 0,
+              forced_tx_witnesses: tuple[ForcedTxExecutionWitness, ...] | None = None,
               data_records: tuple[tuple[str, int], ...] = ()) -> Candidate:
     b = block(p, c, ident, slot=slot, signed=signed, message_end=message_end,
               discretionary=discretionary,
               release_activation=release_activation,
               tier=tier,
               gas_used=gas_used,
+              forced_tx_witnesses=forced_tx_witnesses,
               data_records=data_records)
     r = p.recovery
     next_due = p.next_due_at(b.message_end, b.force_cutoff)
@@ -57412,26 +57990,12 @@ def candidate(p: Protocol, c: Clock, ident="candidate", *, tier=Tier.NORMAL_SIGN
         rows_by_block: list[tuple[InboxRowV2, ...]] = []
         committed_blocks: list[Block] = []
         for candidate_block in result.blocks:
-            rows: list[InboxRowV2] = []
-            for index in range(
-                    candidate_block.message_start,
-                    candidate_block.message_end):
-                queued = p.messages[index]
-                if type(queued) is Message \
-                        and queued.kind is ForceKind.USER_TX:
-                    rows.append((index, 0, UINT32_MAX, "", None))
-                elif type(queued) is BridgeQueueDescriptorV11:
-                    rows.append((
-                        index,
-                        5,
-                        UINT32_MAX,
-                        inbox_kind1_result(index, queued),
-                        queued,
-                    ))
-                else:
-                    rows = []
-                    break
-            exact_rows = tuple(rows)
+            try:
+                exact_rows = forced_block_rows(
+                    p.messages, candidate_block, result.available_payload_hashes
+                )
+            except ValueError:
+                exact_rows = ()
             rows_by_block.append(exact_rows)
             descriptors = tuple(
                 p.messages[
@@ -57506,25 +58070,7 @@ def migration_activation_candidate(
         gas_budget=ACTIVATION_FORCE_GAS_BUDGET,
     )
     descriptors = tuple(router.forced_queue.descriptors[start:end])
-    rows = tuple(
-        (
-            index,
-            0,
-            UINT32_MAX,
-            "",
-            None,
-        )
-        if type(descriptor) is Message
-        and descriptor.kind is ForceKind.USER_TX
-        else (
-            index,
-            5,
-            UINT32_MAX,
-            inbox_kind1_result(index, descriptor),
-            descriptor,
-        )
-        for index, descriptor in enumerate(descriptors, start)
-    )
+    rows = ()
     slot = old.core.tip_slot + 1
     if slot > clock.l2_slot + CLOCK_SKEW:
         raise ValueError("migration activation slot is not currently provable")
@@ -57565,6 +58111,23 @@ def migration_activation_candidate(
         anchor_system_tx_position=ANCHOR_SYSTEM_TX_POSITION,
         inbox_system_tx_position=INBOX_SYSTEM_TX_POSITION,
     )
+    block = replace(
+        block,
+        forced_tx_fork=settlement.live_protocol.forced_tx_fork,
+        forced_tx_chain_id=settlement.live_protocol.forced_tx_chain_id,
+        forced_tx_base_fee=old.core.next_base_fee,
+        forced_tx_witnesses=forced_execution_witnesses_for_test(
+            router.forced_queue.descriptors, start, end, block.evm_timestamp,
+            settlement.live_protocol.forced_tx_fork,
+            settlement.live_protocol.forced_tx_chain_id,
+            old.core.next_base_fee,
+        ),
+    )
+    rows = forced_block_rows(
+        router.forced_queue.descriptors, block,
+        frozenset(row.payload_hash for row in descriptors if type(row) is Message),
+    )
+    block = replace(block, inbox_system_calldata_hash=inbox_system_calldata_hash(rows))
     proved = Candidate(
         ident,
         old_protocol.canonical.base_hash,
@@ -57899,7 +58462,16 @@ def test_force_merkle_bounds_and_auth() -> None:
         message_start=activation_first.message_end, message_end=4,
         inbox_pre_cursor=activation_first.message_end, inbox_post_cursor=4,
         force_gas_budget=FORCE_GAS_BUDGET, release_activation=False,
-        release_protocol_version=0, release_manifest_hash="")
+        release_protocol_version=0, release_manifest_hash="",
+        forced_tx_witnesses=tuple(
+            witness for witness in forced_execution_witnesses_for_test(
+                activation_backlog.messages, 0, 4,
+                activation_first.evm_timestamp + 1,
+                activation_backlog.forced_tx_fork,
+                activation_backlog.forced_tx_chain_id,
+                activation_backlog.core.next_base_fee,
+            ) if witness.queue_index >= activation_first.message_end
+        ))
     activation_candidate = replace(
         activation_candidate,
         blocks=(activation_first, activation_second),

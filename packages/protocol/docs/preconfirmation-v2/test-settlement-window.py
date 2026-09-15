@@ -12,6 +12,7 @@ from pathlib import Path
 import sys
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parent
@@ -4974,6 +4975,55 @@ def genesis_protocol_authority_fixture():
         market_authority, schedule_oracle,
         settlement.Clock(100, 1_000_000),
     )
+
+
+def predeploy_release_source_for_test(fixture):
+    """Submit the existing SBD1 and SAD1 APIs as two independent transactions."""
+
+    _rows, router, witness, _payload, manager, *_rest = fixture
+    version = witness.settlement.protocol_version
+    brx = settlement.decode_bridge_route_expansion_v1(
+        router.bridge_route_expansion_v1(version))
+    _pia_id, pia = settlement.decode_profile_ingress_authorization_v2(
+        manager.profile_ingress_authorization_v2(brx.bridge_authorization_id))
+    words = brx.source_descriptor_words
+    factory = router._authenticated_source_factory_v1(words)
+    world = manager.deployment_world
+    support = router._bridge_domain_registry_authority
+    world.behavior_handles[settlement._model_address20(router.address)] = router
+    world.behavior_handles[words[18][12:]] = support
+    terminal_address = words[21][12:]
+    if terminal_address not in world.behavior_handles:
+        world.behavior_handles[terminal_address] = settlement.TerminalSignalVerifier(
+            router, support, "0x" + terminal_address.hex(),
+            "0x" + words[22].hex(), "0x" + words[23].hex())
+    sbd_call = settlement.encode_source_bundle_factory_deploy_bundle_raw_calldata_v1(
+        words[3], brx.source_descriptor_bytes, brx.source_bundle_constructor_args)
+    descriptor = settlement.source_bridge_descriptor_from_sbd1_v1(
+        settlement.decode_source_bundle_factory_deploy_bundle_calldata_v1(sbd_call),
+        factory_address=factory.address, factory_runtime_hash=factory.runtime_hash,
+        factory_configuration_hash=factory.configuration_hash)
+    sbd_return = factory.deploy_source_bundle_exact_v1(
+        sbd_call, caller=addr("source-deployer"), value=0,
+        gas_limit=settlement.SOURCE_BUNDLE_FACTORY_BUNDLE_DEPLOYMENT_GAS,
+        deployment_world=world)
+    source, credit, _quota, _terminal = (
+        settlement.resolve_source_bundle_deployment_for_test_v1(
+            factory, sbd_return, descriptor, support, deployment_world=world))
+    sad_return = factory.deploy_bridge_adapter_exact_v1(
+        settlement.encode_source_bundle_factory_deploy_adapter_calldata_v1(
+            version, descriptor.descriptor_id, pia[3], source.address,
+            credit.address, router.address, router.forced_queue.address,
+            router.version_manager),
+        caller=addr("adapter-deployer"), value=0,
+        gas_limit=settlement.SOURCE_BUNDLE_FACTORY_ADAPTER_DEPLOYMENT_GAS,
+        deployment_world=world)
+    settlement.resolve_source_adapter_deployment_for_test_v1(
+        factory, sad_return, protocol_version=version,
+        source_descriptor_id=descriptor.descriptor_id, router=router,
+        source_bridge=source, credit_registry=credit,
+        expected_runtime_hash=pia[2], expected_configuration_hash=pia[3],
+        deployment_world=world)
 
 
 def prepare_production_activation(rows, *, clock=None):
@@ -17052,6 +17102,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         version = settlement.decode_register_release_payload_v1(
             payload
         ).protocol_version
+        predeploy_release_source_for_test(fixture)
         return router.prepare_bridge_route_package_v1(
             settlement.encode_prepare_bridge_route_package_calldata_v1(
                 version
@@ -17388,6 +17439,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             router.bridge_route_expansion_v1(version)
         )
         terminal_address = brx_row.source_descriptor_words[21][12:]
+        predeploy_release_source_for_test(fixture)
         manager.deployment_world.behavior_handles.clear()
         router._source_bridge_factories_by_address.clear()
         package_before = registry._transaction_snapshot()
@@ -18154,7 +18206,11 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                     ),
             ),
         )
-        self.assertTrue(self._execute_release(positive)[2])
+        # Keep this exact trace at the registration transaction boundary.
+        # Independent SBD1, SAD1, and BRD1 calls have separate route tests.
+        self.assertTrue(
+            self._execute_release(positive, prepare_package=False)[2]
+        )
         manager, router = positive[4], positive[1]
         self.assertEqual(
             positive[6].authorization_id_by_target,
@@ -18199,90 +18255,10 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             "settlement-validity:verifier:config",
             "target:data-session-accounting", "target:constructor-state",
         )
-        package_trace = (
-            "BRD1:SourceBundleFactory:account",
-            "BRD1:SourceBundleFactory:extcodehash",
-            "BRD1:SourceBundleFactory:config",
-            "BRD1:SourceBundleFactory:PRA1:account",
-            "BRD1:SourceBundleFactory:PRA1", "BRD1:PVM:account",
-            "BRD1:SBF1:account", "BRD1:SourceBundleFactory:account",
-            "BRD1:SourceBundleFactory:extcodehash",
-            "BRD1:SourceBundleFactory:config",
-            "BRD1:SourceBundleFactory:PRA1:account",
-            "BRD1:SourceBundleFactory:PRA1", "BRD1:PVM:account",
-            "BRD1:SBF1:account", "BRD1:BridgeDomainRegistry:account",
-            "BRD1:BridgeDomainRegistry:extcodehash",
-            "BRD1:BridgeDomainRegistry:config",
-            "ActiveSettlementRouter:account",
-            "ActiveSettlementRouter:extcodehash",
-            "ActiveSettlementRouter:config", "BridgeDomainRegistry:account",
-            "BridgeDomainRegistry:extcodehash",
-            "BridgeDomainRegistry:config", "SourceTerminalVerifier:account",
-            "SourceTerminalVerifier:extcodehash",
-            "SourceTerminalVerifier:config",
-            "SBD1:SourceBundleFactory:PRA1:account",
-            "SBD1:SourceBundleFactory:PRA1",
-            "SBD1:BridgeDomainRegistry:account",
-            "SBD1:BridgeDomainRegistry:extcodehash",
-            "SBD1:BridgeDomainRegistry:config",
-            "SBD1:SourceTerminalVerifier:account",
-            "SBD1:SourceTerminalVerifier:extcodehash",
-            "SBD1:SourceTerminalVerifier:config",
-            "SourceBundleFactory:account",
-            "SourceBundleFactory:extcodehash",
-            "SourceBundleFactory:config", "SourceBundleDeployer:account",
-            "SourceBundleDeployer:extcodehash", "SourceBridge:account",
-            "SourceBridge:extcodehash", "SourceBridge:config",
-            "BridgeCreditRegistry:account",
-            "BridgeCreditRegistry:extcodehash",
-            "BridgeCreditRegistry:config", "NativeQuotaManager:account",
-            "NativeQuotaManager:extcodehash", "NativeQuotaManager:config",
-            "SourceTerminalVerifier:account",
-            "SourceTerminalVerifier:extcodehash",
-            "SourceTerminalVerifier:config",
-            "SAD1:SourceBundleFactory:PRA1:account",
-            "SAD1:SourceBundleFactory:PRA1", "SAD1:PVM:account",
-            "SAD1:SourceBridge:account", "SAD1:SourceBridge:extcodehash",
-            "SAD1:BridgeCreditRegistry:account",
-            "SAD1:BridgeCreditRegistry:extcodehash",
-            "SAD1:ActiveSettlementRouter:account",
-            "SAD1:ActiveSettlementRouter:extcodehash",
-            "SAD1:ActiveSettlementRouter:config",
-            "SAD1:ForcedQueue:account", "SAD1:ForcedQueue:extcodehash",
-            "SAD1:ForcedQueue:config", "SourceBundleFactory:account",
-            "SourceBundleFactory:extcodehash", "SourceBundleFactory:config",
-            "BridgeAdapter:account", "BridgeAdapter:extcodehash",
-            "BridgeAdapter:config", "SourceBundleFactory:account",
-            "SourceBundleFactory:extcodehash", "SourceBundleFactory:config",
-            "SourceBridge:account", "SourceBridge:extcodehash",
-            "SourceBridge:config", "BridgeCreditRegistry:account",
-            "BridgeCreditRegistry:extcodehash",
-            "BridgeCreditRegistry:config", "NativeQuotaManager:account",
-            "NativeQuotaManager:extcodehash", "NativeQuotaManager:config",
-            "BridgeDomainRegistry:account",
-            "BridgeDomainRegistry:extcodehash",
-            "BridgeDomainRegistry:config", "SourceTerminalVerifier:account",
-            "SourceTerminalVerifier:extcodehash",
-            "SourceTerminalVerifier:config", "SourceBundleDeployer:account",
-            "SourceBundleDeployer:extcodehash", "BridgeAdapter:account",
-            "BridgeAdapter:extcodehash", "BridgeAdapter:config",
-        )
-        source_factory = (
-            "0x" + settlement_derived.profile_words[41][12:].hex()
-        )
-        domain_registry = (
-            "0x" + settlement_derived.profile_words[38][12:].hex()
-        )
-        package_callers = (
-            (router.address,) * 26 + (source_factory,) * 8
-            + (router.address,) * 17 + (source_factory,) * 13
-            + (router.address,) * 6 + (domain_registry,) * 23
-        )
         self.assertEqual(
             callers,
             (manager.address,) * 37 + (router.address,) * 37
-            + (manager.address,) * 13 + (router.address,) * 3
-            + package_callers,
+            + (manager.address,) * 13 + (router.address,) * 3,
         )
         self.assertEqual(
             tuple(row[1] for row in trace),
@@ -18302,7 +18278,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                 "RTR2:targetSettlement:account",
                 "RTR2:targetSettlement:extcodehash",
                 "RTR2:targetSettlement:config",
-            ) + package_trace,
+            ),
         )
 
         def assert_rejected(mutate):
@@ -20200,7 +20176,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             settlement.MAXIMUM_LIVE_VERSION_MIGRATION_SECONDS,
             settlement.MIGRATION_ARM_EXECUTION_WINDOW_SECONDS,
             settlement.GENESIS_REVIEW_FINALITY_BLOCKS,
-            16_000_001, 1_100_002, 600_003, 2_100_004,
+            6_000_001, 1_100_002, 100_003, 2_100_004,
             rows[4][1], rows[4][2], rows[5][1], rows[5][2],
             rows[0][1], rows[0][2], rows[1][1], rows[1][2],
             rows[7][1], rows[7][2], root_source_factory_runtime,
@@ -20774,9 +20750,9 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                     active_settlement_router=bytes.fromhex("91" * 20),
                 )
             ),
-            settlement.encode_protocol_version_manager_config_return_v1(
-                replace(manager_view, release_postread_gas=0)
-            ),
+            # Mutate raw returndata: the strict encoder now rejects zero gas.
+            role_config_rows[4][1][:20 * 32] + bytes(32)
+                + role_config_rows[4][1][21 * 32:],
             role_config_rows[4][1][:1_088],
             settlement.encode_protocol_version_manager_config_return_v1(
                 replace(
@@ -20792,10 +20768,11 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
                 settlement.PROTOCOL_ROOT_FACTORY_EXTERNAL_READ_GAS,
             )
         self.assertEqual(len(role_config_rows[4][1]), 1_184)
-        with self.assertRaises(ValueError):
-            settlement.encode_protocol_version_manager_config_return_v1(
-                replace(manager_view, release_postread_gas=1 << 64)
-            )
+        for invalid_postread in (0, 1 << 64):
+            with self.assertRaises(ValueError):
+                settlement.encode_protocol_version_manager_config_return_v1(
+                    replace(manager_view, release_postread_gas=invalid_postread)
+                )
 
         canonical_terminal = world.accounts[root_source_terminal]
         for mutation in (
@@ -23020,9 +22997,20 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
             target.live_protocol, proof, router
         )
         self.assertIsNotNone(poststate)
-        self.assertIsNotNone(router.activate_version_with_migration_v1(
-            proof, caller=addr("success-activator"), clock=activation_clock,
-        ))
+        # SBD1 and SAD1 were independent earlier transactions. The complete
+        # production activation, including its installer, may only load them.
+        with patch.object(
+            settlement.ImmutableV2BridgeFactory, "deploy_source_bundle_exact_v1",
+            side_effect=AssertionError("activation called SBD1"),
+        ) as bundle_deploy, patch.object(
+            settlement.ImmutableV2BridgeFactory, "deploy_bridge_adapter_exact_v1",
+            side_effect=AssertionError("activation called SAD1"),
+        ) as adapter_deploy:
+            self.assertIsNotNone(router.activate_version_with_migration_v1(
+                proof, caller=addr("success-activator"), clock=activation_clock,
+            ))
+            bundle_deploy.assert_not_called()
+            adapter_deploy.assert_not_called()
         self.assertTrue(
             settlement.select_canonical_l2_poststate_for_test(poststate)
         )
@@ -23050,7 +23038,7 @@ class ImmutableProtocolAuthorityV1Tests(unittest.TestCase):
         self.assertEqual(router.version_migration_activation_trace, [
             "VERIFIED", "ACTIVATING", "MFRZ", "MCAN", "K0ING", "SACT",
             "BRC1", "BSEAL", "BIND", "QMIG", "MAPS", "REGISTERED",
-            "PUBLISHED", "IDLE", "VMC1",
+            "PUBLISHED", "IDLE", "VMC1", "VML1_POST",
         ])
         self.assertEqual(
             manager.live_version_migration_lease_v1(),

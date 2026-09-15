@@ -238,6 +238,8 @@ EXPECTED_SCHEMA = {
         "recoveryLagSeconds": POSITIVE_UINT,
         "slashLagSeconds": POSITIVE_UINT,
         "seatRunwaySeconds": NULLABLE_POSITIVE_UINT,
+        # Legacy JSON names are retained for canonical profile compatibility.
+        # These are collateral stress inputs, not measured deterrence guarantees.
         "maximumAvoidedServiceCostWei": NULLABLE_DECIMAL,
         "collusionSafetyMarginWei": NULLABLE_POSITIVE_DECIMAL,
     },
@@ -645,7 +647,14 @@ def _seat_runway_requirement(profile: dict) -> int:
     )
 
 
-def _seat_collusion_requirement(profile: dict) -> int:
+def _seat_collateral_stress_requirement(profile: dict) -> int:
+    """Size collateral under declared stress inputs; do not infer forfeiture.
+
+    A satisfied duty, including late cure through slash equality, can promote a
+    higher-ask successor while returning the predecessor's entire bond.  The
+    legacy ``collusionSafetyMarginWei`` JSON field is only a sizing margin.
+    """
+
     service = checked_mul_u256(
         _at(profile, "seat.maximumAskWeiPerSecond"),
         _at(profile, "seat.minimumPrimaryTenureSeconds"),
@@ -655,6 +664,42 @@ def _seat_collusion_requirement(profile: dict) -> int:
         _at(profile, "seat.maximumAvoidedServiceCostWei"),
         _at(profile, "seat.collusionSafetyMarginWei"),
     )
+
+
+def funded_promotion_exposure(
+    *, successor_ask: int, predecessor_ask: int, funded_reserve: int,
+    funded_service_horizon: int, eligible_baseline_overlap: int,
+) -> dict[str, int]:
+    """Bound one term's gross and overlapping incremental premium in wei.
+
+    ``funded_reserve`` is the actual premium allocated to this term, not free
+    Pool balance or its SLA bond.  The service horizon is the remaining funded
+    duration under comparison; use the corresponding remaining reserve when
+    some credit has already accrued.  The overlap covers only time in that
+    horizon during which a healthy predecessor would still have served.
+
+    The result is an upper bound on protocol spending, not earned credit, net
+    profit or deterrence.  Closure, cap and claim-maturity rules can reduce it.
+    Repeated terms require separately funded reserves; a finite bound per term
+    does not bound lifetime spending when sponsorship continues.
+    """
+
+    for value in (successor_ask, predecessor_ask, funded_reserve,
+                  funded_service_horizon, eligible_baseline_overlap):
+        checked_add_u256(value, 0)
+    if eligible_baseline_overlap > funded_service_horizon:
+        raise ValueError("baseline overlap exceeds funded service horizon")
+    maximum_premium = min(
+        funded_reserve,
+        checked_mul_u256(successor_ask, funded_service_horizon),
+    )
+    incremental_overlap = checked_mul_u256(
+        max(0, successor_ask - predecessor_ask), eligible_baseline_overlap,
+    )
+    return {
+        "maximumPremiumWei": maximum_premium,
+        "maximumIncrementalOverlapWei": min(maximum_premium, incremental_overlap),
+    }
 
 
 PROFILE_RELATIONS = (
@@ -1561,7 +1606,7 @@ PROFILE_RELATIONS = (
         "sec:economics",
     ),
     _relation(
-        "sla-bond-collusion",
+        "sla-bond-collateral-stress",
         (
             "seat.slaBondWei",
             "seat.maximumAskWeiPerSecond",
@@ -1570,9 +1615,9 @@ PROFILE_RELATIONS = (
             "seat.collusionSafetyMarginWei",
         ),
         ">=",
-        lambda p: _at(p, "seat.slaBondWei") >= _seat_collusion_requirement(p),
+        lambda p: _at(p, "seat.slaBondWei") >= _seat_collateral_stress_requirement(p),
         "seat.slaBondWei",
-        _seat_collusion_requirement,
+        _seat_collateral_stress_requirement,
         (False, True, True),
         "sec:economics",
     ),

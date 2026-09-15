@@ -1,8 +1,16 @@
-# Slot Chain V2.27 Full Contract Implementation Design
+# Slot Chain V2 Full Contract Implementation Design
 
-**Status:** Approved and independently reviewed implementation architecture, amended for the v2.27 freeze
+**Status:** Implementation architecture; revised inputs require v2.28 conformance review
 
-**Normative protocol baseline:** `de437d8270460b38775c30d77e26f2da328a477f`
+**Historical normative protocol baseline:** `de437d8270460b38775c30d77e26f2da328a477f`
+
+**Required baseline update:** The design repair stacked on PR #22064 supersedes the historical
+baseline. Before implementing these changes, pin the exact reviewed successor commit in the
+implementation ledger and regenerate its vectors. A document revision label alone is insufficient.
+The v2.28 repair adds forced disposition 6 and exhaustive classification, fixed L1 transaction
+resource bounds, separate source/adapter deployment transactions before route staging, a complete
+migration journal, and explicit non-breaching promotion subsidy exposure. Previously passing
+conformance rows affected by these changes require fresh verification.
 
 **Stacked repository baseline:** `538742575d732507c26f9c895a3ccbe3d11207e6`
 
@@ -12,7 +20,7 @@
 
 ## 1. Objective
 
-Implement and test every on-chain Slot Chain V2.27 component described by the frozen LaTeX, PDF,
+Implement and test every on-chain Slot Chain V2 component described by the reviewed LaTeX, PDF,
 executable models, and commitment vectors at the normative protocol baseline. Remove provisional,
 superseded, unreachable, duplicated, and specification-incompatible Slot Chain code before it can
 be mistaken for a production component. The result is an additive, deployable V2 suite under
@@ -23,7 +31,7 @@ PR #22096 owns all Solidity, tests, generated contract artifacts, conformance to
 implementation-only planning. PR #22064 remains design-only. PR #22096 must not change the
 normative LaTeX, PDF, Python models, or protocol vectors by inventing a Solidity-specific rule. If
 implementation exposes a contradiction, work on the affected slice stops and the correction is
-made and reviewed on PR #22064 before implementation resumes.
+made and reviewed on PR #22064 or a design-only PR stacked on it before implementation resumes.
 
 The implementation PR must not select the V2 suite for production, modify the behavior of the
 currently selected Inbox, Bridge, vault, Resolver, or deployment path, or treat a passing test
@@ -33,13 +41,13 @@ suite as deployment authorization. Production cutover remains a separately revie
 
 The implementation consumes, in descending precedence:
 
-1. `packages/protocol/docs/preconfirmation-v2/tex/main.tex` at normative commit `de437d827`;
+1. `packages/protocol/docs/preconfirmation-v2/tex/main.tex` at the exact reviewed commit pinned by the implementation ledger;
 2. the executable Python models and commitment vectors in the same directory;
 3. this implementation architecture; and
 4. repository Solidity conventions in `packages/protocol/CLAUDE.md`.
 
 The older August 29 contract-suite specification, the September 1 implementation plan, and their
-earlier baselines are historical inputs. They may be reused only where they agree with v2.27. In
+earlier baselines are historical inputs. They may be reused only where they agree with the reviewed v2.28 successor. In
 particular, no older
 Bridge-facade, shared-cap, migration-callback, route-authority, retirement, or reclamation rule may
 override the final VMC1, RAV2, DRV2, DSV2, ICV2, BRX1, or related fixed-width protocols.
@@ -53,7 +61,7 @@ commit, and implementation resumes only after that correction is reviewed.
 The selected implementation method is a conformance-led incremental rebuild. Existing code is not
 grandfathered merely because it compiles or has tests. A source is retained only after its ABI,
 hash domains, widths, state transitions, gas envelope, failure semantics, and ownership class match
-v2.27 and its focused differential tests pass. Everything else is deleted or rewritten; no
+the pinned normative commit and its focused differential tests pass. Everything else is deleted or rewritten; no
 compatibility shim may preserve a superseded V2 draft API.
 
 A tracked conformance ledger maps every normative component, selector, fixed-width return, state
@@ -74,7 +82,7 @@ The first implementation slice removes the untracked provisional ScheduleOracle 
 Those files explicitly describe an incomplete release-only slice and do not implement the frozen
 constructor, seal, snapshot, expiry, liability, and activation rules. Their behavior must not be
 salvaged behind the same names. The same rule applies to committed partial components: retain them
-only when the conformance ledger and tests prove exact v2.27 behavior. Dead-code discovery covers
+only when the conformance ledger and tests prove behavior at the pinned normative commit. Dead-code discovery covers
 unreferenced source, unreachable selectors, obsolete domains/magic values, duplicate authorities,
 test-only production paths, stale generated artifacts, and ownership-manifest rows without a live
 consumer. Deletion is verified by compilation, reference search, artifact-ownership checks, and
@@ -272,8 +280,9 @@ an operator-controlled address.
 `ActiveSettlementRouter` (including its single owned migration-gate word),
 `ProtocolVersionManagerV2`, and the deployment factories implement proof-first activation and
 abort. The gate is Router storage, not a contract or address. VMC1 is the sole post-QMIG mutating external call, is
-made with its exact 100-byte calldata, zero value, exact caller, and 200,000 requested gas, and is
-the final external call inside the outer atomic activation revert domain.
+made with its exact 100-byte calldata, zero value, exact caller, and 200,000 requested gas. PVM
+restores its own IDLE lifecycle before returning. Router's final external call is the static
+NONE-lease post-read, inside the same atomic activation revert domain.
 
 No component may select a historical Settlement, route, Bridge, generation, or source bundle by a
 caller-supplied witness. Authority is derived through the Router/registry fixed-width reads and
@@ -344,7 +353,7 @@ unknown ownership classes, artifact-owned recompile/output drift, source-inline
 source/profile/ABI/link drift, legacy endpoint reuse, mutable trust-map wrappers, and incomplete
 authority burning. The conformance ledger has separate rows for the ordinary Settlement verifier
 dependency/interface/call helper and the kind-0 complete-initcode deployment artifact; neither may
-be marked reviewed until the exact v2.27 profile, constructor, gas-threshold and lifecycle tests
+be marked reviewed until the exact revised profile, constructor, gas-threshold and lifecycle tests
 pass.
 
 ## 5. Core State and Boundary Invariants
@@ -412,9 +421,10 @@ Later migration retains the old canonical authority through ARMED and READY. The
 before Router enters ACTIVATING. The exact journal is `MFRZ -> MCAN -> Kind0 ingress binding ->
 SourceBridge activation -> source authority/index install -> BRC1 consume/post-read -> destination
 adapter seal -> Bridge ingress binding -> QMIG -> MAPS -> internal registration/receipt/successor
-writes -> public target ACTIVE -> clear context -> Router IDLE -> VMC1 -> PVM IDLE`. ACTIVATING
-gates all newly installed ingress until publication. VMC1 is the final external call and sole
-mutating external-call exception after QMIG. Any fault, malformed return or failed post-read
+writes -> public target ACTIVE -> clear context -> Router IDLE -> VMC1 (including PVM IDLE) ->
+static NONE-lease post-read`. ACTIVATING gates all newly installed ingress until publication.
+VMC1 is the final mutating external call and sole mutating external-call exception after QMIG.
+Any fault, malformed return or failed post-read
 restores old READY/IDLE authority, Queue cursor/liability, empty target, every prepared adapter's
 unsealed state, inactive target SourceBridge, pre-cutover ingress/profile maps, unused registration,
 absent receipts and the original LIVE lease. The separate permissionless abort remains available
@@ -444,7 +454,7 @@ recorded, artifact ownership is reproducible, and critical/high review findings 
 
 The detailed plan replaces the stale September 1 round list with these gated capabilities:
 
-0. synchronize the stacked base, remove provisional/dead code, repair CI and establish the v2.27
+0. synchronize the stacked base, remove provisional/dead code, repair CI and establish the revised
    conformance ledger;
 1. revalidate shared encodings, trees, signatures, exact-call, RLP/MPT, economics and custody
    primitives against all 843 model vectors;
@@ -499,7 +509,7 @@ and rollback domain must have semantic assertions.
 
 ## 9. Completion Criteria
 
-The implementation PR is complete only when every row in the v2.27 conformance ledger is reviewed,
+The implementation PR is complete only when every row in the commit-pinned conformance ledger is reviewed,
 every normative on-chain component and interface exists, no unclassified/dead Slot Chain source or
 artifact remains, the final models and Solidity agree on commitments and transitions, all test
 classes above pass, runtime/config/layout artifacts are reproducible, the full deployment can be
