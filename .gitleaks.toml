@@ -42,6 +42,13 @@ regexes = [
 
   # Go type reference, not a value — the default generic-api-key rule matches the identifier.
   '''ecdsa\.PrivateKey''',
+
+  # Ethereum storage-trie keys (keccak256 of a storage slot) pinned as regression
+  # vectors in the preconfirmation-v2 documentation models and recomputed from
+  # public domain separators on every run. Public by construction: the
+  # generic-api-key rule matches only because the identifier ends in "key" — the
+  # adjacent *_slot vectors, equally high-entropy, are not flagged.
+  '''"[a-z_]+_trie_key": "[0-9a-f]{64}",''',
 ]
 
 paths = [
