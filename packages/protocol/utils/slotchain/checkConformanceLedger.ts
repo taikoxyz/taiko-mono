@@ -65,8 +65,8 @@ export interface ConformanceEntry {
 
 export interface ConformanceLedger {
     schemaVersion: 1;
-    protocolVersion: "2.27";
-    normativeCommit: "12591797dcf15fab5cfa81277546b3cecca7732d";
+    protocolVersion: "2.28";
+    normativeCommit: "4cc7bc0e3cd96ea4cf0af72aa1a9e6e03bec8e52";
     rootArtifactCount: 21;
     entries: ConformanceEntry[];
 }
@@ -480,12 +480,12 @@ export function validateConformanceLedger(value: unknown): ConformanceLedger {
     assertExactFields(value, LEDGER_FIELDS, "UNKNOWN_LEDGER_FIELD", "ledger");
     if (value.schemaVersion !== 1)
         fail("INVALID_SCHEMA_VERSION", `${value.schemaVersion}`);
-    if (value.protocolVersion !== "2.27")
+    if (value.protocolVersion !== "2.28")
         fail("INVALID_PROTOCOL_VERSION", `${value.protocolVersion}`);
     if (
         typeof value.normativeCommit !== "string" ||
         !COMMIT_PATTERN.test(value.normativeCommit) ||
-        value.normativeCommit !== "12591797dcf15fab5cfa81277546b3cecca7732d"
+        value.normativeCommit !== "4cc7bc0e3cd96ea4cf0af72aa1a9e6e03bec8e52"
     ) {
         fail("INVALID_NORMATIVE_COMMIT", `${value.normativeCommit}`);
     }
@@ -507,8 +507,8 @@ export function validateConformanceLedger(value: unknown): ConformanceLedger {
     }
     return {
         schemaVersion: 1,
-        protocolVersion: "2.27",
-        normativeCommit: "12591797dcf15fab5cfa81277546b3cecca7732d",
+        protocolVersion: "2.28",
+        normativeCommit: "4cc7bc0e3cd96ea4cf0af72aa1a9e6e03bec8e52",
         rootArtifactCount: 21,
         entries,
     };
@@ -623,7 +623,7 @@ function main(): void {
     const protocolRoot = path.resolve(__dirname, "../..");
     const ledgerPath = path.join(
         protocolRoot,
-        "utils/slotchain/conformance-ledger.v2.27.json",
+        "utils/slotchain/conformance-ledger.v2.28.json",
     );
     const ledger = checkConformanceLedger(ledgerPath, protocolRoot);
     const counts = Object.fromEntries(
@@ -633,7 +633,7 @@ function main(): void {
         ]),
     );
     process.stdout.write(
-        `verified ${ledger.entries.length} v2.27 conformance rows ${JSON.stringify(counts)}\n`,
+        `verified ${ledger.entries.length} v2.28 conformance rows ${JSON.stringify(counts)}\n`,
     );
 }
 

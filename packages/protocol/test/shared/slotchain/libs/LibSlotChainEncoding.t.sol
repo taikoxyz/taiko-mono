@@ -3,6 +3,9 @@ pragma solidity 0.8.30;
 
 import { SlotChainTypes } from "../../../../contracts/shared/slotchain/SlotChainTypes.sol";
 import {
+    LibSlotChainConstants
+} from "../../../../contracts/shared/slotchain/libs/LibSlotChainConstants.sol";
+import {
     LibSlotChainEncoding
 } from "../../../../contracts/shared/slotchain/libs/LibSlotChainEncoding.sol";
 import { SlotChainGoldenVectors } from "../vectors/SlotChainGoldenVectors.sol";
@@ -204,9 +207,10 @@ contract LibSlotChainEncodingTest is Test {
 
         SlotChainTypes.DispositionV1[] memory dispositions = new SlotChainTypes.DispositionV1[](64);
         for (uint256 i; i < dispositions.length; ++i) {
-            uint8 disposition = uint8(i % 6);
+            uint8 disposition = uint8(i % 7);
             bool hasTransaction = disposition == uint8(SlotChainTypes.Disposition.INCLUDED_TX);
-            bool hasResult = disposition >= uint8(SlotChainTypes.Disposition.INCLUDED_TX);
+            bool hasResult =
+                hasTransaction || disposition == uint8(SlotChainTypes.Disposition.BRIDGE_CREDIT);
             dispositions[i] = SlotChainTypes.DispositionV1(
                 uint64(i),
                 disposition,
@@ -378,9 +382,161 @@ contract LibSlotChainEncodingTest is Test {
         );
         harness.hashDispositions(7, rows);
 
-        rows[0] = SlotChainTypes.DispositionV1(7, 6, type(uint32).max, bytes32(0));
+        rows[0] = SlotChainTypes.DispositionV1(7, 7, type(uint32).max, bytes32(0));
         vm.expectRevert(abi.encodeWithSelector(LibSlotChainEncoding.InvalidDisposition.selector, 0));
         harness.hashDispositions(7, rows);
+    }
+
+    function test_hashDispositions_AcceptsInvalidNoTxAndMatchesGoldenVector() external pure {
+        SlotChainTypes.DispositionV1[] memory rows = new SlotChainTypes.DispositionV1[](1);
+        rows[0] = SlotChainTypes.DispositionV1(
+            2, uint8(SlotChainTypes.Disposition.INVALID_NO_TX), type(uint32).max, bytes32(0)
+        );
+        assertEq(
+            LibSlotChainEncoding.hashDispositions(2, rows),
+            SlotChainGoldenVectors.INVALID_NO_TX_DISPOSITION
+        );
+    }
+
+    function test_hashDispositions_RevertWhen_FieldsContradictCode() external {
+        SlotChainTypes.DispositionV1[] memory rows = new SlotChainTypes.DispositionV1[](1);
+        bytes memory expected =
+            abi.encodeWithSelector(LibSlotChainEncoding.InvalidDisposition.selector, 0);
+        // Codes 0-3 and 6 carry the sentinel index and a zero result.
+        rows[0] = SlotChainTypes.DispositionV1(0, 6, 0, bytes32(0));
+        vm.expectRevert(expected);
+        harness.hashDispositions(0, rows);
+        rows[0] = SlotChainTypes.DispositionV1(0, 6, type(uint32).max, HASH_A);
+        vm.expectRevert(expected);
+        harness.hashDispositions(0, rows);
+        rows[0] = SlotChainTypes.DispositionV1(0, 3, 1, bytes32(0));
+        vm.expectRevert(expected);
+        harness.hashDispositions(0, rows);
+        rows[0] = SlotChainTypes.DispositionV1(0, 0, type(uint32).max, HASH_A);
+        vm.expectRevert(expected);
+        harness.hashDispositions(0, rows);
+        // Code 4 carries an exact transaction index.
+        rows[0] = SlotChainTypes.DispositionV1(0, 4, type(uint32).max, HASH_A);
+        vm.expectRevert(expected);
+        harness.hashDispositions(0, rows);
+        // Code 5 carries the sentinel index.
+        rows[0] = SlotChainTypes.DispositionV1(0, 5, 0, HASH_A);
+        vm.expectRevert(expected);
+        harness.hashDispositions(0, rows);
+        rows[0] = SlotChainTypes.DispositionV1(0, 5, type(uint32).max, bytes32(0));
+        assertNotEq(harness.hashDispositions(0, rows), bytes32(0));
+    }
+
+    function test_encodeAdmissions_MatchGoldenVectorsAndInsertRouterTimestamps() external pure {
+        SlotChainTypes.Kind0ForcedDescriptorV2 memory kind0 = _forcedDescriptor(0);
+        SlotChainTypes.Kind0ForcedAdmissionV2 memory admission0 = _forcedAdmission(kind0);
+        bytes memory encoded0 = LibSlotChainEncoding.encodeKind0Admission(admission0);
+        assertEq(encoded0.length, SlotChainGoldenVectors.KIND0_FORCED_ADMISSION_LENGTH);
+        assertEq(encoded0.length, LibSlotChainConstants.KIND0_FORCED_ADMISSION_LENGTH);
+        assertEq(keccak256(encoded0), SlotChainGoldenVectors.KIND0_FORCED_ADMISSION_HASH);
+        bytes memory durable0 = LibSlotChainEncoding.encodeKind0Descriptor(kind0);
+        assertEq(
+            LibSlotChainEncoding.encodeKind0Descriptor(
+                LibSlotChainEncoding.toKind0Descriptor(admission0, kind0.enqueuedAt, kind0.dueAt)
+            ),
+            durable0
+        );
+        assertEq(durable0, _insertRouterTimestamps(encoded0, kind0.enqueuedAt, kind0.dueAt));
+
+        SlotChainTypes.Kind1ForcedDescriptorV11 memory kind1 = _bridgeDescriptor();
+        SlotChainTypes.Kind1ForcedAdmissionV11 memory admission1 = _bridgeAdmission(kind1);
+        bytes memory encoded1 = LibSlotChainEncoding.encodeKind1Admission(admission1);
+        assertEq(encoded1.length, SlotChainGoldenVectors.KIND1_FORCED_ADMISSION_LENGTH);
+        assertEq(encoded1.length, LibSlotChainConstants.KIND1_FORCED_ADMISSION_LENGTH);
+        assertEq(keccak256(encoded1), SlotChainGoldenVectors.KIND1_FORCED_ADMISSION_HASH);
+        bytes memory durable1 = LibSlotChainEncoding.encodeKind1Descriptor(kind1);
+        assertEq(
+            LibSlotChainEncoding.encodeKind1Descriptor(
+                LibSlotChainEncoding.toKind1Descriptor(admission1, kind1.enqueuedAt, kind1.dueAt)
+            ),
+            durable1
+        );
+        assertEq(durable1, _insertRouterTimestamps(encoded1, kind1.enqueuedAt, kind1.dueAt));
+
+        assertEq(
+            LibSlotChainEncoding.hashKind0AdmissionSchema(),
+            SlotChainGoldenVectors.KIND0_FORCED_ADMISSION_SCHEMA_HASH
+        );
+        assertEq(
+            LibSlotChainEncoding.hashKind1AdmissionSchema(),
+            SlotChainGoldenVectors.KIND1_FORCED_ADMISSION_SCHEMA_HASH
+        );
+    }
+
+    function test_encodeKind1Admission_RevertWhen_RefundOrLiquidityTermsAreInvalid() external {
+        SlotChainTypes.Kind1ForcedAdmissionV11 memory admission =
+            _bridgeAdmission(_bridgeDescriptor());
+        admission.liquidityFee = 0;
+        vm.expectRevert(LibSlotChainEncoding.InvalidKind1Descriptor.selector);
+        harness.encodeKind1Admission(admission);
+        admission = _bridgeAdmission(_bridgeDescriptor());
+        admission.refundVault = address(0x1234);
+        vm.expectRevert(LibSlotChainEncoding.InvalidKind1Descriptor.selector);
+        harness.encodeKind1Admission(admission);
+    }
+
+    function test_hashForcedQueueConfig_MatchesGoldenVectorAndRejectsAliases() external {
+        assertEq(
+            LibSlotChainEncoding.hashForcedQueueConfig(address(0xAD01), address(0xB001)),
+            SlotChainGoldenVectors.FORCED_QUEUE_CONFIG_HASH
+        );
+        assertNotEq(
+            LibSlotChainEncoding.hashForcedQueueConfig(address(0xAD02), address(0xB001)),
+            SlotChainGoldenVectors.FORCED_QUEUE_CONFIG_HASH
+        );
+        assertNotEq(
+            LibSlotChainEncoding.hashForcedQueueConfig(address(0xAD01), address(0xB002)),
+            SlotChainGoldenVectors.FORCED_QUEUE_CONFIG_HASH
+        );
+        assertEq(LibSlotChainConstants.EMPTY_FORCED_ROOT, SlotChainGoldenVectors.EMPTY_FORCED_ROOT);
+        assertEq(
+            LibSlotChainEncoding.hashForcedDescriptorSchema(),
+            keccak256("slot-chain-force-descriptor-schema-v11")
+        );
+        // The exact 256-byte FQC1 deployment view and 320-byte empty FQS1 state view.
+        assertEq(
+            keccak256(
+                abi.encode(
+                    bytes32(bytes4(0x46514331)),
+                    address(0xAD01),
+                    address(0xB001),
+                    uint8(LibSlotChainConstants.FORCED_TREE_DEPTH),
+                    LibSlotChainConstants.FORCED_QUEUE_CAPACITY,
+                    LibSlotChainEncoding.hashForcedEmptyLeaf(),
+                    LibSlotChainEncoding.hashForcedDescriptorSchema(),
+                    SlotChainGoldenVectors.FORCED_QUEUE_CONFIG_HASH
+                )
+            ),
+            SlotChainGoldenVectors.FORCED_QUEUE_CONFIG_RETURN_HASH
+        );
+        assertEq(
+            keccak256(
+                abi.encode(
+                    bytes32(bytes4(0x46515331)),
+                    address(0xB001),
+                    LibSlotChainConstants.EMPTY_FORCED_ROOT,
+                    uint256(0),
+                    uint256(0),
+                    uint256(0),
+                    uint256(0),
+                    uint256(0),
+                    uint256(0),
+                    SlotChainGoldenVectors.FORCED_QUEUE_CONFIG_HASH
+                )
+            ),
+            SlotChainGoldenVectors.FORCED_QUEUE_EMPTY_STATE_RETURN_HASH
+        );
+        vm.expectRevert(LibSlotChainEncoding.InvalidForcedQueueConfig.selector);
+        harness.hashForcedQueueConfig(address(0), address(0xB001));
+        vm.expectRevert(LibSlotChainEncoding.InvalidForcedQueueConfig.selector);
+        harness.hashForcedQueueConfig(address(0xAD01), address(0));
+        vm.expectRevert(LibSlotChainEncoding.InvalidForcedQueueConfig.selector);
+        harness.hashForcedQueueConfig(address(0xAD01), address(0xAD01));
     }
 
     function test_emptyLists_AcceptMaximumStartWithoutNarrowingOrWrap() external pure {
@@ -781,7 +937,7 @@ contract LibSlotChainEncodingTest is Test {
         SlotChainTypes.DestinationDomainV7 memory destination = SlotChainTypes.DestinationDomainV7({
             destinationChainId: 16_788,
             genesisHash: 0xf441e201b2f657c6674ad74d31a54c7de57d28b3ae53e298ac942be7f93f92c4,
-            bridgeInboxAdapter: address(0x7C83Df752316a639cdeb19EaD1E076a27Ba3a22E),
+            bridgeInboxAdapter: address(0x1e4f7def827E219CF771c1cfe119f1d5f86f10d5),
             activeSettlementRouter: address(0xcDC2324dbF31135b8Dd3135eeE745B8C5c593bB4),
             terminalVerifier: address(0x5c37F7073592dd30a6d18144fe6df255cfC414cE),
             inboxApply: address(0x1b7F5b2BF09107259Eb9c5ae86c68a9c69A2eeCb),
@@ -1421,6 +1577,81 @@ contract LibSlotChainEncodingTest is Test {
         descriptor_.deposit = 10 ** 16;
     }
 
+    function _forcedAdmission(SlotChainTypes.Kind0ForcedDescriptorV2 memory _descriptor)
+        private
+        pure
+        returns (SlotChainTypes.Kind0ForcedAdmissionV2 memory admission_)
+    {
+        admission_ = SlotChainTypes.Kind0ForcedAdmissionV2({
+            sender: _descriptor.sender,
+            nonce: _descriptor.nonce,
+            l2ChainId: _descriptor.l2ChainId,
+            rawTxHash: _descriptor.rawTxHash,
+            byteLength: _descriptor.byteLength,
+            gasLimit: _descriptor.gasLimit,
+            accountedGas: _descriptor.accountedGas,
+            maxFee: _descriptor.maxFee,
+            validUntil: _descriptor.validUntil,
+            refundAddress: _descriptor.refundAddress,
+            deposit: _descriptor.deposit
+        });
+    }
+
+    function _bridgeAdmission(SlotChainTypes.Kind1ForcedDescriptorV11 memory _descriptor)
+        private
+        pure
+        returns (SlotChainTypes.Kind1ForcedAdmissionV11 memory admission_)
+    {
+        admission_.msgHash = _descriptor.msgHash;
+        admission_.srcChainId = _descriptor.srcChainId;
+        admission_.sourceDomainId = _descriptor.sourceDomainId;
+        admission_.srcEpoch = _descriptor.srcEpoch;
+        admission_.srcBridge = _descriptor.srcBridge;
+        admission_.bridgeExecutionHash = _descriptor.bridgeExecutionHash;
+        admission_.emittedAtBlock = _descriptor.emittedAtBlock;
+        admission_.destinationDomainId = _descriptor.destinationDomainId;
+        admission_.destChainId = _descriptor.destChainId;
+        admission_.enqueueBy = _descriptor.enqueueBy;
+        admission_.sender = _descriptor.sender;
+        admission_.srcOwner = _descriptor.srcOwner;
+        admission_.destOwner = _descriptor.destOwner;
+        admission_.value = _descriptor.value;
+        admission_.fee = _descriptor.fee;
+        admission_.liquidityFee = _descriptor.liquidityFee;
+        admission_.calldataHash = _descriptor.calldataHash;
+        admission_.refundMode = _descriptor.refundMode;
+        admission_.refundVault = _descriptor.refundVault;
+        admission_.refundCapsuleHash = _descriptor.refundCapsuleHash;
+        admission_.escrowId = _descriptor.escrowId;
+        admission_.byteLength = _descriptor.byteLength;
+        admission_.accountedGas = _descriptor.accountedGas;
+        admission_.refundAddress = _descriptor.refundAddress;
+        admission_.deposit = _descriptor.deposit;
+    }
+
+    /// @dev Rebuilds the durable body by inserting the two Router timestamp words immediately
+    ///      before the final 32-byte deposit word of an admission body.
+    function _insertRouterTimestamps(
+        bytes memory _admission,
+        uint64 _enqueuedAt,
+        uint64 _dueAt
+    )
+        private
+        pure
+        returns (bytes memory durable_)
+    {
+        uint256 prefixLength = _admission.length - 32;
+        bytes memory prefix = new bytes(prefixLength);
+        bytes memory deposit = new bytes(32);
+        for (uint256 i; i < prefixLength; ++i) {
+            prefix[i] = _admission[i];
+        }
+        for (uint256 i; i < 32; ++i) {
+            deposit[i] = _admission[prefixLength + i];
+        }
+        durable_ = bytes.concat(prefix, bytes8(_enqueuedAt), bytes8(_dueAt), deposit);
+    }
+
     function _assertBridgeResultChanged(
         bytes32 _expected,
         SlotChainTypes.Kind1ForcedDescriptorV11 memory _descriptor
@@ -1570,6 +1801,27 @@ contract EncodingHarness {
         returns (bytes32 hash_)
     {
         return LibSlotChainEncoding.hashDispositions(_start, _rows);
+    }
+
+    function encodeKind1Admission(SlotChainTypes.Kind1ForcedAdmissionV11 memory _admission)
+        external
+        pure
+        returns (bytes memory encoded_)
+    {
+        return LibSlotChainEncoding.encodeKind1Admission(_admission);
+    }
+
+    function hashForcedQueueConfig(
+        address _activeSettlementRouter,
+        address _initialActiveSettlement
+    )
+        external
+        pure
+        returns (bytes32 hash_)
+    {
+        return LibSlotChainEncoding.hashForcedQueueConfig(
+            _activeSettlementRouter, _initialActiveSettlement
+        );
     }
 
     function hashRewardReceipt(SlotChainTypes.RewardReceiptV1 memory _receipt)

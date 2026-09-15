@@ -2,6 +2,11 @@
 pragma solidity 0.8.30;
 
 import { IComponentConfigV2 } from "../../../shared/slotchain/iface/IComponentConfigV2.sol";
+import { LibSlotChainConstants } from "../../../shared/slotchain/libs/LibSlotChainConstants.sol";
+import { LibSlotChainEncoding } from "../../../shared/slotchain/libs/LibSlotChainEncoding.sol";
+import {
+    LibSlotChainL1Resources
+} from "../../../shared/slotchain/libs/LibSlotChainL1Resources.sol";
 import { ProtocolRootCreate3ProxyV1 } from "./ProtocolRootCreate3ProxyV1.sol";
 import { IProtocolRootFactoryV1 } from "./iface/IProtocolRootFactoryV1.sol";
 import { LibRootBootstrapV1 } from "./libs/LibRootBootstrapV1.sol";
@@ -23,6 +28,9 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
     bytes4 private constant _SOC1_MAGIC = 0x534f4331;
     bytes4 private constant _PCT1_MAGIC = 0x50435431;
     bytes4 private constant _PVM1_MAGIC = 0x50564d31;
+    bytes4 private constant _RLB1_MAGIC = 0x524c4231;
+    bytes4 private constant _FQC1_MAGIC = 0x46514331;
+    bytes4 private constant _FQS1_MAGIC = 0x46515331;
 
     bytes4 private constant _EXECUTOR_CONFIG_SELECTOR = 0xe9d1d099;
     bytes4 private constant _EXECUTOR_AUTHORITY_SELECTOR = 0xccf788d5;
@@ -33,6 +41,9 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
     bytes4 private constant _SOC1_SELECTOR = 0xe3d91a33;
     bytes4 private constant _PCT1_SELECTOR = 0xb80095ca;
     bytes4 private constant _PVM1_SELECTOR = 0x4deb7821;
+    bytes4 private constant _RLB1_SELECTOR = 0xec688e40;
+    bytes4 private constant _FQC1_SELECTOR = 0x8136fe31;
+    bytes4 private constant _FQS1_SELECTOR = 0x03e0d70b;
 
     bytes32 private constant _PROTOCOL_CHANGE_OPERATION_DOMAIN =
         keccak256("slot-chain-protocol-change-operation-v1");
@@ -45,6 +56,11 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
     uint64 private constant _ACTIVATION_CALL_GAS = 50_000;
     uint64 private constant _EXTERNAL_READ_GAS = 100_000;
     uint64 private constant _EXECUTOR_CONFIRM_CALL_GAS = 500_000;
+    /// @dev Maximum release-registration calldata: selector, three head words, the payload
+    ///      length word, and the 149,088-byte maximum protocol-change payload.
+    uint64 private constant _RELEASE_REGISTRATION_CALLDATA_BYTES = 4 + 3 * 32 + 32 + 149_088;
+    /// @dev RTR2, MPR2, PIR2, both fixed-profile PIA2 rows, and Market SAT1 precede the reserve.
+    uint256 private constant _RELEASE_REGISTRATION_POSTREAD_COUNT = 6;
 
     uint8 private constant _CAMPAIGN_NONE = 0;
     uint8 private constant _CAMPAIGN_STAGED = 1;
@@ -379,6 +395,7 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
 
         (uint64 genesisTimestamp, uint64 firstManagedWindow) =
             _validateComponentGraph(_campaignKeyValue, components);
+        _validateRouterQueueBootstrapJoin(_campaignKeyValue, components);
         uint256 currentWindow =
             block.timestamp < genesisTimestamp ? 0 : (block.timestamp - genesisTimestamp) / 384;
         if (
@@ -552,7 +569,8 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
         }
     }
 
-    /// @dev Validates the exact BRC1/SOC1/PVM1 graph and returns its launch clocks.
+    /// @dev Validates the exact BRC1/SOC1/PCT1/PVM1/RLB1/FQC1/FQS1 graph and returns its launch
+    ///      clocks.
     function _validateComponentGraph(
         bytes32 _campaignKeyValue,
         address[9] memory _component
@@ -646,6 +664,107 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
         bytes32 forkWord = LibRootBootstrapV1.word(soc, 13);
         if (forkWord == bytes32(0) || forkWord != bytes32(bytes4(forkWord))) {
             revert InvalidScheduleOracleRootJoin();
+        }
+    }
+
+    /// @dev Joins role 5's constructor-written legacy bootstrap identity (RLB1) to role 6's
+    ///      deployment configuration (FQC1) and empty state (FQS1) before any role becomes ACTIVE.
+    ///      A Queue and Router that are individually self-consistent but name different legacy
+    ///      authorities reject here. All three records are writerless or mutation-gated while
+    ///      INACTIVE, so there is no read-to-activation race.
+    function _validateRouterQueueBootstrapJoin(
+        bytes32 _campaignKeyValue,
+        address[9] memory _component
+    )
+        private
+        view
+    {
+        address legacyProxy = _readRouterLegacyBootstrap(
+            _component[4], _components[_campaignKeyValue][5].configurationHash
+        );
+        bytes32 queueConfigurationHash = _components[_campaignKeyValue][6].configurationHash;
+        _validateForcedQueueConfig(
+            _component[5], _component[4], legacyProxy, queueConfigurationHash
+        );
+        _validateForcedQueueState(_component[5], legacyProxy, queueConfigurationHash);
+    }
+
+    /// @dev Exact-reads the 128-byte RLB1 row and returns the pinned legacy bootstrap proxy.
+    function _readRouterLegacyBootstrap(
+        address _router,
+        bytes32 _routerConfigurationHash
+    )
+        private
+        view
+        returns (address legacyProxy_)
+    {
+        bytes memory rlb = LibRootBootstrapV1.staticcallExact(
+            _router, abi.encodeWithSelector(_RLB1_SELECTOR), _EXTERNAL_READ_GAS, 128
+        );
+        LibRootBootstrapV1.requireMagic(rlb, _RLB1_MAGIC);
+        legacyProxy_ = LibRootBootstrapV1.addressWord(rlb, 1);
+        if (
+            LibRootBootstrapV1.word(rlb, 2) == bytes32(0)
+                || LibRootBootstrapV1.word(rlb, 3) != _routerConfigurationHash
+        ) {
+            revert InvalidActiveSettlementRouterRootJoin();
+        }
+    }
+
+    /// @dev Exact-reads the 256-byte FQC1 row and joins it to the Router, the legacy proxy, the
+    ///      Appendix constants, and the recomputed 113-byte configuration preimage.
+    function _validateForcedQueueConfig(
+        address _queue,
+        address _router,
+        address _legacyProxy,
+        bytes32 _queueConfigurationHash
+    )
+        private
+        view
+    {
+        bytes memory fqc = LibRootBootstrapV1.staticcallExact(
+            _queue, abi.encodeWithSelector(_FQC1_SELECTOR), _COMPONENT_CONFIG_READ_GAS, 256
+        );
+        LibRootBootstrapV1.requireMagic(fqc, _FQC1_MAGIC);
+        if (
+            LibRootBootstrapV1.addressWord(fqc, 1) != _router
+                || LibRootBootstrapV1.addressWord(fqc, 2) != _legacyProxy
+                || LibRootBootstrapV1.u8Word(fqc, 3) != LibSlotChainConstants.FORCED_TREE_DEPTH
+                || LibRootBootstrapV1.u64Word(fqc, 4) != LibSlotChainConstants.FORCED_QUEUE_CAPACITY
+                || LibRootBootstrapV1.word(fqc, 5) != LibSlotChainEncoding.hashForcedEmptyLeaf()
+                || LibRootBootstrapV1.word(fqc, 6)
+                    != LibSlotChainEncoding.hashForcedDescriptorSchema()
+                || LibRootBootstrapV1.word(fqc, 7) != _queueConfigurationHash
+                || LibSlotChainEncoding.hashForcedQueueConfig(_router, _legacyProxy)
+                    != _queueConfigurationHash
+        ) {
+            revert InvalidForcedQueueRootJoin();
+        }
+    }
+
+    /// @dev Exact-reads the 320-byte FQS1 row and requires the live legacy authority, the
+    ///      canonical wrapped empty root, zero counters and liabilities, and the same configuration.
+    function _validateForcedQueueState(
+        address _queue,
+        address _legacyProxy,
+        bytes32 _queueConfigurationHash
+    )
+        private
+        view
+    {
+        bytes memory fqs = LibRootBootstrapV1.staticcallExact(
+            _queue, abi.encodeWithSelector(_FQS1_SELECTOR), _EXTERNAL_READ_GAS, 320
+        );
+        LibRootBootstrapV1.requireMagic(fqs, _FQS1_MAGIC);
+        if (
+            LibRootBootstrapV1.addressWord(fqs, 1) != _legacyProxy
+                || LibRootBootstrapV1.word(fqs, 2) != LibSlotChainConstants.EMPTY_FORCED_ROOT
+                || LibRootBootstrapV1.word(fqs, 9) != _queueConfigurationHash
+        ) {
+            revert InvalidForcedQueueRootJoin();
+        }
+        for (uint256 i = 3; i <= 8; ++i) {
+            if (LibRootBootstrapV1.word(fqs, i) != bytes32(0)) revert InvalidForcedQueueRootJoin();
         }
     }
 
@@ -773,18 +892,38 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
         }
     }
 
-    /// @dev Enforces the frozen PVM1 governance clocks and nonzero release gas certificate.
+    /// @dev Enforces the frozen PVM1 governance clocks and requires the declared release gas
+    ///      certificate to fit the fixed L1 transaction cap: the Router and Market calls, all six
+    ///      bounded postreads, and the retained callback reserve under the maximum registration
+    ///      calldata. This is a necessary bound, not a compiled measurement.
     function _validateProtocolVersionManagerPolicy(bytes memory _pvm) private pure {
+        uint64 routerRegistrationGas = LibRootBootstrapV1.u64Word(_pvm, 18);
+        uint64 marketInstallationGas = LibRootBootstrapV1.u64Word(_pvm, 19);
+        uint64 postreadGas = LibRootBootstrapV1.u64Word(_pvm, 20);
+        uint64 postCallbackReserveGas = LibRootBootstrapV1.u64Word(_pvm, 21);
         if (
             LibRootBootstrapV1.u64Word(_pvm, 14) != 604_800
                 || LibRootBootstrapV1.u64Word(_pvm, 15) != 604_800
                 || LibRootBootstrapV1.u64Word(_pvm, 16) != 604_800
-                || LibRootBootstrapV1.u16Word(_pvm, 17) != 64
-                || LibRootBootstrapV1.u64Word(_pvm, 18) == 0
-                || LibRootBootstrapV1.u64Word(_pvm, 19) == 0
-                || LibRootBootstrapV1.u64Word(_pvm, 20) == 0
-                || LibRootBootstrapV1.u64Word(_pvm, 21) == 0
+                || LibRootBootstrapV1.u16Word(_pvm, 17) != 64 || routerRegistrationGas == 0
+                || marketInstallationGas == 0 || postreadGas == 0 || postCallbackReserveGas == 0
         ) {
+            revert InvalidProtocolVersionManagerRootJoin();
+        }
+        uint64[] memory stipends = new uint64[](2 + _RELEASE_REGISTRATION_POSTREAD_COUNT);
+        stipends[0] = routerRegistrationGas;
+        stipends[1] = marketInstallationGas;
+        for (uint256 i = 2; i < stipends.length; ++i) {
+            stipends[i] = postreadGas;
+        }
+        uint64 executionMinimum =
+            LibSlotChainL1Resources.callSequenceMinimumGas(stipends, postCallbackReserveGas);
+        if (!LibSlotChainL1Resources.fitsTransactionCap(
+                LibSlotChainL1Resources.requiredTransactionGas(
+                    0, _RELEASE_REGISTRATION_CALLDATA_BYTES, executionMinimum
+                ),
+                LibSlotChainL1Resources.L1_TRANSACTION_GAS_LIMIT
+            )) {
             revert InvalidProtocolVersionManagerRootJoin();
         }
     }
@@ -1144,11 +1283,13 @@ contract ProtocolRootFactoryV1 is IProtocolRootFactoryV1 {
 
     error FactoryAlreadyHasRootOrCampaign();
     error InsufficientFirstManagedWindowRunway();
+    error InvalidActiveSettlementRouterRootJoin();
     error InvalidBuilderRegistryRootJoin();
     error InvalidExecutorCandidate();
     error InvalidExecutorConfiguration();
     error InvalidExecutorConfirmation();
     error InvalidFactoryConfiguration();
+    error InvalidForcedQueueRootJoin();
     error InvalidProtocolRootActivationState();
     error InvalidProtocolRootManifest();
     error InvalidProtocolChangeTimelockRootJoin();

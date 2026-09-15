@@ -2,8 +2,9 @@
 pragma solidity 0.8.30;
 
 import { SlotChainTypes } from "../SlotChainTypes.sol";
+import { LibSlotChainL1Resources } from "./LibSlotChainL1Resources.sol";
 
-/// @title Canonical Slot Chain V2.27 profile, release, and verifier encodings
+/// @title Canonical Slot Chain V2 profile, release, and verifier encodings
 /// @custom:security-contact security@taiko.xyz
 library LibSlotChainProfile {
     uint256 internal constant EXECUTION_PROFILE_MAX_BYTES = 146_848;
@@ -11,7 +12,11 @@ library LibSlotChainProfile {
     uint256 internal constant EXECUTION_PROFILE_ARTIFACT_OFFSET = 9024;
     uint32 internal constant MIGRATION_MAXIMUM_PROOF_BYTES = 131_072;
     uint32 internal constant SETTLEMENT_VALIDITY_MAXIMUM_PROOF_BYTES = 65_536;
-    uint64 internal constant SETTLEMENT_VALIDITY_MAXIMUM_GAS = 30_000_000;
+    /// @dev Bounded by the fixed L1 transaction cap rather than a block limit.
+    uint64 internal constant SETTLEMENT_VALIDITY_MAXIMUM_GAS =
+        LibSlotChainL1Resources.L1_TRANSACTION_GAS_LIMIT;
+    uint64 internal constant SETTLEMENT_VALIDITY_VERIFIER_CALL_ENVELOPE_GAS = 10_000;
+    uint64 internal constant SETTLEMENT_VALIDITY_VERIFIER_RETURN_COPY_GAS = 6;
     bytes4 internal constant SETTLEMENT_VALIDITY_VERIFIER_SELECTOR = 0x8c6cb224;
     bytes4 internal constant MIGRATION_VERIFIER_SELECTOR = 0x81a9744d;
     bytes4 internal constant REGISTRATION_MPT_VERIFIER_SELECTOR = 0x33639818;
@@ -73,7 +78,7 @@ library LibSlotChainProfile {
     // solhint-enable max-line-length
 
     /// @dev ABI-encodes without applying the PVM/Router's full 281-word graph validation.
-    /// @param _profile The exact V2.27 execution profile.
+    /// @param _profile The exact V2 execution profile.
     /// @return profileBytes_ The canonical Solidity ABI encoding.
     function encodeExecutionProfileUnchecked(SlotChainTypes.ExecutionProfileV2 memory _profile)
         internal
@@ -122,7 +127,7 @@ library LibSlotChainProfile {
     }
 
     /// @dev Hashes an in-memory profile without applying the full PVM/Router graph validation.
-    /// @param _profile The exact V2.27 profile value.
+    /// @param _profile The exact V2 profile value.
     /// @return executionProfileHash_ The execution-profile commitment.
     function hashExecutionProfileUnchecked(SlotChainTypes.ExecutionProfileV2 memory _profile)
         internal
@@ -571,6 +576,117 @@ library LibSlotChainProfile {
         );
     }
 
+    /// @dev Computes the ordinary verifier call's complete required execution gas: the full
+    /// verification stipend retaining the larger of its EIP-150 headroom and the post-verification
+    /// reserve, plus the fixed call envelope and exact return copy.
+    /// @param _verificationGasLimit The verifier's nonzero, cap-bounded stipend.
+    /// @param _postVerificationReserveGas The nonzero, cap-bounded post-verification reserve.
+    /// @return requiredGas_ The checked required execution gas.
+    function settlementValidityVerifierRequiredGas(
+        uint64 _verificationGasLimit,
+        uint64 _postVerificationReserveGas
+    )
+        internal
+        pure
+        returns (uint64 requiredGas_)
+    {
+        if (!_settlementValidityGasInRange(_verificationGasLimit, _postVerificationReserveGas)) {
+            revert InvalidSettlementValidityVerifierDescriptor();
+        }
+        requiredGas_ = LibSlotChainL1Resources.checkedGas(
+            uint256(
+                LibSlotChainL1Resources.singleCallMinimumGas(
+                    _verificationGasLimit, _postVerificationReserveGas
+                )
+            ) + SETTLEMENT_VALIDITY_VERIFIER_CALL_ENVELOPE_GAS
+            + SETTLEMENT_VALIDITY_VERIFIER_RETURN_COPY_GAS
+        );
+    }
+
+    /// @dev Reports whether a maximum-proof ordinary settlement transaction fits the transaction
+    /// cap with its 30% margin. Only proof bytes are counted: this is the necessary profile bound,
+    /// not a complete transaction certificate.
+    /// @param _maximumProofBytes The verifier's maximum proof length.
+    /// @param _verificationGasLimit The verifier stipend.
+    /// @param _postVerificationReserveGas The post-verification reserve.
+    /// @param _supportedL1BlockGasLimit The profile's nonzero supported L1 block gas limit.
+    /// @return fits_ Whether the bound fits `min(supportedL1BlockGasLimit, transaction cap)`.
+    function settlementValidityResourcesFit(
+        uint32 _maximumProofBytes,
+        uint64 _verificationGasLimit,
+        uint64 _postVerificationReserveGas,
+        uint64 _supportedL1BlockGasLimit
+    )
+        internal
+        pure
+        returns (bool fits_)
+    {
+        if (
+            _maximumProofBytes == 0 || _maximumProofBytes > SETTLEMENT_VALIDITY_MAXIMUM_PROOF_BYTES
+                || !_settlementValidityGasInRange(
+                    _verificationGasLimit, _postVerificationReserveGas
+                )
+        ) {
+            return false;
+        }
+        return LibSlotChainL1Resources.fitsTransactionCap(
+            LibSlotChainL1Resources.requiredTransactionGas(
+                0,
+                _maximumProofBytes,
+                settlementValidityVerifierRequiredGas(
+                    _verificationGasLimit, _postVerificationReserveGas
+                )
+            ),
+            _supportedL1BlockGasLimit
+        );
+    }
+
+    /// @dev Reports whether a standalone migration verifier descriptor's maximum proof fits the
+    /// fixed transaction cap with its 30% margin. A standalone descriptor lacks the profile's
+    /// suffix budgets, so this is only the necessary isolated bound.
+    /// @param _maximumProofBytes The verifier's maximum proof length.
+    /// @param _verificationGasLimit The verifier stipend.
+    /// @return fits_ Whether the isolated bound fits the transaction cap.
+    function migrationVerifierResourcesFit(
+        uint32 _maximumProofBytes,
+        uint64 _verificationGasLimit
+    )
+        internal
+        pure
+        returns (bool fits_)
+    {
+        if (
+            _maximumProofBytes == 0 || _maximumProofBytes > MIGRATION_MAXIMUM_PROOF_BYTES
+                || _verificationGasLimit == 0
+                || _verificationGasLimit > LibSlotChainL1Resources.L1_TRANSACTION_GAS_LIMIT
+        ) {
+            return false;
+        }
+        return LibSlotChainL1Resources.fitsTransactionCap(
+            LibSlotChainL1Resources.requiredTransactionGas(
+                0,
+                _maximumProofBytes,
+                LibSlotChainL1Resources.singleCallMinimumGas(_verificationGasLimit, 0)
+            ),
+            LibSlotChainL1Resources.L1_TRANSACTION_GAS_LIMIT
+        );
+    }
+
+    /// @dev Reports whether both ordinary verifier gas budgets are nonzero and cap-bounded.
+    function _settlementValidityGasInRange(
+        uint64 _verificationGasLimit,
+        uint64 _postVerificationReserveGas
+    )
+        private
+        pure
+        returns (bool inRange_)
+    {
+        return _verificationGasLimit != 0
+            && _verificationGasLimit <= SETTLEMENT_VALIDITY_MAXIMUM_GAS
+            && _postVerificationReserveGas != 0
+            && _postVerificationReserveGas <= SETTLEMENT_VALIDITY_MAXIMUM_GAS;
+    }
+
     /// @dev Validates the semantic predicates attached to the ordinary verifier descriptor.
     /// @param _descriptor The descriptor to validate.
     function _validateSettlementValidityVerifierDescriptor(
@@ -586,12 +702,12 @@ library LibSlotChainProfile {
                 || _descriptor.proofSystemId == bytes32(0)
                 || _descriptor.publicInputSchemaHash != SETTLEMENT_VALIDITY_PUBLIC_INPUT_SCHEMA_HASH
                 || _descriptor.selector != SETTLEMENT_VALIDITY_VERIFIER_SELECTOR
-                || _descriptor.maximumProofBytes == 0
-                || _descriptor.maximumProofBytes > SETTLEMENT_VALIDITY_MAXIMUM_PROOF_BYTES
-                || _descriptor.verificationGasLimit == 0
-                || _descriptor.verificationGasLimit > SETTLEMENT_VALIDITY_MAXIMUM_GAS
-                || _descriptor.postVerificationReserveGas == 0
-                || _descriptor.postVerificationReserveGas > SETTLEMENT_VALIDITY_MAXIMUM_GAS
+                || !settlementValidityResourcesFit(
+                    _descriptor.maximumProofBytes,
+                    _descriptor.verificationGasLimit,
+                    _descriptor.postVerificationReserveGas,
+                    LibSlotChainL1Resources.L1_TRANSACTION_GAS_LIMIT
+                )
                 || _descriptor.configurationHash
                     != _settlementValidityVerifierConfigurationHashUnchecked(_descriptor)
         ) {
@@ -638,9 +754,9 @@ library LibSlotChainProfile {
                 || _descriptor.proofSystemId == bytes32(0)
                 || _descriptor.publicInputSchemaHash != MIGRATION_TRANSITION_STATEMENT_TYPEHASH
                 || _descriptor.selector != MIGRATION_VERIFIER_SELECTOR
-                || _descriptor.maximumProofBytes == 0
-                || _descriptor.maximumProofBytes > MIGRATION_MAXIMUM_PROOF_BYTES
-                || _descriptor.verificationGasLimit == 0
+                || !migrationVerifierResourcesFit(
+                    _descriptor.maximumProofBytes, _descriptor.verificationGasLimit
+                )
                 || _descriptor.configurationHash
                     != _migrationVerifierConfigurationHashUnchecked(_descriptor)
         ) {

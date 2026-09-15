@@ -1,17 +1,19 @@
-# Slot Chain V2.27 Full Contract Implementation Plan
+# Slot Chain V2 Full Contract Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
 > (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use
 > checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement, differentially verify, and security-audit every Slot Chain V2.27 on-chain
-boundary on PR #22096 without selecting it on a production path.
+**Goal:** Implement, differentially verify, and security-audit every Slot Chain V2 on-chain
+boundary on PR #22096 without selecting it on a production path. The current normative input is
+the reviewed v2.28 design revision; the revision label is a document label, not an on-chain
+`protocolVersion`.
 
 **Architecture:** Use a conformance-led incremental rebuild. Each dependency-ordered round starts
 with a meaningful failing test, implements one bounded state-machine slice, maps the normative
 surface into a machine-checked ledger, and ends only after focused tests, profile tests, invariant
 tests, artifact checks, and independent Critical/High review pass. Existing code is retained only
-after it proves exact conformance with the frozen `cd9df2ed2` design baseline.
+after it proves exact conformance with the pinned `4cc7bc0e3` design baseline.
 
 **Tech Stack:** Solidity 0.8.30, Foundry/forge-std/CommonTest, Python 3.12 reference models,
 TypeScript with ethers v5, pnpm 9.15.9, two local Anvil chains, GitHub Actions.
@@ -23,8 +25,13 @@ TypeScript with ethers v5, pnpm 9.15.9, two local Anvil chains, GitHub Actions.
 - PR #22064 (`claude/chain-liveness-builder-roles-cda13y`) owns LaTeX, PDF, protocol models, and
   normative design corrections. PR #22096 (`codex/slot-chain-v2-contracts`) owns Solidity, tests,
   generated contract fixtures, conformance/deployment tooling, and this implementation plan.
-- The normative protocol commit is `cd9df2ed2ad5000427f74efcefb1bfc31a689e0c`. Before every
-  implementation round, read the relevant `main.tex` subsection and executable-model transition.
+- The normative protocol commit is `4cc7bc0e3cd96ea4cf0af72aa1a9e6e03bec8e52` (v2.28: exhaustive
+  forced classification with `INVALID_NO_TX = 6`, the fixed 16,777,216 L1 transaction gas cap and
+  calldata floor, separate SBD1/SAD1 deployment before BRD1 staging, the reconciled migration
+  journal, the Router legacy-bootstrap and Queue deployment views, and explicit non-breaching
+  promotion exposure). Before every implementation round, read the relevant `main.tex` subsection
+  and executable-model transition. Every design revision must be re-pinned here, in the
+  conformance ledger, and by regenerating the golden vectors and profile fixtures.
 - If code requires a rule absent from or contradictory to the normative sources, stop that slice.
   Add a failing model regression and repair the design on PR #22064 first; then merge that design
   commit into PR #22096. Never hide a contradiction in Solidity or a test fixture.
@@ -87,7 +94,7 @@ FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/slotchain/**/*.t.sol
 
 - `packages/protocol/docs/preconfirmation-v2/README.md`
 - `packages/protocol/docs/preconfirmation-v2/tex/main.tex`
-- all five Python model/test files in that directory
+- all Python model/test files in that directory, including the five focused repair suites
 - `packages/protocol/CLAUDE.md`
 - `docs/superpowers/specs/2026-09-01-slot-chain-v2-contract-implementation-design.md`
 
@@ -105,8 +112,9 @@ FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/slotchain/**/*.t.sol
   /Users/d/.pyenv/versions/3.12.8/bin/python3 test-settlement-window.py
   ```
 
-  Expected: 812 golden vectors / 1,611 assertion sites; 38 lookahead assertions; 186 settlement
-  assertions; 114 seat-market tests; 38 economic tests; 296 settlement tests.
+  Expected: 876 golden vectors / 1,693 assertion sites; 38 lookahead assertions; 186 settlement
+  assertions; 114 seat-market tests; 41 economic tests; 302 settlement tests; and the focused
+  forced-validity, L1-resource, route-preparation, migration-journal, and seat-promotion suites.
 
 - [ ] Record current shared/L1/L2 builds, tests, gas, runtime sizes, artifact hashes, and known CI
       failures before touching code.
@@ -124,7 +132,7 @@ FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/slotchain/**/*.t.sol
 
 **Create:**
 
-- `packages/protocol/utils/slotchain/conformance-ledger.v2.27.json`
+- `packages/protocol/utils/slotchain/conformance-ledger.v2.28.json`
 - `packages/protocol/utils/slotchain/conformance-ledger.schema.json`
 - `packages/protocol/utils/slotchain/checkConformanceLedger.ts`
 - `packages/protocol/integration/slotchain/conformance-ledger.test.ts`
@@ -151,7 +159,7 @@ FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/slotchain/**/*.t.sol
       source, or an artifact-owned contract emitted by two profiles.
 - [ ] Add red tests for those checker failures, then implement the checker and wire
       `slotchain:conformance:check` into `slotchain:ownership:ci` after fresh profile builds/tests.
-- [ ] Re-export all 812 typed commitment rows and fail if generated JSON/Solidity differs.
+- [ ] Re-export all 876 typed commitment rows and fail if generated JSON/Solidity differs.
 - [ ] Fix current CI failures without weakening a gate. In particular, add a factory entry lock or
       equivalent state-before-call protection around root finalization and ensure the bootstrap
       exact-call helper reserves gas after return-data copy/memory expansion, not only before the
@@ -171,11 +179,18 @@ FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/slotchain/**/*.t.sol
 - `packages/protocol/utils/slotchain/generateGoldenVectors.ts`
 
 - [ ] Add red differential tests that consume the Python export directly for every shared-owned
-      row among all 812 vectors. Do not recompute expected values in Solidity or TypeScript.
+      row among all 876 vectors. Do not recompute expected values in Solidity or TypeScript.
 - [ ] Revalidate widths, enum ranges, canonical padding, selectors, EIP-712 domains, all tree
       domains/depths, the depth-64 frontier, Data MMR, RLP/MPT total consumption, and empty roots.
 - [ ] Implement/revalidate `LibExactCall`, low-`s` signature checks, checked narrowing/math,
       `LibSlotChainEconomics`, `LibCustodyAccounting`, and typed native-ETH sink interfaces.
+- [ ] Keep `LibSlotChainL1Resources` exact against the L1 transaction resource policy: the fixed
+      16,777,216 cap, EIP-7623 calldata tokens and floor, the 30% margin, and the full-stipend
+      EIP-150 call-sequence bound. Every descriptor validator and release certificate applies it.
+- [ ] Keep the disposition rules total: codes 0-3 and `INVALID_NO_TX = 6` carry the sentinel
+      index and a zero result, code 4 carries an exact index, and kind-1-only code 5 carries the
+      sentinel index. Keep the 204/525-byte admission bodies distinct from the 220/541-byte
+      durable descriptors; only the Router inserts `enqueuedAt`/`dueAt` before the deposit word.
 - [ ] Test 0/1/max-1/max capacities, one-past-max, dirty padding, trailing bytes, no-code targets,
       code/config mismatch, revert, OOG, return bombs, EIP-150 reserve, forced ETH, surplus, and
       callback reentry.
@@ -218,6 +233,13 @@ FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/slotchain/**/*.t.sol
       explicitly incomplete until the concrete Round 10A assembly.
 - [ ] Prove bootstrap authority is exactly unused or irreversibly consumed, role/config/runtime
       hashes cannot be replaced, and no generic setter/Resolver/delegate target exists.
+- [ ] Before any activation call, exact-read role 5's 128-byte RLB1 (100,000 gas) and role 6's
+      256-byte FQC1 (50,000 gas) and 320-byte FQS1 (100,000 gas). Require RLB1's configuration to
+      equal role 5's manifest row, FQC1's Router to be role 5, its `initialActiveSettlement` to be
+      RLB1's legacy proxy, its constants and recomputed 113-byte preimage to match, and FQS1 to
+      report that authority, the wrapped empty root, and zero counters/liabilities. Require the
+      PVM1 release gas certificate to fit the L1 transaction cap under maximum registration
+      calldata.
 - [ ] Measure root initcode/runtime against EIP-3860/EIP-170 and gas at the complete maximum root,
       including the final artifact and final role receipt.
 - [ ] Mark only independently complete Executor/proxy/component/bootstrap-encoding rows
@@ -282,6 +304,13 @@ FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/slotchain/**/*.t.sol
 - [ ] Add red Queue tests for kind-0/kind-1 authorization, permanent cursor/order, deposit/refund,
       cancellation race, V11 credit encoding, migration authority, maximum batch, and historical
       source generation. Implement O(1) storage and pull payments.
+- [ ] Pin the exact Queue boundary: the `ForcedQueueConstructorV1(activeSettlementRouter,
+      initialActiveSettlement)` constructor with no initializer or direct authority setter; the
+      FQC1 deployment view and 113-byte configuration preimage; `appendFromRouterV1` (FQA1,
+      4,000,000 gas, 150,000 post-copy reserve) over the 204/525-byte admission bodies with the
+      Router-inserted `enqueuedAt`/`dueAt`; the FQS1, FQF1, FQD1, and `dueAt` reads with their exact
+      gas; `advanceCursor` (FCA1); `withdrawForcedQueueClaimV1` (FQW1); QMIG as the only authority
+      change; and the four normative events.
 - [ ] Fuzz all queue/window boundary crossings and prove neither seat-holder nor operator
       availability is required for append, expiry, recovery eligibility, or later progress.
 - [ ] Run focused and full L1 tests, Python lookahead differential, gas/capacity, artifact/ledger
@@ -341,6 +370,10 @@ FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/slotchain/**/*.t.sol
       deadline.
 - [ ] Prove proof submission, forced recovery, sync, close, and claims are permissionless and that
       economic payout failure cannot block canonical progress.
+- [ ] Implement the exact `settlementForcedIngressFloorV1()` view (SIF1, 64 bytes, 50,000 gas):
+      zero in NORMAL, the checked `currentRound.expiresAt + 1` in RECOVERY, and a revert for
+      PREACTIVE or an inconsistent mode/round tuple. Round creation and roll require
+      `expiresAt < UINT64_MAX`; never saturate or wrap.
 - [ ] Run differential settlement/economic models, L1 tests/invariants, worst-case gas, ledger, and
       review.
 - [ ] Commit: `feat(protocol): implement slot chain recovery and rewards`.
@@ -370,6 +403,9 @@ FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/slotchain/**/*.t.sol
 - [ ] Differentially replay all 114 seat-market tests and add conservation/monotonicity handlers.
       Prove a missing/malicious seat can reduce only its service, never canonical safety or forced
       recovery.
+- [ ] Preserve the late-cure/no-slash policy: a higher-ask successor may replace a non-breaching
+      primary and the predecessor's bond stays refundable. Do not add a price cap or penalty to
+      canonical proof acceptance; report the funded premium exposure bounds instead.
 - [ ] Run L1 market tests/invariants, model differential, maximum gas, ledger, and review.
 - [ ] Commit: `feat(protocol): implement perpetual reverse ask seat market`.
 
@@ -402,7 +438,15 @@ FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/slotchain/**/*.t.sol
       recover and match sender/nonce/chain/fees/gas/length/hash, require direct `msg.sender`, stamp
       the active Router/Queue/release binding, and make append, processing-fee transfer, SYNCED
       refund, delayed append, PREACTIVE/ACTIVE migration transition, and rollback one bounded
-      state machine. It must never accept kind 1 or a relayed kind-0 path.
+      state machine. It must never accept kind 1 or a relayed kind-0 path. Admit only EIP-155
+      legacy, EIP-2930, and EIP-1559 transactions enabled by the active L2 fork; require
+      `gasLimit >= max(intrinsicGas, calldataFloorGas)`, checked upfront cost and fee relations,
+      and fork creation limits; emit the 204-byte admission body, never the durable descriptor.
+- [ ] Split route preparation into three permissionless transactions: SBD1 deploys the Source
+      bundle (10,000,000 gas), SAD1 deploys its adapter, and BRD1 (12,000,000 gas, staging call
+      10,000,000 gas) only authenticates the already deployed accounts and stages the manifest.
+      Neither BRD1 nor activation may deploy a missing account, and each transaction must fit the
+      L1 transaction cap independently.
 - [ ] Test bytes lengths and EIP-2718 forms at 0/1/31/32/33/max, deadline equality, underfunding,
       wrong nonce/chain/signer, Queue capacity race, callback/reentry/OOG, stale release, and complete
       value/fee/Queue/adapter rollback.
@@ -464,6 +508,10 @@ FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/slotchain/**/*.t.sol
 - [ ] Add red tests for immutable release authority, apply route, endpoint/domain Store, exact O(1)
       ICV2 credit/fee reads, native Pool tickets, funding, claim, retries, cancellation/refund,
       terminal append, depth-64 frontier, permanent pins, and exact AnchorV4 install journal.
+- [ ] Make `InboxApplyRouterV2` classification total: test expiry, nonce, funds, fee, then every
+      remaining upfront-invalid predicate in that order; codes 0-3 and `INVALID_NO_TX = 6` consume
+      the item with no transaction, nonce change, or receipt; only an upfront-valid item receives
+      code 4, and its later revert or out-of-gas stays an included transaction.
 - [ ] Implement complete transient authorization tuples and explicit reentrancy states. Only the
       exact child callback is admitted while entered.
 - [ ] Fault target success/revert/OOG/reentry and every owner/non-owner initial/retry/last-attempt
@@ -490,6 +538,13 @@ FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/slotchain/**/*.t.sol
 - [ ] Add red exact-ABI/config tests for operations, delay/cancel/expiry, release registration,
       ExecutionProfileV2, PVM1, Router state, one migration-gate storage word, verifier descriptors,
       and authoritative fixed-width reads. No caller-supplied historical target may gain authority.
+- [ ] Implement the Router's constructor-written `routerLegacyBootstrapV1()` view (RLB1, 128
+      bytes, 100,000 gas) with no setter or caller-dependent branch, and the Router's SIF1 and FQS1
+      reads before every append: `dueAt = max(enqueuedAt + FORCE_DELAY, lastDueAt, minimumDueAt)`
+      with checked `uint64` addition, forwarding the durable 220/541-byte body to the Queue.
+- [ ] Enforce the fixed L1 transaction cap in the profile decoder and PVM release certificate:
+      `min(supportedL1BlockGasLimit, 16,777,216)` with the calldata floor and 30% margin for
+      proofs, activation, arming, registration, route preparation, and source deployment.
 - [ ] Implement a delayed, bounded genesis campaign with immutable resume profile/target/cutoffs,
       block/time deadlines, 1,024-row caps, 4 MiB cap, maximum-progress 16-row scans, review and
       abandonment receipts, reversible QUIESCENT, permissionless proof landing, and expiry resume.
@@ -543,8 +598,10 @@ FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/slotchain/**/*.t.sol
 
 - [ ] Add the exact success trace: proof STATICCALL; ACTIVATING; MFRZ; MCAN; kind-0 bind;
       SourceBridge activate/index; BRC1; destination seal; Bridge bind; QMIG; three MAPS reads;
-      registration/receipt/successor writes; public ACTIVE; context clear; Router IDLE; VMC1; PVM
-      IDLE. VMC1 is the only post-QMIG mutating call and the final external call.
+      registration/receipt/successor writes; public ACTIVE; context clear; Router IDLE; VMC1
+      (PVM consumes the lease and restores its own IDLE before returning); then the static
+      NONE-lease post-read. VMC1 is the only post-QMIG mutating call; the lease post-read is the
+      final Router external call, inside the same revert domain.
 - [ ] Inject failure, reentrancy, OOG, wrong magic, short/trailing return, and bad post-read at every
       journal edge. Prove the entire old READY/IDLE authority, Queue, lease, source/destination
       bindings, registrations, receipts, context, and balances return exactly to entry state.
@@ -654,7 +711,7 @@ repeated after any material fix.
 
 ### Round 18: cross-chain lifecycle, restart, and design-to-code sync
 
-- [ ] Trace every LaTeX transition and all 812 vectors into reviewed ledger rows; challenge bridge
+- [ ] Trace every LaTeX transition and all 876 vectors into reviewed ledger rows; challenge bridge
       inner/outer rollback, terminal/pin counts, retirement/reclaim, direct successors, restart,
       serialization, and deploy/rebuild reproducibility.
 - [ ] Compare both PR diffs and ensure design fixes exist only on #22064 while code/tests/tooling
@@ -663,7 +720,7 @@ repeated after any material fix.
 
 ## 21. Final acceptance matrix
 
-- [ ] All model counts exactly match the frozen README and all 812 vector rows match Solidity.
+- [ ] All model counts exactly match the reviewed README and all 876 vector rows match Solidity.
 - [ ] Every normative component/interface/selector/return/state/error/limit/invariant has one
       reviewed ledger row; no dead, provisional, duplicate, or unclassified source/artifact exists.
 - [ ] Shared, L1, L2, fuzz, invariant, fault, migration, bridge, and two-chain integration suites

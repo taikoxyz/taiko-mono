@@ -3,6 +3,9 @@ pragma solidity 0.8.30;
 
 import { SlotChainTypes } from "../../../../contracts/shared/slotchain/SlotChainTypes.sol";
 import {
+    LibSlotChainL1Resources
+} from "../../../../contracts/shared/slotchain/libs/LibSlotChainL1Resources.sol";
+import {
     LibSlotChainProfile
 } from "../../../../contracts/shared/slotchain/libs/LibSlotChainProfile.sol";
 import { SlotChainGoldenVectors } from "../vectors/SlotChainGoldenVectors.sol";
@@ -16,7 +19,7 @@ contract LibSlotChainProfileTest is Test {
     }
 
     function test_executionProfile_ExactOuterOffsetTailAndGoldenHash() external view {
-        bytes memory encoded = _readHex("execution-profile-v2.27.hex");
+        bytes memory encoded = _readHex("execution-profile-v2.28.hex");
         assertEq(encoded.length, SlotChainGoldenVectors.EXECUTION_PROFILE_ABI_LENGTH);
 
         uint256 outerOffset;
@@ -51,7 +54,7 @@ contract LibSlotChainProfileTest is Test {
     }
 
     function test_releaseManifest_MatchesExact59WordGoldenFixture() external view {
-        bytes memory encoded = _readHex("release-v2.27.hex");
+        bytes memory encoded = _readHex("release-v2.28.hex");
         assertEq(encoded.length, 59 * 32);
         assertEq(keccak256(harness.encodeReleaseManifestBytes(encoded)), keccak256(encoded));
         assertEq(
@@ -212,8 +215,8 @@ contract LibSlotChainProfileTest is Test {
 
     function test_ingressAuthorizations_MatchTwoIdsAndOrderIndependentRoot() external view {
         SlotChainTypes.ProfileIngressAuthorizationV2[2] memory rows;
-        rows[0] = _ingressAuthorization("ingress0-v2.27.hex");
-        rows[1] = _ingressAuthorization("ingress1-v2.27.hex");
+        rows[0] = _ingressAuthorization("ingress0-v2.28.hex");
+        rows[1] = _ingressAuthorization("ingress1-v2.28.hex");
         assertEq(
             harness.hashIngressAuthorizationBytes(abi.encode(rows[0])),
             SlotChainGoldenVectors.KIND0_INGRESS_AUTHORIZATION_ID
@@ -235,13 +238,13 @@ contract LibSlotChainProfileTest is Test {
 
     function test_ingressAuthorizationRoot_RejectsDuplicateKindsAndAdapters() external {
         SlotChainTypes.ProfileIngressAuthorizationV2[2] memory rows;
-        rows[0] = _ingressAuthorization("ingress0-v2.27.hex");
+        rows[0] = _ingressAuthorization("ingress0-v2.28.hex");
         rows[1] = rows[0];
         rows[1].adapter = address(0x1234);
         vm.expectRevert(LibSlotChainProfile.InvalidIngressAuthorizationIds.selector);
         harness.hashIngressAuthorizationRootBytes(abi.encode(rows[0]), abi.encode(rows[1]));
 
-        rows[1] = _ingressAuthorization("ingress1-v2.27.hex");
+        rows[1] = _ingressAuthorization("ingress1-v2.28.hex");
         rows[1].adapter = rows[0].adapter;
         vm.expectRevert(LibSlotChainProfile.InvalidIngressAuthorizationIds.selector);
         harness.hashIngressAuthorizationRootBytes(abi.encode(rows[0]), abi.encode(rows[1]));
@@ -307,7 +310,7 @@ contract LibSlotChainProfileTest is Test {
         view
         returns (SlotChainTypes.ReleaseManifestV2 memory manifest_)
     {
-        manifest_ = abi.decode(_readHex("release-v2.27.hex"), (SlotChainTypes.ReleaseManifestV2));
+        manifest_ = abi.decode(_readHex("release-v2.28.hex"), (SlotChainTypes.ReleaseManifestV2));
     }
 
     function _ingressAuthorization(string memory _filename)
@@ -492,6 +495,140 @@ contract LibSlotChainProfileTest is Test {
         fixed_.anchorHash = _repeatByte(0x99);
         fixed_.forceCutoff = 66;
         fixed_.preInboxLastAppliedPlusOne = 8001;
+    }
+
+    function test_settlementVerifier_RejectsGasAboveTransactionCapAndAcceptsExactBudgetBoundary()
+        external
+    {
+        SlotChainTypes.SettlementValidityVerifierDescriptorV2 memory descriptor =
+            _settlementVerifier();
+        descriptor.verificationGasLimit = LibSlotChainL1Resources.L1_TRANSACTION_GAS_LIMIT + 1;
+        descriptor.configurationHash = _settlementConfigurationHash(descriptor);
+        vm.expectRevert(LibSlotChainProfile.InvalidSettlementValidityVerifierDescriptor.selector);
+        harness.settlementValidityVerifierConfigurationHash(descriptor);
+
+        descriptor.verificationGasLimit = 2_000_000;
+        descriptor.postVerificationReserveGas = LibSlotChainL1Resources.L1_TRANSACTION_GAS_LIMIT + 1;
+        descriptor.configurationHash = _settlementConfigurationHash(descriptor);
+        vm.expectRevert(LibSlotChainProfile.InvalidSettlementValidityVerifierDescriptor.selector);
+        harness.settlementValidityVerifierConfigurationHash(descriptor);
+
+        // 11,325,968 is the largest stipend whose 65,536-byte proof transaction still fits the
+        // 16,777,216 cap with the 30% margin (exactly 16,777,215); one more gas exceeds it.
+        descriptor.postVerificationReserveGas = 500_000;
+        descriptor.verificationGasLimit = 11_325_968;
+        descriptor.configurationHash = _settlementConfigurationHash(descriptor);
+        assertEq(
+            harness.settlementValidityVerifierConfigurationHash(descriptor),
+            descriptor.configurationHash
+        );
+        descriptor.verificationGasLimit = 11_325_969;
+        descriptor.configurationHash = _settlementConfigurationHash(descriptor);
+        vm.expectRevert(LibSlotChainProfile.InvalidSettlementValidityVerifierDescriptor.selector);
+        harness.settlementValidityVerifierConfigurationHash(descriptor);
+    }
+
+    function test_settlementValidityResources_HonorSmallerBlockLimitAndCallEnvelope() external {
+        assertEq(
+            LibSlotChainProfile.settlementValidityVerifierRequiredGas(2_000_000, 500_000), 2_510_006
+        );
+        assertTrue(
+            LibSlotChainProfile.settlementValidityResourcesFit(
+                65_536, 2_000_000, 500_000, 4_653_457
+            )
+        );
+        assertFalse(
+            LibSlotChainProfile.settlementValidityResourcesFit(
+                65_536, 2_000_000, 500_000, 4_653_456
+            )
+        );
+        assertFalse(
+            LibSlotChainProfile.settlementValidityResourcesFit(0, 2_000_000, 500_000, 30_000_000)
+        );
+        assertFalse(
+            LibSlotChainProfile.settlementValidityResourcesFit(
+                65_537, 2_000_000, 500_000, 30_000_000
+            )
+        );
+        assertFalse(
+            LibSlotChainProfile.settlementValidityResourcesFit(65_536, 0, 500_000, 30_000_000)
+        );
+        assertFalse(
+            LibSlotChainProfile.settlementValidityResourcesFit(65_536, 2_000_000, 0, 30_000_000)
+        );
+        vm.expectRevert(LibSlotChainL1Resources.InvalidSupportedL1BlockGasLimit.selector);
+        harness.settlementValidityResourcesFit(65_536, 2_000_000, 500_000, 0);
+        vm.expectRevert(LibSlotChainProfile.InvalidSettlementValidityVerifierDescriptor.selector);
+        harness.settlementValidityVerifierRequiredGas(0, 500_000);
+    }
+
+    function test_migrationVerifier_RejectsGasAboveTransactionCapAndAcceptsExactBudgetBoundary()
+        external
+    {
+        SlotChainTypes.MigrationTransitionVerifierDescriptorV2 memory descriptor =
+            _migrationVerifier();
+        descriptor.verificationGasLimit = LibSlotChainL1Resources.L1_TRANSACTION_GAS_LIMIT + 1;
+        descriptor.configurationHash = _migrationConfigurationHash(descriptor);
+        vm.expectRevert(LibSlotChainProfile.InvalidMigrationVerifierDescriptor.selector);
+        harness.migrationVerifierConfigurationHash(descriptor);
+
+        // 10,618,844 is the largest isolated stipend whose 131,072-byte proof transaction still
+        // fits the cap with the 30% margin (exactly 16,777,215); one more gas exceeds it.
+        descriptor.verificationGasLimit = 10_618_844;
+        descriptor.configurationHash = _migrationConfigurationHash(descriptor);
+        assertEq(
+            harness.migrationVerifierConfigurationHash(descriptor), descriptor.configurationHash
+        );
+        descriptor.verificationGasLimit = 10_618_845;
+        descriptor.configurationHash = _migrationConfigurationHash(descriptor);
+        vm.expectRevert(LibSlotChainProfile.InvalidMigrationVerifierDescriptor.selector);
+        harness.migrationVerifierConfigurationHash(descriptor);
+
+        assertTrue(LibSlotChainProfile.migrationVerifierResourcesFit(131_072, 4_000_000));
+        assertFalse(LibSlotChainProfile.migrationVerifierResourcesFit(131_073, 4_000_000));
+        assertFalse(LibSlotChainProfile.migrationVerifierResourcesFit(0, 4_000_000));
+        assertFalse(LibSlotChainProfile.migrationVerifierResourcesFit(131_072, 0));
+    }
+
+    function _settlementConfigurationHash(
+        SlotChainTypes.SettlementValidityVerifierDescriptorV2 memory _descriptor
+    )
+        private
+        pure
+        returns (bytes32 hash_)
+    {
+        return keccak256(
+            abi.encode(
+                LibSlotChainProfile.SETTLEMENT_VALIDITY_VERIFIER_CONFIG_TYPEHASH,
+                _descriptor.verifyingKeyHash,
+                _descriptor.proofSystemId,
+                _descriptor.publicInputSchemaHash,
+                _descriptor.selector,
+                _descriptor.maximumProofBytes,
+                _descriptor.verificationGasLimit,
+                _descriptor.postVerificationReserveGas
+            )
+        );
+    }
+
+    function _migrationConfigurationHash(
+        SlotChainTypes.MigrationTransitionVerifierDescriptorV2 memory _descriptor
+    )
+        private
+        pure
+        returns (bytes32 hash_)
+    {
+        return keccak256(
+            abi.encode(
+                LibSlotChainProfile.MIGRATION_VERIFIER_CONFIG_TYPEHASH,
+                _descriptor.verifyingKeyHash,
+                _descriptor.proofSystemId,
+                _descriptor.publicInputSchemaHash,
+                _descriptor.selector,
+                _descriptor.maximumProofBytes,
+                _descriptor.verificationGasLimit
+            )
+        );
     }
 
     function _settlementVerifier()
@@ -792,5 +929,36 @@ contract ProfileHarness {
             receipt := add(_encoded, 0x20)
         }
         return LibSlotChainProfile.hashDestinationActivationReceipt(receipt);
+    }
+
+    function settlementValidityResourcesFit(
+        uint32 _maximumProofBytes,
+        uint64 _verificationGasLimit,
+        uint64 _postVerificationReserveGas,
+        uint64 _supportedL1BlockGasLimit
+    )
+        external
+        pure
+        returns (bool fits_)
+    {
+        return LibSlotChainProfile.settlementValidityResourcesFit(
+            _maximumProofBytes,
+            _verificationGasLimit,
+            _postVerificationReserveGas,
+            _supportedL1BlockGasLimit
+        );
+    }
+
+    function settlementValidityVerifierRequiredGas(
+        uint64 _verificationGasLimit,
+        uint64 _postVerificationReserveGas
+    )
+        external
+        pure
+        returns (uint64 requiredGas_)
+    {
+        return LibSlotChainProfile.settlementValidityVerifierRequiredGas(
+            _verificationGasLimit, _postVerificationReserveGas
+        );
     }
 }
