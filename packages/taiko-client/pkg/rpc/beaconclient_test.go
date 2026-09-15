@@ -158,11 +158,13 @@ func TestParseBeaconUint64(t *testing.T) {
 	}{
 		{name: "decimal", value: "12", want: 12},
 		{name: "zero", value: "0", want: 0},
-		{name: "max int64", value: "9223372036854775807", want: math.MaxInt64},
+		{name: "above int64", value: "9223372036854775808", want: 1 << 63},
+		{name: "max uint64", value: "18446744073709551615", want: math.MaxUint64},
 		{name: "empty", value: "", wantError: "missing"},
-		{name: "negative", value: "-1", wantError: "negative"},
+		{name: "negative", value: "-1", wantError: "invalid"},
+		{name: "leading plus", value: "+12", wantError: "invalid"},
 		{name: "hex", value: "0x10", wantError: "invalid"},
-		{name: "exceeds int64", value: "9223372036854775808", wantError: "invalid"},
+		{name: "exceeds uint64", value: "18446744073709551616", wantError: "invalid"},
 		{name: "surrounding whitespace", value: " 12", wantError: "invalid"},
 	}
 

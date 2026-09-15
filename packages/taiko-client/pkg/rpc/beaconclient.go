@@ -126,20 +126,17 @@ func NewBeaconClient(endpoint string, timeout time.Duration) (*BeaconClient, err
 	return &BeaconClient{cli, timeout, genesisTime, secondsPerSlot, slotsPerEpoch}, nil
 }
 
-// parseBeaconUint64 parses a decimal value from a beacon node response. The value must be a
-// non-negative integer that fits in an int64, since callers feed it into time.Duration arithmetic.
+// parseBeaconUint64 parses a decimal uint64 value from a beacon node response. The Beacon API
+// serialises these values as base-10 uint64 strings, so anything else is rejected.
 func parseBeaconUint64(name, value string) (uint64, error) {
 	if value == "" {
 		return 0, fmt.Errorf("beacon node response is missing %s", name)
 	}
-	parsed, err := strconv.ParseInt(value, 10, 64)
+	parsed, err := strconv.ParseUint(value, 10, 64)
 	if err != nil {
 		return 0, fmt.Errorf("invalid %s in beacon node response: %w", name, err)
 	}
-	if parsed < 0 {
-		return 0, fmt.Errorf("invalid %s in beacon node response: must not be negative, got %s", name, value)
-	}
-	return uint64(parsed), nil
+	return parsed, nil
 }
 
 // parseBeaconPositiveUint64 is parseBeaconUint64 for values that are later used as divisors.
