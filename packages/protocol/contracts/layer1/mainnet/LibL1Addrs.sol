@@ -46,7 +46,9 @@ library LibL1Addrs {
     address public constant ERC20_VAULT = 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab;
     address public constant ERC721_VAULT = 0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa;
     address public constant ERC1155_VAULT = 0xaf145913EA4a56BE22E120ED9C24589659881702;
-    address public constant BRIDGED_ERC20 = 0x65666141a541423606365123Ed280AB16a09A2e1;
+    // BridgedERC20V2 registered as bridged_erc20 by Proposal0023;
+    // replaces 0x65666141a541423606365123Ed280AB16a09A2e1
+    address public constant BRIDGED_ERC20 = 0x9ccB9eBa4335096c5B64f050C3c734632D497c3b;
     address public constant BRIDGED_ERC721 = 0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7;
     address public constant BRIDGED_ERC1155 = 0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40;
 
