@@ -949,7 +949,7 @@ creditRegistry, router, queue, sealAuthority))`. Test the derived CREATE2 addres
 - [ ] **Step 1: Write the exact successful trace test:** verifier STATICCALL, ACTIVATING, MFRZ,
       MCAN, kind-0 binding, SourceBridge activation, source indexes, BRC1, destination seal, Bridge
       binding, QMIG, three MAPS reads, registration/receipt/successor writes, public ACTIVE, context
-      clear, Router IDLE, VMC1, PVM IDLE.
+      clear, Router IDLE, VMC1 (restoring PVM IDLE before return), final static NONE-lease post-read.
 - [ ] **Step 2: Prove the genesis ordering fence:** later-version activation is unreachable until
       the exact legacy campaign has atomically set `genesisConsumed=true`; once consumed, the
       `LEGACY_BOOTSTRAP` authority can never reappear.
