@@ -34,6 +34,11 @@ contract DeployInboxUpgradeL1 is Script {
     /// @notice The basefee sharing percentage the new implementation must carry.
     uint8 public constant NEW_BASEFEE_SHARING_PCTG = 100;
 
+    /// @notice The basefee sharing percentage the live proxy must still carry. `_checkConfig`
+    /// normalises this field away before comparing the new implementation with the live one, so
+    /// this constant is the only thing pinning what the upgrade moves away from.
+    uint8 public constant OLD_BASEFEE_SHARING_PCTG = 75;
+
     error AlreadyUpgraded();
     error ConfigMismatch();
     error LiveProxyMismatch();
@@ -63,8 +68,8 @@ contract DeployInboxUpgradeL1 is Script {
 
     /// @dev Aborts unless the live proxy answers the five addresses this script is about to
     /// compile into the new implementation — all five are reproduced from `LibL1Addrs`, and the
-    /// whole point of the upgrade is to keep them — and still shares the old percentage, so the
-    /// script cannot be re-run to any effect once the proposal has executed.
+    /// whole point of the upgrade is to keep them — and still shares exactly the old percentage,
+    /// so the script cannot be re-run to any effect once the proposal has executed.
     /// @param _live The live proxy's configuration.
     function _checkLiveProxy(IInbox.Config memory _live) private pure {
         require(
@@ -75,7 +80,9 @@ contract DeployInboxUpgradeL1 is Script {
                 && _live.bondToken == LibL1Addrs.TAIKO_TOKEN,
             LiveProxyMismatch()
         );
+        // The re-run case first, so it reports itself rather than as a generic mismatch.
         require(_live.basefeeSharingPctg != NEW_BASEFEE_SHARING_PCTG, AlreadyUpgraded());
+        require(_live.basefeeSharingPctg == OLD_BASEFEE_SHARING_PCTG, LiveProxyMismatch());
     }
 
     /// @dev Aborts unless the new implementation's configuration equals the live one in every
