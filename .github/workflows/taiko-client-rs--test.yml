@@ -7,10 +7,16 @@ on:
     branches: [main]
     paths:
       - "packages/taiko-client-rs/**"
+      - "packages/protocol/contracts/**"
+      - "packages/protocol/script/layer1/core/**"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/taiko-client-rs/**"
+      # The integration tests deploy these through `DeployProtocolOnL1`, so a change
+      # to them can break the client without touching a single client file.
+      - "packages/protocol/contracts/**"
+      - "packages/protocol/script/layer1/core/**"
       - "!**/*.md"
 
 concurrency:
