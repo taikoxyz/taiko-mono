@@ -5,7 +5,8 @@
 Proposal0024 upgrades the mainnet Shasta inbox proxy `0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f`
 to a `MainnetInbox` implementation whose `basefeeSharingPctg` is 100 instead of 75, so the whole L2
 basefee of every block in a proposal made after execution is paid to that block's coinbase and
-nothing is retained by the L2 treasury `0x1670000000000000000000000000000000010001`. Every other
+nothing is retained by the L2 fee treasury, the Anchor contract
+`0x1670000000000000000000000000000000010001`. Every other
 configuration value and all five address immutables are the live ones; no storage is touched and no
 initializer runs.
 
@@ -16,7 +17,70 @@ leg.
 
 ## Rationale
 
-> **TODO(@dantaik):** write up why the basefee share moves from 75% to 100%.
+### What the percentage splits
+
+`basefeeSharingPctg` divides every L2 block's basefee between two recipients.
+
+The first is the block's **coinbase**, which the block's builder does not get to choose: at
+derivation both drivers overwrite it with the `proposer` of the `Proposed` event (taiko-client
+`driver/chain_syncer/event/derivation/source_fetcher.go`, taiko-client-rs
+`derivation/pipeline/shasta/pipeline/payload.rs`, which rejects a block whose beneficiary disagrees
+with the attributes it derived). Proposing is gated by the `PreconfWhitelist`
+`0xFD019460881e6EeC632258222393d5821029b2ac`, so the coinbase is always the whitelisted preconfer
+that proposed the block.
+
+The second is the **Anchor contract** `0x1670000000000000000000000000000000010001`, which this
+runbook calls the L2 treasury. It holds its share as a plain ETH balance — nothing forwards it
+anywhere — until the DAO sweeps it with `Anchor.withdraw`, which is `onlyOwner` on the L2 delegate
+controller `0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C` that the DAO drives from L1.
+
+So the 25% that does not go to the coinbase today is a protocol fee on proposers, payable to the
+DAO. This proposal removes it.
+
+### Why remove it
+
+That 25% is worth very little to the DAO and a great deal to a proposer, and the asymmetry is the
+whole argument.
+
+**To the DAO it is immaterial at current volume.** L2 transaction volume is low, the share that has
+accrued in the Anchor has never been swept, and it is not a sum any TAIKO holder is pricing in.
+Ending the accrual changes nothing a holder would notice. The balance already accrued is untouched
+and stays sweepable.
+
+**To a proposer it decides whether fee sponsorship is viable at all.** A proposer that pays for a
+user's transaction funds it from its own balance — basefee plus priority fee — and recovers
+`basefee × pctg / 100` plus the whole priority fee as the coinbase of the block it proposes. At 75
+every sponsored transaction is a guaranteed loss of a quarter of its basefee: a per-transaction tax
+that scales with precisely the activity the sponsor is trying to create, and one no sponsor is
+likely to absorb in order to give transactions away. At 100 the round trip is exact. The proposer's
+ETH returns to the proposer, and the marginal cost of sponsoring a transaction falls to the L1 data
+it adds to a blob the proposer is posting anyway — a cost measured on Ethereum, not on Taiko.
+
+**What that enables.** A preconfer for whom sponsorship is free on L2 can pay for its users'
+transactions: a user needs no ETH on Taiko to transact, and a dapp that puts an account-abstraction
+path in front of its users (EIP-7702, ERC-4337 or a plain relayer) can onboard them without a wallet
+at all. This proposal does not build any of that and commits no operator to it; it removes the
+protocol-level reason not to.
+
+**Two limits worth stating plainly.** The round trip is exact only within a preconfer's own
+proposals — a sponsor whose transaction lands in a block proposed by a *different* preconfer pays
+the fee to that preconfer, so sponsorship pays for itself only for the preconfer proposing the block
+it sits in. And the refund covers the L2 fee only; the proposer still carries its L1 proposing cost,
+which is what keeps proposing a real business rather than a free one.
+
+### Trade-offs
+
+- **The DAO gives up a revenue line it may want back.** `basefeeSharingPctg` is a constructor
+  immutable, so restoring any percentage is exactly this proposal in reverse: deploy an
+  implementation with the new constant and `upgradeTo`. The DAO controls the proxy and can do it at
+  any time, and would have to if L2 volume grew enough to make the 25% material.
+- **A proposer's own L2 gas becomes free.** At 100 a proposer that fills its own blocks with its
+  own transactions gets the entire basefee back, so its only remaining cost is the L1 data those
+  transactions occupy — bounded further by the L2 block gas limit and by the `PreconfWhitelist`
+  deciding who may propose at all. This is the one property the change genuinely weakens, and it
+  is a change of degree rather than of kind: at 75 that same self-dealing already cost a proposer
+  only a quarter of the basefee.
+- **Treasury dashboards will show a step to zero.** See [Client rollout](#client-rollout).
 
 ## Scope
 
@@ -29,6 +93,10 @@ Not touched: the proof verifier, proposer checker, prover whitelist, signal serv
 the proxy's storage; ownership (no `transferOwnership`, `acceptOwnership` or initializer call); the
 dormant Pacaya inbox `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`; every L2 contract; Hoodi and
 every other network.
+
+`DevnetInbox` moves to 100 in the same PR so local and devnet deployments match mainnet. It is not
+in `MainnetInbox`'s dependency tree and no deployed contract reads it; its only consumer is
+`DeployProtocolOnL1`, which the taiko-client integration tests run.
 
 ## What Changes
 
@@ -144,8 +212,9 @@ So the only behavioural change the new implementation ships is the percentage. N
   right after a proposal lands, with the preconfer restart queued, bounds this to a few blocks.
 - **Provers** (raiko2) take the value from the event and need no change. The bridge UI, the
   relayer and the eventindexer are not affected.
-- **Treasury income.** The L2 treasury `0x1670000000000000000000000000000000010001` stops receiving
-  basefee; dashboards tracking it will show the step.
+- **Treasury income.** The Anchor contract `0x1670000000000000000000000000000000010001` stops
+  receiving basefee; dashboards tracking it will show the step to zero. The ETH it has already
+  accrued is untouched and stays withdrawable by the DAO through `Anchor.withdraw`.
 
 ## Action Order
 
