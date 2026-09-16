@@ -90,7 +90,7 @@ contract Proposal0024Test is Test {
     /// the live value fails here rather than at deployment.
     function test_mainnetInbox_MatchesTheLiveConfigExceptForBasefeeSharing() external {
         MainnetInbox impl = new MainnetInbox(
-            L1.ZK_REQUIRED_VERIFIER,
+            L1.ZKEVM_VERIFIER,
             L1.PRECONF_WHITELIST,
             L1.PROVER_WHITELIST,
             L1.SIGNAL_SERVICE,

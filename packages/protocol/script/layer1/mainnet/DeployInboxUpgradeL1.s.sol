@@ -68,7 +68,7 @@ contract DeployInboxUpgradeL1 is Script {
     /// @param _live The live proxy's configuration.
     function _checkLiveProxy(IInbox.Config memory _live) private pure {
         require(
-            _live.proofVerifier == LibL1Addrs.ZK_REQUIRED_VERIFIER
+            _live.proofVerifier == LibL1Addrs.ZKEVM_VERIFIER
                 && _live.proposerChecker == LibL1Addrs.PRECONF_WHITELIST
                 && _live.proverWhitelist == LibL1Addrs.PROVER_WHITELIST
                 && _live.signalService == LibL1Addrs.SIGNAL_SERVICE
