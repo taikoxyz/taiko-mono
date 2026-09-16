@@ -141,7 +141,7 @@ below as a literal.
 
 | `getConfig()` field                 | live                                         | new                                      |
 | ----------------------------------- | -------------------------------------------- | ---------------------------------------- |
-| `proofVerifier`                     | `0x7284aaC05555Ae6559bdAd8B4221eC9584254Eec` | same (`LibL1Addrs.ZKEVM_VERIFIER`)       |
+| `proofVerifier`                     | `0x7284aaC05555Ae6559bdAd8B4221eC9584254Eec` | same (`LibL1Addrs.ZK_REQUIRED_VERIFIER`) |
 | `proposerChecker`                   | `0xFD019460881e6EeC632258222393d5821029b2ac` | same (`LibL1Addrs.PRECONF_WHITELIST`)    |
 | `proverWhitelist`                   | `0xEa798547d97e345395dA071a0D7ED8144CD612Ae` | same (`LibL1Addrs.PROVER_WHITELIST`)     |
 | `signalService`                     | `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C` | same (`LibL1Addrs.SIGNAL_SERVICE`)       |
