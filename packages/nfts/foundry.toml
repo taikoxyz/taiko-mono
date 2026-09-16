@@ -47,6 +47,11 @@ libs = ["node_modules", "lib"]
 [fuzz]
 runs = 200
 
+[lint]
+# Foundry v1.8.1's function-init-state lint crashes on fixed-size address arrays.
+# Keep all other lints enabled until the upstream Solar bug is fixed.
+exclude_lints = ["function-init-state"]
+
 [fmt]
 bracket_spacing = true
 line_length = 100
