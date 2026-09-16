@@ -48,7 +48,7 @@ contract DeployInboxUpgradeL1 is Script {
 
         vm.startBroadcast(privateKey);
         MainnetInbox inboxImpl = new MainnetInbox(
-            LibL1Addrs.ZK_REQUIRED_VERIFIER,
+            LibL1Addrs.ZKEVM_VERIFIER,
             LibL1Addrs.PRECONF_WHITELIST,
             LibL1Addrs.PROVER_WHITELIST,
             LibL1Addrs.SIGNAL_SERVICE,
