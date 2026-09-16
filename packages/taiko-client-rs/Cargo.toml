@@ -22,7 +22,6 @@ repository = "https://github.com/taikoxyz/taiko-mono"
 [workspace.dependencies]
 # async
 async-trait = "0.1"
-rand = { version = "0.10.1", features = ["std", "std_rng"] }
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 tokio-retry = "0.3.0"
