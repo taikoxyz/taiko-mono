@@ -1,7 +1,9 @@
 # Slot-Chain — Taiko preconfirmation protocol (v2 design)
 
 This directory holds the design specification for Taiko's v2 preconfirmation protocol, together
-with the executable models that verify its consensus-critical arithmetic.
+with executable models, a learning deck and a source-backed implementation status guide.
+[PR #22139](https://github.com/taikoxyz/taiko-mono/pull/22139) consolidates the design and a partial
+Solidity implementation. The protocol is not yet implemented end to end.
 
 ## Contents
 
@@ -21,7 +23,10 @@ with the executable models that verify its consensus-critical arithmetic.
 Start with the [Slot Chain learning deck](slides/slot-chain-learning-deck.html) for an overview of
 builder authority, settlement and recovery, forced transactions, bridge ingress, release activation
 and the revised economic tradeoffs. Open the HTML locally in a browser; its print layout also
-supports saving a PDF. See the [deck README](slides/README.md) for instructions and provenance.
+supports saving a PDF. Its implementation map and Registry topology distinguish available code
+from specified behavior; its migration slides cover finite arms, rollback and legacy genesis.
+See the [deck README](slides/README.md) for instructions and provenance, and the
+[implementation status guide](implementation-status.md) for source links and missing components.
 
 The deck is a non-normative companion to the v2.28 specification. That label is the document
 revision, not an on-chain protocol version. Use the specification for exact validity rules,
@@ -83,9 +88,28 @@ must be queued later and wait a new seven days. `protocolVersionManagerConfigV1(
 and SourceBundleFactory identity, while `migrationArmFreshAfterV1()` returns
 the exact 64-byte `MAF1` watermark view. The generic 256-byte `PCO1` operation row is unchanged.
 
-## Status
+## Implementation status
 
-The v2.28 architecture is a **reviewed candidate for further implementation**. It adds exhaustive
+At the reviewed PR snapshot [`b7896b7`](https://github.com/taikoxyz/taiko-mono/commit/b7896b758ef5500ce9b67064ba645c4416d8cfb5),
+the repository includes BuilderRegistry and its fixed lifecycle facets/proof verifier, registration
+MPT and schedule SSZ verification, root Factory/executor/CREATE3 machinery, and shared codecs,
+commitments, custody and economic libraries. Foundry suites, golden vectors and TypeScript checks
+accompany that code. Settlement, ScheduleOracle, ForcedQueue, AggregatorSeatMarket, the
+Router/Timelock/VersionManager, V2 bridge, legacy cutover and L2 execution components remain marked
+`missing` in the implementation ledger. Root bootstrap machinery does not implement the later-version
+Router migration journal taught in the deck.
+
+The [conformance ledger](../../utils/slotchain/conformance-ledger.v2.28.json) has 146 rows:
+101 `missing`, 25 `red`, 12 `passing` and 8 `reviewed`. Rows include artifacts, external dependencies
+and roles as well as contracts; these counts are not a percentage of implementation completion.
+The checker validates ledger consistency and reviewed-file hashes while allowing incomplete rows.
+The [21-artifact root cohort](../../utils/slotchain/artifact-ownership.json) is still `planned`.
+See [implementation status and validation commands](implementation-status.md) before interpreting
+a successful check as release evidence. The additive code is not selected on a production path.
+
+## Design status and production gates
+
+The v2.28 architecture is a **reviewed design candidate with partial implementation**. It adds exhaustive
 forced-transaction classification, including `INVALID_NO_TX = 6`; enforces the fixed 16,777,216
 L1 transaction gas cap and calldata floor; separates source-bundle and adapter deployment from
 route staging; and reconciles the full migration journal. It preserves late-proof recovery and
@@ -113,8 +137,9 @@ RTR2/BRX1/PIR2/PIM2/PIA2/BIP1/BID1 raw reads rather than an in-process
 world, exact code/configuration/immutable reads, a root receipt covering the fixed Source factory
 and root-lifetime terminal verifier, bounded indexes, and cold-cache restart coverage through
 root deployment, separate SBD1/SAD1 deployment, BRD1 staging, migration and historical reclamation.
-The model checks specification consistency; it does not establish completeness. Compiled Factory/executor/proxy and
-component artifacts, EIP-170/EIP-3860 and measured gas certificates, real circuit/verifier
+The model checks specification consistency; it does not establish completeness. A complete, independently
+reproduced set of compiled Factory/executor/proxy and component artifacts, EIP-170/EIP-3860 and
+measured full-path gas certificates, real circuit/verifier
 artifacts, multi-language conformance, explicit economic acceptance and external audits remain
 mandatory production gates. Resource budgets are implementation targets, not measurements. The
 root Source-terminal value of 2,375,000 gas is a compiled cold-CALL certificate, not a callee-side
@@ -152,9 +177,9 @@ unfenced direct checkpoint implementation are rejected before campaign publicati
 true when any pending forced or unfinalized proposal row lacks the full data-expiry slack through
 hard resume plus 900 seconds for fresh proof generation; stale rows are never ignored merely because
 successful migration would abandon them.
-The absent initial
-executable execution profile, compiled contracts/circuit and independently reproduced conformance
-bundle remain the implementation boundary. Section 13 states why inventing those
+The complete production execution profile, compiled contract/circuit release and independently
+reproduced conformance bundle remain outstanding. The committed draft contracts and synthetic
+profile/vector fixtures do not complete that bundle. Section 13 states why inventing those
 implementation-dependent artifacts in prose would be unsafe. Eight later measurable release gates
 cover proof performance, contract gas, cryptographic conformance, state-machine verification,
 economics, operations and external review. Five properties are worth knowing before reading:
