@@ -7,6 +7,7 @@ import {
   domainSeparator,
   ExecutionRevertedError,
   type Hex,
+  zeroAddress,
 } from 'viem';
 
 import { erc20VaultAbi } from '$abi';
@@ -75,12 +76,14 @@ export async function getVaultPermit2(chainId: number, vault: Address): Promise<
   if (known !== undefined) return known;
 
   try {
-    const permit2 = await readContract(config, {
+    const answer = await readContract(config, {
       abi: erc20VaultAbi,
       address: vault,
       chainId,
       functionName: 'PERMIT2',
     });
+    // A vault that names no Permit2 has no Permit2 flow, whatever else it answers
+    const permit2 = answer === zeroAddress ? null : answer;
     vaultPermit2ByChain.set(key, permit2);
     return permit2;
   } catch (error) {

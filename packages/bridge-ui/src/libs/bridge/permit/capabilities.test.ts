@@ -78,6 +78,15 @@ describe('getVaultPermit2', () => {
     );
   });
 
+  it('reports no support for a vault that names the zero address', async () => {
+    readContract.mockResolvedValue('0x0000000000000000000000000000000000000000');
+
+    expect(await getVaultPermit2(CHAIN, VAULT)).toBeNull();
+    // Remembered like any other answer from the contract
+    readContract.mockResolvedValue(PERMIT2);
+    expect(await getVaultPermit2(CHAIN, VAULT)).toBeNull();
+  });
+
   it("reports no support for today's vaults, whose implementation reverts the read", async () => {
     readContract.mockRejectedValue(contractRevert());
 
