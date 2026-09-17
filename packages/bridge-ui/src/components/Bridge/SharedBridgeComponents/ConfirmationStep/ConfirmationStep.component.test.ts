@@ -8,6 +8,7 @@
  * L2 -> L1 transfer is claimed on L1, hours later, not "on Taiko" in "a few minutes".
  */
 import { tick } from 'svelte';
+import { get } from 'svelte/store';
 import { vi } from 'vitest';
 
 window.matchMedia = vi.fn().mockReturnValue({
@@ -101,6 +102,7 @@ vi.mock('$components/NotificationToast/NotificationToast.svelte', () => ({
 }));
 
 import {
+  allApproved,
   destNetwork,
   destOwnerAddress,
   enteredAmount,
@@ -413,6 +415,21 @@ describe('after a failed ERC20 bridge', () => {
     await flush();
 
     expect(readApprovalStatus).toHaveBeenCalledWith(erc20);
+  });
+
+  it('keeps Bridge gated for the length of the re-read', async () => {
+    // A signature flow had allApproved raised; left up during the re-read, Bridge stays
+    // clickable under the spinner and a second click re-runs the same doomed send
+    allApproved.set(true);
+    let answer!: (status: unknown) => void;
+    readApprovalStatus.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    sendBridge.mockRejectedValueOnce(new PermitBridgeError('permit refused'));
+    await startBridge();
+    await flush();
+
+    expect(get(allApproved)).toBe(false);
+    answer(ApprovalStatus.APPROVAL_REQUIRED);
+    await flush();
   });
 
   it('leaves it alone on any other failure', async () => {

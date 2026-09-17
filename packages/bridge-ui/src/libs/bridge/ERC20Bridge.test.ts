@@ -116,7 +116,12 @@ describe('ERC20Bridge.bridge', () => {
 
     expect(simulateContract).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ functionName: 'sendToken', account: wallet.account, chainId: L1_CHAIN_ID }),
+      expect.objectContaining({
+        functionName: 'sendToken',
+        account: wallet.account,
+        chainId: L1_CHAIN_ID,
+        value: BigInt(1000),
+      }),
     );
     expect(writeContract).toHaveBeenCalledWith(expect.anything(), { simulated: true });
   });
@@ -203,6 +208,7 @@ describe('ERC20Bridge.bridge with a signature', () => {
       functionName: 'sendTokenWithPermit2',
       account: wallet.account,
       chainId: L1_CHAIN_ID,
+      value: BigInt(1000),
     });
     const [op, nonce, deadline, signature] = simulated().args;
     expect(op).toMatchObject({ token: TOKEN, amount: BigInt(5) });

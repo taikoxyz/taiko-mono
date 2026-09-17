@@ -1,4 +1,4 @@
-import { readContract } from '@wagmi/core';
+import { getBlock, readContract } from '@wagmi/core';
 import { type Address, bytesToBigInt, type Hex, hexToSignature, type WalletClient } from 'viem';
 
 import { config } from '$libs/wagmi';
@@ -61,6 +61,38 @@ export const PERMIT2_TYPES = {
  */
 export const permitDeadline = (now = Date.now()) => BigInt(Math.floor(now / 1000) + PERMIT_SIGNATURE_TTL_SECONDS);
 
+/**
+ * @dev The deadline for a signature made now, from the chain's own clock. A wallet's machine
+ *      can be well off, and a deadline the chain sees as already past does not fail loudly: the
+ *      permit flow is ruled out with the blame on the token, and the Permit2 flow retries into
+ *      the same expiry. The latest block is asked first; the local clock stands in when it
+ *      cannot be read, since a blip there is no reason not to sign.
+ * @param chainId The chain the signature is for
+ * @return deadline_ The deadline in seconds
+ */
+export async function signingDeadline(chainId: number): Promise<bigint> {
+  try {
+    const { timestamp } = await getBlock(config, { chainId });
+    return timestamp + BigInt(PERMIT_SIGNATURE_TTL_SECONDS);
+  } catch {
+    return permitDeadline();
+  }
+}
+
+/**
+ * @dev A 65-byte signature with `v` as 27 or 28. Permit2 hands `v` straight to `ecrecover`, so a
+ *      signer that reports it as a parity bit is refused with InvalidSignature - and that would
+ *      be read as a verdict on the token. A 64-byte (EIP-2098) signature is left to Permit2,
+ *      which handles it itself.
+ * @param signature What the wallet returned
+ * @return signature_ The same signature, with `v` in the form `ecrecover` takes
+ */
+export const withRecoveryId = (signature: Hex): Hex => {
+  if (signature.length !== 132) return signature;
+  const v = Number.parseInt(signature.slice(130), 16);
+  return v < 27 ? (`${signature.slice(0, 130)}${(v + 27).toString(16).padStart(2, '0')}` as Hex) : signature;
+};
+
 export type SignedPermit = { deadline: bigint; v: number; r: Hex; s: Hex };
 
 export type SignPermitArgs = {
@@ -88,7 +120,7 @@ export async function signPermit({ wallet, domain, token, spender, amount }: Sig
     functionName: 'nonces',
     args: [owner],
   });
-  const deadline = permitDeadline();
+  const deadline = await signingDeadline(domain.chainId);
 
   const signature = await wallet
     .signTypedData({
@@ -137,7 +169,7 @@ export async function signPermit2Transfer({
   // SignatureTransfer nonces are unordered: any unused uint256 works, and a random one does
   // not collide with anything this or another app has had the wallet sign
   const nonce = bytesToBigInt(globalThis.crypto.getRandomValues(new Uint8Array(32)));
-  const deadline = permitDeadline();
+  const deadline = await signingDeadline(chainId);
 
   const signature = await wallet
     .signTypedData({
@@ -151,5 +183,5 @@ export async function signPermit2Transfer({
       throw new TypedDataSigningError(error);
     });
 
-  return { nonce, deadline, signature };
+  return { nonce, deadline, signature: withRecoveryId(signature) };
 }

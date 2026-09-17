@@ -10,7 +10,10 @@ import {
   ContractFunctionRevertedError,
   encodeErrorResult,
   HttpRequestError,
+  InternalRpcError,
   MethodNotSupportedRpcError,
+  ProviderDisconnectedError,
+  UnknownRpcError,
   UserRejectedRequestError,
 } from 'viem';
 
@@ -55,13 +58,31 @@ describe('permitFlowsRuledOutBy', () => {
     }
   });
 
-  it('rules both out for a wallet that cannot sign typed data', () => {
-    const unsupported = new MethodNotSupportedRpcError(new Error('eth_signTypedData_v4 is not available'));
+  it('rules both out for a wallet that did not sign, whatever it said', () => {
+    // A method the wallet lacks, an internal error (how MetaMask serialises a keyring failure),
+    // an answer with no code viem knows, a bare Error: the approval works in every case, and
+    // nothing else would bring the Approve button back
+    const refusals = [
+      new MethodNotSupportedRpcError(new Error('eth_signTypedData_v4 is not available')),
+      new InternalRpcError(new Error('Internal JSON-RPC error.')),
+      new UnknownRpcError(new Error('Unsupported methods')),
+      new Error('signing failed'),
+    ];
+    for (const refusal of refusals) {
+      expect(permitFlowsRuledOutBy(new TypedDataSigningError(refusal), 'permit')).toEqual(['permit', 'permit2']);
+      // The same answer from anything but the signing step says nothing about signing
+      expect(permitFlowsRuledOutBy(refusal, 'permit')).toEqual([]);
+      expect(
+        permitFlowsRuledOutBy(failedWith(refusal instanceof BaseError ? refusal : new BaseError('x')), 'permit2'),
+      ).toEqual([]);
+    }
+  });
 
-    expect(permitFlowsRuledOutBy(new TypedDataSigningError(unsupported), 'permit')).toEqual(['permit', 'permit2']);
-    // The same answer from anything but the signing step says nothing about signing
-    expect(permitFlowsRuledOutBy(unsupported, 'permit')).toEqual([]);
-    expect(permitFlowsRuledOutBy(failedWith(unsupported), 'permit2')).toEqual([]);
+  it('leaves both open when the wallet was simply gone', () => {
+    // The next click may find it back
+    const gone = new TypedDataSigningError(new ProviderDisconnectedError(new Error('disconnected')));
+
+    expect(permitFlowsRuledOutBy(gone, 'permit')).toEqual([]);
   });
 
   it('does not read a declined signature prompt as an unsupported wallet', () => {

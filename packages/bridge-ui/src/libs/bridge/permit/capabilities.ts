@@ -7,7 +7,7 @@ import {
   domainSeparator,
   ExecutionRevertedError,
   type Hex,
-  zeroAddress,
+  isAddressEqual,
 } from 'viem';
 
 import { erc20VaultAbi } from '$abi';
@@ -15,7 +15,7 @@ import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
 import { erc20PermitAbi } from './abi';
-import { NON_STANDARD_PERMIT_TOKENS_BY_CHAIN } from './constants';
+import { NON_STANDARD_PERMIT_TOKENS_BY_CHAIN, PERMIT2_ADDRESS } from './constants';
 
 const log = getLogger('bridge:permit:capabilities');
 
@@ -52,14 +52,23 @@ const keyOf = (chainId: number, address: Address) => `${chainId}:${address.toLow
  * @param error What readContract rejected with
  * @return answered_ Whether the contract itself refused the call
  */
-const contractAnswered = (error: unknown) =>
-  error instanceof BaseError &&
-  error.walk(
-    (cause) =>
-      cause instanceof ContractFunctionRevertedError ||
-      cause instanceof ContractFunctionZeroDataError ||
-      cause instanceof ExecutionRevertedError,
-  ) !== null;
+const contractAnswered = (error: unknown): boolean => {
+  if (!(error instanceof BaseError)) return false;
+  const cause = error.walk(
+    (candidate) =>
+      candidate instanceof ContractFunctionRevertedError ||
+      candidate instanceof ContractFunctionZeroDataError ||
+      candidate instanceof ExecutionRevertedError,
+  );
+  if (!(cause instanceof ContractFunctionRevertedError)) return cause !== null;
+  // viem builds this class for rpc code 3 and for -32603 alike, and drops the original cause
+  // doing so, so a gateway's internal error arrives wearing a revert's class. What still tells
+  // them apart: revert bytes came back - decoded, or parked in `cause` when the ABI cannot
+  // name them - or the node's own revert wording, where a gateway says "Internal error"
+  return (
+    cause.data !== undefined || (cause as { cause?: unknown }).cause !== undefined || /revert/i.test(cause.reason ?? '')
+  );
+};
 
 /**
  * @dev Whether the vault on this chain has the permit entrypoints, and which Permit2 it pulls
@@ -82,8 +91,10 @@ export async function getVaultPermit2(chainId: number, vault: Address): Promise<
       chainId,
       functionName: 'PERMIT2',
     });
-    // A vault that names no Permit2 has no Permit2 flow, whatever else it answers
-    const permit2 = answer === zeroAddress ? null : answer;
+    // The read is the capability probe, not the source of the spender: the spender of an
+    // unlimited approval is never taken from an RPC answer, which a hijacked or lying gateway
+    // could point elsewhere. Anything but the canonical Permit2 is no Permit2 flow
+    const permit2 = isAddressEqual(answer, PERMIT2_ADDRESS) ? PERMIT2_ADDRESS : null;
     vaultPermit2ByChain.set(key, permit2);
     return permit2;
   } catch (error) {

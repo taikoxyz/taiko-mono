@@ -66,7 +66,9 @@ async function isContractWallet(owner: Address, chainId: number): Promise<boolea
  *      2. A vault without permit support - every deployment until its proxy is upgraded - or
  *         a contract wallet, which cannot produce the ECDSA signature `permit` recovers, gets
  *         the plain approval it always got.
- *      3. EIP-2612 next: no approval of anything, ever, and it covers every bridged token.
+ *      3. EIP-2612 next: no approval of anything, ever. Bridged tokens on `BridgedERC20V2`
+ *         have it (USDC and TAIKO on Taiko mainnet today); those still on the V1
+ *         `BridgedERC20` (USDT, DAI, WBTC, WETH) do not, and take the Permit2 route below.
  *      4. Permit2 for the rest, against an allowance the user may already hold from another
  *         app; failing that, one unlimited approval of Permit2 so it never comes up again.
  *

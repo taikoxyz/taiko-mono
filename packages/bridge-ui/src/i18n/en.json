@@ -183,7 +183,7 @@
       }
     },
     "permit2_approval": {
-      "info": "This one-time approval lets Permit2 move your {token}. From then on, bridging {token} only needs a signature, with no approval transaction."
+      "info": "This is a one-time, unlimited approval that lets Permit2 move your {token}. From then on, bridging {token} only needs a signature, with no approval transaction."
     },
     "step": {
       "confirm": {

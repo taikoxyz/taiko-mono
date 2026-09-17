@@ -36,6 +36,7 @@ import {
 
 const VAULT = '0x1000010000000000000000000000000000000002' as Address;
 const PERMIT2 = '0x000000000022D473030F116dDEE9F6B43aC78BA3' as Address;
+const OTHER = '0x0000000000000000000000000000000000000999' as Address;
 const TOKEN = '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599' as Address;
 const DAI = '0x6B175474E89094C44Da98b954EedeAC495271d0F' as Address;
 const CHAIN = 1;
@@ -43,9 +44,12 @@ const CHAIN = 1;
 /** How viem reports a readContract failure: always this wrapper, the cause telling them apart */
 const readFailure = (cause: BaseError, functionName = 'PERMIT2') =>
   new ContractFunctionExecutionError(cause, { abi: [], functionName });
-/** A revert the node returned with data, as most nodes do */
+/** A revert as viem reports one: the node's wording as the reason, no data to decode */
 const contractRevert = (functionName = 'PERMIT2') =>
-  readFailure(new ContractFunctionRevertedError({ abi: [], functionName }), functionName);
+  readFailure(
+    new ContractFunctionRevertedError({ abi: [], functionName, message: 'execution reverted' }),
+    functionName,
+  );
 /** A revert the node returned without data, as geth does for an empty revert */
 const bareRevert = () => readFailure(new ExecutionRevertedError({ message: 'execution reverted' }));
 /** The RPC could not be reached at all */
@@ -78,13 +82,24 @@ describe('getVaultPermit2', () => {
     );
   });
 
-  it('reports no support for a vault that names the zero address', async () => {
-    readContract.mockResolvedValue('0x0000000000000000000000000000000000000000');
+  it('reports no support for a vault that names anything but the canonical Permit2', async () => {
+    // The answer becomes the spender of an unlimited approval, so it is never taken from the
+    // RPC: only the canonical address, which the vault holds as a constant, is accepted
+    for (const answer of ['0x0000000000000000000000000000000000000000', OTHER]) {
+      resetPermitCapabilities();
+      readContract.mockResolvedValue(answer);
 
-    expect(await getVaultPermit2(CHAIN, VAULT)).toBeNull();
-    // Remembered like any other answer from the contract
-    readContract.mockResolvedValue(PERMIT2);
-    expect(await getVaultPermit2(CHAIN, VAULT)).toBeNull();
+      expect(await getVaultPermit2(CHAIN, VAULT)).toBeNull();
+      // Remembered like any other answer from the contract
+      readContract.mockResolvedValue(PERMIT2);
+      expect(await getVaultPermit2(CHAIN, VAULT)).toBeNull();
+    }
+  });
+
+  it('reports the canonical address in its canonical casing, whatever casing the read used', async () => {
+    readContract.mockResolvedValue(PERMIT2.toLowerCase());
+
+    expect(await getVaultPermit2(CHAIN, VAULT)).toBe(PERMIT2);
   });
 
   it("reports no support for today's vaults, whose implementation reverts the read", async () => {
@@ -206,6 +221,15 @@ describe('getPermitDomain', () => {
     await expect(getPermitDomain(CHAIN, TOKEN, ALICE)).rejects.toThrow();
 
     answer({ DOMAIN_SEPARATOR: separatorFor('Token', '1'), nonces: 0n, name: transportFailure() });
+    await expect(getPermitDomain(CHAIN, TOKEN, ALICE)).rejects.toThrow();
+
+    // The ERC-5267 read too: swallowed, it fell through to the name guesses and cached a null
+    answer({
+      DOMAIN_SEPARATOR: separatorFor('Token', '3'),
+      nonces: 0n,
+      eip712Domain: transportFailure(),
+      name: 'Token',
+    });
     await expect(getPermitDomain(CHAIN, TOKEN, ALICE)).rejects.toThrow();
 
     answer({ DOMAIN_SEPARATOR: separatorFor('Token', '1'), nonces: 0n, name: 'Token' });

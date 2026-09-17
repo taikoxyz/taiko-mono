@@ -1,9 +1,8 @@
 import {
   type BaseError,
+  ChainDisconnectedError,
   ContractFunctionRevertedError,
-  MethodNotFoundRpcError,
-  MethodNotSupportedRpcError,
-  UnsupportedProviderMethodError,
+  ProviderDisconnectedError,
   UserRejectedRequestError,
 } from 'viem';
 
@@ -51,10 +50,14 @@ export const isUserRejection = (error: unknown): boolean =>
   /denied (transaction|message) signature|user rejected/i.test(`${error}`);
 
 /**
- * @dev Whether the wallet cannot produce a typed-data signature at all, which no signed flow
- *      survives. Only the signing step's own failure counts: viem maps a provider's "no such
- *      method" answer to these three, and the same classes from a read or a send later in the
- *      flow say nothing about signing.
+ * @dev Whether the wallet did not produce the typed-data signature for a reason that is not the
+ *      user's. Every such failure rules both signed flows out - a method the wallet lacks, an
+ *      internal error, a hardware keyring that will not sign, an answer with no code at all.
+ *      The plain approval always works, so ruling out too much costs one approval, while ruling
+ *      out too little leaves a Bridge button that fails the same way on every click and no way
+ *      to ask for an approval instead. Only a disconnect is left open: the next click may find
+ *      the wallet back. Only the signing step's own failure counts, never a read or a send later
+ *      in the flow.
  */
 const cannotSignTypedData = (error: unknown): boolean => {
   const signing = findCause(error, (cause): cause is TypedDataSigningError => cause instanceof TypedDataSigningError);
@@ -63,10 +66,8 @@ const cannotSignTypedData = (error: unknown): boolean => {
     findCause(
       signing,
       (cause): cause is BaseError =>
-        cause instanceof MethodNotSupportedRpcError ||
-        cause instanceof MethodNotFoundRpcError ||
-        cause instanceof UnsupportedProviderMethodError,
-    ) !== null
+        cause instanceof ProviderDisconnectedError || cause instanceof ChainDisconnectedError,
+    ) === null
   );
 };
 

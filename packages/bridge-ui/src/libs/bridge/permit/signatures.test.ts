@@ -2,13 +2,28 @@
  * The typed data is what the contracts verify: an EIP-2612 permit over the token's own domain
  * naming the vault as spender, and a Permit2 transfer of exactly the amount to the vault.
  */
-import { type Address, type Hex, maxUint256, type WalletClient } from 'viem';
+import {
+  type Address,
+  concatHex,
+  encodeAbiParameters,
+  hashTypedData,
+  type Hex,
+  keccak256,
+  maxUint256,
+  parseAbiParameters,
+  toHex,
+  type WalletClient,
+} from 'viem';
 import { vi } from 'vitest';
 
 import { ALICE } from '$mocks';
 
 const readContract = vi.fn();
-vi.mock('@wagmi/core', () => ({ readContract: (...args: unknown[]) => readContract(...args) }));
+const getBlock = vi.fn();
+vi.mock('@wagmi/core', () => ({
+  readContract: (...args: unknown[]) => readContract(...args),
+  getBlock: (...args: unknown[]) => getBlock(...args),
+}));
 vi.mock('$libs/wagmi', () => ({ config: {} }));
 
 import { PERMIT_SIGNATURE_TTL_SECONDS } from './constants';
@@ -35,8 +50,15 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers({ now: 1_700_000_000_000 });
   readContract.mockResolvedValue(7n);
+  // The chain's clock agrees with the local one here; the cases below move it
+  getBlock.mockResolvedValue({ timestamp: 1_700_000_000n });
   signTypedData.mockResolvedValue(`${R}${S.slice(2)}1c`);
 });
+
+/** keccak256(0x1901 ‖ domainSeparator ‖ structHash), from the EIP-712 and Permit2 type strings themselves */
+const digestOf = (domainSeparator: Hex, structHash: Hex) =>
+  keccak256(concatHex(['0x1901', domainSeparator, structHash]));
+const typeHash = (type: string) => keccak256(toHex(type));
 
 afterEach(() => {
   vi.useRealTimers();
@@ -45,6 +67,127 @@ afterEach(() => {
 describe('permitDeadline', () => {
   it('expires the signature a fixed time from now, in seconds', () => {
     expect(permitDeadline(1_700_000_000_500)).toBe(BigInt(1_700_000_000 + PERMIT_SIGNATURE_TTL_SECONDS));
+  });
+});
+
+describe('the typed data', () => {
+  it('lists the fields of both types in the order the contracts hash them', () => {
+    // Field order is the typehash: reordered, a signature reverts as VAULT_PERMIT_NO_ALLOWANCE
+    // or InvalidSigner, which the send would read as a verdict on the token
+    expect(PERMIT_TYPES).toEqual({
+      Permit: [
+        { name: 'owner', type: 'address' },
+        { name: 'spender', type: 'address' },
+        { name: 'value', type: 'uint256' },
+        { name: 'nonce', type: 'uint256' },
+        { name: 'deadline', type: 'uint256' },
+      ],
+    });
+    expect(PERMIT2_TYPES).toEqual({
+      PermitTransferFrom: [
+        { name: 'permitted', type: 'TokenPermissions' },
+        { name: 'spender', type: 'address' },
+        { name: 'nonce', type: 'uint256' },
+        { name: 'deadline', type: 'uint256' },
+      ],
+      TokenPermissions: [
+        { name: 'token', type: 'address' },
+        { name: 'amount', type: 'uint256' },
+      ],
+    });
+  });
+
+  it('hashes an EIP-2612 permit to the digest the token computes', async () => {
+    await signPermit({ wallet, domain: DOMAIN, token: TOKEN, spender: VAULT, amount: 100n });
+    const signed = signTypedData.mock.calls[0][0];
+
+    const domainSeparator = keccak256(
+      encodeAbiParameters(parseAbiParameters('bytes32, bytes32, bytes32, uint256, address'), [
+        typeHash('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'),
+        keccak256(toHex(DOMAIN.name)),
+        keccak256(toHex(DOMAIN.version)),
+        BigInt(DOMAIN.chainId),
+        DOMAIN.verifyingContract,
+      ]),
+    );
+    const structHash = keccak256(
+      encodeAbiParameters(parseAbiParameters('bytes32, address, address, uint256, uint256, uint256'), [
+        typeHash('Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)'),
+        ALICE,
+        VAULT,
+        100n,
+        7n,
+        permitDeadline(),
+      ]),
+    );
+    expect(hashTypedData(signed)).toBe(digestOf(domainSeparator, structHash));
+  });
+
+  it('hashes a Permit2 transfer to the digest Permit2 computes, with the vault as spender', async () => {
+    const { nonce } = await signPermit2Transfer({
+      wallet,
+      chainId: 1,
+      permit2: PERMIT2,
+      token: TOKEN,
+      spender: VAULT,
+      amount: 100n,
+    });
+    const signed = signTypedData.mock.calls[0][0];
+
+    const domainSeparator = keccak256(
+      encodeAbiParameters(parseAbiParameters('bytes32, bytes32, uint256, address'), [
+        typeHash('EIP712Domain(string name,uint256 chainId,address verifyingContract)'),
+        keccak256(toHex('Permit2')),
+        1n,
+        PERMIT2,
+      ]),
+    );
+    const permittedHash = keccak256(
+      encodeAbiParameters(parseAbiParameters('bytes32, address, uint256'), [
+        typeHash('TokenPermissions(address token,uint256 amount)'),
+        TOKEN,
+        100n,
+      ]),
+    );
+    const structHash = keccak256(
+      encodeAbiParameters(parseAbiParameters('bytes32, bytes32, address, uint256, uint256'), [
+        typeHash(
+          'PermitTransferFrom(TokenPermissions permitted,address spender,uint256 nonce,uint256 deadline)TokenPermissions(address token,uint256 amount)',
+        ),
+        permittedHash,
+        VAULT,
+        nonce,
+        permitDeadline(),
+      ]),
+    );
+    expect(hashTypedData(signed)).toBe(digestOf(domainSeparator, structHash));
+  });
+});
+
+describe('the deadline', () => {
+  it("comes from the chain's clock, not the wallet's machine", async () => {
+    // A machine half an hour slow would sign a deadline the chain sees as already past
+    getBlock.mockResolvedValue({ timestamp: 1_700_009_000n });
+
+    const { deadline } = await signPermit({ wallet, domain: DOMAIN, token: TOKEN, spender: VAULT, amount: 1n });
+
+    expect(getBlock).toHaveBeenCalledWith(expect.anything(), { chainId: 1 });
+    expect(deadline).toBe(1_700_009_000n + BigInt(PERMIT_SIGNATURE_TTL_SECONDS));
+  });
+
+  it('falls back to the local clock when the block cannot be read', async () => {
+    getBlock.mockRejectedValue(new Error('rpc down'));
+
+    const { deadline } = await signPermit2Transfer({
+      wallet,
+      chainId: 1,
+      permit2: PERMIT2,
+      token: TOKEN,
+      spender: VAULT,
+      amount: 1n,
+    });
+
+    expect(deadline).toBe(permitDeadline());
   });
 });
 
@@ -125,6 +268,23 @@ describe('signPermit2Transfer', () => {
     });
     expect(transfer.signature).toBe(`${R}${S.slice(2)}1c`);
     expect(transfer.deadline).toBe(permitDeadline());
+  });
+
+  it('gives Permit2 a v of 27 or 28, whatever form the wallet reported it in', async () => {
+    // Permit2 hands v straight to ecrecover; a parity bit is refused as InvalidSignature, which
+    // the send would blame on the token
+    const sign = () =>
+      signPermit2Transfer({ wallet, chainId: 1, permit2: PERMIT2, token: TOKEN, spender: VAULT, amount: 1n });
+
+    signTypedData.mockResolvedValue(`${R}${S.slice(2)}00`);
+    expect((await sign()).signature).toBe(`${R}${S.slice(2)}1b`);
+    signTypedData.mockResolvedValue(`${R}${S.slice(2)}01`);
+    expect((await sign()).signature).toBe(`${R}${S.slice(2)}1c`);
+    // Already in that form, or 64 bytes for Permit2 to handle itself: untouched
+    signTypedData.mockResolvedValue(`${R}${S.slice(2)}1b`);
+    expect((await sign()).signature).toBe(`${R}${S.slice(2)}1b`);
+    signTypedData.mockResolvedValue(`${R}${S.slice(2)}`);
+    expect((await sign()).signature).toBe(`${R}${S.slice(2)}`);
   });
 
   it('draws an unordered nonce at random, within uint256', async () => {

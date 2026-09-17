@@ -386,6 +386,9 @@
       // allowance that was there when the status was read is gone. Re-read, so the Approve
       // button comes back instead of a Bridge button that fails the same way again
       if ((err instanceof PermitBridgeError || err instanceof InsufficientAllowanceError) && $selectedToken) {
+        // Lowered for the length of the re-read, as Actions does before its own: Bridge is
+        // gated on it, and a second click meanwhile would re-run the same doomed send
+        $allApproved = false;
         checking = true;
         getTokenApprovalStatus($selectedToken)
           .catch((error) => console.error('Could not refresh the approval status', error))

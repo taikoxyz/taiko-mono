@@ -1,6 +1,14 @@
 import type { Address } from 'viem';
 
 /**
+ * Uniswap's Permit2, deployed at the same address on every chain through the deterministic
+ * deployer, and the only spender the unlimited approval is ever made to. `ERC20Vault.PERMIT2`
+ * is the same compile-time constant; the vault is asked for it only to learn whether it has the
+ * permit entrypoints at all, never to learn whom to approve.
+ */
+export const PERMIT2_ADDRESS: Address = '0x000000000022D473030F116dDEE9F6B43aC78BA3';
+
+/**
  * How long a permit signature stays valid once signed. Long enough for a wallet prompt and a
  * slow inclusion, short enough that a signature the user abandons cannot be picked up days
  * later: an EIP-2612 permit is replayable by anyone against the token until it expires.
