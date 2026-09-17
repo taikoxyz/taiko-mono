@@ -111,12 +111,12 @@ export async function planErc20Send({
     return approveVault;
   }
 
-  if (!isPermitUnusable(chainId, token, 'permit')) {
+  if (!isPermitUnusable(chainId, token, owner, 'permit')) {
     const domain = await getPermitDomain(chainId, token, owner);
     if (domain) return { method: 'permit', domain };
   }
 
-  if (!isPermitUnusable(chainId, token, 'permit2') && (await isPermit2Deployed(chainId, permit2))) {
+  if (!isPermitUnusable(chainId, token, owner, 'permit2') && (await isPermit2Deployed(chainId, permit2))) {
     const permit2Allowance = await allowanceFor(permit2);
     if (permit2Allowance >= amount) return { method: 'permit2', permit2 };
     return {

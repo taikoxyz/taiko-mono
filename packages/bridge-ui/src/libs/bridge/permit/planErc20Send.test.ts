@@ -123,10 +123,14 @@ describe('planErc20Send', () => {
   it('skips a flow the chain already rejected for the token', async () => {
     getPermitDomain.mockResolvedValue(DOMAIN);
     allowances({ permit2: 100n });
-    isPermitUnusable.mockImplementation((_chainId: number, _token: Address, method: string) => method === 'permit');
+    isPermitUnusable.mockImplementation(
+      (_chainId: number, _token: Address, _owner: Address, method: string) => method === 'permit',
+    );
 
     expect(await planErc20Send(args)).toEqual({ method: 'permit2', permit2: PERMIT2 });
     expect(getPermitDomain).not.toHaveBeenCalled();
+    // Asked for this wallet: what was ruled out was its signing, not the token's
+    expect(isPermitUnusable).toHaveBeenCalledWith(1, TOKEN, ALICE, 'permit');
 
     isPermitUnusable.mockReturnValue(true);
     expect(await planErc20Send(args)).toMatchObject({ method: 'approve', target: 'vault' });

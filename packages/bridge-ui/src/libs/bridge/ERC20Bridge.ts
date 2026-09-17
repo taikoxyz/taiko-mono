@@ -275,16 +275,11 @@ export class ERC20Bridge extends Bridge {
     const { amount, token, wallet, tokenVaultAddress, srcChainId } = args;
 
     if (!wallet || !wallet.account || !wallet.chain) throw new Error('Wallet is not connected');
+    const owner = wallet.account.address;
 
     // Decided here, from the arguments, rather than carried over from the confirm step: an
     // allowance can change while that step is open, and the plan is cheap to make again
-    const plan = await planErc20Send({
-      chainId: srcChainId,
-      token,
-      owner: wallet.account.address,
-      vault: tokenVaultAddress,
-      amount,
-    });
+    const plan = await planErc20Send({ chainId: srcChainId, token, owner, vault: tokenVaultAddress, amount });
     log('Send plan', plan);
 
     if (plan.method === 'approve') {
@@ -322,7 +317,7 @@ export class ERC20Bridge extends Bridge {
         // retry may fix it, so those leave the flow open and are reported as the plain failure
         const ruledOut = permitFlowsRuledOutBy(err, plan.method);
         if (ruledOut.length > 0) {
-          ruledOut.forEach((method) => markPermitUnusable(srcChainId, token, method));
+          ruledOut.forEach((method) => markPermitUnusable(srcChainId, token, owner, method));
           throw new PermitBridgeError(`failed to bridge ERC20 token via ${plan.method}`, { cause: err });
         }
       }

@@ -15,7 +15,7 @@ import {
 } from 'viem';
 import { vi } from 'vitest';
 
-import { ALICE } from '$mocks';
+import { ALICE, BOB } from '$mocks';
 
 const readContract = vi.fn();
 const getBytecode = vi.fn();
@@ -223,12 +223,16 @@ describe('getPermitDomain', () => {
 });
 
 describe('markPermitUnusable', () => {
-  it('rules one flow out for one token on one chain', () => {
-    markPermitUnusable(CHAIN, TOKEN, 'permit');
+  it('rules one flow out for one wallet and one token on one chain', () => {
+    markPermitUnusable(CHAIN, TOKEN, ALICE, 'permit');
 
-    expect(isPermitUnusable(CHAIN, TOKEN, 'permit')).toBe(true);
-    expect(isPermitUnusable(CHAIN, TOKEN, 'permit2')).toBe(false);
-    expect(isPermitUnusable(2, TOKEN, 'permit')).toBe(false);
-    expect(isPermitUnusable(CHAIN, TOKEN.toLowerCase() as Address, 'permit')).toBe(true);
+    expect(isPermitUnusable(CHAIN, TOKEN, ALICE, 'permit')).toBe(true);
+    expect(isPermitUnusable(CHAIN, TOKEN, ALICE, 'permit2')).toBe(false);
+    expect(isPermitUnusable(2, TOKEN, ALICE, 'permit')).toBe(false);
+    // Another wallet may sign perfectly well: what was ruled out was this one's signing
+    expect(isPermitUnusable(CHAIN, TOKEN, BOB, 'permit')).toBe(false);
+    expect(isPermitUnusable(CHAIN, TOKEN.toLowerCase() as Address, ALICE.toLowerCase() as Address, 'permit')).toBe(
+      true,
+    );
   });
 });

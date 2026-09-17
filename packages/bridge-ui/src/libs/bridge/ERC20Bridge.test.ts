@@ -219,7 +219,7 @@ describe('ERC20Bridge.bridge with a signature', () => {
     await expect(new ERC20Bridge({} as never).bridge({ ...args, gasLimitZero: false } as never)).rejects.toBeInstanceOf(
       PermitBridgeError,
     );
-    expect(markPermitUnusable).toHaveBeenCalledWith(L1_CHAIN_ID, TOKEN, 'permit');
+    expect(markPermitUnusable).toHaveBeenCalledWith(L1_CHAIN_ID, TOKEN, ALICE, 'permit');
     expect(markPermitUnusable).toHaveBeenCalledTimes(1);
   });
 
@@ -234,7 +234,7 @@ describe('ERC20Bridge.bridge with a signature', () => {
     await expect(new ERC20Bridge({} as never).bridge({ ...args, gasLimitZero: false } as never)).rejects.toBeInstanceOf(
       PermitBridgeError,
     );
-    expect(markPermitUnusable).toHaveBeenCalledWith(L1_CHAIN_ID, TOKEN, 'permit2');
+    expect(markPermitUnusable).toHaveBeenCalledWith(L1_CHAIN_ID, TOKEN, ALICE, 'permit2');
     expect((simulated().abi as Abi).some((item) => item.type === 'error' && item.name === 'InvalidSigner')).toBe(true);
   });
 
@@ -247,8 +247,8 @@ describe('ERC20Bridge.bridge with a signature', () => {
     await expect(new ERC20Bridge({} as never).bridge({ ...args, gasLimitZero: false } as never)).rejects.toBeInstanceOf(
       PermitBridgeError,
     );
-    expect(markPermitUnusable).toHaveBeenCalledWith(L1_CHAIN_ID, TOKEN, 'permit');
-    expect(markPermitUnusable).toHaveBeenCalledWith(L1_CHAIN_ID, TOKEN, 'permit2');
+    expect(markPermitUnusable).toHaveBeenCalledWith(L1_CHAIN_ID, TOKEN, ALICE, 'permit');
+    expect(markPermitUnusable).toHaveBeenCalledWith(L1_CHAIN_ID, TOKEN, ALICE, 'permit2');
   });
 
   it('keeps a signed flow open on a failure a retry may fix, reporting it as the plain failure', async () => {

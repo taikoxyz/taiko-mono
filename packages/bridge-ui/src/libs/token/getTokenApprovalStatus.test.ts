@@ -127,9 +127,9 @@ describe('getTokenApprovalStatus for NFTs', () => {
     await getTokenApprovalStatus(nft);
     expect(get(erc20SendPlan)).toBeNull();
 
-    erc20SendPlan.set(approvePermit2);
     const eth = { type: TokenType.ETH, symbol: 'ETH', name: 'Ether', decimals: 18, addresses: {} } as Token;
     selectedToken.set(eth);
+    erc20SendPlan.set(approvePermit2);
     expect(await getTokenApprovalStatus(eth)).toBe(ApprovalStatus.ETH_NO_APPROVAL_REQUIRED);
     expect(get(erc20SendPlan)).toBeNull();
   });

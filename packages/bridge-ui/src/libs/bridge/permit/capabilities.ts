@@ -39,8 +39,8 @@ export type PermitMethod = 'permit' | 'permit2';
 const vaultPermit2ByChain = new Map<string, Address | null>();
 const permit2DeployedByChain = new Map<string, boolean>();
 const permitDomainByToken = new Map<string, PermitDomain | null>();
-/** Flows that failed on-chain for a token this session, so the plan stops offering them */
-const unusableByToken = new Set<string>();
+/** Flows a wallet failed on-chain for a token this session, so the plan stops offering them */
+const unusableByWallet = new Set<string>();
 
 const keyOf = (chainId: number, address: Address) => `${chainId}:${address.toLowerCase()}`;
 
@@ -214,28 +214,31 @@ async function probePermitDomain(chainId: number, token: Address, owner: Address
 }
 
 /**
- * @dev Rules a signature flow out for a token for the rest of the session, after the chain
- *      rejected it. The probes above say what a token offers, not whether it works: a token
- *      whose `permit` verifies something other than the standard message passes them and
- *      reverts in the vault. From here on the plan falls through to the next flow, and the
- *      Approve button is back.
+ * @dev Rules a signature flow out for a wallet and a token for the rest of the session, after
+ *      the chain rejected it. The probes above say what a token offers, not whether it works:
+ *      a token whose `permit` verifies something other than the standard message passes them
+ *      and reverts in the vault, and a wallet that cannot sign typed data fails every token.
+ *      Keyed by wallet as well, so a capable wallet connected later gets its own try. From
+ *      here on the plan falls through to the next flow, and the Approve button is back.
  * @param chainId The chain the token lives on
  * @param token The token
+ * @param owner The wallet that signed
  * @param method The flow that failed
  */
-export function markPermitUnusable(chainId: number, token: Address, method: PermitMethod) {
-  unusableByToken.add(`${keyOf(chainId, token)}:${method}`);
+export function markPermitUnusable(chainId: number, token: Address, owner: Address, method: PermitMethod) {
+  unusableByWallet.add(`${keyOf(chainId, token)}:${owner.toLowerCase()}:${method}`);
 }
 
 /**
- * @dev Whether a signature flow has been ruled out for a token this session.
+ * @dev Whether a signature flow has been ruled out for a wallet and a token this session.
  * @param chainId The chain the token lives on
  * @param token The token
+ * @param owner The wallet that would sign
  * @param method The flow to ask about
  * @return unusable_ Whether markPermitUnusable was called for it
  */
-export function isPermitUnusable(chainId: number, token: Address, method: PermitMethod): boolean {
-  return unusableByToken.has(`${keyOf(chainId, token)}:${method}`);
+export function isPermitUnusable(chainId: number, token: Address, owner: Address, method: PermitMethod): boolean {
+  return unusableByWallet.has(`${keyOf(chainId, token)}:${owner.toLowerCase()}:${method}`);
 }
 
 /** @dev Forgets every cached answer. For tests, which otherwise share them across cases. */
@@ -243,5 +246,5 @@ export function resetPermitCapabilities() {
   vaultPermit2ByChain.clear();
   permit2DeployedByChain.clear();
   permitDomainByToken.clear();
-  unusableByToken.clear();
+  unusableByWallet.clear();
 }
