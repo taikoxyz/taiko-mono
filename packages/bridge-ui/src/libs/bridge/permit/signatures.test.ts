@@ -218,6 +218,16 @@ describe('signPermit', () => {
     expect((await signPermit({ wallet, domain: DOMAIN, token: TOKEN, spender: VAULT, amount: 1n })).v).toBe(27);
   });
 
+  it('expands a 64-byte EIP-2098 signature into the split form permit takes', async () => {
+    // The parity bit rides in the top bit of s; left as is, it made a wrong (v, r, s) that
+    // the vault answered with VAULT_PERMIT_NO_ALLOWANCE, blamed on the token
+    signTypedData.mockResolvedValue(`${R}a2${'22'.repeat(31)}`);
+
+    const permit = await signPermit({ wallet, domain: DOMAIN, token: TOKEN, spender: VAULT, amount: 1n });
+
+    expect(permit).toMatchObject({ v: 28, r: R, s: S });
+  });
+
   it("reports a signature the wallet did not produce, with the wallet's error as the cause", async () => {
     const walletError = new Error('eth_signTypedData_v4 is not available');
     signTypedData.mockRejectedValue(walletError);

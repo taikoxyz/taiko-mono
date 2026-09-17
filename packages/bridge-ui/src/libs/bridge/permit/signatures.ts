@@ -1,5 +1,13 @@
 import { getBlock, readContract } from '@wagmi/core';
-import { type Address, bytesToBigInt, type Hex, hexToSignature, type WalletClient } from 'viem';
+import {
+  type Address,
+  bytesToBigInt,
+  compactSignatureToSignature,
+  type Hex,
+  hexToCompactSignature,
+  hexToSignature,
+  type WalletClient,
+} from 'viem';
 
 import { config } from '$libs/wagmi';
 
@@ -134,9 +142,15 @@ export async function signPermit({ wallet, domain, token, spender, amount }: Sig
       throw new TypedDataSigningError(error);
     });
 
-  const { r, s, v, yParity } = hexToSignature(signature);
-  // A wallet may return the recovery id as a parity bit; `permit` takes 27 or 28
-  return { deadline, v: Number(v ?? BigInt(27 + yParity)), r, s };
+  // `permit` takes the split form. A 64-byte EIP-2098 signature carries the parity bit in `s`
+  // and is expanded first; a wallet may also report the recovery id as a parity bit, where
+  // `permit` takes 27 or 28
+  const parsed =
+    signature.length === 130
+      ? compactSignatureToSignature(hexToCompactSignature(signature))
+      : hexToSignature(signature);
+  const v = parsed.v ?? BigInt(27 + (parsed.yParity ?? 0));
+  return { deadline, v: Number(v), r: parsed.r, s: parsed.s };
 }
 
 export type SignedPermit2Transfer = { nonce: bigint; deadline: bigint; signature: Hex };
