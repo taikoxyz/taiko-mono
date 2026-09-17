@@ -210,6 +210,8 @@ export class ERC20Bridge extends Bridge {
     // otherwise sign with whatever account and chain the connector holds by now
     const account = wallet.account;
     const abi = erc20VaultSendAbi;
+    // The signed requests are not logged whole: their calldata carries the signature, which has
+    // no business in a console even before it becomes public calldata on broadcast
 
     switch (plan.method) {
       case 'permit': {
@@ -229,7 +231,7 @@ export class ERC20Bridge extends Bridge {
           chainId,
           value,
         });
-        log('Simulate contract for sendTokenWithPermit', request);
+        log('Simulated sendTokenWithPermit', { address, chainId });
         return writeContract(config, request);
       }
       case 'permit2': {
@@ -250,7 +252,7 @@ export class ERC20Bridge extends Bridge {
           chainId,
           value,
         });
-        log('Simulate contract for sendTokenWithPermit2', request);
+        log('Simulated sendTokenWithPermit2', { address, chainId });
         return writeContract(config, request);
       }
       default: {

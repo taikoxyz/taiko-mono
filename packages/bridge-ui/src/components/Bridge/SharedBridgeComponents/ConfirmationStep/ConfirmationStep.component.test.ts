@@ -85,6 +85,12 @@ vi.mock('$libs/util/getConnectedWallet', () => ({
 vi.mock('$libs/util/checkForPausedContracts', () => ({ isBridgePaused: vi.fn().mockResolvedValue(false) }));
 vi.mock('$libs/util/balance', () => ({ refreshUserBalance: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('$libs/token/waitForApprovalStatus', () => ({ waitForApprovalStatus: vi.fn().mockResolvedValue(undefined) }));
+// The status re-read after a failed bridge, scripted per test
+const readApprovalStatus = vi.fn();
+vi.mock('$libs/token/getTokenApprovalStatus', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('$libs/token/getTokenApprovalStatus')>()),
+  getTokenApprovalStatus: (...args: unknown[]) => readApprovalStatus(...args),
+}));
 const successToast = vi.fn();
 vi.mock('$components/NotificationToast', () => ({ successToast: (...args: unknown[]) => successToast(...args) }));
 vi.mock('$components/NotificationToast/NotificationToast.svelte', () => ({
@@ -106,7 +112,9 @@ import {
   selectedToken,
 } from '$components/Bridge/state';
 import { getBridgeArgs } from '$libs/bridge/getBridgeArgs';
+import { InsufficientAllowanceError, PermitBridgeError } from '$libs/error';
 import { ETHToken, TokenType } from '$libs/token';
+import { ApprovalStatus } from '$libs/token/getTokenApprovalStatus';
 import { ALICE, BOB, L2_A_ADDRESSES } from '$mocks';
 import { account } from '$stores/account';
 import { connectedSourceChain } from '$stores/network';
@@ -378,5 +386,40 @@ describe('the ERC20 approval', () => {
       expect.objectContaining({ tokenAddress: USDC_ON_L2, spenderAddress: PERMIT2, amount: 0n }),
       true,
     );
+  });
+});
+
+describe('after a failed ERC20 bridge', () => {
+  const erc20 = { ...usdc, addresses: { 2: USDC_ON_L2 } };
+
+  beforeEach(() => {
+    selectedToken.set(erc20 as never);
+    readApprovalStatus.mockResolvedValue(ApprovalStatus.APPROVAL_REQUIRED);
+  });
+
+  it('re-reads the approval status when the allowance turned out to be gone', async () => {
+    // Sufficient when the status was read, spent or revoked elsewhere before the click: the
+    // buttons still said "approved", and nothing else would have brought Approve back
+    sendBridge.mockRejectedValueOnce(new InsufficientAllowanceError('gone'));
+    await startBridge();
+    await flush();
+
+    expect(readApprovalStatus).toHaveBeenCalledWith(erc20);
+  });
+
+  it('re-reads it when the signed flow was ruled out for the token', async () => {
+    sendBridge.mockRejectedValueOnce(new PermitBridgeError('permit refused'));
+    await startBridge();
+    await flush();
+
+    expect(readApprovalStatus).toHaveBeenCalledWith(erc20);
+  });
+
+  it('leaves it alone on any other failure', async () => {
+    sendBridge.mockRejectedValueOnce(new Error('rpc down'));
+    await startBridge();
+    await flush();
+
+    expect(readApprovalStatus).not.toHaveBeenCalled();
   });
 });

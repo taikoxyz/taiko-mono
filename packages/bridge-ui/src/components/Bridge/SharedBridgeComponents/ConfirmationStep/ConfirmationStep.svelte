@@ -31,7 +31,13 @@
   import { getBridgeArgs } from '$libs/bridge/getBridgeArgs';
   import { handleBridgeError } from '$libs/bridge/handleBridgeErrors';
   import { isSlowL1Bridging } from '$libs/chain';
-  import { BridgePausedError, PermitBridgeError, ReceiptUnavailableError, TransactionTimeoutError } from '$libs/error';
+  import {
+    BridgePausedError,
+    InsufficientAllowanceError,
+    PermitBridgeError,
+    ReceiptUnavailableError,
+    TransactionTimeoutError,
+  } from '$libs/error';
   import { recordBridgeTx } from '$libs/storage/recordBridgeTx';
   import { TokenType } from '$libs/token';
   import { ApprovalStatus, getTokenApprovalStatus } from '$libs/token/getTokenApprovalStatus';
@@ -376,9 +382,10 @@
       bridging = false;
       console.error(err);
       handleBridgeError(err as Error);
-      // The signed flow has been ruled out for this token: re-read, so the Approve button
-      // comes back instead of a Bridge button that fails the same way again
-      if (err instanceof PermitBridgeError && $selectedToken) {
+      // The buttons no longer describe the token: the signed flow has been ruled out, or an
+      // allowance that was there when the status was read is gone. Re-read, so the Approve
+      // button comes back instead of a Bridge button that fails the same way again
+      if ((err instanceof PermitBridgeError || err instanceof InsufficientAllowanceError) && $selectedToken) {
         checking = true;
         getTokenApprovalStatus($selectedToken)
           .catch((error) => console.error('Could not refresh the approval status', error))
