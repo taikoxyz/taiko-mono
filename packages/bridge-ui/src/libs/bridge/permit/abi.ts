@@ -1,4 +1,18 @@
 /**
+ * The errors Permit2 raises on the signature itself, from Uniswap's `SignatureVerification`.
+ * A `sendTokenWithPermit2` revert carries Permit2's error data unchanged through the vault,
+ * so decoding against these alongside the vault ABI names the reason. Only the signature
+ * errors are listed: they are the ones that say the flow cannot work for this signer, as
+ * opposed to an expired deadline or a spent nonce, which a retry fixes.
+ */
+export const permit2SignatureErrorsAbi = [
+  { type: 'error', name: 'InvalidSignatureLength', inputs: [] },
+  { type: 'error', name: 'InvalidSignature', inputs: [] },
+  { type: 'error', name: 'InvalidSigner', inputs: [] },
+  { type: 'error', name: 'InvalidContractSignature', inputs: [] },
+] as const;
+
+/**
  * The ERC20 surface the permit flows read. `erc20Abi` in `$abi` is the bridged token's ABI
  * and predates EIP-2612, so the permit members are declared here.
  */

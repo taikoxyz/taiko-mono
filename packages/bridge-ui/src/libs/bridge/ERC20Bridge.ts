@@ -16,22 +16,26 @@ import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
 import { assertNoViolations, checkERC20Message } from './messageInvariants';
-import { type ERC20SendPlan, markPermitUnusable, planErc20Send, signPermit, signPermit2Transfer } from './permit';
+import {
+  type ERC20SendPlan,
+  isUserRejection,
+  markPermitUnusable,
+  permit2SignatureErrorsAbi,
+  permitFlowsRuledOutBy,
+  planErc20Send,
+  signPermit,
+  signPermit2Transfer,
+} from './permit';
 import type { ApproveArgs, ERC20BridgeArgs, ERC20BridgeTransferOp, RequireAllowanceArgs } from './types';
 
 const log = getLogger('ERC20Bridge');
 
 /**
- * @dev Whether the wallet declined, at either of the prompts a signature flow puts up: the
- *      typed-data signature and then the transaction. Wallets word the two differently.
- * @param err What the wallet round trip rejected with
- * @return rejected_ Whether the user said no
+ * The vault ABI with Permit2's signature errors alongside. A `sendTokenWithPermit2` revert
+ * carries Permit2's error data unchanged through the vault, and decoding it by name is how a
+ * signature Permit2 refused is told apart from a revert a retry would fix.
  */
-const isUserRejection = (err: unknown) =>
-  err instanceof UserRejectedRequestError ||
-  `${err}`.includes('denied transaction signature') ||
-  `${err}`.includes('denied message signature') ||
-  `${err}`.includes('User rejected the request');
+const erc20VaultSendAbi = [...erc20VaultAbi, ...permit2SignatureErrorsAbi] as const;
 
 export class ERC20Bridge extends Bridge {
   private async _prepareTransaction(args: ERC20BridgeArgs) {
@@ -205,7 +209,7 @@ export class ERC20Bridge extends Bridge {
     // The wallet this was prepared for, on the chain it was prepared for: wagmi would
     // otherwise sign with whatever account and chain the connector holds by now
     const account = wallet.account;
-    const abi = erc20VaultAbi;
+    const abi = erc20VaultSendAbi;
 
     switch (plan.method) {
       case 'permit': {
@@ -308,12 +312,17 @@ export class ERC20Bridge extends Bridge {
       }
 
       if (plan.method !== 'sendToken') {
-        // The chain, or the wallet, refused the signed flow: a permit the token verifies
-        // differently, a wallet that cannot sign typed data. Whatever it was, the plain
-        // approval works, so the flow is ruled out for this token and the Approve button
-        // comes back on the next status read
-        markPermitUnusable(srcChainId, token, plan.method);
-        throw new PermitBridgeError(`failed to bridge ERC20 token via ${plan.method}`, { cause: err });
+        // Only a verdict on the signed flow itself rules it out for the token: the vault
+        // finding no allowance behind the permit, Permit2 refusing the signature, a wallet
+        // that cannot sign typed data. The plain approval works in every such case, so the
+        // Approve button comes back on the next status read. A transport failure, a revert
+        // unrelated to the permit or missing gas money fails a plain send the same way and a
+        // retry may fix it, so those leave the flow open and are reported as the plain failure
+        const ruledOut = permitFlowsRuledOutBy(err, plan.method);
+        if (ruledOut.length > 0) {
+          ruledOut.forEach((method) => markPermitUnusable(srcChainId, token, method));
+          throw new PermitBridgeError(`failed to bridge ERC20 token via ${plan.method}`, { cause: err });
+        }
       }
 
       throw new SendERC20Error('failed to bridge ERC20 token', { cause: err });

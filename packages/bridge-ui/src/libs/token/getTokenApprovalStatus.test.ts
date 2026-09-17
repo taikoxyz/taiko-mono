@@ -16,9 +16,13 @@ vi.mock('$libs/bridge', async (importOriginal) => ({
     ERC1155: { requiresApproval: (...args: unknown[]) => requiresApproval(...args) },
   },
 }));
-// The ERC20 branch is driven off the send plan; what the plan decides is pinned in its own tests
+// The ERC20 branch is driven off the send plan; what the plan decides is pinned in its own
+// tests. The rest of the module stays real: the bridge classes import it too
 const planErc20Send = vi.fn();
-vi.mock('$libs/bridge/permit', () => ({ planErc20Send: (...args: unknown[]) => planErc20Send(...args) }));
+vi.mock('$libs/bridge/permit', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('$libs/bridge/permit')>()),
+  planErc20Send: (...args: unknown[]) => planErc20Send(...args),
+}));
 
 const checkOwnershipOfNFT = vi.fn();
 vi.mock('./checkOwnership', () => ({

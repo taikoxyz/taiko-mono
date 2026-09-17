@@ -79,6 +79,15 @@ describe('planErc20Send', () => {
     expect(isSmartContract).toHaveBeenCalledWith(ALICE, 1);
   });
 
+  it('keeps the vault approval when the wallet code cannot be read, rather than failing the plan', async () => {
+    // The plain approval is what every wallet got before; an RPC blip is not a reason to
+    // fail the status read, and the safe assumption about an unreadable wallet is "contract"
+    isSmartContract.mockRejectedValue(new Error('rpc down'));
+    getPermitDomain.mockResolvedValue(DOMAIN);
+
+    expect(await planErc20Send(args)).toMatchObject({ method: 'approve', target: 'vault' });
+  });
+
   it('signs an EIP-2612 permit for a token that has one', async () => {
     getPermitDomain.mockResolvedValue(DOMAIN);
     allowances({ permit2: maxUint256 }); // an open Permit2 allowance changes nothing

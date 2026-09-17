@@ -40,6 +40,24 @@ export type PlanErc20SendArgs = {
 };
 
 /**
+ * @dev Whether the owner is a contract wallet, taking an unreadable answer as yes. The plain
+ *      vault approval is what a contract wallet gets and what every wallet got before the
+ *      permit flows, so it is the safe answer when the read fails; rejecting the whole plan
+ *      over it only turned an RPC blip into an error toast.
+ * @param owner The account that will send
+ * @param chainId The source chain
+ * @return contract_ Whether to keep the approval flow for the owner
+ */
+async function isContractWallet(owner: Address, chainId: number): Promise<boolean> {
+  try {
+    return await isSmartContract(owner, chainId);
+  } catch (error) {
+    log('could not read the wallet code, keeping the approval flow', error);
+    return true;
+  }
+}
+
+/**
  * @dev Picks the send flow for an ERC20, in the order that costs the user least.
  *
  *      1. A standing vault allowance is spent as before. It is the cheapest path, and the
@@ -88,7 +106,7 @@ export async function planErc20Send({
   const permit2 = await getVaultPermit2(chainId, vault);
   if (!permit2) return approveVault;
 
-  if (await isSmartContract(owner, chainId)) {
+  if (await isContractWallet(owner, chainId)) {
     log('contract wallet, keeping the approval flow');
     return approveVault;
   }
