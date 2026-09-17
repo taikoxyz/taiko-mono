@@ -65,7 +65,7 @@ vi.mock('./permit', async (importOriginal) => ({
 import { destOwnerAddress, gasLimitZero } from '$components/Bridge/state';
 
 import { ERC20Bridge } from './ERC20Bridge';
-import { permit2SignatureErrorsAbi } from './permit';
+import { permit2SignatureErrorsAbi, TypedDataSigningError } from './permit';
 
 const TOKEN = '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599' as Address;
 const VAULT = '0x0000000000000000000000000000000000000456' as Address;
@@ -240,7 +240,9 @@ describe('ERC20Bridge.bridge with a signature', () => {
 
   it('rules both signed flows out for a wallet that cannot sign typed data', async () => {
     planErc20Send.mockResolvedValue({ method: 'permit', domain: DOMAIN });
-    signPermit.mockRejectedValue(new MethodNotSupportedRpcError(new Error('eth_signTypedData_v4 is not available')));
+    signPermit.mockRejectedValue(
+      new TypedDataSigningError(new MethodNotSupportedRpcError(new Error('eth_signTypedData_v4 is not available'))),
+    );
 
     await expect(new ERC20Bridge({} as never).bridge({ ...args, gasLimitZero: false } as never)).rejects.toBeInstanceOf(
       PermitBridgeError,

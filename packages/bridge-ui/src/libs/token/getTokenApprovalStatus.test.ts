@@ -120,6 +120,20 @@ describe('getTokenApprovalStatus for NFTs', () => {
     expect(requiresApproval).not.toHaveBeenCalled();
   });
 
+  it('leaves no ERC20 plan behind for an NFT or for ETH', async () => {
+    // Nothing reads the plan for either, and nothing should find one
+    erc20SendPlan.set(approvePermit2);
+    requiresApproval.mockResolvedValue(false);
+    await getTokenApprovalStatus(nft);
+    expect(get(erc20SendPlan)).toBeNull();
+
+    erc20SendPlan.set(approvePermit2);
+    const eth = { type: TokenType.ETH, symbol: 'ETH', name: 'Ether', decimals: 18, addresses: {} } as Token;
+    selectedToken.set(eth);
+    expect(await getTokenApprovalStatus(eth)).toBe(ApprovalStatus.ETH_NO_APPROVAL_REQUIRED);
+    expect(get(erc20SendPlan)).toBeNull();
+  });
+
   it('asks the ERC1155 bridge the same question', async () => {
     requiresApproval.mockResolvedValue(true);
 

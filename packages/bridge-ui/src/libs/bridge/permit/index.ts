@@ -21,4 +21,5 @@ export {
   type SignedPermit2Transfer,
   signPermit,
   signPermit2Transfer,
+  TypedDataSigningError,
 } from './signatures';

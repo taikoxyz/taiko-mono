@@ -18,6 +18,7 @@ import { erc20VaultAbi } from '$abi';
 
 import { permit2SignatureErrorsAbi } from './abi';
 import { isUserRejection, permitFlowsRuledOutBy } from './sendFailure';
+import { TypedDataSigningError } from './signatures';
 
 /** How viem reports a failed send: its wrapper around whatever happened underneath */
 const failedWith = (cause: BaseError) =>
@@ -55,9 +56,19 @@ describe('permitFlowsRuledOutBy', () => {
   });
 
   it('rules both out for a wallet that cannot sign typed data', () => {
-    const error = new MethodNotSupportedRpcError(new Error('eth_signTypedData_v4 is not available'));
+    const unsupported = new MethodNotSupportedRpcError(new Error('eth_signTypedData_v4 is not available'));
 
-    expect(permitFlowsRuledOutBy(error, 'permit')).toEqual(['permit', 'permit2']);
+    expect(permitFlowsRuledOutBy(new TypedDataSigningError(unsupported), 'permit')).toEqual(['permit', 'permit2']);
+    // The same answer from anything but the signing step says nothing about signing
+    expect(permitFlowsRuledOutBy(unsupported, 'permit')).toEqual([]);
+    expect(permitFlowsRuledOutBy(failedWith(unsupported), 'permit2')).toEqual([]);
+  });
+
+  it('does not read a declined signature prompt as an unsupported wallet', () => {
+    const declined = new TypedDataSigningError(new UserRejectedRequestError(new Error('User rejected the request.')));
+
+    expect(isUserRejection(declined)).toBe(true);
+    expect(permitFlowsRuledOutBy(declined, 'permit2')).toEqual([]);
   });
 
   it('keeps the flow open on anything a retry may fix', () => {

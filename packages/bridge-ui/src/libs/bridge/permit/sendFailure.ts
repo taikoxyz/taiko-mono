@@ -1,5 +1,5 @@
 import {
-  BaseError,
+  type BaseError,
   ContractFunctionRevertedError,
   MethodNotFoundRpcError,
   MethodNotSupportedRpcError,
@@ -8,6 +8,7 @@ import {
 } from 'viem';
 
 import type { PermitMethod } from './capabilities';
+import { TypedDataSigningError } from './signatures';
 
 /** The vault's verdict that the token's `permit` left no allowance behind */
 const VAULT_PERMIT_REJECTED = 'VAULT_PERMIT_NO_ALLOWANCE';
@@ -21,15 +22,21 @@ const PERMIT2_SIGNATURE_REJECTED = new Set([
 ]);
 
 /**
- * @dev The first error in a viem cause chain that satisfies the predicate, if any. viem wraps
- *      what a wallet, a node or a contract said in layers of its own; the verdict is inside.
+ * @dev The first error in a cause chain that satisfies the predicate, if any. viem wraps what
+ *      a wallet, a node or a contract said in layers of its own, and the signing step wraps
+ *      once more; the verdict is inside. Walked by hand so that it works for any Error with a
+ *      `cause`, not only viem's, and bounded in case a chain loops.
  * @param error What a wallet round trip rejected with
  * @param match The kind of cause looked for
  * @return cause_ The matching cause, or null
  */
 function findCause<T>(error: unknown, match: (cause: unknown) => cause is T): T | null {
-  if (!(error instanceof BaseError)) return null;
-  return error.walk(match) as T | null;
+  let cause: unknown = error;
+  for (let depth = 0; depth < 32 && cause !== null && typeof cause === 'object'; depth++) {
+    if (match(cause)) return cause;
+    cause = (cause as { cause?: unknown }).cause;
+  }
+  return null;
 }
 
 /**
@@ -45,16 +52,23 @@ export const isUserRejection = (error: unknown): boolean =>
 
 /**
  * @dev Whether the wallet cannot produce a typed-data signature at all, which no signed flow
- *      survives. viem maps a provider's "no such method" answers to these three.
+ *      survives. Only the signing step's own failure counts: viem maps a provider's "no such
+ *      method" answer to these three, and the same classes from a read or a send later in the
+ *      flow say nothing about signing.
  */
-const cannotSignTypedData = (error: unknown): boolean =>
-  findCause(
-    error,
-    (cause): cause is BaseError =>
-      cause instanceof MethodNotSupportedRpcError ||
-      cause instanceof MethodNotFoundRpcError ||
-      cause instanceof UnsupportedProviderMethodError,
-  ) !== null;
+const cannotSignTypedData = (error: unknown): boolean => {
+  const signing = findCause(error, (cause): cause is TypedDataSigningError => cause instanceof TypedDataSigningError);
+  if (!signing) return false;
+  return (
+    findCause(
+      signing,
+      (cause): cause is BaseError =>
+        cause instanceof MethodNotSupportedRpcError ||
+        cause instanceof MethodNotFoundRpcError ||
+        cause instanceof UnsupportedProviderMethodError,
+    ) !== null
+  );
+};
 
 /**
  * @dev The name of the custom error a revert decoded to, when the ABI the call was made with

@@ -41,6 +41,8 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
   }
   if (token.type === TokenType.ETH) {
     allApproved.set(true);
+    // A plan is an ERC20's; nothing reads it for ETH, and nothing should find one either
+    erc20SendPlan.set(null);
     log('token is ETH');
     return ApprovalStatus.ETH_NO_APPROVAL_REQUIRED;
   }
@@ -119,6 +121,7 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
     }
   } else if (token.type === TokenType.ERC721 || token.type === TokenType.ERC1155) {
     log('checking approval status for NFT type' + token.type);
+    if (stillSelected()) erc20SendPlan.set(null);
     const nft = token as NFT;
     let ownerShipChecks;
     try {

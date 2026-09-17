@@ -12,7 +12,14 @@ vi.mock('@wagmi/core', () => ({ readContract: (...args: unknown[]) => readContra
 vi.mock('$libs/wagmi', () => ({ config: {} }));
 
 import { PERMIT_SIGNATURE_TTL_SECONDS } from './constants';
-import { PERMIT_TYPES, PERMIT2_TYPES, permitDeadline, signPermit, signPermit2Transfer } from './signatures';
+import {
+  PERMIT_TYPES,
+  PERMIT2_TYPES,
+  permitDeadline,
+  signPermit,
+  signPermit2Transfer,
+  TypedDataSigningError,
+} from './signatures';
 
 const VAULT = '0x1000010000000000000000000000000000000002' as Address;
 const PERMIT2 = '0x000000000022D473030F116dDEE9F6B43aC78BA3' as Address;
@@ -66,6 +73,18 @@ describe('signPermit', () => {
 
     signTypedData.mockResolvedValue(`${R}${S.slice(2)}00`);
     expect((await signPermit({ wallet, domain: DOMAIN, token: TOKEN, spender: VAULT, amount: 1n })).v).toBe(27);
+  });
+
+  it("reports a signature the wallet did not produce, with the wallet's error as the cause", async () => {
+    const walletError = new Error('eth_signTypedData_v4 is not available');
+    signTypedData.mockRejectedValue(walletError);
+
+    const failure = await signPermit({ wallet, domain: DOMAIN, token: TOKEN, spender: VAULT, amount: 1n }).catch(
+      (error) => error,
+    );
+
+    expect(failure).toBeInstanceOf(TypedDataSigningError);
+    expect(failure.cause).toBe(walletError);
   });
 
   it('refuses without a connected account', async () => {
