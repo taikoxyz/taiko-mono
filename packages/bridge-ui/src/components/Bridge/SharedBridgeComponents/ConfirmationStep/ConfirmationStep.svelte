@@ -12,6 +12,7 @@
     destNetwork,
     destOwnerAddress,
     enteredAmount,
+    erc20SendPlan,
     gasLimitZero,
     processingFee,
     recipientAddress,
@@ -30,10 +31,10 @@
   import { getBridgeArgs } from '$libs/bridge/getBridgeArgs';
   import { handleBridgeError } from '$libs/bridge/handleBridgeErrors';
   import { isSlowL1Bridging } from '$libs/chain';
-  import { BridgePausedError, ReceiptUnavailableError, TransactionTimeoutError } from '$libs/error';
+  import { BridgePausedError, PermitBridgeError, ReceiptUnavailableError, TransactionTimeoutError } from '$libs/error';
   import { recordBridgeTx } from '$libs/storage/recordBridgeTx';
   import { TokenType } from '$libs/token';
-  import { ApprovalStatus } from '$libs/token/getTokenApprovalStatus';
+  import { ApprovalStatus, getTokenApprovalStatus } from '$libs/token/getTokenApprovalStatus';
   import { isToken } from '$libs/token/isToken';
   import type { NFT, Token } from '$libs/token/types';
   import { waitForApprovalStatus } from '$libs/token/waitForApprovalStatus';
@@ -260,13 +261,26 @@
     }
   };
 
+  /**
+   * @dev Whom an ERC20 approval is for: the vault for the exact amount, or Permit2 once for
+   *      everything, as the last status read planned it. The vault is the answer whenever no
+   *      plan has been made, which is the flow every vault without permit support gets.
+   */
+  const plannedApproval = () => {
+    const plan = $erc20SendPlan;
+    if (plan?.method === 'approve') return { spenderAddress: plan.spender, amount: plan.amount };
+    const vault = routingContractsMap[$connectedSourceChain!.id][$destNetwork!.id].erc20VaultAddress;
+    return { spenderAddress: vault, amount: $enteredAmount };
+  };
+
   async function resetApproval() {
     if (!$selectedToken || !$connectedSourceChain || !$destNetwork?.id) return;
     try {
       let tokenAddress = $selectedToken.addresses[$connectedSourceChain.id];
       const type: TokenType = $selectedToken.type;
 
-      const spenderAddress = routingContractsMap[$connectedSourceChain.id][$destNetwork?.id].erc20VaultAddress;
+      // The reset is of the allowance the plan is about to raise, whichever spender that is
+      const { spenderAddress } = plannedApproval();
       const walletClient = await getConnectedWallet($connectedSourceChain.id);
 
       const args: ApproveArgs = { tokenAddress, spenderAddress, wallet: walletClient, amount: 0n };
@@ -302,9 +316,9 @@
         const args: NFTApproveArgs = { tokenIds: tokenIds!, tokenAddress, spenderAddress, wallet: walletClient };
         approveTxHash = await (bridges[type] as ERC721Bridge | ERC1155Bridge).approve(args);
       } else {
-        const spenderAddress = routingContractsMap[$connectedSourceChain.id][$destNetwork?.id].erc20VaultAddress;
+        const { spenderAddress, amount } = plannedApproval();
 
-        const args: ApproveArgs = { tokenAddress, spenderAddress, wallet: walletClient, amount: $enteredAmount };
+        const args: ApproveArgs = { tokenAddress, spenderAddress, wallet: walletClient, amount };
         approveTxHash = await (bridges[type] as ERC20Bridge).approve(args);
       }
 
@@ -362,9 +376,20 @@
       bridging = false;
       console.error(err);
       handleBridgeError(err as Error);
+      // The signed flow has been ruled out for this token: re-read, so the Approve button
+      // comes back instead of a Bridge button that fails the same way again
+      if (err instanceof PermitBridgeError && $selectedToken) {
+        checking = true;
+        getTokenApprovalStatus($selectedToken)
+          .catch((error) => console.error('Could not refresh the approval status', error))
+          .finally(() => (checking = false));
+      }
     }
   }
   $: iconFill = '';
+  $: signatureFlow =
+    $selectedToken?.type === TokenType.ERC20 &&
+    ($erc20SendPlan?.method === 'permit' || $erc20SendPlan?.method === 'permit2');
   $: approveIcon = `approve-${$theme}` as IconType;
   $: bridgeIcon = `bridge-${$theme}` as IconType;
   $: successIcon = `success-${$theme}` as IconType;
@@ -408,6 +433,8 @@
           <h1 class="mb-[16px]">{$t('bridge.step.confirm.approved.title')}</h1>
           {#if $selectedToken?.type === TokenType.ETH}
             <span>{$t('bridge.step.confirm.approved.description_eth')}</span>
+          {:else if signatureFlow}
+            <span>{$t('bridge.step.confirm.approved.description_permit')}</span>
           {:else}
             <span>{$t('bridge.step.confirm.approved.description_token')}</span>
           {/if}

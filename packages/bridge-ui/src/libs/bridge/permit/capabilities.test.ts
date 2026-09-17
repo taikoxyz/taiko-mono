@@ -1,0 +1,211 @@
+/**
+ * What the permit flows can rely on is read off the chain, never assumed: a vault has the
+ * entrypoints only once its proxy is upgraded, Permit2 has code on a chain only once it is
+ * deployed there, and a token's permit is usable only if the domain this UI would sign over is
+ * the one the token verifies.
+ */
+import {
+  type Address,
+  BaseError,
+  ContractFunctionExecutionError,
+  ContractFunctionRevertedError,
+  domainSeparator,
+  ExecutionRevertedError,
+  HttpRequestError,
+} from 'viem';
+import { vi } from 'vitest';
+
+import { ALICE } from '$mocks';
+
+const readContract = vi.fn();
+const getBytecode = vi.fn();
+vi.mock('@wagmi/core', () => ({
+  readContract: (...args: unknown[]) => readContract(...args),
+  getBytecode: (...args: unknown[]) => getBytecode(...args),
+}));
+vi.mock('$libs/wagmi', () => ({ config: {} }));
+
+import {
+  getPermitDomain,
+  getVaultPermit2,
+  isPermit2Deployed,
+  isPermitUnusable,
+  markPermitUnusable,
+  resetPermitCapabilities,
+} from './capabilities';
+
+const VAULT = '0x1000010000000000000000000000000000000002' as Address;
+const PERMIT2 = '0x000000000022D473030F116dDEE9F6B43aC78BA3' as Address;
+const TOKEN = '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599' as Address;
+const DAI = '0x6B175474E89094C44Da98b954EedeAC495271d0F' as Address;
+const CHAIN = 1;
+
+/** How viem reports a readContract failure: always this wrapper, the cause telling them apart */
+const readFailure = (cause: BaseError) =>
+  new ContractFunctionExecutionError(cause, { abi: [], functionName: 'PERMIT2' });
+/** A revert the node returned with data, as most nodes do */
+const contractRevert = () => readFailure(new ContractFunctionRevertedError({ abi: [], functionName: 'PERMIT2' }));
+/** A revert the node returned without data, as geth does for an empty revert */
+const bareRevert = () => readFailure(new ExecutionRevertedError({ message: 'execution reverted' }));
+/** The RPC could not be reached at all */
+const transportFailure = () =>
+  readFailure(new HttpRequestError({ url: 'https://l1.rpc', details: 'fetch failed', body: {} }));
+
+/** Scripts readContract by function name, for the many-read probes */
+const answer = (answers: Record<string, unknown>) => {
+  readContract.mockImplementation(async (_config: unknown, { functionName }: { functionName: string }) => {
+    if (!(functionName in answers)) throw new Error(`no ${functionName}`);
+    const value = answers[functionName];
+    if (value instanceof Error) throw value;
+    return value;
+  });
+};
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  resetPermitCapabilities();
+});
+
+describe('getVaultPermit2', () => {
+  it('reports the Permit2 an upgraded vault pulls through', async () => {
+    readContract.mockResolvedValue(PERMIT2);
+
+    expect(await getVaultPermit2(CHAIN, VAULT)).toBe(PERMIT2);
+    expect(readContract).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ address: VAULT, chainId: CHAIN, functionName: 'PERMIT2' }),
+    );
+  });
+
+  it("reports no support for today's vaults, whose implementation reverts the read", async () => {
+    readContract.mockRejectedValue(contractRevert());
+
+    expect(await getVaultPermit2(CHAIN, VAULT)).toBeNull();
+  });
+
+  it('reads a bare revert the same way', async () => {
+    readContract.mockRejectedValueOnce(bareRevert());
+    expect(await getVaultPermit2(CHAIN, VAULT)).toBeNull();
+
+    // And remembers it: the answer came from the contract
+    readContract.mockResolvedValue(PERMIT2);
+    expect(await getVaultPermit2(CHAIN, VAULT)).toBeNull();
+  });
+
+  it('asks a vault once per chain, whichever way it answered', async () => {
+    readContract.mockRejectedValueOnce(contractRevert());
+    expect(await getVaultPermit2(CHAIN, VAULT)).toBeNull();
+
+    readContract.mockResolvedValue(PERMIT2);
+    // Still the cached answer: a proxy does not grow the entrypoints mid-session
+    expect(await getVaultPermit2(CHAIN, VAULT)).toBeNull();
+    expect(await getVaultPermit2(2, VAULT)).toBe(PERMIT2);
+    expect(readContract).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not remember a transport failure as an answer', async () => {
+    readContract.mockRejectedValueOnce(transportFailure());
+    expect(await getVaultPermit2(CHAIN, VAULT)).toBeNull();
+
+    readContract.mockResolvedValue(PERMIT2);
+    expect(await getVaultPermit2(CHAIN, VAULT)).toBe(PERMIT2);
+  });
+});
+
+describe('isPermit2Deployed', () => {
+  it('is true only where there is code at the address', async () => {
+    getBytecode.mockResolvedValueOnce('0x6080');
+    expect(await isPermit2Deployed(CHAIN, PERMIT2)).toBe(true);
+
+    getBytecode.mockResolvedValueOnce('0x');
+    expect(await isPermit2Deployed(2, PERMIT2)).toBe(false);
+
+    getBytecode.mockResolvedValueOnce(undefined);
+    expect(await isPermit2Deployed(3, PERMIT2)).toBe(false);
+  });
+
+  it('treats an unreadable chain as not deployed, without remembering it', async () => {
+    getBytecode.mockRejectedValueOnce(new Error('rpc down'));
+    expect(await isPermit2Deployed(CHAIN, PERMIT2)).toBe(false);
+
+    getBytecode.mockResolvedValueOnce('0x6080');
+    expect(await isPermit2Deployed(CHAIN, PERMIT2)).toBe(true);
+  });
+
+  it('reads the code once per chain', async () => {
+    getBytecode.mockResolvedValue('0x6080');
+    await isPermit2Deployed(CHAIN, PERMIT2);
+    await isPermit2Deployed(CHAIN, PERMIT2);
+
+    expect(getBytecode).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('getPermitDomain', () => {
+  const separatorFor = (name: string, version: string) =>
+    domainSeparator({ domain: { name, version, chainId: CHAIN, verifyingContract: TOKEN } });
+
+  it('takes the domain a token states through ERC-5267 when it hashes to its separator', async () => {
+    answer({
+      DOMAIN_SEPARATOR: separatorFor('USD Coin', '2'),
+      nonces: 0n,
+      eip712Domain: ['0x0f', 'USD Coin', '2', BigInt(CHAIN), TOKEN, `0x${'00'.repeat(32)}`, []],
+    });
+
+    expect(await getPermitDomain(CHAIN, TOKEN, ALICE)).toEqual({
+      name: 'USD Coin',
+      version: '2',
+      chainId: CHAIN,
+      verifyingContract: TOKEN,
+    });
+  });
+
+  it('falls back to the name with the versions in circulation', async () => {
+    // USDC: no ERC-5267, domain version "2" while the token's name is what name() says
+    answer({ DOMAIN_SEPARATOR: separatorFor('USD Coin', '2'), nonces: 3n, name: 'USD Coin' });
+
+    expect(await getPermitDomain(CHAIN, TOKEN, ALICE)).toMatchObject({ name: 'USD Coin', version: '2' });
+  });
+
+  it('refuses a token whose separator matches no domain it could sign over', async () => {
+    // A signature over the wrong domain is one the token rejects, after the user signed it
+    answer({ DOMAIN_SEPARATOR: separatorFor('Something Else', '7'), nonces: 0n, name: 'Token' });
+
+    expect(await getPermitDomain(CHAIN, TOKEN, ALICE)).toBeNull();
+  });
+
+  it('refuses a token without nonces or DOMAIN_SEPARATOR', async () => {
+    answer({ DOMAIN_SEPARATOR: separatorFor('Token', '1'), name: 'Token' }); // no nonces
+    expect(await getPermitDomain(CHAIN, TOKEN, ALICE)).toBeNull();
+
+    resetPermitCapabilities();
+    answer({ nonces: 0n, name: 'Token' }); // no DOMAIN_SEPARATOR
+    expect(await getPermitDomain(CHAIN, TOKEN, ALICE)).toBeNull();
+  });
+
+  it('refuses a denylisted token before reading anything', async () => {
+    // Mainnet DAI has nonces and a separator, and a permit the vault cannot call
+    expect(await getPermitDomain(CHAIN, DAI, ALICE)).toBeNull();
+    expect(readContract).not.toHaveBeenCalled();
+  });
+
+  it('keeps the domain per token and chain', async () => {
+    answer({ DOMAIN_SEPARATOR: separatorFor('Token', '1'), nonces: 0n, name: 'Token' });
+    await getPermitDomain(CHAIN, TOKEN, ALICE);
+    const reads = readContract.mock.calls.length;
+
+    await getPermitDomain(CHAIN, TOKEN, ALICE);
+    expect(readContract).toHaveBeenCalledTimes(reads);
+  });
+});
+
+describe('markPermitUnusable', () => {
+  it('rules one flow out for one token on one chain', () => {
+    markPermitUnusable(CHAIN, TOKEN, 'permit');
+
+    expect(isPermitUnusable(CHAIN, TOKEN, 'permit')).toBe(true);
+    expect(isPermitUnusable(CHAIN, TOKEN, 'permit2')).toBe(false);
+    expect(isPermitUnusable(2, TOKEN, 'permit')).toBe(false);
+    expect(isPermitUnusable(CHAIN, TOKEN.toLowerCase() as Address, 'permit')).toBe(true);
+  });
+});

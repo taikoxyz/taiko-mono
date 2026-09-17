@@ -7,6 +7,7 @@ import {
   BridgePausedError,
   InsufficientAllowanceError,
   InvalidMessageError,
+  PermitBridgeError,
   SendERC20Error,
   SendMessageError,
   TransactionTimeoutError,
@@ -25,6 +26,14 @@ export const handleBridgeError = (error: Error) => {
       errorToast({
         title: get(t)('bridge.errors.send_message_error.title'),
         message: get(t)('bridge.errors.send_message_error.message'),
+      });
+      break;
+    // Raised only after the signed flow was ruled out for the token, so the Approve button is
+    // back by the time the user reads this
+    case error instanceof PermitBridgeError:
+      errorToast({
+        title: get(t)('bridge.errors.permit_failed.title'),
+        message: get(t)('bridge.errors.permit_failed.message'),
       });
       break;
     case error instanceof SendERC20Error:

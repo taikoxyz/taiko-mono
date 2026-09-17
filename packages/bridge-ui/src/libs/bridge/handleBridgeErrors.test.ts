@@ -19,7 +19,7 @@ vi.mock('$components/NotificationToast', () => ({
   infoToast: vi.fn(),
 }));
 
-import { BridgePausedError, InvalidMessageError, TransactionTimeoutError } from '$libs/error';
+import { BridgePausedError, InvalidMessageError, PermitBridgeError, TransactionTimeoutError } from '$libs/error';
 
 import { handleBridgeError } from './handleBridgeErrors';
 
@@ -45,6 +45,15 @@ describe('handleBridgeError', () => {
     expect(errorToast).toHaveBeenCalledWith({
       title: 'bridge.errors.invalid_message.title',
       message: 'bridge.errors.invalid_message.message',
+    });
+  });
+
+  it('names a signed transfer the chain refused, and points at the approval that works', () => {
+    handleBridgeError(new PermitBridgeError('failed to bridge ERC20 token via permit'));
+
+    expect(errorToast).toHaveBeenCalledWith({
+      title: 'bridge.errors.permit_failed.title',
+      message: 'bridge.errors.permit_failed.message',
     });
   });
 

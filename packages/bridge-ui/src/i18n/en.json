@@ -52,6 +52,7 @@
       "bridging": "Bridging",
       "fetch": "Fetch NFT data",
       "import": "Import",
+      "no_approval_needed": "No approval needed",
       "reset": "Reset",
       "reset_approval": "Reset Approval",
       "resetting": "Resetting",
@@ -124,6 +125,10 @@
       },
       "no_decimals_allowed": "Decimals are not supported for this token",
       "not_the_owner_of_all": "You must be the owner of all tokens",
+      "permit_failed": {
+        "message": "The signed transfer could not be sent. Please approve the token and bridge again.",
+        "title": "Signature transfer failed"
+      },
       "process_message_error": "Unable to process message",
       "release": {
         "not_received": {
@@ -177,6 +182,9 @@
         }
       }
     },
+    "permit2_approval": {
+      "info": "This one-time approval lets Permit2 move your {token}. From then on, bridging {token} only needs a signature, with no approval transaction."
+    },
     "step": {
       "confirm": {
         "analyzing": "Please wait",
@@ -190,6 +198,7 @@
         },
         "approved": {
           "description_eth": "You can now continue to bridge your funds",
+          "description_permit": "No approval transaction is needed. Your wallet will ask you to sign a permit and then to confirm the bridge transaction.",
           "description_token": "All tokens are approved, you can now bridge your assets",
           "title": "Proceed to bridge"
         },
