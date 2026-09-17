@@ -138,6 +138,9 @@ export function isNonStandardPermitToken(chainId: number, token: Address): boole
  *      one the token rejects, and the vault would then revert with VAULT_PERMIT_NO_ALLOWANCE
  *      after the user has already signed.
  *
+ *      Only the token's own answer is kept; a read the RPC failed is rethrown, so nothing
+ *      is decided, or remembered, from it.
+ *
  * @param chainId The chain the token lives on
  * @param token The token
  * @param owner An address to read a nonce for; the value is irrelevant, the read must exist
@@ -150,6 +153,11 @@ export async function getPermitDomain(chainId: number, token: Address, owner: Ad
   const known = permitDomainByToken.get(key);
   if (known !== undefined) return known;
 
+  // Kept only when it is the token's answer: the probe rethrows a transport failure, and
+  // nothing about the token is known then. A `null` remembered from one would send an
+  // EIP-2612 token down the Permit2 path, and its user into an approval, for the session.
+  // The failure propagates rather than passing for "no permit" for the same reason - the
+  // vault and Permit2 probes may degrade to the plain vault approval, this one may not.
   const domain = await probePermitDomain(chainId, token, owner);
   permitDomainByToken.set(key, domain);
   return domain;
@@ -166,6 +174,8 @@ async function probePermitDomain(chainId: number, token: Address, owner: Address
       readContract(config, { ...contract, functionName: 'nonces', args: [owner] }),
     ]);
   } catch (error) {
+    // A transport failure says nothing about the token and is left to the caller
+    if (!contractAnswered(error)) throw error;
     log(`token ${token} on chain ${chainId} has no EIP-2612 permit`, error);
     return null;
   }
@@ -180,7 +190,8 @@ async function probePermitDomain(chainId: number, token: Address, owner: Address
     const [, name, version] = await readContract(config, { ...contract, functionName: 'eip712Domain' });
     const domain = verified(name, version);
     if (domain) return domain;
-  } catch {
+  } catch (error) {
+    if (!contractAnswered(error)) throw error;
     // Not ERC-5267; the name is guessed below
   }
 
@@ -191,6 +202,7 @@ async function probePermitDomain(chainId: number, token: Address, owner: Address
       if (domain) return domain;
     }
   } catch (error) {
+    if (!contractAnswered(error)) throw error;
     log(`could not read the name of token ${token} on chain ${chainId}`, error);
   }
 

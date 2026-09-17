@@ -76,10 +76,14 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
   }
   if (token.type === TokenType.ERC20) {
     log('checking approval status for ERC20');
-    needsApprovalReset.set(false);
-    // Cleared before the read: the previous token's plan must not drive this one's buttons
-    // while the answer is on its way
-    erc20SendPlan.set(null);
+    // Cleared before the read, so the previous token's plan does not drive this one's
+    // buttons while the answer is on its way - but only for the selected token. This read
+    // is polled for seconds after an approval, and a late poll for a token the user has
+    // left must not blank what its successor has already published
+    if (stillSelected()) {
+      needsApprovalReset.set(false);
+      erc20SendPlan.set(null);
+    }
 
     const tokenVaultAddress = routingContractsMap[currentChainId][destinationChainId].erc20VaultAddress;
 

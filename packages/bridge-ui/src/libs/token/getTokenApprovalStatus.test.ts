@@ -277,6 +277,25 @@ describe('getTokenApprovalStatus for ERC20', () => {
     expect(get(allApproved)).toBe(false);
   });
 
+  it("does not blank the current token's plan on a late poll for a token the user has left", async () => {
+    // waitForApprovalStatus is still retrying token A when the user reaches the confirm step
+    // for token B, whose read has already published its plan
+    const tokenB = { ...erc20, symbol: 'B', addresses: { 1: '0x0000000000000000000000000000000000000bbb' } } as Token;
+    selectedToken.set(tokenB);
+    erc20SendPlan.set(approvePermit2);
+    needsApprovalReset.set(true);
+    let answer!: (plan: unknown) => void;
+    planErc20Send.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+
+    const latePoll = getTokenApprovalStatus(erc20);
+    expect(get(erc20SendPlan)).toEqual(approvePermit2);
+    expect(get(needsApprovalReset)).toBe(true);
+
+    answer({ method: 'sendToken' });
+    expect(await latePoll).toBe(ApprovalStatus.NO_APPROVAL_REQUIRED);
+    expect(get(erc20SendPlan)).toEqual(approvePermit2);
+  });
+
   it("clears the previous token's plan before the read answers", async () => {
     erc20SendPlan.set(approvePermit2);
     let answer!: (plan: unknown) => void;

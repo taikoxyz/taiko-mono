@@ -41,20 +41,21 @@ const DAI = '0x6B175474E89094C44Da98b954EedeAC495271d0F' as Address;
 const CHAIN = 1;
 
 /** How viem reports a readContract failure: always this wrapper, the cause telling them apart */
-const readFailure = (cause: BaseError) =>
-  new ContractFunctionExecutionError(cause, { abi: [], functionName: 'PERMIT2' });
+const readFailure = (cause: BaseError, functionName = 'PERMIT2') =>
+  new ContractFunctionExecutionError(cause, { abi: [], functionName });
 /** A revert the node returned with data, as most nodes do */
-const contractRevert = () => readFailure(new ContractFunctionRevertedError({ abi: [], functionName: 'PERMIT2' }));
+const contractRevert = (functionName = 'PERMIT2') =>
+  readFailure(new ContractFunctionRevertedError({ abi: [], functionName }), functionName);
 /** A revert the node returned without data, as geth does for an empty revert */
 const bareRevert = () => readFailure(new ExecutionRevertedError({ message: 'execution reverted' }));
 /** The RPC could not be reached at all */
 const transportFailure = () =>
   readFailure(new HttpRequestError({ url: 'https://l1.rpc', details: 'fetch failed', body: {} }));
 
-/** Scripts readContract by function name, for the many-read probes */
+/** Scripts readContract by function name, for the many-read probes; a function not listed reverts */
 const answer = (answers: Record<string, unknown>) => {
   readContract.mockImplementation(async (_config: unknown, { functionName }: { functionName: string }) => {
-    if (!(functionName in answers)) throw new Error(`no ${functionName}`);
+    if (!(functionName in answers)) throw contractRevert(functionName);
     const value = answers[functionName];
     if (value instanceof Error) throw value;
     return value;
@@ -187,6 +188,19 @@ describe('getPermitDomain', () => {
     // Mainnet DAI has nonces and a separator, and a permit the vault cannot call
     expect(await getPermitDomain(CHAIN, DAI, ALICE)).toBeNull();
     expect(readContract).not.toHaveBeenCalled();
+  });
+
+  it('leaves a read the RPC failed to the caller, and remembers nothing from it', async () => {
+    // A null kept from a transport failure would route an EIP-2612 token to Permit2, and its
+    // user into an approval, for the rest of the session
+    answer({ DOMAIN_SEPARATOR: transportFailure(), nonces: 0n, name: 'Token' });
+    await expect(getPermitDomain(CHAIN, TOKEN, ALICE)).rejects.toThrow();
+
+    answer({ DOMAIN_SEPARATOR: separatorFor('Token', '1'), nonces: 0n, name: transportFailure() });
+    await expect(getPermitDomain(CHAIN, TOKEN, ALICE)).rejects.toThrow();
+
+    answer({ DOMAIN_SEPARATOR: separatorFor('Token', '1'), nonces: 0n, name: 'Token' });
+    expect(await getPermitDomain(CHAIN, TOKEN, ALICE)).toMatchObject({ name: 'Token', version: '1' });
   });
 
   it('keeps the domain per token and chain', async () => {
