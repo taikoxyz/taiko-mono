@@ -3,9 +3,11 @@ import { derived, writable } from 'svelte/store';
 import type { Address, Chain } from 'viem';
 
 import { bridges } from '$libs/bridge';
+import type { ERC20SendPlan } from '$libs/bridge/permit';
 import { chains } from '$libs/chain';
 import { ProcessingFeeMethod } from '$libs/fee';
 import type { NFT, Token } from '$libs/token';
+import { isSameNFT, tokensAreSame } from '$libs/token/tokenIdentity';
 
 import { type BridgeType, BridgeTypes } from './types';
 
@@ -52,6 +54,22 @@ export const insufficientAllowance = writable<boolean>(false);
 
 export const allApproved = writable(<boolean>false);
 export const needsApprovalReset = writable<boolean>(false);
+// How the selected ERC20 will leave the wallet, as last read for it: what the Approve button
+// approves (the vault for the amount, or Permit2 once) and whether Bridge will ask for a
+// signature first. Null for anything but an ERC20, and until the read has answered
+export const erc20SendPlan = writable<Maybe<ERC20SendPlan>>(null);
+
+// A plan is read for one token and does not outlive the selection: the moment it moves to
+// another deployment, or to nothing, the plan is cleared - synchronously, before anything can
+// act on it - and the status read that follows publishes the new token's own. A refresh that
+// rebuilds the same token keeps it, since token lists are rebuilt often
+const sameSelection = (a: Token | NFT, b: Token | NFT) =>
+  'tokenId' in a && 'tokenId' in b ? isSameNFT(a, b) : tokensAreSame(a, b);
+let plannedFor: Maybe<Token | NFT> = null;
+selectedToken.subscribe((token) => {
+  if (!(plannedFor && token && sameSelection(plannedFor, token))) erc20SendPlan.set(null);
+  plannedFor = token;
+});
 
 // Derived state
 export const bridgeService = derived(selectedToken, (token) => (token ? bridges[token.type] : null));

@@ -5,14 +5,15 @@ import {
   allApproved,
   destNetwork,
   enteredAmount,
+  erc20SendPlan,
   insufficientAllowance,
   needsApprovalReset,
   selectedToken,
 } from '$components/Bridge/state';
 import { bridges, ContractType, type RequireApprovalArgs } from '$libs/bridge';
-import type { ERC20Bridge } from '$libs/bridge/ERC20Bridge';
 import { getContractAddressByType } from '$libs/bridge/getContractAddressByType';
 import type { NFTBridge } from '$libs/bridge/NFTBridge';
+import { planErc20Send } from '$libs/bridge/permit';
 import { InvalidParametersProvidedError, NotConnectedError, NoTokenError, UnknownTokenTypeError } from '$libs/error';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { getLogger } from '$libs/util/logger';
@@ -40,6 +41,8 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
   }
   if (token.type === TokenType.ETH) {
     allApproved.set(true);
+    // A plan is an ERC20's; nothing reads it for ETH, and nothing should find one either
+    erc20SendPlan.set(null);
     log('token is ETH');
     return ApprovalStatus.ETH_NO_APPROVAL_REQUIRED;
   }
@@ -75,46 +78,50 @@ export const getTokenApprovalStatus = async (token: Maybe<Token | NFT>): Promise
   }
   if (token.type === TokenType.ERC20) {
     log('checking approval status for ERC20');
-    needsApprovalReset.set(false);
+    // Cleared before the read, so the previous token's plan does not drive this one's
+    // buttons while the answer is on its way - but only for the selected token. This read
+    // is polled for seconds after an approval, and a late poll for a token the user has
+    // left must not blank what its successor has already published
+    if (stillSelected()) {
+      needsApprovalReset.set(false);
+      erc20SendPlan.set(null);
+    }
 
     const tokenVaultAddress = routingContractsMap[currentChainId][destinationChainId].erc20VaultAddress;
-    const bridge = bridges[TokenType.ERC20] as ERC20Bridge;
 
     try {
-      const requireAllowance = await bridge.requireAllowance({
+      // One read decides everything the buttons show: whether an approval is needed at all,
+      // what it approves, and whether Bridge will ask for a signature first. On a vault
+      // without permit support it comes back exactly as the allowance check used to
+      const plan = await planErc20Send({
+        chainId: currentChainId,
+        token: tokenAddress,
+        owner: ownerAddress,
+        vault: tokenVaultAddress,
         amount: get(enteredAmount),
-        tokenAddress,
-        ownerAddress,
-        spenderAddress: tokenVaultAddress,
       });
-      log('erc20 requiresApproval', requireAllowance);
+      const requiresApproval = plan.method === 'approve';
+      log('erc20 send plan', plan);
       if (!stillSelected())
-        return requireAllowance ? ApprovalStatus.APPROVAL_REQUIRED : ApprovalStatus.NO_APPROVAL_REQUIRED;
-      insufficientAllowance.set(requireAllowance);
-      allApproved.set(!requireAllowance);
-      if (requireAllowance) {
-        // USDT-style tokens must reset a non-zero allowance to 0 before it can be raised
-        if (tokenNeedsAllowanceReset(token, currentChainId)) {
-          const allowance = await bridge.getAllowance({
-            amount: get(enteredAmount),
-            tokenAddress,
-            ownerAddress,
-            spenderAddress: tokenVaultAddress,
-          });
-          if (allowance > 0n) {
-            if (stillSelected()) needsApprovalReset.set(true);
-            return ApprovalStatus.RESET_REQUIRED;
-          }
-        }
-        return ApprovalStatus.APPROVAL_REQUIRED;
+        return requiresApproval ? ApprovalStatus.APPROVAL_REQUIRED : ApprovalStatus.NO_APPROVAL_REQUIRED;
+      erc20SendPlan.set(plan);
+      insufficientAllowance.set(requiresApproval);
+      allApproved.set(!requiresApproval);
+      if (plan.method !== 'approve') return ApprovalStatus.NO_APPROVAL_REQUIRED;
+      // USDT-style tokens must reset a non-zero allowance to 0 before it can be raised,
+      // whichever spender the plan approves
+      if (tokenNeedsAllowanceReset(token, currentChainId) && plan.currentAllowance > 0n) {
+        needsApprovalReset.set(true);
+        return ApprovalStatus.RESET_REQUIRED;
       }
-      return ApprovalStatus.NO_APPROVAL_REQUIRED;
+      return ApprovalStatus.APPROVAL_REQUIRED;
     } catch (error) {
-      log('erc20 requireAllowance error', error);
+      log('erc20 send plan error', error);
       if (stillSelected()) allApproved.set(false);
     }
   } else if (token.type === TokenType.ERC721 || token.type === TokenType.ERC1155) {
     log('checking approval status for NFT type' + token.type);
+    if (stillSelected()) erc20SendPlan.set(null);
     const nft = token as NFT;
     let ownerShipChecks;
     try {
