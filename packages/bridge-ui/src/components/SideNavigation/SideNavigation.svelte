@@ -52,7 +52,7 @@
   </div>
 
   <div class="drawer-side z-20 pt-[81px] lg:pt-[20px] h-full">
-    <label for={drawerToggleId} class="drawer-overlay" />
+    <label for={drawerToggleId} class="drawer-overlay"></label>
 
     <!--
       Slow transitions can be pretty annoying after a while.

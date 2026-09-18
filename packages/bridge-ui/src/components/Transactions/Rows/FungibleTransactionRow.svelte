@@ -123,7 +123,6 @@
   $: columnClasses = $isDesktop ? desktopColumnClasses : $isTablet ? tabletColumnClasses : mobileColumnClasses;
 </script>
 
-<!-- svelte-ignore a11y-no-static-element-interactions -->
 <div class={containerClasses} on:click={openDetails} {...attrs}>
   <!-- Mobile -->
   {#if $isMobile}

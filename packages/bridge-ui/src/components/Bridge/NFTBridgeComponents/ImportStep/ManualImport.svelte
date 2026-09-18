@@ -325,4 +325,4 @@
 {#if showNFTAmountInput && !isDisabled}
   <TokenAmountInput bind:this={amountComponent} class="!mt-0" />
 {/if}
-<div class="h-sep" />
+<div class="h-sep"></div>

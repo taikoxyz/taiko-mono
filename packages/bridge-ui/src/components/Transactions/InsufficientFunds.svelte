@@ -40,5 +40,5 @@
       </div>
     </div>
   </div>
-  <button class="overlay-backdrop" data-modal-uuid={dialogId} />
+  <button class="overlay-backdrop" aria-label={$t('common.close')} data-modal-uuid={dialogId}></button>
 </dialog>

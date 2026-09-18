@@ -332,7 +332,13 @@
   </div>
   <div class="relative f-row h-[64px]">
     <div class="relative f-items-center w-full">
-      <!-- Amount Input -->
+      <!--
+        Amount Input
+
+        `type="number"` reaches the inner input through a spread, and Svelte 5 coerces a value
+        bound to a numeric input into a number (null when the box is empty). The amount is
+        parsed from the text exactly as typed, so read that text back off the element instead.
+      -->
       <InputBox
         id={inputId}
         type="number"
@@ -341,12 +347,12 @@
         disabled={disabled || $errorComputingBalance || $computingBalance}
         error={invalidInput}
         bind:value
-        on:input={() => handleAmountInputChange(value)}
+        on:input={() => handleAmountInputChange(inputBox.getValue())}
         bind:this={inputBox}
         class="min-h-[64px] pl-[15px] w-full border-0 h-full !rounded-r-none z-20  {$$props.class}" />
 
       <!-- vertical separator -->
-      <div class="border-l border-r bg-primary-border-dark border-neutral-background h-[64px] w-[3px]" />
+      <div class="border-l border-r bg-primary-border-dark border-neutral-background h-[64px] w-[3px]"></div>
 
       <!-- Max Button -->
       <button

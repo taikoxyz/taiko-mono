@@ -17,4 +17,4 @@
   });
 </script>
 
-<span data-testid="pre-check" data-msg-hash={tx?.msgHash} />
+<span data-testid="pre-check" data-msg-hash={tx?.msgHash}></span>

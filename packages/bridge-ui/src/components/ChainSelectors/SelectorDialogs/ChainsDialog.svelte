@@ -71,7 +71,7 @@
     <div class="f-col w-full space-y-[30px]">
       <h3 class="title-body-bold">{title}</h3>
     </div>
-    <div class="h-sep !my-[20px]" />
+    <div class="h-sep !my-[20px]"></div>
     <ul role="listbox" class="text-white text-sm w-full">
       {#each chains as chain (chain.id)}
         {@const disabled = !isDestination
@@ -107,11 +107,11 @@
         </li>
       {/each}
     </ul>
-    <div class="h-sep !my-[20px]" />
+    <div class="h-sep !my-[20px]"></div>
     <ActionButton priority="primary" on:click={() => onConfirmClick()}>
       {$t('common.confirm')}
     </ActionButton>
   </div>
 
-  <button class="overlay-backdrop" data-modal-uuid={dialogId} />
+  <button class="overlay-backdrop" aria-label={$t('common.close')} data-modal-uuid={dialogId}></button>
 </dialog>

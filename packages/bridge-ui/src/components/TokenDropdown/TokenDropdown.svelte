@@ -213,7 +213,7 @@
   {/if}
 </div>
 
-<div data-modal-uuid={id} />
+<div data-modal-uuid={id}></div>
 
 <OnAccount change={onAccountChange} />
 

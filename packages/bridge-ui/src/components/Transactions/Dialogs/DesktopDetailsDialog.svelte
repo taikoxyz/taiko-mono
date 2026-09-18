@@ -197,7 +197,7 @@
       <h3 class="font-bold">{$t('transactions.details_dialog.title')}</h3>
     </div>
 
-    <div class="h-sep !my-[20px]" />
+    <div class="h-sep !my-[20px]"></div>
 
     <div class="flex-col px-[24px] w-full">
       {#if token}
@@ -233,7 +233,7 @@
       </div>
 
       <!-- Spacer -->
-      <div class="h-[24px]" />
+      <div class="h-[24px]"></div>
 
       <!-- To -->
       <div class="flex justify-between">
@@ -264,12 +264,12 @@
       </div>
     </div>
 
-    <div class="h-sep !my-[20px]" />
+    <div class="h-sep !my-[20px]"></div>
 
     <div class="flex-col px-[24px] w-full space-y-[8px]">
       {#if stillProcessing}
         <div class="f-row">
-          <div class="f-col min-h-full border border-dashed border-primary-border-dark mr-[20px] my-[10px]" />
+          <div class="f-col min-h-full border border-dashed border-primary-border-dark mr-[20px] my-[10px]"></div>
           <!-- Vertical line -->
           <div class="f-col space-y-[30px]">
             <div class="f-col relative">
@@ -389,5 +389,5 @@
       {/if}
     </div>
   </div>
-  <button class="overlay-backdrop" on:click={closeDetails} />
+  <button class="overlay-backdrop" aria-label={$t('common.close')} on:click={closeDetails}></button>
 </dialog>

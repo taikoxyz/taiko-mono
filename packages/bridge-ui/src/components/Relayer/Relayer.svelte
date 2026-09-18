@@ -140,7 +140,7 @@
       bind:ethereumAddress={addressToSearch}
       bind:state={addressState} />
 
-    <div class="h-sep" />
+    <div class="h-sep"></div>
     <span>{$t('relayer_component.step2.title')}</span>
     <ActionButton
       on:click={fetchTxForAddress}
@@ -152,7 +152,7 @@
     {#if transactionsToShow.length === 0}
       <div class="text-center">{$t('relayer_component.no_tx_found')}</div>
     {:else}
-      <div class="h-sep" />
+      <div class="h-sep"></div>
     {/if}
   </div>
 
@@ -164,7 +164,7 @@
     {:else}
       <NftTransactionRow bind:bridgeTx {handleTransactionRemoved} bridgeTxStatus={status} />
     {/if}
-    <div class="h-sep !my-0 display-inline" />
+    <div class="h-sep !my-0 display-inline"></div>
   {/each}
 </Card>
 

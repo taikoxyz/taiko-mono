@@ -8,5 +8,5 @@
     <slot />
   </div>
 
-  <div class="overlay-backdrop" />
+  <div class="overlay-backdrop"></div>
 </dialog>

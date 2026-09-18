@@ -70,7 +70,7 @@
 </script>
 
 {#if activeStep !== RetrySteps.CONFIRM}
-  <div class="h-sep" />
+  <div class="h-sep"></div>
   <ActionButton onPopup priority="primary" disabled={isNextStepEnabled} {loading} on:click={handleNextStep}
     >{nextStepButtonText}</ActionButton>
 {:else if activeStep === RetrySteps.CONFIRM && retryDone}

@@ -4,6 +4,25 @@ dotenv.config({ path: './.env.test' });
 
 vi.mock('@wagmi/core');
 
+// Svelte 5's `svelte/motion` builds a `MediaQuery` for `prefers-reduced-motion` at import
+// time, and jsdom does not implement `matchMedia`. Any component pulling in svelte-toast
+// would otherwise fail to load.
+if (typeof window !== 'undefined' && !window.matchMedia) {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }),
+  });
+}
+
 // Source: https://github.com/vitest-dev/vitest/issues/4043#issuecomment-1905172846
 // This snippet is needed in order to support Uint8Array with vitest and jsdom.
 if (process.env.VITEST === 'true') {
