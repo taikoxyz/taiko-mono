@@ -14,6 +14,12 @@ export const getToken = vi.fn();
 
 export const readContract = vi.fn();
 
+export const getBytecode = vi.fn();
+
+export const getBlock = vi.fn();
+
+export const signTypedData = vi.fn();
+
 const mockChains = [
   {
     id: 0,

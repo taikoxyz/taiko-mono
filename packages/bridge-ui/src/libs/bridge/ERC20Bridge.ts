@@ -1,8 +1,14 @@
 import { readContract, simulateContract, writeContract } from '@wagmi/core';
-import { UserRejectedRequestError } from 'viem';
+import { type Address, type Hash, UserRejectedRequestError, type WalletClient } from 'viem';
 
 import { erc20Abi, erc20VaultAbi } from '$abi';
-import { ApproveError, InsufficientAllowanceError, NoAllowanceRequiredError, SendERC20Error } from '$libs/error';
+import {
+  ApproveError,
+  InsufficientAllowanceError,
+  NoAllowanceRequiredError,
+  PermitBridgeError,
+  SendERC20Error,
+} from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
 import { getLogger } from '$libs/util/logger';
@@ -10,9 +16,26 @@ import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
 import { assertNoViolations, checkERC20Message } from './messageInvariants';
+import {
+  type ERC20SendPlan,
+  isUserRejection,
+  markPermitUnusable,
+  permit2SignatureErrorsAbi,
+  permitFlowsRuledOutBy,
+  planErc20Send,
+  signPermit,
+  signPermit2Transfer,
+} from './permit';
 import type { ApproveArgs, ERC20BridgeArgs, ERC20BridgeTransferOp, RequireAllowanceArgs } from './types';
 
 const log = getLogger('ERC20Bridge');
+
+/**
+ * The vault ABI with Permit2's signature errors alongside. A `sendTokenWithPermit2` revert
+ * carries Permit2's error data unchanged through the vault, and decoding it by name is how a
+ * signature Permit2 refused is told apart from a revert a retry would fix.
+ */
+const erc20VaultSendAbi = [...erc20VaultAbi, ...permit2SignatureErrorsAbi] as const;
 
 export class ERC20Bridge extends Bridge {
   private async _prepareTransaction(args: ERC20BridgeArgs) {
@@ -165,19 +188,101 @@ export class ERC20Bridge extends Bridge {
     }
   }
 
+  /**
+   * @dev Signs where the plan needs it, then simulates and sends the vault call it picked.
+   *
+   *      Three entrypoints, one message: `sendToken` against a standing allowance,
+   *      `sendTokenWithPermit` with an EIP-2612 signature the vault consumes, and
+   *      `sendTokenWithPermit2` with a Permit2 transfer signature. The operation, the wallet,
+   *      the chain and the value are the same for all three; each call is spelled out
+   *      because viem types the arguments off the literal function name.
+   *
+   * @param plan The flow planErc20Send picked for this send
+   * @param call The prepared operation and what it is sent with
+   * @return txHash_ The hash of the transaction the wallet sent
+   */
+  private async _sendWithPlan(
+    plan: Exclude<ERC20SendPlan, { method: 'approve' }>,
+    call: { wallet: WalletClient; chainId: number; vault: Address; op: ERC20BridgeTransferOp; fee: bigint },
+  ): Promise<Hash> {
+    const { wallet, chainId, vault: address, op, fee: value } = call;
+    // The wallet this was prepared for, on the chain it was prepared for: wagmi would
+    // otherwise sign with whatever account and chain the connector holds by now
+    const account = wallet.account;
+    const abi = erc20VaultSendAbi;
+    // The signed requests are not logged whole: their calldata carries the signature, which has
+    // no business in a console even before it becomes public calldata on broadcast
+
+    switch (plan.method) {
+      case 'permit': {
+        const { deadline, v, r, s } = await signPermit({
+          wallet,
+          domain: plan.domain,
+          token: op.token,
+          spender: address,
+          amount: op.amount,
+        });
+        const { request } = await simulateContract(config, {
+          address,
+          abi,
+          functionName: 'sendTokenWithPermit',
+          args: [op, deadline, v, r, s],
+          account,
+          chainId,
+          value,
+        });
+        log('Simulated sendTokenWithPermit', { address, chainId });
+        return writeContract(config, request);
+      }
+      case 'permit2': {
+        const { nonce, deadline, signature } = await signPermit2Transfer({
+          wallet,
+          chainId,
+          permit2: plan.permit2,
+          token: op.token,
+          spender: address,
+          amount: op.amount,
+        });
+        const { request } = await simulateContract(config, {
+          address,
+          abi,
+          functionName: 'sendTokenWithPermit2',
+          args: [op, nonce, deadline, signature],
+          account,
+          chainId,
+          value,
+        });
+        log('Simulated sendTokenWithPermit2', { address, chainId });
+        return writeContract(config, request);
+      }
+      default: {
+        const { request } = await simulateContract(config, {
+          address,
+          abi,
+          functionName: 'sendToken',
+          args: [op],
+          account,
+          chainId,
+          value,
+        });
+        log('Simulate contract for sendToken', request);
+        return writeContract(config, request);
+      }
+    }
+  }
+
   async bridge(args: ERC20BridgeArgs) {
-    const { amount, token, wallet, tokenVaultAddress } = args;
+    const { amount, token, wallet, tokenVaultAddress, srcChainId } = args;
 
     if (!wallet || !wallet.account || !wallet.chain) throw new Error('Wallet is not connected');
+    const owner = wallet.account.address;
 
-    const requireAllowance = await this.requireAllowance({
-      amount,
-      tokenAddress: token,
-      ownerAddress: wallet.account.address,
-      spenderAddress: tokenVaultAddress,
-    });
+    // Decided here, from the arguments, rather than carried over from the confirm step: an
+    // allowance can change while that step is open, and the plan is cheap to make again
+    const plan = await planErc20Send({ chainId: srcChainId, token, owner, vault: tokenVaultAddress, amount });
+    log('Send plan', plan);
 
-    if (requireAllowance) {
+    if (plan.method === 'approve') {
       throw new InsufficientAllowanceError(`Insufficient allowance for the amount ${amount}`);
     }
 
@@ -185,20 +290,13 @@ export class ERC20Bridge extends Bridge {
     const { fee } = sendERC20Args;
 
     try {
-      const { request } = await simulateContract(config, {
-        address: tokenVaultContract.address,
-        abi: erc20VaultAbi,
-        functionName: 'sendToken',
-        args: [sendERC20Args],
-        // The wallet this was prepared for, on the chain it was prepared for: wagmi would
-        // otherwise sign with whatever account and chain the connector holds by now
-        account: wallet.account,
-        chainId: args.srcChainId,
-        value: fee,
+      const txHash = await this._sendWithPlan(plan, {
+        wallet,
+        chainId: srcChainId,
+        vault: tokenVaultContract.address,
+        op: sendERC20Args,
+        fee,
       });
-      log('Simulate contract', request);
-
-      const txHash = await writeContract(config, request);
 
       log('Transaction hash for sendERC20 call', txHash);
 
@@ -206,8 +304,22 @@ export class ERC20Bridge extends Bridge {
     } catch (err) {
       console.error(err);
 
-      if (`${err}`.includes('denied transaction signature')) {
+      if (isUserRejection(err)) {
         throw new UserRejectedRequestError(err as Error);
+      }
+
+      if (plan.method !== 'sendToken') {
+        // Only a verdict on the signed flow itself rules it out for the token: the vault
+        // finding no allowance behind the permit, Permit2 refusing the signature, a wallet
+        // that cannot sign typed data. The plain approval works in every such case, so the
+        // Approve button comes back on the next status read. A transport failure, a revert
+        // unrelated to the permit or missing gas money fails a plain send the same way and a
+        // retry may fix it, so those leave the flow open and are reported as the plain failure
+        const ruledOut = permitFlowsRuledOutBy(err, plan.method);
+        if (ruledOut.length > 0) {
+          ruledOut.forEach((method) => markPermitUnusable(srcChainId, token, owner, method));
+          throw new PermitBridgeError(`failed to bridge ERC20 token via ${plan.method}`, { cause: err });
+        }
       }
 
       throw new SendERC20Error('failed to bridge ERC20 token', { cause: err });
