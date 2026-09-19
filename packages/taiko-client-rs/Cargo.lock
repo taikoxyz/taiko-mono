@@ -9174,6 +9174,7 @@ dependencies = [
  "clap",
  "driver",
  "http-body-util",
+ "libc",
  "metrics",
  "metrics-exporter-prometheus",
  "once_cell",
