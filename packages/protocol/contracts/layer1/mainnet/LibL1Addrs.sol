@@ -53,6 +53,7 @@ library LibL1Addrs {
     address public constant BRIDGED_ERC1155 = 0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40;
 
     // Proof system verifiers and attesters
+    address public constant ZK_REQUIRED_VERIFIER = 0x7284aaC05555Ae6559bdAd8B4221eC9584254Eec;
     address public constant RISC0_RETH_VERIFIER = 0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b;
     // Deployed by Proposal0017 (hack recovery); replaces 0x96337327648dcFA22b014009cf10A2D5E2F305f6
     address public constant SP1_RETH_VERIFIER = 0x73A0Db393ef87ce781ac7957bE10D6628432100F;
