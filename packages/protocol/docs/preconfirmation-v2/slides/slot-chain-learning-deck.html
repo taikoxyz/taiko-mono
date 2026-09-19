@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="A learning companion to Taiko Slot Chain v2.28 and its draft implementation: builders, settlement, recovery, forced transactions, economics and migration.">
+<title>Taiko Slot Chain — Learning Deck (v2.28)</title>
+<!-- Presentation style migrated from v15, commit fad5f96154c593b45c44097fcc1eddf442537eee.
+     Design and implementation checked against PR #22139 at b7896b758ef5500ce9b67064ba645c4416d8cfb5.
+     Non-normative companion. Protocol flows describe the design; implementation coverage is explicit.
+     Keep source pins, implementation-status.md and slide content in sync. -->
+<style>
+:root{--pink:#bd087c;--pink-soft:#fdf0f8;--ink:#191322;--mut:#625a6c;--line:#e8e2ee;--card:#faf8fc;--good:#08704c;--code:#f4eef6}
+*{box-sizing:border-box}html{scroll-behavior:auto;background:#eee9f0}body{margin:0;font-family:'Liberation Sans','DejaVu Sans',Arial,sans-serif;color:var(--ink);line-height:1.45}
+a{color:var(--pink);text-underline-offset:.18em}a:hover{text-decoration-thickness:2px}a:focus-visible{outline:3px solid var(--pink);outline-offset:5px;border-radius:2px}
+.skip{position:absolute;top:-100px;left:12px;background:#fff;padding:12px;z-index:2}.skip:focus{top:12px}
+nav{max-width:1280px;margin:auto;padding:20px 5%;background:#fff;border-bottom:1px solid var(--line)}nav p{margin:0 0 8px;font-size:16px}nav .navlinks{display:flex;flex-wrap:wrap;gap:8px 22px;font-size:15px}
+main{max-width:1280px;margin:auto}.slide{width:100%;min-height:720px;position:relative;padding:48px 64px 24px;background:#fff;margin:18px 0;display:flex;flex-direction:column;gap:18px;scroll-margin-top:12px}
+.kicker{font-size:14px;letter-spacing:.2em;text-transform:uppercase;color:var(--pink);font-weight:bold;margin:0}
+h1,h2,h3,p{margin:0}h1{font-size:60px;line-height:1.08;letter-spacing:-.025em}h2{font-size:36px;line-height:1.16;letter-spacing:-.02em}h3{font-size:21px;line-height:1.25;margin-bottom:10px}p,li{font-size:19px;line-height:1.45}p+p{margin-top:12px}.lead{font-size:25px;line-height:1.45}.small{font-size:15px}.mut{color:var(--mut)}
+.content{display:flex;flex-direction:column;gap:20px}.cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px}.three{grid-template-columns:repeat(3,minmax(0,1fr))}.four{grid-template-columns:repeat(4,minmax(0,1fr))}.card{min-width:0;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px}.card h3{color:var(--pink)}.card p,.card li{font-size:18px}.steps{display:grid;gap:16px}.step{display:block;color:var(--pink);font-weight:bold;font-size:30px;margin-bottom:10px}
+ul{padding-left:23px;margin:0}li{padding-left:2px;margin:0 0 10px}li:last-child{margin-bottom:0}li::marker{color:var(--pink)}
+code,.formula{font-family:'DejaVu Sans Mono','Liberation Mono',monospace}code{background:var(--code);border-radius:4px;padding:1px 5px;font-size:.87em;overflow-wrap:anywhere}.formula{background:var(--pink-soft);border-left:4px solid var(--pink);padding:18px 20px;font-size:18px;line-height:1.65;overflow-wrap:anywhere}.indent{padding-left:2em}
+.pills{display:flex;flex-wrap:wrap;gap:10px}.pill{display:inline-block;background:var(--pink-soft);color:var(--pink);font-weight:bold;border-radius:999px;padding:6px 15px;font-size:15px}.note{border-left:4px solid var(--pink);padding:10px 16px;background:var(--pink-soft);font-size:18px}.example{background:#f1f8f5;border-left:4px solid var(--good);padding:16px 20px}.example h3{color:var(--good)}.example p{font-size:18px}
+.flow{display:flex;align-items:stretch;gap:12px}.flow .card{flex:1}.arrow{align-self:center;color:var(--pink);font-size:25px}.choice{align-self:center;color:var(--pink);font-size:16px;font-weight:bold}.compact .card{padding:16px}.compact h3{font-size:18px}.compact p{font-size:16px}.sequence{display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-size:18px}.sequence span{color:var(--pink)}
+table{border-collapse:collapse;width:100%;table-layout:fixed}th,td{font-size:17px;text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}thead th{color:var(--mut);font-size:13px;letter-spacing:.06em;text-transform:uppercase}tbody th{color:var(--pink);font-weight:bold;width:25%}.dense th,.dense td{padding:8px 12px;font-size:16px}.dense th:first-child{width:17%}.dense th:nth-child(2){width:55%}.bigstat{font-size:40px;line-height:1.1;font-weight:bold;color:var(--pink);margin-bottom:12px}.journal{margin:0;padding-left:28px}.journal li{padding-left:8px;margin-bottom:13px;font-size:18px}
+.foot{margin-top:auto;padding-top:12px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-end;gap:20px;font-size:12px;color:var(--mut)}.foot .page{white-space:nowrap}.foot a{color:var(--mut)}.titleslide{background:linear-gradient(135deg,#fff 50%,var(--pink-soft))}.titleslide .content{gap:28px}.titleslide .kicker{margin-top:32px}.links li{font-size:17px;margin-bottom:12px}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+@media(max-width:1000px){.slide{min-height:0;padding:36px 32px 24px;gap:20px}.four{grid-template-columns:repeat(2,minmax(0,1fr))}.flow{flex-wrap:wrap}.flow .card{flex:1 1 180px}h1{font-size:50px}h2{font-size:32px}.foot{margin-top:14px}}
+@media(max-width:620px){nav{padding:18px 22px}.slide{margin:10px 0;padding:28px 22px 22px}.cols,.three,.four{grid-template-columns:1fr;gap:16px}.flow{flex-direction:column}.flow .card{flex:auto}.arrow{transform:rotate(90deg);line-height:1}.flow .arrow:has(+.card){min-height:20px}h1{font-size:42px}h2{font-size:29px}h3{font-size:20px}.kicker{font-size:11px}.lead{font-size:21px}p,li{font-size:17px}.card p,.card li{font-size:17px}.card{padding:17px}.formula{font-size:13px;padding:14px 12px}.indent{padding-left:0}.note{font-size:16px}th,td,.dense th,.dense td{font-size:13px;padding:8px 5px}thead th{font-size:11px}.dense th:nth-child(2){width:48%}.foot{font-size:11px;gap:12px}.foot .page{white-space:normal;flex-shrink:0}.journal{padding-left:21px}.journal li{font-size:16px}.sequence{font-size:16px}.bigstat{font-size:36px}.titleslide .kicker{margin-top:8px}}
+@page{size:1280px 720px;margin:0}
+@media print{html,body{background:#fff;print-color-adjust:exact;-webkit-print-color-adjust:exact}nav,.skip{display:none}main{max-width:none}.slide{width:1280px;height:720px;min-height:720px;margin:0;padding:48px 64px 24px;break-after:page;break-inside:avoid;scroll-margin:0}.slide:last-child{break-after:auto}.foot{margin-top:auto}.cols{grid-template-columns:repeat(2,minmax(0,1fr))}.three{grid-template-columns:repeat(3,minmax(0,1fr))}.four{grid-template-columns:repeat(4,minmax(0,1fr))}.flow{flex-wrap:nowrap;flex-direction:row}.flow .card{flex:1}.arrow{transform:none}a{text-decoration:none}h1{font-size:60px}h2{font-size:36px}p,li{font-size:19px}}
+</style>
+</head>
+<body>
+<a class="skip" href="#start">Skip to learning deck</a>
+<nav aria-label="Learning deck chapters"><p><b>Slot Chain v2.28</b> · Self-contained learning deck · Print to export slides</p>
+<div class="navlinks"><a href="#start">Start</a><a href="#implementation">Implementation</a><a href="#roles">Roles &amp; schedule</a><a href="#promises">Promises &amp; settlement</a><a href="#recovery">Recovery</a><a href="#forced-admission">Forced transactions</a><a href="#seat">Economics</a><a href="#bridge">Bridge</a><a href="#gas">Gas &amp; migration</a><a href="#genesis">Genesis</a><a href="#readiness">Readiness &amp; sources</a></div></nav>
+<main id="deck">
+
+<section class="slide titleslide" id="start" aria-labelledby="title-start">
+<p class="kicker">Taiko · Design and implementation · September 2026</p>
+<h1 id="title-start">Slot Chain<br>A learning deck</h1>
+<div class="content">
+<p class="lead">One-second slots. Bonded builders. Validity-proved settlement.<br>Permissionless recovery when the normal path stalls.</p>
+<div class="pills"><span class="pill">Design v2.28</span><span class="pill">Partial Solidity implementation</span><span class="pill">Production gates open</span></div>
+<p class="note">A learning companion to the specification and draft contracts in <a href="https://github.com/taikoxyz/taiko-mono/pull/22139">PR #22139</a>. Protocol flows describe the target design; the implementation map identifies the components already present.</p>
+<p class="small mut">Design and implementation snapshot: <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex">b7896b7</a>. v2.28 is a document revision, not an on-chain protocol version. The specification defines the exact rules; <a href="../implementation-status.md">implementation status</a> records coverage and evidence.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L113">Status and claims</a></span><span class="page">1 / 30 · <a href="#overview" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="overview" aria-labelledby="title-overview">
+<p class="kicker">Start here</p>
+<h2 id="title-overview">Follow a block through the system</h2>
+<div class="content">
+<div class="flow" aria-label="Normal block path">
+  <div class="card"><h3>Builders</h3><p>Sign parent-linked blocks for their scheduled slots.</p></div><span class="arrow" aria-hidden="true">→</span>
+  <div class="card"><h3>Any prover</h3><p>Collects the data and proves a candidate batch.</p></div><span class="arrow" aria-hidden="true">→</span>
+  <div class="card"><h3>L1 Settlement</h3><p>Checks the proof and selects canonical state.</p></div>
+</div>
+<div class="cols"><div class="card"><h3>The paid service</h3><p>An aggregator coordinates normal proving. Its auction seat carries service obligations, with no exclusive right to land a proof.</p></div>
+<div class="card"><h3>The escape path</h3><p>The L1 forced queue supplies mandatory work. During recovery, anyone can prove a deterministic block without builder signatures.</p></div></div>
+<p class="note">If you knew v15: its single sequencing seat and commit → publish → seal epoch pipeline have been replaced. This deck follows the current Slot Chain architecture.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L208">Actors; blocks; settlement</a></span><span class="page">2 / 30 · <a href="#implementation" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="implementation" aria-labelledby="title-implementation">
+<p class="kicker">Implementation snapshot · PR #22139 · b7896b7</p>
+<h2 id="title-implementation">The design is broader than the code present today</h2>
+<div class="content">
+<div class="cols three"><div class="card"><h3>Registry and proofs</h3><p>BuilderRegistry, its two lifecycle facets and proof verifier; registration MPT and schedule SSZ verification; snapshot evaluation.</p></div>
+<div class="card"><h3>Root deployment</h3><p>RootMigrationExecutor, ProtocolRootFactory, CREATE3 proxy and activation primitives. The complete root cohort remains planned.</p></div>
+<div class="card"><h3>Shared foundations</h3><p>Types, codecs, commitments, signatures, profile validation, economics, custody accounting and L1 resource arithmetic.</p></div></div>
+<div class="card"><h3>Still specified and modeled</h3><p>Settlement, ScheduleOracle, ForcedQueue, AggregatorSeatMarket, the control-plane Router/Timelock/VersionManager, V2 bridge and L2 execution components still have missing implementation rows.</p></div>
+<p class="note">Foundry suites, golden vectors and integration checks exist for the partial implementation. A helper or verifier is not the complete protocol path that uses it.</p>
+<p class="small mut">The following settlement, recovery, bridge and migration slides teach the specified behavior. See the <a href="../implementation-status.md">source and evidence map</a> for the current implementation boundary.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/utils/slotchain/conformance-ledger.v2.28.json">Conformance ledger</a></span><span class="page">3 / 30 · <a href="#roles" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="roles" aria-labelledby="title-roles">
+<p class="kicker">Who does what</p>
+<h2 id="title-roles">Builders and aggregators have different jobs</h2>
+<div class="content">
+<table><caption class="sr-only">Protocol actors and their authority</caption><thead><tr><th>Actor</th><th>Job</th><th>Limit</th></tr></thead><tbody>
+<tr><th scope="row">Builder</th><td>Registers a bond, receives scheduled slots, signs blocks.</td><td>A signature does not prove execution or data delivery.</td></tr>
+<tr><th scope="row">Aggregator</th><td>Collects data, coordinates proving and submits normal candidates as a paid service.</td><td>The seat does not grant sequencing or exclusive consensus authority.</td></tr>
+<tr><th scope="row">Prover / lander</th><td>Anyone can produce or submit a valid proof.</td><td>Must meet the same proof, context and timing rules.</td></tr>
+<tr><th scope="row">User / archive</th><td>Users can enqueue forced inputs; archives supply reconstructible state and code.</td><td>Availability and the ability to fund proving are still needed.</td></tr>
+</tbody></table>
+<p class="note">Proof validity authorizes a canonical transition. Holding an auction seat does not.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L208">Actors and trust model</a></span><span class="page">4 / 30 · <a href="#clocks" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="clocks" aria-labelledby="title-clocks">
+<p class="kicker">Mental model</p>
+<h2 id="title-clocks">A slot is an opportunity, not a finality promise</h2>
+<div class="content">
+<div class="cols three"><div class="card"><div class="bigstat">1 s</div><h3>L2 slot</h3><p>A timestamp position measured from genesis. Slot gaps are legal.</p></div>
+<div class="card"><div class="bigstat">+1</div><h3>L2 block height</h3><p>Each executed block advances height by one, even if several slots were skipped.</p></div>
+<div class="card"><div class="bigstat">L1</div><h3>Confirmation depth</h3><p>Counted in L1 blocks. Beacon slots serve schedule authentication.</p></div></div>
+<div class="example"><h3>Example</h3><p>Blocks at L2 slots 100 and 104 may have consecutive heights 500 and 501. The four-second gap creates no missing EVM block numbers.</p></div>
+<p class="note">One-second slots do not guarantee one block per second or one-second finality. Timestamp deadlines and L1 block-depth requirements use different clocks.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L277">Clock domains and canonical state</a></span><span class="page">5 / 30 · <a href="#schedule" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="schedule" aria-labelledby="title-schedule">
+<p class="kicker">Builder schedule</p>
+<h2 id="title-schedule">Lookahead fixes who may sign each slot</h2>
+<div class="content">
+<div class="cols"><div><ul>
+<li>Each window contains <b>384 one-second slots</b>.</li>
+<li>An authenticated finalized snapshot determines the eligible registry and randomness input.</li>
+<li>The initial lookahead is <b>768 L2 slots</b>; new registrations do not rewrite already fixed schedules. Slashing can still make future tickets vacant outside a frozen context.</li>
+<li>One registry has at most <b>64 active cells</b>. Entry, exit and retained liability have explicit delays.</li>
+</ul></div><div class="card"><h3>How tickets become slots</h3><p>Bond-weighted, capped D’Hondt allocation repeatedly awards the next ticket to the largest <code>bond / (tickets + 1)</code> score.</p><p>Each address receives at most <b>76 tickets</b>. Deterministic tie-breaking and placement turn those tickets into an exact schedule; shortages become <code>VACANT</code>.</p></div></div>
+<p class="note">At least six eligible addresses are needed to fill 384 slots. Addresses are not necessarily independent operators: the cap does not prevent Sybils or collusion.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L2682">Authenticated snapshot and allocation</a></span><span class="page">6 / 30 · <a href="#registry" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="registry" aria-labelledby="title-registry">
+<p class="kicker">Implemented structure · builder registry</p>
+<h2 id="title-registry">One state owner, two fixed lifecycle facets</h2>
+<div class="content">
+<div class="card"><h3>BuilderRegistry owns the state and custody</h3><p>Registry roots, builder generations, window tranches and withdrawal credits stay at the Registry address. Seven explicit wrappers dispatch to constructor-pinned facet targets under a shared operation lock.</p></div>
+<div class="cols three"><div class="card"><h3>Seat facet · 3 selectors</h3><p>Register a builder, request exit and process maintenance.</p></div>
+<div class="card"><h3>Lease facet · 4 selectors</h3><p>Reserve a window, normalize tranches, release a tranche and reclaim a generation.</p></div>
+<div class="card"><h3>Stateless proof verifier</h3><p>Checks Registry witnesses and equivocation identity through bounded, exact static calls.</p></div></div>
+<p class="note">The facets have fixed selector sets, code/configuration pins and a common storage-layout hash. They provide no mutable upgrade target or generic fallback dispatch.</p>
+<p class="small mut">The builder “Seat” facet manages registry membership. The separate aggregator service market is still unimplemented. Registry source and tests exist, but the full ScheduleOracle/Router integration remains a release gate.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/contracts/layer1/slotchain/impl/BuilderRegistry.sol#L2738">Registry implementation</a> · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L889">Frozen facet topology</a></span><span class="page">7 / 30 · <a href="#promises" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="promises" aria-labelledby="title-promises">
+<p class="kicker">What users can rely on</p>
+<h2 id="title-promises">Four distinct stages of assurance</h2>
+<div class="content">
+<div class="steps four" aria-label="Assurance stages">
+<div class="card"><span class="step">1</span><h3>Observed</h3><p>A builder has signed a promise. Execution and delivery are not yet proved.</p></div>
+<div class="card"><span class="step">2</span><h3>Provisionally proved</h3><p>L1 accepted a normal candidate. A better candidate can still replace it.</p></div>
+<div class="card"><span class="step">3</span><h3>Canonical</h3><p>Normal close or recovery commit selects the stored L2 state.</p></div>
+<div class="card"><span class="step">4</span><h3>L1-final</h3><p>The underlying L1 finality policy makes that commitment final.</p></div>
+</div>
+<p class="note">Wallets must keep observed and provisionally proved states visibly provisional. An escape commit revokes omitted promises and returns omitted transactions to the mempool.</p>
+<p class="small mut">A signature establishes authorship and the chosen parent. Same-context equivocation can be slashed; aggregate off-chain promises are neither reserved against the bond nor insured.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L3586">Preconfirmation semantics; non-claims</a></span><span class="page">8 / 30 · <a href="#normal" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="normal" aria-labelledby="title-normal">
+<p class="kicker">Normal settlement</p>
+<h2 id="title-normal">Candidates compete until a fixed deadline</h2>
+<div class="content">
+<div class="steps four">
+<div class="card"><h3>1. Arm</h3><p>Anyone records the current L1 block number.</p></div>
+<div class="card"><h3>2. Activate</h3><p>A later call authenticates that block and freezes the base, context and deadline.</p></div>
+<div class="card"><h3>3. Prove</h3><p>Valid candidates compete against the same frozen base. Only a strictly better candidate replaces the best.</p></div>
+<div class="card"><h3>4. Close</h3><p>At maturity, a qualifying best becomes canonical. An empty or stale window cancels.</p></div>
+</div>
+<div class="cols"><div class="card"><h3>Candidate ordering</h3><p>More blocks first → later tip slot → smaller tip hash. Replacement does not reset the deadline.</p></div>
+<div class="card"><h3>The close still checks freshness</h3><p>The best must consume the required due queue prefix and retain enough authenticated data lifetime for the reorg margin.</p></div></div>
+<p class="small mut">Initial settlement window: 1,200 seconds. Submitting a valid normal proof does not immediately make it canonical.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L4058">Normal context and candidates</a></span><span class="page">9 / 30 · <a href="#data" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="data" aria-labelledby="title-data">
+<p class="kicker">Data and execution</p>
+<h2 id="title-data">A commitment binds bytes; it cannot recreate them</h2>
+<div class="content">
+<div class="cols"><div><h3>What the validity proof checks</h3><ul>
+<li>Parent linkage, slots, the exact context and scheduled signatures for signed tiers.</li>
+<li>Authenticated blob/body coverage and the frozen queue prefix.</li>
+<li>Ethereum execution, transaction and receipt roots, and the new canonical state.</li>
+</ul></div><div><h3>What a prover still needs</h3><ul>
+<li>Block bodies and unexpired forced transaction bytes.</li>
+<li>Canonical state-trie nodes and runtime-bytecode preimages, checked against their commitments.</li>
+<li>Enough resources to generate the proof and pay for an L1 transaction.</li>
+</ul></div></div>
+<div class="card"><h3>Archives can be untrusted and replaceable</h3><p>Hash checks establish correctness of supplied data. They do not establish availability after every copy is lost.</p></div>
+<p class="note">The design does not claim recovery from a state root alone after total canonical-data loss, or progress during a permanent proving-system outage.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L4008">Canonical reconstruction availability</a></span><span class="page">10 / 30 · <a href="#recovery" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="recovery" aria-labelledby="title-recovery">
+<p class="kicker">When normal progress stalls</p>
+<h2 id="title-recovery">Recovery uses the first valid proof</h2>
+<div class="content">
+<div class="cols"><div class="card"><h3>Objective activation</h3><p>Recovery opens when the canonical tip’s lag exceeds <b>3,600 seconds</b>, when a forced queue head is due, or at an earlier configured aggregator SLA trigger.</p><p>A due head cancels an immature normal window. A mature qualifying best may close first; causes are then recomputed.</p></div>
+<div class="card"><h3>A frozen round</h3><p>Each round fixes the canonical base, anchor, queue cutoff, admission rules and deterministic escape slot.</p><p>After <code>now &gt; expiresAt</code>, anyone may refresh the expired round. A live proof target cannot be refreshed away.</p></div></div>
+<div class="flow compact"><div class="card"><h3>Signed recovery</h3><p>Scheduled signatures + validity proof</p></div><span class="choice">or</span><div class="card"><h3>Unsigned escape</h3><p>Deterministic block + validity proof</p></div><span class="arrow" aria-hidden="true">→</span><div class="card"><h3>Canonical commit</h3><p>First valid candidate wins</p></div></div>
+<p class="small mut">A new round keeps the episode and canonical base. Later proofs against an old round or a committed base are stale.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L4130">Recovery activation</a> · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L8932">SLA duty triggers</a></span><span class="page">11 / 30 · <a href="#escape" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="escape" aria-labelledby="title-escape">
+<p class="kicker">The minimal recovery path</p>
+<h2 id="title-escape">Unsigned means no builder signature</h2>
+<div class="content">
+<div class="cols"><div class="card"><h3>Exactly one deterministic block</h3><ul>
+<li>Extends the L1-final canonical tuple.</li>
+<li>Contains the protocol anchor and the maximum allowed prefix of the frozen forced queue.</li>
+<li>Has no discretionary transactions, blob body or beneficiary-chosen coinbase.</li>
+<li>An SLA-triggered escape can be anchor-only when the queue is empty.</li>
+</ul></div><div class="card"><h3>Execution must still be proved</h3><p>The proof checks the exact block and its state transition. The recovery anchor must reach its required L1 depth; slot and freshness rules still apply.</p><p>No builder cartel, empty registry or absent aggregator has a veto over this path, provided the required data, proof system and funded prover remain available.</p></div></div>
+<p class="note">An escape is not a proof-free empty block. It restores canonical progress and expires every omitted unfinalized promise.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L3309">Three validity tiers</a></span><span class="page">12 / 30 · <a href="#forced-admission" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="forced-admission" aria-labelledby="title-forced-admission">
+<p class="kicker">Forced transactions · kind 0</p>
+<h2 id="title-forced-admission">Validate the envelope before it enters the queue</h2>
+<div class="content">
+<div class="cols"><div><h3>Supported forced inputs</h3><ul>
+<li>Chain-protected legacy transactions (type 0).</li>
+<li>Access-list transactions (type 1) and dynamic-fee transactions (type 2), where the active fork supports them.</li>
+<li>Canonical encoding, chain ID, signature, fee fields and creation limits must pass the admission rules.</li>
+</ul></div><div class="card"><h3>The forced lane is deliberately bounded</h3><p>Unprotected legacy, blob type 3, authorization-list type 4, reserved system type <code>0x7f</code> and unknown types are rejected at admission.</p><p>Discretionary transaction support is a separate profile decision.</p></div></div>
+<div class="formula">gasLimit ≥ max(intrinsicGas, calldataFloorGas)</div>
+<p class="note">Accounted gas measures queue capacity. It cannot turn an invalid transaction into a valid one. Execution-time state or fork changes still require a complete classifier.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L4229">Forced admission rules</a></span><span class="page">13 / 30 · <a href="#forced-outcomes" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="forced-outcomes" aria-labelledby="title-forced-outcomes">
+<p class="kicker">Forced transactions · classification</p>
+<h2 id="title-forced-outcomes">Consume every item with one exact outcome</h2>
+<div class="content">
+<table class="dense"><caption class="sr-only">Kind-0 classification in evaluation order</caption><thead><tr><th>Order / code</th><th>First applicable condition</th><th>Ethereum transaction?</th></tr></thead><tbody>
+<tr><th scope="row">1 / <code>0</code></th><td>Expired: block timestamp is strictly greater than <code>validUntil</code>.</td><td>No</td></tr>
+<tr><th scope="row">2 / <code>1</code></th><td>Nonce mismatch.</td><td>No</td></tr>
+<tr><th scope="row">3 / <code>2</code></th><td>Insufficient funds for the upfront cost.</td><td>No</td></tr>
+<tr><th scope="row">4 / <code>3</code></th><td>Maximum fee cannot cover the base fee.</td><td>No</td></tr>
+<tr><th scope="row">5 / <code>6</code></th><td>Any remaining consensus-level upfront invalidity.</td><td>No</td></tr>
+<tr><th scope="row">6 / <code>4</code></th><td>Upfront-valid: include and execute normally.</td><td>Yes, even if execution reverts or runs out of gas</td></tr>
+</tbody></table>
+<p class="note">The order is <b>0 → 1 → 2 → 3 → 6 → 4</b>. Code <b>5</b> is reserved for a kind-1 bridge credit.</p>
+<p class="small mut">No-transaction outcomes consume the queue item without its own Ethereum transaction, sender-nonce change or receipt. The queue processing fee is still payable.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L5431">Disposition bytes and total classification</a></span><span class="page">14 / 30 · <a href="#forced-example" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="forced-example" aria-labelledby="title-forced-example">
+<p class="kicker">Worked example</p>
+<h2 id="title-forced-example">An invalid head need not trap valid work behind it</h2>
+<div class="content">
+<div class="steps three"><div class="card"><span class="step">A</span><h3>Admitted earlier</h3><p>A transaction passed static admission. Its sender later becomes ineligible under the active execution rules.</p></div>
+<div class="card"><span class="step">6</span><h3>Prove the rejection</h3><p>With expiry, nonce, funds and fee checks passing, raw bytes plus authenticated state establish <code>INVALID_NO_TX</code>.</p></div>
+<div class="card"><span class="step">B</span><h3>Keep processing</h3><p>The next fitting FIFO item is valid. It is included as an ordinary Ethereum transaction.</p></div></div>
+<div class="cols"><div class="example"><h3>If A’s bytes are missing</h3><p>An unexpired item cannot be called invalid merely because nobody supplies its bytes. After expiry, its durable descriptor suffices for code 0.</p></div>
+<div class="example"><h3>At the exact expiry boundary</h3><p><code>timestamp == validUntil</code> is still live. Descriptor-only disposal starts strictly afterward.</p></div></div>
+<p class="small mut">Every disposition is derived inside the proof using the correct sequential prestate. A caller-provided flag is not validity evidence.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L5462">Total execution classification</a></span><span class="page">15 / 30 · <a href="#forced-capacity" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="forced-capacity" aria-labelledby="title-forced-capacity">
+<p class="kicker">Forced transactions · capacity</p>
+<h2 id="title-forced-capacity">FIFO maximality and execution order are fixed</h2>
+<div class="content">
+<div class="flow compact" aria-label="L2 transaction order"><div class="card"><h3>1. Anchor</h3><p>System transaction</p></div><span class="arrow" aria-hidden="true">→</span><div class="card"><h3>2. InboxApply</h3><p>Dispositions / credits</p></div><span class="arrow" aria-hidden="true">→</span><div class="card"><h3>3. Valid forced</h3><p>FIFO transactions</p></div><span class="arrow" aria-hidden="true">→</span><div class="card"><h3>4. Discretionary</h3><p>Remaining body</p></div></div>
+<table><caption class="sr-only">Per-block forced work limits</caption><thead><tr><th>Bound</th><th>First release-activation block</th><th>Steady block</th></tr></thead><tbody>
+<tr><th scope="row">Forced item count / bytes</th><td>64 / 1 MiB</td><td>64 / 1 MiB</td></tr>
+<tr><th scope="row">Accounted forced gas</th><td>13,000,000</td><td>20,000,000</td></tr>
+</tbody></table>
+<p>The proof consumes the unique maximum prefix fitting all three bounds. Stopping early while the next item fits is invalid. Candidate-wide limits apply separately.</p>
+<p class="note">These are L2 forced-work budgets. They are different from the L1 transaction gas cap used to admit a proof or activate a release.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L5374">Maximum forced prefix and transaction order</a></span><span class="page">16 / 30 · <a href="#seat" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="seat" aria-labelledby="title-seat">
+<p class="kicker">Aggregator service market</p>
+<h2 id="title-seat">The auction buys proving service</h2>
+<div class="content">
+<div class="cols"><div><ul>
+<li>One primary, up to three standbys, four waiting-offer cells and one stage.</li>
+<li>Operators offer an <b>ask per second</b> and post the exact SLA bond. Sponsor-funded reserves pay eligible service premiums.</li>
+<li>Quotes mature in both timestamp and L1 block-number clocks before selection.</li>
+<li>A healthy primary is competitively replaceable by a strictly cheaper ask, subject to the tenure and handover rules.</li>
+</ul></div><div class="card"><h3>Price discovery has distinct rules</h3><p>Pending offers rank by ask, maturity and deterministic tie-breaks. Replacing the worst standby in a full lineup additionally uses the specified anti-churn threshold.</p><p>A lower ask can win service work; it does not win ownership of the L2 slot schedule.</p></div></div>
+<p class="note">Seat economics are optional for consensus. Missing seats, failed payments or a full duty ring must not block a valid canonical transition.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L8635">Continuous reverse auction and service clocks</a></span><span class="page">17 / 30 · <a href="#faults" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="faults" aria-labelledby="title-faults">
+<p class="kicker">Accountability</p>
+<h2 id="title-faults">A slash needs the specified objective evidence</h2>
+<div class="content">
+<table><caption class="sr-only">Faults and protocol effects</caption><thead><tr><th>Event</th><th>Effect</th></tr></thead><tbody>
+<tr><th scope="row">Same-context equivocation</th><td>Two distinct signatures for one key, slot and context can slash that schedule window’s tranche once and tombstone the key.</td></tr>
+<tr><th scope="row">Uncured aggregator duty breach</th><td>After the strict slash threshold, record BREACHED; separate permissionless enforcement terminalizes the bond tranche.</td></tr>
+<tr><th scope="row">Forced head becomes due</th><td>Opens recovery without an aggregator penalty for force-only activation.</td></tr>
+<tr><th scope="row">Skip or absence</th><td>Cannot distinguish a fault from non-receipt; it is not an objectively slashable promise breach.</td></tr>
+<tr><th scope="row">Invalid proof or data</th><td>Rejects the candidate; it does not create a canonical transition or payment.</td></tr>
+</tbody></table>
+<p class="note">The bond does not insure every promise, and a missed normal outcome does not automatically imply a slash.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L9061">Economics, slashing and payments</a></span><span class="page">18 / 30 · <a href="#late-proof" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="late-proof" aria-labelledby="title-late-proof">
+<p class="kicker">The recovery tradeoff</p>
+<h2 id="title-late-proof">A late proof can cure the predecessor’s duty</h2>
+<div class="content">
+<div class="cols"><div class="card"><h3>Progress remains available</h3><p>A qualifying commit can satisfy an allocated duty through <b>slash equality</b>. After the strict slash threshold it can still advance canonical state, but cannot cure BREACHED.</p><p>Cure can close the predecessor and start a selected successor, including before failover. A cured former primary is not restored after removal.</p></div>
+<div class="card"><h3>The economic consequence</h3><p>The successor may have a higher ask. The predecessor can end SATISFIED and ultimately receive its <b>full bond as owner withdrawal credit</b>.</p><p>A larger refundable bond creates no guaranteed loss on this path. Capital cost and competitive pressure require separate analysis.</p></div></div>
+<p class="note">This is an accepted design exposure. New price limits or penalties would be a separate mechanism change; they must not be added as a condition for canonical proof acceptance.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L9213">Accepted promotion exposure; duty cure</a></span><span class="page">19 / 30 · <a href="#exposure" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="exposure" aria-labelledby="title-exposure">
+<p class="kicker">Economic example · model units</p>
+<h2 id="title-exposure">Measure the funded premium and the extra cost</h2>
+<div class="content">
+<div class="formula">gross bound = min(allocated reserve, successor ask × funded horizon)<br>extra overlap bound = min(gross bound,<br><span class="indent">max(successor ask − predecessor ask, 0) × healthy overlap)</span></div>
+<div class="cols three"><div class="card"><div class="bigstat">100,000</div><h3>Successor credit</h3><p>100 units/second for 1,000 funded seconds.</p></div><div class="card"><div class="bigstat">43,500</div><h3>Incremental overlap</h3><p>A zero-ask healthy predecessor would remain eligible for 435 of those seconds.</p></div><div class="card"><div class="bigstat">100 M</div><h3>Predecessor bond</h3><p>Fully owner-credited in this synthetic trace.</p></div></div>
+<p>Minimum tenure restricts competitive replacement. It neither guarantees service duration nor caps lifetime subsidies. A finite sponsor bankroll bounds expenditure; indefinite replenishment has no fixed lifetime bound.</p>
+<p class="small mut">These are accounting credits in a synthetic model, not calibrated monetary values or a claim of net profit. Release acceptance must publish bankroll, runway and replenishment policy.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L9223">Funded gross and incremental exposure bounds</a></span><span class="page">20 / 30 · <a href="#bridge" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="bridge" aria-labelledby="title-bridge">
+<p class="kicker">Bridge ingress · kind 1</p>
+<h2 id="title-bridge">A forced credit is one step toward delivery</h2>
+<div class="content">
+<div class="steps four"><div class="card"><h3>1. Source escrow</h3><p>A same-L1 DIRECT ETH message escrows value, execution fee and liquidity fee.</p></div><div class="card"><h3>2. Queue admission</h3><p>A preparer supplies the full Message and queue deposit. Source emission alone is not admission.</p></div><div class="card"><h3>3. Durable L2 pin</h3><p>Forced processing applies the kind-1 credit idempotently. It does not call the recipient.</p></div><div class="card"><h3>4. LP-funded attempt</h3><p>A willing liquidity provider funds the L2 ticket and processing. Message bytes and the required execution budget are needed.</p></div></div>
+<div class="cols"><div class="card"><h3>DONE</h3><p>The terminal proof authenticates the LP’s L1 pull credit. Completed settlement may involve a recipient call or, when invocation is prohibited, a destination-owner value pull.</p></div><div class="card"><h3>FAILED / cancellation</h3><p>Absent liquidity or missing Message bytes can prevent delivery. Source cancellation or proved failure creates a user refund credit; actual repayment requires a successful withdrawal.</p></div></div>
+<p class="note">Forced queue consumption is not recipient delivery, and available source ETH does not create L2 liquidity.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L4270">Bridge lifecycle</a> · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L4492">Pull credits</a> · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L5798">Invocation policy</a></span><span class="page">21 / 30 · <a href="#bridge-boundaries" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="bridge-boundaries" aria-labelledby="title-bridge-boundaries">
+<p class="kicker">Bridge boundaries</p>
+<h2 id="title-bridge-boundaries">Routes and terminal outcomes remain pinned</h2>
+<div class="content">
+<div class="cols"><div><ul>
+<li>Launch supports <b>DIRECT ETH from the settlement L1</b>. Cross-L1 kind-1 ingress is outside this version.</li>
+<li>ERC20, ERC721, ERC1155 and official Vault flows remain V1; they cannot originate a V2 credit.</li>
+<li>An immutable inbox store pins the destination credit. Later resolver changes cannot retarget it.</li>
+<li>Append-only terminal commitments authenticate completed settlement or failure and the corresponding source pull.</li>
+</ul></div><div class="card"><h3>Bounded deadlines, real dependencies</h3><p>Strictly after <code>enqueueBy</code>, an unqueued message can be canceled, creating a source-owner refund credit and forbidding later enqueue.</p><p>Strictly after <code>processBy</code>, an unterminated credit can enter FAILED without Message bytes. Historical proofs still depend on retained witness data.</p></div></div>
+<p class="note">The immutable custody kernel is not self-healing. Its compiled code, conservation properties and failure paths must pass the production gates before live value depends on it.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L153">Bridge boundaries</a> · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L6235">Processing expiry</a></span><span class="page">22 / 30 · <a href="#gas" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="gas" aria-labelledby="title-gas">
+<p class="kicker">L1 feasibility</p>
+<h2 id="title-gas">A large block limit cannot rescue an oversized call</h2>
+<div class="content">
+<div class="formula">cap = min(configured L1 block gas limit, 16,777,216)<br>tokens = zero calldata bytes + 4 × nonzero calldata bytes<br>required = 21,000 + max(4 × tokens + execution budget, 10 × tokens)<br>ceil(1.30 × required) ≤ cap</div>
+<div class="cols"><div class="card"><h3>Budget the complete transaction</h3><p>Include decoding, cold reads, memory, call forwarding, full callee consumption, postreads and the final success or rejection work. Do not rely on refunds.</p></div><div class="card"><h3>The calldata floor is a maximum</h3><p>It is not a second execution charge. This formula covers a direct call with an empty access list and no authorization list; other envelopes add their exact intrinsic charges.</p></div></div>
+<p class="note">Synthetic model budgets are targets, not compiled gas certificates. Every maximum supported path needs fork-correct measurement and the complete 30% margin.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L9664">L1 transaction resource policy</a></span><span class="page">23 / 30 · <a href="#preparation" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="preparation" aria-labelledby="title-preparation">
+<p class="kicker">Deployment before activation</p>
+<h2 id="title-preparation">Create accounts before staging their route</h2>
+<div class="content">
+<div class="sequence" aria-label="Release preparation order"><code>REGISTER_RELEASE</code><span aria-hidden="true">→</span><code>SBD1</code><span aria-hidden="true">→</span><code>SAD1</code><span aria-hidden="true">→</span><code>BRD1</code><span aria-hidden="true">→</span><code>ARM</code><span aria-hidden="true">→</span><code>READY</code><span aria-hidden="true">→</span><code>ACTIVATE</code></div>
+<div class="cols three"><div class="card"><h3>SBD1 · source bundle</h3><p>Atomically deploys SourceBridge, its credit Registry and quota manager.</p></div><div class="card"><h3>SAD1 · adapter</h3><p>Deploys the matching adapter in a separate bounded transaction.</p></div><div class="card"><h3>BRD1 · stage</h3><p>Authenticates existing accounts and stages the exact package and commitments for review.</p></div></div>
+<p>Staging and strict activation must not deploy missing accounts. ARM, READY and ACTIVATE retain their specified governance, review, lease and proof conditions; the arrows do not imply immediate eligibility.</p>
+<p class="note">Failed staging preserves earlier deployments. An exact retry after successful staging preserves the original review clock.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L4510">Separate deployment and route preparation</a></span><span class="page">24 / 30 · <a href="#migration-timing" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="migration-timing" aria-labelledby="title-migration-timing">
+<p class="kicker">Version migration · specified timing</p>
+<h2 id="title-migration-timing">A migration arm cannot remain live forever</h2>
+<div class="content">
+<div class="steps three"><div class="card"><span class="step">1</span><h3>Seven-day notice</h3><p>The immutable DAO proposer queues the exact operation. Anyone may execute it after the full 604,800-second delay.</p></div>
+<div class="card"><span class="step">2</span><h3>Seven-day execution window</h3><p>A migration arm must execute between maturity and maturity + 604,800 seconds, including both endpoints.</p></div>
+<div class="card"><span class="step">3</span><h3>Seven-day live lease</h3><p>Successful arming starts a separate, non-extendable lease. Activation requires time strictly before its expiry.</p></div></div>
+<p>At or after lease expiry, anyone can abort ARMED or READY and restore source ACTIVE. A successful expiry abort invalidates every arm queued at or before that abort timestamp.</p>
+<p class="note">A retry must be queued strictly after the abort and serve a fresh seven-day notice. A mature sibling arm cannot immediately reclose admissions.</p>
+<p class="small mut">These are the specified Timelock/PVM/Router rules. The implemented RootMigrationExecutor governs root bootstrap; it does not implement this later-version migration journal.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L6950">Arm execution window</a> · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L7426">Lease and abort freshness</a></span><span class="page">25 / 30 · <a href="#migration" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="migration" aria-labelledby="title-migration">
+<p class="kicker">Version migration · one reverting transaction</p>
+<h2 id="title-migration">Authority changes through one complete journal</h2>
+<div class="content">
+<ol class="journal">
+<li><b>Verify and enter ACTIVATING.</b> Freeze the source (MFRZ), adopt the target canonical state (MCAN).</li>
+<li><b>Install inert ingress and source authority.</b> Bind kind 0, activate SourceBridge, update indexes, consume and post-read the route package (BRC1).</li>
+<li><b>Seal the adapter and move the queue.</b> Bind Bridge ingress, execute QMIG, then make the three MAPS consistency reads.</li>
+<li><b>Publish the result.</b> Consume registration, write receipts and indexes, publish ACTIVE; clear the context and return the Router to IDLE.</li>
+<li><b>Finish the lease.</b> VMC1 consumes the lease and returns the version manager to IDLE. The final VML1 static read must return canonical NONE.</li>
+</ol>
+<div class="pills"><span class="pill">VMC1: last mutating external call</span><span class="pill">VML1: final external call</span></div>
+<p class="small mut">Ingress bindings stay inert until ACTIVE publication. The source, target, queue and version manager still share the same outer transaction’s rollback boundary.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L7715">Exact version-migration journal</a></span><span class="page">26 / 30 · <a href="#rollback" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="rollback" aria-labelledby="title-rollback">
+<p class="kicker">Worked failure case</p>
+<h2 id="title-rollback">Even the final lease read can roll activation back</h2>
+<div class="content">
+<div class="cols"><div class="card"><h3>Inject a fault at VML1</h3><p>The Router has published ACTIVE and returned to IDLE. VMC1 has consumed the lease. The final read returns malformed data or a lease other than canonical NONE.</p><p>The entire activation transaction must revert.</p></div><div class="card"><h3>State after the revert</h3><p>Restore READY/IDLE and the prior live lease; old source and queue authority, cursor and payment state; the empty target; prior adapter seals; inactive target SourceBridge; and unused registration with no activation receipt.</p></div></div>
+<div class="example"><h3>What survives</h3><p>Accounts created by earlier independent SBD1/SAD1 transactions remain deployed. The failed activation does not erase those transactions. Permissionless retry or a mature abort remains possible.</p></div>
+<p class="note">ACTIVE publication inside a transaction is not a partial success. Faults at BRC1, VMC1 or VML1 all remain inside the same revert domain. Genesis has no VMC1 call.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L7703">Migration rollback and final lease post-read</a></span><span class="page">27 / 30 · <a href="#genesis" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="genesis" aria-labelledby="title-genesis">
+<p class="kicker">Legacy genesis · specified cutover</p>
+<h2 id="title-genesis">Genesis has a bounded campaign and an exit path</h2>
+<div class="content">
+<div class="sequence" aria-label="Legacy genesis preparation"><code>Delayed campaign</code><span aria-hidden="true">→</span><code>Forced / proposal cutoffs</code><span aria-hidden="true">→</span><code>Bounded scan</code><span aria-hidden="true">→</span><code>QUIESCENT</code></div>
+<div class="cols"><div class="card"><h3>If a valid proof lands</h3><p>Proof verification precedes transaction-local READY, legacy freeze, target adoption and Queue migration. The public gate changes from ACTIVE(legacy) to ACTIVE(target) atomically.</p></div>
+<div class="card"><h3>If the campaign expires</h3><p>At either the block or timestamp bound, activation rejects and permissionless local resume restores legacy ACTIVE. The campaign lasts at most 600 L1 blocks / 7,200 seconds from publication.</p></div></div>
+<p>Preparation caps: <b>1,024 proposals + 1,024 forced rows; 4 MiB total</b>. Maximum-progress batches contain up to 16 rows, bounding successful scans to 128 calls.</p>
+<p class="note">In-place cutover imports only the last finalized checkpoint. It abandons unfinalized proposals and pending forced records. Lossless treatment or an incompatible legacy deployment requires a separate state migration.</p>
+<p class="small mut">Resume-safe clocks, retained data and the exact legacy profile are prerequisites. Root deployment contracts do not replace the missing legacy cutover implementation or real genesis circuit.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L10781">Genesis and migration</a> · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L10888">Scan and campaign bounds</a></span><span class="page">28 / 30 · <a href="#readiness" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="readiness" aria-labelledby="title-readiness">
+<p class="kicker">Honest status</p>
+<h2 id="title-readiness">Partial implementation; release gates remain</h2>
+<div class="content">
+<div class="cols"><div><h3>Evidence already checked in</h3><ul>
+<li>Normative rules, executable models and a partial Solidity implementation.</li>
+<li>Foundry unit/invariant suites and golden-vector checks.</li>
+<li>Artifact ownership, Registry storage-layout, profile-isolation and conformance-ledger checks.</li>
+</ul></div><div><h3>What production still needs</h3><ul>
+<li>Complete contracts and the compiled release/profile bundle.</li>
+<li>Real circuits/keys, client execution and independent conformance reproduction.</li>
+<li>Measured full-path gas and proof performance; migration, rollback and archive-loss drills.</li>
+<li>Calibrated economics, testnet soak, independent audits and human safety acceptance.</li>
+</ul></div></div>
+<p class="note">At b7896b7 the ledger records <b>101 missing / 25 red / 12 passing / 8 reviewed</b> rows. These cover artifacts, dependencies and roles, not just contracts. A successful ledger check does not mean every row passes.</p>
+<p class="small mut">“Reviewed” is a ledger status with source/test hash pins, not an independent audit claim. The root cohort remains planned; the example economic profile is UNCALIBRATED and cannot authorize deployment.</p>
+<p class="small mut">Claims assume L1 safety/liveness, sound proofs, reconstructible canonical data and a funded actor able to prove and land. Kind-1 credits add their source-domain and liquidity dependencies.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L12098">Production gates and verdict</a></span><span class="page">29 / 30 · <a href="#reading" aria-label="Next slide">Next →</a></span></footer>
+</section>
+
+<section class="slide" id="reading" aria-labelledby="title-reading">
+<p class="kicker">Keep learning</p>
+<h2 id="title-reading">Read the rules, then reproduce the examples</h2>
+<div class="content">
+<div class="cols"><div class="card"><h3>Start with the current design</h3><ul class="links">
+<li><a href="../slot-chain-spec.pdf">Slot Chain specification · PDF</a></li>
+<li><a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex">Normative LaTeX · pinned b7896b7</a></li>
+<li><a href="../README.md">Model index and run instructions</a></li>
+<li><a href="../implementation-status.md">Implementation coverage and evidence</a></li>
+<li><a href="https://github.com/taikoxyz/taiko-mono/pull/22139">Current design and draft implementation · PR #22139</a></li>
+</ul></div><div class="card"><h3>Trace the revised examples</h3><ul class="links">
+<li><a href="../test-forced-transaction-validity.py">Forced-input classification cases</a></li>
+<li><a href="../test-seat-promotion-economics.py">Late-proof promotion economics</a></li>
+<li><a href="../test-l1-resource-bounds.py">L1 transaction resource bounds</a></li>
+<li><a href="../test-route-preparation-resources.py">Separate deployment and staging</a></li>
+<li><a href="../test-migration-journal.py">Migration fault and rollback cases</a></li>
+</ul></div></div>
+<p class="small mut">The pink/white presentation format was migrated from the <a href="https://github.com/taikoxyz/taiko-mono/blob/fad5f96154c593b45c44097fcc1eddf442537eee/packages/protocol/docs/preconfirmation/slides/preconf-redesign-slides.html">v15 learning deck</a> on <code>claude/taiko-preconfirmation-redesign-i0c4ls</code>. The protocol content was rewritten; the old architecture and its assurance claims are obsolete.</p>
+<p class="small mut">Open this self-contained HTML locally. Use browser Print → Save as PDF with background graphics enabled and browser headers/footers disabled. See <a href="README.md">deck maintenance notes</a>.</p>
+</div>
+<footer class="foot"><span>Slot Chain v2.28 · <a href="https://github.com/taikoxyz/taiko-mono/blob/b7896b758ef5500ce9b67064ba645c4416d8cfb5/packages/protocol/docs/preconfirmation-v2/tex/main.tex#L113">Pinned normative source</a></span><span class="page">30 / 30 · <a href="#start" aria-label="Start slide">Start →</a></span></footer>
+</section>
+</main>
+</body>
+</html>
