@@ -199,12 +199,45 @@ mod tests {
         assert!(!started.load(Ordering::SeqCst), "the subcommand should never have been polled");
     }
 
-    // Tokio registers signal handlers process-wide and never removes them, so once this test has
-    // run, the test binary ignores SIGINT and SIGTERM for the rest of its life. Any other test in
-    // this binary that raises a signal must install a handler first, or it kills the whole binary.
+    /// Set in the child process that `sigterm_resolves_shutdown_signal` re-executes itself in.
+    #[cfg(unix)]
+    const SIGNAL_TEST_CHILD_ENV: &str = "TAIKO_CLIENT_SIGNAL_TEST_CHILD";
+
+    // Installing the shutdown handlers changes the process-wide SIGINT and SIGTERM dispositions
+    // for good, because tokio never removes them. So the real-signal check runs in a child
+    // process that re-executes this test alone, and the shared test binary keeps its default
+    // dispositions: later signal tests and Ctrl+C on a stalled run keep working.
     #[cfg(unix)]
     #[tokio::test]
     async fn sigterm_resolves_shutdown_signal() {
+        if std::env::var_os(SIGNAL_TEST_CHILD_ENV).is_some() {
+            raise_sigterm_and_expect_shutdown().await;
+            return;
+        }
+
+        let test_binary = std::env::current_exe().expect("the test binary path should be known");
+        let output = tokio::process::Command::new(test_binary)
+            .args(["--exact", "cli::tests::sigterm_resolves_shutdown_signal", "--nocapture"])
+            .env(SIGNAL_TEST_CHILD_ENV, "1")
+            .output()
+            .await
+            .expect("the child test process should spawn");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+
+        assert!(
+            output.status.success(),
+            "the child test failed with {}\nstdout:\n{stdout}\nstderr:\n{stderr}",
+            output.status
+        );
+        // libtest exits 0 when a filter matches no test, so check that the child actually ran it.
+        assert!(stdout.contains("1 passed"), "the child did not run the test\nstdout:\n{stdout}");
+    }
+
+    /// The child-process half of `sigterm_resolves_shutdown_signal`: install the handlers, raise
+    /// a real SIGTERM against this process and expect the shutdown signal to resolve.
+    #[cfg(unix)]
+    async fn raise_sigterm_and_expect_shutdown() {
         let mut shutdown = Box::pin(shutdown_signal());
         // Poll once so the SIGTERM handler is installed before the signal is raised; without a
         // handler, the default action would terminate the test process.
