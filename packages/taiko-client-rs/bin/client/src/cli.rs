@@ -7,10 +7,10 @@
 
 use std::{future::Future, time::Duration};
 
-use crate::error::Result;
+use crate::error::{CliError, Result};
 use clap::{Parser, Subcommand};
 use tokio::runtime::{Builder, Runtime};
-use tracing::{info, warn};
+use tracing::info;
 
 use crate::commands::{
     driver::DriverSubCommand, proposer::ProposerSubCommand,
@@ -57,6 +57,10 @@ impl Cli {
     /// Handling SIGTERM matters in containers: the client runs as PID 1 there, and the kernel
     /// discards any signal PID 1 has no handler for, so `docker stop` or a pod deletion would
     /// otherwise only take effect with the SIGKILL at the end of the grace period.
+    ///
+    /// If the signal handlers cannot be installed, this returns [`CliError::SignalHandler`]
+    /// without running `fut`: a client that cannot be stopped is worse than one that refuses
+    /// to start.
     pub fn run_until_shutdown<F>(fut: F) -> Result<()>
     where
         F: Future<Output = Result<()>>,
@@ -80,15 +84,17 @@ impl Cli {
 /// and `Ok(())` is returned.
 ///
 /// `shutdown` is polled before `fut` on every wake-up, so its signal handlers are installed
-/// before the subcommand starts running.
+/// before the subcommand starts running. If `shutdown` fails instead, its error is returned
+/// and `fut` is dropped; when that happens on the first wake-up, `fut` is never polled.
 async fn run_until_signal<F, S>(fut: F, shutdown: S) -> Result<()>
 where
     F: Future<Output = Result<()>>,
-    S: Future<Output = &'static str>,
+    S: Future<Output = Result<&'static str>>,
 {
     tokio::select! {
         biased;
         signal = shutdown => {
+            let signal = signal?;
             info!(signal, "received shutdown signal, stopping");
             Ok(())
         }
@@ -98,35 +104,25 @@ where
 
 /// Resolve with the name of the first shutdown signal received: SIGINT, or SIGTERM on Unix.
 ///
-/// If the handlers cannot be installed, this logs a warning and never resolves, so the
-/// subcommand keeps running without signal-driven shutdown instead of failing to start.
-async fn shutdown_signal() -> &'static str {
-    match wait_for_shutdown_signal().await {
-        Ok(signal) => signal,
-        Err(error) => {
-            warn!(%error, "could not install shutdown signal handlers");
-            std::future::pending().await
-        }
-    }
-}
-
-/// Wait for SIGINT or (on Unix) SIGTERM and return the signal's name.
-///
-/// Returns an error if a signal handler cannot be installed.
-async fn wait_for_shutdown_signal() -> std::io::Result<&'static str> {
+/// Fails with [`CliError::SignalHandler`] if a handler cannot be installed. Tokio registers
+/// handlers process-wide and never removes them, so a partially installed set must not be
+/// left behind silently: the caller treats this error as fatal.
+async fn shutdown_signal() -> Result<&'static str> {
     #[cfg(unix)]
     {
         use tokio::signal::unix::{SignalKind, signal};
 
-        let mut sigterm = signal(SignalKind::terminate())?;
+        let mut sigterm = signal(SignalKind::terminate()).map_err(CliError::SignalHandler)?;
         tokio::select! {
-            result = tokio::signal::ctrl_c() => result.map(|()| "SIGINT"),
+            result = tokio::signal::ctrl_c() => {
+                result.map(|()| "SIGINT").map_err(CliError::SignalHandler)
+            }
             _ = sigterm.recv() => Ok("SIGTERM"),
         }
     }
     #[cfg(not(unix))]
     {
-        tokio::signal::ctrl_c().await.map(|()| "SIGINT")
+        tokio::signal::ctrl_c().await.map(|()| "SIGINT").map_err(CliError::SignalHandler)
     }
 }
 
@@ -141,7 +137,6 @@ mod tests {
     };
 
     use super::*;
-    use crate::error::CliError;
 
     /// Sets its flag when dropped.
     struct SetOnDrop(Arc<AtomicBool>);
@@ -175,7 +170,7 @@ mod tests {
         };
         let shutdown = async {
             tokio::task::yield_now().await;
-            "SIGTERM"
+            Ok("SIGTERM")
         };
 
         let result = run_until_signal(subcommand, shutdown).await;
@@ -185,6 +180,28 @@ mod tests {
         assert!(dropped.load(Ordering::SeqCst), "the stopped subcommand should be dropped");
     }
 
+    #[tokio::test]
+    async fn signal_handler_setup_failure_is_fatal_and_skips_the_subcommand() {
+        let started = Arc::new(AtomicBool::new(false));
+        let subcommand = {
+            let started = started.clone();
+            async move {
+                started.store(true, Ordering::SeqCst);
+                Ok(())
+            }
+        };
+        let shutdown =
+            async { Err(CliError::SignalHandler(std::io::Error::other("no signal driver"))) };
+
+        let result = run_until_signal(subcommand, shutdown).await;
+
+        assert!(matches!(result, Err(CliError::SignalHandler(_))));
+        assert!(!started.load(Ordering::SeqCst), "the subcommand should never have been polled");
+    }
+
+    // Tokio registers signal handlers process-wide and never removes them, so once this test has
+    // run, the test binary ignores SIGINT and SIGTERM for the rest of its life. Any other test in
+    // this binary that raises a signal must install a handler first, or it kills the whole binary.
     #[cfg(unix)]
     #[tokio::test]
     async fn sigterm_resolves_shutdown_signal() {
@@ -203,7 +220,8 @@ mod tests {
 
         let signal = tokio::time::timeout(Duration::from_secs(5), shutdown)
             .await
-            .expect("SIGTERM should resolve the shutdown signal");
+            .expect("SIGTERM should resolve the shutdown signal")
+            .expect("the shutdown signal handlers should install");
         assert_eq!(signal, "SIGTERM");
     }
 }

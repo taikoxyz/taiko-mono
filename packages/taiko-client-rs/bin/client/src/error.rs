@@ -13,7 +13,7 @@ use thiserror::Error;
 /// - Errors propagated from downstream crates (driver, proposer, rpc,
 ///   whitelist-preconfirmation-driver)
 /// - Configuration errors (URL parsing, socket address parsing)
-/// - Runtime errors (tokio runtime initialization, I/O)
+/// - Runtime errors (tokio runtime initialization, shutdown signal handlers, I/O)
 /// - Metrics initialization errors
 #[derive(Debug, Error)]
 pub enum CliError {
@@ -67,6 +67,15 @@ pub enum CliError {
     /// initialization or general I/O operations.
     #[error("runtime error: {0}")]
     Runtime(#[from] std::io::Error),
+
+    /// Failed to install the shutdown signal handlers.
+    ///
+    /// Occurs when the SIGINT or SIGTERM handler cannot be registered with the tokio signal
+    /// driver at startup. The client refuses to start in that case: tokio registers handlers
+    /// process-wide and never removes them, so continuing could leave a half-installed set
+    /// behind that swallows a signal nobody is listening for.
+    #[error("failed to install shutdown signal handlers: {0}")]
+    SignalHandler(std::io::Error),
 
     /// Failed to parse a socket address.
     ///
