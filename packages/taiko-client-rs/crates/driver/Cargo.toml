@@ -43,7 +43,6 @@ alloy-signer-local = { workspace = true }
 alloy-transport = { workspace = true }
 anyhow = { workspace = true }
 proposer = { path = "../proposer" }
-rand = { workspace = true }
 secp256k1 = { workspace = true }
 serial_test = { workspace = true }
 test-context = { workspace = true }
