@@ -117,7 +117,14 @@ async fn shutdown_signal() -> Result<&'static str> {
             result = tokio::signal::ctrl_c() => {
                 result.map(|()| "SIGINT").map_err(CliError::SignalHandler)
             }
-            _ = sigterm.recv() => Ok("SIGTERM"),
+            received = sigterm.recv() => match received {
+                Some(()) => Ok("SIGTERM"),
+                // Tokio never closes this stream today, but a closed stream would mean SIGTERM
+                // can no longer stop the client, which is exactly the failure this error is for.
+                None => Err(CliError::SignalHandler(std::io::Error::other(
+                    "the SIGTERM signal stream closed",
+                ))),
+            },
         }
     }
     #[cfg(not(unix))]
