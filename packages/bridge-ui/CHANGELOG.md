@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.19.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.18.0...bridge-ui-v2.19.0) (2026-09-19)
+
+
+### Features
+
+* **bridge-ui:** support EIP-2612 permit and Permit2 in the ERC20 send flow ([#22143](https://github.com/taikoxyz/taiko-mono/issues/22143)) ([0513185](https://github.com/taikoxyz/taiko-mono/commit/05131855102de6c61cccc89922fe3031f223f8d2))
+
 ## [2.18.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.17.1...bridge-ui-v2.18.0) (2026-09-03)
 
 
