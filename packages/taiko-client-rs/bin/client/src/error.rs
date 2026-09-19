@@ -68,13 +68,13 @@ pub enum CliError {
     #[error("runtime error: {0}")]
     Runtime(#[from] std::io::Error),
 
-    /// Failed to install the shutdown signal handlers.
+    /// The shutdown signal handlers could not be installed, or stopped working.
     ///
     /// Occurs when the SIGINT or SIGTERM handler cannot be registered with the tokio signal
-    /// driver at startup. The client refuses to start in that case: tokio registers handlers
-    /// process-wide and never removes them, so continuing could leave a half-installed set
-    /// behind that swallows a signal nobody is listening for.
-    #[error("failed to install shutdown signal handlers: {0}")]
+    /// driver at startup, or when the SIGTERM stream closes later. Both are fatal: tokio
+    /// registers handlers process-wide and never removes them, so continuing could leave a
+    /// half-installed set behind that swallows a signal nobody is listening for.
+    #[error("shutdown signal handler failure: {0}")]
     SignalHandler(std::io::Error),
 
     /// Failed to parse a socket address.

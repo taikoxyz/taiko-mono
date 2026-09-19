@@ -104,9 +104,9 @@ where
 
 /// Resolve with the name of the first shutdown signal received: SIGINT, or SIGTERM on Unix.
 ///
-/// Fails with [`CliError::SignalHandler`] if a handler cannot be installed. Tokio registers
-/// handlers process-wide and never removes them, so a partially installed set must not be
-/// left behind silently: the caller treats this error as fatal.
+/// Fails with [`CliError::SignalHandler`] if a handler cannot be installed or the SIGTERM
+/// stream closes. Tokio registers handlers process-wide and never removes them, so a partially
+/// installed set must not be left behind silently: the caller treats this error as fatal.
 async fn shutdown_signal() -> Result<&'static str> {
     #[cfg(unix)]
     {
