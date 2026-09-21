@@ -8,10 +8,10 @@ import { BridgedERC20 } from "src/shared/vault/BridgedERC20.sol";
 import { ERC20Vault } from "src/shared/vault/ERC20Vault.sol";
 
 /// @title DeployERC20VaultUpgradeL2
-/// @notice Deploys the L2 `ERC20Vault` implementation that Proposal0024 upgrades the L2 vault proxy
+/// @notice Deploys the L2 `ERC20Vault` implementation that Proposal0023 upgrades the L2 vault proxy
 /// to, plus a plain `BridgedERC20` that the proposal no longer uses.
 /// @dev Deploys new contracts only. It does not upgrade the vault proxy and registers no names:
-/// Proposal0024 registers `bridged_erc20` and both `erc20_vault` entries on the resolver as DAO
+/// Proposal0023 registers `bridged_erc20` and both `erc20_vault` entries on the resolver as DAO
 /// actions. The `BridgedERC20` this script deployed on 2026-09-02 (`0x3505a070…`) was superseded the
 /// same day by the `BridgedERC20V2` from `DeployBridgedERC20V2L2`, which adds the EIP-2612 `permit`
 /// the vault's new `sendTokenWithPermit` relies on; the script is kept as it ran, because the vault
@@ -40,7 +40,7 @@ contract DeployERC20VaultUpgradeL2 is Script {
     error ImmutableMismatch();
     error ResolverOwnerMismatch();
 
-    /// @notice Deploys the contracts and logs the addresses Proposal0024 needs.
+    /// @notice Deploys the contracts and logs the addresses Proposal0023 needs.
     function run() external {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
         require(privateKey != 0, "PRIVATE_KEY not set");

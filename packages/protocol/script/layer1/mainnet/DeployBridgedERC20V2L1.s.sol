@@ -6,7 +6,7 @@ import { LibL1Addrs } from "src/layer1/mainnet/LibL1Addrs.sol";
 import { BridgedERC20V2 } from "src/shared/vault/BridgedERC20V2.sol";
 
 /// @title DeployBridgedERC20V2L1
-/// @notice Deploys the L1 `BridgedERC20V2` implementation that Proposal0024 registers as
+/// @notice Deploys the L1 `BridgedERC20V2` implementation that Proposal0023 registers as
 /// `bridged_erc20` on the L1 shared resolver.
 /// @dev Deploys a new implementation only. It registers nothing: the registration is a DAO action,
 /// because the L1 shared resolver is owned by the DAO controller.
@@ -23,7 +23,7 @@ import { BridgedERC20V2 } from "src/shared/vault/BridgedERC20V2.sol";
 contract DeployBridgedERC20V2L1 is Script {
     error ImmutableMismatch();
 
-    /// @notice Deploys the implementation and logs the address Proposal0024 needs.
+    /// @notice Deploys the implementation and logs the address Proposal0023 needs.
     function run() external {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
         require(privateKey != 0, "PRIVATE_KEY not set");

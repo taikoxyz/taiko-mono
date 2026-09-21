@@ -42,7 +42,7 @@ contract MainnetInbox is Inbox {
                 permissionlessProvingDelay: 5 days,
                 maxProofSubmissionDelay: 3 minutes, // We want this to be lower than the expected cadence
                 ringBufferSize: _RING_BUFFER_SIZE,
-                // Raised from 75 by Proposal0025: the whole basefee goes to the block's coinbase.
+                // Raised from 75 by Proposal0024: the whole basefee goes to the block's coinbase.
                 basefeeSharingPctg: 100,
                 // 1.5 epochs. Makes sure the proposer is not surprised by a forced inclusion landing on their window.
                 forcedInclusionDelay: 576 seconds,
