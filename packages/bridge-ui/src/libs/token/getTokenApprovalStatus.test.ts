@@ -9,14 +9,19 @@ vi.mock('$bridgeConfig');
 vi.mock('@wagmi/core');
 
 const requiresApproval = vi.fn();
-const requireAllowance = vi.fn();
 vi.mock('$libs/bridge', async (importOriginal) => ({
   ...(await importOriginal<typeof import('$libs/bridge')>()),
   bridges: {
-    ERC20: { requireAllowance: (...args: unknown[]) => requireAllowance(...args), getAllowance: vi.fn() },
     ERC721: { requiresApproval: (...args: unknown[]) => requiresApproval(...args) },
     ERC1155: { requiresApproval: (...args: unknown[]) => requiresApproval(...args) },
   },
+}));
+// The ERC20 branch is driven off the send plan; what the plan decides is pinned in its own
+// tests. The rest of the module stays real: the bridge classes import it too
+const planErc20Send = vi.fn();
+vi.mock('$libs/bridge/permit', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('$libs/bridge/permit')>()),
+  planErc20Send: (...args: unknown[]) => planErc20Send(...args),
 }));
 
 const checkOwnershipOfNFT = vi.fn();
@@ -32,11 +37,36 @@ vi.mock('$libs/bridge/getContractAddressByType', () => ({
   getContractAddressByType: () => '0x0000000000000000000000000000000000000456',
 }));
 
-import { allApproved, destNetwork, insufficientAllowance, selectedToken } from '$components/Bridge/state';
+import {
+  allApproved,
+  destNetwork,
+  erc20SendPlan,
+  insufficientAllowance,
+  needsApprovalReset,
+  selectedToken,
+} from '$components/Bridge/state';
+import type { ERC20SendPlan } from '$libs/bridge/permit';
 import { account, connectedSourceChain } from '$stores';
 
 import { ApprovalStatus, getTokenApprovalStatus } from './getTokenApprovalStatus';
 import { type NFT, type Token, TokenType } from './types';
+
+const VAULT = '0x0000000000000000000000000000000000000456';
+const PERMIT2 = '0x000000000022D473030F116dDEE9F6B43aC78BA3';
+const approveVault: ERC20SendPlan = {
+  method: 'approve',
+  spender: VAULT,
+  amount: 100n,
+  currentAllowance: 0n,
+  target: 'vault',
+};
+const approvePermit2: ERC20SendPlan = {
+  method: 'approve',
+  spender: PERMIT2,
+  amount: 2n ** 256n - 1n,
+  currentAllowance: 0n,
+  target: 'permit2',
+};
 
 const nft: NFT = {
   type: TokenType.ERC721,
@@ -90,6 +120,20 @@ describe('getTokenApprovalStatus for NFTs', () => {
     expect(requiresApproval).not.toHaveBeenCalled();
   });
 
+  it('leaves no ERC20 plan behind for an NFT or for ETH', async () => {
+    // Nothing reads the plan for either, and nothing should find one
+    erc20SendPlan.set(approvePermit2);
+    requiresApproval.mockResolvedValue(false);
+    await getTokenApprovalStatus(nft);
+    expect(get(erc20SendPlan)).toBeNull();
+
+    const eth = { type: TokenType.ETH, symbol: 'ETH', name: 'Ether', decimals: 18, addresses: {} } as Token;
+    selectedToken.set(eth);
+    erc20SendPlan.set(approvePermit2);
+    expect(await getTokenApprovalStatus(eth)).toBe(ApprovalStatus.ETH_NO_APPROVAL_REQUIRED);
+    expect(get(erc20SendPlan)).toBeNull();
+  });
+
   it('asks the ERC1155 bridge the same question', async () => {
     requiresApproval.mockResolvedValue(true);
 
@@ -137,11 +181,11 @@ describe('getTokenApprovalStatus answers for the token it was given', () => {
       addresses: { 1: '0x0000000000000000000000000000000000000bbb' },
     } as unknown as Token;
     selectedToken.set(otherErc20);
-    requireAllowance.mockResolvedValue(true);
+    planErc20Send.mockResolvedValue(approveVault);
 
     await getTokenApprovalStatus(erc20);
 
-    expect(requireAllowance).toHaveBeenCalledWith(expect.objectContaining({ tokenAddress: erc20.addresses[1] }));
+    expect(planErc20Send).toHaveBeenCalledWith(expect.objectContaining({ token: erc20.addresses[1] }));
   });
 
   it('does not publish a late answer for a token that is no longer selected', async () => {
@@ -183,11 +227,110 @@ describe('getTokenApprovalStatus answers for the token it was given', () => {
     selectedToken.set(otherErc20);
     allApproved.set(false);
     insufficientAllowance.set(true);
-    requireAllowance.mockResolvedValue(false); // the previous token has allowance
+    planErc20Send.mockResolvedValue({ method: 'sendToken' }); // the previous token has allowance
 
     expect(await getTokenApprovalStatus(erc20)).toBe(ApprovalStatus.NO_APPROVAL_REQUIRED);
 
     expect(get(allApproved)).toBe(false);
     expect(get(insufficientAllowance)).toBe(true);
+    expect(get(erc20SendPlan)).toBeNull();
+  });
+});
+
+describe('getTokenApprovalStatus for ERC20', () => {
+  const erc20 = {
+    type: TokenType.ERC20,
+    symbol: 'TKN',
+    name: 'Token',
+    decimals: 18,
+    addresses: { 1: '0x0000000000000000000000000000000000000aaa' },
+  } as unknown as Token;
+
+  beforeEach(() => {
+    selectedToken.set(erc20);
+    allApproved.set(false);
+    insufficientAllowance.set(false);
+    needsApprovalReset.set(false);
+    erc20SendPlan.set(null);
+  });
+
+  it('needs no approval for a plan that spends a standing allowance', async () => {
+    planErc20Send.mockResolvedValue({ method: 'sendToken' });
+
+    expect(await getTokenApprovalStatus(erc20)).toBe(ApprovalStatus.NO_APPROVAL_REQUIRED);
+    expect(get(allApproved)).toBe(true);
+    expect(get(insufficientAllowance)).toBe(false);
+  });
+
+  it('needs no approval for a plan that signs instead, and publishes the plan for the buttons', async () => {
+    const plan = {
+      method: 'permit',
+      domain: { name: 'Token', version: '1', chainId: 1, verifyingContract: erc20.addresses[1] },
+    };
+    planErc20Send.mockResolvedValue(plan);
+
+    expect(await getTokenApprovalStatus(erc20)).toBe(ApprovalStatus.NO_APPROVAL_REQUIRED);
+    expect(get(allApproved)).toBe(true);
+    expect(get(erc20SendPlan)).toEqual(plan);
+  });
+
+  it('needs an approval when the plan asks for one, and publishes what it approves', async () => {
+    planErc20Send.mockResolvedValue(approvePermit2);
+
+    expect(await getTokenApprovalStatus(erc20)).toBe(ApprovalStatus.APPROVAL_REQUIRED);
+    expect(get(allApproved)).toBe(false);
+    expect(get(insufficientAllowance)).toBe(true);
+    expect(get(erc20SendPlan)).toEqual(approvePermit2);
+    expect(get(needsApprovalReset)).toBe(false);
+  });
+
+  it('needs a reset first for a USDT-style token whose spender holds a partial allowance', async () => {
+    // Whichever spender the plan approves: a non-zero USDT allowance to Permit2 cannot be raised either
+    const usdt = { ...erc20, symbol: 'tUSDT' } as Token;
+    selectedToken.set(usdt);
+    planErc20Send.mockResolvedValue({ ...approvePermit2, currentAllowance: 5n });
+
+    expect(await getTokenApprovalStatus(usdt)).toBe(ApprovalStatus.RESET_REQUIRED);
+    expect(get(needsApprovalReset)).toBe(true);
+    expect(get(allApproved)).toBe(false);
+  });
+
+  it("does not blank the current token's plan on a late poll for a token the user has left", async () => {
+    // waitForApprovalStatus is still retrying token A when the user reaches the confirm step
+    // for token B, whose read has already published its plan
+    const tokenB = { ...erc20, symbol: 'B', addresses: { 1: '0x0000000000000000000000000000000000000bbb' } } as Token;
+    selectedToken.set(tokenB);
+    erc20SendPlan.set(approvePermit2);
+    needsApprovalReset.set(true);
+    let answer!: (plan: unknown) => void;
+    planErc20Send.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+
+    const latePoll = getTokenApprovalStatus(erc20);
+    expect(get(erc20SendPlan)).toEqual(approvePermit2);
+    expect(get(needsApprovalReset)).toBe(true);
+
+    answer({ method: 'sendToken' });
+    expect(await latePoll).toBe(ApprovalStatus.NO_APPROVAL_REQUIRED);
+    expect(get(erc20SendPlan)).toEqual(approvePermit2);
+  });
+
+  it("clears the previous token's plan before the read answers", async () => {
+    erc20SendPlan.set(approvePermit2);
+    let answer!: (plan: unknown) => void;
+    planErc20Send.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+
+    const pending = getTokenApprovalStatus(erc20);
+    expect(get(erc20SendPlan)).toBeNull();
+
+    answer({ method: 'sendToken' });
+    await pending;
+  });
+
+  it('clears the flag when no plan can be made', async () => {
+    allApproved.set(true);
+    planErc20Send.mockRejectedValue(new Error('rpc down'));
+
+    expect(await getTokenApprovalStatus(erc20)).toBe(ApprovalStatus.APPROVAL_REQUIRED);
+    expect(get(allApproved)).toBe(false);
   });
 });

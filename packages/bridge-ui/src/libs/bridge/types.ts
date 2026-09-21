@@ -118,18 +118,21 @@ export type BridgeTransaction = {
   fee?: bigint;
 };
 
-interface BaseBridgeTransferOp {
+type BaseBridgeTransferOp = {
   destChainId: bigint;
   destOwner: Address;
   to: Address;
   token: Address;
   gasLimit: number;
   fee: bigint;
-}
+};
 
-export interface ERC20BridgeTransferOp extends BaseBridgeTransferOp {
+// A type, not an interface: viem matches a struct argument against the ABI tuple as an
+// object type, and an interface is not assignable to it, so a value typed as one resolves the
+// vault call's arguments to `never`
+export type ERC20BridgeTransferOp = BaseBridgeTransferOp & {
   amount: bigint;
-}
+};
 
 export interface NFTBridgeTransferOp {
   destChainId: bigint;
