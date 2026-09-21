@@ -88,12 +88,13 @@
 ### inbox
 
 - proxy: `0xeF4bB7A442Bd68150A3aa61A6a097B86b91700BF`
-- impl: `0xB401C28719D45CfD40b423c786059d1B8dD0AA86`
+- impl: `0x15B304bab39CD34e043136328E48A14AdB9ea46e`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Feb 2, 2026 at commit `392bfa0`
   - upgraded on Feb 4, 2026 at commit `a01f51c`
   - upgraded on Jul 9, 2026 at commit `a01f51c`
+  - upgraded on Sep 21, 2026 at commit `a1a7bda`
 
 ### preconf_whitelist
 
