@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Proposal0023Harness } from "./Proposal0023Harness.sol";
+import { Proposal0024Harness } from "./Proposal0024Harness.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Test } from "forge-std/src/Test.sol";
-import { Proposal0023 } from "script/layer1/proposals/Proposal0023.s.sol";
+import { Proposal0024 } from "script/layer1/proposals/Proposal0024.s.sol";
 import { LibL1Addrs as L1 } from "src/layer1/mainnet/LibL1Addrs.sol";
 import { LibL2Addrs as L2 } from "src/layer2/mainnet/LibL2Addrs.sol";
 import { Bridge } from "src/shared/bridge/Bridge.sol";
@@ -17,20 +17,20 @@ import { BridgedERC20 } from "src/shared/vault/BridgedERC20.sol";
 import { BridgedERC20V2 } from "src/shared/vault/BridgedERC20V2.sol";
 import { ERC20Vault } from "src/shared/vault/ERC20Vault.sol";
 
-/// @notice Rehearses the Proposal0023 upgrades against live mainnet state.
+/// @notice Rehearses the Proposal0024 upgrades against live mainnet state.
 /// @dev Skipped unless `L1_FORK_URL` / `L2_FORK_URL` are set, because CI configures no RPC
 /// endpoints. Run with:
 ///
 ///   L1_FORK_URL=<l1 rpc> L2_FORK_URL=https://rpc.mainnet.taiko.xyz \
-///     FOUNDRY_PROFILE=layer1 forge test --match-contract Proposal0023ForkTest -vv
+///     FOUNDRY_PROFILE=layer1 forge test --match-contract Proposal0024ForkTest -vv
 ///
-/// `Proposal0023.t.sol` proves the proposal encodes the right calldata. It cannot prove the
+/// `Proposal0024.t.sol` proves the proposal encodes the right calldata. It cannot prove the
 /// upgrades work, and the L2 leg is where that distinction matters: the live L2 bridge and ERC20
 /// vault both run protocol 1.10.0 implementations from October 2024, the bridge must upgrade
 /// *itself* from inside its own `processMessage` frame, and every resolver lookup the vault makes
 /// moves to a registry that is empty until the same batch populates it.
 ///
-/// The rehearsal executes exactly what the DAO will: the calldata `Proposal0023` builds from its
+/// The rehearsal executes exactly what the DAO will: the calldata `Proposal0024` builds from its
 /// constants, against the implementations those constants name, which already exist on both
 /// chains. Nothing is deployed by the test. After each leg it bridges tokens through the upgraded
 /// contracts.
@@ -45,7 +45,7 @@ import { ERC20Vault } from "src/shared/vault/ERC20Vault.sol";
 /// exercised against the new transient-storage implementation and not only against the 1.10.0 code
 /// that invoked the batch.
 /// @custom:security-contact security@taiko.xyz
-contract Proposal0023ForkTest is Test {
+contract Proposal0024ForkTest is Test {
     /// @dev Live values read before the L2 batch executes, compared against afterwards.
     struct L2Before {
         uint64 messageId;
@@ -72,7 +72,7 @@ contract Proposal0023ForkTest is Test {
     );
 
     /// @dev The implementations each proxy must still be running when the rehearsal starts. Both
-    /// forks are taken at head, so once Proposal0023 executes these tests would otherwise rehearse
+    /// forks are taken at head, so once Proposal0024 executes these tests would otherwise rehearse
     /// current -> current and stay green while no longer covering the transition they exist for —
     /// the L2 ones silently stop exercising the 1.10.0 jump. Asserting the starting implementation
     /// fails loudly instead. It is preferred over a pinned fork block because pinning needs an
@@ -102,8 +102,8 @@ contract Proposal0023ForkTest is Test {
 
         // The implementations DeployBridgeUpgradeL1, DeployERC20VaultUpgradeL1 and
         // DeployBridgedERC20V2L1 deployed, as the proposal and LibL1Addrs name them.
-        Proposal0023Harness harness = new Proposal0023Harness();
-        Proposal0023.L1Deployment memory l1 = Proposal0023.L1Deployment({
+        Proposal0024Harness harness = new Proposal0024Harness();
+        Proposal0024.L1Deployment memory l1 = Proposal0024.L1Deployment({
             bridgeImpl: harness.BRIDGE_NEW_IMPL_L1(),
             erc20VaultImpl: harness.ERC20_VAULT_NEW_IMPL_L1(),
             bridgedErc20Impl: L1.BRIDGED_ERC20
@@ -118,7 +118,7 @@ contract Proposal0023ForkTest is Test {
 
         // Execute the whole L1 batch the way the DAO controller will: both upgrades and the
         // registration, then the sendMessage that BuildProposal appends, through the
-        // just-upgraded bridge. This is the calldata `Proposal0023.action.md` carries.
+        // just-upgraded bridge. This is the calldata `Proposal0024.action.md` carries.
         Controller.Action[] memory actions = harness.exposedBuildAllActions();
         assertEq(actions.length, 4);
         _executeAs(L1.DAO_CONTROLLER, actions);
@@ -302,8 +302,8 @@ contract Proposal0023ForkTest is Test {
 
         // The contracts DeployBridgeUpgradeL2, DeployERC20VaultUpgradeL2 and DeployBridgedERC20V2L2
         // deployed, as the proposal and LibL2Addrs name them.
-        Proposal0023Harness harness = new Proposal0023Harness();
-        Proposal0023.L2Deployment memory l2 = Proposal0023.L2Deployment({
+        Proposal0024Harness harness = new Proposal0024Harness();
+        Proposal0024.L2Deployment memory l2 = Proposal0024.L2Deployment({
             sharedResolver: L2.SHARED_RESOLVER,
             bridgeImpl: harness.BRIDGE_NEW_IMPL_L2(),
             erc20VaultImpl: harness.ERC20_VAULT_NEW_IMPL_L2(),
@@ -331,7 +331,7 @@ contract Proposal0023ForkTest is Test {
         // minimum, not gasleft(). Pin that budget so the 5,000,000 in the proposal is shown to be
         // sufficient rather than assumed: 5,000,000 - (39,936 calldata cost + 800,000 GAS_RESERVE)
         // for this message's 2,052 bytes of data, more than ten times what the seven actions need.
-        // `Proposal0023.t.sol` pins the 2,052.
+        // `Proposal0024.t.sol` pins the 2,052.
         if (_caller != message.destOwner) {
             assertEq(
                 message.gasLimit - bridge.getMessageMinGasLimit(message.data.length),
@@ -457,7 +457,7 @@ contract Proposal0023ForkTest is Test {
     /// @dev The four L2 addresses the proposal names exist on the fork, and the resolver is still
     /// the empty, DelegateController-owned proxy the deploy script left.
     /// @param _l2 The L2 addresses the batch points at.
-    function _assertL2ContractsDeployed(Proposal0023.L2Deployment memory _l2) private view {
+    function _assertL2ContractsDeployed(Proposal0024.L2Deployment memory _l2) private view {
         assertGt(_l2.sharedResolver.code.length, 0, "L2 resolver is not deployed");
         assertGt(_l2.bridgeImpl.code.length, 0, "L2 bridge implementation is not deployed");
         assertGt(_l2.erc20VaultImpl.code.length, 0, "L2 vault implementation is not deployed");
@@ -474,7 +474,7 @@ contract Proposal0023ForkTest is Test {
     /// L1 bridge assigns `id`, `from` and `srcChainId` at send time.
     /// @param _harness The proposal.
     /// @return message_ The message to hand to processMessage.
-    function _governanceMessage(Proposal0023Harness _harness)
+    function _governanceMessage(Proposal0024Harness _harness)
         private
         view
         returns (IBridge.Message memory message_)
@@ -487,7 +487,7 @@ contract Proposal0023ForkTest is Test {
 
     /// @dev Every registration landed on the new resolver.
     /// @param _l2 The L2 addresses the batch points at.
-    function _assertL2Registrations(Proposal0023.L2Deployment memory _l2) private view {
+    function _assertL2Registrations(Proposal0024.L2Deployment memory _l2) private view {
         DefaultResolver resolver = DefaultResolver(_l2.sharedResolver);
         assertEq(resolver.resolve(1, LibNames.B_BRIDGE, false), L1.BRIDGE);
         assertEq(resolver.resolve(167_000, LibNames.B_BRIDGE, false), L2.BRIDGE);
@@ -565,7 +565,7 @@ contract Proposal0023ForkTest is Test {
     /// @param _l2 The L2 addresses the batch pointed at.
     /// @param _before The live values read before the batch.
     function _bridgeTokensThroughUpgradedL2(
-        Proposal0023.L2Deployment memory _l2,
+        Proposal0024.L2Deployment memory _l2,
         L2Before memory _before
     )
         private

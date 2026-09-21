@@ -1,8 +1,8 @@
-# PROPOSAL-0023: Upgrade the L1 and L2 Bridges and ERC20 Vaults
+# PROPOSAL-0024: Upgrade the L1 and L2 Bridges and ERC20 Vaults
 
 ## Executive Summary
 
-Proposal0023 ships two merged changes to production by upgrading four proxies, two per chain. No
+Proposal0024 ships two merged changes to production by upgrading four proxies, two per chain. No
 contract source changes ship with it — deploy scripts, the DAO proposal, this runbook and tests
 only.
 
@@ -31,7 +31,7 @@ covers both.
 
 The proposal executes **4 top-level L1 actions** and **7 L2 actions**. All eight contracts it
 points at are deployed and verified — the bridge-side four on 2026-09-01, the two `ERC20Vault` and
-the two `BridgedERC20V2` implementations on 2026-09-02 — and `Proposal0023.action.md` carries the
+the two `BridgedERC20V2` implementations on 2026-09-02 — and `Proposal0024.action.md` carries the
 executable calldata.
 
 ## Scope
@@ -244,7 +244,7 @@ from `git diff 9345f14 main` of `Bridge.sol` and `ERC20Vault.sol` rather than as
   alike. The message still completes as `DONE`; only the recipient differs, and only when
   `destOwner != to`. An L1→L2 message sent before execution and claimed after it takes the new
   path. L1 made this exact transition in Proposal0017 on 2026-06-29. The fork rehearsal pins both
-  sides (`_deliverToEoaWithCalldata` in `Proposal0023Fork.t.sol`): the 1.10.0 bridge delivers 1 ETH
+  sides (`_deliverToEoaWithCalldata` in `Proposal0024Fork.t.sol`): the 1.10.0 bridge delivers 1 ETH
   to the EOA, the upgraded bridge refunds it to `destOwner`.
 
   Outstanding messages were audited on 2026-09-02: every `MessageSent` of the L1 bridge from its
@@ -287,7 +287,7 @@ frame while that frame's reentrancy lock is held. Each step was checked:
 
 The vault upgrade is a plain owner upgrade — the vault is not on the call stack — and is ordered
 before the bridge swap so the batch makes no further call once the bridge's code has changed under
-its frame. `test/layer1/proposals/Proposal0023Fork.t.sol` rehearses both legs against live state;
+its frame. `test/layer1/proposals/Proposal0024Fork.t.sol` rehearses both legs against live state;
 see [Verification](#verification).
 
 ### EVM version
@@ -315,7 +315,7 @@ and so cannot prove the live client executes them; two checks on 2026-09-03 do:
 3. `0x8Efa01564425692d0a0838DC10E300BD310Cb43e.registerAddress(1, LibNames.B_BRIDGED_ERC20, 0x9ccB9eBa4335096c5B64f050C3c734632D497c3b)`
    — the L1 `bridged_erc20` fix. Independent of the two upgrades, so its position does not matter.
 4. `sendMessage(...)` on `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC` — carries the L2 batch to the
-   DelegateController. Not written in `Proposal0023.s.sol`: `BuildProposal._buildAllActions()`
+   DelegateController. Not written in `Proposal0024.s.sol`: `BuildProposal._buildAllActions()`
    appends it whenever `buildL2Actions()` is non-empty, with `value: 0`, zero fee,
    `gasLimit = 5_000_000`, `srcOwner` = the DAO controller, `to` = the DelegateController
    `0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C` and `destOwner` = `PERMISSIONLESS_EXECUTOR`
@@ -327,7 +327,7 @@ L1 dry run and the fork rehearsal both prove that against live state.
 
 ### L2 — 7 actions, `l2ExecutionId = 0`, `l2GasLimit = 5_000_000`
 
-Numbered from 1 here, `actions[0]` to `actions[6]` in `Proposal0023.s.sol`. The registrations are
+Numbered from 1 here, `actions[0]` to `actions[6]` in `Proposal0024.s.sol`. The registrations are
 on the new resolver `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984`, with names encoded from
 `LibNames` constants.
 
@@ -411,22 +411,22 @@ PRIVATE_KEY=<deployer> FOUNDRY_PROFILE=layer2 forge script \
 
 All six scripts deploy only — no proxy upgrade, no initializer call on a live contract — and none
 should be re-run: a second run deploys contracts the constants do not point at. The logged
-addresses were verified on-chain before being written into `Proposal0023.s.sol` and the address
-libraries, the calldata was regenerated with `P=0023 pnpm proposal`, and both dry runs were
+addresses were verified on-chain before being written into `Proposal0024.s.sol` and the address
+libraries, the calldata was regenerated with `P=0024 pnpm proposal`, and both dry runs were
 simulated against the deployment RPCs:
 
 ```bash
 cd packages/protocol
-MODE=l1dryrun FOUNDRY_PROFILE=layer1 forge script script/layer1/proposals/Proposal0023.s.sol:Proposal0023 --rpc-url <L1_RPC>
-MODE=l2dryrun FOUNDRY_PROFILE=layer1 forge script script/layer1/proposals/Proposal0023.s.sol:Proposal0023 --rpc-url https://rpc.mainnet.taiko.xyz
+MODE=l1dryrun FOUNDRY_PROFILE=layer1 forge script script/layer1/proposals/Proposal0024.s.sol:Proposal0024 --rpc-url <L1_RPC>
+MODE=l2dryrun FOUNDRY_PROFILE=layer1 forge script script/layer1/proposals/Proposal0024.s.sol:Proposal0024 --rpc-url https://rpc.mainnet.taiko.xyz
 ```
 
 Both revert with `DryrunSucceeded()`, which is the success signal. `Controller.dryrun` is
 permissionless and always reverts, so the `--broadcast` in the `pnpm proposal:dryrun:*` scripts can
 never send anything; the simulation is the whole check. The L2 dry run calls
 `DelegateController.dryrun` directly and so does not exercise the mid-call self-upgrade; only the
-fork test does. A second reviewer should re-run `P=0023 pnpm proposal` and diff
-`Proposal0023.action.md`; `test_actionFileMatchesTheBuiltCalldata` pins it in CI.
+fork test does. A second reviewer should re-run `P=0024 pnpm proposal` and diff
+`Proposal0024.action.md`; `test_actionFileMatchesTheBuiltCalldata` pins it in CI.
 
 ## Deployed Addresses
 
@@ -441,7 +441,7 @@ fork test does. A second reviewer should re-run `P=0023 pnpm proposal` and diff
 | L2 `DefaultResolver` proxy          | `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984` | new proxy, nothing to diff                                                                |
 | L2 `DefaultResolver` implementation | `0x8Af4669E3068Bae96b92cD73603f5D86beD07a9a` | new contract, nothing to diff                                                             |
 
-The four proxy implementations are constants in `Proposal0023.s.sol`. The addresses the resolvers
+The four proxy implementations are constants in `Proposal0024.s.sol`. The addresses the resolvers
 name from this proposal on live in the address libraries: `LibL2Addrs.SHARED_RESOLVER` is new, and
 `LibL1Addrs.BRIDGED_ERC20` / `LibL2Addrs.BRIDGED_ERC20` now hold the two `BridgedERC20V2`
 implementations in place of the July 2024 ones the proposal retires.
@@ -571,7 +571,7 @@ FOUNDRY_PROFILE=layer2 forge verify-bytecode 0x2ea05A9CD06984Cf533a1829d8b0BE628
 # retried to DONE; on L2, USDT in, a never-seen token in, bridged USDT out; the never-seen tokens
 # go back through sendTokenWithPermit, proving the V2 permit).
 L1_FORK_URL=$L1_RPC L2_FORK_URL=$L2_RPC FOUNDRY_PROFILE=layer1 \
-  forge test --match-contract Proposal0023ForkTest -vv
+  forge test --match-contract Proposal0024ForkTest -vv
 ```
 
 The upgrade-safety checks under [Upgrade Safety](#upgrade-safety) reproduce as follows.
