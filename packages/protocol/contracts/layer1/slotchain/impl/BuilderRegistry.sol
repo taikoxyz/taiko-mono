@@ -3,16 +3,12 @@ pragma solidity 0.8.30;
 
 import { SlotChainTypes } from "../../../shared/slotchain/SlotChainTypes.sol";
 import { IComponentConfigV2 } from "../../../shared/slotchain/iface/IComponentConfigV2.sol";
-import {
-    IProtocolRootActivationV1
-} from "../../../shared/slotchain/iface/IProtocolRootActivationV1.sol";
 import { LibExactCall } from "../../../shared/slotchain/libs/LibExactCall.sol";
 import { LibSlotChainConstants } from "../../../shared/slotchain/libs/LibSlotChainConstants.sol";
 import { LibSlotChainFixedTrees } from "../../../shared/slotchain/libs/LibSlotChainFixedTrees.sol";
 import { IBuilderRegistry } from "../iface/IBuilderRegistry.sol";
 import { IBuilderRegistryProofVerifierV1 } from "../iface/IBuilderRegistryProofVerifierV1.sol";
 import { LibBuilderRegistry } from "../libs/LibBuilderRegistry.sol";
-import { ProtocolRootCreate3ProxyV1 } from "../root/ProtocolRootCreate3ProxyV1.sol";
 import { BuilderRegistryStorageV1 } from "./BuilderRegistryStorageV1.sol";
 
 /// @title Shared immutable Slot Chain builder-registry logic
@@ -513,7 +509,7 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
         external
         view
         virtual
-        onlyActiveProtocolRoot
+        onlyActivatedRegistry
         returns (bytes32 topologyHash_)
     {
         return _topologyHash;
@@ -524,7 +520,7 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
         external
         view
         virtual
-        onlyActiveProtocolRoot
+        onlyActivatedRegistry
         returns (
             bytes4 magic_,
             bytes32 economicConfigurationHash_,
@@ -557,7 +553,7 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
         external
         view
         virtual
-        onlyActiveProtocolRoot
+        onlyActivatedRegistry
         returns (bytes4 magic_, uint64 admissionVersion_, bytes32 admissionRoot_)
     {
         return (_ADS1_MAGIC, _admissionVersion, _admissionRoot);
@@ -568,7 +564,7 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
         external
         view
         virtual
-        onlyActiveProtocolRoot
+        onlyActivatedRegistry
         returns (
             bytes4 magic_,
             uint8 schema_,
@@ -599,7 +595,7 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
     )
         external
         virtual
-        onlyActiveProtocolRoot
+        onlyActivatedRegistry
         onlyRegistryContext
         tokenNonReentrant
         returns (
@@ -706,7 +702,7 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
     )
         external
         virtual
-        onlyActiveProtocolRoot
+        onlyActivatedRegistry
         onlyRegistryContext
         tokenNonReentrant
         returns (
@@ -902,7 +898,7 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
     function requestBuilderExitV1(uint64 _expectedRegistrationIndex)
         external
         virtual
-        onlyActiveProtocolRoot
+        onlyActivatedRegistry
         onlyRegistryContext
         returns (bytes4 magic_, uint64 registrationIndex_, uint64 matureWindow_, uint8 activeIndex_)
     {
@@ -948,7 +944,7 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
     )
         external
         virtual
-        onlyActiveProtocolRoot
+        onlyActivatedRegistry
         onlyRegistryContext
         returns (
             bytes4 magic_,
@@ -1027,7 +1023,7 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
     )
         external
         virtual
-        onlyActiveProtocolRoot
+        onlyActivatedRegistry
         onlyRegistryContext
         returns (
             bytes4 magic_,
@@ -1122,7 +1118,7 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
     )
         external
         virtual
-        onlyActiveProtocolRoot
+        onlyActivatedRegistry
         onlyRegistryContext
         returns (
             bytes4 magic_,
@@ -1236,7 +1232,7 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
     )
         external
         virtual
-        onlyActiveProtocolRoot
+        onlyActivatedRegistry
         onlyRegistryContext
         returns (
             bytes4 magic_,
@@ -1315,7 +1311,7 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
     function claimBuilderLeaseCreditV1(address _recipient)
         external
         virtual
-        onlyActiveProtocolRoot
+        onlyActivatedRegistry
         onlyRegistryContext
         operationNonReentrant
         tokenNonReentrant
@@ -1345,7 +1341,7 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
     function submitBuilderEquivocationV1(bytes calldata _evidence)
         external
         virtual
-        onlyActiveProtocolRoot
+        onlyActivatedRegistry
         onlyRegistryContext
         operationNonReentrant
         returns (
@@ -2631,9 +2627,9 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
         }
     }
 
-    /// @dev Restricts every functional surface to the activated protocol-root campaign.
-    modifier onlyActiveProtocolRoot() {
-        if (_protocolRootActivationState != 1) revert ProtocolRootInactive();
+    /// @dev Restricts every functional surface to a Registry that its activator has activated.
+    modifier onlyActivatedRegistry() {
+        if (_protocolRootActivationState != 1) revert RegistryNotActivated();
         _;
     }
 
@@ -2727,7 +2723,7 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
     error ReservationBaseMovedBackward();
     error ReservationBitmapMismatch();
     error RouterNotActive();
-    error ProtocolRootInactive();
+    error RegistryNotActivated();
     error ScheduleWindowNotExpired();
     error TrancheDeadlineOverflow();
     error TrancheRingCollision();
@@ -2735,13 +2731,12 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
     error HistoricalAdmissionProofMismatch();
 }
 
-/// @title Immutable permissionless Slot Chain builder registry
+/// @title Permissionless Slot Chain builder registry
 /// @notice Owns all Registry state and custody while dispatching lifecycle operations to two
-///         immutable, codehash-pinned execution facets.
+///         immutable, codehash-pinned execution facets. Every functional surface stays closed
+///         until the constructor-pinned activator activates the Registry exactly once.
 /// @custom:security-contact security@taiko.xyz
-contract BuilderRegistry is BuilderRegistryLogicV1, IProtocolRootActivationV1 {
-    bytes4 private constant _PROTOCOL_ROOT_ACTIVATION_MAGIC = 0x50524131;
-    bytes4 private constant _PROTOCOL_ROOT_ACTIVATED_MAGIC = 0x52414131;
+contract BuilderRegistry is BuilderRegistryLogicV1 {
     bytes4 private constant _COMPONENT_CONFIG_SELECTOR = 0xf6c0f7d2;
     bytes32 private constant _SEAT_FACET_CONFIGURATION_HASH =
         0x5844c0d5e26f8e8006907c41fcf7c121537202827fa671a15099730c1dd38d6b;
@@ -2753,21 +2748,25 @@ contract BuilderRegistry is BuilderRegistryLogicV1, IProtocolRootActivationV1 {
         0x895e8723291f0a1f397a981815290e003eab16a87807eadc3b3bc0d805b8fb78;
     uint256 private constant _MAXIMUM_FACET_RETURNDATA = 224;
 
-    address private immutable _protocolRootFactory;
+    address private immutable _activator;
     address private immutable _seatLifecycleFacet;
     bytes32 private immutable _seatLifecycleFacetRuntimeHash;
     address private immutable _leaseLifecycleFacet;
     bytes32 private immutable _leaseLifecycleFacetRuntimeHash;
 
-    /// @notice Initializes the root campaign, frozen facet graph and Registry configuration.
+    event RegistryActivated(address indexed activator);
+
+    /// @notice Pins the activator and initializes the frozen facet graph and Registry
+    ///         configuration. The Registry stays inactive until `activateRegistryV1()`.
+    /// @param _registryActivator The sole account allowed to activate this Registry, such as the
+    ///                           DAO controller or a deployment script.
+    /// @param _config The exact static Registry configuration.
     constructor(
-        address _factory,
-        bytes32 _factoryRuntimeHash,
-        bytes32 _campaignKey,
+        address _registryActivator,
         IBuilderRegistry.BuilderRegistryConstructorV1 memory _config
     ) {
-        _protocolRootFactory = _factory;
-        _initializeProtocolRoot(_factory, _factoryRuntimeHash, _campaignKey);
+        if (_registryActivator == address(0)) revert InvalidRegistryActivator();
+        _activator = _registryActivator;
         if (
             _config.seatLifecycleFacet == address(0)
                 || _config.seatLifecycleFacetRuntimeHash == bytes32(0)
@@ -2805,34 +2804,20 @@ contract BuilderRegistry is BuilderRegistryLogicV1, IProtocolRootActivationV1 {
         _initializeRegistry(_config);
     }
 
-    /// @inheritdoc IProtocolRootActivationV1
-    function protocolRootActivationV1()
-        external
-        view
-        returns (bytes4 magic_, address protocolRootFactory_, bytes32 campaignKey_, uint8 state_)
-    {
-        return (
-            _PROTOCOL_ROOT_ACTIVATION_MAGIC,
-            _protocolRootFactory,
-            _protocolRootCampaignKey,
-            _protocolRootActivationState
-        );
+    /// @notice Permanently activates every functional Registry surface.
+    /// @dev Callable exactly once, and only by the constructor-pinned activator.
+    function activateRegistryV1() external {
+        if (msg.sender != _activator) revert UnauthorizedRegistryActivator();
+        if (_protocolRootActivationState != 0) revert RegistryAlreadyActivated();
+        _protocolRootActivationState = 1;
+        emit RegistryActivated(msg.sender);
     }
 
-    /// @inheritdoc IProtocolRootActivationV1
-    function activateProtocolRootV1(bytes32 _campaignKey) external returns (bytes4 magic_) {
-        if (
-            msg.sender != _protocolRootFactory
-                || _runtimeHash(msg.sender) != _protocolRootFactoryRuntimeHash
-        ) {
-            revert UnauthorizedProtocolRootFactory();
-        }
-        if (_campaignKey == bytes32(0) || _campaignKey != _protocolRootCampaignKey) {
-            revert ProtocolRootCampaignMismatch();
-        }
-        if (_protocolRootActivationState != 0) revert ProtocolRootAlreadyActive();
-        _protocolRootActivationState = 1;
-        return _PROTOCOL_ROOT_ACTIVATED_MAGIC;
+    /// @notice Returns the constructor-pinned activator and whether the Registry is activated.
+    /// @return activator_ The sole account allowed to activate this Registry.
+    /// @return activated_ Whether `activateRegistryV1()` has been executed.
+    function registryActivationV1() external view returns (address activator_, bool activated_) {
+        return (_activator, _protocolRootActivationState == 1);
     }
 
     /// @dev Overrides the seat admission entry and delegates its unchanged calldata.
@@ -2844,7 +2829,7 @@ contract BuilderRegistry is BuilderRegistryLogicV1, IProtocolRootActivationV1 {
     )
         external
         override
-        onlyActiveProtocolRoot
+        onlyActivatedRegistry
         returns (bytes4, uint64, uint8, uint64, uint64, bytes32)
     {
         _delegateAndReturn(_seatLifecycleFacet, _seatLifecycleFacetRuntimeHash);
@@ -2858,7 +2843,7 @@ contract BuilderRegistry is BuilderRegistryLogicV1, IProtocolRootActivationV1 {
     )
         external
         override
-        onlyActiveProtocolRoot
+        onlyActivatedRegistry
         returns (bytes4, uint64, uint64, uint64, bytes32)
     {
         _delegateAndReturn(_leaseLifecycleFacet, _leaseLifecycleFacetRuntimeHash);
@@ -2868,7 +2853,7 @@ contract BuilderRegistry is BuilderRegistryLogicV1, IProtocolRootActivationV1 {
     function requestBuilderExitV1(uint64)
         external
         override
-        onlyActiveProtocolRoot
+        onlyActivatedRegistry
         returns (bytes4, uint64, uint64, uint8)
     {
         _delegateAndReturn(_seatLifecycleFacet, _seatLifecycleFacetRuntimeHash);
@@ -2881,7 +2866,7 @@ contract BuilderRegistry is BuilderRegistryLogicV1, IProtocolRootActivationV1 {
     )
         external
         override
-        onlyActiveProtocolRoot
+        onlyActivatedRegistry
         returns (bytes4, uint8, uint8, uint64, bytes32)
     {
         _delegateAndReturn(_seatLifecycleFacet, _seatLifecycleFacetRuntimeHash);
@@ -2895,7 +2880,7 @@ contract BuilderRegistry is BuilderRegistryLogicV1, IProtocolRootActivationV1 {
     )
         external
         override
-        onlyActiveProtocolRoot
+        onlyActivatedRegistry
         returns (bytes4, uint64, uint8, uint64, bytes32)
     {
         _delegateAndReturn(_leaseLifecycleFacet, _leaseLifecycleFacetRuntimeHash);
@@ -2910,7 +2895,7 @@ contract BuilderRegistry is BuilderRegistryLogicV1, IProtocolRootActivationV1 {
     )
         external
         override
-        onlyActiveProtocolRoot
+        onlyActivatedRegistry
         returns (bytes4, uint64, uint64, address, uint256, uint64, bytes32)
     {
         _delegateAndReturn(_leaseLifecycleFacet, _leaseLifecycleFacetRuntimeHash);
@@ -2924,48 +2909,10 @@ contract BuilderRegistry is BuilderRegistryLogicV1, IProtocolRootActivationV1 {
     )
         external
         override
-        onlyActiveProtocolRoot
+        onlyActivatedRegistry
         returns (bytes4, uint64, address, uint256, uint64, bytes32)
     {
         _delegateAndReturn(_leaseLifecycleFacet, _leaseLifecycleFacetRuntimeHash);
-    }
-
-    /// @dev Validates the CREATE3 root position while preserving the original storage prefix.
-    function _initializeProtocolRoot(
-        address _factory,
-        bytes32 _factoryRuntimeHash,
-        bytes32 _campaignKey
-    )
-        private
-    {
-        if (
-            _factory == address(0) || _factoryRuntimeHash == bytes32(0)
-                || _campaignKey == bytes32(0) || _runtimeHash(_factory) != _factoryRuntimeHash
-        ) {
-            revert InvalidProtocolRootActivationConfig();
-        }
-        bytes32 salt = keccak256(
-            abi.encodePacked("slot-chain-protocol-root-component-v1", _campaignKey, uint8(1))
-        );
-        address expectedProxy = address(
-            uint160(
-                uint256(
-                    keccak256(
-                        abi.encodePacked(
-                            bytes1(0xff),
-                            _factory,
-                            salt,
-                            keccak256(type(ProtocolRootCreate3ProxyV1).creationCode)
-                        )
-                    )
-                )
-            )
-        );
-        if (msg.sender != expectedProxy || address(this) != _createNonceOneAddress(expectedProxy)) {
-            revert InvalidProtocolRootDeployment();
-        }
-        _protocolRootFactoryRuntimeHash = _factoryRuntimeHash;
-        _protocolRootCampaignKey = _campaignKey;
     }
 
     /// @dev Authenticates one generic lifecycle facet before construction can finish.
@@ -3032,18 +2979,10 @@ contract BuilderRegistry is BuilderRegistryLogicV1, IProtocolRootActivationV1 {
         if (codeSize == 0) return bytes32(0);
     }
 
-    /// @dev Returns the CREATE address for a proxy whose first CREATE uses nonce one.
-    function _createNonceOneAddress(address _proxy) private pure returns (address component_) {
-        component_ =
-            address(uint160(uint256(keccak256(abi.encodePacked(hex"d694", _proxy, hex"01")))));
-    }
-
     error InvalidLifecycleFacetConfiguration();
-    error InvalidProtocolRootActivationConfig();
-    error InvalidProtocolRootDeployment();
+    error InvalidRegistryActivator();
     error LifecycleFacetCodeChanged();
     error LifecycleFacetReturnDataTooLarge();
-    error ProtocolRootAlreadyActive();
-    error ProtocolRootCampaignMismatch();
-    error UnauthorizedProtocolRootFactory();
+    error RegistryAlreadyActivated();
+    error UnauthorizedRegistryActivator();
 }

@@ -1,41 +1,29 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {
-    ProtocolRootCreate3ProxyV1
-} from "../../../../contracts/layer1/slotchain/root/ProtocolRootCreate3ProxyV1.sol";
+import { BuilderRegistry } from "../../../../contracts/layer1/slotchain/impl/BuilderRegistry.sol";
 import { SlotChainTypes } from "../../../../contracts/shared/slotchain/SlotChainTypes.sol";
-import {
-    IProtocolRootActivationV1
-} from "../../../../contracts/shared/slotchain/iface/IProtocolRootActivationV1.sol";
 import {
     LibSlotChainEncoding
 } from "../../../../contracts/shared/slotchain/libs/LibSlotChainEncoding.sol";
 
-contract BuilderRegistryRootFactoryHarness {
-    function deploy(
-        bytes32 _campaignKey,
-        uint8 _role,
-        bytes calldata _initCode
-    )
-        external
-        returns (address component_)
-    {
-        bytes32 salt = keccak256(
-            abi.encodePacked("slot-chain-protocol-root-component-v1", _campaignKey, _role)
-        );
-        ProtocolRootCreate3ProxyV1 proxy = new ProtocolRootCreate3ProxyV1{ salt: salt }();
-        component_ = proxy.deployV1(_initCode);
+/// @dev Deploys raw Registry init code with CREATE and doubles as the pinned activator.
+contract BuilderRegistryDeployHarness {
+    function deploy(bytes calldata _initCode) external returns (address deployed_) {
+        bytes memory initCode = _initCode;
+        assembly ("memory-safe") {
+            deployed_ := create(0, add(initCode, 32), mload(initCode))
+            if iszero(deployed_) {
+                let size := returndatasize()
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0, size)
+                revert(ptr, size)
+            }
+        }
     }
 
-    function activate(
-        address _component,
-        bytes32 _campaignKey
-    )
-        external
-        returns (bytes4 magic_)
-    {
-        return IProtocolRootActivationV1(_component).activateProtocolRootV1(_campaignKey);
+    function activate(address _registry) external {
+        BuilderRegistry(_registry).activateRegistryV1();
     }
 }
 

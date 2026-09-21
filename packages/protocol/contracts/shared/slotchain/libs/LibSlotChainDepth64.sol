@@ -4,7 +4,7 @@ pragma solidity 0.8.30;
 import { LibSlotChainConstants } from "./LibSlotChainConstants.sol";
 import { LibSlotChainEncoding } from "./LibSlotChainEncoding.sol";
 
-/// @title Slot Chain depth-64 vector algorithms
+/// @title Slot Chain depth-64 forced-vector algorithms
 /// @custom:security-contact security@taiko.xyz
 library LibSlotChainDepth64 {
     struct RangeState {
@@ -25,7 +25,19 @@ library LibSlotChainDepth64 {
         view
         returns (uint8 writeHeight_, bytes32 carriedNode_, uint64 newCount_, bytes32 newRoot_)
     {
-        return _previewAppend(_frontier, _count, _leaf, false);
+        if (_count == type(uint64).max) {
+            revert TreeCapacityExceeded();
+        }
+        carriedNode_ = _leaf;
+        while (((_count >> writeHeight_) & 1) == 1) {
+            carriedNode_ = LibSlotChainEncoding.hashForcedNode(
+                writeHeight_, _frontier[writeHeight_], carriedNode_
+            );
+            ++writeHeight_;
+        }
+        newCount_ = _count + 1;
+        bytes32 treeRoot = _frontierTreeRoot(_frontier, newCount_, true, writeHeight_, carriedNode_);
+        newRoot_ = LibSlotChainEncoding.hashForcedRoot(newCount_, treeRoot);
     }
 
     /// @dev Reconstructs the wrapped forced root while ignoring stale zero-bit words.
@@ -37,7 +49,7 @@ library LibSlotChainDepth64 {
         view
         returns (bytes32 root_)
     {
-        bytes32 treeRoot = _frontierTreeRoot(_frontier, _count, false, 0, bytes32(0), false);
+        bytes32 treeRoot = _frontierTreeRoot(_frontier, _count, false, 0, bytes32(0));
         return LibSlotChainEncoding.hashForcedRoot(_count, treeRoot);
     }
 
@@ -75,108 +87,29 @@ library LibSlotChainDepth64 {
             && LibSlotChainEncoding.hashForcedRoot(_count, treeRoot) == _expectedRoot;
     }
 
-    /// @dev Previews one terminal-tree append while reading only meaningful frontier words.
-    function previewTerminalAppend(
-        bytes32[64] storage _frontier,
-        uint64 _count,
-        bytes32 _leaf
-    )
-        internal
-        view
-        returns (uint8 writeHeight_, bytes32 carriedNode_, uint64 newCount_, bytes32 newRoot_)
-    {
-        return _previewAppend(_frontier, _count, _leaf, true);
-    }
-
-    /// @dev Reconstructs the wrapped terminal root while ignoring stale zero-bit words.
-    function terminalRoot(
-        bytes32[64] storage _frontier,
-        uint64 _count
-    )
-        internal
-        view
-        returns (bytes32 root_)
-    {
-        bytes32 treeRoot = _frontierTreeRoot(_frontier, _count, false, 0, bytes32(0), true);
-        return LibSlotChainEncoding.hashTerminalRoot(_count, treeRoot);
-    }
-
-    /// @dev Verifies one terminal leaf against exactly 64 bottom-up siblings.
-    function verifyTerminalInclusion(
-        uint64 _count,
-        uint64 _index,
-        bytes32 _leaf,
-        bytes32[64] memory _siblings,
-        bytes32 _expectedRoot
-    )
-        internal
-        pure
-        returns (bool valid_)
-    {
-        if (_index >= _count) return false;
-        bytes32 node = _leaf;
-        for (uint8 height; height < LibSlotChainConstants.TERMINAL_TREE_DEPTH; ++height) {
-            bytes32 sibling = _siblings[height];
-            node = ((_index >> height) & 1) == 1
-                ? LibSlotChainEncoding.hashTerminalNode(height, sibling, node)
-                : LibSlotChainEncoding.hashTerminalNode(height, node, sibling);
-        }
-        return LibSlotChainEncoding.hashTerminalRoot(_count, node) == _expectedRoot;
-    }
-
-    /// @dev Computes one append carry and virtually substitutes its sole frontier write.
-    function _previewAppend(
-        bytes32[64] storage _frontier,
-        uint64 _count,
-        bytes32 _leaf,
-        bool _terminal
-    )
-        private
-        view
-        returns (uint8 writeHeight_, bytes32 carriedNode_, uint64 newCount_, bytes32 newRoot_)
-    {
-        if (_count == type(uint64).max) {
-            revert TreeCapacityExceeded();
-        }
-        carriedNode_ = _leaf;
-        while (((_count >> writeHeight_) & 1) == 1) {
-            carriedNode_ = _hashNode(writeHeight_, _frontier[writeHeight_], carriedNode_, _terminal);
-            ++writeHeight_;
-        }
-        newCount_ = _count + 1;
-        bytes32 treeRoot =
-            _frontierTreeRoot(_frontier, newCount_, true, writeHeight_, carriedNode_, _terminal);
-        newRoot_ = _terminal
-            ? LibSlotChainEncoding.hashTerminalRoot(newCount_, treeRoot)
-            : LibSlotChainEncoding.hashForcedRoot(newCount_, treeRoot);
-    }
-
-    /// @dev Folds one frontier and canonical empty right subtrees for the selected fixed domain.
+    /// @dev Folds one frontier and canonical empty right subtrees under the forced domains.
     function _frontierTreeRoot(
         bytes32[64] storage _frontier,
         uint64 _count,
         bool _hasOverride,
         uint8 _overrideHeight,
-        bytes32 _overrideNode,
-        bool _terminal
+        bytes32 _overrideNode
     )
         private
         view
         returns (bytes32 node_)
     {
-        bytes32 empty = _terminal
-            ? LibSlotChainEncoding.hashTerminalEmptyLeaf()
-            : LibSlotChainEncoding.hashForcedEmptyLeaf();
+        bytes32 empty = LibSlotChainEncoding.hashForcedEmptyLeaf();
         node_ = empty;
         for (uint8 height; height < 64; ++height) {
             if (((_count >> height) & 1) == 1) {
                 bytes32 left =
                     _hasOverride && height == _overrideHeight ? _overrideNode : _frontier[height];
-                node_ = _hashNode(height, left, node_, _terminal);
+                node_ = LibSlotChainEncoding.hashForcedNode(height, left, node_);
             } else {
-                node_ = _hashNode(height, node_, empty, _terminal);
+                node_ = LibSlotChainEncoding.hashForcedNode(height, node_, empty);
             }
-            empty = _hashNode(height, empty, empty, _terminal);
+            empty = LibSlotChainEncoding.hashForcedNode(height, empty, empty);
         }
     }
 
@@ -219,22 +152,6 @@ library LibSlotChainDepth64 {
             _visitForcedRange(_height - 1, _nodeIndex * 2 + 1, _revealed, _proof, _state);
         if (!_state.valid) return bytes32(0);
         return LibSlotChainEncoding.hashForcedNode(_height - 1, leftNode, rightNode);
-    }
-
-    /// @dev Hashes one node without exposing the domain selector to callers.
-    function _hashNode(
-        uint8 _height,
-        bytes32 _left,
-        bytes32 _right,
-        bool _terminal
-    )
-        private
-        pure
-        returns (bytes32 node_)
-    {
-        return _terminal
-            ? LibSlotChainEncoding.hashTerminalNode(_height, _left, _right)
-            : LibSlotChainEncoding.hashForcedNode(_height, _left, _right);
     }
 
     error TreeCapacityExceeded();

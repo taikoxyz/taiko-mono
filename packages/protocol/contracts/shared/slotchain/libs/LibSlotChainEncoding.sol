@@ -73,9 +73,7 @@ library LibSlotChainEncoding {
                 _core.messageCursor,
                 _core.winningDataCommitment,
                 _core.nextBaseFee,
-                _core.nextExcessBlobGas,
-                _core.terminalRoot,
-                _core.terminalCount
+                _core.nextExcessBlobGas
             )
         );
     }
@@ -116,32 +114,6 @@ library LibSlotChainEncoding {
                 _admissionRoot,
                 _anchorNumber,
                 _anchorHash
-            )
-        );
-    }
-
-    /// @dev Hashes the data imported by a settlement-version migration.
-    function hashMigrationData(
-        uint256 _settlementChainId,
-        uint256 _l2ChainId,
-        bytes32 _tipHash,
-        bytes32 _stateRoot,
-        bytes32 _terminalRoot,
-        uint64 _terminalCount
-    )
-        internal
-        pure
-        returns (bytes32 hash_)
-    {
-        return keccak256(
-            abi.encodePacked(
-                LibSlotChainConstants.MIGRATION_DATA_DOMAIN,
-                _settlementChainId,
-                _l2ChainId,
-                _tipHash,
-                _stateRoot,
-                _terminalRoot,
-                _terminalCount
             )
         );
     }
@@ -265,14 +237,12 @@ library LibSlotChainEncoding {
                 _outputs.transactionsRoot,
                 _outputs.receiptsRoot,
                 _outputs.logsBloomHash,
-                _outputs.withdrawalsRoot,
-                _outputs.terminalRoot,
-                _outputs.terminalCount
+                _outputs.withdrawalsRoot
             )
         );
     }
 
-    /// @dev Hashes the exact 45-word settlement statement tuple.
+    /// @dev Hashes the exact 41-word settlement statement tuple.
     function hashSettlementStatement(SlotChainTypes.SettlementStatementV2 memory _statement)
         internal
         pure
@@ -280,6 +250,14 @@ library LibSlotChainEncoding {
     {
         return keccak256(
             bytes.concat(bytes(LibSlotChainConstants.STATEMENT_DOMAIN), abi.encode(_statement))
+        );
+    }
+
+    /// @dev Hashes the settlement-validity public-input schema identity that every settlement
+    ///      verifier descriptor must pin.
+    function hashSettlementValidityPublicInputSchema() internal pure returns (bytes32 hash_) {
+        return keccak256(
+            bytes(LibSlotChainConstants.SETTLEMENT_VALIDITY_PUBLIC_INPUT_SCHEMA_DOMAIN)
         );
     }
 
@@ -541,22 +519,8 @@ library LibSlotChainEncoding {
         assert(encoded_.length == LibSlotChainConstants.KIND0_FORCED_DESCRIPTOR_LENGTH);
     }
 
-    /// @dev Encodes the exact 541-byte kind-1 forced descriptor.
-    function encodeKind1Descriptor(SlotChainTypes.Kind1ForcedDescriptorV11 memory _descriptor)
-        internal
-        pure
-        returns (bytes memory encoded_)
-    {
-        _requireValidKind1Terms(_descriptor);
-        encoded_ = new bytes(LibSlotChainConstants.KIND1_FORCED_DESCRIPTOR_LENGTH);
-        uint256 offset = _writeKind1Identity(encoded_, _descriptor);
-        offset = _writeKind1ValueTerms(encoded_, offset, _descriptor);
-        offset = _writeKind1QueueTerms(encoded_, offset, _descriptor);
-        assert(offset == encoded_.length);
-    }
-
     /// @dev Encodes the exact 204-byte kind-0 admission body: the durable descriptor without the
-    ///      Router-owned `enqueuedAt` and `dueAt` words.
+    ///      queue-owned `enqueuedAt` and `dueAt` words.
     function encodeKind0Admission(SlotChainTypes.Kind0ForcedAdmissionV2 memory _admission)
         internal
         pure
@@ -578,28 +542,8 @@ library LibSlotChainEncoding {
         assert(encoded_.length == LibSlotChainConstants.KIND0_FORCED_ADMISSION_LENGTH);
     }
 
-    /// @dev Encodes the exact 525-byte kind-1 admission body under the durable descriptor's
-    ///      refund and liquidity rules.
-    function encodeKind1Admission(SlotChainTypes.Kind1ForcedAdmissionV11 memory _admission)
-        internal
-        pure
-        returns (bytes memory encoded_)
-    {
-        SlotChainTypes.Kind1ForcedDescriptorV11 memory descriptor =
-            toKind1Descriptor(_admission, 0, 0);
-        _requireValidKind1Terms(descriptor);
-        encoded_ = new bytes(LibSlotChainConstants.KIND1_FORCED_ADMISSION_LENGTH);
-        uint256 offset = _writeKind1Identity(encoded_, descriptor);
-        offset = _writeKind1ValueTerms(encoded_, offset, descriptor);
-        offset = _writeU32(encoded_, offset, descriptor.byteLength);
-        offset = _writeU64(encoded_, offset, descriptor.accountedGas);
-        offset = _writeAddress(encoded_, offset, descriptor.refundAddress);
-        offset = _writeU256(encoded_, offset, descriptor.deposit);
-        assert(offset == encoded_.length);
-    }
-
-    /// @dev Inserts the Router's live `enqueuedAt` and `dueAt` words immediately before the final
-    ///      deposit word of a kind-0 admission body, yielding the durable Queue descriptor.
+    /// @dev Inserts the queue's live `enqueuedAt` and `dueAt` words immediately before the final
+    ///      deposit word of a kind-0 admission body, yielding the durable queue descriptor.
     function toKind0Descriptor(
         SlotChainTypes.Kind0ForcedAdmissionV2 memory _admission,
         uint64 _enqueuedAt,
@@ -626,56 +570,9 @@ library LibSlotChainEncoding {
         });
     }
 
-    /// @dev Inserts the Router's live `enqueuedAt` and `dueAt` words immediately before the final
-    ///      deposit word of a kind-1 admission body, yielding the durable Queue descriptor.
-    function toKind1Descriptor(
-        SlotChainTypes.Kind1ForcedAdmissionV11 memory _admission,
-        uint64 _enqueuedAt,
-        uint64 _dueAt
-    )
-        internal
-        pure
-        returns (SlotChainTypes.Kind1ForcedDescriptorV11 memory descriptor_)
-    {
-        descriptor_ = SlotChainTypes.Kind1ForcedDescriptorV11({
-            msgHash: _admission.msgHash,
-            srcChainId: _admission.srcChainId,
-            sourceDomainId: _admission.sourceDomainId,
-            srcEpoch: _admission.srcEpoch,
-            srcBridge: _admission.srcBridge,
-            bridgeExecutionHash: _admission.bridgeExecutionHash,
-            emittedAtBlock: _admission.emittedAtBlock,
-            destinationDomainId: _admission.destinationDomainId,
-            destChainId: _admission.destChainId,
-            enqueueBy: _admission.enqueueBy,
-            sender: _admission.sender,
-            srcOwner: _admission.srcOwner,
-            destOwner: _admission.destOwner,
-            value: _admission.value,
-            fee: _admission.fee,
-            liquidityFee: _admission.liquidityFee,
-            calldataHash: _admission.calldataHash,
-            refundMode: _admission.refundMode,
-            refundVault: _admission.refundVault,
-            refundCapsuleHash: _admission.refundCapsuleHash,
-            escrowId: _admission.escrowId,
-            byteLength: _admission.byteLength,
-            accountedGas: _admission.accountedGas,
-            refundAddress: _admission.refundAddress,
-            enqueuedAt: _enqueuedAt,
-            dueAt: _dueAt,
-            deposit: _admission.deposit
-        });
-    }
-
     /// @dev Hashes the kind-0 admission schema identity.
     function hashKind0AdmissionSchema() internal pure returns (bytes32 hash_) {
         return keccak256(bytes(LibSlotChainConstants.FORCE_USER_ADMISSION_DOMAIN));
-    }
-
-    /// @dev Hashes the kind-1 admission schema identity.
-    function hashKind1AdmissionSchema() internal pure returns (bytes32 hash_) {
-        return keccak256(bytes(LibSlotChainConstants.FORCE_BRIDGE_ADMISSION_DOMAIN));
     }
 
     /// @dev Hashes the forced descriptor schema identity.
@@ -731,24 +628,6 @@ library LibSlotChainEncoding {
                 bytes(LibSlotChainConstants.FORCE_USER_DOMAIN),
                 bytes8(_index),
                 encodeKind0Descriptor(_descriptor)
-            )
-        );
-    }
-
-    /// @dev Hashes a kind-1 forced-message leaf.
-    function hashForcedBridgeLeaf(
-        uint64 _index,
-        SlotChainTypes.Kind1ForcedDescriptorV11 memory _descriptor
-    )
-        internal
-        pure
-        returns (bytes32 hash_)
-    {
-        return keccak256(
-            bytes.concat(
-                bytes(LibSlotChainConstants.FORCE_BRIDGE_DOMAIN),
-                bytes8(_index),
-                encodeKind1Descriptor(_descriptor)
             )
         );
     }
@@ -1044,43 +923,6 @@ library LibSlotChainEncoding {
         );
     }
 
-    /// @dev Hashes a bounded contiguous disposition list with checked exclusive-end arithmetic.
-    function hashDispositions(
-        uint64 _start,
-        SlotChainTypes.DispositionV1[] memory _rows
-    )
-        internal
-        pure
-        returns (bytes32 hash_)
-    {
-        uint256 count = _rows.length;
-        if (
-            count > LibSlotChainConstants.MAX_DISPOSITION_ROWS
-                || count > uint256(type(uint64).max) - uint256(_start)
-        ) {
-            revert InvalidDispositionRange();
-        }
-        uint64 end = uint64(uint256(_start) + count);
-        bytes memory domain = bytes(LibSlotChainConstants.DISPOSITIONS_DOMAIN);
-        bytes memory preimage = new bytes(domain.length + 8 + 8 + 2 + count * 45);
-        uint256 offset = _writeBytes(preimage, 0, domain);
-        offset = _writeU64(preimage, offset, _start);
-        offset = _writeU64(preimage, offset, end);
-        offset = _writeU16(preimage, offset, uint16(count));
-        for (uint256 i; i < count; ++i) {
-            SlotChainTypes.DispositionV1 memory row = _rows[i];
-            uint64 expectedIndex = uint64(uint256(_start) + i);
-            if (row.queueIndex != expectedIndex) revert NonContiguousDisposition(i);
-            if (!_validDispositionFields(row)) revert InvalidDisposition(i);
-            offset = _writeU64(preimage, offset, row.queueIndex);
-            offset = _writeU8(preimage, offset, row.disposition);
-            offset = _writeU32(preimage, offset, row.txIndex);
-            offset = _writeBytes32(preimage, offset, row.resultHash);
-        }
-        assert(offset == preimage.length);
-        return keccak256(preimage);
-    }
-
     /// @dev Hashes the complete recovery identity tuple.
     function hashRecoveryId(SlotChainTypes.RecoveryContextV2 memory _context)
         internal
@@ -1108,330 +950,6 @@ library LibSlotChainEncoding {
         return keccak256(preimage);
     }
 
-    /// @dev Hashes the fixed EIP-712 source context tuple after enforcing the kind-1 domain.
-    function hashSourceContext(SlotChainTypes.SourceContextV2 memory _context)
-        internal
-        pure
-        returns (bytes32 hash_)
-    {
-        if (
-            _context.protocolVersion == 0
-                || _context.kind != LibSlotChainConstants.KIND_BRIDGE_CREDIT
-        ) {
-            revert InvalidSourceContext();
-        }
-        return keccak256(
-            bytes.concat(LibSlotChainConstants.SOURCE_CONTEXT_TYPEHASH, abi.encode(_context))
-        );
-    }
-
-    /// @dev Hashes the fixed EIP-712 destination context tuple.
-    function hashDestinationContext(SlotChainTypes.DestinationContextV2 memory _context)
-        internal
-        pure
-        returns (bytes32 hash_)
-    {
-        return keccak256(
-            bytes.concat(LibSlotChainConstants.DESTINATION_CONTEXT_TYPEHASH, abi.encode(_context))
-        );
-    }
-
-    /// @dev Hashes the fixed source-domain identity.
-    function hashSourceDomain(SlotChainTypes.SourceDomainV4 memory _domain)
-        internal
-        pure
-        returns (bytes32 hash_)
-    {
-        if (
-            _domain.genesisHash == bytes32(0) || _domain.creditRegistry == address(0)
-                || _domain.terminalVerifier == address(0) || _domain.bridge == address(0)
-                || _domain.bridgeExecutionHash == bytes32(0)
-                || _domain.registryNamespace == bytes32(0)
-        ) {
-            revert InvalidSourceDomain();
-        }
-        return keccak256(
-            abi.encodePacked(
-                LibSlotChainConstants.SOURCE_DOMAIN_DOMAIN,
-                _domain.sourceChainId,
-                _domain.genesisHash,
-                _domain.creditRegistry,
-                _domain.terminalVerifier,
-                _domain.bridge,
-                _domain.bridgeExecutionHash,
-                _domain.registryNamespace
-            )
-        );
-    }
-
-    /// @dev Hashes the fixed destination-domain identity.
-    function hashDestinationDomain(SlotChainTypes.DestinationDomainV7 memory _domain)
-        internal
-        pure
-        returns (bytes32 hash_)
-    {
-        if (
-            _domain.genesisHash == bytes32(0) || _domain.bridgeInboxAdapter == address(0)
-                || _domain.activeSettlementRouter == address(0)
-                || _domain.terminalVerifier == address(0) || _domain.inboxApply == address(0)
-                || _domain.inboxCreditStore == address(0)
-                || _domain.protocolReleaseAuthority == address(0)
-                || _domain.terminalDomainRegistrar == address(0)
-                || _domain.terminalAccumulator == address(0)
-                || _domain.nativeLiquidityPool == address(0) || _domain.bridge == address(0)
-                || _domain.bridgeExecutionHash == bytes32(0)
-                || _domain.infrastructureHash == bytes32(0) || _domain.namespace == bytes32(0)
-        ) {
-            revert InvalidDestinationDomain();
-        }
-        bytes memory domain = bytes(LibSlotChainConstants.DESTINATION_DOMAIN_DOMAIN);
-        bytes memory preimage = new bytes(domain.length + 336);
-        uint256 offset = _writeBytes(preimage, 0, domain);
-        offset = _writeU64(preimage, offset, _domain.destinationChainId);
-        offset = _writeBytes32(preimage, offset, _domain.genesisHash);
-        offset = _writeAddress(preimage, offset, _domain.bridgeInboxAdapter);
-        offset = _writeAddress(preimage, offset, _domain.activeSettlementRouter);
-        offset = _writeAddress(preimage, offset, _domain.terminalVerifier);
-        offset = _writeAddress(preimage, offset, _domain.inboxApply);
-        offset = _writeAddress(preimage, offset, _domain.inboxCreditStore);
-        offset = _writeAddress(preimage, offset, _domain.protocolReleaseAuthority);
-        offset = _writeAddress(preimage, offset, _domain.terminalDomainRegistrar);
-        offset = _writeAddress(preimage, offset, _domain.terminalAccumulator);
-        offset = _writeAddress(preimage, offset, _domain.nativeLiquidityPool);
-        offset = _writeAddress(preimage, offset, _domain.bridge);
-        offset = _writeBytes32(preimage, offset, _domain.bridgeExecutionHash);
-        offset = _writeBytes32(preimage, offset, _domain.infrastructureHash);
-        offset = _writeBytes32(preimage, offset, _domain.namespace);
-        assert(offset == preimage.length);
-        return keccak256(preimage);
-    }
-
-    /// @dev Derives the canonical bridge-credit identity.
-    function hashBridgeCreditId(
-        uint64 _sourceChainId,
-        bytes32 _sourceDomainId,
-        uint64 _sourceEpoch,
-        address _sourceBridge,
-        bytes32 _destinationDomainId,
-        bytes32 _messageHash,
-        uint64 _liquidityFee
-    )
-        internal
-        pure
-        returns (bytes32 hash_)
-    {
-        if (_liquidityFee == 0) revert InvalidBridgeCredit();
-        return keccak256(
-            abi.encodePacked(
-                LibSlotChainConstants.BRIDGE_CREDIT_ID_DOMAIN,
-                _sourceChainId,
-                _sourceDomainId,
-                _sourceEpoch,
-                _sourceBridge,
-                _destinationDomainId,
-                _messageHash,
-                _liquidityFee
-            )
-        );
-    }
-
-    /// @dev Hashes the fixed bridge-credit result committed by a kind-1 forced row.
-    function hashBridgeCreditResult(
-        uint64 _index,
-        SlotChainTypes.Kind1ForcedDescriptorV11 memory _descriptor
-    )
-        internal
-        pure
-        returns (bytes32 hash_)
-    {
-        if (_descriptor.srcChainId > type(uint64).max) revert InvalidBridgeCredit();
-        bytes32 creditId = hashBridgeCreditId(
-            uint64(_descriptor.srcChainId),
-            _descriptor.sourceDomainId,
-            _descriptor.srcEpoch,
-            _descriptor.srcBridge,
-            _descriptor.destinationDomainId,
-            _descriptor.msgHash,
-            _descriptor.liquidityFee
-        );
-        bytes memory descriptor = encodeKind1Descriptor(_descriptor);
-        uint256 resultDescriptorLength = descriptor.length - 80;
-        bytes memory domain = bytes(LibSlotChainConstants.BRIDGE_RESULT_DOMAIN);
-        bytes memory preimage = new bytes(domain.length + 8 + 32 + resultDescriptorLength);
-        uint256 offset = _writeBytes(preimage, 0, domain);
-        offset = _writeU64(preimage, offset, _index);
-        offset = _writeBytes32(preimage, offset, creditId);
-        assembly ("memory-safe") {
-            mcopy(add(add(preimage, 0x20), offset), add(descriptor, 0x20), resultDescriptorLength)
-        }
-        return keccak256(preimage);
-    }
-
-    /// @dev Derives the canonical source Bridge escrow key.
-    function hashBridgeEscrowId(bytes32 _creditId) internal pure returns (bytes32 hash_) {
-        return keccak256(abi.encodePacked(LibSlotChainConstants.BRIDGE_ESCROW_DOMAIN, _creditId));
-    }
-
-    /// @dev Derives the exact inbox-credit storage slot.
-    function hashInboxCreditSlot(bytes32 _creditId) internal pure returns (bytes32 hash_) {
-        if (_creditId == bytes32(0)) revert InvalidBridgeCredit();
-        return
-            keccak256(abi.encodePacked(LibSlotChainConstants.INBOX_CREDIT_SLOT_DOMAIN, _creditId));
-    }
-
-    /// @dev Hashes one terminal credit leaf after enforcing settlement/terminal consistency.
-    function hashTerminalLeaf(
-        uint64 _index,
-        bytes32 _destinationDomainId,
-        address _destinationBridge,
-        bytes32 _creditId,
-        uint8 _terminal,
-        bytes32 _liquiditySettlementHash
-    )
-        internal
-        pure
-        returns (bytes32 hash_)
-    {
-        if (
-            (_terminal == uint8(SlotChainTypes.TerminalState.DONE)
-                    && _liquiditySettlementHash == bytes32(0))
-                || (_terminal == uint8(SlotChainTypes.TerminalState.FAILED)
-                    && _liquiditySettlementHash != bytes32(0))
-                || _terminal < uint8(SlotChainTypes.TerminalState.DONE)
-                || _terminal > uint8(SlotChainTypes.TerminalState.FAILED)
-        ) {
-            revert InvalidTerminalLeaf();
-        }
-        return keccak256(
-            abi.encodePacked(
-                LibSlotChainConstants.TERMINAL_LEAF_DOMAIN,
-                _index,
-                _destinationDomainId,
-                _destinationBridge,
-                _creditId,
-                _terminal,
-                _liquiditySettlementHash
-            )
-        );
-    }
-
-    /// @dev Hashes the canonical empty terminal leaf.
-    function hashTerminalEmptyLeaf() internal pure returns (bytes32 hash_) {
-        return keccak256(bytes(LibSlotChainConstants.TERMINAL_EMPTY_DOMAIN));
-    }
-
-    /// @dev Hashes one terminal tree node.
-    function hashTerminalNode(
-        uint8 _height,
-        bytes32 _left,
-        bytes32 _right
-    )
-        internal
-        pure
-        returns (bytes32 hash_)
-    {
-        if (_height >= LibSlotChainConstants.TERMINAL_TREE_DEPTH) revert InvalidNodeHeight();
-        return _hashNode(LibSlotChainConstants.TERMINAL_NODE_DOMAIN, _height, _left, _right);
-    }
-
-    /// @dev Binds a terminal tree root to its occupied leaf count.
-    function hashTerminalRoot(
-        uint64 _count,
-        bytes32 _treeRoot
-    )
-        internal
-        pure
-        returns (bytes32 hash_)
-    {
-        return keccak256(
-            abi.encodePacked(LibSlotChainConstants.TERMINAL_ROOT_DOMAIN, _count, _treeRoot)
-        );
-    }
-
-    /// @dev Hashes a successful liquidity settlement tuple.
-    function hashLiquiditySettlement(SlotChainTypes.LiquiditySettlementV1 memory _settlement)
-        internal
-        pure
-        returns (bytes32 hash_)
-    {
-        if (
-            _settlement.ticketId == bytes32(0) || _settlement.l1Recipient == address(0)
-                || _settlement.settlementAmount == 0
-        ) {
-            revert InvalidLiquiditySettlement();
-        }
-        return keccak256(
-            abi.encodePacked(
-                LibSlotChainConstants.LIQUIDITY_SETTLEMENT_DOMAIN,
-                _settlement.ticketId,
-                _settlement.l1Recipient,
-                _settlement.settlementAmount
-            )
-        );
-    }
-
-    /// @dev Writes the identity prefix of one kind-1 descriptor.
-    function _writeKind1Identity(
-        bytes memory _output,
-        SlotChainTypes.Kind1ForcedDescriptorV11 memory _descriptor
-    )
-        private
-        pure
-        returns (uint256 offset_)
-    {
-        offset_ = _writeBytes32(_output, 0, _descriptor.msgHash);
-        offset_ = _writeU256(_output, offset_, _descriptor.srcChainId);
-        offset_ = _writeBytes32(_output, offset_, _descriptor.sourceDomainId);
-        offset_ = _writeU64(_output, offset_, _descriptor.srcEpoch);
-        offset_ = _writeAddress(_output, offset_, _descriptor.srcBridge);
-        offset_ = _writeBytes32(_output, offset_, _descriptor.bridgeExecutionHash);
-        offset_ = _writeU64(_output, offset_, _descriptor.emittedAtBlock);
-        offset_ = _writeBytes32(_output, offset_, _descriptor.destinationDomainId);
-        offset_ = _writeU256(_output, offset_, _descriptor.destChainId);
-    }
-
-    /// @dev Writes the ownership and value terms of one kind-1 descriptor.
-    function _writeKind1ValueTerms(
-        bytes memory _output,
-        uint256 _offset,
-        SlotChainTypes.Kind1ForcedDescriptorV11 memory _descriptor
-    )
-        private
-        pure
-        returns (uint256 offset_)
-    {
-        offset_ = _writeU64(_output, _offset, _descriptor.enqueueBy);
-        offset_ = _writeAddress(_output, offset_, _descriptor.sender);
-        offset_ = _writeAddress(_output, offset_, _descriptor.srcOwner);
-        offset_ = _writeAddress(_output, offset_, _descriptor.destOwner);
-        offset_ = _writeU256(_output, offset_, _descriptor.value);
-        offset_ = _writeU64(_output, offset_, _descriptor.fee);
-        offset_ = _writeU64(_output, offset_, _descriptor.liquidityFee);
-        offset_ = _writeBytes32(_output, offset_, _descriptor.calldataHash);
-        offset_ = _writeU8(_output, offset_, _descriptor.refundMode);
-        offset_ = _writeAddress(_output, offset_, _descriptor.refundVault);
-        offset_ = _writeBytes32(_output, offset_, _descriptor.refundCapsuleHash);
-        offset_ = _writeBytes32(_output, offset_, _descriptor.escrowId);
-    }
-
-    /// @dev Writes the queue-accounting suffix of one kind-1 descriptor.
-    function _writeKind1QueueTerms(
-        bytes memory _output,
-        uint256 _offset,
-        SlotChainTypes.Kind1ForcedDescriptorV11 memory _descriptor
-    )
-        private
-        pure
-        returns (uint256 offset_)
-    {
-        offset_ = _writeU32(_output, _offset, _descriptor.byteLength);
-        offset_ = _writeU64(_output, offset_, _descriptor.accountedGas);
-        offset_ = _writeAddress(_output, offset_, _descriptor.refundAddress);
-        offset_ = _writeU64(_output, offset_, _descriptor.enqueuedAt);
-        offset_ = _writeU64(_output, offset_, _descriptor.dueAt);
-        offset_ = _writeU256(_output, offset_, _descriptor.deposit);
-    }
-
     /// @dev Hashes a domain-separated binary node.
     function _hashNode(
         string memory _domain,
@@ -1446,43 +964,7 @@ library LibSlotChainEncoding {
         return keccak256(abi.encodePacked(_domain, _height, _left, _right));
     }
 
-    /// @dev Requires the refund, liquidity, and value invariants shared by kind-1 bodies.
-    function _requireValidKind1Terms(SlotChainTypes.Kind1ForcedDescriptorV11 memory _descriptor)
-        private
-        pure
-    {
-        if (
-            _descriptor.liquidityFee == 0
-                || _descriptor.refundMode != LibSlotChainConstants.REFUND_MODE_DIRECT
-                || _descriptor.refundVault != address(0)
-                || _descriptor.refundCapsuleHash != bytes32(0)
-                || (_descriptor.value == 0 && _descriptor.fee == 0)
-                || _descriptor.value > type(uint256).max - _descriptor.fee
-        ) {
-            revert InvalidKind1Descriptor();
-        }
-    }
-
-    /// @dev Applies the normative disposition field rules: no-transaction codes 0-3 and 6 carry
-    ///      the sentinel index and a zero result, code 4 carries an exact transaction index, and
-    ///      the kind-1-only code 5 carries the sentinel index.
-    function _validDispositionFields(SlotChainTypes.DispositionV1 memory _row)
-        private
-        pure
-        returns (bool valid_)
-    {
-        uint8 code = _row.disposition;
-        if (code == uint8(SlotChainTypes.Disposition.INCLUDED_TX)) {
-            return _row.txIndex != type(uint32).max;
-        }
-        if (code == uint8(SlotChainTypes.Disposition.BRIDGE_CREDIT)) {
-            return _row.txIndex == type(uint32).max;
-        }
-        if (code > uint8(SlotChainTypes.Disposition.INVALID_NO_TX)) return false;
-        return _row.txIndex == type(uint32).max && _row.resultHash == bytes32(0);
-    }
-
-    /// @dev Validates one forced-descriptor row and returns its encoded byte length.
+    /// @dev Validates one kind-0 forced-descriptor row and returns its encoded byte length.
     function _validatedForcedRowLength(
         SlotChainTypes.ForcedDescriptorRowV2 memory _row,
         uint64 _start,
@@ -1495,21 +977,16 @@ library LibSlotChainEncoding {
         if (_row.index != uint64(uint256(_start) + _offset)) {
             revert NonContiguousForcedDescriptor(_offset);
         }
-        uint256 expectedLength;
-        if (_row.kind == LibSlotChainConstants.KIND_USER_TRANSACTION) {
-            expectedLength = LibSlotChainConstants.KIND0_FORCED_DESCRIPTOR_LENGTH;
-        } else if (_row.kind == LibSlotChainConstants.KIND_BRIDGE_CREDIT) {
-            expectedLength = LibSlotChainConstants.KIND1_FORCED_DESCRIPTOR_LENGTH;
-        } else {
+        if (_row.kind != LibSlotChainConstants.KIND_USER_TRANSACTION) {
             revert InvalidForcedDescriptorKind(_offset);
         }
-        if (_row.descriptorBytes.length != expectedLength) {
+        if (_row.descriptorBytes.length != LibSlotChainConstants.KIND0_FORCED_DESCRIPTOR_LENGTH) {
             revert InvalidForcedDescriptorLength(_offset);
         }
-        return 11 + expectedLength;
+        return 11 + LibSlotChainConstants.KIND0_FORCED_DESCRIPTOR_LENGTH;
     }
 
-    /// @dev Writes one already validated forced-descriptor row.
+    /// @dev Writes one already validated kind-0 forced-descriptor row.
     function _writeForcedRow(
         bytes memory _output,
         uint256 _offset,
@@ -1673,7 +1150,6 @@ library LibSlotChainEncoding {
     error InvalidAdmissionLocation();
     error InvalidTrancheState();
     error InvalidNodeHeight();
-    error InvalidKind1Descriptor();
     error InvalidForcedRange();
     error NonContiguousForcedDescriptor(uint256 index);
     error InvalidForcedDescriptorKind(uint256 index);
@@ -1684,14 +1160,5 @@ library LibSlotChainEncoding {
     error InvalidManifestBlockOrdinal(uint256 position);
     error InvalidManifestCount();
     error InvalidManifestEmptyRoot();
-    error InvalidDispositionRange();
-    error NonContiguousDisposition(uint256 index);
-    error InvalidDisposition(uint256 index);
-    error InvalidTerminalLeaf();
-    error InvalidLiquiditySettlement();
-    error InvalidSourceContext();
-    error InvalidSourceDomain();
-    error InvalidDestinationDomain();
-    error InvalidBridgeCredit();
     error EncodingBufferOverflow();
 }

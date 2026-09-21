@@ -7,11 +7,16 @@ import { LibBuilderRegistry } from "../libs/LibBuilderRegistry.sol";
 
 /// @title Shared Slot Chain builder-registry storage schema
 /// @dev The Registry and its immutable execution facets must inherit this contract directly and
-///      must pass the release storage-layout digest gate. It deliberately contains no functions.
+///      must pass the pinned storage-layout digest gate. It deliberately contains no functions.
+/// @custom:security-contact security@taiko.xyz
 abstract contract BuilderRegistryStorageV1 {
-    // These first three slots exactly mirror ProtocolRootComponentV1's storage prefix.
+    // Slots 0 and 1 are retained, always-zero words that keep the pinned physical layout stable:
+    // the layout digest covers variable labels and the lifecycle-facet configuration hashes are
+    // derived from that digest, so the labels stay verbatim although nothing writes them.
     bytes32 internal _protocolRootFactoryRuntimeHash;
     bytes32 internal _protocolRootCampaignKey;
+    // Slot 2, byte 0: the one-shot Registry activation flag (0 = inactive, 1 = activated), set
+    // once by `BuilderRegistry.activateRegistryV1()`.
     uint8 internal _protocolRootActivationState;
 
     // Writerless proof-verifier descriptor. Storage, rather than immutable bytecode, is required

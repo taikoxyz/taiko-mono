@@ -22,7 +22,6 @@ import { Test } from "forge-std/src/Test.sol";
 
 contract SlotChainTreesHarness {
     bytes32[64] private _forcedFrontier;
-    bytes32[64] private _terminalFrontier;
     bytes32[12] private _dataPeaks;
 
     function emptyRegistryRoot() external pure returns (bytes32) {
@@ -165,10 +164,6 @@ contract SlotChainTreesHarness {
         _forcedFrontier[_height] = _node;
     }
 
-    function setTerminalFrontier(uint8 _height, bytes32 _node) external {
-        _terminalFrontier[_height] = _node;
-    }
-
     function setDataPeak(uint8 _height, bytes32 _node) external {
         _dataPeaks[_height] = _node;
     }
@@ -176,12 +171,6 @@ contract SlotChainTreesHarness {
     function forcedFrontier() external view returns (bytes32[64] memory frontier_) {
         for (uint8 height; height < 64; ++height) {
             frontier_[height] = _forcedFrontier[height];
-        }
-    }
-
-    function terminalFrontier() external view returns (bytes32[64] memory frontier_) {
-        for (uint8 height; height < 64; ++height) {
-            frontier_[height] = _terminalFrontier[height];
         }
     }
 
@@ -231,49 +220,6 @@ contract SlotChainTreesHarness {
     {
         return
             LibSlotChainDepth64.verifyForcedRange(_count, _start, _revealed, _proof, _expectedRoot);
-    }
-
-    function previewTerminalAppend(
-        uint64 _count,
-        bytes32 _leaf
-    )
-        external
-        view
-        returns (uint8, bytes32, uint64, bytes32)
-    {
-        return LibSlotChainDepth64.previewTerminalAppend(_terminalFrontier, _count, _leaf);
-    }
-
-    function applyTerminalAppend(
-        uint64 _count,
-        bytes32 _leaf
-    )
-        external
-        returns (uint8 writeHeight_, bytes32 carriedNode_, uint64 newCount_, bytes32 newRoot_)
-    {
-        (writeHeight_, carriedNode_, newCount_, newRoot_) =
-            LibSlotChainDepth64.previewTerminalAppend(_terminalFrontier, _count, _leaf);
-        _terminalFrontier[writeHeight_] = carriedNode_;
-    }
-
-    function terminalRoot(uint64 _count) external view returns (bytes32) {
-        return LibSlotChainDepth64.terminalRoot(_terminalFrontier, _count);
-    }
-
-    function verifyTerminalInclusion(
-        uint64 _count,
-        uint64 _index,
-        bytes32 _leaf,
-        bytes32[64] memory _siblings,
-        bytes32 _expectedRoot
-    )
-        external
-        pure
-        returns (bool)
-    {
-        return LibSlotChainDepth64.verifyTerminalInclusion(
-            _count, _index, _leaf, _siblings, _expectedRoot
-        );
     }
 
     function previewDataAppend(
@@ -404,18 +350,6 @@ contract SlotChainTreesHarness {
         return LibSlotChainEncoding.hashManifestNode(_height, _left, _right);
     }
 
-    function hashTerminalNode(
-        uint8 _height,
-        bytes32 _left,
-        bytes32 _right
-    )
-        external
-        pure
-        returns (bytes32)
-    {
-        return LibSlotChainEncoding.hashTerminalNode(_height, _left, _right);
-    }
-
     function manifestRoot(
         uint16 _expectedBlockOrdinal,
         SlotChainTypes.ManifestEntryV1[] calldata _entries
@@ -434,7 +368,6 @@ contract LibSlotChainTreesTest is Test {
     string private constant ENTRY_NODE_DOMAIN = "slot-chain-entry-node-v1";
     string private constant TRANCHE_NODE_DOMAIN = "slot-chain-tranche-node-v1";
     string private constant FORCE_NODE_DOMAIN = "slot-chain-force-node-v2";
-    string private constant TERMINAL_NODE_DOMAIN = "slot-chain-terminal-node-v2";
     string private constant DATA_NODE_DOMAIN = "slot-chain-data-node-v1";
     string private constant MANIFEST_NODE_DOMAIN = "slot-chain-manifest-node-v1";
 
@@ -608,10 +541,6 @@ contract LibSlotChainTreesTest is Test {
             _rawNode(FORCE_NODE_DOMAIN, 63, left, right)
         );
         assertEq(
-            LibSlotChainEncoding.hashTerminalNode(63, left, right),
-            _rawNode(TERMINAL_NODE_DOMAIN, 63, left, right)
-        );
-        assertEq(
             LibSlotChainEncoding.hashDataNode(11, left, right),
             _rawNode(DATA_NODE_DOMAIN, 11, left, right)
         );
@@ -623,8 +552,7 @@ contract LibSlotChainTreesTest is Test {
             _rawNode(FORCE_NODE_DOMAIN, 0, left, right), _rawNode(FORCE_NODE_DOMAIN, 1, left, right)
         );
         assertNotEq(
-            _rawNode(FORCE_NODE_DOMAIN, 0, left, right),
-            _rawNode(TERMINAL_NODE_DOMAIN, 0, left, right)
+            _rawNode(FORCE_NODE_DOMAIN, 0, left, right), _rawNode(DATA_NODE_DOMAIN, 0, left, right)
         );
     }
 
@@ -646,8 +574,6 @@ contract LibSlotChainTreesTest is Test {
         harness.hashDataNode(12, left, right);
         vm.expectRevert(LibSlotChainEncoding.InvalidNodeHeight.selector);
         harness.hashManifestNode(12, left, right);
-        vm.expectRevert(LibSlotChainEncoding.InvalidNodeHeight.selector);
-        harness.hashTerminalNode(64, left, right);
     }
 
     function test_forcedFrontier_PinVectorAndIgnoreStaleZeroBitSlots() external {
@@ -663,7 +589,7 @@ contract LibSlotChainTreesTest is Test {
             keccak256(abi.encodePacked(frontier)),
             SlotChainGoldenVectors.FORCE_FRONTIER_AFTER_1_DIGEST
         );
-        assertEq(root, _depth64RootOracle(frontier, 1, false));
+        assertEq(root, _depth64RootOracle(frontier, 1));
 
         harness.setForcedFrontier(1, keccak256("stale-zero-bit"));
         assertEq(harness.forcedRoot(1), root);
@@ -673,7 +599,7 @@ contract LibSlotChainTreesTest is Test {
 
     function test_forcedFrontier_CountBoundariesAndCapacity() external {
         assertEq(harness.forcedRoot(0), SlotChainGoldenVectors.EMPTY_FORCED_ROOT);
-        assertEq(harness.forcedRoot(0), _depth64RootOracle(_zero64(), 0, false));
+        assertEq(harness.forcedRoot(0), _depth64RootOracle(_zero64(), 0));
 
         bytes32[64] memory frontier;
         for (uint8 height = 1; height < 64; ++height) {
@@ -682,7 +608,7 @@ contract LibSlotChainTreesTest is Test {
         }
         assertEq(
             harness.forcedRoot(type(uint64).max - 1),
-            _depth64RootOracle(frontier, type(uint64).max - 1, false)
+            _depth64RootOracle(frontier, type(uint64).max - 1)
         );
         bytes32 leaf = keccak256("forced-final-usable-leaf");
         (uint8 writeHeight, bytes32 carried, uint64 newCount, bytes32 newRoot) =
@@ -691,7 +617,7 @@ contract LibSlotChainTreesTest is Test {
         assertEq(carried, leaf);
         assertEq(newCount, type(uint64).max);
         frontier[0] = leaf;
-        assertEq(newRoot, _depth64RootOracle(frontier, type(uint64).max, false));
+        assertEq(newRoot, _depth64RootOracle(frontier, type(uint64).max));
         harness.setForcedFrontier(0, leaf);
         assertEq(harness.forcedRoot(type(uint64).max), newRoot);
 
@@ -750,116 +676,6 @@ contract LibSlotChainTreesTest is Test {
                 type(uint64).max, type(uint64).max, revealed, empty, bytes32(0)
             )
         );
-    }
-
-    function test_terminalFrontier_PinVectorsAndVerifyBothLeaves() external {
-        (,,, bytes32 root1) =
-            harness.applyTerminalAppend(0, SlotChainGoldenVectors.TERMINAL_DONE_LEAF);
-        assertNotEq(root1, bytes32(0));
-        (uint8 height, bytes32 carry, uint64 count, bytes32 root2) =
-            harness.applyTerminalAppend(1, SlotChainGoldenVectors.TERMINAL_FAILED_LEAF);
-        assertEq(height, 1);
-        assertEq(
-            carry,
-            _rawNode(
-                TERMINAL_NODE_DOMAIN,
-                0,
-                SlotChainGoldenVectors.TERMINAL_DONE_LEAF,
-                SlotChainGoldenVectors.TERMINAL_FAILED_LEAF
-            )
-        );
-        assertEq(count, 2);
-        assertEq(root2, SlotChainGoldenVectors.TERMINAL_ROOT_2);
-        assertEq(root2, SlotChainGoldenVectors.TERMINAL_FRONTIER_ROOT_2);
-        bytes32[64] memory frontier = harness.terminalFrontier();
-        assertEq(
-            keccak256(abi.encodePacked(frontier)),
-            SlotChainGoldenVectors.TERMINAL_FRONTIER_AFTER_2_DIGEST
-        );
-        assertEq(root2, _depth64RootOracle(frontier, 2, true));
-
-        bytes32[64] memory proof0 = _terminalProof2(0);
-        bytes32[64] memory proof1 = _terminalProof2(1);
-        assertTrue(
-            harness.verifyTerminalInclusion(
-                2, 0, SlotChainGoldenVectors.TERMINAL_DONE_LEAF, proof0, root2
-            )
-        );
-        assertTrue(
-            harness.verifyTerminalInclusion(
-                2, 1, SlotChainGoldenVectors.TERMINAL_FAILED_LEAF, proof1, root2
-            )
-        );
-    }
-
-    function test_terminalProofAndFrontier_RejectBoundariesAndIgnoreStaleSlots() external {
-        assertEq(harness.terminalRoot(0), SlotChainGoldenVectors.EMPTY_TERMINAL_ROOT);
-        bytes32[64] memory proof = _terminalProof2(0);
-        assertFalse(
-            harness.verifyTerminalInclusion(
-                0, 0, SlotChainGoldenVectors.TERMINAL_DONE_LEAF, proof, bytes32(0)
-            )
-        );
-        assertFalse(
-            harness.verifyTerminalInclusion(
-                2,
-                2,
-                SlotChainGoldenVectors.TERMINAL_DONE_LEAF,
-                proof,
-                SlotChainGoldenVectors.TERMINAL_ROOT_2
-            )
-        );
-        proof[0] = keccak256("wrong-sibling");
-        assertFalse(
-            harness.verifyTerminalInclusion(
-                2,
-                0,
-                SlotChainGoldenVectors.TERMINAL_DONE_LEAF,
-                proof,
-                SlotChainGoldenVectors.TERMINAL_ROOT_2
-            )
-        );
-        assertFalse(
-            harness.verifyTerminalInclusion(
-                2,
-                0,
-                SlotChainGoldenVectors.TERMINAL_DONE_LEAF,
-                _terminalProof2(0),
-                keccak256("wrong-terminal-root")
-            )
-        );
-
-        SlotChainTreesHarness local = new SlotChainTreesHarness();
-        local.applyTerminalAppend(0, SlotChainGoldenVectors.TERMINAL_DONE_LEAF);
-        bytes32 expected = local.terminalRoot(1);
-        local.setTerminalFrontier(1, keccak256("stale"));
-        assertEq(local.terminalRoot(1), expected);
-        local.setTerminalFrontier(0, keccak256("used"));
-        assertNotEq(local.terminalRoot(1), expected);
-
-        vm.expectRevert(LibSlotChainDepth64.TreeCapacityExceeded.selector);
-        local.previewTerminalAppend(type(uint64).max, keccak256("overflow"));
-    }
-
-    function test_terminalFrontier_MaxMinusOneAppendMatchesOracle() external {
-        bytes32[64] memory frontier;
-        for (uint8 height = 1; height < 64; ++height) {
-            frontier[height] = keccak256(abi.encodePacked("terminal-max-frontier", height));
-            harness.setTerminalFrontier(height, frontier[height]);
-        }
-        assertEq(
-            harness.terminalRoot(type(uint64).max - 1),
-            _depth64RootOracle(frontier, type(uint64).max - 1, true)
-        );
-        bytes32 leaf = keccak256("terminal-final-usable-leaf");
-        (uint8 writeHeight,, uint64 newCount, bytes32 newRoot) =
-            harness.previewTerminalAppend(type(uint64).max - 1, leaf);
-        assertEq(writeHeight, 0);
-        assertEq(newCount, type(uint64).max);
-        frontier[0] = leaf;
-        assertEq(newRoot, _depth64RootOracle(frontier, type(uint64).max, true));
-        harness.setTerminalFrontier(0, leaf);
-        assertEq(harness.terminalRoot(type(uint64).max), newRoot);
     }
 
     function test_dataMmr_PinFrontierAndProofVectors() external {
@@ -1411,40 +1227,23 @@ contract LibSlotChainTreesTest is Test {
         );
     }
 
-    function _terminalProof2(uint64 _index) private pure returns (bytes32[64] memory proof_) {
-        bytes32[] memory empty =
-            _emptyLadder("slot-chain-terminal-empty-v2", TERMINAL_NODE_DOMAIN, 64);
-        proof_[0] = _index == 0
-            ? SlotChainGoldenVectors.TERMINAL_FAILED_LEAF
-            : SlotChainGoldenVectors.TERMINAL_DONE_LEAF;
-        for (uint8 height = 1; height < 64; ++height) {
-            proof_[height] = empty[height];
-        }
-    }
-
     function _depth64RootOracle(
         bytes32[64] memory _frontier,
-        uint64 _count,
-        bool _terminal
+        uint64 _count
     )
         private
         pure
         returns (bytes32)
     {
-        string memory emptyDomain =
-            _terminal ? "slot-chain-terminal-empty-v2" : "slot-chain-force-empty-v2";
-        string memory nodeDomain = _terminal ? TERMINAL_NODE_DOMAIN : FORCE_NODE_DOMAIN;
-        string memory rootDomain =
-            _terminal ? "slot-chain-terminal-root-v2" : "slot-chain-force-root-v2";
-        bytes32 empty = keccak256(bytes(emptyDomain));
+        bytes32 empty = keccak256(bytes("slot-chain-force-empty-v2"));
         bytes32 node = empty;
         for (uint8 height; height < 64; ++height) {
             node = ((_count >> height) & 1) == 1
-                ? _rawNode(nodeDomain, height, _frontier[height], node)
-                : _rawNode(nodeDomain, height, node, empty);
-            empty = _rawNode(nodeDomain, height, empty, empty);
+                ? _rawNode(FORCE_NODE_DOMAIN, height, _frontier[height], node)
+                : _rawNode(FORCE_NODE_DOMAIN, height, node, empty);
+            empty = _rawNode(FORCE_NODE_DOMAIN, height, empty, empty);
         }
-        return keccak256(abi.encodePacked(rootDomain, _count, node));
+        return keccak256(abi.encodePacked("slot-chain-force-root-v2", _count, node));
     }
 
     function _dataVectorLeaves()
