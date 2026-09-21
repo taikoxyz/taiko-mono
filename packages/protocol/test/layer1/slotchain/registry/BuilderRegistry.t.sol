@@ -677,7 +677,7 @@ contract BuilderRegistryTest is BuilderRegistryTestBase {
                 facets
             );
             // Faults 1-6 corrupt the BRF1 descriptor; fault 7 corrupts the component config read.
-            vm.expectRevert(
+            vm.expectPartialRevert(
                 fault == 7
                     ? LibExactCall.ExactConfigurationMismatch.selector
                     : BuilderRegistryFacade.InvalidLifecycleFacetConfiguration.selector
@@ -2499,7 +2499,8 @@ contract BuilderRegistryTest is BuilderRegistryTestBase {
         bytes memory initCode = _registryInitCode(PENALTY_SINK);
         _writeConstructorWord(initCode, _wordIndex, _value);
         assertTrue(_error != bytes4(0));
-        vm.expectRevert(_error);
+        // Partial matching covers parameterised LibExactCall errors as well as bare selectors.
+        vm.expectPartialRevert(_error);
         deployer.deploy(initCode);
     }
 

@@ -1,49 +1,6 @@
 [
   {
     "kind": "hex",
-    "name": "abort_expired_version_migration_calldata_hash",
-    "value": "56575edcaa5fa02d67f6a4263d096e891473eb640dfcdf2a27d786f3b6423ba3"
-  },
-  {
-    "kind": "hex",
-    "name": "abort_expired_version_migration_return_hash",
-    "value": "09a1f151ee87794efcaf39eee5c8b51ebee93fa2a58406076670b51175c3f964"
-  },
-  {
-    "kind": "hex",
-    "name": "abort_expired_version_migration_selector",
-    "value": "c4eee12d"
-  },
-  { "kind": "hex", "name": "activate_release_selector", "value": "33f5ca80" },
-  {
-    "kind": "hex",
-    "name": "activate_version_with_migration_selector",
-    "value": "17a548ed"
-  },
-  {
-    "kind": "hex",
-    "name": "activation_receipt_id",
-    "value": "41c540723f4be6016743a2022a2d5ff52ec1921f9bee92fb3a8d6d63365a5380"
-  },
-  { "kind": "hex", "name": "activation_receipt_magic", "value": "41525631" },
-  { "kind": "hex", "name": "activation_receipt_selector", "value": "0a4434d0" },
-  {
-    "kind": "hex",
-    "name": "activation_successor_receipt_magic",
-    "value": "41535631"
-  },
-  {
-    "kind": "hex",
-    "name": "active_settlement_state_magic",
-    "value": "41535231"
-  },
-  {
-    "kind": "hex",
-    "name": "active_settlement_state_selector",
-    "value": "4a95c306"
-  },
-  {
-    "kind": "hex",
     "name": "admission_proof_digest",
     "value": "65a5501dc5440301031bc0d21ac6506ce1f98b226139c93ab54251883d5bd12d"
   },
@@ -59,79 +16,6 @@
   },
   {
     "kind": "hex",
-    "name": "adopt_migration_canonical_calldata_hash",
-    "value": "64ff14ea8993bbd960d516d604e91138c24ed90186f3e8b18d4e780317e712eb"
-  },
-  {
-    "kind": "uint",
-    "name": "adopt_migration_canonical_calldata_length",
-    "value": "580"
-  },
-  {
-    "kind": "hex",
-    "name": "adopt_migration_canonical_return_hash",
-    "value": "82be694e54ae9403d3821c8ed3024442f8ec88a111ba79f762a019708b1285d4"
-  },
-  {
-    "kind": "hex",
-    "name": "adopt_migration_canonical_selector",
-    "value": "3286443c"
-  },
-  {
-    "kind": "hex",
-    "name": "append_from_adapter_selector",
-    "value": "1927261d"
-  },
-  {
-    "kind": "hex",
-    "name": "append_kind0_calldata_hash",
-    "value": "76987f6362880e36897346f14917e9474a3b3419e110145a6ae10b303f317ef1"
-  },
-  { "kind": "uint", "name": "append_kind0_calldata_length", "value": "388" },
-  {
-    "kind": "hex",
-    "name": "append_kind1_calldata_hash",
-    "value": "eab7942f4f3a9163a81d09cc3119a13b3eb808d182579696840563ee2a055fda"
-  },
-  { "kind": "uint", "name": "append_kind1_calldata_length", "value": "708" },
-  {
-    "kind": "hex",
-    "name": "append_terminal_calldata_hash",
-    "value": "641ebc800b7fc114c4aff92c8521d56869673b8c32373c0fa8fb4d5317134de4"
-  },
-  { "kind": "hex", "name": "append_terminal_selector", "value": "abc194f5" },
-  {
-    "kind": "hex",
-    "name": "apply_protocol_change_calldata_hash",
-    "value": "94fa23abc3a1764e26c518168790a7405586ea31d97192a66a8ebb87c0f01e8d"
-  },
-  {
-    "kind": "uint",
-    "name": "apply_protocol_change_calldata_length",
-    "value": "260"
-  },
-  {
-    "kind": "hex",
-    "name": "apply_protocol_change_selector",
-    "value": "af3927f6"
-  },
-  {
-    "kind": "hex",
-    "name": "arm_version_migration_calldata_hash",
-    "value": "fcc70781237723aa98ab8ea4cb492ef9f3839d4e8b11ba5f89dfb23076a4cad5"
-  },
-  {
-    "kind": "hex",
-    "name": "arm_version_migration_return_hash",
-    "value": "15a5c9b7a8bbb0c40465733dd1f28f946af6ee19394bbd80154316f3cb090070"
-  },
-  {
-    "kind": "hex",
-    "name": "arm_version_migration_selector",
-    "value": "e3bcfcb4"
-  },
-  {
-    "kind": "hex",
     "name": "asymmetric_data_leaf",
     "value": "204849a6179174bd92e677b252370e3e2904cf4eb2a94fe1ba154e1310b9cd64"
   },
@@ -143,12 +27,12 @@
   {
     "kind": "hex",
     "name": "base_canonical",
-    "value": "67b52faab1709aff021dcb9c16acf86b5b4853de7eb5e36bf1b48566f448621e"
+    "value": "7209a0d225dd6f54483f24072ebf0fe258d73815ee54735f0ee6f505856c2857"
   },
   {
     "kind": "hex",
     "name": "block_struct_hash",
-    "value": "6bc4d67c1c53b6793ace07f9e20b6466207dc7e8285232fbd063900c1bb7614e"
+    "value": "55021a9fe6408f6bbe52bad826bf24e65cbee639fac8f5266817f3b5c3cf0d78"
   },
   {
     "kind": "hex",
@@ -157,38 +41,8 @@
   },
   {
     "kind": "hex",
-    "name": "bridge_credit_id",
-    "value": "0c6ee962013c5ed1693bba2ca7ce080ddb87506a150849211f310f74f701eb22"
-  },
-  {
-    "kind": "hex",
-    "name": "bridge_escrow_id",
-    "value": "48cae7396b1eaa925d3af9b37b847c2cb2dcbdd10beb11c95721bfb33095939d"
-  },
-  {
-    "kind": "hex",
-    "name": "bridge_execution_hash",
-    "value": "0e6dbe34a57953736c8a49c3a4c732ac854078594af56ee6b1f015ed75044239"
-  },
-  {
-    "kind": "hex",
-    "name": "bridge_kernel_profile_hash",
-    "value": "a23f9994e8d1c475500768b67cf2b2d1f7a0f367df6f44bac5ccf1fa12bc1338"
-  },
-  {
-    "kind": "hex",
-    "name": "bridge_leaf",
-    "value": "f0a1b9b38d2955e4ec985c16fa38b1dee6510f0872bd4359d19b4703d8451f48"
-  },
-  {
-    "kind": "hex",
-    "name": "bridge_result",
-    "value": "50b5b48c1c00df266d456b5641d2bd53a70dd75f0f07e773c287f0e692ba598d"
-  },
-  {
-    "kind": "hex",
     "name": "builder_active_equivocation_witness_hash",
-    "value": "fd6f6de0248d52b478637f787e84c60695d5637891cbb3a5071045550d29be75"
+    "value": "188ff80cdad2d9fa2ddd8ad27b943a478dca3558d5467405494abd29e9f4a792"
   },
   {
     "kind": "uint",
@@ -248,7 +102,7 @@
   {
     "kind": "hex",
     "name": "builder_equivocation_calldata_hash",
-    "value": "b5054f2630ff0185f4d93bd09547fe7265dcdaa2bb4f4efc916a4dacf0ce53b7"
+    "value": "bd470ac24fe185aca71cff7e8c27944e78baae430628101075916cfb15ffbf0b"
   },
   {
     "kind": "uint",
@@ -303,7 +157,7 @@
   {
     "kind": "hex",
     "name": "builder_liability_equivocation_witness_hash",
-    "value": "716284bc32c79d50444b03d91aaf4eb02c4f5f6412db0efdd944778b4a2ea2d9"
+    "value": "0519c74fd1e6a928712e539113d78caf24abf2cd39bb6fc8fe3e807861403897"
   },
   {
     "kind": "uint",
@@ -444,42 +298,42 @@
   {
     "kind": "hex",
     "name": "builder_proof_evidence_active_tombstoned_request_hash",
-    "value": "f50d877ccc3c8b34e53aeaf8f24b5a736dcbb2218dbf696d183fa2c86811d1fd"
+    "value": "360f07315cde09617cb4212a97b19f0fda328685d736895ef8c6094012e7cce9"
   },
   {
     "kind": "hex",
     "name": "builder_proof_evidence_active_tombstoned_return_hash",
-    "value": "61d66c91433ed1527a1c6a723d1fcf205ee9447cf84e3527b04dfa051495ef69"
+    "value": "85dacb33edf0ea6c19a74451d98362c2450fd2b59e32af6668350b9ead352907"
   },
   {
     "kind": "hex",
     "name": "builder_proof_evidence_calldata_hash",
-    "value": "a3a6c6ca62fe7d24316d0cee7ee0de5f06e40c6adaace242285ca64afff92e1a"
+    "value": "58b74233e9726648d037a57a88cd38fbccb218a1d29372927de0e0d00e225796"
   },
   {
     "kind": "hex",
     "name": "builder_proof_evidence_liability_first_request_hash",
-    "value": "888a7d65c3f3a1983406860ed2b0d2fd1b69bfd0d31a711cac684c6708c37c28"
+    "value": "38bd6788fb25962a5999192cb1297e2b418c47d813202f9000e2eb18773e0278"
   },
   {
     "kind": "hex",
     "name": "builder_proof_evidence_liability_first_return_hash",
-    "value": "9ef06832967c75befe97ae5fd8acf0e406fa65f6d85e576ca898299aff524d3f"
+    "value": "9f27ea85a06bc785ab2dfbb6c72a416d8250e1751bfa855d459f6647ee7bdff0"
   },
   {
     "kind": "hex",
     "name": "builder_proof_evidence_liability_tombstoned_request_hash",
-    "value": "7bc6a7b294fa5367712858126ef58dfa2eda8f31c5e3c3603c471be3206bb7fe"
+    "value": "338141019dd003d9f78753bdaee43182f3975d13a8e6dbf849a3d50646c115f4"
   },
   {
     "kind": "hex",
     "name": "builder_proof_evidence_liability_tombstoned_return_hash",
-    "value": "b45686d4bcd3a50119eef2af2bb6c680a780650bca1732832f9b3ea6072c90d3"
+    "value": "0720e4d2652e04c3bc2650eb4f98352e2fdb802ff5a86949b49ca001bcac2850"
   },
   {
     "kind": "hex",
     "name": "builder_proof_evidence_request_hash",
-    "value": "4884126f37b98d40fc17cfe5650c6010759681583f77ec0ea1a98e4ce4146df6"
+    "value": "536d3467985ad79a2fe9f6e678d99074fcecc5520dbb61726f3aee3dc3f44e12"
   },
   {
     "kind": "uint",
@@ -489,12 +343,12 @@
   {
     "kind": "hex",
     "name": "builder_proof_evidence_return_hash",
-    "value": "e819ea5ae5e51165d90cfe78dd7dcf5d735a63e27e37303d676b7c77c3cac94f"
+    "value": "86e51e0573d4086a0099a49683b1277bd2df6f087a1884c6bf952854c7e2916f"
   },
   {
     "kind": "hex",
     "name": "builder_proof_identity_calldata_hash",
-    "value": "f0d8b62d48dd72c084429376812ef30107e1558b684765a37524786dd12ed2ec"
+    "value": "0efda928731baac8c13e31a788b6856c167cb3d5cb43cc8460414ddba5c757ff"
   },
   {
     "kind": "uint",
@@ -504,7 +358,7 @@
   {
     "kind": "hex",
     "name": "builder_proof_identity_return_hash",
-    "value": "aa499309f356e043c34991f9ae6d5602e6ece692eb6a8f8281cce0a94f9a61e9"
+    "value": "3e2522216063d4d132365c2b2c6547f1dad4e364ce430373da37ccabede24600"
   },
   {
     "kind": "uint",
@@ -777,33 +631,18 @@
   },
   {
     "kind": "hex",
-    "name": "cancel_protocol_change_calldata_hash",
-    "value": "a1beb673d2446707e01b01114d5ced5b1e795bd6b4592d76b6b32bed1db9a5d7"
-  },
-  {
-    "kind": "uint",
-    "name": "cancel_protocol_change_calldata_length",
-    "value": "452"
-  },
-  {
-    "kind": "hex",
-    "name": "cancel_protocol_change_selector",
-    "value": "5701c308"
-  },
-  {
-    "kind": "hex",
     "name": "candidate_commitment",
-    "value": "43e4ceb88ddf11a80441caccea6041c734aca203b5f9e377ecc21476898dd91c"
+    "value": "1478b5999deac0929581369516027f5bf1c5b353a27356ea1530cd6646dd0308"
   },
   {
     "kind": "hex",
     "name": "candidate_commitment_2",
-    "value": "9c86096381bc8c73a25b947de251960c9a0dc8ca32175b888b13fe0836dd2835"
+    "value": "c6bf847e5660ae4b6d914d00d28506d5dec24955f7130722c8f0e616cd69974d"
   },
   {
     "kind": "hex",
     "name": "candidate_committed_v2_data_hash",
-    "value": "a26db3a697d30991f1d072bf0d4ba524aad16e8788cdd1debf7e4106ebeab363"
+    "value": "f48d42355288f3da84b490bc7c2a08935b3a62130fd5ab316aac8d87eaf88c3e"
   },
   {
     "kind": "uint",
@@ -818,7 +657,7 @@
   {
     "kind": "hex",
     "name": "candidate_committed_v2_topic1_candidate_id",
-    "value": "b9412b5e5219b7988b3596e09640e7587287d7f8310249c74520b6434eda1f6a"
+    "value": "39c621a869a95ddaf350d45f0c67094a57ac24d7b36a9bd1f57a75d5310dce2b"
   },
   {
     "kind": "hex",
@@ -833,12 +672,12 @@
   {
     "kind": "hex",
     "name": "candidate_committed_v2_topics_hash",
-    "value": "77106643eee1dcb4389e168c2a370881c835b22e4095b122c2411fdfb151a8fc"
+    "value": "2bd53ab73ae6841a50e7e17af3fb0204ffe1bab823e523017bbb0cf0b32072e4"
   },
   {
     "kind": "hex",
     "name": "canonical_core",
-    "value": "f59591f1e2e274e4aace20509a2d855e42b88ecac33a5550fd1af781c83047eb"
+    "value": "0362d14c4c2fc6293710a0ca8cf2e19f83a5555ecab59bd19b4f58a75d587091"
   },
   {
     "kind": "hex",
@@ -848,7 +687,7 @@
   {
     "kind": "hex",
     "name": "claim_reward_v1_calldata_hash",
-    "value": "666a9a9fe7ffd5b6ebc6f2cd8fddf7c59e02ce2c929052989dbd17f6a15e05fa"
+    "value": "dc435de2896a3f9fba5006cb40107aee657dfdd19153f52a09e6fc537aa9922d"
   },
   { "kind": "uint", "name": "claim_reward_v1_calldata_length", "value": "36" },
   { "kind": "uint", "name": "claim_reward_v1_paid_wei", "value": "1000000" },
@@ -868,46 +707,6 @@
     "kind": "hex",
     "name": "component_config_getter_selector",
     "value": "f6c0f7d2"
-  },
-  {
-    "kind": "hex",
-    "name": "credit_authorization_v2_calldata_hash",
-    "value": "5b3dbd7b9fbf879be8eae220d9b1ca48acbe835a2e33e0847feb7b13012c2925"
-  },
-  {
-    "kind": "hex",
-    "name": "credit_authorization_v2_return_hash",
-    "value": "1d28cf5b4cdec8313583691f369434114410ea52dc065fbdce93f1cb6f0f2bc6"
-  },
-  {
-    "kind": "uint",
-    "name": "credit_authorization_v2_return_length",
-    "value": "704"
-  },
-  {
-    "kind": "hex",
-    "name": "credit_authorization_v2_selector",
-    "value": "05ecb6c2"
-  },
-  {
-    "kind": "hex",
-    "name": "credit_liability_v2_calldata_hash",
-    "value": "1f0595cfa35e9b4bbefba6399eed058119365de342c04652033f12430eaf0b3c"
-  },
-  {
-    "kind": "hex",
-    "name": "credit_liability_v2_return_hash",
-    "value": "ad3bba6e04fff6bfefacfdf034f4aaf7bba7149ef0f4dfa0625a5653290f9195"
-  },
-  {
-    "kind": "uint",
-    "name": "credit_liability_v2_return_length",
-    "value": "288"
-  },
-  {
-    "kind": "hex",
-    "name": "credit_liability_v2_selector",
-    "value": "c978978a"
   },
   {
     "kind": "hex",
@@ -968,93 +767,13 @@
   },
   {
     "kind": "hex",
-    "name": "deployment_commitment_typehash",
-    "value": "babd40345cd96b87434cc1bcc50b0c693556c37283b9b3399abf60339dc363a0"
-  },
-  {
-    "kind": "hex",
-    "name": "derived_source_bridge_address",
-    "value": "45e9bb77c41df4916367f5eb49906367fe5bf123"
-  },
-  {
-    "kind": "hex",
-    "name": "derived_source_bundle_deployer_address",
-    "value": "995ec3a95b2d756946e920e4f88588e9d6259275"
-  },
-  {
-    "kind": "hex",
-    "name": "derived_source_quota_address",
-    "value": "bfcc162bd7474cec8c8bc99b118882dfc6bfeb06"
-  },
-  {
-    "kind": "hex",
-    "name": "derived_source_registry_address",
-    "value": "8c1ab080584bf560720e8b6eb2cf2242556a2585"
-  },
-  {
-    "kind": "hex",
-    "name": "destination_activation_receipt_id",
-    "value": "3f53b62e367b561e3c383acefcba6cb734f6cf6c6cb9d30eb8d182c0704c215a"
-  },
-  {
-    "kind": "hex",
-    "name": "destination_activation_receipt_magic",
-    "value": "44525632"
-  },
-  {
-    "kind": "hex",
-    "name": "destination_attempt_digest",
-    "value": "16c2e0834db5d1bb99d9caf4faa5df55e7f96b1367bb0a953491b14ca48658be"
-  },
-  {
-    "kind": "hex",
-    "name": "destination_bridge_execution_hash",
-    "value": "b570703833da3df51773eb8d72d8d38074391da1f4f4ef2198b0d074f3c81600"
-  },
-  {
-    "kind": "hex",
-    "name": "destination_context_hash",
-    "value": "80f8dd44a490532ac936ee8dfa120e2a295de8d3cec6794e385fa22cdb786d81"
-  },
-  {
-    "kind": "hex",
-    "name": "destination_context_typehash",
-    "value": "b8170dbf684e1fc4dd4dae8fb78ad24984cc0aa0c03cbd1e29b1b2eb5728eefb"
-  },
-  {
-    "kind": "hex",
-    "name": "destination_domain_id",
-    "value": "d6ddeebbc91b1598dbfcad8ab0294d259c1cef3bb90b561972dc3db93013c7da"
-  },
-  {
-    "kind": "hex",
-    "name": "destination_infrastructure_hash",
-    "value": "45181a732547880cda31149841924970b3d5b724b472f79f3f57e8c05c853495"
-  },
-  {
-    "kind": "hex",
-    "name": "destination_registration_commitment",
-    "value": "c303729b6c8a386a5769c52bb8d393a0869e78e4780457790071aa24960cb4b9"
-  },
-  {
-    "kind": "hex",
-    "name": "destination_successor_receipt_magic",
-    "value": "44535632"
-  },
-  {
-    "kind": "hex",
-    "name": "dispositions",
-    "value": "ab253c1204a53b6e095a887dfa6acfc8e8c0c6f89badcef5f73fee716fa94b93"
-  },
-  {
-    "kind": "hex",
     "name": "domain_separator",
     "value": "e68571dca46842abc561c1ea35b556152b15d93a1d29f5c441ae2fdcdd01725c"
   },
   {
     "kind": "hex",
     "name": "eip712_digest",
-    "value": "bf50900a66dd735bbed4a20b7ebe909b61d15185146813b3105b9d2eefa91c68"
+    "value": "71dbc886b2be3e2a2b692976ca6b0e42957915d83df76859637a08c92f7a24d1"
   },
   {
     "kind": "hex",
@@ -1074,7 +793,7 @@
   {
     "kind": "hex",
     "name": "empty_data_session_accounting_return_hash",
-    "value": "7126f20b8b0eaa777b9fdb2a563101c7b1d52742f01c2e324f7447d232c705a8"
+    "value": "d67be4bb9b559b619c0324ce0f890e8446e55f420593a63d6eb1739f4dd28e4e"
   },
   {
     "kind": "hex",
@@ -1103,23 +822,8 @@
   },
   {
     "kind": "hex",
-    "name": "empty_terminal_root",
-    "value": "c5da197edc2f03c7023cc6afe137ccb77d01fc56514d322b6ba66a149315bcb0"
-  },
-  {
-    "kind": "hex",
     "name": "empty_tranche_root",
     "value": "dee49bfb4494eee086cf6485f471866cd49591358b3490d4a156813702501768"
-  },
-  {
-    "kind": "hex",
-    "name": "enqueue_bridge_credit_v2_calldata_hash",
-    "value": "02db9c77025d4c2bae1d3f79849020e6d8711c4b6b6c54ec45ce9181e48cfeb4"
-  },
-  {
-    "kind": "hex",
-    "name": "enqueue_bridge_credit_v2_selector",
-    "value": "81805d6b"
   },
   {
     "kind": "hex",
@@ -1148,47 +852,9 @@
   },
   {
     "kind": "hex",
-    "name": "execute_attempt_calldata_hash",
-    "value": "74361f3f639e92dff5264eeb51e0f986ef2aa1c6dd1bc2ffab3827c29b40dcd5"
-  },
-  {
-    "kind": "uint",
-    "name": "execute_attempt_calldata_length",
-    "value": "1124"
-  },
-  { "kind": "hex", "name": "execute_attempt_selector", "value": "4cbe2fe2" },
-  {
-    "kind": "hex",
-    "name": "execute_protocol_change_calldata_hash",
-    "value": "a00db7a4bd41a8e2546adec7f99463a7c370a517d1b67e34f91778bf65ffcf94"
-  },
-  {
-    "kind": "uint",
-    "name": "execute_protocol_change_calldata_length",
-    "value": "708"
-  },
-  {
-    "kind": "hex",
-    "name": "execute_protocol_change_selector",
-    "value": "31d81ea2"
-  },
-  {
-    "kind": "hex",
     "name": "execution_outputs",
-    "value": "d3b52765911a60935fb5e7c1b7047ad1611e07586803cf654d6d5b677f966d56"
+    "value": "01ab23ac7b0a92af32ace3220c3b181ef983f4be274c997ef2d4b50d9c7669cd"
   },
-  { "kind": "uint", "name": "execution_profile_abi_length", "value": "9152" },
-  {
-    "kind": "uint",
-    "name": "execution_profile_creation_offset",
-    "value": "9024"
-  },
-  {
-    "kind": "hex",
-    "name": "execution_profile_hash",
-    "value": "e2e555222a3cece2d92ae55d4014899671be8f760e9db24e8c4eefd45f7c919e"
-  },
-  { "kind": "uint", "name": "execution_profile_static_words", "value": "282" },
   {
     "kind": "hex",
     "name": "expected_old_fork_registration_hash",
@@ -1198,34 +864,6 @@
     "kind": "hex",
     "name": "expected_predecessor_fork_registration_hash",
     "value": "233d72ef0935f897e49377ce160962e2ea7ea14c37c309bb094b78e0b50bb118"
-  },
-  {
-    "kind": "hex",
-    "name": "expire_fork_change_calldata_hash",
-    "value": "0674d1859f790b11abfb90dbf54a4f3ceb88574b484c62199a0f0febdb0e9ec7"
-  },
-  {
-    "kind": "uint",
-    "name": "expire_fork_change_calldata_length",
-    "value": "36"
-  },
-  { "kind": "hex", "name": "expire_fork_change_magic", "value": "50465831" },
-  {
-    "kind": "hex",
-    "name": "expire_fork_change_return_hash",
-    "value": "a338559b4b34fc40aaaf1c9d8b3837a34e59a5c4f826e855c9e27a5dc0d04b6d"
-  },
-  { "kind": "uint", "name": "expire_fork_change_return_length", "value": "64" },
-  { "kind": "hex", "name": "expire_fork_change_selector", "value": "379c9ecc" },
-  {
-    "kind": "hex",
-    "name": "finalize_failed_attempt_calldata_hash",
-    "value": "5317d1368983c54dcd155b5afa7d7c7a6cc04061cd14e6c4baa60e83460d713b"
-  },
-  {
-    "kind": "hex",
-    "name": "finalize_failed_attempt_selector",
-    "value": "745dcb69"
   },
   {
     "kind": "hex",
@@ -1259,18 +897,8 @@
   },
   {
     "kind": "hex",
-    "name": "forced_queue_append_selector",
-    "value": "a8e5d8d0"
-  },
-  {
-    "kind": "hex",
     "name": "forced_queue_appended_topic",
     "value": "79250628d474df83f40598f02c49d25e713fb04a8ef4bd4457fa70055a86f489"
-  },
-  {
-    "kind": "hex",
-    "name": "forced_queue_authority_migrated_topic",
-    "value": "5f72c8debc696f92d7ef7018d28b559f85d9cbad9262eb372ae1ed69cde296f1"
   },
   {
     "kind": "hex",
@@ -1280,12 +908,12 @@
   {
     "kind": "hex",
     "name": "forced_queue_config_hash",
-    "value": "83b6bbb84a479fd81c3a12452aae319c66a72c95cf4138e8e2005e9bee58eeef"
+    "value": "22308d0cff70d354e3a7d3121641c832c08f017f5921bb51e323d73075f5b42e"
   },
   {
     "kind": "hex",
     "name": "forced_queue_config_return_hash",
-    "value": "65ea23a3e7f611c0a7876cebbd1714ff6bfc7be5173b882ba58ab6cffc8f0d24"
+    "value": "82d2db524021dc52e9290e6788f12ae0ac79a8942ee492f73821a87aac05da55"
   },
   {
     "kind": "uint",
@@ -1315,7 +943,7 @@
   {
     "kind": "hex",
     "name": "forced_queue_empty_state_return_hash",
-    "value": "2db8517c2033250559075bc49d50b318266449889905fdb42c96002213a8a158"
+    "value": "7bedaeca0f43c5716622c50492355e983d8fbf676a52aa92216e29cd4cfee967"
   },
   {
     "kind": "hex",
@@ -1338,21 +966,6 @@
     "name": "forced_root",
     "value": "a54e9f797ffe7f04dd5ca7df4c858edf02ce45a81808522633fc9cee8fe72e57"
   },
-  {
-    "kind": "uint",
-    "name": "fork_change_execution_window_seconds",
-    "value": "86400"
-  },
-  {
-    "kind": "uint",
-    "name": "fork_change_queue_inclusion_allowance_seconds",
-    "value": "900"
-  },
-  {
-    "kind": "uint",
-    "name": "fork_change_renewal_runway_windows",
-    "value": "1811"
-  },
   { "kind": "hex", "name": "fork_verifier_install_magic", "value": "46564931" },
   {
     "kind": "hex",
@@ -1368,21 +981,6 @@
     "kind": "hex",
     "name": "fork_verifier_registration_selector",
     "value": "c614591c"
-  },
-  {
-    "kind": "hex",
-    "name": "freeze_migration_source_calldata_hash",
-    "value": "e8634cf35fc1c88a35c5eb84c0baf24c4adfbc69f58c0a5da7ac9ab00b45e8b6"
-  },
-  {
-    "kind": "hex",
-    "name": "freeze_migration_source_return_hash",
-    "value": "76fb162627c863cf3017e791dcd7d4a3cc2b57d7a9245f7eaf0b633748ed3b65"
-  },
-  {
-    "kind": "hex",
-    "name": "freeze_migration_source_selector",
-    "value": "45a80913"
   },
   {
     "kind": "hex",
@@ -1407,175 +1005,7 @@
   {
     "kind": "hex",
     "name": "funded_data_session_accounting_return_hash",
-    "value": "b6811f3a0d73d68a880aeb8228ec6142bc3d0182b2107cfdc0a5c7a816322e20"
-  },
-  {
-    "kind": "hex",
-    "name": "genesis_activation_calldata_hash",
-    "value": "22071d47555b282080e7afaf0b1e1d6479c6dbe8a2705d7e81e77f737d39e02f"
-  },
-  {
-    "kind": "uint",
-    "name": "genesis_activation_calldata_length",
-    "value": "2948"
-  },
-  {
-    "kind": "hex",
-    "name": "genesis_activation_context_hash",
-    "value": "70ec0e1fd3e7ae0031c75b5ee4ae131975311e1645b41d1c4a6bb5d9d3629b01"
-  },
-  {
-    "kind": "hex",
-    "name": "genesis_activation_context_return_hash",
-    "value": "562ddcb527dd6b3b15a97c2a3fb3ed7b5dcd9286f450ac840b4796356a933b37"
-  },
-  {
-    "kind": "hex",
-    "name": "genesis_activation_fixed_hash",
-    "value": "15236b38830f35f4df4c6bd78015c9a3b495a0f3fe08a028cdb1dd57aac970ca"
-  },
-  {
-    "kind": "hex",
-    "name": "genesis_activation_receipt_calldata_hash",
-    "value": "bb673b5ed1502d6632c5138c92cbfdfe3662b4bff6db3b0ecb0c6c5942272886"
-  },
-  {
-    "kind": "hex",
-    "name": "genesis_activation_receipt_id",
-    "value": "41141c82810f1467f87a6781cbc4577d0e1dc384c9972af2385e1974d0ca7816"
-  },
-  {
-    "kind": "hex",
-    "name": "genesis_activation_receipt_return_hash",
-    "value": "c197682e980d5ff3ecb51c87cb6a170a01bda86dcbb32246eb03ec36c47af523"
-  },
-  {
-    "kind": "uint",
-    "name": "genesis_activation_receipt_return_length",
-    "value": "1024"
-  },
-  {
-    "kind": "hex",
-    "name": "genesis_adopt_migration_calldata_hash",
-    "value": "d7e8f50400780744d21b0adc4f737de372649c61e985ea847ee43e010c5a94b2"
-  },
-  {
-    "kind": "hex",
-    "name": "genesis_adopt_migration_return_hash",
-    "value": "e7cc1936e12a9f9b0f96a1916de4434c02a4b6de50bd8e26bbfe9a45b1da7c9d"
-  },
-  {
-    "kind": "hex",
-    "name": "genesis_adoption_commitment",
-    "value": "6cf66f33cb491764534d199ef509d18149559180a8bd4cbf14e99ed2a0d44598"
-  },
-  {
-    "kind": "hex",
-    "name": "genesis_base_canonical_hash",
-    "value": "5081c70042287a8b7156b2626675ea4ed9623c755d5f51b5c83be94e90da3ff3"
-  },
-  {
-    "kind": "hex",
-    "name": "genesis_base_core_hash",
-    "value": "12243b817561a9362bb03dffb36bb73f9314d47e3165673793419692cd8a8566"
-  },
-  {
-    "kind": "hex",
-    "name": "genesis_candidate_commitment",
-    "value": "90949c0865a5e0226c6c0d736c0533f9e5f1d793dc9c5d21407a210ee3896338"
-  },
-  {
-    "kind": "hex",
-    "name": "genesis_deployment_commitment",
-    "value": "9e5b3a72d4a0df05dc5e349fcb9c8cbc2c6ca4b1e08f92b647cea9506bf7d4c3"
-  },
-  {
-    "kind": "hex",
-    "name": "genesis_migration_statement_hash",
-    "value": "90b68499e5d43c14ffa9f68b54db66eb0dabfb1c08ec7f2b47ade8e838d33c88"
-  },
-  {
-    "kind": "hex",
-    "name": "genesis_output_core_hash",
-    "value": "46ecec937013339205139353730b413c8e508bc579ec9c0ede247161132134a8"
-  },
-  {
-    "kind": "hex",
-    "name": "genesis_queue_migration_calldata_hash",
-    "value": "5cfec441702838b28cc557611e3fdb10cee150086b364edb7cdded1abfc41823"
-  },
-  {
-    "kind": "hex",
-    "name": "genesis_queue_migration_return_hash",
-    "value": "2f3293fb88328007b51ce87b82bfcd698240349f9bb429d0780e3e311815cd1d"
-  },
-  {
-    "kind": "hex",
-    "name": "genesis_queue_post_state_commitment",
-    "value": "7850444c2e39a93724ec63ed43ef4a914fca31e1bcac90ee8726cf7184176b19"
-  },
-  {
-    "kind": "hex",
-    "name": "genesis_queue_post_state_return_hash",
-    "value": "594e74149d736f96430f78d9b6f0f46728e2eadb9541376f64cd42cfe5a9bce8"
-  },
-  {
-    "kind": "hex",
-    "name": "genesis_source_post_state_return_hash",
-    "value": "c5f3c2fd577cf888bbcd15c467043bebe507ca2cc6ed91faeb420cc28920f192"
-  },
-  {
-    "kind": "hex",
-    "name": "genesis_target_post_state_return_hash",
-    "value": "4e3aa9fd0199e48120ecf0b9ce7cce2267f4e9ccb8c1ef7eb941a1ea5537ea3b"
-  },
-  {
-    "kind": "hex",
-    "name": "governance_delay_authority_descriptor_hash",
-    "value": "442d9b608ecc43eea4009fb7f95c764c747636f42c885174c1442681cc0ab495"
-  },
-  {
-    "kind": "hex",
-    "name": "inbox_apply_calldata_hash",
-    "value": "65332d0b3230b33c0ae8bddd8a1f3be8473739f865e73fc8e52f4f99cecc89d7"
-  },
-  { "kind": "uint", "name": "inbox_apply_calldata_length", "value": "14436" },
-  {
-    "kind": "hex",
-    "name": "inbox_apply_maximum_calldata_hash",
-    "value": "73002811cb115ed748ecf343eb62f41c195f31cf35b373dbad55b2f8a4793782"
-  },
-  { "kind": "hex", "name": "inbox_apply_selector", "value": "6b326168" },
-  { "kind": "hex", "name": "inbox_batch_magic", "value": "49425632" },
-  {
-    "kind": "uint",
-    "name": "inbox_credit_packed_terms",
-    "value": "1932123279377088595567804303184537494733657"
-  },
-  {
-    "kind": "hex",
-    "name": "inbox_credit_slot",
-    "value": "c4d0ee7539dfc00bb8e367f41c0bf8ae739fda600cfa6e6007d466815b251a72"
-  },
-  {
-    "kind": "hex",
-    "name": "inbox_route_config_hash",
-    "value": "5cd56504fe45ee5f3ccf9fed4cc05f600acbe66007743878e0e0e6c25135edaa"
-  },
-  {
-    "kind": "hex",
-    "name": "ingress_authorization_root",
-    "value": "3f791618786188f25b97e1ce30e7e34da18e817b699136f175eb49aac7dbf02b"
-  },
-  {
-    "kind": "hex",
-    "name": "ingress_authorization_root_typehash",
-    "value": "c7b11126d8d1984cc17cbc108be2a1be0ef9c4e8fd519fa9033c949962f1b042"
-  },
-  {
-    "kind": "hex",
-    "name": "ingress_authorization_typehash",
-    "value": "7d996545314cabc22ca6b931d7f0e88f910b93ff80840cf27b339490d35845b2"
+    "value": "55cd2bd22ee66b28bc689013b9fc33c299c4d3802f250e67375b1cabbbb1c756"
   },
   {
     "kind": "hex",
@@ -1604,52 +1034,6 @@
   },
   {
     "kind": "hex",
-    "name": "install_settlement_authorization_calldata_hash",
-    "value": "5648bc439ad8da33052ed2aa53ba5f06b4aa3dc667133faf55aa60f677dc1bb6"
-  },
-  {
-    "kind": "hex",
-    "name": "install_settlement_authorization_return_hash",
-    "value": "61833133fa1edddd4465eda12bd5067f8aec001eb68b99e880d57a81d3b77bee"
-  },
-  {
-    "kind": "hex",
-    "name": "install_settlement_authorization_selector",
-    "value": "b1a3fef9"
-  },
-  {
-    "kind": "hex",
-    "name": "invalid_no_tx_disposition",
-    "value": "9fc2f5e3050526ce19060baf8c933d9c6335233f71eba46b1e1dacf370f863ad"
-  },
-  {
-    "kind": "hex",
-    "name": "invocation_policy_calldata_hash",
-    "value": "b045e64d9c694ddac60d87bdaf025c33f557b65b0cd9036982dd5fcd160ee538"
-  },
-  {
-    "kind": "hex",
-    "name": "invocation_policy_getter_selector",
-    "value": "b2d0e286"
-  },
-  {
-    "kind": "hex",
-    "name": "invocation_policy_hash",
-    "value": "5eb7c00399d64d91e416d5a3dbe75187c39dfc2a4645b867864b5fd9e649f3e3"
-  },
-  { "kind": "hex", "name": "invocation_policy_magic", "value": "49505632" },
-  {
-    "kind": "hex",
-    "name": "invocation_policy_return_hash",
-    "value": "93bc154411cabc321c6b7c452a338e3e52789f0b97229cc2c68ba0bb4e3f3a19"
-  },
-  {
-    "kind": "hex",
-    "name": "invocation_policy_typehash",
-    "value": "d702a337b74fc40bfc746fb1aeeaa705e60a95947bfc3076c76222703205b4b1"
-  },
-  {
-    "kind": "hex",
     "name": "kind0_forced_admission_hash",
     "value": "3733764f042a48dfc4376c14c2f9c253f3a0ae0fc8e72a1e9e5ffd00aa9a0f3d"
   },
@@ -1658,742 +1042,6 @@
     "kind": "hex",
     "name": "kind0_forced_admission_schema_hash",
     "value": "6c5da3090966e605a84a39083d1e31c8a975527faff01d52a6728eea90c03700"
-  },
-  {
-    "kind": "hex",
-    "name": "kind0_ingress_authorization_id",
-    "value": "c825101ced1a3a9749e8923e95680e717166327dbe26572999c134a18829caad"
-  },
-  {
-    "kind": "hex",
-    "name": "kind1_forced_admission_hash",
-    "value": "36df47d1d2ac56345ae28cb5e94cf996cdceeff066e2e7205180c806320908a6"
-  },
-  { "kind": "uint", "name": "kind1_forced_admission_length", "value": "525" },
-  {
-    "kind": "hex",
-    "name": "kind1_forced_admission_schema_hash",
-    "value": "cfb1dda476f639a31808d971226ec0c5bb87b92958e25a8ec0113122e98ddbd4"
-  },
-  {
-    "kind": "hex",
-    "name": "kind1_ingress_authorization_id",
-    "value": "a2d8a68a0680411991452563433c890e58dc6c041bca7de26686a84fa7358368"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_blob_slice_maximum_hash",
-    "value": "d9791c1e9f76963f86cdfe6423b8d897dcc5c0ef5ad4cc16363b2b2ab452240d"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_blob_slice_maximum_length",
-    "value": "832"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_blob_slice_one_hash",
-    "value": "f0c8974a111225866a147954a2f98c29c679c1aa4680c42b15ac2eb3a1cea148"
-  },
-  { "kind": "uint", "name": "legacy_blob_slice_one_length", "value": "192" },
-  {
-    "kind": "hex",
-    "name": "legacy_checkpoint_config_magic",
-    "value": "4c434b31"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_checkpoint_config_return_hash",
-    "value": "4ab6f89dcd323544a673c0243a0ad55779c74ae37d981d3308829092d7713534"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_checkpoint_config_return_length",
-    "value": "192"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_checkpoint_config_selector",
-    "value": "68011023"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_current_operator_return_hash",
-    "value": "7606a1b3fbf7c1835d2aeeddf4207ed367c600f20c898605ba54d05cbbb3be39"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_current_operator_selector",
-    "value": "343f0a68"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_derivation_source_mixed_hash",
-    "value": "7e0699ca450524a9f618d63c9c6ac4690e44bf47ae3a24980346f4d91b3a8789"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_derivation_source_mixed_length",
-    "value": "288"
-  },
-  { "kind": "uint", "name": "legacy_descriptor_call_gas", "value": "100000" },
-  {
-    "kind": "hex",
-    "name": "legacy_descriptor_impl_selector",
-    "value": "8abf6077"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_forced_inclusion_encoding_hash",
-    "value": "ffad3668322a174e4a6b3180869175b6395a8657c6940353ce2cdf442fe98cd4"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_forced_inclusion_encoding_length",
-    "value": "256"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_full_scan_capacity_bytes",
-    "value": "4161536"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_full_scan_capacity_headroom_bytes",
-    "value": "32768"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_abandonment_receipt_hash",
-    "value": "505ed672213fd78e9aa332d0b90636f6962f07d0d73e4d2927089876d4491ce4"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_abandonment_sealed_topic",
-    "value": "a3b978444273f8f347857235c224846aa45e8ce5bb73df549b9916e96371c8c9"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_arm_calldata_hash",
-    "value": "1c7924805c2b9ce70ebe5ba35022c8e894abdbfbc1ca75d0b308f5d220272fd9"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_genesis_arm_calldata_length",
-    "value": "68"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_arm_id",
-    "value": "6677efaf9754c16c5d860ed96dcad4a3c960313cfdec4a3dde9ece805f95d481"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_arm_return_hash",
-    "value": "dd2ee4475e7069f2736abbeca7354c113a6dc8c042ed379f85d68cde3ac266c4"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_genesis_arm_return_length",
-    "value": "128"
-  },
-  { "kind": "hex", "name": "legacy_genesis_arm_selector", "value": "8781a058" },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_begin_scan_calldata_hash",
-    "value": "af52dc0846742e4da9ba96500e6b751aec00fb8dab6997c5d858aecb3dd1c1d5"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_begin_scan_return_hash",
-    "value": "add644dde24164cfb29ab6a4598cb55acb73c55dd295b0c2a227dc3264c6f65c"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_begin_scan_selector",
-    "value": "e9d1a07f"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_genesis_blob_data_expiry",
-    "value": "1573864"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_boundary_hash",
-    "value": "0215b43e3b2143b3fcac2c97bc2f8cc32ab47ac695a6fd173d919abdcc170263"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_campaign_fence_descriptor_hash",
-    "value": "cf5cd470448a26b70eddedf8c30fa39533e66e874e2fc1aa2e310ab633c0d737"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_campaign_id",
-    "value": "75a24ae4460eef3dc3a65bfa5c64230324a5847393534f14ff510eff778bbc00"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_campaign_magic",
-    "value": "4c474331"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_campaign_return_hash",
-    "value": "78b64c7f6d7e6c9e723f5e1c5c478b959616d90ca919f70f060eab419b340ede"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_genesis_campaign_return_length",
-    "value": "512"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_campaign_selector",
-    "value": "718b2ac7"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_checkpoint_record_hash",
-    "value": "1461a32136f8c498043934fce575dddec6830744145afbccde57eea1ea61c9b0"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_checkpoint_storage_layout_hash",
-    "value": "f9e5f221ec2368348e185feb34fee0cdb27a812a2533c56fa7dfe8ccf762ffe1"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_deployment_hash",
-    "value": "98cc45a7619c75ff658f46edbe2e3c11c19e1ec424797cf04c760b9f07fd567c"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_expire_calldata_hash",
-    "value": "aa20b2f1a9d896575963866a94debfa615b605a816164ef2e15b3b6b8969de8f"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_expire_return_hash",
-    "value": "9536645b48dce02dd376837692e40f53cd5ac18e6af5d0c31bade33be31d2e19"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_expire_selector",
-    "value": "a4a37936"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_finalize_calldata_hash",
-    "value": "f39def7401e28caae32acd1437ae720dd17613184d8f782df6effb493544d16a"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_genesis_finalize_calldata_length",
-    "value": "196"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_finalize_return_hash",
-    "value": "a0a97e0c688b27cb601291eb817a8cb2d6781a871306783f5fa6cc52490ea26b"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_finalize_selector",
-    "value": "c2de6417"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_forced_record_hash",
-    "value": "dbda8510c73bc3eb57de26ae5c5bcc82a45bf6fedab68abf100d9baea6f4a380"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_forced_rows_empty_root",
-    "value": "5631fad8f285ac1643b4e817c5454ee4f1e35174786dd255842a987b21c3fd92"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_forced_rows_root",
-    "value": "ab7f340cae89170a3a619086538cace009399987a1bffbee40c17da60c10fcc8"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_launch_id",
-    "value": "b0e237efe47d0f14abb65e1731079872080587791caeee5011a9f7f6af8f2207"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_post_state_commitment",
-    "value": "fd9c135419af44d79907ccaf2f38d535b7755eaf721873c4401bb0ffe3f2bc9a"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_preparation_return_hash",
-    "value": "8c869f3dfe7df0f01a65e96d7691b5b0d095590acd9f034770c33a6c75472a98"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_genesis_preparation_return_length",
-    "value": "288"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_preparation_selector",
-    "value": "6880cd05"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_proof_verifier_graph_hash",
-    "value": "4fc1c37502713218107f6aefba90f1a5720e9ccd5a5569abb590746e85f64efa"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_proposal_rows_empty_root",
-    "value": "0736a35926f1618d1fcca0fdf57530d52f3d1694eb227f31c28b158b370793d5"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_proposal_rows_root",
-    "value": "aeacf67ac14d90928d567c659ff80316a0d780fc490ac6b4b69e9620836d2b46"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_proposer_checker_descriptor_hash",
-    "value": "1bd9411f4082f5d010edfad3ba2a52ed5164a7a7ec345c1d56f11a2b3448515a"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_prover_whitelist_descriptor_hash",
-    "value": "afda6179076d7f2625ac4e691fd28ff557ef3419a708f22598bc8419b6a27c05"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_publish_magic",
-    "value": "4c475031"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_quiescence_calldata_hash",
-    "value": "fbe64f67372a1679ab504abeacdc2b21f91294128a13b2aa31b58ab5f0fa928e"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_quiescence_return_hash",
-    "value": "202e060e54a1d719cf9a38487639625bd9f8f46cd20a883bf89197684bb5b444"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_quiescence_selector",
-    "value": "4c0ae8da"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_quiescent_state_return_hash",
-    "value": "a58d8dc413b380c6193d93dc549e361d58ebc8f8ce3fbf35329b2e85edbcf5b3"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_ready_state_return_hash",
-    "value": "cf7f77647f5983fb6195397ebf21fde6cb12e920af8614841ade644ea7bb9c00"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_resume_calldata_hash",
-    "value": "4ffaaa379aba04a1552745b701c283be1860ceecb3d2970457f14792434583bd"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_resume_profile_hash",
-    "value": "6a993ebf703937ddefdd8a5ae08911f15a19286ae47b40d0b91a08824cbb2812"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_resume_return_hash",
-    "value": "e2f91c31c3384496ea963e0ff9e6feddd6bffe8f9e7725209ec288fa7186524f"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_resume_selector",
-    "value": "2bf6b656"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_resume_time_policy_hash",
-    "value": "ae8419c16fd9493a76f4192c6bef1396d6237a2f2d981dc2bb55acfb3086e5d6"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_resume_verifier_route_hash",
-    "value": "527763e6ea020b909c9a74a7aa5b7c2fdb372c5d8f283644d4d454bc63c16275"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_review_commitment",
-    "value": "def332a418f7e336cf5d5a032d5bb78358c91e72766f716947b385b7d98e90a6"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_risc0_resume_key_policy_hash",
-    "value": "60651c05d2012e7254373988020eaf9dec6c635e84d535112e7ade81aac5584a"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_risc0_reth_verifier_descriptor_hash",
-    "value": "4805e24aa165db57d51ab99349241fd843ca03e468afb8d33781d4a08ccca55b"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_scan_commitment",
-    "value": "cc54752fab9741291d293c6980c0dcc6d5a746a753b1087e6e1e63fd46c4e97e"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_scan_forced_calldata_hash",
-    "value": "173d5d6c302515d32084b7e468fe715d9bd2e6cd6aa86ce43a2b22cf14e222e4"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_scan_forced_return_hash",
-    "value": "10dcb42db706d4c4a5afe207c6327f8cecbcbc4b298c0255fe2434662e6599d6"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_scan_forced_selector",
-    "value": "032ae99e"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_scan_proposals_one_calldata_hash",
-    "value": "ac3ccf313cf449d5a70a5f59eeaf97f7c92142ecc3255e52d7eda27a24f6a741"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_genesis_scan_proposals_one_calldata_length",
-    "value": "4004"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_scan_proposals_return_hash",
-    "value": "10e8d4b72d5c271bc6f13dd2b9c476d4efd217cd1eddc07d04f0753b645ada6a"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_scan_proposals_selector",
-    "value": "7da66460"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_scan_proposals_sixteen_calldata_hash",
-    "value": "247ed256cb5b7b403e40c56e2814749d6f5ba4ca44969523c276217846aa761a"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_genesis_scan_proposals_sixteen_calldata_length",
-    "value": "62084"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_scan_state_return_hash",
-    "value": "0e34260feb0218ec39b755c99affec6f6f77ac3a1d2637b22535a156134392bf"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_genesis_scan_state_return_length",
-    "value": "608"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_scan_state_selector",
-    "value": "ef3cdce0"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_signal_service_checkpoint_descriptor_hash",
-    "value": "5e10f1f156d0913967b53921f75484530facf090ceb544306381abb78894143c"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_sp1_resume_key_policy_hash",
-    "value": "b449ce6092b398fd4178d946077f8f19c4f2451cc88d614bb682233134162f12"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_sp1_reth_verifier_descriptor_hash",
-    "value": "523d245ce9369abd6a116dd7cc4b4a989fcfb8a9d1f8eb796e1cb35945f18bf6"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_state_return_hash",
-    "value": "73e0826627c70ba244cd2e995b9a7bf2065c54556c76b6c8532d544adaf0f65c"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_genesis_state_return_length",
-    "value": "512"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_genesis_state_selector",
-    "value": "9b698000"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_inbox_config_return_hash",
-    "value": "4d6b260943518f7ce988e85ddb9321b2a3111a42e9ba431f45342ff6f4f3cea7"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_inbox_config_return_length",
-    "value": "544"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_inbox_config_selector",
-    "value": "c3f909d4"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_inbox_configuration_hash",
-    "value": "22bc70c195669ace965e7565ae253f760d785e048965f94efa51845573b36808"
-  },
-  { "kind": "uint", "name": "legacy_maximum_forced_row_bytes", "value": "256" },
-  {
-    "kind": "uint",
-    "name": "legacy_maximum_proposal_row_bytes",
-    "value": "3808"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_maximum_scan_bytes_bound",
-    "value": "4194304"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_maximum_sixteen_proposal_raw_bytes",
-    "value": "60928"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_maximum_sixteen_proposal_scan_calldata_length",
-    "value": "62084"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_next_operator_return_hash",
-    "value": "c7a0cb7d58c090fb9b48529de670e08db7fa5d48d0b8fb1a2c25f357ff0215ee"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_next_operator_selector",
-    "value": "72a8a551"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_operator_count_return_hash",
-    "value": "c2575a0e9e593c00f959f8c92f12db2869c3395a3b0502d05e2516446f71f85b"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_operator_count_selector",
-    "value": "7c6f3158"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_profile_maximum_forced_inclusions_per_proposal",
-    "value": "10"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_profile_maximum_normal_blob_hashes_per_proposal",
-    "value": "21"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_proposal_maximum_encoding_hash",
-    "value": "ac882b6809d66ab7fa52d59ef700c30ef460ae5b45db8ccdd0ea6cfdc62fb298"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_proposal_maximum_encoding_length",
-    "value": "3808"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_proposal_mixed_encoding_hash",
-    "value": "b83ae28a39b0d773dfaccf449234cc30a737b896dc3a1a2b1d4b15bcf2ae07d4"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_proposal_mixed_encoding_length",
-    "value": "1152"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_proposer_impl_return_hash",
-    "value": "760f5b3a5acc4b21ba8112ebe315c3946dc41e502bdb323e50afeac90a42ae8b"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_resume_proof_generation_max_seconds",
-    "value": "900"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_resume_risc0_config_magic",
-    "value": "4c523031"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_resume_risc0_config_return_hash",
-    "value": "c7b1f85e99c9b82651e09ced5b86de094ca46ef38aa0f5c22d94efa1d8222906"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_resume_risc0_config_return_length",
-    "value": "192"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_resume_risc0_config_selector",
-    "value": "e516c43e"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_resume_sp1_config_magic",
-    "value": "4c535031"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_resume_sp1_config_return_hash",
-    "value": "864c870262c85ba745d71a95e0d667b76fddf17d60a5efe48512b289ae61a9b0"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_resume_sp1_config_return_length",
-    "value": "192"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_resume_sp1_config_selector",
-    "value": "e2b5d958"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_resume_verifier_config_magic",
-    "value": "4c525631"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_resume_verifier_config_return_hash",
-    "value": "76ded5a00e4182d6eb5d2d40700d85414c53a99657ebed6dc9612205c703dded"
-  },
-  {
-    "kind": "uint",
-    "name": "legacy_resume_verifier_config_return_length",
-    "value": "160"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_resume_verifier_config_selector",
-    "value": "7e52cacd"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_signal_checkpoint_hash",
-    "value": "6ab84b0c77035309ac300830aa1c31d95f68c44b697d97a6836f7f3f54bf0708"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_signal_impl_return_hash",
-    "value": "8e4eff68fda06b95881cfa2df901251b566e87657e1a6ce77e69fd5546318034"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_signal_service_version_return_hash",
-    "value": "b10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf6"
-  },
-  {
-    "kind": "hex",
-    "name": "legacy_signal_service_version_selector",
-    "value": "ffa1ad74"
-  },
-  {
-    "kind": "hex",
-    "name": "liquidity_consumed_topic",
-    "value": "7f0ddd8af8190f3a3857af29a65ebb7546d6eecfa85fb39d4a697916bc75fca5"
-  },
-  {
-    "kind": "hex",
-    "name": "liquidity_deposited_topic",
-    "value": "5eb65038b938ffac21aec1d6ecbbe2195bc6697ae085a31dfbca8fca3aaf9931"
-  },
-  {
-    "kind": "hex",
-    "name": "liquidity_fee_substitution_bridge_leaf",
-    "value": "5aa930fb98e37a82860cc9d68b4bfd03148af460e2d54d985697a98e1688ed05"
-  },
-  {
-    "kind": "hex",
-    "name": "liquidity_fee_substitution_credit_id",
-    "value": "a05bbba229dbc900836f74740bef34e615d9cd2e71ef9c417d1ce1394904de8b"
-  },
-  {
-    "kind": "hex",
-    "name": "liquidity_funding_state_calldata_hash",
-    "value": "557382fcd8b069f30481542beff33f0378ac639074bc3b9dd4b967ccd17eff72"
-  },
-  {
-    "kind": "hex",
-    "name": "liquidity_funding_state_return_hash",
-    "value": "a034881ef2549ae1ccd6c046d07e02fac16ea4bbb021cecc6ff0e925253994d4"
-  },
-  {
-    "kind": "hex",
-    "name": "liquidity_funding_state_selector",
-    "value": "6a9a6c32"
-  },
-  {
-    "kind": "hex",
-    "name": "liquidity_quote_calldata_hash",
-    "value": "759ed660e54e88b9763c18dc491d861f2f2dd0d71697122bb8f9bfc8f83da1d8"
-  },
-  {
-    "kind": "hex",
-    "name": "liquidity_quote_return_hash",
-    "value": "107a11a2ffc817aac46c36ae74abd55a97085d79bcb8a363a512e412a03fb03e"
-  },
-  { "kind": "hex", "name": "liquidity_quote_selector", "value": "43dc48e0" },
-  {
-    "kind": "hex",
-    "name": "liquidity_settlement_hash",
-    "value": "625ff42ed879b94a7499fecb7abc07988b348300d1c4e9cc1f7596968eaf2f19"
-  },
-  {
-    "kind": "hex",
-    "name": "liquidity_ticket_id",
-    "value": "5dc074de7029f6762c8c386b15cbd61cc7ad94b9432c25a35a5ae48e72c3bf2b"
-  },
-  {
-    "kind": "hex",
-    "name": "liquidity_withdrawn_topic",
-    "value": "1c7f587c4a1403966578e0bc3326f08fab3ad01d6c34b92e43af37a84ad98e38"
-  },
-  {
-    "kind": "hex",
-    "name": "live_registration_validation_commitment",
-    "value": "d5bd3c5a3ada013adee94bc295b50762caf331038d7fb0319ab3896011657b2f"
-  },
-  {
-    "kind": "hex",
-    "name": "live_version_migration_lease_selector",
-    "value": "aaac4c97"
-  },
-  {
-    "kind": "hex",
-    "name": "manifest_components_hash",
-    "value": "b171178cfd540740d33e80e1000e8aa4cdc0a4136ab803419c642ac9e42a97eb"
   },
   {
     "kind": "hex",
@@ -2412,199 +1060,6 @@
   },
   {
     "kind": "hex",
-    "name": "mark_inbox_batch_calldata_hash",
-    "value": "dd169563f18fb2395484b19b68c452773d7a3d4e292cfce10f081161cb699bd0"
-  },
-  { "kind": "hex", "name": "mark_inbox_batch_selector", "value": "a92f72cd" },
-  { "kind": "hex", "name": "mark_migration_ready_magic", "value": "4d524459" },
-  {
-    "kind": "hex",
-    "name": "mark_migration_ready_selector",
-    "value": "e0c25827"
-  },
-  {
-    "kind": "hex",
-    "name": "market_authority_configuration_hash",
-    "value": "e348b5cddcb8eb6da9bedb54c23e10cf9fe0c20b9f50f769258b47dfdb870c07"
-  },
-  {
-    "kind": "hex",
-    "name": "maximum_genesis_activation_calldata_hash",
-    "value": "c0244b9405d34af59daefd6bb3a296e54b4d80fea07cf2fbc2d89eec0e433cf0"
-  },
-  {
-    "kind": "uint",
-    "name": "maximum_genesis_activation_calldata_length",
-    "value": "135908"
-  },
-  {
-    "kind": "uint",
-    "name": "maximum_live_version_migration_seconds",
-    "value": "604800"
-  },
-  {
-    "kind": "uint",
-    "name": "maximum_migration_proof_bytes",
-    "value": "131072"
-  },
-  {
-    "kind": "hex",
-    "name": "maximum_version_activation_calldata_hash",
-    "value": "1e28832c229e77c24167aeaf61b87622415b863bb31bef26f511766acd66fc0a"
-  },
-  {
-    "kind": "uint",
-    "name": "maximum_version_activation_calldata_length",
-    "value": "149284"
-  },
-  {
-    "kind": "hex",
-    "name": "message_invocation_hook_selector",
-    "value": "7f07c947"
-  },
-  {
-    "kind": "hex",
-    "name": "message_v1_data_hash",
-    "value": "f08683775f4a25dfef721c487073fb77026d45ac57e423424290e47af9fd2835"
-  },
-  {
-    "kind": "hex",
-    "name": "message_v1_tuple_hash",
-    "value": "0e85a708462e96cbaca7158a1534011a25137c3b7aada7f381e4fc5b3afbe40d"
-  },
-  {
-    "kind": "hex",
-    "name": "migration_activation_context_hash",
-    "value": "ece0e4f437d4f65bf5c43ae95765c8244a5b8a6ec264eb41135e997331cf20a6"
-  },
-  {
-    "kind": "hex",
-    "name": "migration_activation_context_return_hash",
-    "value": "5d477aadbf26d7f74dfafded8eb4a30d3bc09cf8d144045e25b9d92447226d34"
-  },
-  {
-    "kind": "uint",
-    "name": "migration_activation_context_return_length",
-    "value": "320"
-  },
-  {
-    "kind": "hex",
-    "name": "migration_activation_context_selector",
-    "value": "7cf70319"
-  },
-  {
-    "kind": "hex",
-    "name": "migration_activation_profile_calldata_hash",
-    "value": "3dd403c33c2e7c4e6b324efac7461b5b0cc6f3696a2a8d8c94c9cb9bafcf9c85"
-  },
-  {
-    "kind": "hex",
-    "name": "migration_activation_profile_magic",
-    "value": "4d505232"
-  },
-  {
-    "kind": "hex",
-    "name": "migration_activation_profile_record_hash",
-    "value": "a58b3bb05afd89884202b6c915d79b037f1cc4c0b0ea50e203359be764e59538"
-  },
-  {
-    "kind": "hex",
-    "name": "migration_activation_profile_return_hash",
-    "value": "6c66046e5a974aa05a17d7896f55b080bd762263331c542a1c7aa7b6c8f7d46c"
-  },
-  {
-    "kind": "uint",
-    "name": "migration_activation_profile_return_length",
-    "value": "768"
-  },
-  {
-    "kind": "hex",
-    "name": "migration_activation_profile_selector",
-    "value": "c65ff64e"
-  },
-  {
-    "kind": "hex",
-    "name": "migration_adoption_commitment",
-    "value": "a1eb05155bb58ee4bfa0158aaf35d53f2eecbd526497e708a8443694c928d4c8"
-  },
-  {
-    "kind": "uint",
-    "name": "migration_arm_execution_window_seconds",
-    "value": "604800"
-  },
-  {
-    "kind": "hex",
-    "name": "migration_arm_fresh_after_magic",
-    "value": "4d414631"
-  },
-  {
-    "kind": "hex",
-    "name": "migration_arm_fresh_after_return_hash",
-    "value": "b7483e72711cfc12792d104e0b0bc11c51e9e51ba92ff0978675a1e336756dd1"
-  },
-  {
-    "kind": "hex",
-    "name": "migration_arm_fresh_after_selector",
-    "value": "bc4707fb"
-  },
-  {
-    "kind": "hex",
-    "name": "migration_arming_lifecycle_return_hash",
-    "value": "298524396c6b44dd68c8c21326e4ddb544cc51cfe8d5b89ed34bda45fa998753"
-  },
-  {
-    "kind": "hex",
-    "name": "migration_data",
-    "value": "2c36740d76ae6192335d4c603f42edace094b33e8f54e959b40241a94c1f6deb"
-  },
-  {
-    "kind": "hex",
-    "name": "migration_post_state_calldata_hash",
-    "value": "69b9221252be6cf9cde102a40ae1a79d7e0dec2db59e39662e5b375f5ff2c71b"
-  },
-  {
-    "kind": "hex",
-    "name": "migration_post_state_selector",
-    "value": "66e664cb"
-  },
-  { "kind": "hex", "name": "migration_readiness_magic", "value": "4d525331" },
-  {
-    "kind": "hex",
-    "name": "migration_readiness_selector",
-    "value": "b36c83ce"
-  },
-  {
-    "kind": "hex",
-    "name": "migration_transition_statement_typehash",
-    "value": "832785a7f9ce32f97dfa06fb39b9c583c13e65a5967c88f7c8c3fbda94fcef2b"
-  },
-  {
-    "kind": "hex",
-    "name": "migration_verifier_config_getter_selector",
-    "value": "476b9aef"
-  },
-  {
-    "kind": "hex",
-    "name": "migration_verifier_config_typehash",
-    "value": "0acb8f9e39dd43a4208edc38c8925bbd3433e72eb46f9e5fac584bd14a970b98"
-  },
-  {
-    "kind": "hex",
-    "name": "migration_verifier_configuration_hash",
-    "value": "950691bac22ceef2dd834142420a79e589bc489165cb10815e889475c39d2613"
-  },
-  {
-    "kind": "hex",
-    "name": "migration_verifier_descriptor_hash",
-    "value": "1a4da551407abec077062cbff11b74e7d51fbf7282fe56d06a1ef449df3c82d2"
-  },
-  {
-    "kind": "hex",
-    "name": "migration_verifier_descriptor_typehash",
-    "value": "6f1be44c261607b4c2345985bfb5a081aabd621b9168982df9b7820c7dedebd6"
-  },
-  {
-    "kind": "hex",
     "name": "mmr_root_2",
     "value": "d20459aeb2fe916a18dd584d39b2ae25075c6b6c14104d9d64a8b1d7882eb4df"
   },
@@ -2615,521 +1070,13 @@
   },
   {
     "kind": "hex",
-    "name": "native_quota_key",
-    "value": "cb4ad8fa3767c3db6d89ac903ff86e2a0f85ba4ddcc7fcabeef38714e0c7f3b5"
-  },
-  {
-    "kind": "hex",
     "name": "normal_context",
-    "value": "5b93691b397d8ab377682acee7cf6cc77ff2726cd83a8a7b725084f5d6f468bd"
-  },
-  {
-    "kind": "hex",
-    "name": "normalized_message_hash",
-    "value": "f3010702b7b7bf10b6dbfe396a4c7ab07e7c560c28ffdbf6ff8d01d9a96ea4c7"
-  },
-  {
-    "kind": "uint",
-    "name": "normalized_message_hash_preimage_length",
-    "value": "576"
-  },
-  {
-    "kind": "hex",
-    "name": "normalized_message_return_hash",
-    "value": "9ae2f743a618dd71137457bbc5ce7a13bbd143fef8b1c70bb38508c0fcad7e17"
-  },
-  {
-    "kind": "hex",
-    "name": "permissionless_abort_expired_migration_selector",
-    "value": "ea3e96c2"
-  },
-  {
-    "kind": "hex",
-    "name": "pool_accounting_calldata_hash",
-    "value": "354fc0013d46832830b1dff0379be91bf1b0060a34ce0b17d614f5065b61610e"
-  },
-  { "kind": "hex", "name": "pool_accounting_magic", "value": "504c4132" },
-  {
-    "kind": "hex",
-    "name": "pool_accounting_return_hash",
-    "value": "fe5f0b1458dd3e41701c675116f35fa1a527569daa205b7be7a86457ed8014cf"
-  },
-  { "kind": "hex", "name": "pool_accounting_selector", "value": "f2b3441e" },
-  {
-    "kind": "hex",
-    "name": "pool_attempt_authorization",
-    "value": "67d687b42ac0ba5089f409ac4c0a7b77c99521bc173a6431964ebb11e2258cb5"
-  },
-  { "kind": "uint", "name": "pool_auth_cleanup_gas", "value": "50000" },
-  {
-    "kind": "hex",
-    "name": "pool_bridge_attempt_calldata_hash",
-    "value": "5d5711ddace00ee6a4c33a595ce3bc7cfb4ff531fa9c9a7710e0394a1e62426c"
-  },
-  {
-    "kind": "uint",
-    "name": "pool_bridge_attempt_calldata_length",
-    "value": "1124"
-  },
-  {
-    "kind": "hex",
-    "name": "pool_bridge_attempt_selector",
-    "value": "a535a986"
-  },
-  { "kind": "hex", "name": "pool_bridge_result_magic", "value": "4c415632" },
-  {
-    "kind": "hex",
-    "name": "pool_bridge_result_return_hash",
-    "value": "b42fc73f98d42dd9679ce04ae701c8f704bbed6f77303c34e995539ba9d06305"
-  },
-  {
-    "kind": "hex",
-    "name": "pool_component_configuration_hash",
-    "value": "680054a7895708487ddd24a202ddf1069f2ef81238e909e826c368d1da396881"
-  },
-  {
-    "kind": "hex",
-    "name": "pool_consume_calldata_hash",
-    "value": "dd7a8c8e3f45d044b545ce1135fe0a12e52068a489b4475f10443b8fa3c864e4"
-  },
-  {
-    "kind": "hex",
-    "name": "pool_consume_return_hash",
-    "value": "45e57d13eb0e9644c2d8c552e4f7c7d66bb0a4acd9e4862195bcabc68d5d9af6"
-  },
-  { "kind": "hex", "name": "pool_consume_selector", "value": "37093d2a" },
-  {
-    "kind": "hex",
-    "name": "pool_deposit_calldata_hash",
-    "value": "35c6d5e52bfa1f1d559b5061bb71be2155e607456b1e4242e400d398aaa3e180"
-  },
-  {
-    "kind": "hex",
-    "name": "pool_deposit_return_hash",
-    "value": "7ba7804bc6c4c0cde5e2b1c55e724cc9e14b664c02eeb19db225db96f859c64e"
-  },
-  { "kind": "hex", "name": "pool_deposit_selector", "value": "eda2a3f6" },
-  { "kind": "uint", "name": "pool_external_read_gas", "value": "50000" },
-  {
-    "kind": "hex",
-    "name": "pool_process_calldata_hash",
-    "value": "99c9911dc44b7f8da78b961098aa6368e2c75dd86bcff79deacd6f7a8a02813f"
-  },
-  { "kind": "uint", "name": "pool_process_calldata_length", "value": "1028" },
-  { "kind": "hex", "name": "pool_process_selector", "value": "5fbbe107" },
-  {
-    "kind": "hex",
-    "name": "pool_retry_calldata_hash",
-    "value": "bde9f11115601198cd164361cde06b96ef67c4c0d0d16361d7cc5251784d848a"
-  },
-  { "kind": "uint", "name": "pool_retry_calldata_length", "value": "1060" },
-  { "kind": "hex", "name": "pool_retry_selector", "value": "031f93e7" },
-  {
-    "kind": "hex",
-    "name": "pool_row_substitution_infrastructure_hash",
-    "value": "c718d2e79a259c6b4f3827d73172a3fded68b2b259cc2e3351c8f66a7c24976c"
-  },
-  {
-    "kind": "hex",
-    "name": "pool_ticket_calldata_hash",
-    "value": "7f489c048d7a27a5fe4624ac37cacdef2ae1ba1ba08d68471ad5e00dd7c47dfe"
-  },
-  {
-    "kind": "hex",
-    "name": "pool_ticket_return_hash",
-    "value": "4cb85eb7ea2f272ca7a4d558694de56d4e9d2455a7cd3074c442c849213a9c31"
-  },
-  { "kind": "hex", "name": "pool_ticket_selector", "value": "5defa7e1" },
-  {
-    "kind": "hex",
-    "name": "pool_value_acceptance_commitment",
-    "value": "785b63dc7574c793f1dd0d5c178efb00571321acc391ba16baab46a861309653"
-  },
-  {
-    "kind": "hex",
-    "name": "pool_value_callback_calldata_hash",
-    "value": "bbd2f3056166495dd9e68ee519dac697b8db6aa01997a3784f9d0c672d5c8907"
-  },
-  { "kind": "uint", "name": "pool_value_callback_gas", "value": "100000" },
-  {
-    "kind": "hex",
-    "name": "pool_value_callback_return_hash",
-    "value": "632cf02c0c8f06fd37a4ea096b77ae3cb51bbcd26f7920bb0bd053c5b0df10e2"
-  },
-  {
-    "kind": "hex",
-    "name": "pool_value_callback_selector",
-    "value": "a34908bb"
-  },
-  { "kind": "hex", "name": "pool_value_magic", "value": "4e4c5632" },
-  {
-    "kind": "hex",
-    "name": "pool_withdraw_calldata_hash",
-    "value": "6a23d1194b26c434dd47e8b8559a55f7b8c5e93bb7dc575588dae27cf6f60815"
-  },
-  {
-    "kind": "hex",
-    "name": "pool_withdraw_return_hash",
-    "value": "405787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace"
-  },
-  { "kind": "hex", "name": "pool_withdraw_selector", "value": "fe4f5ccf" },
-  {
-    "kind": "hex",
-    "name": "profile_ingress_authorization_magic",
-    "value": "50494132"
-  },
-  {
-    "kind": "hex",
-    "name": "profile_ingress_authorization_one_return_hash",
-    "value": "72c9c660ab2d0101dc8ed39b21a8f7db023537e60a9f613e1ce62b5dfa03e41f"
-  },
-  {
-    "kind": "hex",
-    "name": "profile_ingress_authorization_selector",
-    "value": "2181b974"
-  },
-  {
-    "kind": "hex",
-    "name": "profile_ingress_authorization_zero_return_hash",
-    "value": "160cb5e1f74e0e42df2a95218e0c124e7a728107de3d6530fa60513f8392205b"
-  },
-  { "kind": "hex", "name": "profile_ingress_root_magic", "value": "50495232" },
-  {
-    "kind": "hex",
-    "name": "profile_ingress_root_return_hash",
-    "value": "96deb06d3056d569bb77926b48fa14b48f25fd2c24cc94722acec72b1c43317d"
-  },
-  {
-    "kind": "hex",
-    "name": "profile_ingress_root_selector",
-    "value": "2d2bbe23"
-  },
-  { "kind": "hex", "name": "protocol_apply_magic", "value": "50415031" },
-  {
-    "kind": "hex",
-    "name": "protocol_apply_return_hash",
-    "value": "f9361bdc99345939494c4794891942dafae95fa74ace38bcf4430ae53ac12c4a"
-  },
-  { "kind": "uint", "name": "protocol_authority_read_gas", "value": "100000" },
-  {
-    "kind": "uint",
-    "name": "protocol_change_delay_seconds",
-    "value": "604800"
-  },
-  {
-    "kind": "hex",
-    "name": "protocol_change_operation_calldata_hash",
-    "value": "37b48cae0171d320338a8250040e41169e1b9d815884ba5ab475e5e8f0e89bcd"
-  },
-  {
-    "kind": "hex",
-    "name": "protocol_change_operation_domain_hash",
-    "value": "edc1be882290e6241a79546c41db66a1d975095ae60cf3b2b16f1ed876f6038b"
-  },
-  {
-    "kind": "hex",
-    "name": "protocol_change_operation_magic",
-    "value": "50434f31"
-  },
-  {
-    "kind": "hex",
-    "name": "protocol_change_operation_return_hash",
-    "value": "eaeb03edc0826ec45b82ba03fd2df0f9f150609f51d6991fa5709c429258d3db"
-  },
-  {
-    "kind": "hex",
-    "name": "protocol_change_operation_selector",
-    "value": "4b80fe68"
-  },
-  {
-    "kind": "hex",
-    "name": "protocol_change_timelock_config_magic",
-    "value": "50435431"
-  },
-  {
-    "kind": "hex",
-    "name": "protocol_change_timelock_config_return_hash",
-    "value": "1813d922f5db2c6e82ca7be236e9cab4b8ca3c8b5f32231d60bd51b75e54b29c"
-  },
-  {
-    "kind": "hex",
-    "name": "protocol_change_timelock_config_selector",
-    "value": "b80095ca"
-  },
-  { "kind": "hex", "name": "protocol_root_soc1_magic", "value": "534f4331" },
-  {
-    "kind": "hex",
-    "name": "protocol_root_soc1_return_hash",
-    "value": "8df57002258b7d91f346af8230d0ac6145972ab5d17570a9537e143f8ca7c802"
-  },
-  {
-    "kind": "uint",
-    "name": "protocol_root_soc1_return_length",
-    "value": "576"
-  },
-  { "kind": "hex", "name": "protocol_root_soc1_selector", "value": "e3d91a33" },
-  {
-    "kind": "hex",
-    "name": "protocol_version_manager_config_magic",
-    "value": "50564d31"
-  },
-  {
-    "kind": "hex",
-    "name": "protocol_version_manager_config_return_hash",
-    "value": "27923d62d23565fd61ce57c2e62421e5c295ae690b1a4b6be0217d7679be2364"
-  },
-  {
-    "kind": "hex",
-    "name": "protocol_version_manager_config_selector",
-    "value": "4deb7821"
-  },
-  {
-    "kind": "hex",
-    "name": "protocol_version_manager_configuration_hash",
-    "value": "d4ce25d988e7329c77ff693384f72c9ac1f34ea29c35dc179b14bf5b671adae4"
-  },
-  {
-    "kind": "hex",
-    "name": "protocol_version_manager_descriptor_hash",
-    "value": "0a89ae4867fd3834cc0b3d269693e0dee051aa95358d3551c0d295241c21ddb8"
-  },
-  {
-    "kind": "hex",
-    "name": "publish_genesis_campaign_operation_id",
-    "value": "ca02a0a56653379e307577ef98f54291aa073ac7fc0c766a9c8ab3658a861bc5"
-  },
-  {
-    "kind": "hex",
-    "name": "publish_genesis_campaign_payload_hash",
-    "value": "b906a95c95ee8759e3a2e543779a7fefe4d5aeeb48a3b8952f053597cde80aa4"
-  },
-  {
-    "kind": "uint",
-    "name": "publish_genesis_campaign_payload_length",
-    "value": "320"
-  },
-  {
-    "kind": "hex",
-    "name": "publish_legacy_genesis_campaign_calldata_hash",
-    "value": "10b71805b5d2c2539ae92df3e114b70e3ad483ddb4f50549cc3315dbd798b37e"
-  },
-  {
-    "kind": "hex",
-    "name": "publish_legacy_genesis_campaign_return_hash",
-    "value": "3e6c71d54513abf0ad08f4bc9d9b121b90acc3b22a1a09ff1c4a5d1e2b8cd123"
-  },
-  {
-    "kind": "hex",
-    "name": "publish_legacy_genesis_campaign_selector",
-    "value": "5f0ed7f5"
-  },
-  {
-    "kind": "hex",
-    "name": "publish_migration_arm_operation_id",
-    "value": "264b3c77ebb9f80d1e9798c75321a2bada798b1bbf614cf66392c5d9f3552e20"
-  },
-  {
-    "kind": "hex",
-    "name": "publish_migration_arm_payload_hash",
-    "value": "af04a917f3f5ef75fa83db3a5b241db601c9dffc3955e91e0d3a5ca4f787bd7b"
-  },
-  {
-    "kind": "uint",
-    "name": "publish_migration_arm_payload_length",
-    "value": "128"
-  },
-  { "kind": "uint", "name": "pvm_router_mutation_gas", "value": "8000000" },
-  {
-    "kind": "hex",
-    "name": "queue_migration_calldata_hash",
-    "value": "f795808727d84001195003878302c47af04b449a5cd9e7603c5d75cf9623b8f9"
-  },
-  { "kind": "uint", "name": "queue_migration_calldata_length", "value": "260" },
-  {
-    "kind": "uint",
-    "name": "queue_migration_credited_wei",
-    "value": "64000000000000000"
-  },
-  {
-    "kind": "hex",
-    "name": "queue_migration_post_state_commitment",
-    "value": "6c2969fa0b2dc25db13bcd41a6c106d282fcd9cecc5d1c3ac9b6eec583f1caf6"
-  },
-  {
-    "kind": "hex",
-    "name": "queue_migration_return_hash",
-    "value": "7040d71a28c3643a4f56e73cf5a50843a6ac67f8675f9c586df1aed08dbd6b2e"
-  },
-  { "kind": "hex", "name": "queue_migration_selector", "value": "9461f698" },
-  {
-    "kind": "hex",
-    "name": "queue_post_state_return_hash",
-    "value": "f30ae93e1e90f702ece10c9282a821a8995e86f4d2280afc99101b1dbfcd3325"
-  },
-  {
-    "kind": "hex",
-    "name": "queue_protocol_change_calldata_hash",
-    "value": "679f8c830603977698606813f52467196ea6ac6f4ffe91ef2612a259edcd13c6"
-  },
-  {
-    "kind": "uint",
-    "name": "queue_protocol_change_calldata_length",
-    "value": "11492"
-  },
-  {
-    "kind": "hex",
-    "name": "queue_protocol_change_selector",
-    "value": "bd5c80a8"
-  },
-  {
-    "kind": "hex",
-    "name": "queued_return_hash",
-    "value": "76f821bd39721ec0e26efc55d7b667d20aab74992e0feae7d7755e386ecd694d"
+    "value": "f13be874ddd561c733c4bebe725fde7f7770661520f73e4bb99c383f40f579e6"
   },
   {
     "kind": "hex",
     "name": "recovery_id",
-    "value": "fd0552b28542fa3e236c86807695f3d5a4bc0436add285daa8506d9a79511b15"
-  },
-  {
-    "kind": "hex",
-    "name": "register_fork_review_certificate_hash",
-    "value": "15a242cf0fd70257617f69c7ccd4075d46c7e76ae22377f878a0884f3cd9eafb"
-  },
-  {
-    "kind": "hex",
-    "name": "register_fork_review_evidence_hash",
-    "value": "14795f387018d6c52030f07fd28f32b34abc62439c2dd8aa28785bf5156bfc68"
-  },
-  {
-    "kind": "hex",
-    "name": "register_fork_verifier_operation_id",
-    "value": "59169620023947479c6848e10e72e21f6bad34f51f9b38d30c504b6c522bbf3d"
-  },
-  {
-    "kind": "hex",
-    "name": "register_fork_verifier_payload_hash",
-    "value": "c07ba77bf323b341a5c54ef97d01da41c78e962f9c51ab2b9644e7cd6c003012"
-  },
-  {
-    "kind": "uint",
-    "name": "register_fork_verifier_payload_length",
-    "value": "576"
-  },
-  {
-    "kind": "hex",
-    "name": "register_release_operation_id",
-    "value": "12263643f90f25306c69734ff190333d3f5eecd12abf9fe913bb5774478b7b74"
-  },
-  {
-    "kind": "hex",
-    "name": "register_release_payload_hash",
-    "value": "f556e1bb0f2a02bb9db0517fbe378b87707d3ea3ec518a31f832ef7754056fe5"
-  },
-  {
-    "kind": "uint",
-    "name": "register_release_payload_length",
-    "value": "11392"
-  },
-  {
-    "kind": "hex",
-    "name": "register_release_profile_bytes_hash",
-    "value": "123a849e88f305b9a33ea3001a8ad62473f01952e0f803c4b84b6a370bc15958"
-  },
-  {
-    "kind": "hex",
-    "name": "register_target_release_calldata_hash",
-    "value": "0ca1a3d89c200eaa9cfd5e84a3fd4ec2849d47ef9ed5a3ae3c48795d86130d5b"
-  },
-  {
-    "kind": "uint",
-    "name": "register_target_release_calldata_length",
-    "value": "11396"
-  },
-  {
-    "kind": "hex",
-    "name": "register_target_release_return_hash",
-    "value": "9ec67eba168db14b3d3e38d502620257b464e04dd598bc5fc9769332452dcab4"
-  },
-  {
-    "kind": "hex",
-    "name": "register_target_release_selector",
-    "value": "9aa71eff"
-  },
-  {
-    "kind": "hex",
-    "name": "registration_commitment_base_slot",
-    "value": "20b3dfc457e3cecf32b0c047177351f0814e426c1548e87b79f58830655810c3"
-  },
-  {
-    "kind": "hex",
-    "name": "registration_commitment_slot",
-    "value": "dfa6283b763bbadeb604401a78e2fefeddb72000addcdb94ed2e3de5cc69846b"
-  },
-  {
-    "kind": "hex",
-    "name": "registration_commitment_trie_key",
-    "value": "200031adff46d90b1cd5c67ff8e31098235d1dddb08ec98b0d20f5f8660c0ac8"
-  },
-  {
-    "kind": "hex",
-    "name": "registration_config_getter_return",
-    "value": "015ea002adbfab085cf51db1714c889961bb1a416cd69b7d22f1f816a5787e4c"
-  },
-  {
-    "kind": "hex",
-    "name": "registration_mpt_proof_schema_hash",
-    "value": "0027acbf8d87ef5b7c901c3dc27af4b56f1e4fb64953cf87f6fcd6ee878c963c"
-  },
-  {
-    "kind": "hex",
-    "name": "registration_mpt_verifier_config_getter_selector",
-    "value": "59bfe418"
-  },
-  {
-    "kind": "hex",
-    "name": "registration_mpt_verifier_config_typehash",
-    "value": "38f7fbc63e45f650bd5cbaffba0d81d5ca69f21ebdddfa74280d7e6eb5c319d6"
-  },
-  {
-    "kind": "hex",
-    "name": "registration_mpt_verifier_configuration_hash",
-    "value": "015ea002adbfab085cf51db1714c889961bb1a416cd69b7d22f1f816a5787e4c"
-  },
-  {
-    "kind": "hex",
-    "name": "registration_mpt_verifier_descriptor_hash",
-    "value": "e3c4dd9d13404822af1360b3bc97f3d82dc1dd7124a137e900c6351270505310"
-  },
-  {
-    "kind": "hex",
-    "name": "registration_mpt_verifier_descriptor_typehash",
-    "value": "9533e2f6ac9bcf6830306a9ef5d14e21a06008f9ceb59208d09a8d7ab1e6100f"
-  },
-  {
-    "kind": "hex",
-    "name": "registration_route_key",
-    "value": "e1063816f72a790c250fb4dd92cd4279978fea551eabceac111528010bdc8015"
-  },
-  {
-    "kind": "hex",
-    "name": "registration_route_key_typehash",
-    "value": "4368ad9403b46ef3830e21af8cddcaedbd444c8c57bc3414ebc6fdd250e1e6da"
-  },
-  {
-    "kind": "hex",
-    "name": "registration_storage_statement_hash",
-    "value": "ade6c2b85b07d5121ef671c814e81250641dc08f9f29859e8220d052e210c5fe"
-  },
-  {
-    "kind": "hex",
-    "name": "registration_storage_statement_typehash",
-    "value": "c049f967468e58f1a5c9b9e1a147dfc233695ae69c5d4a95ec4ffb49b5687da0"
-  },
-  {
-    "kind": "hex",
-    "name": "registration_verifier_return",
-    "value": "ade6c2b85b07d5121ef671c814e81250641dc08f9f29859e8220d052e210c5fe"
+    "value": "1d70fb5798b55f7a4b4b2f4b0f8b4472e63b9ff6853011680c516cf614293057"
   },
   {
     "kind": "hex",
@@ -3143,46 +1090,6 @@
   },
   {
     "kind": "hex",
-    "name": "release_manifest_base_slot",
-    "value": "a0b7a29a75032f37561036cd3741e7b375213309367f37b5ffec4ad55cf6154f"
-  },
-  {
-    "kind": "hex",
-    "name": "release_manifest_hash",
-    "value": "6e80aa2011635b73540f07a270c263b5675392d34021fec90e918b96f3ca9809"
-  },
-  {
-    "kind": "hex",
-    "name": "release_manifest_slot",
-    "value": "719bb73ba856aeab1b203e322bfefc6d84a4c41a3222bcf1634b1b44e5b9aba8"
-  },
-  {
-    "kind": "hex",
-    "name": "release_manifest_trie_key",
-    "value": "dac8109059d03da2ad16ac3acc50d2e58897b8c3a7f6889ae77bfb20737e87a2"
-  },
-  {
-    "kind": "hex",
-    "name": "release_manifest_typehash",
-    "value": "e7dc28b9b7147fbe9f9b0e0bf910800983be65e9ca19020f296fb0e780a0804b"
-  },
-  {
-    "kind": "hex",
-    "name": "reorg_genesis_activation_context_hash",
-    "value": "5434fda7ce921d2babc4c973928634f7692f6f1b9ed3540ecf3754923f4fb5a4"
-  },
-  {
-    "kind": "hex",
-    "name": "reorg_genesis_activation_receipt_id",
-    "value": "52962a10601bc5e889cbcee8e205a0d19398085869dbeb415c42bc0ddda2182d"
-  },
-  {
-    "kind": "hex",
-    "name": "reorg_genesis_post_state_commitment",
-    "value": "1ca7035319a93800b1e2d2cdf841d906d17b58b647c1178235814f267b22bc30"
-  },
-  {
-    "kind": "hex",
     "name": "replace_pending_fork_verifier_calldata_hash",
     "value": "7f5672e814198405380028deb977bebdad7c69273d1b9b2c72edf8ca26982aca"
   },
@@ -3190,21 +1097,6 @@
     "kind": "uint",
     "name": "replace_pending_fork_verifier_calldata_length",
     "value": "548"
-  },
-  {
-    "kind": "hex",
-    "name": "replace_pending_fork_verifier_operation_id",
-    "value": "fe46b8930ee06263cc46f6fae27477f35528a751133875cc228e0126d8561322"
-  },
-  {
-    "kind": "hex",
-    "name": "replace_pending_fork_verifier_payload_hash",
-    "value": "f9d94647d71f55db575b40a58082faf63ec67e4897b097f83d7af5195807f132"
-  },
-  {
-    "kind": "uint",
-    "name": "replace_pending_fork_verifier_payload_length",
-    "value": "1536"
   },
   {
     "kind": "hex",
@@ -3223,16 +1115,6 @@
   },
   {
     "kind": "hex",
-    "name": "replacement_fork_review_certificate_hash",
-    "value": "8d6189732cb1cf1bb44c997a3d0e64b70b595c1bc02dcc1297fb7c438f30ea76"
-  },
-  {
-    "kind": "hex",
-    "name": "replacement_fork_review_evidence_hash",
-    "value": "3ec105c1c8c3673411009311dfe6a66d3136ada378f65469528381b3ae0d25cd"
-  },
-  {
-    "kind": "hex",
     "name": "reward_claimed_v1_data_hash",
     "value": "db2be80ad7fe2991fbabee31c9917dca99f927a94e09c6a4e810cec6d4a8cbae"
   },
@@ -3245,7 +1127,7 @@
   {
     "kind": "hex",
     "name": "reward_claimed_v1_topic1_candidate_id",
-    "value": "b9412b5e5219b7988b3596e09640e7587287d7f8310249c74520b6434eda1f6a"
+    "value": "39c621a869a95ddaf350d45f0c67094a57ac24d7b36a9bd1f57a75d5310dce2b"
   },
   {
     "kind": "hex",
@@ -3256,7 +1138,7 @@
   {
     "kind": "hex",
     "name": "reward_claimed_v1_topics_hash",
-    "value": "33f0cbbf74d5672b190e1d3e75217086b77f22276fd9f3484b80be642f0f468b"
+    "value": "774116b1e415ba1f16dd1c36bdf890120b091c4bddec662346eeb2a1e1c0f0d9"
   },
   {
     "kind": "hex",
@@ -3312,7 +1194,7 @@
   {
     "kind": "hex",
     "name": "reward_receipt_v1_calldata_hash",
-    "value": "db847387d8a70628c3756291e91dcf40d1a0130506316decc318639528c99308"
+    "value": "2a66098a253be726163d7f52e6d14eb134b5fd3651913b5b5a21526cbcc2fefb"
   },
   {
     "kind": "uint",
@@ -3322,12 +1204,12 @@
   {
     "kind": "hex",
     "name": "reward_receipt_v1_collision_candidate_id",
-    "value": "a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a46a"
+    "value": "a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a42b"
   },
   {
     "kind": "hex",
     "name": "reward_receipt_v1_commitment",
-    "value": "46ad3caae1ef1eed4334a968b444838271e5a3ad2241f5592498bd7aac557512"
+    "value": "e1e5ebd069f797767f88a333cdfc5e3c718a2cbba3ef6aa1ebb6192f307f2923"
   },
   { "kind": "hex", "name": "reward_receipt_v1_magic", "value": "52525631" },
   {
@@ -3338,35 +1220,10 @@
   {
     "kind": "hex",
     "name": "reward_receipt_v1_present_return_hash",
-    "value": "c358b5f714bcc031119da6e6510d5123ba361530ec6d627516155fcdf60c9ce5"
+    "value": "23160ce91822c00eda504d61fb874db8cdfaa2a0597332d37661540eebb6b62e"
   },
   { "kind": "uint", "name": "reward_receipt_v1_return_length", "value": "384" },
   { "kind": "hex", "name": "reward_receipt_v1_selector", "value": "3ed526c7" },
-  {
-    "kind": "hex",
-    "name": "route_config_getter_selector",
-    "value": "4b64fa11"
-  },
-  {
-    "kind": "hex",
-    "name": "router_legacy_bootstrap_magic",
-    "value": "524c4231"
-  },
-  {
-    "kind": "hex",
-    "name": "router_legacy_bootstrap_return_hash",
-    "value": "30f151045790eaf889f836923f45f60b3c45b715c70b14d515de5f59a5cebc85"
-  },
-  {
-    "kind": "uint",
-    "name": "router_legacy_bootstrap_return_length",
-    "value": "128"
-  },
-  {
-    "kind": "hex",
-    "name": "router_legacy_bootstrap_selector",
-    "value": "ec688e40"
-  },
   {
     "kind": "hex",
     "name": "schedule_carrier_return_hash",
@@ -3442,13 +1299,6 @@
   { "kind": "hex", "name": "seat_market_duty_selector", "value": "9a649489" },
   { "kind": "hex", "name": "seat_market_term_selector", "value": "76d5ecd4" },
   { "kind": "hex", "name": "seat_target_state_selector", "value": "cf52185b" },
-  {
-    "kind": "hex",
-    "name": "send_message_v2_calldata_hash",
-    "value": "9099cce58d3f36714ee59f37510261394e31583f8bd55da4551b653b5a060e12"
-  },
-  { "kind": "uint", "name": "send_message_v2_calldata_length", "value": "516" },
-  { "kind": "hex", "name": "send_message_v2_selector", "value": "9211d7e9" },
   { "kind": "hex", "name": "session_accounting_selector", "value": "e2a62969" },
   {
     "kind": "hex",
@@ -3499,56 +1349,6 @@
   },
   { "kind": "hex", "name": "session_sweep_selector", "value": "9d083a2b" },
   {
-    "kind": "hex",
-    "name": "settlement_authorization_getter_magic",
-    "value": "53415431"
-  },
-  {
-    "kind": "hex",
-    "name": "settlement_authorization_id",
-    "value": "82b259780b5450ee3a49433af1684cde16b021eee3d7fb11750f24f6ab5e0bc8"
-  },
-  {
-    "kind": "hex",
-    "name": "settlement_authorization_install_magic",
-    "value": "53414931"
-  },
-  {
-    "kind": "hex",
-    "name": "settlement_authorization_return_hash",
-    "value": "b6a5501b9206ee452f68ae379c5c453732ab7a896a47c5a1a48cf640ee8ecd56"
-  },
-  {
-    "kind": "hex",
-    "name": "settlement_authorization_selector",
-    "value": "1693ae01"
-  },
-  {
-    "kind": "hex",
-    "name": "settlement_deployment_descriptor_abi_hash",
-    "value": "76f5c789dcd532421c1bc391f7b8dade9cf7c89c940aafcf72cb9bf2603909dc"
-  },
-  {
-    "kind": "uint",
-    "name": "settlement_deployment_descriptor_abi_length",
-    "value": "256"
-  },
-  {
-    "kind": "hex",
-    "name": "settlement_deployment_descriptor_hash",
-    "value": "c2893beb61e422ed72700fab3f0b98ffb363dfdcff430699d4216160c875a659"
-  },
-  {
-    "kind": "hex",
-    "name": "settlement_factory_configuration_hash",
-    "value": "4bf4831c096e251d0ef171bc0fd0582319fdc7ad7a2bea91a6b9b64601aa2837"
-  },
-  {
-    "kind": "hex",
-    "name": "settlement_factory_deploy_selector",
-    "value": "4af63f02"
-  },
-  {
     "kind": "uint",
     "name": "settlement_forced_ingress_floor_call_gas",
     "value": "50000"
@@ -3580,88 +1380,6 @@
   },
   {
     "kind": "hex",
-    "name": "settlement_tuple_substitution_terminal_leaf",
-    "value": "80a5ea7fcd7c476559c881f629fbb84dc74aeb7ade5918f4dbb0f93b8be2076d"
-  },
-  {
-    "kind": "hex",
-    "name": "source_bridge_config_getter_return",
-    "value": "7f8e990ebe1154e101998d40cbff22336f4a7f1d70f13d0c2af5235ea47ffa0e"
-  },
-  { "kind": "uint", "name": "source_bridge_descriptor_length", "value": "752" },
-  {
-    "kind": "hex",
-    "name": "source_context_hash",
-    "value": "500d1760ed1ddf3a384a20537439fab774b12dd399dc5f309c3736056817f515"
-  },
-  {
-    "kind": "hex",
-    "name": "source_context_typehash",
-    "value": "6069dff5f628f94ceff984d5ce3ef62019eaeb4efd7e0627c45a14677bd13c70"
-  },
-  { "kind": "uint", "name": "source_credit_read_gas_limit", "value": "200000" },
-  {
-    "kind": "hex",
-    "name": "source_domain_id",
-    "value": "d54bb3e55e24803542e174b07db409ddebf98e3df16be05f82467648ee2f7b27"
-  },
-  {
-    "kind": "hex",
-    "name": "source_factory_config_getter_return",
-    "value": "fa79d6e0d1a58e6c8ebc8f770a5d78c864190c31a3a8e8e7e9672f75e43401f1"
-  },
-  {
-    "kind": "hex",
-    "name": "source_freeze_post_state_commitment",
-    "value": "4823f1a7e99fbb85aa9ae3439bf3be2089d611a1994def0d7a76c87b3ca314de"
-  },
-  {
-    "kind": "hex",
-    "name": "source_post_state_return_hash",
-    "value": "831b0cafcb5f45c8c7ee7aea0aeb568df0aaf3c1a2a9803b4fd9c815bd01fbc5"
-  },
-  {
-    "kind": "hex",
-    "name": "source_quota_config_getter_return",
-    "value": "09d21b4d09dadaabdb05c5b8c88db22757c4de82b7a3ebc1a6910606fe36ff0c"
-  },
-  {
-    "kind": "hex",
-    "name": "source_registry_config_getter_return",
-    "value": "81d538ec2bf4cf246008838e0908d61eff83a01740a58abec23d7aa573087ee1"
-  },
-  {
-    "kind": "hex",
-    "name": "source_support_registry_config_getter_return",
-    "value": "c8beb33d334a9cf76d329ab18cb3b197276e878c5b5a54397c6f0e5c41904b0d"
-  },
-  {
-    "kind": "hex",
-    "name": "source_terminal_verifier_config_getter_return",
-    "value": "c7297de84fb29fa53cf5f96d02a6254e970e20ac10991766cb58b4981485290f"
-  },
-  {
-    "kind": "hex",
-    "name": "split_fork_change_expired_operation_return_hash",
-    "value": "36100d0d72d0f520507901b3d3a5f50bc01d53c956252df1606bdef7debe030a"
-  },
-  {
-    "kind": "hex",
-    "name": "split_fork_change_queued_operation_return_hash",
-    "value": "d9abc75048f1e1f7ecbed1986331ed37af38716dfbba28a4015c38ecd580c25b"
-  },
-  {
-    "kind": "hex",
-    "name": "split_fork_review_certificate_hash",
-    "value": "b148161fb4f81c944885fe38cdf2588d21ebe9ad5dcecb5d5df2804a31cfe1de"
-  },
-  {
-    "kind": "hex",
-    "name": "split_fork_review_evidence_hash",
-    "value": "c05a310757688c48297f6007e5c8cd2b684f2ef2f2786a85421a64c37ea30e1c"
-  },
-  {
-    "kind": "hex",
     "name": "split_latest_fork_verifier_calldata_hash",
     "value": "793eb33ab7e71b38a63b6b04704dbdc816de18915df79b09af7d75c4e812b41b"
   },
@@ -3669,21 +1387,6 @@
     "kind": "uint",
     "name": "split_latest_fork_verifier_calldata_length",
     "value": "516"
-  },
-  {
-    "kind": "hex",
-    "name": "split_latest_fork_verifier_operation_id",
-    "value": "abce70ea742b56d07e890e5425a1eb355ac2304ace53d73ed105e746ddeceede"
-  },
-  {
-    "kind": "hex",
-    "name": "split_latest_fork_verifier_payload_hash",
-    "value": "92ac8d8cd580e118ad74b14b48a8e7739594ad8e3434834619bd626e183a16ff"
-  },
-  {
-    "kind": "uint",
-    "name": "split_latest_fork_verifier_payload_length",
-    "value": "1056"
   },
   {
     "kind": "hex",
@@ -3703,7 +1406,7 @@
   {
     "kind": "hex",
     "name": "statement_hash",
-    "value": "b9412b5e5219b7988b3596e09640e7587287d7f8310249c74520b6434eda1f6a"
+    "value": "39c621a869a95ddaf350d45f0c67094a57ac24d7b36a9bd1f57a75d5310dce2b"
   },
   {
     "kind": "uint",
@@ -3711,144 +1414,6 @@
     "value": "12345678"
   },
   { "kind": "uint", "name": "statement_reward_published_bytes", "value": "9" },
-  {
-    "kind": "hex",
-    "name": "status_return_hash",
-    "value": "b39221ace053465ec3453ce2b36430bd138b997ecea25c1043da0c366812b828"
-  },
-  {
-    "kind": "hex",
-    "name": "successor_migration_activation_profile_record_hash",
-    "value": "0add22338a877bce76c773c579557b04c6fd77a6a7d48ff91cacaee486be2639"
-  },
-  {
-    "kind": "hex",
-    "name": "successor_release_manifest_hash",
-    "value": "2e6cdd6447e00994cf01f0a83dacbefebac45998fef510944b05302563feae7a"
-  },
-  {
-    "kind": "hex",
-    "name": "successor_settlement_deployment_descriptor_hash",
-    "value": "377aa582c38874cf50ef87030c628b15c5e0302e6830e51b09d8542659bedc18"
-  },
-  {
-    "kind": "hex",
-    "name": "successor_target_registration_hash",
-    "value": "8be6a9af27414ba6402f7c08a58593c423efd667cdd9db830f30720252192fbe"
-  },
-  { "kind": "hex", "name": "sync_ingress_selector", "value": "6c880b72" },
-  {
-    "kind": "hex",
-    "name": "sync_ingress_stamp_return_hash",
-    "value": "1fd01b194948c635358fbb51b4a5f32f8ceab4dc4153e0230215f8afc94ee434"
-  },
-  {
-    "kind": "hex",
-    "name": "sync_ingress_synced_return_hash",
-    "value": "ef662a629ce07c9ed715124d8141a6e430d0a3065f8ce8074a7ea95e8751f184"
-  },
-  {
-    "kind": "hex",
-    "name": "target_call_failed_error_hash",
-    "value": "e2d8a609153161347503334835b6113682d6e491fd50e5f6fc0b1230a65a5304"
-  },
-  { "kind": "hex", "name": "target_call_failed_selector", "value": "f9cc2b44" },
-  {
-    "kind": "hex",
-    "name": "target_constructor_state_return_hash",
-    "value": "4f19b6c5061a12079a9cbe5d91f4e44049fe2a0e727786bc0dad31bd5ed727aa"
-  },
-  {
-    "kind": "hex",
-    "name": "target_constructor_state_selector",
-    "value": "654f7fce"
-  },
-  {
-    "kind": "hex",
-    "name": "target_post_state_return_hash",
-    "value": "4e932dd8e094e3469da01bf16856477591456afcb894111a703a791a635091b4"
-  },
-  {
-    "kind": "hex",
-    "name": "target_registration_hash",
-    "value": "8a2ab821cb538871bfe3de284e16db23b17d67a0867475b85be24ad111d036f8"
-  },
-  {
-    "kind": "hex",
-    "name": "target_release_registration_calldata_hash",
-    "value": "5c5db1ed7485ad89b4d9125c80db863078603f32ddd3032552a6345bd0dba5ee"
-  },
-  {
-    "kind": "hex",
-    "name": "target_release_registration_magic",
-    "value": "52545232"
-  },
-  {
-    "kind": "hex",
-    "name": "target_release_registration_return_hash",
-    "value": "0eeaafec02dad89af8f77b27b37b7e8d9c2115bc9f44dadddac35659c9fc9d5c"
-  },
-  {
-    "kind": "uint",
-    "name": "target_release_registration_return_length",
-    "value": "512"
-  },
-  {
-    "kind": "hex",
-    "name": "target_release_registration_selector",
-    "value": "f588fec3"
-  },
-  {
-    "kind": "hex",
-    "name": "terminal_append_return",
-    "value": "0000000000000000000000000000000000000000000000000000000000000002"
-  },
-  {
-    "kind": "hex",
-    "name": "terminal_commitment_calldata_hash",
-    "value": "f5c130328e76254a53ff0751b159c44b3c83d6020cbbcedc23a5fe5a7f3e5167"
-  },
-  {
-    "kind": "hex",
-    "name": "terminal_commitment_return_hash",
-    "value": "08bae87eff6d1fdb595dee852355a3d5064c6bd1281af19d227190ee9c99842e"
-  },
-  {
-    "kind": "hex",
-    "name": "terminal_commitment_selector",
-    "value": "2c984c97"
-  },
-  {
-    "kind": "hex",
-    "name": "terminal_done_leaf",
-    "value": "02bc68b0f633ebd6c63fe4d4e8e8cd0cc4e8981d48d68614d3949b2d187972ea"
-  },
-  {
-    "kind": "hex",
-    "name": "terminal_failed_leaf",
-    "value": "0277c9a85ddc256e317b3a67b43e1d364a1c4b23a785024913b622c5c9b49be7"
-  },
-  {
-    "kind": "hex",
-    "name": "terminal_frontier_after_2_digest",
-    "value": "27aa4b7678e62c5e261e26702c1a184f6fbdb9b63131712546bc441f91f4d652"
-  },
-  {
-    "kind": "hex",
-    "name": "terminal_frontier_root_2",
-    "value": "33540df68cbb814b25b7f655808862cf3bb37a2f98cf78d0b8687b25399ae858"
-  },
-  {
-    "kind": "hex",
-    "name": "terminal_root_2",
-    "value": "33540df68cbb814b25b7f655808862cf3bb37a2f98cf78d0b8687b25399ae858"
-  },
-  {
-    "kind": "hex",
-    "name": "terminal_state_return_hash",
-    "value": "3e3b1f39f0b0fc42adb4a6c15987dc52d6c0bac9497db88ab1b07b9fb96bfbcd"
-  },
-  { "kind": "hex", "name": "terminal_state_selector", "value": "998c57ed" },
   {
     "kind": "hex",
     "name": "tranche_leaf",
@@ -3871,47 +1436,6 @@
   },
   {
     "kind": "hex",
-    "name": "v11_bridge_descriptor",
-    "value": "21212121212121212121212121212121212121212121212121212121212121210000000000000000000000000000000000000000000000000000000000000001d54bb3e55e24803542e174b07db409ddebf98e3df16be05f82467648ee2f7b27000000000000000745e9bb77c41df4916367f5eb49906367fe5bf1230e6dbe34a57953736c8a49c3a4c732ac854078594af56ee6b1f015ed75044239000000000000300cd6ddeebbc91b1598dbfcad8ab0294d259c1cef3bb90b561972dc3db93013c7da000000000000000000000000000000000000000000000000000000000000419400000000000c35000000000000000000000000000000000000003333000000000000000000000000000000000000111100000000000000000000000000000000000022220000000000000000000000000000000000000000000000000de0b6b3a764000000000000000004d2000000000000162e2222222222222222222222222222222222222222222222222222222222222222010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000048cae7396b1eaa925d3af9b37b847c2cb2dcbdd10beb11c95721bfb33095939d00000060000000000001d4c0000000000000000000000000000000000000beef00000000000002bc0000000000000898000000000000000000000000000000000000000000000000002386f26fc10000"
-  },
-  {
-    "kind": "hex",
-    "name": "verify_inbox_credit_calldata_hash",
-    "value": "77e7668f115a8866d80394d281889bb4de2804fd1e6747c559a383e6cad6a8ab"
-  },
-  { "kind": "hex", "name": "verify_inbox_credit_magic", "value": "49435632" },
-  {
-    "kind": "hex",
-    "name": "verify_inbox_credit_return_hash",
-    "value": "918203d59c88608c079231d86e1c6d94a6d408f879fff3da41de950b226e9056"
-  },
-  {
-    "kind": "uint",
-    "name": "verify_inbox_credit_return_length",
-    "value": "256"
-  },
-  {
-    "kind": "hex",
-    "name": "verify_inbox_credit_selector",
-    "value": "720f747b"
-  },
-  {
-    "kind": "hex",
-    "name": "verify_registration_calldata_hash",
-    "value": "ce2a68d6667ec7c3e023f23421a297e1a4e7206f66aa38a88fdd8ab43f02be62"
-  },
-  {
-    "kind": "uint",
-    "name": "verify_registration_calldata_length",
-    "value": "516"
-  },
-  {
-    "kind": "hex",
-    "name": "verify_registration_selector",
-    "value": "33639818"
-  },
-  {
-    "kind": "hex",
     "name": "verify_schedule_carrier_calldata_hash",
     "value": "a6f4b2260cd81afd71756624c295b886d29e85c0c9e9b1cdc89f0148bbd0fb79"
   },
@@ -3927,68 +1451,7 @@
   },
   {
     "kind": "hex",
-    "name": "version_activation_calldata_hash",
-    "value": "f09abc62501428af3e9bd115cf33a3ebe725b7d9aa7ece9c07b1cdc049b99a95"
-  },
-  {
-    "kind": "uint",
-    "name": "version_activation_calldata_length",
-    "value": "17220"
-  },
-  {
-    "kind": "hex",
-    "name": "version_activation_fixed_hash",
-    "value": "24f54f2ca1c6731f04741371c1e2705fcd912e1b5cf2bd5d727729cc5de89a41"
-  },
-  {
-    "kind": "hex",
-    "name": "version_activation_receipt_return_hash",
-    "value": "181e4ddad3a39e57e5116a8afb4ab0f85202b6e44c2e2e769420892479f2c33b"
-  },
-  {
-    "kind": "hex",
-    "name": "version_deployment_commitment",
-    "value": "121a6865f79e026a7a5a05a66891d9dd4df6e416400482d3858c7f3ddebccb69"
-  },
-  {
-    "kind": "uint",
-    "name": "version_migration_abort_after_timestamp",
-    "value": "624800"
-  },
-  {
-    "kind": "hex",
-    "name": "version_migration_abort_magic",
-    "value": "564d4231"
-  },
-  {
-    "kind": "hex",
-    "name": "version_migration_arm_id",
-    "value": "db9e8cc2324da6e85bba29d0b6b9e915bbf59aa418805c1b296c3d7808d05c11"
-  },
-  { "kind": "hex", "name": "version_migration_arm_magic", "value": "564d4131" },
-  {
-    "kind": "hex",
-    "name": "version_migration_lease_magic",
-    "value": "564d4c31"
-  },
-  {
-    "kind": "hex",
-    "name": "version_migration_lease_return_hash",
-    "value": "f71ca16aa888585075347bc2796af8bb8a4d05706108e79444caf57cc9d43cf3"
-  },
-  {
-    "kind": "uint",
-    "name": "version_migration_lease_return_length",
-    "value": "320"
-  },
-  {
-    "kind": "hex",
-    "name": "version_migration_statement_hash",
-    "value": "733abdf5767c9c565dece5a9700c4a166f3c0839f74192b4ed010a96bf0ac870"
-  },
-  {
-    "kind": "hex",
     "name": "winning_data",
-    "value": "4ae34aa9efb842528d353b175f94191d01cfd168b5ad828f64a0e7972a2ca9e3"
+    "value": "8e96cd4712fddeabda80eaa349916e5b2cbf10ccf0df0edcb7c5a2ffd52652fc"
   }
 ]

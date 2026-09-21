@@ -18,9 +18,9 @@ const vectors = validateTypedVectorJson(
     JSON.stringify(JSON.parse(canonicalJson) as TypedVector[]),
 );
 
-assert.equal(vectors.length, 876);
-assert.equal(vectors.filter((vector) => vector.kind === "hex").length, 710);
-assert.equal(vectors.filter((vector) => vector.kind === "uint").length, 166);
+assert.equal(vectors.length, 323);
+assert.equal(vectors.filter((vector) => vector.kind === "hex").length, 250);
+assert.equal(vectors.filter((vector) => vector.kind === "uint").length, 73);
 
 const round4BuilderVectorAllowlist = [
     "builder_active_equivocation_witness_hash",
@@ -219,9 +219,9 @@ for (const [name, value] of Object.entries(requiredRound4Selectors)) {
 }
 
 const solidity = renderSolidity(vectors);
-assert.match(solidity, /uint256 internal constant GOLDEN_VECTOR_COUNT = 876;/);
+assert.match(solidity, /uint256 internal constant GOLDEN_VECTOR_COUNT = 323;/);
 assert.match(solidity, /bytes32 internal constant CANDIDATE_COMMITMENT =/);
-assert.match(solidity, /bytes internal constant V11_BRIDGE_DESCRIPTOR =/);
+assert.match(solidity, /bytes32 internal constant FORCED_DESCRIPTORS =/);
 assert.match(
     solidity,
     /uint256 internal constant BUILDER_ACTIVE_EQUIVOCATION_WITNESS_LENGTH = 2366;/,
@@ -230,24 +230,34 @@ assert.match(
     solidity,
     /bytes32 internal constant BUILDER_REGISTER_CALLDATA_HASH =/,
 );
-const descriptorStart = solidity.indexOf(
-    "bytes internal constant V11_BRIDGE_DESCRIPTOR =",
+assert.doesNotMatch(solidity, /V11_BRIDGE_DESCRIPTOR|KIND1_|TERMINAL_|MIGRATION_/);
+
+// Every v3.0 vector fits in bytes32; the bounded hex-literal chunking that
+// keeps forge fmt stable for longer constants is exercised on a synthetic row.
+const longFixture: TypedVector = {
+    kind: "hex",
+    name: "synthetic_long_fixture",
+    value: Array.from({ length: 220 }, (_, index) =>
+        (index % 256).toString(16).padStart(2, "0"),
+    ).join(""),
+};
+const longSolidity = renderSolidity([longFixture]);
+const descriptorStart = longSolidity.indexOf(
+    "bytes internal constant SYNTHETIC_LONG_FIXTURE =",
 );
-const descriptorEnd = solidity.indexOf(";", descriptorStart);
-const descriptorDeclaration = solidity.slice(descriptorStart, descriptorEnd);
+assert.ok(descriptorStart >= 0, "long byte constants must render as bytes");
+const descriptorEnd = longSolidity.indexOf(";", descriptorStart);
+const descriptorDeclaration = longSolidity.slice(descriptorStart, descriptorEnd);
 const descriptorChunks = Array.from(
     descriptorDeclaration.matchAll(/hex"([0-9a-f]+)"/g),
     (match) => match[1],
-);
-const descriptorVector = vectors.find(
-    (vector) => vector.name === "v11_bridge_descriptor",
 );
 assert.ok(
     descriptorChunks.length > 1 &&
         descriptorChunks.every((chunk) => chunk.length <= 60),
     "long byte constants must use bounded hex-literal chunks",
 );
-assert.equal(descriptorChunks.join(""), descriptorVector?.value);
+assert.equal(descriptorChunks.join(""), longFixture.value);
 
 function encoded(copy: TypedVector[]): string {
     return `${JSON.stringify(copy)}\n`;
@@ -255,7 +265,7 @@ function encoded(copy: TypedVector[]): string {
 
 assert.throws(
     () => validateTypedVectorJson(JSON.stringify(vectors.slice(1))),
-    /expected 876/,
+    /expected 323/,
 );
 
 const duplicate = structuredClone(vectors);
@@ -337,13 +347,13 @@ const round2PrimitiveAllowlist = [
     "hashCanonicalCore",
     "hashBaseCanonical",
     "hashNormalContext",
-    "hashMigrationData",
     "hashCandidate",
     "hashWinningData",
     "hashScheduleList",
     "hashSessionList",
     "hashExecutionOutputs",
     "hashSettlementStatement",
+    "hashSettlementValidityPublicInputSchema",
     "hashRewardReceipt",
     "hashRegistryLeaf",
     "hashAdmissionLeaf",
@@ -354,17 +364,12 @@ const round2PrimitiveAllowlist = [
     "hashRankedEntryNode",
     "hashTrancheNode",
     "encodeKind0Descriptor",
-    "encodeKind1Descriptor",
     "encodeKind0Admission",
-    "encodeKind1Admission",
     "toKind0Descriptor",
-    "toKind1Descriptor",
     "hashKind0AdmissionSchema",
-    "hashKind1AdmissionSchema",
     "hashForcedDescriptorSchema",
     "hashForcedQueueConfig",
     "hashForcedUserLeaf",
-    "hashForcedBridgeLeaf",
     "hashForcedDescriptorList",
     "hashForcedEmptyLeaf",
     "hashForcedNode",
@@ -379,21 +384,7 @@ const round2PrimitiveAllowlist = [
     "hashManifestLeaf",
     "hashManifestNode",
     "hashManifestRoot",
-    "hashDispositions",
     "hashRecoveryId",
-    "hashSourceContext",
-    "hashDestinationContext",
-    "hashSourceDomain",
-    "hashDestinationDomain",
-    "hashBridgeCreditId",
-    "hashBridgeCreditResult",
-    "hashBridgeEscrowId",
-    "hashInboxCreditSlot",
-    "hashTerminalLeaf",
-    "hashTerminalEmptyLeaf",
-    "hashTerminalNode",
-    "hashTerminalRoot",
-    "hashLiquiditySettlement",
 ] as const;
 const encodingSource = fs.readFileSync(
     path.join(
