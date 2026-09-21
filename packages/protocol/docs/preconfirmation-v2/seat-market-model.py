@@ -343,9 +343,9 @@ class HistoryDisposition(Enum):
     EXCUSED_UPGRADE = 6
 
 
-# The Settlement model's behavioral oracle still spells the upgrade excuse
-# with its v2.28 text; both texts name SHR1 disposition 6.
-_DUTY_DISPOSITION_TEXT_ALIASES = {"EXCUSED_MIGRATION": "EXCUSED_UPGRADE"}
+# Legacy-text aliases for SHR1 disposition names; empty since the Settlement
+# model adopted the v3.0 spelling of disposition 6.
+_DUTY_DISPOSITION_TEXT_ALIASES: dict[str, str] = {}
 _REFUNDABLE_DUTY_DISPOSITIONS = ("SATISFIED", "EXCUSED", "EXCUSED_UPGRADE")
 
 

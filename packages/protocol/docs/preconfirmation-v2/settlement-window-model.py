@@ -2489,7 +2489,7 @@ class DutyStatus(Enum):
     SATISFIED = 3
     BREACHED = 4
     EXCUSED = 5
-    EXCUSED_MIGRATION = 6
+    EXCUSED_UPGRADE = 6
 
 
 class DutyAttachmentStatus(Enum):
@@ -5735,7 +5735,7 @@ class Protocol:
             ):
                 raise AssertionError("breached duty timestamps are inconsistent")
             if duty.status in (
-                DutyStatus.EXCUSED, DutyStatus.EXCUSED_MIGRATION
+                DutyStatus.EXCUSED, DutyStatus.EXCUSED_UPGRADE
             ) and (
                 duty.satisfied_at is not None
                 or duty.disposition_at is None
@@ -6767,7 +6767,7 @@ class Protocol:
             )
         if duty.status is DutyStatus.EXCUSED:
             return 5, duty.disposition_at or 0, 0, 0
-        if duty.status is DutyStatus.EXCUSED_MIGRATION:
+        if duty.status is DutyStatus.EXCUSED_UPGRADE:
             return 6, duty.disposition_at or 0, 0, 0
         raise AssertionError("unknown duty history disposition")
 
@@ -6996,8 +6996,8 @@ class Protocol:
             breached = True
             breach_at = duty.breach_recorded_at
             last_liability_at = duty.slash_at
-        elif duty.status is DutyStatus.EXCUSED_MIGRATION:
-            disposition = "EXCUSED_MIGRATION"
+        elif duty.status is DutyStatus.EXCUSED_UPGRADE:
+            disposition = "EXCUSED_UPGRADE"
             disposition_at = duty.disposition_at
             breached = False
             breach_at = None
@@ -7023,7 +7023,7 @@ class Protocol:
         refundable = (
             service.closed_at is not None
             and disposition in {
-                "NO_DUTY", "SATISFIED", "EXCUSED", "EXCUSED_MIGRATION"
+                "NO_DUTY", "SATISFIED", "EXCUSED", "EXCUSED_UPGRADE"
             }
         )
         return module.ServiceView(
@@ -7532,7 +7532,7 @@ class Protocol:
                         DutyStatus.SATISFIED,
                         DutyStatus.BREACHED,
                         DutyStatus.EXCUSED,
-                        DutyStatus.EXCUSED_MIGRATION,
+                        DutyStatus.EXCUSED_UPGRADE,
                     )
             ):
                 raise ValueError("duty binding is not terminal and exact")
