@@ -29,16 +29,14 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
     bytes4 private constant _BEV1_MAGIC = 0x42455631;
     bytes4 private constant _RCV1_MAGIC = 0x52435631;
 
-    bytes4 private constant _ASR1_MAGIC = 0x41535231;
+    bytes4 private constant _SST1_MAGIC = 0x53535431;
     bytes4 private constant _SWR1_MAGIC = 0x53575231;
     bytes4 private constant _DECIMALS_SELECTOR = 0x313ce567;
     bytes4 private constant _BALANCE_OF_SELECTOR = 0x70a08231;
     bytes4 private constant _TRANSFER_SELECTOR = 0xa9059cbb;
     bytes4 private constant _TRANSFER_FROM_SELECTOR = 0x23b872dd;
-    bytes4 private constant _ASR1_SELECTOR = 0x4a95c306;
+    bytes4 private constant _SST1_SELECTOR = 0x5c449b11;
     bytes4 private constant _SWR1_SELECTOR = 0xf4cd9a5e;
-    bytes4 private constant _RTR2_SELECTOR = 0xf588fec3;
-    bytes4 private constant _RTR2_MAGIC = 0x52545232;
     bytes4 private constant _BPV1_SELECTOR = 0x0d1c9932;
     bytes4 internal constant _BRF1_SELECTOR = 0x5c19dfed;
     bytes4 internal constant _BRF1_MAGIC = 0x42524631;
@@ -52,9 +50,9 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
     uint64 private constant _LIVE_TOMBSTONE = type(uint64).max;
     uint64 private constant _TERMINAL_CURSOR = type(uint64).max;
     bytes32 private constant _BPV1_RETURN_HASH =
-        0xeb1e75edfa0e3c8e1809071f51985fbdc2848eb8f65d7378d979a62b6d1ac862;
+        0x424eb74a70eb5383c3ca04922b259ce7314377be45a1b10e5dd0c7ab79df6419;
     bytes32 private constant _BPV1_CONFIGURATION_HASH =
-        0xf1a01e067ec17b34e4f190810b2ebedfddd92a125705d2fd60134ce361ffac1a;
+        0xe3e45065c704e9bdad17d5b1a8de56115576b30d7e4e09d50a3a07aa66aac80b;
     bytes32 internal constant _BUILDER_REGISTRY_STORAGE_LAYOUT_HASH =
         0x5b676bdd8dd5b37f6353a4b46a59d7d24f6b0cc66b28cf1222b3deafe36402bd;
 
@@ -62,6 +60,12 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
         0xe7ce7a505bf18b9ed57a0785851385323c9487991c55b422861381f92e5c245a;
     bytes32 private constant _ROOT_SLOT =
         0x4dc6f1bf199f7518c646d40ed35ca04703f646273e6de1d7eace0746cc7100a6;
+
+    // Implementation immutables assigned by the Registry constructor. The lifecycle facets have
+    // no constructor and hold zero here; no delegated path reads them, because activation, the
+    // BRC1 view and equivocation execute in Registry code only.
+    address internal immutable _activator;
+    uint256 internal immutable _l2ChainId;
 
     struct EvidenceTransition {
         address builder;
@@ -85,6 +89,7 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
         uint64 window;
         uint64 protocolVersion;
         address verifyingContract;
+        uint256 l2ChainId;
         uint64 signedAdmissionVersion;
         bytes32 signedAdmissionRoot;
     }
@@ -136,24 +141,26 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
         bool priorOccupied;
     }
 
-    /// @dev Validates and stores the complete writerless Registry-local constructor suffix.
+    /// @dev Validates and stores the complete writerless Registry-local constructor suffix. The
+    ///      Settlement and ScheduleOracle peers are proxies pinned by address only; the retained
+    ///      `_routerRuntimeHash`, `_routerConfigurationHash` and `_scheduleOracleRuntimeHash`
+    ///      words stay zero.
     function _initializeRegistry(IBuilderRegistry.BuilderRegistryConstructorV1 memory _config)
         internal
     {
         if (
             _config.settlementChainId == 0 || _config.settlementChainId != block.chainid
-                || _config.builderLeaseToken == address(0)
+                || _config.l2ChainId == 0 || _config.builderLeaseToken == address(0)
                 || _config.builderLeaseTokenRuntimeHash == bytes32(0)
                 || _config.leasePerWindowAtomic == 0
                 || _config.leasePerWindowAtomic > _config.maximumBondAtomic
                 || _config.reporterRewardCapAtomic > _config.leasePerWindowAtomic / 5
                 || _config.builderPenaltySink == address(0)
                 || _config.builderPenaltySink == address(this)
-                || _config.activeSettlementRouter == address(0)
-                || _config.routerRuntimeHash == bytes32(0)
-                || _config.routerConfigurationHash == bytes32(0)
+                || _config.settlement == address(0) || _config.settlement == address(this)
                 || _config.scheduleOracle == address(0)
-                || _config.scheduleOracleRuntimeHash == bytes32(0)
+                || _config.scheduleOracle == address(this)
+                || _config.scheduleOracle == _config.settlement
                 || _config.builderProofVerifier == address(0)
                 || _config.builderProofVerifierRuntimeHash == bytes32(0)
                 || _config.builderProofVerifierConfigurationHash == bytes32(0)
@@ -216,6 +223,7 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
         bytes32 economicHash = LibBuilderRegistry.economicConfigurationHash(economic);
         LibBuilderRegistry.TopologyConfig memory topology;
         topology.settlementChainId = _config.settlementChainId;
+        topology.l2ChainId = _config.l2ChainId;
         topology.builderLeaseToken = _config.builderLeaseToken;
         topology.builderLeaseTokenRuntimeHash = _config.builderLeaseTokenRuntimeHash;
         topology.builderLeaseTokenDecimals = _config.builderLeaseTokenDecimals;
@@ -226,11 +234,8 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
         topology.lastManagedWindow = lastWindow;
         topology.builderPenaltySink = _config.builderPenaltySink;
         topology.rewardClaimWindowSeconds = _config.rewardClaimWindowSeconds;
-        topology.activeSettlementRouter = _config.activeSettlementRouter;
-        topology.routerRuntimeHash = _config.routerRuntimeHash;
-        topology.routerConfigurationHash = _config.routerConfigurationHash;
+        topology.settlement = _config.settlement;
         topology.scheduleOracle = _config.scheduleOracle;
-        topology.scheduleOracleRuntimeHash = _config.scheduleOracleRuntimeHash;
         topology.builderProofVerifier = _config.builderProofVerifier;
         topology.builderProofVerifierRuntimeHash = _config.builderProofVerifierRuntimeHash;
         topology.builderProofVerifierConfigurationHash =
@@ -261,11 +266,8 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
         _lastManagedWindow = lastWindow;
         _builderPenaltySink = _config.builderPenaltySink;
         _rewardClaimWindowSeconds = _config.rewardClaimWindowSeconds;
-        _activeSettlementRouter = _config.activeSettlementRouter;
-        _routerRuntimeHash = _config.routerRuntimeHash;
-        _routerConfigurationHash = _config.routerConfigurationHash;
+        _activeSettlementRouter = _config.settlement;
         _scheduleOracle = _config.scheduleOracle;
-        _scheduleOracleRuntimeHash = _config.scheduleOracleRuntimeHash;
         _economicConfigurationHash = economicHash;
         _topologyHash = LibBuilderRegistry.topologyHash(topology);
         for (uint256 i; i < 3; ++i) {
@@ -470,48 +472,42 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
         return _economicConfigurationHash;
     }
 
-    /// @dev Implements the raw `IBuilderRegistry.builderRegistryConfigV1` wire response without
-    ///      declaring its non-compilable twenty-five-output Solidity signature.
+    /// @dev Implements the raw 768-byte `IBuilderRegistry.builderRegistryConfigV1` wire
+    ///      response without declaring its non-compilable twenty-four-output Solidity signature.
     function builderRegistryConfigV1() external view virtual {
-        bytes memory output = new bytes(800);
+        bytes memory output = new bytes(768);
         _storeWord(output, 0, bytes32(_BRC1_MAGIC));
         _storeWord(output, 1, bytes32(_settlementChainId));
-        _storeWord(output, 2, bytes32(uint256(uint160(_builderLeaseToken))));
-        _storeWord(output, 3, _builderLeaseTokenRuntimeHash);
-        _storeWord(output, 4, bytes32(uint256(_builderLeaseTokenDecimals)));
-        _storeWord(output, 5, bytes32(uint256(_leasePerWindowAtomic)));
-        _storeWord(output, 6, bytes32(uint256(_maximumBondAtomic)));
-        _storeWord(output, 7, bytes32(uint256(_reporterRewardCapAtomic)));
-        _storeWord(output, 8, bytes32(uint256(_genesisTimestamp)));
-        _storeWord(output, 9, bytes32(uint256(_evidenceDelaySeconds)));
-        _storeWord(output, 10, bytes32(uint256(_reorgMarginSeconds)));
-        _storeWord(output, 11, bytes32(uint256(_firstManagedWindow)));
-        _storeWord(output, 12, bytes32(uint256(_lastManagedWindow)));
-        _storeWord(output, 13, bytes32(uint256(uint160(_builderPenaltySink))));
-        _storeWord(output, 14, bytes32(uint256(_rewardClaimWindowSeconds)));
-        _storeWord(output, 15, bytes32(uint256(uint160(_activeSettlementRouter))));
-        _storeWord(output, 16, _routerRuntimeHash);
-        _storeWord(output, 17, _routerConfigurationHash);
+        _storeWord(output, 2, bytes32(_l2ChainId));
+        _storeWord(output, 3, bytes32(uint256(uint160(_builderLeaseToken))));
+        _storeWord(output, 4, _builderLeaseTokenRuntimeHash);
+        _storeWord(output, 5, bytes32(uint256(_builderLeaseTokenDecimals)));
+        _storeWord(output, 6, bytes32(uint256(_leasePerWindowAtomic)));
+        _storeWord(output, 7, bytes32(uint256(_maximumBondAtomic)));
+        _storeWord(output, 8, bytes32(uint256(_reporterRewardCapAtomic)));
+        _storeWord(output, 9, bytes32(uint256(_genesisTimestamp)));
+        _storeWord(output, 10, bytes32(uint256(_evidenceDelaySeconds)));
+        _storeWord(output, 11, bytes32(uint256(_reorgMarginSeconds)));
+        _storeWord(output, 12, bytes32(uint256(_firstManagedWindow)));
+        _storeWord(output, 13, bytes32(uint256(_lastManagedWindow)));
+        _storeWord(output, 14, bytes32(uint256(uint160(_builderPenaltySink))));
+        _storeWord(output, 15, bytes32(uint256(_rewardClaimWindowSeconds)));
+        _storeWord(output, 16, bytes32(uint256(uint160(_activator))));
+        _storeWord(output, 17, bytes32(uint256(uint160(_activeSettlementRouter))));
         _storeWord(output, 18, bytes32(uint256(uint160(_scheduleOracle))));
-        _storeWord(output, 19, _scheduleOracleRuntimeHash);
-        _storeWord(output, 20, bytes32(uint256(uint160(_builderProofVerifier))));
-        _storeWord(output, 21, _builderProofVerifierRuntimeHash);
-        _storeWord(output, 22, _builderProofVerifierConfigurationHash);
-        _storeWord(output, 23, _economicConfigurationHash);
-        _storeWord(output, 24, _topologyHash);
+        _storeWord(output, 19, bytes32(uint256(uint160(_builderProofVerifier))));
+        _storeWord(output, 20, _builderProofVerifierRuntimeHash);
+        _storeWord(output, 21, _builderProofVerifierConfigurationHash);
+        _storeWord(output, 22, _economicConfigurationHash);
+        _storeWord(output, 23, _topologyHash);
         assembly ("memory-safe") {
-            return(add(output, 32), 800)
+            return(add(output, 32), 768)
         }
     }
 
-    /// @dev Implements {IBuilderRegistry-builderRegistryTopologyHashV1}.
-    function builderRegistryTopologyHashV1()
-        external
-        view
-        virtual
-        onlyActivatedRegistry
-        returns (bytes32 topologyHash_)
-    {
+    /// @dev Implements {IBuilderRegistry-builderRegistryTopologyHashV1}; readable before
+    ///      activation.
+    function builderRegistryTopologyHashV1() external view virtual returns (bytes32 topologyHash_) {
         return _topologyHash;
     }
 
@@ -715,7 +711,7 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
     {
         _requireCanonicalDynamicCalldata(_witness, 3);
         _requireProofVerifier();
-        _requireRouterActive();
+        _requireSettlementOpen();
         _reserveBuilderWindow(msg.sender, _expectedRegistrationIndex, _window, _witness);
         return (
             _BRV1_MAGIC,
@@ -1349,6 +1345,7 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
             uint64 registrationIndex_,
             uint64 window_,
             address builder_,
+            uint256 l2ChainId_,
             uint256 reporterAmount_,
             uint256 penaltyAmount_,
             uint64 admissionVersion_,
@@ -1359,11 +1356,12 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
         _requireProofVerifier();
         if (_evidence.length != 2366) revert InvalidEquivocationEvidence();
         (uint64 protocolVersion, address verifyingContract) = _precheckEvidenceDomain(_evidence);
-        _requireRegisteredRelease(protocolVersion, verifyingContract);
+        _requireSettlementVersion(protocolVersion, verifyingContract);
         EvidenceIdentity memory identity =
             _verifyEvidenceIdentity(_evidence, protocolVersion, verifyingContract);
         builder_ = identity.builder;
         window_ = identity.window;
+        l2ChainId_ = identity.l2ChainId;
         if (window_ < _firstManagedWindow || window_ > _lastManagedWindow) {
             revert InvalidEvidenceWindow();
         }
@@ -1389,6 +1387,7 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
             registrationIndex_,
             window_,
             builder_,
+            l2ChainId_,
             reporterAmount_,
             penaltyAmount_,
             _admissionVersion,
@@ -1396,7 +1395,10 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
         );
     }
 
-    /// @dev Pair-checks the cheap signed domain fields before any signature recovery.
+    /// @dev Pair-checks the cheap signed domain fields before any signature recovery: both
+    ///      settlement-chain IDs equal the local chain, both L2 chain IDs equal the pinned
+    ///      `l2ChainId`, both protocol versions agree and fit uint64, and both verifying
+    ///      contracts are the same nonzero address.
     function _precheckEvidenceDomain(bytes calldata _evidence)
         private
         view
@@ -1404,18 +1406,36 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
     {
         uint256 chainA = uint256(LibBuilderRegistry.readBytes32(_evidence, 0));
         uint256 chainB = uint256(LibBuilderRegistry.readBytes32(_evidence, 586));
+        uint256 l2ChainA = uint256(LibBuilderRegistry.readBytes32(_evidence, 32));
+        uint256 l2ChainB = uint256(LibBuilderRegistry.readBytes32(_evidence, 618));
         uint256 versionA = uint256(LibBuilderRegistry.readBytes32(_evidence, 64));
         uint256 versionB = uint256(LibBuilderRegistry.readBytes32(_evidence, 650));
         address verifyingA = _readPackedAddress(_evidence, 96);
         address verifyingB = _readPackedAddress(_evidence, 682);
         if (
-            chainA != _settlementChainId || chainB != chainA || versionA != versionB
-                || versionA > type(uint64).max || verifyingA == address(0)
-                || verifyingB != verifyingA
+            chainA != _settlementChainId || chainB != chainA || l2ChainA != _l2ChainId
+                || l2ChainB != l2ChainA || versionA != versionB || versionA > type(uint64).max
+                || verifyingA == address(0) || verifyingB != verifyingA
         ) {
             revert InvalidEvidenceDomain();
         }
         return (uint64(versionA), verifyingA);
+    }
+
+    /// @dev Requires the signed verifying contract to be the pinned Settlement and the signed
+    ///      protocol version to equal the version its SST1 view currently reports. Every SST1
+    ///      mode is accepted, so evidence stays admissible while the Settlement drains or
+    ///      recovers.
+    function _requireSettlementVersion(
+        uint64 _protocolVersion,
+        address _verifyingContract
+    )
+        private
+        view
+    {
+        if (_verifyingContract != _activeSettlementRouter) revert InvalidEvidenceDomain();
+        (uint64 settlementVersion,) = _readSettlementState();
+        if (settlementVersion != _protocolVersion) revert InvalidEvidenceDomain();
     }
 
     /// @dev Calls EIV1 and independently binds every returned identity field.
@@ -1437,7 +1457,7 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
                 _evidence
             ),
             350_000,
-            320,
+            352,
             0
         );
         identity_.evidenceHash = keccak256(_evidence);
@@ -1446,15 +1466,17 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
         identity_.window = LibExactCall.u64Word(output, 5);
         identity_.protocolVersion = LibExactCall.u64Word(output, 6);
         identity_.verifyingContract = LibExactCall.addressWord(output, 7);
-        identity_.signedAdmissionVersion = LibExactCall.u64Word(output, 8);
-        identity_.signedAdmissionRoot = LibExactCall.word(output, 9);
+        identity_.l2ChainId = uint256(LibExactCall.word(output, 8));
+        identity_.signedAdmissionVersion = LibExactCall.u64Word(output, 9);
+        identity_.signedAdmissionRoot = LibExactCall.word(output, 10);
         bytes32 expectedCommitment = keccak256(
             abi.encodePacked(
-                "slot-chain-builder-equivocation-identity-v1",
-                uint16(192),
+                "slot-chain-builder-equivocation-identity-v2",
+                uint16(224),
                 _builderProofVerifierConfigurationHash,
                 identity_.evidenceHash,
                 _settlementChainId,
+                identity_.l2ChainId,
                 identity_.protocolVersion,
                 identity_.verifyingContract,
                 identity_.window,
@@ -1470,6 +1492,7 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
                 || identity_.identityCommitment != expectedCommitment
                 || identity_.builder == address(0) || identity_.protocolVersion != _protocolVersion
                 || identity_.verifyingContract != _verifyingContract
+                || identity_.l2ChainId != _l2ChainId
                 || identity_.window != LibBuilderRegistry.readU64(_evidence, 1526)
                 || identity_.signedAdmissionVersion != LibBuilderRegistry.readU64(_evidence, 433)
                 || identity_.signedAdmissionRoot != LibBuilderRegistry.readBytes32(_evidence, 441)
@@ -2304,77 +2327,34 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
         return uint64(deadline);
     }
 
-    /// @dev Requires the Router's exact writerless configuration and canonical ACTIVE ASR1 row.
-    function _requireRouterActive() private view {
-        LibExactCall.requireConfiguration(
-            _activeSettlementRouter,
-            _routerRuntimeHash,
-            LibSlotChainConstants.COMPONENT_CONFIG_SELECTOR,
-            _routerConfigurationHash,
-            50_000,
-            0
+    /// @dev Requires the pinned Settlement's exact SST1 view to report a nonzero mode: a new
+    ///      reservation is refused while the Settlement is DRAINING (mode 0).
+    function _requireSettlementOpen() private view {
+        (, uint8 mode) = _readSettlementState();
+        if (mode == 0) revert SettlementDraining();
+    }
+
+    /// @dev Exact-reads the 128-byte `settlementStateV1()` (SST1) view of the constructor-pinned
+    ///      Settlement, the Inbox proxy held in the retained `_activeSettlementRouter` slot,
+    ///      with a zero-value 50,000-gas STATICCALL. The proxy's runtime is deliberately not
+    ///      pinned; the magic, the mode range and canonical narrow-word padding are required.
+    function _readSettlementState() private view returns (uint64 protocolVersion_, uint8 mode_) {
+        bytes memory state = LibExactCall.staticcallExactUnpinned(
+            _activeSettlementRouter, abi.encodePacked(_SST1_SELECTOR), _EXTERNAL_READ_GAS, 128, 0
         );
-        bytes memory state = LibExactCall.staticcallExact(
-            _activeSettlementRouter,
-            _routerRuntimeHash,
-            abi.encodePacked(_ASR1_SELECTOR),
-            50_000,
-            256,
-            0
-        );
-        LibExactCall.u64Word(state, 2);
+        protocolVersion_ = LibExactCall.u64Word(state, 1);
+        mode_ = LibExactCall.u8Word(state, 2);
         LibExactCall.u64Word(state, 3);
-        if (
-            LibExactCall.bytes4Word(state, 0) != _ASR1_MAGIC
-                || LibExactCall.addressWord(state, 1) == address(0)
-                || LibExactCall.u8Word(state, 7) != 0 || uint256(LibExactCall.word(state, 4)) != 0
-                || LibExactCall.word(state, 5) != bytes32(0)
-                || LibExactCall.word(state, 6) != bytes32(0)
-        ) {
-            revert RouterNotActive();
+        if (LibExactCall.bytes4Word(state, 0) != _SST1_MAGIC || mode_ > 2) {
+            revert SettlementStateMalformed();
         }
     }
 
-    /// @dev Requires one exact immutable Router release registration for an evidence domain.
-    function _requireRegisteredRelease(uint64 _protocolVersion, address _settlement) private view {
-        LibExactCall.requireConfiguration(
-            _activeSettlementRouter,
-            _routerRuntimeHash,
-            LibSlotChainConstants.COMPONENT_CONFIG_SELECTOR,
-            _routerConfigurationHash,
-            50_000,
-            0
-        );
-        bytes memory registration = LibExactCall.staticcallExact(
-            _activeSettlementRouter,
-            _routerRuntimeHash,
-            abi.encodeWithSelector(_RTR2_SELECTOR, _protocolVersion),
-            100_000,
-            512,
-            0
-        );
-        if (
-            LibExactCall.bytes4Word(registration, 0) != _RTR2_MAGIC
-                || LibExactCall.u64Word(registration, 1) != _protocolVersion
-                || LibExactCall.addressWord(registration, 3) != _settlement
-                || LibExactCall.word(registration, 15) == bytes32(0)
-        ) {
-            revert InvalidEvidenceReleaseRegistration();
-        }
-        // Decode every narrow word even when the Registry does not consume its semantic value.
-        LibExactCall.u64Word(registration, 2);
-        LibExactCall.u64Word(registration, 8);
-    }
-
-    /// @dev Requires one exact Schedule EXPIRED row, optionally with the terminal cursor.
+    /// @dev Requires one exact Schedule EXPIRED row, optionally with the terminal cursor. The
+    ///      ScheduleOracle proxy is pinned by address only.
     function _requireExpiredSchedule(uint64 _window, bool _terminal) private view {
-        bytes memory state = LibExactCall.staticcallExact(
-            _scheduleOracle,
-            _scheduleOracleRuntimeHash,
-            abi.encodeWithSelector(_SWR1_SELECTOR, _window),
-            50_000,
-            160,
-            0
+        bytes memory state = LibExactCall.staticcallExactUnpinned(
+            _scheduleOracle, abi.encodeWithSelector(_SWR1_SELECTOR, _window), 50_000, 160, 0
         );
         uint64 cursor = LibExactCall.u64Word(state, 3);
         bool cursorValid = cursor == _TERMINAL_CURSOR
@@ -2617,7 +2597,7 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
 
     /// @dev Restricts every functional surface to a Registry that its activator has activated.
     modifier onlyActivatedRegistry() {
-        if (_protocolRootActivationState != 1) revert RegistryNotActivated();
+        if (_protocolRootActivationState != 1) revert RegistryInactive();
         _;
     }
 
@@ -2681,7 +2661,6 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
     error InvalidCreditBeneficiary();
     error InvalidEquivocationEvidence();
     error InvalidEvidenceDomain();
-    error InvalidEvidenceReleaseRegistration();
     error InvalidEvidenceWindow();
     error InvalidGenerationReleaseWitness();
     error InvalidHistoricalAdmissionPosition();
@@ -2706,13 +2685,14 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
     error MovementSequenceExhausted();
     error NonCanonicalCalldata();
     error NonCanonicalLiabilityRegistryProof();
+    error RegistryInactive();
     error RegistryVersionExhausted();
     error RegistryOperationReentry();
     error ReservationBaseMovedBackward();
     error ReservationBitmapMismatch();
-    error RouterNotActive();
-    error RegistryNotActivated();
     error ScheduleWindowNotExpired();
+    error SettlementDraining();
+    error SettlementStateMalformed();
     error TrancheDeadlineOverflow();
     error TrancheRingCollision();
     error TrancheStorageMismatch();
@@ -2735,17 +2715,20 @@ contract BuilderRegistry is BuilderRegistryLogicV1 {
     bytes32 private constant _LEASE_FACET_SELECTOR_SET_HASH =
         0x895e8723291f0a1f397a981815290e003eab16a87807eadc3b3bc0d805b8fb78;
     uint256 private constant _MAXIMUM_FACET_RETURNDATA = 224;
+    bytes4 private constant _BRK1_MAGIC = 0x42524b31;
+    bytes4 private constant _BRA1_MAGIC = 0x42524131;
+    uint8 private constant _ACTIVATION_INACTIVE = 0;
+    uint8 private constant _ACTIVATION_ACTIVE = 1;
 
-    address private immutable _activator;
     address private immutable _seatLifecycleFacet;
     bytes32 private immutable _seatLifecycleFacetRuntimeHash;
     address private immutable _leaseLifecycleFacet;
     bytes32 private immutable _leaseLifecycleFacetRuntimeHash;
 
-    event RegistryActivated(address indexed activator);
-
     /// @notice Pins the activator and initializes the frozen facet graph and Registry
     ///         configuration. The Registry stays inactive until `activateRegistryV1()`.
+    /// @dev The complete constructor encoding is the activator word followed by the 43 static
+    ///      words of `BuilderRegistryConstructorV1`: 44 words, 1,408 bytes, no dynamic offset.
     /// @param _registryActivator The sole account allowed to activate this Registry, such as the
     ///                           DAO controller or a deployment script.
     /// @param _config The exact static Registry configuration.
@@ -2755,6 +2738,7 @@ contract BuilderRegistry is BuilderRegistryLogicV1 {
     ) {
         if (_registryActivator == address(0)) revert InvalidRegistryActivator();
         _activator = _registryActivator;
+        _l2ChainId = _config.l2ChainId;
         if (
             _config.seatLifecycleFacet == address(0)
                 || _config.seatLifecycleFacetRuntimeHash == bytes32(0)
@@ -2793,19 +2777,29 @@ contract BuilderRegistry is BuilderRegistryLogicV1 {
     }
 
     /// @notice Permanently activates every functional Registry surface.
-    /// @dev Callable exactly once, and only by the constructor-pinned activator.
-    function activateRegistryV1() external {
+    /// @dev Callable exactly once, only by the constructor-pinned activator and only in Registry
+    ///      context. Activation changes the single activation word, makes no external call,
+    ///      emits no event and returns exactly one padded `BRK1` word (32 bytes).
+    /// @return magic_ The fixed `BRK1` magic.
+    function activateRegistryV1() external onlyRegistryContext returns (bytes4 magic_) {
         if (msg.sender != _activator) revert UnauthorizedRegistryActivator();
-        if (_protocolRootActivationState != 0) revert RegistryAlreadyActivated();
-        _protocolRootActivationState = 1;
-        emit RegistryActivated(msg.sender);
+        if (_protocolRootActivationState != _ACTIVATION_INACTIVE) revert RegistryAlreadyActivated();
+        if (_builderPenaltySink == address(this)) revert InvalidBuilderRegistryConfiguration();
+        _protocolRootActivationState = _ACTIVATION_ACTIVE;
+        return _BRK1_MAGIC;
     }
 
-    /// @notice Returns the constructor-pinned activator and whether the Registry is activated.
+    /// @notice Returns the constructor-pinned activator and the activation state.
+    /// @dev Readable before activation; the exact `BRA1` return is 96 bytes.
+    /// @return magic_ The fixed `BRA1` magic.
     /// @return activator_ The sole account allowed to activate this Registry.
-    /// @return activated_ Whether `activateRegistryV1()` has been executed.
-    function registryActivationV1() external view returns (address activator_, bool activated_) {
-        return (_activator, _protocolRootActivationState == 1);
+    /// @return state_ `0` (INACTIVE) until `activateRegistryV1()` succeeds, then `1` (ACTIVE).
+    function registryActivationV1()
+        external
+        view
+        returns (bytes4 magic_, address activator_, uint8 state_)
+    {
+        return (_BRA1_MAGIC, _activator, _protocolRootActivationState);
     }
 
     /// @dev Overrides the seat admission entry and delegates its unchanged calldata.

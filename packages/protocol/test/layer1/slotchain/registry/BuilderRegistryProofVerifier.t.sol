@@ -44,7 +44,7 @@ contract BuilderRegistryProofVerifierTest is Test {
         assertTrue(ok);
         assertEq(raw.length, 512);
         assertEq(
-            keccak256(raw), hex"eb1e75edfa0e3c8e1809071f51985fbdc2848eb8f65d7378d979a62b6d1ac862"
+            keccak256(raw), hex"424eb74a70eb5383c3ca04922b259ce7314377be45a1b10e5dd0c7ab79df6419"
         );
         assertEq(bytes4(_word(raw, 0)), BPV1);
         uint256[14] memory expected = [
@@ -94,8 +94,8 @@ contract BuilderRegistryProofVerifierTest is Test {
             ),
             abi.encodePacked(
                 uint16(512),
-                uint16(320),
-                uint16(192),
+                uint16(352),
+                uint16(224),
                 uint16(432),
                 uint16(531),
                 uint16(6770),
@@ -107,7 +107,7 @@ contract BuilderRegistryProofVerifierTest is Test {
             abi.encodePacked("slot-chain-builder-proof-verifier-config-v1", uint16(71), packed)
         );
         assertEq(
-            expectedHash, hex"f1a01e067ec17b34e4f190810b2ebedfddd92a125705d2fd60134ce361ffac1a"
+            expectedHash, hex"e3e45065c704e9bdad17d5b1a8de56115576b30d7e4e09d50a3a07aa66aac80b"
         );
         assertEq(_word(raw, 15), expectedHash);
         (ok, raw) = address(_verifier).staticcall(abi.encodePacked(bytes4(0xf6c0f7d2)));

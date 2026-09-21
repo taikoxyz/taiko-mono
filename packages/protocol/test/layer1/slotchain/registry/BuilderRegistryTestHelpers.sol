@@ -22,8 +22,8 @@ contract BuilderRegistryDeployHarness {
         }
     }
 
-    function activate(address _registry) external {
-        BuilderRegistry(_registry).activateRegistryV1();
+    function activate(address _registry) external returns (bytes4 magic_) {
+        return BuilderRegistry(_registry).activateRegistryV1();
     }
 }
 
@@ -463,8 +463,8 @@ contract BuilderProofVerifierMock {
             ),
             abi.encodePacked(
                 uint16(512),
-                uint16(320),
-                uint16(192),
+                uint16(352),
+                uint16(224),
                 uint16(432),
                 uint16(531),
                 uint16(6770),
@@ -590,8 +590,10 @@ abstract contract BuilderExactPeerMock {
     error PeerFault();
 }
 
-contract BuilderRouterMock is BuilderExactPeerMock {
-    constructor(bytes32 _configHash) BuilderExactPeerMock(_configHash) { }
+/// @dev Stands in for the Inbox proxy: the Registry pins its address only and exact-reads its
+///      `settlementStateV1()` (SST1) view.
+contract BuilderSettlementMock is BuilderExactPeerMock {
+    constructor() BuilderExactPeerMock(keccak256("unused-settlement-config")) { }
 }
 
 contract BuilderScheduleOracleMock is BuilderExactPeerMock {

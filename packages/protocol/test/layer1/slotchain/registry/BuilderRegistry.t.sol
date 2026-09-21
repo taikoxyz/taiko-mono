@@ -25,8 +25,8 @@ import {
     BuilderProofVerifierMock,
     BuilderRegistryDeployHarness,
     BuilderRegistryMerkleTracker,
-    BuilderRouterMock,
-    BuilderScheduleOracleMock
+    BuilderScheduleOracleMock,
+    BuilderSettlementMock
 } from "./BuilderRegistryTestHelpers.sol";
 import { Test } from "forge-std/src/Test.sol";
 
@@ -47,6 +47,9 @@ abstract contract BuilderRegistryTestBase is Test {
     bytes4 internal constant BCL1 = 0x42434c31;
     bytes4 internal constant BEV1 = 0x42455631;
     bytes4 internal constant BRF1 = 0x42524631;
+    bytes4 internal constant BRK1 = 0x42524b31;
+    bytes4 internal constant BRA1 = 0x42524131;
+    bytes4 internal constant SST1 = 0x53535431;
 
     bytes32 internal constant STORAGE_LAYOUT_HASH =
         0x5b676bdd8dd5b37f6353a4b46a59d7d24f6b0cc66b28cf1222b3deafe36402bd;
@@ -60,8 +63,7 @@ abstract contract BuilderRegistryTestBase is Test {
         0x768f741248a8cd1b1fc84f9134261736305ad3d373ac5a5b346057a7c1b9680a;
 
     bytes4 internal constant REWARD_CLASS_SELECTOR = 0x3d273ee7;
-    bytes4 internal constant ACTIVE_SETTLEMENT_STATE_SELECTOR = 0x4a95c306;
-    bytes4 internal constant TARGET_RELEASE_REGISTRATION_SELECTOR = 0xf588fec3;
+    bytes4 internal constant SETTLEMENT_STATE_SELECTOR = 0x5c449b11;
     bytes4 internal constant SCHEDULE_WINDOW_RELEASE_SELECTOR = 0xf4cd9a5e;
 
     uint8 internal constant TOKEN_DECIMALS = 18;
@@ -75,13 +77,14 @@ abstract contract BuilderRegistryTestBase is Test {
     uint64 internal constant CLAIM_WINDOW = 86_400;
     uint64 internal constant CURRENT_WINDOW = 100;
     uint64 internal constant CURRENT_SLOT = CURRENT_WINDOW * 384 + 37;
+    uint256 internal constant L2_CHAIN_ID = 167_000;
+    uint64 internal constant PROTOCOL_VERSION = 7;
 
     address internal constant PENALTY_SINK = address(0xBEEF);
-    address internal constant ACTIVE_SETTLEMENT = address(0xA11CE);
 
     IBuilderRegistry internal registry;
     BuilderLeaseTokenMock internal token;
-    BuilderRouterMock internal router;
+    BuilderSettlementMock internal settlement;
     BuilderScheduleOracleMock internal schedule;
     BuilderRegistryProofVerifierV1 internal proofVerifier;
     BuilderRegistrySeatLifecycleFacetV1 internal seatFacet;
@@ -102,13 +105,13 @@ abstract contract BuilderRegistryTestBase is Test {
         vm.warp(uint256(GENESIS) + CURRENT_SLOT);
         _setRewardClasses();
         token = new BuilderLeaseTokenMock(TOKEN_DECIMALS);
-        router = new BuilderRouterMock(keccak256("router-config"));
+        settlement = new BuilderSettlementMock();
         schedule = new BuilderScheduleOracleMock();
         proofVerifier = new BuilderRegistryProofVerifierV1();
         seatFacet = new BuilderRegistrySeatLifecycleFacetV1();
         leaseFacet = new BuilderRegistryLeaseLifecycleFacetV1();
         deployer = new BuilderRegistryDeployHarness();
-        router.setResponse(ACTIVE_SETTLEMENT_STATE_SELECTOR, _activeRouterState());
+        settlement.setResponse(SETTLEMENT_STATE_SELECTOR, _settlementState(PROTOCOL_VERSION, 1));
         address deployed = deployer.deploy(_registryInitCode(PENALTY_SINK));
         registry = IBuilderRegistry(deployed);
         deployer.activate(deployed);
@@ -181,39 +184,37 @@ abstract contract BuilderRegistryTestBase is Test {
         view
         returns (bytes memory initCode_)
     {
-        // Word 0 is the pinned activator; the 45-word static config tuple follows.
-        bytes memory args = new bytes(1472);
+        // Word 0 is the pinned activator; the 43-word static config tuple follows (1,408 bytes).
+        bytes memory args = new bytes(1408);
         _writeTestWord(args, 0, bytes32(uint256(uint160(address(deployer)))));
         _writeTestWord(args, 1, bytes32(block.chainid));
-        _writeTestWord(args, 2, bytes32(uint256(uint160(address(token)))));
-        _writeTestWord(args, 3, address(token).codehash);
-        _writeTestWord(args, 4, bytes32(uint256(TOKEN_DECIMALS)));
-        _writeTestWord(args, 5, bytes32(uint256(LEASE)));
-        _writeTestWord(args, 6, bytes32(uint256(MAXIMUM_BOND)));
-        _writeTestWord(args, 7, bytes32(uint256(REPORTER_CAP)));
-        _writeTestWord(args, 8, bytes32(uint256(GENESIS)));
-        _writeTestWord(args, 9, bytes32(uint256(EVIDENCE_DELAY)));
-        _writeTestWord(args, 10, bytes32(uint256(REORG_MARGIN)));
-        _writeTestWord(args, 11, bytes32(uint256(FIRST_MANAGED_WINDOW)));
-        _writeTestWord(args, 12, bytes32(uint256(uint160(_penaltySink))));
-        _writeTestWord(args, 13, bytes32(uint256(CLAIM_WINDOW)));
-        _writeTestWord(args, 14, bytes32(uint256(uint160(address(router)))));
-        _writeTestWord(args, 15, address(router).codehash);
-        _writeTestWord(args, 16, router.componentConfigHashV2());
-        _writeTestWord(args, 17, bytes32(uint256(uint160(address(schedule)))));
-        _writeTestWord(args, 18, address(schedule).codehash);
-        _writeTestWord(args, 19, bytes32(uint256(uint160(_verifier))));
-        _writeTestWord(args, 20, _verifierRuntimeHash);
-        _writeTestWord(args, 21, _verifierConfigurationHash);
-        _writeTestWord(args, 22, bytes32(uint256(uint160(_facets.seat))));
-        _writeTestWord(args, 23, _facets.seatRuntimeHash);
-        _writeTestWord(args, 24, _facets.seatConfigurationHash);
-        _writeTestWord(args, 25, bytes32(uint256(uint160(_facets.lease))));
-        _writeTestWord(args, 26, _facets.leaseRuntimeHash);
-        _writeTestWord(args, 27, _facets.leaseConfigurationHash);
+        _writeTestWord(args, 2, bytes32(L2_CHAIN_ID));
+        _writeTestWord(args, 3, bytes32(uint256(uint160(address(token)))));
+        _writeTestWord(args, 4, address(token).codehash);
+        _writeTestWord(args, 5, bytes32(uint256(TOKEN_DECIMALS)));
+        _writeTestWord(args, 6, bytes32(uint256(LEASE)));
+        _writeTestWord(args, 7, bytes32(uint256(MAXIMUM_BOND)));
+        _writeTestWord(args, 8, bytes32(uint256(REPORTER_CAP)));
+        _writeTestWord(args, 9, bytes32(uint256(GENESIS)));
+        _writeTestWord(args, 10, bytes32(uint256(EVIDENCE_DELAY)));
+        _writeTestWord(args, 11, bytes32(uint256(REORG_MARGIN)));
+        _writeTestWord(args, 12, bytes32(uint256(FIRST_MANAGED_WINDOW)));
+        _writeTestWord(args, 13, bytes32(uint256(uint160(_penaltySink))));
+        _writeTestWord(args, 14, bytes32(uint256(CLAIM_WINDOW)));
+        _writeTestWord(args, 15, bytes32(uint256(uint160(address(settlement)))));
+        _writeTestWord(args, 16, bytes32(uint256(uint160(address(schedule)))));
+        _writeTestWord(args, 17, bytes32(uint256(uint160(_verifier))));
+        _writeTestWord(args, 18, _verifierRuntimeHash);
+        _writeTestWord(args, 19, _verifierConfigurationHash);
+        _writeTestWord(args, 20, bytes32(uint256(uint160(_facets.seat))));
+        _writeTestWord(args, 21, _facets.seatRuntimeHash);
+        _writeTestWord(args, 22, _facets.seatConfigurationHash);
+        _writeTestWord(args, 23, bytes32(uint256(uint160(_facets.lease))));
+        _writeTestWord(args, 24, _facets.leaseRuntimeHash);
+        _writeTestWord(args, 25, _facets.leaseConfigurationHash);
         for (uint256 i; i < 3; ++i) {
             IBuilderRegistry.BuilderRewardClassConfigV1 memory row = rewardClasses[i];
-            uint256 cursor = 28 + i * 6;
+            uint256 cursor = 26 + i * 6;
             _writeTestWord(args, cursor, bytes32(uint256(row.classId)));
             _writeTestWord(args, cursor + 1, row.nameHash);
             _writeTestWord(args, cursor + 2, bytes32(row.fixedWei));
@@ -222,7 +223,7 @@ abstract contract BuilderRegistryTestBase is Test {
             _writeTestWord(args, cursor + 5, bytes32(row.capWei));
         }
         initCode_ = bytes.concat(vm.getCode("BuilderRegistry.sol:BuilderRegistry"), args);
-        assertEq(initCode_.length - vm.getCode("BuilderRegistry.sol:BuilderRegistry").length, 1472);
+        assertEq(initCode_.length - vm.getCode("BuilderRegistry.sol:BuilderRegistry").length, 1408);
     }
 
     function _writeTestWord(bytes memory _encoded, uint256 _index, bytes32 _value) internal pure {
@@ -240,39 +241,16 @@ abstract contract BuilderRegistryTestBase is Test {
         facets_.leaseConfigurationHash = LEASE_CONFIGURATION_HASH;
     }
 
-    function _activeRouterState() internal pure returns (bytes memory) {
-        return abi.encode(
-            bytes4(0x41535231),
-            ACTIVE_SETTLEMENT,
-            uint64(1),
-            uint64(1),
-            uint64(0),
-            bytes32(0),
-            bytes32(0),
-            uint8(0)
-        );
-    }
-
-    function _routerState(
-        uint8 _phase,
-        uint64 _targetVersion,
-        bytes32 _targetManifestHash,
-        bytes32 _targetRegistrationHash
+    /// @dev Exact 128-byte SST1 row `(magic, protocolVersion, mode, activatedAtBlock)`.
+    function _settlementState(
+        uint64 _protocolVersion,
+        uint8 _mode
     )
         internal
         pure
         returns (bytes memory)
     {
-        return abi.encode(
-            bytes4(0x41535231),
-            ACTIVE_SETTLEMENT,
-            uint64(1),
-            uint64(1),
-            _targetVersion,
-            _targetManifestHash,
-            _targetRegistrationHash,
-            _phase
-        );
+        return abi.encode(SST1, _protocolVersion, _mode, uint64(_mode == 0 ? 0 : 12_345));
     }
 
     function _emptyCell() internal pure returns (SlotChainTypes.RegistryCellV1 memory cell_) {
@@ -509,9 +487,12 @@ contract BuilderRegistryTest is BuilderRegistryTestBase {
         assertEq(IBuilderRegistry.releaseBuilderGenerationV1.selector, bytes4(0xe7bae370));
         assertEq(IBuilderRegistry.claimBuilderLeaseCreditV1.selector, bytes4(0x8f73793c));
         assertEq(IBuilderRegistry.submitBuilderEquivocationV1.selector, bytes4(0x979c1f72));
+        assertEq(BuilderRegistryFacade.activateRegistryV1.selector, bytes4(0xe46a18ce));
+        assertEq(BuilderRegistryFacade.registryActivationV1.selector, bytes4(0xa2dee6ae));
 
-        _assertStaticReturnLength(IBuilderRegistry.builderRegistryConfigV1.selector, 800);
+        _assertStaticReturnLength(IBuilderRegistry.builderRegistryConfigV1.selector, 768);
         _assertStaticReturnLength(IBuilderRegistry.builderRegistryTopologyHashV1.selector, 32);
+        _assertStaticReturnLength(BuilderRegistryFacade.registryActivationV1.selector, 96);
         _assertStaticReturnLength(IBuilderRegistry.admissionStateV1.selector, 96);
         _assertStaticReturnLength(IBuilderRegistry.scheduleRegistryStateV1.selector, 224);
     }
@@ -587,12 +568,12 @@ contract BuilderRegistryTest is BuilderRegistryTestBase {
             _assertTargetRevertsSelector(
                 address(seatFacet),
                 calls[i],
-                seatOwned[i] ? BuilderRegistry.RegistryNotActivated.selector : unsupported
+                seatOwned[i] ? BuilderRegistry.RegistryInactive.selector : unsupported
             );
             _assertTargetRevertsSelector(
                 address(leaseFacet),
                 calls[i],
-                leaseOwned[i] ? BuilderRegistry.RegistryNotActivated.selector : unsupported
+                leaseOwned[i] ? BuilderRegistry.RegistryInactive.selector : unsupported
             );
         }
     }
@@ -682,25 +663,29 @@ contract BuilderRegistryTest is BuilderRegistryTestBase {
         (bool ok, bytes memory raw) =
             address(registry).staticcall(abi.encodeWithSelector(0x66f0bd82));
         assertTrue(ok);
-        assertEq(raw.length, 800);
+        assertEq(raw.length, 768);
         assertEq(bytes4(raw), BRC1);
         bytes32 encodedTopologyHash;
         assembly ("memory-safe") {
-            encodedTopologyHash := mload(add(raw, 800))
+            encodedTopologyHash := mload(add(raw, 768))
         }
         assertEq(registry.builderRegistryTopologyHashV1(), encodedTopologyHash);
+        assertEq(uint256(_word(raw, 2)), L2_CHAIN_ID);
+        assertEq(address(uint160(uint256(_word(raw, 16)))), address(deployer));
+        assertEq(address(uint160(uint256(_word(raw, 17)))), address(settlement));
+        assertEq(address(uint160(uint256(_word(raw, 18)))), address(schedule));
     }
 
     function test_economicAndTopologyHashesMatchIndependentByteOracle() external view {
         (bool ok, bytes memory raw) =
             address(registry).staticcall(abi.encodeWithSelector(0x66f0bd82));
         assertTrue(ok);
-        assertEq(address(uint160(uint256(_word(raw, 20)))), address(proofVerifier));
-        assertEq(_word(raw, 21), address(proofVerifier).codehash);
-        assertEq(_word(raw, 22), proofVerifier.componentConfigHashV2());
-        bytes32 economicHash = _word(raw, 23);
-        bytes32 topologyHash = _word(raw, 24);
-        uint64 lastManagedWindow = uint64(uint256(_word(raw, 12)));
+        assertEq(address(uint160(uint256(_word(raw, 19)))), address(proofVerifier));
+        assertEq(_word(raw, 20), address(proofVerifier).codehash);
+        assertEq(_word(raw, 21), proofVerifier.componentConfigHashV2());
+        bytes32 economicHash = _word(raw, 22);
+        bytes32 topologyHash = _word(raw, 23);
+        uint64 lastManagedWindow = uint64(uint256(_word(raw, 13)));
         assertEq(economicHash, _independentEconomicHash(LEASE, rewardClasses[0].nameHash));
         assertEq(
             topologyHash, _independentTopologyHash(lastManagedWindow, economicHash, PENALTY_SINK)
@@ -718,79 +703,93 @@ contract BuilderRegistryTest is BuilderRegistryTestBase {
             1, block.chainid + 1, BuilderRegistry.InvalidBuilderRegistryConfiguration.selector
         );
         _expectConstructorWordRevert(
-            3, uint256(keccak256("wrong-token-runtime")), LibExactCall.ExactRuntimeMismatch.selector
+            2, 0, BuilderRegistry.InvalidBuilderRegistryConfiguration.selector
         );
         _expectConstructorWordRevert(
-            4, TOKEN_DECIMALS + 1, BuilderRegistry.BuilderTokenDecimalsMismatch.selector
+            4, uint256(keccak256("wrong-token-runtime")), LibExactCall.ExactRuntimeMismatch.selector
         );
         _expectConstructorWordRevert(
-            5, 0, BuilderRegistry.InvalidBuilderRegistryConfiguration.selector
+            5, TOKEN_DECIMALS + 1, BuilderRegistry.BuilderTokenDecimalsMismatch.selector
         );
         _expectConstructorWordRevert(
-            5, MAXIMUM_BOND + 1, BuilderRegistry.InvalidBuilderRegistryConfiguration.selector
+            6, 0, BuilderRegistry.InvalidBuilderRegistryConfiguration.selector
         );
         _expectConstructorWordRevert(
-            7, LEASE / 5 + 1, BuilderRegistry.InvalidBuilderRegistryConfiguration.selector
+            6, MAXIMUM_BOND + 1, BuilderRegistry.InvalidBuilderRegistryConfiguration.selector
         );
         _expectConstructorWordRevert(
-            11, type(uint64).max, BuilderRegistry.InvalidManagedWindowRange.selector
+            8, LEASE / 5 + 1, BuilderRegistry.InvalidBuilderRegistryConfiguration.selector
         );
         _expectConstructorWordRevert(
-            19, 0, BuilderRegistry.InvalidBuilderRegistryConfiguration.selector
+            12, type(uint64).max, BuilderRegistry.InvalidManagedWindowRange.selector
         );
         _expectConstructorWordRevert(
-            20,
+            15, 0, BuilderRegistry.InvalidBuilderRegistryConfiguration.selector
+        );
+        _expectConstructorWordRevert(
+            15,
+            uint256(uint160(address(schedule))),
+            BuilderRegistry.InvalidBuilderRegistryConfiguration.selector
+        );
+        _expectConstructorWordRevert(
+            16, 0, BuilderRegistry.InvalidBuilderRegistryConfiguration.selector
+        );
+        _expectConstructorWordRevert(
+            17, 0, BuilderRegistry.InvalidBuilderRegistryConfiguration.selector
+        );
+        _expectConstructorWordRevert(
+            18,
             uint256(keccak256("wrong-verifier-runtime")),
             LibExactCall.ExactRuntimeMismatch.selector
         );
         _expectConstructorWordRevert(
-            21,
+            19,
             uint256(keccak256("wrong-verifier-configuration")),
             BuilderRegistry.InvalidBuilderProofVerifier.selector
         );
         _expectConstructorWordRevert(
-            22, 0, BuilderRegistryFacade.InvalidLifecycleFacetConfiguration.selector
+            20, 0, BuilderRegistryFacade.InvalidLifecycleFacetConfiguration.selector
         );
         _expectConstructorWordRevert(
-            23, uint256(keccak256("wrong-seat-runtime")), LibExactCall.ExactRuntimeMismatch.selector
+            21, uint256(keccak256("wrong-seat-runtime")), LibExactCall.ExactRuntimeMismatch.selector
         );
         _expectConstructorWordRevert(
-            24,
+            22,
             uint256(keccak256("wrong-seat-configuration")),
             BuilderRegistryFacade.InvalidLifecycleFacetConfiguration.selector
         );
         _expectConstructorWordRevert(
-            25, 0, BuilderRegistryFacade.InvalidLifecycleFacetConfiguration.selector
+            23, 0, BuilderRegistryFacade.InvalidLifecycleFacetConfiguration.selector
         );
         _expectConstructorWordRevert(
-            26,
+            24,
             uint256(keccak256("wrong-lease-runtime")),
             LibExactCall.ExactRuntimeMismatch.selector
         );
         _expectConstructorWordRevert(
-            27,
+            25,
             uint256(keccak256("wrong-lease-configuration")),
             BuilderRegistryFacade.InvalidLifecycleFacetConfiguration.selector
         );
         _expectConstructorWordRevert(
-            28, 0, BuilderRegistry.InvalidRewardClassConfiguration.selector
+            26, 0, BuilderRegistry.InvalidRewardClassConfiguration.selector
         );
         _expectConstructorWordRevert(
-            29, 0, BuilderRegistry.InvalidRewardClassConfiguration.selector
+            27, 0, BuilderRegistry.InvalidRewardClassConfiguration.selector
         );
     }
 
     function test_constructorLiabilityResidenceAccepts267AndRejects268() external {
         bytes memory accepted = _registryInitCode(PENALTY_SINK);
-        _writeConstructorWord(accepted, 9, uint256(248 * 384));
-        _writeConstructorWord(accepted, 10, 0);
+        _writeConstructorWord(accepted, 10, uint256(248 * 384));
+        _writeConstructorWord(accepted, 11, 0);
         address deployed = deployer.deploy(accepted);
         assertGt(deployed.code.length, 0);
 
         address expectedRegistry = _nextRegistryAddress();
         bytes memory rejected = _registryInitCode(PENALTY_SINK);
-        _writeConstructorWord(rejected, 9, uint256(248 * 384 + 1));
-        _writeConstructorWord(rejected, 10, 0);
+        _writeConstructorWord(rejected, 10, uint256(248 * 384 + 1));
+        _writeConstructorWord(rejected, 11, 0);
         vm.expectRevert(BuilderRegistry.InvalidLiabilityResidence.selector);
         deployer.deploy(rejected);
         assertEq(expectedRegistry.code.length, 0);
@@ -799,7 +798,7 @@ contract BuilderRegistryTest is BuilderRegistryTestBase {
     function test_constructorRejectsSelfPenaltySink() external {
         address expectedRegistry = _nextRegistryAddress();
         bytes memory initCode = _registryInitCode(PENALTY_SINK);
-        _writeConstructorWord(initCode, 12, uint256(uint160(expectedRegistry)));
+        _writeConstructorWord(initCode, 13, uint256(uint160(expectedRegistry)));
 
         vm.expectRevert(BuilderRegistry.InvalidBuilderRegistryConfiguration.selector);
         deployer.deploy(initCode);
@@ -809,7 +808,7 @@ contract BuilderRegistryTest is BuilderRegistryTestBase {
     function test_constructorRejectsRegistryAsProofVerifier() external {
         address expectedRegistry = _nextRegistryAddress();
         bytes memory initCode = _registryInitCode(PENALTY_SINK);
-        _writeConstructorWord(initCode, 19, uint256(uint160(expectedRegistry)));
+        _writeConstructorWord(initCode, 17, uint256(uint160(expectedRegistry)));
 
         vm.expectRevert(BuilderRegistryFacade.InvalidLifecycleFacetConfiguration.selector);
         deployer.deploy(initCode);
@@ -820,29 +819,43 @@ contract BuilderRegistryTest is BuilderRegistryTestBase {
         deployer = new BuilderRegistryDeployHarness();
         BuilderRegistryFacade inactive =
             BuilderRegistryFacade(deployer.deploy(_registryInitCode(PENALTY_SINK)));
-        (address activator, bool activated) = inactive.registryActivationV1();
+        (bytes4 magic, address activator, uint8 state) = inactive.registryActivationV1();
+        assertEq(magic, BRA1);
         assertEq(activator, address(deployer));
-        assertFalse(activated);
+        assertEq(state, 0);
 
+        // Pre-activation read allowlist: BRC1, the topology hash and the activation row read;
+        // every functional read and mutation rejects with RegistryInactive.
+        (bool configOk, bytes memory configRaw) =
+            address(inactive).staticcall(abi.encodePacked(IBuilderRegistry.builderRegistryConfigV1.selector));
+        assertTrue(configOk);
+        assertEq(configRaw.length, 768);
+        assertEq(_word(configRaw, 23), inactive.builderRegistryTopologyHashV1());
         bytes memory registerCall = _mutationCalldataMatrix(address(this))[0];
         _assertTargetRevertsSelector(
-            address(inactive), registerCall, BuilderRegistry.RegistryNotActivated.selector
+            address(inactive), registerCall, BuilderRegistry.RegistryInactive.selector
+        );
+        _assertTargetRevertsSelector(
+            address(inactive),
+            abi.encodePacked(IBuilderRegistry.admissionStateV1.selector),
+            BuilderRegistry.RegistryInactive.selector
         );
         vm.expectRevert(BuilderRegistryFacade.UnauthorizedRegistryActivator.selector);
         inactive.activateRegistryV1();
 
-        vm.expectEmit();
-        emit BuilderRegistryFacade.RegistryActivated(address(deployer));
-        deployer.activate(address(inactive));
-        (activator, activated) = inactive.registryActivationV1();
+        vm.recordLogs();
+        assertEq(deployer.activate(address(inactive)), BRK1);
+        assertEq(vm.getRecordedLogs().length, 0);
+        (magic, activator, state) = inactive.registryActivationV1();
+        assertEq(magic, BRA1);
         assertEq(activator, address(deployer));
-        assertTrue(activated);
+        assertEq(state, 1);
 
         vm.expectRevert(BuilderRegistryFacade.RegistryAlreadyActivated.selector);
         deployer.activate(address(inactive));
         (bool ok, bytes memory returndata) = address(inactive).call(registerCall);
         assertFalse(ok);
-        assertNotEq(bytes4(returndata), BuilderRegistry.RegistryNotActivated.selector);
+        assertNotEq(bytes4(returndata), BuilderRegistry.RegistryInactive.selector);
     }
 
     function test_rewardClassV1ExactRowsAndStrictCalldata() external view {
@@ -1267,7 +1280,7 @@ contract BuilderRegistryTest is BuilderRegistryTestBase {
         assertEq(_operationLockValue(), 0);
     }
 
-    function test_reservationRejectsAheadBoundAndMigrationPhaseWithRollback() external {
+    function test_reservationRejectsAheadBoundAndDrainingSettlementWithRollback() external {
         BuilderRegistryMerkleTracker.Tree memory registryTree =
             BuilderRegistryMerkleTracker.emptyRegistryTree();
         BuilderRegistryMerkleTracker.Tree memory admissionTree =
@@ -1283,17 +1296,35 @@ contract BuilderRegistryTest is BuilderRegistryTestBase {
         registry.reserveBuilderWindowV1(0, CURRENT_WINDOW + 17, hex"00");
         assertEq(_stateDigest(builder), beforeDigest);
 
-        router.setResponse(
-            ACTIVE_SETTLEMENT_STATE_SELECTOR,
-            _routerState(1, 2, keccak256("target-manifest"), keccak256("target-registration"))
-        );
-        vm.expectRevert(BuilderRegistry.RouterNotActive.selector);
+        settlement.setResponse(SETTLEMENT_STATE_SELECTOR, _settlementState(PROTOCOL_VERSION, 0));
+        vm.expectRevert(BuilderRegistry.SettlementDraining.selector);
         vm.prank(builder);
         registry.reserveBuilderWindowV1(0, CURRENT_WINDOW, hex"00");
         assertEq(_stateDigest(builder), beforeDigest);
+
+        settlement.setResponse(SETTLEMENT_STATE_SELECTOR, _settlementState(PROTOCOL_VERSION, 3));
+        vm.expectRevert(BuilderRegistry.SettlementStateMalformed.selector);
+        vm.prank(builder);
+        registry.reserveBuilderWindowV1(0, CURRENT_WINDOW, hex"00");
+        assertEq(_stateDigest(builder), beforeDigest);
+
+        settlement.setResponse(
+            SETTLEMENT_STATE_SELECTOR,
+            abi.encode(bytes4(0x53535432), PROTOCOL_VERSION, uint8(1), uint64(12_345))
+        );
+        vm.expectRevert(BuilderRegistry.SettlementStateMalformed.selector);
+        vm.prank(builder);
+        registry.reserveBuilderWindowV1(0, CURRENT_WINDOW, hex"00");
+        assertEq(_stateDigest(builder), beforeDigest);
+
+        // Recovery mode (2) admits reservations exactly like NORMAL.
+        settlement.setResponse(SETTLEMENT_STATE_SELECTOR, _settlementState(PROTOCOL_VERSION, 2));
+        vm.prank(builder);
+        (bytes4 magic,,,,) = registry.reserveBuilderWindowV1(0, CURRENT_WINDOW, hex"00");
+        assertEq(magic, BRV1);
     }
 
-    function test_reservationAuthenticatesRouterAndRollsBackEveryBoundedPeerFault() external {
+    function test_reservationReadsSettlementStateAndRollsBackEveryBoundedPeerFault() external {
         BuilderRegistryMerkleTracker.Tree memory registryTree =
             BuilderRegistryMerkleTracker.emptyRegistryTree();
         BuilderRegistryMerkleTracker.Tree memory admissionTree =
@@ -1306,7 +1337,7 @@ contract BuilderRegistryTest is BuilderRegistryTestBase {
 
         uint8[5] memory badPeerModes = [uint8(1), 2, 3, 4, 5];
         for (uint256 i; i < badPeerModes.length; ++i) {
-            router.setMode(ACTIVE_SETTLEMENT_STATE_SELECTOR, badPeerModes[i]);
+            settlement.setMode(SETTLEMENT_STATE_SELECTOR, badPeerModes[i]);
             if (badPeerModes[i] <= 2) {
                 vm.expectPartialRevert(LibExactCall.ExactCallFailed.selector);
             } else {
@@ -1316,7 +1347,7 @@ contract BuilderRegistryTest is BuilderRegistryTestBase {
             registry.reserveBuilderWindowV1(0, CURRENT_WINDOW, hex"");
             assertEq(_stateDigest(builder), beforeDigest);
         }
-        router.setMode(ACTIVE_SETTLEMENT_STATE_SELECTOR, 0);
+        settlement.setMode(SETTLEMENT_STATE_SELECTOR, 0);
     }
 
     function test_trancheRingRejectsNonterminalWrapThenPermitsReleasedLeafReuse() external {
@@ -2359,7 +2390,7 @@ contract BuilderRegistryTest is BuilderRegistryTestBase {
         (bool ok, bytes memory raw) = address(registry)
             .staticcall(abi.encodePacked(IBuilderRegistry.builderRegistryConfigV1.selector));
         assertTrue(ok);
-        assertEq(raw.length, 800);
+        assertEq(raw.length, 768);
         return raw;
     }
 
@@ -2563,6 +2594,7 @@ contract BuilderRegistryTest is BuilderRegistryTestBase {
         bytes memory payload = bytes.concat(
             abi.encodePacked(
                 block.chainid,
+                L2_CHAIN_ID,
                 address(token),
                 address(token).codehash,
                 TOKEN_DECIMALS,
@@ -2575,11 +2607,8 @@ contract BuilderRegistryTest is BuilderRegistryTestBase {
                 CLAIM_WINDOW
             ),
             abi.encodePacked(
-                address(router),
-                address(router).codehash,
-                router.componentConfigHashV2(),
+                address(settlement),
                 address(schedule),
-                address(schedule).codehash,
                 address(proofVerifier),
                 address(proofVerifier).codehash,
                 proofVerifier.componentConfigHashV2()
@@ -2594,9 +2623,9 @@ contract BuilderRegistryTest is BuilderRegistryTestBase {
                 _economicHash
             )
         );
-        assertEq(payload.length, 573);
+        assertEq(payload.length, 509);
         return keccak256(
-            abi.encodePacked("slot-chain-builder-registry-topology-v2", uint16(573), payload)
+            abi.encodePacked("slot-chain-builder-registry-topology-v3", uint16(509), payload)
         );
     }
 }
@@ -2614,14 +2643,14 @@ contract BuilderRegistryProofVerifierFaultTest is BuilderRegistryTestBase {
         vm.warp(uint256(GENESIS) + CURRENT_SLOT);
         _setRewardClasses();
         token = new BuilderLeaseTokenMock(TOKEN_DECIMALS);
-        router = new BuilderRouterMock(keccak256("router-config"));
+        settlement = new BuilderSettlementMock();
         schedule = new BuilderScheduleOracleMock();
         proofVerifier = new BuilderRegistryProofVerifierV1();
         seatFacet = new BuilderRegistrySeatLifecycleFacetV1();
         leaseFacet = new BuilderRegistryLeaseLifecycleFacetV1();
         _mockVerifier = new BuilderProofVerifierMock();
         deployer = new BuilderRegistryDeployHarness();
-        router.setResponse(ACTIVE_SETTLEMENT_STATE_SELECTOR, _activeRouterState());
+        settlement.setResponse(SETTLEMENT_STATE_SELECTOR, _settlementState(PROTOCOL_VERSION, 1));
         address deployed = deployer.deploy(
             _registryInitCodeWithVerifier(
                 PENALTY_SINK,
