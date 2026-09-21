@@ -46,6 +46,16 @@ interface IBuilderRegistryProofVerifierV1 is IComponentConfigV2 {
         );
 
     /// @notice Verifies the signature-bound identity of canonical equivocation evidence.
+    /// @dev Both signed headers must carry `_expectedSettlementChainId`, a uint64 protocol
+    ///      version, a nonzero pair-equal `l2ChainId` and a nonzero pair-equal verifying
+    ///      contract. The returned identity commitment is
+    ///      `H("slot-chain-builder-equivocation-identity-v2" || u16(224) ||
+    ///      verifierConfigurationHash || evidenceHash || u256(expectedSettlementChainId) ||
+    ///      u256(l2ChainId) || u64(protocolVersion) || address20(verifyingContract) ||
+    ///      u64(window) || u64(signedAdmissionVersion) || signedAdmissionRoot ||
+    ///      address20(builder))`; the caller must require every returned field, including
+    ///      `l2ChainId_`, to equal its own pinned or prechecked values. The exact calldata is
+    ///      2,468 bytes and the exact return is 352 bytes.
     /// @param _expectedSettlementChainId The Registry-authenticated settlement-chain identifier.
     /// @param _evidence The exact 2,366-byte canonical evidence payload.
     /// @return magic_ The fixed `EIV1` magic.
@@ -56,6 +66,7 @@ interface IBuilderRegistryProofVerifierV1 is IComponentConfigV2 {
     /// @return window_ The signed slot divided by 384.
     /// @return protocolVersion_ The common uint64 protocol version.
     /// @return verifyingContract_ The common signed Settlement address.
+    /// @return l2ChainId_ The common signed nonzero L2 chain identifier.
     /// @return signedAdmissionVersion_ The common signed admission version.
     /// @return signedAdmissionRoot_ The common signed admission root.
     function verifyBuilderEquivocationIdentityV1(
@@ -73,6 +84,7 @@ interface IBuilderRegistryProofVerifierV1 is IComponentConfigV2 {
             uint64 window_,
             uint64 protocolVersion_,
             address verifyingContract_,
+            uint256 l2ChainId_,
             uint64 signedAdmissionVersion_,
             bytes32 signedAdmissionRoot_
         );

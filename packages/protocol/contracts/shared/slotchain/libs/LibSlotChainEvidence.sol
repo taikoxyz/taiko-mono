@@ -74,7 +74,9 @@ library LibSlotChainEvidence {
         return LibSlotChainSignatures.recoverSignerAt(_digest, _encoded, _offset);
     }
 
-    /// @dev Validates the shared equivocation identity and recovers its builder.
+    /// @dev Validates the shared equivocation identity and recovers its builder. The common
+    ///      verifying contract must be nonzero: the zero address is not a signable EIP-712
+    ///      domain and must never authenticate evidence.
     /// @param _a The first signed block.
     /// @param _b The second signed block.
     /// @param _evidence The containing canonical evidence bytes.
@@ -94,6 +96,7 @@ library LibSlotChainEvidence {
         pure
         returns (address builder_, bytes32 digestA_, bytes32 digestB_)
     {
+        if (_a.verifyingContract == address(0)) revert InvalidVerifyingContract();
         if (
             _a.settlementChainId != _b.settlementChainId || _a.l2ChainId != _b.l2ChainId
                 || _a.protocolVersion != _b.protocolVersion
@@ -277,5 +280,6 @@ library LibSlotChainEvidence {
     error InvalidPackedBlockLength();
     error InvalidStructHashOrder();
     error InvalidTierFields();
+    error InvalidVerifyingContract();
     error SignerMismatch();
 }

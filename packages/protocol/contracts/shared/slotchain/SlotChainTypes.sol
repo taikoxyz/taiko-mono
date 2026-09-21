@@ -247,6 +247,21 @@ library SlotChainTypes {
         uint256 deposit;
     }
 
+    /// @dev Immutable ForcedQueue configuration words that vary per deployment. The fixed
+    ///      geometry (depth 64, uint64 capacity, empty leaf, descriptor schema, message gas and
+    ///      byte bounds) is appended by the configuration hash itself.
+    struct ForcedQueueConfigV2 {
+        address settlement;
+        uint256 l2ChainId;
+        uint64 forceDelay;
+        uint64 maxForceValiditySeconds;
+        uint256 fixedIngressWei;
+        uint256 executionWeiPerAccountedGas;
+        uint256 proofWeiPerAccountedGas;
+        uint256 permanentWeiPerByte;
+        uint256 maximumAcceptedFeeWei;
+    }
+
     /// @dev One kind-0 row in a forced-descriptor list. `kind` is always zero and
     ///      `descriptorBytes` is always the 220-byte kind-0 descriptor.
     struct ForcedDescriptorRowV2 {

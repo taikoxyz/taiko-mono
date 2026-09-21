@@ -33,6 +33,7 @@ library LibBuilderRegistry {
     uint256 internal constant ADMISSION_PATH_LENGTH = 352;
     uint256 internal constant CLOSE_RECORD_LENGTH = 296;
     uint256 internal constant MOVE_BASE_LENGTH = 897;
+    uint256 internal constant TOPOLOGY_PAYLOAD_LENGTH = 509;
 
     struct Generation {
         address builder;
@@ -79,8 +80,12 @@ library LibBuilderRegistry {
         IBuilderRegistry.BuilderRewardClassConfigV1[3] rewardClasses;
     }
 
+    /// @dev The noncircular deployment-topology preimage: the Settlement (Inbox proxy) and
+    ///      ScheduleOracle proxy are pinned by address only, while the plain helper contracts
+    ///      keep their runtime and configuration pins.
     struct TopologyConfig {
         uint256 settlementChainId;
+        uint256 l2ChainId;
         address builderLeaseToken;
         bytes32 builderLeaseTokenRuntimeHash;
         uint8 builderLeaseTokenDecimals;
@@ -91,11 +96,8 @@ library LibBuilderRegistry {
         uint64 lastManagedWindow;
         address builderPenaltySink;
         uint64 rewardClaimWindowSeconds;
-        address activeSettlementRouter;
-        bytes32 routerRuntimeHash;
-        bytes32 routerConfigurationHash;
+        address settlement;
         address scheduleOracle;
-        bytes32 scheduleOracleRuntimeHash;
         address builderProofVerifier;
         bytes32 builderProofVerifierRuntimeHash;
         bytes32 builderProofVerifierConfigurationHash;
@@ -106,36 +108,6 @@ library LibBuilderRegistry {
         bytes32 leaseLifecycleFacetRuntimeHash;
         bytes32 leaseLifecycleFacetConfigurationHash;
         bytes32 economicConfigurationHash;
-    }
-
-    struct ConstructorConfig {
-        uint256 settlementChainId;
-        address builderLeaseToken;
-        bytes32 builderLeaseTokenRuntimeHash;
-        uint8 builderLeaseTokenDecimals;
-        uint192 leasePerWindowAtomic;
-        uint192 maximumBondAtomic;
-        uint192 reporterRewardCapAtomic;
-        uint64 genesisTimestamp;
-        uint64 evidenceDelaySeconds;
-        uint64 reorgMarginSeconds;
-        uint64 firstManagedWindow;
-        address builderPenaltySink;
-        uint64 rewardClaimWindowSeconds;
-        address activeSettlementRouter;
-        bytes32 routerRuntimeHash;
-        bytes32 routerConfigurationHash;
-        address scheduleOracle;
-        bytes32 scheduleOracleRuntimeHash;
-        address builderProofVerifier;
-        bytes32 builderProofVerifierRuntimeHash;
-        bytes32 builderProofVerifierConfigurationHash;
-        address seatLifecycleFacet;
-        bytes32 seatLifecycleFacetRuntimeHash;
-        bytes32 seatLifecycleFacetConfigurationHash;
-        address leaseLifecycleFacet;
-        bytes32 leaseLifecycleFacetRuntimeHash;
-        bytes32 leaseLifecycleFacetConfigurationHash;
     }
 
     /// @dev Returns the exact economic configuration commitment over its 722-byte payload.
@@ -197,11 +169,24 @@ library LibBuilderRegistry {
         );
     }
 
-    /// @dev Returns the exact topology commitment over its 573-byte payload.
+    /// @dev Returns the exact topology commitment
+    ///      `H("slot-chain-builder-registry-topology-v3" || u16(509) || B)` where B is the packed
+    ///      509-byte payload `u256(settlementChainId) || u256(l2ChainId) ||
+    ///      address20(builderLeaseToken) || builderLeaseTokenRuntimeHash ||
+    ///      u8(builderLeaseTokenDecimals) || u64(genesisTimestamp) || u64(evidenceDelaySeconds) ||
+    ///      u64(reorgMarginSeconds) || u64(firstManagedWindow) || u64(lastManagedWindow) ||
+    ///      address20(builderPenaltySink) || u64(rewardClaimWindowSeconds) ||
+    ///      address20(settlement) || address20(scheduleOracle) ||
+    ///      address20(builderProofVerifier) || builderProofVerifierRuntimeHash ||
+    ///      builderProofVerifierConfigurationHash || address20(seatLifecycleFacet) ||
+    ///      seatLifecycleFacetRuntimeHash || seatLifecycleFacetConfigurationHash ||
+    ///      address20(leaseLifecycleFacet) || leaseLifecycleFacetRuntimeHash ||
+    ///      leaseLifecycleFacetConfigurationHash || builderRegistryConfigurationHash`.
     function topologyHash(TopologyConfig memory _config) internal pure returns (bytes32 hash_) {
         bytes memory payload = bytes.concat(
             abi.encodePacked(
                 _config.settlementChainId,
+                _config.l2ChainId,
                 _config.builderLeaseToken,
                 _config.builderLeaseTokenRuntimeHash,
                 _config.builderLeaseTokenDecimals,
@@ -214,13 +199,8 @@ library LibBuilderRegistry {
                 _config.lastManagedWindow,
                 _config.builderPenaltySink,
                 _config.rewardClaimWindowSeconds,
-                _config.activeSettlementRouter,
-                _config.routerRuntimeHash,
-                _config.routerConfigurationHash
-            ),
-            abi.encodePacked(
+                _config.settlement,
                 _config.scheduleOracle,
-                _config.scheduleOracleRuntimeHash,
                 _config.builderProofVerifier,
                 _config.builderProofVerifierRuntimeHash,
                 _config.builderProofVerifierConfigurationHash
@@ -235,10 +215,12 @@ library LibBuilderRegistry {
                 _config.economicConfigurationHash
             )
         );
-        if (payload.length != 573) revert InvalidTopologyPayloadLength();
+        if (payload.length != TOPOLOGY_PAYLOAD_LENGTH) revert InvalidTopologyPayloadLength();
         return keccak256(
             bytes.concat(
-                bytes("slot-chain-builder-registry-topology-v2"), bytes2(uint16(573)), payload
+                bytes("slot-chain-builder-registry-topology-v3"),
+                bytes2(uint16(TOPOLOGY_PAYLOAD_LENGTH)),
+                payload
             )
         );
     }

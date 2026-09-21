@@ -16,9 +16,16 @@ interface IBuilderRegistry is IComponentConfigV2 {
         uint256 capWei;
     }
 
-    /// @notice Exact static constructor tuple for one BuilderRegistry deployment.
+    /// @notice Exact static constructor tuple for one BuilderRegistry deployment: 43 static
+    ///         words that follow the pinned activator word, so the complete constructor
+    ///         encoding is 44 words (1,408 bytes) with no dynamic offset or suffix.
+    /// @dev `settlement` is the existing L1 Inbox proxy whose implementation is the Settlement
+    ///      and `scheduleOracle` is the ScheduleOracle proxy; both are pinned by address only.
+    ///      `l2ChainId` is the EVM chain identifier of the L2 whose builder headers this
+    ///      Registry may slash; equivocation evidence signed for any other L2 chain rejects.
     struct BuilderRegistryConstructorV1 {
         uint256 settlementChainId;
+        uint256 l2ChainId;
         address builderLeaseToken;
         bytes32 builderLeaseTokenRuntimeHash;
         uint8 builderLeaseTokenDecimals;
@@ -31,11 +38,8 @@ interface IBuilderRegistry is IComponentConfigV2 {
         uint64 firstManagedWindow;
         address builderPenaltySink;
         uint64 rewardClaimWindowSeconds;
-        address activeSettlementRouter;
-        bytes32 routerRuntimeHash;
-        bytes32 routerConfigurationHash;
+        address settlement;
         address scheduleOracle;
-        bytes32 scheduleOracleRuntimeHash;
         address builderProofVerifier;
         bytes32 builderProofVerifierRuntimeHash;
         bytes32 builderProofVerifierConfigurationHash;
@@ -93,9 +97,13 @@ interface IBuilderRegistry is IComponentConfigV2 {
         address indexed owner, address indexed recipient, uint256 amount
     );
 
-    /// @notice Returns the immutable deployment and topology row.
+    /// @notice Returns the immutable deployment and topology row (`BRC1`, exactly 768 bytes).
+    /// @dev Readable before activation. The row deliberately repeats neither the reward-class
+    ///      rows nor the six lifecycle-facet topology words; the deployment review checks those
+    ///      from the constructor preimage.
     /// @return magic_ The fixed `BRC1` magic.
     /// @return settlementChainId_ The settlement-chain identifier.
+    /// @return l2ChainId_ The pinned L2 chain identifier bound by equivocation evidence.
     /// @return builderLeaseToken_ The immutable exact-balance builder token.
     /// @return builderLeaseTokenRuntimeHash_ The pinned token runtime hash.
     /// @return builderLeaseTokenDecimals_ The token's pinned decimal count.
@@ -109,11 +117,9 @@ interface IBuilderRegistry is IComponentConfigV2 {
     /// @return lastManagedWindow_ The derived final managed schedule window.
     /// @return builderPenaltySink_ The immutable slash-penalty beneficiary.
     /// @return rewardClaimWindowSeconds_ The profile reward-claim interval.
-    /// @return activeSettlementRouter_ The immutable active-settlement router.
-    /// @return routerRuntimeHash_ The pinned Router runtime hash.
-    /// @return routerConfigurationHash_ The pinned Router configuration hash.
-    /// @return scheduleOracle_ The immutable schedule oracle.
-    /// @return scheduleOracleRuntimeHash_ The pinned Schedule runtime hash.
+    /// @return activator_ The constructor-pinned deployment credential allowed to activate.
+    /// @return settlement_ The pinned Settlement (Inbox proxy) address.
+    /// @return scheduleOracle_ The pinned ScheduleOracle proxy address.
     /// @return builderProofVerifier_ The immutable stateless proof verifier.
     /// @return builderProofVerifierRuntimeHash_ The pinned verifier runtime hash.
     /// @return builderProofVerifierConfigurationHash_ The pinned verifier configuration hash.
@@ -125,6 +131,7 @@ interface IBuilderRegistry is IComponentConfigV2 {
         returns (
             bytes4 magic_,
             uint256 settlementChainId_,
+            uint256 l2ChainId_,
             address builderLeaseToken_,
             bytes32 builderLeaseTokenRuntimeHash_,
             uint8 builderLeaseTokenDecimals_,
@@ -138,11 +145,9 @@ interface IBuilderRegistry is IComponentConfigV2 {
             uint64 lastManagedWindow_,
             address builderPenaltySink_,
             uint64 rewardClaimWindowSeconds_,
-            address activeSettlementRouter_,
-            bytes32 routerRuntimeHash_,
-            bytes32 routerConfigurationHash_,
+            address activator_,
+            address settlement_,
             address scheduleOracle_,
-            bytes32 scheduleOracleRuntimeHash_,
             address builderProofVerifier_,
             bytes32 builderProofVerifierRuntimeHash_,
             bytes32 builderProofVerifierConfigurationHash_,
@@ -151,6 +156,7 @@ interface IBuilderRegistry is IComponentConfigV2 {
         );
 
     /// @notice Returns the immutable builder-registry topology hash.
+    /// @dev Readable before activation.
     /// @return topologyHash_ The derived topology commitment.
     function builderRegistryTopologyHashV1() external view returns (bytes32 topologyHash_);
 
@@ -374,11 +380,16 @@ interface IBuilderRegistry is IComponentConfigV2 {
         returns (bytes4 magic_, address recipient_, uint256 paidAmount_);
 
     /// @notice Submits one exact proof of two conflicting retained builder promises.
+    /// @dev Both signed headers must carry the Registry's `settlementChainId` and pinned
+    ///      `l2ChainId`, the pinned Settlement as verifying contract and the protocol version
+    ///      that Settlement currently reports through `settlementStateV1()`; every SST1 mode is
+    ///      accepted. The exact `BEV1` return is 288 bytes.
     /// @param _evidence The exact 2,366-byte equivocation evidence encoding.
     /// @return magic_ The fixed `BEV1` magic.
     /// @return registrationIndex_ The slashed generation identifier.
     /// @return window_ The independently slashed window.
     /// @return builder_ The recovered retained builder.
+    /// @return l2ChainId_ The pinned L2 chain identifier both signed headers carried.
     /// @return reporterAmount_ The pull credit awarded to the caller.
     /// @return penaltyAmount_ The pull credit awarded to the penalty sink.
     /// @return admissionVersion_ The resulting admission version.
@@ -390,6 +401,7 @@ interface IBuilderRegistry is IComponentConfigV2 {
             uint64 registrationIndex_,
             uint64 window_,
             address builder_,
+            uint256 l2ChainId_,
             uint256 reporterAmount_,
             uint256 penaltyAmount_,
             uint64 admissionVersion_,

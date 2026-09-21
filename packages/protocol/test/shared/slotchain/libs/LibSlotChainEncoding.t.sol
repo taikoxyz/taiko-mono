@@ -401,42 +401,83 @@ contract LibSlotChainEncodingTest is Test {
         );
     }
 
-    function test_hashForcedQueueConfig_MatchesRawPreimageAndRejectsAliases() external {
-        // Exact 113-byte FQC1 preimage: router, settlement, u8 depth, u64 capacity, empty leaf
-        // hash and the kind-0-only descriptor schema hash.
-        bytes memory preimage = abi.encodePacked(
-            address(0xAD01),
-            address(0xB001),
-            uint8(64),
-            type(uint64).max,
-            keccak256("slot-chain-force-empty-v2"),
-            keccak256("slot-chain-force-descriptor-schema-v12")
+    function test_hashForcedQueueConfig_MatchesRawPreimageAndRejectsZeroWords() external {
+        // Exact 321-byte FQC1 preimage: settlement, l2ChainId, u8 depth, u64 capacity, empty
+        // leaf hash, the kind-0-only descriptor schema hash, both time bounds, the three fixed
+        // message bounds and the five fee-schedule words.
+        SlotChainTypes.ForcedQueueConfigV2 memory config = _forcedQueueConfigFixture();
+        bytes memory preimage = bytes.concat(
+            abi.encodePacked(
+                address(0xB001),
+                uint256(16_788),
+                uint8(64),
+                type(uint64).max,
+                keccak256("slot-chain-force-empty-v2"),
+                keccak256("slot-chain-force-descriptor-schema-v12")
+            ),
+            abi.encodePacked(
+                uint64(3600), uint64(86_400), uint64(5_000_000), uint32(131_072), uint64(21_000)
+            ),
+            abi.encodePacked(
+                uint256(1e15), uint256(1e9), uint256(2e9), uint256(1e8), uint256(1e18)
+            )
         );
         assertEq(preimage.length, LibSlotChainConstants.FORCED_QUEUE_CONFIG_PREIMAGE_LENGTH);
         bytes32 expected = keccak256(
-            bytes.concat(bytes("slot-chain-forced-queue-config-v1"), bytes2(uint16(113)), preimage)
+            bytes.concat(bytes("slot-chain-forced-queue-config-v2"), bytes2(uint16(321)), preimage)
         );
-        assertEq(
-            LibSlotChainEncoding.hashForcedQueueConfig(address(0xAD01), address(0xB001)), expected
-        );
+        assertEq(LibSlotChainEncoding.hashForcedQueueConfig(config), expected);
         assertEq(expected, SlotChainGoldenVectors.FORCED_QUEUE_CONFIG_HASH);
-        assertNotEq(
-            LibSlotChainEncoding.hashForcedQueueConfig(address(0xAD02), address(0xB001)), expected
-        );
-        assertNotEq(
-            LibSlotChainEncoding.hashForcedQueueConfig(address(0xAD01), address(0xB002)), expected
-        );
+
+        SlotChainTypes.ForcedQueueConfigV2 memory mutated = _forcedQueueConfigFixture();
+        mutated.settlement = address(0xB002);
+        assertNotEq(LibSlotChainEncoding.hashForcedQueueConfig(mutated), expected);
+        mutated = _forcedQueueConfigFixture();
+        mutated.l2ChainId = 16_789;
+        assertNotEq(LibSlotChainEncoding.hashForcedQueueConfig(mutated), expected);
+        mutated = _forcedQueueConfigFixture();
+        mutated.maximumAcceptedFeeWei = 0;
+        assertNotEq(LibSlotChainEncoding.hashForcedQueueConfig(mutated), expected);
+
         assertEq(LibSlotChainConstants.EMPTY_FORCED_ROOT, SlotChainGoldenVectors.EMPTY_FORCED_ROOT);
         assertEq(
             LibSlotChainEncoding.hashForcedDescriptorSchema(),
             keccak256("slot-chain-force-descriptor-schema-v12")
         );
+        mutated = _forcedQueueConfigFixture();
+        mutated.settlement = address(0);
         vm.expectRevert(LibSlotChainEncoding.InvalidForcedQueueConfig.selector);
-        harness.hashForcedQueueConfig(address(0), address(0xB001));
+        harness.hashForcedQueueConfig(mutated);
+        mutated = _forcedQueueConfigFixture();
+        mutated.l2ChainId = 0;
         vm.expectRevert(LibSlotChainEncoding.InvalidForcedQueueConfig.selector);
-        harness.hashForcedQueueConfig(address(0xAD01), address(0));
+        harness.hashForcedQueueConfig(mutated);
+        mutated = _forcedQueueConfigFixture();
+        mutated.forceDelay = 0;
         vm.expectRevert(LibSlotChainEncoding.InvalidForcedQueueConfig.selector);
-        harness.hashForcedQueueConfig(address(0xAD01), address(0xAD01));
+        harness.hashForcedQueueConfig(mutated);
+        mutated = _forcedQueueConfigFixture();
+        mutated.maxForceValiditySeconds = 0;
+        vm.expectRevert(LibSlotChainEncoding.InvalidForcedQueueConfig.selector);
+        harness.hashForcedQueueConfig(mutated);
+    }
+
+    function _forcedQueueConfigFixture()
+        private
+        pure
+        returns (SlotChainTypes.ForcedQueueConfigV2 memory config_)
+    {
+        config_ = SlotChainTypes.ForcedQueueConfigV2({
+            settlement: address(0xB001),
+            l2ChainId: 16_788,
+            forceDelay: 3600,
+            maxForceValiditySeconds: 86_400,
+            fixedIngressWei: 1e15,
+            executionWeiPerAccountedGas: 1e9,
+            proofWeiPerAccountedGas: 2e9,
+            permanentWeiPerByte: 1e8,
+            maximumAcceptedFeeWei: 1e18
+        });
     }
 
     function test_emptyLists_AcceptMaximumStartWithoutNarrowingOrWrap() external pure {
@@ -1332,17 +1373,12 @@ contract EncodingHarness {
         return LibSlotChainEncoding.hashDataBag(_recordCount, _peakCount, _encodedPeaks);
     }
 
-    function hashForcedQueueConfig(
-        address _activeSettlementRouter,
-        address _initialActiveSettlement
-    )
+    function hashForcedQueueConfig(SlotChainTypes.ForcedQueueConfigV2 memory _config)
         external
         pure
         returns (bytes32 hash_)
     {
-        return LibSlotChainEncoding.hashForcedQueueConfig(
-            _activeSettlementRouter, _initialActiveSettlement
-        );
+        return LibSlotChainEncoding.hashForcedQueueConfig(_config);
     }
 
     function hashRewardReceipt(SlotChainTypes.RewardReceiptV1 memory _receipt)

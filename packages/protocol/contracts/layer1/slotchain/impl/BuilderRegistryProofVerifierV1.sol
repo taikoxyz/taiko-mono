@@ -8,6 +8,9 @@ import { LibSlotChainFixedTrees } from "../../../shared/slotchain/libs/LibSlotCh
 
 /// @title Immutable Slot Chain builder-registry proof verifier
 /// @notice Computes bounded fixed-tree and signed-equivocation proof results without holding state.
+/// @dev Implements {IBuilderRegistryProofVerifierV1} without inheriting it: two of its exact
+///      fixed-width returns exceed the non-IR stack limit as typed Solidity outputs and are
+///      written with assembly returns under the identical selectors.
 /// @custom:security-contact security@taiko.xyz
 contract BuilderRegistryProofVerifierV1 {
     bytes4 private constant _BPV1_MAGIC = 0x42505631;
@@ -38,8 +41,13 @@ contract BuilderRegistryProofVerifierV1 {
     uint256 private constant _WINDOW_SLOTS = 384;
     uint64 private constant _LIVE_TOMBSTONE = type(uint64).max;
 
+    /// @dev `H("slot-chain-builder-proof-verifier-config-v1" || u16(71) || C)` where C is the
+    ///      fixed BPV1 row, both selectors, the four magics and the widths
+    ///      `u16(512),u16(352),u16(224),u16(432),u16(531),u16(6770),u16(2727)`: the BPV1 return,
+    ///      the EIV1 return, the identity preimage, the two fixed proof requests, the maximum
+    ///      request and the evidence request.
     bytes32 private constant _CONFIGURATION_HASH =
-        0xf1a01e067ec17b34e4f190810b2ebedfddd92a125705d2fd60134ce361ffac1a;
+        0xe3e45065c704e9bdad17d5b1a8de56115576b30d7e4e09d50a3a07aa66aac80b;
 
     struct IdentityResult {
         bytes32 evidenceHash;
@@ -48,6 +56,7 @@ contract BuilderRegistryProofVerifierV1 {
         uint64 window;
         uint64 protocolVersion;
         address verifyingContract;
+        uint256 l2ChainId;
         uint64 signedAdmissionVersion;
         bytes32 signedAdmissionRoot;
     }
@@ -71,14 +80,17 @@ contract BuilderRegistryProofVerifierV1 {
     }
 
     /// @notice Returns the exact immutable verifier configuration commitment.
+    /// @return configHash_ The `builderProofVerifierConfigurationHash` value.
     function componentConfigHashV2() external pure returns (bytes32 configHash_) {
         return _CONFIGURATION_HASH;
     }
 
     /// @notice Returns the exact raw 512-byte BPV1 configuration row.
-    /// @dev The source signature deliberately declares no Solidity outputs: solc 0.8.30 cannot
-    ///      compile the frozen sixteen-output signature without via-IR. Return types do not affect
-    ///      the selector, and the assembly return remains byte-identical to the typed interface.
+    /// @dev Implements {IBuilderRegistryProofVerifierV1-builderRegistryProofVerifierConfigV1}.
+    ///      The source signature deliberately declares no Solidity outputs: solc 0.8.30 cannot
+    ///      compile the frozen sixteen-output signature without via-IR. Return types do not
+    ///      affect the selector, and the assembly return remains byte-identical to the typed
+    ///      interface.
     function builderRegistryProofVerifierConfigV1() external pure {
         bytes32 configurationHash = _CONFIGURATION_HASH;
         assembly ("memory-safe") {
@@ -104,18 +116,14 @@ contract BuilderRegistryProofVerifierV1 {
     }
 
     /// @notice Verifies the signature-bound identity of canonical equivocation evidence.
+    /// @dev Implements {IBuilderRegistryProofVerifierV1-verifyBuilderEquivocationIdentityV1}. The
+    ///      exact 352-byte EIV1 return `(magic, verifierConfigurationHash, evidenceHash,
+    ///      identityCommitment, builder, window, protocolVersion, verifyingContract, l2ChainId,
+    ///      signedAdmissionVersion, signedAdmissionRoot)` is written with an assembly return so
+    ///      that the eleven-output signature needs no via-IR build; the selector and word order
+    ///      equal the typed interface.
     /// @param _expectedSettlementChainId The Registry-authenticated settlement-chain identifier.
     /// @param _evidence The exact 2,366-byte canonical evidence payload.
-    /// @return magic_ The fixed `EIV1` magic.
-    /// @return verifierConfigurationHash_ The exact verifier configuration commitment.
-    /// @return evidenceHash_ The Keccak-256 hash of `_evidence`.
-    /// @return identityCommitment_ The complete evidence-identity commitment.
-    /// @return builder_ The common nonzero recovered signer.
-    /// @return window_ The signed slot divided by 384.
-    /// @return protocolVersion_ The common uint64 protocol version.
-    /// @return verifyingContract_ The common signed Settlement address.
-    /// @return signedAdmissionVersion_ The common signed admission version.
-    /// @return signedAdmissionRoot_ The common signed admission root.
     function verifyBuilderEquivocationIdentityV1(
         uint256 _expectedSettlementChainId,
         bytes calldata _evidence
@@ -131,6 +139,7 @@ contract BuilderRegistryProofVerifierV1 {
             uint64,
             uint64,
             address,
+            uint256,
             uint64,
             bytes32
         )
@@ -150,11 +159,13 @@ contract BuilderRegistryProofVerifierV1 {
             mstore(add(ptr, 0xe0), mload(add(result, 0xa0)))
             mstore(add(ptr, 0x100), mload(add(result, 0xc0)))
             mstore(add(ptr, 0x120), mload(add(result, 0xe0)))
-            return(ptr, 0x140)
+            mstore(add(ptr, 0x140), mload(add(result, 0x100)))
+            return(ptr, 0x160)
         }
     }
 
     /// @notice Verifies one exact packed fixed-tree or equivocation proof request.
+    /// @dev Implements {IBuilderRegistryProofVerifierV1-verifyBuilderRegistryProofV1}.
     /// @param _request The canonical `BPR1` proof request.
     /// @return magic_ The fixed `BPO1` magic.
     /// @return verifierConfigurationHash_ The exact verifier configuration commitment.
@@ -477,7 +488,7 @@ contract BuilderRegistryProofVerifierV1 {
         if (
             blockA.settlementChainId != _expectedSettlementChainId
                 || blockB.settlementChainId != _expectedSettlementChainId
-                || blockA.protocolVersion > type(uint64).max
+                || blockA.protocolVersion > type(uint64).max || blockA.l2ChainId == 0
         ) {
             revert InvalidEvidenceDomain();
         }
@@ -487,13 +498,20 @@ contract BuilderRegistryProofVerifierV1 {
         if (_readU64(_evidence, 1526) != result_.window) revert InvalidEvidenceWindow();
         result_.protocolVersion = uint64(blockA.protocolVersion);
         result_.verifyingContract = blockA.verifyingContract;
+        result_.l2ChainId = blockA.l2ChainId;
         result_.signedAdmissionVersion = blockA.admissionVersion;
         result_.signedAdmissionRoot = blockA.admissionRoot;
         result_.evidenceHash = keccak256(_evidence);
         result_.identityCommitment = _identityCommitment(result_, _expectedSettlementChainId);
     }
 
-    /// @dev Derives the exact 192-byte EIV1 identity preimage commitment.
+    /// @dev Derives the exact EIV1 identity commitment
+    ///      `H("slot-chain-builder-equivocation-identity-v2" || u16(224) ||
+    ///      verifierConfigurationHash || evidenceHash || u256(expectedSettlementChainId) ||
+    ///      u256(l2ChainId) || u64(protocolVersion) || address20(verifyingContract) ||
+    ///      u64(window) || u64(signedAdmissionVersion) || signedAdmissionRoot ||
+    ///      address20(builder))`. The pair-equal signed `l2ChainId` is bound so evidence for a
+    ///      different L2 chain that shares the settlement chain is a different identity.
     function _identityCommitment(
         IdentityResult memory _result,
         uint256 _expectedSettlementChainId
@@ -504,11 +522,12 @@ contract BuilderRegistryProofVerifierV1 {
     {
         return keccak256(
             abi.encodePacked(
-                "slot-chain-builder-equivocation-identity-v1",
-                uint16(192),
+                "slot-chain-builder-equivocation-identity-v2",
+                uint16(224),
                 _CONFIGURATION_HASH,
                 _result.evidenceHash,
                 _expectedSettlementChainId,
+                _result.l2ChainId,
                 _result.protocolVersion,
                 _result.verifyingContract,
                 _result.window,

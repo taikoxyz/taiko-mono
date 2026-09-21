@@ -134,7 +134,7 @@ contract BuilderRegistrySeatLifecycleFacetV1 is
         external
         pure
         override
-        returns (bytes4, uint64, uint64, address, uint256, uint256, uint64, bytes32)
+        returns (bytes4, uint64, uint64, address, uint256, uint256, uint256, uint64, bytes32)
     {
         revert UnsupportedFacetSelector();
     }

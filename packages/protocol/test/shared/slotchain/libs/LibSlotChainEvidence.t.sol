@@ -234,6 +234,18 @@ contract LibSlotChainEvidenceTest is Test {
         _harness.validateEquivocationPair(a, b, bytes(""), 0, 0);
     }
 
+    function test_validateEquivocationPair_RevertWhen_VerifyingContractIsZero() external {
+        SlotChainTypes.SlotChainBlock memory a = _normalBlock();
+        a.verifyingContract = address(0);
+        SlotChainTypes.SlotChainBlock memory b = _clone(a);
+        b.blockHash = keccak256("different-block");
+        (a, b) = _ordered(a, b);
+        (bytes memory evidence,,) = _signedPair(a, b, _BUILDER_KEY, _BUILDER_KEY);
+
+        vm.expectRevert(LibSlotChainEvidence.InvalidVerifyingContract.selector);
+        _harness.validateEquivocationPair(a, b, evidence, 0, _SIGNATURE_LENGTH);
+    }
+
     function test_recoverSigner_RevertWhen_HighSZeroScalarOrNoncanonicalV() external {
         bytes32 digest = keccak256("digest");
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_BUILDER_KEY, digest);

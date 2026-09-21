@@ -40,8 +40,12 @@ library LibSlotChainConstants {
 
     uint256 internal constant KIND0_FORCED_DESCRIPTOR_LENGTH = 220;
     uint256 internal constant KIND0_FORCED_ADMISSION_LENGTH = 204;
-    uint256 internal constant FORCED_QUEUE_CONFIG_PREIMAGE_LENGTH = 113;
+    uint256 internal constant FORCED_QUEUE_CONFIG_PREIMAGE_LENGTH = 321;
     uint64 internal constant FORCED_QUEUE_CAPACITY = type(uint64).max;
+    /// @dev Fixed forced-message geometry committed by every ForcedQueue configuration.
+    uint64 internal constant MAX_FORCE_MESSAGE_GAS = 5_000_000;
+    uint32 internal constant MAX_FORCE_MESSAGE_BYTES = 131_072;
+    uint64 internal constant MIN_FORCE_ACCOUNTED_GAS = 21_000;
     /// @dev Canonical wrapped empty depth-64 forced root: `hashForcedRoot(0, emptyTreeRoot)`.
     bytes32 internal constant EMPTY_FORCED_ROOT =
         0x4001bca0d3c5171a99a50118f1219024e1bef9302262ea3b075ecbed36be7592;
@@ -77,7 +81,7 @@ library LibSlotChainConstants {
     string internal constant TRANCHE_NODE_DOMAIN = "slot-chain-tranche-node-v1";
     string internal constant FORCE_USER_DOMAIN = "slot-chain-force-user-v2";
     string internal constant FORCE_USER_ADMISSION_DOMAIN = "slot-chain-force-user-admission-v2";
-    string internal constant FORCED_QUEUE_CONFIG_DOMAIN = "slot-chain-forced-queue-config-v1";
+    string internal constant FORCED_QUEUE_CONFIG_DOMAIN = "slot-chain-forced-queue-config-v2";
     string internal constant FORCED_DESCRIPTOR_SCHEMA_DOMAIN =
         "slot-chain-force-descriptor-schema-v12";
     string internal constant FORCE_DESCRIPTOR_LIST_DOMAIN = "slot-chain-force-descriptor-list-v2";

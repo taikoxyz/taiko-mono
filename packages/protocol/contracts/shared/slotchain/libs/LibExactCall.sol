@@ -31,22 +31,33 @@ library LibExactCall {
     {
         output_ = _allocateAndTouch(_returnLength);
         requireRuntime(_target, _expectedRuntimeHash);
-        _requireCallerGas(_gasLimit, _returnLength, _postCopyReserve);
+        _staticcallInto(output_, _target, _input, _gasLimit, _returnLength, _postCopyReserve);
+    }
 
-        bool success;
-        uint256 actualLength;
-        assembly ("memory-safe") {
-            success := staticcall(_gasLimit, _target, add(_input, 32), mload(_input), 0, 0)
-            actualLength := returndatasize()
-        }
-        if (!success) revert ExactCallFailed(_target, _selector(_input));
-        if (actualLength != _returnLength) {
-            revert ExactReturnLengthMismatch(_target, actualLength, _returnLength);
-        }
-        assembly ("memory-safe") {
-            returndatacopy(add(output_, 32), 0, _returnLength)
-        }
-        if (gasleft() < _postCopyReserve) revert ExactPostCopyGasTooLow();
+    /// @dev Performs a zero-value STATICCALL with exact input, gas and returndata length against
+    ///      a peer whose runtime is deliberately not pinned: an upgradeable proxy whose address
+    ///      is permanent while governance may replace its implementation. Only a nonempty
+    ///      account is required; every other exactness rule of `staticcallExact` applies.
+    /// @param _target The nonempty peer account.
+    /// @param _input The complete calldata; the helper appends no bytes.
+    /// @param _gasLimit The exact gas operand requested by STATICCALL.
+    /// @param _returnLength The sole accepted returndata length.
+    /// @param _postCopyReserve The minimum gas that must remain after exact return-data copy.
+    /// @return output_ The exact target returndata.
+    function staticcallExactUnpinned(
+        address _target,
+        bytes memory _input,
+        uint256 _gasLimit,
+        uint256 _returnLength,
+        uint256 _postCopyReserve
+    )
+        internal
+        view
+        returns (bytes memory output_)
+    {
+        output_ = _allocateAndTouch(_returnLength);
+        requireCode(_target);
+        _staticcallInto(output_, _target, _input, _gasLimit, _returnLength, _postCopyReserve);
     }
 
     /// @dev Performs a runtime-authenticated CALL with exact input, value, gas and returndata
@@ -118,6 +129,15 @@ library LibExactCall {
         if (word(output, 0) != _expectedConfigurationHash) {
             revert ExactConfigurationMismatch(_target);
         }
+    }
+
+    /// @dev Rejects the zero address and every code-empty account.
+    function requireCode(address _target) internal view {
+        uint256 codeSize;
+        assembly ("memory-safe") {
+            codeSize := extcodesize(_target)
+        }
+        if (_target == address(0) || codeSize == 0) revert ExactEmptyTarget(_target);
     }
 
     /// @dev Rejects zero/empty accounts and requires the exact release-pinned runtime hash.
@@ -251,6 +271,36 @@ library LibExactCall {
         return uint192(value);
     }
 
+    /// @dev Shared STATICCALL body: gas preflight, bounded call, exact-length copy and reserve.
+    function _staticcallInto(
+        bytes memory _output,
+        address _target,
+        bytes memory _input,
+        uint256 _gasLimit,
+        uint256 _returnLength,
+        uint256 _postCopyReserve
+    )
+        private
+        view
+    {
+        _requireCallerGas(_gasLimit, _returnLength, _postCopyReserve);
+
+        bool success;
+        uint256 actualLength;
+        assembly ("memory-safe") {
+            success := staticcall(_gasLimit, _target, add(_input, 32), mload(_input), 0, 0)
+            actualLength := returndatasize()
+        }
+        if (!success) revert ExactCallFailed(_target, _selector(_input));
+        if (actualLength != _returnLength) {
+            revert ExactReturnLengthMismatch(_target, actualLength, _returnLength);
+        }
+        assembly ("memory-safe") {
+            returndatacopy(add(_output, 32), 0, _returnLength)
+        }
+        if (gasleft() < _postCopyReserve) revert ExactPostCopyGasTooLow();
+    }
+
     /// @dev Allocates and touches the exact output region before the gas preflight.
     function _allocateAndTouch(uint256 _returnLength) private pure returns (bytes memory output_) {
         output_ = new bytes(_returnLength);
@@ -285,6 +335,7 @@ library LibExactCall {
 
     error ExactCallFailed(address target, bytes4 selector);
     error ExactConfigurationMismatch(address target);
+    error ExactEmptyTarget(address target);
     error ExactGasCalculationOverflow();
     error ExactInsufficientCallGas();
     error ExactMalformedReturnWord(uint256 index);

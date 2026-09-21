@@ -26,6 +26,23 @@ contract ExactCallHarness {
         gasAfter_ = gasleft();
     }
 
+    function staticcallExactUnpinned(
+        address _target,
+        bytes calldata _input,
+        uint256 _gasLimit,
+        uint256 _returnLength,
+        uint256 _postCopyReserve
+    )
+        external
+        view
+        returns (bytes memory output_, uint256 gasAfter_)
+    {
+        output_ = LibExactCall.staticcallExactUnpinned(
+            _target, _input, _gasLimit, _returnLength, _postCopyReserve
+        );
+        gasAfter_ = gasleft();
+    }
+
     function callExact(
         address _target,
         bytes32 _runtimeHash,
@@ -290,6 +307,33 @@ contract LibExactCallTest is Test {
 
         vm.expectPartialRevert(LibExactCall.ExactRuntimeMismatch.selector);
         _harness.staticcallExact(address(target), bytes32(0), hex"00", 50_000, 0, 10_000);
+    }
+
+    function test_staticcallExactUnpinned_AcceptsAnyRuntimeButRejectsEmptyAccounts() external {
+        ExactStaticTarget target = new ExactStaticTarget();
+        bytes memory input = hex"aabbccddeeff";
+        uint256 gasLimit = 100_000;
+        uint256 reserve = 30_000;
+
+        (bytes memory output, uint256 gasAfter) =
+            _harness.staticcallExactUnpinned(address(target), input, gasLimit, 96, reserve);
+        (bytes32 inputHash, uint256 entryGas, address caller) =
+            abi.decode(output, (bytes32, uint256, address));
+        assertEq(inputHash, keccak256(input));
+        assertEq(caller, address(_harness));
+        assertLe(entryGas, gasLimit);
+        assertGe(gasAfter, reserve);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(LibExactCall.ExactEmptyTarget.selector, address(0))
+        );
+        _harness.staticcallExactUnpinned(address(0), input, gasLimit, 96, reserve);
+        vm.expectRevert(
+            abi.encodeWithSelector(LibExactCall.ExactEmptyTarget.selector, address(0x1234))
+        );
+        _harness.staticcallExactUnpinned(address(0x1234), input, gasLimit, 96, reserve);
+        vm.expectPartialRevert(LibExactCall.ExactReturnLengthMismatch.selector);
+        _harness.staticcallExactUnpinned(address(target), input, gasLimit, 95, reserve);
     }
 
     function test_requireConfiguration_AcceptsOnlyExactSelectorAndHash() external {

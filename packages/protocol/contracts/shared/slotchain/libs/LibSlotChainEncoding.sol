@@ -579,29 +579,47 @@ library LibSlotChainEncoding {
         return keccak256(bytes(LibSlotChainConstants.FORCED_DESCRIPTOR_SCHEMA_DOMAIN));
     }
 
-    /// @dev Hashes the exact 113-byte ForcedQueue constructor configuration preimage. Both local
-    ///      addresses are nonzero and distinct.
-    function hashForcedQueueConfig(
-        address _activeSettlementRouter,
-        address _initialActiveSettlement
-    )
+    /// @dev Hashes the exact 321-byte ForcedQueue configuration preimage
+    ///      `H("slot-chain-forced-queue-config-v2" || u16(321) || queueConfigBytes)` where
+    ///      `queueConfigBytes = address20(settlement) || u256(l2ChainId) || u8(64) ||
+    ///      u64(UINT64_MAX) || H("slot-chain-force-empty-v2") || descriptorSchemaHash ||
+    ///      u64(FORCE_DELAY) || u64(MAX_FORCE_VALIDITY_SECONDS) || u64(5000000) ||
+    ///      u32(131072) || u64(21000) || five u256 fee words`. The Settlement address, the L2
+    ///      chain identifier and both time bounds are nonzero; fee words may be zero.
+    function hashForcedQueueConfig(SlotChainTypes.ForcedQueueConfigV2 memory _config)
         internal
         pure
         returns (bytes32 hash_)
     {
         if (
-            _activeSettlementRouter == address(0) || _initialActiveSettlement == address(0)
-                || _activeSettlementRouter == _initialActiveSettlement
+            _config.settlement == address(0) || _config.l2ChainId == 0 || _config.forceDelay == 0
+                || _config.maxForceValiditySeconds == 0
         ) {
             revert InvalidForcedQueueConfig();
         }
-        bytes memory preimage = abi.encodePacked(
-            _activeSettlementRouter,
-            _initialActiveSettlement,
-            uint8(LibSlotChainConstants.FORCED_TREE_DEPTH),
-            LibSlotChainConstants.FORCED_QUEUE_CAPACITY,
-            hashForcedEmptyLeaf(),
-            hashForcedDescriptorSchema()
+        bytes memory preimage = bytes.concat(
+            abi.encodePacked(
+                _config.settlement,
+                _config.l2ChainId,
+                uint8(LibSlotChainConstants.FORCED_TREE_DEPTH),
+                LibSlotChainConstants.FORCED_QUEUE_CAPACITY,
+                hashForcedEmptyLeaf(),
+                hashForcedDescriptorSchema()
+            ),
+            abi.encodePacked(
+                _config.forceDelay,
+                _config.maxForceValiditySeconds,
+                LibSlotChainConstants.MAX_FORCE_MESSAGE_GAS,
+                LibSlotChainConstants.MAX_FORCE_MESSAGE_BYTES,
+                LibSlotChainConstants.MIN_FORCE_ACCOUNTED_GAS
+            ),
+            abi.encodePacked(
+                _config.fixedIngressWei,
+                _config.executionWeiPerAccountedGas,
+                _config.proofWeiPerAccountedGas,
+                _config.permanentWeiPerByte,
+                _config.maximumAcceptedFeeWei
+            )
         );
         assert(preimage.length == LibSlotChainConstants.FORCED_QUEUE_CONFIG_PREIMAGE_LENGTH);
         return keccak256(
