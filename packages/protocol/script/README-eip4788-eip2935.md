@@ -66,6 +66,11 @@ Networks: `mainnet` (167000), `hoodi` (167013), or `all`. Re-running after a
 successful deployment is a no-op — contracts already carrying the canonical
 bytecode are reported and skipped.
 
+> **Note:** `cast` has no env-var or stdin path for a raw key, so `PRIVATE_KEY`
+> is passed to `cast send` as an argument and is briefly visible in the process
+> list while a funding transaction is in flight. Don't run the broadcast path on
+> a shared machine.
+
 ## Verification
 
 These two contracts are hand-written EVM assembly with no Solidity or Vyper
@@ -79,9 +84,15 @@ the only way that actually proves anything:
    own node as an independent cross-check. Both Taiko chains are covered by the
    Etherscan V2 multichain API (`taikoscan.io`, `hoodi.taikoscan.io`).
 
-The pre-signed transactions embedded in the script were checked against
-Ethereum mainnet — signer, transaction hash and installed runtime bytecode all
-match what L1 carries:
+On every run, before touching the network, the script re-derives its own
+constants offline: it decodes each embedded raw transaction, recovers the
+signer, computes `CREATE(signer, 0)`, and confirms the init code installs the
+expected runtime bytecode. A corrupted constant aborts the run rather than
+funding a keyless account that would deploy something else.
+
+The pre-signed transactions were also checked against Ethereum mainnet —
+signer, transaction hash and installed runtime bytecode all match what L1
+carries:
 
 | EIP      | Deployment tx hash on L1                                             |
 | -------- | -------------------------------------------------------------------- |

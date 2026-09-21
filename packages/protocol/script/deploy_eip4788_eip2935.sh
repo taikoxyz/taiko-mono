@@ -18,6 +18,11 @@
 # lowered. Whatever the deployment does not burn stays in the keyless EOA
 # forever -- the script prints the split before broadcasting.
 #
+# NOTE: cast has no env-var or stdin path for a raw key, so PRIVATE_KEY is
+# passed to `cast send` as an argument and is briefly visible in the process
+# list while a funding transaction is in flight. Do not run the broadcast path
+# on a shared machine.
+#
 # Both pre-signed transactions below were checked against Ethereum mainnet:
 # signer, transaction hash and installed runtime bytecode are byte-identical
 # to what L1 carries.
@@ -28,9 +33,11 @@ set -eo pipefail
 # Constants
 # ---------------------------------------------------------------------------
 
-# Fixed by the pre-signature: 250,000 gas * 1000 gwei.
-readonly FUND_WEI=250000000000000000
+# All three are fixed by the pre-signature and cannot be changed:
+# FUND_WEI is PRESIGNED_GAS_LIMIT * GAS_PRICE_WEI.
+readonly PRESIGNED_GAS_LIMIT=250000
 readonly GAS_PRICE_WEI=1000000000000
+readonly FUND_WEI=250000000000000000
 
 # name|address|keyless deployer|pre-signed raw tx|runtime bytecode|init code
 readonly CONTRACTS=(
@@ -103,8 +110,34 @@ done
 # ---------------------------------------------------------------------------
 
 # Exact 256-bit arithmetic. Bash integers overflow above ~9.22 ETH expressed in
-# wei, which a funding wallet can easily exceed.
-big() { python3 -c "import sys; print(eval(sys.argv[1]))" "$1"; }
+# wei, which a funding wallet can easily exceed. Operands arrive from RPC
+# responses, so they are parsed as integers rather than evaluated as an
+# expression: a value that is not an integer aborts the run instead of being
+# executed.
+int_op() {
+    local result
+    if ! result="$(python3 -c '
+import sys
+try:
+    op, a, b = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
+except ValueError:
+    sys.exit("non-integer operand")
+ops = {
+    "add": lambda: a + b,
+    "sub": lambda: a - b,
+    "mul": lambda: a * b,
+    "subfloor": lambda: max(0, a - b),
+    "gt": lambda: int(a > b),
+    "lt": lambda: int(a < b),
+}
+if op not in ops:
+    sys.exit("unknown op " + op)
+print(ops[op]())
+' "$1" "$2" "$3" 2>&1)"; then
+        die "arithmetic failed ($1 $2 $3): $result"
+    fi
+    printf '%s' "$result"
+}
 
 # Render a wei amount as ETH, for display only.
 eth() { python3 -c "import sys; print(f'{int(sys.argv[1])/10**18:.6f}')" "$1"; }
@@ -144,7 +177,7 @@ lookup_network() {
 # ---------------------------------------------------------------------------
 
 etherscan_crosscheck() {
-    local chain_id="$1" address="$2" expected="$3" body result
+    local chain_id="$1" address="$2" expected="$3" body result tag value
 
     if [[ -z "$ETHERSCAN_API_KEY" ]]; then
         echo "      etherscan : skipped (ETHERSCAN_API_KEY not set)"
@@ -162,19 +195,75 @@ etherscan_crosscheck() {
         return 0
     }
 
+    # Tagged so an API error (bad key, rate limit) is not reported as if the
+    # explorer had returned different bytecode.
     result="$(printf '%s' "$body" | python3 -c 'import json, sys
 try:
-    print(json.load(sys.stdin).get("result") or "")
+    d = json.load(sys.stdin)
 except Exception:
-    print("")' 2> /dev/null)"
+    print("BADJSON\t"); raise SystemExit
+if not isinstance(d, dict):
+    print("BADJSON\t"); raise SystemExit
+if str(d.get("status")) == "0":
+    print("APIERR\t" + str(d.get("result") or d.get("message") or "")); raise SystemExit
+if "error" in d:
+    print("APIERR\t" + str((d.get("error") or {}).get("message", ""))); raise SystemExit
+print("OK\t" + str(d.get("result") or ""))' 2> /dev/null)"
 
-    if [[ "$(lower "$result")" == "$(lower "$expected")" ]]; then
-        echo "      etherscan : bytecode confirmed via Etherscan V2"
-    elif [[ -z "$result" ]]; then
-        echo "      etherscan : no answer (indexing lag or bad key) -- ignored"
-    else
-        echo "      etherscan : explorer node has not caught up yet -- ignored"
-    fi
+    local tag="${result%%$'\t'*}" value="${result#*$'\t'}"
+    case "$tag" in
+        OK)
+            if [[ "$(lower "$value")" == "$(lower "$expected")" ]]; then
+                echo "      etherscan : bytecode confirmed via Etherscan V2"
+            elif [[ -z "$value" || "$value" == "0x" ]]; then
+                echo "      etherscan : explorer has not indexed the address yet -- ignored"
+            else
+                echo "      etherscan : MISMATCH -- explorer reports different bytecode"
+                echo "                  (the RPC check above is authoritative and passed)"
+            fi
+            ;;
+        APIERR)  echo "      etherscan : API error: ${value:-unknown} -- ignored" ;;
+        *)       echo "      etherscan : unreadable response -- ignored" ;;
+    esac
+}
+
+# ---------------------------------------------------------------------------
+# Constants self-check
+#
+# Everything this script does rests on four hex blobs per contract. Re-derive
+# them from the raw transaction itself -- signer, then CREATE address, then the
+# runtime code the init code installs -- so a corrupted constant aborts the run
+# instead of funding a keyless account that deploys something else. Offline.
+# ---------------------------------------------------------------------------
+
+verify_constants() {
+    local entry name address deployer raw runtime decoded signer derived input
+
+    for entry in "${CONTRACTS[@]}"; do
+        name="$(field "$entry" 1)"
+        address="$(field "$entry" 2)"
+        deployer="$(field "$entry" 3)"
+        raw="$(field "$entry" 4)"
+        runtime="$(field "$entry" 5)"
+
+        decoded="$(cast decode-tx "$raw")" \
+            || die "$name: the embedded raw transaction does not decode"
+
+        signer="$(printf '%s' "$decoded" \
+            | python3 -c 'import json, sys; print(json.load(sys.stdin)["signer"])')"
+        input="$(printf '%s' "$decoded" \
+            | python3 -c 'import json, sys; print(json.load(sys.stdin)["input"])')"
+
+        [[ "$(lower "$signer")" == "$(lower "$deployer")" ]] \
+            || die "$name: raw transaction recovers to $signer, expected $deployer"
+
+        derived="$(cast compute-address "$signer" --nonce 0 | awk '{print $NF}')"
+        [[ "$(lower "$derived")" == "$(lower "$address")" ]] \
+            || die "$name: signer $signer deploys to $derived, expected $address"
+
+        [[ "$(lower "$input")" == *"$(lower "${runtime#0x}")" ]] \
+            || die "$name: the init code does not install the expected runtime bytecode"
+    done
 }
 
 # ---------------------------------------------------------------------------
@@ -193,7 +282,7 @@ TOTAL_STRANDED=0
 inspect_network() {
     local rpc="$1" chain_id="$2"
     local entry name address deployer runtime initcode
-    local code nonce balance shortfall gas burn basefee actual_chain_id
+    local code nonce balance shortfall gas burn basefee actual_chain_id stranded_each
 
     PENDING=()
     PENDING_COUNT=0
@@ -208,7 +297,7 @@ inspect_network() {
     # The pre-signature locks gasPrice at 1000 gwei; if the chain's base fee
     # ever exceeded that, the transaction could never be included.
     basefee="$(cast base-fee --rpc-url "$rpc" 2> /dev/null || echo 0)"
-    if [[ "$(big "$basefee > $GAS_PRICE_WEI")" == "True" ]]; then
+    if [[ "$(int_op gt "$basefee" "$GAS_PRICE_WEI")" == "1" ]]; then
         die "base fee ${basefee} wei exceeds the pre-signed gas price ${GAS_PRICE_WEI} wei"
     fi
     echo "  base fee    : ${basefee} wei (pre-signed gas price: ${GAS_PRICE_WEI} wei)"
@@ -242,7 +331,7 @@ inspect_network() {
         fi
 
         balance="$(cast balance "$deployer" --rpc-url "$rpc")"
-        shortfall="$(big "max(0, $FUND_WEI - $balance)")"
+        shortfall="$(int_op subfloor "$FUND_WEI" "$balance")"
 
         # Gas the deployment actually consumes, priced at the locked 1000 gwei.
         # A failed estimate is fatal rather than zero: it is the only pre-flight
@@ -255,19 +344,23 @@ inspect_network() {
         case "$gas" in
             '' | *[!0-9]*) die "gas estimation for $name returned a non-numeric result: $gas" ;;
         esac
-        burn="$(big "$gas * $GAS_PRICE_WEI")"
+        if [[ "$(int_op gt "$gas" "$PRESIGNED_GAS_LIMIT")" == "1" ]]; then
+            die "$name needs $gas gas but the pre-signed transaction is fixed at $PRESIGNED_GAS_LIMIT; it would run out of gas and strand the funding"
+        fi
+        burn="$(int_op mul "$gas" "$GAS_PRICE_WEI")"
 
         echo "      deployer  : $deployer (nonce 0, balance $(eth "$balance") ETH)"
         echo "      status    : NOT DEPLOYED"
         echo "      funding   : $(eth "$shortfall") ETH to send"
-        echo "      gas       : ${gas} -> $(eth "$burn") ETH burned, $(eth "$(big "$FUND_WEI - $burn")") ETH stranded"
+        stranded_each="$(int_op sub "$FUND_WEI" "$burn")"
+        echo "      gas       : ${gas} -> $(eth "$burn") ETH burned, $(eth "$stranded_each") ETH stranded"
         echo ""
 
         PENDING[$PENDING_COUNT]="$entry|$shortfall"
         PENDING_COUNT=$((PENDING_COUNT + 1))
-        TOTAL_FUNDING="$(big "$TOTAL_FUNDING + $shortfall")"
-        TOTAL_BURN="$(big "$TOTAL_BURN + $burn")"
-        TOTAL_STRANDED="$(big "$TOTAL_STRANDED + $FUND_WEI - $burn")"
+        TOTAL_FUNDING="$(int_op add "$TOTAL_FUNDING" "$shortfall")"
+        TOTAL_BURN="$(int_op add "$TOTAL_BURN" "$burn")"
+        TOTAL_STRANDED="$(int_op add "$TOTAL_STRANDED" "$stranded_each")"
     done
 }
 
@@ -399,6 +492,7 @@ check_network() {
 
 run_network() {
     local key="$1" entry chain_id rpc explorer funder funder_balance reply
+    local gas_price margin required
 
     entry="$(lookup_network "$key")" || die "unknown network '$key'"
     chain_id="$(field "$entry" 2)"
@@ -442,8 +536,16 @@ run_network() {
     funder_balance="$(cast balance "$funder" --rpc-url "$rpc")"
     echo "  funder      : $funder ($(eth "$funder_balance") ETH)"
 
-    if [[ "$(big "$funder_balance < $TOTAL_FUNDING")" == "True" ]]; then
-        die "funder holds $(eth "$funder_balance") ETH but $(eth "$TOTAL_FUNDING") ETH is needed"
+    # cast send needs gas on top of the value it forwards, so a wallet holding
+    # exactly TOTAL_FUNDING would deploy the first contract and then fail on the
+    # second. Reserve a generous margin (21k gas x10 per funding transaction) so
+    # a shortfall stops the run before anything is sent.
+    gas_price="$(cast gas-price --rpc-url "$rpc")"
+    margin="$(int_op mul "$gas_price" 210000)"
+    margin="$(int_op mul "$margin" "$PENDING_COUNT")"
+    required="$(int_op add "$TOTAL_FUNDING" "$margin")"
+    if [[ "$(int_op lt "$funder_balance" "$required")" == "1" ]]; then
+        die "funder holds $(eth "$funder_balance") ETH but $(eth "$required") ETH is needed ($(eth "$TOTAL_FUNDING") funding + $(eth "$margin") gas margin)"
     fi
 
     if [[ "$key" == "mainnet" && "$ASSUME_YES" != true ]]; then
@@ -465,6 +567,12 @@ run_network() {
 
 main() {
     require_tools
+
+    if [[ "$CHECK" == true && "$BROADCAST" == true ]]; then
+        die "--check is read-only and cannot be combined with --broadcast"
+    fi
+
+    verify_constants
 
     if [[ -z "$NETWORK" ]]; then
         echo "ERROR: --network is required" >&2
