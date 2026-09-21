@@ -5,8 +5,10 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/prysmaticlabs/prysm/v5/api/server/structs"
 	"github.com/stretchr/testify/require"
@@ -112,6 +114,20 @@ func TestNewBeaconClientRejectsMalformedBeaconMetadata(t *testing.T) {
 			mutate:    func(s *beaconStub) { s.specBody = `{"data":{"SECONDS_PER_SLOT":"12","SLOTS_PER_EPOCH":"0"}}` },
 			wantError: "SLOTS_PER_EPOCH",
 		},
+		{
+			name: "seconds per slot wraps a duration to zero",
+			mutate: func(s *beaconStub) {
+				s.specBody = `{"data":{"SECONDS_PER_SLOT":"9223372036854775808","SLOTS_PER_EPOCH":"32"}}`
+			},
+			wantError: "SECONDS_PER_SLOT",
+		},
+		{
+			name: "seconds per slot wraps a duration negative",
+			mutate: func(s *beaconStub) {
+				s.specBody = `{"data":{"SECONDS_PER_SLOT":"18446744073709551615","SLOTS_PER_EPOCH":"32"}}`
+			},
+			wantError: "SECONDS_PER_SLOT",
+		},
 	}
 
 	for _, tt := range tests {
@@ -190,4 +206,63 @@ func TestParseBeaconPositiveUint64RejectsZero(t *testing.T) {
 	_, err = parseBeaconPositiveUint64("SLOTS_PER_EPOCH", "0")
 	require.ErrorContains(t, err, "SLOTS_PER_EPOCH")
 	require.ErrorContains(t, err, "greater than zero")
+}
+
+func TestParseBeaconDurationSeconds(t *testing.T) {
+	tests := []struct {
+		name      string
+		value     string
+		want      uint64
+		wantError string
+	}{
+		{name: "mainnet", value: "12", want: 12},
+		{
+			name:  "largest representable",
+			value: strconv.FormatUint(maxBeaconDurationSeconds, 10),
+			want:  maxBeaconDurationSeconds,
+		},
+		{name: "missing", value: "", wantError: "missing"},
+		{name: "zero", value: "0", wantError: "greater than zero"},
+		{
+			name:      "one above the bound",
+			value:     strconv.FormatUint(maxBeaconDurationSeconds+1, 10),
+			wantError: "at most",
+		},
+		{name: "wraps a duration to zero", value: "9223372036854775808", wantError: "at most"},
+		{name: "max uint64", value: "18446744073709551615", wantError: "at most"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseBeaconDurationSeconds("SECONDS_PER_SLOT", tt.value)
+			if tt.wantError != "" {
+				require.ErrorContains(t, err, tt.wantError)
+				require.ErrorContains(t, err, "SECONDS_PER_SLOT")
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// TestSecondsPerSlotBoundKeepsLookaheadTickerPositive pins maxBeaconDurationSeconds to the reason it
+// exists: the driver derives its lookahead ticker interval from SecondsPerSlot with
+// `time.Second * time.Duration(d.rpc.L1Beacon.SecondsPerSlot) / 3` (driver/driver.go), and
+// time.NewTicker panics on a non-positive interval.
+func TestSecondsPerSlotBoundKeepsLookaheadTickerPositive(t *testing.T) {
+	lookaheadTickerInterval := func(secondsPerSlot uint64) time.Duration {
+		return time.Second * time.Duration(secondsPerSlot) / 3
+	}
+
+	for _, secondsPerSlot := range []uint64{1, 12, maxBeaconDurationSeconds} {
+		interval := lookaheadTickerInterval(secondsPerSlot)
+		require.Greater(t, interval, time.Duration(0), "seconds per slot %d", secondsPerSlot)
+		require.NotPanics(t, func() { time.NewTicker(interval).Stop() })
+	}
+
+	// Past the bound the product wraps, which is exactly what the parser now rejects.
+	require.Equal(t, time.Duration(0), lookaheadTickerInterval(1<<63))
+	require.Less(t, lookaheadTickerInterval(math.MaxUint64), time.Duration(0))
+	require.Less(t, lookaheadTickerInterval(maxBeaconDurationSeconds+1), time.Duration(0))
 }

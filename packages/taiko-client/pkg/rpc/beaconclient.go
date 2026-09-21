@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 	"net/http"
 	"strconv"
@@ -106,7 +107,7 @@ func NewBeaconClient(endpoint string, timeout time.Duration) (*BeaconClient, err
 		return nil, err
 	}
 
-	secondsPerSlot, err := parseBeaconPositiveUint64("SECONDS_PER_SLOT", spec.SecondsPerSlot)
+	secondsPerSlot, err := parseBeaconDurationSeconds("SECONDS_PER_SLOT", spec.SecondsPerSlot)
 	if err != nil {
 		return nil, err
 	}
@@ -147,6 +148,30 @@ func parseBeaconPositiveUint64(name, value string) (uint64, error) {
 	}
 	if parsed == 0 {
 		return 0, fmt.Errorf("invalid %s in beacon node response: must be greater than zero", name)
+	}
+	return parsed, nil
+}
+
+// maxBeaconDurationSeconds is the largest number of seconds that still converts into a positive
+// time.Duration. Above it the product silently wraps: `time.Second * time.Duration(1<<63)` is zero
+// and `time.Second * time.Duration(math.MaxUint64)` is negative, either of which panics the
+// `time.NewTicker` call that derives the driver's lookahead interval from SECONDS_PER_SLOT.
+const maxBeaconDurationSeconds = uint64(math.MaxInt64 / int64(time.Second))
+
+// parseBeaconDurationSeconds is parseBeaconPositiveUint64 for values that are later converted into
+// a time.Duration of seconds.
+func parseBeaconDurationSeconds(name, value string) (uint64, error) {
+	parsed, err := parseBeaconPositiveUint64(name, value)
+	if err != nil {
+		return 0, err
+	}
+	if parsed > maxBeaconDurationSeconds {
+		return 0, fmt.Errorf(
+			"invalid %s in beacon node response: must be at most %d seconds, got %d",
+			name,
+			maxBeaconDurationSeconds,
+			parsed,
+		)
 	}
 	return parsed, nil
 }
