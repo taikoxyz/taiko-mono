@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Proposal0023Harness } from "./Proposal0023Harness.sol";
+import { Proposal0024Harness } from "./Proposal0024Harness.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { Test } from "forge-std/src/Test.sol";
-import { Proposal0023 } from "script/layer1/proposals/Proposal0023.s.sol";
+import { Proposal0024 } from "script/layer1/proposals/Proposal0024.s.sol";
 import { LibL1Addrs as L1 } from "src/layer1/mainnet/LibL1Addrs.sol";
 import { LibL2Addrs as L2 } from "src/layer2/mainnet/LibL2Addrs.sol";
 import { IBridge, IMessageInvocable } from "src/shared/bridge/IBridge.sol";
@@ -13,7 +13,7 @@ import { Controller } from "src/shared/governance/Controller.sol";
 import { LibNames } from "src/shared/libs/LibNames.sol";
 
 /// @custom:security-contact security@taiko.xyz
-contract Proposal0023Test is Test {
+contract Proposal0024Test is Test {
     address internal constant BRIDGE_NEW_IMPL_L1 = 0x1010101010101010101010101010101010101010;
     address internal constant ERC20_VAULT_NEW_IMPL_L1 = 0x1111111111111111111111111111111111111111;
     address internal constant BRIDGED_ERC20_NEW_IMPL_L1 =
@@ -24,7 +24,7 @@ contract Proposal0023Test is Test {
     address internal constant BRIDGED_ERC20_NEW_IMPL_L2 =
         0x5050505050505050505050505050505050505050;
 
-    // The deployed addresses, written out as literals rather than read back from `Proposal0023`
+    // The deployed addresses, written out as literals rather than read back from `Proposal0024`
     // or the address libraries, so an edit to a constant there cannot be mirrored here.
     address internal constant DEPLOYED_BRIDGE_IMPL_L1 = 0xA15dca0A72da684f20e0FC708DECFb230a715462;
     address internal constant DEPLOYED_ERC20_VAULT_IMPL_L1 =
@@ -39,10 +39,10 @@ contract Proposal0023Test is Test {
     address internal constant DEPLOYED_BRIDGED_ERC20_IMPL_L2 =
         0xD6601cdea5857338EbdEE4CF38298aff43f01431;
 
-    Proposal0023Harness internal proposal;
+    Proposal0024Harness internal proposal;
 
     function setUp() external {
-        proposal = new Proposal0023Harness();
+        proposal = new Proposal0024Harness();
     }
 
     function test_buildL1Actions_EncodesUpgradesThenBridgedErc20Registration() external view {
@@ -57,19 +57,19 @@ contract Proposal0023Test is Test {
     }
 
     function test_buildL1Actions_RevertsWhileAnImplementationIsMissing() external {
-        Proposal0023.L1Deployment memory d = _l1();
+        Proposal0024.L1Deployment memory d = _l1();
         d.bridgeImpl = address(0);
-        vm.expectRevert(Proposal0023.ImplementationNotDeployed.selector);
+        vm.expectRevert(Proposal0024.ImplementationNotDeployed.selector);
         proposal.exposedBuildL1Actions(d);
 
         d = _l1();
         d.erc20VaultImpl = address(0);
-        vm.expectRevert(Proposal0023.ImplementationNotDeployed.selector);
+        vm.expectRevert(Proposal0024.ImplementationNotDeployed.selector);
         proposal.exposedBuildL1Actions(d);
 
         d = _l1();
         d.bridgedErc20Impl = address(0);
-        vm.expectRevert(Proposal0023.ImplementationNotDeployed.selector);
+        vm.expectRevert(Proposal0024.ImplementationNotDeployed.selector);
         proposal.exposedBuildL1Actions(d);
     }
 
@@ -91,24 +91,24 @@ contract Proposal0023Test is Test {
     }
 
     function test_buildL2Actions_RevertsWhileAnAddressIsMissing() external {
-        Proposal0023.L2Deployment memory d = _l2();
+        Proposal0024.L2Deployment memory d = _l2();
         d.sharedResolver = address(0);
-        vm.expectRevert(Proposal0023.ImplementationNotDeployed.selector);
+        vm.expectRevert(Proposal0024.ImplementationNotDeployed.selector);
         proposal.exposedBuildL2Actions(d);
 
         d = _l2();
         d.bridgeImpl = address(0);
-        vm.expectRevert(Proposal0023.ImplementationNotDeployed.selector);
+        vm.expectRevert(Proposal0024.ImplementationNotDeployed.selector);
         proposal.exposedBuildL2Actions(d);
 
         d = _l2();
         d.erc20VaultImpl = address(0);
-        vm.expectRevert(Proposal0023.ImplementationNotDeployed.selector);
+        vm.expectRevert(Proposal0024.ImplementationNotDeployed.selector);
         proposal.exposedBuildL2Actions(d);
 
         d = _l2();
         d.bridgedErc20Impl = address(0);
-        vm.expectRevert(Proposal0023.ImplementationNotDeployed.selector);
+        vm.expectRevert(Proposal0024.ImplementationNotDeployed.selector);
         proposal.exposedBuildL2Actions(d);
     }
 
@@ -150,7 +150,7 @@ contract Proposal0023Test is Test {
         );
 
         // The 1.10.0 L2 bridge charges 16 gas per byte of this, rounded up to 32 bytes, plus 416
-        // bytes of message overhead; the relayer budget pinned in `Proposal0023Fork.t.sol` is
+        // bytes of message overhead; the relayer budget pinned in `Proposal0024Fork.t.sol` is
         // derived from this size. Re-derive both together when the action list changes.
         assertEq(
             message.data.length, 2052, "L2 message size moved; re-derive the pinned relayer budget"
@@ -160,7 +160,7 @@ contract Proposal0023Test is Test {
     /// @dev Pins what the no-argument builders forward. The encoding tests above call the
     /// parameterised overloads directly and so bypass the forwarding lines entirely. The seven
     /// forwarded addresses — the four implementations, the L2 resolver and the two
-    /// `BridgedERC20V2`s — are the `DEPLOYED_*` literals above rather than reads of `Proposal0023`
+    /// `BridgedERC20V2`s — are the `DEPLOYED_*` literals above rather than reads of `Proposal0024`
     /// or the address libraries, so an edit to one of those constants cannot be mirrored here. The
     /// proxies and the pre-existing registration targets are read from `LibL1Addrs`/`LibL2Addrs`
     /// as in the encoding tests; an edit to those is caught by
@@ -203,15 +203,15 @@ contract Proposal0023Test is Test {
         _assertUpgrades(actions[6], L2.BRIDGE, DEPLOYED_BRIDGE_IMPL_L2);
     }
 
-    /// @dev `Proposal0023.action.md` is the payload the DAO actually executes, and it is generated
-    /// out-of-band by `P=0023 pnpm proposal`. Nothing else in the repository checks that it was
+    /// @dev `Proposal0024.action.md` is the payload the DAO actually executes, and it is generated
+    /// out-of-band by `P=0024 pnpm proposal`. Nothing else in the repository checks that it was
     /// regenerated after the proposal changed, so a stale file would present one set of actions
     /// for review while the code describes another. This compares the committed calldata against
     /// what the proposal builds right now — including the bridge message that wraps the L2 batch,
-    /// which `BuildProposal` builds privately and `Proposal0023Harness` reproduces. Every address is
+    /// which `BuildProposal` builds privately and `Proposal0024Harness` reproduces. Every address is
     /// final, so a missing file is a failure, not a placeholder phase to skip.
     function test_actionFileMatchesTheBuiltCalldata() external {
-        string memory file = vm.readFile("script/layer1/proposals/Proposal0023.action.md");
+        string memory file = vm.readFile("script/layer1/proposals/Proposal0024.action.md");
 
         // Split on the label rather than on backtick position: the file is prettier-formatted by
         // the pre-commit hook, so line breaks are not stable but the label is.
@@ -222,7 +222,7 @@ contract Proposal0023Test is Test {
         assertEq(
             vm.parseBytes(committedHex),
             abi.encode(proposal.exposedBuildAllActions()),
-            "Proposal0023.action.md is stale -- regenerate with `P=0023 pnpm proposal`"
+            "Proposal0024.action.md is stale -- regenerate with `P=0024 pnpm proposal`"
         );
 
         // The generated header names the contract the calldata must be submitted to.
@@ -232,16 +232,16 @@ contract Proposal0023Test is Test {
         );
     }
 
-    function _l1() internal pure returns (Proposal0023.L1Deployment memory) {
-        return Proposal0023.L1Deployment({
+    function _l1() internal pure returns (Proposal0024.L1Deployment memory) {
+        return Proposal0024.L1Deployment({
             bridgeImpl: BRIDGE_NEW_IMPL_L1,
             erc20VaultImpl: ERC20_VAULT_NEW_IMPL_L1,
             bridgedErc20Impl: BRIDGED_ERC20_NEW_IMPL_L1
         });
     }
 
-    function _l2() internal pure returns (Proposal0023.L2Deployment memory) {
-        return Proposal0023.L2Deployment({
+    function _l2() internal pure returns (Proposal0024.L2Deployment memory) {
+        return Proposal0024.L2Deployment({
             sharedResolver: L2_SHARED_RESOLVER,
             bridgeImpl: BRIDGE_NEW_IMPL_L2,
             erc20VaultImpl: ERC20_VAULT_NEW_IMPL_L2,
