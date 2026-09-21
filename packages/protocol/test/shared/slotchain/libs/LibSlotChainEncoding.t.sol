@@ -14,6 +14,10 @@ import { Test } from "forge-std/src/Test.sol";
 contract LibSlotChainEncodingTest is Test {
     bytes32 private constant HASH_A = bytes32(uint256(0x11));
     bytes32 private constant HASH_B = bytes32(uint256(0x22));
+    /// @dev Opaque 32-byte `executionProfileHash` fixture shared with the commitment model; it
+    ///      keeps the statement and reward-receipt vectors byte-stable and encodes no profile.
+    bytes32 private constant PROFILE_HASH_FIXTURE =
+        0xe2e555222a3cece2d92ae55d4014899671be8f760e9db24e8c4eefd45f7c919e;
     EncodingHarness private harness;
 
     function setUp() external {
@@ -67,7 +71,9 @@ contract LibSlotChainEncodingTest is Test {
         );
         assertEq(preimage.length, 18 + 8 + 32 + 8 + 32 + 8 + 32 + 32 + 8);
         assertEq(LibSlotChainEncoding.hashCanonicalCore(core), keccak256(preimage));
-        assertEq(LibSlotChainEncoding.hashCanonicalCore(core), SlotChainGoldenVectors.CANONICAL_CORE);
+        assertEq(
+            LibSlotChainEncoding.hashCanonicalCore(core), SlotChainGoldenVectors.CANONICAL_CORE
+        );
     }
 
     function test_hashCandidate_RevertWhen_Empty() external {
@@ -651,7 +657,7 @@ contract LibSlotChainEncodingTest is Test {
         harness.hashDataBag(2101, 0, bytes(""));
     }
 
-    function test_hashSettlementStatement_MatchesRawAbiOracle() external pure {
+    function test_hashSettlementStatement_MatchesRawAbiOracleAndGoldenVector() external pure {
         SlotChainTypes.SettlementStatementV2 memory statement = _statement();
         bytes memory encoded = abi.encode(statement);
         assertEq(encoded.length, 41 * 32);
@@ -661,7 +667,7 @@ contract LibSlotChainEncodingTest is Test {
                 uint256(1),
                 uint256(16_788),
                 uint256(2),
-                _repeatByte(0xE1),
+                PROFILE_HASH_FIXTURE,
                 address(0xABCD),
                 uint8(1),
                 SlotChainGoldenVectors.BASE_CANONICAL,
@@ -703,7 +709,7 @@ contract LibSlotChainEncodingTest is Test {
                 uint16(2),
                 uint256(12_345_678),
                 uint64(9),
-                _repeatByte(0xE0),
+                SlotChainGoldenVectors.EXECUTION_OUTPUTS,
                 address(0xCAFE)
             )
         );
@@ -711,6 +717,10 @@ contract LibSlotChainEncodingTest is Test {
         assertEq(
             LibSlotChainEncoding.hashSettlementStatement(statement),
             keccak256(bytes.concat(bytes("slot-chain-statement-v3"), expectedWords))
+        );
+        assertEq(
+            LibSlotChainEncoding.hashSettlementStatement(statement),
+            SlotChainGoldenVectors.STATEMENT_HASH
         );
     }
 
@@ -720,14 +730,14 @@ contract LibSlotChainEncodingTest is Test {
         assertEq(schemaHash, 0x79f5768c9aa717db35fd5d2930d22d8bf549353580352e77a805fdc345204545);
     }
 
-    function test_hashRewardReceipt_MatchesRawPreimageOracle() external pure {
+    function test_hashRewardReceipt_MatchesRawPreimageOracleAndGoldenVector() external pure {
         SlotChainTypes.RewardReceiptV1 memory receipt = SlotChainTypes.RewardReceiptV1({
-            candidateId: _repeatByte(0xC1),
+            candidateId: SlotChainGoldenVectors.STATEMENT_HASH,
             beneficiary: address(0xCAFE),
             rewardClass: 1,
             rewardExecutionGas: 12_345_678,
             rewardPublishedBytes: 9,
-            executionProfileHash: _repeatByte(0xE1),
+            executionProfileHash: PROFILE_HASH_FIXTURE,
             committedAtBlock: 1_234_567,
             committedAtTimestamp: 1_800_000_000,
             claimUntil: 1_800_086_400,
@@ -735,18 +745,22 @@ contract LibSlotChainEncodingTest is Test {
         });
         bytes memory preimage = abi.encodePacked(
             "slot-chain-reward-receipt-v1",
-            _repeatByte(0xC1),
+            SlotChainGoldenVectors.STATEMENT_HASH,
             address(0xCAFE),
             uint8(1),
             uint256(12_345_678),
             uint64(9),
-            _repeatByte(0xE1),
+            PROFILE_HASH_FIXTURE,
             uint64(1_234_567),
             uint64(1_800_000_000),
             uint64(1_800_086_400)
         );
         assertEq(preimage.length, 28 + 32 + 20 + 1 + 32 + 8 + 32 + 8 + 8 + 8);
         assertEq(LibSlotChainEncoding.hashRewardReceipt(receipt), keccak256(preimage));
+        assertEq(
+            LibSlotChainEncoding.hashRewardReceipt(receipt),
+            SlotChainGoldenVectors.REWARD_RECEIPT_V1_COMMITMENT
+        );
     }
 
     function test_hashRewardReceipt_ExcludesClaimedFlag() external pure {
@@ -1147,7 +1161,7 @@ contract LibSlotChainEncodingTest is Test {
             settlementChainId: 1,
             l2ChainId: 16_788,
             protocolVersion: 2,
-            executionProfileHash: _repeatByte(0xE1),
+            executionProfileHash: PROFILE_HASH_FIXTURE,
             verifyingContract: address(0xABCD),
             tier: 1,
             baseCanonicalHash: SlotChainGoldenVectors.BASE_CANONICAL,
@@ -1183,7 +1197,7 @@ contract LibSlotChainEncodingTest is Test {
             dataRecordCount: 2,
             rewardExecutionGas: 12_345_678,
             rewardPublishedBytes: 9,
-            executionOutputsCommitment: _repeatByte(0xE0),
+            executionOutputsCommitment: SlotChainGoldenVectors.EXECUTION_OUTPUTS,
             proofBeneficiary: address(0xCAFE)
         });
     }

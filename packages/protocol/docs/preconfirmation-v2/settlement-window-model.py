@@ -780,8 +780,6 @@ def forced_transaction_static_errors(
     if (not row.sender or authentication is not None
             and authentication.recovered_sender != row.sender):
         errors.append("SIGNATURE")
-    if row.sender in {"system:anchor", "system:inbox"}:
-        errors.append("RESERVED_SENDER")
     if type(row.nonce) is not int or not 0 <= row.nonce < UINT64_MAX:
         errors.append("NONCE_LIMIT")
     if (type(row.max_fee) is not int or not 0 <= row.max_fee <= SEAT_UINT256_MAX
@@ -2806,10 +2804,10 @@ MAX_SCHEDULE_MPT_NODE_BYTES = 600
 MAX_SCHEDULE_MPT_BYTES = 117_393
 SCHEDULE_REGISTRY_CELL_BYTES = 101
 SCHEDULE_TRANCHE_RECORD_BYTES = 329
-PROTOCOL_ROOT_FORK_REGISTRATION_SELECTOR = bytes.fromhex("c614591c")
-PROTOCOL_ROOT_FORK_CONFIG_SELECTOR = bytes.fromhex("44efa773")
-PROTOCOL_ROOT_FORK_ROUTE_STATE_SELECTOR = bytes.fromhex("7e9f3c0d")
-PROTOCOL_ROOT_FORK_ROUTE_READ_GAS = 50_000
+SCHEDULE_FORK_REGISTRATION_SELECTOR = bytes.fromhex("c614591c")
+SCHEDULE_FORK_CONFIG_SELECTOR = bytes.fromhex("44efa773")
+SCHEDULE_FORK_ROUTE_STATE_SELECTOR = bytes.fromhex("7e9f3c0d")
+SCHEDULE_FORK_ROUTE_READ_GAS = 50_000
 SCHEDULE_FORK_REGISTRATION_READ_GAS = 100_000
 SCHEDULE_FORK_VERIFIER_CONFIG_READ_GAS = 100_000
 SCHEDULE_FORK_MUTATION_GAS = 4_000_000
@@ -4612,7 +4610,7 @@ class Protocol:
     )
     duty_sequence: int = 0
     # Exact count of OPEN or FAILED_OVER duties.  Retained duty history is
-    # append-only, so production migration readiness must never scan it.
+    # append-only, so nothing in production may scan it.
     unresolved_duty_count: int = 0
     seat_selections: dict[bytes, SelectionRecord] = field(default_factory=dict)
     term_selection: dict[bytes, bytes] = field(default_factory=dict)
@@ -7790,7 +7788,7 @@ class Protocol:
         )
 
     def settlement_forced_ingress_floor_v1(self) -> bytes:
-        """Return the exact due-time floor consumed by the active Router."""
+        """Return the exact due-time floor (SIF1) read by the ForcedQueue."""
 
         if self.forced_ingress_floor_fault_point in {"revert", "oog"}:
             raise RuntimeError("injected SIF1 staticcall fault")
@@ -9516,10 +9514,9 @@ class QueueContinuity:
         return amount
 
 
-# Immutable delayed protocol-change authority.  This is deliberately separate
-# from the legacy test-only seat migration manager below: only these four typed
-# operations may mutate release, verifier, genesis-campaign or migration-arm
-# authority in the production model.
+# ScheduleOracle fork-verifier change parameters.  Fork verifier registration
+# is an owner-only operation executed through the DAO's existing delayed
+# governance process; the delay below is the reviewed lead time it assumes.
 PROTOCOL_CHANGE_DELAY_SECONDS = 604_800
 FORK_CHANGE_EXECUTION_WINDOW_SECONDS = 86_400
 # A successful fork transition must leave enough reviewed horizon to broadcast
@@ -10001,7 +9998,7 @@ class ScheduleForkVerifierArtifactV1:
     def staticcall_schedule_fork_verifier_config_v1(
         self, calldata: bytes, *, gas_limit: int, value: int,
     ) -> bytes:
-        if (calldata != PROTOCOL_ROOT_FORK_CONFIG_SELECTOR
+        if (calldata != SCHEDULE_FORK_CONFIG_SELECTOR
                 or gas_limit != SCHEDULE_FORK_VERIFIER_CONFIG_READ_GAS
                 or value != 0):
             raise ValueError("fork verifier SFV1 call frame is inexact")
@@ -10400,7 +10397,7 @@ class ScheduleOracleV1:
         artifact = self.fork_verifier_world.artifact(row.verifier)
         if (artifact.extcodehash() != row.runtime_hash
                 or artifact.staticcall_schedule_fork_verifier_config_v1(
-                    PROTOCOL_ROOT_FORK_CONFIG_SELECTOR,
+                    SCHEDULE_FORK_CONFIG_SELECTOR,
                     gas_limit=SCHEDULE_FORK_VERIFIER_CONFIG_READ_GAS,
                     value=0,
                 )
@@ -10690,7 +10687,7 @@ class ScheduleOracleV1:
     ) -> bytes:
         if ("FVR1" in self.read_faults
                 or type(calldata) is not bytes or len(calldata) != 36
-                or calldata[:4] != PROTOCOL_ROOT_FORK_REGISTRATION_SELECTOR
+                or calldata[:4] != SCHEDULE_FORK_REGISTRATION_SELECTOR
                 or calldata[8:] != bytes(28)
                 or gas_limit != SCHEDULE_FORK_REGISTRATION_READ_GAS
                 or value != 0):
@@ -10719,8 +10716,8 @@ class ScheduleOracleV1:
         self, calldata: bytes, *, gas_limit: int, value: int,
     ) -> bytes:
         if ("FRS1" in self.read_faults
-                or calldata != PROTOCOL_ROOT_FORK_ROUTE_STATE_SELECTOR
-                or gas_limit != PROTOCOL_ROOT_FORK_ROUTE_READ_GAS
+                or calldata != SCHEDULE_FORK_ROUTE_STATE_SELECTOR
+                or gas_limit != SCHEDULE_FORK_ROUTE_READ_GAS
                 or value != 0):
             raise ValueError("Schedule FRS1 call frame is inexact")
         return self.schedule_fork_route_state_v1()
