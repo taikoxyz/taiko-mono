@@ -23,7 +23,7 @@ SPEC.loader.exec_module(m)
 
 class ForcedAdmissionRegressionTests(unittest.TestCase):
     def admitted(self, row, fork=None):
-        return m.ActiveSettlementRouter._valid_ingress_static(
+        return m.valid_forced_ingress_static(
             row, clock=m.clock(1100, 1100), deposit=row.prepaid,
             fork=m.ForcedTxFork.FUSAKA if fork is None else fork,
         )
@@ -31,15 +31,16 @@ class ForcedAdmissionRegressionTests(unittest.TestCase):
     def test_zero_gas_is_rejected_instead_of_hidden_by_accounting_max(self):
         row = m.message(1100, "low-gas", gas=0)
         self.assertEqual(row.accounted_gas, 21000)
-        self.assertFalse(m.ActiveSettlementRouter._valid_ingress_static(
+        self.assertFalse(m.valid_forced_ingress_static(
             row, clock=m.clock(1100, 1100), deposit=row.prepaid
         ))
 
-    def test_invalid_no_tx_has_canonical_wire_code_six(self):
-        raw = m.inbox_apply_calldata(
-            0, ((0, 6, m.UINT32_MAX, "", None),)
+    def test_disposition_codes_are_circuit_internal_and_five_is_unassigned(self):
+        self.assertEqual(
+            [int(code) for code in m.ForcedDisposition], [0, 1, 2, 3, 4, 6]
         )
-        self.assertEqual(int.from_bytes(raw[164:196], "big"), 6)
+        self.assertEqual(m.ForcedDisposition.INVALID_NO_TX, 6)
+        self.assertEqual([kind.value for kind in m.ForceKind], [0])
 
     def test_type_matrix_and_static_byte_errors(self):
         row = m.message(1100, "types")
@@ -57,7 +58,6 @@ class ForcedAdmissionRegressionTests(unittest.TestCase):
             replace(row, nonce=True),
             replace(row, valid_until="not-an-integer"),
             replace(row, signature_ok=1),
-            replace(row, sender="system:anchor"),
             *(replace(row, transaction=replace(row.transaction, tx_type=kind))
               for kind in (3, 4, 127, 255)),
             replace(row, transaction=replace(row.transaction, chain_protected=False)),
@@ -104,21 +104,27 @@ class ForcedAdmissionRegressionTests(unittest.TestCase):
         self.assertEqual(m.forced_transaction_gas(tx, m.ForcedTxFork.SHANGHAI)[0],
                          53000 + 132 + 4)
 
-    def test_static_rejection_retains_no_queue_or_adapter_value(self):
+    def test_static_rejection_retains_no_queue_value(self):
         p = m.protocol()
-        router = m.routed_ingress_for_test(p)
         now = m.clock(1100, 1100)
-        adapter = m.activate_ingress_adapter_for_test(
-            router, kind=m.ForceKind.USER_TX, clock=now
-        )
         before = (p.forced_queue.count, p.forced_queue.root,
-                  p.forced_queue.escrow_balance, adapter.balance, dict(adapter.refunds))
+                  p.forced_queue.escrow_balance, p.forced_queue.last_due_at)
         row = m.message(1100, "zero-gas-payable", gas=0)
         with self.assertRaises(ValueError):
-            adapter.enqueue(now, row, caller=row.sender, deposit=row.prepaid)
+            p.forced_queue.enqueue(now, row, caller=row.sender, deposit=row.prepaid)
         self.assertEqual(before, (p.forced_queue.count, p.forced_queue.root,
-                                 p.forced_queue.escrow_balance, adapter.balance,
-                                 adapter.refunds))
+                                 p.forced_queue.escrow_balance,
+                                 p.forced_queue.last_due_at))
+
+    def test_queue_rejects_enqueue_before_activation_binds_a_settlement(self):
+        queue = m.QueueContinuity(
+            "unbound-forced-queue", m.model_force_root([]), 0, 0, 0, 0,
+            settlement_address="model-settlement",
+        )
+        row = m.message(1100, "early")
+        with self.assertRaises(ValueError):
+            queue.enqueue(m.clock(1100, 1100), row, caller=row.sender, deposit=row.prepaid)
+        self.assertEqual(queue.count, 0)
 
     def test_transaction_facts_do_not_change_frozen_descriptor(self):
         row = m.message(1100, "durable-fields")
@@ -212,7 +218,7 @@ class ForcedClassificationTests(unittest.TestCase):
         creation = replace(self.row, gas_limit=before+10000,
                            accounted_gas=before+10000, intrinsic_gas=before,
                            transaction=creation_tx)
-        self.assertTrue(m.ActiveSettlementRouter._valid_ingress_static(
+        self.assertTrue(m.valid_forced_ingress_static(
             creation, clock=m.clock(1100, 1100), deposit=creation.prepaid,
             fork=m.ForcedTxFork.LONDON,
         ))
@@ -259,42 +265,10 @@ class ForcedClassificationTests(unittest.TestCase):
                 rows = m.forced_block_rows(p.messages, proof.tip, proof.available_payload_hashes)
                 self.assertEqual([row[1] for row in rows], [6, 4])
                 self.assertEqual(rows[0][2:4], (m.UINT32_MAX, ""))
-                self.assertEqual(rows[1][2:4], (2, following.payload_hash))
+                # No system transactions precede the forced prefix.
+                self.assertEqual(rows[1][2:4], (0, following.payload_hash))
                 self.assertEqual(p.submit(proof, now), "COMMITTED")
                 self.assertEqual(p.core.message_cursor, 2)
-
-    def test_authenticated_inbox_uses_classifier_and_rejects_forged_discard(self):
-        following = replace(m.message(1100, "following"), sender="other", refund_address="other")
-        p = m.protocol(messages=[self.row, following])
-        m.routed_ingress_for_test(p)
-        m.open_recovery(p)
-        now = m.recovery_submit_clock(p)
-        witnesses = (
-            replace(self.witness, sender=m.ForcedSenderState(code=b"x")),
-            m.ForcedTxExecutionWitness(1, following.payload_hash, following.transaction,
-                authentication=m.ForcedRawAuthentication(following.sender, following.l2_chain_id)),
-        )
-        proof = m.candidate(p, now, tier=m.Tier.ESCAPE_UNSIGNED,
-                            signed=False, slot=p.recovery.escape_slot,
-                            discretionary=False, recovery_fields_zero=False,
-                            forced_tx_witnesses=witnesses)
-        authority = p._inbox_execution_authority
-        self.assertTrue(authority.valid_receipt(proof))
-        rows = m.forced_block_rows(p.messages, proof.tip, proof.available_payload_hashes)
-        self.assertEqual([row[1] for row in rows], [6, 4])
-        for bad_head in ((0, 0, m.UINT32_MAX, "", None),
-                         (0, 4, 2, self.row.payload_hash, None),
-                         (0, 6, 2, "", None), (0, 6, m.UINT32_MAX, "bad", None)):
-            bad_rows = (bad_head, rows[1])
-            malformed = replace(proof, inbox_execution_receipt=None, blocks=(replace(
-                proof.tip, inbox_system_calldata_hash=m.inbox_system_calldata_hash(bad_rows)
-            ),))
-            verification = authority.verify_candidate_proof(malformed, now)
-            with self.assertRaises(ValueError):
-                authority.prepare_candidate_execution(malformed, (bad_rows,), now, verification)
-        self.assertEqual(p.submit(proof, now), "COMMITTED")
-        replay = m.replay_candidate_queue_range_on_l2_for_test(authority, proof, now)
-        self.assertIsNotNone(replay)
 
     def test_synthetic_helpers_increment_nonce_and_expiry_needs_no_witness(self):
         rows = [self.row, replace(m.message(1100, "next-nonce"), nonce=1)]
