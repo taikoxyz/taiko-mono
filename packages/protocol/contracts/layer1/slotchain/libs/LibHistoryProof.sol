@@ -247,13 +247,7 @@ library LibHistoryProof {
     }
 
     /// @dev Applies the exact EIP-2935 serving interval and the release activation boundary.
-    function _requireHistoryRange(
-        uint64 _blockNumber,
-        uint64 _firstSupportedBlock
-    )
-        private
-        view
-    {
+    function _requireHistoryRange(uint64 _blockNumber, uint64 _firstSupportedBlock) private view {
         uint256 currentBlock = block.number;
         uint256 oldest =
             currentBlock > HISTORY_SERVE_WINDOW ? currentBlock - HISTORY_SERVE_WINDOW : 0;

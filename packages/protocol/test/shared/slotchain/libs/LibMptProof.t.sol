@@ -310,14 +310,7 @@ contract LibMptProofTest is Test {
         );
     }
 
-    function _frameEnd(
-        bytes memory _encoded,
-        uint256 _offset
-    )
-        private
-        pure
-        returns (uint256 end_)
-    {
+    function _frameEnd(bytes memory _encoded, uint256 _offset) private pure returns (uint256 end_) {
         uint256 length = (uint256(uint8(_encoded[_offset])) << 8) | uint8(_encoded[_offset + 1]);
         return _offset + 2 + length;
     }

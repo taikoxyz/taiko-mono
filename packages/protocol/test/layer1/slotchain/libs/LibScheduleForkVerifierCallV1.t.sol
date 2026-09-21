@@ -72,12 +72,7 @@ contract ConfigurableScheduleForkVerifier {
     bool private _enforceExactConfigurationCall;
     uint256 private _minimumConfigurationEntryGas;
 
-    function configureReturns(
-        bytes calldata _configuration,
-        bytes calldata _carrier
-    )
-        external
-    {
+    function configureReturns(bytes calldata _configuration, bytes calldata _carrier) external {
         _configurationReturn = _configuration;
         _carrierReturn = _carrier;
     }

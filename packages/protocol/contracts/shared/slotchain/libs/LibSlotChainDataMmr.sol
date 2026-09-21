@@ -32,14 +32,7 @@ library LibSlotChainDataMmr {
     }
 
     /// @dev Bags exactly the set-bit peaks in ascending height order.
-    function root(
-        bytes32[12] storage _peaks,
-        uint16 _count
-    )
-        internal
-        view
-        returns (bytes32 root_)
-    {
+    function root(bytes32[12] storage _peaks, uint16 _count) internal view returns (bytes32 root_) {
         if (_count > LibSlotChainConstants.MAX_DATA_RECORDS) revert InvalidMmrCount();
         return _root(_peaks, _count, false, 0, bytes32(0));
     }

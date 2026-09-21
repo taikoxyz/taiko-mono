@@ -75,13 +75,7 @@ contract LibSlotChainSignaturesTest is Test {
         assertEq(_harness.recoverSigner(digest, signature), vm.addr(_SIGNER_KEY));
     }
 
-    function testFuzz_recoverSigner_MatchesVmSigner(
-        uint256 _key,
-        bytes32 _digest
-    )
-        external
-        view
-    {
+    function testFuzz_recoverSigner_MatchesVmSigner(uint256 _key, bytes32 _digest) external view {
         uint256 key = bound(_key, 1, _SECP256K1N - 1);
         bytes memory signature = _sign(key, _digest);
         assertEq(_harness.recoverSigner(_digest, signature), vm.addr(key));
@@ -168,14 +162,7 @@ contract LibSlotChainSignaturesTest is Test {
         _harness.requireSigner(digest, signature, address(0));
     }
 
-    function _sign(
-        uint256 _key,
-        bytes32 _digest
-    )
-        private
-        view
-        returns (bytes memory signature_)
-    {
+    function _sign(uint256 _key, bytes32 _digest) private view returns (bytes memory signature_) {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_key, _digest);
         return abi.encodePacked(r, s, v);
     }

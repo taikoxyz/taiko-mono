@@ -1195,14 +1195,7 @@ contract LibScheduleSnapshotEvaluatorV1Test is Test {
         _writeU64(_output, _offset + 93, _cell.tombstonedAtL2Slot);
     }
 
-    function _writeAddress(
-        bytes memory _output,
-        uint256 _offset,
-        address _value
-    )
-        private
-        pure
-    {
+    function _writeAddress(bytes memory _output, uint256 _offset, address _value) private pure {
         uint160 value = uint160(_value);
         for (uint256 i; i < 20; ++i) {
             _output[_offset + i] = bytes1(uint8(value >> ((19 - i) * 8)));
@@ -1215,40 +1208,19 @@ contract LibScheduleSnapshotEvaluatorV1Test is Test {
         }
     }
 
-    function _writeU192(
-        bytes memory _output,
-        uint256 _offset,
-        uint192 _value
-    )
-        private
-        pure
-    {
+    function _writeU192(bytes memory _output, uint256 _offset, uint192 _value) private pure {
         for (uint256 i; i < 24; ++i) {
             _output[_offset + i] = bytes1(uint8(_value >> ((23 - i) * 8)));
         }
     }
 
-    function _writeBytes32(
-        bytes memory _output,
-        uint256 _offset,
-        bytes32 _value
-    )
-        private
-        pure
-    {
+    function _writeBytes32(bytes memory _output, uint256 _offset, bytes32 _value) private pure {
         for (uint256 i; i < 32; ++i) {
             _output[_offset + i] = _value[i];
         }
     }
 
-    function _writeBytes(
-        bytes memory _output,
-        uint256 _offset,
-        bytes memory _value
-    )
-        private
-        pure
-    {
+    function _writeBytes(bytes memory _output, uint256 _offset, bytes memory _value) private pure {
         for (uint256 i; i < _value.length; ++i) {
             _output[_offset + i] = _value[i];
         }

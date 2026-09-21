@@ -784,10 +784,7 @@ contract BuilderRegistryProofVerifierV1 {
         return true;
     }
 
-    function _readFlag(
-        bytes calldata _encoded,
-        uint256 _offset
-    )
+    function _readFlag(bytes calldata _encoded, uint256 _offset)
         private
         pure
         returns (bool value_)
@@ -797,14 +794,7 @@ contract BuilderRegistryProofVerifierV1 {
         return raw == 1;
     }
 
-    function _readU8(
-        bytes calldata _encoded,
-        uint256 _offset
-    )
-        private
-        pure
-        returns (uint8 value_)
-    {
+    function _readU8(bytes calldata _encoded, uint256 _offset) private pure returns (uint8 value_) {
         _requireAvailable(_encoded, _offset, 1);
         assembly ("memory-safe") {
             value_ := byte(0, calldataload(add(_encoded.offset, _offset)))

@@ -246,14 +246,7 @@ library LibCanonicalRLP {
     }
 
     /// @dev Requires `[offset,offset+length)` to fit within `end` without overflowing.
-    function _requireAvailable(
-        uint256 _offset,
-        uint256 _length,
-        uint256 _end
-    )
-        private
-        pure
-    {
+    function _requireAvailable(uint256 _offset, uint256 _length, uint256 _end) private pure {
         if (_offset > _end || _length > _end - _offset) revert RlpOutOfBounds();
     }
 

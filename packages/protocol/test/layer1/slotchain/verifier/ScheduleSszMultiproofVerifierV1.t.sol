@@ -486,14 +486,7 @@ contract ScheduleSszMultiproofVerifierV1Test is Test {
         }
     }
 
-    function _writeWord(
-        bytes memory _value,
-        uint256 _offset,
-        bytes32 _newWord
-    )
-        private
-        pure
-    {
+    function _writeWord(bytes memory _value, uint256 _offset, bytes32 _newWord) private pure {
         assembly ("memory-safe") {
             mstore(add(add(_value, 32), _offset), _newWord)
         }

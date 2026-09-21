@@ -314,14 +314,7 @@ library LibBuilderRegistry {
     }
 
     /// @dev Loads one calldata byte without accepting an out-of-range read.
-    function readU8(
-        bytes calldata _encoded,
-        uint256 _offset
-    )
-        internal
-        pure
-        returns (uint8 value_)
-    {
+    function readU8(bytes calldata _encoded, uint256 _offset) internal pure returns (uint8 value_) {
         _requireAvailable(_encoded, _offset, 1);
         assembly ("memory-safe") {
             value_ := byte(0, calldataload(add(_encoded.offset, _offset)))

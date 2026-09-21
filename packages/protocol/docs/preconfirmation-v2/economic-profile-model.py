@@ -1088,19 +1088,6 @@ PROFILE_RELATIONS = (
         (False, True, True),
     ),
     _relation(
-        "activation-forced-head-capacity",
-        (
-            "forcedEnvelope.maximumItemAccountedGas",
-            "gasProfile.activationForcedGas",
-        ),
-        "<=",
-        lambda p: _at(p, "forcedEnvelope.maximumItemAccountedGas")
-        <= _at(p, "gasProfile.activationForcedGas"),
-        "forcedEnvelope.maximumItemAccountedGas",
-        lambda p: _at(p, "gasProfile.activationForcedGas"),
-        (True, True, False),
-    ),
-    _relation(
         "forced-prefix-gas-candidate",
         (
             "forcedEnvelope.maximumPrefixAccountedGas",
@@ -1136,35 +1123,6 @@ PROFILE_RELATIONS = (
         (True, True, False),
     ),
     _relation(
-        "terminal-count-u64",
-        ("bridge.maximumTerminalCount",),
-        "==",
-        lambda p: _at(p, "bridge.maximumTerminalCount") == UINT64_MAX,
-        "bridge.maximumTerminalCount",
-        lambda _p: UINT64_MAX,
-        (False, True, False),
-    ),
-    _relation(
-        "refund-erc721-word-cap",
-        ("bridge.refundErc721Ids", "bridge.refundCapsuleWords"),
-        "<=",
-        lambda p: _at(p, "bridge.refundErc721Ids")
-        <= _at(p, "bridge.refundCapsuleWords"),
-        "bridge.refundErc721Ids",
-        lambda p: _at(p, "bridge.refundCapsuleWords"),
-        (True, True, False),
-    ),
-    _relation(
-        "refund-erc1155-word-cap",
-        ("bridge.refundErc1155Pairs", "bridge.refundCapsuleWords"),
-        "<=",
-        lambda p: checked_mul_u256(_at(p, "bridge.refundErc1155Pairs"), 2)
-        <= _at(p, "bridge.refundCapsuleWords"),
-        "bridge.refundErc1155Pairs",
-        lambda p: _at(p, "bridge.refundCapsuleWords") // 2,
-        (True, True, False),
-    ),
-    _relation(
         "kind0-validity-lower-bound",
         (
             "forcedEnvelope.maximumValiditySeconds",
@@ -1178,68 +1136,6 @@ PROFILE_RELATIONS = (
         "forcedEnvelope.maximumValiditySeconds",
         _recovery_lower_bound,
         (False, True, True),
-    ),
-    _relation(
-        "kind1-enqueue-lower-bound",
-        (
-            "bridge.maximumEnqueueDelaySeconds",
-            "recovery.finalLagSeconds",
-            "recovery.tipLagSeconds",
-            "builder.reorgMarginSeconds",
-        ),
-        ">=",
-        lambda p: _at(p, "bridge.maximumEnqueueDelaySeconds")
-        >= _recovery_lower_bound(p),
-        "bridge.maximumEnqueueDelaySeconds",
-        _recovery_lower_bound,
-        (False, True, True),
-    ),
-    _relation(
-        "bridge-process-ttl-lower-bound",
-        (
-            "bridge.processTtlSeconds",
-            "bridge.maximumEnqueueDelaySeconds",
-            "builder.reorgMarginSeconds",
-        ),
-        ">=",
-        lambda p: _at(p, "bridge.processTtlSeconds")
-        >= _sum_u256(
-            _at(p, "bridge.maximumEnqueueDelaySeconds"),
-            _at(p, "builder.reorgMarginSeconds"),
-        ),
-        "bridge.processTtlSeconds",
-        lambda p: _sum_u256(
-            _at(p, "bridge.maximumEnqueueDelaySeconds"),
-            _at(p, "builder.reorgMarginSeconds"),
-        ),
-        (False, True, True),
-    ),
-    _relation(
-        "support-finality-reorg-depth",
-        (
-            "bridge.supportFinalityBlocks",
-            "recovery.l1FinalityBlocks",
-            "builder.reorgMarginSeconds",
-            "geometry.l1SlotSeconds",
-        ),
-        "==",
-        lambda p: _at(p, "bridge.supportFinalityBlocks")
-        == _sum_u256(
-            _at(p, "recovery.l1FinalityBlocks"),
-            ceil_div_u256(
-                _at(p, "builder.reorgMarginSeconds"),
-                _at(p, "geometry.l1SlotSeconds"),
-            ),
-        ),
-        "bridge.supportFinalityBlocks",
-        lambda p: _sum_u256(
-            _at(p, "recovery.l1FinalityBlocks"),
-            ceil_div_u256(
-                _at(p, "builder.reorgMarginSeconds"),
-                _at(p, "geometry.l1SlotSeconds"),
-            ),
-        ),
-        (False, True, False),
     ),
     _relation(
         "data-ttl-recovery-lower-bound",
@@ -1325,39 +1221,6 @@ PROFILE_RELATIONS = (
         "rewards.claimWindowSeconds",
         lambda p: _at(p, "dataSession.refundClaimWindowSeconds"),
         (False, True, False),
-    ),
-    _relation(
-        "canonical-history-reorg-capacity",
-        (
-            "geometry.canonicalHistoryCells",
-            "seat.maximumInclusionSeconds",
-            "builder.reorgMarginSeconds",
-            "geometry.l1SlotSeconds",
-        ),
-        ">",
-        lambda p: _at(p, "geometry.canonicalHistoryCells")
-        > _sum_u256(
-            ceil_div_u256(
-                _sum_u256(
-                    _at(p, "seat.maximumInclusionSeconds"),
-                    _at(p, "builder.reorgMarginSeconds"),
-                ),
-                _at(p, "geometry.l1SlotSeconds"),
-            ),
-            2,
-        ),
-        "geometry.canonicalHistoryCells",
-        lambda p: _sum_u256(
-            ceil_div_u256(
-                _sum_u256(
-                    _at(p, "seat.maximumInclusionSeconds"),
-                    _at(p, "builder.reorgMarginSeconds"),
-                ),
-                _at(p, "geometry.l1SlotSeconds"),
-            ),
-            2,
-        ),
-        (False, False, True),
     ),
     _relation(
         "eip2935-replay-horizon",
@@ -1654,69 +1517,6 @@ PROFILE_RELATIONS = (
             _at(p, "gasProfile.steadyAnchorGas"),
             _at(p, "gasProfile.steadyForcedGas"),
             _at(p, "gasProfile.systemMarginGas"),
-        ),
-        (False, True, True),
-    ),
-    _relation(
-        "activation-gas-envelope",
-        (
-            "gasProfile.l2BlockGas",
-            "gasProfile.activationAnchorGas",
-            "gasProfile.activationForcedGas",
-            "gasProfile.systemMarginGas",
-        ),
-        "<=",
-        lambda p: _sum_u256(
-            _at(p, "gasProfile.activationAnchorGas"),
-            _at(p, "gasProfile.activationForcedGas"),
-            _at(p, "gasProfile.systemMarginGas"),
-        )
-        <= _at(p, "gasProfile.l2BlockGas"),
-        "gasProfile.l2BlockGas",
-        lambda p: _sum_u256(
-            _at(p, "gasProfile.activationAnchorGas"),
-            _at(p, "gasProfile.activationForcedGas"),
-            _at(p, "gasProfile.systemMarginGas"),
-        ),
-        (False, True, True),
-    ),
-    _relation(
-        "registration-proof-total-nodes",
-        (
-            "bridge.registrationProofMaximumNodesPerPath",
-            "bridge.registrationProofPathCount",
-            "bridge.registrationProofMaximumTotalNodes",
-        ),
-        "==",
-        lambda p: checked_mul_u256(
-            _at(p, "bridge.registrationProofMaximumNodesPerPath"),
-            _at(p, "bridge.registrationProofPathCount"),
-        )
-        == _at(p, "bridge.registrationProofMaximumTotalNodes"),
-        "bridge.registrationProofMaximumTotalNodes",
-        lambda p: checked_mul_u256(
-            _at(p, "bridge.registrationProofMaximumNodesPerPath"),
-            _at(p, "bridge.registrationProofPathCount"),
-        ),
-        (False, True, False),
-    ),
-    _relation(
-        "registration-proof-byte-capacity",
-        (
-            "bridge.registrationProofMaximumTotalNodes",
-            "bridge.registrationProofMaximumNodeBytes",
-            "bridge.registrationProofMaximumBytes",
-        ),
-        "<=",
-        lambda p: checked_mul_u256(
-            _at(p, "bridge.registrationProofMaximumTotalNodes"),
-            _at(p, "bridge.registrationProofMaximumNodeBytes"),
-        )
-        <= _at(p, "bridge.registrationProofMaximumBytes"),
-        "bridge.registrationProofMaximumBytes",
-        lambda p: checked_mul_u256(
-            _at(p, "bridge.registrationProofMaximumTotalNodes"),
-            _at(p, "bridge.registrationProofMaximumNodeBytes"),
         ),
         (False, True, True),
     ),

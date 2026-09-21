@@ -25,8 +25,6 @@ contract BuilderEvidenceTest is BuilderRegistryTestBase {
     using BuilderRegistryMerkleTracker for BuilderRegistryMerkleTracker.Tree;
 
     uint256 private constant BUILDER_KEY = 0xB017D3;
-    uint64 private constant PROTOCOL_VERSION = 7;
-    uint64 private constant L2_CHAIN_ID = 167_000;
     bytes4 private constant IDENTITY_SELECTOR = 0x7c09d62d;
     bytes4 private constant PROOF_SELECTOR = 0xa9ca9190;
 
@@ -68,19 +66,21 @@ contract BuilderEvidenceTest is BuilderRegistryTestBase {
         uint8 location;
     }
 
-    function test_validEvidenceUses512ByteRTR2AndSlashesAtDeadlineEquality() external {
+    function test_validEvidenceUsesSST1VersionInEveryModeAndSlashesAtDeadlineEquality() external {
         EvidenceContext memory context;
         _prepareEvidenceContext(context);
         bytes memory evidence = _evidence(context, block.chainid, L2_CHAIN_ID);
         uint64 deadline = context.tranche.liableUntil;
         vm.warp(deadline);
         address reporter = address(0x5151);
+        // Every SST1 mode admits evidence: a DRAINING Settlement still authenticates the version.
+        settlement.setResponse(SETTLEMENT_STATE_SELECTOR, _settlementState(PROTOCOL_VERSION, 0));
 
         vm.prank(reporter);
         (bool ok, bytes memory raw) = address(registry)
             .call(abi.encodeCall(IBuilderRegistry.submitBuilderEquivocationV1, (evidence)));
         assertTrue(ok);
-        assertEq(raw.length, 256);
+        assertEq(raw.length, 288);
 
         context.tranche.state = uint8(SlotChainTypes.TrancheState.SLASHED);
         context.tranche.amount = 0;
@@ -100,10 +100,11 @@ contract BuilderEvidenceTest is BuilderRegistryTestBase {
         assertEq(uint64(uint256(_readWord(raw, 32))), 0);
         assertEq(uint64(uint256(_readWord(raw, 64))), context.window);
         assertEq(address(uint160(uint256(_readWord(raw, 96)))), context.builder);
-        assertEq(uint256(_readWord(raw, 128)), REPORTER_CAP);
-        assertEq(uint256(_readWord(raw, 160)), LEASE - REPORTER_CAP);
-        assertEq(uint64(uint256(_readWord(raw, 192))), 2);
-        assertEq(_readWord(raw, 224), context.admissionTree.root());
+        assertEq(uint256(_readWord(raw, 128)), L2_CHAIN_ID);
+        assertEq(uint256(_readWord(raw, 160)), REPORTER_CAP);
+        assertEq(uint256(_readWord(raw, 192)), LEASE - REPORTER_CAP);
+        assertEq(uint64(uint256(_readWord(raw, 224))), 2);
+        assertEq(_readWord(raw, 256), context.admissionTree.root());
         (,,,,,, bytes32 registryRoot) = registry.scheduleRegistryStateV1();
         assertEq(registryRoot, context.registryTree.root());
         assertEq(token.rawBalance(address(registry)), uint256(LEASE) * 2);
@@ -134,83 +135,145 @@ contract BuilderEvidenceTest is BuilderRegistryTestBase {
         assertEq(token.rawBalance(address(registry)), uint256(LEASE) * 2);
     }
 
-    function test_l2ChainIdIsPairEqualButIntentionallyNotRegistryLocal() external {
+    function test_pairEqualForeignL2ChainRejectsByteIdenticalState() external {
         EvidenceContext memory context;
         _prepareEvidenceContext(context);
-        bytes memory evidence = _evidence(context, block.chainid, type(uint64).max);
-
-        (bytes4 magic,,,,,,,) = registry.submitBuilderEquivocationV1(evidence);
-        assertEq(magic, BEV1);
-    }
-
-    function test_evidenceOneSecondAfterReplayDeadlineRejectsWithFullRollback() external {
-        EvidenceContext memory context;
-        _prepareEvidenceContext(context);
-        bytes memory evidence = _evidence(context, block.chainid, L2_CHAIN_ID);
-        vm.warp(uint256(context.tranche.liableUntil) + 1);
+        bytes memory foreignEvidence = _evidence(context, block.chainid, L2_CHAIN_ID + 1);
         bytes32 beforeDigest = _stateDigest(context.builder);
 
-        vm.expectRevert(BuilderRegistry.EvidenceTrancheNotSlashable.selector);
-        registry.submitBuilderEquivocationV1(evidence);
+        // Pair-equal but not the pinned L2 chain: same settlement chain, same Registry, same
+        // Settlement domain, yet the promise belongs to another L2 and must not slash here.
+        vm.expectRevert(BuilderRegistry.InvalidEvidenceDomain.selector);
+        registry.submitBuilderEquivocationV1(foreignEvidence);
         assertEq(_stateDigest(context.builder), beforeDigest);
+        assertEq(token.rawBalance(address(registry)), uint256(LEASE) * 2);
+
+        bytes memory evidence = _evidence(context, block.chainid, L2_CHAIN_ID);
+        (bytes4 magic,,,, uint256 l2ChainId,,,,) = registry.submitBuilderEquivocationV1(evidence);
+        assertEq(magic, BEV1);
+        assertEq(l2ChainId, L2_CHAIN_ID);
     }
 
-    function test_duplicateAndWrongWindowEvidenceRejectWithoutSecondCredit() external {
+    function test_proofVerifierIdentityBindsSignedL2ChainId() external {
         EvidenceContext memory context;
         _prepareEvidenceContext(context);
+        BuilderRegistryProofVerifierV1 verifier = new BuilderRegistryProofVerifierV1();
         bytes memory evidence = _evidence(context, block.chainid, L2_CHAIN_ID);
-        registry.submitBuilderEquivocationV1(evidence);
-        bytes32 afterFirst = _stateDigest(context.builder);
+        bytes memory foreignEvidence = _evidence(context, block.chainid, L2_CHAIN_ID + 1);
 
-        vm.expectRevert(BuilderRegistry.EvidenceTrancheNotSlashable.selector);
-        registry.submitBuilderEquivocationV1(evidence);
-        assertEq(_stateDigest(context.builder), afterFirst);
+        bytes memory identity = _identityReturn(verifier, evidence);
+        bytes memory foreignIdentity = _identityReturn(verifier, foreignEvidence);
+        assertEq(uint256(_readWord(identity, 256)), L2_CHAIN_ID);
+        assertEq(uint256(_readWord(foreignIdentity, 256)), L2_CHAIN_ID + 1);
+        assertNotEq(_readWord(identity, 96), _readWord(foreignIdentity, 96));
+        assertEq(
+            _readWord(identity, 96),
+            _expectedIdentityCommitment(context, _readWord(identity, 32), keccak256(evidence))
+        );
+
+        bytes memory zeroL2 = _evidence(context, block.chainid, 0);
+        (bool zeroOk,) = address(verifier)
+            .staticcall(abi.encodeWithSelector(IDENTITY_SELECTOR, block.chainid, zeroL2));
+        assertFalse(zeroOk);
     }
 
-    function test_wrongWindowAndIndependentHistoricalAdmissionArmsReject() external {
-        EvidenceContext memory context;
-        _prepareEvidenceContext(context);
-        bytes memory evidence = _evidence(context, block.chainid, L2_CHAIN_ID);
-        bytes32 beforeDigest = _stateDigest(context.builder);
-
-        bytes memory wrongWindow = _copy(evidence);
-        _writeU64(wrongWindow, 1526, context.window + 1);
-        _assertVerifierEvidenceFailsWithRollback(wrongWindow, context.builder, beforeDigest);
-
-        bytes memory badHistorical = _copy(evidence);
-        badHistorical[1174] ^= 0x01;
-        _assertVerifierEvidenceFailsWithRollback(badHistorical, context.builder, beforeDigest);
-
-        bytes memory badCurrent = _copy(evidence);
-        badCurrent[1822] ^= 0x01;
-        _assertVerifierEvidenceFailsWithRollback(badCurrent, context.builder, beforeDigest);
+    function _identityReturn(
+        BuilderRegistryProofVerifierV1 _verifier,
+        bytes memory _evidenceBytes
+    )
+        private
+        view
+        returns (bytes memory identity_)
+    {
+        bool ok;
+        (ok, identity_) = address(_verifier)
+            .staticcall(abi.encodeWithSelector(IDENTITY_SELECTOR, block.chainid, _evidenceBytes));
+        assertTrue(ok);
+        assertEq(identity_.length, 352);
     }
 
-    function test_evidenceRejectsShortTrailingAndSubstitutedRTR2() external {
-        _evidenceRejectsShortTrailingAndSubstitutedRTR2();
+    /// @dev Independent 224-byte EIV1 identity preimage oracle for the fixture's L2 chain.
+    function _expectedIdentityCommitment(
+        EvidenceContext memory _context,
+        bytes32 _configurationHash,
+        bytes32 _evidenceHash
+    )
+        private
+        view
+        returns (bytes32 commitment_)
+    {
+        bytes memory preimage = bytes.concat(
+            abi.encodePacked(
+                _configurationHash, _evidenceHash, block.chainid, L2_CHAIN_ID, PROTOCOL_VERSION
+            ),
+            abi.encodePacked(
+                address(settlement),
+                _context.window,
+                uint64(1),
+                _context.admissionTree.root(),
+                _context.builder
+            )
+        );
+        assertEq(preimage.length, 224);
+        return keccak256(
+            abi.encodePacked("slot-chain-builder-equivocation-identity-v2", uint16(224), preimage)
+        );
     }
 
-    function _evidenceRejectsShortTrailingAndSubstitutedRTR2() internal virtual {
+    function test_evidenceRejectsShortTrailingAndSubstitutedSST1() external {
+        _evidenceRejectsShortTrailingAndSubstitutedSST1();
+    }
+
+    function _evidenceRejectsShortTrailingAndSubstitutedSST1() internal virtual {
         (bytes memory evidence, address builder) = _preparedEvidence(block.chainid, L2_CHAIN_ID);
         bytes32 beforeDigest = _stateDigest(builder);
 
-        router.setMode(TARGET_RELEASE_REGISTRATION_SELECTOR, 3);
+        settlement.setMode(SETTLEMENT_STATE_SELECTOR, 3);
         vm.expectPartialRevert(LibExactCall.ExactReturnLengthMismatch.selector);
         _submitEvidence(evidence);
         assertEq(_stateDigest(builder), beforeDigest);
 
-        router.setMode(TARGET_RELEASE_REGISTRATION_SELECTOR, 4);
+        settlement.setMode(SETTLEMENT_STATE_SELECTOR, 4);
         vm.expectPartialRevert(LibExactCall.ExactReturnLengthMismatch.selector);
         _submitEvidence(evidence);
         assertEq(_stateDigest(builder), beforeDigest);
 
-        router.setMode(TARGET_RELEASE_REGISTRATION_SELECTOR, 0);
-        router.setResponse(
-            TARGET_RELEASE_REGISTRATION_SELECTOR,
-            _targetReleaseRegistration(PROTOCOL_VERSION, address(0xBAD))
+        settlement.setMode(SETTLEMENT_STATE_SELECTOR, 1);
+        vm.expectPartialRevert(LibExactCall.ExactCallFailed.selector);
+        _submitEvidence(evidence);
+        assertEq(_stateDigest(builder), beforeDigest);
+
+        settlement.setMode(SETTLEMENT_STATE_SELECTOR, 0);
+        settlement.setResponse(SETTLEMENT_STATE_SELECTOR, _settlementState(PROTOCOL_VERSION + 1, 1));
+        vm.expectRevert(BuilderRegistry.InvalidEvidenceDomain.selector);
+        _submitEvidence(evidence);
+        assertEq(_stateDigest(builder), beforeDigest);
+
+        settlement.setResponse(
+            SETTLEMENT_STATE_SELECTOR,
+            abi.encode(bytes4(0x53535432), PROTOCOL_VERSION, uint8(1), uint64(12_345))
         );
-        vm.expectRevert(BuilderRegistry.InvalidEvidenceReleaseRegistration.selector);
+        vm.expectRevert(BuilderRegistry.SettlementStateMalformed.selector);
         _submitEvidence(evidence);
+        assertEq(_stateDigest(builder), beforeDigest);
+
+        settlement.setResponse(
+            SETTLEMENT_STATE_SELECTOR,
+            abi.encode(SST1, uint256(PROTOCOL_VERSION) | (uint256(1) << 64), uint8(1), uint64(1))
+        );
+        vm.expectPartialRevert(LibExactCall.ExactMalformedReturnWord.selector);
+        _submitEvidence(evidence);
+        assertEq(_stateDigest(builder), beforeDigest);
+
+        // A signed verifying contract other than the pinned Settlement is not a slash domain.
+        settlement.setResponse(SETTLEMENT_STATE_SELECTOR, _settlementState(PROTOCOL_VERSION, 1));
+        bytes memory foreignDomain = _copy(evidence);
+        for (uint256 i; i < 20; ++i) {
+            foreignDomain[96 + i] = bytes1(uint8(0xBA));
+            foreignDomain[682 + i] = bytes1(uint8(0xBA));
+        }
+        vm.expectRevert(BuilderRegistry.InvalidEvidenceDomain.selector);
+        _submitEvidence(foreignDomain);
         assertEq(_stateDigest(builder), beforeDigest);
     }
 
@@ -377,7 +440,7 @@ contract BuilderEvidenceTest is BuilderRegistryTestBase {
             (bool ok, bytes memory identityReturn) =
                 address(context_.verifier).staticcall(identityCalldata);
             assertTrue(ok);
-            assertEq(identityReturn.length, 320);
+            assertEq(identityReturn.length, 352);
             assertEq(bytes4(_readWord(identityReturn, 0)), bytes4(0x45495631));
             assertEq(_readWord(identityReturn, 32), context_.verifierConfigurationHash);
             assertEq(_readWord(identityReturn, 64), context_.evidenceHash);
@@ -390,8 +453,10 @@ contract BuilderEvidenceTest is BuilderRegistryTestBase {
                 uint64(uint256(_readWord(identityReturn, 160))), context_.evidenceContext.window
             );
             assertEq(uint64(uint256(_readWord(identityReturn, 192))), PROTOCOL_VERSION);
-            assertEq(address(uint160(uint256(_readWord(identityReturn, 224)))), ACTIVE_SETTLEMENT);
-            assertEq(uint64(uint256(_readWord(identityReturn, 256))), 1);
+            assertEq(address(uint160(uint256(_readWord(identityReturn, 224)))), address(settlement));
+            assertEq(uint256(_readWord(identityReturn, 256)), L2_CHAIN_ID);
+            assertEq(uint64(uint256(_readWord(identityReturn, 288))), 1);
+            assertEq(_readWord(identityReturn, 320), context_.evidenceContext.admissionTree.root());
         }
 
         context_.currentCell = context_.evidenceContext.cell;
@@ -464,7 +529,7 @@ contract BuilderEvidenceTest is BuilderRegistryTestBase {
         (bool refreshedOk, bytes memory refreshedIdentityReturn) =
             address(context_.verifier).staticcall(refreshedIdentityCalldata);
         assertTrue(refreshedOk);
-        assertEq(refreshedIdentityReturn.length, 320);
+        assertEq(refreshedIdentityReturn.length, 352);
         assertEq(_readWord(refreshedIdentityReturn, 64), context_.evidenceHash);
         context_.identityCommitment = _readWord(refreshedIdentityReturn, 96);
     }
@@ -572,10 +637,7 @@ contract BuilderEvidenceTest is BuilderRegistryTestBase {
         _reserveEvidenceWindow(context_);
         _assertEvidenceContextStorage(context_);
         vm.warp(uint256(GENESIS) + context_.slot);
-        router.setResponse(
-            TARGET_RELEASE_REGISTRATION_SELECTOR,
-            _targetReleaseRegistration(PROTOCOL_VERSION, ACTIVE_SETTLEMENT)
-        );
+        settlement.setResponse(SETTLEMENT_STATE_SELECTOR, _settlementState(PROTOCOL_VERSION, 1));
     }
 
     function _initializeEvidenceContext(EvidenceContext memory context_) internal virtual {
@@ -799,7 +861,7 @@ contract BuilderEvidenceTest is BuilderRegistryTestBase {
         bytes32 _stateRoot
     )
         internal
-        pure
+        view
         virtual
         returns (SlotChainTypes.SlotChainBlock memory block_)
     {
@@ -807,7 +869,7 @@ contract BuilderEvidenceTest is BuilderRegistryTestBase {
             settlementChainId: _settlementChainId,
             l2ChainId: _l2ChainId,
             protocolVersion: PROTOCOL_VERSION,
-            verifyingContract: ACTIVE_SETTLEMENT,
+            verifyingContract: address(settlement),
             slot: _context.slot,
             parentHash: keccak256("parent"),
             blockHash: _blockHash,
@@ -870,34 +932,6 @@ contract BuilderEvidenceTest is BuilderRegistryTestBase {
             )
         );
         assert(encoded_.length == 521);
-    }
-
-    function _targetReleaseRegistration(
-        uint64 _version,
-        address _settlement
-    )
-        internal
-        pure
-        virtual
-        returns (bytes memory encoded_)
-    {
-        encoded_ = new bytes(512);
-        _writeWord(encoded_, 0, uint256(bytes32(bytes4(0x52545232))));
-        _writeWord(encoded_, 32, _version);
-        _writeWord(encoded_, 64, _version - 1);
-        _writeWord(encoded_, 96, uint256(uint160(_settlement)));
-        _writeWord(encoded_, 128, uint256(keccak256("settlement-runtime")));
-        _writeWord(encoded_, 160, uint256(keccak256("settlement-config")));
-        _writeWord(encoded_, 192, uint256(keccak256("deployment-descriptor")));
-        _writeWord(encoded_, 224, uint256(keccak256("execution-profile")));
-        _writeWord(encoded_, 256, 50_000);
-        _writeWord(encoded_, 288, uint256(keccak256("migration-profile")));
-        _writeWord(encoded_, 320, uint256(keccak256("data-session-config")));
-        _writeWord(encoded_, 352, uint256(keccak256("release-manifest")));
-        _writeWord(encoded_, 384, uint256(keccak256("bridge-expansion")));
-        _writeWord(encoded_, 416, uint256(keccak256("validity-descriptor")));
-        _writeWord(encoded_, 448, uint256(keccak256("ingress-id")));
-        _writeWord(encoded_, 480, uint256(keccak256("registration-hash")));
     }
 
     function _copy(bytes memory _input) private pure returns (bytes memory output_) {
@@ -986,14 +1020,7 @@ contract BuilderEvidenceTest is BuilderRegistryTestBase {
         }
     }
 
-    function _writeWord(
-        bytes memory _encoded,
-        uint256 _offset,
-        uint256 _value
-    )
-        private
-        pure
-    {
+    function _writeWord(bytes memory _encoded, uint256 _offset, uint256 _value) private pure {
         assembly ("memory-safe") {
             mstore(add(add(_encoded, 32), _offset), _value)
         }

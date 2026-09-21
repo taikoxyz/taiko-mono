@@ -145,13 +145,7 @@ library LibCustodyAccounting {
     /// @param _self The custody state.
     /// @param _recipient The nonzero recipient.
     /// @param _amount The reserve amount to pay. Zero succeeds without making a CALL.
-    function payReserve(
-        State storage _self,
-        address payable _recipient,
-        uint256 _amount
-    )
-        internal
-    {
+    function payReserve(State storage _self, address payable _recipient, uint256 _amount) internal {
         requireNotEntered(_self);
         if (_recipient == address(0)) revert InvalidRecipient();
         uint256 reserves = _self.reserves;

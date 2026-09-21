@@ -418,9 +418,7 @@ contract LibSlotChainEncodingTest is Test {
             abi.encodePacked(
                 uint64(3600), uint64(86_400), uint64(5_000_000), uint32(131_072), uint64(21_000)
             ),
-            abi.encodePacked(
-                uint256(1e15), uint256(1e9), uint256(2e9), uint256(1e8), uint256(1e18)
-            )
+            abi.encodePacked(uint256(1e15), uint256(1e9), uint256(2e9), uint256(1e8), uint256(1e18))
         );
         assertEq(preimage.length, LibSlotChainConstants.FORCED_QUEUE_CONFIG_PREIMAGE_LENGTH);
         bytes32 expected = keccak256(

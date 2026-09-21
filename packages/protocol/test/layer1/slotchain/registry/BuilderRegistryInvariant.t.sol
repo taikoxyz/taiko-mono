@@ -115,12 +115,7 @@ contract BuilderRegistryInvariantHandler {
         _accountedBond += bond;
     }
 
-    function rejectDuplicateOrRacedRegistration(
-        bool _duplicate,
-        uint64 _indexDelta
-    )
-        external
-    {
+    function rejectDuplicateOrRacedRegistration(bool _duplicate, uint64 _indexDelta) external {
         if (_successfulRegistrations == 0 || _successfulRegistrations >= 64) return;
         uint64 liveIndex = _successfulRegistrations - 1;
         address builder = _duplicate

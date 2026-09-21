@@ -295,14 +295,7 @@ contract ScheduleSszMultiproofVerifierV1 is IScheduleForkVerifierV1 {
     }
 
     /// @dev Returns whether `_ancestor` is a strict generalized-index ancestor of `_descendant`.
-    function _isAncestor(
-        uint64 _ancestor,
-        uint64 _descendant
-    )
-        private
-        pure
-        returns (bool result_)
-    {
+    function _isAncestor(uint64 _ancestor, uint64 _descendant) private pure returns (bool result_) {
         while (_descendant > _ancestor) {
             _descendant >>= 1;
         }

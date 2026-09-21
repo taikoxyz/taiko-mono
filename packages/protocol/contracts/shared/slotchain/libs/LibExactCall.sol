@@ -195,28 +195,14 @@ library LibExactCall {
 
     /// @dev Decodes one canonical ABI address word. Zero is canonical; callers decide whether it
     ///      is semantically permitted.
-    function addressWord(
-        bytes memory _raw,
-        uint256 _index
-    )
-        internal
-        pure
-        returns (address value_)
-    {
+    function addressWord(bytes memory _raw, uint256 _index) internal pure returns (address value_) {
         uint256 value = uint256(word(_raw, _index));
         if (value > type(uint160).max) revert ExactMalformedReturnWord(_index);
         return address(uint160(value));
     }
 
     /// @dev Decodes one canonical ABI bytes4 word with right-zero padding.
-    function bytes4Word(
-        bytes memory _raw,
-        uint256 _index
-    )
-        internal
-        pure
-        returns (bytes4 value_)
-    {
+    function bytes4Word(bytes memory _raw, uint256 _index) internal pure returns (bytes4 value_) {
         bytes32 value = word(_raw, _index);
         if (uint224(uint256(value)) != 0) revert ExactMalformedReturnWord(_index);
         return bytes4(value);
@@ -258,14 +244,7 @@ library LibExactCall {
     }
 
     /// @dev Decodes one canonical ABI uint192 word.
-    function u192Word(
-        bytes memory _raw,
-        uint256 _index
-    )
-        internal
-        pure
-        returns (uint192 value_)
-    {
+    function u192Word(bytes memory _raw, uint256 _index) internal pure returns (uint192 value_) {
         uint256 value = uint256(word(_raw, _index));
         if (value > type(uint192).max) revert ExactMalformedReturnWord(_index);
         return uint192(value);

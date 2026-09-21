@@ -324,9 +324,7 @@ contract LibExactCallTest is Test {
         assertLe(entryGas, gasLimit);
         assertGe(gasAfter, reserve);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(LibExactCall.ExactEmptyTarget.selector, address(0))
-        );
+        vm.expectRevert(abi.encodeWithSelector(LibExactCall.ExactEmptyTarget.selector, address(0)));
         _harness.staticcallExactUnpinned(address(0), input, gasLimit, 96, reserve);
         vm.expectRevert(
             abi.encodeWithSelector(LibExactCall.ExactEmptyTarget.selector, address(0x1234))

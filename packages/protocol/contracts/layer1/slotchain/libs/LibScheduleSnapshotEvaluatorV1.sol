@@ -386,27 +386,13 @@ library LibScheduleSnapshotEvaluatorV1 {
     }
 
     /// @dev Reads one fixed-width big-endian byte from already parser-bounded calldata.
-    function _readU8(
-        bytes calldata _input,
-        uint256 _offset
-    )
-        private
-        pure
-        returns (uint8 value_)
-    {
+    function _readU8(bytes calldata _input, uint256 _offset) private pure returns (uint8 value_) {
         if (_offset >= _input.length) revert TruncatedScheduleSnapshot();
         return uint8(_input[_offset]);
     }
 
     /// @dev Reads one fixed-width big-endian uint64 from already parser-bounded calldata.
-    function _readU64(
-        bytes calldata _input,
-        uint256 _offset
-    )
-        private
-        pure
-        returns (uint64 value_)
-    {
+    function _readU64(bytes calldata _input, uint256 _offset) private pure returns (uint64 value_) {
         if (_offset > _input.length || 8 > _input.length - _offset) {
             revert TruncatedScheduleSnapshot();
         }

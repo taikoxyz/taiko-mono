@@ -4,7 +4,6 @@ pragma solidity 0.8.30;
 import { SlotChainTypes } from "../../../shared/slotchain/SlotChainTypes.sol";
 import { IComponentConfigV2 } from "../../../shared/slotchain/iface/IComponentConfigV2.sol";
 import { LibExactCall } from "../../../shared/slotchain/libs/LibExactCall.sol";
-import { LibSlotChainConstants } from "../../../shared/slotchain/libs/LibSlotChainConstants.sol";
 import { LibSlotChainFixedTrees } from "../../../shared/slotchain/libs/LibSlotChainFixedTrees.sol";
 import { IBuilderRegistry } from "../iface/IBuilderRegistry.sol";
 import { IBuilderRegistryProofVerifierV1 } from "../iface/IBuilderRegistryProofVerifierV1.sol";
@@ -156,9 +155,8 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
                 || _config.leasePerWindowAtomic > _config.maximumBondAtomic
                 || _config.reporterRewardCapAtomic > _config.leasePerWindowAtomic / 5
                 || _config.builderPenaltySink == address(0)
-                || _config.builderPenaltySink == address(this)
-                || _config.settlement == address(0) || _config.settlement == address(this)
-                || _config.scheduleOracle == address(0)
+                || _config.builderPenaltySink == address(this) || _config.settlement == address(0)
+                || _config.settlement == address(this) || _config.scheduleOracle == address(0)
                 || _config.scheduleOracle == address(this)
                 || _config.scheduleOracle == _config.settlement
                 || _config.builderProofVerifier == address(0)
@@ -2783,7 +2781,9 @@ contract BuilderRegistry is BuilderRegistryLogicV1 {
     /// @return magic_ The fixed `BRK1` magic.
     function activateRegistryV1() external onlyRegistryContext returns (bytes4 magic_) {
         if (msg.sender != _activator) revert UnauthorizedRegistryActivator();
-        if (_protocolRootActivationState != _ACTIVATION_INACTIVE) revert RegistryAlreadyActivated();
+        if (_protocolRootActivationState != _ACTIVATION_INACTIVE) {
+            revert RegistryAlreadyActivated();
+        }
         if (_builderPenaltySink == address(this)) revert InvalidBuilderRegistryConfiguration();
         _protocolRootActivationState = _ACTIVATION_ACTIVE;
         return _BRK1_MAGIC;

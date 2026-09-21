@@ -826,8 +826,8 @@ contract BuilderRegistryTest is BuilderRegistryTestBase {
 
         // Pre-activation read allowlist: BRC1, the topology hash and the activation row read;
         // every functional read and mutation rejects with RegistryInactive.
-        (bool configOk, bytes memory configRaw) =
-            address(inactive).staticcall(abi.encodePacked(IBuilderRegistry.builderRegistryConfigV1.selector));
+        (bool configOk, bytes memory configRaw) = address(inactive)
+            .staticcall(abi.encodePacked(IBuilderRegistry.builderRegistryConfigV1.selector));
         assertTrue(configOk);
         assertEq(configRaw.length, 768);
         assertEq(_word(configRaw, 23), inactive.builderRegistryTopologyHashV1());

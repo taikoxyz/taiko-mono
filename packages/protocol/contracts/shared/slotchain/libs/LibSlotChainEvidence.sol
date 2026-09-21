@@ -243,14 +243,7 @@ library LibSlotChainEvidence {
     }
 
     /// @dev Loads one canonical u8 from calldata.
-    function _readU8(
-        bytes calldata _encoded,
-        uint256 _offset
-    )
-        private
-        pure
-        returns (uint8 value_)
-    {
+    function _readU8(bytes calldata _encoded, uint256 _offset) private pure returns (uint8 value_) {
         if (_offset >= _encoded.length) revert EvidenceReadOutOfBounds();
         assembly ("memory-safe") {
             value_ := byte(0, calldataload(add(_encoded.offset, _offset)))

@@ -179,23 +179,13 @@ library LibScheduleSealWitnessV1 {
     }
 
     /// @dev Reads one big-endian byte with an explicit enclosing-bound check.
-    function _readU8(
-        bytes calldata _input,
-        uint256 _offset
-    )
-        private
-        pure
-        returns (uint256 value_)
-    {
+    function _readU8(bytes calldata _input, uint256 _offset) private pure returns (uint256 value_) {
         if (_offset >= _input.length) revert TruncatedScheduleSealWitness();
         return uint8(_input[_offset]);
     }
 
     /// @dev Reads one big-endian u16 with an explicit enclosing-bound check.
-    function _readU16(
-        bytes calldata _input,
-        uint256 _offset
-    )
+    function _readU16(bytes calldata _input, uint256 _offset)
         private
         pure
         returns (uint256 value_)
@@ -205,10 +195,7 @@ library LibScheduleSealWitnessV1 {
     }
 
     /// @dev Reads one big-endian u32 with an explicit enclosing-bound check.
-    function _readU32(
-        bytes calldata _input,
-        uint256 _offset
-    )
+    function _readU32(bytes calldata _input, uint256 _offset)
         private
         pure
         returns (uint256 value_)
@@ -219,14 +206,7 @@ library LibScheduleSealWitnessV1 {
     }
 
     /// @dev Requires `[offset,offset+length)` to fit without overflowing its enclosing boundary.
-    function _requireAvailable(
-        uint256 _offset,
-        uint256 _length,
-        uint256 _end
-    )
-        private
-        pure
-    {
+    function _requireAvailable(uint256 _offset, uint256 _length, uint256 _end) private pure {
         if (_end > MAX_WITNESS_BYTES || _offset > _end || _length > _end - _offset) {
             revert TruncatedScheduleSealWitness();
         }
