@@ -6631,7 +6631,6 @@ class Protocol:
     def _composed_seat_call(
         self, market: object, transition: Callable[[], object]
     ) -> object:
-        self._assert_canonical_history_binding()
         settlement_snapshot = self._canonical_transaction_snapshot()
         market_snapshotter = getattr(market, "_transaction_snapshot", None)
         market_restorer = getattr(market, "_restore_transaction", None)
