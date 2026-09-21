@@ -127,6 +127,7 @@ ops = {
     "sub": lambda: a - b,
     "mul": lambda: a * b,
     "subfloor": lambda: max(0, a - b),
+    "max": lambda: max(a, b),
     "gt": lambda: int(a > b),
     "lt": lambda: int(a < b),
 }
@@ -237,7 +238,7 @@ print("OK\t" + str(d.get("result") or ""))' 2> /dev/null)"
 # ---------------------------------------------------------------------------
 
 verify_constants() {
-    local entry name address deployer raw runtime decoded signer derived input
+    local entry name address deployer raw runtime decoded signer derived
 
     for entry in "${CONTRACTS[@]}"; do
         name="$(field "$entry" 1)"
@@ -249,10 +250,26 @@ verify_constants() {
         decoded="$(cast decode-tx "$raw")" \
             || die "$name: the embedded raw transaction does not decode"
 
-        signer="$(printf '%s' "$decoded" \
-            | python3 -c 'import json, sys; print(json.load(sys.stdin)["signer"])')"
-        input="$(printf '%s' "$decoded" \
-            | python3 -c 'import json, sys; print(json.load(sys.stdin)["input"])')"
+        # One pass over the decoded transaction: the gas limit and gas price it
+        # was signed with must match the constants this script sizes funding
+        # from, and the init code must install the runtime bytecode we expect.
+        # A typo in either number would otherwise under- or over-fund
+        # irreversibly. Emits the recovered signer on success.
+        if ! signer="$(printf '%s' "$decoded" | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+exp_gas, exp_price, runtime = int(sys.argv[1]), int(sys.argv[2]), sys.argv[3].lower()
+gas, price = int(d["gas"], 16), int(d["gasPrice"], 16)
+if gas != exp_gas:
+    sys.exit(f"signed gas limit is {gas}, but the script assumes {exp_gas}")
+if price != exp_price:
+    sys.exit(f"signed gas price is {price}, but the script assumes {exp_price}")
+if not d["input"].lower().endswith(runtime):
+    sys.exit("the init code does not install the expected runtime bytecode")
+print(d["signer"])
+' "$PRESIGNED_GAS_LIMIT" "$GAS_PRICE_WEI" "${runtime#0x}" 2>&1)"; then
+            die "$name: $signer"
+        fi
 
         [[ "$(lower "$signer")" == "$(lower "$deployer")" ]] \
             || die "$name: raw transaction recovers to $signer, expected $deployer"
@@ -260,9 +277,6 @@ verify_constants() {
         derived="$(cast compute-address "$signer" --nonce 0 | awk '{print $NF}')"
         [[ "$(lower "$derived")" == "$(lower "$address")" ]] \
             || die "$name: signer $signer deploys to $derived, expected $address"
-
-        [[ "$(lower "$input")" == *"$(lower "${runtime#0x}")" ]] \
-            || die "$name: the init code does not install the expected runtime bytecode"
     done
 }
 
@@ -280,9 +294,9 @@ TOTAL_BURN=0
 TOTAL_STRANDED=0
 
 inspect_network() {
-    local rpc="$1" chain_id="$2"
+    local rpc="$1"
     local entry name address deployer runtime initcode
-    local code nonce balance shortfall gas burn basefee actual_chain_id stranded_each
+    local code nonce balance shortfall gas burn basefee stranded_each funded_to
 
     PENDING=()
     PENDING_COUNT=0
@@ -290,13 +304,16 @@ inspect_network() {
     TOTAL_BURN=0
     TOTAL_STRANDED=0
 
-    actual_chain_id="$(cast chain-id --rpc-url "$rpc")" || die "cannot reach RPC $rpc"
-    [[ "$actual_chain_id" == "$chain_id" ]] \
-        || die "$rpc reports chain id $actual_chain_id, expected $chain_id"
-
     # The pre-signature locks gasPrice at 1000 gwei; if the chain's base fee
-    # ever exceeded that, the transaction could never be included.
-    basefee="$(cast base-fee --rpc-url "$rpc" 2> /dev/null || echo 0)"
+    # ever exceeded that, the transaction could never be included. Falling back
+    # to 0 on a failed query would wave that guard through and then fund a
+    # keyless account whose transaction can never be mined, so this is fatal.
+    if ! basefee="$(cast base-fee --rpc-url "$rpc" 2>&1)"; then
+        die "cannot read the base fee from $rpc: $basefee"
+    fi
+    case "$basefee" in
+        '' | *[!0-9]*) die "base fee from $rpc is not a number: $basefee" ;;
+    esac
     if [[ "$(int_op gt "$basefee" "$GAS_PRICE_WEI")" == "1" ]]; then
         die "base fee ${basefee} wei exceeds the pre-signed gas price ${GAS_PRICE_WEI} wei"
     fi
@@ -352,7 +369,11 @@ inspect_network() {
         echo "      deployer  : $deployer (nonce 0, balance $(eth "$balance") ETH)"
         echo "      status    : NOT DEPLOYED"
         echo "      funding   : $(eth "$shortfall") ETH to send"
-        stranded_each="$(int_op sub "$FUND_WEI" "$burn")"
+        # Final balance is starting_balance + shortfall - burn, which reduces to
+        # max(balance, FUND_WEI) - burn: a deployer already above FUND_WEI gets
+        # no top-up and keeps the excess.
+        funded_to="$(int_op max "$balance" "$FUND_WEI")"
+        stranded_each="$(int_op sub "$funded_to" "$burn")"
         echo "      gas       : ${gas} -> $(eth "$burn") ETH burned, $(eth "$stranded_each") ETH stranded"
         echo ""
 
@@ -431,14 +452,20 @@ deploy_pending() {
 check_network() {
     local rpc="$1"
     local head target stored actual code ts beacon
+    local a2935 r2935 a4788 r4788
+
+    a4788="$(field "${CONTRACTS[0]}" 2)"; r4788="$(field "${CONTRACTS[0]}" 5)"
+    a2935="$(field "${CONTRACTS[1]}" 2)"; r2935="$(field "${CONTRACTS[1]}" 5)"
 
     head="$(cast block-number --rpc-url "$rpc")"
 
     # --- EIP-2935 -----------------------------------------------------------
     echo "  EIP-2935 history storage"
-    code="$(cast code 0x0000F90827F1C53a10cb7A02335B175320002935 --rpc-url "$rpc")"
+    code="$(cast code "$a2935" --rpc-url "$rpc")"
     if [[ -z "$code" || "$code" == "0x" ]]; then
         echo "      code      : NOT DEPLOYED"
+    elif [[ "$(lower "$code")" != "$(lower "$r2935")" ]]; then
+        echo "      code      : UNEXPECTED BYTECODE -- not the canonical contract"
     else
         echo "      code      : deployed ($(( (${#code} - 2) / 2 )) bytes)"
         # The system call at block N stores blockhash(N-1), so head-1 is the
@@ -446,7 +473,7 @@ check_network() {
         # that just happened. An older slot may predate the contract and would
         # read as empty even on a client that is behaving correctly.
         target=$((head - 1))
-        stored="$(cast call 0x0000F90827F1C53a10cb7A02335B175320002935 \
+        stored="$(cast call "$a2935" \
             "$(cast to-uint256 "$target")" --rpc-url "$rpc" 2> /dev/null || echo "0x")"
         actual="$(cast block "$target" --rpc-url "$rpc" --json \
             | python3 -c 'import json, sys; print(json.load(sys.stdin)["hash"])')"
@@ -464,14 +491,16 @@ check_network() {
 
     # --- EIP-4788 -----------------------------------------------------------
     echo "  EIP-4788 beacon roots"
-    code="$(cast code 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02 --rpc-url "$rpc")"
+    code="$(cast code "$a4788" --rpc-url "$rpc")"
     if [[ -z "$code" || "$code" == "0x" ]]; then
         echo "      code      : NOT DEPLOYED"
+    elif [[ "$(lower "$code")" != "$(lower "$r4788")" ]]; then
+        echo "      code      : UNEXPECTED BYTECODE -- not the canonical contract"
     else
         echo "      code      : deployed ($(( (${#code} - 2) / 2 )) bytes)"
         ts="$(cast block latest --rpc-url "$rpc" --json \
             | python3 -c 'import json, sys; print(int(json.load(sys.stdin)["timestamp"], 16))')"
-        stored="$(cast call 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02 \
+        stored="$(cast call "$a4788" \
             "$(cast to-uint256 "$ts")" --rpc-url "$rpc" 2> /dev/null || echo "0x")"
         echo "      stored    : $stored"
     fi
@@ -492,7 +521,7 @@ check_network() {
 
 run_network() {
     local key="$1" entry chain_id rpc explorer funder funder_balance reply
-    local gas_price margin required
+    local gas_price margin required actual_chain_id
 
     entry="$(lookup_network "$key")" || die "unknown network '$key'"
     chain_id="$(field "$entry" 2)"
@@ -503,6 +532,12 @@ run_network() {
     echo " Taiko $key  (chain id $chain_id)"
     echo "============================================================"
     echo "  rpc         : $rpc"
+
+    # Asserted here rather than inside inspect_network so that --check cannot
+    # silently report on the wrong chain via --rpc-url.
+    actual_chain_id="$(cast chain-id --rpc-url "$rpc")" || die "cannot reach RPC $rpc"
+    [[ "$actual_chain_id" == "$chain_id" ]] \
+        || die "$rpc reports chain id $actual_chain_id, expected $chain_id"
     echo ""
 
     if [[ "$CHECK" == true ]]; then
@@ -510,7 +545,7 @@ run_network() {
         return 0
     fi
 
-    inspect_network "$rpc" "$chain_id"
+    inspect_network "$rpc"
 
     if [[ $PENDING_COUNT -eq 0 ]]; then
         echo "  Nothing to do: both contracts are already deployed."
