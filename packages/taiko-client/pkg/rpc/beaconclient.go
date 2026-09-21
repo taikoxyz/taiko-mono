@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 	"net/http"
 	"strconv"
@@ -29,6 +30,11 @@ var (
 type ConfigSpec struct {
 	SecondsPerSlot string `json:"SECONDS_PER_SLOT"`
 	SlotsPerEpoch  string `json:"SLOTS_PER_EPOCH"`
+}
+
+// configSpecResponse is the response from the beacon node for fetching the config spec.
+type configSpecResponse struct {
+	Data ConfigSpec `json:"data"`
 }
 
 // GenesisResponse is the response from the beacon node for fetching the genesis time.
@@ -80,33 +86,33 @@ func NewBeaconClient(endpoint string, timeout time.Duration) (*BeaconClient, err
 	defer cancel()
 
 	// Get the genesis time.
-	var genesisDetail *GenesisResponse
+	var genesisDetail GenesisResponse
 	resBytes, err := cli.Get(ctx, cli.BaseURL().Path+genesisRequestURL)
 	if err != nil {
 		return nil, err
 	}
 
 	if err := json.Unmarshal(resBytes, &genesisDetail); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode beacon genesis response: %w", err)
 	}
 
-	genesisTime, err := strconv.Atoi(genesisDetail.Data.GenesisTime)
+	genesisTime, err := parseBeaconUint64("genesis_time", genesisDetail.Data.GenesisTime)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get the seconds per slot.
+	// Get the seconds per slot and the slots per epoch.
 	spec, err := getConfigSpec(ctx, cli)
 	if err != nil {
 		return nil, err
 	}
 
-	secondsPerSlot, err := strconv.Atoi(spec.Data.(map[string]interface{})["SECONDS_PER_SLOT"].(string))
+	secondsPerSlot, err := parseBeaconDurationSeconds("SECONDS_PER_SLOT", spec.SecondsPerSlot)
 	if err != nil {
 		return nil, err
 	}
 
-	slotsPerEpoch, err := strconv.Atoi(spec.Data.(map[string]interface{})["SLOTS_PER_EPOCH"].(string))
+	slotsPerEpoch, err := parseBeaconPositiveUint64("SLOTS_PER_EPOCH", spec.SlotsPerEpoch)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +124,56 @@ func NewBeaconClient(endpoint string, timeout time.Duration) (*BeaconClient, err
 		"genesisTime", genesisTime,
 	)
 
-	return &BeaconClient{cli, timeout, uint64(genesisTime), uint64(secondsPerSlot), uint64(slotsPerEpoch)}, nil
+	return &BeaconClient{cli, timeout, genesisTime, secondsPerSlot, slotsPerEpoch}, nil
+}
+
+// parseBeaconUint64 parses a decimal uint64 value from a beacon node response. The Beacon API
+// serialises these values as base-10 uint64 strings, so anything else is rejected.
+func parseBeaconUint64(name, value string) (uint64, error) {
+	if value == "" {
+		return 0, fmt.Errorf("beacon node response is missing %s", name)
+	}
+	parsed, err := strconv.ParseUint(value, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s in beacon node response: %w", name, err)
+	}
+	return parsed, nil
+}
+
+// parseBeaconPositiveUint64 is parseBeaconUint64 for values that are later used as divisors.
+func parseBeaconPositiveUint64(name, value string) (uint64, error) {
+	parsed, err := parseBeaconUint64(name, value)
+	if err != nil {
+		return 0, err
+	}
+	if parsed == 0 {
+		return 0, fmt.Errorf("invalid %s in beacon node response: must be greater than zero", name)
+	}
+	return parsed, nil
+}
+
+// maxBeaconDurationSeconds is the largest number of seconds that still converts into a positive
+// time.Duration. Above it the product silently wraps: `time.Second * time.Duration(1<<63)` is zero
+// and `time.Second * time.Duration(math.MaxUint64)` is negative, either of which panics the
+// `time.NewTicker` call that derives the driver's lookahead interval from SECONDS_PER_SLOT.
+const maxBeaconDurationSeconds = uint64(math.MaxInt64 / int64(time.Second))
+
+// parseBeaconDurationSeconds is parseBeaconPositiveUint64 for values that are later converted into
+// a time.Duration of seconds.
+func parseBeaconDurationSeconds(name, value string) (uint64, error) {
+	parsed, err := parseBeaconPositiveUint64(name, value)
+	if err != nil {
+		return 0, err
+	}
+	if parsed > maxBeaconDurationSeconds {
+		return 0, fmt.Errorf(
+			"invalid %s in beacon node response: must be at most %d seconds, got %d",
+			name,
+			maxBeaconDurationSeconds,
+			parsed,
+		)
+	}
+	return parsed, nil
 }
 
 // GetBlobs returns the sidecars for a given slot.
@@ -135,9 +190,12 @@ func (c *BeaconClient) GetBlobs(ctx context.Context, time uint64) ([]*structs.Si
 		return nil, err
 	}
 
-	var sidecars *structs.SidecarsResponse
+	var sidecars structs.SidecarsResponse
 	if err = json.Unmarshal(resBytes, &sidecars); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode beacon blob sidecars response: %w", err)
+	}
+	if sidecars.Data == nil {
+		return nil, errors.New("beacon blob sidecars response is missing data")
 	}
 
 	return sidecars.Data, nil
@@ -211,16 +269,15 @@ func (c *BeaconClient) executionBlockNumberBySlot(ctx context.Context, slot uint
 	return new(big.Int).SetUint64(blockNumber), nil
 }
 
-// getConfigSpec retrieve the current configs of the network used by the beacon node.
-func getConfigSpec(ctx context.Context, c *beacon.Client) (*structs.GetSpecResponse, error) {
+// getConfigSpec retrieves the current configs of the network used by the beacon node.
+func getConfigSpec(ctx context.Context, c *beacon.Client) (*ConfigSpec, error) {
 	body, err := c.Get(ctx, c.BaseURL().Path+getConfigSpecPath)
 	if err != nil {
 		return nil, errors.Wrap(err, "error requesting configSpecPath")
 	}
-	fsr := &structs.GetSpecResponse{}
-	err = json.Unmarshal(body, fsr)
-	if err != nil {
-		return nil, err
+	var spec configSpecResponse
+	if err := json.Unmarshal(body, &spec); err != nil {
+		return nil, fmt.Errorf("failed to decode beacon config spec response: %w", err)
 	}
-	return fsr, nil
+	return &spec.Data, nil
 }
