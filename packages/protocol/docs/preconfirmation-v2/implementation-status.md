@@ -1,67 +1,72 @@
 # Slot Chain design and implementation status
 
 This is a non-normative coverage map for the [learning deck](slides/slot-chain-learning-deck.html)
-and [PR #22139](https://github.com/taikoxyz/taiko-mono/pull/22139), checked on 2026-09-17 against
-commit [`b7896b758ef5500ce9b67064ba645c4416d8cfb5`](https://github.com/taikoxyz/taiko-mono/commit/b7896b758ef5500ce9b67064ba645c4416d8cfb5).
-The architecture is a reviewed design candidate with a partial Solidity implementation and open
-production gates. It is not an end-to-end release or a deployment claim.
+and [PR #22139](https://github.com/taikoxyz/taiko-mono/pull/22139) as revised to the v3.0 design
+in [PR #22151](https://github.com/taikoxyz/taiko-mono/pull/22151). The architecture is a reviewed
+design candidate with a partial Solidity implementation and open production gates. It is not an
+end-to-end release or a deployment claim.
 
 ## Sources and authority
 
-- [Normative LaTeX](tex/main.tex) and [built specification](slot-chain-spec.pdf) define the design.
-  The source at this snapshot is byte-identical to the deck's previous `c77efc25` source; its Git
-  blob is `819e4d5fa9ba74724b45978761779b5b839a6239`. The v2.28 label identifies a document revision.
+- [Normative LaTeX](tex/main.tex) defines the design. The committed
+  [`slot-chain-spec.pdf`](slot-chain-spec.pdf) is the v2.28 build and is **stale** until rebuilt
+  from the v3.0 source. The v3.0 label identifies a document revision.
 - [Executable models and run instructions](README.md#running-the-models) provide consistency and
   regression evidence. Proof verification, raw transaction authentication and EVM execution remain
-  abstract in the settlement model; its rollback snapshots are not compiled gas measurements.
-- [Conformance ledger](../../utils/slotchain/conformance-ledger.v2.28.json) records implementation
-  coverage. Its own `normativeCommit` remains `4cc7bc0e3cd96ea4cf0af72aa1a9e6e03bec8e52`; this
-  documentation refresh does not change that pin or certify new conformance.
+  abstract in the settlement model.
+- [Conformance ledger](../../utils/slotchain/conformance-ledger.v3.0.json) records implementation
+  coverage. Its `normativeCommit` pins the commit of `tex/main.tex` it was checked against; a
+  documentation refresh does not certify new conformance.
 - [Artifact ownership manifest](../../utils/slotchain/artifact-ownership.json) records compiler
-  ownership, source/ABI/code hashes and the planned root artifact cohort.
+  ownership and source/ABI/code hashes of the surviving Slot Chain sources.
 
-Read links in a checkout of the snapshot above when reproducing this assessment. If source,
-specification and model disagree, the specification requires resolving that disagreement before
-deployment; a slide cannot resolve it by silently choosing one behavior.
+If source, specification and model disagree, the specification requires resolving that
+disagreement before deployment; a slide cannot resolve it by silently choosing one behavior.
+
+## What v3.0 changed
+
+The v3.0 revision builds on the anchor-free L2 of
+[issue #22147](https://github.com/taikoxyz/taiko-mono/issues/22147), reuses the existing
+SignalService, Bridge and vaults, and upgrades the existing L1 Inbox proxy in place under the
+existing DAO governance. The following v2.28 components were removed from the design and their
+draft code deleted from the repository:
+
+| Removed component | Reason |
+| --- | --- |
+| `AnchorV4` system transaction, `InboxApplyRouterV2`, the `0x7f` system transaction type | The L2 header field `parentBeaconBlockRoot` carries the anchor; the L2 EVM is fully standard. |
+| `SourceBridgeV2`, `DestinationBridgeV2`, `BridgeCreditRegistryV2`, `BridgeInboxAdapter`, `BridgeDomainRegistry`, `SourceBundleFactory`, `InboxCreditStoreV2`, `NativeLiquidityPoolV2`, `TerminalAccumulatorV2`, `TerminalSignalVerifier`, `ProtocolReleaseAuthorityV2`, `TerminalDomainRegistrarV2`, kind-1 forced envelopes, `RegistrationMptVerifierV2` | The existing bridge stack is reused; the Settlement writes L2 checkpoints into the L1 SignalService on every canonical commit. |
+| `ProtocolChangeTimelockV1`, `ProtocolVersionManagerV2`, `ActiveSettlementRouter`, `ProtocolRootFactoryV1`, `RootMigrationExecutorV1`, `ProtocolRootCreate3ProxyV1`, `LibRootBootstrapV1`, ERC-2470/CREATE3 deployment, migration arms/leases/journals | Every Slot Chain contract is a DAO-owned UUPS proxy; upgrades are ordinary governance upgrades. |
+| `LegacyGenesisCutoverInboxV1`, `LegacyResumeZkPairVerifierV1`, fixed-key RISC0/SP1 adapters, the campaign fence, scans and abandonment | V1 is drained under its own rules and activated in place; nothing is abandoned. |
+| `ExecutionProfileV2` and `LibSlotChainProfile` | Superseded by `ExecutionProfileV3` (specified, not yet implemented). |
 
 ## Code present in the PR
 
 | Area | Source and checked-in evidence | Boundary |
 | --- | --- | --- |
-| Builder registration, membership, leases and equivocation | [BuilderRegistry](../../contracts/layer1/slotchain/impl/BuilderRegistry.sol), [Seat facet](../../contracts/layer1/slotchain/impl/BuilderRegistrySeatLifecycleFacetV1.sol), [Lease facet](../../contracts/layer1/slotchain/impl/BuilderRegistryLeaseLifecycleFacetV1.sol), [proof verifier](../../contracts/layer1/slotchain/impl/BuilderRegistryProofVerifierV1.sol), [Registry tests](../../test/layer1/slotchain/registry/) | The Registry owns roots, storage and custody. Seven fixed wrappers use two immutable facets and a shared operation lock. These components have `passing` ledger rows; complete integration with ScheduleOracle and Router remains outstanding. |
-| Historical registration and schedule authentication | [RegistrationMptVerifierV2](../../contracts/layer1/slotchain/impl/RegistrationMptVerifierV2.sol), [ScheduleSszMultiproofVerifierV1](../../contracts/layer1/slotchain/impl/ScheduleSszMultiproofVerifierV1.sol), [history/snapshot libraries](../../contracts/layer1/slotchain/libs/), [verifier tests](../../test/layer1/slotchain/verifier/) | Proof and snapshot helpers are present; ScheduleOracle itself is missing. These helpers do not constitute a complete schedule service or an L2 execution-validity circuit. |
-| Protocol root bootstrap | [RootMigrationExecutorV1](../../contracts/layer1/slotchain/root/RootMigrationExecutorV1.sol), [ProtocolRootFactoryV1](../../contracts/layer1/slotchain/root/ProtocolRootFactoryV1.sol), [CREATE3 proxy](../../contracts/layer1/slotchain/root/ProtocolRootCreate3ProxyV1.sol), [root tests](../../test/layer1/slotchain/root/) | Executor queues/stages a root campaign; Factory deploys nine pinned roles and finalizes their activation. Factory and executor rows remain `red`; the proxy and several primitives are `reviewed`. Missing role contracts prevent a complete root release. |
-| Shared protocol foundations | [Types and interfaces](../../contracts/shared/slotchain/), [encoding, trees, signatures, profiles, economics, resources and custody libraries](../../contracts/shared/slotchain/libs/), [shared tests](../../test/shared/slotchain/) | There is real Solidity code and checked-in test evidence, with mixed ledger statuses. Encoding a structure or validating resource arithmetic does not implement its consuming state machine. |
+| Builder registration, membership, leases and equivocation | [BuilderRegistry](../../contracts/layer1/slotchain/impl/BuilderRegistry.sol), [Seat facet](../../contracts/layer1/slotchain/impl/BuilderRegistrySeatLifecycleFacetV1.sol), [Lease facet](../../contracts/layer1/slotchain/impl/BuilderRegistryLeaseLifecycleFacetV1.sol), [proof verifier](../../contracts/layer1/slotchain/impl/BuilderRegistryProofVerifierV1.sol), [Registry tests](../../test/layer1/slotchain/registry/) | The Registry owns roots, storage and custody; seven fixed wrappers use two immutable facets and a shared operation lock. Activation is a one-shot call by a constructor-pinned activator. The draft is still a plain contract: re-basing it on `EssentialContract` (UUPS proxy, DAO owner) as the specification requires is outstanding. |
+| Schedule authentication | [ScheduleSszMultiproofVerifierV1](../../contracts/layer1/slotchain/impl/ScheduleSszMultiproofVerifierV1.sol), [history/snapshot libraries](../../contracts/layer1/slotchain/libs/), [verifier tests](../../test/layer1/slotchain/verifier/) | Proof and snapshot helpers are present; ScheduleOracle itself is missing. |
+| Shared protocol foundations | [Types and interfaces](../../contracts/shared/slotchain/), [encoding, trees, signatures, evidence, economics, resources and custody libraries](../../contracts/shared/slotchain/libs/), [shared tests](../../test/shared/slotchain/) | Real Solidity code and checked-in test evidence with mixed ledger statuses. Encoding a structure does not implement its consuming state machine. |
 | Reproducibility and build isolation | [Golden-vector generator](../../utils/slotchain/generateGoldenVectors.ts), [vector fixtures](../../test/shared/slotchain/vectors/), [integration checks](../../integration/slotchain/), [Foundry profiles](../../foundry.toml) | Checks cover shared-artifact consumption, ownership, Registry storage layout, ledger consistency and default-profile isolation. They do not certify a complete deployed protocol. |
-
-The builder Seat facet concerns registry membership. It is separate from `AggregatorSeatMarket`,
-whose proving-service auction is described by the specification and Python model.
-Likewise, `RootMigrationExecutorV1` is a root-bootstrap authority; its presence does not implement
-the Router's proof-first later-version MFRZ/MCAN/QMIG/MAPS/VMC1/VML1 journal.
 
 ## Still specified or modeled
 
-The ledger marks the following major components `missing`, and their named Slot Chain source
-files are absent at this snapshot:
-
 | Protocol path | Missing components |
 | --- | --- |
-| Scheduling, settlement and forced recovery | ScheduleOracle, SlotChainSettlement, ForcedQueue, Kind0IngressAdapter and the ordinary Settlement validity-verifier interface/call library. |
-| Service market and version control | AggregatorSeatMarket, ActiveSettlementRouter, ProtocolChangeTimelockV1 and ProtocolVersionManagerV2. |
-| L1 bridge ingress and custody | BridgeDomainRegistry, SourceBundleFactory, SourceBundleDeployerV1, BridgeInboxAdapter, SourceBridgeV2, BridgeCreditRegistryV2, SourceQuotaManager and SourceTerminalVerifier. |
-| L2 execution and bridge delivery | AnchorV4, ProtocolReleaseAuthorityV2, InboxApplyRouterV2, InboxCreditStoreV2, TerminalDomainRegistrarV2, TerminalAccumulatorV2, NativeLiquidityPoolV2, DestinationBridgeV2 and DestinationQuotaManager. |
-| Legacy genesis and resume | LegacyGenesisCutoverInboxV1, LegacyResumeZkPairVerifierV1, fixed-key RISC0/SP1 adapters, LegacyCampaignFencedProposerCheckerV1 and LegacyDirectSignalServiceV1. |
+| Settlement | The Slot Chain implementation of the existing Inbox proxy: modes, canonical commit with the L1 `saveCheckpoint` write, normal window, recovery, data sessions, rewards, `activateSlotChainV1` and the drain behaviour. |
+| Forced queue | `ForcedQueue` (kind-0 only, DAO-owned proxy) with `enqueueForcedTransactionV2`, `advanceCursor` and the depth-64 vector. |
+| Scheduling and service market | `ScheduleOracle`, `AggregatorSeatMarket`. |
+| L2 | No new contracts. The client fork rules (header validation of `parentBeaconBlockRoot`, `extraData`, coinbase, forced-prefix composition) and the circuits. |
+| Existing contracts | `SignalService` (with `revealCheckpoint` from #22147), `Bridge` and vaults on both chains are reused unchanged and are recorded as external dependencies. |
 
 Real circuits/keys, complete deployment artifacts and independently reproduced client execution
 remain release inputs. Tests or model objects named after one of these components do not make its
-production implementation present. Existing V1 contracts are not substitutes for the specified
-fresh V2 custody and authority graph.
+production implementation present.
 
 ## Interpreting the evidence
 
-At the snapshot above the ledger has **146 rows: 101 missing, 25 red, 12 passing and 8 reviewed**.
-It includes contracts, helper artifacts, init-code bundles, external dependencies and address roles.
-These heterogeneous rows do not measure a percentage of completion.
+The ledger has **60 rows: 28 missing, 25 red, 6 passing and 1 reviewed**. It includes contracts, helper
+artifacts, external dependencies and address roles. These heterogeneous rows do not measure a
+percentage of completion.
 
 The [ledger checker](../../utils/slotchain/checkConformanceLedger.ts) accepts all four statuses.
 It checks schema, ownership and source coverage; requires declared source/test paths for `passing`
@@ -69,34 +74,26 @@ and `reviewed` rows; and verifies the recorded source/test hashes for `reviewed`
 execute those tests or require every row to be passing. A `reviewed` label is a ledger assertion,
 not an independent audit claim. Source and tests can exist while their row remains `red`.
 
-The ownership manifest's root cohort remains **`planned`**, with **21 required artifacts**.
-The nine Factory-deployed roles are only part of that cohort. A complete release must reproduce
-the pinned compiler/profile, exact init/runtime/configuration hashes and all size/gas bounds.
-Checked-in gas snapshots and synthetic budget arithmetic do not establish those full-path gates.
-
 Default and genesis Foundry profiles skip Slot Chain sources; the dedicated layer1, layer2 and
-shared profiles and ownership checks cover the additive implementation. V2 is not selected on a
-production path in this PR.
+shared profiles and ownership checks cover the additive implementation. Slot Chain is not selected
+on a production path in this PR.
 
 ## Design details the deck preserves
 
 - Builder signatures establish authorship and parent choice; validity proofs establish execution.
-  Landing and recovery are permissionless, including deterministic unsigned escape blocks.
-- Forced kind-0 classification is ordered `0 → 1 → 2 → 3 → 6 → 4`; code 5 belongs to kind-1 credits.
-  Descriptor-only expiry begins strictly after `validUntil`. A missing live body is not evidence
-  of invalidity. Per-block FIFO budgets and candidate-wide limits are separate.
+  Landing and recovery are permissionless, including deterministic unsigned escape blocks, which
+  may be empty.
+- Every block carries the candidate's L1 anchor hash in `parentBeaconBlockRoot`; EIP-4788 records
+  it on L2 and `revealCheckpoint` makes it a permanent checkpoint within the 8,191-second window.
+- Forced kind-0 classification is ordered `0 → 1 → 2 → 3 → 6 → 4`; code 5 is unassigned.
+  Descriptor-only expiry begins strictly after `validUntil`. Dispositions are proof-internal.
 - Seat premiums are sponsor-funded. A qualifying late proof can cure a duty through slash equality
   and leave the former primary's full bond as withdrawal credit. The specified bounded premium
   exposure is an accepted economic tradeoff awaiting calibration.
-- Launch bridge ingress is same-L1 DIRECT ETH with fresh V2 custody, durable destination pins and
-  LP-funded processing. Queue consumption does not itself deliver ETH to a recipient.
-- Later migration retains seven-day notice, a seven-day arm execution window and a separate
-  non-extendable seven-day live lease. At lease expiry activation rejects and anyone can abort;
-  a successful expiry abort requires every retry arm to be queued strictly later and wait anew.
-- Legacy genesis has a finite campaign, exact bounded scans and reversible QUIESCENT state.
-  In-place cutover imports the last finalized checkpoint and explicitly abandons unfinalized
-  proposals and pending forced records. Lossless requirements or incompatible legacy deployments
-  require a separate state migration.
+- Every canonical commit writes the L2 checkpoint to the L1 SignalService in the same transaction;
+  the existing Bridge pause, quota and fee semantics apply.
+- Upgrades are ordinary DAO upgrades with explicit reinitializers; V1 is drained and activated in
+  place with nothing abandoned.
 
 ## Validation and maintenance
 
@@ -115,13 +112,12 @@ pnpm slotchain:ownership:ci
 
 The last command compiles the dedicated profiles and runs the configured L1/L2 Slot Chain and
 integration checks. Run `pnpm test:shared` for the shared Foundry suites as the Protocol workflow
-does separately. These are reproduction instructions; their presence here does not assert that
-all were rerun for this documentation update.
+does separately.
 
 When design or implementation changes, update this snapshot, the parent README, the deck's
 implementation/readiness slides and their source links together. Follow the
-[deck maintenance checks](slides/README.md#keeping-the-deck-synchronized), including desktop,
-narrow-screen and print inspection. Keep the normative LaTeX/PDF, model vectors and implementation
-ledger synchronized whenever protocol rules change. Production still requires the complete
-release bundle, measured proof/gas performance, independent conformance reproduction, calibrated
-economics, migration/archive-loss drills, multi-client testnet soak and independent audits.
+[deck maintenance checks](slides/README.md#keeping-the-deck-synchronized). Keep the normative
+LaTeX/PDF, model vectors and implementation ledger synchronized whenever protocol rules change.
+Production still requires the complete contract set, real circuits, L2 client fork support,
+measured proof/gas performance, the drain-and-activate drill, calibrated economics, multi-client
+testnet soak, independent conformance reproduction and independent audits.

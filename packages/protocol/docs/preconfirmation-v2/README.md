@@ -1,34 +1,52 @@
-# Slot-Chain — Taiko preconfirmation protocol (v2 design)
+# Slot-Chain — Taiko preconfirmation protocol (v3.0 design)
 
-This directory holds the design specification for Taiko's v2 preconfirmation protocol, together
-with executable models, a learning deck and a source-backed implementation status guide.
-[PR #22139](https://github.com/taikoxyz/taiko-mono/pull/22139) consolidates the design and a partial
-Solidity implementation. The protocol is not yet implemented end to end.
+This directory holds the design specification for Taiko's next preconfirmation protocol
+("Slot Chain"), together with executable models, a learning deck and a source-backed
+implementation status guide. [PR #22139](https://github.com/taikoxyz/taiko-mono/pull/22139)
+consolidates the design and a partial Solidity implementation. The protocol is not yet implemented
+end to end.
+
+Revision v3.0 reshapes the v2.28 design around three requirements:
+
+1. **It builds on the anchor-free L2 of [issue #22147](https://github.com/taikoxyz/taiko-mono/issues/22147).**
+   The L2 header carries the L1 anchor block hash in `parentBeaconBlockRoot`, the standard EIP-4788
+   pre-execution call records it on L2, and the permissionless `revealCheckpoint` on the L2
+   `SignalService` turns it into a checkpoint. Slot Chain adds no system transaction and no new
+   L2 contract; the only L2 rules are header validation and forced-prefix composition.
+2. **It uses the existing SignalService, Bridge and vaults on both chains, unchanged.** The L1
+   Settlement writes every canonical L2 checkpoint into the L1 SignalService inside the canonical
+   commit; the escape lane is the bridge liveness floor in both directions. The v2.28 fresh custody
+   design (kind-1 credits, SourceBridge/DestinationBridge bundles, liquidity pool, terminal
+   accumulator, release authority, root factory) is removed.
+3. **It is an in-place upgrade of the existing L1 Inbox proxy** under the existing DAO governance:
+   install, drain every V1 proposal and forced inclusion under V1 rules, then activate by importing
+   the last finalized header. Every Slot Chain contract is an ordinary UUPS proxy. The v2.28
+   immutable timelock/version-manager/router stack and the legacy genesis campaign are removed.
 
 ## Contents
 
-| File                                                       | What it is                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`slot-chain-spec.pdf`](slot-chain-spec.pdf)               | **The specification.** A4, single column. This is the artifact to read and circulate.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| [`tex/main.tex`](tex/main.tex)                             | **The source.** Hand-maintained LaTeX; edit this to change the document.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| [`slides/slot-chain-learning-deck.html`](slides/slot-chain-learning-deck.html) | **The learning deck.** A browser-based introduction to the current design; see [opening and printing instructions](slides/README.md). |
-| [`settlement-window-model.py`](settlement-window-model.py) | Unified protocol/state model for finite staged genesis campaigns and proof-first later migration, continuous seat scheduling, forced-queue recovery, same-L1 DIRECT ETH ingress, fresh immutable V2 endpoints, permanent inbox pins, permissionless LP-owned atomic-funding tickets, source user/LP pull conservation, terminal frontier proofs, historical destination retirement, and atomic rollback/reorg behavior. Its companion suite currently runs 302 adversarial tests.                                                                                                                                                                                                                                                                                                                                 |
-| [`lookahead-model.py`](lookahead-model.py)                 | Exact lookahead path: absolute clock conversion, EIP-4788 carrier/parent semantics, execution-block finality, partial/empty registries, frozen-context tombstones, version-independent protocol-lifetime seed, capped quotas, ring capacity and placement. 38 assertions.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| [`commitment-model.py`](commitment-model.py)               | Byte-exact fixtures for EIP-712 candidates; MessageV1, ingress, ContextV2, Store, Bridge, Pool, accumulator and policy interfaces; fixed-tree and Data MMR inclusion proofs; canonical empty roots and frontier transitions; all BuilderRegistry witness branches plus mutation calldata/returns; exact BPV1 proof-verifier configuration, identity, four proof-request envelopes and all four equivocation output masks; forced Queue V11 admissions, bootstrap join, live Settlement ingress floor and credits; source/destination domains; Bridge and ten-component infrastructure descriptors; acyclic migration/registration verifier configurations; the five-argument L1 migration activation; MACT/MFRZ/MCAN/QMIG/MAPS and atomic legacy genesis cutover journals; strict deployed legacy proposal/forced codecs; fixed-key resume-verifier and direct checkpoint-service profiles; release manifests and receipts; LP settlement-bound terminal leaves; bounded session configuration, ABI/events, Router legacy-bootstrap binding, readiness and blobs. 876 golden vectors / 1693 assertion sites. |
-| [`seat-market-model.py`](seat-market-model.py)             | Executable custody, fixed-width wire-codec and state model for the four-cell perpetual reverse auction, staging, premium reserves, pull credits, bond terminalization and release rotation. Its companion suite currently runs 114 adversarial tests.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| [`economic-profile-model.py`](economic-profile-model.py)   | Strict schema and checked-arithmetic validator for the versioned economic profile and every published parameter relation. Its companion suite currently runs 41 tests.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| File | What it is |
+| --- | --- |
+| [`tex/main.tex`](tex/main.tex) | **The specification (normative source).** Hand-maintained LaTeX; edit this to change the document. |
+| [`slot-chain-spec.pdf`](slot-chain-spec.pdf) | **Stale.** The committed PDF is the v2.28 build; the v3.0 revision has not been rebuilt yet (see below). Read `tex/main.tex` until it is. |
+| [`slides/slot-chain-learning-deck.html`](slides/slot-chain-learning-deck.html) | **The learning deck.** A browser-based introduction to the v3.0 design; see [opening and printing instructions](slides/README.md). |
+| [`implementation-status.md`](implementation-status.md) | Source-backed map of what is implemented, what is specified only, and how to read the conformance evidence. |
+| [`settlement-window-model.py`](settlement-window-model.py) | Protocol/state model for activation import, continuous seat scheduling, forced-queue recovery, the kind-0 forced queue, the atomic L1 checkpoint write and rollback/reorg behaviour. Companion suite: `test-settlement-window.py`. |
+| [`lookahead-model.py`](lookahead-model.py) | Exact lookahead path: absolute clock conversion, EIP-4788 carrier/parent semantics on L1, execution-block finality, partial/empty registries, frozen-context tombstones, protocol-lifetime seed, capped quotas, ring capacity and placement. |
+| [`commitment-model.py`](commitment-model.py) | Byte-exact fixtures for EIP-712 candidates, canonical core and statement hashes, kind-0 forced descriptors and queue roots, fixed-tree and Data MMR proofs, BuilderRegistry witnesses and mutation calldata/returns, proof-verifier configuration, equivocation masks, data sessions and blobs. Generates the golden vectors under `test/shared/slotchain/vectors/`. |
+| [`seat-market-model.py`](seat-market-model.py) | Executable custody, fixed-width wire-codec and state model for the four-cell perpetual reverse auction. Companion suite: `test-seat-market.py`. |
+| [`economic-profile-model.py`](economic-profile-model.py) | Strict schema and checked-arithmetic validator for the versioned economic profile. Companion suite: `test-economic-profile.py`. |
 
 ## Learning the design
 
 Start with the [Slot Chain learning deck](slides/slot-chain-learning-deck.html) for an overview of
-builder authority, settlement and recovery, forced transactions, bridge ingress, release activation
-and the revised economic tradeoffs. Open the HTML locally in a browser; its print layout also
-supports saving a PDF. Its implementation map and Registry topology distinguish available code
-from specified behavior; its migration slides cover finite arms, rollback and legacy genesis.
-See the [deck README](slides/README.md) for instructions and provenance, and the
+builder authority, settlement and recovery, forced transactions, the header-carried anchor,
+bridging through the existing contracts, governance and the in-place upgrade from V1. Open the
+HTML locally in a browser; its print layout also supports saving a PDF. See the
+[deck README](slides/README.md) for instructions and provenance, and the
 [implementation status guide](implementation-status.md) for source links and missing components.
 
-The deck is a non-normative companion to the v2.28 specification. That label is the document
+The deck is a non-normative companion to the v3.0 specification. That label is the document
 revision, not an on-chain protocol version. Use the specification for exact validity rules,
 encodings and implementation requirements.
 
@@ -43,174 +61,79 @@ cp main.pdf ../slot-chain-spec.pdf
 
 Tectonic automatically performs the passes needed to settle the table of contents and
 cross-references. `xelatex`/`pdflatex` also work with repeated passes. The committed
-`slot-chain-spec.pdf` is a copy of `tex/main.pdf`.
-
-The committed artifact is built with Tectonic/xdvipdfmx and currently uses PDF 1.5. Rebuilders
-must visually inspect the schedule, state-machine, liveness, slashing and parameter-table pages;
-a successful LaTeX exit status alone is not layout verification.
+`slot-chain-spec.pdf` must be regenerated from `tex/main.tex` before the v3.0 revision is
+circulated; until then it is the v2.28 build and disagrees with the source. Rebuilders must
+visually inspect the schedule, state-machine, liveness, slashing and parameter-table pages; a
+successful LaTeX exit status alone is not layout verification.
 
 ## Running the models
 
 ```sh
-python3 settlement-window-model.py   # 186 assertions
-python3 test-settlement-window.py    # 302 adversarial regression tests
+python3 settlement-window-model.py   # 101 assertions
+python3 test-settlement-window.py    # 106 adversarial regression tests
 python3 lookahead-model.py           # 38 assertions
-python3 commitment-model.py          # 876 golden vectors / 1693 assertion sites
-python3 commitment-model.py --export-json # 876 sorted typed oracle rows
-python3 -m unittest test-seat-market.py      # 114 adversarial tests
-python3 -m unittest test-economic-profile.py # 41 schema/economic tests
+python3 commitment-model.py          # 323 golden vectors / 419 assertion sites
+python3 commitment-model.py --export-json # 323 sorted typed oracle rows
+python3 -m unittest test-seat-market.py      # 115 adversarial tests
+python3 -m unittest test-economic-profile.py # 42 schema/economic tests
 python3 -m unittest test-forced-transaction-validity.py
 python3 -m unittest test-l1-resource-bounds.py
 python3 -m unittest test-seat-promotion-economics.py
-python3 -m unittest test-route-preparation-resources.py
-python3 -m unittest test-migration-journal.py
 ```
 
-All run standalone; the property models print `ALL PROPERTIES PASS`, and the regression suite
-uses `unittest`. The lookahead
-model has a pure-Python Ethereum Keccak implementation and uses PyCryptodome only as an optional
-speedup. Signatures, validity proofs, EVM gas and execution remain placeholders in the settlement
-model. **Every consensus change must update the relevant model in the same commit.** A passing
-model is regression evidence, not a proof of protocol soundness.
+All run standalone; the property models print `ALL PROPERTIES PASS`, and the regression suites
+use `unittest`. The lookahead model has a pure-Python Ethereum Keccak implementation and uses
+PyCryptodome only as an optional speedup. Signatures, validity proofs, EVM gas and execution remain
+placeholders in the settlement model. **Every consensus change must update the relevant model in
+the same commit.** A passing model is regression evidence, not a proof of protocol soundness.
 
-The focused repair suites cover static forced-transaction rejection, fork/state-dependent
-disposition 6, raw-witness requirements, transaction cap/calldata-floor arithmetic, deployment-free
-route staging, the final migration lease post-read and late-proof promotion economics. The forced-transaction model uses explicit
-abstract decoded-transaction and execution-state witnesses. Real raw decoding, signature recovery,
-state authentication and EVM execution must be reproduced by the client/circuit conformance suite.
-
-Migration-arm governance keeps the full `PROTOCOL_CHANGE_DELAY_SECONDS=604800` notice and adds a
-finite `MIGRATION_ARM_EXECUTION_WINDOW_SECONDS=604800` after maturity. Both the Timelock and PVM
-enforce the inclusive execution interval. A successful expiry abort advances the PVM's monotone
-`armFreshAfter` watermark, invalidating every arm queued at or before the abort timestamp; a retry
-must be queued later and wait a new seven days. `protocolVersionManagerConfigV1()` is therefore
-1,184 bytes and commits the execution-window constant, root-lifetime terminal verifier identity,
-and SourceBundleFactory identity, while `migrationArmFreshAfterV1()` returns
-the exact 64-byte `MAF1` watermark view. The generic 256-byte `PCO1` operation row is unchanged.
+The v2.28 bridge/custody, migration-journal, legacy-campaign and root-bootstrap sections of the
+models were removed together with the design; `test-migration-journal.py` and
+`test-route-preparation-resources.py` no longer exist. The drain phase of the V1 upgrade is V1
+behaviour and is covered by the testnet drill gate, not by a model.
 
 ## Implementation status
 
-At the reviewed PR snapshot [`b7896b7`](https://github.com/taikoxyz/taiko-mono/commit/b7896b758ef5500ce9b67064ba645c4416d8cfb5),
-the repository includes BuilderRegistry and its fixed lifecycle facets/proof verifier, registration
-MPT and schedule SSZ verification, root Factory/executor/CREATE3 machinery, and shared codecs,
-commitments, custody and economic libraries. Foundry suites, golden vectors and TypeScript checks
-accompany that code. Settlement, ScheduleOracle, ForcedQueue, AggregatorSeatMarket, the
-Router/Timelock/VersionManager, V2 bridge, legacy cutover and L2 execution components remain marked
-`missing` in the implementation ledger. Root bootstrap machinery does not implement the later-version
-Router migration journal taught in the deck.
+The repository includes the BuilderRegistry and its fixed lifecycle facets and proof verifier,
+schedule SSZ multiproof verification and snapshot evaluation, historical L1 header proofs, and
+shared codecs, commitments, trees, signatures, evidence, custody-accounting and economic libraries.
+Foundry suites, golden vectors and TypeScript checks accompany that code. Settlement (the new
+implementation of the existing Inbox proxy), ForcedQueue, ScheduleOracle, AggregatorSeatMarket,
+the L2 client fork rules and the circuits remain `missing` in the implementation ledger. The
+v2.28 root factory, migration executor, CREATE3 proxy, registration MPT verifier, execution-profile
+codec and every bridge/custody library were deleted with the design.
 
-The [conformance ledger](../../utils/slotchain/conformance-ledger.v2.28.json) has 146 rows:
-101 `missing`, 25 `red`, 12 `passing` and 8 `reviewed`. Rows include artifacts, external dependencies
-and roles as well as contracts; these counts are not a percentage of implementation completion.
-The checker validates ledger consistency and reviewed-file hashes while allowing incomplete rows.
-The [21-artifact root cohort](../../utils/slotchain/artifact-ownership.json) is still `planned`.
-See [implementation status and validation commands](implementation-status.md) before interpreting
-a successful check as release evidence. The additive code is not selected on a production path.
+The [conformance ledger](../../utils/slotchain/conformance-ledger.v3.0.json) has 60 rows:
+28 `missing`, 25 `red`, 6 `passing` and 1 `reviewed`. Rows include artifacts, external dependencies and roles as well as contracts;
+these counts are not a percentage of implementation completion. The checker validates ledger
+consistency and reviewed-file hashes while allowing incomplete rows. See
+[implementation status and validation commands](implementation-status.md) before interpreting a
+successful check as release evidence. The additive code is not selected on a production path.
 
 ## Design status and production gates
 
-The v2.28 architecture is a **reviewed design candidate with partial implementation**. It adds exhaustive
-forced-transaction classification, including `INVALID_NO_TX = 6`; enforces the fixed 16,777,216
-L1 transaction gas cap and calldata floor; separates source-bundle and adapter deployment from
-route staging; and reconciles the full migration journal. It preserves late-proof recovery and
-explicitly accepts a bounded funded subsidy exposure when a higher-ask standby replaces a
-non-breaching primary. A larger refundable bond does not itself deter that promotion. The models
-bound gross reserve exposure and the incremental premium over a healthy-primary baseline.
-
-Implementation ledgers must pin the exact reviewed normative commit, regenerate profile/hash
-fixtures and recheck affected conformance rows. The revision label is not an on-chain protocol
-version, and existing passing rows from an older commit are insufficient.
-
-The architecture replaces the underspecified ordinary-proof authority with one exact
-profile-bound Settlement validity-verifier descriptor and gives the fresh kind-0 adapter complete
-ERC-2470 constructor provenance through the profile's canonical two-artifact bundle. The
-BuilderRegistry deployability repair adds one independently ERC-2470-deployed stateless proof
-verifier, two immutable codehash/configuration/layout-pinned lifecycle facets, and a typed static
-constructor tuple while leaving the Registry address as the sole owner of roots, custody, locators
-and writes. Seven explicit fixed-target wrappers use a shared operation lock; there is no fallback,
-mutable target or upgrade authority. Their exact calls, selector ownership, output masks and Factory
-pins are covered by the executable model.
-The
-BRS1/BRD1/BRC1/ABR2 route path derives its authority from fixed-width
-RTR2/BRX1/PIR2/PIM2/PIA2/BIP1/BID1 raw reads rather than an in-process
-`SettlementRegistration` witness. The design model now includes an address-indexed EVM account
-world, exact code/configuration/immutable reads, a root receipt covering the fixed Source factory
-and root-lifetime terminal verifier, bounded indexes, and cold-cache restart coverage through
-root deployment, separate SBD1/SAD1 deployment, BRD1 staging, migration and historical reclamation.
-The model checks specification consistency; it does not establish completeness. A complete, independently
-reproduced set of compiled Factory/executor/proxy and component artifacts, EIP-170/EIP-3860 and
-measured full-path gas certificates, real circuit/verifier
-artifacts, multi-language conformance, explicit economic acceptance and external audits remain
-mandatory production gates. Resource budgets are implementation targets, not measurements. The
-root Source-terminal value of 2,375,000 gas is a compiled cold-CALL certificate, not a callee-side
-`gasleft()` admission threshold; exact-code reuse may safely execute with less. ICV2
-now supplies the exact O(1) credit-ID and fee lookup; RAV2 binds the Authority retirement watermark;
-and DRV2/DSV2 preserve direct-successor, multi-hop reclamation independently of the latest tip. The exact
-Settlement--Market roster wire, direct historical economics and Router-authenticated rotation are
-now normative fixed-width protocols with strict no-op, rollback, lock and gas rules. The strict
-canonical ExecutionProfileV2 ABI, complete field/DAG derivation and negative
-legacy-CBOR boundary are now normative and executable. The exact
-target-adoption, source-freeze, Queue-migration, poststate-join and legacy-genesis callbacks now
-share one Router lifecycle/context journal. A delayed finite genesis campaign stages separate
-forced/proposal cutoffs, hard-capped exact scans and a bounded reversible QUIESCENT phase while the
-public legacy gate remains ACTIVE. Any caller may land a valid campaign/scan-bound proof through
-proof verification, LGAR, LGFN and atomic publication in one transaction; if no proof lands, hard
-block/time expiry permissionlessly restores legacy ACTIVE. Safe in-place genesis cutover is conditional on the
-deployed legacy Inbox accepting the specified final storage-compatible implementation; otherwise
-that deployment requires an independently initialized state migration. In-place cutover snapshots
-and imports only the last finalized legacy checkpoint; unfinalized proposals and pending forced
-blob records are explicitly abandoned because the deployed format has neither durable bytes nor a
-refund owner. A deployment requiring lossless treatment must also use a separate state migration.
-The campaign applies 1,024-row proposal/forced caps, a 4 MiB scan cap and
-deterministic maximum-progress 16-row scan batches, so a front-run cannot stretch the 128-call bound.
-Its byte-exact review envelope binds the live legacy resume profile and target tuple; blob expiry is
-derived only from the stored timestamp and the pinned 1,572,864-second mainnet minimum. The sealed
-activation receipt binds a separate abandonment hash covering the exact scanned and actually abandoned
-ranges, roots, bytes, fees and zero bond liability. Raw donated surplus is excluded from eligibility and
-the receipt and remains locked, so forced ETH cannot veto migration or invalidate a prepared proof. A bad target requires campaign expiry
-and a higher-nonce delayed review; a total proving-system outage delays migration but cannot
-permanently pause a previously live legacy deployment. Legacy deployments whose verifier, bond,
-challenge or custody clocks do not match the pinned resume-safe profile must use a separate state
-migration. The supported profile requires public proving and an age-independent fixed-key
-RISC0+SP1 route; SGX-required roots, mutable trust-map wrappers, a SignalService ForkRouter, or an
-unfenced direct checkpoint implementation are rejected before campaign publication. The same is
-true when any pending forced or unfinalized proposal row lacks the full data-expiry slack through
-hard resume plus 900 seconds for fresh proof generation; stale rows are never ignored merely because
-successful migration would abandon them.
-The complete production execution profile, compiled contract/circuit release and independently
-reproduced conformance bundle remain outstanding. The committed draft contracts and synthetic
-profile/vector fixtures do not complete that bundle. Section 13 states why inventing those
-implementation-dependent artifacts in prose would be unsafe. Eight later measurable release gates
-cover proof performance, contract gas, cryptographic conformance, state-machine verification,
-economics, operations and external review. Five properties are worth knowing before reading:
+The v3.0 architecture is a **reviewed design candidate with partial implementation**. Five
+properties are worth knowing before reading:
 
 - **Landing is permissionless.** A block's authority comes from its builder's signature, not from
   whoever carries it to L1. The aggregator is a paid service role, not a gatekeeper.
-- **There is a builder-independent censorship floor.** A prepaid L1 forced-message queue opens
+- **There is a builder-independent censorship floor.** A prepaid L1 forced-transaction queue opens
   recovery when its head becomes due. Anyone can prove an unsigned deterministic escape block,
-  even if every builder colludes and no aggregator seat exists.
+  even if every builder colludes and no aggregator seat exists. The escape block may be empty.
+- **One header field replaces the anchor transaction.** Every block's `parentBeaconBlockRoot` is
+  the candidate's L1 anchor hash. EIP-4788 records it on L2; anyone reveals it into a permanent
+  checkpoint within the 8,191-second window. The L2 EVM is fully standard.
+- **Bridging uses the existing contracts.** L1→L2 through the existing Bridge, the header anchor
+  and `revealCheckpoint`; L2→L1 through the Settlement's `saveCheckpoint` write on every canonical
+  commit. The existing Bridge pause, quota and fee rules apply; Slot Chain adds no
+  pause-independent path.
 - **Recovery expires unfinalized preconfirmations.** At an objective SLA/force boundary, one
-  episode restores finality with the first valid signed or unsigned proof. Its deterministic
-  round can be renewed only after objective expiry, so a long prover outage cannot permanently
-  stale the target. Progress still requires a root-verifiable canonical prestate package containing
-  trie nodes **and runtime-bytecode preimages**; a state root alone cannot reconstruct data or code
-  after every archive copy is lost. Omitted promises expire.
-- **A builder's signature does not attest that the block executes.** It attests authorship and the
-  choice of parent. Executability is established only by the validity proof at landing, so a
-  preconfirmation is a commitment to include and to order (§9).
-- **Bridge ingress has separate data and liquidity boundaries.** Launch supports DIRECT ETH only
-  from the settlement L1 to the slot chain; V1 selectors and Vault flows are untouched. A fresh
-  immutable SourceBridge escrows `value + executionFee + liquidityFee`, and the durable V11 Queue
-  descriptor pins the complete source/destination context. Any LP may fund a non-transferable L2
-  Pool ticket and atomically fund `value + executionFee` for a pinned credit. DONE consumes the
-  exact debit and authenticates the LP's L1 pull in the terminal leaf; a rolled-back attempt leaves
-  the ticket byte-identical, while FAILED/cancellation refunds the user. Without a willing LP,
-  processing is UNFUNDED and later expires—bounded
-  economic delivery is not claimed. Missing Message bytes likewise lead to source cancellation
-  after `enqueueBy` or destination FAILED after `processBy`. Terminal outcomes use a 64-word
-  frontier/root plus canonical events and historical 64-sibling proofs. Destination processing is
-  local-domain-bound; source enablement waits for the finalized one-shot L2 registrar proof and 214
-  L1 blocks. Cross-L1 kind-1 ingress is not part of this version.
+  episode restores finality with the first valid signed or unsigned proof. Progress still requires
+  a root-verifiable canonical prestate package containing trie nodes and runtime-bytecode
+  preimages.
 
-Final acceptance requires a human safety review. The models and the specification are a gate, not
-a signature.
+Production still requires the complete contract set, real circuits and keys, L2 client fork
+support (geth/reth header validation), measured proof and activation gas, calibrated economics,
+the drain-and-activate drill on a production fork, multi-client testnet soak, independent
+conformance reproduction and independent audits. Final acceptance requires a human safety review.
+The models and the specification are a gate, not a signature.
