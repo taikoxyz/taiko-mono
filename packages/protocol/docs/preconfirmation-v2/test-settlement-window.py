@@ -3264,7 +3264,7 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
         self.assertEqual(p.data_session_events[-2:], [
             settlement.SessionLiveToRefundEvent(
                 "later-expired", "later-owner", 8,
-                now.timestamp + 100, 0,
+                now.timestamp + 100,
             ),
             settlement.DataSessionsMaintainedEvent(1, 8, 16, 8, 1),
         ])
@@ -3347,7 +3347,7 @@ class BoundedFrontierAndDataSessionTests(unittest.TestCase):
         )
         self.assertEqual(
             tuple(mode.value for mode in settlement.DataSessionMaintenanceMode),
-            (1, 2, 3),
+            (1,),
         )
         owner = "0x" + "00" * 18 + "cafe"
         settlement_address = "0x" + "00" * 18 + "abcd"
