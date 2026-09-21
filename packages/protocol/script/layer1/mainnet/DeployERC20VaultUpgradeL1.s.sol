@@ -6,7 +6,7 @@ import { LibL1Addrs } from "src/layer1/mainnet/LibL1Addrs.sol";
 import { ERC20Vault } from "src/shared/vault/ERC20Vault.sol";
 
 /// @title DeployERC20VaultUpgradeL1
-/// @notice Deploys the L1 `ERC20Vault` implementation that Proposal0023 upgrades the mainnet ERC20
+/// @notice Deploys the L1 `ERC20Vault` implementation that Proposal0024 upgrades the mainnet ERC20
 /// vault proxy to.
 /// @dev Deploys a new implementation only. It does not upgrade the proxy and does not call any
 /// initializer.
@@ -27,7 +27,7 @@ contract DeployERC20VaultUpgradeL1 is Script {
     error ImmutableMismatch();
     error LiveProxyMismatch();
 
-    /// @notice Deploys the implementation and logs the address Proposal0023 needs.
+    /// @notice Deploys the implementation and logs the address Proposal0024 needs.
     function run() external {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
         require(privateKey != 0, "PRIVATE_KEY not set");
