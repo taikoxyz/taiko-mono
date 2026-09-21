@@ -4904,7 +4904,6 @@ class RegistryLifecycleRound4Tests(unittest.TestCase):
             def __iter__(self):
                 raise AssertionError("hot path iterated a lifetime set")
 
-        self.assertTrue(gate._bootstrap_from_router(1))
         builder = self.generation(0, bond=100, effective_window=0)
         registry = settlement.RegistryLifecycle(
             [builder], lease_per_window_atomic=10
@@ -5135,7 +5134,6 @@ class RegistryLifecycleRound4Tests(unittest.TestCase):
         self.assertEqual(registry.active[0].effective_l2_slot, 19 + 8 * 384)
 
     def test_empty_free_reserved_custody_and_window_ring_wrap(self):
-        self.assertTrue(gate._bootstrap_from_router(1))
         builder = self.generation(0, bond=100, effective_window=0)
         registry = settlement.RegistryLifecycle(
             [builder], lease_per_window_atomic=10

@@ -306,6 +306,8 @@ HANDOVER_EXECUTION_BUFFER_SECONDS = (
 )
 SEAT_RUNWAY_SECONDS = 6_000
 MAX_STANDBY_LEASE_SECONDS = SEAT_RUNWAY_SECONDS
+MIN_ASK_IMPROVEMENT_WEI_PER_SECOND = 1
+MIN_ASK_IMPROVEMENT_BPS = 100
 def seat_u256(value: int, name: str) -> int:
     if type(value) is not int or value < 0 or value > SEAT_UINT256_MAX:
         raise ValueError(f"{name} is outside uint256")
