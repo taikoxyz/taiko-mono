@@ -117,7 +117,6 @@ EXPECTED_SCHEMA = {
         "maximumCandidateForcedBytes": POSITIVE_UINT,
         "maximumCandidateForcedGas": POSITIVE_UINT,
         "maximumEarlySealWindows": POSITIVE_UINT,
-        "canonicalHistoryCells": POSITIVE_UINT,
         "eip2935HistoryBlocks": POSITIVE_UINT,
         "maximumArmAgeBlocks": POSITIVE_UINT,
         "seatCount": EXACT(4),
@@ -160,12 +159,12 @@ EXPECTED_SCHEMA = {
         "escapeOffsetSeconds": POSITIVE_UINT,
         "forceDelaySeconds": POSITIVE_UINT,
     },
+    # There is no anchor transaction and no separate first-activation budget:
+    # a steady block admits 20,000,000 accounted forced gas and keeps a
+    # 5,000,000-gas margin under the 30,000,000-gas limit.
     "gasProfile": {
         "l2BlockGas": EXACT(30_000_000),
-        "steadyAnchorGas": EXACT(1_000_000),
         "steadyForcedGas": EXACT(20_000_000),
-        "activationAnchorGas": EXACT(12_000_000),
-        "activationForcedGas": EXACT(13_000_000),
         "systemMarginGas": EXACT(5_000_000),
         "minimumForceAccountedGas": EXACT(21_000),
     },
@@ -198,23 +197,6 @@ EXPECTED_SCHEMA = {
         "queueDepth": EXACT(64),
         "maximumQueueCount": POSITIVE_DECIMAL,
         "maximumRangeProofHashes": EXACT(257),
-    },
-    "bridge": {
-        "maximumEnqueueDelaySeconds": POSITIVE_UINT,
-        "processTtlSeconds": POSITIVE_UINT,
-        "supportFinalityBlocks": POSITIVE_UINT,
-        "maximumDomainEntriesPerRelease": POSITIVE_UINT,
-        "refundCapsuleWords": POSITIVE_UINT,
-        "refundErc721Ids": POSITIVE_UINT,
-        "refundErc1155Pairs": POSITIVE_UINT,
-        "terminalAccumulatorDepth": EXACT(64),
-        "maximumTerminalCount": POSITIVE_DECIMAL,
-        "registrationProofMaximumNodesPerPath": EXACT(65),
-        "registrationProofPathCount": EXACT(2),
-        "registrationProofMaximumTotalNodes": EXACT(130),
-        "registrationProofMaximumNodeBytes": EXACT(600),
-        "registrationProofMaximumBytes": EXACT(78_264),
-        "registrationProofMaximumGas": EXACT(11_000_000),
     },
     "seat": {
         "slaBondWei": NULLABLE_POSITIVE_DECIMAL,
@@ -264,7 +246,8 @@ EXPECTED_SCHEMA = {
             "asset": EXACT("NATIVE_ETH"),
             "address": NULLABLE_ADDRESS,
         },
-        "bridgeSurplus": {
+        # Tier-3 escape-block coinbase on L2 (ExecutionProfileV3 word 41).
+        "protocolCoinbase": {
             "asset": EXACT("NATIVE_ETH"),
             "address": NULLABLE_ADDRESS,
         },
@@ -1501,20 +1484,17 @@ PROFILE_RELATIONS = (
         "steady-gas-envelope",
         (
             "gasProfile.l2BlockGas",
-            "gasProfile.steadyAnchorGas",
             "gasProfile.steadyForcedGas",
             "gasProfile.systemMarginGas",
         ),
         "<=",
         lambda p: _sum_u256(
-            _at(p, "gasProfile.steadyAnchorGas"),
             _at(p, "gasProfile.steadyForcedGas"),
             _at(p, "gasProfile.systemMarginGas"),
         )
         <= _at(p, "gasProfile.l2BlockGas"),
         "gasProfile.l2BlockGas",
         lambda p: _sum_u256(
-            _at(p, "gasProfile.steadyAnchorGas"),
             _at(p, "gasProfile.steadyForcedGas"),
             _at(p, "gasProfile.systemMarginGas"),
         ),
@@ -1536,11 +1516,12 @@ _IDENTITY_PATHS = (
 ) + _SINK_ADDRESS_PATHS
 
 
-# EconomicProfileV2 also records version-fixed executable geometry.  These
-# leaves are not deployment-time calibration knobs: the corresponding V2
-# implementations compile the same literals into their bounded loops, rings,
-# proof widths, and retention horizons.  Release tooling must therefore reject
-# a freshly re-hashed JSON object that advertises different capacity.
+# The v2 economic-profile JSON also records version-fixed executable geometry.
+# These leaves are not deployment-time calibration knobs: the Slot-Chain
+# implementations pinned by ExecutionProfileV3 compile the same literals into
+# their bounded loops, rings, proof widths, and retention horizons.  Release
+# tooling must therefore reject a freshly re-hashed JSON object that
+# advertises different capacity.
 EXECUTABLE_CONSTANTS_V2 = {
     "geometry.slotSeconds": 1,
     "geometry.windowSlots": 384,
@@ -1567,7 +1548,6 @@ EXECUTABLE_CONSTANTS_V2 = {
     "geometry.maximumCandidateForcedBytes": 4_194_304,
     "geometry.maximumCandidateForcedGas": 80_000_000,
     "geometry.maximumEarlySealWindows": 8,
-    "geometry.canonicalHistoryCells": 256,
     "geometry.eip2935HistoryBlocks": 8_191,
     "geometry.maximumArmAgeBlocks": 255,
     "geometry.seatCount": 4,
@@ -1584,26 +1564,11 @@ EXECUTABLE_CONSTANTS_V2 = {
     "forcedEnvelope.queueDepth": 64,
     "forcedEnvelope.maximumQueueCount": str(UINT64_MAX),
     "forcedEnvelope.maximumRangeProofHashes": 257,
-    "bridge.maximumEnqueueDelaySeconds": 604_800,
-    "bridge.processTtlSeconds": 2_592_000,
-    "bridge.supportFinalityBlocks": 214,
-    "bridge.maximumDomainEntriesPerRelease": 64,
-    "bridge.refundCapsuleWords": 256,
-    "bridge.refundErc721Ids": 256,
-    "bridge.refundErc1155Pairs": 128,
-    "bridge.terminalAccumulatorDepth": 64,
-    "bridge.maximumTerminalCount": str(UINT64_MAX),
-    "bridge.registrationProofMaximumNodesPerPath": 65,
-    "bridge.registrationProofPathCount": 2,
-    "bridge.registrationProofMaximumTotalNodes": 130,
-    "bridge.registrationProofMaximumNodeBytes": 600,
-    "bridge.registrationProofMaximumBytes": 78_264,
-    "bridge.registrationProofMaximumGas": 11_000_000,
     "rewards.claimWindowSeconds": 86_400,
 }
 
 
-# Every JSON leaf narrowed by either ExecutionProfileV2 or the derived
+# Every JSON leaf narrowed by either ExecutionProfileV3 or the derived
 # BuilderRegistry configuration.  A canonical hash cannot make an out-of-range
 # value deployable, so production calibration rejects it before projection.
 PROFILE_NARROW_NUMERIC_WIDTHS_V2 = {
@@ -1659,7 +1624,6 @@ PROFILE_NARROW_NUMERIC_WIDTHS_V2 = {
     "dataSession.maximumRecordsPerSession": 16,
     "dataSession.maximumGcSteps": 8,
     "dataSession.maximumBlobsPerPost": 8,
-    "geometry.canonicalHistoryCells": 16,
     "gasProfile.l2BlockGas": 64,
     "rewards.claimWindowSeconds": 64,
 }
@@ -1770,7 +1734,7 @@ def production_blockers(profile: Any) -> tuple[str, ...]:
             continue
         if actual != expected:
             blockers.add(
-                f"{path} must equal the V2 executable constant {expected}"
+                f"{path} must equal the v2 executable constant {expected}"
             )
 
     for path, width in PROFILE_NARROW_NUMERIC_WIDTHS_V2.items():
