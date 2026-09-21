@@ -117,7 +117,10 @@ assert.doesNotThrow(() => validateConformanceLedger(ledger([external()])));
 
 // The normative commit is read from the ledger, never hardcoded: any 40-hex
 // value is accepted and the all-zero placeholder is recognised as unpinned.
-assert.equal(isUnpinnedNormativeCommit(validateConformanceLedger(ledger())), true);
+assert.equal(
+    isUnpinnedNormativeCommit(validateConformanceLedger(ledger())),
+    true,
+);
 assert.equal(
     isUnpinnedNormativeCommit(
         validateConformanceLedger(ledger([entry()], PINNED_COMMIT)),
@@ -125,8 +128,7 @@ assert.equal(
     false,
 );
 assert.equal(
-    validateConformanceLedger(ledger([entry()], PINNED_COMMIT))
-        .normativeCommit,
+    validateConformanceLedger(ledger([entry()], PINNED_COMMIT)).normativeCommit,
     PINNED_COMMIT,
 );
 expectCode(ledger([entry()], "200893750"), "INVALID_NORMATIVE_COMMIT");
@@ -359,9 +361,7 @@ try {
             ledger([
                 entry({
                     status: "red",
-                    sourcePaths: [
-                        "contracts/shared/slotchain/iface/IGone.sol",
-                    ],
+                    sourcePaths: ["contracts/shared/slotchain/iface/IGone.sol"],
                 }),
                 entry({
                     id: "shared.present",
@@ -399,10 +399,15 @@ try {
 
     fs.writeFileSync(
         ledgerPath,
-        JSON.stringify(ledger([entry({ status: "passing" }), entry({
-            id: "shared.duplicate-owner",
-            status: "missing",
-        })])),
+        JSON.stringify(
+            ledger([
+                entry({ status: "passing" }),
+                entry({
+                    id: "shared.duplicate-owner",
+                    status: "missing",
+                }),
+            ]),
+        ),
     );
     expectCheckCode("DUPLICATE_SOURCE_OWNER");
 

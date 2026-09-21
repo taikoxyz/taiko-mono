@@ -1663,7 +1663,10 @@ run("legacy root cohort field fails", () => {
 });
 
 run("proxy implementation and plain helper semantics are accepted", () => {
-    for (const factoryClass of ["proxy-implementation", "plain-create"] as const) {
+    for (const factoryClass of [
+        "proxy-implementation",
+        "plain-create",
+    ] as const) {
         const fixture = validFixture();
         makeProductionModule(fixture, factoryClass);
         const inventory = validateArtifactOwnership(
@@ -1800,48 +1803,52 @@ run("regeneration refreshes stale hashes and keeps classification", () => {
     ]);
 });
 
-run("regeneration classifies new test contracts and prunes deleted sources", () => {
-    const fixture = validFixture();
-    const consumer = addConsumer(fixture);
-    fixture.manifest.modules.pop();
-    const consumerId = `${consumer.sourcePath}:${consumer.contractName}`;
-    expectCode("UNCLASSIFIED_MODULE", () =>
-        validateArtifactOwnership(fixture.root, fixture.manifest),
-    );
+run(
+    "regeneration classifies new test contracts and prunes deleted sources",
+    () => {
+        const fixture = validFixture();
+        const consumer = addConsumer(fixture);
+        fixture.manifest.modules.pop();
+        const consumerId = `${consumer.sourcePath}:${consumer.contractName}`;
+        expectCode("UNCLASSIFIED_MODULE", () =>
+            validateArtifactOwnership(fixture.root, fixture.manifest),
+        );
 
-    const stale: SourceInlineModule = {
-        ownership: "source-inline",
-        sourcePath: "contracts/shared/slotchain/libs/LibGone.sol",
-        contractName: "LibGone",
-        kind: "internal-library",
-        sourceHash: canonicalHash([]),
-        abiHash: canonicalHash([]),
-        allowedProfiles: ["shared"],
-        requiredProfiles: ["shared"],
-    };
-    fixture.manifest.modules.push(stale);
+        const stale: SourceInlineModule = {
+            ownership: "source-inline",
+            sourcePath: "contracts/shared/slotchain/libs/LibGone.sol",
+            contractName: "LibGone",
+            kind: "internal-library",
+            sourceHash: canonicalHash([]),
+            abiHash: canonicalHash([]),
+            allowedProfiles: ["shared"],
+            requiredProfiles: ["shared"],
+        };
+        fixture.manifest.modules.push(stale);
 
-    const report = regenerateManifest(fixture.root, fixture.manifest);
-    assert.deepEqual(report.prunedModules, [
-        `${stale.sourcePath}:${stale.contractName}`,
-    ]);
-    assert.deepEqual(report.addedModules, [consumerId]);
-    const added = report.manifest.modules.find(
-        (module) =>
-            `${module.sourcePath}:${module.contractName ?? ""}` === consumerId,
-    );
-    assert(added?.ownership === "artifact-owned");
-    assert.equal(added.ownerProfile, "layer1");
-    assert.equal(added.factoryClass, "direct-create-test");
-    assert.equal(added.lifecycleScope, "test-only");
-    assert.equal(added.artifactPath, consumer.artifactPath);
-    assert.equal(added.creationCodeHash, consumer.creationCodeHash);
-    assert.deepEqual(
-        report.manifest.modules.map((module) => module.sourcePath),
-        [fixture.sourcePath, consumer.sourcePath],
-    );
-    validateArtifactOwnership(fixture.root, report.manifest);
-});
+        const report = regenerateManifest(fixture.root, fixture.manifest);
+        assert.deepEqual(report.prunedModules, [
+            `${stale.sourcePath}:${stale.contractName}`,
+        ]);
+        assert.deepEqual(report.addedModules, [consumerId]);
+        const added = report.manifest.modules.find(
+            (module) =>
+                `${module.sourcePath}:${module.contractName ?? ""}` ===
+                consumerId,
+        );
+        assert(added?.ownership === "artifact-owned");
+        assert.equal(added.ownerProfile, "layer1");
+        assert.equal(added.factoryClass, "direct-create-test");
+        assert.equal(added.lifecycleScope, "test-only");
+        assert.equal(added.artifactPath, consumer.artifactPath);
+        assert.equal(added.creationCodeHash, consumer.creationCodeHash);
+        assert.deepEqual(
+            report.manifest.modules.map((module) => module.sourcePath),
+            [fixture.sourcePath, consumer.sourcePath],
+        );
+        validateArtifactOwnership(fixture.root, report.manifest);
+    },
+);
 
 run("regeneration classifies new abstract test bases as source-inline", () => {
     const fixture = validFixture();

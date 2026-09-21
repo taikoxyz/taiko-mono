@@ -5,7 +5,12 @@
   "description": "Rows for every v3.0 component: source-inline primitives, deployables (implementations behind DAO-owned ERC-1967/UUPS proxies and the plain helpers they pin) and external dependencies. normativeCommit is the merged normative commit; the all-zero value is the documented unpinned placeholder.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "protocolVersion", "normativeCommit", "entries"],
+  "required": [
+    "schemaVersion",
+    "protocolVersion",
+    "normativeCommit",
+    "entries"
+  ],
   "properties": {
     "schemaVersion": { "const": 2 },
     "protocolVersion": { "const": "3.0" },

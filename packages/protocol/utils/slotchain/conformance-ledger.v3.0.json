@@ -1,0 +1,1998 @@
+{
+  "schemaVersion": 2,
+  "protocolVersion": "3.0",
+  "normativeCommit": "0000000000000000000000000000000000000000",
+  "entries": [
+    {
+      "id": "deployable.l1.slot-chain-settlement",
+      "name": "SlotChainInbox (Settlement implementation)",
+      "aliases": ["Settlement", "SlotChainSettlement"],
+      "kind": "deployable",
+      "normativeRefs": [
+        "main.tex:sec:machine",
+        "main.tex:sec:state",
+        "main.tex:sec:blocks",
+        "main.tex:sec:trust"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "owner-upgradeable",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": [
+        "new implementation installed in the EXISTING L1 Inbox proxy; V1 storage slots 251-257 (activationTimestamp, _coreState, _proposalHashes, _forcedInclusionStorage, _bondStorage) are preserved and Slot Chain state follows them",
+        "DRAINING mode keeps V1 prove/bond paths live, rejects saveForcedInclusion and permits propose only while the V1 forced-inclusion queue is non-empty; ACTIVATE via activateSlotChainV1(bytes headerRlp) once nextProposalId-1 == lastFinalizedProposalId and the V1 queue is empty",
+        "CanonicalCore = (l2BlockNumber, tipHash, tipSlot, stateRoot, messageCursor, winningDataCommitment, nextBaseFee, nextExcessBlobGas); every canonical commit calls ISignalService.saveCheckpoint(uint48 l2BlockNumber, tipHash, stateRoot) exactly once as the proxy's authorized syncer",
+        "SettlementStatementV2 public-input schema string slot-chain-settlement-validity-public-input-schema-v3; executionOutputsCommitment domain slot-chain-outputs-v3",
+        "protocolVersion is an implementation immutable bound into the EIP-712 signed header and every context ID; settlementForcedIngressFloorV1() (SIF1) is read by the ForcedQueue"
+      ],
+      "sourcePaths": ["contracts/layer1/slotchain/impl/SlotChainInbox.sol"],
+      "testPaths": ["test/layer1/slotchain/settlement/SlotChainInbox.t.sol"],
+      "failureBranches": [
+        "activation header hash/RLP/uint48/timestamp/L1-checkpoint mismatch, non-empty V1 queue, unfinalized V1 proposals, failed saveCheckpoint (rolls back the canonical commit), proof/returndata/gas/replay faults"
+      ],
+      "limits": [
+        "runtime<=24576 bytes; endL2BlockNumber<=UINT48_MAX (ICheckpointStore uses uint48)",
+        "upgrade only by the DAO owner through _authorizeUpgrade; storage layout verified with gen-layouts/review-layout before every upgrade",
+        "design-blocker: implementation, DRAINING/ACTIVATE state machine and settlement window not yet written"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "deployable.l1.forced-queue",
+      "name": "ForcedQueue",
+      "aliases": [],
+      "kind": "deployable",
+      "normativeRefs": [
+        "main.tex:sec:blocks",
+        "main.tex:sec:economics",
+        "main.tex:sec:encodings"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "owner-upgradeable",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": [
+        "new DAO-owned ERC-1967/UUPS proxy; enqueueForcedTransactionV2(bytes rawTransaction, uint64 validUntil, address refundAddress) payable returns (uint8 result, uint64 queueIndex) lives directly on the queue (no ingress adapter, no Router facade, no authorizedIngress rows)",
+        "kind-0 envelope (sender, nonce, l2ChainId, rawTxHash, byteLength, gasLimit, maxFee, validUntil, refundAddress, deposit); 220-byte durable descriptor and 204-byte admission body; leaf domain slot-chain-force-user-v2; descriptor schema hash H(slot-chain-force-descriptor-schema-v12)",
+        "dueAt = max(enqueuedAt + FORCE_DELAY, lastDueAt, minimumDueAt) with the Settlement ingress floor read by a bounded static call to the Inbox proxy; depth-64 Merkle vector, frontier, advanceCursor (Settlement only, constructor immutable), pull credits and EXPIRED_NO_TX expiry"
+      ],
+      "sourcePaths": ["contracts/layer1/slotchain/impl/ForcedQueue.sol"],
+      "testPaths": ["test/layer1/slotchain/queue/ForcedQueue.t.sol"],
+      "failureBranches": [
+        "non-EIP-155/2930/1559 grammar, fee below schedule, deposit above cap, validUntil in the past, advanceCursor from a non-Settlement caller, enqueue before activation, insolvent custody"
+      ],
+      "limits": [
+        "accountedGas = max(gasLimit, intrinsicGas, MIN_FORCE_ACCOUNTED_GAS) capped by MAX_FORCE_MESSAGE_GAS = 5,000,000; MAX_FORCE_MESSAGE_BYTES = 131,072",
+        "per-block forced budgets count<=64, bytes<=1 MiB, accountedGas<=20,000,000; candidate caps 256 items, 4 MiB, 80m gas",
+        "design-blocker: contract not yet written"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "deployable.l1.schedule-oracle",
+      "name": "ScheduleOracle",
+      "aliases": [],
+      "kind": "deployable",
+      "normativeRefs": ["main.tex:sec:schedule"],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "owner-upgradeable",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": [
+        "new DAO-owned ERC-1967/UUPS proxy; authenticates beacon carriers and parents through the L1 EIP-4788 beacon-roots contract and verifies schedule SSZ multiproofs through the pinned ScheduleSszMultiproofVerifierV1 (IScheduleForkVerifierV1 route)",
+        "bond-weighted capped D'Hondt lookahead evaluation over sealed Registry snapshots (LibScheduleSealWitnessV1 / LibScheduleSnapshotEvaluatorV1)"
+      ],
+      "sourcePaths": ["contracts/layer1/slotchain/impl/ScheduleOracle.sol"],
+      "testPaths": ["test/layer1/slotchain/schedule/ScheduleOracle.t.sol"],
+      "failureBranches": [
+        "unknown carrier root, stale or future window, verifier runtime/configuration drift, malformed multiproof, seal witness mismatch"
+      ],
+      "limits": [
+        "MAX_SCHEDULE_WINDOWS = 12",
+        "design-blocker: contract not yet written"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "deployable.l1.aggregator-seat-market",
+      "name": "AggregatorSeatMarket",
+      "aliases": [],
+      "kind": "deployable",
+      "normativeRefs": [
+        "main.tex:sec:seat-market",
+        "main.tex:sec:seat-public-abi",
+        "main.tex:sec:economics"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "owner-upgradeable",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": [
+        "new DAO-owned ERC-1967/UUPS proxy; seat auction, reverse-ask improvement, seat premium and the Settlement-Market wire exactly as in v2.28",
+        "reserve plus pull-credit custody through LibCustodyAccounting; seat penalties to the seat-penalty sink"
+      ],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/AggregatorSeatMarket.sol"
+      ],
+      "testPaths": ["test/layer1/slotchain/market/AggregatorSeatMarket.t.sol"],
+      "failureBranches": [
+        "stale seat, unmet reserve, non-monotone seat times, unauthorized Settlement wire caller, insolvent custody"
+      ],
+      "limits": [
+        "basis points at most 10000; all uint64 narrowing checked",
+        "design-blocker: contract not yet written"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "deployable.l1.builder-registry",
+      "name": "BuilderRegistry",
+      "aliases": [],
+      "kind": "deployable",
+      "normativeRefs": [
+        "main.tex:sec:schedule",
+        "main.tex:sec:builder-registry-freeze"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "owner-upgradeable",
+      "retentionPolicy": "permanent",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": [
+        "implementation behind a new DAO-owned ERC-1967/UUPS proxy; constructor pins the activator address and the deployment topology (Settlement = Inbox proxy and ScheduleOracle proxy by address; proof verifier and both lifecycle facets by address, runtime hash and configuration hash); one-shot activateRegistryV1() callable only by the activator gates every state-changing entry point through onlyActivatedRegistry",
+        "BRC1 configuration view; Registry owns all state and lease-token custody and dispatches the frozen Seat and Lease lifecycle selector sets with unchanged calldata; topology commitment H(slot-chain-builder-registry-topology-v3 || u16(509) || payload)"
+      ],
+      "sourcePaths": ["contracts/layer1/slotchain/impl/BuilderRegistry.sol"],
+      "testPaths": [
+        "test/layer1/slotchain/registry/BuilderRegistry.t.sol",
+        "test/layer1/slotchain/registry/BuilderEvidence.t.sol",
+        "test/layer1/slotchain/registry/BuilderRegistryInvariant.t.sol"
+      ],
+      "failureBranches": [
+        "inactive registry, unauthorized activator, double activation, non-canonical calldata, stale expectation, invalid proof/witness, invalid timing, ring collision, callback reentry, token delta, evidence replay, insolvent custody",
+        "facet direct call, substitution, code/config/layout drift, unsupported selector, oversized return, revert bubbling"
+      ],
+      "limits": [
+        "runtime<=24576 bytes",
+        "four movements per window, 64 exit rows inspected per call, liability residence strictly below 268 windows",
+        "storage layout pinned by checkBuilderRegistryLayout.ts (53 entries, 9549 bytes, 5b676bdd...02bd); the retained slot-0/1 words stay zero and slot 2 byte 0 is the activation flag",
+        "red: activation ABI, topology and evidence-identity return shape changed in the v3.0 pruning pass; golden vectors and tests were regenerated and must be re-verified"
+      ],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "deployable.l1.builder-registry-seat-facet",
+      "name": "BuilderRegistrySeatLifecycleFacetV1",
+      "aliases": [],
+      "kind": "deployable",
+      "normativeRefs": ["main.tex:sec:builder-registry-freeze"],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "consumer-pinned",
+      "retentionPolicy": "historical",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": [
+        "plain immutable helper pinned by the BuilderRegistry implementation (address, runtime hash and configuration hash); executes only under the Registry's delegatecall context",
+        "BRF1 selector=0x5c19dfed; exact 192-byte kind-1 configuration return; fixed selectors 0x5fc42c69,0xc8f20b55,0x0e1ffc68; common storage layout 5b676bdd...02bd"
+      ],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/BuilderRegistrySeatLifecycleFacetV1.sol"
+      ],
+      "testPaths": ["test/layer1/slotchain/registry/BuilderRegistry.t.sol"],
+      "failureBranches": [
+        "direct call, wrong context, inactive registry, code/config/layout mismatch, unsupported selector, global reentry, oversized returndata"
+      ],
+      "limits": [
+        "runtime<=24576 bytes",
+        "red: the unsupported-selector stub follows the widened EIV1 return shape; shared registry tests were rewritten in the v3.0 pass"
+      ],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "deployable.l1.builder-registry-lease-facet",
+      "name": "BuilderRegistryLeaseLifecycleFacetV1",
+      "aliases": [],
+      "kind": "deployable",
+      "normativeRefs": ["main.tex:sec:builder-registry-freeze"],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "consumer-pinned",
+      "retentionPolicy": "historical",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": [
+        "plain immutable helper pinned by the BuilderRegistry implementation (address, runtime hash and configuration hash); executes only under the Registry's delegatecall context",
+        "BRF1 selector=0x5c19dfed; exact 192-byte kind-2 configuration return; fixed selectors 0x46a53315,0x5e7c8afe,0xf8668bb9,0xe7bae370; common storage layout 5b676bdd...02bd"
+      ],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/BuilderRegistryLeaseLifecycleFacetV1.sol"
+      ],
+      "testPaths": ["test/layer1/slotchain/registry/BuilderRegistry.t.sol"],
+      "failureBranches": [
+        "direct call, wrong context, inactive registry, code/config/layout mismatch, unsupported selector, global reentry, oversized returndata"
+      ],
+      "limits": [
+        "runtime<=24576 bytes",
+        "red: the unsupported-selector stub follows the widened EIV1 return shape; shared registry tests were rewritten in the v3.0 pass"
+      ],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "deployable.l1.builder-registry-proof-verifier",
+      "name": "BuilderRegistryProofVerifierV1",
+      "aliases": [],
+      "kind": "deployable",
+      "normativeRefs": [
+        "main.tex:sec:builder-registry-freeze",
+        "main.tex:sec:encodings"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "consumer-pinned",
+      "retentionPolicy": "historical",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": [
+        "stateless plain immutable helper pinned by the BuilderRegistry implementation; BPV1 selector=0x0d1c9932 with exact 512-byte configuration return",
+        "verifyBuilderRegistryProofV1(bytes) and verifyBuilderEquivocationIdentityV1(uint256,bytes) use canonical ABI with exactly bounded outputs; EIV1 return is 352 bytes and now carries l2ChainId; identity domain slot-chain-builder-equivocation-identity-v2"
+      ],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/BuilderRegistryProofVerifierV1.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/registry/BuilderRegistryProofVerifier.t.sol"
+      ],
+      "failureBranches": [
+        "wrong opcode, request width, padding, proof, configuration, output mask, chain identifier or gas fails closed"
+      ],
+      "limits": [
+        "runtime<=24576 bytes",
+        "red: EIV1 return widened by l2ChainId in the v3.0 pass; golden vectors regenerated and must be re-verified"
+      ],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "deployable.l1.schedule-ssz-multiproof-verifier-v1",
+      "name": "ScheduleSszMultiproofVerifierV1",
+      "aliases": [],
+      "kind": "deployable",
+      "normativeRefs": ["main.tex:sec:schedule"],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": "layer1",
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "not-applicable",
+      "artifactScope": "standalone",
+      "addressReusePolicy": "consumer-pinned",
+      "retentionPolicy": "historical",
+      "reactivationPolicy": "never",
+      "abiOrEncoding": [
+        "plain immutable IScheduleForkVerifierV1 implementation pinned by the ScheduleOracle proxy (address, runtime hash and configuration hash through LibScheduleForkVerifierCallV1)",
+        "scheduleForkVerifierConfigV1() exact configuration return; verifyScheduleCarrierV1 SSZ multiproof verification of beacon carrier fields"
+      ],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/ScheduleSszMultiproofVerifierV1.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/verifier/ScheduleSszMultiproofVerifierV1.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": [
+        "normative width/gas/capacity bounds; expand before review",
+        "red: never verified against the pinned SSZ vectors"
+      ],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.slot-chain-types",
+      "name": "SlotChainTypes",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": [
+        "main.tex:sec:encodings",
+        "main.tex:sec:state",
+        "main.tex:sec:implementation"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "exact v3.0 structs: 8-field CanonicalCoreV2, Canonical, ExecutionOutputsV2 without terminal fields, SettlementStatementV2, kind-0-only ForcedDescriptorRowV2, ForcedKind with the single USER_TRANSACTION member (value 1 reserved), Disposition codes 0-4 and 6 (5 unassigned), signed header, data-session and schedule structs"
+      ],
+      "sourcePaths": ["contracts/shared/slotchain/SlotChainTypes.sol"],
+      "testPaths": [
+        "test/shared/slotchain/libs/LibSlotChainEncoding.t.sol",
+        "test/shared/slotchain/libs/LibSlotChainEvidence.t.sol",
+        "test/shared/slotchain/libs/LibSlotChainTrees.t.sol"
+      ],
+      "failureBranches": [
+        "struct-width, nested-memory-layout, dynamic-tail-offset and descriptor-schema drift"
+      ],
+      "limits": [
+        "every removed v2.28 struct (bridge, migration, terminal, profile, release, registration) is gone rather than reserved",
+        "red: struct set and CanonicalCore/ExecutionOutputs shapes changed in the v3.0 pass"
+      ],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.i-component-config-v2",
+      "name": "IComponentConfigV2",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": ["main.tex:sec:implementation"],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "interface",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "componentConfigHashV2() returns (bytes32); COMPONENT_CONFIG_SELECTOR = 0xf6c0f7d2; exact 32-byte return read through LibExactCall"
+      ],
+      "sourcePaths": [
+        "contracts/shared/slotchain/iface/IComponentConfigV2.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/registry/BuilderRegistry.t.sol",
+        "test/layer1/slotchain/registry/BuilderRegistryProofVerifier.t.sol"
+      ],
+      "failureBranches": [
+        "missing selector, non-32-byte return, dirty padding"
+      ],
+      "limits": [
+        "one word",
+        "red: exercised only indirectly through the registry cluster tests"
+      ],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.i-native-eth-sink-v2",
+      "name": "INativeEthSinkV2",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "main.tex:sec:economics"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "interface",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "receive-only native ETH sink marker interface used by the builder-penalty, data-rent, seat-penalty, forced-expiry and protocol-coinbase sinks"
+      ],
+      "sourcePaths": ["contracts/shared/slotchain/iface/INativeEthSinkV2.sol"],
+      "testPaths": ["test/shared/slotchain/libs/LibExactCall.t.sol"],
+      "failureBranches": [
+        "nonempty calldata is outside the receive-only sink ABI"
+      ],
+      "limits": ["empty-calldata native ETH transfer"],
+      "status": "passing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.lib-canonical-rlp",
+      "name": "LibCanonicalRLP",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": ["main.tex:sec:implementation", "main.tex:sec:blocks"],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "strict canonical RLP header/list decoding used for the frozen arm block header, the activation header (number item 8, stateRoot item 3, timestamp item 11) and MPT nodes"
+      ],
+      "sourcePaths": ["contracts/shared/slotchain/libs/LibCanonicalRLP.sol"],
+      "testPaths": ["test/shared/slotchain/libs/LibCanonicalRLP.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.lib-custody-accounting",
+      "name": "LibCustodyAccounting",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "main.tex:sec:economics"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "reserve plus aggregate pull-credit liabilities are conserved under every accounting transition (ForcedQueue and AggregatorSeatMarket custody)",
+        "checks-effects-interactions claims and surplus sweeps use one shared reentrancy guard"
+      ],
+      "sourcePaths": [
+        "contracts/shared/slotchain/libs/LibCustodyAccounting.sol"
+      ],
+      "testPaths": [
+        "test/shared/slotchain/economics/LibCustodyAccounting.t.sol",
+        "test/shared/slotchain/economics/LibCustodyAccountingInvariant.t.sol"
+      ],
+      "failureBranches": [
+        "underfunded liability, insufficient reserve, zero beneficiary/recipient/sink, recipient revert, caught and uncaught reentry, insolvent balance"
+      ],
+      "limits": [
+        "uint256 liability and balance boundaries",
+        "three stateful invariants over 256 runs and 128000 calls per invariant",
+        "previously reviewed at v2.28; the v3.0 pass only pruned bridge-era comments, so the review pin was dropped rather than re-claimed"
+      ],
+      "status": "passing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.lib-exact-call",
+      "name": "LibExactCall",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": [
+        "main.tex:sec:implementation",
+        "main.tex:sec:l1-resources"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "exact CALL/STATICCALL preflight over target code hash and configuration hash; staticcallExactUnpinned for DAO-owned proxies whose runtime is deliberately not pinned (nonempty code only)",
+        "EIP-150 ceiling plus exact calldata/returndata memory-expansion and post-copy reserve; returndata size checked before bounded copy; word decoders reject dirty ABI padding"
+      ],
+      "sourcePaths": ["contracts/shared/slotchain/libs/LibExactCall.sol"],
+      "testPaths": ["test/shared/slotchain/libs/LibExactCall.t.sol"],
+      "failureBranches": [
+        "zero/no-code target, runtime mismatch, configuration-call failure or malformed return, insufficient caller gas under the EIP-150 preflight, target revert, excessive return length, dirty word padding, out-of-bounds word decode"
+      ],
+      "limits": [
+        "checked gas arithmetic with the exact 63/64 ceiling",
+        "exact expected return length is touched before the call and copied only after equality",
+        "red: staticcallExactUnpinned/requireCode added in the v3.0 pass; the v2.28 review no longer covers the source"
+      ],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.lib-mpt-proof",
+      "name": "LibMptProof",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": ["main.tex:sec:implementation"],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "Merkle-Patricia account/storage inclusion and exclusion proofs over canonical RLP nodes (schedule seal witnesses)"
+      ],
+      "sourcePaths": ["contracts/shared/slotchain/libs/LibMptProof.sol"],
+      "testPaths": ["test/shared/slotchain/libs/LibMptProof.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.lib-slot-chain-constants",
+      "name": "LibSlotChainConstants",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": [
+        "main.tex:sec:parameters",
+        "main.tex:sec:implementation"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "tiers 1-3, reward classes, KIND_USER_TRANSACTION = 0, tree depths (registry 6, admission 11, ranked entry 6, tranche 9, forced 64, data MMR 12, manifest 12), empty roots, KIND0 descriptor 220 / admission 204 bytes, forced-queue configuration preimage 321 bytes, MAX_FORCE_MESSAGE_GAS 5,000,000, MAX_FORCE_MESSAGE_BYTES 131,072, MIN_FORCE_ACCOUNTED_GAS 21,000, candidate/session/data-record caps, COMPONENT_CONFIG_SELECTOR"
+      ],
+      "sourcePaths": [
+        "contracts/shared/slotchain/libs/LibSlotChainConstants.sol"
+      ],
+      "testPaths": ["test/shared/slotchain/libs/LibSlotChainEncoding.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": [
+        "normative width/gas/capacity bounds; expand before review",
+        "red: constants used only by deleted code were dropped in the v3.0 pass"
+      ],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.lib-slot-chain-data-mmr",
+      "name": "LibSlotChainDataMmr",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": ["main.tex:sec:data", "main.tex:sec:encodings"],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "depth-12 data-session Merkle mountain range over exact blob record leaves"
+      ],
+      "sourcePaths": [
+        "contracts/shared/slotchain/libs/LibSlotChainDataMmr.sol"
+      ],
+      "testPaths": ["test/shared/slotchain/libs/LibSlotChainTrees.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.lib-slot-chain-depth64",
+      "name": "LibSlotChainDepth64",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": ["main.tex:sec:encodings"],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "depth-64 append-only Merkle vector and frontier for the forced queue (kind-0 leaves only)"
+      ],
+      "sourcePaths": [
+        "contracts/shared/slotchain/libs/LibSlotChainDepth64.sol"
+      ],
+      "testPaths": ["test/shared/slotchain/libs/LibSlotChainTrees.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": [
+        "normative width/gas/capacity bounds; expand before review",
+        "red: kind-1 leaf helpers removed in the v3.0 pass"
+      ],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.lib-slot-chain-economics",
+      "name": "LibSlotChainEconomics",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": [
+        "main.tex:sec:economics",
+        "main.tex:sec:implementation"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "full-width floor/ceiling multiplication and checked uint64 conversion",
+        "data-session rent, forced-envelope deposit, reward cap/split, reverse-ask improvement, and seat premium formulas"
+      ],
+      "sourcePaths": [
+        "contracts/shared/slotchain/libs/LibSlotChainEconomics.sol"
+      ],
+      "testPaths": [
+        "test/shared/slotchain/economics/LibSlotChainEconomics.t.sol"
+      ],
+      "failureBranches": [
+        "zero divisor, 512-bit quotient overflow, upward-round overflow, multiplication/addition overflow, invalid BPS, deposit above cap, and nonmonotonic seat times"
+      ],
+      "limits": [
+        "basis points at most 10000",
+        "all narrowing to uint64 is explicit and checked",
+        "fuzzed full-width multiplication agrees with an independent OpenZeppelin Math oracle"
+      ],
+      "status": "reviewed",
+      "reviewedSourceHashes": {
+        "contracts/shared/slotchain/libs/LibSlotChainEconomics.sol": "0x25b3a72f8edad4c0cf7e4b9b2b06c4f8f9165e050900d88acddf5bc4aa0646c1"
+      },
+      "reviewedTestHashes": {
+        "test/shared/slotchain/economics/LibSlotChainEconomics.t.sol": "0xb68a91bde9d285536e88152966943e6ccac6e2c24699204ecd41a6f9511662a6"
+      }
+    },
+    {
+      "id": "primitive.lib-slot-chain-encoding",
+      "name": "LibSlotChainEncoding",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": [
+        "main.tex:sec:encodings",
+        "main.tex:sec:signed-header",
+        "main.tex:sec:blocks"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "hashCanonicalCore over the 8-field core; hashExecutionOutputs with domain slot-chain-outputs-v3; hashForcedDescriptorSchema = H(slot-chain-force-descriptor-schema-v12); kind-0-only hashForcedDescriptorList/_writeForcedRow; hashSettlementStatement with schema string slot-chain-settlement-validity-public-input-schema-v3",
+        "kind-0 220-byte descriptor / 204-byte admission body, leaf domain slot-chain-force-user-v2, the 321-byte ForcedQueue configuration preimage, signed-header EIP-712 tuple and TYPEHASH (unchanged field set), data-session and manifest leaves"
+      ],
+      "sourcePaths": [
+        "contracts/shared/slotchain/libs/LibSlotChainEncoding.sol"
+      ],
+      "testPaths": ["test/shared/slotchain/libs/LibSlotChainEncoding.t.sol"],
+      "failureBranches": [
+        "width, padding, ordering, domain and schema drift against the Python commitment model golden vectors"
+      ],
+      "limits": [
+        "every dynamic input is exactly bounded",
+        "red: every kind-1/bridge/migration/terminal/disposition encoder was deleted and the surviving domains were re-versioned in the v3.0 pass"
+      ],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.lib-slot-chain-evidence",
+      "name": "LibSlotChainEvidence",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": ["main.tex:sec:signed-header", "main.tex:sec:economics"],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "canonical 2,366-byte builder equivocation evidence, pair-equal chain/verifying-contract/l2ChainId checks and the identity commitment consumed by BuilderRegistryProofVerifierV1"
+      ],
+      "sourcePaths": [
+        "contracts/shared/slotchain/libs/LibSlotChainEvidence.sol"
+      ],
+      "testPaths": ["test/shared/slotchain/libs/LibSlotChainEvidence.t.sol"],
+      "failureBranches": [
+        "short/long evidence, mismatched pair fields, zero chain identifiers, non-canonical signatures"
+      ],
+      "limits": [
+        "exact evidence width",
+        "red: l2ChainId binding added in the v3.0 pass"
+      ],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.lib-slot-chain-fixed-trees",
+      "name": "LibSlotChainFixedTrees",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": ["main.tex:sec:encodings", "main.tex:sec:schedule"],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "fixed-depth registry (6), admission (11), ranked-entry (6) and tranche (9) trees with pinned empty roots"
+      ],
+      "sourcePaths": [
+        "contracts/shared/slotchain/libs/LibSlotChainFixedTrees.sol"
+      ],
+      "testPaths": ["test/shared/slotchain/libs/LibSlotChainTrees.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.lib-slot-chain-l1-resources",
+      "name": "LibSlotChainL1Resources",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": ["main.tex:sec:l1-resources"],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "EIP-7623 calldata tokens and floor, 21,000 base gas, checked ceil(1.30x) margin, min(supportedL1BlockGasLimit, 16,777,216) transaction cap, and the full-stipend EIP-150 call-sequence lower bound"
+      ],
+      "sourcePaths": [
+        "contracts/shared/slotchain/libs/LibSlotChainL1Resources.sol"
+      ],
+      "testPaths": ["test/shared/slotchain/libs/LibSlotChainL1Resources.t.sol"],
+      "failureBranches": [
+        "uint64 overflow of any intermediate, zero call stipend, zero supported block gas limit, and a budget whose margin exceeds the transaction cap"
+      ],
+      "limits": [
+        "all quantities fit uint64",
+        "bounds are necessary lower bounds on a compiled certificate, never measurements"
+      ],
+      "status": "passing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.lib-slot-chain-manifest-tree",
+      "name": "LibSlotChainManifestTree",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": ["main.tex:sec:data", "main.tex:sec:encodings"],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "depth-12 blob manifest tree over at most MAX_MANIFEST_ENTRIES = 2100 entries"
+      ],
+      "sourcePaths": [
+        "contracts/shared/slotchain/libs/LibSlotChainManifestTree.sol"
+      ],
+      "testPaths": ["test/shared/slotchain/libs/LibSlotChainTrees.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.lib-slot-chain-signatures",
+      "name": "LibSlotChainSignatures",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": [
+        "main.tex:sec:signed-header",
+        "main.tex:sec:implementation"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "shared",
+      "allowedConsumerProfiles": ["shared", "layer1", "layer2"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "exact 65-byte r||s||v signature and offset slice",
+        "canonical v in {27,28}, nonzero r/s, and low-s secp256k1 recovery"
+      ],
+      "sourcePaths": [
+        "contracts/shared/slotchain/libs/LibSlotChainSignatures.sol"
+      ],
+      "testPaths": ["test/shared/slotchain/libs/LibSlotChainSignatures.t.sol"],
+      "failureBranches": [
+        "short, trailing, EIP-2098, out-of-bounds, zero-scalar, high-s, noncanonical-v, zero-recovery, and signer-mismatch signatures"
+      ],
+      "limits": [
+        "signature length 65 bytes; secp256k1 half-order inclusive maximum",
+        "previously reviewed at v2.28 with an unchanged source; the test file lost profile-era cases in the v3.0 pass, so the review pin was dropped rather than re-claimed"
+      ],
+      "status": "passing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.i-builder-registry",
+      "name": "IBuilderRegistry",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": [
+        "main.tex:sec:schedule",
+        "main.tex:sec:builder-registry-freeze"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "interface",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "exact BRC1, ADS1, BRS1, BRG1, BRV1, BRE1, BRM1, BRN1, BTR1, BGR1, BCL1, BEV1 and RCV1 Registry ABI; the IProtocolRootActivationV1 surface is replaced by the constructor-pinned activator and activateRegistryV1()"
+      ],
+      "sourcePaths": ["contracts/layer1/slotchain/iface/IBuilderRegistry.sol"],
+      "testPaths": [
+        "test/layer1/slotchain/registry/BuilderRegistry.t.sol",
+        "test/layer1/slotchain/registry/BuilderEvidence.t.sol",
+        "test/layer1/slotchain/registry/BuilderRegistryInvariant.t.sol"
+      ],
+      "failureBranches": [
+        "non-canonical calldata, stale expectation, invalid witness, timing, custody, evidence, reentry and inactive-registry branches"
+      ],
+      "limits": [
+        "all dynamic inputs and outputs are exactly bounded",
+        "red: activation ABI changed in the v3.0 pass"
+      ],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.i-builder-registry-lifecycle-facet-v1",
+      "name": "IBuilderRegistryLifecycleFacetV1",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": ["main.tex:sec:builder-registry-freeze"],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "interface",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "exact BRF1 facet configuration plus the frozen Registry selector union"
+      ],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/iface/IBuilderRegistryLifecycleFacetV1.sol"
+      ],
+      "testPaths": ["test/layer1/slotchain/registry/BuilderRegistry.t.sol"],
+      "failureBranches": [
+        "wrong facet kind, selector set, layout, configuration, direct call, or unsupported selector rejects"
+      ],
+      "limits": ["BRF1 return is exactly 192 bytes"],
+      "status": "passing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.i-builder-registry-proof-verifier-v1",
+      "name": "IBuilderRegistryProofVerifierV1",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": ["main.tex:sec:builder-registry-freeze"],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "interface",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "exact BPV1, BPO1 and EIV1 verifier ABI with bounded byte requests; verifyBuilderEquivocationIdentityV1 returns l2ChainId_ (exact 2,468-byte calldata, 352-byte return)"
+      ],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/iface/IBuilderRegistryProofVerifierV1.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/registry/BuilderRegistryProofVerifier.t.sol"
+      ],
+      "failureBranches": [
+        "wrong request width, opcode, proof, padding, identity, output mask, chain identifier or configuration rejects"
+      ],
+      "limits": [
+        "all verifier requests and outputs are exactly bounded",
+        "red: EIV1 return widened in the v3.0 pass"
+      ],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.builder-registry-storage-v1",
+      "name": "BuilderRegistryStorageV1",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": ["main.tex:sec:builder-registry-freeze"],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "abstract-base",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "frozen 53-entry Registry storage prefix shared byte-for-byte by the Registry and both lifecycle facets; slots 0-1 are retained always-zero words and slot 2 byte 0 is the one-shot activation flag"
+      ],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/impl/BuilderRegistryStorageV1.sol"
+      ],
+      "testPaths": ["test/layer1/slotchain/registry/BuilderRegistry.t.sol"],
+      "failureBranches": [
+        "any storage order, type, offset, or reachable-type drift fails checkBuilderRegistryLayout.ts"
+      ],
+      "limits": [
+        "canonical normalized layout is exactly 9549 bytes and hashes to 5b676bdd...02bd"
+      ],
+      "status": "passing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.lib-builder-registry",
+      "name": "LibBuilderRegistry",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": [
+        "main.tex:sec:schedule",
+        "main.tex:sec:builder-registry-freeze"
+      ],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "Registry generation/location accounting, exact packed reads, hashes, fixed lifecycle bounds and the 509-byte topology commitment H(slot-chain-builder-registry-topology-v3 || u16(509) || payload) pinning the Settlement and ScheduleOracle proxies by address and the plain helpers by address, runtime and configuration hash"
+      ],
+      "sourcePaths": ["contracts/layer1/slotchain/libs/LibBuilderRegistry.sol"],
+      "testPaths": [
+        "test/layer1/slotchain/registry/BuilderRegistry.t.sol",
+        "test/layer1/slotchain/registry/BuilderRegistryInvariant.t.sol"
+      ],
+      "failureBranches": [
+        "packed read bounds, popcount, location, liability residence, accounting, and hash drift"
+      ],
+      "limits": [
+        "17-window reservation horizon, four movements per window, and 268-window liability ring capacity",
+        "red: topology preimage rewritten in the v3.0 pass"
+      ],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.i-schedule-fork-verifier-v1",
+      "name": "IScheduleForkVerifierV1",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": ["main.tex:sec:schedule"],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "interface",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "scheduleForkVerifierConfigV1() exact configuration return and verifyScheduleCarrierV1(...) beacon-carrier verification route implemented by ScheduleSszMultiproofVerifierV1 and any future fork verifier"
+      ],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/iface/IScheduleForkVerifierV1.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/verifier/ScheduleSszMultiproofVerifierV1.t.sol",
+        "test/layer1/slotchain/libs/LibScheduleForkVerifierCallV1.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.lib-history-proof",
+      "name": "LibHistoryProof",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": ["main.tex:sec:blocks", "main.tex:sec:machine"],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "exact bounded reads of the L1 EIP-2935 history contract and EIP-4788 beacon-roots contract with strict RLP header parsing for arm-block and carrier authentication"
+      ],
+      "sourcePaths": ["contracts/layer1/slotchain/libs/LibHistoryProof.sol"],
+      "testPaths": ["test/layer1/slotchain/history/LibHistoryProof.t.sol"],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.lib-schedule-fork-verifier-call-v1",
+      "name": "LibScheduleForkVerifierCallV1",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": ["main.tex:sec:schedule"],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "exact STATICCALL route (address, runtime hash, configuration hash) to an IScheduleForkVerifierV1 with bounded request/return widths"
+      ],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/libs/LibScheduleForkVerifierCallV1.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/libs/LibScheduleForkVerifierCallV1.t.sol",
+        "test/layer1/slotchain/libs/LibScheduleSnapshotEvaluatorV1.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": ["normative width/gas/capacity bounds; expand before review"],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.lib-schedule-seal-witness-v1",
+      "name": "LibScheduleSealWitnessV1",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": ["main.tex:sec:schedule"],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "MPT storage witnesses over the sealed Registry header and root slots (builder_registry_header/root trie keys) at an authenticated L1 state root"
+      ],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/libs/LibScheduleSealWitnessV1.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/libs/LibScheduleSealWitnessV1.t.sol",
+        "test/layer1/slotchain/libs/LibScheduleSnapshotEvaluatorV1.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": [
+        "normative width/gas/capacity bounds; expand before review",
+        "red: profile-derived parameters removed in the v3.0 pass"
+      ],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.lib-schedule-snapshot-evaluator-v1",
+      "name": "LibScheduleSnapshotEvaluatorV1",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": ["main.tex:sec:schedule"],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "bond-weighted capped D'Hondt lookahead over a sealed snapshot; deterministic ranked-entry and tranche roots"
+      ],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/libs/LibScheduleSnapshotEvaluatorV1.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/libs/LibScheduleSnapshotEvaluatorV1.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": [
+        "normative width/gas/capacity bounds; expand before review",
+        "red: profile-derived parameters removed in the v3.0 pass"
+      ],
+      "status": "red",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.i-settlement-validity-verifier-v2",
+      "name": "ISettlementValidityVerifierV2",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": ["main.tex:sec:blocks", "main.tex:sec:machine"],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "interface",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "verify(bytes proof, uint256[2] publicInputs) selector 0x8c6cb224 with exact 32-byte result over the SettlementStatementV2 public-input schema v3"
+      ],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/iface/ISettlementValidityVerifierV2.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/verifier/SettlementValidityVerifierCallV2.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": [
+        "proof<=65536 bytes",
+        "design-blocker: interface not yet written"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "primitive.lib-settlement-validity-verifier-call-v2",
+      "name": "LibSettlementValidityVerifierCallV2",
+      "aliases": [],
+      "kind": "source-inline",
+      "normativeRefs": ["main.tex:sec:blocks", "main.tex:sec:l1-resources"],
+      "provenance": "pr-owned",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": "layer1",
+      "allowedConsumerProfiles": ["layer1"],
+      "sourceKind": "internal-library",
+      "artifactScope": "source-inline",
+      "addressReusePolicy": "not-applicable",
+      "retentionPolicy": "source-inline",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "exact bounded STATICCALL to the pinned settlement validity verifier (runtime hash, configuration hash, proof size, call gas, post-copy reserve)"
+      ],
+      "sourcePaths": [
+        "contracts/layer1/slotchain/libs/LibSettlementValidityVerifierCallV2.sol"
+      ],
+      "testPaths": [
+        "test/layer1/slotchain/verifier/SettlementValidityVerifierCallV2.t.sol"
+      ],
+      "failureBranches": [
+        "authority/code/configuration/replay/fault branches; expand before review"
+      ],
+      "limits": [
+        "proof<=65536 bytes; fixed-precompile STATICCALL only",
+        "design-blocker: library not yet written"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "dependency.eip4788-beacon-roots-l1",
+      "name": "EIP-4788 beacon-roots contract (L1)",
+      "aliases": [],
+      "kind": "external-dependency",
+      "normativeRefs": ["main.tex:sec:schedule", "main.tex:sec:blocks"],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "canonical EIP-4788 contract at 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02; get(timestamp) beacon-root reads for ScheduleOracle carrier/parent authentication"
+      ],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/slotchain/dependencies/eip4788-beacon-roots-l1.t.sol"
+      ],
+      "failureBranches": [
+        "absent or replaced system contract, ring-buffer eviction after 8191 slots, non-32-byte return"
+      ],
+      "limits": [
+        "must not be fabricated by PR #22139; the dependency test pins identity, interface and provenance"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "dependency.eip4788-beacon-roots-l2",
+      "name": "EIP-4788 beacon-roots contract (L2)",
+      "aliases": [],
+      "kind": "external-dependency",
+      "normativeRefs": ["main.tex:sec:blocks"],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "canonical EIP-4788 contract deployed on L2 as a #22147 prerequisite; the standard pre-execution call records parentBeaconBlockRoot = anchorHash keyed by the L2 block timestamp (ring of 8191 slots) for SignalService.revealCheckpoint"
+      ],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/slotchain/dependencies/eip4788-beacon-roots-l2.t.sol"
+      ],
+      "failureBranches": [
+        "contract absent on L2, anchor hash evicted before reveal (CHECKPOINT_REVEAL_WINDOW_SECONDS = 8191), zero parentBeaconBlockRoot"
+      ],
+      "limits": [
+        "must not be fabricated by PR #22139; the dependency test pins identity, interface and provenance",
+        "a revealed checkpoint is permanent; relayers must reveal within the ring window"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "dependency.eip2935-l1-history-carrier",
+      "name": "EIP-2935 block-hash history contract (L1)",
+      "aliases": [],
+      "kind": "external-dependency",
+      "normativeRefs": ["main.tex:sec:blocks", "main.tex:sec:machine"],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "canonical EIP-2935 contract at 0x0000F90827F1C53a10cb7A02335B175320002935; frozen arm-block hash lookup beyond the 256-block BLOCKHASH window"
+      ],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/slotchain/dependencies/eip2935-l1-history-carrier.t.sol"
+      ],
+      "failureBranches": [
+        "absent or replaced system contract, out-of-window block number, non-32-byte return"
+      ],
+      "limits": [
+        "must not be fabricated by PR #22139; the dependency test pins identity, interface and provenance"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "dependency.eip2935-l2-history-carrier",
+      "name": "EIP-2935 block-hash history contract (L2)",
+      "aliases": [],
+      "kind": "external-dependency",
+      "normativeRefs": ["main.tex:sec:blocks"],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "canonical EIP-2935 contract deployed on L2 as a #22147 prerequisite; L2 header preimage availability for revealCheckpoint tooling"
+      ],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/slotchain/dependencies/eip2935-l2-history-carrier.t.sol"
+      ],
+      "failureBranches": ["contract absent on L2, out-of-window block number"],
+      "limits": [
+        "must not be fabricated by PR #22139; the dependency test pins identity, interface and provenance"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "dependency.eip4844-point-evaluation-precompile",
+      "name": "EIP-4844 point-evaluation precompile",
+      "aliases": [],
+      "kind": "external-dependency",
+      "normativeRefs": ["main.tex:sec:data"],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "precompile 0x0a; KZG point evaluation for blob data-session authentication"
+      ],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/slotchain/dependencies/eip4844-point-evaluation-precompile.t.sol"
+      ],
+      "failureBranches": [
+        "invalid versioned hash, proof, or field element; precompile absent"
+      ],
+      "limits": [
+        "must not be fabricated by PR #22139; the dependency test pins identity, interface and provenance"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "dependency.settlement-validity-verifier",
+      "name": "Settlement validity verifier",
+      "aliases": ["SettlementValidityVerifierV2"],
+      "kind": "external-dependency",
+      "normativeRefs": [
+        "main.tex:sec:blocks",
+        "main.tex:sec:machine",
+        "main.tex:sec:trust"
+      ],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "verify(bytes,uint256[2]) selector 0x8c6cb224; exact 32-byte result; public inputs bound to SettlementStatementV2 under schema slot-chain-settlement-validity-public-input-schema-v3 (terminalRoot/terminalCount removed)"
+      ],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/slotchain/dependencies/settlement-validity-verifier.t.sol"
+      ],
+      "failureBranches": [
+        "runtime/configuration/key/policy/schema/selector/proof-size/call-gas/post-reserve/returndata mismatch"
+      ],
+      "limits": [
+        "one state-independent verifier for tiers 1-3; proof<=65536; fixed-precompile STATICCALL only",
+        "must not be fabricated by PR #22139; the dependency test pins identity, interface and provenance"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "dependency.builder-lease-erc20",
+      "name": "Builder lease ERC-20 token",
+      "aliases": [],
+      "kind": "external-dependency",
+      "normativeRefs": ["main.tex:sec:schedule", "main.tex:sec:economics"],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "ERC-20 with pinned runtime hash and decimals held in Registry custody for builder leases and bonds"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/builder-lease-erc20.t.sol"],
+      "failureBranches": [
+        "non-exact transfer deltas, fee-on-transfer, rebasing, or blocklisted transfers reject"
+      ],
+      "limits": [
+        "must not be fabricated by PR #22139; the dependency test pins identity, interface and provenance"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "dependency.l1-inbox-proxy",
+      "name": "Existing L1 Inbox proxy",
+      "aliases": [],
+      "kind": "external-dependency",
+      "normativeRefs": ["main.tex:sec:trust", "main.tex:sec:machine"],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "the existing ERC-1967 Inbox proxy whose implementation the DAO upgrades to SlotChainInbox in place; its address is the L1 SignalService _authorizedSyncer, the ForcedQueue's Settlement immutable and the BuilderRegistry topology settlement address"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/l1-inbox-proxy.t.sol"],
+      "failureBranches": [
+        "proxy owner other than the DAO controller, V1 state not drained before activateSlotChainV1"
+      ],
+      "limits": [
+        "V1 storage slots 251-257 preserved; the DAO may reinstall V1 at any time before activation",
+        "must not be fabricated by PR #22139; the dependency test pins identity, interface and provenance"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "dependency.l1-signal-service-proxy",
+      "name": "Existing L1 SignalService proxy",
+      "aliases": [],
+      "kind": "external-dependency",
+      "normativeRefs": ["main.tex:sec:trust", "main.tex:sec:state"],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "existing proxy, unchanged; saveCheckpoint(Checkpoint{uint48 blockNumber, bytes32 blockHash, bytes32 stateRoot}) callable by its immutable _authorizedSyncer (the Inbox proxy) and not pause-gated; L1 -> L2 signals written by Bridge.sendMessage"
+      ],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/slotchain/dependencies/l1-signal-service-proxy.t.sol"
+      ],
+      "failureBranches": [
+        "saveCheckpoint revert rolls back the canonical commit; non-syncer caller"
+      ],
+      "limits": [
+        "keyed by uint48 L2 block number",
+        "must not be fabricated by PR #22139; the dependency test pins identity, interface and provenance"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "dependency.l1-bridge-proxy",
+      "name": "Existing L1 Bridge proxy",
+      "aliases": [],
+      "kind": "external-dependency",
+      "normativeRefs": ["main.tex:sec:trust"],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "existing proxy, unchanged; sendMessage/processMessage with HopProof/LibTrieProof against SignalService checkpoints; existing guardian pause, QuotaManager and relayer fee model apply"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/l1-bridge-proxy.t.sol"],
+      "failureBranches": ["paused bridge, quota exceeded, invalid hop proof"],
+      "limits": [
+        "Slot Chain adds no pause-independent exit path",
+        "must not be fabricated by PR #22139; the dependency test pins identity, interface and provenance"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "dependency.l1-token-vault-proxies",
+      "name": "Existing L1 ERC20/ERC721/ERC1155 vault proxies",
+      "aliases": [],
+      "kind": "external-dependency",
+      "normativeRefs": ["main.tex:sec:trust"],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "existing proxies, unchanged; custody stays with the existing vaults"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/l1-token-vault-proxies.t.sol"],
+      "failureBranches": ["vault pause or quota rejection"],
+      "limits": [
+        "must not be fabricated by PR #22139; the dependency test pins identity, interface and provenance"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "dependency.l2-signal-service-proxy",
+      "name": "Existing L2 SignalService proxy (with revealCheckpoint)",
+      "aliases": [],
+      "kind": "external-dependency",
+      "normativeRefs": ["main.tex:sec:blocks", "main.tex:sec:trust"],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "existing proxy carrying the permissionless #22147 revealCheckpoint(uint64 l2Timestamp, bytes headerRlp) that persists Checkpoint{number, hash, stateRoot} from the EIP-4788 ring (keccak(headerRlp) == recorded hash; stateRoot = RLP item 3; number = RLP item 8)"
+      ],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/slotchain/dependencies/l2-signal-service-proxy.t.sol"
+      ],
+      "failureBranches": [
+        "header preimage mismatch, evicted ring slot, malformed RLP"
+      ],
+      "limits": [
+        "no Slot Chain-specific change",
+        "must not be fabricated by PR #22139; the dependency test pins identity, interface and provenance"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "dependency.l2-bridge-proxy",
+      "name": "Existing L2 Bridge proxy",
+      "aliases": [],
+      "kind": "external-dependency",
+      "normativeRefs": ["main.tex:sec:trust"],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "existing proxy, unchanged; processMessage(message, proof) against revealed checkpoints; a censored user force-includes processMessage (or revealCheckpoint + processMessage) through the kind-0 forced queue"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/l2-bridge-proxy.t.sol"],
+      "failureBranches": ["paused bridge, quota exceeded, invalid hop proof"],
+      "limits": [
+        "Slot Chain adds no pause-independent delivery path",
+        "must not be fabricated by PR #22139; the dependency test pins identity, interface and provenance"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "dependency.l2-token-vault-proxies",
+      "name": "Existing L2 ERC20/ERC721/ERC1155 vault proxies",
+      "aliases": [],
+      "kind": "external-dependency",
+      "normativeRefs": ["main.tex:sec:trust"],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": ["existing proxies, unchanged"],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/l2-token-vault-proxies.t.sol"],
+      "failureBranches": ["vault pause or quota rejection"],
+      "limits": [
+        "must not be fabricated by PR #22139; the dependency test pins identity, interface and provenance"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "dependency.l1-dao-controller",
+      "name": "L1 DAO controller (owner)",
+      "aliases": [],
+      "kind": "external-dependency",
+      "normativeRefs": ["main.tex:sec:trust"],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "controller.taiko.eth; Ownable2Step owner of the Inbox, ForcedQueue, BuilderRegistry, ScheduleOracle and AggregatorSeatMarket proxies; upgrades go through the DAO's existing delayed governance"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/l1-dao-controller.t.sol"],
+      "failureBranches": [
+        "non-owner upgrade, owner transfer without acceptance"
+      ],
+      "limits": [
+        "the DAO is the safety root already able to install arbitrary code; Slot Chain adds no stronger or weaker writer",
+        "must not be fabricated by PR #22139; the dependency test pins identity, interface and provenance"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "dependency.l2-delegate-controller",
+      "name": "L2 DelegateController (owner)",
+      "aliases": [],
+      "kind": "external-dependency",
+      "normativeRefs": ["main.tex:sec:trust"],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "existing owner of the L2 SignalService, Bridge, vault and Anchor proxies; no Slot Chain-specific action"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/l2-delegate-controller.t.sol"],
+      "failureBranches": ["non-owner upgrade"],
+      "limits": [
+        "there are no new L2 contracts",
+        "must not be fabricated by PR #22139; the dependency test pins identity, interface and provenance"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "dependency.future-schedule-fork-verifier",
+      "name": "Future beacon-fork schedule verifier",
+      "aliases": [],
+      "kind": "external-dependency",
+      "normativeRefs": ["main.tex:sec:schedule"],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "any later IScheduleForkVerifierV1 implementation pinned by the ScheduleOracle proxy owner for a new beacon SSZ layout"
+      ],
+      "sourcePaths": [],
+      "testPaths": [
+        "test/slotchain/dependencies/future-schedule-fork-verifier.t.sol"
+      ],
+      "failureBranches": [
+        "runtime/configuration mismatch against the pinned route"
+      ],
+      "limits": [
+        "must not be fabricated by PR #22139; the dependency test pins identity, interface and provenance"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "dependency.builder-penalty-sink",
+      "name": "builder-penalty-sink",
+      "aliases": [],
+      "kind": "external-dependency",
+      "normativeRefs": ["main.tex:sec:economics"],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "INativeEthSinkV2 receive-only native ETH sink; receives slashed builder bonds from the BuilderRegistry"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/builder-penalty-sink.t.sol"],
+      "failureBranches": ["sink revert or nonempty-calldata call"],
+      "limits": [
+        "must not be fabricated by PR #22139; the dependency test pins identity, interface and provenance"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "dependency.data-rent-sink",
+      "name": "data-rent-sink",
+      "aliases": [],
+      "kind": "external-dependency",
+      "normativeRefs": ["main.tex:sec:economics"],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "INativeEthSinkV2 receive-only native ETH sink; receives data-session rent from the Settlement"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/data-rent-sink.t.sol"],
+      "failureBranches": ["sink revert or nonempty-calldata call"],
+      "limits": [
+        "must not be fabricated by PR #22139; the dependency test pins identity, interface and provenance"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "dependency.seat-penalty-sink",
+      "name": "seat-penalty-sink",
+      "aliases": [],
+      "kind": "external-dependency",
+      "normativeRefs": ["main.tex:sec:economics"],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "INativeEthSinkV2 receive-only native ETH sink; receives aggregator seat penalties from the AggregatorSeatMarket"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/seat-penalty-sink.t.sol"],
+      "failureBranches": ["sink revert or nonempty-calldata call"],
+      "limits": [
+        "must not be fabricated by PR #22139; the dependency test pins identity, interface and provenance"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "dependency.forced-expiry-sink",
+      "name": "forced-expiry-sink",
+      "aliases": [],
+      "kind": "external-dependency",
+      "normativeRefs": ["main.tex:sec:economics"],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "INativeEthSinkV2 receive-only native ETH sink; receives forfeited deposits of expired forced transactions from the ForcedQueue"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/forced-expiry-sink.t.sol"],
+      "failureBranches": ["sink revert or nonempty-calldata call"],
+      "limits": [
+        "must not be fabricated by PR #22139; the dependency test pins identity, interface and provenance"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    },
+    {
+      "id": "dependency.protocol-coinbase-sink",
+      "name": "protocol-coinbase-sink",
+      "aliases": [],
+      "kind": "external-dependency",
+      "normativeRefs": ["main.tex:sec:economics"],
+      "provenance": "external",
+      "artifactOwnerProfile": null,
+      "canonicalSourceRoot": null,
+      "allowedConsumerProfiles": [],
+      "sourceKind": "not-applicable",
+      "artifactScope": "external",
+      "addressReusePolicy": "external",
+      "retentionPolicy": "external",
+      "reactivationPolicy": "not-applicable",
+      "abiOrEncoding": [
+        "INativeEthSinkV2 receive-only native ETH sink; the coinbase of every tier-3 escape block and the protocol's share of L2 fees"
+      ],
+      "sourcePaths": [],
+      "testPaths": ["test/slotchain/dependencies/protocol-coinbase-sink.t.sol"],
+      "failureBranches": ["sink revert or nonempty-calldata call"],
+      "limits": [
+        "must not be fabricated by PR #22139; the dependency test pins identity, interface and provenance"
+      ],
+      "status": "missing",
+      "reviewedSourceHashes": {},
+      "reviewedTestHashes": {}
+    }
+  ]
+}

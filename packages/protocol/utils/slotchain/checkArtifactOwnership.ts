@@ -904,7 +904,13 @@ function validateManifest(
         fail("MALFORMED_MANIFEST", "manifest must be an object");
     assertKeys(
         manifest as unknown as Record<string, unknown>,
-        ["schemaVersion", "slotChainPathSegment", "profiles", "modules", "usages"],
+        [
+            "schemaVersion",
+            "slotChainPathSegment",
+            "profiles",
+            "modules",
+            "usages",
+        ],
         "manifest",
     );
     if (manifest.schemaVersion !== MANIFEST_SCHEMA_VERSION) {

@@ -31,6 +31,7 @@
     "genesis:test": "./test/genesis/genesis.test.sh",
     "export:simconf": "mkdir -p simulation/out && FOUNDRY_PROFILE=layer2 forge test --match-test 'test_L2_NoFeeCheck_simulation' -vv > simulation/out/simconf_$(date +%s).txt",
     "slotchain:artifact-owner:check": "pnpm compile:shared && pnpm compile:l1 && pnpm compile:l2 && ts-node --project integration/slotchain/tsconfig.json utils/slotchain/checkArtifactOwnership.ts",
+    "slotchain:artifact-owner:write": "pnpm compile:shared && pnpm compile:l1 && pnpm compile:l2 && ts-node --project integration/slotchain/tsconfig.json utils/slotchain/checkArtifactOwnership.ts --write",
     "slotchain:artifact-owner:test": "ts-node --project integration/slotchain/tsconfig.json integration/slotchain/artifact-ownership.test.ts && ts-node --project integration/slotchain/tsconfig.json integration/slotchain/shared-artifact-consumption.test.ts",
     "slotchain:builder-registry-layout:check": "ts-node --project integration/slotchain/tsconfig.json utils/slotchain/checkBuilderRegistryLayout.ts",
     "slotchain:builder-registry-layout:test": "ts-node --project integration/slotchain/tsconfig.json integration/slotchain/builder-registry-layout.test.ts",
