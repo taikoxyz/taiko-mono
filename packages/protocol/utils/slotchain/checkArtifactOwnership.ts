@@ -1,3 +1,41 @@
+/**
+ * Slot Chain artifact-ownership checker (v3.0 design).
+ *
+ * Every Solidity source under a `/slotchain/` path segment must be classified in
+ * `artifact-ownership.json` as either
+ *
+ *   - `source-inline`: an interface, internal library, abstract base or free
+ *     definitions that every consuming Foundry profile recompiles in place, or
+ *   - `artifact-owned`: a concrete contract compiled by exactly one owner profile
+ *     whose JSON artifact other profiles may consume as bytecode or through an
+ *     ABI interface.
+ *
+ * The checker pins the source, ABI, creation/runtime bytecode, link-reference
+ * and immutable-reference hashes of every module against the `out/<profile>`
+ * artifacts and the solc build-info of the last `forge build`, and it verifies
+ * that the `default`, `genesis` and `layer1o` profiles never compile Slot Chain
+ * sources.
+ *
+ * Deployment semantics follow the v3.0 governance model: production contracts
+ * are either implementations installed behind a DAO-owned ERC-1967/UUPS proxy
+ * (`proxy-implementation`) or plain immutable helper contracts pinned by such
+ * an implementation (`plain-create`). There is no frozen root cohort, CREATE3
+ * role derivation or ERC-2470 factory dependency any more.
+ *
+ * Regenerating the manifest after a Solidity change (single command, run from
+ * `packages/protocol`):
+ *
+ *     pnpm slotchain:artifact-owner:write
+ *
+ * which is `pnpm compile:shared && pnpm compile:l1 && pnpm compile:l2 &&
+ * ts-node --project integration/slotchain/tsconfig.json
+ * utils/slotchain/checkArtifactOwnership.ts --write`. The write mode keeps every
+ * existing classification, refreshes all hashes from the fresh build, prunes
+ * modules whose source no longer exists, classifies new test-only contracts
+ * automatically and refuses to guess deployment semantics for new production
+ * contracts (classify those by hand, then rerun). It validates the result
+ * before writing.
+ */
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
@@ -18,25 +56,33 @@ export type SourceInlineKind =
     | "abstract-base"
     | "free-definitions";
 export type ConsumptionMode = "abi-interface" | "raw-creation-bytecode";
+/**
+ * How a concrete contract reaches the chain.
+ *  - `direct-create-test`: test-only harness/mock created by a Foundry test.
+ *  - `proxy-implementation`: implementation installed behind a DAO-owned
+ *    ERC-1967/UUPS proxy (`EssentialContract` pattern); the owner may replace it.
+ *  - `plain-create`: plain immutable helper deployed with ordinary CREATE and
+ *    pinned by a proxy implementation (constructor immutable or owner-set
+ *    configuration).
+ */
 export type FactoryClass =
     | "direct-create-test"
-    | "erc-2470-singleton"
-    | "protocol-root-source-factory"
-    | "root-create3-helper"
-    | "root-one-shot-create";
+    | "proxy-implementation"
+    | "plain-create";
 export type LifecycleScope = "test-only";
-export type ArtifactScope = "test-only" | "root-cohort" | "standalone";
+export type ArtifactScope = "test-only" | "standalone";
+/**
+ *  - `owner-upgradeable`: the proxy address is permanent while the DAO owner may
+ *    replace the implementation through the existing delayed governance.
+ *  - `consumer-pinned`: the helper address is pinned by its consumer and is
+ *    replaced only together with a consumer upgrade.
+ */
 export type AddressReusePolicy =
     | "test-only"
-    | "protocol-lifetime"
-    | "campaign-role-helper"
-    | "fresh-per-release"
-    | "interval-scoped";
-export type RetentionPolicy =
-    | "test-only"
-    | "permanent"
-    | "ephemeral-inert"
-    | "historical";
+    | "owner-upgradeable"
+    | "consumer-pinned";
+/** A superseded implementation or helper stays on chain but inert. */
+export type RetentionPolicy = "test-only" | "historical";
 
 export interface OwnershipProfile {
     out: string;
@@ -107,20 +153,18 @@ export interface ArtifactUsage {
     retentionPolicy?: RetentionPolicy;
 }
 
-export interface RootCohort {
-    status: "planned" | "complete";
-    ownerProfile: "layer1";
-    expectedArtifactCount: 21;
-    artifacts: string[];
-}
-
 export interface OwnershipManifest {
-    schemaVersion: 2;
+    schemaVersion: 3;
     slotChainPathSegment: "/slotchain/";
-    rootCohort: RootCohort;
     profiles: Record<ProfileName, OwnershipProfile>;
     modules: OwnershipModule[];
     usages: ArtifactUsage[];
+}
+
+export interface RegenerationReport {
+    manifest: OwnershipManifest;
+    prunedModules: string[];
+    addedModules: string[];
 }
 
 export interface OwnershipInventory {
@@ -260,54 +304,21 @@ const CONSUMPTION_MODES = new Set<ConsumptionMode>([
 ]);
 const FACTORY_CLASSES = new Set<FactoryClass>([
     "direct-create-test",
-    "erc-2470-singleton",
-    "protocol-root-source-factory",
-    "root-create3-helper",
-    "root-one-shot-create",
+    "proxy-implementation",
+    "plain-create",
 ]);
-const ARTIFACT_SCOPES = new Set<ArtifactScope>([
-    "test-only",
-    "root-cohort",
-    "standalone",
-]);
+const ARTIFACT_SCOPES = new Set<ArtifactScope>(["test-only", "standalone"]);
 const ADDRESS_REUSE_POLICIES = new Set<AddressReusePolicy>([
     "test-only",
-    "protocol-lifetime",
-    "campaign-role-helper",
-    "fresh-per-release",
-    "interval-scoped",
+    "owner-upgradeable",
+    "consumer-pinned",
 ]);
 const RETENTION_POLICIES = new Set<RetentionPolicy>([
     "test-only",
-    "permanent",
-    "ephemeral-inert",
     "historical",
 ]);
 const HASH_PATTERN = /^0x[0-9a-f]{64}$/;
-
-export const FROZEN_ROOT_COHORT_V1 = [
-    "contracts/layer1/slotchain/root/RootMigrationExecutorV1.sol:RootMigrationExecutorV1",
-    "contracts/layer1/slotchain/root/ProtocolRootFactoryV1.sol:ProtocolRootFactoryV1",
-    "contracts/layer1/slotchain/root/ProtocolRootCreate3ProxyV1.sol:ProtocolRootCreate3ProxyV1",
-    "contracts/layer1/slotchain/impl/BuilderRegistryProofVerifierV1.sol:BuilderRegistryProofVerifierV1",
-    "contracts/layer1/slotchain/impl/BuilderRegistrySeatLifecycleFacetV1.sol:BuilderRegistrySeatLifecycleFacetV1",
-    "contracts/layer1/slotchain/impl/BuilderRegistryLeaseLifecycleFacetV1.sol:BuilderRegistryLeaseLifecycleFacetV1",
-    "contracts/layer1/slotchain/impl/BuilderRegistry.sol:BuilderRegistry",
-    "contracts/layer1/slotchain/impl/ScheduleOracle.sol:ScheduleOracle",
-    "contracts/layer1/slotchain/impl/ProtocolChangeTimelockV1.sol:ProtocolChangeTimelockV1",
-    "contracts/layer1/slotchain/impl/ProtocolVersionManagerV2.sol:ProtocolVersionManagerV2",
-    "contracts/layer1/slotchain/impl/ActiveSettlementRouter.sol:ActiveSettlementRouter",
-    "contracts/layer1/slotchain/impl/ForcedQueue.sol:ForcedQueue",
-    "contracts/layer1/slotchain/impl/AggregatorSeatMarket.sol:AggregatorSeatMarket",
-    "contracts/layer1/slotchain/impl/BridgeDomainRegistry.sol:BridgeDomainRegistry",
-    "contracts/layer1/slotchain/impl/SourceBundleFactory.sol:SourceBundleFactory",
-    "contracts/layer1/slotchain/impl/SourceBundleDeployerV1.sol:SourceBundleDeployerV1",
-    "contracts/layer1/slotchain/impl/BridgeInboxAdapter.sol:BridgeInboxAdapter",
-    "contracts/layer1/slotchain/impl/SourceBridgeV2.sol:SourceBridgeV2",
-    "contracts/layer1/slotchain/impl/BridgeCreditRegistryV2.sol:BridgeCreditRegistryV2",
-    "contracts/layer1/slotchain/impl/SourceQuotaManager.sol:SourceQuotaManager",
-    "contracts/layer1/slotchain/impl/SourceTerminalVerifier.sol:SourceTerminalVerifier",
-] as const;
+const MANIFEST_SCHEMA_VERSION = 3;
 
 export class OwnershipError extends Error {
     public constructor(
@@ -893,52 +904,19 @@ function validateManifest(
         fail("MALFORMED_MANIFEST", "manifest must be an object");
     assertKeys(
         manifest as unknown as Record<string, unknown>,
-        [
-            "schemaVersion",
-            "slotChainPathSegment",
-            "rootCohort",
-            "profiles",
-            "modules",
-            "usages",
-        ],
+        ["schemaVersion", "slotChainPathSegment", "profiles", "modules", "usages"],
         "manifest",
     );
-    if (manifest.schemaVersion !== 2)
-        fail("UNSUPPORTED_SCHEMA", "schemaVersion must be 2");
+    if (manifest.schemaVersion !== MANIFEST_SCHEMA_VERSION) {
+        fail(
+            "UNSUPPORTED_SCHEMA",
+            `schemaVersion must be ${MANIFEST_SCHEMA_VERSION}`,
+        );
+    }
     if (manifest.slotChainPathSegment !== "/slotchain/") {
         fail(
             "INVALID_SCOPE",
             "slotChainPathSegment must be exactly /slotchain/",
-        );
-    }
-    if (!isRecord(manifest.rootCohort)) {
-        fail("MALFORMED_ROOT_COHORT", "rootCohort must be an object");
-    }
-    assertKeys(
-        manifest.rootCohort,
-        ["status", "ownerProfile", "expectedArtifactCount", "artifacts"],
-        "rootCohort",
-    );
-    if (
-        !["planned", "complete"].includes(manifest.rootCohort.status) ||
-        manifest.rootCohort.ownerProfile !== "layer1" ||
-        manifest.rootCohort.expectedArtifactCount !== 21 ||
-        !Array.isArray(manifest.rootCohort.artifacts) ||
-        manifest.rootCohort.artifacts.some(
-            (artifact) => typeof artifact !== "string",
-        )
-    ) {
-        fail("MALFORMED_ROOT_COHORT", "invalid frozen cohort metadata");
-    }
-    assertUnique(manifest.rootCohort.artifacts, "rootCohort.artifacts");
-    const expectedRootCohort = [...FROZEN_ROOT_COHORT_V1].sort(compareUtf8);
-    const observedRootCohort = [...manifest.rootCohort.artifacts].sort(
-        compareUtf8,
-    );
-    if (canonicalize(expectedRootCohort) !== canonicalize(observedRootCohort)) {
-        fail(
-            "ROOT_COHORT_MEMBERSHIP_MISMATCH",
-            `expected ${expectedRootCohort.length} frozen artifacts, observed ${observedRootCohort.length}`,
         );
     }
     if (!isRecord(manifest.profiles))
@@ -1172,32 +1150,6 @@ function validateManifest(
             assertDeploymentSemantics(module, id);
         } else {
             fail("INVALID_OWNERSHIP", id);
-        }
-    }
-    for (const cohortMember of manifest.rootCohort.artifacts) {
-        const module = modules.get(cohortMember);
-        if (!module) {
-            if (manifest.rootCohort.status === "complete") {
-                fail("ROOT_COHORT_MEMBER_MISSING", cohortMember);
-            }
-            continue;
-        }
-        if (
-            module.ownership !== "artifact-owned" ||
-            module.ownerProfile !== "layer1" ||
-            module.artifactScope !== "root-cohort"
-        ) {
-            fail("ROOT_COHORT_MEMBER_NOT_DEPLOYABLE", cohortMember);
-        }
-    }
-    const rootCohortMembers = new Set(manifest.rootCohort.artifacts);
-    for (const [id, module] of modules) {
-        if (
-            module.ownership === "artifact-owned" &&
-            module.artifactScope === "root-cohort" &&
-            !rootCohortMembers.has(id)
-        ) {
-            fail("ROOT_COHORT_UNLISTED_MEMBER", id);
         }
     }
     return modules;
@@ -1862,72 +1814,20 @@ function assertDeploymentSemantics(
             `${id}:${value.artifactScope}:${value.addressReusePolicy}:${value.retentionPolicy}`,
         );
     }
+    // Every production artifact is standalone and historical: a proxy keeps its
+    // address while its implementation is replaceable; a plain helper is pinned
+    // by its consumer until that consumer is upgraded.
     if (
-        value.addressReusePolicy === "protocol-lifetime" &&
-        value.retentionPolicy !== "permanent"
+        value.factoryClass === "proxy-implementation" &&
+        value.addressReusePolicy !== "owner-upgradeable"
     ) {
-        fail("INVALID_DEPLOYMENT_SEMANTICS", `${id}:protocol-lifetime`);
-    }
-    if (
-        value.addressReusePolicy === "campaign-role-helper" &&
-        (value.factoryClass !== "root-create3-helper" ||
-            value.artifactScope !== "root-cohort" ||
-            value.retentionPolicy !== "ephemeral-inert")
-    ) {
-        fail("INVALID_DEPLOYMENT_SEMANTICS", `${id}:campaign-role-helper`);
+        fail("INVALID_DEPLOYMENT_SEMANTICS", `${id}:proxy-implementation`);
     }
     if (
-        value.factoryClass === "root-create3-helper" &&
-        value.addressReusePolicy !== "campaign-role-helper"
+        value.factoryClass === "plain-create" &&
+        value.addressReusePolicy !== "consumer-pinned"
     ) {
-        fail("INVALID_DEPLOYMENT_SEMANTICS", `${id}:root-create3-helper`);
-    }
-    if (
-        value.addressReusePolicy === "interval-scoped" &&
-        (value.artifactScope !== "standalone" ||
-            value.retentionPolicy !== "historical")
-    ) {
-        fail("INVALID_DEPLOYMENT_SEMANTICS", `${id}:interval-scoped`);
-    }
-}
-
-function validateCompleteRootCohort(
-    manifest: OwnershipManifest,
-    modules: Map<string, OwnershipModule>,
-    compilerOutputs: CompilerOutputRecord[],
-): void {
-    if (manifest.rootCohort.status !== "complete") return;
-    const buildInfoPaths = new Set<string>();
-    for (const id of manifest.rootCohort.artifacts) {
-        const module = modules.get(id);
-        if (!module || module.ownership !== "artifact-owned") {
-            fail("ROOT_COHORT_MEMBER_MISSING", id);
-        }
-        const outputs = compilerOutputs.filter(
-            (record) =>
-                record.profile === "layer1" &&
-                fqn(record.sourcePath, record.contractName) === id,
-        );
-        if (outputs.length !== 1) {
-            fail(
-                "ROOT_COHORT_COMPILER_OUTPUT_MISSING",
-                `${id}:${outputs.length}`,
-            );
-        }
-        const output = outputs[0];
-        if (
-            !output.contract.evm?.bytecode?.object ||
-            !output.contract.evm?.deployedBytecode?.object
-        ) {
-            fail("ROOT_COHORT_EMPTY_ARTIFACT", id);
-        }
-        buildInfoPaths.add(output.buildInfoPath);
-    }
-    if (buildInfoPaths.size !== 1) {
-        fail(
-            "ROOT_COHORT_SPLIT_BUILD",
-            [...buildInfoPaths].sort(compareUtf8).join(","),
-        );
+        fail("INVALID_DEPLOYMENT_SEMANTICS", `${id}:plain-create`);
     }
 }
 
@@ -2016,7 +1916,6 @@ export function validateArtifactOwnership(
         fail("ARTIFACT_HASH_MISMATCH", artifactHashMismatches.join("\n"));
     }
 
-    validateCompleteRootCohort(manifest, modules, compilerOutputs);
     validateUsages(manifest, modules, buildInputs, buildSources);
 
     const usages = [...manifest.usages].sort((left, right) =>
@@ -2024,7 +1923,7 @@ export function validateArtifactOwnership(
     );
     return {
         digest: canonicalHash({
-            rootCohort: manifest.rootCohort,
+            schemaVersion: manifest.schemaVersion,
             modules: inventory,
             usages,
         }),
@@ -2199,12 +2098,295 @@ export function loadOwnedArtifact(
     return artifact;
 }
 
+function orderModuleKeys(module: OwnershipModule): OwnershipModule {
+    if (module.ownership === "source-inline") {
+        return {
+            ownership: "source-inline",
+            sourcePath: module.sourcePath,
+            ...(module.contractName === undefined
+                ? {}
+                : { contractName: module.contractName }),
+            sourceHash: module.sourceHash,
+            abiHash: module.abiHash,
+            kind: module.kind,
+            allowedProfiles: module.allowedProfiles,
+            requiredProfiles: module.requiredProfiles,
+        };
+    }
+    return {
+        ownership: "artifact-owned",
+        sourcePath: module.sourcePath,
+        contractName: module.contractName,
+        ownerProfile: module.ownerProfile,
+        artifactPath: module.artifactPath,
+        sourceHash: module.sourceHash,
+        abiHash: module.abiHash,
+        creationCodeHash: module.creationCodeHash,
+        runtimeCodeHash: module.runtimeCodeHash,
+        creationLinkReferencesHash: module.creationLinkReferencesHash,
+        runtimeLinkReferencesHash: module.runtimeLinkReferencesHash,
+        immutableReferencesHash: module.immutableReferencesHash,
+        consumptionModes: module.consumptionModes,
+        factoryClass: module.factoryClass,
+        ...(module.lifecycleScope === undefined
+            ? {}
+            : { lifecycleScope: module.lifecycleScope }),
+        ...(module.artifactScope === undefined
+            ? {}
+            : { artifactScope: module.artifactScope }),
+        ...(module.addressReusePolicy === undefined
+            ? {}
+            : { addressReusePolicy: module.addressReusePolicy }),
+        ...(module.retentionPolicy === undefined
+            ? {}
+            : { retentionPolicy: module.retentionPolicy }),
+        requiredConsumerProfiles: module.requiredConsumerProfiles,
+    };
+}
+
+function sourceInlineKindOf(
+    definition: AstNode,
+): Exclude<SourceInlineKind, "free-definitions"> | undefined {
+    if (definition.contractKind === "interface") return "interface";
+    if (definition.contractKind === "library") return "internal-library";
+    if (definition.contractKind === "contract" && definition.abstract === true)
+        return "abstract-base";
+    return undefined;
+}
+
+/**
+ * Rebuilds the manifest from a fresh `forge build` of every required profile.
+ *
+ * Existing classifications are kept verbatim; only their hashes are refreshed.
+ * Modules whose source file disappeared, or whose contract no longer compiles
+ * out of a surviving source, are pruned. Compiler outputs that no
+ * module classifies are added automatically when they live under `test/`
+ * (interface, internal library or abstract base as `source-inline` in every
+ * profile that compiles them; concrete contracts as test-only
+ * `artifact-owned` modules of their single owner profile). Production sources
+ * under `contracts/` or `script/` must be classified by hand because their
+ * deployment semantics cannot be inferred from bytecode.
+ */
+export function regenerateManifest(
+    root: string,
+    manifest: OwnershipManifest,
+): RegenerationReport {
+    const resolvedRoot = path.resolve(root);
+    const modules: OwnershipModule[] = [];
+    const prunedModules: string[] = [];
+    const addedModules: string[] = [];
+    for (const module of manifest.modules) {
+        if (fs.existsSync(path.join(resolvedRoot, module.sourcePath))) {
+            modules.push(JSON.parse(JSON.stringify(module)) as OwnershipModule);
+        } else {
+            prunedModules.push(moduleId(module));
+        }
+    }
+    const working: OwnershipManifest = { ...manifest, modules };
+    const { artifacts, compilerOutputs, buildInputs } = loadArtifacts(
+        resolvedRoot,
+        working,
+    );
+    // A contract that was renamed or deleted inside a surviving source leaves
+    // no compiler output behind; prune its module rather than failing on it.
+    const compiledIds = new Set(
+        compilerOutputs.map((record) =>
+            fqn(record.sourcePath, record.contractName),
+        ),
+    );
+    for (let index = modules.length - 1; index >= 0; index -= 1) {
+        const module = modules[index];
+        if (module.contractName === undefined) continue;
+        if (compiledIds.has(moduleId(module))) continue;
+        prunedModules.push(moduleId(module));
+        modules.splice(index, 1);
+    }
+    const known = new Set(modules.map(moduleId));
+    const byFqn = new Map<string, ArtifactRecord[]>();
+    for (const record of artifacts) {
+        const id = fqn(record.sourcePath, record.contractName);
+        byFqn.set(id, [...(byFqn.get(id) ?? []), record]);
+    }
+    const observedOwnerProfiles = (sourcePath: string): OwnerProfileName[] =>
+        OWNER_PROFILE_NAMES.filter(
+            (profile) => buildInputs.get(profile)?.has(sourcePath) ?? false,
+        ).sort(compareUtf8);
+
+    for (const record of compilerOutputs) {
+        const id = fqn(record.sourcePath, record.contractName);
+        if (known.has(id)) continue;
+        if (!record.sourcePath.startsWith("test/")) {
+            fail(
+                "UNCLASSIFIED_COMPILER_OUTPUT",
+                `${id}: classify production sources by hand before regenerating`,
+            );
+        }
+        const definition = (record.sourceAst.nodes ?? []).find(
+            (node) =>
+                node.nodeType === "ContractDefinition" &&
+                node.name === record.contractName,
+        );
+        if (!definition) fail("MALFORMED_SOURCE_AST", id);
+        const kind = sourceInlineKindOf(definition);
+        const profiles = observedOwnerProfiles(record.sourcePath);
+        if (profiles.length === 0) fail("UNKNOWN_PROFILE", id);
+        let module: OwnershipModule;
+        if (kind !== undefined) {
+            module = {
+                ownership: "source-inline",
+                sourcePath: record.sourcePath,
+                contractName: record.contractName,
+                kind,
+                sourceHash: canonicalHash([]),
+                abiHash: canonicalHash([]),
+                allowedProfiles: profiles,
+                requiredProfiles: profiles,
+            };
+        } else {
+            const owners = [
+                ...new Set(
+                    compilerOutputs
+                        .filter(
+                            (candidate) =>
+                                fqn(
+                                    candidate.sourcePath,
+                                    candidate.contractName,
+                                ) === id,
+                        )
+                        .map((candidate) => candidate.profile),
+                ),
+            ];
+            if (
+                owners.length !== 1 ||
+                !OWNER_PROFILE_NAMES.includes(owners[0] as OwnerProfileName)
+            ) {
+                fail(
+                    "ARTIFACT_OWNER_VIOLATION",
+                    `${id} compiled by ${owners.join(",")}; classify by hand`,
+                );
+            }
+            const ownerProfile = owners[0] as OwnerProfileName;
+            module = {
+                ownership: "artifact-owned",
+                sourcePath: record.sourcePath,
+                contractName: record.contractName,
+                ownerProfile,
+                artifactPath: "",
+                sourceHash: canonicalHash([]),
+                abiHash: canonicalHash([]),
+                creationCodeHash: canonicalHash([]),
+                runtimeCodeHash: canonicalHash([]),
+                creationLinkReferencesHash: canonicalHash([]),
+                runtimeLinkReferencesHash: canonicalHash([]),
+                immutableReferencesHash: canonicalHash([]),
+                consumptionModes: [],
+                factoryClass: "direct-create-test",
+                lifecycleScope: "test-only",
+                requiredConsumerProfiles: [],
+            };
+        }
+        modules.push(module);
+        known.add(id);
+        addedModules.push(id);
+    }
+
+    for (const module of modules) {
+        const id = moduleId(module);
+        module.sourceHash = sourceHash(
+            fs.readFileSync(path.join(resolvedRoot, module.sourcePath)),
+        );
+        const records = byFqn.get(id) ?? [];
+        if (module.ownership === "artifact-owned") {
+            const owned = records.filter(
+                (record) => record.profile === module.ownerProfile,
+            );
+            if (owned.length !== 1) {
+                fail(
+                    "ARTIFACT_OWNER_VIOLATION",
+                    `${id} expected once in ${module.ownerProfile}, observed ${
+                        records.map((record) => record.profile).join(",") ||
+                        "none"
+                    }`,
+                );
+            }
+            const artifact = owned[0].artifact;
+            module.artifactPath = expectedArtifactPath(
+                manifest.profiles[module.ownerProfile],
+                module,
+            );
+            module.abiHash = canonicalHash(artifact.abi ?? []);
+            module.creationCodeHash = bytecodeHash(
+                artifact.bytecode?.object ?? "0x",
+            );
+            module.runtimeCodeHash = bytecodeHash(
+                artifact.deployedBytecode?.object ?? "0x",
+            );
+            module.creationLinkReferencesHash = canonicalHash(
+                artifact.bytecode?.linkReferences ?? {},
+            );
+            module.runtimeLinkReferencesHash = canonicalHash(
+                artifact.deployedBytecode?.linkReferences ?? {},
+            );
+            module.immutableReferencesHash = canonicalHash(
+                artifact.deployedBytecode?.immutableReferences ?? {},
+            );
+        } else if (module.kind === "free-definitions") {
+            module.abiHash = canonicalHash([]);
+        } else {
+            const abiHashes = [
+                ...new Set(
+                    records.map((record) =>
+                        canonicalHash(record.artifact.abi ?? []),
+                    ),
+                ),
+            ];
+            if (abiHashes.length !== 1) {
+                fail(
+                    "ABI_HASH_MISMATCH",
+                    `${id}: observed ${abiHashes.length} distinct ABIs across profiles`,
+                );
+            }
+            module.abiHash = abiHashes[0];
+        }
+    }
+    modules.sort((left, right) => compareUtf8(moduleId(left), moduleId(right)));
+    return {
+        manifest: {
+            schemaVersion: MANIFEST_SCHEMA_VERSION,
+            slotChainPathSegment: manifest.slotChainPathSegment,
+            profiles: manifest.profiles,
+            modules: modules.map(orderModuleKeys),
+            usages: manifest.usages,
+        },
+        prunedModules,
+        addedModules,
+    };
+}
+
+export function serializeManifest(manifest: OwnershipManifest): string {
+    return `${JSON.stringify(manifest, null, 2)}\n`;
+}
+
 function main(): void {
     const root = path.resolve(__dirname, "../..");
     const manifestPath = path.join(__dirname, "artifact-ownership.json");
-    const manifest = readJson(manifestPath) as OwnershipManifest;
+    const write = process.argv.includes("--write");
+    let manifest = readJson(manifestPath) as OwnershipManifest;
     validateProfileConfigs(root, manifest);
+    if (write) {
+        const report = regenerateManifest(root, manifest);
+        manifest = report.manifest;
+        for (const id of report.prunedModules) console.log(`pruned ${id}`);
+        for (const id of report.addedModules) console.log(`added ${id}`);
+    }
     const inventory = validateArtifactOwnership(root, manifest);
+    if (write) {
+        fs.writeFileSync(manifestPath, serializeManifest(manifest));
+        console.log(
+            `slot chain artifact ownership: WROTE ${path.relative(root, manifestPath)} (${inventory.digest})`,
+        );
+        return;
+    }
     console.log(`slot chain artifact ownership: PASS (${inventory.digest})`);
 }
 

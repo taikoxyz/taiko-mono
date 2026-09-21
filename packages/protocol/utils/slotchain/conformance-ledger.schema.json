@@ -1,23 +1,18 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://taiko.xyz/schemas/slot-chain-conformance-ledger-v2.28.json",
-  "title": "Slot Chain V2.28 conformance ledger",
+  "$id": "https://taiko.xyz/schemas/slot-chain-conformance-ledger-v3.0.json",
+  "title": "Slot Chain v3.0 conformance ledger",
+  "description": "Rows for every v3.0 component: source-inline primitives, deployables (implementations behind DAO-owned ERC-1967/UUPS proxies and the plain helpers they pin) and external dependencies. normativeCommit is the merged normative commit; the all-zero value is the documented unpinned placeholder.",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "schemaVersion",
-    "protocolVersion",
-    "normativeCommit",
-    "rootArtifactCount",
-    "entries"
-  ],
+  "required": ["schemaVersion", "protocolVersion", "normativeCommit", "entries"],
   "properties": {
-    "schemaVersion": { "const": 1 },
-    "protocolVersion": { "const": "2.28" },
+    "schemaVersion": { "const": 2 },
+    "protocolVersion": { "const": "3.0" },
     "normativeCommit": {
-      "const": "4cc7bc0e3cd96ea4cf0af72aa1a9e6e03bec8e52"
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
     },
-    "rootArtifactCount": { "const": 21 },
     "entries": {
       "type": "array",
       "minItems": 1,
@@ -82,13 +77,7 @@
           "items": { "type": "string", "minLength": 1 }
         },
         "kind": {
-          "enum": [
-            "root-artifact",
-            "deployable",
-            "creation-only",
-            "external-dependency",
-            "source-inline"
-          ]
+          "enum": ["deployable", "external-dependency", "source-inline"]
         },
         "normativeRefs": { "$ref": "#/$defs/nonEmptyStrings" },
         "provenance": { "enum": ["pr-owned", "external"] },
@@ -115,33 +104,18 @@
           ]
         },
         "artifactScope": {
-          "enum": [
-            "root-set",
-            "standalone",
-            "creation-only",
-            "external",
-            "source-inline"
-          ]
+          "enum": ["standalone", "external", "source-inline"]
         },
         "addressReusePolicy": {
           "enum": [
-            "protocol-lifetime",
-            "fresh-per-release",
-            "campaign-role-helper",
-            "descriptor-selected",
-            "legacy-fixed",
+            "owner-upgradeable",
+            "consumer-pinned",
             "external",
             "not-applicable"
           ]
         },
         "retentionPolicy": {
-          "enum": [
-            "permanent",
-            "historical",
-            "ephemeral-inert",
-            "external",
-            "source-inline"
-          ]
+          "enum": ["permanent", "historical", "external", "source-inline"]
         },
         "reactivationPolicy": { "enum": ["never", "not-applicable"] },
         "abiOrEncoding": { "$ref": "#/$defs/nonEmptyStrings" },

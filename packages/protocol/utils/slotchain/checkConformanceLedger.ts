@@ -1,11 +1,38 @@
+/**
+ * Slot Chain v3.0 conformance-ledger checker.
+ *
+ * `conformance-ledger.v3.0.json` lists every component of the v3.0 design that
+ * this repository owns or depends on: source-inline primitives (interfaces,
+ * internal libraries, abstract bases), deployable contracts (implementations
+ * installed behind DAO-owned ERC-1967/UUPS proxies and the plain helper
+ * contracts they pin) and external dependencies (EIP-4788/EIP-2935/EIP-4844
+ * system contracts, the existing L1/L2 SignalService, Bridge, vault and Inbox
+ * proxies, the governance owners, the validity verifier, the lease token and
+ * the native ETH sinks). Every row carries an honest `status`:
+ *
+ *   - `missing`: specified only; no source or test exists yet;
+ *   - `red`: source exists but changed materially since it was last verified,
+ *     or was never verified; its tests may or may not pass;
+ *   - `passing`: source and tests exist and pass under `slotchain:ownership:ci`;
+ *   - `reviewed`: `passing` plus an independent review pinned by the SHA-256
+ *     of every declared source and test file.
+ *
+ * `normativeCommit` is the 40-hex SHA-1 of the commit whose `tex/main.tex`,
+ * models and golden vectors are normative for these rows. That commit is the
+ * one that lands the v3.0 revision and therefore does not exist while the
+ * revision is being prepared: the ledger ships with the documented placeholder
+ * `0000000000000000000000000000000000000000` (`UNPINNED_NORMATIVE_COMMIT`) and
+ * MUST be re-pinned to the merged normative commit in a follow-up. The checker
+ * accepts any 40-hex value, reads the expected value from the ledger itself
+ * rather than hardcoding a SHA, and reports when the placeholder is still in
+ * place. It never fails on the placeholder.
+ */
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
 export type ConformanceKind =
-    | "root-artifact"
     | "deployable"
-    | "creation-only"
     | "external-dependency"
     | "source-inline";
 export type CanonicalSourceRoot = "shared" | "layer1" | "layer2";
@@ -15,24 +42,21 @@ export type SourceKind =
     | "free-definitions"
     | "abstract-base"
     | "not-applicable";
-export type ArtifactScope =
-    | "root-set"
-    | "standalone"
-    | "creation-only"
-    | "external"
-    | "source-inline";
+export type ArtifactScope = "standalone" | "external" | "source-inline";
+/**
+ *  - `owner-upgradeable`: a DAO-owned ERC-1967/UUPS proxy whose address is
+ *    permanent while the owner may replace the implementation;
+ *  - `consumer-pinned`: a plain immutable helper pinned by a proxy
+ *    implementation and replaced only together with that implementation.
+ */
 export type AddressReusePolicy =
-    | "protocol-lifetime"
-    | "fresh-per-release"
-    | "campaign-role-helper"
-    | "descriptor-selected"
-    | "legacy-fixed"
+    | "owner-upgradeable"
+    | "consumer-pinned"
     | "external"
     | "not-applicable";
 export type RetentionPolicy =
     | "permanent"
     | "historical"
-    | "ephemeral-inert"
     | "external"
     | "source-inline";
 export type ReactivationPolicy = "never" | "not-applicable";
@@ -64,18 +88,23 @@ export interface ConformanceEntry {
 }
 
 export interface ConformanceLedger {
-    schemaVersion: 1;
-    protocolVersion: "2.28";
-    normativeCommit: "4cc7bc0e3cd96ea4cf0af72aa1a9e6e03bec8e52";
-    rootArtifactCount: 21;
+    schemaVersion: 2;
+    protocolVersion: "3.0";
+    normativeCommit: string;
     entries: ConformanceEntry[];
 }
+
+export const LEDGER_SCHEMA_VERSION = 2;
+export const LEDGER_PROTOCOL_VERSION = "3.0";
+export const LEDGER_FILE_NAME = "conformance-ledger.v3.0.json";
+/** Placeholder until the merged normative commit is known; see the header. */
+export const UNPINNED_NORMATIVE_COMMIT =
+    "0000000000000000000000000000000000000000";
 
 const LEDGER_FIELDS = [
     "schemaVersion",
     "protocolVersion",
     "normativeCommit",
-    "rootArtifactCount",
     "entries",
 ] as const;
 const ENTRY_FIELDS = [
@@ -103,9 +132,7 @@ const ENTRY_FIELDS = [
     "reviewedTestHashes",
 ] as const;
 const KINDS = new Set<ConformanceKind>([
-    "root-artifact",
     "deployable",
-    "creation-only",
     "external-dependency",
     "source-inline",
 ]);
@@ -122,25 +149,19 @@ const SOURCE_KINDS = new Set<SourceKind>([
     "not-applicable",
 ]);
 const ARTIFACT_SCOPES = new Set<ArtifactScope>([
-    "root-set",
     "standalone",
-    "creation-only",
     "external",
     "source-inline",
 ]);
 const ADDRESS_REUSE_POLICIES = new Set<AddressReusePolicy>([
-    "protocol-lifetime",
-    "fresh-per-release",
-    "campaign-role-helper",
-    "descriptor-selected",
-    "legacy-fixed",
+    "owner-upgradeable",
+    "consumer-pinned",
     "external",
     "not-applicable",
 ]);
 const RETENTION_POLICIES = new Set<RetentionPolicy>([
     "permanent",
     "historical",
-    "ephemeral-inert",
     "external",
     "source-inline",
 ]);
@@ -405,14 +426,19 @@ function validateEntry(value: unknown, index: number): ConformanceEntry {
     ) {
         fail("INVALID_ARTIFACT_OWNERSHIP", id);
     }
-    if (
-        (kind === "root-artifact" &&
-            (artifactOwnerProfile !== "layer1" ||
-                artifactScope !== "root-set")) ||
-        (kind === "creation-only" && artifactScope !== "creation-only") ||
-        (kind === "deployable" && artifactScope !== "standalone")
-    ) {
-        fail("INVALID_KIND_SCOPE", id);
+    if (kind === "deployable") {
+        // A DAO-owned proxy keeps its address for the protocol lifetime while
+        // the owner replaces implementations; a plain helper is pinned by its
+        // consumer and becomes inert history when that consumer is upgraded.
+        const proxy =
+            addressReusePolicy === "owner-upgradeable" &&
+            retentionPolicy === "permanent";
+        const helper =
+            addressReusePolicy === "consumer-pinned" &&
+            retentionPolicy === "historical";
+        if (artifactScope !== "standalone" || (!proxy && !helper)) {
+            fail("INVALID_DEPLOYABLE_SEMANTICS", id);
+        }
     }
 
     const normativeRefs = assertStringArray(
@@ -427,6 +453,9 @@ function validateEntry(value: unknown, index: number): ConformanceEntry {
     );
     const sourcePaths = assertPaths(value.sourcePaths, `${id}.sourcePaths`);
     const testPaths = assertPaths(value.testPaths, `${id}.testPaths`);
+    if (external !== (sourcePaths.length === 0)) {
+        fail("INVALID_SOURCE_PATHS", id);
+    }
     const failureBranches = assertStringArray(
         value.failureBranches,
         `${id}.failureBranches`,
@@ -447,6 +476,12 @@ function validateEntry(value: unknown, index: number): ConformanceEntry {
         reviewed,
     );
     if (reviewed && testPaths.length === 0) fail("REVIEWED_WITHOUT_TESTS", id);
+    if (
+        (value.status === "passing" || reviewed) &&
+        (sourcePaths.length === 0 || testPaths.length === 0)
+    ) {
+        fail("PASSING_WITHOUT_PATHS", id);
+    }
 
     return {
         id,
@@ -478,19 +513,15 @@ function validateEntry(value: unknown, index: number): ConformanceEntry {
 export function validateConformanceLedger(value: unknown): ConformanceLedger {
     if (!isRecord(value)) fail("INVALID_LEDGER", "root must be an object");
     assertExactFields(value, LEDGER_FIELDS, "UNKNOWN_LEDGER_FIELD", "ledger");
-    if (value.schemaVersion !== 1)
+    if (value.schemaVersion !== LEDGER_SCHEMA_VERSION)
         fail("INVALID_SCHEMA_VERSION", `${value.schemaVersion}`);
-    if (value.protocolVersion !== "2.28")
+    if (value.protocolVersion !== LEDGER_PROTOCOL_VERSION)
         fail("INVALID_PROTOCOL_VERSION", `${value.protocolVersion}`);
     if (
         typeof value.normativeCommit !== "string" ||
-        !COMMIT_PATTERN.test(value.normativeCommit) ||
-        value.normativeCommit !== "4cc7bc0e3cd96ea4cf0af72aa1a9e6e03bec8e52"
+        !COMMIT_PATTERN.test(value.normativeCommit)
     ) {
         fail("INVALID_NORMATIVE_COMMIT", `${value.normativeCommit}`);
-    }
-    if (value.rootArtifactCount !== 21) {
-        fail("INVALID_ROOT_ARTIFACT_COUNT", `${value.rootArtifactCount}`);
     }
     if (!Array.isArray(value.entries) || value.entries.length === 0)
         fail("EMPTY_LEDGER", "entries");
@@ -498,20 +529,16 @@ export function validateConformanceLedger(value: unknown): ConformanceLedger {
     const entries = value.entries.map(validateEntry);
     const ids = entries.map(({ id }) => id);
     if (new Set(ids).size !== ids.length) fail("DUPLICATE_ENTRY_ID", "entries");
-    const roots = entries.filter(({ kind }) => kind === "root-artifact");
-    if (roots.length !== 0 && roots.length !== value.rootArtifactCount) {
-        fail(
-            "ROOT_ARTIFACT_SET_MISMATCH",
-            `found ${roots.length}, expected ${value.rootArtifactCount}`,
-        );
-    }
     return {
-        schemaVersion: 1,
-        protocolVersion: "2.28",
-        normativeCommit: "4cc7bc0e3cd96ea4cf0af72aa1a9e6e03bec8e52",
-        rootArtifactCount: 21,
+        schemaVersion: LEDGER_SCHEMA_VERSION,
+        protocolVersion: LEDGER_PROTOCOL_VERSION,
+        normativeCommit: value.normativeCommit,
         entries,
     };
+}
+
+export function isUnpinnedNormativeCommit(ledger: ConformanceLedger): boolean {
+    return ledger.normativeCommit === UNPINNED_NORMATIVE_COMMIT;
 }
 
 function walkSolidity(directory: string, protocolRoot: string): string[] {
@@ -561,6 +588,25 @@ export function checkConformanceLedger(
             ]) {
                 if (!fs.existsSync(path.join(protocolRoot, candidate))) {
                     fail("PASSING_PATH_MISSING", `${entry.id}: ${candidate}`);
+                }
+            }
+        }
+        if (entry.status === "red") {
+            // A red row records code that exists and needs re-verification; a
+            // row whose source vanished must be downgraded to `missing`.
+            for (const candidate of entry.sourcePaths) {
+                if (!fs.existsSync(path.join(protocolRoot, candidate))) {
+                    fail("RED_SOURCE_MISSING", `${entry.id}: ${candidate}`);
+                }
+            }
+        }
+        if (entry.status === "missing") {
+            for (const candidate of [
+                ...entry.sourcePaths,
+                ...entry.testPaths,
+            ]) {
+                if (fs.existsSync(path.join(protocolRoot, candidate))) {
+                    fail("MISSING_PATH_PRESENT", `${entry.id}: ${candidate}`);
                 }
             }
         }
@@ -623,7 +669,8 @@ function main(): void {
     const protocolRoot = path.resolve(__dirname, "../..");
     const ledgerPath = path.join(
         protocolRoot,
-        "utils/slotchain/conformance-ledger.v2.28.json",
+        "utils/slotchain",
+        LEDGER_FILE_NAME,
     );
     const ledger = checkConformanceLedger(ledgerPath, protocolRoot);
     const counts = Object.fromEntries(
@@ -633,8 +680,13 @@ function main(): void {
         ]),
     );
     process.stdout.write(
-        `verified ${ledger.entries.length} v2.28 conformance rows ${JSON.stringify(counts)}\n`,
+        `verified ${ledger.entries.length} v${LEDGER_PROTOCOL_VERSION} conformance rows ${JSON.stringify(counts)}\n`,
     );
+    if (isUnpinnedNormativeCommit(ledger)) {
+        process.stdout.write(
+            `note: normativeCommit is the unpinned placeholder ${UNPINNED_NORMATIVE_COMMIT}; re-pin it to the merged normative commit\n`,
+        );
+    }
 }
 
 if (require.main === module) {

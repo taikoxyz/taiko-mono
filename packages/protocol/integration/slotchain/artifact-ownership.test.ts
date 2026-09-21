@@ -9,11 +9,12 @@ import {
     ArtifactUsage,
     bytecodeHash,
     canonicalHash,
-    FROZEN_ROOT_COHORT_V1,
     loadOwnedArtifact,
     OwnershipError,
     OwnershipManifest,
     OwnershipProfile,
+    regenerateManifest,
+    serializeManifest,
     sourceHash,
     SourceInlineModule,
     validateArtifactOwnership,
@@ -191,14 +192,8 @@ function validFixture(): Fixture {
         requiredConsumerProfiles: [],
     };
     const manifest: OwnershipManifest = {
-        schemaVersion: 2,
+        schemaVersion: 3,
         slotChainPathSegment: "/slotchain/",
-        rootCohort: {
-            status: "planned",
-            ownerProfile: "layer1",
-            expectedArtifactCount: 21,
-            artifacts: [...FROZEN_ROOT_COHORT_V1],
-        },
         profiles: {
             default: profile("out", false, { ast: false, buildInfo: false }),
             genesis: profile("out/genesis", false, {
@@ -605,104 +600,6 @@ function makeAbstractBase(fixture: Fixture): SourceInlineModule {
     return inline;
 }
 
-function completeRootCohortFixture(splitAt?: number): Fixture {
-    const fixture = validFixture();
-    fixture.manifest.rootCohort.status = "complete";
-    const layer1Sources: Record<
-        string,
-        { content: string; ast: Record<string, any> }
-    > = {};
-    const layer1Contracts: Record<
-        string,
-        Record<string, Record<string, any>>
-    > = {};
-
-    for (const id of FROZEN_ROOT_COHORT_V1) {
-        const separator = id.lastIndexOf(":");
-        const sourcePath = id.slice(0, separator);
-        const contractName = id.slice(separator + 1);
-        const contents = `contract ${contractName} {}\n`;
-        const artifactPath = `out/layer1/${path.posix.basename(
-            sourcePath,
-        )}/${contractName}.json`;
-        const artifact = clone(readArtifact(fixture));
-        artifact.metadata.settings.compilationTarget = {
-            [sourcePath]: contractName,
-        };
-        artifact.metadata.sources = {
-            [sourcePath]: { keccak256: sourceHash(contents) },
-        };
-        artifact.ast.nodes[0].name = contractName;
-        fs.mkdirSync(path.join(fixture.root, path.dirname(sourcePath)), {
-            recursive: true,
-        });
-        fs.writeFileSync(path.join(fixture.root, sourcePath), contents);
-        writeJson(path.join(fixture.root, artifactPath), artifact);
-        fixture.manifest.modules.push({
-            ownership: "artifact-owned",
-            sourcePath,
-            contractName,
-            ownerProfile: "layer1",
-            artifactPath,
-            sourceHash: sourceHash(contents),
-            abiHash: canonicalHash(artifact.abi),
-            creationCodeHash: bytecodeHash(artifact.bytecode.object),
-            runtimeCodeHash: bytecodeHash(artifact.deployedBytecode.object),
-            creationLinkReferencesHash: canonicalHash(
-                artifact.bytecode.linkReferences,
-            ),
-            runtimeLinkReferencesHash: canonicalHash(
-                artifact.deployedBytecode.linkReferences,
-            ),
-            immutableReferencesHash: canonicalHash(
-                artifact.deployedBytecode.immutableReferences,
-            ),
-            consumptionModes: [],
-            factoryClass: "erc-2470-singleton",
-            artifactScope: "root-cohort",
-            addressReusePolicy: "protocol-lifetime",
-            retentionPolicy: "permanent",
-            requiredConsumerProfiles: [],
-        });
-        layer1Sources[sourcePath] = { content: contents, ast: artifact.ast };
-        layer1Contracts[sourcePath] = {
-            [contractName]: compilerContract(artifact),
-        };
-    }
-
-    const sourceEntries = Object.entries(layer1Sources);
-    const contractEntries = Object.entries(layer1Contracts);
-    const writeCohortBuild = (
-        fileName: string,
-        sourceSlice: typeof sourceEntries,
-        contractSlice: typeof contractEntries,
-    ): void => {
-        writeJson(
-            path.join(fixture.root, `out/layer1/build-info/${fileName}`),
-            buildInfo(
-                fixture.manifest.profiles.layer1,
-                Object.fromEntries(sourceSlice),
-                Object.fromEntries(contractSlice),
-            ),
-        );
-    };
-    if (splitAt === undefined) {
-        writeCohortBuild("layer1.json", sourceEntries, contractEntries);
-    } else {
-        writeCohortBuild(
-            "layer1.json",
-            sourceEntries.slice(0, splitAt),
-            contractEntries.slice(0, splitAt),
-        );
-        writeCohortBuild(
-            "split.json",
-            sourceEntries.slice(splitAt),
-            contractEntries.slice(splitAt),
-        );
-    }
-    return fixture;
-}
-
 run("ownership checker rebuilds after all executable tests", () => {
     const packageJson = JSON.parse(
         fs.readFileSync(path.resolve(__dirname, "../../package.json"), "utf8"),
@@ -728,106 +625,6 @@ run("valid manifest is deterministic", () => {
     );
     assert.equal(first.digest, second.digest);
     assert.equal(first.modules.length, 1);
-});
-
-run("root cohort membership rejects a missing frozen artifact", () => {
-    const fixture = validFixture();
-    fixture.manifest.rootCohort.artifacts.pop();
-    expectCode("ROOT_COHORT_MEMBERSHIP_MISMATCH", () =>
-        validateArtifactOwnership(fixture.root, fixture.manifest),
-    );
-});
-
-run("root cohort membership rejects an extra artifact", () => {
-    const fixture = validFixture();
-    fixture.manifest.rootCohort.artifacts.push(
-        "contracts/layer1/slotchain/impl/Unexpected.sol:Unexpected",
-    );
-    expectCode("ROOT_COHORT_MEMBERSHIP_MISMATCH", () =>
-        validateArtifactOwnership(fixture.root, fixture.manifest),
-    );
-});
-
-run("root cohort membership rejects a duplicate artifact", () => {
-    const fixture = validFixture();
-    fixture.manifest.rootCohort.artifacts[17] =
-        fixture.manifest.rootCohort.artifacts[0];
-    expectCode("DUPLICATE_VALUE", () =>
-        validateArtifactOwnership(fixture.root, fixture.manifest),
-    );
-});
-
-run("complete root cohort rejects missing module declarations", () => {
-    const fixture = validFixture();
-    fixture.manifest.rootCohort.status = "complete";
-    expectCode("ROOT_COHORT_MEMBER_MISSING", () =>
-        validateArtifactOwnership(fixture.root, fixture.manifest),
-    );
-});
-
-run("root cohort rejects an unlisted scoped module", () => {
-    const fixture = validFixture();
-    const module = fixture.manifest.modules[0] as ArtifactOwnedModule;
-    module.factoryClass = "erc-2470-singleton";
-    module.lifecycleScope = undefined;
-    module.artifactScope = "root-cohort";
-    module.addressReusePolicy = "protocol-lifetime";
-    module.retentionPolicy = "permanent";
-    expectCode("ROOT_COHORT_UNLISTED_MEMBER", () =>
-        validateArtifactOwnership(fixture.root, fixture.manifest),
-    );
-});
-
-run("root cohort rejects a non-layer1 present member", () => {
-    const fixture = validFixture();
-    const template = clone(fixture.manifest.modules[0]) as ArtifactOwnedModule;
-    const id = FROZEN_ROOT_COHORT_V1[0];
-    const separator = id.lastIndexOf(":");
-    template.sourcePath = id.slice(0, separator);
-    template.contractName = id.slice(separator + 1);
-    template.factoryClass = "erc-2470-singleton";
-    template.lifecycleScope = undefined;
-    template.artifactScope = "root-cohort";
-    template.addressReusePolicy = "protocol-lifetime";
-    template.retentionPolicy = "permanent";
-    fixture.manifest.modules.push(template);
-    expectCode("ROOT_COHORT_MEMBER_NOT_DEPLOYABLE", () =>
-        validateArtifactOwnership(fixture.root, fixture.manifest),
-    );
-});
-
-run("complete root cohort accepts one layer1 build-info invocation", () => {
-    const fixture = completeRootCohortFixture();
-    validateArtifactOwnership(fixture.root, fixture.manifest);
-});
-
-run("root cohort rejects a source-inline member", () => {
-    const fixture = completeRootCohortFixture();
-    const id = FROZEN_ROOT_COHORT_V1[0];
-    const index = fixture.manifest.modules.findIndex(
-        (module) => `${module.sourcePath}:${module.contractName ?? ""}` === id,
-    );
-    const owned = fixture.manifest.modules[index] as ArtifactOwnedModule;
-    fixture.manifest.modules[index] = {
-        ownership: "source-inline",
-        sourcePath: owned.sourcePath,
-        contractName: owned.contractName,
-        kind: "abstract-base",
-        sourceHash: owned.sourceHash,
-        abiHash: owned.abiHash,
-        allowedProfiles: ["layer1"],
-        requiredProfiles: ["layer1"],
-    };
-    expectCode("ROOT_COHORT_MEMBER_NOT_DEPLOYABLE", () =>
-        validateArtifactOwnership(fixture.root, fixture.manifest),
-    );
-});
-
-run("complete root cohort rejects split build-info provenance", () => {
-    const fixture = completeRootCohortFixture(9);
-    expectCode("ROOT_COHORT_SPLIT_BUILD", () =>
-        validateArtifactOwnership(fixture.root, fixture.manifest),
-    );
 });
 
 run("build-info format drift fails", () => {
@@ -1425,7 +1222,7 @@ run("unknown manifest field fails", () => {
 run("factory mismatch fails", () => {
     const fixture = validFixture();
     addUsage(fixture);
-    fixture.manifest.usages[0].factoryClass = "erc-2470-singleton";
+    fixture.manifest.usages[0].factoryClass = "plain-create";
     expectCode("FACTORY_CLASS_MISMATCH", () =>
         validateArtifactOwnership(fixture.root, fixture.manifest),
     );
@@ -1825,6 +1622,263 @@ run("owned artifact loader revalidates hashes", () => {
             fixture.manifest,
             `${fixture.sourcePath}:Owned`,
         ),
+    );
+});
+
+function makeProductionModule(
+    fixture: Fixture,
+    factoryClass: "proxy-implementation" | "plain-create",
+): ArtifactOwnedModule {
+    const module = fixture.manifest.modules[0] as ArtifactOwnedModule;
+    module.factoryClass = factoryClass;
+    module.lifecycleScope = undefined;
+    module.artifactScope = "standalone";
+    module.addressReusePolicy =
+        factoryClass === "proxy-implementation"
+            ? "owner-upgradeable"
+            : "consumer-pinned";
+    module.retentionPolicy = "historical";
+    return module;
+}
+
+run("legacy schema version fails", () => {
+    const fixture = validFixture();
+    (fixture.manifest as unknown as Record<string, unknown>).schemaVersion = 2;
+    expectCode("UNSUPPORTED_SCHEMA", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+});
+
+run("legacy root cohort field fails", () => {
+    const fixture = validFixture();
+    (fixture.manifest as unknown as Record<string, unknown>).rootCohort = {
+        status: "planned",
+        ownerProfile: "layer1",
+        expectedArtifactCount: 21,
+        artifacts: [],
+    };
+    expectCode("UNKNOWN_MANIFEST_FIELD", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+});
+
+run("proxy implementation and plain helper semantics are accepted", () => {
+    for (const factoryClass of ["proxy-implementation", "plain-create"] as const) {
+        const fixture = validFixture();
+        makeProductionModule(fixture, factoryClass);
+        const inventory = validateArtifactOwnership(
+            fixture.root,
+            fixture.manifest,
+        );
+        assert.equal(inventory.modules.length, 1);
+    }
+});
+
+run("removed deployment vocabularies are rejected", () => {
+    const rejected: Array<[string, string, string, string]> = [
+        ["erc-2470-singleton", "standalone", "consumer-pinned", "historical"],
+        ["root-one-shot-create", "standalone", "consumer-pinned", "historical"],
+        ["plain-create", "root-cohort", "consumer-pinned", "historical"],
+        ["plain-create", "standalone", "protocol-lifetime", "historical"],
+        ["plain-create", "standalone", "interval-scoped", "historical"],
+        ["plain-create", "standalone", "consumer-pinned", "permanent"],
+        ["plain-create", "standalone", "consumer-pinned", "ephemeral-inert"],
+    ];
+    for (const [
+        factoryClass,
+        artifactScope,
+        addressReusePolicy,
+        retentionPolicy,
+    ] of rejected) {
+        const fixture = validFixture();
+        const module = makeProductionModule(fixture, "plain-create");
+        Object.assign(module, {
+            factoryClass,
+            artifactScope,
+            addressReusePolicy,
+            retentionPolicy,
+        });
+        assert.throws(
+            () => validateArtifactOwnership(fixture.root, fixture.manifest),
+            (error: unknown) =>
+                error instanceof OwnershipError &&
+                (error.code === "INVALID_FACTORY_CLASS" ||
+                    error.code === "INVALID_DEPLOYMENT_SEMANTICS"),
+            `${factoryClass}/${artifactScope}/${addressReusePolicy}/${retentionPolicy}`,
+        );
+    }
+});
+
+run("proxy implementation requires owner-upgradeable reuse", () => {
+    const fixture = validFixture();
+    const module = makeProductionModule(fixture, "proxy-implementation");
+    module.addressReusePolicy = "consumer-pinned";
+    expectCode("INVALID_DEPLOYMENT_SEMANTICS", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+});
+
+run("plain helper requires consumer-pinned reuse", () => {
+    const fixture = validFixture();
+    const module = makeProductionModule(fixture, "plain-create");
+    module.addressReusePolicy = "owner-upgradeable";
+    expectCode("INVALID_DEPLOYMENT_SEMANTICS", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+});
+
+run("production artifacts reject the test lifecycle scope", () => {
+    const fixture = validFixture();
+    const module = makeProductionModule(fixture, "plain-create");
+    module.lifecycleScope = "test-only";
+    expectCode("LEGACY_LIFECYCLE_SCOPE", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+});
+
+run("test artifacts reject production deployment semantics", () => {
+    const fixture = validFixture();
+    const module = fixture.manifest.modules[0] as ArtifactOwnedModule;
+    module.artifactScope = "standalone";
+    expectCode("DEPLOYMENT_SEMANTICS_MISMATCH", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+});
+
+run("regeneration refreshes stale hashes and keeps classification", () => {
+    const fixture = validFixture();
+    const module = makeProductionModule(fixture, "plain-create");
+    mutateArtifact(fixture, (artifact) => {
+        artifact.bytecode.object = "0x6002";
+        artifact.deployedBytecode.immutableReferences = {
+            "7": [{ start: 0, length: 32 }],
+        };
+    });
+    syncSharedCompilerOutput(fixture);
+    fs.appendFileSync(
+        path.join(fixture.root, fixture.sourcePath),
+        "// drift\n",
+    );
+    syncModuleSource(fixture, module);
+    module.sourceHash = canonicalHash([]);
+    expectCode("SOURCE_HASH_MISMATCH", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+
+    const report = regenerateManifest(fixture.root, fixture.manifest);
+    assert.deepEqual(report.prunedModules, []);
+    assert.deepEqual(report.addedModules, []);
+    const regenerated = report.manifest.modules[0] as ArtifactOwnedModule;
+    assert.equal(regenerated.factoryClass, "plain-create");
+    assert.equal(regenerated.addressReusePolicy, "consumer-pinned");
+    assert.equal(regenerated.creationCodeHash, bytecodeHash("0x6002"));
+    assert.equal(
+        regenerated.immutableReferencesHash,
+        canonicalHash({ "7": [{ start: 0, length: 32 }] }),
+    );
+    assert.equal(
+        regenerated.sourceHash,
+        sourceHash(
+            fs.readFileSync(path.join(fixture.root, fixture.sourcePath)),
+        ),
+    );
+    const inventory = validateArtifactOwnership(fixture.root, report.manifest);
+    assert.equal(inventory.modules.length, 1);
+    const reparsed = JSON.parse(
+        serializeManifest(report.manifest),
+    ) as OwnershipManifest;
+    assert.equal(
+        validateArtifactOwnership(fixture.root, reparsed).digest,
+        inventory.digest,
+    );
+    assert.deepEqual(Object.keys(reparsed), [
+        "schemaVersion",
+        "slotChainPathSegment",
+        "profiles",
+        "modules",
+        "usages",
+    ]);
+});
+
+run("regeneration classifies new test contracts and prunes deleted sources", () => {
+    const fixture = validFixture();
+    const consumer = addConsumer(fixture);
+    fixture.manifest.modules.pop();
+    const consumerId = `${consumer.sourcePath}:${consumer.contractName}`;
+    expectCode("UNCLASSIFIED_MODULE", () =>
+        validateArtifactOwnership(fixture.root, fixture.manifest),
+    );
+
+    const stale: SourceInlineModule = {
+        ownership: "source-inline",
+        sourcePath: "contracts/shared/slotchain/libs/LibGone.sol",
+        contractName: "LibGone",
+        kind: "internal-library",
+        sourceHash: canonicalHash([]),
+        abiHash: canonicalHash([]),
+        allowedProfiles: ["shared"],
+        requiredProfiles: ["shared"],
+    };
+    fixture.manifest.modules.push(stale);
+
+    const report = regenerateManifest(fixture.root, fixture.manifest);
+    assert.deepEqual(report.prunedModules, [
+        `${stale.sourcePath}:${stale.contractName}`,
+    ]);
+    assert.deepEqual(report.addedModules, [consumerId]);
+    const added = report.manifest.modules.find(
+        (module) =>
+            `${module.sourcePath}:${module.contractName ?? ""}` === consumerId,
+    );
+    assert(added?.ownership === "artifact-owned");
+    assert.equal(added.ownerProfile, "layer1");
+    assert.equal(added.factoryClass, "direct-create-test");
+    assert.equal(added.lifecycleScope, "test-only");
+    assert.equal(added.artifactPath, consumer.artifactPath);
+    assert.equal(added.creationCodeHash, consumer.creationCodeHash);
+    assert.deepEqual(
+        report.manifest.modules.map((module) => module.sourcePath),
+        [fixture.sourcePath, consumer.sourcePath],
+    );
+    validateArtifactOwnership(fixture.root, report.manifest);
+});
+
+run("regeneration classifies new abstract test bases as source-inline", () => {
+    const fixture = validFixture();
+    const consumer = addConsumer(fixture);
+    fixture.manifest.modules.pop();
+    const artifactFile = path.join(fixture.root, consumer.artifactPath);
+    const artifact = JSON.parse(fs.readFileSync(artifactFile, "utf8"));
+    artifact.ast.nodes[0].abstract = true;
+    artifact.bytecode.object = "0x";
+    artifact.deployedBytecode.object = "0x";
+    writeJson(artifactFile, artifact);
+    mutateBuildInfo(fixture, "layer1", (value) => {
+        value.output.sources[consumer.sourcePath].ast = artifact.ast;
+        value.output.contracts[consumer.sourcePath][consumer.contractName] =
+            compilerContract(artifact);
+    });
+    const report = regenerateManifest(fixture.root, fixture.manifest);
+    const added = report.manifest.modules.find(
+        (module) => module.sourcePath === consumer.sourcePath,
+    );
+    assert(added?.ownership === "source-inline");
+    assert.equal(added.kind, "abstract-base");
+    assert.deepEqual(added.allowedProfiles, ["layer1"]);
+    assert.deepEqual(added.requiredProfiles, ["layer1"]);
+    validateArtifactOwnership(fixture.root, report.manifest);
+});
+
+run("regeneration refuses to guess production deployment semantics", () => {
+    const fixture = validFixture();
+    addArtifactOwnedFixtureModule(
+        fixture,
+        "contracts/shared/slotchain/Fresh.sol",
+        "Fresh",
+    );
+    fixture.manifest.modules.pop();
+    expectCode("UNCLASSIFIED_COMPILER_OUTPUT", () =>
+        regenerateManifest(fixture.root, fixture.manifest),
     );
 });
 

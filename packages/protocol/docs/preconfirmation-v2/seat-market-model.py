@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
-"""Executable model for the bounded perpetual seat reverse auction.
+"""Executable model for the bounded perpetual seat reverse auction (v3.0).
 
 The model owns waiting offers, SLA bonds, premium reserves, exact pull credits,
 installed-bond release and breach enforcement.  Canonical lineup/duty authority
 is deliberately represented only by immutable exact-view inputs: Task 4 composes
 these Market primitives with the Settlement model in one simulated revert domain.
+
+Both the Market and the Settlement are DAO-owned ERC-1967 proxies.  The Market
+pins exactly one Settlement (the existing Inbox proxy address) and derives one
+immutable binding ID at initialization; there is no authorization registry,
+router, rotation, migration arm/abort or lease protocol.  Its only Settlement
+reads are the 192-byte ``seatMarketTargetStateV1()`` view (SEAT magic, SST1
+mode 0 DRAINING / 1 NORMAL / 2 RECOVERY, ``seatGeneration``) and the SIR1/SHR1
+history rows.
 """
 
 from __future__ import annotations
@@ -39,7 +47,11 @@ D_STAGE = b"TAIKO_SEAT_STAGE_V1"
 D_TERM = b"TAIKO_SEAT_TERM_V1"
 D_LINEUP = b"TAIKO_SEAT_LINEUP_V1"
 D_LEGACY_WIRE_INTENT = b"TAIKO_SEAT_LEGACY_WIRE_INTENT_V1"
-TARGET_VIEW_RESPONSE_LENGTH = 8 * 32
+# seatMarketTargetStateV1() returns exactly six ABI words:
+# (address target, uint256 settlementChainId, uint64 protocolVersion,
+#  bytes4 magic, uint8 mode, uint64 seatGeneration).
+TARGET_VIEW_RESPONSE_LENGTH = 6 * 32
+SEAT_TARGET_MAGIC = b"SEAT"
 ZERO_BYTES32 = bytes(32)
 ZERO_ADDRESS = "0x" + "00" * 20
 SPONSOR_PREMIUM_SELECTOR = bytes.fromhex("7004fb96")
@@ -51,10 +63,7 @@ SIR1_MAGIC = b"SIR1"
 SMR1_MAGIC = b"SMR1"
 MEC1_MAGIC = b"MEC1"
 MHS1_MAGIC = b"MHS1"
-MRO1_MAGIC = b"MRO1"
 SHR1_MAGIC = b"SHR1"
-ASV1_MAGIC = b"ASV1"
-ARV1_MAGIC = b"ARV1"
 D_WIRE_RECEIPT = b"slot-chain-seat-mutation-receipt-v1"
 D_WIRE_INTENT = b"slot-chain-seat-mutation-intent-v1"
 D_BREACH_RECEIPT = b"TAIKO_SEAT_BREACH_V1"
@@ -278,12 +287,12 @@ class WireIntentStatus(Enum):
 
 
 class WireOperation(Enum):
+    # Value 5 (the v2.28 MIGRATION_CANCEL) is unassigned in v3.0.
     NONE = 0
     STAGE = 1
     APPLY = 2
     EXPIRE = 3
     INVALIDATE = 4
-    MIGRATION_CANCEL = 5
 
 
 class WirePrimaryState(Enum):
@@ -308,10 +317,18 @@ class EconomicResult(Enum):
     TERMINALIZED = 3
 
 
-class MarketRotationResult(Enum):
-    RECONCILIATION_REQUIRED = 0
-    ADVANCED = 1
-    BOOTSTRAPPED = 2
+class SettlementMode(Enum):
+    """The SST1 ``mode`` word echoed by ``seatMarketTargetStateV1()``."""
+
+    DRAINING = 0
+    NORMAL = 1
+    RECOVERY = 2
+
+
+_SETTLEMENT_MODE_VALUES = frozenset(mode.value for mode in SettlementMode)
+_ACTIVATED_MODE_VALUES = frozenset((
+    SettlementMode.NORMAL.value, SettlementMode.RECOVERY.value
+))
 
 
 class HistoryDisposition(Enum):
@@ -321,12 +338,21 @@ class HistoryDisposition(Enum):
     SATISFIED = 3
     BREACHED = 4
     EXCUSED = 5
-    EXCUSED_MIGRATION = 6
+    # Written by a terminalizing implementation upgrade (v2.28 spelled this
+    # wire value "EXCUSED_MIGRATION"; the numeric value is unchanged).
+    EXCUSED_UPGRADE = 6
 
 
-class ActivationTransitionKind(Enum):
-    GENESIS_IMPORT = 1
-    VERSION_MIGRATION = 2
+# The Settlement model's behavioral oracle still spells the upgrade excuse
+# with its v2.28 text; both texts name SHR1 disposition 6.
+_DUTY_DISPOSITION_TEXT_ALIASES = {"EXCUSED_MIGRATION": "EXCUSED_UPGRADE"}
+_REFUNDABLE_DUTY_DISPOSITIONS = ("SATISFIED", "EXCUSED", "EXCUSED_UPGRADE")
+
+
+def _canonical_duty_disposition_text(text: object) -> object:
+    if type(text) is str:
+        return _DUTY_DISPOSITION_TEXT_ALIASES.get(text, text)
+    return text
 
 
 # Exact Section 4.4 lifecycle freeze for the Market transitions introduced in
@@ -344,14 +370,6 @@ TASK3_EVENT_FREEZE = MappingProxyType({
     "invalidate_stage": (
         (OfferLocation.STAGED, TrancheUsage.STAGED, BondDisposition.NONE),
         (OfferLocation.PENDING, TrancheUsage.OFFER, BondDisposition.NONE),
-    ),
-    "cancel_stage_for_migration": (
-        (OfferLocation.STAGED, TrancheUsage.STAGED, BondDisposition.NONE),
-        (
-            OfferLocation.NONE,
-            TrancheUsage.CLOSED_UNINSTALLED,
-            BondDisposition.OWNER_CREDITED,
-        ),
     ),
     "install_stage": (
         (OfferLocation.STAGED, TrancheUsage.STAGED, BondDisposition.NONE),
@@ -520,9 +538,6 @@ class ServiceView:
     target: str
     authorization_id: bytes
     settlement_chain_id: int
-    protocol_version: int
-    runtime_hash: bytes
-    configuration_hash: bytes
     magic: bytes
     generation: int
     term_id: bytes
@@ -546,6 +561,12 @@ class ServiceView:
     history_retained: bool = True
     service_close_at: int | None = None
     term_removed_at: int | None = None
+    # v2.28 descriptive words that the Settlement model's behavioral oracle
+    # still supplies.  They are not part of the v3.0 binding: when present
+    # they are only width-checked, never compared.
+    protocol_version: int | None = None
+    runtime_hash: bytes | None = None
+    configuration_hash: bytes | None = None
 
 
 @dataclass
@@ -598,25 +619,32 @@ class MarketAccounting:
 
 @dataclass(frozen=True)
 class TargetAuthorization:
+    """The Market's constructor-pinned Settlement: the Inbox proxy address.
+
+    Only ``target`` and ``settlement_chain_id`` enter the binding ID.  The
+    remaining fields are v2.28 fixture words that ``test-settlement-window.py``
+    still passes; they are optional, never hashed and never compared.
+    """
+
     target: str
     settlement_chain_id: int
-    protocol_version: int
-    runtime_hash: bytes
-    configuration_hash: bytes
-    expected_magic: bytes
-    target_manifest_hash: bytes
-    target_registration_hash: bytes
+    expected_magic: bytes = SEAT_TARGET_MAGIC
+    protocol_version: int | None = None
+    runtime_hash: bytes | None = None
+    configuration_hash: bytes | None = None
+    target_manifest_hash: bytes | None = None
+    target_registration_hash: bytes | None = None
 
 
 @dataclass(frozen=True)
 class ExactTargetView:
+    """Decoded ``seatMarketTargetStateV1()``; ``mode`` is the SST1 mode word."""
+
     target: str
     settlement_chain_id: int
     protocol_version: int
-    runtime_hash: bytes
-    configuration_hash: bytes
     magic: bytes
-    phase: str
+    mode: int
     generation: int
 
 
@@ -770,65 +798,13 @@ class SeatDutyRecordV1:
     breach_recorded_at: int
 
 
-@dataclass(frozen=True)
-class MarketRotationReceiptV1:
-    result: MarketRotationResult
-    purged_count: int
-    old_authorization_id: bytes
-    new_authorization_id: bytes
-    activation_receipt_id: bytes
-    successor_index: int
-    blocking_stage_id: bytes
-
-
-@dataclass(frozen=True)
-class SuccessorReceiptV1:
-    receipt_id: bytes
-    successor_index: int
-
-
-@dataclass(frozen=True)
-class ActivationReceiptV1:
-    receipt_id: bytes
-    settlement_chain_id: int
-    router: str
-    router_generation: int
-    successor_index: int
-    transition_kind: ActivationTransitionKind
-    source_protocol_version: int
-    target_protocol_version: int
-    source_manifest_hash: bytes
-    target_manifest_hash: bytes
-    source_authorization_id: bytes
-    target_authorization_id: bytes
-    target_registration_hash: bytes
-    source_settlement: str
-    target_settlement: str
-    old_destination_domain_id: bytes
-    new_destination_domain_id: bytes
-    old_destination_bridge: str
-    new_destination_bridge: str
-    queue_watermark: int
-    candidate_digest: bytes
-    output_canonical_hash: bytes
-    output_canonical_sequence: int
-    activation_context_hash: bytes
-    transition_auxiliary_hash: bytes
-    source_post_state_commitment: bytes
-    adoption_commitment: bytes
-    queue_post_state_commitment: bytes
-    seat_generation: int
-    activated_at_block: int
-    sealed: bool
-
-
 @dataclass
 class TargetRuntime:
     """Read facade bound to one exact Settlement authority object.
 
-    Phase and generation are never stored here. A production read derives both
-    from the registered target-local Settlement history/Protocol graph. The
-    response/fault fields are deterministic unit-test instrumentation only.
+    Mode and generation are never stored here.  A production read is the
+    bounded STATICCALL to the pinned Inbox proxy.  The response/fault fields
+    are deterministic unit-test instrumentation only.
     """
 
     authorization: TargetAuthorization
@@ -861,15 +837,26 @@ class TargetRuntime:
         if not callable(reader):
             raise TransitionRejected("target authority has no exact read surface")
         row = reader()
-        if type(row) is not tuple or len(row) != 8:
+        if type(row) is not tuple or len(row) not in (6, 8):
             raise TransitionRejected("target authority returned malformed state")
+        if len(row) == 8:
+            # v2.28 fixture row (still produced by test-settlement-window.py):
+            # (target, chainId, version, runtimeHash, configurationHash,
+            #  magic, <activation label>, generation).  The two code words and
+            # the label left the v3.0 wire; such a fixture only ever reports
+            # an activated Settlement, which the v3.0 view spells NORMAL.
+            target_word, chain_id, version, _, _, magic, _, generation = row
+            row = (
+                target_word, chain_id, version, magic,
+                SettlementMode.NORMAL.value, generation,
+            )
         raw = encode_exact_target_view(ExactTargetView(*row))
         if self.fault == "short":
             return raw[:-1]
         if self.fault == "long":
             return raw + b"\x00"
         if self.fault == "wrong_magic":
-            return raw[:160] + b"FAIL" + raw[164:]
+            return raw[:96] + b"FAIL" + raw[100:]
         return raw
 
     def _read_history(
@@ -932,124 +919,109 @@ class TargetRuntime:
 
 @dataclass
 class ReleaseManager:
+    """v2.28 fixture shim holding the one pinned Settlement runtime.
+
+    v3.0 has no release manager, router, version manager or authorization
+    registry: the Market implementation pins exactly one Settlement (the Inbox
+    proxy) as a constructor immutable and derives its binding ID once at
+    initialization.  ``test-settlement-window.py`` still constructs this
+    object and calls ``register_router_target`` (its v2.28 name), so it is
+    retained as a plain one-slot holder.  ``SeatMarket`` accepts it only as an
+    optional cross-check that names the same authorization and runtime it was
+    constructed with; it grants no authority and is never read afterwards.
+    """
+
     address: str
     activation_authority: object | None = field(default=None, compare=False)
     authorizations: dict[bytes, TargetAuthorization] = field(default_factory=dict)
     target_runtimes: dict[bytes, TargetRuntime] = field(default_factory=dict)
-    target_bindings: dict[bytes, tuple[int, str]] = field(default_factory=dict)
-    used_target_addresses: set[str] = field(default_factory=set)
-
-    @staticmethod
-    def exact_authorization_id(
-        market_chain_id: int,
-        market_address: str,
-        authorization: TargetAuthorization | None,
-    ) -> bytes:
-        return authorization_identity(
-            market_chain_id, market_address, authorization
-        )
 
     def __setattr__(self, name: str, value: object) -> None:
         if name in {"address", "activation_authority"} and name in self.__dict__:
             raise AttributeError(f"release-manager {name} is immutable")
         object.__setattr__(self, name, value)
 
-    def _is_activation_manager(self, caller: object) -> bool:
-        router = self.activation_authority
-        return (
-            router is not None
-            and type(caller) is str
-            and caller == getattr(router, "version_manager", None)
-        )
-
-    def _register_target(
+    def bind_settlement(
         self,
         market_chain_id: int,
         market_address: str,
         authorization: TargetAuthorization,
         runtime: TargetRuntime,
     ) -> bytes:
-        if runtime.authorization != authorization:
+        if type(runtime) is not TargetRuntime or runtime.authorization != authorization:
             raise TransitionRejected("target runtime authorization differs")
         authorization_id = authorization_identity(
             market_chain_id, market_address, authorization
         )
-        exact_binding = (
-            _uint(market_chain_id, "market chain id"),
-            _canonical_address(market_address, "market address"),
-        )
-        if authorization_id in self.authorizations:
-            raise TransitionRejected("release-manager target is append-only")
-        if authorization.target in self.used_target_addresses:
-            raise TransitionRejected("Settlement target address was already registered")
+        if self.authorizations:
+            raise TransitionRejected("the Market pins exactly one Settlement")
         self.authorizations[authorization_id] = authorization
         self.target_runtimes[authorization_id] = runtime
-        self.target_bindings[authorization_id] = exact_binding
-        self.used_target_addresses.add(authorization.target)
         return authorization_id
 
     def register_router_target(
         self,
-        caller: str,
+        _caller: object,
         market_chain_id: int,
         market_address: str,
         authorization: TargetAuthorization,
         runtime: TargetRuntime,
     ) -> bytes:
-        if not self._is_activation_manager(caller):
-            raise TransitionRejected("target registration caller is unauthorized")
-        return self._register_target(
+        """v2.28 fixture spelling of :meth:`bind_settlement`.
+
+        The leading caller word was the v2.28 version-manager address; v3.0
+        has no such actor and the word is ignored.
+        """
+
+        return self.bind_settlement(
             market_chain_id, market_address, authorization, runtime
         )
 
+
 def encode_exact_target_view(view: ExactTargetView) -> bytes:
+    """Encode the exact 192-byte ``seatMarketTargetStateV1()`` return."""
+
     if type(view) is not ExactTargetView:
         raise TransitionRejected("malformed target view")
     _canonical_address(view.target, "view target")
     _uint(view.settlement_chain_id, "view settlement chain id")
     protocol_version = u64(view.protocol_version)
-    runtime_hash = _bytes32(view.runtime_hash, "view runtime hash")
-    config_hash = _bytes32(view.configuration_hash, "view configuration hash")
     magic = _bytes4(view.magic, "view magic")
-    phases = {"ACTIVE": 1, "ARMED": 2, "READY": 3, "FROZEN": 4}
-    if type(view.phase) is not str or view.phase not in phases:
-        raise TransitionRejected("view phase is invalid")
+    if type(view.mode) is not int or view.mode not in _SETTLEMENT_MODE_VALUES:
+        raise TransitionRejected("view mode is invalid")
     return b"".join((
         b"\x00" * 12 + address20(view.target, "view target"),
         u256(view.settlement_chain_id),
         b"\x00" * 24 + protocol_version,
-        runtime_hash,
-        config_hash,
         magic + b"\x00" * 28,
-        b"\x00" * 31 + bytes((phases[view.phase],)),
+        b"\x00" * 31 + bytes((view.mode,)),
         b"\x00" * 24 + u64(view.generation),
     ))
 
 
 def decode_exact_target_view(raw: bytes) -> ExactTargetView:
+    """Strictly decode ``seatMarketTargetStateV1()``; any padding fails closed."""
+
     if type(raw) is not bytes or len(raw) != TARGET_VIEW_RESPONSE_LENGTH:
         raise TransitionRejected("target view has noncanonical length")
-    phases = {1: "ACTIVE", 2: "ARMED", 3: "READY", 4: "FROZEN"}
     if (
         raw[:12] != b"\x00" * 12
         or raw[64:88] != b"\x00" * 24
-        or raw[164:192] != b"\x00" * 28
-        or raw[192:223] != b"\x00" * 31
-        or raw[224:248] != b"\x00" * 24
+        or raw[100:128] != b"\x00" * 28
+        or raw[128:159] != b"\x00" * 31
+        or raw[160:184] != b"\x00" * 24
     ):
         raise TransitionRejected("target view has noncanonical ABI padding")
-    phase = phases.get(raw[223])
-    if phase is None:
-        raise TransitionRejected("target view phase is invalid")
+    mode = raw[159]
+    if mode not in _SETTLEMENT_MODE_VALUES:
+        raise TransitionRejected("target view mode is invalid")
     return ExactTargetView(
         target="0x" + raw[12:32].hex(),
         settlement_chain_id=int.from_bytes(raw[32:64], "big"),
         protocol_version=int.from_bytes(raw[88:96], "big"),
-        runtime_hash=raw[96:128],
-        configuration_hash=raw[128:160],
-        magic=raw[160:164],
-        phase=phase,
-        generation=int.from_bytes(raw[248:256], "big"),
+        magic=raw[96:100],
+        mode=mode,
+        generation=int.from_bytes(raw[184:192], "big"),
     )
 
 
@@ -1060,11 +1032,8 @@ SIR1_RESPONSE_LENGTH = 11 * 32
 SMR1_RESPONSE_LENGTH = 25 * 32
 MEC1_RESPONSE_LENGTH = 6 * 32
 MHS1_RESPONSE_LENGTH = 2 * 32
-MRO1_RESPONSE_LENGTH = 8 * 32
 SEAT_MARKET_RECORD_V1_RESPONSE_LENGTH = 17 * 32
 SEAT_DUTY_RECORD_V1_RESPONSE_LENGTH = 11 * 32
-ASV1_RESPONSE_LENGTH = 3 * 32
-ARV1_RESPONSE_LENGTH = 32 * 32
 
 
 def _wire_enum(value: Enum, enum_type: type[Enum], name: str) -> int:
@@ -1298,9 +1267,8 @@ def encode_seat_mutation_intent_v1(intent: SeatMutationIntentV1) -> bytes:
         ):
             raise TransitionRejected("SMI1 live identity is incomplete")
         if intent.status is WireIntentStatus.PENDING:
-            if intent.operation not in (
-                WireOperation.INVALIDATE, WireOperation.MIGRATION_CANCEL
-            ):
+            # INVALIDATE is the sole durable PENDING intent in v3.0.
+            if intent.operation is not WireOperation.INVALIDATE:
                 raise TransitionRejected("SMI1 PENDING operation is not asynchronous")
             if (
                 intent.expected_market_state_version != 0
@@ -1615,7 +1583,7 @@ def _validate_history_disposition_v1(
         HistoryDisposition.FAILED_OVER,
         HistoryDisposition.SATISFIED,
         HistoryDisposition.EXCUSED,
-        HistoryDisposition.EXCUSED_MIGRATION,
+        HistoryDisposition.EXCUSED_UPGRADE,
     ):
         if (
             disposition_at == 0
@@ -2010,7 +1978,6 @@ def encode_seat_mutation_receipt_v1(receipt: SeatMutationReceiptV1) -> bytes:
             if receipt.operation not in (
                 WireOperation.EXPIRE,
                 WireOperation.INVALIDATE,
-                WireOperation.MIGRATION_CANCEL,
             ):
                 raise TransitionRejected("SMR1 terminal operation mismatch")
             if (
@@ -2105,310 +2072,17 @@ def decode_market_history_safety_v1(raw: bytes) -> MarketHistorySafetyV1:
     return view
 
 
-def encode_market_rotation_receipt_v1(view: MarketRotationReceiptV1) -> bytes:
-    """Canonical fixed-width MRO1 rotation result."""
-
-    if type(view) is not MarketRotationReceiptV1:
-        raise TransitionRejected("malformed MRO1 result")
-    result = _wire_enum(view.result, MarketRotationResult, "MRO1 result")
-    if not 0 <= view.purged_count <= PENDING_COUNT:
-        raise TransitionRejected("MRO1 purge count exceeds bounded book")
-    for name, raw in (
-        ("old authorization", view.old_authorization_id),
-        ("new authorization", view.new_authorization_id),
-        ("activation receipt", view.activation_receipt_id),
-        ("blocking stage", view.blocking_stage_id),
-    ):
-        _bytes32(raw, f"MRO1 {name}")
-    u64(view.successor_index)
-    if view.result is MarketRotationResult.RECONCILIATION_REQUIRED:
-        if (
-            view.old_authorization_id == ZERO_BYTES32
-            or view.blocking_stage_id == ZERO_BYTES32
-            or view.purged_count != 0
-            or view.new_authorization_id != ZERO_BYTES32
-            or view.activation_receipt_id != ZERO_BYTES32
-            or view.successor_index != 0
-        ):
-            raise TransitionRejected("MRO1 reconciliation result is noncanonical")
-    elif view.result is MarketRotationResult.BOOTSTRAPPED:
-        if (
-            view.old_authorization_id != ZERO_BYTES32
-            or view.purged_count != 0
-            or view.new_authorization_id == ZERO_BYTES32
-            or view.activation_receipt_id == ZERO_BYTES32
-            or view.successor_index == 0
-            or view.blocking_stage_id != ZERO_BYTES32
-        ):
-            raise TransitionRejected("MRO1 bootstrap result is noncanonical")
-    elif (
-        view.old_authorization_id == ZERO_BYTES32
-        or view.new_authorization_id == ZERO_BYTES32
-        or view.activation_receipt_id == ZERO_BYTES32
-        or view.successor_index == 0
-        or view.blocking_stage_id != ZERO_BYTES32
-    ):
-        raise TransitionRejected("MRO1 advanced result is incomplete")
-    return b"".join((
-        _abi_magic_word(MRO1_MAGIC),
-        _abi_uint_word(result, 8, "MRO1 result"),
-        _abi_uint_word(view.purged_count, 8, "MRO1 purge count"),
-        view.old_authorization_id,
-        view.new_authorization_id,
-        view.activation_receipt_id,
-        _abi_uint_word(view.successor_index, 64, "MRO1 successor index"),
-        view.blocking_stage_id,
-    ))
-
-
-def decode_market_rotation_receipt_v1(raw: bytes) -> MarketRotationReceiptV1:
-    words = _fixed_wire_words(raw, 8, MRO1_MAGIC, "MRO1")
-    view = MarketRotationReceiptV1(
-        _decode_wire_enum(words[1], MarketRotationResult, "MRO1 result"),  # type: ignore[arg-type]
-        _decode_uint_word(words[2], 8, "MRO1 purge count"),
-        words[3], words[4], words[5],
-        _decode_uint_word(words[6], 64, "MRO1 successor index"),
-        words[7],
-    )
-    if encode_market_rotation_receipt_v1(view) != raw:
-        raise TransitionRejected("MRO1 is not canonical")
-    return view
-
-
-def activation_receipt_id_v1(view: ActivationReceiptV1) -> bytes:
-    if type(view) is not ActivationReceiptV1:
-        raise TransitionRejected("malformed ARV1 receipt")
-    return keccak256(b"".join((
-        b"TAIKO_ACTIVATION_RECEIPT_V1",
-        u256(view.settlement_chain_id),
-        address20(view.router, "ARV1 router"),
-        u64(view.router_generation),
-        u64(view.successor_index),
-        u8(_wire_enum(
-            view.transition_kind, ActivationTransitionKind,
-            "ARV1 transition kind",
-        )),
-        u64(view.source_protocol_version),
-        u64(view.target_protocol_version),
-        _bytes32(view.source_manifest_hash, "ARV1 source manifest"),
-        _bytes32(view.target_manifest_hash, "ARV1 target manifest"),
-        _bytes32(view.source_authorization_id, "ARV1 source authorization"),
-        _bytes32(view.target_authorization_id, "ARV1 target authorization"),
-        _bytes32(view.target_registration_hash, "ARV1 registration"),
-        address20(view.source_settlement, "ARV1 source Settlement"),
-        address20(view.target_settlement, "ARV1 target Settlement"),
-        _bytes32(view.old_destination_domain_id, "ARV1 old domain"),
-        _bytes32(view.new_destination_domain_id, "ARV1 new domain"),
-        bytes.fromhex(_wire_address(
-            view.old_destination_bridge, "ARV1 old bridge", allow_zero=True
-        )[2:]),
-        bytes.fromhex(_wire_address(
-            view.new_destination_bridge, "ARV1 new bridge", allow_zero=True
-        )[2:]),
-        u64(view.queue_watermark),
-        _bytes32(view.candidate_digest, "ARV1 candidate"),
-        _bytes32(view.output_canonical_hash, "ARV1 output"),
-        u64(view.output_canonical_sequence),
-        _bytes32(view.activation_context_hash, "ARV1 context"),
-        _bytes32(view.transition_auxiliary_hash, "ARV1 auxiliary"),
-        _bytes32(view.source_post_state_commitment, "ARV1 source poststate"),
-        _bytes32(view.adoption_commitment, "ARV1 adoption"),
-        _bytes32(view.queue_post_state_commitment, "ARV1 queue poststate"),
-        u64(view.seat_generation),
-        u64(view.activated_at_block),
-    )))
-
-
-def encode_successor_receipt_v1(view: SuccessorReceiptV1) -> bytes:
-    if type(view) is not SuccessorReceiptV1:
-        raise TransitionRejected("malformed ASV1 receipt")
-    if _bytes32(view.receipt_id, "ASV1 receipt") == ZERO_BYTES32:
-        raise TransitionRejected("ASV1 receipt must be nonzero")
-    if int.from_bytes(u64(view.successor_index), "big") == 0:
-        raise TransitionRejected("ASV1 successor index must be nonzero")
-    return b"".join((
-        view.receipt_id,
-        _abi_uint_word(view.successor_index, 64, "ASV1 successor index"),
-        _abi_magic_word(ASV1_MAGIC),
-    ))
-
-
-def decode_successor_receipt_v1(raw: bytes) -> SuccessorReceiptV1:
-    if type(raw) is not bytes or len(raw) != ASV1_RESPONSE_LENGTH:
-        raise TransitionRejected("ASV1 has noncanonical length")
-    words = [raw[index:index + 32] for index in range(0, len(raw), 32)]
-    if words[2] != _abi_magic_word(ASV1_MAGIC):
-        raise TransitionRejected("ASV1 has wrong magic/revision")
-    view = SuccessorReceiptV1(
-        words[0], _decode_uint_word(words[1], 64, "ASV1 successor index")
-    )
-    if encode_successor_receipt_v1(view) != raw:
-        raise TransitionRejected("ASV1 is not canonical")
-    return view
-
-
-def encode_activation_receipt_v1(view: ActivationReceiptV1) -> bytes:
-    if type(view) is not ActivationReceiptV1:
-        raise TransitionRejected("malformed ARV1 receipt")
-    for name, raw in (
-        ("receipt", view.receipt_id),
-        ("source manifest", view.source_manifest_hash),
-        ("target manifest", view.target_manifest_hash),
-        ("source authorization", view.source_authorization_id),
-        ("target authorization", view.target_authorization_id),
-        ("target registration", view.target_registration_hash),
-        ("old destination domain", view.old_destination_domain_id),
-        ("new destination domain", view.new_destination_domain_id),
-        ("candidate", view.candidate_digest),
-        ("output", view.output_canonical_hash),
-        ("activation context", view.activation_context_hash),
-        ("transition auxiliary", view.transition_auxiliary_hash),
-        ("source poststate", view.source_post_state_commitment),
-        ("adoption", view.adoption_commitment),
-        ("queue poststate", view.queue_post_state_commitment),
-    ):
-        _bytes32(raw, f"ARV1 {name}")
-    _uint(view.settlement_chain_id, "ARV1 Settlement chain ID")
-    _wire_address(view.router, "ARV1 router")
-    for value in (
-        view.router_generation, view.successor_index,
-        view.source_protocol_version, view.target_protocol_version,
-        view.queue_watermark, view.output_canonical_sequence,
-        view.seat_generation, view.activated_at_block,
-    ):
-        u64(value)
-    _wire_enum(view.transition_kind, ActivationTransitionKind, "ARV1 kind")
-    _wire_address(view.source_settlement, "ARV1 source Settlement")
-    _wire_address(view.target_settlement, "ARV1 target Settlement")
-    _wire_address(view.old_destination_bridge, "ARV1 old bridge", allow_zero=True)
-    _wire_address(view.new_destination_bridge, "ARV1 new bridge", allow_zero=True)
-    if type(view.sealed) is not bool or not view.sealed:
-        raise TransitionRejected("ARV1 receipt is not sealed")
-    common_nonzero = (
-        view.receipt_id,
-        view.source_manifest_hash,
-        view.target_manifest_hash,
-        view.target_authorization_id,
-        view.target_registration_hash,
-        view.new_destination_domain_id,
-        view.candidate_digest,
-        view.output_canonical_hash,
-        view.activation_context_hash,
-        view.source_post_state_commitment,
-        view.adoption_commitment,
-        view.queue_post_state_commitment,
-    )
-    if (
-        any(raw == ZERO_BYTES32 for raw in common_nonzero)
-        or view.router_generation == 0
-        or view.successor_index == 0
-        or view.target_protocol_version <= view.source_protocol_version
-        or view.activated_at_block == 0
-        or view.source_settlement == view.target_settlement
-        or view.new_destination_bridge == ZERO_ADDRESS
-    ):
-        raise TransitionRejected("ARV1 common identity is incomplete")
-    if view.transition_kind is ActivationTransitionKind.VERSION_MIGRATION:
-        if (
-            view.source_authorization_id == ZERO_BYTES32
-            or view.old_destination_domain_id == ZERO_BYTES32
-            or view.new_destination_domain_id == ZERO_BYTES32
-            or view.old_destination_bridge == ZERO_ADDRESS
-            or view.new_destination_bridge == ZERO_ADDRESS
-            or view.transition_auxiliary_hash != ZERO_BYTES32
-            or view.seat_generation == 0
-        ):
-            raise TransitionRejected("ARV1 migration mask is incomplete")
-    else:
-        if (
-            view.source_authorization_id != ZERO_BYTES32
-            or view.old_destination_domain_id != ZERO_BYTES32
-            or view.old_destination_bridge != ZERO_ADDRESS
-            or view.transition_auxiliary_hash == ZERO_BYTES32
-            or view.source_protocol_version != 0
-            or view.seat_generation != 0
-        ):
-            raise TransitionRejected("ARV1 genesis mask is invalid")
-    if view.receipt_id != activation_receipt_id_v1(view):
-        raise TransitionRejected("ARV1 receipt ID is not derived")
-    return b"".join((
-        _abi_magic_word(ARV1_MAGIC),
-        view.receipt_id,
-        u256(view.settlement_chain_id),
-        _abi_address_word(view.router, "ARV1 router"),
-        _abi_uint_word(view.router_generation, 64, "ARV1 generation"),
-        _abi_uint_word(view.successor_index, 64, "ARV1 successor index"),
-        _abi_uint_word(view.transition_kind.value, 8, "ARV1 kind"),
-        _abi_uint_word(view.source_protocol_version, 64, "ARV1 source version"),
-        _abi_uint_word(view.target_protocol_version, 64, "ARV1 target version"),
-        view.source_manifest_hash,
-        view.target_manifest_hash,
-        view.source_authorization_id,
-        view.target_authorization_id,
-        view.target_registration_hash,
-        _abi_address_word(view.source_settlement, "ARV1 source Settlement"),
-        _abi_address_word(view.target_settlement, "ARV1 target Settlement"),
-        view.old_destination_domain_id,
-        view.new_destination_domain_id,
-        _abi_address_word(
-            view.old_destination_bridge, "ARV1 old bridge", allow_zero=True
-        ),
-        _abi_address_word(
-            view.new_destination_bridge, "ARV1 new bridge", allow_zero=True
-        ),
-        _abi_uint_word(view.queue_watermark, 64, "ARV1 Queue watermark"),
-        view.candidate_digest,
-        view.output_canonical_hash,
-        _abi_uint_word(
-            view.output_canonical_sequence, 64, "ARV1 output sequence"
-        ),
-        view.activation_context_hash,
-        view.transition_auxiliary_hash,
-        view.source_post_state_commitment,
-        view.adoption_commitment,
-        view.queue_post_state_commitment,
-        _abi_uint_word(view.seat_generation, 64, "ARV1 seat generation"),
-        _abi_uint_word(view.activated_at_block, 64, "ARV1 activated block"),
-        _wire_bool(view.sealed, "ARV1 sealed"),
-    ))
-
-
-def decode_activation_receipt_v1(raw: bytes) -> ActivationReceiptV1:
-    words = _fixed_wire_words(raw, 32, ARV1_MAGIC, "ARV1")
-    view = ActivationReceiptV1(
-        words[1],
-        _decode_uint_word(words[2], 256, "ARV1 Settlement chain ID"),
-        _decode_address_word(words[3], "ARV1 router"),
-        _decode_uint_word(words[4], 64, "ARV1 generation"),
-        _decode_uint_word(words[5], 64, "ARV1 successor index"),
-        _decode_wire_enum(
-            words[6], ActivationTransitionKind, "ARV1 kind"
-        ),  # type: ignore[arg-type]
-        _decode_uint_word(words[7], 64, "ARV1 source version"),
-        _decode_uint_word(words[8], 64, "ARV1 target version"),
-        words[9], words[10], words[11], words[12], words[13],
-        _decode_address_word(words[14], "ARV1 source Settlement"),
-        _decode_address_word(words[15], "ARV1 target Settlement"),
-        words[16], words[17],
-        _decode_address_word(words[18], "ARV1 old bridge", allow_zero=True),
-        _decode_address_word(words[19], "ARV1 new bridge", allow_zero=True),
-        _decode_uint_word(words[20], 64, "ARV1 Queue watermark"),
-        words[21], words[22],
-        _decode_uint_word(words[23], 64, "ARV1 output sequence"),
-        words[24], words[25], words[26], words[27], words[28],
-        _decode_uint_word(words[29], 64, "ARV1 seat generation"),
-        _decode_uint_word(words[30], 64, "ARV1 activated block"),
-        _decode_wire_bool(words[31], "ARV1 sealed"),
-    )
-    if encode_activation_receipt_v1(view) != raw:
-        raise TransitionRejected("ARV1 is not canonical")
-    return view
-
-
 def authorization_identity(
     market_chain_id: int, market_address: str, auth: TargetAuthorization
 ) -> bytes:
-    """Commit the exact authorized target identity into one fixed word."""
+    """Derive the one immutable Market/Settlement binding ID.
+
+    ``authorizationId = H("TAIKO_SEAT_TARGET_AUTHORIZATION_V1" ||
+    u256(marketChainId) || address20(market) || u256(settlementChainId) ||
+    address20(settlement))``; no protocol-version, runtime, configuration,
+    manifest or registration word is bound because the proxy addresses are
+    permanent across implementation upgrades.
+    """
 
     if type(auth) is not TargetAuthorization:
         raise TransitionRejected("invalid target authorization")
@@ -2417,13 +2091,7 @@ def authorization_identity(
         u256(market_chain_id),
         address20(market_address, "market address"),
         u256(auth.settlement_chain_id),
-        u64(auth.protocol_version),
         address20(auth.target, "authorized target"),
-        _bytes32(auth.runtime_hash, "runtime hash"),
-        _bytes32(auth.configuration_hash, "configuration hash"),
-        _bytes4(auth.expected_magic, "expected magic"),
-        _bytes32(auth.target_manifest_hash, "target manifest hash"),
-        _bytes32(auth.target_registration_hash, "target registration hash"),
     )
 
 
@@ -2543,6 +2211,9 @@ class TransitionResult:
     reserve_id: bytes | None = None
     premium_credit_id: bytes | None = None
     deadline: int | None = None
+    # syncSeatGenerationV1's ``targetMode`` word (SST1 mode of the pinned
+    # Settlement), reported only by the generation sync.
+    target_mode: int | None = None
 
 
 TransferCallback = Callable[[str, int, "SeatMarket"], None]
@@ -2569,11 +2240,7 @@ class SeatMarket:
             "_reorg_stability_seconds",
             "_evidence_delay_seconds",
             "_release_manager",
-            "_activation_router",
-            "_protocol_version_manager_address",
-            "_activation_router_address",
-            "_activation_router_runtime_hash",
-            "_activation_router_configuration_hash",
+            "_insertion_enabled",
         } and name in self.__dict__:
             raise AttributeError(f"{name[1:]} is immutable")
         object.__setattr__(self, name, value)
@@ -2592,14 +2259,8 @@ class SeatMarket:
         authorization: TargetAuthorization,
         insertion_enabled: bool,
         cached_generation: int | None,
-        release_manager: ReleaseManager | None,
-        target_runtime: TargetRuntime | None,
-        activation_router: object | None = None,
-        genesis_pending: bool = False,
-        protocol_version_manager_address: str | None = None,
-        activation_router_address: str | None = None,
-        activation_router_runtime_hash: bytes = b"R" * 32,
-        activation_router_configuration_hash: bytes = b"C" * 32,
+        target_runtime: TargetRuntime,
+        release_manager: ReleaseManager | None = None,
         starting_quote_sequence: int = 0,
         starting_creation_sequence: int = 0,
         seat_runway_seconds: int = 100,
@@ -2699,134 +2360,41 @@ class SeatMarket:
         )
         if type(insertion_enabled) is not bool:
             raise TransitionRejected("insertion-enabled flag must be boolean")
-        if type(genesis_pending) is not bool or (
-            genesis_pending
-            and (
-                insertion_enabled
-                or exact_cached_generation is not None
-                or authorization is not None
-                or target_runtime is not None
-            )
-        ):
-            raise TransitionRejected("genesis-pending Market must be empty/disabled")
-        if not genesis_pending:
-            self._validate_authorization_record(authorization)
-        initial_authorization_id = (
-            ZERO_BYTES32
-            if authorization is None
-            else authorization_identity(
-                self.market_chain_id, self.market_address, authorization
-            )
-        )
-        if release_manager is not None:
-            if (type(release_manager) is not ReleaseManager
-                    or release_manager.activation_authority is None):
-                raise TransitionRejected(
-                    "legacy release manager must be an exact object"
-                )
-            _canonical_address(release_manager.address, "release manager")
-        router = (
-            None if release_manager is None
-            else release_manager.activation_authority
-        ) if activation_router is None else activation_router
-        if router is None:
-            raise TransitionRejected("activation Router must be bound directly")
-        legacy_router_adapter = (
-            activation_router is None
-            and release_manager is not None
-            and any(getattr(router, field, None) is None for field in (
-                "address", "runtime_hash", "configuration_hash"
-            ))
-        )
-        if not genesis_pending:
-            if type(release_manager) is not ReleaseManager:
-                raise TransitionRejected(
-                    "initialized legacy fixture requires ReleaseManager"
-                )
-            if (
-                type(target_runtime) is not TargetRuntime
-                or target_runtime.authorization != authorization
-            ):
-                raise TransitionRejected("initial target runtime is not exact")
-            if (
-                release_manager.authorizations.get(initial_authorization_id)
-                != authorization
-                or release_manager.target_runtimes.get(initial_authorization_id)
-                is not target_runtime
-                or release_manager.target_bindings.get(initial_authorization_id)
-                != (self.market_chain_id, self.market_address)
-                or authorization.target
-                    not in release_manager.used_target_addresses
-            ):
-                raise TransitionRejected("initial target is not manager-authenticated")
-        self._release_manager = release_manager
-        self._activation_router = router
-        default_pvm_address = (
-            release_manager.address
-            if release_manager is not None
-            else getattr(router, "version_manager", None)
-        )
-        self._protocol_version_manager_address = _canonical_address(
-            default_pvm_address if protocol_version_manager_address is None
-            else protocol_version_manager_address,
-            "ProtocolVersionManager address",
-        )
-        self._activation_router_address = _canonical_address(
-            (
-                release_manager.address
-                if legacy_router_adapter else getattr(router, "address", None)
-            )
-            if activation_router_address is None
-            else activation_router_address,
-            "activation Router address",
-        )
-        self._activation_router_runtime_hash = _bytes32(
-            activation_router_runtime_hash,
-            "activation Router runtime hash",
-        )
-        self._activation_router_configuration_hash = _bytes32(
-            activation_router_configuration_hash,
-            "activation Router configuration hash",
+        self._validate_authorization_record(authorization)
+        # The binding ID is derived exactly once, from the Market's own
+        # chain/address and the pinned Settlement chain/address, and no later
+        # operation can rewrite it.
+        binding_id = authorization_identity(
+            self.market_chain_id, self.market_address, authorization
         )
         if (
-            self._activation_router_runtime_hash == ZERO_BYTES32
-            or self._activation_router_configuration_hash == ZERO_BYTES32
-            or (not legacy_router_adapter and (
-                _canonical_address(
-                    getattr(router, "address", None),
-                    "bound activation Router address",
-                ) != self._activation_router_address
-                or _model_component_hash(
-                    getattr(router, "runtime_hash", None),
-                    "bound activation Router runtime",
-                ) != self._activation_router_runtime_hash
-                or _model_component_hash(
-                    getattr(router, "configuration_hash", None),
-                    "bound activation Router configuration",
-                ) != self._activation_router_configuration_hash
-            ))
+            type(target_runtime) is not TargetRuntime
+            or target_runtime.authorization != authorization
         ):
-            raise TransitionRejected("activation Router binding is inexact")
-        self.authorizations: dict[bytes, TargetAuthorization] = (
-            {} if genesis_pending else {initial_authorization_id: authorization}
-        )
-        self.authorization_id_by_target: dict[str, bytes] = (
-            {} if genesis_pending else {authorization.target: initial_authorization_id}
-        )
-        self.target_runtimes: dict[bytes, TargetRuntime] = (
-            {} if genesis_pending else {initial_authorization_id: target_runtime}
-        )
-        self.authorization_enabled: dict[bytes, bool] = (
-            {} if genesis_pending else {initial_authorization_id: insertion_enabled}
-        )
-        self.bootstrap_complete = not genesis_pending
-        self.current_authorization_id = (
-            initial_authorization_id if self.bootstrap_complete else ZERO_BYTES32
-        )
-        # Production rotation consumes the Router's exact ARV1 identity and
-        # monotone global successor index.
-        self.consumed_activation_receipt_ids: set[bytes] = set()
-        self.last_activation_successor_index = 0
+            raise TransitionRejected("pinned target runtime is not exact")
+        if release_manager is not None:
+            if (
+                type(release_manager) is not ReleaseManager
+                or release_manager.authorizations.get(binding_id) != authorization
+                or release_manager.target_runtimes.get(binding_id)
+                is not target_runtime
+            ):
+                raise TransitionRejected(
+                    "legacy release-manager fixture does not name the pinned Settlement"
+                )
+            _canonical_address(release_manager.address, "release manager")
+        self._release_manager = release_manager
+        # Model-only owner pause bit as seen by offer admission and stage
+        # restore (the EssentialContract pattern's pause); v3.0 has no
+        # per-authorization enablement because there is one binding.
+        self._insertion_enabled = insertion_enabled
+        self.authorizations: dict[bytes, TargetAuthorization] = {
+            binding_id: authorization
+        }
+        self.target_runtimes: dict[bytes, TargetRuntime] = {
+            binding_id: target_runtime
+        }
+        self.current_authorization_id = binding_id
         self.cached_generation = exact_cached_generation
         self.quote_sequence = exact_quote_sequence
         self.creation_sequence = exact_creation_sequence
@@ -2864,7 +2432,7 @@ class SeatMarket:
             object.__setattr__(
                 duplicate,
                 key,
-                value if key in {"_release_manager", "_activation_router"}
+                value if key == "_release_manager"
                 else copy.deepcopy(value, memo),
             )
         return duplicate
@@ -2925,7 +2493,7 @@ class SeatMarket:
     def authorization(self) -> TargetAuthorization:
         authorization = self.authorizations.get(self.current_authorization_id)
         if authorization is None:
-            raise TransitionRejected("Market genesis activation is pending")
+            raise TransitionRejected("Market has no pinned Settlement")
         return authorization
 
     @property
@@ -2933,16 +2501,8 @@ class SeatMarket:
         return self._release_manager
 
     @property
-    def activation_router(self) -> object:
-        return self._activation_router
-
-    @property
-    def activation_router_address(self) -> str:
-        return self._activation_router_address
-
-    @property
     def insertion_enabled(self) -> bool:
-        return self.authorization_enabled.get(self.current_authorization_id, False)
+        return self._insertion_enabled
 
     @staticmethod
     def _validate_clock(clock: Clock) -> None:
@@ -2957,16 +2517,19 @@ class SeatMarket:
             raise TransitionRejected("invalid target authorization")
         _canonical_address(auth.target, "authorized target")
         _uint(auth.settlement_chain_id, "settlement chain id")
-        u64(auth.protocol_version)
+        if _bytes4(auth.expected_magic, "expected magic") != SEAT_TARGET_MAGIC:
+            raise TransitionRejected("expected target magic must be SEAT")
+        # v2.28 fixture words: optional, width-checked only.
+        if auth.protocol_version is not None:
+            u64(auth.protocol_version)
         for name, raw in (
             ("runtime hash", auth.runtime_hash),
             ("configuration hash", auth.configuration_hash),
             ("target manifest hash", auth.target_manifest_hash),
             ("target registration hash", auth.target_registration_hash),
         ):
-            if _bytes32(raw, name) == ZERO_BYTES32:
-                raise TransitionRejected(f"{name} must be nonzero")
-        _bytes4(auth.expected_magic, "expected magic")
+            if raw is not None:
+                _bytes32(raw, name)
 
     @property
     def pending_count(self) -> int:
@@ -3061,12 +2624,7 @@ class SeatMarket:
         source = self.__dict__ if state is None else state
         return (
             source["authorizations"],
-            source["authorization_id_by_target"],
-            source["authorization_enabled"],
-            source["bootstrap_complete"],
             source["current_authorization_id"],
-            source["consumed_activation_receipt_ids"],
-            source["last_activation_successor_index"],
             source["cached_generation"],
             source["quote_sequence"],
             source["creation_sequence"],
@@ -3086,19 +2644,15 @@ class SeatMarket:
 
     def _transaction_snapshot(self) -> dict[str, object]:
         manager = self._release_manager
-        router = self._activation_router
         runtimes = dict(self.target_runtimes)
         state = copy.deepcopy({
             key: value
             for key, value in self.__dict__.items()
-            if key not in {
-                "_release_manager", "_activation_router", "target_runtimes"
-            }
+            if key not in {"_release_manager", "target_runtimes"}
         })
         return {
             "state": state,
             "manager": manager,
-            "router": router,
             "runtimes": runtimes,
             "runtime_states": {
                 authorization_id: (
@@ -3110,31 +2664,11 @@ class SeatMarket:
                 )
                 for authorization_id, runtime in runtimes.items()
             },
-            "manager_runtime_states": {} if manager is None else {
-                authorization_id: (
-                    runtime.authority,
-                    copy.deepcopy({
-                        key: value for key, value in runtime.__dict__.items()
-                        if key != "authority"
-                    }),
-                )
-                for authorization_id, runtime
-                in manager.target_runtimes.items()
-            },
         }
 
     def _restore_transaction(self, snapshot: dict[str, object]) -> None:
         runtimes = snapshot["runtimes"]
         runtime_states = snapshot["runtime_states"]
-        manager = snapshot["manager"]
-        for authorization_id, (authority, state) in snapshot[
-            "manager_runtime_states"
-        ].items():
-            assert manager is not None
-            runtime = manager.target_runtimes[authorization_id]
-            runtime.__dict__.clear()
-            runtime.__dict__.update(state)
-            runtime.authority = authority
         for authorization_id, runtime in runtimes.items():
             authority, state = runtime_states[authorization_id]
             runtime.__dict__.clear()
@@ -3142,8 +2676,7 @@ class SeatMarket:
             runtime.authority = authority
         self.__dict__.clear()
         self.__dict__.update(snapshot["state"])
-        self._release_manager = manager
-        self._activation_router = snapshot["router"]
+        self._release_manager = snapshot["manager"]
         self.target_runtimes = runtimes
 
     def _wire_receipt_for_transition(
@@ -3391,16 +2924,13 @@ class SeatMarket:
 
     def _validate_lineup_authority(self, snapshot: LineupSnapshot) -> None:
         self._validate_lineup(snapshot)
-        observed = self._read_authorized_target(
-            snapshot.authorization_id, expected_phase="ACTIVE"
-        )
-        observed_generation = self._validate_exact_target_view(observed)
+        observed = self._read_pinned_target(activated_only=True)
         if (
             snapshot.target != self.authorization.target
             or snapshot.authorization_id != self.current_authorization_id
             or self.cached_generation is None
             or snapshot.generation != self.cached_generation
-            or observed_generation != self.cached_generation
+            or observed.generation != self.cached_generation
             or not self.insertion_enabled
         ):
             raise TransitionRejected("lineup authority is stale")
@@ -3413,11 +2943,16 @@ class SeatMarket:
         _canonical_address(view.target, "service target")
         _bytes32(view.authorization_id, "service authorization ID")
         _uint(view.settlement_chain_id, "service Settlement chain ID")
-        u64(view.protocol_version)
-        _bytes32(view.runtime_hash, "service runtime hash")
-        _bytes32(view.configuration_hash, "service configuration hash")
         _bytes4(view.magic, "service magic")
         u64(view.generation)
+        if view.protocol_version is not None:
+            u64(view.protocol_version)
+        for name, raw in (
+            ("runtime hash", view.runtime_hash),
+            ("configuration hash", view.configuration_hash),
+        ):
+            if raw is not None:
+                _bytes32(raw, f"service {name}")
         _bytes32(view.term_id, "service term ID")
         _bytes32(view.tranche_id, "service tranche ID")
         _bytes32(view.offer_id, "service offer ID")
@@ -3470,9 +3005,6 @@ class SeatMarket:
             and view.authorization_id == tranche.authorization_id
             and view.target == auth.target
             and view.settlement_chain_id == auth.settlement_chain_id
-            and view.protocol_version == auth.protocol_version
-            and view.runtime_hash == auth.runtime_hash
-            and view.configuration_hash == auth.configuration_hash
             and view.magic == auth.expected_magic
             and tranche.generation == view.generation
             and offer is not None
@@ -3494,7 +3026,7 @@ class SeatMarket:
                 "installed term lacks exact last-liability timestamp"
             )
         _uint(view.last_liability_at, "last liability at")
-        disposition = view.duty_disposition
+        disposition = _canonical_duty_disposition_text(view.duty_disposition)
         if disposition == "NO_DUTY":
             if (
                 view.duty_id is not None
@@ -3504,7 +3036,7 @@ class SeatMarket:
             ):
                 raise TransitionRejected("NO_DUTY history is inconsistent")
             return
-        if disposition in ("SATISFIED", "EXCUSED", "EXCUSED_MIGRATION"):
+        if disposition in _REFUNDABLE_DUTY_DISPOSITIONS:
             if (
                 view.duty_id is None
                 or view.disposition_at is None
@@ -3559,56 +3091,44 @@ class SeatMarket:
         self,
         view: ExactTargetView,
         *,
-        expected_phase: str | tuple[str, ...] = "ACTIVE",
+        activated_only: bool,
     ) -> int:
         if type(view) is not ExactTargetView:
             raise TransitionRejected("malformed target view")
         _canonical_address(view.target, "view target")
         _uint(view.settlement_chain_id, "view settlement chain id")
         u64(view.protocol_version)
-        _bytes32(view.runtime_hash, "view runtime hash")
-        _bytes32(view.configuration_hash, "view configuration hash")
         _bytes4(view.magic, "view magic")
-        allowed = (
-            (expected_phase,)
-            if type(expected_phase) is str
-            else expected_phase
-        )
-        if (
-            type(allowed) is not tuple
-            or not allowed
-            or any(type(phase) is not str for phase in allowed)
-            or type(view.phase) is not str
-            or view.phase not in allowed
-        ):
-            raise TransitionRejected(f"view phase is not in {allowed}")
+        if type(view.mode) is not int or view.mode not in _SETTLEMENT_MODE_VALUES:
+            raise TransitionRejected("view mode is invalid")
+        if activated_only and view.mode not in _ACTIVATED_MODE_VALUES:
+            raise TransitionRejected("Settlement is not activated (mode 0)")
         return int.from_bytes(u64(view.generation), "big")
 
-    def _read_authorized_target(
-        self,
-        authorization_id: bytes,
-        *,
-        expected_phase: str | tuple[str, ...],
-    ) -> ExactTargetView:
-        auth = self.authorizations.get(authorization_id)
-        runtime = self.target_runtimes.get(authorization_id)
+    def _read_pinned_target(self, *, activated_only: bool) -> ExactTargetView:
+        """Exact-read ``seatMarketTargetStateV1()`` from the pinned Settlement.
+
+        The Market compares ``target``, ``settlementChainId`` and the SEAT
+        magic with its immutables and, when ``activated_only`` is set, accepts
+        only mode 1 (NORMAL) or 2 (RECOVERY).  Revert, OOG, wrong length,
+        dirty padding or any mismatch fails closed.
+        """
+
+        auth = self.authorizations.get(self.current_authorization_id)
+        runtime = self.target_runtimes.get(self.current_authorization_id)
         if auth is None or runtime is None:
-            raise TransitionRejected("authorized target runtime is absent")
+            raise TransitionRejected("pinned target runtime is absent")
         if runtime.authorization != auth:
-            raise TransitionRejected("authorized target runtime identity changed")
+            raise TransitionRejected("pinned target runtime identity changed")
         raw = runtime.read_exact_target(auth.target)
         view = decode_exact_target_view(raw)
-        self._validate_exact_target_view(view, expected_phase=expected_phase)
-        exact = (
-            view.target == auth.target
-            and view.settlement_chain_id == auth.settlement_chain_id
-            and view.protocol_version == auth.protocol_version
-            and view.runtime_hash == auth.runtime_hash
-            and view.configuration_hash == auth.configuration_hash
-            and view.magic == auth.expected_magic
-        )
-        if not exact:
-            raise TransitionRejected("target view does not match authorization")
+        self._validate_exact_target_view(view, activated_only=activated_only)
+        if (
+            view.target != auth.target
+            or view.settlement_chain_id != auth.settlement_chain_id
+            or view.magic != auth.expected_magic
+        ):
+            raise TransitionRejected("target view does not match the pinned Settlement")
         return view
 
     def _new_tranche_id(
@@ -3685,14 +3205,14 @@ class SeatMarket:
             operator = _canonical_address(caller, "caller")
             payout_value = _canonical_address(payout, "payout")
             self._validate_clock(clock)
-            observed = self._read_authorized_target(
-                self.current_authorization_id, expected_phase="ACTIVE"
-            )
-            observed_generation = self._validate_exact_target_view(observed)
+            # A new offer performs the exact target read and accepts only an
+            # activated mode (1 or 2) with the cached generation, before any
+            # sequence increment, ETH retention or displacement.
+            observed = self._read_pinned_target(activated_only=True)
             if (self.cached_generation is None
-                    or observed_generation != self.cached_generation):
+                    or observed.generation != self.cached_generation):
                 raise TransitionRejected(
-                    "offer submission requires the exact cached ACTIVE generation"
+                    "offer submission requires the cached generation of an activated Settlement"
                 )
             self._require_current_authority(target, generation)
             ask = _uint(ask_wei_per_second, "ask")
@@ -4278,7 +3798,7 @@ class SeatMarket:
         restore_current = (
             not force_owner_terminal
             and offer.authorization_id == self.current_authorization_id
-            and self.authorization_enabled.get(offer.authorization_id) is True
+            and self.insertion_enabled
             and self.cached_generation is not None
             and offer.generation == self.cached_generation
         )
@@ -4307,10 +3827,10 @@ class SeatMarket:
             self.pending_offer_ids.append(offer.offer_id)
             self._sort_pending()
         else:
-            # A generation/auth rotation may race delayed stage reconciliation.
-            # Restoring that quote would strand a stale PENDING row because an
-            # unchanged later sync has no reason to purge it.  Terminalize the
-            # exact never-installed tranche instead.
+            # A successor reinitializer's seatGeneration bump may race delayed
+            # stage reconciliation.  Restoring that quote would strand a stale
+            # PENDING row because an unchanged later sync has no reason to
+            # purge it.  Terminalize the exact never-installed tranche instead.
             offer.location = OfferLocation.NONE
             tranche.usage = TrancheUsage.CLOSED_UNINSTALLED
             credit_id = self._terminalize_owner(tranche.tranche_id)
@@ -4331,12 +3851,12 @@ class SeatMarket:
             if self.stage is None or clock.timestamp <= self.stage.expires_at:
                 raise TransitionRejected("stage has not expired")
             offer = self.offers[self.stage.offer_id]
-            observed = self._read_authorized_target(
-                offer.authorization_id, expected_phase="ACTIVE"
-            )
+            # Ordinary EXPIRE requires an activated target mode and the
+            # current cached generation.
+            observed = self._read_pinned_target(activated_only=True)
             if (
                 offer.authorization_id != self.current_authorization_id
-                or not self.authorization_enabled.get(offer.authorization_id, False)
+                or not self.insertion_enabled
                 or self.cached_generation is None
                 or offer.generation != self.cached_generation
                 or observed.generation != self.cached_generation
@@ -4349,7 +3869,14 @@ class SeatMarket:
     def _settlement_invalidate_stage(
         self, stage_id: bytes, lineup_commitment: bytes
     ) -> TransitionResult:
-        """Reconcile an exact Settlement lineup-invalidation tombstone."""
+        """Reconcile the sole durable PENDING INVALIDATE intent.
+
+        INVALIDATE is permissionless in every activated mode and performs no
+        leading sync.  It restores the offer only while the stage's generation
+        equals the cached generation; if a successor reinitializer has
+        incremented ``seatGeneration`` it owner-terminalizes instead, and a
+        later generation never resurrects or restores a terminalized stage.
+        """
 
         def transition() -> TransitionResult:
             if (
@@ -4359,14 +3886,10 @@ class SeatMarket:
             ):
                 raise TransitionRejected("lineup tombstone does not bind stage")
             offer = self.offers[self.stage.offer_id]
-            observed = self._read_authorized_target(
-                offer.authorization_id,
-                expected_phase=("ACTIVE", "ARMED", "READY", "FROZEN"),
-            )
+            observed = self._read_pinned_target(activated_only=False)
             restore_current = (
-                observed.phase == "ACTIVE"
-                and offer.authorization_id == self.current_authorization_id
-                and self.authorization_enabled.get(offer.authorization_id, False)
+                offer.authorization_id == self.current_authorization_id
+                and self.insertion_enabled
                 and self.cached_generation is not None
                 and offer.generation == self.cached_generation
                 and observed.generation == self.cached_generation
@@ -4376,52 +3899,6 @@ class SeatMarket:
             )
 
         return self._atomic(transition, wire_operation=WireOperation.INVALIDATE)
-
-    def _settlement_cancel_stage_for_migration(
-        self, stage_id: bytes, lineup_commitment: bytes, clock: Clock
-    ) -> TransitionResult:
-        def transition() -> TransitionResult:
-            self._validate_clock(clock)
-            stage = self.stage
-            if (
-                stage is None
-                or stage.stage_id != _bytes32(stage_id, "stage ID")
-                or stage.lineup_commitment
-                != _bytes32(lineup_commitment, "lineup commitment")
-            ):
-                raise TransitionRejected("migration tombstone does not bind stage")
-            offer = self.offers[stage.offer_id]
-            tranche = self.tranches[offer.tranche_id]
-            self._read_authorized_target(
-                offer.authorization_id,
-                expected_phase=("ACTIVE", "ARMED", "READY", "FROZEN"),
-            )
-            released = 0
-            if stage.reserve_id is not None:
-                reserve = self.accounting.live_reserves.pop(stage.reserve_id)
-                released = reserve.reserved_wei
-                self.accounting.reserved_premium = checked_sub(
-                    self.accounting.reserved_premium, reserve.reserved_wei
-                )
-                self.accounting.free_premium = checked_add(
-                    self.accounting.free_premium, reserve.reserved_wei
-                )
-            offer.location = OfferLocation.NONE
-            self._fault("after_offer_location_change")
-            tranche.usage = TrancheUsage.CLOSED_UNINSTALLED
-            self._fault("after_tranche_usage_change")
-            credit_id = self._terminalize_owner(
-                tranche.tranche_id, terminalized_at=clock.timestamp
-            )
-            self.stage = None
-            self._fault("after_stage_clear")
-            return TransitionResult(
-                offer=offer, tranche=tranche, credit_id=credit_id
-            )
-
-        return self._atomic(
-            transition, wire_operation=WireOperation.MIGRATION_CANCEL
-        )
 
     def _settlement_install_stage(
         self, view: InstallationView
@@ -4467,6 +3944,11 @@ class SeatMarket:
                 or tranche.disposition is not BondDisposition.NONE
             ):
                 raise TransitionRejected("stage is not installable")
+            # The stage binds the generation it was staged under; after a
+            # successor reinitializer bumps seatGeneration only INVALIDATE
+            # may own it.
+            if offer.generation != generation:
+                raise TransitionRejected("stage generation is stale")
             if stage.reserve_id is not None:
                 reserve = self.accounting.live_reserves.pop(stage.reserve_id)
                 if term in self.accounting.live_reserves:
@@ -4669,7 +4151,7 @@ class SeatMarket:
             HistoryDisposition.SATISFIED: "SATISFIED",
             HistoryDisposition.BREACHED: "BREACHED",
             HistoryDisposition.EXCUSED: "EXCUSED",
-            HistoryDisposition.EXCUSED_MIGRATION: "EXCUSED_MIGRATION",
+            HistoryDisposition.EXCUSED_UPGRADE: "EXCUSED_UPGRADE",
         }[disposition]
 
     def _read_historical_service_v1(
@@ -4745,16 +4227,13 @@ class SeatMarket:
                 HistoryDisposition.NO_DUTY,
                 HistoryDisposition.SATISFIED,
                 HistoryDisposition.EXCUSED,
-                HistoryDisposition.EXCUSED_MIGRATION,
+                HistoryDisposition.EXCUSED_UPGRADE,
             }
         )
         view = ServiceView(
             target=auth.target,
             authorization_id=term_row.authorization_id,
             settlement_chain_id=auth.settlement_chain_id,
-            protocol_version=auth.protocol_version,
-            runtime_hash=auth.runtime_hash,
-            configuration_hash=auth.configuration_hash,
             magic=auth.expected_magic,
             generation=term_row.seat_generation,
             term_id=term_row.term_id,
@@ -5134,13 +4613,8 @@ class SeatMarket:
                 or not view.closed
                 or not view.refundable
                 or view.breached
-                or view.duty_disposition
-                not in (
-                    "SATISFIED",
-                    "EXCUSED",
-                    "EXCUSED_MIGRATION",
-                    "NO_DUTY",
-                )
+                or _canonical_duty_disposition_text(view.duty_disposition)
+                not in (*_REFUNDABLE_DUTY_DISPOSITIONS, "NO_DUTY")
             ):
                 raise TransitionRejected("installed tranche is not releasable")
             if tranche.release_requested_at is None:
@@ -5165,13 +4639,8 @@ class SeatMarket:
                 or not view.closed
                 or not view.refundable
                 or view.breached
-                or view.duty_disposition
-                not in (
-                    "SATISFIED",
-                    "EXCUSED",
-                    "EXCUSED_MIGRATION",
-                    "NO_DUTY",
-                )
+                or _canonical_duty_disposition_text(view.duty_disposition)
+                not in (*_REFUNDABLE_DUTY_DISPOSITIONS, "NO_DUTY")
             ):
                 raise TransitionRejected("installed release is no longer refundable")
             _, _, _, owner_at = self._release_times(tranche, view)
@@ -5316,15 +4785,23 @@ class SeatMarket:
             return False
 
     def sync_seat_generation(self) -> TransitionResult:
+        """Model ``syncSeatGenerationV1()``.
+
+        Returns the MSG1 words as a result: UNCHANGED/SYNCED is
+        ``purged_count``/cache change, ``target_mode`` is the exact SST1 mode
+        of the pinned Settlement and ``cached_generation`` the committed
+        generation.  The read accepts every mode (a sync opens no new work);
+        every stale waiting tranche is terminalized in one rollback domain and
+        the generation cache commits last.
+        """
+
         def transition() -> TransitionResult:
-            view = self._read_authorized_target(
-                self.current_authorization_id, expected_phase="ACTIVE"
-            )
-            generation = self._validate_exact_target_view(view)
+            view = self._read_pinned_target(activated_only=False)
+            generation = view.generation
             if self.cached_generation is not None and generation < self.cached_generation:
                 raise TransitionRejected("generation cannot decrease")
             if generation == self.cached_generation:
-                return TransitionResult(purged_count=0)
+                return TransitionResult(purged_count=0, target_mode=view.mode)
 
             purged = 0
             for offer_id in tuple(self.pending_offer_ids):
@@ -5343,419 +4820,9 @@ class SeatMarket:
                 purged = checked_add(purged, 1)
             # Cache commits last, after every bounded purge and credit succeeds.
             self.cached_generation = generation
-            return TransitionResult(purged_count=purged)
+            return TransitionResult(purged_count=purged, target_mode=view.mode)
 
         return self._atomic(transition)
-
-    def rotate_settlement_authorization_v1(self, clock: Clock) -> bytes:
-        """Advance one authorization hop from exact Router ASV1/ARV1 rows.
-
-        ``clock`` models the EVM block environment; it is not an authority
-        input.  The caller supplies no receipt key, target, generation, or
-        validity Boolean.
-        """
-
-        def transition() -> bytes:
-            self._validate_clock(clock)
-            router = self._activation_router
-            successor_reader = getattr(router, "seat_successor_receipt_v1", None)
-            receipt_reader = getattr(router, "activation_receipt_v1", None)
-            if (
-                not callable(successor_reader)
-                or not callable(receipt_reader)
-                or getattr(router, "address", None)
-                    != self._activation_router_address
-                or _model_component_hash(
-                    getattr(router, "runtime_hash", None),
-                    "activation Router runtime hash",
-                ) != self._activation_router_runtime_hash
-                or _model_component_hash(
-                    getattr(router, "configuration_hash", None),
-                    "activation Router configuration hash",
-                ) != self._activation_router_configuration_hash
-            ):
-                raise TransitionRejected("activation Router identity is inexact")
-
-            def read_successor(authorization_id: bytes) -> SuccessorReceiptV1:
-                try:
-                    return decode_successor_receipt_v1(
-                        successor_reader(authorization_id)
-                    )
-                except (ArithmeticFault, KeyError, TypeError, ValueError) as exc:
-                    raise TransitionRejected(
-                        "activation successor exact-read failed"
-                    ) from exc
-
-            def read_receipt(receipt_id: bytes) -> ActivationReceiptV1:
-                try:
-                    return decode_activation_receipt_v1(
-                        receipt_reader(receipt_id)
-                    )
-                except (ArithmeticFault, KeyError, TypeError, ValueError) as exc:
-                    raise TransitionRejected(
-                        "activation receipt exact-read failed"
-                    ) from exc
-
-            old_id = self.current_authorization_id
-            successor = read_successor(old_id)
-            receipt = read_receipt(successor.receipt_id)
-            bootstrap = old_id == ZERO_BYTES32
-            if (
-                receipt.receipt_id != successor.receipt_id
-                or receipt.successor_index != successor.successor_index
-                or receipt.router != self._activation_router_address
-                or receipt.source_authorization_id != old_id
-                or receipt.receipt_id in self.consumed_activation_receipt_ids
-                or receipt.successor_index
-                    <= self.last_activation_successor_index
-            ):
-                raise TransitionRejected("activation receipt is stale or mismatched")
-
-            old_auth = self.authorizations.get(old_id)
-            new_id = receipt.target_authorization_id
-            new_auth = self.authorizations.get(new_id)
-            new_runtime = self.target_runtimes.get(new_id)
-            if (
-                new_auth is None
-                or new_runtime is None
-                or receipt.settlement_chain_id != new_auth.settlement_chain_id
-                or receipt.target_protocol_version != new_auth.protocol_version
-                or receipt.target_protocol_version
-                    <= receipt.source_protocol_version
-                or receipt.target_settlement != new_auth.target
-                or receipt.target_manifest_hash
-                    != new_auth.target_manifest_hash
-                or receipt.target_registration_hash
-                    != new_auth.target_registration_hash
-                or self.authorization_enabled.get(new_id) is not False
-                or self.authorization_id_by_target.get(new_auth.target) != new_id
-                or authorization_identity(
-                    self.market_chain_id, self.market_address, new_auth
-                ) != new_id
-            ):
-                raise TransitionRejected("target authorization was not preinstalled")
-
-            if bootstrap:
-                if (
-                    self.bootstrap_complete
-                    or receipt.transition_kind
-                        is not ActivationTransitionKind.GENESIS_IMPORT
-                    or receipt.source_protocol_version != 0
-                    or receipt.source_authorization_id != ZERO_BYTES32
-                    or receipt.seat_generation != 0
-                    or receipt.successor_index != 1
-                    or any(self.authorization_enabled.values())
-                    or self.cached_generation is not None
-                    or self.offers
-                    or self.tranches
-                    or self.stage is not None
-                ):
-                    raise TransitionRejected("genesis Market activation is inexact")
-            elif (
-                not self.bootstrap_complete
-                or old_auth is None
-                or receipt.transition_kind
-                    is not ActivationTransitionKind.VERSION_MIGRATION
-                or receipt.source_protocol_version != old_auth.protocol_version
-                or receipt.source_settlement != old_auth.target
-                or receipt.source_manifest_hash
-                    != old_auth.target_manifest_hash
-            ):
-                raise TransitionRejected("migration predecessor is inexact")
-
-            old_view = (
-                None
-                if bootstrap
-                else self._read_authorized_target(old_id, expected_phase="FROZEN")
-            )
-            new_view = decode_exact_target_view(
-                new_runtime.read_exact_target(new_auth.target)
-            )
-            if new_view.phase not in {"ACTIVE", "FROZEN"}:
-                raise TransitionRejected("successor target is not activated")
-            self._validate_exact_target_view(
-                new_view, expected_phase=new_view.phase
-            )
-            if (
-                new_view.target != receipt.target_settlement
-                or new_view.settlement_chain_id != new_auth.settlement_chain_id
-                or new_view.protocol_version != new_auth.protocol_version
-                or new_view.runtime_hash != new_auth.runtime_hash
-                or new_view.configuration_hash != new_auth.configuration_hash
-                or new_view.magic != new_auth.expected_magic
-                or (
-                    not bootstrap
-                    and (
-                        old_view is None
-                        or old_view.generation != receipt.seat_generation
-                        or old_view.target != receipt.source_settlement
-                    )
-                )
-            ):
-                raise TransitionRejected("target state does not bind ARV1")
-            if new_view.phase == "ACTIVE":
-                if (
-                    new_view.generation != receipt.seat_generation
-                    or getattr(router, "active_version", None)
-                        != new_auth.protocol_version
-                ):
-                    raise TransitionRejected("ACTIVE successor is not Router-current")
-            else:
-                # A skipped successor's live generation has advanced since
-                # the receipt that first activated it.  Bind that mutable
-                # FROZEN state to the next immutable receipt before advancing.
-                next_successor = read_successor(new_id)
-                next_receipt = read_receipt(next_successor.receipt_id)
-                if (
-                    next_successor.successor_index <= receipt.successor_index
-                    or next_receipt.receipt_id != next_successor.receipt_id
-                    or next_receipt.successor_index
-                        != next_successor.successor_index
-                    or next_receipt.transition_kind
-                        is not ActivationTransitionKind.VERSION_MIGRATION
-                    or next_receipt.source_authorization_id != new_id
-                    or next_receipt.source_protocol_version
-                        != new_auth.protocol_version
-                    or next_receipt.source_settlement != new_auth.target
-                    or next_receipt.source_manifest_hash
-                        != new_auth.target_manifest_hash
-                    or next_receipt.seat_generation != new_view.generation
-                ):
-                    raise TransitionRejected("FROZEN successor has no later hop")
-
-            if self.stage is not None:
-                # Strict no-write response: the caller must reconcile the
-                # exact stage through the ordinary mutation wire first.
-                return encode_market_rotation_receipt_v1(MarketRotationReceiptV1(
-                    MarketRotationResult.RECONCILIATION_REQUIRED,
-                    0,
-                    old_id,
-                    ZERO_BYTES32,
-                    ZERO_BYTES32,
-                    0,
-                    self.stage.stage_id,
-                ))
-
-            purged = 0
-            for offer_id in tuple(self.pending_offer_ids):
-                offer = self.offers[offer_id]
-                tranche = self.tranches[offer.tranche_id]
-                if (
-                    offer.authorization_id != old_id
-                    or offer.location is not OfferLocation.PENDING
-                    or tranche.usage is not TrancheUsage.OFFER
-                    or tranche.disposition is not BondDisposition.NONE
-                ):
-                    raise TransitionRejected("rotation found a corrupt pending cell")
-                self.pending_offer_ids.remove(offer_id)
-                offer.location = OfferLocation.NONE
-                tranche.usage = TrancheUsage.CLOSED_UNINSTALLED
-                self._terminalize_owner(
-                    tranche.tranche_id, terminalized_at=clock.timestamp
-                )
-                purged = checked_add(purged, 1)
-                self._fault(f"after_rotation_pending_purge_{purged}")
-
-            if not bootstrap:
-                self.authorization_enabled[old_id] = False
-                self._fault("after_old_target_disablement")
-            self.authorization_enabled[new_id] = new_view.phase == "ACTIVE"
-            self._fault("after_new_target_enablement")
-            # Genesis exact-read the canonical zero constructor generation;
-            # preserve it as initialized. Later migrations clear the cache.
-            self.cached_generation = 0 if bootstrap else None
-            self._fault("after_generation_cache_reset")
-            self.current_authorization_id = new_id
-            self.bootstrap_complete = True
-            self._fault("after_current_target_update")
-            self.consumed_activation_receipt_ids.add(receipt.receipt_id)
-            self.last_activation_successor_index = receipt.successor_index
-            self._fault("after_activation_receipt_consumption")
-            return encode_market_rotation_receipt_v1(MarketRotationReceiptV1(
-                (
-                    MarketRotationResult.BOOTSTRAPPED
-                    if bootstrap
-                    else MarketRotationResult.ADVANCED
-                ),
-                purged,
-                old_id,
-                new_id,
-                receipt.receipt_id,
-                receipt.successor_index,
-                ZERO_BYTES32,
-            ))
-
-        return self._atomic(transition)
-
-    def _pvm_preinstall_authorization(
-        self,
-        manager: ReleaseManager,
-        authorization_id: bytes,
-    ) -> TransitionResult:
-        """Model the REGISTER_RELEASE Market install before activation.
-
-        Production admits this mutation only from the immutable PVM APPLYING
-        frame.  The focused model uses the immutable ReleaseManager object as
-        that already-authenticated registration source.
-        """
-
-        def transition() -> TransitionResult:
-            if manager is not self._release_manager:
-                raise TransitionRejected("preinstall missed immutable manager")
-            _bytes32(authorization_id, "preinstalled authorization ID")
-            authorization = manager.authorizations.get(authorization_id)
-            runtime = manager.target_runtimes.get(authorization_id)
-            if (
-                authorization is None
-                or runtime is None
-                or manager.target_bindings.get(authorization_id)
-                != (self.market_chain_id, self.market_address)
-                or authorization_identity(
-                    self.market_chain_id, self.market_address, authorization
-                ) != authorization_id
-                or runtime.authorization != authorization
-                or authorization_id in self.authorizations
-                or authorization.target in self.authorization_id_by_target
-            ):
-                raise TransitionRejected("preinstalled authorization is not exact")
-            self.authorizations[authorization_id] = authorization
-            self.target_runtimes[authorization_id] = runtime
-            self.authorization_enabled[authorization_id] = False
-            self.authorization_id_by_target[authorization.target] = authorization_id
-            return TransitionResult()
-
-        return self._atomic(transition)
-
-    def _pvm_authorization_snapshot_v1(self) -> tuple[object, ...]:
-        """Snapshot the exact stores mutated by REGISTER_RELEASE."""
-
-        return (
-            dict(self.authorizations), dict(self.target_runtimes),
-            dict(self.authorization_enabled),
-            dict(self.authorization_id_by_target), self.market_state_version,
-        )
-
-    def _restore_pvm_authorization_snapshot_v1(
-        self, snapshot: tuple[object, ...],
-    ) -> None:
-        (
-            authorizations, runtimes, enabled, by_target,
-            self.market_state_version,
-        ) = snapshot
-        self.authorizations = authorizations  # type: ignore[assignment]
-        self.target_runtimes = runtimes  # type: ignore[assignment]
-        self.authorization_enabled = enabled  # type: ignore[assignment]
-        self.authorization_id_by_target = by_target  # type: ignore[assignment]
-
-    def install_settlement_authorization_from_pvm_v1(
-        self, row: object, *, manager: object, router: object,
-    ) -> bytes:
-        """Install SAT1 into the same stores consumed by live rotation."""
-
-        required = (
-            "protocol_version", "target", "runtime_hash",
-            "configuration_hash", "expected_magic", "target_manifest_hash",
-            "target_registration_hash", "authorization_id",
-        )
-        if any(not hasattr(row, name) for name in required):
-            raise TransitionRejected("PVM authorization row is malformed")
-        if (
-            getattr(manager, "address", None)
-                != self._protocol_version_manager_address
-            or getattr(manager, "lifecycle", None) != "APPLYING"
-            or getattr(manager, "_active_operation_kind", None) != 1
-            or getattr(manager, "_active_operation_consumed", None) is not True
-            or getattr(manager, "router", None) is not router
-            or getattr(getattr(manager, "market", None), "storage_backend", None)
-                is not self
-            or getattr(router, "address", None)
-                != self._activation_router_address
-            or _model_component_hash(
-                getattr(router, "runtime_hash", ""), "Router runtime"
-            ) != self._activation_router_runtime_hash
-            or _model_component_hash(
-                getattr(router, "configuration_hash", ""),
-                "Router configuration",
-            ) != self._activation_router_configuration_hash
-        ):
-            raise TransitionRejected("Market installation is outside PVM frame")
-
-        target = "0x" + bytes(getattr(row, "target")).hex()
-        authorization = TargetAuthorization(
-            target=target,
-            settlement_chain_id=self.market_chain_id,
-            protocol_version=int(getattr(row, "protocol_version")),
-            runtime_hash=bytes(getattr(row, "runtime_hash")),
-            configuration_hash=bytes(getattr(row, "configuration_hash")),
-            expected_magic=bytes(getattr(row, "expected_magic")),
-            target_manifest_hash=bytes(getattr(row, "target_manifest_hash")),
-            target_registration_hash=bytes(
-                getattr(row, "target_registration_hash")
-            ),
-        )
-        authorization_id = bytes(getattr(row, "authorization_id"))
-
-        def transition() -> bytes:
-            resolver = getattr(
-                router, "_authenticated_registered_target_v1", None
-            )
-            authority = (
-                None
-                if not callable(resolver)
-                else resolver(authorization.protocol_version)
-            )
-            runtime = TargetRuntime(authorization, authority)
-            if (
-                authorization_identity(
-                    self.market_chain_id, self.market_address, authorization
-                ) != authorization_id
-                or authority is None
-                or getattr(authority, "address", None) != authorization.target
-                or _model_component_hash(
-                    getattr(authority, "runtime_hash", ""),
-                    "target runtime",
-                ) != authorization.runtime_hash
-                or getattr(authority, "market_settlement_chain_id", None)
-                    != authorization.settlement_chain_id
-                or getattr(authority, "protocol_version", None)
-                    != authorization.protocol_version
-                or getattr(authority, "market_configuration_hash", None)
-                    != authorization.configuration_hash
-                or getattr(authority, "market_magic", None)
-                    != authorization.expected_magic
-                or authorization_id in self.authorizations
-                or authorization.target in self.authorization_id_by_target
-            ):
-                raise TransitionRejected("PVM authorization is not exact")
-            self.authorizations[authorization_id] = authorization
-            self.target_runtimes[authorization_id] = runtime
-            self.authorization_enabled[authorization_id] = False
-            self.authorization_id_by_target[authorization.target] = authorization_id
-            self.market_state_version = checked_add(
-                self.market_state_version, 1
-            )
-            return b"SAI1" + bytes(28) + authorization_id
-
-        return self._atomic(transition)
-
-    def settlement_authorization_from_pvm_v1(
-        self, authorization_id: bytes,
-    ) -> bytes:
-        """Return the exact 256-byte SAT1 row from rotation's live store."""
-
-        authorization = self.authorizations.get(authorization_id)
-        if authorization is None:
-            raise TransitionRejected("unknown Settlement authorization")
-        return b"".join((
-            b"SAT1" + bytes(28),
-            u256(authorization.protocol_version),
-            _abi_address_word(authorization.target, "SAT1 target"),
-            authorization.runtime_hash,
-            authorization.configuration_hash,
-            _abi_magic_word(authorization.expected_magic),
-            authorization.target_manifest_hash,
-            authorization.target_registration_hash,
-        ))
 
     def claim_credit(
         self, credit_id: bytes, transfer: TransferCallback
@@ -5892,90 +4959,34 @@ class SeatMarket:
             "after_tranche_usage_change",
             "after_credit_creation",
             "after_stage_clear",
-            "after_rotation_pending_purge_1",
-            "after_rotation_pending_purge_2",
-            "after_rotation_pending_purge_3",
-            "after_rotation_pending_purge_4",
-            "after_old_target_disablement",
-            "after_new_target_enablement",
-            "after_generation_cache_reset",
-            "after_current_target_update",
-            "after_activation_receipt_consumption",
         }
         if self.fault_point not in known_faults:
             raise AssertionError("unknown model-only fault point")
         _bytes32(self.current_authorization_id, "current authorization ID")
-        if set(self.authorizations) != set(self.authorization_enabled):
-            raise AssertionError("authorization registry/enabled keys differ")
-        if set(self.authorizations) != set(self.target_runtimes):
-            raise AssertionError("authorization/runtime keys differ")
-        if (
-            len(self.authorization_id_by_target) != len(self.authorizations)
-            or set(self.authorization_id_by_target.values())
-            != set(self.authorizations)
-        ):
-            raise AssertionError("authorization target reverse index differs")
+        if type(self._insertion_enabled) is not bool:
+            raise AssertionError("insertion-enabled flag is not boolean")
         if (self._release_manager is not None
                 and type(self._release_manager) is not ReleaseManager):
             raise AssertionError("legacy release manager object changed")
-        if self._activation_router is None:
-            raise AssertionError("immutable activation Router is absent")
-        if type(self.bootstrap_complete) is not bool:
-            raise AssertionError("Market bootstrap flag is malformed")
-        if self.bootstrap_complete:
-            if self.current_authorization_id not in self.authorizations:
-                raise AssertionError("current authorization is not registered")
-        elif (
-            self.current_authorization_id != ZERO_BYTES32
-            or any(self.authorization_enabled.values())
-            or self.cached_generation is not None
-            or self.offers
-            or self.tranches
-            or self.pending_offer_ids
-            or self.stage is not None
-            or self.accounting.accounted_balance != 0
+        if set(self.authorizations) != {self.current_authorization_id}:
+            raise AssertionError("Market must pin exactly one Settlement binding")
+        if set(self.target_runtimes) != {self.current_authorization_id}:
+            raise AssertionError("authorization/runtime keys differ")
+        auth = self.authorizations[self.current_authorization_id]
+        self._validate_authorization_record(auth)
+        if (
+            authorization_identity(
+                self.market_chain_id, self.market_address, auth
+            )
+            != self.current_authorization_id
         ):
-            raise AssertionError("genesis-pending Market state is not empty/disabled")
-        for authorization_id, auth in self.authorizations.items():
-            _bytes32(authorization_id, "registered authorization ID")
-            self._validate_authorization_record(auth)
-            if (
-                authorization_identity(
-                    self.market_chain_id, self.market_address, auth
-                )
-                != authorization_id
-            ):
-                raise AssertionError("registered immutable authorization changed")
-            if type(self.authorization_enabled[authorization_id]) is not bool:
-                raise AssertionError("authorization enabled state is not boolean")
-            if self.authorization_id_by_target.get(auth.target) != authorization_id:
-                raise AssertionError("authorization target reverse lookup changed")
-            runtime = self.target_runtimes[authorization_id]
-            if (
-                type(runtime) is not TargetRuntime
-                or runtime.authorization != auth
-            ):
-                raise AssertionError("authorization runtime route changed")
-        _uint(
-            self.last_activation_successor_index,
-            "last activation successor index",
-        )
-        if self.last_activation_successor_index > UINT64_MAX:
-            raise AssertionError("activation successor index exceeds uint64")
-        if bool(self.consumed_activation_receipt_ids) != (
-            self.last_activation_successor_index > 0
+            raise AssertionError("immutable binding ID changed")
+        runtime = self.target_runtimes[self.current_authorization_id]
+        if (
+            type(runtime) is not TargetRuntime
+            or runtime.authorization != auth
         ):
-            raise AssertionError("direct rotation cursor/receipt set is inconsistent")
-        for receipt_id in self.consumed_activation_receipt_ids:
-            _bytes32(receipt_id, "consumed ARV1 receipt ID")
-            if receipt_id == ZERO_BYTES32:
-                raise AssertionError("consumed ARV1 receipt ID is zero")
-        if (self._release_manager is not None
-                and self._release_manager.used_target_addresses != {
-                    auth.target
-                    for auth in self._release_manager.authorizations.values()
-                }):
-            raise AssertionError("release-manager target reverse index differs")
+            raise AssertionError("authorization runtime route changed")
         if self.cached_generation is not None:
             u64(self.cached_generation)
         if self.staged_count > MAX_STAGE:
@@ -6089,7 +5100,7 @@ class SeatMarket:
                     raise AssertionError("orphan or multiply-located pending offer")
                 if (
                     offer.authorization_id != self.current_authorization_id
-                    or not self.authorization_enabled[offer.authorization_id]
+                    or not self.insertion_enabled
                     or self.cached_generation is None
                     or offer.generation != self.cached_generation
                 ):
@@ -6099,7 +5110,7 @@ class SeatMarket:
                     raise AssertionError("orphan or multiply-located staged offer")
                 if (
                     offer.authorization_id != self.current_authorization_id
-                    or not self.authorization_enabled[offer.authorization_id]
+                    or not self.insertion_enabled
                 ):
                     raise AssertionError("stale or disabled authorization remains staged")
             elif offer.location is OfferLocation.NONE:
