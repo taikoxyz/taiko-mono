@@ -99,7 +99,9 @@ happening:
   so the chain is past Prague and the client should begin writing block hashes
   into the ring buffer once the contract has code. Per the EIP the system call
   is a no-op while the address is empty, so the buffer starts empty and fills
-  over the following 8191 blocks.
+  over the following 8191 blocks. `--check` probes the freshest slot
+  (`head - 1`), so give it a block after deploying before trusting an empty
+  result.
 
 - **EIP-4788** — `parentBeaconBlockRoot` is currently **zero** in Taiko L2
   headers on both mainnet and Hoodi. The contract can only ever store what the

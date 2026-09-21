@@ -188,6 +188,7 @@ PENDING=()
 PENDING_COUNT=0
 TOTAL_FUNDING=0
 TOTAL_BURN=0
+TOTAL_STRANDED=0
 
 inspect_network() {
     local rpc="$1" chain_id="$2"
@@ -198,6 +199,7 @@ inspect_network() {
     PENDING_COUNT=0
     TOTAL_FUNDING=0
     TOTAL_BURN=0
+    TOTAL_STRANDED=0
 
     actual_chain_id="$(cast chain-id --rpc-url "$rpc")" || die "cannot reach RPC $rpc"
     [[ "$actual_chain_id" == "$chain_id" ]] \
@@ -243,7 +245,16 @@ inspect_network() {
         shortfall="$(big "max(0, $FUND_WEI - $balance)")"
 
         # Gas the deployment actually consumes, priced at the locked 1000 gwei.
-        gas="$(cast estimate --rpc-url "$rpc" --from "$deployer" --create "$initcode" 2> /dev/null || echo 0)"
+        # A failed estimate is fatal rather than zero: it is the only pre-flight
+        # proof that the creation actually executes, and treating a failure as
+        # "0 gas" would understate the cost to nothing and then go on to fund
+        # the keyless account irreversibly.
+        if ! gas="$(cast estimate --rpc-url "$rpc" --from "$deployer" --create "$initcode" 2>&1)"; then
+            die "gas estimation failed for $name: $gas"
+        fi
+        case "$gas" in
+            '' | *[!0-9]*) die "gas estimation for $name returned a non-numeric result: $gas" ;;
+        esac
         burn="$(big "$gas * $GAS_PRICE_WEI")"
 
         echo "      deployer  : $deployer (nonce 0, balance $(eth "$balance") ETH)"
@@ -256,6 +267,7 @@ inspect_network() {
         PENDING_COUNT=$((PENDING_COUNT + 1))
         TOTAL_FUNDING="$(big "$TOTAL_FUNDING + $shortfall")"
         TOTAL_BURN="$(big "$TOTAL_BURN + $burn")"
+        TOTAL_STRANDED="$(big "$TOTAL_STRANDED + $FUND_WEI - $burn")"
     done
 }
 
@@ -336,7 +348,11 @@ check_network() {
         echo "      code      : NOT DEPLOYED"
     else
         echo "      code      : deployed ($(( (${#code} - 2) / 2 )) bytes)"
-        target=$((head - 10))
+        # The system call at block N stores blockhash(N-1), so head-1 is the
+        # freshest slot and the only one guaranteed to post-date a deployment
+        # that just happened. An older slot may predate the contract and would
+        # read as empty even on a client that is behaving correctly.
+        target=$((head - 1))
         stored="$(cast call 0x0000F90827F1C53a10cb7A02335B175320002935 \
             "$(cast to-uint256 "$target")" --rpc-url "$rpc" 2> /dev/null || echo "0x")"
         actual="$(cast block "$target" --rpc-url "$rpc" --json \
@@ -344,8 +360,11 @@ check_network() {
         if [[ "$stored" == "$actual" ]]; then
             echo "      ring buf  : LIVE -- block $target hash matches"
         else
-            echo "      ring buf  : NOT POPULATED (client makes no EIP-2935 system call)"
+            echo "      ring buf  : not populated at block $target"
             echo "                  expected $actual, got $stored"
+            echo "                  if the contract was only just deployed, wait a"
+            echo "                  block and re-run; if it stays empty the client"
+            echo "                  is making no EIP-2935 system call"
         fi
     fi
     echo ""
@@ -406,9 +425,9 @@ run_network() {
     fi
 
     echo "  ---- totals ----"
-    echo "  funding to send : $(eth "$TOTAL_FUNDING") ETH"
+    echo "  funding to send : $(eth "$TOTAL_FUNDING") ETH (leaves your wallet)"
     echo "  burned as gas   : $(eth "$TOTAL_BURN") ETH"
-    echo "  stranded        : $(eth "$(big "$TOTAL_FUNDING - $TOTAL_BURN")") ETH (locked in keyless EOAs forever)"
+    echo "  stranded        : $(eth "$TOTAL_STRANDED") ETH (left in the keyless EOAs, unrecoverable)"
     echo ""
 
     if [[ "$BROADCAST" != true ]]; then
