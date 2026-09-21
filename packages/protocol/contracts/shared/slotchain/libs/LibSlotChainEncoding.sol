@@ -256,9 +256,8 @@ library LibSlotChainEncoding {
     /// @dev Hashes the settlement-validity public-input schema identity that every settlement
     ///      verifier descriptor must pin.
     function hashSettlementValidityPublicInputSchema() internal pure returns (bytes32 hash_) {
-        return keccak256(
-            bytes(LibSlotChainConstants.SETTLEMENT_VALIDITY_PUBLIC_INPUT_SCHEMA_DOMAIN)
-        );
+        return
+            keccak256(bytes(LibSlotChainConstants.SETTLEMENT_VALIDITY_PUBLIC_INPUT_SCHEMA_DOMAIN));
     }
 
     /// @dev Hashes the immutable fields of a proof reward receipt; `claimed` is excluded.
@@ -693,16 +692,14 @@ library LibSlotChainEncoding {
     }
 
     /// @dev Binds a forced-tree root to its occupied leaf count.
-    function hashForcedRoot(
-        uint64 _count,
-        bytes32 _treeRoot
-    )
+    function hashForcedRoot(uint64 _count, bytes32 _treeRoot)
         internal
         pure
         returns (bytes32 hash_)
     {
-        return
-            keccak256(abi.encodePacked(LibSlotChainConstants.FORCE_ROOT_DOMAIN, _count, _treeRoot));
+        return keccak256(
+            abi.encodePacked(LibSlotChainConstants.FORCE_ROOT_DOMAIN, _count, _treeRoot)
+        );
     }
 
     /// @dev Hashes a data-session identifier.

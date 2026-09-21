@@ -144,14 +144,7 @@ library BuilderRegistryMerkleTracker {
         });
     }
 
-    function _emptyTree(
-        uint16 _leafCount,
-        uint8 _kind
-    )
-        private
-        pure
-        returns (Tree memory tree_)
-    {
+    function _emptyTree(uint16 _leafCount, uint8 _kind) private pure returns (Tree memory tree_) {
         tree_.nodes = new bytes32[](uint256(_leafCount) * 2);
         tree_.leafCount = _leafCount;
         tree_.kind = _kind;
@@ -254,13 +247,7 @@ contract BuilderLeaseTokenMock {
         return true;
     }
 
-    function transfer(
-        address _recipient,
-        uint256 _amount
-    )
-        external
-        returns (bool transferred_)
-    {
+    function transfer(address _recipient, uint256 _amount) external returns (bool transferred_) {
         _move(msg.sender, _recipient, _amount);
         _finishTransfer();
         return true;

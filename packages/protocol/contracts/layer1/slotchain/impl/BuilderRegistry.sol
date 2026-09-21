@@ -1612,7 +1612,7 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
     /// @dev Commits one already fully verified evidence transition.
     function _commitEvidenceTransition(EvidenceTransition memory _transition) private {
         LibBuilderRegistry.Generation storage generation = _transition.locationKind
-                == LibBuilderRegistry.LOCATION_ACTIVE
+            == LibBuilderRegistry.LOCATION_ACTIVE
             ? _active[_transition.locationIndex]
             : _liabilities[_transition.locationIndex];
         if (
@@ -2109,7 +2109,7 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
         view
     {
         LibBuilderRegistry.Generation storage generation = _location.kind
-                == LibBuilderRegistry.LOCATION_ACTIVE
+            == LibBuilderRegistry.LOCATION_ACTIVE
             ? _active[_location.index]
             : _liabilities[_location.index];
         if (
@@ -2336,13 +2336,7 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
     }
 
     /// @dev Requires one exact immutable Router release registration for an evidence domain.
-    function _requireRegisteredRelease(
-        uint64 _protocolVersion,
-        address _settlement
-    )
-        private
-        view
-    {
+    function _requireRegisteredRelease(uint64 _protocolVersion, address _settlement) private view {
         LibExactCall.requireConfiguration(
             _activeSettlementRouter,
             _routerRuntimeHash,
@@ -2414,13 +2408,7 @@ abstract contract BuilderRegistryLogicV1 is IComponentConfigV2, BuilderRegistryS
     }
 
     /// @dev Pulls an exact nominal amount after state/accounting have been committed locally.
-    function _pullBuilderToken(
-        address _from,
-        uint256 _amount,
-        uint256 _balanceBefore
-    )
-        private
-    {
+    function _pullBuilderToken(address _from, uint256 _amount, uint256 _balanceBefore) private {
         _callOptionalTrue(
             abi.encodeWithSelector(_TRANSFER_FROM_SELECTOR, _from, address(this), _amount)
         );

@@ -125,22 +125,8 @@ MAX_FORCE_RANGE_PROOF_HASHES = 257
 FORCE_TREE_DEPTH = 64
 MAX_FORCE_QUEUE_ITEMS = (1 << FORCE_TREE_DEPTH) - 1
 L2_BLOCK_GAS_LIMIT = 30_000_000
-ANCHOR_GAS_MAX = 1_000_000
-ANCHOR_ACTIVATION_GAS_MAX = 12_000_000
-ACTIVATION_FORCE_GAS_BUDGET = 13_000_000
-SYSTEM_GAS_MARGIN = 5_000_000
-INBOX_APPLY_GAS_MAX = SYSTEM_GAS_MARGIN
-SYSTEM_TX_TYPE = 0x7F
-SYSTEM_KIND_ANCHOR = 0
-SYSTEM_KIND_INBOX_APPLY = 1
-ANCHOR_STEADY_SELECTOR = "0x523e6854"
-ANCHOR_ACTIVATION_SELECTOR = "0x28f73572"
-INBOX_APPLY_SELECTOR = "0x6b326168"
-INBOX_APPLY_SELECTOR_BYTES = keccak256(
-    b"apply(uint64,(uint64,uint8,uint32,bytes32,bytes)[])"
-)[:4]
-if "0x" + INBOX_APPLY_SELECTOR_BYTES.hex() != INBOX_APPLY_SELECTOR:
-    raise AssertionError("InboxApply selector drifted")
+# No protocol system transactions: steady blocks are 20m forced + 5m margin.
+FORCE_GAS_MARGIN = 5_000_000
 MAX_BLOCKS_PER_CANDIDATE = 4_096
 MAX_WINDOWS_PER_CANDIDATE = 12
 MAX_DATA_SESSIONS_PER_CANDIDATE = 16
@@ -174,6 +160,8 @@ POINT_EVALUATION_OK = (
     + BLS_MODULUS.to_bytes(32, "big")
 )
 UINT64_MAX = (1 << 64) - 1
+# ``ICheckpointStore`` keys checkpoints by ``uint48`` L2 block numbers.
+UINT48_MAX = (1 << 48) - 1
 L1_RESOURCE_POLICY = "Ethereum Fusaka: EIP-7623 and EIP-7825"
 L1_TRANSACTION_GAS_LIMIT = 16_777_216
 
@@ -1531,7 +1519,6 @@ RESERVATION_EVIDENCE_RETENTION_WINDOWS = (
 
 
 class Mode(Enum):
-    PREACTIVE = auto()
     NORMAL = auto()
     RECOVERY = auto()
 
@@ -1648,8 +1635,9 @@ class Tier(Enum):
 
 
 class ForceKind(Enum):
+    """Only kind 0 is assigned; value 1 is unassigned/reserved."""
+
     USER_TX = 0
-    BRIDGE_CREDIT = 1
 
 
 @dataclass(frozen=True)
@@ -1762,7 +1750,7 @@ class ForcedDisposition(IntEnum):
     FUNDS_NO_TX = 2
     FEE_NO_TX = 3
     INCLUDED_TX = 4
-    BRIDGE_CREDIT = 5
+    # Code 5 is unassigned.
     INVALID_NO_TX = 6
 
 
@@ -2929,7 +2917,6 @@ class SessionLiveToRefundEvent:
     owner: str
     cell: int
     claim_deadline: int
-    migration_generation: int
 
 
 @dataclass(frozen=True)
@@ -3132,8 +3119,6 @@ class DataSessionCellTag(Enum):
 
 class DataSessionMaintenanceMode(Enum):
     ORDINARY = 1
-    MIGRATION = 2
-    REFUND_ONLY = 3
 
 
 class DataSessionRevert(RuntimeError):
@@ -3439,19 +3424,10 @@ class Block:
     admission_version: int
     admission_root: str
     tier: Tier
-    inbox_pre_cursor: int = 0
-    inbox_post_cursor: int = 0
-    force_gas_budget: int = FORCE_GAS_BUDGET
-    release_activation: bool = False
-    release_protocol_version: int = 0
-    release_manifest_hash: str = ""
     data_records: tuple[tuple[str, int], ...] = ()
+    # Proof-side flag: the circuit-internal forced classification is exact.
     dispositions_ok: bool = True
     discretionary_body: bool = True
-    inbox_descriptor_commitment: str = ""
-    inbox_system_calldata_hash: str = ""
-    anchor_system_tx_position: int = 0
-    inbox_system_tx_position: int = 1
     gas_used: int = 0
     # EVM header/prestate proof inputs; no change to queue or Inbox row ABI.
     forced_tx_fork: ForcedTxFork = ForcedTxFork.FUSAKA
@@ -3483,12 +3459,7 @@ class Candidate:
     reward_execution_gas: int = 0
     reward_published_bytes: int = 0
     recovery_fields_zero: bool = True
-    end_terminal_root: str = "terminal:empty"
-    end_terminal_count: int = 0
     available_payload_hashes: frozenset[str] = frozenset()
-    inbox_execution_receipt: object | None = field(
-        default=None, compare=False, repr=False
-    )
 
     @property
     def tip(self) -> Block:
@@ -3973,8 +3944,6 @@ class CanonicalCore:
     winning_data_commitment: str = "empty"
     next_base_fee: int = 100
     next_excess_blob_gas: int = 0
-    terminal_root: str = "terminal:empty"
-    terminal_count: int = 0
 
 
 @dataclass
@@ -3988,7 +3957,6 @@ class Canonical:
         return (f"canonical:{c.l2_block_number}:{c.tip_hash}:{c.tip_slot}:{c.state_root}:"
                 f"{c.message_cursor}:{c.winning_data_commitment}:"
                 f"{c.next_base_fee}:{c.next_excess_blob_gas}:"
-                f"{c.terminal_root}:{c.terminal_count}:"
                 f"{self.canonicalized_at_block}")
 
 
@@ -4149,7 +4117,6 @@ class StageTombstone:
     lineup_commitment: bytes
     reason: str
     reconciled: bool = False
-    migration_terminal: bool = False
 
 
 class RouterPhase(Enum):
@@ -4207,7 +4174,7 @@ MIGRATION_READINESS_MAGIC = b"MRS1"
 MIGRATION_READINESS_LENGTH = 256
 MIGRATION_READINESS_GAS = 100_000
 DATA_SESSION_ACCOUNTING_MAGIC = b"DSV1"
-DATA_SESSION_ACCOUNTING_LENGTH = 512
+DATA_SESSION_ACCOUNTING_LENGTH = 448
 DATA_SESSION_ACCOUNTING_GAS = 100_000
 MARK_MIGRATION_READY_MAGIC = b"MRDY"
 MARK_MIGRATION_READY_RETURN = MARK_MIGRATION_READY_MAGIC + bytes(28)
@@ -4377,8 +4344,6 @@ class DataSessionAccountingV1:
     next_session_sequence: int
     live_bond_liability: int
     refund_bond_liability: int
-    migration_refund_generation: int
-    migration_refund_claim_deadline: int
     guard_entered: bool
     data_session_config_hash: bytes
     reward_funding_class_1: int = 0
@@ -4594,14 +4559,6 @@ def encode_data_session_accounting_v1(
         ),
         _model_uint(state.live_bond_liability, 32, "live bond liability"),
         _model_uint(state.refund_bond_liability, 32, "refund bond liability"),
-        bytes(24) + _model_uint(
-            state.migration_refund_generation, 8,
-            "migration refund generation",
-        ),
-        bytes(24) + _model_uint(
-            state.migration_refund_claim_deadline, 8,
-            "migration refund deadline",
-        ),
         bytes(31) + bytes((int(state.guard_entered),)),
         state.data_session_config_hash,
         _model_uint(
@@ -4625,9 +4582,9 @@ def decode_data_session_accounting_v1(raw: bytes) -> DataSessionAccountingV1:
     words = tuple(raw[offset:offset + 32] for offset in range(0, len(raw), 32))
     if (words[0] != DATA_SESSION_ACCOUNTING_MAGIC + bytes(28)
             or any(words[index][:30] != bytes(30) for index in (1, 2, 3, 4))
-            or any(words[index][:24] != bytes(24) for index in (5, 8, 9))
-            or words[10][:31] != bytes(31)
-            or words[10][-1] not in (0, 1)):
+            or words[5][:24] != bytes(24)
+            or words[8][:31] != bytes(31)
+            or words[8][-1] not in (0, 1)):
         raise ValueError("data-session accounting returndata is noncanonical")
     state = DataSessionAccountingV1(
         int.from_bytes(words[1][30:], "big"),
@@ -4637,14 +4594,12 @@ def decode_data_session_accounting_v1(raw: bytes) -> DataSessionAccountingV1:
         int.from_bytes(words[5][24:], "big"),
         int.from_bytes(words[6], "big"),
         int.from_bytes(words[7], "big"),
-        int.from_bytes(words[8][24:], "big"),
-        int.from_bytes(words[9][24:], "big"),
-        bool(words[10][-1]),
-        words[11],
+        bool(words[8][-1]),
+        words[9],
+        int.from_bytes(words[10], "big"),
+        int.from_bytes(words[11], "big"),
         int.from_bytes(words[12], "big"),
         int.from_bytes(words[13], "big"),
-        int.from_bytes(words[14], "big"),
-        int.from_bytes(words[15], "big"),
     )
     if encode_data_session_accounting_v1(state) != raw:
         raise ValueError("data-session accounting returndata is invalid")
@@ -10245,7 +10200,6 @@ class RegistryLifecycle:
         default_factory=lambda: [None] * MAX_LIABILITY_GENERATIONS)
     replacements: dict[int, int] = field(default_factory=dict)
     movement_sequence: int = 0
-    migration_gate: MigrationGate = field(default_factory=MigrationGate)
     open_reservations: set[tuple[int, int]] = field(default_factory=set)
     liable_reservations: set[tuple[int, int]] = field(default_factory=set)
     lease_per_window_atomic: int = 1
@@ -10731,8 +10685,7 @@ class RegistryLifecycle:
     def reserve(self, address: str, window: int, current_window: int,
                 *, caller: str | None = None) -> bool:
         assert self.last_managed_window is not None
-        if (self.migration_gate.mode != "ACTIVE"
-                or type(window) is not int
+        if (type(window) is not int
                 or type(current_window) is not int
                 or window < current_window
                 or window < self.first_managed_window
@@ -10797,11 +10750,6 @@ class RegistryLifecycle:
         assert len(self.open_reservations) <= MAX_LIVE_RESERVATIONS
         self.assert_custody_conservation()
         return True
-
-    def arm_migration(self) -> None:
-        # The shared gate is the reversible migration veto.  The permanent
-        # reservations_closed bit remains reserved for exit/replacement.
-        assert self.migration_gate.mode == "ARMED"
 
     def _move_reservations_to_liability(self, generation: Generation) -> int:
         moved = self._reservation_keys_for_mask(
@@ -11433,13 +11381,8 @@ class Protocol:
     canonical: Canonical
     header_oracle: EIP2935SystemReadTestAdapter
     forced_queue: "QueueContinuity"
-    inbox_apply_router: "InboxApplyRouterV2"
     settlement_address: str = "model-settlement"
     mode: Mode = Mode.NORMAL
-    release_activation_pending: bool = False
-    pending_release_protocol_version: int = 0
-    pending_release_manifest_hash: str = ""
-    first_v2_block_number: int = 0
     queue_capacity: int = MAX_FORCE_QUEUE_ITEMS  # model-only capacity override
     # Abstract counterpart of the fork/chain policy pinned by the L2 profile.
     forced_tx_fork: ForcedTxFork = ForcedTxFork.FUSAKA
@@ -11480,9 +11423,9 @@ class Protocol:
     outstanding_stage_tombstone_id: bytes | None = None
     seat_generation: int = 7
     seat_lineup_revision: int = 0
-    # Canonical transition sequence used by seat duty/selection identities in
-    # isolated fixtures.  Production-linked protocols read the identical
-    # sequence from VersionedSettlementHistory.
+    # Settlement-local count of canonical transitions; seat duty/selection
+    # identities bind to it.  It is not an L1 history ring or sequence: the
+    # historical record is the L1 SignalService checkpoint mapping.
     seat_canonical_sequence: int = 0
     seat_authorization_id: bytes | None = None
     seat_market_address: str | None = None
@@ -11495,9 +11438,6 @@ class Protocol:
     seat_scan_count: int = 0
     seat_scan_visits_total: int = 0
     seat_sla_trigger_pending: bool = False
-    seat_migration_arm: SeatMigrationArm | None = None
-    seat_migration_abort: SeatMigrationAbort | None = None
-    seat_migration_local_generation: int | None = None
     session_cells: list[DataSessionCell] = field(
         default_factory=lambda: [
             DataSessionCell() for _ in range(MAX_LIVE_DATA_SESSIONS)
@@ -11529,14 +11469,9 @@ class Protocol:
     )
     refund_claim_window_seconds: int = DATA_TTL_SECONDS
     reward_reorg_margin_seconds: int = REORG_MARGIN_SECONDS
-    migration_refund_generation: int = 0
-    migration_refund_claim_deadline: int = 0
     data_rent_sink: DataRentSink = field(default_factory=DataRentSink)
     data_session_callback_entered: bool = field(
         default=False, compare=False, repr=False
-    )
-    active_settlement_state_return_override: bytes | None = field(
-        default=None, compare=False, repr=False
     )
     forced_ingress_floor_return_override: bytes | None = field(
         default=None, compare=False, repr=False
@@ -11591,23 +11526,15 @@ class Protocol:
     boundary_queries: int = 0
     canonical_state_witness_available: bool = True
     canonical_code_preimages_available: bool = True
-    # L1-observable execution transition identifier used by the node-local
-    # canonical L2 selector.  It is a commitment/event field, never a live L2
-    # object or an authority to write one.
-    last_canonical_execution_digest: str = ""
     seat_profile_ready: bool = True
     seat_configuration_ready: bool = True
-    migration_gate: MigrationGate = field(default_factory=MigrationGate)
-    versioned_history: object | None = None
-    _inbox_execution_authority: object = field(
-        init=False, compare=False, repr=False
+    # Checkpoints written to the L1 SignalService (``saveCheckpoint`` from the
+    # Inbox proxy) inside the same canonical transition, keyed by L2 block
+    # number.  This mapping is the historical record; there is no history ring.
+    l1_signal_service_checkpoints: dict[int, dict[str, str]] = field(
+        default_factory=dict
     )
-    inbox_apply_descriptor: "InboxApplyDeploymentDescriptor" = field(
-        init=False, compare=False
-    )
-    _canonical_commit_frame: tuple[int, str] | None = field(
-        default=None, init=False, compare=False, repr=False
-    )
+
     def __post_init__(self) -> None:
         if (type(self.session_cells) is not list
                 or len(self.session_cells) != MAX_LIVE_DATA_SESSIONS
@@ -11651,8 +11578,7 @@ class Protocol:
                 or not 0 < self.refund_claim_window_seconds <= UINT64_MAX
                 or type(self.reward_reorg_margin_seconds) is not int
                 or not 0 <= self.reward_reorg_margin_seconds <= UINT64_MAX
-                or self.migration_refund_generation != 0
-                or self.migration_refund_claim_deadline != 0
+                or self.l1_signal_service_checkpoints
                 or type(self.data_rent_sink) is not DataRentSink
                 or not self.data_rent_sink.address
                 or self.data_session_callback_entered
@@ -11694,53 +11620,14 @@ class Protocol:
             # Protocol construction starts with an empty bounded ring. Tests
             # that need occupied cells use the explicit fixture installer.
             raise ValueError("initial data-session ring is malformed")
-        object.__setattr__(
-            self,
-            "inbox_apply_descriptor",
-            inbox_apply_deployment_descriptor(self.inbox_apply_router),
-        )
-        if self.inbox_apply_router._terminal_registrar_authority is None:
-            local_release_authority = ProtocolReleaseAuthorityV2()
-            local_accumulator = TerminalAccumulatorV2({})
-            TerminalDomainRegistrarV2(
-                local_release_authority,
-                local_accumulator,
-                self.inbox_apply_router,
-            )
-        object.__setattr__(
-            self,
-            "_inbox_execution_authority",
-            InboxValidityExecutionAuthority(
-                self, _INBOX_EXECUTION_AUTHORITY_CAPABILITY
-            ),
-        )
+        # Activation binds the existing ForcedQueue to this Settlement (the
+        # Inbox proxy); the queue rejects enqueue until then.
+        if not self.forced_queue._bind_settlement_once(self):
+            raise ValueError("forced queue is not bound to this Settlement")
 
     def __setattr__(self, name: str, value: object) -> None:
-        if name == "versioned_history" \
-                and type(value) is VersionedSettlementHistory:
-            profile_words = _execution_profile_abi_words_v2(
-                value.execution_profile.canonical_profile_bytes
-            )
-            registry_address = "0x" + profile_words[29][12:].hex()
-            object.__setattr__(
-                self, "reward_class_registry_address", registry_address
-            )
-            object.__setattr__(
-                self, "reward_class_registry_runtime_hash", profile_words[30]
-            )
-            object.__setattr__(
-                self,
-                "reward_class_registry_configuration_hash",
-                profile_words[31],
-            )
-            registry = self.__dict__.get("reward_class_registry")
-            if type(registry) is RewardClassRegistryV1:
-                registry.address = registry_address
-                registry.runtime_hash = profile_words[30]
-                registry.configuration_hash = profile_words[31]
         if name in {
-            "header_oracle", "forced_queue", "inbox_apply_router",
-            "migration_gate", "settlement_address",
+            "header_oracle", "forced_queue", "settlement_address",
             "data_session_required_bond", "refund_claim_window_seconds",
             "reward_reorg_margin_seconds",
             "data_session_base_rent_wei",
@@ -11754,7 +11641,6 @@ class Protocol:
             "reward_class_registry_address",
             "reward_class_registry_runtime_hash",
             "reward_class_registry_configuration_hash",
-            "_inbox_execution_authority", "inbox_apply_descriptor",
         } and name in self.__dict__:
             raise AttributeError(f"Protocol {name} is immutable")
         object.__setattr__(self, name, value)
@@ -11764,9 +11650,6 @@ class Protocol:
         return self.canonical.core
 
     def _active_reward_execution_profile_hash_v1(self) -> bytes:
-        history = self.versioned_history
-        if type(history) is VersionedSettlementHistory:
-            return _model_fixed_bytes32(history.execution_profile_hash)
         return self.reward_execution_profile_hash
 
     def _reward_profile_bindings_valid_v1(self) -> bool:
@@ -11789,28 +11672,7 @@ class Protocol:
                 or len(self.reward_class_registry_configuration_hash) != 32
                 or self.reward_class_registry_configuration_hash == bytes(32)):
             return False
-        history = self.versioned_history
-        if type(history) is not VersionedSettlementHistory:
-            return history is None or type(history) is not VersionedSettlementHistory
-        try:
-            words = _execution_profile_abi_words_v2(
-                history.execution_profile.canonical_profile_bytes
-            )
-        except (AttributeError, TypeError, ValueError):
-            return False
-        return (
-            int.from_bytes(words[85], "big")
-                == self.reward_reorg_margin_seconds
-            and int.from_bytes(words[106], "big")
-                == self.refund_claim_window_seconds
-            and words[29] == _abi_address_word(
-                self.reward_class_registry_address
-            )
-            and words[30] == self.reward_class_registry_runtime_hash
-            and words[31] == self.reward_class_registry_configuration_hash
-            and _model_fixed_bytes32(history.execution_profile_hash)
-                == self._active_reward_execution_profile_hash_v1()
-        )
+        return True
 
     def _reward_receipt_state_valid_v1(self) -> bool:
         """Validate all three class-local rings without mutating state."""
@@ -12083,8 +11945,6 @@ class Protocol:
                 raise SharedSettlementReentrancy(
                     "nested reward funding hit the shared Settlement guard"
                 )
-            if self.mode is Mode.PREACTIVE:
-                raise ValueError("PREACTIVE Settlement cannot accept funding")
             _model_address20(funder)
             if type(class_id) is not int or class_id not in (1, 2, 3):
                 raise ValueError("reward class is outside authenticated tiers")
@@ -12293,124 +12153,14 @@ class Protocol:
             if guard_held:
                 self.data_session_callback_entered = False
 
-    def _is_current_settlement_target(self) -> bool:
-        history = self.versioned_history
-        if history is not None and not isinstance(
-            history, VersionedSettlementHistory
-        ):
-            # Narrow unit-history adapters still exercise the transaction
-            # rollback path; they do not model a router registration.
-            return True
-        if history is None:
-            return True
-        try:
-            target_state = history.exact_market_target_state()
-        except ValueError:
-            raise
-        return (
-            target_state[0] == self.settlement_address
-            and target_state[6] in {"ACTIVE", "ARMED", "READY"}
-            and self.forced_queue.active_settlement_address
-                == self.settlement_address
-        )
-
-    def active_settlement_state_v1(self) -> bytes:
-        """Model the immutable Router's exact bounded sidecar read."""
-
-        if self.active_settlement_state_return_override is not None:
-            return self.active_settlement_state_return_override
-        gate = self.migration_gate
-        phases = {
-            "ACTIVE": RouterPhase.ACTIVE,
-            "ARMED": RouterPhase.ARMED,
-            "READY": RouterPhase.READY,
-        }
-        phase = phases.get(gate.mode)
-        if phase is None:
-            raise ValueError("active Settlement phase is malformed")
-        active_version = (
-            gate.active_protocol_version
-            if gate.active_protocol_version > 0
-            else self._active_data_session_protocol_version()
-        )
-        target_version = (
-            0 if phase is RouterPhase.ACTIVE else gate.target_protocol_version
-        )
-        target_manifest = (
-            bytes(32)
-            if phase is RouterPhase.ACTIVE
-            else _model_fixed_bytes32(gate.target_manifest_hash)
-        )
-        target_registration = (
-            bytes(32)
-            if phase is RouterPhase.ACTIVE
-            else gate.target_registration_hash
-        )
-        active_address = gate.active_settlement_address or self.settlement_address
-        return encode_active_settlement_state_v1(ActiveSettlementStateV1(
-            _model_address20(active_address),
-            gate.generation,
-            active_version,
-            target_version,
-            target_manifest,
-            target_registration,
-            phase,
-        ))
-
-    def _active_data_session_sidecar_ok(self) -> bool:
-        if self.mode is Mode.PREACTIVE:
-            return False
-        try:
-            return (self._is_current_settlement_target()
-                    and verify_active_settlement_state_v1(
-                        self.active_settlement_state_v1(),
-                        gas=ACTIVE_SETTLEMENT_STATE_GAS,
-                        expected_settlement=self.settlement_address,
-                        expected_protocol_version=(
-                            self._active_data_session_protocol_version()
-                        ),
-                    ))
-        except ValueError:
-            return False
-
     def snapshot(self) -> "Protocol":
         return copy.deepcopy(self)
-
-    def __deepcopy__(self, memo: dict[int, object]) -> "Protocol":
-        """Copy mutable protocol state without cloning its Router authority."""
-
-        duplicate = object.__new__(type(self))
-        memo[id(self)] = duplicate
-        for key, value in self.__dict__.items():
-            if key == "versioned_history":
-                object.__setattr__(duplicate, key, value)
-            elif key == "_inbox_execution_authority":
-                continue
-            else:
-                object.__setattr__(duplicate, key, copy.deepcopy(value, memo))
-        object.__setattr__(
-            duplicate,
-            "_inbox_execution_authority",
-            InboxValidityExecutionAuthority(
-                duplicate, _INBOX_EXECUTION_AUTHORITY_CAPABILITY
-            ),
-        )
-        return duplicate
 
     def identical(self, other: "Protocol") -> bool:
         return self == other
 
     def _seat_current_canonical_sequence(self) -> int:
-        history = self.versioned_history
-        if (
-            history is not None
-            and type(history).__name__ == "VersionedSettlementHistory"
-            and type(getattr(history, "current_sequence", None)) is int
-            and history.current_sequence >= 0
-        ):
-            sequence = history.current_sequence
-        else:
-            sequence = self.seat_canonical_sequence
+        sequence = self.seat_canonical_sequence
         if not 0 <= sequence <= UINT64_MAX:
             raise ValueError("seat canonical sequence is outside uint64")
         return sequence
@@ -13392,7 +13142,6 @@ class Protocol:
         clock: Clock,
         *,
         allow_cure: bool,
-        excuse_for_migration: bool = False,
     ) -> SeatDutyScanOutcome:
         """Visit each ring cell once: objective outcome, cure, then excuse."""
 
@@ -13439,15 +13188,6 @@ class Protocol:
                 # successor so the optional seat service can recover.
                 start_successor = True
             if (
-                excuse_for_migration
-                and duty.status is DutyStatus.OPEN
-            ):
-                self._transition_duty_status(
-                    duty, DutyStatus.EXCUSED_MIGRATION
-                )
-                duty.disposition_at = clock.timestamp
-                changed = True
-            if (
                 duty.status in (DutyStatus.OPEN, DutyStatus.FAILED_OVER)
                 and clock.timestamp > duty.recovery_at
             ):
@@ -13492,8 +13232,6 @@ class Protocol:
         self,
         clock: Clock,
         reusable_index: int | None,
-        *,
-        excuse_for_migration: bool = False,
     ) -> tuple[bool, bool]:
         changed = False
         sla_missed = False
@@ -13522,15 +13260,6 @@ class Protocol:
                             raise AssertionError("attached duty result is empty")
                         changed = True
                         changed |= self._process_activated_duty(attached, clock)
-                        if (
-                            excuse_for_migration
-                            and attached.status is DutyStatus.OPEN
-                        ):
-                            self._transition_duty_status(
-                                attached, DutyStatus.EXCUSED_MIGRATION
-                            )
-                            attached.disposition_at = clock.timestamp
-                            changed = True
                         sla_missed = attached.status in (
                             DutyStatus.OPEN, DutyStatus.FAILED_OVER
                         )
@@ -13629,13 +13358,6 @@ class Protocol:
         self._assert_seat_valid()
         return True
 
-    def _close_seats_for_migration(self, close_at: int) -> None:
-        """Vacate the roster after the one-pass migration duty settlement."""
-
-        close_at = seat_u256(close_at, "migration seat close")
-        self._vacate_entire_lineup(close_at, "MIGRATION")
-        self._assert_seat_valid()
-
     def _latch_canonical_cures(self, clock: Clock) -> int:
         """Compatibility probe over the one canonical four-cell scan."""
 
@@ -13666,89 +13388,29 @@ class Protocol:
         target.__dict__.clear()
         target.__dict__.update(snapshot)
 
-    def _canonical_transaction_snapshot(
-        self,
-        execution_output: Candidate | VerifiedMigrationExecutionOutput | None = None,
-    ) -> dict[str, object]:
+    def _canonical_transaction_snapshot(self) -> dict[str, object]:
         """Snapshot only L1 state; live L2 objects are outside the journal."""
 
         if self.data_session_callback_entered:
             raise SharedSettlementReentrancy(
                 "shared Settlement mutation guard is entered"
             )
-        _ = execution_output
-        history = self.versioned_history
-        authority = self._inbox_execution_authority
         data_rent_sink = self.data_rent_sink
-        if type(authority) is not InboxValidityExecutionAuthority:
-            raise AssertionError("Inbox execution authority is missing")
-        history_refs = (
-            None if history is None else (
-                history.forced_queue,
-                history.inbox_apply_descriptor,
-                history.migration_gate,
-                history.live_protocol,
-                history.header_oracle,
-                history._router_authority,
-            )
-        )
         return {
             "protocol": copy.deepcopy({
                 key: value for key, value in self.__dict__.items()
                 if key not in {
-                    "versioned_history", "_inbox_execution_authority",
                     "normal_best", "header_oracle", "forced_queue",
-                    "inbox_apply_router", "inbox_apply_descriptor",
-                    "migration_gate", "data_rent_sink",
+                    "data_rent_sink",
                 }
             }),
             "normal_best": self.normal_best,
             "header_oracle": self.header_oracle,
             "forced_queue": self.forced_queue,
             "forced_queue_state": self.forced_queue._transaction_snapshot(),
-            "inbox_apply_router": self.inbox_apply_router,
-            "inbox_apply_descriptor": self.inbox_apply_descriptor,
-            "inbox_execution_authority": authority,
-            "migration_gate": self.migration_gate,
-            "migration_gate_state": copy.deepcopy(self.migration_gate.__dict__),
             "data_rent_sink": data_rent_sink,
             "data_rent_sink_state": copy.deepcopy(data_rent_sink.__dict__),
-            "history": history,
-            "history_refs": history_refs,
-            "history_state": (
-                copy.deepcopy({
-                    key: value for key, value in history.__dict__.items()
-                    if key not in {
-                        "forced_queue", "inbox_apply_descriptor",
-                        "migration_gate", "live_protocol", "header_oracle",
-                        "_router_authority",
-                    }
-                })
-                if history is not None else None
-            ),
         }
-
-    def _assert_canonical_history_binding(self) -> None:
-        """Require the one active Settlement transaction/authority graph."""
-
-        history = self.versioned_history
-        if history is None:
-            return
-        if (
-            getattr(history, "forced_queue", None) is not self.forced_queue
-            or getattr(history, "inbox_apply_descriptor", None)
-                != self.inbox_apply_descriptor
-            or getattr(history, "migration_gate", None) is not self.migration_gate
-            or getattr(history, "live_protocol", None) is not self
-        ):
-            raise AssertionError("invalid canonical history authority graph")
-        if isinstance(history, VersionedSettlementHistory):
-            try:
-                history.exact_market_target_state()
-            except ValueError as exc:
-                raise AssertionError(
-                    "invalid canonical history authority graph"
-                ) from exc
 
     def _restore_canonical_transaction(
         self, snapshot: dict[str, object]
@@ -13756,50 +13418,16 @@ class Protocol:
         """Restore a failed canonical transaction without breaking aliases."""
 
         queue = snapshot["forced_queue"]
-        inbox = snapshot["inbox_apply_router"]
-        gate = snapshot["migration_gate"]
         data_rent_sink = snapshot["data_rent_sink"]
-        history = snapshot["history"]
-        authority = snapshot["inbox_execution_authority"]
         self._restore_object(self, snapshot["protocol"])
         object.__setattr__(self, "header_oracle", snapshot["header_oracle"])
         queue._restore_transaction_snapshot(snapshot["forced_queue_state"])
-        self._restore_object(gate, snapshot["migration_gate_state"])
         self._restore_object(
             data_rent_sink, snapshot["data_rent_sink_state"]
         )
         object.__setattr__(self, "forced_queue", queue)
-        object.__setattr__(self, "inbox_apply_router", inbox)
-        object.__setattr__(
-            self, "inbox_apply_descriptor", snapshot["inbox_apply_descriptor"]
-        )
-        object.__setattr__(self, "migration_gate", gate)
         object.__setattr__(self, "data_rent_sink", data_rent_sink)
-        object.__setattr__(self, "_inbox_execution_authority", authority)
         self.normal_best = snapshot["normal_best"]
-        object.__setattr__(authority, "protocol", self)
-        self.versioned_history = history
-        if history is None:
-            return
-        self._restore_object(history, snapshot["history_state"])
-        (
-            history_queue,
-            history_inbox_descriptor,
-            history_gate,
-            history_protocol,
-            history_header_oracle,
-            history_router_authority,
-        ) = snapshot["history_refs"]
-        object.__setattr__(history, "forced_queue", history_queue)
-        object.__setattr__(
-            history, "inbox_apply_descriptor", history_inbox_descriptor
-        )
-        object.__setattr__(history, "migration_gate", history_gate)
-        object.__setattr__(history, "header_oracle", history_header_oracle)
-        history.live_protocol = history_protocol
-        object.__setattr__(
-            history, "_router_authority", history_router_authority
-        )
 
     def _composed_seat_call(
         self, market: object, transition: Callable[[], object]
@@ -13830,14 +13458,6 @@ class Protocol:
             raise SharedSettlementReentrancy(
                 "nested seat mutation hit the shared Settlement guard"
             )
-        if (
-            self.versioned_history is not None
-            and self.versioned_history.mode == "FROZEN"
-        ):
-            # Historical economic calls read this target-local retained ledger;
-            # they never replay current canonical maintenance through it.
-            return False
-
         boundary_queries = self.boundary_queries
         seat_scan_count = self.seat_scan_count
         seat_scan_visits_total = self.seat_scan_visits_total
@@ -14110,27 +13730,18 @@ class Protocol:
         service = self.seat_services.get(term_id)
         if term is None or service is None:
             raise ValueError("unknown exact seat term")
-        history = self.versioned_history
-        if history is not None:
-            target = history.address
-            settlement_chain_id = history.market_settlement_chain_id
-            protocol_version = history.protocol_version
-            runtime_hash = history.market_runtime_hash
-            configuration_hash = history.market_configuration_hash
-            magic = history.market_magic
-        else:
-            # Test-only unversioned fixtures predate retained target history.
-            # Production economic entrypoints never take this branch: Market
-            # derives its authorization and reads the target-local SHR1 row.
-            auth = market.authorizations.get(self.seat_authorization_id)
-            if auth is None:
-                raise ValueError("unversioned Market authorization is absent")
-            target = self.settlement_address
-            settlement_chain_id = auth.settlement_chain_id
-            protocol_version = auth.protocol_version
-            runtime_hash = auth.runtime_hash
-            configuration_hash = auth.configuration_hash
-            magic = auth.expected_magic
+        # Production economic entrypoints derive their authorization and read
+        # the target-local SHR1 row; this behavioral oracle reads the Market's
+        # authorization for the same facts.
+        auth = market.authorizations.get(self.seat_authorization_id)
+        if auth is None:
+            raise ValueError("Market authorization is absent")
+        target = self.settlement_address
+        settlement_chain_id = auth.settlement_chain_id
+        protocol_version = auth.protocol_version
+        runtime_hash = auth.runtime_hash
+        configuration_hash = auth.configuration_hash
+        magic = auth.expected_magic
         duty_id = self.term_duty.get(term_id)
         duty = self.seat_duties.get(duty_id) if duty_id is not None else None
         if duty is None:
@@ -14255,13 +13866,8 @@ class Protocol:
             if market != market_before:
                 raise AssertionError("canonical leading sync called Market")
             return "SYNCED"
-        if self.mode is not Mode.NORMAL or self.migration_gate.mode != "ACTIVE":
+        if self.mode is not Mode.NORMAL:
             raise ValueError("seat staging is unavailable")
-        if (
-            self.versioned_history is not None
-            and self.versioned_history.mode != "ACTIVE"
-        ):
-            raise ValueError("historical Settlement cannot stage seats")
 
         def transition() -> object:
             module = self._bound_market_module(market)
@@ -14302,13 +13908,8 @@ class Protocol:
             if market != market_before:
                 raise AssertionError("canonical leading sync called Market")
             return "SYNCED"
-        if self.mode is not Mode.NORMAL or self.migration_gate.mode != "ACTIVE":
+        if self.mode is not Mode.NORMAL:
             raise ValueError("seat stage cannot apply outside healthy active mode")
-        if (
-            self.versioned_history is not None
-            and self.versioned_history.mode != "ACTIVE"
-        ):
-            raise ValueError("historical Settlement cannot apply a seat stage")
 
         def transition() -> object:
             module = self._bound_market_module(market)
@@ -14453,11 +14054,6 @@ class Protocol:
             if market != market_before:
                 raise AssertionError("canonical leading sync called Market")
             return "SYNCED"
-        if (
-            self.versioned_history is not None
-            and self.versioned_history.mode != "ACTIVE"
-        ):
-            raise ValueError("historical Settlement cannot expire a seat stage")
 
         def transition() -> object:
             module = self._bound_market_module(market)
@@ -14491,76 +14087,15 @@ class Protocol:
 
         def transition() -> object:
             tombstone = self.stage_tombstones.get(stage_id)
-            history_active = (
-                self.versioned_history is None
-                or self.versioned_history.mode == "ACTIVE"
-            )
-            abort_cancel = (
-                tombstone is not None
-                and tombstone.migration_terminal
-                and self.seat_migration_abort is not None
-                and self.seat_migration_arm is not None
-                and self.seat_migration_abort.canceled_arm.phase
-                in (RouterPhase.ARMED, RouterPhase.READY)
-                and self.migration_gate.canceled_words.get(
-                    self.seat_migration_abort.canceled_arm.generation
-                ) == self.seat_migration_abort.canceled_arm
-                and self.seat_migration_abort.canceled_arm.generation
-                == self.seat_migration_arm.router_word.generation
-                and self.seat_migration_abort.canceled_arm.active_version
-                == self.seat_migration_arm.router_word.active_version
-                and self.seat_migration_abort.canceled_arm.target_version
-                == self.seat_migration_arm.router_word.target_version
-                and self.seat_migration_abort.canceled_arm.target_manifest_hash
-                == self.seat_migration_arm.router_word.target_manifest_hash
-                and self.seat_migration_arm.migration_stage_id
-                == tombstone.stage_id
-                and self.seat_migration_arm.migration_lineup_commitment
-                == tombstone.lineup_commitment
-                and history_active
-            )
-            activation_cancel = (
-                tombstone is not None
-                and tombstone.migration_terminal
-                and self.versioned_history is not None
-                and self.versioned_history.live_protocol is self
-                and self.versioned_history.mode == "FROZEN"
-                and self.seat_migration_arm is not None
-                and self.seat_migration_abort is None
-                and self.seat_migration_arm.migration_stage_id
-                == tombstone.stage_id
-                and self.seat_migration_arm.migration_lineup_commitment
-                == tombstone.lineup_commitment
-                and self.seat_migration_arm.seat_generation
-                == self.seat_generation
-            )
             if (
                 tombstone is None
                 or tombstone.reconciled
-                or (
-                    tombstone.migration_terminal
-                    and not (abort_cancel or activation_cancel)
-                )
-                or (
-                    self.seat_migration_arm is not None
-                    and self.seat_migration_abort is None
-                    and not activation_cancel
-                )
-                or (not history_active and not activation_cancel)
                 or tombstone.stage_id != stage_id
                 or tombstone.lineup_commitment != lineup_commitment
             ):
                 raise ValueError("stale or mismatched stage tombstone")
-            result = (
-                market._settlement_cancel_stage_for_migration(
-                    stage_id, lineup_commitment, self._market_module(market).Clock(
-                        clock.timestamp, clock.block_number
-                    )
-                )
-                if abort_cancel or activation_cancel
-                else market._settlement_invalidate_stage(
-                    stage_id, lineup_commitment
-                )
+            result = market._settlement_invalidate_stage(
+                stage_id, lineup_commitment
             )
             self._seat_fault("after_market_invalidation")
             tombstone.reconciled = True
@@ -14885,14 +14420,8 @@ class Protocol:
         self.normal_arm_block_number = None
 
     def arm_normal_context(self, clock: Clock) -> str:
-        if not self._is_current_settlement_target():
-            return "REJECTED_HISTORICAL"
-        if self.mode is Mode.PREACTIVE:
-            return "REJECTED_PREACTIVE"
         if self.sync(clock):
             return "SYNCED"
-        if self.migration_gate.mode != "ACTIVE":
-            return "MIGRATION_ARMED"
         if self.mode is not Mode.NORMAL:
             return "IGNORED"
         if self.normal_arm_block_number is not None:
@@ -14906,14 +14435,8 @@ class Protocol:
         return "ARMED"
 
     def activate_normal_context(self, clock: Clock) -> str:
-        if not self._is_current_settlement_target():
-            return "REJECTED_HISTORICAL"
-        if self.mode is Mode.PREACTIVE:
-            return "REJECTED_PREACTIVE"
         if self.sync(clock):
             return "SYNCED"
-        if self.migration_gate.mode != "ACTIVE":
-            return "MIGRATION_ARMED"
         armed = self.normal_arm_block_number
         if (self.mode is not Mode.NORMAL or armed is None
                 or not armed < clock.block_number <= armed + MAX_ARM_AGE_BLOCKS):
@@ -14933,11 +14456,10 @@ class Protocol:
         return "ACTIVATED"
 
     def _close_mature_normal(
-        self, clock: Clock, *, excuse_for_migration: bool = False
+        self, clock: Clock
     ) -> tuple[bool, SeatDutyScanOutcome | None]:
         if self.normal_deadline is None or clock.timestamp < self.normal_deadline:
             return False, None
-        self._assert_canonical_history_binding()
         protocol_snapshot = self._canonical_transaction_snapshot()
         try:
             outcome = None
@@ -14947,11 +14469,7 @@ class Protocol:
                     )
                     and clock.timestamp + REORG_MARGIN_SECONDS
                         <= self.normal_best_min_data_expiry):
-                outcome = self._commit(
-                    self.normal_best,
-                    clock,
-                    excuse_for_migration=excuse_for_migration,
-                )
+                outcome = self._commit(self.normal_best, clock)
                 self.events.append("NORMAL_COMMITTED")
             else:
                 self.events.append("NORMAL_CANCELED_FORCE_OMISSION")
@@ -15026,113 +14544,10 @@ class Protocol:
         self.events.append(f"RECOVERY_ROLLED:{self.recovery.revision}")
         return True
 
-    def _migration_callback_response(
-        self, magic: bytes, word: RouterWord
-    ) -> bytes:
-        response = SeatMigrationResponse(
-            magic,
-            word.generation,
-            word.active_version,
-            word.target_version,
-            word.target_manifest_hash,
-            word.target_registration_hash,
-            self.seat_generation,
-        )
-        raw = encode_seat_migration_response(response)
-        prefix = "arm" if magic == SEAT_ARMED_MAGIC else "abort"
-        if self.seat_fault_point == f"{prefix}_response_short":
-            return raw[:-1]
-        if self.seat_fault_point == f"{prefix}_response_empty":
-            return b""
-        if self.seat_fault_point in {
-            f"{prefix}_response_long", f"{prefix}_response_trailing"
-        }:
-            return raw + b"\x00"
-        if self.seat_fault_point == f"{prefix}_response_wrong_magic":
-            return b"FAIL" + raw[4:]
-        if self.seat_fault_point == f"{prefix}_response_wrong_generation":
-            forged = replace(response, router_generation=response.router_generation + 1)
-            return encode_seat_migration_response(forged)
-        if self.seat_fault_point == f"{prefix}_response_wrong_active_version":
-            forged = replace(
-                response,
-                active_protocol_version=response.active_protocol_version + 1,
-            )
-            return encode_seat_migration_response(forged)
-        if self.seat_fault_point == f"{prefix}_response_wrong_target_version":
-            forged = replace(
-                response,
-                target_protocol_version=response.target_protocol_version + 1,
-            )
-            return encode_seat_migration_response(forged)
-        if self.seat_fault_point == f"{prefix}_response_wrong_manifest":
-            forged = replace(response, target_manifest_hash=b"x" * 32)
-            return encode_seat_migration_response(forged)
-        if self.seat_fault_point \
-                == f"{prefix}_response_wrong_target_registration":
-            forged = replace(response, target_registration_hash=b"x" * 32)
-            return encode_seat_migration_response(forged)
-        if self.seat_fault_point == f"{prefix}_response_wrong_seat_generation":
-            forged = replace(response, seat_generation=response.seat_generation + 1)
-            return encode_seat_migration_response(forged)
-        return raw
-
-    def _migration_boundary_open(self) -> bool:
-        return (self.mode is Mode.RECOVERY
-                or self.normal_deadline is not None
-                or self.normal_best is not None
-                or self.normal_arm_block_number is not None)
-
-    def _migration_boundary_state(self) -> MigrationBoundaryState:
-        """Derive the exact readiness boundary state; malformed mixes revert."""
-
-        primary_normal_markers = (
-            self.normal_arm_block_number,
-            self.normal_deadline,
-            self.normal_best,
-        )
-        auxiliary_normal_markers = (
-            self.normal_required_through,
-            self.normal_min_admissible,
-            self.normal_admission_version,
-            self.normal_admission_root,
-            self.normal_anchor_number,
-            self.normal_anchor_hash,
-            self.normal_context_id,
-        )
-        normal = any(marker is not None for marker in primary_normal_markers)
-        auxiliary = any(
-            marker is not None for marker in auxiliary_normal_markers
-        )
-        if self.mode is Mode.PREACTIVE:
-            raise ValueError("PREACTIVE Settlement has no readiness view")
-        if self.mode is Mode.RECOVERY:
-            if self.recovery is None or normal or auxiliary:
-                raise ValueError("recovery boundary state is conflicting")
-            return MigrationBoundaryState.RECOVERY
-        if self.mode is not Mode.NORMAL or self.recovery is not None:
-            raise ValueError("normal boundary state is conflicting")
-        if auxiliary and not normal:
-            raise ValueError("orphan normal context cannot report NONE")
-        return (
-            MigrationBoundaryState.NORMAL
-            if normal else MigrationBoundaryState.NONE
-        )
-
     def data_session_config_hash_v1(self) -> bytes:
         """Commit every frozen immutable DataSession geometry/value input."""
 
-        history = self.versioned_history
-        router = (
-            history._router_authority
-            if isinstance(history, VersionedSettlementHistory) else None
-        )
         protocol_version = self._active_data_session_protocol_version()
-        execution_profile_hash = (
-            history.execution_profile_hash
-            if isinstance(history, VersionedSettlementHistory)
-            else "model-execution-profile"
-        )
         descriptor = b"".join((
             _model_uint(
                 MODEL_SETTLEMENT_CHAIN_CONTEXT_ID, 32,
@@ -15140,21 +14555,7 @@ class Protocol:
             ),
             _model_uint(protocol_version, 8, "protocol version"),
             _model_address20(self.settlement_address),
-            _model_address20(
-                router.address
-                if isinstance(router, ActiveSettlementRouter)
-                else "active-settlement-router"
-            ),
-            # The deployment-time config commits the immutable Router manager,
-            # not the Gate's publication slot.  The latter is deliberately
-            # empty until the final genesis ACTIVE write.
-            _model_address20(
-                router.version_manager
-                if isinstance(router, ActiveSettlementRouter)
-                else "version-manager"
-            ),
             _model_address20(self.data_rent_sink.address),
-            _model_fixed_bytes32(execution_profile_hash),
             _model_uint(self.data_session_required_bond, 32, "session bond"),
             _model_uint(self.data_session_base_rent_wei, 32, "base rent"),
             _model_uint(
@@ -15181,7 +14582,7 @@ class Protocol:
             _model_uint(126_972, 4, "maximum blob payload"),
             _model_uint(9, 2, "chunk count cap"),
         ))
-        if len(descriptor) != 340:
+        if len(descriptor) != 268:
             raise AssertionError("DataSession config descriptor width drifted")
         return keccak256(
             b"slot-chain-data-session-config-v1"
@@ -15189,31 +14590,11 @@ class Protocol:
             + descriptor
         )
 
-    def migration_readiness_v1(self) -> bytes:
-        boundary = self._migration_boundary_state()
-        gate = self.migration_gate
-        if gate.mode not in {"ARMED", "READY"}:
-            raise ValueError("migration readiness gate is inactive")
-        local_complete = self._local_migration_arm_complete(
-            boundary is not MigrationBoundaryState.NONE
-        )
-        return encode_migration_readiness_v1(MigrationReadinessV1(
-            gate.generation,
-            gate.active_protocol_version,
-            gate.target_protocol_version,
-            _model_fixed_bytes32(gate.target_manifest_hash),
-            gate.target_registration_hash,
-            boundary,
-            local_complete,
-        ))
-
     def settlement_forced_ingress_floor_v1(self) -> bytes:
         """Return the exact due-time floor consumed by the active Router."""
 
         if self.forced_ingress_floor_fault_point in {"revert", "oog"}:
             raise RuntimeError("injected SIF1 staticcall fault")
-        if self.mode is Mode.PREACTIVE:
-            raise ValueError("preactive Settlement has no forced-ingress floor")
         if self.mode is Mode.NORMAL:
             if self.recovery is not None:
                 raise ValueError("normal Settlement retains a recovery round")
@@ -15258,8 +14639,6 @@ class Protocol:
             self.next_session_sequence,
             self.data_session_live_bond_liability,
             self.data_session_refund_bond_liability,
-            self.migration_refund_generation,
-            self.migration_refund_claim_deadline,
             self.data_session_callback_entered,
             self.data_session_config_hash_v1(),
             self.reward_funded_by_class[1],
@@ -15268,330 +14647,11 @@ class Protocol:
             self.total_reward_funding,
         ))
 
-    def _migration_refund_deadline_at_arm(self, clock: Clock) -> int:
-        """Freeze one objective deadline for the entire armed generation."""
-
-        if type(clock) is not Clock:
-            raise ValueError("migration refund clock is malformed")
-        base = clock.timestamp
-        if self.normal_deadline is not None:
-            base = max(base, self.normal_deadline)
-        if self.recovery is not None:
-            base = max(base, self.recovery.expires_at)
-        return self._sat_add64(base, self.refund_claim_window_seconds)
-
-    def complete_seat_migration_arm(
-        self,
-        *,
-        caller: str,
-        router_word: RouterWord,
-        clock: Clock,
-    ) -> bytes:
-        """Manager-only local completion; never returns generic ``SYNCED``."""
-
-        if (
-            caller != self.migration_gate.coordinator
-            or type(router_word) is not RouterWord
-            or router_word != self.migration_gate.router_word
-            or router_word.phase is not RouterPhase.ARMED
-            or router_word.active_version <= 0
-            or router_word.target_version <= router_word.active_version
-            or self.seat_migration_local_generation == router_word.generation
-        ):
-            raise ValueError("seat migration arm authority tuple is invalid")
-        if self.versioned_history is not None and (
-            self.versioned_history.protocol_version != router_word.active_version
-            or self.versioned_history.live_protocol is not self
-            or self.versioned_history.mode != "MIGRATION_ARMED"
-        ):
-            raise ValueError("seat migration arm history binding is invalid")
-
-        snapshot = self._canonical_transaction_snapshot()
-        migration_refund_deadline = self._migration_refund_deadline_at_arm(
-            clock
-        )
-        try:
-            # Freeze before leading sync: if no boundary is open that sync may
-            # perform the generation's first bounded cleanup scan.
-            self.migration_refund_generation = router_word.generation
-            self.migration_refund_claim_deadline = migration_refund_deadline
-            stage = self.settlement_seat_stage
-            stage_id = (
-                stage.stage_id
-                if stage is not None
-                else self.outstanding_stage_tombstone_id
-            )
-            retained_tombstone = (
-                None if stage_id is None else self.stage_tombstones.get(stage_id)
-            )
-            stage_commitment = (
-                stage.lineup_commitment
-                if stage is not None
-                else (
-                    None
-                    if retained_tombstone is None
-                    else retained_tombstone.lineup_commitment
-                )
-            )
-            self._sync_impl(
-                clock,
-                allow_migration_ready=False,
-                excuse_for_migration=True,
-            )
-            if self.migration_gate.router_word != router_word:
-                raise AssertionError("local arm leading sync changed router word")
-            if self.seat_generation >= UINT64_MAX:
-                raise ValueError("seat generation is exhausted")
-            self.seat_generation += 1
-            self._close_seats_for_migration(clock.timestamp)
-            # A leading sync may already have tombstoned the stage for a more
-            # specific canonical reason.  The arm binds that same exact record
-            # so rotation can terminally cancel the Market half once.
-            if stage_id is not None:
-                tombstone = self.stage_tombstones.get(stage_id)
-                if (
-                    tombstone is None
-                    or tombstone.lineup_commitment != stage_commitment
-                ):
-                    raise AssertionError("migration lost the exact stage tombstone")
-                tombstone.migration_terminal = True
-            self.seat_migration_local_generation = router_word.generation
-            self.migration_refund_generation = router_word.generation
-            self.migration_refund_claim_deadline = migration_refund_deadline
-            self.seat_migration_arm = SeatMigrationArm(
-                router_word,
-                self.seat_generation,
-                clock.timestamp,
-                stage_id,
-                stage_commitment,
-            )
-            self.seat_migration_abort = None
-            self.events.append(
-                f"SEAT_MIGRATION_ARMED:{router_word.generation}:"
-                f"{self.seat_generation}"
-            )
-            self._seat_fault("after_local_migration_arm")
-            self._assert_seat_valid()
-            return self._migration_callback_response(SEAT_ARMED_MAGIC, router_word)
-        except BaseException:
-            self._restore_canonical_transaction(snapshot)
-            raise
-
-    def complete_seat_migration_abort(
-        self,
-        *,
-        caller: str,
-        canceled_arm: RouterWord,
-        clock: Clock,
-    ) -> bytes:
-        """Authenticate retained cancel context; never sync in the abort tx."""
-
-        armed_word = (
-            None
-            if self.seat_migration_arm is None
-            else self.seat_migration_arm.router_word
-        )
-        if (
-            caller != self.migration_gate.coordinator
-            or type(canceled_arm) is not RouterWord
-            or canceled_arm.phase not in (RouterPhase.ARMED, RouterPhase.READY)
-            or self.migration_gate.canceled_words.get(canceled_arm.generation)
-            != canceled_arm
-            or self.migration_gate.mode != "ABORTING"
-            or self.migration_gate.generation != canceled_arm.generation
-            or self.migration_gate.active_protocol_version
-                != canceled_arm.active_version
-            or self.migration_gate.target_protocol_version != 0
-            or self.migration_gate.target_manifest_hash != ""
-            or self.migration_gate.target_registration_hash != b""
-            or armed_word is None
-            or armed_word.generation != canceled_arm.generation
-            or armed_word.active_version != canceled_arm.active_version
-            or armed_word.target_version != canceled_arm.target_version
-            or armed_word.target_manifest_hash
-            != canceled_arm.target_manifest_hash
-            or armed_word.target_registration_hash
-            != canceled_arm.target_registration_hash
-            or armed_word.phase is not RouterPhase.ARMED
-        ):
-            raise ValueError("seat migration abort authority tuple is invalid")
-        snapshot = self._canonical_transaction_snapshot()
-        try:
-            retained_generation = self.seat_generation
-            if self.seat_generation != retained_generation:
-                raise AssertionError("migration abort changed seat generation")
-            self.seat_migration_abort = SeatMigrationAbort(
-                canceled_arm, self.seat_generation, clock.timestamp
-            )
-            self.events.append(
-                f"SEAT_MIGRATION_ABORTED:{canceled_arm.generation}:"
-                f"{self.seat_generation}"
-            )
-            self._seat_fault("after_local_migration_abort")
-            return self._migration_callback_response(
-                SEAT_ABORTED_MAGIC, canceled_arm
-            )
-        except BaseException:
-            self._restore_canonical_transaction(snapshot)
-            raise
-
-    def _arm_migration_for_test(
-        self, generation: int, clock: Clock | None = None
-    ) -> bool:
-        """Legacy model fixture only; production uses ProtocolVersionManager."""
-
-        if (self.mode is Mode.PREACTIVE
-                or self.release_activation_pending
-                or self.migration_gate.mode != "ARMED"
-                or self.migration_gate.generation != generation):
-            return False
-        if (not self.migration_gate.active_settlement_address
-                or not self.migration_gate.active_data_session_config_hash):
-            if not self.migration_gate._bind_active_data_session_from_router(
-                self.settlement_address, self.data_session_config_hash_v1()
-            ):
-                return False
-        elif (self.migration_gate.active_settlement_address
-                    != self.settlement_address
-                or self.migration_gate.active_data_session_config_hash
-                    != self.data_session_config_hash_v1()):
-            return False
-        if self.mode is Mode.NORMAL and self.normal_deadline is None:
-            self._clear_normal()
-        if clock is None:
-            objective_tail = max(
-                GENESIS_TIMESTAMP + self.core.tip_slot,
-                self.normal_deadline or 0,
-                self.recovery.expires_at if self.recovery is not None else 0,
-            )
-            clock = Clock(
-                self.canonical.canonicalized_at_block, objective_tail
-            )
-        self.seat_migration_local_generation = generation
-        self.migration_refund_generation = generation
-        self.migration_refund_claim_deadline = (
-            self._migration_refund_deadline_at_arm(clock)
-        )
-        if self.seat_generation >= UINT64_MAX:
-            return False
-        self.seat_generation += 1
-        self._close_seats_for_migration(clock.timestamp)
-        self.seat_migration_arm = SeatMigrationArm(
-            self.migration_gate.router_word,
-            self.seat_generation,
-            clock.timestamp,
-        )
-        self.events.append(f"MIGRATION_ARMED:{generation}")
-        return True
-
-    def _cleanup_migration_sessions(self, clock: Clock) -> int:
-        if (self.migration_refund_generation
-                != self.migration_gate.generation
-                or self.migration_refund_claim_deadline <= 0):
-            raise AssertionError("migration refund deadline was not frozen")
-        changed, inspected = self._scan_data_session_ring(
-            clock,
-            action=DataSessionMaintenanceMode.MIGRATION,
-            migration_claim_deadline=self.migration_refund_claim_deadline,
-        )
-        if changed:
-            self.events.append(f"MIGRATION_SESSION_REFUNDS:{changed}")
-        return inspected
-
-    def _local_migration_arm_complete(self, boundary_open: bool) -> bool:
-        arm = self.seat_migration_arm
-        try:
-            accounted = seat_checked_add(
-                self.data_session_live_bond_liability,
-                self.data_session_refund_bond_liability,
-                "migration session liabilities",
-            )
-        except ValueError:
-            return False
-        return (not boundary_open
-                and self.session_live_count == 0
-                and self.settlement_eth_balance >= accounted
-                and self.seat_migration_local_generation
-                    == self.migration_gate.generation
-                and self.migration_refund_generation
-                    == self.migration_gate.generation
-                and self.migration_refund_claim_deadline > 0
-                and arm is not None
-                and arm.router_word.generation
-                    == self.migration_gate.generation
-                and arm.router_word.active_version
-                    == self.migration_gate.active_protocol_version
-                and arm.router_word.target_version
-                    == self.migration_gate.target_protocol_version
-                and arm.router_word.target_manifest_hash
-                    == _model_fixed_bytes32(
-                        self.migration_gate.target_manifest_hash
-                    )
-                and arm.router_word.target_registration_hash
-                    == self.migration_gate.target_registration_hash
-                and arm.router_word.phase is RouterPhase.ARMED
-                and arm.seat_generation == self.seat_generation
-                and not self.seat_lineup
-                and self.settlement_seat_stage is None
-                # A FAILED_OVER duty retains an objective bond liability until
-                # its strict slash boundary records BREACHED.  Freezing the
-                # target earlier would make that transition unreachable and
-                # permanently strand the reserve and duty-ring cell.
-                and self.unresolved_duty_count == 0)
-
-    def _sync_migration(
-        self, clock: Clock, *, allow_ready: bool = True
-    ) -> bool:
-        changed = False
-        if self.mode is Mode.RECOVERY:
-            assert self.recovery is not None
-            if clock.timestamp > self.recovery.expires_at:
-                self.recovery = None
-                self.mode = Mode.NORMAL
-                self.events.append("MIGRATION_RECOVERY_CANCELED")
-                changed = True
-        else:
-            due = self.force_due(clock)
-            if self.normal_deadline is not None:
-                if due and clock.timestamp < self.normal_deadline:
-                    self._clear_normal()
-                    self.events.append("MIGRATION_NORMAL_CANCELED_FORCE_DUE")
-                    changed = True
-                elif clock.timestamp >= self.normal_deadline:
-                    normal_closed, _ = self._close_mature_normal(clock)
-                    changed |= normal_closed
-            elif self.normal_arm_block_number is not None:
-                self._clear_normal()
-                changed = True
-        boundary_open = self._migration_boundary_open()
-        if not boundary_open and self.session_live_count:
-            changed |= self._cleanup_migration_sessions(clock) > 0
-        if (allow_ready
-                and self._local_migration_arm_complete(boundary_open)):
-            history = self.versioned_history
-            router = (
-                None if type(history) is not VersionedSettlementHistory
-                else history._router_authority
-            )
-            if type(router) is not ActiveSettlementRouter:
-                raise ValueError("migration READY has no exact Router")
-            ready = router._mark_ready_from_protocol(self)
-            if ready != MARK_MIGRATION_READY_RETURN:
-                raise ValueError("migration READY returned the wrong magic")
-            self.events.append("MIGRATION_READY")
-            changed = True
-        return changed
-
     def sync(self, clock: Clock) -> bool:
         if self.data_session_callback_entered:
             raise SharedSettlementReentrancy(
                 "nested sync hit the shared Settlement guard"
             )
-        if self.mode is Mode.PREACTIVE:
-            return False
-        if not self._is_current_settlement_target():
-            return False
-        self._assert_canonical_history_binding()
         snapshot = self._canonical_transaction_snapshot()
         try:
             return self._sync_impl(clock)
@@ -15599,13 +14659,7 @@ class Protocol:
             self._restore_canonical_transaction(snapshot)
             raise
 
-    def _sync_impl(
-        self,
-        clock: Clock,
-        *,
-        allow_migration_ready: bool = True,
-        excuse_for_migration: bool = False,
-    ) -> bool:
+    def _sync_impl(self, clock: Clock) -> bool:
         normal_changed = False
         standby_changed = self._expire_standby_leases(clock)
         commit_outcome: SeatDutyScanOutcome | None = None
@@ -15614,34 +14668,19 @@ class Protocol:
             and self.normal_deadline is not None
             and clock.timestamp >= self.normal_deadline
         ):
-            normal_changed, commit_outcome = self._close_mature_normal(
-                clock, excuse_for_migration=excuse_for_migration
-            )
+            normal_changed, commit_outcome = self._close_mature_normal(clock)
         if commit_outcome is None:
-            scan = self._scan_seat_duties(
-                clock,
-                allow_cure=False,
-                excuse_for_migration=excuse_for_migration,
-            )
+            scan = self._scan_seat_duties(clock, allow_cure=False)
             prospective_changed, prospective_sla = \
                 self._sync_prospective_deadline(
                     clock,
                     scan.reusable_index,
-                    excuse_for_migration=excuse_for_migration,
                 )
             seat_changed = standby_changed or scan.changed or prospective_changed
             seat_sla_missed = scan.sla_missed or prospective_sla
         else:
             seat_changed = standby_changed or commit_outcome.changed
             seat_sla_missed = commit_outcome.sla_missed
-        if self.migration_gate.mode == "ARMED":
-            return (
-                self._sync_migration(clock, allow_ready=allow_migration_ready)
-                or seat_changed
-                or normal_changed
-            )
-        if self.migration_gate.mode == "READY":
-            return True
         if self.mode is Mode.RECOVERY:
             return self._roll_recovery(clock) or seat_changed or normal_changed
         changed = seat_changed or normal_changed
@@ -15861,9 +14900,6 @@ class Protocol:
                     and self.settlement_eth_balance
                         < self.data_session_accounted_liabilities)):
             raise AssertionError("data-session bounded accounting diverged")
-        current = self._is_current_settlement_target()
-        if ((self.mode is Mode.PREACTIVE or not current) and live != 0):
-            raise AssertionError("inactive Settlement retains a LIVE session")
 
     def _install_data_session_for_test(
         self,
@@ -15919,7 +14955,6 @@ class Protocol:
         claim_deadline: int,
         *,
         emit_event: bool = True,
-        migration_generation: int = 0,
     ) -> DataSession:
         cell = self.session_cells[index]
         session = cell.session
@@ -15953,7 +14988,6 @@ class Protocol:
                 session.owner,
                 index,
                 claim_deadline,
-                migration_generation,
             ))
         self._assert_data_session_state()
         return session
@@ -16025,16 +15059,6 @@ class Protocol:
             "Settlement session/reward liabilities",
         )
 
-    def _migration_activation_accounting_ok(self) -> bool:
-        """Authenticate the bounded source custody state at READY/activation."""
-
-        try:
-            accounted = self.data_session_accounted_liabilities
-        except ValueError:
-            return False
-        return (self.session_live_count == 0
-                and self.settlement_eth_balance >= accounted)
-
     def force_data_session_eth(self, amount: int) -> bool:
         """Forced ETH is surplus and never becomes a refundable liability."""
 
@@ -16051,14 +15075,11 @@ class Protocol:
         clock: Clock,
         *,
         action: DataSessionMaintenanceMode,
-        migration_claim_deadline: int = 0,
     ) -> tuple[int, int]:
         """Inspect exactly eight consecutive cells; callbacks are impossible."""
 
         if (type(clock) is not Clock
-                or type(action) is not DataSessionMaintenanceMode
-                or (action is DataSessionMaintenanceMode.MIGRATION
-                    and not 0 < migration_claim_deadline <= UINT64_MAX)):
+                or type(action) is not DataSessionMaintenanceMode):
             raise ValueError("data-session GC clock is malformed")
         retained = (
             {ref.session_id for ref in self.normal_best.session_refs}
@@ -16079,16 +15100,9 @@ class Protocol:
                 raise AssertionError("data-session physical cell is stale")
             # A cell converted in this call cannot also be forfeited in it.
             if cell.tag is DataSessionCellTag.LIVE:
-                if action is DataSessionMaintenanceMode.MIGRATION:
-                    self._live_to_refund(
-                        index,
-                        migration_claim_deadline,
-                        migration_generation=self.migration_gate.generation,
-                    )
-                    changed += 1
-                elif (action is DataSessionMaintenanceMode.ORDINARY
-                      and session.expiry <= clock.timestamp
-                      and session.session_id not in retained):
+                if (action is DataSessionMaintenanceMode.ORDINARY
+                        and session.expiry <= clock.timestamp
+                        and session.session_id not in retained):
                     self._live_to_refund(
                         index,
                         self._sat_add64(
@@ -16096,8 +15110,7 @@ class Protocol:
                         ),
                     )
                     changed += 1
-            elif (action is not DataSessionMaintenanceMode.MIGRATION
-                  and clock.timestamp > cell.refund_claim_deadline):
+            elif clock.timestamp > cell.refund_claim_deadline:
                 # Forfeiture leaves ETH as sweepable rent/surplus.
                 self._clear_refund_cell(index, emit_forfeit=True)
                 changed += 1
@@ -16123,13 +15136,11 @@ class Protocol:
     ) -> str:
         """Atomically allocate one caller-selected FREE cell; never scans."""
 
-        if (self.data_session_callback_entered
-                or not self._active_data_session_sidecar_ok()):
+        if self.data_session_callback_entered:
             raise DataSessionRevert("data-session OPEN authority rejected")
         session_sequence = self.next_session_sequence
         if (type(clock) is not Clock
                 or not owner
-                or self.migration_gate.mode != "ACTIVE"
                 or type(expected_empty_cell) is not int
                 or not 0 <= expected_empty_cell < MAX_LIVE_DATA_SESSIONS
                 or self.session_cells[expected_empty_cell].tag
@@ -16209,9 +15220,6 @@ class Protocol:
         return session_id
 
     def _active_data_session_protocol_version(self) -> int:
-        history = self.versioned_history
-        if isinstance(history, VersionedSettlementHistory):
-            return history.protocol_version
         return self.data_session_protocol_version
 
     def derive_data_post(
@@ -16344,11 +15352,8 @@ class Protocol:
         blob_base_fee: int,
         payment: int,
     ) -> tuple[int, int, str]:
-        if (self.data_session_callback_entered
-                or not self._active_data_session_sidecar_ok()):
+        if self.data_session_callback_entered:
             raise DataSessionRevert("data-session POST authority rejected")
-        if self.migration_gate.mode != "ACTIVE":
-            raise DataSessionRevert("data-session POST migration gate rejected")
         session = self._live_data_session(session_id)
         if (type(clock) is not Clock
                 or session is None or session.owner != caller or session.sealed
@@ -16439,11 +15444,8 @@ class Protocol:
     def seal_session(
         self, clock: Clock, session_id: str, caller: str
     ) -> tuple[int, str, int]:
-        if (self.data_session_callback_entered
-                or not self._active_data_session_sidecar_ok()):
+        if self.data_session_callback_entered:
             raise DataSessionRevert("data-session SEAL authority rejected")
-        if self.migration_gate.mode != "ACTIVE":
-            raise DataSessionRevert("data-session SEAL migration gate rejected")
         session = self._live_data_session(session_id)
         if (type(clock) is not Clock
                 or session is None or session.owner != caller
@@ -16475,8 +15477,7 @@ class Protocol:
             ) from exc
         if self.settlement_eth_balance < liabilities:
             raise DataSessionRevert("data-session custody is insolvent")
-        if (self.mode is Mode.PREACTIVE
-                or type(clock) is not Clock
+        if (type(clock) is not Clock
                 or not session_id or not caller
                 or type(recipient) is not DataSessionBondReceiver
                 or not recipient.address):
@@ -16490,24 +15491,15 @@ class Protocol:
             raise DataSessionRevert("data-session refund owner is invalid")
         claim_deadline = cell.refund_claim_deadline
         if cell.tag is DataSessionCellTag.LIVE:
-            current = self._is_current_settlement_target()
             retained = (
                 {ref.session_id for ref in self.normal_best.session_refs}
                 if self.normal_best is not None else set()
             )
-            if (current
-                    and self.migration_gate.mode == "ACTIVE"
-                    and session.expiry <= clock.timestamp
+            if (session.expiry <= clock.timestamp
                     and session_id not in retained):
                 claim_deadline = self._sat_add64(
                     session.expiry, self.refund_claim_window_seconds
                 )
-            elif (current
-                  and self.migration_gate.mode == "ARMED"
-                  and not self._migration_boundary_open()
-                  and self.migration_refund_generation
-                    == self.migration_gate.generation):
-                claim_deadline = self.migration_refund_claim_deadline
             else:
                 raise DataSessionRevert("LIVE data-session refund is ineligible")
         elif cell.tag is not DataSessionCellTag.REFUND:
@@ -16547,8 +15539,6 @@ class Protocol:
     def sweep_session_surplus(self) -> int:
         """Permissionless non-gating sweep to the immutable data-rent sink."""
 
-        if self.mode is Mode.PREACTIVE:
-            raise DataSessionRevert("PREACTIVE Settlement cannot sweep")
         if self.data_session_callback_entered:
             raise DataSessionRevert("reentrant data-session surplus sweep")
         try:
@@ -16588,23 +15578,14 @@ class Protocol:
         """Return exact status, explicit inspections, transitions and cursor."""
 
         if (self.data_session_callback_entered
-                or self.mode is Mode.PREACTIVE
                 or type(clock) is not Clock):
             return SESSION_MAINTENANCE_NOOP, 0, 0, self.gc_cursor
-        current = self._is_current_settlement_target()
-        if current and self.migration_gate.mode in {"ACTIVE", "ARMED"}:
-            # ARMED cursor movement can occur only inside this leading sync;
-            # ACTIVE never performs an ordinary scan after a changed sync.
-            if self.sync(clock):
-                return SESSION_MAINTENANCE_SYNCED, 0, 0, self.gc_cursor
-            if self.migration_gate.mode == "ARMED":
-                return SESSION_MAINTENANCE_NOOP, 0, 0, self.gc_cursor
-        action = (
-            DataSessionMaintenanceMode.ORDINARY
-            if current and self.migration_gate.mode == "ACTIVE"
-            else DataSessionMaintenanceMode.REFUND_ONLY
+        # An ordinary scan never follows a changed leading sync.
+        if self.sync(clock):
+            return SESSION_MAINTENANCE_SYNCED, 0, 0, self.gc_cursor
+        changed, inspected = self._scan_data_session_ring(
+            clock, action=DataSessionMaintenanceMode.ORDINARY
         )
-        changed, inspected = self._scan_data_session_ring(clock, action=action)
         return (
             SESSION_MAINTENANCE_SCANNED,
             inspected,
@@ -16676,6 +15657,7 @@ class Protocol:
                 or not 0 < candidate.count <= MAX_BLOCKS_PER_CANDIDATE
                 or candidate.end_l2_block_number
                     != self.core.l2_block_number + candidate.count
+                or candidate.end_l2_block_number > UINT48_MAX
                 or candidate.next_base_fee <= 0
                 or candidate.next_excess_blob_gas < 0
                 or not self._reward_profile_bindings_valid_v1()
@@ -16694,12 +15676,6 @@ class Protocol:
         first = candidate.blocks[0]
         total_items = total_bytes = total_gas = 0
         for block in candidate.blocks:
-            expected_activation = (
-                self.release_activation_pending
-                and block is candidate.blocks[0])
-            expected_force_gas_budget = (
-                ACTIVATION_FORCE_GAS_BUDGET if expected_activation
-                else FORCE_GAS_BUDGET)
             if (block.evm_timestamp != GENESIS_TIMESTAMP + block.slot
                     or block.forced_tx_fork is not self.forced_tx_fork
                     or block.forced_tx_chain_id != self.forced_tx_chain_id
@@ -16711,22 +15687,9 @@ class Protocol:
                     or block.message_start != cursor or not block.dispositions_ok
                     or block.anchor_number != first.anchor_number
                     or block.force_cutoff != first.force_cutoff
-                    or block.force_root != first.force_root
-                    or block.inbox_pre_cursor != block.message_start
-                    or block.inbox_post_cursor != block.message_end
-                    or block.release_activation != expected_activation
-                    or block.release_protocol_version
-                        != (self.pending_release_protocol_version
-                            if expected_activation else 0)
-                    or block.release_manifest_hash
-                        != (self.pending_release_manifest_hash
-                            if expected_activation else "")
-                    or block.force_gas_budget != expected_force_gas_budget
-                    or (expected_activation and block.discretionary_body)):
+                    or block.force_root != first.force_root):
                 return False
-            expected = self._prefix_end(
-                cursor, block.force_cutoff,
-                gas_budget=block.force_gas_budget)
+            expected = self._prefix_end(cursor, block.force_cutoff)
             if block.message_end != expected:
                 return False
             try:
@@ -16736,8 +15699,7 @@ class Protocol:
             except ValueError:
                 return False
             for msg in self.messages[cursor:block.message_end]:
-                if (msg.kind is ForceKind.USER_TX
-                        and msg.payload_hash
+                if (msg.payload_hash
                             not in candidate.available_payload_hashes
                         and msg.valid_until >= GENESIS_TIMESTAMP + block.slot):
                     return False
@@ -16745,20 +15707,7 @@ class Protocol:
                 total_bytes += msg.byte_length
                 total_gas += msg.accounted_gas
             parent, prior_slot, cursor = block.block_hash, block.slot, block.message_end
-        history = self.versioned_history
-        receipt_ok = True
-        if type(history) is VersionedSettlementHistory:
-            authority = self._inbox_execution_authority
-            receipt_ok = (
-                type(authority) is InboxValidityExecutionAuthority
-                and (
-                    authority._preparing_candidate_id == id(candidate)
-                    or authority._verifying_candidate_id == id(candidate)
-                    or authority.valid_receipt(candidate)
-                )
-            )
-        return (receipt_ok
-                and total_items <= MAX_FORCE_CANDIDATE_MESSAGES
+        return (total_items <= MAX_FORCE_CANDIDATE_MESSAGES
                 and total_bytes <= MAX_FORCE_CANDIDATE_BYTES
                 and total_gas <= MAX_FORCE_CANDIDATE_GAS
                 and candidate.next_due_at == self.next_due_at(cursor, first.force_cutoff))
@@ -16824,17 +15773,9 @@ class Protocol:
             raise SharedSettlementReentrancy(
                 "nested candidate submission hit the shared Settlement guard"
             )
-        if not self._is_current_settlement_target():
-            return "REJECTED_HISTORICAL"
-        if self.mode is Mode.PREACTIVE:
-            return "REJECTED_PREACTIVE"
         if self.mode is Mode.RECOVERY:
             round_ = self.recovery
-            if (
-                round_ is None
-                or self.migration_gate.mode == "READY"
-                or clock.timestamp > round_.expires_at
-            ):
+            if round_ is None or clock.timestamp > round_.expires_at:
                 return "SYNCED" if self.sync(clock) else "REJECTED"
             if not self._valid_recovery(candidate, clock):
                 return "SYNCED" if self.sync(clock) else "REJECTED"
@@ -16845,9 +15786,6 @@ class Protocol:
             return "COMMITTED"
         if self.sync(clock):
             return "SYNCED"
-        if (self.migration_gate.mode != "ACTIVE"
-                and self.mode is not Mode.RECOVERY):
-            return "MIGRATION_ARMED"
         if self.mode is Mode.NORMAL:
             if not self._valid_normal(candidate, clock):
                 return "REJECTED"
@@ -16862,84 +15800,66 @@ class Protocol:
             return "IGNORED"
         raise AssertionError("non-recovery submit reached recovery branch")
 
+    def _save_checkpoint_to_l1_signal_service(self) -> None:
+        """Model ``SignalService.saveCheckpoint`` called from the Inbox proxy.
+
+        Settlement performs this write inside the same internal transition
+        that writes ``Canonical`` (normal close, recovery commit, escape
+        commit), exactly once per canonical L2 block number.  The call MUST
+        succeed: a revert rolls the canonical commit back.  It cannot be
+        front-run or omitted, and it is keyed by ``uint48`` L2 block number.
+        """
+
+        core = self.core
+        if not 0 <= core.l2_block_number <= UINT48_MAX:
+            raise AssertionError("checkpoint L2 block number exceeds uint48")
+        if core.l2_block_number in self.l1_signal_service_checkpoints:
+            raise AssertionError(
+                "L1 checkpoint is saved exactly once per L2 block number"
+            )
+        self.l1_signal_service_checkpoints[core.l2_block_number] = {
+            "tipHash": core.tip_hash,
+            "stateRoot": core.state_root,
+        }
+
     def _commit(
         self,
         candidate: Candidate,
         clock: Clock,
-        *,
-        excuse_for_migration: bool = False,
     ) -> SeatDutyScanOutcome:
-        self._assert_canonical_history_binding()
-        protocol_snapshot = self._canonical_transaction_snapshot(candidate)
+        protocol_snapshot = self._canonical_transaction_snapshot()
         try:
             assert self.forced_queue.cursor == self.core.message_cursor
-            if type(self.versioned_history) is VersionedSettlementHistory:
-                authority = self._inbox_execution_authority
-                if (type(authority) is not InboxValidityExecutionAuthority
-                        or not authority.valid_receipt(candidate)):
-                    raise AssertionError(
-                        "canonical candidate lacks exact Inbox verifier output"
-                    )
-                self._canonical_commit_frame = (
-                    id(candidate), candidate_inbox_execution_digest(candidate)
+            if not self.forced_queue.advance_cursor(
+                settlement=self,
+                expected_start=candidate.blocks[0].message_start,
+                end=candidate.tip.message_end,
+                beneficiary=candidate.beneficiary,
+            ):
+                raise AssertionError(
+                    "canonical queue advance authority is invalid"
                 )
-                try:
-                    if not self.forced_queue._advance_from_active_settlement(
-                            settlement=self.versioned_history,
-                            candidate=candidate):
-                        raise AssertionError(
-                            "canonical queue advance authority is invalid"
-                        )
-                finally:
-                    self._canonical_commit_frame = None
-            else:
-                # Unversioned objects are isolated unit fixtures only; they
-                # never represent a production Queue authority surface.
-                assert self.forced_queue._advance_accounting(
-                    candidate.blocks[0].inbox_pre_cursor,
-                    candidate.tip.inbox_post_cursor,
-                    candidate.beneficiary,
-                )
-            if candidate.blocks[0].release_activation:
-                self.release_activation_pending = False
-                self.pending_release_protocol_version = 0
-                self.pending_release_manifest_hash = ""
             self.canonical = Canonical(
                 CanonicalCore(candidate.end_l2_block_number,
                               candidate.tip.block_hash, candidate.tip.slot,
                               candidate.end_state_root, candidate.tip.message_end,
                               candidate.winning_data_commitment,
                               candidate.next_base_fee,
-                              candidate.next_excess_blob_gas,
-                              candidate.end_terminal_root,
-                              candidate.end_terminal_count),
+                              candidate.next_excess_blob_gas),
                 clock.block_number,
             )
-            self.last_canonical_execution_digest = (
-                candidate_inbox_execution_digest(candidate)
-            )
-            if self.versioned_history is not None:
-                history = self.versioned_history
-                if history._record_canonical_from_protocol(
-                    protocol=self, clock=clock
-                ) is None:
-                    raise AssertionError("atomic canonical-history write rejected")
-                self._seat_fault("after_history_record")
-            else:
-                if self.seat_canonical_sequence >= UINT64_MAX:
-                    raise AssertionError("seat canonical sequence exhausted")
-                self.seat_canonical_sequence += 1
-            scan = self._scan_seat_duties(
-                clock,
-                allow_cure=True,
-                excuse_for_migration=excuse_for_migration,
-            )
+            # Same-transaction L1 SignalService checkpoint write.
+            self._save_checkpoint_to_l1_signal_service()
+            self._seat_fault("after_checkpoint_save")
+            if self.seat_canonical_sequence >= UINT64_MAX:
+                raise AssertionError("seat canonical sequence exhausted")
+            self.seat_canonical_sequence += 1
+            scan = self._scan_seat_duties(clock, allow_cure=True)
             refreshed = self._refresh_prospective_after_commit()
             prospective_changed, prospective_sla = \
                 self._sync_prospective_deadline(
                     clock,
                     scan.reusable_index,
-                    excuse_for_migration=excuse_for_migration,
                 )
             outcome = SeatDutyScanOutcome(
                 scan.changed or refreshed or prospective_changed,
@@ -22014,8 +20934,156 @@ class LegacyLaunchHookV1:
         return raw[:-1] if self.fault_point == "maps_bad_return" else raw
 
 
+def valid_forced_ingress_static(
+    descriptor: Message, *, clock: Clock, deposit: int,
+    fork: ForcedTxFork = ForcedTxFork.FUSAKA,
+) -> bool:
+    """Kind-0 admission grammar checked by ``enqueueForcedTransactionV2``."""
+
+    if (type(descriptor) is not Message
+            or type(clock) is not Clock
+            or type(deposit) is not int or isinstance(deposit, bool)
+            or deposit <= 0 or not descriptor.payload_hash
+            or descriptor.kind is not ForceKind.USER_TX):
+        return False
+    if (any(type(value) is not int for value in (
+            descriptor.nonce, descriptor.intrinsic_gas, descriptor.valid_until,
+            descriptor.byte_length, descriptor.raw_tx_length,
+            descriptor.l2_chain_id, descriptor.gas_limit,
+            descriptor.max_fee, descriptor.accounted_gas))
+            or any(type(value) is not bool for value in (
+                descriptor.outer_authorized, descriptor.chain_id_ok,
+                descriptor.signature_ok))
+            or type(descriptor.payload_hash) is not str
+            or type(descriptor.sender) is not str
+            or not 0 <= descriptor.valid_until <= UINT64_MAX):
+        return False
+    if forced_transaction_static_errors(
+            descriptor, descriptor.transaction, fork, descriptor.l2_chain_id):
+        return False
+    intrinsic, _ = forced_transaction_gas(descriptor.transaction, fork)
+    return (
+        descriptor.outer_authorized
+        and descriptor.intrinsic_gas == intrinsic
+        and descriptor.chain_id_ok
+        and descriptor.signature_ok
+        and bool(descriptor.sender)
+        and descriptor.valid_until > clock.timestamp
+        and descriptor.valid_until
+            <= clock.timestamp + MAX_FORCE_VALIDITY_SECONDS
+        and 0 < descriptor.byte_length <= MAX_FORCE_MESSAGE_BYTES
+        and descriptor.raw_tx_length == descriptor.byte_length
+        and 0 < descriptor.l2_chain_id <= UINT64_MAX
+        and intrinsic <= descriptor.gas_limit <= UINT64_MAX
+        and 0 < descriptor.max_fee <= SEAT_UINT256_MAX
+        and descriptor.refund_address == descriptor.sender
+        and descriptor.accounted_gas == max(
+            descriptor.gas_limit,
+            descriptor.intrinsic_gas,
+            MIN_FORCE_ACCOUNTED_GAS,
+        )
+        and descriptor.accounted_gas <= MAX_FORCE_MESSAGE_GAS
+    )
+
+
+ForcedDispositionRow = tuple[int, int, int, str]
+
+
+def forced_block_rows(
+    messages: list[Message], block: Block,
+    available_payload_hashes: frozenset[str],
+) -> tuple[ForcedDispositionRow, ...]:
+    """Derive every disposition and FIFO tx index from typed proof inputs.
+
+    Dispositions are circuit-internal: the validity proof enforces the
+    ``0 -> 1 -> 2 -> 3 -> 6 -> 4`` classification and the maximal prefix, and
+    nothing writes them to L2 or L1.  Each row is ``(queueIndex, code,
+    txIndex or UINT32_MAX, payloadHash or "")``.
+    """
+
+    witnesses = block.forced_tx_witnesses
+    if (type(witnesses) is not tuple
+            or any(type(row) is not ForcedTxExecutionWitness
+                   or type(row.queue_index) is not int for row in witnesses)):
+        raise ValueError("forced witness range is malformed")
+    expected_indices = tuple(
+        index for index in range(block.message_start, block.message_end)
+        if type(messages[index]) is Message
+        and messages[index].valid_until >= block.evm_timestamp
+    )
+    if tuple(row.queue_index for row in witnesses) != expected_indices:
+        raise ValueError("forced witnesses are not the exact unexpired range")
+    by_index = {row.queue_index: row for row in witnesses}
+    rows: list[ForcedDispositionRow] = []
+    # There are no protocol system transactions: the included forced prefix
+    # opens the block body at transaction index zero.
+    tx_index = 0
+    for index in range(block.message_start, block.message_end):
+        queued = messages[index]
+        outcome = classify_forced_transaction(
+            queued, timestamp=block.evm_timestamp, fork=block.forced_tx_fork,
+            chain_id=block.forced_tx_chain_id, base_fee=block.forced_tx_base_fee,
+            witness=by_index.get(index),
+            raw_available=queued.payload_hash in available_payload_hashes,
+        )
+        included = outcome is ForcedDisposition.INCLUDED_TX
+        rows.append((index, int(outcome), tx_index if included else UINT32_MAX,
+                     queued.payload_hash if included else ""))
+        tx_index += int(included)
+    return tuple(rows)
+
+
+def forced_execution_witnesses_for_test(
+    messages: list[Message], start: int, end: int,
+    timestamp: int, fork: ForcedTxFork, chain_id: int, base_fee: int,
+) -> tuple[ForcedTxExecutionWitness, ...]:
+    """Synthetic inert-recipient fixtures; not a general EVM interpreter.
+
+    Nontrivial EVM state changes require explicit sequential witnesses. Default
+    fixtures execute empty-code recipients and update the sender nonce/balance;
+    they no longer claim every unexpired transaction was discarded as expired.
+    """
+
+    states: dict[str, ForcedSenderState] = {}
+    witnesses: list[ForcedTxExecutionWitness] = []
+    for index in range(start, end):
+        row = messages[index]
+        if type(row) is not Message or row.valid_until < timestamp:
+            continue
+        sender = states.get(row.sender, ForcedSenderState())
+        witness = ForcedTxExecutionWitness(
+            index, row.payload_hash, row.transaction, sender,
+            authentication=ForcedRawAuthentication(row.sender, row.l2_chain_id),
+        )
+        witnesses.append(witness)
+        disposition = classify_forced_transaction(
+            row, timestamp=timestamp, fork=fork, chain_id=chain_id,
+            base_fee=base_fee, witness=witness, raw_available=True,
+        )
+        if disposition is ForcedDisposition.INCLUDED_TX:
+            intrinsic, floor = forced_transaction_gas(row.transaction, fork)
+            gas_price = (min(row.max_fee, base_fee + row.transaction.max_priority_fee)
+                         if row.transaction.tx_type == 2 else row.max_fee)
+            states[row.sender] = replace(
+                sender, nonce=sender.nonce + 1,
+                balance=sender.balance - max(intrinsic, floor) * gas_price
+                    - row.transaction.value,
+            )
+    return tuple(witnesses)
+
+
 @dataclass
 class QueueContinuity:
+    """ForcedQueue: depth-64 frontier, kind-0 envelopes, direct ingress.
+
+    ``enqueue`` is the permissionless ``enqueueForcedTransactionV2`` entry
+    point that lives directly on the ForcedQueue contract.  It reads the
+    Settlement's forced-ingress floor (SIF1) by a bounded static call to the
+    Inbox proxy and computes ``enqueuedAt``/``dueAt`` itself.  Only the
+    Settlement (the Inbox proxy address, a constructor immutable) may advance
+    the cursor.  The queue rejects enqueue before activation binds it.
+    """
+
     address: str
     root: str
     count: int
@@ -22024,28 +21092,34 @@ class QueueContinuity:
     last_due_at: int
     descriptors: list[Message] = field(default_factory=list)
     frontier: list[bytes] = field(default_factory=list)
-    active_settlement_address: str = ""
-    router_address: str = "active-settlement-router"
+    settlement_address: str = ""
+    l2_chain_id: int = 167_000
+    ingress_fee_schedule: tuple[int, int, int, int, int] = field(
+        default_factory=lambda: (
+            INGRESS_FIXED_WEI,
+            INGRESS_EXECUTION_WEI_PER_GAS,
+            INGRESS_PROOF_WEI_PER_GAS,
+            INGRESS_PERMANENT_WEI_PER_BYTE,
+            INGRESS_MAXIMUM_ACCEPTED_FEE_WEI,
+        )
+    )
     claimable: dict[str, int] = field(default_factory=dict)
-    runtime_hash: str = "code:forced-queue:v2"
-    config_hash: str = "config:forced-queue:depth64:v2"
-    nonproxy: bool = True
-    selfdestruct_disabled: bool = True
-    delegate_target_reachable: bool = False
+    runtime_hash: str = "code:forced-queue:v3"
+    config_hash: str = "config:forced-queue:depth64:v3"
     deposit_prefix: list[int] = field(default_factory=list)
     unconsumed_escrow: int | None = None
     total_claimable: int | None = None
     append_fault_point: str | None = field(default=None, compare=False)
-    migration_fault_point: str | None = field(default=None, compare=False)
-    _router_authority: object | None = field(
+    ingress_entered: bool = field(default=False, compare=False)
+    _settlement: object | None = field(
         default=None, init=False, compare=False, repr=False
     )
 
     def __setattr__(self, name: str, value: object) -> None:
         immutable = {
-            "address", "router_address", "runtime_hash", "config_hash",
-            "nonproxy", "selfdestruct_disabled", "delegate_target_reachable",
-            "_router_authority",
+            "address", "settlement_address", "l2_chain_id",
+            "ingress_fee_schedule", "runtime_hash", "config_hash",
+            "_settlement",
         }
         if name in immutable and name in self.__dict__:
             raise AttributeError(f"forced queue {name} is immutable")
@@ -22056,9 +21130,15 @@ class QueueContinuity:
                 or not 0 <= self.count <= MAX_FORCE_QUEUE_ITEMS
                 or len(self.descriptors) != self.count):
             raise ValueError("forced queue count does not bind descriptors")
-        # Constructor reconstruction is a deployment/migration-fixture oracle.
-        # Production append below touches only one descriptor and 64 frontier
-        # words; it never recomputes over descriptor history.
+        if (type(self.settlement_address) is not str
+                or not self.settlement_address
+                or type(self.l2_chain_id) is not int
+                or not 0 < self.l2_chain_id <= UINT64_MAX):
+            raise ValueError("forced queue Settlement binding is malformed")
+        validate_ingress_fee_schedule(self.ingress_fee_schedule)
+        # Constructor reconstruction is a deployment-fixture oracle.  Production
+        # append below touches only one descriptor and 64 frontier words; it
+        # never recomputes over descriptor history.
         expected_frontier = force_frontier_from_descriptors(self.descriptors)
         if not self.frontier:
             self.frontier = expected_frontier
@@ -22085,40 +21165,41 @@ class QueueContinuity:
                 >= self.unconsumed_escrow + self.total_claimable)
 
     def __deepcopy__(self, memo: dict[int, object]) -> "QueueContinuity":
-        """Copy state without traversing an unrelated Router authority graph."""
+        """Copy state; the bound Settlement follows the memo, never a clone."""
 
         duplicate = object.__new__(type(self))
         memo[id(self)] = duplicate
         for key, value in self.__dict__.items():
-            if key == "_router_authority":
-                authority = memo.get(id(value), value)
-                object.__setattr__(duplicate, key, authority)
+            if key == "_settlement":
+                object.__setattr__(duplicate, key, memo.get(id(value), value))
             else:
                 object.__setattr__(duplicate, key, copy.deepcopy(value, memo))
         return duplicate
 
-    def _bind_router_once(self, router: object) -> bool:
-        if (self._router_authority is not None
-                or type(router) is not ActiveSettlementRouter
-                or getattr(router, "forced_queue", None) is not self
-                or getattr(router, "address", None) != self.router_address):
+    def _bind_settlement_once(self, settlement: object) -> bool:
+        """Bind the one Settlement (Inbox proxy) at activation."""
+
+        if (self._settlement is not None
+                or getattr(settlement, "forced_queue", None) is not self
+                or getattr(settlement, "settlement_address", None)
+                    != self.settlement_address):
             return False
-        object.__setattr__(self, "_router_authority", router)
+        object.__setattr__(self, "_settlement", settlement)
         return True
 
     def _transaction_snapshot(self) -> dict[str, object]:
         return copy.deepcopy({
             key: value for key, value in self.__dict__.items()
-            if key != "_router_authority"
+            if key != "_settlement"
         })
 
     def _restore_transaction_snapshot(
         self, snapshot: dict[str, object]
     ) -> None:
-        authority = self._router_authority
+        settlement = self._settlement
         self.__dict__.clear()
         self.__dict__.update(snapshot)
-        object.__setattr__(self, "_router_authority", authority)
+        object.__setattr__(self, "_settlement", settlement)
 
     @property
     def accounted_liabilities(self) -> int:
@@ -22134,19 +21215,19 @@ class QueueContinuity:
         assert self.escrow_balance >= self.accounted_liabilities
         return True
 
-    def _append_from_router(
-        self,
-        descriptor: Message,
-        *,
-        deposit: int,
-        due_at: int,
-        router: "ActiveSettlementRouter",
+    def required_ingress_deposit(self, descriptor: Message) -> int:
+        """``fixedIngressWei + accountedGas * (execution + proof) + bytes``."""
+
+        return ingress_deposit_for_schedule(
+            descriptor.accounted_gas,
+            descriptor.byte_length,
+            self.ingress_fee_schedule,
+        )
+
+    def _append(
+        self, descriptor: Message, *, deposit: int, due_at: int,
     ) -> int | None:
-        if (type(router) is not ActiveSettlementRouter
-                or router is not self._router_authority
-                or router.forced_queue is not self
-                or router.address != self.router_address
-                or not descriptor.payload_hash or deposit <= 0
+        if (not descriptor.payload_hash or deposit <= 0
                 or descriptor.prepaid != deposit
                 or due_at < self.last_due_at
                 or self.count >= MAX_FORCE_QUEUE_ITEMS
@@ -22176,25 +21257,80 @@ class QueueContinuity:
         self.root = next_root
         return index
 
-    def _bootstrap_active_settlement_from_router(
-        self,
-        *,
-        expected_old: str,
-        settlement: "VersionedSettlementHistory",
-        router: "ActiveSettlementRouter",
-    ) -> bool:
-        if (type(router) is not ActiveSettlementRouter
-                or router is not self._router_authority
-                or router.forced_queue is not self
-                or router.address != self.router_address
-                or type(settlement) is not VersionedSettlementHistory
-                or router._queue_transition_frame
-                    != ("BOOTSTRAP", id(settlement), settlement.address)
-                or not settlement.address
-                or self.active_settlement_address != expected_old):
-            return False
-        self.active_settlement_address = settlement.address
-        return True
+    def enqueue(
+        self, clock: Clock, envelope: Message, *, caller: str, deposit: int,
+    ) -> str:
+        """``enqueueForcedTransactionV2``: payable, permissionless, kind 0.
+
+        ``dueAt = max(enqueuedAt + FORCE_DELAY, lastDueAt, minimumDueAt)``
+        where ``minimumDueAt`` is Settlement's SIF1 floor read by an exact
+        bounded static call.  A live but expired recovery floor rejects until
+        the Settlement is synced; nothing here mutates the Settlement.
+        """
+
+        settlement = self._settlement
+        if settlement is None:
+            raise ValueError("forced queue rejects enqueue before activation")
+        if (type(clock) is not Clock or type(envelope) is not Message
+                or not caller or caller != envelope.sender
+                or envelope.kind is not ForceKind.USER_TX
+                or envelope.l2_chain_id != self.l2_chain_id
+                or type(deposit) is not int or isinstance(deposit, bool)
+                or deposit <= 0 or envelope.prepaid != deposit
+                or deposit != self.required_ingress_deposit(envelope)
+                or not valid_forced_ingress_static(
+                    envelope, clock=clock, deposit=deposit,
+                    fork=settlement.forced_tx_fork,
+                )):
+            raise ValueError("kind-0 payable ingress precheck reverted")
+        if self.ingress_entered:
+            raise RuntimeError("forced queue ingress is non-reentrant")
+        if self.count >= settlement.queue_capacity:
+            raise ValueError("forced queue is at capacity")
+        queue_before = self._transaction_snapshot()
+        self.ingress_entered = True
+        try:
+            enqueued_at = checked_u64_add(
+                clock.timestamp, 0, "forced ingress enqueuedAt"
+            )
+            base_due_at = checked_u64_add(
+                enqueued_at, FORCE_DELAY, "forced ingress base dueAt"
+            )
+            last_due_at = checked_u64_add(
+                self.last_due_at, 0, "forced ingress previous dueAt"
+            )
+            try:
+                minimum_due_at = decode_settlement_forced_ingress_floor_v1(
+                    settlement.staticcall_settlement_forced_ingress_floor_v1(
+                        SETTLEMENT_FORCED_INGRESS_FLOOR_SELECTOR,
+                        caller=self.address,
+                        value=0,
+                        gas=SETTLEMENT_FORCED_INGRESS_FLOOR_GAS,
+                    )
+                )
+            except (ValueError, OverflowError, RuntimeError) as exc:
+                raise ValueError(
+                    "Settlement forced-ingress floor is invalid"
+                ) from exc
+            if minimum_due_at != 0 and clock.timestamp >= minimum_due_at:
+                raise ValueError(
+                    "active recovery forced-ingress floor is expired"
+                )
+            due_at = max(base_due_at, last_due_at, minimum_due_at)
+            expected_index = self.count
+            index = self._append(
+                replace(envelope, enqueued_at=enqueued_at),
+                deposit=deposit,
+                due_at=due_at,
+            )
+            if index != expected_index:
+                raise ValueError("forced queue rejected validated append")
+            return f"QUEUED:{index}"
+        except BaseException:
+            self._restore_transaction_snapshot(queue_before)
+            raise
+        finally:
+            self.ingress_entered = False
 
     def _advance_accounting(
         self, expected_start: int, end: int, beneficiary: str
@@ -22216,130 +21352,16 @@ class QueueContinuity:
         assert self.escrow_balance >= self.accounted_liabilities
         return True
 
-    def _advance_from_active_settlement(
-        self,
-        *,
-        settlement: "VersionedSettlementHistory",
-        candidate: Candidate,
+    def advance_cursor(
+        self, *, settlement: object, expected_start: int, end: int,
+        beneficiary: str,
     ) -> bool:
-        """Adopt only the exact active Settlement's current winner frame."""
+        """``advanceCursor``: only the bound Settlement (Inbox proxy) may call."""
 
-        router = self._router_authority
-        registration = (
-            router.registrations.get(router.active_version)
-            if type(router) is ActiveSettlementRouter else None
-        )
-        protocol = (
-            settlement.live_protocol
-            if type(settlement) is VersionedSettlementHistory else None
-        )
-        if (type(router) is not ActiveSettlementRouter
-                or type(registration) is not SettlementRegistration
-                or registration.settlement is not settlement
-                or type(protocol) is not Protocol
-                or protocol.forced_queue is not self
-                or protocol.versioned_history is not settlement
-                or self.active_settlement_address != settlement.address
-                or type(candidate) is not Candidate
-                or not candidate.blocks
-                or protocol._canonical_commit_frame != (
-                    id(candidate), candidate_inbox_execution_digest(candidate)
-                )):
+        if (settlement is None or settlement is not self._settlement
+                or getattr(settlement, "forced_queue", None) is not self):
             return False
-        return self._advance_accounting(
-            candidate.blocks[0].inbox_pre_cursor,
-            candidate.tip.inbox_post_cursor,
-            candidate.beneficiary,
-        )
-
-    def _migrate_from_router(
-        self,
-        calldata: bytes,
-        *,
-        router: "ActiveSettlementRouter",
-    ) -> bytes:
-        """Callback-free atomic authority swap plus proved-range accounting."""
-
-        frame = router._migration_callback_frame
-        if (type(router) is not ActiveSettlementRouter
-                or router is not self._router_authority
-                or router.forced_queue is not self
-                or router.address != self.router_address
-                or router.migration_lifecycle
-                    is not RouterMigrationLifecycle.ACTIVATING
-                or type(frame) is not MigrationCanonicalContextV2
-                or calldata != frame.queue_calldata
-                or router._queue_transition_frame
-                    != ("MIGRATE", id(frame), frame.commitment.hex())
-                or self.active_settlement_address != frame.source_settlement
-                or frame.queue_address != self.address
-                or frame.queue_root != self.root
-                or frame.queue_count != self.count
-                or self.total_claimable is None
-                or frame.queue_credited_wei != (
-                    self.deposit_prefix[frame.queue_end]
-                    - self.deposit_prefix[frame.queue_start]
-                )
-                or frame.queue_post_accounted_liability_wei
-                    != self.accounted_liabilities
-                or frame.queue_post_total_claimable_wei
-                    != self.total_claimable + frame.queue_credited_wei
-                or not frame.target_settlement
-                or frame.queue_start != self.cursor
-                or not frame.queue_start <= frame.queue_end <= self.count):
-            return b""
-        snapshot = self._transaction_snapshot()
-        try:
-            if not self._advance_accounting(
-                frame.queue_start, frame.queue_end, frame.beneficiary
-            ):
-                raise ValueError("queue migration accounting rejected")
-            if self.migration_fault_point == "after_credit":
-                raise RuntimeError("injected queue migration credit fault")
-            self.active_settlement_address = frame.target_settlement
-            if self.migration_fault_point == "after_swap":
-                raise RuntimeError("injected queue migration swap fault")
-            if (self.cursor != frame.queue_end
-                    or self.accounted_liabilities
-                        != frame.queue_post_accounted_liability_wei
-                    or self.total_claimable
-                        != frame.queue_post_total_claimable_wei):
-                raise ValueError("Queue migration poststate changed")
-            raw = frame.queue_return
-            if len(raw) != MIGRATION_QUEUE_RETURN_LENGTH:
-                raise AssertionError("QMIG128 return width drifted")
-            if self.migration_fault_point == "bad_return":
-                return raw[:-1]
-            return raw
-        except BaseException:
-            self._restore_transaction_snapshot(snapshot)
-            raise
-
-    def migration_activation_post_state_v2(
-        self, calldata: bytes, *, router: "ActiveSettlementRouter"
-    ) -> bytes:
-        context = router._migration_callback_frame
-        if (type(router) is not ActiveSettlementRouter
-                or router is not self._router_authority
-                or router.migration_lifecycle
-                    is not RouterMigrationLifecycle.ACTIVATING
-                or type(context) is not MigrationCanonicalContextV2
-                or calldata != context.maps_calldata
-                or self.active_settlement_address
-                    != context.target_settlement
-                or self.root != context.queue_root
-                or self.count != context.queue_count
-                or self.cursor != context.queue_end
-                or self.accounted_liabilities
-                    != context.queue_post_accounted_liability_wei
-                or self.total_claimable
-                    != context.queue_post_total_claimable_wei):
-            raise ValueError("Queue migration MAPS post-read rejected")
-        raw = context.queue_maps_return
-        return (
-            raw[:-1]
-            if self.migration_fault_point == "maps_bad_return" else raw
-        )
+        return self._advance_accounting(expected_start, end, beneficiary)
 
     def withdraw_claimable(self, beneficiary: str) -> int:
         amount = self.claimable.get(beneficiary, 0)
@@ -27701,7 +26723,9 @@ class ScheduleOracleV1:
     """
 
     address: str
-    protocol_version_manager: str
+    # The DAO owner of the ScheduleOracle proxy (fork verifier registration
+    # goes through the DAO's existing delayed governance process).
+    owner: str
     initial_fork: RegisterForkVerifierPayloadV1
     settlement_chain_id: int = 1
     history_first_supported_block: int = 1
@@ -27731,10 +26755,6 @@ class ScheduleOracleV1:
         default_factory=list, compare=False, repr=False
     )
     route_state_override: bytes | None = field(default=None, compare=False)
-    soc1_config: ProtocolRootScheduleOracleConfigV1 | None = field(
-        default=None, compare=False
-    )
-    soc1_return_override: bytes | None = field(default=None, compare=False)
     read_faults: set[str] = field(default_factory=set, compare=False)
 
     def __post_init__(self) -> None:
@@ -27773,28 +26793,6 @@ class ScheduleOracleV1:
         if (first_window_start < 768
                 or first_window_start < self.beacon_genesis_time + 3_072):
             raise ValueError("Schedule first managed window is too early")
-        if self.soc1_config is not None and (
-                self.soc1_config.settlement_chain_id != self.settlement_chain_id
-                or self.soc1_config.protocol_version_manager
-                    != _model_address20(self.protocol_version_manager)
-                or self.soc1_config.first_managed_window
-                    != self.first_managed_window
-                or self.soc1_config.last_managed_window
-                    != self.last_managed_window
-                or self.soc1_config.genesis_timestamp != self.genesis_timestamp
-                or self.soc1_config.evidence_delay_seconds
-                    != self.evidence_delay_seconds
-                or self.soc1_config.reorg_margin_seconds
-                    != self.reorg_margin_seconds
-                or self.soc1_config.beacon_genesis_time
-                    != self.beacon_genesis_time
-                or self.soc1_config.initial_fork_digest
-                    != self.initial_fork.fork_digest
-                or self.soc1_config.initial_fork_first_parent_slot
-                    != self.initial_fork.first_parent_slot
-                or self.soc1_config.initial_fork_last_parent_slot_exclusive
-                    != self.initial_fork.last_parent_slot_exclusive):
-            raise ValueError("Schedule SOC1 configuration is inconsistent")
         if (self.registrations or self.order or self.fork_index_by_digest
                 or self.used_fork_digests
                 or self.fork_route_accumulator is not None):
@@ -27878,11 +26876,10 @@ class ScheduleOracleV1:
             raise ValueError("live Schedule fork verifier is inconsistent")
 
     def install_fork_verifier_v1(
-        self, row: RegisterForkVerifierPayloadV1, *, manager: object,
+        self, row: RegisterForkVerifierPayloadV1, *, caller: str,
         clock: Clock, gas_limit: int, value: int,
     ) -> bytes:
-        if (type(manager) is not ProtocolVersionManagerV1
-                or manager.address != self.protocol_version_manager
+        if (caller != self.owner
                 or gas_limit != SCHEDULE_FORK_MUTATION_GAS or value != 0):
             raise ValueError("Schedule fork installation is stale or unauthorized")
         installation_kind = self._fork_installation_kind(row, clock=clock)
@@ -27968,11 +26965,10 @@ class ScheduleOracleV1:
     def replace_pending_fork_verifier_v1(
         self, expected_predecessor_registration_hash: bytes,
         expected_old_registration_hash: bytes,
-        replacement_row: RegisterForkVerifierPayloadV1, *, manager: object,
+        replacement_row: RegisterForkVerifierPayloadV1, *, caller: str,
         clock: Clock, gas_limit: int, value: int,
     ) -> bytes:
-        if (type(manager) is not ProtocolVersionManagerV1
-                or manager.address != self.protocol_version_manager
+        if (caller != self.owner
                 or gas_limit != SCHEDULE_FORK_MUTATION_GAS or value != 0
                 or len(expected_predecessor_registration_hash) != 32
                 or len(expected_old_registration_hash) != 32
@@ -28056,11 +27052,10 @@ class ScheduleOracleV1:
 
     def split_latest_fork_verifier_v1(
         self, expected_old_registration_hash: bytes,
-        successor_row: RegisterForkVerifierPayloadV1, *, manager: object,
+        successor_row: RegisterForkVerifierPayloadV1, *, caller: str,
         clock: Clock, gas_limit: int, value: int,
     ) -> bytes:
-        if (type(manager) is not ProtocolVersionManagerV1
-                or manager.address != self.protocol_version_manager
+        if (caller != self.owner
                 or gas_limit != SCHEDULE_FORK_MUTATION_GAS or value != 0
                 or len(expected_old_registration_hash) != 32):
             raise ValueError("latest Schedule fork split is unauthorized")
@@ -28128,19 +27123,6 @@ class ScheduleOracleV1:
         except BaseException:
             self._restore(snapshot)
             raise
-
-    def staticcall_schedule_oracle_config_v1(
-        self, calldata: bytes, *, gas_limit: int, value: int,
-    ) -> bytes:
-        if ("SOC1" in self.read_faults
-                or calldata != PROTOCOL_ROOT_SOC1_SELECTOR
-                or gas_limit != SCHEDULE_CONFIG_READ_GAS or value != 0
-                or type(self.soc1_config)
-                    is not ProtocolRootScheduleOracleConfigV1):
-            raise ValueError("Schedule SOC1 call frame is inexact")
-        encoded = self.soc1_config.encode_soc1()
-        return (encoded if self.soc1_return_override is None
-                else self.soc1_return_override)
 
     def fork_verifier_registration_v1(self, fork_digest: bytes) -> bytes:
         row = self.registrations.get(fork_digest)
@@ -46937,85 +45919,6 @@ INBOX_SYSTEM_TX_POSITION = 1
 
 InboxCalldataDescriptor = Optional[BridgeQueueDescriptorV11]
 InboxRowV2 = tuple[int, int, int, str, InboxCalldataDescriptor]
-
-
-def forced_block_rows(
-    messages: list[Message | BridgeQueueDescriptorV11], block: Block,
-    available_payload_hashes: frozenset[str],
-) -> tuple[InboxRowV2, ...]:
-    """Derive every disposition and FIFO tx index from typed proof inputs."""
-
-    witnesses = block.forced_tx_witnesses
-    if (type(witnesses) is not tuple
-            or any(type(row) is not ForcedTxExecutionWitness
-                   or type(row.queue_index) is not int for row in witnesses)):
-        raise ValueError("forced witness range is malformed")
-    expected_indices = tuple(
-        index for index in range(block.message_start, block.message_end)
-        if type(messages[index]) is Message
-        and messages[index].valid_until >= block.evm_timestamp
-    )
-    if tuple(row.queue_index for row in witnesses) != expected_indices:
-        raise ValueError("forced witnesses are not the exact unexpired range")
-    by_index = {row.queue_index: row for row in witnesses}
-    rows: list[InboxRowV2] = []
-    tx_index = 2  # Anchor and Inbox precede included forced transactions.
-    for index in range(block.message_start, block.message_end):
-        queued = messages[index]
-        if type(queued) is BridgeQueueDescriptorV11:
-            rows.append((index, 5, UINT32_MAX,
-                         inbox_kind1_result(index, queued), queued))
-            continue
-        outcome = classify_forced_transaction(
-            queued, timestamp=block.evm_timestamp, fork=block.forced_tx_fork,
-            chain_id=block.forced_tx_chain_id, base_fee=block.forced_tx_base_fee,
-            witness=by_index.get(index),
-            raw_available=queued.payload_hash in available_payload_hashes,
-        )
-        included = outcome is ForcedDisposition.INCLUDED_TX
-        rows.append((index, int(outcome), tx_index if included else UINT32_MAX,
-                     queued.payload_hash if included else "", None))
-        tx_index += int(included)
-    return tuple(rows)
-
-
-def forced_execution_witnesses_for_test(
-    messages: list[Message | BridgeQueueDescriptorV11], start: int, end: int,
-    timestamp: int, fork: ForcedTxFork, chain_id: int, base_fee: int,
-) -> tuple[ForcedTxExecutionWitness, ...]:
-    """Synthetic inert-recipient fixtures; not a general EVM interpreter.
-
-    Nontrivial EVM state changes require explicit sequential witnesses. Default
-    fixtures execute empty-code recipients and update the sender nonce/balance;
-    they no longer claim every unexpired transaction was discarded as expired.
-    """
-
-    states: dict[str, ForcedSenderState] = {}
-    witnesses: list[ForcedTxExecutionWitness] = []
-    for index in range(start, end):
-        row = messages[index]
-        if type(row) is not Message or row.valid_until < timestamp:
-            continue
-        sender = states.get(row.sender, ForcedSenderState())
-        witness = ForcedTxExecutionWitness(
-            index, row.payload_hash, row.transaction, sender,
-            authentication=ForcedRawAuthentication(row.sender, row.l2_chain_id),
-        )
-        witnesses.append(witness)
-        disposition = classify_forced_transaction(
-            row, timestamp=timestamp, fork=fork, chain_id=chain_id,
-            base_fee=base_fee, witness=witness, raw_available=True,
-        )
-        if disposition is ForcedDisposition.INCLUDED_TX:
-            intrinsic, floor = forced_transaction_gas(row.transaction, fork)
-            gas_price = (min(row.max_fee, base_fee + row.transaction.max_priority_fee)
-                         if row.transaction.tx_type == 2 else row.max_fee)
-            states[row.sender] = replace(
-                sender, nonce=sender.nonce + 1,
-                balance=sender.balance - max(intrinsic, floor) * gas_price
-                    - row.transaction.value,
-            )
-    return tuple(witnesses)
 
 
 def inbox_descriptor_commitment(

@@ -225,14 +225,7 @@ abstract contract BuilderRegistryTestBase is Test {
         assertEq(initCode_.length - vm.getCode("BuilderRegistry.sol:BuilderRegistry").length, 1472);
     }
 
-    function _writeTestWord(
-        bytes memory _encoded,
-        uint256 _index,
-        bytes32 _value
-    )
-        internal
-        pure
-    {
+    function _writeTestWord(bytes memory _encoded, uint256 _index, bytes32 _value) internal pure {
         assembly ("memory-safe") {
             mstore(add(add(_encoded, 32), mul(_index, 32)), _value)
         }
@@ -358,14 +351,7 @@ abstract contract BuilderRegistryTestBase is Test {
         assertEq(token.rawBalance(address(registry)), registryBalanceBefore + _bond);
     }
 
-    function _returnWord(
-        bytes memory _raw,
-        uint256 _index
-    )
-        internal
-        pure
-        returns (bytes32 word_)
-    {
+    function _returnWord(bytes memory _raw, uint256 _index) internal pure returns (bytes32 word_) {
         assembly ("memory-safe") {
             word_ := mload(add(add(_raw, 0x20), mul(_index, 0x20)))
         }
@@ -777,7 +763,9 @@ contract BuilderRegistryTest is BuilderRegistryTestBase {
             25, 0, BuilderRegistryFacade.InvalidLifecycleFacetConfiguration.selector
         );
         _expectConstructorWordRevert(
-            26, uint256(keccak256("wrong-lease-runtime")), LibExactCall.ExactRuntimeMismatch.selector
+            26,
+            uint256(keccak256("wrong-lease-runtime")),
+            LibExactCall.ExactRuntimeMismatch.selector
         );
         _expectConstructorWordRevert(
             27,
@@ -2462,28 +2450,14 @@ contract BuilderRegistryTest is BuilderRegistryTestBase {
         assertEq(bytes4(returndata), _selector);
     }
 
-    function _writeWord(
-        bytes memory _encoded,
-        uint256 _offset,
-        uint256 _value
-    )
-        private
-        pure
-    {
+    function _writeWord(bytes memory _encoded, uint256 _offset, uint256 _value) private pure {
         assert(_offset + 32 <= _encoded.length);
         assembly ("memory-safe") {
             mstore(add(add(_encoded, 32), _offset), _value)
         }
     }
 
-    function _word(
-        bytes memory _encoded,
-        uint256 _index
-    )
-        private
-        pure
-        returns (bytes32 value_)
-    {
+    function _word(bytes memory _encoded, uint256 _index) private pure returns (bytes32 value_) {
         assembly ("memory-safe") {
             value_ := mload(add(add(_encoded, 32), mul(_index, 32)))
         }

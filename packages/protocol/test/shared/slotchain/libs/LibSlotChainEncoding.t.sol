@@ -1187,18 +1187,19 @@ contract LibSlotChainEncodingTest is Test {
         pure
         returns (SlotChainTypes.RewardReceiptV1 memory receipt_)
     {
-        receipt_ = SlotChainTypes.RewardReceiptV1({
-            candidateId: HASH_A,
-            beneficiary: address(0xCAFE),
-            rewardClass: 1,
-            rewardExecutionGas: 0,
-            rewardPublishedBytes: 0,
-            executionProfileHash: HASH_B,
-            committedAtBlock: 1,
-            committedAtTimestamp: 2,
-            claimUntil: 3,
-            claimed: false
-        });
+        receipt_ =
+            SlotChainTypes.RewardReceiptV1({
+                candidateId: HASH_A,
+                beneficiary: address(0xCAFE),
+                rewardClass: 1,
+                rewardExecutionGas: 0,
+                rewardPublishedBytes: 0,
+                executionProfileHash: HASH_B,
+                committedAtBlock: 1,
+                committedAtTimestamp: 2,
+                claimUntil: 3,
+                claimed: false
+            });
     }
 
     function _signedBlock() private pure returns (SlotChainTypes.SlotChainBlock memory block_) {

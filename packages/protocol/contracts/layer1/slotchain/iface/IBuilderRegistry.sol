@@ -109,7 +109,7 @@ interface IBuilderRegistry is IComponentConfigV2 {
     /// @return lastManagedWindow_ The derived final managed schedule window.
     /// @return builderPenaltySink_ The immutable slash-penalty beneficiary.
     /// @return rewardClaimWindowSeconds_ The profile reward-claim interval.
-    /// @return activeSettlementRouter_ The immutable migration router.
+    /// @return activeSettlementRouter_ The immutable active-settlement router.
     /// @return routerRuntimeHash_ The pinned Router runtime hash.
     /// @return routerConfigurationHash_ The pinned Router configuration hash.
     /// @return scheduleOracle_ The immutable schedule oracle.
