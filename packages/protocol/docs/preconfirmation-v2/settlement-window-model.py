@@ -1,10 +1,20 @@
 #!/usr/bin/env python3
-"""Executable state-machine model for Slot-Chain settlement and recovery.
+"""Executable state-machine model for Slot-Chain settlement and recovery (v3.0).
 
 Cryptographic verification is represented by explicit booleans. Byte-exact
-Merkle and commitment fixtures live in commitment-model.py. Unlike the earlier
-model, historical headers are immutable and due coverage is a boundary check,
-not a scan hidden inside trusted Python state.
+Merkle and commitment fixtures live in commitment-model.py. Historical headers
+are immutable and due coverage is a boundary check, not a scan hidden inside
+trusted Python state.
+
+Scope after the v3.0 design delta: the Settlement is the existing L1 Inbox
+proxy (DAO-owned UUPS; governance is out of model scope); L2 blocks carry no
+protocol system transaction and forced dispositions are circuit-internal; the
+ForcedQueue holds kind-0 envelopes only and takes ``enqueue`` directly; every
+canonical transition (normal close, recovery commit, escape commit) saves one
+checkpoint to the L1 SignalService inside the same transition, which is the
+historical record.  There is no fresh V2 bridge, migration control plane,
+history ring or genesis campaign; the fixture ``protocol()`` constructs the
+post-import (drain-and-activate) canonical core directly.
 """
 
 from __future__ import annotations

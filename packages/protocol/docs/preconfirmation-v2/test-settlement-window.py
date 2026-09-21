@@ -97,7 +97,7 @@ def authorization():
 
 
 class StandaloneSettlementAuthority:
-    """Explicit unit target for non-migration composed Market tests."""
+    """Explicit unit target for composed Market tests."""
 
     def __init__(self, auth, generation):
         self.authorization = auth
