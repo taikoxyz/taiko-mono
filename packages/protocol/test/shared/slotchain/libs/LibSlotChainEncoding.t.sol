@@ -67,6 +67,7 @@ contract LibSlotChainEncodingTest is Test {
         );
         assertEq(preimage.length, 18 + 8 + 32 + 8 + 32 + 8 + 32 + 32 + 8);
         assertEq(LibSlotChainEncoding.hashCanonicalCore(core), keccak256(preimage));
+        assertEq(LibSlotChainEncoding.hashCanonicalCore(core), SlotChainGoldenVectors.CANONICAL_CORE);
     }
 
     function test_hashCandidate_RevertWhen_Empty() external {
@@ -412,6 +413,7 @@ contract LibSlotChainEncodingTest is Test {
         assertEq(
             LibSlotChainEncoding.hashForcedQueueConfig(address(0xAD01), address(0xB001)), expected
         );
+        assertEq(expected, SlotChainGoldenVectors.FORCED_QUEUE_CONFIG_HASH);
         assertNotEq(
             LibSlotChainEncoding.hashForcedQueueConfig(address(0xAD02), address(0xB001)), expected
         );
@@ -502,6 +504,10 @@ contract LibSlotChainEncodingTest is Test {
         );
         assertEq(preimage.length, 21 + 5 * 32);
         assertEq(LibSlotChainEncoding.hashExecutionOutputs(outputs), keccak256(preimage));
+        assertEq(
+            LibSlotChainEncoding.hashExecutionOutputs(outputs),
+            SlotChainGoldenVectors.EXECUTION_OUTPUTS
+        );
     }
 
     function test_hashDataAndManifestPrimitives_ComposeToGoldenRoots() external pure {
