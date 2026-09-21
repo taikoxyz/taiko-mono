@@ -78,7 +78,6 @@ EXPECTED_SCHEMA_RULES = {
     "geometry.maximumCandidateForcedBytes": RULE_POSITIVE_UINT,
     "geometry.maximumCandidateForcedGas": RULE_POSITIVE_UINT,
     "geometry.maximumEarlySealWindows": RULE_POSITIVE_UINT,
-    "geometry.canonicalHistoryCells": RULE_POSITIVE_UINT,
     "geometry.eip2935HistoryBlocks": RULE_POSITIVE_UINT,
     "geometry.maximumArmAgeBlocks": RULE_POSITIVE_UINT,
     "geometry.seatCount": exact_rule(4),
@@ -111,10 +110,7 @@ EXPECTED_SCHEMA_RULES = {
     "recovery.escapeOffsetSeconds": RULE_POSITIVE_UINT,
     "recovery.forceDelaySeconds": RULE_POSITIVE_UINT,
     "gasProfile.l2BlockGas": exact_rule(30_000_000),
-    "gasProfile.steadyAnchorGas": exact_rule(1_000_000),
     "gasProfile.steadyForcedGas": exact_rule(20_000_000),
-    "gasProfile.activationAnchorGas": exact_rule(12_000_000),
-    "gasProfile.activationForcedGas": exact_rule(13_000_000),
     "gasProfile.systemMarginGas": exact_rule(5_000_000),
     "gasProfile.minimumForceAccountedGas": exact_rule(21_000),
     "dataSession.ttlSeconds": exact_rule(86_400),
@@ -143,21 +139,6 @@ EXPECTED_SCHEMA_RULES = {
     "forcedEnvelope.queueDepth": exact_rule(64),
     "forcedEnvelope.maximumQueueCount": RULE_POSITIVE_DECIMAL,
     "forcedEnvelope.maximumRangeProofHashes": exact_rule(257),
-    "bridge.maximumEnqueueDelaySeconds": RULE_POSITIVE_UINT,
-    "bridge.processTtlSeconds": RULE_POSITIVE_UINT,
-    "bridge.supportFinalityBlocks": RULE_POSITIVE_UINT,
-    "bridge.maximumDomainEntriesPerRelease": RULE_POSITIVE_UINT,
-    "bridge.refundCapsuleWords": RULE_POSITIVE_UINT,
-    "bridge.refundErc721Ids": RULE_POSITIVE_UINT,
-    "bridge.refundErc1155Pairs": RULE_POSITIVE_UINT,
-    "bridge.terminalAccumulatorDepth": exact_rule(64),
-    "bridge.maximumTerminalCount": RULE_POSITIVE_DECIMAL,
-    "bridge.registrationProofMaximumNodesPerPath": exact_rule(65),
-    "bridge.registrationProofPathCount": exact_rule(2),
-    "bridge.registrationProofMaximumTotalNodes": exact_rule(130),
-    "bridge.registrationProofMaximumNodeBytes": exact_rule(600),
-    "bridge.registrationProofMaximumBytes": exact_rule(78_264),
-    "bridge.registrationProofMaximumGas": exact_rule(11_000_000),
     "seat.slaBondWei": RULE_NULLABLE_POSITIVE_DECIMAL,
     "seat.maximumAskWeiPerSecond": RULE_NULLABLE_POSITIVE_DECIMAL,
     "seat.minimumAskImprovementWeiPerSecond": RULE_NULLABLE_DECIMAL,
@@ -191,8 +172,8 @@ EXPECTED_SCHEMA_RULES = {
     "sinks.seatPenalty.address": RULE_NULLABLE_ADDRESS,
     "sinks.forcedExpiry.asset": exact_rule("NATIVE_ETH"),
     "sinks.forcedExpiry.address": RULE_NULLABLE_ADDRESS,
-    "sinks.bridgeSurplus.asset": exact_rule("NATIVE_ETH"),
-    "sinks.bridgeSurplus.address": RULE_NULLABLE_ADDRESS,
+    "sinks.protocolCoinbase.asset": exact_rule("NATIVE_ETH"),
+    "sinks.protocolCoinbase.address": RULE_NULLABLE_ADDRESS,
     "rewards.classes[].classId": RULE_UINT8,
     "rewards.classes[].name": RULE_STRING,
     "rewards.classes[].fixedWei": RULE_DECIMAL,
@@ -626,17 +607,6 @@ EXPECTED_RELATION_SPECS = (
         (False, True, True),
     ),
     relation_spec(
-        "activation-forced-head-capacity",
-        (
-            "forcedEnvelope.maximumItemAccountedGas",
-            "gasProfile.activationForcedGas",
-        ),
-        "<=",
-        "forcedEnvelope.maximumItemAccountedGas",
-        lambda p: oracle_get(p, "gasProfile.activationForcedGas"),
-        (True, True, False),
-    ),
-    relation_spec(
         "forced-prefix-gas-candidate",
         (
             "forcedEnvelope.maximumPrefixAccountedGas",
@@ -668,30 +638,6 @@ EXPECTED_RELATION_SPECS = (
         (True, True, False),
     ),
     relation_spec(
-        "terminal-count-u64",
-        ("bridge.maximumTerminalCount",),
-        "==",
-        "bridge.maximumTerminalCount",
-        lambda _p: UINT64_MAX,
-        (False, True, False),
-    ),
-    relation_spec(
-        "refund-erc721-word-cap",
-        ("bridge.refundErc721Ids", "bridge.refundCapsuleWords"),
-        "<=",
-        "bridge.refundErc721Ids",
-        lambda p: oracle_get(p, "bridge.refundCapsuleWords"),
-        (True, True, False),
-    ),
-    relation_spec(
-        "refund-erc1155-word-cap",
-        ("bridge.refundErc1155Pairs", "bridge.refundCapsuleWords"),
-        "<=",
-        "bridge.refundErc1155Pairs",
-        lambda p: oracle_get(p, "bridge.refundCapsuleWords") // 2,
-        (True, True, False),
-    ),
-    relation_spec(
         "kind0-validity-lower-bound",
         (
             "forcedEnvelope.maximumValiditySeconds",
@@ -703,49 +649,6 @@ EXPECTED_RELATION_SPECS = (
         "forcedEnvelope.maximumValiditySeconds",
         oracle_recovery_lower_bound,
         (False, True, True),
-    ),
-    relation_spec(
-        "kind1-enqueue-lower-bound",
-        (
-            "bridge.maximumEnqueueDelaySeconds",
-            "recovery.finalLagSeconds",
-            "recovery.tipLagSeconds",
-            "builder.reorgMarginSeconds",
-        ),
-        ">=",
-        "bridge.maximumEnqueueDelaySeconds",
-        oracle_recovery_lower_bound,
-        (False, True, True),
-    ),
-    relation_spec(
-        "bridge-process-ttl-lower-bound",
-        (
-            "bridge.processTtlSeconds",
-            "bridge.maximumEnqueueDelaySeconds",
-            "builder.reorgMarginSeconds",
-        ),
-        ">=",
-        "bridge.processTtlSeconds",
-        lambda p: oracle_get(p, "bridge.maximumEnqueueDelaySeconds")
-        + oracle_get(p, "builder.reorgMarginSeconds"),
-        (False, True, True),
-    ),
-    relation_spec(
-        "support-finality-reorg-depth",
-        (
-            "bridge.supportFinalityBlocks",
-            "recovery.l1FinalityBlocks",
-            "builder.reorgMarginSeconds",
-            "geometry.l1SlotSeconds",
-        ),
-        "==",
-        "bridge.supportFinalityBlocks",
-        lambda p: oracle_get(p, "recovery.l1FinalityBlocks")
-        + oracle_ceil_div(
-            oracle_get(p, "builder.reorgMarginSeconds"),
-            oracle_get(p, "geometry.l1SlotSeconds"),
-        ),
-        (False, True, False),
     ),
     relation_spec(
         "data-ttl-recovery-lower-bound",
@@ -804,24 +707,6 @@ EXPECTED_RELATION_SPECS = (
         "rewards.claimWindowSeconds",
         lambda p: oracle_get(p, "dataSession.refundClaimWindowSeconds"),
         (False, True, False),
-    ),
-    relation_spec(
-        "canonical-history-reorg-capacity",
-        (
-            "geometry.canonicalHistoryCells",
-            "seat.maximumInclusionSeconds",
-            "builder.reorgMarginSeconds",
-            "geometry.l1SlotSeconds",
-        ),
-        ">",
-        "geometry.canonicalHistoryCells",
-        lambda p: oracle_ceil_div(
-            oracle_get(p, "seat.maximumInclusionSeconds")
-            + oracle_get(p, "builder.reorgMarginSeconds"),
-            oracle_get(p, "geometry.l1SlotSeconds"),
-        )
-        + 2,
-        (False, False, True),
     ),
     relation_spec(
         "eip2935-replay-horizon",
@@ -1053,56 +938,13 @@ EXPECTED_RELATION_SPECS = (
         "steady-gas-envelope",
         (
             "gasProfile.l2BlockGas",
-            "gasProfile.steadyAnchorGas",
             "gasProfile.steadyForcedGas",
             "gasProfile.systemMarginGas",
         ),
         "<=",
         "gasProfile.l2BlockGas",
-        lambda p: oracle_get(p, "gasProfile.steadyAnchorGas")
-        + oracle_get(p, "gasProfile.steadyForcedGas")
+        lambda p: oracle_get(p, "gasProfile.steadyForcedGas")
         + oracle_get(p, "gasProfile.systemMarginGas"),
-        (False, True, True),
-    ),
-    relation_spec(
-        "activation-gas-envelope",
-        (
-            "gasProfile.l2BlockGas",
-            "gasProfile.activationAnchorGas",
-            "gasProfile.activationForcedGas",
-            "gasProfile.systemMarginGas",
-        ),
-        "<=",
-        "gasProfile.l2BlockGas",
-        lambda p: oracle_get(p, "gasProfile.activationAnchorGas")
-        + oracle_get(p, "gasProfile.activationForcedGas")
-        + oracle_get(p, "gasProfile.systemMarginGas"),
-        (False, True, True),
-    ),
-    relation_spec(
-        "registration-proof-total-nodes",
-        (
-            "bridge.registrationProofMaximumNodesPerPath",
-            "bridge.registrationProofPathCount",
-            "bridge.registrationProofMaximumTotalNodes",
-        ),
-        "==",
-        "bridge.registrationProofMaximumTotalNodes",
-        lambda p: oracle_get(p, "bridge.registrationProofMaximumNodesPerPath")
-        * oracle_get(p, "bridge.registrationProofPathCount"),
-        (False, True, False),
-    ),
-    relation_spec(
-        "registration-proof-byte-capacity",
-        (
-            "bridge.registrationProofMaximumTotalNodes",
-            "bridge.registrationProofMaximumNodeBytes",
-            "bridge.registrationProofMaximumBytes",
-        ),
-        "<=",
-        "bridge.registrationProofMaximumBytes",
-        lambda p: oracle_get(p, "bridge.registrationProofMaximumTotalNodes")
-        * oracle_get(p, "bridge.registrationProofMaximumNodeBytes"),
         (False, True, True),
     ),
 )
@@ -1225,30 +1067,128 @@ class EconomicProfileTests(unittest.TestCase):
         self.assertEqual(self.model.validate_schema(profile), ())
         self.assertEqual(self.model.production_blockers(profile), ())
 
+    def test_execution_profile_v3_word_table_matches_the_spec_layout(self):
+        fields = self.model.EXECUTION_PROFILE_V3_FIELDS
+        index = self.model.EXECUTION_PROFILE_V3_WORD_INDEX
+        self.assertEqual(len(fields), 148)
+        self.assertEqual(len(set(fields)), 148)
+        # Independent spot checks of the v3.0 "Exact ABI grammar" positions.
+        expected_positions = {
+            "schemaVersion": 0, "protocolVersion": 1, "settlementChainId": 2,
+            "l2ForkTimestamp": 7, "genesisTimestamp": 8,
+            "forcedQueue": 10, "builderRegistryConfigHash": 15,
+            "aggregatorSeatMarketConfigHash": 21,
+            "settlementRuntimeHash": 22, "settlementLinkReferencesHash": 30,
+            "l1HistoryStorageAddress": 31, "l1HistoryReadConfigurationHash": 33,
+            "builderLeaseToken": 34, "builderPenaltySink": 37,
+            "protocolCoinbaseSink": 41,
+            "settlementWindowSeconds": 42, "reorgMarginSeconds": 55,
+            "seatRunwaySeconds": 56, "collusionSafetyMarginWei": 70,
+            "dataSessionBondWei": 71, "dataSessionRefundClaimWindowSeconds": 76,
+            "settlementStateReadGas": 77, "componentConfigurationReadGas": 81,
+            "slotSeconds": 82, "maximumBlobChunkCount": 98,
+            "supportedL1BlockGasLimit": 99, "maximumAcceptedFeeWei": 104,
+            "l2BlockGasLimit": 105, "l1HistoryFirstSupportedBlock": 114,
+            "l2BeaconRootsRuntimeHash": 117,
+            "l2BeaconRootsReadConfigurationHash": 119, "headerRulesHash": 120,
+            "legacyExecutionRulesHash": 123,
+            "quoteMaturitySeconds": 124, "economicProfileHash": 137,
+            "settlementValidityVerifier": 138,
+            "settlementValidityPostVerificationReserveGas": 147,
+        }
+        for name, position in expected_positions.items():
+            with self.subTest(name=name):
+                self.assertEqual(index[name], position)
+                self.assertEqual(fields[position], name)
+
     def test_execution_profile_join_binds_hash_and_every_duplicated_value(self):
         profile = self.calibrated_profile()
-        projection = self.model.execution_profile_economic_projection_v2(
+        projection = self.model.execution_profile_economic_projection_v3(
             profile
         )
-        words = [bytes(32) for _ in range(281)]
-        for index, value in projection.items():
-            words[index] = value
+        index = self.model.EXECUTION_PROFILE_V3_WORD_INDEX
+        # Every projected name is an ExecutionProfileV3 value word and the
+        # projection covers exactly the words the spec duplicates from JSON.
+        self.assertEqual(
+            set(projection),
+            {
+                "settlementChainId", "builderRegistryConfigHash",
+                "builderLeaseToken", "builderLeaseTokenRuntimeHash",
+                "builderLeaseTokenDecimals", "builderPenaltySink",
+                "dataRentSink", "seatPenaltySink", "forcedExpirySink",
+                "protocolCoinbaseSink",
+                "settlementWindowSeconds", "includeMaxSeconds",
+                "finalLagSeconds", "tipLagSeconds", "proveMaxSeconds",
+                "l1FinalityBlocks", "depthMaxSeconds", "clockSkewSeconds",
+                "escapeOffsetSeconds", "forceDelaySeconds",
+                "maximumParentGapSlots", "maximumForceValiditySeconds",
+                "evidenceDelaySeconds", "reorgMarginSeconds",
+                "seatRunwaySeconds", "minimumPrimaryTenureSeconds",
+                "minimumStandbyTenureSeconds", "handoverDelaySeconds",
+                "stageGraceSeconds", "exitDelaySeconds", "recoveryLagSeconds",
+                "slashLagSeconds", "premiumClaimDelaySeconds",
+                "reorgStabilitySeconds", "releaseChallengeSeconds",
+                "maximumAskWeiPerSecond", "seatSlaBondWei",
+                "maximumAvoidedServiceCostWei", "collusionSafetyMarginWei",
+                "dataSessionBondWei", "dataSessionBaseRentWei",
+                "dataSessionRentPerPublishedByteWei",
+                "dataSessionBlobBaseFeeMultiplierBps",
+                "dataSessionMaximumTtlSeconds",
+                "dataSessionRefundClaimWindowSeconds",
+                "slotSeconds", "scheduleWindowSlots", "seatCount",
+                "forceTreeDepth", "dataSessionCellCount",
+                "maximumDataSessionsPerOwner", "maximumDataRecordsPerSession",
+                "maximumGcSteps", "maximumBlobsPerPost",
+                "fixedIngressWei", "executionWeiPerAccountedGas",
+                "proofWeiPerAccountedGas", "permanentWeiPerByte",
+                "maximumAcceptedFeeWei", "l2BlockGasLimit",
+                "quoteMaturitySeconds", "quoteMaturityBlocks",
+                "maximumStandbyLeaseSeconds",
+                "minimumAskImprovementWeiPerSecond",
+                "minimumAskImprovementBps", "economicProfileHash",
+            },
+        )
+        words = [bytes(32) for _ in range(148)]
+        for name, value in projection.items():
+            words[index[name]] = value
         self.assertEqual(
             self.model.execution_profile_economic_binding_blockers(
                 profile, tuple(words)
             ),
             (),
         )
-        for index in sorted(projection):
+        # The offset word (149th) is accepted and never compared.
+        self.assertEqual(
+            self.model.execution_profile_economic_binding_blockers(
+                profile, tuple(words) + ((4768).to_bytes(32, "big"),)
+            ),
+            (),
+        )
+        for name in sorted(projection, key=index.__getitem__):
+            position = index[name]
             malformed = list(words)
-            malformed[index] = bytes([malformed[index][0] ^ 1]) + malformed[index][1:]
+            malformed[position] = (
+                bytes([malformed[position][0] ^ 1]) + malformed[position][1:]
+            )
             self.assertEqual(
                 self.model.execution_profile_economic_binding_blockers(
                     profile, tuple(malformed)
                 ),
                 (
-                    f"ExecutionProfileV2 word {index} differs from the economic profile",
+                    f"ExecutionProfileV3 word {position} ({name}) differs "
+                    "from the economic profile",
                 ),
+            )
+        for malformed_words in (
+            tuple(words[:147]),
+            tuple(words) + (bytes(32), bytes(32)),
+            tuple(words[:-1]) + (bytes(31),),
+        ):
+            self.assertEqual(
+                self.model.execution_profile_economic_binding_blockers(
+                    profile, malformed_words
+                ),
+                ("ExecutionProfileV3 words are malformed",),
             )
         self.assertEqual(
             self.model.execution_profile_economic_binding_blockers(
@@ -1257,7 +1197,7 @@ class EconomicProfileTests(unittest.TestCase):
             ("economic profile projection is unavailable",),
         )
 
-    def test_reward_claim_window_is_the_existing_profile_word_106(self):
+    def test_reward_claim_window_is_the_existing_profile_word_76(self):
         profile = self.calibrated_profile()
         self.assertEqual(
             self.model.get_path(profile, "rewards.claimWindowSeconds"),
@@ -1265,11 +1205,19 @@ class EconomicProfileTests(unittest.TestCase):
                 profile, "dataSession.refundClaimWindowSeconds"
             ),
         )
-        projection = self.model.execution_profile_economic_projection_v2(
+        projection = self.model.execution_profile_economic_projection_v3(
             profile
         )
         self.assertEqual(
-            int.from_bytes(projection[106], "big"),
+            self.model.EXECUTION_PROFILE_V3_WORD_INDEX[
+                "dataSessionRefundClaimWindowSeconds"
+            ],
+            76,
+        )
+        self.assertEqual(
+            int.from_bytes(
+                projection["dataSessionRefundClaimWindowSeconds"], "big"
+            ),
             self.model.get_path(profile, "rewards.claimWindowSeconds"),
         )
 
@@ -1285,7 +1233,7 @@ class EconomicProfileTests(unittest.TestCase):
         )
         self.assertEqual(
             self.model.execution_profile_economic_binding_blockers(
-                mismatched, tuple(bytes(32) for _ in range(281))
+                mismatched, tuple(bytes(32) for _ in range(148))
             ),
             ("economic profile projection is unavailable",),
         )
@@ -1310,7 +1258,6 @@ class EconomicProfileTests(unittest.TestCase):
             "geometry.maximumCandidateForcedBytes",
             "geometry.maximumCandidateForcedGas",
             "geometry.maximumEarlySealWindows",
-            "geometry.canonicalHistoryCells",
             "geometry.eip2935HistoryBlocks", "geometry.maximumArmAgeBlocks",
             "geometry.seatCount", "geometry.standbyCount",
             "geometry.pendingCount", "geometry.bookSize",
@@ -1323,18 +1270,7 @@ class EconomicProfileTests(unittest.TestCase):
             "forcedEnvelope.maximumPrefixAccountedGas",
             "forcedEnvelope.queueDepth", "forcedEnvelope.maximumQueueCount",
             "forcedEnvelope.maximumRangeProofHashes",
-            "bridge.maximumEnqueueDelaySeconds", "bridge.processTtlSeconds",
-            "bridge.supportFinalityBlocks",
-            "bridge.maximumDomainEntriesPerRelease",
-            "bridge.refundCapsuleWords", "bridge.refundErc721Ids",
-            "bridge.refundErc1155Pairs", "bridge.terminalAccumulatorDepth",
-            "bridge.maximumTerminalCount",
-            "bridge.registrationProofMaximumNodesPerPath",
-            "bridge.registrationProofPathCount",
-            "bridge.registrationProofMaximumTotalNodes",
-            "bridge.registrationProofMaximumNodeBytes",
-            "bridge.registrationProofMaximumBytes",
-            "bridge.registrationProofMaximumGas", "rewards.claimWindowSeconds",
+            "rewards.claimWindowSeconds",
         }
         self.assertEqual(
             set(self.model.EXECUTABLE_CONSTANTS_V2), expected_paths
@@ -1375,7 +1311,6 @@ class EconomicProfileTests(unittest.TestCase):
             "dataSession.maximumLiveSessions",
             "dataSession.maximumLiveSessionsPerOwner",
             "dataSession.maximumRecordsPerSession",
-            "geometry.canonicalHistoryCells",
         }
         u64 = {
             "builder.evidenceDelaySeconds", "builder.reorgMarginSeconds",
@@ -1423,7 +1358,9 @@ class EconomicProfileTests(unittest.TestCase):
         profile = self.calibrated_profile()
         expected = self.model.builder_registry_configuration_hash_v2(profile)
         self.assertEqual(
-            self.model.execution_profile_economic_projection_v2(profile)[31],
+            self.model.execution_profile_economic_projection_v3(profile)[
+                "builderRegistryConfigHash"
+            ],
             expected,
         )
         paths = (
@@ -1490,8 +1427,8 @@ class EconomicProfileTests(unittest.TestCase):
         unknown_top["surprise"] = 1
         cases.append((unknown_top, "unknown key surprise"))
         missing_top = copy.deepcopy(self.example)
-        del missing_top["bridge"]
-        cases.append((missing_top, "missing key bridge"))
+        del missing_top["gasProfile"]
+        cases.append((missing_top, "missing key gasProfile"))
         unknown_nested = copy.deepcopy(self.example)
         unknown_nested["seat"]["surprise"] = 1
         cases.append((unknown_nested, "seat: unknown key surprise"))
@@ -1599,12 +1536,8 @@ class EconomicProfileTests(unittest.TestCase):
             "geometry.pendingCount": 4,
             "forcedEnvelope.queueDepth": 64,
             "forcedEnvelope.maximumRangeProofHashes": 257,
-            "bridge.terminalAccumulatorDepth": 64,
             "gasProfile.l2BlockGas": 30000000,
-            "gasProfile.steadyAnchorGas": 1000000,
             "gasProfile.steadyForcedGas": 20000000,
-            "gasProfile.activationAnchorGas": 12000000,
-            "gasProfile.activationForcedGas": 13000000,
             "gasProfile.systemMarginGas": 5000000,
             "gasProfile.minimumForceAccountedGas": 21000,
             "dataSession.ttlSeconds": 86400,
@@ -1614,12 +1547,6 @@ class EconomicProfileTests(unittest.TestCase):
             "dataSession.maximumRecordsPerSession": 2100,
             "dataSession.maximumGcSteps": 8,
             "dataSession.maximumBlobsPerPost": 6,
-            "bridge.registrationProofMaximumNodesPerPath": 65,
-            "bridge.registrationProofPathCount": 2,
-            "bridge.registrationProofMaximumTotalNodes": 130,
-            "bridge.registrationProofMaximumNodeBytes": 600,
-            "bridge.registrationProofMaximumBytes": 78264,
-            "bridge.registrationProofMaximumGas": 11000000,
         }
         for path, expected in fixed.items():
             self.assertEqual(oracle_get(self.example, path), expected, path)
@@ -1637,7 +1564,7 @@ class EconomicProfileTests(unittest.TestCase):
             for path, descriptor in EXPECTED_SCHEMA_RULES.items()
             if descriptor[0] == "exact" and descriptor[1] == "int"
         }
-        self.assertEqual(len(numeric_exact), 26)
+        self.assertEqual(len(numeric_exact), 16)
         for path, exact in numeric_exact.items():
             for replacement in (float(exact), True, False):
                 profile = copy.deepcopy(self.example)
@@ -1680,10 +1607,6 @@ class EconomicProfileTests(unittest.TestCase):
             "forcedEnvelope.maximumPrefixItems",
             "forcedEnvelope.maximumPrefixBytes",
             "forcedEnvelope.maximumPrefixAccountedGas",
-            "bridge.maximumDomainEntriesPerRelease",
-            "bridge.refundCapsuleWords",
-            "bridge.refundErc721Ids",
-            "bridge.refundErc1155Pairs",
             "seat.maximumInclusionSeconds",
             "recovery.settlementWindowSeconds",
             "recovery.tipLagSeconds",
@@ -1740,7 +1663,6 @@ class EconomicProfileTests(unittest.TestCase):
             "forcedEnvelope.permanentWeiPerByte",
             "forcedEnvelope.maximumAcceptedFeeWei",
             "forcedEnvelope.maximumQueueCount",
-            "bridge.maximumTerminalCount",
             "seat.slaBondWei",
             "seat.maximumAskWeiPerSecond",
             "seat.collusionSafetyMarginWei",
@@ -1880,14 +1802,16 @@ class EconomicProfileTests(unittest.TestCase):
         profile["units"]["nativeRate"] = "gwei/second"
         profile["sinks"]["builderPenalty"]["asset"] = "NATIVE_ETH"
         profile["sinks"]["seatPenalty"]["asset"] = "BUILDER_LEASE"
-        profile["sinks"]["bridgeSurplus"]["asset"] = "BUILDER_LEASE"
+        profile["sinks"]["protocolCoinbase"]["asset"] = "BUILDER_LEASE"
         errors = self.model.validate_schema(profile)
         self.assertIn("units.nativeRate must equal wei/second", errors)
         self.assertIn(
             "sinks.builderPenalty.asset must equal BUILDER_LEASE", errors
         )
         self.assertIn("sinks.seatPenalty.asset must equal NATIVE_ETH", errors)
-        self.assertIn("sinks.bridgeSurplus.asset must equal NATIVE_ETH", errors)
+        self.assertIn(
+            "sinks.protocolCoinbase.asset must equal NATIVE_ETH", errors
+        )
 
     def test_nested_or_duplicate_sink_sources_are_rejected(self):
         nested = copy.deepcopy(self.example)
@@ -1897,19 +1821,19 @@ class EconomicProfileTests(unittest.TestCase):
             self.model.validate_schema(nested),
         )
 
-        bridge_local = copy.deepcopy(self.example)
-        bridge_local["bridge"]["surplusSink"] = "0x" + "88" * 20
+        queue_local = copy.deepcopy(self.example)
+        queue_local["forcedEnvelope"]["expirySink"] = "0x" + "88" * 20
         self.assertIn(
-            "bridge: unknown key surplusSink",
-            self.model.validate_schema(bridge_local),
+            "forcedEnvelope: unknown key expirySink",
+            self.model.validate_schema(queue_local),
         )
 
         malformed_sink = copy.deepcopy(self.example)
-        malformed_sink["sinks"]["bridgeSurplus"]["beneficiary"] = (
+        malformed_sink["sinks"]["protocolCoinbase"]["beneficiary"] = (
             "0x" + "99" * 20
         )
         self.assertIn(
-            "sinks.bridgeSurplus: unknown key beneficiary",
+            "sinks.protocolCoinbase: unknown key beneficiary",
             self.model.validate_schema(malformed_sink),
         )
 
@@ -1927,18 +1851,18 @@ class EconomicProfileTests(unittest.TestCase):
             "measurementCommit must be non-null",
             "assets.builderLease.address must be non-null",
             "sinks.builderPenalty.address must be non-null",
-            "sinks.bridgeSurplus.address must be non-null",
+            "sinks.protocolCoinbase.address must be non-null",
         ):
             self.assertIn(blocker, null_blockers)
 
         profile = self.calibrated_profile()
         profile["profileId"] = "0x" + "00" * 32
         profile["assets"]["builderLease"]["address"] = "0x" + "00" * 20
-        profile["sinks"]["bridgeSurplus"]["address"] = "0x" + "00" * 20
+        profile["sinks"]["protocolCoinbase"]["address"] = "0x" + "00" * 20
         blockers = self.model.production_blockers(profile)
         self.assertIn("profileId must be nonzero", blockers)
         self.assertIn("assets.builderLease.address must be nonzero", blockers)
-        self.assertIn("sinks.bridgeSurplus.address must be nonzero", blockers)
+        self.assertIn("sinks.protocolCoinbase.address must be nonzero", blockers)
 
     def test_production_requires_unique_sink_addresses(self):
         expected_sink_paths = (
@@ -1946,12 +1870,12 @@ class EconomicProfileTests(unittest.TestCase):
             "sinks.dataRent.address",
             "sinks.seatPenalty.address",
             "sinks.forcedExpiry.address",
-            "sinks.bridgeSurplus.address",
+            "sinks.protocolCoinbase.address",
         )
         self.assertEqual(self.model._SINK_ADDRESS_PATHS, expected_sink_paths)
 
         profile = self.calibrated_profile()
-        profile["sinks"]["bridgeSurplus"]["address"] = profile["sinks"][
+        profile["sinks"]["protocolCoinbase"]["address"] = profile["sinks"][
             "dataRent"
         ]["address"]
         self.assertIn(
@@ -1959,7 +1883,7 @@ class EconomicProfileTests(unittest.TestCase):
             self.model.production_blockers(profile),
         )
 
-        profile["sinks"]["bridgeSurplus"]["address"] = "0x" + "0a" * 20
+        profile["sinks"]["protocolCoinbase"]["address"] = "0x" + "0a" * 20
         self.assertNotIn(
             "sink addresses must be unique",
             self.model.production_blockers(profile),
@@ -2077,21 +2001,10 @@ class EconomicProfileTests(unittest.TestCase):
                 "forced-range-proof-boundary",
                 {"geometry.maximumCandidateForcedItems": UINT256_MAX},
             ),
-            ("refund-erc1155-word-cap", {"bridge.refundErc1155Pairs": UINT256_MAX}),
             ("kind0-validity-lower-bound", {"recovery.finalLagSeconds": UINT256_MAX}),
-            ("kind1-enqueue-lower-bound", {"recovery.finalLagSeconds": UINT256_MAX}),
-            (
-                "bridge-process-ttl-lower-bound",
-                {"bridge.maximumEnqueueDelaySeconds": UINT256_MAX},
-            ),
-            ("support-finality-reorg-depth", {"recovery.l1FinalityBlocks": UINT256_MAX}),
             (
                 "data-ttl-recovery-lower-bound",
                 {"recovery.settlementWindowSeconds": UINT256_MAX},
-            ),
-            (
-                "canonical-history-reorg-capacity",
-                {"seat.maximumInclusionSeconds": UINT256_MAX},
             ),
             ("eip2935-replay-horizon", {"builder.evidenceDelaySeconds": UINT256_MAX}),
             ("schedule-ring-capacity", {"builder.evidenceDelaySeconds": UINT256_MAX}),
@@ -2117,19 +2030,7 @@ class EconomicProfileTests(unittest.TestCase):
             ),
             ("sla-bond-claim-tail", {"seat.maximumAskWeiPerSecond": UINT256_MAX}),
             ("sla-bond-collateral-stress", {"seat.maximumAskWeiPerSecond": UINT256_MAX}),
-            ("steady-gas-envelope", {"gasProfile.steadyAnchorGas": UINT256_MAX}),
-            (
-                "activation-gas-envelope",
-                {"gasProfile.activationAnchorGas": UINT256_MAX},
-            ),
-            (
-                "registration-proof-total-nodes",
-                {"bridge.registrationProofMaximumNodesPerPath": UINT256_MAX},
-            ),
-            (
-                "registration-proof-byte-capacity",
-                {"bridge.registrationProofMaximumTotalNodes": UINT256_MAX},
-            ),
+            ("steady-gas-envelope", {"gasProfile.steadyForcedGas": UINT256_MAX}),
         )
         relations = {
             relation.name: relation for relation in self.model.PROFILE_RELATIONS
@@ -2148,7 +2049,7 @@ class EconomicProfileTests(unittest.TestCase):
         actual = {
             relation.name: relation for relation in self.model.PROFILE_RELATIONS
         }
-        self.assertEqual(len(expected), 61)
+        self.assertEqual(len(expected), 50)
         self.assertEqual(set(actual), set(expected))
         tex = MAIN_TEX.read_text()
         profile = self.calibrated_profile()

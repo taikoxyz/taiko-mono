@@ -41,6 +41,15 @@ L1_RESOURCE_POLICY = "Ethereum Fusaka: EIP-7623 and EIP-7825"
 L1_TRANSACTION_GAS_LIMIT = 16_777_216
 COMPONENT_CONFIG_GETTER_GAS_LIMIT = 50_000
 FORCE_DEPTH = 64
+MAX_FORCE_MESSAGE_GAS = 5_000_000
+MAX_FORCE_MESSAGE_BYTES = 131_072
+MIN_FORCE_ACCOUNTED_GAS = 21_000
+FORCED_QUEUE_CONFIG_FIXTURE_ARGS = dict(
+    settlement=0xB001, l2_chain_id=16_788, force_delay=3_600,
+    max_force_validity_seconds=86_400, fixed_ingress_wei=10**15,
+    execution_wei_per_accounted_gas=10**9, proof_wei_per_accounted_gas=2 * 10**9,
+    permanent_wei_per_byte=10**8, maximum_accepted_fee_wei=10**18,
+)
 REGISTRY_DEPTH = 6
 ADMISSION_DEPTH = 11
 ENTRY_DEPTH = 6
@@ -160,7 +169,7 @@ D_FORCE_EMPTY = b"slot-chain-force-empty-v2"
 D_FORCE_NODE = b"slot-chain-force-node-v2"
 D_FORCE_ROOT = b"slot-chain-force-root-v2"
 D_FORCED_DESCRIPTOR_SCHEMA = b"slot-chain-force-descriptor-schema-v12"
-D_FORCED_QUEUE_CONFIG = b"slot-chain-forced-queue-config-v1"
+D_FORCED_QUEUE_CONFIG = b"slot-chain-forced-queue-config-v2"
 D_DATA_SESSION_CONFIG = b"slot-chain-data-session-config-v1"
 D_MMR_LEAF = b"slot-chain-data-leaf-v1"
 D_MMR_NODE = b"slot-chain-data-node-v1"
@@ -415,7 +424,7 @@ def builder_proof_verifier_configuration_hash_v1() -> bytes:
         *(u32(value) for value in values[9:14]),
         BUILDER_PROOF_IDENTITY_SELECTOR, BUILDER_PROOF_REQUEST_SELECTOR,
         b"BPV1", b"EIV1", b"BPR1", b"BPO1",
-        *(u16(value) for value in (512, 320, 192, 432, 531, 6_770, 2_727)),
+        *(u16(value) for value in (512, 352, 224, 432, 531, 6_770, 2_727)),
     ))
     assert len(packed) == 71
     return keccak256(
@@ -447,36 +456,43 @@ def builder_proof_identity_calldata_v1(
 
 
 def builder_proof_identity_commitment_v1(
-    evidence_hash: bytes, expected_settlement_chain_id: int,
+    evidence_hash: bytes, expected_settlement_chain_id: int, l2_chain_id: int,
     protocol_version: int, verifying_contract: int, window: int,
     signed_admission_version: int, signed_admission_root: bytes, builder: int,
 ) -> bytes:
+    """Exact 224-byte EIV1 identity preimage; binds the pair-equal signed
+    ``l2ChainId`` so evidence for another L2 chain sharing the settlement
+    chain is a different identity."""
+
+    assert l2_chain_id > 0
     config_hash = builder_proof_verifier_configuration_hash_v1()
     preimage = b"".join((
         config_hash, b32(evidence_hash), u256(expected_settlement_chain_id),
-        u64(protocol_version), address20(verifying_contract), u64(window),
+        u256(l2_chain_id), u64(protocol_version),
+        address20(verifying_contract), u64(window),
         u64(signed_admission_version), b32(signed_admission_root),
         address20(builder),
     ))
-    assert len(preimage) == 192
+    assert len(preimage) == 224
     return keccak256(
-        b"slot-chain-builder-equivocation-identity-v1" + u16(len(preimage))
+        b"slot-chain-builder-equivocation-identity-v2" + u16(len(preimage))
         + preimage
     )
 
 
 def builder_proof_identity_return_v1(
     evidence_hash: bytes, identity_commitment: bytes, builder: int, window: int,
-    protocol_version: int, verifying_contract: int,
+    protocol_version: int, verifying_contract: int, l2_chain_id: int,
     signed_admission_version: int, signed_admission_root: bytes,
 ) -> bytes:
     encoded = b"".join((
         bytes4_word(b"EIV1"), builder_proof_verifier_configuration_hash_v1(),
         b32(evidence_hash), b32(identity_commitment), address_word(builder),
         u256(window), u256(protocol_version), address_word(verifying_contract),
-        u256(signed_admission_version), b32(signed_admission_root),
+        u256(l2_chain_id), u256(signed_admission_version),
+        b32(signed_admission_root),
     ))
-    assert len(encoded) == 320
+    assert len(encoded) == 352
     return encoded
 
 
@@ -822,44 +838,64 @@ def decode_settlement_forced_ingress_floor_return(returndata: bytes) -> int:
     return minimum_due_at
 
 
-def encode_forced_queue_config_return(
-        active_settlement_router: int,
-        initial_active_settlement: int) -> bytes:
-    configuration_hash = forced_queue_config_hash(
-        active_settlement_router, initial_active_settlement)
-    return (
-        bytes4_word(b"FQC1") + address_word(active_settlement_router)
-        + address_word(initial_active_settlement) + u256(FORCE_DEPTH)
-        + u256(UINT64_MAX) + keccak256(D_FORCE_EMPTY)
-        + keccak256(D_FORCED_DESCRIPTOR_SCHEMA) + configuration_hash
+def encode_forced_queue_config_return(config: "ForcedQueueConfigV2") -> bytes:
+    """Exact 576-byte FQC1 row: the deployment words, the fixed geometry and
+    the configuration hash."""
+
+    configuration_hash = forced_queue_config_hash(config)
+    encoded = (
+        bytes4_word(b"FQC1") + address_word(config.settlement)
+        + u256(config.l2_chain_id) + u256(FORCE_DEPTH) + u256(UINT64_MAX)
+        + keccak256(D_FORCE_EMPTY) + keccak256(D_FORCED_DESCRIPTOR_SCHEMA)
+        + u256(config.force_delay) + u256(config.max_force_validity_seconds)
+        + u256(MAX_FORCE_MESSAGE_GAS) + u256(MAX_FORCE_MESSAGE_BYTES)
+        + u256(MIN_FORCE_ACCOUNTED_GAS) + u256(config.fixed_ingress_wei)
+        + u256(config.execution_wei_per_accounted_gas)
+        + u256(config.proof_wei_per_accounted_gas)
+        + u256(config.permanent_wei_per_byte)
+        + u256(config.maximum_accepted_fee_wei) + configuration_hash
     )
+    assert len(encoded) == 576
+    return encoded
 
 
 def decode_forced_queue_config_return(
-        returndata: bytes) -> tuple[int, int, bytes]:
-    assert len(returndata) == 256 and returndata[:32] == bytes4_word(b"FQC1")
-    router = address_word_value(returndata[32:64])
-    initial = address_word_value(returndata[64:96])
+        returndata: bytes) -> tuple["ForcedQueueConfigV2", bytes]:
+    assert len(returndata) == 576 and returndata[:32] == bytes4_word(b"FQC1")
+    config = ForcedQueueConfigV2(
+        settlement=address_word_value(returndata[32:64]),
+        l2_chain_id=uint_word_value(returndata[64:96]),
+        force_delay=uint_word_value(returndata[224:256], 64),
+        max_force_validity_seconds=uint_word_value(returndata[256:288], 64),
+        fixed_ingress_wei=uint_word_value(returndata[384:416]),
+        execution_wei_per_accounted_gas=uint_word_value(returndata[416:448]),
+        proof_wei_per_accounted_gas=uint_word_value(returndata[448:480]),
+        permanent_wei_per_byte=uint_word_value(returndata[480:512]),
+        maximum_accepted_fee_wei=uint_word_value(returndata[512:544]),
+    )
     assert (uint_word_value(returndata[96:128], 8) == FORCE_DEPTH
             and uint_word_value(returndata[128:160], 64) == UINT64_MAX
             and returndata[160:192] == keccak256(D_FORCE_EMPTY)
-            and returndata[192:224] == keccak256(D_FORCED_DESCRIPTOR_SCHEMA))
-    configuration_hash = returndata[224:256]
-    assert returndata == encode_forced_queue_config_return(router, initial)
-    return router, initial, configuration_hash
+            and returndata[192:224] == keccak256(D_FORCED_DESCRIPTOR_SCHEMA)
+            and uint_word_value(returndata[288:320], 64) == MAX_FORCE_MESSAGE_GAS
+            and uint_word_value(returndata[320:352], 32) == MAX_FORCE_MESSAGE_BYTES
+            and uint_word_value(returndata[352:384], 64) == MIN_FORCE_ACCOUNTED_GAS)
+    configuration_hash = returndata[544:576]
+    assert returndata == encode_forced_queue_config_return(config)
+    return config, configuration_hash
 
 
 def encode_forced_queue_state_return(
-        active_settlement: int, root: bytes, count: int, cursor: int,
+        settlement: int, root: bytes, count: int, cursor: int,
         last_due_at: int, unconsumed_escrow: int, total_claimable: int,
         accounted_liability: int, configuration_hash: bytes) -> bytes:
-    assert (active_settlement != 0 and len(root) == 32
+    assert (settlement != 0 and len(root) == 32
             and 0 <= cursor <= count <= UINT64_MAX
             and 0 <= last_due_at <= UINT64_MAX
             and configuration_hash != bytes(32))
     assert accounted_liability == unconsumed_escrow + total_claimable
     return (
-        bytes4_word(b"FQS1") + address_word(active_settlement) + root
+        bytes4_word(b"FQS1") + address_word(settlement) + root
         + u256(count) + u256(cursor) + u256(last_due_at)
         + u256(unconsumed_escrow) + u256(total_claimable)
         + u256(accounted_liability) + configuration_hash
@@ -1653,14 +1689,46 @@ def validate_reward_class_v1_getter(
         returndata, expected_configuration_hash, expected_class_id)
 
 
-def forced_queue_config_hash(active_settlement_router: int,
-                             initial_active_settlement: int) -> bytes:
-    assert active_settlement_router != initial_active_settlement
-    encoded = (address20(active_settlement_router)
-               + address20(initial_active_settlement) + u8(FORCE_DEPTH)
-               + u64(UINT64_MAX) + b32(keccak256(D_FORCE_EMPTY))
-               + b32(keccak256(D_FORCED_DESCRIPTOR_SCHEMA)))
-    assert len(encoded) == 113
+@dataclass(frozen=True)
+class ForcedQueueConfigV2:
+    """ForcedQueue implementation immutables that vary per deployment; the
+    fixed geometry words are appended by ``forced_queue_config_hash``."""
+
+    settlement: int
+    l2_chain_id: int
+    force_delay: int
+    max_force_validity_seconds: int
+    fixed_ingress_wei: int
+    execution_wei_per_accounted_gas: int
+    proof_wei_per_accounted_gas: int
+    permanent_wei_per_byte: int
+    maximum_accepted_fee_wei: int
+
+
+def forced_queue_config_hash(config: ForcedQueueConfigV2) -> bytes:
+    """H("slot-chain-forced-queue-config-v2" || u16(321) || queueConfigBytes)."""
+
+    assert (config.settlement != 0 and config.l2_chain_id > 0
+            and 0 < config.force_delay <= UINT64_MAX
+            and 0 < config.max_force_validity_seconds <= UINT64_MAX
+            and min(config.fixed_ingress_wei,
+                    config.execution_wei_per_accounted_gas,
+                    config.proof_wei_per_accounted_gas,
+                    config.permanent_wei_per_byte,
+                    config.maximum_accepted_fee_wei) >= 0)
+    encoded = (address20(config.settlement) + u256(config.l2_chain_id)
+               + u8(FORCE_DEPTH) + u64(UINT64_MAX)
+               + b32(keccak256(D_FORCE_EMPTY))
+               + b32(keccak256(D_FORCED_DESCRIPTOR_SCHEMA))
+               + u64(config.force_delay) + u64(config.max_force_validity_seconds)
+               + u64(MAX_FORCE_MESSAGE_GAS) + u32(MAX_FORCE_MESSAGE_BYTES)
+               + u64(MIN_FORCE_ACCOUNTED_GAS)
+               + u256(config.fixed_ingress_wei)
+               + u256(config.execution_wei_per_accounted_gas)
+               + u256(config.proof_wei_per_accounted_gas)
+               + u256(config.permanent_wei_per_byte)
+               + u256(config.maximum_accepted_fee_wei))
+    assert len(encoded) == 321
     return keccak256(D_FORCED_QUEUE_CONFIG + u16(len(encoded)) + encoded)
 
 
@@ -1669,8 +1737,6 @@ class DataSessionConfigV1:
     settlement_chain_id: int
     protocol_version: int
     settlement: int
-    active_settlement_router: int
-    protocol_version_manager: int
     data_rent: int
     execution_profile_hash: bytes
     bond: int
@@ -1680,12 +1746,12 @@ class DataSessionConfigV1:
 
 
 def data_session_config_hash(config: DataSessionConfigV1) -> bytes:
+    """H("slot-chain-data-session-config-v1" || u32(300) || ...)."""
+
     assert (
         config.settlement_chain_id > 0
         and 0 < config.protocol_version <= UINT64_MAX
         and config.settlement != 0
-        and config.active_settlement_router != 0
-        and config.protocol_version_manager != 0
         and config.data_rent != 0
         and b32(config.execution_profile_hash) != bytes(32)
         and config.bond > 0
@@ -1695,10 +1761,7 @@ def data_session_config_hash(config: DataSessionConfigV1) -> bytes:
     )
     encoded = (
         u256(config.settlement_chain_id) + u64(config.protocol_version)
-        + address20(config.settlement)
-        + address20(config.active_settlement_router)
-        + address20(config.protocol_version_manager)
-        + address20(config.data_rent)
+        + address20(config.settlement) + address20(config.data_rent)
         + b32(config.execution_profile_hash) + u256(config.bond)
         + u256(config.base) + u256(config.byte_rent) + u16(config.blob_bps)
         + u64(86_400) + u64(86_400)
@@ -1706,7 +1769,7 @@ def data_session_config_hash(config: DataSessionConfigV1) -> bytes:
         + address20(0x0A) + u32(50_000) + u256(BLS_MODULUS)
         + u32(131_072) + u32(126_972) + u16(9)
     )
-    assert len(encoded) == 340
+    assert len(encoded) == 300
     return keccak256(D_DATA_SESSION_CONFIG + u32(len(encoded)) + encoded)
 
 
@@ -3091,8 +3154,6 @@ def vectors() -> dict[str, str]:
         settlement_chain_id=settlement_chain_id,
         protocol_version=2,
         settlement=contract,
-        active_settlement_router=0xAD01,
-        protocol_version_manager=0xAD02,
         data_rent=0xAD03,
         execution_profile_hash=profile_hash,
         bond=10,
@@ -3740,15 +3801,18 @@ def vectors() -> dict[str, str]:
                 decode_settlement_forced_ingress_floor_return(value),
             "malformed Settlement forced-ingress floor accepted")
     empty_queue_root = ForceVector(()).root
-    queue_config_return = encode_forced_queue_config_return(0xAD01, 0xB001)
+    queue_config = ForcedQueueConfigV2(**FORCED_QUEUE_CONFIG_FIXTURE_ARGS)
+    queue_config_hash = forced_queue_config_hash(queue_config)
+    assert_all_fields_bound(queue_config, forced_queue_config_hash)
+    queue_config_return = encode_forced_queue_config_return(queue_config)
     queue_empty_state_return = encode_forced_queue_state_return(
-        0xB001, empty_queue_root, 0, 0, 0, 0, 0, 0,
-        forced_queue_config_hash(0xAD01, 0xB001))
+        queue_config.settlement, empty_queue_root, 0, 0, 0, 0, 0, 0,
+        queue_config_hash)
     assert decode_forced_queue_config_return(queue_config_return) == (
-        0xAD01, 0xB001, forced_queue_config_hash(0xAD01, 0xB001))
+        queue_config, queue_config_hash)
     assert decode_forced_queue_state_return(queue_empty_state_return) == (
-        0xB001, empty_queue_root, 0, 0, 0, 0, 0, 0,
-        forced_queue_config_hash(0xAD01, 0xB001))
+        queue_config.settlement, empty_queue_root, 0, 0, 0, 0, 0, 0,
+        queue_config_hash)
     for malformed_queue_view, decoder in (
         (queue_config_return[:-1], decode_forced_queue_config_return),
         (b"BAD!" + queue_config_return[4:], decode_forced_queue_config_return),
@@ -4172,15 +4236,19 @@ def vectors() -> dict[str, str]:
     proof_verifier_config_return = builder_proof_verifier_config_return_v1()
     evidence_hash = keccak256(active_equivocation_witness)
     evidence_identity_commitment = builder_proof_identity_commitment_v1(
-        evidence_hash, settlement_chain_id, 2, contract, 20, 12, adm_root,
-        cell.address,
+        evidence_hash, settlement_chain_id, l2_chain_id, 2, contract, 20, 12,
+        adm_root, cell.address,
     )
     evidence_identity_calldata = builder_proof_identity_calldata_v1(
         settlement_chain_id, active_equivocation_witness
     )
     evidence_identity_return = builder_proof_identity_return_v1(
         evidence_hash, evidence_identity_commitment, cell.address, 20, 2,
-        contract, 12, adm_root,
+        contract, l2_chain_id, 12, adm_root,
+    )
+    assert evidence_identity_commitment != builder_proof_identity_commitment_v1(
+        evidence_hash, settlement_chain_id, l2_chain_id + 1, 2, contract, 20,
+        12, adm_root, cell.address,
     )
     registry_replace_request = builder_proof_registry_replace_request_v1(
         reg_root, 3, builder_registry_cell_v1(cell),
@@ -4247,8 +4315,8 @@ def vectors() -> dict[str, str]:
     )
     liability_evidence_hash = keccak256(liability_equivocation_witness)
     liability_identity_commitment = builder_proof_identity_commitment_v1(
-        liability_evidence_hash, settlement_chain_id, 2, contract, 20, 12,
-        adm_root, cell.address,
+        liability_evidence_hash, settlement_chain_id, l2_chain_id, 2, contract,
+        20, 12, adm_root, cell.address,
     )
     liability_evidence_request = builder_proof_equivocation_request_v1(
         liability_equivocation_witness, settlement_chain_id,
@@ -4275,7 +4343,7 @@ def vectors() -> dict[str, str]:
     assert (proof_verifier_config_hash
             == proof_verifier_config_return[-32:]
             and len(evidence_identity_calldata) == 2_468
-            and len(evidence_identity_return) == 320
+            and len(evidence_identity_return) == 352
             and len(registry_replace_request) == 432
             and len(admission_replace_request) == 531
             and len(tranche_batch_request) == 412
@@ -4367,8 +4435,8 @@ def vectors() -> dict[str, str]:
     )
     equivocation_return = (
         bytes4_word(b"BEV1") + u256(42) + u256(20)
-        + address_word(cell.address) + u256(10**16) + u256(9 * 10**16)
-        + u256(8) + move_final_root
+        + address_word(cell.address) + u256(l2_chain_id) + u256(10**16)
+        + u256(9 * 10**16) + u256(8) + move_final_root
     )
     expire_schedule_return = bytes4_word(b"SWE1") + u256(8) + u256(521)
     assert tuple(map(len, (
@@ -4376,7 +4444,7 @@ def vectors() -> dict[str, str]:
         maintenance_return, normalize_return, release_tranche_return,
         release_generation_return, claim_builder_credit_return,
         equivocation_return, expire_schedule_return,
-    ))) == (192, 160, 128, 160, 160, 224, 192, 96, 256, 96)
+    ))) == (192, 160, 128, 160, 160, 224, 192, 96, 288, 96)
 
     # Keep this assertion beside the vector: 64 consumed plus one boundary.
     assert verify_force_range(len(envs), 2, force_leaves[2:67], proof, force.root)
@@ -4732,7 +4800,7 @@ def vectors() -> dict[str, str]:
             keccak256(split_fork_return).hex(),
         "split_latest_fork_verifier_return_length":
             str(len(split_fork_return)),
-        "forced_queue_config_hash": forced_queue_config_hash(0xAD01, 0xB001).hex(),
+        "forced_queue_config_hash": queue_config_hash.hex(),
         "kind0_forced_admission_schema_hash":
             keccak256(D_FORCE_USER_ADMISSION).hex(),
         "kind0_forced_admission_hash": keccak256(kind0_admission).hex(),
@@ -4865,8 +4933,8 @@ EXPECTED = {'admission_proof_digest': '65a5501dc5440301031bc0d21ac6506ce1f98b226
  'builder_claim_credit_return_length': '96',
  'builder_equivocation_calldata_hash': 'bd470ac24fe185aca71cff7e8c27944e78baae430628101075916cfb15ffbf0b',
  'builder_equivocation_calldata_length': '2436',
- 'builder_equivocation_return_hash': 'eb9cab44a43adcc764cf488ade4f8e8fab85dab8cab6a5762cd6e3cbd9939eb6',
- 'builder_equivocation_return_length': '256',
+ 'builder_equivocation_return_hash': 'fcaa313c4629faefccf8365921d57c60c39226a8ead0d46375066aaa4d61f8cb',
+ 'builder_equivocation_return_length': '288',
  'builder_expire_schedule_calldata_hash': '4f1b5f49458cc8f4f22f9745a61accc177cd37d4412bfadd74c9c5006b9083f5',
  'builder_expire_schedule_calldata_length': '36',
  'builder_expire_schedule_return_hash': '347b76314feb452be5b5f8dfa655b368cf0ae1656b7e14e0488b4bc170d0ac6f',
@@ -4902,33 +4970,33 @@ EXPECTED = {'admission_proof_digest': '65a5501dc5440301031bc0d21ac6506ce1f98b226
  'builder_proof_admission_calldata_hash': '419032e2b6eb7dc900b2ad948d4fa3c0ad0eae90a8f4bf3a87d3883ee3fd3ea8',
  'builder_proof_admission_request_hash': '99c130943aa4780be4a2888146d65d62bad146f46ab501c39b38f19a267e667d',
  'builder_proof_admission_request_length': '531',
- 'builder_proof_admission_return_hash': '3079820b97ad6bad7583cc6cb30ee43305609059f8e84065e1525dc9e24c31a1',
- 'builder_proof_evidence_active_tombstoned_request_hash': '360f07315cde09617cb4212a97b19f0fda328685d736895ef8c6094012e7cce9',
- 'builder_proof_evidence_active_tombstoned_return_hash': '85dacb33edf0ea6c19a74451d98362c2450fd2b59e32af6668350b9ead352907',
- 'builder_proof_evidence_calldata_hash': '58b74233e9726648d037a57a88cd38fbccb218a1d29372927de0e0d00e225796',
- 'builder_proof_evidence_liability_first_request_hash': '38bd6788fb25962a5999192cb1297e2b418c47d813202f9000e2eb18773e0278',
- 'builder_proof_evidence_liability_first_return_hash': '9f27ea85a06bc785ab2dfbb6c72a416d8250e1751bfa855d459f6647ee7bdff0',
- 'builder_proof_evidence_liability_tombstoned_request_hash': '338141019dd003d9f78753bdaee43182f3975d13a8e6dbf849a3d50646c115f4',
- 'builder_proof_evidence_liability_tombstoned_return_hash': '0720e4d2652e04c3bc2650eb4f98352e2fdb802ff5a86949b49ca001bcac2850',
- 'builder_proof_evidence_request_hash': '536d3467985ad79a2fe9f6e678d99074fcecc5520dbb61726f3aee3dc3f44e12',
+ 'builder_proof_admission_return_hash': 'cf28cb14abba8c850ef3ab57e04daa0d509f7151fda16cf43b8565b0e95eaa07',
+ 'builder_proof_evidence_active_tombstoned_request_hash': 'ee5512b2463e0210542cf8eb828155af1350a55233b2b62fdc70ddd349e71779',
+ 'builder_proof_evidence_active_tombstoned_return_hash': 'cb5abdc479e27be56ee55b71b2117f66464be6879bb95abee3c81c3649b49f91',
+ 'builder_proof_evidence_calldata_hash': '19d0989aa0370f230bd444bf6e0a939b13e82a4ae20d4f7808effd4806c35bde',
+ 'builder_proof_evidence_liability_first_request_hash': 'efa1540bab4bd531d15ffe972f5f17e2180044d826753c47b9c7bf1e6ff293cd',
+ 'builder_proof_evidence_liability_first_return_hash': '22b13b07658cc56c9726d28fa533ceeaa83aeabd906ece1cf2771592e08b968b',
+ 'builder_proof_evidence_liability_tombstoned_request_hash': 'b5d06e6424135404f0bdd0947d54b1e8aa44020d391ef32b3f7e2809be1344cb',
+ 'builder_proof_evidence_liability_tombstoned_return_hash': 'e365e30b1b1119801867813f82b78b16243a0a5734fbaa6b61c127acb3558748',
+ 'builder_proof_evidence_request_hash': '2c3d0d91e2ec5129f13dd6bc89995fa9443120b49b94bac799d0e7e18fd33f00',
  'builder_proof_evidence_request_length': '2727',
- 'builder_proof_evidence_return_hash': '86e51e0573d4086a0099a49683b1277bd2df6f087a1884c6bf952854c7e2916f',
+ 'builder_proof_evidence_return_hash': '38fe48ff2340f26b97dcf96c9b2f7ddb79504263f6ca9d5c031d981db5b66a98',
  'builder_proof_identity_calldata_hash': '0efda928731baac8c13e31a788b6856c167cb3d5cb43cc8460414ddba5c757ff',
  'builder_proof_identity_calldata_length': '2468',
- 'builder_proof_identity_return_hash': '3e2522216063d4d132365c2b2c6547f1dad4e364ce430373da37ccabede24600',
- 'builder_proof_identity_return_length': '320',
+ 'builder_proof_identity_return_hash': '743733693b186704f091e1e5736ae0f380f5b3d596e5f785517200cdfd4e46d8',
+ 'builder_proof_identity_return_length': '352',
  'builder_proof_identity_selector': '7c09d62d',
  'builder_proof_registry_calldata_hash': '3bc203afce7c1aeb21360ea97544bc6991a216025b5ce2c37e065a4bc1588246',
  'builder_proof_registry_request_hash': '63fa85a7efd66ff4db6c06fdd6dbfa44541d8274c1ca8739daa9796f382ff10a',
  'builder_proof_registry_request_length': '432',
- 'builder_proof_registry_return_hash': '254f7c15aa1a9533874d6e6409c2ea709f696d80474c8f485c22d355f2ffd3ca',
+ 'builder_proof_registry_return_hash': 'b6bfdd1639eae8c9bc92931a3f9f4003e94facbb024e0c057143ef96b0812d7b',
  'builder_proof_request_selector': 'a9ca9190',
  'builder_proof_tranche_calldata_hash': '5b5ed9cdd24cab6214555f3c72269b69c17bb2d2f344dbf4c213b9b840ca023c',
  'builder_proof_tranche_request_hash': 'f565dd15d53c115c993356953af777950dc0408106a85a53501da7b54fdb762d',
  'builder_proof_tranche_request_length': '412',
- 'builder_proof_tranche_return_hash': 'c5980443c2976303be7176297d57a75020e23dbf0fd9717f384e3a6012264594',
- 'builder_proof_verifier_config_hash': 'f1a01e067ec17b34e4f190810b2ebedfddd92a125705d2fd60134ce361ffac1a',
- 'builder_proof_verifier_config_return_hash': 'eb1e75edfa0e3c8e1809071f51985fbdc2848eb8f65d7378d979a62b6d1ac862',
+ 'builder_proof_tranche_return_hash': 'bdb8ef492f2577f446427641525c5ce4cfbc07f462e4858d834b9ef9343e44a5',
+ 'builder_proof_verifier_config_hash': 'e3e45065c704e9bdad17d5b1a8de56115576b30d7e4e09d50a3a07aa66aac80b',
+ 'builder_proof_verifier_config_return_hash': '424eb74a70eb5383c3ca04922b259ce7314377be45a1b10e5dd0c7ab79df6419',
  'builder_proof_verifier_config_selector': '0d1c9932',
  'builder_register_builder_selector': '5fc42c69',
  'builder_register_calldata_hash': '9f18fd55e769f2cb66a0886f78c2c27e975a5cc1bd6a91cc505587350ecf12d3',
@@ -5003,14 +5071,14 @@ EXPECTED = {'admission_proof_digest': '65a5501dc5440301031bc0d21ac6506ce1f98b226
  'data_node_height_7': 'e60d61327adb017addbf3012131b62c0a5897d30e302fcfac9ffad46d0fe848a',
  'data_record_appended_topic': '30ee2de166c53a480d028e5b94d4f8759dbd84b5f7b6af1f23e0c5889ea17f8c',
  'data_session_accounting_return_length': '512',
- 'data_session_config_hash': '34595a6d8a662ccfd6df02d62878d8056d9a66e7b437ea8e4ae71547c245befe',
+ 'data_session_config_hash': 'c8db58336498ffd3cfaa755c1769d44c6a61f9675d5a0b76d18b30603fc78c7b',
  'data_sessions_maintained_topic': '920669b9670911aa86cd718dceebaa1372d224ca0fdac50a63dc1d45a53e1e89',
  'domain_separator': 'e68571dca46842abc561c1ea35b556152b15d93a1d29f5c441ae2fdcdd01725c',
  'eip712_digest': '71dbc886b2be3e2a2b692976ca6b0e42957915d83df76859637a08c92f7a24d1',
  'empty_admission_root': '71a511ce5247c6c3b0411e182c8e4b4dcbd0adc97163c585cac94ca3b031ac54',
  'empty_body_root': 'f0e00da8dbc00feb028a8bc92342c0771372b947acf5989b2d4a5f23bb2f459a',
  'empty_data_bag': 'b3caa2379816b63eebbf789e33e7d84ef29d6d350179803dd000102e8182f66a',
- 'empty_data_session_accounting_return_hash': 'd67be4bb9b559b619c0324ce0f890e8446e55f420593a63d6eb1739f4dd28e4e',
+ 'empty_data_session_accounting_return_hash': '9c469322ff55a06e16032b8017d6190d9e339927e68bb7855d72afc32fdaeab6',
  'empty_entry_root': '986d3e795bd9ddfabe213b93cea0211eea5a663e895bfc112d90c5bf2fff1564',
  'empty_forced_root': '4001bca0d3c5171a99a50118f1219024e1bef9302262ea3b075ecbed36be7592',
  'empty_manifest_root': '0bb15f38645cecc1748b17fe3bd966ba8016c169ebd1266fd38150766177b5f6',
@@ -5033,14 +5101,14 @@ EXPECTED = {'admission_proof_digest': '65a5501dc5440301031bc0d21ac6506ce1f98b226
  'forced_queue_advance_selector': 'd59ff200',
  'forced_queue_appended_topic': '79250628d474df83f40598f02c49d25e713fb04a8ef4bd4457fa70055a86f489',
  'forced_queue_claim_withdrawn_topic': '93cc2e9cd74702c3df0d771c2b1901ca496935e81636c3e6f0e5d7e0d7f5dd74',
- 'forced_queue_config_hash': '22308d0cff70d354e3a7d3121641c832c08f017f5921bb51e323d73075f5b42e',
- 'forced_queue_config_return_hash': '82d2db524021dc52e9290e6788f12ae0ac79a8942ee492f73821a87aac05da55',
- 'forced_queue_config_return_length': '256',
+ 'forced_queue_config_hash': '13b9e677d8e94c70282ac3bd4543a22c77fbffb4e7485178da1f622d0ab08492',
+ 'forced_queue_config_return_hash': 'f79b30bbc63834b3edaea14ca8dd0ffa9af074291da2f61a58c2ffdcf59b4fef',
+ 'forced_queue_config_return_length': '576',
  'forced_queue_config_selector': '8136fe31',
  'forced_queue_cursor_advanced_topic': '972ed56e80520f8e90eb897f4f0e5b59f1167d96d3b28e0432f80c96c53aff17',
  'forced_queue_descriptor_selector': 'bd9534db',
  'forced_queue_due_at_selector': '530fd138',
- 'forced_queue_empty_state_return_hash': '7bedaeca0f43c5716622c50492355e983d8fbf676a52aa92216e29cd4cfee967',
+ 'forced_queue_empty_state_return_hash': '5d2dedefae83c15a5ed51edff0a17e7287115c363d527cfe5c649b39daea32e6',
  'forced_queue_frontier_selector': '7c339ff7',
  'forced_queue_state_return_length': '320',
  'forced_queue_state_selector': '03e0d70b',
@@ -5054,7 +5122,7 @@ EXPECTED = {'admission_proof_digest': '65a5501dc5440301031bc0d21ac6506ce1f98b226
  'fund_reward_class_v1_calldata_length': '36',
  'fund_reward_class_v1_return_length': '0',
  'fund_reward_class_v1_selector': '15e08308',
- 'funded_data_session_accounting_return_hash': '55cd2bd22ee66b28bc689013b9fc33c299c4d3802f250e67375b1cabbbb1c756',
+ 'funded_data_session_accounting_return_hash': 'a2aa2351d0781561b9778f002a067b80863af007f04f583019896e815b6972a6',
  'initial_fork_registration_return_hash': 'd2044ac981fb5358a1354c6ba4ad2bee5f994361fe188f99099e89ba6b62c6dc',
  'initial_fork_route_state_return_hash': 'ce1242ef9f6de662b939f857e86aa5c8a585bfd78fa3b285d3804b154ac16dbb',
  'initial_fork_verifier_config_return_hash': 'ed485e43081733b49a3da6e22a1d1e54126837f94cb816d888bd29f3d3e12b1c',
@@ -5467,10 +5535,18 @@ if __name__ == "__main__":
         2, tuple((0, forced_descriptor(envs[i])) for i in range(2, 66)),
         (0, forced_descriptor(changed_boundary)))
 
-    queue_config = forced_queue_config_hash(0xAD01, 0xB001)
-    assert queue_config.hex() == actual["forced_queue_config_hash"]
-    assert forced_queue_config_hash(0xAD02, 0xB001) != queue_config
-    assert forced_queue_config_hash(0xAD01, 0xB002) != queue_config
+    queue_config = ForcedQueueConfigV2(**FORCED_QUEUE_CONFIG_FIXTURE_ARGS)
+    assert forced_queue_config_hash(queue_config).hex() == actual["forced_queue_config_hash"]
+    assert forced_queue_config_hash(
+        replace(queue_config, settlement=0xB002)) != forced_queue_config_hash(queue_config)
+    assert forced_queue_config_hash(
+        replace(queue_config, l2_chain_id=16_789)) != forced_queue_config_hash(queue_config)
+    for zeroed in ("settlement", "l2_chain_id", "force_delay",
+                   "max_force_validity_seconds"):
+        assert_rejects(
+            lambda field=zeroed: forced_queue_config_hash(
+                replace(queue_config, **{field: 0})),
+            f"zero ForcedQueue {zeroed} accepted")
     assert FORCED_QUEUE_CONFIG_SELECTOR == bytes.fromhex("8136fe31")
     assert FORCED_QUEUE_STATE_SELECTOR == bytes.fromhex("03e0d70b")
     assert FORCED_QUEUE_FRONTIER_SELECTOR == bytes.fromhex("7c339ff7")

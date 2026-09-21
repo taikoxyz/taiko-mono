@@ -48,8 +48,8 @@ library SlotChainGoldenVectors {
         hex"bd470ac24fe185aca71cff7e8c27944e78baae430628101075916cfb15ffbf0b";
     uint256 internal constant BUILDER_EQUIVOCATION_CALLDATA_LENGTH = 2436;
     bytes32 internal constant BUILDER_EQUIVOCATION_RETURN_HASH =
-        hex"eb9cab44a43adcc764cf488ade4f8e8fab85dab8cab6a5762cd6e3cbd9939eb6";
-    uint256 internal constant BUILDER_EQUIVOCATION_RETURN_LENGTH = 256;
+        hex"fcaa313c4629faefccf8365921d57c60c39226a8ead0d46375066aaa4d61f8cb";
+    uint256 internal constant BUILDER_EQUIVOCATION_RETURN_LENGTH = 288;
     bytes32 internal constant BUILDER_EXPIRE_SCHEDULE_CALLDATA_HASH =
         hex"4f1b5f49458cc8f4f22f9745a61accc177cd37d4412bfadd74c9c5006b9083f5";
     uint256 internal constant BUILDER_EXPIRE_SCHEDULE_CALLDATA_LENGTH = 36;
@@ -104,32 +104,32 @@ library SlotChainGoldenVectors {
         hex"99c130943aa4780be4a2888146d65d62bad146f46ab501c39b38f19a267e667d";
     uint256 internal constant BUILDER_PROOF_ADMISSION_REQUEST_LENGTH = 531;
     bytes32 internal constant BUILDER_PROOF_ADMISSION_RETURN_HASH =
-        hex"3079820b97ad6bad7583cc6cb30ee43305609059f8e84065e1525dc9e24c31a1";
+        hex"cf28cb14abba8c850ef3ab57e04daa0d509f7151fda16cf43b8565b0e95eaa07";
     bytes32 internal constant BUILDER_PROOF_EVIDENCE_ACTIVE_TOMBSTONED_REQUEST_HASH =
-        hex"360f07315cde09617cb4212a97b19f0fda328685d736895ef8c6094012e7cce9";
+        hex"ee5512b2463e0210542cf8eb828155af1350a55233b2b62fdc70ddd349e71779";
     bytes32 internal constant BUILDER_PROOF_EVIDENCE_ACTIVE_TOMBSTONED_RETURN_HASH =
-        hex"85dacb33edf0ea6c19a74451d98362c2450fd2b59e32af6668350b9ead352907";
+        hex"cb5abdc479e27be56ee55b71b2117f66464be6879bb95abee3c81c3649b49f91";
     bytes32 internal constant BUILDER_PROOF_EVIDENCE_CALLDATA_HASH =
-        hex"58b74233e9726648d037a57a88cd38fbccb218a1d29372927de0e0d00e225796";
+        hex"19d0989aa0370f230bd444bf6e0a939b13e82a4ae20d4f7808effd4806c35bde";
     bytes32 internal constant BUILDER_PROOF_EVIDENCE_LIABILITY_FIRST_REQUEST_HASH =
-        hex"38bd6788fb25962a5999192cb1297e2b418c47d813202f9000e2eb18773e0278";
+        hex"efa1540bab4bd531d15ffe972f5f17e2180044d826753c47b9c7bf1e6ff293cd";
     bytes32 internal constant BUILDER_PROOF_EVIDENCE_LIABILITY_FIRST_RETURN_HASH =
-        hex"9f27ea85a06bc785ab2dfbb6c72a416d8250e1751bfa855d459f6647ee7bdff0";
+        hex"22b13b07658cc56c9726d28fa533ceeaa83aeabd906ece1cf2771592e08b968b";
     bytes32 internal constant BUILDER_PROOF_EVIDENCE_LIABILITY_TOMBSTONED_REQUEST_HASH =
-        hex"338141019dd003d9f78753bdaee43182f3975d13a8e6dbf849a3d50646c115f4";
+        hex"b5d06e6424135404f0bdd0947d54b1e8aa44020d391ef32b3f7e2809be1344cb";
     bytes32 internal constant BUILDER_PROOF_EVIDENCE_LIABILITY_TOMBSTONED_RETURN_HASH =
-        hex"0720e4d2652e04c3bc2650eb4f98352e2fdb802ff5a86949b49ca001bcac2850";
+        hex"e365e30b1b1119801867813f82b78b16243a0a5734fbaa6b61c127acb3558748";
     bytes32 internal constant BUILDER_PROOF_EVIDENCE_REQUEST_HASH =
-        hex"536d3467985ad79a2fe9f6e678d99074fcecc5520dbb61726f3aee3dc3f44e12";
+        hex"2c3d0d91e2ec5129f13dd6bc89995fa9443120b49b94bac799d0e7e18fd33f00";
     uint256 internal constant BUILDER_PROOF_EVIDENCE_REQUEST_LENGTH = 2727;
     bytes32 internal constant BUILDER_PROOF_EVIDENCE_RETURN_HASH =
-        hex"86e51e0573d4086a0099a49683b1277bd2df6f087a1884c6bf952854c7e2916f";
+        hex"38fe48ff2340f26b97dcf96c9b2f7ddb79504263f6ca9d5c031d981db5b66a98";
     bytes32 internal constant BUILDER_PROOF_IDENTITY_CALLDATA_HASH =
         hex"0efda928731baac8c13e31a788b6856c167cb3d5cb43cc8460414ddba5c757ff";
     uint256 internal constant BUILDER_PROOF_IDENTITY_CALLDATA_LENGTH = 2468;
     bytes32 internal constant BUILDER_PROOF_IDENTITY_RETURN_HASH =
-        hex"3e2522216063d4d132365c2b2c6547f1dad4e364ce430373da37ccabede24600";
-    uint256 internal constant BUILDER_PROOF_IDENTITY_RETURN_LENGTH = 320;
+        hex"743733693b186704f091e1e5736ae0f380f5b3d596e5f785517200cdfd4e46d8";
+    uint256 internal constant BUILDER_PROOF_IDENTITY_RETURN_LENGTH = 352;
     bytes4 internal constant BUILDER_PROOF_IDENTITY_SELECTOR = hex"7c09d62d";
     bytes32 internal constant BUILDER_PROOF_REGISTRY_CALLDATA_HASH =
         hex"3bc203afce7c1aeb21360ea97544bc6991a216025b5ce2c37e065a4bc1588246";
@@ -137,7 +137,7 @@ library SlotChainGoldenVectors {
         hex"63fa85a7efd66ff4db6c06fdd6dbfa44541d8274c1ca8739daa9796f382ff10a";
     uint256 internal constant BUILDER_PROOF_REGISTRY_REQUEST_LENGTH = 432;
     bytes32 internal constant BUILDER_PROOF_REGISTRY_RETURN_HASH =
-        hex"254f7c15aa1a9533874d6e6409c2ea709f696d80474c8f485c22d355f2ffd3ca";
+        hex"b6bfdd1639eae8c9bc92931a3f9f4003e94facbb024e0c057143ef96b0812d7b";
     bytes4 internal constant BUILDER_PROOF_REQUEST_SELECTOR = hex"a9ca9190";
     bytes32 internal constant BUILDER_PROOF_TRANCHE_CALLDATA_HASH =
         hex"5b5ed9cdd24cab6214555f3c72269b69c17bb2d2f344dbf4c213b9b840ca023c";
@@ -145,11 +145,11 @@ library SlotChainGoldenVectors {
         hex"f565dd15d53c115c993356953af777950dc0408106a85a53501da7b54fdb762d";
     uint256 internal constant BUILDER_PROOF_TRANCHE_REQUEST_LENGTH = 412;
     bytes32 internal constant BUILDER_PROOF_TRANCHE_RETURN_HASH =
-        hex"c5980443c2976303be7176297d57a75020e23dbf0fd9717f384e3a6012264594";
+        hex"bdb8ef492f2577f446427641525c5ce4cfbc07f462e4858d834b9ef9343e44a5";
     bytes32 internal constant BUILDER_PROOF_VERIFIER_CONFIG_HASH =
-        hex"f1a01e067ec17b34e4f190810b2ebedfddd92a125705d2fd60134ce361ffac1a";
+        hex"e3e45065c704e9bdad17d5b1a8de56115576b30d7e4e09d50a3a07aa66aac80b";
     bytes32 internal constant BUILDER_PROOF_VERIFIER_CONFIG_RETURN_HASH =
-        hex"eb1e75edfa0e3c8e1809071f51985fbdc2848eb8f65d7378d979a62b6d1ac862";
+        hex"424eb74a70eb5383c3ca04922b259ce7314377be45a1b10e5dd0c7ab79df6419";
     bytes4 internal constant BUILDER_PROOF_VERIFIER_CONFIG_SELECTOR = hex"0d1c9932";
     bytes4 internal constant BUILDER_REGISTER_BUILDER_SELECTOR = hex"5fc42c69";
     bytes32 internal constant BUILDER_REGISTER_CALLDATA_HASH =
@@ -266,7 +266,7 @@ library SlotChainGoldenVectors {
         hex"30ee2de166c53a480d028e5b94d4f8759dbd84b5f7b6af1f23e0c5889ea17f8c";
     uint256 internal constant DATA_SESSION_ACCOUNTING_RETURN_LENGTH = 512;
     bytes32 internal constant DATA_SESSION_CONFIG_HASH =
-        hex"34595a6d8a662ccfd6df02d62878d8056d9a66e7b437ea8e4ae71547c245befe";
+        hex"c8db58336498ffd3cfaa755c1769d44c6a61f9675d5a0b76d18b30603fc78c7b";
     bytes32 internal constant DATA_SESSIONS_MAINTAINED_TOPIC =
         hex"920669b9670911aa86cd718dceebaa1372d224ca0fdac50a63dc1d45a53e1e89";
     bytes32 internal constant DOMAIN_SEPARATOR =
@@ -280,7 +280,7 @@ library SlotChainGoldenVectors {
     bytes32 internal constant EMPTY_DATA_BAG =
         hex"b3caa2379816b63eebbf789e33e7d84ef29d6d350179803dd000102e8182f66a";
     bytes32 internal constant EMPTY_DATA_SESSION_ACCOUNTING_RETURN_HASH =
-        hex"d67be4bb9b559b619c0324ce0f890e8446e55f420593a63d6eb1739f4dd28e4e";
+        hex"9c469322ff55a06e16032b8017d6190d9e339927e68bb7855d72afc32fdaeab6";
     bytes32 internal constant EMPTY_ENTRY_ROOT =
         hex"986d3e795bd9ddfabe213b93cea0211eea5a663e895bfc112d90c5bf2fff1564";
     bytes32 internal constant EMPTY_FORCED_ROOT =
@@ -323,17 +323,17 @@ library SlotChainGoldenVectors {
     bytes32 internal constant FORCED_QUEUE_CLAIM_WITHDRAWN_TOPIC =
         hex"93cc2e9cd74702c3df0d771c2b1901ca496935e81636c3e6f0e5d7e0d7f5dd74";
     bytes32 internal constant FORCED_QUEUE_CONFIG_HASH =
-        hex"22308d0cff70d354e3a7d3121641c832c08f017f5921bb51e323d73075f5b42e";
+        hex"13b9e677d8e94c70282ac3bd4543a22c77fbffb4e7485178da1f622d0ab08492";
     bytes32 internal constant FORCED_QUEUE_CONFIG_RETURN_HASH =
-        hex"82d2db524021dc52e9290e6788f12ae0ac79a8942ee492f73821a87aac05da55";
-    uint256 internal constant FORCED_QUEUE_CONFIG_RETURN_LENGTH = 256;
+        hex"f79b30bbc63834b3edaea14ca8dd0ffa9af074291da2f61a58c2ffdcf59b4fef";
+    uint256 internal constant FORCED_QUEUE_CONFIG_RETURN_LENGTH = 576;
     bytes4 internal constant FORCED_QUEUE_CONFIG_SELECTOR = hex"8136fe31";
     bytes32 internal constant FORCED_QUEUE_CURSOR_ADVANCED_TOPIC =
         hex"972ed56e80520f8e90eb897f4f0e5b59f1167d96d3b28e0432f80c96c53aff17";
     bytes4 internal constant FORCED_QUEUE_DESCRIPTOR_SELECTOR = hex"bd9534db";
     bytes4 internal constant FORCED_QUEUE_DUE_AT_SELECTOR = hex"530fd138";
     bytes32 internal constant FORCED_QUEUE_EMPTY_STATE_RETURN_HASH =
-        hex"7bedaeca0f43c5716622c50492355e983d8fbf676a52aa92216e29cd4cfee967";
+        hex"5d2dedefae83c15a5ed51edff0a17e7287115c363d527cfe5c649b39daea32e6";
     bytes4 internal constant FORCED_QUEUE_FRONTIER_SELECTOR = hex"7c339ff7";
     uint256 internal constant FORCED_QUEUE_STATE_RETURN_LENGTH = 320;
     bytes4 internal constant FORCED_QUEUE_STATE_SELECTOR = hex"03e0d70b";
@@ -351,7 +351,7 @@ library SlotChainGoldenVectors {
     uint256 internal constant FUND_REWARD_CLASS_V1_RETURN_LENGTH = 0;
     bytes4 internal constant FUND_REWARD_CLASS_V1_SELECTOR = hex"15e08308";
     bytes32 internal constant FUNDED_DATA_SESSION_ACCOUNTING_RETURN_HASH =
-        hex"55cd2bd22ee66b28bc689013b9fc33c299c4d3802f250e67375b1cabbbb1c756";
+        hex"a2aa2351d0781561b9778f002a067b80863af007f04f583019896e815b6972a6";
     bytes32 internal constant INITIAL_FORK_REGISTRATION_RETURN_HASH =
         hex"d2044ac981fb5358a1354c6ba4ad2bee5f994361fe188f99099e89ba6b62c6dc";
     bytes32 internal constant INITIAL_FORK_ROUTE_STATE_RETURN_HASH =

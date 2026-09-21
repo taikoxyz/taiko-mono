@@ -1734,7 +1734,7 @@ def production_blockers(profile: Any) -> tuple[str, ...]:
             continue
         if actual != expected:
             blockers.add(
-                f"{path} must equal the v2 executable constant {expected}"
+                f"{path} must equal the V2 executable constant {expected}"
             )
 
     for path, width in PROFILE_NARROW_NUMERIC_WIDTHS_V2.items():
@@ -1886,15 +1886,172 @@ def builder_registry_configuration_hash_v2(profile: dict) -> bytes:
     )
 
 
-def execution_profile_economic_projection_v2(
-    profile: dict,
-) -> dict[int, bytes]:
-    """Project every reviewed economic value carried by ExecutionProfileV2.
+# The 148 fixed value words of ExecutionProfileV3 in tuple order (the spec's
+# "Exact ABI grammar"); word 148 is the sole dynamic-artifact offset.  The
+# economic projection below is keyed by these names, and the join with an
+# encoded profile derives each word index from this table alone.
+EXECUTION_PROFILE_V3_FIELDS = (
+    # 0..9 core
+    "schemaVersion", "protocolVersion", "settlementChainId", "l2ChainId",
+    "settlementGenesisHash", "l2GenesisHash", "forkDigest", "l2ForkTimestamp",
+    "genesisTimestamp", "manifestNamespace",
+    # 10..21 L1 peer components
+    "forcedQueue", "forcedQueueRuntimeHash", "forcedQueueConfigHash",
+    "builderRegistry", "builderRegistryRuntimeHash",
+    "builderRegistryConfigHash",
+    "scheduleOracle", "scheduleOracleRuntimeHash", "scheduleOracleConfigHash",
+    "aggregatorSeatMarket", "aggregatorSeatMarketRuntimeHash",
+    "aggregatorSeatMarketConfigHash",
+    # 22..30 Settlement implementation artifact
+    "settlementRuntimeHash", "settlementCreationCodeHash", "settlementAbiHash",
+    "settlementStorageLayoutHash", "settlementConstructorSchemaHash",
+    "settlementCompilerBuildHash", "settlementCompileTimeRulesHash",
+    "settlementImmutableReferencesHash", "settlementLinkReferencesHash",
+    # 31..33 L1 history (EIP-2935) pins
+    "l1HistoryStorageAddress", "l1HistoryStorageRuntimeHash",
+    "l1HistoryReadConfigurationHash",
+    # 34..41 sinks
+    "builderLeaseToken", "builderLeaseTokenRuntimeHash",
+    "builderLeaseTokenDecimals", "builderPenaltySink", "dataRentSink",
+    "seatPenaltySink", "forcedExpirySink", "protocolCoinbaseSink",
+    # 42..55 recovery
+    "settlementWindowSeconds", "includeMaxSeconds", "finalLagSeconds",
+    "tipLagSeconds", "proveMaxSeconds", "l1FinalityBlocks", "depthMaxSeconds",
+    "clockSkewSeconds", "escapeOffsetSeconds", "forceDelaySeconds",
+    "maximumParentGapSlots", "maximumForceValiditySeconds",
+    "evidenceDelaySeconds", "reorgMarginSeconds",
+    # 56..70 seat values
+    "seatRunwaySeconds", "minimumPrimaryTenureSeconds",
+    "minimumStandbyTenureSeconds", "handoverDelaySeconds", "stageGraceSeconds",
+    "exitDelaySeconds", "recoveryLagSeconds", "slashLagSeconds",
+    "premiumClaimDelaySeconds", "reorgStabilitySeconds",
+    "releaseChallengeSeconds", "maximumAskWeiPerSecond", "seatSlaBondWei",
+    "maximumAvoidedServiceCostWei", "collusionSafetyMarginWei",
+    # 71..76 DataSession values
+    "dataSessionBondWei", "dataSessionBaseRentWei",
+    "dataSessionRentPerPublishedByteWei", "dataSessionBlobBaseFeeMultiplierBps",
+    "dataSessionMaximumTtlSeconds", "dataSessionRefundClaimWindowSeconds",
+    # 77..81 L1 read-gas values
+    "settlementStateReadGas", "seatMarketStateReadGas", "seatTermRecordReadGas",
+    "seatDutyRecordReadGas", "componentConfigurationReadGas",
+    # 82..98 compile-time rules
+    "slotSeconds", "scheduleWindowSlots", "seatCount", "dutyRingCapacity",
+    "forceTreeDepth", "dataMmrDepth", "dataSessionCellCount",
+    "maximumDataSessionsPerOwner", "maximumDataRecordsPerSession",
+    "maximumGcSteps", "maximumBlobsPerPost", "pointEvaluationPrecompile",
+    "pointEvaluationGas", "blsModulus", "blobGasUsed",
+    "maximumBlobPayloadBytes", "maximumBlobChunkCount",
+    # 99..104 L1 resource policy and forced-queue fee schedule
+    "supportedL1BlockGasLimit", "fixedIngressWei",
+    "executionWeiPerAccountedGas", "proofWeiPerAccountedGas",
+    "permanentWeiPerByte", "maximumAcceptedFeeWei",
+    # 105..123 execution
+    "l2BlockGasLimit", "baseFeeElasticity", "baseFeeChangeDenominator",
+    "blobTarget", "blobUpdateFraction", "emptyOmmersHash",
+    "emptyTransactionsRoot", "emptyWithdrawalsRoot", "emptyRequestsHash",
+    "l1HistoryFirstSupportedBlock", "l2HistoryStorageRuntimeHash",
+    "l2HistoryStorageActivationBlock", "l2BeaconRootsRuntimeHash",
+    "l2BeaconRootsActivationTimestamp", "l2BeaconRootsReadConfigurationHash",
+    "headerRulesHash", "forcedInputRulesHash", "stateTransitionAbiHash",
+    "legacyExecutionRulesHash",
+    # 124..137 seat wire and calibrated economics
+    "quoteMaturitySeconds", "quoteMaturityBlocks", "seatMarketMutationCallGas",
+    "seatMutationIntentReadGas", "seatLineupWireReadGas",
+    "seatInstallRecordReadGas", "seatMarketPostReadReserveGas",
+    "seatWirePostCallReserveGas", "seatDutyHistorySafeReadGas",
+    "seatSuccessorReceiptReadGas", "maximumStandbyLeaseSeconds",
+    "minimumAskImprovementWeiPerSecond", "minimumAskImprovementBps",
+    "economicProfileHash",
+    # 138..147 Settlement validity verifier
+    "settlementValidityVerifier", "settlementValidityVerifierRuntimeHash",
+    "settlementValidityVerifierConfigurationHash",
+    "settlementValidityVerifyingKeyHash", "settlementValidityProofSystemId",
+    "settlementValidityPublicInputSchemaHash",
+    "settlementValidityVerifierSelector", "settlementValidityMaximumProofBytes",
+    "settlementValidityVerificationGas",
+    "settlementValidityPostVerificationReserveGas",
+)
+EXECUTION_PROFILE_V3_VALUE_WORDS = 148
+EXECUTION_PROFILE_V3_WORD_INDEX = {
+    name: index for index, name in enumerate(EXECUTION_PROFILE_V3_FIELDS)
+}
+assert len(EXECUTION_PROFILE_V3_FIELDS) == EXECUTION_PROFILE_V3_VALUE_WORDS
+assert len(EXECUTION_PROFILE_V3_WORD_INDEX) == EXECUTION_PROFILE_V3_VALUE_WORDS
 
-    Release tooling uses this projection as a one-way join: the canonical JSON
-    is hashed once, while every duplicated on-chain field must equal the value
-    in that same calibrated object.  A nonzero but unrelated word-266 hash is
-    therefore insufficient.
+
+# Every ExecutionProfileV3 value word whose content is a plain JSON leaf of
+# the economic profile, keyed by profile field name (see the spec's field
+# order for the word index of each name).
+_EXECUTION_PROFILE_V3_NUMERIC_PATHS = {
+    "settlementWindowSeconds": "recovery.settlementWindowSeconds",
+    "finalLagSeconds": "recovery.finalLagSeconds",
+    "tipLagSeconds": "recovery.tipLagSeconds",
+    "proveMaxSeconds": "recovery.proofTimeMaxSeconds",
+    "l1FinalityBlocks": "recovery.l1FinalityBlocks",
+    "depthMaxSeconds": "recovery.depthTimeMaxSeconds",
+    "clockSkewSeconds": "recovery.clockSkewSeconds",
+    "escapeOffsetSeconds": "recovery.escapeOffsetSeconds",
+    "forceDelaySeconds": "recovery.forceDelaySeconds",
+    "maximumParentGapSlots": "geometry.maximumParentGapSlots",
+    "maximumForceValiditySeconds": "forcedEnvelope.maximumValiditySeconds",
+    "reorgMarginSeconds": "builder.reorgMarginSeconds",
+    "seatRunwaySeconds": "seat.seatRunwaySeconds",
+    "minimumPrimaryTenureSeconds": "seat.minimumPrimaryTenureSeconds",
+    "minimumStandbyTenureSeconds": "seat.minimumStandbyTenureSeconds",
+    "handoverDelaySeconds": "seat.handoverDelaySeconds",
+    "stageGraceSeconds": "seat.stageGraceSeconds",
+    "exitDelaySeconds": "seat.exitDelaySeconds",
+    "recoveryLagSeconds": "seat.recoveryLagSeconds",
+    "slashLagSeconds": "seat.slashLagSeconds",
+    "premiumClaimDelaySeconds": "seat.premiumClaimDelaySeconds",
+    "reorgStabilitySeconds": "seat.reorgStabilitySeconds",
+    "releaseChallengeSeconds": "seat.releaseChallengeSeconds",
+    "maximumAskWeiPerSecond": "seat.maximumAskWeiPerSecond",
+    "seatSlaBondWei": "seat.slaBondWei",
+    "maximumAvoidedServiceCostWei": "seat.maximumAvoidedServiceCostWei",
+    "collusionSafetyMarginWei": "seat.collusionSafetyMarginWei",
+    "dataSessionBondWei": "dataSession.refundableBondWei",
+    "dataSessionBaseRentWei": "dataSession.baseRentWei",
+    "dataSessionRentPerPublishedByteWei": "dataSession.rentPerPublishedByteWei",
+    "dataSessionBlobBaseFeeMultiplierBps": "dataSession.blobBaseFeeMultiplierBps",
+    "dataSessionMaximumTtlSeconds": "dataSession.ttlSeconds",
+    "dataSessionRefundClaimWindowSeconds": "dataSession.refundClaimWindowSeconds",
+    "slotSeconds": "geometry.slotSeconds",
+    "scheduleWindowSlots": "geometry.windowSlots",
+    "seatCount": "geometry.seatCount",
+    "forceTreeDepth": "forcedEnvelope.queueDepth",
+    "dataSessionCellCount": "dataSession.maximumLiveSessions",
+    "maximumDataSessionsPerOwner": "dataSession.maximumLiveSessionsPerOwner",
+    "maximumDataRecordsPerSession": "dataSession.maximumRecordsPerSession",
+    "maximumGcSteps": "dataSession.maximumGcSteps",
+    "maximumBlobsPerPost": "dataSession.maximumBlobsPerPost",
+    "fixedIngressWei": "forcedEnvelope.fixedIngressWei",
+    "executionWeiPerAccountedGas": "forcedEnvelope.executionWeiPerAccountedGas",
+    "proofWeiPerAccountedGas": "forcedEnvelope.proofWeiPerAccountedGas",
+    "permanentWeiPerByte": "forcedEnvelope.permanentWeiPerByte",
+    "maximumAcceptedFeeWei": "forcedEnvelope.maximumAcceptedFeeWei",
+    "l2BlockGasLimit": "gasProfile.l2BlockGas",
+    "quoteMaturitySeconds": "seat.quoteMaturitySeconds",
+    "quoteMaturityBlocks": "seat.quoteMaturityBlocks",
+    "maximumStandbyLeaseSeconds": "seat.maximumStandbyLeaseSeconds",
+    "minimumAskImprovementWeiPerSecond": "seat.minimumAskImprovementWeiPerSecond",
+    "minimumAskImprovementBps": "seat.minimumAskImprovementBps",
+}
+assert set(_EXECUTION_PROFILE_V3_NUMERIC_PATHS) <= EXECUTION_PROFILE_V3_WORD_INDEX.keys()
+
+
+def execution_profile_economic_projection_v3(
+    profile: dict,
+) -> dict[str, bytes]:
+    """Project every reviewed economic value carried by ExecutionProfileV3.
+
+    The result is keyed by ExecutionProfileV3 field name; the word index of
+    each name is ``EXECUTION_PROFILE_V3_WORD_INDEX[name]``.  Release tooling
+    uses this projection as a one-way join: the canonical JSON is hashed once,
+    while every duplicated on-chain field must equal the value in that same
+    calibrated object.  A nonzero but unrelated ``economicProfileHash`` word
+    (137) is therefore insufficient, and so is a registry configuration hash
+    (word 15) not derived from the same object.
     """
 
     blockers = production_blockers(profile)
@@ -1928,107 +2085,64 @@ def execution_profile_economic_projection_v2(
     if len(include_values) != 1 or len(evidence_values) != 1:
         raise ValueError("duplicated economic clocks disagree")
 
-    numeric_paths = {
-        72: "recovery.settlementWindowSeconds",
-        74: "recovery.finalLagSeconds",
-        75: "recovery.tipLagSeconds",
-        76: "recovery.proofTimeMaxSeconds",
-        77: "recovery.l1FinalityBlocks",
-        78: "recovery.depthTimeMaxSeconds",
-        79: "recovery.clockSkewSeconds",
-        80: "recovery.escapeOffsetSeconds",
-        81: "recovery.forceDelaySeconds",
-        82: "geometry.maximumParentGapSlots",
-        83: "forcedEnvelope.maximumValiditySeconds",
-        85: "builder.reorgMarginSeconds",
-        86: "seat.seatRunwaySeconds",
-        87: "seat.minimumPrimaryTenureSeconds",
-        88: "seat.minimumStandbyTenureSeconds",
-        89: "seat.handoverDelaySeconds",
-        90: "seat.stageGraceSeconds",
-        91: "seat.exitDelaySeconds",
-        92: "seat.recoveryLagSeconds",
-        93: "seat.slashLagSeconds",
-        94: "seat.premiumClaimDelaySeconds",
-        95: "seat.reorgStabilitySeconds",
-        96: "seat.releaseChallengeSeconds",
-        97: "seat.maximumAskWeiPerSecond",
-        98: "seat.slaBondWei",
-        99: "seat.maximumAvoidedServiceCostWei",
-        100: "seat.collusionSafetyMarginWei",
-        101: "dataSession.refundableBondWei",
-        102: "dataSession.baseRentWei",
-        103: "dataSession.rentPerPublishedByteWei",
-        104: "dataSession.blobBaseFeeMultiplierBps",
-        105: "dataSession.ttlSeconds",
-        106: "dataSession.refundClaimWindowSeconds",
-        118: "geometry.slotSeconds",
-        119: "geometry.windowSlots",
-        120: "geometry.seatCount",
-        122: "forcedEnvelope.queueDepth",
-        124: "dataSession.maximumLiveSessions",
-        125: "dataSession.maximumLiveSessionsPerOwner",
-        126: "dataSession.maximumRecordsPerSession",
-        127: "dataSession.maximumGcSteps",
-        128: "dataSession.maximumBlobsPerPost",
-        129: "geometry.canonicalHistoryCells",
-        230: "forcedEnvelope.fixedIngressWei",
-        231: "forcedEnvelope.executionWeiPerAccountedGas",
-        232: "forcedEnvelope.proofWeiPerAccountedGas",
-        233: "forcedEnvelope.permanentWeiPerByte",
-        234: "forcedEnvelope.maximumAcceptedFeeWei",
-        235: "gasProfile.l2BlockGas",
-        252: "seat.quoteMaturitySeconds",
-        253: "seat.quoteMaturityBlocks",
-        263: "seat.maximumStandbyLeaseSeconds",
-        264: "seat.minimumAskImprovementWeiPerSecond",
-        265: "seat.minimumAskImprovementBps",
-    }
     projection = {
-        index: word(_at(profile, path))
-        for index, path in numeric_paths.items()
+        name: word(_at(profile, path))
+        for name, path in _EXECUTION_PROFILE_V3_NUMERIC_PATHS.items()
     }
     chain_id = _at(profile, "assets.nativeCustody.chainId")
     if chain_id != _at(profile, "assets.builderLease.chainId"):
         raise ValueError("economic asset chain IDs disagree")
     projection.update({
-        2: word(chain_id),
-        31: builder_registry_configuration_hash_v2(profile),
-        63: address("assets.builderLease.address"),
-        64: hash_word("assets.builderLease.runtimeHash"),
-        65: word(_at(profile, "assets.builderLease.decimals")),
-        66: address("sinks.builderPenalty.address"),
-        67: address("sinks.dataRent.address"),
-        68: address("sinks.seatPenalty.address"),
-        69: address("sinks.forcedExpiry.address"),
-        70: address("sinks.bridgeSurplus.address"),
-        73: word(next(iter(include_values))),
-        84: word(next(iter(evidence_values))),
-        266: economic_profile_hash_v2(profile),
+        "settlementChainId": word(chain_id),
+        "builderRegistryConfigHash": builder_registry_configuration_hash_v2(profile),
+        "builderLeaseToken": address("assets.builderLease.address"),
+        "builderLeaseTokenRuntimeHash": hash_word("assets.builderLease.runtimeHash"),
+        "builderLeaseTokenDecimals": word(_at(profile, "assets.builderLease.decimals")),
+        "builderPenaltySink": address("sinks.builderPenalty.address"),
+        "dataRentSink": address("sinks.dataRent.address"),
+        "seatPenaltySink": address("sinks.seatPenalty.address"),
+        "forcedExpirySink": address("sinks.forcedExpiry.address"),
+        "protocolCoinbaseSink": address("sinks.protocolCoinbase.address"),
+        "includeMaxSeconds": word(next(iter(include_values))),
+        "evidenceDelaySeconds": word(next(iter(evidence_values))),
+        "economicProfileHash": economic_profile_hash_v2(profile),
     })
+    if not set(projection) <= EXECUTION_PROFILE_V3_WORD_INDEX.keys():
+        raise AssertionError("projection names an unknown ExecutionProfileV3 word")
     return projection
 
 
 def execution_profile_economic_binding_blockers(
     profile: Any, execution_profile_words: Any,
 ) -> tuple[str, ...]:
-    """Return exact release blockers for the JSON/ExecutionProfileV2 join."""
+    """Return exact release blockers for the JSON/ExecutionProfileV3 join.
+
+    ``execution_profile_words`` is the sequence of 32-byte ABI words of the
+    encoded profile head: the 148 value words, optionally followed by the
+    dynamic-artifact offset word (149 words).
+    """
 
     try:
-        expected = execution_profile_economic_projection_v2(profile)
+        expected = execution_profile_economic_projection_v3(profile)
     except (KeyError, TypeError, ValueError, OverflowError):
         return ("economic profile projection is unavailable",)
     if (
         not isinstance(execution_profile_words, (tuple, list))
-        or len(execution_profile_words) not in (281, 282)
+        or len(execution_profile_words) not in (
+            EXECUTION_PROFILE_V3_VALUE_WORDS, EXECUTION_PROFILE_V3_VALUE_WORDS + 1
+        )
         or any(type(item) is not bytes or len(item) != 32
                for item in execution_profile_words)
     ):
-        return ("ExecutionProfileV2 words are malformed",)
+        return ("ExecutionProfileV3 words are malformed",)
     return tuple(
-        f"ExecutionProfileV2 word {index} differs from the economic profile"
-        for index, value in sorted(expected.items())
-        if execution_profile_words[index] != value
+        f"ExecutionProfileV3 word {EXECUTION_PROFILE_V3_WORD_INDEX[name]} "
+        f"({name}) differs from the economic profile"
+        for name, value in sorted(
+            expected.items(),
+            key=lambda item: EXECUTION_PROFILE_V3_WORD_INDEX[item[0]],
+        )
+        if execution_profile_words[EXECUTION_PROFILE_V3_WORD_INDEX[name]] != value
     )
 
 

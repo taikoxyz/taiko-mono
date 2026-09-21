@@ -159,7 +159,7 @@ const requiredRound4Lengths = {
     builder_claim_credit_calldata_length: "36",
     builder_claim_credit_return_length: "96",
     builder_equivocation_calldata_length: "2436",
-    builder_equivocation_return_length: "256",
+    builder_equivocation_return_length: "288",
     builder_expire_schedule_calldata_length: "36",
     builder_expire_schedule_return_length: "96",
     builder_generation_release_witness_length: "352",

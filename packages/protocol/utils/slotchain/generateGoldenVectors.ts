@@ -386,7 +386,7 @@ export function main(args: string[]): void {
     );
     if (
         !normalOutput.includes(
-            "RESULTS: commitment encoding model — ALL 323 GOLDEN VECTORS / 416 ASSERTION SITES PASS",
+            "RESULTS: commitment encoding model — ALL 323 GOLDEN VECTORS / 419 ASSERTION SITES PASS",
         )
     ) {
         fail(

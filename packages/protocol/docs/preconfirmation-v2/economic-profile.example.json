@@ -39,7 +39,6 @@
     "maximumCandidateForcedBytes": 4194304,
     "maximumCandidateForcedGas": 80000000,
     "maximumEarlySealWindows": 8,
-    "canonicalHistoryCells": 256,
     "eip2935HistoryBlocks": 8191,
     "maximumArmAgeBlocks": 255,
     "seatCount": 4,
@@ -84,10 +83,7 @@
   },
   "gasProfile": {
     "l2BlockGas": 30000000,
-    "steadyAnchorGas": 1000000,
     "steadyForcedGas": 20000000,
-    "activationAnchorGas": 12000000,
-    "activationForcedGas": 13000000,
     "systemMarginGas": 5000000,
     "minimumForceAccountedGas": 21000
   },
@@ -120,23 +116,6 @@
     "queueDepth": 64,
     "maximumQueueCount": "18446744073709551615",
     "maximumRangeProofHashes": 257
-  },
-  "bridge": {
-    "maximumEnqueueDelaySeconds": 604800,
-    "processTtlSeconds": 2592000,
-    "supportFinalityBlocks": 214,
-    "maximumDomainEntriesPerRelease": 64,
-    "refundCapsuleWords": 256,
-    "refundErc721Ids": 256,
-    "refundErc1155Pairs": 128,
-    "terminalAccumulatorDepth": 64,
-    "maximumTerminalCount": "18446744073709551615",
-    "registrationProofMaximumNodesPerPath": 65,
-    "registrationProofPathCount": 2,
-    "registrationProofMaximumTotalNodes": 130,
-    "registrationProofMaximumNodeBytes": 600,
-    "registrationProofMaximumBytes": 78264,
-    "registrationProofMaximumGas": 11000000
   },
   "seat": {
     "slaBondWei": null,
@@ -184,7 +163,7 @@
       "asset": "NATIVE_ETH",
       "address": null
     },
-    "bridgeSurplus": {
+    "protocolCoinbase": {
       "asset": "NATIVE_ETH",
       "address": null
     }

@@ -112,12 +112,12 @@
   {
     "kind": "hex",
     "name": "builder_equivocation_return_hash",
-    "value": "eb9cab44a43adcc764cf488ade4f8e8fab85dab8cab6a5762cd6e3cbd9939eb6"
+    "value": "fcaa313c4629faefccf8365921d57c60c39226a8ead0d46375066aaa4d61f8cb"
   },
   {
     "kind": "uint",
     "name": "builder_equivocation_return_length",
-    "value": "256"
+    "value": "288"
   },
   {
     "kind": "hex",
@@ -293,47 +293,47 @@
   {
     "kind": "hex",
     "name": "builder_proof_admission_return_hash",
-    "value": "3079820b97ad6bad7583cc6cb30ee43305609059f8e84065e1525dc9e24c31a1"
+    "value": "cf28cb14abba8c850ef3ab57e04daa0d509f7151fda16cf43b8565b0e95eaa07"
   },
   {
     "kind": "hex",
     "name": "builder_proof_evidence_active_tombstoned_request_hash",
-    "value": "360f07315cde09617cb4212a97b19f0fda328685d736895ef8c6094012e7cce9"
+    "value": "ee5512b2463e0210542cf8eb828155af1350a55233b2b62fdc70ddd349e71779"
   },
   {
     "kind": "hex",
     "name": "builder_proof_evidence_active_tombstoned_return_hash",
-    "value": "85dacb33edf0ea6c19a74451d98362c2450fd2b59e32af6668350b9ead352907"
+    "value": "cb5abdc479e27be56ee55b71b2117f66464be6879bb95abee3c81c3649b49f91"
   },
   {
     "kind": "hex",
     "name": "builder_proof_evidence_calldata_hash",
-    "value": "58b74233e9726648d037a57a88cd38fbccb218a1d29372927de0e0d00e225796"
+    "value": "19d0989aa0370f230bd444bf6e0a939b13e82a4ae20d4f7808effd4806c35bde"
   },
   {
     "kind": "hex",
     "name": "builder_proof_evidence_liability_first_request_hash",
-    "value": "38bd6788fb25962a5999192cb1297e2b418c47d813202f9000e2eb18773e0278"
+    "value": "efa1540bab4bd531d15ffe972f5f17e2180044d826753c47b9c7bf1e6ff293cd"
   },
   {
     "kind": "hex",
     "name": "builder_proof_evidence_liability_first_return_hash",
-    "value": "9f27ea85a06bc785ab2dfbb6c72a416d8250e1751bfa855d459f6647ee7bdff0"
+    "value": "22b13b07658cc56c9726d28fa533ceeaa83aeabd906ece1cf2771592e08b968b"
   },
   {
     "kind": "hex",
     "name": "builder_proof_evidence_liability_tombstoned_request_hash",
-    "value": "338141019dd003d9f78753bdaee43182f3975d13a8e6dbf849a3d50646c115f4"
+    "value": "b5d06e6424135404f0bdd0947d54b1e8aa44020d391ef32b3f7e2809be1344cb"
   },
   {
     "kind": "hex",
     "name": "builder_proof_evidence_liability_tombstoned_return_hash",
-    "value": "0720e4d2652e04c3bc2650eb4f98352e2fdb802ff5a86949b49ca001bcac2850"
+    "value": "e365e30b1b1119801867813f82b78b16243a0a5734fbaa6b61c127acb3558748"
   },
   {
     "kind": "hex",
     "name": "builder_proof_evidence_request_hash",
-    "value": "536d3467985ad79a2fe9f6e678d99074fcecc5520dbb61726f3aee3dc3f44e12"
+    "value": "2c3d0d91e2ec5129f13dd6bc89995fa9443120b49b94bac799d0e7e18fd33f00"
   },
   {
     "kind": "uint",
@@ -343,7 +343,7 @@
   {
     "kind": "hex",
     "name": "builder_proof_evidence_return_hash",
-    "value": "86e51e0573d4086a0099a49683b1277bd2df6f087a1884c6bf952854c7e2916f"
+    "value": "38fe48ff2340f26b97dcf96c9b2f7ddb79504263f6ca9d5c031d981db5b66a98"
   },
   {
     "kind": "hex",
@@ -358,12 +358,12 @@
   {
     "kind": "hex",
     "name": "builder_proof_identity_return_hash",
-    "value": "3e2522216063d4d132365c2b2c6547f1dad4e364ce430373da37ccabede24600"
+    "value": "743733693b186704f091e1e5736ae0f380f5b3d596e5f785517200cdfd4e46d8"
   },
   {
     "kind": "uint",
     "name": "builder_proof_identity_return_length",
-    "value": "320"
+    "value": "352"
   },
   {
     "kind": "hex",
@@ -388,7 +388,7 @@
   {
     "kind": "hex",
     "name": "builder_proof_registry_return_hash",
-    "value": "254f7c15aa1a9533874d6e6409c2ea709f696d80474c8f485c22d355f2ffd3ca"
+    "value": "b6bfdd1639eae8c9bc92931a3f9f4003e94facbb024e0c057143ef96b0812d7b"
   },
   {
     "kind": "hex",
@@ -413,17 +413,17 @@
   {
     "kind": "hex",
     "name": "builder_proof_tranche_return_hash",
-    "value": "c5980443c2976303be7176297d57a75020e23dbf0fd9717f384e3a6012264594"
+    "value": "bdb8ef492f2577f446427641525c5ce4cfbc07f462e4858d834b9ef9343e44a5"
   },
   {
     "kind": "hex",
     "name": "builder_proof_verifier_config_hash",
-    "value": "f1a01e067ec17b34e4f190810b2ebedfddd92a125705d2fd60134ce361ffac1a"
+    "value": "e3e45065c704e9bdad17d5b1a8de56115576b30d7e4e09d50a3a07aa66aac80b"
   },
   {
     "kind": "hex",
     "name": "builder_proof_verifier_config_return_hash",
-    "value": "eb1e75edfa0e3c8e1809071f51985fbdc2848eb8f65d7378d979a62b6d1ac862"
+    "value": "424eb74a70eb5383c3ca04922b259ce7314377be45a1b10e5dd0c7ab79df6419"
   },
   {
     "kind": "hex",
@@ -758,7 +758,7 @@
   {
     "kind": "hex",
     "name": "data_session_config_hash",
-    "value": "34595a6d8a662ccfd6df02d62878d8056d9a66e7b437ea8e4ae71547c245befe"
+    "value": "c8db58336498ffd3cfaa755c1769d44c6a61f9675d5a0b76d18b30603fc78c7b"
   },
   {
     "kind": "hex",
@@ -793,7 +793,7 @@
   {
     "kind": "hex",
     "name": "empty_data_session_accounting_return_hash",
-    "value": "d67be4bb9b559b619c0324ce0f890e8446e55f420593a63d6eb1739f4dd28e4e"
+    "value": "9c469322ff55a06e16032b8017d6190d9e339927e68bb7855d72afc32fdaeab6"
   },
   {
     "kind": "hex",
@@ -908,17 +908,17 @@
   {
     "kind": "hex",
     "name": "forced_queue_config_hash",
-    "value": "22308d0cff70d354e3a7d3121641c832c08f017f5921bb51e323d73075f5b42e"
+    "value": "13b9e677d8e94c70282ac3bd4543a22c77fbffb4e7485178da1f622d0ab08492"
   },
   {
     "kind": "hex",
     "name": "forced_queue_config_return_hash",
-    "value": "82d2db524021dc52e9290e6788f12ae0ac79a8942ee492f73821a87aac05da55"
+    "value": "f79b30bbc63834b3edaea14ca8dd0ffa9af074291da2f61a58c2ffdcf59b4fef"
   },
   {
     "kind": "uint",
     "name": "forced_queue_config_return_length",
-    "value": "256"
+    "value": "576"
   },
   {
     "kind": "hex",
@@ -943,7 +943,7 @@
   {
     "kind": "hex",
     "name": "forced_queue_empty_state_return_hash",
-    "value": "7bedaeca0f43c5716622c50492355e983d8fbf676a52aa92216e29cd4cfee967"
+    "value": "5d2dedefae83c15a5ed51edff0a17e7287115c363d527cfe5c649b39daea32e6"
   },
   {
     "kind": "hex",
@@ -1005,7 +1005,7 @@
   {
     "kind": "hex",
     "name": "funded_data_session_accounting_return_hash",
-    "value": "55cd2bd22ee66b28bc689013b9fc33c299c4d3802f250e67375b1cabbbb1c756"
+    "value": "a2aa2351d0781561b9778f002a067b80863af007f04f583019896e815b6972a6"
   },
   {
     "kind": "hex",

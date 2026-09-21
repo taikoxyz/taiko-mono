@@ -44,10 +44,14 @@ abstract contract BuilderRegistryStorageV1 {
     uint64 internal _lastManagedWindow;
     address internal _builderPenaltySink;
     uint64 internal _rewardClaimWindowSeconds;
+    // Holds the constructor-pinned `settlement` (the L1 Inbox proxy). The label is retained
+    // verbatim because the layout digest covers labels; no router exists in the v3.0 design.
     address internal _activeSettlementRouter;
     address internal _scheduleOracle;
 
     bytes32 internal _builderLeaseTokenRuntimeHash;
+    // Retained always-zero words: the Settlement and ScheduleOracle proxies are pinned by
+    // address only, so no runtime or configuration hash is written here.
     bytes32 internal _routerRuntimeHash;
     bytes32 internal _routerConfigurationHash;
     bytes32 internal _scheduleOracleRuntimeHash;

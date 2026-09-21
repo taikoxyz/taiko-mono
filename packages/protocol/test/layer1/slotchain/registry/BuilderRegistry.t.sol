@@ -935,7 +935,7 @@ contract BuilderRegistryTest is BuilderRegistryTestBase {
             BuilderRegistryMerkleTracker.emptyRegistryTree();
         BuilderRegistryMerkleTracker.Tree memory admissionTree =
             BuilderRegistryMerkleTracker.emptyAdmissionTree();
-        uint64 lastManagedWindow = uint64(uint256(_word(_configBytes(), 12)));
+        uint64 lastManagedWindow = uint64(uint256(_word(_configBytes(), 13)));
         uint256 entryDelaySlots = uint256(8) * 384;
         uint256 lastEligibleSlot = (uint256(lastManagedWindow) + 1) * 384 - 1 - entryDelaySlots;
         vm.warp(uint256(GENESIS) + lastEligibleSlot);
@@ -1317,11 +1317,13 @@ contract BuilderRegistryTest is BuilderRegistryTestBase {
         registry.reserveBuilderWindowV1(0, CURRENT_WINDOW, hex"00");
         assertEq(_stateDigest(builder), beforeDigest);
 
-        // Recovery mode (2) admits reservations exactly like NORMAL.
+        // Recovery mode (2) passes the SST1 gate exactly like NORMAL: the reservation proceeds
+        // to witness validation instead of rejecting on the Settlement mode.
         settlement.setResponse(SETTLEMENT_STATE_SELECTOR, _settlementState(PROTOCOL_VERSION, 2));
+        vm.expectRevert(BuilderRegistry.InvalidReservationWitness.selector);
         vm.prank(builder);
-        (bytes4 magic,,,,) = registry.reserveBuilderWindowV1(0, CURRENT_WINDOW, hex"00");
-        assertEq(magic, BRV1);
+        registry.reserveBuilderWindowV1(0, CURRENT_WINDOW, hex"00");
+        assertEq(_stateDigest(builder), beforeDigest);
     }
 
     function test_reservationReadsSettlementStateAndRollsBackEveryBoundedPeerFault() external {
@@ -1577,7 +1579,7 @@ contract BuilderRegistryTest is BuilderRegistryTestBase {
         );
 
         vm.warp(uint256(_context.tranche.liableUntil) + 1);
-        uint64 lastManagedWindow = uint64(uint256(_word(_configBytes(), 12)));
+        uint64 lastManagedWindow = uint64(uint256(_word(_configBytes(), 13)));
         bytes32 beforeSemanticRejects = _stateDigest(_context.builder);
         schedule.setResponse(
             SCHEDULE_WINDOW_RELEASE_SELECTOR,
@@ -1685,7 +1687,7 @@ contract BuilderRegistryTest is BuilderRegistryTestBase {
         vm.expectRevert(BuilderRegistry.InvalidNormalizationWitness.selector);
         registry.normalizeBuilderTranchesV1(builder, 0, hex"0000");
 
-        uint64 lastManagedWindow = uint64(uint256(_word(_configBytes(), 12)));
+        uint64 lastManagedWindow = uint64(uint256(_word(_configBytes(), 13)));
         vm.warp(uint256(GENESIS) + uint256(lastManagedWindow + 1) * 384);
         schedule.setResponse(
             SCHEDULE_WINDOW_RELEASE_SELECTOR,
@@ -1725,7 +1727,7 @@ contract BuilderRegistryTest is BuilderRegistryTestBase {
             BuilderRegistryMerkleTracker.emptyTrancheTree();
         builder_ = vm.addr(1);
         _registerVacant(registryTree, admissionTree, trancheTree, builder_, LEASE, 0, 0);
-        uint64 lastManagedWindow = uint64(uint256(_word(_configBytes(), 12)));
+        uint64 lastManagedWindow = uint64(uint256(_word(_configBytes(), 13)));
         vm.warp(uint256(GENESIS) + uint256(lastManagedWindow + 1) * 384);
         bytes memory witness = bytes.concat(
             BuilderRegistryMerkleTracker.encodeProof(registryTree.proof(0)),
