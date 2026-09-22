@@ -446,8 +446,8 @@ contract ERC20Vault is BaseVault {
         // Don't send the tokens back to `from` because `from` is on the source chain.
         checkToAddressOnDestChain(to);
 
-        // Release the tokens to `to`, debit the quota for exactly what was released, then forward
-        // the Ether that came with the message.
+        // Release the tokens to `to`, debit the quota for the amount the vault let go of, then
+        // forward the Ether that came with the message.
         address token = _transferTokens(ctoken, to, amount);
         _consumeTokenQuota(token, amount);
         to.sendEtherAndVerify(msg.value);
@@ -533,9 +533,10 @@ contract ERC20Vault is BaseVault {
 
     /// @dev Consumes a given amount of token quota from the quota manager; reverts if quota is
     /// insufficient. `onMessageInvocation` calls it right after `_transferTokens`, so quota is
-    /// debited exactly when tokens are actually delivered, and a `QM_OUT_OF_QUOTA` revert rolls
-    /// back the whole delivery atomically: the token transfer/mint is undone and no partial state
-    /// remains. Integrators driving this flow externally (or via a custom vault) must expect the
+    /// debited exactly when tokens are actually delivered, for the amount the vault transferred or
+    /// minted (a fee-on-transfer token may hand the recipient less; the quota meters the vault's
+    /// outflow, not the recipient's net), and a `QM_OUT_OF_QUOTA` revert rolls back the whole
+    /// delivery atomically: the token transfer/mint is undone and no partial state remains. Integrators driving this flow externally (or via a custom vault) must expect the
     /// entire delivery to revert when quota is exhausted, never a partial one. Skips the external
     /// call when nothing is released (`_amount == 0`).
     /// @param _token The token address.
