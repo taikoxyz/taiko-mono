@@ -27,7 +27,7 @@ contract TestBridge2Base is CommonTest {
         _;
     }
 
-    function setUpOnEthereum() internal virtual override {
+    function setUpOnEthereum() internal override {
         eSignalService = _deployMockSignalService();
         eBridge = deployBridge(
             address(
@@ -47,7 +47,7 @@ contract TestBridge2Base is CommonTest {
         return address(0);
     }
 
-    function setUpOnTaiko() internal virtual override {
+    function setUpOnTaiko() internal override {
         register("bridge", tBridge);
     }
 
@@ -60,42 +60,5 @@ contract TestBridge2Base is CommonTest {
         return deploySignalServiceWithoutProof(
             address(this), address(uint160(uint256(keccak256("REMOTE_SIGNAL_SERVICE_E")))), deployer
         );
-    }
-
-    /// @dev A minimal L1 -> L2 Ether message owned by `_owner`, as sent (and possibly recalled)
-    /// on Ethereum. It carries no fee and no gas limit, so only the owner can process it on Taiko.
-    function _l1ToL2Message(
-        address _owner,
-        uint256 _value
-    )
-        internal
-        view
-        returns (IBridge.Message memory message_)
-    {
-        message_.srcOwner = _owner;
-        message_.destOwner = _owner;
-        message_.srcChainId = ethereumChainId;
-        message_.destChainId = taikoChainId;
-        message_.value = _value;
-        message_.to = Zachary;
-    }
-
-    /// @dev A minimal L2 -> L1 Ether delivery to `_destOwner`, as processed on Ethereum. The
-    /// bridge itself is the target, so the invocation is prohibited and the whole value is refunded
-    /// to `_destOwner` once the message is DONE.
-    function _l2ToL1Message(
-        address _destOwner,
-        uint256 _value
-    )
-        internal
-        view
-        returns (IBridge.Message memory message_)
-    {
-        message_.srcChainId = taikoChainId;
-        message_.destChainId = ethereumChainId;
-        message_.gasLimit = 1_000_000;
-        message_.destOwner = _destOwner;
-        message_.value = _value;
-        message_.to = address(eBridge);
     }
 }

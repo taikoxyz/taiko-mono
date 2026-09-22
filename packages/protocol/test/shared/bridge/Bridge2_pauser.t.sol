@@ -56,8 +56,9 @@ contract TestBridgePauser is CommonTest {
     function test_bridge_pause_blocksMessageProcessing() public {
         Bridge bridge = _deployBridgeWithPauser(Alice);
 
-        // A message whose fields satisfy the modifiers guarding each entry point, so that
-        // execution reaches the `whenNotPaused` check instead of reverting earlier.
+        // A message whose fields satisfy the modifiers guarding the entry points that still
+        // reach the `whenNotPaused` check, so that execution gets there instead of reverting
+        // earlier.
         IBridge.Message memory message;
         message.srcOwner = Alice;
         message.destOwner = Bob;
@@ -69,15 +70,22 @@ contract TestBridgePauser is CommonTest {
         bridge.pause();
         assertTrue(bridge.paused());
 
-        // While paused, the Bridge must reject sending, processing and recalling messages.
+        // While paused, the Bridge must reject sending and processing messages.
         vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
         bridge.sendMessage(message);
 
         vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
         bridge.processMessage(message, "");
 
-        vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
+        // Recalling and failing are rejected too, but by their own guard: it is the first
+        // modifier on both, so it runs before `whenNotPaused` (and before the chain-id
+        // modifiers, which is why `failMessage` reverts here despite the message's chain ids
+        // being those of a recall).
+        vm.expectRevert(Bridge.B_RECALL_DISABLED.selector);
         bridge.recallMessage(message, "");
+
+        vm.expectRevert(Bridge.B_RECALL_DISABLED.selector);
+        bridge.failMessage(message);
     }
 
     function _deployBridgeWithPauser(address pauser) private returns (Bridge) {

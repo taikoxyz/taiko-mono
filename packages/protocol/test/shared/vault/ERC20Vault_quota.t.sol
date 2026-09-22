@@ -6,13 +6,13 @@ import "../helpers/FreeMintERC20Token.sol";
 import "./ERC20Vault.h.sol";
 
 /// @dev Verifies that the ERC20Vault debits the token quota exactly for the tokens actually
-/// delivered to a recipient ("debit only on actual release"). Because the vault consumes quota in
-/// the same atomic call that transfers/mints the tokens, a reverted (e.g. out-of-quota) delivery
-/// releases nothing and debits nothing, and each successful delivery is debited exactly once.
-/// @dev Both release paths are covered: delivering a message from another chain debits the quota,
-/// while refunding a recalled message does not. A recall only returns what its message pulled or
-/// burned in `sendToken`, so it is never a net outflow, and debiting it would let anyone exhaust a
-/// token's quota at zero net cost with a send-fail-recall cycle.
+/// released to a recipient ("debit only on actual release"). Because the vault consumes quota in
+/// the same atomic call that transfers/mints the tokens, a reverted (e.g. out-of-quota) release
+/// releases nothing and debits nothing, and each successful release is debited exactly once.
+/// @dev Both release paths are covered: delivering a message from another chain, and refunding a
+/// message that was recalled. Both debit the same bucket -- a recall is reached through the same
+/// destination-chain failure proof a delivery is, and on the bridged branch it mints supply that no
+/// vault balance bounds, so exempting it would leave that path with no numeric ceiling at all.
 contract TestERC20Vault_quota is CommonTest {
     SignalService private eSignalService;
     ERC20Vault private eVault;
@@ -164,9 +164,9 @@ contract TestERC20Vault_quota is CommonTest {
         });
     }
 
-    // A refund is exempt from the quota: it only returns what its message pulled in sendToken, so
-    // nothing is debited and the quota manager is not even called.
-    function test_quota_recall_refund_debits_nothing() public {
+    // A refund debits the quota exactly like a delivery does. A recall is reached through the same
+    // destination-chain failure proof a delivery is, so the quota is the backstop for a forged one.
+    function test_quota_recall_refund_debits_amount() public {
         vm.chainId(taikoChainId);
 
         uint64 amount = 10;
@@ -178,13 +178,13 @@ contract TestERC20Vault_quota is CommonTest {
         eVault.onMessageRecalled(message, bytes32(0));
 
         assertEq(eERC20Token1.balanceOf(Alice) - aliceBefore, amount);
-        assertEq(qm.calls(), 0);
-        assertEq(qm.totalConsumed(), 0);
+        assertEq(qm.consumed(address(eERC20Token1)), amount);
+        assertEq(qm.totalConsumed(), amount);
     }
 
-    // An exhausted quota blocks deliveries, never refunds: users can always take their tokens
-    // back on the source chain.
-    function test_quota_recall_refund_succeeds_when_quota_exhausted() public {
+    // An exhausted quota blocks a refund just as it blocks a delivery, and the refund releases
+    // nothing: the debit is the last step of `_transferTokens`, so the revert unwinds the transfer.
+    function test_quota_recall_refund_insufficient_reverts_and_releases_nothing() public {
         vm.chainId(taikoChainId);
 
         uint64 amount = 10;
@@ -195,55 +195,40 @@ contract TestERC20Vault_quota is CommonTest {
 
         IBridge.Message memory message = _recallMessage(amount);
         vm.prank(address(tBridge));
+        vm.expectRevert(QuotaManager.QM_OUT_OF_QUOTA.selector);
         eVault.onMessageRecalled(message, bytes32(0));
 
-        assertEq(eERC20Token1.balanceOf(Alice) - aliceBefore, amount);
-        assertEq(vaultBefore - eERC20Token1.balanceOf(address(eVault)), amount);
+        assertEq(eERC20Token1.balanceOf(Alice), aliceBefore);
+        assertEq(eERC20Token1.balanceOf(address(eVault)), vaultBefore);
         assertEq(qm.totalConsumed(), 0);
     }
 
-    // The griefing vector: a send-fail-recall cycle costs the attacker nothing, so it must not
-    // touch the shared quota. Deliveries still find the full quota, and it still bounds them.
-    function test_quota_recall_cycle_does_not_drain_quota() public {
-        vm.chainId(taikoChainId);
-
-        uint64 quota = 100;
-        qm.setLimit(quota);
-
-        // Attacker: refund the whole quota's worth, over and over.
-        for (uint256 i; i < 3; ++i) {
-            IBridge.Message memory message = _recallMessage(quota);
-            vm.prank(address(tBridge));
-            eVault.onMessageRecalled(message, bytes32(0));
-            assertEq(qm.totalConsumed(), 0);
-        }
-
-        // A delivery still finds the full quota and is debited...
-        _receive(quota);
-        assertEq(qm.totalConsumed(), quota);
-
-        // ...the quota keeps bounding deliveries...
-        ERC20Vault.CanonicalERC20 memory canonical = _canonical();
-        vm.expectRevert(QuotaManager.QM_OUT_OF_QUOTA.selector);
-        tBridge.sendReceiveERC20ToERC20Vault(
-            canonical, Alice, Bob, 1, 0, bytes32(0), bytes32(0), address(eVault), ethereumChainId, 0
-        );
-
-        // ...while refunds still go through with the quota exhausted.
-        IBridge.Message memory late = _recallMessage(1);
-        vm.prank(address(tBridge));
-        eVault.onMessageRecalled(late, bytes32(0));
-        assertEq(qm.totalConsumed(), quota);
-    }
-
-    // The mint branch of `_transferTokens` is exempt as well: a refund whose canonical lives on a
-    // third chain re-mints exactly what the send burned, and debits nothing even when a delivery of
-    // that size would be out of quota.
-    function test_quota_recall_refund_of_a_bridged_token_debits_nothing() public {
+    // Deliveries and refunds draw on the same bucket: a delivery that spends the quota leaves a
+    // refund of the same size unaffordable. This is the mainnet-L1 property the exemption removed.
+    function test_quota_delivery_and_refund_share_the_same_limit() public {
         vm.chainId(taikoChainId);
 
         uint64 amount = 10;
-        qm.setLimit(amount - 1);
+        qm.setLimit(amount);
+
+        // The delivery spends the whole bucket ...
+        _receive(amount);
+        assertEq(qm.totalConsumed(), amount);
+
+        // ... so a refund of the same size no longer fits.
+        IBridge.Message memory message = _recallMessage(amount);
+        vm.prank(address(tBridge));
+        vm.expectRevert(QuotaManager.QM_OUT_OF_QUOTA.selector);
+        eVault.onMessageRecalled(message, bytes32(0));
+    }
+
+    // The debit covers the other branch of `_transferTokens` too: a refund whose canonical lives on
+    // a third chain is settled by *minting* the bridged representation. That branch is bounded by no
+    // vault balance, so the quota is the only numeric ceiling on it.
+    function test_quota_recall_refund_of_a_bridged_token_debits_amount() public {
+        vm.chainId(taikoChainId);
+
+        uint64 amount = 10;
 
         // chainId 999 != block.chainid, so the refund takes the mint branch.
         ERC20Vault.CanonicalERC20 memory foreign = ERC20Vault.CanonicalERC20({
@@ -261,8 +246,32 @@ contract TestERC20Vault_quota is CommonTest {
         address btoken = eVault.canonicalToBridged(999, address(eERC20Token1));
         assertTrue(btoken != address(0), "bridged token not deployed");
         assertEq(BridgedERC20(btoken).balanceOf(Alice), amount);
-        assertEq(qm.consumed(btoken), 0);
-        assertEq(qm.calls(), 0);
+        // Debited against the bridged token, which is what was released.
+        assertEq(qm.consumed(btoken), amount);
+        assertEq(qm.totalConsumed(), amount);
+    }
+
+    // And the mint branch is throttled, not just metered: an exhausted quota mints nothing.
+    function test_quota_recall_refund_of_a_bridged_token_is_throttled() public {
+        vm.chainId(taikoChainId);
+
+        uint64 amount = 10;
+        qm.setLimit(amount - 1);
+
+        ERC20Vault.CanonicalERC20 memory foreign = ERC20Vault.CanonicalERC20({
+            chainId: 999,
+            addr: address(eERC20Token1),
+            decimals: eERC20Token1.decimals(),
+            symbol: eERC20Token1.symbol(),
+            name: eERC20Token1.name()
+        });
+
+        IBridge.Message memory message = _recallMessage(foreign, amount);
+        vm.prank(address(tBridge));
+        vm.expectRevert(QuotaManager.QM_OUT_OF_QUOTA.selector);
+        eVault.onMessageRecalled(message, bytes32(0));
+
+        assertEq(qm.totalConsumed(), 0);
     }
 
     // Releasing zero tokens skips the quota manager call entirely.

@@ -321,7 +321,10 @@ contract TestERC1155Vault is CommonTest {
         assertEq(David.balance, etherValue);
     }
 
-    function test_1155Vault_onMessageRecalled_1155() public {
+    // The vault's `onMessageRecalled` hook is only reachable through `Bridge.recallMessage`,
+    // which is switched off while `Bridge.RECALL_ENABLED` is false: the bridged tokens stay in
+    // the vault.
+    function test_1155Vault_recallMessage_reverts_when_recalls_disabled_1155() public {
         vm.prank(Alice);
         eERC1155Token.setApprovalForAll(address(eVault), true);
 
@@ -351,11 +354,12 @@ contract TestERC1155Vault is CommonTest {
         assertEq(eERC1155Token.balanceOf(Alice, 1), 8);
         assertEq(eERC1155Token.balanceOf(address(eVault), 1), 2);
 
+        vm.expectRevert(Bridge.B_RECALL_DISABLED.selector);
         eBridge.recallMessage(message, bytes(""));
 
-        // // Alice got back her NFTs, and vault has 0
-        assertEq(eERC1155Token.balanceOf(Alice, 1), 10);
-        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 0);
+        // Alice did not get back her NFTs, and the vault still holds them
+        assertEq(eERC1155Token.balanceOf(Alice, 1), 8);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 2);
     }
 
     function test_1155Vault_receiveTokens_multiple_1155() public {

@@ -347,7 +347,10 @@ contract TestERC20Vault is CommonTest {
         }
     }
 
-    function test_20Vault_onMessageRecalled_20() public {
+    // The vault's `onMessageRecalled` hook is only reachable through `Bridge.recallMessage`,
+    // which is switched off while `Bridge.RECALL_ENABLED` is false: the bridged tokens stay in
+    // the vault.
+    function test_20Vault_recallMessage_reverts_when_recalls_disabled_20() public {
         vm.startPrank(Alice);
 
         uint64 amount = 2 wei;
@@ -369,14 +372,12 @@ contract TestERC20Vault is CommonTest {
         assertEq(eVaultBalanceAfter - eVaultBalanceBefore, amount);
 
         // No need to imitate that it is failed because we have a mock SignalService
+        vm.expectRevert(Bridge.B_RECALL_DISABLED.selector);
         eBridge.recallMessage(_messageToSimulateFail, bytes(""));
 
-        uint256 aliceBalanceAfterRecall = eERC20Token1.balanceOf(Alice);
-        uint256 eVaultBalanceAfterRecall = eERC20Token1.balanceOf(address(eVault));
-
-        // Release -> original balance
-        assertEq(aliceBalanceAfterRecall, aliceBalanceBefore);
-        assertEq(eVaultBalanceAfterRecall, eVaultBalanceBefore);
+        // No release -> the vault still holds the tokens and Alice was not paid back.
+        assertEq(eERC20Token1.balanceOf(Alice), aliceBalanceAfter);
+        assertEq(eERC20Token1.balanceOf(address(eVault)), eVaultBalanceAfter);
     }
 
     function test_20Vault_change_bridged_token() public {
