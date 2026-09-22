@@ -536,9 +536,10 @@ contract ERC20Vault is BaseVault {
     /// debited exactly when tokens are actually delivered, for the amount the vault transferred or
     /// minted (a fee-on-transfer token may hand the recipient less; the quota meters the vault's
     /// outflow, not the recipient's net), and a `QM_OUT_OF_QUOTA` revert rolls back the whole
-    /// delivery atomically: the token transfer/mint is undone and no partial state remains. Integrators driving this flow externally (or via a custom vault) must expect the
-    /// entire delivery to revert when quota is exhausted, never a partial one. Skips the external
-    /// call when nothing is released (`_amount == 0`).
+    /// delivery atomically: the token transfer/mint is undone and no partial state remains.
+    /// Integrators driving this flow externally (or via a custom vault) must expect the entire
+    /// delivery to revert when quota is exhausted, never a partial one. Skips the external call
+    /// when nothing is released (`_amount == 0`).
     /// @param _token The token address.
     /// @param _amount The amount of token quota to consume.
     function _consumeTokenQuota(address _token, uint256 _amount) private {
