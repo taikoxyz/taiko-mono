@@ -29,7 +29,6 @@ contract TestBridge1_init3 is TestBridge2Base {
 
         assertEq(uint8(eBridge.messageStatus(msgHash)), uint8(IBridge.Status.DONE));
 
-        // Being DONE, the message can no longer be retried or processed.
         vm.expectRevert(Bridge.B_INVALID_STATUS.selector);
         vm.prank(Alice);
         eBridge.retryMessage(message, false);
@@ -38,9 +37,7 @@ contract TestBridge1_init3 is TestBridge2Base {
         vm.prank(Carol);
         eBridge.processMessage(message, FAKE_PROOF);
 
-        // `failMessage` reverts too, but on its disabled guard, which runs before the status
-        // check - the two calls above are what proves the status is DONE.
-        vm.expectRevert(Bridge.B_RECALL_DISABLED.selector);
+        vm.expectRevert(Bridge.B_INVALID_STATUS.selector);
         vm.prank(Alice);
         eBridge.failMessage(message);
     }

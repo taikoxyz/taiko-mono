@@ -19,7 +19,7 @@ contract TestERC721Vault is CommonTest {
     function setUpOnEthereum() internal override {
         SignalService ss = _deployMockSignalService("ETH");
         eBridge = deployBridge(
-            address(new Bridge(address(resolver), address(ss), address(0), address(0)))
+            address(new Bridge(address(resolver), address(ss), address(0), address(0), true))
         );
         eVault = deployERC721Vault();
 
@@ -310,10 +310,7 @@ contract TestERC721Vault is CommonTest {
         assertEq(etherValue, David.balance);
     }
 
-    // The vault's `onMessageRecalled` hook is only reachable through `Bridge.recallMessage`,
-    // which is switched off while `Bridge.RECALL_ENABLED` is false: the bridged NFT stays in the
-    // vault.
-    function test_721Vault_recallMessage_reverts_when_recalls_disabled_721() public {
+    function test_721Vault_onMessageRecalled_721() public {
         vm.prank(Alice);
         eFreeMintERC721Token.approve(address(eVault), 1);
 
@@ -341,12 +338,10 @@ contract TestERC721Vault is CommonTest {
 
         assertEq(eFreeMintERC721Token.ownerOf(1), address(eVault));
 
-        vm.expectRevert(Bridge.B_RECALL_DISABLED.selector);
         eBridge.recallMessage(message, bytes(""));
 
-        // Alice did not get back her NFT: the vault still owns it.
-        assertEq(eFreeMintERC721Token.ownerOf(1), address(eVault));
-        assertEq(eFreeMintERC721Token.balanceOf(Alice), 9);
+        // Alice got back her NFT
+        assertEq(eFreeMintERC721Token.ownerOf(1), Alice);
     }
 
     function test_721Vault_receiveFreeMintERC721Tokens_multiple_721() public {

@@ -32,7 +32,8 @@ contract DeployBridgeUpgradeL1 is Script {
             LibL1Addrs.SHARED_RESOLVER,
             LibL1Addrs.SIGNAL_SERVICE,
             LibL1Addrs.QUOTA_MANAGER,
-            LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH
+            LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH,
+            false
         );
         vm.stopBroadcast();
 
@@ -50,7 +51,8 @@ contract DeployBridgeUpgradeL1 is Script {
             _bridgeImpl.resolver() == LibL1Addrs.SHARED_RESOLVER
                 && address(_bridgeImpl.signalService()) == LibL1Addrs.SIGNAL_SERVICE
                 && address(_bridgeImpl.quotaManager()) == LibL1Addrs.QUOTA_MANAGER
-                && _bridgeImpl.pauser() == LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH,
+                && _bridgeImpl.pauser() == LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH
+                && !_bridgeImpl.enableFailAndRecall(),
             ImmutableMismatch()
         );
     }

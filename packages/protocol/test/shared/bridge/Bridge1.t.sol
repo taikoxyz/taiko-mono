@@ -4,9 +4,8 @@ pragma solidity ^0.8.24;
 import "../CommonTest.sol";
 import "test/shared/bridge/helpers/MessageReceiver_SendingHalfEtherBalance.sol";
 
-// A contract which is not our registered ERCXXXVault, so it does not implement
-// IRecallableSender. A recall of its message would be paid out by the Bridge itself rather than
-// through onMessageRecalled() - if recalls were enabled.
+// A contract which is not our registered ERCXXXVault. In such case, the sent funds are still
+// recoverable, but not via the onMessageRecall() but Bridge will send it back
 contract UnregisteredVault {
     function sendMessage(
         address bridge,
@@ -45,7 +44,9 @@ contract TestBridge1 is CommonTest {
 
         eSignalService = _deployMockSignalService();
         eBridge = deployBridge(
-            address(new Bridge(address(resolver), address(eSignalService), address(0), address(0)))
+            address(
+                new Bridge(address(resolver), address(eSignalService), address(0), address(0), true)
+            )
         );
 
         vm.deal(Alice, 100 ether);
@@ -54,7 +55,9 @@ contract TestBridge1 is CommonTest {
     function setUpOnTaiko() internal override {
         tSignalService = _deployMockSignalService();
         tBridge = deployBridge(
-            address(new Bridge(address(resolver), address(tSignalService), address(0), address(0)))
+            address(
+                new Bridge(address(resolver), address(tSignalService), address(0), address(0), true)
+            )
         );
         vm.deal(address(tBridge), 100 ether);
     }
@@ -237,9 +240,7 @@ contract TestBridge1 is CommonTest {
         assertEq(eBridge.isMessageSent(_message), true);
     }
 
-    // Recalls are switched off while `Bridge.RECALL_ENABLED` is false, so the Ether a sent
-    // message locked is not returned to its srcOwner.
-    function test_bridge1_recall_message_ether_reverts_when_recalls_disabled() public {
+    function test_bridge1_recall_message_ether() public {
         uint256 amount = 1 ether;
         uint64 fee = 0 wei;
         IBridge.Message memory message = newMessage({
@@ -255,19 +256,17 @@ contract TestBridge1 is CommonTest {
 
         assertEq(address(eBridge).balance, (starterBalanceVault + amount + fee));
         assertEq(Alice.balance, (starterBalanceAlice - (amount + fee)));
-
-        vm.expectRevert(Bridge.B_RECALL_DISABLED.selector);
         eBridge.recallMessage(message, "");
 
-        // Unchanged: the message is still NEW and its Ether is still held by the bridge.
-        assertTrue(eBridge.messageStatus(eBridge.hashMessage(_message)) == IBridge.Status.NEW);
-        assertEq(address(eBridge).balance, (starterBalanceVault + amount + fee));
-        assertEq(Alice.balance, (starterBalanceAlice - (amount + fee)));
+        assertEq(address(eBridge).balance, (starterBalanceVault + fee));
+        assertEq(Alice.balance, (starterBalanceAlice - fee));
     }
 
-    // The sender not implementing IRecallableSender used to mean the Bridge refunded the value
-    // directly; with recalls disabled neither refund route is reachable.
-    function test_bridge1_recall_unregistered_vault_reverts_when_recalls_disabled() public {
+    function test_bridge1_recall_message_but_not_supports_recall_interface() public {
+        // In this test we expect that the 'message value is still refundable,
+        // just not via
+        // ERCXXTokenVault (message.from) but directly from the Bridge
+
         uint256 amount = 1 ether;
         uint64 fee = 0 wei;
         IBridge.Message memory message = newMessage({
@@ -278,20 +277,14 @@ contract TestBridge1 is CommonTest {
 
         UnregisteredVault unregisteredVault = new UnregisteredVault();
         vm.deal(address(unregisteredVault), 10 ether);
-        uint256 starterBalanceUnregisteredVault = address(unregisteredVault).balance;
 
         (, message) = unregisteredVault.sendMessage(address(eBridge), message, amount + fee);
 
         assertEq(address(eBridge).balance, (starterBalanceVault + amount + fee));
 
-        vm.expectRevert(Bridge.B_RECALL_DISABLED.selector);
         eBridge.recallMessage(message, "");
 
-        assertTrue(eBridge.messageStatus(eBridge.hashMessage(message)) == IBridge.Status.NEW);
-        assertEq(address(eBridge).balance, (starterBalanceVault + amount + fee));
-        assertEq(
-            address(unregisteredVault).balance, (starterBalanceUnregisteredVault - (amount + fee))
-        );
+        assertEq(address(eBridge).balance, (starterBalanceVault + fee));
     }
 
     function test_bridge1_send_message_ether_with_processing_fee_invalid_amount() public {

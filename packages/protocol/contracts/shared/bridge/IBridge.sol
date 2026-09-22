@@ -86,8 +86,6 @@ interface IBridge {
     /// @dev Verifies via proof that the message was marked FAILED on the
     /// destination chain's Bridge, then releases the associated Ether or tokens
     /// on the source chain.
-    /// @dev Currently disabled: reverts with `B_RECALL_DISABLED` while
-    /// `Bridge.RECALL_ENABLED` is false.
     /// @param _message The message whose associated Ether should be released.
     /// @param _proof The merkle inclusion proof.
     function recallMessage(Message calldata _message, bytes calldata _proof) external;
@@ -116,15 +114,13 @@ interface IBridge {
     /// accordingly.
     /// @param _message The message to retry.
     /// @param _isLastAttempt Specifies if this is the last attempt to retry the
-    /// message. While `Bridge.RECALL_ENABLED` is false, a failed last attempt
-    /// reverts with `B_RECALL_DISABLED` instead of marking the message FAILED.
+    /// message.
     function retryMessage(Message calldata _message, bool _isLastAttempt) external;
 
     /// @notice Mark a message as failed if the message is currently retriable.
     /// @dev This function can only be called by `message.destOwner`.
-    /// @dev Currently disabled: reverts with `B_RECALL_DISABLED` while
-    /// `Bridge.RECALL_ENABLED` is false.
     /// @param _message The message to fail.
+    /// message.
     function failMessage(Message calldata _message) external;
 
     /// @notice Returns the bridge state context.

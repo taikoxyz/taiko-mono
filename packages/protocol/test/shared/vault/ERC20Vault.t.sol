@@ -24,7 +24,9 @@ contract TestERC20Vault is CommonTest {
     function setUpOnEthereum() internal override {
         eSignalService = _deployMockSignalService("ETH");
         eBridge = deployBridge(
-            address(new Bridge(address(resolver), address(eSignalService), address(0), address(0)))
+            address(
+                new Bridge(address(resolver), address(eSignalService), address(0), address(0), true)
+            )
         );
         eVault = deployERC20Vault();
 
@@ -115,9 +117,7 @@ contract TestERC20Vault is CommonTest {
         uint256 aliceBalanceBefore = eERC20Token1.balanceOf(Alice);
         uint256 eVaultBalanceBefore = eERC20Token1.balanceOf(address(eVault));
 
-        eVault.sendToken{
-            value: amount
-        }(
+        eVault.sendToken{ value: amount }(
             ERC20Vault.BridgeTransferOp(
                 taikoChainId,
                 address(0),
@@ -347,10 +347,7 @@ contract TestERC20Vault is CommonTest {
         }
     }
 
-    // The vault's `onMessageRecalled` hook is only reachable through `Bridge.recallMessage`,
-    // which is switched off while `Bridge.RECALL_ENABLED` is false: the bridged tokens stay in
-    // the vault.
-    function test_20Vault_recallMessage_reverts_when_recalls_disabled_20() public {
+    function test_20Vault_onMessageRecalled_20() public {
         vm.startPrank(Alice);
 
         uint64 amount = 2 wei;
@@ -372,12 +369,14 @@ contract TestERC20Vault is CommonTest {
         assertEq(eVaultBalanceAfter - eVaultBalanceBefore, amount);
 
         // No need to imitate that it is failed because we have a mock SignalService
-        vm.expectRevert(Bridge.B_RECALL_DISABLED.selector);
         eBridge.recallMessage(_messageToSimulateFail, bytes(""));
 
-        // No release -> the vault still holds the tokens and Alice was not paid back.
-        assertEq(eERC20Token1.balanceOf(Alice), aliceBalanceAfter);
-        assertEq(eERC20Token1.balanceOf(address(eVault)), eVaultBalanceAfter);
+        uint256 aliceBalanceAfterRecall = eERC20Token1.balanceOf(Alice);
+        uint256 eVaultBalanceAfterRecall = eERC20Token1.balanceOf(address(eVault));
+
+        // Release -> original balance
+        assertEq(aliceBalanceAfterRecall, aliceBalanceBefore);
+        assertEq(eVaultBalanceAfterRecall, eVaultBalanceBefore);
     }
 
     function test_20Vault_change_bridged_token() public {

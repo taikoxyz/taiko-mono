@@ -51,22 +51,6 @@ contract Bridge is EssentialResolverContract, IBridge {
     ///@dev The max proof size for a message to be processable by a relayer.
     uint256 public constant RELAYER_MAX_PROOF_BYTES = 200_000;
 
-    /// @notice Whether a message can be marked FAILED on its destination chain and recalled on
-    /// its source chain. While this is false, `failMessage`, `recallMessage` and the last-attempt
-    /// branch of `retryMessage` revert with `B_RECALL_DISABLED`, so no message can enter the
-    /// FAILED or RECALLED status: a message whose invocation fails stays RETRIABLE and can be
-    /// retried until it succeeds. If it can never succeed, the value it carries stays in the
-    /// destination chain's bridge and the deposit that backs it stays locked in the source
-    /// chain's bridge or vault; there is no refund path while recalls are off. Messages that
-    /// were already FAILED when this took effect can be neither retried nor recalled until
-    /// recalls are re-enabled.
-    /// @dev A recall is released by the same destination-chain failure proof a delivery is, and
-    /// this bridge never learns that a message it sent was delivered, so under a forged failure
-    /// proof a recall pays out a second time what the destination chain already released. Rather
-    /// than meter that path, the whole path is switched off. The code stays in place so it can be
-    /// re-enabled by flipping this constant in a new implementation.
-    bool public constant RECALL_ENABLED = false;
-
     /// @dev The amount of gas not to charge fee per cache operation.
     uint256 private constant _GAS_REFUND_PER_CACHE_OPERATION = 20_000;
 
@@ -125,6 +109,10 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// plain Ether transfers via `receive`. Optional (may be zero, which disables direct funding).
     address public immutable pauser;
 
+    /// @notice Whether `failMessage`, `recallMessage` and the FAILED branch of `retryMessage`
+    /// are enabled. Off in current deployments; see README.md.
+    bool public immutable enableFailAndRecall;
+
     /// @notice The next message ID.
     /// @dev Slot 1.
     uint64 private __reserved1;
@@ -160,8 +148,8 @@ contract Bridge is EssentialResolverContract, IBridge {
         _;
     }
 
-    modifier onlyWhenRecallEnabled() {
-        _checkRecallEnabled();
+    modifier whenFailAndRecallEnabled() {
+        _checkFailAndRecallEnabled();
         _;
     }
 
@@ -171,17 +159,20 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// @param _quotaManager The address of the quota manager contract. Optional (may be zero).
     /// @param _pauser Address authorized to pause/unpause alongside the owner, and to fund the
     /// bridge via plain Ether transfers. Optional (may be zero, which disables direct funding).
+    /// @param _enableFailAndRecall See `enableFailAndRecall`.
     constructor(
         address _resolver,
         address _signalService,
         address _quotaManager,
-        address _pauser
+        address _pauser,
+        bool _enableFailAndRecall
     )
         EssentialResolverContract(_resolver)
     {
         signalService = ISignalService(_signalService);
         quotaManager = IQuotaManager(_quotaManager);
         pauser = _pauser;
+        enableFailAndRecall = _enableFailAndRecall;
     }
 
     // ---------------------------------------------------------------
@@ -264,14 +255,19 @@ contract Bridge is EssentialResolverContract, IBridge {
     }
 
     /// @inheritdoc IBridge
-    /// @dev Disabled while `RECALL_ENABLED` is false: reverts with `B_RECALL_DISABLED` before
-    /// anything else is checked.
+    /// @dev Recalls are exempt from the Ether withdrawal quota. A recall can only return the exact
+    /// `_message.value` that this very message locked in `sendMessage`, so it never lowers the
+    /// bridge's balance below what it held before the send and is not a net outflow. Debiting it
+    /// would let anyone exhaust the shared quota at zero net cost with a send-fail-recall cycle,
+    /// blocking every other user's recalls and every L2 -> L1 withdrawal until the quota refills.
+    /// The quota is debited only where Ether actually leaves the bridge: in `processMessage` (the
+    /// fee, plus the value once the message is DONE) and on a successful `retryMessage`.
     function recallMessage(
         Message calldata _message,
         bytes calldata _proof
     )
         external
-        onlyWhenRecallEnabled
+        whenFailAndRecallEnabled
         sameChain(_message.srcChainId)
         diffChain(_message.destChainId)
         whenNotPaused
@@ -289,8 +285,8 @@ contract Bridge is EssentialResolverContract, IBridge {
         );
 
         _updateMessageStatus(msgHash, Status.RECALLED);
-        // A recall always releases `_message.value` back to the source owner, so debit its quota.
-        _consumeEtherQuota(_message.value);
+        // Deliberately no `_consumeEtherQuota` here: recalls are exempt from the quota, see the
+        // function-level @dev note.
 
         // Execute the recall logic based on the contract's support for the
         // IRecallableSender interface
@@ -415,9 +411,6 @@ contract Bridge is EssentialResolverContract, IBridge {
     }
 
     /// @inheritdoc IBridge
-    /// @dev While `RECALL_ENABLED` is false, a last attempt that fails reverts with
-    /// `B_RECALL_DISABLED` instead of marking the message FAILED, so the message stays
-    /// RETRIABLE. A last attempt that succeeds is unaffected.
     function retryMessage(
         Message calldata _message,
         bool _isLastAttempt
@@ -449,11 +442,7 @@ contract Bridge is EssentialResolverContract, IBridge {
             // in the bridge, consuming no quota.
             _consumeEtherQuota(_message.value);
             _updateMessageStatus(msgHash, Status.DONE);
-        } else if (_isLastAttempt) {
-            // Marking the message FAILED is the first step of a recall, so it is switched off
-            // together with `recallMessage`: while recalls are disabled this reverts and the
-            // message stays RETRIABLE.
-            _checkRecallEnabled();
+        } else if (_isLastAttempt && enableFailAndRecall) {
             _updateMessageStatus(msgHash, Status.FAILED);
 
             signalService.sendSignal(signalForFailedMessage(msgHash));
@@ -463,11 +452,9 @@ contract Bridge is EssentialResolverContract, IBridge {
     }
 
     /// @inheritdoc IBridge
-    /// @dev Disabled while `RECALL_ENABLED` is false: reverts with `B_RECALL_DISABLED` before
-    /// anything else is checked.
     function failMessage(Message calldata _message)
         external
-        onlyWhenRecallEnabled
+        whenFailAndRecallEnabled
         sameChain(_message.destChainId)
         diffChain(_message.srcChainId)
         whenNotPaused
@@ -486,8 +473,6 @@ contract Bridge is EssentialResolverContract, IBridge {
 
     /// @notice Checks if a msgHash has failed on its destination chain.
     /// This is the 'readonly' version of proveMessageFailed.
-    /// @dev While `RECALL_ENABLED` is false no new failure signal is ever sent, so this can only
-    /// report messages that failed before recalls were disabled.
     /// @param _message The message.
     /// @param _proof The merkle inclusion proof.
     /// @return true if the message has failed, false otherwise.
@@ -829,16 +814,15 @@ contract Bridge is EssentialResolverContract, IBridge {
         if (_chainId == 0 || _chainId == block.chainid) revert B_INVALID_CHAINID();
     }
 
-    /// @dev Reverts unless recalls are enabled. Guards `recallMessage`, `failMessage` and the
-    /// only other transition into the FAILED status, so the whole path is off or on together.
-    function _checkRecallEnabled() private pure {
-        if (!RECALL_ENABLED) revert B_RECALL_DISABLED();
+    function _checkFailAndRecallEnabled() private view {
+        if (!enableFailAndRecall) revert B_FAIL_AND_RECALL_DISABLED();
     }
 
     // ---------------------------------------------------------------
     // Custom Errors
     // ---------------------------------------------------------------
 
+    error B_FAIL_AND_RECALL_DISABLED();
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
     error B_INVALID_FEE();
@@ -848,7 +832,6 @@ contract Bridge is EssentialResolverContract, IBridge {
     error B_MESSAGE_NOT_SENT();
     error B_PERMISSION_DENIED();
     error B_PROOF_TOO_LARGE();
-    error B_RECALL_DISABLED();
     error B_RETRY_FAILED();
     error B_SIGNAL_NOT_RECEIVED();
 }
