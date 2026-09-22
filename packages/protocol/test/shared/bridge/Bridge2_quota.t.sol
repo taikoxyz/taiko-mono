@@ -9,7 +9,11 @@ contract OutOfQuotaManager is IQuotaManager {
     }
 }
 
-contract TestBridge2_processMessage is TestBridge2Base {
+/// @dev Every path that releases Ether is gated on the quota manager. The manager wired in here
+/// rejects every key, which stands in for a fully exhausted bucket: a withdrawal cannot be
+/// processed, and -- because `recallMessage` debits `ETHER_RECALL_QUOTA_KEY` -- neither can a
+/// recall once an owner has armed that key and it is spent.
+contract TestBridge2_quota is TestBridge2Base {
     function getQuotaManager() internal override returns (address) {
         return address(new OutOfQuotaManager());
     }
@@ -63,5 +67,23 @@ contract TestBridge2_processMessage is TestBridge2Base {
         vm.prank(Alice);
         vm.expectRevert(QuotaManager.QM_OUT_OF_QUOTA.selector);
         eBridge.processMessage(message, FAKE_PROOF);
+    }
+
+    // An armed, exhausted recall key makes a recall wait exactly like a withdrawal does: the
+    // message stays NEW, nothing is released, and it can be recalled again once the key refills.
+    function test_bridge2_recallMessage_RevertWhen_recall_quota_exhausted()
+        public
+        transactBy(Carol)
+        assertSameTotalBalance
+    {
+        IBridge.Message memory message = _l1ToL2Message(Alice, 1 ether);
+
+        (, IBridge.Message memory m) = eBridge.sendMessage{ value: 1 ether }(message);
+
+        vm.expectRevert(QuotaManager.QM_OUT_OF_QUOTA.selector);
+        eBridge.recallMessage(m, FAKE_PROOF);
+
+        assertTrue(eBridge.messageStatus(eBridge.hashMessage(m)) == IBridge.Status.NEW);
+        assertEq(Alice.balance, 0);
     }
 }

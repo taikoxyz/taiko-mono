@@ -51,6 +51,30 @@ contract Bridge is EssentialResolverContract, IBridge {
     ///@dev The max proof size for a message to be processable by a relayer.
     uint256 public constant RELAYER_MAX_PROOF_BYTES = 200_000;
 
+    /// @notice The `IQuotaManager` token key under which `recallMessage` meters the Ether a
+    /// recall releases, to the message's sender when it implements `IRecallableSender` and to its
+    /// source owner otherwise. It is a dedicated key, distinct from `address(0)`, the key of the
+    /// Ether withdrawal quota that `processMessage` and `retryMessage` debit.
+    /// @dev A recall only releases the Ether that the very same message locked in `sendMessage`,
+    /// so while destination-chain failure proofs are sound it is not a net outflow, and it must
+    /// not draw on the withdrawal quota: a send-fail-recall cycle costs its sender nothing, so
+    /// debiting the shared withdrawal quota would let anyone exhaust it and block every other
+    /// user's L2 -> L1 Ether withdrawal (and recall) at zero net cost. A recall is however
+    /// released by the same failure-proof primitive a delivery is, and this bridge never learns
+    /// that a message it sent was delivered, so under a forged failure proof a recall is a second
+    /// payout of Ether the destination chain already released. Metering recalls under their own
+    /// key keeps a numeric ceiling available on that path without coupling it to withdrawals: the
+    /// key is unconfigured by default, which `QuotaManager` treats as unlimited, and the quota
+    /// manager's owner can arm it at any time with `updateQuota(ETHER_RECALL_QUOTA_KEY, cap)`,
+    /// no upgrade needed. Arming is a trade-off, not a free improvement: the same free
+    /// send-fail-recall cycle can then exhaust this key and stall every other user's recall
+    /// (never their withdrawals), so an armed cap trades unbounded recalls for recalls an attacker
+    /// can delay. `QuotaManager` also caps a key's refill at its configured quota, so while the
+    /// key is armed a single recall larger than the cap can never clear until the cap is raised;
+    /// the cap should therefore exceed any plausible single deposit.
+    address public constant ETHER_RECALL_QUOTA_KEY =
+        address(uint160(uint256(keccak256("ETHER_RECALL_QUOTA"))));
+
     /// @dev The amount of gas not to charge fee per cache operation.
     uint256 private constant _GAS_REFUND_PER_CACHE_OPERATION = 20_000;
 
@@ -243,6 +267,10 @@ contract Bridge is EssentialResolverContract, IBridge {
     }
 
     /// @inheritdoc IBridge
+    /// @dev The Ether a recall returns is metered under `ETHER_RECALL_QUOTA_KEY`, never under the
+    /// Ether withdrawal quota, so recalls and withdrawals cannot exhaust each other's quota. See
+    /// the key's documentation for the rationale and for how the quota manager's owner can bound
+    /// recalls.
     function recallMessage(
         Message calldata _message,
         bytes calldata _proof
@@ -265,8 +293,9 @@ contract Bridge is EssentialResolverContract, IBridge {
         );
 
         _updateMessageStatus(msgHash, Status.RECALLED);
-        // A recall always releases `_message.value` back to the source owner, so debit its quota.
-        _consumeEtherQuota(_message.value);
+        // A recall releases `_message.value`: meter it under the recall key, not the withdrawal
+        // quota. Unarmed, the key is unlimited and the debit changes no state.
+        _consumeQuota(ETHER_RECALL_QUOTA_KEY, _message.value);
 
         // Execute the recall logic based on the contract's support for the
         // IRecallableSender interface
@@ -349,7 +378,9 @@ contract Bridge is EssentialResolverContract, IBridge {
         // Debit the Ether quota only for funds actually leaving the bridge: the fee is always
         // released here, while the value is released only when the message reaches DONE. When the
         // message stays RETRIABLE, its value remains in the bridge and is debited by retryMessage.
-        _consumeEtherQuota(status_ == Status.DONE ? _message.value + _message.fee : _message.fee);
+        _consumeQuota(
+            address(0), status_ == Status.DONE ? _message.value + _message.fee : _message.fee
+        );
 
         if (_message.fee != 0) {
             refundAmount += _message.fee;
@@ -420,7 +451,7 @@ contract Bridge is EssentialResolverContract, IBridge {
             // The value is released to the recipient only on a successful retry, so debit its
             // quota here. A failed retry leaves the message RETRIABLE/FAILED with the value still
             // in the bridge, consuming no quota.
-            _consumeEtherQuota(_message.value);
+            _consumeQuota(address(0), _message.value);
             _updateMessageStatus(msgHash, Status.DONE);
         } else if (_isLastAttempt) {
             _updateMessageStatus(msgHash, Status.FAILED);
@@ -631,12 +662,15 @@ contract Bridge is EssentialResolverContract, IBridge {
         }
     }
 
-    /// @dev Consumes a given amount of Ether from the quota manager; reverts if quota is
-    /// insufficient. Skips the external call when nothing is released (`_amount == 0`).
+    /// @dev Consumes a given amount of Ether quota under `_key` from the quota manager; reverts
+    /// if the quota is insufficient. Withdrawals (`processMessage`, `retryMessage`) debit the
+    /// Ether key `address(0)`; recalls debit `ETHER_RECALL_QUOTA_KEY`. Skips the external call
+    /// when nothing is released (`_amount == 0`).
+    /// @param _key The quota manager token key to debit.
     /// @param _amount The amount of Ether to consume.
-    function _consumeEtherQuota(uint256 _amount) private {
+    function _consumeQuota(address _key, uint256 _amount) private {
         if (_amount != 0 && address(quotaManager) != address(0)) {
-            quotaManager.consumeQuota(address(0), _amount);
+            quotaManager.consumeQuota(_key, _amount);
         }
     }
 

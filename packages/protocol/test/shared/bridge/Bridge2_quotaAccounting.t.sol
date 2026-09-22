@@ -19,8 +19,31 @@ contract QuotaTarget is IMessageInvocable {
     }
 }
 
+/// @dev A message sender that implements `IRecallableSender`, so a recall hands it the Ether back
+/// through `onMessageRecalled` instead of a plain `sendEtherAndVerify` to `srcOwner`.
+contract QuotaRecallableSender is IRecallableSender, IERC165 {
+    uint256 public recalledValue;
+
+    receive() external payable { }
+
+    function supportsInterface(bytes4 _interfaceId) public view virtual override returns (bool) {
+        return _interfaceId == type(IRecallableSender).interfaceId
+            || _interfaceId == type(IERC165Upgradeable).interfaceId;
+    }
+
+    function onMessageRecalled(IBridge.Message calldata, bytes32) external payable {
+        recalledValue += msg.value;
+    }
+}
+
 /// @dev Verifies that the Bridge debits the Ether quota exactly for the Ether that actually leaves
 /// the bridge ("debit only on actual release"), across the process/retry/recall lifecycle.
+/// @dev The two paths debit different keys. A withdrawal (`processMessage`, `retryMessage`) pays
+/// out Ether that entered from the destination chain, and debits the Ether withdrawal quota keyed
+/// by `address(0)`. A recall returns Ether the same message locked here, so it is not a net
+/// outflow and must not be able to exhaust the withdrawal quota; it debits the dedicated
+/// `ETHER_RECALL_QUOTA_KEY` instead, which is unconfigured (and therefore unlimited) unless the
+/// quota manager's owner arms it.
 contract TestBridge2_quotaAccounting is TestBridge2Base {
     CountingQuotaManager internal qm;
 
@@ -149,33 +172,59 @@ contract TestBridge2_quotaAccounting is TestBridge2Base {
         assertEq(_ethConsumed(), 0);
     }
 
-    // A recall releases value back to the source owner, so the value is debited.
-    function test_quota_recall_debits_value() public transactBy(Carol) {
-        IBridge.Message memory message;
-        message.srcOwner = Alice;
-        message.destOwner = Bob;
-        message.destChainId = taikoChainId;
-        message.srcChainId = ethereumChainId;
-        message.value = 1 ether;
-        message.to = Zachary;
+    // A recall releases value back to the source owner and debits it -- but under the dedicated
+    // recall key, never under the Ether withdrawal quota that processMessage/retryMessage debit.
+    function test_quota_recall_debits_recall_key_not_ether_quota() public transactBy(Carol) {
+        IBridge.Message memory message = _l1ToL2Message(Alice, 1 ether);
 
+        uint256 aliceBefore = Alice.balance;
         (, IBridge.Message memory m) = eBridge.sendMessage{ value: 1 ether }(message);
-        assertEq(_ethConsumed(), 0); // sending does not consume withdrawal quota
+        assertEq(qm.calls(), 0); // sending consumes no quota at all
 
         eBridge.recallMessage(m, FAKE_PROOF);
         assertTrue(eBridge.messageStatus(eBridge.hashMessage(m)) == IBridge.Status.RECALLED);
-        assertEq(_ethConsumed(), message.value);
+        assertEq(Alice.balance - aliceBefore, 1 ether);
+
+        assertEq(qm.consumed(eBridge.ETHER_RECALL_QUOTA_KEY()), 1 ether);
+        assertEq(_ethConsumed(), 0);
+        assertEq(qm.calls(), 1);
     }
 
-    // Releasing zero Ether (here: a zero-value recall) skips the quota manager call entirely.
+    // The recall key is debited on the IRecallableSender branch too, where the Ether goes back to
+    // `message.from` via `onMessageRecalled` rather than to `srcOwner`.
+    function test_quota_recall_to_recallable_sender_debits_recall_key() public {
+        QuotaRecallableSender sender = new QuotaRecallableSender();
+        vm.deal(address(sender), 100 ether);
+
+        IBridge.Message memory message = _l1ToL2Message(Alice, 1 ether);
+
+        vm.prank(address(sender));
+        (, IBridge.Message memory m) = eBridge.sendMessage{ value: 1 ether }(message);
+        assertEq(address(sender).balance, 99 ether);
+
+        eBridge.recallMessage(m, FAKE_PROOF);
+        assertTrue(eBridge.messageStatus(eBridge.hashMessage(m)) == IBridge.Status.RECALLED);
+
+        // The sender, not `srcOwner`, got the Ether back.
+        assertEq(sender.recalledValue(), 1 ether);
+        assertEq(address(sender).balance, 100 ether);
+        assertEq(Alice.balance, 0);
+
+        assertEq(qm.consumed(eBridge.ETHER_RECALL_QUOTA_KEY()), 1 ether);
+        assertEq(_ethConsumed(), 0);
+    }
+
+    // The recall key is a derived, non-zero address, so it can never alias the Ether key.
+    function test_quota_recall_key_is_distinct_from_ether_key() public view {
+        address recallKey = eBridge.ETHER_RECALL_QUOTA_KEY();
+        assertTrue(recallKey != address(0));
+        assertEq(recallKey, address(uint160(uint256(keccak256("ETHER_RECALL_QUOTA")))));
+    }
+
+    // Releasing zero Ether (here: a zero-value recall) skips the quota manager call entirely, so
+    // the recall key is not even consulted.
     function test_quota_zero_value_skips_external_call() public transactBy(Carol) {
-        IBridge.Message memory message;
-        message.srcOwner = Alice;
-        message.destOwner = Bob;
-        message.destChainId = taikoChainId;
-        message.srcChainId = ethereumChainId;
-        message.value = 0;
-        message.to = Zachary;
+        IBridge.Message memory message = _l1ToL2Message(Alice, 0);
 
         (, IBridge.Message memory m) = eBridge.sendMessage{ value: 0 }(message);
 
@@ -186,7 +235,7 @@ contract TestBridge2_quotaAccounting is TestBridge2Base {
 
     // The capped Ether send to a storage-creating destOwner, with a real QuotaManager wired.
     // Every other test of that send inherits getQuotaManager() == address(0), which makes
-    // _consumeEtherQuota a no-op and leaves its external call out of the post-invocation tail.
+    // _consumeQuota a no-op and leaves its external call out of the post-invocation tail.
     function test_quota_processMessage_storage_creating_destOwner_debits_and_refunds()
         public
         dealEther(Carol)
