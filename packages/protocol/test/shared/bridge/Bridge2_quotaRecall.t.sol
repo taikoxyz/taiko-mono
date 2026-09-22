@@ -142,7 +142,22 @@ contract TestBridge2_quotaRecall is TestBridge2Base {
         );
         vm.chainId(ethereumChainId);
 
-        // L1: the recall returns the Ether and consumes no quota.
+        // L1: the recall asks this chain's signal service for exactly the failure signal the
+        // destination bridge sent, on the destination chain; only the proof bytes go unverified.
+        vm.expectCall(
+            address(eSignalService),
+            abi.encodeCall(
+                ISignalService.proveSignalReceived,
+                (
+                    taikoChainId,
+                    address(taikoBridge),
+                    taikoBridge.signalForFailedMessage(hash),
+                    FAKE_PROOF
+                )
+            )
+        );
+
+        // The recall returns the Ether and consumes no quota.
         eBridge.recallMessage(sent, FAKE_PROOF);
         assertTrue(eBridge.messageStatus(hash) == IBridge.Status.RECALLED);
         assertEq(Bob.balance, ETH_QUOTA);
