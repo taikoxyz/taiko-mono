@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Proposal0025Harness } from "./Proposal0025Harness.sol";
+import { Proposal0026Harness } from "./Proposal0026Harness.sol";
 import { Test } from "forge-std/src/Test.sol";
 import { IForcedInclusionStore } from "src/layer1/core/iface/IForcedInclusionStore.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
@@ -9,23 +9,23 @@ import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibL1Addrs as L1 } from "src/layer1/mainnet/LibL1Addrs.sol";
 import { Controller } from "src/shared/governance/Controller.sol";
 
-/// @notice Rehearses the Proposal0025 upgrade against live mainnet state.
+/// @notice Rehearses the Proposal0026 upgrade against live mainnet state.
 /// @dev Skipped unless `L1_FORK_URL` is set, because CI configures no RPC endpoints. Run with:
 ///
-///   L1_FORK_URL=<l1 rpc> FOUNDRY_PROFILE=layer1 forge test --match-contract Proposal0025ForkTest -vv
+///   L1_FORK_URL=<l1 rpc> FOUNDRY_PROFILE=layer1 forge test --match-contract Proposal0026ForkTest -vv
 ///
-/// `Proposal0025.t.sol` proves the proposal encodes the right calldata and that the new
+/// `Proposal0026.t.sol` proves the proposal encodes the right calldata and that the new
 /// implementation's configuration differs from the live one only in the sharing percentage. This
 /// rehearsal proves the upgrade itself against the live proxy: the DAO controller can perform it,
 /// and afterwards the proxy answers the new percentage while everything it stores — core state,
 /// proposal hashes, the forced-inclusion queue, owner, activation timestamp and initializer
 /// version — reads exactly as before.
 ///
-/// The rehearsal executes exactly what the DAO will: the calldata `Proposal0025` builds from its
+/// The rehearsal executes exactly what the DAO will: the calldata `Proposal0026` builds from its
 /// constant, against the implementation that constant names, which already exists on mainnet.
 /// Nothing is deployed by the test.
 /// @custom:security-contact security@taiko.xyz
-contract Proposal0025ForkTest is Test {
+contract Proposal0026ForkTest is Test {
     /// @dev Live values read before the upgrade, compared against afterwards.
     struct Before {
         IInbox.Config config;
@@ -46,7 +46,7 @@ contract Proposal0025ForkTest is Test {
         0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
 
     /// @dev The implementation the proxy must still be running when the rehearsal starts (Unzen,
-    /// Proposal0019). The fork is taken at head, so once Proposal0025 executes these tests would
+    /// Proposal0019). The fork is taken at head, so once Proposal0026 executes these tests would
     /// otherwise rehearse current -> current and stay green while no longer covering the
     /// transition they exist for. Asserting the starting implementation fails loudly instead.
     address private constant _LIVE_INBOX_IMPL = 0x5253D4C91e80b880DdB54B78E74082Abe066F6b9;
@@ -79,7 +79,7 @@ contract Proposal0025ForkTest is Test {
         _assertOnlyTheSharingPercentageChanged(before);
     }
 
-    /// @dev The check `P=0025 pnpm proposal:dryrun:l1` performs: the DAO controller executes the
+    /// @dev The check `P=0026 pnpm proposal:dryrun:l1` performs: the DAO controller executes the
     /// batch itself and reverts `DryrunSucceeded`. `dryrun` is permissionless, so no prank.
     function test_l1_dryrunSucceeds() external {
         if (!_forkOrSkip("L1_FORK_URL")) return;
@@ -95,14 +95,14 @@ contract Proposal0025ForkTest is Test {
     }
 
     /// @dev The implementation the batch upgrades to, as the proposal names it, and the committed
-    /// batch: what `Proposal0025.action.md` carries.
+    /// batch: what `Proposal0026.action.md` carries.
     /// @return impl_ The implementation.
     /// @return actions_ The batch.
     function _implementationAndBatch()
         private
         returns (address impl_, Controller.Action[] memory actions_)
     {
-        Proposal0025Harness harness = new Proposal0025Harness();
+        Proposal0026Harness harness = new Proposal0026Harness();
         impl_ = harness.MAINNET_INBOX_NEW_IMPL();
         actions_ = harness.exposedBuildAllActions();
     }

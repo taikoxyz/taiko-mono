@@ -5,10 +5,10 @@ import { BuildProposal } from "../governance/BuildProposal.sol";
 import { LibL1Addrs as L1 } from "src/layer1/mainnet/LibL1Addrs.sol";
 import { Controller } from "src/shared/governance/Controller.sol";
 
-// To print the proposal action data: `P=0025 pnpm proposal`
-// To dryrun the proposal on L1: `P=0025 pnpm proposal:dryrun:l1`
+// To print the proposal action data: `P=0026 pnpm proposal`
+// To dryrun the proposal on L1: `P=0026 pnpm proposal:dryrun:l1`
 /// @custom:security-contact security@taiko.xyz
-contract Proposal0025 is BuildProposal {
+contract Proposal0026 is BuildProposal {
     /// @dev The `MainnetInbox` implementation the inbox proxy upgrades to: the live configuration
     /// with `basefeeSharingPctg` raised from 75 to 100. Deployed by `DeployInboxUpgradeL1` on
     /// Ethereum mainnet.

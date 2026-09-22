@@ -1,27 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Proposal0025Harness } from "./Proposal0025Harness.sol";
+import { Proposal0026Harness } from "./Proposal0026Harness.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { Test } from "forge-std/src/Test.sol";
-import { Proposal0025 } from "script/layer1/proposals/Proposal0025.s.sol";
+import { Proposal0026 } from "script/layer1/proposals/Proposal0026.s.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { LibL1Addrs as L1 } from "src/layer1/mainnet/LibL1Addrs.sol";
 import { MainnetInbox } from "src/layer1/mainnet/MainnetInbox.sol";
 import { Controller } from "src/shared/governance/Controller.sol";
 
 /// @custom:security-contact security@taiko.xyz
-contract Proposal0025Test is Test {
+contract Proposal0026Test is Test {
     address internal constant INBOX_NEW_IMPL = 0x1010101010101010101010101010101010101010;
 
     /// @dev The deployed implementation, written out as a literal rather than read back from
-    /// `Proposal0025`, so an edit to the constant there cannot be mirrored here.
+    /// `Proposal0026`, so an edit to the constant there cannot be mirrored here.
     address internal constant DEPLOYED_INBOX_IMPL = 0xA18431d42C8dF9778905fBEa912aCF1881b49D2e;
 
-    Proposal0025Harness internal proposal;
+    Proposal0026Harness internal proposal;
 
     function setUp() external {
-        proposal = new Proposal0025Harness();
+        proposal = new Proposal0026Harness();
     }
 
     function test_buildL1Actions_EncodesTheInboxUpgrade() external view {
@@ -32,7 +32,7 @@ contract Proposal0025Test is Test {
     }
 
     function test_buildL1Actions_RevertsWhileTheImplementationIsMissing() external {
-        vm.expectRevert(Proposal0025.ImplementationNotDeployed.selector);
+        vm.expectRevert(Proposal0026.ImplementationNotDeployed.selector);
         proposal.exposedBuildL1Actions(address(0));
     }
 
@@ -48,21 +48,21 @@ contract Proposal0025Test is Test {
     /// @dev Pins what the no-argument builder forwards, and with it the batch `BuildProposal`
     /// wraps: the encoding test above calls the parameterised overload directly and so bypasses
     /// the forwarding line entirely. The deployed address is the `DEPLOYED_INBOX_IMPL` literal
-    /// rather than a read of `Proposal0025`, so an edit to that constant cannot be mirrored here.
+    /// rather than a read of `Proposal0026`, so an edit to that constant cannot be mirrored here.
     function test_buildL1Actions_UsesDeployedImplementation() external view {
         Controller.Action[] memory actions = proposal.exposedBuildAllActions();
         assertEq(actions.length, 1, "an L1-only proposal appends no bridge message");
         _assertUpgrades(actions[0], L1.INBOX, DEPLOYED_INBOX_IMPL);
     }
 
-    /// @dev `Proposal0025.action.md` is the payload the DAO actually executes, and it is generated
-    /// out-of-band by `P=0025 pnpm proposal`. Nothing else in the repository checks that it was
+    /// @dev `Proposal0026.action.md` is the payload the DAO actually executes, and it is generated
+    /// out-of-band by `P=0026 pnpm proposal`. Nothing else in the repository checks that it was
     /// regenerated after the proposal changed, so a stale file would present one set of actions
     /// for review while the code describes another. This compares the committed calldata against
     /// what the proposal builds right now. The implementation is deployed, so a missing file is a
     /// failure, not a placeholder phase to skip.
     function test_actionFileMatchesTheBuiltCalldata() external {
-        string memory file = vm.readFile("script/layer1/proposals/Proposal0025.action.md");
+        string memory file = vm.readFile("script/layer1/proposals/Proposal0026.action.md");
 
         // Split on the label rather than on backtick position: the file is prettier-formatted by
         // the pre-commit hook, so line breaks are not stable but the label is.
@@ -73,7 +73,7 @@ contract Proposal0025Test is Test {
         assertEq(
             vm.parseBytes(committedHex),
             abi.encode(proposal.exposedBuildAllActions()),
-            "Proposal0025.action.md is stale -- regenerate with `P=0025 pnpm proposal`"
+            "Proposal0026.action.md is stale -- regenerate with `P=0026 pnpm proposal`"
         );
 
         // The generated header names the contract the calldata must be submitted to.

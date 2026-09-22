@@ -7,7 +7,7 @@ import { LibL1Addrs } from "src/layer1/mainnet/LibL1Addrs.sol";
 import { MainnetInbox } from "src/layer1/mainnet/MainnetInbox.sol";
 
 /// @title DeployInboxUpgradeL1
-/// @notice Deploys the `MainnetInbox` implementation that Proposal0025 upgrades the mainnet inbox
+/// @notice Deploys the `MainnetInbox` implementation that Proposal0026 upgrades the mainnet inbox
 /// proxy to: the live configuration with `basefeeSharingPctg` raised from 75 to 100.
 /// @dev Deploys a new implementation only. It does not upgrade the proxy and does not call any
 /// initializer.
@@ -43,7 +43,7 @@ contract DeployInboxUpgradeL1 is Script {
     error ConfigMismatch();
     error LiveProxyMismatch();
 
-    /// @notice Deploys the implementation and logs the address Proposal0025 needs.
+    /// @notice Deploys the implementation and logs the address Proposal0026 needs.
     function run() external {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
         require(privateKey != 0, "PRIVATE_KEY not set");

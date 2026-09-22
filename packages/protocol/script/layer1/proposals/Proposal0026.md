@@ -1,8 +1,8 @@
-# PROPOSAL-0025: Raise the Inbox Basefee Sharing Percentage to 100%
+# PROPOSAL-0026: Raise the Inbox Basefee Sharing Percentage to 100%
 
 ## Executive Summary
 
-Proposal0025 upgrades the mainnet Shasta inbox proxy `0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f`
+Proposal0026 upgrades the mainnet Shasta inbox proxy `0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f`
 to a `MainnetInbox` implementation whose `basefeeSharingPctg` is 100 instead of 75, so the whole L2
 basefee of every block in a proposal made after execution is paid to that block's coinbase and
 nothing is retained by the L2 fee treasury, the Anchor contract
@@ -253,10 +253,10 @@ cast codesize 0x526957d1a25E9D3F5ab5a4926d07eEE5d612ED42 --rpc-url $L1_RPC   # 2
 cast codesize 0x511e1E5D9b9E23958076ccF1dD0033237a8cE4f8 --rpc-url $L1_RPC   # 1936, LibForcedInclusion
 ```
 
-The address was then written into `Proposal0025.MAINNET_INBOX_NEW_IMPL` and `DEPLOYED_INBOX_IMPL`
-in `test/layer1/proposals/Proposal0025.t.sol`; `Proposal0025.action.md` was generated with
-`P=0025 pnpm proposal` and is pinned from then on by `test_actionFileMatchesTheBuiltCalldata`; the
-dry run `P=0025 pnpm proposal:dryrun:l1` reverted with `DryrunSucceeded()` as designed
+The address was then written into `Proposal0026.MAINNET_INBOX_NEW_IMPL` and `DEPLOYED_INBOX_IMPL`
+in `test/layer1/proposals/Proposal0026.t.sol`; `Proposal0026.action.md` was generated with
+`P=0026 pnpm proposal` and is pinned from then on by `test_actionFileMatchesTheBuiltCalldata`; the
+dry run `P=0026 pnpm proposal:dryrun:l1` reverted with `DryrunSucceeded()` as designed
 (`Controller.dryrun` is permissionless and always reverts, so the `--broadcast` in the script can
 never send anything); and the fork rehearsal executed the committed calldata against the deployed
 implementation. Still to do: record the deployment and, after execution, the upgrade in
@@ -330,9 +330,9 @@ PY
 # hashes, the forced-inclusion queue, the owner, the activation timestamp and the initializer
 # version unchanged; the second test is the dry run itself.
 cd packages/protocol
-P=0025 pnpm proposal && git diff --exit-code script/layer1/proposals/Proposal0025.action.md
-P=0025 pnpm proposal:dryrun:l1                       # reverts DryrunSucceeded()
-L1_FORK_URL=$L1_RPC FOUNDRY_PROFILE=layer1 forge test --match-contract Proposal0025ForkTest -vv
+P=0026 pnpm proposal && git diff --exit-code script/layer1/proposals/Proposal0026.action.md
+P=0026 pnpm proposal:dryrun:l1                       # reverts DryrunSucceeded()
+L1_FORK_URL=$L1_RPC FOUNDRY_PROFILE=layer1 forge test --match-contract Proposal0026ForkTest -vv
 ```
 
 After execution:
