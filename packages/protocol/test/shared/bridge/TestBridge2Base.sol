@@ -47,7 +47,7 @@ contract TestBridge2Base is CommonTest {
         return address(0);
     }
 
-    function setUpOnTaiko() internal override {
+    function setUpOnTaiko() internal virtual override {
         register("bridge", tBridge);
     }
 
