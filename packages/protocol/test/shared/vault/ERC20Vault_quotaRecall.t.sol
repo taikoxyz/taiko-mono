@@ -4,6 +4,24 @@ pragma solidity ^0.8.24;
 import "../helpers/FreeMintERC20Token.sol";
 import "./ERC20Vault.h.sol";
 
+/// @dev An ERC20 that burns a 1% fee from the sender on every transfer: the shape of token the
+/// vault's balance-delta accounting exists for.
+contract FeeOnTransferERC20 is ERC20 {
+    uint256 public constant FEE_BPS = 100;
+
+    constructor() ERC20("Fee on transfer", "FEE") { }
+
+    function mint(address _to, uint256 _amount) external {
+        _mint(_to, _amount);
+    }
+
+    function _transfer(address _from, address _to, uint256 _amount) internal override {
+        uint256 fee = _amount * FEE_BPS / 10_000;
+        _burn(_from, fee);
+        super._transfer(_from, _to, _amount - fee);
+    }
+}
+
 /// @dev Exercises the token side of the reported griefing scenario against the real QuotaManager:
 /// refunding a recalled message leaves the token's quota exactly where it was, no matter how often
 /// it is repeated, while deliveries keep being bounded by it and it keeps refilling over the
@@ -143,6 +161,49 @@ contract TestERC20Vault_quotaRecall is CommonTest {
         assertEq(eERC20Token1.balanceOf(holder), holderBefore);
         assertEq(eERC20Token1.balanceOf(address(eVault)), vaultBefore);
         assertEq(qm.availableQuota(token, 0), TOKEN_QUOTA);
+    }
+
+    // The vault records the balance delta a send actually produced, not the requested amount, and
+    // a refund returns exactly that delta. So a fee-on-transfer token cannot draw the vault down
+    // through send-fail-recall cycles: the sender pays the fee on both legs, the vault's balance
+    // ends every cycle where it started, and the token's quota is untouched.
+    function test_quota_recall_of_fee_on_transfer_token_cannot_drain_vault() public {
+        FeeOnTransferERC20 feeToken = new FeeOnTransferERC20();
+        address holder = Carol;
+        feeToken.mint(holder, 1_000_000);
+        feeToken.mint(address(eVault), 1_000_000); // other users' deposits
+        vm.prank(deployer);
+        qm.updateQuota(address(feeToken), 1_000_000);
+
+        uint256 vaultBefore = feeToken.balanceOf(address(eVault));
+        uint256 quota = qm.availableQuota(address(feeToken), 0);
+
+        for (uint256 i; i < 3; ++i) {
+            uint256 holderBefore = feeToken.balanceOf(holder);
+
+            vm.startPrank(holder);
+            feeToken.approve(address(eVault), 10_000);
+            IBridge.Message memory sent = eVault.sendToken(
+                ERC20Vault.BridgeTransferOp({
+                    destChainId: taikoChainId,
+                    destOwner: holder,
+                    to: holder,
+                    fee: 0,
+                    token: address(feeToken),
+                    gasLimit: 0,
+                    amount: 10_000
+                })
+            );
+            vm.stopPrank();
+            // The vault received 10,000 less the 1% fee, and that is what the message records.
+            assertEq(feeToken.balanceOf(address(eVault)), vaultBefore + 9900);
+
+            // The refund returns the recorded 9,900, of which the holder receives 9,801.
+            eBridge.recallMessage(sent, "");
+            assertEq(feeToken.balanceOf(address(eVault)), vaultBefore);
+            assertEq(feeToken.balanceOf(holder), holderBefore - 199);
+            assertEq(qm.availableQuota(address(feeToken), 0), quota);
+        }
     }
 
     function _canonical() internal view returns (ERC20Vault.CanonicalERC20 memory) {
