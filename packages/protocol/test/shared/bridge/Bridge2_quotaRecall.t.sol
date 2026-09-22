@@ -13,24 +13,18 @@ contract TestBridge2_quotaRecall is TestBridge2Base {
 
     QuotaManager private qm;
 
-    function setUpOnEthereum() internal override {
-        eSignalService = deploySignalServiceWithoutProof(
-            address(this), address(uint160(uint256(keccak256("REMOTE_SIGNAL_SERVICE_E")))), deployer
-        );
-
-        // The bridge and the quota manager reference each other through immutables, so predict the
-        // quota manager's address: it is the third contract `deployer` creates from here, after the
-        // bridge implementation and its proxy.
-        address predictedQm = vm.computeCreateAddress(deployer, vm.getNonce(deployer) + 2);
-        eBridge = deployBridge(
-            address(new Bridge(address(resolver), address(eSignalService), predictedQm, address(0)))
-        );
+    function setUpOnEthereum() internal virtual override {
+        // The base deploys the signal service and a bridge with no quota manager. The bridge and
+        // the quota manager reference each other through immutables, so wire them up the way
+        // mainnet did: bind the quota manager to the existing bridge proxy, then upgrade the proxy
+        // to an implementation that carries the quota manager.
+        super.setUpOnEthereum();
         qm = deployQuotaManager(address(eBridge), address(0));
-        assertEq(address(qm), predictedQm);
+        eBridge.upgradeTo(
+            address(new Bridge(address(resolver), address(eSignalService), address(qm), address(0)))
+        );
         assertEq(address(eBridge.quotaManager()), address(qm));
         qm.updateQuota(ETHER, uint104(ETH_QUOTA));
-
-        vm.deal(address(eBridge), 10_000 ether);
     }
 
     function test_quota_recall_cycle_leaves_quota_untouched() public {
