@@ -7,21 +7,29 @@ import "./ERC20Vault.h.sol";
 /// @dev Exercises the token side of the reported griefing scenario against the real QuotaManager:
 /// refunding a recalled message leaves the token's quota exactly where it was, no matter how often
 /// it is repeated, while deliveries keep being bounded by it and it keeps refilling over the
-/// period.
+/// period. The refund is exercised both directly, the way the other vault tests do, and end to end
+/// through a real `Bridge.recallMessage` on the source chain.
 contract TestERC20Vault_quotaRecall is CommonTest {
     uint64 private constant TOKEN_QUOTA = 100;
 
     SignalService private eSignalService;
+    Bridge private eBridge;
     ERC20Vault private eVault;
     FreeMintERC20Token private eERC20Token1;
     QuotaManager private qm;
 
     SignalService private tSignalService;
     PrankDestBridge private tBridge;
+    address private tVault = randAddress();
 
     function setUpOnEthereum() internal override {
         eSignalService = deploySignalServiceWithoutProof(
             address(this), address(uint160(uint256(keccak256("REMOTE_SIGNAL")))), deployer
+        );
+        // A real bridge on this chain, so a token can be sent and recalled through it. No Ether
+        // quota and no pauser: only the vault's token quota is under test here.
+        eBridge = deployBridge(
+            address(new Bridge(address(resolver), address(eSignalService), address(0), address(0)))
         );
 
         // The vault and the quota manager reference each other through immutables, so wire them
@@ -52,6 +60,8 @@ contract TestERC20Vault_quotaRecall is CommonTest {
         tBridge = new PrankDestBridge(eVault);
         register("bridge", address(tBridge));
         register("bridged_erc20", address(new BridgedERC20(address(eVault))));
+        // The vault a `sendToken` from Ethereum addresses on Taiko.
+        register("erc20_vault", tVault);
     }
 
     function test_quota_recall_refund_leaves_quota_untouched() public {
@@ -92,6 +102,46 @@ contract TestERC20Vault_quotaRecall is CommonTest {
 
         // The quota refills over its period, for deliveries only.
         vm.warp(block.timestamp + 24 hours);
+        assertEq(qm.availableQuota(token, 0), TOKEN_QUOTA);
+    }
+
+    // The same guarantee end to end: a holder sends tokens through the vault and the real bridge,
+    // the delivery "fails" on the other chain, and `Bridge.recallMessage` refunds them through
+    // `ERC20Vault.onMessageRecalled` without touching the token's quota.
+    function test_quota_recall_through_bridge_leaves_quota_untouched() public {
+        address token = address(eERC20Token1);
+        address holder = Carol;
+        eERC20Token1.mint(holder);
+        uint256 holderBefore = eERC20Token1.balanceOf(holder);
+        uint256 vaultBefore = eERC20Token1.balanceOf(address(eVault));
+
+        vm.startPrank(holder);
+        eERC20Token1.approve(address(eVault), TOKEN_QUOTA);
+        IBridge.Message memory sent = eVault.sendToken(
+            ERC20Vault.BridgeTransferOp({
+                destChainId: taikoChainId,
+                destOwner: holder,
+                to: holder,
+                fee: 0,
+                token: token,
+                gasLimit: 0,
+                amount: TOKEN_QUOTA
+            })
+        );
+        vm.stopPrank();
+        assertEq(sent.from, address(eVault));
+        assertEq(sent.srcOwner, holder);
+        assertEq(sent.to, tVault);
+        assertEq(eERC20Token1.balanceOf(holder), holderBefore - TOKEN_QUOTA);
+        assertEq(eERC20Token1.balanceOf(address(eVault)), vaultBefore + TOKEN_QUOTA);
+
+        // The failure proof is not verified by this chain's signal service (see the boundary
+        // stated in `Bridge2_quotaRecall.t.sol`), so the recall goes through as if L2 had reported
+        // the failure. It reaches the vault as `IRecallableSender.onMessageRecalled`.
+        eBridge.recallMessage(sent, "");
+        assertTrue(eBridge.messageStatus(eBridge.hashMessage(sent)) == IBridge.Status.RECALLED);
+        assertEq(eERC20Token1.balanceOf(holder), holderBefore);
+        assertEq(eERC20Token1.balanceOf(address(eVault)), vaultBefore);
         assertEq(qm.availableQuota(token, 0), TOKEN_QUOTA);
     }
 
