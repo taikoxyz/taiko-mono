@@ -198,6 +198,28 @@ contract TestBridge2_quotaAccounting is TestBridge2Base {
         assertEq(qm.calls(), 0);
     }
 
+    // A recall returns the value only; the fee stays in the bridge. Neither part touches the quota.
+    function test_quota_recall_with_fee_refunds_value_only_and_debits_nothing()
+        public
+        transactBy(Carol)
+    {
+        IBridge.Message memory message = _l1ToL2Message(Carol, 1 ether);
+        message.gasLimit = 1_000_000; // a fee requires a gas limit
+        message.fee = 0.1 ether;
+
+        uint256 carolBalance = Carol.balance;
+        uint256 bridgeBalance = address(eBridge).balance;
+        (, IBridge.Message memory m) = eBridge.sendMessage{ value: 1.1 ether }(message);
+        assertEq(Carol.balance, carolBalance - 1.1 ether);
+
+        eBridge.recallMessage(m, FAKE_PROOF);
+        assertTrue(eBridge.messageStatus(eBridge.hashMessage(m)) == IBridge.Status.RECALLED);
+        assertEq(Carol.balance, carolBalance - 0.1 ether);
+        assertEq(address(eBridge).balance, bridgeBalance + 0.1 ether);
+        assertEq(_ethConsumed(), 0);
+        assertEq(qm.calls(), 0);
+    }
+
     // Releasing zero Ether (here: a zero-value, zero-fee delivery) skips the quota manager call
     // entirely.
     function test_quota_zero_value_skips_external_call() public dealEther(Carol) {

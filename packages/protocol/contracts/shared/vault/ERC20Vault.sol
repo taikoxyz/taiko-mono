@@ -446,7 +446,8 @@ contract ERC20Vault is BaseVault {
         // Don't send the tokens back to `from` because `from` is on the source chain.
         checkToAddressOnDestChain(to);
 
-        // Transfer the ETH and the tokens to the `to` address
+        // Release the tokens to `to`, debit the quota for exactly what was released, then forward
+        // the Ether that came with the message.
         address token = _transferTokens(ctoken, to, amount);
         _consumeTokenQuota(token, amount);
         to.sendEtherAndVerify(msg.value);
