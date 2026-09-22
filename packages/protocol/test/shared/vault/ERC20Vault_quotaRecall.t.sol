@@ -220,7 +220,12 @@ contract TestERC20Vault_quotaRecall is CommonTest {
 
     /// @dev Delivers `_amount` of the canonical token to Bob, the way the bridge delivers a
     /// `sendToken` from the other chain.
-    function _receive(ERC20Vault.CanonicalERC20 memory _canonicalToken, uint64 _amount) internal {
+    function _receive(
+        ERC20Vault.CanonicalERC20 memory _canonicalToken,
+        uint64 _amount
+    )
+        internal
+    {
         tBridge.sendReceiveERC20ToERC20Vault(
             _canonicalToken,
             Alice,
