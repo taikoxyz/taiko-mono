@@ -243,6 +243,13 @@ contract Bridge is EssentialResolverContract, IBridge {
     }
 
     /// @inheritdoc IBridge
+    /// @dev Recalls are exempt from the Ether withdrawal quota. A recall can only return the exact
+    /// `_message.value` that this very message locked in `sendMessage`, so it never lowers the
+    /// bridge's balance below what it held before the send and is not a net outflow. Debiting it
+    /// would let anyone exhaust the shared quota at zero net cost with a send-fail-recall cycle,
+    /// blocking every other user's recalls and every L2 -> L1 withdrawal until the quota refills.
+    /// The quota is debited only where Ether actually leaves the bridge: `processMessage` and
+    /// `retryMessage`.
     function recallMessage(
         Message calldata _message,
         bytes calldata _proof
@@ -265,8 +272,8 @@ contract Bridge is EssentialResolverContract, IBridge {
         );
 
         _updateMessageStatus(msgHash, Status.RECALLED);
-        // A recall always releases `_message.value` back to the source owner, so debit its quota.
-        _consumeEtherQuota(_message.value);
+        // Deliberately no `_consumeEtherQuota` here: recalls are exempt from the quota, see the
+        // function-level @dev note.
 
         // Execute the recall logic based on the contract's support for the
         // IRecallableSender interface
