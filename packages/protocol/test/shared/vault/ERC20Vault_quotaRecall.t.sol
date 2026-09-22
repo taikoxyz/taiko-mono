@@ -1,0 +1,143 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import "../helpers/FreeMintERC20Token.sol";
+import "./ERC20Vault.h.sol";
+
+/// @dev Exercises the token side of the reported griefing scenario against the real QuotaManager:
+/// refunding a recalled message leaves the token's quota exactly where it was, no matter how often
+/// it is repeated, while deliveries keep being bounded by it and it keeps refilling over the
+/// period.
+contract TestERC20Vault_quotaRecall is CommonTest {
+    uint64 private constant TOKEN_QUOTA = 100;
+
+    SignalService private eSignalService;
+    ERC20Vault private eVault;
+    FreeMintERC20Token private eERC20Token1;
+    QuotaManager private qm;
+
+    SignalService private tSignalService;
+    PrankDestBridge private tBridge;
+
+    function setUpOnEthereum() internal override {
+        eSignalService = deploySignalServiceWithoutProof(
+            address(this), address(uint160(uint256(keccak256("REMOTE_SIGNAL")))), deployer
+        );
+
+        // The vault and the quota manager reference each other through immutables, so wire them
+        // up the way mainnet did: bind the quota manager to the vault proxy, then upgrade the
+        // proxy to an implementation that carries the quota manager.
+        eVault = ERC20Vault(
+            deploy({
+                name: "erc20_vault",
+                impl: address(new ERC20Vault(address(resolver), address(0))),
+                data: abi.encodeCall(ERC20Vault.init, (address(0)))
+            })
+        );
+        qm = deployQuotaManager(address(0), address(eVault));
+        eVault.upgradeTo(address(new ERC20Vault(address(resolver), address(qm))));
+        assertEq(address(eVault.quotaManager()), address(qm));
+
+        eERC20Token1 = new FreeMintERC20Token("ERC20", "ERC20");
+        eERC20Token1.mint(address(eVault));
+        qm.updateQuota(address(eERC20Token1), uint104(TOKEN_QUOTA));
+
+        register("bridged_erc20", address(new BridgedERC20(address(eVault))));
+    }
+
+    function setUpOnTaiko() internal override {
+        tSignalService = deploySignalServiceWithoutProof(
+            address(this), address(uint160(uint256(keccak256("REMOTE_SIGNAL_T")))), deployer
+        );
+        tBridge = new PrankDestBridge(eVault);
+        register("bridge", address(tBridge));
+        register("bridged_erc20", address(new BridgedERC20(address(eVault))));
+    }
+
+    function test_quota_recall_refund_leaves_quota_untouched() public {
+        vm.chainId(taikoChainId);
+        address token = address(eERC20Token1);
+        assertEq(qm.availableQuota(token, 0), TOKEN_QUOTA);
+
+        // Attacker: refund the whole quota's worth, over and over. Every refund lands and none
+        // of them moves the quota.
+        for (uint256 i; i < 3; ++i) {
+            uint256 aliceBefore = eERC20Token1.balanceOf(Alice);
+            IBridge.Message memory message = _recallMessage(TOKEN_QUOTA);
+            vm.prank(address(tBridge));
+            eVault.onMessageRecalled(message, bytes32(0));
+            assertEq(eERC20Token1.balanceOf(Alice) - aliceBefore, TOKEN_QUOTA);
+            assertEq(qm.availableQuota(token, 0), TOKEN_QUOTA);
+        }
+
+        // A delivery still finds the full quota and is debited...
+        // Pre-build the args: `expectEmit` targets the next call, which must be the bridge's.
+        ERC20Vault.CanonicalERC20 memory canonical = _canonical();
+        vm.expectEmit();
+        emit QuotaManager.QuotaConsumed(token, TOKEN_QUOTA, 0);
+        _receive(canonical, TOKEN_QUOTA);
+        assertEq(qm.availableQuota(token, 0), 0);
+
+        // ...the quota keeps bounding deliveries...
+        vm.expectRevert(QuotaManager.QM_OUT_OF_QUOTA.selector);
+        _receive(canonical, 1);
+
+        // ...while refunds still go through with the quota exhausted.
+        uint256 aliceBeforeLate = eERC20Token1.balanceOf(Alice);
+        IBridge.Message memory late = _recallMessage(1);
+        vm.prank(address(tBridge));
+        eVault.onMessageRecalled(late, bytes32(0));
+        assertEq(eERC20Token1.balanceOf(Alice) - aliceBeforeLate, 1);
+        assertEq(qm.availableQuota(token, 0), 0);
+
+        // The quota refills over its period, for deliveries only.
+        vm.warp(block.timestamp + 24 hours);
+        assertEq(qm.availableQuota(token, 0), TOKEN_QUOTA);
+    }
+
+    function _canonical() internal view returns (ERC20Vault.CanonicalERC20 memory) {
+        return ERC20Vault.CanonicalERC20({
+            chainId: taikoChainId,
+            addr: address(eERC20Token1),
+            decimals: eERC20Token1.decimals(),
+            symbol: eERC20Token1.symbol(),
+            name: eERC20Token1.name()
+        });
+    }
+
+    /// @dev Delivers `_amount` of the canonical token to Bob, the way the bridge delivers a
+    /// `sendToken` from the other chain.
+    function _receive(ERC20Vault.CanonicalERC20 memory _canonicalToken, uint64 _amount) internal {
+        tBridge.sendReceiveERC20ToERC20Vault(
+            _canonicalToken,
+            Alice,
+            Bob,
+            _amount,
+            0,
+            bytes32(0),
+            bytes32(0),
+            address(eVault),
+            ethereumChainId,
+            0
+        );
+    }
+
+    /// @dev Builds a message shaped like one this vault would have sent, so it can be handed back
+    /// through `onMessageRecalled`.
+    function _recallMessage(uint64 _amount) internal view returns (IBridge.Message memory) {
+        bytes memory inner = abi.encode(_canonical(), Alice, Bob, uint256(_amount));
+        return IBridge.Message({
+            id: 0,
+            fee: 0,
+            gasLimit: 0,
+            from: address(eVault),
+            srcChainId: taikoChainId,
+            srcOwner: Alice,
+            destChainId: ethereumChainId,
+            destOwner: Alice,
+            to: address(0),
+            value: 0,
+            data: abi.encodeCall(ERC20Vault.onMessageInvocation, (inner))
+        });
+    }
+}
