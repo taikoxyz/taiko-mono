@@ -7,9 +7,6 @@ library LibL2Addrs {
     address public constant DELEGATE_CONTROLLER = 0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C;
     address public constant PERMISSIONLESS_EXECUTOR = 0x4EBeC8a624ac6f01Bb6C7F13947E6Af3727319CA;
     address public constant ANCHOR = 0x1670000000000000000000000000000000010001;
-    // DefaultResolver proxy owned by DELEGATE_CONTROLLER, read by the bridge and the ERC20 vault
-    // from Proposal0024 on and by the NFT vaults from Proposal0025 on, replacing the legacy
-    // AddressManager 0x1670...0006, which bridged tokens deployed before then still read
     address public constant SHARED_RESOLVER = 0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984;
     address public constant BRIDGE = 0x1670000000000000000000000000000000000001;
 
