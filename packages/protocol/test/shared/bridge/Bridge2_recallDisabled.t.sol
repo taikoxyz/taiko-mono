@@ -65,7 +65,7 @@ contract TestBridge2_recallDisabled is TestBridge2Base {
         uint256 bridgeBalance = address(eBridge).balance;
         assertEq(Bob.balance, bobBalanceBefore - 1 ether);
 
-        vm.expectRevert(Bridge.B_FAIL_AND_RECALL_DISABLED.selector);
+        vm.expectRevert(Bridge.B_RECALL_DISABLED.selector);
         eBridge.recallMessage(sent, FAKE_PROOF);
 
         // Nothing moved: still NEW, Ether still in the bridge.
@@ -104,7 +104,7 @@ contract TestBridge2_recallDisabled is TestBridge2Base {
         taikoBridge.processMessage(sent, FAKE_PROOF);
 
         // Re-failing hits the guard first.
-        vm.expectRevert(Bridge.B_FAIL_AND_RECALL_DISABLED.selector);
+        vm.expectRevert(Bridge.B_RECALL_DISABLED.selector);
         vm.prank(Bob);
         taikoBridge.failMessage(sent);
 
@@ -115,7 +115,7 @@ contract TestBridge2_recallDisabled is TestBridge2Base {
         assertTrue(eBridge.messageStatus(hash) == IBridge.Status.NEW);
         uint256 bridgeBalance = address(eBridge).balance;
 
-        vm.expectRevert(Bridge.B_FAIL_AND_RECALL_DISABLED.selector);
+        vm.expectRevert(Bridge.B_RECALL_DISABLED.selector);
         eBridge.recallMessage(sent, FAKE_PROOF);
 
         assertTrue(eBridge.messageStatus(hash) == IBridge.Status.NEW);
@@ -146,7 +146,7 @@ contract TestBridge2_recallDisabled is TestBridge2Base {
         assertEq(address(target).balance, 0);
 
         // Cannot be marked FAILED...
-        vm.expectRevert(Bridge.B_FAIL_AND_RECALL_DISABLED.selector);
+        vm.expectRevert(Bridge.B_RECALL_DISABLED.selector);
         vm.prank(Bob);
         taikoBridge.failMessage(sent);
 
@@ -183,7 +183,7 @@ contract TestBridge2_recallDisabled is TestBridge2Base {
 
         // The source-chain recall stays blocked.
         vm.chainId(ethereumChainId);
-        vm.expectRevert(Bridge.B_FAIL_AND_RECALL_DISABLED.selector);
+        vm.expectRevert(Bridge.B_RECALL_DISABLED.selector);
         eBridge.recallMessage(sent, FAKE_PROOF);
 
         assertTrue(eBridge.messageStatus(hash) == IBridge.Status.NEW);
@@ -228,7 +228,7 @@ contract TestBridge2_recallDisabled is TestBridge2Base {
         bytes32 hash = eBridge.hashMessage(message);
         assertTrue(eBridge.messageStatus(hash) == IBridge.Status.NEW);
 
-        vm.expectRevert(Bridge.B_FAIL_AND_RECALL_DISABLED.selector);
+        vm.expectRevert(Bridge.B_RECALL_DISABLED.selector);
         vm.prank(Bob);
         eBridge.failMessage(message);
 

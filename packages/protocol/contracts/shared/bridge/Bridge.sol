@@ -149,7 +149,7 @@ contract Bridge is EssentialResolverContract, IBridge {
     }
 
     modifier whenRecallEnabled() {
-        if (!recallEnabled) revert B_FAIL_AND_RECALL_DISABLED();
+        if (!recallEnabled) revert B_RECALL_DISABLED();
         _;
     }
 
@@ -811,7 +811,7 @@ contract Bridge is EssentialResolverContract, IBridge {
     // Custom Errors
     // ---------------------------------------------------------------
 
-    error B_FAIL_AND_RECALL_DISABLED();
+    error B_RECALL_DISABLED();
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
     error B_INVALID_FEE();
