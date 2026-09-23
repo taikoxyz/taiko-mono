@@ -5,6 +5,7 @@ import { BuildProposal } from "../governance/BuildProposal.sol";
 import { LibL1Addrs as L1 } from "src/layer1/mainnet/LibL1Addrs.sol";
 import { LibL2Addrs as L2 } from "src/layer2/mainnet/LibL2Addrs.sol";
 import { DefaultResolver } from "src/shared/common/DefaultResolver.sol";
+import { IResolver } from "src/shared/common/IResolver.sol";
 import { Controller } from "src/shared/governance/Controller.sol";
 import { LibNames } from "src/shared/libs/LibNames.sol";
 
@@ -16,7 +17,7 @@ import { LibNames } from "src/shared/libs/LibNames.sol";
 /// #22156, which switches off failing and recalling messages, and moves the ERC721 and ERC1155
 /// vaults off the legacy AddressManagers onto the shared resolvers. Executes after Proposal0024,
 /// which installs the bridge and ERC20 vault implementations these replace and populates the L2
-/// resolver they read.
+/// resolver they read; the L2 leg reverts until Proposal0024's has executed.
 /// @custom:security-contact security@taiko.xyz
 contract Proposal0025 is BuildProposal {
     /// @dev The contracts the L1 leg points at. A struct with named fields rather than positional
@@ -170,7 +171,7 @@ contract Proposal0025 is BuildProposal {
     /// implementations the L2 resolver registers.
     /// @return l2ExecutionId The DelegateController execution id; zero means unordered.
     /// @return l2GasLimit The gas limit carried by the L1 to L2 message.
-    /// @return actions The ten L2 actions, in execution order.
+    /// @return actions The eleven L2 actions, in execution order.
     function buildL2Actions(L2Deployment memory _d)
         internal
         pure
@@ -185,60 +186,73 @@ contract Proposal0025 is BuildProposal {
 
         l2ExecutionId = 0;
         l2GasLimit = 5_000_000;
-        actions = new Controller.Action[](10);
+        actions = new Controller.Action[](11);
 
-        // 0-5: Add the NFT names to the resolver Proposal0024 populates, before actions 6 and 7
+        // 0: Revert unless Proposal0024's L2 batch has executed. Only that batch registers the
+        // `bridge` names the new implementations read, and nothing else orders the two: both
+        // carry execution id 0 and anyone can relay either message. Delivered first, this batch
+        // would move the bridge onto a resolver that cannot name the L1 bridge, after which every
+        // processMessage reverts, Proposal0024's and every later governance message included.
+        // With this check the batch reverts here instead, the message stays RETRIABLE, and anyone
+        // can retry it once Proposal0024's batch has executed.
+        actions[0] = Controller.Action({
+            target: L2.SHARED_RESOLVER,
+            value: 0,
+            data: abi.encodeCall(IResolver.resolve, (_L1_CHAIN_ID, LibNames.B_BRIDGE, false))
+        });
+
+        // 1-6: Add the NFT names to the resolver Proposal0024 populates, before actions 7 and 8
         // make the NFT vaults that read it live. The legacy registry `0x1670…0006` predates
         // IResolver and cannot serve these lookups, so a missing entry reverts the call that
         // needs it. The `bridge` entries the new vaults read (chain 167000 for the
         // `onlyFromNamed` guard and every send) are Proposal0024's.
         //
-        // 0-1: `erc721_vault` and `erc1155_vault` for chain 1 -- what the new vaults read on
+        // 1-2: `erc721_vault` and `erc1155_vault` for chain 1 -- what the new vaults read on
         //      every delivery (the message must come from the L1 vault), every send (the message
         //      goes to the L1 vault) and every recipient check.
-        actions[0] = _registerAction(
+        actions[1] = _registerAction(
             L2.SHARED_RESOLVER, _L1_CHAIN_ID, LibNames.B_ERC721_VAULT, L1.ERC721_VAULT
         );
-        actions[1] = _registerAction(
+        actions[2] = _registerAction(
             L2.SHARED_RESOLVER, _L1_CHAIN_ID, LibNames.B_ERC1155_VAULT, L1.ERC1155_VAULT
         );
-        // 2-3: The same names for chain 167000 -- read by nothing today, registered for symmetry
+        // 3-4: The same names for chain 167000 -- read by nothing today, registered for symmetry
         //      with the L1 resolver, which carries its own chain's vaults, as Proposal0024 did
         //      for `erc20_vault`.
-        actions[2] = _registerAction(
+        actions[3] = _registerAction(
             L2.SHARED_RESOLVER, _L2_CHAIN_ID, LibNames.B_ERC721_VAULT, L2.ERC721_VAULT
         );
-        actions[3] = _registerAction(
+        actions[4] = _registerAction(
             L2.SHARED_RESOLVER, _L2_CHAIN_ID, LibNames.B_ERC1155_VAULT, L2.ERC1155_VAULT
         );
-        // 4-5: `bridged_erc721` and `bridged_erc1155` for chain 167000 -- the implementations
+        // 5-6: `bridged_erc721` and `bridged_erc1155` for chain 167000 -- the implementations
         //      behind every bridged token the new vaults deploy, read on the first delivery of a
         //      collection they have not seen before. Built from `main` for the same reason as L1
         //      actions 2 and 3: the legacy implementations `0x0167…010097` and `0x0167…010098`
         //      only implement the six-argument, AddressManager-based init.
-        actions[4] = _registerAction(
+        actions[5] = _registerAction(
             L2.SHARED_RESOLVER, _L2_CHAIN_ID, LibNames.B_BRIDGED_ERC721, _d.bridgedErc721Impl
         );
-        actions[5] = _registerAction(
+        actions[6] = _registerAction(
             L2.SHARED_RESOLVER, _L2_CHAIN_ID, LibNames.B_BRIDGED_ERC1155, _d.bridgedErc1155Impl
         );
 
-        // 6-8: Upgrade the three L2 vaults. Each proxy is owned by the DelegateController, which
+        // 7-9: Upgrade the three L2 vaults. Each proxy is owned by the DelegateController, which
         // executes this batch, and no vault is on the call stack, so these are plain owner
         // upgrades. Bridged tokens the old NFT vaults deployed keep resolving their vault through
         // the legacy registry, which still names the unchanged proxies.
-        actions[6] = buildUpgradeAction(L2.ERC721_VAULT, _d.erc721VaultImpl);
-        actions[7] = buildUpgradeAction(L2.ERC1155_VAULT, _d.erc1155VaultImpl);
-        actions[8] = buildUpgradeAction(L2.ERC20_VAULT, _d.erc20VaultImpl);
+        actions[7] = buildUpgradeAction(L2.ERC721_VAULT, _d.erc721VaultImpl);
+        actions[8] = buildUpgradeAction(L2.ERC1155_VAULT, _d.erc1155VaultImpl);
+        actions[9] = buildUpgradeAction(L2.ERC20_VAULT, _d.erc20VaultImpl);
 
-        // 9: Upgrade the L2 bridge. This executes inside the bridge's own processMessage frame,
-        // which is safe for the same reasons as in Proposal0024: _authorizeUpgrade carries no
-        // reentrancy guard, the DelegateController reads the call context before executing
-        // actions, and the outgoing and incoming implementations keep the call context and the
-        // reentrancy lock in the same transient slots. It is deliberately the last action so the
-        // batch makes no further call after the bridge's own code has been swapped under its
-        // frame.
-        actions[9] = buildUpgradeAction(L2.BRIDGE, _d.bridgeImpl);
+        // 10: Upgrade the L2 bridge. This executes inside the bridge's own processMessage frame
+        // (retryMessage's, if action 0 held the batch back), which is safe for the same reasons
+        // as in Proposal0024: _authorizeUpgrade carries no reentrancy guard, the
+        // DelegateController reads the call context before executing actions, and the outgoing
+        // and incoming implementations keep the call context and the reentrancy lock in the same
+        // transient slots. It is deliberately the last action so the batch makes no further call
+        // after the bridge's own code has been swapped under its frame.
+        actions[10] = buildUpgradeAction(L2.BRIDGE, _d.bridgeImpl);
     }
 
     /// @dev The L1 contracts the no-argument builder encodes: the implementation constants above

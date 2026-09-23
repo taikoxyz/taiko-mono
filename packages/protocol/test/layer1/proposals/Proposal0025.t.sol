@@ -9,6 +9,7 @@ import { LibL1Addrs as L1 } from "src/layer1/mainnet/LibL1Addrs.sol";
 import { LibL2Addrs as L2 } from "src/layer2/mainnet/LibL2Addrs.sol";
 import { IBridge, IMessageInvocable } from "src/shared/bridge/IBridge.sol";
 import { DefaultResolver } from "src/shared/common/DefaultResolver.sol";
+import { IResolver } from "src/shared/common/IResolver.sol";
 import { Controller } from "src/shared/governance/Controller.sol";
 import { LibNames } from "src/shared/libs/LibNames.sol";
 
@@ -72,7 +73,10 @@ contract Proposal0025Test is Test {
         }
     }
 
-    function test_buildL2Actions_RegistersTheNftNamesThenUpgradesWithTheBridgeLast() external view {
+    /// @dev The batch opens by resolving the L1 bridge on the L2 resolver, which only
+    /// Proposal0024's L2 batch registers: delivered before that one, this batch reverts at its
+    /// first action and the message stays retriable.
+    function test_buildL2Actions_RequiresProposal0024ThenUpgradesWithTheBridgeLast() external view {
         (uint64 executionId, uint32 gasLimit, Controller.Action[] memory actions) =
             proposal.exposedBuildL2Actions(_l2());
 
@@ -125,7 +129,7 @@ contract Proposal0025Test is Test {
         // overhead; the relayer budget pinned in `Proposal0025.md` is derived from this size.
         // Re-derive both together when the action list changes.
         assertEq(
-            message.data.length, 2788, "L2 message size moved; re-derive the pinned relayer budget"
+            message.data.length, 3076, "L2 message size moved; re-derive the pinned relayer budget"
         );
     }
 
@@ -248,7 +252,8 @@ contract Proposal0025Test is Test {
         _assertUpgrades(_actions[5], L1.ERC1155_VAULT, _d.erc1155VaultImpl);
     }
 
-    /// @dev The L2 leg: the six resolver entries, the three vaults, then the bridge.
+    /// @dev The L2 leg: the check that Proposal0024's L2 batch has registered the L1 bridge, the
+    /// six resolver entries, the three vaults, then the bridge.
     function _assertL2Actions(
         Controller.Action[] memory _actions,
         Proposal0025.L2Deployment memory _d
@@ -256,37 +261,38 @@ contract Proposal0025Test is Test {
         internal
         pure
     {
-        assertEq(_actions.length, 10);
+        assertEq(_actions.length, 11);
+        _assertResolves(_actions[0], L2.SHARED_RESOLVER, 1, LibNames.B_BRIDGE);
         _assertRegisters(
-            _actions[0], L2.SHARED_RESOLVER, 1, LibNames.B_ERC721_VAULT, L1.ERC721_VAULT
+            _actions[1], L2.SHARED_RESOLVER, 1, LibNames.B_ERC721_VAULT, L1.ERC721_VAULT
         );
         _assertRegisters(
-            _actions[1], L2.SHARED_RESOLVER, 1, LibNames.B_ERC1155_VAULT, L1.ERC1155_VAULT
+            _actions[2], L2.SHARED_RESOLVER, 1, LibNames.B_ERC1155_VAULT, L1.ERC1155_VAULT
         );
         _assertRegisters(
-            _actions[2], L2.SHARED_RESOLVER, 167_000, LibNames.B_ERC721_VAULT, L2.ERC721_VAULT
+            _actions[3], L2.SHARED_RESOLVER, 167_000, LibNames.B_ERC721_VAULT, L2.ERC721_VAULT
         );
         _assertRegisters(
-            _actions[3], L2.SHARED_RESOLVER, 167_000, LibNames.B_ERC1155_VAULT, L2.ERC1155_VAULT
+            _actions[4], L2.SHARED_RESOLVER, 167_000, LibNames.B_ERC1155_VAULT, L2.ERC1155_VAULT
         );
         _assertRegisters(
-            _actions[4],
+            _actions[5],
             L2.SHARED_RESOLVER,
             167_000,
             LibNames.B_BRIDGED_ERC721,
             _d.bridgedErc721Impl
         );
         _assertRegisters(
-            _actions[5],
+            _actions[6],
             L2.SHARED_RESOLVER,
             167_000,
             LibNames.B_BRIDGED_ERC1155,
             _d.bridgedErc1155Impl
         );
-        _assertUpgrades(_actions[6], L2.ERC721_VAULT, _d.erc721VaultImpl);
-        _assertUpgrades(_actions[7], L2.ERC1155_VAULT, _d.erc1155VaultImpl);
-        _assertUpgrades(_actions[8], L2.ERC20_VAULT, _d.erc20VaultImpl);
-        _assertUpgrades(_actions[9], L2.BRIDGE, _d.bridgeImpl);
+        _assertUpgrades(_actions[7], L2.ERC721_VAULT, _d.erc721VaultImpl);
+        _assertUpgrades(_actions[8], L2.ERC1155_VAULT, _d.erc1155VaultImpl);
+        _assertUpgrades(_actions[9], L2.ERC20_VAULT, _d.erc20VaultImpl);
+        _assertUpgrades(_actions[10], L2.BRIDGE, _d.bridgeImpl);
     }
 
     function _l1() internal pure returns (Proposal0025.L1Deployment memory) {
@@ -376,5 +382,21 @@ contract Proposal0025Test is Test {
         assertEq(
             _action.data, abi.encodeCall(DefaultResolver.registerAddress, (_chainId, _name, _addr))
         );
+    }
+
+    /// @dev `_action` resolves `_name` for `_chainId` on `_resolver` without allowing the zero
+    /// address, so it reverts while the name is unregistered.
+    function _assertResolves(
+        Controller.Action memory _action,
+        address _resolver,
+        uint256 _chainId,
+        bytes32 _name
+    )
+        internal
+        pure
+    {
+        assertEq(_action.target, _resolver);
+        assertEq(_action.value, 0);
+        assertEq(_action.data, abi.encodeCall(IResolver.resolve, (_chainId, _name, false)));
     }
 }

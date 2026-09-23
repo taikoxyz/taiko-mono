@@ -49,11 +49,15 @@ still authorises its vault through them, and they keep naming the unchanged vaul
 **This proposal executes after Proposal0024.** The bridge and ERC20 vault implementations it
 replaces are the ones Proposal0024 installs (`0xA15dca0A…`, `0x32E47c04…`, `0xa200c226…`,
 `0xa01d464c…`), all of which were built before #22156 and carry the defect, and every L2
-implementation reads the resolver Proposal0024 populates. Were Proposal0024 to execute after this
-one it would reinstall the defective code, so the DAO must sequence them: Proposal0024 first, then
-Proposal0025.
+implementation reads the resolver Proposal0024 populates. On L2 the order is enforced: the batch's
+first action reverts until Proposal0024's L2 batch has executed, so a delivery that comes first
+stays `RETRIABLE` and is retried afterwards (see [Action Order](#action-order)). Without that check
+it would move the L2 bridge onto a resolver that cannot name the L1 bridge, after which no L1 → L2
+message, Proposal0024's and every governance message included, could be processed again. L1 has no
+such check: were Proposal0024 to execute after this one it would reinstall the defective code, so
+the DAO must sequence them: Proposal0024 first, then Proposal0025.
 
-The proposal executes **7 top-level L1 actions** and **10 L2 actions**. All twelve contracts are
+The proposal executes **7 top-level L1 actions** and **11 L2 actions**. All twelve contracts are
 deployed and verified; see [Deployed Addresses](#deployed-addresses).
 
 ## Scope
@@ -124,12 +128,16 @@ The L1 resolver already names every counterpart the new NFT vaults read (verifie
 `bridged_erc1155` entries for chain 1 name the May 2024 implementations `0xC3310905…` and
 `0x3c90963c…`, whose bytecode has only the six-argument `init` (`0xef8c4ae6`), not the
 five-argument one the new vaults call (`0xd1399b1a`); the L2 legacy implementations
-`0x0167…010097` and `0x0167…010098` are the same. That is why actions L1 3–4 and L2 5–6 exist.
+`0x0167…010097` and `0x0167…010098` are the same. That is why actions L1 3–4 and L2 6–7 exist.
 
 Preconditions to re-read at execution time, as for Proposal0024: neither bridge may be paused (the
 appended L1 `sendMessage` and the L2 `processMessage` that delivers the batch are both
-`whenNotPaused`), and Proposal0024 must have executed on both chains, which is what
-[Verification](#verification) checks first.
+`whenNotPaused`), and Proposal0024 must have executed on both chains, its L2 message included,
+which is what [Verification](#verification) checks first. L2 action 1 holds this batch back while
+Proposal0024's L2 message is undelivered, but only as `RETRIABLE`, and on the bridges before this
+proposal anyone can have a `RETRIABLE` governance message marked `FAILED` through its `destOwner`
+`PERMISSIONLESS_EXECUTOR`, which forwards any call; a failed batch has to be proposed again.
+Deliver Proposal0024's L2 message before this one.
 
 ## What Changes
 
@@ -221,7 +229,9 @@ the outgoing and the incoming implementation are `main`-era code:
    and `fee: 0`, so there is no refund path.
 
 The resolver entries and the three vault upgrades are plain owner calls, ordered before the bridge
-swap so the batch makes no further call once the bridge's code has changed under its frame.
+swap so the batch makes no further call once the bridge's code has changed under its frame. If L2
+action 1 held the batch back and it is retried, the swap happens inside `retryMessage`'s frame
+instead, which uses the same slots; `test_l2_batchWaitsForProposal0024` rehearses that path.
 `test/layer1/proposals/Proposal0025Fork.t.sol` rehearses both legs against live state; see
 [Verification](#verification).
 
@@ -257,38 +267,44 @@ under [What Changes](#nft-vaults-protocol-1100-to-main).
 The message is sent through the just-upgraded bridge, so the new implementation's `sendMessage`
 runs in the same transaction it goes live. The L1 dry run and the fork rehearsal both prove that.
 
-### L2 — 10 actions, `l2ExecutionId = 0`, `l2GasLimit = 5_000_000`
+### L2 — 11 actions, `l2ExecutionId = 0`, `l2GasLimit = 5_000_000`
 
-Numbered from 1 here, `actions[0]` to `actions[9]` in `Proposal0025.s.sol`. Actions 1–6 are
-`registerAddress` calls on the L2 shared resolver `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984`.
+Numbered from 1 here, `actions[0]` to `actions[10]` in `Proposal0025.s.sol`. Actions 1–7 call the
+L2 shared resolver `0x2ea05A9CD06984Cf533a1829d8b0BE6289a43984`; 2–7 are `registerAddress` calls.
 
-1. `erc721_vault` for chain 1 → `0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa`, read on every delivery,
+1. `resolve(1, "bridge", false)`, which reverts until Proposal0024's L2 batch has registered the L1
+   bridge. Delivered before that batch, this one reverts here, the message stays `RETRIABLE` with
+   nothing changed, and anyone can `retryMessage` it once Proposal0024's batch has executed.
+   Without the check it would move the bridge onto a resolver that cannot name the L1 bridge, after
+   which every `processMessage` reverts, Proposal0024's included. `test_l2_batchWaitsForProposal0024`
+   rehearses this.
+2. `erc721_vault` for chain 1 → `0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa`, read on every delivery,
    send and recipient check.
-2. `erc1155_vault` for chain 1 → `0xaf145913EA4a56BE22E120ED9C24589659881702`, likewise.
-3. `erc721_vault` for chain 167000 → `0x1670000000000000000000000000000000000003`, read by nothing
+3. `erc1155_vault` for chain 1 → `0xaf145913EA4a56BE22E120ED9C24589659881702`, likewise.
+4. `erc721_vault` for chain 167000 → `0x1670000000000000000000000000000000000003`, read by nothing
    today; registered for symmetry with the L1 resolver, as Proposal0024 did for `erc20_vault`.
-4. `erc1155_vault` for chain 167000 → `0x1670000000000000000000000000000000000004`, likewise.
-5. `bridged_erc721` for chain 167000 → `0x71c2f41AEDe913AAEf2c62596E03702E348D6Cd0`, read on the first delivery of a
+5. `erc1155_vault` for chain 167000 → `0x1670000000000000000000000000000000000004`, likewise.
+6. `bridged_erc721` for chain 167000 → `0x71c2f41AEDe913AAEf2c62596E03702E348D6Cd0`, read on the first delivery of a
    collection the vault has not seen.
-6. `bridged_erc1155` for chain 167000 → `0x7dF8bfBf0f09e94200b6a158b421e2CCaCc4830F`, likewise.
-7. `upgradeTo(0x1670000000000000000000000000000000000003, 0x4cAb75DBE321084fD15c7AA9f7398e073A7EaBd0)` — the ERC721
+7. `bridged_erc1155` for chain 167000 → `0x7dF8bfBf0f09e94200b6a158b421e2CCaCc4830F`, likewise.
+8. `upgradeTo(0x1670000000000000000000000000000000000003, 0x4cAb75DBE321084fD15c7AA9f7398e073A7EaBd0)` — the ERC721
    vault.
-8. `upgradeTo(0x1670000000000000000000000000000000000004, 0xe148CceFFcd5494301c20e047634995C60611e57)` — the ERC1155
+9. `upgradeTo(0x1670000000000000000000000000000000000004, 0xe148CceFFcd5494301c20e047634995C60611e57)` — the ERC1155
    vault.
-9. `upgradeTo(0x1670000000000000000000000000000000000002, 0x25D8465fD0C8D89bfdE910E47c41f4E465672B5c)` — the ERC20
-   vault.
-10. `upgradeTo(0x1670000000000000000000000000000000000001, 0xF372Db3F06AcaB3347697866d2047a54D1BA8eB3)` — the bridge's
+10. `upgradeTo(0x1670000000000000000000000000000000000002, 0x25D8465fD0C8D89bfdE910E47c41f4E465672B5c)` — the ERC20
+    vault.
+11. `upgradeTo(0x1670000000000000000000000000000000000001, 0xF372Db3F06AcaB3347697866d2047a54D1BA8eB3)` — the bridge's
     mid-call self-upgrade, deliberately last.
 
 The `bridge` entry for chain 167000 that the new NFT vaults also read (their `onlyFromNamed` guard
 and every send) is registered by Proposal0024.
 
-Parameter choices: `l2ExecutionId = 0` is the unordered mode Proposal0024 used.
-`l2GasLimit = 5_000_000` matches Proposal0024; after the bridge deducts `GAS_RESERVE` (800,000)
-and the calldata charge (51,712 for this 2,788-byte message), a relayer-driven invocation gets
-4,148,288 gas, about sixteen times the ~254,000 the ten actions use in the fork rehearsal.
-`Proposal0025.t.sol` pins the 2,788 and the fork test's relayer case pins the 4,148,288; re-derive
-both together if the action list changes.
+Parameter choices: `l2ExecutionId = 0` is the unordered mode Proposal0024 used; action 1 is what
+orders this batch after Proposal0024's. `l2GasLimit = 5_000_000` matches Proposal0024; after the
+bridge deducts `GAS_RESERVE` (800,000) and the calldata charge (56,320 for this 3,076-byte
+message), a relayer-driven invocation gets 4,143,680 gas, about sixteen times the ~261,000 the
+eleven actions use in the fork rehearsal. `Proposal0025.t.sol` pins the 3,076 and the fork test's
+relayer case pins the 4,143,680; re-derive both together if the action list changes.
 
 ## Deployment
 
@@ -321,8 +337,10 @@ and their codediff links, into `LibL1Addrs` / `LibL2Addrs` `BRIDGED_ERC721` and 
 and into the `DEPLOYED_*` literals of `Proposal0025.t.sol`. `Proposal0025.action.md` is generated by
 `P=0025 pnpm proposal`, and `test_actionFileMatchesTheBuiltCalldata` compares it against the
 builders; a second reviewer should re-run the command and diff the file. On 2026-09-23, before
-Proposal0024 executed, both dry runs reverted with `DryrunSucceeded()` against the live chains and
-`Proposal0025ForkTest` passed against the deployed contracts.
+Proposal0024 executed, the L1 dry run reverted with `DryrunSucceeded()` against the live chain, the
+L2 one stopped at action 1 with `INNER_ERROR(0x2d2520c2)` (`RESOLVED_TO_ZERO_ADDRESS`), as it must
+until Proposal0024's L2 batch has executed, and `Proposal0025ForkTest` passed against the deployed
+contracts.
 
 ## Deployed Addresses
 
@@ -496,18 +514,22 @@ FOUNDRY_PROFILE=layer2 forge verify-bytecode 0x7dF8bfBf0f09e94200b6a158b421e2CCa
   contracts/shared/vault/BridgedERC1155.sol:BridgedERC1155 --rpc-url $L2_RPC --ignore runtime \
   --encoded-constructor-args $(cast abi-encode "c(address)" 0x1670000000000000000000000000000000000004)
 
-# Simulate both legs against the live chains; both revert with DryrunSucceeded().
+# Simulate both legs against the live chains; both revert with DryrunSucceeded(). Until
+# Proposal0024's L2 batch has executed, the L2 one stops at action 1 with INNER_ERROR(0x2d2520c2)
+# (RESOLVED_TO_ZERO_ADDRESS) instead.
 cd packages/protocol
 MODE=l1dryrun FOUNDRY_PROFILE=layer1 forge script script/layer1/proposals/Proposal0025.s.sol:Proposal0025 --rpc-url $L1_RPC
 MODE=l2dryrun FOUNDRY_PROFILE=layer1 forge script script/layer1/proposals/Proposal0025.s.sol:Proposal0025 --rpc-url $L2_RPC
 
-# Rehearse the exact batch against live state; all five tests must pass. While the fork still
+# Rehearse the exact batch against live state; all six tests must pass. While the fork still
 # predates Proposal0024 the rehearsal executes that batch first; while the constants are
 # placeholders it builds the contracts from the tree. On L1 it pins the defect on the Proposal0024
 # code (a recall drains the Ether quota, a refund debits the WETH quota), executes the batch, and
 # shows the same recalls reverting with B_RECALL_DISABLED afterwards, both quotas untouched, while a
 # real withdrawal is still debited. On L2 it delivers the batch through processMessage, then sends,
-# delivers bridged USDT and serves a second governance message through the upgraded bridge. On
+# delivers bridged USDT and serves a second governance message through the upgraded bridge. It also
+# relays the batch ahead of Proposal0024's, which leaves it RETRIABLE with nothing changed, and
+# retries it once Proposal0024's has executed; that test skips once the L2 fork is past it. On
 # both chains the NFT rehearsal bridges a collection in through the old NFT vaults, executes the
 # batch, and then, through the new vaults, mints more of that collection and bridges it back out,
 # deploys a never-seen collection behind the new bridged-token implementation, and custodies and

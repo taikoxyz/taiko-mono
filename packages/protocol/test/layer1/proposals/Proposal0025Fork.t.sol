@@ -41,6 +41,9 @@ import { ERC721Vault } from "src/shared/vault/ERC721Vault.sol";
 /// built from this tree inside the fork, with the immutables the deploy scripts bake in; once the
 /// constants name deployed contracts, those are used and nothing is deployed.
 ///
+/// Nothing on L2 orders the two batches, so `test_l2_batchWaitsForProposal0024` relays this one
+/// first: its first action reverts, and the message stays retriable until Proposal0024's lands.
+///
 /// On L1 the rehearsal pins the defect first, on the implementations Proposal0024 installs, then
 /// executes the batch and shows the fix: the same send-fail-recall cycles now stop at the recall
 /// with `B_RECALL_DISABLED`, leaving both quotas untouched, and an L2 -> L1 delivery is still
@@ -217,6 +220,64 @@ contract Proposal0025ForkTest is Test {
     function test_l2_selfUpgradeThroughProcessMessage_byRelayer() external {
         if (!_forkOrSkip("L2_FORK_URL")) return;
         _rehearseL2Upgrade(makeAddr("relayer"));
+    }
+
+    /// @dev Nothing on L2 orders this batch after Proposal0024's: both carry execution id 0, and
+    /// anyone can relay either message. Relayed first, the batch reverts at its first action,
+    /// because the L2 resolver does not name the L1 bridge yet, and the message stays RETRIABLE
+    /// with nothing changed. Without that action the batch would move the bridge onto the empty
+    /// resolver, where every later `processMessage` reverts, Proposal0024's included. Once
+    /// Proposal0024's batch has landed, anyone can retry the message.
+    function test_l2_batchWaitsForProposal0024() external {
+        if (!_forkOrSkip("L2_FORK_URL")) return;
+        if (_implementationOf(L2.BRIDGE) != _V110_BRIDGE_IMPL_L2) {
+            vm.skip(true, "L2 fork is past Proposal0024; the batches can no longer be misordered");
+            return;
+        }
+        _mockSignalProofs(L2.SIGNAL_SERVICE);
+
+        Bridge bridge = Bridge(payable(L2.BRIDGE));
+        DefaultResolver resolver = DefaultResolver(L2.SHARED_RESOLVER);
+        address erc20VaultImpl = _implementationOf(L2.ERC20_VAULT);
+        // The L2 resolver does not name the L1 bridge until Proposal0024's batch registers it.
+        assertEq(resolver.resolve(1, LibNames.B_BRIDGE, true), address(0));
+
+        Proposal0025Harness harness = new Proposal0025Harness();
+        Proposal0025.L2Deployment memory l2 = _l2Deployment(harness);
+        IBridge.Message memory message = _l2BatchMessage(harness, l2);
+
+        // Relayed first, the batch reverts inside the invocation...
+        address relayer = makeAddr("relayer");
+        vm.prank(relayer);
+        (IBridge.Status status, IBridge.StatusReason reason) = bridge.processMessage(message, "");
+        assertEq(uint8(status), uint8(IBridge.Status.RETRIABLE), "batch ran before Proposal0024");
+        assertEq(uint8(reason), uint8(IBridge.StatusReason.INVOCATION_FAILED));
+
+        // ...and changes nothing: every proxy keeps its implementation and no name is registered.
+        assertEq(_implementationOf(L2.BRIDGE), _V110_BRIDGE_IMPL_L2);
+        assertEq(_implementationOf(L2.ERC20_VAULT), erc20VaultImpl);
+        assertEq(_implementationOf(L2.ERC721_VAULT), _LIVE_ERC721_VAULT_IMPL_L2);
+        assertEq(_implementationOf(L2.ERC1155_VAULT), _LIVE_ERC1155_VAULT_IMPL_L2);
+        assertEq(resolver.resolve(1, LibNames.B_ERC721_VAULT, true), address(0));
+        assertEq(resolver.resolve(1, LibNames.B_ERC1155_VAULT, true), address(0));
+        assertEq(resolver.resolve(167_000, LibNames.B_ERC721_VAULT, true), address(0));
+        assertEq(resolver.resolve(167_000, LibNames.B_ERC1155_VAULT, true), address(0));
+        assertEq(resolver.resolve(167_000, LibNames.B_BRIDGED_ERC721, true), address(0));
+        assertEq(resolver.resolve(167_000, LibNames.B_BRIDGED_ERC1155, true), address(0));
+
+        // Proposal0024's batch lands, and then anyone can retry the message.
+        _ensureProposal0024ExecutedOnL2(relayer);
+        vm.prank(makeAddr("anyone"));
+        bridge.retryMessage(message, false);
+        assertEq(
+            uint8(bridge.messageStatus(bridge.hashMessage(message))), uint8(IBridge.Status.DONE)
+        );
+        assertEq(_implementationOf(L2.BRIDGE), l2.bridgeImpl);
+        assertEq(_implementationOf(L2.ERC20_VAULT), l2.erc20VaultImpl);
+        assertEq(_implementationOf(L2.ERC721_VAULT), l2.erc721VaultImpl);
+        assertEq(_implementationOf(L2.ERC1155_VAULT), l2.erc1155VaultImpl);
+        _assertL2NftVaultsAfterUpgrade(l2);
+        _deliverGovernanceMessageThroughUpgradedBridge(relayer);
     }
 
     function test_l2_nftVaultsAgainstLiveState() external {
@@ -511,9 +572,8 @@ contract Proposal0025ForkTest is Test {
         _deliverGovernanceMessageThroughUpgradedBridge(_caller);
     }
 
-    /// @dev Delivers the ten L2 actions the way governance will: as a processMessage call on the
-    /// bridge itself, which is what exercises the mid-call self-upgrade. The message is the one
-    /// BuildProposal wraps the L2 batch into.
+    /// @dev Delivers the eleven L2 actions the way governance will: as a processMessage call on
+    /// the bridge itself, which is what exercises the mid-call self-upgrade.
     /// @param _harness The proposal.
     /// @param _l2 The contracts the L2 leg points at.
     /// @param _caller The address that calls `processMessage`.
@@ -525,20 +585,17 @@ contract Proposal0025ForkTest is Test {
         private
     {
         Bridge bridge = Bridge(payable(L2.BRIDGE));
-        IBridge.Message memory message = _harness.exposedBuildL2Message(_l2);
-        message.id = 8_250_000;
-        message.from = L1.DAO_CONTROLLER;
-        message.srcChainId = 1;
+        IBridge.Message memory message = _l2BatchMessage(_harness, _l2);
 
         // On the relayer branch the invocation receives message.gasLimit minus the message's own
         // minimum, not gasleft(). Pin that budget so the 5,000,000 in the proposal is shown to be
-        // sufficient rather than assumed: 5,000,000 - (51,712 calldata cost + 800,000 GAS_RESERVE)
-        // for this message's 2,788 bytes of data, about sixteen times the ~254,000 gas the ten
-        // actions use here. `Proposal0025.t.sol` pins the 2,788.
+        // sufficient rather than assumed: 5,000,000 - (56,320 calldata cost + 800,000 GAS_RESERVE)
+        // for this message's 3,076 bytes of data, about sixteen times the ~261,000 gas the eleven
+        // actions use here. `Proposal0025.t.sol` pins the 3,076.
         if (_caller != message.destOwner) {
             assertEq(
                 message.gasLimit - bridge.getMessageMinGasLimit(message.data.length),
-                4_148_288,
+                4_143_680,
                 "relayer invocation budget moved; re-derive it before trusting this rehearsal"
             );
         }
@@ -554,6 +611,25 @@ contract Proposal0025ForkTest is Test {
         assertEq(_implementationOf(L2.ERC20_VAULT), _l2.erc20VaultImpl);
         assertEq(_implementationOf(L2.ERC721_VAULT), _l2.erc721VaultImpl);
         assertEq(_implementationOf(L2.ERC1155_VAULT), _l2.erc1155VaultImpl);
+    }
+
+    /// @dev The message BuildProposal wraps the L2 batch into, as the L2 bridge receives it from
+    /// the DAO controller.
+    /// @param _harness The proposal.
+    /// @param _l2 The contracts the L2 leg points at.
+    /// @return message_ The message.
+    function _l2BatchMessage(
+        Proposal0025Harness _harness,
+        Proposal0025.L2Deployment memory _l2
+    )
+        private
+        pure
+        returns (IBridge.Message memory message_)
+    {
+        message_ = _harness.exposedBuildL2Message(_l2);
+        message_.id = 8_250_000;
+        message_.from = L1.DAO_CONTROLLER;
+        message_.srcChainId = 1;
     }
 
     /// @dev Brings the L2 fork to the state Proposal0025 executes from: the Proposal0024
