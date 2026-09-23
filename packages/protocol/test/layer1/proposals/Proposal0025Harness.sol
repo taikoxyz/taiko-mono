@@ -20,13 +20,13 @@ contract Proposal0025Harness is Proposal0025 {
     /// two fails that test instead of going unnoticed.
     /// @return The batch the DAO controller executes.
     function exposedBuildAllActions() external pure returns (Controller.Action[] memory) {
-        return _allActions(_l1Constants(), _l2Constants());
+        return _allActions(_l1Deployment(), _l2Deployment());
     }
 
     /// @dev The same batch against injectable addresses, for rehearsals that run while a constant
     /// is still a placeholder.
-    /// @param _l1 The implementations the L1 proxies upgrade to.
-    /// @param _l2 The implementations the L2 proxies upgrade to.
+    /// @param _l1 The contracts the L1 leg points at.
+    /// @param _l2 The contracts the L2 leg points at.
     /// @return The batch the DAO controller executes.
     function exposedBuildAllActions(
         L1Deployment memory _l1,
@@ -43,11 +43,11 @@ contract Proposal0025Harness is Proposal0025 {
     /// receives it.
     /// @return The message.
     function exposedBuildL2Message() external pure returns (IBridge.Message memory) {
-        return _l2Message(_l2Constants());
+        return _l2Message(_l2Deployment());
     }
 
     /// @dev The same message against injectable L2 addresses.
-    /// @param _l2 The implementations the L2 proxies upgrade to.
+    /// @param _l2 The contracts the L2 leg points at.
     /// @return The message.
     function exposedBuildL2Message(L2Deployment memory _l2)
         external
@@ -99,22 +99,8 @@ contract Proposal0025Harness is Proposal0025 {
         return buildL2Actions(_l2);
     }
 
-    function _l1Constants() private pure returns (L1Deployment memory) {
-        return
-            L1Deployment({
-                bridgeImpl: BRIDGE_NEW_IMPL_L1, erc20VaultImpl: ERC20_VAULT_NEW_IMPL_L1
-            });
-    }
-
-    function _l2Constants() private pure returns (L2Deployment memory) {
-        return
-            L2Deployment({
-                bridgeImpl: BRIDGE_NEW_IMPL_L2, erc20VaultImpl: ERC20_VAULT_NEW_IMPL_L2
-            });
-    }
-
     /// @dev Mirrors the message `BuildProposal._buildAllActions` wraps the L2 batch into.
-    /// @param _l2 The implementations the L2 proxies upgrade to.
+    /// @param _l2 The contracts the L2 leg points at.
     /// @return message_ The message, as `sendMessage` receives it.
     function _l2Message(L2Deployment memory _l2)
         private
@@ -136,8 +122,8 @@ contract Proposal0025Harness is Proposal0025 {
     }
 
     /// @dev Mirrors `BuildProposal._buildAllActions` for a proposal with an L2 leg.
-    /// @param _l1 The implementations the L1 proxies upgrade to.
-    /// @param _l2 The implementations the L2 proxies upgrade to.
+    /// @param _l1 The contracts the L1 leg points at.
+    /// @param _l2 The contracts the L2 leg points at.
     /// @return actions_ The L1 actions plus the bridge message carrying the L2 batch.
     function _allActions(
         L1Deployment memory _l1,

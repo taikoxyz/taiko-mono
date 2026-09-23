@@ -8,24 +8,45 @@ import { Proposal0025 } from "script/layer1/proposals/Proposal0025.s.sol";
 import { LibL1Addrs as L1 } from "src/layer1/mainnet/LibL1Addrs.sol";
 import { LibL2Addrs as L2 } from "src/layer2/mainnet/LibL2Addrs.sol";
 import { IBridge, IMessageInvocable } from "src/shared/bridge/IBridge.sol";
+import { DefaultResolver } from "src/shared/common/DefaultResolver.sol";
 import { Controller } from "src/shared/governance/Controller.sol";
+import { LibNames } from "src/shared/libs/LibNames.sol";
 
 /// @custom:security-contact security@taiko.xyz
 contract Proposal0025Test is Test {
     address internal constant BRIDGE_NEW_IMPL_L1 = 0x1010101010101010101010101010101010101010;
     address internal constant ERC20_VAULT_NEW_IMPL_L1 = 0x1111111111111111111111111111111111111111;
+    address internal constant ERC721_VAULT_NEW_IMPL_L1 = 0x1212121212121212121212121212121212121212;
+    address internal constant ERC1155_VAULT_NEW_IMPL_L1 =
+        0x1313131313131313131313131313131313131313;
+    address internal constant BRIDGED_ERC721_L1 = 0x1414141414141414141414141414141414141414;
+    address internal constant BRIDGED_ERC1155_L1 = 0x1515151515151515151515151515151515151515;
     address internal constant BRIDGE_NEW_IMPL_L2 = 0x2020202020202020202020202020202020202020;
     address internal constant ERC20_VAULT_NEW_IMPL_L2 = 0x4040404040404040404040404040404040404040;
+    address internal constant ERC721_VAULT_NEW_IMPL_L2 = 0x4242424242424242424242424242424242424242;
+    address internal constant ERC1155_VAULT_NEW_IMPL_L2 =
+        0x4343434343434343434343434343434343434343;
+    address internal constant BRIDGED_ERC721_L2 = 0x4444444444444444444444444444444444444444;
+    address internal constant BRIDGED_ERC1155_L2 = 0x4545454545454545454545454545454545454545;
 
-    // TODO(@davidtaikocha): once the four implementations are deployed and written into
-    // `Proposal0025.s.sol`, write them out here as literals as well, rather than reading them back
-    // from `Proposal0025`, so an edit to a constant there cannot be mirrored here. The
+    // TODO(@davidtaikocha): once the twelve contracts are deployed and written into
+    // `Proposal0025.s.sol`, `LibL1Addrs` and `LibL2Addrs`, write them out here as literals as well,
+    // rather than reading them back, so an edit to a constant there cannot be mirrored here. The
     // `UsesDeployedImplementations` tests below switch from pinning the placeholder guard to
-    // pinning these literals as soon as the constants are non-zero.
+    // pinning these literals as soon as the proposal's constants are non-zero; the bridged-token
+    // literals are what catches a library still naming the legacy implementations.
     address internal constant DEPLOYED_BRIDGE_IMPL_L1 = address(0);
     address internal constant DEPLOYED_ERC20_VAULT_IMPL_L1 = address(0);
+    address internal constant DEPLOYED_ERC721_VAULT_IMPL_L1 = address(0);
+    address internal constant DEPLOYED_ERC1155_VAULT_IMPL_L1 = address(0);
+    address internal constant DEPLOYED_BRIDGED_ERC721_L1 = address(0);
+    address internal constant DEPLOYED_BRIDGED_ERC1155_L1 = address(0);
     address internal constant DEPLOYED_BRIDGE_IMPL_L2 = address(0);
     address internal constant DEPLOYED_ERC20_VAULT_IMPL_L2 = address(0);
+    address internal constant DEPLOYED_ERC721_VAULT_IMPL_L2 = address(0);
+    address internal constant DEPLOYED_ERC1155_VAULT_IMPL_L2 = address(0);
+    address internal constant DEPLOYED_BRIDGED_ERC721_L2 = address(0);
+    address internal constant DEPLOYED_BRIDGED_ERC1155_L2 = address(0);
 
     Proposal0025Harness internal proposal;
 
@@ -33,62 +54,49 @@ contract Proposal0025Test is Test {
         proposal = new Proposal0025Harness();
     }
 
-    function test_buildL1Actions_EncodesTheBridgeThenTheVaultUpgrade() external view {
-        Controller.Action[] memory actions = proposal.exposedBuildL1Actions(_l1());
-
-        assertEq(actions.length, 2);
-        _assertUpgrades(actions[0], L1.BRIDGE, BRIDGE_NEW_IMPL_L1);
-        _assertUpgrades(actions[1], L1.ERC20_VAULT, ERC20_VAULT_NEW_IMPL_L1);
+    function test_buildL1Actions_EncodesTheUpgradesAndTheBridgedNftRegistrations() external view {
+        _assertL1Actions(proposal.exposedBuildL1Actions(_l1()), _l1());
     }
 
-    function test_buildL1Actions_RevertsWhileAnImplementationIsMissing() external {
-        Proposal0025.L1Deployment memory d = _l1();
-        d.bridgeImpl = address(0);
-        vm.expectRevert(Proposal0025.ImplementationNotDeployed.selector);
-        proposal.exposedBuildL1Actions(d);
-
-        d = _l1();
-        d.erc20VaultImpl = address(0);
-        vm.expectRevert(Proposal0025.ImplementationNotDeployed.selector);
-        proposal.exposedBuildL1Actions(d);
+    function test_buildL1Actions_RevertsWhileAnAddressIsMissing() external {
+        for (uint256 i; i < 6; ++i) {
+            vm.expectRevert(Proposal0025.ImplementationNotDeployed.selector);
+            proposal.exposedBuildL1Actions(_l1WithZero(i));
+        }
     }
 
-    function test_buildL2Actions_UpgradesTheVaultThenTheBridge() external view {
+    function test_buildL2Actions_RegistersTheNftNamesThenUpgradesWithTheBridgeLast() external view {
         (uint64 executionId, uint32 gasLimit, Controller.Action[] memory actions) =
             proposal.exposedBuildL2Actions(_l2());
 
         assertEq(executionId, 0);
         assertEq(gasLimit, 5_000_000);
-        assertEq(actions.length, 2);
-        _assertUpgrades(actions[0], L2.ERC20_VAULT, ERC20_VAULT_NEW_IMPL_L2);
-        _assertUpgrades(actions[1], L2.BRIDGE, BRIDGE_NEW_IMPL_L2);
+        _assertL2Actions(actions, _l2());
     }
 
-    function test_buildL2Actions_RevertsWhileAnImplementationIsMissing() external {
-        Proposal0025.L2Deployment memory d = _l2();
-        d.bridgeImpl = address(0);
-        vm.expectRevert(Proposal0025.ImplementationNotDeployed.selector);
-        proposal.exposedBuildL2Actions(d);
-
-        d = _l2();
-        d.erc20VaultImpl = address(0);
-        vm.expectRevert(Proposal0025.ImplementationNotDeployed.selector);
-        proposal.exposedBuildL2Actions(d);
+    function test_buildL2Actions_RevertsWhileAnAddressIsMissing() external {
+        for (uint256 i; i < 6; ++i) {
+            vm.expectRevert(Proposal0025.ImplementationNotDeployed.selector);
+            proposal.exposedBuildL2Actions(_l2WithZero(i));
+        }
     }
 
     /// @dev The DAO executes the L1 actions plus one `sendMessage` that `BuildProposal` appends,
     /// and the fork rehearsal executes exactly this batch. Pins its shape and the message it
     /// carries, decoded from the `sendMessage` calldata rather than rebuilt here.
-    function test_buildAllActions_AppendsTheL2MessageAfterTheL1Upgrades() external view {
+    function test_buildAllActions_AppendsTheL2MessageAfterTheL1Actions() external view {
         Controller.Action[] memory actions = proposal.exposedBuildAllActions(_l1(), _l2());
 
-        assertEq(actions.length, 3);
-        _assertUpgrades(actions[0], L1.BRIDGE, BRIDGE_NEW_IMPL_L1);
-        _assertUpgrades(actions[1], L1.ERC20_VAULT, ERC20_VAULT_NEW_IMPL_L1);
-        assertEq(actions[2].target, L1.BRIDGE);
-        assertEq(actions[2].value, 0);
+        assertEq(actions.length, 7);
+        Controller.Action[] memory l1Actions = new Controller.Action[](6);
+        for (uint256 i; i < 6; ++i) {
+            l1Actions[i] = actions[i];
+        }
+        _assertL1Actions(l1Actions, _l1());
+        assertEq(actions[6].target, L1.BRIDGE);
+        assertEq(actions[6].value, 0);
 
-        IBridge.Message memory message = proposal.decodeSendMessage(actions[2].data);
+        IBridge.Message memory message = proposal.decodeSendMessage(actions[6].data);
         assertEq(message.srcOwner, L1.DAO_CONTROLLER);
         assertEq(message.destOwner, L2.PERMISSIONLESS_EXECUTOR);
         assertEq(message.destChainId, 167_000);
@@ -110,14 +118,14 @@ contract Proposal0025Test is Test {
         // overhead; the relayer budget pinned in `Proposal0025.md` is derived from this size.
         // Re-derive both together when the action list changes.
         assertEq(
-            message.data.length, 612, "L2 message size moved; re-derive the pinned relayer budget"
+            message.data.length, 2788, "L2 message size moved; re-derive the pinned relayer budget"
         );
     }
 
     /// @dev Pins what the no-argument builders forward. While the constants in `Proposal0025.s.sol`
     /// are placeholders they must refuse to encode; once deployed, the forwarded addresses are
-    /// the `DEPLOYED_*` literals above rather than reads of `Proposal0025`, so an edit to one of
-    /// those constants cannot be mirrored here.
+    /// the `DEPLOYED_*` literals above rather than reads of `Proposal0025` or the address
+    /// libraries, so an edit to one of those constants cannot be mirrored here.
     function test_buildL1Actions_UsesDeployedImplementations() external {
         if (_placeholdersPending()) {
             vm.expectRevert(Proposal0025.ImplementationNotDeployed.selector);
@@ -125,11 +133,19 @@ contract Proposal0025Test is Test {
             return;
         }
 
-        assertTrue(DEPLOYED_BRIDGE_IMPL_L1 != address(0), "fill in the DEPLOYED_* literals");
-        Controller.Action[] memory actions = proposal.exposedBuildL1Actions();
-        assertEq(actions.length, 2);
-        _assertUpgrades(actions[0], L1.BRIDGE, DEPLOYED_BRIDGE_IMPL_L1);
-        _assertUpgrades(actions[1], L1.ERC20_VAULT, DEPLOYED_ERC20_VAULT_IMPL_L1);
+        Proposal0025.L1Deployment memory deployed = Proposal0025.L1Deployment({
+            bridgeImpl: DEPLOYED_BRIDGE_IMPL_L1,
+            erc20VaultImpl: DEPLOYED_ERC20_VAULT_IMPL_L1,
+            erc721VaultImpl: DEPLOYED_ERC721_VAULT_IMPL_L1,
+            erc1155VaultImpl: DEPLOYED_ERC1155_VAULT_IMPL_L1,
+            bridgedErc721Impl: DEPLOYED_BRIDGED_ERC721_L1,
+            bridgedErc1155Impl: DEPLOYED_BRIDGED_ERC1155_L1
+        });
+        _assertNoZero(deployed.bridgeImpl, deployed.erc20VaultImpl, deployed.erc721VaultImpl);
+        _assertNoZero(
+            deployed.erc1155VaultImpl, deployed.bridgedErc721Impl, deployed.bridgedErc1155Impl
+        );
+        _assertL1Actions(proposal.exposedBuildL1Actions(), deployed);
     }
 
     function test_buildL2Actions_UsesDeployedImplementations() external {
@@ -139,14 +155,23 @@ contract Proposal0025Test is Test {
             return;
         }
 
-        assertTrue(DEPLOYED_BRIDGE_IMPL_L2 != address(0), "fill in the DEPLOYED_* literals");
+        Proposal0025.L2Deployment memory deployed = Proposal0025.L2Deployment({
+            bridgeImpl: DEPLOYED_BRIDGE_IMPL_L2,
+            erc20VaultImpl: DEPLOYED_ERC20_VAULT_IMPL_L2,
+            erc721VaultImpl: DEPLOYED_ERC721_VAULT_IMPL_L2,
+            erc1155VaultImpl: DEPLOYED_ERC1155_VAULT_IMPL_L2,
+            bridgedErc721Impl: DEPLOYED_BRIDGED_ERC721_L2,
+            bridgedErc1155Impl: DEPLOYED_BRIDGED_ERC1155_L2
+        });
+        _assertNoZero(deployed.bridgeImpl, deployed.erc20VaultImpl, deployed.erc721VaultImpl);
+        _assertNoZero(
+            deployed.erc1155VaultImpl, deployed.bridgedErc721Impl, deployed.bridgedErc1155Impl
+        );
         (uint64 executionId, uint32 gasLimit, Controller.Action[] memory actions) =
             proposal.exposedBuildL2Actions();
         assertEq(executionId, 0);
         assertEq(gasLimit, 5_000_000);
-        assertEq(actions.length, 2);
-        _assertUpgrades(actions[0], L2.ERC20_VAULT, DEPLOYED_ERC20_VAULT_IMPL_L2);
-        _assertUpgrades(actions[1], L2.BRIDGE, DEPLOYED_BRIDGE_IMPL_L2);
+        _assertL2Actions(actions, deployed);
     }
 
     /// @dev `Proposal0025.action.md` is the payload the DAO actually executes, and it is generated
@@ -186,20 +211,134 @@ contract Proposal0025Test is Test {
     function _placeholdersPending() internal view returns (bool) {
         return proposal.BRIDGE_NEW_IMPL_L1() == address(0)
             || proposal.ERC20_VAULT_NEW_IMPL_L1() == address(0)
+            || proposal.ERC721_VAULT_NEW_IMPL_L1() == address(0)
+            || proposal.ERC1155_VAULT_NEW_IMPL_L1() == address(0)
             || proposal.BRIDGE_NEW_IMPL_L2() == address(0)
-            || proposal.ERC20_VAULT_NEW_IMPL_L2() == address(0);
+            || proposal.ERC20_VAULT_NEW_IMPL_L2() == address(0)
+            || proposal.ERC721_VAULT_NEW_IMPL_L2() == address(0)
+            || proposal.ERC1155_VAULT_NEW_IMPL_L2() == address(0);
+    }
+
+    /// @dev The L1 leg: bridge, ERC20 vault, the two bridged-token registrations, then the two
+    /// NFT vaults.
+    function _assertL1Actions(
+        Controller.Action[] memory _actions,
+        Proposal0025.L1Deployment memory _d
+    )
+        internal
+        pure
+    {
+        assertEq(_actions.length, 6);
+        _assertUpgrades(_actions[0], L1.BRIDGE, _d.bridgeImpl);
+        _assertUpgrades(_actions[1], L1.ERC20_VAULT, _d.erc20VaultImpl);
+        _assertRegisters(
+            _actions[2], L1.SHARED_RESOLVER, 1, LibNames.B_BRIDGED_ERC721, _d.bridgedErc721Impl
+        );
+        _assertRegisters(
+            _actions[3], L1.SHARED_RESOLVER, 1, LibNames.B_BRIDGED_ERC1155, _d.bridgedErc1155Impl
+        );
+        _assertUpgrades(_actions[4], L1.ERC721_VAULT, _d.erc721VaultImpl);
+        _assertUpgrades(_actions[5], L1.ERC1155_VAULT, _d.erc1155VaultImpl);
+    }
+
+    /// @dev The L2 leg: the six resolver entries, the three vaults, then the bridge.
+    function _assertL2Actions(
+        Controller.Action[] memory _actions,
+        Proposal0025.L2Deployment memory _d
+    )
+        internal
+        pure
+    {
+        assertEq(_actions.length, 10);
+        _assertRegisters(
+            _actions[0], L2.SHARED_RESOLVER, 1, LibNames.B_ERC721_VAULT, L1.ERC721_VAULT
+        );
+        _assertRegisters(
+            _actions[1], L2.SHARED_RESOLVER, 1, LibNames.B_ERC1155_VAULT, L1.ERC1155_VAULT
+        );
+        _assertRegisters(
+            _actions[2], L2.SHARED_RESOLVER, 167_000, LibNames.B_ERC721_VAULT, L2.ERC721_VAULT
+        );
+        _assertRegisters(
+            _actions[3], L2.SHARED_RESOLVER, 167_000, LibNames.B_ERC1155_VAULT, L2.ERC1155_VAULT
+        );
+        _assertRegisters(
+            _actions[4],
+            L2.SHARED_RESOLVER,
+            167_000,
+            LibNames.B_BRIDGED_ERC721,
+            _d.bridgedErc721Impl
+        );
+        _assertRegisters(
+            _actions[5],
+            L2.SHARED_RESOLVER,
+            167_000,
+            LibNames.B_BRIDGED_ERC1155,
+            _d.bridgedErc1155Impl
+        );
+        _assertUpgrades(_actions[6], L2.ERC721_VAULT, _d.erc721VaultImpl);
+        _assertUpgrades(_actions[7], L2.ERC1155_VAULT, _d.erc1155VaultImpl);
+        _assertUpgrades(_actions[8], L2.ERC20_VAULT, _d.erc20VaultImpl);
+        _assertUpgrades(_actions[9], L2.BRIDGE, _d.bridgeImpl);
     }
 
     function _l1() internal pure returns (Proposal0025.L1Deployment memory) {
         return Proposal0025.L1Deployment({
-            bridgeImpl: BRIDGE_NEW_IMPL_L1, erc20VaultImpl: ERC20_VAULT_NEW_IMPL_L1
+            bridgeImpl: BRIDGE_NEW_IMPL_L1,
+            erc20VaultImpl: ERC20_VAULT_NEW_IMPL_L1,
+            erc721VaultImpl: ERC721_VAULT_NEW_IMPL_L1,
+            erc1155VaultImpl: ERC1155_VAULT_NEW_IMPL_L1,
+            bridgedErc721Impl: BRIDGED_ERC721_L1,
+            bridgedErc1155Impl: BRIDGED_ERC1155_L1
         });
     }
 
     function _l2() internal pure returns (Proposal0025.L2Deployment memory) {
         return Proposal0025.L2Deployment({
-            bridgeImpl: BRIDGE_NEW_IMPL_L2, erc20VaultImpl: ERC20_VAULT_NEW_IMPL_L2
+            bridgeImpl: BRIDGE_NEW_IMPL_L2,
+            erc20VaultImpl: ERC20_VAULT_NEW_IMPL_L2,
+            erc721VaultImpl: ERC721_VAULT_NEW_IMPL_L2,
+            erc1155VaultImpl: ERC1155_VAULT_NEW_IMPL_L2,
+            bridgedErc721Impl: BRIDGED_ERC721_L2,
+            bridgedErc1155Impl: BRIDGED_ERC1155_L2
         });
+    }
+
+    /// @dev `_l1()` with its `_field`-th member, in declaration order, set to zero.
+    function _l1WithZero(uint256 _field)
+        internal
+        pure
+        returns (Proposal0025.L1Deployment memory d_)
+    {
+        d_ = _l1();
+        if (_field == 0) d_.bridgeImpl = address(0);
+        else if (_field == 1) d_.erc20VaultImpl = address(0);
+        else if (_field == 2) d_.erc721VaultImpl = address(0);
+        else if (_field == 3) d_.erc1155VaultImpl = address(0);
+        else if (_field == 4) d_.bridgedErc721Impl = address(0);
+        else d_.bridgedErc1155Impl = address(0);
+    }
+
+    /// @dev `_l2()` with its `_field`-th member, in declaration order, set to zero.
+    function _l2WithZero(uint256 _field)
+        internal
+        pure
+        returns (Proposal0025.L2Deployment memory d_)
+    {
+        d_ = _l2();
+        if (_field == 0) d_.bridgeImpl = address(0);
+        else if (_field == 1) d_.erc20VaultImpl = address(0);
+        else if (_field == 2) d_.erc721VaultImpl = address(0);
+        else if (_field == 3) d_.erc1155VaultImpl = address(0);
+        else if (_field == 4) d_.bridgedErc721Impl = address(0);
+        else d_.bridgedErc1155Impl = address(0);
+    }
+
+    function _assertNoZero(address _a, address _b, address _c) internal pure {
+        assertTrue(
+            _a != address(0) && _b != address(0) && _c != address(0),
+            "fill in the DEPLOYED_* literals"
+        );
     }
 
     function _assertUpgrades(
@@ -213,5 +352,22 @@ contract Proposal0025Test is Test {
         assertEq(_action.target, _proxy);
         assertEq(_action.value, 0);
         assertEq(_action.data, abi.encodeCall(UUPSUpgradeable.upgradeTo, (_newImpl)));
+    }
+
+    function _assertRegisters(
+        Controller.Action memory _action,
+        address _resolver,
+        uint256 _chainId,
+        bytes32 _name,
+        address _addr
+    )
+        internal
+        pure
+    {
+        assertEq(_action.target, _resolver);
+        assertEq(_action.value, 0);
+        assertEq(
+            _action.data, abi.encodeCall(DefaultResolver.registerAddress, (_chainId, _name, _addr))
+        );
     }
 }

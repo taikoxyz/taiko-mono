@@ -3,7 +3,11 @@ pragma solidity ^0.8.24;
 
 import { Proposal0024Harness } from "./Proposal0024Harness.sol";
 import { Proposal0025Harness } from "./Proposal0025Harness.sol";
+import { ERC1155 } from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import { IERC1155 } from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { Test, console2 } from "forge-std/src/Test.sol";
 import { Proposal0025 } from "script/layer1/proposals/Proposal0025.s.sol";
 import { LibL1Addrs as L1 } from "src/layer1/mainnet/LibL1Addrs.sol";
@@ -12,10 +16,16 @@ import { Bridge } from "src/shared/bridge/Bridge.sol";
 import { IBridge, IMessageInvocable } from "src/shared/bridge/IBridge.sol";
 import { QuotaManager } from "src/shared/bridge/QuotaManager.sol";
 import { DefaultResolver } from "src/shared/common/DefaultResolver.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { Controller } from "src/shared/governance/Controller.sol";
 import { LibNames } from "src/shared/libs/LibNames.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
+import { BaseNFTVault } from "src/shared/vault/BaseNFTVault.sol";
+import { BridgedERC1155 } from "src/shared/vault/BridgedERC1155.sol";
+import { BridgedERC721 } from "src/shared/vault/BridgedERC721.sol";
+import { ERC1155Vault } from "src/shared/vault/ERC1155Vault.sol";
 import { ERC20Vault } from "src/shared/vault/ERC20Vault.sol";
+import { ERC721Vault } from "src/shared/vault/ERC721Vault.sol";
 
 /// @notice Rehearses the Proposal0025 upgrades against live mainnet state.
 /// @dev Skipped unless `L1_FORK_URL` / `L2_FORK_URL` are set, because CI configures no RPC
@@ -27,16 +37,20 @@ import { ERC20Vault } from "src/shared/vault/ERC20Vault.sol";
 /// Proposal0025 executes after Proposal0024. While a fork still runs the pre-Proposal0024
 /// implementations, the rehearsal first executes Proposal0024's batch on that fork, the way
 /// `Proposal0024Fork.t.sol` does, so it always rehearses the transition Proposal0025 will actually
-/// make. While the constants in `Proposal0025.s.sol` are still placeholders, the implementations
-/// are built from this tree inside the fork, with the immutables the deploy scripts bake in; once
-/// the constants name deployed contracts, those are used and nothing is deployed.
+/// make. While the constants in `Proposal0025.s.sol` are still placeholders, the contracts are
+/// built from this tree inside the fork, with the immutables the deploy scripts bake in; once the
+/// constants name deployed contracts, those are used and nothing is deployed.
 ///
 /// On L1 the rehearsal pins the defect first, on the implementations Proposal0024 installs, then
 /// executes the batch and shows the fix: the same send-fail-recall cycles now stop at the recall
 /// with `B_RECALL_DISABLED`, leaving both quotas untouched, and an L2 -> L1 delivery is still
 /// debited. On L2 the bridge upgrades itself from inside its own `processMessage` frame and keeps
-/// sending, delivering and serving governance afterwards. The signal proofs are mocked on both
-/// forks, as in `Proposal0024Fork.t.sol`: a valid proof cannot be synthesised against a fork.
+/// sending, delivering and serving governance afterwards. On both chains the NFT rehearsal bridges
+/// a collection in through the old NFT vaults before the batch and then, through the new ones,
+/// keeps minting and burning it, deploys a collection it has not seen behind the new bridged-token
+/// implementation, and custodies and releases a collection native to the chain. The signal proofs
+/// are mocked on both forks, as in `Proposal0024Fork.t.sol`: a valid proof cannot be synthesised
+/// against a fork.
 /// @custom:security-contact security@taiko.xyz
 contract Proposal0025ForkTest is Test {
     /// @dev Live values read before a batch executes, compared against afterwards.
@@ -46,6 +60,29 @@ contract Proposal0025ForkTest is Test {
         address vaultOwner;
         // L2 only: a bridged token the 1.10.0 vault deployed, which must keep working.
         address bridgedUsdt;
+    }
+
+    /// @dev One chain's end of the NFT rehearsal.
+    struct Side {
+        uint64 chainId;
+        uint64 peerChainId;
+        address bridge;
+        address erc721Vault;
+        address erc1155Vault;
+        address peerErc721Vault;
+        address peerErc1155Vault;
+        // The NFT vault implementations the proxies run before the batch.
+        address liveErc721VaultImpl;
+        address liveErc1155VaultImpl;
+        // The bridged-token implementations the legacy AddressManager names.
+        address legacyBridgedErc721;
+        address legacyBridgedErc1155;
+    }
+
+    /// @dev The bridged tokens the old NFT vaults deploy before the batch.
+    struct Legacy {
+        address erc721;
+        address erc1155;
     }
 
     /// @dev EIP-1967 implementation slot.
@@ -69,6 +106,26 @@ contract Proposal0025ForkTest is Test {
     /// Proposal0024's batch executed first.
     address private constant _P17_BRIDGE_IMPL_L1 = 0x1c94D798CFA08F396E5BA9F81697289c53273381;
     address private constant _V110_BRIDGE_IMPL_L2 = 0x95ae2918dcbc6aFF8B4c1F1BCC1bf819b6e08B83;
+
+    /// @dev The NFT vault implementations live today, which this proposal replaces, and the
+    /// bridged-token implementations the legacy AddressManagers name.
+    address private constant _LIVE_ERC721_VAULT_IMPL_L1 =
+        0xA4C5c20aB33C96B1c281Dca37D03E23609274C49;
+    address private constant _LIVE_ERC1155_VAULT_IMPL_L1 =
+        0x838ed469db456b67EB3b0B74D759Be4DA999b9c8;
+    address private constant _LIVE_ERC721_VAULT_IMPL_L2 =
+        0xd532f20a4751156C566Da7745db95E7f80145B36;
+    address private constant _LIVE_ERC1155_VAULT_IMPL_L2 =
+        0xBBBC4ad39488b990E095042fa6c59A90d3817846;
+    address private constant _LEGACY_BRIDGED_ERC721_L1 = 0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7;
+    address private constant _LEGACY_BRIDGED_ERC1155_L1 =
+        0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40;
+    address private constant _LEGACY_BRIDGED_ERC721_L2 = 0x0167000000000000000000000000000000010097;
+    address private constant _LEGACY_BRIDGED_ERC1155_L2 =
+        0x0167000000000000000000000000000000010098;
+
+    /// @dev The id of the next NFT message delivered from the peer chain.
+    uint64 private _nextNftMessageId = 8_251_000;
 
     function test_l1_upgradesAgainstLiveState() external {
         if (!_forkOrSkip("L1_FORK_URL")) return;
@@ -105,10 +162,11 @@ contract Proposal0025ForkTest is Test {
             bridgedUsdt: address(0)
         });
 
-        // Execute the whole L1 batch the way the DAO controller will: both upgrades, then the
-        // sendMessage that BuildProposal appends, through the just-upgraded bridge.
+        // Execute the whole L1 batch the way the DAO controller will: the upgrades and
+        // registrations, then the sendMessage that BuildProposal appends, through the
+        // just-upgraded bridge.
         Controller.Action[] memory actions = harness.exposedBuildAllActions(l1, l2);
-        assertEq(actions.length, 3);
+        assertEq(actions.length, 7);
         _executeAs(L1.DAO_CONTROLLER, actions);
 
         _assertL1AfterUpgrade(l1, before);
@@ -128,6 +186,27 @@ contract Proposal0025ForkTest is Test {
         assertEq(qm.availableQuota(address(0), 0), ethQuota - 1 ether);
     }
 
+    function test_l1_nftVaultsAgainstLiveState() external {
+        if (!_forkOrSkip("L1_FORK_URL")) return;
+        _mockSignalProofs(L1.SIGNAL_SERVICE);
+        _ensureProposal0024ExecutedOnL1();
+
+        Side memory side = _l1Side();
+        address holder = makeAddr("NFT holder on L1");
+        Legacy memory legacy = _bridgeInThroughOldVaults(side, holder);
+
+        Proposal0025Harness harness = new Proposal0025Harness();
+        Proposal0025.L1Deployment memory l1 = _l1Deployment(harness);
+        _executeAs(
+            L1.DAO_CONTROLLER, harness.exposedBuildAllActions(l1, _l2AddressesForEncoding(harness))
+        );
+        assertEq(_implementationOf(L1.ERC721_VAULT), l1.erc721VaultImpl);
+        assertEq(_implementationOf(L1.ERC1155_VAULT), l1.erc1155VaultImpl);
+
+        _rehearseErc721AfterUpgrade(side, legacy.erc721, l1.bridgedErc721Impl, holder);
+        _rehearseErc1155AfterUpgrade(side, legacy.erc1155, l1.bridgedErc1155Impl, holder);
+    }
+
     function test_l2_selfUpgradeThroughProcessMessage() external {
         if (!_forkOrSkip("L2_FORK_URL")) return;
         _rehearseL2Upgrade(L2.PERMISSIONLESS_EXECUTOR);
@@ -138,6 +217,23 @@ contract Proposal0025ForkTest is Test {
     function test_l2_selfUpgradeThroughProcessMessage_byRelayer() external {
         if (!_forkOrSkip("L2_FORK_URL")) return;
         _rehearseL2Upgrade(makeAddr("relayer"));
+    }
+
+    function test_l2_nftVaultsAgainstLiveState() external {
+        if (!_forkOrSkip("L2_FORK_URL")) return;
+        _mockSignalProofs(L2.SIGNAL_SERVICE);
+        _ensureProposal0024ExecutedOnL2(L2.PERMISSIONLESS_EXECUTOR);
+
+        Side memory side = _l2Side();
+        address holder = makeAddr("NFT holder on L2");
+        Legacy memory legacy = _bridgeInThroughOldVaults(side, holder);
+
+        Proposal0025Harness harness = new Proposal0025Harness();
+        Proposal0025.L2Deployment memory l2 = _l2Deployment(harness);
+        _executeL2Batch(harness, l2, L2.PERMISSIONLESS_EXECUTOR);
+
+        _rehearseErc721AfterUpgrade(side, legacy.erc721, l2.bridgedErc721Impl, holder);
+        _rehearseErc1155AfterUpgrade(side, legacy.erc1155, l2.bridgedErc1155Impl, holder);
     }
 
     // ---------------------------------------------------------------
@@ -165,21 +261,26 @@ contract Proposal0025ForkTest is Test {
         );
     }
 
-    /// @dev The implementations the L1 leg points at: the deployed ones once the constants name
-    /// them, otherwise ones built from this tree with the immutables `DeployProposal0025L1` bakes
-    /// in.
+    /// @dev The contracts the L1 leg points at: the deployed ones once the constants name them,
+    /// otherwise ones built from this tree with the immutables `DeployProposal0025L1` bakes in.
     /// @param _harness The proposal.
-    /// @return d_ The L1 implementations.
+    /// @return d_ The L1 deployment.
     function _l1Deployment(Proposal0025Harness _harness)
         private
         returns (Proposal0025.L1Deployment memory d_)
     {
         d_ = Proposal0025.L1Deployment({
             bridgeImpl: _harness.BRIDGE_NEW_IMPL_L1(),
-            erc20VaultImpl: _harness.ERC20_VAULT_NEW_IMPL_L1()
+            erc20VaultImpl: _harness.ERC20_VAULT_NEW_IMPL_L1(),
+            erc721VaultImpl: _harness.ERC721_VAULT_NEW_IMPL_L1(),
+            erc1155VaultImpl: _harness.ERC1155_VAULT_NEW_IMPL_L1(),
+            bridgedErc721Impl: L1.BRIDGED_ERC721,
+            bridgedErc1155Impl: L1.BRIDGED_ERC1155
         });
-        if (d_.bridgeImpl == address(0) || d_.erc20VaultImpl == address(0)) {
-            console2.log("Proposal0025 L1 constants are placeholders; building the implementations");
+        if (_placeholders(
+                d_.bridgeImpl, d_.erc20VaultImpl, d_.erc721VaultImpl, d_.erc1155VaultImpl
+            )) {
+            console2.log("Proposal0025 L1 constants are placeholders; building the contracts");
             d_.bridgeImpl = address(
                 new Bridge(
                     L1.SHARED_RESOLVER,
@@ -190,9 +291,16 @@ contract Proposal0025ForkTest is Test {
                 )
             );
             d_.erc20VaultImpl = address(new ERC20Vault(L1.SHARED_RESOLVER, L1.QUOTA_MANAGER));
+            d_.erc721VaultImpl = address(new ERC721Vault(L1.SHARED_RESOLVER));
+            d_.erc1155VaultImpl = address(new ERC1155Vault(L1.SHARED_RESOLVER));
+            d_.bridgedErc721Impl = address(new BridgedERC721(L1.ERC721_VAULT));
+            d_.bridgedErc1155Impl = address(new BridgedERC1155(L1.ERC1155_VAULT));
         } else {
-            assertGt(d_.bridgeImpl.code.length, 0, "L1 bridge implementation is not deployed");
-            assertGt(d_.erc20VaultImpl.code.length, 0, "L1 vault implementation is not deployed");
+            _assertDeployed(d_.bridgeImpl, d_.erc20VaultImpl, d_.erc721VaultImpl);
+            _assertDeployed(d_.erc1155VaultImpl, d_.bridgedErc721Impl, d_.bridgedErc1155Impl);
+            _assertBridgedTokensBoundTo(
+                d_.bridgedErc721Impl, d_.bridgedErc1155Impl, L1.ERC721_VAULT, L1.ERC1155_VAULT
+            );
         }
     }
 
@@ -200,24 +308,35 @@ contract Proposal0025ForkTest is Test {
     /// rehearsed on the L2 fork, so while the constants are placeholders any non-zero addresses
     /// give the L1 batch its final shape.
     /// @param _harness The proposal.
-    /// @return d_ The L2 implementations, or stand-ins.
+    /// @return d_ The L2 deployment, or stand-ins.
     function _l2AddressesForEncoding(Proposal0025Harness _harness)
         private
         returns (Proposal0025.L2Deployment memory d_)
     {
         d_ = Proposal0025.L2Deployment({
             bridgeImpl: _harness.BRIDGE_NEW_IMPL_L2(),
-            erc20VaultImpl: _harness.ERC20_VAULT_NEW_IMPL_L2()
+            erc20VaultImpl: _harness.ERC20_VAULT_NEW_IMPL_L2(),
+            erc721VaultImpl: _harness.ERC721_VAULT_NEW_IMPL_L2(),
+            erc1155VaultImpl: _harness.ERC1155_VAULT_NEW_IMPL_L2(),
+            bridgedErc721Impl: L2.BRIDGED_ERC721,
+            bridgedErc1155Impl: L2.BRIDGED_ERC1155
         });
         if (d_.bridgeImpl == address(0)) d_.bridgeImpl = makeAddr("L2 bridge implementation");
         if (d_.erc20VaultImpl == address(0)) {
             d_.erc20VaultImpl = makeAddr("L2 vault implementation");
         }
+        if (d_.erc721VaultImpl == address(0)) {
+            d_.erc721VaultImpl = makeAddr("L2 ERC721 vault implementation");
+        }
+        if (d_.erc1155VaultImpl == address(0)) {
+            d_.erc1155VaultImpl = makeAddr("L2 ERC1155 vault implementation");
+        }
     }
 
     /// @dev Checks the L1 proxies after the batch: implementations, immutables and owners kept,
-    /// and the governance message left through the new bridge implementation.
-    /// @param _l1 The implementations the proxies must now run.
+    /// the bridged-token entries replaced, and the governance message left through the new bridge
+    /// implementation.
+    /// @param _l1 The contracts the batch points at.
     /// @param _before The live values read before the batch.
     function _assertL1AfterUpgrade(
         Proposal0025.L1Deployment memory _l1,
@@ -245,6 +364,14 @@ contract Proposal0025ForkTest is Test {
         assertEq(vault.resolver(), L1.SHARED_RESOLVER);
         assertEq(address(vault.quotaManager()), L1.QUOTA_MANAGER);
         assertEq(vault.PERMIT2(), _PERMIT2);
+
+        _assertNftVault(L1.ERC721_VAULT, _l1.erc721VaultImpl, L1.SHARED_RESOLVER, L1.DAO_CONTROLLER);
+        _assertNftVault(
+            L1.ERC1155_VAULT, _l1.erc1155VaultImpl, L1.SHARED_RESOLVER, L1.DAO_CONTROLLER
+        );
+        DefaultResolver resolver = DefaultResolver(L1.SHARED_RESOLVER);
+        assertEq(resolver.resolve(1, LibNames.B_BRIDGED_ERC721, false), _l1.bridgedErc721Impl);
+        assertEq(resolver.resolve(1, LibNames.B_BRIDGED_ERC1155, false), _l1.bridgedErc1155Impl);
     }
 
     /// @dev The cycle from the report: `_attacker` locks `_amount` of Ether for L2 and recalls it
@@ -375,23 +502,43 @@ contract Proposal0025ForkTest is Test {
         });
         assertTrue(before.bridgedUsdt != address(0), "no bridged USDT on this fork");
 
-        // Deliver the two L2 actions the way governance will: as a processMessage call on the
-        // bridge itself, which is what exercises the mid-call self-upgrade. The message is the one
-        // BuildProposal wraps the L2 batch into.
-        IBridge.Message memory message = harness.exposedBuildL2Message(l2);
+        _executeL2Batch(harness, l2, _caller);
+
+        _assertL2BridgeAfterUpgrade(before);
+        _assertL2VaultAfterUpgrade(before);
+        _assertL2NftVaultsAfterUpgrade(l2);
+        _deliverUsdtFromL1(before.bridgedUsdt);
+        _deliverGovernanceMessageThroughUpgradedBridge(_caller);
+    }
+
+    /// @dev Delivers the ten L2 actions the way governance will: as a processMessage call on the
+    /// bridge itself, which is what exercises the mid-call self-upgrade. The message is the one
+    /// BuildProposal wraps the L2 batch into.
+    /// @param _harness The proposal.
+    /// @param _l2 The contracts the L2 leg points at.
+    /// @param _caller The address that calls `processMessage`.
+    function _executeL2Batch(
+        Proposal0025Harness _harness,
+        Proposal0025.L2Deployment memory _l2,
+        address _caller
+    )
+        private
+    {
+        Bridge bridge = Bridge(payable(L2.BRIDGE));
+        IBridge.Message memory message = _harness.exposedBuildL2Message(_l2);
         message.id = 8_250_000;
         message.from = L1.DAO_CONTROLLER;
         message.srcChainId = 1;
 
         // On the relayer branch the invocation receives message.gasLimit minus the message's own
         // minimum, not gasleft(). Pin that budget so the 5,000,000 in the proposal is shown to be
-        // sufficient rather than assumed: 5,000,000 - (16,896 calldata cost + 800,000 GAS_RESERVE)
-        // for this message's 612 bytes of data, more than twenty times what two upgrades need.
-        // `Proposal0025.t.sol` pins the 612.
+        // sufficient rather than assumed: 5,000,000 - (51,712 calldata cost + 800,000 GAS_RESERVE)
+        // for this message's 2,788 bytes of data, about sixteen times the ~254,000 gas the ten
+        // actions use here. `Proposal0025.t.sol` pins the 2,788.
         if (_caller != message.destOwner) {
             assertEq(
                 message.gasLimit - bridge.getMessageMinGasLimit(message.data.length),
-                4_183_104,
+                4_148_288,
                 "relayer invocation budget moved; re-derive it before trusting this rehearsal"
             );
         }
@@ -403,13 +550,10 @@ contract Proposal0025ForkTest is Test {
         // RETRIABLE without reverting processMessage. Assert the status as well as the slots.
         assertEq(uint8(status), uint8(IBridge.Status.DONE));
         assertEq(uint8(reason), uint8(IBridge.StatusReason.INVOCATION_OK));
-        assertEq(_implementationOf(L2.BRIDGE), l2.bridgeImpl);
-        assertEq(_implementationOf(L2.ERC20_VAULT), l2.erc20VaultImpl);
-
-        _assertL2BridgeAfterUpgrade(before);
-        _assertL2VaultAfterUpgrade(before);
-        _deliverUsdtFromL1(before.bridgedUsdt);
-        _deliverGovernanceMessageThroughUpgradedBridge(_caller);
+        assertEq(_implementationOf(L2.BRIDGE), _l2.bridgeImpl);
+        assertEq(_implementationOf(L2.ERC20_VAULT), _l2.erc20VaultImpl);
+        assertEq(_implementationOf(L2.ERC721_VAULT), _l2.erc721VaultImpl);
+        assertEq(_implementationOf(L2.ERC1155_VAULT), _l2.erc1155VaultImpl);
     }
 
     /// @dev Brings the L2 fork to the state Proposal0025 executes from: the Proposal0024
@@ -448,28 +592,40 @@ contract Proposal0025ForkTest is Test {
         );
     }
 
-    /// @dev The implementations the L2 leg points at: the deployed ones once the constants name
-    /// them, otherwise ones built from this tree with the immutables `DeployProposal0025L2` bakes
-    /// in.
+    /// @dev The contracts the L2 leg points at: the deployed ones once the constants name them,
+    /// otherwise ones built from this tree with the immutables `DeployProposal0025L2` bakes in.
     /// @param _harness The proposal.
-    /// @return d_ The L2 implementations.
+    /// @return d_ The L2 deployment.
     function _l2Deployment(Proposal0025Harness _harness)
         private
         returns (Proposal0025.L2Deployment memory d_)
     {
         d_ = Proposal0025.L2Deployment({
             bridgeImpl: _harness.BRIDGE_NEW_IMPL_L2(),
-            erc20VaultImpl: _harness.ERC20_VAULT_NEW_IMPL_L2()
+            erc20VaultImpl: _harness.ERC20_VAULT_NEW_IMPL_L2(),
+            erc721VaultImpl: _harness.ERC721_VAULT_NEW_IMPL_L2(),
+            erc1155VaultImpl: _harness.ERC1155_VAULT_NEW_IMPL_L2(),
+            bridgedErc721Impl: L2.BRIDGED_ERC721,
+            bridgedErc1155Impl: L2.BRIDGED_ERC1155
         });
-        if (d_.bridgeImpl == address(0) || d_.erc20VaultImpl == address(0)) {
-            console2.log("Proposal0025 L2 constants are placeholders; building the implementations");
+        if (_placeholders(
+                d_.bridgeImpl, d_.erc20VaultImpl, d_.erc721VaultImpl, d_.erc1155VaultImpl
+            )) {
+            console2.log("Proposal0025 L2 constants are placeholders; building the contracts");
             d_.bridgeImpl = address(
                 new Bridge(L2.SHARED_RESOLVER, L2.SIGNAL_SERVICE, address(0), address(0), false)
             );
             d_.erc20VaultImpl = address(new ERC20Vault(L2.SHARED_RESOLVER, address(0)));
+            d_.erc721VaultImpl = address(new ERC721Vault(L2.SHARED_RESOLVER));
+            d_.erc1155VaultImpl = address(new ERC1155Vault(L2.SHARED_RESOLVER));
+            d_.bridgedErc721Impl = address(new BridgedERC721(L2.ERC721_VAULT));
+            d_.bridgedErc1155Impl = address(new BridgedERC1155(L2.ERC1155_VAULT));
         } else {
-            assertGt(d_.bridgeImpl.code.length, 0, "L2 bridge implementation is not deployed");
-            assertGt(d_.erc20VaultImpl.code.length, 0, "L2 vault implementation is not deployed");
+            _assertDeployed(d_.bridgeImpl, d_.erc20VaultImpl, d_.erc721VaultImpl);
+            _assertDeployed(d_.erc1155VaultImpl, d_.bridgedErc721Impl, d_.bridgedErc1155Impl);
+            _assertBridgedTokensBoundTo(
+                d_.bridgedErc721Impl, d_.bridgedErc1155Impl, L2.ERC721_VAULT, L2.ERC1155_VAULT
+            );
         }
     }
 
@@ -519,6 +675,28 @@ contract Proposal0025ForkTest is Test {
             vault.bridgedToCanonical(_before.bridgedUsdt);
         assertEq(ctokenChainId, 1);
         assertEq(ctokenAddr, L1.USDT_TOKEN);
+    }
+
+    /// @dev The NFT vaults run the new implementations on the new resolver, and the resolver holds
+    /// every NFT name the batch registers.
+    /// @param _l2 The contracts the batch points at.
+    function _assertL2NftVaultsAfterUpgrade(Proposal0025.L2Deployment memory _l2) private view {
+        _assertNftVault(
+            L2.ERC721_VAULT, _l2.erc721VaultImpl, L2.SHARED_RESOLVER, L2.DELEGATE_CONTROLLER
+        );
+        _assertNftVault(
+            L2.ERC1155_VAULT, _l2.erc1155VaultImpl, L2.SHARED_RESOLVER, L2.DELEGATE_CONTROLLER
+        );
+
+        DefaultResolver resolver = DefaultResolver(L2.SHARED_RESOLVER);
+        assertEq(resolver.resolve(1, LibNames.B_ERC721_VAULT, false), L1.ERC721_VAULT);
+        assertEq(resolver.resolve(1, LibNames.B_ERC1155_VAULT, false), L1.ERC1155_VAULT);
+        assertEq(resolver.resolve(167_000, LibNames.B_ERC721_VAULT, false), L2.ERC721_VAULT);
+        assertEq(resolver.resolve(167_000, LibNames.B_ERC1155_VAULT, false), L2.ERC1155_VAULT);
+        assertEq(resolver.resolve(167_000, LibNames.B_BRIDGED_ERC721, false), _l2.bridgedErc721Impl);
+        assertEq(
+            resolver.resolve(167_000, LibNames.B_BRIDGED_ERC1155, false), _l2.bridgedErc1155Impl
+        );
     }
 
     /// @dev Delivers `_TOKEN_AMOUNT` of USDT from L1 to a fresh recipient through the upgraded
@@ -607,8 +785,400 @@ contract Proposal0025ForkTest is Test {
     }
 
     // ---------------------------------------------------------------
+    // NFT vaults, on either chain
+    // ---------------------------------------------------------------
+
+    function _l1Side() private pure returns (Side memory) {
+        return Side({
+            chainId: 1,
+            peerChainId: 167_000,
+            bridge: L1.BRIDGE,
+            erc721Vault: L1.ERC721_VAULT,
+            erc1155Vault: L1.ERC1155_VAULT,
+            peerErc721Vault: L2.ERC721_VAULT,
+            peerErc1155Vault: L2.ERC1155_VAULT,
+            liveErc721VaultImpl: _LIVE_ERC721_VAULT_IMPL_L1,
+            liveErc1155VaultImpl: _LIVE_ERC1155_VAULT_IMPL_L1,
+            legacyBridgedErc721: _LEGACY_BRIDGED_ERC721_L1,
+            legacyBridgedErc1155: _LEGACY_BRIDGED_ERC1155_L1
+        });
+    }
+
+    function _l2Side() private pure returns (Side memory) {
+        return Side({
+            chainId: 167_000,
+            peerChainId: 1,
+            bridge: L2.BRIDGE,
+            erc721Vault: L2.ERC721_VAULT,
+            erc1155Vault: L2.ERC1155_VAULT,
+            peerErc721Vault: L1.ERC721_VAULT,
+            peerErc1155Vault: L1.ERC1155_VAULT,
+            liveErc721VaultImpl: _LIVE_ERC721_VAULT_IMPL_L2,
+            liveErc1155VaultImpl: _LIVE_ERC1155_VAULT_IMPL_L2,
+            legacyBridgedErc721: _LEGACY_BRIDGED_ERC721_L2,
+            legacyBridgedErc1155: _LEGACY_BRIDGED_ERC1155_L2
+        });
+    }
+
+    /// @dev Before the batch, delivers one collection of each kind through the NFT vaults live
+    /// today, the way every bridged NFT on mainnet was created: the old vaults deploy it behind the
+    /// bridged-token implementation the legacy AddressManager names, and it authorises the vault
+    /// through that AddressManager.
+    /// @param _s The chain.
+    /// @param _holder The recipient.
+    /// @return legacy_ The two bridged tokens.
+    function _bridgeInThroughOldVaults(
+        Side memory _s,
+        address _holder
+    )
+        private
+        returns (Legacy memory legacy_)
+    {
+        assertEq(_implementationOf(_s.erc721Vault), _s.liveErc721VaultImpl, "ERC721 vault moved");
+        assertEq(_implementationOf(_s.erc1155Vault), _s.liveErc1155VaultImpl, "ERC1155 vault moved");
+
+        legacy_.erc721 = _deliverErc721(_s, _peerCollection(_s, "legacy ERC721"), 1, _holder);
+        legacy_.erc1155 = _deliverErc1155(_s, _peerCollection(_s, "legacy ERC1155"), 1, 5, _holder);
+        assertEq(_implementationOf(legacy_.erc721), _s.legacyBridgedErc721);
+        assertEq(_implementationOf(legacy_.erc1155), _s.legacyBridgedErc1155);
+    }
+
+    /// @dev After the batch, the three ERC721 paths through the new vault.
+    /// @param _s The chain.
+    /// @param _legacyToken The bridged token the old vault deployed.
+    /// @param _bridgedImpl The `BridgedERC721` implementation the batch registered.
+    /// @param _holder The account that holds and moves the tokens.
+    function _rehearseErc721AfterUpgrade(
+        Side memory _s,
+        address _legacyToken,
+        address _bridgedImpl,
+        address _holder
+    )
+        private
+    {
+        // A collection the old vault bridged in: the new vault keeps minting it through the legacy
+        // implementation, and burns it on the way out.
+        assertEq(_deliverErc721(_s, _peerCollection(_s, "legacy ERC721"), 2, _holder), _legacyToken);
+        _sendErc721(_s, _legacyToken, 1, _holder);
+        _sendErc721(_s, _legacyToken, 2, _holder);
+        _assertBurned721(_s, _legacyToken, _holder);
+
+        // A collection this chain has not seen: deployed behind the new implementation, which
+        // authorises the vault through its immutable.
+        address fresh = _deliverErc721(_s, _peerCollection(_s, "fresh ERC721"), 7, _holder);
+        assertEq(_implementationOf(fresh), _bridgedImpl);
+        assertEq(BridgedERC721(fresh).erc721Vault(), _s.erc721Vault);
+        _sendErc721(_s, fresh, 7, _holder);
+        _assertBurned721(_s, fresh, _holder);
+
+        // A collection native to this chain: custodied on the way out, released on the way back.
+        Proposal0025ForkERC721 native = new Proposal0025ForkERC721();
+        native.mint(_holder, 9);
+        _sendErc721(_s, address(native), 9, _holder);
+        assertEq(native.ownerOf(9), _s.erc721Vault);
+        _deliverErc721(_s, _nativeCollection(_s, address(native)), 9, _holder);
+    }
+
+    /// @dev After the batch, the three ERC1155 paths through the new vault.
+    /// @param _s The chain.
+    /// @param _legacyToken The bridged token the old vault deployed.
+    /// @param _bridgedImpl The `BridgedERC1155` implementation the batch registered.
+    /// @param _holder The account that holds and moves the tokens.
+    function _rehearseErc1155AfterUpgrade(
+        Side memory _s,
+        address _legacyToken,
+        address _bridgedImpl,
+        address _holder
+    )
+        private
+    {
+        assertEq(
+            _deliverErc1155(_s, _peerCollection(_s, "legacy ERC1155"), 2, 3, _holder), _legacyToken
+        );
+        _sendErc1155(_s, _legacyToken, 1, 5, _holder);
+        _sendErc1155(_s, _legacyToken, 2, 3, _holder);
+        _assertBurned1155(_s, _legacyToken, 1, _holder);
+        _assertBurned1155(_s, _legacyToken, 2, _holder);
+
+        address fresh = _deliverErc1155(_s, _peerCollection(_s, "fresh ERC1155"), 7, 4, _holder);
+        assertEq(_implementationOf(fresh), _bridgedImpl);
+        assertEq(BridgedERC1155(fresh).erc1155Vault(), _s.erc1155Vault);
+        _sendErc1155(_s, fresh, 7, 4, _holder);
+        _assertBurned1155(_s, fresh, 7, _holder);
+
+        Proposal0025ForkERC1155 native = new Proposal0025ForkERC1155();
+        native.mint(_holder, 9, 6);
+        _sendErc1155(_s, address(native), 9, 6, _holder);
+        assertEq(native.balanceOf(_s.erc1155Vault, 9), 6);
+        _deliverErc1155(_s, _nativeCollection(_s, address(native)), 9, 6, _holder);
+    }
+
+    /// @dev Delivers ERC721 `_tokenId` of `_ctoken` from the peer chain's vault to `_to`.
+    /// @return token_ The token `_to` now holds it on: the canonical one or its bridged one.
+    function _deliverErc721(
+        Side memory _s,
+        BaseNFTVault.CanonicalNFT memory _ctoken,
+        uint256 _tokenId,
+        address _to
+    )
+        private
+        returns (address token_)
+    {
+        _deliverNft(
+            _s,
+            _s.peerErc721Vault,
+            _s.erc721Vault,
+            _to,
+            abi.encode(_ctoken, _to, _to, _one(_tokenId))
+        );
+        token_ = _ctoken.chainId == _s.chainId
+            ? _ctoken.addr
+            : ERC721Vault(_s.erc721Vault).canonicalToBridged(_ctoken.chainId, _ctoken.addr);
+        assertEq(IERC721(token_).ownerOf(_tokenId), _to, "ERC721 not delivered");
+    }
+
+    /// @dev Delivers `_amount` of ERC1155 `_tokenId` of `_ctoken` from the peer chain's vault to
+    /// `_to`.
+    /// @return token_ The token `_to` now holds it on: the canonical one or its bridged one.
+    function _deliverErc1155(
+        Side memory _s,
+        BaseNFTVault.CanonicalNFT memory _ctoken,
+        uint256 _tokenId,
+        uint256 _amount,
+        address _to
+    )
+        private
+        returns (address token_)
+    {
+        _deliverNft(
+            _s,
+            _s.peerErc1155Vault,
+            _s.erc1155Vault,
+            _to,
+            abi.encode(_ctoken, _to, _to, _one(_tokenId), _one(_amount))
+        );
+        token_ = _ctoken.chainId == _s.chainId
+            ? _ctoken.addr
+            : ERC1155Vault(_s.erc1155Vault).canonicalToBridged(_ctoken.chainId, _ctoken.addr);
+        assertEq(IERC1155(token_).balanceOf(_to, _tokenId), _amount, "ERC1155 not delivered");
+    }
+
+    /// @dev Delivers `_payload` from the peer chain's `_fromVault` to `_toVault`, processed by
+    /// `_recipient` as the destination owner, and requires the invocation to succeed.
+    function _deliverNft(
+        Side memory _s,
+        address _fromVault,
+        address _toVault,
+        address _recipient,
+        bytes memory _payload
+    )
+        private
+    {
+        IBridge.Message memory message;
+        message.id = _nextNftMessageId++;
+        message.from = _fromVault;
+        message.srcChainId = _s.peerChainId;
+        message.srcOwner = _recipient;
+        message.destChainId = _s.chainId;
+        message.destOwner = _recipient;
+        message.to = _toVault;
+        message.gasLimit = 3_000_000;
+        message.data = abi.encodeCall(IMessageInvocable.onMessageInvocation, (_payload));
+
+        vm.prank(_recipient);
+        (IBridge.Status status, IBridge.StatusReason reason) =
+            Bridge(payable(_s.bridge)).processMessage(message, "");
+        assertEq(uint8(status), uint8(IBridge.Status.DONE), "NFT delivery was not invoked");
+        assertEq(uint8(reason), uint8(IBridge.StatusReason.INVOCATION_OK), "NFT delivery failed");
+    }
+
+    /// @dev `_holder` sends ERC721 `_tokenId` of `_token` to itself on the peer chain.
+    function _sendErc721(
+        Side memory _s,
+        address _token,
+        uint256 _tokenId,
+        address _holder
+    )
+        private
+    {
+        uint64 messageId = Bridge(payable(_s.bridge)).nextMessageId();
+        vm.startPrank(_holder);
+        IERC721(_token).approve(_s.erc721Vault, _tokenId);
+        IBridge.Message memory sent =
+            ERC721Vault(_s.erc721Vault).sendToken(_transferOp(_s, _token, _holder, _tokenId, 0));
+        vm.stopPrank();
+        _assertSent(_s, sent, messageId, _s.peerErc721Vault);
+    }
+
+    /// @dev `_holder` sends `_amount` of ERC1155 `_tokenId` of `_token` to itself on the peer
+    /// chain.
+    function _sendErc1155(
+        Side memory _s,
+        address _token,
+        uint256 _tokenId,
+        uint256 _amount,
+        address _holder
+    )
+        private
+    {
+        uint64 messageId = Bridge(payable(_s.bridge)).nextMessageId();
+        vm.startPrank(_holder);
+        IERC1155(_token).setApprovalForAll(_s.erc1155Vault, true);
+        IBridge.Message memory sent = ERC1155Vault(_s.erc1155Vault)
+            .sendToken(_transferOp(_s, _token, _holder, _tokenId, _amount));
+        vm.stopPrank();
+        _assertSent(_s, sent, messageId, _s.peerErc1155Vault);
+    }
+
+    function _transferOp(
+        Side memory _s,
+        address _token,
+        address _holder,
+        uint256 _tokenId,
+        uint256 _amount
+    )
+        private
+        pure
+        returns (BaseNFTVault.BridgeTransferOp memory)
+    {
+        return BaseNFTVault.BridgeTransferOp({
+            destChainId: _s.peerChainId,
+            destOwner: _holder,
+            to: _holder,
+            fee: 0,
+            token: _token,
+            gasLimit: 1_000_000,
+            tokenIds: _one(_tokenId),
+            amounts: _one(_amount)
+        });
+    }
+
+    /// @dev The bridge sent `_sent` to the peer chain's `_peerVault` under the next message id.
+    function _assertSent(
+        Side memory _s,
+        IBridge.Message memory _sent,
+        uint64 _messageId,
+        address _peerVault
+    )
+        private
+        view
+    {
+        assertEq(_sent.id, _messageId);
+        assertEq(Bridge(payable(_s.bridge)).nextMessageId(), _messageId + 1);
+        assertEq(_sent.destChainId, _s.peerChainId);
+        assertEq(_sent.to, _peerVault);
+    }
+
+    /// @dev Neither `_holder` nor the vault holds any of `_token` any more: the vault burned it.
+    function _assertBurned721(Side memory _s, address _token, address _holder) private view {
+        assertEq(IERC721(_token).balanceOf(_holder), 0);
+        assertEq(IERC721(_token).balanceOf(_s.erc721Vault), 0);
+    }
+
+    function _assertBurned1155(
+        Side memory _s,
+        address _token,
+        uint256 _tokenId,
+        address _holder
+    )
+        private
+        view
+    {
+        assertEq(IERC1155(_token).balanceOf(_holder, _tokenId), 0);
+        assertEq(IERC1155(_token).balanceOf(_s.erc1155Vault, _tokenId), 0);
+    }
+
+    /// @dev A collection canonical on the peer chain, identified by `_label`.
+    function _peerCollection(
+        Side memory _s,
+        string memory _label
+    )
+        private
+        returns (BaseNFTVault.CanonicalNFT memory)
+    {
+        return BaseNFTVault.CanonicalNFT({
+            chainId: _s.peerChainId, addr: makeAddr(_label), symbol: "RNFT", name: _label
+        });
+    }
+
+    /// @dev `_token`, canonical on this chain.
+    function _nativeCollection(
+        Side memory _s,
+        address _token
+    )
+        private
+        pure
+        returns (BaseNFTVault.CanonicalNFT memory)
+    {
+        return BaseNFTVault.CanonicalNFT({
+            chainId: _s.chainId, addr: _token, symbol: "RNFT", name: "Rehearsal NFT"
+        });
+    }
+
+    // ---------------------------------------------------------------
     // Shared
     // ---------------------------------------------------------------
+
+    /// @dev An NFT vault proxy runs `_impl`, reads `_resolver` and kept `_owner`.
+    function _assertNftVault(
+        address _proxy,
+        address _impl,
+        address _resolver,
+        address _owner
+    )
+        private
+        view
+    {
+        assertEq(_implementationOf(_proxy), _impl);
+        assertEq(EssentialContract(_proxy).resolver(), _resolver);
+        assertEq(EssentialContract(_proxy).owner(), _owner);
+        assertFalse(EssentialContract(_proxy).paused());
+    }
+
+    /// @dev True while all four implementation constants are placeholders, false once all four
+    /// name deployments; a partial fill aborts rather than silently rehearsing contracts built
+    /// from this tree.
+    function _placeholders(
+        address _a,
+        address _b,
+        address _c,
+        address _d
+    )
+        private
+        pure
+        returns (bool)
+    {
+        uint256 zeros = (_a == address(0) ? 1 : 0) + (_b == address(0) ? 1 : 0)
+            + (_c == address(0) ? 1 : 0) + (_d == address(0) ? 1 : 0);
+        require(zeros == 0 || zeros == 4, "fill in all four Proposal0025 constants of the chain");
+        return zeros == 4;
+    }
+
+    function _assertDeployed(address _a, address _b, address _c) private view {
+        assertGt(_a.code.length, 0, "not deployed");
+        assertGt(_b.code.length, 0, "not deployed");
+        assertGt(_c.code.length, 0, "not deployed");
+    }
+
+    /// @dev The bridged-token implementations the address library names are the new ones, bound
+    /// to the vault proxies. The legacy ones have no vault getter, so the calls fail.
+    function _assertBridgedTokensBoundTo(
+        address _bridgedErc721,
+        address _bridgedErc1155,
+        address _erc721Vault,
+        address _erc1155Vault
+    )
+        private
+        view
+    {
+        (bool ok721, bytes memory vault721) =
+            _bridgedErc721.staticcall(abi.encodeWithSignature("erc721Vault()"));
+        (bool ok1155, bytes memory vault1155) =
+            _bridgedErc1155.staticcall(abi.encodeWithSignature("erc1155Vault()"));
+        assertTrue(ok721 && ok1155, "BRIDGED_ERC721/1155 still name the legacy implementations");
+        assertEq(abi.decode(vault721, (address)), _erc721Vault);
+        assertEq(abi.decode(vault1155, (address)), _erc1155Vault);
+    }
 
     /// @dev A valid signal proof cannot be synthesised on a fork, and the signal service is not
     /// what this rehearsal exercises.
@@ -651,5 +1221,28 @@ contract Proposal0025ForkTest is Test {
     /// @return impl_ The implementation address it delegates to.
     function _implementationOf(address _proxy) private view returns (address impl_) {
         impl_ = address(uint160(uint256(vm.load(_proxy, _IMPL_SLOT))));
+    }
+
+    function _one(uint256 _value) private pure returns (uint256[] memory array_) {
+        array_ = new uint256[](1);
+        array_[0] = _value;
+    }
+}
+
+/// @dev An ERC721 collection native to the chain the rehearsal runs on.
+contract Proposal0025ForkERC721 is ERC721 {
+    constructor() ERC721("Rehearsal NFT", "RNFT") { }
+
+    function mint(address _to, uint256 _tokenId) external {
+        _mint(_to, _tokenId);
+    }
+}
+
+/// @dev An ERC1155 collection native to the chain the rehearsal runs on.
+contract Proposal0025ForkERC1155 is ERC1155 {
+    constructor() ERC1155("") { }
+
+    function mint(address _to, uint256 _tokenId, uint256 _amount) external {
+        _mint(_to, _tokenId, _amount, "");
     }
 }
