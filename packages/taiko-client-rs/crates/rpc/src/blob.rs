@@ -3,9 +3,7 @@
 use std::sync::Arc;
 
 use alloy::primitives::{B256, hex};
-use alloy_eips::eip4844::{
-    Blob, Bytes48, VERSIONED_HASH_VERSION_KZG, c_kzg, env_settings::EnvKzgSettings,
-};
+use alloy_eips::eip4844::{Blob, Bytes48, VERSIONED_HASH_VERSION_KZG, c_kzg};
 use alloy_rpc_types::BlobTransactionSidecar;
 use once_cell::sync::OnceCell;
 use reqwest::Client as HttpClient;
@@ -15,10 +13,7 @@ use thiserror::Error;
 use tracing::{debug, warn};
 use url::Url;
 
-use crate::{
-    beacon::{BeaconClient, BeaconSidecar},
-    client::DEFAULT_HTTP_TIMEOUT,
-};
+use crate::{beacon::BeaconClient, client::DEFAULT_HTTP_TIMEOUT};
 
 /// Error type returned when fetching blobs.
 #[derive(Debug, Error)]
@@ -92,28 +87,24 @@ impl BlobDataSource {
         })
     }
 
-    /// Fetch the blobs identified by the provided versioned hashes.
+    /// Fetch the blobs identified by the provided versioned hashes, in the same order.
+    ///
+    /// The beacon node is asked first; the blob server is the fallback when the beacon request
+    /// fails or the beacon node does not return every requested blob.
     pub async fn get_blobs(
         &self,
         timestamp: u64,
         blob_hashes: &[B256],
     ) -> Result<Vec<BlobTransactionSidecar>, BlobDataError> {
         if let Some(beacon) = &self.beacon {
-            match beacon.blobs_by_timestamp(timestamp).await {
+            match beacon.blobs_by_timestamp(timestamp, blob_hashes).await {
                 Ok(sidecars) => {
-                    if let Some(matched) = Self::match_beacon_sidecars(&sidecars, blob_hashes)? {
-                        debug!(
-                            timestamp,
-                            hash_count = blob_hashes.len(),
-                            "successfully fetched blob sidecars from beacon"
-                        );
-                        return Ok(matched);
-                    }
                     debug!(
                         timestamp,
                         hash_count = blob_hashes.len(),
-                        "no matching sidecars returned by beacon; falling back to blob server"
+                        "successfully fetched blobs from beacon"
                     );
+                    return Ok(sidecars);
                 }
                 Err(err) => {
                     warn!(
@@ -222,36 +213,6 @@ impl BlobDataSource {
 
         Ok(blobs)
     }
-
-    /// Match requested blob hashes to fetched beacon sidecars in order.
-    fn match_beacon_sidecars(
-        sidecars: &[BeaconSidecar],
-        blob_hashes: &[B256],
-    ) -> Result<Option<Vec<BlobTransactionSidecar>>, BlobDataError> {
-        if sidecars.is_empty() {
-            return Ok(None);
-        }
-
-        let mut used = vec![false; sidecars.len()];
-        let mut matched = Vec::with_capacity(blob_hashes.len());
-
-        for target_hash in blob_hashes {
-            let matched_index = sidecars.iter().enumerate().find(|(index, sidecar)| {
-                !used[*index] && &versioned_hash_from_commitment(&sidecar.commitment) == target_hash
-            });
-            let Some((index, sidecar)) = matched_index else {
-                return Ok(None);
-            };
-            used[index] = true;
-            matched.push(BlobTransactionSidecar {
-                blobs: vec![sidecar.blob],
-                commitments: vec![sidecar.commitment],
-                proofs: vec![sidecar.proof],
-            });
-        }
-
-        Ok(Some(matched))
-    }
 }
 
 /// Parse a hex-encoded blob server payload into a fixed-size `Blob`.
@@ -277,11 +238,13 @@ pub(crate) fn parse_bytes48(value: &str) -> Result<Bytes48, BlobDataError> {
 }
 
 /// Computes the KZG commitment for a blob using the default Ethereum trusted setup.
-fn compute_blob_commitment(blob: &Blob) -> Result<Bytes48, BlobDataError> {
+///
+/// The setup is loaded without precomputation: it only speeds up cell proofs, and would add about
+/// 96 MiB to every driver process (see the c-kzg README).
+pub(crate) fn compute_blob_commitment(blob: &Blob) -> Result<Bytes48, BlobDataError> {
     let kzg_blob = c_kzg::Blob::from_bytes(blob.as_slice())
         .map_err(|err| BlobDataError::Other(anyhow::anyhow!(err.to_string())))?;
-    let commitment = EnvKzgSettings::Default
-        .get()
+    let commitment = c_kzg::ethereum_kzg_settings(0)
         .blob_to_kzg_commitment(&kzg_blob)
         .map_err(|err| BlobDataError::Other(anyhow::anyhow!(err.to_string())))?;
 
@@ -289,7 +252,7 @@ fn compute_blob_commitment(blob: &Blob) -> Result<Bytes48, BlobDataError> {
 }
 
 /// Computes the versioned hash from a KZG commitment.
-fn versioned_hash_from_commitment(commitment: &Bytes48) -> B256 {
+pub(crate) fn versioned_hash_from_commitment(commitment: &Bytes48) -> B256 {
     let mut hash: [u8; 32] = Sha256::digest(commitment.as_slice()).into();
     hash[0] = VERSIONED_HASH_VERSION_KZG;
     B256::from(hash)
@@ -297,80 +260,10 @@ fn versioned_hash_from_commitment(commitment: &Bytes48) -> B256 {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use super::*;
+    use crate::test_utils::{TestServer, start_beacon};
     use alloy_eips::eip4844::env_settings::EnvKzgSettings;
-    use http_body_util::Full;
-    use hyper::{
-        StatusCode, body::Bytes as HyperBytes, header::CONTENT_TYPE,
-        server::conn::http1::Builder as Http1Builder, service::service_fn,
-    };
-    use tokio::{net::TcpListener, select, spawn, sync::Notify, task::JoinHandle};
-
-    struct TestBlobServer {
-        endpoint: Url,
-        shutdown: Arc<Notify>,
-        handle: JoinHandle<()>,
-    }
-
-    impl TestBlobServer {
-        async fn start(body: String) -> Self {
-            let listener = TcpListener::bind("127.0.0.1:0")
-                .await
-                .expect("test server should bind an ephemeral port");
-            let addr = listener.local_addr().expect("listener address should be available");
-            let endpoint =
-                Url::parse(&format!("http://{addr}")).expect("test endpoint URL should parse");
-
-            let shutdown = Arc::new(Notify::new());
-            let cancel = shutdown.clone();
-            let body = Arc::new(body);
-
-            let handle = spawn(async move {
-                loop {
-                    select! {
-                        _ = cancel.notified() => break,
-                        accept_result = listener.accept() => {
-                            let Ok((stream, _)) = accept_result else { continue };
-                            let body = body.clone();
-                            spawn(async move {
-                                let io = hyper_util::rt::TokioIo::new(stream);
-                                let service = service_fn(move |_| {
-                                    let body = body.clone();
-                                    async move {
-                                        Ok::<_, hyper::Error>(
-                                            hyper::Response::builder()
-                                                .status(StatusCode::OK)
-                                                .header(CONTENT_TYPE, "application/json")
-                                                .body(Full::new(HyperBytes::from(
-                                                    body.as_bytes().to_vec(),
-                                                )))
-                                                .expect("test response should build"),
-                                        )
-                                    }
-                                });
-                                let _ = Http1Builder::new().serve_connection(io, service).await;
-                            });
-                        }
-                    }
-                }
-            });
-
-            Self { endpoint, shutdown, handle }
-        }
-
-        fn endpoint(&self) -> Url {
-            self.endpoint.clone()
-        }
-    }
-
-    impl Drop for TestBlobServer {
-        fn drop(&mut self) {
-            self.shutdown.notify_waiters();
-            self.handle.abort();
-        }
-    }
+    use hyper::StatusCode;
 
     #[tokio::test]
     async fn blob_server_rejects_blob_bytes_that_do_not_match_commitment_metadata() {
@@ -378,7 +271,7 @@ mod tests {
         let zero_commitment = zero_sidecar.commitments[0];
         let zero_hash = versioned_hash_from_commitment(&zero_commitment);
         let body = blob_server_body(&Blob::repeat_byte(0x11), &zero_commitment, zero_hash);
-        let server = TestBlobServer::start(body).await;
+        let server = TestServer::start(move |_| (StatusCode::OK, body.clone())).await;
         let source = BlobDataSource::new(None, Some(server.endpoint()), true)
             .await
             .expect("blob source should be constructed");
@@ -396,7 +289,7 @@ mod tests {
         let zero_hash = versioned_hash_from_commitment(&zero_sidecar.commitments[0]);
         let wrong_commitment = Bytes48::repeat_byte(0x42);
         let body = blob_server_body(&Blob::ZERO, &wrong_commitment, zero_hash);
-        let server = TestBlobServer::start(body).await;
+        let server = TestServer::start(move |_| (StatusCode::OK, body.clone())).await;
         let source = BlobDataSource::new(None, Some(server.endpoint()), true)
             .await
             .expect("blob source should be constructed");
@@ -410,6 +303,32 @@ mod tests {
         assert_eq!(sidecars[0].blobs, vec![Blob::ZERO]);
         assert_eq!(sidecars[0].commitments, vec![zero_sidecar.commitments[0]]);
         assert_eq!(sidecars[0].proofs, vec![Bytes48::default()]);
+    }
+
+    #[tokio::test]
+    async fn get_blobs_falls_back_to_blob_server_when_beacon_misses_blobs() {
+        let zero_sidecar = sidecar_for_blob(Blob::ZERO);
+        let zero_commitment = zero_sidecar.commitments[0];
+        let zero_hash = versioned_hash_from_commitment(&zero_commitment);
+        // The beacon node answers, but without the requested blob (e.g. pruned or not custodied).
+        let beacon = start_beacon(|_| (StatusCode::OK, r#"{"data":[]}"#.to_owned())).await;
+        let body = blob_server_body(&Blob::ZERO, &zero_commitment, zero_hash);
+        let blob_server = TestServer::start(move |_| (StatusCode::OK, body.clone())).await;
+        let source =
+            BlobDataSource::new(Some(beacon.endpoint()), Some(blob_server.endpoint()), false)
+                .await
+                .expect("blob source should be constructed");
+
+        let sidecars = source
+            .get_blobs(0, &[zero_hash])
+            .await
+            .expect("the blob server should serve the blob the beacon node missed");
+
+        assert_eq!(sidecars.len(), 1);
+        assert_eq!(sidecars[0].blobs, vec![Blob::ZERO]);
+        assert_eq!(beacon.requests_with_prefix("/eth/v1/beacon/blobs/").len(), 1);
+        assert!(beacon.requests_with_prefix("/eth/v1/beacon/blob_sidecars/").is_empty());
+        assert_eq!(blob_server.requests_with_prefix(&format!("/blobs/{zero_hash}")).len(), 1);
     }
 
     fn sidecar_for_blob(blob: Blob) -> BlobTransactionSidecar {

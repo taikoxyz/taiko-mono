@@ -19,12 +19,14 @@ pub struct DriverArgs {
                 up to this cap"
     )]
     retry_interval_seconds: u64,
-    /// HTTP endpoint of the L1 beacon node.
+    /// HTTP endpoint of the L1 beacon node the driver reads blobs from; since Fulu this needs a
+    /// supernode or semi-supernode.
     #[clap(
         long = "l1.beacon",
         env = "L1_BEACON",
         required = true,
-        help = "HTTP endpoint of the L1 beacon node"
+        help = "HTTP endpoint of the L1 beacon node (the driver reads blobs from it, which since \
+                Fulu needs a supernode or semi-supernode)"
     )]
     pub l1_beacon_endpoint: Url,
     /// Optional HTTP endpoint of an L2 execution engine used as an untrusted block-body source
@@ -40,7 +42,8 @@ pub struct DriverArgs {
     #[clap(
         long = "blob.server",
         env = "BLOB_SERVER",
-        help = "Optional HTTP endpoint of a blob server to fallback when beacon sidecars are unavailable"
+        help = "Optional HTTP endpoint of a blob server to fall back to when the beacon node \
+                cannot serve a blob"
     )]
     pub blob_server_endpoint: Option<Url>,
 }
