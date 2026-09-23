@@ -110,7 +110,7 @@ contract Bridge is EssentialResolverContract, IBridge {
     address public immutable pauser;
 
     /// @notice Whether `failMessage`, `recallMessage` and the FAILED branch of `retryMessage`
-    /// are enabled. Off in current deployments; see README.md.
+    /// are enabled.
     bool public immutable enableFailAndRecall;
 
     /// @notice The next message ID.
